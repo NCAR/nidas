@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    targetNamespace="http://www.eol.ucar.edu/daq"
-    xmlns="http://www.eol.ucar.edu/daq"
+    targetNamespace="http://www.eol.ucar.edu/ads3"
+    xmlns="http://www.eol.ucar.edu/ads3"
     elementFormDefault="qualified">
 
 <xsd:simpleType name="baudtype">
