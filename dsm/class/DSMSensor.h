@@ -72,13 +72,13 @@ public:
     * Read from the device (duh). Behaves like read(2) system call,
     * without a file descriptor argument, and with an IOException.
     */
-    virtual ssize_t read(void *buf, size_t len) throw(atdUtil::IOException) = 0;	
+    virtual size_t read(void *buf, size_t len) throw(atdUtil::IOException) = 0;	
 
     /**
     * Write to the device (duh). Behaves like write(2) system call,
     * without a file descriptor argument, and with an IOException.
     */
-    virtual ssize_t write(const void *buf, size_t len) throw(atdUtil::IOException) = 0;
+    virtual size_t write(const void *buf, size_t len) throw(atdUtil::IOException) = 0;
 
     /**
     * Perform an ioctl on the device. request is an integer
@@ -102,16 +102,31 @@ public:
     * When the PortSelector select() system call has determined
     * that there is data available to read on this sensor,
     * PortSelector calls this readSamples method().
-    * readSmples reads the raw data samples the port and calls
-    * the process() method after reading each sample.  The process()
-    * method can do any further processing of the sample before doing a
-    * distribute() to the SampleClients.
+    * readSamples reads the raw data samples the port and calls
+    * the distribute() method of SampleSource to distribute
+    * the samples to the SampleClients.
     */
     virtual dsm_sample_time_t readSamples()
     	throw(dsm::SampleParseException,atdUtil::IOException) = 0;
 
     void initStatistics();
     void calcStatistics(unsigned long periodMsec);
+
+    size_t getMaxSampleLength() const
+    	{ return maxSampleLength[currStatsIndex]; }
+    size_t getMinSampleLength() const
+    	{ return minSampleLength[currStatsIndex]; }
+
+    int getReadErrorCount() const
+    	{ return readErrorCount[0]; }
+    int getCumulativeReadErrorCount() const
+    	{ return readErrorCount[1]; }
+
+    int getWriteErrorCount() const
+    	{ return writeErrorCount[0]; }
+    int getCumulativeWriteErrorCount() const
+    	{ return writeErrorCount[1]; }
+
     float getObservedSamplingRate() const;
     float getReadRate() const;
 
@@ -138,8 +153,8 @@ protected:
      * to provide the current status.
      */
     time_t initialTimeSecs;
-    int minSampleLength[2];
-    int maxSampleLength[2];
+    size_t minSampleLength[2];
+    size_t maxSampleLength[2];
     int readErrorCount[2];	// [0] is recent, [1] is cumulative
     int writeErrorCount[2];	// [0] is recent, [1] is cumulative
     int currStatsIndex;
