@@ -106,12 +106,11 @@
 #define	FIFOSTATEBL	0x40	//Not used. 
 #define	A2DRW		0x80	//Enables A/D read operations
 
-// TODO Check the accuracy of these defines
 // FIFO Status bits
-#define	FIFOHF		0x0001
-#define FIFOAFAE	0x0002
-#define FIFOEMPTY	0x0003
-#define	FIFOFULL	0x0004
+#define	FIFOHF		0x0001	// FIFO half full
+#define FIFOAFAE	0x0002	// FIFO almost full/almost empty
+#define FIFONOTEMPTY	0x0004	// FIFO not empty
+#define	FIFOFULL	0x0008  // FIFO full
 
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
@@ -119,7 +118,17 @@ typedef struct
 	long timestamp;
 	long size;
 	long spare;
-  	char c[2*100*8];	//8 chans*100samples/chan*2bytes/sample
+  	US   inbuf[2*INTRP_RATE*MAXA2DS]; //8 chans*100samples/chan*2bytes/sample
+}A2DSAMPLE;
+
+typedef struct
+{
+	long timestamp;
+	long size;
+	long spare;
+	US a2dstat[8];
+	US fifostat;
+	char c[2*INTRP_RATE*MAXA2DS];
 }A2D_GET;
 
 typedef struct 
@@ -145,6 +154,7 @@ typedef struct
 
 
 //Function templates
+void A2DGetDataSim(void);	// Data simulator for running w/o irig
 int  A2DFIFOEmpty(void);	// Tests FIFO empty flag
 void A2DDataSim(A2D_SET *a);	// Data simulator--inf loop
 int  A2DSetup(A2D_SET *a);

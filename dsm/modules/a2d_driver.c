@@ -1,8 +1,11 @@
-#define FIX_A2D
+#define	DEBUGDATA 	// Turns on printout in data simulator
+#define FIX_A2D		// Reverse LS byte of ISA bus
 #define	QUIETOUTB	// Shut off printout
 #define	QUIETINB	// Shut off printout
 #define	QUIETOUTW	// Shut off printout
 #define	QUIETINW	// Shut off printout
+#define NOIRIG		// DEBUG mode, running without IRIG card
+
 /*  a2d_driver.c/
 
 
@@ -31,6 +34,7 @@ Revisions:
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <fcntl.h>
 
 /* RTLinux module includes...  */
 
@@ -62,9 +66,11 @@ static 	UL	CardBase;	// A/D card address
 static	int	CurChan;	// Current channel value
 static	US	FIFOCtl;	//Static hardware FIFO control word storage
 static 	int	fd_up; 		// Data FIFO file descriptor
-static 	int	a2drun = 1;	// Internal flag for debugging
+static 	int	a2drun = RUN;	// Internal flag for debugging
 
 volatile unsigned int isa_address = A2DBASE;
+
+pthread_t aAthread;
 
 // These are just test values
 
@@ -109,15 +115,15 @@ static int A2DCallback(int cmd, int board, int port,
 {
   int ret = -EINVAL;
 
-  rtl_printf("\nA2DCallback, cmd=%d, board=%d, port=%d,len=%d\n",
-		cmd,board,port,len);
-rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
+  rtl_printf("\n%s: A2DCallback\n   cmd=%d\n   board=%d\n   port=%d\n   len=%d\n",
+		__FILE__, cmd,board,port,len);
+  rtl_printf("%s: Size of A2D_SET = 0x%04X\n", __FILE__, sizeof(A2D_SET));
 
   switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
 		{
-		rtl_printf("GET_NUM_PORTS\n");
+		rtl_printf("%s: GET_NUM_PORTS\n", __FILE__);
 		*(int *) buf = nports;
 		ret = sizeof(int);
 		}
@@ -134,7 +140,7 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 
   	case A2D_SET_IOCTL:		/* user set */
 		{
-		rtl_printf("A2D_SET_IOCTL\n");
+		rtl_printf("%s: A2D_SET_IOCTL\n", __FILE__);
 		A2D_SET *ts = (A2D_SET *)buf;
 		A2DIoctlDump(ts);
 		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
@@ -144,7 +150,7 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 
   	case A2D_CAL_IOCTL:		/* user set */
 		{
-		rtl_printf("A2D_CAL_IOCTL\n");
+		rtl_printf("%s: A2D_CAL_IOCTL\n", __FILE__);
 		A2D_SET *ts = (A2D_SET *)buf;
 		A2DIoctlDump(ts);
 		A2DSetVcal((int)ts->vcalx8);
@@ -155,7 +161,7 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 
   	case A2D_RUN_IOCTL:		/* user set */
 		{
-		rtl_printf("A2D_RUN_IOCTL\n");
+		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
 		int *tm =  (int *)buf;
 		rtl_printf("Run message = 0x%08X\n", *tm);
 
@@ -166,7 +172,13 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 			A2DClearFIFO();	// Reset FIFO
 			A2D1PPSEnable();// Enable sync with 1PPS
 #ifdef NOIRIG
-			A2DGetDataSim();
+// If no IRIG card present, set up an independent thread to send 
+//  simulated data to user space.
+			rtl_printf("%s: Creating data simulation thread\n", 
+					__FILE__);
+			pthread_create(&aAthread, NULL, A2DGetDataSim, (void *)0);
+			rtl_printf("(%s) %s:\tA2DGetDataSim thread created\n",
+					__FILE__, __FUNCTION__);
 #else
 			register_irig_callback(&A2DGetData, 
 						IRIG_100_HZ, 
@@ -176,9 +188,11 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 
 		if((*tm & 0x0000000F) == STOP)
 		{
-			a2drun = 0;
+			a2drun = STOP;
 			A2DSetSYNC();	// Stop the A/D's
+#ifndef NOIRIG
 			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
+#endif
 		}
 		ret = sizeof(long);
 		}
@@ -201,13 +215,17 @@ void cleanup_module(void)
   /* Close and unlink the up fifo */
 
   sprintf(fname, "/dev/dsma2d_in_0");
-  rtl_printf("Destroying %s\n", fname);
+  rtl_printf("%s : Destroying %s\n",__FILE__,  fname);
   close(fd_up);
   unlink("/dev/dsma2d_in_0");
   
+#ifdef NOIRIG
+	pthread_cancel(aAthread);
+	pthread_join(aAthread, NULL);
+#endif
   release_region(isa_address, A2DIOWIDTH);
 
-  rtl_printf("Analog cleanup complete\n");
+  rtl_printf("%s : Analog cleanup complete\n", __FILE__);
 
   return;
 }
@@ -216,7 +234,8 @@ void cleanup_module(void)
 
 int init_module()
 {	
-	char fifoname[20];
+	char fifoname[50];
+	int error;
 
   	rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
@@ -226,16 +245,20 @@ int init_module()
   					nioctlcmds,ioctlcmds);
 
   	if (!ioctlhandle) return -EIO;
-
 	// Open the fifo TO user space (up fifo)
 	sprintf(fifoname, "/dev/dsma2d_in_0");
-	rtl_printf("Creating %s\n", fifoname);
-	mkfifo(fifoname, 0666);
+	rtl_printf("%s: Creating %s\n", __FILE__, fifoname);
+	if((error = mkfifo(fifoname, 0666)))
+		rtl_printf("Error opening fifo %s for write\n", fifoname);
+	else
+		rtl_printf("Fifo %s opened for write\n", fifoname);
 	fd_up = open(fifoname, O_NONBLOCK | O_WRONLY);
+//	fd_up = open(fifoname, O_WRONLY);
 
-	rtl_printf("Up FIFO fd = 0x%08x\n", fd_up);
+	rtl_printf("%s: Up FIFO fd = 0x%08x\n", __FILE__, fd_up);
 
-	rtl_printf("A2D initialization was just peachy!\n");
+
+	rtl_printf("%s: A2D initialization complete.\n", __FILE__);
 
 	// Get the mapped board address
 	request_region(isa_address, A2DIOWIDTH, "A2D_DRIVER");
@@ -274,6 +297,7 @@ int A2DSetup(A2D_SET *a2d)
 	A2DSetSYNC();	//	so that we don't step on the transition
 	
 	A2DPtrInit(a2d);// Initialize offset buffer pointers
+
 
 	return 0;
 }
@@ -355,16 +379,16 @@ void A2DError(int Code)
 	switch(Code)
 	{
 		case ERRA2DNOFILE:
-			rtl_printf("File cannot be opened\n");
+			rtl_printf("%s: File cannot be opened\n", __FILE__);
 			break;
 		case ERRA2DCHAN:
-			rtl_printf("Non-existent A2D channel\n");
+			rtl_printf("%s: Non-existent A2D channel\n", __FILE__);
 			break;
 		case ERRA2DVCAL:
-			rtl_printf("Cal voltage out of limits\n");
+			rtl_printf("%s: Cal voltage out of limits\n", __FILE__);
 			break;
 		case ERRA2DGAIN:
-			rtl_printf("Gain value out of limits\n");
+			rtl_printf("%s: Gain value out of limits\n", __FILE__);
 			break;
 		case A2DLOADOK:
 			break;
@@ -739,7 +763,7 @@ void A2DGetData()
 #endif
 //TODO get the timestamp
 //TODO check to see if fd_up is valid. If not, return an error
-	write(fd_up, inbuf, i-1); // Write to up-fifo
+	write(fd_up, inbuf, 2*(i-1)); // Write to up-fifo
 	}
 }
 /*-----------------------Utility------------------------------*/
@@ -755,8 +779,8 @@ int A2DFIFOEmpty()
 	A2DAddr = (US *)(CardBase + A2DIOFIFO);
 	
 	stat = gginw(A2DAddr);
-	if(stat & FIFOEMPTY)return(-1);
-	else return(0);
+	if(stat & FIFONOTEMPTY)return(0);
+	else return(-1);
 }
 /*-----------------------Utility------------------------------*/
 // A2DGetDataSim is a debug tool which is activated by the 
@@ -765,18 +789,39 @@ int A2DFIFOEmpty()
 
 void A2DGetDataSim(void)
 {
-	US inbuf[HWFIFODEPTH];
-	int i, j;
+	UL timestamp;
+	US inbuf[MAXA2DS*INTRP_RATE + 2*sizeof(UL)];
+	int i, j, k = 0; 
+	size_t nbytes;
 	
-	while(a2drun != 0)
+	rtl_printf("%s: Starting simulated data acquisition thread\n", __FILE__);	
+	while(a2drun == RUN)
 	{
+		rtl_usleep(10000);
 		for(i = 0; i < INTRP_RATE; i++)
 		{
 			for(j = 0; j < MAXA2DS; j += 8)
 			{
-			inbuf[8*i + j] = 1000*j + i; 
+			inbuf[MAXA2DS*i + j + 4] = 1000*j + i; 
 			}
 		}
+#ifndef DEBUGFIFOWRITE
+		nbytes = write(fd_up, inbuf, sizeof(inbuf)); //Write to up-fifo 
+#endif
+#ifdef NOIRIG
+		timestamp = k;
+#else
+		timestamp = GET_MSEC_CLOCK;
+#endif
+		inbuf[0] = (US)(timestamp & 0x0000FFFF);
+		inbuf[1] = (US)((timestamp * 0xFFFF0000)>>16);
+		inbuf[2] = (US)(2*MAXA2DS*INTRP_RATE);
+		inbuf[3] = 0;
+#ifdef DEBUGDATA
+		if(!(k%10))rtl_printf("%6dth write: nbytes = 0x%08X, errno = 0x%08x\n",
+				 k, nbytes, errno);
+#endif
+		k++;
 	}
 return;
 }
@@ -845,11 +890,12 @@ void A2DIoctlDump(A2D_SET *a2d)
 	int i;
 	for(i = 0;i < 8; i++)
 		{
+		rtl_printf("%s: \n", __FILE__);
 		rtl_printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
 		rtl_printf("Hz_%1d    = %3d\n", i, a2d->Hz[i]);
 		}
 
-	rtl_printf("Vcal    = %3d\n", a2d->vcalx8);
+	rtl_printf("Vcalx8  = %3d\n", a2d->vcalx8);
 	rtl_printf("Calset  = 0x%02X\n", a2d->calset);
 	rtl_printf("Offset  = 0x%02X\n", a2d->offset);
 	rtl_printf("filter0 = 0x%04X\n", a2d->filter[0]);
