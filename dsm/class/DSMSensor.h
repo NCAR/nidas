@@ -50,7 +50,7 @@ public:
     * Write to the device (duh). Behaves like write(2) system call,
     * without a file descriptor argument, and with an IOException.
     */
-    virtual ssize_t write(void *buf, size_t len) throw(atdUtil::IOException) = 0;
+    virtual ssize_t write(const void *buf, size_t len) throw(atdUtil::IOException) = 0;
 
     /**
     * Perform an ioctl on the device. request is an integer
