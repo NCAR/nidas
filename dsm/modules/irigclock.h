@@ -16,12 +16,18 @@
 #ifndef IRIGCLOCK_H
 #define IRIGCLOCK_H
 
+/**
+ * Enumeration of the callback rates supported by this module.
+ */
 enum irigClockRates {
     IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
     IRIG_10_HZ, IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ,
     IRIG_100_HZ, IRIG_NUM_RATES
 };
 
+/**
+ * Convert a rate in Hz to an enumerated value.
+ */
 static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
 {
     /* Round up to the next highest enumerated poll rate. */
@@ -37,6 +43,9 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
     else                    return IRIG_NUM_RATES;  /* invalid value given */
 }
 
+/**
+ * Convert an enumerated value back to a rate in Hz.
+ */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
     static unsigned int rate[] = {1,2,4,5,10,20,25,50,100};
@@ -46,9 +55,16 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 
 #ifdef __KERNEL__
 
+/* External symbols used by kernel modules */
+
 extern unsigned long msecClock[];
 extern unsigned char readClock;
 
+/**
+ * Macro used by kernel modules to get the current clock value
+ * in milliseconds since GMT 00:00:00.  Note that this value rolls
+ * over from 86399999 to 0 at midnight.
+ */
 #define GET_MSEC_CLOCK (msecClock[readClock])
 
 #define MSEC_IN_DAY 86400000
