@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cd /scr/tmp/$USER
+cd /scr/tmp/$LOGNAME || exit 1
 
 svnco() {
     mkdir ads3_doxy
