@@ -32,6 +32,7 @@
 #include <irigclock.h>
 
 
+#define INTERRUPT_RATE 100
 
 /* TODO - hz100_cnt needs to be initialized to the zero'th second read from
    the pc104sg card...  the current implementation arbitrarily sets it to zero
@@ -47,7 +48,7 @@ static unsigned long msecClockTicker;
 /* module prameters (can be passed in via command line) */
 static unsigned int irq = 10;
 static int ioport = 0x2a0;
-static unsigned int m_rate[2] = {1000, 50000};
+static unsigned int m_rate[2] = {INTERRUPT_RATE, 50000};
 
 MODULE_PARM(irq, "i");
 MODULE_PARM(ioport, "i");
@@ -495,7 +496,12 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
        * half-written value, but that ain't gunna happen.
        */
 
+#if INTERRUPT_RATE == 1000
       if (++msecClockTicker == MSEC_IN_DAY) msecClockTicker = 0;
+#else
+      msecClockTicker += 1000 / INTERRUPT_RATE;
+      if (msecClockTicker >= MSEC_IN_DAY) msecClockTicker = 0;
+#endif
 
       msecClock[writeClock] = msecClockTicker;
       unsigned char c = readClock;
@@ -507,7 +513,12 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
       writeClock = c;
 
       if (!(msecClockTicker % 10)) {
+#if INTERRUPT_RATE >= 100
 	  if (++hz100_cnt == 100)
+#else
+	  hz100_cnt += 100 / INTERRUPT_RATE;
+	  if (hz100_cnt == 100)
+#endif
 	    hz100_cnt = 0;
 	  sem_post( &anIrigSemaphore );
       }
@@ -597,7 +608,7 @@ int init_module (void)
     }
 
     /* activate the pc104sg-B board */
-    setHeartBeatOutput(1000);
+    setHeartBeatOutput(INTERRUPT_RATE);
     rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, m_rate[0]);
     // setRate2Output(m_rate[1]);
     // rtl_printf("(%s) %s:\t setRate2Output(%d) done\n",     __FILE__, __FUNCTION__, m_rate[1]);
