@@ -79,22 +79,17 @@ int main(int argc, char** argv)
 	    sens->setId(iarg);
 
 	    sens->setBaudRate(115200);
+
+	    sens->setMessageSeparator("\n");
+	    sens->setMessageSeparatorAtEOM(true);
+	    sens->setMessageLength(0);
+
+	    sens->setPromptRate(IRIG_1_HZ);
+	    sens->setPromptString("hitme\n");
+
 	    std::cerr << "doing sens->open" << std::endl;
 	    sens->open(O_RDWR);
-	    struct dsm_serial_record_info recinfo;
-	    recinfo.sep[0] = '\n';
-	    recinfo.sepLen = 1;
-	    recinfo.atBOM = 0;
-	    recinfo.recordLen = 0;
-	    sens->ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
 
-	    struct dsm_serial_prompt prompt;
-	    strcpy(prompt.str,"hitme\n");
-	    prompt.len = 6;
-	    prompt.rate = IRIG_1_HZ;
-	    sens->ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
-
-	    sens->ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
 
 /* Add the SampleClient to the sensor. It will receive all the samples */
 

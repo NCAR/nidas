@@ -54,15 +54,15 @@ int SerialTest::run() throw(atdUtil::Exception)
 	struct dsm_serial_record_info recinfo;
 	recinfo.sep[0] = '\n';
 	recinfo.sepLen = 1;
-	recinfo.atBOM = 0;
+	recinfo.atEOM = 1;
 	recinfo.recordLen = 0;
 	std::cerr << "doing s.ioctl SET_RECORD" << std::endl;
 	s.ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
 
 	struct dsm_serial_prompt prompt;
-	strcpy(prompt.str,"hello\n");
+	strcpy(prompt.str,"hitme\n");
 	prompt.len = 6;
-	prompt.rate = IRIG_100_HZ;
+	prompt.rate = IRIG_10_HZ;
 	s.ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
 	s.ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
