@@ -25,6 +25,8 @@ rtl_env.AppendUnique(CPPPATH=Split("""
 ##  List of each module source
 ##
 modules = Split("""
+  rtl_com8_driver.c
+  rtl_com8_module.c
   init_modules.c
   isa_serial.c
   isa_demux.c
