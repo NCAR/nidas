@@ -168,7 +168,11 @@ static char* devprefix = "irig";
 /**
  * Structure of device information used when device is opened.
  */
-static struct irig_port* port = 0;
+static struct irig_port* portDev = 0;
+
+static spinlock_t dp_ram_lock = SPIN_LOCK_UNLOCKED;
+static int dp_ram_ext_status_enabled = 1;
+static int dp_ram_ext_status_requested = 0;
 
 /**
  * The 100 hz thread
@@ -388,11 +392,15 @@ static void disableAllInts (void)
 
 /**
  * Read dual port RAM.
- * This function uses clock_nanosleep(CLOCK_REALTIME,...), which
- * according to the RTL man page, should ONLY be called
- * from a real-time thread, not at init time and not at interrupt time.
+ * @param isRT    Set to 1 if this is called from a real-time thread.
+ *     in which case this function uses clock_nanosleep(CLOCK_REALTIME,...).
+ *     clock_nanosleep should only be called from a real-time thread, not at
+ *     init time and not at interrupt time.
+ *     Use isRT=0 if called from the ioctl callback (which is not a
+ *	real-time thread). In this case this function uses
+ *	a jiffy schedule method to delay.
  */
-static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val)
+static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
 {
     int i;
     unsigned char status;
@@ -415,14 +423,14 @@ static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val)
      * Changing it to 4 usec didn't change anything - must
      * be below the resolution of the clock. Changing it
      * to 10 usec resulted in a loop count of 1.
-     *
-     * Note: clock_nanosleep can only be called 
-     * from the real-time context, not at init time (nor at
-     * interrupt time).
      */
     i = 0;
     do {
-	clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	else {
+	    unsigned long j = jiffies + 1;
+	    while (jiffies < j) schedule();
+	}
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
@@ -474,11 +482,12 @@ static inline void Get_Dual_Port_RAM(unsigned char* val)
 
 /**
  * Set a value in dual port RAM.
- * This function uses clock_nanosleep(CLOCK_REALTIME,...), which
- * according to the RTL man page, should ONLY be called
- * from a real-time thread, not at init time and not at interrupt time.
+ * @param isRT    Set to 1 if this is called from a real-time thread.
+ *     in which case this function uses clock_nanosleep(CLOCK_REALTIME,...).
+ *     clock_nanosleep should only be called from a real-time thread, not at
+ *     init time and not at interrupt time.
  */
-static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
+static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
 {
     int i;
     unsigned char status;
@@ -500,7 +509,11 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
      */
     i = 0;
     do {
-	clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	else {
+	    unsigned long j = jiffies + 1;
+	    while (jiffies < j) schedule();
+	}
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
@@ -523,7 +536,11 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
 
     i = 0;
     do {
-	clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	else {
+	    unsigned long j = jiffies + 1;
+	    while (jiffies < j) schedule();
+	}
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
@@ -551,7 +568,7 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
  */
-static void setHeartBeatOutput (int rate)
+static void setHeartBeatOutput (int rate,int isRT)
 {
     int divide;
     unsigned char lsb, msb;
@@ -562,12 +579,12 @@ static void setHeartBeatOutput (int rate)
     msb = (char)((divide & 0xff00)>>8);
 
     Set_Dual_Port_RAM (DP_Ctr1_ctl,
-	DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
-    Set_Dual_Port_RAM (DP_Ctr1_lsb, lsb);
-    Set_Dual_Port_RAM (DP_Ctr1_msb, msb);
+	DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin,isRT);
+    Set_Dual_Port_RAM (DP_Ctr1_lsb, lsb,isRT);
+    Set_Dual_Port_RAM (DP_Ctr1_msb, msb,isRT);
 
     /* We'll wait until rate2 is set and then do a rejam. */
-    // Set_Dual_Port_RAM (DP_Command, Command_Set_Ctr1);
+    // Set_Dual_Port_RAM (DP_Command, Command_Set_Ctr1,isRT);
 }
 
 /**
@@ -576,10 +593,10 @@ static void setHeartBeatOutput (int rate)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
  */
-static void setPrimarySyncReference(unsigned char val)
+static void setPrimarySyncReference(unsigned char val,int isRT)
 {
     unsigned char control0;
-    Read_Dual_Port_RAM (DP_Control0, &control0);
+    Read_Dual_Port_RAM (DP_Control0, &control0,isRT);
 
     if (val) control0 |= DP_Control0_CodePriority;
     else control0 &= ~DP_Control0_CodePriority;
@@ -587,17 +604,17 @@ static void setPrimarySyncReference(unsigned char val)
 #ifdef DEBUG
     rtl_printf("setting DP_Control0 to 0x%x\n",control0);
 #endif
-    Set_Dual_Port_RAM (DP_Control0, control0);
+    Set_Dual_Port_RAM (DP_Control0, control0,isRT);
 }
 
-static void setTimeCodeInputSelect(unsigned char val)
+static void setTimeCodeInputSelect(unsigned char val,int isRT)
 {
-    Set_Dual_Port_RAM(DP_CodeSelect,val);
+    Set_Dual_Port_RAM(DP_CodeSelect,val,isRT);
 }
 
-static void getTimeCodeInputSelect(unsigned char *val)
+static void getTimeCodeInputSelect(unsigned char *val,int isRT)
 {
-    Read_Dual_Port_RAM(DP_CodeSelect,val);
+    Read_Dual_Port_RAM(DP_CodeSelect,val,isRT);
 }
 
 /* -- Utility --------------------------------------------------------- */
@@ -606,7 +623,7 @@ static void getTimeCodeInputSelect(unsigned char *val)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
 */
-static void setRate2Output (int rate)
+static void setRate2Output (int rate,int isRT)
 {
     int divide;
     unsigned char lsb, msb;
@@ -616,14 +633,14 @@ static void setRate2Output (int rate)
     lsb = (char)(divide & 0xff);
     msb = (char)((divide & 0xff00)>>8);
     Set_Dual_Port_RAM (DP_Ctr0_ctl,
-	DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
-    Set_Dual_Port_RAM (DP_Ctr0_lsb, lsb);
-    Set_Dual_Port_RAM (DP_Ctr0_msb, msb);
+	DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin,isRT);
+    Set_Dual_Port_RAM (DP_Ctr0_lsb, lsb,isRT);
+    Set_Dual_Port_RAM (DP_Ctr0_msb, msb,isRT);
 }
 
-static void counterRejam()
+static void counterRejam(int isRT)
 {
-    Set_Dual_Port_RAM(DP_Command, Command_Rejam);
+    Set_Dual_Port_RAM(DP_Command, Command_Rejam,isRT);
 }
 
 /**
@@ -799,18 +816,18 @@ static void getExtEventTime(struct irigTime* ti) {
  * set the year fields in Dual Port RAM.
  * May only be called from a real-time thread.
  */
-static void setYear(int val)
+static void setYear(int val,int isRT)
 {
     staticYear = val;
 #ifdef DEBUG
     rtl_printf("setYear=%d\n",val);
 #endif
     Set_Dual_Port_RAM(DP_Year1000_Year100,
-	((val / 1000) << 4) + ((val % 1000) / 100));
+	((val / 1000) << 4) + ((val % 1000) / 100),isRT);
     val %= 100;
-    Set_Dual_Port_RAM(DP_Year10_Year1,((val / 10) << 4) + (val % 10));
+    Set_Dual_Port_RAM(DP_Year10_Year1,((val / 10) << 4) + (val % 10),isRT);
 
-    Set_Dual_Port_RAM (DP_Command, Command_Set_Years);
+    Set_Dual_Port_RAM (DP_Command, Command_Set_Years,isRT);
 }
 
 /**
@@ -822,7 +839,7 @@ static void setYear(int val)
  * and I see no ways to change them if there is no PPS or time-code.
  * This may only be called from a real-time thread.
  */
-static int setMajorTime(struct irigTime* ti)
+static int setMajorTime(struct irigTime* ti,int isRT)
 {
 
 #ifdef DEBUG
@@ -833,25 +850,25 @@ static int setMajorTime(struct irigTime* ti)
 #endif
     /* The year fields in Dual Port RAM are not technically
      * part of the major time, but we'll set them too.  */
-    setYear(ti->year);
+    setYear(ti->year,isRT);
 
     int val;
     val = ti->yday;
 
-    Set_Dual_Port_RAM(DP_Major_Time_d100, val / 100);
+    Set_Dual_Port_RAM(DP_Major_Time_d100, val / 100,isRT);
     val %= 100;
-    Set_Dual_Port_RAM(DP_Major_Time_d10d1, ((val / 10) << 4) + (val % 10));
+    Set_Dual_Port_RAM(DP_Major_Time_d10d1, ((val / 10) << 4) + (val % 10),isRT);
 
     val = ti->hour;
-    Set_Dual_Port_RAM(DP_Major_Time_h10h1, ((val / 10) << 4) + (val % 10));
+    Set_Dual_Port_RAM(DP_Major_Time_h10h1, ((val / 10) << 4) + (val % 10),isRT);
 
     val = ti->min;
-    Set_Dual_Port_RAM(DP_Major_Time_m10m1, ((val / 10) << 4)+ (val % 10));
+    Set_Dual_Port_RAM(DP_Major_Time_m10m1, ((val / 10) << 4)+ (val % 10),isRT);
 
     val = ti->sec;
-    Set_Dual_Port_RAM(DP_Major_Time_s10s1, ((val / 10) << 4) + (val % 10));
+    Set_Dual_Port_RAM(DP_Major_Time_s10s1, ((val / 10) << 4) + (val % 10),isRT);
 
-    Set_Dual_Port_RAM (DP_Command, Command_Set_Major);
+    Set_Dual_Port_RAM (DP_Command, Command_Set_Major,isRT);
 
     return 0;
 }
@@ -947,6 +964,7 @@ static inline void doCallbacklist(struct list_head* list)
  */
 static void *pc104sg_100hz_thread (void *param)
 {
+    int isRT = 1;
     /*
      * Interrupts are not enabled at this point
      * until the call to enableHeartBeatInt() below.
@@ -956,23 +974,23 @@ static void *pc104sg_100hz_thread (void *param)
      * can't be done at init time.
      */
     /* IRIG-B is the default, but we'll set it anyway */
-    setTimeCodeInputSelect(DP_CodeSelect_IRIGB);
+    setTimeCodeInputSelect(DP_CodeSelect_IRIGB,isRT);
 
 #ifdef DEBUG
     {
 	unsigned char timecode;
-	getTimeCodeInputSelect(&timecode);
+	getTimeCodeInputSelect(&timecode,isRT);
 	rtl_printf("timecode=0x%x\n",timecode);
     }
 #endif
-    setPrimarySyncReference(0);	// 0=PPS, 1=timecode
+    setPrimarySyncReference(0,isRT);	// 0=PPS, 1=timecode
 
-    setHeartBeatOutput(INTERRUPT_RATE);
+    setHeartBeatOutput(INTERRUPT_RATE,isRT);
 #ifdef DEBUG
     rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, INTERRUPT_RATE);
 #endif
 
-    setRate2Output(A2DREF_RATE);
+    setRate2Output(A2DREF_RATE,isRT);
 #ifdef DEBUG
     rtl_printf("(%s) %s:\t setRate2Output(%d) done\n",     __FILE__, __FUNCTION__, A2DREF_RATE);
 #endif
@@ -981,15 +999,14 @@ static void *pc104sg_100hz_thread (void *param)
      * Set the internal heart-beat and rate2 to be in phase with
      * the PPS/time_code reference
      */
-    counterRejam();
+    counterRejam(isRT);
 
     /*
      * Set the major time here until we are doing it from user
      * space.
      */
-#define SET_MAJOR
+// #define SET_MAJOR
 #ifdef SET_MAJOR
-    Read_Dual_Port_RAM(DP_Extd_Sts,&extendedStatus);
 
     struct timespec ts;
     // clock_gettime(RTL_CLOCK_GPOS,&tspec);	// RTL_CLOCK_GPOS not defined
@@ -1001,10 +1018,6 @@ static void *pc104sg_100hz_thread (void *param)
     // ts.tv_sec = 852076740;		// Dec 31 1996, 23:59:00 leap
     // ts.tv_sec = 978307140;		// Dec 31 2000, 23:59:00 leap
 
-    struct irigTime ti;
-    timespec2irig(&ts,&ti);
-    if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti);
-    else setYear(ti.year);
 
     userClock.tv_sec = ts.tv_sec;
     userClock.tv_usec = ts.tv_nsec / 1000;
@@ -1157,10 +1170,12 @@ cleanup_pop:
  * This function is called by the interrupt service routine
  * and so we don't have to worry about simultaneous access
  * when changing the clock counters.
- * This routine does not set the major time.
  */
 static inline void checkExtStatus()
 {
+
+    spin_lock(&dp_ram_lock);
+
     /* finish read of extended status from DPR.
      * We split the read of DP_Extd_Sts into two parts.
      * Send the request, and then at the next
@@ -1168,11 +1183,22 @@ static inline void checkExtStatus()
      * to do sleeps or busy waits for it to be ready.
      * The only gotcha is that other requests
      * can't be sent in the meantime.
+     *
+     * Infrequently the user sends ioctl's which also access
+     * DP RAM. The spin_locks are used to avoid simultaneous access.
      */
-    Get_Dual_Port_RAM(&extendedStatus);
+
+    if (dp_ram_ext_status_requested) {
+        Get_Dual_Port_RAM(&extendedStatus);
+	dp_ram_ext_status_requested = 0;
+    }
 
     /* send next request */
-    Req_Dual_Port_RAM(DP_Extd_Sts);
+    if (dp_ram_ext_status_enabled) {
+	Req_Dual_Port_RAM(DP_Extd_Sts);
+	dp_ram_ext_status_requested = 1;
+    }
+    spin_unlock(&dp_ram_lock);
 
     switch (clockState) {
     case USER_OVERRIDE_REQUESTED:
@@ -1192,9 +1218,9 @@ static inline void checkExtStatus()
 	else clockState = CODED;
 	break;
     case USER_SET:
-	// have good clock again, set counters back to coded clock
         if (!(lastStatus & DP_Extd_Sts_Nocode) &&
 		!(extendedStatus & DP_Extd_Sts_Nocode)) {
+	    // have good clock again, set counters back to coded clock
 	    clockState = RESET_COUNTERS;
 	}
 	break;
@@ -1209,8 +1235,8 @@ static inline void checkExtStatus()
      * USER_OVERRIDE: user has overridden the clock
      *		In this case the hardware clock doesn't
      *		match our own counters.
-     * USER_SET: user has set the clock, and time code input is missing.
-     *		The ioctl did a setMajorTime(), and the since the
+     * USER_SET: the clock has been set from an ioctl with setMajorTime(),
+     *          and time code input is missing.  Since the
      *		timecode is missing, the counters will be within
      *          a second of the hardware clock.
      */
@@ -1262,6 +1288,7 @@ static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl
 	    increment_hz100_cnt();
 	    sem_post( &threadsem );
 	}
+
     }
 #ifdef CHECK_EXT_EVENT
     if ((status & Ext_Ready) && (intmask & Ext_Ready_Int_Enb)) {
@@ -1299,13 +1326,18 @@ static void portCallback(void* privateData)
     }
 
     if (dev->inFifoFd >= 0) {
-	struct timeval tv;
-	irig2timeval(&ti,&tv);
-
 	dev->samp.timetag = tt;
-	dev->samp.length = sizeof(struct timeval) + sizeof(int);
-	dev->samp.data.time = tv.tv_sec * 1000 + (tv.tv_usec + 500) / 1000;
+	dev->samp.length = sizeof(struct dsm_clock_data);
+
+	irig2timeval(&ti,&dev->samp.data.tval);
 	dev->samp.data.status = extendedStatus;
+
+#ifdef DEBUG
+	rtl_printf("tv_secs=%d, tv_usecs=%d status=0x%x\n",
+		dev->samp.data.tval.tv_sec,dev->samp.data.tval.tv_usec,
+		dev->samp.data.status);
+#endif
+
 	write(dev->inFifoFd,&dev->samp,
 		SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length);
     }
@@ -1351,16 +1383,19 @@ static int open_port(struct irig_port* port)
 
 /*
  * Function that is called on receipt of ioctl request over the
- * ioctl FIFO.
+ * ioctl FIFO.  This is not being executed from a real-time thread.
  */
 static int ioctlCallback(int cmd, int board, int portNum,
         void *buf, size_t len)
 {
     int retval = -EINVAL;
+    int isRT = 0;
+    rtl_printf("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
+    	cmd,board,portNum);
 
     /* only one board and one port supported by this module */
     if (board != 0) return retval;
-    if (port != 0) return retval;
+    if (portNum != 0) return retval;
                                                                                 
     switch (cmd) {
     case GET_NUM_PORTS:         /* user get */
@@ -1371,13 +1406,13 @@ static int ioctlCallback(int cmd, int board, int portNum,
         rtl_printf("IRIG_OPEN\n");
 #ifdef DEBUG
 #endif
-        retval = open_port(port);
+        retval = open_port(portDev);
         break;
     case IRIG_CLOSE:          /* close port */
         rtl_printf("IRIG_CLOSE\n");
 #ifdef DEBUG
 #endif
-        retval = close_port(port);
+        retval = close_port(portDev);
         break;
     case IRIG_GET_STATUS:
         *((unsigned char*)buf) = extendedStatus;
@@ -1397,14 +1432,23 @@ static int ioctlCallback(int cmd, int board, int portNum,
     case IRIG_SET_CLOCK:
 	{
 	    struct irigTime ti;
+	    unsigned long flags;
 	    if (len != sizeof(userClock)) break;
 	    memcpy(&userClock,buf,sizeof(userClock));
 
 	    timeval2irig(&userClock,&ti);
 
-	    // If no time code, then set the major time
-	    if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti);
-	    else setYear(ti.year);
+	    spin_lock_irqsave(&dp_ram_lock,flags);
+	    dp_ram_ext_status_enabled = 0;
+	    dp_ram_ext_status_requested = 0;
+	    spin_unlock_irqrestore(&dp_ram_lock,flags);
+
+	    if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti,isRT);
+	    else setYear(ti.year,isRT);
+
+	    spin_lock_irqsave(&dp_ram_lock,flags);
+	    dp_ram_ext_status_enabled = 1;
+	    spin_unlock_irqrestore(&dp_ram_lock,flags);
 
 	    clockState = USER_SET_REQUESTED;
 	    retval = len;
@@ -1413,13 +1457,22 @@ static int ioctlCallback(int cmd, int board, int portNum,
     case IRIG_OVERRIDE_CLOCK:
 	{
 	    struct irigTime ti;
+	    unsigned long flags;
 	    if (len != sizeof(userClock)) break;
 	    memcpy(&userClock,buf,sizeof(userClock));
-
 	    timeval2irig(&userClock,&ti);
-	    // time code will overwrite any setting of the major time
-	    if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti);
-	    else setYear(ti.year);
+
+	    spin_lock_irqsave(&dp_ram_lock,flags);
+	    dp_ram_ext_status_enabled = 0;
+	    dp_ram_ext_status_requested = 0;
+	    spin_unlock_irqrestore(&dp_ram_lock,flags);
+
+	    if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti,isRT);
+	    else setYear(ti.year,isRT);
+	
+	    spin_lock_irqsave(&dp_ram_lock,flags);
+	    dp_ram_ext_status_enabled = 1;
+	    spin_unlock_irqrestore(&dp_ram_lock,flags);
 
 	    clockState = USER_OVERRIDE_REQUESTED;
 	    retval = len;
@@ -1450,10 +1503,13 @@ void cleanup_module (void)
 
     rtl_free_isa_irq(irq);
 
-    if (port) {
-	close_port(port);
-        if (port->inFifoName) kfree(port->inFifoName);
-	kfree(port);
+    if (portDev) {
+	close_port(portDev);
+        if (portDev->inFifoName) {
+	    unlink(portDev->inFifoName);
+	    kfree(portDev->inFifoName);
+	}
+	kfree(portDev);
     }
 
     if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
@@ -1507,11 +1563,19 @@ int init_module (void)
     /* shutoff pc104sg interrupts just in case */
     disableAllInts();
 
-    port =  kmalloc(sizeof(struct irig_port),GFP_KERNEL);
-    if (!port) goto err0;
-    port->inFifoFd = -1;
-    port->inFifoName = makeDevName(devprefix,"_in_",0);
-    if (!port->inFifoName) goto err0;
+    portDev =  kmalloc(sizeof(struct irig_port),GFP_KERNEL);
+    if (!portDev) goto err0;
+    portDev->inFifoFd = -1;
+    portDev->inFifoName = makeDevName(devprefix,"_in_",0);
+    if (!portDev->inFifoName) goto err0;
+
+    rtl_printf("creating %s\n",portDev->inFifoName);
+    if (mkfifo(portDev->inFifoName, 0666) < 0) {
+	errval = -rtl_errno;
+	rtl_printf("mkfifo %s failed, errval=%d\n",
+	    portDev->inFifoName,errval);
+	if (errval != -EEXIST && errval != -EBADE) goto err0;
+    }
 
     /* setup our device */
     if (!(ioctlhandle = openIoctlFIFO(devprefix,
@@ -1544,7 +1608,7 @@ int init_module (void)
 	goto err0;
     }
 
-    if ((errval = register_irig_callback(portCallback, IRIG_1_HZ,port))
+    if ((errval = register_irig_callback(portCallback, IRIG_1_HZ,portDev))
     	< 0) goto err0;
 
     return 0;
@@ -1566,9 +1630,12 @@ err0:
 
     if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
 
-    if (port) {
-        if (port->inFifoName) kfree(port->inFifoName);
-	kfree(port);
+    if (portDev) {
+        if (portDev->inFifoName) {
+	    unlink(portDev->inFifoName);
+	    kfree(portDev->inFifoName);
+	}
+	kfree(portDev);
     }
 
     /* free up the I/O region and remove /proc entry */
