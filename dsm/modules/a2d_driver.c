@@ -1,4 +1,4 @@
-/*  a2d_driver.c
+/*  a2d_driver.c/
 
 
 Time-stamp: <Sun 25-Oct-2004 12:48:04 pm>
@@ -33,7 +33,9 @@ Revisions:
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
+#include <asm/io.h>
 
+#include <ioctl_fifo.h>
 #include <a2d_driver.h>
 
 void ggoutw(US a, US *b);
@@ -41,12 +43,15 @@ void ggoutb(UC a, UC *b);
 US   gginw(US *a);
 UC   gginb(UC *a);
 void phoney(A2D_SET *a2d);
+void A2DIoctlDump(A2D_SET *a);
 
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static 	UL	CardBase;	// A/D card address
 static	int	CurChan;	// Current channel value
 static	US	FIFOCtl;	//Static hardware FIFO control word storage
-static 	int	fd_fifoup, fd_fifodn; // FIFO file descriptors
+static 	int	fd_up; 		// Data FIFO file descriptor
+
+volatile unsigned int isa_address = A2DBASE;
 
 // These are just test values
 
@@ -58,7 +63,8 @@ UC		Offsets;
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
   { A2D_GET_IOCTL,_IOC_SIZE(A2D_GET_IOCTL) },
-  { A2D_SET_IOCTL,_IOC_SIZE(A2D_SET_IOCTL) },
+  { A2D_SET_IOCTL, sizeof(A2D_SET)  },
+  { A2D_CAL_IOCTL, sizeof(A2D_SET)  },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -77,7 +83,7 @@ MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
 MODULE_DESCRIPTION("HIAPER A/D driver for RTLinux");
 //MODULE_PARM(a2d_parm, "1l");
 
-RTLINUX_MODULE(A2D);
+RTLINUX_MODULE(DSMA2D);
 
 /*
  * Function that is called on receipt of ioctl request over the
@@ -86,12 +92,12 @@ RTLINUX_MODULE(A2D);
 static int A2DCallback(int cmd, int board, int port,
 	void *buf, size_t len) 
 {
-  
-  rtl_printf("A2DCallback, cmd=%d, board=%d, port=%d,len=%d\n",
-		cmd,board,port,len);
-
-
   int ret = -EINVAL;
+
+  rtl_printf("\nA2DCallback, cmd=%d, board=%d, port=%d,len=%d\n",
+		cmd,board,port,len);
+rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
+
   switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
@@ -104,6 +110,7 @@ static int A2DCallback(int cmd, int board, int port,
 
   	case A2D_GET_IOCTL:		/* user get */
     		{
+		rtl_printf("A2D_GET_IOCTL\n");
 		A2D_GET *tg = (A2D_GET *)buf;
 		strncpy(tg->c,"0123456789",len);
 		tg->c[len-1] = 0;
@@ -113,10 +120,21 @@ static int A2DCallback(int cmd, int board, int port,
 
   	case A2D_SET_IOCTL:		/* user set */
       		{
+		rtl_printf("A2D_SET_IOCTL\n");
 		A2D_SET *ts = (A2D_SET *)buf;
-		rtl_printf("received A2D_SET\n");
+		A2DIoctlDump(ts);
 		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
-		ret = len;
+		ret = sizeof(A2D_SET);
+    		}
+   		break;
+  	case A2D_CAL_IOCTL:		/* user set */
+      		{
+		rtl_printf("A2D_CAL_IOCTL\n");
+		A2D_SET *ts = (A2D_SET *)buf;
+		A2DIoctlDump(ts);
+		A2DSetVcal((int)ts->vcalx8);
+		A2DSetCal(ts);	//Call A2DSetup with structure pointer ts 
+		ret = sizeof(A2D_SET);
     		}
    		break;
   	}
@@ -133,20 +151,15 @@ void cleanup_module(void)
   /* Close my ioctl FIFOs, deregister my ioctlCallback function */
   closeIoctlFIFO(ioctlhandle);
 
-  rtl_unregister_dev("/dev/dsma2d_in_0");
-  rtl_unregister_dev("/dev/dsma2d_out_0");
 
-  /* Close and unlink the up and down fifo's */
+  /* Close and unlink the up fifo */
 
   sprintf(fname, "/dev/dsma2d_in_0");
   rtl_printf("Destroying %s\n", fname);
-  close(fd_fifoup);
-  unlink(fname);
+  close(fd_up);
+  unlink("/dev/dsma2d_in_0");
   
-  sprintf(fname, "/dev/dsma2d_out_0");
-  rtl_printf("Destroying %s\n", fname);
-  close(fd_fifodn);
-  unlink(fname);
+  release_region(isa_address, A2DIOWIDTH);
 
   rtl_printf("Analog cleanup complete\n");
 
@@ -163,25 +176,23 @@ int init_module()
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
   	/* Open up my ioctl FIFOs, register my ioctlCallback function */
-  	ioctlhandle = openIoctlFIFO("a2d",boardNum,A2DCallback,
+  	ioctlhandle = openIoctlFIFO("dsma2d",boardNum,A2DCallback,
   					nioctlcmds,ioctlcmds);
 
   	if (!ioctlhandle) return -EIO;
 
-	// Open the fifo TO user space (fifoup)
+	// Open the fifo TO user space (up fifo)
 	sprintf(fifoname, "/dev/dsma2d_in_0");
 	rtl_printf("Creating %s\n", fifoname);
 	mkfifo(fifoname, 0666);
-	fd_fifoup = open(fifoname, O_NONBLOCK | O_WRONLY);
+	fd_up = open(fifoname, O_NONBLOCK | O_WRONLY);
 
-	// Open the fifo FROM user space (fifodn)
-	sprintf(fifoname, "/dev/dsma2d_out_0");
-	mkfifo(fifoname, 0666);
-	rtl_printf("Creating %s\n", fifoname);
-	fd_fifodn = open(fifoname, O_NONBLOCK | O_RDONLY);
+	rtl_printf("Up FIFO fd = 0x%08x\n", fd_up);
 
-	rtl_printf("handle = 0x%08x\n", ioctlhandle);
 	rtl_printf("A2D initialization was just peachy!\n");
+
+	// Get the mapped board address
+	request_region(isa_address, A2DIOWIDTH, "A2D_DRIVER");
 
 	return 0;
 }
@@ -200,7 +211,7 @@ int A2DSetup(A2D_SET *a2d)
 	for(i = 0; i < 8; i++)
 	{	
 		// Pass filter info to init routine
-		A2DError(A2DInit(i, &a2d->filter[0]));
+// DEBUG		A2DError(A2DInit(i, &a2d->filter[0]));
 		A2DSetGain(i, a2d->gain[i]);
 		a2d->flag[i] = 0;	// Clear flags
 		a2d->status[i] = 0;	// Clear status
@@ -208,8 +219,8 @@ int A2DSetup(A2D_SET *a2d)
 	}
 
 	A2DSetMaster(a2d->master);
-
-	A2DSetVcal((int)(8*a2d->vcalx8));	// Set the calibration voltage
+//TODO Change argument of A2DSetVcal to A2D_SET *a2d
+	A2DSetVcal((int)(a2d->vcalx8));	// Set the calibration voltage
 	A2DSetCal(a2d);	// Switch appropriate channels to cal mode
 
 	A2DClearSYNC();	// Start A/Ds synchronous with 1PPS from IRIG card
@@ -217,7 +228,7 @@ int A2DSetup(A2D_SET *a2d)
 	A2DSetSYNC();	//	so that we don't step on the transition
 	
 	A2DPtrInit(a2d);// Initialize offset buffer pointers
-	A2DRun(a2d);	// Infinite loop data acquisition
+//	A2DRun(a2d);	// Infinite loop data acquisition
 
 	return 0;
 }
@@ -732,3 +743,19 @@ for(i = 0; i < 8; i++)
 	return;
 }
 
+void A2DIoctlDump(A2D_SET *a2d)
+{
+	int i;
+	for(i = 0;i < 8; i++)
+		{
+		rtl_printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
+		rtl_printf("Hz_%1d    = %3d\n", i, a2d->Hz[i]);
+		}
+
+	rtl_printf("Vcal    = %3d\n", a2d->vcalx8);
+	rtl_printf("Calset  = 0x%02X\n", a2d->calset);
+	rtl_printf("Offset  = 0x%02X\n", a2d->offset);
+	rtl_printf("filter0 = 0x%04X\n", a2d->filter[0]);
+
+	return;
+}

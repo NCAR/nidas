@@ -33,22 +33,24 @@
 //Status/error
 #define A2DLOADOK		0
 
-#define	ERRA2DNOFILE	-1	//Error opening file
+#define	ERRA2DNOFILE		-1	//Error opening file
 #define	ERRA2DCHAN		-2	//Channel # requested is out of bounds
 #define	ERRA2DGAIN		-3	//Gain value out of bounds
 #define	ERRA2DVCAL		-4	//Vcal out of bounds
 #define	ERRA2DCRC		-5	//Data corrupted
 #define	ERRA2DID		-6	//Wrong device ID
 #define	ERRA2DCONV		-7	//Conversion data invalid
-#define	ERRA2DCHIPID	-8	//Chip ID error
+#define	ERRA2DCHIPID		-8	//Chip ID error
 #define	ERRA2DRATE		-9	//A/D sample rate error
 
 //Card base address for ISA bus
 #define	A2DMASTER		7
-#define	A2DIOBASE		0x00000300
-#define	ARMISABASE		0xf5000000
+#define	A2DIOBASE		0x000003A0
+#define	A2DIOSEP		0x00000010	// Card addr separation
+#define	ARMISABASE		0xf7000000
 #define	A2DBASE			(A2DIOBASE+ARMISABASE)
 #define	MAXA2DS			8	// Max A/D's per card
+#define	A2DIOWIDTH		0x10	// Width of I/O space
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
@@ -188,8 +190,9 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
  */
 #define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,A2D_GET)
 #define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
+#define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_SET)
 
-#include <ioctl_fifo.h>
+// Now in source code #include <ioctl_fifo.h>
 
 #ifdef __KERNEL__
 
