@@ -1,0 +1,18 @@
+# -*- python -*-
+
+##
+##  Import the server-build environment.
+##
+Import('x86_env')
+
+##
+##  List the x86 specific libraries
+##
+x86_env['LIBS'] = Split("""
+  libX86Disc.a
+""")
+
+##
+##  Build discAsync, discSync, discComm
+##
+#x86_env.Program('#/bin/main' , 'main.cc')

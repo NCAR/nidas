@@ -1,0 +1,23 @@
+# -*- python -*-
+
+##
+##  Import the cross-build environment.
+##
+Import('arm_env')
+
+##
+##  List the source files compiled into the libArmDsm.a library.
+##
+sources = Split("""
+  Climet.cc
+  Dpres.cc
+  Neph.cc
+  SampleTable.cc
+  SerialTable.cc
+  SyncRecord.cc
+""")
+
+##
+##  Build the libArmDsm.a library.
+##
+arm_env.StaticLibrary('#/lib/libArmDsm.a' , sources)

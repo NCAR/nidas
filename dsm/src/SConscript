@@ -1,0 +1,22 @@
+# -*- python -*-
+
+##
+##  Import the cross-build environment.
+##
+
+# -D__cpluscplus   -fno-common  -fno-builtin
+Import('arm_env')
+src_arm_env = arm_env.Copy()
+
+##
+##  List the ARM specific libraries
+##
+src_arm_env['LIBS'] = Split("""
+  libArmDsm.a
+  libArmDisc.a
+""")
+
+##
+##  Build dsmAsync, dsmSync, dsmComm
+##
+src_arm_env.Program('#/bin/dsmAsync' , 'dsmAsync.cc')

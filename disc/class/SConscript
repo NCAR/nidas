@@ -1,0 +1,36 @@
+# -*- python -*-
+
+##
+##  Import the both build environments.
+##
+Import('arm_env')
+Import('x86_env')
+
+##
+##  List the source files for the libArmDisc.a library...
+##
+##  Note that the source files used to build this library is a
+##  subset of those used to build libX86Disc.a.
+##
+arm_sources = Split("""
+  portable.cc
+  DsmConfig.cc
+  RandomBuf.cc
+  TapeHeader.cc
+  VarConfig.cc
+""")
+
+##
+##  List the additional source files for the libX86Disc.a library...
+##
+#  DsmHeaders.cc
+#  DsmCollect.cc
+#  DsmTables.cc
+x86_sources = arm_sources + Split("""
+""")
+
+##
+##  Build both libraries.
+##
+arm_env.StaticLibrary('#/lib/libArmDisc.a' , arm_sources)
+x86_env.StaticLibrary('#/lib/libX86Disc.a' , x86_sources)
