@@ -66,25 +66,24 @@ void main()
   printf ("user main: %s - %s - %s\n\n", __FILE__, __DATE__, __TIME__);
 
 /* Create and initialize the tape header class.  */
-  dsm_hdr = (TapeHeader*)SRAM_TAPEHEADER_BASE;
   dsm_hdr =  new TapeHeader();
   fprintf (stderr, "Header file = %s.\n", dsm_config->dsmHeaderName());
   dsm_hdr->readFile (dsm_config->dsmHeaderName());
 
 /* Create and initialize the derived variable configuration class.  */
-
+/*
   if (!(adsname = getenv ("ADSNAME") ) )
   {
-    printf ("dsmAsync: ADSNAME environment variable not set.\n");
+    printf ("dsmSync: ADSNAME environment variable not set.\n");
     exit( ERROR );
   }
   var_config = new VarConfig ( strtok (adsname, "."), dsm_config->location() );
-
+*/
 // Create the sample table class.
   sample_table = new SampleTable (*dsm_hdr);
   sample_table->buildTable ();
 
-  printf ("dsmAsync: DEBUG everything loaded!\n"); 
+  printf ("dsmSync: DEBUG everything loaded!\n"); 
 
   /* TODO - parse XML configuration file into a dsm_config
    * structure.
@@ -163,13 +162,11 @@ void main()
         len = read(mensor[i]->dataFifo[j], &mensor[i]->buf[0], sizeof(buf));
         if (buf[0] == '0')
           mensor[i]->buffer();
-//          sscanf (&buf[2], "%f",mensor[i]->mensor_blk[gtog].press[j]);
       }
       if (FD_ISSET( parsci[i]->dataFifo[j], &readfds)){
         len = read(parsci[i]->dataFifo[j], &parsci[i]->buf[0], sizeof(buf));
         if (buf[0] == '*')
           parsci[i]->buffer();
-//          sscanf (&buf[5], "%f",parsci[i]->parsci_blk[gtog].press[j]);
       }
     }
   }
