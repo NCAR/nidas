@@ -55,17 +55,22 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
 		samp->getDataLength());
 //cerr << "datalength = " << samp->getDataLength() << ": ";
 //cerr << "timetag = " << samp->getTimeTag() << endl;
+#ifdef DEBUG0
 	if(samp->getTimeTag()%PRINTINT == 0)
 	{
 		printf("time %08ld: datalength %05ld: outs = 0x%08X\n", 
 			samp->getTimeTag(), samp->getDataLength(),
 			outs);
 	}
+#endif
     for (unsigned int i = 0; i < samp->getDataLength(); i++)
 	outs->getDataPtr()[i] = ((const short *)samp->getConstVoidDataPtr())[i];
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(samp->getId());
     outs->setDataLength(samp->getDataLength());
+
+    short* sdatap = (short *)outs->getVoidDataPtr();
+std::cerr << std::hex << "Data ptr = " << sdatap << std::dec << std::endl;
 
     distribute(outs);
     return true;

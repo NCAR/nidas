@@ -22,6 +22,7 @@
 #include <dsm_sample.h>
 
 #include <limits.h>
+#include <iostream>
 
 namespace dsm {
 
@@ -471,6 +472,8 @@ void SampleT<DataT>::freeReference() const
     // if refCount is 0, put it back in the Pool.
     // These casts remove the const, so that this can be a const
     // member function, even though it alters the Sample.
+//    std::cerr << "freeReference, this=" << std::hex << this << std::dec <<
+//	" refCount=" << refCount << std::endl;
     if (! --refCount)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
 }
