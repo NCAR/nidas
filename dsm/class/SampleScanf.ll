@@ -37,6 +37,7 @@
 
 #include <SampleScanf.h>
 #include <Sample.h>
+#include <assert.h>
 
 using namespace dsm;
 
