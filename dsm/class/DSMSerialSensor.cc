@@ -61,6 +61,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     }
     cerr << outFifoName << " opened" << endl;
 
+#ifdef DEBUG
     cerr << "sizeof(struct termios)=" << sizeof(struct termios) << endl;
     cerr << "termios=" << hex << getTermiosPtr() << endl;
     cerr << "c_iflag=" << &(getTermiosPtr()->c_iflag) << ' ' << getTermiosPtr()->c_iflag << endl;
@@ -75,6 +76,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     cerr << "c_cflag=" << cflag() << endl;
     cerr << "c_lflag=" << lflag() << endl;
     cerr << dec;
+#endif
 
     ioctl(DSMSER_TCSETS,getTermiosPtr(),SIZEOF_TERMIOS);
 
