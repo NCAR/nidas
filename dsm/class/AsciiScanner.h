@@ -35,6 +35,8 @@
 
 #include <vector>
 
+namespace dsm {
+
 /**
  * Class providing sscanf functionality for parsing ASCII data.
  * One sets the sscanf format with setFormat then calls
@@ -156,4 +158,5 @@ private:
 
 };
 
+}
 #endif

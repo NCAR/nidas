@@ -35,7 +35,7 @@
 
 %{
 
-#include <ASCIIScanner.h>
+#include <AsciiScanner.h>
 #include <Sample.h>
 #include <iostream>
 #include <assert.h>
