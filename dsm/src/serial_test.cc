@@ -27,6 +27,7 @@
 #include <dsm_serial.h>
 
 using namespace std;
+using namespace dsm;
 
 class SerialTest : public atdUtil::Thread {
 public:
