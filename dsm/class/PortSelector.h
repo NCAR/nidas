@@ -85,12 +85,12 @@ protected:
     void handleChangedPorts();
 
     atdUtil::Mutex portsMutex;
-    std::vector<int> pendingSerialPortFds;
-    std::vector<DSMSensor*> pendingSerialPorts;
-    std::vector<DSMSensor*> pendingSerialPortClosures;
+    std::vector<int> pendingSensorPortFds;
+    std::vector<DSMSensor*> pendingSensorPorts;
+    std::vector<DSMSensor*> pendingSensorPortClosures;
 
-    std::vector<int> activeSerialPortFds;
-    std::vector<DSMSensor*> activeSerialPorts;
+    std::vector<int> activeSensorPortFds;
+    std::vector<DSMSensor*> activeSensorPorts;
 
     atdUtil::Mutex rserialConnsMutex;
     std::vector<RemoteSerialConnection*> pendingRserialConns;
