@@ -34,8 +34,7 @@ using namespace dsm;
 class TestSampleClient : public SampleClient {
 public:
 
-  bool receive(const Sample *s)
-  	throw(SampleParseException,atdUtil::IOException)
+  bool receive(const Sample *s) throw()
 {
     cerr << dec << "timetag= " << s->getTimeTag() << " id= " << s->getId() <<
     	" len=" << s->getDataLength();

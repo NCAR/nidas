@@ -111,6 +111,7 @@ int TestSource::run() throw(atdUtil::Exception)
 		(tnow + random() / (RAND_MAX / 100) ) % MSECS_PER_DAY);
 	samp->setId(0x0010);
 	distribute(samp);
+	samp->freeReference();
 	if (!(nsamples++ % 10000)) testCancel();
     }
 }
@@ -120,13 +121,11 @@ class TestClient: public SampleClient
 public:
     TestClient():nsamples(0) {}
 
-    bool receive(const Sample *s)
-            throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample *s) throw();
     int nsamples;
 };
 
-bool TestClient::receive(const Sample *s)
-            throw(SampleParseException, atdUtil::IOException)
+bool TestClient::receive(const Sample *s) throw()
 {
     nsamples++;
     return true;

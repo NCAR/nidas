@@ -20,8 +20,7 @@ public:
 
     TestSampleClient() : tstat(0),tlast(0),cnt(0),period(60000) {}
 
-    bool receive(const Sample *s)
-  	throw(SampleParseException,atdUtil::IOException)
+    bool receive(const Sample *s) throw()
     {
 	dsm_sample_time_t tt = s->getTimeTag();
 #ifdef DEBUG
