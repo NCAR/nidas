@@ -35,6 +35,8 @@ public:
     SampleOutputStream();
     virtual ~SampleOutputStream();
 
+    virtual void close() throw(atdUtil::IOException);
+
     void setSocketAddress(atdUtil::Inet4SocketAddress& saddr);
 
     const atdUtil::Inet4SocketAddress& getSocketAddress() const;
@@ -50,7 +52,7 @@ public:
     /**
      * Establish our own connection.
      */
-    void connect() throw(atdUtil::IOException);
+    virtual void connect() throw(atdUtil::IOException);
 
     bool receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException);

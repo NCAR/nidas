@@ -32,7 +32,16 @@ SampleOutputStream::SampleOutputStream():
 
 SampleOutputStream::~SampleOutputStream()
 {
-    delete outputStream;
+    close();
+}
+
+void SampleOutputStream::close() throw(atdUtil::IOException)
+{
+    if (outputStream) {
+        outputStream->close();
+	delete outputStream;
+	outputStream = 0;
+    }
 }
 
 void SampleOutputStream::setSocketAddress(atdUtil::Inet4SocketAddress& saddr)
@@ -63,6 +72,15 @@ void SampleOutputStream::setFileSet(atdUtil::OutputFileSet& fset)
     type = TIMETAG_DEPENDENT;
 }
 
+void SampleOutputStream::connect() throw(atdUtil::IOException)
+{
+    // If the outputStream is non-null, then we're already
+    // connected, most likely to a fileset.
+    if (!outputStream) {
+	throw atdUtil::IOException("SampleOutputStream","connect",
+		"connection to socket not implemented");
+    }
+}
 bool SampleOutputStream::receive(const Sample *samp)
          throw(SampleParseException, atdUtil::IOException)
 {

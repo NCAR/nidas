@@ -34,22 +34,25 @@ RawSampleOutput::~RawSampleOutput()
 
 void RawSampleOutput::connect() throw(atdUtil::IOException)
 {
-    atdUtil::ServerSocket servsock;
-                                                                                
-    RawSampleServiceRequestor requestor(servsock.getLocalPort());
-    requestor.setSocketAddress(getSocketAddress());
-    requestor.start();
-                                                                                
-    cerr << "accepting on " <<
-        servsock.getInet4SocketAddress().toString() << endl;
-    atdUtil::Socket sock = servsock.accept();      // throws IOException
-    cerr << "accepted connection" << endl;
-                                                                                
-    servsock.close();
-                                                                                
-    cerr << "canceling requestor" << endl;
-    requestor.cancel();
+    // If the outputStream is non-null, then we're already
+    // connected, most likely to a fileset.
+    if (!outputStream) {
+	atdUtil::ServerSocket servsock;
+	RawSampleServiceRequestor requestor(servsock.getLocalPort());
+	requestor.setSocketAddress(getSocketAddress());
+	requestor.start();
 
-    setSocket(sock);
+	cerr << "accepting on " <<
+	    servsock.getInet4SocketAddress().toString() << endl;
+	atdUtil::Socket sock = servsock.accept();      // throws IOException
+	cerr << "accepted connection" << endl;
+
+	servsock.close();
+
+	cerr << "canceling requestor" << endl;
+	requestor.cancel();
+
+	setSocket(sock);
+    }
 }
 
