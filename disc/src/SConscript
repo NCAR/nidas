@@ -3,15 +3,9 @@
 ##
 ##  Import the server-build environment.
 ##
-Import('x86_env')
-src_x86_env = x86_env.Copy()
+Import('env')
 
-##
-##  List the x86 specific libraries
-##
-src_x86_env['LIBS'] = Split("""
-  libX86Disc.a
-""")
+myenv = env.Copy()
 
 ##
 ##  Build discAsync, discSync, discComm
@@ -21,4 +15,4 @@ apps = Split("""
 """)
 
 for i in apps:
-  src_x86_env.Program( i )
+  myenv.Program( i )
