@@ -1,20 +1,25 @@
 # -*- python -*-
 
+##
+##  Store all signatures in the '.sconsign.dblite'
+##  file at the top-level SConstruct directory.
+##
+SConsignFile()
 
 ##
-##  Create a new construction environment variable.
+##  Create a new construction environment variable and
+##  restrict it's build methods to be POSIX based only.
 ##
+##  If you want to use the user's env variable PATH to find
+##  the compiler and build tools, uncomment these two lines,
+##  and remove the hard-coded paths to the arm-linux-*
+##  tools below.
 ##
-##  Restrict it's build methods to be POSIX based only.
+# import os
+# env = Environment(platform = 'posix',ENV= os.environ)
 ##
-## If you want to use the user's env variable PATH to find
-## the compiler and build tools, uncomment these two lines,
-## and remove the hard-coded paths to the arm-linux-*
-## tools below.
-## import os
-## env = Environment(platform = 'posix',ENV= os.environ)
+##  Otherwise, do this:
 ##
-## Otherwise, do this:
 env = Environment(platform = 'posix')
 
 ##
@@ -39,13 +44,12 @@ env['CCFLAGS'] = Split("""
 ##  Define it's C/C++ include paths for all builds.
 ##
 env['CPPPATH'] = Split("""
-    /jnet/linux/include
-    #/dsm/modules
-    #/dsm/class
-    #/disc/class
-    .
+  /jnet/linux/include
+  #/dsm/modules
+  #/dsm/class
+  #/disc/class
+  .
 """)
-
 
 ##
 ##  Define common library path
@@ -57,10 +61,9 @@ env['LIBPATH'] = '#lib'
 ##
 arm_env = env.Copy()
 
-arm_env['LIBPATH'] = Split("""
-    #lib_arm
+arm_env.AppendUnique(LIBPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/lib
-""")
+"""))
 
 arm_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/include

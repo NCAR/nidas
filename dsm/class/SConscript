@@ -24,7 +24,4 @@ sources = Split("""
 ##
 ##  Build the libArmDsm.a library.
 ##
-lib = arm_env.StaticLibrary('Dsm' , sources)
-install = arm_env.Install('#lib_arm',lib)
-Default(install)
-
+arm_env.StaticLibrary('#/lib/libArmDsm.a' , sources)

@@ -8,25 +8,17 @@
 Import('arm_env')
 src_arm_env = arm_env.Copy()
 
-src_arm_env.AppendUnique(CPPPATH = Split("""
-      #dsm/class
-      #dsm/modules
-    """))
-
-
 src_arm_env.AppendUnique(LIBPATH = Split("""
   /opt/atdLib/arm/lib
   /scr/tmp/maclean
 """))
-
-## src_arm_env['LIBPATH'] = '#lib_arm'
 ##
 ##  List the ARM specific libraries
 ##
 src_arm_env['LIBS'] = Split("""
-  Dsm
+  libArmDsm.a
+  libArmDisc.a
   isa
-  c
 """)
 
 ##
