@@ -63,6 +63,7 @@ sources = Split("""
   SyncRecordServiceRequestor.cc
   SyncRecordOutput.cc
   Variable.cc
+  SampleTag.cc
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'
