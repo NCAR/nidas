@@ -11,16 +11,19 @@
 
 /* #include <logLib.h> */
 #include <string.h>
+#include <stdio.h>
 #include <dsmctl.h>
 #include <header.h>
 #include <messageDefs.h>
+
+#define PARSCI_STR       "PARSCI"
 
 class Parsci {
 
 public:
   Parsci ();
-
-  void buffer();
+  const char* buffer();
+  void parser();
   void secondAlign();
 
   const char buf[1000];
@@ -33,6 +36,7 @@ public:
 private:
   Parsci_blk parsci_blk[TOG];			// local data block
   int ptog;
+  int gtog;
   int idx;
 };
 

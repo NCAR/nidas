@@ -21,95 +21,26 @@ extern DsmConfig *dsm_config;
 ******************************************************************************/
  
 SyncRecord::SyncRecord (TapeHeader& hdr, DsmConfig& dcfg, SampleTable& st, 
-//                         Bc635Vme& tp, 
-//                         Counter *ctr,
-//                         DigitalIn *di,
-                        Dpres *presd[],
-//                         Dsp56002 *dp, 
-//                         HwIrs *hwirs[], 
-//                         HwGps *hwgps[], 
-//                         Mcr *mc,
-//                         Ophir3 *oph3[],
-//                         Pms1Vme *p1v[], 
-//                         Pms2dHouse *tdh[],
-//                         GpsTans2 *tan2[],
-//                         GpsTans3 *tan3[],
-//                         Garmin *garmingps[],
-//                         PpsGps *gpspps[],
-//                         Spp *serspp[],
-//                         UvHyg *uv[],
-//                         Vm3118 *vm3,
-//                         Synchro *synch,
-//                         GreyVmeHouse *grayh[],
-//                         JplTdl *tdljpl[],
-//                         LhTdl *tdllh,
-//                         Rdma *rdma,
-                        Neph *neph[],
-//                         Cmigits3 *cmigits[],
-                        Climet *climet
-//                         Mca *mca
-			) : samp_table (st)  // , tfp (tp)
+                        Mensor *presm[],
+                        Parsci *presp[]
+//                        Neph *neph[],
+//                        Cmigits3 *cmigits[],
+			) : samp_table (st)  
  
 // Class constructor.
 {
   int	j;
   
 // Copy the passed in class pointers.
-//   counter = ctr;
-//   digital_in = di;
-//   dsp = dp;
-//   mcr = mc;
-//   vm3118 = vm3;
-//   synchro = synch;
-//   lh_tdl = tdllh;
-  climet_cn = climet;
-//   mca_cn = mca;
-//   radial_dma = rdma;
   
 //   for (j = 0; j < MAX_CMIG_INTFC; j++)
 //     cmigits3[j] = cmigits[j];
 
-  for (j = 0; j < MAX_UVHYG_INTFC; j++)
-    nephelometer[j] = neph[j];
+  for (j = 0; j < RTL_MAX_SERIAL; j++)
+    men_pres[j] = presm[j];
 
-//   for (j = 0; j < MAX_HWIRS_INTFC; j++)
-//     hw_irs[j] = hwirs[j];
-
-//   for (j = 0; j < MAX_HWGPS_INTFC; j++)
-//     hw_gps[j] = hwgps[j];
-
-//   for (j = 0; j < MAX_PPS_INTFC; j++)
-//     pps_gps[j] = gpspps[j];
-
-//   for (j = 0; j < MAX_OPHIR3_INTFC; j++)
-//     ophir3[j] = oph3[j];
-
-//   for (j = 0; j < MAX_PMS1VME_INTFC; j++)
-//     pms1v[j] = p1v[j];
-
-//   for (j = 0; j < MAX_PMSVME2D_INTFC; j++)
-//     pms2dh[j] = tdh[j];
-
-//   for (j = 0; j < MAX_GREYVME_INTFC; j++)
-//     greyh[j] = grayh[j];
-
-//   for (j = 0; j < MAX_TANS_INTFC; j++) {
-//     tans2[j] = tan2[j];
-//     tans3[j] = tan3[j];
-//     garmin[j] = garmingps[j];
-//   }
-
-//   for (j = 0; j < MAX_SPP_INTFC; j++)
-//     spp[j] = serspp[j];
-
-//   for (j = 0; j < MAX_UVHYG_INTFC; j++)
-//     uvh[j] = uv[j];
-
-  for (j = 0; j < MAX_UVHYG_INTFC; j++)
-    d_pres[j] = presd[j];
-
-//   for (j = 0; j < MAX_UVHYG_INTFC; j++)
-//     jpl_tdl[j] = tdljpl[j];
+   for (j = 0; j < RTL_MAX_SERIAL; j++)
+     par_pres[j] = presp[j];
 
   lr_len = hdr.lrlen();			// keep a copy of the logical rec len
 
@@ -138,29 +69,20 @@ void SyncRecord::buildRecord ()
 {
   buildHdr();				// build the HDR block
   buildAnalog();			// enter the analog channels block
-  buildAnaAux();			// enter the analog aux channels block
-  buildCounter();			// enter the counter channels block
-  buildCmigits3();			// enter the cmigits channels block
-  buildDigitalIn();			// enter the digital input chans block
-  buildDigitalOut();			// enter the digital output chans block
-  buildDpres();			        // enter the digital pressure blocks
-  buildGpsTans();			// enter the Trimble tans blocks
-  buildGarmin();			// enter the Garmin gps blocks
-  buildHwIrs();				// enter the Honeywell irs blocks
-  buildHwGps();				// enter the Honeywell gps blocks
-  buildJplTdl();			// enter the JPL TDL blocks
-  buildLhTdl();				// enter the JPL TDL blocks
-  buildPpsGps();			// enter the GpsPPS blocks
-  buildOphir3();			// enter the Ophir3 blocks
-  buildPms1Vme();			// enter the vme pms 1d blocks
-  buildPms2dHouse();			// enter the 2d house blocks
-  buildClimet();			// enter the Climet block
-  buildMca();	   	    		// enter the Mca block
-  buildNeph();				// enter the Neph block
-  buildRdma();				// enter the rdma block
-  buildSynchro();			// enter the synchro block
-  buildSpp();				// enter the Spp block 
-  buildUvHyg();				// enter the UV hygrometer blocks
+//  buildCounter();			// enter the counter channels block
+//  buildCmigits3();			// enter the cmigits channels block
+//  buildDigitalIn();			// enter the digital input chans block
+//  buildDigitalOut();			// enter the digital output chans block
+  buildMensor();                        // enter the digital pressure blocks
+  buildParsci();                        // enter the digital pressure blocks
+//  buildGarmin();			// enter the Garmin gps blocks
+//  buildHwIrs();			// enter the Honeywell irs blocks
+//  buildHwGps();			// enter the Honeywell gps blocks
+//  buildOphir3();			// enter the Ophir3 blocks
+//  buildClimet();			// enter the Climet block
+//  buildNeph();                        // enter the Neph block
+//  buildRdma();			// enter the rdma block
+//  buildSpp();				// enter the Spp block 
   buf->setLen (lr_len);			// set buffer full
 }
 /******************************************************************************
@@ -260,41 +182,11 @@ void SyncRecord::buildAnalog ()
 //   }
 }
 /*****************************************************************************/
- 
-void SyncRecord::buildAnaAux ()
- 
-// Enters the analog auxiliary block into the logical record.
-{
-//   int len;
-//   int idx;
-//   int off;
-//   int j;
-//   char *src;
- 
-// // The 25 and 5 hz analog auxiliary blocks are multiplexed with the analog,
-// // digital, and counter 25 and 5 hertz blocks.
-//   if (len = samp_table.ana_aux_table.len25()) {     // 25 hz block
-//     for (src = vm3118->buf25(), idx = samp_table.ana_aux_table.start25(),
-//          off = samp_table.ana_aux_table.offset25(), j = 0; j < RATE_25;
-//          src += len, idx += off, j++) {
-//       buf->putBuf (src, idx, len);
-//     }
-//   }
- 
-//   if (len = samp_table.ana_aux_table.len5()) {     // 5 hz block
-//     for (src = vm3118->buf5(), idx = samp_table.ana_aux_table.start5(),
-//          off = samp_table.ana_aux_table.offset5(), j = 0; j < RATE_5;
-//          src += len, idx += off, j++) {
-//       buf->putBuf (src, idx, len);
-//     }
-//   }
-}
-/*****************************************************************************/
 
-void SyncRecord::buildCmigits3 ()
+//void SyncRecord::buildCmigits3 ()
 
 // Enters the Cmigits blocks into the logical record.
-{
+//{
 //   int stat;
 //   int j;
 //   Cmigits3_blk *cmigits3_blk;
@@ -312,13 +204,13 @@ void SyncRecord::buildCmigits3 ()
 
 // //    cmigits3_blk = (Cmigits3_blk*)cmigits3[j]->buffer();
 //    }
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildCounter ()
+//void SyncRecord::buildCounter ()
  
 // Enters the counter block into the logical record.
-{
+//{
 //   int len;
 //   int idx;
 //   int off;
@@ -343,13 +235,13 @@ void SyncRecord::buildCounter ()
  
 //   if (len = samp_table.counter_table.len1())           	// 1 hz block
 //     buf->putBuf (counter->buf1(), samp_table.counter_table.start1(), len);
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildDigitalIn ()
+//void SyncRecord::buildDigitalIn ()
  
 // Enters the digital inputs block into the logical record.
-{
+//{
 //   int len;
 //   int idx;
 //   int off;
@@ -395,13 +287,13 @@ void SyncRecord::buildDigitalIn ()
 
 //   if (len = samp_table.dig_in_table.len1())           	// 1 hz block
 //     buf->putBuf (digital_in->buf1(), samp_table.dig_in_table.start1(), len);
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildDigitalOut ()
+//void SyncRecord::buildDigitalOut ()
 
 // Enters the digital output words into the logical record.
-{
+//{
 //   short out;
 
 // // Enter the current MCR output value.
@@ -410,57 +302,13 @@ void SyncRecord::buildDigitalOut ()
 //     buf->putBuf ((char*)&out, samp_table.mcr_table.startMcrOut(), 
 //                  sizeof (short));
 //   }
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildGpsTans ()
- 
-// Enters the Trimble Tans blocks into the logical record.
-{
-//   int stat;
-//   int j;
-//   Gps_blk *gps_blk;
- 
-// // Tans 2.
-//   for (j = 0, stat = samp_table.tans2_table.firstEntry(); stat;
-//        j++, stat = samp_table.tans2_table.nextEntry()) {
-//     buf->putBuf (tans2[j]->buffer(),
-//                  samp_table.tans2_table.start(),
-//                  samp_table.tans2_table.length());
-
-// /*
-//     gps_blk = (Gps_blk*)tans2[j]->buffer();
-
-//     printf ("TANS2: glat = %f, glon = %f, galt = %f, gtime = %f\n",
-//             gps_blk->glat, gps_blk->glon, gps_blk->galt, gps_blk->gpstime);
-//     printf ("ghealth = 0x%4X, gpsmode = %d, addstat = %d\n",
-//              gps_blk->ghealth, gps_blk->gpsmode, gps_blk->addstat);
-// */
-//   }
-
-// // Tans 3.
-//   for (j = 0, stat = samp_table.tans3_table.firstEntry(); stat;
-//        j++, stat = samp_table.tans3_table.nextEntry()) {
-//     buf->putBuf (tans3[j]->buffer(),
-//                  samp_table.tans3_table.start(),
-//                  samp_table.tans3_table.length());
- 
-// /*
-//     gps_blk = (Gps_blk*)tans3[j]->buffer();
-
-//     printf ("TANS3: glat = %f, glon = %f, galt = %f, gtime = %f\n",
-//             gps_blk->glat, gps_blk->glon, gps_blk->galt, gps_blk->gpstime);
-//     printf ("ghealth = 0x%4X, gpsmode = %d, addstat = %d\n",
-//              gps_blk->ghealth, gps_blk->gpsmode, gps_blk->addstat);
-// */
-//   }
-}
-/*****************************************************************************/
- 
-void SyncRecord::buildGarmin ()
+//void SyncRecord::buildGarmin ()
  
 // Enters the Garmin blocks into the logical record.
-{
+//{
 //   int stat;
 //   int j;
 //   Garmin_blk *garmin_blk;
@@ -483,147 +331,69 @@ void SyncRecord::buildGarmin ()
 // //	     garmin_blk->course);
 
 //   }
-}
-/*****************************************************************************/
-
-void SyncRecord::buildPpsGps ()
- 
-// Enters the GpsPPS blocks into the logical record.
-{
-//   int stat;
-//   int j;
-//   Ppsgps_blk *gpspps_blk;
-
-// // GpsPPS.
-//   for (j = 0, stat = samp_table.pps_table.firstEntry(); stat;
-//        j++, stat = samp_table.pps_table.nextEntry()) {
-//     buf->putBuf (pps_gps[j]->buffer(),
-//                  samp_table.pps_table.start(),
-//                  samp_table.pps_table.length());
-
-// /*
-//     gpspps_blk = (Ppsgps_blk*)pps_gps[j]->buffer();
-
-//     printf ("TANS2: glat = %f, glon = %f, galt = %f, gtime = %f\n",
-//             gps_blk->glat, gps_blk->glon, gps_blk->galt, gps_blk->gpstime);
-//     printf ("ghealth = 0x%4X, gpsmode = %d, addstat = %d\n",
-//              gps_blk->ghealth, gps_blk->gpsmode, gps_blk->addstat);
-// */
-//   }
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildDpres ()
+void SyncRecord::buildMensor ()
  
 // Enters the digital pressure block into the logical record.
 {
   int stat;
   int j;
-//   Dpres_blk *presd_blk;
+//   Mensor_blk *presm_blk;
  
-// DPRES.
-  for (j = 0, stat = samp_table.dpres_table.firstEntry(); stat;
-       j++, stat = samp_table.dpres_table.nextEntry()) {
-    buf->putBuf(d_pres[j]->buffer(),
-		samp_table.dpres_table.start(),
-		samp_table.dpres_table.length());
+  for (j = 0, stat = samp_table.mensor_table.firstEntry(); stat;
+       j++, stat = samp_table.mensor_table.nextEntry()) {
+    buf->putBuf(men_pres[j]->buffer(),
+		samp_table.mensor_table.start(),
+		samp_table.mensor_table.length());
   }
 
-//  presd_blk = (Dpres_blk*)d_pres[0]->buffer();
+//  presm_blk = (Mensor_blk*)men_pres[0]->buffer();
 }
 /*****************************************************************************/
  
-void SyncRecord::buildJplTdl ()
+void SyncRecord::buildParsci ()
  
-// Enters the JplTdl block into the logical record.
+// Enters the Parascientific block into the logical record.
 {
-//   int stat;
-//   int j;
-//   Jpltdl_blk *p;
+   int stat;
+   int j;
+//   Parsci_blk *p;
 
-//   for (j = 0, stat = samp_table.jpltdl_table.firstEntry(); stat;
-//        j++, stat = samp_table.jpltdl_table.nextEntry()) {
-//     buf->putBuf(jpl_tdl[j]->buffer(),
-//                 samp_table.jpltdl_table.start(),
-//                 samp_table.jpltdl_table.length());
-// //    jpl_tdl[j]->zero();
-//   }
-// //  p = (Jpltdl_blk *)jpl_tdl[0]->buffer();
+   for (j = 0, stat = samp_table.parsci_table.firstEntry(); stat;
+        j++, stat = samp_table.parsci_table.nextEntry()) {
+     buf->putBuf(par_pres[j]->buffer(),
+                 samp_table.parsci_table.start(),
+                 samp_table.parsci_table.length());
+//    par_pres[j]->zero();
+   }
+//  p = (Parsci_blk *)par_pres[0]->buffer();
  
 }
 
 /*****************************************************************************/
 
-void SyncRecord::buildLhTdl ()
-
-// Enters the LhTdl block into the logical record.
-{
-
-//   TdlLh_blk *p;
-
-//   if (lh_tdl) {
-//     buf->putBuf((char *)(p = (TdlLh_blk *)lh_tdl->buffer()),
-//                 samp_table.lhtdl_table.start(),
-//                 samp_table.lhtdl_table.length());
-//   }
-
-}
-/*****************************************************************************/
-
-void SyncRecord::buildClimet ()
+//void SyncRecord::buildClimet ()
 
 // Enters the Climet block into the logical record.
-{
+//{
 
-  Climet_blk *p;
+//  Climet_blk *p;
 
-  if (climet_cn) {
-    buf->putBuf((char *)(p = (Climet_blk *)climet_cn->buffer()),
-		samp_table.climet_table.start(),
-		samp_table.climet_table.length());
-  }
+//  if (climet_cn) {
+//    buf->putBuf((char *)(p = (Climet_blk *)climet_cn->buffer()),
+//		samp_table.climet_table.start(),
+//		samp_table.climet_table.length());
+//  }
 
-}
+//}
 /*****************************************************************************/
 
-void SyncRecord::buildMca ()
-
-// Enters the Mca block into the logical record.
-{
-
-//   Mca_blk *p;
-
-//   if (mca_cn) {
-//     buf->putBuf((char *)(p = (Mca_blk *)mca_cn->buffer()),
-//                 samp_table.mca_table.start(),
-//                 samp_table.mca_table.length());
-//   }
-
-}
-
-/*****************************************************************************/
-
-void SyncRecord::buildNeph ()
-
-// Enters the Neph block into the logical record.
-{
-
-  int j, stat;
-
-  for (j = 0, stat = samp_table.neph_table.firstEntry(); stat;
-	j++, stat = samp_table.neph_table.nextEntry()) {
-    buf->putBuf(nephelometer[j]->buffer(),
-		samp_table.neph_table.start(),
-		samp_table.neph_table.length());
-  }
-}
-
-/*****************************************************************************/
-
-void SyncRecord::buildRdma ()
+//void SyncRecord::buildRdma ()
 
 // Enters the Rdma block into the logical record.
-{
+//{
 
 //   Rdma_blk *p; 
 
@@ -635,37 +405,14 @@ void SyncRecord::buildRdma ()
 // // printf("%s\n", p->item_type);
 //   }
 
-}
+//}
 
 /*****************************************************************************/
- 
-#ifdef B57
 
-/*****************************************************************************/
- 
-void SyncRecord::buildNoNoy ()
- 
-// Enters the NO_NOY block into the logical record.
-{
-//   int stat;
-//   int j;
-//   Nonoy_blk *noyno_blk;
- 
-// // NoNoy.
-//   buf->putBuf (no_noy->buffer(),
-//                samp_table.nonoy_table.start(),
-//                samp_table.nonoy_table.length());
- 
-//   noyno_blk = (Nonoy_blk*)no_noy->buffer();
-}
-
-#endif
-
-/*****************************************************************************/
-void SyncRecord::buildHwIrs ()
+//void SyncRecord::buildHwIrs ()
  
 // Enters the Honeywell irs blocks into the logical record.
-{
+//{
 //   int stat;
  
 // // Copy the blocks. 
@@ -683,13 +430,13 @@ void SyncRecord::buildHwIrs ()
 //         irsP->lag_10hz_frame, irsP->lag_5hz_frame);
 // **/
 //   }
-}
+//}
 
 /*****************************************************************************/
-void SyncRecord::buildHwGps ()
+//void SyncRecord::buildHwGps ()
  
 // Enters the Honeywell gps blocks into the logical record.
-{
+//{
 //   int stat;
 //   HwGps_blk *hgps_blk;
  
@@ -706,13 +453,13 @@ void SyncRecord::buildHwGps ()
 //         hgps_blk);
 // **/
 //   }
-}
+//}
 /*****************************************************************************/
  
-void SyncRecord::buildOphir3 ()
+//void SyncRecord::buildOphir3 ()
  
 // Enters the Ophir3 blocks into the logical record.
-{
+//{
 //   int stat;
 //   int j;
  
@@ -724,62 +471,13 @@ void SyncRecord::buildOphir3 ()
  
 // //  ophir3[j]->display();
 //   }
-}
+//}
 /*****************************************************************************/
 
-void SyncRecord::buildPms1Vme ()
-
-// Enters the vme pms 1d blocks into the logical record.
-{
-//   int stat;
-//   int intf;				// interface number
-
-//   for (stat = samp_table.pms1vme_table.firstChan(); stat;
-//        stat = samp_table.pms1vme_table.nextChan()) {
-
-//     intf = samp_table.pms1vme_table.interface();        // get interface number
-
-// // Copy the bin block.
-//     buf->putBuf (pms1v[intf]->binBlk (samp_table.pms1vme_table.channel()), 
-//                  samp_table.pms1vme_table.start(), 
-//                  samp_table.pms1vme_table.length());
-
-// // If particle spacing is enabled, copy the particle spacing block.
-//     if (samp_table.pms1vme_table.psLength()) 
-//       buf->putBuf (pms1v[intf]->binBlk(samp_table.pms1vme_table.channel()), 
-//                    samp_table.pms1vme_table.psStart(), 
-//                    samp_table.pms1vme_table.psLength());
-//   }
-}
-/*****************************************************************************/
- 
-void SyncRecord::buildPms2dHouse ()
- 
-// Enters the vme pms 2d housekeeping blocks into the logical record.
-{
-//   int stat;
-//   int intf;                             // interface number
-//   P2dChan *p2dh_blk;
- 
-//   for (stat = samp_table.pms2dh_table.firstChannel(); stat;
-//        stat = samp_table.pms2dh_table.nextChannel()) {
- 
-//     intf = samp_table.pms2dh_table.interface();        // get interface number
-// // Copy the housekeeping block.
-//     buf->putBuf (pms2dh[intf]->pbuffer (samp_table.pms2dh_table.channel()),
-//                  samp_table.pms2dh_table.start5(),
-//                  samp_table.pms2dh_table.len5());
-// //    p2dh_blk = (P2dChan*)pms2dh[intf]->
-// //               pbuffer (samp_table.pms2dh_table.channel()); 
-//   }
-}
-
-/*****************************************************************************/
-
-void SyncRecord::buildSpp ()
+//void SyncRecord::buildSpp ()
 
 // Enters the Spp blocks into the logical record.
-{
+//{
 //   int stat;
 //   int j;
 //   DMT100_blk *p;
@@ -789,78 +487,24 @@ void SyncRecord::buildSpp ()
 //     buf->putBuf ((char *)(p = (DMT100_blk *)spp[j]->buffer()),
 //                  samp_table.spp_table.start(),
 //                  samp_table.spp_table.length());
-// // printf("%d %d %d %d\n", p->OPCchan[2], p->OPCchan[12], p->OPCchan[22], p->OPCchan[32]);
+//  printf("%d %d %d %d\n", p->OPCchan[2], p->OPCchan[12], p->OPCchan[22], p->OPCchan[32]);
 //   }
-}
+//}
 
 /*****************************************************************************/
- 
-void SyncRecord::buildUvHyg ()
- 
-// Enters the UV hygrometer blocks into the logical record.
-{
-//   int stat;
-//   int j;
- 
-//   for (j = 0, stat = samp_table.uvh_table.firstEntry(); stat;
-//        j++, stat = samp_table.uvh_table.nextEntry()) {
-//     buf->putBuf (uvh[j]->buffer(),
-//                  samp_table.uvh_table.start(),
-//                  samp_table.uvh_table.length());
- 
-// //  uvh[j]->display();
-//   }
-}
-/*****************************************************************************/
-void SyncRecord::buildSynchro ()
-// Enters the course and fine radar altimeter data into the logical record.
 
-{
-//   int len;
-//   int idx;
-//   int off;
-//   int j;
-//   char *src;
- 
-// // The 25 altimeter data are multiplexed with the analog, analog
-// // auxiliary, counter, and digital 25 and 5 hertz blocks.
-//   if (len = samp_table.synchro_table.len25()) {         // 25 hz block
-//     for (src = synchro->buf25(), idx = samp_table.synchro_table.start25(),
-//          off = samp_table.synchro_table.offset25(), j = 0; j < RATE_25;
-//          src += len, idx += off, j++)
-//       buf->putBuf (src, idx, len);
-//   }
- 
-//   if (len = samp_table.synchro_table.len5()) {          // 5 hz block
-//     for (src = synchro->buf5(), idx = samp_table.synchro_table.start5(),
-//          off = samp_table.synchro_table.offset5(), j = 0; j < RATE_5;
-//          src += len, idx += off, j++)
-//       buf->putBuf (src, idx, len);
-//   }
- 
-//   if (len = samp_table.synchro_table.len1())            // 1 hz block
-//     buf->putBuf (synchro->buf1(), samp_table.synchro_table.start1(), len);
-}
-/*****************************************************************************/
- 
-void SyncRecord::buildGreyVmeHouse ()
- 
-// Enters the vme pms Grey housekeeping blocks into the logical record.
-{
-//   int stat;
-//   int intf;                             // interface number
-//   GreyChan *gryh_blk;
- 
-//   for (stat = samp_table.greyh_table.firstChannel(); stat;
-//        stat = samp_table.greyh_table.nextChannel()) {
- 
-//     intf = samp_table.greyh_table.interface();        // get interface number
-// // Copy the housekeeping block.
-//     buf->putBuf (greyh[intf]->pbuffer (samp_table.greyh_table.channel()),
-//                  samp_table.greyh_table.start1(),
-//                  samp_table.greyh_table.len1());
-// //    gryh_blk = (GreyChan*)greyh[intf]->
-// //               pbuffer (samp_table.greyh_table.channel());
-//   }
-}
+//void SyncRecord::buildNeph ()
+
+// Enters the Neph block into the logical record.
+//{
+
+//  int j, stat;
+
+//  for (j = 0, stat = samp_table.neph_table.firstEntry(); stat;
+//        j++, stat = samp_table.neph_table.nextEntry()) {
+//    buf->putBuf(nephelometer[j]->buffer(),
+//                samp_table.neph_table.start(),
+//                samp_table.neph_table.length());
+//  }
+//}
 

@@ -57,14 +57,16 @@ public:
 /*   SerialTable cmigits3_table;		// Cmidgets3 table */
 /*   SerialTable tans3_table;		// Trimble Tans III table */
 /*   SerialTable uvh_table;		// UV hygrometer table */
-  SerialTable dpres_table;		// DPRES table
+/*  SerialTable dpres_table;		// DPRES table */
+  SerialTable mensor_table;		// Mensor table
+  SerialTable parsci_table;		// Parsci table
 /*   SerialTable aerosol_table;		// AEROSOL table */
 /*   SerialTable masspec_table;		// MASSPEC table */
 /*   SerialTable jpltdl_table;		// JPL TDL table */
 /*   SerialTable lhtdl_table;		// JPL TDL table */
-  SerialTable climet_table;		// Climet table
+/*  SerialTable climet_table;		// Climet table */
 /*   SerialTable mca_table;		// Mca table */
-  SerialTable neph_table;		// Neph table
+/*  SerialTable neph_table;		// Neph table */
 /*   SerialTable rdma_table;		// Rdma table */
 /*   SerialTable spp_table;		// SPP table */
 

@@ -21,12 +21,18 @@ Mensor::Mensor ()
 // Constructor. 
 
   ptog = 0;
+  gtog = 0;
   idx = 0;
 
 }
 
 /*****************************************************************************/
-void Mensor::buffer()
+const char *Mensor::buffer()
+{
+  return((const char*)&mensor_blk[gtog]);
+}
+/*****************************************************************************/
+void Mensor::parser()
 {
   if (idx > 4)
     return;
@@ -38,6 +44,7 @@ void Mensor::secondAlign()
 // This routine is to be called at each 1 second clock tick. The Mensor_blk
 // buffers are toggled.
 {
+  gtog = ptog;
   ptog = 1 - ptog;
   idx = 0;
 }

@@ -25,14 +25,16 @@ void SampleTable::buildTable  ()
 //   int ophir_count = 0;
 //   int uvh_count = 0;
 //   int pps_count = 0;
-  int dpres_count = 0;
+//  int dpres_count = 0;
+  int mensor_count = 0;
+  int parsci_count = 0;
 //   int aerosol_count = 0;
 //   int mass_count = 0;
 //   int jpltdl_count = 0;
 //   int lhtdl_count = 0;
-  int climet_count = 0;
+//  int climet_count = 0;
 //   int mca_count = 0;
-  int neph_count = 0;
+//  int neph_count = 0;
 //   int rdma_count = 0;
 //   int cmigits3_count = 0;
 
@@ -88,7 +90,13 @@ void SampleTable::buildTable  ()
 //       cmigits3_table.enter (dsm_hdr, CMIGITS3_PORT_1 + cmigits3_count++);
     }
     else if (dsm_hdr.dpresType()) { 
-      dpres_table.enter (dsm_hdr, DPRES_PORT_1 + dpres_count++);
+//      dpres_table.enter (dsm_hdr, DPRES_PORT_1 + dpres_count++);
+    }
+    else if (dsm_hdr.mensorType()) { 
+      mensor_table.enter (dsm_hdr, MENSOR_PORT_1 + mensor_count++);
+    }
+    else if (dsm_hdr.parsciType()) { 
+      parsci_table.enter (dsm_hdr, PARSCI_PORT_1 + parsci_count++);
     }
     else if (dsm_hdr.ppsGpsType()) { 
 //       pps_table.enter (dsm_hdr, PPSGPS_PORT_1 + pps_count++);
@@ -106,13 +114,13 @@ void SampleTable::buildTable  ()
 //       lhtdl_table.enter (dsm_hdr, LHTDL_PORT_1 + lhtdl_count++);
     }
     else if (dsm_hdr.climetType()) {
-      climet_table.enter (dsm_hdr, CLIMET_PORT_1 + climet_count++);
+//      climet_table.enter (dsm_hdr, CLIMET_PORT_1 + climet_count++);
     }
     else if (dsm_hdr.mcaType()) {
 //       mca_table.enter (dsm_hdr, MCA_PORT_1 + mca_count++);
     }
     else if (dsm_hdr.nephType()) {
-      neph_table.enter (dsm_hdr, NEPH_PORT_1 + neph_count++);
+//      neph_table.enter (dsm_hdr, NEPH_PORT_1 + neph_count++);
     }
     else if (dsm_hdr.rdmaType()) {
 //       rdma_table.enter (dsm_hdr, RDMA_PORT_1 + rdma_count++);
@@ -121,10 +129,10 @@ void SampleTable::buildTable  ()
       enterHdr ();
     }
     else if (dsm_hdr.hskpType()) {
-      j++;
+//      j++;
     }
     else if (dsm_hdr.insType()) {
-      j++;
+//      j++;
     }
     else if (dsm_hdr.irsType()) {
 //       hwirs_table.enter (dsm_hdr);
@@ -133,7 +141,7 @@ void SampleTable::buildTable  ()
 //       hwgps_table.enter (dsm_hdr);
     }
     else if (dsm_hdr.lrncType()) {
-      j++;
+//      j++;
     }
     else if (dsm_hdr.ophir3Type()) {
 // // For now use the count for the location until xbuild gets locations added.
@@ -142,7 +150,7 @@ void SampleTable::buildTable  ()
 //       ophir3_table.enter (dsm_hdr, OPHIR_PORT_1 + ophir_count++);
     }
     else if (dsm_hdr.pms1Type()) {
-      j++;
+//      j++;
     }
     else if (dsm_hdr.pms1v2Type()) {
 //       pms1vme_table.enter (dsm_hdr);
@@ -176,7 +184,7 @@ void SampleTable::buildTable  ()
 //       }
     }
     else if (dsm_hdr.asyType()) {
-      j++;
+//      j++;
     }
     else {
       fprintf (stderr, "SampleTable: Unknown tape header descriptor --> [%s]\n",

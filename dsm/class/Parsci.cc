@@ -20,12 +20,18 @@ Parsci::Parsci ()
 // Constructor. 
 
   ptog = 0;
+  gtog = 0;
   idx = 0;
 
 }
 
 /*****************************************************************************/
-void Parsci::buffer()
+const char *Parsci::buffer()
+{
+  return((const char*)&parsci_blk[gtog]);
+}
+/*****************************************************************************/
+void Parsci::parser()
 {
   if (idx > 4)
     return;
@@ -38,6 +44,7 @@ void Parsci::secondAlign()
 // This routine is to be called at each 1 second clock tick. The Parsci_blk
 // buffers are toggled.
 {
+  gtog = ptog;
   ptog = 1 - ptog;
   idx = 0;
 }
