@@ -20,7 +20,9 @@
 #include <RTL_DSMSensor.h>
 #include <atdUtil/InvalidParameterException.h>
 #include <atdTermio/Termios.h>
+#include <SampleScanf.h>
 
+namespace dsm {
 /**
  * A sensor connected to a serial port.
  */
@@ -73,6 +75,21 @@ public:
     void setPromptRate(enum irigClockRates val) { promptRate = val; }
     enum irigClockRates getPromptRate() const { return promptRate; }
 
+    /**
+     * Set the format to scan ASCII data.
+     * @see SampleScanf.setFormat()
+     */
+    void setScanfFormat(const std::string& val)
+    	throw(atdUtil::InvalidParameterException);
+
+    const std::string& getScanfFormat();
+
+    void addSampleClient(SampleClient*);
+
+    void removeSampleClient(SampleClient*);
+
+    void removeAllSampleClients();
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
@@ -85,13 +102,19 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
-    std::string replaceEscapeSequences(std::string str);
+
+    static std::string replaceEscapeSequences(std::string str);
 
     std::string msgsep;
     bool sepAtEOM;
     int messageLength;
     std::string prompt;
     enum irigClockRates promptRate;
+
+    SampleScanf* scanner;
+    atdUtil::Mutex scannerLock;
 };
+
+}
 
 #endif

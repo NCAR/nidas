@@ -21,6 +21,8 @@
 #include <XMLStringConverter.h>
 #include <XDOM.h>
 
+#include <atdUtil/ThreadSupport.h>
+
 // #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNamedNodeMap.hpp>
@@ -39,7 +41,8 @@ CREATOR_ENTRY_POINT(DSMSerialSensor)
 DSMSerialSensor::DSMSerialSensor():
     sepAtEOM(true),
     messageLength(0),
-    promptRate(IRIG_NUM_RATES)
+    promptRate(IRIG_NUM_RATES),
+    scanner(0)
 {
 }
 
@@ -47,11 +50,13 @@ DSMSerialSensor::DSMSerialSensor(const string& nameArg) :
     RTL_DSMSensor(nameArg),
     sepAtEOM(true),
     messageLength(0),
-    promptRate(IRIG_NUM_RATES)
+    promptRate(IRIG_NUM_RATES),
+    scanner(0)
 {
 }
 
 DSMSerialSensor::~DSMSerialSensor() {
+    delete scanner;
     try {
 	close();
     }
@@ -136,6 +141,55 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
     cerr << "doing DSMSER_CLOSE" << endl;
     ioctl(DSMSER_CLOSE,(const void*)0,0);
     RTL_DSMSensor::close();
+}
+
+void DSMSerialSensor::setScanfFormat(const string& str)
+    throw(atdUtil::InvalidParameterException)
+{
+    atdUtil::Synchronized autosync(scannerLock);
+    bool newScanner = scanner == 0;
+    if (newScanner) {
+        scanner = new SampleScanf();
+    }
+    try {
+       scanner->setFormat(str);
+    }
+    catch (atdUtil::ParseException& pe) {
+        throw atdUtil::InvalidParameterException("DSMSerialSensor",
+               "setScanfFormat",pe.what());
+    }
+    if (newScanner)
+	SampleSource::addSampleClient(scanner);
+}
+
+const string& DSMSerialSensor::getScanfFormat()
+{
+    static string emptyStr;
+    atdUtil::Synchronized autosync(scannerLock);
+    if (!scanner) return emptyStr;
+    return scanner->getFormat();
+}
+
+/**
+ * Override addSampleClient to re-direct the request
+ * to my scanner.
+ */
+void DSMSerialSensor::addSampleClient(SampleClient* client) {
+    atdUtil::Synchronized autosync(scannerLock);
+    if (scanner) scanner->addSampleClient(client);
+    else SampleSource::addSampleClient(client);
+}
+
+void DSMSerialSensor::removeSampleClient(SampleClient* client) {
+    atdUtil::Synchronized autosync(scannerLock);
+    if (scanner) scanner->removeSampleClient(client);
+    else SampleSource::removeSampleClient(client);
+}
+  
+void DSMSerialSensor::removeAllSampleClients() {
+    atdUtil::Synchronized autosync(scannerLock);
+    if (scanner) scanner->removeAllSampleClients();
+    else SampleSource::removeAllSampleClients();
 }
 
 void DSMSerialSensor::fromDOMElement(
