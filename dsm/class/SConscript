@@ -24,14 +24,22 @@ sources = Split("""
   RTL_DSMSensor.cc
   DSMSerialSensor.cc
   Sample.cc
-  SamplePool.cc
   SampleSource.cc
   PortSelector.cc
   PortSelectorTest.cc
   RemoteSerialConnection.cc
   RemoteSerialListener.cc
   TestSampleClient.cc
+  SampleScanf.cc
 """)
+
+## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'
+
+## myenv['LEXFLAGS'] = Split("""
+##     -Pscanf_fmt_yy -+
+## """)
+
+myenv.CXXFile(target='SampleScanf.cc',source='SampleScanf.ll')
 
 ##
 ##  Build the libArmDsm.a library.
