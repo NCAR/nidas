@@ -20,6 +20,7 @@
 #include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <iostream>
+#include <vector>
 
 using namespace dsm;
 using namespace std;
