@@ -17,6 +17,7 @@
 
 #include <ioctl_fifo.h>
 
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/uio.h>
@@ -43,10 +44,12 @@ RTL_DevIoctl::~RTL_DevIoctl()
 void RTL_DevIoctl::open() throw(atdUtil::IOException)
 {
     
-    infifofd = ::open(inputFifoName.c_str(),O_RDONLY);
+    if (infifofd < 0)
+	infifofd = ::open(inputFifoName.c_str(),O_RDONLY);
     if (infifofd < 0) throw atdUtil::IOException(inputFifoName,"open",errno);
 
-    outfifofd = ::open(outputFifoName.c_str(),O_WRONLY);
+    if (outfifofd < 0)
+	outfifofd = ::open(outputFifoName.c_str(),O_WRONLY);
     if (outfifofd < 0) throw atdUtil::IOException(outputFifoName,"open",errno);
 
     opened = true;
@@ -151,7 +154,7 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 
     /* read back the status errno */
     int errval;
-    int lread;
+    ssize_t lread;
     if ((lread = read(infifofd,&errval,sizeof(errval))) < 0)
 	throw atdUtil::IOException(inputFifoName,"read",errno);
 #ifdef DEBUG
