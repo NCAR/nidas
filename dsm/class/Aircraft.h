@@ -32,7 +32,7 @@ public:
     virtual ~Aircraft();
 
     void addDSMConfig(DSMConfig* dsm) { dsms.push_back(dsm); }
-    const std::list<DSMConfig*> getDSMConfigs() const { return dsms; }
+    const std::list<DSMConfig*>& getDSMConfigs() const { return dsms; }
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);

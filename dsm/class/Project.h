@@ -33,8 +33,8 @@ public:
 
     static Project* getInstance();
 
-    void addAircraft(Aircraft* aircraft) { aircrafts.push_back(aircraft); }
-    const std::list<Aircraft*> getSensors() const { return aircrafts; }
+    void addAircraft(Aircraft* val) { aircraft.push_back(val); }
+    const std::list<Aircraft*>& getAircraft() const { return aircraft; }
 
     void setSensorCatalog(SensorCatalog* val) { catalog = val; }
     SensorCatalog* getSensorCatalog() const { return catalog; }
@@ -52,7 +52,7 @@ public:
 
 protected:
     static Project* instance;
-    std::list<Aircraft*> aircrafts;
+    std::list<Aircraft*> aircraft;
     SensorCatalog* catalog;
 };
 

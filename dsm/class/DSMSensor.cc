@@ -93,7 +93,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    cerr << "attrname=" << attr.getName() << endl;
-	    if (!attr.getName().compare("device")) {
+	    if (!attr.getName().compare("devicename")) {
 		setDeviceName(attr.getValue());
 		cerr << "\tattrval=" << attr.getValue() << endl;
 	    }

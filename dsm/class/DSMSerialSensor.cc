@@ -146,10 +146,27 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
 void DSMSerialSensor::setScanfFormat(const string& str)
     throw(atdUtil::InvalidParameterException)
 {
-    atdUtil::Synchronized autosync(scannerLock);
-    bool newScanner = scanner == 0;
-    if (newScanner) {
-        scanner = new SampleScanf();
+    scannerLock.lock();
+    bool newscanner = (scanner == 0);
+    scannerLock.unlock();
+
+    if (newscanner) {
+        SampleScanf* news = new SampleScanf();
+
+	clistLock.lock();
+	std::list<SampleClient*> tmp = clients;
+	clistLock.unlock();
+
+	std::list<SampleClient*>::iterator li;
+	for (li = tmp.begin(); li != tmp.end(); ++li) {
+	    removeSampleClient(*li);
+	    news->addSampleClient(*li);
+	}
+	addSampleClient(news);
+
+	scannerLock.lock();
+	scanner = news;
+	scannerLock.unlock();
     }
     try {
        scanner->setFormat(str);
@@ -158,8 +175,6 @@ void DSMSerialSensor::setScanfFormat(const string& str)
         throw atdUtil::InvalidParameterException("DSMSerialSensor",
                "setScanfFormat",pe.what());
     }
-    if (newScanner)
-	SampleSource::addSampleClient(scanner);
 }
 
 const string& DSMSerialSensor::getScanfFormat()
@@ -231,6 +246,8 @@ void DSMSerialSensor::fromDOMElement(
 		setDataBits(atoi(aval.c_str()));
 	    else if (!aname.compare("stopbits"))
 		setStopBits(atoi(aval.c_str()));
+	    else if (!aname.compare("scanfFormat"))
+		setScanfFormat(aval);
 	}
     }
     DOMNode* child;

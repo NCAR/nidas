@@ -45,7 +45,6 @@ Project::Project(): catalog(0)
 
 Project::~Project()
 {
-    delete instance;
     delete catalog;
     instance = 0;
 }

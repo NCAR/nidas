@@ -35,7 +35,7 @@ public:
     virtual ~DSMConfig();
 
     void addSensor(DSMSensor* sensor) { sensors.push_back(sensor); }
-    const std::list<DSMSensor*> getSensors() const { return sensors; }
+    const std::list<DSMSensor*>& getSensors() const { return sensors; }
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);

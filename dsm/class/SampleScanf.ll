@@ -39,6 +39,7 @@
 #include <Sample.h>
 #include <iostream>
 #include <assert.h>
+#include <math.h>
 
 using namespace dsm;
 
@@ -47,6 +48,7 @@ using namespace dsm;
 %}
 
 DIGIT	[0-9]
+LETTER	[a-zA-Z]
 
 %%
 
@@ -107,6 +109,9 @@ DIGIT	[0-9]
 
 \%\*{DIGIT}*c	;
 
+\%{LETTER}	{
+		  return(UNKNOWN);
+		}
 [ \t]+		;
 
 .		;
@@ -205,6 +210,7 @@ void SampleScanf::setFormat(const std::string& val)
 	  currentField->size = sizeof(char);
 	  allFloats = false;
 	  break;
+	case UNKNOWN:
 	default:
 	    throw atdUtil::ParseException(
 	    	"unsupported field in scanf format",format);
@@ -281,27 +287,33 @@ bool SampleScanf::receive(const Sample*samp)
 	for (int i = 0; i < nparsed; i++) {
 	    switch(fields[i]->type) {
 	    case DOUBLE:
-	      outs->getDataPtr()[i] = (float)*(double*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = (float)*(double*)bufptrs[i];
+		break;
 	    case FLOAT:
-	      outs->getDataPtr()[i] = *(float*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = *(float*)bufptrs[i];
+		break;
 	    case LONG:
-	      outs->getDataPtr()[i] = (float)*(long*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = (float)*(long*)bufptrs[i];
+		break;
 	    case ULONG:
-	      outs->getDataPtr()[i] = (float)*(unsigned long*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = (float)*(unsigned long*)bufptrs[i];
+		break;
 	    case SHORT:
-	      outs->getDataPtr()[i] = (float)*(short*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = (float)*(short*)bufptrs[i];
+		break;
 	    case USHORT:
-	      outs->getDataPtr()[i] = (float)*(unsigned short*)bufptrs[i];
-	      break;
+		outs->getDataPtr()[i] = (float)*(unsigned short*)bufptrs[i];
+		break;
 	    case CHAR:
-	      // treats first character as unsigned int
-	      outs->getDataPtr()[i] = (float)*(unsigned char*)bufptrs[i];
-	      break;
+		// treats first character as unsigned int
+		outs->getDataPtr()[i] = (float)*(unsigned char*)bufptrs[i];
+		break;
+	    case UNKNOWN:
+		// should have been thrown as an exception during parsing
+		// but to avoid a compiler error we'll include it in this
+		// switch.
+		outs->getDataPtr()[i] = nanf("");
+		break;
 	    }
 	}
     }

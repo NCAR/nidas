@@ -42,29 +42,13 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    cerr << "element name=" << xnode.getNodeName() << endl;
+    cerr << "SensorCatalog: element name=" << xnode.getNodeName() << endl;
     
     if (xnode.getNodeName().compare("sensorcatalog"))
 	    throw atdUtil::InvalidParameterException(
 		    "SensorCatalog::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
 		    
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	cerr <<"\tAttributes" << endl;
-	cerr <<"\t----------" << endl;
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
-	    // get attribute name
-	    cerr << "attrname=" << attr.getName() << endl;
-	    
-	    // get attribute type
-	    cerr << "\tattrval=" << attr.getValue() << endl;
-	}
-    }
-
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -72,20 +56,24 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
-	cerr << "element name=" << elname << endl;
+	cerr << "SensorCatalog: child element name=" << elname << endl;
 
 	if (!elname.compare("serialsensor")) {
-	    pair<string,DOMElement*> p;
-	    p.first = xchild.getAttributeValue("ID");
-	    cerr << "serialsensor id=" << p.first << endl;
-	    if(p.first.length() > 0) {
-		if (operator[](p.first) != (DOMElement*)0)
+	    const string& id = xchild.getAttributeValue("ID");
+	    if(id.length() > 0) {
+		map<string,DOMElement*>::iterator mi =
+			find(id);
+		if (mi != end() && mi->second != (DOMElement*)child)
 		    throw atdUtil::InvalidParameterException(
 			"SensorCatalog::fromDOMElement",
-			"duplicate sensor in catalog, ID",
-			p.first);
-		p.second = (DOMElement*)child;
-		insert(p);
+			"duplicate sensor in catalog, ID",id);
+		cerr << "sensorCatalog.size=" << size() << endl;
+		insert(make_pair<string,DOMElement*>(id,(DOMElement*)child));
+		cerr << "sensorCatalog.size=" << size() << endl;
+		for (mi = begin(); mi != end(); ++mi)
+		    cerr << "map:" << mi->first << " " << hex << mi->second <<
+		    	dec << endl;
+
 	    }
 	}
     }

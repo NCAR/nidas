@@ -56,7 +56,7 @@ public:
     SampleScanf();
     virtual ~SampleScanf();
 
-    enum fieldtype { DOUBLE=258, FLOAT, LONG, SHORT, CHAR, ULONG, USHORT };
+    enum fieldtype { DOUBLE=258, FLOAT, LONG, SHORT, CHAR, ULONG, USHORT, UNKNOWN };
 
     /**
      * Set the format to be used to sscanf samples.
