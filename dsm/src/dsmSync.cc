@@ -161,12 +161,12 @@ void main()
       if (FD_ISSET( mensor[i]->dataFifo[j], &readfds)){
         len = read(mensor[i]->dataFifo[j], &mensor[i]->buf[0], sizeof(buf));
         if (buf[0] == '0')
-          mensor[i]->buffer();
+          mensor[i]->parser();
       }
       if (FD_ISSET( parsci[i]->dataFifo[j], &readfds)){
         len = read(parsci[i]->dataFifo[j], &parsci[i]->buf[0], sizeof(buf));
         if (buf[0] == '*')
-          parsci[i]->buffer();
+          parsci[i]->parser();
       }
     }
   }
