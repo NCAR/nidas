@@ -18,12 +18,94 @@
 #ifndef DSM_SAMPLET_H
 #define DSM_SAMPLET_H
 
-#include <string>
 #include <SampleLengthException.h>
-#include <MaxValue.h>
 #include <dsm_sample.h>
 
+#include <limits.h>
+
 namespace dsm {
+
+/**
+ * maxValue is an overloaded function returning the
+ * maximum value of its integer argument.
+ */
+inline size_t maxValue(unsigned short arg)
+{
+    return USHRT_MAX;
+}
+
+inline size_t maxValue(short arg)
+{
+    return SHRT_MAX;
+}
+
+inline size_t maxValue(int arg)
+{
+    return INT_MAX;
+}
+
+inline size_t maxValue(unsigned int arg)
+{
+    return UINT_MAX;
+}
+
+inline size_t maxValue(long arg)
+{
+    return LONG_MAX;
+}
+
+inline size_t maxValue(unsigned long arg)
+{
+    return ULONG_MAX;
+}
+
+enum sampleType {
+	UNKNOWN_ST, CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
+	LONG_ST, ULONG_ST, FLOAT_ST };
+
+/**
+ * Overloaded function to return a enumerated value
+ * corresponding to the type pointed to by the argument.
+ */
+inline enum sampleType sampleType(char* ptr)
+{
+    return CHAR_ST;
+}
+
+inline enum sampleType sampleType(unsigned char* ptr)
+{
+    return UCHAR_ST;
+}
+
+inline enum sampleType sampleType(unsigned short* ptr)
+{
+    return USHORT_ST;
+}
+
+inline enum sampleType sampleType(short* ptr)
+{
+    return SHORT_ST;
+}
+
+inline enum sampleType sampleType(unsigned long* ptr)
+{
+    return ULONG_ST;
+}
+
+inline enum sampleType sampleType(long* ptr)
+{
+    return LONG_ST;
+}
+
+inline enum sampleType sampleType(float* ptr)
+{
+    return FLOAT_ST;
+}
+
+inline enum sampleType sampleType(void* ptr)
+{
+    return UNKNOWN_ST;
+}
 
 /**
  * Interface to a sample of raw data.  A sample contains
@@ -60,9 +142,14 @@ public:
     virtual void setId(int val) = 0;
 
     /**
-     * Set the id portion of the sample header. The id can
+     * Set the id portion of the sample header.
      */
     virtual int getId() const = 0;
+
+    /**
+     * Set the type of the sample.
+     */
+    virtual enum sampleType getType() const = 0;
 
     /**
      * Number of bytes in header.
@@ -241,6 +328,7 @@ public:
     void setId(int val) { header.setId(val); }
     int getId() const { return header.getId(); }
 
+    enum sampleType getType() const { return sampleType(data); }
     /**
      * Get number of elements of type DataT in data.
      */
@@ -396,6 +484,24 @@ class CharSample :
  */
 class LargeCharSample :
     public SampleT<LargeSampleHeader, char>
+{
+};
+
+/**
+ * A Sample with an array of shorts for data, with a maximum length
+ * of 65532/4 = 16383 elements.
+ */
+class ShortIntSample :
+    public SampleT<SmallSampleHeader, short>
+{
+};
+
+/**
+ * A Sample with an array of unsigned shorts for data, with a maximum length
+ * of 65532/4 = 16383 elements.
+ */
+class UnsignedShortIntSample :
+    public SampleT<SmallSampleHeader, unsigned short>
 {
 };
 
