@@ -121,7 +121,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 	if (prompt.len > (int)sizeof(prompt.str))
 		prompt.len = sizeof(prompt.str);
 	prompt.rate = getPromptRate();
-	cerr << "prompt=\"" << nprompt << "\"" << endl;
+	cerr << "rate=" << prompt.rate << " prompt=\"" << nprompt << "\"" << endl;
 	ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
 	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
@@ -270,9 +270,9 @@ void DSMSerialSensor::fromDOMElement(
 
 	    setPromptString(prompt);
 
-	    // cerr << "rate=" << xchild.getAttributeValue("rate") << endl;
 	    int rate = atoi(xchild.getAttributeValue("rate").c_str());
 	    enum irigClockRates erate = irigClockRateToEnum(rate);
+	    cerr << "rate=" << rate << " erate=" << erate << endl;
 
 	    if (rate != 0 && erate == IRIG_NUM_RATES)
 		throw atdUtil::InvalidParameterException
