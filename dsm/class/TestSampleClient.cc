@@ -21,8 +21,7 @@
 using namespace dsm;
 using namespace std;
 
-bool TestSampleClient::receive(const Sample *s)
-	throw(SampleParseException,atdUtil::IOException)
+bool TestSampleClient::receive(const Sample *s) throw()
 {
     cerr << dec << "timetag= " << s->getTimeTag() << " id= " << s->getId() <<
     	" len=" << s->getDataLength() << endl;

@@ -139,8 +139,7 @@ void SyncRecordGenerator::allocateRecord(int ndays,dsm_sample_time_t timetag)
     floatPtr[0] = ndays;
 }
 
-bool SyncRecordGenerator::receive(const Sample* samp)
-        throw(SampleParseException, atdUtil::IOException)
+bool SyncRecordGenerator::receive(const Sample* samp) throw()
 {
     dsm_sample_time_t tt = samp->getTimeTag();
     unsigned long id = samp->getId();
@@ -177,8 +176,11 @@ bool SyncRecordGenerator::receive(const Sample* samp)
     }
 
     map<unsigned long, int>::const_iterator gi =  groupIds.find(id);
-    if (gi == groupIds.end()) 
-    	throw SampleParseException("unexpected sample id");
+    if (gi == groupIds.end()) {
+        unrecognizedSamples++;
+	return false;
+    }
+        
     int groupId = gi->second;
 
     int nvarsInGroup = numVarsInRateGroup[groupId];

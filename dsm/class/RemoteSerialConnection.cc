@@ -29,8 +29,7 @@ RemoteSerialConnection::~RemoteSerialConnection()
 /**
  * Receive a sample from the DSMSensor, write data portion to fd.
  */
-bool RemoteSerialConnection::receive(const Sample* s)
-	    throw(SampleParseException,atdUtil::IOException)
+bool RemoteSerialConnection::receive(const Sample* s) throw()
 {
     try {
 	socket->send(s->getConstVoidDataPtr(), s->getDataLength());
@@ -38,7 +37,6 @@ bool RemoteSerialConnection::receive(const Sample* s)
     catch (const atdUtil::IOException& e)
     {
 	setSensor(0);
-	throw e;
     }
     return true;
 }

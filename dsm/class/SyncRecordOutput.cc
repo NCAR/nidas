@@ -71,8 +71,7 @@ void SyncRecordOutput::setDSMConfig(const DSMConfig* dsm)
     generator.setAircraft(aircraft);
 }
 
-bool SyncRecordOutput::receive(const Sample* samp)
-        throw(SampleParseException, atdUtil::IOException)
+bool SyncRecordOutput::receive(const Sample* samp) throw()
 {
     // cerr << "doing sorter.receive" << endl;
     return sorter.receive(samp);

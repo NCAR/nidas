@@ -69,8 +69,7 @@ protected:
      * SampleClient throws an exception, the sample is not passed to
      * subsequent clients.
      */
-    virtual void distributeImpl(const Sample*)
-  	throw(SampleParseException,atdUtil::IOException);
+    virtual void distributeImpl(const Sample*) throw();
 
     /**
      * Distribute a list of samples to my clients, calling
@@ -80,7 +79,7 @@ protected:
      * freeReference() method will have been called.
      */
     virtual void distributeImpl(const std::list<const Sample*>& samples)
-	throw(SampleParseException,atdUtil::IOException);
+    	throw();
 
 protected:
 

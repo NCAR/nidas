@@ -124,8 +124,7 @@ void SampleOutputStream::flush() throw(atdUtil::IOException)
     if (iostream) iostream->flush();
 }
 
-bool SampleOutputStream::receive(const Sample *samp)
-         throw(SampleParseException, atdUtil::IOException)
+bool SampleOutputStream::receive(const Sample *samp) throw()
 {
     if (!iostream) return false;
     if (type == TIMETAG_DEPENDENT) {
@@ -172,7 +171,13 @@ bool SampleOutputStream::receive(const Sample *samp)
 	}
     }
 
-    write(samp);
+    // todo: log this error, re-establish connection?
+    try {
+	write(samp);
+    }
+    catch(const atdUtil::IOException& ioe) {
+        cerr << ioe.what();
+    }
     return true;
 }
 

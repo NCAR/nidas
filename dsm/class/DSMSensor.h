@@ -22,7 +22,6 @@
 #include <RawSampleSource.h>
 #include <SampleTag.h>
 #include <DOMable.h>
-#include <SampleParseException.h>
 
 #include <dsm_sample.h>
 
@@ -216,15 +215,14 @@ public:
      * length, and then length number of bytes of data.
      */
     dsm_sample_time_t readSamples()
-    	throw(SampleParseException,atdUtil::IOException);
+    	throw(atdUtil::IOException);
 
     /**
      * A DSMSensor can be configured as a RawSampleClient
      * of itself, meaning it receives its own raw samples, and
      * applies further processing via its process method.
      */
-    bool receive(const Sample *s)
-  	throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample *s) throw();
 
     /**
      * Apply further necessary processing to a raw sample
@@ -233,7 +231,7 @@ public:
      * of process() simply puts the input Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw(SampleParseException,atdUtil::IOException);
+    	throw();
 
     void initStatistics();
 

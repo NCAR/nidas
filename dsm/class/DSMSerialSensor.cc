@@ -338,7 +338,7 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
 }
 
 bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
-	throw(atdUtil::IOException,dsm::SampleParseException)
+	throw()
 {
     static int nsamps = 0;
 

@@ -31,9 +31,8 @@ void SampleSourceImpl::removeAllSampleClientsImpl() {
     clients.removeAll();
 }
   
-void SampleSourceImpl::distributeImpl(const Sample* sample)
-	throw(SampleParseException,atdUtil::IOException) {
-
+void SampleSourceImpl::distributeImpl(const Sample* sample) throw()
+{
     // copy constructor does a lock
     SampleClientList tmp(clients);
 
@@ -63,29 +62,12 @@ void SampleSourceImpl::distributeImpl(const Sample* sample)
 }
 
 void SampleSourceImpl::distributeImpl(const list<const Sample*>& samples)
-	throw(SampleParseException,atdUtil::IOException)
+	throw()
 {
     list<const Sample*>::const_iterator si;
-    try {
-	for (si = samples.begin(); si != samples.end(); ++si) {
-	    const Sample *s = *si;
-	    distributeImpl(s);
-	    s->freeReference();
-	}
-    }
-    // on exception, free references on bad sample and the rest
-    catch(const SampleParseException& cpe) {
-	for ( ; si != samples.end(); ++si) {
-	    const Sample *s = *si;
-	    s->freeReference();
-	}
-	throw cpe;
-    }
-    catch(const atdUtil::IOException& ioe) {
-	for ( ; si != samples.end(); ++si) {
-	    const Sample *s = *si;
-	    s->freeReference();
-	}
-	throw ioe;
+    for (si = samples.begin(); si != samples.end(); ++si) {
+	const Sample *s = *si;
+	distributeImpl(s);
+	s->freeReference();
     }
 }

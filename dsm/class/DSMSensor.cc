@@ -76,7 +76,7 @@ void DSMSensor::destroyBuffer() throw()
 }
 
 dsm_sample_time_t DSMSensor::readSamples()
-	throw (SampleParseException,atdUtil::IOException)
+	throw (atdUtil::IOException)
 {
     size_t len = BUFSIZE - bufhead;	// length to read
     size_t rlen;			// read result
@@ -97,18 +97,8 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
 		tt = samp->getTimeTag();	// return last time tag read
-		try {
-		    distributeRaw(samp);
-		    samp->freeReference();
-		}
-	        catch(const SampleParseException& cpe) {
-		    samp->freeReference();
-		    throw cpe;
-		}
-		catch(const atdUtil::IOException& ioe) {
-		    samp->freeReference();
-		    throw ioe;
-		}
+		distributeRaw(samp);
+		samp->freeReference();
 		nsamples++;
 		samp = 0;
 		// Finished with sample. Check for more data in buffer
@@ -149,8 +139,7 @@ dsm_sample_time_t DSMSensor::readSamples()
     return tt;
 }
 
-bool DSMSensor::receive(const Sample *samp)
-  	throw(SampleParseException, atdUtil::IOException)
+bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
     process(samp,results);
@@ -162,8 +151,7 @@ bool DSMSensor::receive(const Sample *samp)
 /**
  * Default implementation of process just passes samples on.
  */
-bool DSMSensor::process(const Sample* s, list<const Sample*>& result)
-    	throw(dsm::SampleParseException,atdUtil::IOException)
+bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
 {
     s->holdReference();
     result.push_back(s);

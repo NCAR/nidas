@@ -64,13 +64,13 @@ public:
      * and so is appropriate to use when a select() has determined
      * that there is data availabe on our file descriptor.
      */
-    virtual void readSamples() throw(dsm::SampleParseException,atdUtil::IOException) = 0;
+    virtual void readSamples() throw(atdUtil::IOException) = 0;
 
     /**
      * Blocking read of the next sample from the buffer. The caller must
      * call freeReference on the sample when they're done with it.
      */
-    virtual Sample* readSample() throw(SampleParseException,atdUtil::IOException) = 0;
+    virtual Sample* readSample() throw(atdUtil::IOException) = 0;
 
     virtual size_t getUnrecognizedSamples() const = 0;
 
@@ -137,13 +137,13 @@ public:
      * and so is appropriate to use when a select() has determined
      * that there is data availabe on our file descriptor.
      */
-    void readSamples() throw(dsm::SampleParseException,atdUtil::IOException);
+    void readSamples() throw(atdUtil::IOException);
 
     /**
      * Blocking read of the next sample from the buffer. The caller must
      * call freeReference on the sample when they're done with it.
      */
-    Sample* readSample() throw(SampleParseException,atdUtil::IOException);
+    Sample* readSample() throw(atdUtil::IOException);
 
     size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
 

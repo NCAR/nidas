@@ -70,8 +70,7 @@ public:
      * Distribute a sample to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
      */
-    virtual void distributeRaw(const Sample* s)
-	throw(SampleParseException,atdUtil::IOException)
+    virtual void distributeRaw(const Sample* s) throw()
     {
         distributeImpl(s);
     }

@@ -34,8 +34,7 @@ public:
 
     void interrupt();
 
-    bool receive(const Sample *s)
-	throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample *s) throw();
 
     unsigned long size() const { return samples.size(); }
 
@@ -44,7 +43,7 @@ public:
     /**
      * flush all samples from buffer, distributing them to SampleClients.
      */
-    void flush() throw (SampleParseException,atdUtil::IOException);
+    void flush() throw (atdUtil::IOException);
 
 protected:
 

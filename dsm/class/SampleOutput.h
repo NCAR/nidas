@@ -18,7 +18,6 @@
 
 #include <Sample.h>
 #include <SampleClient.h>
-#include <SampleParseException.h>
 #include <IOStream.h>
 #include <ConnectionRequester.h>
 
@@ -113,8 +112,7 @@ public:
 
     int getFd() const;
 
-    bool receive(const Sample *s)
-	throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample *s) throw();
 
     size_t write(const Sample* samp) throw(atdUtil::IOException);
 

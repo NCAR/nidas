@@ -141,7 +141,7 @@ public:
      * a processed sample of binary floating point data.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw(dsm::SampleParseException,atdUtil::IOException);
+    	throw();
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);

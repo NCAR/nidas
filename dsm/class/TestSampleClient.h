@@ -28,8 +28,7 @@ namespace dsm {
 class TestSampleClient : public SampleClient {
 public:
 
-  bool receive(const Sample *s)
-  	throw(SampleParseException,atdUtil::IOException);
+  bool receive(const Sample *s) throw();
 
 };
 

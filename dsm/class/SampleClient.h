@@ -17,7 +17,6 @@
 #define DSM_SAMPLECLIENT_H
 
 #include <Sample.h>
-#include <SampleParseException.h>
 #include <atdUtil/IOException.h>
 
 namespace dsm {
@@ -39,14 +38,8 @@ public:
    *     being available temporarily.  True errors
    *     will be thrown as an IOException.
    */
-  virtual bool receive(const Sample *s)
-  	throw(SampleParseException, atdUtil::IOException) = 0;
+  virtual bool receive(const Sample *s) throw() = 0;
 
-  /**
-   * Called by external object to reset this SampleClient. 
-   * For example, re-open a socket.
-   */
-  virtual void reset(Sample *s) throw(atdUtil::IOException) {}
 };
 }
 

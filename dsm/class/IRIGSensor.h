@@ -56,7 +56,7 @@ public:
      * Process a raw sample.
      */
     bool process(const Sample* samp,std::list<const Sample*>& result)
-    	throw(SampleParseException,atdUtil::IOException);
+    	throw();
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);

@@ -87,7 +87,7 @@ void IRIGSensor::close() throw(atdUtil::IOException)
 }
 
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
-    	throw(SampleParseException,atdUtil::IOException)
+	throw()
 {
     dsm_sys_time_t syst = getCurrentTimeInMillis();
 

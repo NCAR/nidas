@@ -24,7 +24,8 @@ CREATOR_ENTRY_POINT(SampleInputStream)
 SampleInputStream::SampleInputStream():
     name("SampleInputStream"),iochan(0),iostream(0),
     pseudoPort(0),connectionRequester(0),
-    dsm(0),service(0), samp(0),left(0),dptr(0)
+    dsm(0),service(0), samp(0),left(0),dptr(0),
+    unrecognizedSamples(0)
 {
 }
 
@@ -32,7 +33,8 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x):
     name(x.name),iochan(x.iochan->clone()),iostream(0),
     pseudoPort(x.pseudoPort),connectionRequester(0),
     dsm(x.dsm),service(x.service),
-    samp(0),left(0),dptr(0)
+    samp(0),left(0),dptr(0),
+    unrecognizedSamples(0)
 {
 }
 
@@ -129,7 +131,7 @@ int SampleInputStream::getFd() const
  * method of my SampleClients.  This will perform only one physical
  * read of the underlying device.
  */
-void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::IOException)
+void SampleInputStream::readSamples() throw(atdUtil::IOException)
 {
     static int nsamps = 0;
 
@@ -155,10 +157,15 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	    	" getDataByteLength=" << header.getDataByteLength() <<
 		endl;
 #endif
-	    if (header.getType() >= UNKNOWN_ST)
-	        throw SampleParseException("sample type unknown");
-	    samp = dsm::getSample((sampleType)header.getType(),
-	    	header.getDataByteLength());
+	    if (header.getType() >= UNKNOWN_ST) {
+	        unrecognizedSamples++;
+		samp = dsm::getSample((sampleType)CHAR_ST,
+		    header.getDataByteLength());
+	    }
+	    else
+		samp = dsm::getSample((sampleType)header.getType(),
+		    header.getDataByteLength());
+
 	    samp->setTimeTag(header.getTimeTag());
 	    samp->setId(header.getId());
 	    left = samp->getDataByteLength();
@@ -197,7 +204,7 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
  * Blocking read of the next sample from the buffer. The caller must
  * call freeReference on the sample when they're done with it.
  */
-Sample* SampleInputStream::readSample() throw(SampleParseException,atdUtil::IOException)
+Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 {
     // user shouldn't mix the two read methods on one stream, but if they
     // do, checking for non-null samp here should make things work.
@@ -207,11 +214,15 @@ Sample* SampleInputStream::readSample() throw(SampleParseException,atdUtil::IOEx
 	    iostream->read();
 
 	iostream->read(&header,header.getSizeOf());
-	if (header.getType() >= UNKNOWN_ST)
-	    throw SampleParseException("sample type unknown");
-	samp = dsm::getSample((sampleType)header.getType(),
+	if (header.getType() >= UNKNOWN_ST) {
+	    unrecognizedSamples++;
+	    samp = dsm::getSample((sampleType)CHAR_ST,
 		header.getDataByteLength());
-	samp = 0;
+	}
+	else
+	    samp = dsm::getSample((sampleType)header.getType(),
+		header.getDataByteLength());
+
 	samp->setTimeTag(header.getTimeTag());
 	samp->setId(header.getId());
 	left = samp->getDataByteLength();

@@ -116,7 +116,7 @@ void SampleSorter::interrupt() {
 /**
  * flush all samples from buffer, distributing them to SampleClients.
  */
-void SampleSorter::flush() throw (SampleParseException,atdUtil::IOException)
+void SampleSorter::flush() throw (atdUtil::IOException)
 {
     samplesAvail.lock();
     SortedSampleSet tmpset = samples;
@@ -124,32 +124,14 @@ void SampleSorter::flush() throw (SampleParseException,atdUtil::IOException)
     samplesAvail.unlock();
 
     SortedSampleSet::const_iterator si;
-    try {
-	for (si = tmpset.begin(); si != tmpset.end(); ++si) {
-	    const Sample *s = *si;
-	    distribute(s);
-	    s->freeReference();
-        }
-    }
-    // on exception, free references on rest of samples
-    catch(const SampleParseException& cpe) {
-	for (++si ; si != tmpset.end(); ++si) {
-	    const Sample *s = *si;
-	    s->freeReference();
-	}
-	throw cpe;
-    }
-    catch(const atdUtil::IOException& ioe) {
-	for (++si ; si != tmpset.end(); ++si) {
-	    const Sample *s = *si;
-	    s->freeReference();
-	}
-	throw ioe;
+    for (si = tmpset.begin(); si != tmpset.end(); ++si) {
+	const Sample *s = *si;
+	distribute(s);
+	s->freeReference();
     }
 }
 
-bool SampleSorter::receive(const Sample *s)
-	throw(SampleParseException, atdUtil::IOException)
+bool SampleSorter::receive(const Sample *s) throw()
 {
     atdUtil::Synchronized autosync(samplesAvail);
     samples.insert(samples.end(),s);

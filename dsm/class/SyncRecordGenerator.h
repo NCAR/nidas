@@ -37,8 +37,7 @@ public:
 
     void setAircraft(const Aircraft* val);
 
-    bool receive(const Sample* samp)
-        throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample* samp) throw();
 
 protected:
     void scanSensors(const std::list<DSMSensor*>& sensors);
@@ -90,6 +89,7 @@ protected:
 
     const float floatNAN;
 
+    size_t unrecognizedSamples;
 };
 
 }

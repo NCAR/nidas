@@ -44,8 +44,7 @@ public:
     /**
      * Receive a sample from the DSMSensor, write data portion to socket.
      */
-    bool receive(const Sample* s)
-		throw(SampleParseException,atdUtil::IOException);
+    bool receive(const Sample* s) throw();
 
     /**
      * Read data from socket, write to DSMSensor.

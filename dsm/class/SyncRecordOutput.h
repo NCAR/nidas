@@ -39,8 +39,7 @@ public:
 
     void close() throw(atdUtil::IOException);
 
-    bool receive(const Sample* samp)
-        throw(SampleParseException, atdUtil::IOException);
+    bool receive(const Sample* samp) throw();
 
     bool isSingleton() const { return true; }
 
