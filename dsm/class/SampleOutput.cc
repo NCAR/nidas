@@ -20,24 +20,25 @@
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
 	name("SampleOutputStream"),iochan(0),iostream(0),
-	pseudoPort(0),connectionRequester(0),
-	dsm(0),service(0),
+	pseudoPort(0),dsm(0),service(0),connectionRequester(0),
 	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
-	questionableTimetags(0)
+	nextFileTime(0),tsampLast(0),questionableTimetags(0)
 {
 }
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	name(x.name), iochan(x.iochan->clone()),iostream(0),
-	pseudoPort(x.pseudoPort), connectionRequester(x.connectionRequester),
+	pseudoPort(x.pseudoPort),
 	dsm(x.dsm),service(x.service),
+	connectionRequester(x.connectionRequester),
 	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
-	questionableTimetags(0)
+	nextFileTime(0),tsampLast(0),questionableTimetags(0)
 {
 }
 
@@ -92,10 +93,10 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
 /*
  * We're connected.
  */
-void SampleOutputStream::connected(IOChannel* iochannel)
+void SampleOutputStream::connected(IOChannel* iochannel) throw()
 {
-    cerr << "SampleOutputStream::connected, this=" << hex << this << dec <<
-    	" iochannel " << iochannel->getName() << " fd="  <<
+    cerr << "SampleOutputStream::connected, iochannel " <<
+    	iochannel->getName() << " fd="  <<
     	iochannel->getFd() << endl;
     assert(iochan == iochannel);
     assert(connectionRequester);
@@ -103,7 +104,7 @@ void SampleOutputStream::connected(IOChannel* iochannel)
     connectionRequester->connected(this);
 }
 
-void SampleOutputStream::init()
+void SampleOutputStream::init() throw()
 {
     delete iostream;
     cerr << "SampleOutputStream::init, buffer size=" <<
@@ -135,12 +136,21 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     if (!iostream) return false;
     if (type == TIMETAG_DEPENDENT) {
 
+
+#ifdef DEBUG
+	if (samp->getShortId() == CLOCK_SAMPLE_ID)
+	    cerr << "samp->getId()=" << samp->getId() <<
+		" shortId=" << samp->getShortId() <<
+		" getType=" << samp->getType() <<
+		" getDataLength=" << samp->getDataLength() << endl;
+#endif
+
 	if (samp->getShortId() == CLOCK_SAMPLE_ID &&
 		samp->getType() == LONG_LONG_ST &&
 		samp->getDataLength() == 1) {
 	    fullSampleTimetag = ((long long*)samp->getConstVoidDataPtr())[0];
 	    t0day = timeFloor(fullSampleTimetag,MSECS_PER_DAY);
-	    cerr << "t0day=" << t0day << endl;
+	    // cerr << "t0day=" << t0day << endl;
 	}
 
 	if (fullSampleTimetag == 0) return false;
@@ -171,13 +181,12 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    tsampLast = tsamp;
 	    if (nextFileTime == 0) nextFileTime = tsamp;
 	    if (tsamp >= nextFileTime) {
-		cerr << "createFile" << endl;
+		cerr << "calling iostream->createFile" << endl;
 		nextFileTime = iostream->createFile(nextFileTime);
 	    }
 	}
     }
 
-    // todo: log this error, re-establish connection?
     try {
 	write(samp);
     }
@@ -196,6 +205,7 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     size_t lens[2];
     bufs[0] = samp->getHeaderPtr();
     lens[0] = samp->getHeaderLength();
+    assert(samp->getHeaderLength() == 12);
 
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
@@ -205,17 +215,17 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     return iostream->write(bufs,lens,2);
 }
 
-void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
+void SampleOutputStream::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
     // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
@@ -225,12 +235,12 @@ void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
     // process <socket>, <fileset> child elements (should only be one)
 
     int niochan = 0;
-    xercesc::DOMNode* child;
+    DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
     {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((xercesc::DOMElement*) child);
+        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+        XDOMElement xchild((DOMElement*) child);
 
 	const string& elname = xchild.getNodeName();
 
@@ -239,7 +249,7 @@ void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
         iochan->setDSMConfig(getDSMConfig());
         iochan->setDSMService(getDSMService());
 
-	iochan->fromDOMElement((xercesc::DOMElement*)child);
+	iochan->fromDOMElement((DOMElement*)child);
 
 	if (++niochan > 1)
             throw atdUtil::InvalidParameterException(
@@ -255,11 +265,11 @@ void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
     setName(string("SampleOutputStream: ") + iochan->getName());
 }
 
-xercesc::DOMElement* SampleOutputStream::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* SampleOutputStream::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
                         DOMable::getNamespaceURI());
@@ -267,8 +277,8 @@ xercesc::DOMElement* SampleOutputStream::toDOMParent(
     return toDOMElement(elem);
 }
                                                                                 
-xercesc::DOMElement* SampleOutputStream::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* SampleOutputStream::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

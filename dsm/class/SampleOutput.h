@@ -48,22 +48,7 @@ public:
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void requestConnection(SampleConnectionRequester*)
-    	throw(atdUtil::IOException) = 0;
-
-    virtual void connected(IOChannel* sock) = 0;
-
-    virtual int getFd() const = 0;
-
-    virtual void init() = 0;
-
-    virtual void flush() throw(atdUtil::IOException) = 0;
-
-    virtual void close() throw(atdUtil::IOException) = 0;
-
-    virtual bool isSingleton() const = 0;
-
-    virtual void setDSMConfig(const DSMConfig*) = 0;
+    virtual void setDSMConfig(const DSMConfig* val) = 0;
 
     virtual const DSMConfig* getDSMConfig() const = 0;
 
@@ -71,6 +56,21 @@ public:
 
     virtual const DSMService* getDSMService() const = 0;
 
+    virtual void requestConnection(SampleConnectionRequester*)
+    	throw(atdUtil::IOException) = 0;
+
+    virtual void connected(IOChannel* sock) throw() = 0;
+
+    virtual int getFd() const = 0;
+
+    virtual void init() throw() = 0;
+
+    virtual void flush() throw(atdUtil::IOException) = 0;
+
+    virtual void close() throw(atdUtil::IOException) = 0;
+
+protected:
+    
 };
 
 /**
@@ -101,14 +101,20 @@ public:
 
     int getPseudoPort() const;
 
+    void setDSMConfig(const DSMConfig* val);
+
+    const DSMConfig* getDSMConfig() const;
+
+    void setDSMService(const DSMService*);
+
+    const DSMService* getDSMService() const;
+
     void requestConnection(SampleConnectionRequester*)
                  throw(atdUtil::IOException);
 
-    void connected(IOChannel* output);
+    void connected(IOChannel* output) throw();
 
-    void init();
-
-    bool isSingleton() const { return false; }
+    void init() throw();
 
     int getFd() const;
 
@@ -129,14 +135,6 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
-    void setDSMConfig(const DSMConfig* val);
-
-    const DSMConfig* getDSMConfig() const;
-
-    void setDSMService(const DSMService* val);
-
-    const DSMService* getDSMService() const;
-
 protected:
 
     std::string name;
@@ -147,8 +145,6 @@ protected:
 
     int pseudoPort;
 
-    SampleConnectionRequester* connectionRequester;
-
     const DSMConfig* dsm;
 
     const DSMService* service;
@@ -158,6 +154,8 @@ protected:
      * or can we just simply write the samples.
      */
     enum type { SIMPLE, TIMETAG_DEPENDENT } type;
+
+    SampleConnectionRequester* connectionRequester;
 
     dsm_sys_time_t fullSampleTimetag;
 
