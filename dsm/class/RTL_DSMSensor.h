@@ -67,7 +67,7 @@ public:
     /**
     * Write to the sensor.
     */
-    ssize_t write(void *buf, size_t len) throw(atdUtil::IOException);
+    ssize_t write(const void *buf, size_t len) throw(atdUtil::IOException);
 
     /*
     * Perform an ioctl on the device. request is an integer
