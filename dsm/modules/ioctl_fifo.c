@@ -1,3 +1,18 @@
+/*
+ ********************************************************************
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 671 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+ ********************************************************************
+
+*/
+
 #ifndef __KERNEL__
 #define __KERNEL__
 #endif
@@ -13,11 +28,16 @@
 #include <rtl_signal.h>
 #include <rtl_errno.h>
 
+RTLINUX_MODULE(ioctl_fifo);
+
 /* #define DEBUG */
 
 LIST_HEAD(ioctlList);
 
 pthread_mutex_t listmutex = PTHREAD_MUTEX_INITIALIZER;
+
+static unsigned char* inputbuf = 0;
+static size_t inputbufsize = 0;
 
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v);
 
@@ -87,7 +107,14 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     if (ioctls[icmd].size > handle->bufsize)
 	handle->bufsize = ioctls[icmd].size;
     
-    handle->buf = kmalloc(handle->bufsize, GFP_KERNEL);
+    if (!(handle->buf = kmalloc(handle->bufsize, GFP_KERNEL))) goto error;
+
+    if (inputbufsize < handle->bufsize + sizeof(struct ioctlHeader) + 1) {
+	kfree(inputbuf);
+	inputbufsize = handle->bufsize + sizeof(struct ioctlHeader) + 1;
+	inputbuf = kmalloc(inputbufsize,GFP_KERNEL);
+    }
+    	
 
     handle->bytesRead = handle->bytesToRead = 0;
     handle->icmd = -1;
@@ -198,7 +225,6 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   struct list_head *ptr;
   struct ioctlHandle* entry;
   struct ioctlHandle* handle = NULL;
-  unsigned char buf[MAX_IOCTL_BUF_SIZE];
   unsigned char* inbufptr;
   int icmd;
   int nread;
@@ -244,7 +270,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
   pthread_mutex_lock(&handle->mutex);
 
-  if ((nread = read(outFifofd,buf,sizeof(buf))) < 0) {
+  if ((nread = read(outFifofd,inputbuf,inputbufsize)) < 0) {
     rtl_printf("ioctlHandler read failure on %s\n",handle->outFifoName);
     sendError(handle->inFifofd,rtl_errno,"error reading from FIFO");
     goto unlock;
@@ -271,17 +297,17 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
    *   to make sure we're in sync.
    */
 
-  for (inbufptr = buf; inbufptr < buf + nread; ) {
+  for (inbufptr = inputbuf; inbufptr < inputbuf + nread; ) {
 
 #ifdef DEBUG
-    rtl_printf("chars left in buffer=%d\n",buf+nread-inbufptr);
+    rtl_printf("chars left in buffer=%d\n",inputbuf+nread-inbufptr);
 #endif
 
     if (handle->readETX) {
 #ifdef DEBUG
 	rtl_printf("search for ETX\n");
 #endif
-      for (; inbufptr < buf + nread; )  {
+      for (; inbufptr < inputbuf + nread; )  {
 #ifdef DEBUG
 	rtl_printf("ETX search char=%d, ETX=%d\n",(int) *inbufptr,(int)ETX);
 #endif
@@ -294,7 +320,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 	}
 	else rtl_printf("didn't find ETX\n");
       }
-      if (inbufptr == buf + nread) break;
+      if (inbufptr == inputbuf + nread) break;
     }
 
 #ifdef DEBUG
@@ -302,7 +328,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 #endif
 
     for ( ; handle->bytesRead < sizeof(struct ioctlHeader) &&
-	  inbufptr < buf + nread; )
+	  inbufptr < inputbuf + nread; )
       ((unsigned char*)&(handle->header))[handle->bytesRead++] = *inbufptr++;
 
 #ifdef DEBUG
@@ -362,7 +388,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       rtl_printf("ioctlHandler _IOC_WRITE, bytesToRead=%d\n",
       	handle->bytesToRead);
 #endif
-      for (; handle->bytesRead < handle->bytesToRead && inbufptr < buf + nread; )
+      for (; handle->bytesRead < handle->bytesToRead && inbufptr < inputbuf + nread; )
 	handle->buf[handle->bytesRead++ - sizeof(struct ioctlHeader)] = *inbufptr++;
 
       if (handle->bytesRead < handle->bytesToRead) break;	/* not done */
@@ -396,4 +422,9 @@ unlock:
   rtl_printf("ioctlHandler returning\n");
 #endif
   return;
+}
+
+void cleanup_module (void)
+{
+    kfree(inputbuf);
 }
