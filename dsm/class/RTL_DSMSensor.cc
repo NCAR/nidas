@@ -26,7 +26,6 @@
 #include <dsm_sample.h>
 #include <SamplePool.h>
 
-
 using namespace std;
 using namespace dsm;
 
@@ -185,7 +184,7 @@ dsm_sample_time_t RTL_DSMSensor::readSamples()
 	buftail += len;
 
 	len = header.length;
-	samp = SamplePool::getInstance()->getSample(len);
+	samp = SamplePool<CharSample>::getInstance()->getSample(len);
 	samp->setTimeTag(header.timetag);
 	samp->setDataLength(len);
 	samp->setId(getId());	// set sample id to id of this sensor
