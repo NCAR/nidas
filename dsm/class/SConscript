@@ -22,6 +22,7 @@ sources = Split("""
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
+  DSMArincSensor.cc
   DSMSerialSensor.cc
   Sample.cc
   SampleSource.cc
