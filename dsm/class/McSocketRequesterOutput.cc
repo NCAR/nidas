@@ -20,8 +20,8 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-void McSocketRequesterOutput::requestConnection(atdUtil::SocketAccepter *service,
-	int pseudoPort)
+void McSocketRequesterOutput::requestConnection(
+	atdUtil::SocketAccepter *service,int pseudoPort)
     throw(atdUtil::IOException)
 {
     setPseudoPort(pseudoPort);
@@ -49,7 +49,8 @@ Output* McSocketRequesterOutput::clone() const
 
 void McSocketRequesterOutput::close() throw (atdUtil::IOException)
 {
-    socket->close();
+    atdUtil::McSocketRequester::close();
+    if (socket && socket->getFd() >= 0) socket->close();
 }
 
 int McSocketRequesterOutput::getFd() const

@@ -49,7 +49,7 @@ size_t McSocketRequesterInput::getBufferSize() const
 void McSocketRequesterInput::close() throw (atdUtil::IOException)
 {
     atdUtil::McSocketRequester::close();
-    socket->close();
+    if (socket && socket->getFd() >= 0) socket->close();
 }
 
 int McSocketRequesterInput::getFd() const
