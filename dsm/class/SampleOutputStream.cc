@@ -26,7 +26,8 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
-	outputStream(0),fullSampleTimetag(0),t0day(0),questionableTimetags(0)
+	dsmConfig(0),outputStream(0),fullSampleTimetag(0),
+	t0day(0),questionableTimetags(0)
 {
 }
 
@@ -78,18 +79,19 @@ void SampleOutputStream::connect() throw(atdUtil::IOException)
     // connected, most likely to a fileset.
     if (!outputStream) {
 	throw atdUtil::IOException("SampleOutputStream","connect",
-		"connection to socket not implemented");
+		"connection to socket must be implemented in derived class");
     }
 }
 bool SampleOutputStream::receive(const Sample *samp)
          throw(SampleParseException, atdUtil::IOException)
 {
+    static int nsamps = 0;
     if (type == TIMETAG_DEPENDENT) {
 	if (samp->getId() == CLOCK_SAMPLE_ID &&
 		samp->getType() == LONG_LONG_ST &&
 		samp->getDataLength() == 1) {
 	    fullSampleTimetag = ((long long*)samp->getConstVoidDataPtr())[0];
-	    t0day = timeFloor(fullSampleTimetag,86400000);
+	    t0day = timeFloor(fullSampleTimetag,MSECS_PER_DAY);
 	}
 
 	if (fullSampleTimetag == 0) return false;
@@ -122,7 +124,8 @@ bool SampleOutputStream::receive(const Sample *samp)
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
 
-    cerr << "outputStream->write" << endl;
+    // cerr << "outputStream->write" << endl;
+    if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
     return outputStream->write(bufs,lens,2);
 }
 

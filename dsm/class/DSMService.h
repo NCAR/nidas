@@ -18,6 +18,8 @@
 #define DSM_DSMSERVICE_H
 
 #include <atdUtil/ServiceListenerClient.h>
+#include <SampleInputStream.h>
+#include <SampleOutputStream.h>
 #include <DOMable.h>
 
 namespace dsm {
@@ -44,9 +46,22 @@ public:
 
     virtual ~DSMService() {}
 
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(atdUtil::InvalidParameterException);
+
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent)
+		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node)
+		throw(xercesc::DOMException);
+
 
 protected:
 
+    std::list<SampleInputStream*> inputStreams;
+    std::list<SampleOutputStream*> outputStreams;
 };
 
 }

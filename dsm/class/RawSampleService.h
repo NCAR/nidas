@@ -19,8 +19,6 @@
 
 #include <DSMService.h>
 #include <Datagrams.h>
-#include <SampleInputStream.h>
-#include <SampleOutputStream.h>
 
 namespace dsm {
 
@@ -52,8 +50,6 @@ public:
 
 protected:
 
-    SampleInputStream* inputStream;
-    std::list<SampleOutputStream*> outputStreams;
 };
 
 }

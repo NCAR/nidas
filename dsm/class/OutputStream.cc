@@ -20,7 +20,7 @@
 
 #include <iostream>
 
-#define DEBUG
+// #define DEBUG
 
 using namespace dsm;
 using namespace std;

@@ -17,7 +17,10 @@
 #include <FileSetInputStream.h>
 #include <InputStream.h>
 
+// #include <iostream>
+
 using namespace dsm;
+using namespace std;
 
 /* static */
 InputStream* InputStreamFactory::createInputStream(atdUtil::Socket& sock)
@@ -53,6 +56,7 @@ size_t InputStream::read() throw(atdUtil::IOException)
     head = buffer;
     tail = head + l;
     l = devRead(tail,eob-tail);
+    cerr << "InputStream, devRead =" << l << endl;
     tail += l;
     return l;
 }

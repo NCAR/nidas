@@ -37,10 +37,10 @@ atdUtil::ServiceListenerClient* RawSampleService::clone()
 
 int RawSampleService::run() throw(atdUtil::Exception)
 {
-    inputStream->setSocket(socket);
+    inputStreams.front()->setSocket(socket);
 
     for (;;) {
-        inputStream->readSamples();
+        inputStreams.front()->readSamples();
     }
     return 0;
 }
@@ -48,85 +48,23 @@ int RawSampleService::run() throw(atdUtil::Exception)
 void RawSampleService::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-	// get all the attributes of the node
-        DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
-	}
-    }
-    DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-	cerr << "RawSampleService, child=" << elname << endl;
+    DSMService::fromDOMElement(node);
 
-	if (!elname.compare("input")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		"RawSampleService::fromDOMElement",
-		elname, "does not have a class attribute");
-	    DOMable* input;
-	    try {
-		input = DOMObjectFactory::createObject(classattr);
-	    }
-	    catch (const atdUtil::Exception& e) {
-		throw atdUtil::InvalidParameterException("input",
-		    classattr,e.what());
-	    }
-	    inputStream = dynamic_cast<SampleInputStream*>(input);
-	    if (!inputStream) throw atdUtil::InvalidParameterException("input",
-		    classattr,"is not a SampleInputStream");
-	    inputStream->fromDOMElement((DOMElement*)child);
-	}
-	else if (!elname.compare("output")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		"RawSampleService::fromDOMElement",
-		elname, "does not have a class attribute");
-	    DOMable* output;
-	    try {
-		output = DOMObjectFactory::createObject(classattr);
-	    }
-	    catch (const atdUtil::Exception& e) {
-		throw atdUtil::InvalidParameterException("output",
-		    classattr,e.what());
-	    }
-	    SampleOutputStream* sos =
-		dynamic_cast<SampleOutputStream*>(output);
-	    if (!sos) throw atdUtil::InvalidParameterException("output",
-		    classattr,"is not a SampleOutputStream");
-	    sos->fromDOMElement((DOMElement*)child);
-	    outputStreams.push_back(sos);
-	}
-	else throw atdUtil::InvalidParameterException(
-		"RawSampleService::fromDOMElement",
-		elname, "unsupported element");
-    }
-    if (!inputStream)
+    if (inputStreams.size() != 1)
 	throw atdUtil::InvalidParameterException(
 		"RawSampleService::fromDOMElement",
-		"input", "no inputs specified");
-    if (outputStreams.size() == 0)
-	throw atdUtil::InvalidParameterException(
-		"RawSampleService::fromDOMElement",
-		"input", "no outputs specified");
+		"input", "one and only one input allowed");
+
+    // This is a simple service that just echoes the input
+    // samples to the outputs
     for (std::list<SampleOutputStream*>::iterator oi = outputStreams.begin();
     	oi != outputStreams.end(); ++oi)
-	inputStream->addSampleClient(*oi);
+	inputStreams.front()->addSampleClient(*oi);
+
     // call method of ServiceListenerClient base class so that
     // it knows the listen socket address
-    setListenSocketAddress(inputStream->getSocketAddress());
+    setListenSocketAddress(inputStreams.front()->getSocketAddress());
+
 }
 
 DOMElement* RawSampleService::toDOMParent(

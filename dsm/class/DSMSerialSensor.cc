@@ -319,6 +319,9 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
 bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw(atdUtil::IOException,dsm::SampleParseException)
 {
+    static int nsamps = 0;
+
+    if (!(nsamps++ % 100)) cerr << "DSMSerialSensor::process nsamps=" << nsamps << endl;
     // If no scanner defined, then don't scan sample, just pass it on
     if (!scanner) {
 	DSMSensor::process(samp,results);

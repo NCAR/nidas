@@ -113,7 +113,12 @@ int DSMServer::main(int argc, char** argv) throw()
 	    return 1;
 	}
 
-	server->wait();
+	try {
+	    server->wait();
+	}
+	catch (const atdUtil::Exception& e) {
+	    logger->log(LOG_ERR,e.what());
+	}
 
 	delete project;
     }
@@ -294,6 +299,7 @@ void DSMServer::cancel() throw(atdUtil::Exception)
     set<atdUtil::ServiceListener*>::iterator si;
     for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
 	atdUtil::ServiceListener* serv = *si;
+	cerr << "Cancelling serviceListener" << endl;
 	serv->cancel();
     }
 }
@@ -303,7 +309,9 @@ void DSMServer::join() throw(atdUtil::Exception)
     set<atdUtil::ServiceListener*>::iterator si;
     for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
 	atdUtil::ServiceListener* serv = *si;
+	cerr << "joining serviceListener" << endl;
 	serv->join();
+	cerr << "serviceListener joined" << endl;
     }
 }
 void DSMServer::wait() throw(atdUtil::Exception)
@@ -392,6 +400,7 @@ void DSMServer::wait() throw(atdUtil::Exception)
             }
         }
     }
+    cerr << "Break out of wait loop" << endl;
     cancel();
     join();
 }

@@ -24,8 +24,10 @@
 #include <atdUtil/Socket.h>
 #include <DSMOutputFileSet.h>
 
+
 namespace dsm {
 
+class DSMConfig;
 /**
  * A class for serializing Samples on an OutputStream.
  */
@@ -34,6 +36,10 @@ class SampleOutputStream: public SampleClient, public DOMable {
 public:
     SampleOutputStream();
     virtual ~SampleOutputStream();
+
+    virtual void setDSMConfig(DSMConfig* val) { dsmConfig = val; }
+
+    virtual DSMConfig* getDSMConfig() { return dsmConfig; }
 
     virtual void close() throw(atdUtil::IOException);
 
@@ -75,6 +81,8 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+
+    DSMConfig* dsmConfig;
 
     /** Do we need to keep track of sample time tags,
      * as when writing to time-tagged archive files,

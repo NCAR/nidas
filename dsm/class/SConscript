@@ -51,6 +51,7 @@ sources = Split("""
   InputStream.cc
   SampleInputStream.cc
   SampleOutputStream.cc
+  DSMService.cc
   RawSampleService.cc
   SyncRecordService.cc
   SocketAddress.cc
@@ -59,6 +60,9 @@ sources = Split("""
   SampleSorter.cc
   RawSampleOutput.cc
   RawSampleServiceRequestor.cc
+  SyncRecordServiceRequestor.cc
+  SyncRecordOutput.cc
+  Variable.cc
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'

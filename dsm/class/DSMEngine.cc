@@ -193,24 +193,13 @@ DSMEngine::~DSMEngine()
     for (oi = connectedOutputs.begin(); oi != connectedOutputs.end(); ++oi) {
 	SampleOutputStream* ostr = *oi;
 
-	const list<DSMSensor*>& sensors = dsmConfig->getSensors();
-	list<DSMSensor*>::const_iterator si;
-
-	RawSampleOutput* rostr = dynamic_cast<RawSampleOutput*>(ostr);
-	if (rostr) {
-	    for (si = sensors.begin(); si != sensors.end(); ++si)
-		(*si)->removeRawSampleClient(ostr);
-	}
-	else {
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		(*si)->removeRawSampleClient(*si);
-		(*si)->removeSampleClient(ostr);
-	    }
-	}
+	cerr << "closing output stream" << endl;
 	ostr->close();
     }
 
+    cerr << "delete handler" << endl;
     delete handler;	// this closes the sensors
+    cerr << "delete project" << endl;
     delete project;
 }
 
@@ -403,5 +392,6 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 void DSMEngine::wait() throw(atdUtil::Exception)
 {
     handler->join();
+    cerr << "handler joined" << endl;
 }
 
