@@ -61,10 +61,11 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
-<xsd:complexType name="sensorT" abstract="true">
+<xsd:complexType name="sensorT" abstract="false">
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
     <xsd:attribute name="class" type="xsd:token"/>
+    <xsd:attribute name="devicename" type="xsd:token"/>
 </xsd:complexType>
 
 <xsd:complexType name="serialsensorT">
@@ -80,7 +81,6 @@
 	    <!-- Currently can't provide defaults here, because the defaults
                  then over-ride the values that were specified for a sensor in
                  the catalog.  Need to fix this. -->
-	    <xsd:attribute name="devicename" type="xsd:token"/>
 	    <xsd:attribute name="baud" type="baudtype"/>
 	    <xsd:attribute name="parity" type="paritytype"/>
 	    <xsd:attribute name="databits" type="databitstype"/>
@@ -118,7 +118,6 @@
                     </xsd:unique>
                 </xsd:element>
             </xsd:sequence>
-            <xsd:attribute name="devicename" type="xsd:token"/>
         </xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
@@ -129,6 +128,7 @@
           <xsd:element name="sensor"       type="sensorT"/>
           <xsd:element name="serialsensor" type="serialsensorT"/>
           <xsd:element name="arincSensor"  type="arincSensorT"/>
+          <xsd:element name="irigsensor"  type="sensorT"/>
       </xsd:choice>
    </xsd:sequence>
 </xsd:complexType>
@@ -142,6 +142,7 @@
 	      <xsd:element name="sensor"       type="sensorT"/>
 	      <xsd:element name="serialsensor" type="serialsensorT"/>
 	      <xsd:element name="arincSensor"  type="arincSensorT"/>
+	      <xsd:element name="irigsensor"  type="sensorT"/>
 	      <xsd:element ref="config"/>
 	      <xsd:element ref="output"/>
 	  </xsd:choice>

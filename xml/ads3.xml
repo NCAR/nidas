@@ -103,20 +103,23 @@
 	    <socket type="mstream"/>
 	</config>
 
+	<!--
+	<irigsensor class="IRIGSensor" devicename="/dev/irig0"/>
+	-->
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser1"/>
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser2"/>
 
+	<!--
 	<output class="RawSampleOutput">
 	    <socket type="mstream"/>
 	</output>
+	-->
 
-	<!--
 	<output class="SyncRecordOutput">
 	    <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
 		length="0" />
 	</output>
-	-->
     </dsm>
 
     <dsm name="dsm301" location="cabin">
