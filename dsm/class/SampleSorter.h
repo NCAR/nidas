@@ -37,6 +37,9 @@ public:
     bool receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException);
 
+    unsigned long size() const { return samples.size(); }
+
+    // void setDebug(bool val) { debug = val; }
 
 protected:
 
@@ -54,6 +57,11 @@ private:
     atdUtil::Cond samplesAvail;
 
     int threadSignalFactor;
+
+    int sampleCtr;
+
+    // bool debug;
+
 };
 }
 #endif

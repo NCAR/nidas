@@ -26,7 +26,8 @@ using namespace std;
 
 SampleSorter::SampleSorter(int buflenInMilliSec_a) :
     Thread("SampleSorter"),buflenInMillisec(buflenInMilliSec_a),
-    samplesAvail("samplesAvail"),threadSignalFactor(10)
+    samplesAvail("samplesAvail"),threadSignalFactor(10),
+    sampleCtr(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -68,8 +69,12 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 
 	dummy.setTimeTag((getCurrentTimeInMillis() - buflenInMillisec)
 		% MSECS_PER_DAY);
-	// std::cout << "awoke in thread func, samples.size()=" << samples.size() <<
-	//	" tt=" << dummy.tt << std::endl;
+
+	/*
+	if (debug) cerr << getFullName() << " samples.size=" <<
+		samples.size() <<
+		" tt=" << dummy.getTimeTag() << std::endl;
+        */
 
 	SortedSampleSet::const_iterator rsb = samples.begin();
 
@@ -91,6 +96,10 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	    const Sample *s = *iv;
 	    distribute(s);
 	}
+	/*
+	if (debug) cerr << getFullName() << " agedsamples.size=" <<
+		agedsamples.size() << endl;
+	*/
     }
     return RUN_OK;
 }
@@ -106,15 +115,14 @@ void SampleSorter::interrupt() {
 bool SampleSorter::receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException)
 {
-    static int nsamp = 0;
     atdUtil::Synchronized autosync(samplesAvail);
     samples.insert(samples.end(),s);
     s->holdReference();
 
     // signal the handler thread every threadSignalFactor
     // number of samples
-    nsamp = (++nsamp % threadSignalFactor);
-    if (!nsamp) samplesAvail.signal();
+    sampleCtr = (++sampleCtr % threadSignalFactor);
+    if (!sampleCtr) samplesAvail.signal();
     return true;
 }
 
