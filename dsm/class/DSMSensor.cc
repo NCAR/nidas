@@ -42,11 +42,12 @@ DSMSensor::DSMSensor(const std::string& n) : devname(n),
 DSMSensor::~DSMSensor()
 {
     delete [] buffer;
-    for (list<Variable*>::const_iterator vi = variables.begin();
+    for (vector<Variable*>::const_iterator vi = variables.begin();
     	vi != variables.end(); ++vi) delete *vi;
 }
 
 void DSMSensor::addVariable(Variable* var)
+	throw(atdUtil::InvalidParameterException)
 {
     variables.push_back(var);
     constVariables.push_back(var);

@@ -107,6 +107,7 @@ public:
      * to convert a rate in Hertz to an enumerated value.
      */
     void setPromptRate(enum irigClockRates val) { promptRate = val; }
+
     enum irigClockRates getPromptRate() const { return promptRate; }
 
     /**

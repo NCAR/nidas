@@ -16,6 +16,7 @@
 #define DSMSENSOR_H
 
 #include <atdUtil/IOException.h>
+#include <atdUtil/InvalidParameterException.h>
 #include <SampleClient.h>
 #include <SampleSource.h>
 #include <RawSampleSource.h>
@@ -79,13 +80,19 @@ public:
 
     virtual ~DSMSensor();
 
-    virtual void setDeviceName(const std::string& val) { devname = val; }
+    void setDeviceName(const std::string& val) { devname = val; }
 
     const std::string& getDeviceName() const { return devname; }
 
-    virtual void addVariable(Variable* var);
+    /**
+     * Add a variable to this sensor.  This could be a protected
+     * method, since variables are usually added in the
+     * fromDOMElement method, but we'll leave it public for now.
+     * Throw an exception if you don't like the variable.
+     */
+    virtual void addVariable(Variable* var) throw(atdUtil::InvalidParameterException);
 
-    const std::list<const Variable*>& getVariables() const { return constVariables; }
+    virtual const std::vector<const Variable*>& getVariables() const { return constVariables; }
 
     virtual int getReadFd() const = 0;
 
@@ -204,9 +211,9 @@ public:
 
 protected:
 
-    std::list<Variable*> variables;
+    std::vector<Variable*> variables;
 
-    std::list<const Variable*> constVariables;
+    std::vector<const Variable*> constVariables;
 
     /**
      * Must be called before invoking readSamples(). Derived
