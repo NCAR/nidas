@@ -203,7 +203,7 @@ struct serialPort {
     ssize_t unwrittenl;		/* length left to be written */
 
     int incount;
-    dsm_sample_time_t next_timetag;
+    dsm_sample_time_t bom_timetag;
     unsigned long nsamples;		/* counter of samples through the sys */
 
     struct circ_buf xmit;
