@@ -59,7 +59,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	DOMable* sensor = 0;
-	if (!elname.compare("serialsensor")) {
+	if (!elname.compare("serialsensor") ||
+            !elname.compare("arincSensor")) {
 	    const string& idref = xchild.getAttributeValue("IDREF");
 	    if (idref.length() > 0) {
 		// cerr << "idref=" << idref << endl;
@@ -97,7 +98,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		if (classattr.length() == 0) 
 		    throw atdUtil::InvalidParameterException(
 			"DSMConfig::fromDOMElement",
-			"serialsensor",
+			elname,
 			"does not have a class attribute");
 		cerr << "creating sensor, classattr=" << classattr << endl;
 	    	sensor = DOMObjectFactory::createObject(classattr);

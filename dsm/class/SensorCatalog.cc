@@ -58,7 +58,8 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 	cerr << "SensorCatalog: child element name=" << elname << endl;
 
-	if (!elname.compare("serialsensor")) {
+	if (!elname.compare("serialsensor") ||
+            !elname.compare("arincSensor")) {
 	    const string& id = xchild.getAttributeValue("ID");
 	    if(id.length() > 0) {
 		map<string,DOMElement*>::iterator mi =
@@ -73,9 +74,8 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 		for (mi = begin(); mi != end(); ++mi)
 		    cerr << "map:" << mi->first << " " << hex << mi->second <<
 		    	dec << endl;
-
 	    }
-	}
+        }
     }
 }
 
