@@ -1,7 +1,5 @@
 /* pc104sg.c
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:04 pm>
-
    RTLinux pc104sg driver for the ISA bus based jxi2 pc104-SG card.
 
    Original Author: John Wasinger
@@ -10,6 +8,10 @@
  
    Revisions:
 
+     $LastChangedRevision: $
+         $LastChangedDate: $
+           $LastChangedBy: $
+                 $HeadURL: $
 */
 
 /* RTLinux module includes...  */
@@ -76,8 +78,29 @@ static struct list_head callbacklists[IRIG_NUM_RATES];
 
 static pthread_mutex_t cblistmutex = PTHREAD_MUTEX_INITIALIZER;
 
+enum irigClockRates irigClockRateToEnum(unsigned int value)
+{
+  /* Round up to the next highest enumerated poll rate. */
+  if      (value < 1)     return IRIG_1_HZ;
+  else if (value < 2)     return IRIG_2_HZ;
+  else if (value < 4)     return IRIG_4_HZ;
+  else if (value < 5)     return IRIG_5_HZ;
+  else if (value < 10)    return IRIG_10_HZ;
+  else if (value < 20)    return IRIG_20_HZ;
+  else if (value < 25)    return IRIG_25_HZ;
+  else if (value < 50)    return IRIG_50_HZ;
+  else if (value < 100)   return IRIG_100_HZ;
+  else                    return IRIG_NUM_RATES;  /* invalid value given */
+}
+
+unsigned int irigClockEnumToRate(enum irigClockRates value)
+{
+  unsigned int rate[] = {1,2,4,5,10,20,25,50,100};
+  return rate[value];
+}
+
 void register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
-	void* privateData)
+                            void* privateData)
 {
 
     struct irigCallback* cb = 
@@ -412,41 +435,55 @@ static void *pc104sg_100hz_thread (void *t)
     pthread_mutex_lock(&cblistmutex);
 
     for (;;) {
-	pthread_mutex_unlock(&cblistmutex);
+      pthread_mutex_unlock(&cblistmutex);
 
-	/* wait for the pc104sg_100hz_isr to signal us */
-	sem_wait (&anIrigSemaphore);
+      /* wait for the pc104sg_100hz_isr to signal us */
+      sem_wait (&anIrigSemaphore);
 
-	pthread_mutex_lock(&cblistmutex);
+      pthread_mutex_lock(&cblistmutex);
 
-	/* perform 100Hz processing... */
-	doCallbacklist(callbacklists + IRIG_100_HZ);
+      /* perform 100Hz processing... */
+      doCallbacklist(callbacklists + IRIG_100_HZ);
 
-	if ((hz100_cnt %   2)) continue;
+      if (!(hz100_cnt %   2))
 
 	/* perform 50Hz processing... */
 	doCallbacklist(callbacklists + IRIG_50_HZ);
 
-	if ((hz100_cnt %   4)) continue;
+      if (!(hz100_cnt %   4))
 
 	/* perform 25Hz processing... */
 	doCallbacklist(callbacklists + IRIG_25_HZ);
 
-	if ((hz100_cnt %  10)) continue;
+      if (!(hz100_cnt %   5))
+
+	/* perform 20Hz processing... */
+	doCallbacklist(callbacklists + IRIG_20_HZ);
+
+      if (!(hz100_cnt %  10))
 
 	/* perform 10Hz processing... */
 	doCallbacklist(callbacklists + IRIG_10_HZ);
 
-	if ((hz100_cnt %  20)) continue;
+      if (!(hz100_cnt %  20))
 
 	/* perform  5Hz processing... */
 	doCallbacklist(callbacklists + IRIG_5_HZ);
 
-	if ((hz100_cnt % 100)) continue;
+      if (!(hz100_cnt %  25))
+
+	/* perform  4Hz processing... */
+	doCallbacklist(callbacklists + IRIG_4_HZ);
+
+      if (!(hz100_cnt %  50))
+
+	/* perform  2Hz processing... */
+	doCallbacklist(callbacklists + IRIG_2_HZ);
+
+      if (!(hz100_cnt % 100))
 
 	/* perform  1Hz processing... */
 	doCallbacklist(callbacklists + IRIG_1_HZ);
-
     }
 }
 

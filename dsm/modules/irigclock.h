@@ -1,4 +1,5 @@
-/* Pc104sg.h
+/* irigclock.h
+
    Class for interfacing the PC104-SG time and frequency processor.
 
    Original Author: Mike Spowart
@@ -6,6 +7,10 @@
 
    Revisions:
 
+     $LastChangedRevision: $
+         $LastChangedDate: $
+           $LastChangedBy: $
+                 $HeadURL: $
 */
 
 #ifndef IRIGCLOCK_H
@@ -18,11 +23,12 @@ extern unsigned char readClock;
 
 #define MSEC_IN_DAY 86400000
 
-unsigned int denum[] = {1,5,10,25,50,100};  // reverse enumerated values
-enum irigClockRates { IRIG_1_HZ, IRIG_5_HZ, IRIG_10_HZ, IRIG_25_HZ,
-                      IRIG_50_HZ, IRIG_100_HZ, IRIG_NUM_RATES };
+enum irigClockRates { IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,   IRIG_10_HZ,
+                      IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ, IRIG_100_HZ, IRIG_NUM_RATES };
 
-char* irigClockRatesStr[] = {"1Hz", "5Hz", "10Hz", "25Hz", "50Hz", "100Hz"};
+enum irigClockRates irigClockRateToEnum(unsigned int value);
+
+unsigned int irigClockEnumToRate(enum irigClockRates value);
 
 typedef void irig_callback_t(void* privateData);
 
