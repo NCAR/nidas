@@ -3,7 +3,8 @@
 <project
     xmlns="http://www.eol.ucar.edu/ads3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd">
+    xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd"
+    name="RICO">
 
 <sensorcatalog>
     <arincSensor ID="IRS-C130-full" class="DSMArincSensor">
@@ -67,20 +68,54 @@
 	<prompt string="hitme\n" rate="100"/>
     </serialsensor>
 
+    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.
     <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
-        <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible. -->
         <mesacfg desc="Counter" rate="100" chan="2"/>
         <mesacfg desc="Radar" rate="5" chan="1"/>
         <mesacfg desc="PMS260" rate="10" chan="1"/>
     </anythingSensor>
+    -->
 </sensorcatalog>
 
 <aircraft tailno="1234" name="hiaper">
+    <server name="dyn84-49">
+	<service class="XMLConfigService">
+	    <output class="ConfigRequestor">
+	        <socket type="mstream"/>
+	    </output>
+	</service>
+	<service class="RawArchiveService">
+	    <!-- input from every DSM on this aircraft that has
+		 a socket output of type RawSampleOutput -->
+	    <input class="SampleInputStream">
+	        <socket type="mstream"/>
+	    </input>
+	    <output class="SampleOutputStream">
+		<fileset dir="${RAWDATADIR}/${PROJECT}/${AIRCRAFT}"
+			file="${LOCATION}_%Y%m%d_%H%M%S.dat"
+		    length="0" />
+	    </output>
+	</service>
+    </server>
 
     <dsm name="dsm300" location="radome">
+	<config class="XMLConfig">
+	    <socket type="mstream"/>
+	</config>
+
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser1"/>
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser2"/>
+
+	<output class="RawSampleOutput">
+	    <socket type="mstream"/>
+	</output>
+
+	<output class="SyncRecordOutput">
+	    <!-- filename: $DIR/$PROJECT/$AIRCRAFT_$LOCATION_$SUFFIX -->
+	    <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
+		length="0" />
+	</output>
     </dsm>
 
     <dsm name="dsm301" location="cabin">
@@ -90,7 +125,9 @@
 	    <prompt string="hitme1\n" rate="10"/>
 	</serialsensor>
 
+	<!--
 	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0"/>
+	-->
 
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
 

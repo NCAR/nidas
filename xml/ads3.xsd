@@ -135,19 +135,94 @@
 
 <xsd:element name="sensorcatalog" type="choiceOfSensors"/>
 
-<xsd:complexType name="dsmType">
-   <xsd:complexContent>
-       <xsd:extension base="choiceOfSensors">
-           <xsd:attribute name="name" type="xsd:token" use="required"/>
-           <xsd:attribute name="location" type="xsd:token" use="required"/>
-       </xsd:extension>
-   </xsd:complexContent>
-</xsd:complexType>
+<xsd:element name="dsm">
+    <xsd:complexType>
+       <xsd:sequence minOccurs="1" maxOccurs="unbounded">
+	  <xsd:choice>
+	      <xsd:element name="sensor"       type="sensorT"/>
+	      <xsd:element name="serialsensor" type="serialsensorT"/>
+	      <xsd:element name="arincSensor"  type="arincSensorT"/>
+	      <xsd:element ref="config"/>
+	      <xsd:element ref="output"/>
+	  </xsd:choice>
+       </xsd:sequence>
+       <xsd:attribute name="name" type="xsd:token" use="required"/>
+       <xsd:attribute name="location" type="xsd:token" use="required"/>
+    </xsd:complexType>
+</xsd:element>
+<!--
+-->
+
+<xsd:element name="socket">
+   <xsd:complexType>
+        <xsd:attribute name="type" type="xsd:token" default="mstream"/>
+        <xsd:attribute name="port" type="xsd:nonNegativeInteger"
+		default="50000"/>
+        <xsd:attribute name="address" type="xsd:token" default="239.0.0.10"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="fileset">
+   <xsd:complexType>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="file" type="xsd:token" use="required"/>
+        <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="input">
+   <xsd:complexType>
+        <xsd:choice>
+            <xsd:element ref="socket" maxOccurs="unbounded"/>
+            <xsd:element ref="fileset" maxOccurs="unbounded"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="required"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="output">
+   <xsd:complexType>
+        <xsd:choice>
+            <xsd:element ref="socket" maxOccurs="unbounded"/>
+            <xsd:element ref="fileset" maxOccurs="unbounded"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="required"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="service">
+   <xsd:complexType>
+        <xsd:sequence>
+            <xsd:element ref="input" minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element ref="output" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+	<xsd:attribute name="class" type="xsd:token" use="required"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="config">
+   <xsd:complexType>
+        <xsd:choice>
+            <xsd:element ref="socket" maxOccurs="unbounded"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="required"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="server">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:element ref="service" maxOccurs="unbounded"/>
+	</xsd:sequence>
+        <xsd:attribute name="name" type="xsd:token" use="optional"/>
+    </xsd:complexType>
+</xsd:element>
 
 <xsd:element name="aircraft">
     <xsd:complexType>
         <xsd:sequence>
-            <xsd:element name="dsm" type="dsmType" maxOccurs="unbounded"/>
+            <xsd:element ref="server" maxOccurs="1"/>
+            <xsd:element ref="dsm" maxOccurs="unbounded"/>
         </xsd:sequence>
         <xsd:attribute name="tailno" type="xsd:token" use="required"/>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
@@ -160,6 +235,7 @@
             <xsd:element ref="sensorcatalog" minOccurs="0"/>
             <xsd:element ref="aircraft"      maxOccurs="unbounded"/>
         </xsd:sequence>
+        <xsd:attribute name="name"   type="xsd:token" use="required"/>
     </xsd:complexType>
 </xsd:element>
 
