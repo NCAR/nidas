@@ -20,6 +20,8 @@
 #ifndef __RTL_SERIAL_H__
 #define __RTL_SERIAL_H__
 
+#ifdef __KERNEL__
+
 #include <rtl_conf.h>
 #include <rtl_buffer.h>
 
@@ -77,5 +79,7 @@ struct rtl_serial_struct
   rtl_cb_t out_buf;
   rtl_spinlock_t lock;
 };
+
+#endif		/* __KERNEL__ */
 
 #endif
