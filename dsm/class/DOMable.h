@@ -37,26 +37,26 @@ public:
 
     /**
      */
-    virtual void fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement*)
+    virtual void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException) = 0;
 
     /**
      * Create a DOMElement and append it to the parent.
      */
-    virtual XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMParent(XERCES_CPP_NAMESPACE::DOMElement* parent)
-		throw(XERCES_CPP_NAMESPACE::DOMException) = 0;
+    virtual xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent)
+		throw(xercesc::DOMException) = 0;
 
     /**
      * Add my content into a DOMElement.
      */
-    virtual XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
-		throw(XERCES_CPP_NAMESPACE::DOMException) = 0;
+    virtual xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node)
+		throw(xercesc::DOMException) = 0;
 
     static const XMLCh* getNamespaceURI() {
 	if (!namespaceURI) namespaceURI =
-		XERCES_CPP_NAMESPACE::XMLString::transcode(
+		xercesc::XMLString::transcode(
 		        "http://www.eol.ucar.edu/daq");
         return namespaceURI;
     }

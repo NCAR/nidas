@@ -32,7 +32,7 @@ namespace dsm {
  */
 class XDOMElement {
 public:
-    XDOMElement(const XERCES_CPP_NAMESPACE::DOMElement*e) :
+    XDOMElement(const xercesc::DOMElement*e) :
     	elem(e),
 	nodename((const char*)XMLStringConverter(e->getNodeName()))
     {
@@ -54,7 +54,7 @@ public:
     const std::string& getNodeName() { return nodename; }
 
 protected:
-    const XERCES_CPP_NAMESPACE::DOMElement* elem;
+    const xercesc::DOMElement* elem;
     std::map<std::string,std::string> attrs;
     std::string nodename;
 };
@@ -65,7 +65,7 @@ protected:
  */
 class XDOMAttr {
 public:
-    XDOMAttr(const XERCES_CPP_NAMESPACE::DOMAttr*a) :
+    XDOMAttr(const xercesc::DOMAttr*a) :
     	attr(a),
 	name((const char*)XMLStringConverter(a->getName())),
 	value((const char*)XMLStringConverter(a->getValue()))
@@ -74,7 +74,7 @@ public:
     const std::string& getName() { return name; }
     const std::string& getValue() { return value; }
 protected:
-    const XERCES_CPP_NAMESPACE::DOMAttr* attr;
+    const xercesc::DOMAttr* attr;
     std::string name;
     std::string value;
 };

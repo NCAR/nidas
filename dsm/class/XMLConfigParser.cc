@@ -47,8 +47,7 @@
 
 using namespace dsm;
 using namespace std;
-
-XERCES_CPP_NAMESPACE_USE
+using namespace xercesc;
 
 XMLConfigParser::XMLConfigParser() 
     throw (DOMException)

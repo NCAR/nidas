@@ -35,6 +35,10 @@ sources = Split("""
   DynamicLoader.cc
   XMLConfigParser.cc
   DOMable.cc
+  DSMConfig.cc
+  Aircraft.cc
+  Project.cc
+  SensorCatalog.cc
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'

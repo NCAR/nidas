@@ -17,6 +17,9 @@
 #define DSM_DSMCONFIG_H
 
 #include <DOMable.h>
+#include <DSMSensor.h>
+
+#include <list>
 
 namespace dsm {
 
@@ -31,18 +34,22 @@ public:
     DSMConfig();
     virtual ~DSMConfig();
 
-    void fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement*)
+    void addSensor(DSMSensor* sensor) { sensors.push_back(sensor); }
+    const std::list<DSMSensor*> getSensors() const { return sensors; }
+
+    void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
 
-    XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMParent(XERCES_CPP_NAMESPACE::DOMElement* parent)
-    		throw(XERCES_CPP_NAMESPACE::DOMException);
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent)
+    		throw(xercesc::DOMException);
 
-    XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
-    		throw(XERCES_CPP_NAMESPACE::DOMException);
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node)
+    		throw(xercesc::DOMException);
 
 protected:
+    std::list<DSMSensor*> sensors;
 
 };
 

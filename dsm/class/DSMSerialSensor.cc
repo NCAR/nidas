@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace dsm;
-XERCES_CPP_NAMESPACE_USE
+using namespace xercesc;
 
 CREATOR_ENTRY_POINT(DSMSerialSensor)
 
@@ -139,13 +139,13 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
 }
 
 void DSMSerialSensor::fromDOMElement(
-	const XERCES_CPP_NAMESPACE::DOMElement* node)
+	const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
     RTL_DSMSensor::fromDOMElement(node);
     XDOMElement xnode(node);
 
-    cerr << "DSMSensor::fromDOMElement element name=" <<
+    cerr << "DSMSerialSensor::fromDOMElement element name=" <<
     	xnode.getNodeName() << endl;
 	
     if(node->hasAttributes()) {
@@ -223,9 +223,9 @@ void DSMSerialSensor::fromDOMElement(
     }
 }
 
-XERCES_CPP_NAMESPACE::DOMElement* DSMSerialSensor::toDOMParent(
-    XERCES_CPP_NAMESPACE::DOMElement* parent)
-    throw(XERCES_CPP_NAMESPACE::DOMException)
+DOMElement* DSMSerialSensor::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
     DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -235,8 +235,8 @@ XERCES_CPP_NAMESPACE::DOMElement* DSMSerialSensor::toDOMParent(
     return toDOMElement(elem);
 }
 
-XERCES_CPP_NAMESPACE::DOMElement* DSMSerialSensor::toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
-    throw(XERCES_CPP_NAMESPACE::DOMException)
+DOMElement* DSMSerialSensor::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

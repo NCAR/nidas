@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace dsm;
-XERCES_CPP_NAMESPACE_USE
+using namespace xercesc;
 
 DSMSensor::DSMSensor()
 {
@@ -75,7 +75,7 @@ float DSMSensor::getObservedSamplingRate() const {
   else return sampleRateObs;
 }
 
-void DSMSensor::fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement* node)
+void DSMSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -101,9 +101,9 @@ void DSMSensor::fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement* node)
     }
 }
 
-XERCES_CPP_NAMESPACE::DOMElement* DSMSensor::toDOMParent(
-    XERCES_CPP_NAMESPACE::DOMElement* parent)
-    throw(XERCES_CPP_NAMESPACE::DOMException)
+DOMElement* DSMSensor::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
     DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -113,8 +113,8 @@ XERCES_CPP_NAMESPACE::DOMElement* DSMSensor::toDOMParent(
     return toDOMElement(elem);
 }
 
-XERCES_CPP_NAMESPACE::DOMElement* DSMSensor::toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
-    throw(XERCES_CPP_NAMESPACE::DOMException)
+DOMElement* DSMSensor::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

@@ -32,20 +32,20 @@ private:
 public:
 
     XMLStringConverter(const XMLCh* val) :
-    	str(XERCES_CPP_NAMESPACE::XMLString::transcode(val)),
+    	str(xercesc::XMLString::transcode(val)),
 	xstr((XMLCh*)val),
 	releaseChar(true)
     {}
 
     XMLStringConverter(const char* val) :
     	str((char*)val),
-	xstr(XERCES_CPP_NAMESPACE::XMLString::transcode(val)),
+	xstr(xercesc::XMLString::transcode(val)),
 	releaseChar(false)
     {}
 
     ~XMLStringConverter() { 
-  	if (releaseChar) XERCES_CPP_NAMESPACE::XMLString::release(&str);
-  	else XERCES_CPP_NAMESPACE::XMLString::release(&xstr);
+  	if (releaseChar) xercesc::XMLString::release(&str);
+  	else xercesc::XMLString::release(&xstr);
     }
 
     /**

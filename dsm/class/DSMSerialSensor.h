@@ -73,16 +73,16 @@ public:
     void setPromptRate(enum irigClockRates val) { promptRate = val; }
     enum irigClockRates getPromptRate() const { return promptRate; }
 
-    void fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement*)
+    void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
-    XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMParent(XERCES_CPP_NAMESPACE::DOMElement* parent)
-		throw(XERCES_CPP_NAMESPACE::DOMException);
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent)
+		throw(xercesc::DOMException);
 
-    XERCES_CPP_NAMESPACE::DOMElement*
-    	toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
-		throw(XERCES_CPP_NAMESPACE::DOMException);
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node)
+		throw(xercesc::DOMException);
 
 protected:
     std::string replaceEscapeSequences(std::string str);

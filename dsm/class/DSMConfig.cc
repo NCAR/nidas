@@ -13,6 +13,7 @@
 
 */
 
+#include <Project.h>
 #include <DSMConfig.h>
 #include <XMLStringConverter.h>
 #include <XDOM.h>
@@ -27,7 +28,9 @@
 
 using namespace dsm;
 using namespace std;
-XERCES_CPP_NAMESPACE_USE
+using namespace xercesc;
+
+CREATOR_ENTRY_POINT(DSMConfig)
 
 DSMConfig::DSMConfig()
 {
@@ -52,7 +55,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     // get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
-	cerr <<"\tAttributes" << endl;
+	cerr <<"\tDSMConfig Attributes" << endl;
 	cerr <<"\t----------" << endl;
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
@@ -73,11 +76,47 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 	cerr << "element name=" << elname << endl;
 
+	DOMable* sensor = 0;
 	if (!elname.compare("serialsensor")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    cerr << "classattr=" << classattr << endl;
-	    DOMable* xx = DOMObjectFactory::createObject(classattr);
-	    xx->fromDOMElement((DOMElement*)child);
+	    const string& idref = xchild.getAttributeValue("IDREF");
+	    if (idref.length() > 0) {
+		cerr << "idref=" << idref << endl;
+		Project* project = Project::getInstance();
+		if (!project->getSensorCatalog())
+		    throw atdUtil::InvalidParameterException(
+			"DSMConfig::fromDOMElement",
+			"cannot find sensorcatalog for sensor with IDREF",
+		    	idref);
+		DOMElement* snode = (*project->getSensorCatalog())[idref];
+		if (!snode) throw atdUtil::InvalidParameterException(
+		    "DSMConfig::fromDOMElement",
+		    "sensorcatalog does not contain a sensor with ID",
+		    idref);
+		XDOMElement sxnode(snode);
+		const string& classattr = sxnode.getAttributeValue("class");
+		if (classattr.length() == 0) 
+		    throw atdUtil::InvalidParameterException(
+			"DSMConfig::fromDOMElement",
+			string("sensor with ID ") + idref,
+			"does not have a class attribute");
+		cerr << "found sensor, idref=" << idref << " classattr=" <<
+		    classattr << endl;
+		sensor = DOMObjectFactory::createObject(classattr);
+		sensor->fromDOMElement((DOMElement*)snode);
+	    }
+		    
+	    if (!sensor) {
+		const string& classattr = xchild.getAttributeValue("class");
+		if (classattr.length() == 0) 
+		    throw atdUtil::InvalidParameterException(
+			"DSMConfig::fromDOMElement",
+			"serialsensor",
+			"does not have a class attribute");
+		cerr << "creating sensor, classattr=" << classattr << endl;
+	    	sensor = DOMObjectFactory::createObject(classattr);
+	    }
+	    sensor->fromDOMElement((DOMElement*)child);
+	    addSensor((DSMSensor*) sensor);
 	}
     }
 }
@@ -85,7 +124,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 DOMElement* DSMConfig::toDOMParent(DOMElement* parent) throw(DOMException) {
     DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
+                (const XMLCh*)XMLStringConverter("dsm"),
 			DOMable::getNamespaceURI());
     parent->appendChild(elem);
     return toDOMElement(elem);

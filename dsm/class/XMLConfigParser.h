@@ -54,23 +54,23 @@ namespace dsm {
 class XMLConfigParser {
 public:
 
-    XMLConfigParser() throw(XERCES_CPP_NAMESPACE::DOMException);
+    XMLConfigParser() throw(xercesc::DOMException);
     ~XMLConfigParser();
 
-    XERCES_CPP_NAMESPACE::DOMDocument* parse(const std::string& xmlFile)
-    	throw(XERCES_CPP_NAMESPACE::XMLException,
-		XERCES_CPP_NAMESPACE::DOMException);
+    xercesc::DOMDocument* parse(const std::string& xmlFile)
+    	throw(xercesc::XMLException,
+		xercesc::DOMException);
 
 
 protected:
     
-    XERCES_CPP_NAMESPACE::DOMImplementation *impl;
-    XERCES_CPP_NAMESPACE::DOMBuilder *parser;
-    XERCES_CPP_NAMESPACE::DOMDocument* doc;
+    xercesc::DOMImplementation *impl;
+    xercesc::DOMBuilder *parser;
+    xercesc::DOMDocument* doc;
 
 };
 
-class XMLConfigErrorHandler : public XERCES_CPP_NAMESPACE::DOMErrorHandler
+class XMLConfigErrorHandler : public xercesc::DOMErrorHandler
 {
     public:
     // -----------------------
@@ -82,7 +82,7 @@ class XMLConfigErrorHandler : public XERCES_CPP_NAMESPACE::DOMErrorHandler
     // --------------------------
     //  Implementation of the DOM ErrorHandler interface
     // -------------------------
-    bool handleError(const XERCES_CPP_NAMESPACE::DOMError& domError);
+    bool handleError(const xercesc::DOMError& domError);
     void resetErrors();
 
 
