@@ -26,6 +26,8 @@ myenv.AppendUnique(CPPPATH=Split("""
   /opt/rtldk-2.2/rtlinuxpro/include/app/rtl
   /opt/rtldk-2.2/rtlinuxpro/linux/include
   /opt/rtldk-2.2/rtlinuxpro/include
+  #dsm/modules/CEI420A/Include
+  #dsm/modules/CEI420A/Source
 """))
 
 ##
@@ -42,6 +44,7 @@ modules = Split("""
     pc104sg.c
     ioctl_fifo.c
     xxxx_driver.c
+    arinc.c
 """)
 
 ##
