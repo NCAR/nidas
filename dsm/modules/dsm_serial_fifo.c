@@ -84,6 +84,12 @@ static void thread_dev_close(void* arg)
     close(fd);
 }
 
+/*
+ * Thread which reads from the dsm_serial device
+ * and writes to the fifo, i.e. sending data to the user side.
+ * The read file operation in dsm_serial waits on a semaphore,
+ * so these are blocking reads from port->devfd.
+ */
 static void* in_thread_func(void* arg)
 {
 #ifdef DEBUG
@@ -123,6 +129,12 @@ static void* in_thread_func(void* arg)
     return 0;
 }
 
+/*
+ * SIG_POLL handler to read output from the user side
+ * and write to the dsm_serial device.
+ * Because the FIFO must be accessed in a non-blocking mode,
+ * we use a SIG_POLL handler here rather than a thread.
+ */
 static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 {
     int outFifoFd = siginfo->rtl_si_fd;
@@ -147,43 +159,6 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 	    return;
 	}
     }
-}
-
-static void* out_thread_func(void* arg)
-{
-#ifdef DEBUG
-    rtl_printf("running out_thread_func\n");
-#endif
-    struct dsm_serial_fifo_port* port =
-    	(struct dsm_serial_fifo_port*) arg;
-
-    char buf[1024];
-    int l;
-    char* cp;
-    char* eob;
-
-    pthread_cleanup_push(thread_dev_close,(void*)port->devfd);
-
-    for (;;) {
-	usleep(1000000);
-        if ((l = read(port->outFifoFd,buf,sizeof(buf))) < 0) {
-	    rtl_printf("out_thread_func, read error: %d\n",
-		    rtl_errno);
-	    if (rtl_errno == EINTR) return 0;
-	    return (void*)rtl_errno;
-	}
-	eob = buf + l;
-	for (cp = buf; cp < eob; cp += l) {
-	    if ((l = write(port->devfd,cp,eob-cp)) < 0) {
-		rtl_printf("out_thread_func, write error: %d\n",
-			rtl_errno);
-		if (rtl_errno == EINTR) return 0;
-		return (void*)rtl_errno;
-	    }
-	}
-    }
-    pthread_cleanup_pop(1);
-    return 0;
 }
 
 static int close_port(struct dsm_serial_fifo_port* port)
