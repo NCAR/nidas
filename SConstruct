@@ -109,8 +109,8 @@ arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 x86_env = env.Copy()
 
 x86_env.AppendUnique(CPPPATH = Split("""
-    /net/opt_lnx/local_rh90/isffLib/include
-    /net/opt_lnx/local_rh90/include
+    /net/opt_lnx/local_fc3/isffLib/include
+    /net/opt_lnx/local_fc3/include
 """))
 
 ## x86_env.AppendUnique(LIBS = Split("""
@@ -123,8 +123,8 @@ x86_env.AppendUnique(CPPPATH = Split("""
 ##     Disc
 
 x86_env.AppendUnique(LIBPATH = Split("""
-    /net/opt_lnx/local_rh90/isffLib/lib
-    /net/opt_lnx/local_rh90/lib
+    /net/opt_lnx/local_fc3/isffLib/lib
+    /net/opt_lnx/local_fc3/lib
     #dsm/class/x86
 """))
 
@@ -132,7 +132,7 @@ x86_env.AppendUnique(LIBPATH = Split("""
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
 ##
 x86_env.AppendUnique(RPATH = Split("""
-    /net/opt_lnx/local_rh90/lib
+    /net/opt_lnx/local_fc3/lib
 """))
 
 ##
