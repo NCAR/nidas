@@ -191,6 +191,7 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
 #define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,A2D_GET)
 #define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_SET)
+#define A2D_RUN_IOCTL _IOW(A2D_MAGIC,3,int)
 
 // Now in source code #include <ioctl_fifo.h>
 

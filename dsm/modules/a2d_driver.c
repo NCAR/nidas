@@ -1,3 +1,4 @@
+#define FIX_A2D
 /*  a2d_driver.c/
 
 
@@ -44,6 +45,8 @@ US   gginw(US *a);
 UC   gginb(UC *a);
 void phoney(A2D_SET *a2d);
 void A2DIoctlDump(A2D_SET *a);
+US   fix_a2d(US a);
+UC   bit_rvs(UC a);
 
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static 	UL	CardBase;	// A/D card address
@@ -65,6 +68,7 @@ static struct ioctlCmd ioctlcmds[] = {
   { A2D_GET_IOCTL,_IOC_SIZE(A2D_GET_IOCTL) },
   { A2D_SET_IOCTL, sizeof(A2D_SET)  },
   { A2D_CAL_IOCTL, sizeof(A2D_SET)  },
+  { A2D_RUN_IOCTL, sizeof(int)       },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -135,6 +139,14 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
 		A2DSetVcal((int)ts->vcalx8);
 		A2DSetCal(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
+    		}
+   		break;
+  	case A2D_RUN_IOCTL:		/* user set */
+      		{
+		rtl_printf("A2D_RUN_IOCTL\n");
+		int *tm =  (int *)buf;
+		rtl_printf("Run message = 0x%08X\n", *tm);
+		ret = sizeof(long);
     		}
    		break;
   	}
@@ -211,7 +223,7 @@ int A2DSetup(A2D_SET *a2d)
 	for(i = 0; i < 8; i++)
 	{	
 		// Pass filter info to init routine
-// DEBUG		A2DError(A2DInit(i, &a2d->filter[0]));
+		A2DError(A2DInit(i, &a2d->filter[0]));
 		A2DSetGain(i, a2d->gain[i]);
 		a2d->flag[i] = 0;	// Clear flags
 		a2d->status[i] = 0;	// Clear status
@@ -713,7 +725,7 @@ void ggoutw(US data, US *addr)
 #ifndef USE_RTLINUX
 	rtl_printf("Write	0x%04x to  0x%08x\n", data, addr);
 #else
-	outw(data, addr);
+	outw(fix_a2d(data), addr);
 #endif
 
 	return;
@@ -726,7 +738,7 @@ US gginw(US *addr)
 	return(2);
 
 #else
-	return(inw(addr));
+	return(fix_a2d(inw(addr)));
 #endif	
 }
 
@@ -758,4 +770,38 @@ void A2DIoctlDump(A2D_SET *a2d)
 	rtl_printf("filter0 = 0x%04X\n", a2d->filter[0]);
 
 	return;
+}
+
+/* 
+fix_a2d reverses the bits in the LS byte of the input unsigned short
+Calls bit_rvs(unsigned char a);
+*/
+
+US fix_a2d(US viper)
+{
+#ifndef FIX_A2D
+	return(viper);
+#else
+	return((viper &0xFF00) | (US)bit_rvs(viper & 0x00FF));
+#endif
+}
+
+
+/* 
+bit_rvs reverses the bits in a UC
+*/
+UC bit_rvs(UC incoming)
+{
+	UC masknum, locnum = incoming, revnum = 0;
+	int i;
+
+	masknum = 1;
+
+	for(i = 0; i < 8; i++)
+		{
+		revnum <<= 1;
+		if(locnum & masknum)revnum += 1;
+		masknum <<=1;
+		}
+	return(revnum);	
 }
