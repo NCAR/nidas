@@ -59,11 +59,11 @@ arm_env = env.Copy()
 
 arm_env['LIBPATH'] = Split("""
     #lib_arm
-    /opt/local_arm/isffLib/lib
+    /net/opt_lnx/local_arm/isffLib/lib
 """)
 
 arm_env.AppendUnique(CPPPATH = Split("""
-    /opt/local_arm/isffLib/include
+    /net/opt_lnx/local_arm/isffLib/include
 """))
 
 # arm_env.AppendUnique(CCFLAGS=Split("""
