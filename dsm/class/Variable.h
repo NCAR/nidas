@@ -12,8 +12,8 @@
  ********************************************************************
 
 */
-#ifndef VARIABLE_H
-#define VARIABLE_H
+#ifndef DSM_VARIABLE_H
+#define DSM_VARIABLE_H
 
 #include <DOMable.h>
 #include <atdUtil/InvalidParameterException.h>
@@ -48,24 +48,6 @@ public:
 
     const std::string& getUnits() const { return units; }
 
-    /**
-     * Set sampling rate in samples/sec.  A value of 0.0 means
-     * an unknown rate. Derived sensors can override this method
-     * and throw an InvalidParameterException if they don't like
-     * the rate value.
-     */
-    virtual void setSamplingRate(float val)
-    	throw(atdUtil::InvalidParameterException)
-    {
-        samplingRate = val;
-    }
-
-    /**
-     * Get sampling rate in samples/sec.  A value of 0.0 means
-     * an unknown rate.
-     */
-    virtual float getSamplingRate() const { return samplingRate; }
-
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
@@ -77,7 +59,6 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
-
 protected:
 
     std::string name;
@@ -86,7 +67,6 @@ protected:
 
     std::string units;
 
-    float samplingRate;
 };
 
 }

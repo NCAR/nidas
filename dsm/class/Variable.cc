@@ -37,15 +37,6 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		setLongName(attr.getValue());
 	    else if (!attr.getName().compare("units"))
 		setUnits(attr.getValue());
-	    else if (!attr.getName().compare("rate")) {
-		istringstream ist(attr.getValue());
-		float rate;
-		ist >> rate;
-		if (ist.fail() || rate < 0.0)
-		    throw atdUtil::InvalidParameterException("variable","rate",
-		    	attr.getValue());
-		setSamplingRate(rate);
-	    }
 	}
     }
 }
