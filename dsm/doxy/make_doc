@@ -15,12 +15,13 @@ else
     cd ads3_doxy/ads3 || exit 1
     if ! svn update; then 
         cd ../..
+	rm -rf ads3_doxy
 	svnco
     fi
 fi
 
 cd dsm
 
-doxygen dsm.doxy
+doxygen doxy/dsm.doxy
 
 rsync -a doc /net/www/docs/raf/Software/hiaper/ads3/apidocs/dsm
