@@ -56,7 +56,7 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-    static unsigned int rate[] = {0,1,2,4,5,10,20,25,50,100};
+    static unsigned int rate[] = {0,1,2,4,5,10,20,25,50,100,0};
     return rate[value];
 }
 
