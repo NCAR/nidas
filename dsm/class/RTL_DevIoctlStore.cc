@@ -8,6 +8,7 @@
 
 #include <iostream>
 
+using namespace dsm;
 using namespace std;
 
 /* static */

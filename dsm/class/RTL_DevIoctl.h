@@ -8,6 +8,7 @@
 #include <atdUtil/IOException.h>
 #include <atdUtil/ThreadSupport.h>
 
+namespace dsm {
 /**
  * A class providing ioctl capabilities to/from an RTL_DSMDevice.
  */
@@ -105,5 +106,7 @@ protected:
 
 
 };
+
+}
 
 #endif

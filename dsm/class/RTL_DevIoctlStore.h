@@ -11,6 +11,8 @@
 
 #include <atdUtil/ThreadSupport.h>
 
+namespace dsm {
+
 /**
  * Singleton class holding all our RTL_DevIoctls.
  * RTL_DevIoctls are shareable by multiple RTL_DSMSensors. The idea
@@ -57,4 +59,5 @@ private:
     atdUtil::Mutex fifosMutex;
 };
 
+}
 #endif

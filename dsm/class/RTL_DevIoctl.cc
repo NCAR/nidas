@@ -24,6 +24,7 @@
 
 #include <iostream>
 
+using namespace dsm;
 using namespace std;
 
 RTL_DevIoctl::RTL_DevIoctl(const string& prefixArg, int boardNumArg,
