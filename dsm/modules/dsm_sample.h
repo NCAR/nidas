@@ -20,7 +20,13 @@
 #ifndef DSM_SAMPLE_H
 #define DSM_SAMPLE_H
 
+/** Milliseconds since Jan 1 1970, 00:00 UTC */
+typedef long long dsm_sys_time_t;
+
+/** Milliseconds since 00:00 UTC today */
 typedef unsigned long dsm_sample_time_t;
+
+/** length of data portion of sample. */
 typedef unsigned long dsm_sample_length_t;
 
 /*
@@ -41,7 +47,7 @@ typedef unsigned long dsm_sample_length_t;
     memcpy(samp->data,buffer,len);
     ...
 
-    write(fifofd,samp,SIZEOF_DSM_SMALL_SAMPLE_HEADER + len);
+    write(fifofd,samp,SIZEOF_DSM_SAMPLE_HEADER + len);
  */
 
 struct dsm_sample {
