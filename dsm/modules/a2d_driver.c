@@ -793,7 +793,7 @@ void A2DGetDataSim(void)
 {
 	UL timestamp;
 	US inbuf[MAXA2DS*INTRP_RATE + 4]; // The 4 is for 2 longs
-	int i, j, k = 0; 
+	int i, j, k = 0, sign = 1; 
 	size_t nbytes;
 	
 	rtl_printf("%s: Starting simulated data acquisition thread\n", __FILE__);	
@@ -807,7 +807,8 @@ void A2DGetDataSim(void)
 #endif
 			for(j = 0; j < MAXA2DS; j++)
 			{
-			inbuf[MAXA2DS*i + j + 4] = 1000*j + i; 
+			inbuf[MAXA2DS*i + j + 4] = sign*(1000*j + (j+1)*(j+1)); 
+			sign *= -1;
 #ifdef INBUFWR
 			rtl_printf("%06d  ", inbuf[MAXA2DS*i+j+4]);
 #endif

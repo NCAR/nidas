@@ -26,6 +26,15 @@
 #ifndef		UC
 #define		UC	unsigned char
 #endif
+#ifndef		SS
+#define		SS	short
+#endif
+#ifndef		SL
+#define		SL	long
+#endif
+#ifndef		SC
+#define		SC	char
+#endif
 
 #define	A2D_MAX_RATE		10000
 #define INTRP_RATE		100
@@ -118,7 +127,7 @@ typedef struct
 	long timestamp;
 	long size;
 	long spare;
-  	US   inbuf[2*INTRP_RATE*MAXA2DS]; //8 chans*100samples/chan*2bytes/sample
+  	SS   inbuf[2*INTRP_RATE*MAXA2DS]; //8 chans*100samples/chan*2bytes/sample
 }A2DSAMPLE;
 
 typedef struct
