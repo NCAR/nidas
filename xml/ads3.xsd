@@ -228,12 +228,22 @@
    </xsd:complexType>
 </xsd:element>
 
-<xsd:element name="service">
+<xsd:element name="processor">
    <xsd:complexType>
         <xsd:sequence>
+            <xsd:element ref="output" minOccurs="1" maxOccurs="unbounded"/>
+        </xsd:sequence>
+	<xsd:attribute name="class" type="xsd:token" use="required"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="service">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="input" minOccurs="0" maxOccurs="unbounded"/>
             <xsd:element ref="output" minOccurs="0" maxOccurs="unbounded"/>
-        </xsd:sequence>
+            <xsd:element ref="processor" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:choice>
 	<xsd:attribute name="class" type="xsd:token" use="required"/>
    </xsd:complexType>
 </xsd:element>

@@ -265,7 +265,7 @@
     -->
 </sensorcatalog>
 
-<aircraft tailno="1234" name="hiaper">
+<aircraft tailno="N677F" name="hiaper">
     <server>
 	<service class="XMLConfigService">
 	    <output>
@@ -275,22 +275,28 @@
 	<service class="RawSampleService">
 	    <!-- input from every DSM on this aircraft that has
 		 a socket output of type RawSampleOutputStream -->
-	    <input>
+	    <input class="RawSampleInputStream">
 	        <socket type="mcaccept"/>
 	    </input>
-	    <output class="SampleOutputStream">
-		<fileset dir="${RAWDATADIR}/${PROJECT}/${AIRCRAFT}"
-			file="${LOCATION}_%Y%m%d_%H%M%S.dat"
-		    length="0" />
-	    </output>
+	    <processor class="SampleArchiver">
+		<output class="SampleOutputStream">
+		    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
+			file="${LOCATION}_%Y%m%d_%H%M%S.dat"/>
+		</output>
+	    </processor>
+	    <processor class="SyncRecordProcessor">
+		<output class="SampleOutputStream">
+		    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
+			file="syncrec_%Y%m%d_%H%M%S.dat"
+			length="0" />
+		</output>
+	    </processor>
 	    <!--
-	    <output class="SyncRecordGenerator">
-	        <socket type="mcaccept"/>
-	    </output>
 	    -->
 	</service>
     </server>
 
+    <!--
     <dsm name="dsm-701" location="cabin" id="0">
         <arincSensor IDREF="XXXXXX" devicename="/dev/arinc0" id="1000" sim_xmit="true"/>
     </dsm>
@@ -303,8 +309,9 @@
                 length="0" />
         </output>
     </dsm>
+    -->
 
-    <dsm name="dsm300" location="radome" id="0">
+    <dsm name="dsm301" location="radome" id="0">
 	<config class="XMLConfig">
 	    <socket type="mcrequest"/>
 	</config>
@@ -329,7 +336,7 @@
 	-->
     </dsm>
 
-    <dsm name="dsm301" location="cabin" id="1">
+    <dsm name="dsm309" location="cabin" id="1">
 	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 		id="110" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="017"> <variable name="TEST"/></sample>
