@@ -61,10 +61,10 @@
     </arincSensor>
 
     <serialsensor ID="mensor" class="DSMSerialSensor"
-	baud="9600" parity="none" databits="8" stopbits="1"
-	scanfFormat="%2*c%f">
+	baud="115200" parity="none" databits="8" stopbits="1"
+	scanfFormat="%*3c%f%x">
 	<message separator="\n" position="end" length="0"/>
-	<prompt string="hitme\n" rate="10"/>
+	<prompt string="hitme\n" rate="100"/>
     </serialsensor>
 
     <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
@@ -77,7 +77,13 @@
 
 <aircraft tailno="1234" name="hiaper">
 
-    <dsm hostname="dsm301">
+    <dsm name="dsm300" location="radome">
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser1"/>
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser2"/>
+    </dsm>
+
+    <dsm name="dsm301" location="cabin">
 	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 	    baud="9600" parity="none" databits="8" stopbits="1">
 	    <message position="end" separator="\n" length="0"/>
@@ -97,7 +103,7 @@
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
     </dsm>
 
-    <dsm hostname="dsm302">
+    <dsm name="dsm302" location="tail">
 	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 	    baud="9600" parity="none" databits="8" stopbits="1">
 	    <message position="end" separator="\n" length="0"/>
