@@ -18,6 +18,9 @@
 #include <XMLStringConverter.h>
 #include <XDOM.h>
 
+#include <dsm_sample.h>
+#include <SamplePool.h>
+
 // #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNamedNodeMap.hpp>
@@ -30,15 +33,113 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
-DSMSensor::DSMSensor()
+DSMSensor::DSMSensor() :
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
     initStatistics();
 }
 
-DSMSensor::DSMSensor(const std::string& n) : devname(n)
+DSMSensor::DSMSensor(const std::string& n) : devname(n),
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
     initStatistics();
 }
+
+DSMSensor::~DSMSensor()
+{
+    delete [] buffer;
+}
+
+void DSMSensor::initBuffer() throw()
+{
+    bufhead = buftail = 0;
+    delete [] buffer;
+    buffer = new char[BUFSIZE];
+}
+
+
+dsm_sample_time_t DSMSensor::readSamples()
+	throw (SampleParseException,atdUtil::IOException)
+{
+    size_t len = BUFSIZE - bufhead;	// length to read
+    size_t rlen;			// read result
+    dsm_sample_time_t tt = maxValue(tt);
+
+    rlen = read(buffer+bufhead,len);
+    bufhead += rlen;
+
+    // process all data in buffer, pass samples onto clients
+    for (;;) {
+        if (samp) {
+	    rlen = bufhead - buftail;	// bytes available in buffer
+	    len = sampDataToRead;	// bytes left to fill sample
+	    if (rlen < len) len = rlen;
+	    memcpy(sampDataPtr,buffer+buftail,len);
+	    buftail += len;
+	    sampDataPtr += len;
+	    sampDataToRead -= len;
+	    if (!sampDataToRead) {		// done with sample
+		tt = samp->getTimeTag();	// return last time tag read
+
+		process(samp);			// does not freeReference
+		
+	        distributeRaw(samp);
+
+		samp->freeReference();
+		nsamples++;
+		samp = 0;			// finished with sample
+						// check for more data
+						// in buffer
+	    }
+	    else break;				// done with buffer
+	}
+	// Read the header of the next sample
+        if (bufhead - buftail <
+		(signed)(len = SIZEOF_DSM_SAMPLE_HEADER))
+		break;
+
+	struct dsm_sample header;	// temporary header to read into
+	memcpy(&header,buffer+buftail,len);
+	buftail += len;
+
+	len = header.length;
+	samp = SamplePool<CharSample>::getInstance()->getSample(len);
+	samp->setTimeTag(header.timetag);
+	samp->setDataLength(len);
+	samp->setId(getId());	// set sample id to id of this sensor
+	sampDataPtr = (char*) samp->getVoidDataPtr();
+	sampDataToRead = len;
+
+	// keeps some stats
+	if(len < minSampleLength[currStatsIndex]) 
+	    minSampleLength[currStatsIndex] = len;
+	if (len > maxSampleLength[currStatsIndex])
+	    maxSampleLength[currStatsIndex] = len;
+    }
+
+    // shift data down. There shouldn't be much - less than a header's worth.
+    register char* bp;
+    for (bp = buffer; buftail < bufhead; ) 
+    	*bp++ = *(buffer + buftail++);
+
+    bufhead = bp - buffer;
+    buftail = 0;
+    return tt;
+}
+
+
+/**
+ * Default implementation of process just distributes this
+ * raw sample to my SampleClient's.  readSamples has already
+ * distributed the sample to my raw SampleClient's.
+ */
+void DSMSensor::process(const Sample* s)
+    	throw(dsm::SampleParseException,atdUtil::IOException)
+{
+    distribute(s);
+}
+
+
 
 void DSMSensor::initStatistics()
 {

@@ -16,7 +16,9 @@
 #define DSMSENSOR_H
 
 #include <atdUtil/IOException.h>
+#include <SampleClient.h>
 #include <SampleSource.h>
+#include <RawSampleSource.h>
 #include <DOMable.h>
 #include <SampleParseException.h>
 
@@ -25,10 +27,39 @@
 #include <string>
 #include <fcntl.h>
 
+namespace dsm {
 /**
- * An interface for a DSM Sensor.
+ * DSMSensor provides the basic support for reading, processing
+ * and distributing samples from a sensor attached to a DSM.
+ *
+ * DSMSensor has a no-arg constructor, and can fill in its attributes
+ * from an XML DOM element with fromDOMElement().
+ * One attribute of a DSMSensor is the system device
+ * name associated with this sensor, e.g. "/dev/xxx0".
+ * Once a device name has been set, then a user of this sensor
+ * can call open(),  and then ioctl(), read() and write().
+ * These methods must be implemented by a derived class,
+ * dsm::RTL_DSMSensor, for example.
+ *
+ * dsm::SampleClient's can call
+ * addRawSampleClient()/removeRawSampleClient() if they want to
+ * receive raw dsm::SampleT's from this sensor.
+ *
+ * dsm::SampleClient's can also call
+ * addSampleClient()/removeSampleClient() if they want to
+ * receive (minimally) processed dsm::SampleT's from this sensor.
+ *
+ * A common usage of a DSMSensor is to add it to a dsm::PortSelector
+ * object with dsm::PortSelector::addSensorPort().
+ * When the dsm::PortSelector::run method has determined that there is data
+ * available on a DSMSensor's file descriptor, it will then call
+ * the readSamples() method which reads the samples from the
+ * file descriptor, processes them, and forwards the raw and processed
+ * samples to all associated dsm::SampleClient's of this DSMSensor.
+ *
  */
-class DSMSensor : public dsm::SampleSource, public dsm::DOMable {
+class DSMSensor : public dsm::RawSampleSource, public dsm::SampleSource,
+	public dsm::DOMable {
 
 public:
 
@@ -43,9 +74,9 @@ public:
      */
     DSMSensor(const std::string& n);
 
-    virtual ~DSMSensor() {}
+    virtual ~DSMSensor();
 
-    virtual void setDeviceName(const std::string& val) { devname = val; }
+    void setDeviceName(const std::string& val) { devname = val; }
 
     const std::string& getDeviceName() const { return devname; }
 
@@ -54,14 +85,13 @@ public:
     /**
      * Retrieve this sensor's id number.
      */
-    virtual int getId() const { return id; };
+    int getId() const { return id; };
 
     /**
      * Set a unique identification number on this sensor.
      * The samples from this sensor will contain this id.
      */
-    virtual void setId(int val) { id = val; };
-
+    void setId(int val) { id = val; };
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -98,18 +128,41 @@ public:
     */
     virtual void close() throw(atdUtil::IOException) = 0;
 
-    /**
-    * When the PortSelector select() system call has determined
-    * that there is data available to read on this sensor,
-    * PortSelector calls this readSamples method().
-    * readSamples reads the raw data samples the port and calls
-    * the distribute() method of SampleSource to distribute
-    * the samples to the SampleClients.
+   /**
+    * Read samples from my associated file descriptor,
+    * process them, and pass them onto my SampleClient's.
+    *
+    * readSamples() assumes that the data read from
+    * the file descriptor is formatted into samples
+    * in the format of a struct dsm_sample, i.e. a
+    * 4 byte unsigned integer time-tag (milliseconds since
+    * midnight GMT), followed by a 4 byte unsigned integer data
+    * length, and then length number of bytes of data.
+    *
+    * After each sample is read, it is distributed to
+    * any SampleClients that have requested samples via
+    * dsm::RawSampleSource::addRawSampleClient().
+    * Then the virtual process() method is called
+    * which allows this sensor to apply any necessary processing
+    * to the raw sample.  The processed samples are then
+    * passed to any SampleClients that have registered with
+    * dsm::SampleSource::addSampleClient().
     */
-    virtual dsm_sample_time_t readSamples()
-    	throw(dsm::SampleParseException,atdUtil::IOException) = 0;
+    dsm_sample_time_t readSamples()
+    	throw(dsm::SampleParseException,atdUtil::IOException);
+
+    /**
+     * Apply further necessary processing to samples from
+     * this DSMSensor. A virtual method that is called
+     * from readSamples(). The default implementation
+     * of process() simply passes the Sample onto
+     * any dsm::SampleClient's without further processing.
+     */
+    virtual void process(const Sample*)
+    	throw(dsm::SampleParseException,atdUtil::IOException);
 
     void initStatistics();
+
     void calcStatistics(unsigned long periodMsec);
 
     size_t getMaxSampleLength() const
@@ -144,9 +197,25 @@ public:
 
 protected:
 
+    /**
+     * Must be called before invoking readSamples(). Derived
+     * classes should usually call initBuffer in their 
+     * open() method.
+     */
+    void initBuffer() throw();
+
     std::string devname;
 
     int id;
+
+    const int BUFSIZE;
+    char* buffer;
+    int bufhead;
+    int buftail;
+                                                                                
+    dsm::Sample* samp;
+    size_t sampDataToRead;
+    char* sampDataPtr;
 
     /**
      * DSMSensor maintains some counters that can be queried
@@ -165,7 +234,8 @@ protected:
     * Observed number of samples per second.
     */
     float sampleRateObs;
-
 };
+
+}
 
 #endif
