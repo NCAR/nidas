@@ -31,6 +31,22 @@
 using namespace std;
 using namespace dsm;
 
+/**
+ * A little SampleClient for testing purposes.  Currently
+ * just prints out some fields from the Samples it receives.
+ */
+class TestSampleClient : public SampleClient {
+public:
+
+  bool receive(const Sample *s)
+  	throw(SampleParseException,atdUtil::IOException);
+{
+    cerr << dec << "timetag= " << s->getTimeTag() << " id= " << s->getId() <<
+    	" len=" << s->getDataLength() << endl;
+    return true;
+}
+
+};
 
 int main(int argc, char** argv)
 {
@@ -40,10 +56,9 @@ int main(int argc, char** argv)
     }
 
     PortSelectorTest* handler = PortSelectorTest::createInstance();
-
     handler->start();
 
-/* A SampleClient that just prints some of the sample fields to cerr */
+    /* Create the test SampleClient */
 
     TestSampleClient test;
 
@@ -79,8 +94,10 @@ int main(int argc, char** argv)
 
 	    sens->addSampleClient(&test);
 
-/* Now add a pointer to your sensor to the PortSelectorTestor,
-   and things will start running
+/* Now your sensor to the PortSelectorTestor, and you should start
+   to see samples being received by the SampleClient.
+   When the PortSelectorTestor is destroyed, it will call the
+   sensor destructors.
 */
 
 	    handler->addSensorPort(sens);
