@@ -20,12 +20,21 @@ myenv = env.Copy()
 sources = Split("""
     RTL_DevIoctl.cc
     RTL_DevIoctlStore.cc
+    DSMSensor.cc
     RTL_DSMSensor.cc
     DSMSerialSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
   DSMSerialSensor.cc
+  Sample.cc
+  SamplePool.cc
+  SampleSource.cc
+  PortSelector.cc
+  PortSelectorTest.cc
+  RemoteSerialConnection.cc
+  RemoteSerialListener.cc
+  TestSampleClient.cc
 """)
 
 ##
