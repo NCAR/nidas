@@ -68,6 +68,7 @@ static	int	CurChan;	// Current channel value
 static	US	FIFOCtl;	//Static hardware FIFO control word storage
 static 	int	fd_up; 		// Data FIFO file descriptor
 static 	int	a2drun = RUN;	// Internal flag for debugging
+static  UL	ktime = 0;	// phoney timestamp for debugging
 
 volatile unsigned int isa_address = A2DBASE;
 
@@ -176,7 +177,7 @@ static int A2DCallback(int cmd, int board, int port,
 //  simulated data to user space.
 			rtl_printf("%s: Creating data simulation thread\n", 
 					__FILE__);
-			pthread_create(&aAthread, NULL, A2DGetDataSim, (void *)0);
+			pthread_create(&aAthread, NULL, A2DGetDataSim, NULL);
 			rtl_printf("(%s) %s:\tA2DGetDataSim thread created\n",
 					__FILE__, __FUNCTION__);
 #else
@@ -253,7 +254,6 @@ int init_module()
 	else
 		rtl_printf("Fifo %s opened for write\n", fifoname);
 	fd_up = open(fifoname, O_NONBLOCK | O_WRONLY);
-//	fd_up = open(fifoname, O_WRONLY);
 
 	rtl_printf("%s: Up FIFO fd = 0x%08x\n", __FILE__, fd_up);
 
@@ -576,12 +576,18 @@ US A2DSetVcal(int Vx8)
 
 //Switch inputs specified by Chans bits to calibration mode: bits 8-15 -> chan 0-7
 // Checked visually 5/22/04 GRG
+
 void A2DSetCal(A2D_SET *a2d)
 {	
 	US *A2DAddr;
-	US Chans;
+	US Chans = 0;
+	int i;
 
-	Chans = a2d->calset;
+	for(i = 0; i < MAXA2DS; i++)
+	{
+		Chans >>= 1; 
+		if(a2d->calset[i] != 0)Chans += 0x80;
+	}
 	
 	A2DChSel(A2DIOSYSCTL);
 	A2DAddr = (US *)(CardBase);
@@ -597,12 +603,18 @@ void A2DSetCal(A2D_SET *a2d)
 
 //Switch channels specified by Chans bits to offset mode: bits 0-7 -> chan 0-7
 // Checked visually 5/22/04 GRG
+
 void A2DSetOffset(A2D_SET *a2d)
 {	
 	US *A2DAddr;
-	US Chans;
+	US Chans = 0;
+	int i;
 
-	Chans = a2d->offset;
+	for(i = 0; i < MAXA2DS; i++)
+	{
+		Chans >>= 1;
+		if(a2d->offset[i] != 0)Chans += 0x80;
+	}
 
 	A2DChSel(A2DIOVCAL);
 	A2DAddr = (US *)(CardBase);
@@ -762,11 +774,12 @@ void A2DGetData()
 #else
 		buf.data[i][j] = gginw(A2DAddr);	
 #endif
-//TODO get the timestamp and size in the first two long words
+//TODO get the timestamp and size in the first long word
+//TODO put the size in the second entry (short)
 //TODO make certain the write size is correct
 //TODO check to see if fd_up is valid. If not, return an error
 		}
-		if(buf.data[i][j] == 0xFFFF && A2DFIFOEmpty())break;
+		if((short)A2DFIFOEmpty())break;
 	}
 	write(fd_up, &buf, sizeof(A2DSAMPLE)); // Write to up-fifo
 	return;
@@ -794,11 +807,8 @@ int A2DFIFOEmpty()
 
 void A2DGetDataSim(void)
 {
-	UL timestamp;
-//	US inbuf[MAXA2DS*INTRP_RATE + 4]; // The 4 is for 2 longs
 	A2DSAMPLE buf;
-
-	int i, j, k = 0, sign = 1; 
+	int i, j, sign = 1; 
 	size_t nbytes;
 	
 	rtl_printf("%s: Starting simulated data acquisition thread\n", __FILE__);	
@@ -823,21 +833,23 @@ void A2DGetDataSim(void)
 #endif
 		}
 #ifdef NOIRIG
-		timestamp = k;
+		buf.timestamp = ktime;
 #else
-		timestamp = GET_MSEC_CLOCK;
+		buf.timestamp = GET_MSEC_CLOCK;
 #endif
-		buf.timestamp = timestamp;
 		buf.size = sizeof(buf.data);
+
+/* rtl_printf("buf.size = 0x%04X\n", buf.size); */
+
 #ifndef DEBUGFIFOWRITE
 		nbytes = write(fd_up, &buf, sizeof(A2DSAMPLE)); //Write to up-fifo 
 #endif
 #ifdef DEBUGDATA
 		errno = 0;
-		if(!(k%10))rtl_printf("%6dth write: nbytes = 0x%08X, errno = 0x%08x\n",
-				 k, nbytes, errno);
+		if(!(ktime%10))rtl_printf("%6d: nbytes 0x%08X, errno 0x%08x, size %6d, time 0x%08d\n",
+			 ktime, nbytes, errno, buf.size, buf.timestamp);
 #endif
-		k++;
+		ktime++;
 	}
 return;
 }
@@ -908,12 +920,12 @@ void A2DIoctlDump(A2D_SET *a2d)
 		{
 		rtl_printf("%s: \n", __FILE__);
 		rtl_printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
-		rtl_printf("Hz_%1d    = %3d\n", i, a2d->Hz[i]);
+		rtl_printf("Hz_%1d    = %3d\t", i, a2d->Hz[i]);
+		rtl_printf("Offset  = 0x%02X\t", a2d->offset[i]);
+		rtl_printf("Calset  = 0x%02X\n", a2d->calset[i]);
 		}
 
 	rtl_printf("Vcalx8  = %3d\n", a2d->vcalx8);
-	rtl_printf("Calset  = 0x%02X\n", a2d->calset);
-	rtl_printf("Offset  = 0x%02X\n", a2d->offset);
 	rtl_printf("filter0 = 0x%04X\n", a2d->filter[0]);
 
 	return;

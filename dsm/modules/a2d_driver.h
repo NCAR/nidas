@@ -15,6 +15,8 @@
 #ifndef A2D_DRIVER_H
 #define A2D_DRIVER_H
 
+#include <dsm_sample.h>		// get dsm_sample typedefs
+
 
 //Conveniences
 #ifndef		US
@@ -125,17 +127,15 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
-	UL timestamp;
-	US size;
-	US spare;
+	dsm_sample_time_t timestamp;		/* timetag of sample */
+	dsm_small_sample_length_t size;	/* number of bytes in data */
   	SS data[RATERATIO][MAXA2DS]; 
 }A2DSAMPLE;
 
 typedef struct
 {
-	UL timestamp;
-	UL size;
-	UL spare;
+	dsm_sample_time_t timestamp;	// Time in microseconds ?
+	dsm_small_sample_length_t size;	// Size of structure
 	US a2dstat[8];
 	US fifostat;
 	char c[RATERATIO][MAXA2DS];
@@ -143,23 +143,21 @@ typedef struct
 
 typedef struct 
 {
-	UL	timestamp;	// Time in microseconds ?
-	US	size;		// Size of structure
-	int	gain[8];	// Gain settings 
+	dsm_sample_time_t timestamp;	// Time in microseconds ?
+	dsm_small_sample_length_t size;	// Size of structure
 	int	vcalx8;		// Calibration voltage: 
 				// 128=0, 48=-10, 208 = +10, .125 V/bit
-	double	norm[8];	// Normalization factor
-//
-	UC	calset;		// Calibration flags
-	UC	offset;		// Offset flags
-	US	master;		// Designates master A/D
-//
-	US	filter[2048];	// Filter data
-	US	Hz[8];		//Sample rate in Hz. 0 is off.
-	US	ctr[8];		// Current value of ctr;
 	US	status[8];	// A/D status flag
 //
+	int	gain[8];	// Gain settings 
+	int	Hz[8];		// Sample rate in Hz. 0 is off.
+	int	calset[8];	// Calibration flags
+	int	offset[8];	// Offset flags
+	float	norm[8];	// Normalization factors
+	US	master;		// Designates master A/D
+	US	ctr[8];		// Current value of ctr;
 	UL	ptr[8];		// Pointer offset from beginning of 
+	US	filter[2048];	// Filter data
 				// data summing buffer
 }A2D_SET;
 
