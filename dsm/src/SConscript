@@ -28,6 +28,7 @@ apps = Split("""
   XXXX_IoctlTest.cc
   serial_test.cc
   sensor_test.cc
+  ck_selector.cc
 """)
 
 for i in apps:
