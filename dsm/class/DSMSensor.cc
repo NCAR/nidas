@@ -27,13 +27,13 @@ using namespace dsm;
 using namespace xercesc;
 
 DSMSensor::DSMSensor() :
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),sorter(0)
 {
     initStatistics();
 }
 
 DSMSensor::DSMSensor(const std::string& n) : devname(n),
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),sorter(0)
 {
     initStatistics();
 }
@@ -66,8 +66,6 @@ dsm_sample_time_t DSMSensor::readSamples()
     rlen = read(buffer+bufhead,len);
     bufhead += rlen;
 
-    const Sample* procSamples;
-
     // process all data in buffer, pass samples onto clients
     for (;;) {
         if (samp) {
@@ -79,39 +77,10 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataPtr += len;
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
-
-		// current design
-		//     readSamples does distributeRaw, process, distribute
-		//     possible improvement: assign complete timetag,
-		//	which includes date.
-		//    problems: assigning complete timetag may have
-		//      difficulties if input isn't sorted.
-		//	probably not an issue.
-		//      worry about blocks in distributes
-		//	could require that receive()s not IO block.
-		//	what about heavy calculation blocks?
-		//
-		// refactor plan #1:
-		//     readSamples does a distributeRaw (worry about
-		//	IO blocks), then returns pointer to sample list
-		// SensorPortHandler then passes sample list,
-		//     and sensor pointer to time-sorting buffer thread.
-		// Time-sorting buffer assigns complete timetag,
-		//     calls sensor->process(), then sensor->distribute().
-		//
 		//  
 		tt = samp->getTimeTag();	// return last time tag read
-
-	        distributeRaw(samp);
-
-		procSamples = process(samp);
+		distributeRaw(samp);
 		samp->freeReference();
-
-	        if (procSamples) {
-		    distribute(procSamples);
-		    procSamples->freeReferencesOfList();
-		}
-
 		nsamples++;
 		samp = 0;			// finished with sample
 						// check for more data
@@ -153,15 +122,25 @@ dsm_sample_time_t DSMSensor::readSamples()
     return tt;
 }
 
+bool DSMSensor::receive(const Sample *samp)
+  	throw(SampleParseException, atdUtil::IOException)
+{
+    list<const Sample*> results;
+    process(samp,results);
+    distribute(results);
+    return true;
+}
+
 
 /**
- * Default implementation of process does nothing.
+ * Default implementation of process just passes samples on.
  */
-const Sample* DSMSensor::process(const Sample* s)
+bool DSMSensor::process(const Sample* s, list<const Sample*>& result)
     	throw(dsm::SampleParseException,atdUtil::IOException)
 {
     s->holdReference();
-    return s;
+    result.push_back(s);
+    return true;
 }
 
 

@@ -137,7 +137,7 @@ public:
      * a sscanf on the character string contents, creating
      * a processed sample of binary floating point data.
      */
-    const Sample*  process(const Sample*)
+    virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw(dsm::SampleParseException,atdUtil::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)

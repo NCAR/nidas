@@ -21,10 +21,13 @@
 #include <RawSampleSource.h>
 #include <DOMable.h>
 #include <SampleParseException.h>
+#include <SampleSorter.h>
 
 #include <dsm_sample.h>
 
 #include <string>
+// #include <list>
+
 #include <fcntl.h>
 
 namespace dsm {
@@ -58,7 +61,7 @@ namespace dsm {
  * samples to all associated dsm::SampleClient's of this DSMSensor.
  *
  */
-class DSMSensor : public dsm::RawSampleSource, public dsm::SampleSource,
+class DSMSensor : public RawSampleSource, public dsm::SampleSource,
 	public dsm::DOMable {
 
 public:
@@ -135,6 +138,7 @@ public:
 
    /**
     * Read samples from my associated file descriptor,
+    * return them in a list.
     * process them, and pass them onto my SampleClient's.
     *
     * readSamples() assumes that the data read from
@@ -143,27 +147,19 @@ public:
     * 4 byte unsigned integer time-tag (milliseconds since
     * midnight GMT), followed by a 4 byte unsigned integer data
     * length, and then length number of bytes of data.
-    *
-    * After each sample is read, it is distributed to
-    * any SampleClients that have requested samples via
-    * dsm::RawSampleSource::addRawSampleClient().
-    * Then the virtual process() method is called
-    * which allows this sensor to apply any necessary processing
-    * to the raw sample.  The processed samples are then
-    * passed to any SampleClients that have registered with
-    * dsm::SampleSource::addSampleClient().
     */
     dsm_sample_time_t readSamples()
     	throw(dsm::SampleParseException,atdUtil::IOException);
 
+    virtual bool receive(const Sample *s)
+  	throw(SampleParseException, atdUtil::IOException);
     /**
-     * Apply further necessary processing to samples from
-     * this DSMSensor. A virtual method that is called
-     * from readSamples(). The default implementation
-     * of process() simply passes the Sample onto
-     * any dsm::SampleClient's without further processing.
+     * Apply further necessary processing to a raw sample
+     * from this DSMSensor. Return the resultant sample(s)
+     * in result.  The default implementation
+     * of process() simply puts the Sample into result.
      */
-    virtual const Sample*  process(const Sample*)
+    virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw(dsm::SampleParseException,atdUtil::IOException);
 
     void initStatistics();
@@ -245,6 +241,8 @@ protected:
     * Observed number of samples per second.
     */
     float sampleRateObs;
+
+    SampleSorter* sorter;
 };
 
 }
