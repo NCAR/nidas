@@ -24,6 +24,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <math.h>
 
 using namespace std;
 using namespace dsm;
@@ -40,66 +41,89 @@ IRIGSensor::~IRIGSensor() {
 }
 void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 {
-    cerr << "IRIGSensor::open" << endl;
-  
     // It's magic, we can do an ioctl before the device is open!
     ioctl(IRIG_OPEN,(const void*)0,0);
-    cerr << "IRIG_OPEN done" << endl;
 
     RTL_DSMSensor::open(flags);
 
-    int status;
-    ioctl(IRIG_GET_STATUS,&status,sizeof(int));
-    cerr << "IRIG_GET_STATUS=" << hex << status << dec << endl;
-
     struct timeval tv;
+
+#ifdef DEBUG
+    unsigned char status;
+    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+    cerr << "IRIG_GET_STATUS=" << hex << (unsigned int)status << dec << endl;
+
     ioctl(IRIG_GET_CLOCK,&tv,sizeof(tv));
     cerr << "IRIG_GET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
+#endif
 
     gettimeofday(&tv,0);
     ioctl(IRIG_SET_CLOCK,&tv,sizeof(tv));
+
+#ifdef DEBUG
     cerr << "IRIG_SET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
 
     ioctl(IRIG_GET_CLOCK,&tv,sizeof(tv));
     cerr << "IRIG_GET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
+
+    sleep(1);
+    ioctl(IRIG_GET_CLOCK,&tv,sizeof(tv));
+    cerr << "IRIG_GET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
+
+    sleep(1);
+    ioctl(IRIG_GET_CLOCK,&tv,sizeof(tv));
+    cerr << "IRIG_GET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
+
+    sleep(1);
+    ioctl(IRIG_GET_CLOCK,&tv,sizeof(tv));
+    cerr << "IRIG_GET_CLOCK=" << tv.tv_sec << ' ' << tv.tv_usec << endl;
+#endif
 }
 
 void IRIGSensor::close() throw(atdUtil::IOException)
 {
-    cerr << "doing IRIG_CLOSE" << endl;
     ioctl(IRIG_CLOSE,(const void*)0,0);
     RTL_DSMSensor::close();
 }
 
-SampleT<dsm_sys_time_t>* IRIGSensor::processClockSample(const Sample* samp)
+bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
     	throw(SampleParseException,atdUtil::IOException)
 {
     dsm_sys_time_t syst = getCurrentTimeInMillis();
 
-    dsm_clock_data* dp = (dsm_clock_data*) samp->getConstVoidDataPtr();
+    const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
+    assert(((unsigned long)dp % 8) == 0);
 
-    dsm_sys_time_t sampt = dp->time;
-    int status = dp->status;
+
+    dsm_sys_time_t sampt = (dsm_sys_time_t)(dp->tval.tv_sec) * 1000 +
+	dp->tval.tv_usec / 1000;
+    unsigned int status = dp->status;
 
     SampleT<dsm_sys_time_t>* clksamp = getSample<dsm_sys_time_t>(1);
     clksamp->setTimeTag(samp->getTimeTag());
     clksamp->setId(CLOCK_SAMPLE_ID);
     clksamp->getDataPtr()[0] = sampt;
 
+#ifdef DEBUG
+    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+    "IRIG clock is %lld msecs ahead of unix clock, status=0x%x, llabs=%lld",
+	sampt - syst,status,::llabs(syst-sampt));
+#endif
+
     if (::llabs(syst - sampt) > GOOD_CLOCK_LIMIT) {
 	if (!(questionableClock++ % 100)) {
-	    if (sampt > syst)
-		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-			"IRIG clock is %d msecs ahead of unix clock",
-			    sampt - syst);
-	    else
-		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		    "IRIG clock is %d msecs behind unix clock",
-			    syst - sampt);
-	    if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
+	    const char* msg;
+	    if (sampt > syst) msg = "ahead of";
+	    else msg = "behind";
+
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    "IRIG clock is %lld msecs %s unix clock, status=0x%x, llabs=%lld",
+	    sampt - syst,msg,status,::llabs(syst-sampt));
 	}
+	if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
     }
-    return clksamp;
+    result.push_back(clksamp);
+    return true;
 }
 
 void IRIGSensor::fromDOMElement(const DOMElement* node)
@@ -124,12 +148,5 @@ DOMElement* IRIGSensor::toDOMElement(DOMElement* node)
     throw(DOMException)
 {
     return node;
-}
-
-
-const Sample* IRIGSensor::process(const Sample* samp)
-	throw(atdUtil::IOException,dsm::SampleParseException)
-{
-    return samp;
 }
 

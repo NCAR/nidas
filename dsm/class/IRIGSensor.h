@@ -18,14 +18,14 @@
 #include <dsm_serial.h>
 
 #include <RTL_DSMSensor.h>
-#include <ClockSensor.h>
 #include <atdUtil/InvalidParameterException.h>
 
 namespace dsm {
 /**
  * Sensor class for controlling and recieving data from an IRIG clock.
  */
-class IRIGSensor : public RTL_DSMSensor, public ClockSensor {
+class IRIGSensor : public RTL_DSMSensor
+{
 
 public:
 
@@ -43,12 +43,6 @@ public:
     bool isClock() const { return true; }
 
     /**
-     * Implementation of ClockSensor::processClockSample method.
-     */
-    SampleT<dsm_sys_time_t>* processClockSample(const Sample* samp)
-	    throw(SampleParseException,atdUtil::IOException);
-
-    /**
      * Open the device connected to the sensor.
      */
     void open(int flags) throw(atdUtil::IOException);
@@ -61,8 +55,8 @@ public:
     /**
      * Process a raw sample.
      */
-    const Sample*  process(const Sample*)
-    	throw(dsm::SampleParseException,atdUtil::IOException);
+    bool process(const Sample* samp,std::list<const Sample*>& result)
+    	throw(SampleParseException,atdUtil::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -76,7 +70,7 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
-    const int GOOD_CLOCK_LIMIT;
+    const long GOOD_CLOCK_LIMIT;
     int questionableClock;
 
 };
