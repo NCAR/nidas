@@ -44,7 +44,7 @@ typedef unsigned long dsm_large_sample_length_t;
     memcpy(samp->data,buffer,len);
     ...
 
-    write(fifofd,samp,SIZEOF_DSM_SMALL_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA);
+    write(fifofd,samp,SIZEOF_DSM_SMALL_SAMPLE_HEADER + len);
  */
 
 struct dsm_small_sample {
