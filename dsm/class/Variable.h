@@ -16,6 +16,7 @@
 #define VARIABLE_H
 
 #include <DOMable.h>
+#include <atdUtil/InvalidParameterException.h>
 
 #include <string>
 
@@ -35,17 +36,35 @@ public:
 
     virtual ~Variable() {}
 
-    virtual void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { name = val; }
 
     const std::string& getName() const { return name; }
 
-    virtual void setLongName(const std::string& val) { longname = val; }
+    void setLongName(const std::string& val) { longname = val; }
 
     const std::string& getLongName() const { return longname; }
 
-    virtual void setUnits(const std::string& val) { units = val; }
+    void setUnits(const std::string& val) { units = val; }
 
     const std::string& getUnits() const { return units; }
+
+    /**
+     * Set sampling rate in samples/sec.  A value of 0.0 means
+     * an unknown rate. Derived sensors can override this method
+     * and throw an InvalidParameterException if they don't like
+     * the rate value.
+     */
+    virtual void setSamplingRate(float val)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        samplingRate = val;
+    }
+
+    /**
+     * Get sampling rate in samples/sec.  A value of 0.0 means
+     * an unknown rate.
+     */
+    virtual float getSamplingRate() const { return samplingRate; }
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -66,6 +85,8 @@ protected:
     std::string longname;
 
     std::string units;
+
+    float samplingRate;
 };
 
 }
