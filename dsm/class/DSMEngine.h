@@ -91,7 +91,7 @@ protected:
     Aircraft* aircraft;
     DSMConfig* dsmConfig;
 
-    PortSelector* handler;
+    PortSelector* selector;
 
     std::list<SampleOutputStream*> connectedOutputs;
 };

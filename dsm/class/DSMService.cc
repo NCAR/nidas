@@ -41,7 +41,6 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
-	cerr << "DSMService, child=" << elname << endl;
 
 	if (!elname.compare("input")) {
 	    const string& classattr = xchild.getAttributeValue("class");

@@ -183,7 +183,7 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 DSMEngine::DSMEngine():
-    project(0),aircraft(0),dsmConfig(0),handler(0)
+    project(0),aircraft(0),dsmConfig(0),selector(0)
 {
 }
 
@@ -197,8 +197,8 @@ DSMEngine::~DSMEngine()
 	ostr->close();
     }
 
-    cerr << "delete handler" << endl;
-    delete handler;	// this closes the sensors
+    cerr << "delete selector" << endl;
+    delete selector;	// this closes the sensors
     cerr << "delete project" << endl;
     delete project;
 }
@@ -327,14 +327,14 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 
 void DSMEngine::startSensors() throw(atdUtil::IOException)
 {
-    handler = new PortSelector;
-    handler->start();
+    selector = new PortSelector;
+    selector->start();
 
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	(*si)->open((*si)->getDefaultMode());
-	handler->addSensorPort(*si);
+	selector->addSensorPort(*si);
     }
 }
 
@@ -387,10 +387,10 @@ void DSMEngine::startOutputs() throw(atdUtil::IOException)
 
 void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
-    if (handler) {
+    if (selector) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
 	    "DSMEngine::interrupt received, interrupting PortSelector");
-        handler->interrupt();
+        selector->interrupt();
     }
     else {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
@@ -401,7 +401,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 
 void DSMEngine::wait() throw(atdUtil::Exception)
 {
-    handler->join();
-    cerr << "handler joined" << endl;
+    selector->join();
+    cerr << "selector joined" << endl;
 }
 

@@ -144,6 +144,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    if (!sensor) throw atdUtil::InvalidParameterException(
 		    string("dsm") + ": " + getName(),
 		    elname,"is not a DSMSensor");
+	    sensor->setDSMName(getName());
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {

@@ -71,7 +71,7 @@ void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
     
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-    	"opening: %s",getDeviceName().c_str());
+    	"opening: %s",getName().c_str());
 
     int accmode = flags & O_ACCMODE;
 
@@ -91,7 +91,7 @@ void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 void RTL_DSMSensor::close() throw(atdUtil::IOException)
 {
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-    	"closing: %s",getDeviceName().c_str());
+    	"closing: %s",getName().c_str());
 
     if (infifofd >= 0) ::close(infifofd);
     infifofd = -1;

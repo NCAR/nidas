@@ -89,18 +89,36 @@ public:
     virtual const std::string& getDeviceName() const { return devname; }
 
     /**
-     * Fetch the class name of this sensor.
+     * Set the class name of this sensor. The class name is
+     * only used in informative messages - nothing else
+     * is done with it.
+     */
+    void setClassName(const std::string& val) { classname = val; }
+
+    /**
+     * Fetch the class name.
      */
     virtual const std::string& getClassName() const { return classname; }
+
+    /**
+     * Set the DSM name that this sensor is associated with.
+     * Also only used in informative messages.
+     */
+    void setDSMName(const std::string& val) { dsmname = val; }
+
+    /**
+     * Fetch the DSM name.
+     */
+    virtual const std::string& getDSMName() const { return dsmname; }
 
     /**
      * Return a name that should fully identify this sensor. This
      * name could be used in informative messages. The returned name
      * has this format:
-     *  className: deviceName.
+     *  dsmName:className:deviceName.
      */
     virtual std::string getName() const {
-        return getClassName() + ':' + getDeviceName();
+        return getDSMName() + ':' + getClassName() + ':' + getDeviceName();
     }
 
     /**
@@ -232,12 +250,6 @@ public:
 
 protected:
 
-    /**
-     * Set the class name of this sensor. Protected method.
-     * One should only set this in the constructor.
-     */
-    void setClassName(const std::string& val) { classname = val; }
-
 protected:
 
     /**
@@ -245,6 +257,8 @@ protected:
      * informative messages.
      */
     std::string classname;
+
+    std::string dsmname;
 
     std::string devname;
 
