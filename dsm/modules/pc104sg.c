@@ -33,7 +33,7 @@
 RTLINUX_MODULE(pc104sg);
 
 #define INTERRUPT_RATE 1000
-
+	
 /* TODO - hz100_cnt needs to be initialized to the zero'th second read from
    the pc104sg card...  the current implementation arbitrarily sets it to zero
    at the first occurance of this ISR. */
@@ -58,11 +58,13 @@ MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
 
 /* Actual physical address of this card. Set in init_module */
-static unsigned int isa_address;
+static unsigned int isa_address = 0;
 
 /* The 100 hz thread */
-static pthread_t     pc104sgThread;
+static pthread_t     pc104sgThread = 0;
 static sem_t         threadsem;
+
+#define CALL_BACK_POOL_SIZE 32	/* number of callbacks we can support */
 
 struct irigCallback {
   struct list_head list;
@@ -72,22 +74,42 @@ struct irigCallback {
 
 static struct list_head callbacklists[IRIG_NUM_RATES];
 
+static struct list_head callbackpool;
+
 static pthread_mutex_t cblistmutex = PTHREAD_MUTEX_INITIALIZER;
 
 
+/*
+ * add a callback entry to the list of callbacks for the given rate.
+ */
 int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
                             void* privateData)
 {
+    struct list_head *ptr;
+    struct irigCallback* cbentry;
 
-    struct irigCallback* cb = 
-	(struct irigCallback*) kmalloc(sizeof(struct irigCallback), GFP_KERNEL);
-
-    if (!cb) return -ENOMEM;
-    cb->callback = callback;
-    cb->privateData = privateData;
+    /* We could do a kmalloc of the entry, but that would require
+     * that this function be called at module init time.
+     * We want it to be call-able at any time, so we
+     * kmalloc a pool of entries at this module's init time,
+     * and grab an entry here.
+     */
 
     pthread_mutex_lock(&cblistmutex);
-    list_add(&cb->list,callbacklists + rate);
+
+    ptr = callbackpool.next;
+    if (ptr == &callbackpool) {		/* none left */
+	pthread_mutex_unlock(&cblistmutex);
+        return -ENOMEM;
+    }
+
+    cbentry = list_entry(ptr,struct irigCallback, list);
+    list_del(&cbentry->list);
+
+    cbentry->callback = callback;
+    cbentry->privateData = privateData;
+
+    list_add(&cbentry->list,callbacklists + rate);
     pthread_mutex_unlock(&cblistmutex);
 
     return 0;
@@ -98,13 +120,14 @@ void unregister_irig_callback(irig_callback_t* callback, enum irigClockRates rat
     pthread_mutex_lock(&cblistmutex);
 
     struct list_head *ptr;
-    struct irigCallback *entry;
+    struct irigCallback *cbentry;
     for (ptr = callbacklists[rate].next; ptr != callbacklists+rate;
     	ptr = ptr->next) {
-	entry = list_entry(ptr,struct irigCallback, list);
-	if (entry->callback == callback) {
-	    list_del(&entry->list);
-	    kfree(entry);
+	cbentry = list_entry(ptr,struct irigCallback, list);
+	if (cbentry->callback == callback) {
+	    /* remove it from the list for the rate, and add to the pool. */
+	    list_del(&cbentry->list);
+	    list_add(&cbentry->list,&callbackpool);
 	    break;
 	}
     }
@@ -112,13 +135,13 @@ void unregister_irig_callback(irig_callback_t* callback, enum irigClockRates rat
     pthread_mutex_unlock(&cblistmutex);
 }
 
-static void release_callbacks()
+static void free_callbacks()
 {
     int i;
 
     struct list_head *ptr;
     struct list_head *newptr;
-    struct irigCallback *entry;
+    struct irigCallback *cbentry;
 
     pthread_mutex_lock(&cblistmutex);
 
@@ -126,10 +149,16 @@ static void release_callbacks()
 	for (ptr = callbacklists[i].next;
 		ptr != callbacklists+i; ptr = newptr) {
 	    newptr = ptr->next;
-	    entry = list_entry(ptr,struct irigCallback, list);
-	    list_del(&entry->list);
-	    kfree(entry);
+	    cbentry = list_entry(ptr,struct irigCallback, list);
+	    /* remove it from the list for the rate, and add to the pool. */
+	    list_del(&cbentry->list);
+	    list_add(&cbentry->list,&callbackpool);
 	}
+    }
+
+    for (ptr = callbackpool.next; ptr != &callbackpool; ptr = ptr->next) {
+	cbentry = list_entry(ptr,struct irigCallback, list);
+	kfree(cbentry);
     }
 
     pthread_mutex_unlock(&cblistmutex);
@@ -399,11 +428,11 @@ int setMajorTime(struct irigTime* it)
 
 static void doCallbacklist(struct list_head* list) {
     struct list_head *ptr;
-    struct irigCallback *entry;
+    struct irigCallback *cbentry;
 
     for (ptr = list->next; ptr != list; ptr = ptr->next) {
-	entry = list_entry(ptr,struct irigCallback, list);
-	entry->callback(entry->privateData);
+	cbentry = list_entry(ptr,struct irigCallback, list);
+	cbentry->callback(cbentry->privateData);
     }
 }
 
@@ -580,68 +609,67 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-
-    /* cancel the thread */
-    pthread_cancel( pc104sgThread );
-    pthread_join( pc104sgThread, NULL );
-
-    release_callbacks();
-
     /* stop generating pc104sg interrupts */
     disableHeartBeatInt();
 
     rtl_free_isa_irq(irq);
 
+    /* cancel the thread */
+    if (pc104sgThread) {
+        pthread_cancel( pc104sgThread );
+	pthread_join( pc104sgThread, NULL );
+    }
+
+    /* free up our pool of callbacks */
+    free_callbacks();
+
     /* free up the I/O region and remove /proc entry */
-    release_region(isa_address, PC104SG_IOPORT_WIDTH);
+    if (isa_address) {
+	/* stop generating pc104sg interrupts */
+	disableHeartBeatInt();
+    	release_region(isa_address, PC104SG_IOPORT_WIDTH);
+    }
 
     sem_destroy(&threadsem);
 
     rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
+
 }
 
 /* -- MODULE ---------------------------------------------------------- */
 int init_module (void)
 {
     int i;
-    int err;
+    int errval = 0;
+    unsigned int addr;
+
     rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
-    /* check for module parameters */
-    isa_address = (unsigned int)ioport + SYSTEM_ISA_IOPORT_BASE;
-    rtl_printf("(%s) %s:\t addr = %x width = %x\n", __FILE__, __FUNCTION__,
-	isa_address, PC104SG_IOPORT_WIDTH);
-
-    /* Grab the region so that no one else tries to probe our ioports. */
-    if ((err = check_region(isa_address, PC104SG_IOPORT_WIDTH)) < 0) return err;
-    rtl_printf("(%s) %s: calling request_region \n", __FILE__, __FUNCTION__);
-    request_region(isa_address, PC104SG_IOPORT_WIDTH, "pc104sg");
-    rtl_printf("(%s) %s:\t request_region done\n", __FILE__, __FUNCTION__);
-
+    INIT_LIST_HEAD(&callbackpool);
+    for (i = 0; i < IRIG_NUM_RATES; i++)
+	INIT_LIST_HEAD(callbacklists+i);
 
     /* initialize the semaphore to the 100 hz thread */
     sem_init (&threadsem, /* which semaphore */
 	    1,                /* usable between processes? Usu. 1 */
 	    0);               /* initial value */
 
-    rtl_printf("(%s) %s:\t sem_init done\n", __FILE__, __FUNCTION__);
+
+    /* check for module parameters */
+    addr = (unsigned int)ioport + SYSTEM_ISA_IOPORT_BASE;
+
+    /* Grab the region so that no one else tries to probe our ioports. */
+    if ((errval = check_region(addr, PC104SG_IOPORT_WIDTH)) < 0) goto err0;
+    request_region(addr, PC104SG_IOPORT_WIDTH, "pc104sg");
+    isa_address = addr;
 
     readClock = 0;
     writeClock = 0;
     msecClock[readClock] = 0;
     msecClock[writeClock] = 0;
-    rtl_printf("IRIG_NUM_RATES=%d\n",IRIG_NUM_RATES);
-
-    for (i = 0; i < IRIG_NUM_RATES; i++)
-	INIT_LIST_HEAD(callbacklists+i);
-
-    /* create the 100 Hz thread */
-    pthread_create( &pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0 );
-    rtl_printf("(%s) %s:\t pthread_create done\n", __FILE__, __FUNCTION__);
 
     /* stop generating pc104sg interrupts */
-    rtl_printf("(%s) %s:\t disableHeartBeatInt()\n", __FILE__, __FUNCTION__);
     disableHeartBeatInt();
 
     struct irigTime major;
@@ -656,16 +684,31 @@ int init_module (void)
 
     setMajorTime(&major);
 
+    /* create our pool of callback entries */
+    errval = -ENOMEM;
+    for (i = 0; i < CALL_BACK_POOL_SIZE; i++) {
+	struct irigCallback* cbentry =
+	    (struct irigCallback*) kmalloc(sizeof(struct irigCallback), GFP_KERNEL);
+	if (!cbentry) goto err0;
+	list_add(&cbentry->list,&callbackpool);
+    }
+
     /* install a handler for the interrupt */
     rtl_printf("(%s) %s:\t rtl_request_isa_irq( %d, pc104sg_100hz_isr )\n",
 	     __FILE__, __FUNCTION__, irq);
 
-    if ((err = rtl_request_isa_irq(irq, pc104sg_100hz_isr,0 )) < 0 ) {
+    /* create the 100 Hz thread */
+    if ((errval = pthread_create(
+    	&pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0))) {
+        errval = -errval;
+	goto err0;
+    }
+
+    if ((errval = rtl_request_isa_irq(irq, pc104sg_100hz_isr,0 )) < 0 ) {
 	/* failed... */
-	cleanup_module();
 	rtl_printf("(%s) %s:\t could not allocate IRQ %d\n",
 		   __FILE__, __FUNCTION__, irq);
-	return err;
+	goto err0;
     }
 
     /* activate the pc104sg-B board */
@@ -684,5 +727,26 @@ int init_module (void)
     */
 
     return 0;
+
+err0:
+
+    /* cancel the thread */
+    if (pc104sgThread) {
+        pthread_cancel( pc104sgThread );
+	pthread_join( pc104sgThread, NULL );
+    }
+
+    /* free up our pool of callbacks */
+    free_callbacks();
+
+    /* free up the I/O region and remove /proc entry */
+    if (isa_address) {
+	/* stop generating pc104sg interrupts */
+	disableHeartBeatInt();
+    	release_region(isa_address, PC104SG_IOPORT_WIDTH);
+    }
+
+    sem_destroy(&threadsem);
+    return errval;
 }
 
