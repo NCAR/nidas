@@ -28,6 +28,8 @@ myenv.AppendUnique(LIBS = Split("""
 #   dsmSync.cc
 #   ck_main.cc
 apps = Split("""
+  dsm_server.cc
+  dsm.cc
   XXXX_IoctlTest.cc
   serial_test.cc
   sensor_test.cc
