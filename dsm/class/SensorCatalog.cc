@@ -14,13 +14,6 @@
 */
 
 #include <SensorCatalog.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
-
-// #include <xercesc/dom/DOMElement.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
-// #include <xercesc/dom/DOMAttr.hpp>
 
 #include <iostream>
 
@@ -28,7 +21,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(SensorCatalog)
+// CREATOR_ENTRY_POINT(SensorCatalog)
 
 SensorCatalog::SensorCatalog()
 {

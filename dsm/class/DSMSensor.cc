@@ -15,16 +15,9 @@
 */
 
 #include <DSMSensor.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
-
-// #include <xercesc/dom/DOMElement.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
-// #include <xercesc/dom/DOMAttr.hpp>
 
 #include <iostream>
 #include <string>
@@ -89,7 +82,8 @@ dsm_sample_time_t DSMSensor::readSamples()
 
 		// current design
 		//     readSamples does distributeRaw, process, distribute
-		//     possible improvement: assign complete timetag.
+		//     possible improvement: assign complete timetag,
+		//	which includes date.
 		//    problems: assigning complete timetag may have
 		//      difficulties if input isn't sorted.
 		//	probably not an issue.
