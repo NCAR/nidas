@@ -3,22 +3,38 @@
 ##
 ##  Import the cross-build environment.
 ##
-Import('arm_env')
-rtl_env = arm_env.Copy()
+
+Import('env')
+myenv = env.Copy()
 
 ##
 ##  RTLinux specific settings
 ##
-rtl_env.AppendUnique(CCFLAGS=Split("""
+# myenv.Replace(AR     = '/opt/rtldk-2.0/bin/arm-linux-ar')
+# myenv.Replace(AS     = '/opt/rtldk-2.0/bin/arm-linux-as')
+# myenv.Replace(CC     = '/opt/rtldk-2.0/bin/arm-linux-gcc')
+# myenv.Replace(CXX    = '/opt/rtldk-2.0/bin/arm-linux-g++')
+# myenv.Replace(LINK   = '/opt/rtldk-2.0/bin/arm-linux-g++')
+# myenv.Replace(RANLIB = '/opt/rtldk-2.0/bin/arm-linux-ranlib')
+
+myenv.AppendUnique(CCFLAGS=Split("""
   -DMODULE -D__KERNEL__ -D__RTL__
 """))
-rtl_env.AppendUnique(CPPPATH=Split("""
+
+#    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
+#    -mshort-load-bytes -mtune=strongarm -Uarm -DDSM
+#    -fno-omit-frame-pointer -fno-strict-aliasing
+
+myenv.AppendUnique(CPPPATH=Split("""
+  /opt/rtldk-2.0/rtlinuxpro/include/linux-sys
   /opt/rtldk-2.0/rtlinuxpro/include
   /opt/rtldk-2.0/rtlinuxpro/include/posix
-  /opt/rtldk-2.0/rtlinuxpro/include/compat
-  /opt/rtldk-2.0/rtlinuxpro/include/linux-sys
   /opt/rtldk-2.0/rtlinuxpro/libc/include
 """))
+
+#  /opt/rtldk-2.0/rtlinuxpro/include/compat
+#  /opt/rtldk-2.0/rtlinuxpro/linux/include
+
 ##
 ##  List of each module source
 ##
@@ -27,14 +43,15 @@ rtl_env.AppendUnique(CPPPATH=Split("""
 # demux.c -> rtl_isa_irq.c
 # vdio.c
 modules = Split("""
-  rtl_isa_irq.c
-  pc104sg.c
-  ioctl_fifo.c
-  xxxx_driver.c
-  com8.c
+    dsm_serial.c
+    dsm_serial_fifo.c
+    rtl_isa_irq.c
+    pc104sg.c
+    ioctl_fifo.c
+    xxxx_driver.c
 """)
 ##
 ##  Build the modules
 ##
 for i in modules:
-  rtl_env.Object( i )
+  myenv.Object( i )
