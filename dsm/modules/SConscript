@@ -29,6 +29,7 @@ modules = Split("""
   init_modules.c
   isa_demux.c
   irig_module.c
+  vdio.c
 """)
 
 ##
