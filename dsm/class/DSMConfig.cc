@@ -13,8 +13,8 @@
 
 */
 
-#include <Project.h>
 #include <DSMConfig.h>
+#include <Project.h>
 
 #include <DOMObjectFactory.h>
 
@@ -24,22 +24,23 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-// CREATOR_ENTRY_POINT(DSMConfig)
-
-DSMConfig::DSMConfig()
+DSMConfig::DSMConfig(): sensorId(0x0010),sensorIncrement(0x0010)
 {
 }
 
 DSMConfig::~DSMConfig()
 {
-    for (std::list<DSMSensor*>::iterator it = sensors.begin();
-    	it != sensors.end(); ++it) delete *it;
+    for (std::list<DSMSensor*>::iterator si = sensors.begin();
+    	si != sensors.end(); ++si) delete *si;
+    for (std::list<SampleOutputStream*>::iterator oi = outputs.begin();
+    	oi != outputs.end(); ++oi) delete *oi;
 }
 
 void DSMConfig::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
+
     
     if (xnode.getNodeName().compare("dsm"))
 	    throw atdUtil::InvalidParameterException(
@@ -129,7 +130,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    DSMSensor* sensor = dynamic_cast<DSMSensor*>(domable);
 	    if (!sensor) throw atdUtil::InvalidParameterException("sensor",
 		    elname,"is not a DSMSensor");
-	    sensor->setId(sensors.size());	// unique id
+	    sensor->setId(sensorId);	// unique id
+	    sensorId += sensorIncrement;
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {
@@ -153,6 +155,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    if (!output) throw atdUtil::InvalidParameterException("output",
 		    classattr,"is not a SampleOutputStream");
 	    addOutput(output);
+	    output->setDSMConfig(this);
 	}
     }
 }

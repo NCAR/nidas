@@ -56,9 +56,14 @@ public:
     		throw(xercesc::DOMException);
 
 protected:
+
+    unsigned short sensorId;
+    const unsigned short sensorIncrement;
+
     std::string name;
     std::list<DSMSensor*> sensors;
     std::list<SampleOutputStream*> outputs;
+
 };
 
 }
