@@ -36,11 +36,11 @@ SyncRecord::SyncRecord (TapeHeader& hdr, DsmConfig& dcfg, SampleTable& st,
 //   for (j = 0; j < MAX_CMIG_INTFC; j++)
 //     cmigits3[j] = cmigits[j];
 
-  for (j = 0; j < RTL_MAX_SERIAL; j++)
-    men_pres[j] = presm[j];
+//  for (j = 0; j < RTL_MAX_SERIAL; j++)
+//    men_pres[j] = presm[j];
 
-   for (j = 0; j < RTL_MAX_SERIAL; j++)
-     par_pres[j] = presp[j];
+//   for (j = 0; j < RTL_MAX_SERIAL; j++)
+//     par_pres[j] = presp[j];
 
   lr_len = hdr.lrlen();			// keep a copy of the logical rec len
 
