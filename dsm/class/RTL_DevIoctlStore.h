@@ -54,7 +54,7 @@ private:
 
     std::vector<RTL_DevIoctl*> fifos;
 
-    static atdUtil::Mutex* instanceMutex;
+    static atdUtil::Mutex instanceMutex;
 
     atdUtil::Mutex fifosMutex;
 };

@@ -16,6 +16,7 @@
 #ifndef DYNAMIC_LOADER_H
 #define DYNAMIC_LOADER_H
 
+#include <atdUtil/ThreadSupport.h>
 #include <atdUtil/Exception.h>
 
 namespace dsm {
@@ -51,6 +52,7 @@ private:
     ~DynamicLoader();
     void* defhandle;
     static DynamicLoader* instance;
+    static atdUtil::Mutex instanceLock;
 };
 
 }

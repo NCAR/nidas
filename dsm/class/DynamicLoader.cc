@@ -19,9 +19,13 @@
 using namespace dsm;
 
 DynamicLoader* DynamicLoader::instance = 0;
+atdUtil::Mutex DynamicLoader::instanceLock;
 
 DynamicLoader* DynamicLoader::getInstance() throw(atdUtil::Exception) {
-    if (!instance) instance = new DynamicLoader();
+    if (!instance) {
+	atdUtil::Synchronized autosync(instanceLock);
+	if (!instance) instance = new DynamicLoader();
+    }
     return instance;
 }
 

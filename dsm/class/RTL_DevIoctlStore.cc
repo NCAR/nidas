@@ -15,24 +15,25 @@ using namespace std;
 RTL_DevIoctlStore* RTL_DevIoctlStore::instance = 0;
                                                                                 
 /* static */
-atdUtil::Mutex* RTL_DevIoctlStore::instanceMutex = new atdUtil::Mutex;
+atdUtil::Mutex RTL_DevIoctlStore::instanceMutex;
                                                                                 
 /* static */
 RTL_DevIoctlStore* RTL_DevIoctlStore::getInstance() {
                                                                                 
-    instanceMutex->lock();
-    if (!instance) instance = new RTL_DevIoctlStore();
-    instanceMutex->unlock();
+    if (!instance) {
+	atdUtil::Synchronized autosync(instanceMutex);
+	if (!instance) instance = new RTL_DevIoctlStore();
+    }
                                                                                 
     return instance;
 }
                                                                                 
 /* static */
 void RTL_DevIoctlStore::removeInstance() {
-    instanceMutex->lock();
+    instanceMutex.lock();
     delete instance;
     instance = 0;
-    instanceMutex->unlock();
+    instanceMutex.unlock();
 }
                                                                                 
 RTL_DevIoctlStore::RTL_DevIoctlStore()
