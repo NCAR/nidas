@@ -61,8 +61,8 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 }
 
 struct dsm_clock_data {
-    dsm_sys_time_t time;
-    int status;
+    struct timeval tval;
+    unsigned char status;
 };
 
 struct dsm_clock_sample {
