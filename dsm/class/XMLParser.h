@@ -218,15 +218,17 @@ public:
 
 protected:
     XMLCachingParser() throw(xercesc::DOMException,atdUtil::Exception);
-    ~XMLCachingParser() {}
+    ~XMLCachingParser();
 
 protected:
     static XMLCachingParser* instance;
     static atdUtil::Mutex instanceLock;
 
+
     std::map<std::string,time_t> modTimeCache;
     std::map<std::string,xercesc::DOMDocument*> docCache;
 
+    atdUtil::Mutex cacheLock;
 };
 
 }

@@ -235,11 +235,22 @@ XMLCachingParser::XMLCachingParser() throw(xercesc::DOMException,atdUtil::Except
 {
 }
 
+XMLCachingParser::~XMLCachingParser()
+{
+    atdUtil::Synchronized autosync(cacheLock);
+    std::map<std::string,xercesc::DOMDocument*>::const_iterator di;
+    for (di = docCache.begin(); di != docCache.end(); ++di) {
+	xercesc::DOMDocument* doc = di->second;
+	cerr << "releasing doc" << endl;
+	doc->release();
+    }
+}
+
 DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
     throw (SAXException, XMLException, DOMException)
 {
     // synchronize access to the cache
-    atdUtil::Synchronized autosync(instanceLock);
+    atdUtil::Synchronized autosync(cacheLock);
 
     // modification time of file when it was last parsed
     time_t lastModTime = modTimeCache[xmlFile];
