@@ -37,11 +37,11 @@ env.SourceCode('.', None)
 ##  Define it's compiler flags for the all build tools.
 ##-O2 <-> -g
 env['CCFLAGS'] = Split("""
-    -Wall -O2 -g
+    -Wall -O2
 """)
 
 env['CXXFLAGS'] = Split("""
-    -Wall -O2 -g
+    -Wall -O2
 """)
 
 # env['LINKFLAGS'] = Split("""
@@ -89,8 +89,10 @@ arm_env.AppendUnique(LIBPATH = Split("""
 ##
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
 ##
+##    /net/opt_lnx/local_arm/lib
 arm_env.AppendUnique(RPATH = Split("""
     /usr/local/lib
+    /var/tmp/lib
 """))
 
 arm_env.Replace(AR	= '/opt/arm_tools/bin/arm-linux-ar')
@@ -134,13 +136,7 @@ x86_env.AppendUnique(RPATH = Split("""
 """))
 
 ##
-##  Export the environments to the SConscript files
-##
-## Export('arm_env')
-## Export('x86_env')
-
-##
-##  Build dsm/modules/???.o
+##  Build dsm/modules
 ##
 SConscript('dsm/modules/SConscript',
 	build_dir='dsm/modules/arm',
@@ -158,22 +154,24 @@ SConscript('dsm/class/SConscript',
 	duplicate=0,exports={'env':x86_env})
 
 ##
-##  
+##  Build libDisc.a
 ##
+SConscript('disc/class/SConscript',
+	build_dir='disc/class/x86',
+	duplicate=0,exports={'env':x86_env})
 
+##
+##  Build arm executables
+##
 SConscript('dsm/src/SConscript',
 	build_dir='dsm/src/arm',
 	duplicate=0,exports={'env':arm_env})
 
+##
+##  Build x86 executables
+##
 SConscript('dsm/src/SConscript',
 	build_dir='dsm/src/x86',
-	duplicate=0,exports={'env':x86_env})
-
-##
-##  Build lib/libArmDisc.a and lib/libX86Disc.a
-##
-SConscript('disc/class/SConscript',
-	build_dir='disc/class/x86',
 	duplicate=0,exports={'env':x86_env})
 
 ##
