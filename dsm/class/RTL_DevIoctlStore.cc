@@ -2,7 +2,11 @@
    Copyright by the National Center for Atmospheric Research
 */
 
+#include <sys/stat.h>	/* for stat() */
+
 #include <RTL_DevIoctlStore.h>
+
+#include <iostream>
 
 using namespace std;
 
@@ -10,7 +14,7 @@ using namespace std;
 RTL_DevIoctlStore* RTL_DevIoctlStore::instance = 0;
                                                                                 
 /* static */
-atdUtil::Mutex** RTL_DevIoctlStore::instanceMutex = new atdUtil::Mutex;
+atdUtil::Mutex* RTL_DevIoctlStore::instanceMutex = new atdUtil::Mutex;
                                                                                 
 /* static */
 RTL_DevIoctlStore* RTL_DevIoctlStore::getInstance() {
@@ -35,26 +39,26 @@ RTL_DevIoctlStore::RTL_DevIoctlStore()
 }
                                                                                 
 /**
- * Delete the accumulated RTLIoctl s
+ * Delete the accumulated RTL_DevIoctl s
  */
 RTL_DevIoctlStore::~RTL_DevIoctlStore()
 {
   fifosMutex.lock();
-  for (vector<RTLIoctl*>::iterator fi = fifos.begin();  fi != fifos.end();
+  for (vector<RTL_DevIoctl*>::iterator fi = fifos.begin();  fi != fifos.end();
         ++fi) delete *fi;
   fifosMutex.unlock();
 }
 
-RTLIoctl*  RTL_DevIoctlStore::getIoctl(const string& prefix, int portNum)
+RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int portNum)
 {
     // first loop over vector of found Ioctls
-    RTLIoctl* fifo = 0;
+    RTL_DevIoctl* fifo = 0;
 
     fifosMutex.lock();
-    for (vector<RTLIoctl*>::const_iterator fi = fifos.begin();
+    for (vector<RTL_DevIoctl*>::const_iterator fi = fifos.begin();
 	fi != fifos.end(); ++fi) {
 	if ((*fi)->getPrefix() == prefix) {
-	    int firstPort = (*fi)->getFirstPort();
+	    int firstPort = (*fi)->getFirstPortNum();
 	    int nports = (*fi)->getNumPorts();
 	    if (firstPort + nports > portNum) {
 	      fifo = *fi;
@@ -71,18 +75,21 @@ RTLIoctl*  RTL_DevIoctlStore::getIoctl(const string& prefix, int portNum)
         fifo = RTL_DevIoctlStore::getDevIoctl(prefix,boardNum,firstPort);
 	if (!fifo) break;
 	int nports = fifo->getNumPorts();
-	if (firstPort + nport > portNum) break;
+	if (firstPort + nports > portNum) break;
 	firstPort += nports;
     }
     return fifo;
 }
 
-RTLIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int boardNum,
+RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int boardNum,
 	int firstPort)
 {
-    string infifo = RTLIoctl::makeInputName(prefix,boardNum);
-    if (stat(infifo.c_str(),&statbuf) == 0)
-	RTLIoctl* fifo = new RTLIoctl(prefix,boardNum,firstPort);
+    string infifo = RTL_DevIoctl::makeInputFifoName(prefix,boardNum);
+    struct stat statbuf;
+
+    if (::stat(infifo.c_str(),&statbuf) == 0) {
+	cerr << infifo << " exists" << endl;
+	RTL_DevIoctl* fifo = new RTL_DevIoctl(prefix,boardNum,firstPort);
 
 	fifosMutex.lock();
 	fifos.push_back(fifo);

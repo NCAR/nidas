@@ -2,21 +2,35 @@
    Copyright by the National Center for Atmospheric Research
 */
 
+#include <fcntl.h>
+#include <errno.h>
+#include <bits/pthreadtypes.h>
+
+#include <iostream>
+
 #include <RTL_DSMSensor.h>
+#include <RTL_DevIoctlStore.h>
+
 
 using namespace std;
 
 RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
-    DSMSensor(nameArg),ioctlFifo(0),infifofd(-1),outfifofd(-1),
-    ioctlFifo(0)
+    DSMSensor(nameArg),devIoctl(0),infifofd(-1),outfifofd(-1)
 {
 
-    string::const_iterator pi = getPrefixEnd(name);
+    string::reverse_iterator ri;
+    for (ri = name.rbegin(); ri != name.rend(); ++ri)
+        if (!isdigit(*ri)) break;
+    string::iterator pi = ri.base();
 
-    string prefix = name.substr(0,pi-name.begin());
-    string portstr = name.substr(pi-name.begin());
+    // cerr << "*pi=" << *pi << " diff=" << pi-name.begin() << endl;
 
-    portNum = atoi(portstr.c_name());
+    // string prefix = name.substr(0,pi-name.begin());
+    prefix = string(name.begin(),pi);
+
+    string portstr(pi,name.end());
+
+    portNum = atoi(portstr.c_str());
 
     inFifoName = prefix + "_in_" + portstr;
     outFifoName = prefix + "_out_" + portstr;
@@ -30,20 +44,21 @@ RTL_DSMSensor::~RTL_DSMSensor()
 void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
   
-    if (flags & O_RDONLY) {
+    int accmode = flags & O_ACCMODE;
+
+    if (accmode == O_RDONLY || accmode == O_RDWR) {
 	infifofd = ::open(inFifoName.c_str(),O_RDONLY);
 	if (infifofd < 0) throw atdUtil::IOException(inFifoName,"open",errno);
     }
 
-    if (flags & O_WRONLY) {
+    if (accmode == O_WRONLY || accmode == O_RDWR) {
 	outfifofd = ::open(outFifoName.c_str(),O_WRONLY);
 	if (outfifofd < 0) throw atdUtil::IOException(outFifoName,"open",errno);
     }
 
-    ioctlFifo = RTLIoctlFifos::getInstance()->getIoctlFifo(prefix,portNum);
+    devIoctl = RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
 
-    if (ioctlFifo) ioctlFifo->open();
-
+    if (devIoctl) devIoctl->open();
 }
 
 
@@ -57,28 +72,39 @@ void RTL_DSMSensor::close()
         ::close(outfifofd);
     outfifofd = -1;
 
-    if (ioctlFifo) ioctlFifo->close();
-    ioctlFifo = 0;
+    if (devIoctl) devIoctl->close();
+    devIoctl = 0;
 
 }
 
-int RTL_DSMSensor::ioctlSend(int request,size_t len, void* buf) 
+void RTL_DSMSensor::ioctl(int request, void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!ioctlFifo) throw atdUtil::IOException(getName(),"ioctlSend",
-    	"no ioctlFifo associated with device");
+    if (!devIoctl) throw atdUtil::IOException(getName(),"ioctl",
+    	"no ioctl associated with device");
 
-   return ioctlFifo->ioctlSend(request,portNum,len,buf);
+    devIoctl->ioctl(request,portNum,buf,len);
 }
 
-
-int RTL_DSMSensor::ioctlRecv(int request,size_t len, void* buf) 
+void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!ioctlFifo) throw atdUtil::IOException(getName(),"ioctlSend",
-    	"no ioctlFifo associated with device");
+    if (!devIoctl) throw atdUtil::IOException(getName(),"ioctl",
+    	"no ioctl associated with device");
 
-   return ioctlFifo->ioctlRecv(request,portNum,len,buf);
+    devIoctl->ioctl(request,portNum,buf,len);
 }
 
+ssize_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
+{
+    size_t n = ::read(infifofd,buf,len);
+    if (n < 0) throw atdUtil::IOException(inFifoName,"read",errno);
+    return n;
+}
 
+ssize_t RTL_DSMSensor::write(void *buf, size_t len) throw(atdUtil::IOException)
+{
+    size_t n = ::write(outfifofd,buf,len);
+    if (n < 0) throw atdUtil::IOException(outFifoName,"write",errno);
+    return n;
+}

@@ -5,6 +5,12 @@
 #ifndef RTL_DEVIOCTLSTORE_H
 #define RTL_DEVIOCTLSTORE_H
 
+#include <vector>
+
+#include <RTL_DevIoctl.h>
+
+#include <atdUtil/ThreadSupport.h>
+
 /**
  * Singleton class holding all our RTL_DevIoctls.
  * RTL_DevIoctls are shareable by multiple RTL_DSMSensors. The idea
@@ -18,14 +24,14 @@ public:
     /**
      * Fetch the pointer to the instance of RTL_DevIoctlStore
      */
-    RTL_DevIoctlStore* getInstance();
+    static RTL_DevIoctlStore* getInstance();
 
     /**
      * Delete the instance of RTL_DevIoctlStore. Probably only done
      * at main program shutdown, and then only if you're really
      * worried about cleaning up.
      */
-    void removeInstance();
+    static void removeInstance();
 
     RTL_DevIoctl* getDevIoctl(const std::string& prefix, int portNum);
 
@@ -38,14 +44,15 @@ private:
     RTL_DevIoctlStore();
     ~RTL_DevIoctlStore();
 
-    RTL_DevIoctl* getIoctl(const std::string& prefix, int boardNum, int firstPort);
+    RTL_DevIoctl* getDevIoctl(const std::string& prefix, int boardNum, int firstPort);
 
     static RTL_DevIoctlStore* instance;
 
-    vector<RTLIctl*> fifos;
+    std::vector<RTL_DevIoctl*> fifos;
 
     static atdUtil::Mutex* instanceMutex;
 
-    atdUtil::Mutex* fifosMutex;
+    atdUtil::Mutex fifosMutex;
 };
 
+#endif

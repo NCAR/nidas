@@ -4,12 +4,12 @@
 #ifndef RTLDEVICE_H
 #define RTLDEVICE_H
 
-#include <string>
-#include <atdUtil/IOException.h>
+#include <DSMSensor.h>
+#include <RTL_DevIoctl.h>
 
 /**
  * A RealTime linux sensor.  We try to provide a simple interface
- * to the user, hiding the details of the half-duplex RTL FIFOs that
+ * to the user, hiding the details of the half-duplex RT-Linux FIFOs that
  * are used to read/write and  perform ioctls with the device.
  */
 class RTL_DSMSensor : public DSMSensor {
@@ -17,29 +17,46 @@ class RTL_DSMSensor : public DSMSensor {
 public:
 
     /**
-     * Constructor.
-    * @param name Since we have to generate 4 FIFO names
-    * from this name, the name should follow this convention:
-    * a series of characters (A-Z, a-z, _ -, 0-9), terminated by
-    * non-digit, then followed by one or more digits.
-    * Examples:   xxxx0, xxxx_0, acme99_4,  xxx09
-    */
+     * Constructor for a sensor.
+     * @param name The device name.
+     * Since we have to generate 4 FIFO names
+     * from this name, the name should follow this convention:
+     * <ul>
+     * <li>"/dev/"
+     * <li>followed by a name prefix consisting of a series of
+     * characters (A-Z, a-z, _ -, 0-9), terminated by
+     * non-digit,
+     * <li>followed by one or more digits.
+     * </ul>
+     * The trailing digits specify the port number.
+     * Examples:   /dev/xxxx0, /dev/xxxx_0, /dev/acme99_4,  /dev/xxx09
+     */
     RTL_DSMSensor(const std::string& name);
 
     ~RTL_DSMSensor();
 
-    /**
-    * open the fifos that connect to the device on the RTLCore side.
-    */
-    int open(int flags) throw(atdUtil::IOException);
+    /*
+     * The file descriptor used when reading from this sensor.
+     */
+    int getReadFd() const { return infifofd; }
+
+    /*
+     * The file descriptor used when writing to this sensor.
+     */
+    int getWriteFd() const { return outfifofd; }
 
     /**
-    * Read from the read fifo.
+    * open the sensor. This opens the associated RT-Linux FIFOs.
+    */
+    void open(int flags) throw(atdUtil::IOException);
+
+    /**
+    * Read from the sensor.
     */
     ssize_t read(void *buf, size_t len) throw(atdUtil::IOException);	
 
     /**
-    * Write to the write fifo.
+    * Write to the sensor.
     */
     ssize_t write(void *buf, size_t len) throw(atdUtil::IOException);
 
@@ -48,20 +65,24 @@ public:
     * value which must be supported by the device. Normally
     * this is a value from a header file for the device.
     */
-    int ioctlSend(int request, size_t len, void* buf) throw(atdUtil::IOException);
-    int ioctlRecv(int request, size_t len, void* buf) throw(atdUtil::IOException);
+    void ioctl(int request, void* buf, size_t len) throw(atdUtil::IOException);
+    void ioctl(int request, const void* buf, size_t len) throw(atdUtil::IOException);
 
     /**
-    * close associated fifos
+    * close the sensor (and any associated FIFOs).
     */
-    int close() throw(atdUtil::IOException);
+    void close();
 
-    virtual const std::string& getInFifoName() const { return inFifoname; }
-    virtual const std::string& getOutFifoName() const { return outFifoname; }
+    virtual const std::string& getInFifoName() const { return inFifoName; }
+    virtual const std::string& getOutFifoName() const { return outFifoName; }
 
 protected:
 
-    std::string::const_iterator RTL_DSMSensor::getPrefixEnd(const string& name);
+    /**
+     * return an iterator pointing to one-past end of prefix
+     */
+    std::string::const_iterator getPrefixEnd(const std::string& name);
+
 
     /**
      * Prefix created from the name of the device, which is used
@@ -75,13 +96,13 @@ protected:
     int portNum;
 
     /**
-    * Actual name of RTL FIFO that is used to read data from the
+    * Actual name of RT-Linux FIFO that is used to read data from the
     * device.
     */
     std::string inFifoName;
 
     /**
-    * Actual name of RTL FIFO that is used to write data to the
+    * Actual name of RT-Linux FIFO that is used to write data to the
     * device.
     */
     std::string outFifoName;
@@ -89,7 +110,7 @@ protected:
     /**
     * The RTLIoctlFifo used by this device.
     */
-    RTLIoctlFifo* ioctlFifo;
+    RTL_DevIoctl* devIoctl;
 
     int infifofd;
 
