@@ -17,7 +17,6 @@
 
 Mensor::Mensor ()
 { 
-
 // Constructor. 
 
   ptog = 0;
@@ -32,9 +31,9 @@ const char *Mensor::buffer()
   return((const char*)&mensor_blk[gtog]);
 }
 /*****************************************************************************/
-void Mensor::parser()
+void Mensor::parser(int len)
 {
-  if (idx > 4)
+  if (idx > 24)
     return;
   sscanf (&buf[2], "%f",mensor_blk[ptog].press[idx++]);
 }

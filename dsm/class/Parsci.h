@@ -9,7 +9,9 @@
  
 */
 
-/* #include <logLib.h> */
+#ifndef PARSCI_H
+#define PARSCI_H
+
 #include <string.h>
 #include <stdio.h>
 #include <dsmctl.h>
@@ -23,15 +25,15 @@ class Parsci {
 public:
   Parsci ();
   const char* buffer();
-  void parser();
+  void parser(int len);
   void secondAlign();
-
-  const char buf[1000];
-
+  char buf[1000];
   struct Parsci_blk {
-    float press[5];                               /* Digital pressure */
+    float press[25];                               /* Digital pressure */
   };
   typedef struct Parsci_blk Parsci_blk;
+  int dataFifo[2]; // file pointers to toggled inbound data FIFOs
+  int cmndFifo;    // file pointer to outbound command FIFO
 
 private:
   Parsci_blk parsci_blk[TOG];			// local data block
@@ -40,3 +42,4 @@ private:
   int idx;
 };
 
+#endif /*PARSCI_H*/

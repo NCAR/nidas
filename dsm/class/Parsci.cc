@@ -31,11 +31,11 @@ const char *Parsci::buffer()
   return((const char*)&parsci_blk[gtog]);
 }
 /*****************************************************************************/
-void Parsci::parser()
+void Parsci::parser(int len)
 {
-  if (idx > 4)
+  if (idx > 24)
     return;
-  sscanf (&buf[2], "%f",parsci_blk[ptog].press[idx++]);
+  sscanf (&buf[5], "%f",parsci_blk[ptog].press[idx++]);
 
 }
 /*****************************************************************************/
