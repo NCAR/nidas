@@ -190,11 +190,13 @@ DSMEngine::~DSMEngine()
     delete project;
 }
 
-DSMEngine* DSMEngine::createInstance() 
+DSMEngine* DSMEngine::createInstance()
 {
+  if (!instance) {
     instance = new DSMEngine();
     setupSignals();
-    return instance;
+  }
+  return instance;
 }
 
 DSMEngine* DSMEngine::getInstance() 
