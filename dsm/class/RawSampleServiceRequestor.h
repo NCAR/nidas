@@ -12,8 +12,8 @@
  ********************************************************************
 */
 
-#ifndef DSM_CONFIGREQUESTOR_H
-#define DSM_CONFIGREQUESTOR_H
+#ifndef DSM_RAWSAMPLESERVICEREQUESTOR_H
+#define DSM_RAWSAMPLESERVICEREQUESTOR_H
 
 #include <atdUtil/McastServiceRequestor.h>
 
@@ -25,10 +25,10 @@ namespace dsm {
  * Thread whose run method patiently multicasts ConfigDatagrams
  * until it is canceled.
  */
-class ConfigRequestor: public atdUtil::McastServiceRequestor
+class RawSampleServiceRequestor: public atdUtil::McastServiceRequestor
 {
 public:
-    ConfigRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException);
+    RawSampleServiceRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException);
 
 };
 

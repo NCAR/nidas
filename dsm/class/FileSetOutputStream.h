@@ -35,6 +35,11 @@ public:
 	setWriteBackoffTime(0);		// no mercy when writing to disk
     }
 
+    void close() throw(atdUtil::IOException)
+    {
+        fset.closeFile();
+    }
+
     virtual dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
     {
 	// convert times between time_t and dsm_sys_time_t

@@ -12,20 +12,19 @@
  ********************************************************************
 */
 
-#include <ConfigRequestor.h>
+#include <RawSampleServiceRequestor.h>
 
 #include <iostream>
 
 using namespace dsm;
 using namespace std;
 
-ConfigRequestor::ConfigRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException) :
-    atdUtil::McastServiceRequestor(listenPort,XML_CONFIG)
+RawSampleServiceRequestor::RawSampleServiceRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException) :
+    atdUtil::McastServiceRequestor(listenPort,RAW_SAMPLE)
 {
     atdUtil::Inet4SocketAddress to(
 	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
 	    DSM_MULTICAST_PORT);
     setSocketAddress(to);
-
 }
  

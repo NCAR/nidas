@@ -18,6 +18,7 @@
 
 #include <DOMable.h>
 #include <DSMSensor.h>
+#include <SampleOutputStream.h>
 
 #include <list>
 
@@ -40,6 +41,9 @@ public:
     void addSensor(DSMSensor* sensor) { sensors.push_back(sensor); }
     const std::list<DSMSensor*>& getSensors() const { return sensors; }
 
+    void addOutput(SampleOutputStream* output) { outputs.push_back(output); }
+    const std::list<SampleOutputStream*>& getOutputs() const { return outputs; }
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
 
@@ -54,6 +58,7 @@ public:
 protected:
     std::string name;
     std::list<DSMSensor*> sensors;
+    std::list<SampleOutputStream*> outputs;
 };
 
 }

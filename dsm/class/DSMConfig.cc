@@ -67,7 +67,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-	DOMable* sensor = 0;
+	DOMable* domable = 0;
 	if (!elname.compare("serialsensor") ||
             !elname.compare("arincSensor") ||
             !elname.compare("irigsensor")) {
@@ -100,16 +100,16 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		cerr << "found sensor, idref=" << idref << " classattr=" <<
 		    classattr << endl;
 		try {
-		    sensor = DOMObjectFactory::createObject(classattr);
+		    domable = DOMObjectFactory::createObject(classattr);
 		}
 		catch (const atdUtil::Exception& e) {
 		    throw atdUtil::InvalidParameterException("sensor",
 		    	classattr,e.what());
 		}
-		sensor->fromDOMElement((DOMElement*)snode);
+		domable->fromDOMElement((DOMElement*)snode);
 	    }
 		    
-	    if (!sensor) {
+	    if (!domable) {
 		const string& classattr = xchild.getAttributeValue("class");
 		if (classattr.length() == 0) 
 		    throw atdUtil::InvalidParameterException(
@@ -118,16 +118,41 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			"does not have a class attribute");
 		cerr << "creating sensor, classattr=" << classattr << endl;
 		try {
-		    sensor = DOMObjectFactory::createObject(classattr);
+		    domable = DOMObjectFactory::createObject(classattr);
 		}
 		catch (const atdUtil::Exception& e) {
 		    throw atdUtil::InvalidParameterException("sensor",
 		    	classattr,e.what());
 		}
 	    }
-	    sensor->fromDOMElement((DOMElement*)child);
-	    ((DSMSensor*)sensor)->setId(sensors.size());	// unique id
-	    addSensor((DSMSensor*) sensor);
+	    domable->fromDOMElement((DOMElement*)child);
+	    DSMSensor* sensor = dynamic_cast<DSMSensor*>(domable);
+	    if (!sensor) throw atdUtil::InvalidParameterException("sensor",
+		    elname,"is not a DSMSensor");
+	    sensor->setId(sensors.size());	// unique id
+	    addSensor(sensor);
+	}
+	else if (!elname.compare("output")) {
+	    DOMable* domable;
+	    const string& classattr = xchild.getAttributeValue("class");
+	    if (classattr.length() == 0) 
+		throw atdUtil::InvalidParameterException(
+		    "DSMConfig::fromDOMElement",
+		    elname,
+		    "does not have a class attribute");
+	    try {
+		domable = DOMObjectFactory::createObject(classattr);
+	    }
+	    catch (const atdUtil::Exception& e) {
+		throw atdUtil::InvalidParameterException("output",
+		    classattr,e.what());
+	    }
+	    domable->fromDOMElement((DOMElement*)child);
+	    SampleOutputStream* output =
+	    	dynamic_cast<SampleOutputStream*>(domable);
+	    if (!output) throw atdUtil::InvalidParameterException("output",
+		    classattr,"is not a SampleOutputStream");
+	    addOutput(output);
 	}
     }
 }

@@ -37,7 +37,11 @@ SampleOutputStream::~SampleOutputStream()
 
 void SampleOutputStream::setSocketAddress(atdUtil::Inet4SocketAddress& saddr)
 {
-    delete outputStream;
+    if (outputStream) {
+        outputStream->close();
+	delete outputStream;
+	outputStream = 0;
+    }
     socketAddress = saddr;
 }
 const atdUtil::Inet4SocketAddress& SampleOutputStream::getSocketAddress() const

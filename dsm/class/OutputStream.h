@@ -99,6 +99,11 @@ public:
      */
     virtual void flush() throw(atdUtil::IOException);
 
+    /**
+     * close physical device.
+     */
+    virtual void close() throw(atdUtil::IOException) = 0;
+
 protected:
 
     /**

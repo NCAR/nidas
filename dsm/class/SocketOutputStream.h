@@ -32,6 +32,9 @@ public:
   SocketOutputStream(atdUtil::Socket& socket) :
   	OutputStream(sock.getSendBufferSize()),sock(socket) {}
 
+  void close() throw(atdUtil::IOException) {
+      sock.close();
+  }
   /**
    * Do the actual hardware write.
    */

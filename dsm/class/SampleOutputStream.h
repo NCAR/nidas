@@ -47,6 +47,11 @@ public:
 
     void setFileSet(atdUtil::OutputFileSet& fset);
 
+    /**
+     * Establish our own connection.
+     */
+    void connect() throw(atdUtil::IOException);
+
     bool receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException);
 

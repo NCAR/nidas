@@ -220,7 +220,7 @@ DOMDocument* DSMEngine::requestXMLConfig()
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
-     atdUtil::ServerSocket xmlSock;
+    atdUtil::ServerSocket xmlSock;
 
     ConfigRequestor requestor(xmlSock.getLocalPort());
     requestor.start();
