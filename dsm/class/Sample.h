@@ -19,6 +19,7 @@
 #define DSM_SAMPLET_H
 
 #include <SampleLengthException.h>
+#include <atdUtil/ThreadSupport.h>
 #include <dsm_sample.h>
 
 #include <limits.h>
@@ -227,7 +228,11 @@ public:
     * can be used on a const Sample.  The SamplePool class
     * supports Sample reference counting.
     */
-    void holdReference() const { refCount++; }
+    void holdReference() const {
+	refLock.lock();
+        refCount++;
+	refLock.unlock();
+    }
 
 protected:
 
@@ -235,6 +240,8 @@ protected:
    * The reference count.
    */
   mutable int refCount;
+
+  static atdUtil::Mutex refLock;
 
   /**
    * Global count of the number of samples in use by a process.
@@ -520,7 +527,10 @@ template <class DataT>
 void SampleT<DataT>::freeReference() const
 {
     // if refCount is 0, put it back in the Pool.
-    if (! --refCount)
+    refLock.lock();
+    bool ref0 = --refCount == 0;
+    refLock.unlock();
+    if (ref0)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
 }
 

@@ -19,6 +19,9 @@
 using namespace dsm;
 
 /* static */
+atdUtil::Mutex SampleBase::refLock;
+
+/* static */
 int SampleBase::nsamps = 0;
 
 Sample* dsm::getSample(sampleType type, size_t len)
