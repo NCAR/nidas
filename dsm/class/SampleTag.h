@@ -33,11 +33,21 @@ public:
     /**
      * Constructor.
      */
-    SampleTag() {}
+    SampleTag():id(0),rate(0.0) {}
 
     virtual ~SampleTag();
 
-    void setId(unsigned short val) { id = val; }
+    /**
+     * Set the various levels of the samples identification.
+     * A sample tag ID is a 32-bit value comprised of four parts:
+     * 8-bit type_id  8-bit DSM_id  16-bit sensor+sample
+     */
+    void setId(unsigned long val) { id = val; }
+    void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; }
+    void setDSMId(unsigned char val)
+    {
+	id = (id & 0xff00ffff) | (unsigned long)val << 16;
+    }
 
     /**
      * Get the various levels of the samples identification.
