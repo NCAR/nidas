@@ -25,7 +25,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <iomanip>
-#include <bits/posix1_lim.h>
+#include <bits/posix1_lim.h> // SSIZE_MAX
+#include <signal.h>          // sigaction
 
 // Mesa driver includes
 #include <RTL_DSMSensor.h>
@@ -36,23 +37,67 @@
 
 using namespace std;
 
+int running = 1;
+
+
+/* -------------------------------------------------------------------- */
+void sigAction(int sig, siginfo_t* siginfo, void* vptr)
+{
+  cerr << "received signal " << strsignal(sig) << "(" << sig << ")" <<
+    " si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+    " si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+    " si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+  
+  switch(sig) {
+  case SIGHUP:
+  case SIGTERM:
+  case SIGINT:
+    running = 0;
+    err("running: %d", running);
+    break;
+  default:
+    break;
+  }
+}
+/* -------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
-  std::cerr << __FILE__ << " " << __FUNCTION__ << "\n";
-  flush(std::cerr);
+  // set up a sigaction to respond to ctrl-C
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset,SIGHUP);
+  sigaddset(&sigset,SIGTERM);
+  sigaddset(&sigset,SIGINT);
+  sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
 
-  char devstr[30];
+  struct sigaction act;
+  sigemptyset(&sigset);
+  act.sa_mask = sigset;
+  act.sa_flags = SA_SIGINFO;
+  act.sa_sigaction = sigAction;
+  sigaction(SIGHUP,&act,(struct sigaction *)0);
+  sigaction(SIGINT,&act,(struct sigaction *)0);
+  sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+  err("compiled on %s at %s", __DATE__, __TIME__);
+
   unsigned char buffer[MAX_BUFFER];
 
+  char devstr[30];
+  int status;
   int fd_mesa_counter[3];  // file pointers 
   int fd_mesa_radar[1];  // file pointers 
-  int fdMesaFPGA;    // pointer for the FPGA file
+  int fdMesaFPGAfile;
   int fdMesaFPGAfifo;
   int counter_channels;
   int radar_channels;
-  unsigned long long_len;
+  unsigned long len,total;
+  unsigned long filesize;
   struct radar_set set_radar;
   struct counters_set set_counter;
+
+  // create the board sensor
+  RTL_DSMSensor sensor_in_0("/dev/mesa0");
 
   struct PulseCounters
   {
@@ -70,154 +115,173 @@ int main(int argc, char** argv)
 
   set_counter.channel = 2;
   set_radar.channel = 1;
-  set_counter.rate = 10;
-  set_radar.rate = 10;
+  set_counter.rate = 1;
+  set_radar.rate = 1;
   counter_channels = set_counter.channel;
   radar_channels = set_radar.channel;
 
-  // Load the FPGA program...
+  // Open up the FPGA program FIFO to the driver...
   sprintf(devstr, "/dev/mesa_program_board");
-  printf("(%s) %s:\t opening '%s'\n", __FILE__, __FUNCTION__, devstr);
-  flush(std::cout);
-  fdMesaFPGAfifo = open(devstr, O_RDONLY);
+  err("opening '%s'", devstr);
+  fdMesaFPGAfifo = open(devstr, O_NONBLOCK | O_WRONLY);
+  err("fdMesaFPGAfifo = 0x%x", fdMesaFPGAfifo);
 
   // Open up the FPGA program drom disk...
   sprintf(devstr, "/opt/mesa_fpga_file.bit");
-  printf("(%s) %s:\t opening '%s'\n", __FILE__, __FUNCTION__, devstr);
-  flush(std::cout);
-  fdMesaFPGA = open(devstr, O_RDONLY);
-  do {
-    long_len = read(fdMesaFPGA,&buffer,MAX_BUFFER);
-    write(fdMesaFPGAfifo,&buffer,long_len);
-  }while(buffer[long_len] != EOF && !feof((FILE*)"/opt/mesa_fpga_file.bit")); 
+  err("opening '%s'", devstr);
+  fdMesaFPGAfile = open(devstr, O_RDONLY);
 
-  std::cerr << __FILE__ << " opening sensors...\n"; flush(std::cerr);
+  // determine it's file size
+  struct stat fstatus;
+  status = fstat(fdMesaFPGAfile, &fstatus);
+  if (status < 0)
+  {
+    err("failed to fstat... errno: %d", errno);
+    goto close;
+  }
+  filesize = (unsigned long)fstatus.st_size;
+  err("fdMesaFPGAfile = 0x%x  size: %lu", fdMesaFPGAfile, filesize);
 
-  RTL_DSMSensor sensor_in_0("/dev/mesa0");
+  // open up the mesa sensor
   try {
     sensor_in_0.open(O_RDONLY);
   }
   catch (atdUtil::IOException& ioe) {
-    std::cerr << ioe.what() << std::endl;
-    return 1;
+    err("%s",ioe.what());
+    goto close;
   }
 
-  // open all of the counter paired FIFO's
-  for (int ii=1; ii <= counter_channels; ii++)
-  {
-    sprintf(devstr, "/dev/mesa_counter_in_%d", ii);
-    fd_mesa_counter[ii] = open(devstr, O_RDONLY);
+  //Send the Load FPGA Program ioctl
+  sensor_in_0.ioctl(MESA_LOAD, &filesize, sizeof(unsigned long));
+  total = 0;
+  do {
+    total += len = read(fdMesaFPGAfile, &buffer, MAX_BUFFER);
+    status      = write(fdMesaFPGAfifo, &buffer, len); //sizeof(buffer));
+    if (status < 0)
+    {
+      err("failed to write... errno: %d", errno);
+      goto close;
+    }
+  }while ( total < filesize ); 
+  close(fdMesaFPGAfile);
+  close(fdMesaFPGAfifo);
 
+  err(" opening sensors...");
+
+  // open all of the counter FIFOs
+  for (int ii=0; ii < counter_channels; ii++)
+  {
+    sprintf(devstr, "/dev/mesa_in_%d", ii);
+    fd_mesa_counter[ii] = open(devstr, O_RDONLY);
     if (fd_mesa_counter[ii] < 0)
     {
-      printf("(%s) %s:\t failed to open '%s'\n",
-            __FILE__, __FUNCTION__, devstr);
-      return 0;
-     }
-  }
-  // open the radar paired FIFO's
-  for (int ii=1; ii <= radar_channels; ii++)
-  {
-    sprintf(devstr, "/dev/mesa_radar_in%d", ii);
-    fd_mesa_radar[ii] = open(devstr, O_RDONLY);
-
-    if (fd_mesa_radar[ii] < 0)
-    {
-      printf("(%s) %s:\t failed to open '%s'\n",
-             __FILE__, __FUNCTION__, devstr);
+      err("failed to open '%s'", devstr);
       return 0;
     }
+    err("opened '%s' @ 0x%x", devstr, fd_mesa_counter[ii]);
+  }
+  // open the radar FIFO
+  for (int ii=0; ii < radar_channels; ii++)
+  {
+    sprintf(devstr, "/dev/mesa_in_%d", ii + counter_channels);
+    fd_mesa_radar[ii] = open(devstr, O_RDONLY);
+    if (fd_mesa_radar[ii] < 0)
+    {
+      err("failed to open '%s'", devstr);
+      return 0;
+    }
+    err("opened '%s' @ 0x%x", devstr, fd_mesa_radar[ii]);
   }
 
   // Note: fd_set is a 1024 bit mask.
   fd_set readfds;
 
   // initialize the data buffers
-  for (int ii=1; ii < counter_channels; ii++)
+  for (int ii=0; ii < counter_channels; ii++)
   {
     counts_buf[ii].counts = 0;
     counts_buf[ii].len = 0;
   }
-  for (int ii=1; ii < radar_channels; ii++)
+  for (int ii=0; ii < radar_channels; ii++)
   {
     altitude_buf[ii].altitude = 0;
     altitude_buf[ii].len = 0;
   }
 
   // Set the counters.   
-  std::cerr << __FILE__ << " sensor_in_0.ioctl(COUNTERS_SET, &set_counter, sizeof(struct counters_set))\n"; flush(std::cerr);
   sensor_in_0.ioctl(COUNTERS_SET, &set_counter, sizeof(set_counter));
 
   // Set the radar.   
-  std::cerr << __FILE__ << " sensor_in_0.ioctl(COUNTERS_SET, &set_radar, sizeof(struct counters_set))\n"; flush(std::cerr);
   sensor_in_0.ioctl(RADAR_SET, &set_radar, sizeof(set_radar));
 
   // Main loop for gathering data from the counters and radar
-  while (1)
+  while (running)
   {
     // zero the readfds bitmask
     FD_ZERO(&readfds);
 
-    if(counter_channels > 0)
-    {
-      // set the fd's to read data from ALL ports
-      for (int ii=1; ii <= counter_channels; ii++)
-        FD_SET(fd_mesa_counter[ii], &readfds);
-    }
-    if(radar_channels > 0)
-    {
-      for (int ii=1; ii <= radar_channels; ii++)
-        FD_SET(fd_mesa_radar[ii], &readfds);
-    }
+    // set the fd's to read data from ALL ports
+    for (int ii=0; ii < counter_channels; ii++)
+      FD_SET(fd_mesa_counter[ii], &readfds);
+
+    for (int ii=0; ii < radar_channels; ii++)
+      FD_SET(fd_mesa_radar[ii], &readfds);
+
     // The select command waits for inbound FIFO data for ALL ports
     select((counter_channels + radar_channels)*2+1, &readfds, NULL, NULL, NULL);
 
-    if(counter_channels > 0)
+    for (int ii=0; ii < counter_channels; ii++)
     {
-      for (int ii=1; ii <= counter_channels; ii++)
+      // check to see if there is data on this FIFO
+      if (FD_ISSET(fd_mesa_counter[ii], &readfds))
       {
-        // check to see if there is data on this FIFO
-        if (FD_ISSET(fd_mesa_counter[ii], &readfds))
-        {
         // read 'n' integers from the FIFO.
-          counts_buf[ii].len += read(fd_mesa_counter[ii],
-                                     &counts_buf[ii].counts, SSIZE_MAX);
+        counts_buf[ii].len += read(fd_mesa_counter[ii],
+                                   &counts_buf[ii].counts, SSIZE_MAX);
 	  
         // print the full message recieved from this FIFO
-          sprintf(devstr, "/dev/mesa_counter_%d_in", ii);
-          printf("%s : %d\n", devstr, counts_buf[ii].counts);
-          counts_buf[ii].len = 0;
-        }
+//         printf("(%3d) %10ld: %3ld: %04lo: %u\n", len, sample.timetag, sample.length,
+//            sample.data[0]&0x000000ff, (sample.data[0]&0xffffff00)>>8);
+
+        sprintf(devstr, "/dev/mesa_counter_%d_in", ii);
+        err("%s : %d\n", devstr, counts_buf[ii].counts);
+        counts_buf[ii].len = 0;
       }
     }
 
-    if(radar_channels > 0)
+    for (int ii=0; ii < radar_channels; ii++)
     {
-      for (int ii=1; ii <= radar_channels; ii++)
+      // check to see if there is data on this FIFO
+      if (FD_ISSET(fd_mesa_radar[ii], &readfds))
       {
-        // check to see if there is data on this FIFO
-        if (FD_ISSET(fd_mesa_radar[ii], &readfds))
-        {
-          // read 'n' characters from the FIFO.
-          altitude_buf[ii].len += read(fd_mesa_radar[ii],
-                                  &altitude_buf[ii].altitude, SSIZE_MAX);
+        // read 'n' characters from the FIFO.
+        altitude_buf[ii].len += read(fd_mesa_radar[ii],
+                                     &altitude_buf[ii].altitude, SSIZE_MAX);
 
-          // print the full message recieved from this FIFO
-          sprintf(devstr, "/dev/mesa_radar_%d_in", ii);
-          printf("%s > %s\n", devstr, altitude_buf[ii].altitude);
-          altitude_buf[ii].len = 0;
-        }
+        // print the full message recieved from this FIFO
+        sprintf(devstr, "/dev/mesa_radar_%d_in", ii);
+        err("%s : %d\n", devstr, altitude_buf[ii].altitude);
+        altitude_buf[ii].len = 0;
       }
     }
   }
- close:
-  std::cerr << __FILE__ << " closing sensors...\n";
+
+close:
+  err(" closing sensors...");
+
+  for (int ii=0; ii < counter_channels; ii++)
+    close(fd_mesa_counter[ii]);
+
+  for (int ii=0; ii < radar_channels; ii++)
+    close(fd_mesa_radar[ii]);
+
   try {
+    sensor_in_0.ioctl(MESA_STOP, (void *)NULL, 0);
     sensor_in_0.close();
   }
   catch (atdUtil::IOException& ioe) {
-    std::cerr << ioe.what() << std::endl;
-    return 1;
+    err("%s",ioe.what());
   }
-  std::cerr << __FILE__ << " sensors closed.\n";
+  err("sensors closed.");
+  return 1;
 }
