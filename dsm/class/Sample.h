@@ -60,8 +60,8 @@ inline size_t maxValue(unsigned long arg)
 }
 
 enum sampleType {
-	UNKNOWN_ST, CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
-	LONG_ST, ULONG_ST, FLOAT_ST };
+	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
+	LONG_ST, ULONG_ST, FLOAT_ST, UNKNOWN_ST };
 
 /**
  * Overloaded function to return a enumerated value
@@ -438,42 +438,27 @@ private:
    * Number of bytes allocated.
    */
   size_t allocLen;
-
 };
-
 
 /**
  * A Sample with an array of chars for data.
  */
-class CharSample :
-    public SampleT<char>
-{
-};
-
+typedef SampleT<char> CharSample;
 
 /**
  * A Sample with an array of shorts for data.
  */
-class ShortIntSample :
-    public SampleT<short>
-{
-};
+typedef SampleT<short> ShortIntSample;
 
 /**
  * A Sample with an array of unsigned shorts for data.
  */
-class UnsignedShortIntSample :
-    public SampleT<unsigned short>
-{
-};
+typedef SampleT<unsigned short> UnsignedShortIntSample;
 
 /**
  * A Sample with an array of floats for data.
  */
-class FloatSample :
-    public SampleT<float>
-{
-};
+typedef SampleT<float> FloatSample;
 
 }
 
@@ -487,9 +472,8 @@ void SampleT<DataT>::freeReference() const
     // These casts remove the const, so that this can be a const
     // member function, even though it alters the Sample.
     if (! --refCount)
-	SamplePool<SampleT<DataT> >::getInstance()->putSample(
-	    (SampleT<DataT>*)this);
-}
+	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
 }
 
+}
 #endif
