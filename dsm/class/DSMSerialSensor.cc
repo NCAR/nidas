@@ -136,6 +136,29 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
+void DSMSerialSensor::setScanfFormat(const string& str)
+    throw(atdUtil::InvalidParameterException)
+{
+    atdUtil::Synchronized autosync(scannerLock);
+    if (!scanner) scanner = new AsciiScanner();
+    
+    try {
+       scanner->setFormat(str);
+    }
+    catch (atdUtil::ParseException& pe) {
+        throw atdUtil::InvalidParameterException("DSMSerialSensor",
+               "setScanfFormat",pe.what());
+    }
+}
+
+const string& DSMSerialSensor::getScanfFormat()
+{
+    static string emptyStr;
+    atdUtil::Synchronized autosync(scannerLock);
+    if (!scanner) return emptyStr;
+    return scanner->getFormat();
+}
+
 void DSMSerialSensor::fromDOMElement(
 	const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
