@@ -21,44 +21,41 @@
 #define DSMTIME_H
 
 #include <sys/time.h>
-#include <math.h>
+
+#include <dsm_sample.h>
+#include <irigclock.h>
 
 namespace dsm {
 
-#ifdef TIME_IS_LONG_LONG
-  typedef long long dsm_sys_time_t;
-#else
-  typedef double dsm_sys_time_t;
-#endif
 
-#ifdef TIME_IS_LONG_LONG
-  /**
-   * Return the current unix system time, in milliseconds.
-   */
-  static dsm_sys_time_t getCurrentTimeInMillis() {
+/**
+ * Return the current unix system time, in milliseconds.
+ */
+inline dsm_sys_time_t getCurrentTimeInMillis() {
     struct timeval tval;
     if (::gettimeofday(&tval,0) < 0) return 0L;   // shouldn't happen
     return (dsm_sys_time_t)(tval.tv_sec) * 1000 +
     	(tval.tv_usec + 500) / 1000;
-  }
-#else
-  /**
-   * Return the current unix system time, in milliseconds.
-   */
-  static dsm_sys_time_t getCurrentTimeInMillis() {
-    struct timeval tval;
-    if (::gettimeofday(&tval,0) < 0) return 0.0;   // shouldn't happen
-    return (dsm_sys_time_t)tval.tv_sec * 1000.0 + tval.tv_usec / 1000.0;
-  }
-#endif
+}
 
-  inline dsm_sys_time_t next_dsm_sys_time(dsm_sys_time_t t,unsigned long period) {
-#ifdef TIME_IS_LONG_LONG
-    return ((t / period) + 1) * period;
-#else
-    return (floor(t / period) + 1.0) * period;
-#endif
-  }
+/**
+ * Return smallest dsm_sys_time_t that is an integral multiple of
+ * delta, that isn't less than or equal to argument t.
+ * Similar to to ceil() math function, except ceil() finds value
+ * that isn't less than argument, not less-than-or-equal, i.e.
+ * this function always returns a value greater than the arg.
+ */
+inline dsm_sys_time_t timeCeiling(dsm_sys_time_t t,unsigned long delta) {
+    return ((t / delta) + 1) * delta;
+}
+/**
+ * Return largest dsm_sys_time_t that is an integral multiple of
+ * delta, that isn't greater than argument t.  Analogous to floor()
+ * math function.
+ */
+inline dsm_sys_time_t timeFloor(dsm_sys_time_t t,unsigned long delta) {
+    return (t / delta) * delta;
+}
 
 }
 
