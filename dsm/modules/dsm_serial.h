@@ -45,7 +45,7 @@ struct dsm_serial_prompt {
 struct dsm_serial_record_info {
   char sep[16];
   int sepLen;
-  unsigned char atBOM;
+  unsigned char atEOM;
   int recordLen;
 };
 

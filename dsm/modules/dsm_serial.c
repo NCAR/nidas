@@ -1111,7 +1111,7 @@ static void init_serialPort_struct(struct serialPort* port)
 
     port->recinfo.sep[0] = '\0';
     port->recinfo.sepLen = 0;
-    port->recinfo.atBOM = 0;
+    port->recinfo.atEOM = 1;
     port->recinfo.recordLen = 0;
 
     port->sepcnt = 0;
@@ -1393,8 +1393,8 @@ static inline void receive_chars(struct serialPort* port,unsigned char* lsrp)
     unsigned char c;
     while(*lsrp & UART_LSR_DR) {
 	c = serial_in(port,UART_RX); // Read character
-	if (port->recinfo.atBOM) add_char_sep_bom(port,c);
-	else add_char_sep_eom(port,c);
+	if (port->recinfo.atEOM) add_char_sep_eom(port,c);
+	else add_char_sep_bom(port,c);
 	check_lsr(port,*lsrp);
 	*lsrp = serial_in(port,UART_LSR);
     }
