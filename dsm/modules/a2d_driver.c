@@ -1,3 +1,4 @@
+//#define INBUFWR		// Turn on simulated data array printout
 #define	DEBUGDATA 	// Turns on printout in data simulator
 #define FIX_A2D		// Reverse LS byte of ISA bus
 #define	QUIETOUTB	// Shut off printout
@@ -800,10 +801,19 @@ void A2DGetDataSim(void)
 		rtl_usleep(10000);
 		for(i = 0; i < INTRP_RATE; i++)
 		{
-			for(j = 0; j < MAXA2DS; j += 8)
+#ifdef INBUFWR
+			rtl_printf("0x%05x: ", i*MAXA2DS);
+#endif
+			for(j = 0; j < MAXA2DS; j++)
 			{
 			inbuf[MAXA2DS*i + j + 4] = 1000*j + i; 
+#ifdef INBUFWR
+			rtl_printf("%06d  ", inbuf[MAXA2DS*i+j+4]);
+#endif
 			}
+#ifdef INBUFWR			
+		rtl_printf("\n");
+#endif
 		}
 #ifndef DEBUGFIFOWRITE
 		nbytes = write(fd_up, inbuf, sizeof(inbuf)); //Write to up-fifo 
