@@ -49,9 +49,9 @@ int main(int argc, char** argv)
 	    wp += l;
 	    *wp = '\0';
 	    for (; rp <= wp - 6;) {
-		if (!strncmp(rp,"hello\n",6)) {
-		    // cerr << "received hello, writing goodbye" << endl;
-		    p.write("goodbye\n",8);
+		if (!strncmp(rp,"hitme\n",6)) {
+		    // cerr << "received hitme, writing fake data" << endl;
+		    p.write("xxx 1.23 ff\n",12);
 		    good++;
 		    rp += 6;
 		} else {
