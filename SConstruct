@@ -86,6 +86,7 @@ arm_env.Replace(CC     = '/opt/arm_tools/bin/arm-linux-gcc')
 arm_env.Replace(CXX    = '/opt/arm_tools/bin/arm-linux-g++')
 arm_env.Replace(LINK   = '/opt/arm_tools/bin/arm-linux-g++')
 arm_env.Replace(RANLIB = '/opt/arm_tools/bin/arm-linux-ranlib')
+arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 
 ##
 ##  Adjust the env for building to the x86 processor...
