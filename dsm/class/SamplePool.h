@@ -110,6 +110,7 @@ template<class SampleType>
 SamplePool<SampleType>::SamplePool<SampleType>():
     nsmall(0),nmedium(0)
 {
+    // Initial size of pool of small samples around 16K bytes
     smallSize = 16384 / (sizeof(SampleType) + 32 * SampleType::sizeofDataType());
     // When we expand the size of the pool, we expand by 50%
     // so minimum size should be at least 2.

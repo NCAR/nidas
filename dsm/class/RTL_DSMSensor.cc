@@ -193,10 +193,10 @@ dsm_sample_time_t RTL_DSMSensor::readSamples()
 	}
 	// Read the header of the next sample
         if (bufhead - buftail <
-		(signed)(len = SIZEOF_DSM_SMALL_SAMPLE_HEADER))
+		(signed)(len = SIZEOF_DSM_SAMPLE_HEADER))
 		break;
 
-	struct dsm_small_sample header;	// temporary header to read into
+	struct dsm_sample header;	// temporary header to read into
 	memcpy(&header,buffer+buftail,len);
 	buftail += len;
 

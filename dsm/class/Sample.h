@@ -114,7 +114,7 @@ inline enum sampleType sampleType(void* ptr)
 class Sample {
 public:
   
-    // virtual ~Sample() {}
+    virtual ~Sample() {}
 
     virtual void setTimeTag(dsm_sample_time_t val) = 0;
     virtual dsm_sample_time_t getTimeTag() const = 0;
@@ -235,17 +235,15 @@ protected:
 /**
  * The header fields of a Sample.
  */
-template <class TT,class LT,class IT>
 class SampleHeader {
 public:
-    typedef TT timetag_t;
-    typedef LT length_t;
-    typedef IT id_t;
 
     SampleHeader() : tt(0),length(0),id(-1) {}
 
-    TT getTimeTag() const { return tt; }
-    void setTimeTag(TT val) { tt = val; }
+    typedef long dsm_sample_id_t;
+
+    dsm_sample_time_t getTimeTag() const { return tt; }
+    void setTimeTag(dsm_sample_time_t val) { tt = val; }
 
     /**
      * Get the length member of the header. Note: for a SampleHeader
@@ -259,68 +257,39 @@ public:
      * Set the length member of the header. This is the length
      * in bytes.
      */
-    void setDataLength(size_t val) throw(SampleLengthException)
-    {
-	if (val > getMaxDataLength())
-	    throw SampleLengthException(
-	    	"SampleHeader::setDataLength:",val,getMaxDataLength());
-        length = val;
-    }
+    void setDataLength(size_t val) { length = val; }
 
     int getId() const { return id; }
     void setId(int val) { id = val; }
 
-    static size_t getSizeOf() { return sizeof(TT) + sizeof(LT) + sizeof(IT); }
+    static size_t getSizeOf()
+    {
+        return sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t) +
+		sizeof(dsm_sample_id_t); }
 
-    static size_t getMaxDataLength() { return maxValue(LT()); }
+    static size_t getMaxDataLength() { return maxValue(dsm_sample_length_t()); }
+
 protected:
 
     /* Time-tag. By convention, milliseconds since midnight 00:00 GMT */
-    TT tt; 
+    dsm_sample_time_t tt; 
 
     /* Length of data (# of bytes) in the sample - does not include
      * header fields */
-    LT length;
+    dsm_sample_length_t length;
 
     /* An identifier for this sample - which sensor did it come from */
-    IT id;
+    dsm_sample_id_t id;
 };
 
 /**
- * Header for a Sample, with a timetag of type dsm_sample_time_t
- * an unsigned short data length, and a signed short id.
- * The data length of a SampleHeader is therefore limited
- * by the maximum value of an unsigned short (2^16-1=65535).
- * 
+ * A typed Sample, with data of type DataT.
  */
-class SmallSampleHeader :
-    public SampleHeader<dsm_sample_time_t, unsigned short, short>
-{
-};
-
-
-/**
- * Header for a Sample, with a timetag of type dsm_sample_time_t
- * an unsigned long data length, and a signed long id.
- */
-class LargeSampleHeader :
-    public SampleHeader<dsm_sample_time_t, unsigned long, int>
-{
-};
-
-
-/**
- * A typed Sample, with a header of type HeaderT and data of type DataT.
- */
-template <class HeaderT,class DataT>
+template <class DataT>
 class SampleT : public SampleBase {
 public:
     SampleT() : SampleBase(),header(),data(0),allocLen(0) {}
     ~SampleT() { delete [] data; }
-
-    // typedef HeaderT::timetag_t timetag_t;
-    // typedef HeaderT::length_t length_t;
-    // typedef HeaderT::id_t id_t;
 
     void setTimeTag(dsm_sample_time_t val) { header.setTimeTag(val); }
     dsm_sample_time_t getTimeTag() const { return header.getTimeTag(); }
@@ -332,8 +301,10 @@ public:
     /**
      * Get number of elements of type DataT in data.
      */
-    size_t getDataLength() const { return header.getDataLength() /
-    	sizeof(DataT); }
+    size_t getDataLength() const
+    {
+        return header.getDataLength() / sizeof(DataT);
+    }
 
     /**
      * Get number of bytes in data.
@@ -344,7 +315,8 @@ public:
      * Set the number of elements of type DataT in data.
      * @param val: number of elements.
      */
-    void setDataLength(size_t val) throw(SampleLengthException) {
+    void setDataLength(size_t val) throw(SampleLengthException)
+    {
 	if (val > getAllocLength())
 	    throw SampleLengthException(
 	    	"SampleT::setDataLength:",val,getAllocLength());
@@ -354,14 +326,15 @@ public:
     /**
      * Maximum number of elements in data.
      */
-    static size_t getMaxDataLength() {
-    	return HeaderT::getMaxDataLength() / sizeof(DataT);
+    static size_t getMaxDataLength()
+    {
+    	return SampleHeader::getMaxDataLength() / sizeof(DataT);
     }
 
     /**
      * Get number of bytes in header portion of sample.
      */
-    size_t getHeaderLength() const { return HeaderT::getSizeOf(); }
+    size_t getHeaderLength() const { return SampleHeader::getSizeOf(); }
 
     const void* getHeaderPtr() const { return (void*) &header; }
 
@@ -457,7 +430,7 @@ public:
 
 private:
 
-  HeaderT header;
+  SampleHeader header;
 
   DataT* data;
 
@@ -470,73 +443,52 @@ private:
 
 
 /**
- * A Sample with an array of chars for data, with a maximum length
- * of 65535 bytes.
+ * A Sample with an array of chars for data.
  */
 class CharSample :
-    public SampleT<SmallSampleHeader, char>
+    public SampleT<char>
 {
 };
 
-/**
- * A Sample with an array of chars for data, with maximum length
- * that should be big enough for any reasonable sample (2^31-1).
- */
-class LargeCharSample :
-    public SampleT<LargeSampleHeader, char>
-{
-};
 
 /**
- * A Sample with an array of shorts for data, with a maximum length
- * of 65532/4 = 16383 elements.
+ * A Sample with an array of shorts for data.
  */
 class ShortIntSample :
-    public SampleT<SmallSampleHeader, short>
+    public SampleT<short>
 {
 };
 
 /**
- * A Sample with an array of unsigned shorts for data, with a maximum length
- * of 65532/4 = 16383 elements.
+ * A Sample with an array of unsigned shorts for data.
  */
 class UnsignedShortIntSample :
-    public SampleT<SmallSampleHeader, unsigned short>
+    public SampleT<unsigned short>
 {
 };
 
 /**
- * A Sample with an array of floats for data, with a maximum length
- * of 65532/4 = 16383 elements.
+ * A Sample with an array of floats for data.
  */
 class FloatSample :
-    public SampleT<SmallSampleHeader, float>
-{
-};
-
-/**
- * A Sample with an array of floats for data, and a large maximum length.
- */
-class LargeFloatSample :
-    public SampleT<LargeSampleHeader, float>
+    public SampleT<float>
 {
 };
 
 }
 
-
 #include <SamplePool.h>
 
 namespace dsm {
-template <class HeaderT,class DataT>
-void SampleT<HeaderT,DataT>::freeReference() const
+template <class DataT>
+void SampleT<DataT>::freeReference() const
 {
     // if refCount is 0, put it back in the Pool.
     // These casts remove the const, so that this can be a const
     // member function, even though it alters the Sample.
     if (! --refCount)
-	SamplePool<SampleT<HeaderT,DataT> >::getInstance()->putSample(
-	    (SampleT<HeaderT,DataT>*)this);
+	SamplePool<SampleT<DataT> >::getInstance()->putSample(
+	    (SampleT<DataT>*)this);
 }
 }
 
