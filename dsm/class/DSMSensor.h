@@ -31,7 +31,11 @@
 
 #include <fcntl.h>
 
+
 namespace dsm {
+
+class DSMConfig;
+
 /**
  * DSMSensor provides the basic support for reading, processing
  * and distributing samples from a sensor attached to a DSM.
@@ -72,8 +76,13 @@ public:
      */
     DSMSensor();
 
-
     virtual ~DSMSensor();
+
+    /**
+     * Set the DSMConfig for this sensor.
+     */
+    void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    const DSMConfig* getDSMConfig() const { return dsm; }
 
     /**
      * Set the name of the system device that the sensor
@@ -101,15 +110,14 @@ public:
     virtual const std::string& getClassName() const { return classname; }
 
     /**
-     * Set the DSM name that this sensor is associated with.
-     * Also only used in informative messages.
-     */
-    void setDSMName(const std::string& val) { dsmname = val; }
-
-    /**
      * Fetch the DSM name.
      */
-    virtual const std::string& getDSMName() const { return dsmname; }
+    const std::string& getDSMName() const;
+
+    /**
+     * Fetch the DSM id.
+     */
+    virtual unsigned char getDSMId() const;
 
     /**
      * Return a name that should fully identify this sensor. This
@@ -135,18 +143,25 @@ public:
 
     virtual int getReadFd() const = 0;
 
+    /**
+     * Does this sensor provide clock samples?  If so its
+     * process method is expected to create a sample of
+     * type SampleT<dsm_sys_time>t>, with an id of CLOCK_SAMPLE_ID.
+     */
     virtual bool isClock() const { return false; }
+
+    /**
+     * Set an identification number on this sensor.
+     * The raw samples from this sensor will contain this id.
+     * DSMConfig will make sure that this id is unique across
+     * the DSM.
+     */
+    void setId(unsigned short val) { id = val; };
 
     /**
      * Retrieve this sensor's id number.
      */
-    unsigned short getId() const { return id; };
-
-    /**
-     * Set a unique identification number on this sensor.
-     * The samples from this sensor will contain this id.
-     */
-    void setId(unsigned short val) { id = val; };
+    unsigned long getId() const { return id; };
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -155,26 +170,27 @@ public:
 
     /**
      * How do I want to be opened.  The user can ignore it if they want to.
+     * @return One of O_RDONLY, O_WRONLY or O_RDWR.
      */
     virtual int getDefaultMode() const { return O_RDONLY; }
 
     /**
-    * Read from the device (duh). Behaves like read(2) system call,
-    * without a file descriptor argument, and with an IOException.
-    */
+     * Read from the device (duh). Behaves like the read(2) system call,
+     * without a file descriptor argument, and with an IOException.
+     */
     virtual size_t read(void *buf, size_t len) throw(atdUtil::IOException) = 0;	
 
     /**
-    * Write to the device (duh). Behaves like write(2) system call,
-    * without a file descriptor argument, and with an IOException.
-    */
+     * Write to the device (duh). Behaves like write(2) system call,
+     * without a file descriptor argument, and with an IOException.
+     */
     virtual size_t write(const void *buf, size_t len) throw(atdUtil::IOException) = 0;
 
     /**
-    * Perform an ioctl on the device. request is an integer
-    * value which must be supported by the device. Normally
-    * this is a value from a header file for the device.
-    */
+     * Perform an ioctl on the device. request is an integer
+     * value which must be supported by the device. Normally
+     * this is a value from a header file for the device.
+     */
     virtual void ioctl(int request, void* buf, size_t len) throw(atdUtil::IOException) = 0;
 
     /**
@@ -184,32 +200,37 @@ public:
     virtual void ioctl(int request, const void* buf, size_t len) throw(atdUtil::IOException) = 0;
 
     /**
-    * close
-    */
+     * close my associated device.
+     */
     virtual void close() throw(atdUtil::IOException) = 0;
 
-   /**
-    * Read samples from my associated file descriptor,
-    * return them in a list.
-    * process them, and pass them onto my SampleClient's.
-    *
-    * readSamples() assumes that the data read from
-    * the file descriptor is formatted into samples
-    * in the format of a struct dsm_sample, i.e. a
-    * 4 byte unsigned integer time-tag (milliseconds since
-    * midnight GMT), followed by a 4 byte unsigned integer data
-    * length, and then length number of bytes of data.
-    */
+    /**
+     * Read raw samples from my associated file descriptor,
+     * and distribute() them to my RawSampleClient's.
+     *
+     * readSamples() assumes that the data read from
+     * the file descriptor is formatted into samples
+     * in the format of a struct dsm_sample, i.e. a
+     * 4 byte unsigned integer time-tag (milliseconds since
+     * midnight GMT), followed by a 4 byte unsigned integer data
+     * length, and then length number of bytes of data.
+     */
     dsm_sample_time_t readSamples()
     	throw(SampleParseException,atdUtil::IOException);
 
+    /**
+     * A DSMSensor can be configured as a RawSampleClient
+     * of itself, meaning it receives its own raw samples, and
+     * applies further processing via its process method.
+     */
     bool receive(const Sample *s)
   	throw(SampleParseException, atdUtil::IOException);
+
     /**
      * Apply further necessary processing to a raw sample
      * from this DSMSensor. Return the resultant sample(s)
      * in result.  The default implementation
-     * of process() simply puts the Sample into result.
+     * of process() simply puts the input Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw(SampleParseException,atdUtil::IOException);
@@ -258,7 +279,7 @@ protected:
      */
     std::string classname;
 
-    std::string dsmname;
+    const DSMConfig* dsm;
 
     std::string devname;
 

@@ -15,6 +15,7 @@
 */
 
 #include <DSMSensor.h>
+#include <DSMConfig.h>
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
@@ -49,6 +50,17 @@ void DSMSensor::addSampleTag(SampleTag* tag)
     sampleTags.push_back(tag);
     constSampleTags.push_back(tag);
 }
+
+/**
+ * Fetch the DSM name.
+ */
+const std::string& DSMSensor::getDSMName() const {
+    static std::string unk("unknown");
+    if (dsm) return dsm->getName();
+    return unk;
+}
+
+unsigned char DSMSensor::getDSMId() const { return getDSMConfig()->getId(); }
 
 void DSMSensor::initBuffer() throw()
 {
@@ -234,6 +246,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		getName() + " has no <sample> tags");
 
     // Set the sample ids to be the sum of the sensor id and sample id
+    // Also set the DSM id portion of the sample ids
     // Also check that sample ids are unique for this sensor.
     set<unsigned short> ids;
     for (list<SampleTag*>::const_iterator si = sampleTags.begin();
@@ -249,7 +262,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    	getName(),"duplicate sample id", ost.str());
 	}
 
-	samp->setId(getId() + samp->getId());
+	samp->setShortId(getId() + samp->getId());
+	samp->setDSMId(getDSMConfig()->getId());
     }
 }
 
