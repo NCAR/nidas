@@ -174,6 +174,7 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
     if (i >= 0) {
       sample = vec[i];
       if (sample->getAllocLength() < len) sample->allocateData(len);
+      sample->setDataLength(len);
       *n = i;
       sample->holdReference();
       nsamplesOut++;
@@ -182,6 +183,7 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
 
     sample = new SampleType();
     sample->allocateData(len);
+    sample->setDataLength(len);
     nsamplesAlloc++;
     nsamplesOut++;
     return sample;

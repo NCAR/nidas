@@ -527,7 +527,6 @@ SampleT<T>* getSample(size_t len)
 {
     SampleT<T>* samp =
     	SamplePool<SampleT<T> >::getInstance()->getSample(len);
-    samp->setDataLength(len);
     return samp;
 }
 
