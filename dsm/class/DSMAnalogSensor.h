@@ -20,6 +20,7 @@
 #include <vector>
 #include <map>
 
+namespace dsm {
 /**
  * A sensor connected to the DSM A2D
  */
@@ -66,5 +67,7 @@ protected:
     std::vector<int> channels;
     std::map<int,struct chan_info> chanInfo;
 };
+
+}
 
 #endif
