@@ -25,6 +25,8 @@
 #include <dsm_sample.h>
 #include <irigclock.h>
 
+#define CLOCK_SAMPLE_ID 1
+
 namespace dsm {
 
 
