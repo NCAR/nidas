@@ -37,38 +37,32 @@ atdUtil::ServiceListenerClient* SyncRecordService::clone()
 
 int SyncRecordService::run() throw(atdUtil::Exception)
 {
+    inputStreams.front()->setSocket(socket);
+
+    for (;;) {
+        inputStreams.front()->readSamples();
+    }
     return 0;
 }
 
 void SyncRecordService::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-        DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const string& aname = attr.getName();
-            const string& aval = attr.getValue();
-	}
-    }
-    DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((DOMElement*) child);
-        const string& elname = xchild.getNodeName();
+    DSMService::fromDOMElement(node);
 
-       if (!elname.compare("socket")) {
-	    SocketAddress saddr;
-	    saddr.fromDOMElement((DOMElement*)child);
-	    setListenSocketAddress(saddr);
-	}
-    }
+    if (!inputStreams.size() != 1)
+	throw atdUtil::InvalidParameterException(
+		"SyncRecordService::fromDOMElement",
+		"input", "only one input supported as of now");
+
+    for (std::list<SampleOutputStream*>::iterator oi = outputStreams.begin();
+    	oi != outputStreams.end(); ++oi)
+	inputStreams.front()->addSampleClient(*oi);
+
+    // call method of ServiceListenerClient base class so that
+    // it knows the listen socket address
+    setListenSocketAddress(inputStreams.front()->getSocketAddress());
+
 }
 
 DOMElement* SyncRecordService::toDOMParent(
