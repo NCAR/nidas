@@ -19,10 +19,10 @@ src_arm_env['LIBS'] = Split("""
 ##
 ##  Build dsmAsync, dsmSync, dsmComm
 ##
+# ckrtl_com8.cc
 apps = Split("""
   dsmAsync.cc
   ck_init_modules.cc
-  ckrtl_com8.cc
 """)
 
 for i in apps:
