@@ -25,8 +25,6 @@
 
 /* Below here are symbols used by the ioctl_fifo module. */
 
-#define MAX_IOCTL_BUF_SIZE 1024
-
 #include <pthread.h>
 
 #include <linux/list.h>

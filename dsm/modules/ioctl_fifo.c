@@ -69,6 +69,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	int boardNum,ioctlCallback_t* callback,
 	int nioctls,struct ioctlCmd* ioctls)
 {
+    int l;
     struct ioctlHandle* handle = 
 	(struct ioctlHandle*) kmalloc(sizeof(struct ioctlHandle), GFP_KERNEL);
 
@@ -109,13 +110,14 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     
     if (!(handle->buf = kmalloc(handle->bufsize, GFP_KERNEL))) goto error;
 
-    if (inputbufsize < handle->bufsize + sizeof(struct ioctlHeader) + 1) {
+    /* increase size of input buffer if necessary */
+    l = handle->bufsize + sizeof(struct ioctlHeader) + 1;
+    if (inputbufsize < l) {
 	kfree(inputbuf);
-	inputbufsize = handle->bufsize + sizeof(struct ioctlHeader) + 1;
-	inputbuf = kmalloc(inputbufsize,GFP_KERNEL);
+	inputbufsize = l;
+	if (!(inputbuf = kmalloc(inputbufsize,GFP_KERNEL))) goto error;
     }
     	
-
     handle->bytesRead = handle->bytesToRead = 0;
     handle->icmd = -1;
     handle->readETX = 0;
@@ -226,6 +228,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   struct ioctlHandle* entry;
   struct ioctlHandle* handle = NULL;
   unsigned char* inbufptr;
+  unsigned char* inbufeod;
   int icmd;
   int nread;
   int res;
@@ -280,6 +283,8 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 #endif
   if (nread == 0) goto unlock;
 
+  inbufeod = inputbuf + nread;
+
   /*
    * The data coming from user space on the FIFO is formatted as
    * follows:
@@ -287,9 +292,10 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
    *       cmds supported by the driver.
    *   4 byte int containing the port index, 0-(N-1), for a board
    *       with N ports (i.e. a serial port card).
-   *   Then, if the command is a set (sending data to the driver),
-   *   the next bytes are the contents of the set, of the size
-   *   specified by the command length.
+   *   4 byte int size of the request.
+   *   If the request is a set from the user side
+   *       (_IOC_DIR is an IOC_WRITE) a buffer of the specified
+   *       size will follow
    *   4 byte ETX ('\003' character).
    *  
    *   The ETX is there in case things get screwed up. After 
@@ -297,17 +303,17 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
    *   to make sure we're in sync.
    */
 
-  for (inbufptr = inputbuf; inbufptr < inputbuf + nread; ) {
+  for (inbufptr = inputbuf; inbufptr < inbufeod; ) {
 
 #ifdef DEBUG
-    rtl_printf("chars left in buffer=%d\n",inputbuf+nread-inbufptr);
+    rtl_printf("chars left in buffer=%d\n",inbufeod-inbufptr);
 #endif
 
     if (handle->readETX) {
 #ifdef DEBUG
 	rtl_printf("search for ETX\n");
 #endif
-      for (; inbufptr < inputbuf + nread; )  {
+      for (; inbufptr < inbufeod; )  {
 #ifdef DEBUG
 	rtl_printf("ETX search char=%d, ETX=%d\n",(int) *inbufptr,(int)ETX);
 #endif
@@ -320,7 +326,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 	}
 	else rtl_printf("didn't find ETX\n");
       }
-      if (inbufptr == inputbuf + nread) break;
+      if (inbufptr == inbufeod) break;
     }
 
 #ifdef DEBUG
@@ -328,7 +334,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 #endif
 
     for ( ; handle->bytesRead < sizeof(struct ioctlHeader) &&
-	  inbufptr < inputbuf + nread; )
+	  inbufptr < inbufeod; )
       ((unsigned char*)&(handle->header))[handle->bytesRead++] = *inbufptr++;
 
 #ifdef DEBUG
@@ -388,7 +394,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       rtl_printf("ioctlHandler _IOC_WRITE, bytesToRead=%d\n",
       	handle->bytesToRead);
 #endif
-      for (; handle->bytesRead < handle->bytesToRead && inbufptr < inputbuf + nread; )
+      for (; handle->bytesRead < handle->bytesToRead && inbufptr < inbufeod; )
 	handle->buf[handle->bytesRead++ - sizeof(struct ioctlHeader)] = *inbufptr++;
 
       if (handle->bytesRead < handle->bytesToRead) break;	/* not done */
