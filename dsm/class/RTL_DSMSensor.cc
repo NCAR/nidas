@@ -23,12 +23,16 @@
 
 #include <RTL_DSMSensor.h>
 #include <RTL_DevIoctlStore.h>
+#include <dsm_sample.h>
+#include <SamplePool.h>
 
 
 using namespace std;
+using namespace dsm;
 
 RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
-    DSMSensor(nameArg),devIoctl(0),infifofd(-1),outfifofd(-1)
+    DSMSensor(nameArg),devIoctl(0),infifofd(-1),outfifofd(-1),
+    BUFSIZE(8192),bufhead(0),buftail(0),samp(0)
 {
 
     string::reverse_iterator ri;
@@ -47,6 +51,8 @@ RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
 
     inFifoName = prefix + "_in_" + portstr;
     outFifoName = prefix + "_out_" + portstr;
+
+    buffer = new char[BUFSIZE];
 }
 
 /**
@@ -58,6 +64,8 @@ RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
  */
 RTL_DSMSensor::~RTL_DSMSensor()
 {
+    delete [] buffer;
+
     cerr << "~RTL_DSMSensor()" << endl;
     try {
       close();
@@ -106,7 +114,6 @@ void RTL_DSMSensor::close() throw(atdUtil::IOException)
 
     if (devIoctl) devIoctl->close();
     devIoctl = 0;
-
 }
 
 void RTL_DSMSensor::ioctl(int request, void* buf, size_t len) 
@@ -129,15 +136,9 @@ void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len)
 
 ssize_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
 {
-    char* cbuf = (char*) buf;
-    ssize_t n; 
-    for (n = 0; n < (ssize_t)len; ) {
-	size_t l = ::read(infifofd,cbuf,len - n);
-	if (l < 0) throw atdUtil::IOException(inFifoName,"read",errno);
-	cbuf += l;
-	n += l;
-    }
-    return n;
+    ssize_t l = ::read(infifofd,buf,len);
+    if (l < 0) throw atdUtil::IOException(inFifoName,"read",errno);
+    return l;
 }
 
 ssize_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOException)
@@ -145,4 +146,59 @@ ssize_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOExcep
     size_t n = ::write(outfifofd,buf,len);
     if (n < 0) throw atdUtil::IOException(outFifoName,"write",errno);
     return n;
+}
+
+dsm_sample_time_t RTL_DSMSensor::readSamples()
+	throw (SampleParseException,atdUtil::IOException)
+{
+    size_t len = BUFSIZE - bufhead;	// length to read
+    size_t rlen;			// read result
+    dsm_sample_time_t tt = maxValue(tt);
+
+    rlen = read(buffer+bufhead,len);
+    bufhead += rlen;
+
+    // process all data in buffer, pass samples onto clients
+    for (;;) {
+        if (samp) {
+	    rlen = bufhead - buftail;	// bytes available in buffer
+	    len = sampDataToRead;	// bytes left to fill sample
+	    if (rlen < len) len = rlen;
+	    memcpy(sampDataPtr,buffer+buftail,len);
+	    buftail += len;
+	    sampDataPtr += len;
+	    sampDataToRead -= len;
+	    if (!sampDataToRead) {		// done with sample
+		tt = samp->getTimeTag();	// return last time tag read
+	        distribute(samp);
+		samp = 0;
+	    }
+	    else break;				// done with buffer
+	}
+	// Read the header of the next sample
+        if (bufhead - buftail <
+		(signed)(len = SIZEOF_DSM_SMALL_SAMPLE_HEADER))
+		break;
+
+	struct dsm_small_sample header;	// temporary header to read into
+	memcpy(&header,buffer+buftail,len);
+	buftail += len;
+
+	len = header.length;
+	samp = SamplePool::getInstance()->getSample(len);
+	samp->setTimeTag(header.timetag);
+	samp->setDataLength(len);
+	samp->setId(getId());	// set sample id to id of this sensor
+	sampDataPtr = (char*) samp->getVoidDataPtr();
+	sampDataToRead = len;
+    }
+
+    // shift data down. There shouldn't be much - less than a header's worth.
+    register char* bp;
+    for (bp = buffer; buftail < bufhead; ) 
+    	*bp++ = *(buffer + buftail++);
+
+    bufhead = bp - buffer;
+    buftail = 0;
+    return tt;
 }
