@@ -122,6 +122,7 @@ bool SampleOutputStream::receive(const Sample *samp)
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
 
+    cerr << "outputStream->write" << endl;
     return outputStream->write(bufs,lens,2);
 }
 

@@ -17,7 +17,10 @@
 #include <FileSetOutputStream.h>
 #include <DSMTime.h>
 
+
 #include <iostream>
+
+#define DEBUG
 
 using namespace dsm;
 using namespace std;

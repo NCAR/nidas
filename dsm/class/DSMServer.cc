@@ -334,11 +334,11 @@ void DSMServer::wait() throw(atdUtil::Exception)
     sleepTime.tv_nsec = 0;
 
     while (serviceListeners.size() > 0) {
-	cerr << "DSMServer::wait serviceListeners.size=" <<
-		serviceListeners.size() << endl;
+	// cerr << "DSMServer::wait serviceListeners.size=" <<
+	// 	serviceListeners.size() << endl;
 	if (quit || restart) break;
         // pause();
-	cerr << "DSMServer::wait nanosleep" << endl;
+	// cerr << "DSMServer::wait nanosleep" << endl;
         nanosleep(&sleepTime,0);
 
 	if (quit || restart) break;
@@ -346,8 +346,8 @@ void DSMServer::wait() throw(atdUtil::Exception)
         set<atdUtil::ServiceListener*>::iterator si;
         for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
             atdUtil::ServiceListener* serv = *si;
-	    cerr << "DSMServer::wait checking ServiceListener serv=" <<
-	    	(void*)serv << endl;
+	    // cerr << "DSMServer::wait checking ServiceListener serv=" <<
+	    // 	(void*)serv << endl;
             if (!serv->isRunning()) {
 		cerr << "DSMServer::wait ServiceListener not running" << endl;
 		try {

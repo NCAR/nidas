@@ -41,27 +41,27 @@ namespace dsm {
  * Once a device name has been set, then a user of this sensor
  * can call open(),  and then ioctl(), read() and write().
  * These methods must be implemented by a derived class,
- * dsm::RTL_DSMSensor, for example.
+ * RTL_DSMSensor, for example.
  *
- * dsm::SampleClient's can call
+ * SampleClient's can call
  * addRawSampleClient()/removeRawSampleClient() if they want to
- * receive raw dsm::SampleT's from this sensor.
+ * receive raw SampleT's from this sensor.
  *
- * dsm::SampleClient's can also call
+ * SampleClient's can also call
  * addSampleClient()/removeSampleClient() if they want to
- * receive (minimally) processed dsm::SampleT's from this sensor.
+ * receive (minimally) processed SampleT's from this sensor.
  *
- * A common usage of a DSMSensor is to add it to a dsm::PortSelector
- * object with dsm::PortSelector::addSensorPort().
- * When the dsm::PortSelector::run method has determined that there is data
+ * A common usage of a DSMSensor is to add it to a PortSelector
+ * object with PortSelector::addSensorPort().
+ * When the PortSelector::run method has determined that there is data
  * available on a DSMSensor's file descriptor, it will then call
  * the readSamples() method which reads the samples from the
  * file descriptor, processes them, and forwards the raw and processed
- * samples to all associated dsm::SampleClient's of this DSMSensor.
+ * samples to all associated SampleClient's of this DSMSensor.
  *
  */
-class DSMSensor : public RawSampleSource, public dsm::SampleSource,
-	public dsm::DOMable {
+class DSMSensor : public RawSampleSource, public SampleSource,
+	public SampleClient, public DOMable {
 
 public:
 
@@ -148,9 +148,9 @@ public:
     * length, and then length number of bytes of data.
     */
     dsm_sample_time_t readSamples()
-    	throw(dsm::SampleParseException,atdUtil::IOException);
+    	throw(SampleParseException,atdUtil::IOException);
 
-    virtual bool receive(const Sample *s)
+    bool receive(const Sample *s)
   	throw(SampleParseException, atdUtil::IOException);
     /**
      * Apply further necessary processing to a raw sample
@@ -159,7 +159,7 @@ public:
      * of process() simply puts the Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw(dsm::SampleParseException,atdUtil::IOException);
+    	throw(SampleParseException,atdUtil::IOException);
 
     void initStatistics();
 
@@ -219,7 +219,7 @@ protected:
     int bufhead;
     int buftail;
                                                                                 
-    dsm::Sample* samp;
+    Sample* samp;
     size_t sampDataToRead;
     char* sampDataPtr;
 

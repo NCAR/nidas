@@ -45,6 +45,10 @@ const atdUtil::Inet4SocketAddress& SampleInputStream::getSocketAddress() const
 void SampleInputStream::setSocket(atdUtil::Socket& sock)
 {
     delete inputStream;
+    cerr << "SampleInputStream::setSocket, local sockaddr=" <<
+    	sock.getLocalInet4SocketAddress().toString() <<
+	" remote sockaddr=" << sock.getInet4SocketAddress().toString() <<
+		endl;
     inputStream = InputStreamFactory::createInputStream(sock);
 }
 
@@ -70,22 +74,30 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	if (!samp) {
 	    if (inputStream->available() < header.getSizeOf()) break;
 	    inputStream->read(&header,header.getSizeOf());
+	    cerr << "read header, type=" << header.getType() <<
+	    	" getTimeTag=" << header.getTimeTag() <<
+	    	" getId=" << header.getId() <<
+	    	" getDataByteLength=" << header.getDataByteLength() <<
+		endl;
 	    if (header.getType() < 0 || header.getType() >= UNKNOWN_ST)
 	        throw SampleParseException("sample type unknown");
 	    samp = dsm::getSample((sampleType)header.getType(),
 	    	header.getDataByteLength());
-	    samp = 0;
 	    samp->setTimeTag(header.getTimeTag());
 	    samp->setId(header.getId());
 	    left = samp->getDataByteLength();
+	    cerr << "left=" << left << endl;
 	    dptr = (char*) samp->getVoidDataPtr();
 	}
 	size_t len = inputStream->available();
+	cerr << "available=" << len << endl;
 	if (left < len) len = left;
 	len = inputStream->read(dptr, len);
+	cerr << "read len=" << len << endl;
 	dptr += len;
 	left -= len;
 	if (left == 0) {
+	    cerr << "distribute" << endl;
 	    distribute(samp);
 	    samp = 0;
 	}

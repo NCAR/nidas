@@ -54,6 +54,7 @@ public:
             throw(atdUtil::InvalidParameterException);
 
     void startSensors() throw(atdUtil::IOException);
+    void startOutputs() throw(atdUtil::IOException);
 
     void wait() throw(atdUtil::Exception);
 
@@ -91,6 +92,8 @@ protected:
     DSMConfig* dsmConfig;
 
     PortSelector* handler;
+
+    std::list<SampleOutputStream*> connectedOutputs;
 };
 
 /**

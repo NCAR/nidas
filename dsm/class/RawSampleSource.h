@@ -30,8 +30,11 @@ class RawSampleSource: SampleSourceImpl {
 
 public:
     /**
-     * Add a SampleClient to this SampleSource.  The pointer
-     * to the SampleClient must remain valid, until after
+     * Add a SampleClient to this SampleSource. 
+     * If the SampleClient is already a client, it is
+     * first removed, then added, so that the receive method
+     * of clients are not called multiple times for each sample.
+     * The pointer to the SampleClient must remain valid, until after
      * it is removed.
      */
     void addRawSampleClient(SampleClient* c) throw() {

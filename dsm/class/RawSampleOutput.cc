@@ -16,6 +16,8 @@
 #include <RawSampleOutput.h>
 #include <RawSampleServiceRequestor.h>
 
+#include <atdUtil/Logger.h>
+
 #include <iostream>
 
 using namespace dsm;
@@ -45,12 +47,24 @@ void RawSampleOutput::connect() throw(atdUtil::IOException)
 	cerr << "accepting on " <<
 	    servsock.getInet4SocketAddress().toString() << endl;
 	atdUtil::Socket sock = servsock.accept();      // throws IOException
-	cerr << "accepted connection" << endl;
+	cerr << "accepted connection, local addr=" <<
+		sock.getLocalInet4SocketAddress().toString() << 
+		" remote addr=" << sock.getInet4SocketAddress().toString() << 
+		endl;
 
 	servsock.close();
 
 	cerr << "canceling requestor" << endl;
-	requestor.cancel();
+	try {
+	    requestor.cancel();
+	    requestor.join();
+	}
+	catch (const atdUtil::Exception& e)
+	{
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+	    	requestor.getName().c_str(),e.what());
+	}
+	cerr << "requestor joined" << endl;
 
 	setSocket(sock);
     }

@@ -16,10 +16,11 @@
 #ifndef DSM_SOCKETINPUTSTREAM_H
 #define DSM_SOCKETINPUTSTREAM_H
 
-#include <string>
-
 #include <InputStream.h>
 #include <atdUtil/Socket.h>
+
+#include <string>
+#include <iostream>
 
 namespace dsm {
 
@@ -30,13 +31,14 @@ class SocketInputStream: public InputStream {
 
 public:
   SocketInputStream(atdUtil::Socket& socket) :
-  	InputStream(sock.getSendBufferSize()),sock(socket) {}
+  	InputStream(socket.getSendBufferSize()),sock(socket) {}
 
   /**
    * Do the actual hardware read.
    */
   size_t devRead(void* buf, size_t len) throw (atdUtil::IOException)
   {
+      std::cerr << "SocketInputStream::devRead, len=" << len << std::endl;
       return sock.recv(buf,len);
   }
 

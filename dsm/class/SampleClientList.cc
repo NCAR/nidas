@@ -34,6 +34,8 @@ SampleClientList& SampleClientList::operator=(const SampleClientList& cl) {
 }
 
 void SampleClientList::add(SampleClient* client) {
+  // prevent being added twice
+  remove(client);
   lock();
   clients.push_back(client);
   unlock();

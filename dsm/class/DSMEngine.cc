@@ -23,6 +23,8 @@
 
 #include <XMLFdInputSource.h>
 
+#include <RawSampleOutput.h>
+
 #include <iostream>
 
 using namespace dsm;
@@ -124,6 +126,7 @@ int DSMEngine::main(int argc, char** argv) throw()
     // start your sensors
     try {
 	dsm->startSensors();
+	dsm->startOutputs();
     }
     catch (const atdUtil::IOException& e) {
 	logger->log(LOG_ERR,e.what());
@@ -186,7 +189,28 @@ DSMEngine::DSMEngine():
 
 DSMEngine::~DSMEngine()
 {
-    delete handler;
+    list<SampleOutputStream*>::const_iterator oi;
+    for (oi = connectedOutputs.begin(); oi != connectedOutputs.end(); ++oi) {
+	SampleOutputStream* ostr = *oi;
+
+	const list<DSMSensor*>& sensors = dsmConfig->getSensors();
+	list<DSMSensor*>::const_iterator si;
+
+	RawSampleOutput* rostr = dynamic_cast<RawSampleOutput*>(ostr);
+	if (rostr) {
+	    for (si = sensors.begin(); si != sensors.end(); ++si)
+		(*si)->removeRawSampleClient(ostr);
+	}
+	else {
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		(*si)->removeRawSampleClient(*si);
+		(*si)->removeSampleClient(ostr);
+	    }
+	}
+	ostr->close();
+    }
+
+    delete handler;	// this closes the sensors
     delete project;
 }
 
@@ -314,13 +338,11 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 
 void DSMEngine::startSensors() throw(atdUtil::IOException)
 {
-    const list<DSMSensor*>& sensors = dsmConfig->getSensors();
-
-    list<DSMSensor*>::const_iterator si;
-
     handler = new PortSelector;
     handler->start();
 
+    const list<DSMSensor*>& sensors = dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	std::cerr << "doing sens->open of" <<
 	    (*si)->getDeviceName() << endl;
@@ -329,12 +351,47 @@ void DSMEngine::startSensors() throw(atdUtil::IOException)
     }
 }
 
+void DSMEngine::startOutputs() throw(atdUtil::IOException)
+{
+    const list<SampleOutputStream*>& outputs = dsmConfig->getOutputs();
+    list<SampleOutputStream*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutputStream* ostr = *oi;
+	cerr << "connecting SampleOutputStream" << endl;
+	ostr->connect();
+	cerr << "SampleOutputStream connected" << endl;
+
+	const list<DSMSensor*>& sensors = dsmConfig->getSensors();
+	list<DSMSensor*>::const_iterator si;
+
+	RawSampleOutput* rostr = dynamic_cast<RawSampleOutput*>(ostr);
+	if (rostr) {
+	    for (si = sensors.begin(); si != sensors.end(); ++si)
+		(*si)->addRawSampleClient(ostr);
+	    cerr << "added RawSampleOutput as client to sensors" << endl;
+	}
+	else {
+	    // We need to implement the idea of a SampleOutputStream
+	    // being associated with specific SampleSources.
+	    // Until then we're adding the SampleOutputStream as
+	    // a client of all Sensors.
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		// it doesn't hurt to add a sensor as a client of itself
+		// multiple times.
+		(*si)->addRawSampleClient(*si);
+		(*si)->addSampleClient(ostr);
+	    }
+	}
+	connectedOutputs.push_back(ostr);
+    }
+}
+
 void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
     if (handler) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt received, cancelling sensor handler");
-        handler->cancel();
+	    "DSMEngine::interrupt received, interrupting sensor handler");
+        handler->interrupt();
     }
     else {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
