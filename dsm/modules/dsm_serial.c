@@ -1584,11 +1584,10 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    struct dsm_sample* samp = 0;
 
 	    /* Note that we don't increment the absolute
-	     * time of the timeout again. It is an
-	     * absolute cut-off time for this read - unless
-	     * no data is arriving.
+	     * time of the timeout again unless no data have arrived.
+	     * It is an absolute cut-off time for this read.
 	     * We want to return the data in a timely manner -
-	     * typical tradeoff between efficiency and timelyness.
+	     * typical tradeoff between efficiency and responsiveness.
 	     */
 
 	    if (sem_timedwait(&port->sample_sem,&timeout) < 0)
@@ -1598,8 +1597,9 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 			return -errno;
 		}
 	        else if (errno == RTL_ETIMEDOUT) {
-			/* if timeout return what we've read */
+			// if timeout return what we've read
 			if (retval > 0) return retval;
+
 			// increment timeout if no data
 			timeout.tv_nsec += port->read_timeout_nsec;
 			if (timeout.tv_nsec >= NSECS_PER_SEC) {
