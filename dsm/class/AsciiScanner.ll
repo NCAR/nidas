@@ -228,8 +228,10 @@ void AsciiScanner::setFormat(const std::string& val)
 	bufptr += size * length;
 	bufptrs[nfields] = bufptr;
 	fields.push_back(currentField);
+#ifdef DEBUG
 	std::cerr << "nfields=" << nfields << " lexres=" << lexres << 
 		" length=" << currentField->length << std::endl;
+#endif
 	if (currentField->size > maxsize) maxsize = currentField->size;
     }
 

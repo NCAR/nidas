@@ -15,14 +15,8 @@
 
 #include <Project.h>
 #include <DSMConfig.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
-#include <DOMObjectFactory.h>
 
-// #include <xercesc/dom/DOMElement.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
-// #include <xercesc/dom/DOMAttr.hpp>
+#include <DOMObjectFactory.h>
 
 #include <iostream>
 
@@ -30,7 +24,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(DSMConfig)
+// CREATOR_ENTRY_POINT(DSMConfig)
 
 DSMConfig::DSMConfig()
 {
@@ -75,7 +69,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 
 	DOMable* sensor = 0;
 	if (!elname.compare("serialsensor") ||
-            !elname.compare("arincSensor")) {
+            !elname.compare("arincSensor") ||
+            !elname.compare("irigsensor")) {
 	    const string& idref = xchild.getAttributeValue("IDREF");
 	    if (idref.length() > 0) {
 		// cerr << "idref=" << idref << endl;

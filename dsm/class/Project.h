@@ -17,12 +17,13 @@
 #define DSM_PROJECT_H
 
 #include <DOMable.h>
-#include <Aircraft.h>
 #include <SensorCatalog.h>
 
 #include <list>
 
 namespace dsm {
+
+class Aircraft;
 
 /**
  */
@@ -32,6 +33,9 @@ public:
     virtual ~Project();
 
     static Project* getInstance();
+
+    void setName(const std::string& val) { name = val; }
+    const std::string& getName() const { return name; }
 
     void addAircraft(Aircraft* val) { aircraft.push_back(val); }
     const std::list<Aircraft*>& getAircraft() const { return aircraft; }
@@ -52,6 +56,7 @@ public:
 
 protected:
     static Project* instance;
+    std::string name;
     std::list<Aircraft*> aircraft;
     SensorCatalog* catalog;
 };

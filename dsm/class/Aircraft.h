@@ -18,6 +18,8 @@
 
 #include <DOMable.h>
 #include <DSMConfig.h>
+#include <DSMServer.h>
+#include <Project.h>
 
 #include <list>
 
@@ -31,8 +33,28 @@ public:
     Aircraft();
     virtual ~Aircraft();
 
+    void setName(const std::string& val) { name = val; }
+    const std::string& getName() const { return name; }
+
+    /**
+     * Provide pointer to Project.
+     */
+    Project* getProject() { return project; }
+
+    void setProject(Project* val) { project = val; }
+
     void addDSMConfig(DSMConfig* dsm) { dsms.push_back(dsm); }
     const std::list<DSMConfig*>& getDSMConfigs() const { return dsms; }
+
+    void addServer(DSMServer* srvr) { servers.push_back(srvr); }
+    const std::list<DSMServer*>& getServers() const { return servers; }
+
+    /**
+     * Look for a server on this aircraft that either has no name or whose
+     * name matches hostname.  If none found, remove any domain names
+     * and try again.
+     */
+    DSMServer* findServer(const std::string& hostname) const;
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
@@ -46,8 +68,17 @@ public:
     		throw(xercesc::DOMException);
 
 protected:
-    std::list<DSMConfig*> dsms;
+    /**
+     * Pointer back to my project. Aircraft does not own this
+     * pointer, just is able to pass it along to anyone who
+     * wants to know general project info.
+     */
+    Project* project;
+	
+    std::string name;
 
+    std::list<DSMConfig*> dsms;
+    std::list<DSMServer*> servers;
 };
 
 }

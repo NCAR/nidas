@@ -14,12 +14,6 @@
 */
 
 #include <Aircraft.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
-#include <DOMObjectFactory.h>
-
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <iostream>
 
@@ -27,7 +21,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(Aircraft)
+// CREATOR_ENTRY_POINT(Aircraft)
 
 Aircraft::Aircraft()
 {
@@ -43,27 +37,22 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    cerr << "Aircraft fromDOMElement element name=" <<
-    	xnode.getNodeName() << endl;
-    
     if (xnode.getNodeName().compare("aircraft"))
 	    throw atdUtil::InvalidParameterException(
 		    "Aircraft::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
 		    
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+	// get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
-	cerr <<"\tAttributes" << endl;
-	cerr <<"\t----------" << endl;
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    cerr << "attrname=" << attr.getName() << endl;
+	    // cerr << "attrname=" << attr.getName() << endl;
 	    
 	    // get attribute type
-	    cerr << "\tattrval=" << attr.getValue() << endl;
+	    // cerr << "\tattrval=" << attr.getValue() << endl;
 	}
     }
 
@@ -81,6 +70,11 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 	    dsm->fromDOMElement((DOMElement*)child);
 	    addDSMConfig(dsm);
 	}
+	else if (!elname.compare("server")) {
+	    DSMServer* server = new DSMServer();
+	    server->fromDOMElement((DOMElement*)child);
+	    addServer(server);
+	}
     }
 }
 
@@ -96,3 +90,36 @@ DOMElement* Aircraft::toDOMElement(DOMElement* node) throw(DOMException) {
     return node;
 }
 
+/**
+ * Look for a server on this aircraft that either has no name or whose
+ * name matches hostname.  If none found, remove any domain names
+ * and try again.
+ */
+DSMServer* Aircraft::findServer(const string& hostname) const
+{
+    DSMServer* server = 0;
+    for (list<DSMServer*>::const_iterator si=servers.begin();
+	si != servers.end(); ++si) {
+	DSMServer* srvr = *si;
+	if (srvr->getName().length() == 0 ||
+	    !srvr->getName().compare(hostname)) {
+	    server = srvr;
+	    break;
+	}
+    }
+    if (server) return server;
+
+    // Not found, remove domain name, try again
+    int dot = hostname.find('.');
+    for (list<DSMServer*>::const_iterator si=servers.begin();
+	si != servers.end(); ++si) {
+	DSMServer* srvr = *si;
+	const std::string& sname = srvr->getName();
+	int sdot = sname.find('.');
+	if (!sname.compare(0,sdot,hostname,0,dot)) {
+	    server = srvr;
+	    break;
+	}
+    }
+    return server;
+}

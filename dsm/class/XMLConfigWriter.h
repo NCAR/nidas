@@ -16,20 +16,7 @@
 #ifndef DSM_XMLCONFIGWRITER_H
 #define DSM_XMLCONFIGWRITER_H
 
-#ifdef NEEDED
-// #include <xercesc/parsers/AbstractDOMParser.hpp>
-#include <xercesc/dom/DOMBuilder.hpp>
-#include <xercesc/dom/DOMImplementationLS.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMErrorHandler.hpp>
-#include <xercesc/sax/InputSource.hpp>
-#include <xercesc/dom/DOMImplementation.hpp>
-#include <xercesc/dom/DOMNode.hpp>
-#include <xercesc/dom/DOMException.hpp>
-
-#endif
-
-#include <XMLConfigParser.h>
+#include <XMLParser.h>
 
 #include <atdUtil/IOException.h>
 #include <atdUtil/Inet4Address.h>
