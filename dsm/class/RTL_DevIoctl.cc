@@ -44,6 +44,11 @@ RTL_DevIoctl::~RTL_DevIoctl()
 void RTL_DevIoctl::open() throw(atdUtil::IOException)
 {
     
+    /*
+     * A RTL_DevIoctl can be shared by one or more RTL_Sensors.
+     * Therefore we only do the actual FIFO open on the
+     * first call to this method.
+     */
     if (!usageCount++) {
 	if (infifofd < 0)
 	    infifofd = ::open(inputFifoName.c_str(),O_RDONLY);
@@ -69,10 +74,8 @@ void RTL_DevIoctl::close()
 int RTL_DevIoctl::getNumPorts() throw(atdUtil::IOException)
 {
 
-    if (!usageCount) open();
-
     if (numPorts > 0) return numPorts;
-
+    if (!usageCount) open();
     ioctl(GET_NUM_PORTS,0,&numPorts,sizeof(numPorts));
 
 #ifdef DEBUG
