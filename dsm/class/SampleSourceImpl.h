@@ -62,13 +62,23 @@ protected:
     }
 
     /**
-     * Distribute this sample to my clients. Calls receive() method
+     * Distribute this sample to my clients. Calls SampleClient::receive() method
      * of each client, passing the pointer to the Sample.
-     * Does a freeReference() on the sample before returning.
+     * Does a freeReference() on the sample before returning, even
+     * if a SampleClient::receive() throws an exception. If a
+     * SampleClient throws an exception, the sample is not passed to
+     * subsequent clients.
      */
     virtual void distributeImpl(const Sample*)
   	throw(SampleParseException,atdUtil::IOException);
 
+    /**
+     * Distribute a list of samples to my clients, calling
+     * distributeImpl(const Sample*) for each sample.
+     * If a SampleClient throws an exception, subsequent samples
+     * in the list are not passed to SampleClients, but their
+     * freeReference() method will have been called.
+     */
     virtual void distributeImpl(const std::list<const Sample*>& samples)
 	throw(SampleParseException,atdUtil::IOException);
 
