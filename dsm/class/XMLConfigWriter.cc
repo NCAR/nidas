@@ -20,7 +20,7 @@
 #include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <iostream>
-#include <vector>
+#include <list>
 
 using namespace dsm;
 using namespace std;
@@ -114,15 +114,17 @@ short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const
     for(int i=0;i<nSize;++i) {
 	XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	// get attribute name
-	const std::string& aname = attr.getName();
-	const std::string& aval = attr.getValue();
+	const string& aname = attr.getName();
+	const string& aval = attr.getValue();
 	if (!aname.compare("name")) {
 	    try {
 		// grab all IP addresses for this name
-		std::vector<atdUtil::Inet4Address> addrs =
+		list<atdUtil::Inet4Address> addrs =
 			atdUtil::Inet4Address::getAllByName(aval);
-		for (unsigned int i = 0; i < addrs.size(); i++) 
-		    if (addrs[i] == dsmAddr) {
+		
+		list<atdUtil::Inet4Address>::const_iterator ai;
+		for (ai = addrs.begin(); ai != addrs.end(); ++ai) 
+		    if (*ai == dsmAddr) {
 			cerr << "accepting dsm node, name=" << xnode.getAttributeValue("name") << endl;
 			return DOMNodeFilter::FILTER_ACCEPT;	// match!
 		    }
