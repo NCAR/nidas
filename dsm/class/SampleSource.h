@@ -30,22 +30,24 @@ namespace dsm {
 class SampleSource {
 public:
 
+  virtual ~SampleSource() {}
+
   /**
    * Add a SampleClient to this SampleSource.  The pointer
    * to the SampleClient must remain valid, until after
    * it is removed.
    */
-  void addSampleClient(SampleClient*);
+  virtual void addSampleClient(SampleClient*);
 
   /**
    * Remove a SampleClient from this SampleSource
    */
-  void removeSampleClient(SampleClient*);
+  virtual void removeSampleClient(SampleClient*);
 
   /**
    * Big cleanup.
    */
-  void removeAllSampleClients();
+  virtual void removeAllSampleClients();
 
   /**
    * How many samples have been distributed by this SampleSource.
@@ -57,7 +59,7 @@ public:
   /**
    * Distribute this sample to my clients.
    */
-  void distribute(const Sample*)
+  virtual void distribute(const Sample*)
   	throw(SampleParseException,atdUtil::IOException);
 
 protected:
