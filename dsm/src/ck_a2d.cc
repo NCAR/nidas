@@ -37,7 +37,7 @@ void A2D_SETDump(A2D_SET *a);
 int main(int argc, char** argv)
 {
   A2D_SET *a2d; 	//set up a control struct
- 
+  UL run_msg;
 
   cout << endl << endl;
   cout << "----CK_A2D----" << endl; 
@@ -73,13 +73,19 @@ int main(int argc, char** argv)
 
   sensor.ioctl(A2D_CAL_IOCTL, a2d, sizeof(A2D_SET));
 
-  cout << __FILE__ << ": Calibration data sent to driver" << endl;
+  cout << __FILE__ << ": Calibration command sent to driver" << endl;
 
+  run_msg = 0xABADABA0;
+
+  sensor.ioctl(A2D_RUN_IOCTL, &run_msg, sizeof(int));
+  
+  cout << __FILE__ << ": Run command sent to driver" << endl;
 }
 
 void loada2dstruct(A2D_SET *a2d)
 {
 	int i;
+	FILE *fp;
 	
 /*
 Load up some phoney data in the A2D control structure, A2D_SET  
@@ -97,8 +103,20 @@ Load up some phoney data in the A2D control structure, A2D_SET
  	a2d->vcalx8 = 128;
 	a2d->calset = 0;
  	a2d->offset = 0;
-	a2d->filter[0] = 0xA5A5;
-  	a2d->filter[1] = 0;
+	if((fp = fopen("filtercoeff.bin", "rb")) == NULL);
+		{
+		printf("No filter file!\n");
+//		exit(1);
+		}
+	fread(&a2d->filter[0], 2, 2048, fp);
+
+#ifdef DEBUG
+	for(i = 0; i < 10; i++)
+		{
+		printf("0x%04X\n", a2d->filter[i]);
+		}
+#endif
+
 	return;
 }
 
