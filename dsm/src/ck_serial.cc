@@ -70,7 +70,8 @@ int main(int argc, char** argv)
 
 
 /* Substitute your sensor instantiation here ********************** */
-	    DSMSerialSensor* sens = new DSMSerialSensor(dev);
+	    DSMSerialSensor* sens = new DSMSerialSensor();
+	    sens->setDeviceName(dev);
 
 	    sens->setId(iarg);
 
