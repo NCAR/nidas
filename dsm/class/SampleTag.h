@@ -39,11 +39,18 @@ public:
 
     void setId(unsigned short val) { id = val; }
 
-    unsigned short getId() const { return id; }
+    /**
+     * Get the various levels of the samples identification.
+     * A sample tag ID is a 32-bit value comprised of four parts:
+     * 8-bit type_id  8-bit DSM_id  16-bit sensor+sample
+     */
+    unsigned long  getId()      const { return id; }
+    unsigned char  getDSMId()   const { return (id & 0xff0000) >> 16; }
+    unsigned short getShortId() const { return (id & 0xffff); }
 
     /**
      * Set sampling rate in samples/sec.  A value of 0.0 means
-     * an unknown rate. Derived sensors can override this method
+     * an unknown rate.  Derived sensors can override this method
      * and throw an InvalidParameterException if they can't support
      * the rate value.
      */
@@ -77,7 +84,7 @@ public:
 
 protected:
 
-    unsigned short id;
+    unsigned long id;
 
     float rate;
 
