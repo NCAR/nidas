@@ -21,9 +21,10 @@
 
 
 #include <PortSelectorTest.h>
-#include <TestSampleClient.h>
-#include <DSMSerialSensor.h>
+#include <SampleClient.h>
 
+/* include file(s) for the sensor to be tested */
+#include <DSMSerialSensor.h>
 #include <dsm_serial.h>
 
 #include <iostream>
@@ -39,7 +40,7 @@ class TestSampleClient : public SampleClient {
 public:
 
   bool receive(const Sample *s)
-  	throw(SampleParseException,atdUtil::IOException);
+  	throw(SampleParseException,atdUtil::IOException)
 {
     cerr << dec << "timetag= " << s->getTimeTag() << " id= " << s->getId() <<
     	" len=" << s->getDataLength() << endl;
