@@ -13,19 +13,21 @@
 
 */
 
-#ifndef DSM_XMLCONFIGPARSER_H
-#define DSM_XMLCONFIGPARSER_H
-
-                                                                                
-#include <string>
+#ifndef DSM_XMLPARSER_H
+#define DSM_XMLPARSER_H
 
 #include <atdUtil/ThreadSupport.h>
+#include <atdUtil/IOException.h>
 
 #include <xercesc/dom/DOMImplementation.hpp>
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/InputSource.hpp>
+#include <xercesc/sax/SAXException.hpp>
 #include <xercesc/dom/DOMBuilder.hpp>
+
+#include <string>
+#include <map>
 
 namespace dsm {
 
@@ -40,14 +42,14 @@ private:
     static atdUtil::Mutex lock;
 };
     
-class XMLConfigErrorHandler : public xercesc::DOMErrorHandler
+class XMLErrorHandler : public xercesc::DOMErrorHandler
 {
     public:
     // -----------------------
     //  Constructors and Destructor
     // ----------------------
-    XMLConfigErrorHandler();
-    ~XMLConfigErrorHandler();
+    XMLErrorHandler();
+    ~XMLErrorHandler();
 
     // --------------------------
     //  Implementation of the DOM ErrorHandler interface
@@ -60,22 +62,22 @@ class XMLConfigErrorHandler : public xercesc::DOMErrorHandler
     // -----------------------------
     //  Unimplemented constructors and operators
     // ----------------------------
-    XMLConfigErrorHandler(const XMLConfigErrorHandler&);
-    void operator=(const XMLConfigErrorHandler&);
+    XMLErrorHandler(const XMLErrorHandler&);
+    void operator=(const XMLErrorHandler&);
 };
 /**
  * Wrapper class around xerces-c DOMBuilder to parse XML.
  */
-class XMLConfigParser {
+class XMLParser {
 public:
 
-    XMLConfigParser() throw(xercesc::DOMException,atdUtil::Exception);
+    XMLParser() throw(xercesc::DOMException,atdUtil::Exception);
 
     /**
      * Nuke the parser. This does a release() (delete) of the
      * associated DOMBuilder.
      */
-    ~XMLConfigParser();
+    ~XMLParser();
 
     /**
      * DOMBuilder::setFilter is not yet implemented in xerces c++ 2.6.0 
@@ -163,11 +165,11 @@ public:
     void setXercesUserAdoptsDOMDocument(bool val);
 
     xercesc::DOMDocument* parse(const std::string& xmlFile)
-    	throw(xercesc::XMLException,
+    	throw(xercesc::SAXException,xercesc::XMLException,
 		xercesc::DOMException);
 
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
-    	throw(xercesc::XMLException,
+    	throw(xercesc::SAXException,xercesc::XMLException,
 		xercesc::DOMException);
 
 
@@ -175,11 +177,57 @@ protected:
     
     xercesc::DOMImplementation *impl;
     xercesc::DOMBuilder *parser;
-    xercesc::DOMDocument* doc;
-    XMLConfigErrorHandler errorHandler;
+    XMLErrorHandler errorHandler;
 
 };
 
+/**
+ * Derived class of XMLParser that keeps its DOMDocuments
+ * when parsing an XML disk file, and returns the cached
+ * DOMDocument if the file hasn't changed.
+ */
+class XMLCachingParser : public XMLParser {
+public:
+
+    static XMLCachingParser* getInstance()
+    	throw(xercesc::DOMException,atdUtil::Exception);
+
+    static void destroyInstance();
+
+    /**
+     * Parse from a file. This will return the DOMDocument
+     * pointer of the a previous parse result if the file has
+     * not been modified since the last time it was
+     * parsed.
+     */
+    xercesc::DOMDocument* parse(const std::string& xmlFile)
+    	throw(xercesc::SAXException, xercesc::XMLException,
+		xercesc::DOMException);
+
+    /**
+     * Parse from an InputSource. This is not cached.
+     */
+    xercesc::DOMDocument* parse(xercesc::InputSource& source)
+    	throw(xercesc::SAXException,xercesc::XMLException,
+		xercesc::DOMException)
+    {
+        return XMLParser::parse(source);
+    }
+
+    static time_t getFileModTime(const std::string&  name) throw(atdUtil::IOException);
+
+protected:
+    XMLCachingParser() throw(xercesc::DOMException,atdUtil::Exception);
+    ~XMLCachingParser() {}
+
+protected:
+    static XMLCachingParser* instance;
+    static atdUtil::Mutex instanceLock;
+
+    std::map<std::string,time_t> modTimeCache;
+    std::map<std::string,xercesc::DOMDocument*> docCache;
+
+};
 
 }
 

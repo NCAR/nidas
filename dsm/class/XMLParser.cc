@@ -13,7 +13,7 @@
 
 */
 
-#include <XMLConfigParser.h>
+#include <XMLParser.h>
 #include <XMLStringConverter.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
@@ -22,6 +22,10 @@
 #include <xercesc/dom/DOMLocator.hpp>
 
 #include <iostream>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace dsm;
 using namespace std;
@@ -66,7 +70,7 @@ void XMLImplementation::terminate()
 }
     
 
-XMLConfigParser::XMLConfigParser() throw (xercesc::DOMException,
+XMLParser::XMLParser() throw (xercesc::DOMException,
 	atdUtil::Exception)
 {
 
@@ -88,35 +92,35 @@ XMLConfigParser::XMLConfigParser() throw (xercesc::DOMException,
     parser->setErrorHandler(&errorHandler);
 }
 
-void XMLConfigParser::setDOMValidation(bool val) {
+void XMLParser::setDOMValidation(bool val) {
     parser->setFeature(XMLUni::fgDOMValidation, val);
 }
 
-void XMLConfigParser::setDOMValidateIfSchema(bool val) {
+void XMLParser::setDOMValidateIfSchema(bool val) {
     parser->setFeature(XMLUni::fgDOMValidateIfSchema, val);
 }
 
-void XMLConfigParser::setDOMNamespaces(bool val) {
+void XMLParser::setDOMNamespaces(bool val) {
     parser->setFeature(XMLUni::fgDOMNamespaces, val);
 }
 
-void XMLConfigParser::setXercesSchema(bool val) {
+void XMLParser::setXercesSchema(bool val) {
     parser->setFeature(XMLUni::fgXercesSchema, val);
 }
 
-void XMLConfigParser::setXercesSchemaFullChecking(bool val) {
+void XMLParser::setXercesSchemaFullChecking(bool val) {
     parser->setFeature(XMLUni::fgXercesSchemaFullChecking, val);
 }
 
-void XMLConfigParser::setDOMDatatypeNormalization(bool val) {
+void XMLParser::setDOMDatatypeNormalization(bool val) {
     parser->setFeature(XMLUni::fgDOMDatatypeNormalization, val);
 }
 
-void XMLConfigParser::setXercesUserAdoptsDOMDocument(bool val) {
+void XMLParser::setXercesUserAdoptsDOMDocument(bool val) {
     parser->setFeature(XMLUni::fgXercesUserAdoptsDOMDocument, val);
 }
 
-XMLConfigParser::~XMLConfigParser() 
+XMLParser::~XMLParser() 
 {
     //
     //  Delete the parser itself.  Must be done prior to calling Terminate.
@@ -130,8 +134,8 @@ XMLConfigParser::~XMLConfigParser()
 }
 
 
-DOMDocument* XMLConfigParser::parse(const string& xmlFile) 
-    throw (XMLException, DOMException)
+DOMDocument* XMLParser::parse(const string& xmlFile) 
+    throw (SAXException, XMLException, DOMException)
 {
 
     //reset error count first
@@ -144,13 +148,13 @@ DOMDocument* XMLConfigParser::parse(const string& xmlFile)
 	the document object is not yet parsed when this method returns. 
      */
     // throws XMLException, DOMException, SAXException
-    doc = parser->parseURI(
+    xercesc::DOMDocument* doc = parser->parseURI(
     	(const XMLCh*)XMLStringConverter(xmlFile.c_str()));
     return doc;
 }
 
-DOMDocument* XMLConfigParser::parse(xercesc::InputSource& source) 
-    throw (XMLException, DOMException)
+DOMDocument* XMLParser::parse(xercesc::InputSource& source) 
+    throw (SAXException, XMLException, DOMException)
 {
 
     //reset error count first
@@ -158,24 +162,24 @@ DOMDocument* XMLConfigParser::parse(xercesc::InputSource& source)
 
     // throws XMLException, DOMException, SAXException
     xercesc::Wrapper4InputSource wrapper(&source,false);
-    doc = parser->parse(wrapper);
+    xercesc::DOMDocument* doc = parser->parse(wrapper);
     // throws SAXException, XMLException, DOMException
     return doc;
 }
 
-XMLConfigErrorHandler::XMLConfigErrorHandler()
+XMLErrorHandler::XMLErrorHandler()
 {
 }
 
-XMLConfigErrorHandler::~XMLConfigErrorHandler()
+XMLErrorHandler::~XMLErrorHandler()
 {
 }
 
 
 // ---------------------------------------------------------------------------
-//  XMLConfigErrorHandler interface
+//  XMLErrorHandler interface
 // ---------------------------------------------------------------------------
-bool XMLConfigErrorHandler::handleError(const DOMError& domError)
+bool XMLErrorHandler::handleError(const DOMError& domError)
 {
     if (domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING)
         std::cerr << "\nWarning at file ";
@@ -195,6 +199,71 @@ bool XMLConfigErrorHandler::handleError(const DOMError& domError)
     return domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING;
 }
 
-void XMLConfigErrorHandler::resetErrors()
+void XMLErrorHandler::resetErrors()
 {
+}
+
+/* static */
+XMLCachingParser* XMLCachingParser::instance = 0;
+
+/* static */
+atdUtil::Mutex XMLCachingParser::instanceLock;
+
+/* static */
+XMLCachingParser* XMLCachingParser::getInstance()
+    throw(xercesc::DOMException,atdUtil::Exception)
+{
+    if (!instance) {
+        atdUtil::Synchronized autosync(instanceLock);
+        if (!instance) instance = new XMLCachingParser();
+    }
+    return instance;
+}
+
+/* static */
+void XMLCachingParser::destroyInstance()
+{
+    if (instance) {
+        atdUtil::Synchronized autosync(instanceLock);
+        if (instance) delete instance;
+	instance = 0;
+    }
+}
+
+XMLCachingParser::XMLCachingParser() throw(xercesc::DOMException,atdUtil::Exception):
+	XMLParser()
+{
+}
+
+DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
+    throw (SAXException, XMLException, DOMException)
+{
+    // synchronize access to the cache
+    atdUtil::Synchronized autosync(instanceLock);
+
+    // modification time of file when it was last parsed
+    time_t lastModTime = modTimeCache[xmlFile];
+
+    // latest modification time of file
+    time_t modTime = getFileModTime(xmlFile);
+
+    // results of last parse (will be 0 if not previously parsed)
+    DOMDocument* doc = docCache[xmlFile];
+
+    if (modTime > lastModTime || !doc) {
+	if (doc) doc->release();
+        doc = XMLParser::parse(xmlFile);
+	modTimeCache[xmlFile] = modTime;
+	docCache[xmlFile] = doc;
+    }
+    return doc;
+}
+
+/* static */
+time_t XMLCachingParser::getFileModTime(const std::string&  name) throw(atdUtil::IOException)
+{
+    struct stat filestat;
+    if (stat(name.c_str(),&filestat) < 0)
+	throw atdUtil::IOException(name,"stat",errno);
+    return filestat.st_mtime;
 }
