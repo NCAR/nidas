@@ -1,13 +1,20 @@
 # -*- python -*-
 
+
 ##
 ##  Create a new construction environment variable.
 ##
-env = Environment()
-
 ##
 ##  Restrict it's build methods to be POSIX based only.
 ##
+## If you want to use the user's env variable PATH to find
+## the compiler and build tools, uncomment these two lines,
+## and remove the hard-coded paths to the arm-linux-*
+## tools below.
+## import os
+## env = Environment(platform = 'posix',ENV= os.environ)
+##
+## Otherwise, do this:
 env = Environment(platform = 'posix')
 
 ##
@@ -25,41 +32,50 @@ env.SourceCode('.', None)
 ##  Define it's compiler flags for the all build tools.
 ##-O2 <-> -g
 env['CCFLAGS'] = Split("""
-  -Wall -Wno-trigraphs -Wstrict-prototypes -pipe -g
-  -fno-omit-frame-pointer -fno-strict-aliasing
+    -Wall -O2 -g
 """)
 
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
 env['CPPPATH'] = Split("""
-  /jnet/linux/include
-  #/dsm/modules
-  #/dsm/class
-  #/disc/class
+    /jnet/linux/include
+    #/dsm/modules
+    #/dsm/class
+    #/disc/class
+    .
 """)
+
 
 ##
 ##  Define common library path
 ##
-env['LIBPATH'] = '#/lib'
+env['LIBPATH'] = '#lib'
 
 ##
 ##  Adjust the env for cross-building to the xScale ARM processor...
 ##
 arm_env = env.Copy()
 
-arm_env.AppendUnique(CCFLAGS=Split("""
-  -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
-  -mshort-load-bytes -mtune=strongarm -Uarm -DDSM
+arm_env['LIBPATH'] = Split("""
+    #lib_arm
+    /opt/local_arm/isffLib/lib
+""")
+
+arm_env.AppendUnique(CPPPATH = Split("""
+    /opt/local_arm/isffLib/include
 """))
 
-arm_env['AR']        = '/opt/rtldk-2.0/bin/arm-linux-ar'
-arm_env['AS']        = '/opt/rtldk-2.0/bin/arm-linux-as'
-arm_env['CC']        = '/opt/rtldk-2.0/bin/arm-linux-gcc'
-arm_env['CXX']       = '/opt/rtldk-2.0/bin/arm-linux-g++'
-arm_env['LINK']      = '/opt/rtldk-2.0/bin/arm-linux-g++'
-arm_env['RANLIB']    = '/opt/rtldk-2.0/bin/arm-linux-ranlib'
+# arm_env.AppendUnique(CCFLAGS=Split("""
+#   -mcpu=xscale
+# """))
+
+arm_env.Replace(AR     = '/opt/arm_tools/bin/arm-linux-ar')
+arm_env.Replace(AS     = '/opt/arm_tools/bin/arm-linux-as')
+arm_env.Replace(CC     = '/opt/arm_tools/bin/arm-linux-gcc')
+arm_env.Replace(CXX    = '/opt/arm_tools/bin/arm-linux-g++')
+arm_env.Replace(LINK   = '/opt/arm_tools/bin/arm-linux-g++')
+arm_env.Replace(RANLIB = '/opt/arm_tools/bin/arm-linux-ranlib')
 
 ##
 ##  Adjust the env for building to the x86 processor...
