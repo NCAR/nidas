@@ -88,14 +88,28 @@ static int nIRS_labels = sizeof(IRS_labels) / sizeof(struct arinc_set);
 
 int main(int argc, char** argv)
 {
-  RTL_DSMSensor sensor("/dev/arinc0");
+  std::cerr << __FILE__ << " opening sensors...\n";
+
+  RTL_DSMSensor sensor_in_0("/dev/arinc0");
+  RTL_DSMSensor sensor_in_1("/dev/arinc1");
+  RTL_DSMSensor sensor_in_2("/dev/arinc2");
+  RTL_DSMSensor sensor_in_3("/dev/arinc3");
+  RTL_DSMSensor sensor_out_0("/dev/arinc0");
+  RTL_DSMSensor sensor_out_1("/dev/arinc1");
   try {
-    sensor.open(O_RDONLY);
+    sensor_in_0.open(O_RDONLY);
+    sensor_in_1.open(O_RDONLY);
+    sensor_in_2.open(O_RDONLY);
+    sensor_in_3.open(O_RDONLY);
+    sensor_out_0.open(O_WRONLY);
+    sensor_out_1.open(O_WRONLY);
   }
   catch (atdUtil::IOException& ioe) {
     std::cerr << ioe.what() << std::endl;
     return 1;
   }
+  std::cerr << __FILE__ << " sensors opened.\n";
+
 
   // Send the IRS Label table to the ARINC driver.
   for (int iii = 0; iii < nIRS_labels; iii++)
@@ -104,14 +118,29 @@ int main(int argc, char** argv)
               << dec << "IRS_labels[" << iii << "].channel = " << IRS_labels[iii].channel << std::endl
               << oct << "IRS_labels[" << iii << "].label   = " << IRS_labels[iii].label   << std::endl
               << dec << "IRS_labels[" << iii << "].rate    = " << IRS_labels[iii].rate    << std::endl;
-    sensor.ioctl(ARINC_SET, &IRS_labels[iii], sizeof(struct arinc_set));
+    sensor_in_0.ioctl(ARINC_SET, &IRS_labels[iii], sizeof(struct arinc_set));
   }
   // Print out the status of the driver.   
-  sensor.ioctl(ARINC_STAT, (void *)NULL, 0);
+  sensor_in_0.ioctl(ARINC_STAT, (void *)NULL, 0);
 
   // Reset the driver.   
-  sensor.ioctl(ARINC_RESET, (void *)NULL, 0);
+  sensor_in_0.ioctl(ARINC_RESET, (void *)NULL, 0);
 
   // Print out the status of the driver.   
-  sensor.ioctl(ARINC_STAT, (void *)NULL, 0);
+  sensor_in_0.ioctl(ARINC_STAT, (void *)NULL, 0);
+
+  std::cerr << __FILE__ << " closing sensors...\n";
+  try {
+    sensor_in_0.close();
+    sensor_in_1.close();
+    sensor_in_2.close();
+    sensor_in_3.close();
+    sensor_out_0.close();
+    sensor_out_1.close();
+  }
+  catch (atdUtil::IOException& ioe) {
+    std::cerr << ioe.what() << std::endl;
+    return 1;
+  }
+  std::cerr << __FILE__ << " sensors closed.\n";
 }
