@@ -39,7 +39,7 @@ using namespace std;
 
 void loada2dstruct(A2D_SET *a);
 void A2D_SETDump(A2D_SET *a);
-int  sleepytime = 1;
+int  sleepytime = 1, printmodulus = 1;
 
 
 int main(int argc, char** argv)
@@ -53,6 +53,8 @@ int main(int argc, char** argv)
 
   if(argc > 1)sleepytime = atoi(argv[1]);
   if(sleepytime > 10000 || sleepytime < 0)sleepytime = 1;
+  if(argc > 2)printmodulus = atoi(argv[2]);
+  if(printmodulus > sleepytime)printmodulus = sleepytime;
 
   cout << endl << endl;
   cout << "----CK_A2D----" << endl; 
@@ -97,9 +99,9 @@ int main(int argc, char** argv)
   
   cout << __FILE__ << ": Run command sent to driver" << endl;
 
-  usleep(10000); // Wait for a cycle to complete
+  usleep(10000); // Wait for one cycle to complete
 
-  for(i = 0; i < sleepytime; i++)
+  for(i = 0; i <= sleepytime; i++)
   {
         int lread;
 
@@ -109,19 +111,22 @@ int main(int argc, char** argv)
 
 	lread = sensor.read(inbuf, 2*MAXA2DS*INTRP_RATE + 8);
 //      cerr << "lread=" << lread << endl;
-	
-	printf("\n\nindex = %6d\n", i);
-	printf("0x%04d%04d\n", inbuf[1], inbuf[0]);
-	printf("0x%04d%04d\n", inbuf[3], inbuf[2]);
 
-	for(ii = 0; ii < INTRP_RATE ; ii++)
-	{
-		printf("0x%05X: ", ii*MAXA2DS);
-		for(jj = 0; jj < MAXA2DS; jj++)
+	if(i%printmodulus == 0)
+	{	
+		printf("\n\nindex = %6d\n", i);
+		printf("0x%04X%04X\n", inbuf[1], inbuf[0]);
+		printf("0x%04X%04X\n", inbuf[3], inbuf[2]);
+
+		for(ii = 0; ii < INTRP_RATE ; ii++)
 		{
-			printf("%05d  ", inbuf[MAXA2DS*ii + jj + 4]);
+			printf("0x%05X: ", ii*MAXA2DS);
+			for(jj = 0; jj < MAXA2DS; jj++)
+			{
+				printf("%05d  ", inbuf[MAXA2DS*ii + jj + 4]);
+			}
+			printf("\n");	
 		}
-		printf("\n");	
 	}
   }
 
