@@ -1,0 +1,143 @@
+<?xml version="1.0"?>
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://www.eol.ucar.edu/daq"
+    xmlns="http://www.eol.ucar.edu/daq"
+    elementFormDefault="qualified">
+
+<xsd:simpleType name="baudtype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:enumeration value="300"/>
+	<xsd:enumeration value="600"/>
+	<xsd:enumeration value="1200"/>
+	<xsd:enumeration value="1800"/>
+	<xsd:enumeration value="2400"/>
+	<xsd:enumeration value="4800"/>
+	<xsd:enumeration value="9600"/>
+	<xsd:enumeration value="19200"/>
+	<xsd:enumeration value="38400"/>
+	<xsd:enumeration value="57600"/>
+	<xsd:enumeration value="115200"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="paritytype">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="none"/>
+	<xsd:enumeration value="even"/>
+	<xsd:enumeration value="odd"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="databitstype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:minInclusive value="5"/>
+	<xsd:maxInclusive value="8"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="stopbitstype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:minInclusive value="1"/>
+	<xsd:maxInclusive value="2"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="messageDesc">
+    <xsd:attribute name="separator" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="position" use="required">
+	<xsd:simpleType>
+	    <xsd:restriction base="xsd:token">
+		<xsd:enumeration value="beg"/>
+		<xsd:enumeration value="end"/>
+	    </xsd:restriction>
+	</xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="length" type="xsd:nonNegativeInteger"
+	    default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="promptType">
+    <xsd:attribute name="string" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="sensor" abstract="true">
+    <xsd:attribute name="ID" type="xsd:ID"/>
+    <xsd:attribute name="IDREF" type="xsd:IDREF"/>
+    <xsd:attribute name="class" type="xsd:token"/>
+</xsd:complexType>
+
+<xsd:complexType name="serialsensor">
+    <xsd:complexContent>
+	<xsd:extension base="sensor">
+	    <xsd:all>
+		<xsd:element name="message" type="messageDesc"
+		    minOccurs="0" maxOccurs="1"/>
+		<xsd:element name="prompt" type="promptType"
+		    minOccurs="0" maxOccurs="1"/>
+	    </xsd:all>
+	    <!-- these attributes must occur after the above sequence -->
+	    <xsd:attribute name="devicename" type="xsd:token"/>
+	    <xsd:attribute name="baud" type="baudtype" default="9600"/>
+	    <xsd:attribute name="parity" type="paritytype" default="none"/>
+	    <xsd:attribute name="databits" type="databitstype" default="8"/>
+	    <xsd:attribute name="stopbits" type="stopbitstype" default="1"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:element name="sensor" type="sensor"/>
+<xsd:element name="serialsensor" type="serialsensor"/>
+
+<xsd:group name="sensors">
+    <xsd:choice>
+	<xsd:element name="sensor"/>
+	<xsd:element name="serialsensor"/>
+    </xsd:choice>
+</xsd:group>
+
+<xsd:element name="dsm">
+    <xsd:complexType>
+	<xsd:group ref="sensors" minOccurs="0" maxOccurs="unbounded"/>
+	<!--
+	<xsd:choice>
+	    <xsd:element name="sensor" minOccurs="0" maxOccurs="unbounded"/>
+	</xsd:choice>
+	-->
+	<xsd:attribute name="hostname" type="xsd:token" use="required"/>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="sensorcatalog">
+    <xsd:complexType>
+	<xsd:group ref="sensors" minOccurs="0" maxOccurs="unbounded"/>
+	<!--
+	<xsd:choice>
+	    <xsd:element name="sensor" minOccurs="0" maxOccurs="unbounded"/>
+	</xsd:choice>
+	-->
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="aircraft">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:element name="dsm" minOccurs="1" maxOccurs="unbounded"/>
+	</xsd:sequence>
+	<xsd:attribute name="tailno" type="xsd:token" use="required"/>
+	<xsd:attribute name="name" type="xsd:token" use="required"/>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="project">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:element name="sensorcatalog"
+	    	minOccurs="1" maxOccurs="1"/>
+	    <xsd:element name="aircraft" minOccurs="1" maxOccurs="unbounded"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+
+</xsd:schema>

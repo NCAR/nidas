@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<project
+    xmlns="http://www.eol.ucar.edu/daq"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/daq ads3.xsd">
+
+<sensorcatalog>
+    <serialsensor ID="mensor" class="DSMSerialSensor"
+	baud="9600" parity="none" databits="8" stopbits="1">
+	<message separator="\n" position="end" length="0"/>
+	<prompt string="hitme\n" rate="10"/>
+    </serialsensor>
+</sensorcatalog>
+
+<aircraft tailno="1234" name="hiaper">
+
+    <dsm hostname="dsm301">
+	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message position="end" separator="\n" length="0"/>
+	    <prompt string="hitme1\n" rate="10"/>
+	</serialsensor>
+
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
+
+	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message position="end" separator="\n" length="0"/>
+	    <prompt string="hitme2\n" rate="10"/>
+	</serialsensor>
+
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
+    </dsm>
+
+    <dsm hostname="dsm302">
+	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message position="end" separator="\n" length="0"/>
+	    <prompt string="hitme3\n" rate="10"/>
+	</serialsensor>
+
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
+
+	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message position="end" separator="\n" length="0"/>
+	    <prompt string="hitme4\n" rate="10"/>
+	</serialsensor>
+
+	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
+    </dsm>
+</aircraft>
+</project>
+
