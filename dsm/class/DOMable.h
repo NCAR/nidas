@@ -19,11 +19,16 @@
 
 #include <atdUtil/InvalidParameterException.h>
 
+#include <XDOM.h>
+#include <XMLStringConverter.h>
+
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/util/XMLString.hpp>
+#include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNode.hpp>
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMException.hpp>
+#include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 namespace dsm {
 

@@ -17,12 +17,6 @@
 #include <arinc.h>
 #include <DSMArincSensor.h>
 #include <RTL_DevIoctlStore.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
-
-// #include <xercesc/dom/DOMElement.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <asm/ioctls.h>
 

@@ -12,8 +12,8 @@
 
  ******************************************************************
 */
-#ifndef DSMRAWSERIALSENSOR_H
-#define DSMRAWSERIALSENSOR_H
+#ifndef DSMSERIALSENSOR_H
+#define DSMSERIALSENSOR_H
 
 #include <dsm_serial.h>
 
