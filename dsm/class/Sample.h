@@ -120,9 +120,9 @@ public:
     virtual void setTimeTag(dsm_sample_time_t val) = 0;
     virtual dsm_sample_time_t getTimeTag() const = 0;
 
-    virtual const Sample* getConstNext() const = 0;
-    virtual Sample* getNext() = 0;
-    virtual void setNext(Sample* val) = 0;
+    // virtual const Sample* getConstNext() const = 0;
+    virtual const Sample* getNext() const = 0;
+    virtual void setNext(const Sample* val) = 0;
 
     /**
      * Set the number of elements in data portion of sample.
@@ -213,11 +213,9 @@ public:
     SampleBase() : refCount(1),next(0) { nsamps++; }
     virtual ~SampleBase() { nsamps--; }
 
-    virtual const Sample* getConstNext() const { return next; }
+    virtual const Sample* getNext() const { return next; }
 
-    virtual Sample* getNext() { return next; }
-
-    virtual void setNext(Sample* val) { next = val; }
+    virtual void setNext(const Sample* val) { next = val; }
 
     /**
     * Increment the reference count for this sample.
@@ -232,7 +230,7 @@ public:
     void freeReferencesOfList() const
     {
 	for (const Sample* samp = this; samp; ) {
-	    const Sample* nxt = samp->getConstNext();
+	    const Sample* nxt = samp->getNext();
 	    samp->freeReference();
 	    samp = nxt;
 	}
@@ -245,7 +243,7 @@ protected:
    */
   mutable int refCount;
 
-  Sample *next;
+  const Sample* next;
 
   /**
    * Global count of the number of samples in use by a process.
@@ -446,11 +444,15 @@ public:
     */
     void freeReference() const;
 
+    /**
+     * A public pointer to the actual data.
+     */
+    DataT* data;
+
 private:
 
   SampleHeader header;
 
-  DataT* data;
 
   /**
    * Number of bytes allocated.
