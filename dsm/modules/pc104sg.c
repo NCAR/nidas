@@ -32,7 +32,8 @@
 
 RTLINUX_MODULE(pc104sg);
 
-#define INTERRUPT_RATE 1000
+#define INTERRUPT_RATE 	1000
+#define A2DREF_RATE		10000
 	
 /* TODO - hz100_cnt needs to be initialized to the zero'th second read from
    the pc104sg card...  the current implementation arbitrarily sets it to zero
@@ -48,7 +49,7 @@ static unsigned long msecClockTicker = 0;
 /* module prameters (can be passed in via command line) */
 static unsigned int irq = 10;
 static int ioport = 0x2a0;
-static unsigned int m_rate[2] = {INTERRUPT_RATE, 50000};
+static unsigned int m_rate[2] = {INTERRUPT_RATE, A2DREF_RATE};
 
 MODULE_PARM(irq, "i");
 MODULE_PARM(ioport, "i");
@@ -275,35 +276,44 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
 }
 
 /* -- Utility --------------------------------------------------------- */
+
+/* This controls COUNTER 1 on the PC104SG card */
+
 void setHeartBeatOutput (int rate)
 {
   int divide;
   unsigned char lsb, msb;
 
   divide = 3000000 / rate;
+
   lsb = (char)(divide & 0xff);
   msb = (char)((divide & 0xff00)>>8);
 
   Set_Dual_Port_RAM (DP_Ctr1_ctl,
-  	DP_Ctr1_ctl_sel + DP_ctl_rw + DP_ctl_mode3 + DP_ctl_bin);
-  Set_Dual_Port_RAM (DP_Ctr1_msb, msb);
+  	DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
   Set_Dual_Port_RAM (DP_Ctr1_lsb, lsb);
-  Set_Dual_Port_RAM (DP_Command, Command_Rejam);
+  Set_Dual_Port_RAM (DP_Ctr1_msb, msb);
+  Set_Dual_Port_RAM (DP_Command, Command_Set_Ctr1);
 }
 
 /* -- Utility --------------------------------------------------------- */
+
+/* This controls COUNTER 0 on the PC104SG card */
+
 void setRate2Output (int rate)
 {
   int divide;
   unsigned char lsb, msb;
 
-  divide = 5000000 / rate;
+  divide = 3000000 / rate;
+
   lsb = (char)(divide & 0xff);
   msb = (char)((divide & 0xff00)>>8);
-  Set_Dual_Port_RAM (DP_Ctr2_ctl,
-  	DP_Ctr2_ctl_sel + DP_Ctr1_ctl_sel + DP_ctl_rw + DP_ctl_mode3 + DP_ctl_bin);
-  Set_Dual_Port_RAM (DP_Ctr2_msb, msb);
-  Set_Dual_Port_RAM (DP_Ctr2_lsb, lsb);
+
+  Set_Dual_Port_RAM (DP_Ctr0_ctl,
+  	DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
+  Set_Dual_Port_RAM (DP_Ctr0_lsb, lsb);
+  Set_Dual_Port_RAM (DP_Ctr0_msb, msb);
   Set_Dual_Port_RAM (DP_Command, Command_Rejam);
 }
 
@@ -714,8 +724,8 @@ int init_module (void)
     /* activate the pc104sg-B board */
     setHeartBeatOutput(INTERRUPT_RATE);
     rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, m_rate[0]);
-    // setRate2Output(m_rate[1]);
-    // rtl_printf("(%s) %s:\t setRate2Output(%d) done\n",     __FILE__, __FUNCTION__, m_rate[1]);
+    setRate2Output(m_rate[1]);
+    rtl_printf("(%s) %s:\t setRate2Output(%d) done\n",     __FILE__, __FUNCTION__, m_rate[1]);
     enableHeartBeatInt();
     rtl_printf("(%s) %s:\t enableHeartBeatInt  done\n",    __FILE__, __FUNCTION__);
 
