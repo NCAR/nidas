@@ -34,17 +34,6 @@ RTLINUX_MODULE(pc104sg);
 
 #define INTERRUPT_RATE 	1000
 #define A2DREF_RATE		10000
-	
-/* TODO - hz100_cnt needs to be initialized to the zero'th second read from
-   the pc104sg card...  the current implementation arbitrarily sets it to zero
-   at the first occurance of this ISR. */
-
-static int hz100_cnt = 0;
-
-unsigned long msecClock[2] = { 0, 0};
-unsigned char readClock = 0;
-static unsigned char writeClock = 1;
-static unsigned long msecClockTicker = 0;
 
 /* module prameters (can be passed in via command line) */
 static unsigned int irq = 10;
@@ -60,6 +49,19 @@ MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
 
 /* Actual physical address of this card. Set in init_module */
 static unsigned int isa_address = 0;
+
+/* TODO - hz100_cnt needs to be initialized to the zero'th second read from
+   the pc104sg card...  the current implementation arbitrarily sets it to zero
+   at the first occurance of this ISR. */
+
+static int hz100_cnt = 0;
+
+unsigned long msecClock[2] = { 0, 0};
+unsigned char readClock = 0;
+static unsigned char writeClock = 1;
+static unsigned long msecClockTicker = 0;
+
+static int clockTick = 1000 / INTERRUPT_RATE;	// number of milliseconds per interrupt
 
 /* The 100 hz thread */
 static pthread_t     pc104sgThread = 0;
@@ -79,9 +81,16 @@ static struct list_head callbackpool;
 
 static pthread_mutex_t cblistmutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-/*
- * add a callback entry to the list of callbacks for the given rate.
+/**
+ * Module function that allows other modules to register their callback
+ * function to be called at the given rate.  register_irig_callback
+ * can be called at (almost) anytime, not just at module init time.
+ * The only time that register/unregister_irig_callback cannot be
+ * called is from within a callback function itself.
+ * A callback function cannot do either register_irig_callback
+ * or unregister_irig_callback, otherwise you'll get a deadlock on
+ * cblistmutex.
+ *
  */
 int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
                             void* privateData)
@@ -116,7 +125,15 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
     return 0;
 }
 
-void unregister_irig_callback(irig_callback_t* callback, enum irigClockRates rate)
+/**
+ * Modules call this function to un-register their callbacks.
+ * Note: this cannot be called from within a callback function
+ * itself - a callback function cannot register/unregister itself, or
+ * any other callback function.  If you try it you will get
+ * a deadlock on the cblistmutex.
+ */
+void unregister_irig_callback(irig_callback_t* callback,
+	enum irigClockRates rate)
 {
     pthread_mutex_lock(&cblistmutex);
 
@@ -136,6 +153,9 @@ void unregister_irig_callback(irig_callback_t* callback, enum irigClockRates rat
     pthread_mutex_unlock(&cblistmutex);
 }
 
+/**
+ * Cleanup function that un-registers all callbacks.
+ */
 static void free_callbacks()
 {
     int i;
@@ -309,7 +329,6 @@ void setRate2Output (int rate)
 
   lsb = (char)(divide & 0xff);
   msb = (char)((divide & 0xff00)>>8);
-
   Set_Dual_Port_RAM (DP_Ctr0_ctl,
   	DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
   Set_Dual_Port_RAM (DP_Ctr0_lsb, lsb);
@@ -436,7 +455,41 @@ int setMajorTime(struct irigTime* it)
     return 0;
 }
 
-static void doCallbacklist(struct list_head* list) {
+/**
+ * Increment our clock.
+ */
+static void inline increment_clock(int tick) 
+{
+    msecClockTicker += tick;
+    msecClockTicker %= MSEC_IN_DAY;
+
+    /*
+     * This little double clock ensures that msecClock[readClock]
+     * is valid for at least a millisecond after reading the value of
+     * readClock, even if this code is pre-emptive.
+     *
+     * This interrupt occurs at 1000hz.  If somehow a bogged down
+     * piece of code read the value of readClock, and then
+     * didn't get around to reading msecClock[readClock] until
+     * more than a millisecond later then it could read a
+     * half-written value, but that ain't gunna happen.
+     */
+    msecClock[writeClock] = msecClockTicker;
+    unsigned char c = readClock;
+    /* prior to this line msecClock[readClock=0] is  OK to read */
+    readClock = writeClock;
+    /* now msecClock[readClock=1] is still OK to read. We're assuming
+     * that the byte write of readClock = writeClock is atomic.
+     */
+    writeClock = c;
+}
+
+static inline void increment_100hzcnt()
+{
+    if (++hz100_cnt == 100) hz100_cnt = 0;
+}
+
+static inline void doCallbacklist(struct list_head* list) {
     struct list_head *ptr;
     struct irigCallback *cbentry;
 
@@ -449,9 +502,11 @@ static void doCallbacklist(struct list_head* list) {
 static void *pc104sg_100hz_thread (void *param)
 {
     /* semaphore timeout in nanoseconds */
-    unsigned long nsec_deltat = NSECS_PER_SEC / 100;
+    unsigned long nsec_deltat = NSECS_PER_SEC / 100;	// 1/100 sec
     struct timespec tspec;
     int timeouts = 0;
+    int status = 0;
+    int msecs_since_last_timeout = 0;
 
     nsec_deltat += (nsec_deltat * 3) / 8;	/* add 3/8ths more */
     rtl_printf("nsec_deltat = %d\n",nsec_deltat);
@@ -462,7 +517,7 @@ static void *pc104sg_100hz_thread (void *param)
 
     for (;;) {
 
-	/* wait for the pc104sg_100hz_isr to signal us */
+	/* wait for the pc104sg_isr to signal us */
 	// timespec_add_ns(&tspec, nsec_deltat);
 	tspec.tv_nsec += nsec_deltat;
 	if (tspec.tv_nsec >= NSECS_PER_SEC) {
@@ -473,22 +528,46 @@ static void *pc104sg_100hz_thread (void *param)
 	/* If we get a timeout on the semaphore, then we've missed
 	 * an irig interrupt.  Report the status and re-enable.
 	 */
-	if (sem_timedwait(&threadsem,&tspec) < 0 &&
-		rtl_errno == RTL_ETIMEDOUT) {
-	    unsigned char status = inb(isa_address+Status_Port) & Heartbeat;
-	    if (!(timeouts++ % 10))
-		rtl_printf("semaphore timeout #%d heartbeat=0x%x\n",
-			timeouts, status);
-	    enableHeartBeatInt();
+	if (sem_timedwait(&threadsem,&tspec) < 0) {
+	    if (rtl_errno == RTL_ETIMEDOUT) {
+		// increment the clock and counter ourselves.
+		increment_clock(10);
+		increment_100hzcnt();
+		if (!(timeouts++ % 1)) {
+		    struct timespec tnow;
+		    clock_gettime(CLOCK_REALTIME,&tnow);
+		    rtl_printf("pc104sg thread semaphore timeout #%d , tnow-tspec=%d %d, since=%d\n",
+			    timeouts, tnow.tv_sec-tspec.tv_sec,
+				    tnow.tv_nsec-tspec.tv_nsec,
+				    msecs_since_last_timeout/1000);
+		    rtl_printf("enableHeartBeatInt\n");
+		    enableHeartBeatInt();
+		}
+		msecs_since_last_timeout = 0;
+	    }
+	    else if (rtl_errno == RTL_EINTR) {
+	        rtl_printf("pc104sg thread interrupted\n");
+		status = rtl_errno;
+		break;
+	    }
+	    else {
+	        rtl_printf("pc104sg thread error, error=%d\n",
+			rtl_errno);
+		status = rtl_errno;
+		break;
+	    }
 	}
-	clock_gettime(CLOCK_REALTIME,&tspec);
+	else msecs_since_last_timeout += 10;
 
+	clock_gettime(CLOCK_REALTIME,&tspec);
 
 	/* this macro creates a block, which is terminated by
 	 * pthread_cleanup_pop */
 	pthread_cleanup_push((void(*)(void*))rtl_pthread_mutex_unlock,
 		(void*)&cblistmutex);
 
+	/* for debugging: do a try_lock here and report if locked */
+	/* or perhaps a timed_lock */
 	pthread_mutex_lock(&cblistmutex);
     
 	/* perform 100Hz processing... */
@@ -537,9 +616,43 @@ _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
 cleanup_pop:
 	pthread_cleanup_pop(1);
     }
+    rtl_printf("pc104sg_100hz_thread run method exiting!\n");
+    return (void*) status;
 }
 
-void debugCallback(void* privateData) {
+/*
+ * IRIG interrupt function.
+ */
+static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl_frame *regs)
+{
+    // rtl_printf("pc104sg_isr\n");
+
+#ifdef CHECK_TYPE
+    // We may ask for other interrupts
+    if (!(inb(isa_address+Status_Port) & Heartbeat)) {
+      rtl_printf("no heartbeat\n");
+    }
+    else {
+#endif
+
+	increment_clock(clockTick);
+	/*
+	 * On 10 millisecond intervals wake up the thread so
+	 * it can perform the callbacks at the various rates.
+	 */
+	if (!(msecClockTicker % 10)) {
+	    increment_100hzcnt();
+	    sem_post( &threadsem );
+	}
+	/* re-enable interrupt */
+	enableHeartBeatInt();
+#ifdef CHECK_TYPE
+    }
+#endif
+    return 0;
+}
+
+static void debugCallback(void* privateData) {
     rtl_printf("1Hz beat...\n");
     struct irigTime major;
     getExtTimeFields(&major);
@@ -551,84 +664,21 @@ void debugCallback(void* privateData) {
       major.year, major.day, major.hour, major.min, major.sec,
       major.msec, major.usec, major.nsec);
 }
-/* -- Linux ----------------------------------------------------------- */
-unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_frame *regs)
-{
-  // rtl_printf("pc104sg_100hz_isr\n");
-
-  /*
-   * Do any interrupt context handling that must be done right away.
-   * This code is not running in a Linux thread but in an
-   * "interrupt context".
-   */
-  /* TODO - sample pulse counters here at the highest rate... */
-
-  if (!(inb(isa_address+Status_Port) & Heartbeat)) {
-      rtl_printf("no heartbeat\n");
-  }
-  else {
-      /*
-       * Wake up the thread so it can handle any processing for this irq
-       * that can be done in a Linux thread and doesn't need to be done in
-       * an "interrupt context".
-       */
-
-      /*
-       * This little double clock ensures that msecClock[readClock]
-       * is valid for at least a millisecond after reading the value of
-       * readClock, even if this code is pre-emptive.
-       *
-       * This interrupt occurs a 1000hz.  If somehow a bogged down
-       * piece of code read the value of readClock, and then
-       * didn't get around to reading msecClock[readClock] until
-       * more than a millisecond later then it could read a
-       * half-written value, but that ain't gunna happen.
-       */
-
-#if INTERRUPT_RATE == 1000
-      if (++msecClockTicker == MSEC_IN_DAY) msecClockTicker = 0;
-#else
-      msecClockTicker += 1000 / INTERRUPT_RATE;
-      if (msecClockTicker >= MSEC_IN_DAY) msecClockTicker = 0;
-#endif
-
-      msecClock[writeClock] = msecClockTicker;
-      unsigned char c = readClock;
-      /* prior to this line msecClock[readClock=0] is  OK to read */
-      readClock = writeClock;
-      /* now msecClock[readClock=1] is still OK to read. We're assuming
-       * that the byte write of readClock = writeClock is atomic.
-       */
-      writeClock = c;
-
-      if (!(msecClockTicker % 10)) {
-#if INTERRUPT_RATE >= 100
-	  if (++hz100_cnt == 100) hz100_cnt = 0;
-#else
-	  hz100_cnt += 100 / INTERRUPT_RATE;
-	  if (hz100_cnt == 100) hz100_cnt = 0;
-#endif
-	  sem_post( &threadsem );
-      }
-      /* re-enable interrupt */
-      enableHeartBeatInt();
-  }
-  return 0;
-}
 
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
+    /* cancel the thread */
+    if (pc104sgThread) {
+        if (pthread_kill( pc104sgThread,SIGTERM ) < 0)
+	    rtl_printf("pthread_kill failure\n");
+	pthread_join( pc104sgThread, NULL );
+    }
+
     /* stop generating pc104sg interrupts */
     disableHeartBeatInt();
 
     rtl_free_isa_irq(irq);
-
-    /* cancel the thread */
-    if (pc104sgThread) {
-        pthread_cancel( pc104sgThread );
-	pthread_join( pc104sgThread, NULL );
-    }
 
     /* free up our pool of callbacks */
     free_callbacks();
@@ -704,7 +754,7 @@ int init_module (void)
     }
 
     /* install a handler for the interrupt */
-    rtl_printf("(%s) %s:\t rtl_request_isa_irq( %d, pc104sg_100hz_isr )\n",
+    rtl_printf("(%s) %s:\t rtl_request_isa_irq( %d, pc104sg_isr )\n",
 	     __FILE__, __FUNCTION__, irq);
 
     /* create the 100 Hz thread */
@@ -714,7 +764,7 @@ int init_module (void)
 	goto err0;
     }
 
-    if ((errval = rtl_request_isa_irq(irq, pc104sg_100hz_isr,0 )) < 0 ) {
+    if ((errval = rtl_request_isa_irq(irq, pc104sg_isr,0 )) < 0 ) {
 	/* failed... */
 	rtl_printf("(%s) %s:\t could not allocate IRQ %d\n",
 		   __FILE__, __FUNCTION__, irq);
@@ -740,9 +790,9 @@ int init_module (void)
 
 err0:
 
-    /* cancel the thread */
+    /* kill the thread */
     if (pc104sgThread) {
-        pthread_cancel( pc104sgThread );
+        pthread_kill( pc104sgThread,SIGTERM );
 	pthread_join( pc104sgThread, NULL );
     }
 
