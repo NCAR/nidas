@@ -2,13 +2,13 @@
  ******************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedDate$
+    $LastChangedDate: 2005-01-03 13:26:59 -0700 (Mon, 03 Jan 2005) $
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL$
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/DSMSerialSensor.cc $
 
  ******************************************************************
 */
@@ -42,7 +42,7 @@ DSMSerialSensor::DSMSerialSensor():
     sepAtEOM(true),
     messageLength(0),
     promptRate(IRIG_NUM_RATES),
-    scanner(0)
+    scanner(0),parsebuf(0),parsebuflen(0)
 {
 }
 
@@ -51,12 +51,13 @@ DSMSerialSensor::DSMSerialSensor(const string& nameArg) :
     sepAtEOM(true),
     messageLength(0),
     promptRate(IRIG_NUM_RATES),
-    scanner(0)
+    scanner(0),parsebuf(0),parsebuflen(0)
 {
 }
 
 DSMSerialSensor::~DSMSerialSensor() {
     delete scanner;
+    delete [] parsebuf;
     try {
 	close();
     }
@@ -133,70 +134,6 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
     cerr << "doing DSMSER_CLOSE" << endl;
     ioctl(DSMSER_CLOSE,(const void*)0,0);
     RTL_DSMSensor::close();
-}
-
-void DSMSerialSensor::setScanfFormat(const string& str)
-    throw(atdUtil::InvalidParameterException)
-{
-    scannerLock.lock();
-    bool newscanner = (scanner == 0);
-    scannerLock.unlock();
-
-    if (newscanner) {
-        SampleScanf* news = new SampleScanf();
-
-	clistLock.lock();
-	std::list<SampleClient*> tmp = clients;
-	clistLock.unlock();
-
-	std::list<SampleClient*>::iterator li;
-	for (li = tmp.begin(); li != tmp.end(); ++li) {
-	    removeSampleClient(*li);
-	    news->addSampleClient(*li);
-	}
-	addSampleClient(news);
-
-	scannerLock.lock();
-	scanner = news;
-	scannerLock.unlock();
-    }
-    try {
-       scanner->setFormat(str);
-    }
-    catch (atdUtil::ParseException& pe) {
-        throw atdUtil::InvalidParameterException("DSMSerialSensor",
-               "setScanfFormat",pe.what());
-    }
-}
-
-const string& DSMSerialSensor::getScanfFormat()
-{
-    static string emptyStr;
-    atdUtil::Synchronized autosync(scannerLock);
-    if (!scanner) return emptyStr;
-    return scanner->getFormat();
-}
-
-/**
- * Override addSampleClient to re-direct the request
- * to my scanner.
- */
-void DSMSerialSensor::addSampleClient(SampleClient* client) {
-    atdUtil::Synchronized autosync(scannerLock);
-    if (scanner) scanner->addSampleClient(client);
-    else SampleSource::addSampleClient(client);
-}
-
-void DSMSerialSensor::removeSampleClient(SampleClient* client) {
-    atdUtil::Synchronized autosync(scannerLock);
-    if (scanner) scanner->removeSampleClient(client);
-    else SampleSource::removeSampleClient(client);
-}
-  
-void DSMSerialSensor::removeAllSampleClients() {
-    atdUtil::Synchronized autosync(scannerLock);
-    if (scanner) scanner->removeAllSampleClients();
-    else SampleSource::removeAllSampleClients();
 }
 
 void DSMSerialSensor::fromDOMElement(
@@ -356,3 +293,57 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
     }
     return str;
 }
+
+void DSMSerialSensor::process(const Sample*samp)
+	throw(atdUtil::IOException,dsm::SampleParseException)
+{
+    // If no scanner defined, then don't scan sample.
+    if (!scanner) {
+        distribute(samp);
+	return;
+    }
+
+    assert(samp->getType() == CHAR_ST);
+    int slen = samp->getDataLength();
+
+    if (slen > parsebuflen) {
+	delete [] parsebuf;
+	parsebuf = new char[slen + 1];
+	parsebuflen = slen;
+    }
+
+    /*
+     * t'would be nice to avoid this copy, but we must
+     * null terminate before the scanf, and we haven't come
+     * up with a general way to do it. Some serial sensors
+     * output binary data, and we can't just add a 
+     * null at the end of every serial record.
+     */
+    memcpy(parsebuf,(const char*)samp->getConstVoidDataPtr(),slen);
+    parsebuf[slen] = '\0';
+
+    int nfields = scanner->getNumberOfFields();
+    FloatSample* outs =
+	SamplePool<FloatSample>::getInstance()->getSample(nfields);
+
+    int nparsed;
+    {
+	// is this truely necessary?
+	atdUtil::Synchronized autosync(scannerLock);
+	nparsed = scanner->sscanf(parsebuf,outs->getDataPtr(),nfields);
+    }
+
+    if (!nparsed) {
+	scanfFailures++;
+	outs->freeReference();		// remember!
+	return;		// no sample
+    }
+    else if (nparsed != nfields) scanfPartials++;
+
+    outs->setTimeTag(samp->getTimeTag());
+    outs->setId(samp->getId());
+    outs->setDataLength(nparsed);
+    distribute(outs);
+    outs->freeReference();
+}
+

@@ -2,25 +2,25 @@
  ******************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedDate$
+    $LastChangedDate: 2004-11-22 14:41:27 -0700 (Mon, 22 Nov 2004) $
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL$
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/DSMSerialSensor.h $
 
  ******************************************************************
 */
-#ifndef DSMSERIALSENSOR_H
-#define DSMSERIALSENSOR_H
+#ifndef DSMRAWSERIALSENSOR_H
+#define DSMRAWSERIALSENSOR_H
 
 #include <dsm_serial.h>
 
 #include <RTL_DSMSensor.h>
 #include <atdUtil/InvalidParameterException.h>
 #include <atdTermio/Termios.h>
-#include <SampleScanf.h>
+#include <AsciiScanner.h>
 
 namespace dsm {
 /**
@@ -77,18 +77,23 @@ public:
 
     /**
      * Set the format to scan ASCII data.
-     * @see SampleScanf.setFormat()
+     * @see AsciiScanner.setFormat()
      */
     void setScanfFormat(const std::string& val)
     	throw(atdUtil::InvalidParameterException);
 
     const std::string& getScanfFormat();
 
-    void addSampleClient(SampleClient*);
+    int getNumScanfFailures() const { return scanfFailures; }
 
-    void removeSampleClient(SampleClient*);
+    int getNumScanfPartials() const { return scanfPartials; }
 
-    void removeAllSampleClients();
+    /**
+     * Process a raw sample, which in this case means do
+     * a sscanf on the character string contents.
+     */
+    void process(const Sample*)
+    	throw(dsm::SampleParseException,atdUtil::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -110,9 +115,17 @@ protected:
     int messageLength;
     std::string prompt;
     enum irigClockRates promptRate;
-
-    SampleScanf* scanner;
+   
+    AsciiScanner* scanner;
     atdUtil::Mutex scannerLock;
+
+    char* parsebuf;
+
+    int parsebuflen;
+
+    int scanfFailures;
+
+    int scanfPartials;
 };
 
 }
