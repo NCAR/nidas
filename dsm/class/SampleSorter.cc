@@ -147,6 +147,7 @@ void SampleSorter::flush() throw (SampleParseException,atdUtil::IOException)
 bool SampleSorter::receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException)
 {
+    atdUtil::Synchronized autosync(samplesAvail);
     samples.insert(samples.end(),s);
     s->holdReference();
 
