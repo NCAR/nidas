@@ -33,7 +33,7 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(XMLConfigService)
 
 XMLConfigService::XMLConfigService():
-	DSMService("XMLConfigService"),output(0)
+	DSMService("XMLConfigService"),iochan(0)
 {
 }
 
@@ -41,17 +41,17 @@ XMLConfigService::XMLConfigService():
  * Copy constructor.
  */
 XMLConfigService::XMLConfigService(const XMLConfigService& x):
-        DSMService((const DSMService&)x),output(0)
+        DSMService((const DSMService&)x),iochan(0)
 {
-    cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.output << endl;
-    if (x.output) output = x.output->clone();
+    cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.iochan << endl;
+    if (x.iochan) iochan = x.iochan->clone();
 }
 
 XMLConfigService::~XMLConfigService()
 {
-    if (output) {
-        output->close();
-	delete output;
+    if (iochan) {
+        iochan->close();
+	delete iochan;
     }
 }
 
@@ -67,13 +67,13 @@ DSMService* XMLConfigService::clone() const
 
 void XMLConfigService::schedule() throw(atdUtil::Exception)
 {
-    output->requestConnection(this,XML_CONFIG);
+    iochan->requestConnection(this,XML_CONFIG);
 }
 
-void XMLConfigService::connected(IOChannel* output)
+void XMLConfigService::connected(IOChannel* iochan)
 {
     // Figure out what DSM it came from
-    atdUtil::Inet4Address remoteAddr = output->getRemoteInet4Address();
+    atdUtil::Inet4Address remoteAddr = iochan->getRemoteInet4Address();
     cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
     if (!dsm)
@@ -94,19 +94,19 @@ int XMLConfigService::run() throw(atdUtil::Exception)
 
     xercesc::DOMDocument* doc = parser->parse(DSMServer::getXMLFileName());
 
-    XMLFdFormatTarget formatter(output->getName(),output->getFd());
+    XMLFdFormatTarget formatter(iochan->getName(),iochan->getFd());
 
     XMLConfigWriter writer(getDSMConfig());
     writer.writeNode(&formatter,*doc);
 
-    output->close();
+    iochan->close();
     return RUN_OK;
 }
 
 void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
-    int noutputs = 0;
+    int niochan = 0;
     XDOMElement xnode(node);
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -122,11 +122,21 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 		    gkid=gkid->getNextSibling())
 	    {
 		if (gkid->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-		output = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)gkid);
-		if (++noutputs > 1)
+		XDOMElement xgkid((DOMElement*) gkid);
+
+		const string& gkidname = xgkid.getNodeName();
+
+		iochan = IOChannel::createIOChannel(gkidname);
+
+		iochan->setDSMConfig(getDSMConfig());
+		iochan->setDSMService(this);
+
+		iochan->fromDOMElement((xercesc::DOMElement*)gkid);
+
+		if (++niochan > 1)
 		    throw atdUtil::InvalidParameterException(
 			"XMLConfigService::fromDOMElement",
-			"output", "one and only one output allowed");
+			"output", "must have one child element");
 	    }
 
         }
@@ -134,7 +144,7 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
                 "XMLConfigService::fromDOMElement",
                 elname, "unsupported element");
     }
-    if (noutputs == 0)
+    if (iochan == 0)
 	throw atdUtil::InvalidParameterException(
 	    "XMLConfigService::fromDOMElement",
 	    "output", "one output required");

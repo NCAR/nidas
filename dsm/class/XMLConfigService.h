@@ -53,7 +53,7 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
-    IOChannel* output;
+    IOChannel* iochan;
 };
 
 }
