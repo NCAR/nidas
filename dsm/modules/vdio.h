@@ -45,7 +45,7 @@ Revisions:
 #define		VDIO_OUT_SET		0x40E00018
 #define		__ISA_DEMUX__
 
-#include 	<init_modules.h>
+#include 	<main.h>
 
 /* RTLinux headers */
 #include <rtl.h>
