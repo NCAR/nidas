@@ -69,8 +69,8 @@ public:
     DSMSensor();
 
     /**
-     * Create a sensor, giving its device name.  No IO (open/read/write/ioctl)
-     * operations to the sensor are performed in the constructor.
+     * /deprecated Construct a sensor, and provide the device name.
+     * Use the no-arg constructor instead and use the setDeviceName() method.
      */
     DSMSensor(const std::string& n);
 

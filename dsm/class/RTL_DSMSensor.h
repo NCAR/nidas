@@ -31,8 +31,18 @@ class RTL_DSMSensor : public DSMSensor {
 public:
 
     /**
+     * Create a sensor, giving its device name.  No IO (open/read/write/ioctl)
+     * operations to the sensor are performed in the constructor.
+     */
+    RTL_DSMSensor(const std::string& devname);
+
+    RTL_DSMSensor();
+
+    virtual ~RTL_DSMSensor();
+
+    /**
      * Constructor for a sensor.
-     * @param devname The device name.
+     * @val devname The device name.
      * Since we have to generate 4 FIFO names
      * from this devname, the devname should follow this convention:
      * <ul>
@@ -45,12 +55,6 @@ public:
      * The trailing digits specify the port number.
      * Examples:   /dev/xxxx0, /dev/xxxx_0, /dev/acme99_4,  /dev/xxx09
      */
-    RTL_DSMSensor(const std::string& devname);
-
-    RTL_DSMSensor();
-
-    virtual ~RTL_DSMSensor();
-
     virtual void setDeviceName(const std::string& val);
 
     /**
