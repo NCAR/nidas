@@ -1,8 +1,12 @@
 #define FIX_A2D
+#define	QUIETOUTB	// Shut off printout
+#define	QUIETINB	// Shut off printout
+#define	QUIETOUTW	// Shut off printout
+#define	QUIETINW	// Shut off printout
 /*  a2d_driver.c/
 
 
-Time-stamp: <Sun 25-Oct-2004 12:48:04 pm>
+Time-stamp: <Sat 30-Oct-2004 12:48:04 pm>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
 
@@ -16,6 +20,11 @@ Revisions:
 
 // #define		DEBUG0		//Activates specific debug functions
 // #define		USE_RTLINUX 	//If not defined I/O is in debug mode
+
+// Enumerated A2D_RUN_IOCTL messages
+#define	RUN	1
+#define STOP	2
+#define	RESTART	3
 
 
 #include <stdio.h>
@@ -37,13 +46,13 @@ Revisions:
 #include <asm/io.h>
 
 #include <ioctl_fifo.h>
+#include <irigclock.h>
 #include <a2d_driver.h>
 
 void ggoutw(US a, US *b);
 void ggoutb(UC a, UC *b);
 US   gginw(US *a);
 UC   gginb(UC *a);
-void phoney(A2D_SET *a2d);
 void A2DIoctlDump(A2D_SET *a);
 US   fix_a2d(US a);
 UC   bit_rvs(UC a);
@@ -53,6 +62,7 @@ static 	UL	CardBase;	// A/D card address
 static	int	CurChan;	// Current channel value
 static	US	FIFOCtl;	//Static hardware FIFO control word storage
 static 	int	fd_up; 		// Data FIFO file descriptor
+static 	int	a2drun = 1;	// Internal flag for debugging
 
 volatile unsigned int isa_address = A2DBASE;
 
@@ -60,6 +70,7 @@ volatile unsigned int isa_address = A2DBASE;
 
 UC		Cals;
 UC		Offsets;
+
 
 /****************  IOCTL Section ***************8*********/
 
@@ -105,50 +116,73 @@ rtl_printf("Size of A2D_SET = 0x%04X\n", sizeof(A2D_SET));
   switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
-    		{
+		{
 		rtl_printf("GET_NUM_PORTS\n");
 		*(int *) buf = nports;
 		ret = sizeof(int);
-    		}
+		}
   		break;
 
   	case A2D_GET_IOCTL:		/* user get */
-    		{
-		rtl_printf("A2D_GET_IOCTL\n");
+		{
 		A2D_GET *tg = (A2D_GET *)buf;
 		strncpy(tg->c,"0123456789",len);
 		tg->c[len-1] = 0;
 		ret = len;
-    		}
+		}
     		break;
 
   	case A2D_SET_IOCTL:		/* user set */
-      		{
+		{
 		rtl_printf("A2D_SET_IOCTL\n");
 		A2D_SET *ts = (A2D_SET *)buf;
 		A2DIoctlDump(ts);
 		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
-    		}
+		}
    		break;
+
   	case A2D_CAL_IOCTL:		/* user set */
-      		{
+		{
 		rtl_printf("A2D_CAL_IOCTL\n");
 		A2D_SET *ts = (A2D_SET *)buf;
 		A2DIoctlDump(ts);
 		A2DSetVcal((int)ts->vcalx8);
 		A2DSetCal(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
-    		}
+		}
    		break;
+
   	case A2D_RUN_IOCTL:		/* user set */
-      		{
+		{
 		rtl_printf("A2D_RUN_IOCTL\n");
 		int *tm =  (int *)buf;
 		rtl_printf("Run message = 0x%08X\n", *tm);
+
+	 	if((*tm & 0x0000000F) == RUN)
+		{
+			a2drun = 1;
+			A2DSetSYNC();	//Stop A/D's
+			A2DClearFIFO();	// Reset FIFO
+			A2D1PPSEnable();// Enable sync with 1PPS
+#ifdef NOIRIG
+			A2DGetDataSim();
+#else
+			register_irig_callback(&A2DGetData, 
+						IRIG_100_HZ, 
+						(void *)NULL);	
+#endif
+		}
+
+		if((*tm & 0x0000000F) == STOP)
+		{
+			a2drun = 0;
+			A2DSetSYNC();	// Stop the A/D's
+			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
+		}
 		ret = sizeof(long);
-    		}
-   		break;
+		}
+		break;
   	}
   	return ret;
 }
@@ -240,7 +274,6 @@ int A2DSetup(A2D_SET *a2d)
 	A2DSetSYNC();	//	so that we don't step on the transition
 	
 	A2DPtrInit(a2d);// Initialize offset buffer pointers
-//	A2DRun(a2d);	// Infinite loop data acquisition
 
 	return 0;
 }
@@ -298,6 +331,7 @@ int A2DInit(int A2DDes, US *filter)
 	return(A2DLOADOK);
 }
 
+//TODO Make this work in with AnalogTable
 // A2DPtrInit initializes the A2D->ptr[i] buffer offsets
 
 void A2DPtrInit(A2D_SET *a2d)
@@ -433,10 +467,11 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 	//Check that gain is within limits
 	if(A2DGain < 1 || A2DGain > 25)return(ERRA2DGAIN);
 
+	A2DAddr = (US *)(CardBase + A2DSel);//    and this address
+
 	if(A2DSel >= 0 && A2DSel <=3)	// If setting gain on channels 0-3
 	{
 		D2AChsel = A2DIOGAIN03;	// Use this channel select
-		A2DAddr = (US *)(CardBase + A2DSel);//    and this address
 	}
 
 	if(A2DSel >= 4 && A2DSel <=7)	// Otherwise, for channels 4-7
@@ -683,15 +718,67 @@ void A2DClearFIFO(void)
 }
 /*-----------------------Utility------------------------------*/
 
-// This will be the primary data acquisition loop which will be
-// triggered by a 100 Hz semaphore.
-
-void A2DRun(A2D_SET *a)
+// A2DGetData reads data from the A/D card hardware fifo and writes
+// the data to the software up-fifo to user space.
+void A2DGetData()
 {
-	while(1)
+	US *A2DAddr;
+	US inbuf[HWFIFODEPTH];
+	int i;
+
+	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DChSel(A2DIOFIFO);
+	i = 0;
+	for(i = 0; i < HWFIFODEPTH; i++)
 	{
-	usleep(100000); 
+#ifdef DEBUG_FIFO
+		inbuf[i] = i-HWFIFODEPTH/2; //Ramp
+#else
+		inbuf[i] = gginw(A2DAddr);	
+		if(inbuf[i] == 0xFFFF && A2DFIFOEmpty())break;
+#endif
+//TODO get the timestamp
+//TODO check to see if fd_up is valid. If not, return an error
+	write(fd_up, inbuf, i-1); // Write to up-fifo
 	}
+}
+/*-----------------------Utility------------------------------*/
+// A2DFIFOEmpty checks the FIFO empty status bit and returns
+// -1 if empty, 0 if not empty
+
+int A2DFIFOEmpty()
+{
+	int stat;
+	US *A2DAddr;
+	A2DChSel(A2DIOFIFOSTAT);
+
+	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	
+	stat = gginw(A2DAddr);
+	if(stat & FIFOEMPTY)return(-1);
+	else return(0);
+}
+/*-----------------------Utility------------------------------*/
+// A2DGetDataSim is a debug tool which is activated by the 
+// compiler switch NOIRIG.  I simply produces a ramp of data to 
+// the up-fifo.
+
+void A2DGetDataSim(void)
+{
+	US inbuf[HWFIFODEPTH];
+	int i, j;
+	
+	while(a2drun != 0)
+	{
+		for(i = 0; i < INTRP_RATE; i++)
+		{
+			for(j = 0; j < MAXA2DS; j += 8)
+			{
+			inbuf[8*i + j] = 1000*j + i; 
+			}
+		}
+	}
+return;
 }
 /*-----------------------Utility------------------------------*/
 
@@ -703,7 +790,10 @@ void A2DRun(A2D_SET *a)
 void ggoutb(UC data, UC *addr)
 {
 #ifndef USE_RTLINUX
+#ifndef QUIETOUTB
 	rtl_printf("Write	0x%02x 	 to  0x%08x\n", data, addr);
+#endif
+
 #else
 	outb(data, addr);
 #endif
@@ -713,7 +803,9 @@ void ggoutb(UC data, UC *addr)
 UC gginb(UC *addr)
 {
 #ifndef USE_RTLINUX
+#ifndef QUIETINB
 	rtl_printf("Read             from 0x%08x\n", addr);
+#endif
 	return(1);
 #else
 	return(inb(addr));
@@ -723,7 +815,10 @@ UC gginb(UC *addr)
 void ggoutw(US data, US *addr)
 {
 #ifndef USE_RTLINUX
+#ifndef QUIETOUTW
 	rtl_printf("Write	0x%04x to  0x%08x\n", data, addr);
+#endif
+
 #else
 	outw(fix_a2d(data), addr);
 #endif
@@ -734,7 +829,9 @@ void ggoutw(US data, US *addr)
 US gginw(US *addr)
 {
 #ifndef USE_RTLINUX
+#ifndef QUIETINW
 	rtl_printf("Read          from 0x%08x\n", addr);
+#endif
 	return(2);
 
 #else
@@ -742,18 +839,6 @@ US gginw(US *addr)
 #endif	
 }
 
-
-void phoney(A2D_SET *a2d)
-{
-int i;
-for(i = 0; i < 8; i++)
-	{
-	a2d->gain[i] = 10;
-	a2d->Hz[i] = 50;
-	a2d->flag[i] = 0;
-	}
-	return;
-}
 
 void A2DIoctlDump(A2D_SET *a2d)
 {

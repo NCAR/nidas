@@ -27,11 +27,12 @@
 #define		UC	unsigned char
 #endif
 
-#define	A2D_MAX_RATE	10000
+#define	A2D_MAX_RATE		10000
 #define INTRP_RATE		100
+#define	HWFIFODEPTH		1024
 
 //Status/error
-#define A2DLOADOK		0
+#define A2DLOADOK	 	 0
 
 #define	ERRA2DNOFILE		-1	//Error opening file
 #define	ERRA2DCHAN		-2	//Channel # requested is out of bounds
@@ -105,6 +106,13 @@
 #define	FIFOSTATEBL	0x40	//Not used. 
 #define	A2DRW		0x80	//Enables A/D read operations
 
+// TODO Check the accuracy of these defines
+// FIFO Status bits
+#define	FIFOHF		0x0001
+#define FIFOAFAE	0x0002
+#define FIFOEMPTY	0x0003
+#define	FIFOFULL	0x0004
+
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
@@ -137,8 +145,10 @@ typedef struct
 
 
 //Function templates
+int  A2DFIFOEmpty(void);	// Tests FIFO empty flag
+void A2DDataSim(A2D_SET *a);	// Data simulator--inf loop
 int  A2DSetup(A2D_SET *a);
-void A2DRun(A2D_SET *a);	//Data loop
+void A2DGetData();		//Read hardware fifo
 void A2DPtrInit(A2D_SET *a);	//Initialize pointer to data areas
 void A2DChSel(int a);		//Select the A/D board channel
 US   A2DStatus(int a);		//Get A/D status
@@ -153,7 +163,7 @@ US   A2DSetVcal(int Vx8);	//Set the calibration point voltage
 void A2DSetCal(A2D_SET *a);	//Set the cal enable bits for the 8 channels
 void A2DSetOffset (A2D_SET *a);	//Set the offset enable bits for the 8 channels
 void A2DReadFIFO(int a, US *b);	//Read a shorts from the FIFO into buffer b
-void A2DReadDirect(int a,int b,US *c);	//Read b values straight to buf c from A/D a
+void A2DReadDirect(int a,int b,US *c);	//Read b values dir to buf c from A/D a
 void A2DSetSYNC(void);		//Set the SYNC bit high-stops A/D conversion
 void A2DClearSYNC(void);	//Clear the SYNC bit
 void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transition
