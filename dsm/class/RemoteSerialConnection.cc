@@ -21,8 +21,8 @@ using namespace dsm;
 
 RemoteSerialConnection::~RemoteSerialConnection()
 {
-    if (port) port->removeSampleClient(this);
-    ::close(fd);
+    if (sensor) sensor->removeSampleClient(this);
+    socket.close();
 }
 
 /**
@@ -31,8 +31,14 @@ RemoteSerialConnection::~RemoteSerialConnection()
 bool RemoteSerialConnection::receive(const Sample* s)
 	    throw(SampleParseException,atdUtil::IOException)
 {
-    if (::write(fd,s->getConstVoidDataPtr(), s->getDataLength()) < 0)
-	setPort(0);
+    try {
+	socket.send(s->getConstVoidDataPtr(), s->getDataLength());
+    }
+    catch (const atdUtil::IOException& e)
+    {
+	setSensor(0);
+	throw e;
+    }
     return true;
 }
 
@@ -42,15 +48,11 @@ bool RemoteSerialConnection::receive(const Sample* s)
 void RemoteSerialConnection::read() throw(atdUtil::IOException) 
 {
     char buffer[512];
-    ssize_t i = ::read(fd,buffer,sizeof(buffer));
-    if (i <= 0) {
-        setPort(0);
-	if (i == 0) throw atdUtil::EOFException("rserial socket","read");
-	if (i < 0) throw atdUtil::IOException("rserial socket","read",errno);
-    }
+    ssize_t i = socket.recv(buffer,sizeof(buffer));
+    if (i == 0) throw atdUtil::EOFException("rserial socket","read");
 
     // don't handle situation of writing less than i bytes
-    // to serial port
-    if (port) port->write(buffer,i);
+    // to serial sensor
+    if (sensor) sensor->write(buffer,i);
 }
 

@@ -92,19 +92,20 @@ protected:
     std::vector<int> activeSensorPortFds;
     std::vector<DSMSensor*> activeSensorPorts;
 
+    bool portsChanged;
+
+    RemoteSerialListener* rserial;
+
     atdUtil::Mutex rserialConnsMutex;
     std::vector<RemoteSerialConnection*> pendingRserialConns;
     std::vector<RemoteSerialConnection*> pendingRserialClosures;
     std::vector<RemoteSerialConnection*> activeRserialConns;
 
-    bool portsChanged;
     bool rserialConnsChanged;
 
     struct timeval tval;
     fd_set readfdset;
     int selectn;
-
-    RemoteSerialListener rserial;
 
     int selectErrors;
     int rserialListenErrors;

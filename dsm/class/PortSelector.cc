@@ -26,7 +26,8 @@ using namespace dsm;
 
 PortSelector::PortSelector() :
   Thread("PortSelector"),portsChanged(false),
-  rserialConnsChanged(false),statisticsPeriod(300000)
+  rserial(0),rserialConnsChanged(false),
+  statisticsPeriod(300000)
 {
   /* start out with a 1/10 second select timeout.
    * While we're adding sensor ports, we want select to
@@ -54,6 +55,7 @@ PortSelector::PortSelector() :
  */
 PortSelector::~PortSelector()
 {
+    delete rserial;
     for (unsigned int i = 0; i < activeSensorPorts.size(); i++) {
 	activeSensorPorts[i]->close();
 	delete activeSensorPorts[i];
@@ -108,6 +110,15 @@ int PortSelector::run() throw(atdUtil::Exception)
   dsm_sys_time_t rtime = 0;
   struct timeval tout;
   unsigned long timeoutSumMsec = 0;
+
+  delete rserial;
+  rserial = 0;
+  try {
+      rserial = new RemoteSerialListener();
+  }
+  catch (const atdUtil::IOException& e) {
+      Logger::getInstance()->log(LOG_WARNING,"%s: continuing anyhow",e.what());
+  }
   for (;;) {
     if (amInterrupted()) break;
 
@@ -196,24 +207,26 @@ int PortSelector::run() throw(atdUtil::Exception)
       }
     }
     if (nfd == nfdsel) continue;
-    fd = rserial.getListenSocketFd();
-    if (FD_ISSET(fd,&rset)) {
-      try {
-	RemoteSerialConnection* rsconn = rserial.acceptConnection();
-	addRemoteSerialConnection(rsconn);
-      }
-      catch (IOException &ioe) {
-	Logger::getInstance()->log(LOG_ERR,
-		"PortSelector rserial: %s",ioe.toString().c_str());
-	rserialListenErrors++;
-      }
-      if (++nfd == nfdsel) continue;
-    }
-    if (FD_ISSET(fd,&eset)) {
-      Logger::getInstance()->log(LOG_ERR,"%s",
-	"PortSelector select reports exception for rserial listen socket ");
-	rserialListenErrors++;
-      if (++nfd == nfdsel) continue;
+    if (rserial) {
+	fd = rserial->getFd();
+	if (FD_ISSET(fd,&rset)) {
+	  try {
+	    RemoteSerialConnection* rsconn = rserial->acceptConnection();
+	    addRemoteSerialConnection(rsconn);
+	  }
+	  catch (IOException &ioe) {
+	    Logger::getInstance()->log(LOG_ERR,
+		    "PortSelector rserial: %s",ioe.toString().c_str());
+	    rserialListenErrors++;
+	  }
+	  if (++nfd == nfdsel) continue;
+	}
+	if (FD_ISSET(fd,&eset)) {
+	  Logger::getInstance()->log(LOG_ERR,"%s",
+	    "PortSelector select reports exception for rserial listen socket ");
+	    rserialListenErrors++;
+	  if (++nfd == nfdsel) continue;
+	}
     }
   }
 
@@ -294,7 +307,7 @@ void PortSelector::addRemoteSerialConnection(RemoteSerialConnection* conn)
     	conn->getSensorName())) {
       rserialConnsMutex.lock();
       pendingRserialConns.push_back(conn);
-      conn->setPort(pendingSensorPorts[i]);
+      conn->setSensor(pendingSensorPorts[i]);
       rserialConnsChanged = true;
       rserialConnsMutex.unlock();
       Logger::getInstance()->log(LOG_INFO,
@@ -313,7 +326,7 @@ void PortSelector::removeRemoteSerialConnection(RemoteSerialConnection* conn)
   Synchronized autosync(rserialConnsMutex);
   for (unsigned int i = 0; i < pendingRserialConns.size(); i++) {
     if (pendingRserialConns[i] == conn) {
-        conn->setPort(0);
+        conn->setSensor(0);
 	pendingRserialConns.erase(pendingRserialConns.begin()+i);
     }
   }
@@ -362,9 +375,11 @@ void PortSelector::handleChangedPorts() {
     FD_SET(activeRserialConns[i]->getFd(),&readfdset);
   }
 
-  int fd = rserial.getListenSocketFd();
-  FD_SET(fd,&readfdset);
-  if (fd > selectn) selectn = fd;
+  if (rserial) {
+      int fd = rserial->getFd();
+      FD_SET(fd,&readfdset);
+      if (fd > selectn) selectn = fd;
+  }
 
   selectn++;
 }
