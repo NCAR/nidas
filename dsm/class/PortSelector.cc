@@ -166,7 +166,7 @@ int PortSelector::run() throw(atdUtil::Exception)
 	DSMSensor *port = activeSerialPorts[ifd];
 	Logger::getInstance()->log(LOG_ERR,
 	      "PortSelector select reports exception for %s",
-	      port->getName().c_str());
+	      port->getDeviceName().c_str());
 	if (++nfd == nfdsel) break;
       }
     }
@@ -288,7 +288,8 @@ void PortSelector::addRemoteSerialConnection(RemoteSerialConnection* conn)
 {
   Synchronized autosync(portsMutex);
   for (unsigned int i = 0; i < pendingSerialPorts.size(); i++) {
-    if (pendingSerialPorts[i]->getName() == conn->getSensorName()) {
+    if (!pendingSerialPorts[i]->getDeviceName().compare(
+    	conn->getSensorName())) {
       rserialConnsMutex.lock();
       pendingRserialConns.push_back(conn);
       conn->setPort(pendingSerialPorts[i]);

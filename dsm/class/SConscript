@@ -31,6 +31,10 @@ sources = Split("""
   RemoteSerialListener.cc
   TestSampleClient.cc
   SampleScanf.cc
+  DOMObjectFactory.cc
+  DynamicLoader.cc
+  XMLConfigParser.cc
+  DOMable.cc
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'
@@ -44,4 +48,5 @@ myenv.CXXFile(target='SampleScanf.cc',source='SampleScanf.ll')
 ##
 ##  Build the libArmDsm.a library.
 ##
-myenv.StaticLibrary('Dsm' , sources)
+## myenv.StaticLibrary('Dsm' , sources)
+myenv.SharedLibrary('Dsm' , sources)

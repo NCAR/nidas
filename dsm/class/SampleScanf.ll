@@ -274,7 +274,6 @@ bool SampleScanf::receive(const Sample*samp)
         scanfPartials++;
 
     FloatSample* outs = SamplePool<FloatSample>::getInstance()->getSample(nparsed);
-    std::cerr << "maxDataLength=" << outs->getMaxDataLength() << std::endl;
     if (allFloats)
 	memcpy(outs->getVoidDataPtr(),bufptrs[0],nparsed*sizeof(float));
     else {

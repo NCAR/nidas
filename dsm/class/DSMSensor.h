@@ -17,6 +17,7 @@
 
 #include <atdUtil/IOException.h>
 #include <SampleSource.h>
+#include <DOMable.h>
 #include <SampleParseException.h>
 
 #include <dsm_sample.h>
@@ -27,17 +28,26 @@
 /**
  * An interface for a DSM Sensor.
  */
-class DSMSensor : public dsm::SampleSource {
+class DSMSensor : public dsm::SampleSource, public dsm::DOMable {
 
 public:
 
     /**
-    * Create a sensor, giving its name.  No IO (open/read/write/ioctl)
-    * operatations to the sensor are performed in the constructor.
-    */
+     * Create a sensor.
+     */
+    DSMSensor();
+
+    /**
+     * Create a sensor, giving its device name.  No IO (open/read/write/ioctl)
+     * operations to the sensor are performed in the constructor.
+     */
     DSMSensor(const std::string& n);
 
     virtual ~DSMSensor() {}
+
+    void setDeviceName(const std::string& val) { devname = val; }
+
+    const std::string& getDeviceName() const { return devname; }
 
     virtual int getReadFd() const = 0;
 
@@ -88,8 +98,6 @@ public:
     */
     virtual void close() throw(atdUtil::IOException) = 0;
 
-    virtual const std::string& getName() const { return name; }
-
     /**
     * When the PortSelector select() system call has determined
     * that there is data available to read on this sensor,
@@ -107,9 +115,21 @@ public:
     float getObservedSamplingRate() const;
     float getReadRate() const;
 
+    void fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement*)
+    	throw(atdUtil::InvalidParameterException);
+
+    XERCES_CPP_NAMESPACE::DOMElement*
+    	toDOMParent(XERCES_CPP_NAMESPACE::DOMElement* parent)
+		throw(XERCES_CPP_NAMESPACE::DOMException);
+
+    XERCES_CPP_NAMESPACE::DOMElement*
+    	toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
+		throw(XERCES_CPP_NAMESPACE::DOMException);
+
+
 protected:
 
-    std::string name;
+    std::string devname;
 
     int id;
 

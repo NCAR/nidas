@@ -9,14 +9,33 @@
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/DSMSensor.h $
  ********************************************************************
 
 */
 
 #include <DSMSensor.h>
+#include <XMLStringConverter.h>
+#include <XDOM.h>
 
-DSMSensor::DSMSensor(const std::string& n) : name(n)
+// #include <xercesc/dom/DOMElement.hpp>
+#include <xercesc/dom/DOMDocument.hpp>
+#include <xercesc/dom/DOMNamedNodeMap.hpp>
+// #include <xercesc/dom/DOMAttr.hpp>
+
+#include <iostream>
+#include <string>
+
+using namespace std;
+using namespace dsm;
+XERCES_CPP_NAMESPACE_USE
+
+DSMSensor::DSMSensor()
+{
+    initStatistics();
+}
+
+DSMSensor::DSMSensor(const std::string& n) : devname(n)
 {
     initStatistics();
 }
@@ -54,5 +73,49 @@ float DSMSensor::getObservedSamplingRate() const {
   if (reportStatsIndex == currStatsIndex)
       return (float)nsamples/(time(0) - initialTimeSecs);
   else return sampleRateObs;
+}
+
+void DSMSensor::fromDOMElement(const XERCES_CPP_NAMESPACE::DOMElement* node)
+    throw(atdUtil::InvalidParameterException)
+{
+    XDOMElement xnode(node);
+
+    cerr << "DSMSensor::fromDOMElement element name=" <<
+    	xnode.getNodeName() << endl;
+	
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	int nSize = pAttributes->getLength();
+	cerr <<"\tAttributes" << endl;
+	cerr <<"\t----------" << endl;
+	for(int i=0;i<nSize;++i) {
+	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    // get attribute name
+	    cerr << "attrname=" << attr.getName() << endl;
+	    if (!attr.getName().compare("device")) {
+		setDeviceName(attr.getValue());
+		cerr << "\tattrval=" << attr.getValue() << endl;
+	    }
+	}
+    }
+}
+
+XERCES_CPP_NAMESPACE::DOMElement* DSMSensor::toDOMParent(
+    XERCES_CPP_NAMESPACE::DOMElement* parent)
+    throw(XERCES_CPP_NAMESPACE::DOMException)
+{
+    DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+                (const XMLCh*)XMLStringConverter("dsmconfig"),
+			DOMable::getNamespaceURI());
+    parent->appendChild(elem);
+    return toDOMElement(elem);
+}
+
+XERCES_CPP_NAMESPACE::DOMElement* DSMSensor::toDOMElement(XERCES_CPP_NAMESPACE::DOMElement* node)
+    throw(XERCES_CPP_NAMESPACE::DOMException)
+{
+    return node;
 }
 

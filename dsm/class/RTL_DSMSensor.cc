@@ -29,22 +29,30 @@
 using namespace std;
 using namespace dsm;
 
-RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
-    DSMSensor(nameArg),devIoctl(0),infifofd(-1),outfifofd(-1),
+CREATOR_ENTRY_POINT(RTL_DSMSensor)
+
+RTL_DSMSensor::RTL_DSMSensor() :
+    DSMSensor(),devIoctl(0),infifofd(-1),outfifofd(-1),
+    BUFSIZE(8192),bufhead(0),buftail(0),samp(0)
+{
+}
+
+RTL_DSMSensor::RTL_DSMSensor(const string& devnameArg) :
+    DSMSensor(devnameArg),devIoctl(0),infifofd(-1),outfifofd(-1),
     BUFSIZE(8192),bufhead(0),buftail(0),samp(0)
 {
 
     string::reverse_iterator ri;
-    for (ri = name.rbegin(); ri != name.rend(); ++ri)
+    for (ri = devname.rbegin(); ri != devname.rend(); ++ri)
         if (!isdigit(*ri)) break;
     string::iterator pi = ri.base();
 
-    // cerr << "*pi=" << *pi << " diff=" << pi-name.begin() << endl;
+    // cerr << "*pi=" << *pi << " diff=" << pi-devname.begin() << endl;
 
-    // string prefix = name.substr(0,pi-name.begin());
-    prefix = string(name.begin(),pi);
+    // string prefix = devname.substr(0,pi-devname.begin());
+    prefix = string(devname.begin(),pi);
 
-    string portstr(pi,name.end());
+    string portstr(pi,devname.end());
 
     portNum = atoi(portstr.c_str());
 
@@ -118,7 +126,7 @@ void RTL_DSMSensor::close() throw(atdUtil::IOException)
 void RTL_DSMSensor::ioctl(int request, void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!devIoctl) throw atdUtil::IOException(getName(),"ioctl",
+    if (!devIoctl) throw atdUtil::IOException(getDeviceName(),"ioctl",
     	"no ioctl associated with device");
 
     devIoctl->ioctl(request,portNum,buf,len);
@@ -127,7 +135,7 @@ void RTL_DSMSensor::ioctl(int request, void* buf, size_t len)
 void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!devIoctl) throw atdUtil::IOException(getName(),"ioctl",
+    if (!devIoctl) throw atdUtil::IOException(getDeviceName(),"ioctl",
     	"no ioctl associated with device");
 
     devIoctl->ioctl(request,portNum,buf,len);
@@ -201,3 +209,4 @@ dsm_sample_time_t RTL_DSMSensor::readSamples()
     buftail = 0;
     return tt;
 }
+
