@@ -16,13 +16,6 @@
 #ifndef IRIGCLOCK_H
 #define IRIGCLOCK_H
 
-extern unsigned long msecClock[];
-extern unsigned char readClock;
-
-#define GET_MSEC_CLOCK (msecClock[readClock])
-
-#define MSEC_IN_DAY 86400000
-
 enum irigClockRates {
     IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
     IRIG_10_HZ, IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ,
@@ -52,6 +45,13 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 
 
 #ifdef __KERNEL__
+
+extern unsigned long msecClock[];
+extern unsigned char readClock;
+
+#define GET_MSEC_CLOCK (msecClock[readClock])
+
+#define MSEC_IN_DAY 86400000
 
 typedef void irig_callback_t(void* privateData);
 
