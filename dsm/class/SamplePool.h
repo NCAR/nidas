@@ -20,6 +20,7 @@
 #include <Sample.h>
 
 #include <vector>
+#include <iostream>
 
 namespace dsm {
 
@@ -60,12 +61,12 @@ public:
     /**
      * Return a sample to the pool.
      */
-    void putSample(SampleType *);
+    void putSample(const SampleType *);
 
 protected:
     SampleType *getSample(SampleType** vec,int *veclen, size_t len)
 	throw(SampleLengthException);
-    void putSample(SampleType *,SampleType*** vecp,int *veclen, int* nalloc);
+    void putSample(const SampleType *,SampleType*** vecp,int *veclen, int* nalloc);
 
     SampleType** smallSamples;
     SampleType** mediumSamples;
@@ -144,6 +145,11 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
     	int *n, size_t len) throw(SampleLengthException) {
 
     SampleType *sample;
+#ifdef DEBUG
+    std::cerr << "getSample, this=" << std::hex << this <<
+    	" pool=" << vec << std::dec <<
+    	" *n=" << *n << std::endl;
+#endif
     int i = *n - 1;
 
     if (i >= 0) {
@@ -161,7 +167,7 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
 }
 
 template<class SampleType>
-void SamplePool<SampleType>::putSample(SampleType *sample) {
+void SamplePool<SampleType>::putSample(const SampleType *sample) {
     atdUtil::Synchronized pooler(poolLock);
     size_t len = sample->getAllocLength();
     if (len < 32)
@@ -170,20 +176,26 @@ void SamplePool<SampleType>::putSample(SampleType *sample) {
 }
 
 template<class SampleType>
-void SamplePool<SampleType>::putSample(SampleType *sample,
+void SamplePool<SampleType>::putSample(const SampleType *sample,
     	SampleType ***vec,int *n, int *nalloc) {
-    if (*n == *nalloc) {
-    // cerr << "reallocing, n=" << *n << " nalloc=" << *nalloc << endl;
+#ifdef DEBUG
+    std::cerr << "putSample, this=" << std::hex << this <<
+    	" pool=" << *vec << std::dec <<
+    	" *n=" << *n << std::endl;
+#endif
     // increase by 50%
-    int newalloc = *nalloc + (*nalloc >> 1);
-    SampleType **newvec = new SampleType*[newalloc];
-    ::memcpy(newvec,*vec,*nalloc * sizeof(SampleType*));
-    delete [] *vec;
-    *vec = newvec;
-    *nalloc = newalloc;
+    if (*n == *nalloc) {
+	// cerr << "reallocing, n=" << *n << " nalloc=" << *nalloc << endl;
+	// increase by 50%
+	int newalloc = *nalloc + (*nalloc >> 1);
+	SampleType **newvec = new SampleType*[newalloc];
+	::memcpy(newvec,*vec,*nalloc * sizeof(SampleType*));
+	delete [] *vec;
+	*vec = newvec;
+	*nalloc = newalloc;
     }
 
-    (*vec)[(*n)++] = sample;
+    (*vec)[(*n)++] = (SampleType*) sample;
 }
 
 }
