@@ -20,6 +20,8 @@
 #include <header.h>
 #include <dsmctl.h>
 
+#define PARSCI_STR       "PARSCI"
+#define MENSOR_STR       "MENSOR"
 class TapeHeader {
 public:
   TapeHeader ();			// constructor
@@ -115,6 +117,8 @@ public:
   int digoutType()	{return sdiType() && 
 				 !strcmp (type(),DIGITAL_OUT_STR);}
   int dpresType() 	{return !strcmp (desc, DPRES_STR);} 
+  int mensorType() 	{return !strcmp (desc, MENSOR_STR);} 
+  int parsciType() 	{return !strcmp (desc, PARSCI_STR);} 
   int evtType()		{return !strcmp (desc, EVNT_STR);}
   int flType()		{return !strcmp (desc, TAPEHDR_STR);}
   int gpsTans2Type()	{return !strcmp (desc, GPS_TRIM_STR) || 

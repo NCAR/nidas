@@ -82,6 +82,8 @@
 #define NOAA_PORT_1             5       /* NOAA #1 */
 #define NONOY_PORT_1            7       /* NO_NOY #1 */
 #define DPRES_PORT_1            5       /* Digital Pressure #1 */
+#define MENSOR_PORT_1           1       /* Digital Pressure */
+#define PARSCI_PORT_1           2       /* Digital Pressure */
 #define OZONE_PORT_1		4	/* OZONE #1 */
 #define SPP_PORT_1		5	/* SPP 1D probe (pod) */
 #define SPP_PORT_2		6	/* SPP 1D probe (pod) */
