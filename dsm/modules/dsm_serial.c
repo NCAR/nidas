@@ -36,7 +36,9 @@
 #include <irigclock.h>
 #include <win_com8.h>
 
-#define SERIAL_DEBUG_AUTOCONF 1
+// #define SERIAL_DEBUG_AUTOCONF
+
+RTLINUX_MODULE(dsm_serial);
 
 static char* devprefix = "dsmser";
 
@@ -93,7 +95,7 @@ MODULE_PARM_DESC(irqs, "IRQ number");
 
 static struct serialBoard *boardInfo = 0;
 
-unsigned int dsm_com8_irq_handler(unsigned int irq,
+unsigned int dsm_serial_irq_handler(unsigned int irq,
 	void* callbackptr, struct rtl_frame *regs);
 
 static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* port);
@@ -497,14 +499,16 @@ out:
     serial_outp(port, UART_FCR, (UART_FCR_ENABLE_FIFO |
 				 UART_FCR_CLEAR_RCVR |
 				 UART_FCR_CLEAR_XMIT));
+    rtl_printf("cleared FIFO\n");
     serial_outp(port, UART_FCR, 0);
+    rtl_printf("disabled FIFO\n");
     (void)serial_in(port, UART_RX);
     serial_outp(port, UART_IER, 0);
 									    
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 
-#ifdef DEBUG
     rtl_printf("uart is a %s\n",uart_config[port->type].name);
+#ifdef DEBUG
 #endif
     return 0;
 }
@@ -643,6 +647,7 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 		serial_outp(port, UART_FCR, UART_FCR_ENABLE_FIFO);
 	}
 	serial_outp(port, UART_FCR, fcr);       /* set fcr */
+	rtl_printf("set FCR\n");
     }
 
     memcpy(&port->termios,termios,sizeof(struct termios));
@@ -722,6 +727,7 @@ static int uart_startup(struct serialPort* port)
 					 UART_FCR_CLEAR_RCVR |
 					 UART_FCR_CLEAR_XMIT));
 	    serial_outp(port, UART_FCR, 0);
+	    rtl_printf("uart_startup: cleared FIFO\n");
     }
 
     /*
@@ -824,27 +830,34 @@ static ssize_t queue_transmit_chars(struct serialPort* port,
     n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
     if (!n) goto done;
     if (n > left) n = left;
+
     memcpy(port->xmit.buf + port->xmit.head,buf,n);
     port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
+
     left -= n;
 
     if (!left) goto done;
 
+    buf += n;
     n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
     if (!n) goto done;
     if (n > left) n = left;
+
     memcpy(port->xmit.buf + port->xmit.head,buf,n);
     port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
+
     left -= n;
 
 done:
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+
     // enable transmit interrupts
     if (!(port->IER & UART_IER_THRI)) {
 	 port->IER |= UART_IER_THRI;
 	 serial_out(port, UART_IER, port->IER);
     }
 
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
     return count - left;		// characters copied
 }
 
@@ -885,7 +898,8 @@ static void port_prompter(void* privateData)
 
 static int start_prompter(struct serialPort* port)
 {
-    register_irig_callback(port_prompter,port->prompt.rate,port);
+    if (!port->promptOn) 
+	register_irig_callback(port_prompter,port->prompt.rate,port);
     port->promptOn = 1;
     return 0;
 }
@@ -924,9 +938,7 @@ static int get_record_sep(struct serialPort* port,
 static int get_status(struct serialPort* port,
 	struct dsm_serial_status* status)
 {
-
-    unsigned long flags;
-    rtl_spin_lock_irqsave (&port->lock,flags);
+    /* Note we're not doing rtl_spin_lock_irqsave here */
 
 #ifdef DEBUG
     rtl_printf("pe_cnt=%d,oe_cnt=%d\n",port->pe_cnt,port->oe_cnt);
@@ -948,7 +960,6 @@ static int get_status(struct serialPort* port,
     	port->sample_queue.tail,SAMPLE_QUEUE_SIZE);
     status->sample_queue_size = SAMPLE_QUEUE_SIZE;
 
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
 }
 
@@ -956,6 +967,7 @@ static int get_status(struct serialPort* port,
 static int open_port(struct serialPort* port)
 {
     int retval = 0;
+    unsigned long flags;
 
     if (port->type == PORT_UNKNOWN &&
     	(retval = autoconfig(port)) < 0) return retval;
@@ -965,14 +977,36 @@ static int open_port(struct serialPort* port)
 
     retval = uart_startup(port);
 
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+    port->board->int_mask |= (1 << port->portIndex);
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+
+    rtl_spin_lock_irqsave(&port->lock,flags);
+    port->pe_cnt = 0;
+    port->oe_cnt = 0;
+    port->fe_cnt = 0;
+    port->input_char_overflows = 0;
+    port->output_char_overflows = 0;
+    port->sample_overflows = 0;
+    port->nsamples = 0;
+    port->xmit.head = port->xmit.tail = 0;
+    port->sample_queue.head = port->sample_queue.tail = 0;
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+
     return retval;
 }
 
 static int close_port(struct serialPort* port)
 {
+    unsigned long flags;
 
     if (port->promptOn) stop_prompter(port);
     uart_shutdown(port);
+
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+    port->board->int_mask &= ~(1 << port->portIndex);
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+
     return 0;
 }
 
@@ -1046,6 +1080,7 @@ static int write_eeprom(struct serialBoard* board)
 static void init_serialPort_struct(struct serialPort* port)
 {
     port->portNum = 0;
+    port->portIndex = 0;
     port->ioport = 0;
     port->addr = 0;
     port->irq = 0;
@@ -1316,65 +1351,93 @@ static void transmit_chars(struct serialPort* port)
     }
 }
 
+void inline check_lsr(struct serialPort*port, unsigned char lsr)
+{
+    if (lsr & (UART_LSR_PE | UART_LSR_OE | UART_LSR_FE)) {
+	if (lsr & UART_LSR_PE) port->pe_cnt++;	// parity errors
+	if (lsr & UART_LSR_OE) port->oe_cnt++;	// input overflows
+	if (lsr & UART_LSR_FE) port->fe_cnt++;	// framing errors
+	// there is also a FIFO bit error here, not sure what
+	// to do with it at this point.
+    }
+}
+
+static inline void receive_chars(struct serialPort* port,unsigned char* lsrp)
+{
+    // Read fifo until empty
+    unsigned char c;
+    while(*lsrp & UART_LSR_DR) {
+	c = serial_in(port,UART_RX); // Read character
+	if (port->recinfo.atBOM) add_char_sep_bom(port,c);
+	else add_char_sep_eom(port,c);
+	check_lsr(port,*lsrp);
+	*lsrp = serial_in(port,UART_LSR);
+    }
+}
+
 static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* port)
 {
-    unsigned char pstat;
-    unsigned char c;
-    unsigned char status;
+    unsigned char iir;
+    unsigned char lsr;
+    unsigned char msr;
     for (;;) {
-	pstat = serial_in(port,UART_IIR) & 0x3f;
+	iir = serial_in(port,UART_IIR) & 0x3f;
 #ifdef DEBUG
-	rtl_printf("pstat=0x%x\n",pstat);
+	rtl_printf("iir=0x%x\n",iir);
 #endif
-	if (pstat & UART_IIR_NO_INT) break;
+	if (iir & UART_IIR_NO_INT) break;
+	msr = serial_in(port, UART_MSR);
 
-	switch (pstat) {
+	switch (iir) {
 	case UART_IIR_THRI:	// 0x02: transmitter holding register empty
 #ifdef DEBUG
 	    rtl_printf("UART_IIR_THRI interrupt\n");
 #endif
 	    transmit_chars(port);
+	    lsr = serial_in(port,UART_LSR);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    break;
 	case UART_IIR_RDI:	// 0x04: received data ready
 	case WIN_COM8_IIR_RDTO:	// 0x0c received data timeout
 #ifdef DEBUG
 	    rtl_printf("UART_IIR_RDI interrupt\n");
 #endif
-	    // Read fifo until empty
-	    while(serial_in(port,UART_LSR) & UART_LSR_DR) {
-		c = serial_in(port,UART_RX); // Read character
-		if (port->recinfo.atBOM) add_char_sep_bom(port,c);
-		else add_char_sep_eom(port,c);
-	    }
+	    lsr = serial_in(port,UART_LSR);
+	    receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_MSI:	// 0x00 modem status change
-	    status = serial_in(port, UART_MSR);
-	    rtl_printf("UART_IIR_MSI interrupt, MSR=0x%x\n",status);
+	    rtl_printf("UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
+	    /* ignore for now */
+	    lsr = serial_in(port,UART_LSR);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_RLSI:	// 0x06 line status interrupt (error)
-	    status = serial_in(port, UART_LSR);
-	    if (status & UART_LSR_PE) port->pe_cnt++;	// parity errors
-	    if (status & UART_LSR_OE) port->oe_cnt++;	// input overflows
-	    if (status & UART_LSR_FE) port->fe_cnt++;	// framing errors
-	    // there is also a FIFO bit error here, not sure what
-	    // to do with it at this point.
-	    rtl_printf("UART_IIR_RLSI interrupt, LSR=0x%x\n",status);
+	    rtl_printf("UART_IIR_RLSI interrupt, LSR=0x%x\n",lsr);
+	    lsr = serial_in(port,UART_LSR);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
-	    status = serial_in(port, UART_IIR);
-	    rtl_printf("ISR_RSC interrupt, IIR=0x%x\n",status);
+	    rtl_printf("ISR_RSC interrupt, IIR=0x%x\n",iir);
 	    // do we read this character now?
+	    lsr = serial_in(port,UART_LSR);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
-	    status = serial_in(port, UART_MSR);
-	    rtl_printf("ISR_CTSRTS interrupt, MSR=0x%x\n",status);
+	    rtl_printf("ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
+	    lsr = serial_in(port,UART_LSR);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	}
     }
     return 0;
 }
 
-unsigned int dsm_com8_irq_handler(unsigned int irq,
+unsigned int dsm_serial_irq_handler(unsigned int irq,
 	void* callbackptr, struct rtl_frame *regs)
 {
     struct serialBoard* board = (struct serialBoard*) callbackptr;
@@ -1389,7 +1452,7 @@ unsigned int dsm_com8_irq_handler(unsigned int irq,
 #endif
 
     // read board interrupt id register
-    while ((bstat = serial_inp(board,COM8_BC_IIR))) {
+    while ((bstat = serial_inp(board,COM8_BC_IIR)) & board->int_mask) {
 #ifdef DEBUG
 	rtl_printf("dsm_irq_handler bstat=0x%x\n", bstat);
 #endif
@@ -1465,10 +1528,14 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    struct dsm_serial_sample* samp = 0;
 	    rtl_sem_wait(&port->sample_sem);
 
+	    /*
 	    rtl_spin_lock_irqsave(&port->lock,flags);
+	    */
 	    if (port->sample_queue.head != port->sample_queue.tail)
 		samp = port->sample_queue.buf[port->sample_queue.tail];
+	    /*
 	    rtl_spin_unlock_irqrestore(&port->lock,flags);
+	    */
 
 	    if (!samp) break;
 	    port->unwrittenp = (char*) samp;
@@ -1698,6 +1765,7 @@ int init_module(void)
 	boardInfo[ib].irq = 0;
 	boardInfo[ib].ports = 0;
 	boardInfo[ib].numports = 0;
+	boardInfo[ib].int_mask = 0;
     }
 
     int portcounter = 0;
@@ -1742,6 +1810,7 @@ int init_module(void)
 	    struct serialPort* port = boardInfo[ib].ports + ip;
 
 	    port->portNum = portcounter;
+	    port->portIndex = ip;
 	    port->ioport = ioport0[ib] + (ip * 8);
 
 	    addr = SYSTEM_ISA_IOPORT_BASE + port->ioport;
@@ -1845,7 +1914,7 @@ int init_module(void)
 
 	switch (boardInfo[ib].type) {
 	case BOARD_WIN_COM8:
-	    if ((retval = rtl_request_isa_irq(boardirq,dsm_com8_irq_handler,
+	    if ((retval = rtl_request_isa_irq(boardirq,dsm_serial_irq_handler,
 		boardInfo + ib)) < 0) goto err1;
 	    break;
 	}

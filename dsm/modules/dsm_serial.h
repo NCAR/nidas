@@ -172,6 +172,8 @@ struct serialPort {
     char *devname;	/* device name */
     int portNum;	/* port number: 0-(N-1), N=total number of ports
     			 * maintained by this driver, counting all boards */
+    int portIndex;	/* which port on this board, 0-(N-1), where
+    			 * N is the number of ports on the board */
     int ioport;		/* ISA IOport address, e.g. 0x300 */
     unsigned long addr;	/* full address, including BASE address of ISA */
     int irq;		/* port's interrupt */
@@ -228,6 +230,7 @@ struct serialBoard {
     struct serialPort* ports;
     int numports;
     rtl_spinlock_t lock;
+    int int_mask;
 };
 
 #endif	/* __KERNEL__ */
