@@ -84,7 +84,7 @@
 	        <socket type="mstream"/>
 	    </output>
 	</service>
-	<service class="RawArchiveService">
+	<service class="RawSampleService">
 	    <!-- input from every DSM on this aircraft that has
 		 a socket output of type RawSampleOutput -->
 	    <input class="SampleInputStream">
