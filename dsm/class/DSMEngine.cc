@@ -325,7 +325,6 @@ void DSMEngine::startSensors() throw(atdUtil::IOException)
 	std::cerr << "doing sens->open of" <<
 	    (*si)->getDeviceName() << endl;
 	(*si)->open((*si)->getDefaultMode());
-	// (*si)->addSampleClient(&test);
 	handler->addSensorPort(*si);
     }
 }

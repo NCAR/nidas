@@ -29,17 +29,6 @@ public:
 
     void connect() throw(atdUtil::IOException);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(atdUtil::InvalidParameterException);
-
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException);
-
 protected:
 };
 
