@@ -51,8 +51,10 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 	cerr << "SensorCatalog: child element name=" << elname << endl;
 
-	if (!elname.compare("serialsensor") ||
-            !elname.compare("arincSensor")) {
+	if (!elname.compare("serialSensor") ||
+            !elname.compare("arincSensor") ||
+            !elname.compare("irigSensor") ||
+            !elname.compare("sensor")) {
 	    const string& id = xchild.getAttributeValue("ID");
 	    if(id.length() > 0) {
 		map<string,DOMElement*>::iterator mi =
@@ -69,6 +71,9 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 		    	dec << endl;
 	    }
         }
+	else throw atdUtil::InvalidParameterException(
+			"SensorCatalog::fromDOMElement",
+			"unrecognized element",elname);
     }
 }
 
