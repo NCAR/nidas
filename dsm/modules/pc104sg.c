@@ -453,43 +453,46 @@ static void *pc104sg_100hz_thread (void *param)
 	/* perform 100Hz processing... */
 	doCallbacklist(callbacklists + IRIG_100_HZ);
 
-	if ((hz100_cnt %   2)) {
-	    // odd numbered count, check for mod 5 and 25
+        if ((hz100_cnt %   2)) goto _5;
 
-	    if ((hz100_cnt %   5)) goto cleanup_pop;
-	    /* perform 20Hz processing... */
-	    doCallbacklist(callbacklists + IRIG_20_HZ);
+        /* perform 50Hz processing... */
+        doCallbacklist(callbacklists + IRIG_50_HZ);
 
-	    if ((hz100_cnt %  25)) goto cleanup_pop;
-	    /* perform 4Hz processing... */
-	    doCallbacklist(callbacklists + IRIG_4_HZ);
+        if ((hz100_cnt %   4)) goto _5;
 
-	  }
-	  else {
+        /* perform 25Hz processing... */
+        doCallbacklist(callbacklists + IRIG_25_HZ);
 
-	      /* perform 50Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_50_HZ);
+_5:     if ((hz100_cnt %   5)) goto cleanup_pop;
 
-	      if ((hz100_cnt %   4)) goto cleanup_pop;
-	      /* perform 25Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_25_HZ);
+        /* perform 20Hz processing... */
+        doCallbacklist(callbacklists + IRIG_20_HZ);
 
-	      if ((hz100_cnt %  10)) goto cleanup_pop;
-	      /* perform 10Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_10_HZ);
+        if ((hz100_cnt %  10)) goto _25;
 
-	      if ((hz100_cnt %  20)) goto cleanup_pop;
-	      /* perform  5Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_5_HZ);
+        /* perform 10Hz processing... */
+        doCallbacklist(callbacklists + IRIG_10_HZ);
 
-	      if ((hz100_cnt %  50)) goto cleanup_pop;
-	      /* perform  2Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_2_HZ);
+        if ((hz100_cnt %  20)) goto _25;
 
-	      if ((hz100_cnt % 100)) goto cleanup_pop;
-	      /* perform  1Hz processing... */
-	      doCallbacklist(callbacklists + IRIG_1_HZ);
-	}
+        /* perform  5Hz processing... */
+        doCallbacklist(callbacklists + IRIG_5_HZ);
+
+_25:    if ((hz100_cnt %  25)) goto cleanup_pop;
+
+        /* perform  4Hz processing... */
+        doCallbacklist(callbacklists + IRIG_4_HZ);
+
+        if ((hz100_cnt %  50)) goto cleanup_pop;
+
+        /* perform  2Hz processing... */
+        doCallbacklist(callbacklists + IRIG_2_HZ);
+
+        if ((hz100_cnt % 100)) goto cleanup_pop;
+
+        /* perform  1Hz processing... */
+        doCallbacklist(callbacklists + IRIG_1_HZ);
+
 cleanup_pop:
 	pthread_cleanup_pop(1);
     }
