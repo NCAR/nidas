@@ -13,7 +13,7 @@
 #include <rtl_signal.h>
 #include <rtl_errno.h>
 
-// #define DEBUG
+#define DEBUG
 
 LIST_HEAD(ioctlList);
 
@@ -86,6 +86,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     for (icmd = 0; icmd < nioctls; icmd++)
     if (ioctls[icmd].size > handle->bufsize)
 	handle->bufsize = ioctls[icmd].size;
+    
     handle->buf = kmalloc(handle->bufsize, GFP_KERNEL);
 
     handle->bytesRead = handle->bytesToRead = 0;
@@ -154,11 +155,11 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
 
 /**
  * Send a error response back on the FIFO.
- * 4 byte negative errno int, 4 byte length, length message, ETX.
+ * 4 byte non-zero errno int, 4 byte length, length message, ETX.
  */
 static int sendError(int fifofd,int errval, const char* msg)
 {
-  rtl_printf("sendError, errval=%d,msg=%s",errval,msg);
+  rtl_printf("sendError, errval=%d,msg=%s\n",errval,msg);
   write(fifofd,&errval,sizeof(int));
   int len = strlen(msg) + 1;
   write(fifofd,&len,sizeof(int));
@@ -233,7 +234,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   if (handle == NULL) {
     rtl_printf("ioctlHandler can't find handle for FIFO file descriptor %d\n",
     	outFifofd);
-    sendError(handle->inFifofd,-EINVAL,"can't find handle for this FIFO");
+    sendError(handle->inFifofd,EINVAL,"can't find handle for this FIFO");
     return;
   }
 
@@ -245,7 +246,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
   if ((nread = read(outFifofd,buf,sizeof(buf))) < 0) {
     rtl_printf("ioctlHandler read failure on %s\n",handle->outFifoName);
-    sendError(handle->inFifofd,-rtl_errno,"error reading from FIFO");
+    sendError(handle->inFifofd,rtl_errno,"error reading from FIFO");
     goto unlock;
   }
 #ifdef DEBUG
@@ -331,7 +332,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 #endif
      if (icmd == handle->nioctls) {
 	rtl_printf("ioctlHandler cmd= %d not supported\n",cmd);
-	sendError(handle->inFifofd,-EINVAL,"cmd not supported");
+	sendError(handle->inFifofd,EINVAL,"cmd not supported");
 	handle->bytesRead = 0;
 	handle->readETX = 1;
 	handle->icmd = -1;
@@ -340,7 +341,9 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       handle->icmd = icmd;
 
       if (handle->header.size > handle->bufsize) {
-	  sendError(handle->inFifofd,-EINVAL,"size too large");
+	  sendError(handle->inFifofd,EINVAL,"size too large");
+	  rtl_printf("header size, %d, larger than bufsize %d\n",
+	  	handle->header.size,handle->bufsize);
 	  handle->bytesRead = 0;
 	  handle->readETX = 1;
 	  handle->icmd = -1;
@@ -367,15 +370,20 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
     /* call ioctl function on device */
 #ifdef DEBUG
-    rtl_printf("ioctlHandler calling ioctlCallback\n");
+    rtl_printf("ioctlHandler calling ioctlCallback, port=%d\n",
+        handle->header.port);
 #endif
     res = handle->ioctlCallback(handle->header.cmd,
 	  handle->boardNum,handle->header.port,handle->buf,
 	  	handle->header.size);
 
-    if (res < 0) sendError(handle->inFifofd,res,"ioctl error");
-    else if (_IOC_DIR(handle->header.cmd) & _IOC_READ)
+    if (res < 0) sendError(handle->inFifofd,-res,"ioctl error");
+    else if (_IOC_DIR(handle->header.cmd) & _IOC_READ) {
+#ifdef DEBUG
+	rtl_printf("ioctlHandler __IOC_READ\n");
+#endif
 	sendResponse(handle->inFifofd,handle->buf,res);
+    }
     else sendResponse(handle->inFifofd,handle->buf,0);
 
     handle->bytesRead = 0;
