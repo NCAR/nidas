@@ -78,7 +78,7 @@
 </sensorcatalog>
 
 <aircraft tailno="1234" name="hiaper">
-    <server name="dyn84-49">
+    <server>
 	<service class="XMLConfigService">
 	    <output class="ConfigRequestor">
 	        <socket type="mstream"/>
@@ -111,11 +111,12 @@
 	    <socket type="mstream"/>
 	</output>
 
+	<!--
 	<output class="SyncRecordOutput">
-	    <!-- filename: $DIR/$PROJECT/$AIRCRAFT_$LOCATION_$SUFFIX -->
 	    <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
 		length="0" />
 	</output>
+	-->
     </dsm>
 
     <dsm name="dsm301" location="cabin">
