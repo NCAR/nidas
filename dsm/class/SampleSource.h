@@ -63,11 +63,23 @@ public:
     /**
      * Distribute a sample to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
+     * Afterwards does a freeReference() on the sample.
      */
     virtual void distribute(const Sample* s)
 	throw(SampleParseException,atdUtil::IOException)
     {
         distributeImpl(s);
+    }
+
+    /**
+     * Distribute a list of samples to my clients. Calls receive() method
+     * of each client, passing the pointer to the Sample.
+     */
+    virtual void distribute(const std::list<const Sample*>& samps)
+	throw(SampleParseException,atdUtil::IOException)
+    {
+	for (std::list<const Sample*>::const_iterator si = samps.begin();
+		si != samps.end(); ++si) distributeImpl(*si);
     }
 
 };

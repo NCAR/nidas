@@ -58,6 +58,7 @@ protected:
   /**
    * Distribute this sample to my clients. Calls receive() method
    * of each client, passing the pointer to the Sample.
+   * Does a freeReference() on the sample before returning.
    */
   virtual void distributeImpl(const Sample*)
   	throw(SampleParseException,atdUtil::IOException);
