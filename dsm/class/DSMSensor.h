@@ -199,10 +199,16 @@ protected:
 
     /**
      * Must be called before invoking readSamples(). Derived
-     * classes should usually call initBuffer in their 
+     * classes should call initBuffer in their 
      * open() method.
      */
     void initBuffer() throw();
+
+    /**
+     * Delete the sensor buffer.  Derived classes should call
+     * destroyBuffer in their close() method.
+     */
+    void destroyBuffer() throw();
 
     std::string devname;
 

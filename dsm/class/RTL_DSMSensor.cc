@@ -115,6 +115,7 @@ void RTL_DSMSensor::close() throw(atdUtil::IOException)
 
     if (devIoctl) devIoctl->close();
     devIoctl = 0;
+    destroyBuffer();
 
 }
 

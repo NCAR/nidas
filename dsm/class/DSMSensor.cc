@@ -57,6 +57,11 @@ void DSMSensor::initBuffer() throw()
     buffer = new char[BUFSIZE];
 }
 
+void DSMSensor::destroyBuffer() throw()
+{
+    delete [] buffer;
+    buffer = 0;
+}
 
 dsm_sample_time_t DSMSensor::readSamples()
 	throw (SampleParseException,atdUtil::IOException)
