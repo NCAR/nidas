@@ -21,7 +21,7 @@ src_arm_env['LIBS'] = Split("""
 ##
 # ckrtl_com8.cc
 apps = Split("""
-  dsmAsync.cc
+  dsmSync.cc
   ck_main.cc
 """)
 
