@@ -18,7 +18,7 @@
 
 #define IOCTL_FIFO_MAGIC 'F'
 
-#define GET_NUM_PORTS  _IOR(RTL_IOCTL_FIFO_MAGIC,0,int)
+#define GET_NUM_PORTS  _IOR(IOCTL_FIFO_MAGIC,0,int)
 
 
 #ifdef __KERNEL__
