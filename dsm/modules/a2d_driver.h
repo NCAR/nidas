@@ -46,18 +46,18 @@
 //Status/error
 #define A2DLOADOK	 	 0
 
-#define	ERRA2DNOFILE		-1	//Error opening file
+#define	ERRA2DNOFILE	-1	//Error opening file
 #define	ERRA2DCHAN		-2	//Channel # requested is out of bounds
 #define	ERRA2DGAIN		-3	//Gain value out of bounds
 #define	ERRA2DVCAL		-4	//Vcal out of bounds
 #define	ERRA2DCRC		-5	//Data corrupted
 #define	ERRA2DID		-6	//Wrong device ID
 #define	ERRA2DCONV		-7	//Conversion data invalid
-#define	ERRA2DCHIPID		-8	//Chip ID error
+#define	ERRA2DCHIPID	-8	//Chip ID error
 #define	ERRA2DRATE		-9	//A/D sample rate error
 
 //Card base address for ISA bus
-#define	A2DMASTER		7
+#define	A2DMASTER		7	//A/D chip designated to produce interrupts
 #define	A2DIOBASE		0x000003A0
 #define	A2DIOSEP		0x00000010	// Card addr separation
 #define	ARMISABASE		0xf7000000
@@ -72,17 +72,21 @@
 //   e.g. *(unsigned short *)(A2DBASE+A2DIOLOAD) = A2DIOFIFO;
 //   will point the enable latch at the FIFO output.
 
-#define	A2DIOFIFO		0	//FIFO read, FIFO Control (write)
-#define	A2DIOSTAT		1	//A/D status (read), command (write)
-#define	A2DIODATA		2	//A/D data(read), config(write)	
-#define	A2DIOGAIN03		3	//A/D chan 0-3 gain read/write
-#define	A2DIOGAIN47		4	//A/D chan 4-7 gain read/write
-#define	A2DIOVCAL		5	//VCAL set (DAC ch 0) read/write
-#define A2DIOSYSCTL		6	//A/D INT lines(read),Cal/offset (write)
-#define	A2DIOFIFOSTAT		7	//FIFO stat (read), 
-#define	A2DIOLOAD		8	//Load A/D configuration data
+#define	A2DIOFIFO		0x0	//FIFO data (read), FIFO Control (write)
+#define	A2DIOSTAT		0x1	//A/D status (read), command (write)
+#define	A2DSTATRD		0x9	//Same as A2DIOSTAT; BSD3(=A2DRWN) high (rd)
+#define	A2DCMNDWR		0x1	//Same as A2DIOSTAT; BSD3(=A2DRWN) low	(wr)
+#define A2DIODATA		0x2 // A/D data(read), config(write)
+#define	A2DDATARD		0xA	// Same as A2DIODATA; BSD3(=A2DRWN) high (rd)
+#define	A2DCONFWR		0x2	// Same as A2DIODATA; BSD3(=A2DRWN) low  (wr)
+#define	A2DIOGAIN03		0x3	//A/D chan 0-3 gain read/write
+#define	A2DIOGAIN47		0x4	//A/D chan 4-7 gain read/write
+#define	A2DIOVCAL		0x5	//VCAL set (DAC ch 0) read/write
+#define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
+#define	A2DIOFIFOSTAT	0x7	//FIFO stat (read), Set master A/D (write) 
+#define	A2DIOLOAD		0xF	//Load A/D configuration data
 
-//A/D Chip command words
+//A/D Chip command words (See A2DIOSTAT and A2DCMNDWR above)
 #define	A2DREADID		0x8802	//Read device ID
 #define	A2DREADDATA		0x8d21	//Read converted data
 #define	A2DWRCONFIG		0x1800	//Write configuration data
@@ -97,32 +101,38 @@
 #define	A2DIDERR		0x1000	//Chip ID error
 #define	A2DCRCERR		0x0800	//Data corrupted--CRC error
 #define	A2DDATAERR		0x0400	//Conversion data invalid
-#define	A2DINSTREG15		0x0200	//Instruction register bit  	15
-#define	A2DINSTREG13		0x0100	//				13
-#define	A2DINSTREG12		0x0080	//				12
-#define	A2DINSTREG11		0x0040	//				11
-#define	A2DINSTREG06		0x0020	//				06
-#define	A2DINSTREG05		0x0010	//				05
-#define	A2DINSTREG04		0x0008	//				04
-#define	A2DINSTREG01		0x0004	//				01
-#define	A2DINSTREG00		0x0002	//				00
-#define	A2DCONFIGEND		0x0001	//Configuration End Flag.
+#define	A2DINSTREG15	0x0200	//Instr reg bit	15
+#define	A2DINSTREG13	0x0100	//				13
+#define	A2DINSTREG12	0x0080	//				12
+#define	A2DINSTREG11	0x0040	//				11
+#define	A2DINSTREG06	0x0020	//				06
+#define	A2DINSTREG05	0x0010	//				05
+#define	A2DINSTREG04	0x0008	//				04
+#define	A2DINSTREG01	0x0004	//				01
+#define	A2DINSTREG00	0x0002	//				00
+#define	A2DCONFIGEND	0x0001	//Configuration End Flag.
 
 //FIFO Control Word bit definitions
-#define	FIFOCLR		0x01	//Cycle this bit 0-1-0 to clear FIFO
-#define	A2DAUTO		0x02	//Set = allow A/D's to run automatically
-#define	A2DSYNC		0x04	//Set then cycle A2DSYNCCK to stop A/D's
-#define	A2DSYNCCK	0x08	//Cycle to latch A2DSYNC bit value
-#define	A2D1PPSEBL	0x10	//Set to allow GPS 1PPS to clear SYNC
-#define	FIFODAFAE	0x20	//Set to clamp value of AFAE in FIFO 
-#define	FIFOSTATEBL	0x40	//Not used. 
-#define	A2DRW		0x80	//Enables A/D read operations
+
+// A/D Control bits
+#define	FIFOCLR			0x01	//Cycle this bit 0-1-0 to clear FIFO
+#define	A2DAUTO			0x02	//Set = allow A/D's to run automatically
+#define	A2DSYNC			0x04	//Set then cycle A2DSYNCCK to stop A/D's
+#define	A2DSYNCCK		0x08	//Cycle to latch A2DSYNC bit value
+#define	A2D1PPSEBL		0x10	//Set to allow GPS 1PPS to clear SYNC
+#define	FIFODAFAE		0x20	//Set to clamp value of AFAE in FIFO 
+#define	A2DSTATEBL		0x40	//Not used. 
+#define	FIFOWREBL		0x80	//Enable writing to FIFO.
 
 // FIFO Status bits
-#define	FIFOHF		0x0001	// FIFO half full
-#define FIFOAFAE	0x0002	// FIFO almost full/almost empty
+#define	FIFOHF			0x0001	// FIFO half full
+#define FIFOAFAE		0x0002	// FIFO almost full/almost empty
 #define FIFONOTEMPTY	0x0004	// FIFO not empty
-#define	FIFOFULL	0x0008  // FIFO full
+#define	FIFOFULL		0x0008  // FIFO full
+
+// A/D Filter configuration file parameters
+#define CONFBLOCKS  12  // 12 blocks as described below
+#define CONFBLLEN	43	// 42 data words plus 1 CRCC	
 
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
@@ -157,7 +167,7 @@ typedef struct
 	US	master;		// Designates master A/D
 	US	ctr[8];		// Current value of ctr;
 	UL	ptr[8];		// Pointer offset from beginning of 
-	US	filter[2048];	// Filter data
+	US	filter[CONFBLOCKS*CONFBLLEN+2];	// Filter data
 				// data summing buffer
 }A2D_SET;
 
@@ -177,8 +187,8 @@ double A2DSetNorm(int a, A2D_SET *b, double c);	//Set A/D nomalization const.
 void A2DSetMaster(US a);	//Assign one of the A/D's as timing master
 int  A2DInit(int a, US *b);	//Initialize/load A/D converters
 void A2DSetCtr(A2D_SET *a);	//Reset the individual channel sample counters
-US   A2DReadInts(void);		//Read the state of all 8 A/D interruptlines
-US   A2DSetVcal(int Vx8);	//Set the calibration point voltage
+UC   A2DReadInts(void);		//Read the state of all 8 A/D interruptlines
+UC   A2DSetVcal(int a);	//Set the calibration point voltage
 void A2DSetCal(A2D_SET *a);	//Set the cal enable bits for the 8 channels
 void A2DSetOffset (A2D_SET *a);	//Set the offset enable bits for the 8 channels
 void A2DReadFIFO(int a, US *b);	//Read a shorts from the FIFO into buffer b
@@ -192,6 +202,7 @@ void A2DError(int a);		//A/D Card error handling
 
 int  init_module(void);
 void cleanup_module(void);
+
 /*
 static int __init a2d_init();		//For Linux kernel
 static void __exit a2d_cleanup(void);	//For Linux kernel

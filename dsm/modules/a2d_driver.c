@@ -1,16 +1,7 @@
-//#define INBUFWR		// Turn on simulated data array printout
-//#define	DEBUGDATA 	// Turns on printout in data simulator
-#define FIX_A2D		// Reverse LS byte of ISA bus
-#define	QUIETOUTB	// Shut off printout
-#define	QUIETINB	// Shut off printout
-#define	QUIETOUTW	// Shut off printout
-#define	QUIETINW	// Shut off printout
-#define NOIRIG		// DEBUG mode, running without IRIG card
-
 /*  a2d_driver.c/
 
 
-Time-stamp: <Sat 30-Oct-2004 12:48:04 pm>
+Time-stamp: <Sat 13-Jan-2005 12:48:04 pm>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
 
@@ -22,14 +13,29 @@ Revisions:
 
 */
 
+//#define INBUFWR		// Turn on simulated data array printout
+//#define	DEBUGDATA 	// Turns on printout in data simulator
+#define	INTERNAL	// Uses internal A/D filter code
+#define FIX_A2D		// Reverse LS byte of ISA bus
+#define	QUIETOUTB	// Shut off printout
+#define	QUIETINB	// Shut off printout
+#define	QUIETOUTW	// Shut off printout
+#define	QUIETINW	// Shut off printout
+
 // #define		DEBUG0		//Activates specific debug functions
-// #define		USE_RTLINUX 	//If not defined I/O is in debug mode
+// #define NOIRIG		// DEBUG mode, running without IRIG card
+#define		USE_RTLINUX 	//If not defined I/O is in debug mode
+#define		FREERUN		// Start A/D's without waiting for 1PPS
+#define 	SYNC1PPS	// Enable start sync to 1PPS leading edge
 
 // Enumerated A2D_RUN_IOCTL messages
 #define	RUN	1
 #define STOP	2
 #define	RESTART	3
 
+// A/D Configuration file parameters
+#define CONFBLOCKS  12  // 12 blocks as described below
+#define CONFBLLEN   43  // Block of 42 16-bit words plus a CRC word
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +59,7 @@ Revisions:
 #include <ioctl_fifo.h>
 #include <irigclock.h>
 #include <a2d_driver.h>
+
 
 void ggoutw(US a, US *b);
 void ggoutb(UC a, UC *b);
@@ -143,7 +150,9 @@ static int A2DCallback(int cmd, int board, int port,
 		{
 		rtl_printf("%s: A2D_SET_IOCTL\n", __FILE__);
 		A2D_SET *ts = (A2D_SET *)buf;
+#ifdef PRINTIOCTL
 		A2DIoctlDump(ts);
+#endif
 		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
 		}
@@ -153,7 +162,9 @@ static int A2DCallback(int cmd, int board, int port,
 		{
 		rtl_printf("%s: A2D_CAL_IOCTL\n", __FILE__);
 		A2D_SET *ts = (A2D_SET *)buf;
+#ifdef PRINTIOCTL
 		A2DIoctlDump(ts);
+#endif
 		A2DSetVcal((int)ts->vcalx8);
 		A2DSetCal(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
@@ -274,7 +285,6 @@ int A2DSetup(A2D_SET *a2d)
 	FIFOCtl = 0;		//Clear FIFO Control Word
 	CardBase = A2DBASE;	//Set CardBase to base IO address of card 
 
-
 	A2DErrorCode = 0;
 
 	for(i = 0; i < 8; i++)
@@ -292,8 +302,11 @@ int A2DSetup(A2D_SET *a2d)
 	A2DSetCal(a2d);	// Switch appropriate channels to cal mode
 
 	A2DClearSYNC();	// Start A/Ds synchronous with 1PPS from IRIG card
+
+#ifdef SYNC1PPS
 	A2D1PPSEnable();// DEBUG Do this just following a 1PPS transition
 	A2DSetSYNC();	//	so that we don't step on the transition
+#endif
 	
 	A2DPtrInit(a2d);// Initialize offset buffer pointers
 
@@ -309,23 +322,31 @@ int A2DSetup(A2D_SET *a2d)
 
 int A2DInit(int A2DDes, US *filter)
 {
-	int 	j, count;
+	int 	j, k;
 	US	*filt;
 	US	*A2DAddr, A2DStat;
 
 	filt = (US *)filter;
 
-	count = *filt++;
 	A2DAddr = (US *)(CardBase + A2DDes);
 
 	A2DChSel(A2DIOSTAT);		// Point at command channel	
 	ggoutw(A2DWRCONFEM, A2DAddr);	// Write with masked errors
-	A2DChSel(A2DIODATA);		// Point to A/D data channel
 
-	for(j = 0; j < count; j++)
-	{
-		ggoutw(*filt++,A2DAddr);// Send forth the filter coefficients
-	}
+	A2DChSel(A2DIODATA);		// Point to A/D data channel
+  	//Transfer configuration file to
+  	for(j = 0; j < CONFBLOCKS; j++)
+  	{
+   	   for(k = 0; k < CONFBLLEN; k++)
+   	   	{
+   	       	ggoutw(filt[j*CONFBLLEN+k],A2DAddr);// Send forth the filter coefficients
+   	   	}
+  	}
+   	if(A2DStatus(A2DDes) != A2DCONFIGEND)
+   	   	rtl_printf("A/D%02X load error. A2DStatus = 0x%04x\n", 
+			A2DDes, A2DStatus(A2DDes));
+	else
+		rtl_printf("A/D%02x Loaded OK\n", A2DDes);
 
 	A2DStat = A2DStatus(A2DDes);
 
@@ -353,6 +374,7 @@ int A2DInit(int A2DDes, US *filter)
 
 	return(A2DLOADOK);
 }
+
 
 //TODO Make this work in with AnalogTable
 // A2DPtrInit initializes the A2D->ptr[i] buffer offsets
@@ -403,15 +425,15 @@ void A2DError(int Code)
 
 void A2DChSel(int chan)
 {
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	if(chan < 0 || chan > 7)return;	//Error check, return without action
 
-	A2DAddr = (US *)(CardBase + A2DIOLOAD);
+	A2DAddr = (UC *)(CardBase +  A2DIOLOAD);
 
 	CurChan = chan;
 
-	ggoutw((US)CurChan, A2DAddr);
+	ggoutb((UC)CurChan, A2DAddr);
 	return;
 }
 
@@ -427,8 +449,8 @@ US A2DStatus(int A2DDes)
 
 	A2DChSel(A2DIOSTAT);	// Point at Stat channel for read
 	stat = gginw(A2DAddr);
-	//	return(stat);
-	return(A2DCONFIGEND);
+	return(stat);
+//	return(A2DCONFIGEND);
 
 }
 
@@ -485,12 +507,12 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 {
 	int D2AChsel = -1;
 	US GainCode = 1;
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	//Check that gain is within limits
 	if(A2DGain < 1 || A2DGain > 25)return(ERRA2DGAIN);
 
-	A2DAddr = (US *)(CardBase + A2DSel);//    and this address
+	A2DAddr = (UC *)CardBase + A2DSel;//    and this address
 
 	if(A2DSel >= 0 && A2DSel <=3)	// If setting gain on channels 0-3
 	{
@@ -500,7 +522,7 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 	if(A2DSel >= 4 && A2DSel <=7)	// Otherwise, for channels 4-7
 	{
 		D2AChsel = A2DIOGAIN47;		// Use this channel select and
-		A2DAddr = (US *)(CardBase + A2DSel - 4); // this address
+		A2DAddr = (UC *)(CardBase + A2DSel - 4); // this address
 	}
 
 	// If no A/D selected return error -1
@@ -508,9 +530,9 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 
 	A2DChSel(D2AChsel);		// Set the card channel pointer
 
-	GainCode = (US)(10 * A2DGain);	// Gain code = 10*gain
+	GainCode = (UC)(10 * A2DGain);	// Gain code = 10*gain
 
-	ggoutw(GainCode, A2DAddr);
+	ggoutb(GainCode, A2DAddr);
 
 	return(GainCode);
 }
@@ -522,15 +544,15 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 
 void A2DSetMaster(US A2DMr)
 {
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	if(A2DMr > 7)return;	// Error check return with no action
 
-	A2DAddr = (US *)(CardBase);	// Compute write address
+	A2DAddr = (UC *)(CardBase);	// Compute write address
 
 	A2DChSel(A2DIOFIFOSTAT);	//Select the FIFO status channel (7)
 
-	ggoutw(A2DMr, A2DAddr);
+	ggoutb(A2DMr, A2DAddr);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -538,13 +560,11 @@ void A2DSetMaster(US A2DMr)
 //Read the A/D chip interrupt line states
 // Checked visually 5/22/04 GRG
 
-US	A2DReadInts()
+UC	A2DReadInts(void)
 {
-	US *A2DAddr;
+	A2DChSel(A2DIOSYSCTL);	//Select the sysctl channel for read
 
-	A2DAddr = (US *)(CardBase + A2DIOSYSCTL);
-
-	return(gginw(A2DAddr) & 0x00FF);
+	return(gginb((UC *)CardBase) & 0x00FF);
 }
 
 
@@ -553,21 +573,21 @@ US	A2DReadInts()
 // Input is the calibration voltage * 8 expressed as an integer
 //   i.e. -80 <= Vx8 <= +80 for -10 <= Calibration voltage <= +10
 // Checked visually 5/22/04 GRG
-US A2DSetVcal(int Vx8)
+UC A2DSetVcal(int Vx8)
 {
 	US Vcode = 1; 
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	//Check that V is within limits
 	if(Vx8 < -80 || Vx8 > 80)return(ERRA2DVCAL);
 
-	A2DAddr = (US *)(CardBase);
+	A2DAddr = (UC *)(CardBase);
 
 	A2DChSel(A2DIOVCAL);		// Set the channel pointer to VCAL
 
 	Vcode = Vx8 + 128 ;//Convert Vx8 to DAC code
 
-	ggoutw(Vcode, A2DAddr);
+	ggoutb(Vcode, A2DAddr);
 
 	return(Vcode);
 }
@@ -638,7 +658,7 @@ void A2DReadFIFO(int datactr, US *dataptr)
 
 	A2DAddr = (US *)CardBase;		// Read the FIFO
 	
-	*dataptr++ = gginw(A2DAddr);
+	*dataptr = gginw(A2DAddr);
 	
 }
 
@@ -653,6 +673,7 @@ void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
 
 	A2DAddr = (US *)(CardBase + A2DSel);
 	A2DChSel(A2DIODATA);
+
 	for(i = 0; i < datactr; i++)
 	{
 		*dataptr++ = gginw(A2DAddr);
@@ -666,17 +687,17 @@ void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
 
 void A2DSetSYNC(void)
 {
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	A2DChSel(A2DIOFIFO);
-	A2DAddr = (US *)(CardBase);
+	A2DAddr = (UC *)(CardBase);
 	 
 	FIFOCtl &= ~A2DSYNC;	//Ensure that SYNC bit in FIFOCtl is cleared.
 
-	ggoutw(FIFOCtl | A2DSYNC, A2DAddr);	// Set the SYNC data line
-	ggoutw(FIFOCtl | A2DSYNC | A2DSYNCCK, A2DAddr);	//Cycle the sync clock 
+	ggoutb(FIFOCtl | A2DSYNC, A2DAddr);	// Set the SYNC data line
+	ggoutb(FIFOCtl | A2DSYNC | A2DSYNCCK, A2DAddr);	//Cycle the sync clock 
 							// while keeping sync high
-	ggoutw(FIFOCtl | A2DSYNC, A2DAddr);							
+	ggoutb(FIFOCtl | A2DSYNC, A2DAddr);							
 	return;
 }
 
@@ -687,14 +708,14 @@ void A2DSetSYNC(void)
 
 void A2DClearSYNC(void)
 {
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	A2DChSel(A2DIOFIFO);
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (UC *)CardBase;
 	FIFOCtl &= ~A2DSYNC;	//Ensure that SYNC bit in FIFOCtl is cleared.
-	ggoutw(FIFOCtl, A2DAddr);	// Clear the SYNC data line
-	ggoutw(FIFOCtl | A2DSYNCCK, A2DAddr);	//Cycle the sync clock while keeping sync low
-	ggoutw(FIFOCtl, A2DAddr);							
+	ggoutb(FIFOCtl, A2DAddr);	// Clear the SYNC data line
+	ggoutb(FIFOCtl | A2DSYNCCK, A2DAddr);	//Cycle the sync clock while keeping sync low
+	ggoutb(FIFOCtl, A2DAddr);							
 	return;
 }
 
@@ -703,14 +724,12 @@ void A2DClearSYNC(void)
 // Checked visually 5/22/04 GRG
 void A2D1PPSEnable(void)
 {	
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	A2DChSel(A2DIOFIFO);
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (UC *)CardBase;
 	
-	FIFOCtl |= A2D1PPSEBL;		//Set the FCW 1PPS enable bit
-
-	ggoutw(FIFOCtl, A2DAddr);
+	ggoutb(FIFOCtl | A2D1PPSEBL, A2DAddr);
 
 	return;
 }
@@ -727,9 +746,7 @@ void A2D1PPSDisable(void)
 	A2DChSel(A2DIOFIFO);
 	A2DAddr = (US *)(CardBase + A2DIOFIFO);
 	
-	FIFOCtl &= ~A2D1PPSEBL;		//Clear the FCW 1PPS enable bit
-
-	ggoutw(FIFOCtl, A2DAddr);
+	ggoutw(FIFOCtl & ~A2D1PPSEBL, A2DAddr);
 
 	return;
 }
@@ -741,14 +758,16 @@ void A2D1PPSDisable(void)
 
 void A2DClearFIFO(void)
 {
-	US *A2DAddr;
+	UC *A2DAddr;
 
 	A2DChSel(A2DIOFIFO);
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (UC *)CardBase;
 
-	ggoutw(FIFOCtl, A2DAddr);
-	ggoutw(FIFOCtl | FIFOCLR, A2DAddr);	// Cycle FCW bit 0 to clear FIFO
-	ggoutw(FIFOCtl, A2DAddr);
+	FIFOCtl &= ~FIFOCLR; // Ensure that FIFOCLR bit is not set in FIFOCtl
+
+	ggoutb(FIFOCtl, A2DAddr);
+	ggoutb(FIFOCtl | FIFOCLR, A2DAddr);	// Cycle FCW bit 0 to clear FIFO
+	ggoutb(FIFOCtl, A2DAddr);
 
 	return;
 }
@@ -763,8 +782,9 @@ void A2DGetData()
 	A2DSAMPLE buf;
 	int i, j;
 
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (US *)CardBase;
 	A2DChSel(A2DIOFIFO);
+
 	for(i = 0; i < INTRP_RATE; i++)
 	{
 		for(j = 0; j < MAXA2DS; j++)
@@ -791,12 +811,12 @@ void A2DGetData()
 int A2DFIFOEmpty()
 {
 	int stat;
-	US *A2DAddr;
+	UC *A2DAddr;
 	A2DChSel(A2DIOFIFOSTAT);
 
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (UC *)CardBase;
 	
-	stat = gginw(A2DAddr);
+	stat = gginb(A2DAddr);
 	if(stat & FIFONOTEMPTY)return(0);
 	else return(-1);
 }
