@@ -15,9 +15,16 @@ sources = Split("""
   SampleTable.cc
   SerialTable.cc
   SyncRecord.cc
+  RTL_DevIoctl.cc
+  RTL_DevIoctlStore.cc
+  RTL_DSMSensor.cc
+  DSMSerialSensor.cc
 """)
 
 ##
 ##  Build the libArmDsm.a library.
 ##
-arm_env.StaticLibrary('#/lib/libArmDsm.a' , sources)
+lib = arm_env.StaticLibrary('Dsm' , sources)
+install = arm_env.Install('#lib_arm',lib)
+Default(install)
+
