@@ -55,9 +55,6 @@ public:
 
     void openSensors(PortSelector*) throw(atdUtil::IOException);
 
-    void addRawOutput(SampleOutput* output) { rawOutputs.push_back(output); }
-    const std::list<SampleOutput*>& getRawOutputs() const { return rawOutputs; }
-
     void addOutput(SampleOutput* output) { outputs.push_back(output); }
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 
@@ -97,12 +94,7 @@ protected:
     std::list<DSMSensor*> ownedSensors;
 
     /**
-     * SampleOutputs that are raw sample clients of sensors.
-     */
-    std::list<SampleOutput*> rawOutputs;
-
-    /**
-     * SampleOutputs that are normal sample clients of sensors.
+     * SampleOutputs.
      */
     std::list<SampleOutput*> outputs;
 

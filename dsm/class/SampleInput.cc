@@ -13,6 +13,7 @@
 */
 
 #include <SampleInput.h>
+#include <DSMSensor.h>
 
 using namespace dsm;
 using namespace std;
@@ -21,22 +22,24 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SampleInputStream)
 
 SampleInputStream::SampleInputStream():
-    input(0),inputStream(0),pseudoPort(0),connectionRequester(0),
-    samp(0),left(0),dptr(0)
+    name("SampleInputStream"),iochan(0),iostream(0),
+    pseudoPort(0),connectionRequester(0),
+    dsm(0),service(0), samp(0),left(0),dptr(0)
 {
 }
 
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
-    input(x.input->clone()),inputStream(0),pseudoPort(x.pseudoPort),
-    connectionRequester(0),
+    name(x.name),iochan(x.iochan->clone()),iostream(0),
+    pseudoPort(x.pseudoPort),connectionRequester(0),
+    dsm(x.dsm),service(x.service),
     samp(0),left(0),dptr(0)
 {
 }
 
 SampleInputStream::~SampleInputStream()
 {
-    delete inputStream;
-    delete input;
+    delete iostream;
+    delete iochan;
 }
 
 SampleInput* SampleInputStream::clone() const
@@ -49,43 +52,72 @@ void SampleInputStream::requestConnection(SampleConnectionRequester* requester)
             throw(atdUtil::IOException)
 {
     connectionRequester = requester;
-    input->requestConnection(this,getPseudoPort());
+    iochan->requestConnection(this,getPseudoPort());
 }
 
-void SampleInputStream::connected(IOChannel* iochan)
+void SampleInputStream::connected(IOChannel* iochannel)
 {
-    assert(iochan == input);
+    assert(iochan == iochannel);
     assert(connectionRequester);
+    setName(string("SampleInputStream: ") + iochan->getName());
     connectionRequester->connected(this);
 }
+
+void SampleInputStream::setDSMConfig(const DSMConfig* val)
+{
+    dsm = val;
+    if (iochan) iochan->setDSMConfig(val);
+}
+
+const DSMConfig* SampleInputStream::getDSMConfig() const
+{
+    return dsm;
+}
+
+void SampleInputStream::setDSMService(const DSMService* val)
+{
+    service = val;
+    if (iochan) iochan->setDSMService(val);
+}
+
+const DSMService* SampleInputStream::getDSMService() const
+{
+    return service;
+}
+
 
 void SampleInputStream::setPseudoPort(int val) { pseudoPort = val; }
 
 int SampleInputStream::getPseudoPort() const { return pseudoPort; }
 
+void SampleInputStream::addSensor(DSMSensor* sensor)
+{
+    sensor_map[sensor->getId()] = sensor;
+}
+
 void SampleInputStream::init()
 {
     cerr << "SampleInputStream::init(), buffer size=" << 
-    	input->getBufferSize() << endl;
-    delete inputStream;
-    inputStream = new IOStream(*input,input->getBufferSize());
+    	iochan->getBufferSize() << endl;
+    delete iostream;
+    iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 void SampleInputStream::close() throw(atdUtil::IOException)
 {
-    if (inputStream) inputStream->close();
-    else input->close();
+    if (iostream) iostream->close();
+    else iochan->close();
 }
 
 atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const
 {
-    if (input) return input->getRemoteInet4Address();
+    if (iochan) return iochan->getRemoteInet4Address();
     else return atdUtil::Inet4Address();
 }
 
 int SampleInputStream::getFd() const
 {
-    if (input) return input->getFd();
+    if (iochan) return iochan->getFd();
     else return -1;
 }
 
@@ -101,15 +133,15 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 {
     static int nsamps = 0;
 
-    inputStream->read();
+    iostream->read();
     SampleHeader header;
     for (;;) {
 	if (!samp) {
 #ifdef DEBUG
-	    cerr << "available=" << inputStream->available() << endl;
+	    cerr << "available=" << iostream->available() << endl;
 #endif
-	    if (inputStream->available() < header.getSizeOf()) break;
-	    inputStream->read(&header,header.getSizeOf());
+	    if (iostream->available() < header.getSizeOf()) break;
+	    iostream->read(&header,header.getSizeOf());
 
 #ifdef DEBUG
 	    cerr << "read header, type=" << header.getType() <<
@@ -128,10 +160,10 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	    // cerr << "left=" << left << endl;
 	    dptr = (char*) samp->getVoidDataPtr();
 	}
-	size_t len = inputStream->available();
+	size_t len = iostream->available();
 	// cerr << "left=" << left << " available=" << len << endl;
 	if (left < len) len = left;
-	len = inputStream->read(dptr, len);
+	len = iostream->read(dptr, len);
 	// cerr << "read len=" << len << endl;
 	dptr += len;
 	left -= len;
@@ -154,10 +186,10 @@ Sample* SampleInputStream::readSample() throw(SampleParseException,atdUtil::IOEx
     // do, checking for non-null samp here should make things work.
     if (!samp) {
 	SampleHeader header;
-	if (inputStream->available() < header.getSizeOf()) 
-	    inputStream->read();
+	if (iostream->available() < header.getSizeOf()) 
+	    iostream->read();
 
-	inputStream->read(&header,header.getSizeOf());
+	iostream->read(&header,header.getSizeOf());
 	if (header.getType() >= UNKNOWN_ST)
 	    throw SampleParseException("sample type unknown");
 	samp = dsm::getSample((sampleType)header.getType(),
@@ -169,13 +201,13 @@ Sample* SampleInputStream::readSample() throw(SampleParseException,atdUtil::IOEx
 	dptr = (char*) samp->getVoidDataPtr();
     }
     while (left > 0) {
-	size_t len = inputStream->available();
+	size_t len = iostream->available();
 	if (left < len) len = left;
-	len = inputStream->read(dptr, len);
+	len = iostream->read(dptr, len);
 	dptr += len;
 	left -= len;
 	if (left == 0) break;
-	inputStream->read();
+	iostream->read();
     }
     Sample* tmp = samp;
     samp = 0;
@@ -203,25 +235,33 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 
     // process <socket>, <fileset> child elements (should only be one)
 
-    int ninputs = 0;
+    int niochan = 0;
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
-	input = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)child);
 
-	if (++ninputs > 1)
+	iochan = IOChannel::createIOChannel(elname);
+
+	iochan->setDSMConfig(getDSMConfig());
+	iochan->setDSMService(getDSMService());
+
+	iochan->fromDOMElement((xercesc::DOMElement*)child);
+
+	if (++niochan > 1)
 	    throw atdUtil::InvalidParameterException(
 		    "SampleInputStream::fromDOMElement",
-		    "input", "one and only one input allowed");
+		    "input", "must have one child element");
     }
-    if (!input)
+    if (!iochan)
         throw atdUtil::InvalidParameterException(
                 "SampleInputStream::fromDOMElement",
-                "input", "no inputs specified");
+		"input", "must have one child element");
+    setName(string("SampleInputStream: ") + iochan->getName());
 }
                                                            
 xercesc::DOMElement* SampleInputStream::toDOMParent(

@@ -38,9 +38,6 @@ DSMConfig::~DSMConfig()
     cerr << "deleting output" << endl;
 
     list<SampleOutput*>::const_iterator oi;
-    for (oi = getRawOutputs().begin(); oi != getRawOutputs().end(); ++oi)
-    	delete *oi;
-
     for (oi = getOutputs().begin(); oi != getOutputs().end(); ++oi)
     	delete *oi;
 }
@@ -214,9 +211,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             }
 	    output->setDSMConfig(this);
             output->fromDOMElement((DOMElement*)child);
-	    if (!classattr.compare("RawSampleOutputStream"))
-	    	addRawOutput(output);
-	    else addOutput(output);
+	    addOutput(output);
         }
 	else if (!elname.compare("config"));
 	else throw atdUtil::InvalidParameterException(

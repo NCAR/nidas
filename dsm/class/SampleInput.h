@@ -23,6 +23,7 @@
 namespace dsm {
 
 class DSMConfig;
+class DSMSensor;
 
 /**
  * Interface of an input stream of samples.
@@ -30,20 +31,27 @@ class DSMConfig;
 class SampleInput: public SampleSource, public ConnectionRequester, public DOMable
 {
 public:
-    SampleInput(): dsm(0) {}
 
     virtual ~SampleInput() {}
 
     virtual SampleInput* clone() const = 0;
 
-    virtual void requestConnection(SampleConnectionRequester*)
-        throw(atdUtil::IOException) = 0;
+    virtual void setName(const std::string& val) = 0;
 
-    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
+    virtual const std::string& getName() const = 0;
+
+    virtual bool isRaw() const = 0;
 
     virtual void setPseudoPort(int val) = 0;
 
     virtual int getPseudoPort() const = 0;
+
+    virtual void addSensor(DSMSensor* sensor) = 0;
+
+    virtual void requestConnection(SampleConnectionRequester*)
+        throw(atdUtil::IOException) = 0;
+
+    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
 
     virtual int getFd() const = 0;
 
@@ -51,12 +59,14 @@ public:
 
     virtual void close() throw(atdUtil::IOException) = 0;
 
-    void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    virtual void setDSMConfig(const DSMConfig* val) = 0;
 
-    const DSMConfig* getDSMConfig() const { return dsm; }
+    virtual const DSMConfig* getDSMConfig() const = 0;
 
-private:
-    const DSMConfig* dsm;
+    virtual void setDSMService(const DSMService*) = 0;
+
+    virtual const DSMService* getDSMService() const = 0;
+
 };
 
 /**
@@ -82,14 +92,22 @@ public:
 
     SampleInput* clone() const;
 
+    void setName(const std::string& val) { name = val; }
+
+    const std::string& getName() const { return name; }
+
+    bool isRaw() const { return false; }
+
     void setPseudoPort(int val);
 
     int getPseudoPort() const;
 
+    void addSensor(DSMSensor* sensor);
+
     void requestConnection(SampleConnectionRequester*)
             throw(atdUtil::IOException);
 
-    void connected(IOChannel* input);
+    void connected(IOChannel* iochan);
 
     atdUtil::Inet4Address getRemoteInet4Address() const;
 
@@ -123,14 +141,31 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
+    void setDSMConfig(const DSMConfig* val);
+
+    const DSMConfig* getDSMConfig() const;
+
+    void setDSMService(const DSMService* val);
+
+    const DSMService* getDSMService() const;
+
 protected:
 
-    IOChannel* input;
-    IOStream* inputStream;
+    std::string name;
+
+    IOChannel* iochan;
+
+    IOStream* iostream;
 
     int pseudoPort;
 
     SampleConnectionRequester* connectionRequester;
+
+    const DSMConfig* dsm;
+
+    const DSMService* service;
+
+    std::map<unsigned long int, DSMSensor*> sensor_map;
 
     /**
      * Will be non-null if we have previously read part of a sample

@@ -37,9 +37,10 @@ RawSampleService::RawSampleService(const RawSampleService& x):
 {
     if (x.input) input = new RawSampleInputStream(*x.input);
 
-    // loop over x.outputs
+    // loop over x's outputs
+    const std::list<SampleOutput*>& xoutputs = x.getOutputs();
     std::list<SampleOutput*>::const_iterator oi;
-    for (oi = x.outputs.begin(); oi != x.outputs.end(); ++oi) {
+    for (oi = xoutputs.begin(); oi != xoutputs.end(); ++oi) {
         SampleOutput* output = *oi;
 
 	// don't clone singleton outputs. They receive
@@ -47,13 +48,11 @@ RawSampleService::RawSampleService(const RawSampleService& x):
 	// Attach them to the new inputs though.
 	// Only the original RawSampleService will have
 	// a singleton output.
-	if (output->isSingleton()) {
-	    if (input) input->addSampleClient(output);
-	}
+	if (output->isSingleton()) addOutput(output);
 	else {
 	    // clone output
 	    SampleOutput* newout = output->clone();
-	    outputs.push_back(newout);
+	    addOutput(newout);
 	}
     }
 }
@@ -76,8 +75,10 @@ RawSampleService::~RawSampleService()
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	output->close();
-	delete output;
+	if (!output->isSingleton()) {
+	    output->close();
+	    delete output;
+	}
     }
 }
 
@@ -87,20 +88,20 @@ RawSampleService::~RawSampleService()
 void RawSampleService::schedule() throw(atdUtil::Exception)
 {
     input->requestConnection(this);
-    std::list<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-        SampleOutput* output = *oi;
-	if (output->isSingleton()) output->requestConnection(this);
-    }
 }
 
 /*
  * This method is called when a SampleInput is connected.
+ * It will be called on only the original RawSampleService,
+ * not on the clones.
  */
 void RawSampleService::connected(SampleInput* inpt)
 {
 
     assert(inpt == input);
+
+    cerr << input->getName() << " has connected to RawSampleService" << endl;
+
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = input->getRemoteInet4Address();
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
@@ -108,6 +109,8 @@ void RawSampleService::connected(SampleInput* inpt)
     if (!dsm)
 	throw atdUtil::Exception(string("can't find DSM for address ") +
 		remoteAddr.getHostAddress());
+
+    cerr << "DSM " << dsm->getName() << " connected to RawSampleService" << endl;
     // make a copy of myself, assign it to a specific dsm
     RawSampleService* newserv = new RawSampleService(*this);
     newserv->setDSMConfig(dsm);
@@ -115,34 +118,59 @@ void RawSampleService::connected(SampleInput* inpt)
     getServer()->addThread(newserv);
 }
 /*
- * This method is called when a SampleOutput is connected.
+ * This method is called when connection to a SampleOutput has
+ * been established. It will be called on both the clones
+ * and the original RawSampleService.
  */
-void RawSampleService::connected(SampleOutput* outpt)
+void RawSampleService::connected(SampleOutput* output)
 {
-    std::list<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	if (output == outpt) {
-	    output->init();
-	    input->addSampleClient(output);
+    cerr << output->getName() << " has connected to RawSampleService" << endl;
+    output->init();
+    if (output->isRaw()) input->addSampleClient(output);
+    else {
+	const list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
+	list<DSMSensor*>::const_iterator si;
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    sensor->addSampleClient(output);
 	}
     }
 }
+
+void RawSampleService::setDSMConfig(const DSMConfig* val)
+{
+    DSMService::setDSMConfig(val);
+    input->setDSMConfig(val);
+    std::list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+	output->setDSMConfig(val);
+    }
+}
+
 
 int RawSampleService::run() throw(atdUtil::Exception)
 {
     input->init();
 
+    bool nonRawOutput = false;
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	assert(!output->isSingleton());
-	output->setDSMConfig(getDSMConfig());
+	if (!output->isRaw()) nonRawOutput = true;
 	output->requestConnection(this);
     }
 
-    // This is a simple service that just echoes the input
-    // samples to the output
+    if (nonRawOutput) {
+	const list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
+	list<DSMSensor*>::const_iterator si;
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    input->addSensor(sensor);
+	}
+    }
+
+    // Process the input samples.
 
     try {
 	for (;;) {
@@ -193,18 +221,30 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
+	DOMable* domable;
         if (!elname.compare("input")) {
 	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() > 0 &&
-	    	classattr.compare("RawSampleInputStream"))
+	    if (classattr.length() == 0)
 		throw atdUtil::InvalidParameterException(
 		    "RawSampleService::fromDOMElement",
-		    elname, "must be of class RawSampleInputStream");
-	    input = new RawSampleInputStream();
-	    input->fromDOMElement((xercesc::DOMElement*)child);
+		    elname, "class not specified");
+            try {
+                domable = DOMObjectFactory::createObject(classattr);
+            }
+            catch (const atdUtil::Exception& e) {
+                throw atdUtil::InvalidParameterException("service",
+                    classattr,e.what());
+            }
+	    SampleInput* input = dynamic_cast<SampleInput*>(domable);
+            if (!input || !input->isRaw()) {
+		delete domable;
+                throw atdUtil::InvalidParameterException("service",
+                    classattr,"is not a raw SampleInput");
+	    }
+	    input->setDSMService(this);
+            input->fromDOMElement((DOMElement*)child);
 	}
         else if (!elname.compare("output")) {
-	    DOMable* domable;
 	    const string& classattr = xchild.getAttributeValue("class");
 	    if (classattr.length() == 0)
 		throw atdUtil::InvalidParameterException(
@@ -221,10 +261,11 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
             if (!output) {
 		delete domable;
                 throw atdUtil::InvalidParameterException("service",
-                    classattr,"is not of type DSMService");
+                    classattr,"is not of type SampleOutput");
 	    }
+	    output->setDSMService(this);
             output->fromDOMElement((DOMElement*)child);
-	    outputs.push_back(output);
+	    addOutput(output);
         }
         else throw atdUtil::InvalidParameterException(
                 "DSMService::fromDOMElement",

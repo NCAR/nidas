@@ -48,6 +48,15 @@ public:
 
     void schedule() throw(atdUtil::Exception);
 
+    /**
+     * Override setDSMConfig to set the DSMConfig value of
+     * my inputs and outputs.
+     */
+    void setDSMConfig(const DSMConfig* val);
+
+    void addOutput(SampleOutput* output) { outputs.push_back(output); }
+    const std::list<SampleOutput*>& getOutputs() const { return outputs; }
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
 
@@ -58,6 +67,7 @@ public:
     xercesc::DOMElement*
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
+
 
 protected:
     RawSampleInputStream* input;

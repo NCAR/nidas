@@ -30,6 +30,8 @@ public:
 
     SampleOutput* clone() const { return new RawSampleOutputStream(*this); }
 
+    bool isRaw() const { return true; }
+
     int getPseudoPort() const { return RAW_SAMPLE; }
 
     bool isSingleton() const { return false; }

@@ -34,18 +34,23 @@ class DSMConfig;
 class SampleOutput: public SampleClient, public ConnectionRequester, public DOMable
 {
 public:
-    SampleOutput(): dsm(0) {}
 
     virtual ~SampleOutput() {}
 
     virtual SampleOutput* clone() const = 0;
 
-    virtual void requestConnection(SampleConnectionRequester*)
-    	throw(atdUtil::IOException) = 0;
+    virtual void setName(const std::string& val) = 0;
+
+    virtual const std::string& getName() const = 0;
+
+    virtual bool isRaw() const = 0;
 
     virtual void setPseudoPort(int val) = 0;
 
     virtual int getPseudoPort() const = 0;
+
+    virtual void requestConnection(SampleConnectionRequester*)
+    	throw(atdUtil::IOException) = 0;
 
     virtual void connected(IOChannel* sock) = 0;
 
@@ -59,12 +64,14 @@ public:
 
     virtual bool isSingleton() const = 0;
 
-    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    virtual void setDSMConfig(const DSMConfig*) = 0;
 
-    const DSMConfig* getDSMConfig() const { return dsm; }
+    virtual const DSMConfig* getDSMConfig() const = 0;
 
-private:
-    const DSMConfig* dsm;
+    virtual void setDSMService(const DSMService*) = 0;
+
+    virtual const DSMService* getDSMService() const = 0;
+
 };
 
 /**
@@ -84,6 +91,12 @@ public:
     virtual ~SampleOutputStream();
 
     SampleOutput* clone() const;
+
+    void setName(const std::string& val) { name = val; }
+
+    const std::string& getName() const { return name; }
+
+    bool isRaw() const { return false; }
 
     void setPseudoPort(int val);
 
@@ -118,13 +131,29 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
+    void setDSMConfig(const DSMConfig* val);
+
+    const DSMConfig* getDSMConfig() const;
+
+    void setDSMService(const DSMService* val);
+
+    const DSMService* getDSMService() const;
+
 protected:
 
-    IOChannel* output;
-    IOStream* outputStream;
+    std::string name;
+
+    IOChannel* iochan;
+
+    IOStream* iostream;
+
     int pseudoPort;
 
     SampleConnectionRequester* connectionRequester;
+
+    const DSMConfig* dsm;
+
+    const DSMService* service;
 
     /** Do we need to keep track of sample time tags,
      * as when writing to time-tagged archive files,
