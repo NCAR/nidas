@@ -82,7 +82,7 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	    	" getDataByteLength=" << header.getDataByteLength() <<
 		endl;
 #endif
-	    if (header.getType() < 0 || header.getType() >= UNKNOWN_ST)
+	    if (header.getType() >= UNKNOWN_ST)
 	        throw SampleParseException("sample type unknown");
 	    samp = dsm::getSample((sampleType)header.getType(),
 	    	header.getDataByteLength());
@@ -122,7 +122,7 @@ Sample* SampleInputStream::readSample() throw(SampleParseException,atdUtil::IOEx
 	    inputStream->read();
 
 	inputStream->read(&header,header.getSizeOf());
-	if (header.getType() < 0 || header.getType() >= UNKNOWN_ST)
+	if (header.getType() >= UNKNOWN_ST)
 	    throw SampleParseException("sample type unknown");
 	samp = dsm::getSample((sampleType)header.getType(),
 		header.getDataByteLength());
