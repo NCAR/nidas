@@ -158,9 +158,12 @@ void DSMSerialSensor::fromDOMElement(
 	    const std::string& aval = attr.getValue();
 
 	    if (!aname.compare("baud")) {
-		if (!setBaudRate(atoi(aval.c_str()))) 
-		    throw atdUtil::InvalidParameterException
-			(getName(),"baud",aval);
+		istringstream ist(aval);
+		int val;
+		ist >> val;
+		if (ist.fail() || !setBaudRate(val))
+		    throw atdUtil::InvalidParameterException(getName(),"baud",
+		    	aval);
 	    }
 	    else if (!aname.compare("parity")) {
 		if (!aval.compare("odd")) setParity(ODD);
@@ -169,10 +172,24 @@ void DSMSerialSensor::fromDOMElement(
 		else throw atdUtil::InvalidParameterException
 			(getName(),"parity",aval);
 	    }
-	    else if (!aname.compare("databits"))
-		setDataBits(atoi(aval.c_str()));
-	    else if (!aname.compare("stopbits"))
-		setStopBits(atoi(aval.c_str()));
+	    else if (!aname.compare("databits")) {
+		istringstream ist(aval);
+		int val;
+		ist >> val;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	"databits", aval);
+		setDataBits(val);
+	    }
+	    else if (!aname.compare("stopbits")) {
+		istringstream ist(aval);
+		int val;
+		ist >> val;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	"stopbits", aval);
+		setStopBits(val);
+	    }
 	    else if (!aname.compare("scanfFormat"))
 		setScanfFormat(aval);
 	}
@@ -208,7 +225,13 @@ void DSMSerialSensor::fromDOMElement(
 	    cerr << "message length=" <<
 	    	xchild.getAttributeValue("length") << endl;
 #endif
-	    setMessageLength(atoi(xchild.getAttributeValue("length").c_str()));
+	    istringstream ist(xchild.getAttributeValue("length"));
+	    int val;
+	    ist >> val;
+	    if (ist.fail())
+		throw atdUtil::InvalidParameterException(getName(),
+		    "message length", xchild.getAttributeValue("length"));
+	    setMessageLength(val);
 	}
 	else if (!elname.compare("prompt")) {
 #ifdef XML_DEBUG
@@ -218,7 +241,13 @@ void DSMSerialSensor::fromDOMElement(
 
 	    setPromptString(prompt);
 
-	    int rate = atoi(xchild.getAttributeValue("rate").c_str());
+	    istringstream ist(xchild.getAttributeValue("rate"));
+	    int rate;
+	    ist >> rate;
+	    if (ist.fail())
+		throw atdUtil::InvalidParameterException(getName(),
+		    "prompt rate", xchild.getAttributeValue("rate"));
+
 	    enum irigClockRates erate = irigClockRateToEnum(rate);
 #ifdef XML_DEBUG
 	    cerr << "prompt rate=" << rate << " erate=" << erate << endl;
@@ -340,9 +369,11 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
 bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-    static int nsamps = 0;
+    static int nsampsin = 0;
+    static int nsampsout = 0;
 
-    if (!(nsamps++ % 100)) cerr << "DSMSerialSensor::process nsamps=" << nsamps << endl;
+    if (!(nsampsin++ % 100)) cerr <<
+    	"DSMSerialSensor::process nsampsin=" << nsampsin << endl;
     // If no scanner defined, then don't scan sample, just pass it on
     if (!scanner) {
 	DSMSensor::process(samp,results);
@@ -390,6 +421,8 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(getSampleId());
     outs->setDataLength(nparsed);
     results.push_back(outs);
+    if (!(nsampsout++ % 100)) cerr <<
+    	"DSMSerialSensor::process nsampsout=" << nsampsout << endl;
     return true;
 }
 

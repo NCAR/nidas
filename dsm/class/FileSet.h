@@ -22,6 +22,8 @@
 
 #include <atdUtil/FileSet.h>
 
+#include <iostream>
+
 namespace dsm {
 
 /**
@@ -35,13 +37,13 @@ public:
 
     virtual ~FileSet() {}
 
-    void setDir(const std::string& val);
-
-    void setFileName(const std::string& val);
-
     const std::string& getName() const;
 
     void setName(const std::string& val);
+
+    void setDir(const std::string& val);
+
+    void setFileName(const std::string& val);
 
     std::string FileSet::expandString(const std::string& input);
 
@@ -52,6 +54,9 @@ public:
 
     IOChannel* clone() { return new FileSet(*this); }
 
+    dsm_sys_time_t FileSet::createFile(dsm_sys_time_t t)
+	throw(atdUtil::IOException);
+
     size_t read(void* buf, size_t len) throw(atdUtil::IOException)
     {
         return atdUtil::FileSet::read(buf,len);
@@ -59,6 +64,7 @@ public:
         
     size_t write(const void* buf, size_t len) throw(atdUtil::IOException)
     {
+	std::cerr << getName() << " write, len=" << len << std::endl;
         return atdUtil::FileSet::write(buf,len);
     }
         

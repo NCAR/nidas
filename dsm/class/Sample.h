@@ -295,7 +295,7 @@ public:
     SampleHeader(sampleType t=CHAR_ST) :
     	tt(0),length(0),id((unsigned long)t << 24) {}
 
-    typedef short dsm_sample_id_t;
+    typedef unsigned long dsm_sample_id_t;
 
     dsm_sample_time_t getTimeTag() const { return tt; }
     void setTimeTag(dsm_sample_time_t val) { tt = val; }
@@ -312,8 +312,11 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    unsigned long getId() const { return id; }
-    void setId(unsigned long val) { id = val; }
+    unsigned long getId() const { return id & 0x00ffffff; }
+    void setId(unsigned long val)
+    {
+    	id = (id & 0xff000000) | val;
+    }
 
     unsigned char getDSMId() const { return (id & 0x00ff0000) >> 16; }
     void setDSMId(unsigned char val)
@@ -349,7 +352,7 @@ protected:
     /* An identifier for this sample, packed fields:
      * most significant 8 bits: type, other 24: id
      */
-    unsigned long id;
+    dsm_sample_id_t id;
 };
 
 /**
@@ -559,7 +562,7 @@ Sample* getSample(sampleType type, size_t len);
 namespace dsm {
 
 /**
- * A convienence function for getting a typed sample from a pool.
+ * A convenience function for getting a typed sample from a pool.
  */
 template <class T>
 SampleT<T>* getSample(size_t len)

@@ -69,7 +69,7 @@ Sample* dsm::getSample(sampleType type, size_t len)
 	samp = getSample<double>(len);
 	break;
     case LONG_LONG_ST:
-	len = sizeof(long long);
+	len /= sizeof(long long);
 	// samp = SamplePool<SampleT<long long> >::getInstance()->getSample(len);
 	samp = getSample<long long>(len);
 	break;

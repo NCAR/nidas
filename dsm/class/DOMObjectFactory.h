@@ -17,10 +17,11 @@
 #ifndef DSM_DOMOBJECTFACTORY_H
 #define DSM_DOMOBJECTFACTORY_H
 
-#include <DOMable.h>
 #include <atdUtil/Exception.h>
 
 namespace dsm {
+
+class DOMable;
 
 /**
  * Class that supports creating instances of DOMable objects

@@ -20,6 +20,7 @@
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 const std::string& FileSet::getName() const
 {
@@ -31,24 +32,32 @@ void FileSet::setName(const std::string& val)
     name = val;
 }
 
+void FileSet::setDir(const string& val)
+{
+    atdUtil::FileSet::setDir(val);
+}
+
+void FileSet::setFileName(const string& val)
+{
+    atdUtil::FileSet::setFileName(val);
+    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+}
+
 void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
        throw(atdUtil::IOException)
 {
-   // immediate connection
-   requester->connected(this); 
+
+    // expand the file and directory names. We wait til now
+    // because these may contain tokens that depend on the
+    // DSM and we may not know it until now.
+    setDir(expandString(getDir()));
+    setFileName(expandString(getFileName()));
+    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+
+    // immediate connection
+    requester->connected(this); 
 }
 
-void FileSet::setDir(const string& val)
-{
-    atdUtil::FileSet::setDir(expandString(val));
-}
-    
-void FileSet::setFileName(const string& val)
-{
-    atdUtil::FileSet::setFileName(expandString(val));
-    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
-}
-    
 string FileSet::expandString(const string& input)
 {
     string::size_type lastpos = 0;
@@ -70,15 +79,15 @@ string FileSet::expandString(const string& input)
 	string token = input.substr(openparen+1,closeparen-openparen-1);
 	if (token.length() > 0) {
 	    string val = getTokenValue(token);
-	    cerr << "getTokenValue: token=" << token << " val=" << val << endl;
+	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
 	    result.append(val);
 	}
 	lastpos = closeparen + 1;
     }
 
     result.append(input.substr(lastpos));
-    cerr << "input: \"" << input << "\" expanded to \"" <<
-    	result << "\"" << endl;
+    // cerr << "input: \"" << input << "\" expanded to \"" <<
+    // 	result << "\"" << endl;
     return result;
 }
 
@@ -111,31 +120,48 @@ string FileSet::getTokenValue(const string& token)
     else return "unknown";
 }
 
-void FileSet::fromDOMElement(const xercesc::DOMElement* node)
+dsm_sys_time_t FileSet::createFile(dsm_sys_time_t t)
+	throw(atdUtil::IOException)
+{
+    return (dsm_sys_time_t)atdUtil::FileSet::createFile((time_t)(t/1000)) * 1000;
+}
+
+void FileSet::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
 	// get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 	    if (!aname.compare("dir")) setDir(aval);
 	    else if (!aname.compare("file")) setFileName(aval);
+	    else if (!aname.compare("length")) {
+		istringstream ist(aval);
+		int val;
+		ist >> val;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),
+			"length", aval);
+		setFileLengthSecs(val);
+	    }
+	    else throw atdUtil::InvalidParameterException(getName(),
+			"unrecognized attribute", aname);
 	}
     }
 }
 
-xercesc::DOMElement* FileSet::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* FileSet::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -143,8 +169,8 @@ xercesc::DOMElement* FileSet::toDOMParent(
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* FileSet::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* FileSet::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

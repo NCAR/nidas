@@ -18,18 +18,19 @@
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
-void Variable::fromDOMElement(const xercesc::DOMElement* node)
+void Variable::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    if (!attr.getName().compare("name"))
 		setName(attr.getValue());
@@ -41,11 +42,11 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* Variable::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* Variable::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -53,8 +54,8 @@ xercesc::DOMElement* Variable::toDOMParent(
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* Variable::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

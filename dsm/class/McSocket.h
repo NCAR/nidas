@@ -63,7 +63,7 @@ public:
         return socket->getInet4Address();
     }
 
-    size_t getBufferSize() const;
+    size_t getBufferSize() const throw();
 
     /**
     * Do the actual hardware read.

@@ -33,7 +33,7 @@ void McSocket::requestConnection(ConnectionRequester* requester,
 
 IOChannel* McSocket::clone()
 {
-    cerr << "IOChannel cloning " << getName() << endl;
+    cerr << "McSocket cloning " << getName() << endl;
     McSocket* newmcsock = new McSocket(*this);
     // new object owns socket
     socket = 0;
@@ -51,7 +51,7 @@ void McSocket::connected(atdUtil::Socket* sock)
     connectionRequester->connected(this);
 }
 
-size_t McSocket::getBufferSize() const
+size_t McSocket::getBufferSize() const throw()
 {
     try {
 	if (socket) return socket->getReceiveBufferSize();
@@ -74,7 +74,7 @@ int McSocket::getFd() const
     if (socket) return socket->getFd();
     else return -1;
 }
-void McSocket::fromDOMElement(const xercesc::DOMElement* node)
+void McSocket::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     string stype;

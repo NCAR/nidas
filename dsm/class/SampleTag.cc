@@ -20,6 +20,7 @@
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 SampleTag::~SampleTag()
 {
@@ -39,17 +40,17 @@ const std::vector<const Variable*>& SampleTag::getVariables() const
     return constVariables;
 }
 
-void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
+void SampleTag::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    istringstream ist(attr.getValue());
 	    if (!attr.getName().compare("id")) {
@@ -74,17 +75,17 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	}
     }
-    xercesc::DOMNode* child;
+    DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
+	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("variable")) {
 	    Variable* var = new Variable();
-	    var->fromDOMElement((xercesc::DOMElement*)child);
+	    var->fromDOMElement((DOMElement*)child);
 	    addVariable(var);
 	}
 	else throw atdUtil::InvalidParameterException("sample",
@@ -93,11 +94,11 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* SampleTag::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* SampleTag::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -105,8 +106,8 @@ xercesc::DOMElement* SampleTag::toDOMParent(
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* SampleTag::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }
