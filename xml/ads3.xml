@@ -15,158 +15,235 @@
 	</sample>
     </irigSensor>
 	    
-    <arincSensor ID="IRS-C130-full" class="DSMArincSensor">
-        <!-- Taken from the Honeywell installation manual for
-             the YG1854 LASERREF SM IRS/GPIRS (pages 648-650). -->
-	<!--
-	<sample id="0265" rate="50">
-	    <variable name="copy"/>
-	</sample>
-	-->
-	<sample id="0265" rate="50">
-	    <variable name="integ_vert_accel"/>
-	</sample>
-	<sample id="0324" rate="50">
-	    <variable name="pitch_angle"/>
-	</sample>
-	<sample id="0325" rate="50">
-	    <variable name="roll_angle"/>
-	</sample>
-	<sample id="0326" rate="50">
-	    <variable name="pitch_rate"/>
-	</sample>
-	<sample id="0327" rate="50">
-	    <variable name="roll_rate"/>
-	</sample>
-	<sample id="0330" rate="50">
-	    <variable name="yaw_rate"/>
-	</sample>
-	<sample id="0331" rate="50">
-	    <variable name="long_accel"/>
-	</sample>
-	<sample id="0332" rate="50">
-	    <variable name="lat_accel"/>
-	</sample>
-	<sample id="0333" rate="50">
-	    <variable name="normal_accel"/>
-	</sample>
-	<sample id="0336" rate="50">
-	    <variable name="pitch_att_rate"/>
-	</sample>
-	<sample id="0337" rate="50">
-	    <variable name="roll_att_rate"/>
-	</sample>
-	<sample id="0360" rate="50">
-	    <variable name="pot_vert_speed"/>
-	</sample>
-	<sample id="0364" rate="50">
-	    <variable name="vertical_accel"/>
-	</sample>
-	<sample id="0314" rate="25">
-	    <variable name="true_heading"/>
-	</sample>
-	<sample id="0361" rate="25">
-	    <variable name="inertial_alt"/>
-	</sample>
-	<sample id="0365" rate="25">
-	    <variable name="inrt_vert_speed"/>
-	</sample>
-	<sample id="0312" rate="10">
-	    <variable name="ground_speed"/>
-	</sample>
-	<sample id="0315" rate="10">
-	    <variable name="wind_speed"/>
-	</sample>
-	<sample id="0316" rate="10">
-	    <variable name="wind_dir_true"/>
-	</sample>
-	<sample id="0334" rate="10">
-	    <variable name="platform_hdg"/>
-	</sample>
-	<sample id="0366" rate="10">
-	    <variable name="velocity_ns"/>
-	</sample>
-	<sample id="0367" rate="10">
-	    <variable name="velocity_ew"/>
-	</sample>
-	<sample id="0310" rate="5">
-	    <variable name="present_lat"/>
-	</sample>
-	<sample id="0311" rate="5">
-	    <variable name="present_lon"/>
-	</sample>
-	<sample id="0370" rate="5">
-	    <variable name="norm_accel"/>
-	</sample>
-	<sample id="0270" rate="2">
-	    <variable name="irs_discretes"/>
-	</sample>
-	<sample id="0350" rate="2">
-	    <variable name="irs_maint_discretes"/>
-	</sample>
-	<sample id="0351" rate="2">
-	    <variable name="time_to_nav_ready"/>
-	</sample>
-	<sample id="0371" rate="2">
-	    <variable name="equipment_id"/>
-	</sample>
-	<sample id="0335" rate="50">
-	    <variable name="track_ang_rate"/>
-	</sample>
-	<sample id="0313" rate="25">
-	    <variable name="track_angle_true"/>
-	</sample>
-	<sample id="0321" rate="25">
-	    <variable name="drift_angle"/>
-	</sample>
-	<sample id="0007" rate="2">
-	    <variable name="TimeToNav" longname="Time to Nav          (not used)"/>
-	</sample>
-	<sample id="0010" rate="2">
-	    <variable name="PosLat" longname="Pos Latitude         (not used)"/>
-	</sample>
-	<sample id="0011" rate="2">
-	    <variable name="PosLong" longname="Pos Longitude        (not used)"/>
-	</sample>
-	<sample id="0012" rate="2">
-	    <variable name="GrdSpd" longname="Ground Speed         (not used)"/>
-	</sample>
-	<sample id="0013" rate="2">
-	    <variable name="TrkAngle" longname="Trk Angle True       (not used)"/>
-	</sample>
-	<sample id="0014" rate="2">
-	    <variable name="MagHead" longname="Mag Heading          (not used)"/>
-	</sample>
-	<sample id="0015" rate="2">
-	    <variable name="WindSpd" longname="Wind Speed           (not used)"/>
-	</sample>
-	<sample id="0016" rate="2">
-	    <variable name="WindDir" longname="Wind Dir True        (not used)"/>
-	</sample>
-	<sample id="0044" rate="2">
-	    <variable name="TrueHead" longname="True Heading         (not used)"/>
-	</sample>
-	<sample id="0317" rate="25">
-	    <variable name="TrkAngMag" longname="Trk Angle Mag        (not used)"/>
-	</sample>
-	<sample id="0320" rate="25">
-	    <variable name="MagHead2" longname="Mag Heading          (not used)"/>
-	</sample>
-	<sample id="0322" rate="25">
-	    <variable name="FltPthAng" longname="Flt Pth Angle        (not used)"/>
-	</sample>
-	<sample id="0323" rate="50">
-	    <variable name="FltPthAccel" longname="Flt Pth Accel        (not used)"/>
-	</sample>
-	<sample id="0354" rate="50">
-	    <variable name="TotalTime" longname="Total Time           (not used)"/>
-	</sample>
-	<sample id="0362" rate="50">
-	    <variable name="AlongTrkAccel" longname="Along Trk Accel      (not used)"/>
-	</sample>
-	<sample id="0363" rate="50">
-	    <variable name="CrossTrkAccel" longname="Cross Trk Accel      (not used)"/>
-	</sample>
+    <arincSensor ID="XXXXXX" class="DSMArincSensor">
+        <!-- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX -->
+        <!-- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX -->
+        <sample id="0361" rate="25"   ><variable name="inertial_alt"               units=""     longname="inertial_alt"/></sample>
+        <sample id="0324" rate="50"   ><variable name="pitch_angle"                units=""     longname="pitch_angle"/></sample>
+        <sample id="0316" rate="12.5" ><variable name="wind_dir_true"              units=""     longname="wind_dir_true"/></sample>          <!-- rate was 10 -->
+        <sample id="0331" rate="50"   ><variable name="long_accel"                 units=""     longname="long_accel"/></sample>
+        <sample id="0337" rate="50"   ><variable name="roll_att_rate"              units=""     longname="roll_att_rate"/></sample>
+        <sample id="0366" rate="12.5" ><variable name="velocity_ns"                units=""     longname="velocity_ns"/></sample>            <!-- rate was 10 -->
+        <sample id="0312" rate="25"   ><variable name="ground_speed"               units=""     longname="ground_speed"/></sample>           <!-- rate was 10 -->
+        <sample id="0367" rate="12.5" ><variable name="velocity_ew"                units=""     longname="velocity_ew"/></sample>            <!-- rate was 10 -->
+        <sample id="0333" rate="50"   ><variable name="normal_accel"               units=""     longname="normal_accel"/></sample>
+        <sample id="0311" rate="12.5" ><variable name="present_lon"                units=""     longname="present_lon"/></sample>            <!-- rate was 5  -->
+        <sample id="0315" rate="12.5" ><variable name="wind_speed"                 units=""     longname="wind_speed"/></sample>             <!-- rate was 10 -->
+        <sample id="0334" rate="25"   ><variable name="platform_hdg"               units=""     longname="platform_hdg"/></sample>           <!-- rate was 10 -->
+        <sample id="0321" rate="25"   ><variable name="drift_angle"                units=""     longname="drift_angle"/></sample>
+        <sample id="0360" rate="50"   ><variable name="pot_vert_speed"             units=""     longname="pot_vert_speed"/></sample>
+        <sample id="0335" rate="50"   ><variable name="track_ang_rate"             units=""     longname="track_ang_rate"/></sample>
+        <sample id="0330" rate="50"   ><variable name="yaw_rate"                   units=""     longname="yaw_rate"/></sample>
+        <sample id="0326" rate="50"   ><variable name="pitch_rate"                 units=""     longname="pitch_rate"/></sample>
+        <sample id="0332" rate="50"   ><variable name="lat_accel"                  units=""     longname="lat_accel"/></sample>
+        <sample id="0350" rate="3.125"><variable name="irs_maint_discretes"        units=""     longname="irs_maint_discretes"/></sample>    <!-- rate was 2  -->
+        <sample id="0370" rate="6.25" ><variable name="norm_accel"                 units=""     longname="norm_accel"/></sample>             <!-- rate was 5  -->
+        <sample id="0336" rate="50"   ><variable name="pitch_att_rate"             units=""     longname="pitch_att_rate"/></sample>
+        <sample id="0313" rate="25"   ><variable name="track_angle_true"           units=""     longname="track_angle_true"/></sample>
+        <sample id="0325" rate="50"   ><variable name="roll_angle"                 units=""     longname="roll_angle"/></sample>
+        <sample id="0310" rate="12.5" ><variable name="present_lat"                units=""     longname="present_lat"/></sample>            <!-- rate was 5  -->
+        <sample id="0314" rate="25"   ><variable name="true_heading"               units=""     longname="true_heading"/></sample>
+        <sample id="0351" rate="3.125"><variable name="time_to_nav_ready"          units=""     longname="time_to_nav_ready"/></sample>      <!-- rate was 2  -->
+        <sample id="0327" rate="50"   ><variable name="roll_rate"                  units=""     longname="roll_rate"/></sample>
+        <sample id="0371" rate="3.125"><variable name="equipment_id"               units=""     longname="equipment_id"/></sample>           <!-- rate was 2  -->
+        <sample id="0365" rate="50"   ><variable name="inrt_vert_speed"            units=""     longname="inrt_vert_speed"/></sample>        <!-- rate was 25 -->
+        <sample id="0364" rate="50"   ><variable name="vertical_accel"             units=""     longname="vertical_accel"/></sample>
+    </arincSensor>
+
+    <arincSensor ID="IRS-C130" class="DSMArincSensor">
+        <!-- Taken from the Honeywell installation manual for the -->
+        <!-- YG1854 LASERREF SM IRS/GPIRS        (pages 648-650). -->
+    <!--<sample id="0007" rate="2"    ><variable name="Time to Nav"                units=""     longname="Time to Nav"/></sample>                 not used    -->
+    <!--<sample id="0010" rate="2"    ><variable name="Pos Latitude"               units=""     longname="Pos Latitude"/></sample>                not used    -->
+    <!--<sample id="0011" rate="2"    ><variable name="Pos Longitude"              units=""     longname="Pos Longitude"/></sample>               not used    -->
+    <!--<sample id="0012" rate="2"    ><variable name="Ground Speed"               units=""     longname="Ground Speed"/></sample>                not used    -->
+    <!--<sample id="0013" rate="2"    ><variable name="Trk Angle True"             units=""     longname="Trk Angle True"/></sample>              not used    -->
+    <!--<sample id="0014" rate="2"    ><variable name="Mag Heading"                units=""     longname="Mag Heading"/></sample>                 not used    -->
+    <!--<sample id="0015" rate="2"    ><variable name="Wind Speed"                 units=""     longname="Wind Speed"/></sample>                  not used    -->
+    <!--<sample id="0016" rate="2"    ><variable name="Wind Dir True"              units=""     longname="Wind Dir True"/></sample>               not used    -->
+    <!--<sample id="0044" rate="2"    ><variable name="True Heading"               units=""     longname="True Heading"/></sample>                not used    -->
+        <sample id="0265" rate="50"   ><variable name="integ_vert_accel"           units=""     longname="integ_vert_accel"/></sample>
+        <sample id="0270" rate="2"    ><variable name="irs_discretes"              units=""     longname="irs_discretes"/></sample>
+        <sample id="0310" rate="5"    ><variable name="LAT_IRS"                    units=""     longname="present_lat"/></sample>
+        <sample id="0311" rate="5"    ><variable name="LON_IRS"                    units=""     longname="present_lon"/></sample>
+        <sample id="0312" rate="10"   ><variable name="GSF_IRS"                    units=""     longname="ground_speed"/></sample>
+        <sample id="0313" rate="25"   ><variable name="TKAT_IRS"                   units=""     longname="track_angle_true"/></sample>
+        <sample id="0314" rate="25"   ><variable name="THDG_IRS"                   units=""     longname="true_heading"/></sample>
+        <sample id="0315" rate="10"   ><variable name="IWS_IRS"                    units=""     longname="wind_speed"/></sample>
+        <sample id="0316" rate="10"   ><variable name="IWD_IRS"                    units=""     longname="wind_dir_true"/></sample>
+    <!--<sample id="0317" rate="25"   ><variable name="Trk Angle Mag"              units=""     longname="Trk Angle Mag"/></sample>               not used    -->
+    <!--<sample id="0320" rate="25"   ><variable name="Mag Heading"                units=""     longname="Mag Heading"/></sample>                 not used    -->
+        <sample id="0321" rate="25"   ><variable name="DRFTA_IRS"                  units=""     longname="drift_angle"/></sample>
+    <!--<sample id="0322" rate="25"   ><variable name="Flt Pth Angle"              units=""     longname="Flt Pth Angle"/></sample>               not used    -->
+    <!--<sample id="0323" rate="50"   ><variable name="Flt Pth Accel"              units=""     longname="Flt Pth Accel"/></sample>               not used    -->
+        <sample id="0324" rate="50"   ><variable name="PITCH_IRS"                  units=""     longname="pitch_angle"/></sample>
+        <sample id="0325" rate="50"   ><variable name="ROLL_IRS"                   units=""     longname="roll_angle"/></sample>
+        <sample id="0326" rate="50"   ><variable name="BPITCHR_IRS"                units=""     longname="pitch_rate"/></sample>
+        <sample id="0327" rate="50"   ><variable name="BROLLR_IRS"                 units=""     longname="roll_rate"/></sample>
+        <sample id="0330" rate="50"   ><variable name="BYAWR_IRS"                  units=""     longname="yaw_rate"/></sample>
+        <sample id="0331" rate="50"   ><variable name="BLONGA_IRS"                 units=""     longname="long_accel"/></sample>
+        <sample id="0332" rate="50"   ><variable name="BLATA_IRS"                  units=""     longname="lat_accel"/></sample>
+        <sample id="0333" rate="50"   ><variable name="BNORMA_IRS"                 units=""     longname="normal_accel"/></sample>
+        <sample id="0334" rate="10"   ><variable name="platform_hdg"               units=""     longname="platform_hdg"/></sample>
+        <sample id="0335" rate="50"   ><variable name="TKAR_IRS"                   units=""     longname="track_ang_rate"/></sample>
+        <sample id="0336" rate="50"   ><variable name="pitch_att_rate"             units=""     longname="pitch_att_rate"/></sample>
+        <sample id="0337" rate="50"   ><variable name="roll_att_rate"              units=""     longname="roll_att_rate"/></sample>
+        <sample id="0350" rate="2"    ><variable name="irs_maint_discretes"        units=""     longname="irs_maint_discretes"/></sample>
+        <sample id="0351" rate="2"    ><variable name="time_to_nav_ready"          units=""     longname="time_to_nav_ready"/></sample>
+    <!--<sample id="0354" rate="50"   ><variable name="Total Time"                 units=""     longname="Total Time"/></sample>                  not used    -->
+        <sample id="0360" rate="50"   ><variable name="pot_vert_speed"             units=""     longname="pot_vert_speed"/></sample>
+        <sample id="0361" rate="25"   ><variable name="ALT_IRS"                    units=""     longname="inertial_alt"/></sample>
+    <!--<sample id="0362" rate="50"   ><variable name="Along Trk Accel"            units=""     longname="Along Trk Accel"/></sample>             not used    -->
+    <!--<sample id="0363" rate="50"   ><variable name="Cross Trk Accel"            units=""     longname="Cross Trk Accel"/></sample>             not used    -->
+        <sample id="0364" rate="50"   ><variable name="ACINS_IRS"                  units=""     longname="vertical_accel"/></sample>
+        <sample id="0365" rate="25"   ><variable name="VSPD_IRS"                   units=""     longname="inrt_vert_speed"/></sample>
+        <sample id="0366" rate="10"   ><variable name="VNS_IRS"                    units=""     longname="velocity_ns"/></sample>
+        <sample id="0367" rate="10"   ><variable name="VEW_IRS"                    units=""     longname="velocity_ew"/></sample>
+        <sample id="0370" rate="5"    ><variable name="norm_accel"                 units=""     longname="norm_accel"/></sample>
+        <sample id="0371" rate="2"    ><variable name="equipment_id"               units=""     longname="equipment_id"/></sample>
+    </arincSensor>
+
+    <arincSensor ID="IRS-GV" class="DSMArincSensor">
+        <!-- Taken from the Honeywell installation manual for the         -->
+        <!-- Inertial Reference Unit / Part No. HG2001GD (pages 649-651). -->
+    <!--<sample id="0007" rate="3.125"><variable name="time to nav"                units=""     longname="time to nav"/></sample>                 not used    -->
+    <!--<sample id="0010" rate="3.125"><variable name="pos latitude"               units=""     longname="pos latitude"/></sample>                not used    -->
+    <!--<sample id="0011" rate="3.125"><variable name="pos longitude"              units=""     longname="pos longitude"/></sample>               not used    -->
+    <!--<sample id="0012" rate="3.125"><variable name="ground speed"               units=""     longname="ground speed"/></sample>                not used    -->
+    <!--<sample id="0013" rate="3.125"><variable name="trk angle true"             units=""     longname="trk angle true"/></sample>              not used    -->
+    <!--<sample id="0014" rate="3.125"><variable name="mag heading"                units=""     longname="mag heading"/></sample>                 not used    -->
+    <!--<sample id="0015" rate="3.125"><variable name="wind speed"                 units=""     longname="wind speed"/></sample>                  not used    -->
+    <!--<sample id="0016" rate="3.125"><variable name="wind dir true"              units=""     longname="wind dir true"/></sample>               not used    -->
+    <!--<sample id="0044" rate="3.125"><variable name="true heading"               units=""     longname="true heading"/></sample>                not used    -->
+    <!--<sample id="0300" rate="50"   ><variable name="delta theta x"              units=""     longname="delta theta x"/></sample>               new         -->
+    <!--<sample id="0301" rate="50"   ><variable name="delta theta y"              units=""     longname="delta theta y"/></sample>               new         -->
+    <!--<sample id="0302" rate="50"   ><variable name="delta theta z"              units=""     longname="delta theta z"/></sample>               new         -->
+    <!--<sample id="0303" rate="50"   ><variable name="delta theta v x"            units=""     longname="delta theta v x"/></sample>             new         -->
+    <!--<sample id="0304" rate="50"   ><variable name="delta theta v y"            units=""     longname="delta theta v y"/></sample>             new         -->
+    <!--<sample id="0305" rate="50"   ><variable name="delta theta v z"            units=""     longname="delta theta v z"/></sample>             new         -->
+    <!--<sample id="0265" rate="50"   ><variable name="integ_vert_accel"           units=""     longname="integ_vert_accel"/></sample>            lost        -->
+    <!--<sample id="0270" rate="2"    ><variable name="irs_discretes"              units=""     longname="irs_discretes"/></sample>               lost        -->
+        <sample id="0310" rate="12.5" ><variable name="present_lat"                units=""     longname="present_lat"/></sample>            <!-- rate was 5  -->
+        <sample id="0311" rate="12.5" ><variable name="present_lon"                units=""     longname="present_lon"/></sample>            <!-- rate was 5  -->
+        <sample id="0312" rate="25"   ><variable name="ground_speed"               units=""     longname="ground_speed"/></sample>           <!-- rate was 10 -->
+        <sample id="0313" rate="25"   ><variable name="track_angle_true"           units=""     longname="track_angle_true"/></sample>
+        <sample id="0314" rate="25"   ><variable name="true_heading"               units=""     longname="true_heading"/></sample>
+        <sample id="0315" rate="12.5" ><variable name="wind_speed"                 units=""     longname="wind_speed"/></sample>             <!-- rate was 10 -->
+        <sample id="0316" rate="12.5" ><variable name="wind_dir_true"              units=""     longname="wind_dir_true"/></sample>          <!-- rate was 10 -->
+    <!--<sample id="0317" rate="25"   ><variable name="trk angle mag"              units=""     longname="trk angle mag"/></sample>               not used    -->
+    <!--<sample id="0320" rate="25"   ><variable name="mag heading"                units=""     longname="mag heading"/></sample>                 not used    -->
+        <sample id="0321" rate="25"   ><variable name="drift_angle"                units=""     longname="drift_angle"/></sample>
+    <!--<sample id="0322" rate="25"   ><variable name="flt pth angle"              units=""     longname="flt pth angle"/></sample>               not used    -->
+    <!--<sample id="0323" rate="50"   ><variable name="flt pth accel"              units=""     longname="flt pth accel"/></sample>               not used    -->
+        <sample id="0324" rate="50"   ><variable name="pitch_angle"                units=""     longname="pitch_angle"/></sample>
+        <sample id="0325" rate="50"   ><variable name="roll_angle"                 units=""     longname="roll_angle"/></sample>
+        <sample id="0326" rate="50"   ><variable name="pitch_rate"                 units=""     longname="pitch_rate"/></sample>
+        <sample id="0327" rate="50"   ><variable name="roll_rate"                  units=""     longname="roll_rate"/></sample>
+        <sample id="0330" rate="50"   ><variable name="yaw_rate"                   units=""     longname="yaw_rate"/></sample>
+        <sample id="0331" rate="50"   ><variable name="long_accel"                 units=""     longname="long_accel"/></sample>
+        <sample id="0332" rate="50"   ><variable name="lat_accel"                  units=""     longname="lat_accel"/></sample>
+        <sample id="0333" rate="50"   ><variable name="normal_accel"               units=""     longname="normal_accel"/></sample>
+        <sample id="0334" rate="25"   ><variable name="platform_hdg"               units=""     longname="platform_hdg"/></sample>           <!-- rate was 10 -->
+        <sample id="0335" rate="50"   ><variable name="track_ang_rate"             units=""     longname="track_ang_rate"/></sample>
+        <sample id="0336" rate="50"   ><variable name="pitch_att_rate"             units=""     longname="pitch_att_rate"/></sample>
+        <sample id="0337" rate="50"   ><variable name="roll_att_rate"              units=""     longname="roll_att_rate"/></sample>
+        <sample id="0350" rate="3.125"><variable name="irs_maint_discretes"        units=""     longname="irs_maint_discretes"/></sample>    <!-- rate was 2  -->
+        <sample id="0351" rate="3.125"><variable name="time_to_nav_ready"          units=""     longname="time_to_nav_ready"/></sample>      <!-- rate was 2  -->
+    <!--<sample id="0354" rate="50"   ><variable name="total time"                 units=""     longname="total time"/></sample>                  not used    -->
+        <sample id="0360" rate="50"   ><variable name="pot_vert_speed"             units=""     longname="pot_vert_speed"/></sample>
+        <sample id="0361" rate="25"   ><variable name="inertial_alt"               units=""     longname="inertial_alt"/></sample>
+    <!--<sample id="0362" rate="50"   ><variable name="along trk accel"            units=""     longname="along trk accel"/></sample>             not used    -->
+    <!--<sample id="0363" rate="50"   ><variable name="cross trk accel"            units=""     longname="cross trk accel"/></sample>             not used    -->
+        <sample id="0364" rate="50"   ><variable name="vertical_accel"             units=""     longname="vertical_accel"/></sample>
+        <sample id="0365" rate="50"   ><variable name="inrt_vert_speed"            units=""     longname="inrt_vert_speed"/></sample>        <!-- rate was 25 -->
+        <sample id="0366" rate="12.5" ><variable name="velocity_ns"                units=""     longname="velocity_ns"/></sample>            <!-- rate was 10 -->
+        <sample id="0367" rate="12.5" ><variable name="velocity_ew"                units=""     longname="velocity_ew"/></sample>            <!-- rate was 10 -->
+        <sample id="0370" rate="6.25" ><variable name="norm_accel"                 units=""     longname="norm_accel"/></sample>             <!-- rate was 5  -->
+        <sample id="0371" rate="3.125"><variable name="equipment_id"               units=""     longname="equipment_id"/></sample>           <!-- rate was 2  -->
+    <!--<sample id="0375" rate="50"   ><variable name="along hdg accel"            units=""     longname="along hdg accel"/></sample>             new         -->
+    <!--<sample id="0376" rate="50"   ><variable name="cross hdg accel"            units=""     longname="cross hdg accel"/></sample>             new         -->
+    </arincSensor>
+
+    <arincSensor ID="ADC-GV" class="DSMArincSensor">
+        <!-- Taken from the Honeywell Engineering Specification A.4.1 spec. no. -->
+        <!-- EB7022597 cage code 55939 "Air Data Computer"    (pages A-53..79). -->
+        <sample id="0203" rate="16"   ><variable name="pressure alt"               units=""     longname="pressure alt"/></sample>
+        <sample id="0204" rate="16"   ><variable name="baro corrected alt #1"      units=""     longname="baro corrected alt #1"/></sample>
+        <sample id="0205" rate="8"    ><variable name="mach"                       units=""     longname="mach"/></sample>
+        <sample id="0206" rate="8"    ><variable name="computed air speed"         units=""     longname="computed air speed"/></sample>
+    <!--<sample id="0207" rate="8"    ><variable name="maximum operating speed"    units=""     longname="maximum operating speed"/></sample>     not used    -->
+        <sample id="0210" rate="16"   ><variable name="true air speed"             units=""     longname="true air speed"/></sample>
+        <sample id="0211" rate="2"    ><variable name="total air pressure"         units=""     longname="total air pressure"/></sample>
+        <sample id="0212" rate="16"   ><variable name="altitude rate"              units=""     longname="altitude rate"/></sample>
+        <sample id="0213" rate="2"    ><variable name="static air pressure"        units=""     longname="static air pressure"/></sample>
+        <sample id="0215" rate="8"    ><variable name="impact pressure"            units=""     longname="impact pressure"/></sample>
+        <sample id="0217" rate="8"    ><variable name="static pressure"            units=""     longname="static pressure"/></sample>
+        <sample id="0220" rate="16"   ><variable name="baro corrected alt #2"      units=""     longname="baro corrected alt #2"/></sample>
+        <sample id="0234" rate="16"   ><variable name="baro correction #1 mB"      units=""     longname="baro correction #1 mB"/></sample>
+    <!--<sample id="0235" rate="16"   ><variable name="baro correction #1 inHg"    units=""     longname="baro correction #1 inHg"/></sample>     not used    -->
+        <sample id="0236" rate="16"   ><variable name="baro correction #2 mB"      units=""     longname="baro correction #2 mB"/></sample>
+    <!--<sample id="0237" rate="16"   ><variable name="baro correction #2 inHg"    units=""     longname="baro correction #2 inHg"/></sample>     not used    -->
+        <sample id="0242" rate="16"   ><variable name="total pressure"             units=""     longname="total pressure"/></sample>
+        <sample id="0244" rate="8"    ><variable name="norm angle of attack"       units=""     longname="norm angle of attack"/></sample>
+    <!--<sample id="0252" rate="16"   ><variable name="baro corrected alt #4"      units=""     longname="baro corrected alt #4"/></sample>       not used    -->
+    <!--<sample id="0270" rate="2"    ><variable name="discrete #1"                units=""     longname="discrete #1"/></sample>                 not used    -->
+    <!--<sample id="0271" rate="2"    ><variable name="discrete #2"                units=""     longname="discrete #2"/></sample>                 not used    -->
+    <!--<sample id="0350" rate="2"    ><variable name="maint word #1"              units=""     longname="maint word #1"/></sample>               not used    -->
+    <!--<sample id="0351" rate="2"    ><variable name="maint word #2"              units=""     longname="maint word #2"/></sample>               not used    -->
+    <!--<sample id="0352" rate="2"    ><variable name="maint word #3"              units=""     longname="maint word #3"/></sample>               not used    -->
+    <!--<sample id="0353" rate="2"    ><variable name="maint word #4"              units=""     longname="maint word #4"/></sample>               not used    -->
+    <!--<sample id="0371" rate="2"    ><variable name="equipment id"               units=""     longname="equipment id"/></sample>                not used    -->
+    </arincSensor>
+
+    <arincSensor ID="GPS-GV" class="DSMArincSensor">
+        <!-- Taken from the Honeywell Installation Manual PN HG2021GB02/GD02 -->
+        <!-- Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219). -->
+        <sample id="0060" rate="1"    ><variable name="Measurement Status"         units=""     longname="Measurement Status"/></sample>
+        <sample id="0061" rate="1"    ><variable name="Pseudo Range"               units=""     longname="Pseudo Range"/></sample>
+        <sample id="0062" rate="1"    ><variable name="Pseudo Range Fine"          units=""     longname="Pseudo Range Fine"/></sample>
+        <sample id="0063" rate="1"    ><variable name="Range Rate"                 units=""     longname="Range Rate"/></sample>
+        <sample id="0064" rate="1"    ><variable name="Delta Range"                units=""     longname="Delta Range"/></sample>
+        <sample id="0065" rate="1"    ><variable name="SV Position X"              units=""     longname="SV Position X"/></sample>
+        <sample id="0066" rate="1"    ><variable name="SV Position X Fine"         units=""     longname="SV Position X Fine"/></sample>
+        <sample id="0070" rate="1"    ><variable name="SV Position Y"              units=""     longname="SV Position Y"/></sample>
+        <sample id="0071" rate="1"    ><variable name="SV Position Y Fine"         units=""     longname="SV Position Y Fine"/></sample>
+        <sample id="0072" rate="1"    ><variable name="SV Position Z"              units=""     longname="SV Position Z"/></sample>
+        <sample id="0073" rate="1"    ><variable name="SV Position Z Fine"         units=""     longname="SV Position Z Fine"/></sample>
+        <sample id="0074" rate="1"    ><variable name="UTC Measure Time"           units=""     longname="UTC Measure Time"/></sample>
+        <sample id="0076" rate="1"    ><variable name="GPS Altitude (MSL)"         units=""     longname="GPS Altitude (MSL)"/></sample>
+        <sample id="0101" rate="1"    ><variable name="Horz Dilution of Precision" units=""     longname="Horz Dilution of Precision"/></sample>
+        <sample id="0102" rate="1"    ><variable name="Vert Dilution of Precision" units=""     longname="Vert Dilution of Precision"/></sample>
+        <sample id="0103" rate="1"    ><variable name="GPS Track Angle"            units=""     longname="GPS Track Angle"/></sample>
+        <sample id="0110" rate="1"    ><variable name="GPS Latitude"               units=""     longname="GPS Latitude"/></sample>
+        <sample id="0111" rate="1"    ><variable name="GPS Longitude"              units=""     longname="GPS Longitude"/></sample>
+        <sample id="0112" rate="1"    ><variable name="GPS Ground Speed"           units=""     longname="GPS Ground Speed"/></sample>
+        <sample id="0120" rate="1"    ><variable name="GPS Lat Fine"               units=""     longname="GPS Lat Fine"/></sample>
+        <sample id="0121" rate="1"    ><variable name="GPS Lon Fine"               units=""     longname="GPS Lon Fine"/></sample>
+        <sample id="0125" rate="1"    ><variable name="Universal Time Code"        units=""     longname="Universal Time Code"/></sample>
+        <sample id="0130" rate="1"    ><variable name="Aut Horz Integrity Limit"   units=""     longname="Aut Horz Integrity Limit"/></sample>
+        <sample id="0133" rate="1"    ><variable name="Aut Vert Integrity Limit"   units=""     longname="Aut Vert Integrity Limit"/></sample>
+        <sample id="0135" rate="1"    ><variable name="Approach Area VIL"          units=""     longname="Approach Area VIL"/></sample>
+        <sample id="0136" rate="1"    ><variable name="Vert Figure of Merit"       units=""     longname="Vert Figure of Merit"/></sample>
+        <sample id="0140" rate="1"    ><variable name="UTC Fine"                   units=""     longname="UTC Fine"/></sample>
+        <sample id="0141" rate="1"    ><variable name="UTC Fine Fractions"         units=""     longname="UTC Fine Fractions"/></sample>
+        <sample id="0143" rate="1"    ><variable name="Approach Area HIL"          units=""     longname="Approach Area HIL"/></sample>
+        <sample id="0150" rate="1"    ><variable name="Universal Time Code"        units=""     longname="Universal Time Code"/></sample>
+        <sample id="0156" rate="1"    ><variable name="Maintenance"                units=""     longname="Maintenance"/></sample>
+        <sample id="0157" rate="1"    ><variable name="Maintenance"                units=""     longname="Maintenance"/></sample>
+        <sample id="0162" rate="2"    ><variable name="Dest Wpt ETA"               units=""     longname="Dest Wpt ETA"/></sample>
+        <sample id="0163" rate="2"    ><variable name="Altr Wpt ETA"               units=""     longname="Altr Wpt ETA"/></sample>
+        <sample id="0165" rate="1"    ><variable name="Vertical Velocity"          units=""     longname="Vertical Velocity"/></sample>
+        <sample id="0166" rate="1"    ><variable name="N/S Velocity"               units=""     longname="N/S Velocity"/></sample>
+        <sample id="0174" rate="1"    ><variable name="E/W Velocity"               units=""     longname="E/W Velocity"/></sample>
+        <sample id="0247" rate="1"    ><variable name="Horz Figure of Merit"       units=""     longname="Horz Figure of Merit"/></sample>
+        <sample id="0260" rate="1"    ><variable name="UTC Date"                   units=""     longname="UTC Date"/></sample>
+        <sample id="0273" rate="1"    ><variable name="GPS Sensor Status"          units=""     longname="GPS Sensor Status"/></sample>
+        <sample id="0343" rate="2"    ><variable name="Dest Wpt HIL"               units=""     longname="Dest Wpt HIL"/></sample>
+        <sample id="0347" rate="2"    ><variable name="Altr Wpt HIL"               units=""     longname="Altr Wpt HIL"/></sample>
+        <sample id="0352" rate="1"    ><variable name="Maintenance"                units=""     longname="Maintenance"/></sample>
+        <sample id="0354" rate="1"    ><variable name="Counter"                    units=""     longname="Counter"/></sample>
+        <sample id="0355" rate="1"    ><variable name="Maintenance"                units=""     longname="Maintenance"/></sample>
+        <sample id="0377" rate="2"    ><variable name="equipment id"               units=""     longname="equipment id"/></sample>
     </arincSensor>
 
     <serialSensor ID="mensor" class="DSMSerialSensor"
@@ -213,6 +290,19 @@
 	    -->
 	</service>
     </server>
+
+    <dsm name="dsm-701" location="cabin" id="0">
+        <arincSensor IDREF="XXXXXX" devicename="/dev/arinc0" id="1000" sim_xmit="true"/>
+    </dsm>
+
+    <dsm name="dsm-444" location="cabin" id="0">
+        <arincSensor IDREF="XXXXXX" devicename="/dev/arinc0" id="2000"/>
+
+        <output class="SyncRecordOutput">
+            <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
+                length="0" />
+        </output>
+    </dsm>
 
     <dsm name="dsm300" location="radome" id="0">
 	<config class="XMLConfig">

@@ -76,14 +76,6 @@
     <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
 </xsd:complexType>
 
-<xsd:complexType name="arincVariable">
-    <xsd:complexContent>
-	<xsd:extension base="variable">
-	    <xsd:attribute name="label" type="OctalLabelType"      use="required"/>
-	</xsd:extension>
-    </xsd:complexContent>
-</xsd:complexType>
-
 <xsd:complexType name="sample">
     <xsd:annotation>
         <xsd:documentation>
@@ -99,25 +91,6 @@
     </xsd:choice>
     <xsd:attribute name="id" type="xsd:short" use="required"/>
     <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
-</xsd:complexType>
-
-<xsd:simpleType name="OctalLabelType">
-    <xsd:restriction base="xsd:short">
-        <xsd:pattern value="0[0-3][0-7]{2}"/>
-    </xsd:restriction>
-</xsd:simpleType>
-
-
-<xsd:complexType name="arincSample">
-    <xsd:complexContent>
-	<xsd:restriction base="sample">
-	    <xsd:choice minOccurs="1" maxOccurs="1">
-		<xsd:element name="variable" type="variable"/>
-	    </xsd:choice>
-	    <xsd:attribute name="id" type="OctalLabelType" use="required"/>
-	    <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
-	</xsd:restriction>
-    </xsd:complexContent>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">
@@ -169,14 +142,15 @@
         </xsd:documentation>
     </xsd:annotation>
     <xsd:complexContent>
-	<xsd:restriction base="sensorT">
-	    <xsd:choice minOccurs="1" maxOccurs="255">
-		<xsd:element name="sample" type="arincSample" minOccurs="1"/>
-            </xsd:choice>
-        </xsd:restriction>
+	<xsd:extension base="sensorT">
+	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
+            <xsd:attribute name="sim_xmit"   type="xsd:token" use="optional"/>
+        </xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
-
 
 <xsd:group name="sensors">
     <xsd:choice>
