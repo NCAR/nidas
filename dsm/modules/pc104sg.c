@@ -1064,12 +1064,8 @@ static void *pc104sg_100hz_thread (void *param)
 		    increment_hz100_cnt();
 		}
 		if (!(ntimeouts++ % 1)) {
-		    struct timespec tnow;
-		    clock_gettime(CLOCK_REALTIME,&tnow);
-		    rtl_printf("pc104sg thread semaphore timeout #%d , tnow-timeout=%d.%06d sec, since=%d secs\n",
-			    ntimeouts, tnow.tv_sec-timeout.tv_sec,
-			    (tnow.tv_nsec-timeout.tv_nsec)/1000,
-			    msecs_since_last_timeout/1000);
+		    rtl_printf("pc104sg thread semaphore timeout #%d, msecs since last timeout=%d\n",
+			    ntimeouts, msecs_since_last_timeout);
 		    rtl_printf("ackHeartBeatInt\n");
 		    ackHeartBeatInt();
 		}
@@ -1087,7 +1083,7 @@ static void *pc104sg_100hz_thread (void *param)
 		break;
 	    }
 	}
-	else msecs_since_last_timeout += 10;
+	else msecs_since_last_timeout += MSEC_PER_THREAD_SIGNAL;
 
 	clock_gettime(CLOCK_REALTIME,&timeout);
 
