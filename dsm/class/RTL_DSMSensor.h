@@ -48,6 +48,8 @@ public:
 
     virtual ~RTL_DSMSensor();
 
+    virtual void setDeviceName(const std::string& val);
+
     /**
      * The file descriptor used when reading from this sensor.
      */
@@ -97,6 +99,8 @@ public:
     	throw(dsm::SampleParseException,atdUtil::IOException);	
 
 protected:
+
+    void initBuffer();
 
     /**
      * return an iterator pointing to one-past end of prefix

@@ -33,14 +33,39 @@ CREATOR_ENTRY_POINT(RTL_DSMSensor)
 
 RTL_DSMSensor::RTL_DSMSensor() :
     DSMSensor(),devIoctl(0),infifofd(-1),outfifofd(-1),
-    BUFSIZE(8192),bufhead(0),buftail(0),samp(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
 }
 
 RTL_DSMSensor::RTL_DSMSensor(const string& devnameArg) :
     DSMSensor(devnameArg),devIoctl(0),infifofd(-1),outfifofd(-1),
-    BUFSIZE(8192),bufhead(0),buftail(0),samp(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
+    setDeviceName(devnameArg);
+}
+
+/**
+ * Destructor.  This also does a close, which is a bit of an
+ * issue, since close can throw IOException, and we want to
+ * avoid throwing exceptions in destructors.  For now
+ * we'll catch it a write it to cerr, which should be
+ * replaced by a actual logging object.
+ */
+RTL_DSMSensor::~RTL_DSMSensor()
+{
+    cerr << "~RTL_DSMSensor()" << endl;
+    try {
+      close();
+    }
+    catch(atdUtil::IOException& ioe) {
+       cerr << ioe.what() << endl;
+    }
+
+}
+
+void RTL_DSMSensor::setDeviceName(const std::string& val)
+{
+    DSMSensor::setDeviceName(val);
 
     string::reverse_iterator ri;
     for (ri = devname.rbegin(); ri != devname.rend(); ++ri)
@@ -58,38 +83,11 @@ RTL_DSMSensor::RTL_DSMSensor(const string& devnameArg) :
 
     inFifoName = prefix + "_in_" + portstr;
     outFifoName = prefix + "_out_" + portstr;
-
-    buffer = new char[BUFSIZE];
 }
 
-/**
- * Destructor.  This also does a close, which is a bit of an
- * issue, since close can throw IOException, and we want to
- * avoid throwing exceptions in destructors.  For now
- * we'll catch it a write it to cerr, which should be
- * replaced by a actual logging object.
- */
-RTL_DSMSensor::~RTL_DSMSensor()
-{
-    delete [] buffer;
-
-    cerr << "~RTL_DSMSensor()" << endl;
-    try {
-      close();
-    }
-    catch(atdUtil::IOException& ioe) {
-       cerr << ioe.what() << endl;
-    }
-
-}
 
 void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
-  
-    devIoctl = RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
-    if (devIoctl) devIoctl->open();
-
-    /* may have to defer opening the fifos until sending the ioctl requests */
     int accmode = flags & O_ACCMODE;
 
     if (accmode == O_RDONLY || accmode == O_RDWR) {
@@ -101,9 +99,9 @@ void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 	outfifofd = ::open(outFifoName.c_str(),O_WRONLY);
 	if (outfifofd < 0) throw atdUtil::IOException(outFifoName,"open",errno);
     }
+    initBuffer();
 
 }
-
 
 void RTL_DSMSensor::close() throw(atdUtil::IOException)
 {
@@ -121,23 +119,38 @@ void RTL_DSMSensor::close() throw(atdUtil::IOException)
 
     if (devIoctl) devIoctl->close();
     devIoctl = 0;
+
+    delete [] buffer;
+    buffer = 0;
 }
+
+void RTL_DSMSensor::initBuffer()
+{
+    bufhead = buftail = 0;
+    delete [] buffer;
+    buffer = new char[BUFSIZE];
+}
+
 
 void RTL_DSMSensor::ioctl(int request, void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!devIoctl) throw atdUtil::IOException(getDeviceName(),"ioctl",
-    	"no ioctl associated with device");
-
+    if (!devIoctl) {
+        devIoctl =
+		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
+	devIoctl->open();
+    }
     devIoctl->ioctl(request,portNum,buf,len);
 }
 
 void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len) 
 	throw(atdUtil::IOException)
 {
-    if (!devIoctl) throw atdUtil::IOException(getDeviceName(),"ioctl",
-    	"no ioctl associated with device");
-
+    if (!devIoctl) {
+        devIoctl =
+		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
+	devIoctl->open();
+    }
     devIoctl->ioctl(request,portNum,buf,len);
 }
 

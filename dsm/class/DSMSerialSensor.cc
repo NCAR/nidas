@@ -66,26 +66,13 @@ DSMSerialSensor::~DSMSerialSensor() {
 }
 void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 {
+    cerr << "DSMSerialSensor::open" << endl;
   
-    devIoctl = RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
-    if (devIoctl) devIoctl->open();
-
+    // It's magic, we can do an ioctl before the device is open!
     ioctl(DSMSER_OPEN,&flags,sizeof(flags));
     cerr << "DSMSER_OPEN done" << endl;
 
-    int accmode = flags & O_ACCMODE;
-
-    if (accmode == O_RDONLY || accmode == O_RDWR) {
-	infifofd = ::open(inFifoName.c_str(),O_RDONLY);
-	if (infifofd < 0) throw atdUtil::IOException(inFifoName,"open",errno);
-    }
-    cerr << inFifoName << " opened" << endl;
-
-    if (accmode == O_WRONLY || accmode == O_RDWR) {
-	outfifofd = ::open(outFifoName.c_str(),O_WRONLY);
-	if (outfifofd < 0) throw atdUtil::IOException(outFifoName,"open",errno);
-    }
-    cerr << outFifoName << " opened" << endl;
+    RTL_DSMSensor::open(flags);
 
 #ifdef DEBUG
     cerr << "sizeof(struct termios)=" << sizeof(struct termios) << endl;
@@ -101,7 +88,11 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     cerr << "c_oflag=" << oflag() << endl;
     cerr << "c_cflag=" << cflag() << endl;
     cerr << "c_lflag=" << lflag() << endl;
-    cerr << dec;
+    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermiosPtr()) << endl;
+    cerr << "baud rate=" << getBaudRate() << endl;
+    cerr << "data bits=" << getDataBits() << endl;
+    cerr << "stop bits=" << getStopBits() << endl;
+    cerr << "parity=" << getParityString() << endl;
 #endif
 
     ioctl(DSMSER_TCSETS,getTermiosPtr(),SIZEOF_TERMIOS);
@@ -130,6 +121,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 	if (prompt.len > (int)sizeof(prompt.str))
 		prompt.len = sizeof(prompt.str);
 	prompt.rate = getPromptRate();
+	cerr << "prompt=\"" << nprompt << "\"" << endl;
 	ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
 	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
@@ -233,12 +225,9 @@ void DSMSerialSensor::fromDOMElement(
 			("DSMSerialSensor","baud",aval);
 	    }
 	    else if (!aname.compare("parity")) {
-		if (aval.compare("odd"))
-			setParity(ODD);
-		else if (aval.compare("even"))
-			setParity(atdTermio::Termios::EVEN);
-		else if (aval.compare("none"))
-			setParity(atdTermio::Termios::NONE);
+		if (!aval.compare("odd")) setParity(ODD);
+		else if (!aval.compare("even")) setParity(EVEN);
+		else if (!aval.compare("none")) setParity(NONE);
 		else throw atdUtil::InvalidParameterException
 			("DSMSerialSensor","parity",aval);
 	    }
@@ -267,7 +256,7 @@ void DSMSerialSensor::fromDOMElement(
 	    const string& str = xchild.getAttributeValue("position");
 	    cerr << "position=" << str << endl;
 	    if (!str.compare("beg")) setMessageSeparatorAtEOM(false);
-	    else if (!str.compare("end")) setMessageSeparatorAtEOM(false);
+	    else if (!str.compare("end")) setMessageSeparatorAtEOM(true);
 	    else throw atdUtil::InvalidParameterException
 			("DSMSerialSensor","messageSeparator position",str);
 
@@ -276,12 +265,12 @@ void DSMSerialSensor::fromDOMElement(
 	    setMessageLength(atoi(xchild.getAttributeValue("length").c_str()));
 	}
 	else if (!elname.compare("prompt")) {
-	    cerr << "prompt=" << xchild.getAttributeValue("string") << endl;
+	    // cerr << "prompt=" << xchild.getAttributeValue("string") << endl;
 	    std::string prompt = xchild.getAttributeValue("string");
 
 	    setPromptString(prompt);
 
-	    cerr << "rate=" << xchild.getAttributeValue("rate") << endl;
+	    // cerr << "rate=" << xchild.getAttributeValue("rate") << endl;
 	    int rate = atoi(xchild.getAttributeValue("rate").c_str());
 	    enum irigClockRates erate = irigClockRateToEnum(rate);
 
