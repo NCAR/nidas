@@ -232,10 +232,10 @@ Load up some phoney data in the A2D control structure, A2D_SET
 			(float)a2d->Hz[i]/(float)A2D_MAX_RATE;
 		else a2d->norm[i] = 1.0;
 
+		a2d->calset[i] = 0;
+ 		a2d->offset[i] = 0;
 	}
  	a2d->vcalx8 = 128;
-	a2d->calset = 0;
- 	a2d->offset = 0;
 
 	if((fp = fopen("filtercoeff.bin", "rb")) == NULL)
 		{
