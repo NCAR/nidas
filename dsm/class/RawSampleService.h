@@ -18,7 +18,8 @@
 #define DSM_RAWSAMPLESERVICE_H
 
 #include <DSMService.h>
-#include <RawSampleInputStream.h>
+#include <SampleInput.h>
+#include <SampleIOProcessor.h>
 
 namespace dsm {
 
@@ -42,22 +43,24 @@ public:
 
     int run() throw(atdUtil::Exception);
 
-    void connected(SampleInput*);
-    void disconnected(SampleInput*);
-
-    void connected(SampleOutput*);
-    void disconnected(SampleOutput*);
+    void connected(SampleInput*) throw();
+    void disconnected(SampleInput*) throw();
 
     void schedule() throw(atdUtil::Exception);
 
     /**
      * Override setDSMConfig to set the DSMConfig value of
-     * my inputs and outputs.
+     * my inputs and processors.
      */
     void setDSMConfig(const DSMConfig* val);
 
-    void addOutput(SampleOutput* output) { outputs.push_back(output); }
-    const std::list<SampleOutput*>& getOutputs() const { return outputs; }
+    /**
+     * Add a processor to this RawSampleService. This is done
+     * at configuration (XML) time.
+     */
+    void addProcessor(SampleIOProcessor* proc) { processors.push_back(proc); }
+
+    const std::list<SampleIOProcessor*>& getProcessors() const { return processors; }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -72,13 +75,11 @@ public:
 
 
 protected:
+
     SampleInput* input;
 
-    std::list<SampleOutput*> outputs;
+    std::list<SampleIOProcessor*> processors;
 
-    std::list<SampleOutput*> singletonOutputs;
-
-    std::map<SampleOutput*,RawSampleService*> servicesByOutput;
 };
 
 }
