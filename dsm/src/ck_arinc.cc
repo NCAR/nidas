@@ -28,6 +28,35 @@
 using namespace std;
 
 static arinc_set IRS_labels[] = {
+
+  {1, 0007,  3}, // Time to Nav
+  {1, 0010,  3}, // Pos Latitude
+  {1, 0011,  3}, // Pos Longitude
+  {1, 0012,  3}, // Ground Speed
+  {1, 0013,  3}, // Trk Angle True
+  {1, 0014,  3}, // Mag Heading
+  {1, 0015,  3}, // Wind Speed
+  {1, 0016,  3}, // Wind Dir True
+  {1, 0044,  3}, // True Heading
+  {1, 0300, 50}, // Delta Theta X
+  {1, 0301, 50}, // Delta Theta Y
+  {1, 0302, 50}, // Delta Theta Z
+  {1, 0303, 50}, // Delta Theta V X
+  {1, 0304, 50}, // Delta Theta V Y
+  {1, 0305, 50}, // Delta Theta V Z
+  {1, 0310, 12}, // Pos Latitude
+  {1, 0311, 12}, // Pos Longitude
+  {1, 0312, 25}, // Ground Speed
+  {1, 0313, 25}, // Trk Angle True
+  {1, 0314, 25}, // True Heading
+  {1, 0315, 12}, // Wind Speed
+  {1, 0316, 12}, // Wind Dir True
+  {1, 0317, 25}, // Trk Angle Mag
+  {1, 0320, 25}, // Mag Heading
+  {1, 0321, 25}, // Drift Angle
+  {1, 0322, 25}, // Flt Pth Angle
+  {1, 0323, 50}, // Flt Pth Accel
+  {1, 0324, 50}, // Pitch Angle
   {1, 0325, 50}, // Roll Angle
   {1, 0326, 50}, // Pitch Rate
   {1, 0327, 50}, // Roll Rate
