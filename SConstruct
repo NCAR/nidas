@@ -47,8 +47,8 @@ env['LIBPATH'] = '#/lib'
 ##
 ##  Adjust the env for cross-building to the xScale ARM processor...
 ##
-
 arm_env = env.Copy()
+
 arm_env.AppendUnique(CCFLAGS=Split("""
   -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
   -mshort-load-bytes -mtune=strongarm -Uarm -DDSM
@@ -60,13 +60,11 @@ arm_env['CC']        = '/opt/rtldk-2.0/bin/arm-linux-gcc'
 arm_env['CXX']       = '/opt/rtldk-2.0/bin/arm-linux-g++'
 arm_env['LINK']      = '/opt/rtldk-2.0/bin/arm-linux-g++'
 arm_env['RANLIB']    = '/opt/rtldk-2.0/bin/arm-linux-ranlib'
-arm_env['OBJSUFFIX'] = '.arm.o'
 
 ##
-##  Adjust the env for cross-building to the x86 ARM processor...
+##  Adjust the env for building to the x86 processor...
 ##
 x86_env = env.Copy()
-x86_env['OBJSUFFIX'] = '.x86.o'
 
 ##
 ##  Export the environments to the SConscript files
@@ -87,7 +85,7 @@ SConscript('dsm/class/SConscript',   build_dir='dsm/class/obj',   duplicate=0)
 ##
 ##  Build bin/dsmAsync, bin/dsmSync, bin/dsmComm
 ##
-SConscript('dsm/src/SConscript',     build_dir='dsm/src/obj',     duplicate=0)
+SConscript('dsm/src/SConscript',     build_dir='dsm/bin',         duplicate=0)
 
 ##
 ##  Build lib/libArmDisc.a and lib/libX86Disc.a
@@ -97,4 +95,4 @@ SConscript('disc/class/SConscript',  build_dir='disc/class/obj',  duplicate=0)
 ##
 ##  Build bin/discAsync, bin/discSync, bin/discComm
 ##
-SConscript('disc/src/SConscript',    build_dir='disc/src/obj',    duplicate=0)
+SConscript('disc/src/SConscript',    build_dir='disc/bin',        duplicate=0)
