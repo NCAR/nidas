@@ -1,0 +1,26 @@
+#!/bin/sh
+
+cd /scr/tmp/$USER
+
+svnco() {
+    mkdir ads3_doxy
+    cd ads3_doxy
+    svn co http://orion/svn/hiaper/ads3
+    cd ads3
+}
+
+if [ ! -d ads3_doxy/ads3 ]; then
+    svnco
+else
+    cd ads3_doxy/ads3 || exit 1
+    if ! svn update; then 
+        cd ../..
+	svnco
+    fi
+fi
+
+cd dsm
+
+doxygen dsm.doxy
+
+rsync -a doc /net/www/docs/raf/Software/hiaper/ads3/apidocs/dsm
