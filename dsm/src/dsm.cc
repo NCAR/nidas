@@ -1,9 +1,9 @@
 
-#include <DSM.h>
+#include <DSMEngine.h>
 
 using namespace dsm;
 
 int main(int argc, char** argv)
 {
-    return DSM::main(argc,argv);	// deceptively simple
+    return DSMEngine::main(argc,argv);	// deceptively simple
 }
