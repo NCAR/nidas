@@ -13,7 +13,9 @@
 
 */
 
+#include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <errno.h>
 #include <bits/pthreadtypes.h>
 
@@ -127,12 +129,18 @@ void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len)
 
 ssize_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
 {
-    size_t n = ::read(infifofd,buf,len);
-    if (n < 0) throw atdUtil::IOException(inFifoName,"read",errno);
+    char* cbuf = (char*) buf;
+    ssize_t n; 
+    for (n = 0; n < (ssize_t)len; ) {
+	size_t l = ::read(infifofd,cbuf,len - n);
+	if (l < 0) throw atdUtil::IOException(inFifoName,"read",errno);
+	cbuf += l;
+	n += l;
+    }
     return n;
 }
 
-ssize_t RTL_DSMSensor::write(void *buf, size_t len) throw(atdUtil::IOException)
+ssize_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOException)
 {
     size_t n = ::write(outfifofd,buf,len);
     if (n < 0) throw atdUtil::IOException(outFifoName,"write",errno);
