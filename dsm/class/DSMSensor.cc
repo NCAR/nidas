@@ -97,7 +97,18 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
 		tt = samp->getTimeTag();	// return last time tag read
-		distributeRaw(samp);
+		try {
+		    distributeRaw(samp);
+		    samp->freeReference();
+		}
+	        catch(const SampleParseException& cpe) {
+		    samp->freeReference();
+		    throw cpe;
+		}
+		catch(const atdUtil::IOException& ioe) {
+		    samp->freeReference();
+		    throw ioe;
+		}
 		nsamples++;
 		samp = 0;
 		// Finished with sample. Check for more data in buffer
@@ -143,7 +154,7 @@ bool DSMSensor::receive(const Sample *samp)
 {
     list<const Sample*> results;
     process(samp,results);
-    distribute(results);
+    distribute(results);	// this does a sample->freeReference
     return true;
 }
 

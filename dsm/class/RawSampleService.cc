@@ -35,24 +35,24 @@ RawSampleService::RawSampleService():
 RawSampleService::RawSampleService(const RawSampleService& x):
 	DSMService((const DSMService&)x),input(0)
 {
-    if (x.input) input = new RawSampleInputStream(*x.input);
+    if (x.input) input = x.input->clone();
 
     // loop over x's outputs
     const std::list<SampleOutput*>& xoutputs = x.getOutputs();
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = xoutputs.begin(); oi != xoutputs.end(); ++oi) {
-        SampleOutput* output = *oi;
+        SampleOutput* xoutput = *oi;
 
 	// don't clone singleton outputs. They receive
 	// samples from multiple DSMs.
 	// Attach them to the new inputs though.
 	// Only the original RawSampleService will have
 	// a singleton output.
-	if (output->isSingleton()) addOutput(output);
+	if (xoutput->isSingleton()) addOutput(xoutput);
 	else {
 	    // clone output
-	    SampleOutput* newout = output->clone();
-	    addOutput(newout);
+	    SampleOutput* output = xoutput->clone();
+	    addOutput(output);
 	}
     }
 }
@@ -119,8 +119,7 @@ void RawSampleService::connected(SampleInput* inpt)
 }
 /*
  * This method is called when connection to a SampleOutput has
- * been established. It will be called on both the clones
- * and the original RawSampleService.
+ * been established. 
  */
 void RawSampleService::connected(SampleOutput* output)
 {
@@ -132,6 +131,7 @@ void RawSampleService::connected(SampleOutput* output)
 	list<DSMSensor*>::const_iterator si;
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
+	    sensor->addRawSampleClient(sensor);
 	    sensor->addSampleClient(output);
 	}
     }
@@ -235,12 +235,16 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 throw atdUtil::InvalidParameterException("service",
                     classattr,e.what());
             }
-	    SampleInput* input = dynamic_cast<SampleInput*>(domable);
+	    input = dynamic_cast<SampleInput*>(domable);
             if (!input || !input->isRaw()) {
 		delete domable;
                 throw atdUtil::InvalidParameterException("service",
                     classattr,"is not a raw SampleInput");
 	    }
+	    if (!input->isRaw())
+		throw atdUtil::InvalidParameterException(
+                "RawSampleService::fromDOMElement",
+                "input", "must be a raw sample input");
 	    input->setDSMService(this);
             input->fromDOMElement((DOMElement*)child);
 	}
@@ -273,11 +277,11 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
     }
     if (!input)
         throw atdUtil::InvalidParameterException(
-                "DSMService::fromDOMElement",
+                "RawSampleService::fromDOMElement",
                 "input", "no inputs specified");
     if (outputs.size() == 0)
         throw atdUtil::InvalidParameterException(
-                "DSMService::fromDOMElement",
+                "RawSampleService::fromDOMElement",
                 "output", "no outputs specified");
 }
 

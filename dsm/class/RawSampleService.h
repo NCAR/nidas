@@ -70,7 +70,7 @@ public:
 
 
 protected:
-    RawSampleInputStream* input;
+    SampleInput* input;
 
     std::list<SampleOutput*> outputs;
 };

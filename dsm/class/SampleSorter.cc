@@ -91,10 +91,11 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	samplesAvail.unlock();
 
 	// loop over the aged samples
-	std::vector<const Sample *>::const_iterator iv;
-	for (iv = agedsamples.begin(); iv < agedsamples.end(); ++iv) {
-	    const Sample *s = *iv;
+	std::vector<const Sample *>::const_iterator si;
+	for (si = agedsamples.begin(); si < agedsamples.end(); ++si) {
+	    const Sample *s = *si;
 	    distribute(s);
+	    s->freeReference();
 	}
 	/*
 	if (debug) cerr << getFullName() << " agedsamples.size=" <<
@@ -124,8 +125,11 @@ void SampleSorter::flush() throw (SampleParseException,atdUtil::IOException)
 
     SortedSampleSet::const_iterator si;
     try {
-	for (si = tmpset.begin(); si != tmpset.end(); ++si)
-	    distribute(*si);
+	for (si = tmpset.begin(); si != tmpset.end(); ++si) {
+	    const Sample *s = *si;
+	    distribute(s);
+	    s->freeReference();
+        }
     }
     // on exception, free references on rest of samples
     catch(const SampleParseException& cpe) {

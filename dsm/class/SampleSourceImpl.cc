@@ -57,20 +57,8 @@ void SampleSourceImpl::distributeImpl(const Sample* sample)
      */
 
     list<SampleClient*>::const_iterator li;
-    for (li = tmp.begin(); li != tmp.end(); ++li) {
-	try {
-	    (*li)->receive(sample);
-	}
-	catch(const SampleParseException& cpe) {
-	    sample->freeReference();
-	    throw cpe;
-	}
-	catch(const atdUtil::IOException& ioe) {
-	    sample->freeReference();
-	    throw ioe;
-	}
-    }
-    sample->freeReference();
+    for (li = tmp.begin(); li != tmp.end(); ++li)
+	(*li)->receive(sample);
     numSamplesSent++;
 }
 
@@ -79,19 +67,22 @@ void SampleSourceImpl::distributeImpl(const list<const Sample*>& samples)
 {
     list<const Sample*>::const_iterator si;
     try {
-	for (si = samples.begin(); si != samples.end(); ++si)
-	    distributeImpl(*si);
+	for (si = samples.begin(); si != samples.end(); ++si) {
+	    const Sample *s = *si;
+	    distributeImpl(s);
+	    s->freeReference();
+	}
     }
-    // on exception, free references on rest of samples
+    // on exception, free references on bad sample and the rest
     catch(const SampleParseException& cpe) {
-	for (++si ; si != samples.end(); ++si) {
+	for ( ; si != samples.end(); ++si) {
 	    const Sample *s = *si;
 	    s->freeReference();
 	}
 	throw cpe;
     }
     catch(const atdUtil::IOException& ioe) {
-	for (++si ; si != samples.end(); ++si) {
+	for ( ; si != samples.end(); ++si) {
 	    const Sample *s = *si;
 	    s->freeReference();
 	}

@@ -57,6 +57,23 @@ public:
 
     virtual void init() = 0;
 
+    /**
+     * Read a buffer of data, serialize the data into samples,
+     * and distribute() samples to the receive() method of my SampleClients.
+     * This will perform only one physical read of the underlying device
+     * and so is appropriate to use when a select() has determined
+     * that there is data availabe on our file descriptor.
+     */
+    virtual void readSamples() throw(dsm::SampleParseException,atdUtil::IOException) = 0;
+
+    /**
+     * Blocking read of the next sample from the buffer. The caller must
+     * call freeReference on the sample when they're done with it.
+     */
+    virtual Sample* readSample() throw(SampleParseException,atdUtil::IOException) = 0;
+
+    virtual size_t getUnrecognizedSamples() const = 0;
+
     virtual void close() throw(atdUtil::IOException) = 0;
 
     virtual void setDSMConfig(const DSMConfig* val) = 0;
@@ -120,17 +137,27 @@ public:
      * and so is appropriate to use when a select() has determined
      * that there is data availabe on our file descriptor.
      */
-    virtual void readSamples() throw(dsm::SampleParseException,atdUtil::IOException);
+    void readSamples() throw(dsm::SampleParseException,atdUtil::IOException);
 
     /**
      * Blocking read of the next sample from the buffer. The caller must
      * call freeReference on the sample when they're done with it.
      */
-    virtual Sample* readSample() throw(SampleParseException,atdUtil::IOException);
+    Sample* readSample() throw(SampleParseException,atdUtil::IOException);
 
-    virtual void close() throw(atdUtil::IOException);
+    size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
+
+    void close() throw(atdUtil::IOException);
 
     int getFd() const;
+
+    void setDSMConfig(const DSMConfig* val);
+
+    const DSMConfig* getDSMConfig() const;
+
+    void setDSMService(const DSMService* val);
+
+    const DSMService* getDSMService() const;
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -141,13 +168,8 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
-    void setDSMConfig(const DSMConfig* val);
 
-    const DSMConfig* getDSMConfig() const;
 
-    void setDSMService(const DSMService* val);
-
-    const DSMService* getDSMService() const;
 
 protected:
 
@@ -183,6 +205,8 @@ protected:
      * Pointer into the data portion of samp where we will read next.
      */
     char* dptr;
+
+    size_t unrecognizedSamples;
 
 };
 

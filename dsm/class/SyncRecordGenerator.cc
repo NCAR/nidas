@@ -158,6 +158,7 @@ bool SyncRecordGenerator::receive(const Sample* samp)
     while (tt >= syncTime + 1000 ||
     	(tt < 60000 && (syncTime == MSECS_PER_DAY - 1000))) {
 	distribute(syncRecord);
+	syncRecord->freeReference();
 	syncTime += 1000;
 	if (syncTime == MSECS_PER_DAY) {
 	    syncTime = 0;

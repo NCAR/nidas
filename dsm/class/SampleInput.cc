@@ -133,8 +133,13 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 {
     static int nsamps = 0;
 
-    iostream->read();
+    iostream->read();		// read a buffer's worth
+
     SampleHeader header;
+    map<unsigned long,DSMSensor*>::const_iterator mapend = sensor_map.end();
+    map<unsigned long,DSMSensor*>::const_iterator sensori;
+
+    // process all in buffer
     for (;;) {
 	if (!samp) {
 #ifdef DEBUG
@@ -169,7 +174,19 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	left -= len;
 	if (left == 0) {
 	    if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
+	    // if we're an input of raw samples, pass them to the
+	    // appropriate sensor for distribution.
+
+	    // todo: need to catch exceptions here and freeReference
+	    if (isRaw()) {
+		sensori = sensor_map.find(samp->getId());
+		if (sensori != mapend) sensori->second->distributeRaw(samp);
+		else unrecognizedSamples++;
+	    }
+
+	    // distribute them ourselvs too
 	    distribute(samp);
+	    samp->freeReference();
 	    samp = 0;
 	}
 	else break;
