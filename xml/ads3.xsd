@@ -53,8 +53,7 @@
 	    </xsd:restriction>
 	</xsd:simpleType>
     </xsd:attribute>
-    <xsd:attribute name="length" type="xsd:nonNegativeInteger"
-	    default="0"/>
+    <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
 </xsd:complexType>
 
 <xsd:complexType name="promptType">
@@ -62,15 +61,15 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
-<xsd:complexType name="sensor" abstract="true">
+<xsd:complexType name="sensorT" abstract="true">
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
     <xsd:attribute name="class" type="xsd:token"/>
 </xsd:complexType>
 
-<xsd:complexType name="serialsensor">
+<xsd:complexType name="serialsensorT">
     <xsd:complexContent>
-	<xsd:extension base="sensor">
+	<xsd:extension base="sensorT">
 	    <xsd:all>
 		<xsd:element name="message" type="messageDesc"
 		    minOccurs="0" maxOccurs="1"/>
@@ -88,64 +87,75 @@
     </xsd:complexContent>
 </xsd:complexType>
 
-<xsd:element name="sensor" type="sensor"/>
-<xsd:element name="serialsensor" type="serialsensor"/>
+<xsd:simpleType name="OctalLabelType">
+    <xsd:restriction base="xsd:positiveInteger">
+        <xsd:pattern value="0[0-3][0-7]{2}"/>
+    </xsd:restriction>
+</xsd:simpleType>
 
-<xsd:group name="sensors">
-    <xsd:choice>
-	<xsd:element name="sensor"/>
-	<xsd:element name="serialsensor"/>
-    </xsd:choice>
-</xsd:group>
+<xsd:complexType name="arcfgDesc">
+    <xsd:attribute name="label" type="OctalLabelType"      use="required"/>
+    <xsd:attribute name="rate"  type="xsd:positiveInteger" use="required"/>
+    <xsd:attribute name="desc"  type="xsd:normalizedString"/>
+</xsd:complexType>
 
-<xsd:element name="dsm">
-    <xsd:complexType>
-	<xsd:group ref="sensors" minOccurs="0" maxOccurs="unbounded"/>
-	<!--
-	<xsd:choice>
-	    <xsd:element name="sensor" minOccurs="0" maxOccurs="unbounded"/>
-	</xsd:choice>
-	-->
-	<xsd:attribute name="hostname" type="xsd:token" use="required"/>
-    </xsd:complexType>
-</xsd:element>
+<xsd:complexType name="arincSensorT">
+    <xsd:annotation>
+        <xsd:documentation>
+            Each ARINC sensor has a set of unique labels with a given rate for each label.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+        <xsd:extension base="sensorT">
+            <xsd:sequence minOccurs="0" maxOccurs="255">
+                <xsd:element name="arcfg" type="arcfgDesc">
+                    <xsd:unique name="uniqueArcfgs">
+                        <xsd:selector xpath="arcfg"/>
+                       <xsd:field    xpath="@label"/>
+                    </xsd:unique>
+                </xsd:element>
+            </xsd:sequence>
+            <xsd:attribute name="devicename" type="xsd:token"/>
+        </xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
 
-<xsd:element name="sensorcatalog">
-    <xsd:complexType>
-	<xsd:group ref="sensors" minOccurs="0" maxOccurs="unbounded"/>
-	<!--
-	<xsd:choice>
-	    <xsd:element name="sensor" minOccurs="0" maxOccurs="unbounded"/>
-	</xsd:choice>
-	-->
-    </xsd:complexType>
-</xsd:element>
+<xsd:complexType name="choiceOfSensors">
+   <xsd:sequence minOccurs="1" maxOccurs="unbounded">
+      <xsd:choice>
+          <xsd:element name="sensor"       type="sensorT"/>
+          <xsd:element name="serialsensor" type="serialsensorT"/>
+          <xsd:element name="arincSensor"  type="arincSensorT"/>
+      </xsd:choice>
+   </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name="sensorcatalog" type="choiceOfSensors"/>
+
+<xsd:complexType name="dsmType">
+   <xsd:complexContent>
+       <xsd:extension base="choiceOfSensors">
+           <xsd:attribute name="hostname" type="xsd:token" use="required"/>
+       </xsd:extension>
+   </xsd:complexContent>
+</xsd:complexType>
 
 <xsd:element name="aircraft">
     <xsd:complexType>
-	<xsd:sequence>
-	    <xsd:element name="dsm" minOccurs="1" maxOccurs="unbounded"/>
-	</xsd:sequence>
-	<xsd:attribute name="tailno" type="xsd:token" use="required"/>
-	<xsd:attribute name="name" type="xsd:token" use="required"/>
+        <xsd:sequence>
+            <xsd:element name="dsm" type="dsmType" maxOccurs="unbounded"/>
+        </xsd:sequence>
+        <xsd:attribute name="tailno" type="xsd:token" use="required"/>
+        <xsd:attribute name="name"   type="xsd:token" use="required"/>
     </xsd:complexType>
 </xsd:element>
 
 <xsd:element name="project">
     <xsd:complexType>
-	<xsd:sequence>
-	    <xsd:element name="sensorcatalog" minOccurs="0" maxOccurs="1"/>
-	    <xsd:element name="aircraft" minOccurs="1" maxOccurs="unbounded"/>
-	</xsd:sequence>
-    </xsd:complexType>
-</xsd:element>
-
-<xsd:element name="config">
-    <xsd:complexType>
-	<xsd:sequence>
-	    <xsd:element name="sensorcatalog" minOccurs="0" maxOccurs="1"/>
-	    <xsd:element name="project" minOccurs="0" maxOccurs="unbounded"/>
-	</xsd:sequence>
+        <xsd:sequence>
+            <xsd:element ref="sensorcatalog" minOccurs="0"/>
+            <xsd:element ref="aircraft"      maxOccurs="unbounded"/>
+        </xsd:sequence>
     </xsd:complexType>
 </xsd:element>
 

@@ -6,6 +6,60 @@
     xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd">
 
 <sensorcatalog>
+    <arincSensor ID="IRS-C130-full" class="DSMArincSensor">
+        <!-- Taken from the Honeywell installation manual for
+             the YG1854 LASERREF SM IRS/GPIRS (pages 648-650). -->
+        <arcfg label="0265" rate="50" desc="copy"/>
+        <arcfg label="0265" rate="50" desc="integ_vert_accel"/>
+        <arcfg label="0324" rate="50" desc="pitch_angle"/>
+        <arcfg label="0325" rate="50" desc="roll_angle"/>
+        <arcfg label="0326" rate="50" desc="pitch_rate"/>
+        <arcfg label="0327" rate="50" desc="roll_rate"/>
+        <arcfg label="0330" rate="50" desc="yaw_rate"/>
+        <arcfg label="0331" rate="50" desc="long_accel"/>
+        <arcfg label="0332" rate="50" desc="lat_accel"/>
+        <arcfg label="0333" rate="50" desc="normal_accel"/>
+        <arcfg label="0336" rate="50" desc="pitch_att_rate"/>
+        <arcfg label="0337" rate="50" desc="roll_att_rate"/>
+        <arcfg label="0360" rate="50" desc="pot_vert_speed"/>
+        <arcfg label="0364" rate="50" desc="vertical_accel"/>
+        <arcfg label="0314" rate="25" desc="true_heading"/>
+        <arcfg label="0361" rate="25" desc="inertial_alt"/>
+        <arcfg label="0365" rate="25" desc="inrt_vert_speed"/>
+        <arcfg label="0312" rate="10" desc="ground_speed"/>
+        <arcfg label="0315" rate="10" desc="wind_speed"/>
+        <arcfg label="0316" rate="10" desc="wind_dir_true"/>
+        <arcfg label="0334" rate="10" desc="platform_hdg"/>
+        <arcfg label="0366" rate="10" desc="velocity_ns"/>
+        <arcfg label="0367" rate="10" desc="velocity_ew"/>
+        <arcfg label="0310" rate="5"  desc="present_lat"/>
+        <arcfg label="0311" rate="5"  desc="present_lon"/>
+        <arcfg label="0370" rate="5"  desc="norm_accel"/>
+        <arcfg label="0270" rate="2"  desc="irs_discretes"/>
+        <arcfg label="0350" rate="2"  desc="irs_maint_discretes"/>
+        <arcfg label="0351" rate="2"  desc="time_to_nav_ready"/>
+        <arcfg label="0371" rate="2"  desc="equipment_id"/>
+        <arcfg label="0335" rate="50" desc="track_ang_rate"/>
+        <arcfg label="0313" rate="25" desc="track_angle_true"/>
+        <arcfg label="0321" rate="25" desc="drift_angle"/>
+        <arcfg label="0007" rate="2"  desc="Time to Nav          (not used)"/>
+        <arcfg label="0010" rate="2"  desc="Pos Latitude         (not used)"/>
+        <arcfg label="0011" rate="2"  desc="Pos Longitude        (not used)"/>
+        <arcfg label="0012" rate="2"  desc="Ground Speed         (not used)"/>
+        <arcfg label="0013" rate="2"  desc="Trk Angle True       (not used)"/>
+        <arcfg label="0014" rate="2"  desc="Mag Heading          (not used)"/>
+        <arcfg label="0015" rate="2"  desc="Wind Speed           (not used)"/>
+        <arcfg label="0016" rate="2"  desc="Wind Dir True        (not used)"/>
+        <arcfg label="0044" rate="2"  desc="True Heading         (not used)"/>
+        <arcfg label="0317" rate="25" desc="Trk Angle Mag        (not used)"/>
+        <arcfg label="0320" rate="25" desc="Mag Heading          (not used)"/>
+        <arcfg label="0322" rate="25" desc="Flt Pth Angle        (not used)"/>
+        <arcfg label="0323" rate="50" desc="Flt Pth Accel        (not used)"/>
+        <arcfg label="0354" rate="50" desc="Total Time           (not used)"/>
+        <arcfg label="0362" rate="50" desc="Along Trk Accel      (not used)"/>
+        <arcfg label="0363" rate="50" desc="Cross Trk Accel      (not used)"/>
+    </arincSensor>
+
     <serialsensor ID="mensor" class="DSMSerialSensor"
 	baud="9600" parity="none" databits="8" stopbits="1"
 	scanfFormat="%2*c%f">
@@ -22,6 +76,8 @@
 	    <message position="end" separator="\n" length="0"/>
 	    <prompt string="hitme1\n" rate="10"/>
 	</serialsensor>
+
+	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0"/>
 
 	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
 
