@@ -76,7 +76,7 @@ public:
 
     virtual ~DSMSensor();
 
-    void setDeviceName(const std::string& val) { devname = val; }
+    virtual void setDeviceName(const std::string& val) { devname = val; }
 
     const std::string& getDeviceName() const { return devname; }
 
