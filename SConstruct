@@ -44,6 +44,10 @@ env['CXXFLAGS'] = Split("""
     -Wall -O2 -g
 """)
 
+# env['LINKFLAGS'] = Split("""
+#     -rdynamic
+# """)
+
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
@@ -66,26 +70,35 @@ arm_env = env.Copy()
 
 arm_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/include
+    /net/opt_lnx/local_arm/include
 """))
 
-arm_env.AppendUnique(LIBS = Split("""
-      Dsm
-      isa
-      pthread
-    """))
+## arm_env.AppendUnique(LIBS = Split("""
+##       Dsm
+##       isa
+##       pthread
+##       dl
+##     """))
 
 arm_env.AppendUnique(LIBPATH = Split("""
-    #dsm/class/arm
     /net/opt_lnx/local_arm/isffLib/lib
+    /net/opt_lnx/local_arm/lib
+    #dsm/class/arm
 """))
 
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
+##
+arm_env.AppendUnique(RPATH = Split("""
+    /usr/local/lib
+"""))
 
-arm_env.Replace(AR     = '/opt/arm_tools/bin/arm-linux-ar')
-arm_env.Replace(AS     = '/opt/arm_tools/bin/arm-linux-as')
-arm_env.Replace(CC     = '/opt/arm_tools/bin/arm-linux-gcc')
-arm_env.Replace(CXX    = '/opt/arm_tools/bin/arm-linux-g++')
-arm_env.Replace(LINK   = '/opt/arm_tools/bin/arm-linux-g++')
-arm_env.Replace(RANLIB = '/opt/arm_tools/bin/arm-linux-ranlib')
+arm_env.Replace(AR	= '/opt/arm_tools/bin/arm-linux-ar')
+arm_env.Replace(AS	= '/opt/arm_tools/bin/arm-linux-as')
+arm_env.Replace(CC	= '/opt/arm_tools/bin/arm-linux-gcc')
+arm_env.Replace(CXX	= '/opt/arm_tools/bin/arm-linux-g++')
+arm_env.Replace(LINK	= '/opt/arm_tools/bin/arm-linux-g++')
+arm_env.Replace(RANLIB	= '/opt/arm_tools/bin/arm-linux-ranlib')
 arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 
 ##
@@ -95,19 +108,29 @@ x86_env = env.Copy()
 
 x86_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_rh90/isffLib/include
+    /net/opt_lnx/local_rh90/include
 """))
 
-x86_env.AppendUnique(LIBS = Split("""
-      Dsm
-      isa
-      pthread
-    """))
+## x86_env.AppendUnique(LIBS = Split("""
+##      Dsm
+##       isa
+##       pthread
+##       dl
+##     """))
 
-##      Disc
+##     Disc
 
 x86_env.AppendUnique(LIBPATH = Split("""
     /net/opt_lnx/local_rh90/isffLib/lib
+    /net/opt_lnx/local_rh90/lib
     #dsm/class/x86
+"""))
+
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
+##
+x86_env.AppendUnique(RPATH = Split("""
+    /net/opt_lnx/local_rh90/lib
 """))
 
 ##
