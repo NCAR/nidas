@@ -27,6 +27,12 @@
 
 namespace dsm {
 
+/**
+ * Whether to use mutexes to make sure the reference count
+ * increments and decrement-and-test operations are atomic.
+ */
+#define MUTEX_PROTECT_REF_COUNTS
+
 #define CLOCK_SAMPLE_ID 1
 
 /**
@@ -229,9 +235,13 @@ public:
     * supports Sample reference counting.
     */
     void holdReference() const {
+#ifdef MUTEX_PROTECT_REF_COUNTS
 	refLock.lock();
+#endif
         refCount++;
+#ifdef MUTEX_PROTECT_REF_COUNTS
 	refLock.unlock();
+#endif
     }
 
 protected:
@@ -239,9 +249,11 @@ protected:
   /**
    * The reference count.
    */
-  mutable int refCount;
+  mutable volatile int refCount;
 
+#ifdef MUTEX_PROTECT_REF_COUNTS
   static atdUtil::Mutex refLock;
+#endif
 
   /**
    * Global count of the number of samples in use by a process.
@@ -527,9 +539,14 @@ template <class DataT>
 void SampleT<DataT>::freeReference() const
 {
     // if refCount is 0, put it back in the Pool.
+#ifdef MUTEX_PROTECT_REF_COUNTS
     refLock.lock();
+#endif
     bool ref0 = --refCount == 0;
+    assert(refCount >= 0);
+#ifdef MUTEX_PROTECT_REF_COUNTS
     refLock.unlock();
+#endif
     if (ref0)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
 }

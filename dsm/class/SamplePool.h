@@ -74,10 +74,15 @@ protected:
     int smallSize;
     int mediumSize;
 
+    atdUtil::Mutex poolLock;
+
+public:
     int nsmall;
     int nmedium;
 
-    atdUtil::Mutex poolLock;
+    int nsamplesOut;
+
+    int nsamplesAlloc;
 
 };
 
@@ -111,7 +116,7 @@ void SamplePool<SampleType>::deleteInstance()
 
 template<class SampleType>
 SamplePool<SampleType>::SamplePool<SampleType>():
-    nsmall(0),nmedium(0)
+    nsmall(0),nmedium(0),nsamplesOut(0),nsamplesAlloc(0)
 {
     // Initial size of pool of small samples around 16K bytes
     smallSize = 16384 / (sizeof(SampleType) + 32 * SampleType::sizeofDataType());
@@ -136,7 +141,19 @@ SamplePool<SampleType>::~SamplePool<SampleType>() {
 
 template<class SampleType>
 SampleType* SamplePool<SampleType>::getSample(size_t len) {
+
     atdUtil::Synchronized pooler(poolLock);
+
+    // Shouldn't get back more than I've dealt out
+    // If we do, that's an indication that reference counting
+    // is screwed up.
+    assert(nsamplesOut >= 0);
+
+    // conservation of sample numbers:
+    // total number allocated must equal:
+    //		number in the pool (nsmall + nmedium), plus
+    //		number held by others.
+    assert(nsamplesAlloc == nsmall + nmedium + nsamplesOut);
 
     if (len < 32) return getSample((SampleType**)smallSamples,&nsmall,len);
     else return getSample((SampleType**)mediumSamples,&nmedium,len);
@@ -159,18 +176,26 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
       if (sample->getAllocLength() < len) sample->allocateData(len);
       *n = i;
       sample->holdReference();
+      nsamplesOut++;
       return sample;
     }
 
     sample = new SampleType();
     sample->allocateData(len);
+    nsamplesAlloc++;
+    nsamplesOut++;
     return sample;
 
 }
 
 template<class SampleType>
 void SamplePool<SampleType>::putSample(const SampleType *sample) {
+
     atdUtil::Synchronized pooler(poolLock);
+
+    assert(nsamplesOut >= 0);
+    assert(nsamplesAlloc == nsmall + nmedium + nsamplesOut);
+
     size_t len = sample->getAllocLength();
     if (len < 32)
 	putSample(sample,(SampleType***)&smallSamples,&nsmall,&smallSize);
@@ -198,6 +223,7 @@ void SamplePool<SampleType>::putSample(const SampleType *sample,
     }
 
     (*vec)[(*n)++] = (SampleType*) sample;
+    nsamplesOut--;
 }
 
 }
