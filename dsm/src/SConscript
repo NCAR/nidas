@@ -35,7 +35,6 @@ apps = Split("""
   ck_serial.cc
   ck_config.cc
 """)
-##  ck_factory.cc
 
 for i in apps:
   myenv.Program( i )

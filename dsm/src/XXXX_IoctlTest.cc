@@ -9,6 +9,7 @@
 #include <xxxx_driver.h>
 
 using namespace std;
+using namespace dsm;
 
 int main(int argc, char** argv)
 {

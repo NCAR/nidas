@@ -17,18 +17,39 @@ using namespace xercesc;
 class TestSampleClient : public SampleClient {
 public:
 
-  bool receive(const Sample *s)
-  	throw(SampleParseException,atdUtil::IOException)
-{
-    cerr << dec << "timetag= " << s->getTimeTag() << " id= " << s->getId() <<
-    	" len=" << s->getDataLength();
-    float* data = (float*) s->getConstVoidDataPtr();
+    TestSampleClient() : tstat(0),tlast(0),cnt(0),period(60000) {}
 
-    for (unsigned int i = 0; i < s->getDataLength(); i++)
-        std::cerr << ' ' << data[i];
-    std::cerr << std::endl;
-    return true;
-}
+    bool receive(const Sample *s)
+  	throw(SampleParseException,atdUtil::IOException)
+    {
+	dsm_sample_time_t tt = s->getTimeTag();
+#ifdef DEBUG
+	cerr << dec << "timetag= " << tt <<
+		" id= " << s->getId() << " len=" << s->getDataLength();
+	float* data = ((FloatSample*)s)->getDataPtr();
+
+	for (unsigned int i = 0; i < s->getDataLength(); i++)
+	    std::cerr << ' ' << data[i];
+	std::cerr << std::endl;
+#endif
+	if (tt < tlast && tlast > 86390000 && 
+		tt < 10000 && tstat == 86400000)
+	    tstat = 0;
+	if (tt > tstat) {
+	    std::cerr << "tstat=" << tstat << " cnt=" << cnt <<
+	        " cnt/sec=" << (cnt * 1000.) / period << std::endl;
+	    cnt = 0;
+	    tstat = ((tt / period) + 1) * period;
+	}
+	tlast = tt;
+	cnt++;
+	return true;
+    }
+private:
+    dsm_sample_time_t tstat;
+    dsm_sample_time_t tlast;
+    int cnt;
+    int period;
 };
 
 int main(int argc, char** argv)
@@ -66,10 +87,10 @@ int main(int argc, char** argv)
 	list<DSMSensor*>::const_iterator si;
 
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    std::cerr << "doing sens->open of" << (*si)->getDeviceName() << std::endl;
+	    std::cerr << "doing sens->open of" <<
+	    	(*si)->getDeviceName() << std::endl;
 	    (*si)->open(O_RDWR);
-	    if (si == sensors.begin())
-	    	(*si)->addSampleClient(&test);
+	    (*si)->addSampleClient(&test);
 	    handler->addSensorPort(*si);
 	}
     }

@@ -20,7 +20,6 @@
 
 /* include file(s) for the sensor to be tested */
 #include <DSMSerialSensor.h>
-#include <SampleScanf.h>
 #include <dsm_serial.h>
 
 #include <iostream>
@@ -63,10 +62,7 @@ int main(int argc, char** argv)
     /* Create the test SampleClient */
 
     TestSampleClient test;
-    SampleScanf scanner;
-    scanner.setFormat("%*s%f%x");
 
-    scanner.addSampleClient(&test);
 
     try {
 	for (int iarg = 1; iarg < argc; iarg++) {
@@ -86,15 +82,14 @@ int main(int argc, char** argv)
 
 	    sens->setPromptRate(IRIG_1_HZ);
 	    sens->setPromptString("hitme\n");
+	    sens->setScanfFormat("%*s%f%x");
 
 	    std::cerr << "doing sens->open" << std::endl;
 	    sens->open(O_RDWR);
 
-
 /* Add the SampleClient to the sensor. It will receive all the samples */
 
-
-	    sens->addSampleClient(&scanner);
+	    sens->addSampleClient(&test);
 
 /* Now your sensor to the PortSelectorTestor, and you should start
    to see samples being received by the SampleClient.
