@@ -22,16 +22,16 @@ sources = Split("""
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
-  DSMArincSensor.cc
   DSMSerialSensor.cc
   Sample.cc
-  SampleSource.cc
+  SampleClientList.cc
+  SampleSourceImpl.cc
   PortSelector.cc
   PortSelectorTest.cc
   RemoteSerialConnection.cc
   RemoteSerialListener.cc
   TestSampleClient.cc
-  SampleScanf.cc
+  AsciiScanner.cc
   DOMObjectFactory.cc
   DynamicLoader.cc
   XMLConfigParser.cc
@@ -48,7 +48,7 @@ sources = Split("""
 ##     -Pscanf_fmt_yy -+
 ## """)
 
-myenv.CXXFile(target='SampleScanf.cc',source='SampleScanf.ll')
+myenv.CXXFile(target='AsciiScanner.cc',source='AsciiScanner.ll')
 
 ##
 ##  Build the libArmDsm.a library.

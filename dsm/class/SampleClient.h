@@ -13,8 +13,8 @@
 
 */
 
-#ifndef DSM_RAWSAMPLECLIENT_H
-#define DSM_RAWSAMPLECLIENT_H
+#ifndef DSM_SAMPLECLIENT_H
+#define DSM_SAMPLECLIENT_H
 
 #include <Sample.h>
 #include <SampleParseException.h>
