@@ -53,11 +53,9 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
-	    // get attribute name
-	    // cerr << "attrname=" << attr.getName() << endl;
-	    
-	    // get attribute type
-	    // cerr << "\tattrval=" << attr.getValue() << endl;
+	    string aname = attr.getName();
+	    string aval = attr.getValue();
+	    if (!aname.compare("name")) setName(aval);
 	}
     }
 

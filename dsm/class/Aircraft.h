@@ -43,12 +43,12 @@ public:
     /**
      * Provide pointer to Project.
      */
-    Project* getProject() { return project; }
+    const Project* getProject() const { return project; }
 
     /**
      * Set the current project for this Aircraft.
      */
-    void setProject(Project* val) { project = val; }
+    void setProject(const Project* val) { project = val; }
 
     /**
      * An Aircraft contains one or more DSMs. 
@@ -90,11 +90,9 @@ public:
 
 protected:
     /**
-     * Pointer back to my project. Aircraft does not own this
-     * pointer, just is able to pass it along to anyone who
-     * wants to know general project info.
+     * Pointer back to my project.
      */
-    Project* project;
+    const Project* project;
 	
     std::string name;
 
