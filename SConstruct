@@ -40,6 +40,10 @@ env['CCFLAGS'] = Split("""
     -Wall -O2 -g
 """)
 
+env['CXXFLAGS'] = Split("""
+    -Wall -O2 -g
+""")
+
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
@@ -52,26 +56,29 @@ env['CPPPATH'] = Split("""
 """)
 
 ##
-##  Define common library path
-##
-env['LIBPATH'] = '#lib'
-
-##
 ##  Adjust the env for cross-building to the xScale ARM processor...
 ##
 arm_env = env.Copy()
 
-arm_env.AppendUnique(LIBPATH = Split("""
-    /net/opt_lnx/local_arm/isffLib/lib
-"""))
+# arm_env.AppendUnique(CCFLAGS=Split("""
+#   -mcpu=xscale
+# """))
 
 arm_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/include
 """))
 
-# arm_env.AppendUnique(CCFLAGS=Split("""
-#   -mcpu=xscale
-# """))
+arm_env.AppendUnique(LIBS = Split("""
+      Dsm
+      isa
+      pthread
+    """))
+
+arm_env.AppendUnique(LIBPATH = Split("""
+    #dsm/class/arm
+    /net/opt_lnx/local_arm/isffLib/lib
+"""))
+
 
 arm_env.Replace(AR     = '/opt/arm_tools/bin/arm-linux-ar')
 arm_env.Replace(AS     = '/opt/arm_tools/bin/arm-linux-as')
@@ -85,33 +92,69 @@ arm_env.Replace(RANLIB = '/opt/arm_tools/bin/arm-linux-ranlib')
 ##
 x86_env = env.Copy()
 
+x86_env.AppendUnique(CPPPATH = Split("""
+    /net/opt_lnx/local_rh90/isffLib/include
+"""))
+
+x86_env.AppendUnique(LIBS = Split("""
+      Dsm
+      isa
+      pthread
+    """))
+
+##      Disc
+
+x86_env.AppendUnique(LIBPATH = Split("""
+    /net/opt_lnx/local_rh90/isffLib/lib
+    #dsm/class/x86
+"""))
+
 ##
 ##  Export the environments to the SConscript files
 ##
-Export('arm_env')
-Export('x86_env')
+## Export('arm_env')
+## Export('x86_env')
 
 ##
 ##  Build dsm/modules/???.o
 ##
-SConscript('dsm/modules/SConscript', build_dir='dsm/modules/obj', duplicate=0)
+SConscript('dsm/modules/SConscript',
+	build_dir='dsm/modules/arm',
+	duplicate=0,exports={'env':arm_env})
 
 ##
-##  Build lib/libArmDsm.a
+##  Build libDsm.a
 ##
-SConscript('dsm/class/SConscript',   build_dir='dsm/class/obj',   duplicate=0)
+SConscript('dsm/class/SConscript',
+	build_dir='dsm/class/arm',
+	duplicate=0,exports={'env':arm_env})
+
+SConscript('dsm/class/SConscript',
+	build_dir='dsm/class/x86',
+	duplicate=0,exports={'env':x86_env})
 
 ##
-##  Build bin/dsmAsync, bin/dsmSync, bin/dsmComm
+##  
 ##
-SConscript('dsm/src/SConscript',     build_dir='dsm/bin',         duplicate=0)
+
+SConscript('dsm/src/SConscript',
+	build_dir='dsm/src/arm',
+	duplicate=0,exports={'env':arm_env})
+
+SConscript('dsm/src/SConscript',
+	build_dir='dsm/src/x86',
+	duplicate=0,exports={'env':x86_env})
 
 ##
 ##  Build lib/libArmDisc.a and lib/libX86Disc.a
 ##
-SConscript('disc/class/SConscript',  build_dir='disc/class/obj',  duplicate=0)
+SConscript('disc/class/SConscript',
+	build_dir='disc/class/x86',
+	duplicate=0,exports={'env':x86_env})
 
 ##
 ##  Build bin/discAsync, bin/discSync, bin/discComm
 ##
-SConscript('disc/src/SConscript',    build_dir='disc/bin',        duplicate=0)
+SConscript('disc/src/SConscript',
+	build_dir='disc/src/x86',
+	duplicate=0,exports={'env':x86_env})
