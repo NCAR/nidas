@@ -20,14 +20,18 @@
 #include <errno.h>
 */
 
-#include <rtl_posixio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <rtl_core.h>
 #include <unistd.h>
+#include <rtl_time.h>
+#include <rtl_posixio.h>
+#include <rtl.h>
 
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/serial.h>
 #include <linux/termios.h>
-
 #include <linux/serial_reg.h>
 
 #include <dsm_serial.h>
@@ -1115,7 +1119,7 @@ static void init_serialPort_struct(struct serialPort* port)
 
     port->nsamples = 0;
 
-    rtl_sem_init(&port->sample_sem,0,0);
+    sem_init(&port->sample_sem,0,0);
 
     port->xmit.buf = 0;
     port->xmit.head = port->xmit.tail = 0;
@@ -1165,7 +1169,7 @@ static void post_sample(struct serialPort* port)
 	/* increment head */
 	port->sample_queue.head = (port->sample_queue.head + 1) &
 		(SAMPLE_QUEUE_SIZE-1);
-	rtl_sem_post(&port->sample_sem);
+	sem_post(&port->sample_sem);
 	port->nsamples++;
 
 	port->sample = port->sample_queue.buf[port->sample_queue.head];
@@ -1502,9 +1506,19 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     unsigned long flags;
+    struct timespec tspec;
     ssize_t retval = 0;
     ssize_t lout;
 
+    /*
+     * May want to make this timeout settable from user space
+     * with an ioctl.  Or one could set it equal to the
+     * prompt rate, but that wouldn't account for non-prompted
+     * sensors. 
+     */
+
+    clock_gettime(CLOCK_REALTIME,&tspec);
+    tspec.tv_sec += 1;
 
     while (count > 0) {
         
@@ -1517,6 +1531,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    count -= lout;
 	    retval += lout;
 	    buf += lout;
+	    // finished with this sample
 	    if (port->unwrittenl == 0) {
 		rtl_spin_lock_irqsave(&port->lock,flags);
 		port->sample_queue.tail = (port->sample_queue.tail + 1) &
@@ -1526,16 +1541,29 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	}
 	else {
 	    struct dsm_serial_sample* samp = 0;
-	    rtl_sem_wait(&port->sample_sem);
+
+	    sem_timedwait(&port->sample_sem,&tspec);
+	    
+	    /* we don't need to check if this timed out */
+
+	    /* Note that we don't increment the absolute 
+	     * time of the timeout (tspec) again. It is an
+	     * absolute cut-off time for this read.
+	     */
 
 	    /*
-	    rtl_spin_lock_irqsave(&port->lock,flags);
-	    */
+	     * We're checking the equality of sample_queue.head and
+	     * sample_queue.tail here without spin locking.
+	     * If head is not equal to tail then that condition
+	     * will not be changed anywhere else but here.
+	     * This function is the only one that will set tail
+	     * equal to head.  The interrupt function will only 
+	     * make them "more unequal".  We only do a spin lock
+	     * when we change the value of tail.
+	     */
+
 	    if (port->sample_queue.head != port->sample_queue.tail)
 		samp = port->sample_queue.buf[port->sample_queue.tail];
-	    /*
-	    rtl_spin_unlock_irqrestore(&port->lock,flags);
-	    */
 
 	    if (!samp) break;
 	    port->unwrittenp = (char*) samp;
@@ -1949,7 +1977,7 @@ err1:
 			port->sample_queue.buf = 0;
 		    }
 
-		    rtl_sem_destroy(&port->sample_sem);
+		    sem_destroy(&port->sample_sem);
 
 		    if (port->devname) {
 			rtl_unregister_dev(port->devname);
@@ -1998,7 +2026,7 @@ void cleanup_module (void)
 		    port->sample_queue.buf = 0;
 		}
 
-		rtl_sem_destroy(&port->sample_sem);
+		sem_destroy(&port->sample_sem);
 
 		if (port->devname) {
 		    rtl_printf("rtl_unregister_dev: %s\n",port->devname);
