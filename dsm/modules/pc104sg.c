@@ -421,10 +421,7 @@ static void *pc104sg_100hz_thread (void *param)
     // long timeout on first semaphore
     tspec.tv_sec += 1;
 
-    pthread_mutex_lock(&cblistmutex);
-
     for (;;) {
-	pthread_mutex_unlock(&cblistmutex);
 
 	/* wait for the pc104sg_100hz_isr to signal us */
 	// timespec_add_ns(&tspec, nsec_deltat);
@@ -448,6 +445,10 @@ static void *pc104sg_100hz_thread (void *param)
 	clock_gettime(CLOCK_REALTIME,&tspec);
 
 	pthread_mutex_lock(&cblistmutex);
+
+	/* this macro creates a block, which is terminated by
+	 * pthread_cleanup_pop */
+	pthread_cleanup_push(pthread_mutex_unlock,(void*)&cblistmutex);
     
 	/* perform 100Hz processing... */
 	doCallbacklist(callbacklists + IRIG_100_HZ);
@@ -455,11 +456,11 @@ static void *pc104sg_100hz_thread (void *param)
 	if ((hz100_cnt %   2)) {
 	    // odd numbered count, check for mod 5 and 25
 
-	    if ((hz100_cnt %   5)) continue;
+	    if ((hz100_cnt %   5)) goto cleanup_pop;
 	    /* perform 20Hz processing... */
 	    doCallbacklist(callbacklists + IRIG_20_HZ);
 
-	    if ((hz100_cnt %  25)) continue;
+	    if ((hz100_cnt %  25)) goto cleanup_pop;
 	    /* perform 4Hz processing... */
 	    doCallbacklist(callbacklists + IRIG_4_HZ);
 
@@ -469,26 +470,28 @@ static void *pc104sg_100hz_thread (void *param)
 	      /* perform 50Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_50_HZ);
 
-	      if ((hz100_cnt %   4)) continue;
+	      if ((hz100_cnt %   4)) goto cleanup_pop;
 	      /* perform 25Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_25_HZ);
 
-	      if ((hz100_cnt %  10)) continue;
+	      if ((hz100_cnt %  10)) goto cleanup_pop;
 	      /* perform 10Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_10_HZ);
 
-	      if ((hz100_cnt %  20)) continue;
+	      if ((hz100_cnt %  20)) goto cleanup_pop;
 	      /* perform  5Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_5_HZ);
 
-	      if ((hz100_cnt %  50)) continue;
+	      if ((hz100_cnt %  50)) goto cleanup_pop;
 	      /* perform  2Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_2_HZ);
 
-	      if ((hz100_cnt % 100)) continue;
+	      if ((hz100_cnt % 100)) goto cleanup_pop;
 	      /* perform  1Hz processing... */
 	      doCallbacklist(callbacklists + IRIG_1_HZ);
 	}
+cleanup_pop:
+	pthread_cleanup_pop(1);
     }
 }
 
@@ -572,21 +575,24 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-  /* stop generating pc104sg interrupts */
-  disableHeartBeatInt();
 
-  rtl_free_isa_irq(irq);
+    /* cancel the thread */
+    pthread_cancel( pc104sgThread );
+    pthread_join( pc104sgThread, NULL );
 
-  /* cancel the thread */
-  pthread_cancel( pc104sgThread );
-  pthread_join( pc104sgThread, NULL );
+    release_callbacks();
 
-  release_callbacks();
+    /* stop generating pc104sg interrupts */
+    disableHeartBeatInt();
 
-  /* free up the I/O region and remove /proc entry */
-  release_region(isa_address, PC104SG_IOPORT_WIDTH);
+    rtl_free_isa_irq(irq);
 
-  rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
+    /* free up the I/O region and remove /proc entry */
+    release_region(isa_address, PC104SG_IOPORT_WIDTH);
+
+    sem_destroy(&threadsem);
+
+    rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
 }
 
 /* -- MODULE ---------------------------------------------------------- */
