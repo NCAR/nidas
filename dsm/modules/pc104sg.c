@@ -407,11 +407,6 @@ static void doCallbacklist(struct list_head* list) {
     }
 }
 
-static inline void my_pthread_mutex_unlock(void* mutex)
-{
-    pthread_mutex_unlock(mutex);
-}
-
 static void *pc104sg_100hz_thread (void *param)
 {
     /* semaphore timeout in nanoseconds */
@@ -452,7 +447,8 @@ static void *pc104sg_100hz_thread (void *param)
 
 	/* this macro creates a block, which is terminated by
 	 * pthread_cleanup_pop */
-	pthread_cleanup_push(my_pthread_mutex_unlock,(void*)&cblistmutex);
+	pthread_cleanup_push((void(*)(void*))rtl_pthread_mutex_unlock,
+		(void*)&cblistmutex);
 
 	pthread_mutex_lock(&cblistmutex);
     
