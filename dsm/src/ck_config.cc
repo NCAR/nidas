@@ -1,7 +1,8 @@
 
-#include <XMLConfigParser.h>
+#include <XMLParser.h>
 #include <Project.h>
-#include <XMLStringConverter.h>
+#include <Aircraft.h>
+// #include <DSMConfig.h>
 #include <PortSelectorTest.h>
 
 #include <iostream>
@@ -60,7 +61,7 @@ int main(int argc, char** argv)
     PortSelectorTest* handler = 0;
     try {
 	cerr << "creating parser" << endl;
-	XMLConfigParser* parser = new XMLConfigParser();
+	XMLParser* parser = new XMLParser();
 	DOMDocument* doc = parser->parse(argv[1]);
 	cerr << "parsed" << endl;
 	project = Project::getInstance();
@@ -88,7 +89,7 @@ int main(int argc, char** argv)
 
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    std::cerr << "doing sens->open of" <<
-	    	(*si)->getDeviceName() << std::endl;
+	    	(*si)->getDeviceName() << endl;
 	    (*si)->open(O_RDWR);
 	    (*si)->addSampleClient(&test);
 	    handler->addSensorPort(*si);
