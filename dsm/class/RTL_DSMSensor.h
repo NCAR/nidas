@@ -29,9 +29,9 @@ public:
 
     /**
      * Constructor for a sensor.
-     * @param name The device name.
+     * @param devname The device name.
      * Since we have to generate 4 FIFO names
-     * from this name, the name should follow this convention:
+     * from this devname, the devname should follow this convention:
      * <ul>
      * <li>"/dev/"
      * <li>followed by a name prefix consisting of a series of
@@ -42,7 +42,9 @@ public:
      * The trailing digits specify the port number.
      * Examples:   /dev/xxxx0, /dev/xxxx_0, /dev/acme99_4,  /dev/xxx09
      */
-    RTL_DSMSensor(const std::string& name);
+    RTL_DSMSensor(const std::string& devname);
+
+    RTL_DSMSensor();
 
     virtual ~RTL_DSMSensor();
 
@@ -100,7 +102,6 @@ protected:
      * return an iterator pointing to one-past end of prefix
      */
     std::string::const_iterator getPrefixEnd(const std::string& name);
-
 
     /**
      * Prefix created from the name of the device, which is used
