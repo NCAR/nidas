@@ -47,15 +47,6 @@ DSMSerialSensor::DSMSerialSensor():
 {
 }
 
-DSMSerialSensor::DSMSerialSensor(const string& nameArg) :
-    RTL_DSMSensor(nameArg),
-    sepAtEOM(true),
-    messageLength(0),
-    promptRate(IRIG_NUM_RATES),
-    scanner(0),parsebuf(0),parsebuflen(0)
-{
-}
-
 DSMSerialSensor::~DSMSerialSensor() {
     delete scanner;
     delete [] parsebuf;
