@@ -90,8 +90,8 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     rtl_printf("creating %s\n",handle->inFifoName);
 
     // remove broken device file before making a new one
-    rtl_unlink(handle->inFifoName);
-    if ( rtl_errno != RTL_ENOENT ) goto error;
+    if (rtl_unlink(handle->inFifoName) < 0)
+      if (rtl_errno != RTL_ENOENT) goto error;
 
 #define OK_TO_EXIST
 #ifdef OK_TO_EXIST
@@ -107,8 +107,8 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     rtl_printf("creating %s\n",handle->outFifoName);
 
     // remove broken device file before making a new one
-    rtl_unlink(handle->outFifoName);
-    if ( rtl_errno != RTL_ENOENT ) goto error;
+    if (rtl_unlink(handle->outFifoName) < 0)
+      if (rtl_errno != RTL_ENOENT) goto error;
 
     if (rtl_mkfifo(handle->outFifoName, 0666) < 0) goto error;
     if ((handle->outFifofd = rtl_open(handle->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY)) < 0)

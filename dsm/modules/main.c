@@ -1,6 +1,6 @@
 /* main.c
 
-   Time-stamp: <Wed 30-Mar-2005 12:50:30 pm>
+   Time-stamp: <Fri 01-Apr-2005 10:24:55 am>
 
    RTLinux module that starts up the other modules based upon the
    configuration passed down to it from the 'src/dsmAsync.cc'
@@ -226,15 +226,15 @@ int init_module (void)
              __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
   // remove broken device file before making a new one
-  rtl_unlink(cfgFifo);
-  if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+  if (rtl_unlink(cfgFifo) < 0)
+    if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
   // create a fifo that receives data from user space
-  if (rtl_mkfifo(cfgFifo, 0666)!=0)
+  if (rtl_mkfifo(cfgFifo, 0666)<0)
   {
     rtl_printf("(%s) %s:\t Cannot create %s\n",
                __FILE__, __FUNCTION__, cfgFifo);
-    return -RTL_EIO;
+    return -rtl_errno;
   }
 
   // open fifo
@@ -243,7 +243,7 @@ int init_module (void)
   {
     rtl_printf("(%s) %s:\t Cannot open %s\n",
                __FILE__, __FUNCTION__, cfgFifo);
-    return -RTL_EIO;
+    return -rtl_errno;
   }
 
   // create real-time fifo handler

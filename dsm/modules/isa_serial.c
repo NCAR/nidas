@@ -175,8 +175,8 @@ int init_module (void)
       sprintf(devstr, "/dev/isa_serial_%d_read_%d", dev, tog);
 
       // remove broken device file before making a new one
-      rtl_unlink(devstr);
-      if ( rtl_errno != RTL_ENOENT ) return;
+      if (rtl_unlink(devstr) < 0)
+        if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
       rtl_mkfifo( devstr, 0666 );
       fp_serial_data[tog][dev] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
@@ -189,8 +189,8 @@ int init_module (void)
       sprintf(devstr, "/dev/isa_serial_%d_write", dev);
 
       // remove broken device file before making a new one
-      rtl_unlink(devstr);
-      if ( rtl_errno != RTL_ENOENT ) return;
+      if (rtl_unlink(devstr) < 0)
+        if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
       rtl_mkfifo( devstr, 0666 );
       fp_serial_cmnd[dev] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_RDONLY );

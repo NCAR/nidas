@@ -396,8 +396,8 @@ int init_module (void)
     sprintf( devstr, "/dev/mesa_in_%d", chn );
 
     // remove broken device file before making a new one
-    rtl_unlink(devstr);
-    if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+    if (rtl_unlink(devstr) < 0)
+      if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
     err("rtl_mkfifo( %s, 0666 );", devstr);
     rtl_mkfifo( devstr, 0666 );
@@ -407,8 +407,8 @@ int init_module (void)
   sprintf(devstr, "/dev/mesa_program_board");
 
   // remove broken device file before making a new one
-  rtl_unlink(devstr);
-  if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+  if (rtl_unlink(devstr) < 0)
+    if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
   err("rtl_mkfifo( %s, 0666 );", devstr);
   rtl_mkfifo( devstr, 0666 );

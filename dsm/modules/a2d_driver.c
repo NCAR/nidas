@@ -1,7 +1,7 @@
 /*  a2d_driver.c/
 
 
-Time-stamp: <Wed 30-Mar-2005 12:25:53 pm>
+Time-stamp: <Fri 01-Apr-2005 10:38:32 am>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
 
@@ -261,8 +261,8 @@ int init_module()
 	rtl_printf("%s: Creating %s\n", __FILE__, fifoname);
 
         // remove broken device file before making a new one
-        rtl_unlink(fifoname);
-        if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
+        if (rtl_unlink(fifoname) < 0)
+          if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
 	if((error = rtl_mkfifo(fifoname, 0666)))
 		rtl_printf("Error opening fifo %s for write\n", fifoname);

@@ -1570,8 +1570,8 @@ int init_module (void)
     rtl_printf("creating %s\n",portDev->inFifoName);
 
     // remove broken device file before making a new one
-    rtl_unlink(portDev->inFifoName);
-    if ( (errval = -rtl_errno) != -RTL_ENOENT ) goto err0;
+    if (rtl_unlink(portDev->inFifoName) < 0)
+      if ( (errval = -rtl_errno) != -RTL_ENOENT ) goto err0;
 
     if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
 	errval = -rtl_errno;

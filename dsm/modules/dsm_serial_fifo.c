@@ -335,8 +335,8 @@ static int create_fifos(struct dsm_serial_fifo_port* port,int mode)
 	rtl_printf("creating %s\n",port->inFifoName);
 
         // remove broken device file before making a new one
-        rtl_unlink(port->inFifoName);
-        if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
+        if (rtl_unlink(port->inFifoName) < 0)
+          if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
 
 #define CHECK_MKFIFO_ERROR
 #ifdef CHECK_MKFIFO_ERROR
@@ -360,8 +360,8 @@ static int create_fifos(struct dsm_serial_fifo_port* port,int mode)
 	rtl_printf("creating %s\n",port->outFifoName);
 
         // remove broken device file before making a new one
-        rtl_unlink(port->outFifoName);
-        if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
+        if (rtl_unlink(port->outFifoName) < 0)
+          if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
 
 #ifdef CHECK_MKFIFO_ERROR
 #ifdef OK_TO_EXIST

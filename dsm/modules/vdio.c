@@ -58,8 +58,8 @@ void init_module(void)
 	sprintf(devstr,"/dev/vdio_write");
 
         // remove broken device file before making a new one
-        rtl_unlink(devstr);
-        if ( rtl_errno != RTL_ENOENT ) return;
+        if (rtl_unlink(devstr) < 0)
+          if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
 	rtl_mkfifo(devstr, 0666);
 	rtl_printf("FIFO %s initialized\n", devstr);
@@ -68,8 +68,8 @@ void init_module(void)
 	sprintf(devstr, "/dev/vdio_read");
 
         // remove broken device file before making a new one
-        rtl_unlink(devstr);
-        if ( rtl_errno != RTL_ENOENT ) return;
+        if (rtl_unlink(devstr) < 0)
+          if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
 	rtl_mkfifo(devstr, 0666);
 	rtl_printf("FIFO %s initialized\n", devstr);
