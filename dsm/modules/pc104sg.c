@@ -14,27 +14,25 @@
                  $HeadURL: $
 */
 
-/* RTLinux module includes...  */
+
+#include <pthread.h>
+#include <semaphore.h>
+#include <rtl_core.h>
+#include <unistd.h>
+#include <rtl_time.h>
 #include <rtl.h>
 
-#include <rtl_posixio.h>
-#include <time.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <semaphore.h>
-#include <asm/uaccess.h>
 #include <linux/ioport.h>
 #include <linux/list.h>
 
-#include <pc104sg.h>
 #include <dsm_viper.h>
+#include <pc104sg.h>
+#include <irigclock.h>
 #include <rtl_isa_irq.h>
 
-#include <irigclock.h>
+RTLINUX_MODULE(pc104sg);
 
-
-#define INTERRUPT_RATE 100
+#define INTERRUPT_RATE 1000
 
 /* TODO - hz100_cnt needs to be initialized to the zero'th second read from
    the pc104sg card...  the current implementation arbitrarily sets it to zero
@@ -56,7 +54,6 @@ MODULE_PARM(irq, "i");
 MODULE_PARM(ioport, "i");
 MODULE_PARM(m_rate, "1-2i");
 
-RTLINUX_MODULE(pc104sg);
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
 
@@ -64,53 +61,36 @@ MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
 static unsigned int isa_address;
 
 /* The 100 hz thread */
-pthread_t     pc104sgThread;
-sem_t         anIrigSemaphore;	/* change this to a condition variable */
-
+static pthread_t     pc104sgThread;
+static sem_t         threadsem;
 
 struct irigCallback {
+  struct list_head list;
   irig_callback_t* callback;
   void* privateData;
-  struct list_head list;
 };
 
 static struct list_head callbacklists[IRIG_NUM_RATES];
 
 static pthread_mutex_t cblistmutex = PTHREAD_MUTEX_INITIALIZER;
 
-enum irigClockRates irigClockRateToEnum(unsigned int value)
-{
-  /* Round up to the next highest enumerated poll rate. */
-  if      (value < 1)     return IRIG_1_HZ;
-  else if (value < 2)     return IRIG_2_HZ;
-  else if (value < 4)     return IRIG_4_HZ;
-  else if (value < 5)     return IRIG_5_HZ;
-  else if (value < 10)    return IRIG_10_HZ;
-  else if (value < 20)    return IRIG_20_HZ;
-  else if (value < 25)    return IRIG_25_HZ;
-  else if (value < 50)    return IRIG_50_HZ;
-  else if (value < 100)   return IRIG_100_HZ;
-  else                    return IRIG_NUM_RATES;  /* invalid value given */
-}
 
-unsigned int irigClockEnumToRate(enum irigClockRates value)
-{
-  unsigned int rate[] = {1,2,4,5,10,20,25,50,100};
-  return rate[value];
-}
-
-void register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
+int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
                             void* privateData)
 {
 
     struct irigCallback* cb = 
 	(struct irigCallback*) kmalloc(sizeof(struct irigCallback), GFP_KERNEL);
+
+    if (!cb) return -ENOMEM;
     cb->callback = callback;
     cb->privateData = privateData;
 
     pthread_mutex_lock(&cblistmutex);
-    list_add(&cb->list,callbacklists+(int)rate);
+    list_add(&cb->list,callbacklists + rate);
     pthread_mutex_unlock(&cblistmutex);
+
+    return 0;
 }
 
 void unregister_irig_callback(irig_callback_t* callback, enum irigClockRates rate)
@@ -156,15 +136,11 @@ static void release_callbacks()
 }
 
 /* -- Utility --------------------------------------------------------- */
-void enableHeartBeatInt (void)
+void inline enableHeartBeatInt (void)
 {
-    /* writing 0 to bits 0-4 causes resets or simulated external events */
-
     /* enable heart beat interrupt (disables others) */
     outb(Heartbeat_Int_Enb + Reset_Heartbeat,
   	isa_address+Status_Port);
-    // rtl_printf("enableHeartBeatInt, status=0x%x\n",
-    // 	inb(isa_address+Status_Port));
 }
 
 /* -- Utility --------------------------------------------------------- */
@@ -424,66 +400,95 @@ int setMajorTime(struct irigTime* it)
 static void doCallbacklist(struct list_head* list) {
     struct list_head *ptr;
     struct irigCallback *entry;
+
     for (ptr = list->next; ptr != list; ptr = ptr->next) {
 	entry = list_entry(ptr,struct irigCallback, list);
 	entry->callback(entry->privateData);
     }
 }
 
-static void *pc104sg_100hz_thread (void *t)
+static void *pc104sg_100hz_thread (void *param)
 {
+    /* semaphore timeout in nanoseconds */
+    unsigned long nsec_deltat = NSECS_PER_SEC / 100;
+    struct timespec tspec;
+    int timeouts = 0;
+
+    nsec_deltat += (nsec_deltat * 3) / 8;	/* add 3/8ths more */
+    rtl_printf("nsec_deltat = %d\n",nsec_deltat);
+
+    clock_gettime(CLOCK_REALTIME,&tspec);
+    // long timeout on first semaphore
+    tspec.tv_sec += 1;
+
     pthread_mutex_lock(&cblistmutex);
 
     for (;;) {
-      pthread_mutex_unlock(&cblistmutex);
+	pthread_mutex_unlock(&cblistmutex);
 
-      /* wait for the pc104sg_100hz_isr to signal us */
-      sem_wait (&anIrigSemaphore);
+	/* wait for the pc104sg_100hz_isr to signal us */
+	// timespec_add_ns(&tspec, nsec_deltat);
+	tspec.tv_nsec += nsec_deltat;
+	if (tspec.tv_nsec >= NSECS_PER_SEC) {
+	    tspec.tv_sec++;
+	    tspec.tv_nsec -= NSECS_PER_SEC;
+	}
 
-      pthread_mutex_lock(&cblistmutex);
+	/* If we get a timeout on the semaphore, then we've missed
+	 * an irig interrupt.  Report the status and re-enable.
+	 */
+	if (sem_timedwait(&threadsem,&tspec) < 0 &&
+		rtl_errno == RTL_ETIMEDOUT) {
+	    unsigned char status = inb(isa_address+Status_Port) & Heartbeat;
+	    if (!(timeouts++ % 10))
+		rtl_printf("semaphore timeout #%d heartbeat=0x%x\n",
+			timeouts, status);
+	    enableHeartBeatInt();
+	}
+	clock_gettime(CLOCK_REALTIME,&tspec);
 
-      /* perform 100Hz processing... */
-      doCallbacklist(callbacklists + IRIG_100_HZ);
+	pthread_mutex_lock(&cblistmutex);
+    
+	/* perform 100Hz processing... */
+	doCallbacklist(callbacklists + IRIG_100_HZ);
 
-      if (!(hz100_cnt %   2))
+	if ((hz100_cnt %   2)) {
+	    // odd numbered count, check for mod 5 and 25
 
-	/* perform 50Hz processing... */
-	doCallbacklist(callbacklists + IRIG_50_HZ);
+	    if ((hz100_cnt %   5)) continue;
+	    /* perform 20Hz processing... */
+	    doCallbacklist(callbacklists + IRIG_20_HZ);
 
-      if (!(hz100_cnt %   4))
+	    if ((hz100_cnt %  25)) continue;
+	    /* perform 4Hz processing... */
+	    doCallbacklist(callbacklists + IRIG_4_HZ);
 
-	/* perform 25Hz processing... */
-	doCallbacklist(callbacklists + IRIG_25_HZ);
+	  }
+	  else {
 
-      if (!(hz100_cnt %   5))
+	      /* perform 50Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_50_HZ);
 
-	/* perform 20Hz processing... */
-	doCallbacklist(callbacklists + IRIG_20_HZ);
+	      if ((hz100_cnt %   4)) continue;
+	      /* perform 25Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_25_HZ);
 
-      if (!(hz100_cnt %  10))
+	      if ((hz100_cnt %  10)) continue;
+	      /* perform 10Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_10_HZ);
 
-	/* perform 10Hz processing... */
-	doCallbacklist(callbacklists + IRIG_10_HZ);
+	      if ((hz100_cnt %  20)) continue;
+	      /* perform  5Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_5_HZ);
 
-      if (!(hz100_cnt %  20))
+	      if ((hz100_cnt %  50)) continue;
+	      /* perform  2Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_2_HZ);
 
-	/* perform  5Hz processing... */
-	doCallbacklist(callbacklists + IRIG_5_HZ);
-
-      if (!(hz100_cnt %  25))
-
-	/* perform  4Hz processing... */
-	doCallbacklist(callbacklists + IRIG_4_HZ);
-
-      if (!(hz100_cnt %  50))
-
-	/* perform  2Hz processing... */
-	doCallbacklist(callbacklists + IRIG_2_HZ);
-
-      if (!(hz100_cnt % 100))
-
-	/* perform  1Hz processing... */
-	doCallbacklist(callbacklists + IRIG_1_HZ);
+	      if ((hz100_cnt % 100)) continue;
+	      /* perform  1Hz processing... */
+	      doCallbacklist(callbacklists + IRIG_1_HZ);
+	}
     }
 }
 
@@ -511,7 +516,7 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
    */
   /* TODO - sample pulse counters here at the highest rate... */
 
-  if (!inb(isa_address+Status_Port) & Heartbeat) {
+  if (!(inb(isa_address+Status_Port) & Heartbeat)) {
       rtl_printf("no heartbeat\n");
   }
   else {
@@ -551,13 +556,12 @@ unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_
 
       if (!(msecClockTicker % 10)) {
 #if INTERRUPT_RATE >= 100
-	  if (++hz100_cnt == 100)
+	  if (++hz100_cnt == 100) hz100_cnt = 0;
 #else
 	  hz100_cnt += 100 / INTERRUPT_RATE;
-	  if (hz100_cnt == 100)
+	  if (hz100_cnt == 100) hz100_cnt = 0;
 #endif
-	    hz100_cnt = 0;
-	  sem_post( &anIrigSemaphore );
+	  sem_post( &threadsem );
       }
       /* re-enable interrupt */
       enableHeartBeatInt();
@@ -606,11 +610,20 @@ int init_module (void)
 
 
     /* initialize the semaphore to the 100 hz thread */
-    sem_init (&anIrigSemaphore, /* which semaphore */
+    sem_init (&threadsem, /* which semaphore */
 	    1,                /* usable between processes? Usu. 1 */
 	    0);               /* initial value */
 
     rtl_printf("(%s) %s:\t sem_init done\n", __FILE__, __FUNCTION__);
+
+    readClock = 0;
+    writeClock = 0;
+    msecClock[readClock] = 0;
+    msecClock[writeClock] = 0;
+    rtl_printf("IRIG_NUM_RATES=%d\n",IRIG_NUM_RATES);
+
+    for (i = 0; i < IRIG_NUM_RATES; i++)
+	INIT_LIST_HEAD(callbacklists+i);
 
     /* create the 100 Hz thread */
     pthread_create( &pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0 );
@@ -652,18 +665,13 @@ int init_module (void)
     enableHeartBeatInt();
     rtl_printf("(%s) %s:\t enableHeartBeatInt  done\n",    __FILE__, __FUNCTION__);
 
-    #ifdef BOZO
-    #endif
-    rtl_printf("(%s) %s:\t loaded\n", __FILE__, __FUNCTION__);
+    /*
+    if (register_irig_callback(debugCallback, IRIG_1_HZ,0)) {
+	rtl_printf("register_irig_callback failed\n");
+	return err;
+    }
+    */
 
-    readClock = 0;
-    writeClock = 0;
-    msecClock[readClock] = 0;
-    msecClock[writeClock] = 0;
-
-    for (i = 0; i < IRIG_NUM_RATES; i++)
-	INIT_LIST_HEAD(callbacklists+i);
-
-    // register_irig_callback(debugCallback, IRIG_1_HZ,0);
     return 0;
 }
+
