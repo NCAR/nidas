@@ -138,7 +138,8 @@
 <xsd:complexType name="dsmType">
    <xsd:complexContent>
        <xsd:extension base="choiceOfSensors">
-           <xsd:attribute name="hostname" type="xsd:token" use="required"/>
+           <xsd:attribute name="name" type="xsd:token" use="required"/>
+           <xsd:attribute name="location" type="xsd:token" use="required"/>
        </xsd:extension>
    </xsd:complexContent>
 </xsd:complexType>
