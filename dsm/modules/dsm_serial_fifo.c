@@ -40,6 +40,8 @@
 #include <dsm_serial.h>
 #include <ioctl_fifo.h>
 
+RTLINUX_MODULE(dsm_serial_fifo);
+
 #define THREAD_STACK_SIZE 16384
 
 static const char* devprefix = 0;
@@ -402,7 +404,6 @@ static int ioctlCallback(int cmd, int board, int portNum,
 #endif
 	if (portNum < 0 || portNum >= boardInfo[board].numports) break;
 	int mode = *(int*) buf;
-	if ((retval = create_fifos(port,mode))) break;
 	retval = open_port(port,mode);
 	break;
     case DSMSER_CLOSE:		/* close port */
@@ -501,6 +502,8 @@ int init_module(void)
 
 	    if (!(port->out_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
 	    	goto err1;
+
+	    if ((retval = create_fifos(port,O_RDWR))) goto err1;
 
 	    portcounter++;
 	}
