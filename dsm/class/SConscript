@@ -55,6 +55,9 @@ sources = Split("""
   XMLConfigService.cc
   RawSampleService.cc
 
+  SampleSorter.cc
+  SyncRecordGenerator.cc
+
   IOChannel.cc
   IOStream.cc
   McSocket.cc
@@ -64,10 +67,10 @@ sources = Split("""
   SampleOutput.cc
   RawSampleOutputStream.cc
   RawSampleInputStream.cc
-  SyncRecordOutput.cc
 
-  SampleSorter.cc
-  SyncRecordGenerator.cc
+  SampleIOProcessor.cc
+  SyncRecordProcessor.cc
+  SampleArchiver.cc
 
 """)
 

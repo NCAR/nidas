@@ -22,6 +22,7 @@
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 SyncRecordGenerator::SyncRecordGenerator():
 	syncRecord(0),floatNAN(nanf(""))
@@ -33,26 +34,28 @@ SyncRecordGenerator::~SyncRecordGenerator()
     if (syncRecord) syncRecord->freeReference();
 }
 
-void SyncRecordGenerator::setAircraft(const Aircraft* aircraft)
+
+void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 {
 
-    const std::list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
+    list<DSMConfig*>::const_iterator di;
 
-    std::list<DSMConfig*>::const_iterator di;
-
-    std::list<DSMSensor*> serialSensors;
-    std::list<DSMSensor*> arincSensors;
-    std::list<DSMSensor*> otherSensors;
+    list<DSMSensor*> serialSensors;
+    list<DSMSensor*> arincSensors;
+    list<DSMSensor*> irigSensors;
+    list<DSMSensor*> otherSensors;
     
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
+
+	cerr << "SyncRecordGenerator, dsm=" << dsm->getName() << endl;
 	const list<DSMSensor*>& sensors = dsm->getSensors();
 	list<DSMSensor*>::const_iterator si;
 
+
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
-
-	    if (sensor->isClock()) continue;
+	    cerr << "SyncRecordGenerator, sensor=" << sensor->getName() << endl;
 
 	    if (dynamic_cast<DSMSerialSensor*>(sensor))
 		serialSensors.push_back(sensor);
@@ -64,8 +67,16 @@ void SyncRecordGenerator::setAircraft(const Aircraft* aircraft)
 	}
     }
 
+    cerr << "SyncRecordGenerator, # of serial sensors=" <<
+    	serialSensors.size() << endl;
     scanSensors(serialSensors);
+
+    cerr << "SyncRecordGenerator, # of arinc sensors=" <<
+    	arincSensors.size() << endl;
     scanSensors(arincSensors);
+
+    cerr << "SyncRecordGenerator, # of other sensors=" <<
+    	otherSensors.size() << endl;
     scanSensors(otherSensors);
 
     int offset = 1;	// first float is ndays
@@ -75,6 +86,7 @@ void SyncRecordGenerator::setAircraft(const Aircraft* aircraft)
 	offset += numVarsInRateGroup[i] * (1000 / msecsPerSample[i]) + 1;
     }
     recSize = offset;
+    cerr << "SyncRecordGenerator, recSize=" << recSize << endl;
 }
 
 void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
@@ -86,9 +98,9 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
     for (si = sensors.begin(); si != sensors.end(); ++si) {
         DSMSensor* sensor = *si;
 
-	const std::vector<const SampleTag*>& tags = sensor->getSampleTags();
+	const vector<const SampleTag*>& tags = sensor->getSampleTags();
 
-	std::vector<const SampleTag*>::const_iterator ti;
+	vector<const SampleTag*>::const_iterator ti;
 	for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	    const SampleTag* tag = *ti;
 
@@ -110,6 +122,8 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 		variableNames.push_back(vector<string>());
 	    }
 	    else groupId = mi->second;
+	    cerr << "SyncRecordGenerator, rate=" << rate <<
+	    	" groupId=" << groupId << endl;
 
 	    groupIds[sampleId] = groupId;
 	    sampleOffsets[sampleId] = numVarsInRateGroup[groupId] + 1;
@@ -141,6 +155,9 @@ void SyncRecordGenerator::allocateRecord(int ndays,dsm_sample_time_t timetag)
 
 bool SyncRecordGenerator::receive(const Sample* samp) throw()
 {
+    static int nsamps;
+    if (!(nsamps++ % 100)) cerr <<
+    	"SyncRecordGenerator, nsamps=" << nsamps << endl;
     dsm_sample_time_t tt = samp->getTimeTag();
     unsigned long id = samp->getId();
     unsigned short shortid = samp->getShortId();
@@ -148,16 +165,26 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     if (!syncRecord) {
 	if (shortid != CLOCK_SAMPLE_ID ||
 		samp->getType() != LONG_LONG_ST) return false;
+
+	// clock samples go in the sync record stream too
+	distribute(samp);
+
         syncTime = tt - (tt % 1000);
+	cerr << "syncTime=" << syncTime << endl;
 	long long* timep = (long long*) samp->getConstVoidDataPtr();
 	ndays = (*timep / MSECS_PER_DAY);
+	cerr << "ndays=" << ndays << endl;
 	allocateRecord(ndays,syncTime);
+	return true;
     }
 	
     while (tt >= syncTime + 1000 ||
     	(tt < 60000 && (syncTime == MSECS_PER_DAY - 1000))) {
+	cerr << "distribute syncRecord, tt=" <<
+		tt << " syncTime=" << syncTime << endl;
 	distribute(syncRecord);
 	syncRecord->freeReference();
+	syncRecord = 0;
 	syncTime += 1000;
 	if (syncTime == MSECS_PER_DAY) {
 	    syncTime = 0;
@@ -172,7 +199,9 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	int ndayCheck = (*timep / MSECS_PER_DAY);
 	if (ndayCheck != ndays) cerr << "bad nday=" << ndays <<
 		" ndayCheck=" << ndayCheck << endl;
-	return false;
+	// clock samples go in the sync record stream too
+	distribute(samp);
+	return true;
     }
 
     map<unsigned long, int>::const_iterator gi =  groupIds.find(id);
@@ -223,3 +252,4 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     }
     return true;
 }
+

@@ -17,15 +17,16 @@
 #ifndef DSM_SYNCRECORDGENERATOR_H
 #define DSM_SYNCRECORDGENERATOR_H
 
-#include <SampleClient.h>
-#include <SampleSource.h>
-#include <Aircraft.h>
+#include <SampleIOProcessor.h>
+#include <SampleSorter.h>
 
 #include <vector>
 #include <map>
 #include <string>
 
 namespace dsm {
+
+class DSMSensor;
 
 class SyncRecordGenerator: public SampleClient, public SampleSource
 {
@@ -35,16 +36,19 @@ public:
 
     virtual ~SyncRecordGenerator();
 
-    void setAircraft(const Aircraft* val);
+    void init(const std::list<DSMConfig*>& dsms) throw();
 
-    bool receive(const Sample* samp) throw();
+    bool receive(const Sample*) throw();
 
 protected:
+
     void scanSensors(const std::list<DSMSensor*>& sensors);
 
     void allocateRecord(int ndays,dsm_sample_time_t timetag);
 
 protected:
+
+    bool initialized;
 
     /**
      * A mapping between sample ids and group ids.
