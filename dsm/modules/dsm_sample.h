@@ -42,6 +42,9 @@ typedef unsigned long dsm_large_sample_length_t;
     if (len > SPACE_ENOUGH_FOR_DATA) we_ve_got_trouble();
     samp->length = len;
     memcpy(samp->data,buffer,len);
+    ...
+
+    write(fifofd,samp,SIZEOF_DSM_SMALL_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA);
  */
 
 struct dsm_small_sample {
