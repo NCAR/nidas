@@ -190,12 +190,32 @@ DSMEngine::~DSMEngine()
     cerr << "delete selector" << endl;
     delete selector;	// this closes any still-open sensors
 
+    outputMutex.lock();
     list<SampleOutput*>::const_iterator oi;
     for (oi = connectedOutputs.begin(); oi != connectedOutputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	cerr << "closing output stream" << endl;
-	output->flush();
-	output->close();
+	try {
+	    output->flush();
+	    output->close();
+	}
+	catch(const atdUtil::IOException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_INFO,
+		"~DSMEngine %s: %s",output->getName().c_str(),e.what());
+	}
+    }
+    outputMutex.unlock();
+
+    const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	try {
+	    output->close();
+	}
+	catch(const atdUtil::IOException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_INFO,
+		"~DSMEngine %s: %s",output->getName().c_str(),e.what());
+	}
     }
 
     cerr << "delete project" << endl;
@@ -348,17 +368,15 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
     }
 }
 
-/* We don't have any SampleInputs */
-void DSMEngine::connected(SampleInput* input) {}
 
-/* We don't have any SampleInputs */
-void DSMEngine::disconnected(SampleInput* input) {}
-
-/* A remote system has connnected to one of our outputs */
-void DSMEngine::connected(SampleOutput* output)
+/* A remote system has connnected to one of our outputs.
+ * We don't clone the output here.
+ */
+void DSMEngine::connected(SampleOutput* output) throw()
 {
     cerr << "SampleOutput " << hex << output << dec << " " <<
     	output->getName() << " connected" << " fd=" << output->getFd() << endl;
+
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
 
@@ -375,7 +393,7 @@ void DSMEngine::connected(SampleOutput* output)
 		cerr << "adding output to sensor " << sensor->getName() << endl;
 		if (output->isRaw()) {
 		    if (sensor->isClock()) sensor->addSampleClient(output);
-		    else sensor->addRawSampleClient(output);
+		    sensor->addRawSampleClient(output);
 		}
 		else sensor->addSampleClient(output);
 	    }
@@ -386,38 +404,40 @@ void DSMEngine::connected(SampleOutput* output)
 }
 
 /* An output wants to disconnect (probably the remote server went down) */
-void DSMEngine::disconnected(SampleOutput* output)
+void DSMEngine::disconnected(SampleOutput* output) throw()
 {
     cerr << "SampleOutput " << output->getName() << " disconnected" << endl;
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
-    const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
-
     list<DSMSensor*>::const_iterator si;
-    list<SampleOutput*>::const_iterator oi;
-
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* oput = *oi;
-	if (oput == output) {
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		cerr << "removing output from sensor " << sensor->getName() << endl;
-		if (output->isRaw()) {
-		    if (sensor->isClock()) sensor->removeSampleClient(output);
-		    else sensor->removeRawSampleClient(output);
-		}
-		else sensor->removeSampleClient(output);
-	    }
-	    output->close();
-	    list<SampleOutput*>::iterator oi2;
-	    for (oi2 = connectedOutputs.begin(); oi2 != connectedOutputs.end();) {
-	        if (*oi2 == output) oi2 = connectedOutputs.erase(oi2);
-		else ++oi2;
-	    }
-	    // try again
-	    output->requestConnection(this);
-	    return;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+	cerr << "removing output from sensor " << sensor->getName() << endl;
+	if (output->isRaw()) {
+	    if (sensor->isClock()) sensor->removeSampleClient(output);
+	    sensor->removeRawSampleClient(output);
 	}
+	else sensor->removeSampleClient(output);
     }
+    try {
+	output->close();
+    }
+    catch (const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "DSMEngine: error closing %s: %s",
+	    	output->getName().c_str(),ioe.what());
+    }
+
+    outputMutex.lock();
+    list<SampleOutput*>::iterator oi;
+    for (oi = connectedOutputs.begin(); oi != connectedOutputs.end();) {
+	if (*oi == output) oi = connectedOutputs.erase(oi);
+	else ++oi;
+    }
+    outputMutex.unlock();
+
+    // try to reconnect (should probably restart and request XML again)
+    output->requestConnection(this);
+    return;
 }
 
 void DSMEngine::interrupt() throw(atdUtil::Exception)
