@@ -127,15 +127,15 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
-	dsm_sample_time_t timestamp;		/* timetag of sample */
-	dsm_small_sample_length_t size;	/* number of bytes in data */
+	dsm_sample_time_t timestamp;	// timetag of sample 
+	dsm_sample_length_t size;	// number of bytes in data 
   	SS data[RATERATIO][MAXA2DS]; 
 }A2DSAMPLE;
 
 typedef struct
 {
 	dsm_sample_time_t timestamp;	// Time in microseconds ?
-	dsm_small_sample_length_t size;	// Size of structure
+	dsm_sample_length_t size;	// Size of structure
 	US a2dstat[8];
 	US fifostat;
 	char c[RATERATIO][MAXA2DS];
@@ -144,7 +144,7 @@ typedef struct
 typedef struct 
 {
 	dsm_sample_time_t timestamp;	// Time in microseconds ?
-	dsm_small_sample_length_t size;	// Size of structure
+	dsm_sample_length_t size;	// Size of structure
 	int	vcalx8;		// Calibration voltage: 
 				// 128=0, 48=-10, 208 = +10, .125 V/bit
 	US	status[8];	// A/D status flag

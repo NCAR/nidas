@@ -1,5 +1,5 @@
 //#define INBUFWR		// Turn on simulated data array printout
-#define	DEBUGDATA 	// Turns on printout in data simulator
+//#define	DEBUGDATA 	// Turns on printout in data simulator
 #define FIX_A2D		// Reverse LS byte of ISA bus
 #define	QUIETOUTB	// Shut off printout
 #define	QUIETINB	// Shut off printout
@@ -837,7 +837,7 @@ void A2DGetDataSim(void)
 #else
 		buf.timestamp = GET_MSEC_CLOCK;
 #endif
-		buf.size = sizeof(buf.data);
+		buf.size = (dsm_sample_length_t)sizeof(buf.data);
 
 /* rtl_printf("buf.size = 0x%04X\n", buf.size); */
 
