@@ -133,11 +133,14 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
 		}
 
 #ifdef DEBUG0
-		printf("time %08ld: datalength %05d: outs = 0x%08X\n", 
+		printf("time %08d: datalength %05d: outs = 0x%08X: ", 
 				outs->getTimeTag(), 
 				outs->getDataLength(), 
 				outs);
+		printf("\n");
 #endif
+
+		distribute(outs);
 	}
 
 	xfrctr++;		// Bump the transfer counter
