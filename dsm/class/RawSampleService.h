@@ -26,7 +26,7 @@ namespace dsm {
  * A RawSampleService reads raw Samples from a socket connection
  * and sends the samples to one or more SampleClients.
  */
-class RawSampleService: public DSMService
+class RawSampleService: public DSMService, public SampleConnectionRequester
 {
 public:
     RawSampleService();
@@ -42,7 +42,9 @@ public:
 
     int run() throw(atdUtil::Exception);
 
-    void offer(atdUtil::Socket* sock,int pseudoPort) throw(atdUtil::Exception);
+    void connected(SampleInput*);
+
+    void connected(SampleOutput*);
 
     void schedule() throw(atdUtil::Exception);
 

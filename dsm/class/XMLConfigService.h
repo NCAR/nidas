@@ -21,7 +21,7 @@
 
 namespace dsm {
 
-class XMLConfigService: public DSMService
+class XMLConfigService: public DSMService, public ConnectionRequester
 {
 public:
     XMLConfigService();
@@ -37,7 +37,7 @@ public:
 
     int run() throw(atdUtil::Exception);
 
-    void offer(atdUtil::Socket* sock,int pseudoPort) throw(atdUtil::Exception);
+    void connected(IOChannel*);
 
     void schedule() throw(atdUtil::Exception);
 
@@ -53,7 +53,7 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
-    Output* output;
+    IOChannel* output;
 };
 
 }

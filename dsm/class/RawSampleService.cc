@@ -95,39 +95,35 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
 }
 
 /*
- * This method is called when we've accepted a McSocket connection.
- * It could be an input or an output connection.
+ * This method is called when a SampleInput is connected.
  */
-void RawSampleService::offer(atdUtil::Socket* sock,
-	int pseudoPort) throw(atdUtil::Exception) 
+void RawSampleService::connected(SampleInput* inpt)
 {
 
-    if (pseudoPort == input->getPseudoPort()) {
-	// Figure out what DSM it came from
-	atdUtil::Inet4Address remoteAddr = sock->getInet4Address();
-	const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+    assert(inpt == input);
+    // Figure out what DSM it came from
+    atdUtil::Inet4Address remoteAddr = input->getRemoteInet4Address();
+    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
 
-	if (!dsm)
-	    throw atdUtil::Exception(string("can't find DSM for address ") +
-		    remoteAddr.getHostAddress());
-	// make a copy of myself, assign it to a specific dsm
-	RawSampleService* newserv = new RawSampleService(*this);
-	newserv->setDSMConfig(dsm);
-	newserv->input->offer(sock);	// pass socket to new input
-	newserv->start();
-	getServer()->addThread(newserv);
-    }
-    else {	// request for new output connection
-	std::list<SampleOutput*>::const_iterator oi;
-	for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	    SampleOutput* output = *oi;
-	    if (pseudoPort == output->getPseudoPort()) {
-		cerr << "RawSampleService::offer, pseudoPort=" <<
-			pseudoPort << endl;
-		output->offer(sock);	// pass socket to new output
-		input->addSampleClient(output);
-	    }
-	}
+    if (!dsm)
+	throw atdUtil::Exception(string("can't find DSM for address ") +
+		remoteAddr.getHostAddress());
+    // make a copy of myself, assign it to a specific dsm
+    RawSampleService* newserv = new RawSampleService(*this);
+    newserv->setDSMConfig(dsm);
+    newserv->start();
+    getServer()->addThread(newserv);
+}
+/*
+ * This method is called when a SampleOutput is connected.
+ */
+void RawSampleService::connected(SampleOutput* outpt)
+{
+    std::list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	if (output == outpt)
+	    input->addSampleClient(output);
     }
 }
 
@@ -140,8 +136,6 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	output->setDSMConfig(getDSMConfig());
 	output->requestConnection(this);
     }
-
-    input->init();
 
     // This is a simple service that just echoes the input
     // samples to the output

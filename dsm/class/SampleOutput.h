@@ -19,9 +19,10 @@
 #include <Sample.h>
 #include <SampleClient.h>
 #include <SampleParseException.h>
-#include <OutputStream.h>
+#include <IOStream.h>
+#include <ConnectionRequester.h>
 
-#include <atdUtil/McSocket.h>
+// #include <atdUtil/McSocket.h>
 
 namespace dsm {
 
@@ -30,7 +31,7 @@ class DSMConfig;
 /**
  * Interface of an output stream of samples.
  */
-class SampleOutput: public SampleClient, public DOMable
+class SampleOutput: public SampleClient, public ConnectionRequester, public DOMable
 {
 public:
     SampleOutput(): dsm(0) {}
@@ -39,18 +40,18 @@ public:
 
     virtual SampleOutput* clone() const = 0;
 
-    virtual void requestConnection(atdUtil::SocketAccepter*)
+    virtual void requestConnection(SampleConnectionRequester*)
     	throw(atdUtil::IOException) = 0;
 
     virtual void setPseudoPort(int val) = 0;
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void offer(atdUtil::Socket* sock) throw(atdUtil::IOException) = 0;
+    virtual void connected(IOChannel* sock) = 0;
 
     virtual int getFd() const = 0;
 
-    virtual void init() throw(atdUtil::IOException) = 0;
+    virtual void init() = 0;
 
     virtual void flush() throw(atdUtil::IOException) = 0;
 
@@ -88,12 +89,12 @@ public:
 
     int getPseudoPort() const;
 
-    void requestConnection(atdUtil::SocketAccepter*)
+    void requestConnection(SampleConnectionRequester*)
                  throw(atdUtil::IOException);
 
-    void offer(atdUtil::Socket* sock) throw(atdUtil::IOException);
+    void connected(IOChannel* output);
 
-    void init() throw(atdUtil::IOException);
+    void init();
 
     bool isSingleton() const { return false; }
 
@@ -119,9 +120,11 @@ public:
 
 protected:
 
-    Output* output;
-    OutputStream* outputStream;
+    IOChannel* output;
+    IOStream* outputStream;
     int pseudoPort;
+
+    SampleConnectionRequester* connectionRequester;
 
     /** Do we need to keep track of sample time tags,
      * as when writing to time-tagged archive files,

@@ -13,11 +13,11 @@
 
 */
 
-#ifndef DSM_MCSOCKETACCEPTEROUTPUT_H
-#define DSM_MCSOCKETACCEPTEROUTPUT_H
+#ifndef DSM_MCSOCKET_H
+#define DSM_MCSOCKET_H
 
 #include <DSMService.h>
-#include <Output.h>
+#include <IOChannel.h>
 #include <DOMable.h>
 #include <atdUtil/McSocket.h>
 
@@ -27,34 +27,55 @@
 namespace dsm {
 
 /**
- * Implementation of an Output, using McSocketAccepter to listen for connections
+ * Implementation of an IOChannel, using McSocket to listen for connections
  */
-class McSocketAccepterOutput: public Output, public atdUtil::McSocketAccepter {
+class McSocket: public IOChannel, public atdUtil::McSocket {
 
 public:
-    McSocketAccepterOutput(): socket(0),name("McSocketAcceptorOutput") {}
+    McSocket(): socket(0),requester(true) {}
 
-    ~McSocketAccepterOutput() { delete socket; }
+    ~McSocket() { delete socket; }
+
+    /**
+     * Does this McSocket request connections, or does it
+     * listen for incoming connections.
+     */
+    bool isRequester() const { return requester; }
+
+    void setRequester(bool val) { requester = val; }
 
     const std::string& getName() const { return name; }
 
-    void requestConnection(atdUtil::SocketAccepter *service,int pseudoPort)
+    void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    Output* clone() const;
+    IOChannel* clone() const;
 
-    void offer(atdUtil::Socket* sock) throw(atdUtil::IOException);
+    void connected(atdUtil::Socket* sock);
+
+    atdUtil::Inet4Address getRemoteInet4Address() const {
+        return socket->getInet4Address();
+    }
 
     size_t getBufferSize() const;
 
     /**
     * Do the actual hardware read.
     */
+    size_t read(void* buf, size_t len) throw (atdUtil::IOException)
+    {
+	return socket->recv(buf,len);
+    }
+
+    /**
+    * Do the actual hardware write.
+    */
     size_t write(const void* buf, size_t len) throw (atdUtil::IOException)
     {
-      // std::cerr << "McSocketAccepterOutput::read, len=" << len << std::endl;
+      // std::cerr << "McSocket::write, len=" << len << std::endl;
       return socket->send(buf,len);
     }
+
 
     void close() throw (atdUtil::IOException);
 
@@ -74,6 +95,10 @@ public:
 protected:
     atdUtil::Socket* socket;
     std::string name;
+
+    ConnectionRequester* connectionRequester;
+
+    bool requester;
 };
 
 }

@@ -355,9 +355,11 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
     }
 }
 
-/* A remote system has connnected to one one our outputs */
-void DSMEngine::offer(atdUtil::Socket* socket, int pseudoPort) 
-	throw(atdUtil::Exception)
+/* We don't have any SampleInputs */
+void DSMEngine::connected(SampleInput* input) {}
+
+/* A remote system has connnected to one of our outputs */
+void DSMEngine::connected(SampleOutput* output)
 {
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     const list<SampleOutput*>& routputs = dsmConfig->getRawOutputs();
@@ -366,9 +368,8 @@ void DSMEngine::offer(atdUtil::Socket* socket, int pseudoPort)
     list<SampleOutput*>::const_iterator oi;
 
     for (oi = routputs.begin(); oi != routputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	if (output->getPseudoPort() == pseudoPort) {
-	    output->offer(socket);
+	SampleOutput* oput = *oi;
+	if (oput == output) {
 	    for (si = sensors.begin(); si != sensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		cerr << "adding output to sensor " << sensor->getName() << endl;
@@ -383,9 +384,8 @@ void DSMEngine::offer(atdUtil::Socket* socket, int pseudoPort)
     // connect other outputs
     const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	if (output->getPseudoPort() == pseudoPort) {
-	    output->offer(socket);
+	SampleOutput* oput = *oi;
+	if (oput == output) {
 	    for (si = sensors.begin(); si != sensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		cerr << "adding output to sensor " << sensor->getName() << endl;

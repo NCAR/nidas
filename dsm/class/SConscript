@@ -55,16 +55,10 @@ sources = Split("""
   XMLConfigService.cc
   RawSampleService.cc
 
-  Input.cc
-  Output.cc
-  InputStream.cc
-  OutputStream.cc
-  McSocketAccepterInput.cc
-  McSocketRequesterInput.cc
-  McSocketAccepterOutput.cc
-  McSocketRequesterOutput.cc
-  FileSetInput.cc
-  FileSetOutput.cc
+  IOChannel.cc
+  IOStream.cc
+  McSocket.cc
+  FileSet.cc
 
   SampleInput.cc
   SampleOutput.cc

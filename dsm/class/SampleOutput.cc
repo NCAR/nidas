@@ -24,13 +24,14 @@ using namespace std;
 CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
-	output(0),outputStream(0),pseudoPort(0),
+	output(0),outputStream(0),pseudoPort(0),connectionRequester(0),
 	fullSampleTimetag(0),t0day(0),questionableTimetags(0)
 {
 }
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	output(x.output->clone()),outputStream(0),pseudoPort(x.pseudoPort),
+	connectionRequester(0),
 	fullSampleTimetag(0),t0day(0),questionableTimetags(0)
 {
 }
@@ -47,10 +48,11 @@ SampleOutput* SampleOutputStream::clone() const
     return new SampleOutputStream(*this);
 }
 
-void SampleOutputStream::requestConnection(atdUtil::SocketAccepter* accepter)
+void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
 	throw(atdUtil::IOException)
 {
-    output->requestConnection(accepter,getPseudoPort());
+    connectionRequester = requester;
+    output->requestConnection(this,getPseudoPort());
 }
 
 void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
@@ -58,18 +60,19 @@ void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
 int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
 
 /*
- * pass on the offer, generous aren't we?
+ * We're connected.
  */
-void SampleOutputStream::offer(atdUtil::Socket* sock) throw(atdUtil::IOException)
+void SampleOutputStream::connected(IOChannel* iochan)
 {
-    output->offer(sock);
+    assert(connectionRequester);
+    connectionRequester->connected(this);
     init();
 }
 
-void SampleOutputStream::init() throw(atdUtil::IOException)
+void SampleOutputStream::init()
 {
     delete outputStream;
-    outputStream = new OutputStream(*output,output->getBufferSize());
+    outputStream = new IOStream(*output,output->getBufferSize());
 }
 
 void SampleOutputStream::close() throw(atdUtil::IOException)
@@ -171,7 +174,7 @@ void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& cname = xchild.getNodeName();
-	output = Output::fromOutputDOMElement((xercesc::DOMElement*)child);
+	output = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)child);
 
         if (++noutputs > 1)
             throw atdUtil::InvalidParameterException(

@@ -21,12 +21,14 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SampleInputStream)
 
 SampleInputStream::SampleInputStream():
-    input(0),inputStream(0),pseudoPort(0),samp(0),left(0),dptr(0)
+    input(0),inputStream(0),pseudoPort(0),connectionRequester(0),
+    samp(0),left(0),dptr(0)
 {
 }
 
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
     input(x.input->clone()),inputStream(0),pseudoPort(x.pseudoPort),
+    connectionRequester(0),
     samp(0),left(0),dptr(0)
 {
 }
@@ -43,36 +45,42 @@ SampleInput* SampleInputStream::clone() const
     return new SampleInputStream(*this);
 }
 
-void SampleInputStream::requestConnection(atdUtil::SocketAccepter* accepter)
+void SampleInputStream::requestConnection(SampleConnectionRequester* requester)
             throw(atdUtil::IOException)
 {
-    input->requestConnection(accepter,getPseudoPort());
+    connectionRequester = requester;
+    input->requestConnection(this,getPseudoPort());
+}
+
+void SampleInputStream::connected(IOChannel* iochan)
+{
+    assert(connectionRequester);
+    connectionRequester->connected(this);
+    init();
 }
 
 void SampleInputStream::setPseudoPort(int val) { pseudoPort = val; }
 
 int SampleInputStream::getPseudoPort() const { return pseudoPort; }
 
-/*
- * pass on the offer, generous aren't we?
- */
-void SampleInputStream::offer(atdUtil::Socket* sock) throw(atdUtil::IOException)
-{
-    input->offer(sock);
-}
-
-void SampleInputStream::init() throw(atdUtil::IOException)
+void SampleInputStream::init()
 {
     cerr << "SampleInputStream::init(), buffer size=" << 
     	input->getBufferSize() << endl;
     delete inputStream;
-    inputStream = new InputStream(*input,input->getBufferSize());
+    inputStream = new IOStream(*input,input->getBufferSize());
 }
 
 void SampleInputStream::close() throw(atdUtil::IOException)
 {
     if (inputStream) inputStream->close();
     else input->close();
+}
+
+atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const
+{
+    if (input) return input->getRemoteInet4Address();
+    else return atdUtil::Inet4Address();
 }
 
 int SampleInputStream::getFd() const
@@ -202,7 +210,7 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
-	input = Input::fromInputDOMElement((xercesc::DOMElement*)child);
+	input = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)child);
 
 	if (++ninputs > 1)
 	    throw atdUtil::InvalidParameterException(

@@ -13,12 +13,20 @@
 
 */
 
-#include <FileSetInput.h>
+#include <FileSet.h>
 
 using namespace dsm;
 using namespace std;
 
-void FileSetInput::fromDOMElement(const xercesc::DOMElement* node)
+void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
+       throw(atdUtil::IOException)
+{
+   // immediate connection
+   requester->connected(this); 
+}
+
+
+void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -38,7 +46,7 @@ void FileSetInput::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* FileSetInput::toDOMParent(
+xercesc::DOMElement* FileSet::toDOMParent(
     xercesc::DOMElement* parent)
     throw(xercesc::DOMException)
 {
@@ -50,7 +58,7 @@ xercesc::DOMElement* FileSetInput::toDOMParent(
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* FileSetInput::toDOMElement(xercesc::DOMElement* node)
+xercesc::DOMElement* FileSet::toDOMElement(xercesc::DOMElement* node)
     throw(xercesc::DOMException)
 {
     return node;

@@ -17,9 +17,8 @@
 
 
 #include <SampleSource.h>
-#include <InputStream.h>
-
-#include <atdUtil/McSocket.h>
+#include <IOStream.h>
+#include <ConnectionRequester.h>
 
 namespace dsm {
 
@@ -28,7 +27,7 @@ class DSMConfig;
 /**
  * Interface of an input stream of samples.
  */
-class SampleInput: public SampleSource, public DOMable
+class SampleInput: public SampleSource, public ConnectionRequester, public DOMable
 {
 public:
     SampleInput(): dsm(0) {}
@@ -37,18 +36,18 @@ public:
 
     virtual SampleInput* clone() const = 0;
 
-    virtual void requestConnection(atdUtil::SocketAccepter*)
+    virtual void requestConnection(SampleConnectionRequester*)
         throw(atdUtil::IOException) = 0;
+
+    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
 
     virtual void setPseudoPort(int val) = 0;
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void offer(atdUtil::Socket* sock) throw(atdUtil::IOException) = 0;
-
     virtual int getFd() const = 0;
 
-    virtual void init() throw(atdUtil::IOException) = 0;
+    virtual void init() = 0;
 
     virtual void close() throw(atdUtil::IOException) = 0;
 
@@ -62,7 +61,7 @@ private:
 
 /**
  * An implementation of a SampleInput, a class for serializing Samples
- * from an InputStream.  
+ * from an IOStream.  
  */
 class SampleInputStream: public SampleInput
 {
@@ -87,12 +86,14 @@ public:
 
     int getPseudoPort() const;
 
-    void requestConnection(atdUtil::SocketAccepter*)
+    void requestConnection(SampleConnectionRequester*)
             throw(atdUtil::IOException);
 
-    void offer(atdUtil::Socket* sock) throw(atdUtil::IOException);
+    void connected(IOChannel* input);
 
-    void init() throw(atdUtil::IOException);
+    atdUtil::Inet4Address getRemoteInet4Address() const;
+
+    void init();
 
     /**
      * Read a buffer of data, serialize the data into samples,
@@ -124,10 +125,12 @@ public:
 
 protected:
 
-    Input* input;
-    InputStream* inputStream;
+    IOChannel* input;
+    IOStream* inputStream;
 
     int pseudoPort;
+
+    SampleConnectionRequester* connectionRequester;
 
     /**
      * Will be non-null if we have previously read part of a sample

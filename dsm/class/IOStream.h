@@ -13,29 +13,54 @@
 
 */
 
-#ifndef DSM_OUTPUTSTREAM_H
-#define DSM_OUTPUTSTREAM_H
+#ifndef DSM_IOSTREAM_H
+#define DSM_IOSTREAM_H
 
-#include <Output.h>
+#include <IOChannel.h>
+
+#include <iostream>
 
 namespace dsm {
 
 /**
- * A class for buffering and sending data over a stream.
- * Supports non-blocking atomic writes, so that if the device (e.g. a socket)
- * is not responding, the stream won't back up and cause problems.
+ * A base class for buffering data.
  */
-class OutputStream {
+class IOStream {
 
 public:
     /**
-     * Create OutputStream.
-     * @param output Class implement physical output device - socket, or file.
-     * @param buflen length of buffer, in bytes.
+     * Create IOStream.
+     * @param input: reference to an Input object providing the physical IO
+     * @param buflen: length of buffer, in bytes.
      */
-    OutputStream(Output& output,int buflen);
+    IOStream(IOChannel& input,size_t buflen = 8192);
 
-    ~OutputStream();
+    ~IOStream();
+
+    /**
+     * Number of bytes available to be copied from the
+     * buffer of IOStream.
+     */
+    inline size_t available() const
+    {
+        return head - tail;
+    }
+
+    /**
+     * Do a IOChannel::read into the internal buffer of IOStream.
+     */
+    size_t read() throw(atdUtil::IOException);
+
+    /**
+     * Copy data from the internal buffer to the user buffer.
+     @return number of bytes copied.
+     */
+    size_t read(void* buf, size_t len) throw();
+
+    /**
+     * close physical device.
+     */
+    void close() throw(atdUtil::IOException);
 
     /**
      * Incoming data is buffered, and the buffer written to the
@@ -45,7 +70,7 @@ public:
      * @param val Number of milliseconds between physical writes.
      *        Default: 1000 milliseconds.
      */
-    void setMaxTimeBetweenWrites(int val) { _maxMsecs = val; }
+    void setMaxTimeBetweenWrites(int val) { maxMsecs = val; }
 
     /**
      * This is a useful parameter for socket connections.
@@ -56,7 +81,7 @@ public:
      * @param val Number of milliseconds between physical writes.
      *        Default: 250 milliseconds.
      */
-    void setWriteBackoffTime(int val) { _backoffMsecs = val; }
+    void setWriteBackoffTime(int val) { backoffMsecs = val; }
 
     /**
      * Write data.  This supports an atomic write of
@@ -76,90 +101,66 @@ public:
     /**
      * Flush buffer to physical device.
      * This is not done automatically by the destructor - the user
-     * must call flush before destroying this OutputStream.
+     * must call flush before destroying this IOStream.
      */
     void flush() throw(atdUtil::IOException);
 
     /**
-     * close physical device.
-     */
-    void close() throw(atdUtil::IOException);
-
-    /**
-     * Request that Output object open a new file, with a name
+     * Request that IOChannel object open a new file, with a name
      * based on a time.
      */
     dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
     {
 	flush();
-	return output.createFile(t);
+	return iochannel.createFile(t);
     }
 
 protected:
 
-    Output& output;
+    IOChannel& iochannel;
+
+    /** data buffer */
+    char *buffer;
+
+    /** where we insert bytes into the buffer */
+    char* head;
+
+    /** where we remove bytes from the buffer */
+    char* tail;
 
     /**
-     * Actual buffer size. We allocate buffers that are twice
-     * as large as the user requested in order to provide some
-     * protection against data loss.
+     * One half the actual buffer size.
      */
-    size_t _bufsize;
+    size_t buflen;
 
     /**
-     * Requested buffer size, and the maximum size of the
-     * physical writes.
+     * One past end of buffer.
      */
-    size_t _writelen;
-
-    /**
-     * Allocated buffers. We use a double buffering scheme, memcpy-ing
-     * to one buffer while the other is being queued to the device.
-     */
-    char *_bufs[2];
-
-    /**
-     * Pointers into _bufs.
-     * For input buffer, where to place next data.
-     *
-     * For output buffer, where to write from next time
-     * If bufPtrs[outbuf] < bufs[outbuf] + bufN[outbuf] then
-     * we haven't completely written the output buffer.
-     */
-    char *_bufPtrs[2];
-
-    /** how many bytes in each buffer */
-    size_t _bufN[2];
-
-    /** initial index to input buffer */
-    int _inbuf;
-
-    /** initial index to output buffer */
-    int _outbuf;
+    char* eob;
 
     /**
      * Maximum number of milliseconds between physical writes.
      */
-    int _maxMsecs;
+    int maxMsecs;
 
     /**
      * Back off period in milliseconds if physical device is not
      * being cooperative.
      */
-    int _backoffMsecs;
+    int backoffMsecs;
 
     /**
      * Time of last physical write.
      */
-    dsm_sys_time_t _lastWrite;
+    dsm_sys_time_t lastWrite;
 
 private:
 
     /** No copying */
-    OutputStream(const OutputStream&);
+    IOStream(const IOStream&);
 
     /** No assignment */
-    OutputStream& operator=(const OutputStream&);
+    IOStream& operator=(const IOStream&);
 
 };
 

@@ -13,46 +13,50 @@
 
 */
 
-#ifndef DSM_FILESETOUTPUT_H
-#define DSM_FILESETOUTPUT_H
+#ifndef DSM_FILESET_H
+#define DSM_FILESET_H
 
-#include <string>
+#include <IOChannel.h>
+#include <ConnectionRequester.h>
+#include <dsm_sample.h>
 
-#include <Output.h>
-#include <atdUtil/OutputFileSet.h>
+#include <atdUtil/FileSet.h>
 
 namespace dsm {
 
 /**
- * Implementation of an OutputStream from a atdUtil::OutputFileSet
+ * Implementation of an IOChannel from a atdUtil::FileSet
  */
-class FileSetOutput: public Output, public atdUtil::OutputFileSet {
+class FileSet: public IOChannel, public atdUtil::FileSet {
 
 public:
-    FileSetOutput() {}
+    FileSet() {}
 
-    virtual ~FileSetOutput() {}
+    virtual ~FileSet() {}
 
     const std::string& getName() const { return getFileName(); }
 
-    void requestConnection(atdUtil::SocketAccepter* service,int pseudoPort)
-    	throw(atdUtil::IOException)
+    void requestConnection(ConnectionRequester* requester,int pseudoPort)
+    	throw(atdUtil::IOException);
+
+    IOChannel* clone() const { return new FileSet(*this); }
+
+    size_t read(void* buf, size_t len) throw(atdUtil::IOException)
     {
+        return atdUtil::FileSet::read(buf,len);
     }
-
-    Output* clone() const { return new FileSetOutput(*this); }
-
+        
     size_t write(const void* buf, size_t len) throw(atdUtil::IOException)
     {
-        return atdUtil::OutputFileSet::write(buf,len);
+        return atdUtil::FileSet::write(buf,len);
     }
         
     void close() throw(atdUtil::IOException)
     {
-        atdUtil::OutputFileSet::closeFile();
+        atdUtil::FileSet::closeFile();
     }
         
-    int getFd() const { return -1; }
+    int getFd() const { return atdUtil::FileSet::getFd(); }
         
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);

@@ -70,12 +70,10 @@ void XMLConfigService::schedule() throw(atdUtil::Exception)
     output->requestConnection(this,XML_CONFIG);
 }
 
-void XMLConfigService::offer(atdUtil::Socket* sock,int pseudoPort)
-	throw(atdUtil::Exception)
+void XMLConfigService::connected(IOChannel* output)
 {
-    assert(pseudoPort == XML_CONFIG);
     // Figure out what DSM it came from
-    atdUtil::Inet4Address remoteAddr = sock->getInet4Address();
+    atdUtil::Inet4Address remoteAddr = output->getRemoteInet4Address();
     cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
     if (!dsm)
@@ -86,7 +84,6 @@ void XMLConfigService::offer(atdUtil::Socket* sock,int pseudoPort)
     // make a copy of myself, assign it to a specific dsm
     XMLConfigService* newserv = new XMLConfigService(*this);
     newserv->setDSMConfig(dsm);
-    newserv->output->offer(sock);    // pass socket to new input
     newserv->start();
     getServer()->addThread(newserv);
 }
@@ -125,7 +122,7 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 		    gkid=gkid->getNextSibling())
 	    {
 		if (gkid->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-		output = Output::fromOutputDOMElement((xercesc::DOMElement*)gkid);
+		output = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)gkid);
 		if (++noutputs > 1)
 		    throw atdUtil::InvalidParameterException(
 			"XMLConfigService::fromDOMElement",

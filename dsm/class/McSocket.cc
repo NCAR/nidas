@@ -13,54 +13,57 @@
 
 */
 
-#include <McSocketAccepterOutput.h>
+#include <McSocket.h>
 #include <Datagrams.h>
 
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-void McSocketAccepterOutput::requestConnection(atdUtil::SocketAccepter *service,
+void McSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort)
     throw(atdUtil::IOException)
 {
+    connectionRequester = requester;
     setPseudoPort(pseudoPort);
-    listen(service);
+    if (isRequester()) request();
+    else listen();
 }
 
-Output* McSocketAccepterOutput::clone() const
+IOChannel* McSocket::clone() const
 {
-    return new McSocketAccepterOutput(*this);
+    return new McSocket(*this);
 }
 
-void McSocketAccepterOutput::offer(atdUtil::Socket* sock)
-	throw(atdUtil::IOException)
+void McSocket::connected(atdUtil::Socket* sock)
 {
     socket = sock;
     name = socket->getInet4SocketAddress().toString();
-    socket->setNonBlocking(true);
+    assert(requester);
+    connectionRequester->connected(this);
 }
 
-size_t McSocketAccepterOutput::getBufferSize() const
+size_t McSocket::getBufferSize() const
 {
-    if (socket) return socket->getReceiveBufferSize();
-    else return 16384;
+    try {
+	if (socket) return socket->getReceiveBufferSize();
+    }
+    catch (const atdUtil::IOException& e) {}
+    return 16384;
 }
 
-void McSocketAccepterOutput::close() throw (atdUtil::IOException)
+void McSocket::close() throw (atdUtil::IOException)
 {
-    atdUtil::McSocketAccepter::close();
+    atdUtil::McSocket::close();
     if (socket && socket->getFd() >= 0) socket->close();
 }
 
-int McSocketAccepterOutput::getFd() const
+int McSocket::getFd() const
 {
     if (socket) return socket->getFd();
     else return -1;
 }
-
-
-void McSocketAccepterOutput::fromDOMElement(const xercesc::DOMElement* node)
+void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     string stype;
@@ -79,7 +82,10 @@ void McSocketAccepterOutput::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aval = attr.getValue();
 	    if (!aname.compare("address")) saddr = aval;
 	    else if (!aname.compare("port")) sport = aval;
-	    else if (!aname.compare("type"));
+	    else if (!aname.compare("type")) {
+		if (!aval.compare("mcaccept")) setRequester(false);
+		else setRequester(true);
+	    }
 	    else throw atdUtil::InvalidParameterException(
 	    	string("unrecognized socket attribute:") + aname);
 	}
@@ -103,7 +109,7 @@ void McSocketAccepterOutput::fromDOMElement(const xercesc::DOMElement* node)
     setInet4McastSocketAddress(atdUtil::Inet4SocketAddress(iaddr,port));
 }
 
-DOMElement* McSocketAccepterOutput::toDOMParent(
+DOMElement* McSocket::toDOMParent(
     DOMElement* parent)
     throw(DOMException)
 {
@@ -115,7 +121,7 @@ DOMElement* McSocketAccepterOutput::toDOMParent(
     return toDOMElement(elem);
 }
 
-DOMElement* McSocketAccepterOutput::toDOMElement(DOMElement* node)
+DOMElement* McSocket::toDOMElement(DOMElement* node)
     throw(DOMException)
 {
     return node;

@@ -31,8 +31,7 @@ class Aircraft;
 /**
  * Base class for a service, as built from a <service> XML tag.
  */
-class DSMService: public atdUtil::Thread, public atdUtil::SocketAccepter,
-	public DOMable
+class DSMService: public atdUtil::Thread, public DOMable
 {
 public:
     
@@ -40,11 +39,6 @@ public:
      * Constructor.
      */
     DSMService(const std::string& name);
-
-    /**
-     * Copy constructor.
-     */
-    // DSMService(const DSMService&);
 
     virtual ~DSMService();
 

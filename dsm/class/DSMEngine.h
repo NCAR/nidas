@@ -16,15 +16,15 @@
 #ifndef DSM_DSMENGINE_H
 #define DSM_DSMENGINE_H
 
-#include <atdUtil/Socket.h>
-
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/sax/SAXException.hpp>
-
 #include <Project.h>
 #include <Aircraft.h>
 #include <DSMConfig.h>
 #include <PortSelector.h>
+
+#include <atdUtil/Socket.h>
+
+#include <xercesc/dom/DOMDocument.hpp>
+#include <xercesc/sax/SAXException.hpp>
 
 namespace dsm {
 
@@ -32,7 +32,7 @@ namespace dsm {
  * Data Service Module, a class that drives an ADS3 data collection
  * box.
  */
-class DSMEngine : public atdUtil::SocketAccepter {
+class DSMEngine : public SampleConnectionRequester {
 public:
 
     /**
@@ -61,11 +61,12 @@ public:
     void interrupt() throw(atdUtil::Exception);
 
     /**
-     * Implementation of atdUtil::SocketAcceptor::offer(), which
-     * is how DSMEngine is notified of remote connections.
+     * Implementation of ConnectionRequester connected methods.
+     * This is how DSMEngine is notified of remote connections.
      */
-    void offer(atdUtil::Socket* socket, int pseudoPort) 
-	throw(atdUtil::Exception);
+    void connected(SampleInput*);
+
+    void connected(SampleOutput*);
 
 protected:
 

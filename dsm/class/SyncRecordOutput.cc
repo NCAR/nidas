@@ -23,6 +23,8 @@
 using namespace dsm;
 using namespace std;
 
+CREATOR_ENTRY_POINT(SyncRecordOutput)
+
 SyncRecordOutput::SyncRecordOutput():
 	sorter(250)
 {
@@ -72,5 +74,6 @@ void SyncRecordOutput::setDSMConfig(const DSMConfig* dsm)
 bool SyncRecordOutput::receive(const Sample* samp)
         throw(SampleParseException, atdUtil::IOException)
 {
+    cerr << "doing sorter.receive" << endl;
     return sorter.receive(samp);
 }

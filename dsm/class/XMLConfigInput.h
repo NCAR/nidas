@@ -22,7 +22,7 @@
 
 namespace dsm {
 
-class XMLConfigInput: public atdUtil::McSocketRequester
+class XMLConfigInput: public atdUtil::McSocket
 {
 public:
     XMLConfigInput()
