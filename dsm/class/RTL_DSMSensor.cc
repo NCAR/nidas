@@ -41,22 +41,10 @@ RTL_DSMSensor::RTL_DSMSensor(const string& devnameArg) :
 }
 
 /**
- * Destructor.  This also does a close, which is a bit of an
- * issue, since close can throw IOException, and we want to
- * avoid throwing exceptions in destructors.  For now
- * we'll catch it a write it to cerr, which should be
- * replaced by a actual logging object.
+ * Destructor. 
  */
 RTL_DSMSensor::~RTL_DSMSensor()
 {
-    cerr << "~RTL_DSMSensor()" << endl;
-    try {
-      close();
-    }
-    catch(atdUtil::IOException& ioe) {
-       cerr << ioe.what() << endl;
-    }
-
 }
 
 void RTL_DSMSensor::setDeviceName(const std::string& val)

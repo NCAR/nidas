@@ -19,14 +19,8 @@
 #include <dsm_serial.h>
 #include <DSMSerialSensor.h>
 #include <RTL_DevIoctlStore.h>
-#include <XMLStringConverter.h>
-#include <XDOM.h>
 
 #include <atdUtil/ThreadSupport.h>
-
-// #include <xercesc/dom/DOMElement.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
 
 #include <asm/ioctls.h>
 
@@ -50,12 +44,6 @@ DSMSerialSensor::DSMSerialSensor():
 DSMSerialSensor::~DSMSerialSensor() {
     delete scanner;
     delete [] parsebuf;
-    try {
-	close();
-    }
-    catch(atdUtil::IOException& ioe) {
-      cerr << ioe.what() << endl;
-    }
 }
 void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 {
@@ -252,7 +240,6 @@ void DSMSerialSensor::fromDOMElement(
 	    setPromptRate(erate);
 	}
     }
-    cerr << "DSMSerialSensor::fromDOMElement end   -------------" << endl;
 }
 
 DOMElement* DSMSerialSensor::toDOMParent(
