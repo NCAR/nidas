@@ -99,8 +99,13 @@ int main(int argc, char** argv)
 
   cout << __FILE__ << ": Initialization data sent to driver" << endl;
 
-  a2d->calset = 0x80;
-  a2d->offset = 0x10;
+  for(int iset = 0; iset < MAXA2DS; iset++)
+  {
+  if(iset == 0)a2d->calset[iset] = 1;
+  else a2d->calset[iset] = 0;
+  if(iset == 1)a2d->offset[iset] = 1;
+  else a2d->offset[iset] = 0;
+  }
 
   A2D_SETDump(a2d);
 
@@ -170,10 +175,10 @@ Load up some phoney data in the A2D control structure, A2D_SET
 		a2d->Hz[i] = (US)(2*(float)(i/4+1)*25+.5);
 		a2d->status[i] = 0;
 		a2d->ptr[i] = 0;
+		a2d->calset[i] = 0;
+ 		a2d->offset[i] = 0;
 	}
  	a2d->vcalx8 = 128;
-	a2d->calset = 0;
- 	a2d->offset = 0;
 
 	if((fp = fopen("filtercoeff.bin", "rb")) == NULL)
 		{
