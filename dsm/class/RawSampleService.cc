@@ -122,13 +122,17 @@ void RawSampleService::connected(SampleOutput* outpt)
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
-	if (output == outpt)
+	if (output == outpt) {
+	    output->init();
 	    input->addSampleClient(output);
+	}
     }
 }
 
 int RawSampleService::run() throw(atdUtil::Exception)
 {
+    input->init();
+
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;

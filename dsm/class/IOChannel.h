@@ -51,7 +51,7 @@ public:
     /**
      * Derived classes must provide clone.
      */
-    virtual IOChannel* clone() const = 0;
+    virtual IOChannel* clone() = 0;
 
     /**
      * What is the IP address of the host at the other end

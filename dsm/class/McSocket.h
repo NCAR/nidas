@@ -32,7 +32,11 @@ namespace dsm {
 class McSocket: public IOChannel, public atdUtil::McSocket {
 
 public:
-    McSocket(): socket(0),requester(true) {}
+
+    /**
+     * Constructor.
+     */
+    McSocket(): socket(0),connectionRequester(0),amRequester(true) {}
 
     ~McSocket() { delete socket; }
 
@@ -40,16 +44,16 @@ public:
      * Does this McSocket request connections, or does it
      * listen for incoming connections.
      */
-    bool isRequester() const { return requester; }
+    bool isRequester() const { return amRequester; }
 
-    void setRequester(bool val) { requester = val; }
+    void setRequester(bool val) { amRequester = val; }
 
     const std::string& getName() const { return name; }
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    IOChannel* clone() const;
+    IOChannel* clone();
 
     void connected(atdUtil::Socket* sock);
 
@@ -98,7 +102,7 @@ protected:
 
     ConnectionRequester* connectionRequester;
 
-    bool requester;
+    bool amRequester;
 };
 
 }

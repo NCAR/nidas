@@ -20,6 +20,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
+
 void McSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort)
     throw(atdUtil::IOException)
@@ -30,16 +31,19 @@ void McSocket::requestConnection(ConnectionRequester* requester,
     else listen();
 }
 
-IOChannel* McSocket::clone() const
+IOChannel* McSocket::clone()
 {
-    return new McSocket(*this);
+    McSocket* newmcsock = new McSocket(*this);
+    // new object owns socket
+    socket = 0;
+    return newmcsock;
 }
 
 void McSocket::connected(atdUtil::Socket* sock)
 {
     socket = sock;
     name = socket->getInet4SocketAddress().toString();
-    assert(requester);
+    assert(connectionRequester);
     connectionRequester->connected(this);
 }
 
@@ -54,8 +58,8 @@ size_t McSocket::getBufferSize() const
 
 void McSocket::close() throw (atdUtil::IOException)
 {
-    atdUtil::McSocket::close();
     if (socket && socket->getFd() >= 0) socket->close();
+    atdUtil::McSocket::close();
 }
 
 int McSocket::getFd() const

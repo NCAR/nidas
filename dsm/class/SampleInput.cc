@@ -54,9 +54,9 @@ void SampleInputStream::requestConnection(SampleConnectionRequester* requester)
 
 void SampleInputStream::connected(IOChannel* iochan)
 {
+    assert(iochan == input);
     assert(connectionRequester);
     connectionRequester->connected(this);
-    init();
 }
 
 void SampleInputStream::setPseudoPort(int val) { pseudoPort = val; }
@@ -100,6 +100,7 @@ int SampleInputStream::getFd() const
 void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::IOException)
 {
     static int nsamps = 0;
+
     inputStream->read();
     SampleHeader header;
     for (;;) {

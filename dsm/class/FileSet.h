@@ -39,7 +39,7 @@ public:
     void requestConnection(ConnectionRequester* requester,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    IOChannel* clone() const { return new FileSet(*this); }
+    IOChannel* clone() { return new FileSet(*this); }
 
     size_t read(void* buf, size_t len) throw(atdUtil::IOException)
     {

@@ -48,9 +48,11 @@ size_t IOStream::read() throw(atdUtil::IOException)
 {
     size_t l = available();
     // shift data down. memmove supports overlapping memory areas
-    memmove(buffer,tail,l);
-    tail = buffer;
-    head = tail + l;
+    if (tail > buffer) {
+	memmove(buffer,tail,l);
+	tail = buffer;
+	head = tail + l;
+    }
 
     l = iochannel.read(head,eob-head);
 

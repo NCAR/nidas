@@ -25,14 +25,16 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
 	output(0),outputStream(0),pseudoPort(0),connectionRequester(0),
-	fullSampleTimetag(0),t0day(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
+	questionableTimetags(0)
 {
 }
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	output(x.output->clone()),outputStream(0),pseudoPort(x.pseudoPort),
 	connectionRequester(0),
-	fullSampleTimetag(0),t0day(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
+	questionableTimetags(0)
 {
 }
 
@@ -64,9 +66,9 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
  */
 void SampleOutputStream::connected(IOChannel* iochan)
 {
+    assert(iochan == output);
     assert(connectionRequester);
     connectionRequester->connected(this);
-    init();
 }
 
 void SampleOutputStream::init()
@@ -95,6 +97,7 @@ void SampleOutputStream::flush() throw(atdUtil::IOException)
 bool SampleOutputStream::receive(const Sample *samp)
          throw(SampleParseException, atdUtil::IOException)
 {
+    if (!outputStream) return false;
     if (type == TIMETAG_DEPENDENT) {
 
 	cerr << "samp->getId()=" << samp->getId() << ", shortId=" <<
@@ -126,9 +129,9 @@ bool SampleOutputStream::receive(const Sample *samp)
 	if (tsamp >= nextFileTime)
 	    nextFileTime = outputStream->createFile(nextFileTime);
     }
-    if (!outputStream) return false;
 
     write(samp);
+    return true;
 }
 
 size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
