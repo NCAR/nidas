@@ -24,15 +24,18 @@ using namespace std;
 CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
-	output(0),outputStream(0),pseudoPort(0),connectionRequester(0),
+	name("SampleOutputStream"),iochan(0),iostream(0),
+	pseudoPort(0),connectionRequester(0),
+	dsm(0),service(0),
 	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
 	questionableTimetags(0)
 {
 }
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
-	output(x.output->clone()),outputStream(0),pseudoPort(x.pseudoPort),
-	connectionRequester(0),
+	name(x.name), iochan(x.iochan->clone()),iostream(0),
+	pseudoPort(x.pseudoPort), connectionRequester(0),
+	dsm(x.dsm),service(x.service),
 	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
 	questionableTimetags(0)
 {
@@ -40,8 +43,8 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 
 SampleOutputStream::~SampleOutputStream()
 {
-    delete outputStream;
-    delete output;
+    delete iostream;
+    delete iochan;
 }
 
 SampleOutput* SampleOutputStream::clone() const
@@ -54,8 +57,32 @@ void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
 	throw(atdUtil::IOException)
 {
     connectionRequester = requester;
-    output->requestConnection(this,getPseudoPort());
+    iochan->requestConnection(this,getPseudoPort());
 }
+
+
+void SampleOutputStream::setDSMConfig(const DSMConfig* val)
+{
+    dsm = val;
+    if (iochan) iochan->setDSMConfig(val);
+}
+
+const DSMConfig* SampleOutputStream::getDSMConfig() const
+{
+    return dsm;
+}
+
+void SampleOutputStream::setDSMService(const DSMService* val)
+{
+    service = val;
+    if (iochan) iochan->setDSMService(val);
+}
+
+const DSMService* SampleOutputStream::getDSMService() const
+{
+    return service;
+}
+
 
 void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
 
@@ -64,70 +91,85 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
 /*
  * We're connected.
  */
-void SampleOutputStream::connected(IOChannel* iochan)
+void SampleOutputStream::connected(IOChannel* iochannel)
 {
-    assert(iochan == output);
+    assert(iochan == iochannel);
     assert(connectionRequester);
+    setName(string("SampleOutputStream: ") + iochan->getName());
     connectionRequester->connected(this);
 }
 
 void SampleOutputStream::init()
 {
-    delete outputStream;
-    outputStream = new IOStream(*output,output->getBufferSize());
+    delete iostream;
+    cerr << "SampleOutputStream::init, buffer size=" <<
+    	iochan->getBufferSize() << endl;
+    iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 void SampleOutputStream::close() throw(atdUtil::IOException)
 {
-    if (outputStream) outputStream->close();
-    else output->close();
+    if (iostream) iostream->close();
+    else iochan->close();
 }
 
 int SampleOutputStream::getFd() const
 {
-    if (output) return output->getFd();
+    if (iochan) return iochan->getFd();
     else return -1;
 }
 
 void SampleOutputStream::flush() throw(atdUtil::IOException)
 {
-    if (outputStream) outputStream->flush();
+    if (iostream) iostream->flush();
 }
 
 bool SampleOutputStream::receive(const Sample *samp)
          throw(SampleParseException, atdUtil::IOException)
 {
-    if (!outputStream) return false;
+    if (!iostream) return false;
     if (type == TIMETAG_DEPENDENT) {
 
-	cerr << "samp->getId()=" << samp->getId() << ", shortId=" <<
-		samp->getShortId() << endl;
 	if (samp->getShortId() == CLOCK_SAMPLE_ID &&
 		samp->getType() == LONG_LONG_ST &&
 		samp->getDataLength() == 1) {
 	    fullSampleTimetag = ((long long*)samp->getConstVoidDataPtr())[0];
 	    t0day = timeFloor(fullSampleTimetag,MSECS_PER_DAY);
+	    cerr << "t0day=" << t0day << endl;
 	}
 
 	if (fullSampleTimetag == 0) return false;
 
 	dsm_sys_time_t tsamp = t0day + samp->getTimeTag();
 
-	/* midnight rollover */
-	if (tsamp < (tsampLast - MSECS_PER_DAY / 2)) {
-	    t0day += MSECS_PER_DAY;
-	    tsamp += MSECS_PER_DAY;
-	}
+	bool goodTime = true;
 	if (abs(tsamp - fullSampleTimetag) > 60000) {
-	    cerr << "questionable sample time" << endl;
-	    questionableTimetags++;
+	    /* midnight rollover */
+	    if (abs(tsamp + MSECS_PER_DAY - fullSampleTimetag) < 60000) {
+		cerr << "midnight rollover, tt=" << samp->getTimeTag() <<
+		    " tsamp=" << tsamp << " tsampLast=" << tsampLast <<
+		    " t0day=" << t0day << endl;
+		t0day += MSECS_PER_DAY;
+		tsamp += MSECS_PER_DAY;
+		tsampLast = tsamp;
+	    }
+	    else {
+		cerr << "bad time?, tt=" << samp->getTimeTag() <<
+		    " tsamp=" << tsamp << " tsampLast=" << tsampLast <<
+		    " t0day=" << t0day << endl;
+		questionableTimetags++;
+		goodTime = false;
+	    }
 	}
-	else tsampLast = tsamp;
 
-	if (nextFileTime == 0) nextFileTime = tsamp;
-
-	if (tsamp >= nextFileTime)
-	    nextFileTime = outputStream->createFile(nextFileTime);
+	if (goodTime) {
+	    tsampLast = tsamp;
+	    if (nextFileTime == 0) nextFileTime = tsamp;
+	    if (tsamp >= nextFileTime) {
+		cerr << "createFile" << endl;
+		nextFileTime = iostream->createFile(nextFileTime);
+	    }
+	}
     }
 
     write(samp);
@@ -145,9 +187,9 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
 
-    // cerr << "outputStream->write" << endl;
+    // cerr << "iostream->write" << endl;
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
-    return outputStream->write(bufs,lens,2);
+    return iostream->write(bufs,lens,2);
 }
 
 void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
@@ -169,25 +211,35 @@ void SampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
 
     // process <socket>, <fileset> child elements (should only be one)
 
-    int noutputs = 0;
+    int niochan = 0;
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& cname = xchild.getNodeName();
-	output = IOChannel::fromIOChannelDOMElement((xercesc::DOMElement*)child);
 
-        if (++noutputs > 1)
+	const string& elname = xchild.getNodeName();
+
+        iochan = IOChannel::createIOChannel(elname);
+
+        iochan->setDSMConfig(getDSMConfig());
+        iochan->setDSMService(getDSMService());
+
+	iochan->fromDOMElement((xercesc::DOMElement*)child);
+
+	if (++niochan > 1)
             throw atdUtil::InvalidParameterException(
-                   "SampleOutputStream::fromDOMElement",
-		   "output", "one and only one output allowed");
+                    "SampleOutputStream::fromDOMElement",
+                    "output", "must have one child element");
+
+
     }
-    if (!output)
+    if (!iochan)
         throw atdUtil::InvalidParameterException(
                 "SampleOutputStream::fromDOMElement",
-                "output", "no outputs specified");
+		"output", "must have one child element");
+    setName(string("SampleOutputStream: ") + iochan->getName());
 }
 
 xercesc::DOMElement* SampleOutputStream::toDOMParent(
