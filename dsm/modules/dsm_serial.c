@@ -12,12 +12,10 @@
 
     RTLinux serial driver for the ADS3 DSM.
 
- ********************************************************************
-*/
+    Much of this was taken from linux serial driver:
+    	linux/drivers/char/serial.c
 
-/*
-#include <stdio.h>
-#include <errno.h>
+ ********************************************************************
 */
 
 #include <pthread.h>
@@ -54,7 +52,6 @@ static char* devprefix = "dsmser";
 
 /* Maximum number of ports on a board */
 #define MAX_NUM_PORTS_TOTAL 24
-
 
 /* how many serial cards are we supporting. Determined at init time
  * by checking known board types.
@@ -885,6 +882,11 @@ static int get_prompt(struct serialPort* port,
     return 0;
 }
 
+/*
+ * function that is registered as an IRIG callback to
+ * be executed at a given rate.
+ * Prompts the serial port with a string.
+ */
 static void port_prompter(void* privateData)
 {
     struct serialPort* port = (struct serialPort*) privateData;
@@ -900,6 +902,9 @@ static void port_prompter(void* privateData)
     }
 }
 
+/*
+ * Start the port_prompter
+ */
 static int start_prompter(struct serialPort* port)
 {
     if (!port->promptOn) 
@@ -1164,7 +1169,7 @@ static void post_sample(struct serialPort* port)
     n = CIRC_SPACE(port->sample_queue.head,port->sample_queue.tail,
     	SAMPLE_QUEUE_SIZE);
     if (n > 0) {
-	port->sample->length = (dsm_sample_length_t) port->incount;
+	port->sample->length = (dsm_small_sample_length_t) port->incount;
 
 	/* increment head */
 	port->sample_queue.head = (port->sample_queue.head + 1) &
@@ -1191,7 +1196,7 @@ static void add_char_sep_bom(struct serialPort* port, unsigned char c)
 
     if (port->sepcnt < port->recinfo.sepLen) {
 	// This block is entered if we are currently scanning
-	// for the message separator (at the beginning of the message)
+	// for the message separator at the beginning of the message.
         if (c == port->recinfo.sep[port->sepcnt]) {
 	    // We now have a character match to the record separator.
 	    // increment the separator counter.
@@ -1205,13 +1210,19 @@ static void add_char_sep_bom(struct serialPort* port, unsigned char c)
 	    }
 	}
 	else if (port->recinfo.recordLen == 0) {
-	    // if variable record length and no character
+	    // if the record length is variable and no character
 	    // match to the record separator then it must be data.
 	    // If we have mistaken some characters for the 
 	    // separator, copy them to the sample data.
 	    if (port->sepcnt > 0) {
-		if (port->incount + port->sepcnt > MAX_DSM_SERIAL_MESSAGE_SIZE)
+		// check if there is room
+		if (port->incount + port->sepcnt >
+			MAX_DSM_SERIAL_MESSAGE_SIZE) {
+		    // send this bogus sample on
+		    post_sample(port);
 		    inc_input_char_overflow(port);
+		    return;
+		}
 		else {
 		    memcpy(port->sample->data + port->incount,port->recinfo.sep,
 			    port->sepcnt);
@@ -1219,16 +1230,24 @@ static void add_char_sep_bom(struct serialPort* port, unsigned char c)
 		    port->sepcnt = 0;
 		}
 	    }
-	    if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE)
+	    if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
+		// send this bogus sample on
+		post_sample(port);
 	    	inc_input_char_overflow(port);
+		// inc_input_char_overflow sets sepcnt to 0
+		add_char_sep_bom(port,c);
+		return;
+	    }
 	    port->sample->data[port->incount++] = c;
 	}
 	// separator string match failure, fixed length record.
 	// Start over at beginning of sep string.
 	// If a match, do a recursive call
-	else if (c == port->recinfo.sep[port->sepcnt = 0])
-		add_char_sep_bom(port,c);
-	// else discard character
+	else if (c == port->recinfo.sep[port->sepcnt = 0]) {
+	    add_char_sep_bom(port,c);
+	    return;
+	}
+	// else discard character. This should be reported
     }
     else {
 	// At this point we have a match to the BOM separater string.
@@ -1242,16 +1261,24 @@ static void add_char_sep_bom(struct serialPort* port, unsigned char c)
 	        port->sepcnt = 0;
 		// recursive call
 		add_char_sep_bom(port,c);
+		return;
 	    }
 	    else {
-		if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE)
-			inc_input_char_overflow(port);
+		if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
+		    // send this bogus sample on
+		    post_sample(port);
+		    inc_input_char_overflow(port);
+		    // inc_input_char_overflow sets sepcnt to 0
+		    add_char_sep_bom(port,c);
+		    return;
+		}
 		port->sample->data[port->incount++] = c;
 	    }
 	}
 	else {
 	    // fixed record length, save character in buffer.
-	    // no chance for overflow here, as long as recordLen < sizeof(buffer)
+	    // no chance for overflow here, as long as
+	    // recordLen < sizeof(buffer)
 	    port->sample->data[port->incount++] = c;
 	    // If we're done, scan for separator next.
 	    if (port->incount == port->recinfo.recordLen) port->sepcnt = 0;
@@ -1283,8 +1310,14 @@ static void add_char_sep_eom(struct serialPort* port, unsigned char c)
 	    // to separator string.  If have matched some previous chars,
 	    // copy them to buffer
 	    if (port->sepcnt > 0) {
-		if (port->incount + port->sepcnt > MAX_DSM_SERIAL_MESSAGE_SIZE)
-			inc_input_char_overflow(port);
+		if (port->incount + port->sepcnt > MAX_DSM_SERIAL_MESSAGE_SIZE) {
+		    // send this bogus sample on
+		    post_sample(port);
+		    inc_input_char_overflow(port);
+		    // inc_input_char_overflow sets sepcnt to 0
+		    add_char_sep_eom(port,c);
+		    return;
+		}
 		else {
 		    memcpy(port->sample->data + port->incount,port->recinfo.sep,
 			    port->sepcnt);
@@ -1296,10 +1329,17 @@ static void add_char_sep_eom(struct serialPort* port, unsigned char c)
 	    if (c == port->recinfo.sep[port->sepcnt = 0]) {
 		// if a match, do a recursive call
 		add_char_sep_eom(port,c);
+		return;
 	    }
 	    else {	// it must be data
-		if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE)
-			inc_input_char_overflow(port);
+		if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
+		    // send this bogus sample on
+		    post_sample(port);
+		    inc_input_char_overflow(port);
+		    // inc_input_char_overflow sets sepcnt & incount to 0
+		    add_char_sep_eom(port,c);
+		    return;
+		}
 		if (port->incount == 0) port->sample->timetag = GET_MSEC_CLOCK;
 		port->sample->data[port->incount++] = c;
 	    }
@@ -1540,7 +1580,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    }
 	}
 	else {
-	    struct dsm_serial_sample* samp = 0;
+	    struct dsm_small_sample* samp = 0;
 
 	    sem_timedwait(&port->sample_sem,&tspec);
 	    
@@ -1860,9 +1900,8 @@ int init_module(void)
 	    if (!port->sample_queue.buf) goto err1;
 
 	    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++) {
-	      struct dsm_serial_sample* samp = (struct dsm_serial_sample*)
-	      	kmalloc(sizeof(dsm_sample_timetag_t) +
-			sizeof(dsm_sample_length_t) +
+	      struct dsm_small_sample* samp = (struct dsm_small_sample*)
+	      	kmalloc(sizeof(struct dsm_small_sample) +
 			MAX_DSM_SERIAL_MESSAGE_SIZE,GFP_KERNEL);
 	      if (!samp) goto err1;
 	      port->sample_queue.buf[i] = samp;
