@@ -16,33 +16,26 @@
 #ifndef DSM_OUTPUTSTREAM_H
 #define DSM_OUTPUTSTREAM_H
 
-#include <atdUtil/Socket.h>
-#include <atdUtil/OutputFileSet.h>
-#include <atdUtil/IOException.h>
-
-#include <dsm_sample.h>
-
-#include <limits.h>
+#include <Output.h>
 
 namespace dsm {
 
 /**
- * A virtual base class for buffering and sending data over a stream.
+ * A class for buffering and sending data over a stream.
  * Supports non-blocking atomic writes, so that if the device (e.g. a socket)
  * is not responding, the stream won't back up and cause problems.
- * Derived class must implement the devWrite method which must
- * do the actual physical write.
  */
 class OutputStream {
 
 public:
     /**
      * Create OutputStream.
-     * @buflen: length of buffer, in bytes.
+     * @param output Class implement physical output device - socket, or file.
+     * @param buflen length of buffer, in bytes.
      */
-    OutputStream(int buflen);
+    OutputStream(Output& output,int buflen);
 
-    virtual ~OutputStream();
+    ~OutputStream();
 
     /**
      * Incoming data is buffered, and the buffer written to the
@@ -81,37 +74,30 @@ public:
   	throw(atdUtil::IOException);
 
     /**
-     * Request that derived class open a new file, with a name
-     * based on a time. This should be implemented by derived
-     * classes which write to disk files. Other derived classes
-     * (e.g. sockets) can just use this default implementation -
-     * basically ignoring the request.
-     */
-    virtual dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
-    {
-    	return LONG_LONG_MAX;
-    }
-
-    /**
      * Flush buffer to physical device.
      * This is not done automatically by the destructor - the user
      * must call flush before destroying this OutputStream.
      */
-    virtual void flush() throw(atdUtil::IOException);
+    void flush() throw(atdUtil::IOException);
 
     /**
      * close physical device.
      */
-    virtual void close() throw(atdUtil::IOException) = 0;
+    void close() throw(atdUtil::IOException);
+
+    /**
+     * Request that Output object open a new file, with a name
+     * based on a time.
+     */
+    dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
+    {
+	flush();
+	return output.createFile(t);
+    }
 
 protected:
 
-    /**
-     * Physical write method which must be implemented in derived
-     * classes. Returns the number of bytes written, which
-     * may be less than the number requested.
-     */
-    virtual size_t devWrite(const void* buf, size_t len) throw(atdUtil::IOException) = 0;
+    Output& output;
 
     /**
      * Actual buffer size. We allocate buffers that are twice
@@ -175,17 +161,6 @@ private:
     /** No assignment */
     OutputStream& operator=(const OutputStream&);
 
-};
-
-/**
- * Factory which allows one to create an instance of a class
- * derived from OutputStream. Currently supports
- * SocketOutputStream and FilesetOutputStream.
- */
-class OutputStreamFactory {
-public:
-    static OutputStream* createOutputStream(atdUtil::Socket& sock);
-    static OutputStream* createOutputStream(atdUtil::OutputFileSet& fset);
 };
 
 }

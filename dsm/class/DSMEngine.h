@@ -53,8 +53,8 @@ public:
     void initialize(xercesc::DOMDocument* projectDoc)
             throw(atdUtil::InvalidParameterException);
 
-    void startSensors() throw(atdUtil::IOException);
-    void startOutputs() throw(atdUtil::IOException);
+    void openSensors() throw(atdUtil::IOException);
+    void connectOutputs() throw(atdUtil::IOException);
 
     void wait() throw(atdUtil::Exception);
 
@@ -93,7 +93,7 @@ protected:
 
     PortSelector* selector;
 
-    std::list<SampleOutputStream*> connectedOutputs;
+    std::list<SampleOutput*> connectedOutputs;
 };
 
 /**

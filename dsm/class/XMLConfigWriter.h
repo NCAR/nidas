@@ -16,10 +16,11 @@
 #ifndef DSM_XMLCONFIGWRITER_H
 #define DSM_XMLCONFIGWRITER_H
 
+#include <DSMConfig.h>
+
 #include <XMLParser.h>
 
 #include <atdUtil/IOException.h>
-#include <atdUtil/Inet4Address.h>
 
 #include <xercesc/framework/XMLFormatter.hpp>
 #include <xercesc/dom/DOMWriter.hpp>
@@ -31,9 +32,9 @@ class XMLConfigWriterFilter: public xercesc::DOMWriterFilter {
 public:
 
     /**
-     * Only accept nodes for a dsm that matches dsmAddr.
+     * Only accept nodes for a certain dsm.
      */
-    XMLConfigWriterFilter(atdUtil::Inet4Address dsmAddr);
+    XMLConfigWriterFilter(const DSMConfig* dsm);
 
     short acceptNode(const xercesc::DOMNode* node) const;
 
@@ -42,7 +43,7 @@ public:
     void setWhatToShow(unsigned long val);
 
 protected:
-    atdUtil::Inet4Address dsmAddr;
+    const DSMConfig* dsm;
     unsigned long whatToShow;
 
     short acceptDSMNode(const xercesc::DOMNode* node) const;
@@ -54,10 +55,9 @@ protected:
 class XMLConfigWriter {
 public:
 
-    XMLConfigWriter() throw(atdUtil::Exception);
+    // XMLConfigWriter() throw(atdUtil::Exception);
 
-    XMLConfigWriter(atdUtil::Inet4Address dsmAddress)
-    	throw(atdUtil::Exception);
+    XMLConfigWriter(const DSMConfig* dsm) throw(atdUtil::Exception);
 
     ~XMLConfigWriter();
 

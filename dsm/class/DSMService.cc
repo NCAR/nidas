@@ -14,10 +14,28 @@
 */
 
 #include <DSMService.h>
+#include <Aircraft.h>
+#include <DSMServer.h>
 #include <DOMObjectFactory.h>
 
 using namespace dsm;
 using namespace std;
+
+DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
+	server(0),dsm(0)
+{
+    blockSignal(SIGHUP);
+    blockSignal(SIGINT);
+    blockSignal(SIGTERM);
+}
+
+DSMService::~DSMService()
+{
+}
+
+const Aircraft* DSMService::getAircraft() const {
+    return getServer()->getAircraft();
+}
 
 void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
@@ -34,68 +52,6 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aval = attr.getValue();
 	}
     }
-    xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-
-	if (!elname.compare("input")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		"DSMService::fromDOMElement",
-		elname, "does not have a class attribute");
-	    DOMable* input;
-	    try {
-		input = DOMObjectFactory::createObject(classattr);
-	    }
-	    catch (const atdUtil::Exception& e) {
-		throw atdUtil::InvalidParameterException("input",
-		    classattr,e.what());
-	    }
-	    SampleInputStream* sis = dynamic_cast<SampleInputStream*>(input);
-	    if (!sis) throw atdUtil::InvalidParameterException("input",
-		    classattr,"is not a SampleInputStream");
-	    sis->fromDOMElement((xercesc::DOMElement*)child);
-	    inputStreams.push_back(sis);
-	    cerr << "inputStreams.size=" << inputStreams.size() << endl;
-	}
-	else if (!elname.compare("output")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		"DSMService::fromDOMElement",
-		elname, "does not have a class attribute");
-	    DOMable* output;
-	    try {
-		output = DOMObjectFactory::createObject(classattr);
-	    }
-	    catch (const atdUtil::Exception& e) {
-		throw atdUtil::InvalidParameterException("output",
-		    classattr,e.what());
-	    }
-	    SampleOutputStream* sos =
-		dynamic_cast<SampleOutputStream*>(output);
-	    if (!sos) throw atdUtil::InvalidParameterException("output",
-		    classattr,"is not a SampleOutputStream");
-	    sos->fromDOMElement((xercesc::DOMElement*)child);
-	    outputStreams.push_back(sos);
-	}
-	else throw atdUtil::InvalidParameterException(
-		"DSMService::fromDOMElement",
-		elname, "unsupported element");
-    }
-    if (inputStreams.size() == 0)
-	throw atdUtil::InvalidParameterException(
-		"DSMService::fromDOMElement",
-		"input", "no inputs specified");
-    if (outputStreams.size() == 0)
-	throw atdUtil::InvalidParameterException(
-		"DSMService::fromDOMElement",
-		"input", "no outputs specified");
 }
 
 xercesc::DOMElement* DSMService::toDOMParent(

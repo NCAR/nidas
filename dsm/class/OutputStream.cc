@@ -13,10 +13,7 @@
 
 */
 
-#include <SocketOutputStream.h>
-#include <FileSetOutputStream.h>
-#include <DSMTime.h>
-
+#include <OutputStream.h>
 
 #include <iostream>
 
@@ -25,21 +22,9 @@
 using namespace dsm;
 using namespace std;
 
-/* static */
-OutputStream* OutputStreamFactory::createOutputStream(atdUtil::Socket& sock)
-{
-    return new SocketOutputStream(sock);
-}
-                                                                                         
-/* static */
-OutputStream* OutputStreamFactory::createOutputStream(atdUtil::OutputFileSet& fset)
-{
-    return new FileSetOutputStream(fset);
-}
 
-
-OutputStream::OutputStream(int buflen):
-    _bufsize(buflen*2),_writelen(buflen),_inbuf(0),_outbuf(1),
+OutputStream::OutputStream(Output& outputref,int buflen):
+    output(outputref),_bufsize(buflen*2),_writelen(buflen),_inbuf(0),_outbuf(1),
     _maxMsecs(1000),_backoffMsecs(250)
 {
     // Note that the actual buffer is twice the size that the user
@@ -56,6 +41,11 @@ OutputStream::OutputStream(int buflen):
 
 OutputStream::~OutputStream()
 {
+    try {
+        close();
+    }
+    catch(const atdUtil::IOException& e) {}
+
     delete [] _bufs[0];
     delete [] _bufs[1];
 }
@@ -80,7 +70,7 @@ bool OutputStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUti
 #endif
 	if (tdiff >= _backoffMsecs) {
 	    try {
-		l = devWrite(_bufPtrs[_outbuf],olen);
+		l = output.write(_bufPtrs[_outbuf],olen);
 	    }
 	    // catch non-blocking write failures.
 	    catch (const atdUtil::IOException& ioe) {
@@ -122,7 +112,7 @@ bool OutputStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUti
     #endif
 	    if (wlen > _writelen) wlen = _writelen;
 	    try {
-		l = devWrite(_bufPtrs[_outbuf],wlen);
+		l = output.write(_bufPtrs[_outbuf],wlen);
 	    }
 	    catch (const atdUtil::IOException& ioe) {
 		if (ioe.getError() == EAGAIN) l = 0;
@@ -175,7 +165,7 @@ void OutputStream::flush() throw (atdUtil::IOException)
 #endif
 	if (tdiff >= _backoffMsecs) {
 	    try {
-		l = devWrite(_bufPtrs[_outbuf],olen);
+		l = output.write(_bufPtrs[_outbuf],olen);
 	    }
 	    // catch non-blocking write failures.
 	    catch (const atdUtil::IOException& ioe) {
@@ -206,7 +196,7 @@ void OutputStream::flush() throw (atdUtil::IOException)
     #endif
 	if (wlen > _writelen) wlen = _writelen;
 	try {
-	    l = devWrite(_bufPtrs[_outbuf],wlen);
+	    l = output.write(_bufPtrs[_outbuf],wlen);
 	}
 	catch (const atdUtil::IOException& ioe) {
 	    if (ioe.getError() == EAGAIN) l = 0;
@@ -215,4 +205,9 @@ void OutputStream::flush() throw (atdUtil::IOException)
 	_bufPtrs[_outbuf] += l;
 	_lastWrite = tnow;
     }
+}
+
+void OutputStream::close() throw(atdUtil::IOException)
+{
+    output.close();
 }

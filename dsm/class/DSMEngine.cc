@@ -23,8 +23,6 @@
 
 #include <XMLFdInputSource.h>
 
-#include <RawSampleOutput.h>
-
 #include <iostream>
 
 using namespace dsm;
@@ -125,8 +123,8 @@ int DSMEngine::main(int argc, char** argv) throw()
 
     // start your sensors
     try {
-	dsm->startSensors();
-	dsm->startOutputs();
+	dsm->openSensors();
+	dsm->connectOutputs();
     }
     catch (const atdUtil::IOException& e) {
 	logger->log(LOG_ERR,e.what());
@@ -189,16 +187,16 @@ DSMEngine::DSMEngine():
 
 DSMEngine::~DSMEngine()
 {
-    list<SampleOutputStream*>::const_iterator oi;
-    for (oi = connectedOutputs.begin(); oi != connectedOutputs.end(); ++oi) {
-	SampleOutputStream* ostr = *oi;
-
-	cerr << "closing output stream" << endl;
-	ostr->close();
-    }
-
     cerr << "delete selector" << endl;
     delete selector;	// this closes the sensors
+
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = connectedOutputs.begin(); oi != connectedOutputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	cerr << "closing output stream" << endl;
+	output->close();
+    }
+
     cerr << "delete project" << endl;
     delete project;
 }
@@ -242,7 +240,7 @@ DOMDocument* DSMEngine::requestXMLConfig()
 
     cerr << "accepting on " <<
 	xmlSock.getInet4SocketAddress().toString() << endl;
-    atdUtil::Socket configSock = xmlSock.accept();	// throws IOException
+    auto_ptr<atdUtil::Socket> configSock(xmlSock.accept());	// throws IOException
     cerr << "accepted connection" << endl;
 
     xmlSock.close();
@@ -250,8 +248,8 @@ DOMDocument* DSMEngine::requestXMLConfig()
     cerr << "canceling requestor" << endl;
     requestor.cancel();
 
-    std::string sockName = configSock.getInet4SocketAddress().toString();
-    XMLFdInputSource sockSource(sockName,configSock.getFd());
+    std::string sockName = configSock->getInet4SocketAddress().toString();
+    XMLFdInputSource sockSource(sockName,configSock->getFd());
 
     cerr << "parsing socket input" << endl;
     DOMDocument* doc = parser->parse(sockSource);
@@ -263,7 +261,7 @@ DOMDocument* DSMEngine::requestXMLConfig()
     requestor.join();
 
     cerr << "closing config socket" << endl;
-    configSock.close();
+    configSock->close();
 
     cerr << "releasing parser" << endl;
     delete parser;
@@ -325,63 +323,64 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
     dsmConfig = dsms.front();
 }
 
-void DSMEngine::startSensors() throw(atdUtil::IOException)
+void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
     selector = new PortSelector;
     selector->start();
+    dsmConfig->openSensors(selector);
+}
 
+void DSMEngine::connectOutputs() throw(atdUtil::IOException)
+{
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
-	(*si)->open((*si)->getDefaultMode());
-	selector->addSensorPort(*si);
+	DSMSensor* sensor = *si;
+	// if it's a clock sensor, and we're generating
+	// a raw sample stream, have the clock sensor process
+	// its raw samples and put its processed samples
+	// in the stream too.
+	if (sensor->isClock()) sensor->addRawSampleClient(sensor);
     }
-}
 
-void DSMEngine::startOutputs() throw(atdUtil::IOException)
-{
-    const list<SampleOutputStream*>& outputs = dsmConfig->getOutputs();
-    list<SampleOutputStream*>::const_iterator oi;
+    // connect raw outputs
+    const list<SampleOutput*>& routputs = dsmConfig->getRawOutputs();
+    list<SampleOutput*>::const_iterator oi;
+
+    for (oi = routputs.begin(); oi != routputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+
+	// We're not a DSMService, can't accept offer() callbacks
+	output->requestConnection(0);
+
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    if (sensor->isClock()) sensor->addSampleClient(output);
+	    else sensor->addRawSampleClient(output);
+	}
+	connectedOutputs.push_back(output);
+    }
+
+    // connect other outputs
+    const list<SampleOutput*>& outputs = dsmConfig->getRawOutputs();
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutputStream* ostr = *oi;
-	cerr << "connecting SampleOutputStream" << endl;
-	ostr->connect();
-	cerr << "SampleOutputStream connected" << endl;
+	SampleOutput* output = *oi;
+	cerr << "connecting SampleOutput" << endl;
+	output->requestConnection(0);
+	cerr << "SampleOutputconnected" << endl;
 
-	const list<DSMSensor*>& sensors = dsmConfig->getSensors();
-	list<DSMSensor*>::const_iterator si;
+	// We need to implement the idea of a SampleOutput
+	// being associated with specific SampleSources.
+	// Until then we're adding the SampleOutput as
+	// a client of all Sensors.
 
-	RawSampleOutput* rostr = dynamic_cast<RawSampleOutput*>(ostr);
-	if (rostr) {
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		// if it's a clock sensor, and we're generating
-		// a raw sample stream, have the clock sensor process
-		// its raw samples and put its processed samples
-		// in the stream too.
-		if (sensor->isClock()) {
-		    sensor->addRawSampleClient(sensor);
-		    sensor->addSampleClient(ostr);
-		}
-		sensor->addRawSampleClient(ostr);
-	    }
-	    cerr << "added RawSampleOutput as client to sensors" << endl;
+	// it doesn't hurt to add a sensor as a client of itself
+	// multiple times.
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    sensor->addRawSampleClient(sensor);
+	    sensor->addSampleClient(output);
 	}
-	else {
-	    // We need to implement the idea of a SampleOutputStream
-	    // being associated with specific SampleSources.
-	    // Until then we're adding the SampleOutputStream as
-	    // a client of all Sensors.
-
-	    // it doesn't hurt to add a sensor as a client of itself
-	    // multiple times.
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		sensor->addRawSampleClient(sensor);
-		sensor->addSampleClient(ostr);
-	    }
-	}
-	connectedOutputs.push_back(ostr);
     }
 }
 

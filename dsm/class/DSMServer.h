@@ -67,20 +67,26 @@ protected:
 
 public:
 
-    // DSMServer() {}
-    virtual ~DSMServer() {}
+    DSMServer();
+    virtual ~DSMServer();
+
+    void setAircraft(const Aircraft* val) { aircraft = val; }
+    const Aircraft* getAircraft() const { return aircraft; }
 
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
 
     void addService(DSMService* service) { services.push_back(service); }
-    const std::list<DSMService*>& getServices() const { return services; }
+    // const std::list<DSMService*>& getServices() const { return services; }
                                                                                 
-    void startServices() throw(atdUtil::Exception);
+    void addThread(atdUtil::Thread* thrd);
+
+    void scheduleServices() throw(atdUtil::Exception);
 
     void wait() throw(atdUtil::Exception);
-    void join() throw(atdUtil::Exception);
+    void interrupt() throw(atdUtil::Exception);
     void cancel() throw(atdUtil::Exception);
+    void join() throw(atdUtil::Exception);
 
     void fromDOMElement(const xercesc::DOMElement*)
         throw(atdUtil::InvalidParameterException);
@@ -95,6 +101,8 @@ public:
 
 protected:
 
+    const Aircraft* aircraft;
+
     static std::string xmlFileName;
     static bool quit;
     static bool restart;
@@ -105,9 +113,13 @@ protected:
      */
     std::string name;
 
+    /**
+     * The DSMServices that we've been configured to start.
+     */
     std::list<DSMService*> services;
 
-    std::set<atdUtil::ServiceListener*> serviceListeners;
+    atdUtil::Mutex threads_lock;
+    std::list<atdUtil::Thread*> threads;
 
 };
 

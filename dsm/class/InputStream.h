@@ -16,32 +16,30 @@
 #ifndef DSM_INPUTSTREAM_H
 #define DSM_INPUTSTREAM_H
 
-#include <atdUtil/Socket.h>
-#include <atdUtil/InputFileSet.h>
-#include <atdUtil/IOException.h>
+#include <Input.h>
 
-#include <dsm_sample.h>
-
-#include <limits.h>
+#include <iostream>
 
 namespace dsm {
 
 /**
- * A virtual base class for reading data.
+ * A base class for buffering data.
  */
 class InputStream {
 
 public:
     /**
      * Create InputStream.
-     * @buflen: length of buffer, in bytes.
+     * @param input: reference to an Input object providing the physical IO
+     * @param buflen: length of buffer, in bytes.
      */
-    InputStream(size_t buflen);
+    InputStream(Input& input,size_t buflen = 8192);
 
-    virtual ~InputStream();
+    ~InputStream();
 
     /**
-     * Number of bytes available to read from the internal buffer of InputStream.
+     * Number of bytes available to read from the internal
+     * buffer of InputStream.
      */
     inline size_t available() const
     {
@@ -49,8 +47,8 @@ public:
     }
 
     /**
-     * Shift data in buffer down, then do a devRead into the internal buffer of
-     * InputStream.
+     * Shift data in buffer down, then do a devRead into the
+     * internal buffer of InputStream.
      */
     size_t read() throw(atdUtil::IOException);
 
@@ -60,19 +58,18 @@ public:
      */
     size_t read(void* buf, size_t len) throw();
 
+    void close() throw(atdUtil::IOException);
+
 protected:
 
-    /**
-     * Physical read method which must be implemented in derived
-     * classes. Returns the number of bytes written, which
-     * may be less than the number requested.
-     */
-    virtual size_t devRead(void* buf, size_t len) throw(atdUtil::IOException) = 0;
+    Input& input;
 
     /**
      * Allocated buffer.
      */
     char* buffer;
+
+    size_t buflen;
 
     /**
      * End of allocated buffer.
@@ -93,17 +90,6 @@ private:
     /** No assignment */
     InputStream& operator=(const InputStream&);
 
-};
-
-/**
- * Factory which allows one to create an instance of a class
- * derived from InputStream. Currently supports
- * SocketInputStream and FilesetInputStream.
- */
-class InputStreamFactory {
-public:
-    static InputStream* createInputStream(atdUtil::Socket& sock);
-    static InputStream* createInputStream(atdUtil::InputFileSet& fset);
 };
 
 }

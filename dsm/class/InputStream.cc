@@ -13,8 +13,6 @@
 
 */
 
-#include <SocketInputStream.h>
-#include <FileSetInputStream.h>
 #include <InputStream.h>
 
 // #include <iostream>
@@ -22,19 +20,9 @@
 using namespace dsm;
 using namespace std;
 
-/* static */
-InputStream* InputStreamFactory::createInputStream(atdUtil::Socket& sock)
-{
-    return new SocketInputStream(sock);
-}
-                                                                                         
-/* static */
-InputStream* InputStreamFactory::createInputStream(atdUtil::InputFileSet& fset)
-{
-    return new FileSetInputStream(fset);
-}
 
-InputStream::InputStream(size_t buflen)
+InputStream::InputStream(Input& inputref,size_t blen): input(inputref),
+	buflen(blen)
 {
     head = tail = buffer = new char[buflen];
     eob = buffer + buflen;
@@ -42,11 +30,15 @@ InputStream::InputStream(size_t buflen)
 
 InputStream::~InputStream()
 {
+    try {
+	close();
+    }
+    catch(const atdUtil::IOException&e) {}
     delete [] buffer;
 }
 
-/**
- * Shift data in buffer down, then do a devRead.
+/*
+ * Shift data in buffer down, then do an input.read()
  */
 size_t InputStream::read() throw(atdUtil::IOException)
 {
@@ -55,13 +47,13 @@ size_t InputStream::read() throw(atdUtil::IOException)
     memmove(buffer,head,l);
     head = buffer;
     tail = head + l;
-    l = devRead(tail,eob-tail);
-    cerr << "InputStream, devRead =" << l << endl;
+    l = input.read(tail,eob-tail);
+    cerr << "InputStream, read =" << l << endl;
     tail += l;
     return l;
 }
 
-/**
+/*
  * Read available data into user buffer. May return less than len.
  */
 size_t InputStream::read(void* buf, size_t len) throw()
@@ -71,4 +63,9 @@ size_t InputStream::read(void* buf, size_t len) throw()
     memcpy(buf,head,l);
     head += l;
     return l;
+}
+
+void InputStream::close() throw(atdUtil::IOException)
+{
+    input.close();
 }

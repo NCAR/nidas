@@ -26,20 +26,21 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
+#ifdef NEEDED
 XMLConfigWriter::XMLConfigWriter() throw (atdUtil::Exception): filter(0)
 {
-
     impl = XMLImplementation::getImplementation();
     writer = ((DOMImplementationLS*)impl)->createDOMWriter();
 }
+#endif
 
-XMLConfigWriter::XMLConfigWriter(atdUtil::Inet4Address dsmAddr)
+XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm)
 	throw (atdUtil::Exception)
 {
 
     impl = XMLImplementation::getImplementation();
     writer = ((DOMImplementationLS*)impl)->createDOMWriter();
-    filter = new XMLConfigWriterFilter(dsmAddr);
+    filter = new XMLConfigWriterFilter(dsm);
     writer->setFilter(filter);
 }
 
@@ -63,7 +64,8 @@ void XMLConfigWriter::writeNode(XMLFormatTarget* const dest,
     writer->writeNode(dest,nodeToWrite);
 }
 
-XMLConfigWriterFilter::XMLConfigWriterFilter(atdUtil::Inet4Address dsm) : dsmAddr(dsm)
+XMLConfigWriterFilter::XMLConfigWriterFilter(const DSMConfig* dsmarg):
+	dsm(dsmarg)
 {
     setWhatToShow(
     	(1<<(DOMNode::ELEMENT_NODE-1)) | (1<<(DOMNode::DOCUMENT_NODE-1)));
@@ -116,20 +118,10 @@ short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const
 	// get attribute name
 	const string& aname = attr.getName();
 	const string& aval = attr.getValue();
-	if (!aname.compare("name")) {
-	    try {
-		// grab all IP addresses for this name
-		list<atdUtil::Inet4Address> addrs =
-			atdUtil::Inet4Address::getAllByName(aval);
-		
-		list<atdUtil::Inet4Address>::const_iterator ai;
-		for (ai = addrs.begin(); ai != addrs.end(); ++ai) 
-		    if (*ai == dsmAddr) {
-			cerr << "accepting dsm node, name=" << xnode.getAttributeValue("name") << endl;
-			return DOMNodeFilter::FILTER_ACCEPT;	// match!
-		    }
-	    }
-	    catch (const atdUtil::UnknownHostException& uhe) {}
+	if (!aname.compare("name") && !aval.compare(dsm->getName())) {
+	    cerr << "accepting dsm node, name=" <<
+	    	xnode.getAttributeValue("name") << endl;
+		return DOMNodeFilter::FILTER_ACCEPT;	// match!
 	}
     }
     cerr << "rejecting dsm node, name=" << xnode.getAttributeValue("name") << endl;
