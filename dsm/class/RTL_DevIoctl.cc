@@ -1,5 +1,16 @@
 /*
-   Copyright by the National Center for Atmospheric Research
+ ********************************************************************
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 671 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+ ********************************************************************
+
 */
 
 #include <RTL_DevIoctl.h>
@@ -59,7 +70,10 @@ int RTL_DevIoctl::getNumPorts() throw(atdUtil::IOException)
     if (numPorts > 0) return numPorts;
 
     ioctl(GET_NUM_PORTS,0,&numPorts,sizeof(numPorts));
-    std::cerr << "numPorts=" << numPorts << std::endl;
+
+#ifdef DEBUG
+    std::cerr << dec << "numPorts=" << numPorts << std::endl;
+#endif
 
     return numPorts;
 }
@@ -102,6 +116,9 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     size_t wlen = sizeof(cmd) + sizeof(port) + sizeof(len) + sizeof(etx);
 
     if (_IOC_DIR(cmd) & _IOC_WRITE) wlen += len;
+#ifdef DEBUG
+    cerr << "wlen=" << wlen << " len=" << len << endl;
+#endif
 
     wptr = wbuf = new unsigned char[wlen];
 
@@ -115,6 +132,9 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     wptr += sizeof(len);
 
     if (_IOC_DIR(cmd) & _IOC_WRITE) {
+#ifdef DEBUG
+	cerr << "_IOC_WRITE, len=" << len << endl;
+#endif
 	memcpy(wptr,buf,len);
 	wptr += len;
     }
@@ -131,21 +151,34 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 
     /* read back the status errno */
     int errval;
-    if (read(infifofd,&errval,sizeof(errval)) < 0)
-    throw atdUtil::IOException(inputFifoName,"read",errno);
+    int lread;
+    if ((lread = read(infifofd,&errval,sizeof(errval))) < 0)
+	throw atdUtil::IOException(inputFifoName,"read",errno);
+#ifdef DEBUG
+    cerr << "errval lread=" << lread << endl;
+#endif
 
-    if (errval < 0) throw atdUtil::IOException(getDSMSensorName(port),
+    if (lread != sizeof(errval))
+    	throw atdUtil::IOException(inputFifoName,
+	"ioctl read errval","wrong len read");
+
+    if (errval != 0) throw atdUtil::IOException(getDSMSensorName(port),
 	"ioctl",errval);
 
     size_t inlen;
-    if (read(infifofd,&inlen,sizeof(inlen)) < 0)
-    throw atdUtil::IOException(inputFifoName,"read",errno);
+    if ((lread = read(infifofd,&inlen,sizeof(inlen))) < 0)
+	throw atdUtil::IOException(inputFifoName,"read",errno);
+    if (lread != sizeof(inlen))
+    	throw atdUtil::IOException(inputFifoName,
+	"ioctl read inlen","wrong len read");
 
     if (_IOC_DIR(cmd) & _IOC_READ) {
 	if (inlen < len) len = inlen;
-	int nread;
-	if ((nread = read(infifofd,buf,len)) < 0)
+	if ((lread = read(infifofd,buf,len)) < 0)
 	    throw atdUtil::IOException(inputFifoName,"read",errno);
+	if (lread != len)
+	    throw atdUtil::IOException(inputFifoName,
+	    "ioctl read buf","wrong len read");
 
 	if (inlen > len) {
 	    unsigned char junk[inlen - len];
