@@ -20,17 +20,21 @@
 #ifndef DSM_SERIAL_H
 #define DSM_SERIAL_H
 
+#ifndef __KERNEL__
+/* User programs need this for the _IO macros, but kernel
+ * modules get their's elsewhere.
+ */
+#include <sys/ioctl.h>
+#endif 
+
 #include <sys/types.h>
 
-#ifndef __KERNEL__
-#include <sys/ioctl.h>
-#endif
-
 #include <irigclock.h>		/* for irigClockRates */
+#include <dsm_sample.h>
 
 #define DSM_SERIAL_MAGIC 'S'
 
-#define MAX_DSM_SERIAL_MESSAGE_SIZE 1024
+#define MAX_DSM_SERIAL_MESSAGE_SIZE 2048
 
 struct dsm_serial_prompt {
   char str[128];
@@ -58,16 +62,6 @@ struct dsm_serial_status {
     int sample_queue_length;
     int sample_queue_size;
 };
-
-typedef unsigned long dsm_sample_timetag_t;
-typedef unsigned short dsm_sample_length_t;
-
-struct dsm_serial_sample {
-  dsm_sample_timetag_t timetag;	/* timetag of sample */
-  dsm_sample_length_t length;	/* number of bytes in data */
-  char data[];			/* the data */
-};
-
 
 /*
  * The enumeration of IOCTLs that this driver supports.
@@ -156,7 +150,7 @@ extern int dsm_serial_get_numports(int board);
 extern const char* dsm_serial_get_devname(int port);
 
 struct dsm_sample_circ_buf {
-    struct dsm_serial_sample **buf;
+    struct dsm_small_sample **buf;
     int head;
     int tail;
 };
@@ -201,7 +195,7 @@ struct serialPort {
     int sepcnt;
 
     struct dsm_sample_circ_buf sample_queue;
-    struct dsm_serial_sample* sample;	/* current sample being read */
+    struct dsm_small_sample* sample;	/* current sample being read */
 
     rtl_sem_t sample_sem;
 
@@ -209,7 +203,7 @@ struct serialPort {
     ssize_t unwrittenl;		/* length left to be written */
 
     int incount;
-    dsm_sample_timetag_t next_timetag;
+    dsm_sample_time_t next_timetag;
     unsigned long nsamples;		/* counter of samples through the sys */
 
     struct circ_buf xmit;
