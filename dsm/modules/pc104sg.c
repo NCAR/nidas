@@ -722,7 +722,7 @@ int init_module (void)
     /*
     if (register_irig_callback(debugCallback, IRIG_1_HZ,0)) {
 	rtl_printf("register_irig_callback failed\n");
-	return err;
+	goto err0;
     }
     */
 
