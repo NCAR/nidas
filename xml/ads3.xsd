@@ -141,7 +141,7 @@
     <xsd:attribute name="id" type="xsd:short"/>
 </xsd:complexType>
 
-<xsd:complexType name="serialsensorT">
+<xsd:complexType name="serialSensorT">
     <xsd:complexContent>
 	<xsd:extension base="sensorT">
 	    <xsd:choice minOccurs="1" maxOccurs="2">
@@ -181,14 +181,14 @@
 <xsd:group name="sensors">
     <xsd:choice>
 	<xsd:element name="sensor"       type="sensorT"/>
-	<xsd:element name="serialsensor" type="serialsensorT"/>
+	<xsd:element name="serialSensor" type="serialSensorT"/>
 	<xsd:element name="arincSensor"  type="arincSensorT">
 	    <xsd:unique name="uniqueSampleId2">
 		<xsd:selector xpath="sample"/>
 		<xsd:field    xpath="@id"/>
 	    </xsd:unique>
 	</xsd:element>
-	<xsd:element name="irigsensor"  type="sensorT"/>
+	<xsd:element name="irigSensor"  type="sensorT"/>
     </xsd:choice>
 </xsd:group>
 
@@ -211,7 +211,7 @@
 	<xsd:attribute name="location" type="xsd:token" use="required"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
-	<xsd:selector xpath="sensor | serialsensor | arincSensor | irigSensor"/>
+	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor"/>
 	<xsd:field    xpath="@id"/>
     </xsd:unique>
 </xsd:element>

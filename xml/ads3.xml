@@ -7,12 +7,22 @@
     name="RICO">
 
 <sensorcatalog>
+
+    <irigSensor ID="IRIG" class="IRIGSensor">
+	<sample id="1">
+	    <variable name="Clock" units="msec"
+		    longname="milliseconds since 1970 Jan 01 00:00 +0"/>
+	</sample>
+    </irigSensor>
+	    
     <arincSensor ID="IRS-C130-full" class="DSMArincSensor">
         <!-- Taken from the Honeywell installation manual for
              the YG1854 LASERREF SM IRS/GPIRS (pages 648-650). -->
+	<!--
 	<sample id="0265" rate="50">
 	    <variable name="copy"/>
 	</sample>
+	-->
 	<sample id="0265" rate="50">
 	    <variable name="integ_vert_accel"/>
 	</sample>
@@ -159,7 +169,7 @@
 	</sample>
     </arincSensor>
 
-    <serialsensor ID="mensor" class="DSMSerialSensor"
+    <serialSensor ID="mensor" class="DSMSerialSensor"
 	baud="115200" parity="none" databits="8" stopbits="1"
 	scanfFormat="%*3c%f%x">
 	<sample id="1">
@@ -167,7 +177,7 @@
 	</sample>
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="hitme\n" rate="100"/>
-    </serialsensor>
+    </serialSensor>
 
     <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.
     <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
@@ -205,12 +215,11 @@
 	</config>
 
 
-	<!--
-	<irigsensor class="IRIGSensor" devicename="/dev/irig0"/>
-	-->
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser0" id="100"/>
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser1" id="102"/>
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser2" id="104"/>
+	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+	
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser0" id="110"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="114"/>
 
 	<!--
 	<output class="RawSampleOutput">
@@ -225,47 +234,45 @@
     </dsm>
 
     <dsm name="dsm301" location="cabin">
-	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
-		id="100" baud="9600" parity="none" databits="8" stopbits="1">
-	    <sample id="1"> <variable name="TEST"/></sample>
+	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+		id="110" baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="017"> <variable name="TEST"/></sample>
 	    <message position="end" separator="\n" length="0"/>
 	    <prompt string="hitme1\n" rate="10"/>
-	</serialsensor>
+	</serialSensor>
 
-	<!--
-	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0"/>
-	-->
+	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0" id="1000"/>
 
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser1" id="102"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
 
-	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser1"
-		id="104" baud="9600" parity="none" databits="8" stopbits="1">
+	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser1"
+		id="114" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="1"> <variable name="TEST"/></sample>
 	    <message position="end" separator="\n" length="0"/>
 	    <prompt string="hitme2\n" rate="10"/>
-	</serialsensor>
+	</serialSensor>
 
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser2" id="106"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="116"/>
     </dsm>
 
     <dsm name="dsm302" location="tail">
-	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
-	    id="100" baud="9600" parity="none" databits="8" stopbits="1">
+	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
+	    id="110" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="1"> <variable name="TEST"/></sample>
 	    <message position="end" separator="\n" length="0"/>
 	    <prompt string="hitme3\n" rate="10"/>
-	</serialsensor>
+	</serialSensor>
 
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser1" id="102"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
 
-	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser2"
-	    id="104" baud="9600" parity="none" databits="8" stopbits="1">
+	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser2"
+	    id="114" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="1"> <variable name="TEST"/></sample>
 	    <message position="end" separator="\n" length="0"/>
 	    <prompt string="hitme4\n" rate="10"/>
-	</serialsensor>
+	</serialSensor>
 
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser3" id="106"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser3" id="116"/>
     </dsm>
 </aircraft>
 </project>
