@@ -1,19 +1,7 @@
 # -*- python -*-
 
-##
-##  Import the both build environments.
-##
-Import('arm_env')
-Import('x86_env')
-arm_lib_env = arm_env.Copy()
-x86_lib_env = x86_env.Copy()
-
-
-##
-##  Provide a unique extension because some files are compiled twice.
-##
-arm_lib_env['OBJSUFFIX'] = '.arm.o'
-x86_lib_env['OBJSUFFIX'] = '.x86.o'
+Import('env')
+myenv = env.Copy()
 
 ##
 ##  List the source files for the libArmDisc.a library...
@@ -21,7 +9,7 @@ x86_lib_env['OBJSUFFIX'] = '.x86.o'
 ##  Note that the source files used to build this library is a
 ##  subset of those used to build libX86Disc.a.
 ##
-arm_sources = Split("""
+sources = Split("""
   portable.cc
   DsmConfig.cc
   RandomBuf.cc
@@ -29,17 +17,8 @@ arm_sources = Split("""
   VarConfig.cc
 """)
 
-##
-##  List the additional source files for the libX86Disc.a library...
-##
-#  DsmHeaders.cc
-#  DsmCollect.cc
-#  DsmTables.cc
-x86_sources = arm_sources + Split("""
-""")
 
 ##
 ##  Build both libraries.
 ##
-arm_lib_env.StaticLibrary('#/lib/libArmDisc.a' , arm_sources)
-x86_lib_env.StaticLibrary('#/lib/libX86Disc.a' , x86_sources)
+myenv.StaticLibrary('Disc' , sources)
