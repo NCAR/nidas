@@ -34,11 +34,6 @@ RTL_DSMSensor::RTL_DSMSensor() :
 {
 }
 
-RTL_DSMSensor::RTL_DSMSensor(const string& devnameArg) :
-    DSMSensor(devnameArg),devIoctl(0),infifofd(-1),outfifofd(-1)
-{
-    setDeviceName(devnameArg);
-}
 
 /**
  * Destructor. 

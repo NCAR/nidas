@@ -31,11 +31,9 @@ class RTL_DSMSensor : public DSMSensor {
 public:
 
     /**
-     * Create a sensor, giving its device name.  No IO (open/read/write/ioctl)
+     * Create a sensor.  No IO (open/read/write/ioctl)
      * operations to the sensor are performed in the constructor.
      */
-    RTL_DSMSensor(const std::string& devname);
-
     RTL_DSMSensor();
 
     virtual ~RTL_DSMSensor();
