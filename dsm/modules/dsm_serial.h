@@ -150,7 +150,7 @@ extern int dsm_serial_get_numports(int board);
 extern const char* dsm_serial_get_devname(int port);
 
 struct dsm_sample_circ_buf {
-    struct dsm_small_sample **buf;
+    struct dsm_sample **buf;
     int head;
     int tail;
 };
@@ -195,7 +195,7 @@ struct serialPort {
     int sepcnt;
 
     struct dsm_sample_circ_buf sample_queue;
-    struct dsm_small_sample* sample;	/* current sample being read */
+    struct dsm_sample* sample;	/* current sample being read */
 
     rtl_sem_t sample_sem;
 

@@ -1163,10 +1163,17 @@ static void post_sample(struct serialPort* port)
     	return;
 
     // port->lock is already locked
+
+    /* compute how many samples in the queue are available to be
+     * written to.  If the reader of this device has fallen behind
+     * then this number will be zero, in which case we
+     * increment the sample_overflows counter and throw the sample
+     * away.
+     */
     n = CIRC_SPACE(port->sample_queue.head,port->sample_queue.tail,
     	SAMPLE_QUEUE_SIZE);
     if (n > 0) {
-	port->sample->length = (dsm_small_sample_length_t) port->incount;
+	port->sample->length = (dsm_sample_length_t) port->incount;
 
 	/* increment head */
 	port->sample_queue.head = (port->sample_queue.head + 1) &
@@ -1561,7 +1568,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    }
 	}
 	else {
-	    struct dsm_small_sample* samp = 0;
+	    struct dsm_sample* samp = 0;
 
 	    sem_timedwait(&port->sample_sem,&tspec);
 	    
@@ -1589,7 +1596,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    if (!samp) break;
 	    port->unwrittenp = (char*) samp;
 	    port->unwrittenl =
-	      	SIZEOF_DSM_SMALL_SAMPLE_HEADER + samp->length;
+	      	SIZEOF_DSM_SAMPLE_HEADER + samp->length;
 	}
     }
 
@@ -1881,8 +1888,8 @@ int init_module(void)
 	    if (!port->sample_queue.buf) goto err1;
 
 	    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++) {
-	      struct dsm_small_sample* samp = (struct dsm_small_sample*)
-	      	kmalloc(SIZEOF_DSM_SMALL_SAMPLE_HEADER +
+	      struct dsm_sample* samp = (struct dsm_sample*)
+	      	kmalloc(SIZEOF_DSM_SAMPLE_HEADER +
 			MAX_DSM_SERIAL_MESSAGE_SIZE,GFP_KERNEL);
 	      if (!samp) goto err1;
 	      port->sample_queue.buf[i] = samp;

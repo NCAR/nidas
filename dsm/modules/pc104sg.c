@@ -43,7 +43,7 @@ static int hz100_cnt = 0;
 unsigned long msecClock[2] = { 0, 0};
 unsigned char readClock = 0;
 static unsigned char writeClock = 1;
-static unsigned long msecClockTicker;
+static unsigned long msecClockTicker = 0;
 
 /* module prameters (can be passed in via command line) */
 static unsigned int irq = 10;

@@ -21,21 +21,18 @@
 #define DSM_SAMPLE_H
 
 typedef unsigned long dsm_sample_time_t;
-typedef unsigned short dsm_small_sample_length_t;
-typedef unsigned long dsm_large_sample_length_t;
+typedef unsigned long dsm_sample_length_t;
 
-/* a small-ish data sample - one whose data length fits
- * in an unsigned short, ie. less than 65536.
+/*
+ * A data sample as it is passed from kernel-level drivers
+ * to user space.
  *
- * Note that because of padding, sizeof(dsm_small_sample)==8, not 6.
- * The data member offset is correct (6), but the length is padded.
- * 
  * The data member array length is 0, which looks strange.
  * It allows one to create varying length samples.
- * In actual use one will create and use a dsm_small_sample
+ * In actual use one will create and use a dsm_sample
  * as follows:
-    struct dsm_small_sample* samp =
- 	kmalloc(SIZEOF_DSM_SMALL_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA,
+    struct dsm_sample* samp =
+ 	kmalloc(SIZEOF_DSM_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA,
 		GFP_KERNEL);
     ...
     samp->timetag = xxx;
@@ -47,19 +44,12 @@ typedef unsigned long dsm_large_sample_length_t;
     write(fifofd,samp,SIZEOF_DSM_SMALL_SAMPLE_HEADER + len);
  */
 
-struct dsm_small_sample {
+struct dsm_sample {
   dsm_sample_time_t timetag;		/* timetag of sample */
-  dsm_small_sample_length_t length;	/* number of bytes in data */
+  dsm_sample_length_t length;		/* number of bytes in data */
   char data[0];				/* space holder for the data */
 };
-#define SIZEOF_DSM_SMALL_SAMPLE_HEADER 6
-
-/* a big honk'in data sample. */
-struct dsm_large_sample {
-  dsm_sample_time_t timetag;		/* timetag of sample */
-  dsm_large_sample_length_t length;	/* number of bytes in data */
-  char data[0];				/* space holder for the data */
-};
-#define SIZEOF_DSM_LARGE_SAMPLE_HEADER 8
+#define SIZEOF_DSM_SAMPLE_HEADER \
+	(sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
 
 #endif
