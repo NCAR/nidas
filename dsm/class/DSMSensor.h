@@ -16,6 +16,10 @@
 #define DSMSENSOR_H
 
 #include <atdUtil/IOException.h>
+#include <SampleSource.h>
+#include <SampleParseException.h>
+
+#include <dsm_sample.h>
 
 #include <string>
 #include <fcntl.h>
@@ -23,7 +27,7 @@
 /**
  * An interface for a DSM Sensor.
  */
-class DSMSensor {
+class DSMSensor : public dsm::SampleSource {
 
 public:
 
@@ -31,9 +35,23 @@ public:
     * Create a sensor, giving its name.  No IO (open/read/write/ioctl)
     * operatations to the sensor are performed in the constructor.
     */
-    DSMSensor(const std::string& n) : name(n) {}
+    DSMSensor(const std::string& n);
 
     virtual ~DSMSensor() {}
+
+    virtual int getReadFd() const = 0;
+
+    /**
+     * Retrieve this sensor's id number.
+     */
+    virtual int getId() const { return id; };
+
+    /**
+     * Set a unique identification number on this sensor.
+     * The samples from this sensor will contain this id.
+     */
+    virtual void setId(int val) { id = val; };
+
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -72,9 +90,47 @@ public:
 
     virtual const std::string& getName() const { return name; }
 
+    /**
+    * When the PortSelector select() system call has determined
+    * that there is data available to read on this sensor,
+    * PortSelector calls this readSamples method().
+    * readSmples reads the raw data samples the port and calls
+    * the process() method after reading each sample.  The process()
+    * method can do any further processing of the sample before doing a
+    * distribute() to the SampleClients.
+    */
+    virtual dsm_sample_time_t readSamples()
+    	throw(dsm::SampleParseException,atdUtil::IOException) = 0;
+
+    void initStatistics();
+    void calcStatistics(unsigned long periodMsec);
+    float getObservedSamplingRate() const;
+    float getReadRate() const;
+
 protected:
 
     std::string name;
+
+    int id;
+
+    /**
+     * DSMSensor maintains some counters that can be queried
+     * to provide the current status.
+     */
+    time_t initialTimeSecs;
+    int minSampleLength[2];
+    int maxSampleLength[2];
+    int readErrorCount[2];	// [0] is recent, [1] is cumulative
+    int writeErrorCount[2];	// [0] is recent, [1] is cumulative
+    int currStatsIndex;
+    int reportStatsIndex;
+    int nsamples;
+
+    /**
+    * Observed number of samples per second.
+    */
+    float sampleRateObs;
+
 };
 
 #endif
