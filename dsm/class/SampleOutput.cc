@@ -41,7 +41,7 @@ SampleOutputStream::~SampleOutputStream()
     delete output;
 }
 
-SampleOutput* SampleOutputStream::clone()
+SampleOutput* SampleOutputStream::clone() const
 {
     // invoke copy constructor
     return new SampleOutputStream(*this);
@@ -60,12 +60,13 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
 /*
  * pass on the offer, generous aren't we?
  */
-void SampleOutputStream::offer(atdUtil::Socket* sock)
+void SampleOutputStream::offer(atdUtil::Socket* sock) throw(atdUtil::IOException)
 {
     output->offer(sock);
+    init();
 }
 
-void SampleOutputStream::init()
+void SampleOutputStream::init() throw(atdUtil::IOException)
 {
     delete outputStream;
     outputStream = new OutputStream(*output,output->getBufferSize());
@@ -91,9 +92,11 @@ void SampleOutputStream::flush() throw(atdUtil::IOException)
 bool SampleOutputStream::receive(const Sample *samp)
          throw(SampleParseException, atdUtil::IOException)
 {
-    static int nsamps = 0;
     if (type == TIMETAG_DEPENDENT) {
-	if (samp->getId() == CLOCK_SAMPLE_ID &&
+
+	cerr << "samp->getId()=" << samp->getId() << ", shortId=" <<
+		samp->getShortId() << endl;
+	if (samp->getShortId() == CLOCK_SAMPLE_ID &&
 		samp->getType() == LONG_LONG_ST &&
 		samp->getDataLength() == 1) {
 	    fullSampleTimetag = ((long long*)samp->getConstVoidDataPtr())[0];
@@ -122,6 +125,12 @@ bool SampleOutputStream::receive(const Sample *samp)
     }
     if (!outputStream) return false;
 
+    write(samp);
+}
+
+size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
+{
+    static int nsamps = 0;
     const void* bufs[2];
     size_t lens[2];
     bufs[0] = samp->getHeaderPtr();

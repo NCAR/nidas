@@ -56,5 +56,3 @@ xercesc::DOMElement* FileSetOutput::toDOMElement(xercesc::DOMElement* node)
     return node;
 }
 
-
-

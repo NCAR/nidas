@@ -214,7 +214,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             }
 	    output->setDSMConfig(this);
             output->fromDOMElement((DOMElement*)child);
-	    if (!classattr.compare("RawSampleOutput")) addRawOutput(output);
+	    if (!classattr.compare("RawSampleOutputStream"))
+	    	addRawOutput(output);
 	    else addOutput(output);
         }
 	else if (!elname.compare("config"));

@@ -42,7 +42,7 @@ class SampleParseException : public atdUtil::Exception {
     /**
      * clone myself (a "virtual" constructor).
      */
-    SampleParseException* clone() {
+    SampleParseException* clone() const {
       return new SampleParseException(*this);
     }
   };

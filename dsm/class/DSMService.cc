@@ -31,6 +31,7 @@ DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
 
 DSMService::~DSMService()
 {
+    cerr << "~DSMService" << endl;
 }
 
 const Aircraft* DSMService::getAircraft() const {

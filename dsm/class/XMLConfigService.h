@@ -33,19 +33,13 @@ public:
 
     ~XMLConfigService();
 
+    DSMService* clone() const;
+
     int run() throw(atdUtil::Exception);
 
     void offer(atdUtil::Socket* sock,int pseudoPort) throw(atdUtil::Exception);
 
     void schedule() throw(atdUtil::Exception);
-
-/*
-    int getPseudoPort() const
-    {
-        return XML_CONFIG;
-	return output->getPseudoPort();
-    }
-*/
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);

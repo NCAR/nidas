@@ -30,7 +30,7 @@ PortSelector::PortSelector() :
   statisticsPeriod(300000)
 {
   /* start out with a 1/10 second select timeout.
-   * While we're adding sensor ports, we want select to
+   * While we're adding sensors we want select to
    * timeout fairly quickly, so when new SensorPorts are opened
    * and added that they are read from without much time delay.
    * Otherwise if you add a sensor that isn't transmitting,
@@ -50,7 +50,7 @@ PortSelector::PortSelector() :
 }
 
 /**
- * Close any remaining serial ports. Before this is called
+ * Close any remaining sensors. Before this is called
  * the run method should be finished.
  */
 PortSelector::~PortSelector()
@@ -232,7 +232,7 @@ int PortSelector::run() throw(atdUtil::Exception)
   }
 
   Logger::getInstance()->log(LOG_INFO,
-      "PortSelector finished, closing remaining %d serial ports ",activeSensorPorts.size());
+      "PortSelector finished, closing remaining %d sensors ",activeSensorPorts.size());
 
   rserialConnsMutex.lock();
   std::vector<RemoteSerialConnection*> conns = pendingRserialConns;

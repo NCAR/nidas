@@ -46,9 +46,6 @@ public:
 
     static void setXMLFileName(const std::string& val) { xmlFileName = val; }
 
-    static void setQuit(bool val) { quit = val; }
-    static void setRestart(bool val) { restart = val; }
-                                                                                
 protected:
     static void setupSignals();
 
@@ -66,6 +63,12 @@ protected:
 public:
 
     DSMServer();
+
+    /**
+     * Copy constructor.
+     */
+    DSMServer(const DSMServer&);
+
     virtual ~DSMServer();
 
     void setAircraft(const Aircraft* val) { aircraft = val; }

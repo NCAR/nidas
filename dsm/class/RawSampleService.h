@@ -36,9 +36,9 @@ public:
      */
     RawSampleService(const RawSampleService&);
 
-    // DSMService* clone(const DSMConfig* dsm);
-
     ~RawSampleService();
+
+    DSMService* clone() const;
 
     int run() throw(atdUtil::Exception);
 

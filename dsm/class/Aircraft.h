@@ -33,7 +33,11 @@ public:
     Aircraft();
     virtual ~Aircraft();
 
+    /**
+     * Set the name of the Aircraft.
+     */
     void setName(const std::string& val) { name = val; }
+
     const std::string& getName() const { return name; }
 
     /**
@@ -41,12 +45,23 @@ public:
      */
     Project* getProject() { return project; }
 
+    /**
+     * Set the current project for this Aircraft.
+     */
     void setProject(Project* val) { project = val; }
 
+    /**
+     * An Aircraft contains one or more DSMs. 
+     */
     void addDSMConfig(DSMConfig* dsm) { dsms.push_back(dsm); }
+
     const std::list<DSMConfig*>& getDSMConfigs() const { return dsms; }
 
+    /**
+     * An Aircraft has one or more DSMServers.
+     */
     void addServer(DSMServer* srvr) { servers.push_back(srvr); }
+
     const std::list<DSMServer*>& getServers() const { return servers; }
 
     /**
@@ -56,6 +71,10 @@ public:
      */
     DSMServer* findServer(const std::string& hostname) const;
 
+    /**
+     * Find a DSM whose name corresponds to
+     * a given IP address.
+     */
     const DSMConfig* findDSM(const atdUtil::Inet4Address& addr) const;
 
     void fromDOMElement(const xercesc::DOMElement*)

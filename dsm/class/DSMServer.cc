@@ -61,6 +61,8 @@ int DSMServer::main(int argc, char** argv) throw()
 
     setupSignals();
 
+    int result = 0;
+
     while (!quit) {
 
 	Project* project;
@@ -70,25 +72,30 @@ int DSMServer::main(int argc, char** argv) throw()
 	catch (const SAXException& e) {
 	    logger->log(LOG_ERR,
 		    XMLStringConverter(e.getMessage()));
-	    return 1;
+	    result = 1;
+	    break;
 	}
 	catch (const DOMException& e) {
 	    logger->log(LOG_ERR,
 		    XMLStringConverter(e.getMessage()));
-	    return 1;
+	    result = 1;
+	    break;
 	}
 	catch (const XMLException& e) {
 	    logger->log(LOG_ERR,
 		    XMLStringConverter(e.getMessage()));
-	    return 1;
+	    result = 1;
+	    break;
 	}
 	catch(const atdUtil::InvalidParameterException& e) {
 	    logger->log(LOG_ERR,e.what());
-	    return 1;
+	    result = 1;
+	    break;
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
-	    return 1;
+	    result = 1;
+	    break;
 	}
 
 	const list<Aircraft*>& aclist = project->getAircraft();
@@ -109,7 +116,8 @@ int DSMServer::main(int argc, char** argv) throw()
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
-	    return 1;
+	    result = 1;
+	    break;
 	}
 
 	// make a local copy. The original is part of the Aircraft
@@ -126,7 +134,13 @@ int DSMServer::main(int argc, char** argv) throw()
 
 	delete project;
     }
-    return 0;
+
+    cerr << "XMLCachingParser::destroyInstance()" << endl;
+    XMLCachingParser::destroyInstance();
+
+    cerr << "XMLImplementation::terminate()" << endl;
+    XMLImplementation::terminate();
+    return result;
 }
                                                                                 
 /* static */
@@ -161,12 +175,12 @@ void DSMServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
                                                                                 
     switch(sig) {
     case SIGHUP:
-	DSMServer::setRestart(true);
+	DSMServer::restart = true;
 	break;
     case SIGTERM:
     case SIGINT:
     case SIGUSR1:
-	DSMServer::setQuit(true);
+	DSMServer::quit = true;
 	break;
     }
 }
@@ -204,12 +218,30 @@ DSMServer::DSMServer()
 {
 }
 
+/*
+ * Copy constructor.
+ */
+DSMServer::DSMServer(const DSMServer& x):
+	aircraft(x.aircraft),name(x.name),threads_lock(x.threads_lock)
+{
+    list<DSMService*>::const_iterator si;
+    for (si=x.services.begin(); si != x.services.end(); ++si) {
+	DSMService* svc = *si;
+	DSMService* newsvc = svc->clone();
+	newsvc->setServer(this);
+	services.push_back(newsvc);
+    }
+    assert(x.threads.size() == 0);
+}
 DSMServer::~DSMServer()
 {
-    // delete any services that haven't been added to a listener
+    // delete services (these are the configured services,
+    // not the cloned copies that are running as threads).
     list<DSMService*>::const_iterator si;
+    cerr << "~DSMServer services.size=" << services.size() << endl;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
+	cerr << "deleting " << svc->getName() << endl;
 	delete svc;
     }
 }
@@ -244,20 +276,22 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 		    "DSMServer::fromDOMElement",
 			elname,
 			"does not have a class attribute");
-	    DSMService* service;
+	    DOMable* domable;
 	    try {
-		service = dynamic_cast<DSMService*>
-			(DOMObjectFactory::createObject(classattr));
+		domable = DOMObjectFactory::createObject(classattr);
 	    }
 	    catch (const atdUtil::Exception& e) {
 		throw atdUtil::InvalidParameterException("service",
 		    classattr,e.what());
 	    }
-	    if (!service)
+	    DSMService* service = dynamic_cast<DSMService*>(domable);
+	    if (!service) {
+		delete domable;
 		throw atdUtil::InvalidParameterException("service",
 		    classattr,"is not of type DSMService");
-	    service->fromDOMElement((DOMElement*)child);
+	    }
 	    service->setServer(this);
+	    service->fromDOMElement((DOMElement*)child);
 	    addService(service);
 	}
     }
@@ -375,7 +409,7 @@ void DSMServer::wait() throw(atdUtil::Exception)
 	threads_lock.lock();
 
 	list<atdUtil::Thread*>::iterator ti;
-	for (ti = threads.begin(); ti != threads.end();) {
+	for (ti = threads.begin(); ti != threads.end(); ) {
 	    atdUtil::Thread* thrd = *ti;
 	    if (!thrd->isRunning()) {
 		cerr << "DSMServer::wait " << thrd->getName() << " not running" << endl;

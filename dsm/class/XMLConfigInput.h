@@ -27,6 +27,15 @@ class XMLConfigInput: public atdUtil::McSocketRequester
 public:
     XMLConfigInput()
     {
+	try {
+            setInet4McastSocketAddress(
+                atdUtil::Inet4SocketAddress(
+                    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
+                    DSM_MULTICAST_PORT));
+        }
+        catch(const atdUtil::UnknownHostException& e) {
+        }
+
         setPseudoPort(XML_CONFIG);
     }
 

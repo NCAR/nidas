@@ -98,6 +98,8 @@ class Input : public DOMable {
 
 public:
 
+    virtual ~Input() {}
+
     virtual const std::string& getName() const = 0;
     /**
      * After the Input is configured, a user of Input calls requestConnection

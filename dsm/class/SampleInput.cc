@@ -37,7 +37,7 @@ SampleInputStream::~SampleInputStream()
     delete input;
 }
 
-SampleInput* SampleInputStream::clone()
+SampleInput* SampleInputStream::clone() const
 {
     // invoke copy constructor
     return new SampleInputStream(*this);
@@ -56,13 +56,15 @@ int SampleInputStream::getPseudoPort() const { return pseudoPort; }
 /*
  * pass on the offer, generous aren't we?
  */
-void SampleInputStream::offer(atdUtil::Socket* sock)
+void SampleInputStream::offer(atdUtil::Socket* sock) throw(atdUtil::IOException)
 {
     input->offer(sock);
 }
 
-void SampleInputStream::init()
+void SampleInputStream::init() throw(atdUtil::IOException)
 {
+    cerr << "SampleInputStream::init(), buffer size=" << 
+    	input->getBufferSize() << endl;
     delete inputStream;
     inputStream = new InputStream(*input,input->getBufferSize());
 }
@@ -94,8 +96,12 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
     SampleHeader header;
     for (;;) {
 	if (!samp) {
+#ifdef DEBUG
+	    cerr << "available=" << inputStream->available() << endl;
+#endif
 	    if (inputStream->available() < header.getSizeOf()) break;
 	    inputStream->read(&header,header.getSizeOf());
+
 #ifdef DEBUG
 	    cerr << "read header, type=" << header.getType() <<
 	    	" getTimeTag=" << header.getTimeTag() <<

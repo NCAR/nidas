@@ -32,7 +32,7 @@ namespace dsm {
  * Data Service Module, a class that drives an ADS3 data collection
  * box.
  */
-class DSMEngine {
+class DSMEngine : public atdUtil::SocketAccepter {
 public:
 
     /**
@@ -60,6 +60,13 @@ public:
 
     void interrupt() throw(atdUtil::Exception);
 
+    /**
+     * Implementation of atdUtil::SocketAcceptor::offer(), which
+     * is how DSMEngine is notified of remote connections.
+     */
+    void offer(atdUtil::Socket* socket, int pseudoPort) 
+	throw(atdUtil::Exception);
+
 protected:
 
     /**
@@ -80,7 +87,7 @@ protected:
      */
     DSMEngine();
 
-    ~DSMEngine();
+    virtual ~DSMEngine();
 
     /**
      * A socket for receiving my configuration.

@@ -36,7 +36,7 @@ public:
 
     virtual ~SampleLengthException() throw() {}
 
-    virtual SampleLengthException* clone() {
+    virtual SampleLengthException* clone() const {
       return new SampleLengthException(*this);
     }
 

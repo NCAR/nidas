@@ -28,12 +28,11 @@ public:
     RawSampleOutputStream();
     ~RawSampleOutputStream();
 
-    SampleOutput* clone() { return new RawSampleOutputStream(*this); }
+    SampleOutput* clone() const { return new RawSampleOutputStream(*this); }
 
     int getPseudoPort() const { return RAW_SAMPLE; }
 
     bool isSingleton() const { return false; }
-
 
 protected:
 };

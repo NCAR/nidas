@@ -72,14 +72,14 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 
 	if (!elname.compare("dsm")) {
 	    DSMConfig* dsm = new DSMConfig();
-	    dsm->fromDOMElement((DOMElement*)child);
 	    dsm->setAircraft(this);
+	    dsm->fromDOMElement((DOMElement*)child);
 	    addDSMConfig(dsm);
 	}
 	else if (!elname.compare("server")) {
 	    DSMServer* server = new DSMServer();
-	    server->fromDOMElement((DOMElement*)child);
 	    server->setAircraft(this);
+	    server->fromDOMElement((DOMElement*)child);
 	    addServer(server);
 	}
     }

@@ -37,17 +37,32 @@ XMLConfigService::XMLConfigService():
 {
 }
 
-XMLConfigService::~XMLConfigService()
-{
-    delete output;
-}
 /*
  * Copy constructor.
  */
 XMLConfigService::XMLConfigService(const XMLConfigService& x):
         DSMService((const DSMService&)x),output(0)
 {
+    cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.output << endl;
     if (x.output) output = x.output->clone();
+}
+
+XMLConfigService::~XMLConfigService()
+{
+    if (output) {
+        output->close();
+	delete output;
+    }
+}
+
+/*
+ * clone myself
+ */
+DSMService* XMLConfigService::clone() const
+{
+    // invoke copy constructor.
+    XMLConfigService* newserv = new XMLConfigService(*this);
+    return newserv;
 }
 
 void XMLConfigService::schedule() throw(atdUtil::Exception)
@@ -61,13 +76,15 @@ void XMLConfigService::offer(atdUtil::Socket* sock,int pseudoPort)
     assert(pseudoPort == XML_CONFIG);
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = sock->getInet4Address();
+    cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
     if (!dsm)
 	throw atdUtil::Exception(string("can't find DSM for address ") +
 	    remoteAddr.getHostAddress());
 
+    cerr << "findDSM, dsm=" << dsm->getName() << endl;
     // make a copy of myself, assign it to a specific dsm
-    XMLConfigService* newserv = new XMLConfigService();
+    XMLConfigService* newserv = new XMLConfigService(*this);
     newserv->setDSMConfig(dsm);
     newserv->output->offer(sock);    // pass socket to new input
     newserv->start();
@@ -120,6 +137,10 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
                 "XMLConfigService::fromDOMElement",
                 elname, "unsupported element");
     }
+    if (noutputs == 0)
+	throw atdUtil::InvalidParameterException(
+	    "XMLConfigService::fromDOMElement",
+	    "output", "one output required");
 }
 
 DOMElement* XMLConfigService::toDOMParent(

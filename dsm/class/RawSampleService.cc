@@ -53,33 +53,33 @@ RawSampleService::RawSampleService(const RawSampleService& x):
 	else {
 	    // clone output
 	    SampleOutput* newout = output->clone();
-	    addSampleOutput(newout);
+	    outputs.push_back(newout);
 	}
     }
 }
-#ifdef NEEDED
 /*
- * clone a service
+ * clone myself
  */
-DSMService* RawSampleService::clone(const DSMConfig* dsm)
+DSMService* RawSampleService::clone() const
 {
-    // invoke copy constructor. Copy constructor does
-    // not make copies of outputs, only the input
+    // invoke copy constructor.
     RawSampleService* newserv = new RawSampleService(*this);
-
+    return newserv;
 }
-#endif
 
 RawSampleService::~RawSampleService()
 {
-    delete input;
+    if (input) {
+        input->close();
+	delete input;
+    }
     std::list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
+	output->close();
 	delete output;
     }
 }
-
 
 /*
  * Initial schedule request.
@@ -111,7 +111,7 @@ void RawSampleService::offer(atdUtil::Socket* sock,
 	    throw atdUtil::Exception(string("can't find DSM for address ") +
 		    remoteAddr.getHostAddress());
 	// make a copy of myself, assign it to a specific dsm
-	RawSampleService* newserv = new RawSampleService();
+	RawSampleService* newserv = new RawSampleService(*this);
 	newserv->setDSMConfig(dsm);
 	newserv->input->offer(sock);	// pass socket to new input
 	newserv->start();
@@ -122,6 +122,8 @@ void RawSampleService::offer(atdUtil::Socket* sock,
 	for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	    SampleOutput* output = *oi;
 	    if (pseudoPort == output->getPseudoPort()) {
+		cerr << "RawSampleService::offer, pseudoPort=" <<
+			pseudoPort << endl;
 		output->offer(sock);	// pass socket to new output
 		input->addSampleClient(output);
 	    }
@@ -136,8 +138,10 @@ int RawSampleService::run() throw(atdUtil::Exception)
         SampleOutput* output = *oi;
 	assert(!output->isSingleton());
 	output->setDSMConfig(getDSMConfig());
-	    output->requestConnection(this);
+	output->requestConnection(this);
     }
+
+    input->init();
 
     // This is a simple service that just echoes the input
     // samples to the output
@@ -149,16 +153,17 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	}
     }
     catch(const atdUtil::EOFException& e) {
-	cerr << "RawSampleService " << getName() << " EOF" << endl;
+	cerr << "RawSampleService " << getName() << ": " << e.what() << endl;
     }
 
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
+	input->removeSampleClient(output);
 	output->flush();
 	output->close();
     }
-    input->close();
 
+    input->close();
     return 0;
 }
 

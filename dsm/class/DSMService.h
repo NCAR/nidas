@@ -46,12 +46,12 @@ public:
      */
     // DSMService(const DSMService&);
 
-    /**
-     * A DSMService may clone itself when requests arrive.
-     */
-    DSMService* clone(DSMConfig* dsm);
-
     virtual ~DSMService();
+
+    /**
+     * A DSMService clones itself when requests arrive.
+     */
+    virtual DSMService* clone() const = 0;
 
     void setServer(DSMServer* val) { server = val; }
     DSMServer* getServer() const { return server; }
@@ -65,15 +65,6 @@ public:
     virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     const DSMConfig* getDSMConfig() const { return dsm; }
-
-    virtual void addSampleOutput(SampleOutput* val)
-    {
-    	outputs.push_back(val);
-    }
-    virtual const std::list<SampleOutput*>& getSampleOutputs() const 
-    {
-        return outputs;
-    }
 
     /**
      * schedule this service to run.
@@ -96,8 +87,6 @@ protected:
     DSMServer* server;
 
     const DSMConfig* dsm;
-
-    std::list<SampleOutput*> outputs;
 
 };
 

@@ -33,7 +33,11 @@ class DSMConfig;
 class SampleOutput: public SampleClient, public DOMable
 {
 public:
-    virtual SampleOutput* clone() = 0;
+    SampleOutput(): dsm(0) {}
+
+    virtual ~SampleOutput() {}
+
+    virtual SampleOutput* clone() const = 0;
 
     virtual void requestConnection(atdUtil::SocketAccepter*)
     	throw(atdUtil::IOException) = 0;
@@ -42,11 +46,11 @@ public:
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void offer(atdUtil::Socket* sock) = 0;
+    virtual void offer(atdUtil::Socket* sock) throw(atdUtil::IOException) = 0;
 
     virtual int getFd() const = 0;
 
-    virtual void init() = 0;
+    virtual void init() throw(atdUtil::IOException) = 0;
 
     virtual void flush() throw(atdUtil::IOException) = 0;
 
@@ -54,7 +58,7 @@ public:
 
     virtual bool isSingleton() const = 0;
 
-    void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     const DSMConfig* getDSMConfig() const { return dsm; }
 
@@ -68,6 +72,7 @@ private:
 class SampleOutputStream: public SampleOutput
 {
 public:
+
     SampleOutputStream();
 
     /**
@@ -77,7 +82,7 @@ public:
 
     virtual ~SampleOutputStream();
 
-    SampleOutput* clone();
+    SampleOutput* clone() const;
 
     void setPseudoPort(int val);
 
@@ -86,9 +91,9 @@ public:
     void requestConnection(atdUtil::SocketAccepter*)
                  throw(atdUtil::IOException);
 
-    void offer(atdUtil::Socket* sock);
+    void offer(atdUtil::Socket* sock) throw(atdUtil::IOException);
 
-    void init();
+    void init() throw(atdUtil::IOException);
 
     bool isSingleton() const { return false; }
 
@@ -96,6 +101,8 @@ public:
 
     bool receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException);
+
+    size_t write(const Sample* samp) throw(atdUtil::IOException);
 
     void flush() throw(atdUtil::IOException);
 

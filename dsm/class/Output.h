@@ -31,6 +31,8 @@ class Output : public DOMable {
 
 public:
 
+    virtual ~Output() {}
+
     virtual const std::string& getName() const = 0;
     /**
      * After the Output is configured, a user of Output calls requestConnection

@@ -37,6 +37,7 @@ OutputStream::OutputStream(Output& outputref,int buflen):
     _bufPtrs[1] = _bufs[1];
     _bufN[0] = 0;
     _bufN[1] = 0;
+    _lastWrite = getCurrentTimeInMillis();
 }
 
 OutputStream::~OutputStream()

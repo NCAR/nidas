@@ -28,7 +28,7 @@ public:
     RawSampleInputStream();
     ~RawSampleInputStream();
 
-    SampleInput* clone() { return new RawSampleInputStream(*this); }
+    SampleInput* clone() const { return new RawSampleInputStream(*this); }
 
     int getPseudoPort() const { return RAW_SAMPLE; }
 

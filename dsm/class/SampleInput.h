@@ -31,11 +31,11 @@ class DSMConfig;
 class SampleInput: public SampleSource, public DOMable
 {
 public:
-    SampleInput() {};
+    SampleInput(): dsm(0) {}
 
     virtual ~SampleInput() {}
 
-    virtual SampleInput* clone() = 0;
+    virtual SampleInput* clone() const = 0;
 
     virtual void requestConnection(atdUtil::SocketAccepter*)
         throw(atdUtil::IOException) = 0;
@@ -44,11 +44,11 @@ public:
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void offer(atdUtil::Socket* sock) = 0;
+    virtual void offer(atdUtil::Socket* sock) throw(atdUtil::IOException) = 0;
 
     virtual int getFd() const = 0;
 
-    virtual void init() = 0;
+    virtual void init() throw(atdUtil::IOException) = 0;
 
     virtual void close() throw(atdUtil::IOException) = 0;
 
@@ -81,7 +81,7 @@ public:
 
     virtual ~SampleInputStream();
 
-    SampleInput* clone();
+    SampleInput* clone() const;
 
     void setPseudoPort(int val);
 
@@ -90,9 +90,9 @@ public:
     void requestConnection(atdUtil::SocketAccepter*)
             throw(atdUtil::IOException);
 
-    void offer(atdUtil::Socket* sock);
+    void offer(atdUtil::Socket* sock) throw(atdUtil::IOException);
 
-    void init();
+    void init() throw(atdUtil::IOException);
 
     /**
      * Read a buffer of data, serialize the data into samples,
