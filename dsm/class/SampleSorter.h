@@ -41,6 +41,11 @@ public:
 
     // void setDebug(bool val) { debug = val; }
 
+    /**
+     * flush all samples from buffer, distributing them to SampleClients.
+     */
+    void flush() throw (SampleParseException,atdUtil::IOException);
+
 protected:
 
     /**

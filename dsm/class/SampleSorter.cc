@@ -92,7 +92,7 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 
 	// loop over the aged samples
 	std::vector<const Sample *>::const_iterator iv;
-	for (iv = agedsamples.begin(); iv < agedsamples.end(); iv++) {
+	for (iv = agedsamples.begin(); iv < agedsamples.end(); ++iv) {
 	    const Sample *s = *iv;
 	    distribute(s);
 	}
@@ -112,10 +112,41 @@ void SampleSorter::interrupt() {
     // cerr << "SampleSorter::interrupt done" << endl;
 }
 
+/**
+ * flush all samples from buffer, distributing them to SampleClients.
+ */
+void SampleSorter::flush() throw (SampleParseException,atdUtil::IOException)
+{
+    samplesAvail.lock();
+    SortedSampleSet tmpset = samples;
+    samples.clear();
+    samplesAvail.unlock();
+
+    SortedSampleSet::const_iterator si;
+    try {
+	for (si = tmpset.begin(); si != tmpset.end(); ++si)
+	    distribute(*si);
+    }
+    // on exception, free references on rest of samples
+    catch(const SampleParseException& cpe) {
+	for (++si ; si != tmpset.end(); ++si) {
+	    const Sample *s = *si;
+	    s->freeReference();
+	}
+	throw cpe;
+    }
+    catch(const atdUtil::IOException& ioe) {
+	for (++si ; si != tmpset.end(); ++si) {
+	    const Sample *s = *si;
+	    s->freeReference();
+	}
+	throw ioe;
+    }
+}
+
 bool SampleSorter::receive(const Sample *s)
 	throw(SampleParseException, atdUtil::IOException)
 {
-    atdUtil::Synchronized autosync(samplesAvail);
     samples.insert(samples.end(),s);
     s->holdReference();
 
