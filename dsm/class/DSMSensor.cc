@@ -184,27 +184,41 @@ float DSMSensor::getObservedSamplingRate() const {
 void DSMSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
+
+#ifdef XML_DEBUG
+    cerr << "DSMSensor::fromDOMElement start -------------" << endl;
+#endif
+
     XDOMElement xnode(node);
 
+#ifdef XML_DEBUG
     cerr << "DSMSensor::fromDOMElement element name=" <<
     	xnode.getNodeName() << endl;
+#endif
 	
     if(node->hasAttributes()) {
     // get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
-	cerr <<"\tAttributes" << endl;
+#ifdef XML_DEBUG
+	cerr <<"\tDSMSensor Attributes" << endl;
 	cerr <<"\t----------" << endl;
+#endif
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    cerr << "attrname=" << attr.getName() << endl;
 	    if (!attr.getName().compare("devicename")) {
+#ifdef XML_DEBUG
+		cerr << "attrname=" << attr.getName() <<
+			" val=" << attr.getValue() << endl;
+#endif
 		setDeviceName(attr.getValue());
-		cerr << "\tattrval=" << attr.getValue() << endl;
 	    }
 	}
     }
+#ifdef XML_DEBUG
+    cerr << "DSMSensor::fromDOMElement end   -------------" << endl;
+#endif
 }
 
 DOMElement* DSMSensor::toDOMParent(

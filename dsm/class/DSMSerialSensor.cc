@@ -13,6 +13,7 @@
  ******************************************************************
 */
 
+// #define XML_DEBUG
 
 #include <dsm_serial_fifo.h>
 #include <dsm_serial.h>
@@ -163,11 +164,16 @@ void DSMSerialSensor::fromDOMElement(
 	const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
+#ifdef XML_DEBUG
+    cerr << "DSMSerialSensor::fromDOMElement start -------------" << endl;
+#endif
     RTL_DSMSensor::fromDOMElement(node);
     XDOMElement xnode(node);
 
+#ifdef XML_DEBUG
     cerr << "DSMSerialSensor::fromDOMElement element name=" <<
     	xnode.getNodeName() << endl;
+#endif
 	
     if(node->hasAttributes()) {
     // get all the attributes of the node
@@ -176,9 +182,11 @@ void DSMSerialSensor::fromDOMElement(
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    cerr << "attrname=" << attr.getName() << endl;
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
+#ifdef XML_DEBUG
+	    cerr << "attrname=" << aname << " val=" << aval << endl;
+#endif
 	    if (!aname.compare("baud")) {
 		if (!setBaudRate(atoi(aval.c_str()))) 
 		    throw atdUtil::InvalidParameterException
@@ -206,33 +214,45 @@ void DSMSerialSensor::fromDOMElement(
 	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
+#ifdef XML_DEBUG
 	cerr << "element name=" << elname << endl;
+#endif
 
 	if (!elname.compare("message")) {
-	    cerr << "separator=" <<
+#ifdef XML_DEBUG
+	    cerr << "message separator=" <<
 	    	xchild.getAttributeValue("separator") << endl;
+#endif
 	    setMessageSeparator(xchild.getAttributeValue("separator"));
 
 	    const string& str = xchild.getAttributeValue("position");
-	    cerr << "position=" << str << endl;
+#ifdef XML_DEBUG
+	    cerr << "separator position=" << str << endl;
+#endif
 	    if (!str.compare("beg")) setMessageSeparatorAtEOM(false);
 	    else if (!str.compare("end")) setMessageSeparatorAtEOM(true);
 	    else throw atdUtil::InvalidParameterException
 			("DSMSerialSensor","messageSeparator position",str);
 
-	    cerr << "length=" <<
+#ifdef XML_DEBUG
+	    cerr << "message length=" <<
 	    	xchild.getAttributeValue("length") << endl;
+#endif
 	    setMessageLength(atoi(xchild.getAttributeValue("length").c_str()));
 	}
 	else if (!elname.compare("prompt")) {
-	    // cerr << "prompt=" << xchild.getAttributeValue("string") << endl;
+#ifdef XML_DEBUG
+	    cerr << "prompt string=" << xchild.getAttributeValue("string") << endl;
+#endif
 	    std::string prompt = xchild.getAttributeValue("string");
 
 	    setPromptString(prompt);
 
 	    int rate = atoi(xchild.getAttributeValue("rate").c_str());
 	    enum irigClockRates erate = irigClockRateToEnum(rate);
-	    cerr << "rate=" << rate << " erate=" << erate << endl;
+#ifdef XML_DEBUG
+	    cerr << "prompt rate=" << rate << " erate=" << erate << endl;
+#endif
 
 	    if (rate != 0 && erate == IRIG_NUM_RATES)
 		throw atdUtil::InvalidParameterException
@@ -241,6 +261,7 @@ void DSMSerialSensor::fromDOMElement(
 	    setPromptRate(erate);
 	}
     }
+    cerr << "DSMSerialSensor::fromDOMElement end   -------------" << endl;
 }
 
 DOMElement* DSMSerialSensor::toDOMParent(
