@@ -21,7 +21,6 @@
 #include <RawSampleSource.h>
 #include <DOMable.h>
 #include <SampleParseException.h>
-#include <SampleSorter.h>
 
 #include <dsm_sample.h>
 
@@ -241,8 +240,6 @@ protected:
     * Observed number of samples per second.
     */
     float sampleRateObs;
-
-    SampleSorter* sorter;
 };
 
 }

@@ -79,11 +79,11 @@ public:
    */
   void unlock() const throw() { clistLock.unlock(); }
 
-  /** get an iterator pointing to first element. Does not lock! */
-  std::list<SampleClient*>::iterator begin() throw() { return clients.begin(); }
+  /** get a const_iterator pointing to first element. Does not lock! */
+  std::list<SampleClient*>::const_iterator begin() throw() { return clients.begin(); }
 
-  /** get an iterator pointing to one-past-last element. Does not lock! */
-  std::list<SampleClient*>::iterator end() throw() { return clients.end(); }
+  /** get a const_iterator pointing to one-past-last element. Does not lock! */
+  std::list<SampleClient*>::const_iterator end() throw() { return clients.end(); }
 
 protected:
 

@@ -180,13 +180,12 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 DSMEngine::DSMEngine():
-    streamSock(0),project(0),aircraft(0),dsmConfig(0),handler(0)
+    project(0),aircraft(0),dsmConfig(0),handler(0)
 {
 }
 
 DSMEngine::~DSMEngine()
 {
-    if (streamSock) streamSock->close();
     delete handler;
     delete project;
 }
@@ -221,15 +220,17 @@ DOMDocument* DSMEngine::requestXMLConfig()
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
-    if (!streamSock) streamSock = new atdUtil::ServerSocket;
+     atdUtil::ServerSocket xmlSock;
 
-    ConfigRequestor requestor(streamSock->getLocalPort());
+    ConfigRequestor requestor(xmlSock.getLocalPort());
     requestor.start();
 
     cerr << "accepting on " <<
-	streamSock->getInet4SocketAddress().toString() << endl;
-    atdUtil::Socket configSock = streamSock->accept();	// throws IOException
+	xmlSock.getInet4SocketAddress().toString() << endl;
+    atdUtil::Socket configSock = xmlSock.accept();	// throws IOException
     cerr << "accepted connection" << endl;
+
+    xmlSock.close();
 
     cerr << "canceling requestor" << endl;
     requestor.cancel();

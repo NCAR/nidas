@@ -87,7 +87,6 @@ void SampleInputStream::readSamples() throw(dsm::SampleParseException,atdUtil::I
 	left -= len;
 	if (left == 0) {
 	    distribute(samp);
-	    samp->freeReference();
 	    samp = 0;
 	}
 	else break;

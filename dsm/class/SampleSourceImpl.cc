@@ -55,7 +55,7 @@ void SampleSourceImpl::distributeImpl(const Sample* sample)
      * more thought.
      */
 
-    std::list<SampleClient*>::iterator li;
+    std::list<SampleClient*>::const_iterator li;
     for (li = tmp.begin(); li != tmp.end(); ++li)
 	(*li)->receive(sample);
     sample->freeReference();

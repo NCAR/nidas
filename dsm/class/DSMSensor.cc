@@ -27,13 +27,13 @@ using namespace dsm;
 using namespace xercesc;
 
 DSMSensor::DSMSensor() :
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),sorter(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
     initStatistics();
 }
 
 DSMSensor::DSMSensor(const std::string& n) : devname(n),
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),sorter(0)
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
 {
     initStatistics();
 }
@@ -80,7 +80,6 @@ dsm_sample_time_t DSMSensor::readSamples()
 		//  
 		tt = samp->getTimeTag();	// return last time tag read
 		distributeRaw(samp);
-		samp->freeReference();
 		nsamples++;
 		samp = 0;			// finished with sample
 						// check for more data

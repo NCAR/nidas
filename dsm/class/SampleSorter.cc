@@ -86,7 +86,7 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	samplesAvail.unlock();
 
 	// loop over the aged samples
-	std::vector<const Sample *>::iterator iv;
+	std::vector<const Sample *>::const_iterator iv;
 	for (iv = agedsamples.begin(); iv < agedsamples.end(); iv++) {
 	    const Sample *s = *iv;
 	    distribute(s);

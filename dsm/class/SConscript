@@ -56,6 +56,7 @@ sources = Split("""
   SocketAddress.cc
   DSMInputFileSet.cc
   DSMOutputFileSet.cc
+  SampleSorter.cc
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'
