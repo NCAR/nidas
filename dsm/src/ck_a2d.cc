@@ -51,10 +51,29 @@ int main(int argc, char** argv)
 
   fd_set readfds;
 
-  if(argc > 1)sleepytime = atoi(argv[1]);
-  if(sleepytime > 10000 || sleepytime < 0)sleepytime = 1;
-  if(argc > 2)printmodulus = atoi(argv[2]);
-  if(printmodulus > sleepytime)printmodulus = sleepytime;
+  if(argc > 1)
+  {
+	if(argv[1] = "-?")
+	{
+		printf("\n\nUsage:\nck_a2d [<#cycles> [print interval]]\n");
+		printf("Note #cycles and print interval both default to 1\n");
+		
+		printf("\nExample:\nck_a2d 8 2 will do 8 cycles printing every other cycle.\n\n");
+		exit(0);
+	}
+	else	
+		sleepytime = atoi(argv[1]);
+  }
+  if(sleepytime < 0)sleepytime = 1;
+  if(argv[1] != "-?")
+  {
+  	if(argc > 2)
+  	{
+		sleepytime += 1;	// Bump this to print last one
+		printmodulus = atoi(argv[2]);
+  		if(printmodulus > sleepytime)printmodulus = sleepytime;
+  	}
+  }
 
   cout << endl << endl;
   cout << "----CK_A2D----" << endl; 
@@ -101,7 +120,7 @@ int main(int argc, char** argv)
 
   usleep(10000); // Wait for one cycle to complete
 
-  for(i = 0; i <= sleepytime; i++)
+  for(i = 0; i <  sleepytime; i++)
   {
         int lread;
 
@@ -129,9 +148,6 @@ int main(int argc, char** argv)
 		}
 	}
   }
-
-
-//  sleep(sleepytime);
 
   run_msg = STOP;	
 
