@@ -1,6 +1,6 @@
 /* irig_module.cc
 
-   Time-stamp: <Fri 13-Aug-2004 03:44:21 pm>
+   Time-stamp: <Mon 16-Aug-2004 03:38:32 pm>
 
    RTLinux IRIG-b driver for the ISA bus based jxi2 pc104-SG card.
 
@@ -346,8 +346,9 @@ static struct rtl_file_operations irig_fops = {
 pthread_t     aThread;
 sem_t         anIrigSemaphore;
 
+extern int module_loading;
 extern int nSerialCfg;
-extern struct Port_blk serialCfg[];
+extern struct serialTable serialCfg[];
 
 static void *irig_100hz_thread (void *t)
 {
@@ -363,10 +364,10 @@ static void *irig_100hz_thread (void *t)
      * that is set up from the parsed header build file.
      */
     /* transmit serial data requests at their configured rates... */
-/*     int ii; */
-/*     for (ii=0; ii<nSerialCfg; ii++) */
-/*       if (!(hz100_cnt % (100/serialCfg[ii].cmd_rate))) */
-/* 	write(serialCfg[ii].fptr, serialCfg[ii].cmd_str, serialCfg[ii].cmd_len); */
+    int ii;
+    for (ii=0; ii<nSerialCfg; ii++)
+      if (!(hz100_cnt % (100/serialCfg[ii].rate)))
+	write(serialCfg[ii].fptr, serialCfg[ii].cmd, serialCfg[ii].len);
 
     /* perform 100Hz processing... */
 
@@ -542,5 +543,6 @@ int init_module (void)
 #endif
 
   rtl_printf("(%s) %s:\t loaded\n", __FILE__, __FUNCTION__);
+  module_loading = 0;
   return 0;
 }

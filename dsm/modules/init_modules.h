@@ -28,9 +28,10 @@ struct analogTable
 
 struct serialTable
 {
-  int fptr;
-  int port;
-  int rate;
-  char cmd[5];
-  int len;
+  int  baud_rate;
+  int  fptr;
+  int  port;
+  int  rate;
+  char cmd[50];
+  int  len;
 };

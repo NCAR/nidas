@@ -1,12 +1,12 @@
 /* init_modules.c
 
-   Time-stamp: <Tue 20-Jul-2004 03:16:44 pm>
+   Time-stamp: <Mon 16-Aug-2004 03:37:50 pm>
 
    RTLinux module that starts up the other modules based upon the
    configuration passed down to it from the 'usr/dsmAsync.cc'
    application.
 
-   The 'usr/ckinit_modules.cc' application is a test program that
+   The 'src/ck_init_modules.cc' application is a test program that
    can be used to exercise this modules functionality.
 
    Original Author: John Wasinger
@@ -24,15 +24,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <linux/kmod.h>
 #include <bits/posix1_lim.h>
 
 #include <init_modules.h>
-RTLINUX_MODULE(irig);
-
+#include <rtl_com8.h>
+RTLINUX_MODULE(init);
 
 // global declarations
+static int module_loading;
 static int fdCfg;                  // file descriptor, command fifo
-static int nAnalogCfg=0, nSerialCfg=0;
+int nAnalogCfg=0, nSerialCfg=0;
 struct analogTable analogCfg[ANALOG_MAX_CHAN];
 struct serialTable serialCfg[SERIAL_MAX_CHAN];
 
@@ -42,13 +44,53 @@ MODULE_DESCRIPTION("RTLinux 'initialize modules' module");
 
 
 /* -- Utility --------------------------------------------------------- */
-void start_modules ()
+void start_modules ( void )
 {
+  rtl_printf("(%s) %s:\t Loading modules...\n", __FILE__, __FUNCTION__);
+  char module_name[40];
+
   // Finished loading configuration structures
   // start up the kernel side of the system now...
 
   // TODO - use 'request_module()' to load in modules based upon
   // configuration.  (hint - see the book LDDv2 p. 306)
+
+  // Load the ISA based 8 port serial card module
+  if (nSerialCfg)
+  {
+    module_loading = 1;
+    sprintf (module_name, "rtl_com8_driver");
+    if ( 0 > request_module(module_name) )
+      {
+	rtl_printf("(%s) %s:\t Unable to load module [%s].\n",
+		   __FILE__, __FUNCTION__, module_name);
+	return;
+      }
+    while ( module_loading ); // hang until module successfully loads
+  }
+
+  // Load the ISA based IRIG-b module
+  module_loading = 1;
+  sprintf (module_name, "irig_module");
+  if ( 0 > request_module(module_name) )
+  {
+    rtl_printf("(%s) %s:\t Unable to load module [%s].\n",
+	       __FILE__, __FUNCTION__, module_name);
+    return;
+  }
+  while ( module_loading ); // hang until module successfully loads
+
+  // Load the ISA de-multiplexer module after all ISA based
+  // modules are loaded...
+  module_loading = 1;
+  sprintf (module_name, "isa_demux");
+  if ( 0 > request_module(module_name) )
+  {
+    rtl_printf("(%s) %s:\t Unable to load module [%s].\n",
+	       __FILE__, __FUNCTION__, module_name);
+    return;
+  }
+  while ( module_loading ); // hang until module successfully loads
 
   // DEBUG just print configuration results for now.
   int aa;
@@ -58,8 +100,8 @@ void start_modules ()
 	       analogCfg[aa].port, analogCfg[aa].rate, analogCfg[aa].cal);
 
   for (aa=0; aa<nSerialCfg; aa++)
-    rtl_printf("(%s) %s:\t %02d Serial: port: %02d rate: %03d cmd: %s \n",
-	       __FILE__, __FUNCTION__, aa,
+    rtl_printf("(%s) %s:\t %02d Serial: baud: %d port: %02d rate: %03d cmd: %s \n",
+	       __FILE__, __FUNCTION__, serialCfg[aa].baud_rate, aa,
 	       serialCfg[aa].port, serialCfg[aa].rate, serialCfg[aa].cmd);
 }
 
@@ -103,7 +145,11 @@ void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
     // The name of the structure from the FIFO determines which
     // structure is being sent.  This drives the state machine.
     if (!strcmp(buf,"RUN"))
+    {
       start_modules();
+      buf[0] = '\0';
+      len = 0;
+    }
     else if (!strcmp(buf,"ANALOG"))
       state = set_analog;
     else if (!strcmp(buf,"SERIAL"))

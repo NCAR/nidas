@@ -1,5 +1,7 @@
 /* isa_demux.c
 
+   Time-stamp: <Mon 16-Aug-2004 03:24:03 pm>
+
    RTLinux module for de-multiplexing the ISA bus interrupts.
 
    Original Author: John Wasinger
@@ -40,7 +42,7 @@
 
 RTLINUX_MODULE(isa_demux);
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
-MODULE_DESCRIPTION("ISA de-multiplexing Module");
+MODULE_DESCRIPTION("RTLinux ISA de-multiplexing Module");
 
 typedef unsigned int (*funcPtr) (unsigned int irq, struct rtl_frame *regs);
 
@@ -48,7 +50,9 @@ static unsigned int rtl_isa_irq_enabled_mask = 0;
 static int rtl_isa_irqs[] = { 3,4,5,6,7,10,11,12 };
 
 /* TODO - add extern listings to your driver's ISR function here. */
+extern int module_loading;
 extern unsigned int irig_100hz_isr (unsigned int irq, struct rtl_frame *regs);
+extern unsigned int rtl_serial_irq (unsigned int irq, struct rtl_frame *regs);
 
 /* TODO - add your driver's ISR function here for its given IRQ #.
  *
@@ -62,7 +66,7 @@ static funcPtr isa_isr[] = {
   NULL,                   // IRQ  6
   NULL,                   // IRQ  7
   irig_100hz_isr,         // IRQ 10
-  NULL,                   // IRQ 11
+  rtl_serial_irq,         // IRQ 11
   NULL                    // IRQ 12
 };
 /* -- Utility --------------------------------------------------------- */
@@ -174,5 +178,6 @@ int init_module (void)
   enableHeartBeatInt();
   rtl_printf("(%s) %s:\t enableHeartBeatInt  done\n",    __FILE__, __FUNCTION__);
 
+  module_loading = 0;
   return 0;
 }

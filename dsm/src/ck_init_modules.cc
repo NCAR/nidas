@@ -48,14 +48,14 @@ int main()
     write(fdCfg, "ANALOG\0", 7);
     write(fdCfg, &analog, sizeof(analog));
   }
-  for (int ii=0; ii<6; ii++)
-  {
-    serial.port = ii;
-    serial.rate = ii*100;
-    sprintf(serial.cmd,"->%03d<-", ii);
-    write(fdCfg, "SERIAL\0", 7);
-    write(fdCfg, &serial, sizeof(serial));
-  }
+
+  serial.baud_rate = 9600;
+  serial.port      = 1;
+  serial.rate      = 1000;
+  sprintf(serial.cmd,"->hello<-");
+  serial.len = strlen(serial.cmd);
+  write(fdCfg, "SERIAL\0", 7);
+  write(fdCfg, &serial, sizeof(serial));
 
   write(fdCfg, "UNKNOWN\0", 8);
   write(fdCfg, "RUN\0", 4);

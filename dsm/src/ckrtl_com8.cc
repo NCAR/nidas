@@ -23,7 +23,7 @@
 #include <bits/posix1_lim.h>
 
 // serial driver includes
-// #include <rtl_com8???.h>
+#include <rtl_com8.h>
 
 int main()
 {
@@ -39,8 +39,7 @@ int main()
   {
     for (int tog=0; tog<2; tog++)
     {
-      // TODO - rename these device strings to match yours...
-      sprintf(devstr, "/dev/rtl_com8_%d_read_%d", ii, tog);
+      sprintf(devstr, "/dev/rtl_com8_data_%d_%d", ii, tog);
       fdSerial[ii][tog] = open(devstr, O_RDONLY);
 
       if (fdSerial[ii][tog] < 0)
@@ -100,8 +99,7 @@ int main()
 	  if (buffer[ii][tog].str[buffer[ii][tog].len] == '\0')
 	  {
 	    // print the full message recieved from this FIFO
-	    // TODO - rename these device strings to match yours...
-	    sprintf(devstr, "/dev/rtl_com8_%d_read_%d", ii, tog);
+	    sprintf(devstr, "/dev/rtl_com8_data_%d_%d", ii, tog);
 	    printf("%s > %s\n", devstr, buffer[ii][tog].str);
 	    buffer[ii][tog].len = 0;
 	  }
