@@ -1303,15 +1303,13 @@ static void portCallback(void* privateData)
     }
 
     if (dev->inFifoFd >= 0) {
-
 	struct timeval tv;
 	irig2timeval(&ti,&tv);
 
 	dev->samp.timetag = tt;
 	dev->samp.length = sizeof(struct timeval) + sizeof(int);
-	dev->samp.codedtime = tv.tv_sec * 1000 +
-		(tv.tv_usec + 500) / 1000;
-	dev->samp.status = extendedStatus;
+	dev->samp.data.time = tv.tv_sec * 1000 + (tv.tv_usec + 500) / 1000;
+	dev->samp.data.status = extendedStatus;
 	write(dev->inFifoFd,&dev->samp,
 		SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length);
     }

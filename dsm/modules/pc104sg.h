@@ -11,6 +11,13 @@
 #ifndef PC104SG_H
 #define PC104SG_H
 
+/* clock status definition for user space code: same as extended status bits */
+#define CLOCK_STATUS_NOSYNC       0x01 /* Set if NOT in sync */
+#define CLOCK_STATUS_NOCODE       0x02 /* Set if selected input code NOT decodeable */
+#define CLOCK_STATUS_NOPPS        0x04 /* Set if PPS input invalid */
+#define CLOCK_STATUS_NOMAJT       0x08 /* Set if major time NOT set since jam */
+#define CLOCK_STATUS_NOYEAR       0x10 /* Set if year NOT set */
+
 #ifdef __KERNEL__
 
 #define PC104SG_IOPORT_WIDTH  0x20

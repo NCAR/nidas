@@ -60,11 +60,16 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
     return rate[value];
 }
 
-struct dsm_irig_sample {
+struct dsm_clock_data {
+    dsm_sys_time_t time;
+    int status;
+};
+
+struct dsm_clock_sample {
     dsm_sample_time_t timetag;		/* timetag of sample */
     dsm_sample_length_t length;		/* number of bytes in data */
-    dsm_sys_time_t codedtime;
-    int status;
+    struct dsm_clock_data data;		/* must be no padding between
+    					 * length and data! */
 };
 
 #define IRIG_MAGIC 'I'
@@ -110,7 +115,7 @@ void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate);
 struct irig_port {
     char* inFifoName;
     int inFifoFd;
-    struct dsm_irig_sample samp;
+    struct dsm_clock_sample samp;
 };
 
 
