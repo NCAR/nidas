@@ -20,6 +20,8 @@
 #ifndef DSM_SERIAL_H
 #define DSM_SERIAL_H
 
+#include <sys/types.h>
+
 #ifndef __KERNEL__
 #include <sys/ioctl.h>
 #endif
@@ -41,6 +43,20 @@ struct dsm_serial_record_info {
   int sepLen;
   unsigned char atBOM;
   int recordLen;
+};
+
+struct dsm_serial_status {
+    size_t pe_cnt;
+    size_t oe_cnt;
+    size_t fe_cnt;
+    size_t input_char_overflows;
+    size_t output_char_overflows;
+    size_t sample_overflows;
+    size_t nsamples;
+    int char_transmit_queue_length;
+    int char_transmit_queue_size;
+    int sample_queue_length;
+    int sample_queue_size;
 };
 
 typedef unsigned long dsm_sample_timetag_t;
@@ -120,6 +136,8 @@ struct dsm_serial_sample {
 	struct dsm_serial_record_info)
 #define DSMSER_GET_RECORD_SEP _IOR(DSM_SERIAL_MAGIC,8,\
 	struct dsm_serial_record_info)
+#define DSMSER_GET_STATUS _IOR(DSM_SERIAL_MAGIC,9,\
+	struct dsm_serial_status)
 
 #ifdef __KERNEL__
 
@@ -143,7 +161,7 @@ struct dsm_sample_circ_buf {
     int tail;
 };
 
-#define SAMPLE_POOL_SIZE 4
+#define SAMPLE_QUEUE_SIZE 4
 
 #define UNKNOWN_TIMETAG_VALUE 0xffffffff
 
@@ -180,10 +198,13 @@ struct serialPort {
     struct dsm_serial_record_info recinfo;
     int sepcnt;
 
-    struct dsm_sample_circ_buf sample_pool;
+    struct dsm_sample_circ_buf sample_queue;
     struct dsm_serial_sample* sample;	/* current sample being read */
 
     rtl_sem_t sample_sem;
+
+    char* unwrittenp;		/* pointer to remaining sample to be written */
+    ssize_t unwrittenl;		/* length left to be written */
 
     int incount;
     dsm_sample_timetag_t next_timetag;
@@ -194,7 +215,8 @@ struct serialPort {
     int pe_cnt;
     int oe_cnt;
     int fe_cnt;
-    int char_overflows;
+    int input_char_overflows;
+    int output_char_overflows;
     int sample_overflows;
 
 };
