@@ -160,12 +160,34 @@ public:
      * Set the id portion of the sample header. The id can
      * identify the sensor of origin of the sample.
      */
-    virtual void setId(short val) = 0;
+    virtual void setId(unsigned long val) = 0;
 
     /**
-     * Set the id portion of the sample header.
+     * Get the id portion of the sample header.
      */
-    virtual short getId() const = 0;
+    virtual unsigned long getId() const = 0;
+
+    /**
+     * Set the short id portion of the sample header.
+     * This is the portion of the id without the DSM id.
+     */
+    virtual void setShortId(unsigned short val) = 0;
+
+    /**
+     * Get the short id portion of the sample header.
+     * This is the portion of the id without the DSM id.
+     */
+    virtual unsigned short getShortId() const = 0;
+
+    /**
+     * Set the DSM id portion of the sample header.
+     */
+    virtual void setDSMId(unsigned char val) = 0;
+
+    /**
+     * Get the DSM id portion of the sample header.
+     */
+    virtual unsigned char getDSMId() const = 0;
 
     /**
      * Set the type of the sample.
@@ -271,7 +293,7 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	tt(0),length(0),id(-1),type((short)t) {}
+    	tt(0),length(0),id((unsigned long)t << 24) {}
 
     typedef short dsm_sample_id_t;
 
@@ -290,11 +312,23 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    short getId() const { return id; }
-    void setId(short val) { id = val; }
+    unsigned long getId() const { return id; }
+    void setId(unsigned long val) { id = val; }
 
-    short getType() const { return type; }
-    void setType(short val) { type = val; }
+    unsigned char getDSMId() const { return (id & 0x00ff0000) >> 16; }
+    void setDSMId(unsigned char val)
+    {
+    	id = (id & 0xff00ffff) | (unsigned long)val << 16;
+    }
+
+    unsigned short getShortId() const { return id & 0xffff; }
+    void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; } 
+
+    unsigned char getType() const { return id >> 24; }
+    void setType(unsigned char val)
+    {
+        id = (id & 0x00ffffff) | (unsigned long)val << 24;
+    }
 
     static size_t getSizeOf()
     {
@@ -312,11 +346,10 @@ protected:
      * header fields */
     dsm_sample_length_t length;
 
-    /* An identifier for this sample - which sensor did it come from */
-    dsm_sample_id_t id;
-
-    /* type of this sample */
-    short type;
+    /* An identifier for this sample, packed fields:
+     * most significant 8 bits: type, other 24: id
+     */
+    unsigned long id;
 };
 
 /**
@@ -331,8 +364,14 @@ public:
     void setTimeTag(dsm_sample_time_t val) { header.setTimeTag(val); }
     dsm_sample_time_t getTimeTag() const { return header.getTimeTag(); }
 
-    void setId(short val) { header.setId(val); }
-    short getId() const { return header.getId(); }
+    void setId(unsigned long val) { header.setId(val); }
+    unsigned long getId() const { return header.getId(); }
+
+    void setShortId(unsigned short val) { header.setShortId(val); }
+    unsigned short getShortId() const { return header.getShortId(); }
+
+    void setDSMId(unsigned char val) { header.setDSMId(val); }
+    unsigned char getDSMId() const { return header.getDSMId(); }
 
     sampleType getType() const { return getSampleType(data); }
     /**
