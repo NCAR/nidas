@@ -74,7 +74,7 @@ public:
     /**
      * Return suggested buffer length.
      */
-    virtual size_t getBufferSize() const { return 8192; }
+    virtual size_t getBufferSize() const throw() { return 8192; }
 
     /**
      * Physical read method which must be implemented in derived

@@ -64,11 +64,9 @@ public:
      * Implementation of ConnectionRequester connected methods.
      * This is how DSMEngine is notified of remote connections.
      */
-    void connected(SampleInput*);
-    void disconnected(SampleInput*);
 
-    void connected(SampleOutput*);
-    void disconnected(SampleOutput*);
+    void connected(SampleOutput*) throw();
+    void disconnected(SampleOutput*) throw();
 
 protected:
 
@@ -104,6 +102,7 @@ protected:
     PortSelector* selector;
 
     std::list<SampleOutput*> connectedOutputs;
+    atdUtil::Mutex outputMutex;
 };
 
 /**
