@@ -46,7 +46,8 @@ private:
 
 int SerialTest::run() throw(atdUtil::Exception)
 {
-    DSMSerialSensor s(devname);
+    DSMSerialSensor s;
+    s.setDeviceName(devname);
 
     try {
 	s.setBaudRate(115200);
