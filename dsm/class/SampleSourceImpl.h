@@ -27,53 +27,62 @@ namespace dsm {
 class SampleSourceImpl {
 protected:
 
-  SampleSourceImpl() {}
+    SampleSourceImpl() {}
 
-  virtual ~SampleSourceImpl() {}
+    virtual ~SampleSourceImpl() {}
 
-  /**
-   * Add a SampleClient to this SampleSourceImpl.  Users should
-   * make sure that the pointer to the SampleClient remains valid,
-   * until AFTER it is removed.
-   */
-  virtual void addSampleClientImpl(SampleClient*);
+    /**
+     * Add a SampleClient to this SampleSourceImpl.  Users should
+     * make sure that the pointer to the SampleClient remains valid,
+     * until AFTER it is removed.
+     */
+    virtual void addSampleClientImpl(SampleClient*);
 
-  /**
-   * Remove a SampleClient from this SampleSourceImpl
-   */
-  virtual void removeSampleClientImpl(SampleClient*);
+    /**
+     * Remove a SampleClient from this SampleSourceImpl
+     */
+    virtual void removeSampleClientImpl(SampleClient*);
 
-  /**
-   * Big cleanup.
-   */
-  virtual void removeAllSampleClientsImpl();
+    /**
+     * Big cleanup.
+     */
+    virtual void removeAllSampleClientsImpl();
 
-  /**
-   * How many samples have been distributed by this SampleSourceImpl.
-   */
-  virtual unsigned long getNumSamplesSentImpl() const { return numSamplesSent; }
+    /**
+     * How many samples have been distributed by this SampleSourceImpl.
+     */
+    virtual unsigned long getNumSamplesSentImpl() const
+    {
+	return numSamplesSent;
+    }
 
-  virtual void setNumSamplesSentImpl(unsigned long val) { numSamplesSent = val; }
+    virtual void setNumSamplesSentImpl(unsigned long val)
+    {
+	numSamplesSent = val;
+    }
 
-  /**
-   * Distribute this sample to my clients. Calls receive() method
-   * of each client, passing the pointer to the Sample.
-   * Does a freeReference() on the sample before returning.
-   */
-  virtual void distributeImpl(const Sample*)
+    /**
+     * Distribute this sample to my clients. Calls receive() method
+     * of each client, passing the pointer to the Sample.
+     * Does a freeReference() on the sample before returning.
+     */
+    virtual void distributeImpl(const Sample*)
   	throw(SampleParseException,atdUtil::IOException);
+
+    virtual void distributeImpl(const std::list<const Sample*>& samples)
+	throw(SampleParseException,atdUtil::IOException);
 
 protected:
 
-  /**
-   * My current clients.
-   */
-  SampleClientList clients;
+    /**
+     * My current clients.
+     */
+    SampleClientList clients;
 
-  /**
-   * Number of samples distributed.
-   */
-  int numSamplesSent;
+    /**
+     * Number of samples distributed.
+     */
+    int numSamplesSent;
 
 };
 }

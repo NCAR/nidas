@@ -17,6 +17,7 @@
 #include <SampleSourceImpl.h>
 
 using namespace dsm;
+using namespace std;
 
 void SampleSourceImpl::addSampleClientImpl(SampleClient* client) {
     clients.add(client);
@@ -55,10 +56,17 @@ void SampleSourceImpl::distributeImpl(const Sample* sample)
      * more thought.
      */
 
-    std::list<SampleClient*>::const_iterator li;
+    list<SampleClient*>::const_iterator li;
     for (li = tmp.begin(); li != tmp.end(); ++li)
 	(*li)->receive(sample);
     sample->freeReference();
     numSamplesSent++;
 }
 
+void SampleSourceImpl::distributeImpl(const list<const Sample*>& samples)
+	throw(SampleParseException,atdUtil::IOException)
+{
+    list<const Sample*>::const_iterator si;
+    for (si = samples.begin(); si != samples.end(); ++si)
+    	distributeImpl(*si);
+}

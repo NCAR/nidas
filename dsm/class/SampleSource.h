@@ -78,8 +78,7 @@ public:
     virtual void distribute(const std::list<const Sample*>& samps)
 	throw(SampleParseException,atdUtil::IOException)
     {
-	for (std::list<const Sample*>::const_iterator si = samps.begin();
-		si != samps.end(); ++si) distributeImpl(*si);
+        distributeImpl(samps);
     }
 
 };
