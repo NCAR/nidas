@@ -11,16 +11,7 @@
 #ifndef PC104SG_H
 #define PC104SG_H
 
-struct irigTime {
-  int year;
-  int day;
-  int hour;
-  int min;
-  int sec;
-  int msec;
-  int usec;
-  int nsec;
-};
+#ifdef __KERNEL__
 
 #define PC104SG_IOPORT_WIDTH  0x20
 
@@ -193,83 +184,6 @@ struct irigTime {
 #define BCD_3_DIGIT_SHIFT       12              // bits to shift 3 bcd digits
 #define BCD_4_DIGIT_SHIFT       16              // bits to shift 4 bcd digits
 
-#ifdef __cplusplus
-
-#include <stdio.h>
-#include <string.h>
-
-class Pc104sg
-{
-public:
-  Pc104sg ();                                           // constructor
-  inline int year()             {return sg_year;}       // get dec time values
-  inline int month()            {return sg_month;}
-  inline int day()              {return sg_day;}
-  inline int hour()             {return sg_hour;}
-  inline int minute()           {return sg_minute;}
-  inline int second()           {return sg_second;}
-  inline int msec()             {return sg_msec;}
-  inline int bcdYear()          {return bcd_year;}      // get bcd time values
-  inline int bcdMonth()         {return bcd_month;}
-  inline int bcdDay()           {return bcd_day;}
-  inline int bcdHour()          {return bcd_hour;}
-  inline int bcdMinute()        {return bcd_minute;}
-  inline int bcdSecond()        {return bcd_second;}
-  inline int julianDay()        {return sg_julian_day;}
-  inline int NewSecond()        {return (int)newSecond;}
-  inline void clearNewSecond()  {newSecond = 0;}
-
-  void readTime();                              // read full time from intfc
-  void setLowRateOutput (int rate0);
-  void setHeartBeatOutput (int rate1);
-  void setRate2Output (int rate2);
-  void selectTimeCodeMode ();
-  void select1PPSMode ();
-  void setMajorTime (int new_year, int new_month, int new_day,
-                     int new_hour, int new_minute, int new_second);
-  void enableHeartBeatInt();
-  void disableHeartBeatInt();
-  void isr();
-
-//private:
-  int  Read_Dual_Port_RAM (char addr);
-  void Set_Dual_Port_RAM(char addr, char value);
-  void computeJulianDay();       // julian day from year, month, day
-  void decodeJulianDay();        // month, day from year, julian day
-  void computeBcdDate();         // bcd date from decimal date
-
-private:
-  int sg_year;                          // current decimal time variables
-  int sg_month;
-  int sg_day;
-  int sg_hour;
-  int sg_minute;
-  int sg_second;
-  int sg_msec;
-  int sg_julian_day;
-
-  int bcd_year;                          // current bcd time variables
-  int bcd_month;
-  int bcd_day;
-  int bcd_hour;
-  int bcd_minute;
-  int bcd_second;
-
-  int newSecond;
-
-  volatile unsigned char *reg_data_ptr;
-  volatile unsigned char *reg_address_ptr;
-  volatile unsigned char *reg_status_ptr;
-  volatile unsigned char *reg_ex_status_ptr;
-  volatile unsigned char *usec_reg_ptr;
-  volatile unsigned char *ms1ms0_reg_ptr;
-  volatile unsigned char *sec0ms2_reg_ptr;
-  volatile unsigned char *min0sec1_reg_ptr;
-  volatile unsigned char *hour0min1_reg_ptr;
-  volatile unsigned char *day0hour1_reg_ptr;
-  volatile unsigned char *day2day1_reg_ptr;
-};
-
-#endif /* __cplusplus */
+#endif	/* __KERNEL__ */
 
 #endif

@@ -16,11 +16,19 @@
 #ifndef IRIGCLOCK_H
 #define IRIGCLOCK_H
 
+#include <dsm_sample.h>
+
+#define MSECS_PER_DAY 86400000
+
+#ifndef __KERNEL__
+#include <sys/time.h>
+#endif
+
 /**
  * Enumeration of the callback rates supported by this module.
  */
 enum irigClockRates {
-    IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
+    IRIG_0_1_HZ, IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
     IRIG_10_HZ, IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ,
     IRIG_100_HZ, IRIG_NUM_RATES
 };
@@ -48,10 +56,24 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-    static unsigned int rate[] = {1,2,4,5,10,20,25,50,100};
+    static unsigned int rate[] = {0,1,2,4,5,10,20,25,50,100};
     return rate[value];
 }
 
+struct dsm_irig_sample {
+    dsm_sample_time_t timetag;		/* timetag of sample */
+    dsm_sample_length_t length;		/* number of bytes in data */
+    dsm_sys_time_t codedtime;
+    int status;
+};
+
+#define IRIG_MAGIC 'I'
+#define IRIG_OPEN _IO(IRIG_MAGIC,0)
+#define IRIG_CLOSE _IO(IRIG_MAGIC,1)
+#define IRIG_GET_STATUS _IOR(IRIG_MAGIC,2,unsigned char)
+#define IRIG_GET_CLOCK _IOR(IRIG_MAGIC,3,struct timeval)
+#define IRIG_SET_CLOCK _IOW(IRIG_MAGIC,4,struct timeval)
+#define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct timeval)
 
 #ifdef __KERNEL__
 
@@ -60,6 +82,17 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 extern unsigned long msecClock[];
 extern unsigned char readClock;
 
+struct irigTime {
+  int year;	/* actual year, eg: 2004 */
+  int yday;	/* day of year, 1-366 */
+  int hour;
+  int min;
+  int sec;
+  int msec;
+  int usec;
+  int nsec;
+};
+
 /**
  * Macro used by kernel modules to get the current clock value
  * in milliseconds since GMT 00:00:00.  Note that this value rolls
@@ -67,14 +100,19 @@ extern unsigned char readClock;
  */
 #define GET_MSEC_CLOCK (msecClock[readClock])
 
-#define MSEC_IN_DAY 86400000
-
 typedef void irig_callback_t(void* privateData);
 
 int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
 void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate);
+
+struct irig_port {
+    char* inFifoName;
+    int inFifoFd;
+    struct dsm_irig_sample samp;
+};
+
 
 #endif		/* __KERNEL__ */
 
