@@ -33,10 +33,6 @@ IOStream::IOStream(IOChannel& iochan,size_t blen): iochannel(iochan),
 
 IOStream::~IOStream()
 {
-    try {
-	close();
-    }
-    catch(const atdUtil::IOException&e) {}
     delete [] buffer;
 }
 
@@ -189,7 +185,3 @@ void IOStream::flush() throw (atdUtil::IOException)
     lastWrite = getCurrentTimeInMillis();
 }
 
-void IOStream::close() throw(atdUtil::IOException)
-{
-    iochannel.close();
-}

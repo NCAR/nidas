@@ -58,11 +58,6 @@ public:
     size_t read(void* buf, size_t len) throw();
 
     /**
-     * close physical device.
-     */
-    void close() throw(atdUtil::IOException);
-
-    /**
      * Incoming data is buffered, and the buffer written to the
      * physical device either when the buffer is full, or if this
      * many seconds have elapsed since the last write.

@@ -80,6 +80,11 @@ RawSampleService::~RawSampleService()
 	    delete output;
 	}
     }
+    for (oi = singletonOutputs.begin(); oi != singletonOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+	output->close();
+	delete output;
+    }
 }
 
 /*
@@ -115,7 +120,37 @@ void RawSampleService::connected(SampleInput* inpt)
     RawSampleService* newserv = new RawSampleService(*this);
     newserv->setDSMConfig(dsm);
     newserv->start();
+
+    const list<SampleOutput*>& newoutputs = newserv->getOutputs();
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = newoutputs.begin(); oi != newoutputs.end(); ++oi)
+        servicesByOutput.insert(
+		make_pair<SampleOutput*,RawSampleService*>(*oi,newserv));
     getServer()->addThread(newserv);
+}
+
+/*
+ * This method is called when a SampleInput is disconnected
+ * (likely a DSM went down).  The run() method of the
+ * should have received an exception, and so things should
+ * clean up by themselves.
+ */
+void RawSampleService::disconnected(SampleInput* inputx)
+{
+
+    cerr << inputx->getName() <<
+    	" wants disconnecting from RawSampleService" << endl;
+
+    // Figure out what DSM it came from
+    atdUtil::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
+    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+
+    if (!dsm)
+	throw atdUtil::Exception(string("can't find DSM for address ") +
+		remoteAddr.getHostAddress());
+
+    cerr << "DSM " << dsm->getName() <<
+    	" disconnected from RawSampleService" << endl;
 }
 /*
  * This method is called when connection to a SampleOutput has
@@ -134,6 +169,26 @@ void RawSampleService::connected(SampleOutput* output)
 	    sensor->addRawSampleClient(sensor);
 	    sensor->addSampleClient(output);
 	}
+    }
+}
+
+/*
+ */
+void RawSampleService::disconnected(SampleOutput* output)
+{
+    cerr << output->getName() <<
+    	" has disconnected from RawSampleService" << endl;
+    // the trick is to figure out which service this
+    // corresponds to.  To be continued...
+
+    map<SampleOutput*,RawSampleService*>::const_iterator mi;
+    mi = servicesByOutput.find(output);
+
+    if (mi == servicesByOutput.end()) 
+    	cerr << "Can't find output" << endl;
+    else {
+	cerr << "interrupting" << endl;
+	mi->second->interrupt();
     }
 }
 
@@ -161,6 +216,7 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	output->requestConnection(this);
     }
 
+    // The input needs to know what sensors one could expect data from
     if (nonRawOutput) {
 	const list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
 	list<DSMSensor*>::const_iterator si;
@@ -181,11 +237,22 @@ int RawSampleService::run() throw(atdUtil::Exception)
     catch(const atdUtil::EOFException& e) {
 	cerr << "RawSampleService " << getName() << ": " << e.what() << endl;
     }
+    catch(const atdUtil::IOException& e) {
+	cerr << "RawSampleService " << getName() << ": " << e.what() << endl;
+    }
 
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	input->removeSampleClient(output);
-	output->flush();
+	if (output->isRaw()) input->removeSampleClient(output);
+	else {
+	    const list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
+	    list<DSMSensor*>::const_iterator si;
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		sensor->removeSampleClient(output);
+	    }
+	}
+	// output->flush();
 	output->close();
     }
 
@@ -270,6 +337,7 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
 	    output->setDSMService(this);
             output->fromDOMElement((DOMElement*)child);
 	    addOutput(output);
+	    if (output->isSingleton()) singletonOutputs.push_back(output);
         }
         else throw atdUtil::InvalidParameterException(
                 "DSMService::fromDOMElement",

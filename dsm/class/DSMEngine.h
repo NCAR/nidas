@@ -65,8 +65,10 @@ public:
      * This is how DSMEngine is notified of remote connections.
      */
     void connected(SampleInput*);
+    void disconnected(SampleInput*);
 
     void connected(SampleOutput*);
+    void disconnected(SampleOutput*);
 
 protected:
 

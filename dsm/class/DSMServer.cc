@@ -354,7 +354,10 @@ void DSMServer::cancel() throw(atdUtil::Exception)
     list<atdUtil::Thread*>::iterator ti;
     for (ti = tmp.begin(); ti != tmp.end(); ++ti ) {
 	atdUtil::Thread* thrd = *ti;
-	if (thrd->isRunning()) thrd->cancel();
+	if (thrd->isRunning()) {
+	    cerr << "DSMServer cancelling threads" << endl;
+	    thrd->cancel();
+	}
     }
 }
 
@@ -366,6 +369,7 @@ void DSMServer::join() throw(atdUtil::Exception)
     list<atdUtil::Thread*>::iterator ti;
     for (ti = threads.begin(); ti != threads.end();) {
 	atdUtil::Thread* thrd = *ti;
+	cerr << "DSMServer joining " << thrd->getName() << endl;
 	try {
 	    thrd->join();
 	}
@@ -374,6 +378,7 @@ void DSMServer::join() throw(atdUtil::Exception)
 		    "thread %s has quit, exception=%s",
 	    thrd->getName().c_str(),e.what());
 	}
+	cerr << "DSMServer deleting " << thrd->getName() << endl;
 	delete thrd;
 	ti = threads.erase(ti);
     }

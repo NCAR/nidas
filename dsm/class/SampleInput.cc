@@ -31,7 +31,7 @@ SampleInputStream::SampleInputStream():
 
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
     name(x.name),iochan(x.iochan->clone()),iostream(0),
-    pseudoPort(x.pseudoPort),connectionRequester(0),
+    pseudoPort(x.pseudoPort),connectionRequester(x.connectionRequester),
     dsm(x.dsm),service(x.service),
     samp(0),left(0),dptr(0),
     unrecognizedSamples(0)
@@ -107,8 +107,9 @@ void SampleInputStream::init()
 
 void SampleInputStream::close() throw(atdUtil::IOException)
 {
-    if (iostream) iostream->close();
-    else iochan->close();
+    delete iostream;
+    iostream = 0;
+    iochan->close();
 }
 
 atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const

@@ -31,6 +31,7 @@ class ConnectionRequester
 {
 public:
     virtual void connected(IOChannel*) {}
+    virtual void disconnected(IOChannel*) {}
 };
 
 /**
@@ -42,6 +43,8 @@ class SampleConnectionRequester
 public:
     virtual void connected(SampleInput*) {}
     virtual void connected(SampleOutput*) {}
+    virtual void disconnected(SampleInput*) {}
+    virtual void disconnected(SampleOutput*) {}
 };
 
 }

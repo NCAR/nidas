@@ -351,10 +351,14 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 /* We don't have any SampleInputs */
 void DSMEngine::connected(SampleInput* input) {}
 
+/* We don't have any SampleInputs */
+void DSMEngine::disconnected(SampleInput* input) {}
+
 /* A remote system has connnected to one of our outputs */
 void DSMEngine::connected(SampleOutput* output)
 {
-    cerr << "SampleOutput " << output->getName() << " connected" << endl;
+    cerr << "SampleOutput " << hex << output << dec << " " <<
+    	output->getName() << " connected" << " fd=" << output->getFd() << endl;
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
 
@@ -376,6 +380,41 @@ void DSMEngine::connected(SampleOutput* output)
 		else sensor->addSampleClient(output);
 	    }
 	    connectedOutputs.push_back(output);
+	    return;
+	}
+    }
+}
+
+/* An output wants to disconnect (probably the remote server went down) */
+void DSMEngine::disconnected(SampleOutput* output)
+{
+    cerr << "SampleOutput " << output->getName() << " disconnected" << endl;
+    const list<DSMSensor*>& sensors = dsmConfig->getSensors();
+    const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
+
+    list<DSMSensor*>::const_iterator si;
+    list<SampleOutput*>::const_iterator oi;
+
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutput* oput = *oi;
+	if (oput == output) {
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		cerr << "removing output from sensor " << sensor->getName() << endl;
+		if (output->isRaw()) {
+		    if (sensor->isClock()) sensor->removeSampleClient(output);
+		    else sensor->removeRawSampleClient(output);
+		}
+		else sensor->removeSampleClient(output);
+	    }
+	    output->close();
+	    list<SampleOutput*>::iterator oi2;
+	    for (oi2 = connectedOutputs.begin(); oi2 != connectedOutputs.end();) {
+	        if (*oi2 == output) oi2 = connectedOutputs.erase(oi2);
+		else ++oi2;
+	    }
+	    // try again
+	    output->requestConnection(this);
 	    return;
 	}
     }

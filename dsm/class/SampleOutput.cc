@@ -34,7 +34,7 @@ SampleOutputStream::SampleOutputStream():
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	name(x.name), iochan(x.iochan->clone()),iostream(0),
-	pseudoPort(x.pseudoPort), connectionRequester(0),
+	pseudoPort(x.pseudoPort), connectionRequester(x.connectionRequester),
 	dsm(x.dsm),service(x.service),
 	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
 	questionableTimetags(0)
@@ -43,6 +43,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 
 SampleOutputStream::~SampleOutputStream()
 {
+    cerr << "~SampleOutputStream()" << endl;
     delete iostream;
     delete iochan;
 }
@@ -93,6 +94,9 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
  */
 void SampleOutputStream::connected(IOChannel* iochannel)
 {
+    cerr << "SampleOutputStream::connected, this=" << hex << this << dec <<
+    	" iochannel " << iochannel->getName() << " fd="  <<
+    	iochannel->getFd() << endl;
     assert(iochan == iochannel);
     assert(connectionRequester);
     setName(string("SampleOutputStream: ") + iochan->getName());
@@ -103,14 +107,16 @@ void SampleOutputStream::init()
 {
     delete iostream;
     cerr << "SampleOutputStream::init, buffer size=" <<
-    	iochan->getBufferSize() << endl;
+    	iochan->getBufferSize() << " fd=" << iochan->getFd() << endl;
     iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 void SampleOutputStream::close() throw(atdUtil::IOException)
 {
-    if (iostream) iostream->close();
-    else iochan->close();
+    cerr << "SampleOutputStream::close" << endl;
+    delete iostream;
+    iostream = 0;
+    iochan->close();
 }
 
 int SampleOutputStream::getFd() const
@@ -176,7 +182,9 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	write(samp);
     }
     catch(const atdUtil::IOException& ioe) {
-        cerr << ioe.what();
+        cerr << ioe.what() << endl;
+	connectionRequester->disconnected(this);
+	return false;
     }
     return true;
 }

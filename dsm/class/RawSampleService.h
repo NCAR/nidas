@@ -43,8 +43,10 @@ public:
     int run() throw(atdUtil::Exception);
 
     void connected(SampleInput*);
+    void disconnected(SampleInput*);
 
     void connected(SampleOutput*);
+    void disconnected(SampleOutput*);
 
     void schedule() throw(atdUtil::Exception);
 
@@ -73,6 +75,10 @@ protected:
     SampleInput* input;
 
     std::list<SampleOutput*> outputs;
+
+    std::list<SampleOutput*> singletonOutputs;
+
+    std::map<SampleOutput*,RawSampleService*> servicesByOutput;
 };
 
 }

@@ -42,8 +42,11 @@ IOChannel* McSocket::clone()
 
 void McSocket::connected(atdUtil::Socket* sock)
 {
+    delete socket;
     socket = sock;
     setName(socket->getInet4SocketAddress().toString());
+    cerr << "McSocket::connected " << getName() << " fd=" <<
+    	socket->getFd() << endl;
     assert(connectionRequester);
     connectionRequester->connected(this);
 }
@@ -59,7 +62,10 @@ size_t McSocket::getBufferSize() const
 
 void McSocket::close() throw (atdUtil::IOException)
 {
+    cerr << "McSocket::close" << endl;
     if (socket && socket->getFd() >= 0) socket->close();
+    delete socket;
+    socket = 0;
     atdUtil::McSocket::close();
 }
 
