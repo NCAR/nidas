@@ -24,6 +24,8 @@
 
 #include <asm/ioctls.h>
 
+#include <math.h>
+
 #include <iostream>
 #include <sstream>
 
@@ -126,7 +128,7 @@ void DSMSerialSensor::setScanfFormat(const string& str)
        scanner->setFormat(str);
     }
     catch (atdUtil::ParseException& pe) {
-        throw atdUtil::InvalidParameterException("DSMSerialSensor",
+        throw atdUtil::InvalidParameterException(getName(),
                "setScanfFormat",pe.what());
     }
 }
@@ -143,17 +145,11 @@ void DSMSerialSensor::fromDOMElement(
 	const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
-#ifdef XML_DEBUG
-    cerr << "DSMSerialSensor::fromDOMElement start -------------" << endl;
-#endif
+
     RTL_DSMSensor::fromDOMElement(node);
+
     XDOMElement xnode(node);
 
-#ifdef XML_DEBUG
-    cerr << "DSMSerialSensor::fromDOMElement element name=" <<
-    	xnode.getNodeName() << endl;
-#endif
-	
     if(node->hasAttributes()) {
     // get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
@@ -163,20 +159,18 @@ void DSMSerialSensor::fromDOMElement(
 	    // get attribute name
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
-#ifdef XML_DEBUG
-	    cerr << "attrname=" << aname << " val=" << aval << endl;
-#endif
+
 	    if (!aname.compare("baud")) {
 		if (!setBaudRate(atoi(aval.c_str()))) 
 		    throw atdUtil::InvalidParameterException
-			("DSMSerialSensor","baud",aval);
+			(getName(),"baud",aval);
 	    }
 	    else if (!aname.compare("parity")) {
 		if (!aval.compare("odd")) setParity(ODD);
 		else if (!aval.compare("even")) setParity(EVEN);
 		else if (!aval.compare("none")) setParity(NONE);
 		else throw atdUtil::InvalidParameterException
-			("DSMSerialSensor","parity",aval);
+			(getName(),"parity",aval);
 	    }
 	    else if (!aname.compare("databits"))
 		setDataBits(atoi(aval.c_str()));
@@ -211,7 +205,7 @@ void DSMSerialSensor::fromDOMElement(
 	    if (!str.compare("beg")) setMessageSeparatorAtEOM(false);
 	    else if (!str.compare("end")) setMessageSeparatorAtEOM(true);
 	    else throw atdUtil::InvalidParameterException
-			("DSMSerialSensor","messageSeparator position",str);
+			(getName(),"messageSeparator position",str);
 
 #ifdef XML_DEBUG
 	    cerr << "message length=" <<
@@ -235,9 +229,36 @@ void DSMSerialSensor::fromDOMElement(
 
 	    if (rate != 0 && erate == IRIG_NUM_RATES)
 		throw atdUtil::InvalidParameterException
-			("DSMSerialSensor","prompt rate",
+			(getName(),"prompt rate",
 			    xchild.getAttributeValue("rate"));
 	    setPromptRate(erate);
+	}
+    }
+
+    // If prompted, set sampling rates for variables if unknown
+    list<SampleTag*>::const_iterator si;
+    if (getPromptRate() != IRIG_NUM_RATES) {
+	float frate = irigClockEnumToRate(getPromptRate());
+	for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
+	    SampleTag* samp = *si;
+	    if (samp->getRate() == 0.0) samp->setRate(frate);
+	}
+    }
+
+    // make sure sampling rates are positive and equal
+    float frate = -1.0;
+    for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
+	SampleTag* samp = *si;
+	if (samp->getRate() <= 0.0)
+	    throw atdUtil::InvalidParameterException(
+		getName() + " has sample rate of 0.0");
+	if (si == sampleTags.begin()) frate = samp->getRate();
+	if (fabs((frate - samp->getRate()) / frate) > 1.e-3) {
+	    ostringstream ost;
+	    ost << frate << " & " << samp->getRate();
+	    throw atdUtil::InvalidParameterException(
+		getName() + " has different sample rates: " +
+		    ost.str() + " samples/sec");
 	}
     }
 }

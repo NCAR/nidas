@@ -22,35 +22,33 @@
 
 #include <iostream>
 #include <string>
+#include <set>
 
 using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
 DSMSensor::DSMSensor() :
+    classname("unknown"),devname("unknown"),id(0),
     BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
+
 {
     initStatistics();
 }
 
-DSMSensor::DSMSensor(const std::string& n) : devname(n),
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
-{
-    initStatistics();
-}
 
 DSMSensor::~DSMSensor()
 {
     delete [] buffer;
-    for (vector<Variable*>::const_iterator vi = variables.begin();
-    	vi != variables.end(); ++vi) delete *vi;
+    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
+    	si != sampleTags.end(); ++si) delete *si;
 }
 
-void DSMSensor::addVariable(Variable* var)
+void DSMSensor::addSampleTag(SampleTag* tag)
 	throw(atdUtil::InvalidParameterException)
 {
-    variables.push_back(var);
-    constVariables.push_back(var);
+    sampleTags.push_back(tag);
+    constSampleTags.push_back(tag);
 }
 
 void DSMSensor::initBuffer() throw()
@@ -204,12 +202,18 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    if (!attr.getName().compare("devicename")) {
-#ifdef XML_DEBUG
-		cerr << "attrname=" << attr.getName() <<
-			" val=" << attr.getValue() << endl;
-#endif
+	    if (!attr.getName().compare("devicename"))
 		setDeviceName(attr.getValue());
+	    else if (!attr.getName().compare("class"))
+		setClassName(attr.getValue());
+	    else if (!attr.getName().compare("id")) {
+		istringstream ist(attr.getValue());
+		unsigned short val;
+		ist >> val;
+		if (ist.fail() || val < 0)
+		    throw atdUtil::InvalidParameterException("sensor","id",
+		    	attr.getValue());
+		setId(val);
 	    }
 	}
     }
@@ -221,11 +225,34 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-	if (!elname.compare("variable")) {
-	    Variable* var = new Variable();
-	    var->fromDOMElement((DOMElement*)child);
-	    addVariable(var);
+	if (!elname.compare("sample")) {
+	    SampleTag* samp = new SampleTag();
+	    samp->fromDOMElement((DOMElement*)child);
+	    addSampleTag(samp);
 	}
+    }
+
+    if (sampleTags.size() == 0)
+	    throw atdUtil::InvalidParameterException(
+		getName() + " has no <sample> tags");
+
+    // Set the sample ids to be the sum of the sensor id and sample id
+    // Also check that sample ids are unique for this sensor.
+    set<unsigned short> ids;
+    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
+    	si != sampleTags.end(); ++si) {
+	SampleTag* samp = *si;
+
+	pair<set<unsigned short>::const_iterator,bool> ins =
+		ids.insert(samp->getId());
+	if (!ins.second) {
+	    ostringstream ost;
+	    ost << samp->getId();
+	    throw atdUtil::InvalidParameterException(
+	    	getName(),"duplicate sample id", ost.str());
+	}
+
+	samp->setId(getId() + samp->getId());
     }
 }
 

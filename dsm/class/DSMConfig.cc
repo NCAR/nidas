@@ -24,15 +24,15 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-DSMConfig::DSMConfig(): sensorId(0x0010),sensorIncrement(0x0010)
+DSMConfig::DSMConfig()
 {
 }
 
 DSMConfig::~DSMConfig()
 {
-    for (std::list<DSMSensor*>::iterator si = sensors.begin();
+    for (list<DSMSensor*>::iterator si = sensors.begin();
     	si != sensors.end(); ++si) delete *si;
-    for (std::list<SampleOutputStream*>::iterator oi = outputs.begin();
+    for (list<SampleOutputStream*>::iterator oi = outputs.begin();
     	oi != outputs.end(); ++oi) delete *oi;
 }
 
@@ -54,8 +54,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
         for(int i=0;i<nSize;++i) {
             XDOMAttr attr((DOMAttr*) pAttributes->item(i));
             // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
+            const string& aname = attr.getName();
+            const string& aval = attr.getValue();
             if (!aname.compare("name")) setName(aval);
 	}
     }
@@ -69,7 +69,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	DOMable* domable = 0;
-	if (!elname.compare("serialsensor") ||
+	if (!elname.compare("sensor") ||
+	    !elname.compare("serialsensor") ||
             !elname.compare("arincSensor") ||
             !elname.compare("irigsensor")) {
 	    const string& idref = xchild.getAttributeValue("IDREF");
@@ -130,8 +131,6 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    DSMSensor* sensor = dynamic_cast<DSMSensor*>(domable);
 	    if (!sensor) throw atdUtil::InvalidParameterException("sensor",
 		    elname,"is not a DSMSensor");
-	    sensor->setId(sensorId);	// unique id
-	    sensorId += sensorIncrement;
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {
@@ -156,6 +155,76 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    classattr,"is not a SampleOutputStream");
 	    addOutput(output);
 	    output->setDSMConfig(this);
+	}
+    }
+
+    // check for sensor ids which have value 0, or are not unique.
+    typedef map<unsigned short,DSMSensor*> sens_map_t;
+    typedef map<unsigned short,DSMSensor*>::const_iterator sens_map_itr_t;
+    sens_map_t sensorIdCheck;
+    sens_map_t sampleIdCheck;
+
+    for (list<DSMSensor*>::const_iterator si = sensors.begin();
+    	si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+
+	if (sensor->getId() == 0)
+	    throw atdUtil::InvalidParameterException(sensor->getName(),
+		    "id","must be non-zero");
+
+	pair<sens_map_itr_t,bool> ins = sensorIdCheck.insert(
+		make_pair<unsigned short,DSMSensor*>(sensor->getId(),sensor));
+	if (!ins.second) {
+	    ostringstream ost;
+	    ost << sensor->getId();
+	    DSMSensor* other = ins.first->second;
+	    throw atdUtil::InvalidParameterException(
+	    	sensor->getName() + " has same id (" + ost.str() + ") as " +
+		    other->getName());
+	}
+
+	ins = sampleIdCheck.insert(
+	    make_pair<unsigned short,DSMSensor*>(sensor->getId(),sensor));
+	if (!ins.second) {
+	    ostringstream ost;
+	    ost << sensor->getId();
+	    DSMSensor* other = ins.first->second;
+
+	    if (other == sensor)
+		throw atdUtil::InvalidParameterException(
+		    sensor->getName() + " has duplicate sample ids: " +
+		    ost.str());
+	    else
+		throw atdUtil::InvalidParameterException(
+		    sensor->getName() + " & " + other->getName() +
+		    " have equivalent sample ids: " + ost.str());
+	}
+
+	// check that sample ids are unique
+	for (vector<const SampleTag*>::const_iterator ti =
+		sensor->getSampleTags().begin();
+			ti != sensor->getSampleTags().end(); ++ti) {
+	    const SampleTag* stag = *ti;
+	    if (stag->getId() == 0)
+		throw atdUtil::InvalidParameterException(sensor->getName(),
+			"sample id","must be non-zero");
+
+	    ins = sampleIdCheck.insert(
+		make_pair<unsigned short,DSMSensor*>(stag->getId(),sensor));
+	    if (!ins.second) {
+		ostringstream ost;
+		ost << stag->getId();
+		DSMSensor* other = ins.first->second;
+
+		if (other == sensor)
+		    throw atdUtil::InvalidParameterException(
+		    	sensor->getName() + " has duplicate sample ids: " +
+			ost.str());
+		else
+		    throw atdUtil::InvalidParameterException(
+		    	sensor->getName() + " & " + other->getName() +
+			" have equivalent sample ids: " + ost.str());
+	    }
 	}
     }
 }

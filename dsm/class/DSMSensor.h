@@ -20,7 +20,7 @@
 #include <SampleClient.h>
 #include <SampleSource.h>
 #include <RawSampleSource.h>
-#include <Variable.h>
+#include <SampleTag.h>
 #include <DOMable.h>
 #include <SampleParseException.h>
 
@@ -72,27 +72,48 @@ public:
      */
     DSMSensor();
 
-    /**
-     * /deprecated Construct a sensor, and provide the device name.
-     * Use the no-arg constructor instead and use the setDeviceName() method.
-     */
-    DSMSensor(const std::string& n);
 
     virtual ~DSMSensor();
 
-    void setDeviceName(const std::string& val) { devname = val; }
-
-    const std::string& getDeviceName() const { return devname; }
+    /**
+     * Set the name of the system device that the sensor
+     * is connected to.
+     * @param val Name of device, e.g. "/dev/ttyS0".
+     */
+    virtual void setDeviceName(const std::string& val) { devname = val; }
 
     /**
-     * Add a variable to this sensor.  This could be a protected
-     * method, since variables are usually added in the
-     * fromDOMElement method, but we'll leave it public for now.
-     * Throw an exception if you don't like the variable.
+     * Fetch the name of the system device that the sensor
+     * is connected to.
      */
-    virtual void addVariable(Variable* var) throw(atdUtil::InvalidParameterException);
+    virtual const std::string& getDeviceName() const { return devname; }
 
-    virtual const std::vector<const Variable*>& getVariables() const { return constVariables; }
+    /**
+     * Fetch the class name of this sensor.
+     */
+    virtual const std::string& getClassName() const { return classname; }
+
+    /**
+     * Return a name that should fully identify this sensor. This
+     * name could be used in informative messages. The returned name
+     * has this format:
+     *  className: deviceName.
+     */
+    virtual std::string getName() const {
+        return getClassName() + ':' + getDeviceName();
+    }
+
+    /**
+     * Add a SampleTag to this sensor.  This could be a protected
+     * method, since SampleTags are usually added in the
+     * fromDOMElement method, but we'll leave it public for now.
+     * Throw an exception if you don't like the variables in the sample.
+     */
+    virtual void addSampleTag(SampleTag* var)
+    	throw(atdUtil::InvalidParameterException);
+
+    virtual const std::vector<const SampleTag*>& getSampleTags() const
+    	{ return constSampleTags; }
 
     virtual int getReadFd() const = 0;
 
@@ -101,13 +122,13 @@ public:
     /**
      * Retrieve this sensor's id number.
      */
-    int getId() const { return id; };
+    unsigned short getId() const { return id; };
 
     /**
      * Set a unique identification number on this sensor.
      * The samples from this sensor will contain this id.
      */
-    void setId(int val) { id = val; };
+    void setId(unsigned short val) { id = val; };
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -211,9 +232,27 @@ public:
 
 protected:
 
-    std::vector<Variable*> variables;
+    /**
+     * Set the class name of this sensor. Protected method.
+     * One should only set this in the constructor.
+     */
+    void setClassName(const std::string& val) { classname = val; }
 
-    std::vector<const Variable*> constVariables;
+protected:
+
+    /**
+     * Class name attribute of this sensor. Only used here for
+     * informative messages.
+     */
+    std::string classname;
+
+    std::string devname;
+
+    unsigned short id;
+
+    std::list<SampleTag*> sampleTags;
+
+    std::vector<const SampleTag*> constSampleTags;
 
     /**
      * Must be called before invoking readSamples(). Derived
@@ -227,11 +266,6 @@ protected:
      * destroyBuffer in their close() method.
      */
     void destroyBuffer() throw();
-
-    std::string devname;
-
-    int id;
-
     const int BUFSIZE;
     char* buffer;
     int bufhead;

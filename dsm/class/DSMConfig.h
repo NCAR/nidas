@@ -57,11 +57,13 @@ public:
 
 protected:
 
-    unsigned short sensorId;
-    const unsigned short sensorIncrement;
-
     std::string name;
+    
+    /**
+     * The list of sensors on this DSM.
+     */
     std::list<DSMSensor*> sensors;
+
     std::list<SampleOutputStream*> outputs;
 
 };
