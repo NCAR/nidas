@@ -159,7 +159,6 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
       if (sample->getAllocLength() < len) sample->allocateData(len);
       *n = i;
       sample->holdReference();
-      sample->setNext(0);
       return sample;
     }
 
