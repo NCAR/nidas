@@ -21,8 +21,6 @@
 #include <Project.h>
 #include <DOMable.h>
 
-#include <atdUtil/ServiceListener.h>
-
 #include <xercesc/sax/SAXException.hpp>
 
 #include <list>

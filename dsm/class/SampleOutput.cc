@@ -21,6 +21,8 @@
 using namespace dsm;
 using namespace std;
 
+CREATOR_ENTRY_POINT(SampleOutputStream)
+
 SampleOutputStream::SampleOutputStream():
 	output(0),outputStream(0),pseudoPort(0),
 	fullSampleTimetag(0),t0day(0),questionableTimetags(0)

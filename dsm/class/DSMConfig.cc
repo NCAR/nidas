@@ -164,7 +164,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    }
 		    
 	    if (!sensor) {
-		const string& classattr = xnode.getAttributeValue("class");
+		const string& classattr = xchild.getAttributeValue("class");
 		if (classattr.length() == 0) 
 		    throw atdUtil::InvalidParameterException(
 			string("dsm") + ": " + getName(),
@@ -192,7 +192,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {
-	    const string& classattr = xnode.getAttributeValue("class");
+	    const string& classattr = xchild.getAttributeValue("class");
             if (classattr.length() == 0)
                 throw atdUtil::InvalidParameterException(
 		    string("dsm") + ": " + getName(),

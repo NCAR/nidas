@@ -16,8 +16,6 @@
 #ifndef DSM_DATAGRAMS_H
 #define DSM_DATAGRAMS_H
 
-#include <atdUtil/ServiceRequestDatagram.h>
-
 #define DSM_MULTICAST_PORT 50000
 #define DSM_MULTICAST_ADDR "239.0.0.10"
 
@@ -28,19 +26,6 @@ typedef enum datagramTypes {
     RAW_SAMPLE,
     SYNC_RECORD,
 } datagramType_t;
-
-
-class XMLConfigRequestDatagram: public atdUtil::ServiceRequestDatagram
-{
-public:
-    XMLConfigRequestDatagram():ServiceRequestDatagram(XML_CONFIG) {}
-};
-
-class RawSampleRequestDatagram: public atdUtil::ServiceRequestDatagram
-{
-public:
-    RawSampleRequestDatagram(): ServiceRequestDatagram(RAW_SAMPLE) {}
-};
 
 }
 
