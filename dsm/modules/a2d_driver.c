@@ -762,7 +762,8 @@ void A2DGetData()
 		inbuf[i] = gginw(A2DAddr);	
 		if(inbuf[i] == 0xFFFF && A2DFIFOEmpty())break;
 #endif
-//TODO get the timestamp
+//TODO get the timestamp and size in the first two long words
+//TODO make certain the write size is correct
 //TODO check to see if fd_up is valid. If not, return an error
 	write(fd_up, inbuf, 2*(i-1)); // Write to up-fifo
 	}
@@ -791,7 +792,7 @@ int A2DFIFOEmpty()
 void A2DGetDataSim(void)
 {
 	UL timestamp;
-	US inbuf[MAXA2DS*INTRP_RATE + 2*sizeof(UL)];
+	US inbuf[MAXA2DS*INTRP_RATE + 4]; // The 4 is for 2 longs
 	int i, j, k = 0; 
 	size_t nbytes;
 	
@@ -825,7 +826,7 @@ void A2DGetDataSim(void)
 #endif
 		inbuf[0] = (US)(timestamp & 0x0000FFFF);
 		inbuf[1] = (US)((timestamp * 0xFFFF0000)>>16);
-		inbuf[2] = (US)(2*MAXA2DS*INTRP_RATE);
+		inbuf[2] = (US)(2*(MAXA2DS*INTRP_RATE + 4));
 		inbuf[3] = 0;
 #ifdef DEBUGDATA
 		if(!(k%10))rtl_printf("%6dth write: nbytes = 0x%08X, errno = 0x%08x\n",
