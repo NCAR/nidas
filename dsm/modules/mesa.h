@@ -8,6 +8,10 @@
  
    Revisions:
 
+     $LastChangedRevision$
+         $LastChangedDate: $
+           $LastChangedBy$
+                 $HeadURL: $
 */
 
 #ifndef MESA_DRIVER_H
@@ -77,6 +81,12 @@
 #define N_PMS260X 1
 
 unsigned long filesize;
+
+typedef unsigned long dsm_sample_timetag_t;  
+struct dsm_mesa_sample {
+  dsm_sample_timetag_t timetag; /* timetag of sample */
+  unsigned int data;      /* the data */
+};
 
 /* Structures that are passed via ioctls to/from this driver */
 struct counters_set {
