@@ -1,6 +1,6 @@
 /* xxxx_driver.c
 
-   Time-stamp: <Tue 29-Mar-2005 01:26:52 pm>
+   Time-stamp: <Wed 30-Mar-2005 05:55:05 pm>
 
    Test rtl driver.
 
@@ -15,6 +15,7 @@
 #include <xxxx_driver.h>
 
 /* RTLinux module includes...  */
+#define __RTCORE_POLLUTED_APP__
 #include <rtl.h>
 #include <rtl_posixio.h>
 #include <rtl_pthread.h>
