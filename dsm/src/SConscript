@@ -3,33 +3,32 @@
 ##
 ##  Import the cross-build environment.
 ##
+Import('env')
+myenv = env.Copy()
 
 # -D__cpluscplus   -fno-common  -fno-builtin
-Import('arm_env')
-src_arm_env = arm_env.Copy()
+# Import('arm_env')
+# src_arm_env = arm_env.Copy()
 
-src_arm_env.AppendUnique(LIBPATH = Split("""
-  /opt/atdLib/arm/lib
-  /scr/tmp/maclean
+myenv.AppendUnique(CPPPATH = Split("""
+      #dsm/class
+      #dsm/modules
+    """))
+
+##  /opt/atdLib/arm/lib
+##  /scr/tmp/maclean
+myenv.AppendUnique(LIBPATH = Split("""
+    class/
 """))
-##
-##  List the ARM specific libraries
-##
-src_arm_env['LIBS'] = Split("""
-  libArmDsm.a
-  libArmDisc.a
-  isa
-""")
-
-##
-##  Build dsmAsync, dsmSync, dsmComm
 ##
 # ckrtl_com8.cc
 #   dsmSync.cc
 #   ck_main.cc
 apps = Split("""
   XXXX_IoctlTest.cc
+  serial_test.cc
+  sensor_test.cc
 """)
 
 for i in apps:
-  src_arm_env.Program( i )
+  myenv.Program( i )
