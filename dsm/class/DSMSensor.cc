@@ -208,6 +208,9 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		setClassName(attr.getValue());
 	    else if (!attr.getName().compare("id")) {
 		istringstream ist(attr.getValue());
+		// If you unset the dec flag, then a leading '0' means
+		// octal, and 0x means hex.
+		ist.unsetf(ios::dec);
 		unsigned short val;
 		ist >> val;
 		if (ist.fail() || val < 0)

@@ -56,7 +56,12 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             // get attribute name
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
+
             if (!aname.compare("name")) setName(aval);
+            else if (!aname.compare("location")) setLocation(aval);
+	    else throw atdUtil::InvalidParameterException(
+		string("dsm") + ": " + getName(),
+		"unrecognized attribute",aname);
 	}
     }
 
@@ -70,16 +75,16 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 
 	DOMable* domable = 0;
 	if (!elname.compare("sensor") ||
-	    !elname.compare("serialsensor") ||
+	    !elname.compare("serialSensor") ||
             !elname.compare("arincSensor") ||
-            !elname.compare("irigsensor")) {
+            !elname.compare("irigSensor")) {
 	    const string& idref = xchild.getAttributeValue("IDREF");
 	    if (idref.length() > 0) {
 		// cerr << "idref=" << idref << endl;
 		Project* project = Project::getInstance();
 		if (!project->getSensorCatalog())
 		    throw atdUtil::InvalidParameterException(
-			"DSMConfig::fromDOMElement",
+			string("dsm") + ": " + getName(),
 			"cannot find sensorcatalog for sensor with IDREF",
 		    	idref);
 
@@ -88,7 +93,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		mi = project->getSensorCatalog()->find(idref);
 		if (mi == project->getSensorCatalog()->end())
 			throw atdUtil::InvalidParameterException(
-		    "DSMConfig::fromDOMElement",
+		    string("dsm") + ": " + getName(),
 		    "sensorcatalog does not contain a sensor with ID",
 		    idref);
 		DOMElement* snode = mi->second;
@@ -96,7 +101,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		const string& classattr = sxnode.getAttributeValue("class");
 		if (classattr.length() == 0) 
 		    throw atdUtil::InvalidParameterException(
-			"DSMConfig::fromDOMElement",
+			string("dsm") + ": " + getName(),
 			string("sensor with ID ") + idref,
 			"does not have a class attribute");
 		cerr << "found sensor, idref=" << idref << " classattr=" <<
@@ -115,7 +120,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		const string& classattr = xchild.getAttributeValue("class");
 		if (classattr.length() == 0) 
 		    throw atdUtil::InvalidParameterException(
-			"DSMConfig::fromDOMElement",
+			string("dsm") + ": " + getName(),
 			elname,
 			"does not have a class attribute");
 		cerr << "creating sensor, classattr=" << classattr << endl;
@@ -123,13 +128,15 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    domable = DOMObjectFactory::createObject(classattr);
 		}
 		catch (const atdUtil::Exception& e) {
-		    throw atdUtil::InvalidParameterException("sensor",
-		    	classattr,e.what());
+		    throw atdUtil::InvalidParameterException(
+			string("dsm") + ": " + getName(),
+		    	classattr, e.what());
 		}
 	    }
 	    domable->fromDOMElement((DOMElement*)child);
 	    DSMSensor* sensor = dynamic_cast<DSMSensor*>(domable);
-	    if (!sensor) throw atdUtil::InvalidParameterException("sensor",
+	    if (!sensor) throw atdUtil::InvalidParameterException(
+		    string("dsm") + ": " + getName(),
 		    elname,"is not a DSMSensor");
 	    addSensor(sensor);
 	}
@@ -138,7 +145,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    const string& classattr = xchild.getAttributeValue("class");
 	    if (classattr.length() == 0) 
 		throw atdUtil::InvalidParameterException(
-		    "DSMConfig::fromDOMElement",
+		    string("dsm") + ": " + getName(),
 		    elname,
 		    "does not have a class attribute");
 	    try {
@@ -151,11 +158,16 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    domable->fromDOMElement((DOMElement*)child);
 	    SampleOutputStream* output =
 	    	dynamic_cast<SampleOutputStream*>(domable);
-	    if (!output) throw atdUtil::InvalidParameterException("output",
+	    if (!output) throw atdUtil::InvalidParameterException(
+		string("dsm") + ": " + getName() + " output",
 		    classattr,"is not a SampleOutputStream");
 	    addOutput(output);
 	    output->setDSMConfig(this);
 	}
+	else if (!elname.compare("config"));
+	else throw atdUtil::InvalidParameterException(
+		string("dsm") + ": " + getName(),
+		    "unrecognized element",elname);
     }
 
     // check for sensor ids which have value 0, or are not unique.

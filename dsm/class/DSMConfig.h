@@ -38,6 +38,9 @@ public:
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
 
+    const std::string& getLocation() const { return location; }
+    void setLocation(const std::string& val) { location = val; }
+
     void addSensor(DSMSensor* sensor) { sensors.push_back(sensor); }
     const std::list<DSMSensor*>& getSensors() const { return sensors; }
 
@@ -59,6 +62,8 @@ protected:
 
     std::string name;
     
+    std::string location;
+
     /**
      * The list of sensors on this DSM.
      */
