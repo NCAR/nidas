@@ -32,7 +32,7 @@ RTL_DevIoctl::RTL_DevIoctl(const string& prefixArg, int boardNumArg,
     boardNum(boardNumArg),firstPortNum(firstPortArg),numPorts(-1),
     inputFifoName(makeInputFifoName(prefix,boardNum)),
     outputFifoName(makeOutputFifoName(prefix,boardNum)),
-    infifofd(-1),outfifofd(-1),opened(false)
+    infifofd(-1),outfifofd(-1),usageCount(0)
 {
 }
 
@@ -44,31 +44,32 @@ RTL_DevIoctl::~RTL_DevIoctl()
 void RTL_DevIoctl::open() throw(atdUtil::IOException)
 {
     
-    if (infifofd < 0)
-	infifofd = ::open(inputFifoName.c_str(),O_RDONLY);
-    if (infifofd < 0) throw atdUtil::IOException(inputFifoName,"open",errno);
+    if (!usageCount++) {
+	if (infifofd < 0)
+	    infifofd = ::open(inputFifoName.c_str(),O_RDONLY);
+	if (infifofd < 0) throw atdUtil::IOException(inputFifoName,"open",errno);
 
-    if (outfifofd < 0)
-	outfifofd = ::open(outputFifoName.c_str(),O_WRONLY);
-    if (outfifofd < 0) throw atdUtil::IOException(outputFifoName,"open",errno);
-
-    opened = true;
-
+	if (outfifofd < 0)
+	    outfifofd = ::open(outputFifoName.c_str(),O_WRONLY);
+	if (outfifofd < 0) throw atdUtil::IOException(outputFifoName,"open",errno);
+    }
 }
 
 void RTL_DevIoctl::close()
 {
-    if (infifofd >= 0) ::close(infifofd);
-    infifofd = -1;
-    if (outfifofd >= 0) ::close(outfifofd);
-    outfifofd = -1;
+    if (!(--usageCount)) {
+	if (infifofd >= 0) ::close(infifofd);
+	infifofd = -1;
+	if (outfifofd >= 0) ::close(outfifofd);
+	outfifofd = -1;
+    }
 }
 
 
 int RTL_DevIoctl::getNumPorts() throw(atdUtil::IOException)
 {
 
-    if (!opened) open();
+    if (!usageCount) open();
 
     if (numPorts > 0) return numPorts;
 
@@ -87,33 +88,6 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 {
     static const unsigned char etx = '\003';
 
-#ifdef USE_WRITEV
-    // As a hack, try writev, instead of individual writes.
-    // The other end of the fifo still reads the fields
-    // one at a time though, so it doesn't gain us anything.
-
-    struct iovec ivec[5];
-    int iv = 0;
-    ivec[iv].iov_base = &cmd;
-    ivec[iv++].iov_len = sizeof(cmd);
-
-    ivec[iv].iov_base = &port;
-    ivec[iv++].iov_len = sizeof(port);
-
-    ivec[iv].iov_base = &len;
-    ivec[iv++].iov_len = sizeof(len);
-
-    if (_IOC_DIR(cmd) & _IOC_WRITE) {
-	ivec[iv].iov_base = buf;
-	ivec[iv++].iov_len = len;
-    }
-
-    ivec[iv].iov_base = (void*)&etx;
-    ivec[iv++].iov_len = sizeof(etx);
-
-    if (writev(outfifofd, ivec,iv) < 0)
-	throw atdUtil::IOException(outputFifoName,"write",errno);
-#else
     unsigned char* wbuf;
     unsigned char* wptr;
     size_t wlen = sizeof(cmd) + sizeof(port) + sizeof(len) + sizeof(etx);
@@ -150,7 +124,6 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 	throw atdUtil::IOException(outputFifoName,"write",errno);
     }
     delete [] wbuf;
-#endif
 
     /* read back the status errno */
     int errval;

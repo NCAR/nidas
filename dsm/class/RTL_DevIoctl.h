@@ -97,7 +97,7 @@ protected:
 
     int outfifofd;
 
-    bool opened;
+    int usageCount;
 
 };
 
