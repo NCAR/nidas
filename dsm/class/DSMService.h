@@ -58,7 +58,7 @@ public:
      */
     virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
-    const DSMConfig* getDSMConfig() const { return dsm; }
+    virtual const DSMConfig* getDSMConfig() const { return dsm; }
 
     /**
      * schedule this service to run.
