@@ -26,6 +26,7 @@
 #include <linux/list.h>
 
 #include <pc104sg.h>
+#include <dsm_viper.h>
 #include <rtl_isa_irq.h>
 
 #include <irigclock.h>
@@ -55,8 +56,6 @@ MODULE_PARM(m_rate, "1-2i");
 RTLINUX_MODULE(pc104sg);
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
-
-#define ISA_IOPORT_OFFSET 0xf7000000
 
 /* Actual physical address of this card. Set in init_module */
 static unsigned int isa_address;
@@ -205,7 +204,7 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value)
     unsigned long jwait = jiffies + 1;
     while (jiffies < jwait) schedule();
     status = inb(isa_address+Extended_Status_Port);
-    rtl_printf("wait1 jwait=%d,jiffies=%d status=%x\n",jwait,jiffies,status);
+    // rtl_printf("wait1 jwait=%d,jiffies=%d status=%x\n",jwait,jiffies,status);
   } while(i++ < 10 && !(status &  Response_Ready));
 
   /* check for a time out on the response... */
@@ -463,7 +462,7 @@ void debugCallback(void* privateData) {
       major.msec, major.usec, major.nsec);
 }
 /* -- Linux ----------------------------------------------------------- */
-unsigned int pc104sg_100hz_isr (unsigned int irq, struct rtl_frame *regs)
+unsigned int pc104sg_100hz_isr (unsigned int irq, void* callbackPtr, struct rtl_frame *regs)
 {
   // rtl_printf("pc104sg_100hz_isr\n");
 
@@ -547,7 +546,7 @@ int init_module (void)
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
     /* check for module parameters */
-    isa_address = (unsigned int)ioport + ISA_IOPORT_OFFSET;
+    isa_address = (unsigned int)ioport + SYSTEM_ISA_IOPORT_BASE;
     rtl_printf("(%s) %s:\t addr = %x width = %x\n", __FILE__, __FUNCTION__,
 	isa_address, PC104SG_IOPORT_WIDTH);
 
@@ -585,18 +584,16 @@ int init_module (void)
 
     setMajorTime(&major);
 
-
     /* install a handler for the interrupt */
     rtl_printf("(%s) %s:\t rtl_request_isa_irq( %d, pc104sg_100hz_isr )\n",
 	     __FILE__, __FUNCTION__, irq);
 
-    if ( rtl_request_isa_irq(irq, pc104sg_100hz_isr ) < 0 )
-    {
-    /* failed... */
-    cleanup_module();
-    rtl_printf("(%s) %s:\t could not allocate IRQ %d\n",
-	       __FILE__, __FUNCTION__, irq);
-    return -EIO;
+    if ((err = rtl_request_isa_irq(irq, pc104sg_100hz_isr,0 )) < 0 ) {
+	/* failed... */
+	cleanup_module();
+	rtl_printf("(%s) %s:\t could not allocate IRQ %d\n",
+		   __FILE__, __FUNCTION__, irq);
+	return err;
     }
 
     /* activate the pc104sg-B board */
@@ -619,6 +616,6 @@ int init_module (void)
     for (i = 0; i < IRIG_NUM_RATES; i++)
 	INIT_LIST_HEAD(callbacklists+i);
 
-    register_irig_callback(debugCallback, IRIG_1_HZ,0);
+    // register_irig_callback(debugCallback, IRIG_1_HZ,0);
     return 0;
 }
