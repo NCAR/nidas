@@ -56,8 +56,10 @@ void SyncRecordGenerator::setAircraft(const Aircraft* aircraft)
 
 	    if (dynamic_cast<DSMSerialSensor*>(sensor))
 		serialSensors.push_back(sensor);
+#ifdef HAVE_ARINC
 	    else if (dynamic_cast<DSMArincSensor*>(sensor))
 		arincSensors.push_back(sensor);
+#endif
 	    else otherSensors.push_back(sensor);
 	}
     }

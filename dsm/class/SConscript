@@ -11,9 +11,6 @@ myenv = env.Copy()
 ##  List the source files compiled into the libDsm.a library.
 ##
 # DSMArincSensor.cc
-#  SocketAddress.cc
-#  RawSampleServiceRequestor.cc
-#  SyncRecordServiceRequestor.cc
 
 sources = Split("""
 
