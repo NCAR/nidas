@@ -3,18 +3,25 @@
 ##
 ##  Import the cross-build environment.
 ##
-Import('arm_env')
+
+Import('env')
+myenv = env.Copy()
 
 ##
-##  List the source files compiled into the libArmDsm.a library.
+##  List the source files compiled into the libDsm.a library.
 ##
+#  Climet.cc
+#  Dpres.cc
+#  Neph.cc
+#  SampleTable.cc
+#  SerialTable.cc
+#  SyncRecord.cc
+
 sources = Split("""
-  Climet.cc
-  Dpres.cc
-  Neph.cc
-  SampleTable.cc
-  SerialTable.cc
-  SyncRecord.cc
+    RTL_DevIoctl.cc
+    RTL_DevIoctlStore.cc
+    RTL_DSMSensor.cc
+    DSMSerialSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
@@ -24,4 +31,4 @@ sources = Split("""
 ##
 ##  Build the libArmDsm.a library.
 ##
-arm_env.StaticLibrary('#/lib/libArmDsm.a' , sources)
+myenv.StaticLibrary('Dsm' , sources)
