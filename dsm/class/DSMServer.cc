@@ -24,6 +24,7 @@
 
 #include <atdUtil/InvalidParameterException.h>
 #include <atdUtil/Logger.h>
+#include <atdUtil/McSocket.h>
 
 #include <unistd.h>
 
@@ -92,29 +93,32 @@ int DSMServer::main(int argc, char** argv) throw()
 
 	const list<Aircraft*>& aclist = project->getAircraft();
 
-	DSMServer* server = 0;
-
-	for (list<Aircraft*>::const_iterator ai=aclist.begin();
-	    ai != aclist.end(); ++ai) {
-	    Aircraft* aircraft = *ai;
-	    server = aircraft->findServer(hostname);
-	    if (server) break;
-	}
-
+	DSMServer* serverp = 0;
 
 	try {
-	    if (!server)
+	    for (list<Aircraft*>::const_iterator ai=aclist.begin();
+		ai != aclist.end(); ++ai) {
+		Aircraft* aircraft = *ai;
+		serverp = aircraft->findServer(hostname);
+		if (serverp) break;
+	    }
+
+	    if (!serverp)
 	    	throw atdUtil::InvalidParameterException("aircraft","server",
 			string("Can't find server entry for ") + hostname);
-	    server->startServices();
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
 	    return 1;
 	}
 
+	// make a local copy. The original is part of the Aircraft
+	// object and will be deleted when we cleanup the Project.
+	DSMServer server(*serverp);
+
 	try {
-	    server->wait();
+	    server.scheduleServices();
+	    server.wait();
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -196,19 +200,24 @@ Project* DSMServer::parseXMLConfigFile()
     return project;
 }
                                                                                 
+DSMServer::DSMServer()
+{
+}
+
+DSMServer::~DSMServer()
+{
+    // delete any services that haven't been added to a listener
+    list<DSMService*>::const_iterator si;
+    for (si=services.begin(); si != services.end(); ++si) {
+	DSMService* svc = *si;
+	delete svc;
+    }
+}
 void DSMServer::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
-#ifdef XML_DEBUG
-    cerr << "DSMServer::fromDOMElement start -------------" << endl;
-#endif
     XDOMElement xnode(node);
 
-#ifdef XML_DEBUG
-    cerr << "DSMServer::fromDOMElement element name=" <<
-    	xnode.getNodeName() << endl;
-#endif
-	
     if(node->hasAttributes()) {
     // get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
@@ -219,9 +228,6 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
 	    if (!aname.compare("name")) setName(aval);
-#ifdef XML_DEBUG
-	    cerr << "attrname=" << aname << " val=" << aval << endl;
-#endif
 	}
     }
     DOMNode* child;
@@ -231,9 +237,6 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
-#ifdef XML_DEBUG
-	cerr << "element name=" << elname << endl;
-#endif
 	if (!elname.compare("service")) {
 	    const string& classattr = xchild.getAttributeValue("class");
 	    if (classattr.length() == 0) 
@@ -252,8 +255,9 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	    }
 	    if (!service)
 		throw atdUtil::InvalidParameterException("service",
-		    classattr,"is no of type DSMService");
+		    classattr,"is not of type DSMService");
 	    service->fromDOMElement((DOMElement*)child);
+	    service->setServer(this);
 	    addService(service);
 	}
     }
@@ -277,63 +281,76 @@ DOMElement* DSMServer::toDOMElement(DOMElement* node)
     return node;
 }
 
-void DSMServer::startServices() throw(atdUtil::Exception)
+void DSMServer::addThread(atdUtil::Thread* thrd)
+{
+    threads_lock.lock();
+    threads.push_back(thrd);
+    threads_lock.unlock();
+}
+
+void DSMServer::scheduleServices() throw(atdUtil::Exception)
 {
 
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	atdUtil::ServiceListener* listener = svc->getServiceListener();
-	serviceListeners.insert(listener);
+	svc->schedule();
     }
 }
 
-struct restartInfo {
-    dsm_sys_time_t lastRestart;
-    float rate;	// restarts per millisecond
-    int nrestarts;
-};
+void DSMServer::interrupt() throw(atdUtil::Exception)
+{
+    threads_lock.lock();
+    list<atdUtil::Thread*> tmp = threads;
+    threads_lock.unlock();
+
+    list<atdUtil::Thread*>::iterator ti;
+    for (ti = tmp.begin(); ti != tmp.end(); ++ti ) {
+	atdUtil::Thread* thrd = *ti;
+        thrd->interrupt();
+    }
+}
 
 void DSMServer::cancel() throw(atdUtil::Exception)
 {
-    set<atdUtil::ServiceListener*>::iterator si;
-    for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
-	atdUtil::ServiceListener* serv = *si;
-	cerr << "Cancelling serviceListener" << endl;
-	serv->cancel();
+    threads_lock.lock();
+    list<atdUtil::Thread*> tmp = threads;
+    threads_lock.unlock();
+
+    list<atdUtil::Thread*>::iterator ti;
+    for (ti = tmp.begin(); ti != tmp.end(); ++ti ) {
+	atdUtil::Thread* thrd = *ti;
+	if (thrd->isRunning()) thrd->cancel();
     }
 }
 
 void DSMServer::join() throw(atdUtil::Exception)
 {
-    set<atdUtil::ServiceListener*>::iterator si;
-    for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
-	atdUtil::ServiceListener* serv = *si;
-	cerr << "joining serviceListener" << endl;
-	serv->join();
-	cerr << "serviceListener joined" << endl;
+
+    threads_lock.lock();
+
+    list<atdUtil::Thread*>::iterator ti;
+    for (ti = threads.begin(); ti != threads.end();) {
+	atdUtil::Thread* thrd = *ti;
+	try {
+	    thrd->join();
+	}
+	catch(const atdUtil::Exception& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,
+		    "thread %s has quit, exception=%s",
+	    thrd->getName().c_str(),e.what());
+	}
+	delete thrd;
+	ti = threads.erase(ti);
     }
+    threads_lock.unlock();
+
 }
+
 void DSMServer::wait() throw(atdUtil::Exception)
 {
-    map<atdUtil::ServiceListener*,struct restartInfo> restarts;
 
-    dsm_sys_time_t tnow = getCurrentTimeInMillis();
-    set<atdUtil::ServiceListener*>::iterator si;
-    for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
-	atdUtil::ServiceListener* serv = *si;
-	struct restartInfo rsi;
-	rsi.lastRestart = tnow;
-	rsi.nrestarts = 1;
-        restarts[serv] = rsi;
-    }
-
-    float maxRestartRate = .001;	// restarts per millisecond
-
-    // ServiceListeners are supposed to send a SIGUSR1 signal when
-    // they have finished running. That will cause a
-    // EINTR return from nanosleep.  If they don't
-    // we'll wake up every so often and check our threads.
+    // We wake up every so often and check our threads.
     // An INTR,HUP or TERM signal to this process will
     // also cause nanosleep to return. sigAction sets quit or
     // restart, and then we break, and cancel our threads.
@@ -341,67 +358,52 @@ void DSMServer::wait() throw(atdUtil::Exception)
     sleepTime.tv_sec = 10;
     sleepTime.tv_nsec = 0;
 
-    while (serviceListeners.size() > 0) {
-	// cerr << "DSMServer::wait serviceListeners.size=" <<
-	// 	serviceListeners.size() << endl;
+    for (;;) {
+
+	int nthreads = atdUtil::McSocketListener::check() +
+		threads.size();
+	
+	cerr << "DSMServer::wait nthreads=" << nthreads << endl;
+
 	if (quit || restart) break;
-        // pause();
+
 	// cerr << "DSMServer::wait nanosleep" << endl;
         nanosleep(&sleepTime,0);
 
 	if (quit || restart) break;
                                                                                 
-        set<atdUtil::ServiceListener*>::iterator si;
-        for (si = serviceListeners.begin(); si != serviceListeners.end(); ++si) {
-            atdUtil::ServiceListener* serv = *si;
-	    // cerr << "DSMServer::wait checking ServiceListener serv=" <<
-	    // 	(void*)serv << endl;
-            if (!serv->isRunning()) {
-		cerr << "DSMServer::wait ServiceListener not running" << endl;
+	threads_lock.lock();
+
+	list<atdUtil::Thread*>::iterator ti;
+	for (ti = threads.begin(); ti != threads.end();) {
+	    atdUtil::Thread* thrd = *ti;
+	    if (!thrd->isRunning()) {
+		cerr << "DSMServer::wait " << thrd->getName() << " not running" << endl;
 		try {
-		    serv->join();
+		    thrd->join();
 		}
 		catch(const atdUtil::Exception& e) {
-		    atdUtil::Logger::getInstance()->log(LOG_ERR,"service %s has quit, exception=%s",
-			serv->getName().c_str(),e.what());
+		    atdUtil::Logger::getInstance()->log(LOG_ERR,
+			    "thread %s has quit, exception=%s",
+		    thrd->getName().c_str(),e.what());
 		}
+		delete thrd;
+		ti = threads.erase(ti);
+	    }
+	    else ++ti;
+	}
 
-#ifdef IMPLEMENT_RESTART
-		if (serv->needsRestart()) {
-		    tnow = getCurrentTimeInMillis();
-		    struct restartInfo rsi = restarts[serv];
-		    int dt = tnow - rsi.lastRestart;
-
-		    // do a approximated mean of last 10 restarts
-		    int nr = rsi.nrestarts++;
-		    if (nr > 10) nr = 10;
-		    rsi.rate = ((nr - 1) * rsi.rate  + 1./dt) / nr;
-
-		    if (nr == 10 && rsi.rate > maxRestartRate) {
-			atdUtil::Logger::getInstance()->log(LOG_ERR,"service %s has been started %d times at a rate of %f starts/sec. Somethings wrong. Deleting service",
-			    serv->getName().c_str(),rsi.nrestarts,rsi.rate*1000.);
-			serviceListeners.erase(si);	// iterator is invalid
-			break;
-		    }
-		    else {
-			atdUtil::Logger::getInstance()->log(LOG_WARNING,"restarting service %s",
-			    serv->getName().c_str());
-			serv->start();
-		    }
-		}
-		else {
-		    serviceListeners.erase(si);	// iterator is invalid
-		    break;
-		}
-#else
-		serviceListeners.erase(si);	// iterator is invalid
-		break;
-#endif
-            }
-        }
+	threads_lock.unlock();
     }
     cerr << "Break out of wait loop" << endl;
-    cancel();
+    interrupt();
+
+    // wait 2 seconds, then cancel whatever is still running
+    sleepTime.tv_sec = 2;
+    sleepTime.tv_nsec = 0;
+    nanosleep(&sleepTime,0);
+
+    cancel();	
     join();
 }
 

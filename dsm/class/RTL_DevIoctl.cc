@@ -159,7 +159,7 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 	if (inlen < len) len = inlen;
 	if ((lread = read(infifofd,buf,len)) < 0)
 	    throw atdUtil::IOException(inputFifoName,"read",errno);
-	if (lread != len)
+	if (lread != (ssize_t)len)
 	    throw atdUtil::IOException(inputFifoName,
 	    "ioctl read buf","wrong len read");
 

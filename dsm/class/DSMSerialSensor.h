@@ -133,6 +133,8 @@ public:
      */
     int getNumScanfPartials() const { return scanfPartials; }
 
+    unsigned long getSampleId() const { return sampleId; }
+
     /**
      * Process a raw sample, which in this case means do
      * a sscanf on the character string contents, creating
@@ -153,6 +155,8 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+
+    unsigned long sampleId;
 
     static std::string replaceEscapeSequences(std::string str);
 

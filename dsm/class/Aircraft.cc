@@ -29,9 +29,13 @@ Aircraft::Aircraft()
 
 Aircraft::~Aircraft()
 {
-    cerr << "deleting dsms" << endl;
+    cerr << "deleting DSMConfigs" << endl;
     for (std::list<DSMConfig*>::iterator it = dsms.begin();
     	it != dsms.end(); ++it) delete *it;
+
+    cerr << "deleting DSMServers" << endl;
+    for (std::list<DSMServer*>::iterator is = servers.begin();
+    	is != servers.end(); ++is) delete *is;
 }
 
 void Aircraft::fromDOMElement(const DOMElement* node)
@@ -69,11 +73,13 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 	if (!elname.compare("dsm")) {
 	    DSMConfig* dsm = new DSMConfig();
 	    dsm->fromDOMElement((DOMElement*)child);
+	    dsm->setAircraft(this);
 	    addDSMConfig(dsm);
 	}
 	else if (!elname.compare("server")) {
 	    DSMServer* server = new DSMServer();
 	    server->fromDOMElement((DOMElement*)child);
+	    server->setAircraft(this);
 	    addServer(server);
 	}
     }
@@ -123,4 +129,19 @@ DSMServer* Aircraft::findServer(const string& hostname) const
 	}
     }
     return server;
+}
+
+const DSMConfig* Aircraft::findDSM(const atdUtil::Inet4Address& addr) const
+{
+    for (list<DSMConfig*>::const_iterator di=dsms.begin();
+	di != dsms.end(); ++di) {
+	DSMConfig* dsm = *di;
+	std::list<atdUtil::Inet4Address> addrs =
+		atdUtil::Inet4Address::getAllByName(dsm->getName());
+	for (list<atdUtil::Inet4Address>::const_iterator ai=addrs.begin();
+	    ai != addrs.end(); ++ai) {
+	    if (*ai == addr) return dsm;
+	}
+    }
+    return 0;
 }

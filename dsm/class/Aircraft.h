@@ -56,6 +56,8 @@ public:
      */
     DSMServer* findServer(const std::string& hostname) const;
 
+    const DSMConfig* findDSM(const atdUtil::Inet4Address& addr) const;
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
 
@@ -78,6 +80,7 @@ protected:
     std::string name;
 
     std::list<DSMConfig*> dsms;
+
     std::list<DSMServer*> servers;
 };
 

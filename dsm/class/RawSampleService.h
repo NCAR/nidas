@@ -18,24 +18,33 @@
 #define DSM_RAWSAMPLESERVICE_H
 
 #include <DSMService.h>
-#include <Datagrams.h>
+#include <RawSampleInputStream.h>
 
 namespace dsm {
 
+/**
+ * A RawSampleService reads raw Samples from a socket connection
+ * and sends the samples to one or more SampleClients.
+ */
 class RawSampleService: public DSMService
 {
 public:
     RawSampleService();
 
+    /**
+     * Copy constructor.
+     */
+    RawSampleService(const RawSampleService&);
+
+    // DSMService* clone(const DSMConfig* dsm);
+
+    ~RawSampleService();
+
     int run() throw(atdUtil::Exception);
 
-    /**
-     * Make a clone of myself. The ServiceListener will make
-     * a clone of this service when it gets a request on a port.
-     */
-    atdUtil::ServiceListenerClient* clone();
+    void offer(atdUtil::Socket* sock,int pseudoPort) throw(atdUtil::Exception);
 
-    int getType() const { return RAW_SAMPLE; }
+    void schedule() throw(atdUtil::Exception);
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -49,7 +58,9 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+    RawSampleInputStream* input;
 
+    std::list<SampleOutput*> outputs;
 };
 
 }

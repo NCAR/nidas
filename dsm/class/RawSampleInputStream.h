@@ -10,26 +10,32 @@
 
     $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
  ********************************************************************
+
 */
 
-#ifndef DSM_SYNCRECORDSERVICEREQUESTOR_H
-#define DSM_SYNCRECORDSERVICEREQUESTOR_H
 
-#include <atdUtil/McastServiceRequestor.h>
+#ifndef DSM_RAWSAMPLEINPUTSTREAM_H
+#define DSM_RAWSAMPLEINPUTSTREAM_H
 
+#include <SampleInput.h>
 #include <Datagrams.h>
 
 namespace dsm {
 
-/**
- * Thread whose run method patiently multicasts ConfigDatagrams
- * until it is canceled.
- */
-class SyncRecordServiceRequestor: public atdUtil::McastServiceRequestor
+class RawSampleInputStream: public SampleInputStream
 {
 public:
-    SyncRecordServiceRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException);
+    RawSampleInputStream();
+    ~RawSampleInputStream();
 
+    SampleInput* clone() { return new RawSampleInputStream(*this); }
+
+    int getPseudoPort() const { return RAW_SAMPLE; }
+
+    bool isSingleton() const { return false; }
+
+
+protected:
 };
 
 }

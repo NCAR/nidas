@@ -18,30 +18,36 @@
 #define DSM_XMLCONFIGSERVICE_H
 
 #include <DSMService.h>
-#include <Datagrams.h>
 
 namespace dsm {
 
-
-class XMLConfigService: public DSMService 
+class XMLConfigService: public DSMService
 {
 public:
     XMLConfigService();
 
+    /**
+     * Copy constructor.
+     */
+    XMLConfigService(const XMLConfigService&);
+
+    ~XMLConfigService();
+
     int run() throw(atdUtil::Exception);
 
-    /**
-     * Make a clone of myself. The ServiceListener will make
-     * a clone of this service when it gets a request on a port.
-     */
-    atdUtil::ServiceListenerClient* clone();
+    void offer(atdUtil::Socket* sock,int pseudoPort) throw(atdUtil::Exception);
 
-    int getType() const { return XML_CONFIG; }
+    void schedule() throw(atdUtil::Exception);
+
+/*
+    int getPseudoPort() const
+    {
+        return XML_CONFIG;
+	return output->getPseudoPort();
+    }
+*/
 
     void fromDOMElement(const xercesc::DOMElement* node)
-	throw(atdUtil::InvalidParameterException);
-
-    void fromDOMElementOutput(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
 
     xercesc::DOMElement*
@@ -53,6 +59,7 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+    Output* output;
 };
 
 }

@@ -22,7 +22,8 @@ using namespace dsm;
 RemoteSerialConnection::~RemoteSerialConnection()
 {
     if (sensor) sensor->removeSampleClient(this);
-    socket.close();
+    socket->close();
+    delete socket;
 }
 
 /**
@@ -32,7 +33,7 @@ bool RemoteSerialConnection::receive(const Sample* s)
 	    throw(SampleParseException,atdUtil::IOException)
 {
     try {
-	socket.send(s->getConstVoidDataPtr(), s->getDataLength());
+	socket->send(s->getConstVoidDataPtr(), s->getDataLength());
     }
     catch (const atdUtil::IOException& e)
     {
@@ -48,7 +49,7 @@ bool RemoteSerialConnection::receive(const Sample* s)
 void RemoteSerialConnection::read() throw(atdUtil::IOException) 
 {
     char buffer[512];
-    ssize_t i = socket.recv(buffer,sizeof(buffer));
+    ssize_t i = socket->recv(buffer,sizeof(buffer));
     if (i == 0) throw atdUtil::EOFException("rserial socket","read");
 
     // don't handle situation of writing less than i bytes

@@ -13,25 +13,23 @@
 
 */
 
+#include <RawSampleInputStream.h>
 
-#ifndef DSM_RAWSAMPLEOUTPUT_H
-#define DSM_RAWSAMPLEOUTPUT_H
+#include <atdUtil/Logger.h>
 
-#include <SampleOutputStream.h>
+#include <iostream>
 
-namespace dsm {
+using namespace dsm;
+using namespace std;
+using namespace xercesc;
 
-class RawSampleOutput: public SampleOutputStream
+CREATOR_ENTRY_POINT(RawSampleInputStream)
+
+RawSampleInputStream::RawSampleInputStream()
 {
-public:
-    RawSampleOutput();
-    ~RawSampleOutput();
-
-    void connect() throw(atdUtil::IOException);
-
-protected:
-};
-
 }
 
-#endif
+RawSampleInputStream::~RawSampleInputStream()
+{
+}
+

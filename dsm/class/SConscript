@@ -10,60 +10,68 @@ myenv = env.Copy()
 ##
 ##  List the source files compiled into the libDsm.a library.
 ##
-#  Climet.cc
-#  Dpres.cc
-#  Neph.cc
-#  SampleTable.cc
-#  SerialTable.cc
-#  SyncRecord.cc
+# DSMArincSensor.cc
+#  SocketAddress.cc
+#  RawSampleServiceRequestor.cc
+#  SyncRecordServiceRequestor.cc
 
 sources = Split("""
+
+  Project.cc
+  Aircraft.cc
+  DSMConfig.cc
+  SensorCatalog.cc
+
   DSMEngine.cc
+  DSMServer.cc
+
   DSMSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
+
   DSMSerialSensor.cc
+  AsciiScanner.cc
+  IRIGSensor.cc
+
   Sample.cc
+  Variable.cc
+  SampleTag.cc
+
   SampleClientList.cc
   SampleSourceImpl.cc
+
   PortSelector.cc
-  PortSelectorTest.cc
   RemoteSerialConnection.cc
   RemoteSerialListener.cc
-  TestSampleClient.cc
-  AsciiScanner.cc
+
   DOMObjectFactory.cc
   DynamicLoader.cc
   DOMable.cc
-  DSMConfig.cc
-  Aircraft.cc
-  Project.cc
-  SensorCatalog.cc
+
   XMLParser.cc
   XMLConfigWriter.cc
   XMLFdFormatTarget.cc
-  XMLConfigService.cc
-  ConfigRequestor.cc
-  IRIGSensor.cc
-  DSMServer.cc
-  OutputStream.cc
-  InputStream.cc
-  SampleInputStream.cc
-  SampleOutputStream.cc
+
   DSMService.cc
+  XMLConfigService.cc
   RawSampleService.cc
-  SyncRecordService.cc
-  SocketAddress.cc
-  DSMInputFileSet.cc
-  DSMOutputFileSet.cc
-  SampleSorter.cc
-  RawSampleOutput.cc
-  RawSampleServiceRequestor.cc
-  SyncRecordServiceRequestor.cc
+
+  InputStream.cc
+  OutputStream.cc
+  McSocketAccepterInput.cc
+  McSocketRequesterInput.cc
+  McSocketAccepterOutput.cc
+  McSocketRequesterOutput.cc
+
+  SampleInput.cc
+  SampleOutput.cc
+  RawSampleOutputStream.cc
+  RawSampleInputStream.cc
   SyncRecordOutput.cc
-  Variable.cc
-  SampleTag.cc
+
+  SampleSorter.cc
+
 """)
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'

@@ -10,21 +10,26 @@
 
     $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
  ********************************************************************
+
 */
 
-#include <SyncRecordServiceRequestor.h>
+#include <RawSampleOutputStream.h>
+
+#include <atdUtil/Logger.h>
 
 #include <iostream>
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
-SyncRecordServiceRequestor::SyncRecordServiceRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException) :
-    atdUtil::McastServiceRequestor(listenPort,SYNC_RECORD)
+CREATOR_ENTRY_POINT(RawSampleOutputStream)
+
+RawSampleOutputStream::RawSampleOutputStream()
 {
-    atdUtil::Inet4SocketAddress to(
-	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
-	    DSM_MULTICAST_PORT);
-    setSocketAddress(to);
 }
- 
+
+RawSampleOutputStream::~RawSampleOutputStream()
+{
+}
+

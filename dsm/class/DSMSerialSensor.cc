@@ -258,6 +258,9 @@ void DSMSerialSensor::fromDOMElement(
 		    ost.str() + " samples/sec");
 	}
     }
+    if (sampleTags.size() == 1) sampleId = sampleTags.front()->getId();
+    else sampleId = 0;
+    cerr << getName() << " sampleId=" << hex << sampleId << dec << endl;
 }
 
 DOMElement* DSMSerialSensor::toDOMParent(
@@ -384,7 +387,7 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
     else if (nparsed != nfields) scanfPartials++;
 
     outs->setTimeTag(samp->getTimeTag());
-    outs->setId(samp->getId());
+    outs->setId(getSampleId());
     outs->setDataLength(nparsed);
     results.push_back(outs);
     return true;

@@ -14,28 +14,26 @@
 */
 
 
-#ifndef DSM_SYNCRECORDOUTPUT_H
-#define DSM_SYNCRECORDOUTPUT_H
+#ifndef DSM_RAWSAMPLEOUTPUTSTREAM_H
+#define DSM_RAWSAMPLEOUTPUTSTREAM_H
 
 #include <SampleOutput.h>
 #include <Datagrams.h>
 
 namespace dsm {
 
-class SyncRecordOutput: public SampleOutputStream
+class RawSampleOutputStream: public SampleOutputStream
 {
 public:
-    SyncRecordOutput();
-    ~SyncRecordOutput();
+    RawSampleOutputStream();
+    ~RawSampleOutputStream();
 
-    SampleOutput* clone() { return new SyncRecordOutput(*this); }
+    SampleOutput* clone() { return new RawSampleOutputStream(*this); }
 
-    int getPseudoPort() const { return SYNC_RECORD; }
+    int getPseudoPort() const { return RAW_SAMPLE; }
 
-    bool isSingleton() const { return true; }
+    bool isSingleton() const { return false; }
 
-    bool receive(const Sample *s)
-	throw(SampleParseException, atdUtil::IOException);
 
 protected:
 };

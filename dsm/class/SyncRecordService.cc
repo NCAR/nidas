@@ -40,8 +40,18 @@ int SyncRecordService::run() throw(atdUtil::Exception)
     inputStreams.front()->setSocket(socket);
 
     for (;;) {
+	if (isInterrupted()) break;
         inputStreams.front()->readSamples();
     }
+    cerr << "SyncRecordService " << getName() << " run interrupted" << endl;
+
+    for (std::list<SampleOutputStream*>::iterator oi = outputStreams.begin();
+    	oi != outputStreams.end(); ++oi) {
+	inputStreams.front()->removeSampleClient(*oi);
+	(*oi)->flush();
+	(*oi)->close();
+    }
+    inputStreams.front()->close();
     return 0;
 }
 

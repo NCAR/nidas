@@ -15,14 +15,14 @@
 */
 
 #include <XMLConfigService.h>
-#include <XMLParser.h>
+#include <Aircraft.h>
+// #include <DSMServer.h>
 
-#include <DSMServer.h>
-#include <SocketAddress.h>
-#include <XMLConfigWriter.h>
-#include <XMLFdFormatTarget.h>
 #include <Datagrams.h>
 
+#include <XMLParser.h>
+#include <XMLConfigWriter.h>
+#include <XMLFdFormatTarget.h>
 
 #include <iostream>
 
@@ -32,37 +32,67 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(XMLConfigService)
 
-XMLConfigService::XMLConfigService():DSMService("XMLConfigService")
+XMLConfigService::XMLConfigService():
+	DSMService("XMLConfigService"),output(0)
 {
 }
 
-atdUtil::ServiceListenerClient* XMLConfigService::clone()
+XMLConfigService::~XMLConfigService()
 {
-    return new XMLConfigService(*this);
+    delete output;
+}
+/*
+ * Copy constructor.
+ */
+XMLConfigService::XMLConfigService(const XMLConfigService& x):
+        DSMService((const DSMService&)x),output(0)
+{
+    if (x.output) output = x.output->clone();
+}
+
+void XMLConfigService::schedule() throw(atdUtil::Exception)
+{
+    output->requestConnection(this,XML_CONFIG);
+}
+
+void XMLConfigService::offer(atdUtil::Socket* sock,int pseudoPort)
+	throw(atdUtil::Exception)
+{
+    assert(pseudoPort == XML_CONFIG);
+    // Figure out what DSM it came from
+    atdUtil::Inet4Address remoteAddr = sock->getInet4Address();
+    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+    if (!dsm)
+	throw atdUtil::Exception(string("can't find DSM for address ") +
+	    remoteAddr.getHostAddress());
+
+    // make a copy of myself, assign it to a specific dsm
+    XMLConfigService* newserv = new XMLConfigService();
+    newserv->setDSMConfig(dsm);
+    newserv->output->offer(sock);    // pass socket to new input
+    newserv->start();
+    getServer()->addThread(newserv);
 }
 
 int XMLConfigService::run() throw(atdUtil::Exception)
 {
-
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
     xercesc::DOMDocument* doc = parser->parse(DSMServer::getXMLFileName());
 
-    XMLFdFormatTarget formatter(
-    	socket.getInet4SocketAddress().toString(),socket.getFd());
+    XMLFdFormatTarget formatter(output->getName(),output->getFd());
 
-    XMLConfigWriter writer(
-    	socket.getInet4SocketAddress().getInet4Address());
-
+    XMLConfigWriter writer(getDSMConfig());
     writer.writeNode(&formatter,*doc);
 
-    socket.close();
+    output->close();
     return RUN_OK;
 }
 
 void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
+    int noutputs = 0;
     XDOMElement xnode(node);
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -72,29 +102,23 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
         XDOMElement xchild((DOMElement*) child);
         const string& elname = xchild.getNodeName();
 
-	if (!elname.compare("output"))
-	    fromDOMElementOutput((DOMElement*) child);
-    }
-}
+        if (!elname.compare("output")) {
+	    DOMNode* gkid;
+	    for (gkid = child->getFirstChild(); gkid != 0;
+		    gkid=gkid->getNextSibling())
+	    {
+		if (gkid->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+		output = Output::fromOutputDOMElement((xercesc::DOMElement*)gkid);
+		if (++noutputs > 1)
+		    throw atdUtil::InvalidParameterException(
+			"XMLConfigService::fromDOMElement",
+			"output", "one and only one output allowed");
+	    }
 
-void XMLConfigService::fromDOMElementOutput(const xercesc::DOMElement* node)
-	throw(atdUtil::InvalidParameterException)
-{
-    XDOMElement xnode(node);
-    DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-
-	if (!elname.compare("socket")) {
-	    SocketAddress saddr;
-	    saddr.fromDOMElement((DOMElement*)child);
-	    cerr << "XMLConfigService saddr=" << saddr.toString() << endl;
-	    setListenSocketAddress(saddr);
-	}
+        }
+        else throw atdUtil::InvalidParameterException(
+                "XMLConfigService::fromDOMElement",
+                elname, "unsupported element");
     }
 }
 
