@@ -27,8 +27,7 @@ class PortSelectorTest : public dsm::PortSelector {
 public:
     static PortSelectorTest* getInstance();
     static PortSelectorTest* createInstance();
-    static void PortSelectorTest::sigAction(int sig,
-    	siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig,siginfo_t* siginfo, void* vptr);
     ~PortSelectorTest();
 private:
     PortSelectorTest();

@@ -60,8 +60,8 @@ public:
      * return a pointer to the extern "C" function.
      * 
      */
-    static DOMable* DOMObjectFactory::createObject(
-    	const std::string& classname) throw(atdUtil::Exception);
+    static DOMable* createObject(const std::string& classname)
+    	throw(atdUtil::Exception);
 
 protected:
     typedef DOMable* dom_object_ctor_t();
