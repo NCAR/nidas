@@ -1539,10 +1539,14 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     unsigned long flags;
+
+#ifdef DO_SEM_TIMEDWAIT
     struct timespec tspec;
+#endif
     ssize_t retval = 0;
     ssize_t lout;
 
+#ifdef DO_SEM_TIMEDWAIT
     /*
      * May want to make this timeout settable from user space
      * with an ioctl.  Or one could set it equal to the
@@ -1552,6 +1556,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 
     clock_gettime(CLOCK_REALTIME,&tspec);
     tspec.tv_sec += 1;
+#endif
 
     while (count > 0) {
         
@@ -1575,14 +1580,33 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	else {
 	    struct dsm_sample* samp = 0;
 
-	    sem_timedwait(&port->sample_sem,&tspec);
-	    
-	    /* we don't need to check if this timed out */
-
+#ifdef DO_SEM_TIMEDWAIT
 	    /* Note that we don't increment the absolute 
 	     * time of the timeout (tspec) again. It is an
 	     * absolute cut-off time for this read.
 	     */
+	    if (sem_timedwait(&port->sample_sem,&tspec) < 0)
+#else
+	    if (sem_wait(&port->sample_sem) < 0)
+#endif
+	    {
+		if (errno == RTL_EINTR) {
+			rtl_printf("dsm_ser_read sem_wait interrupt\n");
+			return -errno;
+		}
+#ifdef DO_SEM_TIMEDWAIT
+	        else if (errno == RTL_ETIMEDOUT) {
+			/* if timeout just return 0 length read */
+			rtl_printf("dsm_ser_read sem timeout\n");
+		}
+#endif
+		else {
+		    rtl_printf("dsm_ser_read sem_wait unk error: %d\n",
+			errno);
+		    return -errno;
+		}
+	    }
+	    
 
 	    /*
 	     * We're checking the equality of sample_queue.head and
