@@ -2,38 +2,32 @@
 /*
 FilterTranslate.c
 
-This translates Systolix AD7725 Filter configuration (.cfg) files into an array
+This translates Systolix AD7725 Filter configuration files into an array
 of unsigned shorts to be sent to the a2d_driver.
 
 The first short is the number of short data values following.
-The last short is the checksum (it is rumored.
-
-Usage:
-
-ftrans <Systolix .cfg filename> <output filename>
-
-Note:  The DSM code expects the filename "filtercoeff.bin" to reside in /tmp
 
 Original author:	Grant Gray
 
-Copyright National Center for Atmospheric Research
+Copyright 2004: National Center for Atmospheric Research
 
 */
 
-#include <stdio.h>
-#include <stdlib.h>
+#define FILTBLOCK	12
+#define FILTBLLEN	43
 
-int main(int argc, char **argv)
+#include <stdio.h>
+
+main(int argc, char **argv)
 {
 	FILE *fpin, *fpout;
 	char inny[10];
-	unsigned short outy[2048], *pouty, csum = 0;
-	int i = 0;
+	unsigned short outy[2048], *pouty;
+	int i = 0, j, k;
 
 	if(argc != 3)
 	{
-		printf("Usage:\n");
-		printf("ftrans <Systolix .cfg filename> <output filename>\n");
+		printf("Invalid argument count\n");
 		exit(-1);
 	}
 
@@ -52,24 +46,44 @@ int main(int argc, char **argv)
 	printf("Starting into the file\n");
 	pouty = outy;
 	pouty++;		//Reserve one for the count
+	i++;
 
-	while(!feof(fpin))
+	fgets(inny, 10, fpin);		// Convert an ascii hex number
+	sscanf(inny, "%04x\n", pouty);
+	pouty++;			// Place converted number in out buffer
+	i++;				// Increment the counter
+
+	// Do the above for the 12 data blocks of 42 16 bit workds each + CRC(16)
+	for(j = 0; j < FILTBLOCK; j++)
 	{
+		for(k = 0; k < FILTBLLEN; k++)
+		{
 		fgets(inny, 10, fpin);
 		sscanf(inny, "%04x\n", pouty);
-#ifdef DEBUG
-		printf("I %04d, A 0x%08x, D 0x%04x\n", i, pouty, *pouty);
-#endif	
-		csum += *pouty;
 		pouty++;
 		i++;
+		}
 	}
 	outy[0] = i-1;	
 	fwrite(outy, 2, i, fpout);
 
 	fclose(fpin);
 	fclose(fpout);	
-	printf("Wrote %d bytes, Checksum = 0x%04X, last value = 0x%04X\n",
-		i*2, csum, pouty[i-2]);
+
+	printf("Wrote %d bytes, last value = 0x%04X\n",
+		i*2, pouty[i-2]);
+
+	for(j = 0; j < 1 + (FILTBLOCK*FILTBLLEN + 2)/8; j++)
+	{
+		printf("%04X:", j*16); // Print byte address offset
+		for(k = 0; k < 8; k++)
+		{
+			printf(" %04x", outy[j*8+k]);
+		}
+
+		printf("\n");
+	}
+	printf("\n");
 }
+
 
