@@ -31,11 +31,11 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-xercesc::DOMImplementation* XMLImplementation::impl = 0;
+DOMImplementation* XMLImplementation::impl = 0;
 atdUtil::Mutex XMLImplementation::lock;
 
 /* static */
-xercesc::DOMImplementation*
+DOMImplementation*
 XMLImplementation::getImplementation() throw(atdUtil::Exception)
 {
     if (!impl) {
@@ -70,7 +70,7 @@ void XMLImplementation::terminate()
 }
     
 
-XMLParser::XMLParser() throw (xercesc::DOMException,
+XMLParser::XMLParser() throw (DOMException,
 	atdUtil::Exception)
 {
 
@@ -148,7 +148,7 @@ DOMDocument* XMLParser::parse(const string& xmlFile)
 	the document object is not yet parsed when this method returns. 
      */
     // throws XMLException, DOMException, SAXException
-    xercesc::DOMDocument* doc = parser->parseURI(
+    DOMDocument* doc = parser->parseURI(
     	(const XMLCh*)XMLStringConverter(xmlFile.c_str()));
     return doc;
 }
@@ -162,7 +162,7 @@ DOMDocument* XMLParser::parse(xercesc::InputSource& source)
 
     // throws XMLException, DOMException, SAXException
     xercesc::Wrapper4InputSource wrapper(&source,false);
-    xercesc::DOMDocument* doc = parser->parse(wrapper);
+    DOMDocument* doc = parser->parse(wrapper);
     // throws SAXException, XMLException, DOMException
     return doc;
 }
@@ -211,7 +211,7 @@ atdUtil::Mutex XMLCachingParser::instanceLock;
 
 /* static */
 XMLCachingParser* XMLCachingParser::getInstance()
-    throw(xercesc::DOMException,atdUtil::Exception)
+    throw(DOMException,atdUtil::Exception)
 {
     if (!instance) {
         atdUtil::Synchronized autosync(instanceLock);
@@ -230,7 +230,7 @@ void XMLCachingParser::destroyInstance()
     }
 }
 
-XMLCachingParser::XMLCachingParser() throw(xercesc::DOMException,atdUtil::Exception):
+XMLCachingParser::XMLCachingParser() throw(DOMException,atdUtil::Exception):
 	XMLParser()
 {
 }
@@ -238,9 +238,9 @@ XMLCachingParser::XMLCachingParser() throw(xercesc::DOMException,atdUtil::Except
 XMLCachingParser::~XMLCachingParser()
 {
     atdUtil::Synchronized autosync(cacheLock);
-    std::map<std::string,xercesc::DOMDocument*>::const_iterator di;
+    std::map<std::string,DOMDocument*>::const_iterator di;
     for (di = docCache.begin(); di != docCache.end(); ++di) {
-	xercesc::DOMDocument* doc = di->second;
+	DOMDocument* doc = di->second;
 	cerr << "releasing doc" << endl;
 	doc->release();
     }

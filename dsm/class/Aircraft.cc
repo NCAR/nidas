@@ -83,7 +83,8 @@ void Aircraft::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* Aircraft::toDOMParent(DOMElement* parent) throw(DOMException) {
+DOMElement* Aircraft::toDOMParent(DOMElement* parent)
+	throw(DOMException) {
     DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("aircraft"),
@@ -91,7 +92,8 @@ DOMElement* Aircraft::toDOMParent(DOMElement* parent) throw(DOMException) {
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
-DOMElement* Aircraft::toDOMElement(DOMElement* node) throw(DOMException) {
+DOMElement* Aircraft::toDOMElement(DOMElement* node)
+	throw(DOMException) {
     return node;
 }
 

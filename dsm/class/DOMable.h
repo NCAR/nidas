@@ -19,6 +19,7 @@
 
 #include <atdUtil/InvalidParameterException.h>
 
+#include <DOMObjectFactory.h>
 #include <XDOM.h>
 #include <XMLStringConverter.h>
 

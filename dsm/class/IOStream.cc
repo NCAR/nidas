@@ -16,7 +16,7 @@
 #include <IOStream.h>
 #include <DSMTime.h>
 
-// #include <iostream>
+#include <iostream>
 
 using namespace dsm;
 using namespace std;
@@ -173,6 +173,7 @@ void IOStream::flush() throw (atdUtil::IOException)
     /* number of bytes in buffer */
     size_t wlen = head - tail;
 
+    if (wlen == 0) return;
     try {
 	l = iochannel.write(tail,wlen);
     }
