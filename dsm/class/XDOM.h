@@ -39,7 +39,7 @@ public:
     }
 
     const std::string& getAttributeValue(const std::string& aname) {
-	std::map<std::string,std::string>::iterator ai = attrs.find(aname);
+	std::map<std::string,std::string>::const_iterator ai = attrs.find(aname);
 	if (ai == attrs.end()) {
 	    XMLStringConverter cname(aname.c_str());
 	    XMLStringConverter aval(elem->getAttribute((const XMLCh*)cname));
@@ -51,7 +51,7 @@ public:
 	}
 	return ai->second;
     }
-    const std::string& getNodeName() { return nodename; }
+    const std::string& getNodeName() const { return nodename; }
 
 protected:
     const xercesc::DOMElement* elem;
@@ -71,8 +71,8 @@ public:
 	value((const char*)XMLStringConverter(a->getValue()))
     {
     }
-    const std::string& getName() { return name; }
-    const std::string& getValue() { return value; }
+    const std::string& getName() const { return name; }
+    const std::string& getValue() const { return value; }
 protected:
     const xercesc::DOMAttr* attr;
     std::string name;
