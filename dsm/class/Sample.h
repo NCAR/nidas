@@ -133,9 +133,6 @@ public:
     virtual void setTimeTag(dsm_sample_time_t val) = 0;
     virtual dsm_sample_time_t getTimeTag() const = 0;
 
-    virtual const Sample* getNext() const = 0;
-    virtual void setNext(const Sample* val) = 0;
-
     /**
      * Set the number of elements in data portion of sample.
      */
@@ -213,21 +210,14 @@ public:
      * Decrement the reference count for this sample.
      */
     virtual void freeReference() const = 0;
-
-    virtual void freeReferencesOfList() const = 0;
-
 };
 
 
 class SampleBase : public Sample {
 
 public:
-    SampleBase() : refCount(1),next(0) { nsamps++; }
+    SampleBase() : refCount(1) { nsamps++; }
     virtual ~SampleBase() { nsamps--; }
-
-    virtual const Sample* getNext() const { return next; }
-
-    virtual void setNext(const Sample* val) { next = val; }
 
     /**
     * Increment the reference count for this sample.
@@ -239,23 +229,12 @@ public:
     */
     void holdReference() const { refCount++; }
 
-    void freeReferencesOfList() const
-    {
-	for (const Sample* samp = this; samp; ) {
-	    const Sample* nxt = samp->getNext();
-	    samp->freeReference();
-	    samp = nxt;
-	}
-    }
-
 protected:
 
   /**
    * The reference count.
    */
   mutable int refCount;
-
-  const Sample* next;
 
   /**
    * Global count of the number of samples in use by a process.
