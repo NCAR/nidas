@@ -232,7 +232,7 @@ void DSMSerialSensor::fromDOMElement(
 	}
     }
 
-    // If prompted, set sampling rates for variables if unknown
+    // If sensor is prompted, set sampling rates for variables if unknown
     list<SampleTag*>::const_iterator si;
     if (getPromptRate() != IRIG_NUM_RATES) {
 	float frate = irigClockEnumToRate(getPromptRate());
@@ -260,7 +260,7 @@ void DSMSerialSensor::fromDOMElement(
     }
     if (sampleTags.size() == 1) sampleId = sampleTags.front()->getId();
     else sampleId = 0;
-    cerr << getName() << " sampleId=" << hex << sampleId << dec << endl;
+    // cerr << getName() << " sampleId=" << hex << sampleId << dec << endl;
 }
 
 DOMElement* DSMSerialSensor::toDOMParent(

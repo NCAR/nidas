@@ -33,6 +33,7 @@ void McSocket::requestConnection(ConnectionRequester* requester,
 
 IOChannel* McSocket::clone()
 {
+    cerr << "IOChannel cloning " << getName() << endl;
     McSocket* newmcsock = new McSocket(*this);
     // new object owns socket
     socket = 0;
@@ -42,7 +43,7 @@ IOChannel* McSocket::clone()
 void McSocket::connected(atdUtil::Socket* sock)
 {
     socket = sock;
-    name = socket->getInet4SocketAddress().toString();
+    setName(socket->getInet4SocketAddress().toString());
     assert(connectionRequester);
     connectionRequester->connected(this);
 }

@@ -25,6 +25,9 @@
 
 namespace dsm {
 
+class DSMConfig;
+class DSMService;
+
 /**
  * A channel for Input or Output of data.
  */
@@ -32,7 +35,11 @@ class IOChannel : public DOMable {
 
 public:
 
+    IOChannel();
+
     virtual ~IOChannel() {}
+
+    virtual void setName(const std::string& val) = 0;
 
     virtual const std::string& getName() const = 0;
     /**
@@ -88,7 +95,7 @@ public:
 
     virtual int getFd() const = 0;
 
-    static IOChannel* fromIOChannelDOMElement(const xercesc::DOMElement* node)
+    static IOChannel* createIOChannel(const std::string& type)
             throw(atdUtil::InvalidParameterException);
 
     /**
@@ -103,6 +110,18 @@ public:
         return LONG_LONG_MAX;
     }
 
+    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
+
+    virtual const DSMConfig* getDSMConfig() const { return dsm; }
+
+    virtual void setDSMService(const DSMService* val) { service = val; }
+
+    virtual const DSMService* getDSMService() const { return service; }
+
+private:
+    const DSMConfig* dsm;
+
+    const DSMService* service;
 };
 
 }

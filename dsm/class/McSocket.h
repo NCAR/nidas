@@ -48,6 +48,8 @@ public:
 
     void setRequester(bool val) { amRequester = val; }
 
+    void setName(const std::string& val) { name = val; }
+
     const std::string& getName() const { return name; }
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
@@ -79,7 +81,6 @@ public:
       // std::cerr << "McSocket::write, len=" << len << std::endl;
       return socket->send(buf,len);
     }
-
 
     void close() throw (atdUtil::IOException);
 
