@@ -15,6 +15,7 @@
 */
 
 #include <DSMSensor.h>
+#include <ClockSensor.h>
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
@@ -41,6 +42,14 @@ DSMSensor::DSMSensor(const std::string& n) : devname(n),
 DSMSensor::~DSMSensor()
 {
     delete [] buffer;
+    for (list<Variable*>::const_iterator vi = variables.begin();
+    	vi != variables.end(); ++vi) delete *vi;
+}
+
+void DSMSensor::addVariable(Variable* var)
+{
+    variables.push_back(var);
+    constVariables.push_back(var);
 }
 
 void DSMSensor::initBuffer() throw()
@@ -77,15 +86,18 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataPtr += len;
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
-		//  
 		tt = samp->getTimeTag();	// return last time tag read
 		distributeRaw(samp);
 		nsamples++;
-		samp = 0;			// finished with sample
-						// check for more data
-						// in buffer
+		if (isClock()) {
+		    ClockSensor* clksens = (ClockSensor*) this;
+		    Sample* clksamp = clksens->processClockSample(samp);
+		    distributeRaw(clksamp);
+		}
+		samp = 0;
+		// Finished with sample. Check for more data in buffer
 	    }
-	    else break;				// done with buffer
+	    else break;		// done with buffer
 	}
 	// Read the header of the next sample
         if (bufhead - buftail <
@@ -97,7 +109,7 @@ dsm_sample_time_t DSMSensor::readSamples()
 	buftail += len;
 
 	len = header.length;
-	samp = SamplePool<CharSample>::getInstance()->getSample(len);
+	samp = getSample<char>(len);
 	samp->setTimeTag(header.timetag);
 	samp->setDataLength(len);
 	samp->setId(getId());	// set sample id to id of this sensor
@@ -183,25 +195,11 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
 
-#ifdef XML_DEBUG
-    cerr << "DSMSensor::fromDOMElement start -------------" << endl;
-#endif
-
     XDOMElement xnode(node);
-
-#ifdef XML_DEBUG
-    cerr << "DSMSensor::fromDOMElement element name=" <<
-    	xnode.getNodeName() << endl;
-#endif
-	
     if(node->hasAttributes()) {
     // get all the attributes of the node
 	DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
-#ifdef XML_DEBUG
-	cerr <<"\tDSMSensor Attributes" << endl;
-	cerr <<"\t----------" << endl;
-#endif
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
@@ -214,9 +212,20 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    }
 	}
     }
-#ifdef XML_DEBUG
-    cerr << "DSMSensor::fromDOMElement end   -------------" << endl;
-#endif
+    DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+	    child=child->getNextSibling())
+    {
+	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((DOMElement*) child);
+	const string& elname = xchild.getNodeName();
+
+	if (!elname.compare("variable")) {
+	    Variable* var = new Variable();
+	    var->fromDOMElement((DOMElement*)child);
+	    addVariable(var);
+	}
+    }
 }
 
 DOMElement* DSMSensor::toDOMParent(

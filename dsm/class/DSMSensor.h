@@ -19,13 +19,14 @@
 #include <SampleClient.h>
 #include <SampleSource.h>
 #include <RawSampleSource.h>
+#include <Variable.h>
 #include <DOMable.h>
 #include <SampleParseException.h>
 
 #include <dsm_sample.h>
 
 #include <string>
-// #include <list>
+#include <list>
 
 #include <fcntl.h>
 
@@ -82,7 +83,13 @@ public:
 
     const std::string& getDeviceName() const { return devname; }
 
+    virtual void addVariable(Variable* var);
+
+    const std::list<const Variable*>& getVariables() const { return constVariables; }
+
     virtual int getReadFd() const = 0;
+
+    virtual bool isClock() const { return false; }
 
     /**
      * Retrieve this sensor's id number.
@@ -196,6 +203,10 @@ public:
 
 
 protected:
+
+    std::list<Variable*> variables;
+
+    std::list<const Variable*> constVariables;
 
     /**
      * Must be called before invoking readSamples(). Derived
