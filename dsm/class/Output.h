@@ -38,7 +38,7 @@ public:
      * of sockets, it just starts the process of accepting or connecting.
      */
     virtual void requestConnection(atdUtil::SocketAccepter* service,
-    	int pseudoPort) throw(atdUtil::IOException);
+    	int pseudoPort) throw(atdUtil::IOException) = 0;
 
     /**
      * Derived classes must provide clone.

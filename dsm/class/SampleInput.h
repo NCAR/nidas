@@ -50,7 +50,7 @@ public:
 
     virtual void init() = 0;
 
-    virtual void close() throw(atdUtil::IOException);
+    virtual void close() throw(atdUtil::IOException) = 0;
 
     void setDSMConfig(const DSMConfig* val) { dsm = val; }
 

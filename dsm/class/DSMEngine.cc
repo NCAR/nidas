@@ -17,10 +17,10 @@
 
 #include <atdUtil/Logger.h>
 
-#include <ConfigRequestor.h>
 #include <XMLStringConverter.h>
 #include <XMLParser.h>
 
+#include <XMLConfigInput.h>
 #include <XMLFdInputSource.h>
 
 #include <iostream>
@@ -233,20 +233,13 @@ DOMDocument* DSMEngine::requestXMLConfig()
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
-    atdUtil::ServerSocket xmlSock;
+    XMLConfigInput xml;
 
-    ConfigRequestor requestor(xmlSock.getLocalPort());
-    requestor.start();
+    auto_ptr<atdUtil::Socket> configSock(xml.connect());
+    	// throws IOException
+    cerr << "XMLConfigInput connected" << endl;
 
-    cerr << "accepting on " <<
-	xmlSock.getInet4SocketAddress().toString() << endl;
-    auto_ptr<atdUtil::Socket> configSock(xmlSock.accept());	// throws IOException
-    cerr << "accepted connection" << endl;
-
-    xmlSock.close();
-
-    cerr << "canceling requestor" << endl;
-    requestor.cancel();
+    xml.close();
 
     std::string sockName = configSock->getInet4SocketAddress().toString();
     XMLFdInputSource sockSource(sockName,configSock->getFd());
@@ -256,9 +249,6 @@ DOMDocument* DSMEngine::requestXMLConfig()
     // throws SAXException, XMLException, DOMException
     // according to xerces API doc
     // (xercesc source code doesn't have throw lists)
-
-    cerr << "joining requestor" << endl;
-    requestor.join();
 
     cerr << "closing config socket" << endl;
     configSock->close();

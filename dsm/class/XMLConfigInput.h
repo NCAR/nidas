@@ -10,26 +10,27 @@
 
     $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
  ********************************************************************
+
 */
 
-#ifndef DSM_CONFIGREQUESTOR_H
-#define DSM_CONFIGREQUESTOR_H
 
-#include <atdUtil/McastServiceRequestor.h>
+#ifndef DSM_XMLCONFIGINPUT_H
+#define DSM_XMLCONFIGINPUT_H
 
+#include <atdUtil/McSocket.h>
 #include <Datagrams.h>
 
 namespace dsm {
 
-/**
- * Thread whose run method patiently multicasts ConfigDatagrams
- * until it is canceled.
- */
-class ConfigRequestor: public atdUtil::McastServiceRequestor
+class XMLConfigInput: public atdUtil::McSocketRequester
 {
 public:
-    ConfigRequestor(int listenPort) throw(atdUtil::IOException,atdUtil::UnknownHostException);
+    XMLConfigInput()
+    {
+        setPseudoPort(XML_CONFIG);
+    }
 
+protected:
 };
 
 }

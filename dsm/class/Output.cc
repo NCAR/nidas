@@ -17,7 +17,10 @@
 #include <McSocketRequesterOutput.h>
 #include <FileSetOutput.h>
 
-virtual void Output::offer(atdUtil::Socket* sock) throw(atdUtil::Exception);
+using namespace dsm;
+using namespace std;
+
+void Output::offer(atdUtil::Socket* sock) throw(atdUtil::Exception)
 {
     throw atdUtil::Exception("output object is not a socket");
 }
@@ -25,7 +28,7 @@ virtual void Output::offer(atdUtil::Socket* sock) throw(atdUtil::Exception);
 /* static */
 
 Output* Output::fromOutputDOMElement(const xercesc::DOMElement* node)
-            throw(atdUtil::InvalidParameterException);
+            throw(atdUtil::InvalidParameterException)
 {
     
     XDOMElement xnode((xercesc::DOMElement*) node);
@@ -38,13 +41,13 @@ Output* Output::fromOutputDOMElement(const xercesc::DOMElement* node)
 	    output = new McSocketAccepterOutput();
 	else if (!typeattr.compare("mcrequest"))
 	    output = new McSocketRequesterOutput();
-	else throw InvalidParameterException(
+	else throw atdUtil::InvalidParameterException(
 	    "Output::fromOutputDOMElement","socket type not supported",typeattr);
     }
     else if (!elname.compare("fileset")) output = new FileSetOutput();
-    else throw InvalidParameterException(
+    else throw atdUtil::InvalidParameterException(
 	    "Output::fromDOMElement","output","only <socket> or <fileset> tags allowed");
-    if(!output) throw InvalidParameterException(
+    if(!output) throw atdUtil::InvalidParameterException(
 	    "Output::fromDOMElement","output","no <socket> or <fileset> tags found");
     output->fromDOMElement((xercesc::DOMElement*)node);
     return output;

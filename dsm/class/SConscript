@@ -42,6 +42,7 @@ sources = Split("""
   SampleSourceImpl.cc
 
   PortSelector.cc
+  PortSelectorTest.cc
   RemoteSerialConnection.cc
   RemoteSerialListener.cc
 
@@ -57,12 +58,16 @@ sources = Split("""
   XMLConfigService.cc
   RawSampleService.cc
 
+  Input.cc
+  Output.cc
   InputStream.cc
   OutputStream.cc
   McSocketAccepterInput.cc
   McSocketRequesterInput.cc
   McSocketAccepterOutput.cc
   McSocketRequesterOutput.cc
+  FileSetInput.cc
+  FileSetOutput.cc
 
   SampleInput.cc
   SampleOutput.cc

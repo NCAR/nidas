@@ -17,17 +17,18 @@
 #include <McSocketRequesterInput.h>
 #include <FileSetInput.h>
 
+using namespace dsm;
+using namespace std;
+
 void Input::offer(atdUtil::Socket* sock) throw(atdUtil::IOException)
 {
     throw atdUtil::IOException("input","offer","object is not a socket");
 }
 
 /* static */
-
 Input* Input::fromInputDOMElement(const xercesc::DOMElement* node)
-            throw(atdUtil::InvalidParameterException);
+            throw(atdUtil::InvalidParameterException)
 {
-    
     XDOMElement xnode((xercesc::DOMElement*) node);
     const string& elname = xnode.getNodeName();
     Input* input = 0;
@@ -38,13 +39,13 @@ Input* Input::fromInputDOMElement(const xercesc::DOMElement* node)
 	    input = new McSocketAccepterInput();
 	else if (!typeattr.compare("mcrequest"))
 	    input = new McSocketRequesterInput();
-	else throw InvalidParameterException(
+	else throw atdUtil::InvalidParameterException(
 	    "Input::fromInputDOMElement","socket type not supported",typeattr);
     }
     else if (!elname.compare("fileset")) input = new FileSetInput();
-    else throw InvalidParameterException(
+    else throw atdUtil::InvalidParameterException(
 	    "Input::fromDOMElement","input","only <socket> or <fileset> tags allowed");
-    if (!input) throw InvalidParameterException(
+    if (!input) throw atdUtil::InvalidParameterException(
 	    "Input::fromDOMElement","input","no <socket> or <fileset> tags found");
     input->fromDOMElement((xercesc::DOMElement*)node);
     return input;

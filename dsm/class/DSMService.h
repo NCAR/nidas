@@ -44,7 +44,7 @@ public:
     /**
      * Copy constructor.
      */
-    DSMService(const DSMService&);
+    // DSMService(const DSMService&);
 
     /**
      * A DSMService may clone itself when requests arrive.

@@ -108,7 +108,7 @@ public:
      * open.
      */
     virtual void requestConnection(atdUtil::SocketAccepter*,int pseudoPort)
-    	throw(atdUtil::IOException);
+    	throw(atdUtil::IOException) = 0;
 
     /**
      * Derived classes must provide clone.
