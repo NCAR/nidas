@@ -1,3 +1,4 @@
+
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -13,31 +14,41 @@
 
 */
 
-
 #ifndef DSM_SYNCRECORDOUTPUT_H
 #define DSM_SYNCRECORDOUTPUT_H
 
 #include <SampleOutput.h>
-#include <Datagrams.h>
+#include <SampleSorter.h>
+#include <SyncRecordGenerator.h>
 
 namespace dsm {
 
 class SyncRecordOutput: public SampleOutputStream
 {
 public:
+    
     SyncRecordOutput();
-    ~SyncRecordOutput();
 
-    SampleOutput* clone() { return new SyncRecordOutput(*this); }
+    virtual ~SyncRecordOutput();
 
-    int getPseudoPort() const { return SYNC_RECORD; }
+    void setDSMConfig(const DSMConfig* val);
+
+    void init() throw(atdUtil::IOException);
+
+    void flush() throw(atdUtil::IOException);
+
+    void close() throw(atdUtil::IOException);
+
+    bool receive(const Sample* samp)
+        throw(SampleParseException, atdUtil::IOException);
 
     bool isSingleton() const { return true; }
 
-    bool receive(const Sample *s)
-	throw(SampleParseException, atdUtil::IOException);
-
 protected:
+    SampleSorter sorter;
+
+    SyncRecordGenerator generator;
+
 };
 
 }

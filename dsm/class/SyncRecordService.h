@@ -33,7 +33,6 @@ public:
      * Make a clone of myself. The ServiceListener will make
      * a clone of this service when it gets a request on a port.
      */
-    atdUtil::ServiceListenerClient* clone();
 
     int getType() const { return SYNC_RECORD; }
 

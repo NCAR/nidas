@@ -76,6 +76,7 @@ sources = Split("""
   SyncRecordOutput.cc
 
   SampleSorter.cc
+  SyncRecordGenerator.cc
 
 """)
 

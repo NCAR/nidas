@@ -10,35 +10,67 @@
 
     $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
  ********************************************************************
-
 */
 
 #include <SyncRecordOutput.h>
-#include <DSMConfig.h>
-#include <DSMTime.h>
+#include <DSMSerialSensor.h>
+#include <DSMArincSensor.h>
+#include <Aircraft.h>
+#include <irigclock.h>
 
-#include <atdUtil/Logger.h>
-
-#include <iostream>
-#include <list>
-#include <map>
+#include <math.h>
 
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(SyncRecordOutput)
-
-SyncRecordOutput::SyncRecordOutput()
+SyncRecordOutput::SyncRecordOutput():
+	sorter(250)
 {
+    sorter.addSampleClient(&generator);
+    generator.addSampleClient(this);
 }
 
 SyncRecordOutput::~SyncRecordOutput()
 {
 }
 
-bool SyncRecordOutput::receive(const Sample *samp)
-         throw(SampleParseException, atdUtil::IOException)
+void SyncRecordOutput::init() throw(atdUtil::IOException)
 {
-    return true;
+    try {
+	sorter.start();
+    }
+    catch(const atdUtil::Exception& e) {
+        throw atdUtil::IOException("SyncRecordOutput","init",e.what());
+    }
+    SampleOutputStream::init();
 }
 
+void SyncRecordOutput::flush() throw(atdUtil::IOException)
+{
+    sorter.flush();
+    SampleOutputStream::flush();
+}
+
+void SyncRecordOutput::close() throw(atdUtil::IOException)
+{
+    sorter.interrupt();
+    try {
+	sorter.join();
+    }
+    catch (const atdUtil::Exception& e) {
+        throw atdUtil::IOException("SyncRecordOutput","close",e.what());
+    }
+    SampleOutputStream::close();
+}
+
+void SyncRecordOutput::setDSMConfig(const DSMConfig* dsm)
+{
+    const Aircraft* aircraft = dsm->getAircraft();
+    generator.setAircraft(aircraft);
+}
+
+bool SyncRecordOutput::receive(const Sample* samp)
+        throw(SampleParseException, atdUtil::IOException)
+{
+    return sorter.receive(samp);
+}
