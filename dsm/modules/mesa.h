@@ -99,7 +99,7 @@ struct pms260x_set {
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define MESA_LOAD        _IO(MESA_MAGIC,0,struct mesa_load))
+#define MESA_LOAD        _IO(MESA_MAGIC,0,struct mesa_load)
 #define COUNTERS_SET     _IO(MESA_MAGIC,1,struct counters_set)
 #define RADAR_SET        _IO(MESA_MAGIC,2,struct radar_set)
 #define PMS260X_SET      _IO(MESA_MAGIC,3,struct pms260x_set)
