@@ -214,14 +214,14 @@ public:
     * can be used on a const Sample.  The SamplePool class
     * supports Sample reference counting.
     */
-    void holdReference() const { ((SampleBase*)this)->refCount++; }
+    void holdReference() const { refCount++; }
 
 protected:
 
   /**
    * The reference count.
    */
-  int refCount;
+  mutable int refCount;
 
   /**
    * Global count of the number of samples in use by a process.
@@ -534,7 +534,7 @@ void SampleT<HeaderT,DataT>::freeReference() const
     // if refCount is 0, put it back in the Pool.
     // These casts remove the const, so that this can be a const
     // member function, even though it alters the Sample.
-    if (! --(((SampleT<HeaderT,DataT>*)this)->refCount))
+    if (! --refCount)
 	SamplePool<SampleT<HeaderT,DataT> >::getInstance()->putSample(
 	    (SampleT<HeaderT,DataT>*)this);
 }
