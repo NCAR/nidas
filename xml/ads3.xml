@@ -176,7 +176,7 @@
 	    <variable name="DPRES" units="mb"/>
 	</sample>
 	<message separator="\n" position="end" length="0"/>
-	<prompt string="hitme\n" rate="100"/>
+	<prompt string="hitme\n" rate="10"/>
     </serialSensor>
 
     <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.
@@ -191,27 +191,32 @@
 <aircraft tailno="1234" name="hiaper">
     <server>
 	<service class="XMLConfigService">
-	    <output class="ConfigRequestor">
-	        <socket type="mstream"/>
+	    <output>
+	        <socket type="mcaccept"/>
 	    </output>
 	</service>
 	<service class="RawSampleService">
 	    <!-- input from every DSM on this aircraft that has
-		 a socket output of type RawSampleOutput -->
-	    <input class="SampleInputStream">
-	        <socket type="mstream"/>
+		 a socket output of type RawSampleOutputStream -->
+	    <input>
+	        <socket type="mcaccept"/>
 	    </input>
 	    <output class="SampleOutputStream">
 		<fileset dir="${RAWDATADIR}/${PROJECT}/${AIRCRAFT}"
 			file="${LOCATION}_%Y%m%d_%H%M%S.dat"
 		    length="0" />
 	    </output>
+	    <!--
+	    <output class="SyncRecordGenerator">
+	        <socket type="mcaccept"/>
+	    </output>
+	    -->
 	</service>
     </server>
 
-    <dsm name="dsm300" location="radome">
+    <dsm name="dsm300" location="radome" id="0">
 	<config class="XMLConfig">
-	    <socket type="mstream"/>
+	    <socket type="mcrequest"/>
 	</config>
 
 
@@ -220,20 +225,21 @@
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser0" id="110"/>
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="114"/>
+	<serialSensor IDREF="mensor" devicename="/dev/dsmser3" id="116"/>
+
+	<output class="RawSampleOutputStream">
+	    <socket type="mcrequest"/>
+	</output>
 
 	<!--
-	<output class="RawSampleOutput">
-	    <socket type="mstream"/>
-	</output>
-	-->
-
 	<output class="SyncRecordOutput">
 	    <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
 		length="0" />
 	</output>
+	-->
     </dsm>
 
-    <dsm name="dsm301" location="cabin">
+    <dsm name="dsm301" location="cabin" id="1">
 	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 		id="110" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="017"> <variable name="TEST"/></sample>
@@ -241,7 +247,9 @@
 	    <prompt string="hitme1\n" rate="10"/>
 	</serialSensor>
 
+	<!--
 	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0" id="1000"/>
+	-->
 
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
 
@@ -255,7 +263,7 @@
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="116"/>
     </dsm>
 
-    <dsm name="dsm302" location="tail">
+    <dsm name="dsm302" location="tail" id="2">
 	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 	    id="110" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="1"> <variable name="TEST"/></sample>

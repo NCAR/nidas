@@ -209,6 +209,7 @@
 	</xsd:choice>
 	<xsd:attribute name="name" type="xsd:token" use="required"/>
 	<xsd:attribute name="location" type="xsd:token" use="required"/>
+	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="required"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
 	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor"/>
@@ -218,7 +219,7 @@
 
 <xsd:element name="socket">
    <xsd:complexType>
-        <xsd:attribute name="type" type="xsd:token" default="mstream"/>
+        <xsd:attribute name="type" type="xsd:token" default="mcrequest"/>
         <xsd:attribute name="port" type="xsd:nonNegativeInteger"
 		default="50000"/>
         <xsd:attribute name="address" type="xsd:token" default="239.0.0.10"/>
@@ -239,7 +240,7 @@
             <xsd:element ref="socket" maxOccurs="unbounded"/>
             <xsd:element ref="fileset" maxOccurs="unbounded"/>
         </xsd:choice>
-        <xsd:attribute name="class" type="xsd:token" use="required"/>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -249,7 +250,7 @@
             <xsd:element ref="socket"/>
             <xsd:element ref="fileset"/>
         </xsd:choice>
-        <xsd:attribute name="class" type="xsd:token" use="required"/>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
    </xsd:complexType>
 </xsd:element>
 
