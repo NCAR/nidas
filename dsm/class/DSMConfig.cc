@@ -38,6 +38,8 @@ DSMConfig::DSMConfig()
 
 DSMConfig::~DSMConfig()
 {
+    for (std::list<DSMSensor*>::iterator it = sensors.begin();
+    	it != sensors.end(); ++it) delete *it;
 }
 
 void DSMConfig::fromDOMElement(const DOMElement* node)
@@ -50,6 +52,19 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    "DSMConfig::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
 		    
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            const std::string& aval = attr.getValue();
+            if (!aname.compare("name")) setName(aval);
+	}
+    }
+
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -89,7 +104,13 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			"does not have a class attribute");
 		cerr << "found sensor, idref=" << idref << " classattr=" <<
 		    classattr << endl;
-		sensor = DOMObjectFactory::createObject(classattr);
+		try {
+		    sensor = DOMObjectFactory::createObject(classattr);
+		}
+		catch (const atdUtil::Exception& e) {
+		    throw atdUtil::InvalidParameterException("sensor",
+		    	classattr,e.what());
+		}
 		sensor->fromDOMElement((DOMElement*)snode);
 	    }
 		    
@@ -101,7 +122,13 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			elname,
 			"does not have a class attribute");
 		cerr << "creating sensor, classattr=" << classattr << endl;
-	    	sensor = DOMObjectFactory::createObject(classattr);
+		try {
+		    sensor = DOMObjectFactory::createObject(classattr);
+		}
+		catch (const atdUtil::Exception& e) {
+		    throw atdUtil::InvalidParameterException("sensor",
+		    	classattr,e.what());
+		}
 	    }
 	    sensor->fromDOMElement((DOMElement*)child);
 	    ((DSMSensor*)sensor)->setId(sensors.size());	// unique id

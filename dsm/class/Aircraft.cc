@@ -35,6 +35,8 @@ Aircraft::Aircraft()
 
 Aircraft::~Aircraft()
 {
+    for (std::list<DSMConfig*>::iterator it = dsms.begin();
+    	it != dsms.end(); ++it) delete *it;
 }
 
 void Aircraft::fromDOMElement(const DOMElement* node)

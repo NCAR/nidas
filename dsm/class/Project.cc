@@ -46,6 +46,8 @@ Project::Project(): catalog(0)
 Project::~Project()
 {
     delete catalog;
+    for (std::list<Aircraft*>::iterator it = aircraft.begin();
+    	it != aircraft.end(); ++it) delete *it;
     instance = 0;
 }
 
