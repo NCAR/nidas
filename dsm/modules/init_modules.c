@@ -32,7 +32,8 @@
 RTLINUX_MODULE(init);
 
 // global declarations
-static int module_loading;
+int ptog = 0;
+int module_loading = 0;
 static int fdCfg;                  // file descriptor, command fifo
 int nAnalogCfg=0, nSerialCfg=0;
 struct analogTable analogCfg[ANALOG_MAX_CHAN];
@@ -66,7 +67,8 @@ void start_modules ( void )
 		   __FILE__, __FUNCTION__, module_name);
 	return;
       }
-    while ( module_loading ); // hang until module successfully loads
+    while ( module_loading ) // hang until module successfully loads
+      udelay(1);
   }
 
   // Load the ISA based IRIG-b module
@@ -78,7 +80,8 @@ void start_modules ( void )
 	       __FILE__, __FUNCTION__, module_name);
     return;
   }
-  while ( module_loading ); // hang until module successfully loads
+  while ( module_loading ) // hang until module successfully loads
+    udelay(1);
 
   // Load the ISA de-multiplexer module after all ISA based
   // modules are loaded...
@@ -90,7 +93,8 @@ void start_modules ( void )
 	       __FILE__, __FUNCTION__, module_name);
     return;
   }
-  while ( module_loading ); // hang until module successfully loads
+  while ( module_loading ) // hang until module successfully loads
+    udelay(1);
 
   // DEBUG just print configuration results for now.
   int aa;

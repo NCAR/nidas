@@ -35,9 +35,7 @@
 /* these are file pointers to the FIFOs to the user application */
 static int fp_irig;
 
-/* TODO - ensure that other modules can extern this global variable in order
-   to use it */
-static int ptog = 0;
+extern int ptog;  // this varible is toggled every second
 
 /* TODO - hz100_cnt needs to be initialized to the zero'th second read from
    the IRIG card...  the current implementation arbitrarily sets it to zero
@@ -87,7 +85,7 @@ void enableHeartBeatInt (void)
 }
 
 /* -- Utility --------------------------------------------------------- */
-static void disableHeartBeatInt (void)
+void disableHeartBeatInt (void)
 {
 /* bits 0-4 are write only
  * to reset heartbeat flag... 0x2F
@@ -209,7 +207,7 @@ void syncUP()
 }
 #endif
 /* -- POSIX ----------------------------------------------------------- */
-static ssize_t readTime(struct rtl_file *filp, char *buf, size_t count, off_t *pos)
+ssize_t readTime(struct rtl_file *filp, char *buf, size_t count, off_t *pos)
 {
   /* Reads the time from the interface. */
   unsigned int us0,us1us0,ms1ms0,sec0ms2,min0sec1,hour0min1,day0hour1,day2day1;
@@ -290,7 +288,7 @@ static ssize_t readTime(struct rtl_file *filp, char *buf, size_t count, off_t *p
 }
 
 /* -- POSIX ----------------------------------------------------------- */
-static ssize_t setMajorTime(struct rtl_file *filp, const char *buf, size_t count, off_t *pos)
+ssize_t setMajorTime(struct rtl_file *filp, const char *buf, size_t count, off_t *pos)
 {
   /* TODO - scanf the buf string and parse it out into the following
    * values:
@@ -336,7 +334,7 @@ static ssize_t setMajorTime(struct rtl_file *filp, const char *buf, size_t count
 /* -- POSIX ----------------------------------------------------------- */
 /* These POSIX file access functions provide access
  * to this module from the user space. */
-static struct rtl_file_operations irig_fops = {
+struct rtl_file_operations irig_fops = {
   read:         readTime,
   write:        setMajorTime
 };
@@ -364,10 +362,10 @@ static void *irig_100hz_thread (void *t)
      * that is set up from the parsed header build file.
      */
     /* transmit serial data requests at their configured rates... */
-    int ii;
-    for (ii=0; ii<nSerialCfg; ii++)
-      if (!(hz100_cnt % (100/serialCfg[ii].rate)))
-	write(serialCfg[ii].fptr, serialCfg[ii].cmd, serialCfg[ii].len);
+/*     int ii; */
+/*     for (ii=0; ii<nSerialCfg; ii++) */
+/*       if (!(hz100_cnt % (100/serialCfg[ii].rate))) */
+/* 	write(serialCfg[ii].fptr, serialCfg[ii].cmd, serialCfg[ii].len); */
 
     /* perform 100Hz processing... */
 
@@ -390,13 +388,16 @@ static void *irig_100hz_thread (void *t)
     /* perform  1Hz processing... */
     if (!(hz100_cnt % 100))
     {
-      /* TEST - print the current timestamp */
-      timeStrLen = readTime(NULL, timeStr, 1, NULL);
+      rtl_printf("IRIG: serialCfg[0].fptr = 0x%lx\n", serialCfg[0].fptr);
+      write(serialCfg[0].fptr, "hello\r\n", 8); //debug
 
-      /* toggle the user-space application's second buffer selection. */
-      write(fp_irig, &ptog, sizeof(int));
-      if (ptog) ptog = 0;
-      else      ptog = 1;
+/*       /\* TEST - print the current timestamp *\/ */
+/*       timeStrLen = readTime(NULL, timeStr, 1, NULL); */
+
+/*       /\* toggle the user-space application's second buffer selection. *\/ */
+/*       write(fp_irig, &ptog, sizeof(int)); */
+/*       if (ptog) ptog = 0; */
+/*       else      ptog = 1; */
     }
   }
 }
@@ -445,6 +446,8 @@ void cleanup_module (void)
   rtl_free_irq(VIPER_CPLD_IRQ);
 #endif
 
+  rtl_unregister_dev("/dev/irig");
+  rtl_printf("(%s) %s:\t unregistered /dev/irig\n", __FILE__, __FUNCTION__);
   rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
 }
 
@@ -494,11 +497,15 @@ int init_module (void)
   set_GPIO_IRQ_edge(IRQ_TO_GPIO(VIPER_CPLD_IRQ), GPIO_FALLING_EDGE);
 #endif
 
+  /* stop generating IRIG interrupts */
+  rtl_printf("(%s) %s:\t disableHeartBeatInt()\n", __FILE__, __FUNCTION__);
+  disableHeartBeatInt();
+
   /* DEBUG test - see if we are talking to the IRIG card... */
   setMajorTime(NULL, "asdf",0, NULL);
   int iii, jjj, timeStrLen;
   char timeStr[40];
-  for (iii=0; iii<20; iii++)
+  for (iii=0; iii<3; iii++)
   {
     timeStrLen = readTime(NULL, timeStr, 0, NULL);
     rtl_printf("(%03d) %s\n", timeStrLen, timeStr);
@@ -535,8 +542,10 @@ int init_module (void)
     rtl_printf("(%s) %s:\t could not register device.\n", __FILE__, __FUNCTION__);
     return -EIO;
   }
+  rtl_printf("(%s) %s:\t registered /dev/irig\n", __FILE__, __FUNCTION__);
 
 #if 0 //TODO?
+#error "not coded yet..."
   /* create /proc/irig file for shell diagnostics */
   misc_register (&irig_miscdev);
   create_proc_read_entry ("/dev/irig", 0, 0, rtc_read_proc, NULL);

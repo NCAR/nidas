@@ -54,6 +54,11 @@ extern int module_loading;
 extern unsigned int irig_100hz_isr (unsigned int irq, struct rtl_frame *regs);
 extern unsigned int rtl_serial_irq (unsigned int irq, struct rtl_frame *regs);
 
+extern void setHeartBeatOutput (int rate);
+extern void enableHeartBeatInt (void);
+extern void disableHeartBeatInt (void);
+extern void setRate2Output (int rate);
+
 /* TODO - add your driver's ISR function here for its given IRQ #.
  *
  * isa_isr[] is an array of function pointers to interrupt service routines
@@ -134,6 +139,9 @@ void cleanup_module (void)
   /* TODO (HERE?) - define an array of per device IO regions */
 //release_region(isa_address, ioWidth);
 
+  /* stop generating IRIG interrupts */
+  disableHeartBeatInt();
+
   /* release interrupt handler */
   rtl_free_irq(VIPER_CPLD_IRQ);
 }
@@ -168,9 +176,6 @@ int init_module (void)
   /* activate the IRIG-B board */
   /* TODO - pend the activation of the interrupts until after
    * the 'rtl_request_irq' in isa_demux.c has been called... */
-  extern void setHeartBeatOutput (int rate);
-  extern void enableHeartBeatInt (void);
-  extern void setRate2Output (int rate);
   setHeartBeatOutput(100);
   rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, 100);
   setRate2Output(50000);
