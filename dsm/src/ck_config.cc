@@ -36,7 +36,7 @@ int main(int argc, char** argv)
     TestSampleClient test;
 
     Project* project = 0;
-    PortSelectorTest* handler = PortSelectorTest::createInstance();
+    PortSelectorTest* handler = 0;
     try {
 	cerr << "creating parser" << endl;
 	XMLConfigParser* parser = new XMLConfigParser();
@@ -47,12 +47,13 @@ int main(int argc, char** argv)
 	cerr << "deleting parser" << endl;
 	delete parser;
 
+	handler = PortSelectorTest::createInstance();
 	handler->start();
 
-	const list<Aircraft*>& aircraftl = project->getAircraft();
-	if (!aircraftl.size()) goto done;
+	const list<Aircraft*>& aclist = project->getAircraft();
+	if (!aclist.size()) goto done;
 
-	Aircraft* aircraft = aircraftl.front();
+	Aircraft* aircraft = aclist.front();
 
 	const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
 
