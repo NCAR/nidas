@@ -86,6 +86,9 @@ int RTL_DevIoctl::getNumPorts() throw(atdUtil::IOException)
 void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     throw(atdUtil::IOException)
 {
+    // allow only one ioctl at a time
+    atdUtil::Synchronized autosync(ioctlMutex);
+
     static const unsigned char etx = '\003';
 
     unsigned char* wbuf;

@@ -6,6 +6,7 @@
 #define RTL_DEVIOCTL_H
 
 #include <atdUtil/IOException.h>
+#include <atdUtil/ThreadSupport.h>
 
 /**
  * A class providing ioctl capabilities to/from an RTL_DSMDevice.
@@ -98,6 +99,10 @@ protected:
     int outfifofd;
 
     int usageCount;
+
+    atdUtil::Mutex ioctlMutex;
+
+
 
 };
 
