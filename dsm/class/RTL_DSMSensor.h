@@ -15,11 +15,13 @@
 
 #include <DSMSensor.h>
 #include <RTL_DevIoctl.h>
+#include <Sample.h>
+#include <SampleSource.h>
 
 /**
  * A RealTime linux sensor.  We try to provide a simple interface
  * to the user, hiding the details of the half-duplex RT-Linux FIFOs that
- * are used to read/write and  perform ioctls with the device.
+ * are used to read/write and perform ioctls with the device.
  */
 class RTL_DSMSensor : public DSMSensor {
 
@@ -44,12 +46,12 @@ public:
 
     virtual ~RTL_DSMSensor();
 
-    /*
+    /**
      * The file descriptor used when reading from this sensor.
      */
     int getReadFd() const { return infifofd; }
 
-    /*
+    /**
      * The file descriptor used when writing to this sensor.
      */
     int getWriteFd() const { return outfifofd; }
@@ -84,6 +86,13 @@ public:
 
     virtual const std::string& getInFifoName() const { return inFifoName; }
     virtual const std::string& getOutFifoName() const { return outFifoName; }
+
+    /**
+    * A select has determined that there is data available for this
+    * port.  Read and distribute the samples to my clients.
+    */
+    dsm_sample_time_t readSamples()
+    	throw(dsm::SampleParseException,atdUtil::IOException);	
 
 protected:
 
@@ -124,6 +133,17 @@ protected:
     int infifofd;
 
     int outfifofd;
+
+    const int BUFSIZE;
+    char* buffer;
+    int bufhead;
+    int buftail;
+
+    dsm::Sample* samp;
+    size_t sampDataToRead;
+    char* sampDataPtr;
+
+    int id;
 
 };
 
