@@ -13,7 +13,7 @@
 #include <rtl_signal.h>
 #include <rtl_errno.h>
 
-#define DEBUG
+/* #define DEBUG */
 
 LIST_HEAD(ioctlList);
 
