@@ -20,24 +20,20 @@
 using namespace dsm;
 using namespace std;
 
+IOChannel::IOChannel(): dsm(0),service(0)
+{
+}
+
 /* static */
-IOChannel* IOChannel::fromIOChannelDOMElement(const xercesc::DOMElement* node)
+IOChannel* IOChannel::createIOChannel(const string& type)
             throw(atdUtil::InvalidParameterException)
 {
-    XDOMElement xnode((xercesc::DOMElement*) node);
-    const string& elname = xnode.getNodeName();
     IOChannel* channel = 0;
 
-    if (!elname.compare("socket")) channel = new McSocket();
-    else if (!elname.compare("fileset")) channel = new FileSet();
+    if (!type.compare("socket")) channel = new McSocket();
+    else if (!type.compare("fileset")) channel = new FileSet();
     else throw atdUtil::InvalidParameterException(
-	    "IOChannel::fromIOChannelDOMElement","unknown element",elname);
-
-    if (!channel) throw atdUtil::InvalidParameterException(
-	    "IOChannel::fromIOChannelDOMElement","input/output",	
-	    "no <socket> or <fileset> tags found");
-
-    channel->fromDOMElement((xercesc::DOMElement*)node);
+	    "IOChannel::fromIOChannelDOMElement","unknown element",type);
     return channel;
 }
 
