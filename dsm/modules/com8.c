@@ -1,6 +1,6 @@
-/* rtl_com8_driver.c
+/* com8.c
 
-   Time-stamp: <2004-08-19 14:17:45 spowart>
+   Time-stamp: <Thu 26-Aug-2004 06:48:02 pm>
 
    RTLinux serial driver for the ISA bus based Com8 card.
 
@@ -23,8 +23,8 @@
 #include <rtl_posixio.h>
 #include <linux/ioport.h>
 
-#include <rtl_com8.h>
-#include <init_modules.h>
+#include <com8.h>
+#include <main.h>
 
 #define RTL_SERIAL_BUFSIZE      2048
 #define RTL_MAX_SERIAL          8
@@ -65,7 +65,7 @@ static struct rtl_serial_struct pcserial[RTL_MAX_SERIAL];
 
 void cleanup_module (void);
 
-void rtl_com8_handle(int com_port, struct rtl_serial_struct *serial)
+void com8_handle(int com_port, struct rtl_serial_struct *serial)
 {
   int stat;
   unsigned int rx_char_cnt;
@@ -204,7 +204,7 @@ unsigned int rtl_serial_irq(unsigned int irq, struct rtl_frame *frame)
       if(pending_irqs & (1 << i))
       {
         rtl_spin_lock (&serial->lock);
-        rtl_com8_handle(i, serial);
+        com8_handle(i, serial);
       }
       rtl_spin_unlock (&serial->lock);
     }
@@ -413,7 +413,7 @@ int init_module(void)
     serialCfg[i].fptr = fd[i];
     for (tog=0; tog<2; tog++)
     {
-      sprintf(devstr,"/dev/rtl_com8_data_%d_%d",i,tog);
+      sprintf(devstr,"/dev/com8_data_%d_%d",i,tog);
       mkfifo(devstr,0777);
       fifo_fd[i][tog] = open(devstr, O_NONBLOCK|O_WRONLY);
 
@@ -481,7 +481,7 @@ void cleanup_module (void)
 
     for (tog=0; tog<2; tog++)
     {
-      sprintf(devstr,"/dev/rtl_com8_data_%d_%d",i,tog);
+      sprintf(devstr,"/dev/com8_data_%d_%d",i,tog);
       close(fifo_fd[i][tog]);
       unlink(devstr);
     }

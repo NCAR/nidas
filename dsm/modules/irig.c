@@ -1,6 +1,6 @@
-/* irig_module.cc
+/* irig.c
 
-   Time-stamp: <Mon 16-Aug-2004 03:38:32 pm>
+   Time-stamp: <Thu 26-Aug-2004 06:48:04 pm>
 
    RTLinux IRIG-b driver for the ISA bus based jxi2 pc104-SG card.
 
@@ -13,7 +13,7 @@
 */
 
 #include <Pc104sg.h>
-#include <init_modules.h>
+#include <main.h>
 
 #define ISA_BASE 0xf70002a0
 #define ioWidth  0x20
@@ -28,9 +28,9 @@
 #include <asm/uaccess.h>
 #include <linux/ioport.h>
 
-#include <rtl_com8.h>
+#include <com8.h>
 
-#define __ISA_DEMUX__ // skip these, we are using isa_demux.cc implementation...
+#define __ISA_DEMUX__ // skip these, we are using demux.cc implementation...
 
 /* these are file pointers to the FIFOs to the user application */
 static int fp_irig;
@@ -442,7 +442,7 @@ void cleanup_module (void)
 
   /* free up the I/O region and remove /proc entry */
   release_region(isa_address, ioWidth);
-#ifndef __ISA_DEMUX__ // skip this, we are using isa_demux.cc implementation...
+#ifndef __ISA_DEMUX__ // skip this, we are using demux.cc implementation...
   rtl_free_irq(VIPER_CPLD_IRQ);
 #endif
 
@@ -517,7 +517,7 @@ int init_module (void)
   rtl_printf("(%s) %s:\t request_irq( %d, irig_100hz_isr )\n",
 	     __FILE__, __FUNCTION__, VIPER_CPLD_IRQ);
 
-#ifndef __ISA_DEMUX__ // skip this, we are using isa_demux.cc implementation...
+#ifndef __ISA_DEMUX__ // skip this, we are using demux.cc implementation...
   if ( rtl_request_irq( VIPER_CPLD_IRQ, irig_100hz_isr ) < 0 )
   {
     /* failed... */

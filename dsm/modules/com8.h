@@ -1,6 +1,6 @@
-/* rtl_com8.h
+/* com8.h
 
-   Time-stamp: <2004-08-19 14:17:45 spowart>
+   Time-stamp: <Thu 26-Aug-2004 06:46:57 pm>
 
    RTLinux serial driver for the ISA bus based Com8 card.
 
@@ -43,9 +43,9 @@ struct Port_blk
 };
 typedef struct Port_blk Port_blk;
 
-// int rtl_com8_check(int com_port);
-// int rtl_com8_getch(int com_port);
-// void rtl_com8_gets(int com_port, char *str);
+// int com8_check(int com_port);
+// int com8_getch(int com_port);
+// void com8_gets(int com_port, char *str);
 //int rtl_serial_get(struct rtl_serial_struct *serial, void *buf, ssize_t nbytes);
 //int rtl_serial_put(struct rtl_serial_struct *serial, const unsigned char *buf,
 //                        ssize_t nbytes);
@@ -61,11 +61,11 @@ char com8_rx_buf[8][BUFFER_SIZE];
 
 int   irq_masks;
 
-// void rtl_com8_handle(int port_num);
-// void rtl_com8_putch(int com_port, char c);
-// void rtl_com8_puts(int com_port, char *str);
-// int rtl_com8_read(int com_port);
-// void rtl_com8_flush(int port_num);
+// void com8_handle(int port_num);
+// void com8_putch(int com_port, char c);
+// void com8_puts(int com_port, char *str);
+// int com8_read(int com_port);
+// void com8_flush(int port_num);
 
 Port_blk com8_blk[8];
 Port_blk port_blk;

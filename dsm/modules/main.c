@@ -1,12 +1,12 @@
-/* init_modules.c
+/* main.c
 
-   Time-stamp: <Mon 16-Aug-2004 03:37:50 pm>
+   Time-stamp: <Thu 26-Aug-2004 06:43:29 pm>
 
    RTLinux module that starts up the other modules based upon the
-   configuration passed down to it from the 'usr/dsmAsync.cc'
+   configuration passed down to it from the 'src/dsmAsync.cc'
    application.
 
-   The 'src/ck_init_modules.cc' application is a test program that
+   The 'src/ck_main.cc' application is a test program that
    can be used to exercise this modules functionality.
 
    Original Author: John Wasinger
@@ -27,9 +27,9 @@
 #include <linux/kmod.h>
 #include <bits/posix1_lim.h>
 
-#include <init_modules.h>
-#include <rtl_com8.h>
-RTLINUX_MODULE(init);
+#include <main.h>
+#include <com8.h>
+RTLINUX_MODULE(main);
 
 // global declarations
 int ptog = 0;
@@ -60,7 +60,7 @@ void start_modules ( void )
   if (nSerialCfg)
   {
     module_loading = 1;
-    sprintf (module_name, "rtl_com8_driver");
+    sprintf (module_name, "com8");
     if ( 0 > request_module(module_name) )
       {
 	rtl_printf("(%s) %s:\t Unable to load module [%s].\n",
@@ -73,7 +73,7 @@ void start_modules ( void )
 
   // Load the ISA based IRIG-b module
   module_loading = 1;
-  sprintf (module_name, "irig_module");
+  sprintf (module_name, "irig");
   if ( 0 > request_module(module_name) )
   {
     rtl_printf("(%s) %s:\t Unable to load module [%s].\n",
@@ -86,7 +86,7 @@ void start_modules ( void )
   // Load the ISA de-multiplexer module after all ISA based
   // modules are loaded...
   module_loading = 1;
-  sprintf (module_name, "isa_demux");
+  sprintf (module_name, "demux");
   if ( 0 > request_module(module_name) )
   {
     rtl_printf("(%s) %s:\t Unable to load module [%s].\n",

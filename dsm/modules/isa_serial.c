@@ -202,7 +202,7 @@ int init_module (void)
 
   /* REMOVE - note that 'isa_serial_isr' is actually going
    * to be added to an array of function pointers that is used
-   * by the isa_demux.c module.  This module is needed because
+   * by the demux.c module.  This module is needed because
    * FSMLab's RTLinux does not support Arcom's ISA multiplexing
    * code.  I have copied Arcom's code which originally did this
    * into that module. */

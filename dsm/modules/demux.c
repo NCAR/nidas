@@ -1,6 +1,6 @@
-/* isa_demux.c
+/* demux.c
 
-   Time-stamp: <Mon 16-Aug-2004 03:24:03 pm>
+   Time-stamp: <Thu 26-Aug-2004 06:48:03 pm>
 
    RTLinux module for de-multiplexing the ISA bus interrupts.
 
@@ -40,7 +40,7 @@
 #include <asm/arch/viper.h>
 #include <linux/module.h>
 
-RTLINUX_MODULE(isa_demux);
+RTLINUX_MODULE(demux);
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("RTLinux ISA de-multiplexing Module");
 
@@ -175,7 +175,7 @@ int init_module (void)
 
   /* activate the IRIG-B board */
   /* TODO - pend the activation of the interrupts until after
-   * the 'rtl_request_irq' in isa_demux.c has been called... */
+   * the 'rtl_request_irq' in demux.c has been called... */
   setHeartBeatOutput(100);
   rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, 100);
   setRate2Output(50000);

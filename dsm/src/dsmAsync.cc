@@ -30,7 +30,7 @@
 #include <VarConfig.h>          // derived variable config
 
 // module driver includes
-#include <init_modules.h>
+#include <main.h>
 
 // -- TEST CLASSES -----------------------------------------------
 class Irig_cls

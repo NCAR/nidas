@@ -1,8 +1,8 @@
-/* ck_init_modules.cc
+/* ck_main.cc
 
    Time-stamp: <Tue 20-Jul-2004 03:18:17 pm>
 
-   Test program to send configuration data to the init_modules
+   Test program to send configuration data to the main
    RTLinux module..,
 
    Original Author: John Wasinger
@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 // module driver includes
-#include <init_modules.h>
+#include <main.h>
 
 int main()
 {

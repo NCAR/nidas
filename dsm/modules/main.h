@@ -1,6 +1,6 @@
-/* init_modules.h
+/* main.h
 
-   Time-stamp: <Tue 20-Jul-2004 03:17:38 pm>
+   Time-stamp: <Wed 25-Aug-2004 12:18:58 pm>
 
    New ADS 3 header file...
 

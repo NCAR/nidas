@@ -1,6 +1,6 @@
-/* ckrtl_com8.cc
+/* ck_com8.cc
 
-   Time-stamp: <Thu 15-Jul-2004 03:31:41 pm>
+   Time-stamp: <Thu 26-Aug-2004 06:48:03 pm>
 
    Test program to print out messages received from the toggle
    FIFO buffers for the 8 port serial card.
@@ -23,7 +23,7 @@
 #include <bits/posix1_lim.h>
 
 // serial driver includes
-#include <rtl_com8.h>
+#include <com8.h>
 
 int main()
 {
@@ -39,7 +39,7 @@ int main()
   {
     for (int tog=0; tog<2; tog++)
     {
-      sprintf(devstr, "/dev/rtl_com8_data_%d_%d", ii, tog);
+      sprintf(devstr, "/dev/com8_data_%d_%d", ii, tog);
       fdSerial[ii][tog] = open(devstr, O_RDONLY);
 
       if (fdSerial[ii][tog] < 0)
@@ -99,7 +99,7 @@ int main()
 	  if (buffer[ii][tog].str[buffer[ii][tog].len] == '\0')
 	  {
 	    // print the full message recieved from this FIFO
-	    sprintf(devstr, "/dev/rtl_com8_data_%d_%d", ii, tog);
+	    sprintf(devstr, "/dev/com8_data_%d_%d", ii, tog);
 	    printf("%s > %s\n", devstr, buffer[ii][tog].str);
 	    buffer[ii][tog].len = 0;
 	  }
