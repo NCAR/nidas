@@ -37,7 +37,7 @@ public:
 
     int run() throw(atdUtil::Exception);
 
-    void connected(IOChannel*);
+    void connected(IOChannel*) throw();
 
     void schedule() throw(atdUtil::Exception);
 
@@ -54,6 +54,7 @@ public:
 
 protected:
     IOChannel* iochan;
+
 };
 
 }

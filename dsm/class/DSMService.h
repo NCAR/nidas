@@ -47,8 +47,8 @@ public:
      */
     virtual DSMService* clone() const = 0;
 
-    void setServer(DSMServer* val) { server = val; }
-    DSMServer* getServer() const { return server; }
+    void setDSMServer(DSMServer* val) { server = val; }
+    DSMServer* getDSMServer() const { return server; }
 
     const Aircraft* getAircraft() const;
 
@@ -65,6 +65,12 @@ public:
      */
     virtual void schedule() throw(atdUtil::Exception) = 0;
 
+    virtual int checkSubServices() throw();
+    virtual void cancelSubServices() throw();
+    virtual void interruptSubServices() throw();
+    virtual void joinSubServices() throw();
+
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
 
@@ -78,9 +84,14 @@ public:
 
 protected:
 
+    void addSubService(DSMService*) throw();
+
     DSMServer* server;
 
     const DSMConfig* dsm;
+
+    std::set<DSMService*> subServices;
+    atdUtil::Mutex subServiceMutex;
 
 };
 

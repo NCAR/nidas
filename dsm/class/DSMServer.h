@@ -84,10 +84,10 @@ public:
 
     void scheduleServices() throw(atdUtil::Exception);
 
-    void wait() throw(atdUtil::Exception);
-    void interrupt() throw(atdUtil::Exception);
-    void cancel() throw(atdUtil::Exception);
-    void join() throw(atdUtil::Exception);
+    void waitOnServices() throw();
+    void interruptServices() throw();
+    void cancelServices() throw();
+    void joinServices() throw();
 
     void fromDOMElement(const xercesc::DOMElement*)
         throw(atdUtil::InvalidParameterException);
@@ -118,9 +118,6 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> services;
-
-    atdUtil::Mutex threads_lock;
-    std::list<atdUtil::Thread*> threads;
 
 };
 

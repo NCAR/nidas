@@ -120,17 +120,14 @@ int DSMServer::main(int argc, char** argv) throw()
 	    break;
 	}
 
-	// make a local copy. The original is part of the Aircraft
-	// object and will be deleted when we cleanup the Project.
-	DSMServer server(*serverp);
-
 	try {
-	    server.scheduleServices();
-	    server.wait();
+	    serverp->scheduleServices();
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
 	}
+
+	serverp->waitOnServices();
 
 	delete project;
     }
@@ -222,26 +219,25 @@ DSMServer::DSMServer()
  * Copy constructor.
  */
 DSMServer::DSMServer(const DSMServer& x):
-	aircraft(x.aircraft),name(x.name),threads_lock(x.threads_lock)
+	aircraft(x.aircraft),name(x.name)
 {
     list<DSMService*>::const_iterator si;
     for (si=x.services.begin(); si != x.services.end(); ++si) {
 	DSMService* svc = *si;
 	DSMService* newsvc = svc->clone();
-	newsvc->setServer(this);
+	newsvc->setDSMServer(this);
 	services.push_back(newsvc);
     }
-    assert(x.threads.size() == 0);
 }
 DSMServer::~DSMServer()
 {
-    // delete services (these are the configured services,
-    // not the cloned copies that are running as threads).
+    // delete services. These are the configured services,
+    // not the cloned copies.
     list<DSMService*>::const_iterator si;
     cerr << "~DSMServer services.size=" << services.size() << endl;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	cerr << "deleting " << svc->getName() << endl;
+	cerr << "~DSMServer: deleting " << svc->getName() << endl;
 	delete svc;
     }
 }
@@ -290,7 +286,7 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 		throw atdUtil::InvalidParameterException("service",
 		    classattr,"is not of type DSMService");
 	    }
-	    service->setServer(this);
+	    service->setDSMServer(this);
 	    service->fromDOMElement((DOMElement*)child);
 	    addService(service);
 	}
@@ -315,13 +311,6 @@ DOMElement* DSMServer::toDOMElement(DOMElement* node)
     return node;
 }
 
-void DSMServer::addThread(atdUtil::Thread* thrd)
-{
-    threads_lock.lock();
-    threads.push_back(thrd);
-    threads_lock.unlock();
-}
-
 void DSMServer::scheduleServices() throw(atdUtil::Exception)
 {
 
@@ -332,66 +321,41 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
     }
 }
 
-void DSMServer::interrupt() throw(atdUtil::Exception)
+void DSMServer::interruptServices() throw()
 {
-    threads_lock.lock();
-    list<atdUtil::Thread*> tmp = threads;
-    threads_lock.unlock();
-
-    list<atdUtil::Thread*>::iterator ti;
-    for (ti = tmp.begin(); ti != tmp.end(); ++ti ) {
-	atdUtil::Thread* thrd = *ti;
-        thrd->interrupt();
+    list<DSMService*>::const_iterator si;
+    for (si=services.begin(); si != services.end(); ++si) {
+	DSMService* svc = *si;
+	svc->interruptSubServices();
     }
 }
 
-void DSMServer::cancel() throw(atdUtil::Exception)
+void DSMServer::cancelServices() throw()
 {
-    threads_lock.lock();
-    list<atdUtil::Thread*> tmp = threads;
-    threads_lock.unlock();
-
-    list<atdUtil::Thread*>::iterator ti;
-    for (ti = tmp.begin(); ti != tmp.end(); ++ti ) {
-	atdUtil::Thread* thrd = *ti;
-	if (thrd->isRunning()) {
-	    cerr << "DSMServer cancelling threads" << endl;
-	    thrd->cancel();
-	}
+    list<DSMService*>::const_iterator si;
+    for (si=services.begin(); si != services.end(); ++si) {
+	DSMService* svc = *si;
+	svc->cancelSubServices();
     }
 }
 
-void DSMServer::join() throw(atdUtil::Exception)
+void DSMServer::joinServices() throw()
 {
 
-    threads_lock.lock();
-
-    list<atdUtil::Thread*>::iterator ti;
-    for (ti = threads.begin(); ti != threads.end();) {
-	atdUtil::Thread* thrd = *ti;
-	cerr << "DSMServer joining " << thrd->getName() << endl;
-	try {
-	    thrd->join();
-	}
-	catch(const atdUtil::Exception& e) {
-	    atdUtil::Logger::getInstance()->log(LOG_ERR,
-		    "thread %s has quit, exception=%s",
-	    thrd->getName().c_str(),e.what());
-	}
-	cerr << "DSMServer deleting " << thrd->getName() << endl;
-	delete thrd;
-	ti = threads.erase(ti);
+    list<DSMService*>::const_iterator si;
+    for (si=services.begin(); si != services.end(); ++si) {
+	DSMService* svc = *si;
+	svc->joinSubServices();
     }
-    threads_lock.unlock();
 
 }
 
-void DSMServer::wait() throw(atdUtil::Exception)
+void DSMServer::waitOnServices() throw()
 {
 
     // We wake up every so often and check our threads.
     // An INTR,HUP or TERM signal to this process will
-    // also cause nanosleep to return. sigAction sets quit or
+    // cause nanosleep to return. sigAction sets quit or
     // restart, and then we break, and cancel our threads.
     struct timespec sleepTime;
     sleepTime.tv_sec = 10;
@@ -399,8 +363,13 @@ void DSMServer::wait() throw(atdUtil::Exception)
 
     for (;;) {
 
-	int nthreads = atdUtil::McSocketListener::check() +
-		threads.size();
+	int nthreads = atdUtil::McSocketListener::check();
+
+	list<DSMService*>::const_iterator si;
+	for (si=services.begin(); si != services.end(); ++si) {
+	    DSMService* svc = *si;
+	    nthreads += svc->checkSubServices();
+	}
 	
 	cerr << "DSMServer::wait nthreads=" << nthreads << endl;
 
@@ -411,39 +380,17 @@ void DSMServer::wait() throw(atdUtil::Exception)
 
 	if (quit || restart) break;
                                                                                 
-	threads_lock.lock();
-
-	list<atdUtil::Thread*>::iterator ti;
-	for (ti = threads.begin(); ti != threads.end(); ) {
-	    atdUtil::Thread* thrd = *ti;
-	    if (!thrd->isRunning()) {
-		cerr << "DSMServer::wait " << thrd->getName() << " not running" << endl;
-		try {
-		    thrd->join();
-		}
-		catch(const atdUtil::Exception& e) {
-		    atdUtil::Logger::getInstance()->log(LOG_ERR,
-			    "thread %s has quit, exception=%s",
-		    thrd->getName().c_str(),e.what());
-		}
-		delete thrd;
-		ti = threads.erase(ti);
-	    }
-	    else ++ti;
-	}
-
-	threads_lock.unlock();
     }
-    cerr << "Break out of wait loop" << endl;
-    interrupt();
+    cerr << "Break out of wait loop, interrupting services" << endl;
+    interruptServices();	
 
-    // wait 2 seconds, then cancel whatever is still running
-    sleepTime.tv_sec = 2;
+    // wait a bit, then cancel whatever is still running
+    sleepTime.tv_sec = 1;
     sleepTime.tv_nsec = 0;
     nanosleep(&sleepTime,0);
 
-    cancel();	
-    join();
+    cancelServices();	
+    joinServices();
 }
 
 DSMServerRunstring::DSMServerRunstring(int argc, char** argv) {

@@ -17,9 +17,11 @@
 #include <Aircraft.h>
 #include <DSMServer.h>
 #include <DOMObjectFactory.h>
+#include <atdUtil/Logger.h>
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
 	server(0),dsm(0)
@@ -34,20 +36,113 @@ DSMService::~DSMService()
     cerr << "~DSMService" << endl;
 }
 
-const Aircraft* DSMService::getAircraft() const {
-    return getServer()->getAircraft();
+void DSMService::addSubService(DSMService* svc) throw()
+{
+    atdUtil::Synchronized autolock(subServiceMutex);
+    subServices.insert(svc);
 }
 
-void DSMService::fromDOMElement(const xercesc::DOMElement* node)
+void DSMService::interruptSubServices() throw()
+{
+    atdUtil::Synchronized autolock(subServiceMutex);
+
+    set<DSMService*>::iterator si;
+    for (si = subServices.begin(); si != subServices.end(); ++si) {
+        DSMService* svc = *si;
+        try {
+            if (svc->isRunning()) svc->interrupt();
+        }
+        catch(const atdUtil::Exception& e) {
+            atdUtil::Logger::getInstance()->log(LOG_ERR,
+                    "service %s: %s",
+            svc->getName().c_str(),e.what());
+        }
+    }
+}
+
+void DSMService::cancelSubServices() throw()
+{
+    atdUtil::Synchronized autolock(subServiceMutex);
+
+    set<DSMService*>::iterator si;
+    for (si = subServices.begin(); si != subServices.end(); ++si) {
+        DSMService* svc = *si;
+        try {
+            if (svc->isRunning()) svc->cancel();
+        }
+        catch(const atdUtil::Exception& e) {
+            atdUtil::Logger::getInstance()->log(LOG_ERR,
+                    "service %s: %s",
+            svc->getName().c_str(),e.what());
+        }
+    }
+}
+
+void DSMService::joinSubServices() throw()
+{
+    atdUtil::Synchronized autolock(subServiceMutex);
+
+    set<DSMService*>::iterator si;
+    for (si = subServices.begin(); si != subServices.end(); ++si) {
+        DSMService* svc = *si;
+        try {
+            svc->join();
+        }
+        catch(const atdUtil::Exception& e) {
+            atdUtil::Logger::getInstance()->log(LOG_ERR,
+                    "service %s: %s",
+            svc->getName().c_str(),e.what());
+        }
+	delete svc;
+    }
+    subServices.clear();
+}
+
+int DSMService::checkSubServices() throw()
+{
+    atdUtil::Synchronized autolock(subServiceMutex);
+
+    int nrunning = 0;
+    set<DSMService*>::iterator si;
+    for (si = subServices.begin(); si != subServices.end(); ) {
+        DSMService* svc = *si;
+        if (!svc->isRunning()) {
+            cerr << "DSMService::checkSubServices " <<
+                svc->getName() << " not running" << endl;
+            try {
+                svc->join();
+            }
+            catch(const atdUtil::Exception& e) {
+                atdUtil::Logger::getInstance()->log(LOG_ERR,
+                        "thread %s has quit, exception=%s",
+                svc->getName().c_str(),e.what());
+            }
+            delete svc;
+            subServices.erase(si);
+            si = subServices.begin();
+        }
+        else {
+            nrunning++;
+            ++si;
+        }
+    }
+    return nrunning;
+}
+
+const Aircraft* DSMService::getAircraft() const {
+    return getDSMServer()->getAircraft();
+}
+
+void DSMService::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
 	// get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
@@ -55,11 +150,11 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* DSMService::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* DSMService::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -67,8 +162,8 @@ xercesc::DOMElement* DSMService::toDOMParent(
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* DSMService::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* DSMService::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

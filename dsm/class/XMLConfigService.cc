@@ -24,6 +24,8 @@
 #include <XMLConfigWriter.h>
 #include <XMLFdFormatTarget.h>
 
+#include <atdUtil/Logger.h>
+
 #include <iostream>
 
 using namespace dsm;
@@ -70,7 +72,7 @@ void XMLConfigService::schedule() throw(atdUtil::Exception)
     iochan->requestConnection(this,XML_CONFIG);
 }
 
-void XMLConfigService::connected(IOChannel* iochan)
+void XMLConfigService::connected(IOChannel* iochan) throw()
 {
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = iochan->getRemoteInet4Address();
@@ -85,14 +87,15 @@ void XMLConfigService::connected(IOChannel* iochan)
     XMLConfigService* newserv = new XMLConfigService(*this);
     newserv->setDSMConfig(dsm);
     newserv->start();
-    getServer()->addThread(newserv);
+
+    addSubService(newserv);
 }
 
 int XMLConfigService::run() throw(atdUtil::Exception)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
-    xercesc::DOMDocument* doc = parser->parse(DSMServer::getXMLFileName());
+    DOMDocument* doc = parser->parse(DSMServer::getXMLFileName());
 
     XMLFdFormatTarget formatter(iochan->getName(),iochan->getFd());
 
@@ -103,7 +106,7 @@ int XMLConfigService::run() throw(atdUtil::Exception)
     return RUN_OK;
 }
 
-void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
+void XMLConfigService::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     int niochan = 0;
@@ -131,7 +134,7 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 		iochan->setDSMConfig(getDSMConfig());
 		iochan->setDSMService(this);
 
-		iochan->fromDOMElement((xercesc::DOMElement*)gkid);
+		iochan->fromDOMElement((DOMElement*)gkid);
 
 		if (++niochan > 1)
 		    throw atdUtil::InvalidParameterException(
