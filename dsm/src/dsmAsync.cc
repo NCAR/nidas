@@ -29,6 +29,8 @@
 #include <TapeHeader.h>         // sram tapeheader
 #include <VarConfig.h>          // derived variable config
 
+// module driver includes
+#include <init_modules.h>
 
 // -- TEST CLASSES -----------------------------------------------
 class Irig_cls

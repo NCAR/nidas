@@ -19,4 +19,6 @@ src_arm_env['LIBS'] = Split("""
 ##
 ##  Build dsmAsync, dsmSync, dsmComm
 ##
-src_arm_env.Program('#/bin/dsmAsync' , 'dsmAsync.cc')
+src_arm_env.Program('#/bin/dsmAsync'          , 'dsmAsync.cc')
+src_arm_env.Program('#/bin/ckrtl_com8'        , 'ckrtl_com8.cc')
+src_arm_env.Program('#/bin/ck_init_modules'   , 'ck_init_modules.cc')
