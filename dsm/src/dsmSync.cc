@@ -161,7 +161,7 @@ void dsmSync()
       len = 0;
       if (FD_ISSET( mensor[i]->dataFifo[ptog], &readfds)){
         while (FD_ISSET( mensor[i]->dataFifo[ptog], &readfds)){
-          len += read(mensor[i]->dataFifo[ptog], &mensor[i]->buf[0],
+          len += read(mensor[i]->dataFifo[ptog], &mensor[i]->buf[len],
                       sizeof(buf));
         }
         mensor[i]->parser(len);
@@ -169,7 +169,7 @@ void dsmSync()
       len = 0;
       if (FD_ISSET( parsci[i]->dataFifo[ptog], &readfds)){
         while (FD_ISSET( parsci[i]->dataFifo[ptog], &readfds)){
-          len += read(parsci[i]->dataFifo[ptog], &parsci[i]->buf[0],
+          len += read(parsci[i]->dataFifo[ptog], &parsci[i]->buf[len],
                       sizeof(buf));
         }
         parsci[i]->parser(len);
@@ -195,7 +195,7 @@ void dsmSync()
         len = 0;
         if (FD_ISSET( mensor[i]->dataFifo[gtog], &readfds)){
           while (FD_ISSET( mensor[i]->dataFifo[gtog], &readfds)){
-            len += read(mensor[i]->dataFifo[gtog], &mensor[i]->buf[0],
+            len += read(mensor[i]->dataFifo[gtog], &mensor[i]->buf[len],
                         sizeof(buf));
           }
           mensor[i]->parser(len);
@@ -203,7 +203,7 @@ void dsmSync()
         len = 0;
         if (FD_ISSET( parsci[i]->dataFifo[gtog], &readfds)){
           while (FD_ISSET( parsci[i]->dataFifo[gtog], &readfds)){
-            len += read(parsci[i]->dataFifo[gtog], &parsci[i]->buf[0],
+            len += read(parsci[i]->dataFifo[gtog], &parsci[i]->buf[len],
                         sizeof(buf));
           }
           parsci[i]->parser(len);
