@@ -1,6 +1,6 @@
 /* com8.c
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:02 pm>
+   Time-stamp: <Mon 30-Aug-2004 02:26:29 pm>
 
    RTLinux serial driver for the ISA bus based Com8 card.
 
@@ -28,6 +28,7 @@
 
 #define RTL_SERIAL_BUFSIZE      2048
 #define RTL_MAX_SERIAL          8
+#define VIPER_MAX_SERIAL        5
 
 #define IER 1
 #define DLM 1
@@ -47,6 +48,7 @@
         outb_p((byte), (serial)->port_blk.uart_base + (offset))
 #define in_byte(serial, offset) \
         inb_p((serial)->port_blk.uart_base + (offset))
+
 
 static int fifo_fd[RTL_MAX_SERIAL][TOG];
 static int fd[RTL_MAX_SERIAL];
@@ -197,7 +199,7 @@ unsigned int rtl_serial_irq(unsigned int irq, struct rtl_frame *frame)
 
   while (pending_irqs)
   {
-    for (i = 0; i < 3; i++) // was RTL_MAX_SERIAL
+    for (i = 0; i < RTL_MAX_SERIAL; i++)
     {
       serial = rtl_get_serial((int)fd[i]);
 
@@ -371,7 +373,7 @@ int init_module(void)
                  RTL_SERIAL_BUFSIZE);
     rtl_spin_lock_init (&serial->lock);
 
-    sprintf(devstr,"/dev/ttyS%d",i);
+    sprintf(devstr,"/dev/ttyS%d",i+VIPER_MAX_SERIAL);
     if (rtl_register_dev(devstr,&rtl_serial_fops,0))
     {
       rtl_printf("(%s) %s: Unable to register serial device %d\n",
@@ -394,12 +396,12 @@ int init_module(void)
   //irq_reg: UART int. pending reg., bit 0-7 = port 0-7, read-only
   irq_reg = COM8_BASE + 3;
   irq_masks = 0;
-  for (i = 0; i < 3; i++) // was RTL_MAX_SERIAL
+  for (i = 0; i < RTL_MAX_SERIAL; i++)
   {
     if (i == 0) serialCfg[i].baud_rate = 9600;
     else        serialCfg[i].baud_rate = 0;
 
-    sprintf(devstr,"/dev/ttyS%d",i+5);
+    sprintf(devstr,"/dev/ttyS%d",i+VIPER_MAX_SERIAL);
     fd[i] = open(devstr, O_NONBLOCK);
 
     rtl_printf("(%s) %s: fd[%d] = 0x%lx\n", __FILE__, __FUNCTION__, i, fd[i]);
