@@ -1129,6 +1129,15 @@ static void init_serialPort_struct(struct serialPort* port)
 
     port->nsamples = 0;
 
+    /* semaphore timeout in read method */
+    /*
+     * May want to make this read timeout settable from user space
+     * with an ioctl.  Or one could set it equal to the
+     * prompt rate, but that wouldn't account for non-prompted
+     * sensors. 
+     */
+    port->read_timeout_nsec = 250000000;	// 250 msec = 1/4 sec
+
     sem_init(&port->sample_sem,0,0);
 
     port->xmit.buf = 0;
@@ -1540,26 +1549,20 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     unsigned long flags;
 
-#ifdef DO_SEM_TIMEDWAIT
-    struct timespec tspec;
-#endif
     ssize_t retval = 0;
     ssize_t lout;
 
-#ifdef DO_SEM_TIMEDWAIT
-    /*
-     * May want to make this timeout settable from user space
-     * with an ioctl.  Or one could set it equal to the
-     * prompt rate, but that wouldn't account for non-prompted
-     * sensors. 
-     */
+    struct timespec timeout;
 
-    clock_gettime(CLOCK_REALTIME,&tspec);
-    tspec.tv_sec += 1;
-#endif
+    clock_gettime(CLOCK_REALTIME,&timeout);
+    // timespec_add_ns(&timeout, port->read_timeout_nsec);
+    timeout.tv_nsec += port->read_timeout_nsec;
+    if (timeout.tv_nsec >= NSECS_PER_SEC) {
+	timeout.tv_sec++;
+	timeout.tv_nsec -= NSECS_PER_SEC;
+    }
 
     while (count > 0) {
-        
 	if ((lout = port->unwrittenl) > 0) {
 	    if (lout > count) lout = count;
 
@@ -1580,33 +1583,36 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	else {
 	    struct dsm_sample* samp = 0;
 
-#ifdef DO_SEM_TIMEDWAIT
-	    /* Note that we don't increment the absolute 
-	     * time of the timeout (tspec) again. It is an
-	     * absolute cut-off time for this read.
+	    /* Note that we don't increment the absolute
+	     * time of the timeout again. It is an
+	     * absolute cut-off time for this read - unless
+	     * no data is arriving.
+	     * We want to return the data in a timely manner -
+	     * typical tradeoff between efficiency and timelyness.
 	     */
-	    if (sem_timedwait(&port->sample_sem,&tspec) < 0)
-#else
-	    if (sem_wait(&port->sample_sem) < 0)
-#endif
+
+	    if (sem_timedwait(&port->sample_sem,&timeout) < 0)
 	    {
 		if (errno == RTL_EINTR) {
 			rtl_printf("dsm_ser_read sem_wait interrupt\n");
 			return -errno;
 		}
-#ifdef DO_SEM_TIMEDWAIT
 	        else if (errno == RTL_ETIMEDOUT) {
-			/* if timeout just return 0 length read */
-			rtl_printf("dsm_ser_read sem timeout\n");
+			/* if timeout return what we've read */
+			if (retval > 0) return retval;
+			// increment timeout if no data
+			timeout.tv_nsec += port->read_timeout_nsec;
+			if (timeout.tv_nsec >= NSECS_PER_SEC) {
+			    timeout.tv_sec++;
+			    timeout.tv_nsec -= NSECS_PER_SEC;
+			}
 		}
-#endif
 		else {
-		    rtl_printf("dsm_ser_read sem_wait unk error: %d\n",
+		    rtl_printf("dsm_ser_read sem_wait unknown error: %d\n",
 			errno);
 		    return -errno;
 		}
 	    }
-	    
 
 	    /*
 	     * We're checking the equality of sample_queue.head and
@@ -1622,7 +1628,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	    if (port->sample_queue.head != port->sample_queue.tail)
 		samp = port->sample_queue.buf[port->sample_queue.tail];
 
-	    if (!samp) break;
+	    if (!samp) continue;
 	    port->unwrittenp = (char*) samp;
 	    port->unwrittenl =
 	      	SIZEOF_DSM_SAMPLE_HEADER + samp->length;

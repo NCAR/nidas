@@ -155,7 +155,7 @@ struct dsm_sample_circ_buf {
     int tail;
 };
 
-#define SAMPLE_QUEUE_SIZE 4
+#define SAMPLE_QUEUE_SIZE 16
 
 #define UNKNOWN_TIMETAG_VALUE 0xffffffff
 
@@ -197,6 +197,7 @@ struct serialPort {
     struct dsm_sample_circ_buf sample_queue;
     struct dsm_sample* sample;	/* current sample being read */
 
+    unsigned long read_timeout_nsec;	/* semaphore timeout in read method */
     rtl_sem_t sample_sem;
 
     char* unwrittenp;		/* pointer to remaining sample to be written */

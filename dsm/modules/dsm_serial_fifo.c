@@ -119,11 +119,34 @@ static void* in_thread_func(void* arg)
 #ifdef DEBUG
 	rtl_printf("in_thread_func: l=%d\n",l);
 #endif
+
+	/* Saw these errors at the time of a network interface hiccup:
+	 * error 52 is: #define EBADE           52      * Invalid exchange *
+
+	<4>smc_wait_ms: busy wait while in interrupt!
+	<4>smc_wait_ms: busy wait while in interrupt!
+	<4>smc_wait_ms: busy wait while in interrupt!
+	<7><5>eth0: Ethernet Link Detected
+	<7>eth0: PHY 10BaseT
+	<7>eth0: PHY Half Duplex
+
+	4>in_thread_func, write error: 52
+	<4>dev_close: fd=12
+	<4>poll_handler called
+	<4>rtl_dsm_ser_release
+
+	<4>in_thread_func, write error: 52
+	<4>dev_close: fd=10
+	<4>poll_handler called
+	<4>rtl_dsm_ser_release
+	*/
+
 	eob = buf + l;
 	for (cp = buf; cp < eob; cp += l) {
 	    if ((l = write(port->inFifoFd,cp,eob-cp)) < 0) {
-		rtl_printf("in_thread_func, write error: %d\n",
-			rtl_errno);
+		rtl_printf(
+		"in_thread_func, write to fifo error: %d, eob-cp=%d\n",
+			rtl_errno,(int)(eob-cp));
 		if (rtl_errno == EINTR) break;
 		return (void*)rtl_errno;
 	    }
