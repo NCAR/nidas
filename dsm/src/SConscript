@@ -15,11 +15,14 @@ myenv.AppendUnique(CPPPATH = Split("""
       #dsm/modules
     """))
 
-##  /opt/atdLib/arm/lib
-##  /scr/tmp/maclean
-myenv.AppendUnique(LIBPATH = Split("""
-    class/
-"""))
+myenv.AppendUnique(LIBS = Split("""
+      Dsm
+      isa
+      xerces-c
+      pthread
+      dl
+    """))
+
 ##
 # ckrtl_com8.cc
 #   dsmSync.cc
@@ -30,6 +33,8 @@ apps = Split("""
   sensor_test.cc
   ck_selector.cc
   ck_serial.cc
+  ck_factory.cc
+  ck_config.cc
 """)
 
 for i in apps:
