@@ -29,6 +29,7 @@ apps = Split("""
   serial_test.cc
   sensor_test.cc
   ck_selector.cc
+  ck_serial.cc
 """)
 
 for i in apps:
