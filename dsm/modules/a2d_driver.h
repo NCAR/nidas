@@ -39,6 +39,7 @@
 #define	A2D_MAX_RATE		10000
 #define INTRP_RATE		100
 #define	HWFIFODEPTH		1024
+#define	RATERATIO		(A2D_MAX_RATE/INTRP_RATE)	
 
 //Status/error
 #define A2DLOADOK	 	 0
@@ -124,24 +125,26 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
-	long timestamp;
-	long size;
-	long spare;
-  	SS   inbuf[2*INTRP_RATE*MAXA2DS]; //8 chans*100samples/chan*2bytes/sample
+	UL timestamp;
+	US size;
+	US spare;
+  	SS data[RATERATIO][MAXA2DS]; 
 }A2DSAMPLE;
 
 typedef struct
 {
-	long timestamp;
-	long size;
-	long spare;
+	UL timestamp;
+	UL size;
+	UL spare;
 	US a2dstat[8];
 	US fifostat;
-	char c[2*INTRP_RATE*MAXA2DS];
+	char c[RATERATIO][MAXA2DS];
 }A2D_GET;
 
 typedef struct 
 {
+	UL	timestamp;	// Time in microseconds ?
+	US	size;		// Size of structure
 	int	gain[8];	// Gain settings 
 	int	vcalx8;		// Calibration voltage: 
 				// 128=0, 48=-10, 208 = +10, .125 V/bit
@@ -149,12 +152,11 @@ typedef struct
 //
 	UC	calset;		// Calibration flags
 	UC	offset;		// Offset flags
+	US	master;		// Designates master A/D
 //
 	US	filter[2048];	// Filter data
-	US	master;		// Designates master A/D
 	US	Hz[8];		//Sample rate in Hz. 0 is off.
 	US	ctr[8];		// Current value of ctr;
-	US	flag[8];	// Address bump flag
 	US	status[8];	// A/D status flag
 //
 	UL	ptr[8];		// Pointer offset from beginning of 

@@ -133,8 +133,7 @@ static int A2DCallback(int cmd, int board, int port,
   	case A2D_GET_IOCTL:		/* user get */
 		{
 		A2D_GET *tg = (A2D_GET *)buf;
-		strncpy(tg->c,"0123456789",len);
-		tg->c[len-1] = 0;
+		tg->size = sizeof(A2D_GET) - 8;
 		ret = len;
 		}
     		break;
@@ -283,7 +282,6 @@ int A2DSetup(A2D_SET *a2d)
 		// Pass filter info to init routine
 		A2DError(A2DInit(i, &a2d->filter[0]));
 		A2DSetGain(i, a2d->gain[i]);
-		a2d->flag[i] = 0;	// Clear flags
 		a2d->status[i] = 0;	// Clear status
 		A2DSetCtr(a2d);		// Set up the counters
 	}
@@ -671,6 +669,7 @@ void A2DSetSYNC(void)
 }
 
 /*-----------------------Utility------------------------------*/
+
 // Clear the SYNC flag
 // Checked visually 5/22/04 GRG
 
@@ -748,25 +747,29 @@ void A2DClearFIFO(void)
 void A2DGetData()
 {
 	US *A2DAddr;
-	US inbuf[HWFIFODEPTH];
-	int i;
+//	US inbuf[HWFIFODEPTH];
+	A2DSAMPLE buf;
+	int i, j;
 
 	A2DAddr = (US *)(CardBase + A2DIOFIFO);
 	A2DChSel(A2DIOFIFO);
-	i = 0;
-	for(i = 0; i < HWFIFODEPTH; i++)
+	for(i = 0; i < INTRP_RATE; i++)
 	{
+		for(j = 0; j < MAXA2DS; j++)
+		{
 #ifdef DEBUG_FIFO
-		inbuf[i] = i-HWFIFODEPTH/2; //Ramp
+		buf.data[i][j] = i-HWFIFODEPTH/2; //Ramp
 #else
-		inbuf[i] = gginw(A2DAddr);	
-		if(inbuf[i] == 0xFFFF && A2DFIFOEmpty())break;
+		buf.data[i][j] = gginw(A2DAddr);	
 #endif
 //TODO get the timestamp and size in the first two long words
 //TODO make certain the write size is correct
 //TODO check to see if fd_up is valid. If not, return an error
-	write(fd_up, inbuf, 2*(i-1)); // Write to up-fifo
+		}
+		if(buf.data[i][j] == 0xFFFF && A2DFIFOEmpty())break;
 	}
+	write(fd_up, &buf, sizeof(A2DSAMPLE)); // Write to up-fifo
+	return;
 }
 /*-----------------------Utility------------------------------*/
 // A2DFIFOEmpty checks the FIFO empty status bit and returns
@@ -792,7 +795,9 @@ int A2DFIFOEmpty()
 void A2DGetDataSim(void)
 {
 	UL timestamp;
-	US inbuf[MAXA2DS*INTRP_RATE + 4]; // The 4 is for 2 longs
+//	US inbuf[MAXA2DS*INTRP_RATE + 4]; // The 4 is for 2 longs
+	A2DSAMPLE buf;
+
 	int i, j, k = 0, sign = 1; 
 	size_t nbytes;
 	
@@ -807,29 +812,28 @@ void A2DGetDataSim(void)
 #endif
 			for(j = 0; j < MAXA2DS; j++)
 			{
-			inbuf[MAXA2DS*i + j + 4] = sign*(1000*j + (j+1)*(j+1)); 
+			buf.data[i][j] = sign*(1000*j + (j+1)*(j+1)); 
 			sign *= -1;
 #ifdef INBUFWR
-			rtl_printf("%06d  ", inbuf[MAXA2DS*i+j+4]);
+			rtl_printf("%06d  ", buf.data[i][j]);
 #endif
 			}
 #ifdef INBUFWR			
 		rtl_printf("\n");
 #endif
 		}
-#ifndef DEBUGFIFOWRITE
-		nbytes = write(fd_up, inbuf, sizeof(inbuf)); //Write to up-fifo 
-#endif
 #ifdef NOIRIG
 		timestamp = k;
 #else
 		timestamp = GET_MSEC_CLOCK;
 #endif
-		inbuf[0] = (US)(timestamp & 0x0000FFFF);
-		inbuf[1] = (US)((timestamp * 0xFFFF0000)>>16);
-		inbuf[2] = (US)(2*(MAXA2DS*INTRP_RATE + 4));
-		inbuf[3] = 0;
+		buf.timestamp = timestamp;
+		buf.size = sizeof(buf.data);
+#ifndef DEBUGFIFOWRITE
+		nbytes = write(fd_up, &buf, sizeof(A2DSAMPLE)); //Write to up-fifo 
+#endif
 #ifdef DEBUGDATA
+		errno = 0;
 		if(!(k%10))rtl_printf("%6dth write: nbytes = 0x%08X, errno = 0x%08x\n",
 				 k, nbytes, errno);
 #endif
