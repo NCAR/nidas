@@ -3,7 +3,16 @@
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     targetNamespace="http://www.eol.ucar.edu/ads3"
     xmlns="http://www.eol.ucar.edu/ads3"
-    elementFormDefault="qualified">
+    elementFormDefault="qualified"
+    xml:lang="en">
+
+<xsd:annotation>
+    <xsd:documentation>
+    Schema describing a data acquisition system.
+    Copyright 2005 UCAR. All rights reserved.
+    </xsd:documentation>
+</xsd:annotation>
+
 
 <xsd:simpleType name="baudtype">
     <xsd:restriction base="xsd:positiveInteger">
@@ -61,22 +70,84 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
+<xsd:complexType name="variable">
+    <xsd:attribute name="name" type="xsd:token" use="required"/>
+    <xsd:attribute name="longname" type="xsd:normalizedString"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+</xsd:complexType>
+
+<xsd:complexType name="arincVariable">
+    <xsd:complexContent>
+	<xsd:extension base="variable">
+	    <xsd:attribute name="label" type="OctalLabelType"      use="required"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="sample">
+    <xsd:annotation>
+        <xsd:documentation>
+	    A sample has an id, a rate, and contains one or more
+	    variables.  The sum of the sensor id and this sample id 
+	    is used to tag each sample in the system, so that SampleClients
+	    that receive the sample can know what variables are in
+	    the sample, and what sensor it came from.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="1" maxOccurs="unbounded">
+	<xsd:element name="variable" type="variable"/>
+    </xsd:choice>
+    <xsd:attribute name="id" type="xsd:short" use="required"/>
+    <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
+</xsd:complexType>
+
+<xsd:simpleType name="OctalLabelType">
+    <xsd:restriction base="xsd:short">
+        <xsd:pattern value="0[0-3][0-7]{2}"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+
+<xsd:complexType name="arincSample">
+    <xsd:complexContent>
+	<xsd:restriction base="sample">
+	    <xsd:choice minOccurs="1" maxOccurs="1">
+		<xsd:element name="variable" type="variable"/>
+	    </xsd:choice>
+	    <xsd:attribute name="id" type="OctalLabelType" use="required"/>
+	    <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
+	</xsd:restriction>
+    </xsd:complexContent>
+</xsd:complexType>
+
 <xsd:complexType name="sensorT" abstract="false">
+    <xsd:annotation>
+        <xsd:documentation>
+	    The id (lower case) attribute is different from
+	    the ID attribute. The ID identifies the sensor in
+	    the catalog. A sensor is found in the catalog by
+	    matching its ID against an IDREF.  The sensor id
+	    is a numeric value, which is used to mark all
+	    samples from this sensor.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="sample" type="sample" minOccurs="1"/>
+    </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
     <xsd:attribute name="class" type="xsd:token"/>
     <xsd:attribute name="devicename" type="xsd:token"/>
+    <xsd:attribute name="id" type="xsd:short"/>
 </xsd:complexType>
 
 <xsd:complexType name="serialsensorT">
     <xsd:complexContent>
 	<xsd:extension base="sensorT">
-	    <xsd:all>
-		<xsd:element name="message" type="messageDesc"
-		    minOccurs="0" maxOccurs="1"/>
-		<xsd:element name="prompt" type="promptType"
-		    minOccurs="0" maxOccurs="1"/>
-	    </xsd:all>
+	    <xsd:choice minOccurs="1" maxOccurs="2">
+		<xsd:element name="message" type="messageDesc" minOccurs="1" maxOccurs="1"/>
+		<xsd:element name="prompt" type="promptType" minOccurs="0" maxOccurs="1"/>
+	    </xsd:choice>
 	    <!-- these attributes must occur after the above sequence -->
 	    <!-- Currently can't provide defaults here, because the defaults
                  then over-ride the values that were specified for a sensor in
@@ -90,69 +161,60 @@
     </xsd:complexContent>
 </xsd:complexType>
 
-<xsd:simpleType name="OctalLabelType">
-    <xsd:restriction base="xsd:positiveInteger">
-        <xsd:pattern value="0[0-3][0-7]{2}"/>
-    </xsd:restriction>
-</xsd:simpleType>
-
-<xsd:complexType name="arcfgDesc">
-    <xsd:attribute name="label" type="OctalLabelType"      use="required"/>
-    <xsd:attribute name="rate"  type="xsd:positiveInteger" use="required"/>
-    <xsd:attribute name="desc"  type="xsd:normalizedString"/>
-</xsd:complexType>
-
 <xsd:complexType name="arincSensorT">
     <xsd:annotation>
         <xsd:documentation>
-            Each ARINC sensor has a set of unique labels with a given rate for each label.
+            The id attributes of the sample child elements contain the
+	    ARINC label value.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:complexContent>
-        <xsd:extension base="sensorT">
-            <xsd:sequence minOccurs="0" maxOccurs="255">
-                <xsd:element name="arcfg" type="arcfgDesc">
-                    <xsd:unique name="uniqueArcfgs">
-                        <xsd:selector xpath="arcfg"/>
-                       <xsd:field    xpath="@label"/>
-                    </xsd:unique>
-                </xsd:element>
-            </xsd:sequence>
-        </xsd:extension>
+	<xsd:restriction base="sensorT">
+	    <xsd:choice minOccurs="1" maxOccurs="255">
+		<xsd:element name="sample" type="arincSample" minOccurs="1"/>
+            </xsd:choice>
+        </xsd:restriction>
     </xsd:complexContent>
 </xsd:complexType>
 
-<xsd:complexType name="choiceOfSensors">
-   <xsd:sequence minOccurs="1" maxOccurs="unbounded">
-      <xsd:choice>
-          <xsd:element name="sensor"       type="sensorT"/>
-          <xsd:element name="serialsensor" type="serialsensorT"/>
-          <xsd:element name="arincSensor"  type="arincSensorT"/>
-          <xsd:element name="irigsensor"  type="sensorT"/>
-      </xsd:choice>
-   </xsd:sequence>
-</xsd:complexType>
 
-<xsd:element name="sensorcatalog" type="choiceOfSensors"/>
+<xsd:group name="sensors">
+    <xsd:choice>
+	<xsd:element name="sensor"       type="sensorT"/>
+	<xsd:element name="serialsensor" type="serialsensorT"/>
+	<xsd:element name="arincSensor"  type="arincSensorT">
+	    <xsd:unique name="uniqueSampleId2">
+		<xsd:selector xpath="sample"/>
+		<xsd:field    xpath="@id"/>
+	    </xsd:unique>
+	</xsd:element>
+	<xsd:element name="irigsensor"  type="sensorT"/>
+    </xsd:choice>
+</xsd:group>
+
+<xsd:element name="sensorcatalog">
+    <xsd:complexType>
+	<xsd:sequence minOccurs="1" maxOccurs="unbounded">
+	    <xsd:group ref="sensors"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
 
 <xsd:element name="dsm">
     <xsd:complexType>
-       <xsd:sequence minOccurs="1" maxOccurs="unbounded">
-	  <xsd:choice>
-	      <xsd:element name="sensor"       type="sensorT"/>
-	      <xsd:element name="serialsensor" type="serialsensorT"/>
-	      <xsd:element name="arincSensor"  type="arincSensorT"/>
-	      <xsd:element name="irigsensor"  type="sensorT"/>
-	      <xsd:element ref="config"/>
-	      <xsd:element ref="output"/>
-	  </xsd:choice>
-       </xsd:sequence>
-       <xsd:attribute name="name" type="xsd:token" use="required"/>
-       <xsd:attribute name="location" type="xsd:token" use="required"/>
+	<xsd:choice minOccurs="1" maxOccurs="unbounded">
+	    <xsd:group ref="sensors"/>
+	    <xsd:element ref="config"/>
+	    <xsd:element ref="output"/>
+	</xsd:choice>
+	<xsd:attribute name="name" type="xsd:token" use="required"/>
+	<xsd:attribute name="location" type="xsd:token" use="required"/>
     </xsd:complexType>
+    <xsd:unique name="uniqueSensorId">
+	<xsd:selector xpath="sensor | serialsensor | arincSensor | irigSensor"/>
+	<xsd:field    xpath="@id"/>
+    </xsd:unique>
 </xsd:element>
-<!--
--->
 
 <xsd:element name="socket">
    <xsd:complexType>
@@ -183,9 +245,9 @@
 
 <xsd:element name="output">
    <xsd:complexType>
-        <xsd:choice>
-            <xsd:element ref="socket" maxOccurs="unbounded"/>
-            <xsd:element ref="fileset" maxOccurs="unbounded"/>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="socket"/>
+            <xsd:element ref="fileset"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="required"/>
    </xsd:complexType>
