@@ -52,5 +52,14 @@ namespace dsm {
   }
 #endif
 
+  inline dsm_sys_time_t next_dsm_sys_time(dsm_sys_time_t t,unsigned long period) {
+#ifdef TIME_IS_LONG_LONG
+    return ((t / period) + 1) * period;
+#else
+    return (floor(t / period) + 1.0) * period;
+#endif
+  }
+
+}
 
 #endif
