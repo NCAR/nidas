@@ -1,3 +1,4 @@
+#define PRINTINT	100
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -52,9 +53,14 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
     ShortIntSample* outs =
     	SamplePool<ShortIntSample>::getInstance()->getSample(
 		samp->getDataLength());
-cerr << "outs = " << hex << outs << dec << endl;
-cerr << "datalength = " << samp->getDataLength() << endl;
-cerr << "timetag = " << samp->getTimeTag() << endl;
+//cerr << "datalength = " << samp->getDataLength() << ": ";
+//cerr << "timetag = " << samp->getTimeTag() << endl;
+	if(samp->getTimeTag()%PRINTINT == 0)
+	{
+		printf("time %08ld: datalength %05ld: outs = 0x%08X\n", 
+			samp->getTimeTag(), samp->getDataLength(),
+			outs);
+	}
     for (unsigned int i = 0; i < samp->getDataLength(); i++)
 	outs->getDataPtr()[i] = ((const short *)samp->getConstVoidDataPtr())[i];
     outs->setTimeTag(samp->getTimeTag());
