@@ -15,8 +15,12 @@
 
 #include <irigclock.h>
 #include <pc104sg.h>
+
 #include <IRIGSensor.h>
+#include <DSMTime.h>
 #include <RTL_DevIoctlStore.h>
+
+#include <atdUtil/Logger.h>
 
 #include <iostream>
 #include <sstream>
@@ -27,17 +31,12 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(IRIGSensor)
 
-IRIGSensor::IRIGSensor()
+IRIGSensor::IRIGSensor(): GOOD_CLOCK_LIMIT(60000),questionableClock(0)
+
 {
 }
 
 IRIGSensor::~IRIGSensor() {
-    try {
-	close();
-    }
-    catch(atdUtil::IOException& ioe) {
-      cerr << ioe.what() << endl;
-    }
 }
 void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 {
@@ -72,8 +71,38 @@ void IRIGSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
-void IRIGSensor::fromDOMElement(
-	const DOMElement* node)
+SampleT<dsm_sys_time_t>* IRIGSensor::processClockSample(const Sample* samp)
+    	throw(SampleParseException,atdUtil::IOException)
+{
+    dsm_sys_time_t syst = getCurrentTimeInMillis();
+
+    dsm_clock_data* dp = (dsm_clock_data*) samp->getConstVoidDataPtr();
+
+    dsm_sys_time_t sampt = dp->time;
+    int status = dp->status;
+
+    SampleT<dsm_sys_time_t>* clksamp = getSample<dsm_sys_time_t>(1);
+    clksamp->setTimeTag(samp->getTimeTag());
+    clksamp->setId(CLOCK_SAMPLE_ID);
+    clksamp->getDataPtr()[0] = sampt;
+
+    if (::llabs(syst - sampt) > GOOD_CLOCK_LIMIT) {
+	if (!(questionableClock++ % 100)) {
+	    if (sampt > syst)
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+			"IRIG clock is %d msecs ahead of unix clock",
+			    sampt - syst);
+	    else
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    "IRIG clock is %d msecs behind unix clock",
+			    syst - sampt);
+	    if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
+	}
+    }
+    return clksamp;
+}
+
+void IRIGSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
     RTL_DSMSensor::fromDOMElement(node);
