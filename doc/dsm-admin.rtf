@@ -20,15 +20,36 @@
 \pard\plain \sb240\sa120\keepn\f3\fs32\b\f9\fs32\b\f11\fs32\b\aspalpha \ltrpar\s8\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs32\lang255\ab\ltrch\dbch\af9\afs32\langfe255\ab\loch\f3\fs32\lang1033\b {\loch\f3\fs32\lang1033\i0\b Viper System Administration}
 \par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Connecting to Viper Console}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Connect a null modem serial cable to the Viper console port. Run a terminal emulation program on your host computer, configured for 115200 baud, no parity, 8 data bits, 1 stop bit.}
-\par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 
 \par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Downloading a new flash image onto the Viper}
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 If this viper is new then it needs to have it's kernel and file system upgraded to patched RTLinux version.}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 If this viper is new then it needs to have it's kernel and file system upgraded to a patched RTLinux version.}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Connect to the DSM via a serial console and power it up.  Press ctrl-c immediately when prompted to gain access to the Redboot boot loader prompt.}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 This process uses the tftpd service on the host system.   The hosts\line {\f5 /etc/xinetd.d/tftp} file should look like this:}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 # default: off}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 # description: The tftp server serves files using the trivial file}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 #\tab transfer protocol.  The tftp protocol is often used to boot}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 #\tab diskless workstations, download configuration files to network-}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 #\tab aware printers, and to start the installation process for some}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 #     operating systems.}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 service tftp}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \{}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab disable\tab \tab = no}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab socket_type\tab \tab = dgram}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab protocol\tab \tab = udp}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab wait\tab \tab \tab = yes}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab user\tab \tab \tab = root}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab server\tab \tab = /usr/sbin/in.tftpd}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab server_args\tab \tab = -v -s /tftpboot}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab per_source\tab \tab = 11}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab cps\tab \tab \tab = 100 2}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \tab flags\tab \tab \tab = IPv4}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 \}}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Connect to the DSM via a serial console and power it up.  Press ctrl-c immediately when prompted to gain access to the RedBoot boot loader prompt.}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 +Ethernet eth0: MAC address 00:80:66:10:05:ef}
-\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 IP: 128.117.84.56/255.255.255.0, Gateway: 0.0.0.0}
-\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 Default server: 128.117.84.30}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 IP: 192.168.20.100/255.255.255.0, Gateway: 0.0.0.0}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 Default server: 192.168.20.1}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033  
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 RedBoot(tm) bootstrap and debug environment [ROM]}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 Non-certified release, version W468 V3I3 - built 11:31:30, Jan 27 2004}
@@ -51,10 +72,10 @@
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 kernel            0x00020000  0x00200000  0x000A0000  0x00200000}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 filesystem        0x000C0000  0x00200000  0x01F40000  0x00200000}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Set the IP address while in Redboot.}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Set the IP address while in RedBoot.}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
-\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 RedBoot> ip -l 192.168.20.2 -h 192.168.20.1}
-\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 IP: 192.168.20.2/255.255.255.0, Gateway: 0.0.0.0}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 RedBoot> ip -l 192.168.20.100 -h 192.168.20.1}
+\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 IP: 192.168.20.100/255.255.255.0, Gateway: 0.0.0.0}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 Default server: 192.168.20.1}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
@@ -78,7 +99,8 @@
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 ... Program from 0x00017c00-0x02017c00 at 0x00000000: ..........................................................................................................................................................................................................
 ......................................................}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Finally restart the DSM by typing restart from the Redboot prompt.  If this fails ensure that Redboot's boot script is setup as such:}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Finally restart the DSM by typing {\f5 restart} from the RedBoot prompt.  If this fails ensure that RedBoot's boot script is setup as such:}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 RedBoot> fconfig -l -n}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 boot_script: true}
@@ -89,13 +111,10 @@
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 boot_script_timeout: 2}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 ...}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 To change these values:}
-\par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 RedBoot> fconfig}
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Hit {\f5 return} to accept the current setting and use {\f5 backspace} to change a value.  When entering the {\f5 boot_script_data} omit the {\lang1033 preceding}  '..' characters for each line.}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 To change these values type {\f5 fconfig}.  Hit {\f5 return} to accept the current setting and use {\f5 backspace} to change a value.  When entering the {\f5 boot_script_data} omit the preceding  '..' characters for each line.}
 \par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b 
-\par \page\pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Uploading an existing flash image from the Viper}
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 On the Viper the flash memory regions are {\lang1033 accessible} from Linux as devices {\f5 /dev/mtd[0-3]}.   In order to extract these you need to install netcat on your server.  This is a simple application which needs no configuration.}
+\par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Uploading an existing flash image from the Viper}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 On the Viper the flash memory regions are accessible from Linux as devices {\f5 /dev/mtd[0-3]}.   In order to extract these you need to install netcat on your server.  This is a simple application which needs no configuration.}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 To upload follow the following steps on each system:}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
@@ -111,18 +130,17 @@
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 viper>  dd if=/dev/mtd3 | nc server 4000}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 server> cat mtd0.img mtd1.img mtd2.img mtd3.img > ../newViper.img}
 \par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 
-\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Note that this step is only needed if you intend on {\lang1033 transferring} an upgraded system from one DSM to another.}
+\par \pard\plain \ltrpar\s1\aspalpha\ql\rtlch\af11\afs24\lang255\ltrch\dbch\af9\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 Note that this step is only needed if you intend on transferring or backing up an upgraded system from one DSM to another.}
 \par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b 
 \par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Viper's Network Configuration}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 The network configuration is stored in /{\lang255{\f6 etc/network/interfaces}}{\lang255{\f7 .  In this example, the Viper is configured to use DHCP to configure its network interface:}}}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 # /etc/network/interfaces \endash  configuration file for ifup(8), ifdown(8) \line # interfaces to bring up automatically \line auto lo eth0\line \line # The loopback interface \line iface lo inet loopback\line \line # DHCP on the first ethernet device\line iface eth0 inet dhcp\line \line # Static interface for 
 the first ethernet interface, comment out the\line # above and uncomment this\line # iface eth0 inet static \line #         address 128.117.84.56\line #         netmask 255.255.255.0\line #         network 128.117.78.7\line #         gateway 128.117.84.245}
-\par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b 
-\par \page\pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Server's DHCP Configuration}
+\par \pard\plain \sb240\sa120\keepn\f3\fs28\i\b\f9\i\b\f11\i\b\aspalpha \ltrpar\s9\aspalpha\sb240\sa120\keepn\ql\rtlch\af11\afs24\lang255\ai\ab\ltrch\dbch\af9\afs24\langfe255\ai\ab\loch\f3\fs28\lang1033\i\b {\loch\f3\fs28\lang1033\i\b Server's DHCP Configuration}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 This configuration is for a server with two ethernet interfaces. One interface is connected to the local institution network, 128.117.84.0, and the other serves a little subnet, 192.168.20.0, which contains one or more DSMs.}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f8\fs24\lang1033 {\loch\f8\fs24\lang1033\i0\b0 The server does not provide DHCP services on the 128.117.84.0 network.}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f8\fs24\lang1033 {\loch\f8\fs24\lang1033\i0\b0 DHCP services are provided on the 192.168.20.0 network.  Dynamic addresses in the range 192.168.20.50-192.168.20.99 are provided to DHCP clients.}
-\par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 To configure the {\lang1033 Linux} DHCP server, create {\f6 /etc/dhcpd.conf }{\f8 on the server, as shown below.}}
+\par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\fs24\lang1033 {\loch\f1\fs24\lang1033\i0\b0 To configure the Linux DHCP server, create {\f6 /etc/dhcpd.conf }{\f8 on the server, as shown below.}}
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f8\fs24\lang1033 
 \par \pard\plain \ltrpar\s2\sa120\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f8\fs24\lang1033 {\loch\f8\fs24\lang1033\i0\b0 It also provides a fixed address for a DSM called dsm301, which has a hardware address of  00:80:66:10:05:F3:}
 \par \pard\plain \ltrpar\s10\ql\rtlch\afs24\lang255\ltrch\dbch\afs24\langfe255\loch\f4\fs20\lang1033 {\loch\f4\fs20\lang1033\i0\b0 ddns-update-style none;\line \line subnet 128.117.84.0 netmask 255.255.255.0 \{\line   not authoritative;\line \}\line \line subnet 192.168.20.0 netmask 255.255.255.0 \{\line   range 192.168.20.50 192.168.20.99;\line   default-lease-time 86400;\line   max-lease-time 86400;\line   option broadcast-address 192
