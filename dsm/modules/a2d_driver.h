@@ -103,29 +103,6 @@
 #define	FIFOSTATEBL	0x40	//Not used. 
 #define	A2DRW		0x80	//Enables A/D read operations
 
-#ifndef USER_SPACE
-
-#include <rtl.h>
-#include <rtl_posixio.h>
-#include <pthread.h>
-#include <rtl_unistd.h>
-#include <rtl_conf.h>
-#include <rtl_buffer.h>
-#include <asm-arm/io.h>
-#include <linux/ioport.h>
-#include <asm/uaccess.h>
-#include <semaphore.h>
-
-
-//Globals
-static	US	CalOff = 0;	//Static storage for cal and offset bits
-static	UL	CardBase;	//Static storage for address of A/D card
-static	int	CurChan;	//Static storage for current channel value
-static	US	FIFOCtl;	//Static storage for FIFO Control Word
-
-#endif
-
-
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
@@ -181,8 +158,13 @@ void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transition
 void A2D1PPSDisable(void);	//Disable 1PPS sync
 void A2DClearFIFO(void);	//Clear (reset) the FIFO
 void A2DError(int a);		//A/D Card error handling
-int  init_module();		//For Linux kernel
-void cleanup_module(void);	//For Linux kernel
+
+int  init_module(void);
+void cleanup_module(void);
+/*
+static int __init a2d_init();		//For Linux kernel
+static void __exit a2d_cleanup(void);	//For Linux kernel
+*/
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
@@ -197,6 +179,8 @@ void cleanup_module(void);	//For Linux kernel
  */
 #define A2D_MAGIC 'A'
 
+#define	RTL_DEBUGIT(a)	rtl_printf("DEBUGIT %d\n", a)
+#define	DEBUGIT(a)	printf("DEBUGIT %d\n", a)
 
 /*
  * The enumeration of IOCTLs that this driver supports.

@@ -1,5 +1,6 @@
 /*  a2d_driver.c
 
+
 Time-stamp: <Sun 25-Oct-2004 12:48:04 pm>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
@@ -12,31 +13,40 @@ Revisions:
 
 */
 
-#define	DEBUGIT(a)	rtl_printf("DEBUGIT at %d\n", a);
 // #define		DEBUG0		//Activates specific debug functions
 // #define		USE_RTLINUX 	//If not defined I/O is in debug mode
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<math.h>
-#include	<string.h>
-#include 	<a2d_driver.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
 
 /* RTLinux module includes...  */
+
 #include <rtl.h>
 #include <rtl_posixio.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <asm/uaccess.h>
+
+#include <linux/kernel.h>
 #include <linux/ioport.h>
+#include <linux/init.h>
+
+#include <a2d_driver.h>
 
 void ggoutw(US a, US *b);
 void ggoutb(UC a, UC *b);
-US gginw(US *a);
-UC gginb(UC *a);
+US   gginw(US *a);
+UC   gginb(UC *a);
 void phoney(A2D_SET *a2d);
+
+static 	US	CalOff = 0; 	//Static storage for cal and offset bits
+static 	UL	CardBase;	// A/D card address
+static	int	CurChan;	// Current channel value
+static	US	FIFOCtl;	//Static hardware FIFO control word storage
+static 	int	fd_fifoup, fd_fifodn; // FIFO file descriptors
 
 // These are just test values
 
@@ -61,52 +71,56 @@ static int boardNum = 0;
 static int nports = 1;
 
 /* module prameters (can be passed in via command line) */
-static unsigned int a2d_parm = 0;
-MODULE_PARM(a2d_parm, "1l");
+//static unsigned int a2d_parm = 0;
+
+MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
+MODULE_DESCRIPTION("HIAPER A/D driver for RTLinux");
+//MODULE_PARM(a2d_parm, "1l");
 
 RTLINUX_MODULE(A2D);
-MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
-MODULE_DESCRIPTION("A2D driver");
 
 /*
  * Function that is called on receipt of ioctl request over the
  * ioctl FIFO.
  */
 static int A2DCallback(int cmd, int board, int port,
-	void *buf, size_t len) {
-
+	void *buf, size_t len) 
+{
+  
   rtl_printf("A2DCallback, cmd=%d, board=%d, port=%d,len=%d\n",
 		cmd,board,port,len);
 
+
   int ret = -EINVAL;
-  switch (cmd) {
-  case GET_NUM_PORTS:		/* user get */
-    {
-	rtl_printf("GET_NUM_PORTS\n");
-	*(int *) buf = nports;
-	ret = sizeof(int);
-    }
-    break;
+  switch (cmd) 
+	{
+  	case GET_NUM_PORTS:		/* user get */
+    		{
+		rtl_printf("GET_NUM_PORTS\n");
+		*(int *) buf = nports;
+		ret = sizeof(int);
+    		}
+  		break;
 
-  case A2D_GET_IOCTL:		/* user get */
-    	{
-	A2D_GET *tg = (A2D_GET *)buf;
-	strncpy(tg->c,"0123456789",len);
-	tg->c[len-1] = 0;
-	ret = len;
-    	}
-    	break;
+  	case A2D_GET_IOCTL:		/* user get */
+    		{
+		A2D_GET *tg = (A2D_GET *)buf;
+		strncpy(tg->c,"0123456789",len);
+		tg->c[len-1] = 0;
+		ret = len;
+    		}
+    		break;
 
-  case A2D_SET_IOCTL:		/* user set */
-      	{
-	A2D_SET *ts = (A2D_SET *)buf;
-	rtl_printf("received A2D_SET\n");
-	A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
-	ret = len;
-    	}
-   break;
-  }
-  return ret;
+  	case A2D_SET_IOCTL:		/* user set */
+      		{
+		A2D_SET *ts = (A2D_SET *)buf;
+		rtl_printf("received A2D_SET\n");
+		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
+		ret = len;
+    		}
+   		break;
+  	}
+  	return ret;
 }
 
 
@@ -114,10 +128,28 @@ static int A2DCallback(int cmd, int board, int port,
 // Stops the A/D and releases reserved memory
 void cleanup_module(void)
 {
+  char fname[20];
+
   /* Close my ioctl FIFOs, deregister my ioctlCallback function */
   closeIoctlFIFO(ioctlhandle);
-  //TODO rtl_unregister_dev("/dev/a2d");
+
+  rtl_unregister_dev("/dev/dsma2d_in_0");
+  rtl_unregister_dev("/dev/dsma2d_out_0");
+
+  /* Close and unlink the up and down fifo's */
+
+  sprintf(fname, "/dev/dsma2d_in_0");
+  rtl_printf("Destroying %s\n", fname);
+  close(fd_fifoup);
+  unlink(fname);
+  
+  sprintf(fname, "/dev/dsma2d_out_0");
+  rtl_printf("Destroying %s\n", fname);
+  close(fd_fifodn);
+  unlink(fname);
+
   rtl_printf("Analog cleanup complete\n");
+
   return;
 }
 
@@ -125,17 +157,33 @@ void cleanup_module(void)
 
 int init_module()
 {	
+	char fifoname[20];
+
   	rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
   	/* Open up my ioctl FIFOs, register my ioctlCallback function */
   	ioctlhandle = openIoctlFIFO("a2d",boardNum,A2DCallback,
   					nioctlcmds,ioctlcmds);
-rtl_printf("handle = 0x%08x\n");
-rtl_printf("A2D initialization was just peachy!\n");
 
   	if (!ioctlhandle) return -EIO;
-	else return 0;
+
+	// Open the fifo TO user space (fifoup)
+	sprintf(fifoname, "/dev/dsma2d_in_0");
+	rtl_printf("Creating %s\n", fifoname);
+	mkfifo(fifoname, 0666);
+	fd_fifoup = open(fifoname, O_NONBLOCK | O_WRONLY);
+
+	// Open the fifo FROM user space (fifodn)
+	sprintf(fifoname, "/dev/dsma2d_out_0");
+	mkfifo(fifoname, 0666);
+	rtl_printf("Creating %s\n", fifoname);
+	fd_fifodn = open(fifoname, O_NONBLOCK | O_RDONLY);
+
+	rtl_printf("handle = 0x%08x\n", ioctlhandle);
+	rtl_printf("A2D initialization was just peachy!\n");
+
+	return 0;
 }
 
 int A2DSetup(A2D_SET *a2d)
@@ -532,8 +580,9 @@ void A2DSetSYNC(void)
 	 
 	FIFOCtl &= ~A2DSYNC;	//Ensure that SYNC bit in FIFOCtl is cleared.
 
-	ggoutw(FIFOCtl | A2DSYNC, A2DAddr);				// Set the SYNC data line
-	ggoutw(FIFOCtl | A2DSYNC | A2DSYNCCK, A2DAddr);	//Cycle the sync clock while keeping sync high
+	ggoutw(FIFOCtl | A2DSYNC, A2DAddr);	// Set the SYNC data line
+	ggoutw(FIFOCtl | A2DSYNC | A2DSYNCCK, A2DAddr);	//Cycle the sync clock 
+							// while keeping sync high
 	ggoutw(FIFOCtl | A2DSYNC, A2DAddr);							
 	return;
 }
@@ -548,8 +597,8 @@ void A2DClearSYNC(void)
 
 	A2DChSel(A2DIOFIFO);
 	A2DAddr = (US *)(CardBase + A2DIOFIFO);
-	FIFOCtl &= ~A2DSYNC;					//Ensure that SYNC bit in FIFOCtl is cleared.
-	ggoutw(FIFOCtl, A2DAddr);				// Clear the SYNC data line
+	FIFOCtl &= ~A2DSYNC;	//Ensure that SYNC bit in FIFOCtl is cleared.
+	ggoutw(FIFOCtl, A2DAddr);	// Clear the SYNC data line
 	ggoutw(FIFOCtl | A2DSYNCCK, A2DAddr);	//Cycle the sync clock while keeping sync low
 	ggoutw(FIFOCtl, A2DAddr);							
 	return;
@@ -680,6 +729,6 @@ for(i = 0; i < 8; i++)
 	a2d->Hz[i] = 50;
 	a2d->flag[i] = 0;
 	}
-DEBUGIT(20);
 	return;
 }
+
