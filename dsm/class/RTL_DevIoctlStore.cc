@@ -49,17 +49,27 @@ RTL_DevIoctlStore::~RTL_DevIoctlStore()
   fifosMutex.unlock();
 }
 
-RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int portNum)
+RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix,
+	int portNum) throw(atdUtil::IOException)
 {
-    // first loop over vector of found Ioctls
+    /*
+     * First loop over vector of found RTL_DevIoctls.
+     * For each one found, get the number of ports it supports.
+     * If the requested portNum is within the range of
+     * ports for that board, then you have the correct RTL_DevIoctl.
+     */
     RTL_DevIoctl* fifo = 0;
+    int boardNum = -1;
+    int firstPort = 0;
+    int nports = 0;
 
     fifosMutex.lock();
     for (vector<RTL_DevIoctl*>::const_iterator fi = fifos.begin();
 	fi != fifos.end(); ++fi) {
 	if ((*fi)->getPrefix() == prefix) {
-	    int firstPort = (*fi)->getFirstPortNum();
-	    int nports = (*fi)->getNumPorts();
+	    boardNum = (*fi)->getBoardNum();
+	    firstPort = (*fi)->getFirstPortNum();
+	    nports = (*fi)->getNumPorts();
 	    if (firstPort + nports > portNum) {
 	      fifo = *fi;
 	      break;
@@ -69,33 +79,35 @@ RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int portNum)
     fifosMutex.unlock();
     if (fifo) return fifo;
 
-    int firstPort = 0;
+    /*
+     * Have to look at subsequent boards
+     */
+    boardNum++;
+    firstPort += nports;
 
-    for (int boardNum = 0; ; boardNum++ ) {
+    for ( ; ; boardNum++ ) {
         fifo = RTL_DevIoctlStore::getDevIoctl(prefix,boardNum,firstPort);
-	if (!fifo) break;
-	int nports = fifo->getNumPorts();
+
+	fifosMutex.lock();
+	fifos.push_back(fifo);
+	fifosMutex.unlock();
+
+	nports = fifo->getNumPorts();
 	if (firstPort + nports > portNum) break;
 	firstPort += nports;
     }
     return fifo;
 }
 
-RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix, int boardNum,
-	int firstPort)
+RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix,
+	int boardNum, int firstPort) throw(atdUtil::IOException)
 {
     string infifo = RTL_DevIoctl::makeInputFifoName(prefix,boardNum);
     struct stat statbuf;
 
     if (::stat(infifo.c_str(),&statbuf) == 0) {
-	cerr << infifo << " exists" << endl;
 	RTL_DevIoctl* fifo = new RTL_DevIoctl(prefix,boardNum,firstPort);
-
-	fifosMutex.lock();
-	fifos.push_back(fifo);
-	fifosMutex.unlock();
-
 	return fifo;
     }
-    return 0;
+    throw atdUtil::IOException(infifo,"open","file not found");
 }

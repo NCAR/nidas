@@ -33,7 +33,8 @@ public:
      */
     static void removeInstance();
 
-    RTL_DevIoctl* getDevIoctl(const std::string& prefix, int portNum);
+    RTL_DevIoctl* getDevIoctl(const std::string& prefix, int portNum)
+    	throw(atdUtil::IOException);
 
 private:
 
@@ -44,7 +45,8 @@ private:
     RTL_DevIoctlStore();
     ~RTL_DevIoctlStore();
 
-    RTL_DevIoctl* getDevIoctl(const std::string& prefix, int boardNum, int firstPort);
+    RTL_DevIoctl* getDevIoctl(const std::string& prefix, int boardNum,
+    	int firstPort) throw(atdUtil::IOException);
 
     static RTL_DevIoctlStore* instance;
 
