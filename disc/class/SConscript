@@ -5,6 +5,15 @@
 ##
 Import('arm_env')
 Import('x86_env')
+arm_lib_env = arm_env.Copy()
+x86_lib_env = x86_env.Copy()
+
+
+##
+##  Provide a unique extension because some files are compiled twice.
+##
+arm_lib_env['OBJSUFFIX'] = '.arm.o'
+x86_lib_env['OBJSUFFIX'] = '.x86.o'
 
 ##
 ##  List the source files for the libArmDisc.a library...
@@ -32,5 +41,5 @@ x86_sources = arm_sources + Split("""
 ##
 ##  Build both libraries.
 ##
-arm_env.StaticLibrary('#/lib/libArmDisc.a' , arm_sources)
-x86_env.StaticLibrary('#/lib/libX86Disc.a' , x86_sources)
+arm_lib_env.StaticLibrary('#/lib/libArmDisc.a' , arm_sources)
+x86_lib_env.StaticLibrary('#/lib/libX86Disc.a' , x86_sources)
