@@ -54,8 +54,8 @@ public:
 	if (l < 0) throw atdUtil::IOException(name,"read",errno);
 	curpos += l;
 	// std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l < 20 ? l : 20) << std::endl;
-	std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l) << std::endl;
-	std::cerr << "XMLFdBinInputStream read " << l << std::endl;
+	// std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l) << std::endl;
+	// std::cerr << "XMLFdBinInputStream read " << l << std::endl;
 	// toFill[l] = 0;
 	// toFill[l+1] = 0;
 	return l;

@@ -15,7 +15,6 @@
 */
 
 #include <DSMSensor.h>
-#include <ClockSensor.h>
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
@@ -88,11 +87,6 @@ dsm_sample_time_t DSMSensor::readSamples()
 		tt = samp->getTimeTag();	// return last time tag read
 		distributeRaw(samp);
 		nsamples++;
-		if (isClock()) {
-		    ClockSensor* clksens = (ClockSensor*) this;
-		    Sample* clksamp = clksens->processClockSample(samp);
-		    distributeRaw(clksamp);
-		}
 		samp = 0;
 		// Finished with sample. Check for more data in buffer
 	    }
@@ -213,7 +207,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		ist.unsetf(ios::dec);
 		unsigned short val;
 		ist >> val;
-		if (ist.fail() || val < 0)
+		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sensor","id",
 		    	attr.getValue());
 		setId(val);

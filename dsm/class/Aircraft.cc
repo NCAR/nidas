@@ -29,6 +29,7 @@ Aircraft::Aircraft()
 
 Aircraft::~Aircraft()
 {
+    cerr << "deleting dsms" << endl;
     for (std::list<DSMConfig*>::iterator it = dsms.begin();
     	it != dsms.end(); ++it) delete *it;
 }
@@ -63,7 +64,7 @@ void Aircraft::fromDOMElement(const DOMElement* node)
 	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
-	cerr << "element name=" << elname << endl;
+	// cerr << "element name=" << elname << endl;
 
 	if (!elname.compare("dsm")) {
 	    DSMConfig* dsm = new DSMConfig();

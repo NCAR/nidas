@@ -56,6 +56,7 @@ PortSelector::PortSelector() :
 PortSelector::~PortSelector()
 {
     delete rserial;
+    cerr << "deleting activeSensorPorts" << endl;
     for (unsigned int i = 0; i < activeSensorPorts.size(); i++) {
 	activeSensorPorts[i]->close();
 	delete activeSensorPorts[i];

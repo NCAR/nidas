@@ -35,7 +35,6 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    cerr << "SensorCatalog: element name=" << xnode.getNodeName() << endl;
     
     if (xnode.getNodeName().compare("sensorcatalog"))
 	    throw atdUtil::InvalidParameterException(
@@ -49,7 +48,7 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
-	cerr << "SensorCatalog: child element name=" << elname << endl;
+	// cerr << "SensorCatalog: child element name=" << elname << endl;
 
 	if (!elname.compare("serialSensor") ||
             !elname.compare("arincSensor") ||
@@ -63,12 +62,14 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 		    throw atdUtil::InvalidParameterException(
 			"SensorCatalog::fromDOMElement",
 			"duplicate sensor in catalog, ID",id);
-		cerr << "sensorCatalog.size=" << size() << endl;
 		insert(make_pair<string,DOMElement*>(id,(DOMElement*)child));
+
+		/*
 		cerr << "sensorCatalog.size=" << size() << endl;
 		for (mi = begin(); mi != end(); ++mi)
 		    cerr << "map:" << mi->first << " " << hex << mi->second <<
 		    	dec << endl;
+		*/
 	    }
         }
 	else throw atdUtil::InvalidParameterException(

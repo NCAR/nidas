@@ -333,8 +333,6 @@ void DSMEngine::startSensors() throw(atdUtil::IOException)
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
-	std::cerr << "doing sens->open of" <<
-	    (*si)->getDeviceName() << endl;
 	(*si)->open((*si)->getDefaultMode());
 	handler->addSensorPort(*si);
     }
@@ -355,8 +353,18 @@ void DSMEngine::startOutputs() throw(atdUtil::IOException)
 
 	RawSampleOutput* rostr = dynamic_cast<RawSampleOutput*>(ostr);
 	if (rostr) {
-	    for (si = sensors.begin(); si != sensors.end(); ++si)
-		(*si)->addRawSampleClient(ostr);
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		// if it's a clock sensor, and we're generating
+		// a raw sample stream, have the clock sensor process
+		// its raw samples and put its processed samples
+		// in the stream too.
+		if (sensor->isClock()) {
+		    sensor->addRawSampleClient(sensor);
+		    sensor->addSampleClient(ostr);
+		}
+		sensor->addRawSampleClient(ostr);
+	    }
 	    cerr << "added RawSampleOutput as client to sensors" << endl;
 	}
 	else {
@@ -364,11 +372,13 @@ void DSMEngine::startOutputs() throw(atdUtil::IOException)
 	    // being associated with specific SampleSources.
 	    // Until then we're adding the SampleOutputStream as
 	    // a client of all Sensors.
+
+	    // it doesn't hurt to add a sensor as a client of itself
+	    // multiple times.
 	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		// it doesn't hurt to add a sensor as a client of itself
-		// multiple times.
-		(*si)->addRawSampleClient(*si);
-		(*si)->addSampleClient(ostr);
+		DSMSensor* sensor = *si;
+		sensor->addRawSampleClient(sensor);
+		sensor->addSampleClient(ostr);
 	    }
 	}
 	connectedOutputs.push_back(ostr);
@@ -379,7 +389,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
     if (handler) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt received, interrupting sensor handler");
+	    "DSMEngine::interrupt received, interrupting PortSelector");
         handler->interrupt();
     }
     else {

@@ -86,7 +86,7 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 	    if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	    XDOMElement xchild((DOMElement*) child);
 	    const string& elname = xchild.getNodeName();
-	    cerr << "element name=" << elname << endl;
+	    // cerr << "element name=" << elname << endl;
 	    if (!elname.compare("dsm") && acceptDSMNode(node))
 	    	return DOMNodeFilter::FILTER_ACCEPT;
 	}

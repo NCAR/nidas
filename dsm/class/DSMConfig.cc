@@ -30,8 +30,14 @@ DSMConfig::DSMConfig()
 
 DSMConfig::~DSMConfig()
 {
+    /* sensors are likely owned by PortSelector */
+    /*
+    cerr << "deleting sensors" << endl;
     for (list<DSMSensor*>::iterator si = sensors.begin();
     	si != sensors.end(); ++si) delete *si;
+    */
+
+    cerr << "deleting output" << endl;
     for (list<SampleOutputStream*>::iterator oi = outputs.begin();
     	oi != outputs.end(); ++oi) delete *oi;
 }
@@ -104,8 +110,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			string("dsm") + ": " + getName(),
 			string("sensor with ID ") + idref,
 			"does not have a class attribute");
-		cerr << "found sensor, idref=" << idref << " classattr=" <<
-		    classattr << endl;
+		// cerr << "found sensor, idref=" << idref << " classattr=" <<
+		  //   classattr << endl;
 		try {
 		    domable = DOMObjectFactory::createObject(classattr);
 		}

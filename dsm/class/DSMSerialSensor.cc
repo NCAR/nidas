@@ -49,11 +49,8 @@ DSMSerialSensor::~DSMSerialSensor() {
 }
 void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 {
-    cerr << "DSMSerialSensor::open" << endl;
-  
     // It's magic, we can do an ioctl before the device is open!
     ioctl(DSMSER_OPEN,&flags,sizeof(flags));
-    cerr << "DSMSER_OPEN done" << endl;
 
     RTL_DSMSensor::open(flags);
 
@@ -104,7 +101,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 	if (prompt.len > (int)sizeof(prompt.str))
 		prompt.len = sizeof(prompt.str);
 	prompt.rate = getPromptRate();
-	cerr << "rate=" << prompt.rate << " prompt=\"" << nprompt << "\"" << endl;
+	// cerr << "rate=" << prompt.rate << " prompt=\"" << nprompt << "\"" << endl;
 	ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
 	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
@@ -113,7 +110,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 
 void DSMSerialSensor::close() throw(atdUtil::IOException)
 {
-    cerr << "doing DSMSER_CLOSE" << endl;
+    // cerr << "doing DSMSER_CLOSE" << endl;
     ioctl(DSMSER_CLOSE,(const void*)0,0);
     RTL_DSMSensor::close();
 }

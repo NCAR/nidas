@@ -24,6 +24,8 @@
 #include <RTL_DSMSensor.h>
 #include <RTL_DevIoctlStore.h>
 
+#include <atdUtil/Logger.h>
+
 using namespace std;
 using namespace dsm;
 
@@ -67,6 +69,10 @@ void RTL_DSMSensor::setDeviceName(const std::string& val)
 
 void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
+    
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+    	"opening: %s",getDeviceName().c_str());
+
     int accmode = flags & O_ACCMODE;
 
     if (accmode == O_RDONLY || accmode == O_RDWR) {
@@ -84,22 +90,18 @@ void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 
 void RTL_DSMSensor::close() throw(atdUtil::IOException)
 {
-    if (infifofd >= 0) {
-	cerr << "closing in fifo" << endl;
-        ::close(infifofd);
-    }
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+    	"closing: %s",getDeviceName().c_str());
+
+    if (infifofd >= 0) ::close(infifofd);
     infifofd = -1;
 
-    if (outfifofd >= 0) {
-	cerr << "closing out fifo" << endl;
-        ::close(outfifofd);
-    }
+    if (outfifofd >= 0) ::close(outfifofd);
     outfifofd = -1;
 
     if (devIoctl) devIoctl->close();
     devIoctl = 0;
     destroyBuffer();
-
 }
 
 
