@@ -40,19 +40,6 @@ SyncRecordOutput::~SyncRecordOutput()
 
 void SyncRecordOutput::connect() throw(atdUtil::IOException)
 {
-    const list<DSMSensor*> sensors = getDSMConfig()->getSensors();
-
-    map<int,DSMSensor*> sensorMap;
-
-    for (list<DSMSensor*>::const_iterator si = sensors.begin();
-    	si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	const list<const Variable*>& vars = sensor->getVariables();
-	DSMSerialSensor* ssensor = dynamic_cast<DSMSerialSensor*>(sensor);
-	if (ssensor)
-	{
-	}
-    }
 
     // If the outputStream is non-null, then we're already
     // connected, most likely to a fileset.
