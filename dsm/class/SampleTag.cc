@@ -16,6 +16,7 @@
 #include <SampleTag.h>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 
 using namespace dsm;
 using namespace std;
@@ -53,12 +54,15 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    istringstream ist(attr.getValue());
 	    if (!attr.getName().compare("id")) {
 		unsigned short val;
+		// If you unset the dec flag, then a leading '0' means
+		// octal, and 0x means hex.
+		ist.unsetf(ios::dec);
 		ist >> val;
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sample","id",
 		    	attr.getValue());
 		setId(val);
-		cerr << "attr=" << attr.getValue() << " id=" << val << endl;
+		// cerr << "attr=" << attr.getValue() << " id=" << val << endl;
 	    }
 	    else if (!attr.getName().compare("rate")) {
 		float rate;
