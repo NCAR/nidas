@@ -77,11 +77,14 @@
 		    minOccurs="0" maxOccurs="1"/>
 	    </xsd:all>
 	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
 	    <xsd:attribute name="devicename" type="xsd:token"/>
-	    <xsd:attribute name="baud" type="baudtype" default="9600"/>
-	    <xsd:attribute name="parity" type="paritytype" default="none"/>
-	    <xsd:attribute name="databits" type="databitstype" default="8"/>
-	    <xsd:attribute name="stopbits" type="stopbitstype" default="1"/>
+	    <xsd:attribute name="baud" type="baudtype"/>
+	    <xsd:attribute name="parity" type="paritytype"/>
+	    <xsd:attribute name="databits" type="databitstype"/>
+	    <xsd:attribute name="stopbits" type="stopbitstype"/>
 	    <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 	</xsd:extension>
     </xsd:complexContent>
