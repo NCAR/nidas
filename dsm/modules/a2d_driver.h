@@ -48,6 +48,7 @@
 #define	A2DIOBASE		0x00000300
 #define	ARMISABASE		0xf5000000
 #define	A2DBASE			(A2DIOBASE+ARMISABASE)
+#define	MAXA2DS			8	// Max A/D's per card
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
@@ -63,7 +64,7 @@
 #define	A2DIOGAIN47		4	//A/D chan 4-7 gain read/write
 #define	A2DIOVCAL		5	//VCAL set (DAC ch 0) read/write
 #define A2DIOSYSCTL		6	//A/D INT lines(read),Cal/offset (write)
-#define	A2DIOFIFOSTAT	7	//FIFO stat (read), 
+#define	A2DIOFIFOSTAT		7	//FIFO stat (read), 
 #define	A2DIOLOAD		8	//Load A/D configuration data
 
 //A/D Chip command words
@@ -76,8 +77,8 @@
 
 //A2D Status register bits
 #define	A2DINSTBSY		0x8000	//Instruction being performed
-#define	A2DDATARDY		0x4000	//Data ready to be read (Read cycle required)
-#define	A2DDATAREQ		0x2000	//New data required (Write cycle required)
+#define	A2DDATARDY		0x4000	//Data ready to be read (Read cycle)
+#define	A2DDATAREQ		0x2000	//New data required (Write cycle)
 #define	A2DIDERR		0x1000	//Chip ID error
 #define	A2DCRCERR		0x0800	//Data corrupted--CRC error
 #define	A2DDATAERR		0x0400	//Conversion data invalid
@@ -93,82 +94,95 @@
 #define	A2DCONFIGEND		0x0001	//Configuration End Flag.
 
 //FIFO Control Word bit definitions
-#define	FIFOCLR			0x01	//Cycle this bit 0-1-0 to clear (reset) FIFO
-#define	A2DAUTO			0x02	//Set this bit to allow A/D's to run automatically
-#define	A2DSYNC			0x04	//Set this bit then cycle A2DSYNCCK to set SYNC high and stop A/D's
-#define	A2DSYNCCK		0x08	//Cycle this bit 0-1-0 to clock A2DSYNC bit value into SYNC flip/flop
-#define	A2D1PPSEBL		0x10	//Set this bit to allow GPS 1PPS to clear SYNC flip/flop: sync's A/D's
-#define	FIFODAFAE		0x20	//Set this bit to clamp value of almost full/almost empty FIFO counter offset
-#define	FIFOSTATEBL		0x40	//Not used. Was to enable/disable status writes to FIFO
-#define	A2DRW			0x80	//Enales A/D read operations
+#define	FIFOCLR		0x01	//Cycle this bit 0-1-0 to clear FIFO
+#define	A2DAUTO		0x02	//Set = allow A/D's to run automatically
+#define	A2DSYNC		0x04	//Set then cycle A2DSYNCCK to stop A/D's
+#define	A2DSYNCCK	0x08	//Cycle to latch A2DSYNC bit value
+#define	A2D1PPSEBL	0x10	//Set to allow GPS 1PPS to clear SYNC
+#define	FIFODAFAE	0x20	//Set to clamp value of AFAE in FIFO 
+#define	FIFOSTATEBL	0x40	//Not used. 
+#define	A2DRW		0x80	//Enables A/D read operations
 
-#include 	<rtl.h>
-#include 	<rtl_posixio.h>
-#include	<pthread.h>
-#include	<rtl_unistd.h>
-#include	<rtl_conf.h>
-#include	<rtl_buffer.h>
-#include	<asm-arm/io.h>
-#include	<linux/ioport.h>
-#include	<asm/uaccess.h>
-#include	<semaphore.h>
+#ifndef USER_SPACE
+
+#include <rtl.h>
+#include <rtl_posixio.h>
+#include <pthread.h>
+#include <rtl_unistd.h>
+#include <rtl_conf.h>
+#include <rtl_buffer.h>
+#include <asm-arm/io.h>
+#include <linux/ioport.h>
+#include <asm/uaccess.h>
+#include <semaphore.h>
 
 
-typedef struct
+//Globals
+static	US	CalOff = 0;	//Static storage for cal and offset bits
+static	UL	CardBase;	//Static storage for address of A/D card
+static	int	CurChan;	//Static storage for current channel value
+static	US	FIFOCtl;	//Static storage for FIFO Control Word
+
+#endif
+
+
+/* Structures that are passed via ioctls to/from this driver */
+typedef struct 
 {
-	int	gain[8];		// Gain settings 
-	int	vcalx8;			// Calibration voltage: 128=0, 48=-10, 208 = +10, .125 V/bit
-	double	norm[8];		// Normalization factor
+	long timestamp;
+	long size;
+	long spare;
+  	char c[2*100*8];	//8 chans*100samples/chan*2bytes/sample
+}A2D_GET;
+
+typedef struct 
+{
+	int	gain[8];	// Gain settings 
+	int	vcalx8;		// Calibration voltage: 
+				// 128=0, 48=-10, 208 = +10, .125 V/bit
+	double	norm[8];	// Normalization factor
 //
-	UC	calset;			// Calibration flags
-	UC	offset;			// Offset flags
+	UC	calset;		// Calibration flags
+	UC	offset;		// Offset flags
 //
-	US	filter[8][2048];	// Filter data
-	US	master;			// Designates master A/D
-	US	Hz[8];			//Sample rate in Hz. 0 is off.
-	US	ctr[8];			// Current value of ctr;
-	US	flag[8];		// Address bump flag
-	US	status[8];		// A/D status flag
+	US	filter[2048];	// Filter data
+	US	master;		// Designates master A/D
+	US	Hz[8];		//Sample rate in Hz. 0 is off.
+	US	ctr[8];		// Current value of ctr;
+	US	flag[8];	// Address bump flag
+	US	status[8];	// A/D status flag
 //
-	UL	ptr[8];			// Pointer offset from beginning of data summing buffer
-}A2D;
+	UL	ptr[8];		// Pointer offset from beginning of 
+				// data summing buffer
+}A2D_SET;
 
 
 //Function templates
-void A2DRun(A2D *a);			//Data loop
-void A2DPtrInit(A2D *a);
-void A2DChSel(int a);			//Select the A/D board channel
-US	 A2DStatus(int a);					//Get A/D status
-void A2DCommand(int a, US b);		//Issue command b to A/D converter a
-UC	 A2DSetGain(int a, int b);	//Set gains for individual A/D channels
-double A2DSetNorm(int a, A2D *b, double c);	//Set A/D nomalization const.
-void A2DSetMaster(US a);		//Assign one of the A/D's as timing master
-int  A2DInit(int a, US *b);		//Initialize/load A/D converters
-void A2DSetCtr(A2D *a);			//Reset the individual channel sample 
-					//  counters
-US	 A2DReadInts(void);		//Read the state of all 8 A/D interrupt 
-					//	lines
-US	 A2DSetVcal(int Vx8);		//Set the calibration point voltage
-void A2DSetCal(A2D *a);			//Set the calibration enable bits for the 8 channels
-void A2DSetOffset (A2D *a);		//Set the offset enable bits for the 8 channels
-void A2DReadFIFO(int a, US *b);		//Read a shorts from the FIFO into buffer b
+int  A2DSetup(A2D_SET *a);
+void A2DRun(A2D_SET *a);	//Data loop
+void A2DPtrInit(A2D_SET *a);	//Initialize pointer to data areas
+void A2DChSel(int a);		//Select the A/D board channel
+US   A2DStatus(int a);		//Get A/D status
+void A2DCommand(int a, US b);	//Issue command b to A/D converter a
+UC   A2DSetGain(int a, int b);	//Set gains for individual A/D channels
+double A2DSetNorm(int a, A2D_SET *b, double c);	//Set A/D nomalization const.
+void A2DSetMaster(US a);	//Assign one of the A/D's as timing master
+int  A2DInit(int a, US *b);	//Initialize/load A/D converters
+void A2DSetCtr(A2D_SET *a);	//Reset the individual channel sample counters
+US   A2DReadInts(void);		//Read the state of all 8 A/D interruptlines
+US   A2DSetVcal(int Vx8);	//Set the calibration point voltage
+void A2DSetCal(A2D_SET *a);	//Set the cal enable bits for the 8 channels
+void A2DSetOffset (A2D_SET *a);	//Set the offset enable bits for the 8 channels
+void A2DReadFIFO(int a, US *b);	//Read a shorts from the FIFO into buffer b
 void A2DReadDirect(int a,int b,US *c);	//Read b values straight to buf c from A/D a
-void A2DSetSYNC(void);			//Set the SYNC bit high-stops A/D conversion
-void A2DClearSYNC(void);		//Clear the SYNC bit
-void A2D1PPSEnable(void);		//Enables realease of SYNC line on 
-					//  next 1 PPS GPS transition
-void A2D1PPSDisable(void);		//Disable 1PPS sync
-void A2DClearFIFO(void);		//Clear (reset) the FIFO
-void A2DError(int a);			//A/D Card error handling
-int  init_module(A2D *a);		//For Linux kernel
-void cleanup_module(void);		//For Linux kernel
-
-//Globals
-static	US	CalOff = 0;		//Static storage for cal and offset bits
-static	UL	CardBase;		//Static storage for address of A/D card
-static	int	CurChan;		//Static storage for current channel value
-static	US	FIFOCtl;		//Static storage for FIFO Control Word
-
+void A2DSetSYNC(void);		//Set the SYNC bit high-stops A/D conversion
+void A2DClearSYNC(void);	//Clear the SYNC bit
+void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transition
+void A2D1PPSDisable(void);	//Disable 1PPS sync
+void A2DClearFIFO(void);	//Clear (reset) the FIFO
+void A2DError(int a);		//A/D Card error handling
+int  init_module();		//For Linux kernel
+void cleanup_module(void);	//For Linux kernel
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
@@ -181,24 +195,15 @@ static	US	FIFOCtl;		//Static storage for FIFO Control Word
  * distinct magic numbers one can catch a user sending
  * an ioctl to the wrong device.
  */
-#define A2D_MAGIC 'X'
+#define A2D_MAGIC 'A'
 
-
-/* sample structures that are passed via ioctls to/from this driver */
-struct A2D_get {
-  char c[10];
-};
-
-struct A2D_set {
-  char c[20];
-};
 
 /*
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,struct A2D_get)
-#define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,struct A2D_set)
+#define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,A2D_GET)
+#define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
 
 #include <ioctl_fifo.h>
 
