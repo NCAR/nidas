@@ -15,10 +15,12 @@
 */
 
 /* RTLinux includes...  */
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
 #include <rtl_posixio.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <rtl_stdio.h>
+#include <rtl_unistd.h>
 
 /* Linux module includes... */
 #include <linux/ioport.h>
@@ -88,7 +90,7 @@ unsigned int isa_serial_isr (unsigned int irq, struct rtl_frame *regs)
           dev, dev, dev, dev, dev);                // REPLACE me
 
   /* write the raw seial data to the dataFifo */
-  write(fp_serial_data[dev][ptog], buf, strlen(buf));
+  rtl_write(fp_serial_data[dev][ptog], buf, strlen(buf));
 
   /* TODO - re-enable interrupt on serial card? */
 
@@ -106,7 +108,7 @@ void isa_serial_message(int sig, rtl_siginfo_t *siginfo, void *v)
   rtl_printf("(%s) Executing handler.\n", __FILE__);
 
   /* obtain command */
-  buffer[ read (siginfo->rtl_si_fd, &buffer, 1024) ] = 0;
+  buffer[ rtl_read(siginfo->si_fd, &buffer, 1024) ] = 0;
 
   /* take action */
   /* TODO - write buffer to the appropriate serial port */
@@ -127,8 +129,8 @@ void cleanup_module (void)
     for (tog=0; tog<2; tog++)
     {
       sprintf(devstr, "/dev/isa_serial_%d_read_%d", dev, tog);
-      close( fp_serial_data[tog][dev] );
-      unlink( devstr );
+      rtl_close( fp_serial_data[tog][dev] );
+      rtl_unlink( devstr );
     }
     /* does this port support asyncronous commands? */
     /* TODO - test configuration here... */
@@ -136,8 +138,8 @@ void cleanup_module (void)
     {
       /* yes, close and unlink its input command fifo */
       sprintf(devstr, "/dev/isa_serial_%d_write", dev);
-      close( fp_serial_cmnd[dev] );
-      unlink( devstr );
+      rtl_close( fp_serial_cmnd[dev] );
+      rtl_unlink( devstr );
     }
   }
   /* free up the I/O region and remove /proc entry */
@@ -171,8 +173,13 @@ int init_module (void)
     for (tog=0; tog<2; tog++)
     {
       sprintf(devstr, "/dev/isa_serial_%d_read_%d", dev, tog);
-      mkfifo( devstr, 0666 );
-      fp_serial_data[tog][dev] = open( devstr, O_NONBLOCK | O_WRONLY );
+
+      // remove broken device file before making a new one
+      rtl_unlink(devstr);
+      if ( rtl_errno != RTL_ENOENT ) return;
+
+      rtl_mkfifo( devstr, 0666 );
+      fp_serial_data[tog][dev] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
     }
     /* does this port support asyncronous commands? */
     /* TODO - test configuration here... */
@@ -180,8 +187,13 @@ int init_module (void)
     {
       /* yes, create and open its input command fifo */
       sprintf(devstr, "/dev/isa_serial_%d_write", dev);
-      mkfifo( devstr, 0666 );
-      fp_serial_cmnd[dev] = open( devstr, O_NONBLOCK | O_RDONLY );
+
+      // remove broken device file before making a new one
+      rtl_unlink(devstr);
+      if ( rtl_errno != RTL_ENOENT ) return;
+
+      rtl_mkfifo( devstr, 0666 );
+      fp_serial_cmnd[dev] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_RDONLY );
 
       /* create realtime a fifo handler that passes an asycronous
        * string command to a given port */
@@ -213,7 +225,7 @@ int init_module (void)
     cleanup_module();
     rtl_printf("(%s) init_module: could not allocate IRQ at #%d\n",
 	       __FILE__, VIPER_CPLD_IRQ);
-    return -EIO;
+    return -RTL_EIO;
   }
   rtl_printf("(%s) init_module: allocated IRQ at #%d\n",
 	     __FILE__, VIPER_CPLD_IRQ);

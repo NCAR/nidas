@@ -1,6 +1,6 @@
 /* main.c
 
-   Time-stamp: <Thu 26-Aug-2004 06:43:29 pm>
+   Time-stamp: <Wed 30-Mar-2005 12:50:30 pm>
 
    RTLinux module that starts up the other modules based upon the
    configuration passed down to it from the 'src/dsmAsync.cc'
@@ -17,13 +17,16 @@
 
 */
 
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/mman.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl_pthread.h>
+#include <rtl_unistd.h>
 #include <rtl_posixio.h>
-#include <string.h>
-#include <stdio.h>
-#include <limits.h>
+#include <rtl_string.h>
+#include <rtl_stdio.h>
+#include <rtl_limits.h>
+#include <sys/rtl_mman.h>
+
 #include <linux/kmod.h>
 #include <bits/posix1_lim.h>
 
@@ -113,7 +116,7 @@ void start_modules ( void )
 void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
 {
   // ignore if not incoming data
-  if (siginfo->rtl_si_fd != fdCfg)
+  if (siginfo->si_fd != fdCfg)
   {
     rtl_printf("(%s) %s:\t ignored... unknown file pointer\n",
                __FILE__, __FUNCTION__);
@@ -142,7 +145,7 @@ void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
   {
   case start:
     // read until string is null terminated...
-    len += read(fdCfg, &buf[len], SSIZE_MAX);
+    len += rtl_read(fdCfg, &buf[len], SSIZE_MAX);
     if (buf[strlen(buf)] != '\0')
       break;
 
@@ -172,7 +175,7 @@ void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
 
   case set_analog:
     // read until structure is fully received...
-    len += read(fdCfg, &buf[len], SSIZE_MAX);
+    len += rtl_read(fdCfg, &buf[len], SSIZE_MAX);
     if (len < sizeof(struct analogTable))
       break;
 
@@ -188,7 +191,7 @@ void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
 
   case set_serial:
     // read until structure is fully received...
-    len += read(fdCfg, &buf[len], SSIZE_MAX);
+    len += rtl_read(fdCfg, &buf[len], SSIZE_MAX);
     if (len < sizeof(struct serialTable))
       break;
 
@@ -212,8 +215,8 @@ void handle_cfg (int sig, rtl_siginfo_t *siginfo, void *v)
 void cleanup_module (void)
 {
   rtl_printf("(%s) %s:\t exiting...\n", __FILE__, __FUNCTION__);
-  close(fdCfg);
-  unlink(cfgFifo);
+  rtl_close(fdCfg);
+  rtl_unlink(cfgFifo);
 }
 
 /* -- MODULE ---------------------------------------------------------- */
@@ -222,25 +225,29 @@ int init_module (void)
   rtl_printf("(%s) %s:\t compiled on %s at %s\n",
              __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
+  // remove broken device file before making a new one
+  rtl_unlink(cfgFifo);
+  if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+
   // create a fifo that receives data from user space
-  if (mkfifo(cfgFifo, 0666)!=0)
+  if (rtl_mkfifo(cfgFifo, 0666)!=0)
   {
     rtl_printf("(%s) %s:\t Cannot create %s\n",
                __FILE__, __FUNCTION__, cfgFifo);
-    return -EIO;
+    return -RTL_EIO;
   }
 
   // open fifo
-  fdCfg = open(cfgFifo, O_NONBLOCK | O_RDONLY);
+  fdCfg = rtl_open(cfgFifo, RTL_O_NONBLOCK | RTL_O_RDONLY);
   if (fdCfg < 0)
   {
     rtl_printf("(%s) %s:\t Cannot open %s\n",
                __FILE__, __FUNCTION__, cfgFifo);
-    return -EIO;
+    return -RTL_EIO;
   }
 
   // create real-time fifo handler
-  struct sigaction cfgSigAct;
+  struct rtl_sigaction cfgSigAct;
   cfgSigAct.sa_sigaction = handle_cfg;
   cfgSigAct.sa_fd        = fdCfg;
   cfgSigAct.sa_flags     = RTL_SA_RDONLY | RTL_SA_SIGINFO;
@@ -249,7 +256,7 @@ int init_module (void)
     rtl_printf("(%s) %s:\t Cannot create FIFO handler for %s\n",
                __FILE__, __FUNCTION__, cfgFifo);
     cleanup_module();
-    return -EIO;
+    return -RTL_EIO;
   }
 
   rtl_printf("(%s) %s:\t loaded\n", __FILE__, __FUNCTION__);

@@ -13,20 +13,22 @@
 
 */
 
-#ifndef __KERNEL__
-#define __KERNEL__
+#ifndef __RTCORE_KERNEL__
+#define __RTCORE_KERNEL__
 #endif
 
-#include <ioctl_fifo.h>
-
-#include <unistd.h>
-#include <fcntl.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl.h>
+#include <rtl_unistd.h>
+#include <rtl_fcntl.h>
+#include <rtl_signal.h>
+#include <rtl_errno.h>
 
 #include <linux/slab.h>
 #include <linux/list.h>
 
-#include <rtl_signal.h>
-#include <rtl_errno.h>
+#include <ioctl_fifo.h>
 
 RTLINUX_MODULE(ioctl_fifo);
 
@@ -34,10 +36,10 @@ RTLINUX_MODULE(ioctl_fifo);
 
 LIST_HEAD(ioctlList);
 
-pthread_mutex_t listmutex = PTHREAD_MUTEX_INITIALIZER;
+rtl_pthread_mutex_t listmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
 
 static unsigned char* inputbuf = 0;
-static size_t inputbufsize = 0;
+static rtl_size_t inputbufsize = 0;
 
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v);
 
@@ -52,8 +54,7 @@ char* makeDevName(const char* prefix, const char* suffix,
 {
     char numstr[16];
     sprintf(numstr,"%d",num);
-    char* name = kmalloc(strlen(prefix) + strlen(suffix) + strlen(numstr) + 6,
-    	GFP_KERNEL);
+    char* name = rtl_gpos_malloc( strlen(prefix) + strlen(suffix) + strlen(numstr) + 6 );
     strcpy(name,"/dev/");
     strcat(name,prefix);
     strcat(name,suffix);
@@ -63,7 +64,7 @@ char* makeDevName(const char* prefix, const char* suffix,
 
 /**********************************************************************
  * Open the FIFO.  Must be called from init_module, since we do
- * a kmalloc.
+ * a rtl_gpos_malloc.
  **********************************************************************/
 struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	int boardNum,ioctlCallback_t* callback,
@@ -71,7 +72,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 {
     int l;
     struct ioctlHandle* handle = 
-	(struct ioctlHandle*) kmalloc(sizeof(struct ioctlHandle), GFP_KERNEL);
+	(struct ioctlHandle*) rtl_gpos_malloc( sizeof(struct ioctlHandle) );
 
     handle->ioctlCallback = callback;
     handle->boardNum = boardNum;
@@ -88,49 +89,59 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     handle->inFifoName = makeDevName(devicePrefix,"_ictl_",boardNum);
     rtl_printf("creating %s\n",handle->inFifoName);
 
+    // remove broken device file before making a new one
+    rtl_unlink(handle->inFifoName);
+    if ( rtl_errno != RTL_ENOENT ) goto error;
+
+#define OK_TO_EXIST
 #ifdef OK_TO_EXIST
-    if (mkfifo(handle->inFifoName, 0666) < 0 && rtl_errno != EEXIST) goto error;
+    if (rtl_mkfifo(handle->inFifoName, 0666) < 0 && rtl_errno != RTL_EEXIST) goto error;
 #else
-    if (mkfifo(handle->inFifoName, 0666)) goto error;
+    if (rtl_mkfifo(handle->inFifoName, 0666)) goto error;
 #endif
 
-    if ((handle->inFifofd = open(handle->inFifoName, O_NONBLOCK | O_WRONLY)) < 0)
-	goto error;
+    if ((handle->inFifofd = rtl_open(handle->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
+      goto error;
 
     handle->outFifoName = makeDevName(devicePrefix,"_octl_",boardNum);
     rtl_printf("creating %s\n",handle->outFifoName);
-    if (mkfifo(handle->outFifoName, 0666) < 0) goto error;
-    if ((handle->outFifofd = open(handle->outFifoName, O_NONBLOCK | O_RDONLY))
-    	< 0) goto error;
+
+    // remove broken device file before making a new one
+    rtl_unlink(handle->outFifoName);
+    if ( rtl_errno != RTL_ENOENT ) goto error;
+
+    if (rtl_mkfifo(handle->outFifoName, 0666) < 0) goto error;
+    if ((handle->outFifofd = rtl_open(handle->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY)) < 0)
+      goto error;
 
     int icmd;
     for (icmd = 0; icmd < nioctls; icmd++)
     if (ioctls[icmd].size > handle->bufsize)
 	handle->bufsize = ioctls[icmd].size;
     
-    if (!(handle->buf = kmalloc(handle->bufsize, GFP_KERNEL))) goto error;
+    if (!(handle->buf = rtl_gpos_malloc( handle->bufsize ))) goto error;
 
     /* increase size of input buffer if necessary */
     l = handle->bufsize + sizeof(struct ioctlHeader) + 1;
     if (inputbufsize < l) {
-	kfree(inputbuf);
+	rtl_gpos_free(inputbuf);
 	inputbufsize = l;
-	if (!(inputbuf = kmalloc(inputbufsize,GFP_KERNEL))) goto error;
+	if (!(inputbuf = rtl_gpos_malloc( inputbufsize ))) goto error;
     }
     	
     handle->bytesRead = handle->bytesToRead = 0;
     handle->icmd = -1;
     handle->readETX = 0;
 
-    pthread_mutex_init(&handle->mutex,0);
+    rtl_pthread_mutex_init(&handle->mutex,0);
 
     /* add this to the list before registering the signal handler.  */
-    pthread_mutex_lock(&listmutex);
+    rtl_pthread_mutex_lock(&listmutex);
     list_add(&handle->list,&ioctlList);
-    pthread_mutex_unlock(&listmutex);
+    rtl_pthread_mutex_unlock(&listmutex);
 
-    struct sigaction sigact;
-    memset(&sigact,0,sizeof(sigact));
+    struct rtl_sigaction sigact;
+    rtl_memset(&sigact,0,sizeof(sigact));
     sigact.sa_sigaction = ioctlHandler;
     sigact.sa_fd        = handle->outFifofd;
     rtl_sigemptyset(&sigact.sa_mask);
@@ -154,46 +165,46 @@ error:
  **********************************************************************/
 void closeIoctlFIFO(struct ioctlHandle* handle)
 {
-  pthread_mutex_lock(&listmutex);
-  pthread_mutex_lock(&handle->mutex);
+  rtl_pthread_mutex_lock(&listmutex);
+  rtl_pthread_mutex_lock(&handle->mutex);
 
-  if (handle->inFifofd >= 0) close(handle->inFifofd);
-  if (handle->outFifofd >= 0) close(handle->outFifofd);
+  if (handle->inFifofd >= 0) rtl_close(handle->inFifofd);
+  if (handle->outFifofd >= 0) rtl_close(handle->outFifofd);
 
   if (handle->inFifoName) {
-      unlink(handle->inFifoName);
+      rtl_unlink(handle->inFifoName);
       rtl_printf("removed %s\n", handle->inFifoName);
-      kfree(handle->inFifoName);
+      rtl_gpos_free(handle->inFifoName);
   }
   if (handle->outFifoName) {
-      unlink(handle->outFifoName);
+      rtl_unlink(handle->outFifoName);
       rtl_printf("removed %s\n", handle->outFifoName);
-      kfree(handle->outFifoName);
+      rtl_gpos_free(handle->outFifoName);
   }
 
-  kfree(handle->buf);
+  rtl_gpos_free(handle->buf);
 
   list_del(&handle->list);
 
-  pthread_mutex_unlock(&handle->mutex);
+  rtl_pthread_mutex_unlock(&handle->mutex);
 
-  kfree(handle);
+  rtl_gpos_free(handle);
 
-  pthread_mutex_unlock(&listmutex);
+  rtl_pthread_mutex_unlock(&listmutex);
 }
 
 /**
  * Send a error response back on the FIFO.
- * 4 byte non-zero errno int, 4 byte length, length message, ETX.
+ * 4 byte non-zero rtl_errno int, 4 byte length, length message, ETX.
  */
 static int sendError(int fifofd,int errval, const char* msg)
 {
   rtl_printf("sendError, errval=%d,msg=%s\n",errval,msg);
-  write(fifofd,&errval,sizeof(int));
+  rtl_write(fifofd,&errval,sizeof(int));
   int len = strlen(msg) + 1;
-  write(fifofd,&len,sizeof(int));
-  write(fifofd,msg,len);
-  write(fifofd,&ETX,1);
+  rtl_write(fifofd,&len,sizeof(int));
+  rtl_write(fifofd,msg,len);
+  rtl_write(fifofd,&ETX,1);
   return 0;
 }
 
@@ -205,10 +216,10 @@ static int sendResponse(int fifofd,unsigned char* buf, int len)
 {
   // rtl_printf("sendResponse, len=%d\n",len);
   int errval = 0;
-  write(fifofd,&errval,sizeof(int));
-  write(fifofd,&len,sizeof(int));
-  if (len > 0) write(fifofd,buf,len);
-  write(fifofd,&ETX,1);
+  rtl_write(fifofd,&errval,sizeof(int));
+  rtl_write(fifofd,&len,sizeof(int));
+  if (len > 0) rtl_write(fifofd,buf,len);
+  rtl_write(fifofd,&ETX,1);
   return 0;
 }
 
@@ -223,7 +234,7 @@ static int sendResponse(int fifofd,unsigned char* buf, int len)
  */
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 {
-  int outFifofd = siginfo->rtl_si_fd;
+  int outFifofd = siginfo->si_fd;
   struct list_head *ptr;
   struct ioctlHandle* entry;
   struct ioctlHandle* handle = NULL;
@@ -246,7 +257,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     return;	// read at user end
   }
 
-  pthread_mutex_lock(&listmutex);
+  rtl_pthread_mutex_lock(&listmutex);
   for (ptr = ioctlList.next; ptr != &ioctlList; ptr = ptr->next) {
     entry = list_entry(ptr,struct ioctlHandle, list);
     if (entry->outFifofd == outFifofd) {
@@ -254,7 +265,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       break;
     }
   }
-  pthread_mutex_unlock(&listmutex);
+  rtl_pthread_mutex_unlock(&listmutex);
 
 #ifdef DEBUG
   rtl_printf("ioctlHandler looked for handle\n");
@@ -263,7 +274,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   if (handle == NULL) {
     rtl_printf("ioctlHandler can't find handle for FIFO file descriptor %d\n",
     	outFifofd);
-    sendError(handle->inFifofd,EINVAL,"can't find handle for this FIFO");
+    sendError(handle->inFifofd,RTL_EINVAL,"can't find handle for this FIFO");
     return;
   }
 
@@ -271,9 +282,9 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   rtl_printf("ioctlHandler found handle = 0x%x\n",(unsigned int)handle);
 #endif
 
-  pthread_mutex_lock(&handle->mutex);
+  rtl_pthread_mutex_lock(&handle->mutex);
 
-  if ((nread = read(outFifofd,inputbuf,inputbufsize)) < 0) {
+  if ((nread = rtl_read(outFifofd,inputbuf,inputbufsize)) < 0) {
     rtl_printf("ioctlHandler read failure on %s\n",handle->outFifoName);
     sendError(handle->inFifofd,rtl_errno,"error reading from FIFO");
     goto unlock;
@@ -364,7 +375,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 #endif
      if (icmd == handle->nioctls) {
 	rtl_printf("ioctlHandler cmd= %d not supported\n",cmd);
-	sendError(handle->inFifofd,EINVAL,"cmd not supported");
+	sendError(handle->inFifofd,RTL_EINVAL,"cmd not supported");
 	handle->bytesRead = 0;
 	handle->readETX = 1;
 	handle->icmd = -1;
@@ -373,7 +384,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       handle->icmd = icmd;
 
       if (handle->header.size > handle->bufsize) {
-	  sendError(handle->inFifofd,EINVAL,"size too large");
+	  sendError(handle->inFifofd,RTL_EINVAL,"size too large");
 	  rtl_printf("header size, %d, larger than bufsize %d\n",
 	  	handle->header.size,handle->bufsize);
 	  handle->bytesRead = 0;
@@ -423,7 +434,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     handle->icmd = -1;
   }
 unlock:
-  pthread_mutex_unlock(&handle->mutex);
+  rtl_pthread_mutex_unlock(&handle->mutex);
 #ifdef DEBUG
   rtl_printf("ioctlHandler returning\n");
 #endif
@@ -432,5 +443,5 @@ unlock:
 
 void cleanup_module (void)
 {
-    kfree(inputbuf);
+    rtl_gpos_free(inputbuf);
 }

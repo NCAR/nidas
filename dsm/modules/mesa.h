@@ -115,7 +115,7 @@ struct pms260x_set {
 
 #include <ioctl_fifo.h>
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #endif
 

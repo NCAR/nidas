@@ -36,8 +36,8 @@
 
 #ifdef BOZO
 
-#ifndef __KERNEL__
-#include <sys/ioctl.h>
+#ifndef __RTCORE_KERNEL__
+#include <sys/rtl_ioctl.h>
 #endif
 
 #endif
@@ -47,7 +47,7 @@
 #define DSMSER_OPEN _IOW(DSM_SERIAL_FIFO_MAGIC,0,int)
 #define DSMSER_CLOSE _IO(DSM_SERIAL_FIFO_MAGIC,1)
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #include <ioctl_fifo.h>
 
@@ -60,8 +60,8 @@ struct dsm_serial_fifo_port {
   int outFifoFd;
   void* in_thread_stack;
   void* out_thread_stack;
-  pthread_t in_thread;
-  pthread_t out_thread;
+  rtl_pthread_t in_thread;
+  rtl_pthread_t out_thread;
 
 };
 
@@ -73,6 +73,6 @@ struct dsm_serial_fifo_board {
 
   
 
-#endif	/* __KERNEL__ */
+#endif	/* __RTCORE_KERNEL__ */
 
 #endif

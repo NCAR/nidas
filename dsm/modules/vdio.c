@@ -23,8 +23,8 @@ Revisions:
 /* Arcom Viper Digital I/O header */
 #include "vdio.h"
 
-pthread_t	aVthread;
-sem_t		anVdioSemaphore;
+rtl_pthread_t   aVthread;
+rtl_sem_t       anVdioSemaphore;
 unsigned short 	*pVdiord;
 unsigned long 	*pVdioset, *pVdioclr;
 
@@ -56,17 +56,27 @@ void init_module(void)
 
 /* Create the data output FIFO */
 	sprintf(devstr,"/dev/vdio_write");
-	mkfifo(devstr, 0666);
+
+        // remove broken device file before making a new one
+        rtl_unlink(devstr);
+        if ( rtl_errno != RTL_ENOENT ) return;
+
+	rtl_mkfifo(devstr, 0666);
 	rtl_printf("FIFO %s initialized\n", devstr);
 
 /* Create a command fifo */
 	sprintf(devstr, "/dev/vdio_read");
-	mkfifo(devstr, 0666);
+
+        // remove broken device file before making a new one
+        rtl_unlink(devstr);
+        if ( rtl_errno != RTL_ENOENT ) return;
+
+	rtl_mkfifo(devstr, 0666);
 	rtl_printf("FIFO %s initialized\n", devstr);
 	
 /* Create the 100 Hz thread */
-	pthread_create(&aVthread, NULL, Vdio_100hz_thread, (void *)0);
-	rtl_printf("(%s) %s:\t pthread_create done \n", __FILE__, __FUNCTION__);
+	rtl_pthread_create(&aVthread, NULL, Vdio_100hz_thread, (void *)0);
+	rtl_printf("(%s) %s:\t rtl_pthread_create done \n", __FILE__, __FUNCTION__);
 
 /* Set up I/O port pointer */
 
@@ -115,7 +125,7 @@ void cleanup_module(void)
 	ViperOutBits(0x00);
 
 /* Close the data FIFO */
-	close(fp_Vdio);
+	rtl_close(fp_Vdio);
 	return;
 
 }
@@ -142,7 +152,7 @@ static void *Vdio_100hz_thread(void *t)
 	if(vobits%100 == 0)rtl_printf("DigiBits 0x%02x\n", vibits);
 #else
 	/* Send input bits up to user space via the FIFO */
-	write(fp_Vdio, &vbits, sizeof(UC));
+	rtl_write(fp_Vdio, &vbits, sizeof(UC));
 #endif
 	}
 }

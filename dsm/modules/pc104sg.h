@@ -18,7 +18,7 @@
 #define CLOCK_STATUS_NOMAJT       0x08 /* Set if major time NOT set since jam */
 #define CLOCK_STATUS_NOYEAR       0x10 /* Set if year NOT set */
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #define PC104SG_IOPORT_WIDTH  0x20
 
@@ -191,6 +191,6 @@
 #define BCD_3_DIGIT_SHIFT       12              // bits to shift 3 bcd digits
 #define BCD_4_DIGIT_SHIFT       16              // bits to shift 4 bcd digits
 
-#endif	/* __KERNEL__ */
+#endif	/* __RTCORE_KERNEL__ */
 
 #endif

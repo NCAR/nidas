@@ -38,8 +38,7 @@ typedef unsigned long dsm_sample_length_t;
  * In actual use one will create and use a dsm_sample
  * as follows:
     struct dsm_sample* samp =
- 	kmalloc(SIZEOF_DSM_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA,
-		GFP_KERNEL);
+ 	rtl_gpos_malloc(SIZEOF_DSM_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA);
     ...
     samp->timetag = xxx;
     if (len > SPACE_ENOUGH_FOR_DATA) we_ve_got_trouble();
@@ -47,7 +46,7 @@ typedef unsigned long dsm_sample_length_t;
     memcpy(samp->data,buffer,len);
     ...
 
-    write(fifofd,samp,SIZEOF_DSM_SAMPLE_HEADER + len);
+    rtl_write(fifofd,samp,SIZEOF_DSM_SAMPLE_HEADER + len);
  */
 
 struct dsm_sample {

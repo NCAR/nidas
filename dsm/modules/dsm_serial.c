@@ -18,13 +18,15 @@
  ********************************************************************
 */
 
-#include <pthread.h>
-#include <semaphore.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl.h>
+#include <rtl_pthread.h>
+#include <rtl_semaphore.h>
 #include <rtl_core.h>
-#include <unistd.h>
+#include <rtl_unistd.h>
 #include <rtl_time.h>
 #include <rtl_posixio.h>
-#include <rtl.h>
 
 #include <linux/kernel.h>
 #include <linux/ioport.h>
@@ -379,7 +381,7 @@ static int autoconfig(struct serialPort* port)
 	       scratch2, scratch3);
 #endif
 	rtl_spin_unlock_irqrestore(&port->lock,flags);
-	return -ENODEV;         /* We failed; there's nothing here */
+	return -RTL_ENODEV;         /* We failed; there's nothing here */
     }
 
     // rtl_printf("detected serial port\n");
@@ -405,7 +407,7 @@ static int autoconfig(struct serialPort* port)
 	       port->portNum);
 #endif
 	rtl_spin_unlock_irqrestore(&port->lock,flags);
-	return -ENODEV;
+	return -RTL_ENODEV;
     }
     serial_outp(port, UART_LCR, 0xBF); /* set up for StarTech test */
     serial_outp(port, UART_EFR, 0); /* EFR is the same as FCR */
@@ -484,7 +486,7 @@ out:
 									    
     if (port->type == PORT_UNKNOWN) {
 	    rtl_spin_unlock_irqrestore(&port->lock,flags);
-	    return -ENODEV;
+	    return -RTL_ENODEV;
     }
 									    
     /*
@@ -747,7 +749,7 @@ static int uart_startup(struct serialPort* port)
     if (!(port->flags & ASYNC_BUGGY_UART) &&
 	(serial_inp(port, UART_LSR) == 0xff)) {
 	    rtl_printf("ttyS%d: LSR safety check engaged!\n", port->portNum);
-	    retval = -ENODEV;
+	    retval = -RTL_ENODEV;
 	    goto errout;
     }
                                                                                 
@@ -817,8 +819,8 @@ static int uart_shutdown(struct serialPort* port)
  * copy characters into the transmit circular buffer for transmission
  * out of the uart.
  */
-static ssize_t queue_transmit_chars(struct serialPort* port,
-	const char* buf, size_t count)
+static rtl_ssize_t queue_transmit_chars(struct serialPort* port,
+	const char* buf, rtl_size_t count)
 {
     unsigned long flags;
     int left = count;
@@ -1044,7 +1046,7 @@ static int write_eeprom(struct serialBoard* board)
     if (!ntry) {
       rtl_printf("enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
-      return -EIO;
+      return -RTL_EIO;
     }
 
     for (ip = 0; ip < board->numports; ip++) {
@@ -1065,7 +1067,7 @@ static int write_eeprom(struct serialBoard* board)
 	  rtl_printf("writing config for port %d to EEPROM failed: timeout\n",
 	  	ip);
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
-	  return -EIO;
+	  return -RTL_EIO;
 	}
     }
 
@@ -1081,7 +1083,7 @@ static int write_eeprom(struct serialBoard* board)
     if (!ntry) {
       rtl_printf("enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
-      return -EIO;
+      return -RTL_EIO;
     }
     rtl_spin_unlock_irqrestore(&board->lock,flags);
     return 0;
@@ -1138,7 +1140,7 @@ static void init_serialPort_struct(struct serialPort* port)
      */
     port->read_timeout_nsec = 250000000;	// 250 msec = 1/4 sec
 
-    sem_init(&port->sample_sem,0,0);
+    rtl_sem_init(&port->sample_sem,0,0);
 
     port->xmit.buf = 0;
     port->xmit.head = port->xmit.tail = 0;
@@ -1147,7 +1149,7 @@ static void init_serialPort_struct(struct serialPort* port)
     	port->input_char_overflows = port->output_char_overflows = 0;
     port->sample_overflows = 0;
 
-    memset(&port->termios, 0, sizeof(struct termios));
+    rtl_memset(&port->termios, 0, sizeof(struct termios));
     port->termios.c_cflag = B38400 | CS8 | HUPCL;
 }
 
@@ -1192,7 +1194,7 @@ static void post_sample(struct serialPort* port)
 	/* increment head */
 	port->sample_queue.head = (port->sample_queue.head + 1) &
 		(SAMPLE_QUEUE_SIZE-1);
-	sem_post(&port->sample_sem);
+	rtl_sem_post(&port->sample_sem);
 	port->nsamples++;
 
 	port->sample = port->sample_queue.buf[port->sample_queue.head];
@@ -1529,7 +1531,7 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
 #ifdef DEBUG
     rtl_printf("rtl_dsm_ser_open\n");
 #endif
-    // if (!(filp->f_flags & O_NONBLOCK)) return retval;
+    // if (!(filp->f_flags & RTL_O_NONBLOCK)) return retval;
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     if ((retval = open_port(port)) != 0) return retval;
     return 0;
@@ -1544,18 +1546,18 @@ static int rtl_dsm_ser_release(struct rtl_file* filp)
     return 0;
 }
 
-static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, off_t *pos)
+static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t count, off_t *pos)
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     unsigned long flags;
 
-    ssize_t retval = 0;
-    ssize_t lout;
+    rtl_ssize_t retval = 0;
+    rtl_ssize_t lout;
 
-    struct timespec timeout;
+    struct rtl_timespec timeout;
 
-    clock_gettime(CLOCK_REALTIME,&timeout);
-    // timespec_add_ns(&timeout, port->read_timeout_nsec);
+    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
+    // rtl_timespec_add_ns(&timeout, port->read_timeout_nsec);
     timeout.tv_nsec += port->read_timeout_nsec;
     if (timeout.tv_nsec >= NSECS_PER_SEC) {
 	timeout.tv_sec++;
@@ -1590,13 +1592,13 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 	     * typical tradeoff between efficiency and responsiveness.
 	     */
 
-	    if (sem_timedwait(&port->sample_sem,&timeout) < 0)
+	    if (rtl_sem_timedwait(&port->sample_sem,&timeout) < 0)
 	    {
-		if (errno == RTL_EINTR) {
+		if (rtl_errno == RTL_EINTR) {
 			rtl_printf("dsm_ser_read sem_wait interrupt\n");
-			return -errno;
+			return -rtl_errno;
 		}
-	        else if (errno == RTL_ETIMEDOUT) {
+	        else if (rtl_errno == RTL_ETIMEDOUT) {
 			// if timeout return what we've read
 			if (retval > 0) return retval;
 
@@ -1609,8 +1611,8 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
 		}
 		else {
 		    rtl_printf("dsm_ser_read sem_wait unknown error: %d\n",
-			errno);
-		    return -errno;
+			rtl_errno);
+		    return -rtl_errno;
 		}
 	    }
 
@@ -1641,7 +1643,7 @@ static ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, size_t count, 
     return retval;
 }
 
-static ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, size_t count, off_t *pos)
+static rtl_ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, rtl_size_t count, off_t *pos)
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
 
@@ -1659,7 +1661,7 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     struct termios* termios;
 
-    int retval = -EINVAL;
+    int retval = -RTL_EINVAL;
     switch (request) {
     case DSMSER_TCSETS:		/* user set of termios parameters */
 #ifdef DEBUG
@@ -1808,7 +1810,7 @@ int init_module(void)
     int ib,ip,i;
     int numirqs;
     int numioport0s;
-    int retval = -EINVAL;
+    int retval = -RTL_EINVAL;
     unsigned long addr;
     char devname[128];
 
@@ -1847,8 +1849,8 @@ int init_module(void)
 	goto err0;
     }
 
-    retval = -ENOMEM;
-    boardInfo = kmalloc(numboards * sizeof(struct serialBoard),GFP_KERNEL);
+    retval = -RTL_ENOMEM;
+    boardInfo = rtl_gpos_malloc( numboards * sizeof(struct serialBoard) );
     if (!boardInfo) goto err0;
     for (ib = 0; ib < numboards; ib++) {
 	boardInfo[ib].type = brdtype[ib];
@@ -1864,7 +1866,7 @@ int init_module(void)
     for (ib = 0; ib < numboards; ib++) {
 	int boardirq = 0;
 
-	retval = -EBUSY;
+	retval = -RTL_EBUSY;
 	addr = SYSTEM_ISA_IOPORT_BASE + ioport[ib];
 	if (check_region(addr, 8)) {
 	    rtl_printf("dsm_serial: ioports at 0x%x already in use\n",addr);
@@ -1873,7 +1875,7 @@ int init_module(void)
 	request_region(addr, 8, "dsm_serial");
 	boardInfo[ib].addr = addr;
 
-	retval = -EINVAL;
+	retval = -RTL_EINVAL;
 	switch (boardInfo[ib].type) {
 	case BOARD_WIN_COM8:
 	    boardInfo[ib].numports = 8;
@@ -1886,9 +1888,9 @@ int init_module(void)
 	rtl_printf("numports=%d\n",boardInfo[ib].numports);
 #endif
 
-	retval = -ENOMEM;
-	boardInfo[ib].ports = kmalloc(
-	    boardInfo[ib].numports * sizeof(struct serialPort),GFP_KERNEL);
+	retval = -RTL_ENOMEM;
+	boardInfo[ib].ports = rtl_gpos_malloc(
+          boardInfo[ib].numports * sizeof(struct serialPort) );
 	if (!boardInfo[ib].ports) goto err1;
 
 	for (ip = 0; ip < boardInfo[ib].numports; ip++) {
@@ -1905,7 +1907,7 @@ int init_module(void)
 	    port->ioport = ioport0[ib] + (ip * 8);
 
 	    addr = SYSTEM_ISA_IOPORT_BASE + port->ioport;
-	    retval = -EBUSY;
+	    retval = -RTL_EBUSY;
 	    if (check_region(addr, 8)) {
 		rtl_printf("dsm_serial: ioports at 0x%x already in use\n",
 			addr);
@@ -1914,18 +1916,17 @@ int init_module(void)
 	    request_region(addr, 8, "dsm_serial");
 	    port->addr = addr;
 
-	    retval = -ENOMEM;
-	    port->xmit.buf = kmalloc(SERIAL_XMIT_SIZE,GFP_KERNEL);
+	    retval = -RTL_ENOMEM;
+	    port->xmit.buf = rtl_gpos_malloc( SERIAL_XMIT_SIZE );
 	    if (!port->xmit.buf) goto err1;
 
-	    port->sample_queue.buf = kmalloc(SAMPLE_QUEUE_SIZE * sizeof(void*),
-	    	GFP_KERNEL);
+	    port->sample_queue.buf = rtl_gpos_malloc( SAMPLE_QUEUE_SIZE * sizeof(void*) );
 	    if (!port->sample_queue.buf) goto err1;
 
 	    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++) {
 	      struct dsm_sample* samp = (struct dsm_sample*)
-	      	kmalloc(SIZEOF_DSM_SAMPLE_HEADER +
-			MAX_DSM_SERIAL_MESSAGE_SIZE,GFP_KERNEL);
+	      	rtl_gpos_malloc( SIZEOF_DSM_SAMPLE_HEADER +
+                                 MAX_DSM_SERIAL_MESSAGE_SIZE );
 	      if (!samp) goto err1;
 	      port->sample_queue.buf[i] = samp;
 	    }
@@ -1935,7 +1936,7 @@ int init_module(void)
 	    else port->irq = irqs[portcounter];
 
 	    if (boardirq == 0) boardirq = port->irq;
-	    retval = -EINVAL;
+	    retval = -RTL_EINVAL;
 	    if (boardirq != port->irq) {
 	        rtl_printf("current version only supports one IRQ per board\n");
 		goto err1;
@@ -1945,7 +1946,7 @@ int init_module(void)
 	    else port->irq = irqs[portcounter];
 
 	    if (boardirq == 0) boardirq = port->irq;
-	    retval = -EINVAL;
+	    retval = -RTL_EINVAL;
 	    if (boardirq != port->irq) {
 	        rtl_printf("current version only supports one IRQ per board\n");
 		goto err1;
@@ -1983,18 +1984,18 @@ int init_module(void)
 		break;
 	    }
 
-	    retval = -ENOMEM;
+	    retval = -RTL_ENOMEM;
 	    sprintf(devname, "/dev/%s%d", devprefix,portcounter);
-	    port->devname = (char *) kmalloc(strlen(devname) + 1,GFP_KERNEL);
+	    port->devname = (char *) rtl_gpos_malloc( strlen(devname) + 1 );
 	    if (!port->devname) goto err1;
 	    strcpy(port->devname,devname);
 
 	    if ( rtl_register_dev(devname, &rtl_dsm_ser_fops,(unsigned long)port) ) {
 		printk("Unable to install %s driver\n",devname);
 		/* if port->devname is non-zero then it has been registered */
-		kfree(port->devname);
+		rtl_gpos_free(port->devname);
 		port->devname = 0;
-		retval = -EIO;
+		retval = -RTL_EIO;
 		goto err1;
 	    }
 
@@ -2028,31 +2029,31 @@ err1:
 
 		    if (port->addr) release_region(port->addr, 8);
 		    port->addr = 0;
-		    if (port->xmit.buf) kfree(port->xmit.buf);
+		    if (port->xmit.buf) rtl_gpos_free(port->xmit.buf);
 		    port->xmit.buf = 0;
 
 		    if (port->sample_queue.buf) {
 			for (i = 0; i < SAMPLE_QUEUE_SIZE; i++)
 			  if (port->sample_queue.buf[i])
-			      kfree(port->sample_queue.buf[i]);
-			kfree(port->sample_queue.buf);
+			      rtl_gpos_free(port->sample_queue.buf[i]);
+			rtl_gpos_free(port->sample_queue.buf);
 			port->sample_queue.buf = 0;
 		    }
 
-		    sem_destroy(&port->sample_sem);
+		    rtl_sem_destroy(&port->sample_sem);
 
 		    if (port->devname) {
 			rtl_unregister_dev(port->devname);
-			kfree(port->devname);
+			rtl_gpos_free(port->devname);
 			port->devname = 0;
 		    }
 		}
-		kfree(boardInfo[ib].ports);
+		rtl_gpos_free(boardInfo[ib].ports);
 		boardInfo[ib].ports = 0;
 	    }
 	}
 
-	kfree(boardInfo);
+	rtl_gpos_free(boardInfo);
 	boardInfo = 0;
     }
 err0:
@@ -2077,31 +2078,31 @@ void cleanup_module (void)
 		close_port(port);
 		if (port->addr) release_region(port->addr, 8);
 		port->addr = 0;
-		if (port->xmit.buf) kfree(port->xmit.buf);
+		if (port->xmit.buf) rtl_gpos_free(port->xmit.buf);
 		port->xmit.buf = 0;
 
 		if (port->sample_queue.buf) {
 		    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++)
 		      if (port->sample_queue.buf[i])
-			  kfree(port->sample_queue.buf[i]);
-		    kfree(port->sample_queue.buf);
+			  rtl_gpos_free(port->sample_queue.buf[i]);
+		    rtl_gpos_free(port->sample_queue.buf);
 		    port->sample_queue.buf = 0;
 		}
 
-		sem_destroy(&port->sample_sem);
+		rtl_sem_destroy(&port->sample_sem);
 
 		if (port->devname) {
 		    rtl_printf("rtl_unregister_dev: %s\n",port->devname);
 		    rtl_unregister_dev(port->devname);
-		    kfree(port->devname);
+		    rtl_gpos_free(port->devname);
 		    port->devname = 0;
 		}
 	    }
-	    kfree(boardInfo[ib].ports);
+	    rtl_gpos_free(boardInfo[ib].ports);
 	    boardInfo[ib].ports = 0;
 	}
     }
 
-    kfree(boardInfo);
+    rtl_gpos_free(boardInfo);
     boardInfo = 0;
 }

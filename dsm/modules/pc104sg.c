@@ -14,14 +14,13 @@
                  $HeadURL: $
 */
 
-
-#include <pthread.h>
-#include <semaphore.h>
-#include <rtl_core.h>
-#include <unistd.h>
-#include <rtl_time.h>
-#include <time.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
+#include <rtl_pthread.h>
+#include <rtl_semaphore.h>
+#include <rtl_unistd.h>
+#include <rtl_time.h>
 
 #include <linux/ioport.h>
 #include <linux/list.h>
@@ -97,7 +96,7 @@ static unsigned long msecClockTicker = 0;
  */
 static int hz100_cnt = 0;
 
-static struct timeval userClock;
+static struct rtl_timeval userClock;
 
 /**
  * Enumeration of the state of the clock.
@@ -177,13 +176,13 @@ static int dp_ram_ext_status_requested = 0;
 /**
  * The 100 hz thread
  */
-static pthread_t     pc104sgThread = 0;
+static rtl_pthread_t     pc104sgThread = 0;
 
 /**
  * Semaphore that the interrupt service routine uses to wake up
  * the thread.
  */
-static sem_t         threadsem;
+static rtl_sem_t         threadsem;
 
 #define CALL_BACK_POOL_SIZE 32	/* number of callbacks we can support */
 
@@ -213,7 +212,7 @@ static struct list_head callbacklists[IRIG_NUM_RATES];
 
 static struct list_head callbackpool;
 
-static pthread_mutex_t cblistmutex = PTHREAD_MUTEX_INITIALIZER;
+static rtl_pthread_mutex_t cblistmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
 
 /**
  * Module function that allows other modules to register their callback
@@ -232,19 +231,19 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
     struct list_head *ptr;
     struct irigCallback* cbentry;
 
-    /* We could do a kmalloc of the entry, but that would require
+    /* We could do a rtl_gpos_malloc of the entry, but that would require
      * that this function be called at module init time.
      * We want it to be call-able at any time, so we
-     * kmalloc a pool of entries at this module's init time,
+     * rtl_gpos_malloc a pool of entries at this module's init time,
      * and grab an entry here.
      */
 
-    pthread_mutex_lock(&cblistmutex);
+    rtl_pthread_mutex_lock(&cblistmutex);
 
     ptr = callbackpool.next;
     if (ptr == &callbackpool) {		/* none left */
-	pthread_mutex_unlock(&cblistmutex);
-        return -ENOMEM;
+	rtl_pthread_mutex_unlock(&cblistmutex);
+        return -RTL_ENOMEM;
     }
 
     cbentry = list_entry(ptr,struct irigCallback, list);
@@ -254,7 +253,7 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
     cbentry->privateData = privateData;
 
     list_add(&cbentry->list,callbacklists + rate);
-    pthread_mutex_unlock(&cblistmutex);
+    rtl_pthread_mutex_unlock(&cblistmutex);
 
     return 0;
 }
@@ -269,7 +268,7 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
 void unregister_irig_callback(irig_callback_t* callback,
 	enum irigClockRates rate)
 {
-    pthread_mutex_lock(&cblistmutex);
+    rtl_pthread_mutex_lock(&cblistmutex);
 
     struct list_head *ptr;
     struct irigCallback *cbentry;
@@ -284,7 +283,7 @@ void unregister_irig_callback(irig_callback_t* callback,
 	}
     }
 
-    pthread_mutex_unlock(&cblistmutex);
+    rtl_pthread_mutex_unlock(&cblistmutex);
 }
 
 /**
@@ -298,7 +297,7 @@ static void free_callbacks()
     struct list_head *newptr;
     struct irigCallback *cbentry;
 
-    pthread_mutex_lock(&cblistmutex);
+    rtl_pthread_mutex_lock(&cblistmutex);
 
     for (i = 0; i < IRIG_NUM_RATES; i++) {
 	for (ptr = callbacklists[i].next;
@@ -313,10 +312,10 @@ static void free_callbacks()
 
     for (ptr = callbackpool.next; ptr != &callbackpool; ptr = ptr->next) {
 	cbentry = list_entry(ptr,struct irigCallback, list);
-	kfree(cbentry);
+	rtl_gpos_free(cbentry);
     }
 
-    pthread_mutex_unlock(&cblistmutex);
+    rtl_pthread_mutex_unlock(&cblistmutex);
 }
 
 /**
@@ -393,8 +392,8 @@ static void disableAllInts (void)
 /**
  * Read dual port RAM.
  * @param isRT    Set to 1 if this is called from a real-time thread.
- *     in which case this function uses clock_nanosleep(CLOCK_REALTIME,...).
- *     clock_nanosleep should only be called from a real-time thread, not at
+ *     in which case this function uses rtl_clock_nanosleep(RTL_CLOCK_REALTIME,...).
+ *     rtl_clock_nanosleep should only be called from a real-time thread, not at
  *     init time and not at interrupt time.
  *     Use isRT=0 if called from the ioctl callback (which is not a
  *	real-time thread). In this case this function uses
@@ -404,7 +403,7 @@ static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
 {
     int i;
     unsigned char status;
-    struct timespec tspec;
+    struct rtl_timespec tspec;
     tspec.tv_sec = 0;
     tspec.tv_nsec = 20000;
 
@@ -426,7 +425,7 @@ static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
      */
     i = 0;
     do {
-	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
 	else {
 	    unsigned long j = jiffies + 1;
 	    while (jiffies < j) schedule();
@@ -483,15 +482,15 @@ static inline void Get_Dual_Port_RAM(unsigned char* val)
 /**
  * Set a value in dual port RAM.
  * @param isRT    Set to 1 if this is called from a real-time thread.
- *     in which case this function uses clock_nanosleep(CLOCK_REALTIME,...).
- *     clock_nanosleep should only be called from a real-time thread, not at
+ *     in which case this function uses rtl_clock_nanosleep(RTL_CLOCK_REALTIME,...).
+ *     rtl_clock_nanosleep should only be called from a real-time thread, not at
  *     init time and not at interrupt time.
  */
 static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
 {
     int i;
     unsigned char status;
-    struct timespec tspec;
+    struct rtl_timespec tspec;
     tspec.tv_sec = 0;
     tspec.tv_nsec = 20000;	// 20 microsecond wait
 
@@ -509,7 +508,7 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
      */
     i = 0;
     do {
-	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
 	else {
 	    unsigned long j = jiffies + 1;
 	    while (jiffies < j) schedule();
@@ -536,7 +535,7 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
 
     i = 0;
     do {
-	if (isRT) clock_nanosleep(CLOCK_REALTIME,0,&tspec,0);
+	if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
 	else {
 	    unsigned long j = jiffies + 1;
 	    while (jiffies < j) schedule();
@@ -644,10 +643,10 @@ static void counterRejam(int isRT)
 }
 
 /**
- * Break a struct timeval into the fields of a struct irigTime.
+ * Break a struct rtl_timeval into the fields of a struct irigTime.
  * This uses some code from glibc/time routines.
  */
-static void timespec2irig (const struct timespec* ts, struct irigTime* ti)
+static void timespec2irig (const struct rtl_timespec* ts, struct irigTime* ti)
 {
     long int days, rem, y;
     unsigned long int t = ts->tv_sec;
@@ -682,17 +681,17 @@ static void timespec2irig (const struct timespec* ts, struct irigTime* ti)
     ti->nsec = rem;
 }
 
-static void timeval2irig (const struct timeval* tv, struct irigTime* ti)
+static void timeval2irig (const struct rtl_timeval* tv, struct irigTime* ti)
 {
-    struct timespec ts;
+    struct rtl_timespec ts;
     ts.tv_sec = tv->tv_sec;
     ts.tv_nsec = tv->tv_usec * 1000;
     timespec2irig(&ts,ti);
 }
 /**
- * Convert a struct irigTime into a struct timeval.
+ * Convert a struct irigTime into a struct rtl_timeval.
  */
-static void irig2timespec(const struct irigTime* ti,struct timespec* ts)
+static void irig2timespec(const struct irigTime* ti,struct rtl_timespec* ts)
 {
     ts->tv_nsec = ti->msec * 1000000 + ti->usec * 1000 + ti->nsec;
 
@@ -704,9 +703,9 @@ static void irig2timespec(const struct irigTime* ti,struct timespec* ts)
 		ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
-static void irig2timeval(const struct irigTime* ti,struct timeval* tv)
+static void irig2timeval(const struct irigTime* ti,struct rtl_timeval* tv)
 {
-    struct timespec ts;
+    struct rtl_timespec ts;
     irig2timespec(ti,&ts);
     tv->tv_sec = ts.tv_sec;
     tv->tv_usec = (ts.tv_nsec + 500) / 1000;
@@ -789,7 +788,7 @@ static void getCurrentTime(struct irigTime* ti)
 #ifdef DEBUG
     // unsigned char status = inb(isa_address+Status_Port);
     dsm_sample_time_t tt = GET_MSEC_CLOCK;
-    struct timespec ts;
+    struct rtl_timespec ts;
     irig2timespec(ti,&ts);
     // clock difference
     int td = (ts.tv_sec % 86400) * 1000 + ts.tv_nsec / 1000000 - tt;
@@ -913,7 +912,7 @@ static inline void increment_hz100_cnt()
 /**
  * Set the clock and 100 hz counter based on the time in a time val struct.
  */
-static void setCounters(struct timeval* tv)
+static void setCounters(struct rtl_timeval* tv)
 {
     msecClockTicker =
 	(tv->tv_sec % SECS_PER_DAY) * 1000 +
@@ -938,7 +937,7 @@ static inline void setCountersToClock()
 {
     // reset counters to clock
     struct irigTime ti;
-    struct timeval tv;
+    struct rtl_timeval tv;
     getCurrentTime(&ti);
     irig2timeval(&ti,&tv);
     setCounters(&tv);
@@ -1008,9 +1007,9 @@ static void *pc104sg_100hz_thread (void *param)
 // #define SET_MAJOR
 #ifdef SET_MAJOR
 
-    struct timespec ts;
-    // clock_gettime(RTL_CLOCK_GPOS,&tspec);	// RTL_CLOCK_GPOS not defined
-    clock_gettime(CLOCK_REALTIME,&ts);	// 1970
+    struct rtl_timespec ts;
+    // rtl_clock_gettime(RTL_CLOCK_GPOS,&tspec); // note - as of rtldk-2.2 RTL_CLOCK_GPOS is now defined...
+    rtl_clock_gettime(RTL_CLOCK_REALTIME,&ts);	// 1970
     // ts.tv_sec = 1107129600;		// Jan 31 2005, 00:00
     ts.tv_sec = 1104537540;		// Dec 31 2004, 23:59:00 leap
     ts.tv_sec = 1104537540-86400;	// Dec 30 2004, 23:59:00 leap
@@ -1037,7 +1036,7 @@ static void *pc104sg_100hz_thread (void *param)
 
     /* semaphore timeout in nanoseconds */
     unsigned long nsec_deltat = MSEC_PER_THREAD_SIGNAL * 1000000;
-    struct timespec timeout;
+    struct rtl_timespec timeout;
     int ntimeouts = 0;
     int status = 0;
     int msecs_since_last_timeout = 0;
@@ -1045,12 +1044,12 @@ static void *pc104sg_100hz_thread (void *param)
     nsec_deltat += (nsec_deltat * 3) / 8;	/* add 3/8ths more */
     // rtl_printf("nsec_deltat = %d\n",nsec_deltat);
 
-    clock_gettime(CLOCK_REALTIME,&timeout);
+    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 
     for (;;) {
 
 	/* wait for the pc104sg_isr to signal us */
-	// timespec_add_ns(&timeout, nsec_deltat);
+	// rtl_timespec_add_ns(&timeout, nsec_deltat);
 	timeout.tv_nsec += nsec_deltat;
 	if (timeout.tv_nsec >= NSECS_PER_SEC) {
 	    timeout.tv_sec++;
@@ -1060,7 +1059,7 @@ static void *pc104sg_100hz_thread (void *param)
 	/* If we get a timeout on the semaphore, then we've missed
 	 * an irig interrupt.  Report the status and re-enable.
 	 */
-	if (sem_timedwait(&threadsem,&timeout) < 0) {
+	if (rtl_sem_timedwait(&threadsem,&timeout) < 0) {
 	    if (rtl_errno == RTL_ETIMEDOUT) {
 		// If clock is not overidden and we have time
 		// codes, then set counters to the clock
@@ -1098,14 +1097,14 @@ static void *pc104sg_100hz_thread (void *param)
 	}
 	else msecs_since_last_timeout += MSEC_PER_THREAD_SIGNAL;
 
-	clock_gettime(CLOCK_REALTIME,&timeout);
+	rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 
 	/* this macro creates a code block enclosed in {} brackets,
-	 * which is terminated by pthread_cleanup_pop */
-	pthread_cleanup_push((void(*)(void*))rtl_pthread_mutex_unlock,
+	 * which is terminated by rtl_pthread_cleanup_pop */
+	rtl_pthread_cleanup_push((void(*)(void*))rtl_pthread_mutex_unlock,
 		(void*)&cblistmutex);
 
-	pthread_mutex_lock(&cblistmutex);
+	rtl_pthread_mutex_lock(&cblistmutex);
     
 	/* perform 100Hz processing... */
 	doCallbacklist(callbacklists + IRIG_100_HZ);
@@ -1156,7 +1155,7 @@ _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
         doCallbacklist(callbacklists + IRIG_0_1_HZ);
 
 cleanup_pop:
-	pthread_cleanup_pop(1);
+	rtl_pthread_cleanup_pop(1);
 
 
     }
@@ -1286,7 +1285,7 @@ static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl
 	 */
 	if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)) {
 	    increment_hz100_cnt();
-	    sem_post( &threadsem );
+	    rtl_sem_post( &threadsem );
 	}
 
     }
@@ -1318,7 +1317,7 @@ static void portCallback(void* privateData)
 
     // check clock sanity
     if (clockState == CODED) {
-	struct timespec ts;
+	struct rtl_timespec ts;
 	irig2timespec(&ti,&ts);
 	// clock difference
 	int td = (ts.tv_sec % 86400) * 1000 + ts.tv_nsec / 1000000 - tt;
@@ -1338,7 +1337,7 @@ static void portCallback(void* privateData)
 		dev->samp.data.status);
 #endif
 
-	write(dev->inFifoFd,&dev->samp,
+	rtl_write(dev->inFifoFd,&dev->samp,
 		SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length);
     }
 
@@ -1364,7 +1363,7 @@ static int close_port(struct irig_port* port)
 	int fd = port->inFifoFd;
 	port->inFifoFd = -1;
 	rtl_printf("closing %s\n",port->inFifoName);
-        close(fd);
+        rtl_close(fd);
     }
     return 0;
 }
@@ -1375,7 +1374,7 @@ static int open_port(struct irig_port* port)
 
     /* user opens port for read, so we open it for writing. */
     rtl_printf("opening %s\n",port->inFifoName);
-    if ((port->inFifoFd = open(port->inFifoName, O_NONBLOCK | O_WRONLY)) < 0)
+    if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 	return -rtl_errno;
 
     return retval;
@@ -1386,9 +1385,9 @@ static int open_port(struct irig_port* port)
  * ioctl FIFO.  This is not being executed from a real-time thread.
  */
 static int ioctlCallback(int cmd, int board, int portNum,
-        void *buf, size_t len)
+        void *buf, rtl_size_t len)
 {
-    int retval = -EINVAL;
+    int retval = -RTL_EINVAL;
     int isRT = 0;
     rtl_printf("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
     	cmd,board,portNum);
@@ -1421,7 +1420,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
     case IRIG_GET_CLOCK:
 	{
 	    struct irigTime ti;
-	    struct timeval tv;
+	    struct rtl_timeval tv;
 	    if (len != sizeof(tv)) break;
 	    getCurrentTime(&ti);
 	    irig2timeval(&ti,&tv);
@@ -1491,9 +1490,9 @@ void cleanup_module (void)
      * we cancel it before disabling interrupts.
      */
     if (pc104sgThread) {
-        if (pthread_kill( pc104sgThread,SIGTERM ) < 0)
-	    rtl_printf("pthread_kill failure\n");
-	pthread_join( pc104sgThread, NULL );
+        if (rtl_pthread_kill( pc104sgThread,SIGTERM ) < 0)
+	    rtl_printf("rtl_pthread_kill failure\n");
+	rtl_pthread_join( pc104sgThread, NULL );
     }
 
     /* free up our pool of callbacks */
@@ -1506,19 +1505,18 @@ void cleanup_module (void)
     if (portDev) {
 	close_port(portDev);
         if (portDev->inFifoName) {
-	    unlink(portDev->inFifoName);
-	    kfree(portDev->inFifoName);
+	    rtl_unlink(portDev->inFifoName);
+	    rtl_gpos_free(portDev->inFifoName);
 	}
-	kfree(portDev);
+	rtl_gpos_free(portDev);
     }
-
     if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
 
     /* free up the I/O region and remove /proc entry */
     if (isa_address)
     	release_region(isa_address, PC104SG_IOPORT_WIDTH);
 
-    sem_destroy(&threadsem);
+    rtl_sem_destroy(&threadsem);
 
     rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
 
@@ -1541,7 +1539,7 @@ int init_module (void)
 	INIT_LIST_HEAD(callbacklists+i);
 
     /* initialize the semaphore to the 100 hz thread */
-    sem_init (&threadsem, /* which semaphore */
+    rtl_sem_init (&threadsem, /* which semaphore */
 	    1,                /* usable between processes? Usu. 1 */
 	    0);               /* initial value */
 
@@ -1563,32 +1561,37 @@ int init_module (void)
     /* shutoff pc104sg interrupts just in case */
     disableAllInts();
 
-    portDev =  kmalloc(sizeof(struct irig_port),GFP_KERNEL);
+    portDev = rtl_gpos_malloc( sizeof(struct irig_port) );
     if (!portDev) goto err0;
     portDev->inFifoFd = -1;
     portDev->inFifoName = makeDevName(devprefix,"_in_",0);
     if (!portDev->inFifoName) goto err0;
 
     rtl_printf("creating %s\n",portDev->inFifoName);
-    if (mkfifo(portDev->inFifoName, 0666) < 0) {
+
+    // remove broken device file before making a new one
+    rtl_unlink(portDev->inFifoName);
+    if ( (errval = -rtl_errno) != -RTL_ENOENT ) goto err0;
+
+    if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
 	errval = -rtl_errno;
-	rtl_printf("mkfifo %s failed, errval=%d\n",
+	rtl_printf("rtl_mkfifo %s failed, errval=%d\n",
 	    portDev->inFifoName,errval);
-	if (errval != -EEXIST && errval != -EBADE) goto err0;
+	if (errval != -RTL_EEXIST && errval != -EBADE) goto err0;
     }
 
     /* setup our device */
     if (!(ioctlhandle = openIoctlFIFO(devprefix,
 	0,ioctlCallback,nioctlcmds,ioctlcmds))) {
-	errval = -EINVAL;
+	errval = -RTL_EINVAL;
 	goto err0;
     }
 
     /* create our pool of callback entries */
-    errval = -ENOMEM;
+    errval = -RTL_ENOMEM;
     for (i = 0; i < CALL_BACK_POOL_SIZE; i++) {
 	struct irigCallback* cbentry =
-	    (struct irigCallback*) kmalloc(sizeof(struct irigCallback), GFP_KERNEL);
+	    (struct irigCallback*) rtl_gpos_malloc( sizeof(struct irigCallback) );
 	if (!cbentry) goto err0;
 	list_add(&cbentry->list,&callbackpool);
     }
@@ -1602,7 +1605,7 @@ int init_module (void)
     irq_requested = 1;
 
     /* start the 100 Hz thread */
-    if ((errval = pthread_create(
+    if ((errval = rtl_pthread_create(
     	&pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0))) {
         errval = -errval;
 	goto err0;
@@ -1617,8 +1620,8 @@ err0:
 
     /* kill the thread */
     if (pc104sgThread) {
-        pthread_kill( pc104sgThread,SIGTERM );
-	pthread_join( pc104sgThread, NULL );
+        rtl_pthread_kill( pc104sgThread,SIGTERM );
+	rtl_pthread_join( pc104sgThread, NULL );
     }
 
     /* free up our pool of callbacks */
@@ -1632,17 +1635,17 @@ err0:
 
     if (portDev) {
         if (portDev->inFifoName) {
-	    unlink(portDev->inFifoName);
-	    kfree(portDev->inFifoName);
+	    rtl_unlink(portDev->inFifoName);
+	    rtl_gpos_free(portDev->inFifoName);
 	}
-	kfree(portDev);
+	rtl_gpos_free(portDev);
     }
 
     /* free up the I/O region and remove /proc entry */
     if (isa_address)
     	release_region(isa_address, PC104SG_IOPORT_WIDTH);
 
-    sem_destroy(&threadsem);
+    rtl_sem_destroy(&threadsem);
     return errval;
 }
 

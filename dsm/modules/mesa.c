@@ -18,10 +18,12 @@
 */
 
 /* RTLinux includes...  */
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
 #include <rtl_posixio.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <rtl_stdio.h>
+#include <rtl_unistd.h>
 
 /* Linux module includes... */
 #include <linux/init.h>          // module_init, module_exit
@@ -71,7 +73,7 @@ char requested_region = 0;
 static int fd_mesa_load;
 static int fd_mesa_counter[N_COUNTERS];
 static int fd_mesa_radar[N_RADARS];
-static struct sigaction cmndAct;
+static struct rtl_sigaction cmndAct;
 
 void cleanup_module (void);
 
@@ -98,7 +100,7 @@ void read_counter(void* channel)
 
     /* write the counts to the user's FIFO */
     sample.timetag = GET_MSEC_CLOCK;
-    write(fd_mesa_counter[ii], &sample, sizeof(sample));
+    rtl_write(fd_mesa_counter[ii], &sample, sizeof(sample));
   }
 }
 /* -- IRIG CALLBACK --------------------------------------------------- */
@@ -116,7 +118,7 @@ void read_radar(void* channel)
 
   /* write the altitude to the user's FIFO */
   sample.timetag = GET_MSEC_CLOCK;
-  write(fd_mesa_radar[chn-1], &sample, sizeof(sample));
+  rtl_write(fd_mesa_radar[chn-1], &sample, sizeof(sample));
 }
 /* -- UTILITY --------------------------------------------------------- */
 
@@ -150,10 +152,10 @@ void load_start()
   err("outb(%d)", config);
 
   // Multi task for 100 us
-/*   struct timespec ts; */
-/*   clock_gettime(CLOCK_REALTIME, &ts); */
-/*   timespec_add_ns(&ts, 100000); */
-/*   clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &ts, NULL); */
+/*   struct rtl_timespec ts; */
+/*   rtl_clock_gettime(RTL_CLOCK_REALTIME, &ts); */
+/*   rtl_timespec_add_ns(&ts, 100000); */
+/*   rtl_clock_nanosleep(RTL_CLOCK_REALTIME, TIMER_ABSTIME, &ts, NULL); */
 
   /* Delay 100 uS. */
   for(count=0; count <= 1000; count++)
@@ -173,7 +175,7 @@ void load_program(int sig, rtl_siginfo_t *siginfo, void *v)
       load_start();
 
   /* ignore if not incoming data */
-  if (siginfo->rtl_si_fd != fd_mesa_load) {
+  if (siginfo->si_fd != fd_mesa_load) {
     err("ignored... unknown file pointer");
     return;
   }
@@ -183,7 +185,7 @@ void load_program(int sig, rtl_siginfo_t *siginfo, void *v)
   }
 
   /* read the FIFO into a buffer and then program the FPGA*/
-  len = read(siginfo->rtl_si_fd, &buf, MAX_BUFFER);
+  len = rtl_read(siginfo->si_fd, &buf, MAX_BUFFER);
   total += len;
 
   /* Now program the FPGA */
@@ -247,7 +249,7 @@ void close_ports( void )
   for(chn=0; chn < counter_channels; chn++)
   {
     if (fd_mesa_counter[chn]) {
-      close( fd_mesa_counter[chn] );
+      rtl_close( fd_mesa_counter[chn] );
       err("closed fd_mesa_counter[%d]", chn);
     }
   }
@@ -261,7 +263,7 @@ void close_ports( void )
   {
     if (fd_mesa_radar[chn-counter_channels]) {
 
-      close( fd_mesa_radar[chn-counter_channels] );
+      rtl_close( fd_mesa_radar[chn-counter_channels] );
       err("closed fd_mesa_radar[%d]", chn-counter_channels);
     }
   }
@@ -276,7 +278,7 @@ void close_ports( void )
  * Function that is called on receipt of ioctl request over the
  * ioctl FIFO.
  */
-static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
+static int mesa_ioctl(int cmd, int board, int port, void *buf, rtl_size_t len)
 {
   int j;
   char devstr[30];
@@ -300,7 +302,7 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
       for (j=0; j < counter_channels; j++)
       {
         sprintf(devstr, "/dev/mesa_in_%d", j);
-        fd_mesa_counter[j] = open( devstr, O_NONBLOCK | O_WRONLY );
+        fd_mesa_counter[j] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
         if (fd_mesa_counter[j] < 0)
           return fd_mesa_counter[j];
       }
@@ -317,7 +319,7 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
       for (j=counter_channels; j < counter_channels + radar_channels; j++)
       {
         sprintf(devstr, "/dev/mesa_in_%d", j);
-        fd_mesa_radar[j-counter_channels] = open( devstr, O_NONBLOCK | O_WRONLY );
+        fd_mesa_radar[j-counter_channels] = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
         if (fd_mesa_radar[j-counter_channels] < 0)
           return fd_mesa_radar[j-counter_channels];
       }
@@ -351,8 +353,8 @@ void cleanup_module (void)
   sprintf(devstr, "/dev/mesa_program_board");
   err("closing '%s' @ 0x%x", devstr, fd_mesa_load);
   if (fd_mesa_load)
-    close( fd_mesa_load );
-  unlink( devstr );
+    rtl_close( fd_mesa_load );
+  rtl_unlink( devstr );
 
   /* close the data fifos */
   close_ports();
@@ -361,7 +363,7 @@ void cleanup_module (void)
   for (chn=0; chn<N_PORTS; chn++)
   {
     sprintf(devstr, "/dev/mesa_in_%d", chn);
-    unlink( devstr );
+    rtl_unlink( devstr );
   }
   /* Close my ioctl FIFO, deregister my mesa_ioctl function */
   if (ioctlhandle)
@@ -386,21 +388,31 @@ int init_module (void)
   /* open up ioctl FIFO, register mesa_ioctl function */
   ioctlhandle = openIoctlFIFO("mesa", BOARD_NUM, mesa_ioctl,
                               nioctlcmds, ioctlcmds);
-  if (!ioctlhandle) return -EIO;
+  if (!ioctlhandle) return -RTL_EIO;
 
   for (chn=0; chn<N_PORTS; chn++)
   {
     /* create its output FIFO */
     sprintf( devstr, "/dev/mesa_in_%d", chn );
-    err("mkfifo( %s, 0666 );", devstr);
-    mkfifo( devstr, 0666 );
+
+    // remove broken device file before making a new one
+    rtl_unlink(devstr);
+    if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+
+    err("rtl_mkfifo( %s, 0666 );", devstr);
+    rtl_mkfifo( devstr, 0666 );
   }
 
   /* Make 4I34 board Ioctl Fifo... */
   sprintf(devstr, "/dev/mesa_program_board");
-  err("mkfifo( %s, 0666 );", devstr);
-  mkfifo( devstr, 0666 );
-  fd_mesa_load = open( devstr, O_NONBLOCK | O_RDONLY );
+
+  // remove broken device file before making a new one
+  rtl_unlink(devstr);
+  if ( rtl_errno != -RTL_ENOENT ) return -rtl_errno;
+
+  err("rtl_mkfifo( %s, 0666 );", devstr);
+  rtl_mkfifo( devstr, 0666 );
+  fd_mesa_load = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_RDONLY );
   err("opened '%s' @ 0x%x", devstr, fd_mesa_load);
 
   /* create FIFO handler */
@@ -411,7 +423,7 @@ int init_module (void)
   {
     err("Cannot create FIFO handler for %s", devstr);
     cleanup_module();
-    return -EIO;
+    return -RTL_EIO;
   }
   /* reserve the ISA memory region */
   if (!request_region(baseadd, MESA_REGION_SIZE, "mesa"))
@@ -419,7 +431,7 @@ int init_module (void)
     err("couldn't allocate I/O range %x - %x\n", baseadd,
         baseadd + MESA_REGION_SIZE - 1);
     cleanup_module();
-    return -EBUSY;
+    return -RTL_EBUSY;
   }
   requested_region = 1;
   err("done.\n");

@@ -3,7 +3,7 @@
 
 #undef PDEBUG             /* undef it, just in case */
 #ifdef MESA_4I34_DEBUG
-#  ifdef __KERNEL__
+#  ifdef __RTCORE_KERNEL__
      /* This one if debugging is on, and kernel space */
 #    define PDEBUG(fmt, args...) printk( KERN_DEBUG "mesa_4i34: " fmt, ## args)
 #  else
@@ -16,7 +16,7 @@
 #undef PDEBUGG
 #define PDEBUGG(fmt, args...) /* nothing: it's a placeholder */
 
-#  ifdef __KERNEL__
+#  ifdef __RTCORE_KERNEL__
 
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
 #ifndef MESA_4I34_MAJOR
@@ -80,9 +80,9 @@
 
 extern devfs_handle_t mesa_4i34_devfs_dir;
 
-#  endif /* __KERNEL__ */
+#  endif /* __RTCORE_KERNEL__ */
 
-#  ifdef __KERNEL__
+#  ifdef __RTCORE_KERNEL__
 typedef struct mesa_4i34_device {
   unsigned long ioport;	/* base virtual io address of the mesa_4i34 card */
   devfs_handle_t handle;	/* devfs */
@@ -96,15 +96,15 @@ extern struct file_operations mesa_4i34_fops;
 extern int mesa_4i34_major;     /* main.c */
 extern int mesa_4i34_nr_devices;     /* main.c */
 
-ssize_t mesa_4i34_read (struct file *filp, char *buf, size_t count,
+rtl_ssize_t mesa_4i34_read (struct file *filp, char *buf, rtl_size_t count,
                     loff_t *f_pos);
-ssize_t mesa_4i34_write (struct file *filp, const char *buf, size_t count,
+rtl_ssize_t mesa_4i34_write (struct file *filp, const char *buf, rtl_size_t count,
                      loff_t *f_pos);
 loff_t  mesa_4i34_llseek (struct file *filp, loff_t off, int whence);
 int     mesa_4i34_ioctl (struct inode *inode, struct file *filp,
                      unsigned int cmd, unsigned long arg);
 
-#  endif /* __KERNEL__ */
+#  endif /* __RTCORE_KERNEL__ */
 
 /* Look in Documentation/ioctl-number.txt */
 #define MESA_4I34_IOC_MAGIC  0xd1

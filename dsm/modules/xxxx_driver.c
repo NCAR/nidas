@@ -1,6 +1,6 @@
 /* xxxx_driver.c
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:04 pm>
+   Time-stamp: <Tue 29-Mar-2005 01:26:52 pm>
 
    Test rtl driver.
 
@@ -17,9 +17,9 @@
 /* RTLinux module includes...  */
 #include <rtl.h>
 #include <rtl_posixio.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <rtl_pthread.h>
+#include <rtl_stdio.h>
+#include <rtl_unistd.h>
 #include <asm/uaccess.h>
 #include <linux/ioport.h>
 
@@ -53,12 +53,12 @@ MODULE_DESCRIPTION("Test RTL driver");
  * ioctl FIFO.
  */
 static int ioctlCallback(int cmd, int board, int port,
-	void *buf, size_t len) {
+	void *buf, rtl_size_t len) {
 
   rtl_printf("ioctlCallback, cmd=%d, board=%d, port=%d,len=%d\n",
 		cmd,board,port,len);
 
-  int ret = -EINVAL;
+  int ret = -RTL_EINVAL;
   switch (cmd) {
   case GET_NUM_PORTS:		/* user get */
     {
@@ -105,7 +105,7 @@ int init_module (void)
   /* Open up my ioctl FIFOs, register my ioctlCallback function */
   ioctlhandle = openIoctlFIFO("xxxx",boardNum,ioctlCallback,
   	nioctlcmds,ioctlcmds);
-  if (!ioctlhandle) return -EIO;
+  if (!ioctlhandle) return -RTL_EIO;
 
   return 0;
 

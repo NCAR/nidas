@@ -20,14 +20,16 @@
 #ifndef DSM_SERIAL_H
 #define DSM_SERIAL_H
 
-#ifndef __KERNEL__
+#ifndef __RTCORE_KERNEL__
 /* User programs need this for the _IO macros, but kernel
  * modules get their's elsewhere.
  */
 #include <sys/ioctl.h>
-#endif 
-
 #include <sys/types.h>
+typedef size_t rtl_size_t;
+#else
+#include <sys/rtl_types.h>
+#endif 
 
 #include <irigclock.h>		/* for irigClockRates */
 #include <dsm_sample.h>
@@ -50,13 +52,13 @@ struct dsm_serial_record_info {
 };
 
 struct dsm_serial_status {
-    size_t pe_cnt;
-    size_t oe_cnt;
-    size_t fe_cnt;
-    size_t input_char_overflows;
-    size_t output_char_overflows;
-    size_t sample_overflows;
-    size_t nsamples;
+    rtl_size_t pe_cnt;
+    rtl_size_t oe_cnt;
+    rtl_size_t fe_cnt;
+    rtl_size_t input_char_overflows;
+    rtl_size_t output_char_overflows;
+    rtl_size_t sample_overflows;
+    rtl_size_t nsamples;
     int char_transmit_queue_length;
     int char_transmit_queue_size;
     int sample_queue_length;
@@ -133,7 +135,7 @@ struct dsm_serial_status {
 #define DSMSER_GET_STATUS _IOR(DSM_SERIAL_MAGIC,9,\
 	struct dsm_serial_status)
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #include <linux/circ_buf.h>
 #include <rtl_pthread.h>
@@ -201,7 +203,7 @@ struct serialPort {
     rtl_sem_t sample_sem;
 
     char* unwrittenp;		/* pointer to remaining sample to be written */
-    ssize_t unwrittenl;		/* length left to be written */
+    rtl_ssize_t unwrittenl;		/* length left to be written */
 
     int incount;
     dsm_sample_time_t bom_timetag;
@@ -228,6 +230,6 @@ struct serialBoard {
     int int_mask;
 };
 
-#endif	/* __KERNEL__ */
+#endif	/* __RTCORE_KERNEL__ */
 
 #endif

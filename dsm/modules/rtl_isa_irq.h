@@ -5,7 +5,10 @@
  * handler.
  */
 
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
+#include <rtl_core.h>
 
 // #define NUM_ISA_IRQS 8
 

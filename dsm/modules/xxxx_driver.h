@@ -1,6 +1,6 @@
 /* xxxx_driver.h
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:04 pm>
+   Time-stamp: <Mon 28-Mar-2005 12:05:03 pm>
 
    Header for test rtl driver.
 
@@ -47,7 +47,7 @@ struct xxxx_set {
 
 #include <ioctl_fifo.h>
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #endif
 

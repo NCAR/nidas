@@ -20,8 +20,9 @@
 
 #define MSECS_PER_DAY 86400000
 
-#ifndef __KERNEL__
+#ifndef __RTCORE_KERNEL__
 #include <sys/time.h>
+#define rtl_timeval timeval
 #endif
 
 /**
@@ -61,8 +62,8 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 }
 
 struct dsm_clock_data {
-    struct timeval tval;
-    unsigned char status;
+    struct rtl_timeval tval;
+    unsigned char      status;
 };
 
 struct dsm_clock_sample {
@@ -76,11 +77,11 @@ struct dsm_clock_sample {
 #define IRIG_OPEN _IO(IRIG_MAGIC,0)
 #define IRIG_CLOSE _IO(IRIG_MAGIC,1)
 #define IRIG_GET_STATUS _IOR(IRIG_MAGIC,2,unsigned char)
-#define IRIG_GET_CLOCK _IOR(IRIG_MAGIC,3,struct timeval)
-#define IRIG_SET_CLOCK _IOW(IRIG_MAGIC,4,struct timeval)
-#define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct timeval)
+#define IRIG_GET_CLOCK _IOR(IRIG_MAGIC,3,struct rtl_timeval)
+#define IRIG_SET_CLOCK _IOW(IRIG_MAGIC,4,struct rtl_timeval)
+#define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct rtl_timeval)
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 /* External symbols used by kernel modules */
 
@@ -119,6 +120,6 @@ struct irig_port {
 };
 
 
-#endif		/* __KERNEL__ */
+#endif		/* __RTCORE_KERNEL__ */
 
 #endif

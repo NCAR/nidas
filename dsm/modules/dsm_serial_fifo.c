@@ -32,9 +32,14 @@
 
 */
 
-#include <unistd.h>
-#include <string.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl_pthread.h>
+#include <rtl_unistd.h>
+#include <rtl_string.h>
 #include <rtl_stdlib.h>
+#include <rtl_fcntl.h>
+#include <sys/rtl_ioctl.h>
 
 #include <dsm_serial_fifo.h>
 #include <dsm_serial.h>
@@ -81,7 +86,7 @@ static void thread_dev_close(void* arg)
 {
     int fd = (int)arg;
     rtl_printf("dev_close: fd=%d\n",fd);
-    close(fd);
+    rtl_close(fd);
 }
 
 /*
@@ -103,17 +108,17 @@ static void* in_thread_func(void* arg)
     char* cp;
     char* eob;
 
-    pthread_cleanup_push(thread_dev_close,(void*)port->devfd);
+    rtl_pthread_cleanup_push(thread_dev_close,(void*)port->devfd);
 
     for (;;) {
 	/*
 	 * this read will wait on a semaphore within dsm_serial
 	 * until data is ready
 	 */
-        if ((l = read(port->devfd,buf,sizeof(buf))) < 0) {
+        if ((l = rtl_read(port->devfd,buf,sizeof(buf))) < 0) {
 	    rtl_printf("in_thread_func, read error: %d\n",
 		    rtl_errno);
-	    if (rtl_errno == EINTR) break;
+	    if (rtl_errno == RTL_EINTR) break;
 	    return (void*)rtl_errno;
 	}
 #ifdef DEBUG
@@ -143,16 +148,16 @@ static void* in_thread_func(void* arg)
 
 	eob = buf + l;
 	for (cp = buf; cp < eob; cp += l) {
-	    if ((l = write(port->inFifoFd,cp,eob-cp)) < 0) {
+	    if ((l = rtl_write(port->inFifoFd,cp,eob-cp)) < 0) {
 		rtl_printf(
 		"in_thread_func, write to fifo error: %d, eob-cp=%d\n",
 			rtl_errno,(int)(eob-cp));
-		if (rtl_errno == EINTR) break;
+		if (rtl_errno == RTL_EINTR) break;
 		return (void*)rtl_errno;
 	    }
 	}
     }
-    pthread_cleanup_pop(1);
+    rtl_pthread_cleanup_pop(1);
     return 0;
 }
 
@@ -164,7 +169,7 @@ static void* in_thread_func(void* arg)
  */
 static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 {
-    int outFifoFd = siginfo->rtl_si_fd;
+    int outFifoFd = siginfo->si_fd;
     struct dsm_serial_fifo_port* port =
     	fifo_to_port_map[outFifoFd];
 
@@ -173,14 +178,14 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     char* cp;
     char* eob;
 
-    if ((l = read(port->outFifoFd,buf,sizeof(buf))) < 0) {
+    if ((l = rtl_read(port->outFifoFd,buf,sizeof(buf))) < 0) {
 	rtl_printf("outFifoHandler, read error: %d\n",
 		rtl_errno);
 	return;
     }
     eob = buf + l;
     for (cp = buf; cp < eob; cp += l) {
-	if ((l = write(port->devfd,cp,eob-cp)) < 0) {
+	if ((l = rtl_write(port->devfd,cp,eob-cp)) < 0) {
 	    rtl_printf("outFifoHandler, write error: %d\n",
 		    rtl_errno);
 	    return;
@@ -192,42 +197,42 @@ static int close_port(struct dsm_serial_fifo_port* port)
 {
     if (port->in_thread) {
 
-	rtl_printf("pthread_kill SIGTERM of in_thread for %s\n",port->inFifoName);
-        if (pthread_kill(port->in_thread,SIGTERM) < 0) goto error;
+	rtl_printf("rtl_pthread_kill SIGTERM of in_thread for %s\n",port->inFifoName);
+        if (rtl_pthread_kill(port->in_thread,SIGTERM) < 0) goto error;
 
-	// rtl_printf("pthread_cancel of in_thread for %s\n",port->inFifoName);
-        // if (pthread_cancel(port->in_thread) < 0) goto error;
+	// rtl_printf("rtl_pthread_cancel of in_thread for %s\n",port->inFifoName);
+        // if (rtl_pthread_cancel(port->in_thread) < 0) goto error;
 
-	rtl_printf("pthread_join of in_thread for %s\n",port->inFifoName);
-        if (pthread_join(port->in_thread,NULL) < 0) goto error;
-	rtl_printf("pthread_joined in_thread for %s\n",port->inFifoName);
+	rtl_printf("rtl_pthread_join of in_thread for %s\n",port->inFifoName);
+        if (rtl_pthread_join(port->in_thread,NULL) < 0) goto error;
+	rtl_printf("rtl_pthread_joined in_thread for %s\n",port->inFifoName);
 	port->in_thread = 0;
     }
 
     if (port->out_thread) {
-        if (pthread_cancel(port->out_thread) < 0) goto error;
-	rtl_printf("pthread_join of out_thread\n");
-        if (pthread_join(port->out_thread,NULL) < 0) goto error;
-	rtl_printf("pthread_joined out_thread\n");
+        if (rtl_pthread_cancel(port->out_thread) < 0) goto error;
+	rtl_printf("rtl_pthread_join of out_thread\n");
+        if (rtl_pthread_join(port->out_thread,NULL) < 0) goto error;
+	rtl_printf("rtl_pthread_joined out_thread\n");
 	port->out_thread = 0;
     }
 
     if (port->devfd >= 0) {
 	rtl_printf("closing %s, fd=%d\n",port->devname,port->devfd);
-	// ioctl(port->devfd, DSMSER_STOP_PROMPTER,0);
-        close(port->devfd);
+	// rtl_ioctl(port->devfd, DSMSER_STOP_PROMPTER,0);
+        rtl_close(port->devfd);
 	port->devfd = -1;
     }
 
     if (port->inFifoFd >= 0) {
 	rtl_printf("closing %s\n",port->inFifoName);
-        close(port->inFifoFd);
+        rtl_close(port->inFifoFd);
 	port->inFifoFd = -1;
     }
 
     if (port->outFifoFd >= 0) {
 	rtl_printf("closing %s\n",port->outFifoName);
-        close(port->outFifoFd);
+        rtl_close(port->outFifoFd);
 	port->outFifoFd = -1;
     }
 
@@ -237,32 +242,32 @@ error:
 }
 static int open_port(struct dsm_serial_fifo_port* port,int mode)
 {
-    pthread_attr_t attr;
+    rtl_pthread_attr_t attr;
     int retval;
 
     if ((retval = close_port(port))) return retval;
 
-    pthread_attr_init(&attr);
-    pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
+    rtl_pthread_attr_init(&attr);
+    rtl_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
 
     /* in and out are from the user perspective */
 
     /* user opens device for read. */
-    if (mode == O_RDONLY || mode == O_RDWR) {
+    if (mode == RTL_O_RDONLY || mode == RTL_O_RDWR) {
 	rtl_printf("opening %s\n",port->inFifoName);
-	if ((port->inFifoFd = open(port->inFifoName, O_NONBLOCK | O_WRONLY)) <
+	if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) <
 		0) goto error;
 
 	rtl_printf("opening %s\n",port->devname);
-	if ((port->devfd = open(port->devname,mode)) < 0) goto error;
+	if ((port->devfd = rtl_open(port->devname,mode)) < 0) goto error;
 	rtl_printf("opened %s, fd=%d\n",port->devname,port->devfd);
 
-	pthread_attr_setstackaddr(&attr,port->in_thread_stack);
+	rtl_pthread_attr_setstackaddr(&attr,port->in_thread_stack);
 
-	rtl_printf("open_port: pthread_create in_thread\n");
-	if (pthread_create(&port->in_thread, &attr,
+	rtl_printf("open_port: rtl_pthread_create in_thread\n");
+	if (rtl_pthread_create(&port->in_thread, &attr,
 	    in_thread_func, port) != 0) {
-	    pthread_attr_destroy(&attr);
+	    rtl_pthread_attr_destroy(&attr);
 	    goto error;
 	}
 #ifdef BOZO
@@ -270,23 +275,23 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
     }
 
     /* user opens device for writing. */
-    if (mode == O_WRONLY || mode == O_RDWR) {
+    if (mode == RTL_O_WRONLY || mode == RTL_O_RDWR) {
 	rtl_printf("opening %s\n",port->outFifoName);
-	if ((port->outFifoFd = open(port->outFifoName, O_NONBLOCK | O_RDONLY))
+	if ((port->outFifoFd = rtl_open(port->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY))
 	    < 0) goto error;
 
 	if (port->devfd < 0) {
 	    rtl_printf("opening %s\n",port->devname);
-	    if ((port->devfd = open(port->devname,mode)) < 0) goto error;
+	    if ((port->devfd = rtl_open(port->devname,mode)) < 0) goto error;
 	}
 
 #ifdef OUT_THREAD
-	pthread_attr_setstackaddr(&attr,port->out_thread_stack);
+	rtl_pthread_attr_setstackaddr(&attr,port->out_thread_stack);
 
-	rtl_printf("open_port: pthread_create out_thread\n");
-	if (pthread_create(&port->out_thread, &attr,
+	rtl_printf("open_port: rtl_pthread_create out_thread\n");
+	if (rtl_pthread_create(&port->out_thread, &attr,
 	    out_thread_func, port) != 0) {
-	    pthread_attr_destroy(&attr);
+	    rtl_pthread_attr_destroy(&attr);
 	    goto error;
 	}
 #else
@@ -295,13 +300,13 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	    rtl_printf("outFifoFd=%d, max is=%d\n",
 		port->outFifoFd,
 		sizeof(fifo_to_port_map) / sizeof(fifo_to_port_map[0]));
-	    return -EINVAL;
+	    return -RTL_EINVAL;
 	}
 
 	fifo_to_port_map[port->outFifoFd] = port;
 
-	struct sigaction sigact;
-	memset(&sigact,0,sizeof(sigact));
+	struct rtl_sigaction sigact;
+	rtl_memset(&sigact,0,sizeof(sigact));
 	sigact.sa_sigaction = outFifoHandler;
 	sigact.sa_fd        = port->outFifoFd;
 	rtl_sigemptyset(&sigact.sa_mask);
@@ -313,7 +318,7 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	}
 #endif
     }
-    pthread_attr_destroy(&attr);
+    rtl_pthread_attr_destroy(&attr);
 
     return 0;
 error:
@@ -326,41 +331,51 @@ static int create_fifos(struct dsm_serial_fifo_port* port,int mode)
     int retval;
 
     /* user opens device for read. */
-    if (mode == O_RDONLY || mode == O_RDWR) {
+    if (mode == RTL_O_RDONLY || mode == RTL_O_RDWR) {
 	rtl_printf("creating %s\n",port->inFifoName);
+
+        // remove broken device file before making a new one
+        rtl_unlink(port->inFifoName);
+        if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
+
 #define CHECK_MKFIFO_ERROR
 #ifdef CHECK_MKFIFO_ERROR
 #define OK_TO_EXIST
 #ifdef OK_TO_EXIST
-	if (mkfifo(port->inFifoName, 0666) < 0) {
+	if (rtl_mkfifo(port->inFifoName, 0666) < 0) {
 	    retval = -rtl_errno;
-	    rtl_printf("mkfifo %s failed, retval=%d\n",
+	    rtl_printf("rtl_mkfifo %s failed, retval=%d\n",
 	    	port->inFifoName,retval);
-	    if (retval != -EEXIST && retval != -EBADE) goto error;
+	    if (retval != -RTL_EEXIST && retval != -EBADE) goto error;
 	}
 #else
-	if (mkfifo(port->inFifoName, 0666)) goto error;
+	if (rtl_mkfifo(port->inFifoName, 0666)) goto error;
 #endif
 #else
-	mkfifo(port->inFifoName, 0666);
+	rtl_mkfifo(port->inFifoName, 0666);
 #endif
     }
 
-    if (mode == O_WRONLY || mode == O_RDWR) {
+    if (mode == RTL_O_WRONLY || mode == RTL_O_RDWR) {
 	rtl_printf("creating %s\n",port->outFifoName);
+
+        // remove broken device file before making a new one
+        rtl_unlink(port->outFifoName);
+        if ( (retval = -rtl_errno) != -RTL_ENOENT ) goto error;
+
 #ifdef CHECK_MKFIFO_ERROR
 #ifdef OK_TO_EXIST
-	if (mkfifo(port->outFifoName, 0666) < 0) {
+	if (rtl_mkfifo(port->outFifoName, 0666) < 0) {
 	    retval = -rtl_errno;
-	    rtl_printf("mkfifo %s failed, retval=%d\n",
+	    rtl_printf("rtl_mkfifo %s failed, retval=%d\n",
 	    	port->outFifoName,retval);
-	    if (retval != -EEXIST && retval != -EBADE) goto error;
+	    if (retval != -RTL_EEXIST && retval != -EBADE) goto error;
 	}
 #else
-	if (mkfifo(port->outFifoName, 0666) < 0) goto error;
+	if (rtl_mkfifo(port->outFifoName, 0666) < 0) goto error;
 #endif
 #else
-	mkfifo(port->outFifoName, 0666);
+	rtl_mkfifo(port->outFifoName, 0666);
 #endif
     }
     return 0;
@@ -384,9 +399,9 @@ static void init_port_struct(struct dsm_serial_fifo_port* port)
  * ioctl FIFO.
  */
 static int ioctlCallback(int cmd, int board, int portNum,
-	void *buf, size_t len)
+	void *buf, rtl_size_t len)
 {
-    int retval = -EINVAL;
+    int retval = -RTL_EINVAL;
     struct dsm_serial_fifo_port* port;
 #ifdef DEBUG
     rtl_printf("ioctlCallback, cmd=%d, board=%d, portNum=%d,len=%d\n",
@@ -412,6 +427,11 @@ static int ioctlCallback(int cmd, int board, int portNum,
 #endif
 	if (portNum < 0 || portNum >= boardInfo[board].numports) break;
 	int mode = *(int*) buf;
+        // RTLinux uses a different bitmask for these values...
+        if      (mode == O_RDWR)   mode = RTL_O_RDWR;
+        else if (mode == O_RDONLY) mode = RTL_O_RDONLY;
+        else if (mode == O_WRONLY) mode = RTL_O_WRONLY;
+        else break;
 	retval = open_port(port,mode);
 	break;
     case DSMSER_CLOSE:		/* close port */
@@ -432,10 +452,10 @@ static int ioctlCallback(int cmd, int board, int portNum,
     case DSMSER_GET_RECORD_SEP:	/* get the prompt for this port */
     case DSMSER_GET_STATUS:	/* get the status for this port */
 	if (portNum < 0 || portNum >= boardInfo[board].numports) return retval;
-	retval = -EBADF;
+	retval = -RTL_EBADF;
         /* check if the port is open, send the ioctl */
 	if (port->devfd < 0) break;
-	if (ioctl(port->devfd,cmd,buf) < 0) {
+	if (rtl_ioctl(port->devfd,cmd,buf) < 0) {
 	    retval = -rtl_errno;
 	    break;
 	}
@@ -451,7 +471,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
 int init_module(void)
 {
     const char* dsm_ser_devname;
-    int retval = -EINVAL;
+    int retval = -RTL_EINVAL;
     int ib,ip;
 
     numboards = dsm_serial_get_numboards();
@@ -463,8 +483,8 @@ int init_module(void)
 
     devprefix = dsm_serial_get_devprefix();
 
-    retval = -ENOMEM;
-    boardInfo = kmalloc(numboards * sizeof(struct dsm_serial_fifo_board),GFP_KERNEL);
+    retval = -RTL_ENOMEM;
+    boardInfo = rtl_gpos_malloc( numboards * sizeof(struct dsm_serial_fifo_board) );
     if (!boardInfo) goto err0;
     for (ib = 0; ib < numboards; ib++) {
 	boardInfo[ib].numports = 0;
@@ -476,9 +496,9 @@ int init_module(void)
     for (ib = 0; ib < numboards; ib++) {
         boardInfo[ib].numports = dsm_serial_get_numports(ib);
 
-	retval = -ENOMEM;
-	boardInfo[ib].ports = kmalloc(
-	    boardInfo[ib].numports * sizeof(struct dsm_serial_fifo_port),GFP_KERNEL);
+	retval = -RTL_ENOMEM;
+	boardInfo[ib].ports = rtl_gpos_malloc(
+	    boardInfo[ib].numports * sizeof(struct dsm_serial_fifo_port) );
 	if (!boardInfo[ib].ports) goto err1;
 
 	for (ip = 0; ip < boardInfo[ib].numports; ip++) {
@@ -495,13 +515,13 @@ int init_module(void)
 	    port->outFifoName = makeDevName(devprefix,"_out_",portcounter);
 	    if (!port->outFifoName) goto err1;
 
-	    retval = -EINVAL;
+	    retval = -RTL_EINVAL;
 	    dsm_ser_devname = dsm_serial_get_devname(portcounter);
 	    if (!dsm_ser_devname) goto err1;
 
-	    retval = -ENOMEM;
-	    if (!(port->devname = kmalloc(strlen(dsm_ser_devname) + 1,
-	    	GFP_KERNEL))) goto err1;
+	    retval = -RTL_ENOMEM;
+	    if (!(port->devname = rtl_gpos_malloc( strlen(dsm_ser_devname) + 1 )))
+              goto err1;
 	    strcpy(port->devname,dsm_ser_devname);
 
 	    /* allocate thread stacks at init module time */
@@ -511,14 +531,14 @@ int init_module(void)
 	    if (!(port->out_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
 	    	goto err1;
 
-	    if ((retval = create_fifos(port,O_RDWR))) goto err1;
+	    if ((retval = create_fifos(port,RTL_O_RDWR))) goto err1;
 
 	    portcounter++;
 	}
 
 	if (!(boardInfo[ib].ioctlhandle = openIoctlFIFO(devprefix,
 		ib,ioctlCallback,nioctlcmds,ioctlcmds))) {
-	    retval = -EINVAL;
+	    retval = -RTL_EINVAL;
 	    goto err1;
 	}
     }
@@ -532,12 +552,12 @@ err1:
 	    if (boardInfo[ib].ports) {
 		for (ip = 0; ip < boardInfo[ib].numports; ip++) {
 		    struct dsm_serial_fifo_port* port = boardInfo[ib].ports + ip;
-		    if (port->inFifoName) kfree(port->inFifoName);
+		    if (port->inFifoName) rtl_gpos_free(port->inFifoName);
 		    port->inFifoName = 0;
-		    if (port->outFifoName) kfree(port->outFifoName);
+		    if (port->outFifoName) rtl_gpos_free(port->outFifoName);
 		    port->outFifoName = 0;
 
-		    if (port->devname) kfree(port->devname);
+		    if (port->devname) rtl_gpos_free(port->devname);
 		    port->devname = 0;
 
 		    if (port->in_thread_stack)
@@ -548,7 +568,7 @@ err1:
 		    	rtl_gpos_free(port->out_thread_stack);
 		    port->out_thread_stack = 0;
 		}
-		kfree(boardInfo[ib].ports);
+		rtl_gpos_free(boardInfo[ib].ports);
 		boardInfo[ib].ports = 0;
 	    }
 	    if (boardInfo[ib].ioctlhandle)
@@ -556,7 +576,7 @@ err1:
 	    boardInfo[ib].ioctlhandle = 0;
 	}
 
-	kfree(boardInfo);
+	rtl_gpos_free(boardInfo);
 	boardInfo = 0;
     }
 err0:
@@ -577,26 +597,26 @@ void cleanup_module (void)
 		close_port(port);
 
 		if (port->inFifoName) {
-		    unlink(port->inFifoName);
-		    kfree(port->inFifoName);
+		    rtl_unlink(port->inFifoName);
+		    rtl_gpos_free(port->inFifoName);
 		    port->inFifoName = 0;
 		}
 		if (port->outFifoName) {
-		    unlink(port->outFifoName);
-		    kfree(port->outFifoName);
+		    rtl_unlink(port->outFifoName);
+		    rtl_gpos_free(port->outFifoName);
 		    port->outFifoName = 0;
 		}
 		if (port->devname) {
-		    kfree(port->devname);
+		    rtl_gpos_free(port->devname);
 		    port->devname = 0;
 		}
-		if (port->in_thread_stack) kfree(port->in_thread_stack);
+		if (port->in_thread_stack) rtl_gpos_free(port->in_thread_stack);
 		port->in_thread_stack = 0;
 
-		if (port->out_thread_stack) kfree(port->out_thread_stack);
+		if (port->out_thread_stack) rtl_gpos_free(port->out_thread_stack);
 		port->out_thread_stack = 0;
 	    }
-	    kfree(boardInfo[ib].ports);
+	    rtl_gpos_free(boardInfo[ib].ports);
 	    boardInfo[ib].ports = 0;
 	}
 	if (boardInfo[ib].ioctlhandle)
@@ -604,6 +624,6 @@ void cleanup_module (void)
 	boardInfo[ib].ioctlhandle = 0;
     }
 
-    kfree(boardInfo);
+    rtl_gpos_free(boardInfo);
     boardInfo = 0;
 }

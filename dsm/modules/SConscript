@@ -10,15 +10,12 @@ myenv = env.Copy()
 ##
 ##  RTLinux specific settings
 ##
-# myenv.Replace(AR     = '/opt/rtldk-2.0/bin/arm-linux-ar')
-# myenv.Replace(AS     = '/opt/rtldk-2.0/bin/arm-linux-as')
-# myenv.Replace(CC     = '/opt/rtldk-2.0/bin/arm-linux-gcc')
-# myenv.Replace(CXX    = '/opt/rtldk-2.0/bin/arm-linux-g++')
-# myenv.Replace(LINK   = '/opt/rtldk-2.0/bin/arm-linux-g++')
-# myenv.Replace(RANLIB = '/opt/rtldk-2.0/bin/arm-linux-ranlib')
+myenv.Replace(CC = '/opt/rtldk-2.2/bin/arm-linux-gcc')
 
 myenv.AppendUnique(CCFLAGS=Split("""
-  -DMODULE -D__KERNEL__ -D__RTL__
+  -DMODULE -D__RTCORE_KERNEL__
+  -nostdinc
+  -isystem /opt/rtldk-2.2/bin/../lib/gcc-lib/arm-linux/3.3.2/include/  
 """))
 
 #    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
@@ -26,14 +23,10 @@ myenv.AppendUnique(CCFLAGS=Split("""
 #    -fno-omit-frame-pointer -fno-strict-aliasing
 
 myenv.AppendUnique(CPPPATH=Split("""
-  /opt/rtldk-2.0/rtlinuxpro/include/linux-sys
-  /opt/rtldk-2.0/rtlinuxpro/include
-  /opt/rtldk-2.0/rtlinuxpro/include/posix
-  /opt/rtldk-2.0/rtlinuxpro/libc/include
+  /opt/rtldk-2.2/rtlinuxpro/include/app/rtl
+  /opt/rtldk-2.2/rtlinuxpro/linux/include
+  /opt/rtldk-2.2/rtlinuxpro/include
 """))
-
-#  /opt/rtldk-2.0/rtlinuxpro/include/compat
-#  /opt/rtldk-2.0/rtlinuxpro/linux/include
 
 ##
 ##  List of each module source
@@ -50,6 +43,7 @@ modules = Split("""
     ioctl_fifo.c
     xxxx_driver.c
 """)
+
 ##
 ##  Build the modules
 ##

@@ -1,7 +1,7 @@
 /*  a2d_driver.c/
 
 
-Time-stamp: <Sat 13-Jan-2005 12:48:04 pm>
+Time-stamp: <Wed 30-Mar-2005 12:25:53 pm>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
 
@@ -37,25 +37,24 @@ Revisions:
 #define CONFBLOCKS  12  // 12 blocks as described below
 #define CONFBLLEN   43  // Block of 42 16-bit words plus a CRC word
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <fcntl.h>
-
 /* RTLinux module includes...  */
-
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
+#include <rtl_stdio.h>
+#include <rtl_stdlib.h>
+#include <rtl_math.h>
+#include <rtl_string.h>
+#include <rtl_fcntl.h>
 #include <rtl_posixio.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <asm/uaccess.h>
+#include <rtl_pthread.h>
+#include <rtl_unistd.h>
 
+#include <asm/uaccess.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
 #include <asm/io.h>
-
 #include <ioctl_fifo.h>
 #include <irigclock.h>
 #include <a2d_driver.h>
@@ -79,7 +78,7 @@ static  UL	ktime = 0;	// phoney timestamp for debugging
 
 volatile unsigned int isa_address = A2DBASE;
 
-pthread_t aAthread;
+rtl_pthread_t aAthread;
 
 // These are just test values
 
@@ -120,9 +119,9 @@ RTLINUX_MODULE(DSMA2D);
  * ioctl FIFO.
  */
 static int A2DCallback(int cmd, int board, int port,
-	void *buf, size_t len) 
+	void *buf, rtl_size_t len) 
 {
-  int ret = -EINVAL;
+  int ret = -RTL_EINVAL;
 
   rtl_printf("\n%s: A2DCallback\n   cmd=%d\n   board=%d\n   port=%d\n   len=%d\n",
 		__FILE__, cmd,board,port,len);
@@ -188,7 +187,7 @@ static int A2DCallback(int cmd, int board, int port,
 //  simulated data to user space.
 			rtl_printf("%s: Creating data simulation thread\n", 
 					__FILE__);
-			pthread_create(&aAthread, NULL, A2DGetDataSim, NULL);
+			rtl_pthread_create(&aAthread, NULL, A2DGetDataSim, NULL);
 			rtl_printf("(%s) %s:\tA2DGetDataSim thread created\n",
 					__FILE__, __FUNCTION__);
 #else
@@ -228,12 +227,12 @@ void cleanup_module(void)
 
   sprintf(fname, "/dev/dsma2d_in_0");
   rtl_printf("%s : Destroying %s\n",__FILE__,  fname);
-  close(fd_up);
-  unlink("/dev/dsma2d_in_0");
+  rtl_close(fd_up);
+  rtl_unlink("/dev/dsma2d_in_0");
   
 #ifdef NOIRIG
-	pthread_cancel(aAthread);
-	pthread_join(aAthread, NULL);
+  rtl_pthread_cancel(aAthread);
+  rtl_pthread_join(aAthread, NULL);
 #endif
   release_region(isa_address, A2DIOWIDTH);
 
@@ -256,15 +255,20 @@ int init_module()
   	ioctlhandle = openIoctlFIFO("dsma2d",boardNum,A2DCallback,
   					nioctlcmds,ioctlcmds);
 
-  	if (!ioctlhandle) return -EIO;
+  	if (!ioctlhandle) return -RTL_EIO;
 	// Open the fifo TO user space (up fifo)
 	sprintf(fifoname, "/dev/dsma2d_in_0");
 	rtl_printf("%s: Creating %s\n", __FILE__, fifoname);
-	if((error = mkfifo(fifoname, 0666)))
+
+        // remove broken device file before making a new one
+        rtl_unlink(fifoname);
+        if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
+
+	if((error = rtl_mkfifo(fifoname, 0666)))
 		rtl_printf("Error opening fifo %s for write\n", fifoname);
 	else
 		rtl_printf("Fifo %s opened for write\n", fifoname);
-	fd_up = open(fifoname, O_NONBLOCK | O_WRONLY);
+	fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY);
 
 	rtl_printf("%s: Up FIFO fd = 0x%08x\n", __FILE__, fd_up);
 
@@ -801,7 +805,7 @@ void A2DGetData()
 		}
 		if((short)A2DFIFOEmpty())break;
 	}
-	write(fd_up, &buf, sizeof(A2DSAMPLE)); // Write to up-fifo
+	rtl_write(fd_up, &buf, sizeof(A2DSAMPLE)); // Write to up-fifo
 	return;
 }
 /*-----------------------Utility------------------------------*/
@@ -829,7 +833,7 @@ void A2DGetDataSim(void)
 {
 	A2DSAMPLE buf;
 	int i, j, sign = 1; 
-	size_t nbytes;
+	rtl_size_t nbytes;
 	
 	rtl_printf("%s: Starting simulated data acquisition thread\n", __FILE__);	
 	while(a2drun == RUN)
@@ -862,10 +866,10 @@ void A2DGetDataSim(void)
 /* rtl_printf("buf.size = 0x%04X\n", buf.size); */
 
 #ifndef DEBUGFIFOWRITE
-		nbytes = write(fd_up, &buf, sizeof(A2DSAMPLE)); //Write to up-fifo 
+		nbytes = rtl_write(fd_up, &buf, sizeof(A2DSAMPLE)); //Write to up-fifo 
 #endif
 #ifdef DEBUGDATA
-		errno = 0;
+		int errno = 0;
 		if(!(ktime%10))rtl_printf("%6d: nbytes 0x%08X, errno 0x%08x, size %6d, time 0x%08d\n",
 			 ktime, nbytes, errno, buf.size, buf.timestamp);
 #endif

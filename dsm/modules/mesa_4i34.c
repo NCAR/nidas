@@ -1,6 +1,6 @@
 
-#ifndef __KERNEL__
-#  define __KERNEL__
+#ifndef __RTCORE_KERNEL__
+#  define __RTCORE_KERNEL__
 #endif
 #ifndef MODULE
 #  define MODULE
@@ -8,15 +8,15 @@
                                                                                 
 #include <linux/config.h>
 #include <linux/module.h>
-                                                                                
+
 #include <linux/init.h>   /* module_init() */
 #include <linux/kernel.h>   /* printk() */
-#include <linux/slab.h>   /* kmalloc() */
+#include <linux/slab.h>   /* rtl_gpos_malloc() */
 #include <linux/fs.h>       /* everything... */
-#include <linux/errno.h>    /* error codes */
+#include <rtl_errno.h>    /* error codes */
 #include <linux/types.h>    /* size_t */
 #include <linux/proc_fs.h>
-#include <linux/fcntl.h>    /* O_ACCMODE */
+#include <linux/fcntl.h>    /* RTL_O_ACCMODE */
 #include <linux/ioport.h>
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
@@ -60,7 +60,7 @@ int mesa_4i34_prog_start(mesa_4i34_device* dev) {
   status = inb(dev->ioport+R_4I34STATUS);
   /* Note that if we see DONE at the start of programming, it's most likely due
      to an attempt to access the 4I34 at the wrong I/O location. */
-  if (status & M_4I34PROGDUN) return -EFAULT;
+  if (status & M_4I34PROGDUN) return -RTL_EFAULT;
 
   cmd = M_4I34CFGCSON | M_4I34CFGINITDEASSERT |
   	M_4I34CFGWRITEENABLE | M_4I34LEDON;
@@ -94,7 +94,7 @@ int mesa_4i34_prog_end(mesa_4i34_device* dev) {
     status = inb(dev->ioport+R_4I34STATUS);
   } while(ntry++ < MESA_4I34_WAIT_FOR_DUN && !(status & M_4I34PROGDUN));
 
-  if(!(status & M_4I34PROGDUN)) return -ENOTTY;	/* failed */
+  if(!(status & M_4I34PROGDUN)) return -RTL_ENOTTY;	/* failed */
 
   PDEBUGG("PROGDUN after %d checks\n",ntry);
 
@@ -111,7 +111,7 @@ int mesa_4i34_prog_end(mesa_4i34_device* dev) {
     status = inb(dev->ioport+R_4I34STATUS);
     if (!(status & M_4I34PROGDUN)) {
       PDEBUGG("PROGDUN doesn't stick! ntry = %d\n",ntry);
-      return -ENOTTY;
+      return -RTL_ENOTTY;
     }
     set_current_state(TASK_INTERRUPTIBLE);
     schedule_timeout(MESA_4I34_WAIT_JIFFY);
@@ -197,7 +197,7 @@ void mesa_4i34_cleanup_module(void)
             if (mesa_4i34_devices[i].handle) 
 	    	devfs_unregister(mesa_4i34_devices[i].handle);
         }
-        kfree(mesa_4i34_devices);
+        rtl_gpos_free(mesa_4i34_devices);
     }
 #ifdef CONFIG_DEVFS_FS
     /* once again, only for devfs */
@@ -212,7 +212,7 @@ int mesa_4i34_init_module(void)
 #ifdef CONFIG_DEVFS_FS
     /* If we have devfs, create /dev/mesa_4i34 to put files in there */
     mesa_4i34_devfs_dir = devfs_mk_dir(NULL, "mesa_4i34", NULL);
-    if (!mesa_4i34_devfs_dir) return -EBUSY; /* problem */
+    if (!mesa_4i34_devfs_dir) return -RTL_EBUSY; /* problem */
                                                                                 
 #else /* no devfs, do it the "classic" way  */
                                                                                 
@@ -239,18 +239,18 @@ int mesa_4i34_init_module(void)
     /*
      * allocate the devices 
      */
-    mesa_4i34_devices = kmalloc(mesa_4i34_nr_devs * sizeof(mesa_4i34_device), GFP_KERNEL);
+    mesa_4i34_devices = rtl_gpos_malloc( mesa_4i34_nr_devs * sizeof(mesa_4i34_device) );
     if (!mesa_4i34_devices) {
-        result = -ENOMEM;
+        result = -RTL_ENOMEM;
         goto fail;
     }
-    memset(mesa_4i34_devices, 0, mesa_4i34_nr_devs * sizeof(mesa_4i34_device));
+    rtl_memset(mesa_4i34_devices, 0, mesa_4i34_nr_devs * sizeof(mesa_4i34_device));
     for (i=0; i < mesa_4i34_nr_devs; i++) {
         mesa_4i34_devices[i].ioport = mesa_4i34_ioports[i];
 	if (!( mesa_4i34_devices[i].region =
 	    request_region(mesa_4i34_devices[i].ioport,MESA_4I34_IO_REGION_SIZE,
 			"mesa_4i34"))) {
-	    result = -ENODEV;
+	    result = -RTL_ENODEV;
 	    goto fail;
 	}
 	sema_init(&mesa_4i34_devices[i].sem,1);
@@ -289,7 +289,7 @@ int mesa_4i34_open (struct inode *inode, struct file *filp)
     mesa_4i34_device *dev; /* device information */
 
     /*  check the device number */
-    if (num >= mesa_4i34_nr_devs) return -ENODEV;
+    if (num >= mesa_4i34_nr_devs) return -RTL_ENODEV;
     dev = mesa_4i34_devices + num;
 
     /* and use filp->private_data to point to the device data */
@@ -309,11 +309,11 @@ int mesa_4i34_release (struct inode *inode, struct file *filp)
     return 0;
 }
 
-ssize_t mesa_4i34_write(struct file *filp, const char *buf, size_t count,
+rtl_ssize_t mesa_4i34_write(struct file *filp, const char *buf, rtl_size_t count,
                 loff_t *f_pos)
 {
     mesa_4i34_device* dev = filp->private_data;
-    ssize_t ret = -ENOMEM; /* value used in "goto out" statements */
+    rtl_ssize_t ret = -RTL_ENOMEM; /* value used in "goto out" statements */
     const char* ein = buf + count;
     const char* eout;
     const char* outptr;
@@ -322,15 +322,15 @@ ssize_t mesa_4i34_write(struct file *filp, const char *buf, size_t count,
             return -ERESTARTSYS;
 
     if (!dev->buf) {
-      dev->buf = kmalloc(MESA_4I34_BUFFER_SIZE,GFP_KERNEL);
+      dev->buf = rtl_gpos_malloc( MESA_4I34_BUFFER_SIZE );
       if (!dev->buf) goto out;
     }
 
     while(buf < ein) {
-      size_t l = ein - buf;
+      rtl_size_t l = ein - buf;
       if (l > MESA_4I34_BUFFER_SIZE) l = MESA_4I34_BUFFER_SIZE;
       if (copy_from_user(dev->buf, buf, l)) {
-        ret = -EFAULT;
+        ret = -RTL_EFAULT;
         goto out;
       }
       buf += l;
@@ -356,9 +356,9 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
     mesa_4i34_device* dev = filp->private_data;
     int err= 0, ret = 0;
 
-    /* don't even decode wrong cmds: better returning  ENOTTY than EFAULT */
-    if (_IOC_TYPE(cmd) != MESA_4I34_IOC_MAGIC) return -ENOTTY;
-    if (_IOC_NR(cmd) > MESA_4I34_IOC_MAXNR) return -ENOTTY;
+    /* don't even decode wrong cmds: better returning  RTL_ENOTTY than RTL_EFAULT */
+    if (_IOC_TYPE(cmd) != MESA_4I34_IOC_MAGIC) return -RTL_ENOTTY;
+    if (_IOC_NR(cmd) > MESA_4I34_IOC_MAXNR) return -RTL_ENOTTY;
 
     /*
      * the type is a bitmask, and VERIFY_WRITE catches R/W
@@ -370,7 +370,7 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
         err = !access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
     else if (_IOC_DIR(cmd) & _IOC_WRITE)
         err =  !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
-    if (err) return -EFAULT;
+    if (err) return -RTL_EFAULT;
 
     switch(cmd) {
       case MESA_4I34_IOCPROGSTART:
@@ -384,15 +384,15 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
 
       case MESA_4I34_IOCGPORTCONFIG:	/* get port config */
         if (copy_to_user((mesa_4i34_config *) arg,&dev->config,
-	      	sizeof(mesa_4i34_config)) != 0) ret = -EFAULT;
+	      	sizeof(mesa_4i34_config)) != 0) ret = -RTL_EFAULT;
         break;
         
       case MESA_4I34_IOCSPORTCONFIG:	/* set port config */
 	{
 	    mesa_4i34_config tmpconfig;
 	    if (copy_from_user(&tmpconfig,(mesa_4i34_config *) arg,
-	      	sizeof(mesa_4i34_config)) != 0) ret = -EFAULT;
-	    if (!mesa_4i34_check_config(&tmpconfig)) ret = -EINVAL;
+	      	sizeof(mesa_4i34_config)) != 0) ret = -RTL_EFAULT;
+	    if (!mesa_4i34_check_config(&tmpconfig)) ret = -RTL_EINVAL;
 	    else {
 		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 	        mesa_4i34_write_config(dev,&tmpconfig);
@@ -408,7 +408,7 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
 	  mesa_4i34_read_eeconfig(dev,&eeconfig);
 	  up(&dev->sem);
 	  if (copy_to_user((mesa_4i34_config *) arg,&eeconfig,
-		  sizeof(mesa_4i34_config)) != 0) ret = -EFAULT;
+		  sizeof(mesa_4i34_config)) != 0) ret = -RTL_EFAULT;
 	}
         break;
         
@@ -416,8 +416,8 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
 	{
 	    mesa_4i34_config eeconfig;
 	    if (copy_from_user(&eeconfig,(mesa_4i34_config *) arg,
-	      	sizeof(mesa_4i34_config)) != 0) ret = -EFAULT;
-	    if (!mesa_4i34_check_config(&eeconfig)) ret = -EINVAL;
+	      	sizeof(mesa_4i34_config)) != 0) ret = -RTL_EFAULT;
+	    if (!mesa_4i34_check_config(&eeconfig)) ret = -RTL_EINVAL;
 	    else {
 		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 	        mesa_4i34_write_eeconfig(dev,&eeconfig);
@@ -428,7 +428,7 @@ int mesa_4i34_ioctl (struct inode *inode, struct file *filp,
 #endif
 
       default:  /* redundant, as cmd was checked against MAXNR */
-        return -ENOTTY;
+        return -RTL_ENOTTY;
     }
     return ret;
 }

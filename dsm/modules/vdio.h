@@ -1,7 +1,7 @@
 /*
 Arcom VIPER Digital IO:  header file for vdio.c/vdio.cc
 
-Time-stamp: <Tue 17-Aug-2004 10:12:00 am>
+Time-stamp: <Wed 30-Mar-2005 12:42:26 pm>
 
 RTLinux digital I/O driver for the Viper digital I/O channel
 
@@ -40,21 +40,21 @@ Revisions:
 #define		VDIO_OUT_SET		0x40E00018
 #define		__ISA_DEMUX__
 
-#include 	<main.h>
-
 /* RTLinux headers */
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
 #include <rtl_posixio.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-//#include <rtl_unistd.h>
-#include <unistd.h>
-#include <semaphore.h>
-#include <asm/uaccess.h>
-#include <linux/ioport.h>
+#include <rtl_pthread.h>
+#include <rtl_stdio.h>
+#include <rtl_stdlib.h>
+#include <rtl_unistd.h>
+#include <rtl_semaphore.h>
 #include <rtl_conf.h>
 #include <rtl_buffer.h>
+
+#include <asm/uaccess.h>
+#include <linux/ioport.h>
 #include <asm-arm/io.h>
 
 typedef struct

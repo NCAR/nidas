@@ -1,6 +1,6 @@
 /* a2d_driver.h
 
-   Time-stamp: <Sun 25-Oct-2004 12:48:04 pm>
+   Time-stamp: <Mon 28-Mar-2005 06:20:00 pm>
 
    Header for test rtl driver.
 
@@ -14,6 +14,9 @@
 
 #ifndef A2D_DRIVER_H
 #define A2D_DRIVER_H
+
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 
 #include <dsm_sample.h>		// get dsm_sample typedefs
 
@@ -235,7 +238,7 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
 
 // Now in source code #include <ioctl_fifo.h>
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 #endif
 

@@ -11,7 +11,6 @@
 #ifndef IOCTL_FIFO_H
 #define IOCTL_FIFO_H
 
-#include <sys/types.h>
 #include <linux/ioctl.h>
 
 /* symbols used by user and kernel space code. */
@@ -21,11 +20,17 @@
 #define GET_NUM_PORTS  _IOR(IOCTL_FIFO_MAGIC,0,int)
 
 
-#ifdef __KERNEL__
+#ifdef __RTCORE_KERNEL__
 
 /* Below here are symbols used by the ioctl_fifo module. */
 
-#include <pthread.h>
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl.h>
+#include <rtl_pthread.h>
+#include <rtl_fcntl.h>
+#include <sys/rtl_types.h>
+#include <sys/rtl_stat.h>
 
 #include <linux/list.h>
 
@@ -38,7 +43,7 @@ struct ioctlCmd {
  * satisfy an ioctl request.
  */
 typedef int ioctlCallback_t(int cmd,int board, int port,
-	void* buf, size_t len);
+	void* buf, rtl_size_t len);
 
 
 /* header that is sent over the FIFOs before the ioctl data */
@@ -67,7 +72,7 @@ struct ioctlHandle {
   unsigned char *buf;
   long bufsize;
 
-  pthread_mutex_t mutex;
+  rtl_pthread_mutex_t mutex;
   struct list_head list;
 
 };
@@ -79,6 +84,6 @@ void closeIoctlFIFO(struct ioctlHandle* ioctls);
 
 char* makeDevName(const char* prefix, const char* suffix, int num);
 
-#endif	/* __KERNEL__ */
+#endif	/* __RTCORE_KERNEL__ */
 
 #endif	/* IOCTL_FIFO_H */

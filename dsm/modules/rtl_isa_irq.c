@@ -1,6 +1,6 @@
 /* rtl_isa_irq.c
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:03 pm>
+   Time-stamp: <Wed 30-Mar-2005 11:43:50 am>
 
    RTLinux module for de-multiplexing the ISA bus interrupts.
 
@@ -28,9 +28,9 @@
  */
 
 /* RTLinux includes...  */
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl_posixio.h>
-// #include <rtl_pthread.h>
-#include <rtl_spinlock.h>
 
 /* Linux module includes... */
 #include <linux/autoconf.h>
@@ -226,7 +226,7 @@ struct isrData {
  *
  * It could be enhanced to support multiple ISRs.
  * If one requires that rtl_request_isa_irq be called at init_module
- * time, then you could kmalloc entries in a list.
+ * time, then you could rtl_gpos_malloc entries in a list.
  * Otherwise, one could declare fixed arrays of ISRs (say 5) for
  * each IRQ.
  */
@@ -371,8 +371,8 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
  * Function callable by external modules to register an ISR
  * for an ISA interrupt.
  * Currently this must be called from your modules init_module
- * function since it does a kmalloc() here.
- * To remove that restriction, one could kmalloc all the
+ * function since it does a rtl_gpos_malloc() here.
+ * To remove that restriction, one could rtl_gpos_malloc all the
  * structures during this init_module, and initialize the function
  * pointers to 0.
  *
@@ -381,14 +381,14 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
  *
  * It could be enhanced to support multiple ISRs.
  * If one requires that rtl_request_isa_irq be called at init_module
- * time, then you could kmalloc entries in a list.
+ * time, then you could rtl_gpos_malloc entries in a list.
  * Otherwise, one could declare fixed arrays of ISRs (say 5) for
  * each IRQ. Or use a pool of entries.
  */
 int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callbackPtr)
 {
     int i;
-    int ret = -EINVAL;		/* no such isa irq */
+    int ret = -RTL_EINVAL;		/* no such isa irq */
     unsigned long flags;
 
     rtl_spin_lock_irqsave(&irq_controller_lock,flags);
@@ -397,11 +397,11 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callba
 
 	    rtl_printf("requesting isa irq=%d, index=%d\n",irq,i);
 
-	    ret = -EBUSY;
+	    ret = -RTL_EBUSY;
 	    if (isa_isrs[i]) break;	// already requested (no sharing!)
 
-	    ret = -ENOMEM;
-	    isa_isrs[i] = kmalloc(sizeof(struct isrData),GFP_KERNEL);
+	    ret = -RTL_ENOMEM;
+	    isa_isrs[i] = rtl_gpos_malloc( sizeof(struct isrData) );
 	    if (!isa_isrs[i]) break;
 
 	    isa_isrs[i]->handler = handler;
@@ -424,7 +424,7 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callba
 int rtl_free_isa_irq(unsigned int irq)
 {
     int i;
-    int ret = -EINVAL;		/* no such isa irq */
+    int ret = -RTL_EINVAL;		/* no such isa irq */
     unsigned long flags;
     rtl_spin_lock_irqsave(&irq_controller_lock,flags);
 
@@ -432,7 +432,7 @@ int rtl_free_isa_irq(unsigned int irq)
 	if (isa_irqs[i] == irq && isa_isrs[i]) {
 	    rtl_printf("freeing isa irq=%d\n",irq);
 	    rtl_mask_isa_irq(i);
-	    if (isa_isrs[i]) kfree(isa_isrs[i]);
+	    if (isa_isrs[i]) rtl_gpos_free(isa_isrs[i]);
 	    isa_isrs[i] = NULL;
 	    ret = 0;
 	    break;
@@ -444,7 +444,7 @@ int rtl_free_isa_irq(unsigned int irq)
 
     rtl_spin_unlock_irqrestore(&irq_controller_lock,flags);
 
-    if (ret == -EINVAL) rtl_printf("can't free isa irq=%d\n",irq);
+    if (ret == -RTL_EINVAL) rtl_printf("can't free isa irq=%d\n",irq);
     return ret;
 }
 
@@ -462,7 +462,7 @@ void cleanup_module (void)
 	    rtl_printf("(%s) %s:\t IRQ %2d disabled\n",
 		     __FILE__, __FUNCTION__, isa_irqs[i]);
 	    rtl_mask_isa_irq(i);
-	    kfree(isa_isrs[i]);
+	    rtl_gpos_free(isa_isrs[i]);
 	    isa_isrs[i] = NULL;
 	}
     }
@@ -504,7 +504,7 @@ int init_module (void)
     cleanup_module();
     rtl_printf("(%s) %s:\t could not allocate IRQ at #%d\n",
                __FILE__, __FUNCTION__, VIPER_CPLD_IRQ);
-    return -EIO;
+    return -RTL_EIO;
   }
   rtl_printf("(%s) %s:\t allocated IRQ at #%d\n",
 	     __FILE__, __FUNCTION__, irq);
