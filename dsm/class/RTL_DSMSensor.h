@@ -1,8 +1,17 @@
 /*
-   Copyright by the National Center for Atmospheric Research
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
 */
-#ifndef RTLDEVICE_H
-#define RTLDEVICE_H
+#ifndef RTL_DSMSENSOR_H
+#define RTL_DSMSENSOR_H
 
 #include <DSMSensor.h>
 #include <RTL_DevIoctl.h>
@@ -33,7 +42,7 @@ public:
      */
     RTL_DSMSensor(const std::string& name);
 
-    ~RTL_DSMSensor();
+    virtual ~RTL_DSMSensor();
 
     /*
      * The file descriptor used when reading from this sensor.
@@ -71,7 +80,7 @@ public:
     /**
     * close the sensor (and any associated FIFOs).
     */
-    void close();
+    virtual void close() throw(atdUtil::IOException);
 
     virtual const std::string& getInFifoName() const { return inFifoName; }
     virtual const std::string& getOutFifoName() const { return outFifoName; }
