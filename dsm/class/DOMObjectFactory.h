@@ -34,15 +34,15 @@ public:
      * Create a DOMable object, given its class name.  In order
      * to be created via this method, an object's class must have
      * the following characteristics:
-     * 1. Must be derived from class DOMable
-     * 2. Must have a public, no-arg constructor
-     * 3. An extern "C" function, with prototype 
+     * -# Must be derived from class DOMable
+     * -# Must have a public, no-arg constructor
+     * -# An extern "C" function, with prototype 
      *    "DOMable* createXXXX()" must exist (where XXXX is the 
      *    class name), which returns a pointer to a new instance
      *    of the class.  This function can be defined with
      *    the CREATOR_ENTRY_POINT(className) macro found in
      *    DOMable.h.
-     * 4. The extern "C" function can be either statically
+     * -# The extern "C" function can be either statically
      *    linked in the program, or in a shareable library.
      *    If it is in a shareable library, the library must
      *    have been previously dynamically loaded. This would
@@ -54,9 +54,9 @@ public:
      *
      * After being created by this method, then the attributes
      * of the object are typically filled in from an XML DOM element
-     * via the virtual fromDOMElement method of DOMable.
+     * via virtual dsm::DOMable::fromDOMElement() method.
      *
-     * This method uses the DynamicLoader class to load and
+     * This method uses the dsm::DynamicLoader class to load and
      * return a pointer to the extern "C" function.
      * 
      */
