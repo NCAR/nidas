@@ -30,11 +30,22 @@ namespace dsm {
 class FileSet: public IOChannel, public atdUtil::FileSet {
 
 public:
+
     FileSet() {}
 
     virtual ~FileSet() {}
 
-    const std::string& getName() const { return getFileName(); }
+    void setDir(const std::string& val);
+
+    void setFileName(const std::string& val);
+
+    const std::string& getName() const;
+
+    void setName(const std::string& val);
+
+    std::string FileSet::expandString(const std::string& input);
+
+    std::string FileSet::getTokenValue(const std::string& name);
 
     void requestConnection(ConnectionRequester* requester,int pseudoPort)
     	throw(atdUtil::IOException);
@@ -68,6 +79,13 @@ public:
     	throw(xercesc::DOMException);
     
 protected:
+
+    /**
+     * Recognizeable name of this IOChannel - used for informative
+     * messages.
+     */
+    std::string name;
+
 };
 
 }
