@@ -32,12 +32,11 @@
 
 // module driver includes
 #include <main.h>
-#include <rtl_com8.h>
+#include <com8.h>
 
 // Class declarations.
-static Irig   *irig;
-static Mensor *mensor[MAX_SERIAL];  // digital pressure
-static ParSci *parsci[MAX_SERIAL]; // digital pressure
+static Parsci *parsci[RTL_MAX_SERIAL]; // digital pressure
+static Mensor *mensor[RTL_MAX_SERIAL];  // digital pressure
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -53,15 +52,16 @@ static void statusMsg (char *msg);      // status message handler
 static void serialInit();               // init serial interfaces
 
 /*****************************************************************************/
-void main()
+void dsmSync()
 {
   fd_set readfds, writefds;
-  char strdev[10], tick, buf[1000];
-  int i, j, max_fd, stat, len;
+  char strdevr0[10], strdevr1[10], strdevw[10], buf[1000];
+  int i, j, max_fd = 0, stat, len;
   int mensor_idx = 0;
   int parsci_idx = 0;
-  int gtog = 0;
-  char *host, *adsname;
+  int gtog = 1;
+  int ptog = 0;
+  int newSecondFifo; // file pointer to 'toggle' indicator
 
   printf ("user main: %s - %s - %s\n\n", __FILE__, __DATE__, __TIME__);
 
@@ -92,12 +92,9 @@ void main()
   /* TODO - convey configuration down to the RTLinux modules
    */
 
-  int i, j, max_fd=0, gtog=0;
-
   // Initialize the time generator class.
-  irig = new Irig();
-  irig->newSecondFifo = open("/dev/irig", O_RDONLY);
-  max_fd = max(max_fd, irig->newSecondFifo);
+  newSecondFifo = open("/dev/irig", O_RDONLY);
+  max_fd = max(max_fd, newSecondFifo);
 
   // Initialize the serial interfaces classes.
   serialInit ();
@@ -108,21 +105,25 @@ void main()
 
 /* Create objects and open the FIFOs to their modules */
 
-  for (stat = firstDesc(); stat; stat = nextDesc()) {
-    if (mensorType()) {
+  for (stat = dsm_hdr->firstDesc(); stat; stat = dsm_hdr->nextDesc()) {
+    if (dsm_hdr->mensorType()) {
       mensor[mensor_idx] = new Mensor();
-      sprintf(strdev, "mensor_%d", mensor_idx)
-      mensor[mensor_idx]->dataFifo[0] = open("/dev/read_0_"+strdev, O_RDONLY );
-      mensor[mensor_idx]->dataFifo[1] = open("/dev/read_1_"+strdev, O_RDONLY );
-      mensor[mensor_idx]->cmndFifo    = open("/dev/write_"+strdev,  O_WRONLY );
+      sprintf(strdevr0, "/dev/read_0_mensor_%1d", mensor_idx);
+      sprintf(strdevr1, "/dev/read_1_mensor_%1d", mensor_idx);
+      sprintf(strdevw, "/dev/write_mensor_%1d", mensor_idx);
+      mensor[mensor_idx]->dataFifo[0] = open(strdevr0, O_RDONLY );
+      mensor[mensor_idx]->dataFifo[1] = open(strdevr1, O_RDONLY );
+      mensor[mensor_idx]->cmndFifo    = open(strdevw,  O_WRONLY );
       mensor_idx+=2;
     }
-    if (parsciType()) {
-      mensor[parsci_idx] = new Parsci();
-      sprintf(strdev, "parsci_%d", parsci_idx)
-      mensor[parsci_idx]->dataFifo[0] = open("/dev/read_0_"+strdev, O_RDONLY );
-      mensor[parsci_idx]->dataFifo[1] = open("/dev/read_1_"+strdev, O_RDONLY );
-      mensor[parsci_idx]->cmndFifo    = open("/dev/write_"+strdev,  O_WRONLY );
+    if (dsm_hdr->parsciType()) {
+      parsci[parsci_idx] = new Parsci();
+      sprintf(strdevr0, "/dev/read_0_parsci_%1d", parsci_idx);
+      sprintf(strdevr0, "/dev/read_1_parsci_%1d", parsci_idx);
+      sprintf(strdevr0, "/dev/write_parsci_%1d", parsci_idx);
+      parsci[parsci_idx]->dataFifo[0] = open(strdevr0, O_RDONLY );
+      parsci[parsci_idx]->dataFifo[1] = open(strdevr1, O_RDONLY );
+      parsci[parsci_idx]->cmndFifo    = open(strdevw,  O_WRONLY );
       parsci_idx+=2;
     }
   }
@@ -139,16 +140,16 @@ void main()
     FD_ZERO(&writefds);
 
   /* set the fd's to read data from and write commands to */
-  for (i=0; i<MAX_SERIAL; i++) {
-    FD_SET(mensor[i]->dataFifo[0],  &readfds);
-    FD_SET(mensor[i]->dataFifo[1],  &readfds);
-    FD_SET(mensor[i]->cmndFifo   ,  &writefds);
+    for (i=0; i<RTL_MAX_SERIAL; i++) {
+      FD_SET(mensor[i]->dataFifo[0],  &readfds);
+      FD_SET(mensor[i]->dataFifo[1],  &readfds);
+      FD_SET(mensor[i]->cmndFifo   ,  &writefds);
 
-    FD_SET(parsci[i]->dataFifo[0], &readfds);
-    FD_SET(parsci[i]->dataFifo[1], &readfds);
-    FD_SET(parsci[i]->cmndFifo   , &writefds);
-  }
-  FD_SET(irig->newSecondFifo, &readfds);
+      FD_SET(parsci[i]->dataFifo[0], &readfds);
+      FD_SET(parsci[i]->dataFifo[1], &readfds);
+      FD_SET(parsci[i]->cmndFifo   , &writefds);
+    }
+    FD_SET(newSecondFifo, &readfds);
 
     /* The select command waits for inbound FIFO data to
      * become available for processing.
@@ -156,42 +157,62 @@ void main()
     select(FD_SETSIZE, &read_mask, NULL, NULL, NULL);
 
   /* Scan for any data from the instruments to be read. */
-  for (i=0; i<MAX_SERIAL; i++) {
-    for (j=0; j<2; j++) {
-      if (FD_ISSET( mensor[i]->dataFifo[j], &readfds)){
-        len = read(mensor[i]->dataFifo[j], &mensor[i]->buf[0], sizeof(buf));
-        if (buf[0] == '0')
-          mensor[i]->parser();
+    for (i=0; i<RTL_MAX_SERIAL; i++) {
+      len = 0;
+      if (FD_ISSET( mensor[i]->dataFifo[ptog], &readfds)){
+        while (FD_ISSET( mensor[i]->dataFifo[ptog], &readfds)){
+          len += read(mensor[i]->dataFifo[ptog], &mensor[i]->buf[0],
+                      sizeof(buf));
+        }
+        mensor[i]->parser(len);
       }
-      if (FD_ISSET( parsci[i]->dataFifo[j], &readfds)){
-        len = read(parsci[i]->dataFifo[j], &parsci[i]->buf[0], sizeof(buf));
-        if (buf[0] == '*')
-          parsci[i]->parser();
+      len = 0;
+      if (FD_ISSET( parsci[i]->dataFifo[ptog], &readfds)){
+        while (FD_ISSET( parsci[i]->dataFifo[ptog], &readfds)){
+          len += read(parsci[i]->dataFifo[ptog], &parsci[i]->buf[0],
+                      sizeof(buf));
+        }
+        parsci[i]->parser(len);
       }
     }
-  }
 
-    /* a new second occured... */
-    if (FD_ISSET(irig->newSecondFifo, &read_mask))
+  /* a new second occured... */
+    if (FD_ISSET(newSecondFifo, &read_mask))
     {
       /* determine which toggle buffer to read from */
-      j = read (irig->newSecondFifo, &gtog, sizeof(int));
-      printf("(%d) now reading the periodic /dev/read_???_%d FIFOs\n", j, gtog);
+      j = read (newSecondFifo, &ptog, sizeof(int));
+      printf("(%d) now reading the periodic /dev/read_???_%d FIFOs\n", j, ptog);
 
-      for (i=0; i<MAX_SERIAL; i++) {
+      for (i=0; i<RTL_MAX_SERIAL; i++) {
         mensor[i]->secondAlign();
         parsci[i]->secondAlign();
      }
       // Build the 1 second sync record.
       sync_rec->buildRecord ();
 
-      /* Parse dataFifos as generic character streams into specific
-       * data structs for serially interfaced instruments only.
-       */
+  /* Scan for any data from the instruments to be read. */
+      for (i=0; i<RTL_MAX_SERIAL; i++) {
+        len = 0;
+        if (FD_ISSET( mensor[i]->dataFifo[gtog], &readfds)){
+          while (FD_ISSET( mensor[i]->dataFifo[gtog], &readfds)){
+            len += read(mensor[i]->dataFifo[gtog], &mensor[i]->buf[0],
+                        sizeof(buf));
+          }
+          mensor[i]->parser(len);
+        }
+        len = 0;
+        if (FD_ISSET( parsci[i]->dataFifo[gtog], &readfds)){
+          while (FD_ISSET( parsci[i]->dataFifo[gtog], &readfds)){
+            len += read(parsci[i]->dataFifo[gtog], &parsci[i]->buf[0],
+                        sizeof(buf));
+          }
+          parsci[i]->parser(len);
+        }
+      }
 
       /* TODO - Start a non-blocking TCP transmission to the ADS. */
-      if (gtog) gtog = 0;
-      else      gtog = 1;
+      gtog = ptog;
+      ptog = 1 - ptog;
 
     }
   }
