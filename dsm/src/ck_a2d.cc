@@ -29,6 +29,7 @@
 #include <iostream>
 #include <iomanip>
 #include <bits/posix1_lim.h>
+#include <sys/select.h>
 
 #include <ioctl_fifo.h>
 #include <a2d_driver.h>
@@ -96,29 +97,32 @@ int main(int argc, char** argv)
   
   cout << __FILE__ << ": Run command sent to driver" << endl;
 
+  usleep(10000); // Wait for a cycle to complete
+
   for(i = 0; i < sleepytime; i++)
   {
         int lread;
-/*
+
 	FD_ZERO(&readfds);
 	FD_SET(sensor.getReadFd(), &readfds);
-	select(1, &readfds, NULL, NULL, NULL);
-*/
+	select(1+sensor.getReadFd(), &readfds, NULL, NULL, NULL);
+
 	lread = sensor.read(inbuf, 2*MAXA2DS*INTRP_RATE + 8);
 //      cerr << "lread=" << lread << endl;
 	
+	printf("\n\nindex = %6d\n", i);
 	printf("0x%04d%04d\n", inbuf[1], inbuf[0]);
 	printf("0x%04d%04d\n", inbuf[3], inbuf[2]);
 
-	for(ii = 0; ii < 10 ; ii++)
+	for(ii = 0; ii < INTRP_RATE ; ii++)
 	{
+		printf("0x%05X: ", ii*MAXA2DS);
 		for(jj = 0; jj < MAXA2DS; jj++)
 		{
 			printf("%05d  ", inbuf[MAXA2DS*ii + jj + 4]);
 		}
 		printf("\n");	
 	}
-	printf("index = %6d\n", i);
   }
 
 
