@@ -1,5 +1,5 @@
 /*
-Arcom VIPER Digital IO
+Arcom VIPER Digital IO:  header file for vdio.c/vdio.cc
 
 Time-stamp: <Tue 17-Aug-2004 10:12:00 am>
 
@@ -28,19 +28,14 @@ Revisions:
 #define		UC	unsigned char
 #endif
 
-/* ISAbus Base address */
-
-#define	ARMISABASE		0x30000000
-
-/* DIO port base addresss */
-
-#define	ARMDIOADDR		0x14500000
-
 /*  Error values */
 #define		VIPERDIOOK	   	 0
 #define		ERRDIOSTART		-1
 #define		ERRDIOEND		-2
-#define 	VDIO_IN			0x14A00000
+
+/* Some necessary physical addresses */
+
+#define 	VDIO_IN			0x14500000
 #define		VDIO_OUT_CLR		0x40E00024
 #define		VDIO_OUT_SET		0x40E00018
 #define		__ISA_DEMUX__
@@ -53,6 +48,7 @@ Revisions:
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+//#include <rtl_unistd.h>
 #include <unistd.h>
 #include <semaphore.h>
 #include <asm/uaccess.h>
@@ -60,7 +56,6 @@ Revisions:
 #include <rtl_conf.h>
 #include <rtl_buffer.h>
 #include <asm-arm/io.h>
-
 
 typedef struct
 {

@@ -1,8 +1,9 @@
-#define DEBUG_IO
+// #define DEBUG_OUTPUT
+// #define DEBUG_IO
 // #define NO_IO
 
 /*
-vdio_module.c
+vdio.c
 
 Arcom VIPER Digital IO Driver
 
@@ -18,18 +19,20 @@ Revisions:
 
 */
 
+
 /* Arcom Viper Digital I/O header */
 #include "vdio.h"
 
 pthread_t	aVthread;
 sem_t		anVdioSemaphore;
 unsigned short 	*pVdiord;
+unsigned long 	*pVdioset, *pVdioclr;
 
 /* File pointer to FIFO to user space */
 static unsigned char fp_Vdio;
 
 /* Magic toggle buffer pointer */
-extern int ptog;
+extern int ptog, gtob;
 
 RTLINUX_MODULE(Vdio);
 MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
@@ -39,8 +42,10 @@ MODULE_DESCRIPTION("RTLinux Viper Digital I/O Driver");
 
 void init_module(void)
 {
+	int i = 1;
 	unsigned char dummy[2];
 	char devstr[80];
+	unsigned char phoney = 0xAA;
 
 	rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
 		__FILE__, __FUNCTION__, __DATE__, __TIME__);
@@ -64,7 +69,11 @@ void init_module(void)
 	rtl_printf("(%s) %s:\t pthread_create done \n", __FILE__, __FUNCTION__);
 
 /* Set up I/O port pointer */
+
 	pVdiord = ioremap_nocache(VDIO_IN, 4);
+	pVdioset = (unsigned long *)ioremap_nocache(VDIO_OUT_SET, 4);
+	pVdioclr = (unsigned long *)ioremap_nocache(VDIO_OUT_CLR, 4);
+
 	rtl_printf("Read pointer initialized to 0x%08X\n", 
 				(unsigned long)pVdiord);
 
@@ -73,7 +82,27 @@ void init_module(void)
 
 /*  Initially clear all the output bits. */
 
-	ViperOutBits(0x00); 
+	ViperOutBits(0x00);  	// Clear output bits
+
+#ifdef DEBUG_OUTPUT
+
+/* 
+DEBUG_OUTPUT:
+This loop cycles the output bits through a binary sequence and reads
+and prints the input bits.
+*/
+
+       int iii;
+	unsigned char b = 0x40;
+
+	while(b&0x40)
+	{
+	ViperOutBits(phoney); 
+	phoney ^= 0xFF;
+	rtl_printf("Vdio read 0x%02X\n", b = ViperReadBits());
+	for(iii = 0; iii < 100000; iii++);
+	}
+#endif
 	
 	return;
 }
@@ -82,6 +111,9 @@ void init_module(void)
 
 void cleanup_module(void)
 {
+/* Set the data bits back to zero */
+	ViperOutBits(0x00);
+
 /* Close the data FIFO */
 	close(fp_Vdio);
 	return;
@@ -104,7 +136,7 @@ static void *Vdio_100hz_thread(void *t)
 
 #ifdef DEBUG_IO
 	/* DEBUG write successive bits to output port */
-	/* The entire count sequence should take 2.56 seconds */
+	/* The entire count sequence should take 2.56 seconds at 100 Hz */
 	ViperOutBits(vobits);
 	vobits += 1;
 	if(vobits%100 == 0)rtl_printf("DigiBits 0x%02x\n", vibits);
@@ -122,21 +154,14 @@ static void *Vdio_100hz_thread(void *t)
 
 int ViperOutBits(unsigned char vbits)
 {
-	unsigned long *pVdioset, *pVdioclr;
 	unsigned long biggy;
 
-	pVdioset = (unsigned long *)ioremap_nocache(VDIO_OUT_SET, 4);
-	pVdioclr = (unsigned long *)ioremap_nocache(VDIO_OUT_CLR, 4);
 
 	biggy = 0x0FF00000 ^ (0x0FF00000 &(((unsigned long)vbits)<<20));
-	rtl_printf("Biggy = 0x%08x\n", biggy);
 	writel(biggy, pVdioclr);
-	rtl_printf("writel works\n", biggy);
 
 	biggy = (0x0FF00000 &(((unsigned long)vbits)<<20));
-	rtl_printf("Biggy = 0x%08x\n", biggy);
 	writel(biggy, pVdioset);
-	rtl_printf("writel works!\n", biggy);
 
 	return(VIPERDIOOK);
 }
@@ -149,7 +174,7 @@ unsigned char ViperReadBits(void)
 {
 #ifndef NO_IO
 	return((unsigned char)(0xFF & readw(pVdiord)));
-	rmb();
+//	rmb();
 #else
 	return(0);
 #endif
