@@ -1,5 +1,16 @@
 /*
-   Copyright by the National Center for Atmospheric Research
+ ********************************************************************
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 671 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+ ********************************************************************
+
 */
 #ifndef DSMSENSOR_H
 #define DSMSENSOR_H
@@ -57,7 +68,7 @@ public:
     /**
     * close
     */
-    virtual void close() = 0;
+    virtual void close() throw(atdUtil::IOException) = 0;
 
     virtual const std::string& getName() const { return name; }
 
