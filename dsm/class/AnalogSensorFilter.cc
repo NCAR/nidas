@@ -1,4 +1,5 @@
-#define DEBUG0
+//#define DEBUG1
+#define	DEBUG0
 #define PRINTINT	100
 /*
  ********************************************************************
@@ -91,7 +92,7 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
 	if(xfrctr==INTRP_RATE)
 	{
 		// Reset Ictr, and xfrctr
-		Ictr = 0;			
+		Ictr = 1;			
 		xfrctr = 0;
 
 		// Reinitialize pointers
@@ -115,8 +116,7 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
     	ShortIntSample* outs =
     		SamplePool<ShortIntSample>::getInstance()->getSample(outsize);
 
-//TODO Make sure timetag is obtained from the correct sample. 
-
+// TimeTag is presently obtained from the last sample
 		outs->setTimeTag(samp->getTimeTag());
 		outs->setId(samp->getId());
 		outs->setDataLength(outsize);
@@ -133,18 +133,28 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
 		}
 
 #ifdef DEBUG0
-		printf("time %08d: datalength %05d: outs = 0x%08X: ", 
+		printf("time %08d: datalength %05d: ID 0x%08x: ", 
 				outs->getTimeTag(), 
 				outs->getDataLength(), 
-				outs);
+				outs->getId());
 		printf("\n");
 #endif
 
+#ifdef DEBUG1
+ 	 	printf("Output buffer by rates \noutsize = %d\n", outsize);
+  		for(int jj = 0; jj < MAXA2DS; jj++)
+  		{
+  			for(int ii = 0; ii < rates[jj] ; ii++)
+			{
+				printf("a2d%1d Sample %04d: %+06ld: NormFac %8.6f\n",
+					jj, ii, outs->getDataPtr()[a2dptr[jj] + ii], norm[jj]);
+
+			}
+  		}
+#endif
 		distribute(outs);
 	}
-
 	xfrctr++;		// Bump the transfer counter
-
 	return true;
 }
 
