@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	    struct dsm_serial_record_info recinfo;
 	    recinfo.sep[0] = '\n';
 	    recinfo.sepLen = 1;
-	    recinfo.atBOM = 0;
+	    recinfo.atEOM = 1;
 	    recinfo.recordLen = 0;
 	    sens->ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
 
