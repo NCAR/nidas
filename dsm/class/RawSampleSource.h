@@ -14,49 +14,52 @@
 
 */
 
-#ifndef DSM_SAMPLESOURCE_H
-#define DSM_SAMPLESOURCE_H
+#ifndef DSM_RAWSAMPLESOURCE_H
+#define DSM_RAWSAMPLESOURCE_H
 
-#include <SampleSourceImpl.h>
+#include <SampleSource.h>
 
 namespace dsm {
 
 /**
- * A source of samples.
+ * Wrapper around a SampleSourceImpl.  Allows a DSMSensor
+ * to be both a SampleSource and a RawSampleSource (because we
+ * love multiple inheritance don't we :)!
  */
-class SampleSource : public SampleSourceImpl {
+class RawSampleSource: SampleSourceImpl {
+
 public:
     /**
      * Add a SampleClient to this SampleSource.  The pointer
      * to the SampleClient must remain valid, until after
      * it is removed.
      */
-    void addSampleClient(SampleClient* c) throw() {
+    void addRawSampleClient(SampleClient* c) throw() {
         addSampleClientImpl(c);
     }
 
     /**
      * Remove a SampleClient from this SampleSource
      */
-    void removeSampleClient(SampleClient* c) throw() {
+    void removeRawSampleClient(SampleClient* c) throw() {
         removeSampleClientImpl(c);
     }
 
     /**
      * Big cleanup.
      */
-    void removeAllSampleClients() throw() {
+    void removeAllRawSampleClients() throw() {
         removeAllSampleClientsImpl();
     }
 
     /**
      * How many samples have been distributed by this SampleSource.
      */
-    unsigned long getNumSamplesSent() const throw() {
+    unsigned long getNumRawSamplesSent() const throw() {
         return getNumSamplesSentImpl();
     }
 
-    virtual void setNumSamplesSent(unsigned long val) throw() {
+    virtual void setNumRawSamplesSent(unsigned long val) throw() {
         setNumSamplesSentImpl(val);
     }
 
@@ -64,11 +67,12 @@ public:
      * Distribute a sample to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
      */
-    virtual void distribute(const Sample* s)
+    virtual void distributeRaw(const Sample* s)
 	throw(SampleParseException,atdUtil::IOException)
     {
         distributeImpl(s);
     }
+
 
 };
 }
