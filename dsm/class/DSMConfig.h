@@ -34,6 +34,9 @@ public:
     DSMConfig();
     virtual ~DSMConfig();
 
+    const std::string& getName() const { return name; }
+    void setName(const std::string& val) { name = val; }
+
     void addSensor(DSMSensor* sensor) { sensors.push_back(sensor); }
     const std::list<DSMSensor*>& getSensors() const { return sensors; }
 
@@ -49,8 +52,8 @@ public:
     		throw(xercesc::DOMException);
 
 protected:
+    std::string name;
     std::list<DSMSensor*> sensors;
-
 };
 
 }
