@@ -869,6 +869,10 @@ static int set_prompt(struct serialPort* port,
     rtl_spin_lock_irqsave (&port->lock,flags);
     memcpy(&port->prompt,prompt,sizeof(struct dsm_serial_prompt));
     rtl_spin_unlock_irqrestore(&port->lock,flags);
+#ifdef DEBUG
+    rtl_printf("prompt=\"%s\", len=%d, rate=%d\n",
+    	port->prompt.str,port->prompt.len,(int)port->prompt.rate);
+#endif
     return 0;
 }
 
@@ -895,11 +899,11 @@ static void port_prompter(void* privateData)
     	queue_transmit_chars(port,port->prompt.str,port->prompt.len)) !=
     		port->prompt.len) {
 	port->output_char_overflows += (port->prompt.len - res);
-#ifdef DEBUG
-	rtl_printf("queue_transmit_chars len=%d, res=%d\n",
-		    port->prompt.len,res);
-#endif
     }
+#ifdef DEBUG
+    rtl_printf("queue_transmit_chars %s len=%d, res=%d\n",
+		    port->prompt.str,port->prompt.len,res);
+#endif
 }
 
 /*
@@ -1167,8 +1171,9 @@ static void post_sample(struct serialPort* port)
     /* compute how many samples in the queue are available to be
      * written to.  If the reader of this device has fallen behind
      * then this number will be zero, in which case we
-     * increment the sample_overflows counter and throw the sample
-     * away.
+     * increment the sample_overflows counter and over-write
+     * the current sample with new data - i.e. the sample
+     * is lost.
      */
     n = CIRC_SPACE(port->sample_queue.head,port->sample_queue.tail,
     	SAMPLE_QUEUE_SIZE);
