@@ -18,8 +18,10 @@
 
 using namespace dsm;
 
+#ifdef MUTEX_PROTECT_REF_COUNTS
 /* static */
 atdUtil::Mutex SampleBase::refLock;
+#endif
 
 /* static */
 int SampleBase::nsamps = 0;
