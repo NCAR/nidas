@@ -32,6 +32,7 @@ SampleSorter::SampleSorter(int buflenInMilliSec_a) :
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    cerr << "SampleSorter, buflenInMillisec=" << buflenInMillisec << endl;
 }
 
 SampleSorter::~SampleSorter() {
@@ -67,11 +68,22 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	  break;
 	}
 
+// #define USE_CLOCK_TIME
+#ifdef USE_CLOCK_TIME
 	dummy.setTimeTag((getCurrentTimeInMillis() - buflenInMillisec)
 		% MSECS_PER_DAY);
+#else
+	// cerr << "samples.size=" << samples.size() << endl;
+	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
+	if (latest == samples.rend()) continue;	// empty
+	dsm_sample_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
+	if (tt < 0) tt += MSECS_PER_DAY;
+	dummy.setTimeTag(tt);
+	// cerr << "tt=" << tt << endl;
+#endif
 
 	/*
-	if (debug) cerr << getFullName() << " samples.size=" <<
+	cerr << getFullName() << " samples.size=" <<
 		samples.size() <<
 		" tt=" << dummy.getTimeTag() << std::endl;
         */
