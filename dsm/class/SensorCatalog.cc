@@ -79,6 +79,11 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	    p.first = xchild.getAttributeValue("ID");
 	    cerr << "serialsensor id=" << p.first << endl;
 	    if(p.first.length() > 0) {
+		if (operator[](p.first) != (DOMElement*)0)
+		    throw atdUtil::InvalidParameterException(
+			"SensorCatalog::fromDOMElement",
+			"duplicate sensor in catalog, ID",
+			p.first);
 		p.second = (DOMElement*)child;
 		insert(p);
 	    }
