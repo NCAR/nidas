@@ -18,11 +18,7 @@ myenv = env.Copy()
 #  SyncRecord.cc
 
 sources = Split("""
-    RTL_DevIoctl.cc
-    RTL_DevIoctlStore.cc
-    DSMSensor.cc
-    RTL_DSMSensor.cc
-    DSMSerialSensor.cc
+  DSMSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
