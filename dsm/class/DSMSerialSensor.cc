@@ -329,13 +329,13 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
     return str;
 }
 
-void DSMSerialSensor::process(const Sample*samp)
+const Sample* DSMSerialSensor::process(const Sample* samp)
 	throw(atdUtil::IOException,dsm::SampleParseException)
 {
     // If no scanner defined, then don't scan sample.
     if (!scanner) {
-        distribute(samp);
-	return;
+	samp->holdReference();
+        return samp;
     }
 
     assert(samp->getType() == CHAR_ST);
@@ -371,14 +371,13 @@ void DSMSerialSensor::process(const Sample*samp)
     if (!nparsed) {
 	scanfFailures++;
 	outs->freeReference();		// remember!
-	return;		// no sample
+	return 0;		// no sample
     }
     else if (nparsed != nfields) scanfPartials++;
 
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(samp->getId());
     outs->setDataLength(nparsed);
-    distribute(outs);
-    outs->freeReference();
+    return outs;
 }
 

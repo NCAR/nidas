@@ -120,6 +120,10 @@ public:
     virtual void setTimeTag(dsm_sample_time_t val) = 0;
     virtual dsm_sample_time_t getTimeTag() const = 0;
 
+    virtual const Sample* getConstNext() const = 0;
+    virtual Sample* getNext() = 0;
+    virtual void setNext(Sample* val) = 0;
+
     /**
      * Set the number of elements in data portion of sample.
      */
@@ -198,14 +202,22 @@ public:
      */
     virtual void freeReference() const = 0;
 
+    virtual void freeReferencesOfList() const = 0;
+
 };
 
 
 class SampleBase : public Sample {
 
 public:
-    SampleBase() : refCount(1) { nsamps++; }
+    SampleBase() : refCount(1),next(0) { nsamps++; }
     virtual ~SampleBase() { nsamps--; }
+
+    virtual const Sample* getConstNext() const { return next; }
+
+    virtual Sample* getNext() { return next; }
+
+    virtual void setNext(Sample* val) { next = val; }
 
     /**
     * Increment the reference count for this sample.
@@ -217,12 +229,23 @@ public:
     */
     void holdReference() const { refCount++; }
 
+    void freeReferencesOfList() const
+    {
+	for (const Sample* samp = this; samp; ) {
+	    const Sample* nxt = samp->getConstNext();
+	    samp->freeReference();
+	    samp = nxt;
+	}
+    }
+
 protected:
 
   /**
    * The reference count.
    */
   mutable int refCount;
+
+  Sample *next;
 
   /**
    * Global count of the number of samples in use by a process.
@@ -413,19 +436,13 @@ public:
     *   // called for you by SamplePool.
     *   Sample* samp =
     *	  SamplePool::getReference()->getSample(100);
-    *
+    *   ...
     *   pushSample(samp);
     *   ...
     *   samp = popSample();
-    *   // When you're done with it, call freeReference. This 
-    *   // should decrement the reference count to zero, and
-    *   // cause the sample to be returned to the SamplePool.
-    *   // If you deal the sample to anyone else, they
-    *   // must do a holdReference() for themselves.
+    *   ...
+    *   // When you're done with it, call freeReference().
     *   samp->freeReference();
-    *
-    * TODO: write a test program and see if the SamplePool
-    * actually speeds things up - is it faster than new()?
     */
     void freeReference() const;
 
@@ -471,7 +488,7 @@ namespace dsm {
 
 /*
  * This method uses SamplePool, so we must wait to define
- * it until after SamplePool is defined.
+ * it in this header until after SamplePool is defined.
  */
 template <class DataT>
 void SampleT<DataT>::freeReference() const

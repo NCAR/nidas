@@ -132,7 +132,7 @@ int PortSelector::run() throw(atdUtil::Exception)
       }
       else {
 	timeoutSumMsec += timeoutMsec;
-	if (timeoutSumMsec > timeoutWarningMsec) {
+	if (timeoutSumMsec >= timeoutWarningMsec) {
 	  Logger::getInstance()->log(LOG_INFO,
 	  	"PortSelector select timeout %d msecs",timeoutSumMsec);
 	  timeoutSumMsec = 0;

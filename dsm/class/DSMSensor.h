@@ -158,7 +158,7 @@ public:
      * of process() simply passes the Sample onto
      * any dsm::SampleClient's without further processing.
      */
-    virtual void process(const Sample*)
+    virtual const Sample*  process(const Sample*)
     	throw(dsm::SampleParseException,atdUtil::IOException);
 
     void initStatistics();

@@ -73,6 +73,8 @@ dsm_sample_time_t DSMSensor::readSamples()
     rlen = read(buffer+bufhead,len);
     bufhead += rlen;
 
+    const Sample* procSamples;
+
     // process all data in buffer, pass samples onto clients
     for (;;) {
         if (samp) {
@@ -84,13 +86,38 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataPtr += len;
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
+
+		// current design
+		//     readSamples does distributeRaw, process, distribute
+		//     possible improvement: assign complete timetag.
+		//    problems: assigning complete timetag may have
+		//      difficulties if input isn't sorted.
+		//	probably not an issue.
+		//      worry about blocks in distributes
+		//	could require that receive()s not IO block.
+		//	what about heavy calculation blocks?
+		//
+		// refactor plan #1:
+		//     readSamples does a distributeRaw (worry about
+		//	IO blocks), then returns pointer to sample list
+		// SensorPortHandler then passes sample list,
+		//     and sensor pointer to time-sorting buffer thread.
+		// Time-sorting buffer assigns complete timetag,
+		//     calls sensor->process(), then sensor->distribute().
+		//
+		//  
 		tt = samp->getTimeTag();	// return last time tag read
 
-		process(samp);			// does not freeReference
-		
 	        distributeRaw(samp);
 
+		procSamples = process(samp);
 		samp->freeReference();
+
+	        if (procSamples) {
+		    distribute(procSamples);
+		    procSamples->freeReferencesOfList();
+		}
+
 		nsamples++;
 		samp = 0;			// finished with sample
 						// check for more data
@@ -134,14 +161,13 @@ dsm_sample_time_t DSMSensor::readSamples()
 
 
 /**
- * Default implementation of process just distributes this
- * raw sample to my SampleClient's.  readSamples has already
- * distributed the sample to my raw SampleClient's.
+ * Default implementation of process does nothing.
  */
-void DSMSensor::process(const Sample* s)
+const Sample* DSMSensor::process(const Sample* s)
     	throw(dsm::SampleParseException,atdUtil::IOException)
 {
-    distribute(s);
+    s->holdReference();
+    return s;
 }
 
 

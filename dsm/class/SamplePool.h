@@ -93,8 +93,10 @@ atdUtil::Mutex SamplePool<SampleType>::instanceLock = atdUtil::Mutex();
 template<class SampleType>
 SamplePool<SampleType> *SamplePool<SampleType>::getInstance()
 {
-    atdUtil::Synchronized pooler(instanceLock);
-    if (!instance) instance = new SamplePool<SampleType>();
+    if (!instance) {
+	atdUtil::Synchronized pooler(instanceLock);
+	if (!instance) instance = new SamplePool<SampleType>();
+    }
     return instance;
 }
 
