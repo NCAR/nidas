@@ -37,6 +37,7 @@
 
 #include <SampleScanf.h>
 #include <Sample.h>
+#include <iostream>
 #include <assert.h>
 
 using namespace dsm;
@@ -247,6 +248,8 @@ bool SampleScanf::receive(const Sample*samp)
 {
     assert(MAX_OUTPUT_VALUES <= 60);
 
+    assert(samp->getType() == CHAR_ST);
+
     int nparsed = ::sscanf((const char*)samp->getConstVoidDataPtr(),charfmt,
 	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],
 	bufptrs[ 5],bufptrs[ 6],bufptrs[ 7],bufptrs[ 8],bufptrs[ 9],
@@ -271,6 +274,7 @@ bool SampleScanf::receive(const Sample*samp)
         scanfPartials++;
 
     FloatSample* outs = SamplePool<FloatSample>::getInstance()->getSample(nparsed);
+    std::cerr << "maxDataLength=" << outs->getMaxDataLength() << std::endl;
     if (allFloats)
 	memcpy(outs->getVoidDataPtr(),bufptrs[0],nparsed*sizeof(float));
     else {
