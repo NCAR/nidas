@@ -9,28 +9,34 @@ rtl_env = arm_env.Copy()
 ##
 ##  RTLinux specific settings
 ##
+
 rtl_env.AppendUnique(CCFLAGS=Split("""
-  -fno-common -msoft-float -DMODULE -D_LOOSE_KERNEL_NAMES
-  -D__KERNEL__ -D__LINUX_ARM_ARCH__=5 -D__RTL__
-"""))
+    -DMODULE -D__KERNEL__ -D__RTL__
+  """))
 rtl_env.AppendUnique(CPPPATH=Split("""
   /opt/rtldk-2.0/rtlinuxpro/include
-  /opt/rtldk-2.0/rtlinuxpro/include/linux-sys
-  /opt/rtldk-2.0/rtlinuxpro/include/compat
-  /opt/rtldk-2.0/rtlinuxpro/libc/include
-  /opt/rtldk-2.0/rtlinuxpro/linux/include
   /opt/rtldk-2.0/rtlinuxpro/include/posix
+  /opt/rtldk-2.0/rtlinuxpro/include/compat
+  /opt/rtldk-2.0/rtlinuxpro/include/linux-sys
+  /opt/rtldk-2.0/rtlinuxpro/libc/include
 """))
+
+#   /opt/rtldk-2.0/rtlinuxpro/linux/include
 ##
 ##  List of each module source
 ##
 modules = Split("""
-  main.c
-  com8.c
-  irig.c
-  demux.c
-  vdio.c
+    rtl_isa_irq.c
+    pc104sg.c
+    ioctl_fifo.c
+    xxxx_driver.c
+    com8.c
 """)
+
+## vdio.c
+##  irig.c
+##  main.c
+##  com8.c
 
 ##
 ##  Build the modules
