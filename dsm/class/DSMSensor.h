@@ -99,6 +99,11 @@ public:
     virtual void open(int flags) throw(atdUtil::IOException) = 0;
 
     /**
+     * How do I want to be opened.  The user can ignore it if they want to.
+     */
+    virtual int getDefaultMode() const { return O_RDONLY; }
+
+    /**
     * Read from the device (duh). Behaves like read(2) system call,
     * without a file descriptor argument, and with an IOException.
     */

@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    std::cerr << "doing sens->open of" <<
 	    	(*si)->getDeviceName() << endl;
-	    (*si)->open(O_RDWR);
+	    (*si)->open((*si)->getDefaultMode());
 	    (*si)->addSampleClient(&test);
 	    handler->addSensorPort(*si);
 	}
