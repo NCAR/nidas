@@ -26,6 +26,8 @@
 
 namespace dsm {
 
+#define CLOCK_SAMPLE_ID 1
+
 /**
  * maxValue is an overloaded function returning the
  * maximum value of its integer argument.
@@ -60,50 +62,61 @@ inline size_t maxValue(unsigned long arg)
     return ULONG_MAX;
 }
 
-enum sampleType {
+typedef enum sampleType {
 	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
-	LONG_ST, ULONG_ST, FLOAT_ST, UNKNOWN_ST };
+	LONG_ST, ULONG_ST, FLOAT_ST, DOUBLE_ST,
+	LONG_LONG_ST, UNKNOWN_ST } sampleType;
 
 /**
  * Overloaded function to return a enumerated value
  * corresponding to the type pointed to by the argument.
  */
-inline enum sampleType sampleType(char* ptr)
+inline sampleType getSampleType(char* ptr)
 {
     return CHAR_ST;
 }
 
-inline enum sampleType sampleType(unsigned char* ptr)
+inline sampleType getSampleType(unsigned char* ptr)
 {
     return UCHAR_ST;
 }
 
-inline enum sampleType sampleType(unsigned short* ptr)
+inline sampleType getSampleType(unsigned short* ptr)
 {
     return USHORT_ST;
 }
 
-inline enum sampleType sampleType(short* ptr)
+inline sampleType getSampleType(short* ptr)
 {
     return SHORT_ST;
 }
 
-inline enum sampleType sampleType(unsigned long* ptr)
+inline sampleType getSampleType(unsigned long* ptr)
 {
     return ULONG_ST;
 }
 
-inline enum sampleType sampleType(long* ptr)
+inline sampleType getSampleType(long* ptr)
 {
     return LONG_ST;
 }
 
-inline enum sampleType sampleType(float* ptr)
+inline sampleType getSampleType(float* ptr)
 {
     return FLOAT_ST;
 }
 
-inline enum sampleType sampleType(void* ptr)
+inline sampleType getSampleType(double* ptr)
+{
+    return DOUBLE_ST;
+}
+
+inline sampleType getSampleType(long long* ptr)
+{
+    return LONG_LONG_ST;
+}
+
+inline sampleType getSampleType(void* ptr)
 {
     return UNKNOWN_ST;
 }
@@ -120,7 +133,6 @@ public:
     virtual void setTimeTag(dsm_sample_time_t val) = 0;
     virtual dsm_sample_time_t getTimeTag() const = 0;
 
-    // virtual const Sample* getConstNext() const = 0;
     virtual const Sample* getNext() const = 0;
     virtual void setNext(const Sample* val) = 0;
 
@@ -144,17 +156,17 @@ public:
      * Set the id portion of the sample header. The id can
      * identify the sensor of origin of the sample.
      */
-    virtual void setId(int val) = 0;
+    virtual void setId(short val) = 0;
 
     /**
      * Set the id portion of the sample header.
      */
-    virtual int getId() const = 0;
+    virtual short getId() const = 0;
 
     /**
      * Set the type of the sample.
      */
-    virtual enum sampleType getType() const = 0;
+    virtual sampleType getType() const = 0;
 
     /**
      * Number of bytes in header.
@@ -260,29 +272,31 @@ protected:
 class SampleHeader {
 public:
 
-    SampleHeader() : tt(0),length(0),id(-1) {}
+    SampleHeader(sampleType t=CHAR_ST) :
+    	tt(0),length(0),id(-1),type((short)t) {}
 
-    typedef long dsm_sample_id_t;
+    typedef short dsm_sample_id_t;
 
     dsm_sample_time_t getTimeTag() const { return tt; }
     void setTimeTag(dsm_sample_time_t val) { tt = val; }
 
     /**
-     * Get the length member of the header. Note: for a SampleHeader
-     * getDataLength returns the number of bytes in the data portion
-     * of a sample, whereas for a typed sample, getDataLength returns
-     * the number of elements in the data portion.
+     * Get the value of the length member of the header. This
+     * is the length in bytes of the data portion of the sample.
      */
-    size_t getDataLength() const { return length; }
+    size_t getDataByteLength() const { return length; }
 
     /**
      * Set the length member of the header. This is the length
      * in bytes.
      */
-    void setDataLength(size_t val) { length = val; }
+    void setDataByteLength(size_t val) { length = val; }
 
-    int getId() const { return id; }
-    void setId(int val) { id = val; }
+    short getId() const { return id; }
+    void setId(short val) { id = val; }
+
+    short getType() const { return type; }
+    void setType(short val) { type = val; }
 
     static size_t getSizeOf()
     {
@@ -302,6 +316,9 @@ protected:
 
     /* An identifier for this sample - which sensor did it come from */
     dsm_sample_id_t id;
+
+    /* type of this sample */
+    short type;
 };
 
 /**
@@ -310,28 +327,28 @@ protected:
 template <class DataT>
 class SampleT : public SampleBase {
 public:
-    SampleT() : SampleBase(),header(),data(0),allocLen(0) {}
+    SampleT() : SampleBase(),header(getType()),data(0),allocLen(0) {}
     ~SampleT() { delete [] data; }
 
     void setTimeTag(dsm_sample_time_t val) { header.setTimeTag(val); }
     dsm_sample_time_t getTimeTag() const { return header.getTimeTag(); }
 
-    void setId(int val) { header.setId(val); }
-    int getId() const { return header.getId(); }
+    void setId(short val) { header.setId(val); }
+    short getId() const { return header.getId(); }
 
-    enum sampleType getType() const { return sampleType(data); }
+    sampleType getType() const { return getSampleType(data); }
     /**
      * Get number of elements of type DataT in data.
      */
     size_t getDataLength() const
     {
-        return header.getDataLength() / sizeof(DataT);
+        return header.getDataByteLength() / sizeof(DataT);
     }
 
     /**
      * Get number of bytes in data.
      */
-    size_t getDataByteLength() const { return header.getDataLength(); }
+    size_t getDataByteLength() const { return header.getDataByteLength(); }
 
     /**
      * Set the number of elements of type DataT in data.
@@ -342,7 +359,7 @@ public:
 	if (val > getAllocLength())
 	    throw SampleLengthException(
 	    	"SampleT::setDataLength:",val,getAllocLength());
-	header.setDataLength(val * sizeof(DataT));
+	header.setDataByteLength(val * sizeof(DataT));
     }
 
     /**
@@ -444,20 +461,19 @@ public:
     */
     void freeReference() const;
 
+protected:
+
+    SampleHeader header;
+
     /**
-     * A public pointer to the actual data.
+     * Pointer to the actual data.
      */
     DataT* data;
 
-private:
-
-  SampleHeader header;
-
-
-  /**
-   * Number of bytes allocated.
-   */
-  size_t allocLen;
+    /**
+     * Number of bytes allocated in data.
+     */
+    size_t allocLen;
 };
 
 /* typedefs for common sample types. */
@@ -482,15 +498,44 @@ typedef SampleT<unsigned short> UnsignedShortIntSample;
  */
 typedef SampleT<float> FloatSample;
 
+/**
+ * A Sample with an array of long longs for data.  One use of
+ * this is to store an absolute time - milliseconds since Jan 1 1970.
+ */
+typedef SampleT<long long> LongLongSample;
+
+/**
+ * A convienence method for getting a sample of an
+ * enumerated type from a pool.
+ */
+Sample* getSample(sampleType type, size_t len);
+
 }
+
+// Here we define methods which use both the SampleT and SamplePool class.
+// We wait until now to include SamplePool.h since it needs to have 
+// the SampleT class defined. We must exit the dsm namespace before
+// including SamplePool.h
 
 #include <SamplePool.h>
 
 namespace dsm {
 
-/*
- * This method uses SamplePool, so we must wait to define
- * it in this header until after SamplePool is defined.
+/**
+ * A convienence function for getting a typed sample from a pool.
+ */
+template <class T>
+SampleT<T>* getSample(size_t len)
+{
+    SampleT<T>* samp =
+    	SamplePool<SampleT<T> >::getInstance()->getSample(len);
+    samp->setDataLength(len);
+    return samp;
+}
+
+/**
+ * Free a reference to a sample. Return it to its pool if
+ * no-one is using it.
  */
 template <class DataT>
 void SampleT<DataT>::freeReference() const
