@@ -106,10 +106,14 @@ static void* in_thread_func(void* arg)
     pthread_cleanup_push(thread_dev_close,(void*)port->devfd);
 
     for (;;) {
+	/*
+	 * this read will wait on a semaphore within dsm_serial
+	 * until data is ready
+	 */
         if ((l = read(port->devfd,buf,sizeof(buf))) < 0) {
 	    rtl_printf("in_thread_func, read error: %d\n",
 		    rtl_errno);
-	    if (rtl_errno == EINTR) return 0;
+	    if (rtl_errno == EINTR) break;
 	    return (void*)rtl_errno;
 	}
 #ifdef DEBUG
@@ -120,7 +124,7 @@ static void* in_thread_func(void* arg)
 	    if ((l = write(port->inFifoFd,cp,eob-cp)) < 0) {
 		rtl_printf("in_thread_func, write error: %d\n",
 			rtl_errno);
-		if (rtl_errno == EINTR) return 0;
+		if (rtl_errno == EINTR) break;
 		return (void*)rtl_errno;
 	    }
 	}
@@ -164,10 +168,16 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 static int close_port(struct dsm_serial_fifo_port* port)
 {
     if (port->in_thread) {
-        if (pthread_cancel(port->in_thread) < 0) goto error;
-	rtl_printf("pthread_join of in_thread\n");
+
+	rtl_printf("pthread_kill SIGTERM of in_thread for %s\n",port->inFifoName);
+        if (pthread_kill(port->in_thread,SIGTERM) < 0) goto error;
+
+	// rtl_printf("pthread_cancel of in_thread for %s\n",port->inFifoName);
+        // if (pthread_cancel(port->in_thread) < 0) goto error;
+
+	rtl_printf("pthread_join of in_thread for %s\n",port->inFifoName);
         if (pthread_join(port->in_thread,NULL) < 0) goto error;
-	rtl_printf("pthread_joined in_thread\n");
+	rtl_printf("pthread_joined in_thread for %s\n",port->inFifoName);
 	port->in_thread = 0;
     }
 
