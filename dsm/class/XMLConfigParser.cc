@@ -13,35 +13,13 @@
 
 */
 
-
-#ifdef NEED_ALL_THESE_INCLUDES
-
-// ---------------------------------------------------------------------------
-//  Includes
-// ---------------------------------------------------------------------------
-#include <xercesc/parsers/AbstractDOMParser.hpp>
-#include <xercesc/dom/DOMImplementation.hpp>
-#include <xercesc/dom/DOMImplementationLS.hpp>
-#include <xercesc/dom/DOMBuilder.hpp>
-#include <xercesc/dom/DOMException.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/dom/DOMError.hpp>
-#include <xercesc/dom/DOMNamedNodeMap.hpp>
-#include <xercesc/dom/DOMAttr.hpp>
-
-#include <string.h>
-#include <stdlib.h>
-
-#endif
-
 #include <XMLConfigParser.h>
+#include <XMLStringConverter.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/dom/DOMImplementationRegistry.hpp>
-#include <xercesc/dom/DOMNodeList.hpp>
+#include <xercesc/framework/Wrapper4InputSource.hpp>
 #include <xercesc/dom/DOMLocator.hpp>
-
-#include <XMLStringConverter.h>
 
 #include <iostream>
 
@@ -49,19 +27,50 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-XMLConfigParser::XMLConfigParser() 
-    throw (DOMException)
+xercesc::DOMImplementation* XMLImplementation::impl = 0;
+atdUtil::Mutex XMLImplementation::lock;
+
+/* static */
+xercesc::DOMImplementation*
+XMLImplementation::getImplementation() throw(atdUtil::Exception)
+{
+    if (!impl) {
+	atdUtil::Synchronized autosync(lock);
+	if (!impl) {
+	    XMLPlatformUtils::Initialize();
+
+	    // Instantiate the DOM parser.
+
+	    // "LS" is the Load and Save feature.
+	    // See: http://www.w3.org/TR/DOM-Level-3-LS/load-save.html
+	    // no exceptions thrown, but may return null if no implementation
+	    static const XMLCh gLS[] = { chLatin_L, chLatin_S, chNull };
+	    impl = DOMImplementationRegistry::getDOMImplementation(gLS);
+	    if (!impl) throw atdUtil::Exception(
+	    	" DOMImplementationRegistry::getDOMImplementation(gLS) failed");
+	}
+    }
+    return impl;
+}
+    
+/* static */
+void XMLImplementation::terminate()
+{
+    if (!impl) {
+	atdUtil::Synchronized autosync(lock);
+	if (impl) {
+	    XMLPlatformUtils::Terminate();
+	    impl = 0;
+	}
+    }
+}
+    
+
+XMLConfigParser::XMLConfigParser() throw (xercesc::DOMException,
+	atdUtil::Exception)
 {
 
-    XMLPlatformUtils::Initialize();	// no exceptions thrown
-
-    // Instantiate the DOM parser.
-
-    // "LS" is the Load and Save feature.
-    // See: http://www.w3.org/TR/DOM-Level-3-LS/load-save.html
-    // no exceptions thrown, but may return null if no implementation
-    static const XMLCh gLS[] = { chLatin_L, chLatin_S, chNull };
-    impl = DOMImplementationRegistry::getDOMImplementation(gLS);
+    impl = XMLImplementation::getImplementation();
     
     // Two kinds of builders: MODE_SYNCHRONOUS and MODE_ASYNCHRONOUS
     // ASYNC: The parseURI method returns null because the doc isn't
@@ -74,46 +83,56 @@ XMLConfigParser::XMLConfigParser()
     // throws DOMException
     parser = ((DOMImplementationLS*)impl)->createDOMBuilder(
 		DOMImplementationLS::MODE_SYNCHRONOUS, 0);
-    cerr << "ctor done" << endl;
+
+    // Create our error handler and install it
+    parser->setErrorHandler(&errorHandler);
+}
+
+void XMLConfigParser::setDOMValidation(bool val) {
+    parser->setFeature(XMLUni::fgDOMValidation, val);
+}
+
+void XMLConfigParser::setDOMValidateIfSchema(bool val) {
+    parser->setFeature(XMLUni::fgDOMValidateIfSchema, val);
+}
+
+void XMLConfigParser::setDOMNamespaces(bool val) {
+    parser->setFeature(XMLUni::fgDOMNamespaces, val);
+}
+
+void XMLConfigParser::setXercesSchema(bool val) {
+    parser->setFeature(XMLUni::fgXercesSchema, val);
+}
+
+void XMLConfigParser::setXercesSchemaFullChecking(bool val) {
+    parser->setFeature(XMLUni::fgXercesSchemaFullChecking, val);
+}
+
+void XMLConfigParser::setDOMDatatypeNormalization(bool val) {
+    parser->setFeature(XMLUni::fgDOMDatatypeNormalization, val);
+}
+
+void XMLConfigParser::setXercesUserAdoptsDOMDocument(bool val) {
+    parser->setFeature(XMLUni::fgXercesUserAdoptsDOMDocument, val);
 }
 
 XMLConfigParser::~XMLConfigParser() 
 {
     //
-    //  Delete the parser itself.  Must be done prior to calling Terminate,
+    //  Delete the parser itself.  Must be done prior to calling Terminate.
     //  below.
-    //
+    //  In xerces-c-src_2_6_0/src/xercesc/parsers/DOMBuilderImpl.cpp
+    //  parser->release() is the same as delete parser.
 
-    cerr << "release" << endl;
+    cerr << "parser release" << endl;
     parser->release();
 
-    // cerr << "delete parser" << endl;
-    // delete parser;
-
-    // cerr << "delete impl" << endl;
-    // delete impl;
-
-    cerr << "Terminate" << endl;
-    // And call the termination method
-    XMLPlatformUtils::Terminate();
 }
 
 
 DOMDocument* XMLConfigParser::parse(const string& xmlFile) 
     throw (XMLException, DOMException)
 {
-
-    parser->setFeature(XMLUni::fgDOMNamespaces, true);
-    parser->setFeature(XMLUni::fgXercesSchema, true);
-    parser->setFeature(XMLUni::fgXercesSchemaFullChecking, true);
-    parser->setFeature(XMLUni::fgDOMValidateIfSchema, true);
-
-    // enable datatype normalization - default is off
-    parser->setFeature(XMLUni::fgDOMDatatypeNormalization, true);
-
-    // And create our error handler and install it
-    XMLConfigErrorHandler errorHandler;
-    parser->setErrorHandler(&errorHandler);
 
     //reset error count first
     errorHandler.resetErrors();
@@ -127,13 +146,20 @@ DOMDocument* XMLConfigParser::parse(const string& xmlFile)
     // throws XMLException, DOMException, SAXException
     doc = parser->parseURI(
     	(const XMLCh*)XMLStringConverter(xmlFile.c_str()));
+    return doc;
+}
 
-    // check errors
+DOMDocument* XMLConfigParser::parse(xercesc::InputSource& source) 
+    throw (XMLException, DOMException)
+{
 
-    XMLCh xa[] = {chAsterisk, chNull};
-    std::cerr << "length=" << doc->getElementsByTagName(xa)->getLength() <<
-    	std::endl;
+    //reset error count first
+    errorHandler.resetErrors();
 
+    // throws XMLException, DOMException, SAXException
+    xercesc::Wrapper4InputSource wrapper(&source,false);
+    doc = parser->parse(wrapper);
+    // throws SAXException, XMLException, DOMException
     return doc;
 }
 
@@ -165,7 +191,8 @@ bool XMLConfigErrorHandler::handleError(const DOMError& domError)
          << "\n  Message: " <<
 	std::string(XMLStringConverter(domError.getMessage())) << std::endl;
 
-    return true;
+    // true=proceed, false=give up
+    return domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING;
 }
 
 void XMLConfigErrorHandler::resetErrors()
