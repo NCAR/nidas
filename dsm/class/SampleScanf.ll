@@ -122,7 +122,8 @@ LETTER	[a-zA-Z]
 
 SampleScanf::SampleScanf(): 
 	MAX_OUTPUT_VALUES(60),charfmt(0),allFloats(true),
-	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES])
+	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
+	parsebuf(0),parsebuflen(0)
 {
     for (int i = 0; i < MAX_OUTPUT_VALUES; i++)
     	bufptrs[i] = 0;
@@ -135,6 +136,7 @@ SampleScanf::~SampleScanf()
     delete [] bufptrs;
     for (int i = 0; i < (int)fields.size(); i++)
     	delete fields[i];
+    delete [] parsebuf;
 }
 
 int SampleScanf::LexerInput(char* buf, int max_size)
@@ -256,7 +258,25 @@ bool SampleScanf::receive(const Sample*samp)
 
     assert(samp->getType() == CHAR_ST);
 
-    int nparsed = ::sscanf((const char*)samp->getConstVoidDataPtr(),charfmt,
+    int slen = samp->getDataLength();
+
+    if (slen > parsebuflen) {
+        delete [] parsebuf;
+	parsebuf = new char[slen + 1];
+	parsebuflen = slen;
+    }
+
+    /*
+     * t'would be nice to avoid this copy, but we must
+     * null terminate before the scanf, and we haven't come
+     * up with a general way to do it. Some serial sensors
+     * output binary data, and we can't just add a 
+     * null at the end of every serial record.
+     */
+    memcpy(parsebuf,(const char*)samp->getConstVoidDataPtr(),slen);
+    parsebuf[slen] = '\0';
+
+    int nparsed = ::sscanf(parsebuf,charfmt,
 	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],
 	bufptrs[ 5],bufptrs[ 6],bufptrs[ 7],bufptrs[ 8],bufptrs[ 9],
 	bufptrs[10],bufptrs[11],bufptrs[12],bufptrs[13],bufptrs[14],
@@ -270,7 +290,10 @@ bool SampleScanf::receive(const Sample*samp)
 	bufptrs[50],bufptrs[51],bufptrs[52],bufptrs[53],bufptrs[54],
 	bufptrs[55],bufptrs[56],bufptrs[57],bufptrs[58],bufptrs[59]);
 
-    std::cerr << "nparsed=" << nparsed << std::endl;
+    /*
+    std::cerr << "nparsed=" << nparsed << " fmt=" << charfmt <<
+    	" data=" << parsebuf << std::endl;
+    */
 
     if (!nparsed) {
         scanfFailures++;

@@ -170,6 +170,9 @@ private:
     int scanfFailures;
 
     int scanfPartials;
+
+    char* parsebuf;
+    int parsebuflen;
 };
 
 #endif
