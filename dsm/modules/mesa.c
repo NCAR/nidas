@@ -63,12 +63,13 @@ static int fd_mesa_radar[N_RADARS][2];
 static struct rtl_sigaction cmndAct[N_MESA];
 
 /* -- IRIG CALLBACKS--------------------------------------------------- */
-void read_counter(int channel)
+void read_counter(void* channel)
 {
+  short chn = (int) channel;
   unsigned int counts;
   int read_address_offset;
 
-  if (channel == 1)
+  if (chn == 1)
     read_address_offset = COUNT0_READ_OFFSET;
   else
     read_address_offset = COUNT1_READ_OFFSET;
@@ -78,11 +79,12 @@ void read_counter(int channel)
     rtl_printf("NO COUNTS\n");
 
   /* write the counts to the user's FIFO */
-  write(fd_mesa_counter[channel][ptog], &counts, sizeof(unsigned int));
+  write(fd_mesa_counter[chn][ptog], &counts, sizeof(unsigned int));
 }
 /*************************************************************************/
-void read_radar(channel)
+void read_radar(void* channel)
 {
+  short chn = (int) channel;
   unsigned int altitude;
 
   /* read from the radar channel */
@@ -90,7 +92,7 @@ void read_radar(channel)
     rtl_printf("BAD ALTITUDE\n");
 
   /* write the altitude to the user's FIFO */
-  write(fd_mesa_radar[channel][ptog], &altitude, sizeof(unsigned int));
+  write(fd_mesa_radar[chn][ptog], &altitude, sizeof(unsigned int));
 
 }
 /************************************************************************/
@@ -141,7 +143,7 @@ void load_program(int sig, rtl_siginfo_t *siginfo, void *v)
 /************************************************************************/
 int load_finish()
 {
-  int ret, count, waitcount;
+  int ret= 0, count, waitcount;
   unsigned char config;
   enum flag success;
 
@@ -177,6 +179,7 @@ int load_finish()
 /*    cleanup_module();  */
     ret = -1;
   }
+  return ret;
 }
 /************************************************************************/
 /* -- IOCTL CALLBACK -------------------------------------------------- */
@@ -186,20 +189,23 @@ int load_finish()
  */
 static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
 {
-  int j, tog, ret = -EINVAL;
+  int j, tog, ret = len;
   char devstr[30];
   struct radar_set* radar_ptr; 
   struct counters_set* counter_ptr; 
-  struct mesa_load* load_ptr; 
 
   switch (cmd)
   {
+    case GET_NUM_PORTS:		/* user get */
+      err("GET_NUM_PORTS");
+      *(int *) buf = 4;
+      break;
+
     case MESA_LOAD:
-      load_ptr = (struct mesa_load*) buf;
-      filesize = load_ptr->filesize;
+      filesize = (int) buf;
       if(load_start() != 0)
       {
-        /* Now wait for the FPGA to be programmed*/
+        /* Now wait for the FPGA to be programmed */
         while(!prog_done);
         prog_done = FALSE;
 
@@ -224,7 +230,7 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
       }
 
       /* register poll routine with the IRIG driver */
-      register_irig_callback(&read_counter, counter_channels);
+      register_irig_callback(&read_counter, counter_ptr->rate, (void *)counter_channels);
       ret = 0;        
       break;
 
@@ -243,7 +249,7 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, size_t len)
       }
             
       /* register poll routine with the IRIG driver */
-      register_irig_callback(&read_radar, radar_channels);
+      register_irig_callback(&read_radar, radar_ptr->rate, (void *)radar_channels);
       ret = 0;        
       break;
 
