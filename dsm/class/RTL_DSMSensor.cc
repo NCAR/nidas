@@ -1,5 +1,16 @@
 /*
-   Copyright by the National Center for Atmospheric Research
+ ********************************************************************
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 671 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+ ********************************************************************
+
 */
 
 #include <fcntl.h>
@@ -36,14 +47,32 @@ RTL_DSMSensor::RTL_DSMSensor(const string& nameArg) :
     outFifoName = prefix + "_out_" + portstr;
 }
 
+/**
+ * Destructor.  This also does a close, which is a bit of an
+ * issue, since close can throw IOException, and we want to
+ * avoid throwing exceptions in destructors.  For now
+ * we'll catch it a write it to cerr, which should be
+ * replaced by a actual logging object.
+ */
 RTL_DSMSensor::~RTL_DSMSensor()
 {
-  close();
+    cerr << "~RTL_DSMSensor()" << endl;
+    try {
+      close();
+    }
+    catch(atdUtil::IOException& ioe) {
+       cerr << ioe.what() << endl;
+    }
+
 }
 
 void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
   
+    devIoctl = RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
+    if (devIoctl) devIoctl->open();
+
+    /* may have to defer opening the fifos until sending the ioctl requests */
     int accmode = flags & O_ACCMODE;
 
     if (accmode == O_RDONLY || accmode == O_RDWR) {
@@ -56,20 +85,21 @@ void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 	if (outfifofd < 0) throw atdUtil::IOException(outFifoName,"open",errno);
     }
 
-    devIoctl = RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
-
-    if (devIoctl) devIoctl->open();
 }
 
 
-void RTL_DSMSensor::close()
+void RTL_DSMSensor::close() throw(atdUtil::IOException)
 {
-    if (infifofd >= 0)
+    if (infifofd >= 0) {
+	cerr << "closing in fifo" << endl;
         ::close(infifofd);
+    }
     infifofd = -1;
 
-    if (outfifofd >= 0)
+    if (outfifofd >= 0) {
+	cerr << "closing out fifo" << endl;
         ::close(outfifofd);
+    }
     outfifofd = -1;
 
     if (devIoctl) devIoctl->close();
