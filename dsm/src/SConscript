@@ -27,15 +27,15 @@ myenv.AppendUnique(LIBS = Split("""
 # ckrtl_com8.cc
 #   dsmSync.cc
 #   ck_main.cc
-#   ck_factory.cc
-#   ck_config.cc
 apps = Split("""
   XXXX_IoctlTest.cc
   serial_test.cc
   sensor_test.cc
   ck_selector.cc
   ck_serial.cc
+  ck_config.cc
 """)
+##  ck_factory.cc
 
 for i in apps:
   myenv.Program( i )
