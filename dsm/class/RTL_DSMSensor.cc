@@ -141,18 +141,26 @@ void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len)
     devIoctl->ioctl(request,portNum,buf,len);
 }
 
-ssize_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
+size_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
 {
     ssize_t l = ::read(infifofd,buf,len);
-    if (l < 0) throw atdUtil::IOException(inFifoName,"read",errno);
+    if (l < 0) {
+	readErrorCount[0]++;	// [0] is recent, [1] is cumulative
+	readErrorCount[1]++;
+        throw atdUtil::IOException(inFifoName,"read",errno);
+    }
     return l;
 }
 
-ssize_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOException)
+size_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOException)
 {
-    size_t n = ::write(outfifofd,buf,len);
-    if (n < 0) throw atdUtil::IOException(outFifoName,"write",errno);
-    return n;
+    ssize_t l = ::write(outfifofd,buf,len);
+    if (l < 0) {
+	writeErrorCount[0]++;	// [0] is recent, [1] is cumulative
+	writeErrorCount[1]++;
+	throw atdUtil::IOException(outFifoName,"write",errno);
+    }
+    return l;
 }
 
 dsm_sample_time_t RTL_DSMSensor::readSamples()
@@ -178,6 +186,7 @@ dsm_sample_time_t RTL_DSMSensor::readSamples()
 	    if (!sampDataToRead) {		// done with sample
 		tt = samp->getTimeTag();	// return last time tag read
 	        distribute(samp);
+		nsamples++;
 		samp = 0;
 	    }
 	    else break;				// done with buffer
@@ -198,6 +207,12 @@ dsm_sample_time_t RTL_DSMSensor::readSamples()
 	samp->setId(getId());	// set sample id to id of this sensor
 	sampDataPtr = (char*) samp->getVoidDataPtr();
 	sampDataToRead = len;
+
+	// keeps some stats
+	if(len < minSampleLength[currStatsIndex]) 
+	    minSampleLength[currStatsIndex] = len;
+	if (len > maxSampleLength[currStatsIndex])
+	    maxSampleLength[currStatsIndex] = len;
     }
 
     // shift data down. There shouldn't be much - less than a header's worth.
