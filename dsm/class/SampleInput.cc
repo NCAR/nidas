@@ -15,6 +15,8 @@
 #include <SampleInput.h>
 #include <DSMSensor.h>
 
+#include <atdUtil/Logger.h>
+
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
@@ -57,7 +59,7 @@ void SampleInputStream::requestConnection(SampleConnectionRequester* requester)
     iochan->requestConnection(this,getPseudoPort());
 }
 
-void SampleInputStream::connected(IOChannel* iochannel)
+void SampleInputStream::connected(IOChannel* iochannel) throw()
 {
     assert(iochan == iochannel);
     assert(connectionRequester);
@@ -94,10 +96,12 @@ int SampleInputStream::getPseudoPort() const { return pseudoPort; }
 
 void SampleInputStream::addSensor(DSMSensor* sensor)
 {
-    sensor_map[sensor->getId()] = sensor;
+    sensorMapMutex.lock();
+    sensorMap[sensor->getId()] = sensor;
+    sensorMapMutex.unlock();
 }
 
-void SampleInputStream::init()
+void SampleInputStream::init() throw()
 {
     cerr << "SampleInputStream::init(), buffer size=" << 
     	iochan->getBufferSize() << endl;
@@ -139,7 +143,6 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
     iostream->read();		// read a buffer's worth
 
     SampleHeader header;
-    map<unsigned long,DSMSensor*>::const_iterator mapend = sensor_map.end();
     map<unsigned long,DSMSensor*>::const_iterator sensori;
 
     // process all in buffer
@@ -150,11 +153,13 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 #endif
 	    if (iostream->available() < header.getSizeOf()) break;
 	    iostream->read(&header,header.getSizeOf());
+	    assert(header.getSizeOf() == 12);
 
 #ifdef DEBUG
-	    cerr << "read header, type=" << header.getType() <<
+	    cerr << "read header " <<
 	    	" getTimeTag=" << header.getTimeTag() <<
 	    	" getId=" << header.getId() <<
+	    	" getType=" << (int) header.getType() <<
 	    	" getDataByteLength=" << header.getDataByteLength() <<
 		endl;
 #endif
@@ -185,14 +190,19 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    // if we're an input of raw samples, pass them to the
 	    // appropriate sensor for distribution.
 
-	    // todo: need to catch exceptions here and freeReference
-	    if (isRaw()) {
-		sensori = sensor_map.find(samp->getId());
-		if (sensori != mapend) sensori->second->distributeRaw(samp);
-		else unrecognizedSamples++;
+	    sensorMapMutex.lock();
+	    if (isRaw() && sensorMap.size() > 0) {
+		sensori = sensorMap.find(samp->getId());
+		if (sensori != sensorMap.end()) sensori->second->receive(samp);
+		else if (!(unrecognizedSamples++) % 100) {
+		    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    	"SampleInputStream unrecognizedSamples=%d",
+				unrecognizedSamples);
+		}
 	    }
+	    sensorMapMutex.unlock();
 
-	    // distribute them ourselvs too
+	    // distribute samples to my own clients
 	    distribute(samp);
 	    samp->freeReference();
 	    samp = 0;
@@ -246,16 +256,16 @@ Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 /*
  * process <input> element
  */
-void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
+void SampleInputStream::fromDOMElement(const DOMElement* node)
         throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
         // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
@@ -265,13 +275,13 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     // process <socket>, <fileset> child elements (should only be one)
 
     int niochan = 0;
-    xercesc::DOMNode* child;
+    DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
     {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 
-        XDOMElement xchild((xercesc::DOMElement*) child);
+        XDOMElement xchild((DOMElement*) child);
         const string& elname = xchild.getNodeName();
 
 	iochan = IOChannel::createIOChannel(elname);
@@ -279,7 +289,7 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 	iochan->setDSMConfig(getDSMConfig());
 	iochan->setDSMService(getDSMService());
 
-	iochan->fromDOMElement((xercesc::DOMElement*)child);
+	iochan->fromDOMElement((DOMElement*)child);
 
 	if (++niochan > 1)
 	    throw atdUtil::InvalidParameterException(
@@ -293,11 +303,11 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     setName(string("SampleInputStream: ") + iochan->getName());
 }
                                                            
-xercesc::DOMElement* SampleInputStream::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+DOMElement* SampleInputStream::toDOMParent(
+    DOMElement* parent)
+    throw(DOMException)
 {
-    xercesc::DOMElement* elem =
+    DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
                         DOMable::getNamespaceURI());
@@ -305,8 +315,8 @@ xercesc::DOMElement* SampleInputStream::toDOMParent(
     return toDOMElement(elem);
 }
                                                                                 
-xercesc::DOMElement* SampleInputStream::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+DOMElement* SampleInputStream::toDOMElement(DOMElement* node)
+    throw(DOMException)
 {
     return node;
 }

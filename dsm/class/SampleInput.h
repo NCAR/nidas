@@ -55,7 +55,7 @@ public:
 
     virtual int getFd() const = 0;
 
-    virtual void init() = 0;
+    virtual void init() throw() = 0;
 
     /**
      * Read a buffer of data, serialize the data into samples,
@@ -124,11 +124,11 @@ public:
     void requestConnection(SampleConnectionRequester*)
             throw(atdUtil::IOException);
 
-    void connected(IOChannel* iochan);
+    void connected(IOChannel* iochan) throw();
 
     atdUtil::Inet4Address getRemoteInet4Address() const;
 
-    void init();
+    void init() throw();
 
     /**
      * Read a buffer of data, serialize the data into samples,
@@ -187,7 +187,10 @@ protected:
 
     const DSMService* service;
 
-    std::map<unsigned long int, DSMSensor*> sensor_map;
+
+    std::map<unsigned long int, DSMSensor*> sensorMap;
+
+    atdUtil::Mutex sensorMapMutex;
 
     /**
      * Will be non-null if we have previously read part of a sample
