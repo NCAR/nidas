@@ -7,7 +7,8 @@
 
 <sensorcatalog>
     <serialsensor ID="mensor" class="DSMSerialSensor"
-	baud="9600" parity="none" databits="8" stopbits="1">
+	baud="9600" parity="none" databits="8" stopbits="1"
+	scanfFormat="%2*c%f">
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="hitme\n" rate="10"/>
     </serialsensor>

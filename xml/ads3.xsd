@@ -83,6 +83,7 @@
 	    <xsd:attribute name="parity" type="paritytype" default="none"/>
 	    <xsd:attribute name="databits" type="databitstype" default="8"/>
 	    <xsd:attribute name="stopbits" type="stopbitstype" default="1"/>
+	    <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
@@ -133,9 +134,17 @@
 <xsd:element name="project">
     <xsd:complexType>
 	<xsd:sequence>
-	    <xsd:element name="sensorcatalog"
-	    	minOccurs="1" maxOccurs="1"/>
+	    <xsd:element name="sensorcatalog" minOccurs="0" maxOccurs="1"/>
 	    <xsd:element name="aircraft" minOccurs="1" maxOccurs="unbounded"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="config">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:element name="sensorcatalog" minOccurs="0" maxOccurs="1"/>
+	    <xsd:element name="project" minOccurs="0" maxOccurs="unbounded"/>
 	</xsd:sequence>
     </xsd:complexType>
 </xsd:element>
