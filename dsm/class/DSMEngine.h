@@ -13,14 +13,17 @@
 
 */
 
-#ifndef DSM_DSM_H
-#define DSM_DSM_H
+#ifndef DSM_DSMENGINE_H
+#define DSM_DSMENGINE_H
 
 #include <atdUtil/Socket.h>
+
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/SAXException.hpp>
 
 #include <Project.h>
+#include <Aircraft.h>
+#include <DSMConfig.h>
 #include <PortSelector.h>
 
 namespace dsm {
@@ -29,29 +32,15 @@ namespace dsm {
  * Data Service Module, a class that drives an ADS3 data collection
  * box.
  */
-class DSM {
+class DSMEngine {
 public:
 
     /**
-     * Entry point to run a DSM process from a command line.
+     * Entry point to run a DSMEngine process from a command line.
      */
     static int main(int argc, char** argv) throw();
 
-    /**
-     * Constructor.
-     */
-    DSM();
-
-    ~DSM();
-
-    /**
-     * Use this static method, rather than the public constructor,
-     * to create an instance of a DSM which will receive signals
-     * sent to a process.
-     */
-    static DSM* createInstance();
-
-    static DSM* getInstance();
+    static DSMEngine* getInstance();
 
     xercesc::DOMDocument* requestXMLConfig()
 	throw(atdUtil::Exception,xercesc::DOMException,
@@ -72,15 +61,28 @@ public:
 
 protected:
 
-    static DSM* instance;
+    /**
+     * Use this static method, rather than the public constructor,
+     * to create an instance of a DSMEngine which will receive signals
+     * sent to a process.
+     */
+    static DSMEngine* createInstance();
+
+    static DSMEngine* instance;
 
     static void setupSignals();
 
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     /**
-     * A socket for receiving my configuration, and possibly
-     * sending back data.
+     * Constructor.
+     */
+    DSMEngine();
+
+    ~DSMEngine();
+
+    /**
+     * A socket for receiving my configuration.
      */
     atdUtil::ServerSocket* streamSock;
 

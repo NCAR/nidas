@@ -13,13 +13,13 @@
 
 */
 
-#include <DSM.h>
+#include <DSMEngine.h>
 
 #include <atdUtil/Logger.h>
 
 #include <ConfigRequestor.h>
 #include <XMLStringConverter.h>
-#include <XMLConfigParser.h>
+#include <XMLParser.h>
 
 #include <XMLFdInputSource.h>
 
@@ -31,7 +31,7 @@ using namespace xercesc;
 
 DSMRunstring::DSMRunstring(int argc, char** argv) {
     debug = false;
-    extern char *optarg;       /* set by getopt() */
+    // extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
@@ -63,10 +63,10 @@ Usage: " << argv0 << "[-d] [config]\n\
 }
 
 /* static */
-DSM* DSM::instance = 0;
+DSMEngine* DSMEngine::instance = 0;
 
 /* static */
-int DSM::main(int argc, char** argv) throw()
+int DSMEngine::main(int argc, char** argv) throw()
 {
 
     DSMRunstring rstr(argc,argv);
@@ -80,7 +80,7 @@ int DSM::main(int argc, char** argv) throw()
 		hostname,LOG_CONS,LOG_LOCAL5);
     }
 
-    DSM* dsm = createInstance();
+    DSMEngine* dsm = createInstance();
     DOMDocument* projectDoc;
 
     // first fetch the configuration
@@ -110,7 +110,7 @@ int DSM::main(int argc, char** argv) throw()
 	return 1;
     }
 
-    // then initialize the DSM
+    // then initialize the DSMEngine
     try {
 	dsm->initialize(projectDoc);
     }
@@ -121,7 +121,7 @@ int DSM::main(int argc, char** argv) throw()
 
     projectDoc->release();
 
-    // DSM, start your sensors
+    // start your sensors
     try {
 	dsm->startSensors();
     }
@@ -143,7 +143,7 @@ int DSM::main(int argc, char** argv) throw()
 }
 
 /* static */
-void DSM::setupSignals()
+void DSMEngine::setupSignals()
 {
     sigset_t sigset;
     sigemptyset(&sigset);
@@ -156,13 +156,13 @@ void DSM::setupSignals()
     sigemptyset(&sigset);
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = DSM::sigAction;
+    act.sa_sigaction = DSMEngine::sigAction;
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-void DSM::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     atdUtil::Logger::getInstance()->log(LOG_INFO,
     	"received signal %s(%d), si_signo=%d, si_errno=%d, si_code=%d",
 	strsignal(sig),sig,
@@ -174,41 +174,41 @@ void DSM::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            DSM::getInstance()->interrupt();
+            DSMEngine::getInstance()->interrupt();
     break;
     }
 }
 
-DSM::DSM():
+DSMEngine::DSMEngine():
     streamSock(0),project(0),aircraft(0),dsmConfig(0),handler(0)
 {
 }
 
-DSM::~DSM()
+DSMEngine::~DSMEngine()
 {
     if (streamSock) streamSock->close();
     delete handler;
     delete project;
 }
 
-DSM* DSM::createInstance() 
+DSMEngine* DSMEngine::createInstance() 
 {
-    instance = new DSM();
+    instance = new DSMEngine();
     setupSignals();
     return instance;
 }
 
-DSM* DSM::getInstance() 
+DSMEngine* DSMEngine::getInstance() 
 {
     return instance;
 }
 
-DOMDocument* DSM::requestXMLConfig()
+DOMDocument* DSMEngine::requestXMLConfig()
 	throw(atdUtil::Exception,
 	    DOMException,SAXException,XMLException)
 {
     cerr << "creating parser" << endl;
-    XMLConfigParser* parser = new XMLConfigParser();
+    XMLParser* parser = new XMLParser();
     // throws Exception, DOMException
 
     // If parsing xml received from a server over a socket,
@@ -255,13 +255,13 @@ DOMDocument* DSM::requestXMLConfig()
     return doc;
 }
 
-DOMDocument* DSM::parseXMLConfigFile(const string& xmlFileName)
+DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(atdUtil::Exception,
 	DOMException,SAXException,XMLException)
 {
 
     cerr << "creating parser" << endl;
-    XMLConfigParser* parser = new XMLConfigParser();
+    XMLParser* parser = new XMLParser();
     // throws Exception, DOMException
 
     // If parsing a local file, turn on validation
@@ -281,7 +281,7 @@ DOMDocument* DSM::parseXMLConfigFile(const string& xmlFileName)
     return doc;
 }
 
-void DSM::initialize(DOMDocument* projectDoc)
+void DSMEngine::initialize(DOMDocument* projectDoc)
 	throw(atdUtil::InvalidParameterException)
 {
     project = Project::getInstance();
@@ -309,7 +309,7 @@ void DSM::initialize(DOMDocument* projectDoc)
     dsmConfig = dsms.front();
 }
 
-void DSM::startSensors() throw(atdUtil::IOException)
+void DSMEngine::startSensors() throw(atdUtil::IOException)
 {
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
 
@@ -327,21 +327,21 @@ void DSM::startSensors() throw(atdUtil::IOException)
     }
 }
 
-void DSM::interrupt() throw(atdUtil::Exception)
+void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
     if (handler) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSM::interrupt received, interrupting sensor handler");
+	    "DSMEngine::interrupt received, cancelling sensor handler");
         handler->cancel();
     }
     else {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSM::interrupt received, exiting");
+	    "DSMEngine::interrupt received, exiting");
         exit(1);
     }
 }
 
-void DSM::wait() throw(atdUtil::Exception)
+void DSMEngine::wait() throw(atdUtil::Exception)
 {
     handler->join();
 }
