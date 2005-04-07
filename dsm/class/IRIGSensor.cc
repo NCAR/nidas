@@ -48,6 +48,7 @@ void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 
     struct timeval tv;
 
+#define DEBUG
 #ifdef DEBUG
     unsigned char status;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
@@ -120,7 +121,7 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	    "IRIG clock is %lld msecs %s unix clock, status=0x%x, llabs=%lld",
 	    sampt - syst,msg,status,::llabs(syst-sampt));
 	}
-	if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
+	// if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
     }
     result.push_back(clksamp);
     return true;
