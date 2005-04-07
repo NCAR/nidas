@@ -20,6 +20,7 @@
 #include <SampleClient.h>
 #include <IOStream.h>
 #include <ConnectionRequester.h>
+#include <SampleStreamDater.h>
 
 // #include <atdUtil/McSocket.h>
 
@@ -149,23 +150,19 @@ protected:
 
     const DSMService* service;
 
+    SampleConnectionRequester* connectionRequester;
+
     /** Do we need to keep track of sample time tags,
      * as when writing to time-tagged archive files,
      * or can we just simply write the samples.
      */
     enum type { SIMPLE, TIMETAG_DEPENDENT } type;
 
-    SampleConnectionRequester* connectionRequester;
-
-    dsm_sys_time_t fullSampleTimetag;
-
-    dsm_sys_time_t t0day;
-
     dsm_sys_time_t nextFileTime;
 
-    dsm_sys_time_t tsampLast;
-
     int questionableTimetags;
+
+    SampleStreamDater dater;
 
 };
 

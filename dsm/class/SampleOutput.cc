@@ -27,8 +27,7 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 SampleOutputStream::SampleOutputStream():
 	name("SampleOutputStream"),iochan(0),iostream(0),
 	pseudoPort(0),dsm(0),service(0),connectionRequester(0),
-	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
-	nextFileTime(0),tsampLast(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),nextFileTime(0),questionableTimetags(0)
 {
 }
 
@@ -37,8 +36,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	pseudoPort(x.pseudoPort),
 	dsm(x.dsm),service(x.service),
 	connectionRequester(x.connectionRequester),
-	type(TIMETAG_DEPENDENT),fullSampleTimetag(0),t0day(0),
-	nextFileTime(0),tsampLast(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),nextFileTime(0),questionableTimetags(0)
 {
 }
 
@@ -134,56 +132,21 @@ void SampleOutputStream::flush() throw(atdUtil::IOException)
 bool SampleOutputStream::receive(const Sample *samp) throw()
 {
     if (!iostream) return false;
+
     if (type == TIMETAG_DEPENDENT) {
+        samp = dater(samp);
 
-
-#ifdef DEBUG
-	if (samp->getShortId() == CLOCK_SAMPLE_ID)
-	    cerr << "samp->getId()=" << samp->getId() <<
-		" shortId=" << samp->getShortId() <<
-		" getType=" << samp->getType() <<
-		" getDataLength=" << samp->getDataLength() << endl;
-#endif
-
-	if (samp->getShortId() == CLOCK_SAMPLE_ID &&
-		samp->getType() == LONG_LONG_ST &&
-		samp->getDataLength() == 1) {
-	    fullSampleTimetag = ((long long*)samp->getConstVoidDataPtr())[0];
-	    t0day = timeFloor(fullSampleTimetag,MSECS_PER_DAY);
-	    // cerr << "t0day=" << t0day << endl;
+	if (dater.getStatus() != dater.OK) {
+	    questionableTimetags++;
+	    return false;
 	}
 
-	if (fullSampleTimetag == 0) return false;
+	dsm_sys_time_t tsamp = dater.getTime();
 
-	dsm_sys_time_t tsamp = t0day + samp->getTimeTag();
-
-	bool goodTime = true;
-	if (abs(tsamp - fullSampleTimetag) > 60000) {
-	    /* midnight rollover */
-	    if (abs(tsamp + MSECS_PER_DAY - fullSampleTimetag) < 60000) {
-		cerr << "midnight rollover, tt=" << samp->getTimeTag() <<
-		    " tsamp=" << tsamp << " tsampLast=" << tsampLast <<
-		    " t0day=" << t0day << endl;
-		t0day += MSECS_PER_DAY;
-		tsamp += MSECS_PER_DAY;
-		tsampLast = tsamp;
-	    }
-	    else {
-		cerr << "bad time?, tt=" << samp->getTimeTag() <<
-		    " tsamp=" << tsamp << " tsampLast=" << tsampLast <<
-		    " t0day=" << t0day << endl;
-		questionableTimetags++;
-		goodTime = false;
-	    }
-	}
-
-	if (goodTime) {
-	    tsampLast = tsamp;
-	    if (nextFileTime == 0) nextFileTime = tsamp;
-	    if (tsamp >= nextFileTime) {
-		cerr << "calling iostream->createFile" << endl;
-		nextFileTime = iostream->createFile(nextFileTime);
-	    }
+	if (nextFileTime == 0) nextFileTime = tsamp;
+	if (tsamp >= nextFileTime) {
+	    cerr << "calling iostream->createFile" << endl;
+	    nextFileTime = iostream->createFile(nextFileTime);
 	}
     }
 
