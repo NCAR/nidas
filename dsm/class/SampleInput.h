@@ -100,6 +100,8 @@ public:
      */
     SampleInputStream();
 
+    SampleInputStream(IOChannel* iochannel);
+
     /**
      * Copy constructor.
      */
@@ -168,9 +170,6 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
-
-
-
 protected:
 
     std::string name;
@@ -186,7 +185,6 @@ protected:
     const DSMConfig* dsm;
 
     const DSMService* service;
-
 
     std::map<unsigned long int, DSMSensor*> sensorMap;
 

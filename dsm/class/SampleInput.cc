@@ -31,6 +31,15 @@ SampleInputStream::SampleInputStream():
 {
 }
 
+SampleInputStream::SampleInputStream(IOChannel* iochannel):
+    name(string("SampleInputStream:") + iochannel->getName()),
+    iochan(iochannel),iostream(0),
+    pseudoPort(0),connectionRequester(0),
+    dsm(0),service(0), samp(0),left(0),dptr(0),
+    unrecognizedSamples(0)
+{
+}
+
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
     name(x.name),iochan(x.iochan->clone()),iostream(0),
     pseudoPort(x.pseudoPort),connectionRequester(x.connectionRequester),
@@ -221,7 +230,7 @@ Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
     // do, checking for non-null samp here should make things work.
     if (!samp) {
 	SampleHeader header;
-	if (iostream->available() < header.getSizeOf()) 
+	while (iostream->available() < header.getSizeOf()) 
 	    iostream->read();
 
 	iostream->read(&header,header.getSizeOf());
