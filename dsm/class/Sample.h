@@ -27,6 +27,8 @@
 
 namespace dsm {
 
+typedef unsigned long dsm_sample_id_t;
+
 /**
  * Whether to use mutexes to make sure the reference count
  * increments and decrement-and-test operations are atomic.
@@ -295,7 +297,6 @@ public:
     SampleHeader(sampleType t=CHAR_ST) :
     	tt(0),length(0),id((unsigned long)t << 24) {}
 
-    typedef unsigned long dsm_sample_id_t;
 
     dsm_sample_time_t getTimeTag() const { return tt; }
     void setTimeTag(dsm_sample_time_t val) { tt = val; }
