@@ -35,7 +35,7 @@
 
 RTLINUX_MODULE(pc104sg);
 
-#define INTERRUPT_RATE 	1000
+#define INTERRUPT_RATE 	100
 #define A2DREF_RATE	10000
 
 /* module parameters (can be passed in via command line) */
