@@ -52,7 +52,9 @@ size_t IOStream::read() throw(atdUtil::IOException)
 
     l = iochannel.read(head,eob-head);
 
+#ifdef DEBUG
     cerr << "IOStream, read =" << l << endl;
+#endif
     head += l;
     return l;
 }
@@ -72,7 +74,7 @@ size_t IOStream::read(void* buf, size_t len) throw()
 
 
 /**
- * Buffered atomic write. We change the contents of lens.
+ * Buffered atomic write. We change the contents of lens argument.
  */
 bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::IOException)
 {

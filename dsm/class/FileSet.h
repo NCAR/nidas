@@ -39,8 +39,6 @@ public:
 
     const std::string& getName() const;
 
-    void setName(const std::string& val);
-
     void setDir(const std::string& val);
 
     void setFileName(const std::string& val);
@@ -90,6 +88,8 @@ protected:
      * Recognizeable name of this IOChannel - used for informative
      * messages.
      */
+    void setName(const std::string& val);
+
     std::string name;
 
 };

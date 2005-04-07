@@ -63,10 +63,12 @@ sources = Split("""
   McSocket.cc
   FileSet.cc
 
+
   SampleInput.cc
   SampleOutput.cc
   RawSampleOutputStream.cc
   RawSampleInputStream.cc
+  SampleStreamDater.cc
 
   SampleIOProcessor.cc
   SyncRecordProcessor.cc
