@@ -51,11 +51,11 @@ env['CXXFLAGS'] = Split("""
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
+##  #/disc/class
+##  /jnet/linux/include
 env['CPPPATH'] = Split("""
-  /jnet/linux/include
   #/dsm/modules
   #/dsm/class
-  #/disc/class
   .
 """)
 
@@ -68,6 +68,7 @@ arm_env = env.Copy()
 #   -mcpu=xscale
 # """))
 
+##    /scr/tmp/maclean/isa_tmp/arm/include
 arm_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/include
     /net/opt_lnx/local_arm/include
@@ -80,6 +81,7 @@ arm_env.AppendUnique(CPPPATH = Split("""
 ##       dl
 ##     """))
 
+##    /scr/tmp/maclean/isa_tmp/arm/lib
 arm_env.AppendUnique(LIBPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/lib
     /net/opt_lnx/local_arm/lib
@@ -108,6 +110,13 @@ arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 ##
 x86_env = env.Copy()
 
+##
+##  Define it's compiler flags for the all build tools.
+##-O2 <-> -g
+x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
+x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
+
+##     /scr/tmp/maclean/isa_tmp/fc3/include
 x86_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_fc3/isffLib/include
     /net/opt_lnx/local_fc3/include
@@ -122,6 +131,8 @@ x86_env.AppendUnique(CPPPATH = Split("""
 
 ##     Disc
 
+
+##    /scr/tmp/maclean/isa_tmp/fc3/lib
 x86_env.AppendUnique(LIBPATH = Split("""
     /net/opt_lnx/local_fc3/isffLib/lib
     /net/opt_lnx/local_fc3/lib
@@ -156,9 +167,9 @@ SConscript('dsm/class/SConscript',
 ##
 ##  Build libDisc.a
 ##
-SConscript('disc/class/SConscript',
-	build_dir='disc/class/x86',
-	duplicate=0,exports={'env':x86_env})
+## SConscript('disc/class/SConscript',
+## 	build_dir='disc/class/x86',
+## 	duplicate=0,exports={'env':x86_env})
 
 ##
 ##  Build arm executables
@@ -177,6 +188,6 @@ SConscript('dsm/src/SConscript',
 ##
 ##  Build bin/discAsync, bin/discSync, bin/discComm
 ##
-SConscript('disc/src/SConscript',
-	build_dir='disc/src/x86',
-	duplicate=0,exports={'env':x86_env})
+## SConscript('disc/src/SConscript',
+## 	build_dir='disc/src/x86',
+## 	duplicate=0,exports={'env':x86_env})
