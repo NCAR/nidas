@@ -7,10 +7,14 @@
 Import('env')
 myenv = env.Copy()
 
+# -ggdb
+myenv.AppendUnique(CXXFLAGS = Split("""
+ -DXML_DEBUG
+"""))
+
 ##
 ##  List the source files compiled into the libDsm.a library.
 ##
-# DSMArincSensor.cc
 
 sources = Split("""
 
@@ -27,6 +31,12 @@ sources = Split("""
   RTL_DevIoctlStore.cc
   RTL_DSMSensor.cc
 
+  DSMArincSensor.cc
+    ADC_HW_EB7022597.cc
+    GPS_HW_HG2021GB02.cc
+    IRS_HW_HG2001GD.cc
+    IRS_HW_YG1854.cc
+  
   DSMSerialSensor.cc
   AsciiScanner.cc
   IRIGSensor.cc
