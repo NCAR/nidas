@@ -83,7 +83,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             if (!aname.compare("name")) setName(aval);
             else if (!aname.compare("location")) setLocation(aval);
             else if (!aname.compare("id")) {
-		int id;
+		unsigned short id;
 		istringstream ist(aval);
 		ist >> id;
 		if (ist.fail()) throw atdUtil::InvalidParameterException(

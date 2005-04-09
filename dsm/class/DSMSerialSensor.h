@@ -156,7 +156,7 @@ public:
 
 protected:
 
-    unsigned long sampleId;
+    dsm_sample_id_t sampleId;
 
     static std::string replaceEscapeSequences(std::string str);
 

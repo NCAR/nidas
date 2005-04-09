@@ -114,11 +114,6 @@ public:
     const std::string& getDSMName() const;
 
     /**
-     * Fetch the DSM id.
-     */
-    virtual unsigned char getDSMId() const;
-
-    /**
      * Return a name that should fully identify this sensor. This
      * name could be used in informative messages. The returned name
      * has this format:
@@ -150,17 +145,25 @@ public:
     virtual bool isClock() const { return false; }
 
     /**
-     * Set an identification number on this sensor.
-     * The raw samples from this sensor will contain this id.
-     * DSMConfig will make sure that this id is unique across
-     * the DSM.
+     * Set the various levels of the sensor identification.
+     * A sensor ID is a 32-bit value comprised of four parts:
+     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    void setId(unsigned short val) { id = val; };
+    void setId(dsm_sample_id_t val) { id = val; }
+    void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; }
+    void setDSMId(unsigned short val)
+    {
+	id = (id & 0xfc00ffff) | ((unsigned long)(val & 0x3ff) << 16);
+    }
 
     /**
-     * Retrieve this sensor's id number.
+     * Get the various levels of the samples identification.
+     * A sample tag ID is a 32-bit value comprised of four parts:
+     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    unsigned long getId() const { return id; };
+    dsm_sample_id_t  getId()      const { return id; }
+    unsigned short getDSMId()   const { return (id & 0x3ff0000) >> 16; }
+    unsigned short getShortId() const { return (id & 0xffff); }
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -281,7 +284,7 @@ protected:
 
     std::string devname;
 
-    unsigned short id;
+    dsm_sample_id_t id;
 
     std::list<SampleTag*> sampleTags;
 

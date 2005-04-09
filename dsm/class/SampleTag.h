@@ -17,6 +17,7 @@
 
 #include <DOMable.h>
 #include <Variable.h>
+#include <Sample.h>
 
 #include <vector>
 #include <list>
@@ -40,22 +41,22 @@ public:
     /**
      * Set the various levels of the samples identification.
      * A sample tag ID is a 32-bit value comprised of four parts:
-     * 8-bit type_id  8-bit DSM_id  16-bit sensor+sample
+     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    void setId(unsigned long val) { id = val; }
+    void setId(dsm_sample_id_t val) { id = val; }
     void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; }
-    void setDSMId(unsigned char val)
+    void setDSMId(unsigned short val)
     {
-	id = (id & 0xff00ffff) | (unsigned long)val << 16;
+	id = (id & 0xfc00ffff) | (unsigned long)(val & 0x3ff) << 16;
     }
 
     /**
      * Get the various levels of the samples identification.
      * A sample tag ID is a 32-bit value comprised of four parts:
-     * 8-bit type_id  8-bit DSM_id  16-bit sensor+sample
+     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    unsigned long  getId()      const { return id; }
-    unsigned char  getDSMId()   const { return (id & 0xff0000) >> 16; }
+    dsm_sample_id_t  getId()      const { return id; }
+    unsigned short  getDSMId()   const { return (id & 0x3ff0000) >> 16; }
     unsigned short getShortId() const { return (id & 0xffff); }
 
     /**
@@ -94,7 +95,7 @@ public:
 
 protected:
 
-    unsigned long id;
+    dsm_sample_id_t id;
 
     float rate;
 

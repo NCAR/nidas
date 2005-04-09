@@ -60,8 +60,6 @@ const std::string& DSMSensor::getDSMName() const {
     return unk;
 }
 
-unsigned char DSMSensor::getDSMId() const { return getDSMConfig()->getId(); }
-
 void DSMSensor::initBuffer() throw()
 {
     bufhead = buftail = 0;
@@ -199,6 +197,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
 
+    setDSMId(getDSMConfig()->getId());
+
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
@@ -221,7 +221,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sensor","id",
 		    	attr.getValue());
-		setId(val);
+		setShortId(val);
 	    }
 	}
     }
@@ -261,7 +261,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    	getName(),"duplicate sample id", ost.str());
 	}
 
-	samp->setShortId(getId() + samp->getId());
+	// sum of sensor short id and sample short id
+	samp->setShortId(getShortId() + samp->getShortId());
 	samp->setDSMId(getDSMConfig()->getId());
     }
 }

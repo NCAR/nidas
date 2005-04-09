@@ -47,8 +47,8 @@ public:
     const std::string& getLocation() const { return location; }
     void setLocation(const std::string& val) { location = val; }
 
-    const unsigned char getId() const { return id; }
-    void setId(unsigned char val) { id = val; }
+    const unsigned short getId() const { return id; }
+    void setId(unsigned short val) { id = val; }
 
     void addSensor(DSMSensor* sensor);
     const std::list<DSMSensor*>& getSensors() const { return sensors; }

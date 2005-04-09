@@ -167,7 +167,7 @@ public:
     /**
      * Get the id portion of the sample header.
      */
-    virtual unsigned long getId() const = 0;
+    virtual dsm_sample_id_t getId() const = 0;
 
     /**
      * Set the short id portion of the sample header.
@@ -184,12 +184,12 @@ public:
     /**
      * Set the DSM id portion of the sample header.
      */
-    virtual void setDSMId(unsigned char val) = 0;
+    virtual void setDSMId(unsigned short val) = 0;
 
     /**
      * Get the DSM id portion of the sample header.
      */
-    virtual unsigned char getDSMId() const = 0;
+    virtual unsigned short getDSMId() const = 0;
 
     /**
      * Set the type of the sample.
@@ -295,7 +295,7 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	tt(0),length(0),id((unsigned long)t << 24) {}
+    	tt(0),length(0),id((unsigned long)t << 26) {}
 
 
     dsm_sample_time_t getTimeTag() const { return tt; }
@@ -313,25 +313,25 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    unsigned long getId() const { return id & 0x00ffffff; }
-    void setId(unsigned long val)
+    dsm_sample_id_t getId() const { return id & 0x00ffffff; }
+    void setId(dsm_sample_id_t val)
     {
     	id = (id & 0xff000000) | val;
     }
 
-    unsigned char getDSMId() const { return (id & 0x00ff0000) >> 16; }
-    void setDSMId(unsigned char val)
+    unsigned short getDSMId() const { return (id & 0x03ff0000) >> 16; }
+    void setDSMId(unsigned short val)
     {
-    	id = (id & 0xff00ffff) | (unsigned long)val << 16;
+    	id = (id & 0xfc00ffff) | (unsigned long)(val & 0x3ff) << 16;
     }
 
     unsigned short getShortId() const { return id & 0xffff; }
     void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; } 
 
-    unsigned char getType() const { return id >> 24; }
+    unsigned char getType() const { return id >> 26; }
     void setType(unsigned char val)
     {
-        id = (id & 0x00ffffff) | (unsigned long)val << 24;
+        id = (id & 0x03ffffff) | (unsigned long)val << 26;
     }
 
     static size_t getSizeOf()
@@ -351,7 +351,7 @@ protected:
     dsm_sample_length_t length;
 
     /* An identifier for this sample, packed fields:
-     * most significant 8 bits: type, other 24: id
+     * most significant 6 bits: type, other 26: id
      */
     dsm_sample_id_t id;
 };
@@ -368,14 +368,14 @@ public:
     void setTimeTag(dsm_sample_time_t val) { header.setTimeTag(val); }
     dsm_sample_time_t getTimeTag() const { return header.getTimeTag(); }
 
-    void setId(unsigned long val) { header.setId(val); }
-    unsigned long getId() const { return header.getId(); }
+    void setId(dsm_sample_id_t val) { header.setId(val); }
+    dsm_sample_id_t getId() const { return header.getId(); }
 
     void setShortId(unsigned short val) { header.setShortId(val); }
     unsigned short getShortId() const { return header.getShortId(); }
 
-    void setDSMId(unsigned char val) { header.setDSMId(val); }
-    unsigned char getDSMId() const { return header.getDSMId(); }
+    void setDSMId(unsigned short val) { header.setDSMId(val); }
+    unsigned short getDSMId() const { return header.getDSMId(); }
 
     sampleType getType() const { return getSampleType(data); }
     /**
@@ -520,30 +520,9 @@ protected:
 /* typedefs for common sample types. */
 
 /**
- * A Sample with an array of chars for data.
- */
-typedef SampleT<char> CharSample;
-
-/**
  * A Sample with an array of shorts for data.
  */
 typedef SampleT<short> ShortIntSample;
-
-/**
- * A Sample with an array of unsigned shorts for data.
- */
-typedef SampleT<unsigned short> UnsignedShortIntSample;
-
-/**
- * A Sample with an array of floats for data.
- */
-typedef SampleT<float> FloatSample;
-
-/**
- * A Sample with an array of long longs for data.  One use of
- * this is to store an absolute time - milliseconds since Jan 1 1970.
- */
-typedef SampleT<long long> LongLongSample;
 
 /**
  * A convienence method for getting a sample of an
