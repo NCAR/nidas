@@ -27,7 +27,7 @@ namespace dsm {
  * A RawSampleService reads raw Samples from a socket connection
  * and sends the samples to one or more SampleClients.
  */
-class RawSampleService: public DSMService, public SampleConnectionRequester
+class RawSampleService: public DSMService
 {
 public:
     RawSampleService();
@@ -47,12 +47,6 @@ public:
     void disconnected(SampleInput*) throw();
 
     void schedule() throw(atdUtil::Exception);
-
-    /**
-     * Override setDSMConfig to set the DSMConfig value of
-     * my inputs and processors.
-     */
-    void setDSMConfig(const DSMConfig* val);
 
     /**
      * Add a processor to this RawSampleService. This is done

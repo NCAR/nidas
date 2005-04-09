@@ -25,7 +25,8 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(RawSampleInputStream)
 
-RawSampleInputStream::RawSampleInputStream()
+RawSampleInputStream::RawSampleInputStream(IOChannel* iochannel):
+	SampleInputStream(iochannel)
 {
 }
 

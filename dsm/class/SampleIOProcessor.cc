@@ -19,9 +19,14 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
+SampleIOProcessor::SampleIOProcessor(): service(0) {}
+
 SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
-	name(x.name),dsm(x.dsm),service(x.service)
+	name(x.name),service(x.service)
 {
+#ifdef DEBUG
+    cerr << "SampleIOProcessor copy ctor" << endl;
+#endif
     list<SampleOutput*>::const_iterator oi;
     for (oi = x.outputs.begin(); oi != x.outputs.end(); ++oi) {
         SampleOutput* output = *oi;
@@ -32,11 +37,15 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
 
 SampleIOProcessor::~SampleIOProcessor()
 {
+#ifdef DEBUG
     cerr << "~SampleIOProcessor, this=" << this << ", outputs.size=" << outputs.size() << endl;
+#endif
     list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
+#ifdef DEBUG
 	cerr << "~SampleIOProcessor, output=" << output << endl;
+#endif
 	delete output;
     }
 }
@@ -44,22 +53,6 @@ SampleIOProcessor::~SampleIOProcessor()
 const std::string& SampleIOProcessor::getName() const { return name; }
 
 void SampleIOProcessor::setName(const std::string& val) { name = val; }
-
-void SampleIOProcessor::setDSMConfig(const DSMConfig* val)
-{
-    dsm = val;
-    list<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-        SampleOutput* output = *oi;
-	output->setDSMConfig(val);
-    }
-        
-}
-
-const DSMConfig* SampleIOProcessor::getDSMConfig() const
-{
-    return dsm;
-}
 
 void SampleIOProcessor::setDSMService(const DSMService* val)
 {

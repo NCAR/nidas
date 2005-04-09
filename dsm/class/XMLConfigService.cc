@@ -45,7 +45,7 @@ XMLConfigService::XMLConfigService():
 XMLConfigService::XMLConfigService(const XMLConfigService& x):
         DSMService((const DSMService&)x),iochan(0)
 {
-    cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.iochan << endl;
+    // cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.iochan << endl;
     if (x.iochan) iochan = x.iochan->clone();
 }
 
@@ -131,7 +131,6 @@ void XMLConfigService::fromDOMElement(const DOMElement* node)
 
 		iochan = IOChannel::createIOChannel(gkidname);
 
-		iochan->setDSMConfig(getDSMConfig());
 		iochan->setDSMService(this);
 
 		iochan->fromDOMElement((DOMElement*)gkid);

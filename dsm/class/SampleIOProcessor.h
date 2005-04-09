@@ -33,7 +33,7 @@ class SampleIOProcessor: public SampleConnectionRequester, public DOMable
 {
 public:
 
-    SampleIOProcessor() {}
+    SampleIOProcessor();
 
     /**
      * Copy constructor.
@@ -54,12 +54,6 @@ public:
 
     virtual void disconnect(SampleInput*) throw(atdUtil::IOException) = 0;
 
-    // virtual void init() throw() = 0;
-
-    virtual void setDSMConfig(const DSMConfig* val);
-
-    virtual const DSMConfig* getDSMConfig() const;
-
     virtual void setDSMService(const DSMService*);
 
     virtual const DSMService* getDSMService() const;
@@ -78,8 +72,6 @@ public:
 protected:
     
     std::string name;
-
-    const DSMConfig* dsm;
 
     const DSMService* service;
 

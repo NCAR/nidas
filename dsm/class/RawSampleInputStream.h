@@ -25,7 +25,9 @@ namespace dsm {
 class RawSampleInputStream: public SampleInputStream
 {
 public:
-    RawSampleInputStream();
+
+    RawSampleInputStream(IOChannel* iochannel = 0);
+
     ~RawSampleInputStream();
 
     SampleInput* clone() const { return new RawSampleInputStream(*this); }
@@ -33,8 +35,6 @@ public:
     bool isRaw() const { return true; }
 
     int getPseudoPort() const { return RAW_SAMPLE; }
-
-    bool isSingleton() const { return false; }
 
 
 protected:

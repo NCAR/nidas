@@ -59,29 +59,42 @@ RawSampleService::RawSampleService(const RawSampleService& x):
  */
 DSMService* RawSampleService::clone() const
 {
-    RawSampleService* newserv = new RawSampleService(*this);
-    return newserv;
+    return new RawSampleService(*this);
 }
 
 RawSampleService::~RawSampleService()
 {
 
-    cerr << "~RawSampleService, disconnecting processors, size()=" <<
-    	processors.size() << endl;
-    list<SampleIOProcessor*>::const_iterator oi2;
-    for (oi2 = processors.begin(); oi2 != processors.end(); ++oi2) {
-        SampleIOProcessor* processor = *oi2;
-	if (input) processor->disconnect(input);
-    }
-
-    cerr << "~RawSampleService, closing input" << endl;
+    list<SampleIOProcessor*>::const_iterator pi;
     if (input) {
+#ifdef DEBUG
+	cerr << "~RawSampleService, disconnecting processors, size()=" <<
+	    processors.size() << endl;
+#endif
+	for (pi = processors.begin(); pi != processors.end(); ++pi) {
+	    SampleIOProcessor* processor = *pi;
+#ifdef DEBUG
+	    cerr << "~RawSampleService, disconnecting " <<
+	    	processor->getName() << " from " << input->getName() << endl;
+#endif
+	    processor->disconnect(input);
+	}
+
+#ifdef DEBUG
+	cerr << "~RawSampleService, closing input" << endl;
+#endif
         input->close();
 	delete input;
     }
+#ifdef DEBUG
     cerr << "~RawSampleService, deleting processors" << endl;
-    for (oi2 = processors.begin(); oi2 != processors.end(); ++oi2) {
-        SampleIOProcessor* processor = *oi2;
+#endif
+    for (pi = processors.begin(); pi != processors.end(); ++pi) {
+        SampleIOProcessor* processor = *pi;
+#ifdef DEBUG
+	cerr << "~RawSampleService, deleting " <<
+	    processor->getName() << endl;
+#endif
 	delete processor;
     }
 }
@@ -106,8 +119,6 @@ void RawSampleService::connected(SampleInput* inpt) throw()
 
     assert(inpt == input);
 
-    cerr << input->getName() << " has connected to RawSampleService" << endl;
-
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = input->getRemoteInet4Address();
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
@@ -116,11 +127,15 @@ void RawSampleService::connected(SampleInput* inpt) throw()
 	throw atdUtil::Exception(string("can't find DSM for address ") +
 		remoteAddr.getHostAddress());
 
-    cerr << "DSM " << dsm->getName() << " connected to RawSampleService" << endl;
-    // make a copy of myself, set its DSM pointer so
-    // it can get its configuration
+    input->setDSMConfig(dsm);
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s (%s) has connected to %s",
+	input->getName().c_str(),dsm->getName().c_str(),
+	getName().c_str());
+
+    // make a copy of myself.
     RawSampleService* newserv = new RawSampleService(*this);
-    newserv->setDSMConfig(dsm);
     newserv->start();
 
     addSubService(newserv);
@@ -130,14 +145,14 @@ void RawSampleService::connected(SampleInput* inpt) throw()
     for (oi = processors.begin(); oi != processors.end(); ++oi) {
         SampleIOProcessor* processor = *oi;
 	if (!processor->singleDSM()) {
-	    processor->setDSMService(this);
 	    try {
 		processor->connect(newserv->input);
 	    }
 	    catch(const atdUtil::IOException& ioe) {
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: requestConnection: %s: %s",
-		    getName().c_str(),processor->getName().c_str(),ioe.what());
+		    "%s: %s connect to %s: %s",
+		    getName().c_str(),processor->getName().c_str(),
+		    newserv->input->getName().c_str(),ioe.what());
 	    }
 	}
     }
@@ -147,32 +162,35 @@ void RawSampleService::connected(SampleInput* inpt) throw()
  * This method is called when a SampleInput is disconnected
  * (likely a DSM went down).  It will be called on the original
  * RawSampleService (whoever did the requestConnection).
- * The run() method of the service
- * should have received an exception, and so things may
- * clean up by themselves, but we do a thread cancel here to
- * make sure.
+ * The run() method of the service should have received an exception,
+ * and so things may clean up by themselves, but we do a thread
+ * cancel here to make sure.
  */
 void RawSampleService::disconnected(SampleInput* inputx) throw()
 {
 
-    cerr << inputx->getName() <<
-    	" wants disconnecting from RawSampleService" << endl;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has disconnected from %s",
+	inputx->getName().c_str(),getName().c_str());
 
-    // Figure out what DSM it came from
+#ifdef DEBUG
+    cerr << "RawSampleService::disconnected, inputx=" << inputx <<
+    	" input=" << input << endl;
+#endif
+
+    // Figure out what DSM it came from. Probably not necessary
     atdUtil::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
 
-    if (!dsm)
-	throw atdUtil::Exception(string("can't find DSM for address ") +
-		remoteAddr.getHostAddress());
+#ifdef DEBUG
+    cerr << "RawSampleService::disconnected, dsm=" << dsm << 
+    	" getDSMConfig()=" << getDSMConfig() << endl;
+#endif
 
-    cerr << "DSM " << dsm->getName() <<
-    	" disconnected from RawSampleService" << endl;
-
-    // figure out service for the input
+    // figure out the cloned service for the input.
     // One could use a map of RawSampleService* by SampleInput*
     // but that must must stay in sync with the subServices set.
-    // To make things easier, we do a brute force seach 
+    // To make things easier, we do a brute force search 
     // of the subServices set - it is small after all.
 
     atdUtil::Synchronized autolock(subServiceMutex);
@@ -189,8 +207,8 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 
     if (!service) {
 	atdUtil::Logger::getInstance()->log(LOG_WARNING,
-	    "%s: can't find input %s",
-		    getName().c_str(),inputx);
+	    "%s: can't find service for input %s",
+		getName().c_str(),inputx->getName().c_str());
 	return;
     }
 
@@ -201,7 +219,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 	proc->disconnect(inputx);
     }
 
-    // non
+    // non-single DSM processors
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	if (!proc->singleDSM()) proc->disconnect(inputx);
@@ -213,27 +231,22 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
     catch(const atdUtil::Exception& e) {
 	atdUtil::Logger::getInstance()->log(LOG_WARNING,
 	    "Error cancelling service %s: %s",
-		    service->getName().c_str(),e.what());
+		service->getName().c_str(),e.what());
     }
 }
 
-
-void RawSampleService::setDSMConfig(const DSMConfig* val)
-{
-    DSMService::setDSMConfig(val);
-    input->setDSMConfig(val);
-}
-
-
 int RawSampleService::run() throw(atdUtil::Exception)
 {
+
+    input->init();
+
     // request connections for processors. These are all
     // single DSM processors, because this is a clone
     // of the original RawSampleService
-    list<SampleIOProcessor*>::const_iterator oi;
-    for (oi = processors.begin(); oi != processors.end(); ++oi) {
-        SampleIOProcessor* processor = *oi;
-	processor->setDSMConfig(getDSMConfig());
+    list<SampleIOProcessor*>::const_iterator pi;
+    for (pi = processors.begin(); pi != processors.end();
+    	++pi) {
+        SampleIOProcessor* processor = *pi;
 	try {
 	    processor->connect(input);
 	}
@@ -243,8 +256,6 @@ int RawSampleService::run() throw(atdUtil::Exception)
 		getName().c_str(),processor->getName().c_str(),ioe.what());
 	}
     }
-
-    input->init();
 
     // Process the input samples.
     try {
@@ -265,8 +276,9 @@ int RawSampleService::run() throw(atdUtil::Exception)
     }
 
     try {
-	for (oi = processors.begin(); oi != processors.end(); ++oi) {
-	    SampleIOProcessor* processor = *oi;
+	list<SampleIOProcessor*>::const_iterator pi;
+	for (pi = processors.begin(); pi != processors.end(); ++pi) {
+	    SampleIOProcessor* processor = *pi;
 	    processor->disconnect(input);
 	}
 	input->close();
@@ -328,7 +340,6 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 throw atdUtil::InvalidParameterException("service",
                     classattr,"is not a raw SampleInput");
 	    }
-	    input->setDSMService(this);
             input->fromDOMElement((DOMElement*)child);
 	}
         else if (!elname.compare("processor")) {

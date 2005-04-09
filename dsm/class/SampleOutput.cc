@@ -16,6 +16,8 @@
 #include <SampleOutput.h>
 #include <DSMTime.h>
 
+#include <atdUtil/Logger.h>
+
 #include <iostream>
 
 using namespace dsm;
@@ -42,7 +44,9 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 
 SampleOutputStream::~SampleOutputStream()
 {
+#ifdef DEBUG
     cerr << "~SampleOutputStream()" << endl;
+#endif
     delete iostream;
     delete iochan;
 }
@@ -93,9 +97,12 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
  */
 void SampleOutputStream::connected(IOChannel* iochannel) throw()
 {
+
+#ifdef DEBUG
     cerr << "SampleOutputStream::connected, iochannel " <<
     	iochannel->getName() << " fd="  <<
     	iochannel->getFd() << endl;
+#endif
     assert(iochan == iochannel);
     assert(connectionRequester);
     setName(string("SampleOutputStream: ") + iochan->getName());
@@ -105,14 +112,18 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
 void SampleOutputStream::init() throw()
 {
     delete iostream;
+#ifdef DEBUG
     cerr << "SampleOutputStream::init, buffer size=" <<
     	iochan->getBufferSize() << " fd=" << iochan->getFd() << endl;
+#endif
     iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 void SampleOutputStream::close() throw(atdUtil::IOException)
 {
+#ifdef DEBUG
     cerr << "SampleOutputStream::close" << endl;
+#endif
     delete iostream;
     iostream = 0;
     iochan->close();
@@ -145,7 +156,9 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 
 	if (nextFileTime == 0) nextFileTime = tsamp;
 	if (tsamp >= nextFileTime) {
+#ifdef DEBUG
 	    cerr << "calling iostream->createFile" << endl;
+#endif
 	    nextFileTime = iostream->createFile(nextFileTime);
 	}
     }
@@ -154,7 +167,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	write(samp);
     }
     catch(const atdUtil::IOException& ioe) {
-        cerr << ioe.what() << endl;
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: %s",getName().c_str(),ioe.what());
 	connectionRequester->disconnected(this);
 	return false;
     }
@@ -163,7 +177,9 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 
 size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
 {
+#ifdef DEBUG
     static int nsamps = 0;
+#endif
     const void* bufs[2];
     size_t lens[2];
     bufs[0] = samp->getHeaderPtr();
@@ -173,8 +189,10 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
 
+#ifdef DEBUG
     // cerr << "iostream->write" << endl;
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
+#endif
     return iostream->write(bufs,lens,2);
 }
 

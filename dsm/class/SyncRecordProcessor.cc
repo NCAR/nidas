@@ -18,6 +18,8 @@
 #include <Aircraft.h>
 #include <irigclock.h>
 
+#include <atdUtil/Logger.h>
+
 #include <math.h>
 
 using namespace dsm;
@@ -27,7 +29,7 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SyncRecordProcessor);
 
 SyncRecordProcessor::SyncRecordProcessor():
-	sorter(250),initialized(false)
+	SampleIOProcessor(),sorter(250),initialized(false)
 {
     setName("SyncRecordProcessor");
 }
@@ -42,6 +44,7 @@ SyncRecordProcessor::~SyncRecordProcessor()
 
 SampleIOProcessor* SyncRecordProcessor::clone() const
 {
+    // this shouldn't be cloned
     assert(false);
     // return new SyncRecordProcessor();
     return 0;
@@ -50,8 +53,9 @@ SampleIOProcessor* SyncRecordProcessor::clone() const
 void SyncRecordProcessor::connect(SampleInput* input)
 	throw(atdUtil::IOException)
 {
-    cerr << "SyncRecordProcessor:: connect: " << getName() <<
-    	" input=" << input->getName() << endl;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has connected to %s",
+	input->getName().c_str(),getName().c_str());
 
     {
 	atdUtil::Synchronized autosync(initMutex);
@@ -65,6 +69,7 @@ void SyncRecordProcessor::connect(SampleInput* input)
 	    list<SampleOutput*>::const_iterator oi;
 	    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 		SampleOutput* output = *oi;
+		output->setDSMService(getDSMService());
 		output->requestConnection(this);
 	    }
 	    initialized = true;
@@ -76,8 +81,11 @@ void SyncRecordProcessor::connect(SampleInput* input)
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
-	cerr << "SyncRecordProcessor::connect " << input->getName() <<
-	    " connecting to " << sensor->getName() << endl;
+#ifdef DEBUG
+	cerr << "SyncRecordProcessor::connect, input=" <<
+		input->getName() << " sensor=" <<
+		    sensor->getName() << endl;
+#endif
 	sensor->addSampleClient(&sorter);
 	input->addSensor(sensor);
     }
@@ -86,6 +94,10 @@ void SyncRecordProcessor::connect(SampleInput* input)
 void SyncRecordProcessor::disconnect(SampleInput* input)
 	throw(atdUtil::IOException)
 {
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has disconnected from %s",
+	input->getName().c_str(),getName().c_str());
+
     if (input->getDSMConfig()) {
 	const list<DSMSensor*>& sensors = input->getDSMConfig()->getSensors();
 	list<DSMSensor*>::const_iterator si;
@@ -98,17 +110,21 @@ void SyncRecordProcessor::disconnect(SampleInput* input)
  
 void SyncRecordProcessor::connected(SampleOutput* output) throw()
 {
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has connected to %s",
+	output->getName().c_str(),getName().c_str());
+
     output->init();
-    cerr << "SyncRecordProcessor:: connected: " << getName() <<
-    	" output=" << output->getName() << endl;
     generator.addSampleClient(output);
 
 }
 
 void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
 {
-    cerr << "SyncRecordProcessor:: disconnected: " << getName() <<
-    	" output=" << output->getName() << endl;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has disconnected from %s",
+	output->getName().c_str(),getName().c_str());
+
     generator.removeSampleClient(output);
 }
 

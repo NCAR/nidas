@@ -34,8 +34,6 @@ public:
 
     int getPseudoPort() const { return RAW_SAMPLE; }
 
-    bool isSingleton() const { return false; }
-
 protected:
 };
 

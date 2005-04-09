@@ -36,9 +36,7 @@ public:
 
     virtual SampleInput* clone() const = 0;
 
-    virtual void setName(const std::string& val) = 0;
-
-    virtual const std::string& getName() const = 0;
+    virtual std::string getName() const = 0;
 
     virtual bool isRaw() const = 0;
 
@@ -48,12 +46,19 @@ public:
 
     virtual void addSensor(DSMSensor* sensor) = 0;
 
-    virtual void requestConnection(SampleConnectionRequester*)
+    virtual void requestConnection(DSMService*)
         throw(atdUtil::IOException) = 0;
 
-    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
+    /**
+     * If an SampleInput is associated with one DSM, when
+     * getDSMConfig() should return a non-null pointer to
+     * a DSMConfig.
+     */
+    virtual const DSMConfig* getDSMConfig() const = 0;
 
-    virtual int getFd() const = 0;
+    virtual void setDSMConfig(const DSMConfig* val) = 0;
+
+    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
 
     virtual void init() throw() = 0;
 
@@ -76,14 +81,6 @@ public:
 
     virtual void close() throw(atdUtil::IOException) = 0;
 
-    virtual void setDSMConfig(const DSMConfig* val) = 0;
-
-    virtual const DSMConfig* getDSMConfig() const = 0;
-
-    virtual void setDSMService(const DSMService*) = 0;
-
-    virtual const DSMService* getDSMService() const = 0;
-
 };
 
 /**
@@ -97,13 +94,16 @@ public:
 
     /**
      * Constructor.
+     * @param iochannel The IOChannel that we use for data input.
+     *   SampleInput will own the pointer to the IOChannel,
+     *   and will delete it in ~SampleInputStream(). If 
+     *   it is a null pointer, then it must be set within
+     *   the fromDOMElement method.
      */
-    SampleInputStream();
-
-    SampleInputStream(IOChannel* iochannel);
+    SampleInputStream(IOChannel* iochannel = 0);
 
     /**
-     * Copy constructor.
+     * Copy constructor.  This will do a clone() of the IOChannel.
      */
     SampleInputStream(const SampleInputStream&);
 
@@ -111,9 +111,7 @@ public:
 
     SampleInput* clone() const;
 
-    void setName(const std::string& val) { name = val; }
-
-    const std::string& getName() const { return name; }
+    std::string getName() const;
 
     bool isRaw() const { return false; }
 
@@ -123,10 +121,18 @@ public:
 
     void addSensor(DSMSensor* sensor);
 
-    void requestConnection(SampleConnectionRequester*)
-            throw(atdUtil::IOException);
+    void requestConnection(DSMService*) throw(atdUtil::IOException);
 
     void connected(IOChannel* iochan) throw();
+
+    /**
+     * If an SampleInput is associated with one DSM, when
+     * getDSMConfig() should return a non-null pointer to
+     * a DSMConfig.
+     */
+    virtual const DSMConfig* getDSMConfig() const { return dsm; }
+
+    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     atdUtil::Inet4Address getRemoteInet4Address() const;
 
@@ -134,32 +140,25 @@ public:
 
     /**
      * Read a buffer of data, serialize the data into samples,
-     * and distribute() samples to the receive() method of my SampleClients.
-     * This will perform only one physical read of the underlying device
-     * and so is appropriate to use when a select() has determined
-     * that there is data availabe on our file descriptor.
+     * and distribute() samples to the receive() method of my
+     * SampleClients and DSMSensors.
+     * This will perform only one physical read of the underlying
+     * IOChannel and so is appropriate to use when a select()
+     * has determined that there is data available on our file
+     * descriptor.
      */
     void readSamples() throw(atdUtil::IOException);
 
     /**
-     * Blocking read of the next sample from the buffer. The caller must
+     * Read the next sample from the InputStream. The caller must
      * call freeReference on the sample when they're done with it.
+     * This method may perform zero or more reads of the IOChannel.
      */
     Sample* readSample() throw(atdUtil::IOException);
 
     size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
 
     void close() throw(atdUtil::IOException);
-
-    int getFd() const;
-
-    void setDSMConfig(const DSMConfig* val);
-
-    const DSMConfig* getDSMConfig() const;
-
-    void setDSMService(const DSMService* val);
-
-    const DSMService* getDSMService() const;
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -172,7 +171,9 @@ public:
 
 protected:
 
-    std::string name;
+    DSMService* service;
+
+    const DSMConfig* dsm;
 
     IOChannel* iochan;
 
@@ -180,15 +181,11 @@ protected:
 
     int pseudoPort;
 
-    SampleConnectionRequester* connectionRequester;
-
-    const DSMConfig* dsm;
-
-    const DSMService* service;
-
     std::map<unsigned long int, DSMSensor*> sensorMap;
 
     atdUtil::Mutex sensorMapMutex;
+
+private:
 
     /**
      * Will be non-null if we have previously read part of a sample
@@ -200,7 +197,7 @@ protected:
      * How many bytes left to read from the stream into the data
      * portion of samp.
      */
-    size_t left;
+    size_t leftToRead;
 
     /**
      * Pointer into the data portion of samp where we will read next.

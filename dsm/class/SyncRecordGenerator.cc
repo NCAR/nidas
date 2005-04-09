@@ -48,14 +48,18 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
 
+#ifdef DEBUG
 	cerr << "SyncRecordGenerator, dsm=" << dsm->getName() << endl;
+#endif
 	const list<DSMSensor*>& sensors = dsm->getSensors();
 	list<DSMSensor*>::const_iterator si;
 
 
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
+#ifdef DEBUG
 	    cerr << "SyncRecordGenerator, sensor=" << sensor->getName() << endl;
+#endif
 
 	    if (dynamic_cast<DSMSerialSensor*>(sensor))
 		serialSensors.push_back(sensor);
@@ -67,16 +71,22 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 	}
     }
 
+#ifdef DEBUG
     cerr << "SyncRecordGenerator, # of serial sensors=" <<
     	serialSensors.size() << endl;
+#endif
     scanSensors(serialSensors);
 
+#ifdef DEBUG
     cerr << "SyncRecordGenerator, # of arinc sensors=" <<
     	arincSensors.size() << endl;
+#endif
     scanSensors(arincSensors);
 
+#ifdef DEBUG
     cerr << "SyncRecordGenerator, # of other sensors=" <<
     	otherSensors.size() << endl;
+#endif
     scanSensors(otherSensors);
 
     int offset = 1;	// first float is ndays
@@ -86,7 +96,9 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 	offset += numVarsInRateGroup[i] * (1000 / msecsPerSample[i]) + 1;
     }
     recSize = offset;
+#ifdef DEBUG
     cerr << "SyncRecordGenerator, recSize=" << recSize << endl;
+#endif
 }
 
 void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
@@ -122,8 +134,10 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 		variableNames.push_back(vector<string>());
 	    }
 	    else groupId = mi->second;
+#ifdef DEBUG
 	    cerr << "SyncRecordGenerator, rate=" << rate <<
 	    	" groupId=" << groupId << endl;
+#endif
 
 	    groupIds[sampleId] = groupId;
 	    sampleOffsets[sampleId] = numVarsInRateGroup[groupId] + 1;
@@ -155,9 +169,11 @@ void SyncRecordGenerator::allocateRecord(int ndays,dsm_sample_time_t timetag)
 
 bool SyncRecordGenerator::receive(const Sample* samp) throw()
 {
+#ifdef DEBUG
     static int nsamps;
     if (!(nsamps++ % 100)) cerr <<
     	"SyncRecordGenerator, nsamps=" << nsamps << endl;
+#endif
     dsm_sample_time_t tt = samp->getTimeTag();
     unsigned long id = samp->getId();
     unsigned short shortid = samp->getShortId();
@@ -170,18 +186,24 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	distribute(samp);
 
         syncTime = tt - (tt % 1000);
+#ifdef DEBUG
 	cerr << "syncTime=" << syncTime << endl;
+#endif
 	long long* timep = (long long*) samp->getConstVoidDataPtr();
 	ndays = (*timep / MSECS_PER_DAY);
+#ifdef DEBUG
 	cerr << "ndays=" << ndays << endl;
+#endif
 	allocateRecord(ndays,syncTime);
 	return true;
     }
 	
     while (tt >= syncTime + 1000 ||
     	(tt < 60000 && (syncTime == MSECS_PER_DAY - 1000))) {
+#ifdef DEBUG
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
+#endif
 	distribute(syncRecord);
 	syncRecord->freeReference();
 	syncRecord = 0;

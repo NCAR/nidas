@@ -14,6 +14,7 @@
 
 #include <SampleInput.h>
 #include <DSMSensor.h>
+#include <DSMService.h>
 
 #include <atdUtil/Logger.h>
 
@@ -23,28 +24,20 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(SampleInputStream)
 
-SampleInputStream::SampleInputStream():
-    name("SampleInputStream"),iochan(0),iostream(0),
-    pseudoPort(0),connectionRequester(0),
-    dsm(0),service(0), samp(0),left(0),dptr(0),
-    unrecognizedSamples(0)
-{
-}
-
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
-    name(string("SampleInputStream:") + iochannel->getName()),
-    iochan(iochannel),iostream(0),
-    pseudoPort(0),connectionRequester(0),
-    dsm(0),service(0), samp(0),left(0),dptr(0),
+    service(0),dsm(0),iochan(iochannel),iostream(0),
+    pseudoPort(0),
+     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
 }
 
+/* Copy constructor. */
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
-    name(x.name),iochan(x.iochan->clone()),iostream(0),
-    pseudoPort(x.pseudoPort),connectionRequester(x.connectionRequester),
-    dsm(x.dsm),service(x.service),
-    samp(0),left(0),dptr(0),
+    service(x.service),dsm(x.dsm),
+    iochan(x.iochan->clone()),iostream(0),
+    pseudoPort(x.pseudoPort),
+    samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
 }
@@ -61,43 +54,24 @@ SampleInput* SampleInputStream::clone() const
     return new SampleInputStream(*this);
 }
 
-void SampleInputStream::requestConnection(SampleConnectionRequester* requester)
+string SampleInputStream::getName() const {
+    if (iochan) return string("SampleInputStream: ") + iochan->getName();
+    return string("SampleInputStream");
+}
+
+void SampleInputStream::requestConnection(DSMService* requester)
             throw(atdUtil::IOException)
 {
-    connectionRequester = requester;
+    service = requester;
+    iochan->setDSMService(service);
     iochan->requestConnection(this,getPseudoPort());
 }
 
 void SampleInputStream::connected(IOChannel* iochannel) throw()
 {
     assert(iochan == iochannel);
-    assert(connectionRequester);
-    setName(string("SampleInputStream: ") + iochan->getName());
-    connectionRequester->connected(this);
+    service->connected(this);
 }
-
-void SampleInputStream::setDSMConfig(const DSMConfig* val)
-{
-    dsm = val;
-    if (iochan) iochan->setDSMConfig(val);
-}
-
-const DSMConfig* SampleInputStream::getDSMConfig() const
-{
-    return dsm;
-}
-
-void SampleInputStream::setDSMService(const DSMService* val)
-{
-    service = val;
-    if (iochan) iochan->setDSMService(val);
-}
-
-const DSMService* SampleInputStream::getDSMService() const
-{
-    return service;
-}
-
 
 void SampleInputStream::setPseudoPort(int val) { pseudoPort = val; }
 
@@ -112,8 +86,10 @@ void SampleInputStream::addSensor(DSMSensor* sensor)
 
 void SampleInputStream::init() throw()
 {
+#ifdef DEBUG
     cerr << "SampleInputStream::init(), buffer size=" << 
     	iochan->getBufferSize() << endl;
+#endif
     delete iostream;
     iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
@@ -131,23 +107,20 @@ atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const
     else return atdUtil::Inet4Address();
 }
 
-int SampleInputStream::getFd() const
-{
-    if (iochan) return iochan->getFd();
-    else return -1;
-}
-
 /**
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
  * is data available on our file descriptor. Process all available
  * data from the InputStream and distribute() samples to the receive()
- * method of my SampleClients.  This will perform only one physical
+ * method of my SampleClients and to the receive() method of
+ * DSMSenors.  This will perform only one physical
  * read of the underlying device.
  */
 void SampleInputStream::readSamples() throw(atdUtil::IOException)
 {
+#ifdef DEBUG
     static int nsamps = 0;
+#endif
 
     iostream->read();		// read a buffer's worth
 
@@ -162,9 +135,9 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 #endif
 	    if (iostream->available() < header.getSizeOf()) break;
 	    iostream->read(&header,header.getSizeOf());
-	    assert(header.getSizeOf() == 12);
 
 #ifdef DEBUG
+	    assert(header.getSizeOf() == 12);
 	    cerr << "read header " <<
 	    	" getTimeTag=" << header.getTimeTag() <<
 	    	" getId=" << header.getId() <<
@@ -174,6 +147,9 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 #endif
 	    if (header.getType() >= UNKNOWN_ST) {
 	        unrecognizedSamples++;
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    "SampleInputStream UNKNOWN_ST unrecognizedSamples=%d",
+			    unrecognizedSamples);
 		samp = dsm::getSample((sampleType)CHAR_ST,
 		    header.getDataByteLength());
 	    }
@@ -183,40 +159,42 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 
 	    samp->setTimeTag(header.getTimeTag());
 	    samp->setId(header.getId());
-	    left = samp->getDataByteLength();
-	    // cerr << "left=" << left << endl;
+	    leftToRead = samp->getDataByteLength();
+	    // cerr << "leftToRead=" << leftToRead << endl;
 	    dptr = (char*) samp->getVoidDataPtr();
 	}
 	size_t len = iostream->available();
-	// cerr << "left=" << left << " available=" << len << endl;
-	if (left < len) len = left;
+	// cerr << "leftToRead=" << leftToRead << " available=" << len << endl;
+	if (leftToRead < len) len = leftToRead;
 	len = iostream->read(dptr, len);
 	// cerr << "read len=" << len << endl;
 	dptr += len;
-	left -= len;
-	if (left == 0) {
-	    if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
-	    // if we're an input of raw samples, pass them to the
-	    // appropriate sensor for distribution.
+	leftToRead -= len;
+	if (leftToRead > 0) break;	// no more data in iostream buffer
 
-	    sensorMapMutex.lock();
-	    if (isRaw() && sensorMap.size() > 0) {
-		sensori = sensorMap.find(samp->getId());
-		if (sensori != sensorMap.end()) sensori->second->receive(samp);
-		else if (!(unrecognizedSamples++) % 100) {
-		    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		    	"SampleInputStream unrecognizedSamples=%d",
-				unrecognizedSamples);
-		}
+#ifdef DEBUG
+	if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
+#endif
+
+	// if we're an input of raw samples, pass them to the
+	// appropriate sensor for distribution.
+	dsm_sample_id_t sampid = samp->getId();
+	sensorMapMutex.lock();
+	if (isRaw() && sampid != CLOCK_SAMPLE_ID && sensorMap.size() > 0) {
+	    sensori = sensorMap.find(sampid);
+	    if (sensori != sensorMap.end()) sensori->second->receive(samp);
+	    else if (!(unrecognizedSamples++) % 100) {
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    "SampleInputStream unrecognizedSamples=%d",
+			    unrecognizedSamples);
 	    }
-	    sensorMapMutex.unlock();
-
-	    // distribute samples to my own clients
-	    distribute(samp);
-	    samp->freeReference();
-	    samp = 0;
 	}
-	else break;
+	sensorMapMutex.unlock();
+
+	// distribute samples to my own clients
+	distribute(samp);
+	samp->freeReference();
+	samp = 0;
     }
 }
 
@@ -226,7 +204,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
  */
 Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 {
-    // user shouldn't mix the two read methods on one stream, but if they
+    // user shouldn't mix the two readSample methods on one stream, but if they
     // do, checking for non-null samp here should make things work.
     if (!samp) {
 	SampleHeader header;
@@ -245,16 +223,16 @@ Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 
 	samp->setTimeTag(header.getTimeTag());
 	samp->setId(header.getId());
-	left = samp->getDataByteLength();
+	leftToRead = samp->getDataByteLength();
 	dptr = (char*) samp->getVoidDataPtr();
     }
-    while (left > 0) {
+    while (leftToRead > 0) {
 	size_t len = iostream->available();
-	if (left < len) len = left;
+	if (leftToRead < len) len = leftToRead;
 	len = iostream->read(dptr, len);
 	dptr += len;
-	left -= len;
-	if (left == 0) break;
+	leftToRead -= len;
+	if (leftToRead == 0) break;
 	iostream->read();
     }
     Sample* tmp = samp;
@@ -295,8 +273,6 @@ void SampleInputStream::fromDOMElement(const DOMElement* node)
 
 	iochan = IOChannel::createIOChannel(elname);
 
-	iochan->setDSMConfig(getDSMConfig());
-	iochan->setDSMService(getDSMService());
 
 	iochan->fromDOMElement((DOMElement*)child);
 
@@ -309,7 +285,6 @@ void SampleInputStream::fromDOMElement(const DOMElement* node)
         throw atdUtil::InvalidParameterException(
                 "SampleInputStream::fromDOMElement",
 		"input", "must have one child element");
-    setName(string("SampleInputStream: ") + iochan->getName());
 }
                                                            
 DOMElement* SampleInputStream::toDOMParent(

@@ -22,6 +22,7 @@
 #include <DOMable.h>
 #include <SampleInput.h>
 #include <SampleOutput.h>
+#include <ConnectionRequester.h>
 
 namespace dsm {
 
@@ -31,7 +32,8 @@ class Aircraft;
 /**
  * Base class for a service, as built from a <service> XML tag.
  */
-class DSMService: public atdUtil::Thread, public DOMable
+class DSMService: public atdUtil::Thread, public SampleConnectionRequester,
+	public DOMable
 {
 public:
     
@@ -47,18 +49,15 @@ public:
      */
     virtual DSMService* clone() const = 0;
 
-    void setDSMServer(DSMServer* val) { server = val; }
-    DSMServer* getDSMServer() const { return server; }
+    virtual void setDSMServer(DSMServer* val) { server = val; }
 
-    const Aircraft* getAircraft() const;
+    virtual DSMServer* getDSMServer() const { return server; }
 
-    /**
-     * Derived classes may override this if they need to
-     * set the DSMConfig value of their inputs or outputs.
-     */
     virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     virtual const DSMConfig* getDSMConfig() const { return dsm; }
+
+    virtual const Aircraft* getAircraft() const;
 
     /**
      * schedule this service to run.
@@ -91,8 +90,8 @@ protected:
     const DSMConfig* dsm;
 
     std::set<DSMService*> subServices;
-    atdUtil::Mutex subServiceMutex;
 
+    atdUtil::Mutex subServiceMutex;
 };
 
 }
