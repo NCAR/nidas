@@ -93,13 +93,7 @@ string FileSet::expandString(const string& input)
 
 string FileSet::getTokenValue(const string& token)
 {
-    if (!token.compare("PROJECT")) {
-	if (getDSMConfig())
-	    return getDSMConfig()->getAircraft()->getProject()->getName();
-	else if (getDSMService())
-	    return getDSMService()->getAircraft()->getProject()->getName();
-	else return "unknown";
-    }
+    if (!token.compare("PROJECT")) return Project::getInstance()->getName();
         
     if (!token.compare("AIRCRAFT")) {
 	if (getDSMConfig())
