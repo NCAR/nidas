@@ -105,14 +105,8 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
     clksamp->setId(CLOCK_SAMPLE_ID);
     clksamp->getDataPtr()[0] = sampt;
 
-#ifdef DEBUG
-    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-    "IRIG clock is %lld msecs ahead of unix clock, status=0x%x, llabs=%lld",
-	sampt - syst,status,::llabs(syst-sampt));
-#endif
-
     if (::llabs(syst - sampt) > GOOD_CLOCK_LIMIT) {
-	if (!(questionableClock++ % 100)) {
+	if (false && !(questionableClock++ % 100)) {
 	    const char* msg;
 	    if (sampt > syst) msg = "ahead of";
 	    else msg = "behind";
