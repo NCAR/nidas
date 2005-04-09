@@ -517,13 +517,6 @@ protected:
     size_t allocLen;
 };
 
-/* typedefs for common sample types. */
-
-/**
- * A Sample with an array of shorts for data.
- */
-typedef SampleT<short> ShortIntSample;
-
 /**
  * A convienence method for getting a sample of an
  * enumerated type from a pool.

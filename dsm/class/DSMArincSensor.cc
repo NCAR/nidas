@@ -110,7 +110,7 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 //       err("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
 //           (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) );
 
-    FloatSample* outs = getSample<float>(1);
+    SampleT<float>* outs = getSample<float>(1);
     outs->setTimeTag(pSamp[i].time);
 
     unsigned short label = pSamp[i].data && 0xff;

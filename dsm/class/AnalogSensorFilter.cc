@@ -113,8 +113,7 @@ bool AnalogSensorFilter::receive(const dsm::Sample* samp)
 		}
 
 		// Create the output sample	
-    	ShortIntSample* outs =
-    		SamplePool<ShortIntSample>::getInstance()->getSample(outsize);
+    	SampleT<short>* outs = getSample<short>(outsize);
 
 // TimeTag is presently obtained from the last sample
 		outs->setTimeTag(samp->getTimeTag());
