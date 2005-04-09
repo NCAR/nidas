@@ -32,6 +32,7 @@ apps = Split("""
   ck_serial.cc
   ck_config.cc
   sample_test.cc
+  file_stats.cc
 """)
 
 for i in apps:
