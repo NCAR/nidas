@@ -70,7 +70,11 @@ public:
     */
     size_t read(void* buf, size_t len) throw (atdUtil::IOException)
     {
-	return socket->recv(buf,len);
+	size_t res = socket->recv(buf,len);
+#ifdef DEBUG
+	std::cerr << "McSocket::read, len=" << len << " res=" << res << std::endl;
+#endif
+	return res;
     }
 
     /**
@@ -78,8 +82,10 @@ public:
     */
     size_t write(const void* buf, size_t len) throw (atdUtil::IOException)
     {
-      // std::cerr << "McSocket::write, len=" << len << std::endl;
-      return socket->send(buf,len);
+#ifdef DEBUG
+	std::cerr << "McSocket::write, len=" << len << std::endl;
+#endif
+	return socket->send(buf,len);
     }
 
     void close() throw (atdUtil::IOException);

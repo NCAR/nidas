@@ -33,7 +33,7 @@ class FileSet: public IOChannel, public atdUtil::FileSet {
 
 public:
 
-    FileSet() {}
+    FileSet():IOChannel(),atdUtil::FileSet() {}
 
     virtual ~FileSet() {}
 
@@ -62,7 +62,9 @@ public:
         
     size_t write(const void* buf, size_t len) throw(atdUtil::IOException)
     {
+#ifdef DEBUG
 	std::cerr << getName() << " write, len=" << len << std::endl;
+#endif
         return atdUtil::FileSet::write(buf,len);
     }
         

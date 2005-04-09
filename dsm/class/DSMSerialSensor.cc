@@ -369,11 +369,6 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
 bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-    static int nsampsin = 0;
-    static int nsampsout = 0;
-
-    if (!(nsampsin++ % 100)) cerr <<
-    	"DSMSerialSensor::process nsampsin=" << nsampsin << endl;
     // If no scanner defined, then don't scan sample, just pass it on
     if (!scanner) {
 	DSMSensor::process(samp,results);
@@ -400,12 +395,14 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
     parsebuf[slen] = '\0';
 
     int nfields = scanner->getNumberOfFields();
-    FloatSample* outs =
-	SamplePool<FloatSample>::getInstance()->getSample(nfields);
+
+    SampleT<float>* outs = getSample<float>(nfields);
 
     int nparsed;
     {
-	// is this truely necessary?
+	// Locking scannerLock here is overkill.
+	// It allows changing the scanf string while we're running
+	// which is probably not necessary.
 	atdUtil::Synchronized autosync(scannerLock);
 	nparsed = scanner->sscanf(parsebuf,outs->getDataPtr(),nfields);
     }
@@ -421,8 +418,6 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(getSampleId());
     outs->setDataLength(nparsed);
     results.push_back(outs);
-    if (!(nsampsout++ % 100)) cerr <<
-    	"DSMSerialSensor::process nsampsout=" << nsampsout << endl;
     return true;
 }
 
