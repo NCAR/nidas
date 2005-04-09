@@ -236,12 +236,13 @@ DSMEngine* DSMEngine::getInstance()
     return instance;
 }
 
+/* static */
 DOMDocument* DSMEngine::requestXMLConfig()
 	throw(atdUtil::Exception,
 	    DOMException,SAXException,XMLException)
 {
-    cerr << "creating parser" << endl;
-    XMLParser* parser = new XMLParser();
+    // cerr << "creating parser" << endl;
+    auto_ptr<XMLParser> parser(new XMLParser());
     // throws Exception, DOMException
 
     // If parsing xml received from a server over a socket,
@@ -266,27 +267,30 @@ DOMDocument* DSMEngine::requestXMLConfig()
     XMLFdInputSource sockSource(sockName,configSock->getFd());
 
     cerr << "parsing socket input" << endl;
-    DOMDocument* doc = parser->parse(sockSource);
-    // throws SAXException, XMLException, DOMException
-    // according to xerces API doc
-    // (xercesc source code doesn't have throw lists)
+    DOMDocument* doc = 0;
+    try {
+	// throws SAXException, XMLException, DOMException
+	// according to xerces API doc
+	// (xercesc source code doesn't have throw lists)
+	doc = parser->parse(sockSource);
+    }
+    catch(...) {
+	configSock->close();
+	throw;
+    }
 
-    cerr << "closing config socket" << endl;
     configSock->close();
-
-    cerr << "releasing parser" << endl;
-    delete parser;
-
     return doc;
 }
 
+/* static */
 DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(atdUtil::Exception,
 	DOMException,SAXException,XMLException)
 {
 
-    cerr << "creating parser" << endl;
-    XMLParser* parser = new XMLParser();
+    // cerr << "creating parser" << endl;
+    auto_ptr<XMLParser> parser(new XMLParser());
     // throws Exception, DOMException
 
     // If parsing a local file, turn on validation
@@ -299,9 +303,6 @@ DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesUserAdoptsDOMDocument(true);
 
     DOMDocument* doc = parser->parse(xmlFileName);
-
-    cerr << "releasing parser" << endl;
-    delete parser;
 
     return doc;
 }
@@ -377,30 +378,23 @@ void DSMEngine::connected(SampleOutput* output) throw()
     cerr << "SampleOutput " << hex << output << dec << " " <<
     	output->getName() << " connected" << " fd=" << output->getFd() << endl;
 
-    const list<DSMSensor*>& sensors = dsmConfig->getSensors();
-    const list<SampleOutput*>& outputs = dsmConfig->getOutputs();
-
-    list<DSMSensor*>::const_iterator si;
-    list<SampleOutput*>::const_iterator oi;
-
     output->init();
 
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* oput = *oi;
-	if (oput == output) {
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		cerr << "adding output to sensor " << sensor->getName() << endl;
-		if (output->isRaw()) {
-		    if (sensor->isClock()) sensor->addSampleClient(output);
-		    sensor->addRawSampleClient(output);
-		}
-		else sensor->addSampleClient(output);
-	    }
-	    connectedOutputs.push_back(output);
-	    return;
+    const list<DSMSensor*>& sensors = dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si;
+
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+	cerr << "adding output to sensor " << sensor->getName() << endl;
+	if (output->isRaw()) {
+	    if (sensor->isClock()) sensor->addSampleClient(output);
+	    sensor->addRawSampleClient(output);
 	}
+	else sensor->addSampleClient(output);
     }
+    outputMutex.lock();
+    connectedOutputs.push_back(output);
+    outputMutex.unlock();
 }
 
 /* An output wants to disconnect (probably the remote server went down) */

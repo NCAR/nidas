@@ -42,10 +42,12 @@ public:
 
     static DSMEngine* getInstance();
 
+    static
     xercesc::DOMDocument* requestXMLConfig()
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
+    static
     xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
