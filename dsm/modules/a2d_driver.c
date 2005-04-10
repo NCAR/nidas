@@ -1,3 +1,5 @@
+// #define BFIR
+
 /*  a2d_driver.c/
 
 
@@ -16,7 +18,6 @@ Revisions:
 //#define INBUFWR		// Turn on simulated data array printout
 //#define	DEBUGDATA 	// Turns on printout in data simulator
 #define	INTERNAL	// Uses internal A/D filter code
-#define FIX_A2D		// Reverse LS byte of ISA bus
 #define	QUIETOUTB	// Shut off printout
 #define	QUIETINB	// Shut off printout
 #define	QUIETOUTW	// Shut off printout
@@ -43,18 +44,14 @@ Revisions:
 #include <rtl.h>
 #include <rtl_stdio.h>
 #include <rtl_stdlib.h>
-#include <rtl_math.h>
+//#include <rtl_math.h>
 #include <rtl_string.h>
 #include <rtl_fcntl.h>
 #include <rtl_posixio.h>
 #include <rtl_pthread.h>
 #include <rtl_unistd.h>
-
-#include <asm/uaccess.h>
-#include <linux/kernel.h>
 #include <linux/ioport.h>
-#include <linux/init.h>
-#include <asm/io.h>
+
 #include <ioctl_fifo.h>
 #include <irigclock.h>
 #include <a2d_driver.h>
@@ -67,6 +64,7 @@ UC   gginb(UC *a);
 void A2DIoctlDump(A2D_SET *a);
 US   fix_a2d(US a);
 UC   bit_rvs(UC a);
+void A2DReset(int a);
 
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static 	UL	CardBase;	// A/D card address
@@ -122,6 +120,7 @@ static int A2DCallback(int cmd, int board, int port,
 	void *buf, rtl_size_t len) 
 {
   int ret = -RTL_EINVAL;
+  int i;
 
   rtl_printf("\n%s: A2DCallback\n   cmd=%d\n   board=%d\n   port=%d\n   len=%d\n",
 		__FILE__, cmd,board,port,len);
@@ -201,6 +200,10 @@ static int A2DCallback(int cmd, int board, int port,
 		{
 			a2drun = STOP;
 			A2DSetSYNC();	// Stop the A/D's
+
+			// Abort all the A/D's
+			for(i = 0; i < MAXA2DS; i++)A2DReset(i);
+
 #ifndef NOIRIG
 			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
 #endif
@@ -322,38 +325,61 @@ int A2DSetup(A2D_SET *a2d)
 // A2DInit loads the A/D designated by A2DDes with filter 
 //   data from A2D structure
 
-// DEBUG checkout the cardaddress and such for this routine (old)
 
 int A2DInit(int A2DDes, US *filter)
 {
-	int 	j, k;
-	US	*filt;
-	US	*A2DAddr, A2DStat;
+    int     i, j, k = 10;
+    US      *filt;
+    US      *A2DAddr, A2DStat;
 
-	filt = (US *)filter;
+    filt = (US *)filter;
 
-	A2DAddr = (US *)(CardBase + A2DDes);
 
-	A2DChSel(A2DIOSTAT);		// Point at command channel	
-	ggoutw(A2DWRCONFEM, A2DAddr);	// Write with masked errors
+    A2DAddr = (US *)(isa_address) + A2DDes;
 
-	A2DChSel(A2DIODATA);		// Point to A/D data channel
-  	//Transfer configuration file to
-  	for(j = 0; j < CONFBLOCKS; j++)
-  	{
-   	   for(k = 0; k < CONFBLLEN; k++)
-   	   	{
-   	       	ggoutw(filt[j*CONFBLLEN+k],A2DAddr);// Send forth the filter coefficients
-   	   	}
-  	}
-   	if(A2DStatus(A2DDes) != A2DCONFIGEND)
-   	   	rtl_printf("A/D%02X load error. A2DStatus = 0x%04x\n", 
-			A2DDes, A2DStatus(A2DDes));
-	else
-		rtl_printf("A/D%02x Loaded OK\n", A2DDes);
+	A2DReset(A2DDes);	// Send an abort command to A/D
 
-	A2DStat = A2DStatus(A2DDes);
+    // Point at A2D command channel
+    A2DChSel(A2DCMNDWR);
+#ifdef BFIR
+    // Issue the 'boot from internal ROM' command
+    ggoutw(A2DBFIR, A2DAddr);
+#else
+    // Issue the 'write configuration with error mask' command
+    ggoutw(A2DWRCONFEM, A2DAddr);
 
+    // Point to A/D data channel to write config data
+    A2DChSel(A2DCONFWR);
+
+    // Send the 0x7725 identifier first
+    ggoutw(filt[0], A2DAddr);
+
+    i = k*k*k;
+
+    for(j = 0; j < CONFBLLEN*CONFBLOCKS; j++)
+    {
+        ggoutw(filt[j+1], A2DAddr);
+        i = k*k*k;
+    }
+
+#endif
+
+    // Check status
+    A2DStat = A2DStatus(A2DDes);
+
+    if(!(A2DStat&A2DCONFIGEND))
+	{
+        rtl_printf("A2D%02X  Load failed: status = 0x%04X\n",
+            A2DDes, A2DStat);
+		return(ERRA2DCFG);
+	}
+    else
+	{
+        rtl_printf("A/D%02X Loaded OK: Status = 0x%04X\n", A2DDes, A2DStat);
+		return(A2DLOADOK);
+	}
+
+/*
 	switch(A2DStat)
 	{
 	case	A2DIDERR:		//Chip ID error
@@ -375,8 +401,8 @@ int A2DInit(int A2DDes, US *filter)
 	default:
 		break;
 	}
+*/
 
-	return(A2DLOADOK);
 }
 
 
@@ -433,7 +459,7 @@ void A2DChSel(int chan)
 
 	if(chan < 0 || chan > 7)return;	//Error check, return without action
 
-	A2DAddr = (UC *)(CardBase +  A2DIOLOAD);
+	A2DAddr = (UC *)(CardBase) +  A2DIOLOAD;
 
 	CurChan = chan;
 
@@ -449,7 +475,7 @@ US A2DStatus(int A2DDes)
 {
 	US *A2DAddr, stat;
 
-	A2DAddr = (US *)(CardBase + A2DDes);
+	A2DAddr = (US *)(CardBase) + A2DDes;
 
 	A2DChSel(A2DIOSTAT);	// Point at Stat channel for read
 	stat = gginw(A2DAddr);
@@ -467,7 +493,7 @@ void A2DCommand(int A2DSel, US Command)
 
 	A2DChSel(A2DIOSTAT);	// Get ready to write to A/D Command channel
 
-	A2DAddr = (US *)(CardBase + A2DSel);
+	A2DAddr = (US *)(CardBase) + A2DSel;
 
 	ggoutw(Command, A2DAddr);
 }
@@ -487,7 +513,7 @@ void A2DSetCtr(A2D_SET *a2d)
 		if(a2d->Hz[i] > 0)
 		{
 			// Set counter for channel
-			a2d->ctr[i] = (US)((100/a2d->Hz[i]) +0.5);
+			a2d->ctr[i] = (US)(100/a2d->Hz[i]);
 		}
 		else
 		{
@@ -526,7 +552,7 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 	if(A2DSel >= 4 && A2DSel <=7)	// Otherwise, for channels 4-7
 	{
 		D2AChsel = A2DIOGAIN47;		// Use this channel select and
-		A2DAddr = (UC *)(CardBase + A2DSel - 4); // this address
+		A2DAddr = (UC *)(CardBase) + A2DSel - 4; // this address
 	}
 
 	// If no A/D selected return error -1
@@ -675,7 +701,7 @@ void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
 	US *A2DAddr;
 	int i;
 
-	A2DAddr = (US *)(CardBase + A2DSel);
+	A2DAddr = (US *)(CardBase) + A2DSel;
 	A2DChSel(A2DIODATA);
 
 	for(i = 0; i < datactr; i++)
@@ -748,7 +774,7 @@ void A2D1PPSDisable(void)
 	US *A2DAddr;
 
 	A2DChSel(A2DIOFIFO);
-	A2DAddr = (US *)(CardBase + A2DIOFIFO);
+	A2DAddr = (US *)(CardBase) + A2DIOFIFO;
 	
 	ggoutw(FIFOCtl & ~A2D1PPSEBL, A2DAddr);
 
@@ -788,6 +814,7 @@ void A2DGetData()
 
 	A2DAddr = (US *)CardBase;
 	A2DChSel(A2DIOFIFO);
+	ggoutb(FIFOCtl | FIFOWREBL, (UC *)CardBase);	
 
 	for(i = 0; i < INTRP_RATE; i++)
 	{
@@ -876,6 +903,21 @@ void A2DGetDataSim(void)
 		ktime++;
 	}
 return;
+}
+
+/*-----------------------Utility------------------------------*/
+// This routine sends the ABORT command to all A/D's.  
+// The ABORT command amounts to a soft reset--they 
+//  stay configured.
+
+void A2DReset(int i)
+{
+	US *A2DAddr = (US *)CardBase;
+
+	//Point to the A2D command register
+	A2DChSel(A2DCMNDWR);
+	ggoutw(A2DABORT, A2DAddr + i);	
+	return;
 }
 /*-----------------------Utility------------------------------*/
 
@@ -977,6 +1019,10 @@ UC bit_rvs(UC incoming)
 {
 	UC masknum, locnum = incoming, revnum = 0;
 	int i;
+
+#ifndef FIX_A2D
+	return(incoming);
+#endif
 
 	masknum = 1;
 
