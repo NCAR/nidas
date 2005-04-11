@@ -16,7 +16,6 @@
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
 #include <Aircraft.h>
-#include <irigclock.h>
 
 #include <atdUtil/Logger.h>
 
@@ -126,5 +125,10 @@ void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
 	output->getName().c_str(),getName().c_str());
 
     generator.removeSampleClient(output);
+}
+
+void SyncRecordProcessor::newFileCallback(dsm_sys_time_t thead) throw()
+{
+    generator.sendHeader(thead);
 }
 

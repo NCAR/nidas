@@ -17,6 +17,8 @@
 #ifndef DSM_CONNECTIONREQUESTER_H
 #define DSM_CONNECTIONREQUESTER_H
 
+#include <DSMTime.h>
+
 namespace dsm {
 
 class IOChannel;
@@ -45,6 +47,11 @@ public:
     virtual void connected(SampleOutput*) throw() {}
     virtual void disconnected(SampleInput*) throw() {}
     virtual void disconnected(SampleOutput*) throw() {}
+
+    /**
+     * SampleConnectionRequester will be called back when a new file is created.
+     */
+    virtual void newFileCallback(dsm_sys_time_t) throw() {}
 };
 
 }

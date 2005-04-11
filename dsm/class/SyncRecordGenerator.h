@@ -24,7 +24,11 @@
 #include <map>
 #include <string>
 
+#define SYNC_RECORD_ID 3
+#define SYNC_RECORD_HEADER_ID 2
+
 namespace dsm {
+
 
 class DSMSensor;
 
@@ -40,6 +44,8 @@ public:
 
     bool receive(const Sample*) throw();
 
+    void sendHeader(dsm_sys_time_t timetag) throw();
+
 protected:
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
@@ -47,6 +53,8 @@ protected:
     void allocateRecord(int ndays,dsm_sample_time_t timetag);
 
 protected:
+
+    void sendHeader() throw();
 
     bool initialized;
 
@@ -94,6 +102,12 @@ protected:
     const float floatNAN;
 
     size_t unrecognizedSamples;
+
+    std::ostringstream headerStream;
+
+    volatile bool doHeader;
+    volatile dsm_sys_time_t headerTime;
+
 };
 
 }

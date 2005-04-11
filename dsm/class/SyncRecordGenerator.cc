@@ -16,7 +16,8 @@
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
 #include <Aircraft.h>
-#include <irigclock.h>
+
+#include <iomanip>
 
 #include <math.h>
 
@@ -25,7 +26,7 @@ using namespace std;
 using namespace xercesc;
 
 SyncRecordGenerator::SyncRecordGenerator():
-	syncRecord(0),floatNAN(nanf(""))
+	syncRecord(0),floatNAN(nanf("")),doHeader(false)
 {
 }
 
@@ -37,6 +38,8 @@ SyncRecordGenerator::~SyncRecordGenerator()
 
 void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 {
+
+    headerStream.str("");	// initialize header to empty string
 
     list<DSMConfig*>::const_iterator di;
 
@@ -127,6 +130,8 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 		groupId = numVarsInRateGroup.size();
 		groupsByRate[rate] = groupId;
 
+		headerStream << endl << fixed << setprecision(2) << rate << ' ';
+
 		numVarsInRateGroup.push_back(0);
 		msecsPerSample.push_back(0);
 		groupOffsets.push_back(0);
@@ -151,6 +156,7 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 		const Variable* var = *vi;
 		numVarsInRateGroup[groupId]++;
 		varNames.push_back(var->getName());
+		headerStream << var->getName() << ' ';
 	    }
 	}
     }
@@ -161,10 +167,39 @@ void SyncRecordGenerator::allocateRecord(int ndays,dsm_sample_time_t timetag)
 {
     syncRecord = getSample<float>(recSize);
     syncRecord->setTimeTag(timetag);
-    syncRecord->setId(0);
+    syncRecord->setId(SYNC_RECORD_ID);
     floatPtr = syncRecord->getDataPtr();
     for (int i = 0; i < recSize; i++) floatPtr[i] = floatNAN;
     floatPtr[0] = ndays;
+}
+
+
+void SyncRecordGenerator::sendHeader(dsm_sys_time_t thead) throw()
+{
+    headerTime = thead;
+    doHeader = true;
+}
+
+void SyncRecordGenerator::sendHeader() throw()
+{
+    string headstr = headerStream.str();
+
+    SampleT<char>* headerRec = getSample<char>(headstr.length()+1);
+    headerRec->setTimeTag((dsm_sample_time_t)(headerTime % MSECS_PER_DAY));
+
+#ifdef DEBUG
+    cerr << "SyncRecordGenerator::sendHeader timetag=" << headerRec->getTimeTag() << endl;
+#endif
+
+    cerr << "sync header=" << endl << headstr << endl;
+
+    headerRec->setId(SYNC_RECORD_HEADER_ID);
+    strcpy(headerRec->getDataPtr(),headstr.c_str());
+
+    distribute(headerRec);
+    headerRec->freeReference();
+    doHeader = false;
+
 }
 
 bool SyncRecordGenerator::receive(const Sample* samp) throw()
@@ -204,6 +239,9 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
 #endif
+
+	if (doHeader) sendHeader();
+
 	distribute(syncRecord);
 	syncRecord->freeReference();
 	syncRecord = 0;

@@ -157,9 +157,13 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (nextFileTime == 0) nextFileTime = tsamp;
 	if (tsamp >= nextFileTime) {
 #ifdef DEBUG
-	    cerr << "calling iostream->createFile" << endl;
+	    cerr << "calling iostream->createFile, nextFileTime=" << nextFileTime << endl;
 #endif
-	    nextFileTime = iostream->createFile(nextFileTime);
+
+	    dsm_sys_time_t newFileTime = iostream->createFile(nextFileTime);
+	    if (connectionRequester)
+	    	connectionRequester->newFileCallback(nextFileTime);
+	    nextFileTime = newFileTime;
 	}
     }
 

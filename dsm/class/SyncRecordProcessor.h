@@ -53,6 +53,8 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
+    void newFileCallback(dsm_sys_time_t thead) throw();
+
 protected:
     void init() throw();
 
