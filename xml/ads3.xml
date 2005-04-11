@@ -256,15 +256,21 @@
 	<prompt string="hitme\n" rate="10"/>
     </serialSensor>
 
-    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.
-    <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
-        <mesacfg name="Counter" rate="100" chan="2"/>
-        <mesacfg name="Radar" rate="5" chan="1"/>
-        <mesacfg name="PMS260" rate="10" chan="1"/>
+    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.  -->
+    <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
+                    devicename="/dev/dsmany0">
+        <sample id="1" rate="5">
+            <variable name="Radar" units="meters"/>
+<!--        <sample id="2" rate="100">
+            <variable name="Counter0" units="counts"/>
+            <sample id="3" rate="100">
+            <variable name="Counter1" units="counts"/>
+            <sample id="4" rate="10">
+            <variable name="PMS260"/>
+-->
     </anythingSensor>
-    -->
-</sensorcatalog>
 
+</sensorcatalog>
 <aircraft tailno="N677F" name="hiaper">
     <server>
 	<service class="XMLConfigService">
@@ -318,6 +324,15 @@
 
 
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+	<anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>
+        <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
+                        devicename="/dev/dsmany1">
+            <sample id="119" rate="100">
+              <variable name="Counter0"/>
+            <sample id="120" rate="100">
+              <variable name="Counter1"/>
+        </anythingSensor>
 	
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser0" id="110"/>
 	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
