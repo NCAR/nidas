@@ -221,6 +221,12 @@ static int A2DCallback(int cmd, int board, int port,
 void cleanup_module(void)
 {
   char fname[20];
+  int i;
+
+  for(i = 0; i < MAXA2DS; i++)
+  {
+	A2DStatus(i); 	// Read status and clear IRQ's	
+  }
 
   /* Close my ioctl FIFOs, deregister my ioctlCallback function */
   closeIoctlFIFO(ioctlhandle);
