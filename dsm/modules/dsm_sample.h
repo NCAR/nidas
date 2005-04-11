@@ -20,9 +20,6 @@
 #ifndef DSM_SAMPLE_H
 #define DSM_SAMPLE_H
 
-/** Milliseconds since Jan 1 1970, 00:00 UTC */
-typedef long long dsm_sys_time_t;
-
 /** Milliseconds since 00:00 UTC today */
 typedef unsigned long dsm_sample_time_t;
 
@@ -33,8 +30,8 @@ typedef unsigned long dsm_sample_length_t;
  * A data sample as it is passed from kernel-level drivers
  * to user space.
  *
- * The data member array length is 0, which looks strange.
- * It allows one to create varying length samples.
+ * The data member array length is 0, allowing one to create
+ * varying length samples.
  * In actual use one will create and use a dsm_sample
  * as follows:
     struct dsm_sample* samp =

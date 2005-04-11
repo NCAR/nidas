@@ -18,7 +18,9 @@
 
 #include <dsm_sample.h>
 
+#ifndef MSECS_PER_DAY
 #define MSECS_PER_DAY 86400000
+#endif
 
 #ifndef __RTCORE_KERNEL__
 #include <sys/time.h>
@@ -81,9 +83,10 @@ struct dsm_clock_sample {
 #define IRIG_SET_CLOCK _IOW(IRIG_MAGIC,4,struct rtl_timeval)
 #define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct rtl_timeval)
 
-#ifdef __RTCORE_KERNEL__
 
-/* External symbols used by kernel modules */
+/****************  Start of symbols used by kernel modules **************************/
+
+#ifdef __RTCORE_KERNEL__
 
 extern unsigned long msecClock[];
 extern unsigned char readClock;
