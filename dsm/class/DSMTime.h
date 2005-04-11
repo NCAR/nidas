@@ -22,13 +22,18 @@
 
 #include <sys/time.h>
 
-#include <dsm_sample.h>
-#include <irigclock.h>
+// #include <dsm_sample.h>
 
 #define CLOCK_SAMPLE_ID 1
 
+#ifndef MSECS_PER_DAY
+#define MSECS_PER_DAY 86400000
+#endif
+
 namespace dsm {
 
+/** Milliseconds since Jan 1 1970, 00:00 UTC */
+typedef long long dsm_sys_time_t;
 
 /**
  * Return the current unix system time, in milliseconds.

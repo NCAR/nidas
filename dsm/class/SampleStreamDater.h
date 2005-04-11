@@ -18,7 +18,7 @@
 #define DSM_SAMPLESTREAMDATER_H
 
 #include <Sample.h>
-#include <irigclock.h>
+#include <DSMTime.h>
 
 namespace dsm {
 

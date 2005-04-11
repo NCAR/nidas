@@ -13,7 +13,6 @@
  ******************************************************************
 */
 
-#include <irigclock.h>
 #include <pc104sg.h>
 
 #include <IRIGSensor.h>
@@ -25,6 +24,7 @@
 #include <iostream>
 #include <sstream>
 #include <math.h>
+#include <unistd.h>	// for sleep()
 
 using namespace std;
 using namespace dsm;
