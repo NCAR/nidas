@@ -176,13 +176,11 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 #ifdef DEBUG
     cerr << "RawSampleService::disconnected, inputx=" << inputx <<
     	" input=" << input << endl;
-#endif
 
-    // Figure out what DSM it came from. Probably not necessary
+    // Figure out what DSM it came from. Not necessary, just for info.
     atdUtil::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
     const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
 
-#ifdef DEBUG
     cerr << "RawSampleService::disconnected, dsm=" << dsm << 
     	" getDSMConfig()=" << getDSMConfig() << endl;
 #endif

@@ -106,7 +106,7 @@ public:
      */
     dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
     {
-	std::cerr << "IOStream::createFile, doing flush" << std::endl;
+	// std::cerr << "IOStream::createFile, doing flush" << std::endl;
 	flush();
 	return iochannel.createFile(t);
     }

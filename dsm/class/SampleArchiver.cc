@@ -64,10 +64,8 @@ void SampleArchiver::connect(SampleInput* input) throw(atdUtil::IOException)
 void SampleArchiver::disconnect(SampleInput* input) throw(atdUtil::IOException)
 {
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s (%s) has disconnected from %s",
-	input->getName().c_str(),
-	(input->getDSMConfig() ? input->getDSMConfig()->getName().c_str() : ""),
-	getName().c_str());
+	"%s has disconnected from %s",
+	input->getName().c_str(),getName().c_str());
 
     list<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {

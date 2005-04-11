@@ -33,7 +33,7 @@ DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
 
 DSMService::~DSMService()
 {
-    cerr << "~DSMService" << endl;
+    // cerr << "~DSMService" << endl;
 }
 
 void DSMService::addSubService(DSMService* svc) throw()

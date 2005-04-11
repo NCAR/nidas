@@ -128,7 +128,7 @@ XMLParser::~XMLParser()
     //  In xerces-c-src_2_6_0/src/xercesc/parsers/DOMBuilderImpl.cpp
     //  parser->release() is the same as delete parser.
 
-    cerr << "parser release" << endl;
+    // cerr << "parser release" << endl;
     parser->release();
 
 }
