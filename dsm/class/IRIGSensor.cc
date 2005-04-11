@@ -125,6 +125,13 @@ void IRIGSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
     RTL_DSMSensor::fromDOMElement(node);
+
+    // Set sample rate to 1.0 (fixed in driver module)
+    list<SampleTag*>::const_iterator si;
+    for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
+	SampleTag* samp = *si;
+	samp->setRate(1.0);
+    }
 }
 
 DOMElement* IRIGSensor::toDOMParent(
