@@ -60,13 +60,15 @@ Runstring::Runstring(int argc, char** argv): process(false)
 	}
     }
     if (optind == argc - 1) dataFileName = string(argv[optind++]);
-    if (optind != argc || dataFileName.length() == 0) usage(argv[0]);
+    if (dataFileName.length() == 0) usage(argv[0]);
+    if (xmlFileName.length() == 0) usage(argv[0]);
+    if (optind != argc) usage(argv[0]);
 }
 
 void Runstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] [-x xml_file] data_file\n\
+Usage: " << argv0 << "[-p] -x xml_file data_file\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
   data_file (required). Name of sample file.\n\
@@ -78,6 +80,8 @@ class CounterClient: public SampleClient
 {
 public:
 
+    CounterClient(const list<DSMSensor*>& sensors);
+
     virtual ~CounterClient() {}
 
     bool receive(const Sample* samp) throw();
@@ -86,6 +90,8 @@ public:
 
 
 private:
+    map<dsm_sample_id_t,string> sensorNames;
+
     set<dsm_sample_id_t> sampids;
     map<dsm_sample_id_t,dsm_sys_time_t> t1s;
     map<dsm_sample_id_t,dsm_sys_time_t> t2s;
@@ -94,6 +100,29 @@ private:
     SampleStreamDater dater;
 
 };
+
+CounterClient::CounterClient(const list<DSMSensor*>& sensors)
+{
+    list<DSMSensor*>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+        DSMSensor* sensor = *si;
+	sensorNames[sensor->getId()] =
+	    sensor->getDSMConfig()->getName() + ":" + sensor->getDeviceName();
+
+	// for samples show the first variable name, followed by ",..."
+	// if more than one.
+	const vector<const SampleTag*>& stags = sensor->getSampleTags();
+	vector<const SampleTag*>::const_iterator ti;
+	for (ti = stags.begin(); ti != stags.end(); ++ti) {
+	    const SampleTag* stag = *ti;
+	    if (stag->getVariables().size() > 0) {
+		string varname = stag->getVariables().front()->getName();
+		if (stag->getVariables().size() > 1) varname += ",...";
+		sensorNames[stag->getId()] = varname;
+	    }
+	}
+    }
+}
 
 bool CounterClient::receive(const Sample* samp) throw()
 {
@@ -118,10 +147,18 @@ bool CounterClient::receive(const Sample* samp) throw()
 
 void CounterClient::printResults()
 {
+    size_t maxlen = 6;
+    set<dsm_sample_id_t>::iterator si;
+    for (si = sampids.begin(); si != sampids.end(); ++si) {
+	dsm_sample_id_t id = *si;
+	const string& sname = sensorNames[id];
+	if (sname.length() > maxlen) maxlen = sname.length();
+    }
+        
     struct tm tm;
     char tstr[64];
-    set<dsm_sample_id_t>::iterator si;
-    cout << "sampid    nsamps |----- start -----|  |---- end ---|    rate" << endl;
+    cout << left << setw(maxlen) << (maxlen > 0 ? "sensor" : "") << right <<
+    	"       id    nsamps |----- start -----|  |---- end ---|    rate" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / 1000;
@@ -132,12 +169,14 @@ void CounterClient::printResults()
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
 	string t2str(tstr);
-        cout << setw(6) << id << ' ' << setw(9) << nsamps[id] << ' ' <<
+        cout << left << setw(maxlen) << sensorNames[id] << right << ' ' <<
+		setw(8) << id << ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
 	    float(nsamps[id]) / ((t2s[id]-t1s[id]) / 1000.) << endl;
     }
 }
+
 
 int main(int argc, char** argv)
 {
@@ -165,10 +204,10 @@ int main(int argc, char** argv)
     RawSampleInputStream sis(fset);
     sis.init();
 
-    CounterClient counter;
     auto_ptr<Project> project;
+    list<DSMSensor*> allsensors;
 
-    if (rstr.process && rstr.xmlFileName.length() > 0) {
+    if (rstr.xmlFileName.length() > 0) {
 	auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(rstr.xmlFileName));
 
@@ -176,28 +215,27 @@ int main(int argc, char** argv)
 	project->fromDOMElement(doc->getDocumentElement());
 
 	const list<Aircraft*>& aclist = project->getAircraft();
-
-	if (aclist.size() == 0)
-	    throw atdUtil::InvalidParameterException("project","aircraft",
-		    "no aircraft tag in XML config");
-
-	if (aclist.size() > 1)
-	    throw atdUtil::InvalidParameterException("project","aircraft",
-		    "multiple aircraft tags in XML config");
-	Aircraft* aircraft = aclist.front();
-
-	const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
-	list<DSMConfig*>::const_iterator di;
-	for (di = dsms.begin(); di != dsms.end(); ++di) {
-	    DSMConfig* dsm = *di;
-	    const list<DSMSensor*>& sensors = dsm->getSensors();
-	    list<DSMSensor*>::const_iterator si;
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-	        sis.addSensor(sensor);
-		sensor->addSampleClient(&counter);
+	list<Aircraft*>::const_iterator ai;
+	for (ai = aclist.begin(); ai != aclist.end(); ++ai) {
+	    Aircraft* aircraft = *ai;
+	    const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
+	    list<DSMConfig*>::const_iterator di;
+	    for (di = dsms.begin(); di != dsms.end(); ++di) {
+		DSMConfig* dsm = *di;
+		const list<DSMSensor*>& sensors = dsm->getSensors();
+		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
 	    }
-	    
+	}
+    }
+
+    CounterClient counter(allsensors);
+
+    if (rstr.process) {
+	list<DSMSensor*>::const_iterator si;
+	for (si = allsensors.begin(); si != allsensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    sis.addSensor(sensor);
+	    sensor->addSampleClient(&counter);
 	}
     }
     else sis.addSampleClient(&counter);
