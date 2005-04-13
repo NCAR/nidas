@@ -38,13 +38,8 @@ DSMMesaSensor::DSMMesaSensor()
 }
 
 DSMMesaSensor::~DSMMesaSensor() {
-  try {
-    close();
-  }
-  catch(atdUtil::IOException& ioe) {
-    cerr << __PRETTY_FUNCTION__ << ": " << ioe.what() << endl;
-  }
 }
+
 /*---------------------------------------------------------------------------*/
 /* Function: readbytesfromfile
    Purpose: Read the specified number of bytes from the specified offset in

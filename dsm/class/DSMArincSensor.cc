@@ -13,7 +13,6 @@
  ******************************************************************
 */
 
-
 #include <arinc.h>
 #include <DSMArincSensor.h>
 #include <RTL_DevIoctlStore.h>
@@ -29,19 +28,12 @@ using namespace xercesc;
 
 //CREATOR_ENTRY_POINT(DSMArincSensor);
 
-DSMArincSensor::DSMArincSensor() :  _nanf(nanf("")), sim_xmit(false)
+DSMArincSensor::DSMArincSensor() :
+  _nanf(nanf("")), sim_xmit(false)
 {
 }
 
 DSMArincSensor::~DSMArincSensor() {
-  try {
-    close();
-  }
-  catch(atdUtil::IOException& ioe) {
-    err(": %s", ioe.what() );
-  }
-//   arcfgs.clear();
-//   labels.clear();
 }
 
 void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
@@ -51,7 +43,7 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
   ioctl(ARINC_RESET, (const void*)0,0);
 
   // sort SampleTags by rate then by label
-  set <const SampleTag*, SortByRateThenLabel> sortedSampleTag
+  set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
     ( getSampleTags().begin(), getSampleTags().end() );
 
   if (sim_xmit) {
@@ -62,8 +54,8 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
     err("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< receiving");
 
   arcfg_t arcfg;
-  for (set<const SampleTag*>::const_iterator si = sortedSampleTag.begin();
-       si != sortedSampleTag.end(); ++si)
+  for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
+       si != sortedSampleTags.end(); ++si)
   {
     // remove the Sensor ID from the short ID to get the label
     arcfg.label = (*si)->getShortId() - getId();
@@ -74,13 +66,13 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
     // Note - ARINC samples have only one variable...
     const Variable* var = (*si)->getVariables().front();
 
-    err("labl: %04o  rate: %2d  (float)rate: %6.3f  units: %8s  name: %20s  longname: %s",
+    err("labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
         arcfg.label, arcfg.rate, (*si)->getRate(),
         (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
 
     ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
   }
-  sortedSampleTag.clear();
+  sortedSampleTags.clear();
   ioctl(ARINC_MEASURE,(const void*)0,0);
   ioctl(ARINC_GO,(const void*)0,0);
 
@@ -113,10 +105,11 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
     SampleT<float>* outs = getSample<float>(1);
     outs->setTimeTag(pSamp[i].time);
 
-    unsigned short label = pSamp[i].data && 0xff;
+    unsigned short label = pSamp[i].data & 0xff;
+//     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
 
     // set the sample id to sum of sensor id and label
-    outs->setShortId(getId() + label);
+    outs->setId( getId() + label );
     outs->setDataLength(1);
     float* d = outs->getDataPtr();
 
@@ -149,44 +142,6 @@ void DSMArincSensor::fromDOMElement(const DOMElement* node)
 
       if (!aname.compare("sim_xmit"))
         sim_xmit = !aval.compare("true");
-      err("sim_xmit = %d", sim_xmit);
     }
   }
-//   // parse elements...
-//   DOMNode* child;
-//   for (child = node->getFirstChild(); child != 0;
-//        child = child->getNextSibling())
-//   {
-//     if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-//     XDOMElement xchild((DOMElement*) child);
-//     const string& elname = xchild.getNodeName();
-//
-//     if (!elname.compare("arcfg")) {
-//
-//       if ( xchild.getAttributeValue("label").c_str()[0] != '0' )
-//         throw atdUtil::InvalidParameterException (__PRETTY_FUNCTION__,
-//           "not an octal label:", xchild.getAttributeValue("label").c_str());
-//
-//       Arcfg element;
-//       element.label = strtoul(xchild.getAttributeValue("label").c_str(),NULL,0);
-//       element.rate  = strtoul(xchild.getAttributeValue("rate").c_str(),NULL,0);
-//       element.desc  = xchild.getAttributeValue("desc").c_str();
-//
-// #ifdef XML_DEBUG
-// //       err("labl: %04o  rate: %2d  desc: %s", element.label, element.rate, element.desc.c_str());
-//       printf("labl: %04o  rate: %2d  desc: %s\n", element.label, element.rate, element.desc.c_str());
-// #endif
-//       set<int>::iterator li = labels.find(element.label);
-//       if (li != labels.end())
-//         throw atdUtil::InvalidParameterException (__PRETTY_FUNCTION__,
-//           "duplicate label configured", xchild.getAttributeValue("label").c_str());
-//
-// //       pair<set<int>::iterator, bool > result = labels.insert(element.label);
-// //       if ( ! result.second )
-// //         throw atdUtil::InvalidParameterException (__PRETTY_FUNCTION__,
-// //           "duplicate label configured", xchild.getAttributeValue("label").c_str());
-//
-//       arcfgs.insert( element );
-//     }
-//   }
 }

@@ -35,13 +35,8 @@ DSMAnalogSensor::DSMAnalogSensor(const string& nameArg) :
 }
 
 DSMAnalogSensor::~DSMAnalogSensor() {
-    try {
-	close();
-    }
-    catch(atdUtil::IOException& ioe) {
-      cerr << ioe.what() << endl;
-    }
 }
+
 void DSMAnalogSensor::addChannel(int chan, int rate, int gain,
 	int offset)
 {
