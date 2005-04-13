@@ -17,9 +17,6 @@
 
 #include <DSMArincSensor.h>
 
-#define err(format, arg...) \
-     printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
-
 namespace dsm {
 
 /**

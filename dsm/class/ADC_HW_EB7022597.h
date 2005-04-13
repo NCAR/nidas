@@ -20,7 +20,7 @@
 namespace dsm {
 
 /**
- * ARINC IRS label processor.
+ * ARINC ADC label processor.
  *
  * Taken from the Honeywell Engineering Specification A.4.1 spec. no.
  * EB7022597 cage code 55939 "Air Data Computer"    (pages A-53..79).
@@ -34,8 +34,6 @@ public:
    * attributes must be set before the sensor device is opened.
    */
   ADC_HW_EB7022597() {err("");}
-  //DSMArincSensor();
-  //~DSMArincSensor();
 
   /** Process all labels from this instrument. */
   float processLabel(const unsigned long data)

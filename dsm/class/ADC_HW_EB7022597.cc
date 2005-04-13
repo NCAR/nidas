@@ -25,7 +25,7 @@ float ADC_HW_EB7022597::processLabel(const unsigned long data)
   unsigned long ulBinaryData = 0L;
   unsigned long ulPlaceValue = 1L;
 
-  err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
   // check the SSM...
   if (data & 0x60000000 != 0x60000000)
