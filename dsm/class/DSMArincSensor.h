@@ -21,7 +21,7 @@
 #include <set>
 
 // Significant bits masks
-
+//
 // 32|31 30|29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11|10  9| 8  7  6  5  4  3  2  1 
 // --+-----+--------------------------------------------------------+-----+-----------------------
 // P | SSM |                                                        | SDI |      8-bit label      
@@ -50,33 +50,32 @@
 
 namespace dsm {
 
-/**
- * This is sorts a list of Sample tags by rate (highest first)
- * then by label.
- */
-class SortByRateThenLabel {
-public:
-  bool operator() (const SampleTag* x, const SampleTag* y) const {
-    if ( x->getRate() > y->getRate() ) return true;
-    if ( x->getRate() < y->getRate() ) return false;
-    if ( x->getId()   < y->getId()   ) return true;
-    return false;
-  }
-};
+  /**
+   * This is sorts a list of Sample tags by rate (highest first)
+   * then by label.
+   */
+  class SortByRateThenLabel {
+  public:
+    bool operator() (const SampleTag* x, const SampleTag* y) const {
+      if ( x->getRate() > y->getRate() ) return true;
+      if ( x->getRate() < y->getRate() ) return false;
+      if ( x->getId()   < y->getId()   ) return true;
+      return false;
+    }
+  };
 
-/**
- * A sensor connected to an ARINC port.
- */
-class DSMArincSensor : public RTL_DSMSensor {
+  /**
+   * A sensor connected to an ARINC port.
+   */
+  class DSMArincSensor : public RTL_DSMSensor {
 
-public:
+  public:
 
     /**
      * No arg constructor.  Typically the device name and other
      * attributes must be set before the sensor device is opened.
      */
     DSMArincSensor();
-
     ~DSMArincSensor();
 
     /** This opens the associated RT-Linux FIFOs. */
@@ -98,24 +97,17 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
       throw(atdUtil::InvalidParameterException);
 
- protected:
+  protected:
     const float _nanf;
 
- private:
-
-/*     /\** */
-/*      * Since arcfgs is sorted by rate, then its test for uniqueness fails. */
-/*      * This list is used solely to enforce uniqueness of labels. */
-/*      *\/ */
-/*     std::set<int> labels; */
+  private:
 
     /** Transmit blank ARINC labels (used for simulation purposes) */
     bool sim_xmit;
-};
+  };
 
-typedef SampleT<unsigned long> ArincSample;
+  typedef SampleT<unsigned long> ArincSample;
 
 }
-
 
 #endif
