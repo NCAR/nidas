@@ -40,7 +40,7 @@ public:
 
     /**
      * Constructor for a sensor.
-     * @val devname The device name.
+     * @param val devname The device name.
      * Since we have to generate 4 FIFO names
      * from this devname, the devname should follow this convention:
      * <ul>
@@ -109,7 +109,7 @@ protected:
      */
     std::string prefix;
 
-    /*
+    /**
      * Port number that is parsed from sensor name.
      */
     int portNum;
