@@ -147,7 +147,10 @@
 	    <!-- Currently can't provide defaults here, because the defaults
                  then over-ride the values that were specified for a sensor in
                  the catalog.  Need to fix this. -->
-            <xsd:attribute name="sim_xmit"   type="xsd:token" use="optional"/>
+            <xsd:attribute name="sim_xmit"      type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_thdg_corr" type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_ptch_corr" type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_roll_corr" type="xsd:token" use="optional"/>
         </xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
