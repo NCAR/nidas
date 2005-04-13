@@ -103,10 +103,11 @@ struct recvHandle
 static struct recvHandle  chn_info[N_ARINC_RX];
 static struct dsm_sample* sample = 0;
 
+#ifdef ARINC_TRANSMIT
 /* File pointers to data and command FIFOs */
 static int              fd_arinc_tx[N_ARINC_TX];
 static struct rtl_sigaction cmndAct[N_ARINC_TX];
-
+#endif
 
 /* -- UTILITY --------------------------------------------------------- */
 static void error_exit(short board, short status)
@@ -150,7 +151,7 @@ void diag_display(const int chn, const int nData, tt_data_t* data)
 
   int iii;
   err("length %3d", nData );
-  for (iii=0; iii<nData; iii++)
+  for (iii=nData-1; iii<nData; iii++)
     err("sample[%3d]: %8d %4o %#08x", iii, data[iii].time, data[iii].data & 0xff, data[iii].data & 0xffffff00 );
 
 /*   for (iii=0; iii<nData; iii++) */
@@ -264,17 +265,23 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     }
     /* store the rate for this channel's label */
     arcfg_t val = *(arcfg_t*) buf;
-    if ( hdl->rate[val.label] )
+    if ( hdl->rate[val.label] ) {
       err( "duplicate label: %04o", val.label);
+      return -RTL_EINVAL;
+    }
     hdl->rate[val.label] = val.rate;
 
     /* define a periodic message for the i960 to generate */
     if (hdl->sim_xmit) {
+      err( "xmit: %04o at %3d ms", val.label, rateToCeiClk(val.rate));
       status = ar_define_msg(BOARD_NUM, chn, rateToCeiClk(val.rate),
                              0, (long)val.label);
       if (status > 120) goto ar_fail;
       hdl->msg_id[val.label] = (unsigned char) status;
     }
+/*     else */
+/*       err( "recv: %04o at %3d Hz", val.label, roundUpRate(val.rate)); */
+
     hdl->arcfgs[hdl->nArcfg++] = val.label;
 
     /* measure the total labels per second for the given channel */
@@ -301,7 +308,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     if (hdl->lps) {
       /* open the channels data FIFO */
       hdl->fd = rtl_open( hdl->fname, RTL_O_NONBLOCK | RTL_O_WRONLY );
-      if (hdl->fd < 0) return hdl->fd;
+      if (hdl->fd < 0) return -rtl_errno;
 
       /* increase the RTLinux FIFO to fit the large sample size writes */
 /* dsm/modules/arinc.c: arinc_ioctl: calling ftruncate(hdl->fd, 2056) */
@@ -443,23 +450,34 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
   return -RTL_EIO;
 }
 /* -- RTLinux --------------------------------------------------------- */
+#ifdef ARINC_TRANSMIT
 void arinc_transmit(int sig, rtl_siginfo_t *siginfo, void *v)
 {
   static char buf[N_ARINC_TX][1024];
   static int  len[N_ARINC_TX];
   int port, idx, lft;
 
-  err("DEBUG Executing handler.");
+  err("sig: %d  si_fd: %d ", sig, siginfo->si_fd);
 
   /* determine which port the file pointer is for */
-  for (port=0; port < N_ARINC_TX; port++)
+  for (port=0; port < N_ARINC_TX; port++) {
+    err("fd_arinc_tx[%d]: %d", port, fd_arinc_tx[port]);
     if (fd_arinc_tx[port] == siginfo->si_fd)
       break;
-
+  }
+  if (siginfo->si_code == RTL_POLL_OUT) {
+    err("ignoring RTL_POLL_OUT");
+    return;	// read at user end
+  }
   /* read the FIFO into a buffer until there is enough data to transmit */
   len[port] += rtl_read(siginfo->si_fd, &buf[port][len[port]], RTL_SSIZE_MAX);
+  err("len[%d]: %d", port, len[port]);
   if (len[port] < 4)
+  {
+    err("gathering ARINC message...");
     return;
+  }
+  err("enough data to transmit");
 
   /* transmit the buffered 32-bit ARINC word(s) */
   for (idx=0; 4 <= len[port]; idx+=4, len[port]-=4)
@@ -470,6 +488,7 @@ void arinc_transmit(int sig, rtl_siginfo_t *siginfo, void *v)
   for (lft=0; lft < len[port]; lft++, idx++)
     buf[port][lft] = buf[port][idx];
 }
+#endif
 /* -- MODULE ---------------------------------------------------------- */
 static void __exit arinc_cleanup(void)
 {
@@ -484,6 +503,7 @@ static void __exit arinc_cleanup(void)
     arinc_ioctl(ARINC_RESET, BOARD_NUM, chn, NULL, 0);
     rtl_unlink( hdl->fname );
   }
+#ifdef ARINC_TRANSMIT
   /* for each ARINC transmit port... */
   char devstr[30];
   for (chn=0; chn<N_ARINC_TX; chn++) {
@@ -491,6 +511,7 @@ static void __exit arinc_cleanup(void)
     rtl_close( fd_arinc_tx[chn] );
     rtl_unlink( devstr );
   }
+#endif
   /* Close my ioctl FIFO, deregister my arinc_ioctl function */
   if (ioctlhandle)
     closeIoctlFIFO(ioctlhandle);
@@ -657,13 +678,16 @@ static int __init arinc_init(void)
     struct recvHandle *hdl = &chn_info[chn];
     sprintf( hdl->fname, "/dev/arinc_in_%d", chn );
 
+    // default fifo as not open
+    hdl->fd = -1;
+
     status = rtl_unlink(hdl->fname);
     if ( status<0 && rtl_errno != RTL_ENOENT ) goto fail;
 
     status = rtl_mkfifo( hdl->fname, 0666 );
     if (status<0) goto fail;
   }
-
+#ifdef ARINC_TRANSMIT
   /* for each ARINC transmit port... */
   char devstr[30];
   for (chn=0; chn<N_ARINC_TX; chn++)
@@ -683,11 +707,12 @@ static int __init arinc_init(void)
     rtl_memset(&cmndAct[chn],0,sizeof(cmndAct[chn]));
     cmndAct[chn].sa_sigaction = arinc_transmit;
     cmndAct[chn].sa_fd        = fd_arinc_tx[chn];
+    rtl_sigemptyset(&cmndAct[chn].sa_mask);
     cmndAct[chn].sa_flags     = RTL_SA_RDONLY | RTL_SA_SIGINFO;
     status = rtl_sigaction( RTL_SIGPOLL, &cmndAct[chn], NULL );
     if (status) goto fail;
   }
-
+#endif
   /* open up my ioctl FIFO, register my arinc_ioctl function */
   ioctlhandle = openIoctlFIFO("arinc", BOARD_NUM, arinc_ioctl,
                               nioctlcmds, ioctlcmds);
