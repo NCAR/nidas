@@ -7,11 +7,6 @@
 Import('env')
 myenv = env.Copy()
 
-# -ggdb
-myenv.AppendUnique(CXXFLAGS = Split("""
- -DXML_DEBUG
-"""))
-
 ##
 ##  List the source files compiled into the libDsm.a library.
 ##
