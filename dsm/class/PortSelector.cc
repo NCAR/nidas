@@ -160,7 +160,7 @@ int PortSelector::run() throw(atdUtil::Exception)
     timeoutSumMsec = 0;
 
     int nfd = 0;
-    int fd;
+    int fd = 0;
 
     for (unsigned int ifd = 0; ifd < activeSensorPortFds.size(); ifd++) {
       fd = activeSensorPortFds[ifd];
