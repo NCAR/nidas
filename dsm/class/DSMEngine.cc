@@ -53,8 +53,8 @@ DSMRunstring::DSMRunstring(int argc, char** argv) {
 void DSMRunstring::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << "[-d] [config]\n\
-  -d: debug (optional). Send error messages to stderr, otherwise to syslog\n\
+Usage: " << argv0 << " [-d] [config]\n\n\
+  -d:     debug - Send error messages to stderr, otherwise to syslog\n\n\
   config: name of DSM configuration file (optional).\n\
           If config is not specified, DSM will send out\n\
           multicast requests for a configuration.\n\

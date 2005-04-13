@@ -65,7 +65,7 @@ int DSMServer::main(int argc, char** argv) throw()
 
     while (!quit) {
 
-	Project* project;
+        Project* project = 0;
 	try {
 	    project = parseXMLConfigFile();
 	}
