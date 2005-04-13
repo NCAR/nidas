@@ -21,8 +21,7 @@ CREATOR_ENTRY_POINT(IRS_HW_YG1854);
 float IRS_HW_YG1854::processLabel(const unsigned long data)
   throw(atdUtil::IOException)
 {
-  float value = 4.444;
-  err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
   switch (data & 0xff) {
   case 0310:  // present_lat
@@ -50,5 +49,5 @@ float IRS_HW_YG1854::processLabel(const unsigned long data)
   default:
     break;
   }
-  return value;
+  return 42.0;
 }

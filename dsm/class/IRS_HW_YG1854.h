@@ -15,7 +15,7 @@
 #ifndef IRS_HW_YG1854_H
 #define IRS_HW_YG1854_H
 
-#include <DSMArincSensor.h>
+#include <Arinc_IRS.h>
 
 namespace dsm {
 
@@ -25,7 +25,7 @@ namespace dsm {
  * Taken from the Honeywell installation manual for the
  * YG1854 LASERREF SM IRS/GPIRS        (pages 648-650).
  */
-class IRS_HW_YG1854 : public DSMArincSensor {
+class IRS_HW_YG1854 : public Arinc_IRS {
 
 public:
 
@@ -34,8 +34,6 @@ public:
    * attributes must be set before the sensor device is opened.
    */
   IRS_HW_YG1854() {err("");}
-  //DSMArincSensor();
-  //~DSMArincSensor();
 
   /** Process all labels from this instrument. */
   float processLabel(const unsigned long data)

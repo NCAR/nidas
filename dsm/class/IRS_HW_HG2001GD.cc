@@ -25,7 +25,7 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
   unsigned long ulBinaryData = 0L;
   unsigned long ulPlaceValue = 1L;
 
-  err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
   // check the SSM...
   switch (data & 0xff) {
@@ -120,8 +120,10 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
     return ((data & m18) >> 10) * 1.0/(1<<6);
 
   case 0313:  // track_angle_true     (deg)
-  case 0314:  // true_heading         (deg)
     return ((data & m18) >> 10) * 180.0/(1<<18);
+
+  case 0314:  // true_heading         (deg)
+    return ((data & m18) >> 10) * 180.0/(1<<18) + _irs_thdg_corr;
 
   case 0315:  // wind_speed           (knot)
     return ((data & m18) >> 10) * 1.0/(1<<10);
@@ -137,8 +139,10 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
     return ((data & m18) >> 10) * 1.0/(1<<16);
 
   case 0324:  // pitch_angle          (deg)
+    return ((data & m18) >> 10) * 180.0/(1<<18) + _irs_ptch_corr;
+
   case 0325:  // roll_angle           (deg)
-    return ((data & m18) >> 10) * 180.0/(1<<18);
+    return ((data & m18) >> 10) * 180.0/(1<<18) + _irs_roll_corr;
 
   case 0326:  // pitch_rate           (deg/s)
   case 0327:  // roll_rate            (deg/s)

@@ -34,8 +34,9 @@ sources = Split("""
   DSMArincSensor.cc
     ADC_HW_EB7022597.cc
     GPS_HW_HG2021GB02.cc
-    IRS_HW_HG2001GD.cc
-    IRS_HW_YG1854.cc
+    Arinc_IRS.cc
+      IRS_HW_HG2001GD.cc
+      IRS_HW_YG1854.cc
   
   DSMSerialSensor.cc
   AsciiScanner.cc
