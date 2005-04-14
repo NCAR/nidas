@@ -111,6 +111,8 @@ struct irigTime {
 
 typedef void irig_callback_t(void* privateData);
 
+void setRate2Output (int rate, int isRT);
+
 int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
