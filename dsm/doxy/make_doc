@@ -12,28 +12,61 @@
 ##
 ## $HeadURL: http://orion/svn/hiaper/ads3/dsm/doxy/make_doc $
 ##
-cd /scr/tmp/$LOGNAME || exit 1
 
-svnco() {
-    mkdir ads3_doxy
-    cd ads3_doxy
+ads3_dir() {
+    echo /scr/tmp/$LOGNAME/ads3_doxy
+}
+
+svn_co_ads3() {
+    local dir=`ads3_dir`
+    [ -d $dir ] && rm -rf $dir
+    mkdir $dir
+    cd $dir
     svn co http://orion/svn/hiaper/ads3
     cd ads3
 }
 
-if [ ! -d ads3_doxy/ads3 ]; then
-    svnco
-else
-    cd ads3_doxy/ads3 || exit 1
-    if ! svn update; then 
-        cd ../..
-        rm -rf ads3_doxy
-        svnco
+atdUtil_dir() {
+    echo /scr/tmp/$LOGNAME/atdUtil_doxy
+}
+
+cvs_co_atdUtil() {
+    local dir=`atdUtil_dir`
+    [ -d $dir ] && rm -rf $dir
+    mkdir $dir
+    cd $dir
+    cvs -d /code/cvs co -d atdUtil isa/src/lib/atdUtil
+    cd atdUtil
+}
+
+if true; then
+    # DSM
+    codir=`ads3_dir`/ads3
+    if [ ! -d $dir ]; then
+	svn_co_ads3
+    else
+	cd $codir || exit 1
+	svn update || svn_co_ads3
     fi
+
+    cd $codir/dsm || exit 1
+
+    doxygen doxy/dsm.doxy
+
+    rsync -a doc /net/www/docs/raf/Software/hiaper/ads3/apidocs/dsm
 fi
 
-cd dsm
+# atdUtil
+codir=`atdUtil_dir`/atdUtil
+if [ ! -d $codir ]; then
+    cvs_co_atdUtil
+else
+    cd $codir || exit 1
+    cvs update || cvs_co_atdUtil
+fi
 
-doxygen doxy/dsm.doxy
+cd $codir || exit 1
 
-rsync -a doc /net/www/docs/raf/Software/hiaper/ads3/apidocs/dsm
+doxygen atdUtil.doxy
+
+rsync -a doc /net/www/docs/raf/Software/hiaper/ads3/apidocs/atdUtil
