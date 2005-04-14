@@ -622,7 +622,7 @@ static void getTimeCodeInputSelect(unsigned char *val,int isRT)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
 */
-static void setRate2Output (int rate,int isRT)
+void setRate2Output (int rate,int isRT)
 {
     int divide;
     unsigned char lsb, msb;
