@@ -1,6 +1,6 @@
 /*
  ******************************************************************
-    Copyright by the National Center for Atmospheric Research
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
 
     $LastChangedDate: 2005-01-03 13:26:59 -0700 (Mon, 03 Jan 2005) $
 

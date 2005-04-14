@@ -4,7 +4,7 @@
 
   Original Author: Gordon Maclean
 
-  Copyright by the National Center for Atmospheric Research 2004
+  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 */
 

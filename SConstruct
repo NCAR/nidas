@@ -1,5 +1,7 @@
 # -*- python -*-
 
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
 ##
 ##  Store all signatures in the '.sconsign.dblite'
 ##  file at the top-level SConstruct directory.

@@ -1,13 +1,13 @@
 /* ck_com8.cc
 
-   Time-stamp: <Thu 26-Aug-2004 06:48:03 pm>
+   Time-stamp: <Wed 13-Apr-2005 06:08:31 pm>
 
    Test program to print out messages received from the toggle
    FIFO buffers for the 8 port serial card.
 
    Original Author: John Wasinger
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

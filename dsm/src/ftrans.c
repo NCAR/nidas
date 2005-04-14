@@ -9,7 +9,7 @@ The first short is the number of short data values following.
 
 Original author:	Grant Gray
 
-Copyright 2004: National Center for Atmospheric Research
+Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 */
 

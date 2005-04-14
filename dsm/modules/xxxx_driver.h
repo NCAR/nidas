@@ -1,12 +1,12 @@
 /* xxxx_driver.h
 
-   Time-stamp: <Mon 28-Mar-2005 12:05:03 pm>
+   Time-stamp: <Wed 13-Apr-2005 05:52:09 pm>
 
    Header for test rtl driver.
 
    Original Author: Gordon Maclean
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

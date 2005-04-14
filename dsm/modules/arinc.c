@@ -5,7 +5,7 @@
 
    Original Author: John Wasinger
 
-   Copyright by the National Center for Atmospheric Research
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
 
    Implementation notes:
 

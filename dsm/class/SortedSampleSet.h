@@ -1,5 +1,5 @@
 //
-//              Copyright 2004 (C) by UCAR
+//              Copyright 2005 UCAR, NCAR, All Rights Reserved
 //
 
 #ifndef DSM_SORTEDSAMPLESET_H

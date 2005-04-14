@@ -1,5 +1,5 @@
 /*
-   Copyright by the National Center for Atmospheric Research
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
 */
 
 #ifndef RTL_DEVIOCTL_H

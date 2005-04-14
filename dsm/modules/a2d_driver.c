@@ -3,11 +3,11 @@
 /*  a2d_driver.c/
 
 
-Time-stamp: <Fri 01-Apr-2005 10:38:32 am>
+Time-stamp: <Wed 13-Apr-2005 05:57:57 pm>
 
 Drivers and utility modules for NCAR/ATD/RAF DSM3 A/D card.
 
-Copyright NCAR September 2004.
+Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 Original author:	Grant Gray
 

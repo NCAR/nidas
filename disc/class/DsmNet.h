@@ -3,7 +3,7 @@
    module. 
 
    Original Author: Jerry V. Pelk
-   Copyright by the National Center for Atmospheric Research
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

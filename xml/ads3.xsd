@@ -9,7 +9,7 @@
 <xsd:annotation>
     <xsd:documentation>
     Schema describing a data acquisition system.
-    Copyright 2005 UCAR. All rights reserved.
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
     </xsd:documentation>
 </xsd:annotation>
 

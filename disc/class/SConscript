@@ -1,5 +1,7 @@
 # -*- python -*-
 
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
 Import('env')
 myenv = env.Copy()
 

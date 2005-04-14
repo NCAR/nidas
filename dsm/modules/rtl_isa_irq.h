@@ -1,9 +1,19 @@
+/*
+ ********************************************************************
+    Interface for modules which want to register an ISA interrupt
+    handler.
 
-/* rtl_isa_irq.h
- *
- * Interface for modules which want to register an ISA interrupt
- * handler.
- */
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 1703 $
+
+    $LastChangedBy: wasinger $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/modules/rtl_isa_irq.h $
+ ********************************************************************
+*/
 
 #define __RTCORE_POLLUTED_APP__
 #include <gpos_bridge/sys/gpos.h>

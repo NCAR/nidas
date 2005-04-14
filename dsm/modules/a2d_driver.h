@@ -1,12 +1,12 @@
 /* a2d_driver.h
 
-   Time-stamp: <Mon 28-Mar-2005 06:20:00 pm>
+   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
    Header for test rtl driver.
 
    Original Author: Grant Gray
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

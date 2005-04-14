@@ -3,7 +3,7 @@
    Mensor digital Pressure  class.
  
    Original Author: Mike Spowart
-   Copyright by the National Center for Atmospheric Research
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
  

@@ -1,13 +1,13 @@
 /* ck_main.cc
 
-   Time-stamp: <Tue 20-Jul-2004 03:18:17 pm>
+   Time-stamp: <Wed 13-Apr-2005 06:08:32 pm>
 
    Test program to send configuration data to the main
    RTLinux module..,
 
    Original Author: John Wasinger
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

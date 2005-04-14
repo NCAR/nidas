@@ -1,5 +1,17 @@
 #!/bin/sh
-
+##
+## Shell script for generating Doxygen documents for the ADS3 code.
+##
+## Copyright 2005 UCAR, NCAR, All Rights Reserved
+##
+## $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+##
+## $LastChangedRevision: 1703 $
+##
+## $LastChangedBy: wasinger $
+##
+## $HeadURL: http://orion/svn/hiaper/ads3/dsm/doxy/make_doc $
+##
 cd /scr/tmp/$LOGNAME || exit 1
 
 svnco() {
@@ -15,8 +27,8 @@ else
     cd ads3_doxy/ads3 || exit 1
     if ! svn update; then 
         cd ../..
-	rm -rf ads3_doxy
-	svnco
+        rm -rf ads3_doxy
+        svnco
     fi
 fi
 

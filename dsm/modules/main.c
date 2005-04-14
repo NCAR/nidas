@@ -1,6 +1,6 @@
 /* main.c
 
-   Time-stamp: <Fri 01-Apr-2005 10:24:55 am>
+   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
    RTLinux module that starts up the other modules based upon the
    configuration passed down to it from the 'src/dsmAsync.cc'
@@ -11,7 +11,7 @@
 
    Original Author: John Wasinger
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

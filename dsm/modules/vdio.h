@@ -1,13 +1,13 @@
 /*
 Arcom VIPER Digital IO:  header file for vdio.c/vdio.cc
 
-Time-stamp: <Wed 30-Mar-2005 12:42:26 pm>
+Time-stamp: <Wed 13-Apr-2005 06:11:30 pm>
 
 RTLinux digital I/O driver for the Viper digital I/O channel
 
 Original Author:	Grant Gray
 
-Copyright 2004 by the National Center for Atmospheric Research 
+Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 Revisions:
 

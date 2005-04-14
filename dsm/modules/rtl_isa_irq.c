@@ -1,11 +1,11 @@
 /* rtl_isa_irq.c
 
-   Time-stamp: <Wed 30-Mar-2005 11:43:50 am>
+   Time-stamp: <Wed 13-Apr-2005 05:52:11 pm>
 
    RTLinux module for de-multiplexing the ISA bus interrupts.
 
    Original Author: John Wasinger/Gordon Maclean
-   Copyright by the National Center for Atmospheric Research
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Implementation notes:
 

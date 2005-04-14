@@ -1,12 +1,12 @@
 /* xxxx_driver.c
 
-   Time-stamp: <Wed 30-Mar-2005 05:55:05 pm>
+   Time-stamp: <Wed 13-Apr-2005 05:52:09 pm>
 
    Test rtl driver.
 
    Original Author: Gordon Maclean
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:
 

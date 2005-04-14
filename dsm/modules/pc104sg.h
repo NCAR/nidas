@@ -1,11 +1,17 @@
-/* Pc104sg.h
-   Class for interfacing the PC104-SG time and frequency processor.
+/*
+ ********************************************************************
+    Interface for the PC104-SG time and frequency processor.
 
-   Original Author: Mike Spowart
-   Copyright by the National Center for Atmospheric Research
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-   Revisions:
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
 
+    $LastChangedRevision: 1703 $
+
+    $LastChangedBy: wasinger $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/modules/pc104sg.h $
+ ********************************************************************
 */
 
 #ifndef PC104SG_H

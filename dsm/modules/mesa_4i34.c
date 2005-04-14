@@ -1,3 +1,18 @@
+/*
+ ********************************************************************
+    Interface for the Anything I/O board.
+
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 1703 $
+
+    $LastChangedBy: wasinger $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/modules/mesa_4i34.c $
+ ********************************************************************
+*/
 
 #ifndef __RTCORE_KERNEL__
 #  define __RTCORE_KERNEL__

@@ -1,12 +1,12 @@
 /* main.h
 
-   Time-stamp: <Wed 25-Aug-2004 12:18:58 pm>
+   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
    New ADS 3 header file...
 
    Original Author: John Wasinger
 
-   Copyright by the National Center for Atmospheric Research 2004
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
  
    Revisions:   NOTE - this is a tempory include file until that
                 is going to be used until the new ADS 3 system is
