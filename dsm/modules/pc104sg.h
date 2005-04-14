@@ -161,12 +161,12 @@
 #define DP_Ctr1_ctl_sel                 0x40  /* ALWAYS used for ctr 1 */
 #define DP_Ctr0_ctl_sel                 0x00  /* ALWAYS used for ctr 0 */
 #define DP_ctl_rw                       0x30  /* ALWAYS used */
-#define DP_ctl_mode0                    0x00  /* Ctrx mode 0 select */
-#define DP_ctl_mode1                    0x02  /* Ctrx mode 1 select */
-#define DP_ctl_mode2                    0x04  /* Ctrx mode 2 select */
-#define DP_ctl_mode3                    0x06  /* Ctrx mode 3 select */
-#define DP_ctl_mode4                    0x08  /* Ctrx mode 4 select */
-#define DP_ctl_mode5                    0x0A  /* Ctrx mode 5 select */
+#define DP_ctl_mode0                    0x00  /* Intrp on terminal count */
+#define DP_ctl_mode1                    0x02  /* H/W retriggerable on-shot */
+#define DP_ctl_mode2                    0x04  /* Rate generator */
+#define DP_ctl_mode3                    0x06  /* Square wave generator */
+#define DP_ctl_mode4                    0x08  /* S/W triggered one-shot */
+#define DP_ctl_mode5                    0x0A  /* H/W triggered strobe */
 #define DP_ctl_bin                      0x00  /* Ctrx binary mode select */
 #define DP_ctl_bcd                      0x01  /* Ctrx bcd mode select */
 #define DP_Ctr2_lsb          0x9B     /* ctr 2 count LSB    */
