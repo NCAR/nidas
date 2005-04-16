@@ -1,3 +1,4 @@
+// #define DEBUGFILT
 /* ck_a2d.cc
 
    User space code that exercises ioctls on the a2d_driver module.
@@ -36,10 +37,13 @@
 #include <RTL_DSMSensor.h>
 
 using namespace std;
+using namespace dsm;
+
 
 void loada2dstruct(A2D_SET *a);
 void A2D_SETDump(A2D_SET *a);
 int  sleepytime = 1, printmodulus = 1;
+char *filtername = "fir10KHz.cfg";
 
 
 int main(int argc, char** argv)
@@ -71,11 +75,23 @@ int main(int argc, char** argv)
   	if(printmodulus > sleepytime)printmodulus = sleepytime;
   }
 
-  cout << endl << endl;
-  cout << "----CK_A2D----" << endl; 
-  cout << __FILE__ << ": Creating sensor class..." << endl;
 
-  RTL_DSMSensor sensor("/dev/dsma2d0");
+    if(argc == 4)
+    {
+        strcpy(filtername, argv[3]);
+    }
+
+    printf("Using filter file %s \n", filtername);
+
+  cerr << endl << endl;
+  cerr << "----CK_A2D----" << endl; 
+  cerr << __FILE__ << ": Creating sensor class ..." << endl;
+
+  RTL_DSMSensor sensor;
+
+  cerr << "setting Device name" << endl;
+  sensor.setDeviceName("/dev/dsma2d0");
+  cerr << "opening" << endl;
 
   try {
     sensor.open(O_RDONLY);
@@ -85,19 +101,19 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  cout << __FILE__ << ": Up Fifo opened" << endl;
+  cerr << __FILE__ << ": Up Fifo opened" << endl;
 
   // Load some phoney data into the a2d structure
   a2d = (A2D_SET *)malloc(sizeof(A2D_SET));
   loada2dstruct(a2d);
-  cout << __FILE__ << ": Structure loaded" << endl;
-  cout << __FILE__ << ": Size of A2D_SET = " << sizeof(A2D_SET) << endl;
+  cerr << __FILE__ << ": Structure loaded" << endl;
+  cerr << __FILE__ << ": Size of A2D_SET = " << sizeof(A2D_SET) << endl;
 
   //Send the struct to the a2d_driver
  
   sensor.ioctl(A2D_SET_IOCTL, a2d, sizeof(A2D_SET));	
 
-  cout << __FILE__ << ": Initialization data sent to driver" << endl;
+  cerr << __FILE__ << ": Initialization data sent to driver" << endl;
 
   for(int iset = 0; iset < MAXA2DS; iset++)
   {
@@ -108,35 +124,36 @@ int main(int argc, char** argv)
   }
 
   A2D_SETDump(a2d);
-
+/*
   sensor.ioctl(A2D_CAL_IOCTL, a2d, sizeof(A2D_SET));
 
-  cout << __FILE__ << ": Calibration command sent to driver" << endl;
-
+  cerr << __FILE__ << ": Calibration command sent to driver" << endl;
+*/
   run_msg = RUN;	
 
   sensor.ioctl(A2D_RUN_IOCTL, &run_msg, sizeof(int));
   
-  cout << __FILE__ << ": Run command sent to driver" << endl;
+  cerr << __FILE__ << ": Run command sent to driver" << endl;
 
-  usleep(10000); // Wait for one cycle to complete
+  usleep(10000); // Wait for one 100 Hz cycle to complete
 
   for(i = 0; i <  sleepytime; i++)
   {
-        int lread;
+	int lread;
 
 	FD_ZERO(&readfds);
 	FD_SET(sensor.getReadFd(), &readfds);
 	select(1+sensor.getReadFd(), &readfds, NULL, NULL, NULL);
 
 	lread = sensor.read(&buf, sizeof(A2DSAMPLE));
-//      cerr << "lread=" << lread << endl;
+	cerr << "sizeof a2dsample = " << sizeof(A2DSAMPLE);
+//	cerr << "lread=" << lread << endl;
 
 	if(i%printmodulus == 0)
 	{	
 		printf("\n\nindex = %6d\n", i);
 		printf("0x%08lX\n", buf.timestamp);
-		printf("0x%04X\n", buf.size);
+//		printf("0x%08X\n", (UL)buf.size);
 
 		for(ii = 0; ii < INTRP_RATE ; ii++)
 		{
@@ -154,7 +171,7 @@ int main(int argc, char** argv)
 
   sensor.ioctl(A2D_RUN_IOCTL, &run_msg, sizeof(int));
   
-  cout << __FILE__ << ": Stop command sent to driver" << endl;
+  cerr << __FILE__ << ": Stop command sent to driver" << endl;
 
 
 }
@@ -163,6 +180,7 @@ void loada2dstruct(A2D_SET *a2d)
 {
 	int i;
 	FILE *fp;
+	char fline[80];
 	
 /*
 Load up some phoney data in the A2D control structure, A2D_SET  
@@ -180,18 +198,27 @@ Load up some phoney data in the A2D control structure, A2D_SET
 	}
  	a2d->vcalx8 = 128;
 
-	if((fp = fopen("filtercoeff.bin", "rb")) == NULL)
-		{
+	if((fp = fopen(filtername, "r")) == NULL)
+	{
 		printf("No filter file!\n");
 		exit(1);
-		}
-	fread(&a2d->filter[0], 2, 2048, fp);
+	}
+	
+    for(i = 0; i < CONFBLLEN*CONFBLOCKS + 1; i++)
+    {
+        fscanf(fp, "%4x\n", &a2d->filter[i]);
+
+#ifdef DEBUGFILT
+		if(i%10==0)printf("\n%03d: ", i);
+        printf(" %04X", a2d->filter[i]);
+#endif
+    }
 
 #ifdef DEBUG
 	for(i = 0; i < 10; i++)
-		{
+	{
 		printf("0x%04X\n", a2d->filter[i]);
-		}
+	}
 #endif
 
 	return;
@@ -201,10 +228,10 @@ void A2D_SETDump(A2D_SET *a2d)
 {
 	int i;
 	for(i = 0;i < 8; i++)
-		{
+	{
 		printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
 		printf("Hz_%1d    = %3d\n", i, a2d->Hz[i]);
-		}
+	}
 
 	printf("Vcalx8  = %3d\n", a2d->vcalx8);
 	printf("filter0 = 0x%04X\n", a2d->filter[0]);
