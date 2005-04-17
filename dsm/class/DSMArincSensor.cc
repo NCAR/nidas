@@ -87,7 +87,7 @@ void DSMArincSensor::close() throw(atdUtil::IOException)
 }
 
 /**
- * Since each sample contains it's own time tag then the block sample's time tag
+ * Since each sample contains it's own time tag (msecs since midnight) then the block sample's time tag
  * (obtained from samp->getTimeTag()) is useless.
  */
 bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
@@ -96,6 +96,10 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   const tt_data_t *pSamp = (const tt_data_t*) samp->getConstVoidDataPtr();
   int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
 
+  // time at 00:00 GMT of day.
+  dsm_time_t t0day = samp->getTimeTag() -
+  	(samp->getTimeTag() % MSECS_PER_DAY);
+
   for (int i=0; i<nfields; i++) {
 
 //     if (i == nfields-1)
@@ -103,7 +107,11 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 //           (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) );
 
     SampleT<float>* outs = getSample<float>(1);
-    outs->setTimeTag(pSamp[i].time);
+
+    // pSamp[i].time is the number of milliseconds since midnight
+    // for the individual label. Use it to create a correct
+    // time tag for the label.
+    outs->setTimeTag(t0day + pSamp[i].time);
 
     unsigned short label = pSamp[i].data & 0xff;
 //     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
