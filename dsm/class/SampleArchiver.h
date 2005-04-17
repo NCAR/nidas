@@ -18,6 +18,7 @@
 #define DSM_SAMPLEARCHIVER_H
 
 #include <SampleIOProcessor.h>
+#include <SampleSorter.h>
 
 namespace dsm {
 
@@ -27,11 +28,16 @@ public:
     
     SampleArchiver();
 
+    /**
+     * Copy constructor.
+     */
+    SampleArchiver(const SampleArchiver& x);
+
     virtual ~SampleArchiver();
 
     SampleIOProcessor* clone() const;
 
-    bool singleDSM() const { return true; }
+    bool singleDSM() const { return false; }
 
     void connect(dsm::SampleInput*) throw(atdUtil::IOException);
 
@@ -45,10 +51,11 @@ public:
 
 protected:
 
+    SampleSorter sorter;
 
-    std::list<SampleInput*> inputs;
+    atdUtil::Mutex initMutex;
 
-    atdUtil::Mutex inputListMutex;
+    bool initialized;
 
 };
 

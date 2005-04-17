@@ -114,10 +114,10 @@ string FileSet::getTokenValue(const string& token)
     else return "unknown";
 }
 
-dsm_sys_time_t FileSet::createFile(dsm_sys_time_t t)
+dsm_time_t FileSet::createFile(dsm_time_t t)
 	throw(atdUtil::IOException)
 {
-    return (dsm_sys_time_t)atdUtil::FileSet::createFile((time_t)(t/1000)) * 1000;
+    return (dsm_time_t)atdUtil::FileSet::createFile((time_t)(t/1000)) * 1000;
 }
 
 void FileSet::fromDOMElement(const DOMElement* node)

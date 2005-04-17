@@ -92,7 +92,7 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 #endif
     scanSensors(otherSensors);
 
-    int offset = 1;	// first float is ndays
+    int offset = 0;
     // iterate over the group ids
     for (int i = 0; i < (signed)numVarsInRateGroup.size(); i++) {
 	groupOffsets[i] = offset;
@@ -145,6 +145,7 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 #endif
 
 	    groupIds[sampleId] = groupId;
+	    /* offset within a group of the first variable of this sample */
 	    sampleOffsets[sampleId] = numVarsInRateGroup[groupId] + 1;
 	    msecsPerSample[groupId] = (int)(1000 / rate);
 
@@ -163,18 +164,17 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 }
 
 
-void SyncRecordGenerator::allocateRecord(int ndays,dsm_sample_time_t timetag)
+void SyncRecordGenerator::allocateRecord(dsm_time_t timetag)
 {
     syncRecord = getSample<float>(recSize);
     syncRecord->setTimeTag(timetag);
     syncRecord->setId(SYNC_RECORD_ID);
     floatPtr = syncRecord->getDataPtr();
     for (int i = 0; i < recSize; i++) floatPtr[i] = floatNAN;
-    floatPtr[0] = ndays;
 }
 
 
-void SyncRecordGenerator::sendHeader(dsm_sys_time_t thead) throw()
+void SyncRecordGenerator::sendHeader(dsm_time_t thead) throw()
 {
     headerTime = thead;
     doHeader = true;
@@ -185,7 +185,7 @@ void SyncRecordGenerator::sendHeader() throw()
     string headstr = headerStream.str();
 
     SampleT<char>* headerRec = getSample<char>(headstr.length()+1);
-    headerRec->setTimeTag((dsm_sample_time_t)(headerTime % MSECS_PER_DAY));
+    headerRec->setTimeTag(headerTime);
 
 #ifdef DEBUG
     cerr << "SyncRecordGenerator::sendHeader timetag=" << headerRec->getTimeTag() << endl;
@@ -209,32 +209,16 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     if (!(nsamps++ % 100)) cerr <<
     	"SyncRecordGenerator, nsamps=" << nsamps << endl;
 #endif
-    dsm_sample_time_t tt = samp->getTimeTag();
-    unsigned long id = samp->getId();
-    unsigned short shortid = samp->getShortId();
+    dsm_time_t tt = samp->getTimeTag();
+    unsigned long sampid = samp->getId();
 
     if (!syncRecord) {
-	if (shortid != CLOCK_SAMPLE_ID ||
-		samp->getType() != LONG_LONG_ST) return false;
-
-	// clock samples go in the sync record stream too
-	distribute(samp);
-
         syncTime = tt - (tt % 1000);
-#ifdef DEBUG
-	cerr << "syncTime=" << syncTime << endl;
-#endif
-	long long* timep = (long long*) samp->getConstVoidDataPtr();
-	ndays = (*timep / MSECS_PER_DAY);
-#ifdef DEBUG
-	cerr << "ndays=" << ndays << endl;
-#endif
-	allocateRecord(ndays,syncTime);
-	return true;
+	allocateRecord(syncTime);
     }
 	
-    while (tt >= syncTime + 1000 ||
-    	(tt < 60000 && (syncTime == MSECS_PER_DAY - 1000))) {
+    // need to screen bad times
+    while (tt >= syncTime + 1000) {
 #ifdef DEBUG
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
@@ -246,25 +230,10 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	syncRecord->freeReference();
 	syncRecord = 0;
 	syncTime += 1000;
-	if (syncTime == MSECS_PER_DAY) {
-	    syncTime = 0;
-	    ndays++;
-	}
-	allocateRecord(ndays,syncTime);
+	allocateRecord(syncTime);
     }
 
-    if (shortid == CLOCK_SAMPLE_ID &&
-    	samp->getType() == LONG_LONG_ST) {
-	long long* timep = (long long*) samp->getConstVoidDataPtr();
-	int ndayCheck = (*timep / MSECS_PER_DAY);
-	if (ndayCheck != ndays) cerr << "bad nday=" << ndays <<
-		" ndayCheck=" << ndayCheck << endl;
-	// clock samples go in the sync record stream too
-	distribute(samp);
-	return true;
-    }
-
-    map<unsigned long, int>::const_iterator gi =  groupIds.find(id);
+    map<unsigned long, int>::const_iterator gi =  groupIds.find(sampid);
     if (gi == groupIds.end()) {
         unrecognizedSamples++;
 	return false;
@@ -273,7 +242,7 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     int groupId = gi->second;
 
     int nvarsInGroup = numVarsInRateGroup[groupId];
-    int sampleOffset = sampleOffsets[id];
+    int sampleOffset = sampleOffsets[sampid];
     int groupOffset = groupOffsets[groupId];
     int msecsPerSamp = msecsPerSample[groupId];
 

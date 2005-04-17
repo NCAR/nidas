@@ -14,6 +14,7 @@
 */
 
 #include <PortSelector.h>
+#include <DSMEngine.h>
 #include <atdUtil/Logger.h>
 
 #include <errno.h>
@@ -82,7 +83,7 @@ int PortSelector::getTimeoutWarningMsec() const {
   return timeoutWarningMsec;
 }
 
-void PortSelector::calcStatistics(dsm_sys_time_t tnowMsec)
+void PortSelector::calcStatistics(dsm_time_t tnowMsec)
 {
   statisticsTime += statisticsPeriod;
   if (statisticsTime < tnowMsec)
@@ -108,7 +109,7 @@ int PortSelector::run() throw(atdUtil::Exception)
   act.sa_handler = SIG_IGN;
   sigaction(SIGPIPE,&act,(struct sigaction *)0);
 
-  dsm_sys_time_t rtime = 0;
+  dsm_time_t rtime = 0;
   struct timeval tout;
   unsigned long timeoutSumMsec = 0;
 
@@ -162,12 +163,14 @@ int PortSelector::run() throw(atdUtil::Exception)
     int nfd = 0;
     int fd = 0;
 
+    SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
+
     for (unsigned int ifd = 0; ifd < activeSensorPortFds.size(); ifd++) {
       fd = activeSensorPortFds[ifd];
       if (FD_ISSET(fd,&rset)) {
 	DSMSensor *port = activeSensorPorts[ifd];
 	try {
-	  rtime = port->readSamples();
+	  rtime = port->readSamples(dater);
 	}
 	// log the error but don't exit
 	catch (IOException &ioe) {

@@ -53,14 +53,14 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void newFileCallback(dsm_sys_time_t thead) throw();
+    void newFileCallback(dsm_time_t thead) throw();
 
 protected:
     void init() throw();
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
 
-    void allocateRecord(int ndays,dsm_sample_time_t timetag);
+    void allocateRecord(dsm_time_t timetag);
 
 protected:
 

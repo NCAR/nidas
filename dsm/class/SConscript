@@ -9,6 +9,11 @@
 Import('env')
 myenv = env.Copy()
 
+# -ggdb
+# -DXML_DEBUG
+myenv.AppendUnique(CXXFLAGS = Split("""
+"""))
+
 ##
 ##  List the source files compiled into the libDsm.a library.
 ##
@@ -76,7 +81,7 @@ sources = Split("""
   SampleOutput.cc
   RawSampleOutputStream.cc
   RawSampleInputStream.cc
-  SampleStreamDater.cc
+  SampleDater.cc
 
   SampleIOProcessor.cc
   SyncRecordProcessor.cc

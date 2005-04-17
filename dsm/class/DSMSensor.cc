@@ -73,12 +73,12 @@ void DSMSensor::destroyBuffer() throw()
     buffer = 0;
 }
 
-dsm_sample_time_t DSMSensor::readSamples()
+dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 	throw (atdUtil::IOException)
 {
     size_t len = BUFSIZE - bufhead;	// length to read
     size_t rlen;			// read result
-    dsm_sample_time_t tt = maxValue(tt);
+    dsm_time_t tt = 0;
 
     rlen = read(buffer+bufhead,len);
     bufhead += rlen;
@@ -94,6 +94,8 @@ dsm_sample_time_t DSMSensor::readSamples()
 	    sampDataPtr += len;
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
+		SampleDater::status_t status = setSampleTime(dater,samp);
+		if (status != dater->OK) questionableTimetags++;
 		tt = samp->getTimeTag();	// return last time tag read
 		distributeRaw(samp);
 		samp->freeReference();
@@ -240,9 +242,10 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	}
     }
 
-    if (sampleTags.size() == 0)
-	    throw atdUtil::InvalidParameterException(
-		getName() + " has no <sample> tags");
+    // sensors in the catalog may not have any sample tags
+    // if (sampleTags.size() == 0)
+// 	    throw atdUtil::InvalidParameterException(
+// 		getName() + " has no <sample> tags");
 
     // Set the sample ids to be the sum of the sensor id and sample id
     // Also set the DSM id portion of the sample ids

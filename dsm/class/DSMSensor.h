@@ -15,15 +15,16 @@
 #ifndef DSMSENSOR_H
 #define DSMSENSOR_H
 
-#include <atdUtil/IOException.h>
-#include <atdUtil/InvalidParameterException.h>
+#include <SampleDater.h>
 #include <SampleClient.h>
 #include <SampleSource.h>
 #include <RawSampleSource.h>
 #include <SampleTag.h>
 #include <DOMable.h>
-
 #include <dsm_sample.h>
+
+#include <atdUtil/IOException.h>
+#include <atdUtil/InvalidParameterException.h>
 
 #include <string>
 #include <list>
@@ -138,13 +139,6 @@ public:
     virtual int getReadFd() const = 0;
 
     /**
-     * Does this sensor provide clock samples?  If so its
-     * process method is expected to create a sample of
-     * type SampleT<dsm_sys_time>t>, with an id of CLOCK_SAMPLE_ID.
-     */
-    virtual bool isClock() const { return false; }
-
-    /**
      * Set the various levels of the sensor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
@@ -217,7 +211,7 @@ public:
      * midnight GMT), followed by a 4 byte unsigned integer data
      * length, and then length number of bytes of data.
      */
-    dsm_sample_time_t readSamples()
+    dsm_time_t readSamples(SampleDater* dater)
     	throw(atdUtil::IOException);
 
     /**
@@ -269,10 +263,12 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
-
 protected:
 
-protected:
+    virtual SampleDater::status_t setSampleTime(SampleDater* dater,Sample* samp)
+    {
+        return dater->setSampleTime(samp);
+    }
 
     /**
      * Class name attribute of this sensor. Only used here for
@@ -284,6 +280,10 @@ protected:
 
     std::string devname;
 
+    /**
+     * Id of this sensor.  Raw samples from this sensor will
+     * have this id.
+     */
     dsm_sample_id_t id;
 
     std::list<SampleTag*> sampleTags;
@@ -296,6 +296,7 @@ protected:
      * open() method.
      */
     void initBuffer() throw();
+
 
     /**
      * Delete the sensor buffer.  Derived classes should call
@@ -310,6 +311,8 @@ protected:
     Sample* samp;
     size_t sampDataToRead;
     char* sampDataPtr;
+
+    size_t questionableTimetags;
 
     /**
      * DSMSensor maintains some counters that can be queried

@@ -88,7 +88,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
     // large writes, bigger than 1/2 the buffer size
     bool largewrite = tlen > buflen;
 
-    dsm_sys_time_t tnow = getCurrentTimeInMillis();
+    dsm_time_t tnow = getCurrentTimeInMillis();
     int tdiff = tnow - lastWrite;
 
     int nagain = 0;

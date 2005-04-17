@@ -32,7 +32,6 @@ SampleSorter::SampleSorter(int buflenInMilliSec_a) :
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    cerr << "SampleSorter, buflenInMillisec=" << buflenInMillisec << endl;
 }
 
 SampleSorter::~SampleSorter() {
@@ -49,6 +48,7 @@ SampleSorter::~SampleSorter() {
  */
 int SampleSorter::run() throw(atdUtil::Exception) {
 
+    cerr << "SampleSorter, buflenInMillisec=" << buflenInMillisec << endl;
     for (;;) {
 
 	// If another thread is interrupting us, we don't want the 
@@ -76,8 +76,7 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	// cerr << "samples.size=" << samples.size() << endl;
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 	if (latest == samples.rend()) continue;	// empty
-	dsm_sample_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
-	if (tt < 0) tt += MSECS_PER_DAY;
+	dsm_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
 	dummy.setTimeTag(tt);
 	// cerr << "tt=" << tt << endl;
 #endif

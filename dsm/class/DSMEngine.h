@@ -42,6 +42,11 @@ public:
 
     static DSMEngine* getInstance();
 
+    SampleDater* getSampleDater()
+    {
+        return &dater;
+    }
+
     static
     xercesc::DOMDocument* requestXMLConfig()
 	throw(atdUtil::Exception,xercesc::DOMException,
@@ -92,16 +97,13 @@ protected:
 
     virtual ~DSMEngine();
 
-    /**
-     * A socket for receiving my configuration.
-     */
-    atdUtil::ServerSocket* streamSock;
-
     Project* project;
     Aircraft* aircraft;
     DSMConfig* dsmConfig;
 
     PortSelector* selector;
+
+    SampleDater dater;
 
     std::list<SampleOutput*> connectedOutputs;
     atdUtil::Mutex outputMutex;

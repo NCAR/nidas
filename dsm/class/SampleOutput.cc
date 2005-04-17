@@ -29,7 +29,7 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 SampleOutputStream::SampleOutputStream():
 	name("SampleOutputStream"),iochan(0),iostream(0),
 	pseudoPort(0),dsm(0),service(0),connectionRequester(0),
-	type(TIMETAG_DEPENDENT),nextFileTime(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),nextFileTime(0)
 {
 }
 
@@ -38,7 +38,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	pseudoPort(x.pseudoPort),
 	dsm(x.dsm),service(x.service),
 	connectionRequester(x.connectionRequester),
-	type(TIMETAG_DEPENDENT),nextFileTime(0),questionableTimetags(0)
+	type(TIMETAG_DEPENDENT),nextFileTime(0)
 {
 }
 
@@ -144,27 +144,18 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 {
     if (!iostream) return false;
 
-    if (type == TIMETAG_DEPENDENT) {
-        samp = dater(samp);
+    dsm_time_t tsamp = samp->getTimeTag();
 
-	if (dater.getStatus() != dater.OK) {
-	    questionableTimetags++;
-	    return false;
-	}
-
-	dsm_sys_time_t tsamp = dater.getTime();
-
-	if (nextFileTime == 0) nextFileTime = tsamp;
-	if (tsamp >= nextFileTime) {
+    if (nextFileTime == 0) nextFileTime = tsamp;
+    if (tsamp >= nextFileTime) {
 #ifdef DEBUG
 	    cerr << "calling iostream->createFile, nextFileTime=" << nextFileTime << endl;
 #endif
 
-	    dsm_sys_time_t newFileTime = iostream->createFile(nextFileTime);
-	    if (connectionRequester)
-	    	connectionRequester->newFileCallback(nextFileTime);
-	    nextFileTime = newFileTime;
-	}
+	dsm_time_t newFileTime = iostream->createFile(nextFileTime);
+	if (connectionRequester)
+	    connectionRequester->newFileCallback(nextFileTime);
+	nextFileTime = newFileTime;
     }
 
     try {
@@ -188,7 +179,7 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     size_t lens[2];
     bufs[0] = samp->getHeaderPtr();
     lens[0] = samp->getHeaderLength();
-    assert(samp->getHeaderLength() == 12);
+    assert(samp->getHeaderLength() == 16);
 
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();

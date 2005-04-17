@@ -364,8 +364,7 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 	// sensors as a RawSampleClient of themselves.
 	// If it's a clock sensor, also have the clock
 	// sensor process its raw samples.
-	if (processedOutput || sensor->isClock())
-		sensor->addRawSampleClient(sensor);
+	if (processedOutput) sensor->addRawSampleClient(sensor);
     }
 }
 
@@ -386,10 +385,7 @@ void DSMEngine::connected(SampleOutput* output) throw()
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	cerr << "adding output to sensor " << sensor->getName() << endl;
-	if (output->isRaw()) {
-	    if (sensor->isClock()) sensor->addSampleClient(output);
-	    sensor->addRawSampleClient(output);
-	}
+	if (output->isRaw()) sensor->addRawSampleClient(output);
 	else sensor->addSampleClient(output);
     }
     outputMutex.lock();
@@ -406,10 +402,7 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	cerr << "removing output from sensor " << sensor->getName() << endl;
-	if (output->isRaw()) {
-	    if (sensor->isClock()) sensor->removeSampleClient(output);
-	    sensor->removeRawSampleClient(output);
-	}
+	if (output->isRaw()) sensor->removeRawSampleClient(output);
 	else sensor->removeSampleClient(output);
     }
     try {

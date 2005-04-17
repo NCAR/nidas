@@ -65,7 +65,7 @@ public:
     void setTimeoutWarningMsec(int val);
     int getTimeoutWarningMsec() const;
 
-    void calcStatistics(dsm_sys_time_t);
+    void calcStatistics(dsm_time_t);
 
     void setStatisticsPeriodInSecs(int val) { statisticsPeriod = val * 1000; }
     int getStatisticsPeriodInSecs() const { return statisticsPeriod / 1000; }
@@ -115,7 +115,7 @@ protected:
     size_t timeoutUsec;
     size_t timeoutWarningMsec;
 
-    dsm_sys_time_t statisticsTime;
+    dsm_time_t statisticsTime;
 
     unsigned long statisticsPeriod;
 

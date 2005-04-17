@@ -51,7 +51,7 @@ public:
     /**
      * SampleConnectionRequester will be called back when a new file is created.
      */
-    virtual void newFileCallback(dsm_sys_time_t) throw() {}
+    virtual void newFileCallback(dsm_time_t) throw() {}
 };
 
 }

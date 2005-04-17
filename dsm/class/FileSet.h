@@ -52,7 +52,7 @@ public:
 
     IOChannel* clone() { return new FileSet(*this); }
 
-    dsm_sys_time_t FileSet::createFile(dsm_sys_time_t t)
+    dsm_time_t FileSet::createFile(dsm_time_t t)
 	throw(atdUtil::IOException);
 
     size_t read(void* buf, size_t len) throw(atdUtil::IOException)

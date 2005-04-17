@@ -15,15 +15,7 @@ class SampleTimetagComparator {
 public:
   bool operator() (const Sample* x, const Sample *y) const {
     // return true if x is less than y
-    int d = x->getTimeTag() - y->getTimeTag();
-    if (d < 0) {
-      if (d < -86100000) return false;	// x has rolled over back to 0
-      return true;
-    }
-    else {
-      if (d > 86100000) return true;	// y has rolled over back to 0
-      return false;
-    }
+    return x->getTimeTag() < y->getTimeTag();
   }
 };
 

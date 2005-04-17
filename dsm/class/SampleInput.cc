@@ -137,7 +137,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    iostream->read(&header,header.getSizeOf());
 
 #ifdef DEBUG
-	    assert(header.getSizeOf() == 12);
+	    assert(header.getSizeOf() == 16);
 	    cerr << "read header " <<
 	    	" getTimeTag=" << header.getTimeTag() <<
 	    	" getId=" << header.getId() <<

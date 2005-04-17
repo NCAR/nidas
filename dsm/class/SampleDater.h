@@ -14,42 +14,34 @@
 
 */
 
-#ifndef DSM_SAMPLESTREAMDATER_H
-#define DSM_SAMPLESTREAMDATER_H
+#ifndef DSM_SAMPLEDATER_H
+#define DSM_SAMPLEDATER_H
 
 #include <Sample.h>
 #include <DSMTime.h>
 
 namespace dsm {
 
-class SampleStreamDater {
+class SampleDater {
 public:
-    SampleStreamDater(int maxClockDiff = 180000):
+    SampleDater(int maxClockDiff = 180000):
     	maxClockDiffMsec(maxClockDiff),clockTime(0) {}
 
-    const Sample* operator()(const Sample*);
-    Sample* operator()(Sample*);
+    void setTime(dsm_time_t);
 
-    dsm_sys_time_t getTime() const { return sampleTime; }
-
-    dsm_sys_time_t getClockTime() const { return clockTime; }
+    dsm_time_t getTime() const { return clockTime; }
 
     typedef enum { NO_CLOCK, OUT_OF_SPEC, OK } status_t;
 
-    status_t getStatus() const { return status; }
-private:
+    status_t setSampleTime(Sample*) const;
 
-    status_t computeTime(const Sample*);
+private:
 
     int maxClockDiffMsec;
 
-    dsm_sys_time_t t0day;
+    dsm_time_t t0day;
 
-    dsm_sys_time_t sampleTime;
-
-    dsm_sys_time_t clockTime;
-
-    status_t status;
+    dsm_time_t clockTime;
 
 };
 

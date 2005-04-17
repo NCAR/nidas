@@ -105,7 +105,7 @@ public:
      * (e.g. sockets) can just use this default implementation -
      * basically ignoring the request.
      */
-    virtual dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
+    virtual dsm_time_t createFile(dsm_time_t t) throw(atdUtil::IOException)
     {
         return LONG_LONG_MAX;
     }

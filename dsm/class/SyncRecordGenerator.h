@@ -44,13 +44,13 @@ public:
 
     bool receive(const Sample*) throw();
 
-    void sendHeader(dsm_sys_time_t timetag) throw();
+    void sendHeader(dsm_time_t timetag) throw();
 
 protected:
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
 
-    void allocateRecord(int ndays,dsm_sample_time_t timetag);
+    void allocateRecord(dsm_time_t timetag);
 
 protected:
 
@@ -93,8 +93,7 @@ protected:
     std::vector<std::vector<std::string> > variableNames;
     int recSize;
 
-    dsm_sample_time_t syncTime;
-    int ndays;
+    dsm_time_t syncTime;
 
     SampleT<float>* syncRecord;
     float* floatPtr;
@@ -106,7 +105,7 @@ protected:
     std::ostringstream headerStream;
 
     volatile bool doHeader;
-    volatile dsm_sys_time_t headerTime;
+    volatile dsm_time_t headerTime;
 
 };
 

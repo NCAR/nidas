@@ -38,11 +38,6 @@ public:
     ~IRIGSensor();
 
     /**
-     * Return true if this is a ClockSensor.
-     */
-    bool isClock() const { return true; }
-
-    /**
      * Open the device connected to the sensor.
      */
     void open(int flags) throw(atdUtil::IOException);
@@ -58,6 +53,8 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& result)
     	throw();
 
+    virtual SampleDater::status_t setSampleTime(SampleDater*,Sample* samp);
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
@@ -70,7 +67,10 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+    void checkClock() throw(atdUtil::IOException);
+
     const long GOOD_CLOCK_LIMIT;
+
     int questionableClock;
 
 };

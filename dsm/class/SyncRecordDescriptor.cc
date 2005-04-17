@@ -69,7 +69,7 @@ void SyncRecordDescripter::scanSerialSensors()
 pigeonHoler(const Sample* samp)
 {
     unsigned short id = samp->getId();
-    dsm_sample_time_t tt = samp->getTimeTag();
+    dsm_time_t tt = samp->getTimeTag();
 
     syncGroup = syncGroups[id];
     nvarsInGroup = nvars[syncGroup];

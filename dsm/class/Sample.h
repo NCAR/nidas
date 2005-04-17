@@ -27,6 +27,9 @@
 
 namespace dsm {
 
+/** Milliseconds since Jan 1 1970, 00:00 UTC */
+typedef long long dsm_time_t;
+
 typedef unsigned long dsm_sample_id_t;
 
 /**
@@ -139,8 +142,8 @@ public:
   
     virtual ~Sample() {}
 
-    virtual void setTimeTag(dsm_sample_time_t val) = 0;
-    virtual dsm_sample_time_t getTimeTag() const = 0;
+    virtual void setTimeTag(dsm_time_t val) = 0;
+    virtual dsm_time_t getTimeTag() const = 0;
 
     /**
      * Set the number of elements in data portion of sample.
@@ -298,8 +301,8 @@ public:
     	tt(0),length(0),id((unsigned long)t << 26) {}
 
 
-    dsm_sample_time_t getTimeTag() const { return tt; }
-    void setTimeTag(dsm_sample_time_t val) { tt = val; }
+    dsm_time_t getTimeTag() const { return tt; }
+    void setTimeTag(dsm_time_t val) { tt = val; }
 
     /**
      * Get the value of the length member of the header. This
@@ -336,7 +339,7 @@ public:
 
     static size_t getSizeOf()
     {
-        return sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t) +
+        return sizeof(dsm_time_t) + sizeof(dsm_sample_length_t) +
 		sizeof(dsm_sample_id_t); }
 
     static size_t getMaxDataLength() { return maxValue(dsm_sample_length_t()); }
@@ -344,7 +347,7 @@ public:
 protected:
 
     /* Time-tag. By convention, milliseconds since midnight 00:00 GMT */
-    dsm_sample_time_t tt; 
+    dsm_time_t tt; 
 
     /* Length of data (# of bytes) in the sample - does not include
      * header fields */
@@ -365,8 +368,8 @@ public:
     SampleT() : SampleBase(),header(getType()),data(0),allocLen(0) {}
     ~SampleT() { delete [] data; }
 
-    void setTimeTag(dsm_sample_time_t val) { header.setTimeTag(val); }
-    dsm_sample_time_t getTimeTag() const { return header.getTimeTag(); }
+    void setTimeTag(dsm_time_t val) { header.setTimeTag(val); }
+    dsm_time_t getTimeTag() const { return header.getTimeTag(); }
 
     void setId(dsm_sample_id_t val) { header.setId(val); }
     dsm_sample_id_t getId() const { return header.getId(); }

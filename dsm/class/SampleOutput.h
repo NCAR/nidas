@@ -20,7 +20,6 @@
 #include <SampleClient.h>
 #include <IOStream.h>
 #include <ConnectionRequester.h>
-#include <SampleStreamDater.h>
 
 // #include <atdUtil/McSocket.h>
 
@@ -158,11 +157,7 @@ protected:
      */
     enum type { SIMPLE, TIMETAG_DEPENDENT } type;
 
-    dsm_sys_time_t nextFileTime;
-
-    int questionableTimetags;
-
-    SampleStreamDater dater;
+    dsm_time_t nextFileTime;
 
 };
 

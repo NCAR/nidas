@@ -104,7 +104,7 @@ public:
      * Request that IOChannel object open a new file, with a name
      * based on a time.
      */
-    dsm_sys_time_t createFile(dsm_sys_time_t t) throw(atdUtil::IOException)
+    dsm_time_t createFile(dsm_time_t t) throw(atdUtil::IOException)
     {
 	// std::cerr << "IOStream::createFile, doing flush" << std::endl;
 	flush();
@@ -148,7 +148,7 @@ protected:
     /**
      * Time of last physical write.
      */
-    dsm_sys_time_t lastWrite;
+    dsm_time_t lastWrite;
 
 private:
 
