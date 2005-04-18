@@ -21,55 +21,88 @@
 
 using namespace std;
 
+class Runstring {
+public:
+    Runstring(int argc, char** argv);
+    static void usage(const char* argv0);
+    string device;
+    enum sens_type { MENSOR_6100, PARO_1000, UNKNOWN } type;
+};
+
+Runstring::Runstring(int argc, char** argv): type(UNKNOWN)
+{
+    extern char *optarg;       /* set by getopt() */
+    extern int optind;       /* "  "     "     */
+    int opt_char;     /* option character */
+										
+    while ((opt_char = getopt(argc, argv, "mp")) != -1) {
+	switch (opt_char) {
+	case 'm':
+	    type = MENSOR_6100;
+	    break;
+	case 'p':
+	    type = PARO_1000;
+	    break;
+	case '?':
+	    usage(argv[0]);
+	}
+    }
+    if (optind == argc - 1) device = string(argv[optind++]);
+    if (device.length() == 0) usage(argv[0]);
+    if (type == UNKNOWN) usage(argv[0]);
+    if (optind != argc) usage(argv[0]);
+}
+
+void Runstring::usage(const char* argv0)
+{
+    cerr << "\
+Usage: " << argv0 << "[-p | -m]  device\n\
+  -p: simulate ParoScientific DigiQuartz 1000\n\
+  -m: simulate Mensor 6100\n\
+  device: Name of serial device, e.g. /dev/ttyS1\n\
+" << endl;
+    exit(1);
+}
+
 int main(int argc, char** argv)
 {
   
-    const char* dev = "/dev/ttyS1";
-    if (argc > 1) dev = argv[1];
+    Runstring rstr(argc,argv);
 
-    atdTermio::SerialPort p(dev);
-    p.setBaudRate(115200);
-    p.setRaw(true);
-    p.setRawLength(6);
-    char buf[1024];
-    char* wp = buf;
-    char* rp = buf;
-    char* ep = buf + sizeof(buf) - 1;	// save room to '\0' terminate
-    char* tp;
+    atdTermio::SerialPort p(rstr.device);
+    switch (rstr.type) {
+    case Runstring::MENSOR_6100:
+	p.setBaudRate(57600);
+	p.iflag() = ICRNL;
+	p.oflag() = OPOST;
+	p.lflag() = ICANON;
+	break;
+    case Runstring::PARO_1000:
+	p.setBaudRate(9600);
+	p.iflag() = 0;
+	p.oflag() = OPOST;
+	p.lflag() = ICANON;
+	break;
+    }
 
-    int good = 0;
-    int bad = 0;
+    char inbuf[64];
+    char outbuf[64];
+
+    const char* promptStrings[] = { "#1?\n", "*0300P3\r\n" };
+    const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n" };
 
     try {
 	p.open(O_RDWR);
 
 	for (;;) {
-	    int l = p.read(wp,ep - wp);
-	    // cerr << "l=" << l << endl;
-	    wp += l;
-	    *wp = '\0';
-	    for (; rp <= wp - 6;) {
-		if (!strncmp(rp,"hitme\n",6)) {
-		    // cerr << "received hitme, writing fake data" << endl;
-		    p.write("xxx 1.23 ff\n",12);
-		    good++;
-		    rp += 6;
-		} else {
-		    cerr << "error, rp=" << rp << " l=" << l << endl;
-		    bad++;
-		    rp++;
-		}
+	    int l = p.readline(inbuf,sizeof(inbuf));
+	    inbuf[l] = '\0';
 
-		if (!((good + bad) % 1000)) cerr << dec << 
-			"good=" << good << " bad=" << bad << endl;
+	    if (!strcmp(inbuf,promptStrings[rstr.type])) {
+	        sprintf(outbuf,dataFormats[rstr.type],1000.0);
+	        p.write(outbuf,strlen(outbuf));
 	    }
-	    // shift down
-	    if (rp > buf) {
-		for (tp = buf; rp < wp; ) *tp++ = *rp++;
-		wp = tp;
-		*wp = '\0';
-		rp = buf;
-	    }
+	    else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
 	}
     }
     catch(atdUtil::IOException& ioe) {
