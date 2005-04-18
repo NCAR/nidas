@@ -98,7 +98,7 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 
   // time at 00:00 GMT of day.
   dsm_time_t t0day = samp->getTimeTag() -
-  	(samp->getTimeTag() % MSECS_PER_DAY);
+        (samp->getTimeTag() % MSECS_PER_DAY);
 
   for (int i=0; i<nfields; i++) {
 
@@ -126,6 +126,27 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   }
 
   return true;
+}
+
+void DSMArincSensor::printStatus(std::ostream& ostr) throw()
+{
+  DSMSensor::printStatus(ostr);
+
+  dsm_arinc_status stat;
+  try {
+    ioctl(ARINC_STAT,&stat,sizeof(stat));
+
+    ostr << "<td>" <<
+      "lps="         << stat.lps_cnt <<
+      "/"            << stat.lps <<
+      ", poll="      << stat.poll << "Hz" <<
+      ", overflow="  << stat.overflow <<
+      ", underflow=" << stat.underflow <<
+      "</td>" << endl;
+  }
+  catch(const atdUtil::IOException& ioe) {
+    ostr << "<td>" << ioe.what() << "</td>" << endl;
+  }
 }
 
 void DSMArincSensor::fromDOMElement(const DOMElement* node)

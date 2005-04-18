@@ -93,8 +93,9 @@ struct recvHandle
   char                sim_xmit;
 
   /* run-time info... */
-  unsigned long       overflow;
-  unsigned long       underflow;
+  unsigned int        lps_cnt;
+  unsigned int        overflow;
+  unsigned int        underflow;
   unsigned char       rate[0400];
   unsigned char       msg_id[0400];
   unsigned char       arcfgs[0400];
@@ -203,6 +204,8 @@ void arinc_timesync(void* junk)
 /* -- IRIG CALLBACK --------------------------------------------------- */
 void arinc_sweep(void* channel)
 {
+  static int nSweeps, lps_cnt;
+
   short status;
   int chn = (int) channel;
   struct recvHandle *hdl = &chn_info[chn];
@@ -215,6 +218,12 @@ void arinc_sweep(void* channel)
   /* read ARINC channel until it's empty or our buffer is full */
   status = ar_getwordst(BOARD_NUM, chn, LPB, &nData, data);
 
+  /* measure the number of received labels per second */
+  lps_cnt += nData;
+  if (++nSweeps >= irigClockEnumToRate(hdl->poll)) {
+    hdl->lps_cnt = lps_cnt;
+    nSweeps = lps_cnt = 0;
+  }
   /* log possible buffer underflows */
   if (status == ARS_NODATA) {
     hdl->underflow++;
@@ -228,12 +237,10 @@ void arinc_sweep(void* channel)
   if (nData == LPB)
     hdl->overflow++;
 
-  sample->length = nData * 8;
-
   /* write this block of ARINC data to the output FIFO */
-  if (sample->length > 0)
-    if (hdl->fd > -1)
-      rtl_write(hdl->fd, sample, SIZEOF_DSM_SAMPLE_HEADER + sample->length);
+  sample->length = nData * 8;
+  if (hdl->fd > -1)
+    rtl_write(hdl->fd, sample, SIZEOF_DSM_SAMPLE_HEADER + sample->length);
 }
 /* -- IOCTL CALLBACK -------------------------------------------------- */
 /**
@@ -279,8 +286,8 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
       if (status > 120) goto ar_fail;
       hdl->msg_id[val.label] = (unsigned char) status;
     }
-/*     else */
-/*       err( "recv: %04o at %3d Hz", val.label, roundUpRate(val.rate)); */
+/*  else */
+/*    err( "recv: %04o at %3d Hz", val.label, roundUpRate(val.rate)); */
 
     hdl->arcfgs[hdl->nArcfg++] = val.label;
 
@@ -312,9 +319,9 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
       /* increase the RTLinux FIFO to fit the large sample size writes */
 /* dsm/modules/arinc.c: arinc_ioctl: calling ftruncate(hdl->fd, 2056) */
-/*       err("calling ftruncate(hdl->fd, %d)", (SIZEOF_DSM_SAMPLE_HEADER + LPB*8) * 8); */
-/*       status = ftruncate(hdl->fd, SIZEOF_DSM_SAMPLE_HEADER + LPB*8); */
-/*       if (status) return status; */
+/*    err("calling ftruncate(hdl->fd, %d)", (SIZEOF_DSM_SAMPLE_HEADER + LPB*8) * 8); */
+/*    status = ftruncate(hdl->fd, SIZEOF_DSM_SAMPLE_HEADER + LPB*8); */
+/*    if (status) return status; */
 
       /* register a polling routine */
       register_irig_callback( &arinc_sweep, hdl->poll, (void *)chn );
@@ -352,6 +359,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     hdl->fd            = -1;
     hdl->lps           = 0;
     hdl->poll          = 0;
+    hdl->lps_cnt       = 0;
     hdl->overflow      = 0;
     hdl->underflow     = 0;
     hdl->sim_xmit      = 0;
@@ -403,6 +411,16 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
       /* stop displaying measurements */
       display_chn = -1;
 
+      /* gather status */
+      dsm_arinc_status arinc_status;
+      arinc_status.lps_cnt   = hdl->lps_cnt;
+      arinc_status.lps       = hdl->lps;
+      arinc_status.poll      = irigClockEnumToRate(hdl->poll);
+      arinc_status.overflow  = hdl->overflow;
+      arinc_status.underflow = hdl->underflow;
+      *(dsm_arinc_status *) buf = arinc_status;
+
+#ifdef DEBUG
       /* move cursor to upper left corner and clear the screen */
       rtl_printf( "%c[2J%c[H", 27, 27 );
 
@@ -424,10 +442,15 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
                    lbl+5, hdl->rate[lbl+5], ar_get_label_filter(BOARD_NUM, lbl+5),
                    lbl+6, hdl->rate[lbl+6], ar_get_label_filter(BOARD_NUM, lbl+6),
                    lbl+7, hdl->rate[lbl+7], ar_get_label_filter(BOARD_NUM, lbl+7));
+#endif
     }
-    else
-      rtl_printf("\n\nChannel %d is unused\n\n\n", chn);
-    break;
+    else {
+#ifdef DEBUG
+      err("Channel %d is unused", chn);
+#endif
+      return -RTL_EINVAL;
+    }
+   break;
 
   case ARINC_MEASURE:
 

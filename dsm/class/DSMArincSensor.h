@@ -89,6 +89,9 @@ namespace dsm {
     bool process(const Sample*, std::list<const Sample*>& result)
       throw();
 
+    /** Display some status information gathered by the driver. */
+    void printStatus(std::ostream& ostr) throw();
+
     /** This contains a switch case for processing all labels. */
     virtual float processLabel(const unsigned long data)
       throw(atdUtil::IOException) = 0;

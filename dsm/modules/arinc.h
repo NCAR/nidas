@@ -62,16 +62,28 @@ typedef struct {
 } tt_data_t;
 
 /**
- * The enumeration of IOCTLs that this driver supports.
- * See pages 130-132 of Linux Device Driver's Manual 
+ * ARINC channel status
  */
-#define ARINC_SET       _IOW(ARINC_MAGIC,0, arcfg_t)  // channel
-#define ARINC_GO         _IO(ARINC_MAGIC,1)           // channel
-#define ARINC_RESET      _IO(ARINC_MAGIC,2)           // channel
-#define ARINC_SIM_XMIT   _IO(ARINC_MAGIC,3)           // channel
-#define ARINC_BIT       _IOW(ARINC_MAGIC,4, short)    // channel
-#define ARINC_STAT       _IO(ARINC_MAGIC,5)           // channel
-#define ARINC_MEASURE    _IO(ARINC_MAGIC,6)           // channel
+typedef struct {
+  unsigned int lps_cnt; // Labels Per Second
+  unsigned int lps;     // Labels Per Second
+  unsigned int poll;
+  unsigned int overflow;
+  unsigned int underflow;
+} dsm_arinc_status;
+
+/**
+ * The enumeration of IOCTLs that this driver supports.
+ * See pages 130-132 of Linux Device Driver's Manual
+ */
+#define ARINC_SET        _IOW(ARINC_MAGIC,0, arcfg_t)
+#define ARINC_GO          _IO(ARINC_MAGIC,1)
+#define ARINC_RESET       _IO(ARINC_MAGIC,2)
+#define ARINC_SIM_XMIT    _IO(ARINC_MAGIC,3)
+#define ARINC_BIT        _IOW(ARINC_MAGIC,4, short)
+#define ARINC_STAT       _IOR(ARINC_MAGIC,5, dsm_arinc_status)
+#define ARINC_MEASURE     _IO(ARINC_MAGIC,6)
+
 
 #include <ioctl_fifo.h>
 
