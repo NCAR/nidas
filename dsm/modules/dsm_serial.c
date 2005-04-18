@@ -1004,11 +1004,17 @@ static int open_port(struct serialPort* port)
     port->output_char_overflows = 0;
     port->sample_overflows = 0;
     port->nsamples = 0;
+    port->incount = port->sepcnt = 0;
     port->xmit.head = port->xmit.tail = 0;
     port->sample_queue.head = port->sample_queue.tail = 0;
+    port->sample = port->sample_queue.buf[port->sample_queue.head];
+    port->bom_timetag = UNKNOWN_TIMETAG_VALUE;
+    port->unwrittenp = 0;
+    port->unwrittenl = 0;
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 
     return retval;
+
 }
 
 static int close_port(struct serialPort* port)
