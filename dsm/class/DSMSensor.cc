@@ -21,6 +21,7 @@
 #include <SamplePool.h>
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <set>
 
@@ -94,6 +95,7 @@ dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 	    sampDataPtr += len;
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
+		nbytes += samp->getDataByteLength();
 		SampleDater::status_t status = setSampleTime(dater,samp);
 		if (status == SampleDater::OK) {
 		    tt = samp->getTimeTag();	// return last time tag read
@@ -167,12 +169,12 @@ void DSMSensor::initStatistics()
     currStatsIndex = reportStatsIndex = 0;
 										
     sampleRateObs = 0.0;
-										
     maxSampleLength[0] = maxSampleLength[1] = 0;
     minSampleLength[0] = minSampleLength[1] = 999999999;
     readErrorCount[0] = readErrorCount[1] = 0;
     writeErrorCount[0] = writeErrorCount[1] = 0;
     nsamples = 0;
+    nbytes = 0;
     initialTimeSecs = time(0);
 }
 
@@ -185,16 +187,37 @@ void DSMSensor::calcStatistics(unsigned long periodMsec)
 										
     // periodMsec is in milliseconds, hence the factor of 1000.
     sampleRateObs = (float)nsamples / periodMsec * 1000.;
-										
-    nsamples = 0;
-    readErrorCount[0] = writeErrorCount[0] = 0;
-}
 
+    dataRateObs = (float)nbytes / periodMsec * 1000.;
+
+    readErrorCount[0] = writeErrorCount[0] = 0;
+
+    nsamples = 0;
+    nbytes = 0;
+}
 
 float DSMSensor::getObservedSamplingRate() const {
   if (reportStatsIndex == currStatsIndex)
       return (float)nsamples/(time(0) - initialTimeSecs);
   else return sampleRateObs;
+}
+
+float DSMSensor::getObservedDataRate() const {
+  if (reportStatsIndex == currStatsIndex)
+      return (float)nbytes/(time(0) - initialTimeSecs);
+  else return dataRateObs;
+}
+
+void DSMSensor::printStatus(std::ostream& ostr) throw()
+{
+    ostr <<
+	"<td>" << getName() << "</td>" << endl <<
+    	"<td>" << fixed << setprecision(2) <<
+		getObservedSamplingRate() << "</td>" << endl <<
+    	"<td>" << setprecision(0) <<
+		getObservedDataRate() << "</td>" << endl <<
+	"<td>" << getMinSampleLength() << "</td>" << endl <<
+	"<td>" << getMaxSampleLength() << "</td>" << endl;
 }
 
 void DSMSensor::fromDOMElement(const DOMElement* node)

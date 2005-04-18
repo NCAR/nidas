@@ -181,12 +181,14 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 DSMEngine::DSMEngine():
-    project(0),aircraft(0),dsmConfig(0),selector(0)
+    project(0),aircraft(0),dsmConfig(0),selector(0),statusThread(0)
 {
 }
 
 DSMEngine::~DSMEngine()
 {
+    delete statusThread;
+
     cerr << "delete selector" << endl;
     delete selector;	// this closes any still-open sensors
 
@@ -340,6 +342,10 @@ void DSMEngine::openSensors() throw(atdUtil::IOException)
     selector = new PortSelector;
     selector->start();
     dsmConfig->openSensors(selector);
+
+    // start the status Thread
+    statusThread = new StatusThread("DSMEngineStatus",10);
+    statusThread->start();
 }
 
 void DSMEngine::connectOutputs() throw(atdUtil::IOException)
@@ -429,6 +435,10 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
 
 void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
+    if (statusThread) {
+        statusThread->interrupt();
+	statusThread->cancel();
+    }
     if (selector) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
 	    "DSMEngine::interrupt received, interrupting PortSelector");
@@ -445,5 +455,7 @@ void DSMEngine::wait() throw(atdUtil::Exception)
 {
     selector->join();
     cerr << "selector joined" << endl;
+    statusThread->join();
+    cerr << "statusThread joined" << endl;
 }
 

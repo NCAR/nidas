@@ -135,6 +135,8 @@ public:
 
     unsigned long getSampleId() const { return sampleId; }
 
+    void printStatus(std::ostream& ostr) throw();
+
     /**
      * Process a raw sample, which in this case means do
      * a sscanf on the character string contents, creating

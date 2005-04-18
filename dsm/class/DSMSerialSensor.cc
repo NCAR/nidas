@@ -138,6 +138,34 @@ const string& DSMSerialSensor::getScanfFormat()
     return scanner->getFormat();
 }
 
+void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
+
+    struct dsm_serial_status stat;
+    try {
+	ioctl(DSMSER_GET_STATUS,&stat,sizeof(stat));
+
+	ostr << "<td>" << getBaudRate() <<
+		getParityString().substr(0,1) <<
+		getDataBits() << getStopBits() << 
+	    ",pe=" << stat.pe_cnt <<
+	    ",oe=" << stat.oe_cnt <<
+	    ",fe=" << stat.fe_cnt <<
+	    ",iof=" << stat.input_char_overflows <<
+	    ",oof=" << stat.output_char_overflows <<
+	    ",so=" << stat.sample_overflows <<
+	    ",ns=" << stat.nsamples << 
+	    ",tql=" << stat.char_transmit_queue_length << 
+	    ",tqs=" << stat.char_transmit_queue_size << 
+	    ",sql=" << stat.sample_queue_length << 
+	    ",sqs=" << stat.sample_queue_size << "</td>" << endl;
+    }
+    catch(const atdUtil::IOException& ioe) {
+        ostr << "<td>" << ioe.what() << "</td>" << endl;
+    }
+}
+
 void DSMSerialSensor::fromDOMElement(
 	const DOMElement* node)
     throw(atdUtil::InvalidParameterException)

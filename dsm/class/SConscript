@@ -27,6 +27,7 @@ sources = Split("""
 
   DSMEngine.cc
   DSMServer.cc
+  StatusThread.cc
 
   DSMSensor.cc
   RTL_DevIoctl.cc

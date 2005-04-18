@@ -28,7 +28,7 @@ using namespace dsm;
 PortSelector::PortSelector() :
   Thread("PortSelector"),portsChanged(false),
   rserial(0),rserialConnsChanged(false),
-  statisticsPeriod(300000)
+  statisticsPeriod(60000)
 {
   /* start out with a 1/10 second select timeout.
    * While we're adding sensors we want select to

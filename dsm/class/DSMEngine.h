@@ -20,6 +20,7 @@
 #include <Aircraft.h>
 #include <DSMConfig.h>
 #include <PortSelector.h>
+#include <StatusThread.h>
 
 #include <atdUtil/Socket.h>
 
@@ -46,6 +47,10 @@ public:
     {
         return &dater;
     }
+
+    const DSMConfig* getDSMConfig() const { return dsmConfig; }
+
+    const PortSelector* getPortSelector() const { return selector; }
 
     static
     xercesc::DOMDocument* requestXMLConfig()
@@ -102,6 +107,8 @@ protected:
     DSMConfig* dsmConfig;
 
     PortSelector* selector;
+
+    StatusThread* statusThread;
 
     SampleDater dater;
 

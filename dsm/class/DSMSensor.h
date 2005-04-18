@@ -118,10 +118,10 @@ public:
      * Return a name that should fully identify this sensor. This
      * name could be used in informative messages. The returned name
      * has this format:
-     *  dsmName:className:deviceName.
+     *  dsmName:deviceName.
      */
     virtual std::string getName() const {
-        return getDSMName() + ':' + getClassName() + ':' + getDeviceName();
+        return getDSMName() + ':' + getDeviceName();
     }
 
     /**
@@ -230,6 +230,8 @@ public:
     virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw();
 
+    virtual void printStatus(std::ostream&) throw();
+
     void initStatistics();
 
     void calcStatistics(unsigned long periodMsec);
@@ -240,17 +242,18 @@ public:
     	{ return minSampleLength[currStatsIndex]; }
 
     int getReadErrorCount() const
-    	{ return readErrorCount[0]; }
+       { return readErrorCount[0]; }
     int getCumulativeReadErrorCount() const
-    	{ return readErrorCount[1]; }
+       { return readErrorCount[1]; }
 
     int getWriteErrorCount() const
-    	{ return writeErrorCount[0]; }
+       { return writeErrorCount[0]; }
     int getCumulativeWriteErrorCount() const
-    	{ return writeErrorCount[1]; }
+       { return writeErrorCount[1]; }
 
     float getObservedSamplingRate() const;
-    float getReadRate() const;
+
+    float getObservedDataRate() const;
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -321,16 +324,19 @@ protected:
     time_t initialTimeSecs;
     size_t minSampleLength[2];
     size_t maxSampleLength[2];
-    int readErrorCount[2];	// [0] is recent, [1] is cumulative
-    int writeErrorCount[2];	// [0] is recent, [1] is cumulative
+    int readErrorCount[2];     // [0] is recent, [1] is cumulative
+    int writeErrorCount[2];    // [0] is recent, [1] is cumulative
     int currStatsIndex;
     int reportStatsIndex;
     int nsamples;
+    int nbytes;
 
     /**
     * Observed number of samples per second.
     */
     float sampleRateObs;
+
+    float dataRateObs;
 };
 
 }
