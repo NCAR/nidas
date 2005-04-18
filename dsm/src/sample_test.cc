@@ -107,8 +107,7 @@ int TestSource::run() throw(atdUtil::Exception)
 
 	dsm_time_t tnow = getCurrentTimeInMillis();
 	// add 10 milliseconds of noise
-	samp->setTimeTag(
-		(tnow + random() / (RAND_MAX / 100) ) % MSECS_PER_DAY);
+	samp->setTimeTag(tnow + random() / (RAND_MAX / 100) );
 	samp->setId(0x0010);
 	distribute(samp);
 	samp->freeReference();

@@ -20,7 +20,6 @@
 #include <RawSampleInputStream.h>
 // #include <Sample.h>
 #include <dsm_sample.h>
-#include <SampleStreamDater.h>
 #include <DSMEngine.h>
 #include <atdUtil/EOFException.h>
 
@@ -93,12 +92,9 @@ private:
     map<dsm_sample_id_t,string> sensorNames;
 
     set<dsm_sample_id_t> sampids;
-    map<dsm_sample_id_t,dsm_sys_time_t> t1s;
-    map<dsm_sample_id_t,dsm_sys_time_t> t2s;
+    map<dsm_sample_id_t,dsm_time_t> t1s;
+    map<dsm_sample_id_t,dsm_time_t> t2s;
     map<dsm_sample_id_t,unsigned long> nsamps;
-
-    SampleStreamDater dater;
-
 };
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors)
@@ -126,19 +122,16 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors)
 
 bool CounterClient::receive(const Sample* samp) throw()
 {
-    samp = dater(samp);
-
-    if (dater.getStatus() != dater.OK) return false;
-    dsm_sys_time_t sampt = dater.getTime();
+    dsm_time_t sampt = samp->getTimeTag();
 
     dsm_sample_id_t sampid = samp->getId();
     sampids.insert(sampid);
 
-    map<dsm_sample_id_t,dsm_sys_time_t>::iterator t1i =
+    map<dsm_sample_id_t,dsm_time_t>::iterator t1i =
 	t1s.find(sampid);
     if (t1i == t1s.end())
 	t1s.insert(
-	    make_pair<dsm_sample_id_t,dsm_sys_time_t>(sampid,sampt));
+	    make_pair<dsm_sample_id_t,dsm_time_t>(sampid,sampt));
     t2s[sampid] = sampt;
     nsamps[sampid]++;
     // cerr << samp->getId() << " " << samp->getTimeTag() << endl;
