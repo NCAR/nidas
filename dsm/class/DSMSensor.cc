@@ -95,9 +95,11 @@ dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 	    sampDataToRead -= len;
 	    if (!sampDataToRead) {		// done with sample
 		SampleDater::status_t status = setSampleTime(dater,samp);
-		if (status != dater->OK) questionableTimetags++;
-		tt = samp->getTimeTag();	// return last time tag read
-		distributeRaw(samp);
+		if (status == SampleDater::OK) {
+		    tt = samp->getTimeTag();	// return last time tag read
+		    distributeRaw(samp);
+		}
+		else questionableTimetags++;
 		samp->freeReference();
 		nsamples++;
 		samp = 0;
