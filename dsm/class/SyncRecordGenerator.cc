@@ -26,7 +26,7 @@ using namespace std;
 using namespace xercesc;
 
 SyncRecordGenerator::SyncRecordGenerator():
-	syncRecord(0),floatNAN(nanf("")),doHeader(false)
+	syncRecord(0),floatNAN(nanf("")),doHeader(false),badTimes(0)
 {
 }
 
@@ -218,7 +218,11 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     }
 	
     // need to screen bad times
-    while (tt >= syncTime + 1000) {
+    if (tt < syncTime) {
+        badTimes++;
+	return false;
+    }
+    if (tt >= syncTime + 1000) {
 #ifdef DEBUG
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
@@ -229,7 +233,11 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	distribute(syncRecord);
 	syncRecord->freeReference();
 	syncRecord = 0;
-	syncTime += 1000;
+        syncTime += 1000;
+	if (tt >= syncTime + 1000) {	// leap forward
+	    badTimes++;
+	    syncTime = tt - (tt % 1000);
+	}
 	allocateRecord(syncTime);
     }
 

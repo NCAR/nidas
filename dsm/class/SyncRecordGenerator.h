@@ -107,6 +107,7 @@ protected:
     volatile bool doHeader;
     volatile dsm_time_t headerTime;
 
+    int badTimes;
 };
 
 }
