@@ -18,6 +18,7 @@
 #include <IRIGSensor.h>
 #include <DSMTime.h>
 #include <RTL_DevIoctlStore.h>
+#include <DSMEngine.h>
 
 #include <atdUtil/Logger.h>
 
@@ -32,7 +33,7 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(IRIGSensor)
 
-IRIGSensor::IRIGSensor(): GOOD_CLOCK_LIMIT(60000),questionableClock(0)
+IRIGSensor::IRIGSensor()
 
 {
 }
@@ -45,14 +46,15 @@ void IRIGSensor::open(int flags) throw(atdUtil::IOException)
     ioctl(IRIG_OPEN,(const void*)0,0);
 
     RTL_DSMSensor::open(flags);
+
     checkClock();
 }
 
 void IRIGSensor::checkClock() throw(atdUtil::IOException)
 {
     struct timeval tval;
-    dsm_time_t unixTime,unixTimeLast;
-    dsm_time_t irigTime,irigTimeLast;
+    dsm_time_t unixTime,unixTimeLast=0;
+    dsm_time_t irigTime,irigTimeLast=0;
     unsigned char status;
 
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
@@ -60,11 +62,11 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
-    irigTime = ((dsm_time_t)tval.tv_sec) + tval.tv_usec / 1000;
+    irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
     gettimeofday(&tval,0);
     cerr << "UNIX     CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
-    unixTime = ((dsm_time_t)tval.tv_sec) + tval.tv_usec / 1000;
+    unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
     if (status & CLOCK_STATUS_NOCODE) {
 	cerr << "No IRIG time code. Setting IRIG clock to unix clock" << endl;
@@ -73,29 +75,30 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
     struct timespec nsleep;
     nsleep.tv_sec = 0;
-    nsleep.tv_nsec = 200000000;
+    nsleep.tv_nsec = 100000000;
     int ntry = 0;
     const int NTRY = 50;
     for (ntry = 0; ntry < NTRY; ntry++) {
+
 	::nanosleep(&nsleep,0);
 
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 	cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
 	    tval.tv_usec << ", status=" << hex << (int)status << dec << endl;
-	irigTime = ((dsm_time_t)tval.tv_sec) + tval.tv_usec / 1000;
+	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
 	gettimeofday(&tval,0);
 	cerr << "UNIX     CLOCK=" << tval.tv_sec << ' ' <<
 	    tval.tv_usec << endl;
-	unixTime = ((dsm_time_t)tval.tv_sec) + tval.tv_usec / 1000;
+	unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
 	if (ntry > 0) {
 	    double dtunix = unixTime - unixTimeLast;
 	    double dtirig = irigTime- irigTimeLast;
 	    cerr << "UNIX-IRIG=" << unixTime - irigTime <<
 		", dtunix=" << dtunix << ", dtirig=" << dtirig <<
-		", ratio=" << fabs(dtunix - dtirig) / dtunix << endl;
+		", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
 	    if (::llabs(unixTime - irigTime) < 10000 &&
 		fabs(dtunix - dtirig) / dtunix < 1.e-2) break;
 	}
@@ -106,6 +109,9 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     if (ntry == NTRY)
 	cerr << "IRIG clock not behaving, UNIX-IRIG=" <<
 	    unixTime-irigTime << " msecs" << endl;
+
+    cerr << "setting SampleDater clock to " << irigTime << endl;
+    DSMEngine::getInstance()->getSampleDater()->setTime(irigTime);
 }
 
 void IRIGSensor::close() throw(atdUtil::IOException)
@@ -121,10 +127,8 @@ SampleDater::status_t IRIGSensor::setSampleTime(SampleDater* dater,Sample* samp)
 
     dsm_time_t clockt = (dsm_time_t)(dp->tval.tv_sec) * 1000 +
 	dp->tval.tv_usec / 1000;
-    unsigned int status = dp->status;
-
-    if (!(status & CLOCK_STATUS_NOCODE)) dater->setTime(clockt);
-
+    // unsigned int status = dp->status;
+    dater->setTime(clockt);
     return DSMSensor::setSampleTime(dater,samp);
     
 }
@@ -144,21 +148,9 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 
     SampleT<dsm_time_t>* clksamp = getSample<dsm_time_t>(1);
     clksamp->setTimeTag(samp->getTimeTag());
-    clksamp->setId(CLOCK_SAMPLE_ID);
+    clksamp->setId(sampleId);
     clksamp->getDataPtr()[0] = sampt;
 
-    if (::llabs(syst - sampt) > GOOD_CLOCK_LIMIT) {
-	if (false && !(questionableClock++ % 100)) {
-	    const char* msg;
-	    if (sampt > syst) msg = "ahead of";
-	    else msg = "behind";
-
-	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-	    "IRIG clock is %lld msecs %s unix clock, status=0x%x, llabs=%lld",
-	    sampt - syst,msg,status,::llabs(syst-sampt));
-	}
-	// if (status & CLOCK_STATUS_NOCODE) clksamp->getDataPtr()[0] = syst;
-    }
     result.push_back(clksamp);
     return true;
 }
@@ -168,12 +160,13 @@ void IRIGSensor::fromDOMElement(const DOMElement* node)
 {
     RTL_DSMSensor::fromDOMElement(node);
 
-    // Set sample rate to 1.0 (fixed in driver module)
-    list<SampleTag*>::const_iterator si;
-    for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
-	SampleTag* samp = *si;
-	samp->setRate(1.0);
-    }
+    if (sampleTags.size() != 1) 
+    	throw atdUtil::InvalidParameterException(getName(),"<sample>",
+		"should only be one <sample> tag");
+
+    SampleTag* samp = sampleTags.front();
+    samp->setRate(1.0);
+    sampleId = samp->getId();
 }
 
 DOMElement* IRIGSensor::toDOMParent(

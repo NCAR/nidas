@@ -69,9 +69,7 @@ public:
 protected:
     void checkClock() throw(atdUtil::IOException);
 
-    const long GOOD_CLOCK_LIMIT;
-
-    int questionableClock;
+    dsm_sample_id_t sampleId;
 
 };
 
