@@ -62,7 +62,7 @@ size_t McSocket::getBufferSize() const throw()
 
 void McSocket::close() throw (atdUtil::IOException)
 {
-    cerr << "McSocket::close" << endl;
+    // cerr << "McSocket::close" << endl;
     if (socket && socket->getFd() >= 0) socket->close();
     delete socket;
     socket = 0;

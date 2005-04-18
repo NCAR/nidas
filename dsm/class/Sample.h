@@ -38,8 +38,6 @@ typedef unsigned long dsm_sample_id_t;
  */
 #define MUTEX_PROTECT_REF_COUNTS
 
-#define CLOCK_SAMPLE_ID 1
-
 /**
  * maxValue is an overloaded function returning the
  * maximum value of its integer argument.

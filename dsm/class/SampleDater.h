@@ -25,7 +25,7 @@ namespace dsm {
 class SampleDater {
 public:
     SampleDater(int maxClockDiff = 180000):
-    	maxClockDiffMsec(maxClockDiff),clockTime(0) {}
+    	maxClockDiffMsec(maxClockDiff),t0day(0),clockTime(0) {}
 
     void setTime(dsm_time_t);
 

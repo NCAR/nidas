@@ -29,11 +29,11 @@ Aircraft::Aircraft()
 
 Aircraft::~Aircraft()
 {
-    cerr << "deleting DSMServers" << endl;
+    // cerr << "deleting DSMServers" << endl;
     for (std::list<DSMServer*>::iterator is = servers.begin();
     	is != servers.end(); ++is) delete *is;
 
-    cerr << "deleting DSMConfigs" << endl;
+    // cerr << "deleting DSMConfigs" << endl;
     for (std::list<DSMConfig*>::iterator it = dsms.begin();
     	it != dsms.end(); ++it) delete *it;
 

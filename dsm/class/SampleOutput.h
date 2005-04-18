@@ -18,6 +18,7 @@
 
 #include <Sample.h>
 #include <SampleClient.h>
+#include <SampleSorter.h>
 #include <IOStream.h>
 #include <ConnectionRequester.h>
 
@@ -159,6 +160,57 @@ protected:
 
     dsm_time_t nextFileTime;
 
+};
+
+/**
+ * A proxy for a SampleOutputStream. One passes a reference to a
+ * SampleOutputStream the constructor for this proxy.
+ * The SampleOutputStreamProxy::receive method
+ * will invoke the SampleOutputStream::receive() method not the
+ * derived method.
+ */
+class SampleOutputStreamProxy: public SampleOutputStream
+{
+public:
+    SampleOutputStreamProxy(int dummy,SampleOutputStream& out):
+    	outstream(out) {}
+    bool receive(const Sample* samp) throw()
+    {
+	// cerr << "Proxy receive" << endl;
+        return outstream.SampleOutputStream::receive(samp);
+    }
+private:
+    SampleOutputStream& outstream;
+};
+
+/**
+ * A class for serializing Samples on an OutputStream.
+ */
+class SortedSampleOutputStream: public SampleOutputStream
+{
+public:
+
+    SortedSampleOutputStream();
+
+    /**
+     * Copy constructor.
+     */
+    SortedSampleOutputStream(const SortedSampleOutputStream&);
+
+    virtual ~SortedSampleOutputStream();
+
+    SampleOutput* clone() const;
+
+    void init() throw();
+
+    bool receive(const Sample *s) throw();
+
+protected:
+    bool initialized;
+
+    SampleSorter sorter;
+
+    SampleOutputStreamProxy proxy;
 };
 
 }

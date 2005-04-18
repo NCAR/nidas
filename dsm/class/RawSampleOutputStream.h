@@ -22,7 +22,7 @@
 
 namespace dsm {
 
-class RawSampleOutputStream: public SampleOutputStream
+class RawSampleOutputStream: public SortedSampleOutputStream
 {
 public:
     RawSampleOutputStream();

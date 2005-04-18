@@ -180,7 +180,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	// appropriate sensor for distribution.
 	dsm_sample_id_t sampid = samp->getId();
 	sensorMapMutex.lock();
-	if (isRaw() && sampid != CLOCK_SAMPLE_ID && sensorMap.size() > 0) {
+	if (isRaw() && sensorMap.size() > 0) {
 	    sensori = sensorMap.find(sampid);
 	    if (sensori != sensorMap.end()) sensori->second->receive(samp);
 	    else if (!(unrecognizedSamples++) % 100) {

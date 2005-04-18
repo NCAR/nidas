@@ -41,9 +41,9 @@ Project::Project(): catalog(0)
 
 Project::~Project()
 {
-    cerr << "deleting catalog" << endl;
+    // cerr << "deleting catalog" << endl;
     delete catalog;
-    cerr << "deleting aircraft" << endl;
+    // cerr << "deleting aircraft" << endl;
     for (std::list<Aircraft*>::iterator it = aircraft.begin();
     	it != aircraft.end(); ++it) delete *it;
     instance = 0;

@@ -41,6 +41,7 @@ public:
   virtual bool receive(const Sample *s) throw() = 0;
 
 };
+
 }
 
 #endif

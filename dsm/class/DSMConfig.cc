@@ -31,12 +31,11 @@ DSMConfig::DSMConfig(): aircraft(0)
 
 DSMConfig::~DSMConfig()
 {
-    cerr << "deleting sensors" << endl;
+    // cerr << "deleting sensors" << endl;
     for (list<DSMSensor*>::const_iterator si = ownedSensors.begin();
     	si != ownedSensors.end(); ++si) delete *si;
 
-    cerr << "deleting output" << endl;
-
+    // cerr << "deleting output" << endl;
     list<SampleOutput*>::const_iterator oi;
     for (oi = getOutputs().begin(); oi != getOutputs().end(); ++oi)
     	delete *oi;

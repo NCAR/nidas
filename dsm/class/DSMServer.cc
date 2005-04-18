@@ -232,10 +232,10 @@ DSMServer::~DSMServer()
     // delete services. These are the configured services,
     // not the cloned copies.
     list<DSMService*>::const_iterator si;
-    cerr << "~DSMServer services.size=" << services.size() << endl;
+    // cerr << "~DSMServer services.size=" << services.size() << endl;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	cerr << "~DSMServer: deleting " << svc->getName() << endl;
+	// cerr << "~DSMServer: deleting " << svc->getName() << endl;
 	delete svc;
     }
 }

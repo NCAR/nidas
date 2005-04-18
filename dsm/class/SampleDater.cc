@@ -55,7 +55,8 @@ SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
 	    cerr << "bad time? sampleTime=" << sampleTime <<
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<
-		" samp-clock=" << sampleTime - clockTime << endl;
+		" samp-clock=" << sampleTime - clockTime <<
+		", id=" << samp->getId() << endl;
 	    return OUT_OF_SPEC;
 	}
     }

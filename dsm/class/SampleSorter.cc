@@ -18,7 +18,7 @@
 #include <SampleSorter.h>
 #include <DSMTime.h>
 
-#include <unistd.h>	// for sleep
+// #include <unistd.h>	// for sleep
 #include <iostream>
 
 using namespace dsm;
@@ -68,19 +68,12 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	  break;
 	}
 
-// #define USE_CLOCK_TIME
-#ifdef USE_CLOCK_TIME
-	dummy.setTimeTag((getCurrentTimeInMillis() - buflenInMillisec)
-		% MSECS_PER_DAY);
-#else
 	// cerr << "samples.size=" << samples.size() << endl;
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 	if (latest == samples.rend()) continue;	// empty
 	dsm_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
 	dummy.setTimeTag(tt);
 	// cerr << "tt=" << tt << endl;
-#endif
-
 	/*
 	cerr << getFullName() << " samples.size=" <<
 		samples.size() <<
@@ -109,7 +102,7 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	    s->freeReference();
 	}
 	/*
-	if (debug) cerr << getFullName() << " agedsamples.size=" <<
+	cerr << getFullName() << " agedsamples.size=" <<
 		agedsamples.size() << endl;
 	*/
     }

@@ -184,8 +184,8 @@ size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
     bufs[1] = samp->getConstVoidDataPtr();
     lens[1] = samp->getDataByteLength();
 
-#ifdef DEBUG
     // cerr << "iostream->write" << endl;
+#ifdef DEBUG
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
 #endif
     return iostream->write(bufs,lens,2);
@@ -257,5 +257,48 @@ DOMElement* SampleOutputStream::toDOMElement(DOMElement* node)
     throw(DOMException)
 {
     return node;
+}
+
+SortedSampleOutputStream::SortedSampleOutputStream():
+	SampleOutputStream(),initialized(false),sorter(250),proxy(0,*this)
+{
+}
+/*
+ * Copy constructor.
+ */
+SortedSampleOutputStream::SortedSampleOutputStream(
+	const SortedSampleOutputStream& x)
+	: SampleOutputStream(x),initialized(false),
+	sorter(x.sorter),proxy(0,*this)
+{
+}
+
+SortedSampleOutputStream::~SortedSampleOutputStream()
+{
+    if (initialized) {
+	sorter.interrupt();
+	sorter.join();
+    }
+}
+
+SampleOutput* SortedSampleOutputStream::clone() const 
+{
+    return new SortedSampleOutputStream(*this);
+}
+
+void SortedSampleOutputStream::init() throw()
+{
+    SampleOutputStream::init();
+    try {
+	sorter.start();
+    }
+    catch(const atdUtil::Exception& e) {
+    }
+    sorter.addSampleClient(&proxy);
+    initialized = true;
+}
+bool SortedSampleOutputStream::receive(const Sample *s) throw()
+{
+    return sorter.receive(s);
 }
 
