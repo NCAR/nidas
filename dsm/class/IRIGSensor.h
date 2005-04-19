@@ -47,6 +47,10 @@ public:
      */
     void close() throw(atdUtil::IOException);
 
+    std::string statusString(unsigned char status) const;
+
+    void printStatus(std::ostream& ostr) throw();
+
     /**
      * Process a raw sample.
      */

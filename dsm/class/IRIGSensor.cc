@@ -34,7 +34,6 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(IRIGSensor)
 
 IRIGSensor::IRIGSensor()
-
 {
 }
 
@@ -58,7 +57,8 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     unsigned char status;
 
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-    cerr << "IRIG_GET_STATUS=" << hex << (unsigned int)status << dec << endl;
+    cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
+    	" (" << statusString(status) << ')' << endl;
 
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
@@ -68,8 +68,13 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     cerr << "UNIX     CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
     unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
-    if (status & CLOCK_STATUS_NOCODE) {
-	cerr << "No IRIG time code. Setting IRIG clock to unix clock" << endl;
+    if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
+	(status & CLOCK_STATUS_NOMAJT)) {
+	cerr << "Setting IRIG clock to unix clock" << endl;
+	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
+    }
+    else if (::llabs(unixTime-irigTime) > 365*8640000LL) {
+	cerr << "Setting year in IRIG clock" << endl;
 	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
     }
 
@@ -85,7 +90,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 	cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	    tval.tv_usec << ", status=" << hex << (int)status << dec << endl;
+	    tval.tv_usec << ", status=0x" << hex << (int)status << dec << endl;
 	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
 	gettimeofday(&tval,0);
@@ -120,6 +125,51 @@ void IRIGSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
+string IRIGSensor::statusString(unsigned char status) const
+{
+    static const struct IRIGStatusCode {
+        unsigned char mask;
+	const char* str[2];	// state when bit=0, state when bit=1
+    } statusCode[] = {
+	{0x10,{"YEAR","NOYEAR"}},
+    	{0x08,{"MAJTM","NOMAJTM"}},
+    	{0x04,{"PPS","NOPPS"}},
+    	{0x02,{"CODE","NOCODE"}},
+    	{0x01,{"SYNC","NOSYNC"}}
+    };
+    ostringstream ostr;
+    for (unsigned int i = 0; i < sizeof(statusCode)/sizeof(struct IRIGStatusCode); i++) {
+	if (i > 0) ostr << '|';
+	ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
+    }
+    return ostr.str();
+}
+
+void IRIGSensor::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
+
+    struct timeval tval;
+    dsm_time_t unixTime;
+    dsm_time_t irigTime;
+    unsigned char status;
+
+    try {
+	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+
+	ostr << "<td>status: " << statusString(status) <<
+		" (0x" << hex << (int)status << dec << ')';
+	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
+	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
+
+	gettimeofday(&tval,0);
+	unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
+	ostr << ", IRIG-UNIX=" << irigTime - unixTime << " msecs</td>" << endl;
+    }
+    catch(const atdUtil::IOException& ioe) {
+        ostr << "<td>" << ioe.what() << "</td>" << endl;
+    }
+}
 SampleDater::status_t IRIGSensor::setSampleTime(SampleDater* dater,Sample* samp)
 {
     const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
