@@ -47,7 +47,7 @@ public:
      */
     void close() throw(atdUtil::IOException);
 
-    std::string statusString(unsigned char status) const;
+    static std::string statusString(unsigned char status,bool xml=false);
 
     void printStatus(std::ostream& ostr) throw();
 
@@ -71,6 +71,22 @@ public:
 		throw(xercesc::DOMException);
 
 protected:
+    /**
+     * compute the dsm_time_t from an IRIG sample.
+     */
+    dsm_time_t getTime(const Sample* samp) const {
+	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
+	return (dsm_time_t)(dp->tval.tv_sec) * 1000 + dp->tval.tv_usec / 1000;
+    }
+
+    /**
+     * fetch the clock status from an IRIG sample.
+     */
+    unsigned char getStatus(const Sample* samp) const {
+	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
+	return dp->status;
+    }
+
     void checkClock() throw(atdUtil::IOException);
 
     dsm_sample_id_t sampleId;

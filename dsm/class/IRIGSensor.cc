@@ -23,6 +23,7 @@
 #include <atdUtil/Logger.h>
 
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <math.h>
 #include <unistd.h>	// for sleep()
@@ -58,7 +59,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
     cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
-    	" (" << statusString(status) << ')' << endl;
+    	" (" << statusString(status,false) << ')' << endl;
 
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
@@ -125,22 +126,30 @@ void IRIGSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
-string IRIGSensor::statusString(unsigned char status) const
+/* static */
+string IRIGSensor::statusString(unsigned char status,bool xml)
 {
     static const struct IRIGStatusCode {
         unsigned char mask;
 	const char* str[2];	// state when bit=0, state when bit=1
+	const char* xml[2];	// state when bit=0, state when bit=1
     } statusCode[] = {
-	{0x10,{"YEAR","NOYEAR"}},
-    	{0x08,{"MAJTM","NOMAJTM"}},
-    	{0x04,{"PPS","NOPPS"}},
-    	{0x02,{"CODE","NOCODE"}},
-    	{0x01,{"SYNC","NOSYNC"}}
+	{0x10,{"YEAR","NOYEAR"},
+		{"YEAR","<font color=red><b>NOYEAR</b></font>"}},
+    	{0x08,{"MAJTM","NOMAJTM"},
+		{"MAJTM","<font color=red><b>NOMAJTM</b></font>"}},
+    	{0x04,{"PPS","NOPPS"},
+		{"PPS","<font color=red><b>NOPPS</b></font>"}},
+    	{0x02,{"CODE","NOCODE"},
+		{"CODE","<font color=red><b>NOCODE</b></font>"}},
+    	{0x01,{"SYNC","NOSYNC"},
+		{"SYNC","<font color=red><b>NOSYNC</b></font>"}},
     };
     ostringstream ostr;
     for (unsigned int i = 0; i < sizeof(statusCode)/sizeof(struct IRIGStatusCode); i++) {
-	if (i > 0) ostr << '|';
-	ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
+	if (i > 0) ostr << ',';
+	if (xml) ostr << statusCode[i].xml[(status & statusCode[i].mask) != 0];
+	else ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
     }
     return ostr.str();
 }
@@ -157,44 +166,36 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     try {
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-	ostr << "<td>status: " << statusString(status) <<
-		" (0x" << hex << (int)status << dec << ')';
+	ostr << "<td align=left>" << statusString(status,true) <<
+		" (status=0x" << hex << (int)status << dec << ')';
 	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
 	gettimeofday(&tval,0);
 	unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
-	ostr << ", IRIG-UNIX=" << irigTime - unixTime << " msecs</td>" << endl;
+	ostr << ", IRIG-UNIX=" << fixed << setprecision(3) <<
+		(float)(irigTime - unixTime)/1000. << " sec</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;
     }
 }
+
 SampleDater::status_t IRIGSensor::setSampleTime(SampleDater* dater,Sample* samp)
 {
-    const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-    assert(((unsigned long)dp % 8) == 0);
+    dsm_time_t clockt = getTime(samp);
 
-    dsm_time_t clockt = (dsm_time_t)(dp->tval.tv_sec) * 1000 +
-	dp->tval.tv_usec / 1000;
-    // unsigned int status = dp->status;
+    // since we're a clock sensor, we are responsible for setting
+    // the absolute time in the SampleDater.
     dater->setTime(clockt);
+
     return DSMSensor::setSampleTime(dater,samp);
-    
 }
 
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	throw()
 {
-    dsm_time_t syst = getCurrentTimeInMillis();
-
-    const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-    assert(((unsigned long)dp % 8) == 0);
-
-
-    dsm_time_t sampt = (dsm_time_t)(dp->tval.tv_sec) * 1000 +
-	dp->tval.tv_usec / 1000;
-    unsigned int status = dp->status;
+    dsm_time_t sampt = getTime(samp);
 
     SampleT<dsm_time_t>* clksamp = getSample<dsm_time_t>(1);
     clksamp->setTimeTag(samp->getTimeTag());

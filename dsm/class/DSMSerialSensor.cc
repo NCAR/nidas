@@ -146,7 +146,7 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
     try {
 	ioctl(DSMSER_GET_STATUS,&stat,sizeof(stat));
 
-	ostr << "<td>" << getBaudRate() <<
+	ostr << "<td align=left>" << getBaudRate() <<
 		getParityString().substr(0,1) <<
 		getDataBits() << getStopBits() << 
 	    ",pe=" << stat.pe_cnt <<

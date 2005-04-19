@@ -31,8 +31,8 @@ using namespace xercesc;
 
 DSMSensor::DSMSensor() :
     classname("unknown"),devname("unknown"),id(0),
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0)
-
+    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
+    questionableTimeTags(0)
 {
     initStatistics();
 }
@@ -101,7 +101,7 @@ dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 		    tt = samp->getTimeTag();	// return last time tag read
 		    distributeRaw(samp);
 		}
-		else questionableTimetags++;
+		else questionableTimeTags++;
 		samp->freeReference();
 		nsamples++;
 		samp = 0;
@@ -208,16 +208,44 @@ float DSMSensor::getObservedDataRate() const {
   else return dataRateObs;
 }
 
+/* static */
+void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
+{
+    ostr <<
+"<table border=3><caption>Sensor Status</caption>\
+<tr>\
+<th>name</th>\
+<th>samp/sec</th>\
+<th>byte/sec</th>\
+<th>min samp<br>length</th>\
+<th>max samp<br>length</th>\
+<th>bad<br>timetags</th>\
+<th>read errs<br>recent,cum</th>\
+<th>write errs<br>recent,cum</th>\
+<th>extended status</th>\
+<tbody align=center>" << endl;	// default alignment in table body
+}
+
+/* static */
+void DSMSensor::printStatusTrailer(std::ostream& ostr) throw()
+{
+    ostr << "</tbody></table>" << endl;
+}
 void DSMSensor::printStatus(std::ostream& ostr) throw()
 {
     ostr <<
-	"<td>" << getName() << "</td>" << endl <<
+	"<tr><td align=left>" << getName() << "</td>" << endl <<
     	"<td>" << fixed << setprecision(2) <<
 		getObservedSamplingRate() << "</td>" << endl <<
     	"<td>" << setprecision(0) <<
 		getObservedDataRate() << "</td>" << endl <<
 	"<td>" << getMinSampleLength() << "</td>" << endl <<
-	"<td>" << getMaxSampleLength() << "</td>" << endl;
+	"<td>" << getMaxSampleLength() << "</td>" << endl <<
+	"<td>" << getBadTimeTagCount() << "</td>" << endl <<
+	"<td>" << getReadErrorCount() << ", " <<
+		getCumulativeReadErrorCount() << "</td>" << endl <<
+	"<td>" << getWriteErrorCount() << ", " <<
+		getCumulativeWriteErrorCount() << "</td>" << endl;
 }
 
 void DSMSensor::fromDOMElement(const DOMElement* node)
