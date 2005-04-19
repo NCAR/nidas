@@ -435,10 +435,6 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
 
 void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
-    if (statusThread) {
-        statusThread->interrupt();
-	statusThread->cancel();
-    }
     if (selector) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
 	    "DSMEngine::interrupt received, interrupting PortSelector");
@@ -449,6 +445,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 	    "DSMEngine::interrupt received, exiting");
         exit(1);
     }
+    if (statusThread) statusThread->cancel();
 }
 
 void DSMEngine::wait() throw(atdUtil::Exception)
