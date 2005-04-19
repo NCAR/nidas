@@ -143,21 +143,18 @@ public:
      * A sensor ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    void setId(dsm_sample_id_t val) { id = val; }
-    void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; }
-    void setDSMId(unsigned short val)
-    {
-	id = (id & 0xfc00ffff) | ((unsigned long)(val & 0x3ff) << 16);
-    }
+    void setId(dsm_sample_id_t val) { id = SET_SAMPLE_ID(id,val); }
+    void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
+    void setDSMId(unsigned short val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the various levels of the samples identification.
      * A sample tag ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    dsm_sample_id_t  getId()      const { return id; }
-    unsigned short getDSMId()   const { return (id & 0x3ff0000) >> 16; }
-    unsigned short getShortId() const { return (id & 0xffff); }
+    dsm_sample_id_t  getId()      const { return GET_SAMPLE_ID(id); }
+    unsigned short getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
@@ -230,7 +227,9 @@ public:
     virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw();
 
+    static void printStatusHeader(std::ostream& ostr) throw();
     virtual void printStatus(std::ostream&) throw();
+    static void printStatusTrailer(std::ostream& ostr) throw();
 
     void initStatistics();
 
@@ -250,6 +249,11 @@ public:
        { return writeErrorCount[0]; }
     int getCumulativeWriteErrorCount() const
        { return writeErrorCount[1]; }
+
+    size_t getBadTimeTagCount() const
+    {
+	return questionableTimeTags;
+    }
 
     float getObservedSamplingRate() const;
 
@@ -315,8 +319,6 @@ protected:
     size_t sampDataToRead;
     char* sampDataPtr;
 
-    size_t questionableTimetags;
-
     /**
      * DSMSensor maintains some counters that can be queried
      * to provide the current status.
@@ -328,8 +330,9 @@ protected:
     int writeErrorCount[2];    // [0] is recent, [1] is cumulative
     int currStatsIndex;
     int reportStatsIndex;
-    int nsamples;
-    int nbytes;
+    size_t nsamples;
+    size_t nbytes;
+    size_t questionableTimeTags;
 
     /**
     * Observed number of samples per second.

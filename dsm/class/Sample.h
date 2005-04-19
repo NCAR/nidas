@@ -33,6 +33,27 @@ typedef long long dsm_time_t;
 typedef unsigned long dsm_sample_id_t;
 
 /**
+ * macros to get and set fields of the tid member of a Sample.
+ * The 32 bit unsigned long tid is made of two fields:
+ *	26 least significant bits containing the SAMPLE_ID
+ *	6 most significant bits containing a SAMPLE_TYPE enumeration (0-63)
+ * The SAMPLE_ID field is further split into a DSM_ID and SHORT_ID portion:
+ *	16 least significant bits containing the SHORT_ID (0-65535)
+ *	10 most signmificant bits containing the DSM_ID (0-1023)
+ */
+#define GET_SAMPLE_TYPE(tid) (tid >> 26)
+#define SET_SAMPLE_TYPE(tid,val) ((tid & 0x03ffffff) | ((unsigned long)val << 26))
+
+#define GET_SAMPLE_ID(tid) (tid & 0x03ffffff)
+#define SET_SAMPLE_ID(tid,val) ((tid & 0xfc000000) | (val & 0x03ffffff))
+
+#define GET_DSM_ID(tid) ((tid & 0x03ff0000) >> 16)
+#define SET_DSM_ID(tid,val) ((tid & 0xfc00ffff) | (((unsigned long)val & 0x3ff) << 16))
+
+#define GET_SHORT_ID(tid) (tid & 0xffff)
+#define SET_SHORT_ID(tid,val) ((tid & 0xffff0000) | (val & 0xffff)) 
+
+/**
  * Whether to use mutexes to make sure the reference count
  * increments and decrement-and-test operations are atomic.
  */
@@ -296,7 +317,7 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	tt(0),length(0),id((unsigned long)t << 26) {}
+    	tt(0),length(0),tid((unsigned long)t << 26) {}
 
 
     dsm_time_t getTimeTag() const { return tt; }
@@ -314,26 +335,17 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    dsm_sample_id_t getId() const { return id & 0x00ffffff; }
-    void setId(dsm_sample_id_t val)
-    {
-    	id = (id & 0xff000000) | val;
-    }
+    dsm_sample_id_t getId() const { return GET_SAMPLE_ID(tid); }
+    void setId(dsm_sample_id_t val) { tid = SET_SAMPLE_ID(tid,val); }
 
-    unsigned short getDSMId() const { return (id & 0x03ff0000) >> 16; }
-    void setDSMId(unsigned short val)
-    {
-    	id = (id & 0xfc00ffff) | (unsigned long)(val & 0x3ff) << 16;
-    }
+    unsigned short getDSMId() const { return GET_DSM_ID(tid); }
+    void setDSMId(unsigned short val) { tid = SET_DSM_ID(tid,val); }
 
-    unsigned short getShortId() const { return id & 0xffff; }
-    void setShortId(unsigned short val) { id = (id & 0xffff0000) | val; } 
+    unsigned short getShortId() const { return GET_SHORT_ID(tid); }
+    void setShortId(unsigned short val) { tid = SET_SHORT_ID(tid,val); }
 
-    unsigned char getType() const { return id >> 26; }
-    void setType(unsigned char val)
-    {
-        id = (id & 0x03ffffff) | (unsigned long)val << 26;
-    }
+    unsigned char getType() const { return GET_SAMPLE_TYPE(tid); }
+    void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
 
     static size_t getSizeOf()
     {
@@ -354,7 +366,7 @@ protected:
     /* An identifier for this sample, packed fields:
      * most significant 6 bits: type, other 26: id
      */
-    dsm_sample_id_t id;
+    dsm_sample_id_t tid;
 };
 
 /**
