@@ -193,6 +193,7 @@ static void *TryA2D_thread(void *t)
 	}
 	rtl_printf("\n");
 
+/* These didn't have the channel pointer set to A2DIOFIFO
 //Clear SYNC 
 	outb(bit_rvs(FIFOCtl & ~A2DSYNC), (UC *)isa_address);
 	outb(bit_rvs((FIFOCtl & ~A2DSYNC) | A2DSYNCCK), (UC *)isa_address);
@@ -202,7 +203,7 @@ static void *TryA2D_thread(void *t)
 	outb(bit_rvs(FIFOCtl | A2DSYNC), (UC *)isa_address);
 	outb(bit_rvs(FIFOCtl | A2DSYNC | A2DSYNCCK), (UC *)isa_address);
 	outb(bit_rvs(FIFOCtl | A2DSYNC), (UC *)isa_address);
-
+*/
 // Load FIFOCtl
 	// Point at the FIFO control word
 	//  and write FIFOCtl into register on CPLD
