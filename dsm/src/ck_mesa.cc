@@ -10,9 +10,9 @@
    Revisions:
 
      $LastChangedRevision$
-         $LastChangedDate: $
+         $LastChangedDate$
            $LastChangedBy$
-                 $HeadURL: $
+                 $HeadURL$
 
 */
 

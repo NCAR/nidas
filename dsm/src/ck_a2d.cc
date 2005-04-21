@@ -10,10 +10,10 @@
 
    Revisions:
 
-     $LastChangedRevision: 695 $
-         $LastChangedDate: $
-           $LastChangedBy: gray $
-                 $HeadURL: $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 // A2D_RUN_IOCTL control messages

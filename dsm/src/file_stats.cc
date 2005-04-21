@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -151,7 +151,7 @@ void CounterClient::printResults()
     struct tm tm;
     char tstr[64];
     cout << left << setw(maxlen) << (maxlen > 0 ? "sensor" : "") << right <<
-    	"       id    nsamps |----- start -----|  |---- end ---|    rate" << endl;
+    	"  dsm sampid    nsamps |----- start -----|  |---- end ---|    rate" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / 1000;
@@ -163,7 +163,9 @@ void CounterClient::printResults()
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
 	string t2str(tstr);
         cout << left << setw(maxlen) << sensorNames[id] << right << ' ' <<
-		setw(8) << id << ' ' << setw(9) << nsamps[id] << ' ' <<
+	    setw(4) << GET_DSM_ID(id) << ' ' <<
+	    setw(5) << GET_SHORT_ID(id) << ' ' <<
+	    ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
 	    float(nsamps[id]) / ((t2s[id]-t1s[id]) / 1000.) << endl;
