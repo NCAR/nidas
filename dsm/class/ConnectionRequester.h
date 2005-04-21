@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -18,10 +18,12 @@
 #define DSM_CONNECTIONREQUESTER_H
 
 #include <DSMTime.h>
+#include <atdUtil/IOException.h>
 
 namespace dsm {
 
 class IOChannel;
+class IOStream;
 class SampleInput;
 class SampleOutput;
 
@@ -51,7 +53,8 @@ public:
     /**
      * SampleConnectionRequester will be called back when a new file is created.
      */
-    virtual void newFileCallback(dsm_time_t) throw() {}
+    virtual void newFileCallback(dsm_time_t,IOStream* iostream)
+    	throw(atdUtil::IOException) {}
 };
 
 }

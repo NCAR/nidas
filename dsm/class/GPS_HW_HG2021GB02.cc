@@ -2,13 +2,13 @@
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: $
+    $HeadURL$
 
     Taken from the Honeywell Installation Manual PN HG2021GB02/GD02
     Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219).

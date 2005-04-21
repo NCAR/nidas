@@ -2,13 +2,13 @@
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-01-03 13:26:59 -0700 (Mon, 03 Jan 2005) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/DSMSerialSensor.cc $
+    $HeadURL$
 
  ******************************************************************
 */

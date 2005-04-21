@@ -1,4 +1,3 @@
-
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -14,22 +13,19 @@
 
 */
 
-#ifndef DSM_TESTSAMPLECLIENT_H
-#define DSM_TESTSAMPLECLIENT_H
-
-#include <SampleClient.h>
+#ifndef DSM_VERSION_H
+#define DSM_VERSION_H
 
 namespace dsm {
 
 /**
- * A little SampleClient for testing purposes.  Currently
- * just prints out some fields from the Samples it receives.
+ * Class of static member functions providing version strings.
  */
-class TestSampleClient : public SampleClient {
+class Version
+{
 public:
-
-  bool receive(const Sample *s) throw();
-
+    static const char* getSoftwareVersion() { return "$LastChangedRevision$"; }
+    static const char* getArchiveVersion() { return "0"; }
 };
 
 }

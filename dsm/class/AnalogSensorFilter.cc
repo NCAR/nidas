@@ -5,13 +5,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: $
+    $LastChangedDate$
 
-    $LastChangedRevision: $
+    $LastChangedRevision$
 
-    $LastChangedBy: $
+    $LastChangedBy$
 
-    $HeadURL: $
+    $HeadURL$
 
  ********************************************************************
 

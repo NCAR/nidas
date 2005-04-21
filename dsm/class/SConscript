@@ -6,8 +6,14 @@
 ##  Import the cross-build environment.
 ##
 
+
 Import('env')
 myenv = env.Copy()
+
+## version = myenv.Command('Version.h','Version',
+## 	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
+## myenv.AlwaysBuild(version)
+## Depends('Version.h','Version')
 
 # -ggdb
 # -DXML_DEBUG
@@ -80,6 +86,7 @@ sources = Split("""
 
   SampleInput.cc
   SampleOutput.cc
+  SampleFileHeader.cc
   RawSampleOutputStream.cc
   RawSampleInputStream.cc
   SampleDater.cc
