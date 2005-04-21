@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -147,18 +147,18 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     dsm_time_t tsamp = samp->getTimeTag();
 
     if (nextFileTime == 0) nextFileTime = tsamp;
-    if (tsamp >= nextFileTime) {
+    try {
+	if (tsamp >= nextFileTime) {
 #ifdef DEBUG
 	    cerr << "calling iostream->createFile, nextFileTime=" << nextFileTime << endl;
 #endif
 
-	dsm_time_t newFileTime = iostream->createFile(nextFileTime);
-	if (connectionRequester)
-	    connectionRequester->newFileCallback(nextFileTime);
-	nextFileTime = newFileTime;
-    }
+	    dsm_time_t newFileTime = iostream->createFile(nextFileTime);
+	    if (connectionRequester)
+		connectionRequester->newFileCallback(nextFileTime,iostream);
+	    nextFileTime = newFileTime;
+	}
 
-    try {
 	write(samp);
     }
     catch(const atdUtil::IOException& ioe) {

@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -36,6 +36,8 @@ public:
     FileSet():IOChannel(),atdUtil::FileSet() {}
 
     virtual ~FileSet() {}
+
+    bool isNewFile() const { return atdUtil::FileSet::isNewFile(); }
 
     const std::string& getName() const;
 
@@ -72,7 +74,7 @@ public:
     {
         atdUtil::FileSet::closeFile();
     }
-        
+
     int getFd() const { return atdUtil::FileSet::getFd(); }
         
     void fromDOMElement(const xercesc::DOMElement* node)

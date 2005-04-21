@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -20,6 +20,7 @@
 #include <dsm_sample.h>
 #include <DOMable.h>
 
+// #include <atdUtil/FileSet.h>
 #include <atdUtil/IOException.h>
 #include <atdUtil/Inet4Address.h>
 
@@ -27,6 +28,7 @@ namespace dsm {
 
 class DSMConfig;
 class DSMService;
+
 
 /**
  * A channel for Input or Output of data.
@@ -42,6 +44,9 @@ public:
     virtual void setName(const std::string& val) = 0;
 
     virtual const std::string& getName() const = 0;
+
+    virtual bool isNewFile() const { return false; }
+
     /**
      * After the IOChannel is configured, a user of IOChannel calls
      * requestConnection to get things started. It is like opening
@@ -110,6 +115,8 @@ public:
         return LONG_LONG_MAX;
     }
 
+    virtual void openNextFile() throw(atdUtil::IOException) {}
+
     virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     virtual const DSMConfig* getDSMConfig() const { return dsm; }
@@ -117,6 +124,7 @@ public:
     virtual void setDSMService(const DSMService* val) { service = val; }
 
     virtual const DSMService* getDSMService() const { return service; }
+
 
 private:
     const DSMConfig* dsm;

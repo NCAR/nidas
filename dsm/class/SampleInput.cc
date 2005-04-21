@@ -2,19 +2,20 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 */
 
 #include <SampleInput.h>
 #include <DSMSensor.h>
 #include <DSMService.h>
+#include <SampleFileHeader.h>
 
 #include <atdUtil/Logger.h>
 
@@ -118,11 +119,18 @@ atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const
  */
 void SampleInputStream::readSamples() throw(atdUtil::IOException)
 {
+// #define DEBUG
 #ifdef DEBUG
     static int nsamps = 0;
-#endif
 
+    cerr << "readSamples, iostream->read(), available=" << iostream->available() <<
+    	", iostream=" << iostream << endl;
+#endif
     iostream->read();		// read a buffer's worth
+    if (iostream->isNewFile()) {
+	SampleFileHeader header;
+	header.check(iostream);
+    }
 
     SampleHeader header;
     map<unsigned long,DSMSensor*>::const_iterator sensori;
@@ -164,6 +172,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    dptr = (char*) samp->getVoidDataPtr();
 	}
 	size_t len = iostream->available();
+	if (len == 0) break;
 	// cerr << "leftToRead=" << leftToRead << " available=" << len << endl;
 	if (leftToRead < len) len = leftToRead;
 	len = iostream->read(dptr, len);
@@ -199,17 +208,22 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 }
 
 /**
- * Blocking read of the next sample from the buffer. The caller must
- * call freeReference on the sample when they're done with it.
+ * Read the next sample. The caller must call freeReference on the
+ * sample when they're done with it.
  */
 Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 {
-    // user shouldn't mix the two readSample methods on one stream, but if they
-    // do, checking for non-null samp here should make things work.
+    // user probably won't mix the two readSample methods on one stream,
+    // but if they do, checking for non-null samp here should make things work.
     if (!samp) {
 	SampleHeader header;
-	while (iostream->available() < header.getSizeOf()) 
+	while (iostream->available() < header.getSizeOf()) {
 	    iostream->read();
+	    if (iostream->isNewFile()) {
+		SampleFileHeader header;
+		header.check(iostream);
+	    }
+	}
 
 	iostream->read(&header,header.getSizeOf());
 	if (header.getType() >= UNKNOWN_ST) {

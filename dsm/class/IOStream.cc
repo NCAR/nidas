@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -22,8 +22,8 @@ using namespace dsm;
 using namespace std;
 
 
-IOStream::IOStream(IOChannel& iochan,size_t blen): iochannel(iochan),
-	buflen(blen),maxMsecs(1000)
+IOStream::IOStream(IOChannel& iochan,size_t blen):
+	iochannel(iochan),buflen(blen),maxMsecs(1000),newFile(false)
 {
     buffer = new char[buflen * 2];
     eob = buffer + buflen * 2;
@@ -42,6 +42,7 @@ IOStream::~IOStream()
  */
 size_t IOStream::read() throw(atdUtil::IOException)
 {
+    newFile = false;
     size_t l = available();
     // shift data down. memmove supports overlapping memory areas
     if (tail > buffer) {
@@ -50,12 +51,21 @@ size_t IOStream::read() throw(atdUtil::IOException)
 	head = tail + l;
     }
 
-    l = iochannel.read(head,eob-head);
+    if (head < eob) {
+	// l==0 means end of file, next read may throw EOFException
+	l = iochannel.read(head,eob-head);
 
-#ifdef DEBUG
-    cerr << "IOStream, read =" << l << endl;
-#endif
+	if (iochannel.isNewFile()) {
+	    tail = head;	// discard last portion of previous file
+	    newFile = true;
+	}
+    }
+    else l = 0;
+
     head += l;
+#ifdef DEBUG
+    cerr << "IOStream, read =" << l << ", avail=" << available() << endl;
+#endif
     return l;
 }
 
@@ -63,15 +73,40 @@ size_t IOStream::read() throw(atdUtil::IOException)
  * Read available data from tail of IOStream buffer into user buffer.
  * May return less than len.
  */
-size_t IOStream::read(void* buf, size_t len) throw()
+size_t IOStream::read(void* buf, size_t len) throw(atdUtil::IOException)
 {
+    newFile = false;
     size_t l = available();
+    if (l == 0) {
+        read();
+	l = available();
+    }
     if (len < l) l = len;
     memcpy(buf,tail,l);
     tail += l;
     return l;
 }
 
+/*
+ * Put data back in buffer.
+ */
+size_t IOStream::putback(const void* buf, size_t len) throw()
+{
+    cerr << "putback, available=" << available() << endl;
+    size_t space = tail - buffer;
+    cerr << "putback, space=" << space << endl;
+    if (space < len) len = space;
+    cerr << "putback, len=" << len << endl;
+    memcpy(tail - len,buf,len);
+    tail -= len;
+    cerr << "putback, available=" << available() << " this=" << this << endl;
+    return len;
+}
+
+bool IOStream::write(const void*buf,size_t len) throw (atdUtil::IOException)
+{
+    return write(&buf,&len,1);
+}
 
 /**
  * Buffered atomic write. We change the contents of lens argument.

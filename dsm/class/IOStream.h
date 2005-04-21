@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -21,6 +21,8 @@
 #include <iostream>
 
 namespace dsm {
+
+class IOStream;
 
 /**
  * A base class for buffering data.
@@ -35,7 +37,7 @@ public:
      */
     IOStream(IOChannel& input,size_t buflen = 8192);
 
-    ~IOStream();
+    virtual ~IOStream();
 
     /**
      * Number of bytes available to be copied from the
@@ -46,16 +48,33 @@ public:
         return head - tail;
     }
 
+    bool isNewFile() const { return newFile; }
+
     /**
      * Do a IOChannel::read into the internal buffer of IOStream.
+     * @return number of bytes read. A return value of zero means an
+     *		end-of-file was encountered. If the IOChannel is
+     *		a FileSet, then a successive read will either
+     *		open and read the next file, or throw EOFException if
+     *		there is no next file.
      */
     size_t read() throw(atdUtil::IOException);
 
     /**
-     * Copy data from the internal buffer to the user buffer.
-     @return number of bytes copied.
+     * If the internal buffer is empty, then do an IOChannel::read
+     * into the buffer. Then copy data from the internal buffer
+     * to the user buffer.
+     * @return number of bytes copied. May be less than the user asked
+     *		for. A return value of 0 means the internal buffer
+     *		was empty, and an end-of-file was encountered.
      */
-    size_t read(void* buf, size_t len) throw();
+    size_t read(void* buf, size_t len) throw(atdUtil::IOException);
+
+    /**
+     * Put bytes back into the buffer.
+     * @return number of characters put back.
+     */
+    size_t putback(const void* buf, size_t len) throw();
 
     /**
      * Incoming data is buffered, and the buffer written to the
@@ -93,6 +112,8 @@ public:
     bool write(const void** bufs, size_t* lens, int nbufs)
   	throw(atdUtil::IOException);
 
+    bool write(const void*buf,size_t len) throw (atdUtil::IOException);
+
     /**
      * Flush buffer to physical device.
      * This is not done automatically by the destructor - the user
@@ -110,6 +131,9 @@ public:
 	flush();
 	return iochannel.createFile(t);
     }
+
+    const std::string& getName() const { return iochannel.getName(); }
+
 
 protected:
 
@@ -149,6 +173,11 @@ protected:
      * Time of last physical write.
      */
     dsm_time_t lastWrite;
+
+    /**
+     * Was the previous read performed on a newly opened file?
+     */
+    bool newFile;
 
 private:
 
