@@ -287,6 +287,9 @@
             <xsd:element ref="aircraft"      maxOccurs="unbounded"/>
         </xsd:sequence>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
+        <xsd:attribute name="version"   type="xsd:normalizedString"
+		use="required"/>
+        <xsd:attribute name="xmlname"   type="xsd:normalizedString" use="required"/>
     </xsd:complexType>
 </xsd:element>
 
