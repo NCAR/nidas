@@ -6,7 +6,9 @@
     xmlns="http://www.eol.ucar.edu/ads3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd"
-    name="RICO">
+    name="RICO"
+    version="$LastChangedRevision$"
+    xmlname="$HeadURL$">
 
 <sensorcatalog>
 
@@ -214,16 +216,28 @@
         <sample id="0377" rate="2"    ><variable name="equipment id"               units=""         longname="equipment id"/></sample>
     </arincSensor>
 
-    <serialSensor ID="mensor" class="DSMSerialSensor"
-	baud="115200" parity="none" databits="8" stopbits="1"
-	scanfFormat="%*3c%f%x">
-	<sample id="1">
-	    <variable name="DPRES" units="mb"/>
-	</sample>
+    <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
+	baud="57600" parity="none" databits="8" stopbits="1"
+	scanfFormat="%*1d%f">
 	<message separator="\n" position="end" length="0"/>
-	<prompt string="hitme\n" rate="10"/>
+	<prompt string="#1?\r" rate="50"/>
     </serialSensor>
 
+    <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
+	baud="9600" parity="none" databits="8" stopbits="1"
+	scanfFormat="*%*2d%*2d%f">
+	<message separator="\n" position="end" length="0"/>
+	<prompt string="*0300P3\r\n" rate="50"/>
+    </serialSensor>
+
+
+    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible. -->
+<!--
+    <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
+        <mesacfg name="Counter" rate="100" chan="2"/>
+        <mesacfg name="Radar" rate="5" chan="1"/>
+        <mesacfg name="PMS260" rate="10" chan="1"/>
+-->
     <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.  -->
 <!--
     <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
@@ -271,6 +285,7 @@
 	</service>
     </server>
 
+<!--
     <dsm name="dsm-444" location="cabin" id="0">
         <irigSensor  IDREF="IRIG"   devicename="/dev/irig0"  id="100"/>
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
@@ -283,16 +298,30 @@
 	    <socket type="mcrequest"/>
 	</output>
     </dsm>
+-->
 
-    <!--
     <dsm name="dsm301" location="radome" id="0">
 	<config class="XMLConfig">
 	    <socket type="mcrequest"/>
 	</config>
 
-
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
+	<serialSensor IDREF="Mensor_6100"
+		devicename="/dev/dsmser0" id="110">
+	    <sample id="1">
+		<variable name="DPRESM1" units="mb"/>
+	    </sample>
+	</serialSensor>
+
+	<serialSensor IDREF="Paro_DigiQuartz_1000"
+		devicename="/dev/dsmser1" id="112">
+	    <sample id="1">
+		<variable name="DPRESP1" units="mb"/>
+	    </sample>
+	</serialSensor>
+	
+<!--
 	<anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>
         <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
                         devicename="/dev/dsmany1">
@@ -301,23 +330,17 @@
             <sample id="120" rate="100">
               <variable name="Counter1"/>
         </anythingSensor>
-
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser0" id="110"/>
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="114"/>
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser3" id="116"/>
+-->
 
 	<output class="RawSampleOutputStream">
 	    <socket type="mcrequest"/>
 	</output>
 
-	<output class="SyncRecordOutput">
-	    <fileset dir="/tmp/proc" file="%Y%m%d_%H%M%S.dat"
-		length="0" />
-	</output>
     </dsm>
 
+<!--
     <dsm name="dsm309" location="cabin" id="1">
+	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
 		id="110" baud="9600" parity="none" databits="8" stopbits="1">
 	    <sample id="017"> <variable name="TEST"/></sample>
@@ -325,7 +348,9 @@
 	    <prompt string="hitme1\n" rate="10"/>
 	</serialSensor>
 
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
+	<arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0" id="1000"/>
+
+	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser1" id="112"/>
 
 	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser1"
 		id="114" baud="9600" parity="none" databits="8" stopbits="1">
@@ -334,29 +359,30 @@
 	    <prompt string="hitme2\n" rate="10"/>
 	</serialSensor>
 
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser2" id="116"/>
+	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser2" id="116"/>
     </dsm>
+-->
 
     <dsm name="dsm302" location="tail" id="2">
-	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser0"
-	    id="110" baud="9600" parity="none" databits="8" stopbits="1">
-	    <sample id="1"> <variable name="TEST"/></sample>
-	    <message position="end" separator="\n" length="0"/>
-	    <prompt string="hitme3\n" rate="10"/>
+	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+	<serialSensor IDREF="Mensor_6100"
+		devicename="/dev/dsmser0" id="110">
+	    <sample id="1">
+		<variable name="DPRESM2" units="mb"/>
+	    </sample>
 	</serialSensor>
 
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser1" id="112"/>
-
-	<serialSensor class="DSMSerialSensor" devicename="/dev/dsmser2"
-	    id="114" baud="9600" parity="none" databits="8" stopbits="1">
-	    <sample id="1"> <variable name="TEST"/></sample>
-	    <message position="end" separator="\n" length="0"/>
-	    <prompt string="hitme4\n" rate="10"/>
+	<serialSensor IDREF="Paro_DigiQuartz_1000"
+		devicename="/dev/dsmser1" id="112">
+	    <sample id="1">
+		<variable name="DPRESP2" units="mb"/>
+	    </sample>
 	</serialSensor>
-
-	<serialSensor IDREF="mensor" devicename="/dev/dsmser3" id="116"/>
+	<output class="RawSampleOutputStream">
+	    <socket type="mcrequest"/>
+	</output>
     </dsm>
-    -->
 </aircraft>
 </project>
 
