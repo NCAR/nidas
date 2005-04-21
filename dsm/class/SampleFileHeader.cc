@@ -19,16 +19,20 @@ using namespace dsm;
 using namespace std;
 
 static struct headerField {
+
     /* a tag in the file header */
     const char* tag;
+
     /* ptr to setXXX member function for setting an attribute of this
      * class, based on the value of the tag from the IOStream.
      */
     void (SampleFileHeader::* setFunc)(const string&);
+
     /* ptr to getXXX member function for getting an attribute of this
      * class, in order to write the value of the tag to the IOStream.
      */
     const string& (SampleFileHeader::* getFunc)() const;
+
 } headers[] = {
     { "archive version:", &SampleFileHeader::setArchiveVersion,
 	    &SampleFileHeader::getArchiveVersion },
@@ -40,6 +44,7 @@ static struct headerField {
 	    &SampleFileHeader::getXMLName },
     { "xml version:", &SampleFileHeader::setXMLVersion,
 	    &SampleFileHeader::getXMLVersion },
+    { "end header\n", 0, 0 },
 };
 
 void SampleFileHeader::check(IOStream* iostream)
@@ -48,7 +53,7 @@ void SampleFileHeader::check(IOStream* iostream)
     size_t l;
     char buf[256];
 
-    if (iostream->read(buf,10) != 10 ||strncmp(buf,"NCAR ADS3\n",10))
+    if (iostream->read(buf,10) != 10 || strncmp(buf,"NCAR ADS3\n",10))
     	throw atdUtil::IOException(iostream->getName(),"open",
 		"is not an \"NCAR ADS3\" file");
 
@@ -62,10 +67,12 @@ void SampleFileHeader::check(IOStream* iostream)
 	for (itag = 0; itag < ntags; itag++)
 	    if (!strncmp(headers[itag].tag,buf,ic)) break;
 
-	if (itag == ntags) break;	// no match to any tag
+	// no match to any tag, assume it is start of data
+	if (itag == ntags) break;
 
 	if (ic == strlen(headers[itag].tag)) {	// complete tag match
 	    ic = 0;
+	    if (!headers[itag].setFunc) break;		// endheader tag
 	    for(;;) {
 		if (iostream->read(buf+ic,1) == 0) return; // EOF
 		if (buf[ic] == '\n') break;
@@ -85,9 +92,7 @@ void SampleFileHeader::check(IOStream* iostream)
 	    ic = 0;
 	}
     } 
-    cerr << "iostream->putback, ic=" << ic << endl;
     iostream->putback(buf,ic);
-    cerr << "iostream->available=" << iostream->available() << endl;
 }
 
 void SampleFileHeader::write(IOStream* iostream)
@@ -102,12 +107,14 @@ void SampleFileHeader::write(IOStream* iostream)
     for (itag = 0; itag < ntags; itag++) {
 	str = headers[itag].tag;
 	iostream->write(str,strlen(str));
-	str = " ";
-	iostream->write(str,strlen(str));
-	str = (this->*headers[itag].getFunc)().c_str();
-	iostream->write(str,strlen(str));
-	str = "\n";
-	iostream->write(str,strlen(str));
+	if (headers[itag].getFunc) {
+	    str = " ";
+	    iostream->write(str,strlen(str));
+	    str = (this->*headers[itag].getFunc)().c_str();
+	    iostream->write(str,strlen(str));
+	    str = "\n";
+	    iostream->write(str,strlen(str));
+	}
     } 
 }
 

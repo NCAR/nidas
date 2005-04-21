@@ -20,7 +20,6 @@
 #include <dsm_sample.h>
 #include <DOMable.h>
 
-// #include <atdUtil/FileSet.h>
 #include <atdUtil/IOException.h>
 #include <atdUtil/Inet4Address.h>
 

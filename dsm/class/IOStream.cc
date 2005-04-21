@@ -92,14 +92,10 @@ size_t IOStream::read(void* buf, size_t len) throw(atdUtil::IOException)
  */
 size_t IOStream::putback(const void* buf, size_t len) throw()
 {
-    cerr << "putback, available=" << available() << endl;
     size_t space = tail - buffer;
-    cerr << "putback, space=" << space << endl;
     if (space < len) len = space;
-    cerr << "putback, len=" << len << endl;
     memcpy(tail - len,buf,len);
     tail -= len;
-    cerr << "putback, available=" << available() << " this=" << this << endl;
     return len;
 }
 
