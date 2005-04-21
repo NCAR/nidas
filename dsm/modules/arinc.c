@@ -19,10 +19,10 @@
 
    Revisions:
 
-     $LastChangedRevision: $
-         $LastChangedDate: $
-           $LastChangedBy: $
-                 $HeadURL: $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 /* RTLinux includes...  */

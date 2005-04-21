@@ -2,13 +2,13 @@
   *******************************************************************
   Copyright 2005 UCAR, NCAR, All Rights Reserved
 									      
-  $LastChangedDate: 2004-10-26 10:33:08 -0600 (Tue, 26 Oct 2004) $
+  $LastChangedDate$
 									      
   $LastChangedRevision$
 									      
   $LastChangedBy$
 									      
-  $HeadURL: http://orion/svn/hiaper/ads3/dsm/modules/dsm_serial.h $
+  $HeadURL$
 
   *******************************************************************
 

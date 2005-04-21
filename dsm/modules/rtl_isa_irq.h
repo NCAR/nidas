@@ -5,13 +5,13 @@
 
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 1703 $
+    $LastChangedRevision$
 
-    $LastChangedBy: wasinger $
+    $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/modules/rtl_isa_irq.h $
+    $HeadURL$
  ********************************************************************
 */
 

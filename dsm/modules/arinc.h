@@ -8,10 +8,10 @@
 
    Revisions:
 
-     $LastChangedRevision: $
-         $LastChangedDate: $
-           $LastChangedBy: $
-                 $HeadURL: $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #ifndef ARINC_DRIVER_H

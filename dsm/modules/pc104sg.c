@@ -8,10 +8,10 @@
  
    Revisions:
 
-     $LastChangedRevision: $
-         $LastChangedDate: $
-           $LastChangedBy: $
-                 $HeadURL: $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #define __RTCORE_POLLUTED_APP__
@@ -1000,30 +1000,7 @@ static void *pc104sg_100hz_thread (void *param)
      */
     counterRejam(isRT);
 
-    /*
-     * Set the major time here until we are doing it from user
-     * space.
-     */
-// #define SET_MAJOR
-#ifdef SET_MAJOR
-
-    struct rtl_timespec ts;
-    // rtl_clock_gettime(RTL_CLOCK_GPOS,&tspec); // note - as of rtldk-2.2 RTL_CLOCK_GPOS is now defined...
-    rtl_clock_gettime(RTL_CLOCK_REALTIME,&ts);	// 1970
-    // ts.tv_sec = 1107129600;		// Jan 31 2005, 00:00
-    ts.tv_sec = 1104537540;		// Dec 31 2004, 23:59:00 leap
-    ts.tv_sec = 1104537540-86400;	// Dec 30 2004, 23:59:00 leap
-    // ts.tv_sec = 946684740;		// Dec 31 1999, 23:59:00 noleap
-    // ts.tv_sec = 852076740;		// Dec 31 1996, 23:59:00 leap
-    // ts.tv_sec = 978307140;		// Dec 31 2000, 23:59:00 leap
-
-
-    userClock.tv_sec = ts.tv_sec;
-    userClock.tv_usec = ts.tv_nsec / 1000;
-    clockState = USER_SET_REQUESTED;
-#else
     clockState = RESET_COUNTERS;
-#endif
 
     /* initial request of extended status from DPR */
     Req_Dual_Port_RAM(DP_Extd_Sts);

@@ -9,9 +9,9 @@
    Revisions:
 
      $LastChangedRevision$
-         $LastChangedDate: $
+         $LastChangedDate$
            $LastChangedBy$
-                 $HeadURL: $
+                 $HeadURL$
 */
 
 #ifndef MESA_DRIVER_H

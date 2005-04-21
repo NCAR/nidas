@@ -7,10 +7,10 @@
 
    Revisions:
 
-     $LastChangedRevision: $
-         $LastChangedDate: $
-           $LastChangedBy: $
-                 $HeadURL: $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #ifndef IRIGCLOCK_H
