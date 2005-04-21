@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -77,6 +77,8 @@ void Project::fromDOMElement(const DOMElement* node)
 	    cerr << "\tattrval=" << attr.getValue() << endl;
 #endif
 	    if (!attr.getName().compare("name")) setName(attr.getValue());
+	    else if (!attr.getName().compare("version")) setVersion(attr.getValue());
+	    else if (!attr.getName().compare("xmlname")) setXMLName(attr.getValue());
 	}
     }
 

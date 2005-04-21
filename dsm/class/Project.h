@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+    $LastChangedDate$
 
     $LastChangedRevision$
 
     $LastChangedBy$
 
-    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -37,6 +37,12 @@ public:
     void setName(const std::string& val) { name = val; }
     const std::string& getName() const { return name; }
 
+    void setVersion(const std::string& val) { version = val; }
+    const std::string& getVersion() const { return version; }
+
+    void setXMLName(const std::string& val) { xmlName = val; }
+    const std::string& getXMLName() const { return xmlName; }
+
     void addAircraft(Aircraft* val) { aircraft.push_back(val); }
     const std::list<Aircraft*>& getAircraft() const { return aircraft; }
 
@@ -56,8 +62,18 @@ public:
 
 protected:
     static Project* instance;
+
     std::string name;
+
+    std::string version;
+
+    /**
+     * Name of XML file that this project was initialized from.
+     */
+    std::string xmlName;
+
     std::list<Aircraft*> aircraft;
+
     SensorCatalog* catalog;
 };
 
