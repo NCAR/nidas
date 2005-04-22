@@ -127,9 +127,11 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
     	", iostream=" << iostream << endl;
 #endif
     iostream->read();		// read a buffer's worth
-    if (iostream->isNewFile()) {
+    if (iostream->isNewFile()) {	// first read from a new file
 	SampleFileHeader header;
 	header.check(iostream);
+	if (samp) samp->freeReference();
+	samp = 0;
     }
 
     SampleHeader header;
@@ -215,6 +217,7 @@ Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 {
     // user probably won't mix the two readSample methods on one stream,
     // but if they do, checking for non-null samp here should make things work.
+restart:
     if (!samp) {
 	SampleHeader header;
 	while (iostream->available() < header.getSizeOf()) {
@@ -241,13 +244,18 @@ Sample* SampleInputStream::readSample() throw(atdUtil::IOException)
 	dptr = (char*) samp->getVoidDataPtr();
     }
     while (leftToRead > 0) {
-	size_t len = iostream->available();
-	if (leftToRead < len) len = leftToRead;
-	len = iostream->read(dptr, len);
+	size_t len = iostream->read(dptr, leftToRead);
+	if (iostream->isNewFile()) {
+	    iostream->putback(dptr,len);
+	    samp->freeReference();
+	    samp = 0;
+	    SampleFileHeader header;
+	    header.check(iostream);
+	    goto restart;
+	}
 	dptr += len;
 	leftToRead -= len;
 	if (leftToRead == 0) break;
-	iostream->read();
     }
     Sample* tmp = samp;
     samp = 0;
