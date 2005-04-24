@@ -15,9 +15,6 @@
 #ifndef A2D_DRIVER_H
 #define A2D_DRIVER_H
 
-#define __RTCORE_POLLUTED_APP__
-#include <gpos_bridge/sys/gpos.h>
-
 #include <dsm_sample.h>		// get dsm_sample typedefs
 
 
@@ -58,6 +55,7 @@
 #define	ERRA2DCONV		-7	//Conversion data invalid
 #define	ERRA2DCHIPID	-8	//Chip ID error
 #define	ERRA2DRATE		-9	//A/D sample rate error
+#define	ERRA2DCFG		-10	//A/D configuration error
 
 //Card base address for ISA bus
 #define	A2DMASTER		7	//A/D chip designated to produce interrupts
@@ -86,6 +84,7 @@
 #define	A2DIOGAIN47		0x4	//A/D chan 4-7 gain read/write
 #define	A2DIOVCAL		0x5	//VCAL set (DAC ch 0) read/write
 #define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
+#define A2DIOINTRD		0x6	//A/D INT lines(read),Cal/offset (write)
 #define	A2DIOFIFOSTAT	0x7	//FIFO stat (read), Set master A/D (write) 
 #define	A2DIOLOAD		0xF	//Load A/D configuration data
 
@@ -131,18 +130,18 @@
 #define	FIFOHF			0x0001	// FIFO half full
 #define FIFOAFAE		0x0002	// FIFO almost full/almost empty
 #define FIFONOTEMPTY	0x0004	// FIFO not empty
-#define	FIFOFULL		0x0008  // FIFO full
+#define	FIFONOTFULL		0x0008  // FIFO not full
 
 // A/D Filter configuration file parameters
 #define CONFBLOCKS  12  // 12 blocks as described below
-#define CONFBLLEN	43	// 42 data words plus 1 CRCC	
+#define CONFBLLEN	43	// 42 data words plus 1 CRCC (Confirmed by ADI)
 
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct 
 {
 	dsm_sample_time_t timestamp;	// timetag of sample 
-	dsm_sample_length_t size;	// number of bytes in data 
-  	SS data[RATERATIO][MAXA2DS]; 
+	dsm_sample_length_t size;		// number of bytes in data 
+  	char data[2*RATERATIO*MAXA2DS]; 
 }A2DSAMPLE;
 
 typedef struct
@@ -174,37 +173,6 @@ typedef struct
 				// data summing buffer
 }A2D_SET;
 
-
-//Function templates
-void A2DGetDataSim(void);	// Data simulator for running w/o irig
-int  A2DFIFOEmpty(void);	// Tests FIFO empty flag
-void A2DDataSim(A2D_SET *a);	// Data simulator--inf loop
-int  A2DSetup(A2D_SET *a);
-void A2DGetData();		//Read hardware fifo
-void A2DPtrInit(A2D_SET *a);	//Initialize pointer to data areas
-void A2DChSel(int a);		//Select the A/D board channel
-US   A2DStatus(int a);		//Get A/D status
-void A2DCommand(int a, US b);	//Issue command b to A/D converter a
-UC   A2DSetGain(int a, int b);	//Set gains for individual A/D channels
-double A2DSetNorm(int a, A2D_SET *b, double c);	//Set A/D nomalization const.
-void A2DSetMaster(US a);	//Assign one of the A/D's as timing master
-int  A2DInit(int a, US *b);	//Initialize/load A/D converters
-void A2DSetCtr(A2D_SET *a);	//Reset the individual channel sample counters
-UC   A2DReadInts(void);		//Read the state of all 8 A/D interruptlines
-UC   A2DSetVcal(int a);	//Set the calibration point voltage
-void A2DSetCal(A2D_SET *a);	//Set the cal enable bits for the 8 channels
-void A2DSetOffset (A2D_SET *a);	//Set the offset enable bits for the 8 channels
-void A2DReadFIFO(int a, US *b);	//Read a shorts from the FIFO into buffer b
-void A2DReadDirect(int a,int b,US *c);	//Read b values dir to buf c from A/D a
-void A2DSetSYNC(void);		//Set the SYNC bit high-stops A/D conversion
-void A2DClearSYNC(void);	//Clear the SYNC bit
-void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transition
-void A2D1PPSDisable(void);	//Disable 1PPS sync
-void A2DClearFIFO(void);	//Clear (reset) the FIFO
-void A2DError(int a);		//A/D Card error handling
-
-int  init_module(void);
-void cleanup_module(void);
 
 /*
 static int __init a2d_init();		//For Linux kernel
