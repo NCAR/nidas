@@ -1,4 +1,6 @@
 // #define BFIR
+// #define DEBUGA2DGET
+// #define DEBUGA2DGET2
 
 /*  a2d_driver.c/
 
@@ -73,7 +75,7 @@ static int  A2DSetup(A2D_SET *a);
 static void A2DGetData();		//Read hardware fifo
 static void A2DPtrInit(A2D_SET *a);	//Initialize pointer to data areas
 static US   A2DStatus(int a);		//Get A/D status
-static void A2DStatusAll(int *a);		//Get A/D status into array a
+static void A2DStatusAll(US *a);		//Get A/D status into array a
 // static void A2DCommand(int a, US b);	//Issue command b to A/D converter a
 static UC   A2DSetGain(int a, int b);	//Set gains for individual A/D channels
 static void A2DSetMaster(US a);	//Assign one of the A/D's as timing master
@@ -97,6 +99,7 @@ static void cleanup_module(void);
 
 rtl_pthread_t SetupThread;
 
+static int ictr = 0, cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static 	int	fd_up; 			// Data FIFO file descriptor
@@ -205,6 +208,7 @@ static int A2DCallback(int cmd, int board, int port,
   	case A2D_RUN_IOCTL:		/* user set */
 		{
 		int *tm =  (int *)buf;
+		US stat[MAXA2DS];
 
 		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
 		rtl_printf("Run message = 0x%08X\n", *tm);
@@ -217,9 +221,11 @@ static int A2DCallback(int cmd, int board, int port,
 			register_irig_callback(&A2DGetData, 
 						IRIG_100_HZ, 
 						(void *)NULL);	
-			a2drun = 1;
+			a2drun = RUN;
 			A2DResetAll();	// Send Abort command to all A/Ds
+			A2DStatusAll(stat);	// Read status from all A/Ds
 			A2DStartAll();	// Start all the A/Ds
+			A2DStatusAll(stat);	// Read status again from all A/Ds
 			A2DSetSYNC();	// Stop A/D clocks
 			A2DClearFIFO();	// Reset FIFO
 			A2DAuto();		// Switch to automatic mode
@@ -232,14 +238,13 @@ static int A2DCallback(int cmd, int board, int port,
 			a2drun = STOP;
 			rtl_printf("STOP command received\n");
 
+			//Kill the callback routine
+			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
+
 			A2DNotAuto();	// Shut off auto mode (if enabled)
 
 			// Abort all the A/D's
 			A2DResetAll();
-/*			
-			//Kill the callback routine
-			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
-*/
 
 			a2dsbusy = 0;	// Reset the busy flag
 		}
@@ -369,36 +374,42 @@ int A2DInit(A2D_SET *a2d)
 {
 	US *filt;
 
+	rtl_printf("In A2DInit\n");
+	rtl_printf("Setting reference freq to 10KHz\n");
+	
 	setRate2Output(10000, 1);
 
-	rtl_printf("In A2DInit\n");
 
 // Initialize pointer to filter array
 
 	filt = &a2d->filter[0];
 
-// Before doing ANYTHING, start then reset the A/D's
+// Make sure SYNC is cleared so clocks are running
+	rtl_printf("%s: Clearing SYNC\n", __FILE__);
+	A2DClearSYNC();
+
+// Start then reset the A/D's
 
 // Start conversions
-	rtl_printf("%s: Starting A/D's ", __FILE__);
+	rtl_printf("%s: Starting A/D's \n", __FILE__);
    	A2DStartAll();
 
 	rtl_usleep(10000); // Let them run a few milliseconds (10)
 
 // Then do a soft reset
-	rtl_printf("%s: Soft resetting A/D's ", __FILE__);
+	rtl_printf("%s: Soft resetting A/D's\n ", __FILE__);
 	A2DResetAll();
 
-// Make sure SYNC is cleared
-	A2DClearSYNC();
-
 // Configure the A/D's
+	rtl_printf("%s: Sending filter config data to A/Ds\n", __FILE__);
 	A2DConfigAll(filt);
 	
+	rtl_printf("%s: Resetting A/Ds\n", __FILE__);
 	// Reset the A/D's
 	A2DResetAll();
 
 	rtl_usleep(DELAYNUM1);	// Give A/D's a chance to load
+	rtl_printf("%s: A/Ds ready for synchronous start \n", __FILE__);
 
 	return(0);
 }
@@ -463,7 +474,7 @@ US A2DStatus(int A2DSel)
 	return(stat);
 }
 
-void A2DStatusAll(int *stat)
+void A2DStatusAll(US *stat)
 {
 	int i;
 	for(i = 0; i < MAXA2DS; i++)
@@ -788,19 +799,46 @@ void A2DClearFIFO(void)
 void A2DGetData()
 {
 //	US inbuf[HWFIFODEPTH];
-	A2DSAMPLE *buf;
+	A2DSAMPLE buf;
+	short *dataptr;
+
+#ifdef DEBUGA2DGET
+	if(ictr%100 == 0)rtl_printf("%s: %08d - In A2DGetData \n", __FILE__, ictr);
+#endif
+	ictr = 0;
 
 //TODO get the timestamp and size in the first long word
 //TODO put the size in the second entry (short)
 //TODO make certain the write size is correct
 //TODO check to see if fd_up is valid. If not, return an error
+	
+	// dataptr points to beginning of data section of A2DSAMPLE
+	// has to be cast to a short *
+	dataptr = (short *)buf.data;
+	
+#ifdef DEBUGA2DGET3
+	ictr++;
+#else
+	while(!A2DFIFOEmpty())
+	{
+		// Point to FIFO read subchannel
+		outb(A2DIOFIFO, (UC *)chan_addr);
+		*dataptr++ = inw((US *)isa_address);		
+		ictr++;	
+	}
+#endif
 
-	buf->size = (dsm_sample_length_t)2*INTRP_RATE*MAXA2DS;
-	A2DReadFIFO(INTRP_RATE*MAXA2DS, buf);
+	buf.size = ictr*2;
 
-//	if(A2DFIFOEmpty())return;
+#ifdef DEBUGA2DGET2
+	if(cctr%100 == 0)rtl_printf("%s: %06d, size = %05d, datactr = %05d\n", 
+				__FILE__, cctr, buf.size, ictr);
+#else
+	rtl_write(fd_up, (void *)&buf, buf.size); // Write to up-fifo
+#endif
 
-//	rtl_write(fd_up, &buf, sizeof(A2DSAMPLE)); // Write to up-fifo
+	cctr++;
+
 	return;
 }
 /*-----------------------Utility------------------------------*/
@@ -816,7 +854,7 @@ int A2DFIFOEmpty()
 
 	stat = (int)inb((UC *)isa_address);
 	if(stat & FIFONOTEMPTY)return(0);
-	else return(-1);
+	else return(1);
 }
 
 /*-----------------------Utility------------------------------*/
