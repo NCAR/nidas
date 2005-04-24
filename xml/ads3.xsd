@@ -13,6 +13,15 @@
     </xsd:documentation>
 </xsd:annotation>
 
+<xsd:annotation><xsd:documentation>
+<xsd:element name="comment">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:any minOccurs="0"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+</xsd:documentation></xsd:annotation>
 
 <xsd:simpleType name="baudtype">
     <xsd:restriction base="xsd:positiveInteger">
@@ -70,7 +79,26 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
+<xsd:complexType name="linear">
+    <xsd:attribute name="slope" type="xsd:float"/>
+    <xsd:attribute name="intercept" type="xsd:float"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+</xsd:complexType>
+
+<xsd:simpleType name="floatList">
+    <xsd:list itemType="xsd:float"/>
+</xsd:simpleType>
+
+<xsd:complexType name="poly">
+    <xsd:attribute name="coefs" type="floatList"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+</xsd:complexType>
+
 <xsd:complexType name="variable">
+    <xsd:all minOccurs="0">
+        <xsd:element name="poly" type="poly" minOccurs="0"/>
+        <xsd:element name="linear" type="linear" minOccurs="0"/>
+    </xsd:all>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
     <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
@@ -233,9 +261,9 @@
 
 <xsd:element name="processor">
    <xsd:complexType>
-        <xsd:sequence>
-            <xsd:element ref="output" minOccurs="1" maxOccurs="unbounded"/>
-        </xsd:sequence>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="output"/>
+        </xsd:choice>
 	<xsd:attribute name="class" type="xsd:token" use="required"/>
    </xsd:complexType>
 </xsd:element>
@@ -254,7 +282,7 @@
 <xsd:element name="config">
    <xsd:complexType>
         <xsd:choice>
-            <xsd:element ref="socket" maxOccurs="unbounded"/>
+            <xsd:element ref="socket" maxOccurs="1"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="required"/>
    </xsd:complexType>
@@ -262,19 +290,19 @@
 
 <xsd:element name="server">
     <xsd:complexType>
-	<xsd:sequence>
-	    <xsd:element ref="service" maxOccurs="unbounded"/>
-	</xsd:sequence>
+	<xsd:choice minOccurs="1" maxOccurs="unbounded">
+	    <xsd:element ref="service"/>
+	</xsd:choice>
         <xsd:attribute name="name" type="xsd:token" use="optional"/>
     </xsd:complexType>
 </xsd:element>
 
 <xsd:element name="aircraft">
     <xsd:complexType>
-        <xsd:sequence>
-            <xsd:element ref="server" maxOccurs="1"/>
-            <xsd:element ref="dsm" maxOccurs="unbounded"/>
-        </xsd:sequence>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="server"/>
+            <xsd:element ref="dsm"/>
+        </xsd:choice>
         <xsd:attribute name="tailno" type="xsd:token" use="required"/>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
     </xsd:complexType>
@@ -282,10 +310,10 @@
 
 <xsd:element name="project">
     <xsd:complexType>
-        <xsd:sequence>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="sensorcatalog" minOccurs="0"/>
             <xsd:element ref="aircraft"      maxOccurs="unbounded"/>
-        </xsd:sequence>
+        </xsd:choice>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
         <xsd:attribute name="version"   type="xsd:normalizedString"
 		use="required"/>

@@ -369,14 +369,18 @@
 	<serialSensor IDREF="Mensor_6100"
 		devicename="/dev/dsmser0" id="110">
 	    <sample id="1">
-		<variable name="DPRESM2" units="mb"/>
+		<variable name="DPRESM2" units="mb">
+		    <linear slope="10.0" intercept="0.0" units="pascal"/>
+		</variable>
 	    </sample>
 	</serialSensor>
 
 	<serialSensor IDREF="Paro_DigiQuartz_1000"
 		devicename="/dev/dsmser1" id="112">
 	    <sample id="1">
-		<variable name="DPRESP2" units="mb"/>
+		<variable name="DPRESP2" units="mb">
+		    <poly coefs="0 1 1.1" units="wacka-mole"/>
+		</variable>
 	    </sample>
 	</serialSensor>
 	<output class="RawSampleOutputStream">
