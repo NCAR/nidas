@@ -99,11 +99,6 @@ public:
 protected:
 
     /**
-     * return an iterator pointing to one-past end of prefix
-     */
-    std::string::const_iterator getPrefixEnd(const std::string& name);
-
-    /**
      * Prefix created from the name of the device, which is used
      * to generate the associated FIFO names.
      */
