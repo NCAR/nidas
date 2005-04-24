@@ -20,6 +20,15 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
+Variable::Variable(): converter(0)
+{
+}
+
+Variable::~Variable()
+{
+    delete converter;
+}
+
 void Variable::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
@@ -39,6 +48,24 @@ void Variable::fromDOMElement(const DOMElement* node)
 	    else if (!attr.getName().compare("units"))
 		setUnits(attr.getValue());
 	}
+    }
+    int nconverter = 0;
+    DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+            child=child->getNextSibling())
+    {
+        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+
+        XDOMElement xchild((DOMElement*) child);
+        const string& elname = xchild.getNodeName();
+
+	if (converter) throw atdUtil::InvalidParameterException(getName(),
+		"only one child element allowed",elname);
+
+	converter = VariableConverter::createVariableConverter(elname);
+	if (!converter) throw atdUtil::InvalidParameterException(getName(),
+		"child element",elname);
+	converter->fromDOMElement((DOMElement*)child);
     }
 }
 

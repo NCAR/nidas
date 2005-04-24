@@ -16,6 +16,7 @@
 #define DSM_VARIABLE_H
 
 #include <DOMable.h>
+#include <VariableConverter.h>
 #include <atdUtil/InvalidParameterException.h>
 
 #include <string>
@@ -32,9 +33,9 @@ public:
     /**
      * Create a variable.
      */
-    Variable() {}
+    Variable();
 
-    virtual ~Variable() {}
+    virtual ~Variable();
 
     void setName(const std::string& val) { name = val; }
 
@@ -47,6 +48,8 @@ public:
     void setUnits(const std::string& val) { units = val; }
 
     const std::string& getUnits() const { return units; }
+
+    const VariableConverter* getConverter() const { return converter; }
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -66,6 +69,8 @@ protected:
     std::string longname;
 
     std::string units;
+
+    VariableConverter *converter;
 
 };
 
