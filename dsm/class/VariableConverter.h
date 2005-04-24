@@ -27,13 +27,22 @@ class VariableConverter: public DOMable
 public:
 
     virtual ~VariableConverter() {}
-    virtual float convert(float) const;
+
+    virtual float convert(float) const = 0;
 
     void setUnits(const std::string& val) { units = val; }
     virtual const std::string& getUnits() const { return units; }
 
+    virtual std::string toString() const = 0;
+
+    virtual void fromString(const std::string&)
+    	throw(atdUtil::InvalidParameterException) = 0;
+
     static VariableConverter* createVariableConverter(
     	const std::string& elname);
+
+    static VariableConverter* createFromString(const std::string&)
+    	throw(atdUtil::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -58,12 +67,19 @@ class Linear: public VariableConverter
 public:
 
     void setSlope(float val) { slope = val; }
+
     float getSlope() const { return slope; }
 
     void setIntercept(float val) { intercept = val; }
+
     float getIntercept() const { return intercept; }
 
     float convert(float val) const { return val * slope + intercept; }
+
+    std::string toString() const;
+
+    void fromString(const std::string&)
+    	throw(atdUtil::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -94,6 +110,11 @@ public:
 	}
 	return result;
     }
+
+    std::string toString() const;
+
+    void fromString(const std::string&)
+    	throw(atdUtil::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);

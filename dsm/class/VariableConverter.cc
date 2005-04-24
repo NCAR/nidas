@@ -14,11 +14,129 @@
 
 #include <VariableConverter.h>
 
+#include <iomanip>
+
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
 #include <sstream>
+
+std::string Linear::toString() const
+{
+    ostringstream ost;
+
+    ost << "linear slope=" << slope << " intercept=" << intercept <<
+    	" units=\"" << getUnits() << "\"" << endl;
+    return ost.str();
+}
+
+std::string Polynomial::toString() const
+{
+    ostringstream ost;
+
+    ost << "poly coefs=";
+    for (unsigned int i = 0; i < coefvec.size(); i++)
+	ost << coefvec[i] << ' ';
+    ost << " units=\"" << getUnits() << "\"" << endl;
+    return ost.str();
+}
+
+VariableConverter* VariableConverter::createFromString(const std::string& str)
+	throw(atdUtil::InvalidParameterException)
+{
+    istringstream ist(str);
+
+    string which;
+    ist >> which;
+    VariableConverter* converter = 0;
+    if (!which.compare("linear")) converter = new Linear();
+    else if (!which.compare("poly")) converter = new Polynomial();
+    else throw atdUtil::InvalidParameterException("VariableConverter","fromString",str);
+
+    converter->fromString(str);
+    return converter;
+}
+
+void Linear::fromString(const std::string& str)
+	throw(atdUtil::InvalidParameterException)
+{
+    istringstream ist(str);
+    string which;
+    ist >> which;
+    if (ist.eof() || ist.fail() || which.compare("linear"))
+    	throw atdUtil::InvalidParameterException("linear","fromString",str);
+
+    char cstr[256];
+    float val;
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    const char* cp;
+    for (cp = cstr; *cp == ' '; cp++);
+
+    ist >> val;
+    if (ist.eof() || ist.fail())
+    	throw atdUtil::InvalidParameterException("linear","fromString",str);
+    if (!strcmp(cp,"slope")) setSlope(val);
+    else if (!strcmp(cp,"intercept")) setIntercept(val);
+    else throw atdUtil::InvalidParameterException("linear",cstr,str);
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+
+    ist >> val;
+    if (ist.eof() || ist.fail())
+    	throw atdUtil::InvalidParameterException("linear","fromString",str);
+    if (!strcmp(cp,"slope")) setSlope(val);
+    else if (!strcmp(cp,"intercept")) setIntercept(val);
+    else throw atdUtil::InvalidParameterException("linear",cstr,str);
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+    if (!strcmp(cp,"units")) {
+	ist.getline(cstr,sizeof(cstr),'"');
+	ist.getline(cstr,sizeof(cstr),'"');
+	setUnits(string(cstr));
+    }
+}
+
+void Polynomial::fromString(const std::string& str)
+	throw(atdUtil::InvalidParameterException)
+{
+    istringstream ist(str);
+    string which;
+    ist >> which;
+    if (ist.eof() || ist.fail() || which.compare("poly"))
+    	throw atdUtil::InvalidParameterException("poly","fromString",str);
+
+    char cstr[256];
+    float val;
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    const char* cp;
+    for (cp = cstr; *cp == ' '; cp++);
+
+    if (ist.eof() || ist.fail())
+    	throw atdUtil::InvalidParameterException("poly","fromString",str);
+    vector<float> vals;
+    if (!strcmp(cp,"coefs")) {
+        for(;;) {
+	    ist >> val;
+	    if (ist.fail()) break;
+	    vals.push_back(val);
+	}
+	setCoefficients(vals);
+    }
+    else throw atdUtil::InvalidParameterException("poly",cstr,str);
+	    
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+    if (!strcmp(cp,"units")) {
+	ist.getline(cstr,sizeof(cstr),'"');
+	ist.getline(cstr,sizeof(cstr),'"');
+	setUnits(string(cstr));
+    }
+}
 
 VariableConverter* VariableConverter::createVariableConverter(
 	const std::string& elname)
