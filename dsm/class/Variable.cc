@@ -20,7 +20,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-Variable::Variable(): converter(0)
+Variable::Variable(): converter(0),iscount(false)
 {
 }
 
@@ -49,7 +49,7 @@ void Variable::fromDOMElement(const DOMElement* node)
 		setUnits(attr.getValue());
 	}
     }
-    int nconverter = 0;
+
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
@@ -64,7 +64,7 @@ void Variable::fromDOMElement(const DOMElement* node)
 
 	converter = VariableConverter::createVariableConverter(elname);
 	if (!converter) throw atdUtil::InvalidParameterException(getName(),
-		"child element",elname);
+		"unsupported child element",elname);
 	converter->fromDOMElement((DOMElement*)child);
     }
 }

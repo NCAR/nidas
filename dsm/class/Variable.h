@@ -49,6 +49,15 @@ public:
 
     const std::string& getUnits() const { return units; }
 
+    /**
+     * Is this a count variable, i.e. a particle count.
+     * Post-processing needs to know - typically summing
+     * the counts over a time period, instead of averaging.
+     */
+    bool isCount() const { return iscount; }
+
+    void setCount(bool val) { iscount = val; }
+
     const VariableConverter* getConverter() const { return converter; }
 
     void fromDOMElement(const xercesc::DOMElement*)
@@ -71,6 +80,8 @@ protected:
     std::string units;
 
     VariableConverter *converter;
+
+    bool iscount;
 
 };
 
