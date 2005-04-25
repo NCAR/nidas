@@ -378,7 +378,7 @@
 	<serialSensor IDREF="Paro_DigiQuartz_1000"
 		devicename="/dev/dsmser1" id="112">
 	    <sample id="1">
-		<variable name="DPRESP2" units="mb">
+		<variable name="DPRESP2" units="mb" count="true">
 		    <poly coefs="0 1 1.1" units="wacka-mole"/>
 		</variable>
 	    </sample>
