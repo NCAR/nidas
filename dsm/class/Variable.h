@@ -17,9 +17,11 @@
 
 #include <DOMable.h>
 #include <VariableConverter.h>
+#include <Parameter.h>
 #include <atdUtil/InvalidParameterException.h>
 
 #include <string>
+#include <list>
 
 namespace dsm {
 /**
@@ -27,7 +29,6 @@ namespace dsm {
  */
 class Variable : public DOMable
 {
-
 public:
 
     /**
@@ -60,6 +61,8 @@ public:
 
     const VariableConverter* getConverter() const { return converter; }
 
+    const std::list<Parameter*>& getParameters() const { return parameters; }
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
@@ -79,9 +82,11 @@ protected:
 
     std::string units;
 
+    bool iscount;
+
     VariableConverter *converter;
 
-    bool iscount;
+    std::list<Parameter*> parameters;
 
 };
 

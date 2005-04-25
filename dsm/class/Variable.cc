@@ -20,13 +20,17 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-Variable::Variable(): converter(0),iscount(false)
+Variable::Variable(): iscount(false),converter(0)
 {
 }
 
 Variable::~Variable()
 {
     delete converter;
+
+    list<Parameter*>::const_iterator pi;
+    for (pi = parameters.begin(); pi != parameters.end(); ++pi)
+    	delete *pi;
 }
 
 void Variable::fromDOMElement(const DOMElement* node)
@@ -50,6 +54,7 @@ void Variable::fromDOMElement(const DOMElement* node)
 	}
     }
 
+    int nconverters = 0;
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
@@ -58,14 +63,21 @@ void Variable::fromDOMElement(const DOMElement* node)
 
         XDOMElement xchild((DOMElement*) child);
         const string& elname = xchild.getNodeName();
+	if (elname.compare("parameter"))  {
+	    Parameter* parameter =
+	    	Parameter::createParameter((DOMElement*)child);
+	    parameters.push_back(parameter);
+	}
+	else {
+	    if (nconverters > 0) throw atdUtil::InvalidParameterException(getName(),
+		"only one child converter allowed, <linear>, <poly> etc",elname);
 
-	if (converter) throw atdUtil::InvalidParameterException(getName(),
-		"only one child element allowed",elname);
-
-	converter = VariableConverter::createVariableConverter(elname);
-	if (!converter) throw atdUtil::InvalidParameterException(getName(),
-		"unsupported child element",elname);
-	converter->fromDOMElement((DOMElement*)child);
+	    converter = VariableConverter::createVariableConverter(elname);
+	    if (!converter) throw atdUtil::InvalidParameterException(getName(),
+		    "unsupported child element",elname);
+	    converter->fromDOMElement((DOMElement*)child);
+	    nconverters++;
+	}
     }
 }
 
