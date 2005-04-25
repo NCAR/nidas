@@ -55,6 +55,7 @@ sources = Split("""
   Variable.cc
   VariableConverter.cc
   SampleTag.cc
+  Parameter.cc
 
   SampleClientList.cc
   SampleSourceImpl.cc
