@@ -30,7 +30,7 @@ using namespace dsm;
 using namespace xercesc;
 
 DSMSensor::DSMSensor() :
-    classname("unknown"),devname("unknown"),id(0),
+    classname("unknown"),dsm(0),devname("unknown"),id(0),
     BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
     questionableTimeTags(0)
 {
