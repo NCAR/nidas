@@ -162,6 +162,16 @@ public:
     virtual void open(int flags) throw(atdUtil::IOException) = 0;
 
     /**
+     * Initialize the DSMSensor. If the DSMSensor is
+     * not being opened (as in post-realtime processing)
+     * then the init() method will be called before the
+     * first call to process. Either open() or init() will
+     * be called after setting the required properties,
+     * and before calling readSamples(), receive(), or process().
+     */
+    void init() throw() {}
+
+    /**
      * How do I want to be opened.  The user can ignore it if they want to.
      * @return One of O_RDONLY, O_WRONLY or O_RDWR.
      */
