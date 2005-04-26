@@ -229,6 +229,7 @@ int main(int argc, char** argv)
 	list<DSMSensor*>::const_iterator si;
 	for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
+	    sensor->init();
 	    sis.addSensor(sensor);
 	    sensor->addSampleClient(&counter);
 	}
