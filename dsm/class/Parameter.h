@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iostream>
 
 namespace dsm {
 
@@ -33,8 +34,6 @@ public:
     enum parType {STRING_PARAM, FLOAT_PARAM, INT_PARAM, BOOL_PARAM };
 
     typedef enum parType parType;
-
-    Parameter(parType t): type(t) {}
 
     virtual ~Parameter() {}
 
@@ -62,6 +61,8 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
+
+    Parameter(parType t): type(t) {}
 
     std::string name;
 
@@ -94,7 +95,7 @@ inline Parameter::parType getParamType(bool T)
 }
 
 /**
- * A typed Sample, with data of type DataT.
+ * A typed Parameter, with data of type T.
  */
 template <class T>
 class ParameterT : public Parameter {
@@ -122,42 +123,6 @@ protected:
 
 };
 
-template<class T>
-void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
-    throw(atdUtil::InvalidParameterException)
-{
-
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
-	    if (!aname.compare("name")) setName(aval);
-	    else if (!aname.compare("value")) {
-		// get attribute value(s)
-		std::istringstream ist(aval);
-		T val;
-		std::vector<T> vals;
-		for (;;) {
-		    ist >> val;
-		    if (ist.eof()) break;
-		    if (ist.fail())
-			throw atdUtil::InvalidParameterException(
-			    "parameter",aname,aval);
-		    vals.push_back(val);
-		}
-		setValues(vals);
-	    }
-	    else if (aname.compare("type"))
-		throw atdUtil::InvalidParameterException(
-		    "parameter",aname,aval);
-	}
-    }
-}
 
 }
 

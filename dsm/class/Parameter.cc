@@ -83,7 +83,7 @@ Parameter* Parameter::createParameter(const DOMElement* node)
 			parameter = new ParameterT<string>();
 	        else if (!aval.compare("int"))
 			parameter = new ParameterT<int>();
-		throw atdUtil::InvalidParameterException("parameter",
+		else throw atdUtil::InvalidParameterException("parameter",
 			aname,aval);
 
 	        parameter->fromDOMElement(node);
@@ -96,6 +96,52 @@ Parameter* Parameter::createParameter(const DOMElement* node)
 	    "element","no type attribute found");
 }
 
+template<class T>
+void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
+    throw(atdUtil::InvalidParameterException)
+{
+
+    XDOMElement xnode(node);
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+	int nSize = pAttributes->getLength();
+	for(int i=0;i<nSize;++i) {
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+	    const std::string& aname = attr.getName();
+	    const std::string& aval = attr.getValue();
+	    if (!aname.compare("name")) setName(aval);
+	    else if (!aname.compare("value")) {
+		// get attribute value(s)
+		std::istringstream ist(aval);
+		T val;
+		std::vector<T> vals;
+		for (;;) {
+		    ist >> val;
+#ifdef DEBUG
+		    std::cerr << 
+		    	Parameter::fromDOMElement, read, val=" << val <<
+			" eof=" << ist.eof() <<
+			" fail=" << ist.fail() << std::endl;
+#endif
+		    if (ist.fail())
+			throw atdUtil::InvalidParameterException(
+			    "parameter",aname,aval);
+		    vals.push_back(val);
+		    if (ist.eof()) break;
+		}
+		setValues(vals);
+#ifdef DEBUG
+		std::cerr << "Parameter::fromDOMElement, getLength()=" <<
+			getLength() << std::endl;
+#endif
+	    }
+	    else if (aname.compare("type"))
+		throw atdUtil::InvalidParameterException(
+		    "parameter",aname,aval);
+	}
+    }
+}
 DOMElement* Parameter::toDOMParent(
     DOMElement* parent)
     throw(DOMException)

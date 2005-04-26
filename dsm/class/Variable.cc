@@ -62,7 +62,7 @@ void Variable::fromDOMElement(const DOMElement* node)
 
         XDOMElement xchild((DOMElement*) child);
         const string& elname = xchild.getNodeName();
-	if (elname.compare("parameter"))  {
+	if (!elname.compare("parameter"))  {
 	    Parameter* parameter =
 	    	Parameter::createParameter((DOMElement*)child);
 	    parameters.push_back(parameter);
