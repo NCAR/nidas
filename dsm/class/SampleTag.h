@@ -57,10 +57,11 @@ public:
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
-     * Set sampling rate in samples/sec.  A value of 0.0 means
-     * an unknown rate.  Derived sensors can override this method
-     * and throw an InvalidParameterException if they can't support
-     * the rate value.
+     * Set sampling rate in samples/sec.  Derived sensors can
+     * override this method and throw an InvalidParameterException
+     * if they can't support the rate value.  For some sensors (A2D)
+     * a rate of 0.0 means don't sample the variables in the
+     * SampleTag.
      */
     virtual void setRate(float val)
     	throw(atdUtil::InvalidParameterException)
