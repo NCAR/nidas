@@ -50,6 +50,7 @@ sources = Split("""
   DSMSerialSensor.cc
   AsciiScanner.cc
   IRIGSensor.cc
+  DSMAnalogSensor.cc
 
   Sample.cc
   Variable.cc
