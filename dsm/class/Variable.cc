@@ -27,7 +27,6 @@ Variable::Variable(): iscount(false),converter(0)
 Variable::~Variable()
 {
     delete converter;
-
     list<Parameter*>::const_iterator pi;
     for (pi = parameters.begin(); pi != parameters.end(); ++pi)
     	delete *pi;
@@ -67,11 +66,13 @@ void Variable::fromDOMElement(const DOMElement* node)
 	    Parameter* parameter =
 	    	Parameter::createParameter((DOMElement*)child);
 	    parameters.push_back(parameter);
+	    constParameters.push_back(parameter);
 	}
 	else {
-	    if (nconverters > 0) throw atdUtil::InvalidParameterException(getName(),
-		"only one child converter allowed, <linear>, <poly> etc",elname);
-
+	    if (nconverters > 0)
+	    	throw atdUtil::InvalidParameterException(getName(),
+		    "only one child converter allowed, <linear>, <poly> etc",
+		    	elname);
 	    converter = VariableConverter::createVariableConverter(elname);
 	    if (!converter) throw atdUtil::InvalidParameterException(getName(),
 		    "unsupported child element",elname);

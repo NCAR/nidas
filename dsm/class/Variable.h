@@ -61,7 +61,10 @@ public:
 
     const VariableConverter* getConverter() const { return converter; }
 
-    const std::list<Parameter*>& getParameters() const { return parameters; }
+    const std::list<const Parameter*>& getParameters() const
+    {
+        return constParameters;
+    }
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -87,6 +90,7 @@ protected:
     VariableConverter *converter;
 
     std::list<Parameter*> parameters;
+    std::list<const Parameter*> constParameters;
 
 };
 
