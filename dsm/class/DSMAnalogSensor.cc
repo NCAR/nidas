@@ -24,6 +24,8 @@
 using namespace dsm;
 using namespace std;
 
+CREATOR_ENTRY_POINT(DSMAnalogSensor)
+
 DSMAnalogSensor::DSMAnalogSensor() :
     RTL_DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
@@ -46,9 +48,11 @@ DSMAnalogSensor::~DSMAnalogSensor()
     delete [] deltatDouble;
     delete [] deltatInt;
     delete [] deltatEvenMsec;
-    for (unsigned int i = 0; i < rateVec.size(); i++)
-        if (outsamples[i]) outsamples[i]->freeReference();
-    delete [] outsamples;
+    if (outsamples) {
+	for (unsigned int i = 0; i < rateVec.size(); i++)
+	    if (outsamples[i]) outsamples[i]->freeReference();
+	delete [] outsamples;
+    }
 }
 
 void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
@@ -58,6 +62,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 
     A2D_SET a2d;
     unsigned int chan;
+    int maxrate = 0;
     for(chan = 0; chan < channels.size(); chan++)
     {
 	a2d.Hz[chan] = channels[chan].rateSetting;
@@ -65,6 +70,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.offset[chan] = channels[chan].bipolar;
 	a2d.status[chan] = 0; 
 	a2d.calset[chan] = 0;
+	if (a2d.Hz[chan] > maxrate) maxrate = a2d.Hz[chan];
 
 	if(chan == 0)a2d.ptr[chan] = 0;
 	else 
@@ -82,6 +88,28 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.status[chan] = 0; 
 	a2d.calset[chan] = 0;
     }
+
+    ostringstream ost;
+    ost << "filters/fiir" << maxrate << "hz.cfg";
+    string filtername = ost.str();
+
+    FILE* fp;
+    if((fp = fopen(filtername.c_str(), "r")) == NULL)
+        throw atdUtil::IOException(filtername,"open",errno);
+
+    unsigned int ncoef;
+    for(ncoef = 0; ncoef < sizeof(a2d.filter)/sizeof(a2d.filter[0]); ncoef++)
+    {
+	int n = fscanf(fp, "%4hx", a2d.filter + ncoef);
+	if (ferror(fp))
+	    throw atdUtil::IOException(filtername,"fscanf",errno);
+	if (feof(fp)) break;
+	if (n != 1)
+	    throw atdUtil::IOException(filtername,"fscanf","bad input");
+    }
+    fclose(fp);
+    assert(ncoef == sizeof(a2d.filter)/sizeof(a2d.filter[0]));
+
     ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
     int cmd = RUN;
     ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));
@@ -268,14 +296,14 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	    const Parameter* param = *pi;
 	    const string& pname = param->getName();
 	    if (!pname.compare("gain")) {
-		if (param->getLength() != 0)
+		if (param->getLength() != 1)
 		    throw atdUtil::InvalidParameterException(getName(),
 		    	"parameter gain","no gain value");
 			
 		gain = param->getNumericValue(0);
 	    }
 	    else if (!pname.compare("bipolar")) {
-		if (param->getLength() != 0)
+		if (param->getLength() != 1)
 		    throw atdUtil::InvalidParameterException(getName(),
 		    	"parameter gain","no gain value");
 		bipolar = param->getNumericValue(0) != 0;
