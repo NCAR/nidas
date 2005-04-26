@@ -8,18 +8,14 @@
 
     $LastChangedBy$
 
-    $HeadURL:$
+    $HeadURL$
 
  ******************************************************************
 */
 
-#define STOP	3
-
 #include <DSMAnalogSensor.h>
-#include <RTL_DevIoctlStore.h>
-#include <asm/ioctls.h>
-#include <stdio.h>
-#include <stdlib.h>
+
+#include <math.h>
 
 #include <iostream>
 
@@ -28,78 +24,272 @@
 using namespace dsm;
 using namespace std;
 
-DSMAnalogSensor::DSMAnalogSensor(const string& nameArg) :
-    RTL_DSMSensor(nameArg)
+DSMAnalogSensor::DSMAnalogSensor() :
+    RTL_DSMSensor(),initialized(false),
+    sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
+    endTimes(0),baseTimes(0),nsamps(0),
+    deltatDouble(0),deltatInt(0),deltatEvenMsec(0),
+    outsamples(0),
+    floatNAN(nanf(""))
 {
-
 }
 
-DSMAnalogSensor::~DSMAnalogSensor() {
-}
-
-void DSMAnalogSensor::addChannel(int chan, int rate, int gain,
-	int offset)
+DSMAnalogSensor::~DSMAnalogSensor()
 {
-    pair<int,struct chan_info> info;
-    info.first = chan;
-    info.second.rate = rate;
-    info.second.gain = gain;
-    info.second.offset = offset;
-
-    chanInfo.insert(info);
-    // add channel if it doesn't exist
-    if (find(channels.begin(),channels.end(),chan) ==
-    	channels.end()) channels.push_back(chan);
+    delete [] sampleIndices;
+    delete [] subSampleIndices;
+    delete [] convSlope;
+    delete [] convIntercept;
+    delete [] endTimes;
+    delete [] baseTimes;
+    delete [] nsamps;
+    delete [] deltatDouble;
+    delete [] deltatInt;
+    delete [] deltatEvenMsec;
+    for (unsigned int i = 0; i < rateVec.size(); i++)
+        if (outsamples[i]) outsamples[i]->freeReference();
+    delete [] outsamples;
 }
+
 void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 {
-  
-	RTL_DSMSensor::open(flags);
+    init();
+    RTL_DSMSensor::open(flags);
 
-	A2D_SET a2d;
+    A2D_SET a2d;
+    unsigned int chan;
+    for(chan = 0; chan < channels.size(); chan++)
+    {
+	a2d.Hz[chan] = channels[chan].rateSetting;
+	a2d.gain[chan] = channels[chan].gainSetting;
+	a2d.offset[chan] = channels[chan].bipolar;
+	a2d.status[chan] = 0; 
+	a2d.calset[chan] = 0;
 
-	for(int chan = 0; chan < MAXA2DS; chan++)
+	if(chan == 0)a2d.ptr[chan] = 0;
+	else 
 	{
-		a2d.Hz[chan] = getSamplingRate(chan);
-		a2d.gain[chan] = getGain(chan);
-		a2d.offset[chan] = getOffset(chan);
-		a2d.status[chan] = 0; 
-		a2d.calset[chan] = 0;
-
-		if(chan == 0)a2d.ptr[chan] = 0;
-		else 
-		{
-			a2d.ptr[chan] = a2d.ptr[chan-1] + a2d.Hz[chan-1];
-		}
-		a2d.ctr[chan] = 0;	// Reset counters	
-		if(a2d.Hz[chan] != 0)a2d.norm[chan] = 
-					(float)a2d.Hz[chan]/float(A2D_MAX_RATE);
-	} 
-
-	FILE *fp;
-
-	if((fp = fopen("filtercoeff.bin", "rb")) == NULL)
-	{
-		printf("*********No filter coefficients.************\n");
-		exit(1);
+		a2d.ptr[chan] = a2d.ptr[chan-1] + a2d.Hz[chan-1];
 	}
-	fread(&a2d.filter[0], 2, 2048, fp);
-	fclose(fp);
-
-	ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
+	a2d.ctr[chan] = 0;	// Reset counters	
+	if(a2d.Hz[chan] != 0)a2d.norm[chan] = 
+				(float)a2d.Hz[chan]/float(A2D_MAX_RATE);
+    }
+    for( ; chan < MAXA2DS; chan++) {
+	a2d.Hz[chan] = 0;
+	a2d.gain[chan] = 0;
+	a2d.offset[chan] = 0;
+	a2d.status[chan] = 0; 
+	a2d.calset[chan] = 0;
+    }
+    ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
+    int cmd = RUN;
+    ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));
 }
 
 void DSMAnalogSensor::close() throw(atdUtil::IOException)
 {
-    	int msg = STOP;
- 	ioctl(A2D_RUN_IOCTL, &msg, sizeof(int));	
+    	int cmd = STOP;
+ 	ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));	
 	RTL_DSMSensor::close();
 }
 
-void DSMAnalogSensor::run(int runmsg) throw(atdUtil::IOException)
+
+int DSMAnalogSensor::rateSetting(float rate)
+	throw(atdUtil::InvalidParameterException)
 {
-    ioctl(A2D_RUN_IOCTL, &runmsg, sizeof(int));
-    if(runmsg == STOP)RTL_DSMSensor::close();
+    // todo: screen invalid rates
+    return (int)rint(rate);
 }
 
+int DSMAnalogSensor::gainSetting(float gain)
+	throw(atdUtil::InvalidParameterException)
+{
+    // todo: screen invalid gains
+    return (int)rint(gain * 10.0);
+}
+
+void DSMAnalogSensor::init()
+{
+    assert(!initialized);
+    initialized = true;
+
+    unsigned int nvariables = sampleIndexVec.size();
+
+    sampleIndices = new int[nvariables];
+    copy(sampleIndexVec.begin(),sampleIndexVec.end(),sampleIndices);
+
+    subSampleIndices = new int[nvariables];
+    copy(subSampleIndexVec.begin(),subSampleIndexVec.end(),subSampleIndices);
+
+    convSlope = new float[nvariables];
+    convIntercept = new float[nvariables];
+    for (unsigned int i = 0; i < nvariables; i++) {
+        convSlope[i] = 10.0 / 32768 / channels[i].gain;
+	if (channels[i].bipolar) convIntercept[i] = 0.0;
+	else convIntercept[i] = 10.0;
+    }
+
+    unsigned int nsamples = rateVec.size();
+
+    deltatDouble = new double[nsamples];
+    deltatInt = new int[nsamples];
+    deltatEvenMsec = new bool[nsamples];
+    endTimes = new dsm_time_t[nsamples];
+    baseTimes = new dsm_time_t[nsamples];
+    nsamps = new size_t[nsamples];
+
+    float maxRate = 0.0;
+    int imax = 0;
+    for (unsigned int i = 0; i < rateVec.size(); i++) {
+	if (rateVec[i] > maxRate) {
+	    maxRate = rateVec[i];
+	    imax = i;
+	}
+	deltatDouble[i] = 1000.0 / rateVec[i];
+	deltatInt[i] = (int)rint(1000 / rateVec[i]);
+	deltatEvenMsec[i] = (deltatInt[i] == deltatDouble[i]);
+	endTimes[i] = 0;
+	baseTimes[i] = 0;
+    }
+    minDeltatDouble = deltatDouble[imax];
+    minDeltatInt = deltatInt[imax];
+    minDeltatEvenMsec = deltatEvenMsec[imax];
+
+#define REPORTING_RATE 100
+    if (maxRate >= REPORTING_RATE) {
+	assert(fmod(maxRate,REPORTING_RATE) == 0.0);
+        nSamplePerBlock = (int)(maxRate / REPORTING_RATE);
+    }
+    else nSamplePerBlock = 1;
+
+    outsamples = new SampleT<float>*[nsamples];
+    for (unsigned int i = 0; i < nsamples; i++) outsamples[i] = 0;
+}
+
+bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) throw()
+{
+
+    dsm_time_t tt = isamp->getTimeTag();
+    dsm_time_t tt0 = tt;
+
+    const signed short* sp = (const signed short*) isamp->getConstVoidDataPtr();
+
+    unsigned int nvalues = isamp->getDataLength() / sizeof(short);
+    unsigned int nvariables = sampleIndexVec.size();
+
+    assert(nvariables * nSamplePerBlock == nvalues);
+
+    int ival = 0;
+    for (unsigned int isamp = 0; isamp < nSamplePerBlock; ) {
+
+	for (unsigned int ivar = 0; ivar < nvariables; ivar++,ival++) {
+	    int sampIndex = sampleIndices[ivar];
+	    SampleT<float>* osamp = outsamples[sampIndex];
+
+	    if (tt > endTimes[sampIndex]) {
+		if (osamp) {
+		    osamp->setTimeTag(endTimes[sampIndex] - deltatInt[sampIndex]/2);
+
+		    result.push_back(osamp);	// pass the sample on
+		    if (deltatEvenMsec[sampIndex])
+			endTimes[sampIndex] += deltatInt[sampIndex];
+		    else
+			endTimes[sampIndex] =
+			    baseTimes[sampIndex] +
+			    (long long) rint(deltatDouble[sampIndex] *
+				    ++nsamps[sampIndex]);
+		}
+		else {
+		    baseTimes[sampIndex] = timeCeiling(tt,deltatInt[sampIndex]);
+		    endTimes[sampIndex] = baseTimes[sampIndex];
+		    nsamps[sampIndex] = 0;
+		}
+		osamp = getSample<float>(numVarsInSample[ivar]);
+		outsamples[sampIndex] = osamp;
+		osamp->setId(sampleIds[sampIndex]);
+		float *fp = osamp->getDataPtr();
+		for (unsigned int j = 0; j < osamp->getDataLength(); j++)
+		    fp[j] = floatNAN;
+	    }
+
+	    signed short sval = sp[ival];
+	    float volts = convIntercept[ivar] + convSlope[ivar] * sval;
+	    osamp->getDataPtr()[subSampleIndices[ivar]] = volts;
+	}
+
+	isamp++;
+	if (minDeltatEvenMsec) tt += minDeltatInt;
+	else tt = tt0 + (long long) rint(minDeltatDouble * isamp);
+    }
+    return true;
+}
+
+void DSMAnalogSensor::addSampleTag(SampleTag* tag)
+        throw(atdUtil::InvalidParameterException)
+{
+
+    DSMSensor::addSampleTag(tag);
+
+    float rate = tag->getRate();
+    int ratesetting = rateSetting(rate);
+
+    int nsample = rateVec.size();	// which sample are we, from 0
+
+    rateVec.push_back(rate);	// rates can be repeated
+    sampleIds.push_back(tag->getId());
+
+    const vector<const Variable*>& vars = tag->getVariables();
+    numVarsInSample.push_back(vars.size());
+
+    vector<const Variable*>::const_iterator vi;
+    int ivar = 0;
+    for (vi = vars.begin(); vi != vars.end(); ++vi,ivar++) {
+
+	const Variable* var = *vi;
+
+	if (sampleIndexVec.size() == MAXA2DS) {
+	    ostringstream ost;
+	    ost << MAXA2DS;
+	    throw atdUtil::InvalidParameterException(getName(),"variable",
+		string("cannot sample more than ") + ost.str() +
+		    string(" variables"));
+	}
+
+        sampleIndexVec.push_back(nsample);
+	subSampleIndexVec.push_back(ivar);
+
+	float gain = 1.0;
+	bool bipolar = true;
+
+	const std::list<const Parameter*>& params = var->getParameters();
+	list<const Parameter*>::const_iterator pi;
+	for (pi = params.begin(); pi != params.end(); ++pi) {
+	    const Parameter* param = *pi;
+	    const string& pname = param->getName();
+	    if (!pname.compare("gain")) {
+		if (param->getLength() != 0)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	"parameter gain","no gain value");
+			
+		gain = param->getNumericValue(0);
+	    }
+	    else if (!pname.compare("bipolar")) {
+		if (param->getLength() != 0)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	"parameter gain","no gain value");
+		bipolar = param->getNumericValue(0) != 0;
+	    }
+
+	}
+
+	struct chan_info ci;
+	ci.rate = rate;
+	ci.rateSetting = ratesetting;
+	ci.gain = gain;
+	ci.gainSetting = gainSetting(gain);
+	ci.bipolar = bipolar;
+	channels.push_back(ci);
+    }
+}
 
