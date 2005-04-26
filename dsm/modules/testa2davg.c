@@ -444,48 +444,41 @@ byebye:
 	  // Clear the averaging buffers
 	  for(j = 0; j < MAXA2DS; j++)avgs[j] = 0;	// Clear avg registers
 
+	  j = 0;
 	  m = 0;
 
 	  while(m < nsamp)
 	  {
 		// Wait .01 seconds
-		rtl_usleep(7500);
-//		rtl_usleep(1000000);
+//		rtl_usleep(7500);
+		rtl_usleep(10000);
 	
-		// Read the FIFO status bits
-		outb((A2DIOFIFOSTAT), (UC *)chan_addr);
-		stat0 = (inb((UC *)isa_address));
-
 		// Read the interrupt lines to see what's what
 		outb((A2DIOSYSCTL), (UC *)chan_addr);
 		ints = (inb((UC *)isa_address));
 
-		for(j = 0; j < ndata; j++)
+		// Read the FIFO status bits
+		outb((A2DIOFIFOSTAT), (UC *)chan_addr);
+		stat0 = (inb((UC *)isa_address));
+
+		while(1)	
 		{
+			// Read the FIFO status bits
+			outb((A2DIOFIFOSTAT), (UC *)chan_addr);
+			stat1 = (inb((UC *)isa_address));
+			if((stat1 & FIFONOTEMPTY) == 0)break;
+			
 			// Read data values from FIFO
 			outb((A2DIOFIFO), (UC *)chan_addr);
-			data[j] = (inw((short *)isa_address));
-			avgs[j%MAXA2DS] += (long)data[j];
+			avgs[j%MAXA2DS] += (long)(inw((short *)isa_address));
 			if(j%MAXA2DS == 0)m++;
+			j++;
 		}
-/*
-		for(l = 0; l < ndata; l++)
-		{
-			for(j = 0; j < MAXA2DS; j++)
-			{
-				avgs[j] += (long)(data[l*MAXA2DS +j]);
-			}
-		}
-*/
 
 	  }/* m (nsamp) loop */
 
-	  // Read the FIFO status bits
-	  outb((A2DIOFIFOSTAT), (UC *)chan_addr);
-	  stat1 = (inb((UC *)isa_address));
-
 	  for(j = 0; j < MAXA2DS; j++)avgs[j] /= nsamp;	//normalize
-	  rtl_printf("\n%6d:fs=%02X/%02X", i, stat0, stat1);
+	  rtl_printf("\n%6d:fs=%02X/%02X:i=%02X", i, stat0, stat1, ints);
 	  for(j = 0; j < MAXA2DS; j++)rtl_printf(" %04hx", avgs[j]);
 	  rtl_printf("\n");
 	  

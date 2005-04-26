@@ -143,6 +143,7 @@
 #define FIFOAFAE		0x0002	// FIFO almost full/almost empty
 #define FIFONOTEMPTY	0x0004	// FIFO not empty
 #define	FIFONOTFULL		0x0008  // FIFO not full
+#define INV1PPS			0x0010	// Inverted 1 PPS pulse
 
 // A/D Filter configuration file parameters
 #define CONFBLOCKS  12  // 12 blocks as described below

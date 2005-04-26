@@ -46,6 +46,20 @@ modules = Split("""
     pc104sg.c
     ioctl_fifo.c
     xxxx_driver.c
+	a2d_driver.c
+	calramp.c
+	gainramp.c
+	testa2d.c
+	testa2davg.c
+	testa2dint.c
+	testa2drdid.c
+	testa2dfclr.c
+	testa2dfifo.c
+	testa2dtime.c
+	testa2dsel.c
+	testa2dstat.c
+	testa2dsync.c
+	testoffset.c
     arinc.c
 """)
 

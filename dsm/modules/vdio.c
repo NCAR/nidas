@@ -29,7 +29,7 @@ unsigned short 	*pVdiord;
 unsigned long 	*pVdioset, *pVdioclr;
 
 /* File pointer to FIFO to user space */
-static unsigned char fp_Vdio;
+static int fp_Vdio;
 
 /* Magic toggle buffer pointer */
 extern int ptog, gtob;
@@ -62,6 +62,11 @@ void init_module(void)
           if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
 	rtl_mkfifo(devstr, 0666);
+	if((fp_Vdio = open(devstr, O_WRONLY))==0)
+	{
+		rtl_printf("Could not open %s\n", devstr);
+		exit(1);
+	}
 	rtl_printf("FIFO %s initialized\n", devstr);
 
 /* Create a command fifo */
@@ -72,6 +77,11 @@ void init_module(void)
           if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
 
 	rtl_mkfifo(devstr, 0666);
+	if((fp_Vdio = open(devstr, O_RDONLY))==0)
+	{
+		rtl_printf("Could not open %s\n", devstr);
+		exit(1);
+	}
 	rtl_printf("FIFO %s initialized\n", devstr);
 	
 /* Create the 100 Hz thread */
@@ -152,7 +162,7 @@ static void *Vdio_100hz_thread(void *t)
 	if(vobits%100 == 0)rtl_printf("DigiBits 0x%02x\n", vibits);
 #else
 	/* Send input bits up to user space via the FIFO */
-	rtl_write(fp_Vdio, &vbits, sizeof(UC));
+	rtl_write(fp_Vdio, &vibits, sizeof(UC));
 #endif
 	}
 }
