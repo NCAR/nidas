@@ -29,11 +29,6 @@ Revisions:
 // #define NOIRIG		// DEBUG mode, running without IRIG card
 #define		USE_RTLINUX 	//If not defined I/O is in debug mode
 
-// Enumerated A2D_RUN_IOCTL messages
-#define	RUN		1
-#define STOP	2
-#define	RESTART	3
-
 // A/D Configuration file parameters
 #define CONFBLOCKS  12  	// 12 blocks as described below
 #define CONFBLLEN   43  	// Block of 42 16-bit words plus a CRC word

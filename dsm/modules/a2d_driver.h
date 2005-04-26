@@ -17,6 +17,18 @@
 
 #include <dsm_sample.h>		// get dsm_sample typedefs
 
+#ifndef __RTCORE_KERNEL__
+/* User programs need this for the _IO macros, but kernel
+ * modules get their's elsewhere.
+ */
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#endif
+
+// Enumerated A2D_RUN_IOCTL messages
+#define	RUN		1
+#define STOP	2
+#define	RESTART	3
 
 //Conveniences
 #ifndef		US
@@ -192,9 +204,6 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
  */
 #define A2D_MAGIC 'A'
 
-#define	RTL_DEBUGIT(a)	rtl_printf("DEBUGIT %d\n", a)
-#define	DEBUGIT(a)	printf("DEBUGIT %d\n", a)
-
 /*
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
@@ -207,6 +216,9 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
 // Now in source code #include <ioctl_fifo.h>
 
 #ifdef __RTCORE_KERNEL__
+
+#define	RTL_DEBUGIT(a)	rtl_printf("DEBUGIT %d\n", a)
+#define	DEBUGIT(a)	printf("DEBUGIT %d\n", a)
 
 #endif
 
