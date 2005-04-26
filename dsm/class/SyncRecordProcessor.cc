@@ -87,6 +87,7 @@ void SyncRecordProcessor::connect(SampleInput* input)
 		input->getName() << " sensor=" <<
 		    sensor->getName() << endl;
 #endif
+	sensor->init();
 	sensor->addSampleClient(&sorter);
 	input->addSensor(sensor);
     }
