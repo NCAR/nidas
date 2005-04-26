@@ -27,9 +27,10 @@ Original author:	Grant Gray
 #define		IOWIDTH		0x10
 #define		US	unsigned short
 #define		UC	unsigned char
-#define		FILTER10KHZ	2
-#define		FILTER1KHZ	1
-#define 	FILTER500HZ	0
+#define		FILTER10KHZ	3
+#define		FILTER1KHZ	2
+#define 	FILTER500HZ	1
+#define		FILTER100HZ	0
 
 /* RTLinux module includes...  */
 #define __RTCORE_POLLUTED_APP__
@@ -47,6 +48,7 @@ Original author:	Grant Gray
 #include <filter10KHz.h>
 #include <filter1KHz.h>
 #include <filter500Hz.h>
+#include <filter100Hz.h>
 
 rtl_pthread_t aAthread;
 
@@ -66,7 +68,7 @@ volatile unsigned short *filterptr;
 volatile long master = 0;
 volatile long boot = 3;
 volatile long ncycles = 2;
-volatile long filter = 2;
+volatile long filter = 3;
 volatile long gain = 1;
 volatile long nsamp = 1;
 
@@ -102,6 +104,10 @@ int init_module(void)
 
 		case FILTER10KHZ:
 			filterptr = (US *)filter10KHz;
+			break;
+
+		case FILTER100HZ:
+			filterptr = (US *)filter25Hz;
 			break;
 
 		default:
@@ -161,15 +167,14 @@ void cleanup_module(void)
 
 static void *TryA2D_thread(void *t)
 {
-	int i, j, k = 0, l, ctr = 0, ndata = 800, datavol[] = {40, 80, 800};
+	int i, j, k = 0, l, ctr = 0, ndata = 800, datavol[] = {1, 40, 80, 800};
+	int printmod = 100;
 	US stat, ints;
 	unsigned char intbit = 1;
 	US data[1024];
 	long avgs[MAXA2DS];
 
 	ndata = datavol[filter];
-
-	if(nsamp > ndata/MAXA2DS)nsamp=ndata/MAXA2DS;
 
 	rtl_printf("%s: In p-thread, FIFOCtl = 0x%02X\n", __FILE__, FIFOCtl);
 	// Reset A/D's don't change configuration
@@ -450,14 +455,14 @@ byebye:
 		{
 			// Read data values from FIFO
 			outb((A2DIOFIFO), (UC *)chan_addr);
-			data[j] = (inw((US *)isa_address));
+			data[j] = (inw((short *)isa_address));
 		}
 		for(j = 0; j < MAXA2DS; j++)avgs[j] = 0;	// Clear avg registers
 		for(j = 0; j < MAXA2DS; j++)
 		{
 			for(l = 0; l < nsamp; l++)
 			{
-				avgs[j] += (short)data[l*MAXA2DS +j];
+				avgs[j] += (long)(data[l*MAXA2DS +j]);
 			}
 		}
 		for(j = 0; j < MAXA2DS; j++)avgs[j] /= nsamp;	//normalize
@@ -465,6 +470,8 @@ byebye:
 		// Read the FIFO status bits
 		outb((A2DIOFIFOSTAT), (UC *)chan_addr);
 		stat = (inb((UC *)isa_address));
+		if(nsamp < 100)printmod = 100;
+		else printmod = nsamp;
 
 		if(k % 100 == 0)
 		{
