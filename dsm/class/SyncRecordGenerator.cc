@@ -15,6 +15,7 @@
 #include <SyncRecordGenerator.h>
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
+#include <DSMAnalogSensor.h>
 #include <Aircraft.h>
 
 #include <iomanip>
@@ -43,6 +44,7 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 
     list<DSMConfig*>::const_iterator di;
 
+    list<DSMSensor*> analogSensors;
     list<DSMSensor*> serialSensors;
     list<DSMSensor*> arincSensors;
     list<DSMSensor*> irigSensors;
@@ -64,15 +66,17 @@ void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
 	    cerr << "SyncRecordGenerator, sensor=" << sensor->getName() << endl;
 #endif
 
-	    if (dynamic_cast<DSMSerialSensor*>(sensor))
+	    if (dynamic_cast<DSMAnalogSensor*>(sensor))
+		analogSensors.push_back(sensor);
+	    else if (dynamic_cast<DSMSerialSensor*>(sensor))
 		serialSensors.push_back(sensor);
-#ifdef HAVE_ARINC
 	    else if (dynamic_cast<DSMArincSensor*>(sensor))
 		arincSensors.push_back(sensor);
-#endif
 	    else otherSensors.push_back(sensor);
 	}
     }
+
+    scanSensors(analogSensors);
 
 #ifdef DEBUG
     cerr << "SyncRecordGenerator, # of serial sensors=" <<
@@ -119,7 +123,7 @@ void SyncRecordGenerator::scanSensors(const list<DSMSensor*>& sensors)
 	for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	    const SampleTag* tag = *ti;
 
-	    unsigned long sampleId = tag->getId();
+	    dsm_sample_id_t sampleId = tag->getId();
 	    float rate = tag->getRate();
 
 	    int groupId;
@@ -210,7 +214,7 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     	"SyncRecordGenerator, nsamps=" << nsamps << endl;
 #endif
     dsm_time_t tt = samp->getTimeTag();
-    unsigned long sampid = samp->getId();
+    dsm_sample_id_t sampid = samp->getId();
 
     if (!syncRecord) {
         syncTime = tt - (tt % 1000);
