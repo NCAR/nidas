@@ -65,6 +65,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     int maxrate = 0;
     for(chan = 0; chan < channels.size(); chan++)
     {
+    cerr << "chan=" << chan << endl;
 	a2d.Hz[chan] = channels[chan].rateSetting;
 	a2d.gain[chan] = channels[chan].gainSetting;
 	a2d.offset[chan] = channels[chan].bipolar;
@@ -80,6 +81,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.ctr[chan] = 0;	// Reset counters	
 	if(a2d.Hz[chan] != 0)a2d.norm[chan] = 
 				(float)a2d.Hz[chan]/float(A2D_MAX_RATE);
+    cerr << "maxrate=" << maxrate << endl;
     }
     for( ; chan < MAXA2DS; chan++) {
 	a2d.Hz[chan] = 0;
@@ -90,7 +92,8 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     }
 
     ostringstream ost;
-    ost << "filters/fiir" << maxrate << "hz.cfg";
+    // ost << "filters/fir" << maxrate << "hz.cfg";
+    ost << "fir" << maxrate << "Hz.cfg";
     string filtername = ost.str();
 
     FILE* fp;
@@ -108,10 +111,14 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	    throw atdUtil::IOException(filtername,"fscanf","bad input");
     }
     fclose(fp);
+    cerr << "ncoef=" << ncoef << " expected=" <<
+		sizeof(a2d.filter)/sizeof(a2d.filter[0]) << endl;
     assert(ncoef == sizeof(a2d.filter)/sizeof(a2d.filter[0]));
 
+    cerr << "doing A2D_SET" << endl;
     ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
     int cmd = RUN;
+    cerr << "doing A2D_RUN" << endl;
     ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));
 }
 
@@ -153,9 +160,14 @@ void DSMAnalogSensor::init()
     convSlope = new float[nvariables];
     convIntercept = new float[nvariables];
     for (unsigned int i = 0; i < nvariables; i++) {
-        convSlope[i] = 10.0 / 32768 / channels[i].gain;
-	if (channels[i].bipolar) convIntercept[i] = 0.0;
-	else convIntercept[i] = 10.0;
+		if (channels[i].bipolar) {
+			convSlope[i] = 10.0 / 32768 / channels[i].gain;
+			convIntercept[i] = 0.0;
+		}
+		else {
+			convSlope[i] = 10.0 / 65536 / channels[i].gain;
+			convIntercept[i] = 5.0;
+		}
     }
 
     unsigned int nsamples = rateVec.size();
@@ -198,6 +210,7 @@ void DSMAnalogSensor::init()
 bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) throw()
 {
 
+    cerr << "DSMAnalogSensor::process" << endl;
     dsm_time_t tt = isamp->getTimeTag();
     dsm_time_t tt0 = tt;
 
