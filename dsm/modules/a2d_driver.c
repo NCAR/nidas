@@ -167,7 +167,6 @@ static int A2DCallback(int cmd, int board, int port,
   	case A2D_GET_IOCTL:		/* user get */
 		{
 		tg = (A2D_GET *)buf;
-		tg->size = sizeof(A2D_GET) - 8;
 		ret = len;
 		}
     	break;
@@ -312,10 +311,14 @@ int init_module()
 	if((error = rtl_mkfifo(fifoname, 0666)))
 		rtl_printf("Error opening fifo %s for write\n", fifoname);
 	else
-		rtl_printf("Fifo %s opened for write\n", fifoname);
-	fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY);
+		rtl_printf("Up FIFO %s created for writing\n", fifoname);
+	if((fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY)) == NULL)
+	{
+		rtl_printf("Unable to open up FIFO\n");
+		return -1;
+	}
 
-	rtl_printf("%s: Up FIFO fd = 0x%08x\n", __FILE__, fd_up);
+	rtl_printf("%s: Up FIFO opened--fd = 0x%08x\n", __FILE__, fd_up);
 
 	rtl_printf("%s: A2D initialization complete.\n", __FILE__);
 
@@ -325,7 +328,7 @@ int init_module()
 	return 0;
 }
 
-int A2DSetup(A2D_SET *a2d)
+static int A2DSetup(A2D_SET *a2d)
 	{
 	int A2DErrorCode; /* TotalErrors = 0; */
 	int i;
@@ -365,7 +368,7 @@ int A2DSetup(A2D_SET *a2d)
 
 #define GAZILLION 10000
 
-int A2DInit(A2D_SET *a2d)
+static int A2DInit(A2D_SET *a2d)
 {
 	US *filt;
 
@@ -412,7 +415,7 @@ int A2DInit(A2D_SET *a2d)
 
 // A2DPtrInit initializes the A2D->ptr[i] buffer offsets
 
-void A2DPtrInit(A2D_SET *a2d)
+static void A2DPtrInit(A2D_SET *a2d)
 {
 	int i;
 
@@ -429,7 +432,7 @@ void A2DPtrInit(A2D_SET *a2d)
 /*-----------------------Utility------------------------------*/
 //Process A2D card error codes
 
-void A2DError(int Code)
+static void A2DError(int Code)
 {
 	switch(Code)
 	{
@@ -458,7 +461,7 @@ void A2DError(int Code)
 
 //Read status of A2D chip specified by A2DDes 0-7
 
-US A2DStatus(int A2DSel)
+static US A2DStatus(int A2DSel)
 {
 	US stat;
 
@@ -469,7 +472,7 @@ US A2DStatus(int A2DSel)
 	return(stat);
 }
 
-void A2DStatusAll(US *stat)
+static void A2DStatusAll(US *stat)
 {
 	int i;
 	for(i = 0; i < MAXA2DS; i++)
@@ -483,7 +486,7 @@ void A2DStatusAll(US *stat)
 /*-----------------------Utility------------------------------*/
 // A2DCommand issues a command word to the A/D selected by A2DSel
 
-void A2DCommand(int A2DSel, US Command)
+static void A2DCommand(int A2DSel, US Command)
 {
 	// Point to A/D command write
 	outb(A2DCMNDWR, (UC *)chan_addr);	
@@ -498,7 +501,7 @@ void A2DCommand(int A2DSel, US Command)
 //	so left it just to setting a parameter in the A2D structure.
 
 // This routine sets the individual A/D sample counters
-void A2DSetCtr(A2D_SET *a2d)
+static void A2DSetCtr(A2D_SET *a2d)
 {
 	int i;
 
@@ -527,7 +530,7 @@ void A2DSetCtr(A2D_SET *a2d)
 // Check this 
 
 /*-----------------------Utility------------------------------*/
-UC A2DSetGain(int A2DSel, int A2DGain)
+static UC A2DSetGain(int A2DSel, int A2DGain)
 {
 	UC *DACAddr;
 	int D2AChsel = -1;
@@ -568,7 +571,7 @@ UC A2DSetGain(int A2DSel, int A2DGain)
 //A2DSetMaster routes the interrupt signal from the target A/D chip 
 //  to the ISA bus interrupt line.
 
-void A2DSetMaster(US A2DSel)
+static void A2DSetMaster(US A2DSel)
 {
 	if(A2DSel > 7)return;	// Error check return with no action
 
@@ -584,7 +587,7 @@ void A2DSetMaster(US A2DSel)
 
 //Read the A/D chip interrupt line states
 
-UC	A2DReadInts(void)
+static UC	A2DReadInts(void)
 {
 	//Point to the sysctl channel for read
 	outb(A2DIOSYSCTL, (UC *)chan_addr);	
@@ -599,7 +602,7 @@ UC	A2DReadInts(void)
 // Input is the calibration voltage * 8 expressed as an integer
 //   i.e. -80 <= Vx8 <= +80 for -10 <= Calibration voltage <= +10
 
-UC A2DSetVcal(int Vx8)
+static UC A2DSetVcal(int Vx8)
 {
 	US Vcode = 1; 
 
@@ -622,7 +625,7 @@ UC A2DSetVcal(int Vx8)
 //Switch inputs specified by Chans bits to calibration mode: bits 8-15 -> chan 0-7
 // Checked visually 5/22/04 GRG
 
-void A2DSetCal(A2D_SET *a2d)
+static void A2DSetCal(A2D_SET *a2d)
 {	
 	US Chans = 0;
 	int i;
@@ -650,7 +653,7 @@ void A2DSetCal(A2D_SET *a2d)
 //Switch channels specified by Chans bits to offset mode: bits 0-7 -> chan 0-7
 // TODO Check logic on this one
 
-void A2DSetOffset(A2D_SET *a2d)
+static void A2DSetOffset(A2D_SET *a2d)
 {	
 	US Chans = 0;
 	int i;
@@ -674,7 +677,7 @@ void A2DSetOffset(A2D_SET *a2d)
 //Reads datactr status/data pairs from A2D FIFO
 //
 
-void A2DReadFIFO(int datactr, A2DSAMPLE *buf)
+static void A2DReadFIFO(int datactr, A2DSAMPLE *buf)
 {
 	int i; 
 
@@ -693,7 +696,7 @@ void A2DReadFIFO(int datactr, A2DSAMPLE *buf)
 //Read datactr data values from A/D A2DSel and store in dataptr.
 //
 
-void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
+static void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
 {
 	int i;
 
@@ -710,7 +713,7 @@ void A2DReadDirect(int A2DSel, int datactr, US *dataptr)
 //  under program control or by a positive 1PPS transition
 //  1PPS enable must be asserted in order to sync on 1PPS
 
-void A2DSetSYNC(void)
+static void A2DSetSYNC(void)
 {
 	outb(A2DIOFIFO, (UC *)chan_addr);
 	 
@@ -727,7 +730,7 @@ void A2DSetSYNC(void)
 
 // Clear the SYNC flag
 
-void A2DClearSYNC(void)
+static void A2DClearSYNC(void)
 {
 	outb(A2DIOFIFO, (UC *)chan_addr);
 
@@ -742,7 +745,7 @@ void A2DClearSYNC(void)
 
 /*-----------------------Utility------------------------------*/
 // Enable 1PPS sync 
-void A2D1PPSEnable(void)
+static void A2D1PPSEnable(void)
 {	
 	// Point at the FIFO control byte
 	outb(A2DIOFIFO, (UC *)chan_addr);
@@ -758,7 +761,7 @@ void A2D1PPSEnable(void)
 //Disable 1PPS sync 
 // Checked visually 5/22/04 GRG
 
-void A2D1PPSDisable(void)
+static void A2D1PPSDisable(void)
 {
 	// Point to FIFO control byte
 	outb(A2DIOFIFO, (UC *)chan_addr);
@@ -774,7 +777,7 @@ void A2D1PPSDisable(void)
 //Clear (reset) the data FIFO
 // Checked visually 5/22/04 GRG
 
-void A2DClearFIFO(void)
+static void A2DClearFIFO(void)
 {
 	// Point to FIFO control byte
 	outb(A2DIOFIFO, (UC *)chan_addr);
@@ -791,7 +794,7 @@ void A2DClearFIFO(void)
 
 // A2DGetData reads data from the A/D card hardware fifo and writes
 // the data to the software up-fifo to user space.
-void A2DGetData()
+static void A2DGetData()
 {
 //	US inbuf[HWFIFODEPTH];
 	A2DSAMPLE buf;
@@ -836,11 +839,12 @@ void A2DGetData()
 
 	return;
 }
+
 /*-----------------------Utility------------------------------*/
 // A2DFIFOEmpty checks the FIFO empty status bit and returns
 // -1 if empty, 0 if not empty
 
-int A2DFIFOEmpty()
+static int A2DFIFOEmpty()
 {
 	int stat;
 
@@ -857,7 +861,7 @@ int A2DFIFOEmpty()
 // The ABORT command amounts to a soft reset--they 
 //  stay configured.
 
-void A2DReset(int A2DSel)
+static void A2DReset(int A2DSel)
 {
 	//Point to the A2D command register
 	outb(A2DCMNDWR, (UC *)chan_addr);
@@ -867,7 +871,7 @@ void A2DReset(int A2DSel)
 	return;
 }
 
-void A2DResetAll()
+static void A2DResetAll()
 {
 	int i;
 
@@ -877,7 +881,7 @@ void A2DResetAll()
 /*-----------------------Utility------------------------------*/
 // This routine sets the A/D's to auto mode
 
-void A2DAuto(void)
+static void A2DAuto(void)
 {
 	//Point to the FIFO Control word
 	outb(A2DIOFIFO, (UC *)chan_addr);
@@ -891,7 +895,7 @@ void A2DAuto(void)
 /*-----------------------Utility------------------------------*/
 // This routine sets the A/D's to non-auto mode
 
-void A2DNotAuto(void)
+static void A2DNotAuto(void)
 {
 	//Point to the FIFO Control word
 	outb(A2DIOFIFO, (UC *)chan_addr);
@@ -905,7 +909,7 @@ void A2DNotAuto(void)
 /*-----------------------Utility------------------------------*/
 // Start the selected A/D in acquisition mode
 
-void A2DStart(int A2DSel)
+static void A2DStart(int A2DSel)
 {
 // Point at the A/D command channel
 	outb(A2DCMNDWR, (UC *)chan_addr);
@@ -915,7 +919,7 @@ void A2DStart(int A2DSel)
 	return;
 }
 
-void A2DStartAll()
+static void A2DStartAll()
 {
 	int i;
 	for(i = 0; i < MAXA2DS; i++)
@@ -926,7 +930,7 @@ void A2DStartAll()
 
 /*-----------------------Utility------------------------------*/
 // Configure A/D A2dSel with coefficient array 'filter'
-short A2DConfig(int A2DSel, US *filter)
+static short A2DConfig(int A2DSel, US *filter)
 {
 	int j, ctr = 0;
 	US stat;
@@ -979,7 +983,7 @@ short A2DConfig(int A2DSel, US *filter)
 	return(stat);
 }
 
-void A2DConfigAll(US *filter)
+static void A2DConfigAll(US *filter)
 {
 	int i;
 	for(i = 0; i < MAXA2DS; i++)A2DConfig(i, filter);
@@ -988,7 +992,7 @@ void A2DConfigAll(US *filter)
 /*-----------------------Utility------------------------------*/
 // Screen dump of critical command structure elements
 
-void A2DIoctlDump(A2D_SET *a2d)
+static void A2DIoctlDump(A2D_SET *a2d)
 {
 	int i;
 	for(i = 0;i < 8; i++)
