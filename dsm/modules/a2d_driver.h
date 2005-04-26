@@ -50,7 +50,7 @@
 #define		SC	char
 #endif
 
-#define	A2D_MAX_RATE		10000
+#define	A2D_MAX_RATE	5000
 #define INTRP_RATE		100
 #define	HWFIFODEPTH		1024
 #define	RATERATIO		(A2D_MAX_RATE/INTRP_RATE)	
@@ -158,8 +158,6 @@ typedef struct
 
 typedef struct
 {
-	dsm_sample_time_t timestamp;	// Time in microseconds ?
-	dsm_sample_length_t size;	// Size of structure
 	US a2dstat[8];
 	US fifostat;
 	char c[RATERATIO][MAXA2DS];
@@ -167,8 +165,6 @@ typedef struct
 
 typedef struct 
 {
-	dsm_sample_time_t timestamp;	// Time in microseconds ?
-	dsm_sample_length_t size;	// Size of structure
 	int	vcalx8;		// Calibration voltage: 
 				// 128=0, 48=-10, 208 = +10, .125 V/bit
 	US	status[8];	// A/D status flag
@@ -181,7 +177,7 @@ typedef struct
 	US	master;		// Designates master A/D
 	US	ctr[8];		// Current value of ctr;
 	UL	ptr[8];		// Pointer offset from beginning of 
-	US	filter[CONFBLOCKS*CONFBLLEN+2];	// Filter data
+	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
 				// data summing buffer
 }A2D_SET;
 
