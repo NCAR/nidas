@@ -110,11 +110,11 @@
 </xsd:complexType>
 
 <xsd:complexType name="variable">
-    <xsd:all minOccurs="0">
-        <xsd:element name="poly" type="poly" minOccurs="0"/>
-        <xsd:element name="linear" type="linear" minOccurs="0"/>
-	<xsd:element name="parameter" type="sensorParameter" minOccurs="0"/>
-    </xsd:all>
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+        <xsd:element name="poly" type="poly"/>
+        <xsd:element name="linear" type="linear"/>
+	<xsd:element name="parameter" type="sensorParameter"/>
+    </xsd:choice>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
     <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
