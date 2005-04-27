@@ -98,7 +98,6 @@ static int ictr = 0, cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static 	int	fd_up; 			// Data FIFO file descriptor
-static 	int	a2drun = RUN;	// Internal flag for debugging
 
 volatile unsigned int isa_address = A2DBASE;
 volatile unsigned int chan_addr = A2DBASE + 0xF;
@@ -117,7 +116,9 @@ static struct ioctlCmd ioctlcmds[] = {
   { A2D_GET_IOCTL,_IOC_SIZE(A2D_GET_IOCTL) },
   { A2D_SET_IOCTL, sizeof(A2D_SET)  },
   { A2D_CAL_IOCTL, sizeof(A2D_SET)  },
-  { A2D_RUN_IOCTL, sizeof(int)       },
+  { A2D_RUN_IOCTL,_IOC_SIZE(A2D_RUN_IOCTL) },
+  { A2D_STOP_IOCTL,_IOC_SIZE(A2D_STOP_IOCTL) },
+  { A2D_RESTART_IOCTL,_IOC_SIZE(A2D_RESTART_IOCTL) },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -145,12 +146,12 @@ RTLINUX_MODULE(DSMA2D);
 static int A2DCallback(int cmd, int board, int port,
 	void *buf, rtl_size_t len) 
 {
-  	int ret = -RTL_EINVAL;
+  	int ret = -EINVAL;
 	A2D_SET *ts;		// Pointer to A/D command struct
 	A2D_GET *tg;
 
 
-  	rtl_printf("\n%s: A2DCallback\n  cmd=%d\n  board=%d\n  port=%d\n  len=%d\n",
+  	rtl_printf("\n%s: A2DCallback cmd=%x board=%d port=%d len=%d\n",
 		__FILE__, cmd,board,port,len);
   	rtl_printf("%s: Size of A2D_SET = 0x%04X\n", __FILE__, sizeof(A2D_SET));
 
@@ -172,7 +173,6 @@ static int A2DCallback(int cmd, int board, int port,
     	break;
 
   	case A2D_SET_IOCTL:		/* user set */
-		{
 		if(!a2dsbusy)
 		{
 			rtl_printf("%s: A2D_SET_IOCTL\n", __FILE__);
@@ -182,10 +182,11 @@ static int A2DCallback(int cmd, int board, int port,
 						__FILE__);
 			rtl_pthread_create(&SetupThread, NULL, (void *)&A2DInit, (void *)ts);
 			rtl_pthread_join(SetupThread, NULL);
+		    ret = sizeof(A2D_SET);
 		}
-		else
+		else {
 			rtl_printf("A2D's running. Can't reset\n");
-		ret = sizeof(A2D_SET);
+			ret = -EINVAL;
 		}
    		break;
 
@@ -201,48 +202,42 @@ static int A2DCallback(int cmd, int board, int port,
 
   	case A2D_RUN_IOCTL:		/* user set */
 		{
-		int *tm =  (int *)buf;
-		US stat[MAXA2DS];
-
-		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
-		rtl_printf("Run message = 0x%08X\n", *tm);
-
-	 	if((*tm & 0x0000000F) == RUN)
-		{
-			a2dsbusy = 1;	// Set the busy flag
-			rtl_printf("RUN command received \n");
-			// Start the IRIG callback routine at 100 Hz
-			register_irig_callback(&A2DGetData, 
-						IRIG_100_HZ, 
-						(void *)NULL);	
-			a2drun = RUN;
-			A2DResetAll();	// Send Abort command to all A/Ds
-			A2DStatusAll(stat);	// Read status from all A/Ds
-			A2DStartAll();	// Start all the A/Ds
-			A2DStatusAll(stat);	// Read status again from all A/Ds
-			A2DSetSYNC();	// Stop A/D clocks
-			A2DClearFIFO();	// Reset FIFO
-			A2DAuto();		// Switch to automatic mode
-			A2D1PPSEnable();// Enable sync with 1PPS
+		    rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
+		    US stat[MAXA2DS];
+		    a2dsbusy = 1;	// Set the busy flag
+		    rtl_printf("RUN command received \n");
+		    // Start the IRIG callback routine at 100 Hz
+		    register_irig_callback(&A2DGetData, 
+					    IRIG_100_HZ, 
+					    (void *)NULL);	
+		    A2DResetAll();	// Send Abort command to all A/Ds
+		    A2DStatusAll(stat);	// Read status from all A/Ds
+		    A2DStartAll();	// Start all the A/Ds
+		    A2DStatusAll(stat);	// Read status again from all A/Ds
+		    A2DSetSYNC();	// Stop A/D clocks
+		    A2DClearFIFO();	// Reset FIFO
+		    A2DAuto();		// Switch to automatic mode
+		    A2D1PPSEnable();// Enable sync with 1PPS
+		    ret = 0;
 		}
+		break;
 
-		if((*tm & 0x0000000F) == STOP)
+  	case A2D_STOP_IOCTL:		/* user set */
 		{
-			
-			a2drun = STOP;
-			rtl_printf("STOP command received\n");
+		    US stat[MAXA2DS];
+		    rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
+		    rtl_printf("STOP command received\n");
 
-			//Kill the callback routine
-			unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
+		    //Kill the callback routine
+		    unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
 
-			A2DNotAuto();	// Shut off auto mode (if enabled)
+		    A2DNotAuto();	// Shut off auto mode (if enabled)
 
-			// Abort all the A/D's
-			A2DResetAll();
+		    // Abort all the A/D's
+		    A2DResetAll();
 
-			a2dsbusy = 0;	// Reset the busy flag
-		}
-		ret = sizeof(long);
+		    a2dsbusy = 0;	// Reset the busy flag
+		    ret = 0;
 		}
 		break;
 
@@ -300,22 +295,23 @@ int init_module()
   					nioctlcmds,ioctlcmds);
 
   	if (!ioctlhandle) return -RTL_EIO;
+
 	// Open the fifo TO user space (up fifo)
 	sprintf(fifoname, "/dev/dsma2d_in_0");
 	rtl_printf("%s: Creating %s\n", __FILE__, fifoname);
 
-    // remove broken device file before making a new one
-    if (rtl_unlink(fifoname) < 0)
-    if (rtl_errno != RTL_ENOENT )return -rtl_errno;
+	// remove broken device file before making a new one
+	if (rtl_unlink(fifoname) < 0 && rtl_errno != RTL_ENOENT)
+		return -rtl_errno;
 
 	if((error = rtl_mkfifo(fifoname, 0666)))
-		rtl_printf("Error opening fifo %s for write\n", fifoname);
+		rtl_printf("Error creating fifo %s\n", fifoname);
 	else
 		rtl_printf("Up FIFO %s created for writing\n", fifoname);
 	if((fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY)) == NULL)
 	{
 		rtl_printf("Unable to open up FIFO\n");
-		return -1;
+		return -rtl_errno;
 	}
 
 	rtl_printf("%s: Up FIFO opened--fd = 0x%08x\n", __FILE__, fd_up);

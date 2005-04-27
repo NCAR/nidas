@@ -25,11 +25,6 @@
 #include <sys/types.h>
 #endif
 
-// Enumerated A2D_RUN_IOCTL messages
-#define	RUN		1
-#define STOP	2
-#define	RESTART	3
-
 //Conveniences
 #ifndef		US
 #define		US	unsigned short
@@ -208,7 +203,9 @@ static void __exit a2d_cleanup(void);	//For Linux kernel
 #define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,A2D_GET)
 #define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_SET)
-#define A2D_RUN_IOCTL _IOW(A2D_MAGIC,3,int)
+#define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)
+#define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
+#define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
 
 // Now in source code #include <ioctl_fifo.h>
 
