@@ -1540,6 +1540,11 @@ int init_module (void)
     /* shutoff pc104sg interrupts just in case */
     disableAllInts();
 
+    /* default setting for rate 2.  We don't want it running
+     * to fast - it over-heats the A2D chips.
+     */
+    setRate2Output(10000, 0);
+
     portDev = rtl_gpos_malloc( sizeof(struct irig_port) );
     if (!portDev) goto err0;
     portDev->inFifoFd = -1;
