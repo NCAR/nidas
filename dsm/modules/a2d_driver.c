@@ -65,7 +65,7 @@ static void A2DStart(int a);
 static void A2DStartAll(void);
 static short A2DConfig(int a, US *b);
 static void A2DConfigAll(US *b);
-static int  A2DFIFOEmpty(void);	// Tests FIFO empty flag
+static inline int A2DFIFOEmpty(void);	// Tests FIFO empty flag
 static int  A2DSetup(A2D_SET *a);
 static void A2DGetData();		//Read hardware fifo
 static void A2DPtrInit(A2D_SET *a);	//Initialize pointer to data areas
@@ -89,10 +89,10 @@ static void A2D1PPSDisable(void);	//Disable 1PPS sync
 static void A2DClearFIFO(void);	//Clear (reset) the FIFO
 static void A2DError(int a);		//A/D Card error handling
 
-static int  init_module(void);
-static void cleanup_module(void);
+int  init_module(void);
+void cleanup_module(void);
 
-rtl_pthread_t SetupThread = 0;
+static rtl_pthread_t SetupThread = 0;
 
 static int ictr = 0, cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
@@ -150,6 +150,7 @@ static int A2DCallback(int cmd, int board, int port,
   	int ret = -EINVAL;
 	A2D_SET *ts;		// Pointer to A/D command struct
 	A2D_GET *tg;
+	US stat[MAXA2DS];
 
 
   	rtl_printf("\n%s: A2DCallback cmd=%x board=%d port=%d len=%d\n",
@@ -159,103 +160,93 @@ static int A2DCallback(int cmd, int board, int port,
   	switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
-		{
 		rtl_printf("%s: GET_NUM_PORTS\n", __FILE__);
 		*(int *) buf = nports;
 		ret = sizeof(int);
-		}
   		break;
 
   	case A2D_GET_IOCTL:		/* user get */
-		{
 		tg = (A2D_GET *)buf;
 		ret = len;
-		}
     	break;
 
   	case A2D_SET_IOCTL:		/* user set */
-		if(!a2dsbusy)
-		{
-			rtl_printf("%s: A2D_SET_IOCTL\n", __FILE__);
-			ts = (A2D_SET *)buf;
-			A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
-			rtl_printf("%s: Creating temp thread to start the ball rolling\n",
-						__FILE__);
-			rtl_pthread_create(&SetupThread, NULL, (void *)&A2DInit, (void *)ts);
-			rtl_pthread_join(SetupThread, NULL);
-			SetupThread = 0;
-		    ret = sizeof(A2D_SET);
-		}
-		else {
+		if(a2dsbusy) {
 			rtl_printf("A2D's running. Can't reset\n");
-			ret = -EINVAL;
+			break;
 		}
+
+		rtl_printf("%s: A2D_SET_IOCTL\n", __FILE__);
+		ts = (A2D_SET *)buf;
+		A2DSetup(ts);	//Call A2DSetup with structure pointer ts 
+		rtl_printf("%s: Creating temp thread to start the ball rolling\n",
+					__FILE__);
+		rtl_pthread_create(&SetupThread, NULL, (void *)&A2DInit, (void *)ts);
+		rtl_pthread_join(SetupThread, NULL);
+		SetupThread = 0;
+		ret = sizeof(A2D_SET);
    		break;
 
   	case A2D_CAL_IOCTL:		/* user set */
-		{
 		rtl_printf("%s: A2D_CAL_IOCTL\n", __FILE__);
 		ts = (A2D_SET *)buf;
 		A2DSetVcal((int)ts->vcalx8);
 		A2DSetCal(ts);	//Call A2DSetup with structure pointer ts 
 		ret = sizeof(A2D_SET);
-		}
    		break;
 
   	case A2D_RUN_IOCTL:		/* user set */
+		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
+
+		if (fd_up >= 0) rtl_close(fd_up);
+		if((fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 		{
-		    rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
-
-			if (fd_up >= 0) rtl_close(fd_up);
-			if((fd_up = rtl_open(fifoname, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
-			{
-				rtl_printf("Unable to open up FIFO\n");
-				return -rtl_errno;
-			}
-			rtl_printf("%s: Up FIFO opened--fd = 0x%08x\n", __FILE__, fd_up);
-
-		    US stat[MAXA2DS];
-		    a2dsbusy = 1;	// Set the busy flag
-		    rtl_printf("RUN command received \n");
-		    // Start the IRIG callback routine at 100 Hz
-		    register_irig_callback(&A2DGetData, 
-					    IRIG_100_HZ, 
-					    (void *)NULL);	
-		    A2DResetAll();	// Send Abort command to all A/Ds
-		    A2DStatusAll(stat);	// Read status from all A/Ds
-		    A2DStartAll();	// Start all the A/Ds
-		    A2DStatusAll(stat);	// Read status again from all A/Ds
-		    A2DSetSYNC();	// Stop A/D clocks
-		    A2DClearFIFO();	// Reset FIFO
-		    A2DAuto();		// Switch to automatic mode
-		    A2D1PPSEnable();// Enable sync with 1PPS
-		    ret = 0;
+			rtl_printf("Unable to open up FIFO\n");
+			return -rtl_errno;
 		}
+		rtl_printf("%s: Up FIFO opened--fd = 0x%08x\n", __FILE__, fd_up);
+
+		a2dsbusy = 1;	// Set the busy flag
+		rtl_printf("RUN command received \n");
+
+		// Start the IRIG callback routine at 100 Hz
+		register_irig_callback(&A2DGetData, 
+					IRIG_100_HZ, 
+					(void *)NULL);	
+
+		A2DResetAll();	// Send Abort command to all A/Ds
+		A2DStatusAll(stat);	// Read status from all A/Ds
+		A2DStartAll();	// Start all the A/Ds
+		A2DStatusAll(stat);	// Read status again from all A/Ds
+		A2DSetSYNC();	// Stop A/D clocks
+		A2DClearFIFO();	// Reset FIFO
+		A2DAuto();		// Switch to automatic mode
+		A2D1PPSEnable();// Enable sync with 1PPS
+		ret = 0;
 		break;
 
   	case A2D_STOP_IOCTL:		/* user set */
-		{
-		    US stat[MAXA2DS];
-		    rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
-		    rtl_printf("STOP command received\n");
+		rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
 
-			A2DStatusAll(stat); 	// Read status and clear IRQ's	
+		//Kill the callback routine
+		unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
 
-		    //Kill the callback routine
-		    unregister_irig_callback(&A2DGetData, IRIG_100_HZ);
+		A2DStatusAll(stat); 	// Read status and clear IRQ's	
 
-		    A2DNotAuto();	// Shut off auto mode (if enabled)
+		A2DNotAuto();	// Shut off auto mode (if enabled)
 
-		    // Abort all the A/D's
-		    A2DResetAll();
+		// Abort all the A/D's
+		A2DResetAll();
 
-		    a2dsbusy = 0;	// Reset the busy flag
-			if (fd_up >= 0) rtl_close(fd_up);
+		a2dsbusy = 0;	// Reset the busy flag
+
+		if (fd_up >= 0) {
+		    int fdtmp = fd_up;
 		    fd_up = -1;
-		    ret = 0;
+		    rtl_close(fdtmp);
 		}
+		ret = 0;
 		break;
-
 	default:
 		break;
   	}
@@ -280,7 +271,8 @@ void cleanup_module(void)
 
   	sprintf(fname, "/dev/dsma2d_in_0");
   	rtl_printf("%s : Destroying %s\n",__FILE__,  fname);
-    if (fd_up >= 0) rtl_close(fd_up);
+	if (fd_up >= 0) rtl_close(fd_up);
+	fd_up = -1;
   	rtl_unlink("/dev/dsma2d_in_0");
   
 	// Shut down the setup thread
@@ -850,9 +842,9 @@ static void A2DGetData()
 
 /*-----------------------Utility------------------------------*/
 // A2DFIFOEmpty checks the FIFO empty status bit and returns
-// -1 if empty, 0 if not empty
+// 1 if empty, 0 if not empty
 
-static int A2DFIFOEmpty()
+static inline int A2DFIFOEmpty()
 {
 	int stat;
 
@@ -860,8 +852,8 @@ static int A2DFIFOEmpty()
 	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
 
 	stat = (int)inb((UC *)isa_address);
-	if(stat & FIFONOTEMPTY)return(0);
-	else return(1);
+
+	return (stat & FIFONOTEMPTY) == 0;
 }
 
 /*-----------------------Utility------------------------------*/
