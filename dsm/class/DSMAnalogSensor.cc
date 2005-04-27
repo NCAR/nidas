@@ -92,8 +92,10 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     }
 
     ostringstream ost;
-    // ost << "filters/fir" << maxrate << "hz.cfg";
-    ost << "fir" << maxrate << "Hz.cfg";
+    if (maxrate >= 1000)
+	ost << "fir" << maxrate/1000. << "KHz.cfg";
+    else
+	ost << "fir" << maxrate << "Hz.cfg";
     string filtername = ost.str();
 
     FILE* fp;
@@ -115,18 +117,18 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 		sizeof(a2d.filter)/sizeof(a2d.filter[0]) << endl;
     assert(ncoef == sizeof(a2d.filter)/sizeof(a2d.filter[0]));
 
-    cerr << "doing A2D_SET" << endl;
+    cerr << "doing A2D_SET_IOCTL" << endl;
     ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
-    int cmd = RUN;
-    cerr << "doing A2D_RUN" << endl;
-    ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));
+
+    cerr << "doing A2D_RUN_IOCTL" << endl;
+    ioctl(A2D_RUN_IOCTL,(const void*)0,0);
 }
 
 void DSMAnalogSensor::close() throw(atdUtil::IOException)
 {
-    	int cmd = STOP;
- 	ioctl(A2D_RUN_IOCTL, &cmd, sizeof(int));	
-	RTL_DSMSensor::close();
+    cerr << "doing A2D_STOP_IOCTL" << endl;
+    ioctl(A2D_STOP_IOCTL,(const void*)0,0);
+    RTL_DSMSensor::close();
 }
 
 
