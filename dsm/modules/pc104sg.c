@@ -1366,8 +1366,10 @@ static int ioctlCallback(int cmd, int board, int portNum,
 {
     int retval = -RTL_EINVAL;
     int isRT = 0;
+#ifdef DEBUG
     rtl_printf("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
     	cmd,board,portNum);
+#endif
 
     /* only one board and one port supported by this module */
     if (board != 0) return retval;
