@@ -149,14 +149,14 @@ typedef struct
 {
 	dsm_sample_time_t timestamp;	// timetag of sample 
 	dsm_sample_length_t size;		// number of bytes in data 
-  	char data[2*RATERATIO*MAXA2DS]; 
+  	short data[RATERATIO*MAXA2DS]; 
 }A2DSAMPLE;
 
 typedef struct
 {
 	US a2dstat[8];
 	US fifostat;
-	char c[RATERATIO][MAXA2DS];
+	// char c[RATERATIO][MAXA2DS];
 }A2D_GET;
 
 typedef struct 
