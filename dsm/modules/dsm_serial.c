@@ -813,6 +813,7 @@ static int uart_shutdown(struct serialPort* port)
     serial_outp(port, UART_FCR, 0);
 
     rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return 0;
 }
 
 /*
