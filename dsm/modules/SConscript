@@ -40,6 +40,7 @@ myenv.AppendUnique(CPPPATH=Split("""
 # demux.c -> rtl_isa_irq.c
 # vdio.c
 modules = Split("""
+    a2d_driver.c
     dsm_serial.c
     dsm_serial_fifo.c
     rtl_isa_irq.c
