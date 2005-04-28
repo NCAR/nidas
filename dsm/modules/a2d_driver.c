@@ -103,10 +103,17 @@ static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static char fifoname[50];
 static 	int	fd_up = -1; 			// Data FIFO file descriptor
+static	int fifofullctr = 0;	//FIFO full event counter
+static	int fifo34ctr = 0;		//FIFO 3/4 full counter
+static	int fifo12ctr = 0;
+static	int	fifo14ctr = 0;		//FIFO 1/4 full counter
+static	int fifo0ctr = 0;		//FIFO empty counter
 
-unsigned int isa_address = A2DBASE;
-unsigned int chan_addr = A2DBASE + 0xF;
-unsigned int a2dsbusy = 0;
+static 	int	oneppstimeout = 0;	// 1PPS detection timeout flag
+
+static unsigned int isa_address = A2DBASE;
+static unsigned int chan_addr = A2DBASE + 0xF;
+static unsigned int a2dsbusy = 0;
 
 // These are just test values
 
@@ -230,6 +237,8 @@ static int A2DCallback(int cmd, int board, int port,
 		rtl_pthread_create(&SyncThread, NULL, (void *)&A2DWait1PPS, NULL);
 		rtl_pthread_join(SyncThread, NULL);
 		SyncThread = 0;	// Make sure it's dead, Jim.
+
+		if(oneppstimeout)rtl_printf("1PPS not detected--no sync to GPS\n");
 		
 		rtl_printf("Final FIFO Clear\n");
 		A2DClearFIFO();	// Reset FIFO
@@ -810,12 +819,25 @@ static void A2DGetData()
 	A2DSAMPLE buf;
 	register SS *dataptr;
 	char *eob = (char*)buf.data + sizeof(buf.data);
+	char stat;
 
 	buf.timestamp = GET_MSEC_CLOCK;
 
 	// dataptr points to beginning of data section of A2DSAMPLE
 	// has to be cast to a short *
 	dataptr = buf.data;
+
+	// Grab the h/w FIFO data flags for posterity
+	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
+	stat = inb((UC *)isa_address);
+
+	if((stat & FIFONOTFULL) == 0)fifofullctr++;	// FIFO is full
+	else if((stat & FIFONOTEMPTY) == 0)fifo0ctr++; 
+	else if(((stat & FIFOAFAE) && 
+			 (stat & FIFOHF)))fifo34ctr++; 
+	else if((!(stat & FIFOHF) && 
+			  (stat & FIFOAFAE)))fifo14ctr++;
+	else fifo12ctr++;
 	
 	while(!A2DFIFOEmpty() && (char*)dataptr < eob)
 	{
@@ -1008,9 +1030,15 @@ static void A2DWait1PPS()
 		// Read status, check 1PPS bit, return if 1PPS is low
 		// The negative going part of the pulse is 
 		stat = (int)inb((UC *)isa_address);
-		if((stat & INV1PPS) == 0) return;
+		if((stat & INV1PPS) == 0) 
+		{
+			oneppstimeout = 0;
+			return;
+		}
 		rtl_usleep(50); 	// Wait 50 usecs and try again
 	}
+
+	oneppstimeout = -1;
 
 	return; 			// timeout
 }
