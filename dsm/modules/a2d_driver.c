@@ -35,6 +35,8 @@ Revisions:
 #define	DELAYNUM0	10		// Used for usleep	
 #define	DELAYNUM1	1000	// Used for usleep	
 
+#define	PPSTIMEOUT	240000	// Number of times to try for 1PPS low
+
 /* RTLinux module includes...  */
 
 #define __RTCORE_POLLUTED_APP__
@@ -88,11 +90,13 @@ static void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transitio
 static void A2D1PPSDisable(void);	//Disable 1PPS sync
 static void A2DClearFIFO(void);	//Clear (reset) the FIFO
 static void A2DError(int a);		//A/D Card error handling
+static void	A2DWait1PPS();		//Wait for low level on 1PPS pulse
 
 int  init_module(void);
 void cleanup_module(void);
 
 static rtl_pthread_t SetupThread = 0;
+static rtl_pthread_t SyncThread = 0;
 
 static int cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
@@ -219,8 +223,18 @@ static int A2DCallback(int cmd, int board, int port,
 		A2DStartAll();	// Start all the A/Ds
 		A2DStatusAll(stat);	// Read status again from all A/Ds
 		A2DSetSYNC();	// Stop A/D clocks
-		A2DClearFIFO();	// Reset FIFO
 		A2DAuto();		// Switch to automatic mode
+
+		rtl_printf("Waiting for low on 1PPS line\n");
+		// Establish a RT thread to allow syncing with 1PPS
+		rtl_pthread_create(&SyncThread, NULL, (void *)&A2DWait1PPS, NULL);
+		rtl_pthread_join(SyncThread, NULL);
+		SyncThread = 0;	// Make sure it's dead, Jim.
+		
+		rtl_printf("Final FIFO Clear\n");
+		A2DClearFIFO();	// Reset FIFO
+
+		rtl_printf("Setting 1PPS Enable line\n");
 		A2D1PPSEnable();// Enable sync with 1PPS
 		rtl_printf("A2D_RUN_IOCTL finished\n");
 		ret = 0;
@@ -967,10 +981,38 @@ static short A2DConfig(int A2DSel, US *filter)
 	return(stat);
 }
 
+/*-----------------------Utility------------------------------*/
+// Configure all A/D's with same filter
+
 static void A2DConfigAll(US *filter)
 {
 	int i;
 	for(i = 0; i < MAXA2DS; i++)A2DConfig(i, filter);
+}
+
+
+/*-----------------------Utility------------------------------*/
+// Waits for 1PPS neg-going pulse from IRIG card
+// TODO What do we do in case of a timeout? 
+// TODO Can we return an error value if it _does_ time out?
+
+static void A2DWait1PPS()
+{
+	int timeit = 0, stat;
+
+	// Point at the FIFO status channel
+	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
+	
+	while(timeit++ < PPSTIMEOUT)	
+	{
+		// Read status, check 1PPS bit, return if 1PPS is low
+		// The negative going part of the pulse is 
+		stat = (int)inb((UC *)isa_address);
+		if((stat & INV1PPS) == 0) return;
+		rtl_usleep(50); 	// Wait 50 usecs and try again
+	}
+
+	return; 			// timeout
 }
 
 /*-----------------------Utility------------------------------*/
