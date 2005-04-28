@@ -113,9 +113,10 @@ typedef struct
 #define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
 
 
-
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
+
+#include <dsm_viper.h>		// get SYSTEM_ISA_IOPORT_BASE
 
 #define	HWFIFODEPTH		1024
 
@@ -137,8 +138,7 @@ typedef struct
 #define	A2DMASTER		7	//A/D chip designated to produce interrupts
 #define	A2DIOBASE		0x000003A0
 #define	A2DIOSEP		0x00000010	// Card addr separation
-#define	ARMISABASE		0xf7000000
-#define	A2DBASE			(A2DIOBASE+ARMISABASE)
+#define	A2DBASE			(A2DIOBASE + SYSTEM_ISA_IOPORT_BASE)
 #define	A2DIOWIDTH		0x10	// Width of I/O space
 
 // I/O channels for the A/D card
@@ -202,11 +202,11 @@ typedef struct
 #define	FIFOWREBL		0x80	//Enable writing to FIFO.
 
 // FIFO Status bits
-#define	FIFOHF			0x0001	// FIFO half full
-#define FIFOAFAE		0x0002	// FIFO almost full/almost empty
-#define FIFONOTEMPTY	0x0004	// FIFO not empty
-#define	FIFONOTFULL		0x0008  // FIFO not full
-#define INV1PPS			0x0010	// Inverted 1 PPS pulse
+#define	FIFOHF			0x01	// FIFO half full
+#define FIFOAFAE		0x02	// FIFO almost full/almost empty
+#define FIFONOTEMPTY	0x04	// FIFO not empty
+#define	FIFONOTFULL		0x08  // FIFO not full
+#define INV1PPS			0x10	// Inverted 1 PPS pulse
 
 
 /*

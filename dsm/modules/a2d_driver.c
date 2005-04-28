@@ -94,15 +94,15 @@ void cleanup_module(void);
 
 static rtl_pthread_t SetupThread = 0;
 
-static int ictr = 0, cctr = 0;
+static int cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static char fifoname[50];
 static 	int	fd_up = -1; 			// Data FIFO file descriptor
 
-volatile unsigned int isa_address = A2DBASE;
-volatile unsigned int chan_addr = A2DBASE + 0xF;
-volatile unsigned int a2dsbusy = 0;
+unsigned int isa_address = A2DBASE;
+unsigned int chan_addr = A2DBASE + 0xF;
+unsigned int a2dsbusy = 0;
 
 // These are just test values
 
@@ -204,7 +204,7 @@ static int A2DCallback(int cmd, int board, int port,
 			rtl_printf("Unable to open up FIFO\n");
 			return -rtl_errno;
 		}
-		rtl_printf("%s: Up FIFO opened--fd = 0x%08x\n", __FILE__, fd_up);
+		rtl_printf("%s: Up FIFO opened--fd = %d\n", __FILE__, fd_up);
 
 		a2dsbusy = 1;	// Set the busy flag
 		rtl_printf("RUN command received \n");
@@ -222,6 +222,7 @@ static int A2DCallback(int cmd, int board, int port,
 		A2DClearFIFO();	// Reset FIFO
 		A2DAuto();		// Switch to automatic mode
 		A2D1PPSEnable();// Enable sync with 1PPS
+		rtl_printf("A2D_RUN_IOCTL finished\n");
 		ret = 0;
 		break;
 
@@ -259,7 +260,7 @@ static int A2DCallback(int cmd, int board, int port,
 void cleanup_module(void)
 {
   	char fname[20];
-	int stat[MAXA2DS];
+	US stat[MAXA2DS];
 
 	A2DStatusAll(stat); 	// Read status and clear IRQ's	
 
@@ -374,9 +375,6 @@ static int A2DInit(A2D_SET *a2d)
 	rtl_printf("In A2DInit\n");
 	rtl_printf("Setting reference freq to 10KHz\n");
 	
-	setRate2Output(10000, 1);
-
-
 // Initialize pointer to filter array
 
 	filt = &a2d->filter[0];
@@ -795,45 +793,32 @@ static void A2DClearFIFO(void)
 // the data to the software up-fifo to user space.
 static void A2DGetData()
 {
-//	US inbuf[HWFIFODEPTH];
 	A2DSAMPLE buf;
-	short *dataptr;
+	register SS *dataptr;
+	char *eob = (char*)buf.data + sizeof(buf.data);
 
-#ifdef DEBUGA2DGET
-	if(ictr%100 == 0)rtl_printf("%s: %08d - In A2DGetData \n", __FILE__, ictr);
-#endif
-	ictr = 0;
+	buf.timestamp = GET_MSEC_CLOCK;
 
-//TODO get the timestamp and size in the first long word
-//TODO put the size in the second entry (short)
-//TODO make certain the write size is correct
-//TODO check to see if fd_up is valid. If not, return an error
-	
 	// dataptr points to beginning of data section of A2DSAMPLE
 	// has to be cast to a short *
-	dataptr = (short *)buf.data;
+	dataptr = buf.data;
 	
-#ifdef DEBUGA2DGET3
-	ictr++;
-#else
-	while(!A2DFIFOEmpty())
+	while(!A2DFIFOEmpty() && (char*)dataptr < eob)
 	{
 		// Point to FIFO read subchannel
-		outb(A2DIOFIFO, (UC *)chan_addr);
-		*dataptr++ = inw((US *)isa_address);		
-		ictr++;	
+		outb(A2DIOFIFO,chan_addr);
+		*dataptr++ = inw(isa_address);		
 	}
-#endif
 
-	buf.size = ictr*2;
+	buf.size = (char*)dataptr - (char*)buf.data;
 
-#ifdef DEBUGA2DGET2
-	if(cctr%100 == 0)rtl_printf("%s: %06d, size = %05d, datactr = %05d\n", 
-				__FILE__, cctr, buf.size, ictr);
-#else
-    if (fd_up >= 0)
-			rtl_write(fd_up, (void *)&buf, buf.size); // Write to up-fifo
-#endif
+	if(cctr%100 == 0 || buf.size != 80)
+		rtl_printf("%s: cctr=%06d, size = %05d, writelen=%d\n", 
+	    __FILE__, cctr, buf.size, SIZEOF_DSM_SAMPLE_HEADER+buf.size);
+
+	if (fd_up >= 0 && buf.size > 0)
+	    // Write to up-fifo
+	    rtl_write(fd_up, &buf,SIZEOF_DSM_SAMPLE_HEADER + buf.size);
 
 	cctr++;
 
@@ -846,12 +831,11 @@ static void A2DGetData()
 
 static inline int A2DFIFOEmpty()
 {
-	int stat;
+	unsigned char stat;
 
 	// Point at the FIFO status channel
 	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
-
-	stat = (int)inb((UC *)isa_address);
+	stat = inb(isa_address);
 
 	return (stat & FIFONOTEMPTY) == 0;
 }
