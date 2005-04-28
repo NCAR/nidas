@@ -63,9 +63,12 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct
 {
-	US a2dstat[MAXA2DS];
-	US fifostat;
-}A2D_GET;
+	size_t fifofullctr;	// FIFO full event counter
+	size_t fifo34ctr;	// FIFO 3/4 full counter
+	size_t fifo12ctr;	// FIFO 1/2 full counter
+	size_t fifo14ctr;	// FIFO 1/4 full counter
+	size_t fifo0ctr;	// FIFO 0/4 full counter
+} A2D_STATUS;
 
 typedef struct 
 {
@@ -90,7 +93,7 @@ typedef struct
 	dsm_sample_time_t timestamp;	// timetag of sample 
 	dsm_sample_length_t size;		// number of bytes in data 
   	SS data[RATERATIO*MAXA2DS]; 
-}A2DSAMPLE;
+} A2DSAMPLE;
 
 
 /* Pick a character as the magic number of your driver.
@@ -105,7 +108,7 @@ typedef struct
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define A2D_GET_IOCTL _IOR(A2D_MAGIC,0,A2D_GET)
+#define A2D_STATUS_IOCTL _IOR(A2D_MAGIC,0,A2D_STATUS)
 #define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_SET)
 #define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)

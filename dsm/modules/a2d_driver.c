@@ -90,7 +90,7 @@ static void A2D1PPSEnable(void);	//Enables A/D start on next 1 PPS GPS transitio
 static void A2D1PPSDisable(void);	//Disable 1PPS sync
 static void A2DClearFIFO(void);	//Clear (reset) the FIFO
 static void A2DError(int a);		//A/D Card error handling
-static void	A2DWait1PPS();		//Wait for low level on 1PPS pulse
+static void* A2DWait1PPS(void *);	//Wait for low level on 1PPS pulse
 
 int  init_module(void);
 void cleanup_module(void);
@@ -98,16 +98,12 @@ void cleanup_module(void);
 static rtl_pthread_t SetupThread = 0;
 static rtl_pthread_t SyncThread = 0;
 
-static int cctr = 0;
 static 	US	CalOff = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static char fifoname[50];
 static 	int	fd_up = -1; 			// Data FIFO file descriptor
-static	int fifofullctr = 0;	//FIFO full event counter
-static	int fifo34ctr = 0;		//FIFO 3/4 full counter
-static	int fifo12ctr = 0;
-static	int	fifo14ctr = 0;		//FIFO 1/4 full counter
-static	int fifo0ctr = 0;		//FIFO empty counter
+
+static A2D_STATUS globalStatus;		// status info maintained by driver and passed to user via ioctl
 
 static 	int	oneppstimeout = 0;	// 1PPS detection timeout flag
 
@@ -125,7 +121,7 @@ UC		Offsets;
 
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
-  { A2D_GET_IOCTL,_IOC_SIZE(A2D_GET_IOCTL) },
+  { A2D_STATUS_IOCTL,_IOC_SIZE(A2D_STATUS_IOCTL) },
   { A2D_SET_IOCTL, sizeof(A2D_SET)  },
   { A2D_CAL_IOCTL, sizeof(A2D_SET)  },
   { A2D_RUN_IOCTL,_IOC_SIZE(A2D_RUN_IOCTL) },
@@ -160,7 +156,6 @@ static int A2DCallback(int cmd, int board, int port,
 {
   	int ret = -EINVAL;
 	A2D_SET *ts;		// Pointer to A/D command struct
-	A2D_GET *tg;
 	US stat[MAXA2DS];
 
 
@@ -176,9 +171,12 @@ static int A2DCallback(int cmd, int board, int port,
 		ret = sizeof(int);
   		break;
 
-  	case A2D_GET_IOCTL:		/* user get */
-		tg = (A2D_GET *)buf;
+  	case A2D_STATUS_IOCTL:		/* user get */
+		{
+		if (len != sizeof(A2D_STATUS)) break;
+		memcpy(buf,&globalStatus,len);
 		ret = len;
+		}
     	break;
 
   	case A2D_SET_IOCTL:		/* user set */
@@ -234,11 +232,15 @@ static int A2DCallback(int cmd, int board, int port,
 
 		rtl_printf("Waiting for low on 1PPS line\n");
 		// Establish a RT thread to allow syncing with 1PPS
-		rtl_pthread_create(&SyncThread, NULL, (void *)&A2DWait1PPS, NULL);
+		rtl_pthread_create(&SyncThread, NULL, A2DWait1PPS, NULL);
 		rtl_pthread_join(SyncThread, NULL);
 		SyncThread = 0;	// Make sure it's dead, Jim.
 
-		if(oneppstimeout)rtl_printf("1PPS not detected--no sync to GPS\n");
+		if(oneppstimeout) {
+		    rtl_printf("1PPS not detected--no sync to GPS\n");
+		    return oneppstimeout;
+		}
+		rtl_printf("Low seen on 1PPS line\n");
 		
 		rtl_printf("Final FIFO Clear\n");
 		A2DClearFIFO();	// Reset FIFO
@@ -396,7 +398,6 @@ static int A2DInit(A2D_SET *a2d)
 	US *filt;
 
 	rtl_printf("In A2DInit\n");
-	rtl_printf("Setting reference freq to 10KHz\n");
 	
 // Initialize pointer to filter array
 
@@ -817,27 +818,26 @@ static void A2DClearFIFO(void)
 static void A2DGetData()
 {
 	A2DSAMPLE buf;
-	register SS *dataptr;
 	char *eob = (char*)buf.data + sizeof(buf.data);
-	char stat;
-
-	buf.timestamp = GET_MSEC_CLOCK;
+	unsigned char stat;
 
 	// dataptr points to beginning of data section of A2DSAMPLE
 	// has to be cast to a short *
-	dataptr = buf.data;
+	register SS *dataptr = buf.data;
+
+	buf.timestamp = GET_MSEC_CLOCK;
 
 	// Grab the h/w FIFO data flags for posterity
-	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
-	stat = inb((UC *)isa_address);
+	outb(A2DIOFIFOSTAT,chan_addr);
+	stat = inb(isa_address);
 
-	if((stat & FIFONOTFULL) == 0)fifofullctr++;	// FIFO is full
-	else if((stat & FIFONOTEMPTY) == 0)fifo0ctr++; 
-	else if(((stat & FIFOAFAE) && 
-			 (stat & FIFOHF)))fifo34ctr++; 
-	else if((!(stat & FIFOHF) && 
-			  (stat & FIFOAFAE)))fifo14ctr++;
-	else fifo12ctr++;
+	if((stat & FIFONOTFULL) == 0) globalStatus.fifofullctr++;	// FIFO is full
+	else if((stat & FIFONOTEMPTY) == 0) globalStatus.fifo0ctr++; 
+	else if((stat & FIFOAFAE) && 
+			 (stat & FIFOHF)) globalStatus.fifo34ctr++; 
+	else if(!(stat & FIFOHF) && 
+			  (stat & FIFOAFAE)) globalStatus.fifo14ctr++;
+	else globalStatus.fifo12ctr++;
 	
 	while(!A2DFIFOEmpty() && (char*)dataptr < eob)
 	{
@@ -848,15 +848,13 @@ static void A2DGetData()
 
 	buf.size = (char*)dataptr - (char*)buf.data;
 
-	if(cctr%100 == 0 || buf.size != 80)
-		rtl_printf("%s: cctr=%06d, size = %05d, writelen=%d\n", 
-	    __FILE__, cctr, buf.size, SIZEOF_DSM_SAMPLE_HEADER+buf.size);
+	if(buf.size != 80)
+		rtl_printf("%s: size = %5d, writelen=%3d\n", 
+	    __FILE__, buf.size, SIZEOF_DSM_SAMPLE_HEADER+buf.size);
 
 	if (fd_up >= 0 && buf.size > 0)
 	    // Write to up-fifo
 	    rtl_write(fd_up, &buf,SIZEOF_DSM_SAMPLE_HEADER + buf.size);
-
-	cctr++;
 
 	return;
 }
@@ -870,7 +868,7 @@ static inline int A2DFIFOEmpty()
 	unsigned char stat;
 
 	// Point at the FIFO status channel
-	outb(A2DIOFIFOSTAT, (UC *)chan_addr);
+	outb(A2DIOFIFOSTAT,chan_addr);
 	stat = inb(isa_address);
 
 	return (stat & FIFONOTEMPTY) == 0;
@@ -1018,7 +1016,7 @@ static void A2DConfigAll(US *filter)
 // TODO What do we do in case of a timeout? 
 // TODO Can we return an error value if it _does_ time out?
 
-static void A2DWait1PPS()
+static void* A2DWait1PPS(void *arg)
 {
 	int timeit = 0, stat;
 
@@ -1033,14 +1031,14 @@ static void A2DWait1PPS()
 		if((stat & INV1PPS) == 0) 
 		{
 			oneppstimeout = 0;
-			return;
+			return 0;
 		}
 		rtl_usleep(50); 	// Wait 50 usecs and try again
 	}
 
 	oneppstimeout = -ETIMEDOUT; // Send timed out error
 
-	return; 			// timeout
+	return 0; 			// timeout
 }
 
 /*-----------------------Utility------------------------------*/
