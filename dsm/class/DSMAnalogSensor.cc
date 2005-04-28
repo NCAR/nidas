@@ -213,6 +213,27 @@ void DSMAnalogSensor::init() throw()
     for (unsigned int i = 0; i < nsamples; i++) outsamples[i] = 0;
 }
 
+void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
+
+    A2D_STATUS stat;
+    try {
+	ioctl(A2D_STATUS_IOCTL,&stat,sizeof(stat));
+
+	ostr << "<td align=left>" <<
+		"#full=" << stat.fifofullctr <<
+		", #3/4=" << stat.fifo34ctr <<
+		", #1/2=" << stat.fifo12ctr <<
+		", #1/4=" << stat.fifo14ctr <<
+		", #0/4=" << stat.fifo0ctr <<
+		"</td>" << endl;
+    }
+    catch(const atdUtil::IOException& ioe) {
+        ostr << "<td>" << ioe.what() << "</td>" << endl;
+    }
+}
+
 bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) throw()
 {
 
@@ -225,10 +246,10 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
     unsigned int nvariables = sampleIndexVec.size();
     // assert(nvariables * nSamplePerRawSample == nvalues);
 
-    int ival = 0;
+    unsigned int ival = 0;
     for (unsigned int isamp = 0; isamp < nSamplePerRawSample; ) {
 
-	for (unsigned int ivar = 0; ivar < nvariables; ivar++,ival++) {
+	for (unsigned int ivar = 0; ivar < nvariables && ival < nvalues; ivar++,ival++) {
 	    int sampIndex = sampleIndices[ivar];
 	    SampleT<float>* osamp = outsamples[sampIndex];
 
