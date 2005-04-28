@@ -761,7 +761,7 @@ static void getTimeFields(struct irigTime* ti,int offset)
      * I saw values of 165 for the year during this time.
      */
     if (extendedStatus & DP_Extd_Sts_NoYear) {
-	rtl_printf("fixing year=%d to %d\n",ti->year,staticYear);
+	// rtl_printf("fixing year=%d to %d\n",ti->year,staticYear);
         ti->year = staticYear;
     }
     // This has a Y2K problem, but who cares - it was written in 2004 and
@@ -1539,11 +1539,6 @@ int init_module (void)
 
     /* shutoff pc104sg interrupts just in case */
     disableAllInts();
-
-    /* default setting for rate 2.  We don't want it running
-     * to fast - it over-heats the A2D chips.
-     */
-    setRate2Output(10000, 0);
 
     portDev = rtl_gpos_malloc( sizeof(struct irig_port) );
     if (!portDev) goto err0;
