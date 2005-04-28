@@ -153,21 +153,11 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     if (nextFileTime == 0) nextFileTime = tsamp;
     try {
 	if (tsamp >= nextFileTime) {
-#ifdef DEBUG
 	    cerr << "calling iostream->createFile, nextFileTime=" << nextFileTime << endl;
+#ifdef DEBUG
 #endif
 
 	    dsm_time_t newFileTime = iostream->createFile(nextFileTime);
-
-	    SampleFileHeader header;
-
-	    header.setArchiveVersion(Version::getArchiveVersion());
-	    header.setSoftwareVersion(Version::getSoftwareVersion());
-	    header.setProjectName(Project::getInstance()->getName());
-	    header.setXMLName(Project::getInstance()->getXMLName());
-	    header.setXMLVersion(Project::getInstance()->getVersion());
-
-	    header.write(iostream);
 
 	    if (connectionRequester)
 		connectionRequester->newFileCallback(nextFileTime,iostream);

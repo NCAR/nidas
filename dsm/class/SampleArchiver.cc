@@ -108,5 +108,14 @@ void SampleArchiver::disconnected(SampleOutput* output) throw()
 void SampleArchiver::newFileCallback(dsm_time_t thead,IOStream* iostream)
 	throw(atdUtil::IOException)
 {
+
+    cerr << "SampleArchiver::newFileCallback" << endl;
+    SampleFileHeader header;
+    header.setArchiveVersion(Version::getArchiveVersion());
+    header.setSoftwareVersion(Version::getSoftwareVersion());
+    header.setProjectName(Project::getInstance()->getName());
+    header.setXMLName(Project::getInstance()->getXMLName());
+    header.setXMLVersion(Project::getInstance()->getVersion());
+    header.write(iostream);
 }
 
