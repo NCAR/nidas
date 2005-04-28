@@ -852,9 +852,15 @@ static void A2DGetData()
 		rtl_printf("%s: size = %5d, writelen=%3d\n", 
 	    __FILE__, buf.size, SIZEOF_DSM_SAMPLE_HEADER+buf.size);
 
-	if (fd_up >= 0 && buf.size > 0)
+	if (fd_up >= 0 && buf.size > 0) {
 	    // Write to up-fifo
-	    rtl_write(fd_up, &buf,SIZEOF_DSM_SAMPLE_HEADER + buf.size);
+	    if (rtl_write(fd_up, &buf,
+	    	SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
+	        rtl_printf("%s: error writing to up fifo: %s\n",
+			__FILE__,rtl_strerror(rtl_errno));
+		globalStatus.rtlFifoWriteErrors++;
+	    }
+	}
 
 	return;
 }

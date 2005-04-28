@@ -68,6 +68,7 @@ typedef struct
 	size_t fifo12ctr;	// FIFO 1/2 full counter
 	size_t fifo14ctr;	// FIFO 1/4 full counter
 	size_t fifo0ctr;	// FIFO 0/4 full counter
+	size_t rtlFifoWriteErrors;
 } A2D_STATUS;
 
 typedef struct 
