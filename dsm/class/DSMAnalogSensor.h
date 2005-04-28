@@ -36,7 +36,7 @@ public:
      */
     void open(int flags) throw(atdUtil::IOException);
 
-    void init();
+    void init() throw();
                                                                                 
     /*
      * Close the device connected to the sensor.
@@ -168,7 +168,7 @@ protected:
 
     bool minDeltatEvenMsec;
 
-    unsigned int nSamplePerBlock;
+    unsigned int nSamplePerRawSample;
 
     /*
      * Allocated samples.

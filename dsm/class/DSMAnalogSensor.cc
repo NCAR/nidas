@@ -31,6 +31,7 @@ DSMAnalogSensor::DSMAnalogSensor() :
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
     endTimes(0),baseTimes(0),nsamps(0),
     deltatDouble(0),deltatInt(0),deltatEvenMsec(0),
+    nSamplePerRawSample(0),
     outsamples(0),
     floatNAN(nanf(""))
 {
@@ -93,9 +94,9 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 
     ostringstream ost;
     if (maxrate >= 1000)
-	ost << "fir" << maxrate/1000. << "KHz.cfg";
+	ost << "filters/fir" << maxrate/1000. << "KHz.cfg";
     else
-	ost << "fir" << maxrate << "Hz.cfg";
+	ost << "filters/fir" << maxrate << "Hz.cfg";
     string filtername = ost.str();
 
     FILE* fp;
@@ -146,7 +147,7 @@ int DSMAnalogSensor::gainSetting(float gain)
     return (int)rint(gain * 10.0);
 }
 
-void DSMAnalogSensor::init()
+void DSMAnalogSensor::init() throw()
 {
     assert(!initialized);
     initialized = true;
@@ -201,9 +202,12 @@ void DSMAnalogSensor::init()
 #define REPORTING_RATE 100
     if (maxRate >= REPORTING_RATE) {
 	assert(fmod(maxRate,REPORTING_RATE) == 0.0);
-        nSamplePerBlock = (int)(maxRate / REPORTING_RATE);
+        nSamplePerRawSample = (int)(maxRate / REPORTING_RATE);
     }
-    else nSamplePerBlock = 1;
+    else nSamplePerRawSample = 1;
+
+    cerr << "maxRate=" << maxRate <<
+    	" nSamplePerRawSample=" << nSamplePerRawSample << endl;
 
     outsamples = new SampleT<float>*[nsamples];
     for (unsigned int i = 0; i < nsamples; i++) outsamples[i] = 0;
@@ -212,7 +216,6 @@ void DSMAnalogSensor::init()
 bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) throw()
 {
 
-    cerr << "DSMAnalogSensor::process" << endl;
     dsm_time_t tt = isamp->getTimeTag();
     dsm_time_t tt0 = tt;
 
@@ -220,11 +223,10 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
 
     unsigned int nvalues = isamp->getDataLength() / sizeof(short);
     unsigned int nvariables = sampleIndexVec.size();
-
-    assert(nvariables * nSamplePerBlock == nvalues);
+    // assert(nvariables * nSamplePerRawSample == nvalues);
 
     int ival = 0;
-    for (unsigned int isamp = 0; isamp < nSamplePerBlock; ) {
+    for (unsigned int isamp = 0; isamp < nSamplePerRawSample; ) {
 
 	for (unsigned int ivar = 0; ivar < nvariables; ivar++,ival++) {
 	    int sampIndex = sampleIndices[ivar];
@@ -233,6 +235,13 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
 	    if (tt > endTimes[sampIndex]) {
 		if (osamp) {
 		    osamp->setTimeTag(endTimes[sampIndex] - deltatInt[sampIndex]/2);
+#ifdef DEBUG
+		cerr << "tt=" << osamp->getTimeTag() <<
+			" len=" << osamp->getDataLength() << " data:";
+		for (unsigned int j = 0; j < osamp->getDataLength(); j++)
+		    cerr << osamp->getDataPtr()[j] <<  ' ';
+		cerr << endl;
+#endif
 
 		    result.push_back(osamp);	// pass the sample on
 		    if (deltatEvenMsec[sampIndex])
@@ -258,6 +267,11 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
 
 	    signed short sval = sp[ival];
 	    float volts = convIntercept[ivar] + convSlope[ivar] * sval;
+#ifdef DEBUG
+	    cerr << "ivar=" << ivar << " ival=" << ival <<
+	    	" sval=" << sval << " volts=" << volts <<
+		" outindex=" << subSampleIndices[ivar] << endl;
+#endif
 	    osamp->getDataPtr()[subSampleIndices[ivar]] = volts;
 	}
 
