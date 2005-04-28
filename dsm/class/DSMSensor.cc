@@ -291,18 +291,18 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	if (!elname.compare("sample")) {
 	    SampleTag* samp = new SampleTag();
 	    samp->fromDOMElement((DOMElement*)child);
+	    // sum of sensor short id and sample short id
+	    samp->setShortId(getShortId() + samp->getShortId());
+	    // set the DSM id portion of the sample id
+	    samp->setDSMId(getDSMConfig()->getId());
 	    addSampleTag(samp);
 	}
     }
 
     // sensors in the catalog may not have any sample tags
-    // if (sampleTags.size() == 0)
-// 	    throw atdUtil::InvalidParameterException(
-// 		getName() + " has no <sample> tags");
+    // so at this point it is OK if sampleTags.size() == 0.
 
-    // Set the sample ids to be the sum of the sensor id and sample id
-    // Also set the DSM id portion of the sample ids
-    // Also check that sample ids are unique for this sensor.
+    // Check that sample ids are unique for this sensor.
     set<unsigned short> ids;
     for (list<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) {
@@ -316,10 +316,6 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    throw atdUtil::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}
-
-	// sum of sensor short id and sample short id
-	samp->setShortId(getShortId() + samp->getShortId());
-	samp->setDSMId(getDSMConfig()->getId());
     }
 }
 
