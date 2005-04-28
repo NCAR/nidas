@@ -158,10 +158,11 @@ static int A2DCallback(int cmd, int board, int port,
 	A2D_SET *ts;		// Pointer to A/D command struct
 	US stat[MAXA2DS];
 
-
+#ifdef DEBUG
   	rtl_printf("\n%s: A2DCallback cmd=%x board=%d port=%d len=%d\n",
 		__FILE__, cmd,board,port,len);
   	rtl_printf("%s: Size of A2D_SET = 0x%04X\n", __FILE__, sizeof(A2D_SET));
+#endif
 
   	switch (cmd) 
 	{
@@ -815,14 +816,13 @@ static void A2DClearFIFO(void)
 
 // A2DGetData reads data from the A/D card hardware fifo and writes
 // the data to the software up-fifo to user space.
-static void A2DGetData()
+static void A2DGetData(void *arg)
 {
 	A2DSAMPLE buf;
 	char *eob = (char*)buf.data + sizeof(buf.data);
 	unsigned char stat;
 
 	// dataptr points to beginning of data section of A2DSAMPLE
-	// has to be cast to a short *
 	register SS *dataptr = buf.data;
 
 	buf.timestamp = GET_MSEC_CLOCK;
@@ -848,9 +848,8 @@ static void A2DGetData()
 
 	buf.size = (char*)dataptr - (char*)buf.data;
 
-	if(buf.size != 80)
-		rtl_printf("%s: size = %5d, writelen=%3d\n", 
-	    __FILE__, buf.size, SIZEOF_DSM_SAMPLE_HEADER+buf.size);
+	if(buf.size != 80) rtl_printf("%s: A2DGetData, #shorts=%d\n",
+		    __FILE__, buf.size/sizeof(short));
 
 	if (fd_up >= 0 && buf.size > 0) {
 	    // Write to up-fifo
