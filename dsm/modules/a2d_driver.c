@@ -1038,7 +1038,7 @@ static void A2DWait1PPS()
 		rtl_usleep(50); 	// Wait 50 usecs and try again
 	}
 
-	oneppstimeout = -1;
+	oneppstimeout = -ETIMEDOUT; // Send timed out error
 
 	return; 			// timeout
 }
