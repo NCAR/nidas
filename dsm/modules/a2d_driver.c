@@ -219,10 +219,6 @@ static int A2DCallback(int cmd, int board, int port,
 		a2dsbusy = 1;	// Set the busy flag
 		rtl_printf("RUN command received \n");
 
-		// Start the IRIG callback routine at 100 Hz
-		register_irig_callback(&A2DGetData, 
-					IRIG_100_HZ, 
-					(void *)NULL);	
 
 		A2DResetAll();	// Send Abort command to all A/Ds
 		A2DStatusAll(stat);	// Read status from all A/Ds
@@ -249,6 +245,11 @@ static int A2DCallback(int cmd, int board, int port,
 		rtl_printf("Setting 1PPS Enable line\n");
 		A2D1PPSEnable();// Enable sync with 1PPS
 		rtl_printf("A2D_RUN_IOCTL finished\n");
+
+		// Start the IRIG callback routine at 100 Hz
+		register_irig_callback(&A2DGetData, 
+					IRIG_100_HZ, 
+					(void *)NULL);	
 		ret = 0;
 		break;
 
