@@ -227,9 +227,9 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left>" <<
 		"#full=" << stat.fifofullctr <<
 		", #3/4=" << stat.fifo34ctr <<
-		", #1/2=" << stat.fifo12ctr <<
+		", #1/2=" << stat.fifo24ctr <<
 		", #1/4=" << stat.fifo14ctr <<
-		", #0/4=" << stat.fifo0ctr <<
+		", #0/4=" << stat.fifoemptyctr <<
 		", #rtlFifoErrors=" << stat.rtlFifoWriteErrors <<
 		"</td>" << endl;
     }
