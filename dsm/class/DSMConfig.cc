@@ -156,6 +156,23 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		// within their fromDOMElement
 		sensor->setDSMConfig(this);
 
+		// get the id from the "real" entry, and set it before
+		// doing a fromDOMElement of the catalog entry. Then when
+		// addSampleTag is done from the catalog entry, the samples
+		// have their real ids.
+		const string& idstr = xchild.getAttributeValue("id");
+		if (idstr.length() > 0) {
+		    istringstream ist(idstr);
+		    // If you unset the dec flag, then a leading '0' means
+		    // octal, and 0x means hex.
+		    ist.unsetf(ios::dec);
+		    unsigned short val;
+		    ist >> val;
+		    if (ist.fail())
+			throw atdUtil::InvalidParameterException("sensor","id",idstr);
+		    sensor->setShortId(val);
+		}
+
 		sensor->fromDOMElement((DOMElement*)catnode);
 	    }
 		    
@@ -243,6 +260,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    other->getName());
 	}
 
+	// check the sensor ids (which become the ids of the raw samples)
+	// against the sample ids of all other sensors.
 	ins = sampleIdCheck.insert(
 	    make_pair<unsigned short,DSMSensor*>(sensor->getId(),sensor));
 	if (!ins.second) {
@@ -250,14 +269,9 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    ost << sensor->getId();
 	    DSMSensor* other = ins.first->second;
 
-	    if (other == sensor)
-		throw atdUtil::InvalidParameterException(
-		    sensor->getName() + " has duplicate sample ids: " +
-		    ost.str());
-	    else
-		throw atdUtil::InvalidParameterException(
-		    sensor->getName() + " & " + other->getName() +
-		    " have equivalent sample ids: " + ost.str());
+	    throw atdUtil::InvalidParameterException(
+		sensor->getName() + " id=" + ost.str() +
+		" is equal to a sensor or sample id belonging to " + other->getName());
 	}
 
 	// check that sample ids are unique
