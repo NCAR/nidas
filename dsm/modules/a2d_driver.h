@@ -63,11 +63,12 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct
 {
-	size_t fifofullctr;	// FIFO full event counter
-	size_t fifo34ctr;	// FIFO 3/4 full counter
-	size_t fifo12ctr;	// FIFO 1/2 full counter
-	size_t fifo14ctr;	// FIFO 1/4 full counter
-	size_t fifo0ctr;	// FIFO 0/4 full counter
+	size_t fifofullctr;	// FIFO filled
+	size_t fifo44ctr;	// 3/4 <= FIFO < full event counter
+	size_t fifo34ctr;	// 1/2 <= FIFO < 3/4 event counter
+	size_t fifo24ctr;	// 1/4 < FIFO  < 1/2   event counter
+	size_t fifo14ctr;	// empty < FIFO <= 1/4  event counter
+	size_t fifoemptyctr;	// FIFO empty event counter
 	size_t rtlFifoWriteErrors;
 } A2D_STATUS;
 

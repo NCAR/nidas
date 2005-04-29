@@ -58,7 +58,6 @@ Revisions:
 
 
 //Function templates
-static void A2DIoctlDump(A2D_SET *a);
 static void A2DReset(int a);
 static void A2DResetAll(void);
 static void A2DAuto(void);
@@ -832,14 +831,31 @@ static void A2DGetData(void *arg)
 	outb(A2DIOFIFOSTAT,chan_addr);
 	stat = inb(isa_address);
 
+	// If FIFONOTFULL is 0, fifo IS full
 	if((stat & FIFONOTFULL) == 0) globalStatus.fifofullctr++;	// FIFO is full
-	else if((stat & FIFONOTEMPTY) == 0) globalStatus.fifo0ctr++; 
-	else if((stat & FIFOAFAE) && 
-			 (stat & FIFOHF)) globalStatus.fifo34ctr++; 
-	else if(!(stat & FIFOHF) && 
-			  (stat & FIFOAFAE)) globalStatus.fifo14ctr++;
-	else globalStatus.fifo12ctr++;
+
+	// If FIFONOTEMPTY is 0, fifo IS empty
+	else if((stat & FIFONOTEMPTY) == 0) globalStatus.fifoemptyctr++; 
+
+	// Figure out which 1/4 of the 1024 FIFO words we're filled to
+	switch(stat&0x03) // Switch on stat's 2 LSB's
+	{
+		case 3:		//FIFO half full (bit0) and allmost full (bit 1)
+			globalStatus.fifo44ctr++; // 3/4 <= FIFO < full
+			break;
+		case 2:		//FIFO not half full and allmost empty
+			globalStatus.fifo14ctr++; // empty < FIFO <= 1/4
+			break;
+		case 1:		//FIFO half full and not almost full
+			globalStatus.fifo34ctr++; // 1/2 <= FIFO < 3/4
+			break;
+		case 0:
+			globalStatus.fifo24ctr++; // 1/4 < FIFO <= 1/2
+		default:
+			break;
+	}
 	
+	// Read all the FIFO data into buf.data
 	while(!A2DFIFOEmpty() && (char*)dataptr < eob)
 	{
 		// Point to FIFO read subchannel
@@ -1047,23 +1063,3 @@ static void* A2DWait1PPS(void *arg)
 	return 0; 			// timeout
 }
 
-/*-----------------------Utility------------------------------*/
-// Screen dump of critical command structure elements
-
-static void A2DIoctlDump(A2D_SET *a2d)
-{
-	int i;
-	for(i = 0;i < 8; i++)
-		{
-		rtl_printf("%s: \n", __FILE__);
-		rtl_printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
-		rtl_printf("Hz_%1d    = %3d\t", i, a2d->Hz[i]);
-		rtl_printf("Offset  = 0x%02X\t", a2d->offset[i]);
-		rtl_printf("Calset  = 0x%02X\n", a2d->calset[i]);
-		}
-
-	rtl_printf("Vcalx8  = %3d\n", a2d->vcalx8);
-	rtl_printf("filter0 = 0x%04X\n", a2d->filter[0]);
-
-	return;
-}
