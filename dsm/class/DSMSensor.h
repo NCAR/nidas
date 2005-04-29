@@ -125,9 +125,7 @@ public:
     }
 
     /**
-     * Add a SampleTag to this sensor.  This could be a protected
-     * method, since SampleTags are usually added in the
-     * fromDOMElement method, but we'll leave it public for now.
+     * Add a SampleTag to this sensor.
      * Throw an exception if you don't like the variables in the sample.
      */
     virtual void addSampleTag(SampleTag* var)

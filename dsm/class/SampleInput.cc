@@ -144,10 +144,11 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    cerr << "available=" << iostream->available() << endl;
 #endif
 	    if (iostream->available() < header.getSizeOf()) break;
-	    iostream->read(&header,header.getSizeOf());
-
+	    size_t len = iostream->read(&header,header.getSizeOf());
 #ifdef DEBUG
 	    assert(header.getSizeOf() == 16);
+	    assert(len == 16);
+
 	    cerr << "read header " <<
 	    	" getTimeTag=" << header.getTimeTag() <<
 	    	" getId=" << header.getId() <<
@@ -160,8 +161,13 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		    "SampleInputStream UNKNOWN_ST unrecognizedSamples=%d",
 			    unrecognizedSamples);
-		samp = dsm::getSample((sampleType)CHAR_ST,
-		    header.getDataByteLength());
+		cerr << "read header " <<
+		    " getTimeTag=" << header.getTimeTag() <<
+		    " getId=" << header.getId() <<
+		    " getType=" << (int) header.getType() <<
+		    " getDataByteLength=" << header.getDataByteLength() <<
+		    " chars=" << string((const char*)&header,16) << endl;
+		continue;
 	    }
 	    else
 		samp = dsm::getSample((sampleType)header.getType(),
@@ -294,7 +300,6 @@ void SampleInputStream::fromDOMElement(const DOMElement* node)
         const string& elname = xchild.getNodeName();
 
 	iochan = IOChannel::createIOChannel(elname);
-
 
 	iochan->fromDOMElement((DOMElement*)child);
 
