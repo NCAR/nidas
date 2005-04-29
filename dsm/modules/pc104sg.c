@@ -1303,7 +1303,8 @@ static void portCallback(void* privateData)
 
     if (dev->inFifoFd >= 0) {
 	dev->samp.timetag = tt;
-	dev->samp.length = sizeof(struct dsm_clock_data);
+	dev->samp.length = sizeof(dev->samp.data.tval) +
+		sizeof(dev->samp.data.status);
 
 	irig2timeval(&ti,&dev->samp.data.tval);
 	dev->samp.data.status = extendedStatus;
