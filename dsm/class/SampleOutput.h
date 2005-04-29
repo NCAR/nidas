@@ -152,12 +152,6 @@ protected:
 
     SampleConnectionRequester* connectionRequester;
 
-    /** Do we need to keep track of sample time tags,
-     * as when writing to time-tagged archive files,
-     * or can we just simply write the samples.
-     */
-    enum type { SIMPLE, TIMETAG_DEPENDENT } type;
-
     dsm_time_t nextFileTime;
 
 };

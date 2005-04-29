@@ -33,7 +33,7 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 SampleOutputStream::SampleOutputStream():
 	name("SampleOutputStream"),iochan(0),iostream(0),
 	pseudoPort(0),dsm(0),service(0),connectionRequester(0),
-	type(TIMETAG_DEPENDENT),nextFileTime(0)
+	nextFileTime(0)
 {
 }
 
@@ -42,7 +42,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	pseudoPort(x.pseudoPort),
 	dsm(x.dsm),service(x.service),
 	connectionRequester(x.connectionRequester),
-	type(TIMETAG_DEPENDENT),nextFileTime(0)
+	nextFileTime(0)
 {
 }
 
@@ -115,6 +115,7 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
 
 void SampleOutputStream::init() throw()
 {
+    nextFileTime = 0;
     delete iostream;
 #ifdef DEBUG
     cerr << "SampleOutputStream::init, buffer size=" <<
