@@ -14,12 +14,14 @@
 */
 
 #include <DSMAnalogSensor.h>
+#include <a2d_driver.h>
+
+#include <atdUtil/Logger.h>
 
 #include <math.h>
 
 #include <iostream>
 
-#include <a2d_driver.h>
 
 using namespace dsm;
 using namespace std;
@@ -66,7 +68,6 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     int maxrate = 0;
     for(chan = 0; chan < channels.size(); chan++)
     {
-    cerr << "chan=" << chan << endl;
 	a2d.Hz[chan] = channels[chan].rateSetting;
 	a2d.gain[chan] = channels[chan].gainSetting;
 	a2d.offset[chan] = channels[chan].bipolar;
@@ -82,7 +83,6 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.ctr[chan] = 0;	// Reset counters	
 	if(a2d.Hz[chan] != 0)a2d.norm[chan] = 
 				(float)a2d.Hz[chan]/float(A2D_MAX_RATE);
-    cerr << "maxrate=" << maxrate << endl;
     }
     for( ; chan < MAXA2DS; chan++) {
 	a2d.Hz[chan] = 0;
@@ -100,6 +100,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     string filtername = ost.str();
 
     FILE* fp;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"opening: %s",filtername.c_str());
     if((fp = fopen(filtername.c_str(), "r")) == NULL)
         throw atdUtil::IOException(filtername,"open",errno);
 
@@ -206,8 +207,10 @@ void DSMAnalogSensor::init() throw()
     }
     else nSamplePerRawSample = 1;
 
+#ifdef DEBUG
     cerr << "maxRate=" << maxRate <<
     	" nSamplePerRawSample=" << nSamplePerRawSample << endl;
+#endif
 
     outsamples = new SampleT<float>*[nsamples];
     for (unsigned int i = 0; i < nsamples; i++) outsamples[i] = 0;
@@ -246,42 +249,72 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
     unsigned int nvalues = isamp->getDataLength() / sizeof(short);
     unsigned int nvariables = sampleIndexVec.size();
     // assert(nvariables * nSamplePerRawSample == nvalues);
+    unsigned int nsampsInRawSample = nvalues / nvariables;
 
     unsigned int ival = 0;
-    for (unsigned int isamp = 0; isamp < nSamplePerRawSample; ) {
+    for (unsigned int isamp = 0; isamp < nsampsInRawSample; ) {
 
+#ifdef DEBUG
+	cerr << "isamp=" << isamp << " nsampsInRawSample=" << nsampsInRawSample << endl;
+#endif
 	for (unsigned int ivar = 0; ivar < nvariables && ival < nvalues; ivar++,ival++) {
+#ifdef DEBUG
+	cerr << "ivar=" << ivar << " nvariables=" << nvariables <<
+		" ival=" << ival << " nvalues=" << nvalues << endl;
+#endif
 	    int sampIndex = sampleIndices[ivar];
+#ifdef DEBUG
+	    cerr << "sampIndex=" << sampIndex << endl;
+#endif
 	    SampleT<float>* osamp = outsamples[sampIndex];
 
+#ifdef DEBUG
+	    cerr << "tt=" << tt << " endTimes=" << endTimes[sampIndex] << endl;
+#endif
 	    if (tt > endTimes[sampIndex]) {
 		if (osamp) {
 		    osamp->setTimeTag(endTimes[sampIndex] - deltatInt[sampIndex]/2);
 #ifdef DEBUG
-		cerr << "tt=" << osamp->getTimeTag() <<
-			" len=" << osamp->getDataLength() << " data:";
-		for (unsigned int j = 0; j < osamp->getDataLength(); j++)
-		    cerr << osamp->getDataPtr()[j] <<  ' ';
-		cerr << endl;
+		    cerr << "tt=" << osamp->getTimeTag() <<
+			    " len=" << osamp->getDataLength() << " data:";
+		    for (unsigned int j = 0; j < osamp->getDataLength(); j++)
+			cerr << osamp->getDataPtr()[j] <<  ' ';
+		    cerr << endl;
 #endif
-
 		    result.push_back(osamp);	// pass the sample on
-		    if (deltatEvenMsec[sampIndex])
+		    if (deltatEvenMsec[sampIndex]) {
 			endTimes[sampIndex] += deltatInt[sampIndex];
-		    else
+			if (tt > endTimes[sampIndex])
+			    endTimes[sampIndex] = timeCeiling(tt,deltatInt[sampIndex]);
+		    }
+		    else {
 			endTimes[sampIndex] =
 			    baseTimes[sampIndex] +
-			    (long long) rint(deltatDouble[sampIndex] *
-				    ++nsamps[sampIndex]);
+			    (long long) rint(++nsamps[sampIndex] *
+			    	deltatDouble[sampIndex]);
+			if (tt > endTimes[sampIndex]) {
+			    int nt = ceil((tt - endTimes[sampIndex]) /
+			    	deltatDouble[sampIndex]);
+			    nsamps[sampIndex] += nt;
+			    endTimes[sampIndex] +=
+			    	(long long)rint(nt * deltatDouble[sampIndex]);
+			}
+		    }
 		}
 		else {
 		    baseTimes[sampIndex] = timeCeiling(tt,deltatInt[sampIndex]);
 		    endTimes[sampIndex] = baseTimes[sampIndex];
 		    nsamps[sampIndex] = 0;
 		}
-		osamp = getSample<float>(numVarsInSample[ivar]);
+#ifdef DEBUG
+		cerr << "getSample, numVarsInSample[" << sampIndex << "]=" << numVarsInSample[sampIndex] << endl;
+#endif
+		osamp = getSample<float>(numVarsInSample[sampIndex]);
 		outsamples[sampIndex] = osamp;
 		osamp->setId(sampleIds[sampIndex]);
+#ifdef DEBUG
+		cerr << "osamp->getDataLength()=" << osamp->getDataLength() << endl;
+#endif
 		float *fp = osamp->getDataPtr();
 		for (unsigned int j = 0; j < osamp->getDataLength(); j++)
 		    fp[j] = floatNAN;
