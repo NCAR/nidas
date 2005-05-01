@@ -25,7 +25,14 @@
 #include <limits.h>
 #include <iostream>
 
+#include <math.h>
+
 namespace dsm {
+
+/**
+ * Value of a float NAN for general use.
+ */
+const float floatNAN = nanf("");
 
 /** Milliseconds since Jan 1 1970, 00:00 UTC */
 typedef long long dsm_time_t;
@@ -435,6 +442,8 @@ public:
     const void* getConstVoidDataPtr() const { return (const void*) data; }
 
     DataT* getDataPtr() { return data; }
+
+    const DataT* getConstDataPtr() const { return data; }
 
     /**
      * Get number of elements allocated in data portion of sample.
