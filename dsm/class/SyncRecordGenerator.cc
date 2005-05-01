@@ -27,7 +27,7 @@ using namespace std;
 using namespace xercesc;
 
 SyncRecordGenerator::SyncRecordGenerator():
-	syncRecord(0),floatNAN(nanf("")),doHeader(false),badTimes(0)
+	syncRecord(0),doHeader(false),badTimes(0)
 {
 }
 

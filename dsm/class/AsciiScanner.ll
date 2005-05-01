@@ -311,7 +311,7 @@ int AsciiScanner::sscanf(const char* input, float* output, int nout) throw()
 		// should have been thrown as an exception during parsing
 		// but to avoid a compiler error we'll include it in this
 		// switch.
-		output[i] = nanf("");
+		output[i] = floatNAN;
 		break;
 	    }
 	}

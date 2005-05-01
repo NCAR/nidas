@@ -98,8 +98,6 @@ protected:
     SampleT<float>* syncRecord;
     float* floatPtr;
 
-    const float floatNAN;
-
     size_t unrecognizedSamples;
 
     std::ostringstream headerStream;
