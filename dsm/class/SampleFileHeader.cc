@@ -18,22 +18,8 @@
 using namespace dsm;
 using namespace std;
 
-static struct headerField {
-
-    /* a tag in the file header */
-    const char* tag;
-
-    /* ptr to setXXX member function for setting an attribute of this
-     * class, based on the value of the tag from the IOStream.
-     */
-    void (SampleFileHeader::* setFunc)(const string&);
-
-    /* ptr to getXXX member function for getting an attribute of this
-     * class, in order to write the value of the tag to the IOStream.
-     */
-    const string& (SampleFileHeader::* getFunc)() const;
-
-} headers[] = {
+/* static */
+struct SampleFileHeader::headerField SampleFileHeader::headers[] = {
     { "archive version:", &SampleFileHeader::setArchiveVersion,
 	    &SampleFileHeader::getArchiveVersion },
     { "software version:", &SampleFileHeader::setSoftwareVersion,

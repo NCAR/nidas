@@ -43,7 +43,28 @@ public:
     void setProjectName(const std::string& val) { projectName = val; }
     const std::string& getProjectName() const { return projectName; }
 
+
 protected:
+
+    struct headerField {
+
+	/* a tag in the file header */
+	const char* tag;
+
+	/* ptr to setXXX member function for setting an attribute of this
+	 * class, based on the value of the tag from the IOStream.
+	 */
+	void (SampleFileHeader::* setFunc)(const std::string&);
+
+	/* ptr to getXXX member function for getting an attribute of this
+	 * class, in order to write the value of the tag to the IOStream.
+	 */
+	const std::string& (SampleFileHeader::* getFunc)() const;
+
+    };
+
+    static struct headerField headers[];
+
     std::string archiveVersion;
     std::string softwareVersion;
     std::string xMLName;
