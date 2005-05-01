@@ -176,8 +176,6 @@ protected:
      * Allocated samples.
      */
     SampleT<float>** outsamples;
-
-    const float floatNAN;
 };
 
 }

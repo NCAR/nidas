@@ -34,8 +34,7 @@ DSMAnalogSensor::DSMAnalogSensor() :
     endTimes(0),baseTimes(0),nsamps(0),
     deltatDouble(0),deltatInt(0),deltatEvenMsec(0),
     nSamplePerRawSample(0),
-    outsamples(0),
-    floatNAN(nanf(""))
+    outsamples(0)
 {
 }
 
@@ -156,6 +155,7 @@ void DSMAnalogSensor::init() throw()
     assert(!initialized);
     initialized = true;
 
+    // number of variables being sampled
     unsigned int nvariables = sampleIndexVec.size();
 
     sampleIndices = new int[nvariables];
@@ -241,29 +241,34 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) throw()
+bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
 {
 
-    dsm_time_t tt = isamp->getTimeTag();
+    dsm_time_t tt = insamp->getTimeTag();
     dsm_time_t tt0 = tt;
 
-    const signed short* sp = (const signed short*) isamp->getConstVoidDataPtr();
+    // pointer to raw A2D counts
+    const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
 
-    unsigned int nvalues = isamp->getDataLength() / sizeof(short);
+    // number of data values in this raw sample.
+    unsigned int nvalues = insamp->getDataLength() / sizeof(short);
+
+    // number of variables being sampled
     unsigned int nvariables = sampleIndexVec.size();
+
     // assert(nvariables * nSamplePerRawSample == nvalues);
-    unsigned int nsampsInRawSample = nvalues / nvariables;
+    // One raw sample from A2D contains multiple sweeps
+    // of the A2D channels.
+    // unsigned int nsampsInRawSample = nvalues / nvariables;
 
     unsigned int ival = 0;
-    for (unsigned int isamp = 0; isamp < nsampsInRawSample; ) {
+    for (unsigned int isamp = 0; ival < nvalues; ) {
 
-#ifdef DEBUG
-	cerr << "isamp=" << isamp << " nsampsInRawSample=" << nsampsInRawSample << endl;
-#endif
 	for (unsigned int ivar = 0; ivar < nvariables && ival < nvalues; ivar++,ival++) {
 #ifdef DEBUG
 	cerr << "ivar=" << ivar << " nvariables=" << nvariables <<
-		" ival=" << ival << " nvalues=" << nvalues << endl;
+		" ival=" << ival << " nvalues=" << nvalues <<
+		" isamp=" << isamp << endl;
 #endif
 	    int sampIndex = sampleIndices[ivar];
 #ifdef DEBUG
@@ -296,7 +301,7 @@ bool DSMAnalogSensor::process(const Sample* isamp,list<const Sample*>& result) t
 			    (long long) rint(++nsamps[sampIndex] *
 			    	deltatDouble[sampIndex]);
 			if (tt > endTimes[sampIndex]) {
-			    int nt = ceil((tt - endTimes[sampIndex]) /
+			    int nt = (int)ceil((tt - endTimes[sampIndex]) /
 			    	deltatDouble[sampIndex]);
 			    nsamps[sampIndex] += nt;
 			    endTimes[sampIndex] +=
