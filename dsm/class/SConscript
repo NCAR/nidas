@@ -97,6 +97,7 @@ sources = Split("""
   SampleIOProcessor.cc
   SyncRecordProcessor.cc
   SampleArchiver.cc
+  SampleAverager.cc
 
 """)
 
