@@ -31,6 +31,16 @@ std::string Linear::toString() const
     return ost.str();
 }
 
+/*
+ * Copy constructor.
+ */
+Polynomial::Polynomial(const Polynomial& x):
+	coefvec(),coefs(0),ncoefs(0)
+{
+    setCoefficients(x.getCoefficients());
+}
+
+
 std::string Polynomial::toString() const
 {
     ostringstream ost;

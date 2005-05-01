@@ -20,8 +20,21 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-Variable::Variable(): iscount(false),converter(0)
+Variable::Variable(): sampleTag(0),iscount(false),converter(0)
 {
+}
+
+Variable::Variable(const Variable& x): sampleTag(0),iscount(x.iscount),
+	converter(0)
+{
+    if (x.converter) converter = x.converter->clone();
+    const list<const Parameter*>& params = x.getParameters();
+    list<const Parameter*>::const_iterator pi;
+    for (pi = params.begin(); pi != params.end(); ++pi) {
+        const Parameter* parm = *pi;
+	Parameter* newp = parm->clone();
+	addParameter(newp);
+    }
 }
 
 Variable::~Variable()
@@ -65,8 +78,7 @@ void Variable::fromDOMElement(const DOMElement* node)
 	if (!elname.compare("parameter"))  {
 	    Parameter* parameter =
 	    	Parameter::createParameter((DOMElement*)child);
-	    parameters.push_back(parameter);
-	    constParameters.push_back(parameter);
+	    addParameter(parameter);
 	}
 	else {
 	    if (nconverters > 0)

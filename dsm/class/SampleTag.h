@@ -21,6 +21,7 @@
 
 #include <vector>
 #include <list>
+#include <algorithm>
 
 namespace dsm {
 /**
@@ -75,10 +76,26 @@ public:
      */
     virtual float getRate() const { return rate; }
 
+    /**
+     * Add a variable to this SampleTag.  SampleTag
+     * will own the Variable, and will delete
+     * it in its destructor.
+     */
     virtual void addVariable(Variable* var)
     	throw(atdUtil::InvalidParameterException);
 
     const std::vector<const Variable*>& getVariables() const;
+
+    /**
+     * What is the index of a Variable in this SampleTag.
+     * @return -1: 'tain't here
+     */
+    int getIndex(const Variable* var) const
+    {
+	std::vector<const Variable*>::const_iterator vi =
+	    std::find(constVariables.begin(),constVariables.end(),var);
+        return (vi == constVariables.end() ? -1 : vi - constVariables.begin());
+    }
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);

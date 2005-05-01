@@ -24,6 +24,9 @@
 #include <list>
 
 namespace dsm {
+
+class SampleTag;
+
 /**
  * Class describing a sampled variable.
  */
@@ -36,7 +39,22 @@ public:
      */
     Variable();
 
+    /**
+     * Copy constructor.
+     */
+    Variable(const Variable&);
+
     virtual ~Variable();
+
+    /**
+     * What sample am I a part of?
+     */
+    const SampleTag* getSampleTag() const { return sampleTag; }
+
+    /**
+     * Set the sample tag pointer.  Variable does not own the pointer.
+     */
+    void setSampleTag(const SampleTag* val) { sampleTag = val; }
 
     void setName(const std::string& val) { name = val; }
 
@@ -52,7 +70,7 @@ public:
 
     /**
      * Is this a count variable, i.e. a particle count.
-     * Post-processing needs to know - typically summing
+     * Post-processing may need to know - typically summing
      * the counts over a time period, instead of averaging.
      */
     bool isCount() const { return iscount; }
@@ -60,6 +78,17 @@ public:
     void setCount(bool val) { iscount = val; }
 
     const VariableConverter* getConverter() const { return converter; }
+
+    /**
+     * Add a parameter to this Variable. Variable
+     * will then own the pointer and will delete it
+     * in its destructor.
+     */
+    void addParameter(Parameter* val)
+    {
+        parameters.push_back(val);
+	constParameters.push_back(val);
+    }
 
     const std::list<const Parameter*>& getParameters() const
     {
@@ -79,6 +108,8 @@ public:
 
 protected:
 
+    const SampleTag* sampleTag;
+
     std::string name;
 
     std::string longname;
@@ -89,8 +120,23 @@ protected:
 
     VariableConverter *converter;
 
+    /**
+     * List of pointers to Parameters.
+     */
     std::list<Parameter*> parameters;
+
+    /**
+     * List of const pointers to Parameters for providing via
+     * getParameters().
+     */
     std::list<const Parameter*> constParameters;
+
+private:
+
+    /**
+     * Assignment not supported.
+     */
+    Variable& operator=(const Variable&);
 
 };
 

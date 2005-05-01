@@ -33,6 +33,7 @@ void SampleTag::addVariable(Variable* var)
 {
     variables.push_back(var);
     constVariables.push_back(var);
+    var->setSampleTag(this);
 }
 
 const std::vector<const Variable*>& SampleTag::getVariables() const

@@ -37,6 +37,8 @@ public:
 
     virtual ~Parameter() {}
 
+    virtual Parameter* clone() const = 0;
+
     const std::string& getName() const { return name; }
 
     void setName(const std::string& val) { name = val; }
@@ -102,6 +104,8 @@ class ParameterT : public Parameter {
 public:
 
     ParameterT(): Parameter(getParamType(T())) {}
+
+    Parameter* clone() const;
 
     int getLength() const { return values.size(); }
 

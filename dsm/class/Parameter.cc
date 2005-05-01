@@ -14,10 +14,9 @@
 */
 
 #include <Parameter.h>
+#include <Sample.h>	// floatNAN
 #include <sstream>
 #include <iostream>
-
-#include <math.h>	// nanf
 
 using namespace dsm;
 using namespace std;
@@ -38,7 +37,7 @@ double Parameter::getNumericValue(int i) const
 	return static_cast<const ParameterT<bool>*>(this)->getValue(i);
 	break;
     }
-    return nanf("");
+    return floatNAN;
 }
 
 std::string Parameter::getStringValue(int i) const
@@ -60,6 +59,7 @@ std::string Parameter::getStringValue(int i) const
     }
     return ost.str();
 }
+
 
 Parameter* Parameter::createParameter(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
@@ -94,6 +94,12 @@ Parameter* Parameter::createParameter(const DOMElement* node)
     }
     throw atdUtil::InvalidParameterException("parameter",
 	    "element","no type attribute found");
+}
+
+template<class T>
+Parameter* ParameterT<T>::clone() const
+{
+    return new ParameterT<T>(*this);
 }
 
 template<class T>

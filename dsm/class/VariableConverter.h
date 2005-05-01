@@ -28,6 +28,8 @@ public:
 
     virtual ~VariableConverter() {}
 
+    virtual VariableConverter* clone() const = 0;
+
     virtual float convert(float) const = 0;
 
     void setUnits(const std::string& val) { units = val; }
@@ -66,6 +68,8 @@ class Linear: public VariableConverter
 {
 public:
 
+    VariableConverter* clone() const { return new Linear(*this); }
+
     void setSlope(float val) { slope = val; }
 
     float getSlope() const { return slope; }
@@ -94,7 +98,15 @@ class Polynomial: public VariableConverter
 public:
 
     Polynomial() : coefs(0) {}
+
+    /**
+     * Copy constructor.
+     */
+    Polynomial(const Polynomial&);
+
     ~Polynomial() { delete [] coefs; }
+
+    VariableConverter* clone() const { return new Polynomial(*this); }
 
     void setCoefficients(const std::vector<float>& vals);
 
