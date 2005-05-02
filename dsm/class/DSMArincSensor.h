@@ -105,6 +105,10 @@ namespace dsm {
 
   private:
 
+    /** channel configuration */
+    unsigned int _speed;
+    unsigned int _parity;
+
     /** Transmit blank ARINC labels (used for simulation purposes) */
     bool sim_xmit;
   };

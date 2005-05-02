@@ -67,22 +67,18 @@ static struct ioctlHandle* ioctlhandle = 0;
 
 /* Set the base address of the ARINC card */
 void* phys_membase;
-/* static unsigned long parity = AR_ODD; */
-/* static unsigned long speed  = AR_HIGH; */
 static volatile unsigned long basemem = 0x3c0d0000;
 static enum irigClockRates sync_rate = IRIG_1_HZ;
 
-/* MODULE_PARM(parity, "1l"); */
-/* MODULE_PARM(speed,  "1l"); */
+/* module prameters (can be passed in via command line) */
 MODULE_PARM(basemem,   "1l");
-
-/* MODULE_PARM_DESC(parity,  "ARINC 429 parity (default AR_ODD)"); */
-/* MODULE_PARM_DESC(speed,   "ARINC 429 speed (default AR_HIGH)"); */
 MODULE_PARM_DESC(basemem,   "ISA memory base (default 0x3c0d000)");
 
 /* global variables */
 char requested_region  = 0;
 int  display_chn = -1;
+
+/* channel configuration structure */
 struct recvHandle
 {
   /* setup info... */
@@ -90,6 +86,8 @@ struct recvHandle
   int                 fd;
   unsigned int        lps;   // Labels Per Second
   enum irigClockRates poll;
+  unsigned int        speed;
+  unsigned int        parity;
   char                sim_xmit;
 
   /* run-time info... */
@@ -263,7 +261,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     break;
 
   case ARINC_SET:
-
+  {
     /* stop the board */
     if (running) {
       status = ar_reset(BOARD_NUM);
@@ -303,8 +301,15 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     status = ar_label_filter(BOARD_NUM, chn, val.label, ARU_FILTER_OFF);
     if (status != ARS_NORMAL) goto ar_fail;
     break;
-
+  }
   case ARINC_GO:
+  {
+    /* store the speed and parity for this channel */
+    archn_t val = *(archn_t*) buf;
+    if (val.speed != AR_HIGH && val.speed != AR_LOW)   return -RTL_EINVAL;
+    if (val.parity != AR_ODD && val.parity != AR_EVEN) return -RTL_EINVAL;
+    hdl->speed  = val.speed;
+    hdl->parity = val.parity;
 
     /* stop the board */
     if (running) {
@@ -328,6 +333,20 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
       err("ARINC_GO: opened '%s' poll[%d] = %d Hz)", hdl->fname, chn, irigClockEnumToRate(hdl->poll));
     }
+    /* set channel speed */
+    err("set channel %d speed  to %d", chn, hdl->speed);
+    status = ar_set_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn, hdl->speed);
+    if (status != ARS_NORMAL) goto ar_fail;
+    if (ar_get_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn) != hdl->speed)
+      return -RTL_EINVAL;
+
+    /* set channel parity */
+    err("set channel %d parity to %d", chn, hdl->parity);
+    status = ar_set_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn, hdl->parity);
+    if (status != ARS_NORMAL) goto ar_fail;
+    if (ar_get_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn) != hdl->parity)
+      return -RTL_EINVAL;
+
     /* launch the board */
     status = ar_go(BOARD_NUM);
     if (status != ARS_NORMAL) goto ar_fail;
@@ -335,7 +354,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     running = 1;
     err("ARINC_GO: board launched");
     break;
-
+  }
   case ARINC_RESET:
 
     running = 0;
@@ -359,6 +378,8 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     hdl->fd            = -1;
     hdl->lps           = 0;
     hdl->poll          = 0;
+    hdl->speed         = 0;
+    hdl->parity        = 0;
     hdl->lps_cnt       = 0;
     hdl->overflow      = 0;
     hdl->underflow     = 0;
@@ -685,18 +706,6 @@ static int __init arinc_init(void)
   /* for each ARINC receive port... */
   for (chn=0; chn<N_ARINC_RX; chn++)
   {
-/*     /\* set channel parity (TODO pass as a config item?) *\/ */
-/*     status = ar_set_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn, parity); */
-/*     if (status != ARS_NORMAL) goto fail; */
-/*     ck = ar_get_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn); */
-/*     err("parity = %d ck = %d", parity, ck); */
-
-/*     /\* set channel speed (TODO pass as a config item?) *\/ */
-/*     status = ar_set_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn, speed); */
-/*     if (status != ARS_NORMAL) goto fail; */
-/*     ck = ar_get_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn); */
-/*     err("speed  = %d ck = %d", speed, ck); */
-
     // remove broken device file before making a new one
     struct recvHandle *hdl = &chn_info[chn];
     sprintf( hdl->fname, "/dev/arinc_in_%d", chn );

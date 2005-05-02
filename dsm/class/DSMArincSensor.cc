@@ -29,7 +29,7 @@ using namespace xercesc;
 //CREATOR_ENTRY_POINT(DSMArincSensor);
 
 DSMArincSensor::DSMArincSensor() :
-  _nanf(nanf("")), sim_xmit(false)
+  _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD), sim_xmit(false)
 {
 }
 
@@ -74,7 +74,11 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
   }
   sortedSampleTags.clear();
   ioctl(ARINC_MEASURE,(const void*)0,0);
-  ioctl(ARINC_GO,(const void*)0,0);
+
+  archn_t archn;
+  archn.speed  = _speed;
+  archn.parity = _parity;
+  ioctl(ARINC_GO, &archn, sizeof(archn_t));
 
   RTL_DSMSensor::open(flags);
 }
@@ -169,7 +173,21 @@ void DSMArincSensor::fromDOMElement(const DOMElement* node)
       const string& aname = attr.getName();
       const string& aval = attr.getValue();
 
-      if (!aname.compare("sim_xmit"))
+      if (!aname.compare("speed")) {
+        err("%s = %s", aname.c_str(), aval.c_str());
+        if (!aval.compare("high"))     _speed = AR_HIGH;
+        else if (!aval.compare("low")) _speed = AR_LOW;
+        else throw atdUtil::InvalidParameterException
+               (DSMSensor::getName(),aname,aval);
+      }
+      else if (!aname.compare("parity")) {
+        err("%s = %s", aname.c_str(), aval.c_str());
+        if (!aval.compare("odd"))       _parity = AR_ODD;
+        else if (!aval.compare("even")) _parity = AR_EVEN;
+        else throw atdUtil::InvalidParameterException
+               (DSMSensor::getName(),aname,aval);
+      }
+      else if (!aname.compare("sim_xmit"))
         sim_xmit = !aval.compare("true");
     }
   }

@@ -46,12 +46,20 @@
 #define N_ARINC_TX 2
 
 /**
- * ARINC configuration structure
+ * ARINC label configuration structure
  */
 typedef struct {
   short label;
   short rate;
 } arcfg_t;
+
+/**
+ * ARINC channel configuration structure
+ */
+typedef struct {
+  unsigned int speed;
+  unsigned int parity;
+} archn_t;
 
 /**
  * ARINC time tagged sample structure
@@ -77,7 +85,7 @@ typedef struct {
  * See pages 130-132 of Linux Device Driver's Manual
  */
 #define ARINC_SET        _IOW(ARINC_MAGIC,0, arcfg_t)
-#define ARINC_GO          _IO(ARINC_MAGIC,1)
+#define ARINC_GO         _IOW(ARINC_MAGIC,1, archn_t)
 #define ARINC_RESET       _IO(ARINC_MAGIC,2)
 #define ARINC_SIM_XMIT    _IO(ARINC_MAGIC,3)
 #define ARINC_BIT        _IOW(ARINC_MAGIC,4, short)
@@ -86,10 +94,9 @@ typedef struct {
 
 
 #include <ioctl_fifo.h>
+#include <utildefs.h>
 
 #ifdef __RTCORE_KERNEL__
-
-#include <utildefs.h>
 
 #endif
 

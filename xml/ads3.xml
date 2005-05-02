@@ -165,7 +165,7 @@
     <!--<sample id="0371" rate="2"    ><variable name="equipment id"               units=""         longname="equipment id"/></sample>                not used    -->
     </arincSensor>
 
-    <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02">
+    <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low">
         <!-- Taken from the Honeywell Installation Manual PN HG2021GB02/GD02 -->
         <!-- Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219). -->
         <sample id="0060" rate="1"    ><variable name="Measurement Status"         units=""         longname="Measurement Status"/></sample>
