@@ -46,15 +46,10 @@ env['CXXFLAGS'] = Split("""
     -Wall -O2
 """)
 
-# env['LINKFLAGS'] = Split("""
-#     -rdynamic
-# """)
-
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
-##  #/disc/class
-##  /jnet/linux/include
+
 env['CPPPATH'] = Split("""
   #/dsm/modules/CEI420A/Include
   #/dsm/modules
@@ -76,13 +71,6 @@ arm_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_arm/isffLib/include
     /net/opt_lnx/local_arm/include
 """))
-
-## arm_env.AppendUnique(LIBS = Split("""
-##       Dsm
-##       isa
-##       pthread
-##       dl
-##     """))
 
 ##    /scr/tmp/maclean/isa_tmp/arm/lib
 arm_env.AppendUnique(LIBPATH = Split("""
@@ -125,16 +113,6 @@ x86_env.AppendUnique(CPPPATH = Split("""
     /net/opt_lnx/local_fc3/include
 """))
 
-## x86_env.AppendUnique(LIBS = Split("""
-##      Dsm
-##       isa
-##       pthread
-##       dl
-##     """))
-
-##     Disc
-
-
 ##    /scr/tmp/maclean/isa_tmp/fc3/lib
 x86_env.AppendUnique(LIBPATH = Split("""
     /net/opt_lnx/local_fc3/isffLib/lib
@@ -147,6 +125,7 @@ x86_env.AppendUnique(LIBPATH = Split("""
 ##
 x86_env.AppendUnique(RPATH = Split("""
     /net/opt_lnx/local_fc3/lib
+    #dsm/class/x86
 """))
 
 ##
