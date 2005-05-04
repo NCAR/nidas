@@ -1016,9 +1016,11 @@ static short A2DConfig(int A2DSel, US *filter)
 		{
 			rtl_printf("CRC ERROR! chip = %1d, stat = 0x%04X\n",
 				A2DSel, stat);
+			globalStatus.a2d_status[A2DSel] = stat; // Error status word
 			return(-1);
 		}
 	}
+	globalStatus.a2d_status[A2DSel] = stat; // Final status word following load
 	rtl_usleep(2000);
 	return(stat);
 }
