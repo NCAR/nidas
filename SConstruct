@@ -123,9 +123,10 @@ x86_env.AppendUnique(LIBPATH = Split("""
 ##
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
 ##
-x86_env.AppendUnique(RPATH = Split("""
-    /net/opt_lnx/local_fc3/lib
-"""))
+x86_env.AppendUnique(RPATH = [
+    "/net/opt_lnx/local_fc3/lib",
+    x86_env.Dir("#dsm/class/x86").get_abspath()
+    ]) 
 
 ##
 ##  Build dsm/modules
