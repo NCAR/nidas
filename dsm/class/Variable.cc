@@ -24,8 +24,9 @@ Variable::Variable(): sampleTag(0),iscount(false),converter(0)
 {
 }
 
-Variable::Variable(const Variable& x): sampleTag(0),iscount(x.iscount),
-	converter(0)
+Variable::Variable(const Variable& x):
+	sampleTag(0),name(x.name),longname(x.longname),units(x.units),
+	iscount(x.iscount),converter(0)
 {
     if (x.converter) converter = x.converter->clone();
     const list<const Parameter*>& params = x.getParameters();

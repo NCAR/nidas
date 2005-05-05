@@ -35,6 +35,7 @@ std::string Linear::toString() const
  * Copy constructor.
  */
 Polynomial::Polynomial(const Polynomial& x):
+	VariableConverter(x),
 	coefvec(),coefs(0),ncoefs(0)
 {
     setCoefficients(x.getCoefficients());
