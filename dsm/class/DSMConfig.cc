@@ -225,7 +225,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    string("dsm") + ": " + getName() + " output",
 		    classattr,"is not a SampleOutput");
             }
-	    output->setDSMConfig(this);
+	    output->addDSMConfig(this);
             output->fromDOMElement((DOMElement*)child);
 	    addOutput(output);
         }

@@ -54,10 +54,6 @@ public:
 
     virtual void disconnect(SampleInput*) throw(atdUtil::IOException) = 0;
 
-    virtual void setDSMService(const DSMService*);
-
-    virtual const DSMService* getDSMService() const;
-
     void addOutput(SampleOutput* val) { outputs.push_back(val); }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -73,7 +69,7 @@ protected:
     
     std::string name;
 
-    const DSMService* service;
+    // const DSMService* service;
 
     std::list<SampleOutput*> outputs;
 };

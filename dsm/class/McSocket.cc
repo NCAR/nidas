@@ -21,6 +21,8 @@ using namespace std;
 using namespace xercesc;
 
 
+CREATOR_ENTRY_POINT(McSocket)
+
 void McSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort)
     throw(atdUtil::IOException)
@@ -31,7 +33,7 @@ void McSocket::requestConnection(ConnectionRequester* requester,
     else listen();
 }
 
-IOChannel* McSocket::clone()
+IOChannel* McSocket::clone() const
 {
     cerr << "McSocket cloning " << getName() << endl;
     McSocket* newmcsock = new McSocket(*this);
@@ -74,6 +76,7 @@ int McSocket::getFd() const
     if (socket) return socket->getFd();
     else return -1;
 }
+
 void McSocket::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {

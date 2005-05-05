@@ -32,7 +32,7 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
 	name("SampleOutputStream"),iochan(0),iostream(0),
-	pseudoPort(0),dsm(0),service(0),connectionRequester(0),
+	pseudoPort(0),service(0),connectionRequester(0),
 	nextFileTime(0)
 {
 }
@@ -40,7 +40,7 @@ SampleOutputStream::SampleOutputStream():
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	name(x.name), iochan(x.iochan->clone()),iostream(0),
 	pseudoPort(x.pseudoPort),
-	dsm(x.dsm),service(x.service),
+	dsms(x.dsms),service(x.service),
 	connectionRequester(x.connectionRequester),
 	nextFileTime(0)
 {
@@ -69,28 +69,33 @@ void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
 }
 
 
-void SampleOutputStream::setDSMConfig(const DSMConfig* val)
+void SampleOutputStream::setDSMConfigs(const list<const DSMConfig*>& val)
 {
-    dsm = val;
-    if (iochan) iochan->setDSMConfig(val);
+    dsms = val;
+    if (iochan) iochan->setDSMConfigs(val);
 }
 
-const DSMConfig* SampleOutputStream::getDSMConfig() const
+const list<const DSMConfig*>& SampleOutputStream::getDSMConfigs() const
 {
-    return dsm;
+    return dsms;
 }
 
-void SampleOutputStream::setDSMService(const DSMService* val)
+void SampleOutputStream::addDSMConfig(const DSMConfig* val)
 {
-    service = val;
-    if (iochan) iochan->setDSMService(val);
+    dsms.push_back(val);
+    if (iochan) iochan->addDSMConfig(val);
 }
 
-const DSMService* SampleOutputStream::getDSMService() const
-{
-    return service;
-}
+// void SampleOutputStream::setDSMService(const DSMService* val)
+// {
+//     service = val;
+//     if (iochan) iochan->setDSMService(val);
+// }
 
+// const DSMService* SampleOutputStream::getDSMService() const
+// {
+//     return service;
+// }
 
 void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
 
@@ -228,8 +233,8 @@ void SampleOutputStream::fromDOMElement(const DOMElement* node)
 
         iochan = IOChannel::createIOChannel(elname);
 
-        iochan->setDSMConfig(getDSMConfig());
-        iochan->setDSMService(getDSMService());
+        iochan->setDSMConfigs(getDSMConfigs());
+        // iochan->setDSMService(getDSMService());
 
 	iochan->fromDOMElement((DOMElement*)child);
 
@@ -266,7 +271,8 @@ DOMElement* SampleOutputStream::toDOMElement(DOMElement* node)
 }
 
 SortedSampleOutputStream::SortedSampleOutputStream():
-	SampleOutputStream(),initialized(false),sorter(250),proxy(0,*this)
+	SampleOutputStream(),initialized(false),
+	sorter(250,"SortedSampleOutputStream"),proxy(0,*this)
 {
 }
 /*

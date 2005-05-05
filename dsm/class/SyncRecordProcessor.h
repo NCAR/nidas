@@ -64,8 +64,6 @@ protected:
 
 protected:
 
-    SampleSorter sorter;
-
     SyncRecordGenerator generator;
 
     bool initialized;

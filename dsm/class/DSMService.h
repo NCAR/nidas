@@ -53,11 +53,16 @@ public:
 
     virtual DSMServer* getDSMServer() const { return server; }
 
-    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
-
-    virtual const DSMConfig* getDSMConfig() const { return dsm; }
-
     virtual const Aircraft* getAircraft() const;
+
+    const std::list<const DSMConfig*>& getDSMConfigs() const
+    {
+        return dsms;
+    }
+
+    void addDSMConfig(const DSMConfig* val) {
+        dsms.push_back(val);
+    }
 
     /**
      * schedule this service to run.
@@ -87,7 +92,7 @@ protected:
 
     DSMServer* server;
 
-    const DSMConfig* dsm;
+    std::list<const DSMConfig*> dsms;
 
     std::set<DSMService*> subServices;
 

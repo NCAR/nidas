@@ -37,12 +37,12 @@ SyncRecordGenerator::~SyncRecordGenerator()
 }
 
 
-void SyncRecordGenerator::init(const list<DSMConfig*>& dsms) throw()
+void SyncRecordGenerator::init(const list<const DSMConfig*>& dsms) throw()
 {
 
     headerStream.str("");	// initialize header to empty string
 
-    list<DSMConfig*>::const_iterator di;
+    list<const DSMConfig*>::const_iterator di;
 
     list<DSMSensor*> analogSensors;
     list<DSMSensor*> serialSensors;
@@ -206,6 +206,16 @@ void SyncRecordGenerator::sendHeader() throw()
 
 }
 
+void SyncRecordGenerator::flush() throw()
+{
+    if (syncRecord) {
+	distribute(syncRecord);
+	syncRecord->freeReference();
+	syncRecord = 0;
+	syncTime += 1000;
+    }
+}
+
 bool SyncRecordGenerator::receive(const Sample* samp) throw()
 {
 #ifdef DEBUG
@@ -234,10 +244,7 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 
 	if (doHeader) sendHeader();
 
-	distribute(syncRecord);
-	syncRecord->freeReference();
-	syncRecord = 0;
-        syncTime += 1000;
+	flush();
 	if (tt >= syncTime + 1000) {	// leap forward
 	    badTimes++;
 	    syncTime = tt - (tt % 1000);

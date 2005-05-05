@@ -19,10 +19,12 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-SampleIOProcessor::SampleIOProcessor(): service(0) {}
+SampleIOProcessor::SampleIOProcessor()
+{
+}
 
 SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
-	name(x.name),service(x.service)
+	name(x.name)
 {
 #ifdef DEBUG
     cerr << "SampleIOProcessor copy ctor" << endl;
@@ -53,21 +55,6 @@ SampleIOProcessor::~SampleIOProcessor()
 const std::string& SampleIOProcessor::getName() const { return name; }
 
 void SampleIOProcessor::setName(const std::string& val) { name = val; }
-
-void SampleIOProcessor::setDSMService(const DSMService* val)
-{
-    service = val;
-    list<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-        SampleOutput* output = *oi;
-	output->setDSMService(val);
-    }
-}
-
-const DSMService* SampleIOProcessor::getDSMService() const
-{
-    return service;
-}
 
 /*
  * process <processor> element

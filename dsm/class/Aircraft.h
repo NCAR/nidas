@@ -51,11 +51,19 @@ public:
     void setProject(const Project* val) { project = val; }
 
     /**
-     * An Aircraft contains one or more DSMs. 
+     * An Aircraft contains one or more DSMs.  Aircraft will
+     * own the pointer and will delete the DSMConfig in its
+     * destructor.
      */
-    void addDSMConfig(DSMConfig* dsm) { dsms.push_back(dsm); }
+    void addDSMConfig(DSMConfig* dsm)
+    {
+        dsms.push_back(dsm);
+    }
 
-    const std::list<DSMConfig*>& getDSMConfigs() const { return dsms; }
+    const std::list<DSMConfig*>& getDSMConfigs() const
+    {
+        return dsms;
+    }
 
     /**
      * An Aircraft has one or more DSMServers.

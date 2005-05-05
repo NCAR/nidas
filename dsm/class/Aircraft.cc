@@ -136,7 +136,7 @@ const DSMConfig* Aircraft::findDSM(const atdUtil::Inet4Address& addr) const
 {
     for (list<DSMConfig*>::const_iterator di=dsms.begin();
 	di != dsms.end(); ++di) {
-	DSMConfig* dsm = *di;
+	const DSMConfig* dsm = *di;
 	std::list<atdUtil::Inet4Address> addrs =
 		atdUtil::Inet4Address::getAllByName(dsm->getName());
 	for (list<atdUtil::Inet4Address>::const_iterator ai=addrs.begin();

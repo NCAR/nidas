@@ -15,12 +15,13 @@
 
 #include <FileSet.h>
 #include <DSMConfig.h>
-#include <DSMService.h>
 #include <Aircraft.h>
 
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
+
+CREATOR_ENTRY_POINT(FileSet)
 
 const std::string& FileSet::getName() const
 {
@@ -95,16 +96,16 @@ string FileSet::getTokenValue(const string& token)
 {
     if (!token.compare("PROJECT")) return Project::getInstance()->getName();
         
+    const list<const DSMConfig*>& dsms = getDSMConfigs();
     if (!token.compare("AIRCRAFT")) {
-	if (getDSMConfig())
-	    return getDSMConfig()->getAircraft()->getName();
-	else if (getDSMService())
-	    return getDSMService()->getAircraft()->getName();
+	if (dsms.size() > 0)
+	    return dsms.front()->getAircraft()->getName();
 	else return "unknown";
     }
         
     if (!token.compare("LOCATION")) {
-	if (getDSMConfig()) return getDSMConfig()->getLocation();
+	if (dsms.size() > 1) return "multiple_locations";
+	else if (dsms.size() == 1) return dsms.front()->getLocation();
 	else return "unknown";
     }
 

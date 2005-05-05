@@ -16,7 +16,6 @@
 #ifndef DSM_MCSOCKET_H
 #define DSM_MCSOCKET_H
 
-#include <DSMService.h>
 #include <IOChannel.h>
 #include <DOMable.h>
 #include <atdUtil/McSocket.h>
@@ -55,7 +54,7 @@ public:
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    IOChannel* clone();
+    IOChannel* clone() const;
 
     void connected(atdUtil::Socket* sock);
 
@@ -104,7 +103,8 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    atdUtil::Socket* socket;
+    mutable atdUtil::Socket* socket;
+
     std::string name;
 
     ConnectionRequester* connectionRequester;

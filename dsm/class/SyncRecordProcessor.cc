@@ -30,17 +30,13 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SyncRecordProcessor);
 
 SyncRecordProcessor::SyncRecordProcessor():
-	SampleIOProcessor(),sorter(250),initialized(false)
+	SampleIOProcessor(),initialized(false)
 {
     setName("SyncRecordProcessor");
 }
 
 SyncRecordProcessor::~SyncRecordProcessor()
 {
-    if (initialized) {
-	sorter.interrupt();
-	sorter.join();
-    }
 }
 
 SampleIOProcessor* SyncRecordProcessor::clone() const
@@ -61,35 +57,39 @@ void SyncRecordProcessor::connect(SampleInput* input)
     {
 	atdUtil::Synchronized autosync(initMutex);
 	if (!initialized) {
-	    sorter.start();
-	    const list<DSMConfig*>& dsms = 
-		getDSMService()->getDSMServer()->getAircraft()->getDSMConfigs();
+	    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
 	    generator.init(dsms);
-	    sorter.addSampleClient(&generator);
 
 	    list<SampleOutput*>::const_iterator oi;
 	    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 		SampleOutput* output = *oi;
-		output->setDSMService(getDSMService());
+		output->setDSMConfigs(input->getDSMConfigs());
+		// output->setDSMService(getDSMService());
 		output->requestConnection(this);
 	    }
 	    initialized = true;
 	}
     }
 
-    assert(input->isRaw());
-    const list<DSMSensor*>& sensors = input->getDSMConfig()->getSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
+    // assert(input->isRaw());
+
+    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
+    list<const DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+        const DSMConfig* dsm = *di;
+
+	const list<DSMSensor*>& sensors = dsm->getSensors();
+	list<DSMSensor*>::const_iterator si;
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
 #ifdef DEBUG
-	cerr << "SyncRecordProcessor::connect, input=" <<
-		input->getName() << " sensor=" <<
-		    sensor->getName() << endl;
+	    cerr << "SyncRecordProcessor::connect, input=" <<
+		    input->getName() << " sensor=" <<
+			sensor->getName() << endl;
 #endif
-	sensor->init();
-	sensor->addSampleClient(&sorter);
-	input->addSensor(sensor);
+	    sensor->init();
+	    input->addProcessedSampleClient(&generator,sensor);
+	}
     }
 }
  
@@ -100,13 +100,25 @@ void SyncRecordProcessor::disconnect(SampleInput* input)
 	"%s has disconnected from %s",
 	input->getName().c_str(),getName().c_str());
 
-    if (input->getDSMConfig()) {
-	const list<DSMSensor*>& sensors = input->getDSMConfig()->getSensors();
+    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
+    list<const DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+        const DSMConfig* dsm = *di;
+
+	const list<DSMSensor*>& sensors = dsm->getSensors();
 	list<DSMSensor*>::const_iterator si;
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
-	    sensor->removeSampleClient(&sorter);
+	    input->removeProcessedSampleClient(&generator,sensor);
 	}
+    }
+    generator.flush();
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        input->removeSampleClient(output);
+        output->flush();
+        output->close();
     }
 }
  
@@ -116,9 +128,16 @@ void SyncRecordProcessor::connected(SampleOutput* output) throw()
 	"%s has connected to %s",
 	output->getName().c_str(),getName().c_str());
 
-    output->init();
+    try {
+	output->init();
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: %error: %s",
+	    output->getName().c_str(),ioe.what());
+	return;
+    }
     generator.addSampleClient(output);
-
 }
 
 void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
@@ -126,7 +145,6 @@ void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
 	output->getName().c_str(),getName().c_str());
-
     generator.removeSampleClient(output);
 }
 

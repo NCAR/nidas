@@ -49,13 +49,15 @@ public:
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void setDSMConfig(const DSMConfig* val) = 0;
+    virtual void setDSMConfigs(const std::list<const DSMConfig*>& val) = 0;
 
-    virtual const DSMConfig* getDSMConfig() const = 0;
+    virtual void addDSMConfig(const DSMConfig*) = 0;
 
-    virtual void setDSMService(const DSMService*) = 0;
+    virtual const std::list<const DSMConfig*>& getDSMConfigs() const = 0;
 
-    virtual const DSMService* getDSMService() const = 0;
+    // virtual void setDSMService(const DSMService*) = 0;
+
+    // virtual const DSMService* getDSMService() const = 0;
 
     virtual void requestConnection(SampleConnectionRequester*)
     	throw(atdUtil::IOException) = 0;
@@ -64,7 +66,7 @@ public:
 
     virtual int getFd() const = 0;
 
-    virtual void init() throw() = 0;
+    virtual void init() throw(atdUtil::IOException) = 0;
 
     virtual void flush() throw(atdUtil::IOException) = 0;
 
@@ -102,9 +104,11 @@ public:
 
     int getPseudoPort() const;
 
-    void setDSMConfig(const DSMConfig* val);
+    void setDSMConfigs(const std::list<const DSMConfig*>& val);
 
-    const DSMConfig* getDSMConfig() const;
+    void addDSMConfig(const DSMConfig*);
+
+    const std::list<const DSMConfig*>& getDSMConfigs() const;
 
     void setDSMService(const DSMService*);
 
@@ -146,7 +150,7 @@ protected:
 
     int pseudoPort;
 
-    const DSMConfig* dsm;
+    std::list<const DSMConfig*> dsms;
 
     const DSMService* service;
 
@@ -158,7 +162,7 @@ protected:
 
 /**
  * A proxy for a SampleOutputStream. One passes a reference to a
- * SampleOutputStream the constructor for this proxy.
+ * SampleOutputStream to the constructor for this proxy.
  * The SampleOutputStreamProxy::receive method
  * will invoke the SampleOutputStream::receive() method not the
  * derived method.

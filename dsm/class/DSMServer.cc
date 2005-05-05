@@ -286,6 +286,8 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	    }
 	    service->setDSMServer(this);
 	    service->fromDOMElement((DOMElement*)child);
+
+
 	    addService(service);
 	}
     }
@@ -315,6 +317,11 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
+	const std::list<DSMConfig*>& dsms = getAircraft()->getDSMConfigs();
+	cerr << "adding " << dsms.size() << " DSMConfigs to service" << endl;
+	std::list<DSMConfig*>::const_iterator di;
+	for (di = dsms.begin(); di != dsms.end(); ++di)
+	    svc->addDSMConfig(*di);
 	svc->schedule();
     }
 }

@@ -40,11 +40,13 @@ public:
 
     virtual ~SyncRecordGenerator();
 
-    void init(const std::list<DSMConfig*>& dsms) throw();
+    void init(const std::list<const DSMConfig*>& dsms) throw();
 
     bool receive(const Sample*) throw();
 
     void sendHeader(dsm_time_t timetag) throw();
+
+    void flush() throw();
 
 protected:
 

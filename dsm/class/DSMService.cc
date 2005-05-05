@@ -24,7 +24,7 @@ using namespace std;
 using namespace xercesc;
 
 DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
-	server(0),dsm(0)
+	server(0)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
@@ -129,7 +129,8 @@ int DSMService::checkSubServices() throw()
     return nrunning;
 }
 
-const Aircraft* DSMService::getAircraft() const {
+const Aircraft* DSMService::getAircraft() const
+{
     return getDSMServer()->getAircraft();
 }
 

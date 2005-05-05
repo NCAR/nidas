@@ -383,7 +383,15 @@ void DSMEngine::connected(SampleOutput* output) throw()
     cerr << "SampleOutput " << hex << output << dec << " " <<
     	output->getName() << " connected" << " fd=" << output->getFd() << endl;
 
-    output->init();
+    try {
+	output->init();
+    }
+    catch (const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "DSMEngine: error in init of %s: %s",
+	    	output->getName().c_str(),ioe.what());
+	disconnected(output);
+    }
 
     const list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si;
