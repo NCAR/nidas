@@ -157,7 +157,7 @@
         </xsd:documentation>
     </xsd:annotation>
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
-	<xsd:element name="sample" type="sample" minOccurs="1"/>
+	<xsd:element name="sample" type="sample"/>
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
@@ -265,19 +265,17 @@
    </xsd:complexType>
 </xsd:element>
 
-<xsd:element name="input">
+<xsd:element name="postgresdb">
    <xsd:complexType>
-        <xsd:choice>
-            <xsd:element ref="socket" maxOccurs="unbounded"/>
-            <xsd:element ref="fileset" maxOccurs="unbounded"/>
-        </xsd:choice>
-        <xsd:attribute name="class" type="xsd:token" use="optional"/>
+        <xsd:attribute name="host" type="xsd:token" use="required"/>
+        <xsd:attribute name="dbname" type="xsd:token" use="required"/>
+        <xsd:attribute name="user" type="xsd:token" default="ads"/>
    </xsd:complexType>
 </xsd:element>
 
-<xsd:element name="output">
+<xsd:element name="input">
    <xsd:complexType>
-        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+        <xsd:choice minOccurs="1" maxOccurs="1">
             <xsd:element ref="socket"/>
             <xsd:element ref="fileset"/>
         </xsd:choice>
@@ -285,9 +283,20 @@
    </xsd:complexType>
 </xsd:element>
 
+<xsd:element name="output">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="1">
+            <xsd:element ref="socket"/>
+            <xsd:element ref="fileset"/>
+            <xsd:element ref="postgresdb"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
+   </xsd:complexType>
+</xsd:element>
+
 <xsd:element name="processor">
    <xsd:complexType>
-        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+        <xsd:choice minOccurs="1" maxOccurs="1">
             <xsd:element ref="output"/>
         </xsd:choice>
 	<xsd:attribute name="class" type="xsd:token" use="required"/>

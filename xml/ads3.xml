@@ -270,9 +270,21 @@
 	    <processor class="SampleArchiver">
 		<output class="SampleOutputStream">
 		    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
-			file="${LOCATION}_%Y%m%d_%H%M%S.dat"/>
+			file="all_%Y%m%d_%H%M%S.dat"
+			length="300"/>
+
 		</output>
 	    </processor>
+	    <processor class="PSQLProcessor">
+		<!--
+		<parameter name="averageMsec" value="1000" type="int"/>
+		-->
+		<output class="PSQLSampleOutput">
+		    <postgresdb host="localhost"
+		    	dbname="hiaper" user="maclean"/>
+		</output>
+	    </processor>
+	    <!--
 	    <processor class="SyncRecordProcessor">
 		<output class="SampleOutputStream">
 		    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
@@ -280,7 +292,6 @@
 			length="0" />
 		</output>
 	    </processor>
-	    <!--
 	    -->
 	</service>
     </server>
@@ -310,35 +321,35 @@
 	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
 	    <sample id="1" rate="500">
 		<variable name="A2D0" units="V">
-		    <parameter name="gain" value="2.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D1" units="V">
-		    <parameter name="gain" value="2.0" type="float"/>
-		    <parameter name="bipolar" value="0" type="bool"/>
+		    <parameter name="gain" value="10.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D2" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D3" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D4" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D5" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D6" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 		<variable name="A2D7" units="V">
-		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="gain" value="10.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
 		</variable>
 	    </sample>
