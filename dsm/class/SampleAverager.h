@@ -18,6 +18,7 @@
 
 #include <SampleSource.h>
 #include <SampleClient.h>
+#include <SampleTag.h>
 #include <Variable.h>
 
 namespace dsm {
@@ -26,12 +27,18 @@ class SampleAverager : public SampleClient, public SampleSource {
 public:
 
     SampleAverager();
+
+    SampleAverager(const SampleAverager&);
+
     virtual ~SampleAverager();
 
     /**
      * Set average period, in milliseconds.
      */
-    void setAveragePeriod(int val) { averagePeriod = val; }
+    void setAveragePeriod(int val) {
+        averagePeriod = val;
+	sampleTag.setRate(val/1000.);
+    }
 
     /**
      * Get average period, in milliseconds.
@@ -48,15 +55,15 @@ public:
 
     dsm_sample_id_t getSampleId() const { return outSampleId; }
 
+    const SampleTag* getSampleTag() const { return &sampleTag; }
+
     /**
      * flush all samples from buffer, distributing them to SampleClients.
      */
-    void flush() throw (atdUtil::IOException);
+    void flush() throw ();
 
 protected:
    
-    std::list<Variable*> variables;
-
     /**
      * Length of average, in milliseconds.
      */
@@ -74,6 +81,8 @@ protected:
     double *sums;
 
     int *cnts;
+
+    SampleTag sampleTag;
 
 private:
 

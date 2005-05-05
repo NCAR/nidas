@@ -20,11 +20,20 @@
 using namespace dsm;
 using namespace std;
 
-SampleAverager::SampleAverager(): outSampleId(0),endTime(0),
+SampleAverager::SampleAverager():
+	outSampleId(50000),endTime(0),
 	nvariables(0),sums(0),cnts(0)
 {
+    sampleTag.setId(outSampleId);
+    setAveragePeriod(1000);
 }
 
+
+SampleAverager::SampleAverager(const SampleAverager& x):
+	averagePeriod(x.averagePeriod),outSampleId(x.outSampleId),
+	endTime(0),nvariables(0), sums(0),cnts(0),sampleTag(x.sampleTag)
+{
+}
 SampleAverager::~SampleAverager()
 {
     delete [] sums;
@@ -41,10 +50,14 @@ void SampleAverager::addVariable(const Variable *var)
 {
     const SampleTag* stag = var->getSampleTag();
     int vindex = stag->getIndex(var);	// index of variable in its sample
-    assert(vindex > 0);
+    assert(vindex >= 0);
     dsm_sample_id_t sampid = stag->getId();
 
+
     std::map<dsm_sample_id_t,vector<int> >::iterator mi;
+
+    Variable* newvar = new Variable(*var);
+    sampleTag.addVariable(newvar);
 
     if ((mi = inmap.find(sampid)) == inmap.end()) {
 	vector<int> tmp;
@@ -61,8 +74,17 @@ void SampleAverager::addVariable(const Variable *var)
         mi->second.push_back(nvariables++);
     }
 }
+
+/*
+ * Todo: implement flush.  Perhaps it isn't really necessary.
+ */
+void SampleAverager::flush() throw () {}
+
 bool SampleAverager::receive(const Sample* samp) throw()
 {
+    // processed clock samples are long long
+    if (samp->getType() != FLOAT_ST) return false;
+
     dsm_sample_id_t id = samp->getId();
 
     std::map<dsm_sample_id_t,vector<int> >::iterator mi;
@@ -82,20 +104,27 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	    SampleT<float>* osamp = getSample<float>(nvariables);
 	    osamp->setTimeTag(endTime - averagePeriod / 2);
 	    osamp->setId(outSampleId);
+	    cerr << "SampleAverager: " << osamp->getTimeTag() <<
+	    	" nvars=" << nvariables;
+	    float* fp = osamp->getDataPtr();
 	    for (int i = 0; i < nvariables; i++) {
 		if (cnts[i] > 0)
-		    osamp->getDataPtr()[i] = sums[i] / cnts[i];
+		    fp[i] = sums[i] / cnts[i];
 		else 
-		    osamp->getDataPtr()[i] = floatNAN;
+		    fp[i] = floatNAN;
+		cerr << ' ' << fp[i];
 	    }
+	    cerr << endl;
 	    distribute(osamp);
 	    endTime += averagePeriod;
 	    if (tt > endTime) endTime = timeCeiling(tt,averagePeriod);
 	}
 	else endTime = timeCeiling(tt,averagePeriod);
+	for (int i = 0; i < nvariables; i++) {
+	    cnts[i] = 0;
+	    sums[i] = 0.0;
+	}
     }
-	    	
-    assert(samp->getType() == FLOAT_ST);
 
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
 
