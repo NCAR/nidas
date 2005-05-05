@@ -105,9 +105,31 @@ RawSampleService::~RawSampleService()
  */
 void RawSampleService::schedule() throw(atdUtil::Exception)
 {
+    cerr << "RawSampleService::schedule, dsms.size=" <<
+    	getDSMConfigs().size() << endl;
+
+    merger.setDSMConfigs(getDSMConfigs());
+
+    // Connect non-single DSM processors to merger
+    list<SampleIOProcessor*>::const_iterator oi;
+    for (oi = processors.begin(); oi != processors.end(); ++oi) {
+        SampleIOProcessor* processor = *oi;
+	if (!processor->singleDSM()) {
+	    try {
+		processor->connect(&merger);
+	    }
+	    catch(const atdUtil::IOException& ioe) {
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    "%s: %s connect to %s: %s",
+		    getName().c_str(),processor->getName().c_str(),
+		    merger.getName().c_str(),ioe.what());
+	    }
+	}
+    }
     input->requestConnection(this);
 }
 
+      
 /*
  * This method is called when a SampleInput is connected.
  * It will be called on only the original RawSampleService,
@@ -116,7 +138,6 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
  */
 void RawSampleService::connected(SampleInput* inpt) throw()
 {
-
     assert(inpt == input);
 
     // Figure out what DSM it came from
@@ -127,35 +148,23 @@ void RawSampleService::connected(SampleInput* inpt) throw()
 	throw atdUtil::Exception(string("can't find DSM for address ") +
 		remoteAddr.getHostAddress());
 
-    input->setDSMConfig(dsm);
 
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s (%s) has connected to %s",
 	input->getName().c_str(),dsm->getName().c_str(),
 	getName().c_str());
 
+
     // make a copy of myself.
     RawSampleService* newserv = new RawSampleService(*this);
+
+    newserv->input->addDSMConfig(dsm);
+
+    merger.addInput(newserv->input);
+
     newserv->start();
 
     addSubService(newserv);
-
-    // Connect non-single DSM processors to newserv->input
-    list<SampleIOProcessor*>::const_iterator oi;
-    for (oi = processors.begin(); oi != processors.end(); ++oi) {
-        SampleIOProcessor* processor = *oi;
-	if (!processor->singleDSM()) {
-	    try {
-		processor->connect(newserv->input);
-	    }
-	    catch(const atdUtil::IOException& ioe) {
-		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %s connect to %s: %s",
-		    getName().c_str(),processor->getName().c_str(),
-		    newserv->input->getName().c_str(),ioe.what());
-	    }
-	}
-    }
 }
 
 /*
@@ -210,6 +219,8 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 	return;
     }
 
+    merger.removeInput(inputx);
+
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = service->getProcessors().begin();
     	pi != service->getProcessors().end(); ++pi) {
@@ -220,7 +231,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
     // non-single DSM processors
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	if (!proc->singleDSM()) proc->disconnect(inputx);
+	if (!proc->singleDSM()) proc->disconnect(&merger);
     }
 
     try {
@@ -236,7 +247,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 int RawSampleService::run() throw(atdUtil::Exception)
 {
 
-    input->init();
+    input->init();		// throws atdUtil::IOException
 
     // request connections for processors. These are all
     // single DSM processors, because this is a clone
@@ -332,11 +343,11 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 throw atdUtil::InvalidParameterException("service",
                     classattr,e.what());
             }
-	    input = dynamic_cast<SampleInput*>(domable);
-            if (!input || !input->isRaw()) {
+	    input = dynamic_cast<RawSampleInputStream*>(domable);
+            if (!input) {
 		delete domable;
                 throw atdUtil::InvalidParameterException("service",
-                    classattr,"is not a raw SampleInput");
+                    classattr,"is not a RawSampleInputStream");
 	    }
             input->fromDOMElement((DOMElement*)child);
 	}
@@ -359,7 +370,7 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 throw atdUtil::InvalidParameterException("service",
                     classattr,"is not of type SampleIOProcessor");
 	    }
-	    processor->setDSMService(this);
+	    // processor->setDSMService(this);
             processor->fromDOMElement((DOMElement*)child);
 	    addProcessor(processor);
         }

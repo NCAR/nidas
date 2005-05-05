@@ -18,7 +18,7 @@
 #define DSM_RAWSAMPLESERVICE_H
 
 #include <DSMService.h>
-#include <SampleInput.h>
+#include <RawSampleInputStream.h>
 #include <SampleIOProcessor.h>
 
 namespace dsm {
@@ -70,7 +70,9 @@ public:
 
 protected:
 
-    SampleInput* input;
+    SampleInputStream* input;
+
+    SampleInputMerger merger;
 
     std::list<SampleIOProcessor*> processors;
 
