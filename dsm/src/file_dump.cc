@@ -258,8 +258,7 @@ int main(int argc, char** argv)
 	for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
 	    sensor->init();
-	    sis.addSensor(sensor);
-	    sensor->addSampleClient(&dumper);
+	    sis.addProcessedSampleClient(&dumper,sensor);
 	}
     }
     else sis.addSampleClient(&dumper);
