@@ -125,7 +125,6 @@ x86_env.AppendUnique(LIBPATH = Split("""
 ##
 x86_env.AppendUnique(RPATH = Split("""
     /net/opt_lnx/local_fc3/lib
-    #dsm/class/x86
 """))
 
 ##
