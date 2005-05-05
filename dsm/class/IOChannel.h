@@ -62,7 +62,7 @@ public:
     /**
      * Derived classes must provide clone.
      */
-    virtual IOChannel* clone() = 0;
+    virtual IOChannel* clone() const = 0;
 
     /**
      * What is the IP address of the host at the other end
@@ -116,19 +116,30 @@ public:
 
     virtual void openNextFile() throw(atdUtil::IOException) {}
 
-    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    virtual void setDSMConfigs(const std::list<const DSMConfig*>& val)
+    {
+        dsms = val;
+    }
 
-    virtual const DSMConfig* getDSMConfig() const { return dsm; }
+    virtual void addDSMConfig(const DSMConfig* val)
+    {
+        dsms.push_back(val);
+    }
 
-    virtual void setDSMService(const DSMService* val) { service = val; }
+    virtual const std::list<const DSMConfig*>& getDSMConfigs() const
+    {
+        return dsms;
+    }
 
-    virtual const DSMService* getDSMService() const { return service; }
+    // virtual void setDSMService(const DSMService* val) { service = val; }
+
+    // virtual const DSMService* getDSMService() const { return service; }
 
 
 private:
-    const DSMConfig* dsm;
+    std::list<const DSMConfig*> dsms;
 
-    const DSMService* service;
+    // const DSMService* service;
 };
 
 }
