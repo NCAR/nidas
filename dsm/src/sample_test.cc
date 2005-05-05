@@ -134,7 +134,7 @@ bool TestClient::receive(const Sample *s) throw()
 class SampleTest 
 {
 public:
-    SampleTest():sorter1(100),sorter2(100) {}
+    SampleTest():sorter1(100,"sorter1"),sorter2(100,"sorter2") {}
 
     void test() throw(atdUtil::Exception);
     void print();
