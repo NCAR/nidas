@@ -10,6 +10,22 @@
 Import('env')
 myenv = env.Copy()
 
+conf = Configure(myenv)
+
+##
+## Look for PostgreSQL header file. If found, build PSQL source files
+##
+if conf.CheckCHeader('libpq-fe.h'):
+    PSQLSources = Split("""
+	PSQLChannel.cc
+	PSQLSampleOutput.cc
+	PSQLProcessor.cc
+    """)
+else:
+    PSQLSources = []
+
+myenv = conf.Finish()
+
 ## version = myenv.Command('Version.h','Version',
 ## 	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
 ## myenv.AlwaysBuild(version)
@@ -24,7 +40,7 @@ myenv.AppendUnique(CXXFLAGS = Split("""
 ##  List the source files compiled into the libDsm.a library.
 ##
 
-sources = Split("""
+sources = [ Split("""
 
   Project.cc
   Aircraft.cc
@@ -86,7 +102,6 @@ sources = Split("""
   McSocket.cc
   FileSet.cc
 
-
   SampleInput.cc
   SampleOutput.cc
   SampleFileHeader.cc
@@ -99,7 +114,7 @@ sources = Split("""
   SampleArchiver.cc
   SampleAverager.cc
 
-""")
+"""),PSQLSources]
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'
 

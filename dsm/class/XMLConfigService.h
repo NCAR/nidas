@@ -54,7 +54,18 @@ public:
 
 protected:
 
+    /**
+     * After a DSM connects, and the XMLConfigService is cloned,
+     * then this method is called to set the DSMConfig,  so that
+     * the Thread::run() method delivers XML for a specific DSM.
+     */
+    void setDSMConfig(const DSMConfig* val) { dsm = val; }
+
+    const DSMConfig* getDSMConfig() const { return dsm; }
+
     IOChannel* iochan;
+
+    const DSMConfig* dsm;
 
 };
 

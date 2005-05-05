@@ -30,11 +30,11 @@ public:
 
     ~RawSampleInputStream();
 
-    SampleInput* clone() const { return new RawSampleInputStream(*this); }
+    SampleInputStream* clone() const { return new RawSampleInputStream(*this); }
 
-    bool isRaw() const { return true; }
+    // bool isRaw() const { return true; }
 
-    int getPseudoPort() const { return RAW_SAMPLE; }
+    // int getPseudoPort() const { return RAW_SAMPLE; }
 
 
 protected:

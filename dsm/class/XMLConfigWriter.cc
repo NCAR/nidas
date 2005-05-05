@@ -97,9 +97,10 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 	cerr << "rejecting aircraft node, name=" << xnode.getAttributeValue("name") << endl;
 	return DOMNodeFilter::FILTER_REJECT;
     }
-    else if (!xnode.getNodeName().compare("dsm")) {
+    else if (!xnode.getNodeName().compare("dsm"))
         return acceptDSMNode(node);
-    }
+    else if (!xnode.getNodeName().compare("server"))
+	return DOMNodeFilter::FILTER_REJECT;
     return DOMNodeFilter::FILTER_ACCEPT;
 }
 

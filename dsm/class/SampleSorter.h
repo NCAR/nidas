@@ -29,7 +29,7 @@ class SampleSorter : public atdUtil::Thread,
 	public SampleClient, public SampleSource {
 public:
 
-    SampleSorter(int buflenInMilliSec);
+    SampleSorter(int buflenInMilliSec,const std::string& name);
     virtual ~SampleSorter();
 
     void interrupt();

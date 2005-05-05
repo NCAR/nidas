@@ -167,7 +167,7 @@ public:
      * be called after setting the required properties,
      * and before calling readSamples(), receive(), or process().
      */
-    virtual void init() throw() {}
+    virtual void init() throw(atdUtil::IOException) {}
 
     /**
      * How do I want to be opened.  The user can ignore it if they want to.

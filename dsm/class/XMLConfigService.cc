@@ -35,7 +35,7 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(XMLConfigService)
 
 XMLConfigService::XMLConfigService():
-	DSMService("XMLConfigService"),iochan(0)
+	DSMService("XMLConfigService"),iochan(0),dsm(0)
 {
 }
 
@@ -43,7 +43,7 @@ XMLConfigService::XMLConfigService():
  * Copy constructor.
  */
 XMLConfigService::XMLConfigService(const XMLConfigService& x):
-        DSMService((const DSMService&)x),iochan(0)
+        DSMService((const DSMService&)x),iochan(0),dsm(x.dsm)
 {
     // cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.iochan << endl;
     if (x.iochan) iochan = x.iochan->clone();
@@ -130,9 +130,7 @@ void XMLConfigService::fromDOMElement(const DOMElement* node)
 		const string& gkidname = xgkid.getNodeName();
 
 		iochan = IOChannel::createIOChannel(gkidname);
-
-		iochan->setDSMService(this);
-
+		// iochan->setDSMService(this);
 		iochan->fromDOMElement((DOMElement*)gkid);
 
 		if (++niochan > 1)

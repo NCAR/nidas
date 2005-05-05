@@ -28,6 +28,7 @@ CREATOR_ENTRY_POINT(RawSampleInputStream)
 RawSampleInputStream::RawSampleInputStream(IOChannel* iochannel):
 	SampleInputStream(iochannel)
 {
+    setPseudoPort(RAW_SAMPLE);
 }
 
 RawSampleInputStream::~RawSampleInputStream()

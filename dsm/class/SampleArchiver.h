@@ -43,8 +43,6 @@ public:
 
     void disconnect(dsm::SampleInput*) throw(atdUtil::IOException);
 
-    void addInput(SampleInput*);
-
     void connected(SampleOutput* output) throw();
 
     void disconnected(SampleOutput* output) throw();
@@ -54,11 +52,7 @@ public:
 
 protected:
 
-    SampleSorter sorter;
-
-    atdUtil::Mutex initMutex;
-
-    bool initialized;
+    SampleInput* input;
 
 };
 

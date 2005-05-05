@@ -24,8 +24,8 @@
 using namespace dsm;
 using namespace std;
 
-SampleSorter::SampleSorter(int buflenInMilliSec_a) :
-    Thread("SampleSorter"),buflenInMillisec(buflenInMilliSec_a),
+SampleSorter::SampleSorter(int buflenInMilliSec_a, const string& name) :
+    Thread(name),buflenInMillisec(buflenInMilliSec_a),
     samplesAvail("samplesAvail"),threadSignalFactor(10),
     sampleCtr(0)
 {
@@ -68,7 +68,10 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	  break;
 	}
 
-	// cerr << "samples.size=" << samples.size() << endl;
+// #define DEBUG
+#ifdef DEBUG
+	cerr << "SampleSorter::run samples.size=" << samples.size() << endl;
+#endif
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 	if (latest == samples.rend()) continue;	// empty
 	dsm_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
@@ -101,10 +104,10 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	    distribute(s);
 	    s->freeReference();
 	}
-	/*
+#ifdef DEBUG
 	cerr << getFullName() << " agedsamples.size=" <<
 		agedsamples.size() << endl;
-	*/
+#endif
     }
     return RUN_OK;
 }

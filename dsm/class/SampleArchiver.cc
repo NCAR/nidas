@@ -29,15 +29,13 @@ using namespace std;
 
 CREATOR_ENTRY_POINT(SampleArchiver)
 
-SampleArchiver::SampleArchiver(): SampleIOProcessor(),
-	sorter(250),initialized(false)
+SampleArchiver::SampleArchiver(): SampleIOProcessor(),input(0)
 {
     setName("SampleArchiver");
 }
 
 SampleArchiver::SampleArchiver(const SampleArchiver& x):
-	SampleIOProcessor((const SampleIOProcessor&)x),
-	sorter(250),initialized(false)
+	SampleIOProcessor((const SampleIOProcessor&)x)
 {
     setName("SampleArchiver");
 }
@@ -50,37 +48,35 @@ SampleIOProcessor* SampleArchiver::clone() const {
     return new SampleArchiver(*this);
 }
 
-void SampleArchiver::connect(SampleInput* input) throw(atdUtil::IOException)
+void SampleArchiver::connect(SampleInput* inputarg) throw(atdUtil::IOException)
 {
+    input = inputarg;
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s (%s) has connected to %s",
-	input->getName().c_str(),
-	(input->getDSMConfig() ? input->getDSMConfig()->getName().c_str() : ""),
-	getName().c_str());
+	"%s has connected to %s",
+	input->getName().c_str(), getName().c_str());
 
-
-    {
-	atdUtil::Synchronized autosync(initMutex);
-	if (!initialized) {
-	    sorter.start();
-	    list<SampleOutput*>::const_iterator oi;
-	    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-		SampleOutput* output = *oi;
-		output->setDSMConfig(input->getDSMConfig());
-		output->requestConnection(this);
-	    }
-	}
-	initialized = true;
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	output->setDSMConfigs(input->getDSMConfigs());
+	output->requestConnection(this);
     }
-    input->addSampleClient(&sorter);
 }
  
-void SampleArchiver::disconnect(SampleInput* input) throw(atdUtil::IOException)
+void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
 {
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
-	input->getName().c_str(),getName().c_str());
-    input->removeSampleClient(&sorter);
+	inputarg->getName().c_str(),getName().c_str());
+
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        inputarg->removeSampleClient(output);
+        output->flush();
+        output->close();
+    }
+    input = 0;
 }
  
 void SampleArchiver::connected(SampleOutput* output) throw()
@@ -90,8 +86,19 @@ void SampleArchiver::connected(SampleOutput* output) throw()
 	output->getName().c_str(),
 	getName().c_str());
 
-    output->init();
-    sorter.addSampleClient(output);
+    try {
+	output->init();
+    }
+    catch( const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: error: %s",
+	    output->getName().c_str(),ioe.what());
+	disconnected(output);
+	return;
+    }
+    assert(input);
+    cerr << input->getName() << " addSampleClient " << output->getName() << endl;
+    input->addSampleClient(output);
 }
  
 void SampleArchiver::disconnected(SampleOutput* output) throw()
@@ -100,8 +107,8 @@ void SampleArchiver::disconnected(SampleOutput* output) throw()
 	"%s has disconnected from %s",
 	output->getName().c_str(),
 	getName().c_str());
-
-    sorter.removeSampleClient(output);
+    assert(input);
+    input->removeSampleClient(output);
     output->close();
 }
 

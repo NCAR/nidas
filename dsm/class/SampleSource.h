@@ -31,21 +31,21 @@ public:
      * to the SampleClient must remain valid, until after
      * it is removed.
      */
-    void addSampleClient(SampleClient* c) throw() {
+    virtual void addSampleClient(SampleClient* c) throw() {
         addSampleClientImpl(c);
     }
 
     /**
      * Remove a SampleClient from this SampleSource
      */
-    void removeSampleClient(SampleClient* c) throw() {
+    virtual void removeSampleClient(SampleClient* c) throw() {
         removeSampleClientImpl(c);
     }
 
     /**
      * Big cleanup.
      */
-    void removeAllSampleClients() throw() {
+    virtual void removeAllSampleClients() throw() {
         removeAllSampleClientsImpl();
     }
 
