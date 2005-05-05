@@ -19,6 +19,7 @@
 #include <SampleSource.h>
 #include <IOStream.h>
 #include <ConnectionRequester.h>
+#include <SampleSorter.h>
 
 namespace dsm {
 
@@ -26,41 +27,111 @@ class DSMConfig;
 class DSMSensor;
 
 /**
- * Interface of an input stream of samples.
+ * Interface of an input SampleSource from one or more DSMs.
  */
-class SampleInput: public SampleSource, public ConnectionRequester, public DOMable
+class SampleInput: public SampleSource
 {
 public:
 
     virtual ~SampleInput() {}
 
-    virtual SampleInput* clone() const = 0;
-
     virtual std::string getName() const = 0;
 
-    virtual bool isRaw() const = 0;
+    /**
+     * What DSMConfigs are associated with this SampleInput.
+     */
+    virtual const std::list<const DSMConfig*>& getDSMConfigs() const = 0;
+
+    virtual void setDSMConfigs(const std::list<const DSMConfig*>& val) = 0;
+
+    virtual void addDSMConfig(const DSMConfig* val) = 0;
+
+    // virtual size_t getUnrecognizedSamples() const = 0;
+
+    /**
+     * Client wants samples from the process() method of the
+     * given DSMSensor.
+     */
+    virtual void addProcessedSampleClient(SampleClient*,DSMSensor*) = 0;
+
+    virtual void removeProcessedSampleClient(SampleClient*,DSMSensor*) = 0;
+
+};
+
+
+class SampleInputMerger: public SampleInput , protected SampleClient
+{
+public:
+    SampleInputMerger();
+
+    virtual ~SampleInputMerger();
+
+    std::string getName() const { return name; }
+
+    /**
+     * What DSMConfigs are associated with this SampleInput.
+     */
+    const std::list<const DSMConfig*>& getDSMConfigs() const { return dsms; }
+
+    void addDSMConfig(const DSMConfig* val) { dsms.push_back(val); }
+
+    void setDSMConfigs(const std::list<const DSMConfig*>& val) { dsms = val; }
+
+    void addInput(SampleInput* input);
+
+    void removeInput(SampleInput* input);
+
+    void addProcessedSampleClient(SampleClient*,DSMSensor*);
+
+    void removeProcessedSampleClient(SampleClient*,DSMSensor*);
+
+    void addSampleClient(SampleClient* client) throw();
+
+    void removeSampleClient(SampleClient* client) throw();
+
+    bool receive(const Sample*) throw();
+
+protected:
+
+    std::string name;
+
+    std::list<const DSMConfig*> dsms;
+
+    std::map<unsigned long int, DSMSensor*> sensorMap;
+
+    atdUtil::Mutex sensorMapMutex;
+
+    SampleSorter sorter1;
+
+    SampleSorter sorter2;
+
+    size_t unrecognizedSamples;
+
+};
+
+
+/**
+ * Extension of the interface to a SampleInput providing the
+ * methods needed to establish the connection to the source
+ * of samples (socket or files) and actually read samples
+ * from the connection.
+ */
+class SampleInputReader: public SampleInput, public ConnectionRequester, public DOMable
+{
+public:
+
+    virtual ~SampleInputReader() {}
 
     virtual void setPseudoPort(int val) = 0;
 
     virtual int getPseudoPort() const = 0;
 
-    virtual void addSensor(DSMSensor* sensor) = 0;
-
     virtual void requestConnection(DSMService*)
         throw(atdUtil::IOException) = 0;
 
-    /**
-     * If an SampleInput is associated with one DSM, when
-     * getDSMConfig() should return a non-null pointer to
-     * a DSMConfig.
-     */
-    virtual const DSMConfig* getDSMConfig() const = 0;
-
-    virtual void setDSMConfig(const DSMConfig* val) = 0;
-
     virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
 
-    virtual void init() throw() = 0;
+    virtual void init() throw(atdUtil::IOException) = 0;
 
     /**
      * Read a buffer of data, serialize the data into samples,
@@ -77,18 +148,14 @@ public:
      */
     virtual Sample* readSample() throw(atdUtil::IOException) = 0;
 
-    virtual size_t getUnrecognizedSamples() const = 0;
-
     virtual void close() throw(atdUtil::IOException) = 0;
-
 
 };
 
 /**
- * An implementation of a SampleInput, a class for serializing Samples
- * from an IOStream.  
+ * An implementation of a SampleInputReader.
  */
-class SampleInputStream: public SampleInput
+class SampleInputStream: public SampleInputReader
 {
 
 public:
@@ -110,30 +177,41 @@ public:
 
     virtual ~SampleInputStream();
 
-    SampleInput* clone() const;
+    virtual SampleInputStream* clone() const;
 
     std::string getName() const;
 
-    bool isRaw() const { return false; }
+    // bool isRaw() const { return false; }
 
-    void setPseudoPort(int val);
+    void setPseudoPort(int val) { pseudoPort = val; }
 
-    int getPseudoPort() const;
+    int getPseudoPort() const { return pseudoPort; }
 
-    void addSensor(DSMSensor* sensor);
+    /**
+     * What DSMConfigs are associated with this SampleInput.
+     */
+    const std::list<const DSMConfig*>& getDSMConfigs() const
+    {
+	return dsms;
+    }
+
+    void setDSMConfigs(const std::list<const DSMConfig*>& val)
+    {
+	dsms = val;
+    }
+
+    void addDSMConfig(const DSMConfig* val)
+    {
+        dsms.push_back(val);
+    }
+
+    void addProcessedSampleClient(SampleClient*,DSMSensor*);
+
+    void removeProcessedSampleClient(SampleClient*,DSMSensor*);
 
     void requestConnection(DSMService*) throw(atdUtil::IOException);
 
     void connected(IOChannel* iochan) throw();
-
-    /**
-     * If an SampleInput is associated with one DSM, when
-     * getDSMConfig() should return a non-null pointer to
-     * a DSMConfig.
-     */
-    virtual const DSMConfig* getDSMConfig() const { return dsm; }
-
-    virtual void setDSMConfig(const DSMConfig* val) { dsm = val; }
 
     atdUtil::Inet4Address getRemoteInet4Address() const;
 
@@ -174,9 +252,12 @@ public:
 
 protected:
 
+    /**
+     * Service that has requested my input.
+     */
     DSMService* service;
 
-    const DSMConfig* dsm;
+    std::list<const DSMConfig*> dsms;
 
     IOChannel* iochan;
 

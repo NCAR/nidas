@@ -26,7 +26,7 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SampleInputStream)
 
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
-    service(0),dsm(0),iochan(iochannel),iostream(0),
+    service(0),iochan(iochannel),iostream(0),
     pseudoPort(0),
      samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
@@ -35,7 +35,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
 
 /* Copy constructor. */
 SampleInputStream::SampleInputStream(const SampleInputStream& x):
-    service(x.service),dsm(x.dsm),
+    service(x.service),dsms(x.dsms),
     iochan(x.iochan->clone()),iostream(0),
     pseudoPort(x.pseudoPort),
     samp(0),leftToRead(0),dptr(0),
@@ -49,7 +49,7 @@ SampleInputStream::~SampleInputStream()
     delete iochan;
 }
 
-SampleInput* SampleInputStream::clone() const
+SampleInputStream* SampleInputStream::clone() const
 {
     // invoke copy constructor
     return new SampleInputStream(*this);
@@ -64,7 +64,6 @@ void SampleInputStream::requestConnection(DSMService* requester)
             throw(atdUtil::IOException)
 {
     service = requester;
-    iochan->setDSMService(service);
     iochan->requestConnection(this,getPseudoPort());
 }
 
@@ -74,15 +73,20 @@ void SampleInputStream::connected(IOChannel* iochannel) throw()
     service->connected(this);
 }
 
-void SampleInputStream::setPseudoPort(int val) { pseudoPort = val; }
-
-int SampleInputStream::getPseudoPort() const { return pseudoPort; }
-
-void SampleInputStream::addSensor(DSMSensor* sensor)
+void SampleInputStream::addProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
 {
     sensorMapMutex.lock();
     sensorMap[sensor->getId()] = sensor;
     sensorMapMutex.unlock();
+
+    sensor->addSampleClient(client);
+}
+
+void SampleInputStream::removeProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
+{
+    sensor->removeSampleClient(client);
 }
 
 void SampleInputStream::init() throw()
@@ -144,8 +148,11 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    cerr << "available=" << iostream->available() << endl;
 #endif
 	    if (iostream->available() < header.getSizeOf()) break;
+
+#ifndef DEBUG
+	    iostream->read(&header,header.getSizeOf());
+#else
 	    size_t len = iostream->read(&header,header.getSizeOf());
-#ifdef DEBUG
 	    assert(header.getSizeOf() == 16);
 	    assert(len == 16);
 
@@ -197,7 +204,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	// appropriate sensor for distribution.
 	dsm_sample_id_t sampid = samp->getId();
 	sensorMapMutex.lock();
-	if (isRaw() && sensorMap.size() > 0) {
+	if (sensorMap.size() > 0) {
 	    sensori = sensorMap.find(sampid);
 	    if (sensori != sensorMap.end()) sensori->second->receive(samp);
 	    else if (!(unrecognizedSamples++) % 100) {
@@ -332,3 +339,106 @@ DOMElement* SampleInputStream::toDOMElement(DOMElement* node)
     return node;
 }
 
+SampleInputMerger::SampleInputMerger() :
+	name("SampleInputMerger"),
+	sorter1(250,name + "Sorter1"),
+	sorter2(250,name + "Sorter2"),
+	unrecognizedSamples(0)
+{
+}
+
+SampleInputMerger::~SampleInputMerger()
+{
+    if (sorter1.isRunning()) {
+	sorter1.interrupt();
+	sorter1.join();
+    }
+    if (sorter2.isRunning()) {
+	sorter2.interrupt();
+	sorter2.join();
+    }
+}
+
+void SampleInputMerger::addInput(SampleInput* input)
+{
+    if (!sorter1.isRunning()) sorter1.start();
+#ifdef DEBUG
+    cerr << "SampleInputMerger: " << input->getName() << 
+    	" addSampleClient, &sorter1=" << &sorter1 << endl;
+#endif
+    input->addSampleClient(&sorter1);
+}
+
+void SampleInputMerger::removeInput(SampleInput* input)
+{
+    input->removeSampleClient(&sorter1);
+}
+
+void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
+{
+    sensorMapMutex.lock();
+    sensorMap[sensor->getId()] = sensor;
+    sensorMapMutex.unlock();
+
+    if (!sorter2.isRunning()) sorter2.start();
+    sorter2.addSampleClient(client);
+
+
+#ifdef DEBUG
+    cerr << "SampleInputMerger::SampleSource::addSampleClient, &sorter=" << &sorter2 << endl;
+#endif
+    sensor->addSampleClient(&sorter2);
+
+    if (!sorter1.isRunning()) sorter1.start();
+    sorter1.addSampleClient(this);
+}
+
+void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
+{
+    sensor->removeSampleClient(this);
+    SampleSource::removeSampleClient(&sorter2);
+    sorter2.removeSampleClient(client);
+}
+
+void SampleInputMerger::addSampleClient(SampleClient* client) throw()
+{
+#ifdef DEBUG
+    cerr << "SampleInputMerger::addSampleClient, client=" << client << endl;
+#endif
+    sorter1.addSampleClient(client);
+}
+
+void SampleInputMerger::removeSampleClient(SampleClient* client) throw()
+{
+    sorter1.removeSampleClient(client);
+}
+
+bool SampleInputMerger::receive(const Sample* samp) throw()
+{
+#ifdef DEBUG
+    static int nsamps = 0;
+#endif
+    // pass sample to the appropriate sensor for distribution.
+    dsm_sample_id_t sampid = samp->getId();
+    sensorMapMutex.lock();
+    if (sensorMap.size() > 0) {
+	map<unsigned long,DSMSensor*>::const_iterator sensori
+		= sensorMap.find(sampid);
+	if (sensori != sensorMap.end()) sensori->second->receive(samp);
+	else if (!(unrecognizedSamples++) % 100) {
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		"SampleInputStream unrecognizedSamples=%d",
+			unrecognizedSamples);
+	}
+    }
+    sensorMapMutex.unlock();
+
+    // distribute samples to my own clients
+#ifdef DEBUG
+    if (!(nsamps++%100)) cerr << "SampleInputMerger::receive, nsamps=" << nsamps << endl;
+#endif
+    distribute(samp);
+    return true;
+}
