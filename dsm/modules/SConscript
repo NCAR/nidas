@@ -34,10 +34,6 @@ myenv.AppendUnique(CPPPATH=Split("""
 ##
 ##  List of each module source
 ##
-# main.c  -> ioctl_fifo.c + xxxx_driver.c
-# irig.c  -> pc104sg.c
-# demux.c -> rtl_isa_irq.c
-# vdio.c
 modules = Split("""
     a2d_driver.c
     dsm_serial.c
@@ -47,21 +43,23 @@ modules = Split("""
     ioctl_fifo.c
     xxxx_driver.c
 	a2d_driver.c
-	calramp.c
-	gainramp.c
-	testa2d.c
-	testa2davg.c
-	testa2dint.c
-	testa2drdid.c
-	testa2dfclr.c
-	testa2dfifo.c
-	testa2dtime.c
-	testa2dsel.c
-	testa2dstat.c
-	testa2dsync.c
-	testoffset.c
     arinc.c
 """)
+
+#       calramp.c
+#       gainramp.c
+#       testa2d.c
+#       testa2davg.c
+#       testa2dint.c
+#       testa2drdid.c
+#       testa2dfclr.c
+#       testa2dfifo.c
+#       testa2dtime.c
+#       testa2dsel.c
+#       testa2dstat.c
+#       testa2dsync.c
+#       testoffset.c
+
 
 ##
 ##  Build the modules
