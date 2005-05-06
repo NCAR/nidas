@@ -146,6 +146,8 @@ void PSQLProcessor::connected(SampleOutput* output) throw()
 	PSQLSampleOutput* psqlOutput =
 		dynamic_cast<PSQLSampleOutput*>(output);
 	if (psqlOutput) psqlOutput->addSampleTag(averager.getSampleTag());
+	else atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s is not a PSQLSampleOutput", output->getName().c_str());
 	output->init();
     }
     catch( const atdUtil::IOException& ioe) {

@@ -61,6 +61,8 @@ public:
     size_t write(const void* buf, size_t len)
         throw(atdUtil::IOException);
                                                                                 
+    void flush() throw(atdUtil::IOException);
+
     void close() throw(atdUtil::IOException);
 
     int getFd() const { return -1; }
@@ -103,6 +105,8 @@ protected:
      */
     PGconn   *_conn;
 
+    char* lastCommand;
+    size_t lastNchars;
 };
 
 }

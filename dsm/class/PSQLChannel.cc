@@ -21,17 +21,20 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(PSQLChannel)
 
-PSQLChannel::PSQLChannel(): _conn(0)
+PSQLChannel::PSQLChannel(): _conn(0),lastCommand(0),lastNchars(0)
 {
 }
 
-PSQLChannel::PSQLChannel(const PSQLChannel& x): name(x.name),_conn(0)
+PSQLChannel::PSQLChannel(const PSQLChannel& x):
+    name(x.name),host(x.host),dbname(x.dbname),user(x.user),
+    _conn(0),lastCommand(0),lastNchars(0)
 {
 }
 
 PSQLChannel::~PSQLChannel()
 {
     if (_conn) PQfinish(_conn);
+    delete [] lastCommand;
 }
 
 void PSQLChannel::setHost(const std::string& val)
@@ -64,6 +67,7 @@ void PSQLChannel::requestConnection(ConnectionRequester* requester,
     if (getHost().length() > 0) connectstr += "host=" + getHost() + ' ';
     if (getDBName().length() > 0) connectstr += "dbname=" + getDBName() + ' ';
     if (getUser().length() > 0) connectstr += "user=" + getUser() + ' ';
+    cerr << "connectstr=" << connectstr << endl;
 
     _conn = PQconnectdb(connectstr.c_str());
 										
@@ -83,27 +87,45 @@ void PSQLChannel::requestConnection(ConnectionRequester* requester,
 
 void PSQLChannel::close() throw(atdUtil::IOException)
 {
+    flush();
     if (_conn) PQfinish(_conn);
     _conn = 0;
 }
 
-
 size_t PSQLChannel::write(const void* command, size_t len)
 	throw(atdUtil::IOException)
 {
-    if (_conn == 0) throw atdUtil::IOException(getName(),"write",
-	    "not connected");
-                                                                                
-    PGresult* res;
-                                                                                
-    while ( (res = PQgetResult(_conn)) ) PQclear(res);
-                                                                                
+    flush();
+
     if (!PQsendQuery(_conn, (const char*)command))
     	throw atdUtil::IOException(getName(),"PQSendQuery",
 	    PQerrorMessage(_conn));
-                                                                                
-    while ( (res = PQgetResult(_conn)) ) PQclear(res);
+
+    if (len >= lastNchars) {
+        delete [] lastCommand;
+	lastCommand = new char[len+1];
+	lastNchars = len+1;
+    }
+    memcpy(lastCommand,command,len);
+    lastCommand[len] = 0;
     return len;
+}
+
+void PSQLChannel::flush() throw(atdUtil::IOException)
+{
+    if (_conn == 0) throw atdUtil::IOException(getName(),"write",
+	    "not connected");
+    PGresult* res;
+    while ( (res = PQgetResult(_conn)) ) {
+	ExecStatusType stat = PQresultStatus(res);
+	if (stat == PGRES_FATAL_ERROR) {
+	    atdUtil::IOException ioe(getName(),"PQsendQuery",
+	    string(PQresultErrorMessage(res)) + ": " +
+	    	(lastCommand ? string(lastCommand) : ""));
+	    PQclear(res);
+	    throw ioe;
+	}
+    }
 }
 
 void PSQLChannel::fromDOMElement(const DOMElement* node)

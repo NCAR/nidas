@@ -40,7 +40,7 @@ PSQLSampleOutput::PSQLSampleOutput():
 
 PSQLSampleOutput::PSQLSampleOutput(const PSQLSampleOutput& x): 
 	connectionRequester(0),dsms(x.dsms),service(x.service),psqlChannel(0),
-	missingValue(x.missingValue),first(false),dberrors(0)
+	missingValue(x.missingValue),first(true),dberrors(0)
 {
 }
 
@@ -101,33 +101,22 @@ void PSQLSampleOutput::addSampleTag(const SampleTag* tag)
 		"duplicate sample rate:" + errst.str());
     }
     tagsByRate[tag->getRate()] = tag;
+    tagsById[tag->getId()] = tag;
+    if (tag->getRate() == 1.0)
+	tablesByRate[tag->getRate()] = "RAF_LRT";
+    else {
+	ostringstream costr;
+	costr << "SampleRate" << tag->getRate();
+	tablesByRate[tag->getRate()] = costr.str();
+    }
+
 }
 
 void PSQLSampleOutput::init() throw(atdUtil::IOException)
 {
-
-#ifdef QUACK
-    const list<const DSMConfig*>& dsms = getDSMConfigs();
-
-    list<const DSMConfig*>::const_iterator di;
-
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        const DSMConfig* dsm = *di;
-	const std::list<DSMSensor*> sensors = dsm->getSensors();
-	list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    const vector<const SampleTag*>& tags = sensor->getSampleTags();
-	    vector<const SampleTag*>::const_iterator ti;
-	    for (ti = tags.begin(); ti != tags.end(); ++ti)
-	        addSampleTag(*ti);
-	}
-    }
-#endif
-
-    // dropAllTables();      // Remove existing tables, this is a reset.
-    initializeGlobalAttributes();
+    dropAllTables();      // Remove existing tables, this is a reset.
     createTables();
+    initializeGlobalAttributes();
 										
 }
 
@@ -150,18 +139,17 @@ void PSQLSampleOutput::createTables() throw(atdUtil::IOException)
     submitCommand("\
 	CREATE TABLE Categories (variable char(20), category char(20))");
 
-    ostringstream costr1hz;
-    costr1hz << "CREATE Table RAF_LRT (datetime timestamp PRIMARY KEY,";
-
-    ostringstream costr;
-
     map<float,const SampleTag*>::const_iterator ti;
+    cerr << "tagsByRate.size=" << tagsByRate.size() << endl;
     for (ti = tagsByRate.begin(); ti != tagsByRate.end(); ++ti) {
         float rate = ti->first;
 	const SampleTag* tag = ti->second;
-	ostringstream costr;
 
-	costr << "CREATE Table SampleRate" << rate << " (datetime timestamp (3) PRIMARY KEY,";
+	ostringstream costr;
+	if (rate == 1.0)
+	    costr << "CREATE Table RAF_LRT (datetime timestamp PRIMARY KEY,";
+	else
+	    costr << "CREATE Table SampleRate" << rate << " (datetime timestamp (3) PRIMARY KEY,";
 
 	const vector<const Variable*>& vars = tag->getVariables();
 
@@ -170,23 +158,55 @@ void PSQLSampleOutput::createTables() throw(atdUtil::IOException)
 	char comma = ' ';
 	for (vi = vars.begin(); vi != vars.end(); ++vi) {
 	    const Variable* var = *vi;
+	    if (!var->getName().compare("Clock")) continue;
 	    addVariable(var);	// adds to Variable_List and Categories
-	    if (rate == 1.0) 
-		costr1hz << comma << var->getName()  << " FLOAT";
-	    else costr << comma << var->getName()  << " FLOAT";
+	    costr << comma << var->getName()  << " FLOAT";
 	    comma = ',';
 	}
+	costr << ")";
+	submitCommand(costr.str());
     }
 }
 
 void PSQLSampleOutput::dropAllTables() throw(atdUtil::IOException)
 {
-    submitCommand("DROP TABLE Global_Attributes");
-    submitCommand("DROP TABLE Variable_List");
-    submitCommand("DROP TABLE Categories");
-    submitCommand("DROP TABLE LRT_TABLE");
+    try {
+	for (;;) submitCommand("DROP TABLE Global_Attributes");
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
+    try {
+	for(;;) submitCommand("DROP TABLE Variable_List");
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
+    try {
+	for(;;) submitCommand("DROP TABLE Categories");
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
+    try {
+	for(;;) submitCommand("DROP TABLE RAF_LRT");
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
 
-    submitCommand("VACUUM FULL");
+    try {
+	submitCommand("VACUUM FULL");
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
+
 }
 
 /* -------------------------------------------------------------------- */
@@ -235,6 +255,7 @@ void PSQLSampleOutput::initializeGlobalAttributes() throw(atdUtil::IOException)
 void PSQLSampleOutput::addVariable(const Variable* var)
 	throw(atdUtil::IOException)
 {
+    if (!var->getName().compare("Clock")) return;
     string calibratedUnits;
     const VariableConverter* converter = var->getConverter();
     if (converter) calibratedUnits = converter->getUnits();
@@ -287,7 +308,11 @@ void PSQLSampleOutput::addCategory(const string& varName,const string& category)
 bool PSQLSampleOutput::receive(const Sample* samp) throw()
 {
     
-    if (samp->getType() != FLOAT_ST) return false;
+    if (samp->getType() != FLOAT_ST) {
+	cerr << "sample=" << samp->getId() << " not FLOAT" << endl;
+        return false;
+    }
+
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
 
     struct tm tm;
@@ -295,25 +320,31 @@ bool PSQLSampleOutput::receive(const Sample* samp) throw()
     gmtime_r(&tt,&tm);
     char tstr[32];
     strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",&tm);
-    sprintf(tstr+strlen(tstr),"%03d",(int)(samp->getTimeTag() % 1000));
+    sprintf(tstr+strlen(tstr),".%03d",(int)(samp->getTimeTag() % 1000));
 
     ostringstream costr;
     if (first) {
 	costr << "INSERT INTO global_attributes VALUES ('StartTime', '" <<
 		 tstr << "')";
 	submitCommand(costr.str());
+	cerr << "submitCommand, costr=" << costr.str() << endl;
 	costr.str("");
 
 	costr << "INSERT INTO global_attributes VALUES ('EndTime', '" <<
 		 tstr << "')";
 	submitCommand(costr.str());
+	cerr << "submitCommand, costr=" << costr.str() << endl;
 	costr.str("");
 	first = false;
     }
 
     map<dsm_sample_id_t,const SampleTag*>::const_iterator ti;
     ti = tagsById.find(samp->getId());
-    if (ti == tagsById.end()) return false;
+    if (ti == tagsById.end()) {
+	cerr << "tag not found: " << samp->getId() <<
+		" tags.size=" << tagsById.size() << endl;
+        return false;
+    }
     const SampleTag* tag = ti->second;
 
     map<float,string>::const_iterator tabi;
@@ -328,7 +359,7 @@ bool PSQLSampleOutput::receive(const Sample* samp) throw()
     const float* fptr = fsamp->getConstDataPtr();
 
     for (size_t i = 0; i < fsamp->getDataLength(); i++) {
-	float value = *fptr;
+	float value = fptr[i];
 	if (isnan(value) || isinf(value)) costr << comma << missingValue;
 	else costr << comma << value;
 	comma = ',';
@@ -336,6 +367,7 @@ bool PSQLSampleOutput::receive(const Sample* samp) throw()
     costr << ");";
 
     try {
+	cerr << "submitCommand, costr=" << costr.str() << endl;
         submitCommand(costr.str());
     }
     catch (const atdUtil::IOException& ioe) {
