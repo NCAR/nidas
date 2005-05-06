@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 	p.lflag() = ICANON;
 	break;
     case Runstring::PARO_1000:
-	p.setBaudRate(9600);
+	p.setBaudRate(115200);
 	p.iflag() = 0;
 	p.oflag() = OPOST;
 	p.lflag() = ICANON;
@@ -88,7 +88,7 @@ int main(int argc, char** argv)
     char inbuf[64];
     char outbuf[64];
 
-    const char* promptStrings[] = { "#1?\n", "*0300P3\r\n" };
+    const char* promptStrings[] = { "#1?\n", "*0100P3\r\n" };
     const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n" };
 
     try {
