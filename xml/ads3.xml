@@ -224,10 +224,10 @@
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
-	baud="9600" parity="none" databits="8" stopbits="1"
+	baud="115200" parity="none" databits="8" stopbits="1"
 	scanfFormat="*%*2d%*2d%f">
 	<message separator="\n" position="end" length="0"/>
-	<prompt string="*0300P3\r\n" rate="50"/>
+	<prompt string="*0100P3\r\n" rate="20"/>
     </serialSensor>
 
 
@@ -280,8 +280,8 @@
 		<parameter name="averageMsec" value="1000" type="int"/>
 		-->
 		<output class="PSQLSampleOutput">
-		    <postgresdb host="localhost"
-		    	dbname="hiaper" user="maclean"/>
+		    <postgresdb host="hyper"
+		    	dbname="c130" user="ads"/>
 		</output>
 	    </processor>
 	    <!--
@@ -318,6 +318,7 @@
 
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
+<!--
 	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
 	    <sample id="1" rate="500">
 		<variable name="A2D0" units="V">
@@ -355,6 +356,7 @@
 	    </sample>
 	</sensor>
 
+-->
 	<serialSensor IDREF="Mensor_6100"
 		devicename="/dev/dsmser0" id="110">
 	    <sample id="1">
