@@ -48,6 +48,9 @@ void SampleAverager::init() throw()
 
 void SampleAverager::addVariable(const Variable *var)
 {
+    // kludge until we support a variable type attribute
+    if (!var->getName().compare("Clock")) return;
+
     const SampleTag* stag = var->getSampleTag();
     int vindex = stag->getIndex(var);	// index of variable in its sample
     assert(vindex >= 0);
@@ -116,6 +119,7 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	    }
 	    cerr << endl;
 	    distribute(osamp);
+	    osamp->freeReference();
 	    endTime += averagePeriod;
 	    if (tt > endTime) endTime = timeCeiling(tt,averagePeriod);
 	}
