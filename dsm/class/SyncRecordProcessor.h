@@ -35,6 +35,8 @@ public:
     
     SyncRecordProcessor();
 
+    SyncRecordProcessor(const SyncRecordProcessor&);
+
     virtual ~SyncRecordProcessor();
 
     SampleIOProcessor* clone() const;
@@ -64,10 +66,9 @@ protected:
 
 protected:
 
-    SyncRecordGenerator generator;
+    SampleInput* input;
 
-    bool initialized;
-    atdUtil::Mutex initMutex;
+    SyncRecordGenerator generator;
 
 };
 

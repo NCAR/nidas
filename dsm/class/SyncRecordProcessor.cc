@@ -30,7 +30,13 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(SyncRecordProcessor);
 
 SyncRecordProcessor::SyncRecordProcessor():
-	SampleIOProcessor(),initialized(false)
+	SampleIOProcessor(),input(0)
+{
+    setName("SyncRecordProcessor");
+}
+
+SyncRecordProcessor::SyncRecordProcessor(const SyncRecordProcessor& x):
+	SampleIOProcessor((const SampleIOProcessor&)x),input(0)
 {
     setName("SyncRecordProcessor");
 }
@@ -47,33 +53,27 @@ SampleIOProcessor* SyncRecordProcessor::clone() const
     return 0;
 }
 
-void SyncRecordProcessor::connect(SampleInput* input)
+void SyncRecordProcessor::connect(SampleInput* newinput)
 	throw(atdUtil::IOException)
 {
+    input = newinput;
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
 	input->getName().c_str(),getName().c_str());
 
-    {
-	atdUtil::Synchronized autosync(initMutex);
-	if (!initialized) {
-	    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
-	    generator.init(dsms);
+    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
+    generator.init(dsms);
 
-	    list<SampleOutput*>::const_iterator oi;
-	    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-		SampleOutput* output = *oi;
-		output->setDSMConfigs(input->getDSMConfigs());
-		// output->setDSMService(getDSMService());
-		output->requestConnection(this);
-	    }
-	    initialized = true;
-	}
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	output->setDSMConfigs(input->getDSMConfigs());
+	// output->setDSMService(getDSMService());
+	output->requestConnection(this);
     }
 
     // assert(input->isRaw());
 
-    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
     list<const DSMConfig*>::const_iterator di;
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
@@ -93,9 +93,12 @@ void SyncRecordProcessor::connect(SampleInput* input)
     }
 }
  
-void SyncRecordProcessor::disconnect(SampleInput* input)
+void SyncRecordProcessor::disconnect(SampleInput* inputarg)
 	throw(atdUtil::IOException)
 {
+    if (!input) return;
+    assert(input == inputarg);
+
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
 	input->getName().c_str(),getName().c_str());
