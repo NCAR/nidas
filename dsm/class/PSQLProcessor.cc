@@ -25,14 +25,14 @@ using namespace std;
 
 CREATOR_ENTRY_POINT(PSQLProcessor)
 
-PSQLProcessor::PSQLProcessor(): SampleIOProcessor()
+PSQLProcessor::PSQLProcessor(): SampleIOProcessor(),input(0)
 {
     setName("PSQLProcessor");
     averager.setAveragePeriod(1000);
 }
 
 PSQLProcessor::PSQLProcessor(const PSQLProcessor& x):
-	SampleIOProcessor((const SampleIOProcessor&)x),
+	SampleIOProcessor((const SampleIOProcessor&)x),input(0),
 	averager(x.averager)
 {
     setName("PSQLProcessor");
@@ -46,8 +46,9 @@ SampleIOProcessor* PSQLProcessor::clone() const {
     return new PSQLProcessor(*this);
 }
 
-void PSQLProcessor::connect(SampleInput* input) throw(atdUtil::IOException)
+void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
 {
+    input = newinput;
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
 	input->getName().c_str(), getName().c_str());
@@ -105,8 +106,11 @@ void PSQLProcessor::connect(SampleInput* input) throw(atdUtil::IOException)
     }
 }
  
-void PSQLProcessor::disconnect(SampleInput* input) throw(atdUtil::IOException)
+void PSQLProcessor::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
 {
+    if (!input) return;
+    assert(input == inputarg);
+
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
 	input->getName().c_str(),getName().c_str());
@@ -129,7 +133,6 @@ void PSQLProcessor::disconnect(SampleInput* input) throw(atdUtil::IOException)
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	input->removeSampleClient(output);
-	output->flush();
 	output->close();
     }
     input = 0;

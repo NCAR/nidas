@@ -35,7 +35,7 @@ SampleArchiver::SampleArchiver(): SampleIOProcessor(),input(0)
 }
 
 SampleArchiver::SampleArchiver(const SampleArchiver& x):
-	SampleIOProcessor((const SampleIOProcessor&)x)
+	SampleIOProcessor((const SampleIOProcessor&)x),input(0)
 {
     setName("SampleArchiver");
 }
@@ -65,6 +65,9 @@ void SampleArchiver::connect(SampleInput* inputarg) throw(atdUtil::IOException)
  
 void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
 {
+    if (!input) return;
+    assert(input == inputarg);
+
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
 	inputarg->getName().c_str(),getName().c_str());
