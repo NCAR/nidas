@@ -87,8 +87,10 @@ void PSQLChannel::requestConnection(ConnectionRequester* requester,
 
 void PSQLChannel::close() throw(atdUtil::IOException)
 {
-    flush();
-    if (_conn) PQfinish(_conn);
+    if (_conn) {
+	flush();
+	PQfinish(_conn);
+    }
     _conn = 0;
 }
 

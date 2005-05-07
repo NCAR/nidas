@@ -82,7 +82,10 @@ void PSQLSampleOutput::connected(IOChannel* sock) throw()
     connectionRequester->connected(this);
 }
 
-void PSQLSampleOutput::flush() throw(atdUtil::IOException) {}
+void PSQLSampleOutput::flush() throw(atdUtil::IOException)
+{
+    if (psqlChannel) psqlChannel->flush();
+}
 
 void PSQLSampleOutput::close() throw(atdUtil::IOException)
 {
