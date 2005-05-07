@@ -93,20 +93,20 @@
     <!--<sample id="0303" rate="50"   ><variable name="delta theta v x"            units="ft/s"     longname="delta theta v x"/></sample>             new         -->
     <!--<sample id="0304" rate="50"   ><variable name="delta theta v y"            units="ft/s"     longname="delta theta v y"/></sample>             new         -->
     <!--<sample id="0305" rate="50"   ><variable name="delta theta v z"            units="ft/s"     longname="delta theta v z"/></sample>             new         -->
-        <sample id="0310" rate="12.5" ><variable name="present_lat"                units="deg"      longname="present_lat"/></sample>            <!-- rate was 5  -->
-        <sample id="0311" rate="12.5" ><variable name="present_lon"                units="deg"      longname="present_lon"/></sample>            <!-- rate was 5  -->
-        <sample id="0312" rate="25"   ><variable name="ground_speed"               units="knot"     longname="ground_speed"/></sample>           <!-- rate was 10 -->
-        <sample id="0313" rate="25"   ><variable name="track_angle_true"           units="deg"      longname="track_angle_true"/></sample>
-        <sample id="0314" rate="25"   ><variable name="true_heading"               units="deg"      longname="true_heading"/></sample>
+        <sample id="0310" rate="12.5" ><variable name="lat"                units="deg"      longname="present_lat"/></sample>            <!-- rate was 5  -->
+        <sample id="0311" rate="12.5" ><variable name="lon"                units="deg"      longname="present_lon"/></sample>            <!-- rate was 5  -->
+        <sample id="0312" rate="25"   ><variable name="gspeed"               units="knot"     longname="ground_speed"/></sample>           <!-- rate was 10 -->
+        <sample id="0313" rate="25"   ><variable name="track_angle"           units="deg"      longname="track_angle_true"/></sample>
+        <sample id="0314" rate="25"   ><variable name="heading"               units="deg"      longname="true_heading"/></sample>
         <sample id="0315" rate="12.5" ><variable name="wind_speed"                 units="knot"     longname="wind_speed"/></sample>             <!-- rate was 10 -->
-        <sample id="0316" rate="12.5" ><variable name="wind_dir_true"              units="deg"      longname="wind_dir_true"/></sample>          <!-- rate was 10 -->
+        <sample id="0316" rate="12.5" ><variable name="wind_dir"              units="deg"      longname="wind_dir_true"/></sample>          <!-- rate was 10 -->
     <!--<sample id="0317" rate="25"   ><variable name="trk angle mag"              units="deg"      longname="trk angle mag"/></sample>               not used    -->
     <!--<sample id="0320" rate="25"   ><variable name="mag heading"                units="deg"      longname="mag heading"/></sample>                 not used    -->
-        <sample id="0321" rate="25"   ><variable name="drift_angle"                units="deg"      longname="drift_angle"/></sample>
+        <sample id="0321" rate="25"   ><variable name="drift"                units="deg"      longname="drift_angle"/></sample>
     <!--<sample id="0322" rate="25"   ><variable name="flt pth angle"              units="deg"      longname="flt pth angle"/></sample>               not used    -->
     <!--<sample id="0323" rate="50"   ><variable name="flt pth accel"              units="G"        longname="flt pth accel"/></sample>               not used    -->
-        <sample id="0324" rate="50"   ><variable name="pitch_angle"                units="deg"      longname="pitch_angle"/></sample>
-        <sample id="0325" rate="50"   ><variable name="roll_angle"                 units="deg"      longname="roll_angle"/></sample>
+        <sample id="0324" rate="50"   ><variable name="pitch"                units="deg"      longname="pitch_angle"/></sample>
+        <sample id="0325" rate="50"   ><variable name="roll"                 units="deg"      longname="roll_angle"/></sample>
         <sample id="0326" rate="50"   ><variable name="pitch_rate"                 units="deg/s"    longname="pitch_rate"/></sample>
         <sample id="0327" rate="50"   ><variable name="roll_rate"                  units="deg/s"    longname="roll_rate"/></sample>
         <sample id="0330" rate="50"   ><variable name="yaw_rate"                   units="deg/s"    longname="yaw_rate"/></sample>
@@ -137,24 +137,24 @@
     <arincSensor ID="ADC-GV" class="ADC_HW_EB7022597">
         <!-- Taken from the Honeywell Engineering Specification A.4.1 spec. no. -->
         <!-- EB7022597 cage code 55939 "Air Data Computer"    (pages A-53..79). -->
-        <sample id="0203" rate="16"   ><variable name="pressure alt"               units="ft"       longname="pressure alt"/></sample>
-        <sample id="0204" rate="16"   ><variable name="baro corrected alt #1"      units="ft"       longname="baro corrected alt #1"/></sample>
+        <sample id="0203" rate="16"   ><variable name="pressalt"               units="ft"       longname="pressure alt"/></sample>
+        <sample id="0204" rate="16"   ><variable name="baroalt1"      units="ft"       longname="baro corrected alt #1"/></sample>
         <sample id="0205" rate="8"    ><variable name="mach"                       units="mach"     longname="mach"/></sample>
-        <sample id="0206" rate="8"    ><variable name="computed air speed"         units="knot"     longname="computed air speed"/></sample>
+        <sample id="0206" rate="8"    ><variable name="cairspeed"         units="knot"     longname="computed air speed"/></sample>
     <!--<sample id="0207" rate="8"    ><variable name="maximum operating speed"    units="knot"     longname="maximum operating speed"/></sample>     not used    -->
-        <sample id="0210" rate="16"   ><variable name="true air speed"             units="knot"     longname="true air speed"/></sample>
-        <sample id="0211" rate="2"    ><variable name="total air pressure"         units="Celsius"  longname="total air pressure"/></sample>
-        <sample id="0212" rate="16"   ><variable name="altitude rate"              units="ft/min"   longname="altitude rate"/></sample>
-        <sample id="0213" rate="2"    ><variable name="static air pressure"        units="Celsius"  longname="static air pressure"/></sample>
-        <sample id="0215" rate="8"    ><variable name="impact pressure"            units="mB"       longname="impact pressure"/></sample>
-        <sample id="0217" rate="8"    ><variable name="static pressure"            units="inHg"     longname="static pressure"/></sample>
-        <sample id="0220" rate="16"   ><variable name="baro corrected alt #2"      units="ft"       longname="baro corrected alt #2"/></sample>
-        <sample id="0234" rate="16"   ><variable name="baro correction #1 mB"      units="mb"       longname="baro correction #1 mB"/></sample>
+        <sample id="0210" rate="16"   ><variable name="tairspeed"             units="knot"     longname="true air speed"/></sample>
+        <sample id="0211" rate="2"    ><variable name="tpress"         units="Celsius"  longname="total air pressure"/></sample>
+        <sample id="0212" rate="16"   ><variable name="altrate"              units="ft/min"   longname="altitude rate"/></sample>
+        <sample id="0213" rate="2"    ><variable name="spress"        units="Celsius"  longname="static air pressure"/></sample>
+        <sample id="0215" rate="8"    ><variable name="ipress"            units="mB"       longname="impact pressure"/></sample>
+        <sample id="0217" rate="8"    ><variable name="spress2"            units="inHg"     longname="static pressure"/></sample>
+        <sample id="0220" rate="16"   ><variable name="baroalt2"      units="ft"       longname="baro corrected alt #2"/></sample>
+        <sample id="0234" rate="16"   ><variable name="barocor1"      units="mb"       longname="baro correction #1 mB"/></sample>
     <!--<sample id="0235" rate="16"   ><variable name="baro correction #1 inHg"    units="inHg"     longname="baro correction #1 inHg"/></sample>     not used    -->
-        <sample id="0236" rate="16"   ><variable name="baro correction #2 mB"      units="mg"       longname="baro correction #2 mB"/></sample>
+        <sample id="0236" rate="16"   ><variable name="barocor2"      units="mg"       longname="baro correction #2 mB"/></sample>
     <!--<sample id="0237" rate="16"   ><variable name="baro correction #2 inHg"    units="inHg"     longname="baro correction #2 inHg"/></sample>     not used    -->
-        <sample id="0242" rate="16"   ><variable name="total pressure"             units="mB"       longname="total pressure"/></sample>
-        <sample id="0244" rate="8"    ><variable name="norm angle of attack"       units="ratio"    longname="norm angle of attack"/></sample>
+        <sample id="0242" rate="16"   ><variable name="tpress2"             units="mB"       longname="total pressure"/></sample>
+        <sample id="0244" rate="8"    ><variable name="attack"       units="ratio"    longname="norm angle of attack"/></sample>
     <!--<sample id="0252" rate="16"   ><variable name="baro corrected alt #4"      units="ft"       longname="baro corrected alt #4"/></sample>       not used    -->
     <!--<sample id="0270" rate="2"    ><variable name="discrete #1"                units=""         longname="discrete #1"/></sample>                 not used    -->
     <!--<sample id="0271" rate="2"    ><variable name="discrete #2"                units=""         longname="discrete #2"/></sample>                 not used    -->
@@ -370,7 +370,9 @@
 		<variable name="DPRESP1" units="mb"/>
 	    </sample>
 	</serialSensor>
-	
+
+        <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
+        <arincSensor IDREF="IRS-GV" devicename="/dev/arinc1" id="2000"/>
 <!--
 	<anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>
         <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
