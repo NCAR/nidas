@@ -94,7 +94,12 @@ typedef struct {
 
 
 #include <ioctl_fifo.h>
-#include <utildefs.h>
+
+// These are copied from dsm/modules/CEI420A/Include/utildefs.h
+#define AR_ODD                  0  /* Used to set ODD parity                  */
+#define AR_EVEN                 1  /* Used to set EVEN parity                 */
+#define AR_HIGH                 0  /* Used to set HIGH speed (100 Kbaud)      */
+#define AR_LOW                  1  /* Used to set LOW speed (12.5 Kbaud)      */
 
 #ifdef __RTCORE_KERNEL__
 

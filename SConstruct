@@ -51,7 +51,6 @@ env['CXXFLAGS'] = Split("""
 ##
 
 env['CPPPATH'] = Split("""
-  #/dsm/modules/CEI420A/Include
   #/dsm/modules
   #/dsm/class
   .
