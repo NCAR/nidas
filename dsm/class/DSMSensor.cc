@@ -234,7 +234,7 @@ void DSMSensor::printStatusTrailer(std::ostream& ostr) throw()
 void DSMSensor::printStatus(std::ostream& ostr) throw()
 {
     ostr <<
-	"<tr><td align=left>" << getName() << "</td>" << endl <<
+	"<tr><td align=left>" << getDeviceName() << "</td>" << endl <<
     	"<td>" << fixed << setprecision(2) <<
 		getObservedSamplingRate() << "</td>" << endl <<
     	"<td>" << setprecision(0) <<
