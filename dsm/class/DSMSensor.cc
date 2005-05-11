@@ -61,6 +61,14 @@ const std::string& DSMSensor::getDSMName() const {
     return unk;
 }
 
+/*
+ * If location is an empty string, return DSMConfig::getLocation()
+ */
+const std::string& DSMSensor::getLocation() const {
+    if (location.length() == 0 && dsm) return dsm->getLocation();
+    return location;
+}
+
 void DSMSensor::initBuffer() throw()
 {
     bufhead = buftail = 0;

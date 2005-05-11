@@ -82,12 +82,16 @@ public:
      * Set the DSMConfig for this sensor.
      */
     void setDSMConfig(const DSMConfig* val) { dsm = val; }
+
+    /**
+     * What DSMConfig am I associated with?
+     */
     const DSMConfig* getDSMConfig() const { return dsm; }
 
     /**
      * Set the name of the system device that the sensor
      * is connected to.
-     * @param val Name of device, e.g. "/dev/ttyS0".
+     * @param val Name of device, e.g. "/dev/xxx0".
      */
     virtual void setDeviceName(const std::string& val) { devname = val; }
 
@@ -123,6 +127,15 @@ public:
     virtual std::string getName() const {
         return getDSMName() + ':' + getDeviceName();
     }
+
+    /**
+     * Location string. A DSMConfig also has a Location.
+     * If the location has not been set for this DSMSensor,
+     * then the location of the DSMConfig will be returned.
+     */
+    const std::string& getLocation() const;
+
+    void setLocation(const std::string& val) { location = val; }
 
     /**
      * Add a SampleTag to this sensor.
@@ -294,6 +307,8 @@ protected:
     const DSMConfig* dsm;
 
     std::string devname;
+
+    std::string location;
 
     /**
      * Id of this sensor.  Raw samples from this sensor will
