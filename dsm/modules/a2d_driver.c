@@ -820,7 +820,7 @@ static void A2DGetData(void *arg)
 {
 	A2DSAMPLE buf;
 	char *eob = (char*)buf.data + sizeof(buf.data);
-	unsigned char stat;
+	unsigned short stat;
 
 	// dataptr points to beginning of data section of A2DSAMPLE
 	register SS *dataptr = buf.data;
@@ -829,7 +829,9 @@ static void A2DGetData(void *arg)
 
 	// Grab the h/w FIFO data flags for posterity
 	outb(A2DIOFIFOSTAT,chan_addr);
-	stat = inb(isa_address);
+	stat = inw(isa_address);
+
+    globalStatus.a2d_ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
 
 	// If FIFONOTFULL is 0, fifo IS full
 	if((stat & FIFONOTFULL) == 0) globalStatus.fifofullctr++;	// FIFO is full
@@ -887,11 +889,11 @@ static void A2DGetData(void *arg)
 
 static inline int A2DFIFOEmpty()
 {
-	unsigned char stat;
+	unsigned short stat;
 
 	// Point at the FIFO status channel
 	outb(A2DIOFIFOSTAT,chan_addr);
-	stat = inb(isa_address);
+	stat = inw(isa_address);
 
 	return (stat & FIFONOTEMPTY) == 0;
 }
@@ -1051,7 +1053,7 @@ static void* A2DWait1PPS(void *arg)
 	{
 		// Read status, check 1PPS bit, return if 1PPS is low
 		// The negative going part of the pulse is 
-		stat = (int)inb((UC *)isa_address);
+		stat = (int)inw((US *)isa_address);
 		if((stat & INV1PPS) == 0) 
 		{
 			oneppstimeout = 0;
