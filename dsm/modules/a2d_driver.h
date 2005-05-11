@@ -63,6 +63,7 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct
 {
+	unsigned short	a2d_ser_num;	// A/D card serial number
 	unsigned short 	a2d_status[MAXA2DS];	// A2D status words after load
 	size_t 			fifofullctr;	// FIFO filled
 	size_t 			fifo44ctr;	// 3/4 <= FIFO < full event counter
@@ -118,6 +119,24 @@ typedef struct
 #define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
 #define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
 
+//A2D Status register bits
+#define	A2DINSTBSY		0x8000	//Instruction being performed
+#define	A2DDATARDY		0x4000	//Data ready to be read (Read cycle)
+#define	A2DDATAREQ		0x2000	//New data required (Write cycle)
+#define	A2DIDERR		0x1000	//Chip ID error
+#define	A2DCRCERR		0x0800	//Data corrupted--CRC error
+#define	A2DDATAERR		0x0400	//Conversion data invalid
+#define	A2DINSTREG15	0x0200	//Instr reg bit	15
+#define	A2DINSTREG13	0x0100	//				13
+#define	A2DINSTREG12	0x0080	//				12
+#define	A2DINSTREG11	0x0040	//				11
+#define	A2DINSTREG06	0x0020	//				06
+#define	A2DINSTREG05	0x0010	//				05
+#define	A2DINSTREG04	0x0008	//				04
+#define	A2DINSTREG01	0x0004	//				01
+#define	A2DINSTREG00	0x0002	//				00
+#define	A2DCONFIGEND	0x0001	//Configuration End Flag.
+
 
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
@@ -154,6 +173,7 @@ typedef struct
 //   e.g. *(unsigned short *)(A2DBASE+A2DIOLOAD) = A2DIOFIFO;
 //   will point the enable latch at the FIFO output.
 
+//FIFO Control Word bit definitions
 #define	A2DIOFIFO		0x0	//FIFO data (read), FIFO Control (write)
 #define	A2DIOSTAT		0x1	//A/D status (read), command (write)
 #define	A2DSTATRD		0x9	//Same as A2DIOSTAT; BSD3(=A2DRWN) high (rd)
@@ -177,25 +197,6 @@ typedef struct
 #define	A2DABORT		0x0000	//Soft reset; still configured
 #define A2DBFIR			0x2000	//Boot from internal ROM
 
-//A2D Status register bits
-#define	A2DINSTBSY		0x8000	//Instruction being performed
-#define	A2DDATARDY		0x4000	//Data ready to be read (Read cycle)
-#define	A2DDATAREQ		0x2000	//New data required (Write cycle)
-#define	A2DIDERR		0x1000	//Chip ID error
-#define	A2DCRCERR		0x0800	//Data corrupted--CRC error
-#define	A2DDATAERR		0x0400	//Conversion data invalid
-#define	A2DINSTREG15	0x0200	//Instr reg bit	15
-#define	A2DINSTREG13	0x0100	//				13
-#define	A2DINSTREG12	0x0080	//				12
-#define	A2DINSTREG11	0x0040	//				11
-#define	A2DINSTREG06	0x0020	//				06
-#define	A2DINSTREG05	0x0010	//				05
-#define	A2DINSTREG04	0x0008	//				04
-#define	A2DINSTREG01	0x0004	//				01
-#define	A2DINSTREG00	0x0002	//				00
-#define	A2DCONFIGEND	0x0001	//Configuration End Flag.
-
-//FIFO Control Word bit definitions
 
 // A/D Control bits
 #define	FIFOCLR			0x01	//Cycle this bit 0-1-0 to clear FIFO
