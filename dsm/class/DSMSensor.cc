@@ -274,6 +274,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		setDeviceName(attr.getValue());
 	    else if (!attr.getName().compare("class"))
 		setClassName(attr.getValue());
+	    else if (!attr.getName().compare("location"))
+		setLocation(attr.getValue());
 	    else if (!attr.getName().compare("id")) {
 		istringstream ist(attr.getValue());
 		// If you unset the dec flag, then a leading '0' means
