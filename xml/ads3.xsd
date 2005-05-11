@@ -163,6 +163,7 @@
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
     <xsd:attribute name="class" type="xsd:token"/>
     <xsd:attribute name="devicename" type="xsd:token"/>
+    <xsd:attribute name="location" type="xsd:token"/>
     <xsd:attribute name="id" type="xsd:short"/>
 </xsd:complexType>
 
