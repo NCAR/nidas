@@ -249,12 +249,21 @@
     </xsd:unique>
 </xsd:element>
 
+<xsd:simpleType name="sockettype">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="mcaccept"/>
+	<xsd:enumeration value="mcrequest"/>
+	<xsd:enumeration value="server"/>
+	<xsd:enumeration value="client"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name="socket">
    <xsd:complexType>
-        <xsd:attribute name="type" type="xsd:token" default="mcrequest"/>
+	<xsd:attribute name="type" type="sockettype" default="mcrequest"/>
         <xsd:attribute name="port" type="xsd:nonNegativeInteger"
 		default="50000"/>
-        <xsd:attribute name="address" type="xsd:token" default="239.0.0.10"/>
+        <xsd:attribute name="address" type="xsd:token"/>
    </xsd:complexType>
 </xsd:element>
 
