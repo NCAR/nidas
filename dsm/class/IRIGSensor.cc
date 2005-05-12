@@ -42,9 +42,27 @@ IRIGSensor::~IRIGSensor() {
 }
 void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 {
+    // checkClock sends the Unix time down to the pc104sg card.
+    // If the card status indicates the pc104sg has good time codes, then
+    // only the year is updated, since time codes don't contain the year.
+    // If the pc104sg doesn't have good time codes, then all the
+    // time fields (of second resolution and greater) are updated
+    // to unix time.
+    // It takes a while (~1/2 sec) for the update to take effect
+    // and in the meantime the time fields are wrong (off by many years).
+    // checkClock waits a maximum of 5 seconds until the pc104sg
+    // time fields agree with the Unix time. 
     checkClock();
 
-    // It's magic, we can do an ioctl before the device is open!
+    // A function in the pc104sg driver checks once per second
+    // that the timetag counter matches the time fields, and
+    // corrects the counter if needed.
+    // So for up to a second after the time fields are good
+    // the timetag counter may still be wrong. So we wait
+    // some more for the timetag counter to be updated.
+    sleep(2);
+
+    // Request that fifo be opened at driver end.
     ioctl(IRIG_OPEN,(const void*)0,0);
 
     RTL_DSMSensor::open(flags);
@@ -74,14 +92,14 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	cerr << "Setting IRIG clock to unix clock" << endl;
 	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
     }
-    else if (::llabs(unixTime-irigTime) > 365*8640000LL) {
+    else if (::llabs(unixTime-irigTime) > 180*8640000LL) {
 	cerr << "Setting year in IRIG clock" << endl;
 	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
     }
 
     struct timespec nsleep;
     nsleep.tv_sec = 0;
-    nsleep.tv_nsec = 100000000;
+    nsleep.tv_nsec = 100000000;		// 1/10th sec
     int ntry = 0;
     const int NTRY = 50;
     for (ntry = 0; ntry < NTRY; ntry++) {
