@@ -42,12 +42,12 @@ IRIGSensor::~IRIGSensor() {
 }
 void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 {
+    checkClock();
+
     // It's magic, we can do an ioctl before the device is open!
     ioctl(IRIG_OPEN,(const void*)0,0);
 
     RTL_DSMSensor::open(flags);
-
-    checkClock();
 }
 
 void IRIGSensor::checkClock() throw(atdUtil::IOException)
