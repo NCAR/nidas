@@ -99,6 +99,7 @@ sources = [ Split("""
 
   IOChannel.cc
   IOStream.cc
+  Socket.cc
   McSocket.cc
   FileSet.cc
 

@@ -303,10 +303,7 @@ void SampleInputStream::fromDOMElement(const DOMElement* node)
     {
         if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 
-        XDOMElement xchild((DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-
-	iochan = IOChannel::createIOChannel(elname);
+	iochan = IOChannel::createIOChannel((const DOMElement*)child);
 
 	iochan->fromDOMElement((DOMElement*)child);
 

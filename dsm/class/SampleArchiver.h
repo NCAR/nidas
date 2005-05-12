@@ -53,7 +53,6 @@ public:
 protected:
 
     SampleInput* input;
-
 };
 
 }

@@ -29,7 +29,7 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
 #ifdef DEBUG
     cerr << "SampleIOProcessor copy ctor" << endl;
 #endif
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = x.outputs.begin(); oi != x.outputs.end(); ++oi) {
         SampleOutput* output = *oi;
         addOutput(output->clone());
@@ -42,7 +42,7 @@ SampleIOProcessor::~SampleIOProcessor()
 #ifdef DEBUG
     cerr << "~SampleIOProcessor, this=" << this << ", outputs.size=" << outputs.size() << endl;
 #endif
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
 #ifdef DEBUG

@@ -125,12 +125,8 @@ void XMLConfigService::fromDOMElement(const DOMElement* node)
 		    gkid=gkid->getNextSibling())
 	    {
 		if (gkid->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-		XDOMElement xgkid((DOMElement*) gkid);
 
-		const string& gkidname = xgkid.getNodeName();
-
-		iochan = IOChannel::createIOChannel(gkidname);
-		// iochan->setDSMService(this);
+		iochan = IOChannel::createIOChannel((DOMElement*)gkid);
 		iochan->fromDOMElement((DOMElement*)gkid);
 
 		if (++niochan > 1)

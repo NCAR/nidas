@@ -80,7 +80,7 @@ void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
 
     averager.init();
 
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	output->setDSMConfigs(dsms);
@@ -129,7 +129,7 @@ void PSQLProcessor::disconnect(SampleInput* inputarg) throw(atdUtil::IOException
     }
     averager.flush();
 
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	input->removeSampleClient(output);
@@ -140,6 +140,7 @@ void PSQLProcessor::disconnect(SampleInput* inputarg) throw(atdUtil::IOException
  
 void PSQLProcessor::connected(SampleOutput* output) throw()
 {
+    addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
 	output->getName().c_str(),

@@ -54,7 +54,7 @@ public:
 
     virtual void disconnect(SampleInput*) throw(atdUtil::IOException) = 0;
 
-    void addOutput(SampleOutput* val) { outputs.push_back(val); }
+    void addOutput(SampleOutput* val) { outputs.insert(val); }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -69,9 +69,7 @@ protected:
     
     std::string name;
 
-    // const DSMService* service;
-
-    std::list<SampleOutput*> outputs;
+    std::set<SampleOutput*> outputs;
 };
 
 

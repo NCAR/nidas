@@ -14,23 +14,28 @@
 */
 
 #include <IOChannel.h>
+#include <Socket.h>
 
 using namespace dsm;
 using namespace std;
+using namespace xercesc;
 
 IOChannel::IOChannel()
 {
 }
 
 /* static */
-IOChannel* IOChannel::createIOChannel(const string& type)
+IOChannel* IOChannel::createIOChannel(const DOMElement* node)
             throw(atdUtil::InvalidParameterException)
 {
+    XDOMElement xnode(node);
+    const string& type = xnode.getNodeName();
+
     IOChannel* channel = 0;
     DOMable* domable;
 
     if (!type.compare("socket"))
-    	domable = DOMObjectFactory::createObject("McSocket");
+    	domable = Socket::createSocket(node);
 
     else if (!type.compare("fileset"))
     	domable = DOMObjectFactory::createObject("FileSet");

@@ -104,7 +104,7 @@ public:
 
     virtual int getFd() const = 0;
 
-    static IOChannel* createIOChannel(const std::string& type)
+    static IOChannel* createIOChannel(const xercesc::DOMElement* node)
             throw(atdUtil::InvalidParameterException);
 
     /**
@@ -136,15 +136,8 @@ public:
         return dsms;
     }
 
-    // virtual void setDSMService(const DSMService* val) { service = val; }
-
-    // virtual const DSMService* getDSMService() const { return service; }
-
-
 private:
     std::list<const DSMConfig*> dsms;
-
-    // const DSMService* service;
 };
 
 }

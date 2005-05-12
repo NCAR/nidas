@@ -55,10 +55,6 @@ public:
 
     virtual const std::list<const DSMConfig*>& getDSMConfigs() const = 0;
 
-    // virtual void setDSMService(const DSMService*) = 0;
-
-    // virtual const DSMService* getDSMService() const = 0;
-
     virtual void requestConnection(SampleConnectionRequester*)
     	throw(atdUtil::IOException) = 0;
 
@@ -141,6 +137,11 @@ public:
     	throw(xercesc::DOMException);
 
 protected:
+
+    /**
+     * Set the IOChannel for this output.
+     */
+    void setIOChannel(IOChannel* val);
 
     std::string name;
 

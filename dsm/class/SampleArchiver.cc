@@ -55,7 +55,7 @@ void SampleArchiver::connect(SampleInput* inputarg) throw(atdUtil::IOException)
 	"%s has connected to %s",
 	input->getName().c_str(), getName().c_str());
 
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	output->setDSMConfigs(input->getDSMConfigs());
@@ -72,7 +72,7 @@ void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOExceptio
 	"%s has disconnected from %s",
 	inputarg->getName().c_str(),getName().c_str());
 
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
         inputarg->removeSampleClient(output);
@@ -84,6 +84,7 @@ void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOExceptio
  
 void SampleArchiver::connected(SampleOutput* output) throw()
 {
+    addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
 	output->getName().c_str(),

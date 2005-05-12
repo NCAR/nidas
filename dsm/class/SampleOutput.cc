@@ -86,16 +86,12 @@ void SampleOutputStream::addDSMConfig(const DSMConfig* val)
     if (iochan) iochan->addDSMConfig(val);
 }
 
-// void SampleOutputStream::setDSMService(const DSMService* val)
-// {
-//     service = val;
-//     if (iochan) iochan->setDSMService(val);
-// }
-
-// const DSMService* SampleOutputStream::getDSMService() const
-// {
-//     return service;
-// }
+void SampleOutputStream::setIOChannel(IOChannel* val)
+{
+    delete iochan;
+    iochan = val;
+    setName(string("SampleOutputStream: ") + iochan->getName());
+}
 
 void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
 
@@ -112,10 +108,20 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
     	iochannel->getName() << " fd="  <<
     	iochannel->getFd() << endl;
 #endif
-    assert(iochan == iochannel);
+
     assert(connectionRequester);
-    setName(string("SampleOutputStream: ") + iochan->getName());
-    connectionRequester->connected(this);
+
+    if (iochan != iochannel) {
+	// This is a new iochannel - probably a connected socket.
+	// Clone myself and report back to connectionRequester.
+	SampleOutputStream* newout = new SampleOutputStream(*this);
+	newout->setIOChannel(iochannel);
+	connectionRequester->connected(newout);
+    }
+    else {
+        connectionRequester->connected(this);
+	setName(string("SampleOutputStream: ") + iochan->getName());
+    }
 }
 
 void SampleOutputStream::init() throw()
@@ -227,23 +233,18 @@ void SampleOutputStream::fromDOMElement(const DOMElement* node)
             child=child->getNextSibling())
     {
         if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((DOMElement*) child);
 
-	const string& elname = xchild.getNodeName();
+        IOChannel* iochannel = IOChannel::createIOChannel((DOMElement*)child);
 
-        iochan = IOChannel::createIOChannel(elname);
+        iochannel->setDSMConfigs(getDSMConfigs());
 
-        iochan->setDSMConfigs(getDSMConfigs());
-        // iochan->setDSMService(getDSMService());
-
-	iochan->fromDOMElement((DOMElement*)child);
+	iochannel->fromDOMElement((DOMElement*)child);
 
 	if (++niochan > 1)
             throw atdUtil::InvalidParameterException(
                     "SampleOutputStream::fromDOMElement",
                     "output", "must have one child element");
-
-
+	setIOChannel(iochannel);
     }
     if (!iochan)
         throw atdUtil::InvalidParameterException(

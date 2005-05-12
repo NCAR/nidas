@@ -64,7 +64,7 @@ void SyncRecordProcessor::connect(SampleInput* newinput)
     const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
     generator.init(dsms);
 
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	output->setDSMConfigs(input->getDSMConfigs());
@@ -116,7 +116,7 @@ void SyncRecordProcessor::disconnect(SampleInput* inputarg)
 	}
     }
     generator.flush();
-    list<SampleOutput*>::const_iterator oi;
+    set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
         input->removeSampleClient(output);
@@ -127,6 +127,7 @@ void SyncRecordProcessor::disconnect(SampleInput* inputarg)
  
 void SyncRecordProcessor::connected(SampleOutput* output) throw()
 {
+    addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
 	output->getName().c_str(),getName().c_str());

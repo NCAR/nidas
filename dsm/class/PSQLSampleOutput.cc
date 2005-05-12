@@ -418,11 +418,8 @@ void PSQLSampleOutput::fromDOMElement(const DOMElement* node)
             child=child->getNextSibling())
     {
         if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((DOMElement*) child);
 
-        const string& elname = xchild.getNodeName();
-
-        psqlChannel = IOChannel::createIOChannel(elname);
+        psqlChannel = IOChannel::createIOChannel((DOMElement*)child);
 
 	if (!dynamic_cast<PSQLChannel*>(psqlChannel))
             throw atdUtil::InvalidParameterException(
@@ -430,7 +427,6 @@ void PSQLSampleOutput::fromDOMElement(const DOMElement* node)
                     "output", "must be a PSQLChannel");
 
         psqlChannel->setDSMConfigs(getDSMConfigs());
-        // psqlChannel->setDSMService(getDSMService());
 
         psqlChannel->fromDOMElement((DOMElement*)child);
 
