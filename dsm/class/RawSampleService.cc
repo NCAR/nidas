@@ -361,8 +361,10 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 domable = DOMObjectFactory::createObject(classattr);
             }
             catch (const atdUtil::Exception& e) {
-                throw atdUtil::InvalidParameterException("service",
+                atdUtil::InvalidParameterException ipe("service",
                     classattr,e.what());
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,"%s",ipe.what());
+		continue;
             }
 	    SampleIOProcessor* processor = dynamic_cast<SampleIOProcessor*>(domable);
             if (!processor) {
