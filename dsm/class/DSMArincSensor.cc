@@ -91,8 +91,9 @@ void DSMArincSensor::close() throw(atdUtil::IOException)
 }
 
 /**
- * Since each sample contains it's own time tag (msecs since midnight) then the block sample's time tag
- * (obtained from samp->getTimeTag()) is useless.
+ * Each label contains it's own time tag in seconds
+ * since 00:00 GMT. The input sample's time tag is
+ * used to set the date portion of the output sample timetags.
  */
 bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   throw()
@@ -100,9 +101,10 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   const tt_data_t *pSamp = (const tt_data_t*) samp->getConstVoidDataPtr();
   int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
 
-  // time at 00:00 GMT of day.
+  // absolute time at 00:00 GMT of day.
   dsm_time_t t0day = samp->getTimeTag() -
-        (samp->getTimeTag() % MSECS_PER_DAY);
+  	(samp->getTimeTag() % MSECS_PER_DAY);
+  dsm_time_t tt;
 
   for (int i=0; i<nfields; i++) {
 
@@ -115,7 +117,14 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
     // pSamp[i].time is the number of milliseconds since midnight
     // for the individual label. Use it to create a correct
     // time tag for the label.
-    outs->setTimeTag(t0day + pSamp[i].time);
+    tt = t0day + pSamp[i].time;
+
+    // correct for problems around midnight rollover
+    if (::llabs(tt - samp->getTimeTag()) > MSECS_PER_HALF_DAY) {
+        if (tt > samp->getTimeTag()) tt -= MSECS_PER_DAY;
+        else tt += MSECS_PER_DAY;
+    }
+    outs->setTimeTag(tt);
 
     unsigned short label = pSamp[i].data & 0xff;
 //     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
