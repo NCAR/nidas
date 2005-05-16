@@ -17,7 +17,7 @@
 #define DSM_DSMENGINE_H
 
 #include <Project.h>
-#include <Aircraft.h>
+#include <Site.h>
 #include <DSMConfig.h>
 #include <PortSelector.h>
 #include <StatusThread.h>
@@ -103,7 +103,7 @@ protected:
     virtual ~DSMEngine();
 
     Project* project;
-    Aircraft* aircraft;
+    Site* site;
     DSMConfig* dsmConfig;
 
     PortSelector* selector;

@@ -14,7 +14,7 @@
 */
 
 #include <DSMService.h>
-#include <Aircraft.h>
+#include <Site.h>
 #include <DSMServer.h>
 #include <DOMObjectFactory.h>
 #include <atdUtil/Logger.h>
@@ -129,9 +129,9 @@ int DSMService::checkSubServices() throw()
     return nrunning;
 }
 
-const Aircraft* DSMService::getAircraft() const
+const Site* DSMService::getSite() const
 {
-    return getDSMServer()->getAircraft();
+    return getDSMServer()->getSite();
 }
 
 void DSMService::fromDOMElement(const DOMElement* node)

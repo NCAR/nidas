@@ -15,7 +15,7 @@
 */
 
 #include <XMLConfigService.h>
-#include <Aircraft.h>
+#include <Site.h>
 // #include <DSMServer.h>
 
 #include <Datagrams.h>
@@ -77,7 +77,7 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = iochan->getRemoteInet4Address();
     cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
-    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
     if (!dsm)
 	throw atdUtil::Exception(string("can't find DSM for address ") +
 	    remoteAddr.getHostAddress());

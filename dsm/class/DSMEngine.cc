@@ -181,7 +181,7 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 DSMEngine::DSMEngine():
-    project(0),aircraft(0),dsmConfig(0),selector(0),statusThread(0)
+    project(0),site(0),dsmConfig(0),selector(0),statusThread(0)
 {
 }
 
@@ -317,22 +317,22 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
     project->fromDOMElement(projectDoc->getDocumentElement());
     // throws atdUtil::InvalidParameterException;
 
-    const list<Aircraft*>& aclist = project->getAircraft();
-    if (aclist.size() == 0)
-    	throw atdUtil::InvalidParameterException("project","aircraft",
-		"no aircraft tag in XML config");
+    const list<Site*>& sitelist = project->getSites();
+    if (sitelist.size() == 0)
+    	throw atdUtil::InvalidParameterException("project","site",
+		"no site tag in XML config");
 
-    if (aclist.size() > 1)
-    	throw atdUtil::InvalidParameterException("project","aircraft",
-		"multiple aircraft tags in XML config");
-    aircraft = aclist.front();
+    if (sitelist.size() > 1)
+    	throw atdUtil::InvalidParameterException("project","site",
+		"multiple site tags in XML config");
+    site = sitelist.front();
 
-    const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
+    const list<DSMConfig*>& dsms = site->getDSMConfigs();
     if (dsms.size() == 0)
-    	throw atdUtil::InvalidParameterException("aircraft","dsm",
+    	throw atdUtil::InvalidParameterException("site","dsm",
 		"no dsm tag in XML config");
     if (dsms.size() > 1)
-    	throw atdUtil::InvalidParameterException("aircraft","dsm",
+    	throw atdUtil::InvalidParameterException("site","dsm",
 		"multiple dsm tags in XML config");
     dsmConfig = dsms.front();
 }

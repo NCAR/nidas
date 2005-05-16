@@ -71,8 +71,8 @@ public:
 
     virtual ~DSMServer();
 
-    void setAircraft(const Aircraft* val) { aircraft = val; }
-    const Aircraft* getAircraft() const { return aircraft; }
+    void setSite(const Site* val) { site = val; }
+    const Site* getSite() const { return site; }
 
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
@@ -102,7 +102,7 @@ public:
 
 protected:
 
-    const Aircraft* aircraft;
+    const Site* site;
 
     static std::string xmlFileName;
     static bool quit;

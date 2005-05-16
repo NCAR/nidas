@@ -142,7 +142,7 @@ void RawSampleService::connected(SampleInput* inpt) throw()
 
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = input->getRemoteInet4Address();
-    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
 
     if (!dsm)
 	throw atdUtil::Exception(string("can't find DSM for address ") +
@@ -188,7 +188,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 
     // Figure out what DSM it came from. Not necessary, just for info.
     atdUtil::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
-    const DSMConfig* dsm = getAircraft()->findDSM(remoteAddr);
+    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
 
     cerr << "RawSampleService::disconnected, dsm=" << dsm << 
     	" getDSMConfig()=" << getDSMConfig() << endl;

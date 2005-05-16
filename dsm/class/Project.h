@@ -23,7 +23,7 @@
 
 namespace dsm {
 
-class Aircraft;
+class Site;
 
 /**
  */
@@ -43,8 +43,8 @@ public:
     void setXMLName(const std::string& val) { xmlName = val; }
     const std::string& getXMLName() const { return xmlName; }
 
-    void addAircraft(Aircraft* val) { aircraft.push_back(val); }
-    const std::list<Aircraft*>& getAircraft() const { return aircraft; }
+    void addSite(Site* val) { sites.push_back(val); }
+    const std::list<Site*>& getSites() const { return sites; }
 
     void setSensorCatalog(SensorCatalog* val) { catalog = val; }
     SensorCatalog* getSensorCatalog() const { return catalog; }
@@ -72,7 +72,7 @@ protected:
      */
     std::string xmlName;
 
-    std::list<Aircraft*> aircraft;
+    std::list<Site*> sites;
 
     SensorCatalog* catalog;
 };

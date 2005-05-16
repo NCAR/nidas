@@ -16,97 +16,32 @@
 #ifndef DSM_AIRCRAFT_H
 #define DSM_AIRCRAFT_H
 
-#include <DOMable.h>
-#include <DSMConfig.h>
-#include <DSMServer.h>
-#include <Project.h>
-
-#include <list>
+#include <Site.h>
 
 namespace dsm {
 
 /**
- * Here it is - a class which completely describes an aircraft!
+ * Aircraft is a sub-class of a measurement Site.
+ * A Site contains a collection of Parameters, so most any
+ * Parameter specific to an Aircraft can be supported.
  */
-class Aircraft : public DOMable {
+
+class Aircraft : public Site {
 public:
     Aircraft();
+
     virtual ~Aircraft();
 
     /**
-     * Set the name of the Aircraft.
+     * Get/Set tail number of this aircraft.
      */
-    void setName(const std::string& val) { name = val; }
+    std::string getTailNumber() const;
 
-    const std::string& getName() const { return name; }
+    void setTailNumber(const std::string& val);
 
-    /**
-     * Provide pointer to Project.
-     */
-    const Project* getProject() const { return project; }
-
-    /**
-     * Set the current project for this Aircraft.
-     */
-    void setProject(const Project* val) { project = val; }
-
-    /**
-     * An Aircraft contains one or more DSMs.  Aircraft will
-     * own the pointer and will delete the DSMConfig in its
-     * destructor.
-     */
-    void addDSMConfig(DSMConfig* dsm)
-    {
-        dsms.push_back(dsm);
-    }
-
-    const std::list<DSMConfig*>& getDSMConfigs() const
-    {
-        return dsms;
-    }
-
-    /**
-     * An Aircraft has one or more DSMServers.
-     */
-    void addServer(DSMServer* srvr) { servers.push_back(srvr); }
-
-    const std::list<DSMServer*>& getServers() const { return servers; }
-
-    /**
-     * Look for a server on this aircraft that either has no name or whose
-     * name matches hostname.  If none found, remove any domain names
-     * and try again.
-     */
-    DSMServer* findServer(const std::string& hostname) const;
-
-    /**
-     * Find a DSM whose name corresponds to
-     * a given IP address.
-     */
-    const DSMConfig* findDSM(const atdUtil::Inet4Address& addr) const;
-
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(atdUtil::InvalidParameterException);
-
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-    		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-    		throw(xercesc::DOMException);
 
 protected:
-    /**
-     * Pointer back to my project.
-     */
-    const Project* project;
-	
-    std::string name;
 
-    std::list<DSMConfig*> dsms;
-
-    std::list<DSMServer*> servers;
 };
 
 }

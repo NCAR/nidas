@@ -25,7 +25,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-DSMConfig::DSMConfig(): aircraft(0)
+DSMConfig::DSMConfig(): site(0)
 {
 }
 

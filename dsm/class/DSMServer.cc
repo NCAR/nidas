@@ -14,7 +14,7 @@
 
 #include <DSMServer.h>
 
-#include <Aircraft.h>
+#include <Site.h>
 
 #include <DSMTime.h>
 #include <XMLParser.h>
@@ -96,20 +96,20 @@ int DSMServer::main(int argc, char** argv) throw()
 	    break;
 	}
 
-	const list<Aircraft*>& aclist = project->getAircraft();
+	const list<Site*>& sitelist = project->getSites();
 
 	DSMServer* serverp = 0;
 
 	try {
-	    for (list<Aircraft*>::const_iterator ai=aclist.begin();
-		ai != aclist.end(); ++ai) {
-		Aircraft* aircraft = *ai;
-		serverp = aircraft->findServer(hostname);
+	    for (list<Site*>::const_iterator ai=sitelist.begin();
+		ai != sitelist.end(); ++ai) {
+		Site* site = *ai;
+		serverp = site->findServer(hostname);
 		if (serverp) break;
 	    }
 
 	    if (!serverp)
-	    	throw atdUtil::InvalidParameterException("aircraft","server",
+	    	throw atdUtil::InvalidParameterException("site","server",
 			string("Can't find server entry for ") + hostname);
 	}
 	catch (const atdUtil::Exception& e) {
@@ -217,7 +217,7 @@ DSMServer::DSMServer()
  * Copy constructor.
  */
 DSMServer::DSMServer(const DSMServer& x):
-	aircraft(x.aircraft),name(x.name)
+	site(x.site),name(x.name)
 {
     list<DSMService*>::const_iterator si;
     for (si=x.services.begin(); si != x.services.end(); ++si) {
@@ -317,7 +317,7 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	const std::list<DSMConfig*>& dsms = getAircraft()->getDSMConfigs();
+	const std::list<DSMConfig*>& dsms = getSite()->getDSMConfigs();
 	cerr << "adding " << dsms.size() << " DSMConfigs to service" << endl;
 	std::list<DSMConfig*>::const_iterator di;
 	for (di = dsms.begin(); di != dsms.end(); ++di)

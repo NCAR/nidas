@@ -27,7 +27,7 @@
 namespace dsm {
 
 class DSMServer;
-class Aircraft;
+class Site;
 
 /**
  * Base class for a service, as built from a <service> XML tag.
@@ -53,7 +53,7 @@ public:
 
     virtual DSMServer* getDSMServer() const { return server; }
 
-    virtual const Aircraft* getAircraft() const;
+    virtual const Site* getSite() const;
 
     const std::list<const DSMConfig*>& getDSMConfigs() const
     {

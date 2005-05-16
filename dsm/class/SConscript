@@ -43,6 +43,7 @@ myenv.AppendUnique(CXXFLAGS = Split("""
 sources = [ Split("""
 
   Project.cc
+  Site.cc
   Aircraft.cc
   DSMConfig.cc
   SensorCatalog.cc

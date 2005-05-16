@@ -15,7 +15,7 @@
 
 #include <FileSet.h>
 #include <DSMConfig.h>
-#include <Aircraft.h>
+#include <Site.h>
 
 using namespace dsm;
 using namespace std;
@@ -97,9 +97,9 @@ string FileSet::getTokenValue(const string& token)
     if (!token.compare("PROJECT")) return Project::getInstance()->getName();
         
     const list<const DSMConfig*>& dsms = getDSMConfigs();
-    if (!token.compare("AIRCRAFT")) {
+    if (!token.compare("AIRCRAFT") || !token.compare("SITE")) {
 	if (dsms.size() > 0)
-	    return dsms.front()->getAircraft()->getName();
+	    return dsms.front()->getSite()->getName();
 	else return "unknown";
     }
         

@@ -43,9 +43,9 @@ Project::~Project()
 {
     // cerr << "deleting catalog" << endl;
     delete catalog;
-    // cerr << "deleting aircraft" << endl;
-    for (std::list<Aircraft*>::iterator it = aircraft.begin();
-    	it != aircraft.end(); ++it) delete *it;
+    // cerr << "deleting sites" << endl;
+    for (std::list<Site*>::iterator it = sites.begin();
+    	it != sites.end(); ++it) delete *it;
     instance = 0;
 }
 
@@ -93,11 +93,36 @@ void Project::fromDOMElement(const DOMElement* node)
 	cerr << "element name=" << elname << endl;
 #endif
 
-	if (!elname.compare("aircraft")) {
-	    Aircraft* aircraft = new Aircraft();
-	    aircraft->setProject(this);
-	    aircraft->fromDOMElement((DOMElement*)child);
-	    addAircraft(aircraft);
+	if (!elname.compare("site")) {
+	    DOMable* domable;
+	    const string& classattr = xchild.getAttributeValue("class");
+	    if (classattr.length() == 0)
+		throw atdUtil::InvalidParameterException(
+		    string("project") + ": " + getName(),
+		    "site",
+		    "does not have a class attribute");
+	    try {
+		domable = DOMObjectFactory::createObject(classattr);
+	    }
+	    catch (const atdUtil::Exception& e) {
+		throw atdUtil::InvalidParameterException("site",
+		    classattr,e.what());
+	    }
+	    Site* site = dynamic_cast<Site*>(domable);
+	    if (!site)
+		throw atdUtil::InvalidParameterException("project",
+                    classattr,"is not a sub-class of Site");
+
+	    site->setProject(this);
+	    site->fromDOMElement((DOMElement*)child);
+	    addSite(site);
+	}
+	else if (!elname.compare("aircraft")) {
+	    // <aircraft> tag is the same as <site class="Aircraft">
+	    Aircraft* site = new Aircraft();
+	    site->setProject(this);
+	    site->fromDOMElement((DOMElement*)child);
+	    addSite(site);
 	}
 	else if (!elname.compare("sensorcatalog")) {
 	    SensorCatalog* catalog = new SensorCatalog();

@@ -24,7 +24,7 @@
 
 namespace dsm {
 
-class Aircraft;
+class Site;
 class PortSelector;
 
 /**
@@ -38,8 +38,8 @@ public:
     DSMConfig();
     virtual ~DSMConfig();
 
-    void setAircraft(const Aircraft* val) { aircraft = val; }
-    const Aircraft* getAircraft() const { return aircraft; }
+    void setSite(const Site* val) { site = val; }
+    const Site* getSite() const { return site; }
 
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
@@ -71,7 +71,7 @@ public:
 
 protected:
 
-    const Aircraft* aircraft;
+    const Site* site;
 
     std::string name;
     
