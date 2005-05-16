@@ -106,11 +106,12 @@
 	<xsd:enumeration value="float"/>
 	<xsd:enumeration value="bool"/>
 	<xsd:enumeration value="string"/>
+	<xsd:enumeration value="space_delim_string"/>
 	<xsd:enumeration value="int"/>
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name="sensorParameter">
+<xsd:complexType name="parameter">
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="value" type="xsd:normalizedString" use="required"/>
     <xsd:attribute name="type" type="parameterType" use="required"/>
@@ -120,7 +121,7 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
         <xsd:element name="poly" type="poly"/>
         <xsd:element name="linear" type="linear"/>
-	<xsd:element name="parameter" type="sensorParameter"/>
+	<xsd:element name="parameter" type="parameter"/>
     </xsd:choice>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
@@ -342,22 +343,22 @@
     </xsd:complexType>
 </xsd:element>
 
-<xsd:element name="aircraft">
-    <xsd:complexType>
-        <xsd:choice minOccurs="1" maxOccurs="unbounded">
-            <xsd:element ref="server"/>
-            <xsd:element ref="dsm"/>
-        </xsd:choice>
-        <xsd:attribute name="tailno" type="xsd:token" use="required"/>
-        <xsd:attribute name="name"   type="xsd:token" use="required"/>
-    </xsd:complexType>
-</xsd:element>
+<xsd:complexType name="siteType">
+    <xsd:choice minOccurs="1" maxOccurs="unbounded">
+	<xsd:element name="parameter" type="parameter"/>
+	<xsd:element ref="server"/>
+	<xsd:element ref="dsm"/>
+    </xsd:choice>
+    <xsd:attribute name="name"   type="xsd:token" use="required"/>
+    <xsd:attribute name="class" type="xsd:token" use="required"/>
+</xsd:complexType>
 
 <xsd:element name="project">
     <xsd:complexType>
         <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="sensorcatalog" minOccurs="0"/>
-            <xsd:element ref="aircraft"      maxOccurs="unbounded"/>
+	    <xsd:element name="site" type="siteType" maxOccurs="unbounded"/>
+	    <xsd:element name="aircraft" type="siteType" maxOccurs="unbounded"/>
         </xsd:choice>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
         <xsd:attribute name="version"   type="xsd:normalizedString"

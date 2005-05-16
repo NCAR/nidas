@@ -254,7 +254,9 @@
 -->
 
 </sensorcatalog>
-<aircraft tailno="N677F" name="hiaper">
+<site name="hiaper" class="Aircraft">
+    <parameter name="tailNumber" value="N677F" type="string"/>
+
     <server>
 	<service class="XMLConfigService">
 	    <output>
@@ -439,6 +441,6 @@
 	    <socket type="mcrequest"/>
 	</output>
     </dsm>
-</aircraft>
+</site>
 </project>
 
