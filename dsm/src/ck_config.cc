@@ -14,7 +14,7 @@
 
 #include <XMLParser.h>
 #include <Project.h>
-#include <Aircraft.h>
+#include <Site.h>
 // #include <DSMConfig.h>
 #include <PortSelectorTest.h>
 
@@ -84,12 +84,12 @@ int main(int argc, char** argv)
 	handler = PortSelectorTest::createInstance();
 	handler->start();
 
-	const list<Aircraft*>& aclist = project->getAircraft();
-	if (!aclist.size()) goto done;
+	const list<Site*>& sitelist = project->getSites();
+	if (!sitelist.size()) goto done;
 
-	Aircraft* aircraft = aclist.front();
+	Site* site = sitelist.front();
 
-	const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
+	const list<DSMConfig*>& dsms = site->getDSMConfigs();
 
 	if (!dsms.size()) goto done;
 
