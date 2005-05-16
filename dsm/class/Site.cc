@@ -78,7 +78,8 @@ void Site::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    if (xnode.getNodeName().compare("aircraft"))
+    if (xnode.getNodeName().compare("site") &&
+    	xnode.getNodeName().compare("aircraft"))
 	    throw atdUtil::InvalidParameterException(
 		    "Site::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
@@ -115,6 +116,11 @@ void Site::fromDOMElement(const DOMElement* node)
 	    server->setSite(this);
 	    server->fromDOMElement((DOMElement*)child);
 	    addServer(server);
+	}
+	else if (!elname.compare("parameter"))  {
+	    Parameter* parameter =
+	    	Parameter::createParameter((DOMElement*)child);
+	    addParameter(parameter);
 	}
     }
 }
