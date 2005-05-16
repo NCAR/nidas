@@ -113,6 +113,24 @@ public:
 
     void setValues(const std::vector<T>& vals) { values = vals; }
 
+    /**
+     * Set ith value.
+     */
+    void setValue(unsigned int i, const T& val)
+    {
+	for (unsigned int j = values.size(); j < i; j++) values.push_back(T());
+	if (values.size() > i) values[i] = val;
+	else values.push_back(val);
+    }
+
+    /**
+     * For parameters of length one, set its value.
+     */
+    void setValue(const T& val) {
+	values.clear();
+        values.push_back(val);
+    }
+
     T getValue(int i) const { return values[i]; }
 
     void fromDOMElement(const xercesc::DOMElement*)

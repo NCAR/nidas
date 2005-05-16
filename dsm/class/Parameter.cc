@@ -81,6 +81,8 @@ Parameter* Parameter::createParameter(const DOMElement* node)
 			parameter = new ParameterT<bool>();
 	        else if (!aval.compare("string"))
 			parameter = new ParameterT<string>();
+	        else if (!aval.compare("space_delim_string"))
+			parameter = new ParameterT<string>();
 	        else if (!aval.compare("int"))
 			parameter = new ParameterT<int>();
 		else throw atdUtil::InvalidParameterException("parameter",
@@ -109,34 +111,46 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+	// get all the attributes of the node
+
+	bool oneString = !xnode.getAttributeValue("type").compare("string");
+
 	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
+
 	    if (!aname.compare("name")) setName(aval);
 	    else if (!aname.compare("value")) {
 		// get attribute value(s)
-		std::istringstream ist(aval);
-		T val;
-		std::vector<T> vals;
-		for (;;) {
-		    ist >> val;
-#ifdef DEBUG
-		    std::cerr << 
-		    	Parameter::fromDOMElement, read, val=" << val <<
-			" eof=" << ist.eof() <<
-			" fail=" << ist.fail() << std::endl;
-#endif
-		    if (ist.fail())
-			throw atdUtil::InvalidParameterException(
-			    "parameter",aname,aval);
-		    vals.push_back(val);
-		    if (ist.eof()) break;
+
+		// If type is simply "string", don't break it up.
+		if (oneString) {
+		    // ugly!
+		    ParameterT<string>* strParam =
+		    	dynamic_cast<ParameterT<string>*>(this);
+		    strParam->setValue(aval);
 		}
-		setValues(vals);
+		else {
+		    std::istringstream ist(aval);
+		    T val;
+		    for (int i = 0; ; i++) {
+			ist >> val;
+#ifdef DEBUG
+			std::cerr << 
+			    Parameter::fromDOMElement, read, val=" << val <<
+			    " eof=" << ist.eof() <<
+			    " fail=" << ist.fail() << std::endl;
+#endif
+			if (ist.fail())
+			    throw atdUtil::InvalidParameterException(
+				"parameter",aname,aval);
+			setValue(i,val);
+			if (ist.eof()) break;
+		    }
+		}
 #ifdef DEBUG
 		std::cerr << "Parameter::fromDOMElement, getLength()=" <<
 			getLength() << std::endl;
