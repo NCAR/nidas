@@ -237,11 +237,11 @@ int main(int argc, char** argv)
         project = auto_ptr<Project>(Project::getInstance());
 	project->fromDOMElement(doc->getDocumentElement());
 
-	const list<Aircraft*>& aclist = project->getAircraft();
-	list<Aircraft*>::const_iterator ai;
-	for (ai = aclist.begin(); ai != aclist.end(); ++ai) {
-	    Aircraft* aircraft = *ai;
-	    const list<DSMConfig*>& dsms = aircraft->getDSMConfigs();
+	const list<Site*>& sitelist = project->getSites();
+	list<Site*>::const_iterator ai;
+	for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
+	    Site* site = *ai;
+	    const list<DSMConfig*>& dsms = site->getDSMConfigs();
 	    list<DSMConfig*>::const_iterator di;
 	    for (di = dsms.begin(); di != dsms.end(); ++di) {
 		DSMConfig* dsm = *di;
