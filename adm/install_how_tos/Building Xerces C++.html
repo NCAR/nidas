@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta content="text/html; charset=ISO-8859-1"
+ http-equiv="content-type">
+  <title>Building Xerces C++</title>
+</head>
+<body>
+<h2>Installing Xerces for ADS3</h2>
+These instructions are current as of xercesc-c version 2.6.&nbsp; They
+also assume you're running sh/bash. If you're using csh/tcsh,
+substitute "setenv" for "export", as appropriate.<br>
+<br>
+First, fetch the source code for Xerces C++ from
+http://xml.apache.org/xerces-c/.<br>
+<h3>Cross-compiling for ARM<br>
+</h3>
+<code>cd /tmp<br>
+tar xzf xerces-c-current.tar.gz<br>
+export XERCESCROOT=$PWD/xerces-c-src_2_6_0</code><code><br>
+cd $XERCESCROOT/src/xercesc</code><br>
+<br>
+Edit runConfigure so that it accepts arm-linux-g++.&nbsp;&nbsp; There
+is a case statement at line 631.&nbsp; Add arm-linux-g++ as an<br>
+acceptible compiler in the group that contains g++:<br>
+<br>
+<hr style="width: 100%; height: 2px;"><code>case $cppcompiler in<br>
+&nbsp; ...<br>
+&nbsp;&nbsp; xlC* | xlc* | g++ | c++ | cc | CC | aCC | icc | ICC | cxx
+| ecc | QCC | arm-linux-g++)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CXX="$cppcompiler"<br>
+&nbsp; ...<br>
+</code>
+<hr style="width: 100%; height: 2px;"><code><br>
+</code>Make sure the arm-linux-g++ is found in your path:<code><br>
+<br>
+which arm-linux-g++</code><code><br>
+<br>
+</code>Then build it:<code><br>
+</code><br>
+<code>export CXXFLAGS="-O2"<br>
+export CFLAGS="-O2"<br>
+./runConfigure -p linux -c arm-linux-gcc -x arm-linux-g++ -C
+--host=arm-linux -C --prefix=/opt/local_arm<br>
+make<br>
+make install<br>
+make distclean<br>
+<br>
+</code><code></code>
+<h3>Building for X86</h3>
+<code>./runConfigure -p linux -c gcc -x g++ -C --prefix=/opt/local_es4<br>
+make<br>
+make install<br>
+make distclean<br>
+</code><br>
+<br>
+<br>
+<br>
+</body>
+</html>
