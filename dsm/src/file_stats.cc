@@ -209,7 +209,7 @@ int main(int argc, char** argv)
         project = auto_ptr<Project>(Project::getInstance());
 	project->fromDOMElement(doc->getDocumentElement());
 
-	const list<Site*>& sitelist = project->getSite();
+	const list<Site*>& sitelist = project->getSites();
 	list<Site*>::const_iterator ai;
 	for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
 	    Site* site = *ai;
