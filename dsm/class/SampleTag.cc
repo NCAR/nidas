@@ -74,6 +74,8 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		    	attr.getValue());
 		setRate(rate);
 	    }
+	    else if (!attr.getName().compare("scanfFormat"))
+		setScanfFormat(attr.getValue());
 	}
     }
     DOMNode* child;

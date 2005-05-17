@@ -76,6 +76,13 @@ public:
      */
     virtual float getRate() const { return rate; }
 
+    void setScanfFormat(const std::string& val)
+    {
+        scanfFormat = val;
+    }
+
+    const std::string& getScanfFormat() const { return scanfFormat; }
+
     /**
      * Add a variable to this SampleTag.  SampleTag
      * will own the Variable, and will delete
@@ -117,6 +124,8 @@ protected:
     std::vector<const Variable*> constVariables;
 
     std::list<Variable*> variables;
+
+    std::string scanfFormat;
 };
 
 }

@@ -39,13 +39,18 @@ DSMSerialSensor::DSMSerialSensor():
     sepAtEOM(true),
     messageLength(0),
     promptRate(IRIG_NUM_RATES),
-    scanner(0),parsebuf(0),parsebuflen(0)
+    maxScanfFields(0),
+    parsebuf(0),parsebuflen(0)
 {
 }
 
 DSMSerialSensor::~DSMSerialSensor() {
-    delete scanner;
     delete [] parsebuf;
+    std::list<AsciiScanner*>::iterator si;
+    for (si = scanners.begin(); si != scanners.end(); ++si) {
+        AsciiScanner* scanner = *si;
+	delete scanner;
+    }
 }
 void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 {
@@ -106,6 +111,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 
 	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
     }
+    init();
 }
 
 void DSMSerialSensor::close() throw(atdUtil::IOException)
@@ -115,28 +121,45 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
-void DSMSerialSensor::setScanfFormat(const string& str)
-    throw(atdUtil::InvalidParameterException)
+void DSMSerialSensor::addSampleTag(SampleTag* tag)
+	throw(atdUtil::InvalidParameterException)
 {
-    atdUtil::Synchronized autosync(scannerLock);
-    if (!scanner) scanner = new AsciiScanner();
-    
-    try {
-       scanner->setFormat(str);
+
+    const string& sfmt = tag->getScanfFormat();
+    if (sfmt.length() > 0) {
+	if (scanners.size() == 0 && sampleTags.size() > 0) {
+	    ostringstream ost;
+	    ost << tag->getShortId();
+	    throw atdUtil::InvalidParameterException(getName(),
+	       string("scanfFormat for sample id=") + ost.str(),
+	       "Either all samples for a DSMSerialSensor must have a scanfFormat or no samples");
+	}
+	AsciiScanner* scanner = new AsciiScanner();
+	try {
+	   scanner->setFormat(tag->getScanfFormat());
+	}
+	catch (atdUtil::ParseException& pe) {
+	    throw atdUtil::InvalidParameterException(getName(),
+		   "setScanfFormat",pe.what());
+	}
+	scanner->setSampleId(tag->getId());
+	scanners.push_back(scanner);
+	maxScanfFields = std::max(maxScanfFields,scanner->getNumberOfFields());
     }
-    catch (atdUtil::ParseException& pe) {
-        throw atdUtil::InvalidParameterException(getName(),
-               "setScanfFormat",pe.what());
+    else if (scanners.size() > 0) {
+	ostringstream ost;
+	ost << tag->getShortId();
+	throw atdUtil::InvalidParameterException(getName(),
+	   string("scanfFormat for sample id=") + ost.str(),
+	   "Either all samples for a DSMSerialSensor must have a scanfFormat or no samples");
     }
+    DSMSensor::addSampleTag(tag);
 }
 
-const string& DSMSerialSensor::getScanfFormat()
-{
-    static string emptyStr;
-    atdUtil::Synchronized autosync(scannerLock);
-    if (!scanner) return emptyStr;
-    return scanner->getFormat();
+void DSMSerialSensor::init() throw(atdUtil::IOException) {
+    if (scanners.size() > 0) nextScanner = scanners.begin();
 }
+
 
 void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 {
@@ -218,8 +241,6 @@ void DSMSerialSensor::fromDOMElement(
 		    	"stopbits", aval);
 		setStopBits(val);
 	    }
-	    else if (!aname.compare("scanfFormat"))
-		setScanfFormat(aval);
 	}
     }
     DOMNode* child;
@@ -398,7 +419,7 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
     // If no scanner defined, then don't scan sample, just pass it on
-    if (!scanner) {
+    if (!scanners.size()) {
 	DSMSensor::process(samp,results);
         return true;
     }
@@ -422,17 +443,19 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
     memcpy(parsebuf,(const char*)samp->getConstVoidDataPtr(),slen);
     parsebuf[slen] = '\0';
 
-    int nfields = scanner->getNumberOfFields();
+    SampleT<float>* outs = getSample<float>(maxScanfFields);
 
-    SampleT<float>* outs = getSample<float>(nfields);
-
-    int nparsed;
-    {
-	// Locking scannerLock here is overkill.
-	// It allows changing the scanf string while we're running
-	// which is probably not necessary.
-	atdUtil::Synchronized autosync(scannerLock);
-	nparsed = scanner->sscanf(parsebuf,outs->getDataPtr(),nfields);
+    int nparsed = 0;
+    for (unsigned int ntry = 0; ntry < scanners.size(); ntry++) {
+	AsciiScanner* scanner = *nextScanner;
+	nparsed = scanner->sscanf(parsebuf,outs->getDataPtr(),
+		scanner->getNumberOfFields());
+	if (++nextScanner == scanners.end()) nextScanner = scanners.begin();
+	if (nparsed > 0) {
+	    outs->setId(scanner->getSampleId());
+	    if (nparsed != scanner->getNumberOfFields()) scanfPartials++;
+	    break;
+	}
     }
 
     if (!nparsed) {
@@ -440,10 +463,8 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 	outs->freeReference();		// remember!
 	return false;		// no sample
     }
-    else if (nparsed != nfields) scanfPartials++;
 
     outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getSampleId());
     outs->setDataLength(nparsed);
     results.push_back(outs);
     return true;

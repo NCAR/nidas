@@ -43,6 +43,10 @@ public:
      */
     void open(int flags) throw(atdUtil::IOException);
 
+    void init() throw(atdUtil::IOException);
+
+    void addSampleTag(SampleTag* var)
+    	throw(atdUtil::InvalidParameterException);
     /*
      * Close the device connected to the sensor.
      */
@@ -113,9 +117,9 @@ public:
     /**
      * Set the format to scan ASCII data.
      * @see dsm::AsciiScanner.setFormat()
-     */
     void setScanfFormat(const std::string& val)
     	throw(atdUtil::InvalidParameterException);
+     */
 
     const std::string& getScanfFormat();
 
@@ -168,8 +172,11 @@ protected:
     std::string prompt;
     enum irigClockRates promptRate;
    
-    AsciiScanner* scanner;
-    atdUtil::Mutex scannerLock;
+    std::list<AsciiScanner*> scanners;
+
+    std::list<AsciiScanner*>::iterator nextScanner;
+
+    int maxScanfFields;
 
     char* parsebuf;
 

@@ -122,7 +122,8 @@ LETTER	[a-zA-Z]
 
 AsciiScanner::AsciiScanner(): 
 	MAX_OUTPUT_VALUES(60),charfmt(0),allFloats(true),
-	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES])
+	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
+	sampleId(0)
 {
     for (int i = 0; i < MAX_OUTPUT_VALUES; i++)
     	bufptrs[i] = 0;

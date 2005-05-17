@@ -31,6 +31,7 @@
 #include <FlexLexer.h>		// Header that comes with flex. In /usr/include.
 #endif
 
+#include <Sample.h>
 #include <atdUtil/ParseException.h>
 
 #include <vector>
@@ -70,6 +71,9 @@ public:
     void setFormat(const std::string& val) throw(atdUtil::ParseException);
 
     const std::string& getFormat() const { return format; }
+
+    void setSampleId(dsm_sample_id_t val) { sampleId = val; }
+    dsm_sample_id_t getSampleId() const { return sampleId; }
 
     /**
      * SampleClient receive method.
@@ -155,6 +159,12 @@ private:
      *	sscanf(inputstr,format,bufptrs[0],bufptrs[1],bufptrs[2],...)
      */
     char** bufptrs;
+
+    /**
+     * A scanner may produce dsm samples. sampleId is the id
+     * of those samples.
+     */
+    dsm_sample_id_t sampleId;
 
 };
 
