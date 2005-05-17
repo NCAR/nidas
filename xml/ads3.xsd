@@ -140,10 +140,10 @@
 	    Samples for a serial sensor also may have a scanfFormat string.
         </xsd:documentation>
     </xsd:annotation>
-    <xsd:choice minOccurs="1" maxOccurs="unbounded">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="variable" type="variable"/>
     </xsd:choice>
-    <xsd:attribute name="id" type="xsd:short" use="required"/>
+    <xsd:attribute name="id" type="xsd:short"/>
     <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 </xsd:complexType>

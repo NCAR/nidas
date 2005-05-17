@@ -218,12 +218,14 @@
 
     <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
 	baud="57600" parity="none" databits="8" stopbits="1">
+	<sample id="1" scanfFormat="%*1d%f"/>
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="#1?\r" rate="50"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
 	baud="115200" parity="none" databits="8" stopbits="1">
+	<sample id="1" scanfFormat="*%*2d%*2d%f"/>
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="*0100P3\r\n" rate="20"/>
     </serialSensor>
@@ -359,14 +361,14 @@
 -->
 	<serialSensor IDREF="Mensor_6100"
 		devicename="/dev/dsmser0" id="110">
-	    <sample id="1" scanfFormat="%*1d%f">
+	    <sample>
 		<variable name="DPRESM1" units="mb"/>
 	    </sample>
 	</serialSensor>
 
 	<serialSensor IDREF="Paro_DigiQuartz_1000"
 		devicename="/dev/dsmser1" id="112">
-	    <sample id="1" scanfFormat="*%*2d%*2d%f">
+	    <sample>
 		<variable name="DPRESP1" units="mb"/>
 	    </sample>
 	</serialSensor>
@@ -418,9 +420,8 @@
     <dsm name="dsm302" location="tail" id="2">
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
-	<serialSensor IDREF="Mensor_6100"
-		devicename="/dev/dsmser0" id="110">
-	    <sample id="1">
+	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0" id="110">
+	    <sample>
 		<variable name="DPRESM2" units="mb">
 		    <linear slope="10.0" intercept="0.0" units="pascal"/>
 		</variable>
@@ -429,7 +430,7 @@
 
 	<serialSensor IDREF="Paro_DigiQuartz_1000"
 		devicename="/dev/dsmser1" id="112">
-	    <sample id="1">
+	    <sample>
 		<variable name="DPRESP2" units="mb" count="true">
 		    <poly coefs="0 1 1.1" units="wacka-mole"/>
 		</variable>
