@@ -82,7 +82,7 @@ int main(int argc, char** argv)
 
 	    sens->setPromptRate(IRIG_1_HZ);
 	    sens->setPromptString("hitme\n");
-	    sens->setScanfFormat("%*s%f%x");
+	    // sens->setScanfFormat("%*s%f%x");
 
 	    std::cerr << "doing sens->open" << std::endl;
 	    sens->open(O_RDWR);
