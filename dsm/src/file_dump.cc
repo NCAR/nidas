@@ -110,7 +110,7 @@ Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
 
     if (optind == argc - 1) dataFileName = string(argv[optind++]);
     if (dataFileName.length() == 0) usage(argv[0]);
-    if (xmlFileName.length() == 0) usage(argv[0]);
+    if (process && xmlFileName.length() == 0) usage(argv[0]);
 
     if (sampleId < 0) usage(argv[0]);
     if (optind != argc) usage(argv[0]);
@@ -119,13 +119,16 @@ Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
 void Runstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] -d dsmid -s sampleId -x xml_file data_file [-A | -H | -S]\n\
+Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file data_file [-A | -H | -S]\n\
+  -d dsmid: numeric id of DSM that you want to dump samples from\n\
+  -d sampleId: numeric id of sample that you want to dump\n\
+       (use file_stats to see DSM ids and sample ids of data in a file)\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
-  -A: ASCII output (typical for samples from a serial sensor)\n\
+  -A: ASCII output (for samples from a serial sensor)\n\
   -F: floating point output (default for processed output)\n\
   -H: hex output (default for raw output)\n\
-  -S: signed short output (typical for samples from an A2D)\n\
+  -S: signed short output (for samples from an A2D)\n\
   data_file (required). Name of sample file.\n\
 " << endl;
     exit(1);

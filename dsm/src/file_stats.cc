@@ -60,7 +60,7 @@ Runstring::Runstring(int argc, char** argv): process(false)
     }
     if (optind == argc - 1) dataFileName = string(argv[optind++]);
     if (dataFileName.length() == 0) usage(argv[0]);
-    if (xmlFileName.length() == 0) usage(argv[0]);
+    if (process && xmlFileName.length() == 0) usage(argv[0]);
     if (optind != argc) usage(argv[0]);
 }
 
