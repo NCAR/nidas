@@ -24,7 +24,7 @@ using namespace xercesc;
 
 SampleTag::~SampleTag()
 {
-    for (list<Variable*>::const_iterator vi = variables.begin();
+    for (vector<Variable*>::const_iterator vi = variables.begin();
     	vi != variables.end(); ++vi) delete *vi;
 }
 
@@ -78,6 +78,7 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		setScanfFormat(attr.getValue());
 	}
     }
+    unsigned int nvars = 0;
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -87,9 +88,12 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("variable")) {
-	    Variable* var = new Variable();
+	    Variable* var;
+	    if (nvars == variables.size()) var = new Variable();
+	    else var = variables[nvars];
 	    var->fromDOMElement((DOMElement*)child);
-	    addVariable(var);
+	    if (nvars == variables.size()) addVariable(var);
+	    nvars++;
 	}
 	else throw atdUtil::InvalidParameterException("sample",
 		"unknown child element of sample",elname);

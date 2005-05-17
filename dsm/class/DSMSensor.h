@@ -316,7 +316,7 @@ protected:
      */
     dsm_sample_id_t id;
 
-    std::list<SampleTag*> sampleTags;
+    std::vector<SampleTag*> sampleTags;
 
     std::vector<const SampleTag*> constSampleTags;
 

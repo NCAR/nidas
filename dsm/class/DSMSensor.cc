@@ -41,7 +41,7 @@ DSMSensor::DSMSensor() :
 DSMSensor::~DSMSensor()
 {
     delete [] buffer;
-    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
+    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) delete *si;
 }
 
@@ -290,6 +290,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    }
 	}
     }
+    unsigned int nsamples = 0;
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -299,13 +300,25 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("sample")) {
-	    SampleTag* samp = new SampleTag();
+	    SampleTag* samp;
+	    // The sample tags may have been specified in the catalog entry.
+	    if (nsamples == sampleTags.size()) samp = new SampleTag();
+	    else samp = sampleTags[nsamples];
+
 	    samp->fromDOMElement((DOMElement*)child);
-	    // sum of sensor short id and sample short id
-	    samp->setShortId(getShortId() + samp->getShortId());
-	    // set the DSM id portion of the sample id
-	    samp->setDSMId(getDSMConfig()->getId());
-	    addSampleTag(samp);
+	    if (samp->getShortId() == 0)
+		throw atdUtil::InvalidParameterException(
+		    getName(),"sample id invalid or not found","0");
+
+	    if (nsamples == sampleTags.size()) {
+		// sum of sensor short id and sample short id
+		// Be sure to add the sensor id to the sample id only once.
+		samp->setShortId(getShortId() + samp->getShortId());
+		// set the DSM id portion of the sample id
+		samp->setDSMId(getDSMConfig()->getId());
+	        addSampleTag(samp);
+	    }
+	    nsamples++;
 	}
     }
 
@@ -314,7 +327,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 
     // Check that sample ids are unique for this sensor.
     set<unsigned short> ids;
-    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
+    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) {
 	SampleTag* samp = *si;
 

@@ -123,7 +123,7 @@ protected:
 
     std::vector<const Variable*> constVariables;
 
-    std::list<Variable*> variables;
+    std::vector<Variable*> variables;
 
     std::string scanfFormat;
 };

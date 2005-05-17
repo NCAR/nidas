@@ -311,7 +311,7 @@ void DSMSerialSensor::fromDOMElement(
     }
 
     // If sensor is prompted, set sampling rates for variables if unknown
-    list<SampleTag*>::const_iterator si;
+    vector<SampleTag*>::const_iterator si;
     if (getPromptRate() != IRIG_NUM_RATES) {
 	float frate = irigClockEnumToRate(getPromptRate());
 	for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
