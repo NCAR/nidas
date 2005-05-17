@@ -217,15 +217,13 @@
     </arincSensor>
 
     <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
-	baud="57600" parity="none" databits="8" stopbits="1"
-	scanfFormat="%*1d%f">
+	baud="57600" parity="none" databits="8" stopbits="1">
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="#1?\r" rate="50"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
-	baud="115200" parity="none" databits="8" stopbits="1"
-	scanfFormat="*%*2d%*2d%f">
+	baud="115200" parity="none" databits="8" stopbits="1">
 	<message separator="\n" position="end" length="0"/>
 	<prompt string="*0100P3\r\n" rate="20"/>
     </serialSensor>
@@ -361,14 +359,14 @@
 -->
 	<serialSensor IDREF="Mensor_6100"
 		devicename="/dev/dsmser0" id="110">
-	    <sample id="1">
+	    <sample id="1" scanfFormat="%*1d%f">
 		<variable name="DPRESM1" units="mb"/>
 	    </sample>
 	</serialSensor>
 
 	<serialSensor IDREF="Paro_DigiQuartz_1000"
 		devicename="/dev/dsmser1" id="112">
-	    <sample id="1">
+	    <sample id="1" scanfFormat="*%*2d%*2d%f">
 		<variable name="DPRESP1" units="mb"/>
 	    </sample>
 	</serialSensor>

@@ -137,6 +137,7 @@
 	    is used to tag each sample in the system, so that SampleClients
 	    that receive the sample can know what variables are in
 	    the sample, and what sensor it came from.
+	    Samples for a serial sensor also may have a scanfFormat string.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:choice minOccurs="1" maxOccurs="unbounded">
@@ -144,6 +145,7 @@
     </xsd:choice>
     <xsd:attribute name="id" type="xsd:short" use="required"/>
     <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
+    <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">
@@ -183,7 +185,6 @@
 	    <xsd:attribute name="parity" type="paritytype"/>
 	    <xsd:attribute name="databits" type="databitstype"/>
 	    <xsd:attribute name="stopbits" type="stopbitstype"/>
-	    <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
