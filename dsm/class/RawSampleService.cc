@@ -66,23 +66,13 @@ RawSampleService::~RawSampleService()
 {
 
     list<SampleIOProcessor*>::const_iterator pi;
-    if (input) {
-#ifdef DEBUG
-	cerr << "~RawSampleService, disconnecting processors, size()=" <<
-	    processors.size() << endl;
-#endif
-	for (pi = processors.begin(); pi != processors.end(); ++pi) {
-	    SampleIOProcessor* processor = *pi;
-#ifdef DEBUG
-	    cerr << "~RawSampleService, disconnecting " <<
-	    	processor->getName() << " from " << input->getName() << endl;
-#endif
-	    processor->disconnect(input);
-	}
+    for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
+        SampleIOProcessor* proc = *pi;
+	if (!proc->singleDSM()) proc->disconnect(&merger);
+	else if (input) proc->disconnect(input);
+    }
 
-#ifdef DEBUG
-	cerr << "~RawSampleService, closing input" << endl;
-#endif
+    if (input) {
         input->close();
 	delete input;
     }
