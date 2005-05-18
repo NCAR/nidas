@@ -876,6 +876,8 @@ static void A2DGetData(void *arg)
 	    	SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
 	        rtl_printf("%s: error writing to up fifo: %s\n",
 			__FILE__,rtl_strerror(rtl_errno));
+	        rtl_printf("%s: disabling writes to fifo\n",__FILE__);
+		fd_up = -1;
 		globalStatus.rtlFifoWriteErrors++;
 	    }
 	}
