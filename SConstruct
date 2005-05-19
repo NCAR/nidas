@@ -65,23 +65,18 @@ arm_env = env.Copy()
 #   -mcpu=xscale
 # """))
 
-##    /scr/tmp/maclean/isa_tmp/arm/include
 arm_env.AppendUnique(CPPPATH = Split("""
-    /net/opt_lnx/local_arm/isffLib/include
-    /net/opt_lnx/local_arm/include
+    /net/opt_lnx/ads3/arm/include
 """))
 
-##    /scr/tmp/maclean/isa_tmp/arm/lib
 arm_env.AppendUnique(LIBPATH = Split("""
-    /net/opt_lnx/local_arm/isffLib/lib
-    /net/opt_lnx/local_arm/lib
+    /net/opt_lnx/ads3/arm/lib
     #dsm/class/arm
 """))
 
 ##
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
 ##
-##    /net/opt_lnx/local_arm/lib
 arm_env.AppendUnique(RPATH = Split("""
     /usr/local/lib
     /var/tmp/lib
@@ -108,14 +103,12 @@ x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
 
 ##     /scr/tmp/maclean/isa_tmp/fc3/include
 x86_env.AppendUnique(CPPPATH = Split("""
-    /net/opt_lnx/local_fc3/isffLib/include
-    /net/opt_lnx/local_fc3/include
+    /net/opt_lnx/ads3/x86/include
 """))
 
 ##    /scr/tmp/maclean/isa_tmp/fc3/lib
 x86_env.AppendUnique(LIBPATH = Split("""
-    /net/opt_lnx/local_fc3/isffLib/lib
-    /net/opt_lnx/local_fc3/lib
+    /net/opt_lnx/ads3/x86/lib
     #dsm/class/x86
 """))
 
@@ -123,7 +116,7 @@ x86_env.AppendUnique(LIBPATH = Split("""
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
 ##
 x86_env.AppendUnique(RPATH = [
-    "/net/opt_lnx/local_fc3/lib",
+    "/net/opt_lnx/ads3/x86/lib",
     x86_env.Dir("#dsm/class/x86").get_abspath()
     ]) 
 
