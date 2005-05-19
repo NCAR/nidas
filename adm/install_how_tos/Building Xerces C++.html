@@ -41,14 +41,14 @@ which arm-linux-g++</code><code><br>
 <code>export CXXFLAGS="-O2"<br>
 export CFLAGS="-O2"<br>
 ./runConfigure -p linux -c arm-linux-gcc -x arm-linux-g++ -C
---host=arm-linux -C --prefix=/opt/local_arm<br>
+--host=arm-linux -C --prefix=/net/opt_lnx/ads3/arm<br>
 make<br>
 make install<br>
 make distclean<br>
 <br>
 </code><code></code>
 <h3>Building for X86</h3>
-<code>./runConfigure -p linux -c gcc -x g++ -C --prefix=/opt/local_es4<br>
+<code>./runConfigure -p linux -c gcc -x g++ -C --prefix=/net/opt_lnx/ads3/x86<br>
 make<br>
 make install<br>
 make distclean<br>
