@@ -97,7 +97,7 @@ void cleanup_module(void);
 static rtl_pthread_t SetupThread = 0;
 static rtl_pthread_t SyncThread = 0;
 
-static 	US	CalOff = 0; 	//Static storage for cal and offset bits
+static 	US	OffCal = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static char fifoname[50];
 static 	int	fd_up = -1; 			// Data FIFO file descriptor
@@ -645,7 +645,7 @@ static UC A2DSetVcal(int Vx8)
 /*-----------------------Utility------------------------------*/
 
 //Switch inputs specified by Chans bits to calibration mode: bits 8-15 -> chan 0-7
-// Checked visually 5/22/04 GRG
+// Cal bits are in lower byte
 
 static void A2DSetCal(A2D_SET *a2d)
 {	
@@ -661,11 +661,11 @@ static void A2DSetCal(A2D_SET *a2d)
 	// Point at the system control input channel
 	outb(A2DIOSYSCTL, (UC *)chan_addr);
 
-	//Set the appropriate bits in CalOff
-	CalOff |= (US)((Chans<<8) & 0xFF00);
+	//Set the appropriate bits in OffCal
+	OffCal |= (US)((Chans) & 0x00FF);
 	
-	//Send CalOff word to system control word
-	outw(CalOff, (US *)isa_address);
+	//Send OffCal word to system control word
+	outw(OffCal, (US *)isa_address);
 
 	return;
 }
@@ -673,7 +673,7 @@ static void A2DSetCal(A2D_SET *a2d)
 /*-----------------------Utility------------------------------*/
 
 //Switch channels specified by Chans bits to offset mode: bits 0-7 -> chan 0-7
-// TODO Check logic on this one
+// Offset bits are in upper byte (I think)
 
 static void A2DSetOffset(A2D_SET *a2d)
 {	
@@ -683,14 +683,15 @@ static void A2DSetOffset(A2D_SET *a2d)
 	for(i = 0; i < MAXA2DS; i++)
 	{
 		Chans >>= 1;
-		if(a2d->offset[i] != 0)Chans += 0x80;
+//		if(a2d->offset[i] != 0)Chans += 0x80;
+		if(a2d->offset[i] == 0)Chans += 0x80;
 	}
 
-	outb(A2DIOVCAL, (UC *)chan_addr);
+	outb(A2DIOCALOFF, (UC *)chan_addr);
 
-	CalOff |= (US)(Chans & 0x00FF);
+	OffCal |= (US)((Chans <<8) & 0xFF00);
 
-	outw(CalOff, (US *)isa_address);
+	outw(OffCal, (US *)isa_address);
 	
 	return;
 }
@@ -867,8 +868,8 @@ static void A2DGetData(void *arg)
 
 	buf.size = (char*)dataptr - (char*)buf.data;
 
-	if(buf.size != 80) rtl_printf("%s: A2DGetData, #shorts=%d\n",
-		    __FILE__, buf.size/sizeof(short));
+//	if(buf.size != 80) rtl_printf("%s: A2DGetData, #shorts=%d\n",
+//		    __FILE__, buf.size/sizeof(short));
 
 	if (fd_up >= 0 && buf.size > 0) {
 	    // Write to up-fifo

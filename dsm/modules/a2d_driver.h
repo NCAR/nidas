@@ -185,6 +185,7 @@ typedef struct
 #define	A2DIOGAIN47		0x4	//A/D chan 4-7 gain read/write
 #define	A2DIOVCAL		0x5	//VCAL set (DAC ch 0) read/write
 #define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
+#define A2DIOCALOFF		0x6	//A/D INT lines(read),Cal/offset (write)
 #define A2DIOINTRD		0x6	//A/D INT lines(read),Cal/offset (write)
 #define	A2DIOFIFOSTAT	0x7	//FIFO stat (read), Set master A/D (write) 
 #define	A2DIOLOAD		0xF	//Load A/D configuration data
