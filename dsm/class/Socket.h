@@ -44,7 +44,10 @@ public:
     Socket(const Socket& x);
 
     /**
-     * Constructor from a connected atdUtil::Socket*
+     * Constructor from a connected atdUtil::Socket.
+     * @param sock Pointer to the connected atdUtil::Socket. dsm::Socket
+     *    will make a copy of the connected atdUtil::Socket and will
+     *    not own the sock pointer.
      */
     Socket(const atdUtil::Socket* sock);
 
