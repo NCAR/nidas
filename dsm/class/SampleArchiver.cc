@@ -66,11 +66,12 @@ void SampleArchiver::connect(SampleInput* inputarg) throw(atdUtil::IOException)
 void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
 {
     if (!input) return;
-    assert(input == inputarg);
 
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
+	"%s is disconnecting from %s",
 	inputarg->getName().c_str(),getName().c_str());
+
+    assert(input == inputarg);
 
     set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {

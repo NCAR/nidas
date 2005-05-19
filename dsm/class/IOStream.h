@@ -124,16 +124,19 @@ public:
     /**
      * Request that IOChannel object open a new file, with a name
      * based on a time.
+     * @param t Time to use when creating file name.
+     * @param exact Use exact time when creating file name, else
+     *        the time is truncated down to an even time interval.
+     * @return Start time of next file.
      */
-    dsm_time_t createFile(dsm_time_t t) throw(atdUtil::IOException)
+    dsm_time_t createFile(dsm_time_t t,bool exact) throw(atdUtil::IOException)
     {
 	// std::cerr << "IOStream::createFile, doing flush" << std::endl;
 	flush();
-	return iochannel.createFile(t);
+	return iochannel.createFile(t,exact);
     }
 
     const std::string& getName() const { return iochannel.getName(); }
-
 
 protected:
 

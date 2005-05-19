@@ -54,7 +54,7 @@ public:
 
     IOChannel* clone() const { return new FileSet(*this); }
 
-    dsm_time_t FileSet::createFile(dsm_time_t t)
+    dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
 	throw(atdUtil::IOException);
 
     size_t read(void* buf, size_t len) throw(atdUtil::IOException)

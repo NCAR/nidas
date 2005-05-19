@@ -161,21 +161,14 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     if (!iostream) return false;
 
     dsm_time_t tsamp = samp->getTimeTag();
-
-    if (nextFileTime == 0) nextFileTime = tsamp;
     try {
 	if (tsamp >= nextFileTime) {
-	    cerr << "calling iostream->createFile, nextFileTime=" << nextFileTime << endl;
-#ifdef DEBUG
-#endif
-
-	    dsm_time_t newFileTime = iostream->createFile(nextFileTime);
-
+	    // The very first file we use an exact time in the name,
+	    // otherwise it is truncated down.
+	    nextFileTime = iostream->createFile(tsamp,nextFileTime == 0);
 	    if (connectionRequester)
-		connectionRequester->newFileCallback(nextFileTime,iostream);
-	    nextFileTime = newFileTime;
+		connectionRequester->newFileCallback(tsamp,iostream);
 	}
-
 	write(samp);
     }
     catch(const atdUtil::IOException& ioe) {

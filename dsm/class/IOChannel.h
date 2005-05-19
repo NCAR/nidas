@@ -113,8 +113,11 @@ public:
      * classes which write to disk files. Other derived classes
      * (e.g. sockets) can just use this default implementation -
      * basically ignoring the request.
+     * @param t Time to use when creating file name.
+     * @param exact Use exact time when creating file name, else
+     *        the time is adjusted to an even time interval.
      */
-    virtual dsm_time_t createFile(dsm_time_t t) throw(atdUtil::IOException)
+    virtual dsm_time_t createFile(dsm_time_t t,bool exact) throw(atdUtil::IOException)
     {
         return LONG_LONG_MAX;
     }
