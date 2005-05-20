@@ -127,6 +127,7 @@ void PSQLChannel::flush() throw(atdUtil::IOException)
 	    PQclear(res);
 	    throw ioe;
 	}
+	PQclear(res);
     }
 }
 
