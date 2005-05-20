@@ -42,8 +42,11 @@ SampleAverager::~SampleAverager()
 
 void SampleAverager::init() throw()
 {
+    delete [] sums;
     sums = new double[nvariables];
+    delete [] cnts;
     cnts = new int[nvariables];
+    endTime = 0;
 }
 
 void SampleAverager::addVariable(const Variable *var)
