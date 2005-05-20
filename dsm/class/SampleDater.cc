@@ -56,7 +56,8 @@ SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<
 		" samp-clock=" << sampleTime - clockTime <<
-		", id=" << samp->getId() << endl;
+		", dsm=" << samp->getDSMId() <<
+		", sampid=" << samp->getShortId() << endl;
 	    return OUT_OF_SPEC;
 	}
     }
