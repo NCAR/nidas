@@ -77,6 +77,7 @@ typedef struct
 typedef struct 
 {
 	int	vcalx8;		// Calibration voltage: 
+	int spcb;		// Samples per callback = A2D_output_rate*8*callback_intvl
 				// 128=0, 48=-10, 208 = +10, .125 V/bit
 	US	status[MAXA2DS];	// A/D status flag
 //
@@ -89,7 +90,7 @@ typedef struct
 	US	ctr[MAXA2DS];		// Current value of ctr;
 	UL	ptr[MAXA2DS];		// Pointer offset from beginning of 
 	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
-				// data summing buffer
+					// data summing buffer
 } A2D_SET;
 
 typedef struct 
@@ -160,7 +161,7 @@ typedef struct
 #define	ERRA2DCFG		-10	//A/D configuration error
 
 //Card base address for ISA bus
-#define	A2DMASTER		7	//A/D chip designated to produce interrupts
+#define	A2DMASTER		0	//A/D chip designated to produce interrupts
 #define	A2DIOBASE		0x000003A0
 #define	A2DIOSEP		0x00000010	// Card addr separation
 #define	A2DBASE			(A2DIOBASE + SYSTEM_ISA_IOPORT_BASE)
