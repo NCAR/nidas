@@ -828,6 +828,7 @@ static void A2DGetData(void *arg)
 
 	buf.timestamp = GET_MSEC_CLOCK;
 
+
 	// Grab the h/w FIFO data flags for posterity
 	outb(A2DIOFIFOSTAT,chan_addr);
 	stat = inw(isa_address);
@@ -858,6 +859,8 @@ static void A2DGetData(void *arg)
 			break;
 	}
 	
+	rtl_usleep(20);
+
 	// Read all the FIFO data into buf.data
 	while(!A2DFIFOEmpty() && (char*)dataptr < eob)
 	{
