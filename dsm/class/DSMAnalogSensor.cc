@@ -94,7 +94,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.calset[chan] = 0;
     }
 
-	a2d.master = A2DMASTER;
+	a2d.master = 0; // A2DMASTER;
 
     ostringstream ost;
     if (maxrate >= 1000)
