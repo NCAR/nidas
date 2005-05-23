@@ -112,6 +112,7 @@ static unsigned int isa_address = A2DBASE;
 static unsigned int chan_addr = A2DBASE + 0xF;
 static unsigned int a2dsbusy = 0;
 static unsigned int msgctr = 0;
+static unsigned int nshorts = 0, nshortsold = 0;
 
 // These are just test values
 
@@ -567,7 +568,7 @@ static UC A2DSetGain(int A2DSel, int A2DGain)
 	if(A2DGain < 1 || A2DGain > 25)return(ERRA2DGAIN);
 
 
-	DACAddr = (UC *)chan_addr + A2DSel; // this address
+	DACAddr = (UC *)isa_address + A2DSel; // this address
 
 	if(A2DSel >= 0 && A2DSel <=3)	// If setting gain on channels 0-3
 	{
@@ -577,7 +578,7 @@ static UC A2DSetGain(int A2DSel, int A2DGain)
 	if(A2DSel >= 4 && A2DSel <=7)	// Otherwise, for channels 4-7
 	{
 		D2AChsel = A2DIOGAIN47;		// Use this channel select and
-		DACAddr = (UC *)chan_addr + A2DSel - 4; // this address
+		DACAddr = (UC *)isa_address + A2DSel - 4; // this address
 	}
 
 	// If no A/D selected return error -1
@@ -877,7 +878,11 @@ static void A2DGetData(void *arg)
 	buf.size = (char*)dataptr - (char*)buf.data;
 
 #ifdef DEBUGTIMING
-	if(buf.size != MAXA2DS*MaxHz/INTRP_RATE) 
+	nshortsold = nshorts;
+	nshorts = buf.size; 
+
+	if(nshorts != 2*MAXA2DS*MaxHz/(INTRP_RATE*sizeof(short)) || 
+				  nshortsold != nshorts) 
 	{
 		if(msgctr == 0)
 		{
@@ -887,10 +892,9 @@ static void A2DGetData(void *arg)
 		msgctr++;
 	}
 	else
-	{
-		if(msgctr != 0)
-			rtl_printf("Last message repeated %d times\n", msgctr);
-		msgctr = 0;		//Ensure that message counter is reset	
+	{ 	
+		if(msgctr != 0)rtl_printf("Last message repeated %d times\n\n", msgctr);
+		msgctr = 0;		// Reset message counter
 	}
 #endif
 
