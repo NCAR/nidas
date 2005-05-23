@@ -1,6 +1,7 @@
 // #define BFIR
 // #define DEBUGA2DGET
 // #define DEBUGA2DGET2
+#define DEBUGTIMING
 
 /*  a2d_driver.c/
 
@@ -101,6 +102,7 @@ static 	US	OffCal = 0; 	//Static storage for cal and offset bits
 static	US	FIFOCtl = 0;	//Static hardware FIFO control word storage
 static char fifoname[50];
 static 	int	fd_up = -1; 			// Data FIFO file descriptor
+static	int	MaxHz = 0;		// Maximum A/D sample rate
 
 static A2D_STATUS globalStatus;		// status info maintained by driver and passed to user via ioctl
 
@@ -109,6 +111,7 @@ static 	int	oneppstimeout = 0;	// 1PPS detection timeout flag
 static unsigned int isa_address = A2DBASE;
 static unsigned int chan_addr = A2DBASE + 0xF;
 static unsigned int a2dsbusy = 0;
+static unsigned int msgctr = 0;
 
 // These are just test values
 
@@ -357,7 +360,7 @@ int init_module()
 static int A2DSetup(A2D_SET *a2d)
 	{
 	int A2DErrorCode; /* TotalErrors = 0; */
-	int i;
+	int  i;
 
 	FIFOCtl = 0;		//Clear FIFO Control Word
 
@@ -369,8 +372,10 @@ static int A2DSetup(A2D_SET *a2d)
 		A2DSetGain(i, a2d->gain[i]);
 		a2d->status[i] = 0;	// Clear status
 		A2DSetCtr(a2d);		// Set up the counters
+		if(a2d->Hz[i] > MaxHz)MaxHz = a2d->Hz[i];	// Find maximum rate
 	}
 
+	
 	A2DSetMaster(a2d->master);
 	A2DSetOffset(a2d);
 	A2DSetVcal((int)(a2d->vcalx8));	// Set the calibration voltage
@@ -684,7 +689,7 @@ static void A2DSetOffset(A2D_SET *a2d)
 	{
 		Chans >>= 1;
 //		if(a2d->offset[i] != 0)Chans += 0x80;
-		if(a2d->offset[i] == 0)Chans += 0x80;
+		if(a2d->offset[i] == 0)Chans += 0x80;	// Inverted bits
 	}
 
 	outb(A2DIOCALOFF, (UC *)chan_addr);
@@ -871,8 +876,23 @@ static void A2DGetData(void *arg)
 
 	buf.size = (char*)dataptr - (char*)buf.data;
 
-//	if(buf.size != 80) rtl_printf("%s: A2DGetData, #shorts=%d\n",
-//		    __FILE__, buf.size/sizeof(short));
+#ifdef DEBUGTIMING
+	if(buf.size != MAXA2DS*MaxHz/INTRP_RATE) 
+	{
+		if(msgctr == 0)
+		{
+			rtl_printf("%s: Max Rate = %d, #shorts=%d\n",
+		   	 __FILE__, MaxHz, buf.size/sizeof(short));
+		}
+		msgctr++;
+	}
+	else
+	{
+		if(msgctr != 0)
+			rtl_printf("Last message repeated %d times\n", msgctr);
+		msgctr = 0;		//Ensure that message counter is reset	
+	}
+#endif
 
 	if (fd_up >= 0 && buf.size > 0) {
 	    // Write to up-fifo
