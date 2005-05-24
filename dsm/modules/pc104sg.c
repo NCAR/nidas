@@ -266,7 +266,7 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
  * a deadlock on the cblistmutex.
  */
 void unregister_irig_callback(irig_callback_t* callback,
-	enum irigClockRates rate)
+	enum irigClockRates rate, void* privateData)
 {
     rtl_pthread_mutex_lock(&cblistmutex);
 
@@ -275,7 +275,8 @@ void unregister_irig_callback(irig_callback_t* callback,
     for (ptr = callbacklists[rate].next; ptr != callbacklists+rate;
     	ptr = ptr->next) {
 	cbentry = list_entry(ptr,struct irigCallback, list);
-	if (cbentry->callback == callback) {
+	if (cbentry->callback == callback &&
+		(cbentry->privateData == privateData || privateData == 0)) {
 	    /* remove it from the list for the rate, and add to the pool. */
 	    list_del(&cbentry->list);
 	    list_add(&cbentry->list,&callbackpool);

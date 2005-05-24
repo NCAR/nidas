@@ -922,7 +922,7 @@ static int start_prompter(struct serialPort* port)
 
 static int stop_prompter(struct serialPort* port)
 {
-    unregister_irig_callback(port_prompter,port->prompt.rate);
+    unregister_irig_callback(port_prompter,port->prompt.rate,port);
     port->promptOn = 0;
     return 0;
 }

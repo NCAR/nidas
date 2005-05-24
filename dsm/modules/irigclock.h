@@ -116,7 +116,8 @@ void setRate2Output (int rate, int isRT);
 int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
-void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate);
+void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
+	void* privateData);
 
 struct irig_port {
     char* inFifoName;

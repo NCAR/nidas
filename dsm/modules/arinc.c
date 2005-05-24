@@ -362,7 +362,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     /* unregister poll recv routine with the IRIG driver */
     err("ARINC_RESET: unregister_irig_callback(&arinc_sweep, poll[%d] = %d Hz)",
         chn, irigClockEnumToRate(hdl->poll));
-    unregister_irig_callback( &arinc_sweep, hdl->poll );
+    unregister_irig_callback( &arinc_sweep, hdl->poll, (void*)chn );
 
     /* close its output FIFO */
     if (hdl->fd > -1) {
@@ -539,7 +539,7 @@ static void __exit arinc_cleanup(void)
   int chn;
 
   /* unregister a timesync routine */
-  unregister_irig_callback( &arinc_timesync, sync_rate );
+  unregister_irig_callback( &arinc_timesync, sync_rate,0 );
 
   /* for each ARINC receive port... */
   for (chn=0; chn<N_ARINC_RX; chn++) {
