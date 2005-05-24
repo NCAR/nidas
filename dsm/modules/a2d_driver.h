@@ -63,8 +63,8 @@
 /* Structures that are passed via ioctls to/from this driver */
 typedef struct
 {
-	unsigned short	a2d_ser_num;	// A/D card serial number
-	unsigned short 	a2d_status[MAXA2DS];	// A2D status words after load
+	unsigned short	ser_num;	// A/D card serial number
+	unsigned short 	status[MAXA2DS];	// A2D status words after load
 	size_t 			fifofullctr;	// FIFO filled
 	size_t 			fifo44ctr;	// 3/4 <= FIFO < full event counter
 	size_t 			fifo34ctr;	// 1/2 <= FIFO < 3/4 event counter
@@ -76,29 +76,20 @@ typedef struct
 
 typedef struct 
 {
-	int	vcalx8;		// Calibration voltage: 
-	int spcb;		// Samples per callback = A2D_output_rate*8*callback_intvl
-				// 128=0, 48=-10, 208 = +10, .125 V/bit
 	US	status[MAXA2DS];	// A/D status flag
-//
 	int	gain[MAXA2DS];	// Gain settings 
 	int	Hz[MAXA2DS];		// Sample rate in Hz. 0 is off.
-	int	calset[MAXA2DS];	// Calibration flags
 	int	offset[MAXA2DS];	// Offset flags
-	float	norm[MAXA2DS];	// Normalization factors
 	US	master;		// Designates master A/D
-	US	ctr[MAXA2DS];		// Current value of ctr;
-	UL	ptr[MAXA2DS];		// Pointer offset from beginning of 
 	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
-					// data summing buffer
 } A2D_SET;
 
 typedef struct 
 {
-	dsm_sample_time_t timestamp;	// timetag of sample 
-	dsm_sample_length_t size;		// number of bytes in data 
-  	SS data[RATERATIO*MAXA2DS]; 
-} A2DSAMPLE;
+	int	calset[MAXA2DS];	// Calibration flags
+	int	vcalx8;			// Calibration voltage: 
+				// 128=0, 48=-10, 208 = +10, .125 V/bit
+} A2D_CAL;
 
 
 /* Pick a character as the magic number of your driver.
@@ -115,7 +106,7 @@ typedef struct
  */
 #define A2D_STATUS_IOCTL _IOR(A2D_MAGIC,0,A2D_STATUS)
 #define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
-#define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_SET)
+#define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_CAL)
 #define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)
 #define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
 #define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
@@ -142,7 +133,10 @@ typedef struct
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
+#include <rtl_semaphore.h>
 #include <dsm_viper.h>		// get SYSTEM_ISA_IOPORT_BASE
+
+#define MAX_A2D_BOARDS		4	// maximum number of A2D boards
 
 #define	HWFIFODEPTH		1024
 
@@ -218,13 +212,35 @@ typedef struct
 #define INV1PPS			0x10	// Inverted 1 PPS pulse
 
 
-/*
-static int __init a2d_init();		//For Linux kernel
-static void __exit a2d_cleanup(void);	//For Linux kernel
-*/
-
 #define	RTL_DEBUGIT(a)	rtl_printf("DEBUGIT %d\n", a)
 #define	DEBUGIT(a)	printf("DEBUGIT %d\n", a)
+
+typedef struct 
+{
+	dsm_sample_time_t timestamp;	// timetag of sample 
+	dsm_sample_length_t size;		// number of bytes in data 
+  	SS data[RATERATIO*MAXA2DS]; 
+} A2DSAMPLE;
+
+struct A2DBoard {
+    unsigned int addr;	// Base address of board
+    unsigned int chan_addr;	// 
+    rtl_pthread_t setup_thread;
+    rtl_pthread_t pps_thread;
+    rtl_pthread_t acq_thread;
+    rtl_sem_t acq_sem;	// 100Hz semaphore
+    int fd;			// File descriptor of RTL FIFO
+    char* fifoName;
+    struct ioctlHandle* ioctlhandle;
+    A2D_SET config;		// board configuration
+    A2D_CAL cal;		// calibration configuration
+    A2D_STATUS status;		// status info maintained by driver
+    US OffCal;			// offset and cal bits
+    US FIFOCtl;			// hardware FIFO control word storage
+    int MaxHz;			// Maximum requested A/D sample rate
+    int busy;
+    int interrupted;
+};
 
 #endif
 
