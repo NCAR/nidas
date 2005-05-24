@@ -71,30 +71,19 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.gain[chan] = channels[chan].gainSetting;
 	a2d.offset[chan] = !channels[chan].bipolar;	// flip logic
 	a2d.status[chan] = 0; 
-	a2d.calset[chan] = 0;
 	if (a2d.Hz[chan] > maxrate) maxrate = a2d.Hz[chan];
 	cerr << "chan=" << chan << " Hz=" << a2d.Hz[chan] <<
 		" gain=" << a2d.gain[chan] << 
 		" offset=" << a2d.offset[chan] << endl;
-
-	if(chan == 0)a2d.ptr[chan] = 0;
-	else 
-	{
-		a2d.ptr[chan] = a2d.ptr[chan-1] + a2d.Hz[chan-1];
-	}
-	a2d.ctr[chan] = 0;	// Reset counters	
-	if(a2d.Hz[chan] != 0)a2d.norm[chan] = 
-				(float)a2d.Hz[chan]/float(A2D_MAX_RATE);
     }
     for( ; chan < MAXA2DS; chan++) {
 	a2d.Hz[chan] = 0;
 	a2d.gain[chan] = 0;
 	a2d.offset[chan] = 0;
 	a2d.status[chan] = 0; 
-	a2d.calset[chan] = 0;
     }
 
-	a2d.master = 0; // A2DMASTER;
+    a2d.master = 0; // A2DMASTER;
 
     ostringstream ost;
     if (maxrate >= 1000)
