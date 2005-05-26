@@ -17,6 +17,7 @@
 #include <time.h>
 
 #include <FileSet.h>
+#include <Socket.h>
 #include <RawSampleInputStream.h>
 // #include <Sample.h>
 #include <dsm_sample.h>
@@ -38,18 +39,38 @@ public:
     bool process;
     string xmlFileName;
     string dataFileName;
+    string hostName;
+    int port;
 };
 
-Runstring::Runstring(int argc, char** argv): process(false)
+Runstring::Runstring(int argc, char** argv): process(false),port(50000)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 										
-    while ((opt_char = getopt(argc, argv, "px:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "ps:x:")) != -1) {
 	switch (opt_char) {
 	case 'p':
 	    process = true;
+	    break;
+	case 's':
+	    {
+	        string arg = optarg;
+		size_t ic = arg.find(':');
+		if (ic == string::npos) {
+		    cerr << "Invalid host:port parameter: " << arg << endl;
+		    usage(argv[0]);
+		}
+		hostName = arg.substr(0,ic);
+		string portstr = arg.substr(ic);
+		istringstream ist(arg.substr(ic));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << arg.substr(ic) << endl;
+		    usage(argv[0]);
+		}
+	    }
 	    break;
 	case 'x':
 	    xmlFileName = optarg;
@@ -59,7 +80,8 @@ Runstring::Runstring(int argc, char** argv): process(false)
 	}
     }
     if (optind == argc - 1) dataFileName = string(argv[optind++]);
-    if (dataFileName.length() == 0) usage(argv[0]);
+    if (dataFileName.length() == 0 && hostName.length() == 0) usage(argv[0]);
+
     if (process && xmlFileName.length() == 0) usage(argv[0]);
     if (optind != argc) usage(argv[0]);
 }
@@ -67,10 +89,11 @@ Runstring::Runstring(int argc, char** argv): process(false)
 void Runstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] -x xml_file data_file\n\
+Usage: " << argv0 << "[-p] [-x xml_file] [-s hostname:port] [data_file]\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
-  data_file (required). Name of sample file.\n\
+  -s hostname:port (optional). open socket to port on hostname (optional).\n\
+  data_file (optional). Name of sample file. Input must be either a socket or file.\n\
 " << endl;
     exit(1);
 }
@@ -151,16 +174,18 @@ void CounterClient::printResults()
     struct tm tm;
     char tstr[64];
     cout << left << setw(maxlen) << (maxlen > 0 ? "sensor" : "") << right <<
-    	"  dsm sampid    nsamps |----- start -----|  |---- end ---|    rate" << endl;
+    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / 1000;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
+	sprintf(tstr + strlen(tstr),".%03d",(int)(t1s[id] % 1000));
 	string t1str(tstr);
 	ut = t2s[id] / 1000;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
+	sprintf(tstr + strlen(tstr),".%03d",(int)(t2s[id] % 1000));
 	string t2str(tstr);
         cout << left << setw(maxlen) << sensorNames[id] << right << ' ' <<
 	    setw(4) << GET_DSM_ID(id) << ' ' <<
@@ -172,31 +197,90 @@ void CounterClient::printResults()
     }
 }
 
-
-int main(int argc, char** argv)
+class FileStats
 {
+public:
+    FileStats() {}
+    ~FileStats() {}
 
+    static int main(int argc, char** argv);
+
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+    static void setupSignals();
+
+    static bool interrupted;
+};
+
+bool FileStats::interrupted = false;
+
+void FileStats::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+    cerr <<
+    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+                                                                                
+    switch(sig) {
+    case SIGHUP:
+    case SIGTERM:
+    case SIGINT:
+            FileStats::interrupted = true;
+    break;
+    }
+}
+
+void FileStats::setupSignals()
+{
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGHUP);
+    sigaddset(&sigset,SIGTERM);
+    sigaddset(&sigset,SIGINT);
+    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
+                                                                                
+    struct sigaction act;
+    sigemptyset(&sigset);
+    act.sa_mask = sigset;
+    act.sa_flags = SA_SIGINFO;
+    act.sa_sigaction = FileStats::sigAction;
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+}
+
+int FileStats::main(int argc, char** argv)
+{
     Runstring rstr(argc,argv);
+    dsm::IOChannel* iochan;
 
-    dsm::FileSet* fset = new dsm::FileSet();
+    if (rstr.dataFileName.length() > 0) {
+
+	FileSet* fset = new dsm::FileSet();
+	iochan = fset;
 
 #ifdef USE_FILESET_TIME_CAPABILITY
-    struct tm tm;
-    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-    time_t start = timegm(&tm);
+	struct tm tm;
+	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	time_t start = timegm(&tm);
 
-    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-    time_t end = timegm(&tm);
+	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	time_t end = timegm(&tm);
 
-    fset->setDir("/tmp/RICO/hiaper");
-    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-    fset->setStartTime(start);
-    fset->setEndTime(end);
+	fset->setDir("/tmp/RICO/hiaper");
+	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
+	fset->setStartTime(start);
+	fset->setEndTime(end);
 #else
-    fset->setFileName(rstr.dataFileName);
+	fset->setFileName(rstr.dataFileName);
 #endif
 
-    RawSampleInputStream sis(fset);
+    }
+    else {
+	atdUtil::Socket sock(rstr.hostName,rstr.port);
+        iochan = new dsm::Socket(&sock);
+    }
+    RawSampleInputStream sis(iochan);
     sis.init();
 
     auto_ptr<Project> project;
@@ -239,6 +323,7 @@ int main(int argc, char** argv)
     try {
 	for (;;) {
 	    sis.readSamples();
+	    if (interrupted) break;
 	}
     }
     catch (atdUtil::EOFException& eof) {
@@ -249,6 +334,10 @@ int main(int argc, char** argv)
     }
 
     counter.printResults();
+    return 0;
 }
 
-
+int main(int argc, char** argv)
+{
+    return FileStats::main(argc,argv);
+}
