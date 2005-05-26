@@ -80,9 +80,6 @@ static const char* devprefix = "dsma2d";
 int  init_module(void);
 void cleanup_module(void);
 
-static unsigned int msgctr = 0;
-static unsigned int nshortsold = 0;
-
 // These are just test values
 
 UC		Cals;
@@ -419,6 +416,41 @@ static void A2DClearFIFO(struct A2DBoard* brd)
 }
 
 /*-----------------------Utility------------------------------*/
+// Grab the h/w FIFO data flags for posterity
+static inline int A2DGetStatus(struct A2DBoard* brd)
+{
+	unsigned short stat;
+	outb(A2DIOFIFOSTAT,brd->chan_addr);
+	stat = inw(brd->addr);
+
+	brd->status.ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
+
+	// If FIFONOTFULL is 0, fifo IS full
+	if((stat & FIFONOTFULL) == 0) brd->status.fifofullctr++;	// FIFO is full
+
+	// If FIFONOTEMPTY is 0, fifo IS empty
+	else if((stat & FIFONOTEMPTY) == 0) brd->status.fifoemptyctr++; 
+
+	// Figure out which 1/4 of the 1024 FIFO words we're filled to
+	switch(stat&0x03) // Switch on stat's 2 LSB's
+	{
+		case 3:		//FIFO half full (bit0) and allmost full (bit 1)
+			brd->status.fifo44ctr++; // 3/4 <= FIFO < full
+			break;
+		case 2:		//FIFO not half full and allmost empty
+			brd->status.fifo14ctr++; // empty < FIFO <= 1/4
+			break;
+		case 1:		//FIFO half full and not almost full
+			brd->status.fifo34ctr++; // 1/2 <= FIFO < 3/4
+			break;
+		case 0:
+			brd->status.fifo24ctr++; // 1/4 < FIFO <= 1/2
+		default:
+			break;
+	}
+}
+	
+/*-----------------------Utility------------------------------*/
 // A2DFIFOEmpty checks the FIFO empty status bit and returns
 // 1 if empty, 0 if not empty
 
@@ -691,7 +723,6 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	A2DSAMPLE buf;
 	char *eob = (char*)buf.data + sizeof(buf.data);
-	unsigned short stat;
 	int nshorts;
 
 	rtl_printf("In A2DGetDataThread\n");
@@ -702,42 +733,14 @@ static void* A2DGetDataThread(void *thread_arg)
 	    rtl_sem_wait(&brd->acq_sem);
 	    if (brd->interrupted) break;
 
-	    // dataptr points to beginning of data section of A2DSAMPLE
-	    register SS *dataptr = buf.data;
-
 	    buf.timestamp = GET_MSEC_CLOCK;
 
-	    // Grab the h/w FIFO data flags for posterity
-	    outb(A2DIOFIFOSTAT,brd->chan_addr);
-	    stat = inw(brd->addr);
+	    A2DGetStatus(brd);
 
-	    brd->status.ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
-
-	    // If FIFONOTFULL is 0, fifo IS full
-	    if((stat & FIFONOTFULL) == 0) brd->status.fifofullctr++;	// FIFO is full
-
-	    // If FIFONOTEMPTY is 0, fifo IS empty
-	    else if((stat & FIFONOTEMPTY) == 0) brd->status.fifoemptyctr++; 
-
-	    // Figure out which 1/4 of the 1024 FIFO words we're filled to
-	    switch(stat&0x03) // Switch on stat's 2 LSB's
-	    {
-		    case 3:		//FIFO half full (bit0) and allmost full (bit 1)
-			    brd->status.fifo44ctr++; // 3/4 <= FIFO < full
-			    break;
-		    case 2:		//FIFO not half full and allmost empty
-			    brd->status.fifo14ctr++; // empty < FIFO <= 1/4
-			    break;
-		    case 1:		//FIFO half full and not almost full
-			    brd->status.fifo34ctr++; // 1/2 <= FIFO < 3/4
-			    break;
-		    case 0:
-			    brd->status.fifo24ctr++; // 1/4 < FIFO <= 1/2
-		    default:
-			    break;
-	    }
-	
 	    rtl_usleep(20);
+
+	    // dataptr points to beginning of data section of A2DSAMPLE
+	    register SS *dataptr = buf.data;
 
 	    // Read all the FIFO data into buf.data
 	    while(!A2DFIFOEmpty(brd) && (char*)dataptr < eob)
@@ -753,19 +756,31 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef DEBUGTIMING
 	    nshorts = buf.size / sizeof(short); 
 
+	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE) {
+		rtl_printf("%s: A2DGetData, #shorts=%d, tt=%d\n",
+			__FILE__, nshorts,buf.timestamp);
+		short* sp = buf.data;
+		int i;
+		for (i = 0; i < 5; i++) {
+		    int j;
+		    for (j = 0; sp < dataptr && j < 8; j++)
+			rtl_printf("%7d",*sp++);
+		    rtl_printf("\n");
+		}
+	    }
 	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE || 
-				      nshortsold != nshorts)  {
-		if(msgctr == 0) {
+				      brd->nshortsold != nshorts)  {
+		if(brd->msgctr == 0) {
 		    rtl_printf("%s: Max Rate = %d, #shorts=%d\n",
 		     __FILE__, brd->MaxHz, buf.size/sizeof(short));
 		}
-		msgctr++;
+		brd->msgctr++;
             }
 	    else {
-                if(msgctr != 0)rtl_printf("Last message repeated %d times\n\n", msgctr);
-                msgctr = 0;             // Reset message counter
+                if(brd->msgctr != 0)rtl_printf("Last message repeated %d times\n\n", brd->msgctr);
+                brd->msgctr = 0;             // Reset message counter
 	    }
-	    nshortsold = nshorts;
+	    brd->nshortsold = nshorts;
 #endif
 
 	    if (brd->fd >= 0 && buf.size > 0) {
@@ -918,12 +933,27 @@ static int ioctlCallback(int cmd, int board, int port,
 
 		// Shut down the acquisition thread
 		brd->interrupted = 1;
+
+		// Shut down the setup thread
+		if (brd->setup_thread) {
+		    rtl_pthread_cancel(brd->setup_thread);
+		    rtl_pthread_join(brd->setup_thread, NULL);
+		    brd->setup_thread = 0;
+		}
+
+		// Shut down the pps thread
+		if (brd->pps_thread) {
+		    rtl_pthread_cancel(brd->pps_thread);
+		    rtl_pthread_join(brd->pps_thread, NULL);
+		    brd->pps_thread = 0;
+		}
+
 		if (brd->acq_thread) {
 		    rtl_pthread_join(brd->acq_thread, NULL);
 		    brd->acq_thread = 0;
 		}
 
-		//Kill the callback routine
+		//Turn off the callback routine
 		unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
 
 		A2DStatusAll(brd); 	// Read status and clear IRQ's	

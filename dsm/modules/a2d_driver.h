@@ -240,6 +240,8 @@ struct A2DBoard {
     int MaxHz;			// Maximum requested A/D sample rate
     int busy;
     int interrupted;
+    unsigned int msgctr;
+    unsigned int nshortsold;
 };
 
 #endif
