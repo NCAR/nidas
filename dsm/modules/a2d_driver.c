@@ -417,7 +417,7 @@ static void A2DClearFIFO(struct A2DBoard* brd)
 
 /*-----------------------Utility------------------------------*/
 // Grab the h/w FIFO data flags for posterity
-static inline int A2DGetStatus(struct A2DBoard* brd)
+static inline void A2DGetStatus(struct A2DBoard* brd)
 {
 	unsigned short stat;
 	outb(A2DIOFIFOSTAT,brd->chan_addr);
@@ -722,10 +722,30 @@ static void* A2DGetDataThread(void *thread_arg)
 	struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
 
 	A2DSAMPLE buf;
+	int i;
 	char *eob = (char*)buf.data + sizeof(buf.data);
 	int nshorts;
+	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 
-	rtl_printf("In A2DGetDataThread\n");
+	rtl_printf("In A2DGetDataThread, buffer=%d shorts\n",
+		sizeof(buf.data)/sizeof(short));
+
+	// initial wait for data
+	for (;;) {
+	    rtl_sem_wait(&brd->acq_sem);
+	    if (brd->interrupted) return 0;
+	    rtl_usleep(20);
+	    if (!A2DFIFOEmpty(brd)) break;
+	}
+	rtl_printf("Initial data in fifo\n");
+
+	// toss the initial data
+	do {
+	    // Point to FIFO read subchannel
+	    outb(A2DIOFIFO,brd->chan_addr);
+	    for (i = 0; i < MAXA2DS; i++) inw(brd->addr);		
+	} while(!A2DFIFOEmpty(brd));
+	rtl_printf("Cleared FIFO\n");
 
 	// Here's the acquisition loop
 	for (;;) {
@@ -735,21 +755,56 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	    buf.timestamp = GET_MSEC_CLOCK;
 
+	    rtl_usleep(20);
+
 	    A2DGetStatus(brd);
 
-	    rtl_usleep(20);
+	    // Read the FIFO data into buf.data
+// #define CHECK_STATUS
+#ifndef CHECK_STATUS
+	    if (A2DFIFOEmpty(brd)) {
+	        rtl_printf("fifo empty: tt=%d\n", buf.timestamp);
+		continue;
+	    }
+#endif
 
 	    // dataptr points to beginning of data section of A2DSAMPLE
 	    register SS *dataptr = buf.data;
 
-	    // Read all the FIFO data into buf.data
+#ifdef CHECK_STATUS
 	    while(!A2DFIFOEmpty(brd) && (char*)dataptr < eob)
 	    {
-		    // Point to FIFO read subchannel
-		    outb(A2DIOFIFO,brd->chan_addr);
-		    *dataptr++ = inw(brd->addr);		
+		barrier();
+		// Point to FIFO read subchannel
+		outb(A2DIOFIFO,brd->chan_addr);
+		barrier();
+		*dataptr++ = inw(brd->addr);		
+		barrier();
 	    }
+#else
 
+#define SIMPLE_LOOP
+#ifdef SIMPLE_LOOP
+	    outb(A2DIOFIFO,brd->chan_addr);
+	    for (i = 0; i < nreads; i++) *dataptr++ = inw(brd->addr);
+#else
+	    int i,j;
+	    outb(A2DIOFIFO,brd->chan_addr);
+	    for (i = 0; i < brd->MaxHz/INTRP_RATE; i++) {
+		for (j = 0; j < MAXA2DS; j++) *dataptr++ = inw(brd->addr);
+#ifdef CHECK_EMPTY
+		if (i < brd->MaxHz/INTRP_RATE - 1) {
+		    if (A2DFIFOEmpty(brd)) rtl_printf("fifo empty: tt=%d\n",
+			buf.timestamp);
+		    outb(A2DIOFIFO,brd->chan_addr);
+		}
+#endif
+	    }
+#endif
+
+	    if (!A2DFIFOEmpty(brd)) rtl_printf("fifo not empty: tt=%d\n",
+	    	buf.timestamp);
+#endif
 	    buf.size = (char*)dataptr - (char*)buf.data;
 
 #define DEBUGTIMING
@@ -769,7 +824,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE || 
-				      brd->nshortsold != nshorts)  {
+				      brd->nshorts != nshorts)  {
 		if(brd->msgctr == 0) {
 		    rtl_printf("%s: Max Rate = %d, #shorts=%d\n",
 		     __FILE__, brd->MaxHz, buf.size/sizeof(short));
@@ -780,7 +835,7 @@ static void* A2DGetDataThread(void *thread_arg)
                 if(brd->msgctr != 0)rtl_printf("Last message repeated %d times\n\n", brd->msgctr);
                 brd->msgctr = 0;             // Reset message counter
 	    }
-	    brd->nshortsold = nshorts;
+	    brd->nshorts = nshorts;
 #endif
 
 	    if (brd->fd >= 0 && buf.size > 0) {
@@ -1085,6 +1140,8 @@ int init_module()
 	    brd->MaxHz = 0;
 	    brd->busy = 0;
 	    brd->interrupted = 0;
+	    brd->nshorts = 0;
+	    brd->msgctr = 0;
 	}
 
 	/* allocate necessary members in each A2DBoard structure */

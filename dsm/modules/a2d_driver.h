@@ -241,7 +241,7 @@ struct A2DBoard {
     int busy;
     int interrupted;
     unsigned int msgctr;
-    unsigned int nshortsold;
+    unsigned int nshorts;
 };
 
 #endif
