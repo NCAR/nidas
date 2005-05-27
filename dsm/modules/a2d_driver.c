@@ -733,14 +733,6 @@ static void* A2DGetDataThread(void *thread_arg)
 	int nshorts;
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 
-#ifdef A2DSTATRD
-	int StatFac = 2;
-#else
-	int StatFac = 1;
-#endif
-
-	nreads *= StatFac;
-
 	rtl_printf("In A2DGetDataThread, buffer=%d shorts\n",
 		sizeof(buf.data)/sizeof(short));
 
@@ -808,7 +800,13 @@ static void* A2DGetDataThread(void *thread_arg)
 #define SIMPLE_LOOP
 #ifdef SIMPLE_LOOP
 	    outb(A2DIOFIFO,brd->chan_addr);
-	    for (i = 0; i < nreads; i++) *dataptr++ = inw(brd->addr);
+	    for (i = 0; i < nreads; i++) {
+#ifdef A2DSTATRD
+            brd->status.status[i % MAXA2DS] = inw(brd->addr);
+#endif
+			*dataptr++ = inw(brd->addr);
+        }
+
 #else
 	    int i,j;
 	    outb(A2DIOFIFO,brd->chan_addr);
@@ -816,10 +814,8 @@ static void* A2DGetDataThread(void *thread_arg)
 		for (j = 0; j < MAXA2DS; j++) {
 #ifdef A2DSTATRD
             brd->status.status[j] = inw(brd->addr);
-            *dataptr++ = inw(brd->addr);
-#else
-			*dataptr++ = inw(brd->addr);
 #endif
+			*dataptr++ = inw(brd->addr);
         }
 #ifdef CHECK_EMPTY
 		if (i < brd->MaxHz/INTRP_RATE - 1) {
@@ -840,7 +836,7 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef DEBUGTIMING
 	    nshorts = buf.size / sizeof(short); 
 
-	    if(nshorts != StatFac*MAXA2DS*brd->MaxHz/INTRP_RATE) {
+	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE) {
 		rtl_printf("%s: A2DGetData, #shorts=%d, tt=%d\n",
 			__FILE__, nshorts,buf.timestamp);
 		short* sp = buf.data;
@@ -852,7 +848,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		    rtl_printf("\n");
 		}
 	    }
-	    if(nshorts != StatFac*MAXA2DS*brd->MaxHz/INTRP_RATE || 
+	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE || 
 				      brd->nshorts != nshorts)  {
 		if(brd->msgctr == 0) {
 		    rtl_printf("%s: Max Rate = %d, #shorts=%d\n",
