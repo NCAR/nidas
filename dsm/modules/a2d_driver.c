@@ -2,6 +2,7 @@
 // #define DEBUGA2DGET
 // #define DEBUGA2DGET2
 #define DEBUGTIMING
+#define A2DSTATRD
 
 /*  a2d_driver.c/
 
@@ -195,6 +196,8 @@ static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 	    	A2DSel);
 	    return -EINVAL;
 	}
+    A2DSel = 7;
+    rtl_printf("A2DSetMaster, master=%d\n",A2DSel);
 
 	// Point at the FIFO status channel
 	outb(A2DIOFIFOSTAT, brd->chan_addr);	
@@ -383,7 +386,6 @@ static void A2D1PPSEnable(struct A2DBoard* brd)
 /*-----------------------Utility------------------------------*/
 
 //Disable 1PPS sync 
-// Checked visually 5/22/04 GRG
 
 static void A2D1PPSDisable(struct A2DBoard* brd)
 {
@@ -399,7 +401,6 @@ static void A2D1PPSDisable(struct A2DBoard* brd)
 /*-----------------------Utility------------------------------*/
 
 //Clear (reset) the data FIFO
-// Checked visually 5/22/04 GRG
 
 static void A2DClearFIFO(struct A2DBoard* brd)
 {
@@ -614,7 +615,12 @@ static int A2DSetup(struct A2DBoard* brd)
 	int  i;
 	int ret;
 
+#ifdef A2DSTATRD
+	brd->FIFOCtl = A2DSTATEBL;	//Clear most of FIFO Control Word
+#else
 	brd->FIFOCtl = 0;		//Clear FIFO Control Word
+#endif
+
 	brd->OffCal = 0;		//
 
 	for(i = 0; i < MAXA2DS; i++)
@@ -633,7 +639,7 @@ static int A2DSetup(struct A2DBoard* brd)
 	A2DClearSYNC(brd);	// Start A/Ds synchronous with 1PPS from IRIG card
 
 	A2D1PPSEnable(brd);// DEBUG Do this just following a 1PPS transition
-	A2DSetSYNC(brd);	//	so that we don't step on the transition
+//	A2DSetSYNC(brd);	//	so that we don't step on the transition
 	
 	return 0;
 }
@@ -727,6 +733,14 @@ static void* A2DGetDataThread(void *thread_arg)
 	int nshorts;
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 
+#ifdef A2DSTATRD
+	int StatFac = 2;
+#else
+	int StatFac = 1;
+#endif
+
+	nreads *= StatFac;
+
 	rtl_printf("In A2DGetDataThread, buffer=%d shorts\n",
 		sizeof(buf.data)/sizeof(short));
 
@@ -743,7 +757,15 @@ static void* A2DGetDataThread(void *thread_arg)
 	do {
 	    // Point to FIFO read subchannel
 	    outb(A2DIOFIFO,brd->chan_addr);
-	    for (i = 0; i < MAXA2DS; i++) inw(brd->addr);		
+	    for (i = 0; i < MAXA2DS; i++) {
+#ifdef A2DSTATRD
+            unsigned short stat = inw(brd->addr);		
+            short d = inw(brd->addr);		
+            rtl_printf("i=%d, stat=0x%04x, d=%d\n",i,stat,d);
+#else
+            short d = inw(brd->addr);		
+#endif
+        }
 	} while(!A2DFIFOEmpty(brd));
 	rtl_printf("Cleared FIFO\n");
 
@@ -791,7 +813,14 @@ static void* A2DGetDataThread(void *thread_arg)
 	    int i,j;
 	    outb(A2DIOFIFO,brd->chan_addr);
 	    for (i = 0; i < brd->MaxHz/INTRP_RATE; i++) {
-		for (j = 0; j < MAXA2DS; j++) *dataptr++ = inw(brd->addr);
+		for (j = 0; j < MAXA2DS; j++) {
+#ifdef A2DSTATRD
+            brd->status.status[j] = inw(brd->addr);
+            *dataptr++ = inw(brd->addr);
+#else
+			*dataptr++ = inw(brd->addr);
+#endif
+        }
 #ifdef CHECK_EMPTY
 		if (i < brd->MaxHz/INTRP_RATE - 1) {
 		    if (A2DFIFOEmpty(brd)) rtl_printf("fifo empty: tt=%d\n",
@@ -811,7 +840,7 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef DEBUGTIMING
 	    nshorts = buf.size / sizeof(short); 
 
-	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE) {
+	    if(nshorts != StatFac*MAXA2DS*brd->MaxHz/INTRP_RATE) {
 		rtl_printf("%s: A2DGetData, #shorts=%d, tt=%d\n",
 			__FILE__, nshorts,buf.timestamp);
 		short* sp = buf.data;
@@ -823,7 +852,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		    rtl_printf("\n");
 		}
 	    }
-	    if(nshorts != MAXA2DS*brd->MaxHz/INTRP_RATE || 
+	    if(nshorts != StatFac*MAXA2DS*brd->MaxHz/INTRP_RATE || 
 				      brd->nshorts != nshorts)  {
 		if(brd->msgctr == 0) {
 		    rtl_printf("%s: Max Rate = %d, #shorts=%d\n",
@@ -1136,7 +1165,11 @@ int init_module()
 	    memset(&brd->cal,0,sizeof(A2D_CAL));
 	    memset(&brd->status,0,sizeof(A2D_STATUS));
 	    brd->OffCal = 0;
+#ifdef A2DSTATRD
+	    brd->FIFOCtl = A2DSTATEBL;
+#else
 	    brd->FIFOCtl = 0;
+#endif
 	    brd->MaxHz = 0;
 	    brd->busy = 0;
 	    brd->interrupted = 0;
