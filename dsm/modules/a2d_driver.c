@@ -2,7 +2,7 @@
 // #define DEBUGA2DGET
 // #define DEBUGA2DGET2
 #define DEBUGTIMING
-#define A2DSTATRD
+#define DOA2DSTATRD
 
 /*  a2d_driver.c/
 
@@ -615,7 +615,7 @@ static int A2DSetup(struct A2DBoard* brd)
 	int  i;
 	int ret;
 
-#ifdef A2DSTATRD
+#ifdef DOA2DSTATRD
 	brd->FIFOCtl = A2DSTATEBL;	//Clear most of FIFO Control Word
 #else
 	brd->FIFOCtl = 0;		//Clear FIFO Control Word
@@ -750,7 +750,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	    // Point to FIFO read subchannel
 	    outb(A2DIOFIFO,brd->chan_addr);
 	    for (i = 0; i < MAXA2DS; i++) {
-#ifdef A2DSTATRD
+#ifdef DOA2DSTATRD
             unsigned short stat = inw(brd->addr);		
             short d = inw(brd->addr);		
             rtl_printf("i=%d, stat=0x%04x, d=%d\n",i,stat,d);
@@ -801,7 +801,7 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef SIMPLE_LOOP
 	    outb(A2DIOFIFO,brd->chan_addr);
 	    for (i = 0; i < nreads; i++) {
-#ifdef A2DSTATRD
+#ifdef DOA2DSTATRD
             brd->status.status[i % MAXA2DS] = inw(brd->addr);
 #endif
 			*dataptr++ = inw(brd->addr);
@@ -812,7 +812,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	    outb(A2DIOFIFO,brd->chan_addr);
 	    for (i = 0; i < brd->MaxHz/INTRP_RATE; i++) {
 		for (j = 0; j < MAXA2DS; j++) {
-#ifdef A2DSTATRD
+#ifdef DOA2DSTATRD
             brd->status.status[j] = inw(brd->addr);
 #endif
 			*dataptr++ = inw(brd->addr);
@@ -1161,7 +1161,7 @@ int init_module()
 	    memset(&brd->cal,0,sizeof(A2D_CAL));
 	    memset(&brd->status,0,sizeof(A2D_STATUS));
 	    brd->OffCal = 0;
-#ifdef A2DSTATRD
+#ifdef DOA2DSTATRD
 	    brd->FIFOCtl = A2DSTATEBL;
 #else
 	    brd->FIFOCtl = 0;
