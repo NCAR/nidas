@@ -14,19 +14,20 @@
 */
 
 #include <Variable.h>
+#include <SampleTag.h>
 #include <sstream>
 
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-Variable::Variable(): sampleTag(0),iscount(false),converter(0)
+Variable::Variable(): sampleTag(0),type(CONTINUOUS),length(1),converter(0)
 {
 }
 
 Variable::Variable(const Variable& x):
 	sampleTag(0),name(x.name),longname(x.longname),units(x.units),
-	iscount(x.iscount),converter(0)
+	type(x.type),length(x.length),converter(0)
 {
     if (x.converter) converter = x.converter->clone();
     const list<const Parameter*>& params = x.getParameters();
@@ -46,6 +47,12 @@ Variable::~Variable()
     	delete *pi;
 }
 
+float Variable::getSampleRate() const {
+    if (!sampleTag) return 0.0;
+    else return sampleTag->getRate();
+}
+
+
 void Variable::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
@@ -64,6 +71,15 @@ void Variable::fromDOMElement(const DOMElement* node)
 		setLongName(attr.getValue());
 	    else if (!attr.getName().compare("units"))
 		setUnits(attr.getValue());
+	    else if (!attr.getName().compare("length")) {
+	        istringstream ist(attr.getValue());
+		size_t val;
+		ist >> val;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(
+		    	"variable","length",attr.getValue());
+		setLength(val);
+	    }
 	}
     }
 

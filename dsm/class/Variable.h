@@ -34,6 +34,8 @@ class Variable : public DOMable
 {
 public:
 
+    typedef enum var_type { CONTINUOUS, COUNTER, CLOCK, OTHER } type_t;
+
     /**
      * Create a variable.
      */
@@ -46,6 +48,10 @@ public:
 
     virtual ~Variable();
 
+    type_t getType() const { return type; }
+
+    void setType(type_t val) { type = val; }
+
     /**
      * What sample am I a part of?
      */
@@ -55,6 +61,11 @@ public:
      * Set the sample tag pointer.  Variable does not own the pointer.
      */
     void setSampleTag(const SampleTag* val) { sampleTag = val; }
+
+    /**
+     * Convienence routine to get the SampleTag rate.
+     */
+    float getSampleRate() const;
 
     void setName(const std::string& val) { name = val; }
 
@@ -69,13 +80,11 @@ public:
     const std::string& getUnits() const { return units; }
 
     /**
-     * Is this a count variable, i.e. a particle count.
-     * Post-processing may need to know - typically summing
-     * the counts over a time period, instead of averaging.
+     * How many values in this variable?
      */
-    bool isCount() const { return iscount; }
+    size_t getLength() const { return length; }
 
-    void setCount(bool val) { iscount = val; }
+    void setLength(size_t val) { length = val; }
 
     const VariableConverter* getConverter() const { return converter; }
 
@@ -116,7 +125,9 @@ protected:
 
     std::string units;
 
-    bool iscount;
+    type_t type;
+
+    size_t length;
 
     VariableConverter *converter;
 
