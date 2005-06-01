@@ -40,28 +40,44 @@ public:
     virtual ~SampleTag();
 
     /**
-     * Set the various levels of the samples identification.
+     * Set the 26 bit id, containing the DSM id and the sensor+sample id.
      * A sample tag ID is a 32-bit value comprised of four parts:
-     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
+     * 6-bit type_id,  10-bit DSM_id,  16-bit sensor+sample id.
+     * The type id is not set-able here, it is only meaningful in an
+     * actual Sample.
      */
     void setId(dsm_sample_id_t val) { id = SET_SAMPLE_ID(id,val); }
+
+    /**
+     * Set the sensor+sample portion of the id.
+     */
     void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
+
+    /**
+     * Set the DSM portion of the id.
+     */
     void setDSMId(unsigned short val) { id = SET_DSM_ID(id,val); }
 
     /**
-     * Get the various levels of the samples identification.
-     * A sample tag ID is a 32-bit value comprised of four parts:
-     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
+     * Get the 26 bit id, containing the DSM id and the sensor+sample id.
      */
-    dsm_sample_id_t  getId()      const { return GET_SAMPLE_ID(id); }
+    dsm_sample_id_t getId()      const { return GET_SAMPLE_ID(id); }
+
+    /**
+     * Get the DSM portion of the id.
+     */
     unsigned short  getDSMId()   const { return GET_DSM_ID(id); }
+
+    /**
+     * Get the sensor+sample portion of the id.
+     */
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
-     * Set sampling rate in samples/sec.  Derived sensors can
+     * Set sampling rate in samples/sec.  Derived SampleTags can
      * override this method and throw an InvalidParameterException
-     * if they can't support the rate value.  For some sensors (A2D)
-     * a rate of 0.0 means don't sample the variables in the
+     * if they can't support the rate value.  Sometimes
+     * a rate of 0.0 may mean don't sample the variables in the
      * SampleTag.
      */
     virtual void setRate(float val)
