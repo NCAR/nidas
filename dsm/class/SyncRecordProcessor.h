@@ -41,10 +41,6 @@ public:
 
     SampleIOProcessor* clone() const;
 
-    // void setDSMConfig(const DSMConfig* val);
-
-    // void setDSMService(const DSMService* val);
-
     virtual bool singleDSM() const { return false; }
 
     void connect(SampleInput* input) throw(atdUtil::IOException);

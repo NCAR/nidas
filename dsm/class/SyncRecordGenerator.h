@@ -19,8 +19,10 @@
 
 #include <SampleIOProcessor.h>
 #include <SampleSorter.h>
+#include <Variable.h>
 
 #include <vector>
+#include <list>
 #include <map>
 #include <string>
 
@@ -61,25 +63,25 @@ protected:
     bool initialized;
 
     /**
-     * A mapping between sample ids and group ids.
-     * A variable "group" is a list of variables from similar
-     * sensors that all have the same sampling rate.
-     * Each group will have a unique id, a non-negative integer.
+     * A variable group is a list of variables with equal sampling rates,
+     * from similar sensors, for example all 50Hz variables sampled by
+     * an A2D, or all 20Hz serial variables.  Each group will have
+     * a unique group id, a non-negative integer.
+     * varsOfRate contains lists of variables in each group, indexed
+     * by group id.
      */
-    std::map<unsigned long, int> groupIds;
+    std::vector<std::list<const Variable*> > varsOfRate;
 
     /**
-     * For each group id, how many variables in that group.
+     * A mapping between sample ids and group ids. When we
+     * receive a sample, what group does it belong to.
      */
-    std::vector<int> numVarsInRateGroup;
+    std::map<dsm_sample_id_t, int> groupIds;
 
     /**
-     * All the variables in a SampleTag will belong to the same
-     * group since they come from the same sensor and have the
-     * same sampling rate. sampleOffsets is the index within the
-     * group of the first variable in a sample.
+     * For each group, the sampling rate, rounded up to an integer.
      */
-    std::map<unsigned long, int> sampleOffsets;
+    std::vector<int> samplesPerSec;
 
     /**
      * For each group, number of milliseconds per sample,
@@ -88,11 +90,37 @@ protected:
     std::vector<int> msecsPerSample;
 
     /**
+     * Number of floats in each group.
+     */
+    std::vector<size_t> groupLengths;
+
+    /**
      * For each group, its offset into the whole record.
      */
-    std::vector<int> groupOffsets;
+    std::vector<size_t> groupOffsets;
 
-    std::vector<std::vector<std::string> > variableNames;
+    /**
+     * Offsets into the sync record of each variable in a sample,
+     * indexed by sampleId.
+     */
+    std::map<dsm_sample_id_t,int*> varOffsets;
+
+    /**
+     * Lengths of each variable in a sample,
+     * indexed by sampleId.
+     */
+    std::map<dsm_sample_id_t,size_t*> varLengths;
+
+    /**
+     * Number of variables in each sample.
+     */
+    std::map<dsm_sample_id_t,size_t> numVars;
+
+    /**
+     * List of all variables in the sync record.
+     */
+    std::list<const Variable*> variables;
+
     int recSize;
 
     dsm_time_t syncTime;
