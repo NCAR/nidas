@@ -105,9 +105,20 @@ struct irigTime {
 /**
  * Macro used by kernel modules to get the current clock value
  * in milliseconds since GMT 00:00:00.  Note that this value rolls
- * over from 86399999 to 0 at midnight.
+ * over from 86399999 to 0 at midnight. This is an efficient
+ * clock for real-time use. Fetching the value is just a RAM
+ * access - not an ISA bus access.
  */
 #define GET_MSEC_CLOCK (msecClock[readClock])
+
+/**
+ * Fetch the IRIG clock value.  This is meant to be used for
+ * debugging, rather than real-time time tagging.  It involves
+ * ISA bus transfers to/from the IRIG card. However, it has
+ * a precision of better than a micro-second. The accuracy
+ * is unknown and is probably effected by ISA contention.
+ */
+void irig_clock_gettime(struct rtl_timespec* tp);
 
 typedef void irig_callback_t(void* privateData);
 

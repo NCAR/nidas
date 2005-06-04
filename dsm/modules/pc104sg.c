@@ -780,6 +780,7 @@ static void getTimeFields(struct irigTime* ti,int offset)
     ti->nsec = (us0ns2 & 0x0f) * 100;
 }
 
+
 /**
  * Get main clock.
  */
@@ -803,6 +804,14 @@ static void getCurrentTime(struct irigTime* ti)
 	ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
     	hr,mn,sc,tt,td,extendedStatus,clockState);
 #endif
+}
+
+/* this function is available for external use */
+void irig_clock_gettime(struct rtl_timespec* tp)
+{
+    struct irigTime it;
+    getTimeFields(&it,0);
+    irig2timespec(&it,tp);
 }
 
 /**
