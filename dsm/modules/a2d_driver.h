@@ -76,7 +76,6 @@ typedef struct
 
 typedef struct 
 {
-	US	status[MAXA2DS];	// A/D status flag
 	int	gain[MAXA2DS];	// Gain settings 
 	int	Hz[MAXA2DS];		// Sample rate in Hz. 0 is off.
 	int	offset[MAXA2DS];	// Offset flags
@@ -140,25 +139,8 @@ typedef struct
 
 #define	HWFIFODEPTH		1024
 
-//Status/error
-#define A2DLOADOK	 	 0
-
-#define	ERRA2DNOFILE	-1	//Error opening file
-#define	ERRA2DCHAN		-2	//Channel # requested is out of bounds
-#define	ERRA2DGAIN		-3	//Gain value out of bounds
-#define	ERRA2DVCAL		-4	//Vcal out of bounds
-#define	ERRA2DCRC		-5	//Data corrupted
-#define	ERRA2DID		-6	//Wrong device ID
-#define	ERRA2DCONV		-7	//Conversion data invalid
-#define	ERRA2DCHIPID	-8	//Chip ID error
-#define	ERRA2DRATE		-9	//A/D sample rate error
-#define	ERRA2DCFG		-10	//A/D configuration error
-
 //Card base address for ISA bus
 #define	A2DMASTER		0	//A/D chip designated to produce interrupts
-#define	A2DIOBASE		0x000003A0
-#define	A2DIOSEP		0x00000010	// Card addr separation
-#define	A2DBASE			(A2DIOBASE + SYSTEM_ISA_IOPORT_BASE)
 #define	A2DIOWIDTH		0x10	// Width of I/O space
 
 // I/O channels for the A/D card
@@ -210,7 +192,7 @@ typedef struct
 #define FIFONOTEMPTY	0x04	// FIFO not empty
 #define	FIFONOTFULL		0x08  // FIFO not full
 #define INV1PPS			0x10	// Inverted 1 PPS pulse
-
+#define PRESYNC			0x20	// Presync bit
 
 #define	RTL_DEBUGIT(a)	rtl_printf("DEBUGIT %d\n", a)
 #define	DEBUGIT(a)	printf("DEBUGIT %d\n", a)
@@ -235,13 +217,15 @@ struct A2DBoard {
     A2D_SET config;		// board configuration
     A2D_CAL cal;		// calibration configuration
     A2D_STATUS status;		// status info maintained by driver
+    unsigned short bad[MAXA2DS];
     US OffCal;			// offset and cal bits
-    US FIFOCtl;			// hardware FIFO control word storage
+    UC FIFOCtl;			// hardware FIFO control word storage
     int MaxHz;			// Maximum requested A/D sample rate
     int busy;
     int interrupted;
-    unsigned int msgctr;
-    unsigned int nshorts;
+    int readCtr;
+    int nbadBufs;
+    dsm_sample_time_t debugTime;
 };
 
 #endif
