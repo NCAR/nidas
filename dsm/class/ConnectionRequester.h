@@ -51,9 +51,10 @@ public:
     virtual void disconnected(SampleOutput*) throw() {}
 
     /**
-     * SampleConnectionRequester will be called back when a new file is created.
+     * sendHeader will be called when a client of SampleConnectRequester
+     * wants a header written, for example at the beginning of a file.
      */
-    virtual void newFileCallback(dsm_time_t,IOStream* iostream)
+    virtual void sendHeader(dsm_time_t,IOStream* iostream)
     	throw(atdUtil::IOException) {}
 };
 

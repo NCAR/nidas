@@ -47,7 +47,7 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void newFileCallback(dsm_time_t thead,IOStream* iostream)
+    void sendHeader(dsm_time_t thead,IOStream* iostream)
     	throw(atdUtil::IOException);
 
 protected:

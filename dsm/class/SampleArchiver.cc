@@ -117,11 +117,11 @@ void SampleArchiver::disconnected(SampleOutput* output) throw()
     output->close();
 }
 
-void SampleArchiver::newFileCallback(dsm_time_t thead,IOStream* iostream)
+void SampleArchiver::sendHeader(dsm_time_t thead,IOStream* iostream)
 	throw(atdUtil::IOException)
 {
 
-    cerr << "SampleArchiver::newFileCallback" << endl;
+    cerr << "SampleArchiver::sendHeader" << endl;
     SampleFileHeader header;
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());

@@ -167,7 +167,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    // otherwise it is truncated down.
 	    nextFileTime = iostream->createFile(tsamp,nextFileTime == 0);
 	    if (connectionRequester)
-		connectionRequester->newFileCallback(tsamp,iostream);
+		connectionRequester->sendHeader(tsamp,iostream);
 	}
 	write(samp);
     }
