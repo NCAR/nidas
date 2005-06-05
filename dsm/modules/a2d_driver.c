@@ -631,6 +631,7 @@ static int getSerialNumber(struct A2DBoard* brd)
 /* Utility function to wait for INV1PPS to be zero.
  * Since it uses rtl_usleep, it must be called from a
  * real-time thread.
+ * Return: negative Linux (not RTLinux) errno, or 0=OK.
  */
 static int waitFor1PPS(struct A2DBoard* brd) 
 {
@@ -701,8 +702,12 @@ static void* A2DSetupThread(void *thread_arg)
 
 // #define DO_INITIAL_RUN
 #ifdef DO_INITIAL_RUN
-// Start then reset the A/D's
-// Start conversions
+    // GDM 6/3/05: found that this initial run is not necessary
+    // in order for the filter coef download to work.
+    // The A2DResetAll is necessary however.
+
+    // Start then reset the A/D's
+    // Start conversions
 	rtl_printf("%s: Starting A/D's \n", __FILE__);
    	A2DStartAll(brd);
 
@@ -728,7 +733,10 @@ static void* A2DSetupThread(void *thread_arg)
 }
 
 /*--------------------- Thread function ----------------------*/
-// Waits for 1PPS neg-going pulse from IRIG card
+/* Waits for 1PPS neg-going pulse from IRIG card
+ * Return: positive Linux errno (not RTLinux error) cast
+ *	as a pointer to void.
+ */
 
 static void* A2DWait1PPSThread(void *arg)
 {
@@ -745,11 +753,12 @@ static void irigCallback(void *brd)
 }
 
 /*------------------ Main A2D thread -------------------------*/
+//	0 does necessary initialization, then loops
 //	1 waits on a semaphore from the 100Hz callback
 //	2 does a sufficient sleep so that all the data for
 //	  the past 10 msec is ready in the A2D fifo.
 //	3 reads the A2D fifo
-//	4 repeat
+//	4 repeat 1-4
 static void* A2DGetDataThread(void *thread_arg)
 {
 	struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
@@ -773,17 +782,12 @@ static void* A2DGetDataThread(void *thread_arg)
 	rtl_printf("A2DGetDataThread starting, nreads=%d, GET_MSEC_CLOCK=%d\n",
 		nreads,GET_MSEC_CLOCK);
 
-	rtl_printf("Waiting for 1PPS, GET_MSEC_CLOCK=%d\n",
-		GET_MSEC_CLOCK);
-
 	if ((i = waitFor1PPS(brd)) < 0) return (void*)-i;
 
 	rtl_printf("Found 1PPS, GET_MSEC_CLOCK=%d\n",
 		GET_MSEC_CLOCK);
 
-	// rtl_usleep(11000); 
-
-	// Start the IRIG callback routine at 100 Hz
+	// Zero the semaphore, then start the IRIG callback routine at 100 Hz
 	rtl_sem_init(&brd->acq_sem,0,0);
 	register_irig_callback(&irigCallback,IRIG_100_HZ, brd);
 
@@ -850,9 +854,6 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	    for (i = 0; i < nreads; i++) {
 #ifdef DOA2DSTATRD
-		// if (!(i % MAXA2DS)) outb(A2DIOFIFO,brd->chan_addr);
-		// outb(A2DIOFIFO,brd->chan_addr);
-
 		stat = inw(brd->addr);		
 		if (stat == 0x8253 || stat == 0xc253 ||
 		    stat == 0x8252 || stat == 0xc653) {
@@ -880,7 +881,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		    rtl_printf("nbadBufs=%d, nbad/sec=%d\n",
 			    brd->nbadBufs,brd->nbadBufs/((tnow-brd->debugTime)/1000));
 		    if (brd->nbadBufs)
-			rtl_printf("   bad= %04x %04x %04x %04x %04x %04x %04x %04x\n",
+			rtl_printf("badsts= %04x %04x %04x %04x %04x %04x %04x %04x\n",
 			brd->bad[0],
 			brd->bad[1],
 			brd->bad[2],
@@ -914,27 +915,32 @@ static void* A2DGetDataThread(void *thread_arg)
 		// Write to up-fifo
 		if (rtl_write(brd->fd, &buf,
 		    SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
-		    rtl_printf("%s: error writing to up fifo: %s\n",
-			    __FILE__,rtl_strerror(rtl_errno));
+		    rtl_printf("%s error: write %s: %s\n",
+			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
 		    rtl_printf("%s: closing fifo\n",__FILE__);
 		    rtl_close(brd->fd);
 		    brd->fd = -1;
+		    // Remove the fifo. Hopefully this will cause an 
+		    // IO error on the user side, so that it could
+		    // restart things (needs testing).
+		    rtl_unlink(brd->fifoName);
 		    brd->status.rtlFifoWriteErrors++;
 		}
 	    }
 	}
 	rtl_printf("Exiting A2DGetDataThread\n");
-
 	return 0;
 }
 
 /*
- * Function that is called on receipt of ioctl request over the
+ * Function that is called on receipt of an ioctl request over the
  * ioctl FIFO.
+ * Return: negative Linux errno (not RTLinux errnos), or 0=OK
  */
 static int ioctlCallback(int cmd, int board, int port,
 	void *buf, rtl_size_t len) 
 {
+	// return LINUX errnos here, not RTL_XXX errnos.
   	int ret = -EINVAL;
 	void* thread_status;
 
@@ -998,16 +1004,16 @@ static int ioctlCallback(int cmd, int board, int port,
 
   	case A2D_RUN_IOCTL:		/* user set */
 		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
+		brd->busy = 1;	// Set the busy flag
 
 		if (brd->fd >= 0) rtl_close(brd->fd);
 		if((brd->fd = rtl_open(brd->fifoName,
 			RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 		{
-			rtl_printf("Unable to open %s\n",brd->fifoName);
-			return -rtl_errno;
+		    rtl_printf("%s error: opening %s: %s\n",
+			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+		    return -rtl_errno;	// needs RTL->Linux errno conversion
 		}
-
-		brd->busy = 1;	// Set the busy flag
 
 		// Establish a RT thread to allow syncing with 1PPS
 		rtl_printf("1PPSThread starting, GET_MSEC_CLOCK=%d\n",
@@ -1038,23 +1044,6 @@ static int ioctlCallback(int cmd, int board, int port,
 
 		rtl_printf("Setting 1PPS Enable line\n");
 		A2D1PPSEnable(brd);// Enable sync with 1PPS
-
-// #define WAIT_AGAIN
-#ifdef WAIT_AGAIN
-		rtl_printf("Waiting for low on 1PPS line\n");
-		// Establish a RT thread to allow syncing with 1PPS
-		rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd);
-		rtl_pthread_join(brd->pps_thread, &thread_status);
-		brd->pps_thread = 0;
-
-		if (thread_status != (void*)0) {
-		    ret = -(int)thread_status;
-		    break;
-		}
-
-		rtl_printf("1PPSThread done, GET_MSEC_CLOCK=%d\n",
-			GET_MSEC_CLOCK);
-#endif
 
 		// Start data acquisition thread
 		brd->interrupted = 0;
@@ -1133,6 +1122,8 @@ void cleanup_module(void)
 	    unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
 
 	    A2DStatusAll(brd); 	// Read status and clear IRQ's	
+
+	    brd->interrupted = 0;
 
 	    // Shut down the setup thread
 	    if (brd->setup_thread) {
@@ -1214,6 +1205,8 @@ int init_module()
 	    brd->setup_thread = 0;
 	    brd->pps_thread = 0;
 	    brd->acq_thread = 0;
+	    brd->interrupted = 0;
+	    brd->busy = 0;
 
 	    rtl_sem_init(&brd->acq_sem,0,0);
 	    brd->fifoName = 0;
@@ -1230,8 +1223,6 @@ int init_module()
 	    brd->FIFOCtl = 0;
 #endif
 	    brd->MaxHz = 0;
-	    brd->busy = 0;
-	    brd->interrupted = 0;
 	    brd->readCtr = 0;
 	    brd->nbadBufs = 0;
 	    brd->debugTime = 0;
@@ -1267,17 +1258,13 @@ int init_module()
 	    brd->fifoName = makeDevName(devprefix,"_in_",ib);
             if (!brd->fifoName) goto err;
 
-	    rtl_printf("%s: Unlinking then creating %s\n",
-	    	__FILE__,brd->fifoName);
 	    // remove broken device file before making a new one
-	    if (rtl_unlink(brd->fifoName) < 0 && rtl_errno != RTL_ENOENT)
-		return -EIO;
-
-	    if((error = rtl_mkfifo(brd->fifoName, 0666)))
-		rtl_printf("Error creating fifo %s\n", brd->fifoName);
-	    else
-		rtl_printf("Up FIFO %s created for writing\n", brd->fifoName);
-
+	    if ((rtl_unlink(brd->fifoName) < 0 && rtl_errno != RTL_ENOENT)
+	    	|| rtl_mkfifo(brd->fifoName, 0666) < 0)
+		rtl_printf("%s error: unlink/mkfifo %s: %s\n",
+			__FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+		error = -rtl_errno;		// needs RTL->Linux errno conversion
+		goto err;
 	}
 
 	rtl_printf("%s: A2D init_module complete.\n", __FILE__);
