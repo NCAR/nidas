@@ -120,8 +120,8 @@ static void* in_thread_func(void* arg)
 	 * until data is ready
 	 */
         if ((l = rtl_read(port->devfd,buf,sizeof(buf))) < 0) {
-	    rtl_printf("in_thread_func, read error: %s\n",
-		    rtl_strerror(rtl_errno));
+	    rtl_printf("%s error: reading %s: %s\n",
+		    __FILE__,port->devname,rtl_strerror(rtl_errno));
 	    if (rtl_errno == RTL_EINTR) break;
 	    return (void*)rtl_errno;	// needs RTL->Linux errno conversion
 	}
@@ -132,8 +132,8 @@ static void* in_thread_func(void* arg)
 	for (cp = buf; cp < eob; cp += l) {
 	    if ((l = rtl_write(port->inFifoFd,cp,eob-cp)) < 0) {
 		rtl_printf(
-		"in_thread_func, write to fifo error: %s, eob-cp=%d\n",
-			rtl_strerror(rtl_errno),(int)(eob-cp));
+		"%s error: writing %s: %s, eob-cp=%d\n",
+			__FILE__,port->inFifoName,rtl_strerror(rtl_errno),(int)(eob-cp));
 		if (rtl_errno == RTL_EINTR) break;
 		return (void*)rtl_errno;	// needs RTL->Linux errno conversion
 	    }
@@ -161,15 +161,15 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     char* eob;
 
     if ((l = rtl_read(port->outFifoFd,buf,sizeof(buf))) < 0) {
-	rtl_printf("outFifoHandler, read error: %s\n",
-		rtl_strerror(rtl_errno));
+	rtl_printf("%s error: reading %s: %s\n",
+		__FILE__,port->outFifoName,rtl_strerror(rtl_errno));
 	return;
     }
     eob = buf + l;
     for (cp = buf; cp < eob; cp += l) {
 	if ((l = rtl_write(port->devfd,cp,eob-cp)) < 0) {
-	    rtl_printf("outFifoHandler, write error: %s\n",
-		    rtl_strerror(rtl_errno));
+	    rtl_printf("%s error: writing %s: %s\n",
+		    __FILE__,port->devname,rtl_strerror(rtl_errno));
 	    return;
 	}
     }
