@@ -37,11 +37,11 @@ SyncRecordGenerator::~SyncRecordGenerator()
 
     map<dsm_sample_id_t,int*>::const_iterator vi;
     for (vi = varOffsets.begin(); vi != varOffsets.end(); ++vi)
-	delete vi->second;
+	delete [] vi->second;
 
     map<dsm_sample_id_t,size_t*>::const_iterator vi2;
     for (vi2 = varLengths.begin(); vi2 != varLengths.end(); ++vi2)
-	delete vi2->second;
+	delete [] vi2->second;
 }
 
 
@@ -133,7 +133,7 @@ void SyncRecordGenerator::init(const list<const DSMConfig*>& dsms) throw()
 	    if (varOffsets[sampleId][i] >= 0)
 		varOffsets[sampleId][i] += groupOffsets[groupId];
 #ifdef DEBUG
-	    cerr << "varOffsets[" << sampleId << "][" << i << "=" <<
+	    cerr << "varOffsets[" << sampleId << "][" << i << "]=" <<
 	    	varOffsets[sampleId][i] << endl;
 #endif
 	}
@@ -344,6 +344,9 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     // need to screen bad times
     if (tt < syncTime) {
         badTimes++;
+#ifdef DEBUG
+	cerr << "SyncRecordGenerator badTime" << endl;
+#endif
 	return false;
     }
     if (tt >= syncTime + 1000) {
@@ -365,16 +368,23 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     map<dsm_sample_id_t, int>::const_iterator gi =  groupIds.find(sampid);
     if (gi == groupIds.end()) {
         unrecognizedSamples++;
+#ifdef DEBUG
+	cerr << "unrecognizedSample, id=" << sampid << endl;
+#endif
 	return false;
     }
         
-
     int groupId = gi->second;
+
+    assert(groupId < (signed)msecsPerSample.size());
     int msecsPerSamp = msecsPerSample[groupId];
 
     int* varOffset = varOffsets[sampid];
+    assert(varOffset);
     size_t* varLen = varLengths[sampid];
+    assert(varLen);
     size_t numVar = numVars[sampid];
+    assert(numVar);
 
     // rate: samples/sec
     // dt: millisec
@@ -391,8 +401,8 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
     // rate=12.5, msec/sample=80
     // rate=50
 
-
     int timeIndex = (int)rint((tt - syncTime) / msecsPerSamp);
+    assert(timeIndex < samplesPerSec[groupId]);
 
     switch (samp->getType()) {
 
@@ -401,9 +411,12 @@ bool SyncRecordGenerator::receive(const Sample* samp) throw()
 	    const float* fp = (const float*)samp->getConstVoidDataPtr();
 	    const float* ep = fp + samp->getDataLength();
 
-	    if ((unsigned)varOffset[0] == groupOffsets[sampid] &&
-	    	timeIndex == 0)
-		floatPtr[groupOffsets[sampid]] = tt - syncTime;	// lag
+	    if ((unsigned)varOffset[0] == groupOffsets[groupId] && timeIndex == 0) {
+#ifdef DEBUG
+	        cerr << "groupId=" << groupId << " lag=" << tt - syncTime << endl;
+#endif
+		floatPtr[groupOffsets[groupId]] = tt - syncTime;	// lag
+	    }
 
 	    for (size_t i = 0; i < numVar; i++) {
 	        size_t vlen = varLen[i];
