@@ -334,6 +334,7 @@ static void autoconfig_startech_uarts(struct serialPort *port)
  * using: 8250, 16450, 16550, 16550A.  The important question is
  * whether or not this UART is a 16550A or not, since this will
  * determine whether or not we can use its FIFO features or not.
+ * Return: negative RTL errno
  */
 static int autoconfig(struct serialPort* port)
 {
@@ -518,6 +519,7 @@ out:
 
 /*
  * Taken from linux drivers/char/serial.c change_speed
+ * Return: negative RTL errno
  */
 static int change_speed(struct serialPort* port, struct termios* termios)
 {
@@ -659,6 +661,9 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 
     return 0;
 }
+/*
+ * Return: negative RTL errno
+ */
 static int uart_startup(struct serialPort* port)
 {
     unsigned long flags;
@@ -782,6 +787,9 @@ errout:
     return retval;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int tcgetattr(struct serialPort* port, void* buf)
 {
     unsigned long flags;
@@ -865,6 +873,9 @@ done:
     return count - left;		// characters copied
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int set_prompt(struct serialPort* port,
 	struct dsm_serial_prompt* prompt)
 {
@@ -911,6 +922,7 @@ static void port_prompter(void* privateData)
 
 /*
  * Start the port_prompter
+ * Return: negative RTL errno
  */
 static int start_prompter(struct serialPort* port)
 {
@@ -920,6 +932,9 @@ static int start_prompter(struct serialPort* port)
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int stop_prompter(struct serialPort* port)
 {
     unregister_irig_callback(port_prompter,port->prompt.rate,port);
@@ -927,6 +942,9 @@ static int stop_prompter(struct serialPort* port)
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int set_record_sep(struct serialPort* port,
 	struct dsm_serial_record_info* sep)
 {
@@ -941,6 +959,9 @@ static int set_record_sep(struct serialPort* port,
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int get_record_sep(struct serialPort* port,
 	struct dsm_serial_record_info* sep)
 {
@@ -951,6 +972,9 @@ static int get_record_sep(struct serialPort* port,
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int get_status(struct serialPort* port,
 	struct dsm_serial_status* status)
 {
@@ -979,7 +1003,9 @@ static int get_status(struct serialPort* port,
     return 0;
 }
 
-
+/*
+ * Return: negative RTL errno
+ */
 static int open_port(struct serialPort* port)
 {
     int retval = 0;
@@ -1018,6 +1044,9 @@ static int open_port(struct serialPort* port)
 
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int close_port(struct serialPort* port)
 {
     unsigned long flags;
@@ -1032,6 +1061,9 @@ static int close_port(struct serialPort* port)
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int write_eeprom(struct serialBoard* board)
 {
     unsigned long flags;
@@ -1532,6 +1564,9 @@ err:
     return retval;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int rtl_dsm_ser_open(struct rtl_file* filp)
 {
     int retval = -RTL_EACCES;
@@ -1544,6 +1579,9 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
     return 0;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int rtl_dsm_ser_release(struct rtl_file* filp)
 {
     int retval;
@@ -1553,6 +1591,9 @@ static int rtl_dsm_ser_release(struct rtl_file* filp)
     return 0;
 }
 
+/*
+ * Return: negative RTL errno, or positive number of bytes read.
+ */
 static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t count, off_t *pos)
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
@@ -1650,6 +1691,9 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
     return retval;
 }
 
+/*
+ * Return: negative RTL errno, or positive number of bytes written.
+ */
 static rtl_ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, rtl_size_t count, off_t *pos)
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
@@ -1662,6 +1706,9 @@ static rtl_ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, rtl
     return res;
 }
 
+/*
+ * Return: negative RTL errno
+ */
 static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
 	unsigned long arg)
 {
