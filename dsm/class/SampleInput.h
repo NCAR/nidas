@@ -27,7 +27,10 @@ class DSMConfig;
 class DSMSensor;
 
 /**
- * Interface of an input SampleSource from one or more DSMs.
+ * Interface of an input SampleSource. Typically a SampleInput is
+ * reading serialized samples from a socket or file, and
+ * the sending them on.
+ *
  */
 class SampleInput: public SampleSource
 {
@@ -59,6 +62,42 @@ public:
 };
 
 
+/**
+ * SampleInputMerger sorts samples that are coming from one
+ * or more inputs.  Samples can then be passed onto sensors
+ * for processing, and then sorted again.
+ *
+ * SampleInputMerger makes use of two SampleSorters, inputSorter
+ * and procSampleSorter.
+ *
+ * inputSorter is a client of one or more inputs (the text arrows
+ * show the sample flow):
+ *
+ * input ----v
+ * input --> inputSorter
+ * input ----^
+ *
+ * After sorting the samples, inputSorter passes them onto the two
+ * types of SampleClients that have registered with SampleInputMerger.
+ * SampleClients that have registered with
+ * SampleInputMerger::addSampleClient will receive their raw samples
+ * directly from inputSorter.
+ *
+ * inputSorter -> sampleClients
+ *
+ * SampleClients that have registered with
+ * SampleInputMerger::addProcessedSampleClient will receive their
+ * samples indirectly:
+ * 
+ * inputSorter -> this -> sensor -> procSampSorter -> processedSampleClients
+ *
+ * inputSorter provides sorting of the samples from the various inputs.
+ *
+ * procSampSorter provides sorting of the processed samples.
+ * Sensors are apt to create processed samples with different
+ * time-tags than the input raw samples, therefore they need
+ * to be sorted again.
+ */
 class SampleInputMerger: public SampleInput , protected SampleClient
 {
 public:
@@ -77,14 +116,26 @@ public:
 
     void setDSMConfigs(const std::list<const DSMConfig*>& val) { dsms = val; }
 
+    /**
+     * Add an input to be merged and sorted.
+     */
     void addInput(SampleInput* input);
 
     void removeInput(SampleInput* input);
 
+    /**
+     * Add a SampleClient that wants samples which have been
+     * merged from various inputs, sorted, processed through a
+     * certain DSMSensor, and then re-sorted again.
+     */
     void addProcessedSampleClient(SampleClient*,DSMSensor*);
 
     void removeProcessedSampleClient(SampleClient*,DSMSensor*);
 
+    /**
+     * Add a SampleClient that wants samples which have been
+     * merged from various inputs and then sorted.
+     */
     void addSampleClient(SampleClient* client) throw();
 
     void removeSampleClient(SampleClient* client) throw();
@@ -101,9 +152,9 @@ protected:
 
     atdUtil::Mutex sensorMapMutex;
 
-    SampleSorter sorter1;
+    SampleSorter inputSorter;
 
-    SampleSorter sorter2;
+    SampleSorter procSampSorter;
 
     size_t unrecognizedSamples;
 
@@ -154,6 +205,24 @@ public:
 
 /**
  * An implementation of a SampleInputReader.
+ *
+ * The readSamples method converts raw bytes from the iochannel
+ * into Samples.
+ *
+ * If a SampleClient has requested processed Samples via
+ * addProcessedSampleClient, then SampleInputStream will pass
+ * Samples to the respective DSMSensor for processing,
+ * and then the DSMSensor passes the processed Samples to
+ * the SampleClient:
+ *
+ * iochannel -> readSamples method -> DSMSensor -> SampleClient
+ * 
+ * If a SampleClient has requested non-processed Samples,
+ * via the simple addSampleClient method, then SampleInput
+ * stream passes the Samples straight to the SampleClient:
+ *
+ * iochannel -> readSamples method -> SampleClient
+ *
  */
 class SampleInputStream: public SampleInputReader
 {
