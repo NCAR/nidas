@@ -96,7 +96,7 @@ sources = [ Split("""
   RawSampleService.cc
 
   SampleSorter.cc
-  SyncRecordGenerator.cc
+  SyncRecordSource.cc
 
   IOChannel.cc
   IOStream.cc
@@ -112,7 +112,7 @@ sources = [ Split("""
   SampleDater.cc
 
   SampleIOProcessor.cc
-  SyncRecordProcessor.cc
+  SyncRecordGenerator.cc
   SampleArchiver.cc
   SampleAverager.cc
 
