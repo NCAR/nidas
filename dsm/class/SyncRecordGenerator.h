@@ -14,11 +14,11 @@
 
 */
 
-#ifndef DSM_SYNCRECORDPROCESSOR_H
-#define DSM_SYNCRECORDPROCESSOR_H
+#ifndef DSM_SYNCRECORDGENERATOR_H
+#define DSM_SYNCRECORDGENERATOR_H
 
 #include <SampleIOProcessor.h>
-#include <SyncRecordGenerator.h>
+#include <SyncRecordSource.h>
 #include <SampleSorter.h>
 
 #include <vector>
@@ -29,15 +29,15 @@ namespace dsm {
 
 class DSMSensor;
 
-class SyncRecordProcessor: public SampleIOProcessor
+class SyncRecordGenerator: public SampleIOProcessor
 {
 public:
     
-    SyncRecordProcessor();
+    SyncRecordGenerator();
 
-    SyncRecordProcessor(const SyncRecordProcessor&);
+    SyncRecordGenerator(const SyncRecordGenerator&);
 
-    virtual ~SyncRecordProcessor();
+    virtual ~SyncRecordGenerator();
 
     SampleIOProcessor* clone() const;
 
@@ -64,7 +64,7 @@ protected:
 
     SampleInput* input;
 
-    SyncRecordGenerator generator;
+    SyncRecordSource syncRecSource;
 
 };
 

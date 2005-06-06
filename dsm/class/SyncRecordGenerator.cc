@@ -12,7 +12,7 @@
  ********************************************************************
 */
 
-#include <SyncRecordProcessor.h>
+#include <SyncRecordGenerator.h>
 #include <SampleFileHeader.h>
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
@@ -27,33 +27,33 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(SyncRecordProcessor);
+CREATOR_ENTRY_POINT(SyncRecordGenerator);
 
-SyncRecordProcessor::SyncRecordProcessor():
+SyncRecordGenerator::SyncRecordGenerator():
 	SampleIOProcessor(),input(0)
 {
-    setName("SyncRecordProcessor");
+    setName("SyncRecordGenerator");
 }
 
-SyncRecordProcessor::SyncRecordProcessor(const SyncRecordProcessor& x):
+SyncRecordGenerator::SyncRecordGenerator(const SyncRecordGenerator& x):
 	SampleIOProcessor((const SampleIOProcessor&)x),input(0)
 {
-    setName("SyncRecordProcessor");
+    setName("SyncRecordGenerator");
 }
 
-SyncRecordProcessor::~SyncRecordProcessor()
+SyncRecordGenerator::~SyncRecordGenerator()
 {
 }
 
-SampleIOProcessor* SyncRecordProcessor::clone() const
+SampleIOProcessor* SyncRecordGenerator::clone() const
 {
     // this shouldn't be cloned
     assert(false);
-    // return new SyncRecordProcessor();
+    // return new SyncRecordGenerator();
     return 0;
 }
 
-void SyncRecordProcessor::connect(SampleInput* newinput)
+void SyncRecordGenerator::connect(SampleInput* newinput)
 	throw(atdUtil::IOException)
 {
     input = newinput;
@@ -62,7 +62,7 @@ void SyncRecordProcessor::connect(SampleInput* newinput)
 	input->getName().c_str(),getName().c_str());
 
     const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
-    generator.init(dsms);
+    syncRecSource.init(dsms);
 
     set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
@@ -83,17 +83,17 @@ void SyncRecordProcessor::connect(SampleInput* newinput)
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
 #ifdef DEBUG
-	    cerr << "SyncRecordProcessor::connect, input=" <<
+	    cerr << "SyncRecordGenerator::connect, input=" <<
 		    input->getName() << " sensor=" <<
 			sensor->getName() << endl;
 #endif
 	    sensor->init();
-	    input->addProcessedSampleClient(&generator,sensor);
+	    input->addProcessedSampleClient(&syncRecSource,sensor);
 	}
     }
 }
  
-void SyncRecordProcessor::disconnect(SampleInput* inputarg)
+void SyncRecordGenerator::disconnect(SampleInput* inputarg)
 	throw(atdUtil::IOException)
 {
     if (!input) return;
@@ -112,10 +112,10 @@ void SyncRecordProcessor::disconnect(SampleInput* inputarg)
 	list<DSMSensor*>::const_iterator si;
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
-	    input->removeProcessedSampleClient(&generator,sensor);
+	    input->removeProcessedSampleClient(&syncRecSource,sensor);
 	}
     }
-    generator.flush();
+    syncRecSource.flush();
     set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
@@ -125,7 +125,7 @@ void SyncRecordProcessor::disconnect(SampleInput* inputarg)
     }
 }
  
-void SyncRecordProcessor::connected(SampleOutput* output) throw()
+void SyncRecordGenerator::connected(SampleOutput* output) throw()
 {
     addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
@@ -141,18 +141,18 @@ void SyncRecordProcessor::connected(SampleOutput* output) throw()
 	    output->getName().c_str(),ioe.what());
 	return;
     }
-    generator.addSampleClient(output);
+    syncRecSource.addSampleClient(output);
 }
 
-void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
+void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
 {
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
 	output->getName().c_str(),getName().c_str());
-    generator.removeSampleClient(output);
+    syncRecSource.removeSampleClient(output);
 }
 
-void SyncRecordProcessor::sendHeader(dsm_time_t thead,IOStream* iostream)
+void SyncRecordGenerator::sendHeader(dsm_time_t thead,IOStream* iostream)
 	throw(atdUtil::IOException)
 {
 
@@ -164,6 +164,6 @@ void SyncRecordProcessor::sendHeader(dsm_time_t thead,IOStream* iostream)
     header.setXMLVersion(Project::getInstance()->getVersion());
     header.write(iostream);
 
-    generator.sendHeader(thead);
+    syncRecSource.sendHeader(thead);
 }
 
