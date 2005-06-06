@@ -52,9 +52,6 @@ static char* devprefix = "dsmser";
 /* Maximum number of ports on a board */
 #define MAX_NUM_PORTS_PER_BOARD 8
 
-/* Maximum number of ports on a board */
-#define MAX_NUM_PORTS_TOTAL 24
-
 /* how many serial cards are we supporting. Determined at init time
  * by checking known board types.
  */
@@ -63,36 +60,32 @@ static int numboards = 0;
 /* type of board, from dsm_serial.h.  BOARD_UNKNOWN means board doesn't exist */
 static int brdtype[MAX_NUM_BOARDS] = { BOARD_WIN_COM8, BOARD_UNKNOWN,
 	BOARD_UNKNOWN };
-
-/* default ioport addresses */
-static int ioport[MAX_NUM_BOARDS] = { 0x300, 0x340, 0x380};
-
-/* starting ioport addresses of individual serial ports on each board */
-static int ioport0[MAX_NUM_BOARDS] = { 0x100, 0x140, 0x180};
-
-/* IRQs of each port */
-static int irqs[MAX_NUM_PORTS_PER_BOARD * MAX_NUM_BOARDS] = { 11,0 };
-
 MODULE_PARM(brdtype, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
 MODULE_PARM_DESC(brdtype, "type of each board, see dsm_serial.h");
 
+/* default ioport addresses */
+static int ioport[MAX_NUM_BOARDS] = { 0x300, 0x340, 0x380};
 MODULE_PARM(ioport, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
 MODULE_PARM_DESC(ioport, "IOPORT address of each serial card");
 
 /*
  * each UART on card has its own ioport with a width of 8 bytes.
- * We put them in a continuous block starting at ioport0[board]
- * and ending at ioport0[board] + 8 * numports
- * where board is the board number.
-*/
- 
+ * We put them in a continuous block starting at ioport0[board],
+ * of total length (8 * numports) where board is the board number,
+ * and numports is the number of UARTS on a board.
+ */
+static int ioport0[MAX_NUM_BOARDS] = { 0x100, 0x140, 0x180};
 MODULE_PARM(ioport0, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
 MODULE_PARM_DESC(ioport0, "IOPORT of first UART on each board");
 
-/*
- * each board can use a different IRQ if necessary.
- */ 
-
+/* IRQs.  Each board can use a different IRQ.
+ * This could be enhanced to allow the ports on a
+ * board to use different irqs, but it wouldn't help
+ * throughput much, since these boards have an
+ * interrupt id register (COM8_BC_IIR) that provides a bit
+ * mask for the interrupting ports.
+ */
+static int irqs[MAX_NUM_BOARDS] = { 11,0,0 };
 MODULE_PARM(irqs, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
 MODULE_PARM_DESC(irqs, "IRQ number");
 
@@ -1859,12 +1852,15 @@ const char* dsm_serial_get_devname(int portnum)
     return 0;
 }
 
+/*
+ * Return: negative Linux (not RTLinux) errno.
+ */
 int init_module(void)
 {
     int ib,ip,i;
     int numirqs;
     int numioport0s;
-    int retval = -RTL_EINVAL;
+    int retval = -EINVAL;
     unsigned long addr;
     char devname[128];
 
@@ -1886,7 +1882,7 @@ int init_module(void)
 	if (irqs[ib] == 0) break;
     numirqs = ib;
 
-    if (numirqs < numboards) {
+    if (numirqs != numboards) {
 	rtl_printf("incorrect number of IRQs, should be %d of them\n",
 		numboards);
 	goto err0;
@@ -1898,12 +1894,12 @@ int init_module(void)
     numioport0s = ib;
 
     if (numioport0s < numboards)  {
-	rtl_printf("incorrect number of ioport0 addresses, should be %d at least\n",
+	rtl_printf("incorrect number of ioport0 addresses, should be at least %d\n",
 		numboards);
 	goto err0;
     }
 
-    retval = -RTL_ENOMEM;
+    retval = -ENOMEM;
     boardInfo = rtl_gpos_malloc( numboards * sizeof(struct serialBoard) );
     if (!boardInfo) goto err0;
     for (ib = 0; ib < numboards; ib++) {
@@ -1920,7 +1916,7 @@ int init_module(void)
     for (ib = 0; ib < numboards; ib++) {
 	int boardirq = 0;
 
-	retval = -RTL_EBUSY;
+	retval = -EBUSY;
 	addr = SYSTEM_ISA_IOPORT_BASE + ioport[ib];
 	if (check_region(addr, 8)) {
 	    rtl_printf("dsm_serial: ioports at 0x%x already in use\n",addr);
@@ -1929,7 +1925,7 @@ int init_module(void)
 	request_region(addr, 8, "dsm_serial");
 	boardInfo[ib].addr = addr;
 
-	retval = -RTL_EINVAL;
+	retval = -EINVAL;
 	switch (boardInfo[ib].type) {
 	case BOARD_WIN_COM8:
 	    boardInfo[ib].numports = 8;
@@ -1942,7 +1938,7 @@ int init_module(void)
 	rtl_printf("numports=%d\n",boardInfo[ib].numports);
 #endif
 
-	retval = -RTL_ENOMEM;
+	retval = -ENOMEM;
 	boardInfo[ib].ports = rtl_gpos_malloc(
           boardInfo[ib].numports * sizeof(struct serialPort) );
 	if (!boardInfo[ib].ports) goto err1;
@@ -1961,7 +1957,7 @@ int init_module(void)
 	    port->ioport = ioport0[ib] + (ip * 8);
 
 	    addr = SYSTEM_ISA_IOPORT_BASE + port->ioport;
-	    retval = -RTL_EBUSY;
+	    retval = -EBUSY;
 	    if (check_region(addr, 8)) {
 		rtl_printf("dsm_serial: ioports at 0x%x already in use\n",
 			addr);
@@ -1970,7 +1966,7 @@ int init_module(void)
 	    request_region(addr, 8, "dsm_serial");
 	    port->addr = addr;
 
-	    retval = -RTL_ENOMEM;
+	    retval = -ENOMEM;
 	    port->xmit.buf = rtl_gpos_malloc( SERIAL_XMIT_SIZE );
 	    if (!port->xmit.buf) goto err1;
 
@@ -1986,21 +1982,24 @@ int init_module(void)
 	    }
 	    port->sample = port->sample_queue.buf[port->sample_queue.head];
 
-	    if (numirqs == numboards) port->irq = irqs[ib];
-	    else port->irq = irqs[portcounter];
+	    port->irq = irqs[ib];
 
 	    if (boardirq == 0) boardirq = port->irq;
-	    retval = -RTL_EINVAL;
+	    retval = -EINVAL;
 	    if (boardirq != port->irq) {
 	        rtl_printf("current version only supports one IRQ per board\n");
 		goto err1;
 	    }
 
+	    /* There are the beginnings of support here for multiple
+	     * IRQs per board, but we don't actually support
+	     * that yet.
+	     */
 	    if (numirqs == numboards) port->irq = irqs[ib];
 	    else port->irq = irqs[portcounter];
 
 	    if (boardirq == 0) boardirq = port->irq;
-	    retval = -RTL_EINVAL;
+	    retval = -EINVAL;
 	    if (boardirq != port->irq) {
 	        rtl_printf("current version only supports one IRQ per board\n");
 		goto err1;
@@ -2038,7 +2037,7 @@ int init_module(void)
 		break;
 	    }
 
-	    retval = -RTL_ENOMEM;
+	    retval = -ENOMEM;
 	    sprintf(devname, "/dev/%s%d", devprefix,portcounter);
 	    port->devname = (char *) rtl_gpos_malloc( strlen(devname) + 1 );
 	    if (!port->devname) goto err1;
@@ -2049,7 +2048,7 @@ int init_module(void)
 		/* if port->devname is non-zero then it has been registered */
 		rtl_gpos_free(port->devname);
 		port->devname = 0;
-		retval = -RTL_EIO;
+		retval = -EIO;
 		goto err1;
 	    }
 
