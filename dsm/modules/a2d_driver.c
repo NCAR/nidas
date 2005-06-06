@@ -814,7 +814,7 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef DOA2DSTATRD
 		    stat = inw(brd->addr);		
 		    short d = inw(brd->addr);		
-		    // check for RdCONV instruction in Status Register
+		    // check for acceptable looking status value
 		    if ((stat & A2DSTATMASK) != A2DEXPSTATUS)
 		        nbad++;
 		    else ngood++;
@@ -855,7 +855,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	    for (i = 0; i < nreads; i++) {
 #ifdef DOA2DSTATRD
 		stat = inw(brd->addr);		
-		// check for RdCONV instruction in Status Register
+		// check for acceptable looking status value
 		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
 		    nbad++;
 		    brd->bad[i % MAXA2DS] = stat;
