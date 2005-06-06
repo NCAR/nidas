@@ -875,6 +875,11 @@ static void* A2DGetDataThread(void *thread_arg)
 	        brd->nbadBufs++;
 		A2DClearFIFO(brd);	// Reset FIFO
 	    }
+	    else if (!A2DFIFOEmpty(brd)) {
+	        if (!(brd->fifoNotEmpty++ % 100))
+		    rtl_printf("fifo not empty %d times\n",brd->fifoNotEmpty);
+		A2DClearFIFO(brd);	// Reset FIFO
+	    }
 
 	    if (!(++brd->readCtr % 100)) {
 		dsm_sample_time_t tnow = GET_MSEC_CLOCK;
@@ -910,7 +915,6 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 
-	    if (!A2DFIFOEmpty(brd)) rtl_printf("not empty\n");
 
 	    buf.size = (char*)dataptr - (char*)buf.data;
 
@@ -1229,6 +1233,7 @@ int init_module()
 	    brd->readCtr = 0;
 	    brd->nbadBufs = 0;
 	    brd->debugTime = 0;
+	    brd->fifoNotEmpty = 0;
 	}
 
 	/* allocate necessary members in each A2DBoard structure */

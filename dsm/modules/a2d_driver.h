@@ -150,7 +150,7 @@ typedef struct
  *  0 CFGEND            X probably indicates a bad chip
  */
 #define A2DSTATMASK	0xbbfe	// mask for status bits to check
-#define A2DEXPSTATUS	0x8252	// expected value of masked bits
+#define A2DEXPSTATUS	0x8252	// expected value of unmasked bits
 
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
@@ -249,6 +249,7 @@ struct A2DBoard {
     int readCtr;
     int nbadBufs;
     dsm_sample_time_t debugTime;
+    int fifoNotEmpty;
 };
 
 #endif
