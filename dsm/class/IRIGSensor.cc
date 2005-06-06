@@ -236,6 +236,13 @@ void IRIGSensor::fromDOMElement(const DOMElement* node)
     SampleTag* samp = sampleTags.front();
     samp->setRate(1.0);
     sampleId = samp->getId();
+    const vector<const Variable*>& vars = samp->getVariables();
+    assert(vars.size() == 1);
+
+    // Warning: cast to non-const kludge!
+    // Somehow we need to provide non-const Variables to DSMSensor
+    // so that DSMSensor can change them.
+    const_cast<Variable*>(vars.front())->setType(Variable::CLOCK);
 }
 
 DOMElement* IRIGSensor::toDOMParent(
