@@ -22,7 +22,10 @@
 namespace dsm {
 
 /**
- * Implementation of a source of samples.
+ * Implementation for SampleSource and RawSampleSource.
+ * This allows a design where an object can be both a
+ * SampleSource and a RawSampleSource (because we love multiple
+ * inheritance don't we :)!
  */
 class SampleSourceImpl {
 protected:
@@ -36,17 +39,22 @@ protected:
      * make sure that the pointer to the SampleClient remains valid,
      * until AFTER it is removed.
      */
-    virtual void addSampleClientImpl(SampleClient*);
+    virtual void addSampleClientImpl(SampleClient*) throw();
 
     /**
      * Remove a SampleClient from this SampleSourceImpl
      */
-    virtual void removeSampleClientImpl(SampleClient*);
+    virtual void removeSampleClientImpl(SampleClient*) throw();
+
+    /**
+     * How many clients to I have?
+     */
+    virtual int getClientCountImpl() const throw();
 
     /**
      * Big cleanup.
      */
-    virtual void removeAllSampleClientsImpl();
+    virtual void removeAllSampleClientsImpl() throw();
 
     /**
      * How many samples have been distributed by this SampleSourceImpl.

@@ -19,16 +19,20 @@
 using namespace dsm;
 using namespace std;
 
-void SampleSourceImpl::addSampleClientImpl(SampleClient* client) {
+void SampleSourceImpl::addSampleClientImpl(SampleClient* client) throw() {
     clients.add(client);
 }
 
-void SampleSourceImpl::removeSampleClientImpl(SampleClient* client) {
+void SampleSourceImpl::removeSampleClientImpl(SampleClient* client) throw() {
     clients.remove(client);
 }
   
-void SampleSourceImpl::removeAllSampleClientsImpl() {
+void SampleSourceImpl::removeAllSampleClientsImpl() throw() {
     clients.removeAll();
+}
+
+int SampleSourceImpl::getClientCountImpl() const throw() {
+    return clients.size();
 }
   
 void SampleSourceImpl::distributeImpl(const Sample* sample) throw()

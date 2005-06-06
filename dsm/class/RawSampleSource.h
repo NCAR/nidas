@@ -49,6 +49,13 @@ public:
     }
 
     /**
+     * Remove a SampleClient from this SampleSource
+     */
+    int getClientCount() throw() {
+        return getClientCountImpl();
+    }
+
+    /**
      * Big cleanup.
      */
     void removeAllRawSampleClients() throw() {

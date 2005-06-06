@@ -22,7 +22,11 @@
 namespace dsm {
 
 /**
- * A source of samples.
+ * A source of samples. A SampleSource maintains a list
+ * of SampleClients.  When a SampleSource has a Sample ready,
+ * it will call the receive method of all its SampleClients.
+ * SampleClients register/unregister with a SampleSource via
+ * the addSampleClient/removeSampleClient methods.
  */
 class SampleSource : public SampleSourceImpl {
 public:
@@ -40,6 +44,13 @@ public:
      */
     virtual void removeSampleClient(SampleClient* c) throw() {
         removeSampleClientImpl(c);
+    }
+
+    /**
+     * How many SampleClients are currently in my list.
+     */
+    virtual int getClientCount() const throw() {
+        return getClientCountImpl();
     }
 
     /**

@@ -63,6 +63,11 @@ public:
   virtual void remove(SampleClient*);
 
   /**
+   * How many clients?
+   */
+  virtual int size() const;
+
+  /**
    * Big cleanup.
    * A atdUtil::Mutex exclusion lock
    * is used to avoid simultaneous access.
