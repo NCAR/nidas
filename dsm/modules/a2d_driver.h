@@ -111,12 +111,12 @@ typedef struct
 #define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
 
 //A2D Status register bits
-#define	A2DINSTBSY		0x8000	//Instruction being performed
-#define	A2DDATARDY		0x4000	//Data ready to be read (Read cycle)
-#define	A2DDATAREQ		0x2000	//New data required (Write cycle)
-#define	A2DIDERR		0x1000	//Chip ID error
-#define	A2DCRCERR		0x0800	//Data corrupted--CRC error
-#define	A2DDATAERR		0x0400	//Conversion data invalid
+#define	A2DINSTBSY	0x8000	//Instruction being performed
+#define	A2DDATARDY	0x4000	//Data ready to be read (Read cycle)
+#define	A2DDATAREQ	0x2000	//New data required (Write cycle)
+#define	A2DIDERR	0x1000	//Chip ID error
+#define	A2DCRCERR	0x0800	//Data corrupted--CRC error
+#define	A2DDATAERR	0x0400	//Conversion data invalid
 #define	A2DINSTREG15	0x0200	//Instr reg bit	15
 #define	A2DINSTREG13	0x0100	//				13
 #define	A2DINSTREG12	0x0080	//				12
@@ -128,6 +128,29 @@ typedef struct
 #define	A2DINSTREG00	0x0002	//				00
 #define	A2DCONFIGEND	0x0001	//Configuration End Flag.
 
+/* values in the A2D Status Register should look like so when
+ * the A2Ds are running.  The instruction is RdCONV=0x8d21.
+ *
+ * bit name		value (X=varies)
+ * 15 InstrBUSY         1
+ * 14 DataReady         X  it's a mystery why this isn't always set
+ * 13 DataRequest	0
+ * 12 ID Error          0
+ * 11 CRC Error         0
+ * 10 Data Error	X  indicates input voltage out of range
+ *  9 Inst bit 15	1
+ *  8 Inst bit 13	0
+ *  7 Inst bit 12	0
+ *  6 Inst bit 11	1
+ *  5 Inst bit 06	0
+ *  4 Inst bit 05	1
+ *  3 Inst bit 04	0
+ *  2 Inst bit 01	0
+ *  1 Inst bit 00	1
+ *  0 CFGEND            X probably indicates a bad chip
+ */
+#define A2DSTATMASK	0xbbfe	// mask for status bits to check
+#define A2DEXPSTATUS	0x8252	// expected value of masked bits
 
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/

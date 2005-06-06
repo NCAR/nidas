@@ -814,10 +814,10 @@ static void* A2DGetDataThread(void *thread_arg)
 #ifdef DOA2DSTATRD
 		    stat = inw(brd->addr);		
 		    short d = inw(brd->addr);		
-		    if (stat == 0x8253 || stat == 0xc253 ||
-		    	stat == 0x8252 || stat == 0xc653)
-		    	ngood++;
-		    else nbad++;
+		    // check for RdCONV instruction in Status Register
+		    if ((stat & A2DSTATMASK) != A2DEXPSTATUS)
+		        nbad++;
+		    else ngood++;
 #else
 		    short d = inw(brd->addr);		
 #endif
@@ -855,14 +855,14 @@ static void* A2DGetDataThread(void *thread_arg)
 	    for (i = 0; i < nreads; i++) {
 #ifdef DOA2DSTATRD
 		stat = inw(brd->addr);		
-		if (stat == 0x8253 || stat == 0xc253 ||
-		    stat == 0x8252 || stat == 0xc653) {
-		    ngood++;
-		    brd->status.status[i % MAXA2DS] = stat;
-		}
-		else {
+		// check for RdCONV instruction in Status Register
+		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
 		    nbad++;
 		    brd->bad[i % MAXA2DS] = stat;
+		}
+		else {
+		    ngood++;
+		    brd->status.status[i % MAXA2DS] = stat;
 		}
 
 		*dataptr++ = inw(brd->addr);
@@ -875,6 +875,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	        brd->nbadBufs++;
 		A2DClearFIFO(brd);	// Reset FIFO
 	    }
+
 	    if (!(++brd->readCtr % 100)) {
 		dsm_sample_time_t tnow = GET_MSEC_CLOCK;
 		if (!(brd->readCtr % 10000) || brd->nbadBufs) {
@@ -908,6 +909,8 @@ static void* A2DGetDataThread(void *thread_arg)
 		    brd->bad[i] = 0;
 		}
 	    }
+
+	    if (!A2DFIFOEmpty(brd)) rtl_printf("not empty\n");
 
 	    buf.size = (char*)dataptr - (char*)buf.data;
 
@@ -1260,11 +1263,12 @@ int init_module()
 
 	    // remove broken device file before making a new one
 	    if ((rtl_unlink(brd->fifoName) < 0 && rtl_errno != RTL_ENOENT)
-	    	|| rtl_mkfifo(brd->fifoName, 0666) < 0)
+	    	|| rtl_mkfifo(brd->fifoName, 0666) < 0) {
 		rtl_printf("%s error: unlink/mkfifo %s: %s\n",
 			__FILE__,brd->fifoName,rtl_strerror(rtl_errno));
 		error = -rtl_errno;		// needs RTL->Linux errno conversion
 		goto err;
+	    }
 	}
 
 	rtl_printf("%s: A2D init_module complete.\n", __FILE__);
