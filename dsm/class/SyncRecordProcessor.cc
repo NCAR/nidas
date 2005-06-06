@@ -152,7 +152,7 @@ void SyncRecordProcessor::disconnected(SampleOutput* output) throw()
     generator.removeSampleClient(output);
 }
 
-void SyncRecordProcessor::newFileCallback(dsm_time_t thead,IOStream* iostream)
+void SyncRecordProcessor::sendHeader(dsm_time_t thead,IOStream* iostream)
 	throw(atdUtil::IOException)
 {
 
