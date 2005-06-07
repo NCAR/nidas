@@ -21,6 +21,7 @@
 #include <DSMConfig.h>
 #include <PortSelector.h>
 #include <StatusThread.h>
+#include <XMLConfigInput.h>
 
 #include <atdUtil/Socket.h>
 
@@ -43,6 +44,8 @@ public:
 
     static DSMEngine* getInstance();
 
+    virtual ~DSMEngine();
+
     SampleDater* getSampleDater()
     {
         return &dater;
@@ -52,13 +55,11 @@ public:
 
     const PortSelector* getPortSelector() const { return selector; }
 
-    static
     xercesc::DOMDocument* requestXMLConfig()
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
-    static
-    xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
+    static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
@@ -100,7 +101,6 @@ protected:
      */
     DSMEngine();
 
-    virtual ~DSMEngine();
 
     Project* project;
     Site* site;
@@ -114,6 +114,8 @@ protected:
 
     std::list<SampleOutput*> connectedOutputs;
     atdUtil::Mutex outputMutex;
+
+    XMLConfigInput* xmlSocket;
 };
 
 /**
