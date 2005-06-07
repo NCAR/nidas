@@ -115,7 +115,7 @@ protected:
     std::list<SampleOutput*> connectedOutputs;
     atdUtil::Mutex outputMutex;
 
-    XMLConfigInput* xmlSocket;
+    XMLConfigInput* xmlRequestSocket;
 };
 
 /**

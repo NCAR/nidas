@@ -90,12 +90,10 @@ int DSMEngine::main(int argc, char** argv) throw()
 	else projectDoc = dsm->parseXMLConfigFile(rstr.configFile);
     }
     catch (const atdUtil::Exception& e) {
+	// DSMEngine::interrupt() does an xmlRequestSocket->close(),
+	// which will throw an IOException in requestXMLConfig 
+	// if we were still waiting for the XML config.
 	logger->log(LOG_ERR,e.what());
-	// The multicaster thread associated with the xmlSocket still
-	// holds a reference to xmlSocket for a little while during cleanup,
-	// so we need to wait here a bit so that the DSMEngine destructor is
-	// not called before the multicaster thread is done with the xmlSocket.
-	sleep(1);
 	return 1;
     }
     catch (const SAXException& e) {
@@ -186,13 +184,13 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
 DSMEngine::DSMEngine():
     project(0),site(0),dsmConfig(0),selector(0),statusThread(0),
-    xmlSocket(0)
+    xmlRequestSocket(0)
 {
 }
 
 DSMEngine::~DSMEngine()
 {
-    delete xmlSocket;
+    delete xmlRequestSocket;
 
     delete statusThread;
 
@@ -263,15 +261,15 @@ DOMDocument* DSMEngine::requestXMLConfig()
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
-    delete xmlSocket;
-    xmlSocket = new XMLConfigInput();
+    delete xmlRequestSocket;
+    xmlRequestSocket = new XMLConfigInput();
 
-    auto_ptr<atdUtil::Socket> configSock(xmlSocket->connect());
+    auto_ptr<atdUtil::Socket> configSock(xmlRequestSocket->connect());
     	// throws IOException
 
-    xmlSocket->close();
-    delete xmlSocket;
-    xmlSocket = 0;
+    xmlRequestSocket->close();
+    delete xmlRequestSocket;
+    xmlRequestSocket = 0;
 
     std::string sockName = configSock->getInet4SocketAddress().toString();
     XMLFdInputSource sockSource(sockName,configSock->getFd());
@@ -461,11 +459,9 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
     if (statusThread) statusThread->cancel();
 
     // If DSMEngine is waiting for an XML connection, closing the
-    // xmlSocket here will cause an IOException in
-    // DSMEngine::requestXMLConfig().  The McSocket threads
-    // will still use the xmlSocket instance for a short period,
-    // so don't delete xmlSocket too soon.
-    if (xmlSocket) xmlSocket->close();
+    // xmlRequestSocket here will cause an IOException in
+    // DSMEngine::requestXMLConfig().
+    if (xmlRequestSocket) xmlRequestSocket->close();
 
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine::interrupt() done");
