@@ -700,11 +700,9 @@ static void* A2DSetupThread(void *thread_arg)
 	A2DClearSYNC(brd);
 
 
-// #define DO_INITIAL_RUN
-#ifdef DO_INITIAL_RUN
-    // GDM 6/3/05: found that this initial run is not necessary
-    // in order for the filter coef download to work.
-    // The A2DResetAll is necessary however.
+    // If starting from a cold boot, one needs to 
+    // let the A2Ds run for a bit before downloading
+    // the filter data.
 
     // Start then reset the A/D's
     // Start conversions
@@ -713,8 +711,6 @@ static void* A2DSetupThread(void *thread_arg)
 
 	rtl_usleep(10000); // Let them run a few milliseconds (10)
 
-#endif
- 
 // Then do a soft reset
 	rtl_printf("%s: Soft resetting A/D's\n ", __FILE__);
 	A2DResetAll(brd);
@@ -1012,6 +1008,7 @@ static int ioctlCallback(int cmd, int board, int port,
   	case A2D_RUN_IOCTL:		/* user set */
 		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
 		brd->busy = 1;	// Set the busy flag
+		brd->interrupted = 0;
 
 		if (brd->fd >= 0) rtl_close(brd->fd);
 		if((brd->fd = rtl_open(brd->fifoName,
