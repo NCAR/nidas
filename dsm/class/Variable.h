@@ -86,6 +86,15 @@ public:
 
     void setLength(size_t val) { length = val; }
 
+    /**
+     * Set the VariableConverter for this Variable.
+     * Variable will own the pointer and will delete it.
+     */
+    void setConverter(VariableConverter* val) {
+	delete converter;
+    	converter = val;
+    }
+
     const VariableConverter* getConverter() const { return converter; }
 
     /**
