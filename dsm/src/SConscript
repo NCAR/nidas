@@ -32,6 +32,7 @@ myenv.AppendUnique(LIBS = Split("""
       xerces-c
       pthread
       dl
+      XmlRpc
     """))
 
 apps = Split("""
