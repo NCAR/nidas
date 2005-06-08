@@ -10,7 +10,6 @@
 
     $HeadURL$
  ********************************************************************
-
 */
 
 #include <DSMEngine.h>
@@ -31,14 +30,18 @@ using namespace xercesc;
 
 DSMRunstring::DSMRunstring(int argc, char** argv) {
     debug = false;
+    wait  = false;
     // extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "d")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dw")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    debug = true;
+	    break;
+	case 'w':
+	    wait = true;
 	    break;
 	case '?':
 	    usage(argv[0]);
@@ -53,8 +56,9 @@ DSMRunstring::DSMRunstring(int argc, char** argv) {
 void DSMRunstring::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-d] [config]\n\n\
-  -d:     debug - Send error messages to stderr, otherwise to syslog\n\n\
+Usage: " << argv0 << " [-dw] [config]\n\n\
+  -d:     debug - Send error messages to stderr, otherwise to syslog\n\
+  -w:     wait  - wait for the XmlRpc 'start' cammand\n\n\
   config: name of DSM configuration file (optional).\n\
           If config is not specified, DSM will send out\n\
           multicast requests for a configuration.\n\
@@ -63,11 +67,21 @@ Usage: " << argv0 << " [-d] [config]\n\n\
 }
 
 /* static */
+bool DSMEngine::quit = false;
+
+/* static */
+bool DSMEngine::run = false;
+
+/* static */
+atdUtil::Cond DSMEngine::runCond("runCond");
+
+/* static */
 DSMEngine* DSMEngine::instance = 0;
 
 /* static */
 int DSMEngine::main(int argc, char** argv) throw()
 {
+    cerr << "compiled on " << __DATE__ << " at " << __TIME__ << endl;
 
     DSMRunstring rstr(argc,argv);
     atdUtil::Logger* logger = 0;
@@ -83,66 +97,122 @@ int DSMEngine::main(int argc, char** argv) throw()
     auto_ptr<DSMEngine> dsm(createInstance());
     DOMDocument* projectDoc;
 
-    // first fetch the configuration
-    try {
+    // start the xmlrpc control thread
+    dsm->xmlrpcThread = new XmlRpcThread("DSMEngineXmlRpc");
+    dsm->xmlrpcThread->start();
+
+    while (!quit) {
+
+      if (rstr.wait) {
+        cerr << "wait on the runCond condition variable...\n";
+        // wait on the runCond condition variable
+        runCond.lock();
+        while (!run)
+          runCond.wait();
+        run = false;
+        runCond.unlock();
+        if (quit) break;
+
+      }
+      cerr << "DSMEngine: first fetch the configuration" << endl;
+      // first fetch the configuration
+      try {
 	if (rstr.configFile.length() == 0)
-		projectDoc = dsm->requestXMLConfig();
-	else projectDoc = dsm->parseXMLConfigFile(rstr.configFile);
-    }
-    catch (const atdUtil::Exception& e) {
+          projectDoc = dsm->requestXMLConfig();
+	else
+          projectDoc = dsm->parseXMLConfigFile(rstr.configFile);
+      }
+      catch (const atdUtil::Exception& e) {
 	// DSMEngine::interrupt() does an xmlRequestSocket->close(),
 	// which will throw an IOException in requestXMLConfig 
 	// if we were still waiting for the XML config.
 	logger->log(LOG_ERR,e.what());
-	return 1;
-    }
-    catch (const SAXException& e) {
+	continue;
+      }
+      catch (const SAXException& e) {
 	logger->log(LOG_ERR,
-		XMLStringConverter(e.getMessage()));
-
-	return 1;
-    }
-    catch (const DOMException& e) {
+                    XMLStringConverter(e.getMessage()));
+	continue;
+      }
+      catch (const DOMException& e) {
 	logger->log(LOG_ERR,
-		XMLStringConverter(e.getMessage()));
-	return 1;
-    }
-    catch (const XMLException& e) {
+                    XMLStringConverter(e.getMessage()));
+	continue;
+      }
+      catch (const XMLException& e) {
 	logger->log(LOG_ERR,
-		XMLStringConverter(e.getMessage()));
-	return 1;
-    }
-
-    // then initialize the DSMEngine
-    try {
+                    XMLStringConverter(e.getMessage()));
+	continue;
+      }
+      cerr << "DSMEngine: then initialize the DSMEngine" << endl;
+      // then initialize the DSMEngine
+      try {
 	dsm->initialize(projectDoc);
-    }
-    catch (const atdUtil::InvalidParameterException& e) {
+      }
+      catch (const atdUtil::InvalidParameterException& e) {
 	logger->log(LOG_ERR,e.what());
-	return 1;
-    }
+	continue;
+      }
 
-    projectDoc->release();
+      projectDoc->release();
 
-    // start your sensors
-    try {
+      cerr << "DSMEngine: start your sensors" << endl;
+      // start your sensors
+      try {
 	dsm->openSensors();
 	dsm->connectOutputs();
-    }
-    catch (const atdUtil::IOException& e) {
+      }
+      catch (const atdUtil::IOException& e) {
 	logger->log(LOG_ERR,e.what());
-	return 1;
-    }
-
-    try {
+	continue;
+      }
+      cerr << "DSMEngine: dsm->wait()" << endl;
+      try {
 	dsm->wait();
-    }
-    catch (const atdUtil::Exception& e) {
+      }
+      catch (const atdUtil::Exception& e) {
 	logger->log(LOG_ERR,e.what());
-	return 1;
+	continue;
+      }
     }
-
+    cerr << "DSMEngine::main() exiting..." << endl;
     return 0;
+}
+
+void DSMEngine::mainStart()
+{
+  runCond.lock();
+  run = true;
+  runCond.signal();
+  runCond.unlock();
+}
+
+void DSMEngine::mainStop()
+{
+  runCond.lock();
+  run = false;
+  runCond.signal();
+  runCond.unlock();
+  interrupt();
+}
+
+void DSMEngine::mainRestart()
+{
+  runCond.lock();
+  run = true;
+  runCond.signal();
+  runCond.unlock();
+  DSMEngine::getInstance()->interrupt();
+}
+
+void DSMEngine::mainQuit()
+{
+  runCond.lock();
+  quit = true;
+  run  = true;
+  runCond.signal();
+  runCond.unlock();
+  DSMEngine::getInstance()->interrupt();
 }
 
 /* static */
@@ -177,24 +247,41 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            DSMEngine::getInstance()->interrupt();
-    break;
+      DSMEngine* pDSMEngine = DSMEngine::getInstance();
+      pDSMEngine->runCond.lock();
+      pDSMEngine->quit = true;
+      pDSMEngine->run  = true;
+      pDSMEngine->runCond.signal();
+      pDSMEngine->runCond.unlock();
+      pDSMEngine->interrupt();
+      break;
     }
 }
 
 DSMEngine::DSMEngine():
     project(0),site(0),dsmConfig(0),selector(0),statusThread(0),
-    xmlRequestSocket(0)
+    xmlrpcThread(0),xmlRequestSocket(0)
 {
 }
 
 DSMEngine::~DSMEngine()
 {
+    cerr << "deleting threads...\n";
+    if (xmlrpcThread) {
+      cerr << "deleting threads...xmlrpcThread->cancel()\n";
+      xmlrpcThread->cancel();
+      cerr << "deleting threads...xmlrpcThread->join()\n";
+      xmlrpcThread->join();
+    }
+    cerr << "deleting xmlrpcThread\n";
+    delete xmlrpcThread;
+    cerr << "deleting xmlRequestSocket\n";
     delete xmlRequestSocket;
-
+    cerr << "deleting statusThread\n";
     delete statusThread;
-
+    cerr << "deleting selector\n";
     delete selector;	// this closes any still-open sensors
+    cerr << "deleting...done\n";
 
     outputMutex.lock();
     list<SampleOutput*>::const_iterator oi;
@@ -474,4 +561,3 @@ void DSMEngine::wait() throw(atdUtil::Exception)
     statusThread->join();
     cerr << "statusThread joined" << endl;
 }
-

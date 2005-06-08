@@ -10,7 +10,6 @@
 
     $HeadURL$
  ********************************************************************
-
 */
 
 #ifndef DSM_DSMENGINE_H
@@ -22,6 +21,7 @@
 #include <PortSelector.h>
 #include <StatusThread.h>
 #include <XMLConfigInput.h>
+#include <XmlRpcThread.h>
 
 #include <atdUtil/Socket.h>
 
@@ -41,6 +41,18 @@ public:
      * Entry point to run a DSMEngine process from a command line.
      */
     static int main(int argc, char** argv) throw();
+
+    /** Starts the main loop (for the XMLRPC call). */
+    void mainStart();
+
+    /** Stops the main loop (for the XMLRPC call). */
+    void mainStop();
+
+    /** Restarts the main loop (for the XMLRPC call). */
+    void mainRestart();
+
+    /** Quits the main loop (for the XMLRPC call). */
+    void mainQuit();
 
     static DSMEngine* getInstance();
 
@@ -84,6 +96,13 @@ public:
 protected:
 
     /**
+     * Main loop "thread" control flags.
+     */
+    static bool run;
+    static bool quit;
+    static atdUtil::Cond runCond;
+
+    /**
      * Use this static method, rather than the public constructor,
      * to create an instance of a DSMEngine which will receive signals
      * sent to a process.
@@ -110,6 +129,11 @@ protected:
 
     StatusThread* statusThread;
 
+    /**
+     * This thread provides XML-based Remote Procedure calls.
+     */
+    XmlRpcThread* xmlrpcThread;
+
     SampleDater dater;
 
     std::list<SampleOutput*> connectedOutputs;
@@ -134,6 +158,11 @@ public:
      * -d option. If user wants messages on stderr rather than syslog.
      */
     bool debug;
+
+    /**
+     * -w option. If user wants to wait for the XmlRpc 'start' cammand.
+     */
+    bool wait;
 
     /**
      * Name of XML configuration file. If empty, multicast for config.

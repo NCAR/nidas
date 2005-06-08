@@ -51,6 +51,7 @@ sources = [ Split("""
   DSMEngine.cc
   DSMServer.cc
   StatusThread.cc
+  XmlRpcThread.cc
 
   DSMSensor.cc
   RTL_DevIoctl.cc
