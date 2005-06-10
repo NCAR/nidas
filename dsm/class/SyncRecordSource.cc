@@ -150,6 +150,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     const char vtypes[] = { 'n','c','t','o' };
 
     // write variable fields.
+    headerStream << "variables {" << endl;
     list<const Variable*>::const_iterator vi;
     for (vi = variables.begin(); vi != variables.end(); ++vi) {
         const Variable* var = *vi;
@@ -182,6 +183,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 	}
 	headerStream << ';' << endl;
     }
+    headerStream << "}" << endl;
 
 }
 
@@ -262,6 +264,7 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 	    }
 	}
     }
+    headerStream << "rates {" << endl;
     // write group entries to header.
     for (mi = groupsByRate.begin(); mi != groupsByRate.end(); ++mi) {
         float rate = mi->first;
@@ -275,6 +278,7 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 	}
 	headerStream << ';' << endl;
     }
+    headerStream << "}" << endl;
 }
 
 
