@@ -308,7 +308,7 @@
 
 <xsd:element name="processor">
    <xsd:complexType>
-        <xsd:choice minOccurs="1" maxOccurs="1">
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="output"/>
         </xsd:choice>
 	<xsd:attribute name="class" type="xsd:token" use="required"/>
