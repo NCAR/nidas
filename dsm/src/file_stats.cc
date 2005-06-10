@@ -49,27 +49,10 @@ Runstring::Runstring(int argc, char** argv): process(false),port(50000)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 										
-    while ((opt_char = getopt(argc, argv, "ps:x:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "px:")) != -1) {
 	switch (opt_char) {
 	case 'p':
 	    process = true;
-	    break;
-	case 's':
-	    {
-	        string arg = optarg;
-		size_t ic = arg.find(':');
-		if (ic == string::npos) {
-		    cerr << "Invalid host:port parameter: " << arg << endl;
-		    usage(argv[0]);
-		}
-		hostName = arg.substr(0,ic);
-		istringstream ist(arg.substr(ic+1));
-		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << arg.substr(ic+1) << endl;
-		    usage(argv[0]);
-		}
-	    }
 	    break;
 	case 'x':
 	    xmlFileName = optarg;
@@ -78,7 +61,29 @@ Runstring::Runstring(int argc, char** argv): process(false),port(50000)
 	    usage(argv[0]);
 	}
     }
-    if (optind == argc - 1) dataFileName = string(argv[optind++]);
+    if (optind == argc - 1) {
+	string url(argv[optind++]);
+	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+	    url = url.substr(5);
+	    size_t ic = url.find(':');
+	    if (ic == string::npos) {
+		cerr << "Invalid host:port parameter: " << url << endl;
+		usage(argv[0]);
+	    }
+	    hostName = url.substr(0,ic);
+	    istringstream ist(url.substr(ic+1));
+	    ist >> port;
+	    if (ist.fail()) {
+		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		usage(argv[0]);
+	    }
+	}
+	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	    url = url.substr(5);
+	    dataFileName = url;
+	}
+	else dataFileName = url;
+    }
     if (dataFileName.length() == 0 && hostName.length() == 0) usage(argv[0]);
 
     if (process && xmlFileName.length() == 0) usage(argv[0]);
@@ -88,12 +93,15 @@ Runstring::Runstring(int argc, char** argv): process(false),port(50000)
 void Runstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] [-x xml_file] [-s hostname:port] [data_file]\n\
+Usage: " << argv0 << "[-p] [-x xml_file] URL\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
-  -s hostname:port (optional). open socket to port on hostname (optional).\n\
-  data_file (optional). Name of sample file. Input must be either a socket or file.\n\
-" << endl;
+  URL (required). Either \"file:file_path\", \"sock:host:port\",\n\
+      or simply a file_path.\n\
+Examples:\n" <<
+	argv0 << " /tmp/xxx.dat\n" <<
+	argv0 << " file:/tmp/xxx.dat\n" <<
+	argv0 << " -p -x ads3.xml sock:hyper:10000\n" << endl;
     exit(1);
 }
 
@@ -277,8 +285,8 @@ int FileStats::main(int argc, char** argv)
 
     }
     else {
-	atdUtil::Socket sock(rstr.hostName,rstr.port);
-        iochan = new dsm::Socket(&sock);
+	atdUtil::Socket* sock = new atdUtil::Socket(rstr.hostName,rstr.port);
+        iochan = new dsm::Socket(sock);
     }
     RawSampleInputStream sis(iochan);
     sis.init();

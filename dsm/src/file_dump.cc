@@ -17,6 +17,7 @@
 #include <time.h>
 
 #include <FileSet.h>
+#include <Socket.h>
 #include <RawSampleInputStream.h>
 #include <DSMEngine.h>
 
@@ -63,6 +64,8 @@ public:
     bool process;
     string xmlFileName;
     string dataFileName;
+    string hostName;
+    int port;
     dsm_sample_id_t sampleId;
     DumpClient::format_t format;
 };
@@ -108,8 +111,30 @@ Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
     if (format == DumpClient::DEFAULT)
     	format = (process ? DumpClient::FLOAT : DumpClient::HEX);
 
-    if (optind == argc - 1) dataFileName = string(argv[optind++]);
-    if (dataFileName.length() == 0) usage(argv[0]);
+    if (optind == argc - 1) {
+	string url(argv[optind++]);
+	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+	    url = url.substr(5);
+	    size_t ic = url.find(':');
+	    if (ic == string::npos) {
+		cerr << "Invalid host:port parameter: " << url << endl;
+		usage(argv[0]);
+	    }
+	    hostName = url.substr(0,ic);
+	    istringstream ist(url.substr(ic+1));
+	    ist >> port;
+	    if (ist.fail()) {
+		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		usage(argv[0]);
+	    }
+	}
+	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	    url = url.substr(5);
+	    dataFileName = url;
+	}
+	else dataFileName = url;
+    }
+    if (dataFileName.length() == 0 && hostName.length() == 0) usage(argv[0]);
     if (process && xmlFileName.length() == 0) usage(argv[0]);
 
     if (sampleId < 0) usage(argv[0]);
@@ -119,18 +144,22 @@ Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
 void Runstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file data_file [-A | -H | -S]\n\
+Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file URL [-A | -H | -S]\n\
   -d dsmid: numeric id of DSM that you want to dump samples from\n\
-  -d sampleId: numeric id of sample that you want to dump\n\
-       (use file_stats to see DSM ids and sample ids of data in a file)\n\
+  -s sampleId: numeric id of sample that you want to dump\n\
+       (use file_stats program to see DSM ids and sample ids of data in a file)\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
   -A: ASCII output (for samples from a serial sensor)\n\
   -F: floating point output (default for processed output)\n\
   -H: hex output (default for raw output)\n\
-  -S: signed short output (for samples from an A2D)\n\
-  data_file (required). Name of sample file.\n\
-" << endl;
+  -S: signed short output (useful for samples from an A2D)\n\
+  URL (required). Either \"file:file_path\", \"sock:host:port\",\n\
+      or simply a file_path.\n\
+Examples:\n" <<
+	argv0 << " -d 0 -s 100 /tmp/xxx.dat\n" <<
+	argv0 << " -d 0 -s 100 file:/tmp/xxx.dat\n" <<
+	argv0 << " -d 0 -s 200 -p -x ads3.xml sock:hyper:10000\n" << endl;
     exit(1);
 }
 
@@ -209,25 +238,33 @@ int main(int argc, char** argv)
 
     Runstring rstr(argc,argv);
 
-    dsm::FileSet* fset = new dsm::FileSet();
+    dsm::IOChannel* iochan = 0;
+    if (rstr.dataFileName.length() > 0) {
+	dsm::FileSet* fset = new dsm::FileSet();
+	iochan = fset;
 
 #ifdef USE_FILESET_TIME_CAPABILITY
-    struct tm tm;
-    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-    time_t start = timegm(&tm);
+	struct tm tm;
+	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	time_t start = timegm(&tm);
 
-    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-    time_t end = timegm(&tm);
+	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	time_t end = timegm(&tm);
 
-    fset->setDir("/tmp/RICO/hiaper");
-    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-    fset->setStartTime(start);
-    fset->setEndTime(end);
+	fset->setDir("/tmp/RICO/hiaper");
+	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
+	fset->setStartTime(start);
+	fset->setEndTime(end);
 #else
-    fset->setFileName(rstr.dataFileName);
+	fset->setFileName(rstr.dataFileName);
 #endif
+    }
+    else {
+	atdUtil::Socket* sock = new atdUtil::Socket(rstr.hostName,rstr.port);
+        iochan = new dsm::Socket(sock);
+    }
 
-    RawSampleInputStream sis(fset);
+    RawSampleInputStream sis(iochan);
     sis.init();
 
     auto_ptr<Project> project;
