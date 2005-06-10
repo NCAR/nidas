@@ -160,7 +160,9 @@ public:
 private:
     std::list<const DSMConfig*> dsms;
 
+#ifdef VALIDATOR	// still in "thought" stage.
     DataHeaderValidator* headerValidator;
+#endif
 };
 
 }
