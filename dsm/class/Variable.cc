@@ -102,10 +102,12 @@ void Variable::fromDOMElement(const DOMElement* node)
 	    	throw atdUtil::InvalidParameterException(getName(),
 		    "only one child converter allowed, <linear>, <poly> etc",
 		    	elname);
-	    converter = VariableConverter::createVariableConverter(elname);
-	    if (!converter) throw atdUtil::InvalidParameterException(getName(),
+	    VariableConverter* cvtr =
+	    	VariableConverter::createVariableConverter(elname);
+	    if (!cvtr) throw atdUtil::InvalidParameterException(getName(),
 		    "unsupported child element",elname);
-	    converter->fromDOMElement((DOMElement*)child);
+	    cvtr->fromDOMElement((DOMElement*)child);
+	    setConverter(cvtr);
 	    nconverters++;
 	}
     }
