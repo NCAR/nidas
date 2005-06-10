@@ -63,11 +63,10 @@ Runstring::Runstring(int argc, char** argv): process(false),port(50000)
 		    usage(argv[0]);
 		}
 		hostName = arg.substr(0,ic);
-		string portstr = arg.substr(ic);
-		istringstream ist(arg.substr(ic));
+		istringstream ist(arg.substr(ic+1));
 		ist >> port;
 		if (ist.fail()) {
-		    cerr << "Invalid port number: " << arg.substr(ic) << endl;
+		    cerr << "Invalid port number: " << arg.substr(ic+1) << endl;
 		    usage(argv[0]);
 		}
 	    }
@@ -253,6 +252,7 @@ int FileStats::main(int argc, char** argv)
 {
     Runstring rstr(argc,argv);
     dsm::IOChannel* iochan;
+    setupSignals();
 
     if (rstr.dataFileName.length() > 0) {
 
