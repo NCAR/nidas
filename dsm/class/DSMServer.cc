@@ -216,6 +216,7 @@ DSMServer::DSMServer()
 /*
  * Copy constructor.
  */
+/*
 DSMServer::DSMServer(const DSMServer& x):
 	site(x.site),name(x.name)
 {
@@ -227,6 +228,7 @@ DSMServer::DSMServer(const DSMServer& x):
 	services.push_back(newsvc);
     }
 }
+*/
 DSMServer::~DSMServer()
 {
     // delete services. These are the configured services,
