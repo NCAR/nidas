@@ -64,11 +64,6 @@ public:
 
     DSMServer();
 
-    /**
-     * Copy constructor.
-     */
-    DSMServer(const DSMServer&);
-
     virtual ~DSMServer();
 
     void setSite(const Site* val) { site = val; }
@@ -118,6 +113,12 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> services;
+
+private:
+    /**
+     * Copy constructor.
+     */
+    DSMServer(const DSMServer&);
 
 };
 
