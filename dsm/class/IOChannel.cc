@@ -20,7 +20,8 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-IOChannel::IOChannel(): headerValidator(0)
+IOChannel::IOChannel()
+	// : headerValidator(0)
 {
 }
 
