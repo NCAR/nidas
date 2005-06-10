@@ -102,13 +102,6 @@ void PortSelector::calcStatistics(dsm_time_t tnowMsec)
 int PortSelector::run() throw(atdUtil::Exception)
 {
 
-  /* ignore SIGPIPE signals (they come from rserial) */
-  struct sigaction act;
-  memset(&act,0,sizeof (struct sigaction));
-  act.sa_flags = 0;
-  act.sa_handler = SIG_IGN;
-  sigaction(SIGPIPE,&act,(struct sigaction *)0);
-
   dsm_time_t rtime = 0;
   struct timeval tout;
   unsigned long timeoutSumMsec = 0;
