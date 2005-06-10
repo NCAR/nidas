@@ -17,7 +17,11 @@
 #define DSM_IOCHANNEL_H
 
 #include <ConnectionRequester.h>
+
+#ifdef VALIDATOR	// still in "thought" stage.
 #include <DataHeaderValidator.h>
+#endif
+
 #include <dsm_sample.h>
 #include <DOMable.h>
 
@@ -147,9 +151,11 @@ public:
         return dsms;
     }
 
+#ifdef VALIDATOR	// still in "thought" stage.
     void setDataHeaderValidator(DataHeaderValidator* val) {
         headerValidator = val;
     }
+#endif
 
 private:
     std::list<const DSMConfig*> dsms;
