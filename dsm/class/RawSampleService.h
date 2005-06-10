@@ -33,17 +33,18 @@ public:
     RawSampleService();
 
     /**
-     * Copy constructor.
+     * Copy constructor, but with a new input.
      */
-    RawSampleService(const RawSampleService&);
+    RawSampleService(const RawSampleService&,SampleInputStream* newinput);
 
     ~RawSampleService();
 
-    DSMService* clone() const;
+    // DSMService* clone() const;
 
     int run() throw(atdUtil::Exception);
 
     void connected(SampleInput*) throw();
+
     void disconnected(SampleInput*) throw();
 
     void schedule() throw(atdUtil::Exception);

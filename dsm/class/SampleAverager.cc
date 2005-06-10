@@ -17,6 +17,8 @@
 #include <SampleTag.h>
 #include <DSMTime.h>
 
+#include <iomanip>
+
 using namespace dsm;
 using namespace std;
 
@@ -118,7 +120,7 @@ bool SampleAverager::receive(const Sample* samp) throw()
 		    fp[i] = sums[i] / cnts[i];
 		else 
 		    fp[i] = floatNAN;
-		cerr << ' ' << fp[i];
+		cerr << ' ' << setprecision(6) << setw(13) << fp[i];
 	    }
 	    cerr << endl;
 	    distribute(osamp);

@@ -47,7 +47,7 @@ public:
     /**
      * A DSMService clones itself when requests arrive.
      */
-    virtual DSMService* clone() const = 0;
+    // virtual DSMService* clone() const = 0;
 
     virtual void setDSMServer(DSMServer* val) { server = val; }
 

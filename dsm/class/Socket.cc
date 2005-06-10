@@ -15,6 +15,7 @@
 
 #include <Socket.h>
 #include <McSocket.h>
+#include <atdUtil/Logger.h>
 
 using namespace dsm;
 using namespace std;
@@ -23,42 +24,89 @@ using namespace xercesc;
 CREATOR_ENTRY_POINT(Socket)
 CREATOR_ENTRY_POINT(ServerSocket)
 
-Socket::Socket():socket(0)
+Socket::Socket():
+	localSockAddr(),socket(0),firstRead(true),newFile(true)
+{
+    setName("Socket " + localSockAddr.toString());
+}
+
+/*
+ * Copy constructor.  Should only be called before connection.
+ */
+Socket::Socket(const Socket& x):
+	localSockAddr(x.localSockAddr),socket(0),name(x.name),
+	firstRead(true),newFile(true)
 {
 }
 
 /*
- * copy constructor.
+ * Copy constructor with a connected atdUtil::Socket.
  */
-Socket::Socket(const Socket& x):saddr(x.saddr),socket(0)
-{
-    if (x.socket) {
-        socket = new atdUtil::Socket(*x.socket);
-	setName(socket->getInet4SocketAddress().toString());
-    }
-}
-
-Socket::Socket(const atdUtil::Socket* sock):socket(new atdUtil::Socket(*sock))
+Socket::Socket(atdUtil::Socket* sock):
+	localSockAddr(sock->getInet4SocketAddress()),socket(sock),
+	firstRead(true),newFile(true)
 {
     setName(socket->getInet4SocketAddress().toString());
 }
 
 Socket::~Socket()
 {
+    close();
     delete socket;
 }
 
-ServerSocket::ServerSocket():socket(0),thread(0)
+IOChannel* Socket::clone() const 
 {
+    return new Socket(*this);
 }
 
-ServerSocket::ServerSocket(const ServerSocket& x):port(x.port),
-	socket(0),thread(0)
+atdUtil::Inet4Address Socket::getRemoteInet4Address() const throw()
 {
-    if (x.socket) {
-        socket = new atdUtil::ServerSocket(*x.socket);
-	setName(socket->getInet4SocketAddress().toString());
-    }
+    if (socket) return socket->getInet4Address();
+    else return atdUtil::Inet4Address();
+}
+
+/*
+atdUtil::Inet4SocketAddress Socket::getLocalInet4SocketAddress() const throw()
+{
+    return localSockAddr;
+}
+*/
+
+void Socket::requestConnection(ConnectionRequester* requester,
+	int pseudoPort) throw(atdUtil::IOException)
+{
+    atdUtil::Socket waitsock;
+    waitsock.connect(localSockAddr);
+
+    dsm::Socket* newsocket =
+    	new dsm::Socket(new atdUtil::Socket(waitsock));
+
+    cerr << "Socket::connected " << getName();
+    requester->connected(newsocket);
+}
+
+/*
+ * Do the actual hardware read.
+ */
+size_t Socket::read(void* buf, size_t len) throw (atdUtil::IOException)
+{
+    if (firstRead) firstRead = false;
+    else newFile = false;
+    return socket->recv(buf,len);
+}
+
+ServerSocket::ServerSocket():port(0),servSock(0),
+	connectionRequester(0),thread(0)
+{
+    atdUtil::Inet4SocketAddress addr(INADDR_ANY,port);
+    setName("ServerSocket " + addr.toString());
+}
+
+ServerSocket::ServerSocket(const ServerSocket& x):
+	port(x.port),name(x.name),
+	servSock(0),connectionRequester(0),thread(0)
+{
 }
 
 ServerSocket::~ServerSocket()
@@ -72,25 +120,11 @@ ServerSocket::~ServerSocket()
 	}
 	delete thread;
     }
-    delete socket;
+    close();
+    delete servSock;
 }
 
-void Socket::requestConnection(ConnectionRequester* requester,
-	int pseudoPort) throw(atdUtil::IOException)
-{
-    if (!socket) socket = new atdUtil::Socket();
-    socket->connect(saddr);
-    setName(socket->getInet4SocketAddress().toString());
-    cerr << "Socket::connected " << getName();
-    requester->connected(this);
-}
-
-IOChannel* Socket::clone() const
-{
-    return new Socket(*this);
-}
-
-IOChannel* ServerSocket::clone() const
+IOChannel* ServerSocket::clone() const 
 {
     return new ServerSocket(*this);
 }
@@ -99,18 +133,25 @@ void ServerSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort) throw(atdUtil::IOException)
 {
     connectionRequester = requester;
-    if (!socket) socket = new atdUtil::ServerSocket(port);
+    if (!servSock) servSock= new atdUtil::ServerSocket(port);
     if (!thread) thread = new ServerSocketConnectionThread(*this);
-    if (!thread->isRunning()) thread->start();
+    try {
+	if (!thread->isRunning()) thread->start();
+    }
+    catch(const atdUtil::Exception& e) {
+        throw atdUtil::IOException(getName(),"requestConnection",e.what());
+    }
 }
 
 int ServerSocketConnectionThread::run() throw(atdUtil::IOException)
 {
     for (;;) {
-	atdUtil::Socket* newsock = ssock.socket->accept();
-	Socket* sock = new Socket(newsock);
-	delete newsock;
-	ssock.connectionRequester->connected(sock);
+	// create dsm::Socket from atdUtil::Socket
+	dsm::Socket* newsock = new dsm::Socket(socket.servSock->accept());
+	atdUtil::Logger::getInstance()->log(LOG_DEBUG,
+		"Accepted connection: remote=%s",
+		newsock->getRemoteInet4Address().getHostAddress().c_str());
+	socket.connectionRequester->connected(newsock);
     }
     return RUN_OK;
 }
@@ -166,11 +207,16 @@ void Socket::fromDOMElement(const DOMElement* node)
 			throw atdUtil::InvalidParameterException(
 			    "socket","invalid port number",aval);
 	    }
+	    else if (!aname.compare("type")) {
+		if (aval.compare("client"))
+			throw atdUtil::InvalidParameterException(
+			    "socket","invalid socket type",aval);
+	    }
 	    else throw atdUtil::InvalidParameterException(
-	    	string("unrecognized socket attribute:") + aname);
+	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
-    saddr = atdUtil::Inet4SocketAddress(addr,port);
+    localSockAddr = atdUtil::Inet4SocketAddress(addr,port);
 }
 
 DOMElement* Socket::toDOMParent(
@@ -211,8 +257,13 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 			throw atdUtil::InvalidParameterException(
 			    "socket","invalid port number",aval);
 	    }
+	    else if (!aname.compare("type")) {
+		if (aval.compare("server"))
+			throw atdUtil::InvalidParameterException(
+			    "socket","invalid socket type",aval);
+	    }
 	    else throw atdUtil::InvalidParameterException(
-	    	string("unrecognized socket attribute:") + aname);
+	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
 }

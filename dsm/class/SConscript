@@ -116,7 +116,9 @@ sources = [ Split("""
   SyncRecordGenerator.cc
   SampleArchiver.cc
   SampleAverager.cc
+  ConnectionRequester.cc
 
+  SyncRecordReader.cc
 """),PSQLSources]
 
 ## myenv['LEXCOM'] = '$LEX $LEXFLAGS -t $SOURCES > $TARGET'

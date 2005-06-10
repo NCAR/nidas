@@ -473,9 +473,6 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
  */
 void DSMEngine::connected(SampleOutput* output) throw()
 {
-    cerr << "SampleOutput " << hex << output << dec << " " <<
-    	output->getName() << " connected" << " fd=" << output->getFd() << endl;
-
     try {
 	output->init();
     }
@@ -491,7 +488,9 @@ void DSMEngine::connected(SampleOutput* output) throw()
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
-	cerr << "adding output to sensor " << sensor->getName() << endl;
+	cerr << "adding " << (output->isRaw() ? "raw" : "nonraw") <<
+		" output to sensor " << sensor->getName() << 
+		" output=" << output->getName() << endl;
 	if (output->isRaw()) sensor->addRawSampleClient(output);
 	else sensor->addSampleClient(output);
     }

@@ -17,6 +17,7 @@
 #define DSM_IOCHANNEL_H
 
 #include <ConnectionRequester.h>
+#include <DataHeaderValidator.h>
 #include <dsm_sample.h>
 #include <DOMable.h>
 
@@ -124,23 +125,36 @@ public:
 
     virtual void openNextFile() throw(atdUtil::IOException) {}
 
-    virtual void setDSMConfigs(const std::list<const DSMConfig*>& val)
-    {
-        dsms = val;
-    }
-
+    /**
+     * Tell this IOChannel which DSM it is serving.
+     * Right now this is only used by FileSet,
+     * which uses attributes of DSMConfig as
+     * fields in filenames.
+     */
     virtual void addDSMConfig(const DSMConfig* val)
     {
         dsms.push_back(val);
     }
+
+    void setDSMConfigs(const std::list<const DSMConfig*>& val)
+    {
+        dsms = val;
+    }
+
 
     virtual const std::list<const DSMConfig*>& getDSMConfigs() const
     {
         return dsms;
     }
 
+    void setDataHeaderValidator(DataHeaderValidator* val) {
+        headerValidator = val;
+    }
+
 private:
     std::list<const DSMConfig*> dsms;
+
+    DataHeaderValidator* headerValidator;
 };
 
 }

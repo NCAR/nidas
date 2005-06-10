@@ -23,6 +23,39 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(McSocket)
 
+/*
+ * ctor
+ */
+McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
+    firstRead(true),newFile(true)
+{
+}
+
+/*
+ * Copy constructor. Should only be called before socket connection.
+ */
+McSocket::McSocket(const McSocket& x):
+    atdUtil::McSocket(x),socket(0),
+    connectionRequester(0),amRequester(x.amRequester),
+    firstRead(true),newFile(true)
+{
+}
+
+/*
+ * constructor, but with a new, connected atdUtil::Socket
+ */
+McSocket::McSocket(const McSocket& x,atdUtil::Socket* sock):
+    atdUtil::McSocket(x),socket(sock),
+    connectionRequester(0),amRequester(x.amRequester),
+    firstRead(true),newFile(true)
+{
+}
+
+IOChannel* McSocket::clone() const
+{
+    return new McSocket(*this);
+}
+
 void McSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort)
     throw(atdUtil::IOException)
@@ -33,24 +66,18 @@ void McSocket::requestConnection(ConnectionRequester* requester,
     else listen();
 }
 
-IOChannel* McSocket::clone() const
-{
-    cerr << "McSocket cloning " << getName() << endl;
-    McSocket* newmcsock = new McSocket(*this);
-    // new object owns socket
-    socket = 0;
-    return newmcsock;
-}
-
 void McSocket::connected(atdUtil::Socket* sock)
 {
-    delete socket;
-    socket = sock;
-    setName(socket->getInet4SocketAddress().toString());
-    cerr << "McSocket::connected " << getName() << " fd=" <<
-    	socket->getFd() << endl;
+    cerr << "McSocket::connected, sock=" << sock->getInet4SocketAddress().toString() << endl;
+    McSocket* newsock = new McSocket(*this,sock);
     assert(connectionRequester);
-    connectionRequester->connected(this);
+    connectionRequester->connected(newsock);
+}
+
+atdUtil::Inet4Address McSocket::getRemoteInet4Address() const throw()
+{
+    if (socket) return socket->getInet4Address();
+    else return atdUtil::Inet4Address();
 }
 
 size_t McSocket::getBufferSize() const throw()
@@ -61,6 +88,18 @@ size_t McSocket::getBufferSize() const throw()
     catch (const atdUtil::IOException& e) {}
     return 16384;
 }
+
+/*
+ * Do the actual hardware read.
+ */
+size_t McSocket::read(void* buf, size_t len) throw (atdUtil::IOException)
+{
+    if (firstRead) firstRead = false;
+    else newFile = false;
+    size_t res = socket->recv(buf,len);
+    return res;
+}
+
 
 void McSocket::close() throw (atdUtil::IOException)
 {
@@ -101,7 +140,7 @@ void McSocket::fromDOMElement(const DOMElement* node)
 		else setRequester(true);
 	    }
 	    else throw atdUtil::InvalidParameterException(
-	    	string("unrecognized socket attribute:") + aname);
+	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
 

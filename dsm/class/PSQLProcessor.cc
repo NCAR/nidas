@@ -142,10 +142,10 @@ void PSQLProcessor::connected(SampleOutput* output) throw()
 {
     addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
+	"%s has connected to %s, #outputs=%d",
 	output->getName().c_str(),
-	getName().c_str());
-
+	getName().c_str(),
+	outputs.size());
     try {
 	PSQLSampleOutput* psqlOutput =
 		dynamic_cast<PSQLSampleOutput*>(output);

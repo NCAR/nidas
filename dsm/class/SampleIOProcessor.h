@@ -27,7 +27,9 @@ class DSMConfig;
 class DSMService;
 
 /**
- * Interface of a processor of samples.
+ * Interface of a processor of samples. A SampleIOProcessor reads
+ * input Samples from a single SampleInput, and sends its processed
+ * output Samples to one or more SampleOutputs.  
  */
 class SampleIOProcessor: public SampleConnectionRequester, public DOMable
 {
@@ -48,12 +50,27 @@ public:
 
     virtual void setName(const std::string& val);
 
+    /**
+     * Does this SampleIOProcessor only expect input samples from
+     * one DSM?
+     */
     virtual bool singleDSM() const = 0;
 
+    /**
+     * Connect a SampleInput to this SampleIOProcessor.
+     */
     virtual void connect(SampleInput*) throw(atdUtil::IOException) = 0;
 
+    /**
+     * Disconnect a SampleInput from this SampleIOProcessor.
+     */
     virtual void disconnect(SampleInput*) throw(atdUtil::IOException) = 0;
 
+    /**
+     * Add a (disconnected) SampleOutput to this SampleIOProcessor.
+     * It is the job of the SampleIOProcessor to do a requestConnection
+     * on this SampleOutput, and otherwise manage the SampleOutput.
+     */
     void addOutput(SampleOutput* val) { outputs.insert(val); }
 
     void fromDOMElement(const xercesc::DOMElement* node)

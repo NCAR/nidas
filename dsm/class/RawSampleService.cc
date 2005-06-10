@@ -35,11 +35,10 @@ RawSampleService::RawSampleService():
  * Copy constructor. We create a copy of the original configured
  * RawSampleService when an input has connected.
  */
-RawSampleService::RawSampleService(const RawSampleService& x):
-	DSMService((const DSMService&)x),input(0)
+RawSampleService::RawSampleService(const RawSampleService& x,
+	SampleInputStream* newinput):
+	DSMService((const DSMService&)x),input(newinput)
 {
-    if (x.input) input = x.input->clone();
-
     // loop over x's processors
     const list<SampleIOProcessor*>& xprocs = x.getProcessors();
     list<SampleIOProcessor*>::const_iterator oi;
@@ -53,13 +52,6 @@ RawSampleService::RawSampleService(const RawSampleService& x):
 	    addProcessor(proc);
 	}
     }
-}
-/*
- * clone myself by invoking copy constructor.
- */
-DSMService* RawSampleService::clone() const
-{
-    return new RawSampleService(*this);
 }
 
 RawSampleService::~RawSampleService()
@@ -126,35 +118,40 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
  * not on the clones. It may be called multiple times
  * as each DSM makes a connection.
  */
-void RawSampleService::connected(SampleInput* inpt) throw()
+void RawSampleService::connected(SampleInput* newinput) throw()
 {
-    assert(inpt == input);
-
     // Figure out what DSM it came from
-    atdUtil::Inet4Address remoteAddr = input->getRemoteInet4Address();
+
+    SampleInputStream* newstream = dynamic_cast<SampleInputStream*>(newinput);
+
+    assert(newstream);
+
+    atdUtil::Inet4Address remoteAddr = newstream->getRemoteInet4Address();
     const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
 
-    if (!dsm)
-	throw atdUtil::Exception(string("can't find DSM for address ") +
-		remoteAddr.getHostAddress());
-
+    if (!dsm) {
+	atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    "RawSampleService: connection from %s does not match an address of any. Ignoring connection.",
+		remoteAddr.getHostAddress().c_str());
+	return;
+    }
 
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"%s (%s) has connected to %s",
-	input->getName().c_str(),dsm->getName().c_str(),
+	newstream->getName().c_str(),dsm->getName().c_str(),
 	getName().c_str());
 
-
-    // make a copy of myself.
-    RawSampleService* newserv = new RawSampleService(*this);
-
-    newserv->input->addDSMConfig(dsm);
-
-    merger.addInput(newserv->input);
-
-    newserv->start();
-
-    addSubService(newserv);
+    newstream->addDSMConfig(dsm);
+	    
+    // If this is a new input make a copy of myself.
+    // The copy will own the input.
+    if (newstream != input) {
+	RawSampleService* newserv = new RawSampleService(*this,newstream);
+	newserv->start();
+	addSubService(newserv);
+    }
+    // merger does not own newstream. It just adds sample clients to it.
+    merger.addInput(newstream);
 }
 
 /*
@@ -236,12 +233,12 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 
 int RawSampleService::run() throw(atdUtil::Exception)
 {
-
     input->init();		// throws atdUtil::IOException
 
-    // request connections for processors. These are all
+    // connect processors to the input.  These are
     // single DSM processors, because this is a clone
-    // of the original RawSampleService
+    // of the original RawSampleService. The processor
+    // with then request connections to its outputs.
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = processors.begin(); pi != processors.end();
     	++pi) {
@@ -251,8 +248,11 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	}
 	catch(const atdUtil::IOException& ioe) {
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		"%s: requestConnection: %s: %s",
-		getName().c_str(),processor->getName().c_str(),ioe.what());
+		"%s: connecting %s to %s: %s",
+		getName().c_str(),
+		input->getName().c_str(),
+		processor->getName().c_str(),
+		ioe.what());
 	}
     }
 

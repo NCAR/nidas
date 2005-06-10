@@ -29,7 +29,23 @@ RawSampleOutputStream::RawSampleOutputStream()
 {
 }
 
+RawSampleOutputStream::RawSampleOutputStream(const RawSampleOutputStream& x):
+	SortedSampleOutputStream(x)
+{
+}
+
+RawSampleOutputStream::RawSampleOutputStream(const RawSampleOutputStream& x,
+	IOChannel* iochannel):
+	SortedSampleOutputStream(x,iochannel)
+{
+}
+
 RawSampleOutputStream::~RawSampleOutputStream()
 {
+}
+
+SampleOutput* RawSampleOutputStream::clone(IOChannel* iochannel) const 
+{
+    return new RawSampleOutputStream(*this,iochannel);
 }
 

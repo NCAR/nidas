@@ -47,9 +47,6 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void sendHeader(dsm_time_t thead,IOStream* iostream)
-    	throw(atdUtil::IOException);
-
 protected:
 
     SampleInput* input;

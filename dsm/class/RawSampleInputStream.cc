@@ -25,11 +25,26 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(RawSampleInputStream)
 
-RawSampleInputStream::RawSampleInputStream(IOChannel* iochannel):
-	SampleInputStream(iochannel)
+RawSampleInputStream::RawSampleInputStream(IOChannel* iochan):
+	SampleInputStream(iochan)
 {
-    setPseudoPort(RAW_SAMPLE);
+	setPseudoPort(RAW_SAMPLE);
 }
+
+RawSampleInputStream::RawSampleInputStream(const RawSampleInputStream& x,
+	IOChannel* iochannel):
+	SampleInputStream(x,iochannel)
+{
+}
+
+/**
+ * Create a clone, with a new, connected IOChannel.
+ */
+SampleInputStream* RawSampleInputStream::clone(IOChannel* iochannel)
+{
+    return new RawSampleInputStream(*this,iochannel);
+}
+
 
 RawSampleInputStream::~RawSampleInputStream()
 {

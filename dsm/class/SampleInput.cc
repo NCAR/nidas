@@ -25,34 +25,41 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(SampleInputStream)
 
+/*
+ * Constructor, with a IOChannel (which may be null).
+ */
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     service(0),iochan(iochannel),iostream(0),
     pseudoPort(0),
-     samp(0),leftToRead(0),dptr(0),
+    samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
 }
 
-/* Copy constructor. */
-SampleInputStream::SampleInputStream(const SampleInputStream& x):
+/*
+ * Copy constructor, with a new IOChannel.
+ */
+SampleInputStream::SampleInputStream(const SampleInputStream& x,IOChannel* iochannel):
     service(x.service),dsms(x.dsms),
-    iochan(x.iochan->clone()),iostream(0),
+    iochan(iochannel),iostream(0),
     pseudoPort(x.pseudoPort),
     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
 }
 
+/*
+ * Clone myself, with a new IOChannel.
+ */
+SampleInputStream* SampleInputStream::clone(IOChannel* iochannel)
+{
+    return new SampleInputStream(*this,iochannel);
+}
+
 SampleInputStream::~SampleInputStream()
 {
     delete iostream;
     delete iochan;
-}
-
-SampleInputStream* SampleInputStream::clone() const
-{
-    // invoke copy constructor
-    return new SampleInputStream(*this);
 }
 
 string SampleInputStream::getName() const {
@@ -69,8 +76,9 @@ void SampleInputStream::requestConnection(DSMService* requester)
 
 void SampleInputStream::connected(IOChannel* iochannel) throw()
 {
-    assert(iochan == iochannel);
-    service->connected(this);
+    cerr << "SampleInputStream connected, iochannel=" <<
+    	iochannel->getRemoteInet4Address().getHostAddress() << endl;
+    service->connected(clone(iochannel));
 }
 
 void SampleInputStream::addProcessedSampleClient(SampleClient* client,
@@ -383,6 +391,7 @@ void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
     procSampSorter.addSampleClient(client);
     sensor->addSampleClient(&procSampSorter);
     inputSorter.addSampleClient(this);
+    if (!procSampSorter.isRunning()) procSampSorter.start();
 }
 
 void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,

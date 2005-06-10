@@ -37,8 +37,25 @@ SampleOutputStream::SampleOutputStream():
 {
 }
 
+/*
+ * Copy constructor.
+ */
+
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	name(x.name), iochan(x.iochan->clone()),iostream(0),
+	pseudoPort(x.pseudoPort),
+	dsms(x.dsms),service(x.service),
+	connectionRequester(x.connectionRequester),
+	nextFileTime(0)
+{
+}
+
+/*
+ * Copy constructor, with a new IOChannel.
+ */
+
+SampleOutputStream::SampleOutputStream(const SampleOutputStream& x,IOChannel* iochannel):
+	name(x.name), iochan(iochannel),iostream(0),
 	pseudoPort(x.pseudoPort),
 	dsms(x.dsms),service(x.service),
 	connectionRequester(x.connectionRequester),
@@ -55,10 +72,11 @@ SampleOutputStream::~SampleOutputStream()
     delete iochan;
 }
 
-SampleOutput* SampleOutputStream::clone() const
+SampleOutput* SampleOutputStream::clone(IOChannel* iochannel) const
 {
     // invoke copy constructor
-    return new SampleOutputStream(*this);
+    if (!iochannel) return new SampleOutputStream(*this);
+    else return new SampleOutputStream(*this,iochannel);
 }
 
 void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
@@ -114,13 +132,18 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
     if (iochan != iochannel) {
 	// This is a new iochannel - probably a connected socket.
 	// Clone myself and report back to connectionRequester.
-	SampleOutputStream* newout = new SampleOutputStream(*this);
-	newout->setIOChannel(iochannel);
+	// FIX: redesign so we don't need this static_cast.
+	SampleOutput* newso = clone(iochannel);
+	SampleOutputStream* newout =
+		dynamic_cast<SampleOutputStream*>(newso);
+	assert(newout);
 	connectionRequester->connected(newout);
+	cerr << "SampleOutputStream::connected new channel" << endl;
     }
     else {
         connectionRequester->connected(this);
 	setName(string("SampleOutputStream: ") + iochan->getName());
+	cerr << "SampleOutputStream::connected old channel" << endl;
     }
 }
 
@@ -279,6 +302,16 @@ SortedSampleOutputStream::SortedSampleOutputStream(
 {
 }
 
+/*
+ * Copy constructor, with a new IOChannel.
+ */
+SortedSampleOutputStream::SortedSampleOutputStream(
+	const SortedSampleOutputStream& x,IOChannel* iochannel)
+	: SampleOutputStream(x,iochannel),initialized(false),
+	sorter(x.sorter),proxy(0,*this)
+{
+}
+
 SortedSampleOutputStream::~SortedSampleOutputStream()
 {
     if (initialized) {
@@ -287,9 +320,10 @@ SortedSampleOutputStream::~SortedSampleOutputStream()
     }
 }
 
-SampleOutput* SortedSampleOutputStream::clone() const 
+SampleOutput* SortedSampleOutputStream::clone(IOChannel* iochannel) const 
 {
-    return new SortedSampleOutputStream(*this);
+    if (iochannel) return new SortedSampleOutputStream(*this,iochannel);
+    else return new SortedSampleOutputStream(*this);
 }
 
 void SortedSampleOutputStream::init() throw()

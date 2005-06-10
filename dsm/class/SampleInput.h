@@ -40,6 +40,8 @@ public:
 
     virtual std::string getName() const = 0;
 
+    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
+
     /**
      * What DSMConfigs are associated with this SampleInput.
      */
@@ -107,6 +109,10 @@ public:
 
     std::string getName() const { return name; }
 
+    atdUtil::Inet4Address getRemoteInet4Address() const
+    {
+        return atdUtil::Inet4Address(INADDR_ANY);
+    }
     /**
      * What DSMConfigs are associated with this SampleInput.
      */
@@ -180,8 +186,6 @@ public:
     virtual void requestConnection(DSMService*)
         throw(atdUtil::IOException) = 0;
 
-    virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
-
     virtual void init() throw(atdUtil::IOException) = 0;
 
     /**
@@ -240,13 +244,16 @@ public:
     SampleInputStream(IOChannel* iochannel = 0);
 
     /**
-     * Copy constructor.  This will do a clone() of the IOChannel.
+     * Copy constructor, with a new, connected IOChannel.
      */
-    SampleInputStream(const SampleInputStream&);
+    SampleInputStream(const SampleInputStream& x,IOChannel* iochannel);
+
+    /**
+     * Create a clone, with a new, connected IOChannel.
+     */
+    virtual SampleInputStream* clone(IOChannel* iochannel);
 
     virtual ~SampleInputStream();
-
-    virtual SampleInputStream* clone() const;
 
     std::string getName() const;
 
@@ -280,6 +287,9 @@ public:
 
     void requestConnection(DSMService*) throw(atdUtil::IOException);
 
+    /**
+     * Implementation of ConnectionRequester::connected.
+     */
     void connected(IOChannel* iochan) throw();
 
     atdUtil::Inet4Address getRemoteInet4Address() const;
@@ -358,6 +368,11 @@ private:
     char* dptr;
 
     size_t unrecognizedSamples;
+
+    /**
+     * Copy constructor.
+     */
+    SampleInputStream(const SampleInputStream&);
 
 };
 

@@ -26,7 +26,7 @@
 namespace dsm {
 
 /**
- * Implementation of an IOChannel, using McSocket to listen for connections
+ * Implementation of an IOChannel, using McSocket to establish connections
  */
 class McSocket: public IOChannel, public atdUtil::McSocket {
 
@@ -35,9 +35,22 @@ public:
     /**
      * Constructor.
      */
-    McSocket(): socket(0),connectionRequester(0),amRequester(true) {}
+    McSocket();
+
+    /**
+     * Copy constructor. Should only be called before atdUtil::Socket
+     * is connected.
+     */
+    McSocket(const McSocket&);
+
+    /**
+     * Copy constructor, with a new connnected atdUtil::Socket
+     */
+    McSocket(const McSocket&,atdUtil::Socket*);
 
     ~McSocket() { delete socket; }
+
+    IOChannel* clone() const;
 
     /**
      * Does this McSocket request connections, or does it
@@ -54,36 +67,24 @@ public:
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    IOChannel* clone() const;
+    virtual bool isNewFile() const { return newFile; }
 
     void connected(atdUtil::Socket* sock);
 
-    atdUtil::Inet4Address getRemoteInet4Address() const {
-        return socket->getInet4Address();
-    }
+    atdUtil::Inet4Address getRemoteInet4Address() const throw();
 
     size_t getBufferSize() const throw();
 
     /**
-    * Do the actual hardware read.
-    */
-    size_t read(void* buf, size_t len) throw (atdUtil::IOException)
-    {
-	size_t res = socket->recv(buf,len);
-#ifdef DEBUG
-	std::cerr << "McSocket::read, len=" << len << " res=" << res << std::endl;
-#endif
-	return res;
-    }
+     * Do the actual hardware read.
+     */
+    size_t read(void* buf, size_t len) throw (atdUtil::IOException);
 
     /**
-    * Do the actual hardware write.
-    */
+     * Do the actual hardware write.
+     */
     size_t write(const void* buf, size_t len) throw (atdUtil::IOException)
     {
-#ifdef DEBUG
-	std::cerr << "McSocket::write, len=" << len << std::endl;
-#endif
 	return socket->send(buf,len);
     }
 
@@ -103,13 +104,17 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    mutable atdUtil::Socket* socket;
+    atdUtil::Socket* socket;
 
     std::string name;
 
     ConnectionRequester* connectionRequester;
 
     bool amRequester;
+
+    bool firstRead;
+
+    bool newFile;
 };
 
 }

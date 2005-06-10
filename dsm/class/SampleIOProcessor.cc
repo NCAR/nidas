@@ -23,6 +23,10 @@ SampleIOProcessor::SampleIOProcessor()
 {
 }
 
+/*
+ * Copy constructor
+ */
+
 SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
 	name(x.name)
 {
@@ -36,7 +40,6 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
     }
 }
 
-
 SampleIOProcessor::~SampleIOProcessor()
 {
 #ifdef DEBUG
@@ -45,8 +48,8 @@ SampleIOProcessor::~SampleIOProcessor()
     set<SampleOutput*>::const_iterator oi;
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
+	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
 #ifdef DEBUG
-	cerr << "~SampleIOProcessor, output=" << output << endl;
 #endif
 	delete output;
     }

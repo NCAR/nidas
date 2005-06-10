@@ -23,7 +23,7 @@ using namespace std;
 
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	iochannel(iochan),buflen(blen),maxMsecs(1000),newFile(false)
+	iochannel(iochan),buflen(blen),maxMsecs(1000),newFile(true)
 {
     buffer = new char[buflen * 2];
     eob = buffer + buflen * 2;

@@ -54,7 +54,6 @@ void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
     setDir(expandString(getDir()));
     setFileName(expandString(getFileName()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
-
     // immediate connection
     requester->connected(this); 
 }

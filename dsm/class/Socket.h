@@ -45,32 +45,30 @@ public:
 
     /**
      * Constructor from a connected atdUtil::Socket.
-     * @param sock Pointer to the connected atdUtil::Socket. dsm::Socket
-     *    will make a copy of the connected atdUtil::Socket and will
-     *    not own the sock pointer.
+     * @param sock Pointer to the connected atdUtil::Socket.
      */
-    Socket(const atdUtil::Socket* sock);
+    Socket(atdUtil::Socket* sock);
 
     ~Socket();
+
+    IOChannel* clone() const;
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
-    IOChannel* clone() const;
+    virtual bool isNewFile() const { return newFile; }
 
     /**
-    * Do the actual hardware read.
-    */
-    size_t read(void* buf, size_t len) throw (atdUtil::IOException)
-    {
-	return socket->recv(buf,len);
-    }
+     * Do the actual hardware read.
+     */
+    size_t read(void* buf, size_t len) throw (atdUtil::IOException);
 
     /**
     * Do the actual hardware write.
     */
     size_t write(const void* buf, size_t len) throw (atdUtil::IOException)
     {
+	// std::cerr << "dsm::Socket::write, len=" << len << std::endl;
 	return socket->send(buf,len);
     }
 
@@ -88,6 +86,8 @@ public:
     const std::string& getName() const { return name; }
 
     void setName(const std::string& val) { name = val; }
+
+    atdUtil::Inet4Address getRemoteInet4Address() const throw();
 
     /**
      * Create either a Socket or a McSocket from a DOMElement.
@@ -107,11 +107,15 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    atdUtil::Inet4SocketAddress saddr;
+    atdUtil::Inet4SocketAddress localSockAddr;
 
     atdUtil::Socket* socket;
 
     std::string name;
+
+    bool firstRead;
+
+    bool newFile;
 };
 
 /**
@@ -133,10 +137,10 @@ public:
 
     ~ServerSocket();
 
+    IOChannel* clone() const;
+
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
-
-    IOChannel* clone() const;
 
     const std::string& getName() const { return name; }
 
@@ -144,7 +148,7 @@ public:
 
     int getFd() const
     {
-        if (socket) return socket->getFd();
+        if (servSock) return servSock->getFd();
 	return -1;
     }
 
@@ -169,6 +173,7 @@ public:
 
     void close() throw (atdUtil::IOException)
     {
+        if (servSock) servSock->close();
     }
 
     /**
@@ -193,7 +198,7 @@ protected:
 
     std::string name;
 
-    atdUtil::ServerSocket* socket;
+    atdUtil::ServerSocket* servSock;
 
     ConnectionRequester* connectionRequester;
 
@@ -207,12 +212,12 @@ class ServerSocketConnectionThread: public atdUtil::Thread
 {
 public:
     ServerSocketConnectionThread(ServerSocket& sock):
-    	Thread("ServerSocketConnectionThread"),ssock(sock) {}
+    	Thread("ServerSocketConnectionThread"),socket(sock) {}
 
     int run() throw(atdUtil::IOException);
 
 protected:
-    ServerSocket& ssock;
+    ServerSocket& socket;
 };
 
 }

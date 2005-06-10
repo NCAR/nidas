@@ -29,11 +29,11 @@ public:
     /**
      * Copy constructor.
      */
-    XMLConfigService(const XMLConfigService&);
+    XMLConfigService(const XMLConfigService&,IOChannel *iochan);
 
     ~XMLConfigService();
 
-    DSMService* clone() const;
+    // DSMService* clone() const;
 
     int run() throw(atdUtil::Exception);
 
@@ -66,6 +66,12 @@ protected:
     IOChannel* iochan;
 
     const DSMConfig* dsm;
+
+private:
+    /**
+     * Copy constructor.
+     */
+    XMLConfigService(const XMLConfigService&);
 
 };
 

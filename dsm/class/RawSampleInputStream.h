@@ -28,14 +28,11 @@ public:
 
     RawSampleInputStream(IOChannel* iochannel = 0);
 
-    ~RawSampleInputStream();
+    RawSampleInputStream(const RawSampleInputStream&x,IOChannel*);
 
-    SampleInputStream* clone() const { return new RawSampleInputStream(*this); }
+    SampleInputStream* clone(IOChannel*);
 
-    // bool isRaw() const { return true; }
-
-    // int getPseudoPort() const { return RAW_SAMPLE; }
-
+    virtual ~RawSampleInputStream();
 
 protected:
 };

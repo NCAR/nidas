@@ -37,7 +37,7 @@ public:
 
     virtual ~SampleOutput() {}
 
-    virtual SampleOutput* clone() const = 0;
+    virtual SampleOutput* clone(IOChannel* iochannel=0) const = 0;
 
     virtual void setName(const std::string& val) = 0;
 
@@ -86,9 +86,14 @@ public:
      */
     SampleOutputStream(const SampleOutputStream&);
 
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    SampleOutputStream(const SampleOutputStream&,IOChannel*);
+
     virtual ~SampleOutputStream();
 
-    SampleOutput* clone() const;
+    SampleOutput* clone(IOChannel* iochannel=0) const;
 
     void setName(const std::string& val) { name = val; }
 
@@ -159,6 +164,7 @@ protected:
 
     dsm_time_t nextFileTime;
 
+private:
 };
 
 /**
@@ -196,9 +202,14 @@ public:
      */
     SortedSampleOutputStream(const SortedSampleOutputStream&);
 
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    SortedSampleOutputStream(const SortedSampleOutputStream&,IOChannel*);
+
     virtual ~SortedSampleOutputStream();
 
-    SampleOutput* clone() const;
+    SampleOutput* clone(IOChannel* iochannel=0) const;
 
     void init() throw();
 
@@ -210,6 +221,8 @@ protected:
     SampleSorter sorter;
 
     SampleOutputStreamProxy proxy;
+
+private:
 };
 
 }

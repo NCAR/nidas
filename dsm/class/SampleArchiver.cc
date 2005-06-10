@@ -14,11 +14,9 @@
 
 #include <SampleArchiver.h>
 #include <SampleFileHeader.h>
-#include <Project.h>
 #include <DSMConfig.h>
 #include <DSMServer.h>
 #include <SampleInput.h>
-#include <Version.h>
 
 #include <atdUtil/Logger.h>
 
@@ -87,10 +85,10 @@ void SampleArchiver::connected(SampleOutput* output) throw()
 {
     addOutput(output);
     atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
+	"%s has connected to %s, #outputs=%d",
 	output->getName().c_str(),
-	getName().c_str());
-
+	getName().c_str(),
+	outputs.size());
     try {
 	output->init();
     }
@@ -102,7 +100,7 @@ void SampleArchiver::connected(SampleOutput* output) throw()
 	return;
     }
     assert(input);
-    cerr << input->getName() << " addSampleClient " << output->getName() << endl;
+    cerr << input->getName() << "->addSampleClient(" << output->getName() << ')' << endl;
     input->addSampleClient(output);
 }
  
@@ -112,22 +110,11 @@ void SampleArchiver::disconnected(SampleOutput* output) throw()
 	"%s has disconnected from %s",
 	output->getName().c_str(),
 	getName().c_str());
+    cerr << "asserting input:" << input << endl;
     assert(input);
+    cerr << "removeSampleClient" << endl;
     input->removeSampleClient(output);
+    cerr << "output close" << endl;
     output->close();
+    cerr << "disconnected" << endl;
 }
-
-void SampleArchiver::sendHeader(dsm_time_t thead,IOStream* iostream)
-	throw(atdUtil::IOException)
-{
-
-    cerr << "SampleArchiver::sendHeader" << endl;
-    SampleFileHeader header;
-    header.setArchiveVersion(Version::getArchiveVersion());
-    header.setSoftwareVersion(Version::getSoftwareVersion());
-    header.setProjectName(Project::getInstance()->getName());
-    header.setXMLName(Project::getInstance()->getXMLName());
-    header.setXMLVersion(Project::getInstance()->getVersion());
-    header.write(iostream);
-}
-

@@ -42,11 +42,9 @@ XMLConfigService::XMLConfigService():
 /*
  * Copy constructor.
  */
-XMLConfigService::XMLConfigService(const XMLConfigService& x):
-        DSMService((const DSMService&)x),iochan(0),dsm(x.dsm)
+XMLConfigService::XMLConfigService(const XMLConfigService& x,IOChannel* ioc):
+        DSMService((const DSMService&)x),iochan(ioc),dsm(x.dsm)
 {
-    // cerr << "XMLConfigService copy ctor, x.outout=" << hex << x.iochan << endl;
-    if (x.iochan) iochan = x.iochan->clone();
 }
 
 XMLConfigService::~XMLConfigService()
@@ -60,12 +58,14 @@ XMLConfigService::~XMLConfigService()
 /*
  * clone myself
  */
+/*
 DSMService* XMLConfigService::clone() const
 {
     // invoke copy constructor.
     XMLConfigService* newserv = new XMLConfigService(*this);
     return newserv;
 }
+*/
 
 void XMLConfigService::schedule() throw(atdUtil::Exception)
 {
@@ -84,7 +84,7 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
 
     cerr << "findDSM, dsm=" << dsm->getName() << endl;
     // make a copy of myself, assign it to a specific dsm
-    XMLConfigService* newserv = new XMLConfigService(*this);
+    XMLConfigService* newserv = new XMLConfigService(*this,iochan);
     newserv->setDSMConfig(dsm);
     newserv->start();
 

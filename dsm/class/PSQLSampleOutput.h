@@ -33,7 +33,7 @@ public:
 
     virtual ~PSQLSampleOutput();
 
-    SampleOutput* clone() const;
+    SampleOutput* clone(IOChannel* iochannel = 0) const;
 
     void setName(const std::string& val) { name = val; }
 

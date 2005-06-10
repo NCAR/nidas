@@ -39,7 +39,8 @@ PSQLSampleOutput::PSQLSampleOutput():
 }
 
 PSQLSampleOutput::PSQLSampleOutput(const PSQLSampleOutput& x): 
-	connectionRequester(0),dsms(x.dsms),service(x.service),psqlChannel(0),
+	name(x.name),connectionRequester(0),
+	dsms(x.dsms),service(x.service),psqlChannel(0),
 	missingValue(x.missingValue),first(true),dberrors(0)
 {
 }
@@ -48,9 +49,11 @@ PSQLSampleOutput::~PSQLSampleOutput()
 {
 }
 
-SampleOutput* PSQLSampleOutput::clone() const
+SampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
 {
-    return new PSQLSampleOutput(*this);
+    PSQLSampleOutput* out = new PSQLSampleOutput(*this);
+    out->psqlChannel = iochannel;
+    return out;
 }
 
 void PSQLSampleOutput::requestConnection(SampleConnectionRequester* requester)

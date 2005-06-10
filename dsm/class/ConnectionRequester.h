@@ -55,7 +55,7 @@ public:
      * wants a header written, for example at the beginning of a file.
      */
     virtual void sendHeader(dsm_time_t,IOStream* iostream)
-    	throw(atdUtil::IOException) {}
+    	throw(atdUtil::IOException);
 };
 
 }

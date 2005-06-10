@@ -26,9 +26,14 @@ class RawSampleOutputStream: public SortedSampleOutputStream
 {
 public:
     RawSampleOutputStream();
+
+    RawSampleOutputStream(const RawSampleOutputStream&);
+
+    RawSampleOutputStream(const RawSampleOutputStream&,IOChannel*);
+
     ~RawSampleOutputStream();
 
-    SampleOutput* clone() const { return new RawSampleOutputStream(*this); }
+    SampleOutput* clone(IOChannel* iochannel=0) const;
 
     bool isRaw() const { return true; }
 
