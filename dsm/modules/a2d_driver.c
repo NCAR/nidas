@@ -763,6 +763,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	int i;
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 	unsigned short stat;
+	static int closeA2D(struct A2DBoard* brd,int joinAcqThread);
 
 	// The A2Ds should be done writing to the FIFO in
 	// 2 * 8 * 800 nsec = 12.8 usec
@@ -932,7 +933,7 @@ static void* A2DGetDataThread(void *thread_arg)
 
 static int openA2D(struct A2DBoard* brd)
 {
-	int ret = 0;
+	void* thread_status;
 	brd->busy = 1;	// Set the busy flag
 	brd->interrupted = 0;
 
@@ -978,7 +979,7 @@ static int openA2D(struct A2DBoard* brd)
 	brd->interrupted = 0;
 	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd) < 0)
 		return -rtl_errno;	// needs conversion
-	ret = 0;
+	return 0;
 }
 
 /**
@@ -989,6 +990,7 @@ static int openA2D(struct A2DBoard* brd)
 static int closeA2D(struct A2DBoard* brd,int joinAcqThread) 
 {
 	int ret = 0;
+	void* thread_status;
 
 	// interrupt the 1PPS or acquisition thread
 	brd->interrupted = 1;
@@ -1023,7 +1025,7 @@ static int closeA2D(struct A2DBoard* brd,int joinAcqThread)
 	// Abort all the A/D's
 	A2DResetAll(brd);
 
-	if (brd->fd >= 0) 
+	if (brd->fd >= 0) {
 	    int fdtmp = brd->fd;
 	    brd->fd = -1;
 	    rtl_close(fdtmp);
@@ -1107,7 +1109,7 @@ static int ioctlCallback(int cmd, int board, int port,
 
 		// clean up acquisition thread if it was left around
 		if (brd->acq_thread) {
-		    brd->interrupt = 1;
+		    brd->interrupted = 1;
 		    rtl_pthread_cancel(brd->acq_thread);
 		    rtl_pthread_join(brd->acq_thread, &thread_status);
 		    brd->acq_thread = 0;
