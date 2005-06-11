@@ -911,28 +911,126 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 
-
 	    buf.size = (char*)dataptr - (char*)buf.data;
 
 	    if (brd->fd >= 0 && buf.size > 0) {
 		// Write to up-fifo
 		if (rtl_write(brd->fd, &buf,
 		    SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
+		    int ierr = rtl_errno;	// save err
 		    rtl_printf("%s error: write %s: %s\n",
 			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
-		    rtl_printf("%s: closing fifo\n",__FILE__);
-		    rtl_close(brd->fd);
-		    brd->fd = -1;
-		    // Remove the fifo. Hopefully this will cause an 
-		    // IO error on the user side, so that it could
-		    // restart things (needs testing).
-		    rtl_unlink(brd->fifoName);
-		    brd->status.rtlFifoWriteErrors++;
+		    rtl_printf("%s shutting down this A2D\n",__FILE__);
+		    closeA2D(brd,0);		// close, but don't join this thread
+		    return (void*) ierr;	// needs conversion
 		}
 	    }
 	}
 	rtl_printf("Exiting A2DGetDataThread\n");
 	return 0;
+}
+
+static int openA2D(struct A2DBoard* brd)
+{
+	int ret = 0;
+	brd->busy = 1;	// Set the busy flag
+	brd->interrupted = 0;
+
+	if (brd->fd >= 0) rtl_close(brd->fd);
+	if((brd->fd = rtl_open(brd->fifoName,
+		RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
+	{
+	    rtl_printf("%s error: opening %s: %s\n",
+		    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+	    return -rtl_errno;	// needs RTL->Linux errno conversion
+	}
+
+	// Establish a RT thread to allow syncing with 1PPS
+	rtl_printf("1PPSThread starting, GET_MSEC_CLOCK=%d\n",
+		GET_MSEC_CLOCK);
+	if (rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd) < 0)
+	    return -rtl_errno;		// needs conversion
+	if (rtl_pthread_join(brd->pps_thread, &thread_status) < 0) {
+	    brd->pps_thread = 0;
+	    return -rtl_errno;		// needs conversion
+	}
+	brd->pps_thread = 0;
+	if (thread_status != (void*)0) return -(int)thread_status;
+	rtl_printf("1PPSThread done, GET_MSEC_CLOCK=%d\n",
+		GET_MSEC_CLOCK);
+
+	A2DResetAll(brd);	// Send Abort command to all A/Ds
+	A2DStatusAll(brd);	// Read status from all A/Ds
+
+	A2DStartAll(brd);	// Start all the A/Ds
+	A2DStatusAll(brd);	// Read status again from all A/Ds
+
+	A2DSetSYNC(brd);	// Stop A/D clocks
+	A2DAuto(brd);		// Switch to automatic mode
+
+	rtl_printf("Final FIFO Clear\n");
+	A2DClearFIFO(brd);	// Reset FIFO
+
+	rtl_printf("Setting 1PPS Enable line\n");
+	A2D1PPSEnable(brd);// Enable sync with 1PPS
+
+	// Start data acquisition thread
+	brd->interrupted = 0;
+	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd) < 0)
+		return -rtl_errno;	// needs conversion
+	ret = 0;
+}
+
+/**
+ * @param joinAcqThread 1 means do a pthread_join of the acquisition thread.
+ *		0 means don't do pthread_join (to avoid a deadlock)
+ * @return negative UNIX errno
+ */
+static int closeA2D(struct A2DBoard* brd,int joinAcqThread) 
+{
+	int ret = 0;
+
+	// interrupt the 1PPS or acquisition thread
+	brd->interrupted = 1;
+
+	// Shut down the setup thread
+	if (brd->setup_thread) {
+	    rtl_pthread_cancel(brd->setup_thread);
+	    rtl_pthread_join(brd->setup_thread, NULL);
+	    brd->setup_thread = 0;
+	}
+
+	// Shut down the pps thread
+	if (brd->pps_thread) {
+	    rtl_pthread_cancel(brd->pps_thread);
+	    rtl_pthread_join(brd->pps_thread, NULL);
+	    brd->pps_thread = 0;
+	}
+
+	if (joinAcqThread && brd->acq_thread) {
+	    rtl_pthread_join(brd->acq_thread, &thread_status);
+	    brd->acq_thread = 0;
+	    if (thread_status != (void*)0) ret = -(int)thread_status;
+	}
+
+	//Turn off the callback routine
+	unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
+
+	A2DStatusAll(brd); 	// Read status and clear IRQ's	
+
+	A2DNotAuto(brd);	// Shut off auto mode (if enabled)
+
+	// Abort all the A/D's
+	A2DResetAll(brd);
+
+	if (brd->fd >= 0) 
+	    int fdtmp = brd->fd;
+	    brd->fd = -1;
+	    rtl_close(fdtmp);
+	}
+	brd->busy = 0;	// Reset the busy flag
+
+	return ret;
 }
 
 /*
@@ -1005,105 +1103,24 @@ static int ioctlCallback(int cmd, int board, int port,
 		ret = 0;
    		break;
 
-  	case A2D_RUN_IOCTL:		/* user set */
+  	case A2D_RUN_IOCTL:
+
+		// clean up acquisition thread if it was left around
+		if (brd->acq_thread) {
+		    brd->interrupt = 1;
+		    rtl_pthread_cancel(brd->acq_thread);
+		    rtl_pthread_join(brd->acq_thread, &thread_status);
+		    brd->acq_thread = 0;
+		}
+
 		rtl_printf("%s: A2D_RUN_IOCTL\n", __FILE__);
-		brd->busy = 1;	// Set the busy flag
-		brd->interrupted = 0;
-
-		if (brd->fd >= 0) rtl_close(brd->fd);
-		if((brd->fd = rtl_open(brd->fifoName,
-			RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
-		{
-		    rtl_printf("%s error: opening %s: %s\n",
-			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
-		    return -rtl_errno;	// needs RTL->Linux errno conversion
-		}
-
-		// Establish a RT thread to allow syncing with 1PPS
-		rtl_printf("1PPSThread starting, GET_MSEC_CLOCK=%d\n",
-			GET_MSEC_CLOCK);
-		rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd);
-		rtl_pthread_join(brd->pps_thread, &thread_status);
-		brd->pps_thread = 0;
-
-		if (thread_status != (void*)0) {
-		    ret = -(int)thread_status;
-		    break;
-		}
-		rtl_printf("1PPSThread done, GET_MSEC_CLOCK=%d\n",
-			GET_MSEC_CLOCK);
-
-
-		A2DResetAll(brd);	// Send Abort command to all A/Ds
-		A2DStatusAll(brd);	// Read status from all A/Ds
-
-		A2DStartAll(brd);	// Start all the A/Ds
-		A2DStatusAll(brd);	// Read status again from all A/Ds
-
-		A2DSetSYNC(brd);	// Stop A/D clocks
-		A2DAuto(brd);		// Switch to automatic mode
-
-		rtl_printf("Final FIFO Clear\n");
-		A2DClearFIFO(brd);	// Reset FIFO
-
-		rtl_printf("Setting 1PPS Enable line\n");
-		A2D1PPSEnable(brd);// Enable sync with 1PPS
-
-		// Start data acquisition thread
-		brd->interrupted = 0;
-		rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd);
-		ret = 0;
-
+		ret = openA2D(brd);
 		rtl_printf("A2D_RUN_IOCTL finished\n");
 		break;
 
-  	case A2D_STOP_IOCTL:		/* user set */
-		ret = 0;
+  	case A2D_STOP_IOCTL:
 		rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
-
-		// Shut down the acquisition thread
-		brd->interrupted = 1;
-
-		// Shut down the setup thread
-		if (brd->setup_thread) {
-		    rtl_pthread_cancel(brd->setup_thread);
-		    rtl_pthread_join(brd->setup_thread, NULL);
-		    brd->setup_thread = 0;
-		}
-
-		// Shut down the pps thread
-		if (brd->pps_thread) {
-		    rtl_pthread_cancel(brd->pps_thread);
-		    rtl_pthread_join(brd->pps_thread, NULL);
-		    brd->pps_thread = 0;
-		}
-
-		if (brd->acq_thread) {
-		    rtl_pthread_join(brd->acq_thread, &thread_status);
-		    brd->acq_thread = 0;
-		    if (thread_status != (void*)0) {
-			ret = -(int)thread_status;
-			break;
-		    }
-		}
-
-		//Turn off the callback routine
-		unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
-
-		A2DStatusAll(brd); 	// Read status and clear IRQ's	
-
-		A2DNotAuto(brd);	// Shut off auto mode (if enabled)
-
-		// Abort all the A/D's
-		A2DResetAll(brd);
-
-		brd->busy = 0;	// Reset the busy flag
-
-		if (brd->fd >= 0) {
-		    int fdtmp = brd->fd;
-		    brd->fd = -1;
-		    rtl_close(fdtmp);
-		}
+		ret = closeA2D(brd,1);
 		break;
 	default:
 		break;
@@ -1126,8 +1143,6 @@ void cleanup_module(void)
 	    unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
 
 	    A2DStatusAll(brd); 	// Read status and clear IRQ's	
-
-	    brd->interrupted = 0;
 
 	    // Shut down the setup thread
 	    if (brd->setup_thread) {
