@@ -19,7 +19,6 @@ using namespace dsm;
 CREATOR_ENTRY_POINT(IRS_HW_HG2001GD);
 
 float IRS_HW_HG2001GD::processLabel(const unsigned long data)
-  throw(atdUtil::IOException)
 {
   unsigned long ulPackedBcdData;
   unsigned long ulBinaryData = 0L;

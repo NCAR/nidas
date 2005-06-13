@@ -36,8 +36,7 @@ public:
   IRS_HW_YG1854() {err("");}
 
   /** Process all labels from this instrument. */
-  float processLabel(const unsigned long data)
-    throw(atdUtil::IOException);
+  float processLabel(const unsigned long data);
 };
 
 }

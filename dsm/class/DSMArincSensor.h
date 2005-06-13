@@ -93,8 +93,7 @@ namespace dsm {
     void printStatus(std::ostream& ostr) throw();
 
     /** This contains a switch case for processing all labels. */
-    virtual float processLabel(const unsigned long data)
-      throw(atdUtil::IOException) = 0;
+    virtual float processLabel(const unsigned long data) = 0;
 
     /** Extract the ARINC configuration elements from the XML header. */
     void fromDOMElement(const xercesc::DOMElement*)

@@ -19,7 +19,6 @@ using namespace dsm;
 CREATOR_ENTRY_POINT(ADC_HW_EB7022597);
 
 float ADC_HW_EB7022597::processLabel(const unsigned long data)
-  throw(atdUtil::IOException)
 {
   unsigned long ulPackedBcdData;
   unsigned long ulBinaryData = 0L;

@@ -91,7 +91,6 @@ bool GPS_HW_HG2021GB02::process(const Sample* samp,list<const Sample*>& results)
 }
 
 float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
-  throw(atdUtil::IOException)
 {
 //err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
