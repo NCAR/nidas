@@ -47,6 +47,7 @@ PSQLSampleOutput::PSQLSampleOutput(const PSQLSampleOutput& x):
 
 PSQLSampleOutput::~PSQLSampleOutput()
 {
+    delete psqlChannel;
 }
 
 SampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
