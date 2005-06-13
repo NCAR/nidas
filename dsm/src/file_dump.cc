@@ -233,12 +233,65 @@ bool DumpClient::receive(const Sample* samp) throw()
     return true;
 }
 
-int main(int argc, char** argv)
+class FileDump
+{
+public:
+
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+    static void setupSignals();
+
+    static int main(int argc, char** argv);
+
+    static bool interrupted;
+};
+
+bool FileDump::interrupted = false;
+
+void FileDump::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+    cerr <<
+    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+                                                                                
+    switch(sig) {
+    case SIGHUP:
+    case SIGTERM:
+    case SIGINT:
+            FileDump::interrupted = true;
+    break;
+    }
+}
+
+void FileDump::setupSignals()
+{
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGHUP);
+    sigaddset(&sigset,SIGTERM);
+    sigaddset(&sigset,SIGINT);
+    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
+                                                                                
+    struct sigaction act;
+    sigemptyset(&sigset);
+    act.sa_mask = sigset;
+    act.sa_flags = SA_SIGINFO;
+    act.sa_sigaction = FileDump::sigAction;
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+}
+
+int FileDump::main(int argc, char** argv)
 {
 
     Runstring rstr(argc,argv);
 
-    dsm::IOChannel* iochan = 0;
+    setupSignals();
+
+    IOChannel* iochan = 0;
+
     if (rstr.dataFileName.length() > 0) {
 	dsm::FileSet* fset = new dsm::FileSet();
 	iochan = fset;
@@ -261,10 +314,10 @@ int main(int argc, char** argv)
     }
     else {
 	atdUtil::Socket* sock = new atdUtil::Socket(rstr.hostName,rstr.port);
-        iochan = new dsm::Socket(sock);
+	iochan = new dsm::Socket(sock);
     }
 
-    RawSampleInputStream sis(iochan);
+    RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
     sis.init();
 
     auto_ptr<Project> project;
@@ -308,6 +361,7 @@ int main(int argc, char** argv)
     try {
 	for (;;) {
 	    sis.readSamples();
+	    if (interrupted) break;
 	}
     }
     catch (atdUtil::EOFException& eof) {
@@ -316,7 +370,10 @@ int main(int argc, char** argv)
     catch (atdUtil::IOException& ioe) {
         cerr << ioe.what() << endl;
     }
-
+    return 0;
 }
 
-
+int main(int argc, char** argv)
+{
+    return FileDump::main(argc,argv);
+}
