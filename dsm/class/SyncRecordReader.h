@@ -21,7 +21,7 @@
 #include <SampleTag.h>
 #include <SyncRecordVariable.h>
 
-#include <atdUtil/ThreadSupport.h>
+#include <atdUtil/Thread.h>
 
 #include <semaphore.h>
 
@@ -42,55 +42,75 @@ public:
     }
 };
 
-class SyncRecordReader: public SampleClient
+class SyncRecordReader: public atdUtil::Thread, private SampleClient
 {
 public:
-    SyncRecordReader();
+
+    /**
+     * Constructor of a SyncRecordReader to a connected IOChannel.
+     * SyncRecordReader will own the IOChannel pointer and
+     * will delete it when done.
+     */
+    SyncRecordReader(IOChannel* iochan);
 
     virtual ~SyncRecordReader();
 
     /**
-     * Connect a SampleInput.
+     * Get the list of variables in a sync record.
      */
-    void connect(SampleInput*) throw(atdUtil::IOException);
-
-    /**
-     * Disconnect a SampleInput.
-     */
-    void disconnect(SampleInput*) throw(atdUtil::IOException);
-
     const std::list<const SyncRecordVariable*> getVariables()
     	throw(atdUtil::Exception);
 
-    size_t read(float *ptr,size_t len) throw();
+    /**
+     * Get number of floats in a sync record.
+     */
+    size_t getNumFloats() const { return numFloats; }
 
-    bool receive(const Sample* samp) throw();
+    /**
+     * Read a sync record.
+     * @param tt Pointer to a dsm_time_t variable to store the
+     *           sync record time tag (milliseconds since 1970 Jan 1 00:: GMT).
+     * @param ptr Pointer to the float array which the caller has allocated.
+     * @param len Number of floats to read. Use getNumFloats() to find
+     *            out the number of floats in a sync record.
+     */
+    size_t read(dsm_time_t* tt, float *ptr,size_t len) throw(atdUtil::IOException);
+
+protected:
+
+    int run() throw(atdUtil::Exception);
 
 private:
 
+    bool receive(const Sample*) throw();
+
     void scanHeader(const Sample* samp) throw();
+
+    SampleInputStream inputStream;
 
     std::string getQuotedString(std::istringstream& str);
     
-    sem_t varsSem;
+    SyncRecHeaderException* headException;
 
-    atdUtil::Mutex varsMutex;
-
-    SyncRecHeaderException* exception;
+    atdUtil::IOException* ioException;
 
     std::list<SampleTag*> sampleTags;
 
+    atdUtil::Cond varCond;
+
     std::list<const SyncRecordVariable*> variables;
 
-    sem_t readSem;
+    atdUtil::Semaphore syncRecSem;
 
-    atdUtil::Mutex recsMutex;
+    atdUtil::Cond syncRecCond;
 
     std::list<const Sample*> syncRecs;
 
+    size_t numFloats;
+
+    bool eof;
 
 };
-
 
 }
 

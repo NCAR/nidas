@@ -42,6 +42,8 @@ public:
 
     virtual ~SyncRecordSource();
 
+    void addSampleClient(SampleClient* c) throw();
+
     void init(const std::list<const DSMConfig*>& dsms) throw();
 
     bool receive(const Sample*) throw();
@@ -59,6 +61,8 @@ protected:
 protected:
 
     void sendHeader() throw();
+
+    void createHeader(std::ostream&) throw();
 
     bool initialized;
 
@@ -82,6 +86,11 @@ protected:
      * For each group, the sampling rate, rounded up to an integer.
      */
     std::vector<int> samplesPerSec;
+
+    /**
+     * For each group, the sampling rate, in floats.
+     */
+    std::vector<float> rates;
 
     /**
      * For each group, number of milliseconds per sample,

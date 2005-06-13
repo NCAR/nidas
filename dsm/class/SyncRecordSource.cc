@@ -44,6 +44,11 @@ SyncRecordSource::~SyncRecordSource()
 	delete [] vi2->second;
 }
 
+void SyncRecordSource::addSampleClient(SampleClient* c) throw()
+{
+    SampleSource::addSampleClient(c);
+    sendHeader();
+}
 
 void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 {
@@ -142,6 +147,11 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     cerr << "SyncRecordSource, recSize=" << recSize << endl;
 #endif
 
+    createHeader(headerStream);
+}
+
+void SyncRecordSource::createHeader(ostream& ost) throw()
+{
     // type abbreviations:
     //		n=normal, continuous
     //		c=counter
@@ -150,7 +160,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     const char vtypes[] = { 'n','c','t','o' };
 
     // write variable fields.
-    headerStream << "variables {" << endl;
+    ost << "variables {" << endl;
     list<const Variable*>::const_iterator vi;
     for (vi = variables.begin(); vi != variables.end(); ++vi) {
         const Variable* var = *vi;
@@ -160,7 +170,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 	if (iv < sizeof(vtypes)/sizeof(vtypes[0]))
 		vtypeabbr = vtypes[iv];
 
-	headerStream << var->getName() << ' ' <<
+	ost << var->getName() << ' ' <<
 		vtypeabbr << ' ' <<
 		var->getLength() << ' ' <<
 		"\"" << var->getUnits() << "\" " <<
@@ -169,7 +179,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 	if (conv) {
 	    const Linear* lconv = dynamic_cast<const Linear*>(conv);
 	    if (lconv) {
-	        headerStream << lconv->getIntercept() << ' ' <<
+	        ost << lconv->getIntercept() << ' ' <<
 			lconv->getSlope();
 	    }
 	    else {
@@ -177,13 +187,28 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 		if (pconv) {
 		    const std::vector<float>& coefs = pconv->getCoefficients();
 		    for (unsigned int i = 0; i < coefs.size(); i++)
-			headerStream << coefs[i] << ' ';
+			ost << coefs[i] << ' ';
 		}
 	    }
 	}
-	headerStream << ';' << endl;
+	ost << ';' << endl;
     }
-    headerStream << "}" << endl;
+    ost << "}" << endl;
+
+    // write rate entries
+    ost << "rates {" << endl;
+    for (unsigned int groupId = 0; groupId < varsOfRate.size(); groupId++) {
+        float rate = rates[groupId];
+	ost << fixed << setprecision(2) << rate << ' ';
+	list<const Variable*>::const_iterator vi;
+	for (vi = varsOfRate[groupId].begin();
+		vi != varsOfRate[groupId].end(); ++vi) {
+	    const Variable* var = *vi;
+	    ost << var->getName() << ' ';
+	}
+	ost << ';' << endl;
+    }
+    ost << "}" << endl;
 
 }
 
@@ -226,9 +251,9 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 		groupLengths.push_back(0);
 		groupOffsets.push_back(0);
 
+		rates.push_back(rate);
 		msecsPerSample.push_back((int)rint(1000. / rate));
 		samplesPerSec.push_back((int)ceil(rate));
-
 	    }
 	    else groupId = mi->second;
 #ifdef DEBUG
@@ -264,21 +289,6 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 	    }
 	}
     }
-    headerStream << "rates {" << endl;
-    // write group entries to header.
-    for (mi = groupsByRate.begin(); mi != groupsByRate.end(); ++mi) {
-        float rate = mi->first;
-	int groupId = mi->second;
-	headerStream << fixed << setprecision(2) << rate << ' ';
-	list<const Variable*>::const_iterator vi;
-	for (vi = varsOfRate[groupId].begin();
-		vi != varsOfRate[groupId].end(); ++vi) {
-	    const Variable* var = *vi;
-	    headerStream << var->getName() << ' ';
-	}
-	headerStream << ';' << endl;
-    }
-    headerStream << "}" << endl;
 }
 
 
