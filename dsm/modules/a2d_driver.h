@@ -71,7 +71,6 @@ typedef struct
 	size_t 			fifo24ctr;	// 1/4 < FIFO  < 1/2   event counter
 	size_t 			fifo14ctr;	// empty < FIFO <= 1/4  event counter
 	size_t 			fifoemptyctr;	// FIFO empty event counter
-	size_t 			rtlFifoWriteErrors;
 } A2D_STATUS;
 
 typedef struct 
@@ -108,7 +107,6 @@ typedef struct
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_CAL)
 #define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)
 #define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
-#define A2D_RESTART_IOCTL _IO(A2D_MAGIC,5)
 
 //A2D Status register bits
 #define	A2DINSTBSY	0x8000	//Instruction being performed

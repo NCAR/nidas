@@ -95,7 +95,6 @@ static struct ioctlCmd ioctlcmds[] = {
   { A2D_CAL_IOCTL, sizeof(A2D_CAL)  },
   { A2D_RUN_IOCTL,_IOC_SIZE(A2D_RUN_IOCTL) },
   { A2D_STOP_IOCTL,_IOC_SIZE(A2D_STOP_IOCTL) },
-  { A2D_RESTART_IOCTL,_IOC_SIZE(A2D_RESTART_IOCTL) },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
