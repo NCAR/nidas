@@ -152,8 +152,6 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	goto error;
     }
 
-    rtl_printf("openIoctlFIFO finished, handle=0x%x\n",(unsigned int)handle);
-
     return handle;
 error:
     closeIoctlFIFO(handle);
