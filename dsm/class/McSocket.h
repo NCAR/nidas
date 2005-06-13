@@ -85,7 +85,7 @@ public:
      */
     size_t write(const void* buf, size_t len) throw (atdUtil::IOException)
     {
-	return socket->send(buf,len);
+	return socket->send(buf,len,MSG_DONTWAIT | MSG_NOSIGNAL);
     }
 
     void close() throw (atdUtil::IOException);
