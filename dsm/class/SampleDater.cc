@@ -37,10 +37,12 @@ SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
     if (abs(tdiff) > maxClockDiffMsec) {
 	/* midnight rollover */
 	if (abs(tdiff + MSECS_PER_DAY) < maxClockDiffMsec) {
+#ifdef DEBUG
 	    cerr << "midnight rollover, sampleTime=" << sampleTime <<
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<
 		" samp-clock=" << sampleTime - clockTime << endl;
+#endif
 	    sampleTime += MSECS_PER_DAY;
 	}
 	else if (abs(tdiff - MSECS_PER_DAY) < maxClockDiffMsec) {
