@@ -44,12 +44,6 @@ SyncRecordSource::~SyncRecordSource()
 	delete [] vi2->second;
 }
 
-void SyncRecordSource::addSampleClient(SampleClient* c) throw()
-{
-    SampleSource::addSampleClient(c);
-    sendHeader();
-}
-
 void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 {
 
@@ -66,7 +60,7 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 	cerr << "SyncRecordSource, dsm=" << dsm->getName() << endl;
 #endif
@@ -321,6 +315,7 @@ void SyncRecordSource::sendHeader() throw()
 
     cerr << "sync header=" << endl << headstr << endl;
 
+    headerRec->setTimeTag(headerTime);
     headerRec->setId(SYNC_RECORD_HEADER_ID);
     strcpy(headerRec->getDataPtr(),headstr.c_str());
 

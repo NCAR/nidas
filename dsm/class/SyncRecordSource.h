@@ -42,8 +42,6 @@ public:
 
     virtual ~SyncRecordSource();
 
-    void addSampleClient(SampleClient* c) throw();
-
     void init(const std::list<const DSMConfig*>& dsms) throw();
 
     bool receive(const Sample*) throw();
