@@ -222,7 +222,6 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 		", #1/2=" << stat.fifo24ctr <<
 		", #1/4=" << stat.fifo14ctr <<
 		", #0/4=" << stat.fifoemptyctr <<
-		", #rtlFifoErrors=" << stat.rtlFifoWriteErrors <<
 		"</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
