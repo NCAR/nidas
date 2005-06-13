@@ -46,6 +46,7 @@ apps = Split("""
   sample_test.cc
   file_stats.cc
   file_dump.cc
+  sync_dump.cc
   status_listener.cc
 """)
 
