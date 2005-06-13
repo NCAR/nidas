@@ -25,12 +25,17 @@ namespace dsm {
 class SyncRecordVariable : public Variable
 {
 public:
-    int getSyncRecOffset() const;
+    int getSyncRecOffset() const { return offset; }
     void setSyncRecOffset(int val) { offset = val; }
+
+    int getLagOffset() const { return lagOffset; }
+    void setLagOffset(int val) { lagOffset = val; }
 
 protected:
 
     int offset;
+
+    int lagOffset;
 
 private:
 
