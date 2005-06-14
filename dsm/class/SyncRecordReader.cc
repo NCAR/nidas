@@ -26,7 +26,12 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 {
     inputStream.init();
     inputStream.addSampleClient(this);
+
+    blockSignal(SIGHUP);
+    blockSignal(SIGINT);
+    blockSignal(SIGTERM);
     start();
+
     varCond.lock();
     while (variables.size() == 0) varCond.wait();
     varCond.unlock();
@@ -88,9 +93,15 @@ bool SyncRecordReader::receive(const Sample* samp) throw()
 	// don't get too far ahead of the other thread
 	while (syncRecs.size() > 5) syncRecCond.wait();
         syncRecs.push_back(samp);
-	syncRecSem.post();
-	assert((unsigned)syncRecSem.getValue() == syncRecs.size());
+
+#ifdef DEBUG
+	if ((unsigned)syncRecSem.getValue() != syncRecs.size())
+	    cerr << "syncRecSem.getValue()=" << syncRecSem.getValue() <<
+		" syncRecs.size()=" << syncRecs.size() << endl;
+#endif
+	    
 	syncRecCond.unlock();
+	syncRecSem.post();
 
 	return true;
     }
@@ -344,30 +355,35 @@ string SyncRecordReader::getQuotedString(istringstream& istr)
 
 size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(atdUtil::IOException)
 {
-    syncRecSem.wait();
-    const Sample* samp = 0;
-    {
-        atdUtil::Synchronized autolock(syncRecCond);
-	if (syncRecs.size() == 0) {
-	    assert(eof || ioException != 0);
-	    if (eof) return 0;
-	    throw *ioException;
+    // wait for semaphore from thread that is putting samples into syncRecs
+    // If we get a signal, this wait will return, but there will be
+    // no data.
+    for (;;) {
+	syncRecSem.wait();
+	const Sample* samp = 0;
+	{
+	    atdUtil::Synchronized autolock(syncRecCond);
+	    if (syncRecs.size() == 0) {
+		if (!eof && ioException == 0) continue;	// no data, wait again
+		if (eof) return 0;
+		throw *ioException;
+	    }
+	    samp = syncRecs.front();
+	    syncRecs.pop_front();
+	    syncRecCond.signal();
 	}
-	samp = syncRecs.front();
-	syncRecs.pop_front();
-	syncRecCond.signal();
+
+	// cerr << "len=" << len << " samp->getDataLength=" << samp->getDataLength() << endl;
+	if (len > samp->getDataLength()) len = samp->getDataLength();
+	// cerr << "len=" << len << endl;
+
+	*tt = samp->getTimeTag();
+	memcpy(dest,samp->getConstVoidDataPtr(),len * sizeof(float));
+
+	samp->freeReference();
+
+	return len;
     }
-
-    // cerr << "len=" << len << " samp->getDataLength=" << samp->getDataLength() << endl;
-    if (len > samp->getDataLength()) len = samp->getDataLength();
-    // cerr << "len=" << len << endl;
-
-    *tt = samp->getTimeTag();
-    memcpy(dest,samp->getConstVoidDataPtr(),len * sizeof(float));
-
-    samp->freeReference();
-
-    return len;
 }
 
 const list<const SyncRecordVariable*> SyncRecordReader::getVariables() throw(atdUtil::Exception)
