@@ -115,7 +115,7 @@ void SamplePool<SampleType>::deleteInstance()
 }
 
 template<class SampleType>
-SamplePool<SampleType>::SamplePool<SampleType>():
+SamplePool<SampleType>::SamplePool():
     nsmall(0),nmedium(0),nsamplesOut(0),nsamplesAlloc(0)
 {
     // Initial size of pool of small samples around 16K bytes
@@ -131,7 +131,7 @@ SamplePool<SampleType>::SamplePool<SampleType>():
 }
 
 template<class SampleType>
-SamplePool<SampleType>::~SamplePool<SampleType>() {
+SamplePool<SampleType>::~SamplePool() {
     int i;
     for (i = 0; i < nsmall; i++) delete smallSamples[i];
     delete [] smallSamples;
