@@ -27,6 +27,7 @@ namespace dsm {
 class SampleClient {
 public:
 
+  virtual ~SampleClient() {}
   /**
    * Method called to pass a sample to this client.
    * This method is typically called by a SampleSource

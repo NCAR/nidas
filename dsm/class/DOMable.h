@@ -42,6 +42,12 @@ class DOMable {
 public:
 
     /**
+     * Virtual destructor.
+     */
+    virtual ~DOMable() = 0;
+
+    /**
+     * Initialize myself from a xercesc::DOMElement.
      */
     virtual void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException) = 0;
