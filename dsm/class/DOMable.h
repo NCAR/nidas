@@ -44,7 +44,7 @@ public:
     /**
      * Virtual destructor.
      */
-    virtual ~DOMable() = 0;
+    virtual ~DOMable() {}
 
     /**
      * Initialize myself from a xercesc::DOMElement.
