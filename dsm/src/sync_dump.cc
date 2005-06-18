@@ -240,23 +240,32 @@ int SyncDumper::main(int argc, char** argv)
     struct tm tm;
     char cstr[64];
 
-    for (;;) {
-	reader.read(&tt,rec,numFloats);
-	if (interrupted) break;
+    try {
+	for (;;) {
+	    size_t len = reader.read(&tt,rec,numFloats);
+	    if (interrupted) {
+		reader.interrupt();
+		continue;
+	    }
+	    if (len == 0) continue;
 
-	cerr << "lag= " << rec[lagoffset] << endl;
-	if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
+	    cerr << "lag= " << rec[lagoffset] << endl;
+	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 
-	for (int i = 0; i < irate; i++) {
-	    time_t ut = tt / 1000;
-	    gmtime_r(&ut,&tm);
-	    int msec = tt % 1000;
-	    strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
-	    cout << cstr << '.' << setw(3) << setfill('0') << msec << ' ' <<
-		rec[varoffset + i] << endl;
-	    tt += deltatMsec;
+	    for (int i = 0; i < irate; i++) {
+		time_t ut = tt / 1000;
+		gmtime_r(&ut,&tm);
+		int msec = tt % 1000;
+		strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
+		cout << cstr << '.' << setw(3) << setfill('0') << msec << ' ' <<
+		    rec[varoffset + i] << endl;
+		tt += deltatMsec;
+	    }
+	    cerr << endl;
 	}
-	cerr << endl;
+    }
+    catch (const atdUtil::IOException& ioe) {
+        cerr << ioe.what() << endl;
     }
     return 0;
 }
