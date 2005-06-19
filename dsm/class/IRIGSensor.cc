@@ -68,9 +68,34 @@ void IRIGSensor::open(int flags) throw(atdUtil::IOException)
     RTL_DSMSensor::open(flags);
 }
 
-void IRIGSensor::checkClock() throw(atdUtil::IOException)
+/**
+ * Get the current time from the IRIG card.
+ * This is not meant to be used for frequent use.
+ */
+dsm_time_t IRIGSensor::getIRIGTime() throw(atdUtil::IOException)
+{
+    unsigned char status;
+    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+
+    struct timeval tval;
+    ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
+
+    cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
+	tval.tv_usec << ", status=0x" << hex << (int)status << dec << endl;
+    return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
+}
+
+void IRIGSensor::setIRIGTime(dsm_time_t val) throw(atdUtil::IOException)
 {
     struct timeval tval;
+    cerr << "Setting IRIG clock to unix clock" << endl;
+    tval.tv_sec = val / USECS_PER_SEC;
+    tval.tv_usec = val % USECS_PER_SEC;
+    ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
+}
+
+void IRIGSensor::checkClock() throw(atdUtil::IOException)
+{
     dsm_time_t unixTime,unixTimeLast=0;
     dsm_time_t irigTime,irigTimeLast=0;
     unsigned char status;
@@ -79,22 +104,16 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
     	" (" << statusString(status,false) << ')' << endl;
 
-    ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
-    cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
-    irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
-
-    gettimeofday(&tval,0);
-    cerr << "UNIX     CLOCK=" << tval.tv_sec << ' ' << tval.tv_usec << endl;
-    unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
+    irigTime = getIRIGTime();
+    unixTime = getCurrentTime();
 
     if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
 	(status & CLOCK_STATUS_NOMAJT)) {
-	cerr << "Setting IRIG clock to unix clock" << endl;
-	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
+	setIRIGTime(unixTime);
     }
-    else if (::llabs(unixTime-irigTime) > 180*8640000LL) {
+    else if (::llabs(unixTime-irigTime) > 180LL*USECS_PER_DAY) {
 	cerr << "Setting year in IRIG clock" << endl;
-	ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
+	setIRIGTime(unixTime);
     }
 
     struct timespec nsleep;
@@ -107,15 +126,9 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	::nanosleep(&nsleep,0);
 
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
-	cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	    tval.tv_usec << ", status=0x" << hex << (int)status << dec << endl;
-	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
 
-	gettimeofday(&tval,0);
-	cerr << "UNIX     CLOCK=" << tval.tv_sec << ' ' <<
-	    tval.tv_usec << endl;
-	unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
+	irigTime = getIRIGTime();
+	unixTime = getCurrentTime();
 
 	if (ntry > 0) {
 	    double dtunix = unixTime - unixTimeLast;
@@ -123,7 +136,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	    cerr << "UNIX-IRIG=" << unixTime - irigTime <<
 		", dtunix=" << dtunix << ", dtirig=" << dtirig <<
 		", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
-	    if (::llabs(unixTime - irigTime) < 10000 &&
+	    if (::llabs(unixTime - irigTime) < 10 * USECS_PER_SEC &&
 		fabs(dtunix - dtirig) / dtunix < 1.e-2) break;
 	}
 
@@ -132,7 +145,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     }
     if (ntry == NTRY)
 	cerr << "IRIG clock not behaving, UNIX-IRIG=" <<
-	    unixTime-irigTime << " msecs" << endl;
+	    unixTime-irigTime << " usecs" << endl;
 
     cerr << "setting SampleDater clock to " << irigTime << endl;
     DSMEngine::getInstance()->getSampleDater()->setTime(irigTime);
@@ -175,8 +188,6 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
 void IRIGSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
-
-    struct timeval tval;
     dsm_time_t unixTime;
     dsm_time_t irigTime;
     unsigned char status;
@@ -186,13 +197,10 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 
 	ostr << "<td align=left>" << statusString(status,true) <<
 		" (status=0x" << hex << (int)status << dec << ')';
-	ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
-	irigTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
-
-	gettimeofday(&tval,0);
-	unixTime = ((dsm_time_t)tval.tv_sec) * 1000 + tval.tv_usec / 1000;
+	irigTime = getIRIGTime();
+	unixTime = getCurrentTime();
 	ostr << ", IRIG-UNIX=" << fixed << setprecision(3) <<
-		(float)(irigTime - unixTime)/1000. << " sec</td>" << endl;
+		(float)(irigTime - unixTime)/USECS_PER_SEC << " sec</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;

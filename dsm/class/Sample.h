@@ -34,7 +34,7 @@ namespace dsm {
  */
 const float floatNAN = nanf("");
 
-/** Milliseconds since Jan 1 1970, 00:00 UTC */
+/** Microseconds since Jan 1 1970, 00:00 UTC */
 typedef long long dsm_time_t;
 
 typedef unsigned long dsm_sample_id_t;
@@ -363,7 +363,7 @@ public:
 
 protected:
 
-    /* Time-tag. By convention, milliseconds since midnight 00:00 GMT */
+    /* Time-tag. By convention, microseconds since Jan 1, 1970 00:00 GMT */
     dsm_time_t tt; 
 
     /* Length of data (# of bytes) in the sample - does not include

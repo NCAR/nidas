@@ -246,7 +246,7 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 		groupOffsets.push_back(0);
 
 		rates.push_back(rate);
-		msecsPerSample.push_back((int)rint(1000. / rate));
+		usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
 		samplesPerSec.push_back((int)ceil(rate));
 	    }
 	    else groupId = mi->second;
@@ -385,8 +385,8 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
         
     int groupId = gi->second;
 
-    assert(groupId < (signed)msecsPerSample.size());
-    int msecsPerSamp = msecsPerSample[groupId];
+    assert(groupId < (signed)usecsPerSample.size());
+    int usecsPerSamp = usecsPerSample[groupId];
 
     int* varOffset = varOffsets[sampid];
     assert(varOffset);
@@ -395,22 +395,16 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     size_t numVar = numVars[sampid];
     assert(numVar);
 
-    // rate: samples/sec
-    // dt: millisec
-    // 1000/rate = 1000msec/sec * sec/sample =  msec/sample
-
-    // rate	msec/sample
-    //	1000	1
-    //	100	10
-    //	50	20
-    //  12.5	80
-    //  10	100
-    //	1	1000
+    // rate	usec/sample
+    //	1000	1000
+    //	100	10000
+    //	50	20000
+    //  12.5	80000
+    //  10	100000
+    //	1	1000000
     //
-    // rate=12.5, msec/sample=80
-    // rate=50
 
-    int timeIndex = (int)rint((tt - syncTime) / msecsPerSamp);
+    int timeIndex = (int)rint((tt - syncTime) / usecsPerSamp);
     assert(timeIndex < samplesPerSec[groupId]);
 
     switch (samp->getType()) {

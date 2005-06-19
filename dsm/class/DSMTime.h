@@ -11,9 +11,8 @@
     $HeadURL$
  ********************************************************************
 
- Some routines for getting the current system time, accurate
- to milliseconds.
-
+ Some routines for getting the current system time, with 
+ microsecond precision, but not microsecond accuracy.
 */
 
 
@@ -24,23 +23,47 @@
 
 #include <Sample.h>
 
-#define CLOCK_SAMPLE_ID 1
-
 #ifndef MSECS_PER_DAY
 #define MSECS_PER_DAY 86400000
 #define MSECS_PER_HALF_DAY 43200000
 #endif
 
+#ifndef USECS_PER_DAY
+#define USECS_PER_DAY 86400000000LL
+#define USECS_PER_HALF_DAY 43200000000LL
+#endif
+
+#ifndef MSECS_PER_SEC
+#define MSECS_PER_SEC 1000
+#endif
+
+#ifndef USECS_PER_SEC
+#define USECS_PER_SEC 1000000
+#endif
+
+#ifndef USECS_PER_MSEC
+#define USECS_PER_MSEC 1000
+#endif
+
+#ifndef NSECS_PER_SEC
+#define NSECS_PER_SEC 1000000000
+#endif
+
+#ifndef NSECS_PER_USEC
+#define NSECS_PER_USEC 1000
+#endif
+
+
 namespace dsm {
 
 /**
- * Return the current unix system time, in milliseconds.
+ * Return the current unix system time, in microseconds 
+ * since Jan 1, 1970, 00:00 GMT
  */
-inline dsm_time_t getCurrentTimeInMillis() {
+inline dsm_time_t getCurrentTime() {
     struct timeval tval;
     if (::gettimeofday(&tval,0) < 0) return 0L;   // shouldn't happen
-    return (dsm_time_t)(tval.tv_sec) * 1000 +
-    	(tval.tv_usec + 500) / 1000;
+    return (dsm_time_t)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
 
 /**

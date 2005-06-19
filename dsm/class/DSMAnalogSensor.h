@@ -135,40 +135,11 @@ protected:
     dsm_time_t *endTimes;
 
     /**
-     * If the delta t is not an even number of milliseconds,
-     * then we calculate the endTimes by
-     * @code
-     *	endTimes[i] = baseTimes[i] + deltatDouble[i] * ++nsamples[i];
-     * @endcode
-     * in order to avoid accumulation of errors.
+     * The output delta t, 1/rate, in microseconds.
      */
-    dsm_time_t *baseTimes;
+    int *deltatUsec;
 
-    /**
-     * Number of samples output for each SampleTag.
-     */
-    size_t *nsamps;
-
-    /**
-     * The output delta t, 1/rate, in milliseconds.
-     */
-    double *deltatDouble;
-
-    /**
-     * The output delta t, 1/rate, in milliseconds.
-     */
-    int *deltatInt;
-
-    /**
-     * Whether we can use deltatInt.
-     */
-    bool *deltatEvenMsec;
-
-    double minDeltatDouble;
-
-    int minDeltatInt;
-
-    bool minDeltatEvenMsec;
+    int minDeltatUsec;
 
     unsigned int nSamplePerRawSample;
 

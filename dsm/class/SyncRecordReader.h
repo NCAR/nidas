@@ -69,7 +69,7 @@ public:
     /**
      * Read a sync record.
      * @param tt Pointer to a dsm_time_t variable to store the
-     *           sync record time tag (milliseconds since 1970 Jan 1 00:: GMT).
+     *           sync record time tag (microseconds since 1970 Jan 1 00:: GMT).
      * @param ptr Pointer to the float array which the caller has allocated.
      * @param len Number of floats to read. Use getNumFloats() to find
      *            out the number of floats in a sync record.

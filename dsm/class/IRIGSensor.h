@@ -47,6 +47,17 @@ public:
      */
     void close() throw(atdUtil::IOException);
 
+    /**
+     * Get the current time from the IRIG card.
+     * This is not meant to be used for frequent use.
+     */
+    dsm_time_t getIRIGTime() throw(atdUtil::IOException);
+
+    /**
+     * Set the time on the IRIG card.
+     */
+    void setIRIGTime(dsm_time_t val) throw(atdUtil::IOException);
+
     static std::string statusString(unsigned char status,bool xml=false);
 
     void printStatus(std::ostream& ostr) throw();

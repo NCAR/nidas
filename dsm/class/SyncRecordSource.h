@@ -91,10 +91,10 @@ protected:
     std::vector<float> rates;
 
     /**
-     * For each group, number of milliseconds per sample,
-     * 1000/rate, truncated to an integer.
+     * For each group, number of microseconds per sample,
+     * 1000000/rate, truncated to an integer.
      */
-    std::vector<int> msecsPerSample;
+    std::vector<int> usecsPerSample;
 
     /**
      * Number of floats in each group.

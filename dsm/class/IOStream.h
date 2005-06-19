@@ -81,10 +81,10 @@ public:
      * physical device either when the buffer is full, or if this
      * many seconds have elapsed since the last write.
      * This is a useful parameter for real-time applications.
-     * @param val Number of milliseconds between physical writes.
-     *        Default: 1000 milliseconds.
+     * @param val Number of microseconds between physical writes.
+     *        Default: 250000 microseconds (1/4 sec)
      */
-    void setMaxTimeBetweenWrites(int val) { maxMsecs = val; }
+    void setMaxTimeBetweenWrites(int val) { maxUsecs = val; }
 
     /**
      * This is a useful parameter for socket connections.
@@ -92,10 +92,10 @@ public:
      * the frequency of attempted writes. If a physical
      * write partially succeeds, then successive writes
      * will be delayed by this amount.
-     * @param val Number of milliseconds between physical writes.
-     *        Default: 250 milliseconds.
+     * @param val Number of microseconds between physical writes.
+     *        Default: 250000 microseconds (1/4 sec).
      */
-    void setWriteBackoffTime(int val) { backoffMsecs = val; }
+    void setWriteBackoffTime(int val) { backoffUsecs = val; }
 
     /**
      * Write data.  This supports an atomic write of
@@ -162,15 +162,15 @@ protected:
     char* eob;
 
     /**
-     * Maximum number of milliseconds between physical writes.
+     * Maximum number of microseconds between physical writes.
      */
-    int maxMsecs;
+    int maxUsecs;
 
     /**
-     * Back off period in milliseconds if physical device is not
+     * Back off period in microseconds if physical device is not
      * being cooperative.
      */
-    int backoffMsecs;
+    int backoffUsecs;
 
     /**
      * Time of last physical write.

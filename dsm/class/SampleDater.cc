@@ -23,34 +23,34 @@ using namespace std;
 void SampleDater::setTime(dsm_time_t clockT)
 {
     clockTime = clockT;
-    t0day = timeFloor(clockTime,MSECS_PER_DAY);
+    t0day = timeFloor(clockTime,USECS_PER_DAY);
 }
 
 
 SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
 {
-    assert(samp->getTimeTag() < MSECS_PER_DAY);
+    assert(samp->getTimeTag() < USECS_PER_DAY);
     dsm_time_t sampleTime = t0day + samp->getTimeTag();
 
     int tdiff = sampleTime - clockTime;
 
-    if (abs(tdiff) > maxClockDiffMsec) {
+    if (abs(tdiff) > maxClockDiffUsec) {
 	/* midnight rollover */
-	if (abs(tdiff + MSECS_PER_DAY) < maxClockDiffMsec) {
+	if (abs(tdiff + USECS_PER_DAY) < maxClockDiffUsec) {
 #ifdef DEBUG
 	    cerr << "midnight rollover, sampleTime=" << sampleTime <<
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<
 		" samp-clock=" << sampleTime - clockTime << endl;
 #endif
-	    sampleTime += MSECS_PER_DAY;
+	    sampleTime += USECS_PER_DAY;
 	}
-	else if (abs(tdiff - MSECS_PER_DAY) < maxClockDiffMsec) {
+	else if (abs(tdiff - USECS_PER_DAY) < maxClockDiffUsec) {
 	    cerr << "backwards time near midnight, sampleTime=" << sampleTime <<
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<
 		" samp-clock=" << sampleTime - clockTime << endl;
-	    sampleTime -= MSECS_PER_DAY;
+	    sampleTime -= USECS_PER_DAY;
 	}
 	else {
 	    if (t0day == 0) return NO_CLOCK;

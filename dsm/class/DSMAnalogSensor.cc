@@ -31,9 +31,8 @@ CREATOR_ENTRY_POINT(DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     RTL_DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
-    endTimes(0),baseTimes(0),nsamps(0),
-    deltatDouble(0),deltatInt(0),deltatEvenMsec(0),
-    nSamplePerRawSample(0),
+    endTimes(0),
+    deltatUsec(0),nSamplePerRawSample(0),
     outsamples(0)
 {
 }
@@ -45,11 +44,7 @@ DSMAnalogSensor::~DSMAnalogSensor()
     delete [] convSlope;
     delete [] convIntercept;
     delete [] endTimes;
-    delete [] baseTimes;
-    delete [] nsamps;
-    delete [] deltatDouble;
-    delete [] deltatInt;
-    delete [] deltatEvenMsec;
+    delete [] deltatUsec;
     if (outsamples) {
 	for (unsigned int i = 0; i < rateVec.size(); i++)
 	    if (outsamples[i]) outsamples[i]->freeReference();
@@ -168,12 +163,8 @@ void DSMAnalogSensor::init() throw()
 
     unsigned int nsamples = rateVec.size();
 
-    deltatDouble = new double[nsamples];
-    deltatInt = new int[nsamples];
-    deltatEvenMsec = new bool[nsamples];
+    deltatUsec = new int[nsamples];
     endTimes = new dsm_time_t[nsamples];
-    baseTimes = new dsm_time_t[nsamples];
-    nsamps = new size_t[nsamples];
 
     float maxRate = 0.0;
     int imax = 0;
@@ -182,15 +173,10 @@ void DSMAnalogSensor::init() throw()
 	    maxRate = rateVec[i];
 	    imax = i;
 	}
-	deltatDouble[i] = 1000.0 / rateVec[i];
-	deltatInt[i] = (int)rint(1000 / rateVec[i]);
-	deltatEvenMsec[i] = (deltatInt[i] == deltatDouble[i]);
+	deltatUsec[i] = (int)rint(USECS_PER_SEC / rateVec[i]);
 	endTimes[i] = 0;
-	baseTimes[i] = 0;
     }
-    minDeltatDouble = deltatDouble[imax];
-    minDeltatInt = deltatInt[imax];
-    minDeltatEvenMsec = deltatEvenMsec[imax];
+    minDeltatUsec = deltatUsec[imax];
 
 #define REPORTING_RATE 100
     if (maxRate >= REPORTING_RATE) {
@@ -233,13 +219,12 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 {
 
     dsm_time_t tt = insamp->getTimeTag();
-    dsm_time_t tt0 = tt;
 
     // pointer to raw A2D counts
     const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
 
     // number of data values in this raw sample.
-    unsigned int nvalues = insamp->getDataLength() / sizeof(short);
+    unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
 
     // number of variables being sampled
     unsigned int nvariables = sampleIndexVec.size();
@@ -269,7 +254,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 #endif
 	    if (tt > endTimes[sampIndex]) {
 		if (osamp) {
-		    osamp->setTimeTag(endTimes[sampIndex] - deltatInt[sampIndex]/2);
+		    osamp->setTimeTag(endTimes[sampIndex] - deltatUsec[sampIndex]/2);
 #ifdef DEBUG
 		    cerr << "tt=" << osamp->getTimeTag() <<
 			    " len=" << osamp->getDataLength() << " data:";
@@ -278,30 +263,12 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 		    cerr << endl;
 #endif
 		    result.push_back(osamp);	// pass the sample on
-		    if (deltatEvenMsec[sampIndex]) {
-			endTimes[sampIndex] += deltatInt[sampIndex];
-			if (tt > endTimes[sampIndex])
-			    endTimes[sampIndex] = timeCeiling(tt,deltatInt[sampIndex]);
-		    }
-		    else {
-			endTimes[sampIndex] =
-			    baseTimes[sampIndex] +
-			    (long long) rint(++nsamps[sampIndex] *
-			    	deltatDouble[sampIndex]);
-			if (tt > endTimes[sampIndex]) {
-			    int nt = (int)ceil((tt - endTimes[sampIndex]) /
-			    	deltatDouble[sampIndex]);
-			    nsamps[sampIndex] += nt;
-			    endTimes[sampIndex] +=
-			    	(long long)rint(nt * deltatDouble[sampIndex]);
-			}
-		    }
+		    endTimes[sampIndex] += deltatUsec[sampIndex];
+		    if (tt > endTimes[sampIndex])
+			endTimes[sampIndex] = timeCeiling(tt,deltatUsec[sampIndex]);
 		}
-		else {
-		    baseTimes[sampIndex] = timeCeiling(tt,deltatInt[sampIndex]);
-		    endTimes[sampIndex] = baseTimes[sampIndex];
-		    nsamps[sampIndex] = 0;
-		}
+		else
+		    endTimes[sampIndex] = timeCeiling(tt,deltatUsec[sampIndex]);
 #ifdef DEBUG
 		cerr << "getSample, numVarsInSample[" << sampIndex << "]=" << numVarsInSample[sampIndex] << endl;
 #endif
@@ -327,8 +294,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	}
 
 	isamp++;
-	if (minDeltatEvenMsec) tt += minDeltatInt;
-	else tt = tt0 + (long long) rint(minDeltatDouble * isamp);
+	tt += minDeltatUsec;
     }
     return true;
 }

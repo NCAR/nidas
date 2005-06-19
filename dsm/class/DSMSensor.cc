@@ -128,7 +128,8 @@ dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 
 	len = header.length;
 	samp = getSample<char>(len);
-	samp->setTimeTag(header.timetag);
+	// convert time tag to microseconds since 00:00 GMT
+	samp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_MSEC);
 	samp->setDataLength(len);
 	samp->setId(getId());	// set sample id to id of this sensor
 	sampDataPtr = (char*) samp->getVoidDataPtr();
@@ -193,10 +194,9 @@ void DSMSensor::calcStatistics(unsigned long periodMsec)
     maxSampleLength[currStatsIndex] = 0;
     minSampleLength[currStatsIndex] = 999999999;
 										
-    // periodMsec is in milliseconds, hence the factor of 1000.
-    sampleRateObs = (float)nsamples / periodMsec * 1000.;
+    sampleRateObs = ((float)nsamples / periodMsec) * MSECS_PER_SEC;
 
-    dataRateObs = (float)nbytes / periodMsec * 1000.;
+    dataRateObs = ((float)nbytes / periodMsec) * MSECS_PER_SEC;
 
     readErrorCount[0] = writeErrorCount[0] = 0;
 

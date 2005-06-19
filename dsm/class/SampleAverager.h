@@ -20,6 +20,7 @@
 #include <SampleClient.h>
 #include <SampleTag.h>
 #include <Variable.h>
+#include <DSMTime.h>
 
 namespace dsm {
 
@@ -33,17 +34,19 @@ public:
     virtual ~SampleAverager();
 
     /**
-     * Set average period, in milliseconds.
+     * Set average period.
+     * @param val average period, in milliseconds.
      */
     void setAveragePeriod(int val) {
-        averagePeriod = val;
-	sampleTag.setRate(val/1000.);
+        averagePeriod = val * USECS_PER_MSEC;
+	sampleTag.setRate((float)val / MSECS_PER_SEC);
     }
 
     /**
-     * Get average period, in milliseconds.
+     * Get average period.
+     * @return average period, in milliseconds.
      */
-    int getAveragePeriod() const { return averagePeriod; }
+    int getAveragePeriod() const { return averagePeriod / USECS_PER_MSEC; }
 
     void init() throw();
 

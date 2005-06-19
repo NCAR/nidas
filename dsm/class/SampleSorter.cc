@@ -24,8 +24,8 @@
 using namespace dsm;
 using namespace std;
 
-SampleSorter::SampleSorter(int buflenInMilliSec_a, const string& name) :
-    Thread(name),buflenInMillisec(buflenInMilliSec_a),
+SampleSorter::SampleSorter(int sorterLength, const string& name) :
+    Thread(name),sorterLengthUsec(sorterLength*USECS_PER_MSEC),
     samplesAvail("samplesAvail"),threadSignalFactor(10),
     sampleCtr(0)
 {
@@ -48,7 +48,7 @@ SampleSorter::~SampleSorter() {
  */
 int SampleSorter::run() throw(atdUtil::Exception) {
 
-    cerr << "SampleSorter, buflenInMillisec=" << buflenInMillisec << endl;
+    cerr << "SampleSorter, sorterLengthUsec=" << sorterLengthUsec << endl;
     for (;;) {
 
 	// If another thread is interrupting us, we don't want the 
@@ -74,7 +74,7 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 #endif
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 	if (latest == samples.rend()) continue;	// empty
-	dsm_time_t tt = (*latest)->getTimeTag() - buflenInMillisec;
+	dsm_time_t tt = (*latest)->getTimeTag() - sorterLengthUsec;
 	dummy.setTimeTag(tt);
 	// cerr << "tt=" << tt << endl;
 	/*

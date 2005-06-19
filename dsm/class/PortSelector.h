@@ -59,16 +59,37 @@ public:
     void addRemoteSerialConnection(RemoteSerialConnection*);
     void removeRemoteSerialConnection(RemoteSerialConnection*);
 
-    void setTimeoutMsec(int val);
-    int getTimeoutMsec() const;
+    /**
+     * Set the length of time to wait in the select.
+     * This shouldn't be set too long during the time
+     * one is opening and adding sensors to the PortSelector.
+     * @param val length of time, in milliseconds.
+     */
+    void setTimeout(int val);
 
-    void setTimeoutWarningMsec(int val);
-    int getTimeoutWarningMsec() const;
+    int getTimeout() const;
+
+    /**
+     * Set the timeout warning period. After no data has
+     * been received on any port for this period, issue a warning.
+     * @param val length of time, in milliseconds.
+     */
+    void setTimeoutWarning(int val);
+
+    int getTimeoutWarning() const;
 
     void calcStatistics(dsm_time_t);
 
-    void setStatisticsPeriodInSecs(int val) { statisticsPeriod = val * 1000; }
-    int getStatisticsPeriodInSecs() const { return statisticsPeriod / 1000; }
+    /**
+     * Set the statistics period.
+     * @param val Period, in milliseconds.
+     */
+    void setStatisticsPeriod(int val) { statisticsPeriod = val * USECS_PER_MSEC; }
+    /**
+     * Get the statistics period.
+     * @return Period, in milliseconds.
+     */
+    int getStatisticsPeriod() const { return statisticsPeriod / USECS_PER_MSEC; }
 
     int getSelectErrors() const { return selectErrors; }
     int getRemoteSerialListenErrors() const { return rserialListenErrors; }
@@ -117,6 +138,9 @@ protected:
 
     dsm_time_t statisticsTime;
 
+    /**
+     * Statistics period, in microseconds.
+     */
     unsigned long statisticsPeriod;
 
 };

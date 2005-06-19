@@ -36,7 +36,7 @@ bool GPS_HW_HG2021GB02::process(const Sample* samp,list<const Sample*>& results)
 
   // absolute time at 00:00 GMT of day.
   dsm_time_t t0day = samp->getTimeTag() -
-  	(samp->getTimeTag() % MSECS_PER_DAY);
+  	(samp->getTimeTag() % USECS_PER_DAY);
   dsm_time_t tt;
 
   for (int i=0; i<nfields; i++) {
@@ -49,13 +49,13 @@ bool GPS_HW_HG2021GB02::process(const Sample* samp,list<const Sample*>& results)
 
     // pSamp[i].time is the number of milliseconds since midnight
     // for the individual label. Use it to create a correct
-    // time tag for the label.
-    tt = t0day + pSamp[i].time;
+    // time tag for the label, in units of microseconds.
+    tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
 
     // correct for problems around midnight rollover
-    if (::llabs(tt - samp->getTimeTag()) > MSECS_PER_HALF_DAY) {
-        if (tt > samp->getTimeTag()) tt -= MSECS_PER_DAY;
-        else tt += MSECS_PER_DAY;
+    if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
+        if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
+        else tt += USECS_PER_DAY;
     }
     outs->setTimeTag(tt);
 

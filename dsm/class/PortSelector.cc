@@ -27,23 +27,24 @@ using namespace dsm;
 
 PortSelector::PortSelector() :
   Thread("PortSelector"),portsChanged(false),
-  rserial(0),rserialConnsChanged(false),
-  statisticsPeriod(60000)
+  rserial(0),rserialConnsChanged(false)
 {
+  setStatisticsPeriod(60 * MSECS_PER_SEC);
+
   /* start out with a 1/10 second select timeout.
    * While we're adding sensors we want select to
    * timeout fairly quickly, so when new SensorPorts are opened
-   * and added that they are read from without much time delay.
+   * and added they are read from without much time delay.
    * Otherwise if you add a sensor that isn't transmitting,
    * then one which is generating alot of output, the buffers for
    * the second sensor may fill before the first timeout.
    * Later it can be increased, but there may not be much to 
    * gain from increasing it.
    */
-  setTimeoutMsec(100);
-  setTimeoutWarningMsec(300000);
+  setTimeout(MSECS_PER_SEC / 10);
+  setTimeoutWarning(300 * MSECS_PER_SEC);
   FD_ZERO(&readfdset);
-  statisticsTime = timeCeiling(getCurrentTimeInMillis(),
+  statisticsTime = timeCeiling(getCurrentTime(),
   	statisticsPeriod);
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
@@ -65,29 +66,29 @@ PortSelector::~PortSelector()
 }
 
 
-void PortSelector::setTimeoutMsec(int val) {
+void PortSelector::setTimeout(int val) {
   timeoutMsec = val;
-  timeoutSec = val / 1000;
-  timeoutUsec = (val % 1000) * 1000;
+  timeoutSec = val / MSECS_PER_SEC;
+  timeoutUsec = (val % MSECS_PER_SEC) * USECS_PER_MSEC;
 }
 
-int PortSelector::getTimeoutMsec() const {
-  return timeoutSec * 1000 + timeoutUsec / 1000;
+int PortSelector::getTimeout() const {
+  return timeoutSec * MSECS_PER_SEC + timeoutUsec / USECS_PER_MSEC;
 }
 
-void PortSelector::setTimeoutWarningMsec(int val) {
+void PortSelector::setTimeoutWarning(int val) {
   timeoutWarningMsec = val;
 }
 
-int PortSelector::getTimeoutWarningMsec() const {
+int PortSelector::getTimeoutWarning() const {
   return timeoutWarningMsec;
 }
 
-void PortSelector::calcStatistics(dsm_time_t tnowMsec)
+void PortSelector::calcStatistics(dsm_time_t tnow)
 {
   statisticsTime += statisticsPeriod;
-  if (statisticsTime < tnowMsec)
-    statisticsTime = timeCeiling(tnowMsec,statisticsPeriod);
+  if (statisticsTime < tnow)
+    statisticsTime = timeCeiling(tnow,statisticsPeriod);
 
   for (unsigned int ifd = 0; ifd < activeSensorPortFds.size(); ifd++) {
     DSMSensor *port = activeSensorPorts[ifd];
@@ -146,7 +147,7 @@ int PortSelector::run() throw(atdUtil::Exception)
 	  timeoutSumMsec = 0;
 	}
       }
-      rtime = getCurrentTimeInMillis();
+      rtime = getCurrentTime();
       if (rtime > statisticsTime) calcStatistics(rtime);
       continue;
     }

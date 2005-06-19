@@ -23,12 +23,12 @@ using namespace std;
 
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	iochannel(iochan),buflen(blen),maxMsecs(1000),newFile(true)
+	iochannel(iochan),buflen(blen),maxUsecs(USECS_PER_SEC/4),newFile(true)
 {
     buffer = new char[buflen * 2];
     eob = buffer + buflen * 2;
     head = tail = buffer;
-    lastWrite = getCurrentTimeInMillis();
+    lastWrite = getCurrentTime();
 }
 
 IOStream::~IOStream()
@@ -119,8 +119,8 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
     // large writes, bigger than 1/2 the buffer size
     bool largewrite = tlen > buflen;
 
-    dsm_time_t tnow = getCurrentTimeInMillis();
-    int tdiff = tnow - lastWrite;
+    dsm_time_t tnow = getCurrentTime();
+    int tdiff = tnow - lastWrite;	// microseconds
 
     int nagain = 0;
 
@@ -134,7 +134,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 	/* number of bytes in buffer */
 	size_t wlen = head - tail;
 
-	if ((wlen > 0) && (wlen >= buflen || tdiff >= maxMsecs)) {
+	if ((wlen > 0) && (wlen >= buflen || tdiff >= maxUsecs)) {
 	    if (wlen > buflen) wlen = buflen;
 	    try {
 		l = iochannel.write(tail,wlen);
@@ -216,6 +216,6 @@ void IOStream::flush() throw (atdUtil::IOException)
     }
     tail += l;
     if (tail == head) tail = head = buffer;
-    lastWrite = getCurrentTimeInMillis();
+    lastWrite = getCurrentTime();
 }
 
