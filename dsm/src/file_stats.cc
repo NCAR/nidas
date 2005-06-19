@@ -184,15 +184,17 @@ void CounterClient::printResults()
     	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
-	time_t ut = t1s[id] / 1000;
+	time_t ut = t1s[id] / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
-	sprintf(tstr + strlen(tstr),".%03d",(int)(t1s[id] % 1000));
+	int msec = (int)(t1s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t1str(tstr);
-	ut = t2s[id] / 1000;
+	ut = t2s[id] / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
-	sprintf(tstr + strlen(tstr),".%03d",(int)(t2s[id] % 1000));
+	msec = (int)(t2s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
         cout << left << setw(maxlen) << sensorNames[id] << right << ' ' <<
 	    setw(4) << GET_DSM_ID(id) << ' ' <<
@@ -200,7 +202,7 @@ void CounterClient::printResults()
 	    ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
-	    float(nsamps[id]) / ((t2s[id]-t1s[id]) / 1000.) << endl;
+	    float(nsamps[id]) / ((t2s[id]-t1s[id]) / USECS_PER_SEC) << endl;
     }
 }
 

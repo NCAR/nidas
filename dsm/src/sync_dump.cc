@@ -233,7 +233,7 @@ int SyncDumper::main(int argc, char** argv)
     size_t varoffset = var->getSyncRecOffset();
     size_t lagoffset = lagoffset = var->getLagOffset();
     int irate = (int)ceil(var->getSampleRate());
-    int deltatMsec = (int)rint(1000. / var->getSampleRate());
+    int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
 
     dsm_time_t tt;
     float* rec = new float[numFloats];
@@ -253,13 +253,13 @@ int SyncDumper::main(int argc, char** argv)
 	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 
 	    for (int i = 0; i < irate; i++) {
-		time_t ut = tt / 1000;
+		time_t ut = tt / USECS_PER_SEC;
 		gmtime_r(&ut,&tm);
-		int msec = tt % 1000;
+		int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
 		strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
 		cout << cstr << '.' << setw(3) << setfill('0') << msec << ' ' <<
 		    rec[varoffset + i] << endl;
-		tt += deltatMsec;
+		tt += deltatUsec;
 	    }
 	    cerr << endl;
 	}

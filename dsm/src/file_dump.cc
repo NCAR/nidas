@@ -182,9 +182,9 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     struct tm tm;
     char cstr[64];
-    time_t ut = tt / 1000;
+    time_t ut = tt / USECS_PER_SEC;
     gmtime_r(&ut,&tm);
-    int msec = tt % 1000;
+    int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
     strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
     ostr << cstr << '.' << setw(3) << setfill('0') << msec << ' ';
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';

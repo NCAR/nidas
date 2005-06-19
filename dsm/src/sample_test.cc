@@ -105,9 +105,9 @@ int TestSource::run() throw(atdUtil::Exception)
 	// random sizes between 1 and 100
         SampleT<char>* samp = getSample<char>(random() / (RAND_MAX / 100)+1);
 
-	dsm_time_t tnow = getCurrentTimeInMillis();
-	// add 10 milliseconds of noise
-	samp->setTimeTag(tnow + random() / (RAND_MAX / 100) );
+	dsm_time_t tnow = getCurrentTime();
+	// add 10000 microseconds of noise
+	samp->setTimeTag(tnow + random() / (RAND_MAX / (USECS_PER_MSEC * 10)) );
 	samp->setId(0x0010);
 	distribute(samp);
 	samp->freeReference();
