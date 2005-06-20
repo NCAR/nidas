@@ -50,5 +50,8 @@ apps = Split("""
   status_listener.cc
 """)
 
+nodes = []
 for i in apps:
-  myenv.Program( i )
+  nodes += myenv.Program( i )
+
+myenv.Install('$ADS3_INSTALL/bin',nodes)

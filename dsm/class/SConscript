@@ -134,4 +134,6 @@ myenv.CXXFile(target='AsciiScanner.cc',source='AsciiScanner.ll')
 ##  Build the libArmDsm.a library.
 ##
 ## myenv.StaticLibrary('Dsm' , sources)
-myenv.SharedLibrary('Dsm' , sources)
+lib = myenv.SharedLibrary('Dsm' , sources)
+
+myenv.Install('$ADS3_INSTALL/lib',lib)
