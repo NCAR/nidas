@@ -263,6 +263,7 @@
 	        <socket type="mcaccept"/>
 	    </output>
 	</service>
+    <service class="XmlRpcService"/>
 	<service class="RawSampleService">
 	    <!-- input from every DSM on this aircraft that has
 		 a socket output of type RawSampleOutputStream -->
@@ -299,7 +300,7 @@
     </server>
 
 <!--
-    <dsm name="dsm-444" location="cabin" id="0">
+    <dsm name="viper-444" location="cabin" id="0">
         <irigSensor  IDREF="IRIG"   devicename="/dev/irig0"  id="100"/>
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
         <arincSensor IDREF="GPS-GV" devicename="/dev/arinc1" id="2000"/>
