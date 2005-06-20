@@ -127,6 +127,7 @@
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
     <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
     <xsd:attribute name="count" type="xsd:boolean" default="false"/>
+    <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
 </xsd:complexType>
 
 <xsd:complexType name="sample">
