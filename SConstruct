@@ -7,7 +7,7 @@ Help("""
 targets
 (none) build ARM driver modules and ARM & X86 library and executables.
 x86    build library and executable programs for X86.
-arm    build library and executable programs for ARM.
+arm    build driver modules, library and executable programs for ARM.
 lib    build library for X86 and ARM.
 x86_install  build and install X86 library and executables.
 arm_install  build and install ARM modules, library and executables.
