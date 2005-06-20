@@ -136,23 +136,32 @@ int main(int argc, char** argv)
     cout << (rstr._website+string("list.html")).c_str() << endl;
     cout.flush();
 
+    // refresh the list frame every 5 seconds
+    outList << "<meta http-equiv=\"Refresh\" content=\"5\">" << endl;
+
     // block me with a semaphor! another thread is writing _active
     listener._activeMutex.lock();
     map<string, string>::const_iterator mi;
     for ( mi =  listener._active.begin();
           mi != listener._active.end(); ++mi) {
 
-      // <a href="dsm301.html" target="stat">dsm301</a>
-      outList << "<a href=\"" << mi->first
-              << ".html\" target=\"stat\">"
-              << mi->first << "</a>" << endl;
-
       outStat.open( (rstr._website+mi->first+string(".html")).c_str(), ofstream::out );
+      outStat << "<meta http-equiv=\"Refresh\" content=\"5\">" << endl;
       outStat << mi->second << endl;
+      outStat.close();
+
+      // <a href="dsm301.html" target="stat">dsm301  (2004/12/12 24:00:00)<p></a>
+      if (!mi->second.compare("<font color"))
+        outList << "<a href=\"" << mi->first
+                << ".html\" target=\"stat\">"
+                << mi->first << "<p></a>" << endl;
+      else
+        outList << "<a href=\"" << mi->first
+                << ".html\" target=\"stat\"><font color=red>"
+                << mi->first << "</font><p></a>" << endl;
+
       cout << (rstr._website+mi->first+string(".html")).c_str() << endl;
       cout.flush();
-
-      outStat.close();
     }
     listener._activeMutex.unlock();
 
