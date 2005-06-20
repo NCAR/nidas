@@ -261,7 +261,7 @@ int SyncDumper::main(int argc, char** argv)
 		    rec[varoffset + i] << endl;
 		tt += deltatUsec;
 	    }
-	    cerr << endl;
+	    cout << endl;
 	}
     }
     catch (const atdUtil::IOException& ioe) {
