@@ -65,5 +65,8 @@ modules = Split("""
 ##
 ##  Build the modules
 ##
+objs = []
 for i in modules:
-  myenv.Object( i )
+  objs += myenv.Object( i )
+
+myenv.Install('$ADS3_INSTALL/modules',objs)
