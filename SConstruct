@@ -144,8 +144,8 @@ x86_env.AppendUnique(LIBPATH =
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
 ##
 x86_env.AppendUnique(RPATH = [
-    '$ADS3_INSTALL/lib',
-    x86_env.Dir("#dsm/class/x86").get_abspath()
+    x86_env.Dir("#dsm/class/x86").get_abspath(),
+    '$ADS3_INSTALL/lib'
     ]) 
 
 ##
