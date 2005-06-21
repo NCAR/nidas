@@ -44,8 +44,8 @@ apps = Split("""
   ck_serial.cc
   ck_config.cc
   sample_test.cc
-  file_stats.cc
-  file_dump.cc
+  data_stats.cc
+  data_dump.cc
   sync_dump.cc
   status_listener.cc
 """)
