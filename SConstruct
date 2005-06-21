@@ -214,3 +214,4 @@ Alias('x86_install', [
     ]
 )
 
+Alias('install', ['arm_install','x86_install'])
