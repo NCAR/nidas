@@ -323,11 +323,12 @@ bool PSQLSampleOutput::receive(const Sample* samp) throw()
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
 
     struct tm tm;
-    time_t tt = (time_t)(samp->getTimeTag() / 1000);
+    time_t tt = (time_t)(samp->getTimeTag() / USECS_PER_SEC);
     gmtime_r(&tt,&tm);
     char tstr[32];
     strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",&tm);
-    sprintf(tstr+strlen(tstr),".%03d",(int)(samp->getTimeTag() % 1000));
+    sprintf(tstr+strlen(tstr),".%03d",
+    	(int)(samp->getTimeTag() % USECS_PER_SEC) / USECS_PER_MSEC);
 
     ostringstream costr;
     if (first) {

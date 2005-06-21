@@ -88,7 +88,6 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(atdUtil::IOException)
 void IRIGSensor::setIRIGTime(dsm_time_t val) throw(atdUtil::IOException)
 {
     struct timeval tval;
-    cerr << "Setting IRIG clock to unix clock" << endl;
     tval.tv_sec = val / USECS_PER_SEC;
     tval.tv_usec = val % USECS_PER_SEC;
     ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
@@ -109,6 +108,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
     if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
 	(status & CLOCK_STATUS_NOMAJT)) {
+	cerr << "Setting IRIG clock to unix clock" << endl;
 	setIRIGTime(unixTime);
     }
     else if (::llabs(unixTime-irigTime) > 180LL*USECS_PER_DAY) {
@@ -118,7 +118,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
     struct timespec nsleep;
     nsleep.tv_sec = 0;
-    nsleep.tv_nsec = 100000000;		// 1/10th sec
+    nsleep.tv_nsec = NSECS_PER_SEC / 10;		// 1/10th sec
     int ntry = 0;
     const int NTRY = 50;
     for (ntry = 0; ntry < NTRY; ntry++) {

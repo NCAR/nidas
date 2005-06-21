@@ -331,7 +331,7 @@ void SyncRecordSource::flush() throw()
 	distribute(syncRecord);
 	syncRecord->freeReference();
 	syncRecord = 0;
-	syncTime += 1000;
+	syncTime += USECS_PER_SEC;
     }
 }
 
@@ -346,7 +346,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
 
     if (!syncRecord) {
-        syncTime = tt - (tt % 1000);
+        syncTime = tt - (tt % USECS_PER_SEC);
 	allocateRecord(syncTime);
     }
 	
@@ -358,7 +358,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 #endif
 	return false;
     }
-    if (tt >= syncTime + 1000) {
+    if (tt >= syncTime + USECS_PER_SEC) {
 #ifdef DEBUG
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
@@ -367,9 +367,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	if (doHeader) sendHeader();
 
 	flush();
-	if (tt >= syncTime + 1000) {	// leap forward
+	if (tt >= syncTime + USECS_PER_SEC) {	// leap forward
 	    badTimes++;
-	    syncTime = tt - (tt % 1000);
+	    syncTime = tt - (tt % USECS_PER_SEC);
 	}
 	allocateRecord(syncTime);
     }

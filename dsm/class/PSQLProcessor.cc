@@ -28,7 +28,7 @@ CREATOR_ENTRY_POINT(PSQLProcessor)
 PSQLProcessor::PSQLProcessor(): SampleIOProcessor(),input(0)
 {
     setName("PSQLProcessor");
-    averager.setAveragePeriod(1000);
+    averager.setAveragePeriod(MSECS_PER_SEC);
 }
 
 PSQLProcessor::PSQLProcessor(const PSQLProcessor& x):

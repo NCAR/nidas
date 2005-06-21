@@ -87,7 +87,8 @@ protected:
      */
     dsm_time_t getTime(const Sample* samp) const {
 	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-	return (dsm_time_t)(dp->tval.tv_sec) * 1000 + dp->tval.tv_usec / 1000;
+	return (dsm_time_t)(dp->tval.tv_sec) * USECS_PER_SEC +
+		dp->tval.tv_usec;
     }
 
     /**

@@ -38,13 +38,13 @@ public:
 
     /**
      * Constructor.
-     * @param maxClockDiff A check for reasonable sample times.
+     * @param maxClockDiff A check for reasonable sample times (seconds).
      *        If the sample time differs from the clock
      * 		source time (as set by setTime) by more than
      * 		maxClockDiff, then the state is set to OUT_OF_SPEC.
      */
     SampleDater(int maxClockDiff = 180):
-    	maxClockDiffUsec(maxClockDiff * MSECS_PER_SEC),t0day(0),clockTime(0) {}
+    	maxClockDiffUsec(maxClockDiff * USECS_PER_SEC),t0day(0),clockTime(0) {}
 
     /**
      * Set the absolute time, microseconds since Jan 1, 1970 00:00 GMT.

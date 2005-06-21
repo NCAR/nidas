@@ -73,15 +73,16 @@ inline dsm_time_t getCurrentTime() {
  * that isn't less than argument, not less-than-or-equal, i.e.
  * this function always returns a value greater than the arg.
  */
-inline dsm_time_t timeCeiling(dsm_time_t t,unsigned long delta) {
+inline dsm_time_t timeCeiling(dsm_time_t t,long long delta) {
     return ((t / delta) + 1) * delta;
 }
+
 /**
  * Return largest dsm_time_t that is an integral multiple of
  * delta, that isn't greater than argument t.  Analogous to floor()
  * math function.
  */
-inline dsm_time_t timeFloor(dsm_time_t t,unsigned long delta) {
+inline dsm_time_t timeFloor(dsm_time_t t,long long delta) {
     return (t / delta) * delta;
 }
 
