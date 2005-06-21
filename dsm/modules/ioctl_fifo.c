@@ -472,7 +472,11 @@ int convert_rtl_errno(int rtlerr)
     case RTL_EHOSTUNREACH: 	return EHOSTUNREACH;
     case RTL_EIDRM: 		return EIDRM;
     case RTL_EILSEQ: 		return EILSEQ;
-    case RTL_EINPROGESS: 	return EINPROGRESS;	// rtl typo
+#ifdef RTL_EINPROGRESS
+    case RTL_EINPROGRESS: 	return EINPROGRESS;
+#else							// rtl typo
+    case RTL_EINPROGESS: 	return EINPROGRESS;
+#endif
     case RTL_EINTR: 		return EINTR;
     case RTL_EINVAL: 		return EINVAL;
     case RTL_EIO: 		return EIO;
