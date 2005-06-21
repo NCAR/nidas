@@ -200,6 +200,7 @@ Alias('lib', ['dsm/class/x86','dsm/class/arm'])
 ##
 Alias('arm_install', [
 	arm_env['ADS3_INSTALL'] + '/modules',
+	arm_env['ADS3_INSTALL'] + '/include',
 	arm_env['ADS3_INSTALL'] + '/lib',
 	arm_env['ADS3_INSTALL'] + '/bin'
     ]
@@ -209,6 +210,7 @@ Alias('arm_install', [
 ##  target for installing x86 library and executables
 ##
 Alias('x86_install', [
+	x86_env['ADS3_INSTALL'] + '/include',
 	x86_env['ADS3_INSTALL'] + '/lib',
 	x86_env['ADS3_INSTALL'] + '/bin'
     ]
