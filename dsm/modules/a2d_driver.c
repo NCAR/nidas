@@ -922,7 +922,7 @@ static void* A2DGetDataThread(void *thread_arg)
 			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
 		    rtl_printf("%s shutting down this A2D\n",__FILE__);
 		    closeA2D(brd,0);		// close, but don't join this thread
-		    return (void*) ierr;	// needs conversion
+		    return (void*) convert_rtl_errno(ierr);
 		}
 	    }
 	}
@@ -942,17 +942,17 @@ static int openA2D(struct A2DBoard* brd)
 	{
 	    rtl_printf("%s error: opening %s: %s\n",
 		    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
-	    return -rtl_errno;	// needs RTL->Linux errno conversion
+	    return -convert_rtl_errno(rtl_errno);
 	}
 
 	// Establish a RT thread to allow syncing with 1PPS
 	rtl_printf("1PPSThread starting, GET_MSEC_CLOCK=%d\n",
 		GET_MSEC_CLOCK);
 	if (rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd) < 0)
-	    return -rtl_errno;		// needs conversion
+	    return -convert_rtl_errno(rtl_errno);
 	if (rtl_pthread_join(brd->pps_thread, &thread_status) < 0) {
 	    brd->pps_thread = 0;
-	    return -rtl_errno;		// needs conversion
+	    return -convert_rtl_errno(rtl_errno);
 	}
 	brd->pps_thread = 0;
 	if (thread_status != (void*)0) return -(int)thread_status;
@@ -977,7 +977,7 @@ static int openA2D(struct A2DBoard* brd)
 	// Start data acquisition thread
 	brd->interrupted = 0;
 	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd) < 0)
-		return -rtl_errno;	// needs conversion
+		return -convert_rtl_errno(rtl_errno);
 	return 0;
 }
 
@@ -1284,7 +1284,7 @@ int init_module()
 	    	|| rtl_mkfifo(brd->fifoName, 0666) < 0) {
 		rtl_printf("%s error: unlink/mkfifo %s: %s\n",
 			__FILE__,brd->fifoName,rtl_strerror(rtl_errno));
-		error = -rtl_errno;		// needs RTL->Linux errno conversion
+		error = -convert_rtl_errno(rtl_errno);
 		goto err;
 	    }
 	}

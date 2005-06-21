@@ -272,7 +272,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     arcfg_t val = *(arcfg_t*) buf;
     if ( hdl->rate[val.label] ) {
       err( "duplicate label: %04o", val.label);
-      return -RTL_EINVAL;
+      return -EINVAL;
     }
     hdl->rate[val.label] = val.rate;
 
@@ -295,7 +295,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     /* round up to the next highest poll rate (bps+1) based upon the
      * buffering capacity of the channel */
     if ((hdl->poll = irigClockRateToEnum(hdl->lps/LPB+1)) == IRIG_NUM_RATES)
-      return -RTL_EINVAL;
+      return -EINVAL;
 
     /* un-filter this label on this channel */
     status = ar_label_filter(BOARD_NUM, chn, val.label, ARU_FILTER_OFF);
@@ -306,8 +306,8 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
   {
     /* store the speed and parity for this channel */
     archn_t val = *(archn_t*) buf;
-    if (val.speed != AR_HIGH && val.speed != AR_LOW)   return -RTL_EINVAL;
-    if (val.parity != AR_ODD && val.parity != AR_EVEN) return -RTL_EINVAL;
+    if (val.speed != AR_HIGH && val.speed != AR_LOW)   return -EINVAL;
+    if (val.parity != AR_ODD && val.parity != AR_EVEN) return -EINVAL;
     hdl->speed  = val.speed;
     hdl->parity = val.parity;
 
@@ -338,14 +338,14 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     status = ar_set_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn, hdl->speed);
     if (status != ARS_NORMAL) goto ar_fail;
     if (ar_get_config(BOARD_NUM, ARU_RX_CH01_BIT_RATE+chn) != hdl->speed)
-      return -RTL_EINVAL;
+      return -EINVAL;
 
     /* set channel parity */
     err("set channel %d parity to %d", chn, hdl->parity);
     status = ar_set_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn, hdl->parity);
     if (status != ARS_NORMAL) goto ar_fail;
     if (ar_get_config(BOARD_NUM, ARU_RX_CH01_PARITY+chn) != hdl->parity)
-      return -RTL_EINVAL;
+      return -EINVAL;
 
     /* launch the board */
     status = ar_go(BOARD_NUM);
@@ -405,19 +405,19 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
     /* define a periodic messages for the i960 to generate */
     if (hdl->lps)
-      return -RTL_EINVAL;
+      return -EINVAL;
 
     if (chn > N_ARINC_TX - 1)
-      return -RTL_EINVAL;
+      return -EINVAL;
 
     hdl->sim_xmit = 1;
     break;
 
   case ARINC_BIT:
 
-    if (running) return -RTL_EALREADY;
+    if (running) return -EALREADY;
 
-    if (hdl->lps) return -RTL_EALREADY;
+    if (hdl->lps) return -EALREADY;
 
     /* Perform a series of Built In Tests in the card. */
     short test_type = *(short*) buf;
@@ -469,7 +469,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 #ifdef DEBUG
       err("Channel %d is unused", chn);
 #endif
-      return -RTL_EINVAL;
+      return -EINVAL;
     }
    break;
 
@@ -491,7 +491,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
  ar_fail:
   error_exit(BOARD_NUM, status);
-  return -RTL_EIO;
+  return -EIO;
 }
 /* -- RTLinux --------------------------------------------------------- */
 #ifdef ARINC_TRANSMIT
@@ -633,7 +633,7 @@ static int scan_ceiisa( void )
       }
     }
   }
-  return -RTL_ENODEV;
+  return -ENODEV;
 }
 /* -- MODULE ---------------------------------------------------------- */
 static int __init arinc_init(void)
@@ -645,7 +645,7 @@ static int __init arinc_init(void)
   phys_membase = ioremap(basemem, PAGE_SIZE);
   if (!phys_membase) {
     err("ioremap failed.\n");
-    return -RTL_EIO;
+    return -EIO;
   }
   /* scan the ISA bus for the device */
   short status = scan_ceiisa();
@@ -748,35 +748,36 @@ static int __init arinc_init(void)
   /* open up my ioctl FIFO, register my arinc_ioctl function */
   ioctlhandle = openIoctlFIFO("arinc", BOARD_NUM, arinc_ioctl,
                               nioctlcmds, ioctlcmds);
-  if (!ioctlhandle) { status = -RTL_EIO; goto fail; }
+  if (!ioctlhandle) { status = -EIO; goto fail; }
 
   /* reserve the ISA memory region */
   if (!request_region(basemem, PAGE_SIZE, "arinc"))
   {
     err("couldn't allocate I/O range %x - %x\n", basemem,
         basemem + PAGE_SIZE - 1);
-    status = -RTL_EBUSY;
+    status = -EBUSY;
     goto fail;
   }
   requested_region = 1;
 
   /* reserve some RAM for the sample buffer */
+  status = -ENOMEM;
   sample = rtl_gpos_malloc(SIZEOF_DSM_SAMPLE_HEADER + LPB*8);
-  if (sample < 0) goto fail;
+  if (!sample) goto fail;
 
   err("done.\n");
   return 0; /* success */
 
  fail:
   arinc_cleanup();
-  if (status==-1)
-    return -rtl_errno;
+  if (status==-1) 
+    return -convert_rtl_errno(rtl_errno);
   if (status<0)
     return status;
 
   /* ar_???() error codes are positive... */
   error_exit(BOARD_NUM, status);
-  return -RTL_EIO;
+  return -EIO;
 }
 
 module_init(arinc_init);

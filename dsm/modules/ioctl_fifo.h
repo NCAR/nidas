@@ -84,6 +84,11 @@ void closeIoctlFIFO(struct ioctlHandle* ioctls);
 
 char* makeDevName(const char* prefix, const char* suffix, int num);
 
+/**
+ * Convert RTL_EXXXX to EXXXX errnos.
+ */
+int convert_rtl_errno(int rtlerr);
+
 #endif	/* __RTCORE_KERNEL__ */
 
 #endif	/* IOCTL_FIFO_H */

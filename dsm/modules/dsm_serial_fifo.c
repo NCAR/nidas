@@ -123,7 +123,7 @@ static void* in_thread_func(void* arg)
 	    rtl_printf("%s error: reading %s: %s\n",
 		    __FILE__,port->devname,rtl_strerror(rtl_errno));
 	    if (rtl_errno == RTL_EINTR) break;
-	    return (void*)rtl_errno;	// needs RTL->Linux errno conversion
+	    return (void*)convert_rtl_errno(rtl_errno);
 	}
 #ifdef DEBUG
 	rtl_printf("in_thread_func: l=%d\n",l);
@@ -135,7 +135,7 @@ static void* in_thread_func(void* arg)
 		"%s error: writing %s: %s, eob-cp=%d\n",
 			__FILE__,port->inFifoName,rtl_strerror(rtl_errno),(int)(eob-cp));
 		if (rtl_errno == RTL_EINTR) break;
-		return (void*)rtl_errno;	// needs RTL->Linux errno conversion
+		return (void*)convert_rtl_errno(rtl_errno);
 	    }
 	}
     }
@@ -223,7 +223,7 @@ static int close_port(struct dsm_serial_fifo_port* port)
 
     return 0;
 error:
-    return -rtl_errno;	// needs RTL->Linux errno conversion
+    return -convert_rtl_errno(rtl_errno);
 }
 /*
  * Return: negative Linux errno.
@@ -297,7 +297,7 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 
     return 0;
 error:
-    return -rtl_errno;	// needs RTL->Linux errno conversion
+    return -convert_rtl_errno(rtl_errno);
 }
 
 /*
@@ -316,7 +316,7 @@ static int create_fifos(struct dsm_serial_fifo_port* port,int mode)
 	    rtl_mkfifo(port->inFifoName, 0666) < 0) {
 	    rtl_printf("%s error: unlink/mkfifo %s: %s\n",
 	    	__FILE__,port->inFifoName,rtl_strerror(rtl_errno));
-	    return -rtl_errno;		// needs RTL->Linux errno conversion
+	    return -convert_rtl_errno(rtl_errno);
 	}
     }
 
@@ -327,7 +327,7 @@ static int create_fifos(struct dsm_serial_fifo_port* port,int mode)
 	    rtl_mkfifo(port->outFifoName, 0666) < 0) {
 	    rtl_printf("%s error: unlink/mkfifo %s: %s\n",
 	    	__FILE__,port->outFifoName,rtl_strerror(rtl_errno));
-	    return -rtl_errno;		// needs RTL->Linux errno conversion
+	    return -convert_rtl_errno(rtl_errno);
 	}
     }
     return 0;
@@ -407,7 +407,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
         /* check if the port is open, send the ioctl */
 	if (port->devfd < 0) break;
 	if (rtl_ioctl(port->devfd,cmd,buf) < 0) {
-	    retval = -rtl_errno;	// needs RTL->Linux errno conversion
+	    retval = -convert_rtl_errno(rtl_errno);
 	    break;
 	}
 	retval = len;
