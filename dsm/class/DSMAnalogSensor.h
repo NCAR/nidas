@@ -69,6 +69,17 @@ public:
 
 protected:
 
+    /**
+     * Read a filter file containing coefficients for an Analog Devices
+     * A2D chip.  Lines that start with a '#' are skipped.
+     * @param name Name of file to open.
+     * @param coefs Pointer to coefficient array.
+     * @param nexpect Number of expected coefficients. readFilterFile
+     *		will throw an IOException if it reads more or less
+     *		coeficients than nexpect.
+     */
+    int readFilterFile(const std::string& name,unsigned short* coefs,
+    	int nexpect);
     bool initialized;
 
     /* What we need to know about a channel */

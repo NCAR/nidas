@@ -110,8 +110,9 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
         throw atdUtil::IOException(name,"open",errno);
 
     int ncoef;
-    for(ncoef = 0; ncoef < nexpect; ) {
-	int n = fscanf(fp, "%4hx", coefs + ncoef);
+    for(ncoef = 0; ; ) {
+	unsigned short val;
+	int n = fscanf(fp, "%4hx", &val);
 	if (ferror(fp)) {
 	    fclose(fp);
 	    throw atdUtil::IOException(name,"fscanf",errno);
@@ -126,7 +127,10 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 	    }
 	    fscanf(fp,"%*[^\n]");	// skip to newline
 	}
-	else ncoef++;
+	else {
+	    if (ncoef < nexpect) coefs[ncoef] = val;
+	    ncoef++;
+	}
     }
     fclose(fp);
     if (ncoef != nexpect) {
