@@ -132,8 +132,8 @@ static void* in_thread_func(void* arg)
 	for (cp = buf; cp < eob; cp += l) {
 	    if ((l = rtl_write(port->inFifoFd,cp,eob-cp)) < 0) {
 		rtl_printf(
-		"%s error: writing %s: %s, eob-cp=%d\n",
-			__FILE__,port->inFifoName,rtl_strerror(rtl_errno),(int)(eob-cp));
+		"%s error: writing %d bytes to %s: %s\n",
+			__FILE__,(int)(eob-cp),port->inFifoName,rtl_strerror(rtl_errno));
 		if (rtl_errno == RTL_EINTR) break;
 		return (void*)convert_rtl_errno(rtl_errno);
 	    }
