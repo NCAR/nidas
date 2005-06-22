@@ -27,7 +27,7 @@ using namespace std;
 using namespace xercesc;
 
 SyncRecordSource::SyncRecordSource():
-	syncRecord(0),doHeader(false),badTimes(0)
+	syncRecord(0),doHeader(false),badTimes(0),aircraft(0)
 {
 }
 
@@ -56,6 +56,8 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     list<DSMSensor*> arincSensors;
     list<DSMSensor*> irigSensors;
     list<DSMSensor*> otherSensors;
+
+    aircraft = 0;
     
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
@@ -64,6 +66,16 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 #ifdef DEBUG
 	cerr << "SyncRecordSource, dsm=" << dsm->getName() << endl;
 #endif
+	const Site* site = dsm->getSite();
+	const Aircraft* acft = dynamic_cast<const Aircraft*>(site);
+	assert(acft);
+
+	if (!aircraft) aircraft = acft;
+	else {
+	    if (acft != aircraft)
+	    	cerr << "multiple aircraft: " << acft->getName() <<
+			" and " << aircraft->getName();
+	}
 	const list<DSMSensor*>& sensors = dsm->getSensors();
 	list<DSMSensor*>::const_iterator si;
 
@@ -146,14 +158,19 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 
 void SyncRecordSource::createHeader(ostream& ost) throw()
 {
-    // type abbreviations:
+
+    ost << "project  " << aircraft->getProject()->getName() << endl;
+    ost << "aircraft " << aircraft->getTailNumber() << endl;
+
+    // write variable fields.
+
+    // variable type abbreviations:
     //		n=normal, continuous
     //		c=counter
     //		t=clock
     //		o=other
     const char vtypes[] = { 'n','c','t','o' };
 
-    // write variable fields.
     ost << "variables {" << endl;
     list<const Variable*>::const_iterator vi;
     for (vi = variables.begin(); vi != variables.end(); ++vi) {
@@ -315,7 +332,6 @@ void SyncRecordSource::sendHeader() throw()
 
     cerr << "sync header=" << endl << headstr << endl;
 
-    headerRec->setTimeTag(headerTime);
     headerRec->setId(SYNC_RECORD_HEADER_ID);
     strcpy(headerRec->getDataPtr(),headstr.c_str());
 

@@ -263,7 +263,7 @@
 	        <socket type="mcaccept"/>
 	    </output>
 	</service>
-    <service class="XmlRpcService"/>
+	<service class="XmlRpcService"/>
 	<service class="RawSampleService">
 	    <!-- input from every DSM on this aircraft that has
 		 a socket output of type RawSampleOutputStream -->
@@ -277,25 +277,29 @@
 			length="300"/>
 
 		</output>
+		<output class="SampleOutputStream">
+		    <socket type="server" port="10000"/>
+		</output>
 	    </processor>
+	    <!--
 	    <processor class="PSQLProcessor">
-		<!--
 		<parameter name="averageMsec" value="1000" type="int"/>
-		-->
 		<output class="PSQLSampleOutput">
 		    <postgresdb host="hyper"
 		    	dbname="c130" user="ads"/>
 		</output>
 	    </processor>
-	    <!--
-	    <processor class="SyncRecordProcessor">
+	    -->
+	    <processor class="SyncRecordGenerator">
 		<output class="SampleOutputStream">
 		    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
 			file="syncrec_%Y%m%d_%H%M%S.dat"
 			length="0" />
 		</output>
+		<output class="SampleOutputStream">
+		    <socket type="server" port="10001"/>
+		</output>
 	    </processor>
-	    -->
 	</service>
     </server>
 
@@ -321,45 +325,6 @@
 
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
-<!--
-	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
-	    <sample id="1" rate="500">
-		<variable name="A2D0" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D1" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D2" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D3" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D4" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D5" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D6" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-		<variable name="A2D7" units="V">
-		    <parameter name="gain" value="10.0" type="float"/>
-		    <parameter name="bipolar" value="1" type="bool"/>
-		</variable>
-	    </sample>
-	</sensor>
-
--->
 	<serialSensor IDREF="Mensor_6100"
 		devicename="/dev/dsmser0" id="110">
 	    <sample>
@@ -373,9 +338,52 @@
 		<variable name="DPRESP1" units="mb"/>
 	    </sample>
 	</serialSensor>
+	<!--
+	-->
 
+	<!--
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc1" id="2000"/>
+	-->
+
+	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
+	    <sample id="1" rate="500">
+		<variable name="A2D0" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D1" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D2" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D3" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D4" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D5" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D6" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+		<variable name="A2D7" units="V">
+		    <parameter name="gain" value="1.0" type="float"/>
+		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+	    </sample>
+	</sensor>
+	<!--
+	-->
 <!--
 	<anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>
         <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
@@ -437,6 +445,7 @@
 		</variable>
 	    </sample>
 	</serialSensor>
+
 	<output class="RawSampleOutputStream">
 	    <socket type="mcrequest"/>
 	</output>

@@ -55,6 +55,10 @@ public:
 
     virtual ~SyncRecordReader();
 
+    const std::string& getProjectName() const { return projectName; }
+
+    const std::string& getTailNumber() const { return aircraftName; }
+
     /**
      * Get the list of variables in a sync record.
      */
@@ -109,6 +113,10 @@ private:
     size_t numFloats;
 
     bool eof;
+
+    std::string projectName;
+
+    std::string aircraftName;
 
 };
 

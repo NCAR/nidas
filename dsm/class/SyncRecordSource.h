@@ -20,6 +20,7 @@
 #include <SampleIOProcessor.h>
 #include <SampleSorter.h>
 #include <Variable.h>
+#include <Aircraft.h>
 
 #include <vector>
 #include <list>
@@ -140,9 +141,12 @@ protected:
     std::ostringstream headerStream;
 
     volatile bool doHeader;
+
     volatile dsm_time_t headerTime;
 
     int badTimes;
+
+    const Aircraft* aircraft;
 };
 
 }

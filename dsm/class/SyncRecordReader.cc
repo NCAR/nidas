@@ -126,10 +126,40 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     list<const SyncRecordVariable*> newvars;
     map<string,SyncRecordVariable*> varmap;
     map<string,SyncRecordVariable*>::const_iterator vi;
-    string section("variables");
 
     string tmpstr;
 
+    string section("project");
+    header >> tmpstr;
+    if (header.eof() || tmpstr.compare("project")) {
+    	headException = new SyncRecHeaderException("\"project {\"",
+	    tmpstr);
+	goto except;
+    }
+    header >> projectName;
+    if (header.eof()) {
+    	headException = new SyncRecHeaderException("\"project {\"",
+	    projectName);
+	goto except;
+    }
+    tmpstr.clear();
+
+    section = "aircraft";
+    header >> tmpstr;
+    if (header.eof() || tmpstr.compare("aircraft")) {
+    	headException = new SyncRecHeaderException("\"aircraft {\"",
+	    tmpstr);
+	goto except;
+    }
+    header >> aircraftName;
+    if (header.eof()) {
+    	headException = new SyncRecHeaderException("\"aircraft {\"",
+	    aircraftName);
+	goto except;
+    }
+    tmpstr.clear();
+
+    section = "variables";
     header >> tmpstr;
     if (header.eof() || tmpstr.compare("variables")) {
     	headException = new SyncRecHeaderException("\"variables {\"",
@@ -246,7 +276,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	newvars.push_back(var);
 	// cerr << "var=" << var->getName() <<  endl;
     }
-    section = string("variables");
+    section = "rates";
 
     tmpstr.clear();
     header >> tmpstr;
