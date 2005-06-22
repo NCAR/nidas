@@ -85,25 +85,8 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	ost << "filters/fir" << maxrate << "Hz.cfg";
     string filtername = ost.str();
 
-    FILE* fp;
-    atdUtil::Logger::getInstance()->log(LOG_INFO,"opening: %s",filtername.c_str());
-    if((fp = fopen(filtername.c_str(), "r")) == NULL)
-        throw atdUtil::IOException(filtername,"open",errno);
-
-    unsigned int ncoef;
-    for(ncoef = 0; ncoef < sizeof(a2d.filter)/sizeof(a2d.filter[0]); ncoef++)
-    {
-	int n = fscanf(fp, "%4hx", a2d.filter + ncoef);
-	if (ferror(fp))
-	    throw atdUtil::IOException(filtername,"fscanf",errno);
-	if (feof(fp)) break;
-	if (n != 1)
-	    throw atdUtil::IOException(filtername,"fscanf","bad input");
-    }
-    fclose(fp);
-    cerr << "ncoef=" << ncoef << " expected=" <<
-		sizeof(a2d.filter)/sizeof(a2d.filter[0]) << endl;
-    assert(ncoef == sizeof(a2d.filter)/sizeof(a2d.filter[0]));
+    int nexpect = (signed)sizeof(a2d.filter)/sizeof(a2d.filter[0]);
+    readFilterFile(filtername,a2d.filter,nexpect);
 
     cerr << "doing A2D_SET_IOCTL" << endl;
     ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
@@ -119,6 +102,41 @@ void DSMAnalogSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
+int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int nexpect)
+{
+    FILE* fp;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"opening: %s",name.c_str());
+    if((fp = fopen(name.c_str(), "r")) == NULL)
+        throw atdUtil::IOException(name,"open",errno);
+
+    int ncoef;
+    for(ncoef = 0; ncoef < nexpect; ) {
+	int n = fscanf(fp, "%4hx", coefs + ncoef);
+	if (ferror(fp)) {
+	    fclose(fp);
+	    throw atdUtil::IOException(name,"fscanf",errno);
+	}
+	if (feof(fp)) break;
+	if (n != 1) {
+	    if ((n = getc(fp)) != '#') {
+		fclose(fp);
+	    	throw atdUtil::IOException(name,"fscanf",
+			string("bad input character: \'") +
+			string((char)n,1) + "\'");
+	    }
+	    fscanf(fp,"%*[^\n]");	// skip to newline
+	}
+	else ncoef++;
+    }
+    fclose(fp);
+    if (ncoef != nexpect) {
+        ostringstream ost;
+	ost << "wrong number of filter coefficients, expected: " <<
+		nexpect << ", got: " << ncoef;
+	throw atdUtil::IOException(name,"fscanf",ost.str());
+    }
+    return ncoef;
+}
 
 int DSMAnalogSensor::rateSetting(float rate)
 	throw(atdUtil::InvalidParameterException)
