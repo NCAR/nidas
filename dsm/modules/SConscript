@@ -2,6 +2,8 @@
 
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+import glob
+
 ##
 ##  Import the cross-build environment.
 ##
@@ -70,3 +72,9 @@ for i in modules:
   objs += myenv.Object( i )
 
 myenv.Install('$ADS3_INSTALL/modules',objs)
+##
+## Install target for headers.  Must look in parent of build directory
+##
+headers = glob.glob("../*.h")
+# print(["headers="] + headers)
+myenv.Install('$ADS3_INSTALL/include',headers)
