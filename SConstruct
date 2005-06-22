@@ -156,6 +156,12 @@ SConscript('dsm/modules/SConscript',
 	duplicate=0,exports={'env':arm_env})
 
 ##
+##  Build dsm/modules
+##
+SConscript('dsm/modules/SConscript',
+	build_dir='dsm/modules/x86',
+	duplicate=0,exports={'env':x86_env})
+##
 ##  Build libDsm.a
 ##
 SConscript('dsm/class/SConscript',
