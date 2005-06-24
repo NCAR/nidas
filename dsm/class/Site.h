@@ -54,7 +54,7 @@ public:
     void setProject(const Project* val) { project = val; }
 
     /**
-     * An Site contains one or more DSMs.  Site will
+     * A Site contains one or more DSMs.  Site will
      * own the pointer and will delete the DSMConfig in its
      * destructor.
      */
@@ -69,7 +69,7 @@ public:
     }
 
     /**
-     * An Site has one or more DSMServers.
+     * A Site has one or more DSMServers.
      */
     void addServer(DSMServer* srvr) { servers.push_back(srvr); }
 
