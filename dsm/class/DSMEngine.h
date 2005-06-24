@@ -67,7 +67,11 @@ public:
 
     const PortSelector* getPortSelector() const { return selector; }
 
-    xercesc::DOMDocument* requestXMLConfig()
+    /**
+     * Request the XML configuration via a McSocket request to
+     * a given multicast socket address.
+     */
+    xercesc::DOMDocument* requestXMLConfig(const atdUtil::Inet4SocketAddress&)
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
@@ -168,6 +172,8 @@ public:
      * Name of XML configuration file. If empty, multicast for config.
      */
     std::string configFile;
+
+    atdUtil::Inet4SocketAddress mcastSockAddr;
 };
 
 

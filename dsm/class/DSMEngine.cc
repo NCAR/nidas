@@ -28,9 +28,16 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-DSMRunstring::DSMRunstring(int argc, char** argv) {
-    debug = false;
-    wait  = false;
+DSMRunstring::DSMRunstring(int argc, char** argv):
+    debug(false),wait(false)
+{
+    try {
+	mcastSockAddr = atdUtil::Inet4SocketAddress(
+	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
+	    DSM_MULTICAST_PORT);
+    }
+    catch(const atdUtil::UnknownHostException& e) {}	// won't happen
+
     // extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
@@ -47,7 +54,36 @@ DSMRunstring::DSMRunstring(int argc, char** argv) {
 	    usage(argv[0]);
 	}
     }
-    if (optind == argc - 1) configFile = string(argv[optind++]);
+
+    if (optind == argc - 1) {
+        string url = string(argv[optind++]);
+	if(url.length() > 7 && !url.compare(0,7,"mcsock:")) {
+	    url = url.substr(7);
+	    size_t ic = url.find(':');
+	    if (ic == string::npos) {
+		cerr << "Invalid host:port parameter: " << url << endl;
+		usage(argv[0]);
+	    }
+	    string mcastAddr = url.substr(0,ic);
+	    istringstream ist(url.substr(ic+1));
+	    int port;
+	    ist >> port;
+	    if (ist.fail()) {
+		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		usage(argv[0]);
+	    }
+	    try {
+		mcastSockAddr = atdUtil::Inet4SocketAddress(
+		    atdUtil::Inet4Address::getByName(mcastAddr),port);
+	    }
+	    catch(const atdUtil::UnknownHostException& e) {
+	        cerr << e.what() << endl;
+		usage(argv[0]);
+	    }	
+	}
+	else configFile = url;
+    }
+    cerr << "optind=" << optind << " argc=" << argc << endl;
 
     if (optind != argc) usage(argv[0]);
 }
@@ -56,13 +92,13 @@ DSMRunstring::DSMRunstring(int argc, char** argv) {
 void DSMRunstring::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-dw] [config]\n\n\
+Usage: " << argv0 << " [-dw] [ config ]\n\n\
   -d:     debug - Send error messages to stderr, otherwise to syslog\n\
-  -w:     wait  - wait for the XmlRpc 'start' cammand\n\n\
-  config: name of DSM configuration file (optional).\n\
-          If config is not specified, DSM will send out\n\
-          multicast requests for a configuration.\n\
-" << endl;
+  -w:     wait  - wait for the XmlRpc 'start' cammand\n\
+  config: either the name of a local DSM configuration XML file to be read,\n\
+      or a multicast socket address in the form \"mcsock:addr:port\".\n\
+The default config is \"mcsock:" <<
+	DSM_MULTICAST_ADDR << ":" << DSM_MULTICAST_PORT << "\"" << endl;
     exit(1);
 }
 
@@ -118,7 +154,7 @@ int DSMEngine::main(int argc, char** argv) throw()
       // first fetch the configuration
       try {
 	if (rstr.configFile.length() == 0)
-          projectDoc = dsm->requestXMLConfig();
+          projectDoc = dsm->requestXMLConfig(rstr.mcastSockAddr);
 	else
           projectDoc = dsm->parseXMLConfigFile(rstr.configFile);
       }
@@ -330,7 +366,8 @@ DSMEngine* DSMEngine::getInstance()
     return instance;
 }
 
-DOMDocument* DSMEngine::requestXMLConfig()
+DOMDocument* DSMEngine::requestXMLConfig(
+	const atdUtil::Inet4SocketAddress &mcastAddr)
 	throw(atdUtil::Exception,
 	    DOMException,SAXException,XMLException)
 {
@@ -350,6 +387,7 @@ DOMDocument* DSMEngine::requestXMLConfig()
 
     delete xmlRequestSocket;
     xmlRequestSocket = new XMLConfigInput();
+    xmlRequestSocket->setInet4McastSocketAddress(mcastAddr);
 
     auto_ptr<atdUtil::Socket> configSock(xmlRequestSocket->connect());
     	// throws IOException
