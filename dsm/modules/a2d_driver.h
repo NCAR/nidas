@@ -239,6 +239,7 @@ struct A2DBoard {
     A2D_CAL cal;		// calibration configuration
     A2D_STATUS status;		// status info maintained by driver
     unsigned short bad[MAXA2DS];
+    unsigned int nbad[MAXA2DS];
     US OffCal;			// offset and cal bits
     UC FIFOCtl;			// hardware FIFO control word storage
     int MaxHz;			// Maximum requested A/D sample rate
@@ -246,7 +247,6 @@ struct A2DBoard {
     int interrupted;
     int readCtr;
     int nbadBufs;
-    dsm_sample_time_t debugTime;
     int fifoNotEmpty;
 };
 

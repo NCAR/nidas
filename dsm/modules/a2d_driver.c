@@ -854,6 +854,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		// check for acceptable looking status value
 		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
 		    nbad++;
+		    brd->nbad[i % MAXA2DS]++;
 		    brd->bad[i % MAXA2DS] = stat;
 		}
 		else {
@@ -880,19 +881,8 @@ static void* A2DGetDataThread(void *thread_arg)
 	    if (!(++brd->readCtr % 100)) {
 		dsm_sample_time_t tnow = GET_MSEC_CLOCK;
 		if (!(brd->readCtr % 10000) || brd->nbadBufs) {
-		    rtl_printf("nbadBufs=%d, nbad/sec=%d\n",
-			    brd->nbadBufs,brd->nbadBufs/((tnow-brd->debugTime)/1000));
-		    if (brd->nbadBufs)
-			rtl_printf("badsts= %04x %04x %04x %04x %04x %04x %04x %04x\n",
-			brd->bad[0],
-			brd->bad[1],
-			brd->bad[2],
-			brd->bad[3],
-			brd->bad[4],
-			brd->bad[5],
-			brd->bad[6],
-			brd->bad[7]);
-		    rtl_printf("status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
+		    rtl_printf("GET_MSEC_CLOCK=%d\n",tnow);
+		    rtl_printf("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
 			brd->status.status[0],
 			brd->status.status[1],
 			brd->status.status[2],
@@ -901,13 +891,31 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->status.status[5],
 			brd->status.status[6],
 			brd->status.status[7]);
+		    rtl_printf("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x\n",
+			brd->bad[0],
+			brd->bad[1],
+			brd->bad[2],
+			brd->bad[3],
+			brd->bad[4],
+			brd->bad[5],
+			brd->bad[6],
+			brd->bad[7]);
+		    rtl_printf("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
+			brd->nbad[0],
+			brd->nbad[1],
+			brd->nbad[2],
+			brd->nbad[3],
+			brd->nbad[4],
+			brd->nbad[5],
+			brd->nbad[6],
+			brd->nbad[7]);
 		    brd->readCtr = 0;
 		}
 		brd->nbadBufs = 0;
-		brd->debugTime = tnow;
 		for (i = 0; i < MAXA2DS; i++) {
 		    brd->status.status[i] = 0;
 		    brd->bad[i] = 0;
+		    brd->nbad[i] = 0;
 		}
 	    }
 
@@ -1236,6 +1244,7 @@ int init_module()
 	    memset(&brd->cal,0,sizeof(A2D_CAL));
 	    memset(&brd->status,0,sizeof(A2D_STATUS));
 	    memset(&brd->bad,0,sizeof(brd->bad));
+	    memset(&brd->nbad,0,sizeof(brd->nbad));
 	    brd->OffCal = 0;
 #ifdef DOA2DSTATRD
 	    brd->FIFOCtl = A2DSTATEBL;
@@ -1245,7 +1254,6 @@ int init_module()
 	    brd->MaxHz = 0;
 	    brd->readCtr = 0;
 	    brd->nbadBufs = 0;
-	    brd->debugTime = 0;
 	    brd->fifoNotEmpty = 0;
 	}
 
