@@ -1,3 +1,4 @@
+// #define TEMPDEBUG
 // #define BFIR
 // #define DEBUGA2DGET
 // #define DEBUGA2DGET2
@@ -18,6 +19,9 @@ Original author:	Grant Gray
 Revisions:
 
 */
+//Clock/data line bits for i2c interface
+#define		I2CSCL		0x2
+#define		I2CSDA		0x1
 
 //#define INBUFWR		// Turn on simulated data array printout
 //#define	DEBUGDATA 	// Turns on printout in data simulator
@@ -75,6 +79,7 @@ static struct A2DBoard* boardInfo = 0;
  * from the user's point of view, that one board represents.
  */
 static int ndevices = 1;
+static UC  i2c = 0x3;	// i2c data/clock register
 
 static const char* devprefix = "dsma2d";
 
@@ -83,8 +88,8 @@ void cleanup_module(void);
 
 // These are just test values
 
-UC		Cals;
-UC		Offsets;
+static UC		Cals;
+static UC		Offsets;
 
 /****************  IOCTL Section ***************8*********/
 
@@ -107,6 +112,137 @@ void getIRIGClock(dsm_sample_time_t* msecp,long *nsecp)
     irig_clock_gettime(&tnow);
     *msecp = (tnow.tv_sec % 86400) * 1000 + tnow.tv_nsec / 1000000;
     *nsecp = tnow.tv_nsec % 1000000;
+}
+
+/*-----------------------Utility------------------------------*/
+// I2C serial bus control utilities
+ 
+void i2c_clock_hi(struct A2DBoard* brd)
+{
+	i2c |= I2CSCL; // Set clock bit hi
+	outb(A2DIOSTAT, brd->chan_addr);	// Clock high	
+	outb(i2c, (UC *)brd->addr);
+	rtl_usleep(DELAYNUM0);
+	return;	
+}
+
+void i2c_clock_lo(struct A2DBoard* brd)
+{
+	i2c &= ~I2CSCL; // Set clock bit low
+	outb(A2DIOSTAT, brd->chan_addr);	// Clock low	
+	outb(i2c, brd->addr);
+	rtl_usleep(DELAYNUM0);
+	return;	
+}
+
+void i2c_data_hi(struct A2DBoard* brd)
+{
+	i2c |= I2CSDA; // Set data bit hi
+	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
+	outb(i2c, brd->addr);
+	rtl_usleep(DELAYNUM0);
+	return;	
+}
+
+void i2c_data_lo(struct A2DBoard* brd)
+{
+	i2c &= ~I2CSDA; // Set data bit lo
+	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
+	outb(i2c, brd->addr);
+	rtl_usleep(DELAYNUM0);
+	return;	
+}
+/*-----------------------End I2C Utils -----------------------*/
+
+/*-----------------------Utility------------------------------*/
+// Read on-board LM92 temperature sensor via i2c serial bus
+// The signed short returned is weighted .0625 deg C per bit
+
+static short A2DTemp(struct A2DBoard* brd)
+{
+   	unsigned char b1;
+	unsigned char b2;
+	unsigned char t1;
+   	short x;
+   	unsigned char i, address = 0x48;	// Address of temperature register
+	
+	
+	// shift the address over one, and set the READ indicator
+	b1 = (address << 1) | 1;
+
+	// a start state is indicated by data going from hi to lo,
+   	// when clock is high.
+   	i2c_data_hi(brd);
+   	i2c_clock_hi(brd);
+   	i2c_data_lo(brd);
+   	i2c_clock_lo(brd);
+	i2c_data_hi(brd);	
+
+   // Shift out the address/read byte
+   	for (i = 0; i < 8; i++) 
+	{
+    	// set data line
+    	if (b1 & 0x80) 
+		{
+           	i2c_data_hi(brd);
+    	} 
+		else 
+		{
+           	i2c_data_lo(brd);
+     	}
+    	b1 = b1 << 1;
+     	// raise clock
+      	i2c_clock_hi(brd);
+       	// lower clock
+        i2c_clock_lo(brd);
+    }
+
+   	// clock the slave's acknowledge bit
+   	i2c_clock_hi(brd);
+   	i2c_clock_lo(brd);
+
+   	// shift in the first data byte
+   	b1 = 0;
+   	for (i = 0; i < 8; i++) 
+	{
+   		// raise clock
+   		i2c_clock_hi(brd);
+       	// get data
+		t1 = 0x1 & inb(brd->addr);
+       	b1 = (b1 << 1) | t1;
+       	// lower clock
+       	i2c_clock_lo(brd);
+   	}
+
+    // Send the acknowledge bit
+    i2c_data_lo(brd);
+    i2c_clock_hi(brd);
+    i2c_clock_lo(brd);
+	i2c_data_hi(brd);
+
+    // shift in the second data byte
+    b2 = 0;
+    for (i = 0; i < 8; i++) 
+	{
+    	i2c_clock_hi(brd);
+		t1 = 0x1 & inb(brd->addr);
+    	b2 = (b2 << 1) | t1;
+    	i2c_clock_lo(brd);
+    }
+
+    // a stop state is signalled by data going from
+    // lo to hi, when clock is high.
+    i2c_data_lo(brd);
+    i2c_clock_hi(brd);
+    i2c_data_hi(brd);
+
+	x = (short)(b1<<8 | b2)>>3;
+
+#ifdef TEMPDEBUG
+	rtl_printf("b1=0x%02X, b2=0x%02X, b1b2>>3 ", b1, b2);
+	rtl_printf("0x%04X, degC = %d.%1d\n", x, x/16, (10*(x%16))/16);
+#endif
+	return x;
 }
 
 
@@ -204,7 +340,7 @@ static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 	    	A2DSel);
 	    return -EINVAL;
 	}
-    A2DSel = 7;
+    A2DSel = 7;	 //DEBUG jamming this to 7
     rtl_printf("A2DSetMaster, master=%d\n",A2DSel);
 
 	// Point at the FIFO status channel
@@ -763,6 +899,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 	unsigned short stat;
 	static int closeA2D(struct A2DBoard* brd,int joinAcqThread);
+	short degC;
 
 	// The A2Ds should be done writing to the FIFO in
 	// 2 * 8 * 800 nsec = 12.8 usec
@@ -900,7 +1037,7 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->bad[5],
 			brd->bad[6],
 			brd->bad[7]);
-		    rtl_printf("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
+		    rtl_printf("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d: ",
 			brd->nbad[0],
 			brd->nbad[1],
 			brd->nbad[2],
@@ -910,6 +1047,9 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->nbad[6],
 			brd->nbad[7]);
 		    brd->readCtr = 0;
+
+			degC = A2DTemp(brd);	// Added call to test LM92 6/24/05 GRG
+			rtl_printf("Brd temp %d.%1d degC\n", degC/16, (10*(degC%16))/16);
 		}
 		brd->nbadBufs = 0;
 		for (i = 0; i < MAXA2DS; i++) {
@@ -934,6 +1074,8 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 	}
+
+
 	rtl_printf("Exiting A2DGetDataThread\n");
 	return 0;
 }
