@@ -75,21 +75,10 @@ MODULE_PARM_DESC(ioport, "ISA port address of each board, e.g.: 0x3A0");
 
 static struct A2DBoard* boardInfo = 0;
 
-/* number of devices on a board. This is the number of /dev devices,
- * from the user's point of view, that one board represents.
- */
-static int ndevices = 1;
-static UC  i2c = 0x3;	// i2c data/clock register
-
 static const char* devprefix = "dsma2d";
 
 int  init_module(void);
 void cleanup_module(void);
-
-// These are just test values
-
-static UC		Cals;
-static UC		Offsets;
 
 /****************  IOCTL Section ***************8*********/
 
@@ -100,6 +89,8 @@ static struct ioctlCmd ioctlcmds[] = {
   { A2D_CAL_IOCTL, sizeof(A2D_CAL)  },
   { A2D_RUN_IOCTL,_IOC_SIZE(A2D_RUN_IOCTL) },
   { A2D_STOP_IOCTL,_IOC_SIZE(A2D_STOP_IOCTL) },
+  { A2D_OPEN_I2CT,_IOC_SIZE(A2D_OPEN_I2CT) },
+  { A2D_CLOSE_I2CT,_IOC_SIZE(A2D_CLOSE_I2CT) },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -117,38 +108,38 @@ void getIRIGClock(dsm_sample_time_t* msecp,long *nsecp)
 /*-----------------------Utility------------------------------*/
 // I2C serial bus control utilities
  
-void i2c_clock_hi(struct A2DBoard* brd)
+static inline void i2c_clock_hi(struct A2DBoard* brd)
 {
-	i2c |= I2CSCL; // Set clock bit hi
+	brd->i2c |= I2CSCL; // Set clock bit hi
 	outb(A2DIOSTAT, brd->chan_addr);	// Clock high	
-	outb(i2c, (UC *)brd->addr);
+	outb(brd->i2c, (UC *)brd->addr);
 	rtl_usleep(DELAYNUM0);
 	return;	
 }
 
-void i2c_clock_lo(struct A2DBoard* brd)
+static inline void i2c_clock_lo(struct A2DBoard* brd)
 {
-	i2c &= ~I2CSCL; // Set clock bit low
+	brd->i2c &= ~I2CSCL; // Set clock bit low
 	outb(A2DIOSTAT, brd->chan_addr);	// Clock low	
-	outb(i2c, brd->addr);
+	outb(brd->i2c, brd->addr);
 	rtl_usleep(DELAYNUM0);
 	return;	
 }
 
-void i2c_data_hi(struct A2DBoard* brd)
+static inline void i2c_data_hi(struct A2DBoard* brd)
 {
-	i2c |= I2CSDA; // Set data bit hi
+	brd->i2c |= I2CSDA; // Set data bit hi
 	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
-	outb(i2c, brd->addr);
+	outb(brd->i2c, brd->addr);
 	rtl_usleep(DELAYNUM0);
 	return;	
 }
 
-void i2c_data_lo(struct A2DBoard* brd)
+static inline void i2c_data_lo(struct A2DBoard* brd)
 {
-	i2c &= ~I2CSDA; // Set data bit lo
+	brd->i2c &= ~I2CSDA; // Set data bit lo
 	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
-	outb(i2c, brd->addr);
+	outb(brd->i2c, brd->addr);
 	rtl_usleep(DELAYNUM0);
 	return;	
 }
@@ -877,12 +868,72 @@ static void* A2DWait1PPSThread(void *arg)
 	return 0;
 }
 
-/* Every 10msec post the semaphore */
-static void irigCallback(void *brd)
+/* A2D callback function. Simply post the semaphore
+ * so the A2DGetDataThread can do its thing
+ */
+static void a2dIrigCallback(void *brd)
 {
 	rtl_sem_post(&((struct A2DBoard*)brd)->acq_sem);
 }
 
+static void i2cTempIrigCallback(void *ptr);
+
+static int openI2CTemp(struct A2DBoard* brd,int rate)
+{
+	// limit rate to something reasonable
+	if (rate > IRIG_10_HZ) {
+	    rtl_printf("Illegal rate for I2C temperature probe. Exceeds 10Hz\n");
+	    return -EINVAL;
+	}
+	brd->i2c = 0x3;
+
+	if (brd->i2cTempfd >= 0) rtl_close(brd->i2cTempfd);
+	if((brd->i2cTempfd = rtl_open(brd->i2cTempFifoName,
+		RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
+	{
+	    rtl_printf("%s error: opening %s: %s\n",
+		    __FILE__,brd->i2cTempFifoName,rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
+	brd->i2cTempRate = rate;
+	register_irig_callback(&i2cTempIrigCallback,rate, brd);
+
+	return 0;
+}
+
+static int closeI2CTemp(struct A2DBoard* brd)
+{
+	unregister_irig_callback(&i2cTempIrigCallback,brd->i2cTempRate,brd);
+
+	int fd = brd->i2cTempfd;
+	brd->i2cTempfd = 0;
+	if (fd >= 0) rtl_close(fd);
+	return 0;
+}
+
+/* Callback function to send I2C temperature data to user space.
+ */
+static void i2cTempIrigCallback(void *ptr)
+{
+    struct A2DBoard* brd = (struct A2DBoard*)ptr;
+    I2C_TEMP_SAMPLE samp;
+    samp.timestamp = GET_MSEC_CLOCK;
+    samp.size = sizeof(short);
+    samp.data = A2DTemp(brd);
+    rtl_printf("Brd temp %d.%1d degC\n", samp.data/16, (10*(samp.data%16))/16);
+
+    if (brd->i2cTempfd >= 0) {
+	// Write to up-fifo
+	if (rtl_write(brd->i2cTempfd, &samp,
+	    SIZEOF_DSM_SAMPLE_HEADER + samp.size) < 0) {
+	    rtl_printf("%s error: write %s: %s\n",
+		    __FILE__,brd->i2cTempFifoName,rtl_strerror(rtl_errno));
+	    rtl_printf("%s shutting down this FIFO\n",__FILE__);
+	    rtl_close(brd->i2cTempfd);
+	    brd->i2cTempfd = 0;
+	}
+    }
+}
 /*------------------ Main A2D thread -------------------------*/
 //	0 does necessary initialization, then loops
 //	1 waits on a semaphore from the 100Hz callback
@@ -899,7 +950,6 @@ static void* A2DGetDataThread(void *thread_arg)
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 	unsigned short stat;
 	static int closeA2D(struct A2DBoard* brd,int joinAcqThread);
-	short degC;
 
 	// The A2Ds should be done writing to the FIFO in
 	// 2 * 8 * 800 nsec = 12.8 usec
@@ -922,7 +972,7 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	// Zero the semaphore, then start the IRIG callback routine at 100 Hz
 	rtl_sem_init(&brd->acq_sem,0,0);
-	register_irig_callback(&irigCallback,IRIG_100_HZ, brd);
+	register_irig_callback(&a2dIrigCallback,IRIG_100_HZ, brd);
 
 	// wait for 10 msec semaphore
 	rtl_sem_wait(&brd->acq_sem);
@@ -1048,8 +1098,6 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->nbad[7]);
 		    brd->readCtr = 0;
 
-			degC = A2DTemp(brd);	// Added call to test LM92 6/24/05 GRG
-			rtl_printf("Brd temp %d.%1d degC\n", degC/16, (10*(degC%16))/16);
 		}
 		brd->nbadBufs = 0;
 		for (i = 0; i < MAXA2DS; i++) {
@@ -1061,13 +1109,13 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	    buf.size = (char*)dataptr - (char*)buf.data;
 
-	    if (brd->fd >= 0 && buf.size > 0) {
+	    if (brd->a2dfd >= 0 && buf.size > 0) {
 		// Write to up-fifo
-		if (rtl_write(brd->fd, &buf,
+		if (rtl_write(brd->a2dfd, &buf,
 		    SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
 		    int ierr = rtl_errno;	// save err
 		    rtl_printf("%s error: write %s: %s\n",
-			    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+			    __FILE__,brd->a2dFifoName,rtl_strerror(rtl_errno));
 		    rtl_printf("%s shutting down this A2D\n",__FILE__);
 		    closeA2D(brd,0);		// close, but don't join this thread
 		    return (void*) convert_rtl_errno(ierr);
@@ -1086,12 +1134,12 @@ static int openA2D(struct A2DBoard* brd)
 	brd->busy = 1;	// Set the busy flag
 	brd->interrupted = 0;
 
-	if (brd->fd >= 0) rtl_close(brd->fd);
-	if((brd->fd = rtl_open(brd->fifoName,
+	if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
+	if((brd->a2dfd = rtl_open(brd->a2dFifoName,
 		RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 	{
 	    rtl_printf("%s error: opening %s: %s\n",
-		    __FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+		    __FILE__,brd->a2dFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
 
@@ -1165,7 +1213,7 @@ static int closeA2D(struct A2DBoard* brd,int joinAcqThread)
 	}
 
 	//Turn off the callback routine
-	unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
+	unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ,brd);
 
 	A2DStatusAll(brd); 	// Read status and clear IRQ's	
 
@@ -1174,9 +1222,9 @@ static int closeA2D(struct A2DBoard* brd,int joinAcqThread)
 	// Abort all the A/D's
 	A2DResetAll(brd);
 
-	if (brd->fd >= 0) {
-	    int fdtmp = brd->fd;
-	    brd->fd = -1;
+	if (brd->a2dfd >= 0) {
+	    int fdtmp = brd->a2dfd;
+	    brd->a2dfd = -1;
 	    rtl_close(fdtmp);
 	}
 	brd->busy = 0;	// Reset the busy flag
@@ -1209,8 +1257,14 @@ static int ioctlCallback(int cmd, int board, int port,
   	switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
+		/* number of devices on a board. This is the number of
+		 * /dev/a2d* devices, from the user's point of view, that one
+		 * board represents.  It is two, device 0 is the 8 A2D
+		 * channels, device 1 is the temperature sensor.
+		 */
+		if (len != sizeof(int)) break;
 		rtl_printf("%s: GET_NUM_PORTS\n", __FILE__);
-		*(int *) buf = ndevices;
+		*(int *) buf = 2;	
 		ret = sizeof(int);
   		break;
 
@@ -1273,6 +1327,16 @@ static int ioctlCallback(int cmd, int board, int port,
 		rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
 		ret = closeA2D(brd,1);
 		break;
+  	case A2D_OPEN_I2CT:
+		rtl_printf("%s: A2D_OPEN_I2CT\n", __FILE__);
+		if (len != sizeof(int)) break;	// invalid length
+		int rate = *(int*)buf;
+		ret = openI2CTemp(brd,rate);
+		break;
+  	case A2D_CLOSE_I2CT:
+		rtl_printf("%s: A2D_CLOSE_I2CT\n", __FILE__);
+		ret = closeI2CTemp(brd);
+		break;
 	default:
 		break;
   	}
@@ -1291,7 +1355,7 @@ void cleanup_module(void)
 	    struct A2DBoard* brd = boardInfo + ib;
 
 	    // remove the callback routine (does nothing if it isn't registered)
-	    unregister_irig_callback(&irigCallback, IRIG_100_HZ,brd);
+	    unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ,brd);
 
 	    A2DStatusAll(brd); 	// Read status and clear IRQ's	
 
@@ -1316,12 +1380,20 @@ void cleanup_module(void)
 		brd->acq_thread = 0;
 	    }
 
-	    if (brd->fd >= 0) rtl_close(brd->fd);
-	    if (brd->fifoName) {
-		rtl_unlink(brd->fifoName);
-		rtl_gpos_free(brd->fifoName);
+	    // close and remove A2D fifo
+	    if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
+	    if (brd->a2dFifoName) {
+		rtl_unlink(brd->a2dFifoName);
+		rtl_gpos_free(brd->a2dFifoName);
 	    }
 	    rtl_sem_destroy(&brd->acq_sem);
+
+	    // close and remove temperature fifo
+	    if (brd->i2cTempfd >= 0) rtl_close(brd->i2cTempfd);
+	    if (brd->i2cTempFifoName) {
+		rtl_unlink(brd->i2cTempFifoName);
+		rtl_gpos_free(brd->i2cTempFifoName);
+	    }
 
 	    if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
 	    brd->ioctlhandle = 0;
@@ -1379,8 +1451,10 @@ int init_module()
 	    brd->busy = 0;
 
 	    rtl_sem_init(&brd->acq_sem,0,0);
-	    brd->fifoName = 0;
-	    brd->fd = -1;
+	    brd->a2dFifoName = 0;
+	    brd->a2dfd = -1;
+	    brd->i2cTempFifoName = 0;
+	    brd->i2cTempfd = -1;
 	    brd->ioctlhandle = 0;
 	    memset(&brd->config,0,sizeof(A2D_SET));
 	    memset(&brd->cal,0,sizeof(A2D_CAL));
@@ -1397,6 +1471,7 @@ int init_module()
 	    brd->readCtr = 0;
 	    brd->nbadBufs = 0;
 	    brd->fifoNotEmpty = 0;
+	    brd->i2c = 0x3;
 	}
 
 	/* allocate necessary members in each A2DBoard structure */
@@ -1424,16 +1499,30 @@ int init_module()
 
 	    if (!brd->ioctlhandle) goto err;
 
-	    // Open the fifo TO user space (up fifo)
+	    // Open the A2D fifo to user space
 	    error = -ENOMEM;
-	    brd->fifoName = makeDevName(devprefix,"_in_",ib);
-            if (!brd->fifoName) goto err;
+	    brd->a2dFifoName = makeDevName(devprefix,"_in_",ib);
+            if (!brd->a2dFifoName) goto err;
 
 	    // remove broken device file before making a new one
-	    if ((rtl_unlink(brd->fifoName) < 0 && rtl_errno != RTL_ENOENT)
-	    	|| rtl_mkfifo(brd->fifoName, 0666) < 0) {
+	    if ((rtl_unlink(brd->a2dFifoName) < 0 && rtl_errno != RTL_ENOENT)
+	    	|| rtl_mkfifo(brd->a2dFifoName, 0666) < 0) {
 		rtl_printf("%s error: unlink/mkfifo %s: %s\n",
-			__FILE__,brd->fifoName,rtl_strerror(rtl_errno));
+			__FILE__,brd->a2dFifoName,rtl_strerror(rtl_errno));
+		error = -convert_rtl_errno(rtl_errno);
+		goto err;
+	    }
+
+	    // Open the fifo for I2C temperature data to user space
+	    error = -ENOMEM;
+	    brd->i2cTempFifoName = makeDevName(devprefix,"_in_",ib);
+            if (!brd->i2cTempFifoName) goto err;
+
+	    // remove broken device file before making a new one
+	    if ((rtl_unlink(brd->i2cTempFifoName) < 0 && rtl_errno != RTL_ENOENT)
+	    	|| rtl_mkfifo(brd->i2cTempFifoName, 0666) < 0) {
+		rtl_printf("%s error: unlink/mkfifo %s: %s\n",
+			__FILE__,brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 		error = -convert_rtl_errno(rtl_errno);
 		goto err;
 	    }
@@ -1449,9 +1538,14 @@ err:
 		struct A2DBoard* brd = boardInfo + ib;
 
 		rtl_sem_destroy(&brd->acq_sem);
-		if (brd->fifoName) {
-		    rtl_unlink(brd->fifoName);
-		    rtl_gpos_free(brd->fifoName);
+		if (brd->a2dFifoName) {
+		    rtl_unlink(brd->a2dFifoName);
+		    rtl_gpos_free(brd->a2dFifoName);
+		}
+
+		if (brd->i2cTempFifoName) {
+		    rtl_unlink(brd->i2cTempFifoName);
+		    rtl_gpos_free(brd->i2cTempFifoName);
 		}
 
 		if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);

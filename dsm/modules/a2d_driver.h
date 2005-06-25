@@ -107,6 +107,8 @@ typedef struct
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_CAL)
 #define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)
 #define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
+#define A2D_OPEN_I2CT _IOW(A2D_MAGIC,5,int)
+#define A2D_CLOSE_I2CT _IO(A2D_MAGIC,6)
 
 //A2D Status register bits
 #define	A2DINSTBSY	0x8000	//Instruction being performed
@@ -225,6 +227,13 @@ typedef struct
   	SS data[RATERATIO*MAXA2DS]; 
 } A2DSAMPLE;
 
+typedef struct 
+{
+	dsm_sample_time_t timestamp;	// timetag of sample 
+	dsm_sample_length_t size;	// number of bytes in data 
+  	short data;
+} I2C_TEMP_SAMPLE;
+
 struct A2DBoard {
     unsigned int addr;	// Base address of board
     unsigned int chan_addr;	// 
@@ -232,8 +241,11 @@ struct A2DBoard {
     rtl_pthread_t pps_thread;
     rtl_pthread_t acq_thread;
     rtl_sem_t acq_sem;	// 100Hz semaphore
-    int fd;			// File descriptor of RTL FIFO
-    char* fifoName;
+    int a2dfd;			// File descriptor of RTL FIFO for A2D data
+    char* a2dFifoName;
+    int i2cTempfd;		// File descriptor of RTL FIFO for I2C Temp data
+    char* i2cTempFifoName;
+    int i2cTempRate;		// rate to query I2C temperature sensor
     struct ioctlHandle* ioctlhandle;
     A2D_SET config;		// board configuration
     A2D_CAL cal;		// calibration configuration
@@ -248,6 +260,7 @@ struct A2DBoard {
     int readCtr;
     int nbadBufs;
     int fifoNotEmpty;
+    unsigned char i2c;
 };
 
 #endif
