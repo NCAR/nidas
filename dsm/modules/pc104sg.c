@@ -780,6 +780,25 @@ static void getTimeFields(struct irigTime* ti,int offset)
     ti->nsec = (us0ns2 & 0x0f) * 100;
 }
 
+/**
+ * Read sub-second time fields from the card, return microseconds.
+ * May be useful for watching-the-clock when debugging.
+ */
+long getTimeUsec()
+{
+    unsigned char us0ns2,us2us1,ms1ms0,sec0ms2;
+
+    /* reading the Usec1_Nsec100 value latches all other digits */
+    us0ns2    = inb(isa_address+Usec1_Nsec100_Port);
+    us2us1    = inb(isa_address+Usec100_Usec10_Port);
+    ms1ms0    = inb(isa_address+Msec10_Msec1_Port);
+    sec0ms2   = inb(isa_address+Sec1_Msec100_Port);
+
+    long usec = (((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
+    	(ms1ms0 & 0x0f)) * 1000 +
+	((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
+    return usec;
+}
 
 /**
  * Get main clock.

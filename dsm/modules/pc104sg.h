@@ -26,6 +26,12 @@
 
 #ifdef __RTCORE_KERNEL__
 
+/**
+ * Read sub-second time fields from the PC104SG card, return microseconds.
+ * May be useful for watching-the-clock when debugging.
+ */
+long getTimeUsec();
+
 #define PC104SG_IOPORT_WIDTH  0x20
 
 /* register definitions for PC104-SG card */
