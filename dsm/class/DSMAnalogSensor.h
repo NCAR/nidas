@@ -46,9 +46,9 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
     /**
-     * Process a raw sample, which in this case means do
-     * a sscanf on the character string contents, creating
-     * a processed sample of binary floating point data.
+     * Process a raw sample, which in this case means unpack the
+     * A2D data buffer into individual samples and convert the
+     * counts to voltage.
      */
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();

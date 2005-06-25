@@ -55,7 +55,6 @@ DSMAnalogSensor::~DSMAnalogSensor()
 void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 {
     init();
-    RTL_DSMSensor::open(flags);
 
     A2D_SET a2d;
     unsigned int chan;
@@ -93,6 +92,8 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 
     cerr << "doing A2D_RUN_IOCTL" << endl;
     ioctl(A2D_RUN_IOCTL,(const void*)0,0);
+
+    RTL_DSMSensor::open(flags);
 }
 
 void DSMAnalogSensor::close() throw(atdUtil::IOException)
