@@ -77,10 +77,17 @@ static struct A2DBoard* boardInfo = 0;
 
 static const char* devprefix = "dsma2d";
 
+/* number of devices on a board. This is the number of
+ * /dev/dsma2d* devices, from the user's point of view, that one
+ * board represents.  Device 0 is the 8 A2D
+ * channels, device 1 is the temperature sensor.
+ */
+#define NDEVICES 2
+
 int  init_module(void);
 void cleanup_module(void);
 
-/****************  IOCTL Section ***************8*********/
+/****************  IOCTL Section *************************/
 
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
@@ -1122,8 +1129,6 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 	}
-
-
 	rtl_printf("Exiting A2DGetDataThread\n");
 	return 0;
 }
@@ -1257,29 +1262,22 @@ static int ioctlCallback(int cmd, int board, int port,
   	switch (cmd) 
 	{
   	case GET_NUM_PORTS:		/* user get */
-		/* number of devices on a board. This is the number of
-		 * /dev/a2d* devices, from the user's point of view, that one
-		 * board represents.  It is two, device 0 is the 8 A2D
-		 * channels, device 1 is the temperature sensor.
-		 */
 		if (len != sizeof(int)) break;
 		rtl_printf("%s: GET_NUM_PORTS\n", __FILE__);
-		*(int *) buf = 2;	
+		*(int *) buf = NDEVICES;	
 		ret = sizeof(int);
   		break;
 
   	case A2D_STATUS_IOCTL:		/* user get */
+		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_STATUS)) break;
 		memcpy(buf,&brd->status,len);
 		ret = len;
-    	break;
+		break;
 
   	case A2D_SET_IOCTL:		/* user set */
-		if (len != sizeof(A2D_SET)) {
-		    rtl_printf("len=%d, sizeof(A2D_SET)=%d\n",
-		    	len,sizeof(A2D_SET));
-		    break;	// invalid length
-		}
+		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
+		if (len != sizeof(A2D_SET)) break;	// invalid length
 		if(brd->busy) {
 			rtl_printf("A2D's running. Can't reset\n");
 			ret = -EBUSY;
@@ -1301,6 +1299,7 @@ static int ioctlCallback(int cmd, int board, int port,
 
   	case A2D_CAL_IOCTL:		/* user set */
 		rtl_printf("%s: A2D_CAL_IOCTL\n", __FILE__);
+		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_CAL)) break;	// invalid length
 		memcpy(&brd->cal,(A2D_CAL*)buf,sizeof(A2D_CAL));
 		A2DSetVcal(brd);
@@ -1310,6 +1309,7 @@ static int ioctlCallback(int cmd, int board, int port,
 
   	case A2D_RUN_IOCTL:
 
+		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		// clean up acquisition thread if it was left around
 		if (brd->acq_thread) {
 		    brd->interrupted = 1;
@@ -1324,17 +1324,20 @@ static int ioctlCallback(int cmd, int board, int port,
 		break;
 
   	case A2D_STOP_IOCTL:
+		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		rtl_printf("%s: A2D_STOP_IOCTL\n", __FILE__);
 		ret = closeA2D(brd,1);
 		break;
   	case A2D_OPEN_I2CT:
 		rtl_printf("%s: A2D_OPEN_I2CT\n", __FILE__);
+		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(int)) break;	// invalid length
 		int rate = *(int*)buf;
 		ret = openI2CTemp(brd,rate);
 		break;
   	case A2D_CLOSE_I2CT:
 		rtl_printf("%s: A2D_CLOSE_I2CT\n", __FILE__);
+		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		ret = closeI2CTemp(brd);
 		break;
 	default:
@@ -1501,7 +1504,7 @@ int init_module()
 
 	    // Open the A2D fifo to user space
 	    error = -ENOMEM;
-	    brd->a2dFifoName = makeDevName(devprefix,"_in_",ib);
+	    brd->a2dFifoName = makeDevName(devprefix,"_in_",ib*NDEVICES);
             if (!brd->a2dFifoName) goto err;
 
 	    // remove broken device file before making a new one
@@ -1515,7 +1518,7 @@ int init_module()
 
 	    // Open the fifo for I2C temperature data to user space
 	    error = -ENOMEM;
-	    brd->i2cTempFifoName = makeDevName(devprefix,"_in_",ib);
+	    brd->i2cTempFifoName = makeDevName(devprefix,"_in_",ib*NDEVICES+1);
             if (!brd->i2cTempFifoName) goto err;
 
 	    // remove broken device file before making a new one

@@ -45,16 +45,29 @@ public:
 
     /**
      * Process a raw sample, which in this case means convert
-     * the signed short value to a temperature in celsius
-     * by dividing by 16.0 degC-1
+     * the 16 bit signed value to degC.
      */
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
 protected:
-    enum irigClockRates rate;
 
     dsm_sample_id_t sampleId;
+
+    /**
+     * Sample rate.
+     */
+    enum irigClockRates rate;
+
+    /**
+     * Last measured temperature.  Provided in printStatus.
+     */
+    float lastTemp;
+
+    /**
+     * Conversion factor from 16 bit raw sensor value to degC
+     */
+    const float DEGC_PER_CNT;
 
 };
 

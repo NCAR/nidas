@@ -21,7 +21,7 @@
 #include <math.h>
 
 #include <iostream>
-
+#include <iomanip>
 
 using namespace dsm;
 using namespace std;
@@ -29,7 +29,8 @@ using namespace std;
 CREATOR_ENTRY_POINT(A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    RTL_DSMSensor()
+    RTL_DSMSensor(),rate(IRIG_1_HZ),
+    lastTemp(0.0),DEGC_PER_CNT(0.0625)
 {
 }
 
@@ -56,45 +57,30 @@ void A2DBoardTempSensor::init() throw()
     const vector<const SampleTag*>& stags = getSampleTags();
     if (stags.size() == 1) {
         sampleId = stags[0]->getId();
-	float rate = stags[0]->getRate();
-	rate = irigClockRateToEnum((int)rate);
+	rate = irigClockRateToEnum((int)stags[0]->getRate());
     }
 }
 
 void A2DBoardTempSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
-
-    A2D_STATUS stat;
-    try {
-	ioctl(A2D_STATUS_IOCTL,&stat,sizeof(stat));
-
-	ostr << "<td align=left>" <<
-		"#full=" << stat.fifofullctr <<
-		", #3/4=" << stat.fifo34ctr <<
-		", #1/2=" << stat.fifo24ctr <<
-		", #1/4=" << stat.fifo14ctr <<
-		", #0/4=" << stat.fifoemptyctr <<
-		"</td>" << endl;
-    }
-    catch(const atdUtil::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
-    }
+    ostr << "<td align=left>" << fixed << setprecision(1) <<
+    	lastTemp << " degC</td>" << endl;
 }
 
 bool A2DBoardTempSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
 {
-    // number of data values in this raw sample.
+    // number of data values in this raw sample. Should be one.
     if (insamp->getDataByteLength() / sizeof(short) != 1) return false;
 
-    // pointer to raw I2C value
+    // pointer to 16 bit raw temperature
     const signed short* sp = (const signed short*)
     	insamp->getConstVoidDataPtr();
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(sampleId);
-    osamp->getDataPtr()[0] = *sp / 16.0;
+    osamp->getDataPtr()[0] = lastTemp = *sp * DEGC_PER_CNT;
 
     result.push_back(osamp);
     return true;
