@@ -24,6 +24,18 @@ void SampleDater::setTime(dsm_time_t clockT)
 {
     clockTime = clockT;
     t0day = timeFloor(clockTime,USECS_PER_DAY);
+    dsm_time_t tnow = getSystemTime();
+    sysTimeMutex.lock();
+    if (::llabs(tnow - clockT) > LONG_MAX) sysTimeAhead = 0;
+    else sysTimeAhead = tnow - clockT;
+    sysTimeMutex.unlock();
+    cerr << "sysTimeAhead=" << sysTimeAhead << endl;
+}
+
+dsm_time_t SampleDater::getDataSystemTime() const 
+{
+    atdUtil::Synchronized autolock(sysTimeMutex);
+    return dsm::getSystemTime() - sysTimeAhead;
 }
 
 

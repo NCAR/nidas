@@ -44,7 +44,10 @@ public:
      * 		maxClockDiff, then the state is set to OUT_OF_SPEC.
      */
     SampleDater(int maxClockDiff = 180):
-    	maxClockDiffUsec(maxClockDiff * USECS_PER_SEC),t0day(0),clockTime(0) {}
+    	maxClockDiffUsec(maxClockDiff * USECS_PER_SEC),
+	t0day(0),clockTime(0),sysTimeAhead(0)
+    {
+    }
 
     /**
      * Set the absolute time, microseconds since Jan 1, 1970 00:00 GMT.
@@ -75,6 +78,14 @@ public:
      */
     status_t setSampleTime(Sample* samp) const;
 
+    /**
+     * Get the current data system time.  As currently implemented,
+     * this does not make a clock fetch from the data system, but
+     * computes the time as getSystemTime() + offset, where
+     * offset is computed every time setTime() is called.
+     */
+    dsm_time_t getDataSystemTime() const; 
+
 private:
 
     int maxClockDiffUsec;
@@ -82,6 +93,10 @@ private:
     dsm_time_t t0day;
 
     dsm_time_t clockTime;
+
+    mutable atdUtil::Mutex sysTimeMutex;
+
+    long sysTimeAhead;
 
 };
 

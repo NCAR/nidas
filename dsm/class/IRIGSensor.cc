@@ -104,7 +104,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     	" (" << statusString(status,false) << ')' << endl;
 
     irigTime = getIRIGTime();
-    unixTime = getCurrentTime();
+    unixTime = getSystemTime();
 
     if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
 	(status & CLOCK_STATUS_NOMAJT)) {
@@ -128,7 +128,7 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
 	irigTime = getIRIGTime();
-	unixTime = getCurrentTime();
+	unixTime = getSystemTime();
 
 	if (ntry > 0) {
 	    double dtunix = unixTime - unixTimeLast;
@@ -198,7 +198,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left>" << statusString(status,true) <<
 		" (status=0x" << hex << (int)status << dec << ')';
 	irigTime = getIRIGTime();
-	unixTime = getCurrentTime();
+	unixTime = getSystemTime();
 	ostr << ", IRIG-UNIX=" << fixed << setprecision(3) <<
 		(float)(irigTime - unixTime)/USECS_PER_SEC << " sec</td>" << endl;
     }

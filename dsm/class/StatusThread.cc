@@ -37,10 +37,9 @@ int StatusThread::run() throw(atdUtil::Exception)
     DSMEngine* engine = DSMEngine::getInstance();
     const DSMConfig* dsm = engine->getDSMConfig();
     // const PortSelector* selector = engine->getPortSelector();
+    const SampleDater* dater = engine->getSampleDater();
 
-    struct timespec nsleep;
-    nsleep.tv_sec = period;
-    nsleep.tv_nsec = 0;
+    unsigned long usecPeriod = period * USECS_PER_SEC;
 
     atdUtil::MulticastSocket msock;
     atdUtil::Inet4Address maddr =
@@ -50,7 +49,17 @@ int StatusThread::run() throw(atdUtil::Exception)
 
     std::ostringstream statStream;
 
+    struct timespec nsleep;
     for (;;) {
+	
+	dsm_time_t tnow = dater->getDataSystemTime();
+
+	// wakeup (approx) 100 usecs after exact period time
+	long tdiff = usecPeriod - (tnow % usecPeriod) + 100;
+	cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
+	nsleep.tv_sec = tdiff / USECS_PER_SEC;
+	nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
+
 	if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
         if (isInterrupted()) break;
 

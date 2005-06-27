@@ -44,7 +44,7 @@ PortSelector::PortSelector() :
   setTimeout(MSECS_PER_SEC / 10);
   setTimeoutWarning(300 * MSECS_PER_SEC);
   FD_ZERO(&readfdset);
-  statisticsTime = timeCeiling(getCurrentTime(),
+  statisticsTime = timeCeiling(getSystemTime(),
   	statisticsPeriod);
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
@@ -147,7 +147,7 @@ int PortSelector::run() throw(atdUtil::Exception)
 	  timeoutSumMsec = 0;
 	}
       }
-      rtime = getCurrentTime();
+      rtime = getSystemTime();
       if (rtime > statisticsTime) calcStatistics(rtime);
       continue;
     }

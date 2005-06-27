@@ -60,7 +60,7 @@ namespace dsm {
  * Return the current unix system time, in microseconds 
  * since Jan 1, 1970, 00:00 GMT
  */
-inline dsm_time_t getCurrentTime() {
+inline dsm_time_t getSystemTime() {
     struct timeval tval;
     if (::gettimeofday(&tval,0) < 0) return 0L;   // shouldn't happen
     return (dsm_time_t)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;

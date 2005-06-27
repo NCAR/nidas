@@ -28,7 +28,7 @@ IOStream::IOStream(IOChannel& iochan,size_t blen):
     buffer = new char[buflen * 2];
     eob = buffer + buflen * 2;
     head = tail = buffer;
-    lastWrite = getCurrentTime();
+    lastWrite = getSystemTime();
 }
 
 IOStream::~IOStream()
@@ -119,7 +119,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
     // large writes, bigger than 1/2 the buffer size
     bool largewrite = tlen > buflen;
 
-    dsm_time_t tnow = getCurrentTime();
+    dsm_time_t tnow = getSystemTime();
     int tdiff = tnow - lastWrite;	// microseconds
 
     int nagain = 0;
@@ -216,6 +216,6 @@ void IOStream::flush() throw (atdUtil::IOException)
     }
     tail += l;
     if (tail == head) tail = head = buffer;
-    lastWrite = getCurrentTime();
+    lastWrite = getSystemTime();
 }
 
