@@ -262,8 +262,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
 	if (coefs.size() == 2) {
 	    Linear* linear = new Linear();
-	    linear->setSlope(coefs[0]);
-	    linear->setIntercept(coefs[1]);
+	    linear->setIntercept(coefs[0]);
+	    linear->setSlope(coefs[1]);
 	    var->setConverter(linear);
 	}
 	else if (coefs.size() > 2) {
