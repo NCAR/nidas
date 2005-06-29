@@ -64,7 +64,7 @@
         <sample id="0361" rate="25"   ><variable name="ALT"                  units="m"        longname="IRS Altitude"/></sample>
     <!--<sample id="0362" rate="50"   ><variable name="Along Trk Accel"      units="G"        longname="Along Trk Accel"/></sample>             not used    -->
     <!--<sample id="0363" rate="50"   ><variable name="Cross Trk Accel"      units="G"        longname="Cross Trk Accel"/></sample>             not used    -->
-        <sample id="0364" rate="50"   ><variable name="ACINS"                units="m/s2"        longname="IRS Vertical Acceleration"/></sample>
+        <sample id="0364" rate="50"   ><variable name="ACINS"                units="m/s2"     longname="IRS Vertical Acceleration"/></sample>
         <sample id="0365" rate="25"   ><variable name="VSPD"                 units="m/s"      longname="IRS Vertical Speed"/></sample>
         <sample id="0366" rate="10"   ><variable name="VNS"                  units="m/s"      longname="IRS Ground Speed Vector, North Component"/></sample>
         <sample id="0367" rate="10"   ><variable name="VEW"                  units="m/s"      longname="IRS Ground Speed Vector, East Component"/></sample>
@@ -115,21 +115,21 @@
         <sample id="0333" rate="50"   ><variable name="BNORMA"               units="G"        longname="IRS Body Normal Acceleration"/></sample>
     <!--<sample id="0334" rate="25"   ><variable name="PHDG"                 units="degree_T" longname="IRS Platform Heading"/></sample>                not used    -->
         <sample id="0335" rate="50"   ><variable name="TKAR"                 units="deg/s"    longname="IRS Track Angle Rate"/></sample>
-        <sample id="0336" rate="50"   ><variable name="pitch_att_rate"       units="deg/s"    longname="pitch_att_rate"/></sample>
-        <sample id="0337" rate="50"   ><variable name="roll_att_rate"        units="deg/s"    longname="roll_att_rate"/></sample>
-        <sample id="0350" rate="3.125"><variable name="irs_maint_discretes"  units=""         longname="irs_maint_discretes"/></sample>    <!-- rate was 2  -->
-        <sample id="0351" rate="3.125"><variable name="time_to_nav_ready"    units="min"      longname="time_to_nav_ready"/></sample>      <!-- rate was 2  -->
+    <!--<sample id="0336" rate="50"   ><variable name="pitch_att_rate"       units="deg/s"    longname="pitch_att_rate"/></sample>			not used    -->
+    <!--<sample id="0337" rate="50"   ><variable name="roll_att_rate"        units="deg/s"    longname="roll_att_rate"/></sample>			not used    -->
+    <!--<sample id="0350" rate="3.125"><variable name="irs_maint_discretes"  units=""         longname="irs_maint_discretes"/></sample>		rate was 2  -->
+    <!--<sample id="0351" rate="3.125"><variable name="time_to_nav_ready"    units="min"      longname="time_to_nav_ready"/></sample>		rate was 2  -->
     <!--<sample id="0354" rate="50"   ><variable name="total time"           units="count"    longname="total time"/></sample>                  not used    -->
-        <sample id="0360" rate="50"   ><variable name="pot_vert_speed"       units="ft/min"   longname="pot_vert_speed"/></sample>
+    <!--<sample id="0360" rate="50"   ><variable name="pot_vert_speed"       units="ft/min"   longname="pot_vert_speed"/></sample>		not used    -->
         <sample id="0361" rate="25"   ><variable name="ALT"                  units="m"        longname="IRS Altitude"/></sample>
     <!--<sample id="0362" rate="50"   ><variable name="along trk accel"      units="G"        longname="along trk accel"/></sample>             not used    -->
     <!--<sample id="0363" rate="50"   ><variable name="cross trk accel"      units="G"        longname="cross trk accel"/></sample>             not used    -->
-        <sample id="0364" rate="50"   ><variable name="ACINS"                units="m/s2"        longname="IRS Vertical Acceleration"/></sample>
+        <sample id="0364" rate="50"   ><variable name="ACINS"                units="m/s2"     longname="IRS Vertical Acceleration"/></sample>
         <sample id="0365" rate="50"   ><variable name="VSPD"                 units="m/s"      longname="IRS Vertical Speed"/></sample>
         <sample id="0366" rate="12.5" ><variable name="VNS"                  units="m/s"      longname="IRS Ground Speed Vector, North Component"/></sample>
         <sample id="0367" rate="12.5" ><variable name="VEW"                  units="m/s"      longname="IRS Ground Speed Vector, East Component"/></sample>
-        <sample id="0370" rate="6.25" ><variable name="norm_accel"           units="G"        longname="norm_accel"/></sample>             <!-- rate was 5  -->
-        <sample id="0371" rate="3.125"><variable name="equipment_id"         units=""         longname="equipment_id"/></sample>           <!-- rate was 2  -->
+    <!--<sample id="0370" rate="6.25" ><variable name="norm_accel"           units="G"        longname="norm_accel"/></sample>             rate was 5  -->
+    <!--<sample id="0371" rate="3.125"><variable name="equipment_id"         units=""         longname="equipment_id"/></sample>           rate was 2  -->
     <!--<sample id="0375" rate="50"   ><variable name="along hdg accel"      units="G"        longname="along hdg accel"/></sample>             new         -->
     <!--<sample id="0376" rate="50"   ><variable name="cross hdg accel"      units="G"        longname="cross hdg accel"/></sample>             new         -->
     </arincSensor>
@@ -137,25 +137,25 @@
     <arincSensor ID="ADC-GV" class="ADC_HW_EB7022597">
         <!-- Taken from the Honeywell Engineering Specification A.4.1 spec. no. -->
         <!-- EB7022597 cage code 55939 "Air Data Computer"    (pages A-53..79). -->
-        <sample id="0203" rate="16"   ><variable name="PALT"                 units="m"        longname="ADC Pressure Alt"/></sample>
-        <sample id="0204" rate="16"   ><variable name="baroalt1"             units="m"        longname="baro corrected alt #1"/></sample>
-        <sample id="0205" rate="8"    ><variable name="mach"                 units="mach"     longname="ADC Mach Number"/></sample>
-        <sample id="0206" rate="8"    ><variable name="cairspeed"            units="m"        longname="computed air speed"/></sample>
+        <sample id="0203" rate="16"   ><variable name="PALT"                 units="m"        longname="ADC Pressure Altitude"/></sample>
+        <sample id="0204" rate="16"   ><variable name="BALT1"                units="m"        longname="ADC Baro Altitude"/></sample>
+        <sample id="0205" rate="8"    ><variable name="MACH"                 units="mach"     longname="ADC Mach Number"/></sample>
+        <sample id="0206" rate="8"    ><variable name="CAS"                  units="m"        longname="ADC Computed Air Speed"/></sample>
     <!--<sample id="0207" rate="8"    ><variable name="max operating speed"  units="knot"     longname="maximum operating speed"/></sample>     not used    -->
-        <sample id="0210" rate="16"   ><variable name="TAS"                  units="m/s"      longname="True Air Speed"/></sample>
-        <sample id="0211" rate="2"    ><variable name="tpress"               units="Celsius"  longname="total air pressure"/></sample>
-        <sample id="0212" rate="16"   ><variable name="altrate"              units="ft/min"   longname="altitude rate"/></sample>
-        <sample id="0213" rate="2"    ><variable name="spress"               units="Celsius"  longname="static air pressure"/></sample>
-        <sample id="0215" rate="8"    ><variable name="ipress"               units="mbar"     longname="impact pressure"/></sample>
-        <sample id="0217" rate="8"    ><variable name="spress2"              units="mbar"     longname="static pressure"/></sample>
-        <sample id="0220" rate="16"   ><variable name="baroalt2"             units="m"        longname="baro corrected alt #2"/></sample>
-        <sample id="0234" rate="16"   ><variable name="barocor1"             units="mbar"     longname="baro correction #1 mB"/></sample>
-    <!--<sample id="0235" rate="16"   ><variable name="baro correction #1 inHg"    units="inHg"     longname="baro correction #1 inHg"/></sample>     not used    -->
-        <sample id="0236" rate="16"   ><variable name="barocor2"             units="mg"       longname="baro correction #2 mB"/></sample>
-    <!--<sample id="0237" rate="16"   ><variable name="baro correction #2 inHg"    units="inHg"     longname="baro correction #2 inHg"/></sample>     not used    -->
-        <sample id="0242" rate="16"   ><variable name="tpress2"              units="mbar"     longname="total pressure"/></sample>
-        <sample id="0244" rate="8"    ><variable name="attack"               units="ratio"    longname="norm angle of attack"/></sample>
-    <!--<sample id="0252" rate="16"   ><variable name="baro corrected alt #4" units="ft"       longname="baro corrected alt #4"/></sample>       not used    -->
+        <sample id="0210" rate="16"   ><variable name="TAS"                  units="m/s"      longname="ADC True Air Speed"/></sample>
+        <sample id="0211" rate="2"    ><variable name="TT"                   units="deg_C"    longname="ADC Total Air Temperature"/></sample>
+    <!--<sample id="0212" rate="16"   ><variable name="altrate"              units="m/s"      longname="ADC Altitude Rate"/></sample>		not used    -->
+        <sample id="0213" rate="2"    ><variable name="AT"                   units="deg_C"    longname="ADC Ambient Air Temperature"/></sample>
+        <sample id="0215" rate="8"    ><variable name="QC"                   units="mbar"     longname="ADC Impact Pressure"/></sample>
+        <sample id="0217" rate="8"    ><variable name="PS"                   units="mbar"     longname="ADC Static Pressure"/></sample>
+        <sample id="0220" rate="16"   ><variable name="BALT2"                units="m"        longname="ADC baro corrected alt #2"/></sample>
+        <sample id="0234" rate="16"   ><variable name="BAROCOR1"             units="mbar"     longname="ADC baro correction #1 mB"/></sample>
+    <!--<sample id="0235" rate="16"   ><variable name="baro correction #1"   units="inHg"     longname="baro correction #1 inHg"/></sample>     not used    -->
+        <sample id="0236" rate="16"   ><variable name="BAROCOR2"             units="mbar"     longname="ADC baro correction #2 mB"/></sample>
+    <!--<sample id="0237" rate="16"   ><variable name="baro correction #2"   units="inHg"     longname="baro correction #2 inHg"/></sample>     not used    -->
+        <sample id="0242" rate="16"   ><variable name="PT"                   units="mbar"     longname="ADC Total Pressure"/></sample>
+        <sample id="0244" rate="8"    ><variable name="ATTACK"               units="ratio"    longname="ADC Angle of Attack"/></sample>
+    <!--<sample id="0252" rate="16"   ><variable name="baro corrected alt #4" units="m"       longname="baro corrected alt #4"/></sample>       not used    -->
     <!--<sample id="0270" rate="2"    ><variable name="discrete #1"          units=""         longname="discrete #1"/></sample>                 not used    -->
     <!--<sample id="0271" rate="2"    ><variable name="discrete #2"          units=""         longname="discrete #2"/></sample>                 not used    -->
     <!--<sample id="0350" rate="2"    ><variable name="maint word #1"        units=""         longname="maint word #1"/></sample>               not used    -->
