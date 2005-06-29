@@ -1094,7 +1094,7 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->bad[5],
 			brd->bad[6],
 			brd->bad[7]);
-		    rtl_printf("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d: ",
+		    rtl_printf("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
 			brd->nbad[0],
 			brd->nbad[1],
 			brd->nbad[2],
