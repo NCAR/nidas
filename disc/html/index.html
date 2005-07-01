@@ -2,12 +2,27 @@
 <head>
 <title>Status Listener</title>
 </head>
-<frameset cols="70,*">
-    <frame src="list.html" name="list">
-    <frame                 name="stat">
-</frameset>
+
+<!-- Place an image of the Gulfstream V jet in teh background. -->
+<!-- This will be used for locating the DSMs                   -->
+<style>
+BODY {
+  background-image:    url(GV-top.jpg);
+  background-position: left, top;
+  background-repeat:   no-repeat;
+}
+</style>
+
+<!-- there are two floating frames used for displaying the control and status -->
+<iframe src='control.php', name='ctrl', frameborder='no', width=430, height=310, align=left></iframe>
+<iframe                  , name='stat', frameborder='no', width=720, height=310, align=right></iframe>
+
+
 
 <noframes><body>
-Unfortunately your browser does not support floating frames.
+Your browser does not support floating frames.
 </noframes></body>
+<noscript>
+Your browser does not support scripting
+</noscript>
 </html>

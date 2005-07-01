@@ -1,0 +1,23 @@
+BODY,H1,H2,H3,H4,H5,H6,P,CENTER,TD,TH,UL,DL,DIV,TABLE,LAYER,FRAME,IFRAME {
+	font-family: Geneva, Arial, Helvetica, sans-serif;
+        font-size: 11px;
+}
+
+input {
+	border: 1px solid #999999;
+	padding: 2px;
+}
+
+input:focus {
+	border: 2px solid #999999;
+	padding: 1px;
+} 
+
+select,option {
+        font-family:"Courier New", monospace; font-size: 11px;
+}
+
+.button {
+        background:#028B81; color:white; text-transform:uppercase; padding:0 2px;
+        border:1px solid #14A395; border-color:#14A395 #0B756A #0B756A #14A395;
+}
