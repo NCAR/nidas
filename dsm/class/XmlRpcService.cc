@@ -109,7 +109,7 @@ int XmlRpcService::run() throw(atdUtil::Exception)
   XmlRpc::setVerbosity(5);
 
   // Create the server socket on the specified port
-  xmlrpc_server->bindAndListen(DSM_XMLRPC_PORT);
+  xmlrpc_server->bindAndListen(ADS_XMLRPC_PORT);
 
   // Enable introspection
   xmlrpc_server->enableIntrospection(true);
