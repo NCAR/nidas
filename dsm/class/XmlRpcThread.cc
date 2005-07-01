@@ -97,7 +97,10 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
 // destructor
 XmlRpcThread::~XmlRpcThread()
 {
-  cerr << "XmlRpcThread dtor" << endl;
+  if (isRunning()) {
+    cancel();
+    join();
+  }
   delete xmlrpc_server;
 }
 
@@ -114,7 +117,7 @@ int XmlRpcThread::run() throw(atdUtil::Exception)
   Quit      quit     (xmlrpc_server);
 
   // DEBUG - set verbosity of the xmlrpc server HIGH...
-//XmlRpc::setVerbosity(5);
+  XmlRpc::setVerbosity(5);
 
   // Create the server socket on the specified port
   xmlrpc_server->bindAndListen(DSM_XMLRPC_PORT);

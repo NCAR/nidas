@@ -24,15 +24,17 @@
 #include <XmlRpcThread.h>
 
 #include <atdUtil/Socket.h>
+#include <atdUtil/Logger.h>
 
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/SAXException.hpp>
 
 namespace dsm {
 
+class DSMRunstring;
+
 /**
- * Data Service Module, a class that drives an ADS3 data collection
- * box.
+ * A singleton class that drives an ADS3 data collection box.
  */
 class DSMEngine : public SampleConnectionRequester {
 public:
@@ -58,14 +60,11 @@ public:
 
     virtual ~DSMEngine();
 
-    SampleDater* getSampleDater()
-    {
-        return &dater;
-    }
+    SampleDater* getSampleDater() { return &_dater; }
 
-    const DSMConfig* getDSMConfig() const { return dsmConfig; }
+    const DSMConfig* getDSMConfig() const { return _dsmConfig; }
 
-    const PortSelector* getPortSelector() const { return selector; }
+    const PortSelector* getPortSelector() const { return _selector; }
 
     /**
      * Request the XML configuration via a McSocket request to
@@ -75,10 +74,15 @@ public:
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
+    /**
+     * This function is used as a utility and does not need an instance
+     * of DSMEngine.
+     */
     static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
 	throw(atdUtil::Exception,xercesc::DOMException,
 		xercesc::SAXException,xercesc::XMLException);
 
+protected:
     void initialize(xercesc::DOMDocument* projectDoc)
             throw(atdUtil::InvalidParameterException);
 
@@ -93,89 +97,70 @@ public:
      * Implementation of ConnectionRequester connected methods.
      * This is how DSMEngine is notified of remote connections.
      */
-
     void connected(SampleOutput*) throw();
     void disconnected(SampleOutput*) throw();
 
-protected:
+    /** main loop */
+    void run() throw();
 
-    /**
-     * Main loop "thread" control flags.
-     */
-    static bool run;
-    static bool quit;
-    static atdUtil::Cond runCond;
+    /**  main loop "thread" control flags. */
+    bool          _run;
+    bool          _quit;
+    atdUtil::Cond _runCond;
 
     /**
      * Use this static method, rather than the public constructor,
      * to create an instance of a DSMEngine which will receive signals
      * sent to a process.
      */
-    static DSMEngine* createInstance();
+    static DSMEngine* createInstance(const DSMRunstring* rstr);
 
-    static DSMEngine* instance;
+    static DSMEngine* _instance;
 
     static void setupSignals();
 
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
-    /**
-     * Constructor.
-     */
-    DSMEngine();
+    DSMEngine(const DSMRunstring* rstr);
 
+    Project*         _project;
+    DSMConfig*       _dsmConfig;
+    PortSelector*    _selector;
+    StatusThread*    _statusThread;
 
-    Project* project;
-    Site* site;
-    DSMConfig* dsmConfig;
+    /** This thread provides XML-based Remote Procedure calls. */
+    XmlRpcThread*    _xmlrpcThread;
 
-    PortSelector* selector;
+    SampleDater      _dater;
 
-    StatusThread* statusThread;
-
-    /**
-     * This thread provides XML-based Remote Procedure calls.
-     */
-    XmlRpcThread* xmlrpcThread;
-
-    SampleDater dater;
-
-    std::list<SampleOutput*> connectedOutputs;
-    atdUtil::Mutex outputMutex;
-
-    XMLConfigInput* xmlRequestSocket;
+    std::list<SampleOutput*>  _connectedOutputs;
+    atdUtil::Mutex            _outputMutex;
+    XMLConfigInput*           _xmlRequestSocket;
+    atdUtil::Logger*          _logger;
+    const DSMRunstring*       _rstr;
 };
 
 /**
  * Parse the DSM program runstring.
  */
 class DSMRunstring {
-public:
-    DSMRunstring(int argc, char** argv);
+ public:
+  DSMRunstring(int argc, char** argv);
                                                                                 
-    /**
-     * Send usage message to cerr, then exit(1).
-     */
-    static void usage(const char* argv0);
+  /** Send usage message to cerr, then exit(1). */
+  static void usage(const char* argv0);
 
-    /**
-     * -d option. If user wants messages on stderr rather than syslog.
-     */
-    bool debug;
+  /** -d option. If user wants messages on stderr rather than syslog. */
+  bool _debug;
 
-    /**
-     * -w option. If user wants to wait for the XmlRpc 'start' cammand.
-     */
-    bool wait;
+  /** -w option. If user wants to wait for the XmlRpc 'start' cammand. */
+  bool _wait;
 
-    /**
-     * Name of XML configuration file. If empty, multicast for config.
-     */
-    std::string configFile;
+  /** Name of XML configuration file. If empty, multicast for config. */
+  std::string _configFile;
 
-    atdUtil::Inet4SocketAddress mcastSockAddr;
+  atdUtil::Inet4SocketAddress _mcastSockAddr;
 };
-
 
 }
 
