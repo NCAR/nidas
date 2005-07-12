@@ -106,6 +106,7 @@ protected:
     /**  main loop "thread" control flags. */
     bool          _run;
     bool          _quit;
+    bool          _interrupt;
     atdUtil::Cond _runCond;
 
     /**

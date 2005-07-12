@@ -138,7 +138,7 @@ void DSMEngine::run() throw()
     _quit = true;
     do {
       _logger->log(LOG_ERR,
-         "---------------------> top of DSMEnine loop <-------------------------");
+         "---------------------> top of DSMEngine loop <-------------------------");
 
       // purge members before re-starting the loop
       if (_selector) {
@@ -203,7 +203,7 @@ void DSMEngine::run() throw()
                     XMLStringConverter(e.getMessage()));
 	continue;
       }
-      if (_quit) continue;
+      if (_interrupt) continue;
       cerr << "DSMEngine: then initialize the DSMEngine" << endl;
       // then initialize the DSMEngine
       try {
@@ -227,7 +227,7 @@ void DSMEngine::run() throw()
 	_logger->log(LOG_ERR,e.what());
 	continue;
       }
-      if (_quit) continue;
+      if (_interrupt) continue;
 
       // start the status Thread
       _statusThread->start();
@@ -323,8 +323,8 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 DSMEngine::DSMEngine(const DSMRunstring* rstr):
-    _runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),_statusThread(0),
-    _xmlrpcThread(0),_xmlRequestSocket(0),_rstr(rstr)
+    _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
+    _statusThread(0),_xmlrpcThread(0),_xmlRequestSocket(0),_rstr(rstr)
 {
   setupSignals();
 
@@ -436,8 +436,9 @@ DOMDocument* DSMEngine::requestXMLConfig(
 	configSock->close();
 	throw;
     }
-
+    cerr << "DSMEngine::requestXMLConfig: configSock closing" << endl;
     configSock->close();
+    cerr << "DSMEngine::requestXMLConfig: configSock closed" << endl;
     return doc;
 }
 
@@ -592,6 +593,7 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
 
 void DSMEngine::interrupt() throw(atdUtil::Exception)
 {
+    _interrupt = true;
     atdUtil::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine::interrupt() called");
     if (_selector) {
