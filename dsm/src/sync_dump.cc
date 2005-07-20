@@ -148,7 +148,7 @@ void SyncDumper::setupSignals()
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
+//    sigaddset(&sigset,SIGINT);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
                                                                                 
     struct sigaction act;
@@ -157,7 +157,7 @@ void SyncDumper::setupSignals()
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = SyncDumper::sigAction;
     sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
+//    sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 int SyncDumper::main(int argc, char** argv)
