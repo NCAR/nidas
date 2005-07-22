@@ -303,11 +303,13 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 	UC GainCode = 1;
 
 	//Check that gain is within limits
+
+/* This is no longer necessary. GRG 7/21/05
 	if(A2DGain < 1 || A2DGain > 255) {
 	    rtl_printf("bad gain value: %d\n",A2DGain);
 	    return -EINVAL;
 	}
-
+*/
 	// If no A/D selected return error -1
 	if(A2DSel < 0 || A2DSel >= MAXA2DS) return -EINVAL;
 
