@@ -62,9 +62,12 @@ Revisions:
 
 /* ioport addresses of installed boards, 0=noboard */
 static int ioport[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
+static int master = 7;
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int numboards = 0;
+static int tomsgctr = 0;
+static int crcmsgctr = 0;
 
 MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
 MODULE_DESCRIPTION("HIAPER A/D driver for RTLinux");
@@ -72,6 +75,8 @@ RTLINUX_MODULE(DSMA2D);
 
 MODULE_PARM(ioport, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
 MODULE_PARM_DESC(ioport, "ISA port address of each board, e.g.: 0x3A0");
+MODULE_PARM(master, "1l");
+MODULE_PARM_DESC(ncycles, "Sets master A/D");
 
 static struct A2DBoard* boardInfo = 0;
 
@@ -338,8 +343,9 @@ static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 	    	A2DSel);
 	    return -EINVAL;
 	}
-    A2DSel = 7;	 //DEBUG jamming this to 7
-    rtl_printf("A2DSetMaster, master=%d\n",A2DSel);
+	A2DSel = master; // DEBUG: Jamming A2DMASTER to fixed value
+
+    rtl_printf("%s: A2DSetMaster, master=%d\n",__FILE__, A2DSel);
 
 	// Point at the FIFO status channel
 	outb(A2DIOFIFOSTAT, brd->chan_addr);	
@@ -435,7 +441,9 @@ static void A2DSetOffset(struct A2DBoard* brd)
 	outb(A2DIOCALOFF, brd->chan_addr);
 
 	brd->OffCal |= (US)((Chans <<8) & 0xFF00);
-	brd->OffCal = 0;
+
+//	brd->OffCal = 0;	// What the hell was this?
+
 	rtl_printf("A2DSetOffset OffCal=0x%04x\n",brd->OffCal);
 
 	outw(brd->OffCal, brd->addr);
@@ -715,9 +723,12 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 			rtl_usleep(30);	
 			if(ctr++ > GAZILLION)
 			{
-				rtl_printf("%s: INTERRUPT TIMEOUT! chip = %1d\n\n", 
+				tomsgctr++;
+/*
+					rtl_printf("%s: INTERRUPT TIMEOUT! chip = %1d\n\n", 
 						__FILE__, A2DSel);
 				// return -ETIMEDOUT;
+*/
 				break;
 			}
 		}
@@ -728,12 +739,21 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 		// Check status bits for errors
 		if(stat & A2DCRCERR)
 		{
-			rtl_printf("CRC ERROR! chip = %1d, stat = 0x%04X\n",
+			crcmsgctr++;
+/*			rtl_printf("CRC ERROR! chip = %1d, stat = 0x%04X\n",
 				A2DSel, stat);
 			brd->status.status[A2DSel] = stat; // Error status word
 			// return -EIO;
+*/
 		}
 	}
+	rtl_printf("%s: %3d CRC Errors chip = %1d\n", 
+		__FILE__, crcmsgctr, A2DSel);
+
+	rtl_printf("%s: %3d Interrupt Timeout Errors chip = %1d\n", 
+		__FILE__, tomsgctr, A2DSel);
+
+	crcmsgctr = tomsgctr = 0;	// Reset the message counter
 	brd->status.status[A2DSel] = stat; // Final status word following load
 	rtl_usleep(2000);
 	return 0;
@@ -1056,9 +1076,11 @@ static void* A2DGetDataThread(void *thread_arg)
 		    brd->status.status[i % MAXA2DS] = stat;
 		}
 
-		*dataptr++ = inw(brd->addr);
+//		*dataptr++ = 0xFFFF ^ inw(brd->addr); //Inverted bits for S/N 3 and after
+		*dataptr++ = -inw(brd->addr); //Negated bits for S/N 3 and after
 #else
-		*dataptr++ = inw(brd->addr);
+//		*dataptr++ = 0xFFFF ^ inw(brd->addr); //Inverted bits for S/N 3 and after
+		*dataptr++ = -inw(brd->addr); //Negated bits for S/N 3 and after
 #endif
 	    }
 
