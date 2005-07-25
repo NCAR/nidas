@@ -495,7 +495,7 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 
 void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
-    _selector = new PortSelector;
+    _selector = new PortSelector(_dsmConfig->getRemoteSerialSocketPort());
     _selector->start();
     _dsmConfig->openSensors(_selector);
 }

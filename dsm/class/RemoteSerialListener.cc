@@ -29,8 +29,8 @@ using namespace atdUtil;
 /**
  * Open socket for listening on port 8100.
  */
-RemoteSerialListener::RemoteSerialListener() throw(IOException) :
-	ServerSocket(8100)
+RemoteSerialListener::RemoteSerialListener(unsigned short port) throw(IOException) :
+	ServerSocket(port)
 {
 }
 

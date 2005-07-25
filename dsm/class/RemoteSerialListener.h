@@ -27,7 +27,7 @@ namespace dsm {
 class RemoteSerialListener: public atdUtil::ServerSocket {
 public:
 
-    RemoteSerialListener() throw(atdUtil::IOException);
+    RemoteSerialListener(unsigned short port) throw(atdUtil::IOException);
     ~RemoteSerialListener() throw(atdUtil::IOException);
 
     const std::string getName() const

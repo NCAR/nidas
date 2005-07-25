@@ -47,7 +47,7 @@ public:
     unsigned int curPos() const { return curpos; }
 
     unsigned int readBytes(XMLByte* toFill,
-    	unsigned int maxToRead) throw(atdUtil::IOException)
+    	unsigned int maxToRead)
     {
 	// std::cerr << "XMLFdBinInputStream reading " << maxToRead << std::endl;
 	unsigned int l = ::read(fd,toFill,maxToRead);

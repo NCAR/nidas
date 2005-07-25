@@ -42,7 +42,7 @@ bool RemoteSerialConnection::receive(const Sample* s) throw()
 }
 
 /**
- * Read data from file descriptor, write to DSMSensor.
+ * Read data from socket, write to DSMSensor.
  */
 void RemoteSerialConnection::read() throw(atdUtil::IOException) 
 {

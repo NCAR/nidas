@@ -25,7 +25,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-DSMConfig::DSMConfig(): site(0)
+DSMConfig::DSMConfig(): site(0),remoteSerialSocketPort(0)
 {
 }
 
@@ -86,8 +86,16 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		istringstream ist(aval);
 		ist >> id;
 		if (ist.fail()) throw atdUtil::InvalidParameterException(
-		    string("dsm") + ": " + getName(), "id",aval);
+		    string("dsm") + ": " + getName(), aname,aval);
 	        setId(id);
+	    }
+            else if (!aname.compare("rserialPort")) {
+		unsigned short port;
+		istringstream ist(aval);
+		ist >> port;
+		if (ist.fail()) throw atdUtil::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+	        setRemoteSerialSocketPort(port);
 	    }
 	    else throw atdUtil::InvalidParameterException(
 		string("dsm") + ": " + getName(),

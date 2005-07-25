@@ -39,7 +39,7 @@ public:
 	sensor = val;
     }
 
-    DSMSensor* getPort() const { return sensor; }
+    DSMSensor* getDSMSensor() const { return sensor; }
 
     /**
      * Receive a sample from the DSMSensor, write data portion to socket.

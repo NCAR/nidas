@@ -58,6 +58,10 @@ public:
     void addOutput(SampleOutput* output) { outputs.push_back(output); }
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 
+    unsigned short getRemoteSerialSocketPort() const { return remoteSerialSocketPort; }
+
+    void setRemoteSerialSocketPort(unsigned short val) { remoteSerialSocketPort = val; }
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
 
@@ -97,6 +101,12 @@ protected:
      * SampleOutputs.
      */
     std::list<SampleOutput*> outputs;
+
+    /**
+     * TCP socket port that DSMEngine listens on for remote serial
+     * connections.  0=don't listen.
+     */
+    unsigned short remoteSerialSocketPort;	
 
 };
 

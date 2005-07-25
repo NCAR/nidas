@@ -50,7 +50,12 @@ namespace dsm {
 class PortSelector : public atdUtil::Thread {
 public:
 
-    PortSelector();
+    /**
+     * Constructor.
+     * @param rserialPort TCP socket port to listen for incoming
+     *		requests to the rserial service. 0=don't listen.
+     */
+    PortSelector(unsigned short rserialPort = 0);
     ~PortSelector();
 
     void addSensorPort(DSMSensor *port);
@@ -114,6 +119,8 @@ protected:
     std::vector<DSMSensor*> activeSensorPorts;
 
     bool portsChanged;
+
+    unsigned short remoteSerialSocketPort;
 
     RemoteSerialListener* rserial;
 

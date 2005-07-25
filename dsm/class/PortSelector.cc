@@ -25,9 +25,9 @@ using namespace std;
 using namespace atdUtil;
 using namespace dsm;
 
-PortSelector::PortSelector() :
+PortSelector::PortSelector(unsigned short rserialPort) :
   Thread("PortSelector"),portsChanged(false),
-  rserial(0),rserialConnsChanged(false)
+  rserial(0),remoteSerialSocketPort(rserialPort),rserialConnsChanged(false)
 {
   setStatisticsPeriod(60 * MSECS_PER_SEC);
 
@@ -109,11 +109,13 @@ int PortSelector::run() throw(atdUtil::Exception)
 
   delete rserial;
   rserial = 0;
-  try {
-      rserial = new RemoteSerialListener();
-  }
-  catch (const atdUtil::IOException& e) {
-      Logger::getInstance()->log(LOG_WARNING,"%s: continuing anyhow",e.what());
+  if (remoteSerialSocketPort > 0) {
+      try {
+	  rserial = new RemoteSerialListener(remoteSerialSocketPort);
+      }
+      catch (const atdUtil::IOException& e) {
+	  Logger::getInstance()->log(LOG_WARNING,"%s: continuing anyhow",e.what());
+      }
   }
   for (;;) {
     if (amInterrupted()) break;
@@ -128,7 +130,7 @@ int PortSelector::run() throw(atdUtil::Exception)
     int nfdsel = ::select(selectn,&rset,0,&eset,&tout);
     if (amInterrupted()) break;
 
-    if (nfdsel <= 0) {
+    if (nfdsel <= 0) {		// select error
       if (nfdsel < 0) {
 	// Create and report but don't throw IOException.
 	// Likely this is a EINTR (interrupted) error, in which case
@@ -150,7 +152,7 @@ int PortSelector::run() throw(atdUtil::Exception)
       rtime = getSystemTime();
       if (rtime > statisticsTime) calcStatistics(rtime);
       continue;
-    }
+    }				// end of select error section
 
     timeoutSumMsec = 0;
 
