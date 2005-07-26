@@ -54,7 +54,7 @@ void DSMConfig::openSensors(PortSelector* selector)
     for (si = ownedSensors.begin(); si != ownedSensors.end(); ) {
 	DSMSensor* sensor = *si;
 	sensor->open(sensor->getDefaultMode());
-	selector->addSensorPort(sensor);
+	selector->addDSMSensor(sensor);
 	si = ownedSensors.erase(si);
     }
 }

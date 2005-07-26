@@ -59,6 +59,10 @@ public:
      *  \\xhh=hex, where hh are (exactly) two hex digits and
      *  \\000=octal, where 000 are exactly three octal digits.
      */
+     /* note that the above back slashes above are doubled so that
+      * doxygen displays them as one back slash.  One does
+      * not double them in the parameter string.
+      */
     void setMessageSeparator(const std::string& val) { msgsep = val; }
     const std::string& getMessageSeparator() const { return msgsep; }
 
@@ -113,15 +117,6 @@ public:
     void setPromptRate(enum irigClockRates val) { promptRate = val; }
 
     enum irigClockRates getPromptRate() const { return promptRate; }
-
-    /**
-     * Set the format to scan ASCII data.
-     * @see dsm::AsciiScanner.setFormat()
-    void setScanfFormat(const std::string& val)
-    	throw(atdUtil::InvalidParameterException);
-     */
-
-    const std::string& getScanfFormat();
 
     /**
      * How many samples have resulted in complete scanf failures -
