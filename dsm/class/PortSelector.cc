@@ -27,13 +27,13 @@ using namespace dsm;
 
 PortSelector::PortSelector(unsigned short rserialPort) :
   Thread("PortSelector"),portsChanged(false),
-  rserial(0),remoteSerialSocketPort(rserialPort),rserialConnsChanged(false)
+  remoteSerialSocketPort(rserialPort),rserial(0),rserialConnsChanged(false)
 {
   setStatisticsPeriod(60 * MSECS_PER_SEC);
 
   /* start out with a 1/10 second select timeout.
    * While we're adding sensors we want select to
-   * timeout fairly quickly, so when new SensorPorts are opened
+   * timeout fairly quickly, so when new DSMSensors are opened
    * and added they are read from without much time delay.
    * Otherwise if you add a sensor that isn't transmitting,
    * then one which is generating alot of output, the buffers for
@@ -58,10 +58,10 @@ PortSelector::PortSelector(unsigned short rserialPort) :
 PortSelector::~PortSelector()
 {
     delete rserial;
-    cerr << "deleting activeSensorPorts" << endl;
-    for (unsigned int i = 0; i < activeSensorPorts.size(); i++) {
-	activeSensorPorts[i]->close();
-	delete activeSensorPorts[i];
+    cerr << "deleting activeSensors" << endl;
+    for (unsigned int i = 0; i < activeDSMSensors.size(); i++) {
+	activeDSMSensors[i]->close();
+	delete activeDSMSensors[i];
     }
 }
 
@@ -90,8 +90,8 @@ void PortSelector::calcStatistics(dsm_time_t tnow)
   if (statisticsTime < tnow)
     statisticsTime = timeCeiling(tnow,statisticsPeriod);
 
-  for (unsigned int ifd = 0; ifd < activeSensorPortFds.size(); ifd++) {
-    DSMSensor *port = activeSensorPorts[ifd];
+  for (unsigned int ifd = 0; ifd < activeDSMSensorFds.size(); ifd++) {
+    DSMSensor *port = activeDSMSensors[ifd];
     port->calcStatistics(statisticsPeriod);
   }
 }
@@ -121,7 +121,7 @@ int PortSelector::run() throw(atdUtil::Exception)
     if (amInterrupted()) break;
 
     if (portsChanged || rserialConnsChanged)
-    	handleChangedPorts();
+    	handleChangedSensors();
 
     fd_set rset = readfdset;
     fd_set eset = readfdset;
@@ -161,10 +161,10 @@ int PortSelector::run() throw(atdUtil::Exception)
 
     SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
 
-    for (unsigned int ifd = 0; ifd < activeSensorPortFds.size(); ifd++) {
-      fd = activeSensorPortFds[ifd];
+    for (unsigned int ifd = 0; ifd < activeDSMSensorFds.size(); ifd++) {
+      fd = activeDSMSensorFds[ifd];
       if (FD_ISSET(fd,&rset)) {
-	DSMSensor *port = activeSensorPorts[ifd];
+	DSMSensor *port = activeDSMSensors[ifd];
 	try {
 	  rtime = port->readSamples(dater);
 	}
@@ -176,7 +176,7 @@ int PortSelector::run() throw(atdUtil::Exception)
       }
       // log the error but don't exit
       if (FD_ISSET(fd,&eset)) {
-	DSMSensor *port = activeSensorPorts[ifd];
+	DSMSensor *port = activeDSMSensors[ifd];
 	Logger::getInstance()->log(LOG_ERR,
 	      "PortSelector select reports exception for %s",
 	      port->getDeviceName().c_str());
@@ -231,7 +231,7 @@ int PortSelector::run() throw(atdUtil::Exception)
   }
 
   Logger::getInstance()->log(LOG_INFO,
-      "PortSelector finished, closing remaining %d sensors ",activeSensorPorts.size());
+      "PortSelector finished, closing remaining %d sensors ",activeDSMSensors.size());
 
   rserialConnsMutex.lock();
   std::vector<RemoteSerialConnection*> conns = pendingRserialConns;
@@ -241,14 +241,14 @@ int PortSelector::run() throw(atdUtil::Exception)
     removeRemoteSerialConnection(conns[i]);
 
   portsMutex.lock();
-  std::vector<DSMSensor*> tports = pendingSensorPorts;
+  std::vector<DSMSensor*> tports = pendingDSMSensors;
   portsMutex.unlock();
 
   for (unsigned int i = 0; i < tports.size(); i++)
-    closeSensorPort(tports[i]);
+    closeDSMSensor(tports[i]);
 
   portsChanged = true;
-  handleChangedPorts();
+  handleChangedSensors();
 
   return RUN_OK;
 }
@@ -256,7 +256,7 @@ int PortSelector::run() throw(atdUtil::Exception)
 /**
  * Called from the main thread
  */
-void PortSelector::addSensorPort(DSMSensor *port)
+void PortSelector::addDSMSensor(DSMSensor *port)
 {
 
   int fd = port->getReadFd();
@@ -264,69 +264,75 @@ void PortSelector::addSensorPort(DSMSensor *port)
   portsMutex.lock();
 
   unsigned int i;
-  for (i = 0; i < pendingSensorPorts.size(); i++) {
+  for (i = 0; i < pendingDSMSensors.size(); i++) {
     // new file descriptor for this port
-    if (pendingSensorPorts[i] == port) {
-      pendingSensorPortFds[i] = fd;
+    if (pendingDSMSensors[i] == port) {
+      pendingDSMSensorFds[i] = fd;
       portsChanged = true;
       portsMutex.unlock();
       return;
     }
   }
-  pendingSensorPortFds.push_back(fd);
-  pendingSensorPorts.push_back(port);
+  pendingDSMSensorFds.push_back(fd);
+  pendingDSMSensors.push_back(port);
   portsChanged = true;
   portsMutex.unlock();
 
 }
 
-void PortSelector::closeSensorPort(DSMSensor *port)
+void PortSelector::closeDSMSensor(DSMSensor *port)
 {
 
   Synchronized autosync(portsMutex);
 
-  for (unsigned int i = 0; i < pendingSensorPorts.size(); i++) {
-    if (pendingSensorPorts[i] == port) {
-      pendingSensorPortFds.erase(pendingSensorPortFds.begin()+i);
-      pendingSensorPorts.erase(pendingSensorPorts.begin()+i);
+  for (unsigned int i = 0; i < pendingDSMSensors.size(); i++) {
+    if (pendingDSMSensors[i] == port) {
+      pendingDSMSensorFds.erase(pendingDSMSensorFds.begin()+i);
+      pendingDSMSensors.erase(pendingDSMSensors.begin()+i);
       break;
     }
   }
-  pendingSensorPortClosures.push_back(port);
+  pendingDSMSensorClosures.push_back(port);
   portsChanged = true;
 }
 
 /**
- * Protected method to add an RemoteSerial connection
+ * Protected method to add a RemoteSerial connection
  */
 void PortSelector::addRemoteSerialConnection(RemoteSerialConnection* conn)
+	throw(atdUtil::IOException)
 {
-  Synchronized autosync(portsMutex);
-  for (unsigned int i = 0; i < pendingSensorPorts.size(); i++) {
-    if (!pendingSensorPorts[i]->getDeviceName().compare(
-    	conn->getSensorName())) {
-      rserialConnsMutex.lock();
-      pendingRserialConns.push_back(conn);
-      conn->setSensor(pendingSensorPorts[i]);
-      rserialConnsChanged = true;
-      rserialConnsMutex.unlock();
-      Logger::getInstance()->log(LOG_INFO,
-	"added rserial connection for device %s",
-		conn->getSensorName().c_str());
-      break;
+    Synchronized autosync(portsMutex);
+    for (unsigned int i = 0; i < pendingDSMSensors.size(); i++) {
+	if (!pendingDSMSensors[i]->getDeviceName().compare(
+	    conn->getSensorName())) {
+
+	    conn->setDSMSensor(pendingDSMSensors[i]);	// may throw IOException
+
+	    Synchronized rserialLock(rserialConnsMutex);
+	    pendingRserialConns.push_back(conn);
+	    rserialConnsChanged = true;
+
+	    Logger::getInstance()->log(LOG_INFO,
+	      "added rserial connection for device %s",
+		      conn->getSensorName().c_str());
+	    return;
+	}
     }
-  }
+    Logger::getInstance()->log(LOG_INFO,
+      "PortSelector::addRemoteSerialConnection: cannot find sensor %s",
+	      conn->getSensorName().c_str());
 }
 
 /**
- * this is called by a SensorPort from this (PortSelector) thread.
+ * this is called by a DSMSensor from this (PortSelector) thread.
  */
 void PortSelector::removeRemoteSerialConnection(RemoteSerialConnection* conn)
 {
   Synchronized autosync(rserialConnsMutex);
   for (unsigned int i = 0; i < pendingRserialConns.size(); i++) {
     if (pendingRserialConns[i] == conn) {
-        conn->setSensor(0);
+        conn->setDSMSensor(0);
 	pendingRserialConns.erase(pendingRserialConns.begin()+i);
     }
   }
@@ -337,26 +343,26 @@ void PortSelector::removeRemoteSerialConnection(RemoteSerialConnection* conn)
 }
 
 
-void PortSelector::handleChangedPorts() {
+void PortSelector::handleChangedSensors() {
   unsigned int i;
   if (portsChanged) {
     Synchronized autosync(portsMutex);
-    activeSensorPortFds = pendingSensorPortFds;
-    activeSensorPorts = pendingSensorPorts;
+    activeDSMSensorFds = pendingDSMSensorFds;
+    activeDSMSensors = pendingDSMSensors;
     // close any ports
-    for (i = 0; i < pendingSensorPortClosures.size(); i++) {
-	pendingSensorPortClosures[i]->close();
-	delete pendingSensorPortClosures[i];
+    for (i = 0; i < pendingDSMSensorClosures.size(); i++) {
+	pendingDSMSensorClosures[i]->close();
+	delete pendingDSMSensorClosures[i];
     }
-    pendingSensorPortClosures.clear();
+    pendingDSMSensorClosures.clear();
     portsChanged = false;
   }
 
   selectn = 0;
   FD_ZERO(&readfdset);
-  for (i = 0; i < activeSensorPortFds.size(); i++) {
-    if (activeSensorPortFds[i] > selectn) selectn = activeSensorPortFds[i];
-    FD_SET(activeSensorPortFds[i],&readfdset);
+  for (i = 0; i < activeDSMSensorFds.size(); i++) {
+    if (activeDSMSensorFds[i] > selectn) selectn = activeDSMSensorFds[i];
+    FD_SET(activeDSMSensorFds[i],&readfdset);
   }
 
   if (rserialConnsChanged) {

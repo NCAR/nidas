@@ -58,10 +58,11 @@ public:
     PortSelector(unsigned short rserialPort = 0);
     ~PortSelector();
 
-    void addSensorPort(DSMSensor *port);
-    void closeSensorPort(DSMSensor *port);
+    void addDSMSensor(DSMSensor *port);
+    void closeDSMSensor(DSMSensor *port);
 
-    void addRemoteSerialConnection(RemoteSerialConnection*);
+    void addRemoteSerialConnection(RemoteSerialConnection*)
+    	throw(atdUtil::IOException);
     void removeRemoteSerialConnection(RemoteSerialConnection*);
 
     /**
@@ -108,15 +109,15 @@ public:
 
 protected:
 
-    void handleChangedPorts();
+    void handleChangedSensors();
 
     atdUtil::Mutex portsMutex;
-    std::vector<int> pendingSensorPortFds;
-    std::vector<DSMSensor*> pendingSensorPorts;
-    std::vector<DSMSensor*> pendingSensorPortClosures;
+    std::vector<int> pendingDSMSensorFds;
+    std::vector<DSMSensor*> pendingDSMSensors;
+    std::vector<DSMSensor*> pendingDSMSensorClosures;
 
-    std::vector<int> activeSensorPortFds;
-    std::vector<DSMSensor*> activeSensorPorts;
+    std::vector<int> activeDSMSensorFds;
+    std::vector<DSMSensor*> activeDSMSensors;
 
     bool portsChanged;
 
