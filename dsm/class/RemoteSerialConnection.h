@@ -16,11 +16,10 @@
 #ifndef DSM_REMOTESERIALCONNECTION_H
 #define DSM_REMOTESERIALCONNECTION_H
 
-#include <atdUtil/IOException.h>
-#include <atdUtil/EOFException.h>
 #include <atdUtil/Socket.h>
+#include <DSMSerialSensor.h>
 #include <SampleClient.h>
-#include <DSMSensor.h>
+#include <atdUtil/EOFException.h>
 
 namespace dsm {
 
@@ -33,11 +32,7 @@ public:
     int getFd() const { return socket->getFd(); }
     const std::string& getSensorName() const { return devname; }
 
-    void setSensor(DSMSensor* val) {
-	if (val) val->addSampleClient(this);
-	else if (sensor) sensor->removeSampleClient(this);
-	sensor = val;
-    }
+    void setDSMSensor(DSMSensor* val) throw(atdUtil::IOException);
 
     DSMSensor* getDSMSensor() const { return sensor; }
 
@@ -54,7 +49,7 @@ public:
 private:
     atdUtil::Socket* socket;
     std::string devname;
-    DSMSensor* sensor;
+    DSMSerialSensor* sensor;
 };
 
 }

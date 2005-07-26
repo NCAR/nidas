@@ -17,13 +17,63 @@
 
 #include <RemoteSerialConnection.h>
 
+#include <atdUtil/Logger.h>
+
+#include <ostream>
+
 using namespace dsm;
+using namespace std;
 
 RemoteSerialConnection::~RemoteSerialConnection()
 {
     if (sensor) sensor->removeSampleClient(this);
     socket->close();
     delete socket;
+}
+
+void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
+	throw(atdUtil::IOException) {
+    if (!val) {
+	if (sensor) sensor->removeSampleClient(this);
+	sensor = 0;
+	return;
+    }
+    sensor = dynamic_cast<DSMSerialSensor*>(val);
+
+    ostringstream ost;
+
+    if(!sensor) {
+	ost << val->getName() << " is not a DSMSerialSensor";
+	atdUtil::Logger::getInstance()->log(LOG_INFO,"%s",ost.str().c_str());
+
+	ost << endl;
+	string msg = "ERROR: " + ost.str();
+	socket->send(msg.c_str(),msg.size());
+	return;
+    }
+
+    ost << "OK" << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    ost << sensor->getBaudRate() << ' ' << sensor->getParityString() <<
+    	' ' << sensor->getDataBits() << ' ' << sensor->getStopBits() << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    ost << sensor->getMessageSeparator() << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    ost << sensor->getMessageSeparatorAtEOM() << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    ost << sensor->getMessageLength() << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    val->addSampleClient(this);
 }
 
 /**
@@ -36,7 +86,7 @@ bool RemoteSerialConnection::receive(const Sample* s) throw()
     }
     catch (const atdUtil::IOException& e)
     {
-	setSensor(0);
+	setDSMSensor(0);
     }
     return true;
 }
