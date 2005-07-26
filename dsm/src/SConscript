@@ -48,6 +48,7 @@ apps = Split("""
   data_dump.cc
   sync_dump.cc
   status_listener.cc
+  rserial.cc
 """)
 
 nodes = []
