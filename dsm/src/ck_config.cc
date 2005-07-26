@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 	    	(*si)->getDeviceName() << endl;
 	    (*si)->open((*si)->getDefaultMode());
 	    (*si)->addSampleClient(&test);
-	    handler->addSensorPort(*si);
+	    handler->addDSMSensor(*si);
 	}
     }
     catch (const DOMException& e) {
