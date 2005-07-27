@@ -8,18 +8,35 @@ include_once('utils/utils.php');
 
 $dsmList = xu_rpc_http_concise( array( 'method' => 'getDsmList',
                                        'args' => '',
-                                       'host' => '127.0.0.1',
+                                       'host' => 'localhost',
       'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
+
+// TODO - see if xu_rpc_http_concise provides any status variables to test here instead.
+if ($dsmList == "")
+  exit("<h5>DSM server not responding!</h5>");
+
+if (empty($dsmList))
+  exit('<h5>Cannot receive list of DSMs from the server!</h5>');
+?>
+
+<!-- ----------------------------------------------------------------------- -->
+<!-- Query the dsm_server for a list of project directories.                 -->
+<!-- ----------------------------------------------------------------------- -->
+<?php
+$projList = xu_rpc_http_concise( array( 'method' => 'getProjectList',
+                                        'args' => '',
+                                        'host' => 'localhost',
+      'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
+
+// getProjectList returns a string if it can't find any sub directories.
+// otherwise an array is returned..
+if (gettype($projList) == "string")
+  exit("<h5>$projList</h5>");
 
 // echo '<h5>PHP Native Results printed via print_r()</h5>';
 // echo '<xmp>';
-// echo print_r($dsmList);
+// echo print_r($projList);
 // echo '</xmp>';
-
-if (empty($dsmList)) {
-  exit('<h5>Cannot receive list of DSMs from the server!</h5>');
-  exit;
-}
 ?>
 
 <!-- ----------------------------------------------------------------------- -->
@@ -51,23 +68,36 @@ function clicker(that) {
 //-->
 </script>
 
+<!-- ----------------------------------------------------------------------- -->
+<!-- This form provides a selection of project, aircraft, and flight number  -->
+<!-- to choose from for specifing a folder path to record data in.           -->
+<!-- ----------------------------------------------------------------------- -->
+<form name='project' action='project.php' method='GET'>
 
-<!-- ----------------------------------------------------------------------- -->
-<!-- This form provides the fight number to the dsm_server.  This number is  -->
-<!-- used to specify a folder path to record data in.                        -->
-<!-- ----------------------------------------------------------------------- -->
-<form name='flight_num' action='flightnum.php' method='GET'>
-  record flight number&nbsp 
+  record: project&nbsp
+  <select name='project' size=1>
+    <?php foreach ($projList as $key => $val) { ?>
+    <option><?=$val?>
+    <?php } ?>
+  </select>&nbsp
+
+  aircraft&nbsp
+  <!-- TODO obtain this as a list from the server as well... -->
+  <select name='aircraft' size=1>
+    <option>GV
+    <option>C-130
+  </select>&nbsp
+
+  flt num&nbsp
+  <!-- TODO obtain this as a list from the server as well... -->
   <input type=text name='flight_num' size=3 maxlen=3/>&nbsp
-  <input type='submit' value='start' class='button'/>&nbsp
-  <input type='submit' value='stop'  class='button'/>
+  <input type='submit' value='start'  class='button'/>
 </form>
 <hr align='center' width='100%'><p>
 
-
 <!-- ----------------------------------------------------------------------- -->
 <!-- This form provides a selection of DSMs to control.  There are two       -->
-<!-- steps in this form: the selection of the dsm and the choice or action.  -->
+<!-- steps in this form: the selection of the dsm and the choice of action.  -->
 <!--                                                                         -->
 <!-- TODO - higlight the option red when in warning...                       -->
 <!--  <option value='YYY'                        >YYY (----/--/-- --:--:--)  -->

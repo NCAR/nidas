@@ -23,6 +23,7 @@
 
 #include <atdUtil/Logger.h>
 
+#include <dirent.h>
 #include <iostream>
 #include <vector>
 
@@ -32,6 +33,67 @@ using namespace xercesc;
 using namespace XmlRpc;
 
 CREATOR_ENTRY_POINT(XmlRpcService)
+
+// XMLRPC command to obtain a list of projects in $ADS3_DATA
+class GetProjectList : public XmlRpcServerMethod
+{
+public:
+  GetProjectList(XmlRpcServer* s) : XmlRpcServerMethod("getProjectList", s) {}
+
+  void execute(XmlRpcValue& params, XmlRpcValue& result)
+  {
+    if ( getenv("ADS3_DATA") == NULL ) {
+      result = "ADS3_DATA environment variable not set!";
+      return;
+    }
+
+    string ads3_data( getenv("ADS3_DATA") );
+    DIR           *dp;
+    struct dirent *dirp;
+    struct stat   buf;
+    int           cnt = 0;
+    char          str[100];
+    XmlRpcValue   temp;
+
+    if (ads3_data[ads3_data.length()-1] != '/')
+      ads3_data += '/';
+
+    if ( (dp = opendir(ads3_data.c_str())) == NULL) {
+      sprintf(str, "Can't open %s: %s", ads3_data.c_str(), strerror(errno));
+      result = str;
+      return;
+    }
+    errno = 0;
+    while ( (dirp = readdir(dp)) != NULL) {
+      if (errno) {
+        sprintf(str, "Error occured while reading %s: %s",
+                ads3_data.c_str(), strerror(errno));
+        result = str;
+        return;
+      }
+      string path = ads3_data + string(dirp->d_name);
+
+      if (stat(path.c_str(), &buf) < 0) {
+        sprintf(str, "Can't determine the file status of %s: %s",
+                path.c_str(), strerror(errno));
+        result = str;
+        return;
+      }
+      if (S_ISDIR(buf.st_mode))
+        if (dirp->d_name[0] != '.')
+          temp[cnt++] = dirp->d_name;
+    }
+    if (!cnt) {
+      sprintf(str, "The directory %s is empty!", ads3_data.c_str());
+      result = str;
+      return;
+    }
+
+    result = temp;
+    cerr << "GetProjectList::execute " << result << endl;
+  }
+  std::string help() { return std::string("Say help getProjectList"); }
+};
 
 // XMLRPC command to obtain a list of DSMs and their locations
 class GetDsmList : public XmlRpcServerMethod
@@ -99,7 +161,8 @@ int XmlRpcService::run() throw(atdUtil::Exception)
   xmlrpc_server = new XmlRpcServer;
 
   // These constructors register methods with the XMLRPC server
-  GetDsmList getdsmlist (xmlrpc_server);
+  GetProjectList getprojectlist (xmlrpc_server);
+  GetDsmList     getdsmlist     (xmlrpc_server);
 //   Start      start      (xmlrpc_server);
 //   Stop       stop       (xmlrpc_server);
 //   Restart    restart    (xmlrpc_server);
