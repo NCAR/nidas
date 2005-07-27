@@ -168,6 +168,14 @@
     <xsd:attribute name="class" type="xsd:token"/>
     <xsd:attribute name="devicename" type="xsd:token"/>
     <xsd:attribute name="location" type="xsd:token"/>
+
+    <xsd:annotation>
+        <xsd:documentation>
+	    The sensor suffix is a string which is added to
+	    all variable names from the sensor.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:attribute name="suffix" type="xsd:token"/>
     <xsd:attribute name="id" type="xsd:short"/>
 </xsd:complexType>
 
@@ -245,6 +253,14 @@
 	<xsd:attribute name="name" type="xsd:token" use="required"/>
 	<xsd:attribute name="location" type="xsd:token" use="required"/>
 	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="required"/>
+	<xsd:annotation>
+	    <xsd:documentation>
+		A DSM can listen on a socket for RemoteSerialConnections.
+		Specify a non-zero value for rserialPort if you want
+		this service.
+	    </xsd:documentation>
+	</xsd:annotation>
+	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger" default="0"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
 	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor"/>
