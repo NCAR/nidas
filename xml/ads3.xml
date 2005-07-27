@@ -318,7 +318,7 @@
     </dsm>
 -->
 
-    <dsm name="dsm301" location="radome" id="0">
+    <dsm name="dsm301" location="radome" id="0" rserialPort="50010">
 	<config class="XMLConfig">
 	    <socket type="mcrequest"/>
 	</config>
@@ -379,6 +379,12 @@
 		<variable name="A2D7" units="V">
 		    <parameter name="gain" value="1.0" type="float"/>
 		    <parameter name="bipolar" value="1" type="bool"/>
+		</variable>
+	    </sample>
+	</sensor>
+	<sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
+	    <sample id="1" rate="1">
+		<variable name="A2DTEMP" units="degC">
 		</variable>
 	    </sample>
 	</sensor>
