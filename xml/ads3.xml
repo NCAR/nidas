@@ -456,22 +456,7 @@
 	    <socket type="mcrequest"/>
 	</output>
 
-	<serialsensor class="DSMSerialSensor" devicename="/dev/dsmser0"
-	    baud="38400" parity="none" databits="8" stopbits="1">
-
-	    <message position="end" separator="" length="156"/>
-
-	    <prompt string="binary" rate="10"/>
-
-            <about string="PMS1DV3" type="S100" serialNumber="FSSP109"/>
-            <configuration depthOfField="2.72" beamDiameter="0.175"/>
-            <channels number="30" thresholds="38,92,194,376,678,1155,1880,2942,4096,4140,4238,4384,4590,4699,4807,4928,5027,5124,5255,5446,5673,5912,6164,6429,6754,7027,7310,7601,7901,8192"/>
-            <setup defaultRange="0" threshold="0x14" transitReject="0x01" dofReject="0x01" averageTransitWeight="0x05" attAccept="0x5f" divisorFlag="0x00" ctMethod="0x00" maxWidth="10000"/>
-	</serialsensor>
-
-	<serialsensor IDREF="mensor" devicename="/dev/dsmser0"/>
-
-
+	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0"/>
 
     </dsm>
 </site>
