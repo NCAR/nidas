@@ -26,9 +26,15 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-DSMRunstring::DSMRunstring(int argc, char** argv):
-    _debug(false),_wait(false)
+/* static */
+DSMEngine* DSMEngine::_instance = 0;
+
+DSMEngine::DSMEngine():
+    _syslogit(true),_wait(false),
+    _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
+    _statusThread(0),_xmlrpcThread(0),_xmlRequestSocket(0)
 {
+    setupSignals();
     try {
 	_mcastSockAddr = atdUtil::Inet4SocketAddress(
 	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
@@ -36,6 +42,74 @@ DSMRunstring::DSMRunstring(int argc, char** argv):
     }
     catch(const atdUtil::UnknownHostException& e) {}	// won't happen
 
+}
+
+DSMEngine::~DSMEngine()
+{
+    delete _statusThread;
+    delete _xmlrpcThread;
+    delete _xmlRequestSocket;
+    delete _selector;	// this closes any still-open sensors
+
+    _outputMutex.lock();
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = _connectedOutputs.begin(); oi != _connectedOutputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	try {
+	    output->flush();
+	    output->close();
+	}
+	catch(const atdUtil::IOException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_INFO,
+		"~DSMEngine %s: %s",output->getName().c_str(),e.what());
+	}
+    }
+    _outputMutex.unlock();
+
+    if (_dsmConfig) {
+	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
+	for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+	    SampleOutput* output = *oi;
+	    try {
+		output->close();
+	    }
+	    catch(const atdUtil::IOException& e) {
+		atdUtil::Logger::getInstance()->log(LOG_INFO,
+		    "~DSMEngine %s: %s",output->getName().c_str(),e.what());
+	    }
+	}
+    }
+    cerr << "DSMEngine deleted" << endl;
+    delete _project;
+}
+
+/* static */
+DSMEngine* DSMEngine::getInstance() 
+{
+    if (!_instance) _instance = new DSMEngine();
+    return _instance;
+}
+
+/* static */
+int DSMEngine::main(int argc, char** argv) throw()
+{
+    cerr << "compiled on " << __DATE__ << " at " << __TIME__ << endl;
+
+    auto_ptr<DSMEngine> engine(getInstance());
+
+    int res;
+    if ((res = engine->parseRunstring(argc,argv)) != 0) return res;
+
+    engine->initLogger();
+
+    engine->run();		// doesn't throw exceptions
+
+    // auto_ptr will call DSMEngine destructor at this point.
+    return 0;
+}
+
+int DSMEngine::parseRunstring(int argc, char** argv) throw()
+{
     // extern char *optarg;  /* set by getopt()  */
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
@@ -43,13 +117,14 @@ DSMRunstring::DSMRunstring(int argc, char** argv):
     while ((opt_char = getopt(argc, argv, "dw")) != -1) {
 	switch (opt_char) {
 	case 'd':
-	    _debug = true;
+	    _syslogit = false;
 	    break;
 	case 'w':
 	    _wait = true;
 	    break;
 	case '?':
 	    usage(argv[0]);
+	    return 1;
 	}
     }
     if (optind == argc - 1) {
@@ -60,6 +135,7 @@ DSMRunstring::DSMRunstring(int argc, char** argv):
 	    if (ic == string::npos) {
 		cerr << "Invalid host:port parameter: " << url << endl;
 		usage(argv[0]);
+		return 1;
 	    }
 	    string mcastAddr = url.substr(0,ic);
 	    istringstream ist(url.substr(ic+1));
@@ -68,6 +144,7 @@ DSMRunstring::DSMRunstring(int argc, char** argv):
 	    if (ist.fail()) {
 		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
 		usage(argv[0]);
+		return 1;
 	    }
 	    try {
 		_mcastSockAddr = atdUtil::Inet4SocketAddress(
@@ -76,17 +153,21 @@ DSMRunstring::DSMRunstring(int argc, char** argv):
 	    catch(const atdUtil::UnknownHostException& e) {
 	        cerr << e.what() << endl;
 		usage(argv[0]);
+		return 1;
 	    }	
 	}
 	else _configFile = url;
     }
     cerr << "optind=" << optind << " argc=" << argc << endl;
 
-    if (optind != argc) usage(argv[0]);
+    if (optind != argc) {
+	usage(argv[0]);
+	return 1;
+    }
+    return 0;
 }
 
-/* static */
-void DSMRunstring::usage(const char* argv0) 
+void DSMEngine::usage(const char* argv0) 
 {
     cerr << "\
 Usage: " << argv0 << " [-dw] [ config ]\n\n\
@@ -96,35 +177,19 @@ Usage: " << argv0 << " [-dw] [ config ]\n\n\
       or a multicast socket address in the form \"mcsock:addr:port\".\n\
 The default config is \"mcsock:" <<
 	DSM_MULTICAST_ADDR << ":" << DSM_MULTICAST_PORT << "\"" << endl;
-    exit(1);
 }
 
-/* static */
-DSMEngine* DSMEngine::_instance = 0;
-
-/* static */
-int DSMEngine::main(int argc, char** argv) throw()
+void DSMEngine::initLogger()
 {
-    cerr << "compiled on " << __DATE__ << " at " << __TIME__ << endl;
-
-    DSMRunstring rstr(argc,argv);
-
-    auto_ptr<DSMEngine> engine(createInstance(&rstr));
-
-    engine->_logger->log(LOG_ERR,"calling engine->run()");
-    try {
-      engine->run();
-    }
-    catch (const atdUtil::Exception& e) {
-      engine->_logger->log(LOG_ERR,e.what()); }
-    catch (...) {
-      engine->_logger->log(LOG_ERR,"Unknown error thrown..."); }
-
-    return 0;
+    if (_syslogit)
+	_logger = atdUtil::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+    else
+	_logger = atdUtil::Logger::createInstance(stderr);
 }
 
 void DSMEngine::run() throw()
 {
+
     DOMDocument* projectDoc = 0;
 
     // start the xmlrpc control thread
@@ -155,9 +220,9 @@ void DSMEngine::run() throw()
       // stop the status Thread
       _statusThread->interrupt();
 
-      if (_rstr->_wait) {
+      if (_wait) {
 	_quit = false;
-        _logger->log(LOG_ERR,"wait on the _runCond condition variable...");
+        _logger->log(LOG_DEBUG,"wait on the _runCond condition variable...");
         // wait on the _runCond condition variable
         _runCond.lock();
         while (!_run)
@@ -167,7 +232,7 @@ void DSMEngine::run() throw()
         if (_quit) continue;
       }
       else
-        _logger->log(LOG_ERR,"don't wait on the _runCond condition variable...");
+        _logger->log(LOG_DEBUG,"don't wait on the _runCond condition variable...");
 
       if (projectDoc) {
         projectDoc->release();
@@ -176,10 +241,10 @@ void DSMEngine::run() throw()
       cerr << "DSMEngine: first fetch the configuration" << endl;
       // first fetch the configuration
       try {
-	if (_rstr->_configFile.length() == 0)
-          projectDoc = requestXMLConfig(_rstr->_mcastSockAddr);
+	if (_configFile.length() == 0)
+          projectDoc = requestXMLConfig(_mcastSockAddr);
 	else
-          projectDoc = parseXMLConfigFile(_rstr->_configFile);
+          projectDoc = parseXMLConfigFile(_configFile);
       }
       catch (const atdUtil::Exception& e) {
 	// DSMEngine::interrupt() does an _xmlRequestSocket->close(),
@@ -320,74 +385,6 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
       DSMEngine::getInstance()->mainQuit();
       break;
     }
-}
-
-DSMEngine::DSMEngine(const DSMRunstring* rstr):
-    _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
-    _statusThread(0),_xmlrpcThread(0),_xmlRequestSocket(0),_rstr(rstr)
-{
-  setupSignals();
-
-  if (_rstr->_debug)
-    _logger = atdUtil::Logger::createInstance(stderr);
-
-  else {
-    char hostname[128];
-    gethostname(hostname,sizeof(hostname));
-    _logger = atdUtil::Logger::createInstance(hostname,LOG_CONS,LOG_LOCAL5);
-  }
-}
-
-DSMEngine::~DSMEngine()
-{
-    delete _statusThread;
-    delete _xmlrpcThread;
-    delete _xmlRequestSocket;
-    delete _selector;	// this closes any still-open sensors
-
-    _outputMutex.lock();
-    list<SampleOutput*>::const_iterator oi;
-    for (oi = _connectedOutputs.begin(); oi != _connectedOutputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	try {
-	    output->flush();
-	    output->close();
-	}
-	catch(const atdUtil::IOException& e) {
-	    atdUtil::Logger::getInstance()->log(LOG_INFO,
-		"~DSMEngine %s: %s",output->getName().c_str(),e.what());
-	}
-    }
-    _outputMutex.unlock();
-
-    if (_dsmConfig) {
-	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
-	for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	    SampleOutput* output = *oi;
-	    try {
-		output->close();
-	    }
-	    catch(const atdUtil::IOException& e) {
-		atdUtil::Logger::getInstance()->log(LOG_INFO,
-		    "~DSMEngine %s: %s",output->getName().c_str(),e.what());
-	    }
-	}
-    }
-    cerr << "DSMEngine deleted" << endl;
-    delete _project;
-}
-
-DSMEngine* DSMEngine::createInstance(const DSMRunstring* rstr)
-{
-  if (!_instance) {
-    _instance = new DSMEngine(rstr);
-  }
-  return _instance;
-}
-
-DSMEngine* DSMEngine::getInstance() 
-{
-    return _instance;
 }
 
 DOMDocument* DSMEngine::requestXMLConfig(
@@ -615,7 +612,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 
     // do not quit when controlled by XMLRPC
     // TODO override this feature for Ctrl-C
-    if (!_rstr->_wait) // || signal_seen(SIGINT))
+    if (!_wait) // || signal_seen(SIGINT))
       _quit = true;
     else
       _logger->log(LOG_ERR,"DSMEngine::interrupt wait on the _runCond condition variable...");
