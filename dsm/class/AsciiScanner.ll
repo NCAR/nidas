@@ -225,9 +225,11 @@ void AsciiScanner::setFormat(const std::string& val)
 	    bufptr += (size - align_adj);
 	    tlen += (size - align_adj);
 	}
+	bufptrs[nfields] = bufptr;
+
 	tlen += size * length;
 	bufptr += size * length;
-	bufptrs[nfields] = bufptr;
+
 	fields.push_back(currentField);
 #ifdef DEBUG
 	std::cerr << "nfields=" << nfields << " lexres=" << lexres << 
@@ -325,7 +327,6 @@ int AsciiScanner::sscanf(const char* input, float* output, int nout) throw()
 #ifdef DEBUG
 int main (int argc, char *argv[])
 {
-  
     char* fmtstr = "%*c %f KDKDKD %ld %16c %*32c";
 
     AsciiScanner parser;
