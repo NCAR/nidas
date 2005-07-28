@@ -106,7 +106,7 @@ void DSMAnalogSensor::close() throw(atdUtil::IOException)
 int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int nexpect)
 {
     FILE* fp;
-    atdUtil::Logger::getInstance()->log(LOG_INFO,"opening: %s",name.c_str());
+    atdUtil::Logger::getInstance()->log(LOG_NOTICE,"opening: %s",name.c_str());
     if((fp = fopen(name.c_str(), "r")) == NULL)
         throw atdUtil::IOException(name,"open",errno);
 

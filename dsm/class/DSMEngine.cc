@@ -40,7 +40,9 @@ DSMEngine::DSMEngine():
 	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
 	    DSM_MULTICAST_PORT);
     }
-    catch(const atdUtil::UnknownHostException& e) {}	// won't happen
+    catch(const atdUtil::UnknownHostException& e) {	// shouldn't happen
+        cerr << e.what();
+   }
 
 }
 
@@ -310,7 +312,7 @@ void DSMEngine::run() throw()
     if (projectDoc)
       projectDoc->release();
 
-    cerr << "DSMEngine::main() exiting..." << endl;
+    _logger->log(LOG_NOTICE,"dsm shutting down");
 }
 
 void DSMEngine::mainStart()
@@ -392,6 +394,9 @@ DOMDocument* DSMEngine::requestXMLConfig(
 	throw(atdUtil::Exception,
 	    DOMException,SAXException,XMLException)
 {
+    if (!mcastAddr.getInet4Address().isMultiCastAddress())
+	throw atdUtil::Exception(mcastAddr.toString() + " is not a multicast address");
+
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws Exception, DOMException
 

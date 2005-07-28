@@ -70,7 +70,7 @@ void RTL_DSMSensor::setDeviceName(const std::string& val)
 void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
 {
     
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
+    atdUtil::Logger::getInstance()->log(LOG_NOTICE,
     	"opening: %s",getName().c_str());
 
     int accmode = flags & O_ACCMODE;
