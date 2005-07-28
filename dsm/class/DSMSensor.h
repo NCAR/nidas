@@ -149,6 +149,8 @@ public:
 
     virtual int getReadFd() const = 0;
 
+    virtual int getWriteFd() const = 0;
+
     /**
      * Set the various levels of the sensor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
