@@ -27,7 +27,7 @@ using namespace dsm;
 using namespace atdUtil;
 
 /**
- * Open socket for listening on port 8100.
+ * Open a ServerSocket for listening on a given port.
  */
 RemoteSerialListener::RemoteSerialListener(unsigned short port) throw(IOException) :
 	ServerSocket(port)
@@ -48,11 +48,14 @@ RemoteSerialConnection* RemoteSerialListener::acceptConnection() throw(IOExcepti
     * the first message will have the device name in it.
     */
     char devname[128];
-    int n = newsock->recv(devname, (sizeof devname) -1, 0);
+    int n = newsock->recv(devname, (sizeof devname) - 1, 0);
 
     devname[n] = 0;
+    char* nl = strchr(devname,'\n');
+    if (nl) *nl = 0;
 
-    // cerr << "RemoteSerial accepted connection for devname " << devname << endl;
+    cerr << "RemoteSerial accepted connection for devname \"" <<
+    	devname << "\"" << endl;
 
     newsock->setNonBlocking(true);
 
