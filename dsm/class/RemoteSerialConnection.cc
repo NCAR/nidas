@@ -26,7 +26,9 @@ using namespace std;
 
 RemoteSerialConnection::~RemoteSerialConnection()
 {
-    if (sensor) sensor->removeSampleClient(this);
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"~RemoteSerialConnection()");
+    if (sensor) sensor->removeRawSampleClient(this);
     socket->close();
     delete socket;
 }
@@ -34,7 +36,7 @@ RemoteSerialConnection::~RemoteSerialConnection()
 void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	throw(atdUtil::IOException) {
     if (!val) {
-	if (sensor) sensor->removeSampleClient(this);
+	if (sensor) sensor->removeRawSampleClient(this);
 	sensor = 0;
 	return;
     }
@@ -73,7 +75,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    val->addSampleClient(this);
+    val->addRawSampleClient(this);
 }
 
 /**
