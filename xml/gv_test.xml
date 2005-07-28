@@ -325,9 +325,11 @@
 	    </sample>
 	</serialSensor>
 
+	<!--
 	<serialSensor IDREF="Garmin_GPS"
 		devicename="/dev/dsmser5" id="120">
 	</serialSensor>
+	-->
 
 	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
 	    <sample id="1" rate="500">
