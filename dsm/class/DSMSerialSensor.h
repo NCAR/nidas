@@ -155,11 +155,11 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
+    static std::string replaceEscapeSequences(std::string str);
+
 protected:
 
     dsm_sample_id_t sampleId;
-
-    static std::string replaceEscapeSequences(std::string str);
 
     std::string msgsep;
     bool sepAtEOM;
