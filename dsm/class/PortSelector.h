@@ -58,8 +58,8 @@ public:
     PortSelector(unsigned short rserialPort = 0);
     ~PortSelector();
 
-    void addDSMSensor(DSMSensor *port);
-    void closeDSMSensor(DSMSensor *port);
+    void addDSMSensor(DSMSensor *sensor);
+    void closeDSMSensor(DSMSensor *sensor);
 
     void addRemoteSerialConnection(RemoteSerialConnection*)
     	throw(atdUtil::IOException);
@@ -100,7 +100,7 @@ public:
     int getSelectErrors() const { return selectErrors; }
     int getRemoteSerialListenErrors() const { return rserialListenErrors; }
 
-      void handleRemoteSerial(int fd,DSMSensor* port)
+      void handleRemoteSerial(int fd,DSMSensor* sensor)
       	throw(atdUtil::IOException);
     /**
      * Thread function.
@@ -111,7 +111,7 @@ protected:
 
     void handleChangedSensors();
 
-    atdUtil::Mutex portsMutex;
+    atdUtil::Mutex sensorsMutex;
     std::vector<int> pendingDSMSensorFds;
     std::vector<DSMSensor*> pendingDSMSensors;
     std::vector<DSMSensor*> pendingDSMSensorClosures;
@@ -119,16 +119,16 @@ protected:
     std::vector<int> activeDSMSensorFds;
     std::vector<DSMSensor*> activeDSMSensors;
 
-    bool portsChanged;
+    bool sensorsChanged;
 
     unsigned short remoteSerialSocketPort;
 
     RemoteSerialListener* rserial;
 
     atdUtil::Mutex rserialConnsMutex;
-    std::vector<RemoteSerialConnection*> pendingRserialConns;
-    std::vector<RemoteSerialConnection*> pendingRserialClosures;
-    std::vector<RemoteSerialConnection*> activeRserialConns;
+    std::list<RemoteSerialConnection*> pendingRserialConns;
+    std::list<RemoteSerialConnection*> pendingRserialClosures;
+    std::list<RemoteSerialConnection*> activeRserialConns;
 
     bool rserialConnsChanged;
 
