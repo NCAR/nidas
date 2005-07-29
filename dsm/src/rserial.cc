@@ -487,6 +487,7 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 {
 
     pollfds[0].fd = socket->getFd();	// receive socket
+    cerr << "socket->getFd=" << socket->getFd() << endl;
     pollfds[0].events = POLLIN | POLLERR;
     pollfds[1].fd = 0;			// stdin
     pollfds[1].events = POLLIN | POLLERR;
@@ -515,12 +516,13 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 	}
 	if (pollfds[0].revents & POLLIN) {
 	    try {
+		cerr << "Reading " << BUFSIZE << " bytes" << endl;
 		nread = socket->recv(buffer, BUFSIZE);
 	    }
 	    catch (const atdUtil::EOFException& eof) {
 	        cerr << "EOF on socket" << endl;
 		nread = 0;
-		interrupt();
+		// interrupt();
 	    }
 
 #define PRINT_ESCAPE_SEQ
@@ -592,7 +594,7 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 	    // if (!isatty(0)) sleep(2);		// if reading from file
 	    /* read a character from standard input */
 
-	    if ((nread = read(0, buffer, sizeof buffer)) <= 0) {
+	    if ((nread = read(0, buffer, BUFSIZE)) <= 0) {
 		if (nread == 0) {
 		    /* client read an EOF; exit the loop. */
 		    interrupt();
@@ -609,7 +611,8 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 		break;
 	    }
 	    /* send bytes to adam */
-	    if (nread > 0) socket->sendall(buffer, nread, 0);
+	    cerr << "nread=" << nread << endl;
+	    if (nread > 0) socket->sendall(buffer, nread);
 	}
 	if (nfds > 1 && pollfds[1].revents & POLLERR) {
 	    throw atdUtil::IOException(
