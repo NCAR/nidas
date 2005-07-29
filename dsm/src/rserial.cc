@@ -13,6 +13,8 @@
 
 */
 
+#include <DSMSerialSensor.h>
+
 #include <atdUtil/Socket.h>
 
 #include <iostream>
@@ -254,10 +256,12 @@ void RemoteSerial::openConnection(atdUtil::Inet4SocketAddress saddr,
     socket->sendall(msg.c_str(),msg.size());
 
     string line = socketReadLine();
+    // cerr << "line=\"" << line << "\"" << endl;
     if (line.compare("OK"))
     	throw atdUtil::IOException("socket","read acknowledgement",line);
 
     line = socketReadLine();
+    // cerr << "line=\"" << line << "\"" << endl;
     istringstream ist(line);
     ist >> baud;
     if (ist.fail())
@@ -272,21 +276,29 @@ void RemoteSerial::openConnection(atdUtil::Inet4SocketAddress saddr,
     	throw atdUtil::IOException("socket","read databits",line);
 
     messageSeparator = socketReadLine();
+    // cerr << "messageSeparator=" << messageSeparator << endl;
 
     line = socketReadLine();
+    // cerr << "line=\"" << line << "\" length=" << line.size() << endl;
+    ist.clear();
     ist.str(line);
     ist >> separatorAtEOM;
     if (ist.fail())
     	throw atdUtil::IOException("socket","read separator-at-eom",line);
 
     line = socketReadLine();
+    // cerr << "line=\"" << line << "\"" << endl;
+    ist.clear();
     ist.str(line);
     ist >> messageLength;
+    if (ist.fail())
+    	throw atdUtil::IOException("socket","read messageLength",line);
 
     cerr << "parameters: " << baud << ' ' << parity << ' ' <<
     	databits << ' ' << stopbits <<
 	" \"" << messageSeparator << "\" " <<
 	separatorAtEOM <<  ' ' << messageLength << endl;
+    messageSeparator = dsm::DSMSerialSensor::replaceEscapeSequences(messageSeparator);
 }
 
 string RemoteSerial::socketReadLine() throw(atdUtil::IOException)
@@ -421,6 +433,7 @@ int RemoteSerial::main(int argc, char *argv[])
 	restoreStdin();
 	return 1;
     }
+    return 0;
 }
 
 int RemoteSerial::parseRunstring(int argc, char *argv[])
@@ -455,6 +468,7 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
   if (ist.fail()) usage(argv[0]);
 
   sensorName = argv[optind++];
+  return 0;
 
 }
 
