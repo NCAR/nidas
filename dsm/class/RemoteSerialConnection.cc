@@ -100,7 +100,9 @@ void RemoteSerialConnection::read() throw(atdUtil::IOException)
 {
     char buffer[512];
     ssize_t i = socket->recv(buffer,sizeof(buffer));
-    if (i == 0) throw atdUtil::EOFException("rserial socket","read");
+    atdUtil::Logger::getInstance()->log(
+	    LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
+    // if (i == 0) throw atdUtil::EOFException("rserial socket","read");
 
     // don't handle situation of writing less than i bytes
     // to serial sensor

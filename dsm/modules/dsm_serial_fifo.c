@@ -165,6 +165,7 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 		__FILE__,port->outFifoName,rtl_strerror(rtl_errno));
 	return;
     }
+    rtl_printf("serial driver write side, read=%d bytes\n",l);
     eob = buf + l;
     for (cp = buf; cp < eob; cp += l) {
 	if ((l = rtl_write(port->devfd,cp,eob-cp)) < 0) {

@@ -190,9 +190,11 @@ int PortSelector::run() throw(atdUtil::Exception)
 	std::list<RemoteSerialConnection*>::iterator ci;
 	for (ci = activeRserialConns.begin(); ci != activeRserialConns.end(); ++ci) {
 	    RemoteSerialConnection* conn = *ci;
+	    cerr << "rserial fd=" << conn->getFd() << endl;
 	    fd = conn->getFd();
 	    if (FD_ISSET(fd,&rset)) {
 		try {
+		    cerr << "rserial fd ISSET=" << conn->getFd() << endl;
 		    conn->read();
 		}
 		// log the error but don't exit
@@ -395,6 +397,7 @@ void PortSelector::handleChangedSensors() {
     for (ci = activeRserialConns.begin(); ci != activeRserialConns.end(); ++ci) {
 	RemoteSerialConnection* conn = *ci;
 	if (conn->getFd() > selectn) selectn = conn->getFd();
+	cerr << "rserial fd=" << conn->getFd() << endl;
 	FD_SET(conn->getFd(),&readfdset);
     }
 

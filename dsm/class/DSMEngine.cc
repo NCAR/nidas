@@ -604,8 +604,12 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
         _selector->interrupt();
     }
     if (_statusThread) {
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "DSMEngine::interrupt, interrupting status thread");
       _statusThread->interrupt();
       _statusThread->join();
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "DSMEngine::interrupt, status thread joined");
     }
     // If DSMEngine is waiting for an XML connection, closing the
     // _xmlRequestSocket here will cause an IOException in
