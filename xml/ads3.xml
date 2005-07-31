@@ -432,13 +432,13 @@
     </dsm>
 -->
 
-    <dsm name="dsm302" location="tail" id="2">
+    <dsm name="dsm302" location="tail" id="2" rserialPort="50010">
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
 	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0" id="110">
 	    <sample>
 		<variable name="DPRESM2" units="mb">
-		    <linear slope="10.0" intercept="0.0" units="pascal"/>
+		    <linear slope="1.0" intercept="0.0" units="mb"/>
 		</variable>
 	    </sample>
 	</serialSensor>
@@ -456,7 +456,6 @@
 	    <socket type="mcrequest"/>
 	</output>
 
-	<serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0"/>
 
     </dsm>
 </site>
