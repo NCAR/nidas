@@ -1691,13 +1691,8 @@ static rtl_ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, rtl
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
 
-    rtl_printf("dsm_ser_write, count=%d\n",count);
-
-    int togglePrompter = port->promptOn;
-    
-    if (togglePrompter) stop_prompter(port);
+    // rtl_printf("dsm_ser_write, count=%d\n",count);
     int res = queue_transmit_chars(port,buf,count);
-    if (togglePrompter) start_prompter(port);
     return res;
 }
 
