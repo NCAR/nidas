@@ -110,6 +110,19 @@ public:
      */
     void setPromptString(const std::string& val) { prompt = val; }
 
+    /**
+     * Is this a prompted sensor.  Will be true if setPromptString()
+     * has been called with a non-empty string, and setPromptRate()
+     * has been called with a rate other than IRIG_ZERO_HZ.
+     */
+    bool isPrompted() const { return prompted; }
+
+    /**
+     * Is prompting active, i.e. isPrompted() is true, and startPrompting
+     * has been called?
+     */
+    bool isPrompting() const { return prompting; }
+
     const std::string& getPromptString() const {
         return prompt;
     }
@@ -123,6 +136,13 @@ public:
     void setPromptRate(enum irigClockRates val) { promptRate = val; }
 
     enum irigClockRates getPromptRate() const { return promptRate; }
+
+
+    void startPrompting() throw(atdUtil::IOException);
+
+    void stopPrompting() throw(atdUtil::IOException);
+
+    void togglePrompting() throw(atdUtil::IOException);
 
     /**
      * How many samples have resulted in complete scanf failures -
@@ -186,6 +206,10 @@ protected:
     int scanfFailures;
 
     int scanfPartials;
+
+    bool prompted;
+
+    bool prompting;
 };
 
 }

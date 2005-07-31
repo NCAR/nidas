@@ -38,9 +38,9 @@ CREATOR_ENTRY_POINT(DSMSerialSensor)
 DSMSerialSensor::DSMSerialSensor():
     sepAtEOM(true),
     messageLength(0),
-    promptRate(IRIG_NUM_RATES),
+    promptRate(IRIG_ZERO_HZ),
     maxScanfFields(0),
-    parsebuf(0),parsebuflen(0)
+    parsebuf(0),parsebuflen(0),prompted(false),prompting(false)
 {
 }
 
@@ -95,8 +95,9 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     recinfo.recordLen = getMessageLength();
     ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
 
-    /* a prompt rate of IRIG_NUM_RATES means no prompting */
-    if (getPromptRate() != IRIG_NUM_RATES) {
+    /* a prompt rate of IRIG_ZERO_HZ means no prompting */
+    prompted = getPromptRate() != IRIG_ZERO_HZ && getPromptString().size();
+    if (prompted) {
 	struct dsm_serial_prompt prompt;
 
 	string nprompt = replaceEscapeSequences(getPromptString());
@@ -109,7 +110,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 	// cerr << "rate=" << prompt.rate << " prompt=\"" << nprompt << "\"" << endl;
 	ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
-	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
+	startPrompting();
     }
     init();
 }
@@ -117,8 +118,31 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
 void DSMSerialSensor::close() throw(atdUtil::IOException)
 {
     // cerr << "doing DSMSER_CLOSE" << endl;
+    stopPrompting();
     ioctl(DSMSER_CLOSE,(const void*)0,0);
     RTL_DSMSensor::close();
+}
+
+void DSMSerialSensor::startPrompting() throw(atdUtil::IOException)
+{
+    if (prompted) {
+	ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
+	prompting = true;
+    }
+}
+
+void DSMSerialSensor::stopPrompting() throw(atdUtil::IOException)
+{
+    if (prompted) {
+	ioctl(DSMSER_STOP_PROMPTER,(const void*)0,0);
+	prompting = false;
+    }
+}
+
+void DSMSerialSensor::togglePrompting() throw(atdUtil::IOException)
+{
+    if (prompting) stopPrompting();
+    else startPrompting();
 }
 
 void DSMSerialSensor::addSampleTag(SampleTag* tag)
@@ -312,7 +336,7 @@ void DSMSerialSensor::fromDOMElement(
 
     // If sensor is prompted, set sampling rates for variables if unknown
     vector<SampleTag*>::const_iterator si;
-    if (getPromptRate() != IRIG_NUM_RATES) {
+    if (getPromptRate() != IRIG_ZERO_HZ) {
 	float frate = irigClockEnumToRate(getPromptRate());
 	for (si = sampleTags.begin(); si != sampleTags.end(); ++si) {
 	    SampleTag* samp = *si;
