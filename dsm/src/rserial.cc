@@ -347,7 +347,8 @@ void RemoteSerial::setupStdin() throw(atdUtil::IOException)
     memcpy( &term_io_new, &termio_save, sizeof termio_save);
     term_io_new.c_lflag &= ~ECHO & ~ICANON;
 
-    term_io_new.c_iflag &= ~ICRNL & ~INLCR; 
+    term_io_new.c_iflag &= ~INLCR & ~IGNCR; 
+    term_io_new.c_iflag |= ICRNL;		// input CR -> NL
 
     term_io_new.c_oflag &= ~OPOST;
 
@@ -487,7 +488,6 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 {
 
     pollfds[0].fd = socket->getFd();	// receive socket
-    cerr << "socket->getFd=" << socket->getFd() << endl;
     pollfds[0].events = POLLIN | POLLERR;
     pollfds[1].fd = 0;			// stdin
     pollfds[1].events = POLLIN | POLLERR;
@@ -514,15 +514,15 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 	default:
 	    break;
 	}
-	if (pollfds[0].revents & POLLIN) {
+	if (pollfds[0].revents & POLLIN) {	// data on socket
 	    try {
-		cerr << "Reading " << BUFSIZE << " bytes" << endl;
+		// cerr << "Reading " << BUFSIZE << " bytes" << endl;
 		nread = socket->recv(buffer, BUFSIZE);
 	    }
 	    catch (const atdUtil::EOFException& eof) {
 	        cerr << "EOF on socket" << endl;
 		nread = 0;
-		// interrupt();
+		interrupt();
 	    }
 
 #define PRINT_ESCAPE_SEQ
@@ -611,7 +611,6 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 		break;
 	    }
 	    /* send bytes to adam */
-	    cerr << "nread=" << nread << endl;
 	    if (nread > 0) socket->sendall(buffer, nread);
 	}
 	if (nfds > 1 && pollfds[1].revents & POLLERR) {
