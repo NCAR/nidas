@@ -57,9 +57,20 @@ public:
             throw(atdUtil::InvalidParameterException);
 
     /**
-     * Synchronize the A/D's with 1PPS from IRIG/GPS
+     * Set desired latency, providing some control
+     * over the response time vs buffer efficiency tradeoff.
+     * Setting a latency of 1/10 sec means buffer
+     * data in the driver for a 1/10 sec, then send the data
+     * to user space. As implemented here, it must be
+     * set before doing a sensor open().
+     * @param val Latency, in seconds.
      */
-    void run(int msg) throw(atdUtil::IOException);
+    void setLatency(float val) throw(atdUtil::InvalidParameterException)
+    {
+        latency = val;
+    }
+
+    float getLatency() const { return latency; }
 
     int DSMAnalogSensor::rateSetting(float rate)
 	    throw(atdUtil::InvalidParameterException);
@@ -158,6 +169,8 @@ protected:
      * Allocated samples.
      */
     SampleT<float>** outsamples;
+
+    float latency;
 };
 
 }

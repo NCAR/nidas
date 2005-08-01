@@ -979,7 +979,7 @@ static void* A2DGetDataThread(void *thread_arg)
 {
 	struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
 
-	A2DSAMPLE buf;
+	A2DSAMPLE samp;
 	int i;
 	int nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 	unsigned short stat;
@@ -1047,20 +1047,28 @@ static void* A2DGetDataThread(void *thread_arg)
 	log("Starting data-acq loop, GET_MSEC_CLOCK=%d",
 		GET_MSEC_CLOCK);
 
+	int latencyCnt = brd->config.latencyUsecs /
+		(USECS_PER_SEC / INTRP_RATE);
+	if (latencyCnt == 0) latencyCnt = 1;
+	int sampleCnt = 0;
+	int bytesInBuf = 0;
+	rtl_printf("latencyUsecs=%d, latencyCnt=%d\n",
+		 brd->config.latencyUsecs,latencyCnt);
+
 	// Here's the acquisition loop
 	for (;;) {
 
 	    rtl_sem_wait(&brd->acq_sem);
 	    if (brd->interrupted) break;
 
-	    buf.timestamp = GET_MSEC_CLOCK;
+	    samp.timestamp = GET_MSEC_CLOCK;
 
 	    // rtl_nanosleep(&usec20,0);
 
 	    // A2DGetFIFOStatus(brd);
 
 	    // dataptr points to beginning of data section of A2DSAMPLE
-	    register SS *dataptr = buf.data;
+	    register SS *dataptr = samp.data;
 
 	    int ngood = 0;
 	    int nbad = 0;
@@ -1141,19 +1149,33 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    }
 
-	    buf.size = (char*)dataptr - (char*)buf.data;
+	    samp.size = (char*)dataptr - (char*)samp.data;
 
-	    if (brd->a2dfd >= 0 && buf.size > 0) {
-		// Write to up-fifo
-		if (rtl_write(brd->a2dfd, &buf,
-		    SIZEOF_DSM_SAMPLE_HEADER + buf.size) < 0) {
-		    int ierr = rtl_errno;	// save err
-		    log("error: write %s: %s",
-			    brd->a2dFifoName,rtl_strerror(rtl_errno));
-		    log("shutting down this A2D");
-		    closeA2D(brd,0);		// close, but don't join this thread
-		    return (void*) convert_rtl_errno(ierr);
+	    if (brd->a2dfd >= 0 && samp.size > 0) {
+
+		size_t slen = SIZEOF_DSM_SAMPLE_HEADER + samp.size;
+		// check if buffer full, or latency time has elapsed.
+		if (bytesInBuf + slen > sizeof(brd->buffer) ||
+			!(++sampleCnt % latencyCnt)) {
+		    // Write to up-fifo
+		    size_t wlen;
+		    if ((wlen = rtl_write(brd->a2dfd, brd->buffer,bytesInBuf)) <
+		    	0) {
+			int ierr = rtl_errno;	// save err
+			log("error: write %s: %s",
+				brd->a2dFifoName,rtl_strerror(rtl_errno));
+			log("shutting down this A2D");
+			closeA2D(brd,0);		// close, but don't join this thread
+			return (void*) convert_rtl_errno(ierr);
+		    }
+		    bytesInBuf -= wlen;
+		    sampleCnt = 0;
 		}
+		if (bytesInBuf + slen <= sizeof(brd->buffer)) {
+		    memcpy(brd->buffer+bytesInBuf,&samp,slen);
+		    bytesInBuf += slen;
+		}
+		else brd->skippedSamples++;
 	    }
 	}
 	log("Exiting A2DGetDataThread");
@@ -1165,6 +1187,10 @@ static int openA2D(struct A2DBoard* brd)
 	void* thread_status;
 	brd->busy = 1;	// Set the busy flag
 	brd->interrupted = 0;
+	brd->skippedSamples = 0;
+	brd->nbadBufs = 0;
+	brd->fifoNotEmpty = 0;
+	brd->readCtr = 0;
 
 	if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
 	if((brd->a2dfd = rtl_open(brd->a2dFifoName,
@@ -1485,6 +1511,8 @@ int init_module()
 	    brd->i2cTempfd = -1;
 	    brd->ioctlhandle = 0;
 	    memset(&brd->config,0,sizeof(A2D_SET));
+	    // default latency, 1/10 second.
+	    brd->config.latencyUsecs = USECS_PER_SEC / 10;
 	    memset(&brd->cal,0,sizeof(A2D_CAL));
 	    memset(&brd->status,0,sizeof(A2D_STATUS));
 	    memset(&brd->bad,0,sizeof(brd->bad));
@@ -1500,6 +1528,7 @@ int init_module()
 	    brd->nbadBufs = 0;
 	    brd->fifoNotEmpty = 0;
 	    brd->i2c = 0x3;
+	    brd->skippedSamples = 0;
 	}
 
 	/* allocate necessary members in each A2DBoard structure */

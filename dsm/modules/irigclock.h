@@ -22,6 +22,10 @@
 #define MSECS_PER_DAY 86400000
 #endif
 
+#ifndef USECS_PER_SEC
+#define USECS_PER_SEC 1000000
+#endif
+
 #ifndef __RTCORE_KERNEL__
 #include <sys/time.h>
 #define rtl_timeval timeval

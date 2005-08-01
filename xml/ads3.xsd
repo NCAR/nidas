@@ -172,9 +172,9 @@
     <xsd:attribute name="class" type="xsd:token"/>
     <xsd:attribute name="devicename" type="xsd:token"/>
     <xsd:attribute name="location" type="xsd:token"/>
-
     <xsd:attribute name="suffix" type="xsd:token"/>
     <xsd:attribute name="id" type="xsd:short"/>
+    <xsd:attribute name="latency" type="xsd:float"/>
 </xsd:complexType>
 
 <xsd:complexType name="serialSensorT">

@@ -191,6 +191,21 @@ public:
     virtual int getDefaultMode() const { return O_RDONLY; }
 
     /**
+     * Set desired sensor latency. This can be implemented as a
+     * way to improve buffering efficiency in the sensor driver.
+     * Override this virtual method if a DSMSensor supports latency.
+     * @param val Latency, in seconds.
+     */
+    virtual void setLatency(float val)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        throw atdUtil::InvalidParameterException(
+		getName(),"latency","not supported");
+    }
+
+    virtual float getLatency() const { return 0.0; }
+
+    /**
      * Read from the device (duh). Behaves like the read(2) system call,
      * without a file descriptor argument, and with an IOException.
      */

@@ -284,9 +284,18 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		unsigned short val;
 		ist >> val;
 		if (ist.fail())
-		    throw atdUtil::InvalidParameterException("sensor","id",
-		    	attr.getValue());
+		    throw atdUtil::InvalidParameterException("sensor",
+		    	attr.getName(),attr.getValue());
 		setShortId(val);
+	    }
+	    else if (!attr.getName().compare("latency")) {
+		istringstream ist(attr.getValue());
+		float val;
+		ist >> val;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException("sensor",
+		    	attr.getName(),attr.getValue());
+		setLatency(val);
 	    }
 	}
     }
