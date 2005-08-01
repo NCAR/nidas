@@ -33,7 +33,7 @@ DSMAnalogSensor::DSMAnalogSensor() :
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
     endTimes(0),
     deltatUsec(0),nSamplePerRawSample(0),
-    outsamples(0)
+    outsamples(0),latency(0.1)
 {
 }
 

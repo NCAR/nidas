@@ -134,6 +134,8 @@ struct dsm_serial_status {
 	struct dsm_serial_record_info)
 #define DSMSER_GET_STATUS _IOR(DSM_SERIAL_MAGIC,9,\
 	struct dsm_serial_status)
+#define DSMSER_SET_LATENCY _IOW(DSM_SERIAL_MAGIC,10,\
+	long)
 
 #ifdef __RTCORE_KERNEL__
 
@@ -199,6 +201,7 @@ struct serialPort {
     struct dsm_sample_circ_buf sample_queue;
     struct dsm_sample* sample;	/* current sample being read */
 
+    unsigned long read_timeout_sec;	/* semaphore timeout in read method */
     unsigned long read_timeout_nsec;	/* semaphore timeout in read method */
     rtl_sem_t sample_sem;
 

@@ -40,7 +40,8 @@ DSMSerialSensor::DSMSerialSensor():
     messageLength(0),
     promptRate(IRIG_ZERO_HZ),
     maxScanfFields(0),
-    parsebuf(0),parsebuflen(0),prompted(false),prompting(false)
+    parsebuf(0),parsebuflen(0),prompted(false),prompting(false),
+    latency(0.1)
 {
 }
 
@@ -79,6 +80,9 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     cerr << "stop bits=" << getStopBits() << endl;
     cerr << "parity=" << getParityString() << endl;
 #endif
+
+    long latencyUsecs = getLatency() * USECS_PER_SEC;
+    ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
     ioctl(DSMSER_TCSETS,getTermiosPtr(),SIZEOF_TERMIOS);
 

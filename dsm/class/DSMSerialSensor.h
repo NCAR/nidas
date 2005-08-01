@@ -145,6 +145,22 @@ public:
     void togglePrompting() throw(atdUtil::IOException);
 
     /**
+     * Set desired latency, providing some control
+     * over the response time vs buffer efficiency tradeoff.
+     * Setting a latency of 1/10 sec means buffer
+     * data in the driver for a 1/10 sec, then send the data
+     * to user space. As implemented here, it must be
+     * set before doing a sensor open().
+     * @param val Latency, in seconds.
+     */
+    void setLatency(float val) throw(atdUtil::InvalidParameterException)
+    {
+        latency = val;
+    }
+
+    float getLatency() const { return latency; }
+
+    /**
      * How many samples have resulted in complete scanf failures -
      * nothing parsed, because the sensor messages do not
      * correspond to the sscanf format.
@@ -210,6 +226,11 @@ protected:
     bool prompted;
 
     bool prompting;
+
+    /**
+     * Sensor latency, in seconds.
+     */
+    float latency;
 };
 
 }

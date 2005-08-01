@@ -170,6 +170,9 @@ protected:
      */
     SampleT<float>** outsamples;
 
+    /**
+     * Sensor latency, in seconds.
+     */
     float latency;
 };
 

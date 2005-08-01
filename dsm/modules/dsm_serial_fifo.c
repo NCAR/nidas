@@ -76,6 +76,7 @@ static struct ioctlCmd ioctlcmds[] = {
   { DSMSER_SET_RECORD_SEP, _IOC_SIZE(DSMSER_SET_RECORD_SEP) },
   { DSMSER_GET_RECORD_SEP, _IOC_SIZE(DSMSER_GET_RECORD_SEP)},
   { DSMSER_GET_STATUS, _IOC_SIZE(DSMSER_GET_STATUS)},
+  { DSMSER_SET_LATENCY, _IOC_SIZE(DSMSER_SET_LATENCY)},
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -393,8 +394,6 @@ static int ioctlCallback(int cmd, int board, int portNum,
 	if (portNum < 0 || portNum >= boardInfo[board].numports) return retval;
 	retval = close_port(port);
 	break;
-    case DSMSER_TCSETS:		/* user set of termios parameters */
-    case DSMSER_TCGETS:		/* user get of termios parameters */
     case DSMSER_WEEPROM:	/* write config to eeprom */
     case DSMSER_SET_PROMPT:	/* set the prompt for this port */
     case DSMSER_GET_PROMPT:	/* get the prompt for this port */
@@ -403,6 +402,10 @@ static int ioctlCallback(int cmd, int board, int portNum,
     case DSMSER_SET_RECORD_SEP:	/* set the prompt for this port */
     case DSMSER_GET_RECORD_SEP:	/* get the prompt for this port */
     case DSMSER_GET_STATUS:	/* get the status for this port */
+    case DSMSER_SET_LATENCY:	/* get the status for this port */
+	if (len != _IOC_SIZE(cmd)) return retval;
+    case DSMSER_TCSETS:		/* user set of termios parameters */
+    case DSMSER_TCGETS:		/* user get of termios parameters */
 	if (portNum < 0 || portNum >= boardInfo[board].numports) return retval;
 	retval = -EBADF;
         /* check if the port is open, send the ioctl */

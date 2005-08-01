@@ -955,6 +955,21 @@ static int set_record_sep(struct serialPort* port,
 /*
  * Return: negative RTL errno
  */
+static int set_latency_usec(struct serialPort* port, long val)
+{
+    unsigned long flags;
+    rtl_spin_lock_irqsave (&port->lock,flags);
+
+    port->read_timeout_sec = val / USECS_PER_SEC;
+    port->read_timeout_nsec = (val % USECS_PER_SEC) * 1000;
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
 static int get_record_sep(struct serialPort* port,
 	struct dsm_serial_record_info* sep)
 {
@@ -1163,14 +1178,11 @@ static void init_serialPort_struct(struct serialPort* port)
 
     port->nsamples = 0;
 
-    /* semaphore timeout in read method */
-    /*
-     * May want to make this read timeout settable from user space
-     * with an ioctl.  Or one could set it equal to the
-     * prompt rate, but that wouldn't account for non-prompted
-     * sensors. 
+    /* semaphore timeout in read method.
+     * Set from DSMSER_SET_LATENCY ioctl.
      */
-    port->read_timeout_nsec = 250000000;	// 250 msec = 1/4 sec
+    port->read_timeout_sec = 0;
+    port->read_timeout_nsec = NSECS_PER_SEC / 10;	// default 1/10th sec
 
     rtl_sem_init(&port->sample_sem,0,0);
 
@@ -1599,6 +1611,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 
     rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
     // rtl_timespec_add_ns(&timeout, port->read_timeout_nsec);
+    timeout.tv_sec += port->read_timeout_sec;
     timeout.tv_nsec += port->read_timeout_nsec;
     if (timeout.tv_nsec >= NSECS_PER_SEC) {
 	timeout.tv_sec++;
@@ -1606,6 +1619,8 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
     }
 
     while (count > 0) {
+
+	// write partially unwritten sample.
 	if ((lout = port->unwrittenl) > 0) {
 	    if (lout > count) lout = count;
 
@@ -1644,6 +1659,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 			if (retval > 0) return retval;
 
 			// increment timeout if no data
+			timeout.tv_sec += port->read_timeout_sec;
 			timeout.tv_nsec += port->read_timeout_nsec;
 			if (timeout.tv_nsec >= NSECS_PER_SEC) {
 			    timeout.tv_sec++;
@@ -1781,6 +1797,12 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
 	rtl_printf("DSMSER_GET_STATUS\n");
 #endif
 	retval = get_status(port, (struct dsm_serial_status*)arg);
+	break;
+    case DSMSER_SET_LATENCY:	/* set the buffering latency, in usecs */
+#ifdef DEBUG
+	rtl_printf("DSMSER_SET_LATENCY_USEC\n");
+#endif
+	retval = set_latency_usec(port, *(long*)arg);
 	break;
     default:
 	rtl_printf("%s: unknown ioctl cmd\n",devprefix);
