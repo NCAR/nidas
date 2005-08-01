@@ -18,8 +18,6 @@
 #include <XmlRpcService.h>
 // #include <DSMServer.h>
 #include <Datagrams.h>
-// #include <XMLParser.h>
-// #include <XMLConfigWriter.h>
 
 #include <atdUtil/Logger.h>
 
@@ -38,7 +36,7 @@ CREATOR_ENTRY_POINT(XmlRpcService)
 class GetProjectList : public XmlRpcServerMethod
 {
 public:
-  GetProjectList(XmlRpcServer* s) : XmlRpcServerMethod("getProjectList", s) {}
+  GetProjectList(XmlRpcServer* s) : XmlRpcServerMethod("GetProjectList", s) {}
 
   void execute(XmlRpcValue& params, XmlRpcValue& result)
   {
@@ -63,6 +61,19 @@ public:
       result = str;
       return;
     }
+
+//     // TODO - use ftw() instead to obtain a full directory tree...
+// #include <fts.h>
+//     int  ftw(const char *dir,
+//              int (*fn)(const char *file, const struct stat *sb, int flag),
+//              int nopenfd);
+//     int nftw(const char *dir,
+//              int (*fn)(const char *file, const struct stat *sb, int flag, struct FTW *s),
+//              int nopenfd, int flags);
+//     FTS* dir = fts_open((char * const *)path_argv, FTS_LOGICAL, NULL);
+//     (void)fts_read(dir);
+//     FTSENT* ent = fts_children (dir, FTS_NAMEONLY);
+
     errno = 0;
     while ( (dirp = readdir(dp)) != NULL) {
       if (errno) {
@@ -92,14 +103,63 @@ public:
     result = temp;
     cerr << "GetProjectList::execute " << result << endl;
   }
-  std::string help() { return std::string("Say help getProjectList"); }
+  std::string help() { return std::string("Say help GetProjectList"); }
+};
+
+// XMLRPC command to obtain a list of projects in $ADS3_DATA
+class SetProject : public XmlRpcServerMethod
+{
+public:
+  SetProject(XmlRpcServer* s) : XmlRpcServerMethod("SetProject", s) {}
+
+  void execute(XmlRpcValue& params, XmlRpcValue& result)
+  {
+    if ( getenv("ADS3_DATA") == NULL ) {
+      result = "ADS3_DATA environment variable not set!";
+      return;
+    }
+
+    string ads3_data( getenv("ADS3_DATA") );
+    char   str[100];
+
+    if (params.size() != 3) {
+      sprintf(str, "expecting 3 parameters... got %d", params.size());
+      result = str;
+      return;
+    }
+
+    if (ads3_data[ads3_data.length()-1] != '/')
+      ads3_data += '/';
+
+    // project folder
+    ads3_data += string(params[0]);
+    ads3_data += '/';
+
+    // aircraft folder
+    ads3_data += string(params[1]);
+    ads3_data += '/';
+
+    // flight folder
+    ads3_data += string(params[2]);
+    ads3_data += '/';
+
+    result = ads3_data;
+
+    // TODO - jam this path into dsm_server's command line argument...
+    // no not really but thats where it needs to go somehow.
+    // BTW you need to re-write dsm_server to act as a loop pending
+    // operation on reception of a valid project path from the web interface.
+
+    cerr << "SetProject::execute " << result << endl;
+  }
+  std::string help() { return std::string("Say help SetProject"); }
 };
 
 // XMLRPC command to obtain a list of DSMs and their locations
 class GetDsmList : public XmlRpcServerMethod
 {
 public:
-  GetDsmList(XmlRpcServer* s) : XmlRpcServerMethod("getDsmList", s) {}
+  GetDsmList(XmlRpcServer* s) : XmlRpcServerMethod("GetDsmList", s) {}
 
   void execute(XmlRpcValue& params, XmlRpcValue& result)
   {
@@ -115,7 +175,7 @@ public:
     }
     cerr << "GetDsmList::execute " << result << endl;
   }
-  std::string help() { return std::string("Say help getDsmList"); }
+  std::string help() { return std::string("Say help GetDsmList"); }
 };
 
 XmlRpcService::XmlRpcService():
@@ -141,6 +201,7 @@ DSMService* XmlRpcService::clone() const
     return new XmlRpcService(*this);
 }
 
+// destructor
 XmlRpcService::~XmlRpcService()
 {
   cancel();
@@ -153,6 +214,7 @@ void XmlRpcService::schedule() throw(atdUtil::Exception)
   start();
 }
 
+// thread run method
 int XmlRpcService::run() throw(atdUtil::Exception)
 {
   cerr << ">>>> XmlRpcService::run" << endl;
@@ -162,6 +224,7 @@ int XmlRpcService::run() throw(atdUtil::Exception)
 
   // These constructors register methods with the XMLRPC server
   GetProjectList getprojectlist (xmlrpc_server);
+  SetProject     setproject     (xmlrpc_server);
   GetDsmList     getdsmlist     (xmlrpc_server);
 //   Start      start      (xmlrpc_server);
 //   Stop       stop       (xmlrpc_server);
