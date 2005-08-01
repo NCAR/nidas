@@ -6,7 +6,7 @@
 <?php
 include_once('utils/utils.php');
 
-$dsmList = xu_rpc_http_concise( array( 'method' => 'getDsmList',
+$dsmList = xu_rpc_http_concise( array( 'method' => 'GetDsmList',
                                        'args' => '',
                                        'host' => 'localhost',
       'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
@@ -23,7 +23,7 @@ if (empty($dsmList))
 <!-- Query the dsm_server for a list of project directories.                 -->
 <!-- ----------------------------------------------------------------------- -->
 <?php
-$projList = xu_rpc_http_concise( array( 'method' => 'getProjectList',
+$projList = xu_rpc_http_concise( array( 'method' => 'GetProjectList',
                                         'args' => '',
                                         'host' => 'localhost',
       'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
@@ -51,7 +51,6 @@ Links to status pages...<br>
 <?php } ?>
 </noframes>
 
-
 <!-- ----------------------------------------------------------------------- -->
 <!-- This script causes the 'stat' iframe to display the status page of a    -->
 <!-- selected DSM in the control_dsm form.                                   -->
@@ -72,25 +71,27 @@ function clicker(that) {
 <!-- This form provides a selection of project, aircraft, and flight number  -->
 <!-- to choose from for specifing a folder path to record data in.           -->
 <!-- ----------------------------------------------------------------------- -->
-<form name='project' action='project.php' method='GET'>
+<form action='project.php' method='POST' target=stat>
 
   record: project&nbsp
   <select name='project' size=1>
-    <?php foreach ($projList as $key => $val) { ?>
-    <option><?=$val?>
+    <option value='' selected>
+    <?php foreach ($projList as $project) { ?>
+    <option><?=$project?></option>
     <?php } ?>
   </select>&nbsp
 
   aircraft&nbsp
   <!-- TODO obtain this as a list from the server as well... -->
   <select name='aircraft' size=1>
+    <option id='' selected>
     <option>GV
     <option>C-130
   </select>&nbsp
 
-  flt num&nbsp
+  flight &#035&nbsp
   <!-- TODO obtain this as a list from the server as well... -->
-  <input type=text name='flight_num' size=3 maxlen=3/>&nbsp
+  <input type=text name='flight' size=3 maxlen=3/>&nbsp
   <input type='submit' value='start'  class='button'/>
 </form>
 <hr align='center' width='100%'><p>
@@ -106,16 +107,11 @@ function clicker(that) {
 <!-- TODO - update the time once a second via an XMLRPC call?                -->
 <!--  <option value='<?=$key?>'><?=str_pad($val,11, '_')?> (----/--/-- --:--:--)</option> -->
 <!-- ----------------------------------------------------------------------- -->
-<form name='control_dsm' action='control_dsm.php' method='GET' target=stat>
+<form name='control_dsm' action='control_dsm.php' method='POST' target=stat>
 
-  <select name='dsm[]' onclick='clicker(this)' multiple>
+  <select name='dsm[]' onclick='clicker(this)' size="4" multiple="multiple">
     <?php foreach ($dsmList as $key => $val) { ?>
     <option value='<?=$key?>' id='<?=$key?>'></option>
-    <script language="JavaScript1.2">
-    <!--//
-    document.getElementById('<?=$key?>').innerHTML="<?=str_pad($val,11, '_')?> (---- -- -- --:--:--)"
-    //-->
-    </script>
     <?php } ?>
   </select><p>
 
@@ -131,3 +127,14 @@ function clicker(that) {
 
   &nbsp<input type=submit value='submit &raquo;' class='button'/>
 </form>
+
+<!-- ----------------------------------------------------------------------- -->
+<!-- This script displays the dsm[] items in the control_dsm form.           -->
+<!-- ----------------------------------------------------------------------- -->
+<script language="JavaScript1.2">
+<!--//
+<?php foreach ($dsmList as $key => $val) { ?>
+document.getElementById('<?=$key?>').innerHTML="<?=str_pad($val,11, '_')?> (---- -- -- --:--:--)"
+<?php } ?>
+//-->
+</script>
