@@ -1051,7 +1051,10 @@ static void* A2DGetDataThread(void *thread_arg)
 		(USECS_PER_SEC / INTRP_RATE);
 	if (latencyCnt == 0) latencyCnt = 1;
 	int sampleCnt = 0;
-	int bytesInBuf = 0;
+
+	// buffer indices
+	int head = 0;
+	int tail = 0;
 	rtl_printf("latencyUsecs=%d, latencyCnt=%d\n",
 		 brd->config.latencyUsecs,latencyCnt);
 
@@ -1155,11 +1158,11 @@ static void* A2DGetDataThread(void *thread_arg)
 
 		size_t slen = SIZEOF_DSM_SAMPLE_HEADER + samp.size;
 		// check if buffer full, or latency time has elapsed.
-		if (bytesInBuf + slen > sizeof(brd->buffer) ||
+		if (head + slen > sizeof(brd->buffer) ||
 			!(++sampleCnt % latencyCnt)) {
 		    // Write to up-fifo
 		    size_t wlen;
-		    if ((wlen = rtl_write(brd->a2dfd, brd->buffer,bytesInBuf)) <
+		    if ((wlen = rtl_write(brd->a2dfd,brd->buffer+tail,head - tail)) <
 		    	0) {
 			int ierr = rtl_errno;	// save err
 			log("error: write %s: %s",
@@ -1168,12 +1171,13 @@ static void* A2DGetDataThread(void *thread_arg)
 			closeA2D(brd,0);		// close, but don't join this thread
 			return (void*) convert_rtl_errno(ierr);
 		    }
-		    bytesInBuf -= wlen;
+		    tail += wlen;
+		    if (tail == head) head = tail = 0;
 		    sampleCnt = 0;
 		}
-		if (bytesInBuf + slen <= sizeof(brd->buffer)) {
-		    memcpy(brd->buffer+bytesInBuf,&samp,slen);
-		    bytesInBuf += slen;
+		if (head + slen <= sizeof(brd->buffer)) {
+		    memcpy(brd->buffer+head,&samp,slen);
+		    head += slen;
 		}
 		else brd->skippedSamples++;
 	    }
