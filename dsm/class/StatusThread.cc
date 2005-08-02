@@ -50,31 +50,39 @@ int StatusThread::run() throw(atdUtil::Exception)
     std::ostringstream statStream;
 
     struct timespec nsleep;
-    for (;;) {
-	
-	dsm_time_t tnow = dater->getDataSystemTime();
+    try {
+	for (;;) {
+	    
+	    dsm_time_t tnow = dater->getDataSystemTime();
 
-	// wakeup (approx) 100 usecs after exact period time
-	long tdiff = usecPeriod - (tnow % usecPeriod) + 100;
-	cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
-	nsleep.tv_sec = tdiff / USECS_PER_SEC;
-	nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
+	    // wakeup (approx) 100 usecs after exact period time
+	    long tdiff = usecPeriod - (tnow % usecPeriod) + 100;
+	    cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
+	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
+	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
 
-	if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
-        if (isInterrupted()) break;
+	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
+	    if (isInterrupted()) break;
 
-	DSMSensor::printStatusHeader(statStream);
-	const std::list<DSMSensor*>& sensors = dsm->getSensors();
-	std::list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    sensor->printStatus(statStream);
+	    DSMSensor::printStatusHeader(statStream);
+	    const std::list<DSMSensor*>& sensors = dsm->getSensors();
+	    std::list<DSMSensor*>::const_iterator si;
+	    for (si = sensors.begin(); si != sensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		sensor->printStatus(statStream);
+	    }
+	    DSMSensor::printStatusTrailer(statStream);
+
+	    string statstr = statStream.str();
+	    statStream.str("");
+	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
 	}
-	DSMSensor::printStatusTrailer(statStream);
-
-	string statstr = statStream.str();
-	statStream.str("");
-        msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
     }
+    catch(const atdUtil::IOException& e) {
+	msock.close();
+	throw e;
+    }
+    msock.close();
+    cerr << "StatusThread run method returning" << endl;
     return 0;
 }

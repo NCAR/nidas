@@ -198,9 +198,6 @@ void DSMEngine::run() throw()
     _xmlrpcThread = new XmlRpcThread("DSMEngineXmlRpc");
     _xmlrpcThread->start();
 
-    // initialize the status thread
-    _statusThread = new StatusThread("DSMEngineStatus",10);
-
     // default the loop to run only once
     _quit = true;
     do {
@@ -219,8 +216,13 @@ void DSMEngine::run() throw()
         _project = 0;
         _dsmConfig = 0;
       }
-      // stop the status Thread
-      _statusThread->interrupt();
+      // stop/join the status Thread
+      if (_statusThread) {
+	  _statusThread->cancel();
+	  _statusThread->join();
+	  delete _statusThread;
+	  _statusThread = 0;
+      }
 
       if (_wait) {
 	_quit = false;
@@ -297,6 +299,8 @@ void DSMEngine::run() throw()
       if (_interrupt) continue;
 
       // start the status Thread
+      // initialize the status thread
+      _statusThread = new StatusThread("DSMEngineStatus",10);
       _statusThread->start();
 
       cerr << "DSMEngine: wait()" << endl;
@@ -606,7 +610,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
     if (_statusThread) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
 	    "DSMEngine::interrupt, interrupting status thread");
-      _statusThread->interrupt();
+      _statusThread->cancel();
       _statusThread->join();
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
 	    "DSMEngine::interrupt, status thread joined");
