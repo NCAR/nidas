@@ -1412,8 +1412,10 @@ void cleanup_module(void)
 	for (ib = 0; ib < numboards; ib++) {
 	    struct A2DBoard* brd = boardInfo + ib;
 
-	    // remove the callback routine (does nothing if it isn't registered)
+	    // remove the callback routines
+	    // (does nothing if it isn't registered)
 	    unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ,brd);
+	    unregister_irig_callback(&i2cTempIrigCallback,brd->i2cTempRate,brd);
 
 	    A2DStatusAll(brd); 	// Read status and clear IRQ's	
 
