@@ -218,7 +218,35 @@
 
     <serialSensor ID="Garmin_GPS" class="DSMSerialSensor"
 	baud="4800" parity="none" databits="8" stopbits="1">
-	<sample id="1" scanfFormat="TODO %f"/>
+	<sample id="1" scanfFormat="$GPGGA,%2d%2d%2d,%2f%f,%c,%3f%f,%c,%d,%d,%f,%f,M,%f,M,%f,%f" rate="1">
+		<variable name="GHOUR" units="hour"/>
+		<variable name="GMIN" units="min"/>
+		<variable name="GSEC" units="sec"/>
+		<variable name="LATDEG" units="deg"/>
+		<variable name="LATMIN" units="deg"/>
+		<variable name="LAT_NS" units=""/>
+		<variable name="LONDEG" units="deg"/>
+		<variable name="LONMIN" units="deg"/>
+		<variable name="LON_EW" units=""/>
+		<variable name="QUAL" units=""/>
+		<variable name="NSAT" units=""/>
+		<variable name="HOR_DIL" units=""/>
+		<variable name="ANT_HT" units="m"/>
+		<variable name="GEOID_HT" units="m"/>
+		<variable name="DIFF_DAGE" units="s"/>
+		<variable name="DIFF_REFID" units=""/>
+	</sample>
+	<sample id="2" scanfFormat="$GPRMC,%*2d%*2d%*2d,%c,%*2f%*f,%*c,%*3f%*f,%*c,%f,%f,%2d%2d%2d,%f,%c,%c" rate="1">
+		<variable name="STATUS" units="sec"/>
+		<variable name="SOG" units="knots"/>
+		<variable name="COG" units="deg"/>
+		<variable name="DAY" units=""/>
+		<variable name="MON" units=""/>
+		<variable name="YEAR" units=""/>
+		<variable name="MAGDEV" units="deg"/>
+		<variable name="MAGDEV_EW" units=""/>
+		<variable name="MODE" units=""/>
+	</sample>
 	<message separator="\n" position="end" length="0"/>
     </serialSensor>
 
@@ -309,7 +337,7 @@
 	</service>
     </server>
 
-    <dsm name="dsm304" location="main_power_rack" id="0" rserialPort="50010">
+    <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="50010">
 	<irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
 	<!--
@@ -325,11 +353,9 @@
 	    </sample>
 	</serialSensor>
 
-	<!--
 	<serialSensor IDREF="Garmin_GPS"
 		devicename="/dev/dsmser5" id="120">
 	</serialSensor>
-	-->
 
 	<sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
 	    <sample id="1" rate="500">
