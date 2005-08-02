@@ -346,6 +346,7 @@ void RemoteSerial::setupStdin() throw(atdUtil::IOException)
     /* copy termios settings and turn off local echo */
     memcpy( &term_io_new, &termio_save, sizeof termio_save);
     term_io_new.c_lflag &= ~ECHO & ~ICANON;
+    term_io_new.c_lflag |= ECHO;
 
     term_io_new.c_iflag &= ~INLCR & ~IGNCR; 
     term_io_new.c_iflag |= ICRNL;		// input CR -> NL
