@@ -172,7 +172,18 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 	    case 'p':		// toggle prompting
 		// remove escape sequence from buffer
 		input = input.substr(2);
-		if (sensor) sensor->togglePrompting();
+		if (sensor) {
+		    sensor->togglePrompting();
+		    string msg = string("dsm: prompting = ") +
+		    	(sensor->isPrompting() ? "ON" : "OFF") + "\r\n";
+		    try {
+			socket->send(msg.c_str(),msg.size());
+		    }
+		    catch (const atdUtil::IOException& e)
+		    {
+			setDSMSensor(0);
+		    }
+		}
 		// cerr << "toggle prompting" << endl;
 		break;
 	    default:		// unrecognized escape seq, send it on
