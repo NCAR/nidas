@@ -74,6 +74,13 @@ public:
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
+     * Suffix, which is added to variable names.
+     */
+    const std::string& getSuffix() const { return suffix; }
+
+    void setSuffix(const std::string& val);
+
+    /**
      * Set sampling rate in samples/sec.  Derived SampleTags can
      * override this method and throw an InvalidParameterException
      * if they can't support the rate value.  Sometimes
@@ -134,6 +141,8 @@ public:
 protected:
 
     dsm_sample_id_t id;
+
+    std::string suffix;
 
     float rate;
 

@@ -67,9 +67,16 @@ public:
      */
     float getSampleRate() const;
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val);
 
     const std::string& getName() const { return name; }
+
+    /**
+     * Variable suffix, which is added to the name.
+     */
+    const std::string& getSuffix() const { return suffix; }
+
+    void setSuffix(const std::string& val);
 
     void setLongName(const std::string& val) { longname = val; }
 
@@ -126,9 +133,13 @@ public:
 
 protected:
 
+    void setNameWithSuffix(const std::string& nval,const std::string& sval); 
+
     const SampleTag* sampleTag;
 
     std::string name;
+
+    std::string suffix;
 
     std::string longname;
 

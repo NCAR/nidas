@@ -609,7 +609,7 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
     }
     if (_statusThread) {
 	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt, interrupting status thread");
+	    "DSMEngine::interrupt, cancelling status thread");
       _statusThread->cancel();
       _statusThread->join();
 	atdUtil::Logger::getInstance()->log(LOG_INFO,

@@ -297,6 +297,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		    	attr.getName(),attr.getValue());
 		setLatency(val);
 	    }
+	    else if (!attr.getName().compare("suffix"))
+		setSuffix(attr.getValue());
 	}
     }
     unsigned int nsamples = 0;
@@ -309,23 +311,23 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("sample")) {
-	    SampleTag* samp;
+	    SampleTag* stag;
 	    // The sample tags may have been specified in the catalog entry.
-	    if (nsamples == sampleTags.size()) samp = new SampleTag();
-	    else samp = sampleTags[nsamples];
+	    if (nsamples == sampleTags.size()) stag = new SampleTag();
+	    else stag = sampleTags[nsamples];
 
-	    samp->fromDOMElement((DOMElement*)child);
-	    if (samp->getShortId() == 0)
+	    stag->fromDOMElement((DOMElement*)child);
+	    if (stag->getShortId() == 0)
 		throw atdUtil::InvalidParameterException(
 		    getName(),"sample id invalid or not found","0");
 
 	    if (nsamples == sampleTags.size()) {
 		// sum of sensor short id and sample short id
 		// Be sure to add the sensor id to the sample id only once.
-		samp->setShortId(getShortId() + samp->getShortId());
+		stag->setShortId(getShortId() + stag->getShortId());
 		// set the DSM id portion of the sample id
-		samp->setDSMId(getDSMConfig()->getId());
-	        addSampleTag(samp);
+		stag->setDSMId(getDSMConfig()->getId());
+	        addSampleTag(stag);
 	    }
 	    nsamples++;
 	}
@@ -338,13 +340,16 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
     set<unsigned short> ids;
     for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) {
-	SampleTag* samp = *si;
+	SampleTag* stag = *si;
+
+	// set the suffix
+	if (getSuffix().length() > 0) stag->setSuffix(getSuffix());
 
 	pair<set<unsigned short>::const_iterator,bool> ins =
-		ids.insert(samp->getId());
+		ids.insert(stag->getId());
 	if (!ins.second) {
 	    ostringstream ost;
-	    ost << samp->getId();
+	    ost << stag->getId();
 	    throw atdUtil::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}

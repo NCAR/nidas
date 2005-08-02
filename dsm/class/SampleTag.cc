@@ -31,6 +31,7 @@ SampleTag::~SampleTag()
 void SampleTag::addVariable(Variable* var)
 	throw(atdUtil::InvalidParameterException)
 {
+    if (getSuffix().length() > 0) var->setSuffix(getSuffix());
     variables.push_back(var);
     constVariables.push_back(var);
     var->setSampleTag(this);
@@ -39,6 +40,13 @@ void SampleTag::addVariable(Variable* var)
 const std::vector<const Variable*>& SampleTag::getVariables() const
 {
     return constVariables;
+}
+
+void SampleTag::setSuffix(const std::string& val)
+{
+    suffix = val;
+    for (vector<Variable*>::const_iterator vi = variables.begin();
+    	vi != variables.end(); ++vi) (*vi)->setSuffix(suffix);
 }
 
 void SampleTag::fromDOMElement(const DOMElement* node)

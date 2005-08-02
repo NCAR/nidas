@@ -138,6 +138,13 @@ public:
     void setLocation(const std::string& val) { location = val; }
 
     /**
+     * Sensor suffix, which is added to variable names.
+     */
+    const std::string& getSuffix() const { return suffix; }
+
+    void setSuffix(const std::string& val) { suffix = val; }
+
+    /**
      * Add a SampleTag to this sensor.
      * Throw an exception if you don't like the variables in the sample.
      */
@@ -380,6 +387,8 @@ protected:
     float sampleRateObs;
 
     float dataRateObs;
+
+    std::string suffix;
 };
 
 }

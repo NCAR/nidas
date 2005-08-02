@@ -47,6 +47,26 @@ Variable::~Variable()
     	delete *pi;
 }
 
+void Variable::setName(const string& val)
+{
+    setNameWithSuffix(val,getSuffix());
+}
+
+void Variable::setSuffix(const string& val)
+{   suffix = val;
+    setNameWithSuffix(getName(),val);
+}
+
+void Variable::setNameWithSuffix(const string& nval,const string& sval) 
+{
+    int vl = nval.length();
+    int sl = sval.length();
+    // if val does not already have suffix, append it.
+    if (vl < sl || nval.substr(vl-sl).compare(sval))
+	name = nval + sval;
+    else name = nval;
+}
+
 float Variable::getSampleRate() const {
     if (!sampleTag) return 0.0;
     else return sampleTag->getRate();
