@@ -40,6 +40,9 @@ bool DSMServer::quit = false;
 bool DSMServer::restart = false;
 
 /* static */
+DSMServerIntf* DSMServer::_xmlrpcThread = 0;
+
+/* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
     DSMServerRunstring rstr(argc,argv);
@@ -51,7 +54,12 @@ int DSMServer::main(int argc, char** argv) throw()
     if (rstr.debug) logger = atdUtil::Logger::createInstance(stderr);
     else {
         logger = atdUtil::Logger::createInstance(
-                hostname,LOG_CONS,LOG_LOCAL5);
+                "dsm_server",LOG_CONS,LOG_LOCAL5);
+	// fork to background
+	if (daemon(1,1) < 0) {
+	    logger->log(LOG_ERR, "Cannot run as daemon: %m");
+	    cerr << "daemon(1,1) failed: " << strerror(errno) << endl;
+	}
     }
 
     setXMLFileName(rstr.configFile);
@@ -59,6 +67,8 @@ int DSMServer::main(int argc, char** argv) throw()
     setupSignals();
 
     int result = 0;
+
+    DSMServer::startXmlRpcThread();
 
     while (!quit) {
 
@@ -117,6 +127,7 @@ int DSMServer::main(int argc, char** argv) throw()
 	    break;
 	}
 
+
 	try {
 	    serverp->scheduleServices();
 	}
@@ -129,6 +140,8 @@ int DSMServer::main(int argc, char** argv) throw()
 	delete project;
     }
 
+    DSMServer::killXmlRpcThread();
+
     cerr << "XMLCachingParser::destroyInstance()" << endl;
     XMLCachingParser::destroyInstance();
 
@@ -137,6 +150,22 @@ int DSMServer::main(int argc, char** argv) throw()
     return result;
 }
                                                                                 
+/* static */
+void DSMServer::startXmlRpcThread() throw(atdUtil::Exception)
+{
+    _xmlrpcThread = new DSMServerIntf();
+    _xmlrpcThread->start();
+}
+
+/* static */
+void DSMServer::killXmlRpcThread() throw(atdUtil::Exception)
+{
+    _xmlrpcThread->cancel();
+    _xmlrpcThread->join();
+    delete _xmlrpcThread;
+    _xmlrpcThread = 0;
+}
+
 /* static */
 void DSMServer::setupSignals()
 {
@@ -210,9 +239,6 @@ Project* DSMServer::parseXMLConfigFile()
                                                                                 
 DSMServer::DSMServer()
 {
-    // start the xmlrpc control thread
-    _xmlrpcThread = new DSMServerIntf();
-    _xmlrpcThread->start();
 }
 
 /*
@@ -233,7 +259,6 @@ DSMServer::DSMServer(const DSMServer& x):
 */
 DSMServer::~DSMServer()
 {
-    delete _xmlrpcThread;
 
     // delete services. These are the configured services,
     // not the cloned copies.
@@ -428,7 +453,8 @@ void DSMServerRunstring::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << "[-d] config\n\
-  -d: debug (optional). Send error messages to stderr, otherwise to syslog\n\
+  -d: debug. Run in foreground and send messages to stderr.\n\
+      Otherwise it will run in the background and messages to syslog\n\
   config: name of DSM configuration file (required).\n\
 " << endl;
     exit(1);
