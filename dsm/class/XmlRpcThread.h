@@ -12,34 +12,29 @@
  ********************************************************************
 */
 
-#ifndef DSM_XMLRPCTHREAD_H
-#define DSM_XMLRPCTHREAD_H
+#ifndef XMLRPCTHREAD_H
+#define XMLRPCTHREAD_H
 
 #include <atdUtil/Thread.h>
-
 #include <xmlrpc++/XmlRpc.h>
 
 namespace dsm {
 
 /**
- * A DSMEngine thread that provides an XML-RPC service to the
- * web interfaces.
+ * A thread that provides XML-based Remote Procedure Calls
+ * to web interfaces.
  */
 class XmlRpcThread: public atdUtil::Thread
 {
 public:
     
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     XmlRpcThread(const std::string& name);
     ~XmlRpcThread();
 
-    int run() throw(atdUtil::Exception);
+ protected:
 
- private:
-
-  XmlRpc::XmlRpcServer* xmlrpc_server;
+  XmlRpc::XmlRpcServer* _xmlrpc_server;
 };
 
 }

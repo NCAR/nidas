@@ -195,7 +195,7 @@ void DSMEngine::run() throw()
     DOMDocument* projectDoc = 0;
 
     // start the xmlrpc control thread
-    _xmlrpcThread = new XmlRpcThread("DSMEngineXmlRpc");
+    _xmlrpcThread = new DSMEngineIntf();
     _xmlrpcThread->start();
 
     // default the loop to run only once

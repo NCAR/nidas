@@ -21,7 +21,7 @@
 #include <PortSelector.h>
 #include <StatusThread.h>
 #include <XMLConfigInput.h>
-#include <XmlRpcThread.h>
+#include <DSMEngineIntf.h>
 
 #include <atdUtil/Socket.h>
 #include <atdUtil/Logger.h>
@@ -172,9 +172,7 @@ protected:
 
     static void setupSignals();
 
-    /** 
-     * Signal handler.
-     */
+    /** Signal handler */
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     Project*         _project;
@@ -185,8 +183,8 @@ protected:
 
     StatusThread*    _statusThread;
 
-    /** This thread provides XML-based Remote Procedure calls. */
-    XmlRpcThread*    _xmlrpcThread;
+    /** This thread provides XML-based Remote Procedure calls */
+    DSMEngineIntf*   _xmlrpcThread;
 
     SampleDater      _dater;
 

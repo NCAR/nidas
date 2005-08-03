@@ -3,6 +3,11 @@ BODY,H1,H2,H3,H4,H5,H6,P,CENTER,TD,TH,UL,DL,DIV,TABLE,LAYER,FRAME,IFRAME {
         font-size: 11px;
 }
 
+H5 {
+	color: #f00;
+        font-size: 20px;
+}
+
 input {
 	border: 1px solid #999999;
 	padding: 2px;

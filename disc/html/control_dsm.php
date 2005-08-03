@@ -1,23 +1,22 @@
+<link href='index.css' rel='stylesheet' type='text/css'>
+
 <?php
 include_once('utils/utils.php');
 
-if (empty($_POST['dsm'])) {
-  echo '<h5>You need to select some DSM(s)</h5>';
-  exit;
-}
+if (empty($_POST['dsm']))
+  exit('<h5>You need to select some DSM(s)</h5>');
+
 $action = $_POST['act'];
-if (empty($action)) {
-  echo '<h5>You need to select an action</h5>';
-  exit;
-}
-if ($action == 'calibrate analog') {
-  echo '<h5>You wish!</h5>';
-  exit;
-}
+if (empty($action))
+  exit('<h5>You need to select an action</h5>');
+
+if ($action == 'calibrate analog')
+  exit('<h5>not yet implemented...</h5>');
+
 if (sizeof($_POST['dsm']) > 1)
-  echo '<h5>Results from the XMLRPC calls</h5>';
+  echo '<h4>Results from the XMLRPC calls</h4>';
 else
-  echo '<h5>Results from the XMLRPC call</h5>';
+  echo '<h4>Results from the XMLRPC call</h4>';
 
 foreach ($_POST['dsm'] as $dsm) {
   echo "$action $dsm... ";
@@ -27,10 +26,18 @@ foreach ($_POST['dsm'] as $dsm) {
                                         'host' => $dsm,
        'uri' => '/RPC2', 'port' => '50003', 'debug' => '0', 'output' => 'xmlrpc'));
 
-  if ($result)
-    print_r($result);
-  else
+  if (empty($result))
     echo "(no response)";
+
+  else if (gettype($result) == "string")
+    echo $result;
+
+  else if (gettype($result) == "array")
+    echo $result['faultString'];
+
+  else
+    echo "unknown reponse type: "+gettype($result);
+
   echo "<br>";
 }
 ?>

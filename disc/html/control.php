@@ -84,7 +84,7 @@ function clicker(that) {
   aircraft&nbsp
   <!-- TODO obtain this as a list from the server as well... -->
   <select name='aircraft' size=1>
-    <option id='' selected>
+    <option value='' selected>
     <option>GV
     <option>C-130
   </select>&nbsp
@@ -117,11 +117,11 @@ function clicker(that) {
 
   action:&nbsp
   <select name='act' onclick='clicker(this)'>
-    <option value='nothing' selected>
-    <option>start</option>
-    <option>stop</option>
-    <option>restart</option>
-    <option>quit</option>
+    <option value='' selected>
+    <option>Start</option>
+    <option>Stop</option>
+    <option>Restart</option>
+    <option>Quit</option>
 <!--     <option>calibrate analog</option> -->
   </select>
 

@@ -18,6 +18,7 @@
 #define DSM_DSMSERVER_H
 
 #include <DSMService.h>
+#include <DSMServiceIntf.h>
 #include <Project.h>
 #include <DOMable.h>
 
@@ -113,6 +114,9 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> services;
+
+    /** This thread provides XML-based Remote Procedure calls */
+    DSMServerIntf* _xmlrpcThread;
 
 private:
     /**

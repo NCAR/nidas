@@ -42,7 +42,6 @@ bool DSMServer::restart = false;
 /* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
-                                                                                
     DSMServerRunstring rstr(argc,argv);
     atdUtil::Logger* logger = 0;
 
@@ -211,6 +210,9 @@ Project* DSMServer::parseXMLConfigFile()
                                                                                 
 DSMServer::DSMServer()
 {
+    // start the xmlrpc control thread
+    _xmlrpcThread = new DSMServerIntf();
+    _xmlrpcThread->start();
 }
 
 /*
@@ -231,6 +233,8 @@ DSMServer::DSMServer(const DSMServer& x):
 */
 DSMServer::~DSMServer()
 {
+    delete _xmlrpcThread;
+
     // delete services. These are the configured services,
     // not the cloned copies.
     list<DSMService*>::const_iterator si;
