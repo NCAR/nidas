@@ -46,6 +46,21 @@
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
+// Feet to Meters.
+const float FT_MTR  = 0.3048;
+
+// G to m/s2 (ACINS).
+const float G_MPS2   = 9.7959;
+
+// Knots to m/s
+const float KTS_MS = 0.514791;
+
+// Ft/min to m/s (VSPD)
+const float FPM_MPS  = 0.00508;
+
+// Radians to Degrees.
+const float RAD_DEG = 180.0 / 3.14159265358979; 
+
 namespace dsm {
 
   /**
