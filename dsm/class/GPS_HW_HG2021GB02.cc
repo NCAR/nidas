@@ -132,7 +132,6 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
     return ((data & m11) >> 10) * 45.0/(1<<29) * GPS_Longitude_sign;
 
   case 0125:  // BNR - UTC (Universal Time Code)   (hr:mn)
-    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
     break; // no sign
 
   case 0130:  // BNR - Aut Horz Integrity Limit    (nm)
@@ -152,7 +151,6 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 //     return ((data & m18) >> 10) * 0.125 * FT_MTR;  // no sign
 
   case 0136:  // BNR - Vert Figure of Merit        (m)  (for HG2021GB01 GNSSU)
-    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
     if (data & SSM != SSM) break;
     return ((data & m15) >> 10) * 1.0/(1<<5);  // no sign
 
@@ -207,12 +205,10 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 //     return ((data & m18) >> 10) * 1.0/(1<<14);  // no sign
 
   case 0247:  // BNR - Horz Figure of Merit        (m)  (for HG2021GB01 GNSSU)
-    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
     if (data & SSM != SSM) break;
     return ((data & m15) >> 10) * 1.0/(1<<5);  // no sign
 
   case 0260:  // BCD - UTC Date                    (dy:mn:yr)
-    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
     break; // no sign
 
   case 0273:  // DIS - GPS Sensor Status           ()
