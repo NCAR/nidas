@@ -15,178 +15,230 @@
 
  ******************************************************************
 */
-
 #include <GPS_HW_HG2021GB02.h>
 
-using namespace std;
 using namespace dsm;
 
 CREATOR_ENTRY_POINT(GPS_HW_HG2021GB02);
 
-/**
- * Each label contains it's own time tag in seconds
- * since 00:00 GMT. The input sample's time tag is
- * used to set the date portion of the output sample timetags.
- */
-bool GPS_HW_HG2021GB02::process(const Sample* samp,list<const Sample*>& results)
-  throw()
-{
-  const tt_data_t *pSamp = (const tt_data_t*) samp->getConstVoidDataPtr();
-  int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
-
-  // absolute time at 00:00 GMT of day.
-  dsm_time_t t0day = samp->getTimeTag() -
-  	(samp->getTimeTag() % USECS_PER_DAY);
-  dsm_time_t tt;
-
-  for (int i=0; i<nfields; i++) {
-
-//     if (i == nfields-1)
-//       err("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
-//           (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) );
-
-    SampleT<float>* outs = getSample<float>(1);
-
-    // pSamp[i].time is the number of milliseconds since midnight
-    // for the individual label. Use it to create a correct
-    // time tag for the label, in units of microseconds.
-    tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
-
-    // correct for problems around midnight rollover
-    if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
-        if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
-        else tt += USECS_PER_DAY;
-    }
-    outs->setTimeTag(tt);
-
-    unsigned short label = pSamp[i].data && 0xff;
-
-    // set the sample id to sum of sensor id and label
-    outs->setShortId(getId() + label);
-    outs->setDataLength(1);
-    float* d = outs->getDataPtr();
-
-    // check the SSM...
-    if (pSamp[i].data & 0x60000000 == 0x60000000)
-
-      switch (pSamp[i].data & 0xff) {
-      case 0065:  // SV Position X               (m)
-      case 0070:  // SV Position Y               (m)
-      case 0072:  // SV Position Z               (m)
-      case 0110:  // GPS Latitude                (deg)
-      case 0111:  // GPS Longitude               (deg)
-        processLabel(pSamp[i].data);  // partial process
-        break;
-      default:
-        d[0] = processLabel(pSamp[i].data);
-        break;
-      }
-    else
-      d[0] = _nanf;
-
-    results.push_back(outs);
-  }
-
-  return true;
-}
-
 float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 {
+  static int Pseudo_Range_sign = 1;
+  static int SV_Position_X_sign = 1;
+  static int SV_Position_Y_sign = 1;
+  static int SV_Position_Z_sign = 1;
+  static int GPS_Latitude_sign = 1;
+  static int GPS_Longitude_sign = 1;
+
+  unsigned long ulPackedBcdData;
+  unsigned long ulBinaryData = 0L;
+  unsigned long ulPlaceValue = 1L;
+  int sign = 1;
+
 //err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
   switch (data & 0xff) {
-  case 0060:  // Measurement Status          ()
-    break; // DIS
-
-  case 0061:  // Pseudo Range                (m)
-    return ((data & 0x0fffff00) >> 8) * 256.0;
-
-  case 0062:  // Pseudo Range Fine           (m)
-    return ((data & m11) >> 10) * 0.125;
-
-  case 0063:  // Range Rate                  (m/s)
-  case 0064:  // Delta Range                 (m)
-    return ((data & 0x0fffff00) >> 8) * 1.0/(1<<8);
-
-  case 0065:  // SV Position X               (m)
-  case 0070:  // SV Position Y               (m)
-  case 0072:  // SV Position Z               (m)
-    return ((data & 0x0fffff00) >> 8) * 64.0;
-
-  case 0066:  // SV Position X Fine          (m)
-  case 0071:  // SV Position Y Fine          (m)
-  case 0073:  // SV Position Z Fine          (m)
-    return ((data & m14) >> 10) * 1.0/(1<<8);
-
-  case 0074:  // UTC Measure Time            (s)
-    return ((data & 0x0fffff00) >> 8) * 0.000009536743;
-
-  case 0076:  // GPS Altitude (MSL)          (ft)
-    return ((data & 0x0fffff00) >> 8) * 0.125;
-
-  case 0101:  // Horz Dilution of Precision  ()
-  case 0102:  // Vert Dilution of Precision  ()
+  case 0060:  // DIS - Measurement Status          ()
     break;
 
-  case 0103:  // GPS Track Angle             (deg)
-    return ((data & m15) >> 10) * 0.125;
+  case 0061:  // BNR - Pseudo Range                (m)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) Pseudo_Range_sign = -1;
+    else                Pseudo_Range_sign = 1;
+    return ((data & 0x0fffff00) >> 8) * 256.0 * Pseudo_Range_sign;
 
-  case 0110:  // GPS Latitude                (deg)
-  case 0111:  // GPS Longitude               (deg)
-  case 0112:  // GPS Ground Speed            (knot)
-  case 0120:  // GPS Lat Fine                (deg)
-  case 0121:  // GPS Lon Fine                (deg)
-    return ((data & 0x0ffffc00) >> 10) * 0.0;
+  case 0062:  // BNR - Pseudo Range Fine           (m)
+    if (data & SSM != SSM) break;
+    return ((data & m11) >> 10) * 0.125 * Pseudo_Range_sign;
 
-  case 0125:  // Universal Time Code         (hr:mn)
+  case 0063:  // BNR - Range Rate                  (m/s)
+    if (data & SSM != NCD) break;
+    if (data & (1<<29)) sign = -1;
+    return ((data & 0x0fffff00) >> 8) * 1.0/(1<<8) * sign;
+
+  case 0064:  // BNR - Delta Range                 (m)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) sign = -1;
+    return ((data & 0x0fffff00) >> 8) * 1.0/(1<<8) * sign;
+
+  case 0065:  // BNR - SV Position X               (m)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) SV_Position_X_sign = -1;
+    else                SV_Position_X_sign = 1;
+    return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_X_sign;
+
+  case 0066:  // BNR - SV Position X Fine          (m)
+    if (data & SSM != SSM) break;
+    return ((data & m14) >> 10) * 1.0/(1<<8) * SV_Position_X_sign;
+
+  case 0070:  // BNR - SV Position Y               (m)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) SV_Position_Y_sign = -1;
+    else                SV_Position_Y_sign = 1;
+    return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_Y_sign;
+
+  case 0071:  // BNR - SV Position Y Fine          (m)
+    if (data & SSM != SSM) break;
+    return ((data & m14) >> 10) * 1.0/(1<<8) * SV_Position_Y_sign;
+
+  case 0072:  // BNR - SV Position Z               (m)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) SV_Position_Z_sign = -1;
+    else                SV_Position_Z_sign = 1;
+    return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_Z_sign;
+
+  case 0073:  // BNR - SV Position Z Fine          (m)
+    if (data & SSM != SSM) break;
+    return ((data & m14) >> 10) * 1.0/(1<<8) * SV_Position_Z_sign;
+
+  case 0074:  // BNR - UTC Measure Time            (s)
+    if (data & SSM != SSM) break;
+    return ((data & 0x0fffff00) >> 8) * 10.0/(1<<20); // no sign
+
+  case 0076:  // BNR - GPS Altitude (MSL)          (ft)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) sign = -1;
+    return ((data & 0x0fffff00) >> 8) * 0.125 * sign;
+
+  case 0101:  // BNR - Horz Dilution of Precision  ()
+  case 0102:  // BNR - Vert Dilution of Precision  ()
+    if (data & SSM != SSM) break;
+    return ((data & m15) >> 10) * 1.0/(1<<5); // no sign
+
+  case 0103:  // BNR - GPS Track Angle             (deg)
+    if (data & SSM != SSM) break;  // NCD when GPS Ground Speed < 7 knots
+    if (data & (1<<26)) sign = -1;
+    return ((data & m15) >> 10) * 45.0/(1<<13) * sign;
+
+  case 0110:  // BNR - GPS Latitude                (deg)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) GPS_Latitude_sign = -1;
+    else                GPS_Latitude_sign = 1;
+    return ((data & 0x0fffff00) >> 10) * 45.0/(1<<18) * GPS_Latitude_sign;
+
+  case 0111:  // BNR - GPS Longitude               (deg)
+    if (data & SSM != SSM) break;
+    if (data & (1<<29)) GPS_Longitude_sign = -1;
+    else                GPS_Longitude_sign = 1;
+    return ((data & 0x0fffff00) >> 10) * 45.0/(1<<18) * GPS_Longitude_sign;
+
+  case 0112:  // BNR - GPS Ground Speed            (knot)
+    if (data & SSM != SSM) break;
+    return ((data & m15) >> 10) * 0.125;  // no sign
+
+  case 0120:  // BNR - GPS Lat Fine                (deg)
+    if (data & SSM != SSM) break;
+    return ((data & m11) >> 10) * 45.0/(1<<29) * GPS_Latitude_sign;
+
+  case 0121:  // BNR - GPS Lon Fine                (deg)
+    if (data & SSM != SSM) break;
+    return ((data & m11) >> 10) * 45.0/(1<<29) * GPS_Longitude_sign;
+
+  case 0125:  // BNR - UTC (Universal Time Code)   (hr:mn)
+    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+    break; // no sign
+
+  case 0130:  // BNR - Aut Horz Integrity Limit    (nm)
+    if (data & SSM != SSM) break;
+    return ((data & (m17<<1)) >> 11) * 1.0/(1<<13);  // no sign (bit 11 is a detection bit)
+
+  case 0133:  // BNR - Aut Vert Integrity Limit    (ft)
+    if (data & SSM != SSM) break;
+    return ((data & m18) >> 10) * 0.125;  // no sign
+
+  case 0135:  // BNR - Approach Area VIL           (ft)
+    if (data & SSM != SSM) break;
+    return ((data & m17) >> 10) * 0.25;  // no sign
+
+//   case 0136:  // BNR - Vert Figure of Merit        (ft)  (for HG2021GD01 GNSSU)
+//     if (data & SSM != SSM) break;
+//     return ((data & m18) >> 10) * 0.125;  // no sign
+
+  case 0136:  // BNR - Vert Figure of Merit        (m)  (for HG2021GB01 GNSSU)
+    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+    if (data & SSM != SSM) break;
+    return ((data & m15) >> 10) * 1.0/(1<<5);  // no sign
+
+  case 0140:  // BNR - UTC Fine                    (sec)
+    if (data & SSM != SSM) break;
+    return ((data & 0x0fffff00) >> 8) * 1.0/(1<<20); // no sign
+
+  case 0141:  // BNR - UTC Fine Fractions          (sec)
+    if (data & SSM != SSM) break;
+    return ((data & m10) >> 10) * 1.0/(1<<30); // no sign
+
+  case 0143:  // BNR - Approach Area HIL           (nm)
+    if (data & SSM != SSM) break;
+    return ((data & m17) >> 10) * 1.0/(1<<13);
+
+  case 0150:  // BCD - Universal Time Code         (hr:mn:sc)
+    // 32|31 30|29|28 27 26 25 24|23 22 21 20 19 18|17 16 15 14 13 12|11|10  9| 8  7  6  5  4  3  2  1
+    // --+-----+--+--------------+-----------------+-----------------+--+-----+-----------------------
+    // P | SSM |0 |     hours    |     minutes     |     seconds     |1 | SDI |      8-bit label      
+    if (data & SSM != SSM) break;
+    return ((data & 0x0f800000) >> 23) * 60 * 60 +
+           ((data & 0x007e0000) >> 17) * 60 +
+           ((data & 0x0001f800) >> 11); // no sign
+
+  case 0156:  // DIS - Maintenance                 ()
+  case 0157:  // DIS - Maintenance                 ()
     break;
 
-  case 0130:  // Aut Horz Integrity Limit    (nm)
-  case 0133:  // Aut Vert Integrity Limit    (ft)
-  case 0135:  // Approach Area VIL           (ft)
-  case 0136:  // Vert Figure of Merit        (ft)
-  case 0140:  // UTC Fine                    (sec)
-  case 0141:  // UTC Fine Fractions          (sec)
-  case 0143:  // Approach Area HIL           (nm)
-    return ((data & 0x0ffffc00) >> 10) * 0.0;
+  case 0162:  // BCD - Dest Wpt ETA                (hr:mn)
+  case 0163:  // BCD - Altr Wpt ETA                (hr:mn)
+    // 32|31 30|29|28 27 26 25 24|23 22 21 20 19 18|17|16|15 14|13|12|11|10  9| 8  7  6  5  4  3  2  1
+    // --+-----+--+--------------+-----------------+--+--+-----+--+--+--+-----+-----------------------
+    // P | SSM |0 |     hours    |     minutes     |d?|er| fms |rb|ia|bc| SDI |      8-bit label      
+    if (data & SSM != SSM) break;
+    if (data & (1<<17)) break;  // set if GNSSU has not determined times.
+    return ((data & 0x007e0000) >> 17) * 60 +
+           ((data & 0x0001f800) >> 11); // no sign
 
-  case 0150:  // Universal Time Code         (hr:mn:sc)
+  case 0165:  // BNR - Vertical Velocity           (ft/min)
+    if (data & SSM != SSM) break;
+    if (data & (1<<26)) sign = -1;
+    return ((data & m15) >> 10) * 0.125 * sign;
+
+  case 0166:  // BNR - N/S Velocity                (knot)
+  case 0174:  // BNR - E/W Velocity                (knot)
+    if (data & SSM != SSM) break;
+    if (data & (1<<26)) sign = -1;
+    return ((data & m15) >> 10) * 1.0 * sign;
+
+//   case 0247:  // BNR - Horz Figure of Merit        (nm)  (for HG2021GD01 GNSSU)
+//     if (data & SSM != SSM) break;
+//     return ((data & m18) >> 10) * 1.0/(1<<14);  // no sign
+
+  case 0247:  // BNR - Horz Figure of Merit        (m)  (for HG2021GB01 GNSSU)
+    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+    if (data & SSM != SSM) break;
+    return ((data & m15) >> 10) * 1.0/(1<<5);  // no sign
+
+  case 0260:  // BCD - UTC Date                    (dy:mn:yr)
+    err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+    break; // no sign
+
+  case 0273:  // DIS - GPS Sensor Status           ()
     break;
 
-  case 0156:  // Maintenance                 ()
-  case 0157:  // Maintenance                 ()
-    break; // DIS
+  case 0343:  // BNR - Dest Wpt HIL                (nm)
+  case 0347:  // BNR - Altr Wpt HIL                (nm)
+    // 32|31 30|29|28 27 26 25 24 23 22 21 20 19 18|17|16|15 14|13 12 11|10  9| 8  7  6  5  4  3  2  1
+    // --+-----+--+--------------------------------+--+--+-----+--------+-----+-----------------------
+    // P | SSM |0 |        integrity limit         |pr|sq| fms |  ISC   | SDI |      8-bit label      
+    if (data & SSM != 0)        break; // Normal Operation
+    if (data & 0x00001c00 == 0) break; // Integrity Sequence Number
+    return ((data & 0x0ffe0000) >> 17) * 1.0/(1<<7); // no sign
 
-  case 0162:  // Dest Wpt ETA                (hr:mn)
-  case 0163:  // Altr Wpt ETA                (hr:mn)
+  case 0352:  // DIS - Maintenance                 ()
     break;
 
-  case 0165:  // Vertical Velocity           (ft/min)
-  case 0166:  // N/S Velocity                (knot)
-  case 0174:  // E/W Velocity                (knot)
-  case 0247:  // Horz Figure of Merit        (nm)
-    return ((data & 0x0ffffc00) >> 10) * 0.0;
+  case 0354:  // BNR - Counter                     (sec)
+    return ((data & m18) >> 10) * 1.0;  // no sign
 
-  case 0260:  // UTC Date                    (dy:mn:yr)
+  case 0355:  // BNR - Maintenance                 ()
+  case 0377:  // BNR - equipment id                ()
     break;
-
-  case 0273:  // GPS Sensor Status           ()
-    break; // DIS
-
-  case 0343:  // Dest Wpt HIL                (nm)
-  case 0347:  // Altr Wpt HIL                (nm)
-    if ((data & 0x00001c00) != 0) /* Integrity Seq Number */
-      return ((data & 0x0ffe0000) >> 17) * 0.0078;
-
-  case 0352:  // Maintenance                 ()
-    break; // DIS
-
-  case 0354:  // Counter                     (sec)
-    return ((data & 0x0ffffc00) >> 10) * 1.0;
-
-  case 0355:  // Maintenance                 ()
-  case 0377:  // equipment id                ()
-    break; // DIS
 
   default:
     break;

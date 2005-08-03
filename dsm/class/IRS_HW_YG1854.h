@@ -23,7 +23,7 @@ namespace dsm {
  * ARINC IRS label processor.
  *
  * Taken from the Honeywell installation manual for the
- * YG1854 LASERREF SM IRS/GPIRS        (pages 648-650).
+ * YG1854 LASERREF SM IRS/GPIRS        (pages 640-650).
  */
 class IRS_HW_YG1854 : public Arinc_IRS {
 

@@ -35,13 +35,6 @@ public:
    */
   GPS_HW_HG2021GB02() {err("");}
 
-  /** Process a raw sample, which in this case means create
-   * a list of samples with each sample containing a timetag.
-   * Note that the GPS needs to specialise its process method
-   * to merge values that span more then one label. */
-  virtual bool process(const Sample*, std::list<const Sample*>& result)
-    throw();
-
   /** Process all labels from this instrument. */
   float processLabel(const unsigned long data);
 };

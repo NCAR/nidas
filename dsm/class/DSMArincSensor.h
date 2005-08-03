@@ -22,16 +22,9 @@
 
 // Significant bits masks
 //
-// 32|31 30|29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11|10  9| 8  7  6  5  4  3  2  1 
+// 32|31 30|29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11|10  9| 8  7  6  5  4  3  2  1
 // --+-----+--------------------------------------------------------+-----+-----------------------
 // P | SSM |                                                        | SDI |      8-bit label      
-#define m01 0x00000400
-#define m02 0x00000c00
-#define m03 0x00001c00
-#define m04 0x00003c00
-#define m05 0x00007c00
-#define m06 0x0000fc00
-#define m07 0x0001fc00
 #define m08 0x0003fc00
 #define m09 0x0007fc00
 #define m10 0x000ffc00
@@ -44,6 +37,11 @@
 #define m17 0x07fffc00
 #define m18 0x0ffffc00
 #define m19 0x1ffffc00
+
+// bitmask for the Sign Status Matrix
+#define SSM 0x60000000
+#define NCD 0x20000000
+#define TST 0x40000000
 
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)

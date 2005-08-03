@@ -22,8 +22,8 @@ namespace dsm {
 /**
  * ARINC IRS label processor.
  *
- * Taken from the Honeywell Installation Manual PN HG2021GB02/GD02
- * Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219).
+ * Taken from the Honeywell installation manual for the
+ * Inertial Reference Unit / Part No. HG2001GD (pages 649-651).
  */
 class IRS_HW_HG2001GD : public Arinc_IRS {
 
