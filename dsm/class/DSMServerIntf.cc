@@ -12,7 +12,7 @@
  ********************************************************************
 */
 
-#include <DSMServiceIntf.h>
+#include <DSMServerIntf.h>
 
 #include <Project.h>
 #include <Site.h>

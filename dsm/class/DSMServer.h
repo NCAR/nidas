@@ -18,7 +18,7 @@
 #define DSM_DSMSERVER_H
 
 #include <DSMService.h>
-#include <DSMServiceIntf.h>
+#include <DSMServerIntf.h>
 #include <Project.h>
 #include <DOMable.h>
 

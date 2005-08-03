@@ -1,3 +1,5 @@
+<link href='index.css' rel='stylesheet' type='text/css'>
+
 <?php
 include_once('utils/utils.php');
 
@@ -16,7 +18,7 @@ if (empty($flight)) {
   echo '<h5>You need to enter a flight number!</h5>';
   exit;
 }
-echo '<h5>Results from the XMLRPC call to the DSM server:</h5>';
+echo '<h4>Results from the XMLRPC call to the DSM server:</h4>';
 
 $result = xu_rpc_http_concise( array( 'method' => 'SetProject',
                                       'args' => array($project,$aircraft,$flight),

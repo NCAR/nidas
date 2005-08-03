@@ -79,7 +79,7 @@ sources = [ Split("""
   DSMEngine.cc
   DSMEngineIntf.cc
   DSMServer.cc
-  DSMServiceIntf.cc
+  DSMServerIntf.cc
   StatusThread.cc
   XmlRpcThread.cc
 
