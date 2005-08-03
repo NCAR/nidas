@@ -98,11 +98,17 @@ public:
 
 protected:
 
+    static void startXmlRpcThread() throw(atdUtil::Exception);
+    static void killXmlRpcThread() throw(atdUtil::Exception);
+
     const Site* site;
 
     static std::string xmlFileName;
     static bool quit;
     static bool restart;
+
+    /** This thread provides XML-based Remote Procedure calls */
+    static DSMServerIntf* _xmlrpcThread;
 
     /**
      * Name of this server. This should correspond to a hostname
@@ -114,9 +120,6 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> services;
-
-    /** This thread provides XML-based Remote Procedure calls */
-    DSMServerIntf* _xmlrpcThread;
 
 private:
     /**
