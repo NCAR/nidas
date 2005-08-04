@@ -57,9 +57,11 @@ int SyncRecordReader::run() throw(atdUtil::Exception) {
 	throw atdUtil::IOException("SyncRecordReader","read",EINTR);
     }
     catch (const atdUtil::EOFException& e) {
+	cerr << e.what() << endl;
 	eof = true;
     }
     catch (const atdUtil::IOException& e) {
+	cerr << e.what() << endl;
     	ioException = new atdUtil::IOException(e);
     }
     cerr << "SyncRecordHeader::run finished" << endl;
@@ -72,7 +74,7 @@ bool SyncRecordReader::receive(const Sample* samp) throw()
 {
     // read/parse SyncRec header, full out variables list
     if (samp->getId() == SYNC_RECORD_HEADER_ID) {
-	// cerr << "received SYNC_RECORD_HEADER_ID" << endl;
+	cerr << "received SYNC_RECORD_HEADER_ID" << endl;
 	atdUtil::Synchronized autolock(varCond);
 	if (variables.size() == 0) {
 	    scanHeader(samp);
@@ -195,6 +197,28 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	// cerr << "vlen=" << vlen << endl;
 	if (header.eof()) goto eof;
 
+	// screen bad variable types here
+	if (vtypestr.length() != 1)
+	    throw new SyncRecHeaderException("variable type",vtypestr);
+
+	Variable::type_t vtype = Variable::CONTINUOUS;
+	switch (vtypestr[0]) {
+	case 'n':
+	    vtype = Variable::CONTINUOUS;
+	    break;
+	case 'c':
+	    vtype = Variable::COUNTER;
+	    break;
+	case 't':
+	    vtype = Variable::CLOCK;	// shouldn't happen
+	    break;
+	case 'o':
+	    vtype = Variable::OTHER;	// shouldn't happen
+	    break;
+	default:
+	    throw new SyncRecHeaderException("variable type",vtypestr);
+	}
+
 	string vunits = getQuotedString(header);
 	// cerr << "vunits=" << vunits << endl;
 	if (header.eof()) goto eof;
@@ -235,25 +259,6 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
 	var->setName(vname);
 
-	Variable::type_t vtype = Variable::CONTINUOUS;
-	if (vtypestr.length() == 1) {
-	    switch (vtypestr[0]) {
-	    case 'n':
-		vtype = Variable::CONTINUOUS;
-		break;
-	    case 'c':
-		vtype = Variable::COUNTER;
-		break;
-	    case 't':
-		vtype = Variable::CLOCK;	// shouldn't happen
-		break;
-	    case 'o':
-		vtype = Variable::OTHER;	// shouldn't happen
-		break;
-	    default:
-	    	throw new SyncRecHeaderException("variable type",vtypestr);
-	    }
-	}
 	var->setType(vtype);
 
 	var->setLength(vlen);
@@ -274,8 +279,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	
 	varmap[vname] = var;
 	newvars.push_back(var);
-	// cerr << "var=" << var->getName() <<  endl;
     }
+    cerr << "done with variable loop" << endl;
     section = "rates";
 
     tmpstr.clear();
@@ -294,6 +299,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     for (;;) {
 	float rate;
         header >> rate;
+	cerr << "read rate=" << rate << endl;
 	if (header.fail()) break;
 	if (header.eof()) goto eof;
 
@@ -308,6 +314,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	for (;;) {
 	    string vname;
 	    header >> vname;
+	    cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
 	    if (!vname.compare(";")) break;
 	    SyncRecordVariable* var = varmap[vname];
@@ -330,6 +337,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	}
 	lagoffset += groupSize;
     }
+    cerr << "out of rate loop" << endl;
     header.clear();	// clear fail bit
     tmpstr.clear();
     header >> tmpstr;
@@ -350,6 +358,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     variables = newvars;
     numFloats = offset;
+    cerr << "scanHeader done" << endl;
     goto cleanup;
 
 eof: 
