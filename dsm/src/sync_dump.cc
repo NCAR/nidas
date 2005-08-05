@@ -88,7 +88,7 @@ Usage: " << argv0 << " variable URL\n\
 Examples:\n" <<
 	argv0 << " DPRES /tmp/xxx.dat\n" <<
 	argv0 << " DPRES file:/tmp/xxx.dat\n" <<
-	argv0 << " DPRES sock:hyper:10000\n" << endl;
+	argv0 << " DPRES sock:hyper:10001\n" << endl;
     exit(1);
 }
 
