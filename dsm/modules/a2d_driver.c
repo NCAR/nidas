@@ -869,7 +869,7 @@ static void* A2DSetupThread(void *thread_arg)
 	log("Starting A/D's");
    	A2DStartAll(brd);
 
-	rtl_usleep(10000); // Let them run a few milliseconds (10)
+	rtl_usleep(50000); // Let them run a few milliseconds (50)
 
 // Then do a soft reset
 	log("Soft resetting A/D's");
