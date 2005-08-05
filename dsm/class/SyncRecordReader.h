@@ -94,13 +94,23 @@ private:
 
     std::string getQuotedString(std::istringstream& str);
     
+    /**
+     * Once the sync record header has been scanned, then this
+     * is set to true, and the varCond is signaled, so that
+     * the waiting thread can proceed.
+     */
+    bool headerScanned;
+
+    /**
+     * Condition variable to wait on til the header is scanned.
+     */
+    atdUtil::Cond headerCond;
+
     SyncRecHeaderException* headException;
 
     atdUtil::IOException* ioException;
 
     std::list<SampleTag*> sampleTags;
-
-    atdUtil::Cond varCond;
 
     std::list<const SyncRecordVariable*> variables;
 

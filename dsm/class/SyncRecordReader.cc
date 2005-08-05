@@ -21,8 +21,8 @@ using namespace std;
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	atdUtil::Thread(string("SyncRecordReader ") + iochan->getName()),
-	inputStream(iochan),headException(0),ioException(0),
-	numFloats(0),eof(false)
+	inputStream(iochan),headerScanned(false),headException(0),
+	ioException(0),numFloats(0),eof(false)
 {
     inputStream.init();
     inputStream.addSampleClient(this);
@@ -32,9 +32,9 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
     blockSignal(SIGTERM);
     start();
 
-    varCond.lock();
-    while (variables.size() == 0) varCond.wait();
-    varCond.unlock();
+    headerCond.lock();
+    while (!headerScanned) headerCond.wait();
+    headerCond.unlock();
 }
 
 SyncRecordReader::~SyncRecordReader()
@@ -75,10 +75,11 @@ bool SyncRecordReader::receive(const Sample* samp) throw()
     // read/parse SyncRec header, full out variables list
     if (samp->getId() == SYNC_RECORD_HEADER_ID) {
 	cerr << "received SYNC_RECORD_HEADER_ID" << endl;
-	atdUtil::Synchronized autolock(varCond);
-	if (variables.size() == 0) {
+	atdUtil::Synchronized autolock(headerCond);
+	if (!headerScanned) {
 	    scanHeader(samp);
-	    varCond.signal();
+	    headerScanned = true;
+	    headerCond.signal();
 	}
 	return true;
     }
@@ -352,6 +353,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    headException = new SyncRecHeaderException(
 	    	string("variable ") + var->getName() +
 		" not found in a rate group");
+	    cerr << headException->what() << endl;
 	    goto except;
 	}
     }

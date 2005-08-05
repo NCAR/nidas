@@ -17,6 +17,7 @@
 #include <DSMArincSensor.h>
 #include <DSMAnalogSensor.h>
 #include <Aircraft.h>
+#include <atdUtil/Logger.h>
 
 #include <iomanip>
 
@@ -176,12 +177,21 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
     for (vi = variables.begin(); vi != variables.end(); ++vi) {
         const Variable* var = *vi;
 
+	string varname = var->getName();
+	if (varname.find(' ') != string::npos) {
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    	"variable name \"%s\" has one or more embedded spaces, replacing with \'_\'",
+		varname.c_str());
+	    for (size_t bi = varname.find(' '); bi != string::npos; )
+	    	varname.replace(bi,1,1,'_');
+	}
+
 	char vtypeabbr = 'o';
 	unsigned int iv = (int)var->getType();
 	if (iv < sizeof(vtypes)/sizeof(vtypes[0]))
 		vtypeabbr = vtypes[iv];
 
-	ost << var->getName() << ' ' <<
+	ost << varname << ' ' <<
 		vtypeabbr << ' ' <<
 		var->getLength() << ' ' <<
 		"\"" << var->getUnits() << "\" " <<
@@ -215,7 +225,10 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 	for (vi = varsOfRate[groupId].begin();
 		vi != varsOfRate[groupId].end(); ++vi) {
 	    const Variable* var = *vi;
-	    ost << var->getName() << ' ';
+	    string varname = var->getName();
+	    for (size_t bi = varname.find(' '); bi != string::npos; )
+	    	varname.replace(bi,1,1,'_');
+	    ost << varname << ' ';
 	}
 	ost << ';' << endl;
     }
