@@ -109,6 +109,7 @@ stop_app() {
  	while [ $i -lt 5 ]; do
 	 	sleep 2
 	 	pgrep dsm || break
+		i=$((i+1))
  	done
  	if [ $i == 5 ]; then
 	 	echo "doing kill -9"
