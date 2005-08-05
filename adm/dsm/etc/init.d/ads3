@@ -1,0 +1,178 @@
+#! /bin/sh
+#
+#
+# Aircraft Data System
+#
+# . /etc/default/rcS
+
+# set -x
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=dsm
+NAME=dsm
+DESC="dsm"
+
+ruser=ads
+server=192.168.184.1
+adspath=/home/local/hiaper/ads3
+
+modpath=/var/tmp/modules
+libpath=/var/tmp/lib
+dsmpath=/var/tmp
+
+#
+# Connect to the NTP time server
+#
+# /usr/sbin/ntpdate server && hwclock --systonc
+
+copy_modules() {
+        [ -d $modpath ] || mkdir -p $modpath
+        
+	scp $ruser@$server:$adspath/dsm/modules/arm/rtl_isa_irq.o $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/ioctl_fifo.o $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/pc104sg.o $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/arinc.o $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/a2d_driver.o $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/dsm_serial.o  $modpath
+	scp $ruser@$server:$adspath/dsm/modules/arm/dsm_serial_fifo.o $modpath
+}
+copy_apps() {
+        [ -d $libpath ] || mkdir -p $libpath
+        [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
+        
+	scp $ruser@$server:$adspath/dsm/class/arm/libDsm.so $libpath
+	scp $ruser@$server:$adspath/dsm/src/arm/dsm $dsmpath
+	scp $ruser@$server:$adspath/dsm/filters/*.cfg $dsmpath/filters
+}
+
+# check if a module is loaded, if not insmod it
+insmod_chk() {
+	lsmod | fgrep -q $1 || insmod "$@"
+}
+
+# check if a module is loaded, if so rmmod it
+rmmod_chk() {
+	lsmod | fgrep -q $1 && rmmod $1
+}
+
+load_modules() {
+	depmod
+	#
+	# load shared modules...
+	#
+	insmod_chk rtl
+	insmod_chk rtl_isa_irq
+	insmod_chk ioctl_fifo
+	insmod_chk pc104sg irq=10 ioport=0x2a0
+
+	# insmod_chk arinc
+	
+	#lsmod_chk a2d_driver ioport=0x3A0,0x3B0
+	insmod_chk a2d_driver
+	
+	insmod_chk dsm_serial
+	insmod_chk dsm_serial_fifo
+}
+
+unload_modules() {
+	#
+	rmmod_chk dsm_serial_fifo
+	rmmod_chk dsm_serial
+	
+	rmmod_chk a2d_driver
+	
+	rmmod_chk arinc
+	
+	rmmod_chk pc104sg
+	
+	rmmod_chk ioctl_fifo
+	
+	rmmod_chk rtl_isa_irq
+	
+	rmmod_chk rtl
+}
+
+start_app() {
+        cd $dsmpath
+	# start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
+	# 	-b --exec $DAEMON
+	./dsm -d > /var/log/dsm.log 2>&1 &
+}
+
+stop_app() {
+        # cd $dsmpath
+	# start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
+ 	# 	--exec $DAEMON
+ 	echo "sending HUP to dsm"
+ 	pkill -HUP dsm
+ 	i=0
+ 	while [ $i -lt 5 ]; do
+	 	sleep 2
+	 	pgrep dsm || break
+ 	done
+ 	if [ $i == 5 ]; then
+	 	echo "doing kill -9"
+	 	pkill -9 dsm
+	fi
+}
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC (fetch & load modules, fetch app, run dsm): "
+	unload_modules
+        copy_modules
+        load_modules
+        copy_apps
+        start_app
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC and unloading modules: "
+	stop_app
+        # unload_modules
+	echo "$NAME."
+	;;
+  restart)
+	echo -n "Restart of $DESC (does not unload modules or fetch app): "
+	stop_app
+	sleep 1
+	start_app
+	echo "$NAME."
+	;;
+  unload)
+	echo -n "Unload of $DESC (unloads modules): "
+	stop_app
+	unload_modules
+	;;
+  reload)
+	echo -n "Reload of $DESC (reloads modules and restarts dsm): "
+	stop_app
+	unload_modules
+	load_modules
+	start_app
+	  ;;
+  refetch)
+	echo -n "Refetch of $DESC (stops dsm, fetches app, starts dsm): "
+        stop_app
+        copy_apps
+	start_app
+  ;;
+  refetch_all)
+	echo -n "Refetch_all of $DESC (stops dsm, unloads mods, fetches all, starts dsm): "
+        stop
+	unload_modules
+	copy_modules
+	load_modules
+        copy_apps
+	start
+  ;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|refetch|refetch_all}" >&2
+	echo "Usage: $N {start|stop|restart|reload|refetch|refetch_all}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
+
