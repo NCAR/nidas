@@ -147,7 +147,7 @@ void Runstring::usage(const char* argv0)
 Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file URL [-A | -H | -S]\n\
   -d dsmid: numeric id of DSM that you want to dump samples from\n\
   -s sampleId: numeric id of sample that you want to dump\n\
-       (use file_stats program to see DSM ids and sample ids of data in a file)\n\
+       (use data_stats program to see DSM ids and sample ids of data in a file)\n\
   -p: process (optional). Pass samples to sensor process method\n\
   -x xml_file (optional). Name of XML file (required with -p option)\n\
   -A: ASCII output (for samples from a serial sensor)\n\
