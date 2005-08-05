@@ -86,7 +86,7 @@
         <sample id="0044" rate="3.125"><variable name="i_true_heading"     units="deg"      longname="true heading"/></sample>               <!-- not used    -->
         <sample id="0265" rate="50"   ><variable name="i_integ_vert_accel" units="G"        longname="integ_vert_accel"/></sample>           <!-- lost        -->
         <sample id="0270" rate="2"    ><variable name="i_irs_discretes"    units=""         longname="irs_discretes"/></sample>              <!-- lost        -->
-        <sample id="0277" rate="?"    ><variable name="i_test_word"        units=""         longname="test word"/></sample>                  <!-- not used    -->
+    <!--<sample id="0277" rate="?"    ><variable name="i_test_word"        units=""         longname="test word"/></sample>                       not used    -->
         <sample id="0300" rate="50"   ><variable name="i_dtheta_x"         units="radian"   longname="delta theta x"/></sample>              <!-- new         -->
         <sample id="0301" rate="50"   ><variable name="i_dtheta_y"         units="radian"   longname="delta theta y"/></sample>              <!-- new         -->
         <sample id="0302" rate="50"   ><variable name="i_dtheta_z"         units="radian"   longname="delta theta z"/></sample>              <!-- new         -->
