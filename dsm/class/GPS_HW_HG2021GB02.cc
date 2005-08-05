@@ -40,7 +40,7 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0061:  // BNR - Pseudo Range                (m)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) Pseudo_Range_sign = -1;
+    if (data & (1<<28)) Pseudo_Range_sign = -1;
     else                Pseudo_Range_sign = 1;
     return ((data & 0x0fffff00) >> 8) * 256.0 * Pseudo_Range_sign;
 
@@ -50,17 +50,17 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0063:  // BNR - Range Rate                  (m/s)
     if (data & SSM != NCD) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & 0x0fffff00) >> 8) * 1.0/(1<<8) * sign;
 
   case 0064:  // BNR - Delta Range                 (m)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & 0x0fffff00) >> 8) * 1.0/(1<<8) * sign;
 
   case 0065:  // BNR - SV Position X               (m)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) SV_Position_X_sign = -1;
+    if (data & (1<<28)) SV_Position_X_sign = -1;
     else                SV_Position_X_sign = 1;
     return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_X_sign;
 
@@ -70,7 +70,7 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0070:  // BNR - SV Position Y               (m)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) SV_Position_Y_sign = -1;
+    if (data & (1<<28)) SV_Position_Y_sign = -1;
     else                SV_Position_Y_sign = 1;
     return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_Y_sign;
 
@@ -80,7 +80,7 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0072:  // BNR - SV Position Z               (m)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) SV_Position_Z_sign = -1;
+    if (data & (1<<28)) SV_Position_Z_sign = -1;
     else                SV_Position_Z_sign = 1;
     return ((data & 0x0fffff00) >> 8) * 64.0 * SV_Position_Z_sign;
 
@@ -94,7 +94,7 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0076:  // BNR - GPS Altitude (MSL)          (ft)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & 0x0fffff00) >> 8) * 0.125 * sign * FT_MTR;
 
   case 0101:  // BNR - Horz Dilution of Precision  ()
@@ -109,13 +109,13 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
 
   case 0110:  // BNR - GPS Latitude                (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) GPS_Latitude_sign = -1;
+    if (data & (1<<28)) GPS_Latitude_sign = -1;
     else                GPS_Latitude_sign = 1;
     return ((data & 0x0fffff00) >> 10) * 45.0/(1<<18) * GPS_Latitude_sign;
 
   case 0111:  // BNR - GPS Longitude               (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) GPS_Longitude_sign = -1;
+    if (data & (1<<28)) GPS_Longitude_sign = -1;
     else                GPS_Longitude_sign = 1;
     return ((data & 0x0fffff00) >> 10) * 45.0/(1<<18) * GPS_Longitude_sign;
 
@@ -146,9 +146,9 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
     if (data & SSM != SSM) break;
     return ((data & m17) >> 10) * 0.25 * FT_MTR;  // no sign
 
-//   case 0136:  // BNR - Vert Figure of Merit        (ft)  (for HG2021GD01 GNSSU)
-//     if (data & SSM != SSM) break;
-//     return ((data & m18) >> 10) * 0.125 * FT_MTR;  // no sign
+//case 0136:  // BNR - Vert Figure of Merit        (ft)  (for HG2021GD01 GNSSU)
+//  if (data & SSM != SSM) break;
+//  return ((data & m18) >> 10) * 0.125 * FT_MTR;  // no sign
 
   case 0136:  // BNR - Vert Figure of Merit        (m)  (for HG2021GB01 GNSSU)
     if (data & SSM != SSM) break;
@@ -200,9 +200,9 @@ float GPS_HW_HG2021GB02::processLabel(const unsigned long data)
     if (data & (1<<26)) sign = -1;
     return ((data & m15) >> 10) * 1.0 * sign * KTS_MS;
 
-//   case 0247:  // BNR - Horz Figure of Merit        (nm)  (for HG2021GD01 GNSSU)
-//     if (data & SSM != SSM) break;
-//     return ((data & m18) >> 10) * 1.0/(1<<14);  // no sign
+//case 0247:  // BNR - Horz Figure of Merit        (nm)  (for HG2021GD01 GNSSU)
+//  if (data & SSM != SSM) break;
+//  return ((data & m18) >> 10) * 1.0/(1<<14);  // no sign
 
   case 0247:  // BNR - Horz Figure of Merit        (m)  (for HG2021GB01 GNSSU)
     if (data & SSM != SSM) break;

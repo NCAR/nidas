@@ -46,6 +46,9 @@
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
+// inMb to mBar
+const float INHG_MBAR  = 33.8639;
+
 // Feet to Meters.
 const float FT_MTR  = 0.3048;
 

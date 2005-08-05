@@ -125,40 +125,40 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
   case 0301:  // BNR - delta theta y        (radian)
   case 0302:  // BNR - delta theta z        (radian)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<30)) sign = -1;
     return ((data & 0x3fffff00) >> 8) * 1.0/(1<<28) * sign * RAD_DEG;
 
   case 0303:  // BNR - delta theta v x      (ft/s)
   case 0304:  // BNR - delta theta v y      (ft/s)
   case 0305:  // BNR - delta theta v z      (ft/s)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<30)) sign = -1;
     return ((data & 0x3fffff00) >> 8) * 1.0/(1<<21) * sign * FPM_MPS;
 
   case 0310:  // BNR - present_lat          (deg)
   case 0311:  // BNR - present_lon          (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & 0x0fffff00) >> 8) * 180.0/(1<<20) * sign;
 
   case 0312:  // BNR - ground_speed         (knot)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<6) * sign * KTS_MS;
 
   case 0313:  // BNR - track_angle_true     (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign;
 
   case 0314:  // BNR - true_heading         (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign + _irs_thdg_corr;
 
   case 0315:  // BNR - wind_speed           (knot)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<10) * sign * KTS_MS;
 
   case 0316:  // BNR - wind_dir_true        (deg)
@@ -167,52 +167,52 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
   case 0321:  // BNR - drift_angle          (deg)
   case 0322:  // BNR - flt pth angle        (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign;
 
   case 0323:  // BNR - flt pth accel        (G)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<16) * sign * G_MPS2;
 
   case 0324:  // BNR - pitch_angle          (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign + _irs_ptch_corr;
 
   case 0325:  // BNR - roll_angle           (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign + _irs_roll_corr;
 
   case 0326:  // BNR - pitch_rate           (deg/s)
   case 0327:  // BNR - roll_rate            (deg/s)
   case 0330:  // BNR - yaw_rate             (deg/s)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<11) * sign;
 
   case 0331:  // BNR - long_accel           (G)
   case 0332:  // BNR - lat_accel            (G)
   case 0333:  // BNR - normal_accel         (G)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<16) * sign * G_MPS2;
 
   case 0334:  // BNR - platform_hdg         (deg)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 180.0/(1<<18) * sign;
 
   case 0335:  // BNR - track_ang_rate       (deg/s)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<13) * sign;
 
   case 0336:  // BNR - pitch_att_rate       (deg/s)
   case 0337:  // BNR - roll_att_rate        (deg/s)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<11) * sign;
 
   case 0350:  // DIS - irs_maint_discretes  ()
@@ -230,40 +230,40 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
 
   case 0354:  // BNR - total time           (count)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m19) >> 10) * 1.0; // no sign
 
   case 0360:  // BNR - pot_vert_speed       (ft/min)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<3) * sign * FPM_MPS;
 
   case 0361:  // BNR - inertial_alt         (ft)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & 0x0fffff00) >> 8) * 1.0/(1<<3) * sign * FT_MTR;
 
   case 0362:  // BNR - along trk accel      (G)
   case 0363:  // BNR - cross trk accel      (G)
   case 0364:  // BNR - vertical_accel       (G)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<16) * sign * G_MPS2;
 
   case 0365:  // BNR - inrt_vert_speed      (ft/min)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<3) * sign * FPM_MPS;
 
   case 0366:  // BNR - velocity_ns          (knot)
   case 0367:  // BNR - velocity_ew          (knot)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<6) * sign * KTS_MS;
 
   case 0370:  // BNR - norm_accel           (G)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<15) * sign * G_MPS2;
 
   case 0371:  // DIS - equipment_id         ()
@@ -272,7 +272,7 @@ float IRS_HW_HG2001GD::processLabel(const unsigned long data)
   case 0375:  // BNR - along hdg accel      (G)
   case 0376:  // BNR - cross hdg accel      (G)
     if (data & SSM != SSM) break;
-    if (data & (1<<29)) sign = -1;
+    if (data & (1<<28)) sign = -1;
     return ((data & m18) >> 10) * 1.0/(1<<16) * sign * G_MPS2;
 
   default:
