@@ -111,6 +111,23 @@ bool SyncRecordReader::receive(const Sample* samp) throw()
     return false;
 }
 
+/* local map class with a destructor which cleans up any
+ * pointers left hanging.
+ */
+namespace {
+class LocalVarMap: public map<string,SyncRecordVariable*>
+{
+public:
+    ~LocalVarMap() {
+	map<string,SyncRecordVariable*>::const_iterator vi;
+	for (vi = begin(); vi != end(); ++vi) {
+	    SyncRecordVariable* var = vi->second;
+	    if (var) delete var;
+	}
+    }
+};
+}
+
 void SyncRecordReader::scanHeader(const Sample* samp) throw()
 {
     size_t offset = 0;
@@ -126,13 +143,6 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     	string((const char*)samp->getConstVoidDataPtr(),
 		samp->getDataLength()) << endl;
 
-    list<const SyncRecordVariable*> newvars;
-    map<string,SyncRecordVariable*> varmap;
-    map<string,SyncRecordVariable*>::const_iterator vi;
-
-    string tmpstr;
-    string section = "variables";
-
     try {
         projectName = getKeyedValue(header,"project");
         aircraftName = getKeyedValue(header,"aircraft");
@@ -140,14 +150,20 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     }
     catch (const SyncRecHeaderException& e) {
         headException = new SyncRecHeaderException(e);
-	goto except;
+	return;
     }
 
+    list<const SyncRecordVariable*> newvars;
+    LocalVarMap varmap;
+    map<string,SyncRecordVariable*>::const_iterator vi;
+
+    string tmpstr;
+    string section = "variables";
     header >> tmpstr;
     if (header.eof() || tmpstr.compare("variables")) {
     	headException = new SyncRecHeaderException("variables {",
 	    tmpstr);
-	goto except;
+	return;
     }
 
     tmpstr.clear();
@@ -155,7 +171,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     if (header.eof() || tmpstr.compare("{")) {
     	headException = new SyncRecHeaderException("variables {",
 	    string("variables ") + tmpstr);
-	goto except;
+	return;
     }
 
     for (;;) {
@@ -179,8 +195,11 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (header.eof()) goto eof;
 
 	// screen bad variable types here
-	if (vtypestr.length() != 1)
-	    throw new SyncRecHeaderException("variable type",vtypestr);
+	if (vtypestr.length() != 1) {
+	    headException = new SyncRecHeaderException(
+	    	string("unexpected variable type: ") + vtypestr);
+	    return;
+	}
 
 	Variable::type_t vtype = Variable::CONTINUOUS;
 	switch (vtypestr[0]) {
@@ -197,7 +216,9 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    vtype = Variable::OTHER;	// shouldn't happen
 	    break;
 	default:
-	    throw new SyncRecHeaderException("variable type",vtypestr);
+	    headException = new SyncRecHeaderException(
+	    	string("unexpected variable type: ") + vtypestr);
+	    return;
 	}
 
 	string vunits = getQuotedString(header);
@@ -232,7 +253,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (semicolon != ';') {
 	    headException =
 	    	new SyncRecHeaderException(";",string(semicolon,1));
-	    goto except;
+	    return;
 	}
 
 	// variable fields parsed, now create SyncRecordVariable.
@@ -266,15 +287,19 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("rates"))
-    	headException = new SyncRecHeaderException("\"rates {\"",
+    if (header.eof() || tmpstr.compare("rates")) {
+    	headException = new SyncRecHeaderException("rates {",
 	    tmpstr);
+	return;
+    }
 
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("{"))
-    	headException = new SyncRecHeaderException("\"rates {\"",
+    if (header.eof() || tmpstr.compare("{")) {
+    	headException = new SyncRecHeaderException("rates {",
 	    string("rates ") + tmpstr);
+        return;
+    }
 
     // read rate groups
     for (;;) {
@@ -298,14 +323,23 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
 	    if (!vname.compare(";")) break;
-	    SyncRecordVariable* var = varmap[vname];
+	    vi = varmap.find(vname);
+	    if (vi == varmap.end()) {
+		ostringstream ost;
+		ost << rate;
+	        headException = new SyncRecHeaderException(
+			string("variable ") + vname +
+			" not found for rate " + ost.str());
+		return;
+	    }
+	    SyncRecordVariable* var = vi->second;
 	    if (!var) {
 		ostringstream ost;
 		ost << rate;
 	        headException = new SyncRecHeaderException(
-			string("cannot find variable ") + vname +
-			" for rate " + ost.str());
-		goto except;
+			string("variable ") + vname +
+			" listed under more than one rate " + ost.str());
+		return;
 	    }
 
 	    stag->addVariable(var);
@@ -334,26 +368,19 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    	string("variable ") + var->getName() +
 		" not found in a rate group");
 	    cerr << headException->what() << endl;
-	    goto except;
+	    return;
 	}
     }
 
     variables = newvars;
     numFloats = offset;
     cerr << "scanHeader done" << endl;
-    goto cleanup;
+    return;
 
 eof: 
     headException = new SyncRecHeaderException(section,"end of header");
-except:
-cleanup:
-    for (vi = varmap.begin(); vi != varmap.end(); ++vi) {
-        SyncRecordVariable* var = vi->second;
-	if (var) delete var;
-    }
     return;
 }
-
 
 string SyncRecordReader::getQuotedString(istringstream& istr)
 {
