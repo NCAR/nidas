@@ -40,6 +40,14 @@ public:
     	atdUtil::Exception("SyncRecHeaderException",msg)
     {
     }
+
+    /**
+     * Copy constructor.
+     */
+    SyncRecHeaderException(const SyncRecHeaderException& x):
+    	atdUtil::Exception(x)
+    {
+    }
 };
 
 class SyncRecordReader: public atdUtil::Thread, private SampleClient
@@ -58,6 +66,8 @@ public:
     const std::string& getProjectName() const { return projectName; }
 
     const std::string& getTailNumber() const { return aircraftName; }
+
+    const std::string& getFlightName() const { return flightName; }
 
     /**
      * Get the list of variables in a sync record.
@@ -94,6 +104,8 @@ private:
 
     std::string getQuotedString(std::istringstream& str);
     
+    std::string getKeyedValue(std::istringstream& header,const std::string& key)
+    	throw(SyncRecHeaderException);
     /**
      * Once the sync record header has been scanned, then this
      * is set to true, and the varCond is signaled, so that
@@ -127,6 +139,8 @@ private:
     std::string projectName;
 
     std::string aircraftName;
+
+    std::string flightName;
 
 };
 

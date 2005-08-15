@@ -162,6 +162,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
     ost << "project  " << aircraft->getProject()->getName() << endl;
     ost << "aircraft " << aircraft->getTailNumber() << endl;
+    ost << "flight " << aircraft->getProject()->getCurrentObsPeriod().getName() << endl;
 
     // write variable fields.
 

@@ -18,6 +18,7 @@
 
 #include <DOMable.h>
 #include <SensorCatalog.h>
+#include <ObsPeriod.h>
 
 #include <list>
 
@@ -36,6 +37,9 @@ public:
 
     void setName(const std::string& val) { name = val; }
     const std::string& getName() const { return name; }
+
+    void setCurrentObsPeriod(const ObsPeriod& val) { currentObsPeriod = val; }
+    const ObsPeriod& getCurrentObsPeriod() const { return currentObsPeriod; }
 
     void setVersion(const std::string& val) { version = val; }
     const std::string& getVersion() const { return version; }
@@ -75,6 +79,8 @@ protected:
     std::list<Site*> sites;
 
     SensorCatalog* catalog;
+
+    ObsPeriod currentObsPeriod;
 };
 
 }

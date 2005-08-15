@@ -131,41 +131,21 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     map<string,SyncRecordVariable*>::const_iterator vi;
 
     string tmpstr;
+    string section = "variables";
 
-    string section("project");
-    header >> tmpstr;
-    if (header.eof() || tmpstr.compare("project")) {
-    	headException = new SyncRecHeaderException("\"project {\"",
-	    tmpstr);
+    try {
+        projectName = getKeyedValue(header,"project");
+        aircraftName = getKeyedValue(header,"aircraft");
+        flightName = getKeyedValue(header,"flight");
+    }
+    catch (const SyncRecHeaderException& e) {
+        headException = new SyncRecHeaderException(e);
 	goto except;
     }
-    header >> projectName;
-    if (header.eof()) {
-    	headException = new SyncRecHeaderException("\"project {\"",
-	    projectName);
-	goto except;
-    }
-    tmpstr.clear();
 
-    section = "aircraft";
-    header >> tmpstr;
-    if (header.eof() || tmpstr.compare("aircraft")) {
-    	headException = new SyncRecHeaderException("\"aircraft {\"",
-	    tmpstr);
-	goto except;
-    }
-    header >> aircraftName;
-    if (header.eof()) {
-    	headException = new SyncRecHeaderException("\"aircraft {\"",
-	    aircraftName);
-	goto except;
-    }
-    tmpstr.clear();
-
-    section = "variables";
     header >> tmpstr;
     if (header.eof() || tmpstr.compare("variables")) {
-    	headException = new SyncRecHeaderException("\"variables {\"",
+    	headException = new SyncRecHeaderException("variables {",
 	    tmpstr);
 	goto except;
     }
@@ -173,7 +153,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     tmpstr.clear();
     header >> tmpstr;
     if (header.eof() || tmpstr.compare("{")) {
-    	headException = new SyncRecHeaderException("\"variables {\"",
+    	headException = new SyncRecHeaderException("variables {",
 	    string("variables ") + tmpstr);
 	goto except;
     }
@@ -392,6 +372,26 @@ string SyncRecordReader::getQuotedString(istringstream& istr)
 	val += dquote;
     }
     return val;
+}
+
+string SyncRecordReader::getKeyedValue(istringstream& header,const string& key)
+	throw(SyncRecHeaderException)
+{
+
+    string tmpstr;
+    header >> tmpstr;
+    if (header.eof())
+    	throw SyncRecHeaderException(string("end of header when reading ") +
+		key);
+
+    if (tmpstr.compare("key"))
+    	throw SyncRecHeaderException("key",tmpstr);
+
+    header >> tmpstr;
+    if (header.eof())
+    	throw SyncRecHeaderException(string("end of header when reading value for ") +
+		key);
+    return tmpstr;
 }
 
 size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(atdUtil::IOException)
