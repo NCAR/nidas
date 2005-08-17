@@ -26,8 +26,17 @@ class RawSampleInputStream: public SampleInputStream
 {
 public:
 
+    /**
+     * Constructor.
+     * @param iochannel The IOChannel that we use for data input.
+     *   RawSampleInputStream will own the pointer to the IOChannel,
+     *   and will delete it in ~RawSampleInputStream().
+     */
     RawSampleInputStream(IOChannel* iochannel = 0);
 
+    /**
+     * Create a copy, but with a new IOChannel.
+     */
     RawSampleInputStream(const RawSampleInputStream&x,IOChannel*);
 
     SampleInputStream* clone(IOChannel*);

@@ -487,6 +487,7 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
     	throw atdUtil::InvalidParameterException("project","site",
 		"multiple site tags in XML config");
     const Site* site = sitelist.front();
+    _project->setCurrentSite(site);
 
     const list<DSMConfig*>& dsms = site->getDSMConfigs();
     if (dsms.size() == 0)

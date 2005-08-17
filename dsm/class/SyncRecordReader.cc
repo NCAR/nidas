@@ -153,10 +153,6 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	return;
     }
 
-    list<const SyncRecordVariable*> newvars;
-    LocalVarMap varmap;
-    map<string,SyncRecordVariable*>::const_iterator vi;
-
     string tmpstr;
     string section = "variables";
     header >> tmpstr;
@@ -173,6 +169,10 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    string("variables ") + tmpstr);
 	return;
     }
+
+    list<const SyncRecordVariable*> newvars;
+    LocalVarMap varmap;
+    map<string,SyncRecordVariable*>::const_iterator vi;
 
     for (;;) {
 

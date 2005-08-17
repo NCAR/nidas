@@ -35,7 +35,7 @@ Project* Project::getInstance()
    return instance;
 }
 
-Project::Project(): catalog(0)
+Project::Project(): currentSite(0),catalog(0)
 {
     currentObsPeriod.setName("test");
 }

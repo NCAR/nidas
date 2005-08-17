@@ -114,7 +114,10 @@ int DSMServer::main(int argc, char** argv) throw()
 		ai != sitelist.end(); ++ai) {
 		Site* site = *ai;
 		serverp = site->findServer(hostname);
-		if (serverp) break;
+		if (serverp) {
+		    project->setCurrentSite(site);
+		    break;
+		}
 	    }
 
 	    if (!serverp)

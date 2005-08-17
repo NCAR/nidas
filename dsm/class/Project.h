@@ -50,6 +50,20 @@ public:
     void addSite(Site* val) { sites.push_back(val); }
     const std::list<Site*>& getSites() const { return sites; }
 
+    /**
+     * When the Project configuration is being used
+     * for a specific Site, the value of the current site
+     * can be set with setCurrentSite().  Other objects can
+     * then have access to the current Site via the
+     * getCurrentSite() method of the Project singleton.
+     * This may not be the best way to implement this -
+     * perhaps we could provide access to the current Site
+     * via static methods in the Site class.
+     */
+    void setCurrentSite(const Site* val) { currentSite = val; }
+
+    const Site* getCurrentSite() const { return currentSite; }
+
     void setSensorCatalog(SensorCatalog* val) { catalog = val; }
     SensorCatalog* getSensorCatalog() const { return catalog; }
 
@@ -77,6 +91,8 @@ protected:
     std::string xmlName;
 
     std::list<Site*> sites;
+
+    const Site* currentSite;
 
     SensorCatalog* catalog;
 

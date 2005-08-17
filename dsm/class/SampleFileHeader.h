@@ -43,6 +43,12 @@ public:
     void setProjectName(const std::string& val) { projectName = val; }
     const std::string& getProjectName() const { return projectName; }
 
+    void setSiteName(const std::string& val) { siteName = val; }
+    const std::string& getSiteName() const { return siteName; }
+
+    void setObsPeriodName(const std::string& val) { obsPeriodName = val; }
+    const std::string& getObsPeriodName() const { return obsPeriodName; }
+
 
 protected:
 
@@ -70,6 +76,8 @@ protected:
     std::string xMLName;
     std::string xMLVersion;
     std::string projectName;
+    std::string siteName;
+    std::string obsPeriodName;
 
 };
 
