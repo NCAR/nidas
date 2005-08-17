@@ -67,8 +67,6 @@ static int master = 7;
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int numboards = 0;
-static int tomsgctr = 0;
-static int crcmsgctr = 0;
 
 MODULE_AUTHOR("Grant Gray <gray@ucar.edu>");
 MODULE_DESCRIPTION("HIAPER A/D driver for RTLinux");
@@ -243,7 +241,7 @@ static short A2DTemp(struct A2DBoard* brd)
 	x = (short)(b1<<8 | b2)>>3;
 
 #ifdef TEMPDEBUG
-	DEBUG_LOG("b1=0x%02X, b2=0x%02X, b1b2>>3 0x%04X, degC = %d.%1d",
+	DSMLOG_DEBUG("b1=0x%02X, b2=0x%02X, b1b2>>3 0x%04X, degC = %d.%1d",
             b1, b2, x, x/16, (10*(x%16))/16);
 #endif
 	return x;
@@ -299,7 +297,7 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 
 static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 {
-	DEBUG_LOG("*brd = %x   A2DSel = %d   A2DGain = %d", brd, A2DSel, A2DGain);
+	DSMLOG_DEBUG("*brd = %x   A2DSel = %d   A2DGain = %d", brd, A2DSel, A2DGain);
 	unsigned int DACAddr;
 	int D2AChsel = -1;
 	UC GainCode = 1;
@@ -308,7 +306,7 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 
 /* This is no longer necessary. GRG 7/21/05
 	if(A2DGain < 1 || A2DGain > 255) {
-	    DEBUG_LOG("bad gain value: %d",A2DGain);
+	    DSMLOG_DEBUG("bad gain value: %d",A2DGain);
 	    return -EINVAL;
 	}
 */
@@ -343,12 +341,12 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 {
 	if(A2DSel < 0 || A2DSel >= MAXA2DS) {
-	    DEBUG_LOG("A2DSetMaster, bad chip number: %d", A2DSel);
+	    DSMLOG_WARNING("A2DSetMaster, bad chip number: %d", A2DSel);
 	    return -EINVAL;
 	}
 	A2DSel = master; // DEBUG: Jamming A2DMASTER to fixed value
 
-        DEBUG_LOG("A2DSetMaster, master=%d", A2DSel);
+        DSMLOG_DEBUG("A2DSetMaster, master=%d", A2DSel);
 
 	// Point at the FIFO status channel
 	outb(A2DIOFIFOSTAT, brd->chan_addr);	
@@ -416,7 +414,7 @@ static void A2DSetCal(struct A2DBoard* brd)
 
 	//Set the appropriate bits in OffCal
 	brd->OffCal |= (US)((Chans) & 0x00FF);
-	DEBUG_LOG("A2DSetCAl OffCal=0x%04x", brd->OffCal);
+	DSMLOG_DEBUG("A2DSetCAl OffCal=0x%04x", brd->OffCal);
 	
 	//Send OffCal word to system control word
 	outw(brd->OffCal, brd->addr);
@@ -447,7 +445,7 @@ static void A2DSetOffset(struct A2DBoard* brd)
 
 //	brd->OffCal = 0;	// What the hell was this?
 
-	DEBUG_LOG("A2DSetOffset OffCal=0x%04x", brd->OffCal);
+	DSMLOG_DEBUG("A2DSetOffset OffCal=0x%04x", brd->OffCal);
 
 	outw(brd->OffCal, brd->addr);
 	
@@ -698,6 +696,9 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 	int j, ctr = 0;
 	US stat;
 	UC intmask=1, intbits[8] = {1,2,4,8,16,32,64,128};
+	int tomsgctr = 0;
+	int crcmsgctr = 0;
+
 	if(A2DSel < 0 || A2DSel >= MAXA2DS) return -EINVAL;
 	
 // Point to the A/D write configuration channel
@@ -728,7 +729,7 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 			{
 				tomsgctr++;
 /*
-				DEBUG_LOG("INTERRUPT TIMEOUT! chip = %1d\n", A2DSel);
+				DSMLOG_WARNING("INTERRUPT TIMEOUT! chip = %1d\n", A2DSel);
 				// return -ETIMEDOUT;
 */
 				break;
@@ -742,19 +743,26 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 		if(stat & A2DCRCERR)
 		{
 			crcmsgctr++;
-/*			DEBUG_LOG("CRC ERROR! chip = %1d, stat = 0x%04X", A2DSel, stat);
+/*			DSMLOG_WARNING("CRC ERROR! chip = %1d, stat = 0x%04X", A2DSel, stat);
 			brd->status.status[A2DSel] = stat; // Error status word
 			// return -EIO;
 */
 		}
 	}
-	rtl_printf("%s: %3d CRC Errors chip = %1d\n", 
-		__FILE__, crcmsgctr, A2DSel);
+	if (crcmsgctr > 0)
+	    DSMLOG_WARNING("%3d CRC Errors chip = %1d\n", 
+		     crcmsgctr, A2DSel);
+	else
+	    DSMLOG_DEBUG("%3d CRC Errors chip = %1d\n", 
+		     crcmsgctr, A2DSel);
 
-	rtl_printf("%s: %3d Interrupt Timeout Errors chip = %1d\n", 
-		__FILE__, tomsgctr, A2DSel);
+	if (tomsgctr > 0)
+		DSMLOG_WARNING("%3d Interrupt Timeout Errors chip = %1d\n", 
+		 tomsgctr, A2DSel);
+	else
+		DSMLOG_DEBUG("%3d Interrupt Timeout Errors chip = %1d\n", 
+		 tomsgctr, A2DSel);
 
-	crcmsgctr = tomsgctr = 0;	// Reset the message counter
 	brd->status.status[A2DSel] = stat; // Final status word following load
 	rtl_usleep(2000);
 	return 0;
@@ -801,7 +809,7 @@ static int waitFor1PPS(struct A2DBoard* brd)
 	    if((stat & INV1PPS) == 0) return 0;
 	    rtl_usleep(50); 	// Wait 50 usecs and try again
 	}
-	DEBUG_LOG("1PPS not detected--no sync to GPS");
+	DSMLOG_WARNING("1PPS not detected--no sync to GPS");
 	return -ETIMEDOUT;
 }
 static int A2DSetup(struct A2DBoard* brd)
@@ -823,17 +831,17 @@ static int A2DSetup(struct A2DBoard* brd)
 		// Pass filter info to init routine
 		if ((ret = A2DSetGain(brd,i,a2d->gain[i])) < 0) return ret;
 		if(a2d->Hz[i] > brd->MaxHz) brd->MaxHz = a2d->Hz[i];	// Find maximum rate
-		DEBUG_LOG("brd->MaxHz = %d   a2d->Hz[%d] = %d", brd->MaxHz, i, a2d->Hz[i]);
+		DSMLOG_DEBUG("brd->MaxHz = %d   a2d->Hz[%d] = %d", brd->MaxHz, i, a2d->Hz[i]);
 	}
 
 	brd->status.ser_num = getSerialNumber(brd);
-	DEBUG_LOG("brd->status.ser_num = %d", brd->status.ser_num);
+	DSMLOG_DEBUG("brd->status.ser_num = %d", brd->status.ser_num);
 	
 	if ((ret = A2DSetMaster(brd,a2d->master)) < 0) return ret;
 
 	A2DSetOffset(brd);
 
-	DEBUG_LOG("success!");
+	DSMLOG_DEBUG("success!");
 	return 0;
 }
 
@@ -850,11 +858,11 @@ static void* A2DSetupThread(void *thread_arg)
 	int ret = 0;
 
 	ret = A2DSetup(brd);
-	DEBUG_LOG("ret = %d", ret);
+	DSMLOG_DEBUG("ret = %d", ret);
 	if (ret < 0) return (void*)-ret;
 
 // Make sure SYNC is cleared so clocks are running
-	DEBUG_LOG("Clearing SYNC");
+	DSMLOG_DEBUG("Clearing SYNC");
 	A2DClearSYNC(brd);
 
 
@@ -864,24 +872,24 @@ static void* A2DSetupThread(void *thread_arg)
 
     // Start then reset the A/D's
     // Start conversions
-	DEBUG_LOG("Starting A/D's");
+	DSMLOG_DEBUG("Starting A/D's");
    	A2DStartAll(brd);
 
 	rtl_usleep(50000); // Let them run a few milliseconds (50)
 
 // Then do a soft reset
-	DEBUG_LOG("Soft resetting A/D's");
+	DSMLOG_DEBUG("Soft resetting A/D's");
 	A2DResetAll(brd);
 // Configure the A/D's
-	DEBUG_LOG("Sending filter config data to A/Ds");
+	DSMLOG_DEBUG("Sending filter config data to A/Ds");
 	if ((ret = A2DConfigAll(brd)) < 0) return (void*)-ret;
 	
-	DEBUG_LOG("Resetting A/Ds");
+	DSMLOG_DEBUG("Resetting A/Ds");
 	// Reset the A/D's
 	A2DResetAll(brd);
 
 	rtl_usleep(DELAYNUM1);	// Give A/D's a chance to load
-	DEBUG_LOG("A/Ds ready for synchronous start");
+	DSMLOG_DEBUG("A/Ds ready for synchronous start");
 
 	return (void*)ret;
 }
@@ -914,7 +922,7 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 {
 	// limit rate to something reasonable
 	if (rate > IRIG_10_HZ) {
-	    DEBUG_LOG("Illegal rate for I2C temperature probe. Exceeds 10Hz");
+	    DSMLOG_WARNING("Illegal rate for I2C temperature probe. Exceeds 10Hz");
 	    return -EINVAL;
 	}
 	brd->i2c = 0x3;
@@ -923,7 +931,7 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 	if((brd->i2cTempfd = rtl_open(brd->i2cTempFifoName,
 		RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 	{
-	    DEBUG_LOG("error: opening %s: %s",
+	    DSMLOG_WARNING("error: opening %s: %s",
 		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
@@ -952,15 +960,15 @@ static void i2cTempIrigCallback(void *ptr)
     samp.timestamp = GET_MSEC_CLOCK;
     samp.size = sizeof(short);
     samp.data = A2DTemp(brd);
-    DEBUG_LOG("Brd temp %d.%1d degC", samp.data/16, (10*(samp.data%16))/16);
+    DSMLOG_DEBUG("Brd temp %d.%1d degC", samp.data/16, (10*(samp.data%16))/16);
 
     if (brd->i2cTempfd >= 0) {
 	// Write to up-fifo
 	if (rtl_write(brd->i2cTempfd, &samp,
 	    SIZEOF_DSM_SAMPLE_HEADER + samp.size) < 0) {
-	    DEBUG_LOG("error: write %s: %s",
+	    DSMLOG_WARNING("error: write %s: %s",
 		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
-	    DEBUG_LOG("shutting down this FIFO");
+	    DSMLOG_WARNING("shutting down this FIFO");
 	    rtl_close(brd->i2cTempfd);
 	    brd->i2cTempfd = 0;
 	}
@@ -994,12 +1002,12 @@ static void* A2DGetDataThread(void *thread_arg)
 	usec100.tv_sec = 0;
 	usec100.tv_nsec = 100000;
 
-	DEBUG_LOG("A2DGetDataThread starting, nreads=%d, GET_MSEC_CLOCK=%d",
+	DSMLOG_DEBUG("A2DGetDataThread starting, nreads=%d, GET_MSEC_CLOCK=%d",
 		nreads,GET_MSEC_CLOCK);
 
 	if ((i = waitFor1PPS(brd)) < 0) return (void*)-i;
 
-	DEBUG_LOG("Found 1PPS, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
+	DSMLOG_DEBUG("Found 1PPS, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
 
 	// Zero the semaphore, then start the IRIG callback routine at 100 Hz
 	rtl_sem_init(&brd->acq_sem,0,0);
@@ -1009,7 +1017,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	rtl_sem_wait(&brd->acq_sem);
 	if (brd->interrupted) return 0;
 
-	DEBUG_LOG("Got 100Hz semaphore, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
+	DSMLOG_DEBUG("Got 100Hz semaphore, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
 
 	rtl_nanosleep(&usec20,0);
 	A2DClearFIFO(brd);	// Reset FIFO
@@ -1017,7 +1025,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	if (!A2DFIFOEmpty(brd)) {
 	    int ngood = 0;
 	    int nbad = 0;
-	    DEBUG_LOG("fifo not empty");
+	    DSMLOG_WARNING("fifo not empty");
 
 	    // toss the initial data
 	    do {
@@ -1037,12 +1045,12 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 	    } while(!A2DFIFOEmpty(brd));
 
-	    DEBUG_LOG("Cleared FIFO by reading, GET_MSEC_CLOCK=%d, ngood=%d,nbad=%d",
+	    DSMLOG_WARNING("Cleared FIFO by reading, GET_MSEC_CLOCK=%d, ngood=%d,nbad=%d",
 		    GET_MSEC_CLOCK,ngood,nbad);
 
 	}
 
-	DEBUG_LOG("Starting data-acq loop, GET_MSEC_CLOCK=%d",
+	DSMLOG_DEBUG("Starting data-acq loop, GET_MSEC_CLOCK=%d",
 		GET_MSEC_CLOCK);
 
 	int latencyCnt = brd->config.latencyUsecs /
@@ -1053,7 +1061,7 @@ static void* A2DGetDataThread(void *thread_arg)
 	// buffer indices
 	int head = 0;
 	int tail = 0;
-	rtl_printf("latencyUsecs=%d, latencyCnt=%d\n",
+	DSMLOG_DEBUG("latencyUsecs=%d, latencyCnt=%d\n",
 		 brd->config.latencyUsecs,latencyCnt);
 
 	// Here's the acquisition loop
@@ -1104,15 +1112,15 @@ static void* A2DGetDataThread(void *thread_arg)
 	    }
 	    else if (!A2DFIFOEmpty(brd)) {
 	        if (!(brd->fifoNotEmpty++ % 100))
-		    DEBUG_LOG("fifo not empty %d times",brd->fifoNotEmpty);
+		    DSMLOG_WARNING("fifo not empty %d times",brd->fifoNotEmpty);
 		A2DClearFIFO(brd);	// Reset FIFO
 	    }
 
 	    if (!(++brd->readCtr % 100)) {
 		dsm_sample_time_t tnow = GET_MSEC_CLOCK;
 		if (!(brd->readCtr % 10000) || brd->nbadBufs) {
-		    DEBUG_LOG("GET_MSEC_CLOCK=%d",tnow);
-		    DEBUG_LOG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x",
+		    DSMLOG_DEBUG("GET_MSEC_CLOCK=%d",tnow);
+		    DSMLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x",
 			brd->status.status[0],
 			brd->status.status[1],
 			brd->status.status[2],
@@ -1121,7 +1129,7 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->status.status[5],
 			brd->status.status[6],
 			brd->status.status[7]);
-		    DEBUG_LOG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x",
+		    DSMLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x",
 			brd->bad[0],
 			brd->bad[1],
 			brd->bad[2],
@@ -1130,7 +1138,7 @@ static void* A2DGetDataThread(void *thread_arg)
 			brd->bad[5],
 			brd->bad[6],
 			brd->bad[7]);
-		    DEBUG_LOG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d",
+		    DSMLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d",
 			brd->nbad[0],
 			brd->nbad[1],
 			brd->nbad[2],
@@ -1163,9 +1171,9 @@ static void* A2DGetDataThread(void *thread_arg)
 		    if ((wlen = rtl_write(brd->a2dfd,brd->buffer+tail,head - tail)) <
 		    	0) {
 			int ierr = rtl_errno;	// save err
-			DEBUG_LOG("error: write %s: %s",
+			DSMLOG_WARNING("error: write %s: %s",
 				brd->a2dFifoName,rtl_strerror(rtl_errno));
-			DEBUG_LOG("shutting down this A2D");
+			DSMLOG_WARNING("shutting down this A2D");
 			closeA2D(brd,0);		// close, but don't join this thread
 			return (void*) convert_rtl_errno(ierr);
 		    }
@@ -1180,7 +1188,7 @@ static void* A2DGetDataThread(void *thread_arg)
 		else brd->skippedSamples++;
 	    }
 	}
-	DEBUG_LOG("Exiting A2DGetDataThread");
+	DSMLOG_DEBUG("Exiting A2DGetDataThread");
 	return 0;
 }
 
@@ -1198,13 +1206,13 @@ static int openA2D(struct A2DBoard* brd)
 	if((brd->a2dfd = rtl_open(brd->a2dFifoName,
 		RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 	{
-	    DEBUG_LOG("error: opening %s: %s",
+	    DSMLOG_WARNING("error: opening %s: %s",
 		    brd->a2dFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
 
 	// Establish a RT thread to allow syncing with 1PPS
-	DEBUG_LOG("1PPSThread starting, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
+	DSMLOG_DEBUG("1PPSThread starting, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
 	if (rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd) < 0)
 	    return -convert_rtl_errno(rtl_errno);
 	if (rtl_pthread_join(brd->pps_thread, &thread_status) < 0) {
@@ -1213,7 +1221,7 @@ static int openA2D(struct A2DBoard* brd)
 	}
 	brd->pps_thread = 0;
 	if (thread_status != (void*)0) return -(int)thread_status;
-	DEBUG_LOG("1PPSThread done, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
+	DSMLOG_DEBUG("1PPSThread done, GET_MSEC_CLOCK=%d", GET_MSEC_CLOCK);
 
 	A2DResetAll(brd);	// Send Abort command to all A/Ds
 	A2DStatusAll(brd);	// Read status from all A/Ds
@@ -1224,10 +1232,10 @@ static int openA2D(struct A2DBoard* brd)
 	A2DSetSYNC(brd);	// Stop A/D clocks
 	A2DAuto(brd);		// Switch to automatic mode
 
-	DEBUG_LOG("Final FIFO Clear");
+	DSMLOG_DEBUG("Final FIFO Clear");
 	A2DClearFIFO(brd);	// Reset FIFO
 
-	DEBUG_LOG("Setting 1PPS Enable line");
+	DSMLOG_DEBUG("Setting 1PPS Enable line");
 	A2D1PPSEnable(brd);// Enable sync with 1PPS
 
 	// Start data acquisition thread
@@ -1308,7 +1316,7 @@ static int ioctlCallback(int cmd, int board, int port,
 	struct A2DBoard* brd = boardInfo + board;
 
 #ifdef DEBUG
-  	DEBUG_LOG("ioctlCallback cmd=%x board=%d port=%d len=%d",
+  	DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d",
 	    cmd,board,port,len);
 #endif
 
@@ -1316,7 +1324,7 @@ static int ioctlCallback(int cmd, int board, int port,
 	{
   	case GET_NUM_PORTS:		/* user get */
 		if (len != sizeof(int)) break;
-		DEBUG_LOG("GET_NUM_PORTS");
+		DSMLOG_DEBUG("GET_NUM_PORTS");
 		*(int *) buf = NDEVICES;	
 		ret = sizeof(int);
   		break;
@@ -1332,26 +1340,26 @@ static int ioctlCallback(int cmd, int board, int port,
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_SET)) break;	// invalid length
 		if(brd->busy) {
-			DEBUG_LOG("A2D's running. Can't reset");
+			DSMLOG_WARNING("A2D's running. Can't reset");
 			ret = -EBUSY;
 			break;
 		}
-		DEBUG_LOG("A2D_SET_IOCTL");
+		DSMLOG_DEBUG("A2D_SET_IOCTL");
 		memcpy(&brd->config,(A2D_SET*)buf,sizeof(A2D_SET));
 
-		DEBUG_LOG("Starting setup thread");
+		DSMLOG_DEBUG("Starting setup thread");
 		rtl_pthread_create(&brd->setup_thread, NULL, A2DSetupThread, brd);
 		rtl_pthread_join(brd->setup_thread, &thread_status);
-		DEBUG_LOG("Setup thread finished");
+		DSMLOG_DEBUG("Setup thread finished");
 		brd->setup_thread = 0;
 
 		if (thread_status != (void*)0) ret = -(int)thread_status;
 		else ret = 0;		// OK
-		DEBUG_LOG("A2D_SET_IOCTL break; ret=%d", ret);
+		DSMLOG_DEBUG("A2D_SET_IOCTL break; ret=%d", ret);
    		break;
 
   	case A2D_CAL_IOCTL:		/* user set */
-		DEBUG_LOG("A2D_CAL_IOCTL");
+		DSMLOG_DEBUG("A2D_CAL_IOCTL");
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_CAL)) break;	// invalid length
 		memcpy(&brd->cal,(A2D_CAL*)buf,sizeof(A2D_CAL));
@@ -1371,25 +1379,25 @@ static int ioctlCallback(int cmd, int board, int port,
 		    brd->acq_thread = 0;
 		}
 
-		DEBUG_LOG("A2D_RUN_IOCTL");
+		DSMLOG_DEBUG("A2D_RUN_IOCTL");
 		ret = openA2D(brd);
-		DEBUG_LOG("A2D_RUN_IOCTL finished");
+		DSMLOG_DEBUG("A2D_RUN_IOCTL finished");
 		break;
 
   	case A2D_STOP_IOCTL:
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
-		DEBUG_LOG("A2D_STOP_IOCTL");
+		DSMLOG_DEBUG("A2D_STOP_IOCTL");
 		ret = closeA2D(brd,1);
 		break;
   	case A2D_OPEN_I2CT:
-		DEBUG_LOG("A2D_OPEN_I2CT");
+		DSMLOG_DEBUG("A2D_OPEN_I2CT");
 		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(int)) break;	// invalid length
 		int rate = *(int*)buf;
 		ret = openI2CTemp(brd,rate);
 		break;
   	case A2D_CLOSE_I2CT:
-		DEBUG_LOG("A2D_CLOSE_I2CT");
+		DSMLOG_DEBUG("A2D_CLOSE_I2CT");
 		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		ret = closeI2CTemp(brd);
 		break;
@@ -1464,7 +1472,7 @@ void cleanup_module(void)
         rtl_gpos_free(boardInfo);
         boardInfo = 0;
 
-  	DEBUG_LOG("Analog cleanup complete");
+  	DSMLOG_DEBUG("Analog cleanup complete");
 
 	return;
 }
@@ -1478,15 +1486,14 @@ int init_module()
 
 	boardInfo = 0;
 
-  	rtl_printf("(%s) %s compiled on %s at %s\n\n",
-	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
+  	DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
 
 	/* count non-zero ioport addresses, gives us the number of boards */
 	for (ib = 0; ib < MAX_A2D_BOARDS; ib++)
 	    if (ioport[ib] == 0) break;
 	numboards = ib;
 	if (numboards == 0) {
-	    DEBUG_LOG("No boards configured, all ioport[]==0");
+	    DSMLOG_WARNING("No boards configured, all ioport[]==0");
 	    goto err;
 	}
 
@@ -1543,7 +1550,7 @@ int init_module()
 	    unsigned int addr =  ioport[ib] + SYSTEM_ISA_IOPORT_BASE;
 	    // Get the mapped board address
 	    if (check_region(addr, A2DIOWIDTH)) {
-		DEBUG_LOG("ioports at 0x%x already in use", addr);
+		DSMLOG_WARNING("ioports at 0x%x already in use", addr);
 		goto err;
 	    }
 
@@ -1567,7 +1574,7 @@ int init_module()
 	    // remove broken device file before making a new one
 	    if ((rtl_unlink(brd->a2dFifoName) < 0 && rtl_errno != RTL_ENOENT)
 	    	|| rtl_mkfifo(brd->a2dFifoName, 0666) < 0) {
-		DEBUG_LOG("error: unlink/mkfifo %s: %s",
+		DSMLOG_WARNING("error: unlink/mkfifo %s: %s",
 			brd->a2dFifoName,rtl_strerror(rtl_errno));
 		error = -convert_rtl_errno(rtl_errno);
 		goto err;
@@ -1581,14 +1588,14 @@ int init_module()
 	    // remove broken device file before making a new one
 	    if ((rtl_unlink(brd->i2cTempFifoName) < 0 && rtl_errno != RTL_ENOENT)
 	    	|| rtl_mkfifo(brd->i2cTempFifoName, 0666) < 0) {
-		DEBUG_LOG("error: unlink/mkfifo %s: %s",
+		DSMLOG_WARNING("error: unlink/mkfifo %s: %s",
 			brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 		error = -convert_rtl_errno(rtl_errno);
 		goto err;
 	    }
 	}
 
-	DEBUG_LOG("A2D init_module complete.");
+	DSMLOG_DEBUG("A2D init_module complete.");
 
 	return 0;
 err:

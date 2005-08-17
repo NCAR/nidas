@@ -468,9 +468,9 @@ int init_module(void)
     int retval = -EINVAL;
     int ib,ip;
 
-    numboards = dsm_serial_get_numboards();
+    DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
 
-    DSMLOG_NOTICE("init module\n");
+    numboards = dsm_serial_get_numboards();
 
     if (numboards == 0) {
 	DSMLOG_ERR("No boards configured\n");
