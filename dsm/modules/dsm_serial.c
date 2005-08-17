@@ -171,11 +171,11 @@ static int termios_get_baud_rate(struct termios* termios)
                                                                                 
         i = cflag & CBAUD;
 #ifdef DEBUG
-	rtl_printf("get_baud_rate, i=%d\n",i);
+	rtl_printf(KERN_DEBUG "get_baud_rate, i=%d\n",i);
 #endif
         if (i & CBAUDEX) {
 #ifdef DEBUG
-		rtl_printf("get_baud_rate, CBAUDEX\n");
+		rtl_printf(KERN_DEBUG "get_baud_rate, CBAUDEX\n");
 #endif
                 i &= ~CBAUDEX;
                 if (i < 1 || i+15 >= n_baud_table)
@@ -184,7 +184,7 @@ static int termios_get_baud_rate(struct termios* termios)
                         i += 15;
         }
 #ifdef DEBUG
-	rtl_printf("get_baud_rate, i=%d\n",i);
+	rtl_printf(KERN_DEBUG "get_baud_rate, i=%d\n",i);
 #endif
                                                                                 
         return baud_table[i];
@@ -338,7 +338,7 @@ static int autoconfig(struct serialPort* port)
     port->type = PORT_UNKNOWN;
 									    
 #ifdef SERIAL_DEBUG_AUTOCONF
-    rtl_printf("Testing dsmser%d (0x%04lx)...\n", port->portNum,
+    rtl_printf(KERN_DEBUG "Testing dsmser%d (0x%04lx)...\n", port->portNum,
 	   port->addr - SYSTEM_ISA_IOPORT_BASE);
 #endif
 									    
@@ -370,7 +370,7 @@ static int autoconfig(struct serialPort* port)
     serial_outp(port, UART_IER, scratch);
     if (scratch2 || scratch3 != 0x0F) {
 #ifdef SERIAL_DEBUG_AUTOCONF
-	rtl_printf("serial: dsmser%d: simple autoconfig failed "
+	rtl_printf(KERN_WARNING "serial: dsmser%d: simple autoconfig failed "
 	       "(%02x, %02x)\n", port->portNum,
 	       scratch2, scratch3);
 #endif
@@ -397,7 +397,7 @@ static int autoconfig(struct serialPort* port)
     serial_outp(port, UART_MCR, save_mcr);
     if (status1 != 0x90) {
 #ifdef SERIAL_DEBUG_AUTOCONF
-	rtl_printf("serial: dsmser%d: no UART loopback failed\n",
+	rtl_printf(KERN_WARNING "serial: dsmser%d: no UART loopback failed\n",
 	       port->portNum);
 #endif
 	rtl_spin_unlock_irqrestore(&port->lock,flags);
@@ -496,15 +496,15 @@ out:
     serial_outp(port, UART_FCR, (UART_FCR_ENABLE_FIFO |
 				 UART_FCR_CLEAR_RCVR |
 				 UART_FCR_CLEAR_XMIT));
-    rtl_printf("cleared FIFO\n");
+    rtl_printf(KERN_DEBUG "cleared FIFO\n");
     serial_outp(port, UART_FCR, 0);
-    rtl_printf("disabled FIFO\n");
+    rtl_printf(KERN_DEBUG "disabled FIFO\n");
     (void)serial_in(port, UART_RX);
     serial_outp(port, UART_IER, 0);
 									    
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 
-    rtl_printf("uart is a %s\n",uart_config[port->type].name);
+    rtl_printf(KERN_DEBUG "uart is a %s\n",uart_config[port->type].name);
 #ifdef DEBUG
 #endif
     return 0;
@@ -545,7 +545,7 @@ static int change_speed(struct serialPort* port, struct termios* termios)
     /* Determine divisor based on baud rate */
     baud = termios_get_baud_rate(termios);
 #ifdef DEBUG
-    rtl_printf("baud=%d\n",baud);
+    rtl_printf(KERN_DEBUG "baud=%d\n",baud);
 #endif
     if (!baud)
 	baud = 9600;    /* B0 transition handled in rs_set_termios */
@@ -629,7 +629,7 @@ static int change_speed(struct serialPort* port, struct termios* termios)
     }
 
 #ifdef DEBUG
-    rtl_printf("baud=%d, quot=%d, 0x%x\n",baud,quot,quot);
+    rtl_printf(KERN_DEBUG "baud=%d, quot=%d, 0x%x\n",baud,quot,quot);
 #endif
 
 
@@ -645,7 +645,7 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 		serial_outp(port, UART_FCR, UART_FCR_ENABLE_FIFO);
 	}
 	serial_outp(port, UART_FCR, fcr);       /* set fcr */
-	rtl_printf("set FCR\n");
+	rtl_printf(KERN_DEBUG "set FCR\n");
     }
 
     memcpy(&port->termios,termios,sizeof(struct termios));
@@ -728,7 +728,7 @@ static int uart_startup(struct serialPort* port)
 					 UART_FCR_CLEAR_RCVR |
 					 UART_FCR_CLEAR_XMIT));
 	    serial_outp(port, UART_FCR, 0);
-	    rtl_printf("uart_startup: cleared FIFO\n");
+	    rtl_printf(KERN_DEBUG "uart_startup: cleared FIFO\n");
     }
 
     /*
@@ -746,7 +746,7 @@ static int uart_startup(struct serialPort* port)
      */
     if (!(port->flags & ASYNC_BUGGY_UART) &&
 	(serial_inp(port, UART_LSR) == 0xff)) {
-	    rtl_printf("ttyS%d: LSR safety check engaged!\n", port->portNum);
+	    rtl_printf(KERN_WARNING "ttyS%d: LSR safety check engaged!\n", port->portNum);
 	    retval = -RTL_ENODEV;
 	    goto errout;
     }
@@ -877,7 +877,7 @@ static int set_prompt(struct serialPort* port,
     memcpy(&port->prompt,prompt,sizeof(struct dsm_serial_prompt));
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 #ifdef DEBUG
-    rtl_printf("prompt=\"%s\", len=%d, rate=%d\n",
+    rtl_printf(KERN_DEBUG "prompt=\"%s\", len=%d, rate=%d\n",
     	port->prompt.str,port->prompt.len,(int)port->prompt.rate);
 #endif
     return 0;
@@ -908,7 +908,7 @@ static void port_prompter(void* privateData)
 	port->output_char_overflows += (port->prompt.len - res);
     }
 #ifdef DEBUG
-    rtl_printf("queue_transmit_chars %s len=%d, res=%d\n",
+    rtl_printf(KERN_DEBUG "queue_transmit_chars %s len=%d, res=%d\n",
 		    port->prompt.str,port->prompt.len,res);
 #endif
 }
@@ -989,7 +989,7 @@ static int get_status(struct serialPort* port,
     /* Note we're not doing rtl_spin_lock_irqsave here */
 
 #ifdef DEBUG
-    rtl_printf("pe_cnt=%d,oe_cnt=%d\n",port->pe_cnt,port->oe_cnt);
+    rtl_printf(KERN_DEBUG "pe_cnt=%d,oe_cnt=%d\n",port->pe_cnt,port->oe_cnt);
 #endif
 
     status->pe_cnt = port->pe_cnt;
@@ -1022,7 +1022,7 @@ static int open_port(struct serialPort* port)
     if (port->type == PORT_UNKNOWN &&
     	(retval = autoconfig(port)) < 0) return retval;
 #ifdef DEBUG
-    rtl_printf("open_port, uart=%s\n",uart_config[port->type]);
+    rtl_printf(KERN_DEBUG "open_port, uart=%s\n",uart_config[port->type]);
 #endif
 
     retval = uart_startup(port);
@@ -1091,7 +1091,7 @@ static int write_eeprom(struct serialBoard* board)
 	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
     }
     if (!ntry) {
-      rtl_printf("enable EEPROM write failed: timeout\n");
+      rtl_printf(KERN_WARNING "enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
       return -RTL_EIO;
     }
@@ -1111,7 +1111,7 @@ static int write_eeprom(struct serialBoard* board)
 	    if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
 	}
 	if (!ntry) {
-	  rtl_printf("writing config for port %d to EEPROM failed: timeout\n",
+	  rtl_printf(KERN_WARNING "writing config for port %d to EEPROM failed: timeout\n",
 	  	ip);
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
 	  return -RTL_EIO;
@@ -1128,7 +1128,7 @@ static int write_eeprom(struct serialBoard* board)
 	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
     }
     if (!ntry) {
-      rtl_printf("enable EEPROM write failed: timeout\n");
+      rtl_printf(KERN_WARNING "enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
       return -RTL_EIO;
     }
@@ -1475,7 +1475,7 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
     for (;;) {
 	iir = serial_in(port,UART_IIR) & 0x3f;
 #ifdef DEBUG
-	rtl_printf("iir=0x%x\n",iir);
+	rtl_printf(KERN_DEBUG "iir=0x%x\n",iir);
 #endif
 	if (iir & UART_IIR_NO_INT) break;
 	msr = serial_in(port, UART_MSR);
@@ -1483,7 +1483,7 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	switch (iir) {
 	case UART_IIR_THRI:	// 0x02: transmitter holding register empty
 #ifdef DEBUG
-	    rtl_printf("UART_IIR_THRI interrupt\n");
+	    rtl_printf(KERN_DEBUG "UART_IIR_THRI interrupt\n");
 #endif
 	    transmit_chars(port);
 	    lsr = serial_in(port,UART_LSR);
@@ -1492,34 +1492,34 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	case UART_IIR_RDI:	// 0x04: received data ready
 	case WIN_COM8_IIR_RDTO:	// 0x0c received data timeout
 #ifdef DEBUG
-	    rtl_printf("UART_IIR_RDI interrupt\n");
+	    rtl_printf(KERN_DEBUG "UART_IIR_RDI interrupt\n");
 #endif
 	    lsr = serial_in(port,UART_LSR);
 	    receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_MSI:	// 0x00 modem status change
-	    rtl_printf("UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
+	    rtl_printf(KERN_DEBUG "UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
 	    /* ignore for now */
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_RLSI:	// 0x06 line status interrupt (error)
-	    rtl_printf("UART_IIR_RLSI interrupt, LSR=0x%x\n",lsr);
+	    rtl_printf(KERN_DEBUG "UART_IIR_RLSI interrupt, LSR=0x%x\n",lsr);
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
-	    rtl_printf("ISR_RSC interrupt, IIR=0x%x\n",iir);
+	    rtl_printf(KERN_DEBUG "ISR_RSC interrupt, IIR=0x%x\n",iir);
 	    // do we read this character now?
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
-	    rtl_printf("ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
+	    rtl_printf(KERN_DEBUG "ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
@@ -1540,13 +1540,13 @@ unsigned int dsm_serial_irq_handler(unsigned int irq,
     int retval = 0;
 
 #ifdef DEBUG
-    rtl_printf("dsm_irq_handler entered\n");
+    rtl_printf(KERN_DEBUG "dsm_irq_handler entered\n");
 #endif
 
     // read board interrupt id register
     while ((bstat = serial_inp(board,COM8_BC_IIR)) & board->int_mask) {
 #ifdef DEBUG
-	rtl_printf("dsm_irq_handler bstat=0x%x\n", bstat);
+	rtl_printf(KERN_DEBUG "dsm_irq_handler bstat=0x%x\n", bstat);
 #endif
 	pmask = 1;
 	for (iport = 0; iport < board->numports; iport++) {
@@ -1576,7 +1576,7 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
 {
     int retval = -RTL_EACCES;
 #ifdef DEBUG
-    rtl_printf("rtl_dsm_ser_open\n");
+    rtl_printf(KERN_NOTICE "rtl_dsm_ser_open\n");
 #endif
     // if (!(filp->f_flags & RTL_O_NONBLOCK)) return retval;
     struct serialPort* port = (struct serialPort*) filp->f_priv;
@@ -1590,7 +1590,7 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
 static int rtl_dsm_ser_release(struct rtl_file* filp)
 {
     int retval;
-    rtl_printf("rtl_dsm_ser_release\n");
+    rtl_printf(KERN_NOTICE "rtl_dsm_ser_release\n");
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     if ((retval = close_port(port)) != 0) return retval;
     return 0;
@@ -1651,7 +1651,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 	    if (rtl_sem_timedwait(&port->sample_sem,&timeout) < 0)
 	    {
 		if (rtl_errno == RTL_EINTR) {
-			rtl_printf("dsm_ser_read sem_wait interrupt\n");
+			rtl_printf(KERN_WARNING "dsm_ser_read sem_wait interrupt\n");
 			return -rtl_errno;
 		}
 	        else if (rtl_errno == RTL_ETIMEDOUT) {
@@ -1667,7 +1667,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 			}
 		}
 		else {
-		    rtl_printf("dsm_ser_read sem_wait unknown error: %d\n",
+		    rtl_printf(KERN_ERR "dsm_ser_read sem_wait unknown error: %d\n",
 			rtl_errno);
 		    return -rtl_errno;
 		}
@@ -1695,7 +1695,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
     }
 
 #ifdef DEBUG
-    rtl_printf("ser_read, retval=%d\n",retval);
+    rtl_printf(KERN_DEBUG "ser_read, retval=%d\n",retval);
 #endif
     return retval;
 }
@@ -1707,7 +1707,7 @@ static rtl_ssize_t rtl_dsm_ser_write(struct rtl_file *filp, const char *buf, rtl
 {
     struct serialPort* port = (struct serialPort*) filp->f_priv;
 
-    // rtl_printf("dsm_ser_write, count=%d\n",count);
+    // rtl_printf(KERN_DEBUG "dsm_ser_write, count=%d\n",count);
     int res = queue_transmit_chars(port,buf,count);
     return res;
 }
@@ -1725,87 +1725,87 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
     switch (request) {
     case DSMSER_TCSETS:		/* user set of termios parameters */
 #ifdef DEBUG
-	rtl_printf("DSMSER_TCSETS\n");
+	rtl_printf(KERN_DEBUG "DSMSER_TCSETS\n");
 #endif
 	termios = (struct termios*) arg;
 #ifdef DEBUG
-	rtl_printf("sizeof(struct termios)=%d\n",sizeof(struct termios));
-	rtl_printf("termios=0x%x\n",termios);
-	rtl_printf("c_iflag=0x%x %x\n",
+	rtl_printf(KERN_DEBUG "sizeof(struct termios)=%d\n",sizeof(struct termios));
+	rtl_printf(KERN_DEBUG "termios=0x%x\n",termios);
+	rtl_printf(KERN_DEBUG "c_iflag=0x%x %x\n",
 	    &(termios->c_iflag),termios->c_iflag);
-	rtl_printf("c_oflag=0x%x %x\n",
+	rtl_printf(KERN_DEBUG "c_oflag=0x%x %x\n",
 	    &(termios->c_oflag),termios->c_oflag);
-	rtl_printf("c_cflag=0x%x %x\n",
+	rtl_printf(KERN_DEBUG "c_cflag=0x%x %x\n",
 	    &(termios->c_cflag),termios->c_cflag);
-	rtl_printf("c_lflag=0x%x %x\n",
+	rtl_printf(KERN_DEBUG "c_lflag=0x%x %x\n",
 	    &(termios->c_lflag),termios->c_lflag);
-	rtl_printf("c_line=0x%x\n", (void *)&(termios->c_line));
-	rtl_printf("c_cc=0x%x\n", (void *)&(termios->c_cc[0]));
+	rtl_printf(KERN_DEBUG "c_line=0x%x\n", (void *)&(termios->c_line));
+	rtl_printf(KERN_DEBUG "c_cc=0x%x\n", (void *)&(termios->c_cc[0]));
 #endif
 	retval = change_speed(port,termios);
 	break;
     case DSMSER_TCGETS:		/* user get of termios parameters */
 #ifdef DEBUG
-	rtl_printf("DSMSER_TCGETS\n");
+	rtl_printf(KERN_DEBUG "DSMSER_TCGETS\n");
 #endif
 	retval = tcgetattr(port, (struct termios*) arg);
 	break;
     case DSMSER_WEEPROM:	/* write config to eeprom */
 #ifdef DEBUG
-	rtl_printf("DSMSER_WEEPROM\n");
+	rtl_printf(KERN_DEBUG "DSMSER_WEEPROM\n");
 #endif
 	retval = write_eeprom(port->board);
 	break;
     case DSMSER_SET_PROMPT:	/* set the prompt for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_SET_PROMPT\n");
+	rtl_printf(KERN_DEBUG "DSMSER_SET_PROMPT\n");
 #endif
 	retval = set_prompt(port,(struct dsm_serial_prompt*)arg);
 	break;
     case DSMSER_GET_PROMPT:	/* get the prompt for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_GET_PROMPT\n");
+	rtl_printf(KERN_DEBUG "DSMSER_GET_PROMPT\n");
 #endif
 	retval = get_prompt(port, (struct dsm_serial_prompt*)arg);
 	break;
     case DSMSER_START_PROMPTER:	/* start the prompter for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_START_PROMPTER\n");
+	rtl_printf(KERN_DEBUG "DSMSER_START_PROMPTER\n");
 #endif
 	retval = start_prompter(port);
 	break;
     case DSMSER_STOP_PROMPTER:	/* stop the prompter for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_STOP_PROMPTER\n");
+	rtl_printf(KERN_DEBUG "DSMSER_STOP_PROMPTER\n");
 #endif
 	retval = stop_prompter(port);
 	break;
     case DSMSER_SET_RECORD_SEP:	/* set the prompt for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_SET_RECORD_SEP\n");
+	rtl_printf(KERN_DEBUG "DSMSER_SET_RECORD_SEP\n");
 #endif
 	retval = set_record_sep(port, (struct dsm_serial_record_info*)arg);
 	break;
     case DSMSER_GET_RECORD_SEP:	/* get the prompt for this port */
 #ifdef DEBUG
-	rtl_printf("DSMSER_GET_RECORD_SEP\n");
+	rtl_printf(KERN_DEBUG "DSMSER_GET_RECORD_SEP\n");
 #endif
 	retval = get_record_sep(port, (struct dsm_serial_record_info*)arg);
 	break;
     case DSMSER_GET_STATUS:	/* get the status parameters */
 #ifdef DEBUG
-	rtl_printf("DSMSER_GET_STATUS\n");
+	rtl_printf(KERN_DEBUG "DSMSER_GET_STATUS\n");
 #endif
 	retval = get_status(port, (struct dsm_serial_status*)arg);
 	break;
     case DSMSER_SET_LATENCY:	/* set the buffering latency, in usecs */
 #ifdef DEBUG
-	rtl_printf("DSMSER_SET_LATENCY_USEC\n");
+	rtl_printf(KERN_DEBUG "DSMSER_SET_LATENCY_USEC\n");
 #endif
 	retval = set_latency_usec(port, *(long*)arg);
 	break;
     default:
-	rtl_printf("%s: unknown ioctl cmd\n",devprefix);
+	rtl_printf(KERN_ERR "%s: unknown ioctl cmd\n",devprefix);
 	break;
     }
     return retval;
@@ -1814,7 +1814,7 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
 
 static int rtl_dsm_ser_poll_handler(const struct rtl_sigaction *sigact)
 {
-    rtl_printf("poll_handler called\n");
+    rtl_printf(KERN_DEBUG "poll_handler called\n");
     return 0;
 }
 
@@ -1883,7 +1883,9 @@ int init_module(void)
     unsigned long addr;
     char devname[128];
 
-    rtl_printf("(%s) %s: compiled on %s at %s\n",
+    rtl_printf(KERN_DEBUG "DEBUG (%s) %s: compiled on %s at %s\n",
+	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
+    rtl_printf(KERN_NOTICE "NOTICE (%s) %s: compiled on %s at %s\n",
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
     /* check board types to see how many boards are configured */
@@ -1892,7 +1894,7 @@ int init_module(void)
     numboards = ib;
 
     if (numboards == 0) {
-	rtl_printf("No boards configured, all brdtype[]==BOARD_UNKNOWN\n");
+	rtl_printf(KERN_ERR "No boards configured, all brdtype[]==BOARD_UNKNOWN\n");
 	goto err0;
     }
 
@@ -1902,7 +1904,7 @@ int init_module(void)
     numirqs = ib;
 
     if (numirqs != numboards) {
-	rtl_printf("incorrect number of IRQs, should be %d of them\n",
+	rtl_printf(KERN_ERR "incorrect number of IRQs, should be %d of them\n",
 		numboards);
 	goto err0;
     }
@@ -1913,7 +1915,7 @@ int init_module(void)
     numioport0s = ib;
 
     if (numioport0s < numboards)  {
-	rtl_printf("incorrect number of ioport0 addresses, should be at least %d\n",
+	rtl_printf(KERN_ERR "incorrect number of ioport0 addresses, should be at least %d\n",
 		numboards);
 	goto err0;
     }
@@ -1938,7 +1940,7 @@ int init_module(void)
 	retval = -EBUSY;
 	addr = SYSTEM_ISA_IOPORT_BASE + ioport[ib];
 	if (check_region(addr, 8)) {
-	    rtl_printf("dsm_serial: ioports at 0x%x already in use\n",addr);
+	    rtl_printf(KERN_ERR "dsm_serial: ioports at 0x%x already in use\n",addr);
 	    goto err1;
 	}
 	request_region(addr, 8, "dsm_serial");
@@ -1950,11 +1952,11 @@ int init_module(void)
 	    boardInfo[ib].numports = 8;
 	    break;
 	default:
-	    rtl_printf("unknown board type: %d\n",boardInfo[ib].type);
+	    rtl_printf(KERN_ERR "unknown board type: %d\n",boardInfo[ib].type);
 	    goto err1;
 	}
 #ifdef DEBUG
-	rtl_printf("numports=%d\n",boardInfo[ib].numports);
+	rtl_printf(KERN_DEBUG "numports=%d\n",boardInfo[ib].numports);
 #endif
 
 	retval = -ENOMEM;
@@ -1978,7 +1980,7 @@ int init_module(void)
 	    addr = SYSTEM_ISA_IOPORT_BASE + port->ioport;
 	    retval = -EBUSY;
 	    if (check_region(addr, 8)) {
-		rtl_printf("dsm_serial: ioports at 0x%x already in use\n",
+		rtl_printf(KERN_ERR "dsm_serial: ioports at 0x%x already in use\n",
 			addr);
 		goto err1;
 	    }
@@ -2006,7 +2008,7 @@ int init_module(void)
 	    if (boardirq == 0) boardirq = port->irq;
 	    retval = -EINVAL;
 	    if (boardirq != port->irq) {
-	        rtl_printf("current version only supports one IRQ per board\n");
+	        rtl_printf(KERN_ERR "current version only supports one IRQ per board\n");
 		goto err1;
 	    }
 
@@ -2020,7 +2022,7 @@ int init_module(void)
 	    if (boardirq == 0) boardirq = port->irq;
 	    retval = -EINVAL;
 	    if (boardirq != port->irq) {
-	        rtl_printf("current version only supports one IRQ per board\n");
+	        rtl_printf(KERN_ERR "current version only supports one IRQ per board\n");
 		goto err1;
 	    }
 
@@ -2031,9 +2033,9 @@ int init_module(void)
 		serial_out(boardInfo + ib,COM8_BC_IR,ip);
 		unsigned char x;
 		x = serial_in(boardInfo + ib,COM8_BC_BAR);
-		rtl_printf("addr=0x%x, enabled=0x%x\n",
+		rtl_printf(KERN_DEBUG "addr=0x%x, enabled=0x%x\n",
 		    (x & 0x7f) << 3,(x & 0x80));
-		rtl_printf("irq=%d\n",
+		rtl_printf(KERN_DEBUG "irq=%d\n",
 		    serial_in(boardInfo + ib,COM8_BC_IAR) & 0xf);
 #endif
 		
@@ -2048,9 +2050,9 @@ int init_module(void)
 		/* read ioport address and irqs for ports on board */
 		serial_out(boardInfo + ib,COM8_BC_IR,ip);
 		x = serial_in(boardInfo + ib,COM8_BC_BAR);
-		rtl_printf("addr=0x%x, enabled=0x%x\n",
+		rtl_printf(KERN_DEBUG "addr=0x%x, enabled=0x%x\n",
 		    (x & 0x7f) << 3,(x & 0x80));
-		rtl_printf("irq=%d\n",
+		rtl_printf(KERN_DEBUG "irq=%d\n",
 		    serial_in(boardInfo + ib,COM8_BC_IAR) & 0xf);
 #endif
 		break;
@@ -2134,7 +2136,7 @@ err0:
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-    rtl_printf("cleanup module: %s\n",devprefix);
+    rtl_printf(KERN_NOTICE "cleanup module: %s\n",devprefix);
     int ib, ip,i;
     for (ib = 0; ib < numboards; ib++) {
 	if (boardInfo[ib].irq) rtl_free_isa_irq(boardInfo[ib].irq);
@@ -2164,7 +2166,7 @@ void cleanup_module (void)
 		rtl_sem_destroy(&port->sample_sem);
 
 		if (port->devname) {
-		    rtl_printf("rtl_unregister_dev: %s\n",port->devname);
+		    rtl_printf(KERN_DEBUG "rtl_unregister_dev: %s\n",port->devname);
 		    rtl_unregister_dev(port->devname);
 		    rtl_gpos_free(port->devname);
 		    port->devname = 0;

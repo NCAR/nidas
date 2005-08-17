@@ -291,7 +291,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
 #ifdef CHECK_REENTRANT
     if (running) {
 	if (!(n_reentrant++ % 1000))
-		rtl_printf("demux running, n_reentrant=%d\n",
+		rtl_printf(KERN_DEBUG "demux running, n_reentrant=%d\n",
 			n_reentrant);
     }
     running = 1;
@@ -301,7 +301,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
 
     if (!irq_status) {
 #ifdef COUNT_SPURIOUS_0
-	if (!(spurious0++ % 1000)) rtl_printf("%d ISA interrupts with status==0\n",
+	if (!(spurious0++ % 1000)) rtl_printf(KERN_DEBUG "%d ISA interrupts with status==0\n",
 		spurious0);
 #endif
 #ifdef CHECK_REENTRANT
@@ -338,7 +338,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
 #ifdef COUNT_SPURIOUS
 	if (irq_status) {	// not completely cleared
 	    if (!(spurious++ % 1))
-		rtl_printf("%d spurious ISA interrupts, status=0x%x\n",
+		rtl_printf(KERN_DEBUG "%d spurious ISA interrupts, status=0x%x\n",
 		    spurious,irq_status);
 	}
 #endif
@@ -348,7 +348,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
 	irq_status = VIPER_ISA_IRQ_STATUS & 0x00FF;
 	if (irq_status != (irq_status & rtl_isa_irq_enabled_mask)) {
 	    if (!(spurious++ % 1))
-		    rtl_printf("%d spurious ISA interrupts, status=0x%x\n",
+		    rtl_printf(KERN_DEBUG "%d spurious ISA interrupts, status=0x%x\n",
 			spurious,irq_status);
 	    irq_status &= rtl_isa_irq_enabled_mask;
 	}
@@ -395,7 +395,7 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callba
     for (i = 0; i < NUM_ISA_IRQS; i++) {
 	if (isa_irqs[i] == irq) {
 
-	    rtl_printf("requesting isa irq=%d, index=%d\n",irq,i);
+	    rtl_printf(KERN_DEBUG "requesting isa irq=%d, index=%d\n",irq,i);
 
 	    ret = -RTL_EBUSY;
 	    if (isa_isrs[i]) break;	// already requested (no sharing!)
@@ -430,7 +430,7 @@ int rtl_free_isa_irq(unsigned int irq)
 
     for (i = 0; i < NUM_ISA_IRQS; i++) {
 	if (isa_irqs[i] == irq && isa_isrs[i]) {
-	    rtl_printf("freeing isa irq=%d\n",irq);
+	    rtl_printf(KERN_DEBUG "freeing isa irq=%d\n",irq);
 	    rtl_mask_isa_irq(i);
 	    if (isa_isrs[i]) rtl_gpos_free(isa_isrs[i]);
 	    isa_isrs[i] = NULL;
@@ -444,7 +444,7 @@ int rtl_free_isa_irq(unsigned int irq)
 
     rtl_spin_unlock_irqrestore(&irq_controller_lock,flags);
 
-    if (ret == -RTL_EINVAL) rtl_printf("can't free isa irq=%d\n",irq);
+    if (ret == -RTL_EINVAL) rtl_printf(KERN_ERR "can't free isa irq=%d\n",irq);
     return ret;
 }
 
@@ -459,7 +459,7 @@ void cleanup_module (void)
     /* disable ISRs */
     for (i=0; i<NUM_ISA_IRQS; i++) {
 	if (isa_isrs[i]) {
-	    rtl_printf("(%s) %s:\t IRQ %2d disabled\n",
+	    rtl_printf(KERN_DEBUG "(%s) %s: IRQ %2d disabled\n",
 		     __FILE__, __FUNCTION__, isa_irqs[i]);
 	    rtl_mask_isa_irq(i);
 	    rtl_gpos_free(isa_isrs[i]);
@@ -481,7 +481,7 @@ int init_module (void)
 
   rtl_spin_lock_init(&irq_controller_lock);
 
-  rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
+  rtl_printf(KERN_NOTICE "(%s) %s: compiled on %s at %s\n\n",
              __FILE__, __FUNCTION__, __DATE__, __TIME__);
   for (i=0; i<NUM_ISA_IRQS; i++) {
     isa_isrs[i] = NULL;
@@ -492,7 +492,7 @@ int init_module (void)
   VIPER_ISA_IRQ_ICR = ICR_AUTOCLR | ICR_RETRIG;
   set_GPIO_IRQ_edge(IRQ_TO_GPIO(VIPER_CPLD_IRQ), IRQ_EDGE);
 
-  rtl_printf("VIPER_ISA_IRQ_ICR setting=0x%x, reg=0x%x\n",
+  rtl_printf(KERN_DEBUG "VIPER_ISA_IRQ_ICR setting=0x%x, reg=0x%x\n",
   	 ICR_AUTOCLR | ICR_RETRIG,VIPER_ISA_IRQ_ICR & 0xF);
 
   irq = rtl_map_gpos_irq(VIPER_CPLD_IRQ);	/* does nothing on viper */
@@ -502,11 +502,11 @@ int init_module (void)
   {
     /* failed... */
     cleanup_module();
-    rtl_printf("(%s) %s:\t could not allocate IRQ at #%d\n",
+    rtl_printf(KERN_ERR "(%s) %s: could not allocate IRQ at #%d\n",
                __FILE__, __FUNCTION__, VIPER_CPLD_IRQ);
     return -RTL_EIO;
   }
-  rtl_printf("(%s) %s:\t allocated IRQ at #%d\n",
+  rtl_printf(KERN_DEBUG "(%s) %s: allocated IRQ at #%d\n",
 	     __FILE__, __FUNCTION__, irq);
 
   return 0;

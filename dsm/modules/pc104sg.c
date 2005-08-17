@@ -336,7 +336,7 @@ static void enableHeartBeatInt (void)
 {
     intmask |= Heartbeat_Int_Enb;
 #ifdef DEBUG
-    rtl_printf("intmask=0x%x\n",intmask);
+    rtl_printf(KERN_DEBUG "intmask=0x%x\n",intmask);
 #endif
     ackHeartBeatInt();	// reset flag too to avoid immediate interrupt
 }
