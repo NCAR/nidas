@@ -157,6 +157,16 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
     createHeader(headerStream);
 }
 
+/* local utility function to replace one character in a string
+ * with another.
+ */
+namespace {
+void replace_util(string& str,char c1, char c2) {
+    for (size_t bi; (bi = str.find(c1)) != string::npos;)
+	str.replace(bi,1,1,c2);
+}
+}
+
 void SyncRecordSource::createHeader(ostream& ost) throw()
 {
 
@@ -183,8 +193,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
 	    	"variable name \"%s\" has one or more embedded spaces, replacing with \'_\'",
 		varname.c_str());
-	    for (size_t bi = varname.find(' '); bi != string::npos; )
-	    	varname.replace(bi,1,1,'_');
+	    replace_util(varname,' ','_');
 	}
 
 	char vtypeabbr = 'o';
@@ -227,8 +236,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 		vi != varsOfRate[groupId].end(); ++vi) {
 	    const Variable* var = *vi;
 	    string varname = var->getName();
-	    for (size_t bi = varname.find(' '); bi != string::npos; )
-	    	varname.replace(bi,1,1,'_');
+	    replace_util(varname,' ','_');
 	    ost << varname << ' ';
 	}
 	ost << ';' << endl;
