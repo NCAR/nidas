@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
+#include <dsmlog.h>
 #include <ioctl_fifo.h>
 
 RTLINUX_MODULE(ioctl_fifo);
@@ -88,7 +89,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     /* in and out are from the user perspective */
     handle->inFifoName = makeDevName(devicePrefix,"_ictl_",boardNum);
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "creating %s\n",handle->inFifoName);
+    DSMLOG_DEBUG("creating %s\n",handle->inFifoName);
 #endif
 
     // remove broken device file before making a new one
@@ -107,7 +108,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 
     handle->outFifoName = makeDevName(devicePrefix,"_octl_",boardNum);
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "creating %s\n",handle->outFifoName);
+    DSMLOG_DEBUG("creating %s\n",handle->outFifoName);
 #endif
 
     // remove broken device file before making a new one
@@ -151,8 +152,8 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     rtl_sigemptyset(&sigact.sa_mask);
     sigact.sa_flags     = RTL_SA_RDONLY | RTL_SA_SIGINFO;
     if ( rtl_sigaction(RTL_SIGPOLL, &sigact, NULL ) != 0 ) {
-	rtl_printf(KERN_WARNING "%s: error in rtl_sigaction(RTL_SIGPOLL,...) for %s\n",
-	    __FILE__,handle->outFifoName);
+	DSMLOG_WARNING("error in rtl_sigaction(RTL_SIGPOLL,...) for %s\n",
+	    handle->outFifoName);
 	goto error;
     }
 
@@ -176,14 +177,14 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
   if (handle->inFifoName) {
       rtl_unlink(handle->inFifoName);
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "removed %s\n", handle->inFifoName);
+      DSMLOG_DEBUG("removed %s\n", handle->inFifoName);
 #endif
       rtl_gpos_free(handle->inFifoName);
   }
   if (handle->outFifoName) {
       rtl_unlink(handle->outFifoName);
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "removed %s\n", handle->outFifoName);
+      DSMLOG_DEBUG("removed %s\n", handle->outFifoName);
 #endif
       rtl_gpos_free(handle->outFifoName);
   }
@@ -205,8 +206,8 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
  */
 static int sendError(int fifofd,int errval, const char* msg)
 {
-  rtl_printf(KERN_WARNING "%s: sendError, errval=%d,msg=%s\n",
-  	__FILE__,errval,msg);
+  DSMLOG_WARNING("sendError, errval=%d,msg=%s\n",
+  	errval,msg);
   rtl_write(fifofd,&errval,sizeof(int));
   int len = strlen(msg) + 1;
   rtl_write(fifofd,&len,sizeof(int));
@@ -222,7 +223,7 @@ static int sendError(int fifofd,int errval, const char* msg)
 static int sendResponse(int fifofd,unsigned char* buf, int len)
 {
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "sendResponse, len=%d\n",len);
+  DSMLOG_DEBUG("sendResponse, len=%d\n",len);
 #endif
   int errval = 0;
   rtl_write(fifofd,&errval,sizeof(int));
@@ -254,14 +255,14 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   int res;
 
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "ioctlHandler entered, sig=%d, outFifofd=%d code=%d\n",
+  DSMLOG_DEBUG("ioctlHandler entered, sig=%d, outFifofd=%d code=%d\n",
   	sig,outFifofd,siginfo->si_code);
 #endif
 
 
   if (siginfo->si_code == RTL_POLL_OUT) {
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "ignoring RTL_POLL_OUT\n");
+    DSMLOG_DEBUG("ignoring RTL_POLL_OUT\n");
 #endif
     return;	// read at user end
   }
@@ -277,30 +278,30 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   rtl_pthread_mutex_unlock(&listmutex);
 
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "ioctlHandler looked for handle\n");
+  DSMLOG_DEBUG("ioctlHandler looked for handle\n");
 #endif
 
   if (handle == NULL) {
-    rtl_printf(KERN_WARNING "%s: ioctlHandler can't find handle for FIFO file descriptor %d\n",
-    	__FILE__,outFifofd);
+    DSMLOG_WARNING("ioctlHandler can't find handle for FIFO file descriptor %d\n",
+    	outFifofd);
     sendError(handle->inFifofd,RTL_EINVAL,"can't find handle for this FIFO");
     return;
   }
 
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "ioctlHandler found handle = 0x%x\n",(unsigned int)handle);
+  DSMLOG_DEBUG("ioctlHandler found handle = 0x%x\n",(unsigned int)handle);
 #endif
 
   rtl_pthread_mutex_lock(&handle->mutex);
 
   if ((nread = rtl_read(outFifofd,inputbuf,inputbufsize)) < 0) {
-    rtl_printf(KERN_WARNING "%s: ioctlHandler read failure on %s\n",
-    	__FILE__,handle->outFifoName);
+    DSMLOG_WARNING("ioctlHandler read failure on %s\n",
+    	handle->outFifoName);
     sendError(handle->inFifofd,rtl_errno,"error reading from FIFO");
     goto unlock;
   }
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "ioctlHandler read %d bytes\n",nread);
+  DSMLOG_DEBUG("ioctlHandler read %d bytes\n",nread);
 #endif
   if (nread == 0) goto unlock;
 
@@ -327,31 +328,31 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   for (inbufptr = inputbuf; inbufptr < inbufeod; ) {
 
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "chars left in buffer=%d\n",inbufeod-inbufptr);
+    DSMLOG_DEBUG("chars left in buffer=%d\n",inbufeod-inbufptr);
 #endif
 
     if (handle->readETX) {
 #ifdef DEBUG
-	rtl_printf(KERN_DEBUG "search for ETX\n");
+	DSMLOG_DEBUG("search for ETX\n");
 #endif
       for (; inbufptr < inbufeod; )  {
 #ifdef DEBUG
-	rtl_printf(KERN_DEBUG "ETX search char=%d, ETX=%d\n",(int) *inbufptr,(int)ETX);
+	DSMLOG_DEBUG("ETX search char=%d, ETX=%d\n",(int) *inbufptr,(int)ETX);
 #endif
         if (*inbufptr++ == ETX) {
 	    handle->readETX = 0;
 #ifdef DEBUG
-	    rtl_printf(KERN_DEBUG "read ETX\n");
+	    DSMLOG_DEBUG("read ETX\n");
 #endif
 	    break;
 	}
-	else rtl_printf(KERN_WARNING "%s: didn't find ETX\n",__FILE__);
+	else DSMLOG_WARNING("didn't find ETX\n");
       }
       if (inbufptr == inbufeod) break;
     }
 
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "ioctlHandler bytesRead= %d\n",handle->bytesRead);
+    DSMLOG_DEBUG("ioctlHandler bytesRead= %d\n",handle->bytesRead);
 #endif
 
     for ( ; handle->bytesRead < sizeof(struct ioctlHeader) &&
@@ -359,7 +360,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       ((unsigned char*)&(handle->header))[handle->bytesRead++] = *inbufptr++;
 
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "ioctlHandler bytesRead2= %d\n",handle->bytesRead);
+    DSMLOG_DEBUG("ioctlHandler bytesRead2= %d\n",handle->bytesRead);
 #endif
 
     if (handle->bytesRead < sizeof(struct ioctlHeader))  break;
@@ -367,25 +368,25 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     /* We now have read the cmd, port number and buffer size from the FIFO */
 
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "ioctlHandler cmd= %d\n",handle->header.cmd);
+    DSMLOG_DEBUG("ioctlHandler cmd= %d\n",handle->header.cmd);
 #endif
 
     if ((icmd = handle->icmd) < 0) {
       /* find out which cmd it is. */
       int cmd = handle->header.cmd;
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "ioctlHandler cmd= %d\n",cmd);
+      DSMLOG_DEBUG("ioctlHandler cmd= %d\n",cmd);
 #endif
 
       for (icmd = 0; icmd < handle->nioctls; icmd++)
 	if (handle->ioctls[icmd].cmd == cmd) break;
 
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "ioctlHandler icmd=%d, cmd= %d \n",icmd,cmd);
+      DSMLOG_DEBUG("ioctlHandler icmd=%d, cmd= %d \n",icmd,cmd);
 #endif
      if (icmd == handle->nioctls) {
-	rtl_printf(KERN_WARNING "%s: ioctlHandler cmd= %d not supported\n",
-		__FILE__,cmd);
+	DSMLOG_WARNING("ioctlHandler cmd= %d not supported\n",
+		cmd);
 	sendError(handle->inFifofd,RTL_EINVAL,"cmd not supported");
 	handle->bytesRead = 0;
 	handle->readETX = 1;
@@ -396,8 +397,8 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
       if (handle->header.size > handle->bufsize) {
 	  sendError(handle->inFifofd,RTL_EINVAL,"size too large");
-	  rtl_printf(KERN_WARNING "%s: header size, %d, larger than bufsize %d\n",
-	  	__FILE__,handle->header.size,handle->bufsize);
+	  DSMLOG_WARNING("header size, %d, larger than bufsize %d\n",
+	  	handle->header.size,handle->bufsize);
 	  handle->bytesRead = 0;
 	  handle->readETX = 1;
 	  handle->icmd = -1;
@@ -408,12 +409,12 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     /* user set: read data from fifo */
     if (_IOC_DIR(handle->header.cmd) & _IOC_WRITE) {
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "ioctlHandler __IOC_WRITE\n");
+      DSMLOG_DEBUG("ioctlHandler __IOC_WRITE\n");
 #endif
       handle->bytesToRead = sizeof(struct ioctlHeader) +
       	handle->header.size;
 #ifdef DEBUG
-      rtl_printf(KERN_DEBUG "ioctlHandler _IOC_WRITE, bytesToRead=%d\n",
+      DSMLOG_DEBUG("ioctlHandler _IOC_WRITE, bytesToRead=%d\n",
       	handle->bytesToRead);
 #endif
       for (; handle->bytesRead < handle->bytesToRead && inbufptr < inbufeod; )
@@ -424,7 +425,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
     /* call ioctl function on device */
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "ioctlHandler calling ioctlCallback, port=%d\n",
+    DSMLOG_DEBUG("ioctlHandler calling ioctlCallback, port=%d\n",
         handle->header.port);
 #endif
     res = handle->ioctlCallback(handle->header.cmd,
@@ -434,7 +435,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     if (res < 0) sendError(handle->inFifofd,-res,"ioctl error");
     else if (_IOC_DIR(handle->header.cmd) & _IOC_READ) {
 #ifdef DEBUG
-	rtl_printf(KERN_DEBUG "ioctlHandler __IOC_READ\n");
+	DSMLOG_DEBUG("ioctlHandler __IOC_READ\n");
 #endif
 	sendResponse(handle->inFifofd,handle->buf,res);
     }
@@ -447,7 +448,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 unlock:
   rtl_pthread_mutex_unlock(&handle->mutex);
 #ifdef DEBUG
-  rtl_printf(KERN_DEBUG "ioctlHandler returning\n");
+  DSMLOG_DEBUG("ioctlHandler returning\n");
 #endif
   return;
 }
@@ -543,8 +544,8 @@ int convert_rtl_errno(int rtlerr)
     case RTL_ETXTBSY: 		return ETXTBSY;
     case RTL_EWOULDBLOCK: 	return EWOULDBLOCK;
     case RTL_EXDEV: 		return EXDEV;
-    default: rtl_printf(KERN_WARNING "%s: unknown rtl_errno=%d, %s\n",
-    	__FILE__,rtlerr,rtl_strerror(rtlerr));
+    default: DSMLOG_WARNING("unknown rtl_errno=%d, %s\n",
+    	rtlerr,rtl_strerror(rtlerr));
 				return EINVAL;
     }
 }

@@ -25,6 +25,7 @@
 #include <linux/ioport.h>
 #include <linux/list.h>
 
+#include <dsmlog.h>
 #include <dsm_viper.h>
 #include <pc104sg.h>
 #include <irigclock.h>
@@ -336,7 +337,7 @@ static void enableHeartBeatInt (void)
 {
     intmask |= Heartbeat_Int_Enb;
 #ifdef DEBUG
-    rtl_printf(KERN_DEBUG "intmask=0x%x\n",intmask);
+    DSMLOG_DEBUG("intmask=0x%x\n",intmask);
 #endif
     ackHeartBeatInt();	// reset flag too to avoid immediate interrupt
 }
@@ -385,7 +386,7 @@ static void disableAllInts (void)
     /* disable all interrupts */
     intmask = 0x1f;
 #ifdef DEBUG
-    rtl_printf("intmask=0x%x\n",intmask);
+    DSMLOG_DEBUG("intmask=0x%x\n",intmask);
 #endif
     outb(intmask,isa_address+Status_Port);
 }
@@ -434,12 +435,12 @@ static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 1) rtl_printf("Read_Dual_Port_RAM, i=%d\n",i);
+    if (i > 1) DSMLOG_DEBUG("Read_Dual_Port_RAM, i=%d\n",i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	rtl_printf("(%s) %s:\t timed out...\n",    __FILE__, __FUNCTION__);
+	DSMLOG_WARNING("timed out...\n");
 	return -1;
     }
 
@@ -472,7 +473,7 @@ static inline void Get_Dual_Port_RAM(unsigned char* val)
     /* check for a time out on the response... */
     if (!(status & Response_Ready)) {
 	if (!(ntimeouts++ % 100))
-	    rtl_printf("(%s) %s: timed out\n", __FILE__, __FUNCTION__);
+	    DSMLOG_WARNING("timed out\n");
 	return;
     }
 
@@ -517,12 +518,12 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 3) rtl_printf("Set_Dual_Port_RAM 1, i=%d\n",i);
+    if (i > 3) DSMLOG_DEBUG("Set_Dual_Port_RAM 1, i=%d\n",i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	rtl_printf("(%s) %s:\t timed out...\n",    __FILE__, __FUNCTION__);
+	DSMLOG_WARNING("timed out...\n");
 	return -1;
     }
 
@@ -544,18 +545,18 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
 	status = inb(isa_address+Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 3) rtl_printf("Set_Dual_Port_RAM 2, i=%d\n",i);
+    if (i > 3) DSMLOG_DEBUG("Set_Dual_Port_RAM 2, i=%d\n",i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	rtl_printf("(%s) %s:\t timed out...\n",    __FILE__, __FUNCTION__);
+	DSMLOG_WARNING("timed out...\n");
 	return -1;
     }
 
     /* check that the written value matches */
     if (inb(isa_address+Dual_Port_Data_Port) != value) {
-	rtl_printf("(%s) %s:\t no match on read-back\n",    __FILE__, __FUNCTION__);
+	DSMLOG_WARNING("no match on read-back\n");
 	return -1;
     }
 
@@ -602,7 +603,7 @@ static void setPrimarySyncReference(unsigned char val,int isRT)
     else control0 &= ~DP_Control0_CodePriority;
 
 #ifdef DEBUG
-    rtl_printf("setting DP_Control0 to 0x%x\n",control0);
+    DSMLOG_DEBUG("setting DP_Control0 to 0x%x\n",control0);
 #endif
     Set_Dual_Port_RAM (DP_Control0, control0,isRT);
 }
@@ -753,7 +754,7 @@ static void getTimeFields(struct irigTime* ti,int offset)
 
     ti->year = (year10year1 / 16) * 10 + (year10year1 & 0x0f);
     /*
-    rtl_printf("getTimeFields, year=%d, century=%d\n",
+    DSMLOG_DEBUG("getTimeFields, year=%d, century=%d\n",
     	ti->year,(staticYear/100)*100);
     */
 
@@ -762,7 +763,7 @@ static void getTimeFields(struct irigTime* ti,int offset)
      * I saw values of 165 for the year during this time.
      */
     if (extendedStatus & DP_Extd_Sts_NoYear) {
-	// rtl_printf("fixing year=%d to %d\n",ti->year,staticYear);
+	// DSMLOG_DEBUG("fixing year=%d to %d\n",ti->year,staticYear);
         ti->year = staticYear;
     }
     // This has a Y2K problem, but who cares - it was written in 2004 and
@@ -819,7 +820,7 @@ static void getCurrentTime(struct irigTime* ti)
     tt %= 60000;
     int sc = tt / 1000;
     tt %= 1000;
-    rtl_printf("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
+    DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
 	ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
     	hr,mn,sc,tt,td,extendedStatus,clockState);
 #endif
@@ -848,7 +849,7 @@ static void setYear(int val,int isRT)
 {
     staticYear = val;
 #ifdef DEBUG
-    rtl_printf("setYear=%d\n",val);
+    DSMLOG_DEBUG("setYear=%d\n",val);
 #endif
     Set_Dual_Port_RAM(DP_Year1000_Year100,
 	((val / 1000) << 4) + ((val % 1000) / 100),isRT);
@@ -872,7 +873,7 @@ static int setMajorTime(struct irigTime* ti,int isRT)
 
 #ifdef DEBUG
     // unsigned char status = inb(isa_address+Status_Port);
-    rtl_printf("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x,state=%d\n",
+    DSMLOG_DEBUG("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x,state=%d\n",
 	ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
     	extendedStatus,clockState);
 #endif
@@ -953,7 +954,7 @@ static void setCounters(struct rtl_timeval* tv)
     hz100_cnt %= MAX_THREAD_COUNTER;
 
 #ifdef DEBUG
-    rtl_printf("tv_sec=%d tv_usec=%d, msecClockTicker=%d, hz100_cnt=%d\n",
+    DSMLOG_DEBUG("tv_sec=%d tv_usec=%d, msecClockTicker=%d, hz100_cnt=%d\n",
     	tv->tv_sec,tv->tv_usec,msecClockTicker,hz100_cnt);
 #endif
 
@@ -1008,19 +1009,19 @@ static void *pc104sg_100hz_thread (void *param)
     {
 	unsigned char timecode;
 	getTimeCodeInputSelect(&timecode,isRT);
-	rtl_printf("timecode=0x%x\n",timecode);
+	DSMLOG_DEBUG("timecode=0x%x\n",timecode);
     }
 #endif
     setPrimarySyncReference(0,isRT);	// 0=PPS, 1=timecode
 
     setHeartBeatOutput(INTERRUPT_RATE,isRT);
 #ifdef DEBUG
-    rtl_printf("(%s) %s:\t setHeartBeatOutput(%d) done\n", __FILE__, __FUNCTION__, INTERRUPT_RATE);
+    DSMLOG_DEBUG("setHeartBeatOutput(%d) done\n",INTERRUPT_RATE);
 #endif
 
     setRate2Output(A2DREF_RATE,isRT);
 #ifdef DEBUG
-    rtl_printf("(%s) %s:\t setRate2Output(%d) done\n",     __FILE__, __FUNCTION__, A2DREF_RATE);
+    DSMLOG_DEBUG("setRate2Output(%d) done\n",A2DREF_RATE);
 #endif
 
     /*
@@ -1037,7 +1038,7 @@ static void *pc104sg_100hz_thread (void *param)
     /* start interrupts */
     enableHeartBeatInt();
 #ifdef DEBUG
-    rtl_printf("(%s) %s:\t enableHeartBeatInt  done\n",    __FILE__, __FUNCTION__);
+    DSMLOG_DEBUG("enableHeartBeatInt  done\n");
 #endif
 
     /* semaphore timeout in nanoseconds */
@@ -1048,7 +1049,7 @@ static void *pc104sg_100hz_thread (void *param)
     int msecs_since_last_timeout = 0;
 
     nsec_deltat += (nsec_deltat * 3) / 8;	/* add 3/8ths more */
-    // rtl_printf("nsec_deltat = %d\n",nsec_deltat);
+    // DSMLOG_DEBUG("nsec_deltat = %d\n",nsec_deltat);
 
     rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 
@@ -1082,20 +1083,20 @@ static void *pc104sg_100hz_thread (void *param)
 		    increment_hz100_cnt();
 		}
 		if (!(ntimeouts++ % 1)) {
-		    rtl_printf("pc104sg thread semaphore timeout #%d, msecs since last timeout=%d\n",
+		    DSMLOG_NOTICE("thread semaphore timeout #%d, msecs since last timeout=%d\n",
 			    ntimeouts, msecs_since_last_timeout);
-		    rtl_printf("ackHeartBeatInt\n");
+		    DSMLOG_NOTICE("doing ackHeartBeatInt\n");
 		    ackHeartBeatInt();
 		}
 		msecs_since_last_timeout = 0;
 	    }
 	    else if (rtl_errno == RTL_EINTR) {
-	        rtl_printf("pc104sg thread interrupted\n");
+	        DSMLOG_NOTICE("thread interrupted\n");
 		status = rtl_errno;
 		break;
 	    }
 	    else {
-	        rtl_printf("pc104sg thread error, error=%d\n",
+	        DSMLOG_WARNING("thread error, error=%d\n",
 			rtl_errno);
 		status = rtl_errno;
 		break;
@@ -1165,7 +1166,9 @@ cleanup_pop:
 
 
     }
-    rtl_printf("pc104sg_100hz_thread run method exiting!\n");
+#ifdef DEBUG
+    DSMLOG_DEBUG("run method exiting!\n");
+#endif
     return (void*) status;
 }
 
@@ -1299,7 +1302,7 @@ static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl
     if ((status & Ext_Ready) && (intmask & Ext_Ready_Int_Enb)) {
 	struct irigTime ti;
 	getExtEventTime(&ti);
-	rtl_printf("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, stat=0x%x, state=%d\n",
+	DSMLOG_DEBUG("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, stat=0x%x, state=%d\n",
 	    ti.year, ti.yday, ti.hour, ti.min, ti.sec,ti.msec, ti.usec, ti.nsec,
 	    extendedStatus,clockState);
     }
@@ -1339,7 +1342,7 @@ static void portCallback(void* privateData)
 	dev->samp.data.status = extendedStatus;
 
 #ifdef DEBUG
-	rtl_printf("tv_secs=%d, tv_usecs=%d status=0x%x\n",
+	DSMLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
 		dev->samp.data.tval.tv_sec,dev->samp.data.tval.tv_usec,
 		dev->samp.data.status);
 #endif
@@ -1357,7 +1360,7 @@ static void portCallback(void* privateData)
     tt %= 60000;
     int sc = tt / 1000;
     tt %= 1000;
-    rtl_printf("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
+    DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
 	ti.year,ti.yday,ti.hour,ti.min,ti.sec,ti.msec,ti.usec,ti.nsec,
     	hr,mn,sc,tt,extendedStatus,clockState);
 #endif
@@ -1369,7 +1372,9 @@ static int close_port(struct irig_port* port)
     if (port->inFifoFd >= 0) {
 	int fd = port->inFifoFd;
 	port->inFifoFd = -1;
-	rtl_printf("closing %s\n",port->inFifoName);
+#ifdef DEBUG
+	DSMLOG_DEBUG("closing %s\n",port->inFifoName);
+#endif
         rtl_close(fd);
     }
     return 0;
@@ -1380,7 +1385,9 @@ static int open_port(struct irig_port* port)
     if ((retval = close_port(port))) return retval;
 
     /* user opens port for read, so we open it for writing. */
-    rtl_printf("opening %s\n",port->inFifoName);
+#ifdef DEBUG
+    DSMLOG_DEBUG("opening %s\n",port->inFifoName);
+#endif
     if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
 	return -rtl_errno;
 
@@ -1397,7 +1404,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
     int retval = -RTL_EINVAL;
     int isRT = 0;
 #ifdef DEBUG
-    rtl_printf("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
+    DSMLOG_DEBUG("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
     	cmd,board,portNum);
 #endif
 
@@ -1411,14 +1418,14 @@ static int ioctlCallback(int cmd, int board, int portNum,
         retval = sizeof(int);
         break;
     case IRIG_OPEN:           /* open port */
-        rtl_printf("IRIG_OPEN\n");
 #ifdef DEBUG
+        DSMLOG_DEBUG("IRIG_OPEN\n");
 #endif
         retval = open_port(portDev);
         break;
     case IRIG_CLOSE:          /* close port */
-        rtl_printf("IRIG_CLOSE\n");
 #ifdef DEBUG
+        DSMLOG_DEBUG("IRIG_CLOSE\n");
 #endif
         retval = close_port(portDev);
         break;
@@ -1500,7 +1507,7 @@ void cleanup_module (void)
      */
     if (pc104sgThread) {
         if (rtl_pthread_kill( pc104sgThread,SIGTERM ) < 0)
-	    rtl_printf("rtl_pthread_kill failure\n");
+	    DSMLOG_WARNING("rtl_pthread_kill failure\n");
 	rtl_pthread_join( pc104sgThread, NULL );
     }
 
@@ -1527,7 +1534,9 @@ void cleanup_module (void)
 
     rtl_sem_destroy(&threadsem);
 
-    rtl_printf("(%s) %s:\t done\n\n", __FILE__, __FUNCTION__);
+#ifdef DEBUG
+    DSMLOG_DEBUG("done\n");
+#endif
 
 }
 
@@ -1540,8 +1549,8 @@ int init_module (void)
     unsigned int addr;
     int irq_requested = 0;
 
-    rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
-	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
+    DSMLOG_NOTICE("compiled on %s at %s\n",
+	      __DATE__, __TIME__);
 
     INIT_LIST_HEAD(&callbackpool);
     for (i = 0; i < IRIG_NUM_RATES; i++)
@@ -1576,7 +1585,9 @@ int init_module (void)
     portDev->inFifoName = makeDevName(devprefix,"_in_",0);
     if (!portDev->inFifoName) goto err0;
 
-    rtl_printf("creating %s\n",portDev->inFifoName);
+#ifdef DEBUG
+    DSMLOG_DEBUG("creating %s\n",portDev->inFifoName);
+#endif
 
     // remove broken device file before making a new one
     if (rtl_unlink(portDev->inFifoName) < 0)
@@ -1584,7 +1595,7 @@ int init_module (void)
 
     if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
 	errval = -rtl_errno;
-	rtl_printf("rtl_mkfifo %s failed, errval=%d\n",
+	DSMLOG_WARNING("rtl_mkfifo %s failed, errval=%d\n",
 	    portDev->inFifoName,errval);
 	if (errval != -RTL_EEXIST && errval != -EBADE) goto err0;
     }
@@ -1607,8 +1618,7 @@ int init_module (void)
 
     if ((errval = rtl_request_isa_irq(irq, pc104sg_isr,0 )) < 0 ) {
 	/* failed... */
-	rtl_printf("(%s) %s:\t could not allocate IRQ %d\n",
-		   __FILE__, __FUNCTION__, irq);
+	DSMLOG_WARNING("could not allocate IRQ %d\n",irq);
 	goto err0;
     }
     irq_requested = 1;
