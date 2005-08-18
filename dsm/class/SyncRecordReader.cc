@@ -411,8 +411,8 @@ string SyncRecordReader::getKeyedValue(istringstream& header,const string& key)
     	throw SyncRecHeaderException(string("end of header when reading ") +
 		key);
 
-    if (tmpstr.compare("key"))
-    	throw SyncRecHeaderException("key",tmpstr);
+    if (tmpstr.compare(key))
+    	throw SyncRecHeaderException(key,tmpstr);
 
     header >> tmpstr;
     if (header.eof())
