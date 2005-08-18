@@ -84,6 +84,12 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 	    }
 	    else if (!attr.getName().compare("scanfFormat"))
 		setScanfFormat(attr.getValue());
+
+	    else if (!attr.getName().compare("process")) {
+              bool process;
+              ist >> process;
+              setProcessed(process);
+            }
 	}
     }
     unsigned int nvars = 0;

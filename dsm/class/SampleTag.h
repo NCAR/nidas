@@ -35,7 +35,7 @@ public:
     /**
      * Constructor.
      */
-    SampleTag():id(0),rate(0.0) {}
+    SampleTag():id(0),rate(0.0),processed(true) {}
 
     virtual ~SampleTag();
 
@@ -99,6 +99,17 @@ public:
      */
     virtual float getRate() const { return rate; }
 
+    /**
+     * Set if this sample is going to be post processed.
+     */
+    void setProcessed(bool val)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        processed = val;
+    }
+    /// Test to see if this sample is to be post processed.
+    const bool isProcessed() const { return processed; };
+
     void setScanfFormat(const std::string& val)
     {
         scanfFormat = val;
@@ -145,6 +156,9 @@ protected:
     std::string suffix;
 
     float rate;
+
+
+    bool processed;
 
     std::vector<const Variable*> constVariables;
 

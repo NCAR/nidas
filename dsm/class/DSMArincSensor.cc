@@ -21,6 +21,7 @@
 #include <asm/ioctls.h>
 #include <iostream>
 #include <sstream>
+#include <set>
 
 using namespace std;
 using namespace dsm;
@@ -66,8 +67,11 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
     // Note - ARINC samples have only one variable...
     const Variable* var = (*si)->getVariables().front();
 
-    err("labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
-        arcfg.label, arcfg.rate, (*si)->getRate(),
+    // establish a list of which samples are processed.
+    _processed[arcfg.label] = (*si)->isProcessed();
+
+    err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
+        _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
         (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
 
     ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
@@ -112,6 +116,10 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 //       err("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
 //           (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) );
 
+    unsigned short label = pSamp[i].data & 0xff;
+//     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
+    if (!_processed[label]) continue;
+
     SampleT<float>* outs = getSample<float>(1);
 
     // pSamp[i].time is the number of milliseconds since midnight
@@ -125,9 +133,6 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
         else tt += USECS_PER_DAY;
     }
     outs->setTimeTag(tt);
-
-    unsigned short label = pSamp[i].data & 0xff;
-//     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
 
     // set the sample id to sum of sensor id and label
     outs->setId( getId() + label );

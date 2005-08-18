@@ -18,7 +18,6 @@
 #include <arinc.h>
 #include <RTL_DSMSensor.h>
 #include <atdUtil/InvalidParameterException.h>
-#include <set>
 
 // Significant bits masks
 //
@@ -107,6 +106,9 @@ namespace dsm {
 
   protected:
     const float _nanf;
+
+    /// A list of which samples are processed.
+    int _processed[255];
 
   private:
 
