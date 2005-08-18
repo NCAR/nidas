@@ -160,12 +160,12 @@ case "$1" in
   ;;
   refetch_all)
 	echo -n "Refetch_all of $DESC (stops dsm, unloads mods, fetches all, starts dsm): "
-        stop
+        stop_app
 	unload_modules
 	copy_modules
 	load_modules
         copy_apps
-	start
+	start_app
   ;;
   *)
 	N=/etc/init.d/$NAME
