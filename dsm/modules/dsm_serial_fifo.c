@@ -45,6 +45,7 @@
 #include <dsm_serial_fifo.h>
 #include <dsm_serial.h>
 #include <ioctl_fifo.h>
+#include <dsm_version.h>
 
 RTLINUX_MODULE(dsm_serial_fifo);
 
@@ -468,7 +469,8 @@ int init_module(void)
     int retval = -EINVAL;
     int ib,ip;
 
-    DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
+    // softwareVersion is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",softwareVersion);
 
     numboards = dsm_serial_get_numboards();
 

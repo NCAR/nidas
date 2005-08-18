@@ -40,6 +40,7 @@
 #include <rtl_isa_irq.h>
 #include <irigclock.h>
 #include <win_com8.h>
+#include <dsm_version.h>
 
 // #define SERIAL_DEBUG_AUTOCONF
 
@@ -1884,7 +1885,8 @@ int init_module(void)
     unsigned long addr;
     char devname[128];
 
-    DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
+    // softwareVersion is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",softwareVersion);
 
     /* check board types to see how many boards are configured */
     for (ib = 0; ib < MAX_NUM_BOARDS; ib++)

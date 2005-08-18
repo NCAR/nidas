@@ -11,6 +11,11 @@ import glob
 Import('env')
 myenv = env.Copy()
 
+version = myenv.Command('dsm_version.h','dsm_version.h.tmpl',
+	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
+myenv.AlwaysBuild(version)
+Depends('dsm_version.h','dsm_version.h.tmpl')
+
 ##
 ##  RTLinux specific settings
 ##

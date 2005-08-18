@@ -60,6 +60,7 @@ Revisions:
 #include <ioctl_fifo.h>
 #include <irigclock.h>
 #include <a2d_driver.h>
+#include <dsm_version.h>
 
 /* ioport addresses of installed boards, 0=noboard */
 static int ioport[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
@@ -1486,7 +1487,8 @@ int init_module()
 
 	boardInfo = 0;
 
-  	DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
+	// softwareVersion is found in dsm_version.h
+	DSMLOG_NOTICE("version: %s\n",softwareVersion);
 
 	/* count non-zero ioport addresses, gives us the number of boards */
 	for (ib = 0; ib < MAX_A2D_BOARDS; ib++)

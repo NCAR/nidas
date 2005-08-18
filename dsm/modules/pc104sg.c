@@ -31,6 +31,7 @@
 #include <irigclock.h>
 #include <rtl_isa_irq.h>
 #include <ioctl_fifo.h>
+#include <dsm_version.h>
 
 // #define DEBUG
 
@@ -1549,8 +1550,8 @@ int init_module (void)
     unsigned int addr;
     int irq_requested = 0;
 
-    DSMLOG_NOTICE("compiled on %s at %s\n",
-	      __DATE__, __TIME__);
+    // softwareVersion is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",softwareVersion);
 
     INIT_LIST_HEAD(&callbackpool);
     for (i = 0; i < IRIG_NUM_RATES; i++)

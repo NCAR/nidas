@@ -42,6 +42,7 @@
 #include <dsmlog.h>
 #include <rtl_isa_irq.h>
 #include <dsm_viper.h>
+#include <dsm_version.h>
 
 RTLINUX_MODULE(rtl_isa_irq);
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
@@ -481,7 +482,9 @@ int init_module (void)
 
   rtl_spin_lock_init(&irq_controller_lock);
 
-  DSMLOG_NOTICE("compiled on %s at %s\n",__DATE__, __TIME__);
+  // softwareVersion is found in dsm_version.h
+  DSMLOG_NOTICE("version: %s\n",softwareVersion);
+
   for (i=0; i<NUM_ISA_IRQS; i++) {
     isa_isrs[i] = NULL;
     rtl_mask_isa_irq(i);
