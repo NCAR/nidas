@@ -273,12 +273,15 @@
 	  MD=0 means turn off Model 715 extra output
 	  	Stuart says generating the 715 output slows it down.
 	  UN=2 millibars
-	  PI=1 1 millisec integration time
+	  PI=10 10 millisec integration time (the minimum)
+	  PR=1 1 cycle integration time
 
-	  *0100BR=57600
+	  *9900BR=57600
 	  *0100EW*0100MD=0
+	  *0100EW*0100DM=3
 	  *0100EW*0100UN=2
-	  *0100EW*0100PI=1
+	  *0100EW*0100PI=10
+	  *0100EW*0100PR=1
 	-->
 
         <sample id="1" scanfFormat="*%*2d%*2d%f">

@@ -168,52 +168,52 @@
     <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low">
         <!-- Taken from the Honeywell Installation Manual PN HG2021GB02/GD02 -->
         <!-- Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219). -->
-    <!--<sample id="0060" rate="1"    ><variable name="Measurement Status"         units=""         longname="Measurement Status"/></sample>            not used    -->
-    <!--<sample id="0061" rate="1"    ><variable name="Pseudo Range"               units="m"        longname="Pseudo Range"/></sample>                  not used    -->
-    <!--<sample id="0062" rate="1"    ><variable name="Pseudo Range Fine"          units="m"        longname="Pseudo Range Fine"/></sample>             not used    -->
-    <!--<sample id="0063" rate="1"    ><variable name="Range Rate"                 units="m/s"      longname="Range Rate"/></sample>                    not used    -->
-    <!--<sample id="0064" rate="1"    ><variable name="Delta Range"                units="m"        longname="Delta Range"/></sample>                   not used    -->
-    <!--<sample id="0065" rate="1"    ><variable name="SV Position X"              units="m"        longname="SV Position X"/></sample>                 not used    -->
-    <!--<sample id="0066" rate="1"    ><variable name="SV Position X Fine"         units="m"        longname="SV Position X Fine"/></sample>            not used    -->
-    <!--<sample id="0070" rate="1"    ><variable name="SV Position Y"              units="m"        longname="SV Position Y"/></sample>                 not used    -->
-    <!--<sample id="0071" rate="1"    ><variable name="SV Position Y Fine"         units="m"        longname="SV Position Y Fine"/></sample>            not used    -->
-    <!--<sample id="0072" rate="1"    ><variable name="SV Position Z"              units="m"        longname="SV Position Z"/></sample>                 not used    -->
-    <!--<sample id="0073" rate="1"    ><variable name="SV Position Z Fine"         units="m"        longname="SV Position Z Fine"/></sample>            not used    -->
-        <sample id="0074" rate="1"    ><variable name="GTIME"                      units="s"        longname="UTC Measure Time"/></sample>
-        <sample id="0076" rate="1"    ><variable name="ALT"                        units="m"        longname="GPS Altitude (MSL)"/></sample>
-    <!--<sample id="0101" rate="1"    ><variable name="Horz Dilution of Precision" units=""         longname="Horz Dilution of Precision"/></sample>    not used    -->
-    <!--<sample id="0102" rate="1"    ><variable name="Vert Dilution of Precision" units=""         longname="Vert Dilution of Precision"/></sample>    not used    -->
-        <sample id="0103" rate="1"    ><variable name="TKAT"                       units="degree_T" longname="GPS Track Angle"/></sample>
-        <sample id="0110" rate="1"    ><variable name="LAT"                        units="degree_N" longname="GPS Latitude"/></sample>
-        <sample id="0111" rate="1"    ><variable name="LON"                        units="degree_E" longname="GPS Longitude"/></sample>
-        <sample id="0112" rate="1"    ><variable name="GSF"                        units="m/s"      longname="GPS Ground Speed"/></sample>
-        <sample id="0120" rate="1"    ><variable name="LATF"                       units="degree_N" longname="GPS Latitude Fine"/></sample>
-        <sample id="0121" rate="1"    ><variable name="LONF"                       units="degree_E" longname="GPS Longitude Fine"/></sample>
-    <!--<sample id="0125" rate="1"    ><variable name="Universal Time Code"        units="hr:mn"    longname="Universal Time Code"/></sample>           not used    -->
-    <!--<sample id="0130" rate="1"    ><variable name="Aut Horz Integrity Limit"   units="nm"       longname="Aut Horz Integrity Limit"/></sample>      not used    -->
-    <!--<sample id="0133" rate="1"    ><variable name="Aut Vert Integrity Limit"   units="ft"       longname="Aut Vert Integrity Limit"/></sample>      not used    -->
-    <!--<sample id="0135" rate="1"    ><variable name="Approach Area VIL"          units="ft"       longname="Approach Area VIL"/></sample>             not used    -->
-    <!--<sample id="0136" rate="1"    ><variable name="Vert Figure of Merit"       units="ft"       longname="Vert Figure of Merit"/></sample>          not used    -->
-        <sample id="0140" rate="1"    ><variable name="UTC Fine"                   units="s"        longname="UTC Fine"/></sample>
-        <sample id="0141" rate="1"    ><variable name="UTC Fine Fractions"         units="s"        longname="UTC Fine Fractions"/></sample>
-    <!--<sample id="0143" rate="1"    ><variable name="Approach Area HIL"          units="nm"       longname="Approach Area HIL"/></sample>             not used    -->
-    <!--<sample id="0150" rate="1"    ><variable name="Universal Time Code"        units="hr:mn:sc" longname="Universal Time Code"/></sample>           not used    -->
-    <!--<sample id="0156" rate="1"    ><variable name="Maintenance"                units=""         longname="Maintenance"/></sample>                   not used    -->
-    <!--<sample id="0157" rate="1"    ><variable name="Maintenance"                units=""         longname="Maintenance"/></sample>                   not used    -->
-    <!--<sample id="0162" rate="2"    ><variable name="Dest Wpt ETA"               units="hr:mn"    longname="Dest Wpt ETA"/></sample>                  not used    -->
-    <!--<sample id="0163" rate="2"    ><variable name="Altr Wpt ETA"               units="hr:mn"    longname="Altr Wpt ETA"/></sample>                  not used    -->
-        <sample id="0165" rate="1"    ><variable name="VSPD"                       units="m/s"      longname="GPS Vertical Velocity"/></sample>
-        <sample id="0166" rate="1"    ><variable name="VNS"                        units="m/s"      longname="GPS Ground Speed Vector, North Component"/></sample>
-        <sample id="0174" rate="1"    ><variable name="VEW"                        units="m/s"      longname="GPS Ground Speed Vector, East Component"/></sample>
-    <!--<sample id="0247" rate="1"    ><variable name="Horz Figure of Merit"       units="nm"       longname="Horz Figure of Merit"/></sample>          not used    -->
-    <!--<sample id="0260" rate="1"    ><variable name="UTC Date"                   units="dy:mn:yr" longname="UTC Date"/></sample>                      not used    -->
-        <sample id="0273" rate="1"    ><variable name="GSTAT"                      units=""         longname="GPS Sensor Status"/></sample>
-    <!--<sample id="0343" rate="2"    ><variable name="Dest Wpt HIL"               units="nm"       longname="Dest Wpt HIL"/></sample>                  not used    -->
-    <!--<sample id="0347" rate="2"    ><variable name="Altr Wpt HIL"               units="nm"       longname="Altr Wpt HIL"/></sample>                  not used    -->
-    <!--<sample id="0352" rate="1"    ><variable name="Maintenance"                units=""         longname="Maintenance"/></sample>                   not used    -->
-    <!--<sample id="0354" rate="1"    ><variable name="Counter"                    units="sec"      longname="Counter"/></sample>                       not used    -->
-    <!--<sample id="0355" rate="1"    ><variable name="Maintenance"                units=""         longname="Maintenance"/></sample>                   not used    -->
-    <!--<sample id="0377" rate="2"    ><variable name="equipment id"               units=""         longname="equipment id"/></sample>                  not used    -->
+        <sample id="0060" rate="1"    ><variable name="g_measurement_Stat" units=""         longname="Measurement Status"/></sample>         <!-- not used    -->
+        <sample id="0061" rate="1"    ><variable name="g_Pseudo_Range"     units="m"        longname="Pseudo Range"/></sample>               <!-- not used    -->
+        <sample id="0062" rate="1"    ><variable name="g_Pseudo_Rng_Fine"  units="m"        longname="Pseudo Range Fine"/></sample>          <!-- not used    -->
+        <sample id="0063" rate="1"    ><variable name="g_Range_Rate"       units="m/s"      longname="Range Rate"/></sample>                 <!-- not used    -->
+        <sample id="0064" rate="1"    ><variable name="g_Delta_Range"      units="m"        longname="Delta Range"/></sample>                <!-- not used    -->
+        <sample id="0065" rate="1"    ><variable name="g_SV_Pos_X"         units="m"        longname="SV Position X"/></sample>              <!-- not used    -->
+        <sample id="0066" rate="1"    ><variable name="g_SV_Pos_X_Fine"    units="m"        longname="SV Position X Fine"/></sample>         <!-- not used    -->
+        <sample id="0070" rate="1"    ><variable name="g_SV_Pos_Y"         units="m"        longname="SV Position Y"/></sample>              <!-- not used    -->
+        <sample id="0071" rate="1"    ><variable name="g_SV_Pos_Y_Fine"    units="m"        longname="SV Position Y Fine"/></sample>         <!-- not used    -->
+        <sample id="0072" rate="1"    ><variable name="g_SV_Pos_Z"         units="m"        longname="SV Position Z"/></sample>              <!-- not used    -->
+        <sample id="0073" rate="1"    ><variable name="g_SV_Pos_Z_Fine"    units="m"        longname="SV Position Z Fine"/></sample>         <!-- not used    -->
+        <sample id="0074" rate="1"    ><variable name="GTIME_G"            units="s"        longname="UTC Measure Time"/></sample>
+        <sample id="0076" rate="1"    ><variable name="ALT_G"              units="m"        longname="GPS Altitude (MSL)"/></sample>
+        <sample id="0101" rate="1"    ><variable name="g_H_DOP"            units=""         longname="Horz Dilution of Precision"/></sample> <!-- not used    -->
+        <sample id="0102" rate="1"    ><variable name="g_V_DOP"            units=""         longname="Vert Dilution of Precision"/></sample> <!-- not used    -->
+        <sample id="0103" rate="1"    ><variable name="TKAT_G"             units="degree_T" longname="GPS Track Angle"/></sample>
+        <sample id="0110" rate="1"    ><variable name="LAT_G"              units="degree_N" longname="GPS Latitude"/></sample>
+        <sample id="0111" rate="1"    ><variable name="LON_G"              units="degree_E" longname="GPS Longitude"/></sample>
+        <sample id="0112" rate="1"    ><variable name="GSF_G"              units="m/s"      longname="GPS Ground Speed"/></sample>
+        <sample id="0120" rate="1"    ><variable name="LATF_G"             units="degree_N" longname="GPS Latitude Fine"/></sample>
+        <sample id="0121" rate="1"    ><variable name="LONF_G"             units="degree_E" longname="GPS Longitude Fine"/></sample>
+        <sample id="0125" rate="1"    ><variable name="g_UTCHM_G"          units="hr:mn"    longname="Universal Time Code"/></sample>        <!-- not used    -->
+        <sample id="0130" rate="1"    ><variable name="g_A_HIL"            units="nm"       longname="Aut Horz Integrity Limit"/></sample>   <!-- not used    -->
+        <sample id="0133" rate="1"    ><variable name="g_A_VIL"            units="m"        longname="Aut Vert Integrity Limit"/></sample>   <!-- not used    -->
+        <sample id="0135" rate="1"    ><variable name="g_AA_VIL"           units="m"        longname="Approach Area VIL"/></sample>          <!-- not used    -->
+        <sample id="0136" rate="1"    ><variable name="g_V_FOM"            units="m"        longname="Vert Figure of Merit"/></sample>       <!-- not used    -->
+        <sample id="0140" rate="1"    ><variable name="g_UTC Fine"         units="s"        longname="UTC Fine"/></sample>                   <!-- not used    -->
+        <sample id="0141" rate="1"    ><variable name="g_UTC_FF"           units="s"        longname="UTC Fine Fractions"/></sample>         <!-- not used    -->
+        <sample id="0143" rate="1"    ><variable name="g_AA_HIL"           units="nm"       longname="Approach Area HIL"/></sample>          <!-- not used    -->
+        <sample id="0150" rate="1"    ><variable name="g_UTCHMS_G"         units="hr:mn:sc" longname="Universal Time Code"/></sample>        <!-- not used    -->
+        <sample id="0156" rate="1"    ><variable name="g_Maintenance_1"    units=""         longname="Maintenance 1"/></sample>              <!-- not used    -->
+        <sample id="0157" rate="1"    ><variable name="g_Maintenance_2"    units=""         longname="Maintenance 2"/></sample>              <!-- not used    -->
+        <sample id="0162" rate="2"    ><variable name="g_Dest_Wpt_ETA"     units="hr:mn"    longname="Dest Wpt ETA"/></sample>               <!-- not used    -->
+        <sample id="0163" rate="2"    ><variable name="g_Altr_Wpt_ETA"     units="hr:mn"    longname="Altr Wpt ETA"/></sample>               <!-- not used    -->
+        <sample id="0165" rate="1"    ><variable name="VSPD_G"             units="m/s"      longname="GPS Vertical Velocity"/></sample>
+        <sample id="0166" rate="1"    ><variable name="VNS_G"              units="m/s"      longname="GPS Ground Speed Vector, North Component"/></sample>
+        <sample id="0174" rate="1"    ><variable name="VEW_G"              units="m/s"      longname="GPS Ground Speed Vector, East Component"/></sample>
+        <sample id="0247" rate="1"    ><variable name="g_H_FOM"            units="nm"       longname="Horz Figure of Merit"/></sample>       <!-- not used    -->
+        <sample id="0260" rate="1"    ><variable name="g_UTCdate"          units="dy:mn:yr" longname="UTC Date"/></sample>                   <!-- not used    -->
+        <sample id="0273" rate="1"    ><variable name="GSTAT_G"            units=""         longname="GPS Sensor Status"/></sample>
+        <sample id="0343" rate="2"    ><variable name="g_Dest_Wpt_HIL"     units="nm"       longname="Dest Wpt HIL"/></sample>               <!-- not used    -->
+        <sample id="0347" rate="2"    ><variable name="g_Altr_Wpt_HIL"     units="nm"       longname="Altr Wpt HIL"/></sample>               <!-- not used    -->
+        <sample id="0352" rate="1"    ><variable name="g_Maintenance_3"    units=""         longname="Maintenance 3"/></sample>              <!-- not used    -->
+        <sample id="0354" rate="1"    ><variable name="g_Counter"          units="sec"      longname="Counter"/></sample>                    <!-- not used    -->
+        <sample id="0355" rate="1"    ><variable name="g_Maintenance_4"    units=""         longname="Maintenance 4"/></sample>              <!-- not used    -->
+        <sample id="0377" rate="2"    ><variable name="g_equipment_id"     units=""         longname="equipment id"/></sample>               <!-- not used    -->
     </arincSensor>
 
     <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
@@ -227,7 +227,26 @@
         baud="115200" parity="none" databits="8" stopbits="1">
         <sample id="1" scanfFormat="*%*2d%*2d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="*0100P3\r\n" rate="20"/>
+        <prompt string="*0100P3\r\n" rate="50"/>
+	<!-- initialization commands for the Paro:
+	  Still can't get it to run in prompted mode at anything higher
+	  than 20 hz.
+
+	  BR to set the baud rate,
+	  MD=0 means turn off Model 715 extra output
+	  	Stuart says generating the 715 output slows it down.
+	  UN=2 millibars
+	  PR=1 1 cycle integration time
+	  PI=10 10 msec integation time
+
+	  *9900BR=57600
+	  *0100EW*0100MD=0
+	  *0100EW*0100DM=3
+	  *0100EW*0100UN=2
+	  *0100EW*0100PR=1
+	  *0100EW*0100TR=1
+	  *0100EW*0100PI=10
+	-->
     </serialSensor>
 
 
@@ -274,7 +293,6 @@
                     <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
                         file="all_%Y%m%d_%H%M%S.dat"
                         length="300"/>
-
                 </output>
                 <output class="SampleOutputStream">
                     <socket type="server" port="10000"/>
@@ -435,7 +453,6 @@
         <serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0" id="110">
             <sample>
                 <variable name="DPRESM2" units="mb">
-                    <linear slope="1.0" intercept="0.0" units="mb"/>
                 </variable>
             </sample>
         </serialSensor>
@@ -443,9 +460,7 @@
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser1" id="112">
             <sample>
-                <variable name="DPRESP2" units="mb" count="true">
-                    <poly coefs="0 1 1.1" units="wacka-mole"/>
-                </variable>
+                <variable name="DPRESP2" units="mb" count="true"/>
             </sample>
         </serialSensor>
 
