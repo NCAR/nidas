@@ -16,6 +16,7 @@
 
 #include <SampleDater.h>
 #include <DSMTime.h>
+#include <atdUtil/Logger.h>
 
 using namespace dsm;
 using namespace std;
@@ -29,7 +30,11 @@ void SampleDater::setTime(dsm_time_t clockT)
     if (::llabs(tnow - clockT) > LONG_MAX) sysTimeAhead = 0;
     else sysTimeAhead = tnow - clockT;
     sysTimeMutex.unlock();
-    cerr << "sysTimeAhead=" << sysTimeAhead << endl;
+    if (abs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
+	if (!(timeWarnCount++ % 60))
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    	"sysTimeAhead=%d usec, warn_count=%d\n",sysTimeAhead,timeWarnCount);
+    }
 }
 
 dsm_time_t SampleDater::getDataSystemTime() const 

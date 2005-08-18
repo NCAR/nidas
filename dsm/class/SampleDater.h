@@ -45,7 +45,9 @@ public:
      */
     SampleDater(int maxClockDiff = 180):
     	maxClockDiffUsec(maxClockDiff * USECS_PER_SEC),
-	t0day(0),clockTime(0),sysTimeAhead(0)
+	t0day(0),clockTime(0),sysTimeAhead(0),
+	TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
+	timeWarnCount(0)
     {
     }
 
@@ -97,6 +99,14 @@ private:
     mutable atdUtil::Mutex sysTimeMutex;
 
     long sysTimeAhead;
+
+    /**
+     * Issue a warning log message if the IRIG time differs from the
+     * system time by this number of microseconds.
+     */
+    const int TIME_DIFF_WARN_THRESHOLD;
+
+    size_t timeWarnCount;
 
 };
 
