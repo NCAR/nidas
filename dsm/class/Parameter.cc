@@ -140,7 +140,7 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 			ist >> val;
 #ifdef DEBUG
 			std::cerr << 
-			    Parameter::fromDOMElement, read, val=" << val <<
+			    "Parameter::fromDOMElement, read, val=" << val <<
 			    " eof=" << ist.eof() <<
 			    " fail=" << ist.fail() << std::endl;
 #endif
