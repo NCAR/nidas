@@ -25,18 +25,6 @@
 // 32|31 30|29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11|10  9| 8  7  6  5  4  3  2  1
 // --+-----+--------------------------------------------------------+-----+-----------------------
 // P | SSM |                                                        | SDI |      8-bit label      
-#define m08 0x0003fc00
-#define m09 0x0007fc00
-#define m10 0x000ffc00
-#define m11 0x001ffc00
-#define m12 0x003ffc00
-#define m13 0x007ffc00
-#define m14 0x00fffc00
-#define m15 0x01fffc00
-#define m16 0x03fffc00
-#define m17 0x07fffc00
-#define m18 0x0ffffc00
-#define m19 0x1ffffc00
 
 // bitmask for the Sign Status Matrix
 #define SSM 0x60000000
@@ -46,22 +34,22 @@
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
-// inMb to mBar
+// inHg to mBar
 const float INHG_MBAR  = 33.8639;
 
-// Feet to Meters.
+// ft to meter.
 const float FT_MTR  = 0.3048;
 
 // G to m/s2 (ACINS).
 const float G_MPS2   = 9.7959;
 
-// Knots to m/s
+// knot to m/s
 const float KTS_MS = 0.514791;
 
-// Ft/min to m/s (VSPD)
+// ft/min to m/s (VSPD)
 const float FPM_MPS  = 0.00508;
 
-// Radians to Degrees.
+// radian to degree.
 const float RAD_DEG = 180.0 / 3.14159265358979; 
 
 namespace dsm {
@@ -109,9 +97,11 @@ namespace dsm {
     void printStatus(std::ostream& ostr) throw();
 
     /** This contains a switch case for processing all labels. */
-    virtual float processLabel(const unsigned long data) = 0;
+    virtual float processLabel(const long data) = 0;
 
     /** Extract the ARINC configuration elements from the XML header. */
+    /// example XML:
+    ///  <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low" parity="odd">
     void fromDOMElement(const xercesc::DOMElement*)
       throw(atdUtil::InvalidParameterException);
 

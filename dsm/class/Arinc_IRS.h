@@ -33,6 +33,9 @@ public:
   Arinc_IRS();
 
   /** Extract the ARINC configuration elements from the XML header. */
+  /// example XML:
+  ///  <arincSensor ...
+  ///      irs_thdg_corr="0.1" irs_ptch_corr="0.2" irs_roll_corr="0.3" />
   void fromDOMElement(const xercesc::DOMElement*)
     throw(atdUtil::InvalidParameterException);
 

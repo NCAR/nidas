@@ -66,7 +66,7 @@ typedef struct {
  */
 typedef struct {
   unsigned long time;
-  unsigned long data;
+  long          data;
 } tt_data_t;
 
 /**

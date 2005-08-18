@@ -18,7 +18,7 @@ using namespace dsm;
 
 CREATOR_ENTRY_POINT(IRS_HW_YG1854);
 
-float IRS_HW_YG1854::processLabel(const unsigned long data)
+float IRS_HW_YG1854::processLabel(const long data)
 {
 //err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 

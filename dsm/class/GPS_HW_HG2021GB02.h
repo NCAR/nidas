@@ -36,7 +36,7 @@ public:
   GPS_HW_HG2021GB02() {err("");}
 
   /** Process all labels from this instrument. */
-  float processLabel(const unsigned long data);
+  float processLabel(const long data);
 };
 
 }
