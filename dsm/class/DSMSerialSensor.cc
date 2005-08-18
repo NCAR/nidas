@@ -81,7 +81,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
     cerr << "parity=" << getParityString() << endl;
 #endif
 
-    long latencyUsecs = getLatency() * USECS_PER_SEC;
+    long latencyUsecs = (long)(getLatency() * USECS_PER_SEC);
     ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
     ioctl(DSMSER_TCSETS,getTermiosPtr(),SIZEOF_TERMIOS);
