@@ -261,6 +261,8 @@ void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
 	for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	    const SampleTag* tag = *ti;
 
+	    if (!tag->isProcessed()) continue;
+
 	    dsm_sample_id_t sampleId = tag->getId();
 	    float rate = tag->getRate();
 
