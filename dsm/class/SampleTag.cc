@@ -78,8 +78,8 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		float rate;
 		ist >> rate;
 		if (ist.fail() || rate < 0.0)
-		    throw atdUtil::InvalidParameterException("sample","rate",
-		    	attr.getValue());
+		    throw atdUtil::InvalidParameterException("sample",
+		    	attr.getName(),attr.getValue());
 		setRate(rate);
 	    }
 	    else if (!attr.getName().compare("scanfFormat"))
@@ -88,7 +88,11 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 	    else if (!attr.getName().compare("process")) {
               bool process;
               ist >> process;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException("sample",
+		    	attr.getName(),attr.getValue());
               setProcessed(process);
+	      cerr << "processed=" << process << endl;
             }
 	}
     }
