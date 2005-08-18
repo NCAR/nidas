@@ -54,10 +54,10 @@ else:
 
 myenv = conf.Finish()
 
-## version = myenv.Command('Version.h','Version',
-## 	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
-## myenv.AlwaysBuild(version)
-## Depends('Version.h','Version')
+version = myenv.Command('Version.h','Version.h.tmpl',
+	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
+myenv.AlwaysBuild(version)
+Depends('Version.h','Version.h.tmpl')
 
 # -ggdb
 # -DXML_DEBUG

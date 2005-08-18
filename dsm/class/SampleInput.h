@@ -236,7 +236,7 @@ public:
     /**
      * Constructor.
      * @param iochannel The IOChannel that we use for data input.
-     *   SampleInput will own the pointer to the IOChannel,
+     *   SampleInputStream will own the pointer to the IOChannel,
      *   and will delete it in ~SampleInputStream(). If 
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
