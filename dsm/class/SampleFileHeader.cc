@@ -77,7 +77,7 @@ void SampleFileHeader::check(IOStream* iostream)
 	    for (is = 0; is < ic && buf[is] == ' '; is++);
 	    string value = string(buf+is,ic-is);
 
-	    cerr << headers[itag].tag << " = " << value << endl;
+	    cerr << headers[itag].tag << ' ' << value << endl;
 	    (this->*headers[itag].setFunc)(value);
 	    ic = 0;
 	}
