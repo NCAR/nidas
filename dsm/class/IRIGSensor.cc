@@ -80,8 +80,10 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(atdUtil::IOException)
     struct timeval tval;
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 
+#ifdef DEBUG
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
 	tval.tv_usec << ", status=0x" << hex << (int)status << dec << endl;
+#endif
     return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
 

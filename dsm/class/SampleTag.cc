@@ -86,13 +86,13 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		setScanfFormat(attr.getValue());
 
 	    else if (!attr.getName().compare("process")) {
-              bool process;
-              ist >> process;
+		bool process;
+		ist >> process;
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sample",
 		    	attr.getName(),attr.getValue());
-              setProcessed(process);
-	      cerr << "processed=" << process << endl;
+		setProcessed(process);
+		// cerr << "processed=" << process << endl;
             }
 	}
     }

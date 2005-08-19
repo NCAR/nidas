@@ -57,7 +57,7 @@ int StatusThread::run() throw(atdUtil::Exception)
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    long tdiff = usecPeriod - (tnow % usecPeriod) + 100;
-	    cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
+	    // cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
 
