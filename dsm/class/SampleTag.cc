@@ -69,8 +69,8 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		ist.unsetf(ios::dec);
 		ist >> val;
 		if (ist.fail())
-		    throw atdUtil::InvalidParameterException("sample","id",
-		    	attr.getValue());
+		    throw atdUtil::InvalidParameterException("sample",
+		    	attr.getName(),attr.getValue());
 		setId(val);
 		// cerr << "attr=" << attr.getValue() << " id=" << val << endl;
 	    }

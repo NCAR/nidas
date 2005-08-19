@@ -210,6 +210,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		sensor->setDSMConfig(this);
 	    }
 	    sensor->fromDOMElement((DOMElement*)child);
+	    sensor->finalizeSampleIds();
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {
@@ -243,7 +244,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    "unrecognized element",elname);
     }
 
-    // check for sensor ids which have value 0, or are not unique.
+    // check for sensor ids which have value less than 10, or are not unique.
     typedef map<unsigned short,DSMSensor*> sens_map_t;
     typedef map<unsigned short,DSMSensor*>::const_iterator sens_map_itr_t;
     sens_map_t sensorIdCheck;
@@ -253,7 +254,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     	si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 
-	if (sensor->getId() == 0)
+	if (sensor->getId() < 0)
 	    throw atdUtil::InvalidParameterException(sensor->getName(),
 		    "id","must be non-zero");
 

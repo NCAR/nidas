@@ -31,6 +31,7 @@ using namespace xercesc;
 
 DSMSensor::DSMSensor() :
     classname("unknown"),dsm(0),devname("unknown"),id(0),
+    sampleIdsFinalized(false),
     BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
     questionableTimeTags(0)
 {
@@ -260,6 +261,11 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
 
+    /* If a catalog entry exists for a DSMSensor, then this
+     * fromDOMElement will be called twice, first for the
+     * catalog DOMElement, and then for the actual <sensor>
+     * tag of the <dsm>.
+     */
     setDSMId(getDSMConfig()->getId());
 
     XDOMElement xnode(node);
@@ -301,7 +307,6 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		setSuffix(attr.getValue());
 	}
     }
-    unsigned int nsamples = 0;
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -311,25 +316,32 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("sample")) {
-	    SampleTag* stag;
-	    // The sample tags may have been specified in the catalog entry.
-	    if (nsamples == sampleTags.size()) stag = new SampleTag();
-	    else stag = sampleTags[nsamples];
-
-	    stag->fromDOMElement((DOMElement*)child);
-	    if (stag->getShortId() == 0)
+	    SampleTag* newtag = new SampleTag();
+	    newtag->fromDOMElement((DOMElement*)child);
+	    if (newtag->getShortId() == 0) {
+		delete newtag;
 		throw atdUtil::InvalidParameterException(
 		    getName(),"sample id invalid or not found","0");
-
-	    if (nsamples == sampleTags.size()) {
-		// sum of sensor short id and sample short id
-		// Be sure to add the sensor id to the sample id only once.
-		stag->setShortId(getShortId() + stag->getShortId());
-		// set the DSM id portion of the sample id
-		stag->setDSMId(getDSMConfig()->getId());
-	        addSampleTag(stag);
 	    }
-	    nsamples++;
+
+	    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
+		si != sampleTags.end(); ++si) {
+		SampleTag* stag = *si;
+		// If a sample id matches a previous one (most likely the
+		// catalog) then update it from this DOMElement.
+		if (stag->getShortId() == newtag->getShortId()) {
+		    // update the sample with the new DOMElement
+		    stag->fromDOMElement((DOMElement*)child);
+		    stag->setDSMId(getDSMConfig()->getId());
+		    delete newtag;
+		    newtag = 0;
+		    break;
+		}
+	    }
+	    if (newtag) {
+		newtag->setDSMId(getDSMConfig()->getId());
+		addSampleTag(newtag);
+	    }
 	}
     }
 
@@ -353,6 +365,20 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    throw atdUtil::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}
+    }
+}
+
+void DSMSensor::finalizeSampleIds() 
+{
+    if (!sampleIdsFinalized) {
+	for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
+	    si != sampleTags.end(); ++si) {
+	    SampleTag* stag = *si;
+	    // sum of sensor short id and sample short id
+	    // Be sure to add the sensor id to the sample id only once.
+	    stag->setShortId(getShortId() + stag->getShortId());
+	}
+	sampleIdsFinalized = true;
     }
 }
 
