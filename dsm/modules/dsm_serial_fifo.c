@@ -49,7 +49,7 @@
 
 RTLINUX_MODULE(dsm_serial_fifo);
 
-#define THREAD_STACK_SIZE 16384
+#define THREAD_STACK_SIZE 4096
 
 static const char* devprefix = 0;
 
@@ -207,18 +207,6 @@ static int close_port(struct dsm_serial_fifo_port* port)
 	port->in_thread = 0;
     }
 
-    if (port->out_thread) {
-        if (rtl_pthread_cancel(port->out_thread) < 0) goto error;
-#ifdef DEBUG
-	DSMLOG_DEBUG("rtl_pthread_join of out_thread\n");
-#endif
-        if (rtl_pthread_join(port->out_thread,NULL) < 0) goto error;
-#ifdef DEBUG
-	DSMLOG_DEBUG("rtl_pthread_joined out_thread\n");
-#endif
-	port->out_thread = 0;
-    }
-
     if (port->devfd >= 0) {
 #ifdef DEBUG
 	DSMLOG_DEBUG("closing %s, fd=%d\n",port->devname,port->devfd);
@@ -253,18 +241,19 @@ error:
  */
 static int open_port(struct dsm_serial_fifo_port* port,int mode)
 {
-    rtl_pthread_attr_t attr;
     int retval;
 
     if ((retval = close_port(port))) return retval;
-
-    rtl_pthread_attr_init(&attr);
-    rtl_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
 
     /* in and out are from the user perspective */
 
     /* user opens device for read. */
     if (mode == RTL_O_RDONLY || mode == RTL_O_RDWR) {
+	rtl_pthread_attr_t attr;
+	rtl_pthread_attr_init(&attr);
+	rtl_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
+	rtl_pthread_attr_setstackaddr(&attr,port->in_thread_stack);
+
 #ifdef DEBUG
 	DSMLOG_DEBUG("opening %s\n",port->inFifoName);
 #endif
@@ -279,7 +268,6 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	DSMLOG_DEBUG("opened %s, fd=%d\n",port->devname,port->devfd);
 #endif
 
-	rtl_pthread_attr_setstackaddr(&attr,port->in_thread_stack);
 
 #ifdef DEBUG
 	DSMLOG_DEBUG("open_port: rtl_pthread_create in_thread\n");
@@ -289,6 +277,7 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	    rtl_pthread_attr_destroy(&attr);
 	    goto error;
 	}
+	rtl_pthread_attr_destroy(&attr);
     }
 
     /* user opens device for writing. */
@@ -328,7 +317,6 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	    goto error;
 	}
     }
-    rtl_pthread_attr_destroy(&attr);
 
     return 0;
 error:
@@ -379,8 +367,8 @@ static void init_port_struct(struct dsm_serial_fifo_port* port)
 {
     port->inFifoName = port->outFifoName = port->devname = 0;
     port->inFifoFd = port->outFifoFd = port->devfd = -1;
-    port->in_thread_stack = port->out_thread_stack = 0;
-    port->in_thread = port->out_thread = 0;
+    port->in_thread_stack = 0;
+    port->in_thread = 0;
 }
 
 /*
@@ -526,9 +514,6 @@ int init_module(void)
 	    if (!(port->in_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
 	    	goto err1;
 
-	    if (!(port->out_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
-	    	goto err1;
-
 	    if ((retval = create_fifos(port,RTL_O_RDWR))) goto err1;
 
 	    portcounter++;
@@ -561,10 +546,6 @@ err1:
 		    if (port->in_thread_stack)
 		    	rtl_gpos_free(port->in_thread_stack);
 		    port->in_thread_stack = 0;
-
-		    if (port->out_thread_stack)
-		    	rtl_gpos_free(port->out_thread_stack);
-		    port->out_thread_stack = 0;
 		}
 		rtl_gpos_free(boardInfo[ib].ports);
 		boardInfo[ib].ports = 0;
@@ -610,9 +591,6 @@ void cleanup_module (void)
 		}
 		if (port->in_thread_stack) rtl_gpos_free(port->in_thread_stack);
 		port->in_thread_stack = 0;
-
-		if (port->out_thread_stack) rtl_gpos_free(port->out_thread_stack);
-		port->out_thread_stack = 0;
 	    }
 	    rtl_gpos_free(boardInfo[ib].ports);
 	    boardInfo[ib].ports = 0;

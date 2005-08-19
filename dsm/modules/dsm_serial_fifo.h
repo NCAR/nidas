@@ -59,10 +59,7 @@ struct dsm_serial_fifo_port {
   int inFifoFd;
   int outFifoFd;
   void* in_thread_stack;
-  void* out_thread_stack;
   rtl_pthread_t in_thread;
-  rtl_pthread_t out_thread;
-
 };
 
 struct dsm_serial_fifo_board {
