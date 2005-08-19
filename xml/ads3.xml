@@ -342,14 +342,14 @@
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser0" id="110">
-            <sample>
+            <sample id="1">
                 <variable name="DPRESM1" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser1" id="112">
-            <sample>
+            <sample id="1">
                 <variable name="DPRESP1" units="mb"/>
             </sample>
         </serialSensor>
@@ -433,17 +433,6 @@
         </serialSensor>
 
         <arincSensor IDREF="IRS-C130-full" devicename="/dev/arinc0" id="1000"/>
-
-        <serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser1" id="112"/>
-
-        <serialSensor class="DSMSerialSensor" devicename="/dev/dsmser1"
-                id="114" baud="9600" parity="none" databits="8" stopbits="1">
-            <sample id="1"> <variable name="TEST"/></sample>
-            <message position="end" separator="\n" length="0"/>
-            <prompt string="hitme2\n" rate="10"/>
-        </serialSensor>
-
-        <serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser2" id="116"/>
     </dsm>
 -->
 
@@ -451,7 +440,7 @@
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0" id="110">
-            <sample>
+            <sample id="1">
                 <variable name="DPRESM2" units="mb">
                 </variable>
             </sample>
@@ -459,7 +448,7 @@
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser1" id="112">
-            <sample>
+            <sample id="1">
                 <variable name="DPRESP2" units="mb" count="true"/>
             </sample>
         </serialSensor>

@@ -250,7 +250,6 @@
         </sample>
         -->
         <sample id="1" scanfFormat="xxxx %f" rate="1">
-            <variable name="GYEAR" units=""/>
         </sample>
 
         <message separator="\n" position="end" length="0"/>
@@ -285,7 +284,6 @@
 	-->
 
         <sample id="1" scanfFormat="*%*2d%*2d%f">
-                <variable name="PSF" units="mb"/>
 	</sample>
         <message separator="\n" position="end" length="0"/>
         <prompt string="*0100P3\r\n" rate="20"/>
@@ -372,10 +370,16 @@
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser0" id="110">
+	    <sample id="1">
+                <variable name="PSF" units="mb"/>
+	    </sample>
         </serialSensor>
 
         <serialSensor IDREF="Garmin_GPS"
                 devicename="/dev/dsmser5" id="120">
+	    <sample id="1">
+		<variable name="GYEAR" units=""/>
+	    </sample>
         </serialSensor>
 
         <!--
@@ -414,28 +418,28 @@
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser0" id="110">
-            <sample>
+            <sample id="1">
                 <variable name="QCF" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser1" id="112">
-            <sample>
+            <sample id="1">
                 <variable name="QCR" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser2" id="114">
-            <sample>
+            <sample id="1">
                 <variable name="ADIFR" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser3" id="116">
-            <sample>
+            <sample id="1">
                 <variable name="BDIFR" units="mb"/>
             </sample>
         </serialSensor>
@@ -465,7 +469,6 @@
                 </variable>
             </sample>
         </sensor>
-        -->
 
         <sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
             <sample id="1" rate="1">
@@ -473,6 +476,7 @@
                 </variable>
             </sample>
         </sensor>
+        -->
 
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
