@@ -68,6 +68,8 @@ void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
 	    for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	    	const SampleTag* tag = *ti;             
 
+                if (!tag->isProcessed()) continue;
+
 		const vector<const Variable*>& vars = tag->getVariables();
 		vector<const Variable*>::const_iterator vi;
 		for (vi = vars.begin(); vi != vars.end(); ++vi) {
