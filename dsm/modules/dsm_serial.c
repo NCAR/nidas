@@ -498,9 +498,13 @@ out:
     serial_outp(port, UART_FCR, (UART_FCR_ENABLE_FIFO |
 				 UART_FCR_CLEAR_RCVR |
 				 UART_FCR_CLEAR_XMIT));
+#ifdef DEBUG
     DSMLOG_DEBUG("cleared FIFO\n");
+#endif
     serial_outp(port, UART_FCR, 0);
+#ifdef DEBUG
     DSMLOG_DEBUG("disabled FIFO\n");
+#endif
     (void)serial_in(port, UART_RX);
     serial_outp(port, UART_IER, 0);
 									    
@@ -512,8 +516,28 @@ out:
     return 0;
 }
 
+static void flush_port_nolock(struct serialPort* port)
+{
+    port->pe_cnt = 0;
+    port->oe_cnt = 0;
+    port->fe_cnt = 0;
+    port->input_char_overflows = 0;
+    port->output_char_overflows = 0;
+    port->sample_overflows = 0;
+    port->nsamples = 0;
+    port->incount = port->sepcnt = 0;
+    port->xmit.head = port->xmit.tail = 0;
+    port->sample_queue.head = port->sample_queue.tail = 0;
+    port->sample = port->sample_queue.buf[port->sample_queue.head];
+    port->bom_timetag = UNKNOWN_TIMETAG_VALUE;
+    port->unwrittenp = 0;
+    port->unwrittenl = 0;
+}
+
+
 /*
  * Taken from linux drivers/char/serial.c change_speed
+ * Does not do a spin_lock on port->lock.
  * Return: negative RTL errno
  */
 static int change_speed(struct serialPort* port, struct termios* termios)
@@ -521,7 +545,6 @@ static int change_speed(struct serialPort* port, struct termios* termios)
     int quot = 0, baud_base, baud;
     unsigned cflag,cval,fcr=0;
     int bits;
-    unsigned long flags;
 
     cflag = termios->c_cflag;
 
@@ -553,8 +576,6 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 	baud = 9600;    /* B0 transition handled in rs_set_termios */
 
     baud_base = port->baud_base;
-
-    rtl_spin_lock_irqsave(&port->lock,flags);
 
     if (port->type == PORT_16C950) {
 	    if (baud <= baud_base)
@@ -650,9 +671,7 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 	DSMLOG_DEBUG("set FCR\n");
     }
 
-    memcpy(&port->termios,termios,sizeof(struct termios));
-
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    flush_port_nolock(port);
 
     return 0;
 }
@@ -667,7 +686,7 @@ static int uart_startup(struct serialPort* port)
     if (port->type == PORT_UNKNOWN &&
     	(retval = autoconfig(port)) < 0) return retval;
 
-    rtl_spin_lock_irqsave (&port->lock,flags);
+    rtl_spin_lock_irqsave(&port->lock,flags);
 
     port->MCR = 0;
     if (port->termios.c_cflag & CBAUD)
@@ -761,6 +780,8 @@ static int uart_startup(struct serialPort* port)
     // port->MCR |= ALPHA_KLUDGE_MCR;          /* Don't ask */
     serial_outp(port, UART_MCR, port->MCR);
 
+    retval = change_speed(port,&port->termios);
+
     /*
      * Finally, enable interrupts
      */
@@ -775,10 +796,8 @@ static int uart_startup(struct serialPort* port)
     (void)serial_inp(port, UART_IIR);
     (void)serial_inp(port, UART_MSR);
 
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
-
-
 errout:
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
     return retval;
 }
 
@@ -792,6 +811,23 @@ static int tcgetattr(struct serialPort* port, void* buf)
     memcpy(buf,&port->termios,sizeof(struct termios));
     rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int tcsetattr(struct serialPort* port, struct termios* termios)
+{
+    unsigned long flags;
+
+    rtl_spin_lock_irqsave (&port->lock,flags);
+
+    int retval = change_speed(port,termios);
+
+    memcpy(&port->termios,termios,sizeof(struct termios));
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return retval;
 }
 
 static int uart_shutdown(struct serialPort* port)
@@ -1031,27 +1067,9 @@ static int open_port(struct serialPort* port)
 
     rtl_spin_lock_irqsave(&port->board->lock,flags);
     port->board->int_mask |= (1 << port->portIndex);
-    rtl_spin_lock_irqsave(&port->board->lock,flags);
-
-    rtl_spin_lock_irqsave(&port->lock,flags);
-    port->pe_cnt = 0;
-    port->oe_cnt = 0;
-    port->fe_cnt = 0;
-    port->input_char_overflows = 0;
-    port->output_char_overflows = 0;
-    port->sample_overflows = 0;
-    port->nsamples = 0;
-    port->incount = port->sepcnt = 0;
-    port->xmit.head = port->xmit.tail = 0;
-    port->sample_queue.head = port->sample_queue.tail = 0;
-    port->sample = port->sample_queue.buf[port->sample_queue.head];
-    port->bom_timetag = UNKNOWN_TIMETAG_VALUE;
-    port->unwrittenp = 0;
-    port->unwrittenl = 0;
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    rtl_spin_unlock_irqrestore(&port->board->lock,flags);
 
     return retval;
-
 }
 
 /*
@@ -1501,27 +1519,35 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_MSI:	// 0x00 modem status change
+#ifdef DEBUG
 	    DSMLOG_DEBUG("UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
+#endif
 	    /* ignore for now */
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_RLSI:	// 0x06 line status interrupt (error)
+#ifdef DEBUG
 	    DSMLOG_DEBUG("UART_IIR_RLSI interrupt, LSR=0x%x\n",lsr);
+#endif
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
+#ifdef DEBUG
 	    DSMLOG_DEBUG("ISR_RSC interrupt, IIR=0x%x\n",iir);
+#endif
 	    // do we read this character now?
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
+#ifdef DEBUG
 	    DSMLOG_DEBUG("ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
+#endif
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
@@ -1726,11 +1752,10 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
     int retval = -RTL_EINVAL;
     switch (request) {
     case DSMSER_TCSETS:		/* user set of termios parameters */
-#ifdef DEBUG
-	DSMLOG_DEBUG("DSMSER_TCSETS\n");
-#endif
 	termios = (struct termios*) arg;
 #ifdef DEBUG
+	DSMLOG_DEBUG("DSMSER_TCSETS\n");
+
 	DSMLOG_DEBUG("sizeof(struct termios)=%d\n",sizeof(struct termios));
 	DSMLOG_DEBUG("termios=0x%x\n",termios);
 	DSMLOG_DEBUG("c_iflag=0x%x %x\n",
@@ -1744,7 +1769,7 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
 	DSMLOG_DEBUG("c_line=0x%x\n", (void *)&(termios->c_line));
 	DSMLOG_DEBUG("c_cc=0x%x\n", (void *)&(termios->c_cc[0]));
 #endif
-	retval = change_speed(port,termios);
+	retval = tcsetattr(port,termios);
 	break;
     case DSMSER_TCGETS:		/* user get of termios parameters */
 #ifdef DEBUG
