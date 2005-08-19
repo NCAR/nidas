@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# Scan /etc/dhcpc/dhcpcdp-eth0.info for value of DHCPSIADDR,
+# which presumably is the address of the DHCP server.
+# Copy that address into an entry in /etc/syslog.conf for
+# kernel and local5 messages.  local5 is the syslog facility
+# used by the DSM code.
+#
+# Only update /etc/syslog.conf if it needs it:
+# if there is no entry, or the server address has changed.
+
+#
+# chkconfig: 3 98 5
+# description: Update /etc/syslog.conf based on DHCP server's address
+
+ent="kern.notice;local5.notice"
+
+. /etc/dhcpc/dhcpcd-eth0.info
+
+fixup_syslog_conf() {
+	if egrep -q "^$ent" /etc/syslog.conf; then
+	    # entry found
+	    if ! egrep "^$ent" /etc/syslog.conf | egrep -q $DHCPSIADDR; then
+	        # entry has different server. Change the server address.
+		sed s/^$ent.\*\$/"$ent			@${DHCPSIADDR}"/ \
+		    /etc/syslog.conf > /tmp/syslog.conf
+		mv /tmp/syslog.conf /etc/syslog.conf
+		# restart syslog
+		kill -HUP $(</var/run/syslogd.pid)
+	    fi
+	else
+	    # no entry found, add it
+	    echo "$ent			@$DHCPSIADDR"  >> /etc/syslog.conf
+	    # restart syslog
+	    kill -HUP $(</var/run/syslogd.pid)
+	fi
+}
+	
+case "$1" in
+	start)
+		fixup_syslog_conf
+		;;
+	stop)
+		;;
+esac
