@@ -145,8 +145,8 @@
 	<xsd:element name="variable" type="variable"/>
     </xsd:choice>
     <xsd:attribute name="id" type="xsd:short"/>
-    <xsd:attribute name="rate" type="xsd:float" default="0.0"/>
-    <xsd:attribute name="process" type="xsd:boolean" default="1"/>
+    <xsd:attribute name="rate" type="xsd:float"/>
+    <xsd:attribute name="process" type="xsd:boolean"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 </xsd:complexType>
 
