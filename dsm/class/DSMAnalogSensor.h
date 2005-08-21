@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <map>
+#include <set>
 
 namespace dsm {
 /**
@@ -104,6 +105,17 @@ protected:
     std::vector<struct chan_info> channels;
 
     /**
+     * Requested A2D channels, 0 to (MAXA2DS-1),
+     * in the order they were requested.
+     */
+    std::vector<int> channelNums;
+
+    /*
+     * Requested A2D channels, in numeric order.
+     */
+    std::set<int> sortedChannelNums;
+
+    /**
      * Sample rate of each SampleTag.
      */
     std::vector<float> rateVec;
@@ -124,6 +136,7 @@ protected:
      *	
      */
     std::vector<int> sampleIndexVec;
+
     int* sampleIndices;		// optimized version
 
     /**
@@ -131,6 +144,7 @@ protected:
      * does it correspond to, 0:(num_vars_in_sample - 1)
      */
     std::vector<int> subSampleIndexVec;
+
     int* subSampleIndices;	// optimized version
 
 
