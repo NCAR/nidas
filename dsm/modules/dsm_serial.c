@@ -998,6 +998,8 @@ static int set_latency_usec(struct serialPort* port, long val)
     unsigned long flags;
     rtl_spin_lock_irqsave (&port->lock,flags);
 
+    DSMLOG_NOTICE("latency=%d usecs\n",val);
+
     port->read_timeout_sec = val / USECS_PER_SEC;
     port->read_timeout_nsec = (val % USECS_PER_SEC) * 1000;
 
@@ -2090,15 +2092,13 @@ int init_module(void)
 	    strcpy(port->devname,devname);
 
 	    if ( rtl_register_dev(devname, &rtl_dsm_ser_fops,(unsigned long)port) ) {
-		printk("Unable to install %s driver\n",devname);
+		DSMLOG_ERR("Unable to register %s device\n",devname);
 		/* if port->devname is non-zero then it has been registered */
 		rtl_gpos_free(port->devname);
 		port->devname = 0;
 		retval = -EIO;
 		goto err1;
 	    }
-
-
 	    portcounter++;
 	}
 
