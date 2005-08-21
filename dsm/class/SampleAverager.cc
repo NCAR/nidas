@@ -26,7 +26,7 @@ SampleAverager::SampleAverager():
 	outSampleId(50000),endTime(0),
 	nvariables(0),sums(0),cnts(0)
 {
-    sampleTag.setId(outSampleId);
+    sampleTag.setSampleId(outSampleId);
     setAveragePeriod(USECS_PER_SEC * 1);
 }
 

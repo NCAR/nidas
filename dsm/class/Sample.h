@@ -42,17 +42,17 @@ typedef unsigned long dsm_sample_id_t;
 /**
  * macros to get and set fields of the tid member of a Sample.
  * The 32 bit unsigned long tid is made of two fields:
- *	26 least significant bits containing the SAMPLE_ID
+ *	26 least significant bits containing the FULL_ID
  *	6 most significant bits containing a SAMPLE_TYPE enumeration (0-63)
- * The SAMPLE_ID field is further split into a DSM_ID and SHORT_ID portion:
+ * The FULL_ID field is further split into a DSM_ID and SHORT_ID portion:
  *	16 least significant bits containing the SHORT_ID (0-65535)
  *	10 most signmificant bits containing the DSM_ID (0-1023)
  */
 #define GET_SAMPLE_TYPE(tid) (tid >> 26)
 #define SET_SAMPLE_TYPE(tid,val) ((tid & 0x03ffffff) | ((unsigned long)val << 26))
 
-#define GET_SAMPLE_ID(tid) (tid & 0x03ffffff)
-#define SET_SAMPLE_ID(tid,val) ((tid & 0xfc000000) | (val & 0x03ffffff))
+#define GET_FULL_ID(tid) (tid & 0x03ffffff)
+#define SET_FULL_ID(tid,val) ((tid & 0xfc000000) | (val & 0x03ffffff))
 
 #define GET_DSM_ID(tid) ((tid & 0x03ff0000) >> 16)
 #define SET_DSM_ID(tid,val) ((tid & 0xfc00ffff) | (((unsigned long)val & 0x3ff) << 16))
@@ -342,8 +342,8 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    dsm_sample_id_t getId() const { return GET_SAMPLE_ID(tid); }
-    void setId(dsm_sample_id_t val) { tid = SET_SAMPLE_ID(tid,val); }
+    dsm_sample_id_t getId() const { return GET_LONG_ID(tid); }
+    void setId(dsm_sample_id_t val) { tid = SET_LONG_ID(tid,val); }
 
     unsigned short getDSMId() const { return GET_DSM_ID(tid); }
     void setDSMId(unsigned short val) { tid = SET_DSM_ID(tid,val); }

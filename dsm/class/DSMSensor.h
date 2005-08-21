@@ -163,7 +163,7 @@ public:
      * A sensor ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    void setId(dsm_sample_id_t val) { id = SET_SAMPLE_ID(id,val); }
+    void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
     void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
     void setDSMId(unsigned short val) { id = SET_DSM_ID(id,val); }
 
@@ -172,7 +172,7 @@ public:
      * A sample tag ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
      */
-    dsm_sample_id_t  getId()      const { return GET_SAMPLE_ID(id); }
+    dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
     unsigned short getDSMId()   const { return GET_DSM_ID(id); }
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
