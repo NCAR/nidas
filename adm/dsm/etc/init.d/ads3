@@ -41,9 +41,7 @@ rmmod_chk() {
 #    the first word of each non-comment line in stdin
 get_modules() {
     while read module rest_of_line; do
-
         # echo "${modline[*]}"
-
         echo "$module" | egrep -q "^ *$" && continue
         echo "$module" | egrep -q "^ *#" && continue
         echo "$module"
@@ -87,7 +85,7 @@ copy_modules() {
     [ -d $modpath ] || mkdir -p $modpath
     modules=($(get_modules))
     for m in ${modules[*]}; do
-        [ $m == rtl ] && continue	# don't fetcth rtl.o
+        [ $m == rtl ] && continue	# don't fetch rtl.o
 	scp $ruser@$server:$adspath/dsm/modules/arm/$m.o $modpath
     done
 }
@@ -104,7 +102,7 @@ start_app() {
         cd $dsmpath
 	# start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
 	# 	-b --exec $DAEMON
-	./dsm -d > /var/log/dsm.log 2>&1 &
+	./dsm > /var/log/dsm.log 2>&1 &
 }
 
 stop_app() {
@@ -119,7 +117,7 @@ stop_app() {
 	 	pgrep dsm || break
 		i=$((i+1))
  	done
- 	if [ $i == 5 ]; then
+ 	if [ $i -eq 5 ]; then
 	 	echo "doing kill -9"
 	 	pkill -9 dsm
 	fi
@@ -144,18 +142,20 @@ case "$1" in
   restart)
 	echo -n "Restart of $DESC (does not unload modules or fetch app): "
 	stop_app
-	sleep 1
+	sleep 5
 	start_app
 	echo "$NAME."
 	;;
   unload)
 	echo -n "Unload of $DESC (unloads modules): "
 	stop_app
+	sleep 5
 	unload_modules < $modconf
 	;;
   reload)
 	echo -n "Reload of $DESC (reloads modules and restarts dsm): "
 	stop_app
+	sleep 5
 	unload_modules < $modconf
 	load_modules < $modconf
 	start_app
