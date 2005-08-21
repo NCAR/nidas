@@ -78,9 +78,9 @@ typedef struct
 	int	gain[MAXA2DS];	// Gain settings 
 	int	Hz[MAXA2DS];		// Sample rate in Hz. 0 is off.
 	int	offset[MAXA2DS];	// Offset flags
-	US	master;		// Designates master A/D
-	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
 	long	latencyUsecs;	// buffer latency in micro-seconds
+	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
+	US	master;		// Designates master A/D
 } A2D_SET;
 
 typedef struct 
@@ -253,6 +253,7 @@ struct A2DBoard {
     A2D_STATUS status;		// status info maintained by driver
     unsigned short bad[MAXA2DS];
     unsigned int nbad[MAXA2DS];
+    unsigned char requested[MAXA2DS];	// 1=channel requested, 0=isn't
     US OffCal;			// offset and cal bits
     UC FIFOCtl;			// hardware FIFO control word storage
     int MaxHz;			// Maximum requested A/D sample rate
