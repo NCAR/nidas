@@ -342,8 +342,8 @@ public:
      */
     void setDataByteLength(size_t val) { length = val; }
 
-    dsm_sample_id_t getId() const { return GET_LONG_ID(tid); }
-    void setId(dsm_sample_id_t val) { tid = SET_LONG_ID(tid,val); }
+    dsm_sample_id_t getId() const { return GET_FULL_ID(tid); }
+    void setId(dsm_sample_id_t val) { tid = SET_FULL_ID(tid,val); }
 
     unsigned short getDSMId() const { return GET_DSM_ID(tid); }
     void setDSMId(unsigned short val) { tid = SET_DSM_ID(tid,val); }
