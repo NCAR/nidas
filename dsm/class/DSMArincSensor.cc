@@ -59,7 +59,7 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
        si != sortedSampleTags.end(); ++si)
   {
     // remove the Sensor ID from the short ID to get the label
-    arcfg.label = (*si)->getShortId() - getId();
+    arcfg.label = (*si)->getSampleId();
 
     // round down the floating point rates
     arcfg.rate  = (short) floor( (*si)->getRate() );

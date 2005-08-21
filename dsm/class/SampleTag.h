@@ -35,7 +35,7 @@ public:
     /**
      * Constructor.
      */
-    SampleTag():id(0),rate(0.0),processed(true) {}
+    SampleTag():id(0),sampleId(0),sensorId(0),rate(0.0),processed(true) {}
 
     virtual ~SampleTag();
 
@@ -43,15 +43,29 @@ public:
      * Set the 26 bit id, containing the DSM id and the sensor+sample id.
      * A sample tag ID is a 32-bit value comprised of four parts:
      * 6-bit type_id,  10-bit DSM_id,  16-bit sensor+sample id.
+     * The 16-bit sensor+sample id is also know as the shortId.
      * The type id is not set-able here, it is only meaningful in an
      * actual Sample.
      */
     void setId(dsm_sample_id_t val) { id = SET_SAMPLE_ID(id,val); }
 
     /**
-     * Set the sensor+sample portion of the id.
+     * Set the sample portion of the shortId.
      */
-    void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
+    void setSampleId(unsigned short val) {
+	sampleId = val;
+        id = SET_SHORT_ID(id,sensorId + sampleId);
+    }
+    unsigned short getSampleId() const { return sampleId; }
+
+    /**
+     * Set the sensor portion of the shortId.
+     */
+    void setSensorId(unsigned short val) {
+        sensorId = val;
+    	id = SET_SHORT_ID(id,sensorId + sampleId);
+    }
+    unsigned short getSensorId() const { return sensorId; }
 
     /**
      * Set the DSM portion of the id.
@@ -66,12 +80,12 @@ public:
     /**
      * Get the DSM portion of the id.
      */
-    unsigned short  getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned short  getDSMId() const { return GET_DSM_ID(id); }
 
     /**
      * Get the sensor+sample portion of the id.
      */
-    unsigned short getShortId() const { return GET_SHORT_ID(id); }
+    unsigned short  getShortId() const { return GET_SHORT_ID(id); }
 
     /**
      * Suffix, which is added to variable names.
@@ -153,10 +167,13 @@ protected:
 
     dsm_sample_id_t id;
 
+    unsigned short sampleId;
+
+    unsigned short sensorId;
+
     std::string suffix;
 
     float rate;
-
 
     bool processed;
 

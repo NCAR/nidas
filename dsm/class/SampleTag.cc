@@ -71,7 +71,7 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sample",
 		    	attr.getName(),attr.getValue());
-		setId(val);
+		setSampleId(val);
 		// cerr << "attr=" << attr.getValue() << " id=" << val << endl;
 	    }
 	    else if (!attr.getName().compare("rate")) {

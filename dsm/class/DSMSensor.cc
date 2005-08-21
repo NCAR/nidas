@@ -31,7 +31,6 @@ using namespace xercesc;
 
 DSMSensor::DSMSensor() :
     classname("unknown"),dsm(0),devname("unknown"),id(0),
-    sampleIdsFinalized(false),
     BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
     questionableTimeTags(0)
 {
@@ -318,7 +317,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	if (!elname.compare("sample")) {
 	    SampleTag* newtag = new SampleTag();
 	    newtag->fromDOMElement((DOMElement*)child);
-	    if (newtag->getShortId() == 0) {
+	    if (newtag->getSampleId() == 0) {
 		delete newtag;
 		throw atdUtil::InvalidParameterException(
 		    getName(),"sample id invalid or not found","0");
@@ -329,10 +328,11 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		SampleTag* stag = *si;
 		// If a sample id matches a previous one (most likely the
 		// catalog) then update it from this DOMElement.
-		if (stag->getShortId() == newtag->getShortId()) {
+		if (stag->getSampleId() == newtag->getSampleId()) {
 		    // update the sample with the new DOMElement
 		    stag->fromDOMElement((DOMElement*)child);
 		    stag->setDSMId(getDSMConfig()->getId());
+		    stag->setSensorId(getShortId());
 		    delete newtag;
 		    newtag = 0;
 		    break;
@@ -340,6 +340,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    }
 	    if (newtag) {
 		newtag->setDSMId(getDSMConfig()->getId());
+		newtag->setSensorId(getShortId());
 		addSampleTag(newtag);
 	    }
 	}
@@ -365,20 +366,6 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    throw atdUtil::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}
-    }
-}
-
-void DSMSensor::finalizeSampleIds() 
-{
-    if (!sampleIdsFinalized) {
-	for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
-	    si != sampleTags.end(); ++si) {
-	    SampleTag* stag = *si;
-	    // sum of sensor short id and sample short id
-	    // Be sure to add the sensor id to the sample id only once.
-	    stag->setShortId(getShortId() + stag->getShortId());
-	}
-	sampleIdsFinalized = true;
     }
 }
 

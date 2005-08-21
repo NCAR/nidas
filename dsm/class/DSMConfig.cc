@@ -210,7 +210,6 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		sensor->setDSMConfig(this);
 	    }
 	    sensor->fromDOMElement((DOMElement*)child);
-	    sensor->finalizeSampleIds();
 	    addSensor(sensor);
 	}
 	else if (!elname.compare("output")) {

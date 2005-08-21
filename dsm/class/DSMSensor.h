@@ -177,17 +177,6 @@ public:
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
-     * The SampleTags of this sensor also have ShortIds.
-     * After they have been added to this DSMSensor, then
-     * we need to update their ShortIds by adding the value
-     * of the sensor ShortId.  We need to do this once,
-     * after the SampleTags have been added to this sensor,
-     * after the sensor id has been finally set, but before
-     * an other objects use the ShortIds of the SampleTags.
-     */
-    void finalizeSampleIds();
-
-    /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
     */
     virtual void open(int flags) throw(atdUtil::IOException) = 0;
@@ -354,8 +343,6 @@ protected:
     std::vector<SampleTag*> sampleTags;
 
     std::vector<const SampleTag*> constSampleTags;
-
-    bool sampleIdsFinalized;
 
     /**
      * Must be called before invoking readSamples(). Derived

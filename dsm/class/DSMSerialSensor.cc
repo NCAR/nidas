@@ -157,7 +157,7 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
     if (sfmt.length() > 0) {
 	if (scanners.size() == 0 && sampleTags.size() > 0) {
 	    ostringstream ost;
-	    ost << tag->getShortId();
+	    ost << tag->getSampleId();
 	    throw atdUtil::InvalidParameterException(getName(),
 	       string("scanfFormat for sample id=") + ost.str(),
 	       "Either all samples for a DSMSerialSensor must have a scanfFormat or no samples");
@@ -176,7 +176,7 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
     }
     else if (scanners.size() > 0) {
 	ostringstream ost;
-	ost << tag->getShortId();
+	ost << tag->getSampleId();
 	throw atdUtil::InvalidParameterException(getName(),
 	   string("scanfFormat for sample id=") + ost.str(),
 	   "Either all samples for a DSMSerialSensor must have a scanfFormat or no samples");
