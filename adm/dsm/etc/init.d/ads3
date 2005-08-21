@@ -20,30 +20,12 @@ modpath=/var/tmp/modules
 libpath=/var/tmp/lib
 dsmpath=/var/tmp
 
-#
-# Connect to the NTP time server
-#
-# /usr/sbin/ntpdate server && hwclock --systonc
+modconf=/etc/dsm_modules.conf
 
-copy_modules() {
-        [ -d $modpath ] || mkdir -p $modpath
-        
-	scp $ruser@$server:$adspath/dsm/modules/arm/rtl_isa_irq.o $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/ioctl_fifo.o $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/pc104sg.o $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/arinc.o $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/a2d_driver.o $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/dsm_serial.o  $modpath
-	scp $ruser@$server:$adspath/dsm/modules/arm/dsm_serial_fifo.o $modpath
-}
-copy_apps() {
-        [ -d $libpath ] || mkdir -p $libpath
-        [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
-        
-	scp $ruser@$server:$adspath/dsm/class/arm/libDsm.so $libpath
-	scp $ruser@$server:$adspath/dsm/src/arm/dsm $dsmpath
-	scp $ruser@$server:$adspath/dsm/filters/*.cfg $dsmpath/filters
-}
+if [ ! -r $modconf ]; then
+    echo "$modconf not found"
+    exit 1
+fi
 
 # check if a module is loaded, if not insmod it
 insmod_chk() {
@@ -55,41 +37,67 @@ rmmod_chk() {
 	lsmod | fgrep -q $1 && rmmod $1
 }
 
-load_modules() {
-	depmod
-	#
-	# load shared modules...
-	#
-	insmod_chk rtl
-	insmod_chk rtl_isa_irq
-	insmod_chk ioctl_fifo
-	insmod_chk pc104sg irq=10 ioport=0x2a0
+# return an array of module names:
+#    the first word of each non-comment line in stdin
+get_modules() {
+    while read module rest_of_line; do
 
-	# insmod_chk arinc
-	
-	#lsmod_chk a2d_driver ioport=0x3A0,0x3B0
-	insmod_chk a2d_driver
-	
-	insmod_chk dsm_serial
-	insmod_chk dsm_serial_fifo
+        # echo "${modline[*]}"
+
+        echo "$module" | egrep -q "^ *$" && continue
+        echo "$module" | egrep -q "^ *#" && continue
+        echo "$module"
+    done
+}
+
+# load the modules read from stdin. This can't use
+# get_modules because it needs the whole line
+load_modules() {
+    depmod
+    while read -a modline; do
+        echo "${modline[0]}" | egrep -q "^ *$" && continue
+        echo "${modline[0]}" | egrep -q "^ *#" && continue
+        insmod_chk "${modline[@]}"
+    done
 }
 
 unload_modules() {
-	#
-	rmmod_chk dsm_serial_fifo
-	rmmod_chk dsm_serial
-	
-	rmmod_chk a2d_driver
-	
-	rmmod_chk arinc
-	
-	rmmod_chk pc104sg
-	
-	rmmod_chk ioctl_fifo
-	
-	rmmod_chk rtl_isa_irq
-	
-	rmmod_chk rtl
+    # use tac (reverse cat) to read stdin backwards since we
+    # want to unload the modules in the reverse order
+    # modules=($(tac -| get_modules))
+    # for m in ${modules[*]}; do
+    #     rmmod_chk $m
+    # done
+
+    # unfortunately tac doesn't exist in busybox on embedded systems
+    # so we'll go through the array backwards.
+    modules=($(get_modules))
+    for (( i=${#modules[*]}-1; i >= 0; i-- )); do
+        rmmod_chk ${modules[$i]}
+    done
+}
+
+
+#
+# Connect to the NTP time server
+#
+# /usr/sbin/ntpdate server && hwclock --systonc
+
+copy_modules() {
+    [ -d $modpath ] || mkdir -p $modpath
+    modules=($(get_modules))
+    for m in ${modules[*]}; do
+        [ $m == rtl ] && continue	# don't fetcth rtl.o
+	scp $ruser@$server:$adspath/dsm/modules/arm/$m.o $modpath
+    done
+}
+copy_apps() {
+        [ -d $libpath ] || mkdir -p $libpath
+        [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
+        
+	scp $ruser@$server:$adspath/dsm/class/arm/libDsm.so $libpath
+	scp $ruser@$server:$adspath/dsm/src/arm/dsm $dsmpath
+	scp $ruser@$server:$adspath/dsm/filters/*.cfg $dsmpath/filters
 }
 
 start_app() {
@@ -120,9 +128,9 @@ stop_app() {
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run dsm): "
-	unload_modules
-        copy_modules
-        load_modules
+	unload_modules < $modconf
+        copy_modules < $modconf
+        load_modules < $modconf
         copy_apps
         start_app
 	echo "$NAME."
@@ -130,7 +138,7 @@ case "$1" in
   stop)
 	echo -n "Stopping $DESC and unloading modules: "
 	stop_app
-        # unload_modules
+        # unload_modules < $modconf
 	echo "$NAME."
 	;;
   restart)
@@ -143,13 +151,13 @@ case "$1" in
   unload)
 	echo -n "Unload of $DESC (unloads modules): "
 	stop_app
-	unload_modules
+	unload_modules < $modconf
 	;;
   reload)
 	echo -n "Reload of $DESC (reloads modules and restarts dsm): "
 	stop_app
-	unload_modules
-	load_modules
+	unload_modules < $modconf
+	load_modules < $modconf
 	start_app
 	  ;;
   refetch)
@@ -161,9 +169,9 @@ case "$1" in
   refetch_all)
 	echo -n "Refetch_all of $DESC (stops dsm, unloads mods, fetches all, starts dsm): "
         stop_app
-	unload_modules
-	copy_modules
-	load_modules
+	unload_modules < $modconf
+	copy_modules < $modconf
+	load_modules < $modconf
         copy_apps
 	start_app
   ;;
