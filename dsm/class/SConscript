@@ -97,6 +97,7 @@ sources = [ Split("""
   
   DSMSerialSensor.cc
   AsciiScanner.cc
+  GPS_NMEA_Serial.cc
   IRIGSensor.cc
   DSMAnalogSensor.cc
   A2DBoardTempSensor.cc
