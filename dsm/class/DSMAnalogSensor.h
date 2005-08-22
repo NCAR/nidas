@@ -105,6 +105,16 @@ protected:
     std::vector<struct chan_info> channels;
 
     /**
+     * Correction factors for converting from nominal volts to corrected voltages.
+     */
+    std::vector<float> corSlopes;
+
+    /**
+     * Correction offsets for converting from nominal volts to corrected voltages.
+     */
+    std::vector<float> corIntercepts;
+
+    /**
      * Requested A2D channels, 0 to (MAXA2DS-1),
      * in the order they were requested.
      */

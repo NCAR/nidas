@@ -213,12 +213,12 @@ void DSMAnalogSensor::init() throw()
 	subSampleIndices[ivar] = subSampleIndexVec[i];
 
 	if (channels[ichan].bipolar) {
-		convSlope[ivar] = 10.0 / 32768 / channels[ichan].gain;
-		convIntercept[i] = 0.0;
+		convSlope[ivar] = 10.0 / 32768 / channels[ichan].gain * corSlopes[ichan];
+		convIntercept[i] = 0.0 + corIntercepts[ichan];
 	}
 	else {
-		convSlope[ivar] = 10.0 / 65536 / channels[ichan].gain;
-		convIntercept[ivar] = 5.0 / channels[ichan].gain;
+		convSlope[ivar] = 10.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
+		convIntercept[ivar] = 5.0 / channels[ichan].gain + corIntercepts[ichan];
 	}
     }
 
@@ -400,6 +400,8 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	float gain = 0.0;
 	bool bipolar = true;
 	int ichan = channels.size();
+	float corSlope = 1.0;
+	float corIntercept = 0.0;
 
 	const std::list<const Parameter*>& params = var->getParameters();
 	list<const Parameter*>::const_iterator pi;
@@ -424,6 +426,18 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 		    throw atdUtil::InvalidParameterException(getName(),pname,"no value");
 		ichan = (int)param->getNumericValue(0);
 	    }
+	    else if (!pname.compare("corSlope")) {
+		if (param->getLength() != 1)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	pname,"no value");
+		corSlope = param->getNumericValue(0) != 0;
+	    }
+	    else if (!pname.compare("corIntercept")) {
+		if (param->getLength() != 1)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	pname,"no value");
+		corIntercept = param->getNumericValue(0) != 0;
+	    }
 
 	}
 	if (ichan >= MAXA2DS) {
@@ -437,6 +451,13 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	struct chan_info ci;
 	memset(&ci,0,sizeof(ci));
 	for (int i = channels.size(); i <= ichan; i++) channels.push_back(ci);
+
+	for (int i = corSlopes.size(); i <= ichan; i++) {
+	    corSlopes.push_back(1.0);
+	    corIntercepts.push_back(0.0);
+	}
+	corSlopes[ichan] = corSlope;
+	corIntercepts[ichan] = corIntercept;
 
 	ci = channels[ichan];
 
