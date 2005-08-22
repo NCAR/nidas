@@ -216,42 +216,34 @@
         <sample id="0377" rate="2"     process="0"><variable name="g_equipment_id"     units=""         longname="equipment id"/></sample>               <!-- not used    -->
     </arincSensor>
 
-    <serialSensor ID="Garmin_GPS" class="DSMSerialSensor"
+    <serialSensor ID="Garmin_GPS" class="GPS_NMEA_Serial"
         baud="4800" parity="none" databits="8" stopbits="1">
-        <!--
-        <sample id="1" scanfFormat="$GPGGA,%2d%2d%2d,%2f%f,%c,%3f%f,%c,%d,%d,%f,%f,M,%f,M,%f,%f" rate="1">
-                <variable name="GHOUR" units="hour"/>
-                <variable name="GMIN" units="min"/>
-                <variable name="GSEC" units="sec"/>
-                <variable name="LATDEG" units="deg"/>
-                <variable name="LATMIN" units="deg"/>
-                <variable name="LAT_NS" units=""/>
-                <variable name="LONDEG" units="deg"/>
-                <variable name="LONMIN" units="deg"/>
-                <variable name="LON_EW" units=""/>
-                <variable name="QUAL" units=""/>
-                <variable name="NSAT" units=""/>
-                <variable name="HOR_DIL" units=""/>
-                <variable name="ANT_HT" units="m"/>
-                <variable name="GEOID_HT" units="m"/>
-                <variable name="DIFF_DAGE" units="s"/>
-                <variable name="DIFF_REFID" units=""/>
-        </sample>
-        <sample id="2" scanfFormat="$GPRMC,%*2d%*2d%*2d,%c,%*2f%*f,%*c,%*3f%*f,%*c,%f,%f,%2d%2d%2d,%f,%c,%c" rate="1">
-                <variable name="STATUS" units="sec"/>
-                <variable name="SOG" units="knots"/>
-                <variable name="COG" units="deg"/>
-                <variable name="DAY" units=""/>
-                <variable name="MON" units=""/>
-                <variable name="YEAR" units=""/>
-                <variable name="MAGDEV" units="deg"/>
-                <variable name="MAGDEV_EW" units=""/>
-                <variable name="MODE" units=""/>
-        </sample>
-        -->
-        <sample id="1" scanfFormat="xxxx %f" rate="1">
-        </sample>
 
+        <!-- GGA record -->
+        <sample id="1" rate="1">
+	    <variable name="GSECSDAY" units="sec" longname="seconds of day"/>
+	    <variable name="GLAT" units="deg" longname="GPS East longitude"/>
+	    <variable name="GLON" units="deg" longname="GPS North latitude"/>
+	    <variable name="GQUAL" units="" longname="GPS Qual, 0=inval,1=GPS,2=DGPS"/>
+	    <variable name="GNSAT" units="" longname="Number of GPS satellites tracked"/>
+	    <variable name="GHORDIL" units="" longname="Horizontal dilution of position"/>
+	    <variable name="GALT" units="m" longname="Meters above mean sea level"/>
+	    <variable name="GEOIDHT" units="m" longname="Height of geoid (mean sea level) above WGS84 ellipsoid"/>
+	    <variable name="GDAGE" units="s" longname="time in seconds since last DGPS update"/>
+	    <variable name="GREFID" units="" longname="DGPS station ID number"/>
+        </sample>
+        <!-- RMC record -->
+        <sample id="2" rate="1">
+	    <variable name="GSTATUS" units=""
+	    	longname="GPS rcvr status: 1=OK(A), 0=warning(V)"/>
+	    <variable name="GSOG" units="m/s" longname="Speed over ground"/>
+	    <variable name="GCOG" units="deg" longname="Course made good"/>
+	    <variable name="GVEW" units="m/s" longname="East/West velocity"/>
+	    <variable name="GVNS" units="m/s" longname="North/South velocity"/>
+	    <variable name="GDAY" units="" longname="Day of month (1-31)"/>
+	    <variable name="GMONTH" units="/s" longname="Month of year (1-12)"/>
+	    <variable name="GYEAR" units="/s" longname="2 digit year"/>
+        </sample>
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
@@ -266,7 +258,7 @@
         baud="57600" parity="none" databits="8" stopbits="1">
 	<!-- initialization commands for the Paro:
 	  Still can't get it to run in prompted mode at anything higher
-	  than 20 hz.
+	  than 25 hz.
 
 	  BR to set the baud rate,
 	  MD=0 means turn off Model 715 extra output
