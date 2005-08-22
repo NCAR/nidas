@@ -221,28 +221,28 @@
 
         <!-- GGA record -->
         <sample id="1" rate="1">
-	    <variable name="GSECSDAY" units="sec" longname="seconds of day"/>
-	    <variable name="GLAT" units="deg" longname="GPS East longitude"/>
-	    <variable name="GLON" units="deg" longname="GPS North latitude"/>
-	    <variable name="GQUAL" units="" longname="GPS Qual, 0=inval,1=GPS,2=DGPS"/>
-	    <variable name="GNSAT" units="" longname="Number of GPS satellites tracked"/>
-	    <variable name="GHORDIL" units="" longname="Horizontal dilution of position"/>
-	    <variable name="GALT" units="m" longname="Meters above mean sea level"/>
-	    <variable name="GEOIDHT" units="m" longname="Height of geoid (mean sea level) above WGS84 ellipsoid"/>
-	    <variable name="GDAGE" units="s" longname="time in seconds since last DGPS update"/>
-	    <variable name="GREFID" units="" longname="DGPS station ID number"/>
+	    <variable name="GGSECSDAY" units="sec" longname="seconds of day"/>
+	    <variable name="GGLAT" units="deg" longname="GPS East longitude"/>
+	    <variable name="GGLON" units="deg" longname="GPS North latitude"/>
+	    <variable name="GGQUAL" units="" longname="GPS Qual, 0=inval,1=GPS,2=DGPS"/>
+	    <variable name="GGNSAT" units="" longname="Number of GPS satellites tracked"/>
+	    <variable name="GGHORDIL" units="" longname="Horizontal dilution of position"/>
+	    <variable name="GGALT" units="m" longname="Meters above mean sea level"/>
+	    <variable name="GGEOIDHT" units="m" longname="Height of geoid (mean sea level) above WGS84 ellipsoid"/>
+	    <variable name="GGDAGE" units="s" longname="time in seconds since last DGPS update"/>
+	    <variable name="GGREFID" units="" longname="DGPS station ID number"/>
         </sample>
         <!-- RMC record -->
         <sample id="2" rate="1">
-	    <variable name="GSTATUS" units=""
+	    <variable name="GGSTATUS" units=""
 	    	longname="GPS rcvr status: 1=OK(A), 0=warning(V)"/>
-	    <variable name="GSOG" units="m/s" longname="Speed over ground"/>
-	    <variable name="GCOG" units="deg" longname="Course made good"/>
-	    <variable name="GVEW" units="m/s" longname="East/West velocity"/>
-	    <variable name="GVNS" units="m/s" longname="North/South velocity"/>
-	    <variable name="GDAY" units="" longname="Day of month (1-31)"/>
-	    <variable name="GMONTH" units="/s" longname="Month of year (1-12)"/>
-	    <variable name="GYEAR" units="/s" longname="2 digit year"/>
+	    <variable name="GGSPD" units="m/s" longname="Speed over ground"/>
+	    <variable name="GGTRK" units="deg" longname="Course made good"/>
+	    <variable name="GGVEW" units="m/s" longname="East/West velocity"/>
+	    <variable name="GGVNS" units="m/s" longname="North/South velocity"/>
+	    <variable name="GGDAY" units="" longname="Day of month (1-31)"/>
+	    <variable name="GGMONTH" units="/s" longname="Month of year (1-12)"/>
+	    <variable name="GGYEAR" units="/s" longname="2 digit year"/>
         </sample>
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
