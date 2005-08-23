@@ -298,8 +298,7 @@ static void autoconfig_startech_uarts(struct serialPort *port)
     serial_outp(port, UART_LCR, 0);
 									    
     if (scratch == 0x10 || scratch == 0x14) {
-	    if (scratch == 0x10)
-		    port->revision = scratch2;
+	    port->revision = scratch2;
 	    port->type = PORT_16850;
 	    return;
     }
@@ -534,7 +533,28 @@ static void flush_port_nolock(struct serialPort* port)
     port->unwrittenl = 0;
 }
 
+static int set_interrupt_char(struct serialPort* port, unsigned char c)
+{
 
+    if (port->type == PORT_16850) {
+	unsigned char efr,lcr;
+	lcr = serial_in(port, UART_LCR);
+	serial_outp(port, UART_LCR, 0xBF);
+
+	// On 16C850's the EMSR register becomes XOFF2 when LCR=0xBF
+	serial_outp(port,UART_EMSR,c);	// set xoff2
+	DSMLOG_NOTICE("c=0x%x, xoff2=0x%x\n",c,serial_in(port,UART_EMSR));
+
+	efr = serial_in(port, UART_EFR);
+	DSMLOG_NOTICE("efr=0x%x\n",efr);
+	efr |= UART_EFR_SCD | UART_EFR_ECB;
+	DSMLOG_NOTICE("efr=0x%x\n",efr);
+	serial_outp(port, UART_EFR,efr);
+
+	serial_outp(port, UART_LCR, lcr);
+    }
+    return 0;
+}
 /*
  * Taken from linux drivers/char/serial.c change_speed
  * Does not do a spin_lock on port->lock.
@@ -985,6 +1005,10 @@ static int set_record_sep(struct serialPort* port,
 
     port->sepcnt = 0;
     port->incount = 0;
+
+    // set the interrupt character to the last
+    // character in the record separator
+    set_interrupt_char(port, sep->sep[sep->sepLen-1]);
 
     rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
@@ -1494,13 +1518,15 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
     unsigned char iir;
     unsigned char lsr;
     unsigned char msr;
+
+    static int numRSC = 0;
+
     for (;;) {
 	iir = serial_in(port,UART_IIR) & 0x3f;
 #ifdef DEBUG
 	DSMLOG_DEBUG("iir=0x%x\n",iir);
 #endif
 	if (iir & UART_IIR_NO_INT) break;
-	msr = serial_in(port, UART_MSR);
 
 	switch (iir) {
 	case UART_IIR_THRI:	// 0x02: transmitter holding register empty
@@ -1524,10 +1550,7 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 #ifdef DEBUG
 	    DSMLOG_DEBUG("UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
 #endif
-	    /* ignore for now */
-	    lsr = serial_in(port,UART_LSR);
-	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
-	    if (lsr & UART_LSR_THRE) transmit_chars(port);
+	    msr = serial_in(port, UART_MSR);
 	    break;
 	case UART_IIR_RLSI:	// 0x06 line status interrupt (error)
 #ifdef DEBUG
@@ -1539,20 +1562,19 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
 #ifdef DEBUG
-	    DSMLOG_DEBUG("ISR_RSC interrupt, IIR=0x%x\n",iir);
 #endif
-	    // do we read this character now?
+	    // received special character
 	    lsr = serial_in(port,UART_LSR);
 	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
+	    if (!(numRSC++ % 100))
+	    	DSMLOG_NOTICE("ISR_RSC interrupt, IIR=0x%x\n",iir);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
 #ifdef DEBUG
 	    DSMLOG_DEBUG("ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
 #endif
-	    lsr = serial_in(port,UART_LSR);
-	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
-	    if (lsr & UART_LSR_THRE) transmit_chars(port);
+	    msr = serial_in(port, UART_MSR);
 	    break;
 	}
     }
@@ -2205,3 +2227,4 @@ void cleanup_module (void)
     rtl_gpos_free(boardInfo);
     boardInfo = 0;
 }
+
