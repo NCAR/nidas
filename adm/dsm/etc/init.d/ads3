@@ -71,6 +71,7 @@ unload_modules() {
     # so we'll go through the array backwards.
     modules=($(get_modules))
     for (( i=${#modules[*]}-1; i >= 0; i-- )); do
+        [ ${modules[$i]} == rtl ] && continue	# don't unload rtl.o
         rmmod_chk ${modules[$i]}
     done
 }
