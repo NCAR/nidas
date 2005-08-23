@@ -1506,20 +1506,25 @@ void cleanup_module (void)
      * on a semaphore from the interrupt service routine,
      * we cancel it before disabling interrupts.
      */
+    DSMLOG_NOTICE("starting\n");
     if (pc104sgThread) {
         if (rtl_pthread_kill( pc104sgThread,SIGTERM ) < 0)
 	    DSMLOG_WARNING("rtl_pthread_kill failure\n");
 	rtl_pthread_join( pc104sgThread, NULL );
     }
 
+    DSMLOG_NOTICE("free_callbacks\n");
     /* free up our pool of callbacks */
     free_callbacks();
 
+    DSMLOG_NOTICE("disableAllInts\n");
     disableAllInts();
 
+    DSMLOG_NOTICE("free_isa_irq\n");
     rtl_free_isa_irq(irq);
 
     if (portDev) {
+	DSMLOG_NOTICE("close_port\n");
 	close_port(portDev);
         if (portDev->inFifoName) {
 	    rtl_unlink(portDev->inFifoName);
@@ -1527,13 +1532,18 @@ void cleanup_module (void)
 	}
 	rtl_gpos_free(portDev);
     }
+    DSMLOG_NOTICE("closeIoctlFIFO\n");
     if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
 
     /* free up the I/O region and remove /proc entry */
+    DSMLOG_NOTICE("release_region\n");
     if (isa_address)
     	release_region(isa_address, PC104SG_IOPORT_WIDTH);
 
+    DSMLOG_NOTICE("sem_destroy\n");
     rtl_sem_destroy(&threadsem);
+
+    DSMLOG_NOTICE("done\n");
 
 #ifdef DEBUG
     DSMLOG_DEBUG("done\n");

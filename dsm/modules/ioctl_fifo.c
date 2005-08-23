@@ -42,6 +42,8 @@ rtl_pthread_mutex_t listmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
 static unsigned char* inputbuf = 0;
 static rtl_size_t inputbufsize = 0;
 
+static int nopen = 0;
+
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v);
 
 static unsigned char ETX = '\003';
@@ -64,7 +66,7 @@ char* makeDevName(const char* prefix, const char* suffix,
 }
 
 /**********************************************************************
- * Open the FIFO.  Must be called from init_module, since we do
+ * Open the FIFO.  Must be called from a drivers init_module, since we do
  * a rtl_gpos_malloc.
  **********************************************************************/
 struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
@@ -157,6 +159,9 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	goto error;
     }
 
+    nopen++;
+    DSMLOG_NOTICE("nopen=%d\n",nopen);
+
     return handle;
 error:
     closeIoctlFIFO(handle);
@@ -164,7 +169,7 @@ error:
 }
 
 /**********************************************************************
- * Close the FIFO. Done on module cleanup.
+ * Close the FIFO, called from other drivers.
  **********************************************************************/
 void closeIoctlFIFO(struct ioctlHandle* handle)
 {
@@ -198,6 +203,8 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
   rtl_gpos_free(handle);
 
   rtl_pthread_mutex_unlock(&listmutex);
+    nopen--;
+    DSMLOG_NOTICE("nopen=%d\n",nopen);
 }
 
 /**
@@ -455,7 +462,10 @@ unlock:
 
 void cleanup_module (void)
 {
+    DSMLOG_NOTICE("freeing inputbuf\n");
     rtl_gpos_free(inputbuf);
+    DSMLOG_NOTICE("nopen=%d\n",nopen);
+    DSMLOG_NOTICE("done\n");
 }
 
 int convert_rtl_errno(int rtlerr)

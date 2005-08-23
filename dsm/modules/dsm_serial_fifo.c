@@ -49,7 +49,7 @@
 
 RTLINUX_MODULE(dsm_serial_fifo);
 
-#define THREAD_STACK_SIZE 4096
+#define THREAD_STACK_SIZE 8192
 
 static const char* devprefix = 0;
 

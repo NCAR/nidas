@@ -461,7 +461,7 @@ void cleanup_module (void)
     /* disable ISRs */
     for (i=0; i<NUM_ISA_IRQS; i++) {
 	if (isa_isrs[i]) {
-	    DSMLOG_DEBUG("IRQ %2d disabled\n",isa_irqs[i]);
+	    DSMLOG_NOTICE("IRQ %2d disabled\n",isa_irqs[i]);
 	    rtl_mask_isa_irq(i);
 	    rtl_gpos_free(isa_isrs[i]);
 	    isa_isrs[i] = NULL;
@@ -472,6 +472,7 @@ void cleanup_module (void)
 
     /* release interrupt handler */
     rtl_free_irq(VIPER_CPLD_IRQ);
+    DSMLOG_NOTICE("done\n");
 }
 
 /* -- MODULE ---------------------------------------------------------- */
