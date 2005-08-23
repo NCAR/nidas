@@ -236,7 +236,7 @@ void GPS_NMEA_Serial::parseGGA(const char* input,const char* eoi,
 	    else dout[iout++] = floatNAN;		 // var 5, hor_dil
 	    break;
 	case 8:		// altitude in meters
-	    if (sscanf(input,"%f",&f1) == 1); alt = f1;
+	    if (sscanf(input,"%f",&f1) == 1) alt = f1;
 	    break;
 	case 9:		// altitude units
 	    if (*input != 'M') alt = floatNAN;
