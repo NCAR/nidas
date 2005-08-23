@@ -104,7 +104,7 @@ void GPS_NMEA_Serial::parseRMC(const char* input,const char* eoi,
     int i1,i2,i3;
     float f1,f2;
     int iout = 0;
-    for (int ifield = 0; ifield < 11 && input < eoi; ifield++) {
+    for (int ifield = 0; input < eoi; ifield++) {
 	const char* cp = strchr_ep(input,sep,eoi);
 	if (cp == eoi) break;
 	cp++;
@@ -178,6 +178,8 @@ void GPS_NMEA_Serial::parseRMC(const char* input,const char* eoi,
 	    else if (*input != 'E') magvar = floatNAN;
 	    dout[iout++] = lat;			// var ?, magnetic variation
 	    break;
+	default:
+	    break;
 	}
 	input = cp;
     }
@@ -196,7 +198,7 @@ void GPS_NMEA_Serial::parseGGA(const char* input,const char* eoi,
     int i1,i2,i3;
     float f1,f2;
     int iout = 0;
-    for (int ifield = 0; ifield < 11 && input < eoi; ifield++) {
+    for (int ifield = 0; input < eoi; ifield++) {
 	const char* cp = strchr_ep(input,sep,eoi);
 	if (cp == eoi) break;
 	cp++;
@@ -258,6 +260,8 @@ void GPS_NMEA_Serial::parseGGA(const char* input,const char* eoi,
 	    if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
 	    else dout[iout++] = floatNAN;		// var 9, refid
 	    break;
+	default:
+	    break;
 	}
 	input = cp;
     }
@@ -274,6 +278,8 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
     const char* eoi = input + slen;
+
+    // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
 
     if (!strncmp(input,"$GPGGA,",7)) {
 	input += 7;
