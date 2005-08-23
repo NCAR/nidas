@@ -241,8 +241,8 @@
 	    <variable name="GGVEW" units="m/s" longname="East/West velocity"/>
 	    <variable name="GGVNS" units="m/s" longname="North/South velocity"/>
 	    <variable name="GGDAY" units="" longname="Day of month (1-31)"/>
-	    <variable name="GGMONTH" units="/s" longname="Month of year (1-12)"/>
-	    <variable name="GGYEAR" units="/s" longname="2 digit year"/>
+	    <variable name="GGMONTH" units="" longname="Month of year (1-12)"/>
+	    <variable name="GGYEAR" units="" longname="2 digit year"/>
         </sample>
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
@@ -375,9 +375,6 @@
 
         <serialSensor IDREF="Garmin_GPS"
                 devicename="/dev/dsmser5" id="120">
-	    <sample id="1">
-		<variable name="GYEAR" units=""/>
-	    </sample>
         </serialSensor>
 
         <!--
