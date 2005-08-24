@@ -216,33 +216,38 @@ float DSMSensor::getObservedDataRate() const {
   else return dataRateObs;
 }
 
-/* static */
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 {
+  string dsm_name(getDSMConfig()->getName());
+  string dsm_lctn(getDSMConfig()->getLocation());
+
     ostr <<
-"<table border=3><caption>Sensor Status</caption>\
+"<table id=\"sensor_status\"><caption>"+dsm_lctn+" ("+dsm_name+")</caption>\
 <tr>\
 <th>name</th>\
 <th>samp/sec</th>\
 <th>byte/sec</th>\
-<th>min samp<br>length</th>\
-<th>max samp<br>length</th>\
+<th>min&nbsp;samp<br>length</th>\
+<th>max&nbsp;samp<br>length</th>\
 <th>bad<br>timetags</th>\
-<th>read errs<br>recent,cum</th>\
-<th>write errs<br>recent,cum</th>\
-<th>extended status</th>\
+<th>read&nbsp;errs<br>rcnt,cum</th>\
+<th>write&nbsp;errs<br>rcnt,cum</th>\
+<th>extended&nbsp;status</th>\
 <tbody align=center>" << endl;	// default alignment in table body
 }
 
-/* static */
 void DSMSensor::printStatusTrailer(std::ostream& ostr) throw()
 {
     ostr << "</tbody></table>" << endl;
 }
 void DSMSensor::printStatus(std::ostream& ostr) throw()
 {
+    static bool odd = false;
+    string oe(odd?"odd":"even");
+    odd = !odd;
     ostr <<
-	"<tr><td align=left>" << getDeviceName() << "</td>" << endl <<
+        "<tr class=\"" << oe << "\"><td align=left>" <<
+                getDeviceName() << "</td>" << endl <<
     	"<td>" << fixed << setprecision(2) <<
 		getObservedSamplingRate() << "</td>" << endl <<
     	"<td>" << setprecision(0) <<

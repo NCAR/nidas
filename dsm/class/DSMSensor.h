@@ -272,9 +272,9 @@ public:
     virtual bool process(const Sample*,std::list<const Sample*>& result)
     	throw();
 
-    static void printStatusHeader(std::ostream& ostr) throw();
+    void printStatusHeader(std::ostream& ostr) throw();
     virtual void printStatus(std::ostream&) throw();
-    static void printStatusTrailer(std::ostream& ostr) throw();
+    void printStatusTrailer(std::ostream& ostr) throw();
 
     void initStatistics();
 

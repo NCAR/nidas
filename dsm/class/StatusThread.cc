@@ -64,14 +64,16 @@ int StatusThread::run() throw(atdUtil::Exception)
 	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 	    if (isInterrupted()) break;
 
-	    DSMSensor::printStatusHeader(statStream);
 	    const std::list<DSMSensor*>& sensors = dsm->getSensors();
 	    std::list<DSMSensor*>::const_iterator si;
+            DSMSensor* asen = *(sensors.begin());
+
+ 	    asen->printStatusHeader(statStream);
 	    for (si = sensors.begin(); si != sensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->printStatus(statStream);
 	    }
-	    DSMSensor::printStatusTrailer(statStream);
+ 	    asen->printStatusTrailer(statStream);
 
 	    string statstr = statStream.str();
 	    statStream.str("");
