@@ -552,6 +552,9 @@ static int set_interrupt_char(struct serialPort* port, unsigned char c)
 	serial_outp(port, UART_EFR,efr);
 
 	serial_outp(port, UART_LCR, lcr);
+
+	port->IER |= 0x20;		// XOFF interrupt enable
+	serial_out(port, UART_IER, port->IER);
     }
     return 0;
 }
@@ -1519,7 +1522,9 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
     unsigned char lsr;
     unsigned char msr;
 
+#ifdef DEBUG
     static int numRSC = 0;
+#endif
 
     for (;;) {
 	iir = serial_in(port,UART_IIR) & 0x3f;
@@ -1562,13 +1567,12 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
 #ifdef DEBUG
+	    if (!(numRSC++ % 100))
+	    	DSMLOG_NOTICE("ISR_RSC interrupt, IIR=0x%x\n",iir);
 #endif
 	    // received special character
 	    lsr = serial_in(port,UART_LSR);
-	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
-	    if (lsr & UART_LSR_THRE) transmit_chars(port);
-	    if (!(numRSC++ % 100))
-	    	DSMLOG_NOTICE("ISR_RSC interrupt, IIR=0x%x\n",iir);
+	    receive_chars(port,&lsr);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
 #ifdef DEBUG
