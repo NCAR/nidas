@@ -125,7 +125,7 @@ static void* in_thread_func(void* arg)
 	 * until data is ready
 	 */
         if ((l = rtl_read(port->devfd,buf,sizeof(buf))) < 0) {
-	    DSMLOG_WARNING("error: reading %s: %s\n",
+	    DSMLOG_ERR("error: reading %s: %s\n",
 		    port->devname,rtl_strerror(rtl_errno));
 	    if (rtl_errno == RTL_EINTR) break;
 	    return (void*)convert_rtl_errno(rtl_errno);
@@ -136,7 +136,7 @@ static void* in_thread_func(void* arg)
 	eob = buf + l;
 	for (cp = buf; cp < eob; cp += l) {
 	    if ((l = rtl_write(port->inFifoFd,cp,eob-cp)) < 0) {
-		DSMLOG_WARNING("error: writing %d bytes to %s: %s\n",
+		DSMLOG_ERR("error: writing %d bytes to %s: %s\n",
 			(int)(eob-cp),port->inFifoName,rtl_strerror(rtl_errno));
 		if (rtl_errno == RTL_EINTR) break;
 		return (void*)convert_rtl_errno(rtl_errno);
@@ -165,7 +165,7 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     char* eob;
 
     if ((l = rtl_read(port->outFifoFd,buf,sizeof(buf))) < 0) {
-	DSMLOG_WARNING("error: reading %s: %s\n",
+	DSMLOG_ERR("error: reading %s: %s\n",
 		port->outFifoName,rtl_strerror(rtl_errno));
 	return;
     }
@@ -175,7 +175,7 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     eob = buf + l;
     for (cp = buf; cp < eob; cp += l) {
 	if ((l = rtl_write(port->devfd,cp,eob-cp)) < 0) {
-	    DSMLOG_WARNING("error: writing %s: %s\n",
+	    DSMLOG_ERR("error: writing %s: %s\n",
 		    port->devname,rtl_strerror(rtl_errno));
 	    return;
 	}
@@ -442,7 +442,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
 	retval = len;
 	break;
     default:
-	DSMLOG_WARNING("%s: unknown ioctl cmd\n",devprefix);
+	DSMLOG_ERR("%s: unknown ioctl cmd\n",devprefix);
 	break;
     }
     return retval;
@@ -474,6 +474,7 @@ int init_module(void)
     if (!boardInfo) goto err0;
     for (ib = 0; ib < numboards; ib++) {
 	boardInfo[ib].numports = 0;
+	boardInfo[ib].ports = 0;
 	boardInfo[ib].ioctlhandle = 0;
     }
 
@@ -565,41 +566,75 @@ err0:
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-    DSMLOG_NOTICE("cleanup module\n");
+#ifdef DEBUG
+    DSMLOG_DEBUG("starting\n");
+#endif
     int ib, ip;
     for (ib = 0; ib < numboards; ib++) {
 
 	if (boardInfo[ib].ports) {
+	    DSMLOG_NOTICE("ib=%d\n",ib);
 	    for (ip = 0; ip < boardInfo[ib].numports; ip++) {
 		struct dsm_serial_fifo_port* port = boardInfo[ib].ports + ip;
 
+		DSMLOG_NOTICE("closing port %d\n",ip);
 		close_port(port);
+		DSMLOG_NOTICE("closing port %d done\n",ip);
 
 		if (port->inFifoName) {
+#ifdef DEBUG
+		    DSMLOG_NOTICE("unlinking %s\n",port->inFifoName);
+#endif
 		    rtl_unlink(port->inFifoName);
+#ifdef DEBUG
+		    DSMLOG_NOTICE("freeing %s\n",port->inFifoName);
+#endif
 		    rtl_gpos_free(port->inFifoName);
 		    port->inFifoName = 0;
 		}
 		if (port->outFifoName) {
+#ifdef DEBUG
+		    DSMLOG_NOTICE("unlinking %s\n",port->outFifoName);
+#endif
 		    rtl_unlink(port->outFifoName);
+#ifdef DEBUG
+		    DSMLOG_NOTICE("freeing %s\n",port->outFifoName);
+#endif
 		    rtl_gpos_free(port->outFifoName);
 		    port->outFifoName = 0;
 		}
 		if (port->devname) {
+#ifdef DEBUG
+		    DSMLOG_NOTICE("freeing %s\n",port->devname);
+#endif
 		    rtl_gpos_free(port->devname);
 		    port->devname = 0;
 		}
+#ifdef DEBUG
+		DSMLOG_NOTICE("freeing stack\n");
+#endif
 		if (port->in_thread_stack) rtl_gpos_free(port->in_thread_stack);
 		port->in_thread_stack = 0;
 	    }
+#ifdef DEBUG
+	    DSMLOG_NOTICE("freeing ports\n");
+#endif
 	    rtl_gpos_free(boardInfo[ib].ports);
 	    boardInfo[ib].ports = 0;
 	}
-	if (boardInfo[ib].ioctlhandle)
+	if (boardInfo[ib].ioctlhandle) {
+#ifdef DEBUG
+		DSMLOG_NOTICE("closeIoctlFIFO\n");
+#endif
 		closeIoctlFIFO(boardInfo[ib].ioctlhandle);
+	}
 	boardInfo[ib].ioctlhandle = 0;
     }
 
+#ifdef DEBUG
+    DSMLOG_NOTICE("freeing boardInfo\n");
+#endif
     rtl_gpos_free(boardInfo);
     boardInfo = 0;
+    DSMLOG_NOTICE("done\n");
 }
