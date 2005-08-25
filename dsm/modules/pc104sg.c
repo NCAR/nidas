@@ -297,15 +297,13 @@ static void free_callbacks()
     int i;
 
     struct list_head *ptr;
-    struct list_head *newptr;
     struct irigCallback *cbentry;
 
     rtl_pthread_mutex_lock(&cblistmutex);
 
     for (i = 0; i < IRIG_NUM_RATES; i++) {
 	for (ptr = callbacklists[i].next;
-		ptr != callbacklists+i; ptr = newptr) {
-	    newptr = ptr->next;
+		ptr != callbacklists+i; ptr = callbacklists[i].next) {
 	    cbentry = list_entry(ptr,struct irigCallback, list);
 	    /* remove it from the list for the rate, and add to the pool. */
 	    list_del(&cbentry->list);
@@ -313,8 +311,10 @@ static void free_callbacks()
 	}
     }
 
-    for (ptr = callbackpool.next; ptr != &callbackpool; ptr = ptr->next) {
+    for (ptr = callbackpool.next; ptr != &callbackpool;
+    	ptr = callbackpool.next) {
 	cbentry = list_entry(ptr,struct irigCallback, list);
+	list_del(&cbentry->list);
 	rtl_gpos_free(cbentry);
     }
 
@@ -1506,25 +1506,35 @@ void cleanup_module (void)
      * on a semaphore from the interrupt service routine,
      * we cancel it before disabling interrupts.
      */
-    DSMLOG_NOTICE("starting\n");
+#ifdef DEBUG
+    DSMLOG_DEBUG("starting\n");
+#endif
     if (pc104sgThread) {
         if (rtl_pthread_kill( pc104sgThread,SIGTERM ) < 0)
 	    DSMLOG_WARNING("rtl_pthread_kill failure\n");
 	rtl_pthread_join( pc104sgThread, NULL );
     }
 
+#ifdef DEBUG
     DSMLOG_NOTICE("free_callbacks\n");
+#endif
     /* free up our pool of callbacks */
     free_callbacks();
 
+#ifdef DEBUG
     DSMLOG_NOTICE("disableAllInts\n");
+#endif
     disableAllInts();
 
+#ifdef DEBUG
     DSMLOG_NOTICE("free_isa_irq\n");
+#endif
     rtl_free_isa_irq(irq);
 
     if (portDev) {
+#ifdef DEBUG
 	DSMLOG_NOTICE("close_port\n");
+#endif
 	close_port(portDev);
         if (portDev->inFifoName) {
 	    rtl_unlink(portDev->inFifoName);
@@ -1532,22 +1542,24 @@ void cleanup_module (void)
 	}
 	rtl_gpos_free(portDev);
     }
+#ifdef DEBUG
     DSMLOG_NOTICE("closeIoctlFIFO\n");
+#endif
     if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
 
     /* free up the I/O region and remove /proc entry */
+#ifdef DEBUG
     DSMLOG_NOTICE("release_region\n");
+#endif
     if (isa_address)
     	release_region(isa_address, PC104SG_IOPORT_WIDTH);
 
+#ifdef DEBUG
     DSMLOG_NOTICE("sem_destroy\n");
+#endif
     rtl_sem_destroy(&threadsem);
 
     DSMLOG_NOTICE("done\n");
-
-#ifdef DEBUG
-    DSMLOG_DEBUG("done\n");
-#endif
 
 }
 
