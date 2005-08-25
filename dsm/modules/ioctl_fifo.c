@@ -30,17 +30,20 @@
 
 #include <dsmlog.h>
 #include <ioctl_fifo.h>
+#include <dsm_version.h>
 
 RTLINUX_MODULE(ioctl_fifo);
 
-/* #define DEBUG */
+// #define DEBUG
 
 LIST_HEAD(ioctlList);
 
-rtl_pthread_mutex_t listmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
+static rtl_pthread_mutex_t listmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
 
 static unsigned char* inputbuf = 0;
 static rtl_size_t inputbufsize = 0;
+
+static rtl_pthread_mutex_t bufmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
 
 static int nopen = 0;
 
@@ -131,9 +134,20 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     /* increase size of input buffer if necessary */
     l = handle->bufsize + sizeof(struct ioctlHeader) + 1;
     if (inputbufsize < l) {
+
+#ifdef DEBUG
+	DSMLOG_DEBUG("nopen=%d, inputbuf=0x%x, inputbufsize=%d\n",
+	    nopen,inputbuf,inputbufsize);
+#endif
+
+	rtl_pthread_mutex_lock(&bufmutex);
+
 	rtl_gpos_free(inputbuf);
+	inputbuf = rtl_gpos_malloc(l);
+
+	rtl_pthread_mutex_unlock(&bufmutex);
+	if (!inputbuf) goto error;
 	inputbufsize = l;
-	if (!(inputbuf = rtl_gpos_malloc( inputbufsize ))) goto error;
     }
     	
     handle->bytesRead = handle->bytesToRead = 0;
@@ -185,6 +199,7 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
       DSMLOG_DEBUG("removed %s\n", handle->inFifoName);
 #endif
       rtl_gpos_free(handle->inFifoName);
+      handle->inFifoName = 0;
   }
   if (handle->outFifoName) {
       rtl_unlink(handle->outFifoName);
@@ -192,6 +207,7 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
       DSMLOG_DEBUG("removed %s\n", handle->outFifoName);
 #endif
       rtl_gpos_free(handle->outFifoName);
+      handle->outFifoName = 0;
   }
 
   rtl_gpos_free(handle->buf);
@@ -248,6 +264,16 @@ static int sendResponse(int fifofd,unsigned char* buf, int len)
  * Once we read the cmd value from the FIFO we then know the
  * direction of the ioctl request (get or set), and the length
  * of the data involved.
+ *
+ * Since we aren't using SA_NODEFER or SA_NOMASK flags in sig_action
+ * only one ioctlHandler function will be executing at a time,
+ * which is why we can get away with having only one inputbuf.
+ *
+ * This function does only one read of the fifo (we want to avoid blocking).
+ * We don't assume that one read of the fifo will get all the data
+ * needed to perform an ioctl, but save any necessary state so that
+ * the ioctl can be completed in subsequent reads.
+ * 
  */
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 {
@@ -262,7 +288,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   int res;
 
 #ifdef DEBUG
-  DSMLOG_DEBUG("ioctlHandler entered, sig=%d, outFifofd=%d code=%d\n",
+  DSMLOG_DEBUG("sig=%d, outFifofd=%d code=%d\n",
   	sig,outFifofd,siginfo->si_code);
 #endif
 
@@ -284,31 +310,31 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
   }
   rtl_pthread_mutex_unlock(&listmutex);
 
-#ifdef DEBUG
-  DSMLOG_DEBUG("ioctlHandler looked for handle\n");
-#endif
-
   if (handle == NULL) {
-    DSMLOG_WARNING("ioctlHandler can't find handle for FIFO file descriptor %d\n",
+    DSMLOG_WARNING("can't find handle for FIFO file descriptor %d\n",
     	outFifofd);
     sendError(handle->inFifofd,RTL_EINVAL,"can't find handle for this FIFO");
     return;
   }
 
 #ifdef DEBUG
-  DSMLOG_DEBUG("ioctlHandler found handle = 0x%x\n",(unsigned int)handle);
+  DSMLOG_DEBUG("found handle = 0x%x\n",(unsigned int)handle);
 #endif
 
   rtl_pthread_mutex_lock(&handle->mutex);
 
+  rtl_pthread_mutex_lock(&bufmutex);
+
+  // All returns after this point must go through unlock: label!
+
   if ((nread = rtl_read(outFifofd,inputbuf,inputbufsize)) < 0) {
-    DSMLOG_WARNING("ioctlHandler read failure on %s\n",
+    DSMLOG_WARNING("read failure on %s\n",
     	handle->outFifoName);
     sendError(handle->inFifofd,rtl_errno,"error reading from FIFO");
     goto unlock;
   }
 #ifdef DEBUG
-  DSMLOG_DEBUG("ioctlHandler read %d bytes\n",nread);
+  DSMLOG_DEBUG("read %d bytes\n",nread);
 #endif
   if (nread == 0) goto unlock;
 
@@ -359,7 +385,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     }
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("ioctlHandler bytesRead= %d\n",handle->bytesRead);
+    DSMLOG_DEBUG("bytesRead= %d\n",handle->bytesRead);
 #endif
 
     for ( ; handle->bytesRead < sizeof(struct ioctlHeader) &&
@@ -367,7 +393,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
       ((unsigned char*)&(handle->header))[handle->bytesRead++] = *inbufptr++;
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("ioctlHandler bytesRead2= %d\n",handle->bytesRead);
+    DSMLOG_DEBUG("bytesRead2= %d\n",handle->bytesRead);
 #endif
 
     if (handle->bytesRead < sizeof(struct ioctlHeader))  break;
@@ -375,24 +401,24 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     /* We now have read the cmd, port number and buffer size from the FIFO */
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("ioctlHandler cmd= %d\n",handle->header.cmd);
+    DSMLOG_DEBUG("cmd= %d\n",handle->header.cmd);
 #endif
 
     if ((icmd = handle->icmd) < 0) {
       /* find out which cmd it is. */
       int cmd = handle->header.cmd;
 #ifdef DEBUG
-      DSMLOG_DEBUG("ioctlHandler cmd= %d\n",cmd);
+      DSMLOG_DEBUG("cmd= %d\n",cmd);
 #endif
 
       for (icmd = 0; icmd < handle->nioctls; icmd++)
 	if (handle->ioctls[icmd].cmd == cmd) break;
 
 #ifdef DEBUG
-      DSMLOG_DEBUG("ioctlHandler icmd=%d, cmd= %d \n",icmd,cmd);
+      DSMLOG_DEBUG("icmd=%d, cmd= %d \n",icmd,cmd);
 #endif
      if (icmd == handle->nioctls) {
-	DSMLOG_WARNING("ioctlHandler cmd= %d not supported\n",
+	DSMLOG_WARNING("cmd= 0x%x not supported\n",
 		cmd);
 	sendError(handle->inFifofd,RTL_EINVAL,"cmd not supported");
 	handle->bytesRead = 0;
@@ -416,12 +442,12 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     /* user set: read data from fifo */
     if (_IOC_DIR(handle->header.cmd) & _IOC_WRITE) {
 #ifdef DEBUG
-      DSMLOG_DEBUG("ioctlHandler __IOC_WRITE\n");
+      DSMLOG_DEBUG("__IOC_WRITE\n");
 #endif
       handle->bytesToRead = sizeof(struct ioctlHeader) +
       	handle->header.size;
 #ifdef DEBUG
-      DSMLOG_DEBUG("ioctlHandler _IOC_WRITE, bytesToRead=%d\n",
+      DSMLOG_DEBUG("_IOC_WRITE, bytesToRead=%d\n",
       	handle->bytesToRead);
 #endif
       for (; handle->bytesRead < handle->bytesToRead && inbufptr < inbufeod; )
@@ -432,7 +458,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
 
     /* call ioctl function on device */
 #ifdef DEBUG
-    DSMLOG_DEBUG("ioctlHandler calling ioctlCallback, port=%d\n",
+    DSMLOG_DEBUG("calling ioctlCallback, port=%d\n",
         handle->header.port);
 #endif
     res = handle->ioctlCallback(handle->header.cmd,
@@ -442,7 +468,7 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     if (res < 0) sendError(handle->inFifofd,-res,"ioctl error");
     else if (_IOC_DIR(handle->header.cmd) & _IOC_READ) {
 #ifdef DEBUG
-	DSMLOG_DEBUG("ioctlHandler __IOC_READ\n");
+	DSMLOG_DEBUG("__IOC_READ\n");
 #endif
 	sendResponse(handle->inFifofd,handle->buf,res);
     }
@@ -453,18 +479,31 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     handle->icmd = -1;
   }
 unlock:
+  rtl_pthread_mutex_unlock(&bufmutex);
   rtl_pthread_mutex_unlock(&handle->mutex);
 #ifdef DEBUG
-  DSMLOG_DEBUG("ioctlHandler returning\n");
+  DSMLOG_DEBUG("returning\n");
 #endif
   return;
+}
+/*
+ * Return: negative Linux (not RTLinux) errno.
+ */
+int init_module(void)
+{
+    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+#ifdef DEBUG
+    DSMLOG_NOTICE("inputbuf=0x%x, inputbufsize=%d, nopen=%d\n",
+    	inputbuf,inputbufsize,nopen);
+#endif
+    return 0;
 }
 
 void cleanup_module (void)
 {
-    DSMLOG_NOTICE("freeing inputbuf\n");
     rtl_gpos_free(inputbuf);
-    DSMLOG_NOTICE("nopen=%d\n",nopen);
+    if (nopen > 0)
+	DSMLOG_ERR("Error: %d ioctl fifos still open\n",nopen);
     DSMLOG_NOTICE("done\n");
 }
 
