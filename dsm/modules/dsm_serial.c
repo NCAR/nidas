@@ -509,8 +509,8 @@ out:
 									    
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 
-    DSMLOG_DEBUG("uart is a %s\n",uart_config[port->type].name);
 #ifdef DEBUG
+    DSMLOG_DEBUG("uart is a %s\n",uart_config[port->type].name);
 #endif
     return 0;
 }
@@ -533,29 +533,45 @@ static void flush_port_nolock(struct serialPort* port)
     port->unwrittenl = 0;
 }
 
+/*
+ * Exar XR16C864s (and possibly other UARTs) have the capability
+ * of interrupting the CPU on receipt of a special character.
+ * We'll use the last character of the record separator
+ * (which is often one character anyway, a NL or CR)
+ * as the interrupt character. That should provide more
+ * timely notice of the receipt of a record.
+ */
 static int set_interrupt_char(struct serialPort* port, unsigned char c)
 {
-
     if (port->type == PORT_16850) {
 	unsigned char efr,lcr;
+
 	lcr = serial_in(port, UART_LCR);
 	serial_outp(port, UART_LCR, 0xBF);
 
 	// On 16C850's the EMSR register becomes XOFF2 when LCR=0xBF
-	serial_outp(port,UART_EMSR,c);	// set xoff2
-	DSMLOG_NOTICE("c=0x%x, xoff2=0x%x\n",c,serial_in(port,UART_EMSR));
+	serial_outp(port,UART_EMSR,c);	// set xoff2 character
+#ifdef DEBUG
+	DSMLOG_DEBUG("c=0x%x, xoff2=0x%x\n",c,serial_in(port,UART_EMSR));
+#endif
 
 	efr = serial_in(port, UART_EFR);
-	DSMLOG_NOTICE("efr=0x%x\n",efr);
+#ifdef DEBUG
+	DSMLOG_DEBUG("efr=0x%x\n",efr);
+#endif
+	// Enable special character detect, and enhanced function bits
 	efr |= UART_EFR_SCD | UART_EFR_ECB;
-	DSMLOG_NOTICE("efr=0x%x\n",efr);
+#ifdef DEBUG
+	DSMLOG_DEBUG("efr=0x%x\n",efr);
+#endif
 	serial_outp(port, UART_EFR,efr);
 
 	serial_outp(port, UART_LCR, lcr);
 
-	port->IER |= 0x20;		// XOFF interrupt enable
+	port->IER |= 0x20;	// XOFF interrupt enable (needs a #define)
 	serial_out(port, UART_IER, port->IER);
     }
+    else DSMLOG_WARNING("special character interrupts not supported on this UART\n");
     return 0;
 }
 /*
@@ -691,7 +707,9 @@ static int change_speed(struct serialPort* port, struct termios* termios)
 		serial_outp(port, UART_FCR, UART_FCR_ENABLE_FIFO);
 	}
 	serial_outp(port, UART_FCR, fcr);       /* set fcr */
+#ifdef DEBUG
 	DSMLOG_DEBUG("set FCR\n");
+#endif
     }
 
     flush_port_nolock(port);
@@ -772,7 +790,9 @@ static int uart_startup(struct serialPort* port)
 					 UART_FCR_CLEAR_RCVR |
 					 UART_FCR_CLEAR_XMIT));
 	    serial_outp(port, UART_FCR, 0);
+#ifdef DEBUG
 	    DSMLOG_DEBUG("uart_startup: cleared FIFO\n");
+#endif
     }
 
     /*
@@ -1011,7 +1031,8 @@ static int set_record_sep(struct serialPort* port,
 
     // set the interrupt character to the last
     // character in the record separator
-    set_interrupt_char(port, sep->sep[sep->sepLen-1]);
+    if (sep->sepLen > 0)
+    	set_interrupt_char(port, sep->sep[sep->sepLen-1]);
 
     rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
@@ -1025,7 +1046,9 @@ static int set_latency_usec(struct serialPort* port, long val)
     unsigned long flags;
     rtl_spin_lock_irqsave (&port->lock,flags);
 
-    DSMLOG_NOTICE("latency=%d usecs\n",val);
+#ifdef DEBUG
+    DSMLOG_DEBUG("latency=%d usecs\n",val);
+#endif
 
     port->read_timeout_sec = val / USECS_PER_SEC;
     port->read_timeout_nsec = (val % USECS_PER_SEC) * 1000;
@@ -1140,7 +1163,7 @@ static int write_eeprom(struct serialBoard* board)
 	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
     }
     if (!ntry) {
-      DSMLOG_WARNING("enable EEPROM write failed: timeout\n");
+      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
       return -RTL_EIO;
     }
@@ -1160,7 +1183,7 @@ static int write_eeprom(struct serialBoard* board)
 	    if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
 	}
 	if (!ntry) {
-	  DSMLOG_WARNING("writing config for port %d to EEPROM failed: timeout\n",
+	  DSMLOG_ERR("writing config for port %d to EEPROM failed: timeout\n",
 	  	ip);
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
 	  return -RTL_EIO;
@@ -1177,7 +1200,7 @@ static int write_eeprom(struct serialBoard* board)
 	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
     }
     if (!ntry) {
-      DSMLOG_WARNING("enable EEPROM write failed: timeout\n");
+      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
 	rtl_spin_unlock_irqrestore(&board->lock,flags);
       return -RTL_EIO;
     }
@@ -1568,7 +1591,7 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
 #ifdef DEBUG
 	    if (!(numRSC++ % 100))
-	    	DSMLOG_NOTICE("ISR_RSC interrupt, IIR=0x%x\n",iir);
+	    	DSMLOG_DEBUG("ISR_RSC interrupt, IIR=0x%x\n",iir);
 #endif
 	    // received special character
 	    lsr = serial_in(port,UART_LSR);
@@ -1632,7 +1655,7 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
 {
     int retval = -RTL_EACCES;
 #ifdef DEBUG
-    DSMLOG_NOTICE("rtl_dsm_ser_open\n");
+    DSMLOG_DEBUG("rtl_dsm_ser_open\n");
 #endif
     // if (!(filp->f_flags & RTL_O_NONBLOCK)) return retval;
     struct serialPort* port = (struct serialPort*) filp->f_priv;
@@ -1646,7 +1669,9 @@ static int rtl_dsm_ser_open(struct rtl_file* filp)
 static int rtl_dsm_ser_release(struct rtl_file* filp)
 {
     int retval;
-    DSMLOG_NOTICE("rtl_dsm_ser_release\n");
+#ifdef DEBUG
+    DSMLOG_DEBUG("rtl_dsm_ser_release\n");
+#endif
     struct serialPort* port = (struct serialPort*) filp->f_priv;
     if ((retval = close_port(port)) != 0) return retval;
     return 0;
@@ -1902,8 +1927,7 @@ int dsm_serial_get_numports(int board)
 }
 
 /*
- * Exposed function to return number of ports on a given board
- * where board is in the range 0:(numboards-1)
+ * Exposed function to return our device prefix.
  */
 const char* dsm_serial_get_devprefix()
 {
@@ -1911,8 +1935,8 @@ const char* dsm_serial_get_devprefix()
 }
 
 /*
- * Exposed function to return number of ports on a given board
- * where board is in the range 0:(numboards-1)
+ * Exposed function to return a device name for a given port
+ * number.
  */
 const char* dsm_serial_get_devname(int portnum)
 {
@@ -2187,7 +2211,9 @@ err0:
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-    DSMLOG_NOTICE("cleanup module: %s\n",devprefix);
+#ifdef DEBUG
+    DSMLOG_DEBUG("starting\n");
+#endif
     int ib, ip,i;
     for (ib = 0; ib < numboards; ib++) {
 	if (boardInfo[ib].irq) rtl_free_isa_irq(boardInfo[ib].irq);
@@ -2230,5 +2256,6 @@ void cleanup_module (void)
 
     rtl_gpos_free(boardInfo);
     boardInfo = 0;
+    DSMLOG_NOTICE("done\n");
 }
 
