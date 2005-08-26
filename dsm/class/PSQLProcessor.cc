@@ -49,9 +49,6 @@ SampleIOProcessor* PSQLProcessor::clone() const {
 void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
 {
     input = newinput;
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
-	input->getName().c_str(), getName().c_str());
 
     const list<const DSMConfig*>& dsms = input->getDSMConfigs();
     list<const DSMConfig*>::const_iterator di;
@@ -82,14 +79,6 @@ void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
 
     averager.init();
 
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	output->setDSMConfigs(dsms);
-	output->requestConnection(this);
-    }
-
-
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
 
@@ -106,16 +95,14 @@ void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
             input->addProcessedSampleClient(&averager,sensor);
         }
     }
+    SampleIOProcessor::connect(input);
+
 }
  
-void PSQLProcessor::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
+void PSQLProcessor::disconnect(SampleInput* oldinput) throw(atdUtil::IOException)
 {
     if (!input) return;
-    assert(input == inputarg);
-
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	input->getName().c_str(),getName().c_str());
+    assert(input == oldinput);
 
     const list<const DSMConfig*>& dsms = input->getDSMConfigs();
     list<const DSMConfig*>::const_iterator di;
@@ -130,49 +117,25 @@ void PSQLProcessor::disconnect(SampleInput* inputarg) throw(atdUtil::IOException
         }
     }
     averager.flush();
-
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	input->removeSampleClient(output);
-	output->close();
-    }
+    SampleIOProcessor::disconnect(input);
     input = 0;
 }
  
 void PSQLProcessor::connected(SampleOutput* output) throw()
 {
-    addOutput(output);
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s, #outputs=%d",
-	output->getName().c_str(),
-	getName().c_str(),
-	outputs.size());
-    try {
-	PSQLSampleOutput* psqlOutput =
-		dynamic_cast<PSQLSampleOutput*>(output);
-	if (psqlOutput) psqlOutput->addSampleTag(averager.getSampleTag());
-	else atdUtil::Logger::getInstance()->log(LOG_ERR,
-	    "%s is not a PSQLSampleOutput", output->getName().c_str());
-	output->init();
-    }
-    catch( const atdUtil::IOException& ioe) {
-	atdUtil::Logger::getInstance()->log(LOG_ERR,
-	    "%s: error: %s",
-	    output->getName().c_str(),ioe.what());
-	disconnected(output);
-	return;
-    }
+    PSQLSampleOutput* psqlOutput =
+	    dynamic_cast<PSQLSampleOutput*>(output);
+    if (psqlOutput) psqlOutput->addSampleTag(averager.getSampleTag());
+    else atdUtil::Logger::getInstance()->log(LOG_ERR,
+	"%s is not a PSQLSampleOutput", output->getName().c_str());
+
+    SampleIOProcessor::connected(output);
     averager.addSampleClient(output);
 }
  
 void PSQLProcessor::disconnected(SampleOutput* output) throw()
 {
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	output->getName().c_str(),
-	getName().c_str());
     averager.removeSampleClient(output);
-    output->close();
+    SampleIOProcessor::disconnected(output);
 }
 

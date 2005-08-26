@@ -46,75 +46,37 @@ SampleIOProcessor* SampleArchiver::clone() const {
     return new SampleArchiver(*this);
 }
 
-void SampleArchiver::connect(SampleInput* inputarg) throw(atdUtil::IOException)
+void SampleArchiver::connect(SampleInput* newinput) throw(atdUtil::IOException)
 {
-    input = inputarg;
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
-	input->getName().c_str(), getName().c_str());
-
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	output->setDSMConfigs(input->getDSMConfigs());
-	output->requestConnection(this);
-    }
+    input = newinput;
+    SampleIOProcessor::connect(newinput);
 }
  
-void SampleArchiver::disconnect(SampleInput* inputarg) throw(atdUtil::IOException)
+void SampleArchiver::disconnect(SampleInput* oldinput) throw(atdUtil::IOException)
 {
     if (!input) return;
+    assert(input == oldinput);
 
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s is disconnecting from %s",
-	inputarg->getName().c_str(),getName().c_str());
-
-    assert(input == inputarg);
-
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+    list<SampleOutput*>::iterator oi;
+    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        inputarg->removeSampleClient(output);
-        output->flush();
-        output->close();
+        input->removeSampleClient(output);
     }
+
+    SampleIOProcessor::disconnect(input);
     input = 0;
 }
  
 void SampleArchiver::connected(SampleOutput* output) throw()
 {
-    addOutput(output);
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s, #outputs=%d",
-	output->getName().c_str(),
-	getName().c_str(),
-	outputs.size());
-    try {
-	output->init();
-    }
-    catch( const atdUtil::IOException& ioe) {
-	atdUtil::Logger::getInstance()->log(LOG_ERR,
-	    "%s: error: %s",
-	    output->getName().c_str(),ioe.what());
-	disconnected(output);
-	return;
-    }
     assert(input);
-    cerr << input->getName() << "->addSampleClient(" << output->getName() << ')' << endl;
+    SampleIOProcessor::connected(output);
     input->addSampleClient(output);
 }
  
 void SampleArchiver::disconnected(SampleOutput* output) throw()
 {
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	output->getName().c_str(),
-	getName().c_str());
-    cerr << "asserting input:" << input << endl;
     assert(input);
-    cerr << "removeSampleClient" << endl;
     input->removeSampleClient(output);
-    cerr << "output close" << endl;
-    output->close();
-    cerr << "disconnected" << endl;
+    SampleIOProcessor::disconnected(output);
 }

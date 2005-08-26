@@ -14,6 +14,7 @@
 */
 
 #include <SampleIOProcessor.h>
+#include <atdUtil/Logger.h>
 
 using namespace dsm;
 using namespace std;
@@ -33,24 +34,30 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
 #ifdef DEBUG
     cerr << "SampleIOProcessor copy ctor" << endl;
 #endif
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = x.outputs.begin(); oi != x.outputs.end(); ++oi) {
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = x.dconOutputs.begin(); oi != x.dconOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        addOutput(output->clone());
+        addDisconnectedOutput(output->clone());
     }
 }
 
 SampleIOProcessor::~SampleIOProcessor()
 {
 #ifdef DEBUG
-    cerr << "~SampleIOProcessor, this=" << this << ", outputs.size=" << outputs.size() << endl;
+    cerr << "~SampleIOProcessor, this=" << this << ", dconOutputs.size=" << dconOutputs.size() << endl;
 #endif
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = dconOutputs.begin(); oi != dconOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
 	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
 #ifdef DEBUG
 #endif
+	delete output;
+    }
+    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+	output->close();
+	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
 	delete output;
     }
 }
@@ -58,6 +65,99 @@ SampleIOProcessor::~SampleIOProcessor()
 const std::string& SampleIOProcessor::getName() const { return name; }
 
 void SampleIOProcessor::setName(const std::string& val) { name = val; }
+
+void SampleIOProcessor::connect(SampleInput* input) throw(atdUtil::IOException)
+{
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has connected to %s",
+	input->getName().c_str(), getName().c_str());
+
+    list<SampleOutput*> tmpOutputs = dconOutputs;
+    list<SampleOutput*>::const_iterator oi;
+    for (oi = tmpOutputs.begin(); oi != tmpOutputs.end(); ++oi) {
+	SampleOutput* output = *oi;
+	output->setDSMConfigs(input->getDSMConfigs());
+	output->requestConnection(this);
+    }
+}
+ 
+void SampleIOProcessor::disconnect(SampleInput* input) throw(atdUtil::IOException)
+{
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s is disconnecting from %s",
+	input->getName().c_str(),getName().c_str());
+
+
+    list<SampleOutput*>::iterator oi;
+    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        output->flush();
+    }
+}
+ 
+void SampleIOProcessor::connected(SampleOutput* output) throw()
+{
+    addConnectedOutput(output);
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has connected to %s, #outputs=%d",
+	output->getName().c_str(),
+	getName().c_str(),
+	conOutputs.size());
+    try {
+	output->init();
+    }
+    catch( const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: error: %s",
+	    output->getName().c_str(),ioe.what());
+	disconnected(output);
+	return;
+    }
+}
+ 
+void SampleIOProcessor::disconnected(SampleOutput* output) throw()
+{
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"%s has disconnected from %s",
+	output->getName().c_str(),
+	getName().c_str());
+    output->close();
+    removeConnectedOutput(output);		// deletes it
+}
+
+void SampleIOProcessor::addConnectedOutput(SampleOutput* val)
+{
+    list<SampleOutput*>::iterator oi;
+    for (oi = dconOutputs.begin(); oi != dconOutputs.end(); ) {
+        SampleOutput* output = *oi;
+	if (output == val) {
+	    cerr << "SampleIOProcessor, connected a disconnected output=" <<
+	    	val->getName() << endl;
+	    oi = dconOutputs.erase(oi);
+	}
+	else ++oi;
+    }
+    conOutputs.push_back(val);
+}
+
+void SampleIOProcessor::removeConnectedOutput(SampleOutput* val)
+{
+    list<SampleOutput*>::iterator oi;
+    bool found = false;
+    for (oi = conOutputs.begin(); oi != conOutputs.end(); ) {
+	SampleOutput* output = *oi;
+	if (output == val) {
+	    atdUtil::Logger::getInstance()->log(LOG_DEBUG,
+		"SampleIOProcessor, disconnected %s\n",val->getName().c_str());
+	    oi = conOutputs.erase(oi);
+	    delete output;
+	    found = true;
+	}
+	else ++oi;
+    }
+    if (!found) atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	"SampleIOProcessor, cannot find output %s\n",val->getName().c_str());
+}
 
 /*
  * process <processor> element
@@ -108,13 +208,13 @@ void SampleIOProcessor::fromDOMElement(const DOMElement* node)
                     classattr,"is not a SampleOutput");
 	    }
             output->fromDOMElement((DOMElement*)child);
-	    addOutput(output);
+	    addDisconnectedOutput(output);
 	}
         else throw atdUtil::InvalidParameterException(
                 "SampleIOProcessor::fromDOMElement",
                 elname, "unsupported element");
     }
-    if (outputs.size() == 0)
+    if (dconOutputs.size() == 0)
         throw atdUtil::InvalidParameterException(
                 "SampleIOProcessor::fromDOMElement",
                 "output", "no output specified");

@@ -50,6 +50,7 @@ public:
 protected:
 
     SampleInput* input;
+
 };
 
 }

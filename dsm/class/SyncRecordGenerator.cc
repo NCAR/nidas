@@ -57,22 +57,8 @@ void SyncRecordGenerator::connect(SampleInput* newinput)
 	throw(atdUtil::IOException)
 {
     input = newinput;
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
-	input->getName().c_str(),getName().c_str());
-
     const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
     syncRecSource.init(dsms);
-
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
-	SampleOutput* output = *oi;
-	output->setDSMConfigs(input->getDSMConfigs());
-	// output->setDSMService(getDSMService());
-	output->requestConnection(this);
-    }
-
-    // assert(input->isRaw());
 
     list<const DSMConfig*>::const_iterator di;
     for (di = dsms.begin(); di != dsms.end(); ++di) {
@@ -91,17 +77,14 @@ void SyncRecordGenerator::connect(SampleInput* newinput)
 	    input->addProcessedSampleClient(&syncRecSource,sensor);
 	}
     }
+    SampleIOProcessor::connect(input);
 }
  
-void SyncRecordGenerator::disconnect(SampleInput* inputarg)
+void SyncRecordGenerator::disconnect(SampleInput* oldinput)
 	throw(atdUtil::IOException)
 {
     if (!input) return;
-    assert(input == inputarg);
-
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	input->getName().c_str(),getName().c_str());
+    assert(input == oldinput);
 
     const list<const DSMConfig*>& dsms = input->getDSMConfigs();
     list<const DSMConfig*>::const_iterator di;
@@ -116,40 +99,26 @@ void SyncRecordGenerator::disconnect(SampleInput* inputarg)
 	}
     }
     syncRecSource.flush();
-    set<SampleOutput*>::const_iterator oi;
-    for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
+
+    list<SampleOutput*>::iterator oi;
+    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        input->removeSampleClient(output);
-        output->flush();
-        output->close();
+	syncRecSource.removeSampleClient(output);
     }
+
+    SampleIOProcessor::disconnect(input);
 }
  
 void SyncRecordGenerator::connected(SampleOutput* output) throw()
 {
-    addOutput(output);
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has connected to %s",
-	output->getName().c_str(),getName().c_str());
-
-    try {
-	output->init();
-    }
-    catch(const atdUtil::IOException& ioe) {
-	atdUtil::Logger::getInstance()->log(LOG_ERR,
-	    "%s: %error: %s",
-	    output->getName().c_str(),ioe.what());
-	return;
-    }
+    SampleIOProcessor::connected(output);
     syncRecSource.addSampleClient(output);
 }
 
 void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
 {
-    atdUtil::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
-	output->getName().c_str(),getName().c_str());
     syncRecSource.removeSampleClient(output);
+    SampleIOProcessor::disconnected(output);
 }
 
 void SyncRecordGenerator::sendHeader(dsm_time_t thead,IOStream* iostream)
