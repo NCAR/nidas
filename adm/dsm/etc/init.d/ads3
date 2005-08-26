@@ -39,7 +39,9 @@ fi
 #
 
 create_dev_symlinks() {
+    devdir=`get_devdir`
     [ $devdir == /dev ] && return
+    [ -d $devdir ] || mkdir -p $devdir
     for d in $devdir/*; do
 	if [ -c $d ]; then
 	    f=${d##*/}
@@ -75,14 +77,14 @@ get_modules() {
 
 # read stdin to get the modules and their options.
 # Look for devdir option
-create_devdir() {
+get_devdir() {
     local devdir="/dev"
     while read -a modline; do
         echo "${modline[0]}" | egrep -q "^ *$" && continue
         echo "${modline[0]}" | egrep -q "^ *#" && continue
 
 	# look for devdir option
-	if echo "${modline[@]}" | fgrep -q "devdir" ]; then
+	if echo "${modline[@]}" | fgrep -q "devdir"; then
 	    for o in ${modline[*]}; do
 		if echo "$o" | fgrep -q "devdir"; then
 		    devdir=`echo "$o" | cut -f 2 -d =`
@@ -90,7 +92,7 @@ create_devdir() {
 	    done
 	fi
     done
-    [ -d $devdir ] || mkdir -p $devdir
+    # [ -d $devdir ] || mkdir -p $devdir
     echo $devdir
 }
 # load the modules read from stdin. This can't use
@@ -175,7 +177,7 @@ case "$1" in
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
 	unload_modules < $modconf
         copy_modules < $modconf
-	create_devdir < $modconf
+	create_dev_symlinks < $modconf
         load_modules < $modconf
         copy_apps
         start_app
@@ -195,7 +197,7 @@ case "$1" in
 	;;
   load)
 	echo -n "Load of $DESC modules: "
-	create_devdir < $modconf
+	create_dev_symlinks < $modconf
 	load_modules < $modconf
 	;;
   unload)
@@ -209,7 +211,7 @@ case "$1" in
 	stop_app
 	sleep 5
 	unload_modules < $modconf
-	create_devdir < $modconf
+	create_dev_symlinks < $modconf
 	load_modules < $modconf
 	;;
   refetch)
@@ -223,7 +225,7 @@ case "$1" in
         stop_app
 	unload_modules < $modconf
 	copy_modules < $modconf
-	create_devdir < $modconf
+	create_dev_symlinks < $modconf
 	load_modules < $modconf
         copy_apps
 	start_app
