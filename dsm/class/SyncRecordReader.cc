@@ -173,6 +173,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     list<const SyncRecordVariable*> newvars;
     LocalVarMap varmap;
     map<string,SyncRecordVariable*>::const_iterator vi;
+    list<const SyncRecordVariable*>::const_iterator vli;
 
     for (;;) {
 
@@ -373,6 +374,13 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     }
 
     variables = newvars;
+
+    // make the variableMap for quick lookup.
+    for (vli = variables.begin(); vli != variables.end(); ++vli) {
+	const SyncRecordVariable* varp = *vli;
+    	variableMap[varp->getName()] = varp;
+    }
+
     numFloats = offset;
     cerr << "scanHeader done" << endl;
     return;
@@ -458,5 +466,13 @@ const list<const SyncRecordVariable*> SyncRecordReader::getVariables() throw(atd
 {
     if (headException) throw *headException;
     return variables;
+}
+
+const SyncRecordVariable* SyncRecordReader::getVariable(const std::string& name) const
+{
+    map<string,const SyncRecordVariable*>::const_iterator vi;
+    vi = variableMap.find(name);
+    if (vi == variableMap.end()) return 0;
+    return vi->second;
 }
 

@@ -76,6 +76,12 @@ public:
     	throw(atdUtil::Exception);
 
     /**
+     * Get a pointer to a SyncRecordVariable, searching by name.
+     * Returns NULL if not found.
+     */
+    const SyncRecordVariable* getVariable(const std::string& name) const;
+
+    /**
      * Get number of floats in a sync record.
      */
     size_t getNumFloats() const { return numFloats; }
@@ -125,6 +131,8 @@ private:
     std::list<SampleTag*> sampleTags;
 
     std::list<const SyncRecordVariable*> variables;
+
+    std::map<std::string,const SyncRecordVariable*> variableMap;
 
     atdUtil::Semaphore syncRecSem;
 
