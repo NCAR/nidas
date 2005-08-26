@@ -37,6 +37,8 @@ public:
 
     int run() throw(atdUtil::Exception);
 
+    void interrupt() throw();
+
     void connected(IOChannel*) throw();
 
     void schedule() throw(atdUtil::Exception);

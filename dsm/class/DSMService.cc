@@ -31,6 +31,11 @@ DSMService::DSMService(const std::string& name): atdUtil::Thread(name),
     blockSignal(SIGTERM);
 }
 
+DSMService::DSMService(const DSMService& x):
+	atdUtil::Thread(x),server(x.server)
+{
+}
+
 DSMService::~DSMService()
 {
     // cerr << "~DSMService" << endl;
@@ -42,7 +47,7 @@ void DSMService::addSubService(DSMService* svc) throw()
     subServices.insert(svc);
 }
 
-void DSMService::interruptSubServices() throw()
+void DSMService::interrupt() throw()
 {
     atdUtil::Synchronized autolock(subServiceMutex);
 
@@ -58,9 +63,10 @@ void DSMService::interruptSubServices() throw()
             svc->getName().c_str(),e.what());
         }
     }
+    Thread::interrupt();
 }
 
-void DSMService::cancelSubServices() throw()
+void DSMService::cancel() throw()
 {
     atdUtil::Synchronized autolock(subServiceMutex);
 
@@ -76,9 +82,17 @@ void DSMService::cancelSubServices() throw()
             svc->getName().c_str(),e.what());
         }
     }
+    try {
+	if (isRunning()) Thread::cancel();
+    }
+    catch(const atdUtil::Exception& e) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+		"service %s: %s",
+	getName().c_str(),e.what());
+    }
 }
 
-void DSMService::joinSubServices() throw()
+int DSMService::join() throw()
 {
     atdUtil::Synchronized autolock(subServiceMutex);
 
@@ -86,7 +100,9 @@ void DSMService::joinSubServices() throw()
     for (si = subServices.begin(); si != subServices.end(); ++si) {
         DSMService* svc = *si;
         try {
+	    cerr << "joining " << svc->getName() << endl;
             svc->join();
+	    cerr << svc->getName() << " joined" << endl;
         }
         catch(const atdUtil::Exception& e) {
             atdUtil::Logger::getInstance()->log(LOG_ERR,
@@ -96,6 +112,16 @@ void DSMService::joinSubServices() throw()
 	delete svc;
     }
     subServices.clear();
+    int ijoin = 0;
+    try {
+	if (!isJoined()) ijoin = Thread::join();
+    }
+    catch(const atdUtil::Exception& e) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+		"service %s: %s",
+	getName().c_str(),e.what());
+    }
+    return ijoin;
 }
 
 int DSMService::checkSubServices() throw()

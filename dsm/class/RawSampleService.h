@@ -43,6 +43,8 @@ public:
 
     int run() throw(atdUtil::Exception);
 
+    void interrupt() throw();
+
     void connected(SampleInput*) throw();
 
     void disconnected(SampleInput*) throw();

@@ -145,10 +145,10 @@ int DSMServer::main(int argc, char** argv) throw()
 
     DSMServer::killXmlRpcThread();
 
-    cerr << "XMLCachingParser::destroyInstance()" << endl;
+    // cerr << "XMLCachingParser::destroyInstance()" << endl;
     XMLCachingParser::destroyInstance();
 
-    cerr << "XMLImplementation::terminate()" << endl;
+    // cerr << "XMLImplementation::terminate()" << endl;
     XMLImplementation::terminate();
     return result;
 }
@@ -163,8 +163,11 @@ void DSMServer::startXmlRpcThread() throw(atdUtil::Exception)
 /* static */
 void DSMServer::killXmlRpcThread() throw(atdUtil::Exception)
 {
+    cerr << "xmlrpcthread cancel" << endl;
     _xmlrpcThread->cancel();
+    cerr << "xmlrpcthread join" << endl;
     _xmlrpcThread->join();
+    cerr << "xmlrpcthread delete" << endl;
     delete _xmlrpcThread;
     _xmlrpcThread = 0;
 }
@@ -365,7 +368,8 @@ void DSMServer::interruptServices() throw()
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	svc->interruptSubServices();
+	// cerr << "doing interrupt on " << svc->getName() << endl;
+	svc->interrupt();
     }
 }
 
@@ -374,7 +378,8 @@ void DSMServer::cancelServices() throw()
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	svc->cancelSubServices();
+	// cerr << "doing cancel on " << svc->getName() << endl;
+	svc->cancel();
     }
 }
 
@@ -384,7 +389,9 @@ void DSMServer::joinServices() throw()
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	svc->joinSubServices();
+	// cerr << "doing join on " << svc->getName() << endl;
+	svc->join();
+	// cerr << svc->getName() << " joined" << endl;
     }
 
 }
@@ -414,7 +421,6 @@ void DSMServer::waitOnServices() throw()
 
 	if (quit || restart) break;
 
-	// cerr << "DSMServer::wait nanosleep" << endl;
         nanosleep(&sleepTime,0);
 
 	if (quit || restart) break;
@@ -430,6 +436,7 @@ void DSMServer::waitOnServices() throw()
 
     cancelServices();	
     joinServices();
+    cerr << "services joined" << endl;
 }
 
 DSMServerRunstring::DSMServerRunstring(int argc, char** argv) {

@@ -42,6 +42,11 @@ public:
      */
     DSMService(const std::string& name);
 
+    /**
+     * Copy constuctor.
+     */
+    DSMService(const DSMService& x);
+
     virtual ~DSMService();
 
     /**
@@ -70,10 +75,9 @@ public:
     virtual void schedule() throw(atdUtil::Exception) = 0;
 
     virtual int checkSubServices() throw();
-    virtual void cancelSubServices() throw();
-    virtual void interruptSubServices() throw();
-    virtual void joinSubServices() throw();
-
+    virtual void cancel() throw();
+    virtual void interrupt() throw();
+    virtual int join() throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);

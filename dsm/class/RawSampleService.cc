@@ -57,14 +57,17 @@ RawSampleService::RawSampleService(const RawSampleService& x,
 RawSampleService::~RawSampleService()
 {
 
+    // cerr << "~RawSampleService, disconnecting processors" << endl;
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
+	// cerr << "~RawSampleService, disconnecting proc " << proc->getName() << endl;
 	if (!proc->singleDSM()) proc->disconnect(&merger);
 	else if (input) proc->disconnect(input);
     }
 
     if (input) {
+	// cerr << "~RawSampleService, closing " << input->getName() << endl;
         input->close();
 	delete input;
     }
@@ -79,6 +82,7 @@ RawSampleService::~RawSampleService()
 #endif
 	delete processor;
     }
+    // cerr << "~RawSampleService done" << endl;
 }
 
 
@@ -111,6 +115,16 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
     input->requestConnection(this);
 }
 
+void RawSampleService::interrupt() throw()
+{
+    if (subServices.size() > 0) {
+	cerr << "subServices.size()=" << subServices.size() <<
+		" closing " << input->getName() << endl;
+	input->close();
+	merger.removeInput(input);
+    }
+    DSMService::interrupt();
+}
       
 /*
  * This method is called when a SampleInput is connected.
@@ -146,6 +160,8 @@ void RawSampleService::connected(SampleInput* newinput) throw()
     // If this is a new input make a copy of myself.
     // The copy will own the input.
     if (newstream != input) {
+	cerr << newstream->getName() << " is a diff input from " <<
+		input->getName() << endl;
 	RawSampleService* newserv = new RawSampleService(*this,newstream);
 	newserv->start();
 	addSubService(newserv);
@@ -238,7 +254,7 @@ int RawSampleService::run() throw(atdUtil::Exception)
     // connect processors to the input.  These are
     // single DSM processors, because this is a clone
     // of the original RawSampleService. The processor
-    // with then request connections to its outputs.
+    // then request connections to its outputs.
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = processors.begin(); pi != processors.end();
     	++pi) {
@@ -278,8 +294,11 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	list<SampleIOProcessor*>::const_iterator pi;
 	for (pi = processors.begin(); pi != processors.end(); ++pi) {
 	    SampleIOProcessor* processor = *pi;
+	    cerr << getName() << " calling disconnect of " << input->getName() <<
+	    	" on " << processor->getName() << endl;
 	    processor->disconnect(input);
 	}
+	cerr << "closing " << input->getName() << endl;
 	input->close();
     }
     catch(const atdUtil::IOException& e) {

@@ -72,6 +72,11 @@ void XMLConfigService::schedule() throw(atdUtil::Exception)
     iochan->requestConnection(this,XML_CONFIG);
 }
 
+void XMLConfigService::interrupt() throw()
+{
+    iochan->close();
+    DSMService::interrupt();
+}
 void XMLConfigService::connected(IOChannel* iochan) throw()
 {
     // Figure out what DSM it came from
