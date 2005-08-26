@@ -21,11 +21,36 @@ libpath=/var/tmp/lib
 dsmpath=/var/tmp
 
 modconf=/etc/dsm_modules.conf
+devdir=/dev	# default value if not found in $modconf
 
 if [ ! -r $modconf ]; then
     echo "$modconf not found"
     exit 1
 fi
+
+#
+# After modules are loaded, create any necessary symbolic
+# links between any character files found on /var/tmp/dev and /dev
+# Modules create their FIFOs on /var/tmp/dev in order to
+# reduce the writes to flash. The modules create and delete
+# the fifos on every module load/unload.
+# User space code opens the FIFOs on /dev since that is the
+# conventional place for them.
+#
+
+create_dev_symlinks() {
+    [ $devdir == /dev ] && return
+    for d in $devdir/*; do
+	if [ -c $d ]; then
+	    f=${d##*/}
+	    if [ ! -L /dev/$f -o ! -e /dev/$f ]; then
+		[ -L /dev/$f  -o -e /dev/$f ] && rm /dev/$f
+		echo "doing ln -s $d /dev"
+		ln -s $d /dev
+	    fi
+	fi
+    done
+}
 
 # check if a module is loaded, if not insmod it
 insmod_chk() {
@@ -48,10 +73,30 @@ get_modules() {
     done
 }
 
+# read stdin to get the modules and their options.
+# Look for devdir option
+create_devdir() {
+    local devdir="/dev"
+    while read -a modline; do
+        echo "${modline[0]}" | egrep -q "^ *$" && continue
+        echo "${modline[0]}" | egrep -q "^ *#" && continue
+
+	# look for devdir option
+	if echo "${modline[@]}" | fgrep -q "devdir" ]; then
+	    for o in ${modline[*]}; do
+		if echo "$o" | fgrep -q "devdir"; then
+		    devdir=`echo "$o" | cut -f 2 -d =`
+		fi
+	    done
+	fi
+    done
+    [ -d $devdir ] || mkdir -p $devdir
+    echo $devdir
+}
 # load the modules read from stdin. This can't use
 # get_modules because it needs the whole line
 load_modules() {
-    depmod
+    # depmod
     while read -a modline; do
         echo "${modline[0]}" | egrep -q "^ *$" && continue
         echo "${modline[0]}" | egrep -q "^ *#" && continue
@@ -71,7 +116,7 @@ unload_modules() {
     # so we'll go through the array backwards.
     modules=($(get_modules))
     for (( i=${#modules[*]}-1; i >= 0; i-- )); do
-        [ ${modules[$i]} == rtl ] && continue	# don't unload rtl.o
+        # [ ${modules[$i]} == rtl ] && continue	# don't unload rtl.o
         rmmod_chk ${modules[$i]}
     done
 }
@@ -124,62 +169,68 @@ stop_app() {
 	fi
 }
 
+
 case "$1" in
   start)
-	echo -n "Starting $DESC (fetch & load modules, fetch app, run dsm): "
+	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
 	unload_modules < $modconf
         copy_modules < $modconf
+	create_devdir < $modconf
         load_modules < $modconf
         copy_apps
         start_app
 	echo "$NAME."
 	;;
   stop)
-	echo -n "Stopping $DESC and unloading modules: "
+	echo -n "Stopping $DESC: "
 	stop_app
-        # unload_modules < $modconf
 	echo "$NAME."
 	;;
   restart)
-	echo -n "Restart of $DESC (does not unload modules or fetch app): "
+	echo -n "Restart of $DESC app (does not reload modules): "
 	stop_app
 	sleep 5
 	start_app
 	echo "$NAME."
 	;;
+  load)
+	echo -n "Load of $DESC modules: "
+	create_devdir < $modconf
+	load_modules < $modconf
+	;;
   unload)
-	echo -n "Unload of $DESC (unloads modules): "
+	echo -n "Unload of $DESC (stops app, unloads modules): "
 	stop_app
 	sleep 5
 	unload_modules < $modconf
 	;;
   reload)
-	echo -n "Reload of $DESC (reloads modules and restarts dsm): "
+	echo -n "Reload of $DESC (stops app, reloads modules): "
 	stop_app
 	sleep 5
 	unload_modules < $modconf
+	create_devdir < $modconf
 	load_modules < $modconf
-	start_app
-	  ;;
+	;;
   refetch)
-	echo -n "Refetch of $DESC (stops dsm, fetches app, starts dsm): "
+	echo -n "Refetch of $DESC (stops app, fetches app & lib, starts app): "
         stop_app
         copy_apps
 	start_app
-  ;;
+	;;
   refetch_all)
-	echo -n "Refetch_all of $DESC (stops dsm, unloads mods, fetches all, starts dsm): "
+	echo -n "Refetch_all of $DESC (stops app, unloads mods, fetches all, starts app): "
         stop_app
 	unload_modules < $modconf
 	copy_modules < $modconf
+	create_devdir < $modconf
 	load_modules < $modconf
         copy_apps
 	start_app
-  ;;
+	;;
   *)
 	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|refetch|refetch_all}" >&2
-	echo "Usage: $N {start|stop|restart|reload|refetch|refetch_all}" >&2
+	echo "Usage: $N {start|stop|restart|load|unload|reload|refetch|refetch_all}" >&2
 	exit 1
 	;;
 esac
