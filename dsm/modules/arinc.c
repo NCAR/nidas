@@ -551,7 +551,7 @@ static void __exit arinc_cleanup(void)
   /* for each ARINC transmit port... */
   char devstr[30];
   for (chn=0; chn<N_ARINC_TX; chn++) {
-    sprintf(devstr, "/dev/arinc_out_%d", chn);
+    sprintf(devstr, "%s/arinc_out_%d", getDevDir(),chn);
     rtl_close( fd_arinc_tx[chn] );
     rtl_unlink( devstr );
   }
@@ -708,7 +708,7 @@ static int __init arinc_init(void)
   {
     // remove broken device file before making a new one
     struct recvHandle *hdl = &chn_info[chn];
-    sprintf( hdl->fname, "/dev/arinc_in_%d", chn );
+    sprintf( hdl->fname, "%s/arinc_in_%d", getDevDir(),chn );
 
     // default fifo as not open
     hdl->fd = -1;
@@ -725,7 +725,7 @@ static int __init arinc_init(void)
   for (chn=0; chn<N_ARINC_TX; chn++)
   {
     // remove broken device file before making a new one
-    sprintf(devstr, "/dev/arinc_out_%d", chn);
+    sprintf(devstr, "%s/arinc_out_%d",getDevDir(), chn);
 
     status = rtl_unlink(devstr);
     if ( status<0 && rtl_errno != RTL_ENOENT ) goto fail;

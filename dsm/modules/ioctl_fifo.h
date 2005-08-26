@@ -82,6 +82,8 @@ struct ioctlHandle*  openIoctlFIFO(const char* prefix,int boardNum,
 
 void closeIoctlFIFO(struct ioctlHandle* ioctls);
 
+const char* getDevDir();
+
 char* makeDevName(const char* prefix, const char* suffix, int num);
 
 /**

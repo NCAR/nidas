@@ -2136,7 +2136,7 @@ int init_module(void)
 	    }
 
 	    retval = -ENOMEM;
-	    sprintf(devname, "/dev/%s%d", devprefix,portcounter);
+	    sprintf(devname, "%s/%s%d", getDevDir(),devprefix,portcounter);
 	    port->devname = (char *) rtl_gpos_malloc( strlen(devname) + 1 );
 	    if (!port->devname) goto err1;
 	    strcpy(port->devname,devname);

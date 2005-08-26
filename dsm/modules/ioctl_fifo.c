@@ -34,6 +34,10 @@
 
 RTLINUX_MODULE(ioctl_fifo);
 
+static char* devdir = "/dev";
+MODULE_PARM(devdir, "s");
+MODULE_PARM_DESC(devdir, "directory to place RTL FIFO device files");
+
 // #define DEBUG
 
 LIST_HEAD(ioctlList);
@@ -52,6 +56,10 @@ static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v);
 static unsigned char ETX = '\003';
   
 /**
+ * Exposed function to get the device directory.
+ */
+const char* getDevDir() { return devdir; }
+/**
  * Make a FIFO name. This must match what is done with a device prefix
  * on the user side.
  */
@@ -60,8 +68,10 @@ char* makeDevName(const char* prefix, const char* suffix,
 {
     char numstr[16];
     sprintf(numstr,"%d",num);
-    char* name = rtl_gpos_malloc( strlen(prefix) + strlen(suffix) + strlen(numstr) + 6 );
-    strcpy(name,"/dev/");
+    char* name = rtl_gpos_malloc(
+    	strlen(devdir) + strlen(prefix) + strlen(suffix) + strlen(numstr) + 2 );
+    strcpy(name,devdir);
+    strcat(name,"/");
     strcat(name,prefix);
     strcat(name,suffix);
     strcat(name,numstr);
