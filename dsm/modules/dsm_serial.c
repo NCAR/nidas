@@ -40,6 +40,7 @@
 #include <rtl_isa_irq.h>
 #include <irigclock.h>
 #include <win_com8.h>
+#include <ioctl_fifo.h>
 #include <dsm_version.h>
 
 // #define SERIAL_DEBUG_AUTOCONF
@@ -654,6 +655,8 @@ static int change_speed(struct serialPort* port, struct termios* termios)
     port->quot = quot;
     port->timeout = ((port->xmit_fifo_size*HZ*bits*quot) / baud_base);
     port->timeout += HZ/50;         /* Add .02 seconds of slop */
+
+    port->usecs_per_char = (bits * USECS_PER_SEC + baud/2) / baud;
 
     /* Set up FIFO's */
     if (uart_config[port->type].flags & UART_USE_FIFO) {
@@ -1428,6 +1431,16 @@ static void add_char_sep_bom(struct serialPort* port, unsigned char c)
 	    if (port->incount == port->recinfo.recordLen) port->sepcnt = 0;
 	}
     }
+}
+
+static inline void adjust_tt(struct serialPort* port,int nchars)
+{
+    int msecadj =
+      (port->usecs_per_char * nchars + USECS_PER_MSEC/2) /
+                  USECS_PER_MSEC;
+    if (port->sample->timetag < msecadj)
+      port->sample->timetag += MSECS_PER_DAY;
+      port->sample->timetag -= msecadj;
 }
 
 static void add_char_sep_eom(struct serialPort* port, unsigned char c)

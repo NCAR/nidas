@@ -26,6 +26,10 @@
 #define USECS_PER_SEC 1000000
 #endif
 
+#ifndef USECS_PER_MSEC
+#define USECS_PER_MSEC 1000
+#endif
+
 #ifndef __RTCORE_KERNEL__
 #include <sys/time.h>
 #define rtl_timeval timeval

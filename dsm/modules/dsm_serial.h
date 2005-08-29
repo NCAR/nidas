@@ -220,6 +220,7 @@ struct serialPort {
     int input_char_overflows;
     int output_char_overflows;
     int sample_overflows;
+    long usecs_per_char;
 
 };
 
