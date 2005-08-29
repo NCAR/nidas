@@ -280,7 +280,7 @@
    <xsd:complexType>
 	<xsd:attribute name="type" type="sockettype" default="mcrequest"/>
         <xsd:attribute name="port" type="xsd:nonNegativeInteger"
-		default="50000"/>
+		default="30000"/>
         <xsd:attribute name="address" type="xsd:token"/>
    </xsd:complexType>
 </xsd:element>

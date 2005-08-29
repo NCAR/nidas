@@ -334,7 +334,7 @@
 
                 </output>
                 <output class="SampleOutputStream">
-                    <socket type="server" port="10000"/>
+                    <socket type="server" port="30000"/>
                 </output>
             </processor>
             <!--
@@ -353,13 +353,13 @@
                         length="0" />
                 </output>
                 <output class="SampleOutputStream">
-                    <socket type="server" port="10001"/>
+                    <socket type="server" port="30001"/>
                 </output>
             </processor>
         </service>
     </server>
 
-    <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="50010">
+    <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="30002">
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc0" id="1000"/>
@@ -404,7 +404,7 @@
         </output>
     </dsm>
 
-    <dsm name="dsm305" location="radome" id="1" rserialPort="50010">
+    <dsm name="dsm305" location="radome" id="1" rserialPort="30002">
         <config class="XMLConfig">
             <socket type="mcrequest"/>
         </config>

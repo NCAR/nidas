@@ -227,7 +227,7 @@
         baud="115200" parity="none" databits="8" stopbits="1">
         <sample id="1" scanfFormat="*%*2d%*2d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="*0100P3\r\n" rate="50"/>
+        <prompt string="*0100P3\r\n" rate="25"/>
 	<!-- initialization commands for the Paro:
 	  Still can't get it to run in prompted mode at anything higher
 	  than 20 hz.
@@ -245,7 +245,7 @@
 	  *0100EW*0100UN=2
 	  *0100EW*0100PR=1
 	  *0100EW*0100TR=1
-	  *0100EW*0100PI=10
+	  *0100EW*0100PI=19
 	-->
     </serialSensor>
 
@@ -290,12 +290,12 @@
             </input>
             <processor class="SampleArchiver">
                 <output class="SampleOutputStream">
-                    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
+                    <fileset dir="/var/r1/${PROJECT}/${AIRCRAFT}"
                         file="all_%Y%m%d_%H%M%S.dat"
                         length="300"/>
                 </output>
                 <output class="SampleOutputStream">
-                    <socket type="server" port="10000"/>
+                    <socket type="server" port="30000"/>
                 </output>
             </processor>
             <!--
@@ -314,12 +314,13 @@
                         length="0" />
                 </output>
                 <output class="SampleOutputStream">
-                    <socket type="server" port="10001"/>
+                    <socket type="server" port="30001"/>
                 </output>
             </processor>
         </service>
     </server>
 
+<!--
     <dsm name="viper-444" location="cabin" id="0">
         <irigSensor  IDREF="IRIG"   devicename="/dev/irig0"  id="100"/>
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
@@ -332,6 +333,7 @@
             <socket type="mcrequest"/>
         </output>
     </dsm>
+-->
 
     <dsm name="dsm301" location="radome" id="0" rserialPort="50010">
         <config class="XMLConfig">
@@ -353,8 +355,6 @@
                 <variable name="DPRESP1" units="mb"/>
             </sample>
         </serialSensor>
-        <!--
-        -->
 
         <!--
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc0" id="1000"/>
@@ -364,46 +364,50 @@
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
                 <variable name="A2D0" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D1" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D2" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D3" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D4" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D5" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D6" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
                 <variable name="A2D7" units="V">
-                    <parameter name="gain" value="1.0" type="float"/>
-                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="gain" value="10.0" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
                 </variable>
+		<!--
+		-->
             </sample>
         </sensor>
+        <!--
+        -->
+        <!--
         <sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
             <sample id="1" rate="1">
                 <variable name="A2DTEMP" units="degC">
                 </variable>
             </sample>
         </sensor>
-        <!--
         -->
 <!--
         <anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>

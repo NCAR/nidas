@@ -39,7 +39,7 @@ public:
     string varname;
 };
 
-Runstring::Runstring(int argc, char** argv):port(0)
+Runstring::Runstring(int argc, char** argv):port(30001)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
@@ -59,16 +59,14 @@ Runstring::Runstring(int argc, char** argv):port(0)
     if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	url = url.substr(5);
 	size_t ic = url.find(':');
-	if (ic == string::npos) {
-	    cerr << "Invalid host:port parameter: " << url << endl;
-	    usage(argv[0]);
-	}
 	hostName = url.substr(0,ic);
-	istringstream ist(url.substr(ic+1));
-	ist >> port;
-	if (ist.fail()) {
-	    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-	    usage(argv[0]);
+	if (ic < string::npos) {
+	    istringstream ist(url.substr(ic+1));
+	    ist >> port;
+	    if (ist.fail()) {
+		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		usage(argv[0]);
+	    }
 	}
     }
     else if (url.length() > 5 && !url.compare(0,5,"file:")) {

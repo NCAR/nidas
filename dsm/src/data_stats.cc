@@ -43,7 +43,7 @@ public:
     int port;
 };
 
-Runstring::Runstring(int argc, char** argv): process(false),port(50000)
+Runstring::Runstring(int argc, char** argv): process(false),port(30000)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
@@ -66,16 +66,14 @@ Runstring::Runstring(int argc, char** argv): process(false),port(50000)
 	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	    url = url.substr(5);
 	    size_t ic = url.find(':');
-	    if (ic == string::npos) {
-		cerr << "Invalid host:port parameter: " << url << endl;
-		usage(argv[0]);
-	    }
 	    hostName = url.substr(0,ic);
-	    istringstream ist(url.substr(ic+1));
-	    ist >> port;
-	    if (ist.fail()) {
-		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		usage(argv[0]);
+	    if (ic < string::npos) {
+		istringstream ist(url.substr(ic+1));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		    usage(argv[0]);
+		}
 	    }
 	}
 	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
@@ -101,7 +99,7 @@ Usage: " << argv0 << "[-p] [-x xml_file] URL\n\
 Examples:\n" <<
 	argv0 << " /tmp/xxx.dat\n" <<
 	argv0 << " file:/tmp/xxx.dat\n" <<
-	argv0 << " -p -x ads3.xml sock:hyper:10000\n" << endl;
+	argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
     exit(1);
 }
 

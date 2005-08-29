@@ -25,6 +25,7 @@ Variable::Variable(): sampleTag(0),type(CONTINUOUS),length(1),converter(0)
 {
 }
 
+/* copy constructor */
 Variable::Variable(const Variable& x):
 	sampleTag(0),name(x.name),longname(x.longname),units(x.units),
 	type(x.type),length(x.length),converter(0)

@@ -71,7 +71,7 @@ public:
 };
 
 Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
-	format(DumpClient::DEFAULT)
+	port(30000),format(DumpClient::DEFAULT)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
@@ -116,16 +116,14 @@ Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
 	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	    url = url.substr(5);
 	    size_t ic = url.find(':');
-	    if (ic == string::npos) {
-		cerr << "Invalid host:port parameter: " << url << endl;
-		usage(argv[0]);
-	    }
 	    hostName = url.substr(0,ic);
-	    istringstream ist(url.substr(ic+1));
-	    ist >> port;
-	    if (ist.fail()) {
-		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		usage(argv[0]);
+	    if (ic < string::npos) {
+		istringstream ist(url.substr(ic+1));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		    usage(argv[0]);
+		}
 	    }
 	}
 	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
@@ -159,7 +157,7 @@ Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file URL [-A | -H | -S]\
 Examples:\n" <<
 	argv0 << " -d 0 -s 100 /tmp/xxx.dat\n" <<
 	argv0 << " -d 0 -s 100 file:/tmp/xxx.dat\n" <<
-	argv0 << " -d 0 -s 200 -p -x ads3.xml sock:hyper:10000\n" << endl;
+	argv0 << " -d 0 -s 200 -p -x ads3.xml sock:hyper:30000\n" << endl;
     exit(1);
 }
 

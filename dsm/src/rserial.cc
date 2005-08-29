@@ -158,7 +158,7 @@ RemoteSerial* RemoteSerial::instance = 0;
 
 RemoteSerial::RemoteSerial(): interrupted(false),
     escapeNonprinting(true),addNewLine(false),binaryOutputOption(HEX),
-    socketPort(8100),stdinAltered(false),socket(0),
+    socketPort(30002),stdinAltered(false),socket(0),
     BUFSIZE(1024),buffer(new char[BUFSIZE]),
 	bufhead(0),buftail(0)
 {
@@ -462,14 +462,17 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
     case '?':
       usage(argv[0]);
     }
-  if (argc - optind < 3) usage(argv[0]);
+  if (argc - optind < 2) usage(argv[0]);
+  sensorName = argv[optind++];
+
   hostName = argv[optind++];
 
-  istringstream ist(argv[optind++]);
-  ist >> socketPort;
-  if (ist.fail()) usage(argv[0]);
+  if (argc - optind > 0) {
+      istringstream ist(argv[optind++]);
+      ist >> socketPort;
+      if (ist.fail()) usage(argv[0]);
+    }
 
-  sensorName = argv[optind++];
   return 0;
 
 }
@@ -477,7 +480,7 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
 void RemoteSerial::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << "\
-[-n] [-e] [-A | -a] dsmName socketPort sensorName\n\
+[-n] [-e] [-A | -a] sensorName dsmName [socketPort]\n\
 -n: add (extra) newline at end of each record\n\
 -e: for non-binary sensors, don't print escape sequence for special characters\n\
 -A: for binary sensors, print as ASCII, not hex\n\
