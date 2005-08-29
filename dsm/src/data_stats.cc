@@ -48,6 +48,8 @@ Runstring::Runstring(int argc, char** argv): process(false),port(30000)
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
+
+    xmlFileName = DSMServer::getADS3ConfigDir() + "/ads3.xml";
 										
     while ((opt_char = getopt(argc, argv, "px:")) != -1) {
 	switch (opt_char) {

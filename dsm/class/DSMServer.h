@@ -47,6 +47,13 @@ public:
 
     static void setXMLFileName(const std::string& val) { xmlFileName = val; }
 
+    /**
+     * Return value of ADS3 configuration directory which is
+     * created from environment variables as follows:
+     *	$ADS3_CONFIG/projects/$ADS3_PROJECT/$ADS3_AIRCRAFT/flights/$ADS3_FLIGHT
+     */
+    static std::string getADS3ConfigDir();
+
 protected:
     static void setupSignals();
 

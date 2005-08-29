@@ -70,13 +70,15 @@ public:
     DumpClient::format_t format;
 };
 
-Runstring::Runstring(int argc, char** argv): process(false),sampleId(0),
-	port(30000),format(DumpClient::DEFAULT)
+Runstring::Runstring(int argc, char** argv): process(false),
+	port(30000),sampleId(0),
+	format(DumpClient::DEFAULT)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
+    xmlFileName = DSMServer::getADS3ConfigDir() + "/ads3.xml";
 										
     while ((opt_char = getopt(argc, argv, "Ad:FHps:Sx:")) != -1) {
 	switch (opt_char) {

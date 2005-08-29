@@ -43,6 +43,25 @@ bool DSMServer::restart = false;
 DSMServerIntf* DSMServer::_xmlrpcThread = 0;
 
 /* static */
+std::string DSMServer::getADS3ConfigDir()
+{
+    const char* ads3Config = getenv("ADS3_CONFIG");
+    if (!ads3Config) ads3Config = "/usr/local/ads3";
+
+    const char* ads3Project = getenv("ADS3_PROJECT");
+    if (!ads3Project) ads3Project = "test";
+
+    const char* ads3Aircraft = getenv("ADS3_AIRCRAFT");
+    if (!ads3Aircraft) ads3Aircraft = "GV";
+
+    const char* ads3Flight = getenv("ADS3_FLIGHT");
+    if (!ads3Flight) ads3Flight = "tf0";
+
+    return string(ads3Config) + "/projects/" + ads3Project + '/' +
+	ads3Aircraft + "/flights/" + ads3Flight;
+}
+
+/* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
     DSMServerRunstring rstr(argc,argv);
