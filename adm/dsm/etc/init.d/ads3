@@ -1,13 +1,13 @@
 #! /bin/sh
 #
 #
-# Aircraft Data System
+# Aircraft Data System startup script
 #
 # . /etc/default/rcS
 
 # set -x
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=dsm
 NAME=dsm
 DESC="dsm"
@@ -21,27 +21,62 @@ libpath=/var/tmp/lib
 dsmpath=/var/tmp
 
 modconf=/etc/dsm_modules.conf
-devdir=/dev	# default value if not found in $modconf
 
 if [ ! -r $modconf ]; then
     echo "$modconf not found"
     exit 1
 fi
 
+# check if a module is loaded, if not insmod it
+insmod_chk() {
+	lsmod | fgrep -q $1 || insmod "$@"
+}
+
+# check if a module is loaded, if so rmmod it
+rmmod_chk() {
+	lsmod | fgrep -q $1 && rmmod $1
+}
+
+# read stdin and return an array of module names:
+#    the first word of each non-comment line in stdin
+get_modules() {
+    while read module rest_of_line; do
+	[[ "$module" =~ "^ *$" ]] && continue	# empty line
+	[[ "$module" =~ "^ *#" ]] && continue	# comment line
+        echo "$module"
+    done
+}
+
+# read stdin to get the devdir option to the ioctl_fifo module
+get_devdir() {
+    local devdir="/dev"
+
+    while read -a modline; do
+
+	[[ "${modline[@]}" =~ "^ *$" ]] && continue	# empty line
+	[[ "${modline[@]}" =~ "^ *#" ]] && continue	# comment line
+
+	# look for devdir option
+	if [[ "${modline[@]}" == *devdir=* ]]; then
+	    for o in ${modline[*]}; do
+		if [[ "$o" == devdir=* ]]; then
+		    devdir=`echo "$o" | cut -f 2 -d =`
+		fi
+	    done
+	fi
+    done
+    echo $devdir
+}
+
 #
 # After modules are loaded, create any necessary symbolic
-# links between any character files found on /var/tmp/dev and /dev
-# Modules create their FIFOs on /var/tmp/dev in order to
-# reduce the writes to flash. The modules create and delete
-# the fifos on every module load/unload.
-# User space code opens the FIFOs on /dev since that is the
-# conventional place for them.
+# links between any character device files found on $devdir
+# and /dev.  User space code opens the FIFOs on /dev
+# since that is the conventional place for them.
 #
 
 create_dev_symlinks() {
-    devdir=`get_devdir`
     [ $devdir == /dev ] && return
-    [ -d $devdir ] || mkdir -p $devdir
     for d in $devdir/*; do
 	if [ -c $d ]; then
 	    f=${d##*/}
@@ -54,56 +89,16 @@ create_dev_symlinks() {
     done
 }
 
-# check if a module is loaded, if not insmod it
-insmod_chk() {
-	lsmod | fgrep -q $1 || insmod "$@"
-}
-
-# check if a module is loaded, if so rmmod it
-rmmod_chk() {
-	lsmod | fgrep -q $1 && rmmod $1
-}
-
-# return an array of module names:
-#    the first word of each non-comment line in stdin
-get_modules() {
-    while read module rest_of_line; do
-        # echo "${modline[*]}"
-        echo "$module" | egrep -q "^ *$" && continue
-        echo "$module" | egrep -q "^ *#" && continue
-        echo "$module"
-    done
-}
-
-# read stdin to get the modules and their options.
-# Look for devdir option
-get_devdir() {
-    local devdir="/dev"
-    while read -a modline; do
-        echo "${modline[0]}" | egrep -q "^ *$" && continue
-        echo "${modline[0]}" | egrep -q "^ *#" && continue
-
-	# look for devdir option
-	if echo "${modline[@]}" | fgrep -q "devdir"; then
-	    for o in ${modline[*]}; do
-		if echo "$o" | fgrep -q "devdir"; then
-		    devdir=`echo "$o" | cut -f 2 -d =`
-		fi
-	    done
-	fi
-    done
-    # [ -d $devdir ] || mkdir -p $devdir
-    echo $devdir
-}
 # load the modules read from stdin. This can't use
-# get_modules because it needs the whole line
+# get_modules because it needs the whole module line
 load_modules() {
     # depmod
     while read -a modline; do
-        echo "${modline[0]}" | egrep -q "^ *$" && continue
-        echo "${modline[0]}" | egrep -q "^ *#" && continue
+	[[ "${modline[@]}" =~ "^ *$" ]] && continue	# empty line
+	[[ "${modline[@]}" =~ "^ *#" ]] && continue	# comment line
         insmod_chk "${modline[@]}"
     done
+    create_dev_symlinks
 }
 
 unload_modules() {
@@ -123,11 +118,6 @@ unload_modules() {
     done
 }
 
-
-#
-# Connect to the NTP time server
-#
-# /usr/sbin/ntpdate server && hwclock --systonc
 
 copy_modules() {
     [ -d $modpath ] || mkdir -p $modpath
@@ -171,13 +161,15 @@ stop_app() {
 	fi
 }
 
+# get devdir and create it
+devdir=$(get_devdir < $modconf)
+[ -d $devdir ] || mkdir -p $devdir
 
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
 	unload_modules < $modconf
         copy_modules < $modconf
-	create_dev_symlinks < $modconf
         load_modules < $modconf
         copy_apps
         start_app
@@ -197,7 +189,6 @@ case "$1" in
 	;;
   load)
 	echo -n "Load of $DESC modules: "
-	create_dev_symlinks < $modconf
 	load_modules < $modconf
 	;;
   unload)
@@ -211,7 +202,6 @@ case "$1" in
 	stop_app
 	sleep 5
 	unload_modules < $modconf
-	create_dev_symlinks < $modconf
 	load_modules < $modconf
 	;;
   refetch)
@@ -225,10 +215,13 @@ case "$1" in
         stop_app
 	unload_modules < $modconf
 	copy_modules < $modconf
-	create_dev_symlinks < $modconf
 	load_modules < $modconf
         copy_apps
 	start_app
+	;;
+  test)
+	get_modules < $modconf
+	get_devdir < $modconf
 	;;
   *)
 	N=/etc/init.d/$NAME
