@@ -80,7 +80,6 @@ typedef struct
 	int	offset[MAXA2DS];	// Offset flags
 	long	latencyUsecs;	// buffer latency in micro-seconds
 	US	filter[CONFBLOCKS*CONFBLLEN+1];	// Filter data
-	US	master;		// Designates master A/D
 } A2D_SET;
 
 typedef struct 
@@ -266,6 +265,8 @@ struct A2DBoard {
     unsigned char buffer[8192];	// data buffer
     unsigned long skippedSamples;	// discarded samples because of 
     					// RTL FIFO sluggishness.
+    unsigned char invertCounts;
+    int master;
 };
 
 #endif

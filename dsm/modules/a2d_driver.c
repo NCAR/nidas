@@ -62,9 +62,14 @@ Revisions:
 #include <a2d_driver.h>
 #include <dsm_version.h>
 
-/* ioport addresses of installed boards, 0=noboard */
+/* ioport addresses of installed boards, 0=no board installed */
 static int ioport[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
-static int master = 7;
+
+/* Which A2D chip is the master.*/
+static int master[MAX_A2D_BOARDS] = { 7, 7, 7, 7};
+
+/* Whether to invert counts */
+static int invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1};
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int numboards = 0;
@@ -75,8 +80,12 @@ RTLINUX_MODULE(DSMA2D);
 
 MODULE_PARM(ioport, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
 MODULE_PARM_DESC(ioport, "ISA port address of each board, e.g.: 0x3A0");
-MODULE_PARM(master, "1l");
-MODULE_PARM_DESC(ncycles, "Sets master A/D");
+
+MODULE_PARM(invert, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
+MODULE_PARM_DESC(invert, "Whether to invert counts, default=1(true)");
+
+MODULE_PARM(master, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
+MODULE_PARM_DESC(master, "Sets master A/D for each board, default=7");
 
 static struct A2DBoard* boardInfo = 0;
 
@@ -345,7 +354,6 @@ static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 	    DSMLOG_ERR("A2DSetMaster, bad chip number: %d\n", A2DSel);
 	    return -EINVAL;
 	}
-	A2DSel = master; // DEBUG: Jamming A2DMASTER to fixed value
 
         DSMLOG_DEBUG("A2DSetMaster, master=%d\n", A2DSel);
 
@@ -839,7 +847,7 @@ static int A2DSetup(struct A2DBoard* brd)
 	brd->status.ser_num = getSerialNumber(brd);
 	DSMLOG_DEBUG("A2D serial number = %d\n", brd->status.ser_num);
 	
-	if ((ret = A2DSetMaster(brd,a2d->master)) < 0) return ret;
+	if ((ret = A2DSetMaster(brd,brd->master)) < 0) return ret;
 
 	A2DSetOffset(brd);
 
@@ -1101,14 +1109,12 @@ static void* A2DGetDataThread(void *thread_arg)
 		}
 #endif
 
-#ifdef NEGATE_COUNTS
-		signed short counts = -inw(brd->addr);
-#elif defined(INVERT_COUNTS)
-		//Inverted bits for S/N 3 and after
-		signed short counts = 0xFFFF ^ inw(brd->addr);
-#else
-		signed short counts = inw(brd->addr);
-#endif
+		signed short counts;
+
+		//Inverted bits for later cards
+		if (brd->invertCounts) counts = -inw(brd->addr);
+		else counts = inw(brd->addr);
+
 		if (brd->requested[ichan]) *dataptr++ = counts;
 
 	    }
@@ -1414,7 +1420,6 @@ static int ioctlCallback(int cmd, int board, int port,
   	return ret;
 }
 
-
 /*-----------------------Module------------------------------*/
 // Stops the A/D and releases reserved memory
 void cleanup_module(void)
@@ -1548,6 +1553,9 @@ int init_module()
 	    brd->fifoNotEmpty = 0;
 	    brd->i2c = 0x3;
 	    brd->skippedSamples = 0;
+
+	    brd->invertCounts = invert[ib];
+	    brd->master = master[ib];
 	}
 
 	/* allocate necessary members in each A2DBoard structure */
