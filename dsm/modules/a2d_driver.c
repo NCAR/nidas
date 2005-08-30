@@ -444,15 +444,12 @@ static void A2DSetOffset(struct A2DBoard* brd)
 	for(i = 0; i < MAXA2DS; i++)
 	{
 		Chans >>= 1;
-//		if(brd->config.offset[i] != 0)Chans += 0x80;
-		if(brd->config.offset[i] == 0)Chans += 0x80;	// Inverted bits
+		if(brd->config.offset[i] != 0)Chans += 0x80;
 	}
 
 	outb(A2DIOCALOFF, brd->chan_addr);
 
 	brd->OffCal |= (US)((Chans <<8) & 0xFF00);
-
-//	brd->OffCal = 0;	// What the hell was this?
 
 	DSMLOG_DEBUG("A2DSetOffset OffCal=0x%04x\n", brd->OffCal);
 
