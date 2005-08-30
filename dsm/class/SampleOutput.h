@@ -79,7 +79,7 @@ class SampleOutputStream: public SampleOutput
 {
 public:
 
-    SampleOutputStream();
+    SampleOutputStream(IOChannel* iochan=0);
 
     /**
      * Copy constructor.

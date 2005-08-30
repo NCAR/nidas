@@ -58,6 +58,16 @@ void DSMConfig::openSensors(PortSelector* selector)
 	si = ownedSensors.erase(si);
     }
 }
+
+void DSMConfig::initSensors()
+	throw(atdUtil::IOException)
+{
+    list<DSMSensor*>::iterator si;
+    for (si = ownedSensors.begin(); si != ownedSensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+	sensor->init();
+    }
+}
 void DSMConfig::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {

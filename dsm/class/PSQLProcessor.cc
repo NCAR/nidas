@@ -91,7 +91,6 @@ void PSQLProcessor::connect(SampleInput* newinput) throw(atdUtil::IOException)
                     input->getName() << " sensor=" <<
                         sensor->getName() << endl;
 #endif
-            sensor->init();
             input->addProcessedSampleClient(&averager,sensor);
         }
     }

@@ -68,7 +68,7 @@ public:
     /**
     * open the sensor. This opens the associated RT-Linux FIFOs.
     */
-    void open(int flags) throw(atdUtil::IOException);
+    void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
     /**
     * Read from the sensor.

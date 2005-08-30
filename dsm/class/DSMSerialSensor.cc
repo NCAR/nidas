@@ -53,7 +53,7 @@ DSMSerialSensor::~DSMSerialSensor() {
 	delete scanner;
     }
 }
-void DSMSerialSensor::open(int flags) throw(atdUtil::IOException)
+void DSMSerialSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     // It's magic, we can do an ioctl before the device is open!
     ioctl(DSMSER_OPEN,&flags,sizeof(flags));
@@ -184,7 +184,7 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
     DSMSensor::addSampleTag(tag);
 }
 
-void DSMSerialSensor::init() throw(atdUtil::IOException) {
+void DSMSerialSensor::init() throw(atdUtil::InvalidParameterException) {
     if (scanners.size() > 0) nextScanner = scanners.begin();
 }
 

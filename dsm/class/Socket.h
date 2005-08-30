@@ -128,7 +128,7 @@ public:
     /**
      * Constructor.
      */
-    ServerSocket();
+    ServerSocket(int port = 0);
 
     /**
      * Copy constructor.
@@ -138,6 +138,7 @@ public:
     ~ServerSocket();
 
     IOChannel* clone() const;
+
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);

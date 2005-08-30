@@ -376,8 +376,11 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
 	const std::list<DSMConfig*>& dsms = getSite()->getDSMConfigs();
 	cerr << "adding " << dsms.size() << " DSMConfigs to service" << endl;
 	std::list<DSMConfig*>::const_iterator di;
-	for (di = dsms.begin(); di != dsms.end(); ++di)
+	for (di = dsms.begin(); di != dsms.end(); ++di) {
+	    DSMConfig* dsm = *di;
+	    dsm->initSensors();
 	    svc->addDSMConfig(*di);
+	}
 	svc->schedule();
     }
 }

@@ -55,6 +55,8 @@ public:
 
     void openSensors(PortSelector*) throw(atdUtil::IOException);
 
+    void initSensors() throw(atdUtil::IOException);
+
     void addOutput(SampleOutput* output) { outputs.push_back(output); }
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 

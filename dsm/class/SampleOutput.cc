@@ -30,8 +30,8 @@ using namespace xercesc;
 
 CREATOR_ENTRY_POINT(SampleOutputStream)
 
-SampleOutputStream::SampleOutputStream():
-	name("SampleOutputStream"),iochan(0),iostream(0),
+SampleOutputStream::SampleOutputStream(IOChannel* i):
+	name("SampleOutputStream"),iochan(i),iostream(0),
 	pseudoPort(0),service(0),connectionRequester(0),
 	nextFileTime(0)
 {
@@ -121,15 +121,9 @@ int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
 void SampleOutputStream::connected(IOChannel* iochannel) throw()
 {
 
-#ifdef DEBUG
-    cerr << "SampleOutputStream::connected, iochannel " <<
-    	iochannel->getName() << " fd="  <<
-    	iochannel->getFd() << endl;
-#endif
-
-    assert(connectionRequester);
-
-    if (iochan != iochannel) {
+    if (!iochan) iochan = iochannel;
+    else if (iochan != iochannel) {
+	assert(connectionRequester);
 	// This is a new iochannel - probably a connected socket.
 	// Clone myself and report back to connectionRequester.
 	// FIX: redesign so we don't need this static_cast.
@@ -141,10 +135,17 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
 	cerr << "SampleOutputStream::connected new channel" << endl;
     }
     else {
+	assert(connectionRequester);
         connectionRequester->connected(this);
 	setName(string("SampleOutputStream: ") + iochan->getName());
 	cerr << "SampleOutputStream::connected old channel" << endl;
     }
+#ifdef DEBUG
+    cerr << "SampleOutputStream::connected, iochannel " <<
+    	iochannel->getName() << " fd="  <<
+    	iochannel->getFd() << endl;
+#endif
+
 }
 
 void SampleOutputStream::init() throw()

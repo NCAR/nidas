@@ -38,7 +38,7 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 {
 }
 
-void A2DBoardTempSensor::open(int flags) throw(atdUtil::IOException)
+void A2DBoardTempSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     init();
     cerr << "doing A2D_OPEN_I2CT" << endl;
@@ -52,7 +52,7 @@ void A2DBoardTempSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
-void A2DBoardTempSensor::init() throw()
+void A2DBoardTempSensor::init() throw(atdUtil::InvalidParameterException)
 {
     const vector<const SampleTag*>& stags = getSampleTags();
     if (stags.size() == 1) {

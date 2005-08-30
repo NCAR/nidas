@@ -102,7 +102,6 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.offset[chan] = 0;
     }
 
-    a2d.master = 0; // A2DMASTER;
     a2d.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
     if (a2d.latencyUsecs == 0) a2d.latencyUsecs = USECS_PER_SEC / 10;
 
@@ -186,9 +185,9 @@ int DSMAnalogSensor::gainSetting(float gain)
     return (int)rint(gain * 10.0);
 }
 
-void DSMAnalogSensor::init() throw()
+void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 {
-    assert(!initialized);
+    if (initialized) return;
     initialized = true;
 
     // number of variables being sampled

@@ -96,7 +96,7 @@ size_t Socket::read(void* buf, size_t len) throw (atdUtil::IOException)
     return socket->recv(buf,len);
 }
 
-ServerSocket::ServerSocket():port(0),servSock(0),
+ServerSocket::ServerSocket(int p):port(p),servSock(0),
 	connectionRequester(0),thread(0)
 {
     atdUtil::Inet4SocketAddress addr(INADDR_ANY,port);

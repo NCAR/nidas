@@ -32,9 +32,9 @@ public:
     /**
      * Open the device connected to the sensor.
      */
-    void open(int flags) throw(atdUtil::IOException);
+    void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
-    void init() throw();
+    void init() throw(atdUtil::InvalidParameterException);
                                                                                 
     /*
      * Close the device connected to the sensor.

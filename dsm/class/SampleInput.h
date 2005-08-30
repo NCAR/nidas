@@ -276,6 +276,12 @@ public:
 	dsms = val;
     }
 
+    void setDSMConfigs(const std::list<DSMConfig*>& val)
+    {
+	for (std::list<DSMConfig*>::const_iterator di = val.begin();
+		di != val.end(); ++di) addDSMConfig(*di);
+    }
+
     void addDSMConfig(const DSMConfig* val)
     {
         dsms.push_back(val);

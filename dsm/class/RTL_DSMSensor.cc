@@ -67,7 +67,7 @@ void RTL_DSMSensor::setDeviceName(const std::string& val)
 }
 
 
-void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException)
+void RTL_DSMSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     
     atdUtil::Logger::getInstance()->log(LOG_NOTICE,

@@ -82,10 +82,15 @@ namespace dsm {
     ~DSMArincSensor();
 
     /** This opens the associated RT-Linux FIFOs. */
-    void open(int flags) throw(atdUtil::IOException);
+    void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
     /** This closes the associated RT-Linux FIFOs. */
     void close() throw(atdUtil::IOException);
+
+    /**
+     * Perform any initialization necessary for process method.
+     */
+    void init() throw(atdUtil::InvalidParameterException);
 
     /** Process a raw sample, which in this case means create
      * a list of samples with each sample containing a timetag. */

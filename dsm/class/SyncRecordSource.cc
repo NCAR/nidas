@@ -23,12 +23,15 @@
 
 #include <math.h>
 
+// #define DEBUG
+
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
 SyncRecordSource::SyncRecordSource():
-	syncRecord(0),doHeader(false),badTimes(0),aircraft(0)
+	syncRecord(0),doHeader(false),badTimes(0),aircraft(0),
+	initialized(false)
 {
 }
 
@@ -45,28 +48,14 @@ SyncRecordSource::~SyncRecordSource()
 	delete [] vi2->second;
 }
 
-void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
+void SyncRecordSource::connect(SampleInput* input) throw()
 {
-
-    headerStream.str("");	// initialize header to empty string
+    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
 
     list<const DSMConfig*>::const_iterator di;
-
-    list<DSMSensor*> analogSensors;
-    list<DSMSensor*> serialSensors;
-    list<DSMSensor*> arincSensors;
-    list<DSMSensor*> irigSensors;
-    list<DSMSensor*> otherSensors;
-
-    aircraft = 0;
-    
     for (di = dsms.begin(); di != dsms.end(); ++di) {
         const DSMConfig* dsm = *di;
 
-// #define DEBUG
-#ifdef DEBUG
-	cerr << "SyncRecordSource, dsm=" << dsm->getName() << endl;
-#endif
 	const Site* site = dsm->getSite();
 	const Aircraft* acft = dynamic_cast<const Aircraft*>(site);
 	assert(acft);
@@ -77,44 +66,76 @@ void SyncRecordSource::init(const list<const DSMConfig*>& dsms) throw()
 	    	cerr << "multiple aircraft: " << acft->getName() <<
 			" and " << aircraft->getName();
 	}
+
 	const list<DSMSensor*>& sensors = dsm->getSensors();
 	list<DSMSensor*>::const_iterator si;
-
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
-#ifdef DEBUG
-	    cerr << "SyncRecordSource, sensor=" << sensor->getName() << endl;
-#endif
-
-	    if (dynamic_cast<DSMAnalogSensor*>(sensor))
-		analogSensors.push_back(sensor);
-	    else if (dynamic_cast<DSMSerialSensor*>(sensor))
-		serialSensors.push_back(sensor);
-	    else if (dynamic_cast<DSMArincSensor*>(sensor))
-		arincSensors.push_back(sensor);
-	    else otherSensors.push_back(sensor);
+	    addSensor(sensor);
+	    input->addProcessedSampleClient(this,sensor);
 	}
     }
+    init();
+}
+
+void SyncRecordSource::disconnect(SampleInput* input) throw()
+{
+    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
+    list<const DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+        const DSMConfig* dsm = *di;
+
+	const list<DSMSensor*>& sensors = dsm->getSensors();
+	list<DSMSensor*>::const_iterator si;
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    input->removeProcessedSampleClient(this,sensor);
+	}
+    }
+}
+
+void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
+{
+    if (dynamic_cast<DSMAnalogSensor*>(sensor))
+	analogSensors.push_back(sensor);
+    else if (dynamic_cast<DSMSerialSensor*>(sensor))
+	serialSensors.push_back(sensor);
+    else if (dynamic_cast<DSMArincSensor*>(sensor))
+	arincSensors.push_back(sensor);
+    else otherSensors.push_back(sensor);
+}
+
+void SyncRecordSource::init() throw()
+{
+
+    if (initialized) return;
+    initialized = true;
+
+    headerStream.str("");	// initialize header to empty string
 
     scanSensors(analogSensors);
+    analogSensors.clear();
 
 #ifdef DEBUG
     cerr << "SyncRecordSource, # of serial sensors=" <<
     	serialSensors.size() << endl;
 #endif
     scanSensors(serialSensors);
+    serialSensors.clear();
 
 #ifdef DEBUG
     cerr << "SyncRecordSource, # of arinc sensors=" <<
     	arincSensors.size() << endl;
 #endif
     scanSensors(arincSensors);
+    arincSensors.clear();
 
 #ifdef DEBUG
     cerr << "SyncRecordSource, # of other sensors=" <<
     	otherSensors.size() << endl;
 #endif
     scanSensors(otherSensors);
+    otherSensors.clear();
 
     int offset = 0;
     // iterate over the group ids

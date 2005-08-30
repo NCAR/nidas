@@ -37,7 +37,7 @@ DSMArincSensor::DSMArincSensor() :
 DSMArincSensor::~DSMArincSensor() {
 }
 
-void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
+void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
   err("");
 
@@ -54,6 +54,10 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
   else
     err("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< receiving");
 
+
+  // Do other sensor initialization.
+  init();
+
   arcfg_t arcfg;
   for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
        si != sortedSampleTags.end(); ++si)
@@ -66,9 +70,6 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException)
 
     // Note - ARINC samples have only one variable...
     const Variable* var = (*si)->getVariables().front();
-
-    // establish a list of which samples are processed.
-    _processed[arcfg.label] = (*si)->isProcessed();
 
     err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
         _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
@@ -92,6 +93,19 @@ void DSMArincSensor::close() throw(atdUtil::IOException)
   err("");
   ioctl(ARINC_RESET, (const void*)0,0);
   RTL_DSMSensor::close();
+}
+
+/*
+ * Initialize anything needed for process method.
+ */
+void DSMArincSensor::init() throw(atdUtil::InvalidParameterException)
+{
+    vector<const SampleTag*>::const_iterator si;
+    for (si = getSampleTags().begin(); si != getSampleTags().end(); ++si) {
+	unsigned short label = (*si)->getSampleId();
+	// establish a list of which samples are processed.
+	_processed[label] = (*si)->isProcessed();
+    }
 }
 
 /**

@@ -179,7 +179,7 @@ public:
     /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
     */
-    virtual void open(int flags) throw(atdUtil::IOException) = 0;
+    virtual void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException) = 0;
 
     /**
      * Initialize the DSMSensor. If the DSMSensor is
@@ -189,7 +189,7 @@ public:
      * be called after setting the required properties,
      * and before calling readSamples(), receive(), or process().
      */
-    virtual void init() throw(atdUtil::IOException) {}
+    virtual void init() throw(atdUtil::InvalidParameterException) {}
 
     /**
      * How do I want to be opened.  The user can ignore it if they want to.

@@ -16,7 +16,6 @@
 #include <SampleFileHeader.h>
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
-#include <Aircraft.h>
 #include <Version.h>
 
 #include <atdUtil/Logger.h>
@@ -57,26 +56,7 @@ void SyncRecordGenerator::connect(SampleInput* newinput)
 	throw(atdUtil::IOException)
 {
     input = newinput;
-    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
-    syncRecSource.init(dsms);
-
-    list<const DSMConfig*>::const_iterator di;
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        const DSMConfig* dsm = *di;
-
-	const list<DSMSensor*>& sensors = dsm->getSensors();
-	list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-#ifdef DEBUG
-	    cerr << "SyncRecordGenerator::connect, input=" <<
-		    input->getName() << " sensor=" <<
-			sensor->getName() << endl;
-#endif
-	    sensor->init();
-	    input->addProcessedSampleClient(&syncRecSource,sensor);
-	}
-    }
+    syncRecSource.connect(input);
     SampleIOProcessor::connect(input);
 }
  
@@ -86,18 +66,7 @@ void SyncRecordGenerator::disconnect(SampleInput* oldinput)
     if (!input) return;
     assert(input == oldinput);
 
-    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
-    list<const DSMConfig*>::const_iterator di;
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        const DSMConfig* dsm = *di;
-
-	const list<DSMSensor*>& sensors = dsm->getSensors();
-	list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    input->removeProcessedSampleClient(&syncRecSource,sensor);
-	}
-    }
+    syncRecSource.disconnect(input);
     syncRecSource.flush();
 
     list<SampleOutput*>::iterator oi;

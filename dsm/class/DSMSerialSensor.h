@@ -47,9 +47,9 @@ public:
     /**
      * Open the device connected to the sensor.
      */
-    void open(int flags) throw(atdUtil::IOException);
+    void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
-    void init() throw(atdUtil::IOException);
+    void init() throw(atdUtil::InvalidParameterException);
 
     void addSampleTag(SampleTag* var)
     	throw(atdUtil::InvalidParameterException);

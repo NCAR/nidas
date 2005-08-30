@@ -17,8 +17,6 @@
 #ifndef DSM_SYNCRECORDSOURCE_H
 #define DSM_SYNCRECORDSOURCE_H
 
-#include <SampleIOProcessor.h>
-#include <SampleSorter.h>
 #include <Variable.h>
 #include <Aircraft.h>
 
@@ -43,15 +41,21 @@ public:
 
     virtual ~SyncRecordSource();
 
-    void init(const std::list<const DSMConfig*>& dsms) throw();
-
     bool receive(const Sample*) throw();
 
     void sendHeader(dsm_time_t timetag) throw();
 
     void flush() throw();
 
+    void connect(SampleInput* input) throw();
+
+    void disconnect(SampleInput* oldinput) throw();
+    
+    void init() throw();
+
 protected:
+
+    void addSensor(DSMSensor* sensor) throw();
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
 
@@ -62,8 +66,6 @@ protected:
     void sendHeader() throw();
 
     void createHeader(std::ostream&) throw();
-
-    bool initialized;
 
     /**
      * A variable group is a list of variables with equal sampling rates,
@@ -147,6 +149,14 @@ protected:
     int badTimes;
 
     const Aircraft* aircraft;
+
+    std::list<DSMSensor*> analogSensors;
+    std::list<DSMSensor*> serialSensors;
+    std::list<DSMSensor*> arincSensors;
+    std::list<DSMSensor*> otherSensors;
+
+    bool initialized;
+
 };
 
 }
