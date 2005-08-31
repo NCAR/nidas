@@ -113,7 +113,7 @@ namespace dsm {
     const float _nanf;
 
     /// A list of which samples are processed.
-    int _processed[255];
+    int _processed[256];
 
   private:
 
