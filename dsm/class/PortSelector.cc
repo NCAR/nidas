@@ -41,7 +41,7 @@ PortSelector::PortSelector(unsigned short rserialPort) :
    * Later it can be increased, but there may not be much to 
    * gain from increasing it.
    */
-  setTimeout(MSECS_PER_SEC / 10);
+  setTimeout(MSECS_PER_SEC / 50);
   setTimeoutWarning(300 * MSECS_PER_SEC);
   FD_ZERO(&readfdset);
   statisticsTime = timeCeiling(getSystemTime(),
