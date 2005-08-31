@@ -322,13 +322,13 @@
             </input>
             <processor class="SampleArchiver">
                 <output class="SampleOutputStream">
-                    <fileset dir="/var/r1/${PROJECT}/${AIRCRAFT}"
+                    <fileset dir="/tmp/r1/${PROJECT}/${AIRCRAFT}"
                         file="dsm_%Y%m%d_%H%M%S.dat"
                         length="0"/>
 
                 </output>
                 <output class="SampleOutputStream">
-                    <fileset dir="/var/r2/${PROJECT}/${AIRCRAFT}"
+                    <fileset dir="/tmp/r2/${PROJECT}/${AIRCRAFT}"
                         file="dsm_%Y%m%d_%H%M%S.dat"
                         length="0"/>
 
