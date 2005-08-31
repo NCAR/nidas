@@ -13,7 +13,7 @@
 # chkconfig: 3 98 5
 # description: Update /etc/syslog.conf based on DHCP server's address
 
-ent="kern.notice;local5.notice"
+ent="kern.debug;local5.debug"
 
 . /etc/dhcpc/dhcpcd-eth0.info
 
