@@ -31,12 +31,12 @@ using namespace XmlRpc;
 
 void GetProjectList::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  if ( getenv("ADS3_DATA") == NULL ) {
-    result = "ADS3_DATA environment variable not set!";
+  if ( getenv("ADS3_CONFIG") == NULL ) {
+    result = "ADS3_CONFIG environment variable not set!";
     return;
   }
 
-  string ads3_data( getenv("ADS3_DATA") );
+  string ads3_config = string(getenv("ADS3_CONFIG")) + "/projects";
   DIR           *dp;
   struct dirent *dirp;
   struct stat   buf;
@@ -44,11 +44,8 @@ void GetProjectList::execute(XmlRpcValue& params, XmlRpcValue& result)
   char          str[100];
   XmlRpcValue   temp;
 
-  if (ads3_data[ads3_data.length()-1] != '/')
-    ads3_data += '/';
-
-  if ( (dp = opendir(ads3_data.c_str())) == NULL) {
-    sprintf(str, "Can't open %s: %s", ads3_data.c_str(), strerror(errno));
+  if ( (dp = opendir(ads3_config.c_str())) == NULL) {
+    sprintf(str, "Can't open %s: %s", ads3_config.c_str(), strerror(errno));
     result = str;
     return;
   }
@@ -69,11 +66,11 @@ void GetProjectList::execute(XmlRpcValue& params, XmlRpcValue& result)
   while ( (dirp = readdir(dp)) != NULL) {
     if (errno) {
       sprintf(str, "Error occured while reading %s: %s",
-              ads3_data.c_str(), strerror(errno));
+              ads3_config.c_str(), strerror(errno));
       result = str;
       return;
     }
-    string path = ads3_data + string(dirp->d_name);
+    string path = ads3_config + "/" + dirp->d_name;
 
     if (stat(path.c_str(), &buf) < 0) {
       sprintf(str, "Can't determine the file status of %s: %s",
@@ -86,7 +83,7 @@ void GetProjectList::execute(XmlRpcValue& params, XmlRpcValue& result)
         temp[cnt++] = dirp->d_name;
   }
   if (!cnt) {
-    sprintf(str, "The directory %s is empty!", ads3_data.c_str());
+    sprintf(str, "The directory %s is empty!", ads3_config.c_str());
     result = str;
     return;
   }
@@ -98,36 +95,26 @@ void GetProjectList::execute(XmlRpcValue& params, XmlRpcValue& result)
 
 void SetProject::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  if ( getenv("ADS3_DATA") == NULL ) {
-    result = "ADS3_DATA environment variable not set!";
+  if ( getenv("ADS3_CONFIG") == NULL ) {
+    result = "ADS3_CONFIG environment variable not set!";
     return;
   }
 
-  string ads3_data( getenv("ADS3_DATA") );
-  char   str[100];
+  string ads3_config = string(getenv("ADS3_CONFIG")) + "/projects";
 
+  char          str[100];
   if (params.size() != 3) {
     sprintf(str, "expecting 3 parameters... got %d", params.size());
     result = str;
     return;
   }
 
-  if (ads3_data[ads3_data.length()-1] != '/')
-    ads3_data += '/';
 
   // project folder
-  ads3_data += string(params[0]);
-  ads3_data += '/';
+  ads3_config += "/" + string(params[0]) + "/" +
+  	string(params[1]) + "/flights/" + string(params[2]);
 
-  // aircraft folder
-  ads3_data += string(params[1]);
-  ads3_data += '/';
-
-  // flight folder
-  ads3_data += string(params[2]);
-  ads3_data += '/';
-
-  result = ads3_data;
+  result = ads3_config;
 
   // TODO - jam this path into dsm_server's command line argument...
   // no not really but thats where it needs to go somehow.

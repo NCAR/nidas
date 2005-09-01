@@ -22,7 +22,7 @@ using namespace XmlRpc;
 
 namespace dsm {
 
-/// gets a list of projects in the $ADS3_DATA folder
+/// gets a list of projects in the $ADS3_CONFIG folder
 class GetProjectList : public XmlRpcServerMethod
 {
 public:

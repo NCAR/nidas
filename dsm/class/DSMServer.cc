@@ -476,15 +476,15 @@ DSMServerRunstring::DSMServerRunstring(int argc, char** argv) {
             usage(argv[0]);
         }
     }
-    if (optind != argc - 1) usage(argv[0]);
-    configFile = string(argv[optind++]);
+    if (optind == argc - 1) configFile = string(argv[optind++]);
+    else configFile = DSMServer::getADS3ConfigDir() + "/ads3.xml";
 }
 
 /* static */
 void DSMServerRunstring::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-d] config\n\
+Usage: " << argv0 << "[-d] [config]\n\
   -d: debug. Run in foreground and send messages to stderr.\n\
       Otherwise it will run in the background and messages to syslog\n\
   config: name of DSM configuration file (required).\n\
