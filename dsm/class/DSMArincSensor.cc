@@ -39,7 +39,7 @@ DSMArincSensor::~DSMArincSensor() {
 
 void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
-  err("");
+  // err("");
 
   ioctl(ARINC_RESET, (const void*)0,0);
 
@@ -48,11 +48,15 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invalid
     ( getSampleTags().begin(), getSampleTags().end() );
 
   if (sim_xmit) {
+#ifdef DEBUG
     err(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting");
+#endif
     ioctl(ARINC_SIM_XMIT,(const void*)0,0);
   }
   else
+#ifdef DEBUG
     err("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< receiving");
+#endif
 
 
   // Do other sensor initialization.
@@ -71,9 +75,11 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invalid
     // Note - ARINC samples have only one variable...
     const Variable* var = (*si)->getVariables().front();
 
+#ifdef DEBUG
     err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
         _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
         (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
+#endif
 
     ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
   }
@@ -90,7 +96,9 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invalid
 
 void DSMArincSensor::close() throw(atdUtil::IOException)
 {
+#ifdef DEBUG
   err("");
+#endif
   ioctl(ARINC_RESET, (const void*)0,0);
   RTL_DSMSensor::close();
 }
@@ -202,14 +210,14 @@ void DSMArincSensor::fromDOMElement(const DOMElement* node)
       const string& aval = attr.getValue();
 
       if (!aname.compare("speed")) {
-        err("%s = %s", aname.c_str(), aval.c_str());
+        // err("%s = %s", aname.c_str(), aval.c_str());
         if (!aval.compare("high"))     _speed = AR_HIGH;
         else if (!aval.compare("low")) _speed = AR_LOW;
         else throw atdUtil::InvalidParameterException
                (DSMSensor::getName(),aname,aval);
       }
       else if (!aname.compare("parity")) {
-        err("%s = %s", aname.c_str(), aval.c_str());
+        // err("%s = %s", aname.c_str(), aval.c_str());
         if (!aval.compare("odd"))       _parity = AR_ODD;
         else if (!aval.compare("even")) _parity = AR_EVEN;
         else throw atdUtil::InvalidParameterException

@@ -24,7 +24,9 @@ using namespace xercesc;
 Arinc_IRS::Arinc_IRS() :
   _irs_thdg_corr(0.0), _irs_ptch_corr(0.0), _irs_roll_corr(0.0)
 {
+#ifdef DEBUG
   err("");
+#endif
 }
 
 void Arinc_IRS::fromDOMElement(const DOMElement* node)
@@ -48,22 +50,31 @@ void Arinc_IRS::fromDOMElement(const DOMElement* node)
         istringstream ist(attr.getValue());
         ist >> _irs_thdg_corr;
         if ( ist.fail() )
-          throw atdUtil::InvalidParameterException(getName(),"", attr.getValue());
+          throw atdUtil::InvalidParameterException(getName(),
+	  	attr.getName(),attr.getValue());
+#ifdef DEBUG
         err("_irs_thdg_corr = %f", _irs_thdg_corr);
+#endif
       }
       else if (!attr.getName().compare("irs_ptch_corr")) {
         istringstream ist(attr.getValue());
         ist >> _irs_ptch_corr;
         if ( ist.fail() )
-          throw atdUtil::InvalidParameterException(getName(),"", attr.getValue());
+          throw atdUtil::InvalidParameterException(getName(),
+	  	attr.getName(),attr.getValue());
+#ifdef DEBUG
         err("_irs_ptch_corr = %f", _irs_ptch_corr);
+#endif
       }
       else if (!attr.getName().compare("irs_roll_corr")) {
         istringstream ist(attr.getValue());
         ist >> _irs_roll_corr;
         if ( ist.fail() )
-          throw atdUtil::InvalidParameterException(getName(),"", attr.getValue());
+          throw atdUtil::InvalidParameterException(getName(),
+	  	attr.getName(),attr.getValue());
+#ifdef DEBUG
         err("_irs_roll_corr = %f", _irs_roll_corr);
+#endif
       }
     }
   }

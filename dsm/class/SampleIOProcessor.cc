@@ -49,15 +49,17 @@ SampleIOProcessor::~SampleIOProcessor()
     list<SampleOutput*>::const_iterator oi;
     for (oi = dconOutputs.begin(); oi != dconOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
 #ifdef DEBUG
+	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
 #endif
 	delete output;
     }
     for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
 	output->close();
+#ifdef DEBUG
 	cerr << "~SampleIOProcessor, deleting output=" << output->getName() << endl;
+#endif
 	delete output;
     }
 }

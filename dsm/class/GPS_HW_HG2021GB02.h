@@ -33,7 +33,11 @@ public:
    * No arg constructor.  Typically the device name and other
    * attributes must be set before the sensor device is opened.
    */
-  GPS_HW_HG2021GB02() {err("");}
+  GPS_HW_HG2021GB02() {
+#ifdef DEBUG
+  	err("");
+#endif
+  }
 
   /** Process all labels from this instrument. */
   float processLabel(const long data);
