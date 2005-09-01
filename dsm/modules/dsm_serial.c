@@ -1746,6 +1746,7 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 	    {
 		if (rtl_errno == RTL_EINTR) {
 			DSMLOG_WARNING("dsm_ser_read sem_wait interrupt\n");
+			// if (retval > 0) return retval;
 			return -rtl_errno;
 		}
 	        else if (rtl_errno == RTL_ETIMEDOUT) {
