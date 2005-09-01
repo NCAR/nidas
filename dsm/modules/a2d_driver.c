@@ -1574,7 +1574,7 @@ int init_module()
 	    /* Open up my ioctl FIFOs, register my ioctlCallback function */
 	    error = -EIO;
 	    brd->ioctlhandle =
-			openIoctlFIFO("dsma2d",ib,ioctlCallback,
+			openIoctlFIFO(devprefix,ib,ioctlCallback,
 					    nioctlcmds,ioctlcmds);
 
 	    if (!brd->ioctlhandle) goto err;
