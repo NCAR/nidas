@@ -377,7 +377,6 @@
                 devicename="/dev/dsmser5" id="120">
         </serialSensor>
 
-        <!--
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
                 <variable name="DPL" units="V">
@@ -393,10 +392,11 @@
 
         <sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
             <sample id="1" rate="1">
-                <variable name="A2DTEMP" units="degC">
+                <variable name="A2DTEMP_MPDS" units="degC">
                 </variable>
             </sample>
         </sensor>
+        <!--
         -->
 
         <output class="RawSampleOutputStream">
@@ -474,13 +474,13 @@
             </sample>
         </sensor>
 
-        <!--
         <sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
             <sample id="1" rate="1">
-                <variable name="A2DTEMP" units="degC">
+                <variable name="A2DTEMP_RAD" units="degC">
                 </variable>
             </sample>
         </sensor>
+        <!--
         -->
 
         <output class="RawSampleOutputStream">
