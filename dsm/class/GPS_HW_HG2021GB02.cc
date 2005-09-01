@@ -23,13 +23,6 @@ CREATOR_ENTRY_POINT(GPS_HW_HG2021GB02);
 
 float GPS_HW_HG2021GB02::processLabel(const long data)
 {
-  static int Pseudo_Range_sign  = 1;
-  static int SV_Position_X_sign = 1;
-  static int SV_Position_Y_sign = 1;
-  static int SV_Position_Z_sign = 1;
-  static int GPS_Latitude_sign  = 1;
-  static int GPS_Longitude_sign = 1;
-
 //err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
   switch (data & 0xff) {

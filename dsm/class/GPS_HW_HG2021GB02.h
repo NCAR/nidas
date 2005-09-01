@@ -33,7 +33,13 @@ public:
    * No arg constructor.  Typically the device name and other
    * attributes must be set before the sensor device is opened.
    */
-  GPS_HW_HG2021GB02() {
+  GPS_HW_HG2021GB02() : 
+    Pseudo_Range_sign(_nanf),
+    SV_Position_X_sign(_nanf),
+    SV_Position_Y_sign(_nanf),
+    SV_Position_Z_sign(_nanf),
+    GPS_Latitude_sign(_nanf),
+    GPS_Longitude_sign(_nanf) {
 #ifdef DEBUG
   	err("");
 #endif
@@ -41,6 +47,16 @@ public:
 
   /** Process all labels from this instrument. */
   float processLabel(const long data);
+
+ private:
+
+  /** Mutli-label value's sign is based on the first label. */
+  float Pseudo_Range_sign;
+  float SV_Position_X_sign;
+  float SV_Position_Y_sign;
+  float SV_Position_Z_sign;
+  float GPS_Latitude_sign;
+  float GPS_Longitude_sign;
 };
 
 }
