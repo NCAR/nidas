@@ -41,8 +41,12 @@ rmmod_chk() {
 #    the first word of each non-comment line in stdin
 get_modules() {
     while read module rest_of_line; do
-	[[ "$module" =~ "^ *$" ]] && continue	# empty line
-	[[ "$module" =~ "^ *#" ]] && continue	# comment line
+	# bash on the vipers doesn't support =~ operator
+	# so we use egrep
+	# [[ "$module" =~ '^ *$' ]] && continue	# empty line
+	# [[ "$module" =~ '^ *#' ]] && continue	# comment line
+	echo "$module" | egrep -q "^ *$" && continue	# empty line
+	echo "$module" | egrep -q "^ *#" && continue	# comment line
         echo "$module"
     done
 }
@@ -53,8 +57,8 @@ get_devdir() {
 
     while read -a modline; do
 
-	[[ "${modline[@]}" =~ "^ *$" ]] && continue	# empty line
-	[[ "${modline[@]}" =~ "^ *#" ]] && continue	# comment line
+	echo "${modline[@]}" | egrep -q "^ *$" && continue	# empty line
+	echo "${modline[@]}" | egrep -q "^ *#" && continue	# comment line
 
 	# look for devdir option
 	if [[ "${modline[@]}" == *devdir=* ]]; then
@@ -94,8 +98,8 @@ create_dev_symlinks() {
 load_modules() {
     # depmod
     while read -a modline; do
-	[[ "${modline[@]}" =~ "^ *$" ]] && continue	# empty line
-	[[ "${modline[@]}" =~ "^ *#" ]] && continue	# comment line
+	echo "${modline[@]}" | egrep -q "^ *$" && continue	# empty line
+	echo "${modline[@]}" | egrep -q "^ *#" && continue	# comment line
         insmod_chk "${modline[@]}"
     done
     create_dev_symlinks
@@ -164,6 +168,7 @@ stop_app() {
 # get devdir and create it
 devdir=$(get_devdir < $modconf)
 [ -d $devdir ] || mkdir -p $devdir
+# echo "devdir=$devdir"
 
 case "$1" in
   start)
