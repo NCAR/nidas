@@ -19,7 +19,7 @@ BODY,H1,H2,H3,H4,H5,H6,P,CENTER,TD,TH,UL,DL,DIV,TABLE,LAYER,FRAME,IFRAME {
 }
 
 #sensor_status tbody tr.even td {
-        background-color: #eee;
+        background-color: #ddd;
 }
 
 H5 {

@@ -24,7 +24,7 @@ foreach ($_POST['dsm'] as $dsm) {
   $result = xu_rpc_http_concise( array( 'method' => $action,
                                         'args' => '',
                                         'host' => $dsm,
-       'uri' => '/RPC2', 'port' => '50003', 'debug' => '0', 'output' => 'xmlrpc'));
+       'uri' => '/RPC2', 'port' => '30003', 'debug' => '0', 'output' => 'xmlrpc'));
 
   if (empty($result))
     echo "(no response)";

@@ -9,7 +9,7 @@ include_once('utils/utils.php');
 $dsmList = xu_rpc_http_concise( array( 'method' => 'GetDsmList',
                                        'args' => '',
                                        'host' => 'localhost',
-      'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
+      'uri' => '/RPC2', 'port' => '30002', 'debug' => '0', 'output' => 'xmlrpc'));
 
 // TODO - see if xu_rpc_http_concise provides any status variables to test here instead.
 if ($dsmList == "")
@@ -26,7 +26,7 @@ if (empty($dsmList))
 $projList = xu_rpc_http_concise( array( 'method' => 'GetProjectList',
                                         'args' => '',
                                         'host' => 'localhost',
-      'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
+      'uri' => '/RPC2', 'port' => '30002', 'debug' => '0', 'output' => 'xmlrpc'));
 
 // getProjectList returns a string if it can't find any sub directories.
 // otherwise an array is returned..

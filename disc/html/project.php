@@ -23,7 +23,7 @@ echo '<h4>Results from the XMLRPC call to the DSM server:</h4>';
 $result = xu_rpc_http_concise( array( 'method' => 'SetProject',
                                       'args' => array($project,$aircraft,$flight),
                                       'host' => 'localhost',
-      'uri' => '/RPC2', 'port' => '50002', 'debug' => '0', 'output' => 'xmlrpc'));
+      'uri' => '/RPC2', 'port' => '30002', 'debug' => '0', 'output' => 'xmlrpc'));
 
 if ($result)
   print_r($result);
