@@ -389,6 +389,13 @@ protected:
     float dataRateObs;
 
     std::string suffix;
+
+private:
+    // no copying
+    DSMSensor(const DSMSensor& x);
+
+    // no assignment
+    DSMSensor& operator=(const DSMSensor& x);
 };
 
 }
