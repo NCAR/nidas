@@ -50,7 +50,7 @@ public:
 
  private:
 
-  /** Mutli-label value's sign is based on the first label. */
+  /** Mutli-label values' sign is based on the first label. */
   float Pseudo_Range_sign;
   float SV_Position_X_sign;
   float SV_Position_Y_sign;
