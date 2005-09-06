@@ -147,6 +147,9 @@ protected:
      */
     std::vector<int> sampleIndexVec;
 
+    /**
+     * Same info as sampleIndexVec, but in channel order.
+     */
     int* sampleIndices;		// optimized version
 
     /**
@@ -155,6 +158,9 @@ protected:
      */
     std::vector<int> subSampleIndexVec;
 
+    /**
+     * Same info as subSampleIndexVec, but in channel order.
+     */
     int* subSampleIndices;	// optimized version
 
 
@@ -162,7 +168,7 @@ protected:
      * Conversion factor when converting from A2D counts to 
      * voltage.  The gain is accounted for in this conversion, so that
      * the resultant voltage is the true input voltage, before
-     * any A2D gain was applied.
+     * any A2D gain was applied.  These are in channel order.
      */
     float *convSlope;
 
@@ -170,6 +176,7 @@ protected:
      * Conversion offset when converting from A2D counts to 
      * voltage.  The polarity is accounted for in this conversion, so that
      * the resultant voltage is the true input voltage.
+     * These are in channel order.
      */
     float *convIntercept;
 

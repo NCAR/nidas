@@ -342,10 +342,9 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
     // number of variables being sampled
     unsigned int nvariables = sampleIndexVec.size();
 
-    // assert(nvariables * nSamplePerRawSample == nvalues);
     // One raw sample from A2D contains multiple sweeps
     // of the A2D channels.
-    // unsigned int nsampsInRawSample = nvalues / nvariables;
+    assert((nvalues % nvariables) == 0);
 
     for (unsigned int ival = 0; ival < nvalues; ) {
 
