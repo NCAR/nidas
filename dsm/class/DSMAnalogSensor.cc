@@ -211,14 +211,60 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	sampleIndices[ivar] = sampleIndexVec[i];
 	subSampleIndices[ivar] = subSampleIndexVec[i];
 
-	if (channels[ichan].bipolar) {
-		convSlope[ivar] = 10.0 / 32768 / channels[ichan].gain * corSlopes[ichan];
-		convIntercept[i] = 0.0 + corIntercepts[ichan];
-	}
-	else {
-		convSlope[ivar] = 10.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
-		convIntercept[ivar] = 5.0 / channels[ichan].gain + corIntercepts[ichan];
-	}
+	/*
+	 * A2D chip converts 0:4 V to -32767:32767
+	 * 1. Input voltages are first converted by a F/256 converter
+	 *     where F is the gainFactor, F=gain*10.
+	 * 1.a Then inputs go through a *5.11 multiplier.
+	 *    These two steps combined are a  C=gain*0.2
+	 *	(actually gain*0.019961)
+	 * 2. Then either a 2(bipolar) or 4(unipolar) volt offset is removed.
+	 * 3. Then the voltage is inverted.
+	 * 4. Converted to counts
+	 * 
+	 * Example: -10:10 V input, gain=1,bipolar=true
+	 *	F=gain*10=10,  C=0.2,  offset=2
+	 *	-10:10 -> -2:2 -> -4:0 -> 4:0 -> 32767:-32767
+	 *
+	 * The driver inverts the counts before passing them
+	 * back to user space, so for purposes here, we can
+	 * pretend that the A2D converts -4:0 volts to -32767:32767 counts
+	 *
+	 * For bipolar=T 
+	 *	cnts = ((V * gain * 0.2) - 2) * 65536 / 4 + 32767 =
+	 *		V * gain * 0.05 * 65536 + 0
+	 *	So:   V = cnts * 20 / 65536 / gain
+	 * For bipolar=F 
+	 *	cnts = ((V * gain * 0.2) - 4) * 65536 / 4 + 32767 =
+	 *		V * gain * 0.05 * 65536 + 32767
+	 *	So:   V = (cnts - 32767) * 20 / 65536 / gain
+	 *              = cnts * 20 / 65536 / gain - 10. / gain
+	 *		= cnts * 20 / 65536 / gain - offset
+	 *	where offset = 10/gain.
+	 *
+	 * corSlope and corIntercept are the slope and intercept
+	 * of an A2D calibration, where
+	 *    Vcorr = Vuncorr * corSlope + corIntercept
+	 *
+	 * Note that Vcorr is the Y (independent) variable. This is
+	 * because the A2D calibration is done in a similar
+	 * way to normal sensor calibration, where Y are the
+	 * set points from an input standard, and X is the measured
+	 * value.
+	 *
+	 *    Vcorr = Vuncorr * corSlope + corIntercept
+	 *	    = (cnts * 20 / 65536 / gain - offset) * corSlope +
+	 *			corIntercept
+	 *	    = cnts * 20 / 65536 / gain * corSlope -
+	 *		offset * corSlope + corIntercept
+	 */
+
+	convSlope[ivar] = 20.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
+	if (channels[ichan].bipolar) 
+	    convIntercept[i] = corIntercepts[ichan];
+	else 
+	    convIntercept[ivar] = corIntercepts[ichan] -
+	    	10.0 / channels[ichan].gain * corSlopes[ichan];
     }
 
     unsigned int nsamples = rateVec.size();
@@ -353,7 +399,9 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    }
 
 	    signed short sval = sp[ival];
-	    float volts = convIntercept[ivar] + convSlope[ivar] * sval;
+	    float volts;
+	    if (sval == -32768) volts = floatNAN;
+	    else volts = convIntercept[ivar] + convSlope[ivar] * sval;
 #ifdef DEBUG
 	    if (!(debugcntr % 100))
 	    cerr << "ivar=" << ivar << " ival=" << ival <<
