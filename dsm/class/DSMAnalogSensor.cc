@@ -208,7 +208,10 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	    if (channelNums[i] == ichan) break;
 	assert(i < channelNums.size());	// it must be here somewhere
 
+	// In channel index order, which output samples a channel is
+	// to be written to.
 	sampleIndices[ivar] = sampleIndexVec[i];
+	// In channel index order, which index into an output sample
 	subSampleIndices[ivar] = subSampleIndexVec[i];
 
 	/*
@@ -236,10 +239,10 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	 *	So:   V = cnts * 20 / 65536 / gain
 	 * For bipolar=F 
 	 *	cnts = ((V * gain * 0.2) - 4) * 65536 / 4 + 32767 =
-	 *		V * gain * 0.05 * 65536 + 32767
-	 *	So:   V = (cnts - 32767) * 20 / 65536 / gain
-	 *              = cnts * 20 / 65536 / gain - 10. / gain
-	 *		= cnts * 20 / 65536 / gain - offset
+	 *		V * gain * 0.05 * 65536 - 32767
+	 *	So:   V = (cnts + 32767) * 20 / 65536 / gain
+	 *              = cnts * 20 / 65536 / gain + 10. / gain
+	 *		= cnts * 20 / 65536 / gain + offset
 	 *	where offset = 10/gain.
 	 *
 	 * corSlope and corIntercept are the slope and intercept
@@ -253,17 +256,17 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	 * value.
 	 *
 	 *    Vcorr = Vuncorr * corSlope + corIntercept
-	 *	    = (cnts * 20 / 65536 / gain - offset) * corSlope +
+	 *	    = (cnts * 20 / 65536 / gain + offset) * corSlope +
 	 *			corIntercept
-	 *	    = cnts * 20 / 65536 / gain * corSlope -
+	 *	    = cnts * 20 / 65536 / gain * corSlope +
 	 *		offset * corSlope + corIntercept
 	 */
 
 	convSlope[ivar] = 20.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
 	if (channels[ichan].bipolar) 
-	    convIntercept[i] = corIntercepts[ichan];
+	    convIntercept[ivar] = corIntercepts[ichan];
 	else 
-	    convIntercept[ivar] = corIntercepts[ichan] -
+	    convIntercept[ivar] = corIntercepts[ichan] +
 	    	10.0 / channels[ichan].gain * corSlopes[ichan];
     }
 
@@ -349,13 +352,13 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	for (unsigned int ivalmod = 0;
 		ivalmod < nvariables && ival < nvalues; ivalmod++,ival++) {
 	    int isamp = sampleIndices[ivalmod];
-	    int ivar = subSampleIndices[ivalmod];
+	    int sampIndex = subSampleIndices[ivalmod];
 
 #ifdef DEBUG
 	    if (!(debugcntr % 100))
 	    cerr << " nvariables=" << nvariables << " nvalues=" << nvalues <<
 		    " ival=" << ival << " ivalmod=" << ivalmod <<
-		    " isamp=" << isamp << " ivar=" << ivar << endl;
+		    " isamp=" << isamp << " sampIndex=" << sampIndex << endl;
 #endif
 	    SampleT<float>* osamp = outsamples[isamp];
 
@@ -401,16 +404,16 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    signed short sval = sp[ival];
 	    float volts;
 	    if (sval == -32768) volts = floatNAN;
-	    else volts = convIntercept[ivar] + convSlope[ivar] * sval;
+	    else volts = convIntercept[ivalmod] + convSlope[ivalmod] * sval;
 #ifdef DEBUG
 	    if (!(debugcntr % 100))
-	    cerr << "ivar=" << ivar << " ival=" << ival <<
+	    cerr << "ivalmod=" << ivalmod << " ival=" << ival <<
 		" sval=" << sval << " volts=" << volts <<
-		" convIntercept[ivar]=" << convIntercept[ivar] <<
-		" convSlope[ivar]=" << convSlope[ivar] <<
-		" outindex=" << subSampleIndices[ivar] << endl;
+		" convIntercept[ivalmod]=" << convIntercept[ivalmod] <<
+		" convSlope[ivalmod]=" << convSlope[ivalmod] <<
+		" outindex=" << sampIndex << endl;
 #endif
-	    osamp->getDataPtr()[subSampleIndices[ivar]] = volts;
+	    osamp->getDataPtr()[sampIndex] = volts;
 	}
 	tt += minDeltatUsec;
 
@@ -477,13 +480,13 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 		if (param->getLength() != 1)
 		    throw atdUtil::InvalidParameterException(getName(),
 		    	pname,"no value");
-		corSlope = param->getNumericValue(0) != 0;
+		corSlope = param->getNumericValue(0);
 	    }
 	    else if (!pname.compare("corIntercept")) {
 		if (param->getLength() != 1)
 		    throw atdUtil::InvalidParameterException(getName(),
 		    	pname,"no value");
-		corIntercept = param->getNumericValue(0) != 0;
+		corIntercept = param->getNumericValue(0);
 	    }
 
 	}
@@ -533,7 +536,7 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	sortedChannelNums.insert(ichan);
 
         sampleIndexVec.push_back(nsample);	// which sample this variable belongs to
-	subSampleIndexVec.push_back(ivar);
+	subSampleIndexVec.push_back(ivar);	// which variable within sample
     }
 }
 
