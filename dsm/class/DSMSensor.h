@@ -278,7 +278,12 @@ public:
 
     void initStatistics();
 
-    void calcStatistics(unsigned long periodMsec);
+    /**
+     * Update the sensor sampling statistics.  Should be called
+     * every periodUsec by a user of this sensor.
+     * @param periodUsec Statistics period.
+     */
+    void calcStatistics(unsigned long periodUsec);
 
     size_t getMaxSampleLength() const
     	{ return maxSampleLength[currStatsIndex]; }

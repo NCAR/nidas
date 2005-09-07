@@ -187,16 +187,16 @@ void DSMSensor::initStatistics()
     initialTimeSecs = time(0);
 }
 
-void DSMSensor::calcStatistics(unsigned long periodMsec)
+void DSMSensor::calcStatistics(unsigned long periodUsec)
 {
     reportStatsIndex = currStatsIndex;
     currStatsIndex = (currStatsIndex + 1) % 2;
     maxSampleLength[currStatsIndex] = 0;
     minSampleLength[currStatsIndex] = 999999999;
 										
-    sampleRateObs = ((float)nsamples / periodMsec) * MSECS_PER_SEC;
+    sampleRateObs = ((float)nsamples / periodMsec) * USECS_PER_SEC;
 
-    dataRateObs = ((float)nbytes / periodMsec) * MSECS_PER_SEC;
+    dataRateObs = ((float)nbytes / periodMsec) * USECS_PER_SEC;
 
     readErrorCount[0] = writeErrorCount[0] = 0;
 
