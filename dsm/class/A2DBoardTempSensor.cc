@@ -30,7 +30,7 @@ CREATOR_ENTRY_POINT(A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
     RTL_DSMSensor(),rate(IRIG_1_HZ),
-    lastTemp(0.0),DEGC_PER_CNT(0.0625)
+    DEGC_PER_CNT(0.0625)
 {
 }
 
@@ -52,6 +52,13 @@ void A2DBoardTempSensor::close() throw(atdUtil::IOException)
     RTL_DSMSensor::close();
 }
 
+float A2DBoardTempSensor::getTemp() throw(atdUtil::IOException)
+{
+    short tval;
+    ioctl(A2D_GET_I2CT,&tval,sizeof(tval));
+    return tval * DEGC_PER_CNT;
+}
+
 void A2DBoardTempSensor::init() throw(atdUtil::InvalidParameterException)
 {
     const vector<const SampleTag*>& stags = getSampleTags();
@@ -64,8 +71,14 @@ void A2DBoardTempSensor::init() throw(atdUtil::InvalidParameterException)
 void A2DBoardTempSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
-    ostr << "<td align=left>" << fixed << setprecision(1) <<
-    	lastTemp << " degC</td>" << endl;
+    try {
+        float tdeg = getTemp();
+	ostr << "<td align=left>" << fixed << setprecision(1) <<
+	    tdeg << " degC</td>" << endl;
+    }
+    catch (const atdUtil::IOException& e) {
+	ostr << "<td>" << e.what() << "</td>" << endl;
+    }
 }
 
 bool A2DBoardTempSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
@@ -80,7 +93,7 @@ bool A2DBoardTempSensor::process(const Sample* insamp,list<const Sample*>& resul
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(sampleId);
-    osamp->getDataPtr()[0] = lastTemp = *sp * DEGC_PER_CNT;
+    osamp->getDataPtr()[0] = *sp * DEGC_PER_CNT;
 
     result.push_back(osamp);
     return true;

@@ -50,6 +50,11 @@ public:
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
+    /**
+     * Get the current temperature. Sends a ioctl to the driver module.
+     */
+    float getTemp() throw(atdUtil::IOException);
+
 protected:
 
     dsm_sample_id_t sampleId;
@@ -58,11 +63,6 @@ protected:
      * Sample rate.
      */
     enum irigClockRates rate;
-
-    /**
-     * Last measured temperature.  Provided in printStatus.
-     */
-    float lastTemp;
 
     /**
      * Conversion factor from 16 bit raw sensor value to degC

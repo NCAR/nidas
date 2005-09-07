@@ -115,8 +115,8 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     int nexpect = (signed)sizeof(a2d.filter)/sizeof(a2d.filter[0]);
     readFilterFile(filtername,a2d.filter,nexpect);
 
-    cerr << "doing A2D_SET_IOCTL" << endl;
-    ioctl(A2D_SET_IOCTL, &a2d, sizeof(A2D_SET));
+    cerr << "doing A2D_SET_CONFIG" << endl;
+    ioctl(A2D_SET_CONFIG, &a2d, sizeof(A2D_SET));
 
     cerr << "doing A2D_RUN_IOCTL" << endl;
     ioctl(A2D_RUN_IOCTL,(const void*)0,0);
@@ -309,14 +309,21 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 
     A2D_STATUS stat;
     try {
-	ioctl(A2D_STATUS_IOCTL,&stat,sizeof(stat));
-
-	ostr << "<td align=left>" <<
-		"#full=" << stat.fifofullctr <<
-		", #3/4=" << stat.fifo34ctr <<
-		", #1/2=" << stat.fifo24ctr <<
-		", #1/4=" << stat.fifo14ctr <<
-		", #0/4=" << stat.fifoemptyctr <<
+	ioctl(A2D_GET_STATUS,&stat,sizeof(stat));
+	ostr << "<td align=left>";
+	bool allOK = true;
+	set<int>::const_iterator si;
+	for (si = sortedChannelNums.begin(); si != sortedChannelNums.end(); si++) {
+	    int ichan = *si;
+	    if (stat.nbad[ichan] > 0) {
+		ostr << "c=" << ichan << 
+			",nbad=" << stat.nbad[ichan] <<
+			",stat=" << hex << stat.badval[ichan] << dec << ' ';
+		allOK = false;
+	    }
+	}
+	if (allOK) ostr << "all channels OK ";
+	ostr << "#full=" << stat.fifofullctr <<
 		"</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
