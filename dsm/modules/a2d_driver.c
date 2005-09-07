@@ -105,13 +105,14 @@ void cleanup_module(void);
 
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
-  { A2D_STATUS_IOCTL,_IOC_SIZE(A2D_STATUS_IOCTL) },
-  { A2D_SET_IOCTL, sizeof(A2D_SET)  },
+  { A2D_GET_STATUS,_IOC_SIZE(A2D_GET_STATUS) },
+  { A2D_SET_CONFIG, sizeof(A2D_SET)  },
   { A2D_CAL_IOCTL, sizeof(A2D_CAL)  },
   { A2D_RUN_IOCTL,_IOC_SIZE(A2D_RUN_IOCTL) },
   { A2D_STOP_IOCTL,_IOC_SIZE(A2D_STOP_IOCTL) },
   { A2D_OPEN_I2CT,_IOC_SIZE(A2D_OPEN_I2CT) },
   { A2D_CLOSE_I2CT,_IOC_SIZE(A2D_CLOSE_I2CT) },
+  { A2D_GET_I2CT,_IOC_SIZE(A2D_GET_I2CT) },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -278,7 +279,7 @@ static void A2DStatusAll(struct A2DBoard* brd)
 	int i;
 	for(i = 0; i < MAXA2DS; i++)
 	{
-		brd->status.status[i] = A2DStatus(brd,i);
+		brd->cur_status.goodval[i] = A2DStatus(brd,i);
 	}
 
 	return;
@@ -581,31 +582,33 @@ static inline void A2DGetFIFOStatus(struct A2DBoard* brd)
 	outb(A2DIOFIFOSTAT,brd->chan_addr);
 	stat = inw(brd->addr);
 
-	brd->status.ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
+	brd->cur_status.ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
 
 	// If FIFONOTFULL is 0, fifo IS full
-	if((stat & FIFONOTFULL) == 0) brd->status.fifofullctr++;	// FIFO is full
+	if((stat & FIFONOTFULL) == 0) brd->cur_status.fifofullctr++;	// FIFO is full
 
+#ifdef COMPLETE_FIFO_STATUS
 	// If FIFONOTEMPTY is 0, fifo IS empty
-	else if((stat & FIFONOTEMPTY) == 0) brd->status.fifoemptyctr++; 
+	else if((stat & FIFONOTEMPTY) == 0) brd->cur_status.fifoemptyctr++; 
 
 	// Figure out which 1/4 of the 1024 FIFO words we're filled to
 	switch(stat&0x03) // Switch on stat's 2 LSB's
 	{
 		case 3:		//FIFO half full (bit0) and allmost full (bit 1)
-			brd->status.fifo44ctr++; // 3/4 <= FIFO < full
+			brd->cur_status.fifo44ctr++; // 3/4 <= FIFO < full
 			break;
 		case 2:		//FIFO not half full and allmost empty
-			brd->status.fifo14ctr++; // empty < FIFO <= 1/4
+			brd->cur_status.fifo14ctr++; // empty < FIFO <= 1/4
 			break;
 		case 1:		//FIFO half full and not almost full
-			brd->status.fifo34ctr++; // 1/2 <= FIFO < 3/4
+			brd->cur_status.fifo34ctr++; // 1/2 <= FIFO < 3/4
 			break;
 		case 0:
-			brd->status.fifo24ctr++; // 1/4 < FIFO <= 1/2
+			brd->cur_status.fifo24ctr++; // 1/4 < FIFO <= 1/2
 		default:
 			break;
 	}
+#endif
 }
 	
 /*-----------------------Utility------------------------------*/
@@ -749,8 +752,8 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 		if(stat & A2DCRCERR)
 		{
 			crcmsgctr++;
+			brd->cur_status.badval[A2DSel] = stat; // Error status word
 /*			DSMLOG_WARNING("CRC ERROR! chip = %1d, stat = 0x%04X\n", A2DSel, stat);
-			brd->status.status[A2DSel] = stat; // Error status word
 			// return -EIO;
 */
 		}
@@ -769,7 +772,7 @@ static int A2DConfig(struct A2DBoard* brd, int A2DSel)
 		DSMLOG_DEBUG("%3d Interrupt Timeout Errors chip = %1d\n", 
 		 tomsgctr, A2DSel);
 
-	brd->status.status[A2DSel] = stat; // Final status word following load
+	brd->cur_status.goodval[A2DSel] = stat; // Final status word following load
 	rtl_usleep(2000);
 	return 0;
 }
@@ -841,8 +844,8 @@ static int A2DSetup(struct A2DBoard* brd)
 		brd->requested[i] = (a2d->Hz[i] > 0);
 	}
 
-	brd->status.ser_num = getSerialNumber(brd);
-	DSMLOG_DEBUG("A2D serial number = %d\n", brd->status.ser_num);
+	brd->cur_status.ser_num = getSerialNumber(brd);
+	DSMLOG_DEBUG("A2D serial number = %d\n", brd->cur_status.ser_num);
 	
 	if ((ret = A2DSetMaster(brd,brd->master)) < 0) return ret;
 
@@ -966,7 +969,7 @@ static void i2cTempIrigCallback(void *ptr)
     I2C_TEMP_SAMPLE samp;
     samp.timestamp = GET_MSEC_CLOCK;
     samp.size = sizeof(short);
-    samp.data = A2DTemp(brd);
+    samp.data = brd->i2cTempData = A2DTemp(brd);
     DSMLOG_DEBUG("Brd temp %d.%1d degC\n", samp.data/16, (10*(samp.data%16))/16);
 
     if (brd->i2cTempfd >= 0) {
@@ -1097,12 +1100,12 @@ static void* A2DGetDataThread(void *thread_arg)
 		// check for acceptable looking status value
 		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
 		    nbad++;
-		    brd->nbad[ichan]++;
-		    brd->bad[ichan] = stat;
+		    brd->cur_status.nbad[ichan]++;
+		    brd->cur_status.badval[ichan] = stat;
 		}
 		else {
 		    ngood++;
-		    brd->status.status[ichan] = stat;
+		    brd->cur_status.goodval[ichan] = stat;
 		}
 #endif
 
@@ -1131,41 +1134,39 @@ static void* A2DGetDataThread(void *thread_arg)
 		if (!(brd->readCtr % 10000) || brd->nbadBufs) {
 		    DSMLOG_DEBUG("GET_MSEC_CLOCK=%d\n",tnow);
 		    DSMLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
-			brd->status.status[0],
-			brd->status.status[1],
-			brd->status.status[2],
-			brd->status.status[3],
-			brd->status.status[4],
-			brd->status.status[5],
-			brd->status.status[6],
-			brd->status.status[7]);
+			brd->cur_status.goodval[0],
+			brd->cur_status.goodval[1],
+			brd->cur_status.goodval[2],
+			brd->cur_status.goodval[3],
+			brd->cur_status.goodval[4],
+			brd->cur_status.goodval[5],
+			brd->cur_status.goodval[6],
+			brd->cur_status.goodval[7]);
 		    DSMLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x\n",
-			brd->bad[0],
-			brd->bad[1],
-			brd->bad[2],
-			brd->bad[3],
-			brd->bad[4],
-			brd->bad[5],
-			brd->bad[6],
-			brd->bad[7]);
+			brd->cur_status.badval[0],
+			brd->cur_status.badval[1],
+			brd->cur_status.badval[2],
+			brd->cur_status.badval[3],
+			brd->cur_status.badval[4],
+			brd->cur_status.badval[5],
+			brd->cur_status.badval[6],
+			brd->cur_status.badval[7]);
 		    DSMLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
-			brd->nbad[0],
-			brd->nbad[1],
-			brd->nbad[2],
-			brd->nbad[3],
-			brd->nbad[4],
-			brd->nbad[5],
-			brd->nbad[6],
-			brd->nbad[7]);
+			brd->cur_status.nbad[0],
+			brd->cur_status.nbad[1],
+			brd->cur_status.nbad[2],
+			brd->cur_status.nbad[3],
+			brd->cur_status.nbad[4],
+			brd->cur_status.nbad[5],
+			brd->cur_status.nbad[6],
+			brd->cur_status.nbad[7]);
 		    brd->readCtr = 0;
 
 		}
 		brd->nbadBufs = 0;
-		for (i = 0; i < MAXA2DS; i++) {
-		    brd->status.status[i] = 0;
-		    brd->bad[i] = 0;
-		    brd->nbad[i] = 0;
-		}
+		// copy current status to prev_status for access by ioctl A2D_GET_STATUS
+		memcpy(&brd->prev_status,&brd->cur_status,sizeof(A2D_STATUS));
+		memset(&brd->cur_status,0,sizeof(A2D_STATUS));
 	    }
 
 	    samp.size = (char*)dataptr - (char*)samp.data;
@@ -1210,6 +1211,8 @@ static int openA2D(struct A2DBoard* brd)
 	brd->nbadBufs = 0;
 	brd->fifoNotEmpty = 0;
 	brd->readCtr = 0;
+	memset(&brd->cur_status,0,sizeof(A2D_STATUS));
+	memset(&brd->prev_status,0,sizeof(A2D_STATUS));
 
 	if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
 	if((brd->a2dfd = rtl_open(brd->a2dFifoName,
@@ -1338,14 +1341,14 @@ static int ioctlCallback(int cmd, int board, int port,
 		ret = sizeof(int);
   		break;
 
-  	case A2D_STATUS_IOCTL:		/* user get */
+  	case A2D_GET_STATUS:		/* user get of status */
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_STATUS)) break;
-		memcpy(buf,&brd->status,len);
+		memcpy(buf,&brd->prev_status,len);
 		ret = len;
 		break;
 
-  	case A2D_SET_IOCTL:		/* user set */
+  	case A2D_SET_CONFIG:		/* user set */
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(A2D_SET)) break;	// invalid length
 		if(brd->busy) {
@@ -1353,7 +1356,7 @@ static int ioctlCallback(int cmd, int board, int port,
 			ret = -EBUSY;
 			break;
 		}
-		DSMLOG_DEBUG("A2D_SET_IOCTL\n");
+		DSMLOG_DEBUG("A2D_SET_CONFIG\n");
 		memcpy(&brd->config,(A2D_SET*)buf,sizeof(A2D_SET));
 
 		DSMLOG_DEBUG("Starting setup thread\n");
@@ -1364,7 +1367,7 @@ static int ioctlCallback(int cmd, int board, int port,
 
 		if (thread_status != (void*)0) ret = -(int)thread_status;
 		else ret = 0;		// OK
-		DSMLOG_DEBUG("A2D_SET_IOCTL break; ret=%d\n", ret);
+		DSMLOG_DEBUG("A2D_SET_CONFIG done, ret=%d\n", ret);
    		break;
 
   	case A2D_CAL_IOCTL:		/* user set */
@@ -1400,6 +1403,7 @@ static int ioctlCallback(int cmd, int board, int port,
 		DSMLOG_DEBUG("closeA2D, ret=%d\n",ret);
 		break;
   	case A2D_OPEN_I2CT:
+		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		DSMLOG_DEBUG("A2D_OPEN_I2CT\n");
 		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		if (len != sizeof(int)) break;	// invalid length
@@ -1407,10 +1411,18 @@ static int ioctlCallback(int cmd, int board, int port,
 		ret = openI2CTemp(brd,rate);
 		break;
   	case A2D_CLOSE_I2CT:
+		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		DSMLOG_DEBUG("A2D_CLOSE_I2CT\n");
 		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
 		ret = closeI2CTemp(brd);
 		break;
+  	case A2D_GET_I2CT:
+		if (port != 1) break;	// port 0 is the A2D, port 1 is I2C temp
+		if (len != sizeof(short)) break;
+		*(short *) buf = brd->i2cTempData;
+		ret = sizeof(short);
+  		break;
+
 	default:
 		break;
   	}
@@ -1514,48 +1526,28 @@ int init_module()
 	/* initialize each A2DBoard structure */
 	for (ib = 0; ib < numboards; ib++) {
 	    struct A2DBoard* brd = boardInfo + ib;
+
+	    // initialize structure to zero, then initialize things
+	    // that are non-zero
 	    memset(brd,0,sizeof(struct A2DBoard));
 
-	    brd->addr = 0;
-	    brd->chan_addr = 0;
-
-	    brd->setup_thread = 0;
-	    brd->pps_thread = 0;
-	    brd->acq_thread = 0;
-	    brd->interrupted = 0;
-	    brd->busy = 0;
-
 	    rtl_sem_init(&brd->acq_sem,0,0);
-	    brd->a2dFifoName = 0;
 	    brd->a2dfd = -1;
-	    brd->i2cTempFifoName = 0;
 	    brd->i2cTempfd = -1;
-	    brd->ioctlhandle = 0;
-	    memset(&brd->config,0,sizeof(A2D_SET));
 	    // default latency, 1/10 second.
 	    brd->config.latencyUsecs = USECS_PER_SEC / 10;
-	    memset(&brd->cal,0,sizeof(A2D_CAL));
-	    memset(&brd->status,0,sizeof(A2D_STATUS));
-	    memset(&brd->bad,0,sizeof(brd->bad));
-	    memset(&brd->nbad,0,sizeof(brd->nbad));
-	    brd->OffCal = 0;
 #ifdef DOA2DSTATRD
 	    brd->FIFOCtl = A2DSTATEBL;
 #else
 	    brd->FIFOCtl = 0;
 #endif
-	    brd->MaxHz = 0;
-	    brd->readCtr = 0;
-	    brd->nbadBufs = 0;
-	    brd->fifoNotEmpty = 0;
 	    brd->i2c = 0x3;
-	    brd->skippedSamples = 0;
 
 	    brd->invertCounts = invert[ib];
 	    brd->master = master[ib];
 	}
 
-	/* allocate necessary members in each A2DBoard structure */
+	/* initialize necessary members in each A2DBoard structure */
 	for (ib = 0; ib < numboards; ib++) {
 	    struct A2DBoard* brd = boardInfo + ib;
 

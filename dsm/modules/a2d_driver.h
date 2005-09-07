@@ -60,17 +60,21 @@
 #define CONFBLOCKS  12  // 12 blocks as described below
 #define CONFBLLEN	43	// 42 data words plus 1 CRCC (Confirmed by ADI)
 
-/* Structures that are passed via ioctls to/from this driver */
+/* A2D status info */
 typedef struct
 {
-	unsigned short	ser_num;	// A/D card serial number
-	unsigned short 	status[MAXA2DS];	// A2D status words after load
 	size_t 			fifofullctr;	// FIFO filled
+#ifdef COMPLETE_FIFO_STATUS
 	size_t 			fifo44ctr;	// 3/4 <= FIFO < full event counter
 	size_t 			fifo34ctr;	// 1/2 <= FIFO < 3/4 event counter
 	size_t 			fifo24ctr;	// 1/4 < FIFO  < 1/2   event counter
 	size_t 			fifo14ctr;	// empty < FIFO <= 1/4  event counter
 	size_t 			fifoemptyctr;	// FIFO empty event counter
+#endif
+	size_t nbad[MAXA2DS];	// number of bad status words in last 100 scans
+	unsigned short badval[MAXA2DS];	// value of last bad status word
+	unsigned short goodval[MAXA2DS];// value of last good status word
+	unsigned short	ser_num;	// A/D card serial number
 } A2D_STATUS;
 
 typedef struct 
@@ -102,13 +106,14 @@ typedef struct
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define A2D_STATUS_IOCTL _IOR(A2D_MAGIC,0,A2D_STATUS)
-#define A2D_SET_IOCTL _IOW(A2D_MAGIC,1,A2D_SET)
+#define A2D_GET_STATUS _IOR(A2D_MAGIC,0,A2D_STATUS)
+#define A2D_SET_CONFIG _IOW(A2D_MAGIC,1,A2D_SET)
 #define A2D_CAL_IOCTL _IOW(A2D_MAGIC,2,A2D_CAL)
 #define A2D_RUN_IOCTL _IO(A2D_MAGIC,3)
 #define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
 #define A2D_OPEN_I2CT _IOW(A2D_MAGIC,5,int)
 #define A2D_CLOSE_I2CT _IO(A2D_MAGIC,6)
+#define A2D_GET_I2CT _IOR(A2D_MAGIC,7,short)
 
 //A2D Status register bits
 #define	A2DINSTBSY	0x8000	//Instruction being performed
@@ -249,24 +254,24 @@ struct A2DBoard {
     struct ioctlHandle* ioctlhandle;
     A2D_SET config;		// board configuration
     A2D_CAL cal;		// calibration configuration
-    A2D_STATUS status;		// status info maintained by driver
-    unsigned short bad[MAXA2DS];
-    unsigned int nbad[MAXA2DS];
+    A2D_STATUS cur_status;	// status info maintained by driver
+    A2D_STATUS prev_status;	// status info maintained by driver
     unsigned char requested[MAXA2DS];	// 1=channel requested, 0=isn't
-    US OffCal;			// offset and cal bits
-    UC FIFOCtl;			// hardware FIFO control word storage
     int MaxHz;			// Maximum requested A/D sample rate
     int busy;
     int interrupted;
     int readCtr;
     int nbadBufs;
     int fifoNotEmpty;
-    unsigned char i2c;
-    unsigned char buffer[8192];	// data buffer
+    int master;
     unsigned long skippedSamples;	// discarded samples because of 
     					// RTL FIFO sluggishness.
-    unsigned char invertCounts;
-    int master;
+    unsigned char buffer[8192];	// data buffer
+    US OffCal;			// offset and cal bits
+    UC FIFOCtl;			// hardware FIFO control word storage
+    short i2cTempData;		// last measured temperature
+    unsigned char i2c;		// data byte written to I2C
+    unsigned char invertCounts;	// whether to invert counts from this A2D
 };
 
 #endif
