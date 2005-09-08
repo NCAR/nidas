@@ -242,6 +242,11 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (header.eof()) goto eof;
 	header.clear();
 
+	// converted units
+	string cunits = getQuotedString(header);
+	// cerr << "cunits=" << vunits << endl;
+	if (header.eof()) goto eof;
+
 	char semicolon = 0;
 	for (;;) {
 	    header >> semicolon;
@@ -272,11 +277,13 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    Linear* linear = new Linear();
 	    linear->setIntercept(coefs[0]);
 	    linear->setSlope(coefs[1]);
+	    linear->setUnits(cunits);
 	    var->setConverter(linear);
 	}
 	else if (coefs.size() > 2) {
 	    Polynomial* poly = new Polynomial();
 	    poly->setCoefficients(coefs);
+	    poly->setUnits(cunits);
 	    var->setConverter(poly);
 	}
 	

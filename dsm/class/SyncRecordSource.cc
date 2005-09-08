@@ -232,7 +232,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 	    const Linear* lconv = dynamic_cast<const Linear*>(conv);
 	    if (lconv) {
 	        ost << lconv->getIntercept() << ' ' <<
-			lconv->getSlope();
+			lconv->getSlope() << " \"" << lconv->getUnits() << "\"";
 	    }
 	    else {
 		const Polynomial* pconv = dynamic_cast<const Polynomial*>(conv);
@@ -240,9 +240,11 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 		    const std::vector<float>& coefs = pconv->getCoefficients();
 		    for (unsigned int i = 0; i < coefs.size(); i++)
 			ost << coefs[i] << ' ';
+		    ost << " \"" << pconv->getUnits() << "\"";
 		}
 	    }
 	}
+	else ost << " \"" << var->getUnits() << "\"";
 	ost << ';' << endl;
     }
     ost << "}" << endl;

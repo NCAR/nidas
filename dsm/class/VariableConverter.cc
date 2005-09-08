@@ -21,6 +21,7 @@ using namespace std;
 using namespace xercesc;
 
 #include <sstream>
+#include <iostream>
 
 std::string Linear::toString() const
 {
@@ -257,8 +258,9 @@ void Polynomial::fromDOMElement(const DOMElement* node)
 		istringstream ist(aval);
 		for (;;) {
 		    float fval;
-		    ist >> fval;
 		    if (ist.eof()) break;
+		    ist >> fval;
+		    // cerr << "fval=" << fval << " fail=" << ist.fail() << " eof=" << ist.eof() << endl;
 		    if (ist.fail())
 			throw atdUtil::InvalidParameterException("poly",aname,
 			    aval);
