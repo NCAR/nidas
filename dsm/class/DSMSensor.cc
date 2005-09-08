@@ -194,9 +194,9 @@ void DSMSensor::calcStatistics(unsigned long periodUsec)
     maxSampleLength[currStatsIndex] = 0;
     minSampleLength[currStatsIndex] = 999999999;
 										
-    sampleRateObs = ((float)nsamples / periodMsec) * USECS_PER_SEC;
+    sampleRateObs = ((float)nsamples / periodUsec) * USECS_PER_SEC;
 
-    dataRateObs = ((float)nbytes / periodMsec) * USECS_PER_SEC;
+    dataRateObs = ((float)nbytes / periodUsec) * USECS_PER_SEC;
 
     readErrorCount[0] = writeErrorCount[0] = 0;
 
