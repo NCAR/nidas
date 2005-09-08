@@ -1031,11 +1031,29 @@ static int set_record_sep(struct serialPort* port,
 
     port->sepcnt = 0;
     port->incount = 0;
+    port->nullTerm = 0;
 
     // set the interrupt character to the last
     // character in the record separator
-    if (sep->sepLen > 0)
+    if (sep->sepLen > 0) {
+
     	set_interrupt_char(port, sep->sep[sep->sepLen-1]);
+
+	// If separator is a terminating NL or CR, then assume
+	// these are ASCII records, and overwrite the termination
+	// character with a NULL in order to simplify later
+	// sscanf-ing.
+	if (sep->atEOM) {
+	    switch (sep->sep[sep->sepLen-1]) {
+	    case '\n':
+	    case '\r':
+		port->nullTerm = 1;
+		break;
+	    default:
+		break;
+	    }
+	}
+    }
 
     rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
@@ -1243,6 +1261,7 @@ static void init_serialPort_struct(struct serialPort* port)
     port->recinfo.recordLen = 0;
 
     port->sepcnt = 0;
+    port->nullTerm = 0;
 
     port->sample_queue.buf = 0;
     port->sample_queue.head = port->sample_queue.tail = 0;
@@ -1451,6 +1470,8 @@ static void add_char_sep_eom(struct serialPort* port, unsigned char c)
 
     if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
 	// send this bogus sample on
+	if (port->nullTerm)
+	    port->sample->data[port->incount] = '\0';
 	post_sample(port);
 	port->input_char_overflows++;
 	port->incount = 0;
@@ -1467,6 +1488,8 @@ static void add_char_sep_eom(struct serialPort* port, unsigned char c)
 	if (c == port->recinfo.sep[port->sepcnt]) {
 	    // character matched
 	    if (++port->sepcnt == port->recinfo.sepLen) {
+		if (port->nullTerm)
+		    port->sample->data[port->incount] = '\0';
 		post_sample(port);
 		port->incount = 0;
 		port->sepcnt = 0;
@@ -1492,6 +1515,8 @@ static void add_char_sep_eom(struct serialPort* port, unsigned char c)
 	    if (c == port->recinfo.sep[port->sepcnt] ||
 		c == port->recinfo.sep[port->sepcnt = 0]) {
 		if (++port->sepcnt == port->recinfo.sepLen) {
+		    if (port->nullTerm)
+		    	port->sample->data[port->incount] = '\0';
 		    post_sample(port);
 		    port->incount = 0;	// matched string
 		    port->sepcnt = 0;
