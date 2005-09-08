@@ -68,7 +68,14 @@ static int ioport[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
 /* Which A2D chip is the master.*/
 static int master[MAX_A2D_BOARDS] = { 7, 7, 7, 7};
 
-/* Whether to invert counts */
+/*
+ * Whether to invert counts. This should be 1(true) for new cards.
+ * Early versions of the A2D cards do not need it.
+ * This is settable as a module parameter.  We could do
+ * it by checking the serial number in firmware, but
+ * don't have faith that these serial numbers will be
+ * set correctly in the firmware on the cards.
+ */
 static int invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1};
 
 /* number of A2D boards in system (number of non-zero ioport values) */
