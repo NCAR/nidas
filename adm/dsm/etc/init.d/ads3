@@ -165,6 +165,34 @@ stop_app() {
 	fi
 }
 
+#
+# Crude way to sync a clock, using ssh and the date command.
+crude_set_date() {
+    echo "setting date from $server"
+    datestr=`ssh $ruser@$server date -u +%m%d%H%M%Y.%S`
+    echo "date on server is $datestr"
+    date -s $datestr
+    hwclock --systohc
+}
+
+# Clock on Vipers is not battery-backed, and reads
+# 2000 Jan 1 at boot time. So if year is 2000
+# then pound away with ntpdate.  If still no success
+# try crude_set_date
+check_ntp() {
+    [ $(date +%Y) -ne 2000 ] && return
+
+    /etc/init.d/ntpd stop
+    i=0
+    while [ $i -lt 60 -a $(date +%Y) -eq 2000 ]; do
+	sleep 5
+	ntpdate $server && hwclock --systohc
+	i=$((i+1))
+    done
+    [ $(date +%Y) -eq 2000 ] && crude_set_date
+    /etc/init.d/ntpd start
+}
+
 # get devdir and create it
 devdir=$(get_devdir < $modconf)
 [ -d $devdir ] || mkdir -p $devdir
@@ -173,6 +201,7 @@ devdir=$(get_devdir < $modconf)
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
+	check_ntp
 	unload_modules < $modconf
         copy_modules < $modconf
         load_modules < $modconf
@@ -225,8 +254,9 @@ case "$1" in
 	start_app
 	;;
   test)
-	get_modules < $modconf
-	get_devdir < $modconf
+	# get_modules < $modconf
+	# get_devdir < $modconf
+	check_ntp
 	;;
   *)
 	N=/etc/init.d/$NAME
