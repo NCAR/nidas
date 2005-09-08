@@ -72,10 +72,10 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invalid
     // round down the floating point rates
     arcfg.rate  = (short) floor( (*si)->getRate() );
 
+#ifdef DEBUG
     // Note - ARINC samples have only one variable...
     const Variable* var = (*si)->getVariables().front();
 
-#ifdef DEBUG
     err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
         _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
         (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
