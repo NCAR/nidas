@@ -501,10 +501,17 @@
                     <parameter name="corIntercept" value="-0.196140" type="float"/>
                 </variable>
                 <variable name="TTRH1" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+		    <!-- The amplifier on this sensor is a Rosemount 510BF48
+		     which has half the gain of the others
+		     (output of around 0:2.5V) so we're using a gain of 4
+		     for this channel
+		     -->
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
+		    <!-- values computed for gain=2
                     <parameter name="corSlope" value="0.916395" type="float"/>
                     <parameter name="corIntercept" value="-0.167106" type="float"/>
+		    -->
                 </variable>
                 <variable name="NOSETMP" units="V">
                     <parameter name="gain" value="2" type="float"/>
