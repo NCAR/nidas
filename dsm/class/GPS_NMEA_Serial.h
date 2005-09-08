@@ -36,7 +36,9 @@ class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
 
-    GPS_NMEA_Serial():DSMSerialSensor() {}
+    GPS_NMEA_Serial():DSMSerialSensor(),inputStr(0),inputStrLen(0) {}
+
+    ~GPS_NMEA_Serial() { delete [] inputStr; }
 
     void addSampleTag(SampleTag* stag)
             throw(atdUtil::InvalidParameterException);
@@ -70,6 +72,13 @@ protected:
      * Full sample id of RMC variables.
      */
     dsm_sample_id_t rmcId;
+
+    /**
+     * copy of input string, null terminated.
+     */
+    char* inputStr;
+
+    int inputStrLen;
 
 };
 

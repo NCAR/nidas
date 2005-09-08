@@ -277,12 +277,18 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     if (slen < 7) return false;
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
-    const char* eoi = input + slen;
+    if (slen >= inputStrLen) {
+        delete [] inputStr;
+	inputStrLen = slen + 1;
+	inputStr = new char[inputStrLen];
+    }
+    memcpy(inputStr,input,inputStrLen);
+    const char* eoi = inputStr + slen;
 
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
 
     if (!strncmp(input,"$GPGGA,",7)) {
-	input += 7;
+	input = inputStr + 7;
 	SampleT<float>* outs = getSample<float>(ggaNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(ggaId);
@@ -291,7 +297,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 	return true;
     }
     else if (!strncmp(input,"$GPRMC,",7)) {
-	input += 7;
+	input = inputStr + 7;
 	SampleT<float>* outs = getSample<float>(rmcNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(rmcId);
