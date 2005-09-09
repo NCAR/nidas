@@ -379,53 +379,54 @@
 
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
+		<!-- A2D cals done 9/9/2005 -->
                 <variable name="DPL" units="V">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.930696" type="float"/>
+                    <parameter name="corIntercept" value="-0.222112" type="float"/>
                 </variable>
                 <variable name="DPR" units="V">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.937249" type="float"/>
+                    <parameter name="corIntercept" value="-0.274758" type="float"/>
                 </variable>
                 <variable name="A2D2_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.932124" type="float"/>
+                    <parameter name="corIntercept" value="-0.176556" type="float"/>
                 </variable>
                 <variable name="A2D3_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.923553" type="float"/>
+                    <parameter name="corIntercept" value="-0.078594" type="float"/>
                 </variable>
                 <variable name="A2D4_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.914364" type="float"/>
+                    <parameter name="corIntercept" value="-0.007075" type="float"/>
                 </variable>
                 <variable name="A2D5_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.942641" type="float"/>
+                    <parameter name="corIntercept" value="-0.319868" type="float"/>
                 </variable>
                 <variable name="A2D6_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.931368" type="float"/>
+                    <parameter name="corIntercept" value="-0.205373" type="float"/>
                 </variable>
                 <variable name="A2D7_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="1.0" type="float"/>
-                    <parameter name="corIntercept" value="0.0" type="float"/>
+                    <parameter name="corSlope" value="0.919793" type="float"/>
+                    <parameter name="corIntercept" value="-0.059924" type="float"/>
                 </variable>
             </sample>
         </sensor>
@@ -487,18 +488,24 @@
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.937515" type="float"/>
                     <parameter name="corIntercept" value="-0.380652" type="float"/>
+		    <!-- cal done Sept 8, 2005 -->
+		    <poly coefs="-69.2763 24.3755 -0.498669" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V">
                     <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.911465" type="float"/>
                     <parameter name="corIntercept" value="-0.116520" type="float"/>
+		    <!-- cal done Sept 8, 2005 -->
+		    <poly coefs="-70.5666 24.5234 -0.517736" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V">
                     <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.919699" type="float"/>
                     <parameter name="corIntercept" value="-0.196140" type="float"/>
+		    <!-- cal done Sept 7, 2005 -->
+		    <poly coefs="-69.1560 23.3987 -0.440172" units="degC"/>
                 </variable>
                 <variable name="TTRH1" units="V">
 		    <!-- The amplifier on this sensor is a Rosemount 510BF48
@@ -508,6 +515,10 @@
 		     -->
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
+		    <!-- values computed for gain=4 -->
+                    <parameter name="corSlope" value="0.917191" type="float"/>
+                    <parameter name="corIntercept" value="-0.084039" type="float"/>
+		    <poly coefs="-83.1338 55.0167 -2.18361" units="degC"/>
 		    <!-- values computed for gain=2
                     <parameter name="corSlope" value="0.916395" type="float"/>
                     <parameter name="corIntercept" value="-0.167106" type="float"/>
