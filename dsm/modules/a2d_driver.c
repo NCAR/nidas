@@ -1104,25 +1104,31 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	    for (iread = 0; iread < nreads; iread++) {
                 int ichan = iread % MAXA2DS;
+		signed short counts;
 #ifdef DOA2DSTATRD
 		unsigned short stat = inw(brd->addr);		
+
+		//Inverted bits for later cards
+		if (brd->invertCounts) counts = -inw(brd->addr);
+		else counts = inw(brd->addr);
+
 		// check for acceptable looking status value
 		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
 		    nbad++;
 		    brd->cur_status.nbad[ichan]++;
 		    brd->cur_status.badval[ichan] = stat;
+		    counts = -32768;		// set to missing value
 		}
 		else {
 		    ngood++;
 		    brd->cur_status.goodval[ichan] = stat;
 		}
-#endif
-
-		signed short counts;
-
+#else
 		//Inverted bits for later cards
 		if (brd->invertCounts) counts = -inw(brd->addr);
 		else counts = inw(brd->addr);
+
+#endif
 
 		if (brd->requested[ichan]) *dataptr++ = counts;
 
