@@ -977,7 +977,9 @@ static void i2cTempIrigCallback(void *ptr)
     samp.timestamp = GET_MSEC_CLOCK;
     samp.size = sizeof(short);
     samp.data = brd->i2cTempData = A2DTemp(brd);
+#ifdef DEBUG
     DSMLOG_DEBUG("Brd temp %d.%1d degC\n", samp.data/16, (10*(samp.data%16))/16);
+#endif
 
     if (brd->i2cTempfd >= 0) {
 	// Write to up-fifo
