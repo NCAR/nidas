@@ -221,8 +221,8 @@ struct serialPort {
     int output_char_overflows;
     int sample_overflows;
     long usecs_per_char;
-    unsigned char nullTerm;		// whether to overwrite terminating
-    					// character with a null.
+    unsigned char addNull;		// whether to add NULL char after terminating
+    					// character
 
 };
 
