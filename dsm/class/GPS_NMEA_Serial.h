@@ -47,10 +47,10 @@ public:
     	throw();
 
 protected:
-    void parseGGA(const char* input,const char* eoi,float *dout,int nvars) 
+    void parseGGA(const char* input,float *dout,int nvars) 
     	throw();
   
-    void parseRMC(const char* input,const char* eoi,float *dout,int nvars)
+    void parseRMC(const char* input,float *dout,int nvars)
     	throw();
 
     /**

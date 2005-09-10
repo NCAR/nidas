@@ -231,6 +231,12 @@ protected:
      * Sensor latency, in seconds.
      */
     float latency;
+
+    /**
+     * Whether sample strings, as they come from the driver,
+     * are null terminated.
+     */
+    bool nullTerminated;
 };
 
 }

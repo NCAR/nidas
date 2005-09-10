@@ -41,7 +41,7 @@ DSMSerialSensor::DSMSerialSensor():
     promptRate(IRIG_ZERO_HZ),
     maxScanfFields(0),
     parsebuf(0),parsebuflen(0),prompted(false),prompting(false),
-    latency(0.1)
+    latency(0.1),nullTerminated(true)
 {
 }
 
@@ -186,6 +186,23 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
 
 void DSMSerialSensor::init() throw(atdUtil::InvalidParameterException) {
     if (scanners.size() > 0) nextScanner = scanners.begin();
+
+    /* if termination character is not CR or NL then set
+     * nullTermination to false.  This over-rides whatever
+     * the user set in the xml - because we know betta'.
+     */
+    int sl;
+    if (getMessageSeparatorAtEOM() &&
+    	(sl = getMessageSeparator().length()) > 0) {
+	switch (getMessageSeparator()[sl-1]) {
+	case '\r':
+	case '\n':
+	    break;
+	default:
+	    nullTerminated = false;
+	    break;
+	}
+    }
 }
 
 
@@ -241,7 +258,7 @@ void DSMSerialSensor::fromDOMElement(
 		int val;
 		ist >> val;
 		if (ist.fail() || !setBaudRate(val))
-		    throw atdUtil::InvalidParameterException(getName(),"baud",
+		    throw atdUtil::InvalidParameterException(getName(),aname,
 		    	aval);
 	    }
 	    else if (!aname.compare("parity")) {
@@ -249,7 +266,7 @@ void DSMSerialSensor::fromDOMElement(
 		else if (!aval.compare("even")) setParity(EVEN);
 		else if (!aval.compare("none")) setParity(NONE);
 		else throw atdUtil::InvalidParameterException
-			(getName(),"parity",aval);
+			(getName(),aname,aval);
 	    }
 	    else if (!aname.compare("databits")) {
 		istringstream ist(aval);
@@ -257,7 +274,7 @@ void DSMSerialSensor::fromDOMElement(
 		ist >> val;
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException(getName(),
-		    	"databits", aval);
+		    	aname, aval);
 		setDataBits(val);
 	    }
 	    else if (!aname.compare("stopbits")) {
@@ -266,8 +283,15 @@ void DSMSerialSensor::fromDOMElement(
 		ist >> val;
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException(getName(),
-		    	"stopbits", aval);
+		    	aname, aval);
 		setStopBits(val);
+	    }
+	    else if (!aname.compare("nullterm")) {
+		istringstream ist(aval);
+		ist >> nullTerminated;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),aname,
+		    	aval);
 	    }
 	}
     }
@@ -454,29 +478,27 @@ bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
 
     assert(samp->getType() == CHAR_ST);
     int slen = samp->getDataLength();
+    const char* inputstr = (const char*)samp->getConstVoidDataPtr();
 
-    if (slen > parsebuflen) {
-	delete [] parsebuf;
-	parsebuf = new char[slen + 1];
-	parsebuflen = slen;
+    // copy the string if not null terminated.
+    if (!nullTerminated) {
+	if (slen > parsebuflen) {
+	    delete [] parsebuf;
+	    parsebuf = new char[slen + 1];
+	    parsebuflen = slen;
+	}
+
+	memcpy(parsebuf,inputstr,slen);
+	parsebuf[slen] = '\0';
+	inputstr = parsebuf;
     }
-
-    /*
-     * t'would be nice to avoid this copy, but we must
-     * null terminate before the scanf, and we haven't come
-     * up with a general way to do it. Some serial sensors
-     * output binary data, and we can't just add a 
-     * null at the end of every serial record.
-     */
-    memcpy(parsebuf,(const char*)samp->getConstVoidDataPtr(),slen);
-    parsebuf[slen] = '\0';
 
     SampleT<float>* outs = getSample<float>(maxScanfFields);
 
     int nparsed = 0;
     for (unsigned int ntry = 0; ntry < scanners.size(); ntry++) {
 	AsciiScanner* scanner = *nextScanner;
-	nparsed = scanner->sscanf(parsebuf,outs->getDataPtr(),
+	nparsed = scanner->sscanf(inputstr,outs->getDataPtr(),
 		scanner->getNumberOfFields());
 	if (++nextScanner == scanners.end()) nextScanner = scanners.begin();
 	if (nparsed > 0) {

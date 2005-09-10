@@ -19,20 +19,7 @@
 using namespace dsm;
 using namespace std;
 
-namespace {
-
 CREATOR_ENTRY_POINT(GPS_NMEA_Serial)
-
-/**
- * locally defined function like strchr, but searches up to
- * ep. Need this because serial data is not null terminated.
- */
-inline const char* strchr_ep(const char* cp,char c, const char* ep)
-{
-    for ( ; cp < ep && *cp != c; cp++);
-    return cp;
-}
-}
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 	throw(atdUtil::InvalidParameterException)
@@ -95,8 +82,7 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
  *	month
  *	year
  */
-void GPS_NMEA_Serial::parseRMC(const char* input,const char* eoi,
-	float *dout,int nvars) throw()
+void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN;
@@ -104,9 +90,10 @@ void GPS_NMEA_Serial::parseRMC(const char* input,const char* eoi,
     int i1,i2,i3;
     float f1,f2;
     int iout = 0;
-    for (int ifield = 0; input < eoi; ifield++) {
-	const char* cp = strchr_ep(input,sep,eoi);
-	if (cp == eoi) break;
+    // input is null terminated
+    for (int ifield = 0; ; ifield++) {
+	const char* cp = ::strchr(input,sep);
+	if (cp == NULL) break;
 	cp++;
 	switch (ifield) {
 	case 0:	// HHMMSS, optional output variable seconds of day
@@ -190,17 +177,17 @@ void GPS_NMEA_Serial::parseRMC(const char* input,const char* eoi,
 /**
  * Parse GGA NMEA message.
  */
-void GPS_NMEA_Serial::parseGGA(const char* input,const char* eoi,
-	float *dout,int nvars) throw()
+void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
     int i1,i2,i3;
     float f1,f2;
     int iout = 0;
-    for (int ifield = 0; input < eoi; ifield++) {
-	const char* cp = strchr_ep(input,sep,eoi);
-	if (cp == eoi) break;
+    // input is null terminated
+    for (int ifield = 0; ; ifield++) {
+	const char* cp = ::strchr(input,sep);
+	if (cp == NULL) break;
 	cp++;
 	switch (ifield) {
 	case 0:		// HHMMSS
@@ -277,31 +264,33 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     if (slen < 7) return false;
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
-    if (slen >= inputStrLen) {
+
+    if (!nullTerminated && slen >= inputStrLen) {
         delete [] inputStr;
 	inputStrLen = slen + 1;
 	inputStr = new char[inputStrLen];
+	memcpy(inputStr,input,slen);
+	inputStr[slen] = '\0';
+	input = inputStr;
     }
-    memcpy(inputStr,input,inputStrLen);
-    const char* eoi = inputStr + slen;
 
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
 
     if (!strncmp(input,"$GPGGA,",7)) {
-	input = inputStr + 7;
+	input += 7;
 	SampleT<float>* outs = getSample<float>(ggaNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(ggaId);
-	parseGGA(input,eoi,outs->getDataPtr(),ggaNvars);
+	parseGGA(input,outs->getDataPtr(),ggaNvars);
 	results.push_back(outs);
 	return true;
     }
     else if (!strncmp(input,"$GPRMC,",7)) {
-	input = inputStr + 7;
+	input += 7;
 	SampleT<float>* outs = getSample<float>(rmcNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(rmcId);
-	parseRMC(input,eoi,outs->getDataPtr(),rmcNvars);
+	parseRMC(input,outs->getDataPtr(),rmcNvars);
 	results.push_back(outs);
 	return true;
     }
