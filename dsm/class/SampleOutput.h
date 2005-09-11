@@ -55,8 +55,18 @@ public:
 
     virtual const std::list<const DSMConfig*>& getDSMConfigs() const = 0;
 
+    /**
+     * Request a connection, but don't wait for it.  Requester will be
+     * notified via SampleConnectionRequester interface when the connection
+     * has been made.
+     */
     virtual void requestConnection(SampleConnectionRequester*)
     	throw(atdUtil::IOException) = 0;
+
+    /**
+     * Request a connection, and wait for it.
+     */
+    virtual void connect() throw(atdUtil::IOException) = 0;
 
     virtual void connected(IOChannel* sock) throw() = 0;
 
@@ -111,14 +121,20 @@ public:
 
     const std::list<const DSMConfig*>& getDSMConfigs() const;
 
-    void setDSMService(const DSMService*);
-
-    const DSMService* getDSMService() const;
-
+    /**
+     * Request a connection, but don't wait for it.  Requester will be
+     * notified via SampleConnectionRequester interface when the connection
+     * has been made.
+     */
     void requestConnection(SampleConnectionRequester*)
                  throw(atdUtil::IOException);
 
     void connected(IOChannel* output) throw();
+
+    /**
+     * Request a connection, and wait for it.
+     */
+    void connect() throw(atdUtil::IOException);
 
     void init() throw();
 

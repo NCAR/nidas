@@ -47,6 +47,8 @@ public:
     void requestConnection(ConnectionRequester*,int pseudoPort)
         throw(atdUtil::IOException);
                                                                                 
+    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+                                                                                
    /**
      * Read method (not used).
      */

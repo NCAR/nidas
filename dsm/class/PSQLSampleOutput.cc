@@ -64,6 +64,11 @@ void PSQLSampleOutput::requestConnection(SampleConnectionRequester* requester)
     psqlChannel->requestConnection(this,0);
 }
 
+void PSQLSampleOutput::connect()
+        throw(atdUtil::IOException)
+{
+    psqlChannel->connect(0);
+}
 
 void PSQLSampleOutput::setDSMConfigs(const std::list<const DSMConfig*>& val)
 {
@@ -119,12 +124,17 @@ void PSQLSampleOutput::addSampleTag(const SampleTag* tag)
 
 }
 
-void PSQLSampleOutput::init() throw(atdUtil::IOException)
+void PSQLSampleOutput::init() throw()
 {
-    dropAllTables();      // Remove existing tables, this is a reset.
-    createTables();
-    initializeGlobalAttributes();
-										
+    try {
+	dropAllTables();      // Remove existing tables, this is a reset.
+	createTables();
+	initializeGlobalAttributes();
+    }
+    catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),ioe.what());
+    }
 }
 
 void PSQLSampleOutput::submitCommand(const string& command)
@@ -175,7 +185,7 @@ void PSQLSampleOutput::createTables() throw(atdUtil::IOException)
     }
 }
 
-void PSQLSampleOutput::dropAllTables() throw(atdUtil::IOException)
+void PSQLSampleOutput::dropAllTables() throw()
 {
     try {
 	for (;;) submitCommand("DROP TABLE Global_Attributes");

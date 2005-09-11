@@ -56,14 +56,24 @@ IOChannel* McSocket::clone() const
     return new McSocket(*this);
 }
 
+IOChannel* McSocket::connect(int pseudoPort)
+    throw(atdUtil::IOException)
+{
+    setPseudoPort(pseudoPort);
+    atdUtil::Socket* sock;
+    if (isRequester()) sock = atdUtil::McSocket::connect();
+    else sock = accept();
+    return new McSocket(*this,sock);
+}
+
 void McSocket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort)
     throw(atdUtil::IOException)
 {
     connectionRequester = requester;
     setPseudoPort(pseudoPort);
-    if (isRequester()) request();
-    else listen();
+    if (isRequester()) request();	// starts requester thread
+    else listen();			// starts listener thread
 }
 
 void McSocket::connected(atdUtil::Socket* sock)

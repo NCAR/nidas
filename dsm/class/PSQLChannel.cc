@@ -79,10 +79,34 @@ void PSQLChannel::requestConnection(ConnectionRequester* requester,
 	_conn = 0;
 	throw ioe;
     }
-										
+
     PQsetnonblocking(_conn, true);
 
     requester->connected(this);
+}
+
+IOChannel* PSQLChannel::connect(int pseudoPort) throw(atdUtil::IOException)
+{
+    string connectstr;
+    if (getHost().length() > 0) connectstr += "host=" + getHost() + ' ';
+    if (getDBName().length() > 0) connectstr += "dbname=" + getDBName() + ' ';
+    if (getUser().length() > 0) connectstr += "user=" + getUser() + ' ';
+    cerr << "connectstr=" << connectstr << endl;
+
+    _conn = PQconnectdb(connectstr.c_str());
+										
+    /* check to see that the backend connection was successfully made
+    */
+    if (PQstatus(_conn) == CONNECTION_BAD) {
+        atdUtil::IOException ioe(getName(),"PQconnectdb",PQerrorMessage(_conn));
+	PQfinish(_conn);
+	_conn = 0;
+	throw ioe;
+    }
+										
+    PQsetnonblocking(_conn, true);
+
+    return clone();
 }
 
 void PSQLChannel::close() throw(atdUtil::IOException)

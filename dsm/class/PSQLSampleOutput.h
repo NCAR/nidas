@@ -23,7 +23,7 @@
 
 namespace dsm {
 
-class PSQLSampleOutput : public SampleOutput
+class PSQLSampleOutput : public SampleOutputStream
 {
 public:
 
@@ -51,10 +51,6 @@ public:
 
     const std::list<const DSMConfig*>& getDSMConfigs() const;
 
-    // void setDSMService(const DSMService* val) { service = val; }
-
-    // const DSMService* getDSMService() const { return service; }
-
     void addSampleTag(const SampleTag* tag)
     	throw(atdUtil::InvalidParameterException);
 
@@ -63,7 +59,9 @@ public:
 
     void connected(IOChannel* sock) throw();
 
-    void init() throw(atdUtil::IOException);
+    void connect() throw(atdUtil::IOException);
+
+    void init() throw();
 
     bool receive(const Sample*) throw();
 
@@ -88,7 +86,7 @@ protected:
 
     void createTables() throw(atdUtil::IOException);
 
-    void dropAllTables() throw(atdUtil::IOException);
+    void dropAllTables() throw();
 
     void initializeGlobalAttributes() throw(atdUtil::IOException);
 

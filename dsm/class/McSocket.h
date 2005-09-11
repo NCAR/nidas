@@ -67,6 +67,8 @@ public:
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
+    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+
     virtual bool isNewFile() const { return newFile; }
 
     void connected(atdUtil::Socket* sock);

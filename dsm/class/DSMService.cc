@@ -134,7 +134,7 @@ int DSMService::checkSubServices() throw()
         DSMService* svc = *si;
         if (!svc->isRunning()) {
             cerr << "DSMService::checkSubServices " <<
-                svc->getName() << " not running" << endl;
+                " joining " << svc->getName() << endl;
             try {
                 svc->join();
             }

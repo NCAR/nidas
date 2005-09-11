@@ -44,7 +44,7 @@ void FileSet::setFileName(const string& val)
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
 }
 
-void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
+IOChannel* FileSet::connect(int pseudoPort)
        throw(atdUtil::IOException)
 {
 
@@ -54,7 +54,18 @@ void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
     setDir(expandString(getDir()));
     setFileName(expandString(getFileName()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
-    // immediate connection
+    return clone();
+}
+
+void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
+       throw(atdUtil::IOException)
+{
+    // expand the file and directory names. We wait til now
+    // because these may contain tokens that depend on the
+    // DSM and we may not know it until now.
+    setDir(expandString(getDir()));
+    setFileName(expandString(getFileName()));
+    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
     requester->connected(this); 
 }
 

@@ -56,6 +56,8 @@ public:
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
 
+    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+
     virtual bool isNewFile() const { return newFile; }
 
     /**
@@ -107,7 +109,7 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    atdUtil::Inet4SocketAddress localSockAddr;
+    atdUtil::Inet4SocketAddress remoteSockAddr;
 
     atdUtil::Socket* socket;
 
@@ -142,6 +144,8 @@ public:
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
+
+    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
 
     const std::string& getName() const { return name; }
 

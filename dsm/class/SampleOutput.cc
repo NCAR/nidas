@@ -79,14 +79,6 @@ SampleOutput* SampleOutputStream::clone(IOChannel* iochannel) const
     else return new SampleOutputStream(*this,iochannel);
 }
 
-void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
-	throw(atdUtil::IOException)
-{
-    connectionRequester = requester;
-    iochan->requestConnection(this,getPseudoPort());
-}
-
-
 void SampleOutputStream::setDSMConfigs(const list<const DSMConfig*>& val)
 {
     dsms = val;
@@ -114,6 +106,20 @@ void SampleOutputStream::setIOChannel(IOChannel* val)
 void SampleOutputStream::setPseudoPort(int val) { pseudoPort = val; }
 
 int SampleOutputStream::getPseudoPort() const { return pseudoPort; }
+
+void SampleOutputStream::requestConnection(SampleConnectionRequester* requester)
+	throw(atdUtil::IOException)
+{
+    connectionRequester = requester;
+    iochan->requestConnection(this,getPseudoPort());
+}
+
+void SampleOutputStream::connect()
+	throw(atdUtil::IOException)
+{
+    IOChannel* ioc = iochan->connect(getPseudoPort());
+    setIOChannel(ioc);
+}
 
 /*
  * We're connected.

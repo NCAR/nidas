@@ -381,7 +381,6 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
                 throw atdUtil::InvalidParameterException("service",
                     classattr,"is not of type SampleIOProcessor");
 	    }
-	    // processor->setDSMService(this);
             processor->fromDOMElement((DOMElement*)child);
 	    addProcessor(processor);
         }

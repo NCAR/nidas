@@ -65,6 +65,12 @@ public:
     	throw(atdUtil::IOException) = 0;
 
     /**
+     * Establish a connection. This waits for the connection to be
+     * established. It returns a new instance of an IOChannel.
+     */
+    virtual IOChannel* connect(int pseudoPort) throw(atdUtil::IOException) = 0;
+
+    /**
      * Derived classes must provide clone.
      */
     virtual IOChannel* clone() const = 0;

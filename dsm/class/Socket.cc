@@ -25,16 +25,16 @@ CREATOR_ENTRY_POINT(Socket)
 CREATOR_ENTRY_POINT(ServerSocket)
 
 Socket::Socket():
-	localSockAddr(),socket(0),firstRead(true),newFile(true)
+	remoteSockAddr(),socket(0),firstRead(true),newFile(true)
 {
-    setName("Socket " + localSockAddr.toString());
+    setName("Socket " + remoteSockAddr.toString());
 }
 
 /*
  * Copy constructor.  Should only be called before connection.
  */
 Socket::Socket(const Socket& x):
-	localSockAddr(x.localSockAddr),socket(0),name(x.name),
+	remoteSockAddr(x.remoteSockAddr),socket(0),name(x.name),
 	firstRead(true),newFile(true)
 {
 }
@@ -43,7 +43,7 @@ Socket::Socket(const Socket& x):
  * Copy constructor with a connected atdUtil::Socket.
  */
 Socket::Socket(atdUtil::Socket* sock):
-	localSockAddr(sock->getInet4SocketAddress()),socket(sock),
+	remoteSockAddr(sock->getInet4SocketAddress()),socket(sock),
 	firstRead(true),newFile(true)
 {
     setName(socket->getInet4SocketAddress().toString());
@@ -66,18 +66,22 @@ atdUtil::Inet4Address Socket::getRemoteInet4Address() const throw()
     else return atdUtil::Inet4Address();
 }
 
-/*
-atdUtil::Inet4SocketAddress Socket::getLocalInet4SocketAddress() const throw()
+
+IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
 {
-    return localSockAddr;
+    atdUtil::Socket waitsock;
+    waitsock.connect(remoteSockAddr);
+
+    dsm::Socket* newsocket =
+    	new dsm::Socket(new atdUtil::Socket(waitsock));
+    return newsocket;
 }
-*/
 
 void Socket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort) throw(atdUtil::IOException)
 {
     atdUtil::Socket waitsock;
-    waitsock.connect(localSockAddr);
+    waitsock.connect(remoteSockAddr);
 
     dsm::Socket* newsocket =
     	new dsm::Socket(new atdUtil::Socket(waitsock));
@@ -127,6 +131,12 @@ ServerSocket::~ServerSocket()
 IOChannel* ServerSocket::clone() const 
 {
     return new ServerSocket(*this);
+}
+
+IOChannel* ServerSocket::connect(int pseudoPort) throw(atdUtil::IOException)
+{
+    if (!servSock) servSock= new atdUtil::ServerSocket(port);
+    return new dsm::Socket(servSock->accept());
 }
 
 void ServerSocket::requestConnection(ConnectionRequester* requester,
@@ -216,7 +226,7 @@ void Socket::fromDOMElement(const DOMElement* node)
 	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
-    localSockAddr = atdUtil::Inet4SocketAddress(addr,port);
+    remoteSockAddr = atdUtil::Inet4SocketAddress(addr,port);
 }
 
 DOMElement* Socket::toDOMParent(
