@@ -78,6 +78,8 @@ private:
      * Left over input characters after previous parse for escape sequences.
      */
     std::string input;
+
+    bool nullTerminated;
 };
 
 }

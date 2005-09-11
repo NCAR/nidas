@@ -26,7 +26,7 @@ using namespace std;
 
 RemoteSerialConnection::RemoteSerialConnection(atdUtil::Socket* sock,
 	const std::string& d):
-	socket(sock),devname(d),sensor(0)
+	socket(sock),devname(d),sensor(0),nullTerminated(false)
 {
 }
 
@@ -69,7 +69,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << sensor->getMessageSeparator() << endl;
+    ost << sensor->getBackslashedMessageSeparator() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
@@ -81,16 +81,24 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
+    nullTerminated = sensor->isNullTerminated();
+    cerr << "nullTerminated=" << nullTerminated << endl;
+
     val->addRawSampleClient(this);
 }
 
 /**
- * Receive a sample from the DSMSensor, write data portion to fd.
+ * Receive a sample from the DSMSensor, write data portion to socket.
  */
 bool RemoteSerialConnection::receive(const Sample* s) throw()
 {
+    size_t slen = s->getDataLength();
+    if (nullTerminated && ((const char*) s->getConstVoidDataPtr())[slen-1] == '\0') {
+	cerr << "nullTerminated=" << nullTerminated << " slen=" << slen << endl;
+	slen--;
+    }
     try {
-	socket->send(s->getConstVoidDataPtr(), s->getDataLength());
+	socket->send(s->getConstVoidDataPtr(), slen);
     }
     catch (const atdUtil::IOException& e)
     {

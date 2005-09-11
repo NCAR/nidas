@@ -69,8 +69,18 @@ public:
       * doxygen displays them as one back slash.  One does
       * not double them in the parameter string.
       */
-    void setMessageSeparator(const std::string& val) { msgsep = val; }
-    const std::string& getMessageSeparator() const { return msgsep; }
+    void setMessageSeparator(const std::string& val);
+
+    /**
+     * Get message separator with backslash sequences replaced by their
+     * intended character.
+     */
+    const std::string& getMessageSeparator() const;
+
+    /**
+     * Get message separator with backslash sequences added back.
+     */
+    const std::string getBackslashedMessageSeparator() const;
 
     /**
      * Set a boolean, indicating whether the message separator
@@ -100,6 +110,11 @@ public:
 
     void setMessageLength(int val) { messageLength = val; }
     int getMessageLength() const { return messageLength; }
+
+    /**
+     * Will the serial driver provide null terminated records?
+     */
+    bool isNullTerminated() const { return nullTerminated; }
 
     /**
      * Set the prompt string for this sensor.
@@ -197,7 +212,15 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
-    static std::string replaceEscapeSequences(std::string str);
+    /**
+     * Replace back-slash sequences with the intended character:
+     *	\\n=newline, \\r=carriage-return, \\t=tab, \\\\=backslash
+     *  \\xhh=hex, where hh are (exactly) two hex digits and
+     *  \\000=octal, where 000 are exactly three octal digits.
+     */
+    static std::string replaceBackslashSequences(std::string str);
+
+    static std::string addBackslashSequences(std::string str);
 
 protected:
 

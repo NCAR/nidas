@@ -298,7 +298,7 @@ void RemoteSerial::openConnection(atdUtil::Inet4SocketAddress saddr,
     	databits << ' ' << stopbits <<
 	" \"" << messageSeparator << "\" " <<
 	separatorAtEOM <<  ' ' << messageLength << endl;
-    messageSeparator = dsm::DSMSerialSensor::replaceEscapeSequences(messageSeparator);
+    messageSeparator = dsm::DSMSerialSensor::replaceBackslashSequences(messageSeparator);
 }
 
 string RemoteSerial::socketReadLine() throw(atdUtil::IOException)
@@ -529,8 +529,6 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 		interrupt();
 	    }
 
-#define PRINT_ESCAPE_SEQ
-#ifdef PRINT_ESCAPE_SEQ
 	    for (int ic = 0; ic < nread; ic++) {
 		char c = buffer[ic];
 		if (messageLength > 0) {		/* BINARY data */
@@ -579,15 +577,11 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 			if (isprint(c)) putc(c,stdout);
 			else if (c == '\r') printf("\\r");
 			else if (c == '\n') printf("\\n");
-			else printf("\\%#x",c);
+			else printf("\\%#02x",(unsigned char)c);
 			if (c == messageSeparator[0]) printf("\r\n");
 		    }
 		}
 	    }
-#else
-	    printf("%s", buffer);
-	    if (n_flag) printf("\r\n");
-#endif
 	}
 	if (pollfds[0].revents & POLLERR) {
 	    throw atdUtil::IOException(

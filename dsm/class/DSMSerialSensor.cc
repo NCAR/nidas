@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 using namespace std;
 using namespace dsm;
@@ -53,6 +54,22 @@ DSMSerialSensor::~DSMSerialSensor() {
 	delete scanner;
     }
 }
+
+void DSMSerialSensor::setMessageSeparator(const std::string& val)
+{
+    msgsep = replaceBackslashSequences(val);
+}
+
+const std::string& DSMSerialSensor::getMessageSeparator() const
+{
+    return msgsep;
+}
+
+const std::string DSMSerialSensor::getBackslashedMessageSeparator() const
+{
+    return addBackslashSequences(msgsep);
+}
+
 void DSMSerialSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     // It's magic, we can do an ioctl before the device is open!
@@ -88,7 +105,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invali
 
     /* send message separator information */
     struct dsm_serial_record_info recinfo;
-    string nsep = replaceEscapeSequences(getMessageSeparator());
+    string nsep = getMessageSeparator();
 
     strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
     recinfo.sepLen = nsep.length();
@@ -104,7 +121,7 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invali
     if (prompted) {
 	struct dsm_serial_prompt prompt;
 
-	string nprompt = replaceEscapeSequences(getPromptString());
+	string nprompt = replaceBackslashSequences(getPromptString());
 
 	strncpy(prompt.str,nprompt.c_str(),sizeof(prompt.str));
 	prompt.len = nprompt.length();
@@ -411,7 +428,7 @@ DOMElement* DSMSerialSensor::toDOMElement(DOMElement* node)
     return node;
 }
 
-string DSMSerialSensor::replaceEscapeSequences(string str)
+string DSMSerialSensor::replaceBackslashSequences(string str)
 {
     unsigned int bs;
     for (unsigned int ic = 0; (bs = str.find('\\',ic)) != string::npos;
@@ -465,6 +482,38 @@ string DSMSerialSensor::replaceEscapeSequences(string str)
 	}
     }
     return str;
+}
+
+string DSMSerialSensor::addBackslashSequences(string str)
+{
+    string res;
+    for (unsigned int ic = 0; ic < str.length(); ic++) {
+	char c = str[ic];
+        switch(c) {
+	case '\n':
+	    res.append("\\n");
+	    break;
+	case '\r':
+	    res.append("\\r");
+	    break;
+	case '\t':
+	    res.append("\\t");
+	    break;
+	case '\\':
+	    res.append("\\\\");
+	    break;
+	default:
+	    if (::isprint(c)) res.push_back(c);
+	    else {
+		ostringstream ost;
+		ost << "\\x" << hex << setw(2) << setfill('0') << (unsigned int) c;
+		res.append(ost.str());
+	    }
+	        
+	    break;
+	}
+    }
+    return res;
 }
 
 bool DSMSerialSensor::process(const Sample* samp,list<const Sample*>& results)
