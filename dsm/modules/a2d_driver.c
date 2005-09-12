@@ -126,6 +126,11 @@ static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
 /****************  End of IOCTL Section ******************/
 
+static struct rtl_timespec usec1 = { 0, 1000 };
+static struct rtl_timespec usec10 = { 0, 10000 };
+static struct rtl_timespec usec20 = { 0, 20000 };
+static struct rtl_timespec usec100 = { 0, 100000 };
+
 void getIRIGClock(dsm_sample_time_t* msecp,long *nsecp)
 {
     struct rtl_timespec tnow;
@@ -142,7 +147,7 @@ static inline void i2c_clock_hi(struct A2DBoard* brd)
 	brd->i2c |= I2CSCL; // Set clock bit hi
 	outb(A2DIOSTAT, brd->chan_addr);	// Clock high	
 	outb(brd->i2c, (UC *)brd->addr);
-	rtl_usleep(DELAYNUM0);
+	rtl_nanosleep(&usec10,0);
 	return;	
 }
 
@@ -151,7 +156,7 @@ static inline void i2c_clock_lo(struct A2DBoard* brd)
 	brd->i2c &= ~I2CSCL; // Set clock bit low
 	outb(A2DIOSTAT, brd->chan_addr);	// Clock low	
 	outb(brd->i2c, brd->addr);
-	rtl_usleep(DELAYNUM0);
+	rtl_nanosleep(&usec10,0);
 	return;	
 }
 
@@ -160,7 +165,7 @@ static inline void i2c_data_hi(struct A2DBoard* brd)
 	brd->i2c |= I2CSDA; // Set data bit hi
 	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
 	outb(brd->i2c, brd->addr);
-	rtl_usleep(DELAYNUM0);
+	rtl_nanosleep(&usec10,0);
 	return;	
 }
 
@@ -169,7 +174,7 @@ static inline void i2c_data_lo(struct A2DBoard* brd)
 	brd->i2c &= ~I2CSDA; // Set data bit lo
 	outb(A2DIOSTAT, brd->chan_addr);	// Data high	
 	outb(brd->i2c, brd->addr);
-	rtl_usleep(DELAYNUM0);
+	rtl_nanosleep(&usec10,0);
 	return;	
 }
 /*-----------------------End I2C Utils -----------------------*/
@@ -180,6 +185,10 @@ static inline void i2c_data_lo(struct A2DBoard* brd)
 
 static short A2DTemp(struct A2DBoard* brd)
 {
+	// This takes 68 i2c operations to perform.
+	// Using a delay of 10 usecs, this should take
+	// approximately 680 usecs.
+
    	unsigned char b1;
 	unsigned char b2;
 	unsigned char t1;
@@ -196,26 +205,21 @@ static short A2DTemp(struct A2DBoard* brd)
    	i2c_clock_hi(brd);
    	i2c_data_lo(brd);
    	i2c_clock_lo(brd);
-	i2c_data_hi(brd);	
+	// i2c_data_hi(brd);	// wasn't in Charlie's code
 
-   // Shift out the address/read byte
+	// Shift out the address/read byte
    	for (i = 0; i < 8; i++) 
 	{
-    	// set data line
-    	if (b1 & 0x80) 
-		{
-           	i2c_data_hi(brd);
-    	} 
-		else 
-		{
-           	i2c_data_lo(brd);
-     	}
-    	b1 = b1 << 1;
-     	// raise clock
-      	i2c_clock_hi(brd);
-       	// lower clock
-        i2c_clock_lo(brd);
-    }
+	    // set data line
+	    if (b1 & 0x80) i2c_data_hi(brd);
+	    else i2c_data_lo(brd);
+	    
+	    b1 = b1 << 1;
+	    // raise clock
+	    i2c_clock_hi(brd);
+	    // lower clock
+	    i2c_clock_lo(brd);
+	}
 
    	// clock the slave's acknowledge bit
    	i2c_clock_hi(brd);
@@ -225,36 +229,36 @@ static short A2DTemp(struct A2DBoard* brd)
    	b1 = 0;
    	for (i = 0; i < 8; i++) 
 	{
-   		// raise clock
-   		i2c_clock_hi(brd);
-       	// get data
-		t1 = 0x1 & inb(brd->addr);
-       	b1 = (b1 << 1) | t1;
-       	// lower clock
-       	i2c_clock_lo(brd);
+	    // raise clock
+	    i2c_clock_hi(brd);
+	    // get data
+	    t1 = 0x1 & inb(brd->addr);
+	    b1 = (b1 << 1) | t1;
+	    // lower clock
+	    i2c_clock_lo(brd);
    	}
 
-    // Send the acknowledge bit
-    i2c_data_lo(brd);
-    i2c_clock_hi(brd);
-    i2c_clock_lo(brd);
+	// Send the acknowledge bit
+	i2c_data_lo(brd);
+	i2c_clock_hi(brd);
+	i2c_clock_lo(brd);
+	// i2c_data_hi(brd);		// wasn't in Charlie's code
+
+	// shift in the second data byte
+	b2 = 0;
+	for (i = 0; i < 8; i++) 
+	    {
+	    i2c_clock_hi(brd);
+	    t1 = 0x1 & inb(brd->addr);
+	    b2 = (b2 << 1) | t1;
+	    i2c_clock_lo(brd);
+	}
+
+	// a stop state is signalled by data going from
+	// lo to hi, when clock is high.
+	i2c_data_lo(brd);
+	i2c_clock_hi(brd);
 	i2c_data_hi(brd);
-
-    // shift in the second data byte
-    b2 = 0;
-    for (i = 0; i < 8; i++) 
-	{
-    	i2c_clock_hi(brd);
-		t1 = 0x1 & inb(brd->addr);
-    	b2 = (b2 << 1) | t1;
-    	i2c_clock_lo(brd);
-    }
-
-    // a stop state is signalled by data going from
-    // lo to hi, when clock is high.
-    i2c_data_lo(brd);
-    i2c_clock_hi(brd);
-    i2c_data_hi(brd);
 
 	x = (short)(b1<<8 | b2)>>3;
 
@@ -952,6 +956,12 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+	if (rtl_ftruncate(brd->i2cTempfd, sizeof(I2C_TEMP_SAMPLE)*2) < 0) {
+	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		    brd->i2cTempFifoName,sizeof(I2C_TEMP_SAMPLE),
+		    rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
 	brd->i2cTempRate = rate;
 	register_irig_callback(&i2cTempIrigCallback,rate, brd);
 
@@ -962,17 +972,15 @@ static int closeI2CTemp(struct A2DBoard* brd)
 {
 	unregister_irig_callback(&i2cTempIrigCallback,brd->i2cTempRate,brd);
 
+	brd->doTemp = 0;
 	int fd = brd->i2cTempfd;
 	brd->i2cTempfd = 0;
 	if (fd >= 0) rtl_close(fd);
 	return 0;
 }
 
-/* Callback function to send I2C temperature data to user space.
- */
-static void i2cTempIrigCallback(void *ptr)
+static void sendTemp(struct A2DBoard* brd) 
 {
-    struct A2DBoard* brd = (struct A2DBoard*)ptr;
     I2C_TEMP_SAMPLE samp;
     samp.timestamp = GET_MSEC_CLOCK;
     samp.size = sizeof(short);
@@ -992,6 +1000,20 @@ static void i2cTempIrigCallback(void *ptr)
 	}
     }
 }
+
+/* Callback function to send I2C temperature data to user space.
+ */
+static void i2cTempIrigCallback(void *ptr)
+{
+    struct A2DBoard* brd = (struct A2DBoard*)ptr;
+// #define OLD_WAY
+#ifdef OLD_WAY
+    sendTemp(brd);
+#else
+    brd->doTemp = 1;
+#endif
+}
+
 /*------------------ Main A2D thread -------------------------*/
 //	0 does necessary initialization, then loops
 //	1 waits on a semaphore from the 100Hz callback
@@ -1010,16 +1032,8 @@ static void* A2DGetDataThread(void *thread_arg)
 
 	// The A2Ds should be done writing to the FIFO in
 	// 2 * 8 * 800 nsec = 12.8 usec
-	struct rtl_timespec usec20;
-	struct rtl_timespec usec100;
 
-	usec20.tv_sec = 0;
-	usec20.tv_nsec = 20000;
-
-	usec100.tv_sec = 0;
-	usec100.tv_nsec = 100000;
-
-	DSMLOG_DEBUG("A2DGetDataThread starting, nreads=%d, GET_MSEC_CLOCK=%d\n",
+	DSMLOG_DEBUG("nreads=%d, GET_MSEC_CLOCK=%d\n",
 		nreads,GET_MSEC_CLOCK);
 
 	if ((i = waitFor1PPS(brd)) < 0) return (void*)-i;
@@ -1193,15 +1207,17 @@ static void* A2DGetDataThread(void *thread_arg)
 		if (head + slen > sizeof(brd->buffer) ||
 			!(++sampleCnt % latencyCnt)) {
 		    // Write to up-fifo
-		    size_t wlen;
-		    if ((wlen = rtl_write(brd->a2dfd,brd->buffer+tail,head - tail)) <
-		    	0) {
+		    ssize_t wlen;
+		    if ((wlen = rtl_write(brd->a2dfd,brd->buffer+tail,head - tail)) < 0) {
 			int ierr = rtl_errno;	// save err
-			DSMLOG_ERR("error: write %s: %s. Closing this A2D fifo\n",
-				brd->a2dFifoName,rtl_strerror(rtl_errno));
+			DSMLOG_ERR("error: write of %d bytes to %s: %s. Closing\n",
+				head-tail,brd->a2dFifoName,rtl_strerror(rtl_errno));
 			closeA2D(brd,0);		// close, but don't join this thread
 			return (void*) convert_rtl_errno(ierr);
 		    }
+		    if (wlen != head-tail)
+			DSMLOG_WARNING("warning: short write: request=%d, actual=%d\n",
+			    head-tail,wlen);
 		    tail += wlen;
 		    if (tail == head) head = tail = 0;
 		    sampleCnt = 0;
@@ -1210,8 +1226,18 @@ static void* A2DGetDataThread(void *thread_arg)
 		    memcpy(brd->buffer+head,&samp,slen);
 		    head += slen;
 		}
-		else brd->skippedSamples++;
+		else if (!(brd->skippedSamples++ % 100))
+			DSMLOG_WARNING("warning: %d samples lost due to backlog in %s\n",
+			    brd->skippedSamples,brd->a2dFifoName);
 	    }
+	    if (brd->doTemp) {
+	        sendTemp(brd);
+		brd->doTemp = 0;
+	    }
+	    if (GET_MSEC_CLOCK != samp.timestamp)
+		DSMLOG_WARNING("excessive time in data-acq loop: start=%d,end=%d\n",
+		    samp.timestamp,GET_MSEC_CLOCK);
+		    
 	}
 	DSMLOG_DEBUG("Exiting A2DGetDataThread\n");
 	return 0;
@@ -1226,6 +1252,7 @@ static int openA2D(struct A2DBoard* brd)
 	brd->nbadBufs = 0;
 	brd->fifoNotEmpty = 0;
 	brd->readCtr = 0;
+	brd->doTemp = 0;
 	memset(&brd->cur_status,0,sizeof(A2D_STATUS));
 	memset(&brd->prev_status,0,sizeof(A2D_STATUS));
 
@@ -1235,6 +1262,12 @@ static int openA2D(struct A2DBoard* brd)
 	{
 	    DSMLOG_ERR("error: opening %s: %s\n",
 		    brd->a2dFifoName,rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
+	if (rtl_ftruncate(brd->a2dfd, sizeof(brd->buffer)) < 0) {
+	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		    brd->a2dFifoName,sizeof(brd->buffer),
+		    rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
 
@@ -1282,6 +1315,7 @@ static int closeA2D(struct A2DBoard* brd,int joinAcqThread)
 	int ret = 0;
 	void* thread_status;
 
+	brd->doTemp = 0;
 	// interrupt the 1PPS or acquisition thread
 	brd->interrupted = 1;
 

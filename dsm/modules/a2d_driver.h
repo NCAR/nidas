@@ -272,6 +272,7 @@ struct A2DBoard {
     short i2cTempData;		// last measured temperature
     unsigned char i2c;		// data byte written to I2C
     unsigned char invertCounts;	// whether to invert counts from this A2D
+    unsigned char doTemp;	// fetch temperature after next A2D scan
 };
 
 #endif
