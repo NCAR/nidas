@@ -114,12 +114,12 @@ public:
 
     inline float convert(float val) const
     {
-	double result = coefs[0] + coefs[1] * val;
-	double valx = val;
-	for (unsigned int i = 2; i < ncoefs; i++) {
-	    valx *= val;
-	    result += coefs[i] * valx;
+	double result = 0.0;
+	for (int i = ncoefs - 1; i > 0; i--) {
+	    result += coefs[i];
+	    result *= val;
 	}
+	result += coefs[0];
 	return result;
     }
 
