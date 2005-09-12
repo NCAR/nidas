@@ -47,7 +47,7 @@ static int ioport = 0x2a0;
 MODULE_PARM(irq, "i");
 MODULE_PARM(ioport, "i");
 
-MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
+MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("RTLinux ISA pc104-SG jxi2 Driver");
 
 /* Actual physical address of this card. Set in init_module */
@@ -821,7 +821,7 @@ static void getCurrentTime(struct irigTime* ti)
     tt %= 60000;
     int sc = tt / 1000;
     tt %= 1000;
-    DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
+    DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d,clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
 	ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
     	hr,mn,sc,tt,td,extendedStatus,clockState);
 #endif
@@ -952,6 +952,8 @@ static void setCounters(struct rtl_timeval* tv)
     msecClockTicker %= MSECS_PER_DAY;
 
     hz100_cnt = msecClockTicker / MSEC_PER_THREAD_SIGNAL;
+    if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)
+        && (hz100_cnt-- == 0)) hz100_cnt = MAX_THREAD_COUNTER - 1;
     hz100_cnt %= MAX_THREAD_COUNTER;
 
 #ifdef DEBUG
@@ -1154,6 +1156,10 @@ _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
 
         if ((hz100_cnt % 100)) goto cleanup_pop;
 
+#ifdef DEBUG
+	DSMLOG_DEBUG("hz100_cnt=%d, GET_MSEC_CLOCK=%d\n",
+		hz100_cnt,GET_MSEC_CLOCK);
+#endif
         /* perform  1Hz processing... */
         doCallbacklist(callbacklists + IRIG_1_HZ);
 
@@ -1164,8 +1170,6 @@ _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
 
 cleanup_pop:
 	rtl_pthread_cleanup_pop(1);
-
-
     }
 #ifdef DEBUG
     DSMLOG_DEBUG("run method exiting!\n");
@@ -1311,6 +1315,42 @@ static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl
     return 0;
 }
 
+static int close_port(struct irig_port* port)
+{
+    if (port->inFifoFd >= 0) {
+	int fd = port->inFifoFd;
+	port->inFifoFd = -1;
+#ifdef DEBUG
+	DSMLOG_DEBUG("closing %s\n",port->inFifoName);
+#endif
+        rtl_close(fd);
+    }
+    return 0;
+}
+static int open_port(struct irig_port* port)
+{
+    int retval;
+    if ((retval = close_port(port))) return retval;
+
+    /* user opens port for read, so we open it for writing. */
+#ifdef DEBUG
+    DSMLOG_DEBUG("opening %s\n",port->inFifoName);
+#endif
+    if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0) {
+	DSMLOG_ERR("error: opening %s: %s\n",
+		port->inFifoName,rtl_strerror(rtl_errno));
+	return -convert_rtl_errno(rtl_errno);
+    }
+
+    if (rtl_ftruncate(port->inFifoFd,256) < 0) {
+	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		port->inFifoName,256,rtl_strerror(rtl_errno));
+	return -convert_rtl_errno(rtl_errno);
+    }
+
+    return retval;
+}
+
 /*
  * This function is registered to be called 
  * every second.  If the user has opened the irig device,
@@ -1348,8 +1388,13 @@ static void portCallback(void* privateData)
 		dev->samp.data.status);
 #endif
 
-	rtl_write(dev->inFifoFd,&dev->samp,
-		SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length);
+	ssize_t wlen;
+	if ((wlen = rtl_write(dev->inFifoFd,&dev->samp,
+		SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length)) < 0) {
+	    DSMLOG_ERR("error: write %s: %s. Closing\n",
+		dev->inFifoName,rtl_strerror(rtl_errno));
+	    close_port(dev);
+	}
     }
 
 #ifdef DEBUG_XXX
@@ -1366,33 +1411,6 @@ static void portCallback(void* privateData)
     	hr,mn,sc,tt,extendedStatus,clockState);
 #endif
 
-}
-
-static int close_port(struct irig_port* port)
-{
-    if (port->inFifoFd >= 0) {
-	int fd = port->inFifoFd;
-	port->inFifoFd = -1;
-#ifdef DEBUG
-	DSMLOG_DEBUG("closing %s\n",port->inFifoName);
-#endif
-        rtl_close(fd);
-    }
-    return 0;
-}
-static int open_port(struct irig_port* port)
-{
-    int retval;
-    if ((retval = close_port(port))) return retval;
-
-    /* user opens port for read, so we open it for writing. */
-#ifdef DEBUG
-    DSMLOG_DEBUG("opening %s\n",port->inFifoName);
-#endif
-    if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
-	return -rtl_errno;
-
-    return retval;
 }
 
 /*

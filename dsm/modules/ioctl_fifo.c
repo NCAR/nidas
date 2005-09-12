@@ -54,7 +54,9 @@ static int nopen = 0;
 static void ioctlHandler(int sig, rtl_siginfo_t *siginfo, void *v);
 
 static unsigned char ETX = '\003';
-  
+
+#define DSMIOCTL_BUFSIZE 8192
+ 
 /**
  * Exposed function to get the device directory.
  */
@@ -101,43 +103,10 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     handle->bufsize = 0;
     handle->buf = 0;
 
-    /* in and out are from the user perspective */
-    handle->inFifoName = makeDevName(devicePrefix,"_ictl_",boardNum);
-#ifdef DEBUG
-    DSMLOG_DEBUG("creating %s\n",handle->inFifoName);
-#endif
-
-    // remove broken device file before making a new one
-    if (rtl_unlink(handle->inFifoName) < 0 && rtl_errno != RTL_ENOENT)
-    	goto error;
-
-#define OK_TO_EXIST
-#ifdef OK_TO_EXIST
-    if (rtl_mkfifo(handle->inFifoName, 0666) < 0 && rtl_errno != RTL_EEXIST) goto error;
-#else
-    if (rtl_mkfifo(handle->inFifoName, 0666)) goto error;
-#endif
-
-    if ((handle->inFifofd = rtl_open(handle->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)
-      goto error;
-
-    handle->outFifoName = makeDevName(devicePrefix,"_octl_",boardNum);
-#ifdef DEBUG
-    DSMLOG_DEBUG("creating %s\n",handle->outFifoName);
-#endif
-
-    // remove broken device file before making a new one
-    if (rtl_unlink(handle->outFifoName) < 0)
-      if (rtl_errno != RTL_ENOENT) goto error;
-
-    if (rtl_mkfifo(handle->outFifoName, 0666) < 0) goto error;
-    if ((handle->outFifofd = rtl_open(handle->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY)) < 0)
-      goto error;
-
     int icmd;
     for (icmd = 0; icmd < nioctls; icmd++)
-    if (ioctls[icmd].size > handle->bufsize)
-	handle->bufsize = ioctls[icmd].size;
+	if (ioctls[icmd].size > handle->bufsize)
+	    handle->bufsize = ioctls[icmd].size;
     
     if (!(handle->buf = rtl_gpos_malloc( handle->bufsize ))) goto error;
 
@@ -158,8 +127,68 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	rtl_pthread_mutex_unlock(&bufmutex);
 	if (!inputbuf) goto error;
 	inputbufsize = l;
+
+	if (inputbufsize > DSMIOCTL_BUFSIZE) 
+	    DSMLOG_WARNING("increase DSMIOCTL_BUFSIZE=%d, inputbufsize=%d\n",
+		DSMIOCTL_BUFSIZE, inputbufsize);
     }
     	
+    /* in and out are from the user perspective */
+    handle->inFifoName = makeDevName(devicePrefix,"_ictl_",boardNum);
+#ifdef DEBUG
+    DSMLOG_DEBUG("creating %s\n",handle->inFifoName);
+#endif
+
+    // remove broken device file before making a new one
+    if (rtl_unlink(handle->inFifoName) < 0 && rtl_errno != RTL_ENOENT)
+    	goto error;
+
+    if (rtl_mkfifo(handle->inFifoName, 0666) < 0) goto error;
+
+    if ((handle->inFifofd = rtl_open(handle->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0) {
+	DSMLOG_ERR("error: open %s: %s\n",
+		handle->inFifoName,rtl_strerror(rtl_errno));
+	closeIoctlFIFO(handle);
+	return 0;
+    }
+
+    size_t fifobufsize = handle->bufsize * 2;
+    if (fifobufsize < 128) fifobufsize = 256;
+    DSMLOG_DEBUG("ftruncate %s: size=%d\n", handle->inFifoName,fifobufsize);
+    if (rtl_ftruncate(handle->inFifofd, fifobufsize) < 0) {
+	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		handle->inFifoName,fifobufsize,
+		rtl_strerror(rtl_errno));
+	closeIoctlFIFO(handle);
+	return 0;
+    }
+
+    handle->outFifoName = makeDevName(devicePrefix,"_octl_",boardNum);
+#ifdef DEBUG
+    DSMLOG_DEBUG("creating %s\n",handle->outFifoName);
+#endif
+
+    // remove broken device file before making a new one
+    if (rtl_unlink(handle->outFifoName) < 0 && rtl_errno != RTL_ENOENT)
+    	goto error;
+
+    if (rtl_mkfifo(handle->outFifoName, 0666) < 0) goto error;
+    if ((handle->outFifofd = rtl_open(handle->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY)) < 0) {
+	DSMLOG_ERR("error: open %s: %s\n",
+		handle->outFifoName,rtl_strerror(rtl_errno));
+	closeIoctlFIFO(handle);
+	return 0;
+    }
+    DSMLOG_DEBUG("ftruncate %s: size=%d\n", handle->outFifoName,fifobufsize);
+    if (rtl_ftruncate(handle->outFifofd, fifobufsize) < 0) {
+	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		handle->outFifoName, fifobufsize,
+		rtl_strerror(rtl_errno));
+	closeIoctlFIFO(handle);
+	return 0;
+    }
+
+
     handle->bytesRead = handle->bytesToRead = 0;
     handle->icmd = -1;
     handle->readETX = 0;

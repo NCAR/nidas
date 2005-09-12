@@ -49,7 +49,15 @@
 
 RTLINUX_MODULE(dsm_serial_fifo);
 
-#define THREAD_STACK_SIZE 8192
+/* Full bandwidth sensor at 115200 baud = 11520 bytes/sec. 4096 should
+ * be a big enough buffer, with a latency of ~ 1/4 sec.
+ */
+#define DSMSERIAL_BUFFER_SIZE 4096
+
+/*
+ * Stack for in_thread_func - mainly the buffer.
+ */
+#define THREAD_STACK_SIZE (DSMSERIAL_BUFFER_SIZE*2)
 
 static const char* devprefix = 0;
 
@@ -61,6 +69,7 @@ static struct dsm_serial_fifo_board *boardInfo = 0;
 
 static struct dsm_serial_fifo_port* fifo_to_port_map[64];
 
+// #define DEBUG
 
 /****************  IOCTL Section ***************8*********/
 
@@ -112,7 +121,7 @@ static void* in_thread_func(void* arg)
     struct dsm_serial_fifo_port* port =
     	(struct dsm_serial_fifo_port*) arg;
 
-    char buf[1024];
+    char buf[DSMSERIAL_BUFFER_SIZE];
     int l;
     char* cp;
     char* eob;
@@ -159,7 +168,7 @@ static void outFifoHandler(int sig, rtl_siginfo_t *siginfo, void *v)
     struct dsm_serial_fifo_port* port =
     	fifo_to_port_map[outFifoFd];
 
-    char buf[1024];
+    char buf[DSMSERIAL_BUFFER_SIZE];
     int l;
     char* cp;
     char* eob;
@@ -258,12 +267,28 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	DSMLOG_DEBUG("opening %s\n",port->inFifoName);
 #endif
 	if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) <
-		0) goto error;
+		0) {
+	    DSMLOG_ERR("error: open %s: %s\n",
+		    port->inFifoName,rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
+	DSMLOG_DEBUG("ftruncate %s: size=%d\n",
+		port->inFifoName,DSMSERIAL_BUFFER_SIZE);
+	if (rtl_ftruncate(port->inFifoFd, DSMSERIAL_BUFFER_SIZE) < 0) {
+	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		    port->inFifoName,DSMSERIAL_BUFFER_SIZE,
+		    rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
 
 #ifdef DEBUG
 	DSMLOG_DEBUG("opening %s\n",port->devname);
 #endif
-	if ((port->devfd = rtl_open(port->devname,mode)) < 0) goto error;
+	if ((port->devfd = rtl_open(port->devname,mode)) < 0) {
+	    DSMLOG_ERR("error: open %s: %s\n",
+		    port->devname,rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
 #ifdef DEBUG
 	DSMLOG_DEBUG("opened %s, fd=%d\n",port->devname,port->devfd);
 #endif
@@ -286,7 +311,19 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 	DSMLOG_DEBUG("opening %s\n",port->outFifoName);
 #endif
 	if ((port->outFifoFd = rtl_open(port->outFifoName, RTL_O_NONBLOCK | RTL_O_RDONLY))
-	    < 0) goto error;
+	    < 0) {
+	    DSMLOG_ERR("error: open %s: %s\n",
+		    port->outFifoName,rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
+	DSMLOG_DEBUG("ftruncate %s: size=%d\n",
+		port->outFifoName,DSMSERIAL_BUFFER_SIZE);
+	if (rtl_ftruncate(port->outFifoFd,DSMSERIAL_BUFFER_SIZE) < 0) {
+	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+		    port->outFifoName,DSMSERIAL_BUFFER_SIZE,
+		    rtl_strerror(rtl_errno));
+	    return -convert_rtl_errno(rtl_errno);
+	}
 
 	if (port->devfd < 0) {
 #ifdef DEBUG
