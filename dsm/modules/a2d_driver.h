@@ -171,6 +171,11 @@ typedef struct
 #define	A2DMASTER		0	//A/D chip designated to produce interrupts
 #define	A2DIOWIDTH		0x10	// Width of I/O space
 
+/*
+ * 500samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
+ */
+#define A2D_BUFFER_SIZE		8192
+
 // I/O channels for the A/D card
 // To point IO at a channel, first load
 //   the channel enable latch by writing
@@ -266,7 +271,7 @@ struct A2DBoard {
     int master;
     unsigned long skippedSamples;	// discarded samples because of 
     					// RTL FIFO sluggishness.
-    unsigned char buffer[8192];	// data buffer
+    unsigned char buffer[A2D_BUFFER_SIZE];	// data buffer
     US OffCal;			// offset and cal bits
     UC FIFOCtl;			// hardware FIFO control word storage
     short i2cTempData;		// last measured temperature
