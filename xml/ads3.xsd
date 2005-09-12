@@ -193,6 +193,13 @@
 	    <xsd:attribute name="parity" type="paritytype"/>
 	    <xsd:attribute name="databits" type="databitstype"/>
 	    <xsd:attribute name="stopbits" type="stopbitstype"/>
+	    <!-- whether the driver has null-terminated the data strings.
+	     It is generally not necessary to specify this attribute - the
+	     DSMSerialSensor class is able to determine the correct value,
+	     except for early GV test flights when the driver was
+	     not null terminating strings.
+	     -->
+	    <xsd:attribute name="nullterm" type="xsd:boolean"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>

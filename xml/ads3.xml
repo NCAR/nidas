@@ -6,7 +6,7 @@
     xmlns="http://www.eol.ucar.edu/ads3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd"
-    name="RICO"
+    name="devel"
     version="$LastChangedRevision$"
     xmlname="$HeadURL$">
 
@@ -364,51 +364,49 @@
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
                 <variable name="A2D0" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D1" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D2" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D3" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D4" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D5" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D6" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
                 <variable name="A2D7" units="V">
-                    <parameter name="gain" value="10.0" type="float"/>
-                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
 		<!--
 		-->
             </sample>
         </sensor>
-        <!--
-        -->
-        <!--
         <sensor class="A2DBoardTempSensor" devicename="/dev/dsma2d1" id="210">
             <sample id="1" rate="1">
                 <variable name="A2DTEMP" units="degC">
                 </variable>
             </sample>
         </sensor>
-        -->
+	<!--
+	-->
 <!--
         <anythingSensor IDREF="AnythingIO" devicename="/dev/dsmany0" id="118"/>
         <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
@@ -440,7 +438,7 @@
     </dsm>
 -->
 
-    <dsm name="dsm302" location="tail" id="2" rserialPort="50010">
+    <dsm name="dsm302" location="tail" id="2" rserialPort="30002">
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <serialSensor IDREF="Mensor_6100" devicename="/dev/dsmser0" id="110">
