@@ -47,6 +47,7 @@ apps = Split("""
   data_stats.cc
   data_dump.cc
   sync_dump.cc
+  sync_server.cc
   status_listener.cc
   rserial.cc
 """)
