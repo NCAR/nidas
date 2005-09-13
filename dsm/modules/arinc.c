@@ -208,7 +208,8 @@ void arinc_sweep(void* channel)
   // Warning: this is a hack!!!!!!!!!!
   // sleep before starting sweep. Seems to
   // cure A2D spike problems.
-  rtl_usleep(500);
+  // rtl_usleep(500);
+
   short status;
   int chn = (int) channel;
   struct recvHandle *hdl = &chn_info[chn];
