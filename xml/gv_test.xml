@@ -322,13 +322,13 @@
             </input>
             <processor class="SampleArchiver">
                 <output class="SampleOutputStream">
-                    <fileset dir="/tmp/r1/${PROJECT}/${AIRCRAFT}"
+                    <fileset dir="/var/r1/${PROJECT}/${AIRCRAFT}"
                         file="dsm_%Y%m%d_%H%M%S.dat"
                         length="0"/>
 
                 </output>
                 <output class="SampleOutputStream">
-                    <fileset dir="/tmp/r2/${PROJECT}/${AIRCRAFT}"
+                    <fileset dir="/var/r2/${PROJECT}/${AIRCRAFT}"
                         file="dsm_%Y%m%d_%H%M%S.dat"
                         length="0"/>
 
@@ -365,6 +365,8 @@
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc0" id="1000"/>
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc2" id="3000"/>
         <arincSensor IDREF="GPS-GV" devicename="/dev/arinc3" id="4000"/>
+	<!--
+	-->
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser0" id="110" nullterm="0">
