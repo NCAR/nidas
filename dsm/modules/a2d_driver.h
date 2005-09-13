@@ -265,12 +265,17 @@ struct A2DBoard {
     int MaxHz;			// Maximum requested A/D sample rate
     int busy;
     int interrupted;
-    int readCtr;
+    size_t readCtr;
     int nbadBufs;
     int fifoNotEmpty;
     int master;
-    unsigned long skippedSamples;	// discarded samples because of 
-    					// RTL FIFO sluggishness.
+    int nreads;			// number of reads to empty fifo
+    int head;			// pointer to head of buffer
+    int tail;			// pointer to tail of buffer
+    int latencyCnt;		// number of samples to buffer
+    size_t sampleCnt;		// sample counter
+    size_t skippedSamples;	// discarded samples because of 
+    				// RTL FIFO sluggishness.
     unsigned char buffer[A2D_BUFFER_SIZE];	// data buffer
     US OffCal;			// offset and cal bits
     UC FIFOCtl;			// hardware FIFO control word storage
@@ -278,6 +283,7 @@ struct A2DBoard {
     unsigned char i2c;		// data byte written to I2C
     unsigned char invertCounts;	// whether to invert counts from this A2D
     unsigned char doTemp;	// fetch temperature after next A2D scan
+    unsigned char init;
 };
 
 #endif
