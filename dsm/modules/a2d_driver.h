@@ -283,7 +283,7 @@ struct A2DBoard {
     unsigned char i2c;		// data byte written to I2C
     unsigned char invertCounts;	// whether to invert counts from this A2D
     unsigned char doTemp;	// fetch temperature after next A2D scan
-    unsigned char init;
+    unsigned char discardNextScan;	// should we discard the next scan
 };
 
 #endif

@@ -1132,7 +1132,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 static void a2dIrigCallback(void *ptr)
 {
 	struct A2DBoard* brd = (struct A2DBoard*) ptr;
-        if (!brd->init) {
+        if (brd->discardNextScan) {
 	    rtl_nanosleep(&usec20,0);
 	    A2DClearFIFO(brd);	// Reset FIFO
 
@@ -1142,7 +1142,7 @@ static void a2dIrigCallback(void *ptr)
 		DSMLOG_WARNING("Cleared FIFO by reading, GET_MSEC_CLOCK=%d, nbad=%d\n",
 		    GET_MSEC_CLOCK,nbad);
 	    }
-	    brd->init = 1;
+	    brd->discardNextScan = 0;
 	    return;
 	}
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
@@ -1284,8 +1284,6 @@ static int openA2D(struct A2DBoard* brd)
 
 	brd->nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 
-	brd->init = 0;
-
 #ifdef DEBUG
 	DSMLOG_DEBUG("nreads=%d, GET_MSEC_CLOCK=%d\n",
 		brd->nreads,GET_MSEC_CLOCK);
@@ -1342,6 +1340,8 @@ static int openA2D(struct A2DBoard* brd)
 	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd) < 0)
 		return -convert_rtl_errno(rtl_errno);
 #endif
+
+	brd->discardNextScan = 1;		// discard the initial scan
 
 	// start the IRIG callback routine at 100 Hz
 	register_irig_callback(&a2dIrigCallback,IRIG_100_HZ, brd);
