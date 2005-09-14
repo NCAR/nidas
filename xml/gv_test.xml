@@ -6,7 +6,7 @@
     xmlns="http://www.eol.ucar.edu/ads3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.eol.ucar.edu/ads3 ads3.xsd"
-    name="RICO"
+    name="GV_test"
     version="$LastChangedRevision: 2514 $"
     xmlname="$HeadURL: http://localhost:8080/svn/hiaper/ads3/xml/ads3.xml $">
 
