@@ -181,11 +181,11 @@ protected:
     float *convIntercept;
 
     /**
-     * For each SampleTag, the end time of the current sample
-     * window. This value is incremented by the sample deltat
+     * For each SampleTag, the next sample timetag to be output.
+     * This value is incremented by the sample deltat
      * (1/rate) after each result sample is output.
      */
-    dsm_time_t *endTimes;
+    dsm_time_t *sampleTimes;
 
     /**
      * The output delta t, 1/rate, in microseconds.

@@ -58,7 +58,7 @@ CREATOR_ENTRY_POINT(DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     RTL_DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
-    endTimes(0),
+    sampleTimes(0),
     deltatUsec(0),nSamplePerRawSample(0),
     outsamples(0),latency(0.1)
 {
@@ -70,7 +70,7 @@ DSMAnalogSensor::~DSMAnalogSensor()
     delete [] subSampleIndices;
     delete [] convSlope;
     delete [] convIntercept;
-    delete [] endTimes;
+    delete [] sampleTimes;
     delete [] deltatUsec;
     if (outsamples) {
 	for (unsigned int i = 0; i < rateVec.size(); i++)
@@ -273,7 +273,7 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
     unsigned int nsamples = rateVec.size();
 
     deltatUsec = new int[nsamples];
-    endTimes = new dsm_time_t[nsamples];
+    sampleTimes = new dsm_time_t[nsamples];
 
     float maxRate = 0.0;
     int imax = 0;
@@ -283,7 +283,7 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	    imax = i;
 	}
 	deltatUsec[i] = (int)rint(USECS_PER_SEC / rateVec[i]);
-	endTimes[i] = 0;
+	sampleTimes[i] = 0;
     }
     minDeltatUsec = deltatUsec[imax];
 
@@ -370,11 +370,12 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 
 #ifdef DEBUG
 	    if (!(debugcntr % 100))
-	    cerr << "tt=" << tt << " endTimes=" << endTimes[isamp] << endl;
+	    cerr << "tt=" << tt << " sampleTimes=" << sampleTimes[isamp] << endl;
 #endif
-	    if (tt > endTimes[isamp]) {
+	    // send out last sample if time tag has incremented
+	    if (tt > sampleTimes[isamp]) {
 		if (osamp) {
-		    osamp->setTimeTag(endTimes[isamp] - deltatUsec[isamp]/2);
+		    osamp->setTimeTag(sampleTimes[isamp]);
 #ifdef DEBUG
 	    if (!(debugcntr % 100)) {
 		    cerr << "tt=" << osamp->getTimeTag() <<
@@ -385,12 +386,11 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    }
 #endif
 		    result.push_back(osamp);	// pass the sample on
-		    endTimes[isamp] += deltatUsec[isamp];
-		    if (tt > endTimes[isamp])
-			endTimes[isamp] = timeCeiling(tt,deltatUsec[isamp]);
+		    sampleTimes[isamp] += deltatUsec[isamp];
+		    if (tt > sampleTimes[isamp]) sampleTimes[isamp] = tt;
 		}
 		else
-		    endTimes[isamp] = timeCeiling(tt,deltatUsec[isamp]);
+		    sampleTimes[isamp] = tt;
 #ifdef DEBUG
 	    if (!(debugcntr % 100))
 		cerr << "getSample, numVarsInSample[" << isamp << "]=" << numVarsInSample[isamp] << endl;
