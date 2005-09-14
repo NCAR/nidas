@@ -387,12 +387,14 @@
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.930696" type="float"/>
                     <parameter name="corIntercept" value="-0.222112" type="float"/>
+		    <linear slope="12.5" offset="-75.0" units="degC"/>
                 </variable>
                 <variable name="DPR" units="V">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.937249" type="float"/>
                     <parameter name="corIntercept" value="-0.274758" type="float"/>
+		    <linear slope="12.5" offset="-75.0" units="degC"/>
                 </variable>
                 <variable name="A2D2_MP" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
