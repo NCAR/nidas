@@ -1121,9 +1121,12 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	    brd->doTemp = 0;
 	}
 #endif
+
+#ifdef TIME_CHECK
 	if (GET_MSEC_CLOCK != samp.timestamp)
 	    DSMLOG_WARNING("excessive time in data-acq loop: start=%d,end=%d\n",
 		samp.timestamp,GET_MSEC_CLOCK);
+#endif
 
 	return nbad;
 }
