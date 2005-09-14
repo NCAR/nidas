@@ -348,11 +348,6 @@
             -->
             <processor class="SyncRecordGenerator">
                 <output class="SampleOutputStream">
-                    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
-                        file="syncrec_%Y%m%d_%H%M%S.dat"
-                        length="0" />
-                </output>
-                <output class="SampleOutputStream">
                     <socket type="server" port="30001"/>
                 </output>
             </processor>
