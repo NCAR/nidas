@@ -263,6 +263,7 @@ struct A2DBoard {
     A2D_STATUS prev_status;	// status info maintained by driver
     unsigned char requested[MAXA2DS];	// 1=channel requested, 0=isn't
     int MaxHz;			// Maximum requested A/D sample rate
+    int ttMsecAdj;		// how much to adjust sample time-tags backwds
     int busy;
     int interrupted;
     size_t readCtr;
@@ -281,9 +282,9 @@ struct A2DBoard {
     UC FIFOCtl;			// hardware FIFO control word storage
     short i2cTempData;		// last measured temperature
     unsigned char i2c;		// data byte written to I2C
-    unsigned char invertCounts;	// whether to invert counts from this A2D
-    unsigned char doTemp;	// fetch temperature after next A2D scan
-    unsigned char discardNextScan;	// should we discard the next scan
+    char invertCounts;		// whether to invert counts from this A2D
+    char doTemp;		// fetch temperature after next A2D scan
+    char discardNextScan;	// should we discard the next scan
 };
 
 #endif

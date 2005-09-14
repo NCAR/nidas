@@ -987,6 +987,9 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	A2DSAMPLE samp;
 
 	samp.timestamp = GET_MSEC_CLOCK;
+	// adjust time tag to time of first sub-sample
+	if (samp.timestamp < brd->ttMsecAdj) samp.timestamp += MSECS_PER_DAY;
+	samp.timestamp -= brd->ttMsecAdj;
 
 	// rtl_nanosleep(&usec20,0);
 
@@ -1284,9 +1287,32 @@ static int openA2D(struct A2DBoard* brd)
 
 	brd->nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
 
+	/*
+	 * How much to adjust the time tags backwards.
+	 * Example:
+	 *	interrupt rate = 100Hz (how often we download the A2D fifo)
+	 *	max sample rate = 500Hz
+	 * When we download the A2D fifos at time=00:00.010, we are getting
+	 *	the 5 samples that (we assume) were sampled at times:
+	 *	00:00.002, 00:00.004, 00:00.006, 00:00.008 and 00:00.010
+	 * So the block of data containing the 5 samples will have
+	 * a time tag of 00:00.002. Code that breaks the block
+	 * into samples will use the block timetag for the initial sub-sample
+	 * and then add 1/MaxHz to get successive time tags.
+	 *
+	 * Note that the lowest, on-board re-sample rate of this
+	 * A2D is 500Hz.  Actually it is something like 340Hz,
+	 * but 500Hz is a rate we can sub-divide into desired rates
+	 * of 100Hz, 50Hz, etc. Support for lower sampling rates
+	 * will involve FIR filtering, perhaps in this module.
+	 */
+	brd->ttMsecAdj =	// compute in microseconds first to avoid trunc
+		(USECS_PER_SEC / INTRP_RATE - USECS_PER_SEC / brd->MaxHz) /
+			USECS_PER_MSEC;
+
+	DSMLOG_DEBUG("nreads=%d, ttMsecAdj=%d\n",
+		brd->nreads,brd->ttMsecAdj);
 #ifdef DEBUG
-	DSMLOG_DEBUG("nreads=%d, GET_MSEC_CLOCK=%d\n",
-		brd->nreads,GET_MSEC_CLOCK);
 #endif
 
 	memset(&brd->cur_status,0,sizeof(A2D_STATUS));
