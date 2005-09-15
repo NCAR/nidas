@@ -96,8 +96,8 @@ struct dsm_clock_sample {
 
 #ifdef __RTCORE_KERNEL__
 
-extern unsigned long msecClock[];
-extern unsigned char readClock;
+extern volatile unsigned long msecClock[];
+extern volatile unsigned char readClock;
 
 struct irigTime {
   int year;	/* actual year, eg: 2004 */

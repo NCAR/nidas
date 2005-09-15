@@ -65,18 +65,18 @@ static unsigned char intmask = 0x1f;
  * Symbols with external scope, referenced via GET_MSEC_CLOCK
  * macro by other modules.
  */
-unsigned long msecClock[2] = { 0, 0};
-unsigned char readClock = 0;
+unsigned long volatile msecClock[2] = { 0, 0};
+unsigned char volatile readClock = 0;
 
 /**
  * local clock variables.
  */
-static unsigned char writeClock = 1;
+static unsigned char volatile writeClock = 1;
 
 /**
  * The millisecond clock counter.
  */
-static unsigned long msecClockTicker = 0;
+static unsigned long volatile msecClockTicker = 0;
 
 /** number of milliseconds per interrupt */
 #define MSEC_PER_INTRPT (1000 / INTERRUPT_RATE)
@@ -96,7 +96,7 @@ static unsigned long msecClockTicker = 0;
 /* 
  * The 100 Hz counter.
  */
-static int hz100_cnt = 0;
+static int volatile hz100_cnt = 0;
 
 static struct rtl_timeval userClock;
 
@@ -115,7 +115,7 @@ enum clock {
 /**
  * Current clock state.
  */
-static unsigned char clockState=CODED;
+static unsigned char volatile clockState=CODED;
 
 /** 
  * Value of extended status from dual port RAM.
