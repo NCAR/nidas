@@ -234,17 +234,18 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left>" << getBaudRate() <<
 		getParityString().substr(0,1) <<
 		getDataBits() << getStopBits() << 
+	    ",il=" << stat.input_chars_lost <<
+	    ",ol=" << stat.output_chars_lost <<
+	    ",so=" << stat.sample_overflows <<
 	    ",pe=" << stat.pe_cnt <<
 	    ",oe=" << stat.oe_cnt <<
 	    ",fe=" << stat.fe_cnt <<
-	    ",iof=" << stat.input_char_overflows <<
-	    ",oof=" << stat.output_char_overflows <<
-	    ",so=" << stat.sample_overflows <<
-	    ",ns=" << stat.nsamples << 
-	    ",tql=" << stat.char_transmit_queue_length << 
-	    ",tqs=" << stat.char_transmit_queue_size << 
-	    ",sql=" << stat.sample_queue_length << 
-	    ",sqs=" << stat.sample_queue_size << "</td>" << endl;
+	    ",mf=" << stat.min_fifo_usage <<
+	    ",Mf=" << stat.max_fifo_usage <<
+	    ",uqa=" << stat.uart_queue_avail <<
+	    ",oqa=" << stat.output_queue_avail <<
+	    ",tqa=" << stat.char_xmit_queue_avail <<
+	    "</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;

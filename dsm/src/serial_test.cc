@@ -132,24 +132,24 @@ int SerialTest::run() throw(atdUtil::Exception)
 		s.ioctl(DSMSER_GET_STATUS,&status,sizeof(status));
 
 		cout <<
-    "parity  over frame  input output  sample nsamples xmitq xmitq sampq sampq" <<
+    " min max uq oq  xmit inchar outchr sample parity  over frame" <<
 	endl <<
-    " error   run error  overf  overf   overf            len  size   len  size" <<
+    "  fifo      avail      lost   lost  overf  error   run error" <<
 	endl;
 
 		cout << resetiosflags(ios::left) << setiosflags(ios::right);
 
+		cout << setw(4) << status.max_fifo_usage;
+		cout << setw(4) << status.min_fifo_usage;
+		cout << setw(3) << status.uart_queue_avail;
+		cout << setw(3) << status.output_queue_avail;
+		cout << setw(6) << status.char_xmit_queue_avail;
+		cout << setw(7) << status.input_chars_lost;
+		cout << setw(7) << status.output_chars_lost;
+		cout << setw(7) << status.sample_overflows;
 		cout << setw(6) << status.pe_cnt;
 		cout << setw(6) << status.oe_cnt;
-		cout << setw(6) << status.fe_cnt;
-		cout << setw(7) << status.input_char_overflows;
-		cout << setw(7) << status.output_char_overflows;
-		cout << setw(8) << status.sample_overflows;
-		cout << setw(9) << status.nsamples;
-		cout << setw(6) << status.char_transmit_queue_length;
-		cout << setw(6) << status.char_transmit_queue_size;
-		cout << setw(6) << status.sample_queue_length;
-		cout << setw(6) << status.sample_queue_size << endl;
+		cout << setw(6) << status.fe_cnt << endl;
 	    }
 	}
     }
