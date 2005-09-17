@@ -26,7 +26,7 @@
  */
 #include <sys/ioctl.h>
 #include <sys/types.h>
-typedef size_t rtl_size_t;
+// typedef size_t rtl_size_t;
 #else
 #include <sys/rtl_types.h>
 #endif 
@@ -35,8 +35,6 @@ typedef size_t rtl_size_t;
 #include <dsm_sample.h>
 
 #define DSM_SERIAL_MAGIC 'S'
-
-#define MAX_DSM_SERIAL_MESSAGE_SIZE 2048
 
 struct dsm_serial_prompt {
   char str[128];
@@ -52,17 +50,17 @@ struct dsm_serial_record_info {
 };
 
 struct dsm_serial_status {
-    rtl_size_t pe_cnt;
-    rtl_size_t oe_cnt;
-    rtl_size_t fe_cnt;
-    rtl_size_t input_char_overflows;
-    rtl_size_t output_char_overflows;
-    rtl_size_t sample_overflows;
-    rtl_size_t nsamples;
-    int char_transmit_queue_length;
-    int char_transmit_queue_size;
-    int sample_queue_length;
-    int sample_queue_size;
+    size_t pe_cnt;
+    size_t oe_cnt;
+    size_t fe_cnt;
+    size_t input_chars_lost;
+    size_t output_chars_lost;
+    size_t sample_overflows;
+    int char_xmit_queue_avail;
+    int uart_queue_avail;
+    int output_queue_avail;
+    int max_fifo_usage;
+    int min_fifo_usage;
 };
 
 /*
@@ -153,13 +151,39 @@ extern int dsm_serial_get_numports(int board);
 
 extern const char* dsm_serial_get_devname(int port);
 
+/* Macros for manipulating sample circular buffers
+ * (in addition to those in linux/circ_buf.h
+ */
+
+
+#define GET_HEAD(circbuf,size) \
+    ((CIRC_SPACE(circbuf.head,circbuf.tail,size) > 0) ? \
+        circbuf.buf[circbuf.head] : 0)
+
+#define INCREMENT_HEAD(circbuf,size) \
+        (circbuf.head = (circbuf.head + 1) & (size-1))
+
+#define INCREMENT_TAIL(circbuf,size) \
+        (circbuf.tail = (circbuf.tail + 1) & (size-1))
+
+#define NEXT_HEAD(circbuf,size) \
+        (INCREMENT_HEAD(circbuf,size), GET_HEAD(circbuf,size))
+
+/* circular buffer of samples, compatible with macros in
+   linux/circ_buf.h
+*/
 struct dsm_sample_circ_buf {
     struct dsm_sample **buf;
     int head;
     int tail;
 };
 
-#define SAMPLE_QUEUE_SIZE 16
+#define UART_SAMPLE_QUEUE_SIZE 32
+#define OUTPUT_SAMPLE_QUEUE_SIZE 16
+
+#define UART_SAMPLE_SIZE 132	/* at least one byte bigger than uart fifo size */
+
+#define MAX_DSM_SERIAL_SAMPLE_SIZE 2048
 
 #define UNKNOWN_TIMETAG_VALUE 0xffffffff
 
@@ -196,10 +220,10 @@ struct serialPort {
 			/* information about how records are separated
 			 * in the stream of data from the sensor */
     struct dsm_serial_record_info recinfo;
-    int sepcnt;
+    int sepcnt;				// current counter
 
-    struct dsm_sample_circ_buf sample_queue;
-    struct dsm_sample* sample;	/* current sample being read */
+    struct dsm_sample_circ_buf uart_samples;
+    struct dsm_sample_circ_buf output_samples;
 
     unsigned long read_timeout_sec;	/* semaphore timeout in read method */
     unsigned long read_timeout_nsec;	/* semaphore timeout in read method */
@@ -208,21 +232,22 @@ struct serialPort {
     char* unwrittenp;		/* pointer to remaining sample to be written */
     rtl_ssize_t unwrittenl;		/* length left to be written */
 
-    int incount;
-    dsm_sample_time_t bom_timetag;
-    unsigned long nsamples;		/* counter of samples through the sys */
+    dsm_sample_time_t bomtt;
 
     struct circ_buf xmit;
+
+    long usecs_per_char;
+    unsigned char addNull;	// whether to add NULL char after term char
 
     int pe_cnt;
     int oe_cnt;
     int fe_cnt;
-    int input_char_overflows;
-    int output_char_overflows;
-    int sample_overflows;
-    long usecs_per_char;
-    unsigned char addNull;		// whether to add NULL char after terminating
-    					// character
+    size_t input_chars_lost;	// input chars lost because of backlog
+    size_t output_chars_lost;	// output chars lost because of backlog
+    size_t sample_overflows;	// message separators not found
+    size_t uart_sample_overflows;// more chars in UART fifo than expected
+    int max_fifo_usage;		// keep track of fifo usage
+    int min_fifo_usage;
 
 };
 

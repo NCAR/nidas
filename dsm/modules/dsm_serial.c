@@ -44,6 +44,8 @@
 #include <dsm_version.h>
 
 // #define SERIAL_DEBUG_AUTOCONF
+// #define DEBUG_ISR
+// #define DEBUG
 
 RTLINUX_MODULE(dsm_serial);
 
@@ -98,6 +100,10 @@ unsigned int dsm_serial_irq_handler(unsigned int irq,
 	void* callbackptr, struct rtl_frame *regs);
 
 static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* port);
+
+/* the resolution of GET_MSEC_CLOCK */
+static int clock_res_msec;
+static int clock_res_msec_o2;	// over 2
 
 /*
  * Here we define the default xmit fifo size used for each type of
@@ -521,15 +527,14 @@ static void flush_port_nolock(struct serialPort* port)
     port->pe_cnt = 0;
     port->oe_cnt = 0;
     port->fe_cnt = 0;
-    port->input_char_overflows = 0;
-    port->output_char_overflows = 0;
+    port->input_chars_lost = 0;
+    port->output_chars_lost = 0;
     port->sample_overflows = 0;
-    port->nsamples = 0;
-    port->incount = port->sepcnt = 0;
+    port->uart_sample_overflows = 0;
+    port->sepcnt = 0;
     port->xmit.head = port->xmit.tail = 0;
-    port->sample_queue.head = port->sample_queue.tail = 0;
-    port->sample = port->sample_queue.buf[port->sample_queue.head];
-    port->bom_timetag = UNKNOWN_TIMETAG_VALUE;
+    port->uart_samples.head = port->uart_samples.tail = 0;
+    port->output_samples.head = port->output_samples.tail = 0;
     port->unwrittenp = 0;
     port->unwrittenl = 0;
 }
@@ -537,10 +542,10 @@ static void flush_port_nolock(struct serialPort* port)
 /*
  * Exar XR16C864s (and possibly other UARTs) have the capability
  * of interrupting the CPU on receipt of a special character.
- * We'll use the last character of the record separator
- * (which is often one character anyway, a NL or CR)
- * as the interrupt character. That should provide more
- * timely notice of the receipt of a record.
+ * We'll use the last character of the record separator,
+ * typically a NL or CR for ASCII data, as the interrupt
+ * character. That should provide more timely notice of the
+ * receipt of a record.
  */
 static int set_interrupt_char(struct serialPort* port, unsigned char c)
 {
@@ -961,8 +966,8 @@ static int set_prompt(struct serialPort* port,
     memcpy(&port->prompt,prompt,sizeof(struct dsm_serial_prompt));
     rtl_spin_unlock_irqrestore(&port->lock,flags);
 #ifdef DEBUG
-    DSMLOG_DEBUG("prompt=\"%s\", len=%d, rate=%d\n",
-    	port->prompt.str,port->prompt.len,(int)port->prompt.rate);
+    DSMLOG_DEBUG("prompt len=%d, rate=%d\n",
+    	port->prompt.len,(int)port->prompt.rate);
 #endif
     return 0;
 }
@@ -989,11 +994,11 @@ static void port_prompter(void* privateData)
     if ((res =
     	queue_transmit_chars(port,port->prompt.str,port->prompt.len)) !=
     		port->prompt.len) {
-	port->output_char_overflows += (port->prompt.len - res);
+	port->output_chars_lost += (port->prompt.len - res);
     }
 #ifdef DEBUG
-    DSMLOG_DEBUG("queue_transmit_chars %s len=%d, res=%d\n",
-		    port->prompt.str,port->prompt.len,res);
+    DSMLOG_DEBUG("queue_transmit_chars, len=%d, res=%d\n",
+		    port->prompt.len,res);
 #endif
 }
 
@@ -1030,7 +1035,6 @@ static int set_record_sep(struct serialPort* port,
     memcpy(&port->recinfo,sep,sizeof(struct dsm_serial_record_info));
 
     port->sepcnt = 0;
-    port->incount = 0;
     port->addNull = 0;
 
     // set the interrupt character to the last
@@ -1060,6 +1064,11 @@ static int set_record_sep(struct serialPort* port,
 }
 
 /*
+ * Set the maximum time to wait when reading characters
+ * from this serial device.  If characters are available
+ * the the read will not block for more than val number
+ * of microseconds.  This sets the timeout value 
+ * for sample_sem.
  * Return: negative RTL errno
  */
 static int set_latency_usec(struct serialPort* port, long val)
@@ -1106,18 +1115,29 @@ static int get_status(struct serialPort* port,
     status->pe_cnt = port->pe_cnt;
     status->oe_cnt = port->oe_cnt;
     status->fe_cnt = port->fe_cnt;
-    status->input_char_overflows = port->input_char_overflows;
-    status->output_char_overflows = port->output_char_overflows;
+    status->input_chars_lost = port->input_chars_lost;
+    status->output_chars_lost = port->output_chars_lost;
     status->sample_overflows = port->sample_overflows;
-    status->nsamples = port->nsamples;
 
-    status->char_transmit_queue_length = CIRC_CNT(port->xmit.head,
-    	port->xmit.tail,SERIAL_XMIT_SIZE);
-    status->char_transmit_queue_size = SERIAL_XMIT_SIZE;
+    status->uart_queue_avail =
+    	CIRC_SPACE(port->uart_samples.head,port->uart_samples.tail,
+		UART_SAMPLE_QUEUE_SIZE);
 
-    status->sample_queue_length = CIRC_CNT(port->sample_queue.head,
-    	port->sample_queue.tail,SAMPLE_QUEUE_SIZE);
-    status->sample_queue_size = SAMPLE_QUEUE_SIZE;
+    status->output_queue_avail =
+    	CIRC_SPACE(port->output_samples.head,port->output_samples.tail,
+		OUTPUT_SAMPLE_QUEUE_SIZE);
+
+    status->char_xmit_queue_avail =
+    	CIRC_SPACE(port->xmit.head, port->xmit.tail,SERIAL_XMIT_SIZE);
+
+    status->max_fifo_usage = port->max_fifo_usage;
+    port->max_fifo_usage = 0;
+
+    if (port->min_fifo_usage == UART_SAMPLE_SIZE)
+	status->min_fifo_usage = 0;
+    else
+	status->min_fifo_usage = port->min_fifo_usage;
+    port->min_fifo_usage = UART_SAMPLE_SIZE;
 
     return 0;
 }
@@ -1234,43 +1254,12 @@ static int write_eeprom(struct serialBoard* board)
  */
 static void init_serialPort_struct(struct serialPort* port)
 {
-    port->portNum = 0;
-    port->portIndex = 0;
-    port->ioport = 0;
-    port->addr = 0;
-    port->irq = 0;
     port->type = PORT_UNKNOWN;
     rtl_spin_lock_init (&port->lock);
-    port->flags = 0;
-    port->revision = 0;
-    port->MCR = port->IER = port->LCR = port->ACR = 0;
     port->baud_base = 115200;
-    port->quot = 0;
-    port->custom_divisor = 0;
-    port->timeout = 0;
     port->xmit_fifo_size = 1;
 
-    port->prompt.str[0] = '\0';
-    port->prompt.len = 0;
-    port->prompt.rate = 0;
-    port->promptOn = 0;
-
-    port->recinfo.sep[0] = '\0';
-    port->recinfo.sepLen = 0;
     port->recinfo.atEOM = 1;
-    port->recinfo.recordLen = 0;
-
-    port->sepcnt = 0;
-    port->addNull = 0;
-
-    port->sample_queue.buf = 0;
-    port->sample_queue.head = port->sample_queue.tail = 0;
-    port->sample = 0;
-    port->unwrittenp = 0;
-    port->unwrittenl = 0;
-    port->bom_timetag = UNKNOWN_TIMETAG_VALUE;
-
-    port->nsamples = 0;
 
     /* semaphore timeout in read method.
      * Set from DSMSER_SET_LATENCY ioctl.
@@ -1280,246 +1269,268 @@ static void init_serialPort_struct(struct serialPort* port)
 
     rtl_sem_init(&port->sample_sem,0,0);
 
-    port->xmit.buf = 0;
-    port->xmit.head = port->xmit.tail = 0;
-
-    port->pe_cnt = port->oe_cnt = port->fe_cnt =
-    	port->input_char_overflows = port->output_char_overflows = 0;
-    port->sample_overflows = 0;
-
     rtl_memset(&port->termios, 0, sizeof(struct termios));
     port->termios.c_cflag = B38400 | CS8 | HUPCL;
 }
 
-/*
- * An input_char_overflow occurs when the parser cannot find a
- * record separator in the data and the input characters
- * overflow the available sample buffer.  This could be due
- * to wrong parity, wrong baud rate, mis-configured sensor
- * etc.
- */
-static void inc_input_char_overflow(struct serialPort* port)
+static inline dsm_sample_time_t compute_time_tag(struct dsm_sample* usamp,int nchars,
+	int usecs_per_char)
 {
+    int msecadj = (nchars * usecs_per_char + USECS_PER_MSEC/2) /
+				  USECS_PER_MSEC;
+    msecadj += clock_res_msec_o2;
+    msecadj -= (msecadj % clock_res_msec);
+    dsm_sample_time_t tt = (usamp->timetag + msecadj) % MSECS_PER_DAY;
+#ifdef DEBUG
+    DSMLOG_DEBUG("tt=%d,msecadj=%d,nchars=%d\n",tt,msecadj,nchars);
+#endif
+    return tt;
 }
-
 /*
- * Note: this is called from interrupt code.
- * We're finished filling the sample at the head of the sample_queue,
- * and it is ready to be sent on. Increment the head, post
- * the semaphore, and update port->sample so that it points
- * to the new head sample.
+ * Scan a sample from a UART FIFO, copying the characters
+ * into the sample at the head of the output_sample queue.
+ * Break samples by a beginning of message separator.
+ * Timetag the output samples with the computed receipt
+ * time of the beginning-of-messages character.
  */
-static void post_sample(struct serialPort* port)
+static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 {
-    int n;
-    if (port->incount == 0 || port->sample->timetag == UNKNOWN_TIMETAG_VALUE)
-    	return;
+    // initial conditions: sepcnt = 0;
 
-    // port->lock is already locked
-
-    /* compute how many samples in the queue are available to be
-     * written to.  If the reader of this device has fallen behind
-     * then this number will be zero, in which case we
-     * increment the sample_overflows counter and over-write
-     * the current sample with new data - i.e. the sample
-     * is lost.
-     */
-    n = CIRC_SPACE(port->sample_queue.head,port->sample_queue.tail,
-    	SAMPLE_QUEUE_SIZE);
-    if (n > 0) {
-	port->sample->length = (dsm_sample_length_t) port->incount;
-
-	/* increment head */
-	port->sample_queue.head = (port->sample_queue.head + 1) &
-		(SAMPLE_QUEUE_SIZE-1);
-	rtl_sem_post(&port->sample_sem);
-	port->nsamples++;
-
-	port->sample = port->sample_queue.buf[port->sample_queue.head];
+    struct dsm_sample* osamp =
+    	GET_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+    if (!osamp) {		// no output sample available
+        port->input_chars_lost += usamp->length;
+	return;
     }
-    else port->sample_overflows++;
-    port->sample->timetag = UNKNOWN_TIMETAG_VALUE;
-}
 
-/*
- * insert character c into a sample. Recognize samples by
- * a beginning of message separator.  If we recognize
- * a record sample, send it to the FIFO.
- */
-static void add_char_sep_bom(struct serialPort* port, unsigned char c)
-{
-    // initial conditions:
-    //    sepcnt = 0;
-    //    incount = 0;
+    register char* cp = usamp->data;
+    char* ep = cp + usamp->length;
+    
+    // initial samples in the output queue will have length==0
 
-    if (port->sepcnt < port->recinfo.sepLen) {
-	// This block is entered if we are currently scanning
-	// for the message separator at the beginning of the message.
-        if (c == port->recinfo.sep[port->sepcnt]) {
-	    // We now have a character match to the record separator.
-	    // increment the separator counter.
-	    // first character: grab clock for next message,
-	    if (port->sepcnt++ == 0) port->bom_timetag = GET_MSEC_CLOCK;
-	    // if matched entire separator string send previous sample
-	    if (port->sepcnt == port->recinfo.sepLen) {
+    for ( ; cp < ep; cp++) {
+        register char c = *cp;
+	// loop until we've figured out what to do with this character
+	for (;;) {
+	    if (port->sepcnt < port->recinfo.sepLen) {
+		// This block is entered if we are currently scanning
+		// for the message separator at the beginning of the message.
+		if (c == port->recinfo.sep[port->sepcnt]) {
+		    // We now have a character match to the record separator.
+		    // increment the separator counter.
+		    // if matched entire separator string, previous sample
+		    // is ready, and increment the head of the queue.
 
-		// send previous sample
-		if (port->incount > 0) post_sample(port);
+		    // the receipt time of the initial character is the
+		    // timetag for the sample.
+		    if (port->sepcnt == 0) port->bomtt =
+		    	compute_time_tag(usamp,0,port->usecs_per_char);
 
-		// setup current sample
-		port->sample->timetag = port->bom_timetag;
-		port->incount = 0;
-		// copy separator to next sample
-		memcpy(port->sample->data,port->recinfo.sep,
-			port->sepcnt);
-		port->incount += port->sepcnt;
-		// leave sepcnt equal to recinfo.sepLen
-	    }
-	}
-	else {
-	    // At this point:
-	    // 1. we're expecting the BOM message separator
-	    // 2. the current character fails a match with the BOM string
-	    // We'll send the faulty data along anyway so that
-	    // the user can see what is going on.
-	    // If we have mistaken some characters for the 
-	    // separator, copy them to the sample data.
-	    if (port->sepcnt > 0) {	// previous partial match
-		if (port->incount + port->sepcnt >
-			MAX_DSM_SERIAL_MESSAGE_SIZE) {
-		    post_sample(port);		// faulty sample
-		    port->input_char_overflows++;
-		    port->incount = 0;
+		    if (++port->sepcnt == port->recinfo.sepLen) {
+			if (osamp->length > 0)
+			  osamp = NEXT_HEAD(port->output_samples,
+				OUTPUT_SAMPLE_QUEUE_SIZE);
+			if (!osamp) {	// no samples
+			    port->input_chars_lost += (ep - cp) - 1;
+			    return;
+			}
+			osamp->length = 0;
+			osamp->timetag = port->bomtt;
+			// copy separator to next sample
+			memcpy(osamp->data,port->recinfo.sep,
+				port->sepcnt);
+			osamp->length += port->sepcnt;
+			// leave sepcnt equal to recinfo.sepLen
+		    }
+		    break;		// character was input
 		}
-		memcpy(port->sample->data + port->incount,
-			port->recinfo.sep, port->sepcnt);
-		port->incount += port->sepcnt;
-		port->sepcnt = 0;
-		// try matching first character of separator
-		// this isn't infinitely recursive because now sepcnt=0
-		add_char_sep_bom(port,c);
-		return;
-	    }
-	    // at this point sepcnt == 0 but we don't have a match of the
-	    // first character.  This could only happen for the
-	    // first record, or if we had a previous partial
-	    // match of the BOM string, or an overflow.
-	    if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
-		post_sample(port);
-		port->input_char_overflows++;
-		port->incount = 0;
-	    }
-	    if (port->incount == 0)
-		port->bom_timetag = GET_MSEC_CLOCK;
+		else {
+		    // At this point:
+		    // 1. we're expecting the BOM separator, but
+		    // 2. the current character fails a match with the
+		    //    BOM string
+		    // We'll send the faulty data along anyway so that
+		    // the user can see what is going on.
 
-	    port->sample->timetag = port->bom_timetag;
-	    port->sample->data[port->incount++] = c;
-	}
-    }
-    else {
-	// At this point we have a match to the BOM separater string.
-	// and are filling the data buffer.
+		    if (port->sepcnt > 0) {	// previous partial match
+			// avoid array overflow
+			if (osamp->length + port->sepcnt >=
+				MAX_DSM_SERIAL_SAMPLE_SIZE) {
+			    port->sample_overflows++;
+			    osamp->timetag = port->bomtt;
+			    osamp = NEXT_HEAD(port->output_samples,
+				    OUTPUT_SAMPLE_QUEUE_SIZE);
+			    if (!osamp) {
+				port->input_chars_lost += (ep - cp);
+				return;
+			    }
+			    osamp->length = 0;
+			    osamp->timetag =
+			    	compute_time_tag(usamp,cp-usamp->data,
+					port->usecs_per_char);
+			}
+			// We have a partial match, copy them to the sample data.
+			memcpy(osamp->data + osamp->length,
+				port->recinfo.sep, port->sepcnt);
+			osamp->length += port->sepcnt;
+			port->sepcnt = 0;
+			// keep trying matching first character of separator
+			// this isn't infinitely recursive because now sepcnt=0
+		    }
+		    else {		// no match to first character in sep
+			// avoid array overflow
+			if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE) {
+			    port->sample_overflows++;
+			    osamp = NEXT_HEAD(port->output_samples,
+				    OUTPUT_SAMPLE_QUEUE_SIZE);
+			    if (!osamp) {
+				port->input_chars_lost += (ep - cp);
+				return;
+			    }
+			    osamp->length = 0;
+			}
 
-	// if a variable record length, then check to see
-	// if the character matches the initial character
-	// in the separator string.
-	if (port->recinfo.recordLen == 0) {
-	    if (c == port->recinfo.sep[0]) {
-	        port->sepcnt = 0;
-		// recursive call
-		add_char_sep_bom(port,c);
-		return;
+			if (osamp->length == 0)
+			    osamp->timetag =
+			    	compute_time_tag(usamp,cp-usamp->data,
+					port->usecs_per_char);
+			osamp->data[osamp->length++] = c;
+			break;			// character was input
+		    }
+		}
 	    }
 	    else {
-		if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE) {
-		    post_sample(port);
-		    port->input_char_overflows++;
-		    port->sample->timetag = GET_MSEC_CLOCK;
-		    port->incount = 0;
-		    port->sepcnt = 0;
+		// At this point we have a match to the BOM separater string.
+		// and are filling the data buffer.
+
+		// if a variable record length, then check to see
+		// if the character matches the initial character
+		// in the separator string.
+		if (port->recinfo.recordLen == 0) {
+		    if (c == port->recinfo.sep[0]) {	// first char of next
+			port->sepcnt = 0;
+			// loop again to try match to first character
+		    }
+		    else {
+			// no match, treat as data
+			if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE) {
+			    port->sample_overflows++;
+			    osamp = NEXT_HEAD(port->output_samples,
+				    OUTPUT_SAMPLE_QUEUE_SIZE);
+			    if (!osamp) {
+				port->input_chars_lost += (ep - cp);
+				return;
+			    }
+			    osamp->length = 0;
+			    port->sepcnt = 0;
+			    osamp->timetag =
+			    	compute_time_tag(usamp,cp-usamp->data,
+					port->usecs_per_char);
+			}
+			osamp->data[osamp->length++] = c;
+			break;
+		    }
 		}
-		port->sample->data[port->incount++] = c;
+		else {
+		    // fixed record length, save character in buffer.
+		    // no chance for overflow here, as long as
+		    // recordLen < sizeof(buffer)
+		    osamp->data[osamp->length++] = c;
+		    // If we're done, scan for separator next.
+		    if (osamp->length == port->recinfo.recordLen)
+		    	port->sepcnt = 0;
+		    break;
+		}
 	    }
-	}
-	else {
-	    // fixed record length, save character in buffer.
-	    // no chance for overflow here, as long as
-	    // recordLen < sizeof(buffer)
-	    port->sample->data[port->incount++] = c;
-	    // If we're done, scan for separator next.
-	    if (port->incount == port->recinfo.recordLen) port->sepcnt = 0;
-	}
-    }
+	}	// loop until we do something with character
+    }		// loop over characters in uart sample
 }
 
-static inline void adjust_tt(struct serialPort* port,int nchars)
+static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 {
-    int msecadj =
-      (port->usecs_per_char * nchars + USECS_PER_MSEC/2) /
-                  USECS_PER_MSEC;
-    if (port->sample->timetag < msecadj)
-      port->sample->timetag += MSECS_PER_DAY;
-      port->sample->timetag -= msecadj;
-}
+    // initial conditions: port->sepcnt = 0;
 
-static void add_char_sep_eom(struct serialPort* port, unsigned char c)
-{
-    // initial conditions:
-    //    sepcnt = 0;
-    //    incount = 0;
-
-    if (port->incount == MAX_DSM_SERIAL_MESSAGE_SIZE - port->addNull) {
-	// send this bogus sample on
-	if (port->addNull)
-	    port->sample->data[port->incount++] = '\0';
-	post_sample(port);
-	port->input_char_overflows++;
-	port->incount = 0;
-	port->sepcnt = 0;
+    struct dsm_sample* osamp =
+    	GET_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+    if (!osamp) {		// no output sample available
+        port->input_chars_lost += usamp->length;
+	return;
     }
+    // initial samples in the queue will have length==0
 
-    if (port->incount == 0) port->sample->timetag = GET_MSEC_CLOCK;
-    port->sample->data[port->incount++] = c;
+    register char* cp = usamp->data;
+    char* ep = usamp->data + usamp->length;
 
-    if (port->recinfo.recordLen == 0) {
-	// if a variable record length, then check to see
-	// if the character matches the current character
-	// in the end of message separator string.
-	if (c == port->recinfo.sep[port->sepcnt]) {
-	    // character matched
-	    if (++port->sepcnt == port->recinfo.sepLen) {
-		if (port->addNull)
-		    port->sample->data[port->incount++] = '\0';
-		post_sample(port);
-		port->incount = 0;
-		port->sepcnt = 0;
-	    }
-	}
-	else {
-	    // variable record length, no match of current character
-	    // to EOM string.
-
-	    // go back and check for match at beginning of separator string
-	    if (port->sepcnt > 0 && c == port->recinfo.sep[port->sepcnt = 0]) {
-		// if a match, do a recursive call
-		add_char_sep_eom(port,c);
+    for ( ; cp < ep; cp++) {
+        char c = *cp;
+	if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE - port->addNull) {
+	    port->sample_overflows++;
+	    // send this bogus sample on
+	    if (port->addNull)
+		osamp->data[osamp->length++] = '\0';
+	    osamp = NEXT_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+	    if (!osamp) {
+		port->input_chars_lost += (ep - cp);
 		return;
 	    }
+	    osamp->length = 0;
+	    port->sepcnt = 0;
 	}
-    }
-    else {
-	// fixed length record
-	if (port->incount >= port->recinfo.recordLen) {
-	    // we've read in all our characters, now scan separator string
-	    // if no match, check from beginning of separator string
-	    if (c == port->recinfo.sep[port->sepcnt] ||
-		c == port->recinfo.sep[port->sepcnt = 0]) {
+
+	if (osamp->length == 0)
+	    osamp->timetag =
+		compute_time_tag(usamp,cp-usamp->data,port->usecs_per_char);
+	osamp->data[osamp->length++] = c;
+
+	if (port->recinfo.recordLen == 0) {
+	    // if a variable record length, then check to see
+	    // if the character matches the current character
+	    // in the end of message separator string.
+	    if (c == port->recinfo.sep[port->sepcnt]) {
+		// character matched
 		if (++port->sepcnt == port->recinfo.sepLen) {
 		    if (port->addNull)
-		    	port->sample->data[port->incount++] = '\0';
-		    post_sample(port);
-		    port->incount = 0;	// matched string
+			osamp->data[osamp->length++] = '\0';
+		    osamp = NEXT_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+		    if (!osamp) {
+			port->input_chars_lost += (ep - cp);
+			return;
+		    }
+		    osamp->length = 0;
 		    port->sepcnt = 0;
+		}
+	    }
+	    else {
+		// variable record length, no match of current character
+		// to EOM string.
+
+		// check for match at beginning of separator string
+		// since sepcnt > 0 we won't have a complete match since
+		// sepLen then must be > 1.
+		if (port->sepcnt > 0 &&
+		      c == port->recinfo.sep[port->sepcnt = 0]) port->sepcnt++;
+	    }
+	}
+	else {
+	    // fixed length record
+	    if (osamp->length >= port->recinfo.recordLen) {
+		// we've read in all our characters, now scan separator string
+		// if no match, check from beginning of separator string
+		if (c == port->recinfo.sep[port->sepcnt] ||
+		    c == port->recinfo.sep[port->sepcnt = 0]) {
+		    if (++port->sepcnt == port->recinfo.sepLen) {
+			if (port->addNull)
+			    osamp->data[osamp->length++] = '\0';
+			osamp = NEXT_HEAD(port->output_samples,
+				OUTPUT_SAMPLE_QUEUE_SIZE);
+			if (!osamp) {
+			    port->input_chars_lost += (ep - cp);
+			    return;
+			}
+			osamp->length = 0;
+			port->sepcnt = 0;
+		    }
 		}
 	    }
 	}
@@ -1553,7 +1564,11 @@ static void transmit_chars(struct serialPort* port)
     }
 }
 
-void inline check_lsr(struct serialPort*port, unsigned char lsr)
+/*
+ * return: 1 = LSR OK
+ *	   0 = LSR shows error condition
+ */
+int inline check_lsr(struct serialPort*port, unsigned char lsr)
 {
     if (lsr & (UART_LSR_PE | UART_LSR_OE | UART_LSR_FE)) {
 	if (lsr & UART_LSR_PE) port->pe_cnt++;	// parity errors
@@ -1561,20 +1576,85 @@ void inline check_lsr(struct serialPort*port, unsigned char lsr)
 	if (lsr & UART_LSR_FE) port->fe_cnt++;	// framing errors
 	// there is also a FIFO bit error here, not sure what
 	// to do with it at this point.
+	return 0;
     }
+    return 1;
 }
 
-static inline void receive_chars(struct serialPort* port,unsigned char* lsrp)
+/*
+ * nchar_delay: estimate of the delay between when the
+ * last character was received and when the interrupt service
+ * routine was called.  A 16850 UART (and possibly others)
+ * will generate an interrupt after 4 characters of dead time,
+ * so nchar_delay in that case would be 4.
+ */
+static inline void receive_chars(struct serialPort* port,unsigned char* lsrp,
+	int nchar_delay)
 {
-    // Read fifo until empty
-    unsigned char c;
+    /* check if a raw uart sample is available in the queue
+     * for writing.  If the reader of this device has fallen behind
+     * then this will be false, in which case we increment the
+     * raw_samples_missed counter, and throw the characters away.
+     */
+    struct dsm_sample* samp =
+    	GET_HEAD(port->uart_samples,UART_SAMPLE_QUEUE_SIZE);
+    if (!samp) {		// no output sample available
+	while(*lsrp & UART_LSR_DR) {
+	    serial_in(port,UART_RX); // Read character
+	    check_lsr(port,*lsrp);
+	    *lsrp = serial_in(port,UART_LSR);
+	    port->input_chars_lost++;
+	}
+	return;
+    }
+
+    samp->timetag = GET_MSEC_CLOCK;
+    // Read uart fifo until empty
+    register char* cp = samp->data;
+    char* ep = cp + UART_SAMPLE_SIZE;
     while(*lsrp & UART_LSR_DR) {
-	c = serial_in(port,UART_RX); // Read character
-	if (port->recinfo.atEOM) add_char_sep_eom(port,c);
-	else add_char_sep_bom(port,c);
+	*cp = serial_in(port,UART_RX);	// Read character, good or bad
+	if (cp < ep) cp++;
 	check_lsr(port,*lsrp);
 	*lsrp = serial_in(port,UART_LSR);
     }
+    int nchars = cp - samp->data;
+ 
+    // uart fifo bigger than expected
+    if (cp == ep && port->uart_sample_overflows++ == 0)
+	DSMLOG_ERR(
+		"UART fifo exceeds %d characters. Increase UART_SAMPLE_SIZE\n",
+		UART_SAMPLE_SIZE);
+
+    if (port->max_fifo_usage < nchars) port->max_fifo_usage = nchars;
+    if (port->min_fifo_usage > nchars) port->min_fifo_usage = nchars;
+
+    samp->length = nchars;
+
+    // adjust timetag earlier by the number of characters,
+    // but only in multiples of the clock resolution,
+    // otherwise we're fooling ourselves.
+    int msecadj =
+      ((nchars + nchar_delay) * port->usecs_per_char  + USECS_PER_MSEC/2) /
+		  USECS_PER_MSEC;
+    msecadj += clock_res_msec_o2;
+    msecadj -= (msecadj % clock_res_msec);
+    if (samp->timetag < msecadj) samp->timetag += MSECS_PER_DAY;
+    samp->timetag -= msecadj;
+
+#ifdef DEBUG_ISR
+    DSMLOG_DEBUG("dev=%s,tt=%d,nchars=%d, nchar_delay=%d, msecadj=%d,usecs_per_char=%d\n",
+    	port->devname,samp->timetag,nchars,nchar_delay,msecadj,port->usecs_per_char);
+
+    struct rtl_timespec irigts;
+    irig_clock_gettime(&irigts);
+    DSMLOG_DEBUG("irigtt=%d\n",(irigts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+    	(irigts.tv_nsec / NSECS_PER_MSEC));
+#endif
+
+    /* increment head, this sample is ready for consumption */
+    INCREMENT_HEAD(port->uart_samples,UART_SAMPLE_QUEUE_SIZE);
+    rtl_sem_post(&port->sample_sem);
 }
 
 static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* port)
@@ -1583,63 +1663,64 @@ static unsigned int dsm_port_irq_handler(unsigned int irq,struct serialPort* por
     unsigned char lsr;
     unsigned char msr;
 
-#ifdef DEBUG
+#ifdef DEBUG_ISR
     static int numRSC = 0;
 #endif
 
     for (;;) {
 	iir = serial_in(port,UART_IIR) & 0x3f;
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	DSMLOG_DEBUG("iir=0x%x\n",iir);
 #endif
 	if (iir & UART_IIR_NO_INT) break;
 
 	switch (iir) {
 	case UART_IIR_THRI:	// 0x02: transmitter holding register empty
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	    DSMLOG_DEBUG("UART_IIR_THRI interrupt\n");
 #endif
 	    transmit_chars(port);
 	    lsr = serial_in(port,UART_LSR);
-	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr,0);
 	    break;
 	case UART_IIR_RDI:	// 0x04: received data ready
-	case WIN_COM8_IIR_RDTO:	// 0x0c received data timeout
-#ifdef DEBUG
-	    DSMLOG_DEBUG("UART_IIR_RDI interrupt\n");
-#endif
 	    lsr = serial_in(port,UART_LSR);
-	    receive_chars(port,&lsr);
+	    receive_chars(port,&lsr,0);
+	    if (lsr & UART_LSR_THRE) transmit_chars(port);
+	    break;
+	case WIN_COM8_IIR_RDTO:	// 0x0c received data timeout
+	    lsr = serial_in(port,UART_LSR);
+	    receive_chars(port,&lsr,4);	// 4 character timeout
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case UART_IIR_MSI:	// 0x00 modem status change
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	    DSMLOG_DEBUG("UART_IIR_MSI interrupt, MSR=0x%x\n",msr);
 #endif
 	    msr = serial_in(port, UART_MSR);
 	    break;
 	case UART_IIR_RLSI:	// 0x06 line status interrupt (error)
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	    DSMLOG_DEBUG("UART_IIR_RLSI interrupt, LSR=0x%x\n",lsr);
 #endif
 	    lsr = serial_in(port,UART_LSR);
-	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr);
+	    if (lsr & UART_LSR_DR) receive_chars(port,&lsr,0);
 	    if (lsr & UART_LSR_THRE) transmit_chars(port);
 	    break;
 	case WIN_COM8_IIR_RSC:	// 0x10 XOFF/special character
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	    if (!(numRSC++ % 100))
 	    	DSMLOG_DEBUG("ISR_RSC interrupt, IIR=0x%x\n",iir);
 #endif
 	    // received special character
 	    lsr = serial_in(port,UART_LSR);
-	    receive_chars(port,&lsr);
+	    receive_chars(port,&lsr,0);
 	    break;
 	case WIN_COM8_IIR_CTSRTS:	// 0x20 CTS_RTS change
-#ifdef DEBUG
+	    msr = serial_in(port, UART_MSR);
+#ifdef DEBUG_ISR
 	    DSMLOG_DEBUG("ISR_CTSRTS interrupt, MSR=0x%x\n",msr);
 #endif
-	    msr = serial_in(port, UART_MSR);
 	    break;
 	}
     }
@@ -1656,13 +1737,13 @@ unsigned int dsm_serial_irq_handler(unsigned int irq,
     struct serialPort* port;
     int retval = 0;
 
-#ifdef DEBUG
+#ifdef DEBUG_ISR
     DSMLOG_DEBUG("dsm_irq_handler entered\n");
 #endif
 
     // read board interrupt id register
     while ((bstat = serial_inp(board,COM8_BC_IIR)) & board->int_mask) {
-#ifdef DEBUG
+#ifdef DEBUG_ISR
 	DSMLOG_DEBUG("dsm_irq_handler bstat=0x%x\n", bstat);
 #endif
 	pmask = 1;
@@ -1716,6 +1797,8 @@ static int rtl_dsm_ser_release(struct rtl_file* filp)
 }
 
 /*
+ * User read of this device.  
+ * Return at most count number of characters.
  * Return: negative RTL errno, or positive number of bytes read.
  */
 static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t count, off_t *pos)
@@ -1738,79 +1821,92 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
     }
 
     while (count > 0) {
+	// write any available samples from 
+	struct dsm_sample* samp;
+#ifdef DEBUG
+	DSMLOG_DEBUG("dsm_ser_read, count=%d, port->unwrittenl=%d,output cnt=%d\n",
+	    count,port->unwrittenl,
+	    CIRC_CNT(port->output_samples.head,port->output_samples.tail,OUTPUT_SAMPLE_QUEUE_SIZE));
+#endif
+	for (;;) {
+	    // write last partially unwritten sample.
+	    if ((lout = port->unwrittenl) > 0) {
+		if (lout > count) lout = count;
+		memcpy(buf,port->unwrittenp,lout);
+		port->unwrittenp += lout;
+		port->unwrittenl -= lout;
+		count -= lout;
+		retval += lout;
+		buf += lout;
+		// couldn't write all this sample, buffer must be full
+		if (port->unwrittenl != 0) return retval;
+		INCREMENT_TAIL(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+	    }
+	    if (port->output_samples.head == port->output_samples.tail) break;
+	    samp = port->output_samples.buf[port->output_samples.tail];
+	    port->unwrittenp = (char*) samp;
+	    port->unwrittenl = SIZEOF_DSM_SAMPLE_HEADER + samp->length;
+	}
 
-	// write partially unwritten sample.
-	if ((lout = port->unwrittenl) > 0) {
-	    if (lout > count) lout = count;
+	/* Note that we don't increment the absolute
+	 * time of the timeout again unless no data have arrived.
+	 * It is an absolute cut-off time for this read.
+	 * We want to return the data in a timely manner -
+	 * typical tradeoff between efficiency and responsiveness.
+	 */
 
-	    memcpy(buf,port->unwrittenp,lout);
-	    port->unwrittenp += lout;
-	    port->unwrittenl -= lout;
-	    count -= lout;
-	    retval += lout;
-	    buf += lout;
-	    // finished with this sample
-	    if (port->unwrittenl == 0) {
-		rtl_spin_lock_irqsave(&port->lock,flags);
-		port->sample_queue.tail = (port->sample_queue.tail + 1) &
-		    (SAMPLE_QUEUE_SIZE-1);
-		rtl_spin_unlock_irqrestore(&port->lock,flags);
+	if (rtl_sem_timedwait(&port->sample_sem,&timeout) < 0)
+	{
+	    if (rtl_errno == RTL_EINTR) {
+		    DSMLOG_WARNING("dsm_ser_read sem_wait interrupt\n");
+		    // if (retval > 0) return retval;
+		    return -rtl_errno;
+	    }
+	    else if (rtl_errno == RTL_ETIMEDOUT) {
+		    // if timeout return what we've read
+		    if (retval > 0) return retval;
+
+		    // increment timeout if no data
+		    timeout.tv_sec += port->read_timeout_sec;
+		    timeout.tv_nsec += port->read_timeout_nsec;
+		    if (timeout.tv_nsec >= NSECS_PER_SEC) {
+			timeout.tv_sec++;
+			timeout.tv_nsec -= NSECS_PER_SEC;
+		    }
+		    continue;
+	    }
+	    else {
+		DSMLOG_ERR("dsm_ser_read sem_wait unknown error: %d\n",
+		    rtl_errno);
+		return -rtl_errno;
 	    }
 	}
-	else {
-	    struct dsm_sample* samp = 0;
 
-	    /* Note that we don't increment the absolute
-	     * time of the timeout again unless no data have arrived.
-	     * It is an absolute cut-off time for this read.
-	     * We want to return the data in a timely manner -
-	     * typical tradeoff between efficiency and responsiveness.
-	     */
+	/*
+	 * We're checking the equality of sample_queue.head and
+	 * sample_queue.tail here without spin locking.
+	 * If head is not equal to tail then that condition
+	 * will not be changed anywhere else but here.
+	 * This function is the only one that will set tail
+	 * equal to head.  The interrupt function will only 
+	 * make them "more unequal".  We only do a spin lock
+	 * when we change the value of tail.
+	 */
 
-	    if (rtl_sem_timedwait(&port->sample_sem,&timeout) < 0)
-	    {
-		if (rtl_errno == RTL_EINTR) {
-			DSMLOG_WARNING("dsm_ser_read sem_wait interrupt\n");
-			// if (retval > 0) return retval;
-			return -rtl_errno;
-		}
-	        else if (rtl_errno == RTL_ETIMEDOUT) {
-			// if timeout return what we've read
-			if (retval > 0) return retval;
+	/*
+	 * Only scan one uart sample here
+	 */
+	if (port->uart_samples.head != port->uart_samples.tail) {
+	    samp = port->uart_samples.buf[port->uart_samples.tail];
+#ifdef DEBUG
+	    DSMLOG_DEBUG("scanning\n");
+#endif
+	    if (port->recinfo.atEOM) scan_sep_eom(port,samp);
+	    else scan_sep_bom(port,samp);
 
-			// increment timeout if no data
-			timeout.tv_sec += port->read_timeout_sec;
-			timeout.tv_nsec += port->read_timeout_nsec;
-			if (timeout.tv_nsec >= NSECS_PER_SEC) {
-			    timeout.tv_sec++;
-			    timeout.tv_nsec -= NSECS_PER_SEC;
-			}
-		}
-		else {
-		    DSMLOG_ERR("dsm_ser_read sem_wait unknown error: %d\n",
-			rtl_errno);
-		    return -rtl_errno;
-		}
-	    }
-
-	    /*
-	     * We're checking the equality of sample_queue.head and
-	     * sample_queue.tail here without spin locking.
-	     * If head is not equal to tail then that condition
-	     * will not be changed anywhere else but here.
-	     * This function is the only one that will set tail
-	     * equal to head.  The interrupt function will only 
-	     * make them "more unequal".  We only do a spin lock
-	     * when we change the value of tail.
-	     */
-
-	    if (port->sample_queue.head != port->sample_queue.tail)
-		samp = port->sample_queue.buf[port->sample_queue.tail];
-
-	    if (!samp) continue;
-	    port->unwrittenp = (char*) samp;
-	    port->unwrittenl =
-	      	SIZEOF_DSM_SAMPLE_HEADER + samp->length;
+	    rtl_spin_lock_irqsave(&port->lock,flags);
+	    INCREMENT_TAIL(port->uart_samples,UART_SAMPLE_QUEUE_SIZE);
+	    rtl_spin_unlock_irqrestore(&port->lock,flags);
 	}
     }
 
@@ -2001,6 +2097,9 @@ int init_module(void)
     unsigned long addr;
     char devname[128];
 
+    clock_res_msec = get_msec_clock_resolution();
+    clock_res_msec_o2 = clock_res_msec / 2;
+
     // softwareVersion is found in dsm_version.h
     DSMLOG_NOTICE("version: %s\n",softwareVersion);
 
@@ -2039,18 +2138,15 @@ int init_module(void)
     retval = -ENOMEM;
     boardInfo = rtl_gpos_malloc( numboards * sizeof(struct serialBoard) );
     if (!boardInfo) goto err0;
-    for (ib = 0; ib < numboards; ib++) {
-	boardInfo[ib].type = brdtype[ib];
-	boardInfo[ib].addr = 0;
-	boardInfo[ib].irq = 0;
-	boardInfo[ib].ports = 0;
-	boardInfo[ib].numports = 0;
-	boardInfo[ib].int_mask = 0;
-    }
 
     int portcounter = 0;
 
     for (ib = 0; ib < numboards; ib++) {
+
+	struct serialBoard *brd = boardInfo + ib;
+
+        memset(brd,0,sizeof(struct serialBoard));
+
 	int boardirq = 0;
 
 	retval = -EBUSY;
@@ -2060,34 +2156,36 @@ int init_module(void)
 	    goto err1;
 	}
 	request_region(addr, 8, "dsm_serial");
-	boardInfo[ib].addr = addr;
+	brd->addr = addr;
 
 	retval = -EINVAL;
-	switch (boardInfo[ib].type) {
+	brd->type = brdtype[ib];
+	switch (brd->type) {
 	case BOARD_WIN_COM8:
-	    boardInfo[ib].numports = 8;
+	    brd->numports = 8;
 	    break;
 	default:
-	    DSMLOG_ERR("unknown board type: %d\n",boardInfo[ib].type);
+	    DSMLOG_ERR("unknown board type: %d\n",brd->type);
 	    goto err1;
 	}
 #ifdef DEBUG
-	DSMLOG_DEBUG("numports=%d\n",boardInfo[ib].numports);
+	DSMLOG_DEBUG("numports=%d\n",brd->numports);
 #endif
 
 	retval = -ENOMEM;
-	boardInfo[ib].ports = rtl_gpos_malloc(
-          boardInfo[ib].numports * sizeof(struct serialPort) );
-	if (!boardInfo[ib].ports) goto err1;
+	brd->ports = rtl_gpos_malloc(
+          brd->numports * sizeof(struct serialPort) );
+	if (!brd->ports) goto err1;
 
-	for (ip = 0; ip < boardInfo[ib].numports; ip++) {
-	    struct serialPort* port = boardInfo[ib].ports + ip;
+	for (ip = 0; ip < brd->numports; ip++) {
+	    struct serialPort* port = brd->ports + ip;
+	    memset(port,0,sizeof(struct serialPort));
 	    init_serialPort_struct(port);
-	    port->board = boardInfo + ib;
+	    port->board = brd;
 	}
 
-	for (ip = 0; ip < boardInfo[ib].numports; ip++) {
-	    struct serialPort* port = boardInfo[ib].ports + ip;
+	for (ip = 0; ip < brd->numports; ip++) {
+	    struct serialPort* port = brd->ports + ip;
 
 	    port->portNum = portcounter;
 	    port->portIndex = ip;
@@ -2107,17 +2205,34 @@ int init_module(void)
 	    port->xmit.buf = rtl_gpos_malloc( SERIAL_XMIT_SIZE );
 	    if (!port->xmit.buf) goto err1;
 
-	    port->sample_queue.buf = rtl_gpos_malloc( SAMPLE_QUEUE_SIZE * sizeof(void*) );
-	    if (!port->sample_queue.buf) goto err1;
+	    port->uart_samples.buf = rtl_gpos_malloc(UART_SAMPLE_QUEUE_SIZE *
+	    	sizeof(void*) );
+	    if (!port->uart_samples.buf) goto err1;
 
-	    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++) {
-	      struct dsm_sample* samp = (struct dsm_sample*)
-	      	rtl_gpos_malloc( SIZEOF_DSM_SAMPLE_HEADER +
-                                 MAX_DSM_SERIAL_MESSAGE_SIZE );
-	      if (!samp) goto err1;
-	      port->sample_queue.buf[i] = samp;
+	    for (i = 0; i < UART_SAMPLE_QUEUE_SIZE; i++) {
+		struct dsm_sample* samp = (struct dsm_sample*)
+		  rtl_gpos_malloc( SIZEOF_DSM_SAMPLE_HEADER +
+				   UART_SAMPLE_SIZE );
+		if (!samp) goto err1;
+		memset(samp,0,SIZEOF_DSM_SAMPLE_HEADER +
+				   UART_SAMPLE_SIZE );
+		port->uart_samples.buf[i] = samp;
 	    }
-	    port->sample = port->sample_queue.buf[port->sample_queue.head];
+
+	    port->output_samples.buf =
+	    	rtl_gpos_malloc(OUTPUT_SAMPLE_QUEUE_SIZE *
+		    sizeof(void*) );
+	    if (!port->output_samples.buf) goto err1;
+
+	    for (i = 0; i < OUTPUT_SAMPLE_QUEUE_SIZE; i++) {
+		struct dsm_sample* samp = (struct dsm_sample*)
+		  rtl_gpos_malloc( SIZEOF_DSM_SAMPLE_HEADER +
+				   MAX_DSM_SERIAL_SAMPLE_SIZE );
+		if (!samp) goto err1;
+		memset(samp,0,SIZEOF_DSM_SAMPLE_HEADER +
+				   MAX_DSM_SERIAL_SAMPLE_SIZE );
+		port->output_samples.buf[i] = samp;
+	    }
 
 	    port->irq = irqs[ib];
 
@@ -2142,34 +2257,34 @@ int init_module(void)
 		goto err1;
 	    }
 
-	    switch (boardInfo[ib].type) {
+	    switch (brd->type) {
 	    case BOARD_WIN_COM8:
 #ifdef DEBUG
 		/* read ioport address and irqs for ports on board */
-		serial_out(boardInfo + ib,COM8_BC_IR,ip);
+		serial_out(brd,COM8_BC_IR,ip);
 		unsigned char x;
-		x = serial_in(boardInfo + ib,COM8_BC_BAR);
+		x = serial_in(brd,COM8_BC_BAR);
 		DSMLOG_DEBUG("addr=0x%x, enabled=0x%x\n",
 		    (x & 0x7f) << 3,(x & 0x80));
 		DSMLOG_DEBUG("irq=%d\n",
-		    serial_in(boardInfo + ib,COM8_BC_IAR) & 0xf);
+		    serial_in(brd,COM8_BC_IAR) & 0xf);
 #endif
 		
 		/* configure ioport address and irqs for ports on board */
-		serial_out(boardInfo + ib,COM8_BC_IR,ip);
+		serial_out(brd,COM8_BC_IR,ip);
 		/* must enable uart for it to respond at this address */
-		serial_out(boardInfo + ib,COM8_BC_BAR,(port->ioport >> 3) +
+		serial_out(brd,COM8_BC_BAR,(port->ioport >> 3) +
 		    COM8_BC_UART_ENABLE);
-		serial_out(boardInfo + ib,COM8_BC_IAR,port->irq);
+		serial_out(brd,COM8_BC_IAR,port->irq);
 
 #ifdef DEBUG
 		/* read ioport address and irqs for ports on board */
-		serial_out(boardInfo + ib,COM8_BC_IR,ip);
-		x = serial_in(boardInfo + ib,COM8_BC_BAR);
+		serial_out(brd,COM8_BC_IR,ip);
+		x = serial_in(brd,COM8_BC_BAR);
 		DSMLOG_DEBUG("addr=0x%x, enabled=0x%x\n",
 		    (x & 0x7f) << 3,(x & 0x80));
 		DSMLOG_DEBUG("irq=%d\n",
-		    serial_in(boardInfo + ib,COM8_BC_IAR) & 0xf);
+		    serial_in(brd,COM8_BC_IAR) & 0xf);
 #endif
 		break;
 	    }
@@ -2191,13 +2306,13 @@ int init_module(void)
 	    portcounter++;
 	}
 
-	switch (boardInfo[ib].type) {
+	switch (brd->type) {
 	case BOARD_WIN_COM8:
 	    if ((retval = rtl_request_isa_irq(boardirq,dsm_serial_irq_handler,
-		boardInfo + ib)) < 0) goto err1;
+		brd)) < 0) goto err1;
 	    break;
 	}
-	boardInfo[ib].irq = boardirq;
+	brd->irq = boardirq;
     }
 
     return 0;
@@ -2205,27 +2320,36 @@ int init_module(void)
 err1:
     if (boardInfo) {
 	for (ib = 0; ib < numboards; ib++) {
-	    if (boardInfo[ib].irq) rtl_free_isa_irq(boardInfo[ib].irq);
-	    boardInfo[ib].irq = 0;
+	    struct serialBoard *brd = boardInfo + ib;
+	    if (brd->irq) rtl_free_isa_irq(brd->irq);
+	    brd->irq = 0;
 
-	    if (boardInfo[ib].addr) release_region(boardInfo[ib].addr, 8);
-	    boardInfo[ib].addr = 0;
+	    if (brd->addr) release_region(brd->addr, 8);
+	    brd->addr = 0;
 
-	    if (boardInfo[ib].ports) {
-		for (ip = 0; ip < boardInfo[ib].numports; ip++) {
-		    struct serialPort* port = boardInfo[ib].ports + ip;
+	    if (brd->ports) {
+		for (ip = 0; ip < brd->numports; ip++) {
+		    struct serialPort* port = brd->ports + ip;
 
 		    if (port->addr) release_region(port->addr, 8);
 		    port->addr = 0;
 		    if (port->xmit.buf) rtl_gpos_free(port->xmit.buf);
 		    port->xmit.buf = 0;
 
-		    if (port->sample_queue.buf) {
-			for (i = 0; i < SAMPLE_QUEUE_SIZE; i++)
-			  if (port->sample_queue.buf[i])
-			      rtl_gpos_free(port->sample_queue.buf[i]);
-			rtl_gpos_free(port->sample_queue.buf);
-			port->sample_queue.buf = 0;
+		    if (port->uart_samples.buf) {
+			for (i = 0; i < UART_SAMPLE_QUEUE_SIZE; i++)
+			  if (port->uart_samples.buf[i])
+			      rtl_gpos_free(port->uart_samples.buf[i]);
+			rtl_gpos_free(port->uart_samples.buf);
+			port->uart_samples.buf = 0;
+		    }
+
+		    if (port->output_samples.buf) {
+			for (i = 0; i < OUTPUT_SAMPLE_QUEUE_SIZE; i++)
+			  if (port->output_samples.buf[i])
+			      rtl_gpos_free(port->output_samples.buf[i]);
+			rtl_gpos_free(port->output_samples.buf);
+			port->output_samples.buf = 0;
 		    }
 
 		    rtl_sem_destroy(&port->sample_sem);
@@ -2236,8 +2360,8 @@ err1:
 			port->devname = 0;
 		    }
 		}
-		rtl_gpos_free(boardInfo[ib].ports);
-		boardInfo[ib].ports = 0;
+		rtl_gpos_free(brd->ports);
+		brd->ports = 0;
 	    }
 	}
 
@@ -2271,12 +2395,20 @@ void cleanup_module (void)
 		if (port->xmit.buf) rtl_gpos_free(port->xmit.buf);
 		port->xmit.buf = 0;
 
-		if (port->sample_queue.buf) {
-		    for (i = 0; i < SAMPLE_QUEUE_SIZE; i++)
-		      if (port->sample_queue.buf[i])
-			  rtl_gpos_free(port->sample_queue.buf[i]);
-		    rtl_gpos_free(port->sample_queue.buf);
-		    port->sample_queue.buf = 0;
+		if (port->uart_samples.buf) {
+		    for (i = 0; i < UART_SAMPLE_QUEUE_SIZE; i++)
+		      if (port->uart_samples.buf[i])
+			  rtl_gpos_free(port->uart_samples.buf[i]);
+		    rtl_gpos_free(port->uart_samples.buf);
+		    port->uart_samples.buf = 0;
+		}
+
+		if (port->output_samples.buf) {
+		    for (i = 0; i < OUTPUT_SAMPLE_QUEUE_SIZE; i++)
+		      if (port->output_samples.buf[i])
+			  rtl_gpos_free(port->output_samples.buf[i]);
+		    rtl_gpos_free(port->output_samples.buf);
+		    port->output_samples.buf = 0;
 		}
 
 		rtl_sem_destroy(&port->sample_sem);
