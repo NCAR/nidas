@@ -79,13 +79,13 @@ static unsigned char volatile writeClock = 1;
 static unsigned long volatile msecClockTicker = 0;
 
 /** number of milliseconds per interrupt */
-#define MSEC_PER_INTRPT (1000 / INTERRUPT_RATE)
+#define MSEC_PER_INTRPT (MSECS_PER_SEC / INTERRUPT_RATE)
 
 /** thread is signaled at 100hz */
 #define THREAD_RATE_100HZ 100
 
 /** number of milliseconds elapsed between thread signals */
-#define MSEC_PER_THREAD_SIGNAL (1000 / THREAD_RATE_100HZ)
+#define MSEC_PER_THREAD_SIGNAL (MSECS_PER_SEC / THREAD_RATE_100HZ)
 
 /*
  * we count up to 1000 centi-seconds = 10 seconds, so that
@@ -190,7 +190,10 @@ static rtl_sem_t         threadsem;
 
 /** macros borrowed from glibc/time functions */
 #define	SECS_PER_HOUR	(60 * 60)
+
+#ifndef	SECS_PER_DAY
 #define	SECS_PER_DAY	(SECS_PER_HOUR * 24)
+#endif
 
 /* Nonzero if YEAR is a leap year (every 4 years,
    except every 100th isn't, and every 400th is).  */
@@ -677,10 +680,10 @@ static void timespec2irig (const struct rtl_timespec* ts, struct irigTime* ti)
     ti->yday = days + 1;	// irig uses 1-366, unix 0-365
 
     rem = ts->tv_nsec;
-    ti->msec = rem / 1000000;
-    rem %= 1000000;
-    ti->usec = rem / 1000;
-    rem %= 1000;
+    ti->msec = rem / NSECS_PER_MSEC;
+    rem %= NSECS_PER_MSEC;
+    ti->usec = rem / NSECS_PER_USEC;
+    rem %= NSECS_PER_USEC;
     ti->nsec = rem;
 }
 
@@ -688,7 +691,7 @@ static void timeval2irig (const struct rtl_timeval* tv, struct irigTime* ti)
 {
     struct rtl_timespec ts;
     ts.tv_sec = tv->tv_sec;
-    ts.tv_nsec = tv->tv_usec * 1000;
+    ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
     timespec2irig(&ts,ti);
 }
 /**
@@ -696,7 +699,7 @@ static void timeval2irig (const struct rtl_timeval* tv, struct irigTime* ti)
  */
 static void irig2timespec(const struct irigTime* ti,struct rtl_timespec* ts)
 {
-    ts->tv_nsec = ti->msec * 1000000 + ti->usec * 1000 + ti->nsec;
+    ts->tv_nsec = ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC + ti->nsec;
 
     int y = ti->year;
     int nleap =  LEAPS_THRU_END_OF(y-1) - LEAPS_THRU_END_OF(1969);
@@ -711,7 +714,7 @@ static void irig2timeval(const struct irigTime* ti,struct rtl_timeval* tv)
     struct rtl_timespec ts;
     irig2timespec(ti,&ts);
     tv->tv_sec = ts.tv_sec;
-    tv->tv_usec = (ts.tv_nsec + 500) / 1000;
+    tv->tv_usec = (ts.tv_nsec + NSECS_PER_USEC/2) / NSECS_PER_USEC;
 }
 
 /**
@@ -797,7 +800,7 @@ long getTimeUsec()
     sec0ms2   = inb(isa_address+Sec1_Msec100_Port);
 
     long usec = (((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
-    	(ms1ms0 & 0x0f)) * 1000 +
+    	(ms1ms0 & 0x0f)) * USECS_PER_MSEC +
 	((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
     return usec;
 }
@@ -814,13 +817,14 @@ static void getCurrentTime(struct irigTime* ti)
     struct rtl_timespec ts;
     irig2timespec(ti,&ts);
     // clock difference
-    int td = (ts.tv_sec % 86400) * 1000 + ts.tv_nsec / 1000000 - tt;
-    int hr = (tt / 3600000);
-    tt %= 3600000;
-    int mn = (tt / 60000);
-    tt %= 60000;
-    int sc = tt / 1000;
-    tt %= 1000;
+    int td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+    	ts.tv_nsec / NSECS_PER_MSEC - tt;
+    int hr = (tt / 3600 / MSECS_PER_SEC);
+    tt %= (3600 * MSECS_PER_SEC);
+    int mn = (tt / 60 / MSECS_PER_SEC);
+    tt %= (60 * MSECS_PER_SEC);
+    int sc = tt / MSECS_PER_SEC;
+    tt %= MSECS_PER_SEC;
     DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d,clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
 	ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
     	hr,mn,sc,tt,td,extendedStatus,clockState);
@@ -833,6 +837,12 @@ void irig_clock_gettime(struct rtl_timespec* tp)
     struct irigTime it;
     getTimeFields(&it,0);
     irig2timespec(&it,tp);
+}
+
+/* this function is available for external use */
+int get_msec_clock_resolution()
+{
+    return MSEC_PER_INTRPT;
 }
 
 /**
@@ -946,8 +956,8 @@ static inline void increment_hz100_cnt()
 static void setCounters(struct rtl_timeval* tv)
 {
     msecClockTicker =
-	(tv->tv_sec % SECS_PER_DAY) * 1000 +
-		(tv->tv_usec + 500) / 1000;
+	(tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+		(tv->tv_usec + USECS_PER_MSEC/2) / USECS_PER_MSEC;
     msecClockTicker -= msecClockTicker % MSEC_PER_INTRPT;
     msecClockTicker %= MSECS_PER_DAY;
 
@@ -956,9 +966,9 @@ static void setCounters(struct rtl_timeval* tv)
         && (hz100_cnt-- == 0)) hz100_cnt = MAX_THREAD_COUNTER - 1;
     hz100_cnt %= MAX_THREAD_COUNTER;
 
-#ifdef DEBUG
     DSMLOG_DEBUG("tv_sec=%d tv_usec=%d, msecClockTicker=%d, hz100_cnt=%d\n",
     	tv->tv_sec,tv->tv_usec,msecClockTicker,hz100_cnt);
+#ifdef DEBUG
 #endif
 
 }
@@ -1045,7 +1055,7 @@ static void *pc104sg_100hz_thread (void *param)
 #endif
 
     /* semaphore timeout in nanoseconds */
-    unsigned long nsec_deltat = MSEC_PER_THREAD_SIGNAL * 1000000;
+    unsigned long nsec_deltat = MSEC_PER_THREAD_SIGNAL * NSECS_PER_MSEC;
     struct rtl_timespec timeout;
     int ntimeouts = 0;
     int status = 0;
@@ -1366,11 +1376,12 @@ static void portCallback(void* privateData)
     getCurrentTime(&ti);
 
     // check clock sanity
-    if (clockState == CODED) {
+    if (clockState == CODED || clockState == USER_SET) {
 	struct rtl_timespec ts;
 	irig2timespec(&ti,&ts);
 	// clock difference
-	int td = (ts.tv_sec % 86400) * 1000 + ts.tv_nsec / 1000000 - tt;
+	int td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+		ts.tv_nsec / NSECS_PER_MSEC - tt;
 	if (td != 0) clockState = RESET_COUNTERS;
     }
 
@@ -1400,12 +1411,12 @@ static void portCallback(void* privateData)
 #ifdef DEBUG_XXX
     // unsigned char status = inb(isa_address+Status_Port);
     dsm_sample_time_t tt = GET_MSEC_CLOCK;
-    int hr = (tt / 3600000);
-    tt %= 3600000;
-    int mn = (tt / 60000);
-    tt %= 60000;
-    int sc = tt / 1000;
-    tt %= 1000;
+    int hr = (tt / 3600 / MSECS_PER_SEC);
+    tt %= (3600 * MSECS_PER_SEC);
+    int mn = (tt / 60 / MSECS_PER_SEC);
+    tt %= (60 * MSECS_PER_SEC);
+    int sc = tt / MSECS_PER_SEC;
+    tt %= MSECS_PER_SEC;
     DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
 	ti.year,ti.yday,ti.hour,ti.min,ti.sec,ti.msec,ti.usec,ti.nsec,
     	hr,mn,sc,tt,extendedStatus,clockState);

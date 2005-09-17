@@ -22,12 +22,32 @@
 #define MSECS_PER_DAY 86400000
 #endif
 
+#ifndef SECS_PER_DAY
+#define SECS_PER_DAY 86400
+#endif
+
+#ifndef MSECS_PER_SEC
+#define MSECS_PER_SEC 1000
+#endif
+
 #ifndef USECS_PER_SEC
 #define USECS_PER_SEC 1000000
 #endif
 
 #ifndef USECS_PER_MSEC
 #define USECS_PER_MSEC 1000
+#endif
+
+#ifndef NSECS_PER_SEC
+#define NSECS_PER_SEC 1000000000
+#endif
+
+#ifndef NSECS_PER_MSEC
+#define NSECS_PER_MSEC 1000000
+#endif
+
+#ifndef NSECS_PER_USEC
+#define NSECS_PER_USEC 1000
 #endif
 
 #ifndef __RTCORE_KERNEL__
@@ -127,6 +147,11 @@ struct irigTime {
  * is unknown and is probably effected by ISA contention.
  */
 void irig_clock_gettime(struct rtl_timespec* tp);
+
+/**
+ * For modules who want to know the resolution of the clock
+ */
+int get_msec_clock_resolution();
 
 typedef void irig_callback_t(void* privateData);
 
