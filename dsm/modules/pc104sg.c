@@ -955,6 +955,11 @@ static inline void increment_hz100_cnt()
  */
 static void setCounters(struct rtl_timeval* tv)
 {
+#ifdef DEBUG
+    int td = (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+	    tv->tv_usec / USECS_PER_MSEC - msecClockTicker;
+#endif
+
     msecClockTicker =
 	(tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
 		(tv->tv_usec + USECS_PER_MSEC/2) / USECS_PER_MSEC;
@@ -966,9 +971,9 @@ static void setCounters(struct rtl_timeval* tv)
         && (hz100_cnt-- == 0)) hz100_cnt = MAX_THREAD_COUNTER - 1;
     hz100_cnt %= MAX_THREAD_COUNTER;
 
-    DSMLOG_DEBUG("tv_sec=%d tv_usec=%d, msecClockTicker=%d, hz100_cnt=%d\n",
-    	tv->tv_sec,tv->tv_usec,msecClockTicker,hz100_cnt);
 #ifdef DEBUG
+    DSMLOG_DEBUG("tv=%d.%06d, msecClockTicker=%d, td=%d, hz100_cnt=%d\n",
+    	tv->tv_sec,tv->tv_usec,msecClockTicker,td,hz100_cnt);
 #endif
 
 }
@@ -1377,12 +1382,20 @@ static void portCallback(void* privateData)
 
     // check clock sanity
     if (clockState == CODED || clockState == USER_SET) {
-	struct rtl_timespec ts;
-	irig2timespec(&ti,&ts);
+	struct rtl_timeval tv;
+	irig2timeval(&ti,&tv);
 	// clock difference
-	int td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-		ts.tv_nsec / NSECS_PER_MSEC - tt;
-	if (td != 0) clockState = RESET_COUNTERS;
+	int td = (tv.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+		tv.tv_usec / USECS_PER_MSEC - tt;
+	/* If not within 3 milliseconds, ask to reset counters.
+	 * Since this is being called as a 1 Hz callback some
+	 * time may have elapsed since the 100 Hz interrupt.
+	 */
+	if (abs(td) > 3) {
+	    clockState = RESET_COUNTERS;
+	    DSMLOG_DEBUG("tv=%d.%06d, tt=%d, td=%d, status=0x%x\n",
+		tv.tv_sec,tv.tv_usec,tt,td,extendedStatus);
+	}
     }
 
     if (dev->inFifoFd >= 0) {
