@@ -93,6 +93,7 @@ public:
      * @param ptr Pointer to the float array which the caller has allocated.
      * @param len Number of floats to read. Use getNumFloats() to find
      *            out the number of floats in a sync record.
+     * @returns @p len on success or 0 on eof or failure.
      */
     size_t read(dsm_time_t* tt, float *ptr,size_t len) throw(atdUtil::IOException);
 
