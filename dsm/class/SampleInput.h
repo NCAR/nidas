@@ -320,6 +320,8 @@ public:
      */
     Sample* readSample() throw(atdUtil::IOException);
 
+    void distribute(const Sample* s) throw();
+
     size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
 
     void close() throw(atdUtil::IOException);

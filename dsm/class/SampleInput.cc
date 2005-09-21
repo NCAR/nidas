@@ -147,7 +147,6 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
     }
 
     SampleHeader header;
-    map<unsigned long,DSMSensor*>::const_iterator sensori;
 
     // process all in buffer
     for (;;) {
@@ -208,26 +207,30 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
 #endif
 
-	// pass samples to the appropriate sensor for processing
-	// and distribution to processed sample clients
-	dsm_sample_id_t sampid = samp->getId();
-	sensorMapMutex.lock();
-	if (sensorMap.size() > 0) {
-	    sensori = sensorMap.find(sampid);
-	    if (sensori != sensorMap.end()) sensori->second->receive(samp);
-	    else if (!(unrecognizedSamples++) % 100) {
-		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		    "SampleInputStream unrecognizedSamples=%d",
-			    unrecognizedSamples);
-	    }
-	}
-	sensorMapMutex.unlock();
-
-	// distribute samples to my own clients
 	distribute(samp);
 	samp->freeReference();
 	samp = 0;
     }
+}
+
+void SampleInputStream::distribute(const Sample* samp) throw()
+{
+    // pass samples to the appropriate sensor for processing
+    // and distribution to processed sample clients
+    dsm_sample_id_t sampid = samp->getId();
+    sensorMapMutex.lock();
+    if (sensorMap.size() > 0) {
+	map<unsigned long,DSMSensor*>::const_iterator sensori;
+	sensori = sensorMap.find(sampid);
+	if (sensori != sensorMap.end()) sensori->second->receive(samp);
+	else if (!(unrecognizedSamples++) % 100) {
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		"SampleInputStream unrecognizedSamples=%d",
+			unrecognizedSamples);
+	}
+    }
+    sensorMapMutex.unlock();
+    SampleSource::distribute(samp);
 }
 
 /**
