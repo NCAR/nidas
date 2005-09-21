@@ -226,42 +226,61 @@ int SyncServer::main(int argc, char** argv)
 	dsm_time_t timeOffset = 0;
 	dsm_time_t ttprev = 0;
 	int granularity = USECS_PER_SEC / 10;
-	for (;;) {
-	    Sample* samp = input.readSample();
-	    if (interrupted) break;
+	bool first = true;
+	try {
+	    for (;;) {
+		Sample* samp = input.readSample();
+		if (interrupted) break;
 
-	    dsm_time_t tt = samp->getTimeTag();
-	    if (simulationMode) {
-		cerr << "tt=" << tt/USECS_PER_SEC << '.' <<
-		    setfill('0') << setw(3) << (tt % USECS_PER_SEC) / 1000 <<
-		    " nextDataSec=" <<  nextDataSec/USECS_PER_SEC << '.' <<
-		    setfill('0') << setw(3) << ( nextDataSec % USECS_PER_SEC) / 1000 << endl;
-		while (tt > nextDataSec) {
-		    dsm_time_t tnow = getSystemTime();
-		    long tsleep = granularity - (tnow % granularity);
-		    // cerr << "tsleep=" << tsleep << endl;
-		    nsleep.tv_sec = tsleep / USECS_PER_SEC;
-		    nsleep.tv_nsec = (tsleep % USECS_PER_SEC) * 1000;
-		    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
+		dsm_time_t tt = samp->getTimeTag();
+		if (simulationMode) {
+		    cerr << "tt=" << tt/USECS_PER_SEC << '.' <<
+			setfill('0') << setw(3) << (tt % USECS_PER_SEC) / 1000 <<
+			" nextDataSec=" <<  nextDataSec/USECS_PER_SEC << '.' <<
+			setfill('0') << setw(3) << ( nextDataSec % USECS_PER_SEC) / 1000 << endl;
+		    while (tt > nextDataSec) {
+			dsm_time_t tnow = getSystemTime();
+			long tsleep = granularity - (tnow % granularity);
+			// cerr << "tsleep=" << tsleep << endl;
+			nsleep.tv_sec = tsleep / USECS_PER_SEC;
+			nsleep.tv_nsec = (tsleep % USECS_PER_SEC) * 1000;
+			if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 
-		    tnow += tsleep;
+			tnow += tsleep;
 
-		    if (timeOffset == 0) {
-		        timeOffset = tnow - tt;
-			timeOffset -= (timeOffset % granularity);
+			if (timeOffset == 0) {
+			    timeOffset = tnow - tt;
+			    timeOffset -= (timeOffset % granularity);
+			}
+			// cerr << "tnow=" << tnow <<
+			// 	" timeOffset=" << timeOffset << endl;
+			nextDataSec = tnow - timeOffset + granularity;
+			// cerr << "nextDataSec=" << nextDataSec << endl;
 		    }
-		    // cerr << "tnow=" << tnow <<
-		    // 	" timeOffset=" << timeOffset << endl;
-		    nextDataSec = tnow - timeOffset + granularity;
-		    // cerr << "nextDataSec=" << nextDataSec << endl;
 		}
+		if (first) {
+		    syncGen.sendHeader(tt,output->getIOStream());
+		    first = false;
+		}
+		long ttdiff = tt - ttprev;
+		if (ttdiff < 0) cerr << "ttprev=" << ttprev << " tt=" << tt <<
+		    " ttdiff=" << ttdiff << endl;
+		ttprev = tt;
+		input.distribute(samp);
+		samp->freeReference();
 	    }
-	    long ttdiff = tt - ttprev;
-	    if (ttdiff < 0) cerr << "ttprev=" << ttprev << " tt=" << tt <<
-	    	" ttdiff=" << ttdiff << endl;
-	    ttprev = tt;
-	    input.distribute(samp);
-	    samp->freeReference();
+	}
+	catch (atdUtil::EOFException& eof) {
+	    cerr << eof.what() << endl;
+	    syncGen.disconnect(&input);
+	    syncGen.disconnected(output);
+	    throw eof;
+	}
+	catch (atdUtil::IOException& ioe) {
+	    cerr << ioe.what() << endl;
+	    syncGen.disconnect(&input);
+	    syncGen.disconnected(output);
+	    throw ioe;
 	}
     }
     catch (atdUtil::EOFException& eof) {
