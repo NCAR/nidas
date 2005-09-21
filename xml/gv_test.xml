@@ -385,13 +385,13 @@
             <processor class="SampleArchiver">
                 <output class="SampleOutputStream">
                     <fileset dir="/var/r1/${PROJECT}/${AIRCRAFT}"
-                        file="dsm_%Y%m%d_%H%M%S.dat"
+                        file="dsm_%Y%m%d_%H%M%S.ads"
                         length="0"/>
 
                 </output>
                 <output class="SampleOutputStream">
                     <fileset dir="/var/r2/${PROJECT}/${AIRCRAFT}"
-                        file="dsm_%Y%m%d_%H%M%S.dat"
+                        file="dsm_%Y%m%d_%H%M%S.ads"
                         length="0"/>
 
                 </output>
