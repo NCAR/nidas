@@ -13,7 +13,7 @@ NAME=dsm
 DESC="dsm"
 
 ruser=ads
-server=192.168.184.1
+server=server		# found in /etc/hosts
 adspath=/home/local/hiaper/ads3
 
 modpath=/var/tmp/modules
@@ -180,16 +180,35 @@ crude_set_date() {
 # then pound away with ntpdate.  If still no success
 # try crude_set_date
 check_ntp() {
+
     [ $(date +%Y) -ne 2000 ] && return
 
+    # figure out timeserver from /etc/ntp.conf (taken from init.d/ntpd)
+    timeserver=(`/bin/awk '$1=="peer"||$1=="server"{print $2}' /etc/ntp.conf |fgrep -v 127.127.1.0`)
+    if [ ${#timeserver[*]} -gt 0 ]; then
+        timeserver=${timeserver[0]}
+    else
+        timeserver=server
+    fi
+    # echo "timeserver=$timeserver"
+     
     /etc/init.d/ntpd stop
     i=0
     while [ $i -lt 60 -a $(date +%Y) -eq 2000 ]; do
 	sleep 5
-	ntpdate $server && hwclock --systohc
+	# for some reason on the dsms, logging to facility kern.info
+	# doesn't get sent to the remote syslog server, but
+	# rtl_printfs from RTL kernel modules do. Must be something
+	# to do with klogd/syslogd interaction.
+	# So here we log to local5 instead.
+	ntpdate $timeserver | /usr/bin/logger -p local5.info -t ntpdate 2>&1
 	i=$((i+1))
     done
     [ $(date +%Y) -eq 2000 ] && crude_set_date
+
+    # since the system clock isn't battery backed, updating the
+    # system clock only helps keep the time if one does a soft reboot.
+    hwclock --systohc
     /etc/init.d/ntpd start
 }
 
