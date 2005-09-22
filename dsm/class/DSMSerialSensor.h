@@ -152,6 +152,14 @@ public:
 
     enum irigClockRates getPromptRate() const { return promptRate; }
 
+    /**
+     * Set the initialization string(s) for this sensor.
+     * The init string may contain backslash escape sequences 
+     * like the prompt string.
+     */
+    void setInitString(const std::string& val) { initString = val; }
+
+    const std::string& getInitString() const { return initString; }
 
     void startPrompting() throw(atdUtil::IOException);
 
@@ -260,6 +268,11 @@ protected:
      * are null terminated.
      */
     bool nullTerminated;
+
+    /**
+     * String that is sent once after sensor is opened.
+     */
+    std::string initString;
 };
 
 }

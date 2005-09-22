@@ -224,28 +224,38 @@
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
-        baud="115200" parity="none" databits="8" stopbits="1">
-        <sample id="1" scanfFormat="*%*2d%*2d%f"/>
-        <message separator="\n" position="end" length="0"/>
-        <prompt string="*0100P3\r\n" rate="25"/>
+        baud="57600" parity="none" databits="8" stopbits="1"
+	init_string="*0100P4\r\n">
 	<!-- initialization commands for the Paro:
 	  Still can't get it to run in prompted mode at anything higher
 	  than 20 hz.
 
 	  BR to set the baud rate,
-	  MD=0 means turn off Model 715 extra output
-	  	Stuart says generating the 715 output slows it down.
-	  UN=2 millibars
-	  PR=1 1 cycle integration time
-	  PI=10 10 msec integation time
+	  MD=0	turn off Model 715 extra output
+	  UN=2	millibars
+	  PI=10	pressure integration time in millisec
+	  PR=1	pressure integration time in oscillator periods
 
+	  prompted mode:  need prompt tag, remove rate in sample tag
 	  *9900BR=57600
 	  *0100EW*0100MD=0
-	  *0100EW*0100DM=3
 	  *0100EW*0100UN=2
-	  *0100EW*0100PR=1
-	  *0100EW*0100TR=1
-	  *0100EW*0100PI=19
+	  *0100EW*0100PI=10
+
+	  unprompted mode, remove prompt tag, set rate in sample tag
+	  *9900BR=57600
+	  *0100EW*0100MD=0
+	  *0100EW*0100UN=2
+	  *0100EW*0100PI=10	rate=50
+	  *0100P4
+	-->
+
+        <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
+	</sample>
+        <message separator="\n" position="end" length="0"/>
+	<!--
+	Prompt string when running in prompted mode
+        <prompt string="*0100P3\r\n" rate="20"/>
 	-->
     </serialSensor>
 
@@ -335,7 +345,7 @@
     </dsm>
 -->
 
-    <dsm name="dsm301" location="radome" id="0" rserialPort="50010">
+    <dsm name="dsm301" location="radome" id="0" rserialPort="30002">
         <config class="XMLConfig">
             <socket type="mcrequest"/>
         </config>

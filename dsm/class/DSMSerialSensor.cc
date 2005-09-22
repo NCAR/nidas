@@ -133,6 +133,10 @@ void DSMSerialSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invali
 
 	startPrompting();
     }
+    if (getInitString().length() > 0) {
+	string initstr = replaceBackslashSequences(getInitString());
+	write(initstr.c_str(),initstr.length());
+    }
     init();
 }
 
@@ -311,6 +315,8 @@ void DSMSerialSensor::fromDOMElement(
 		    throw atdUtil::InvalidParameterException(getName(),aname,
 		    	aval);
 	    }
+	    else if (!aname.compare("init_string"))
+		setInitString(aval);
 	}
     }
     DOMNode* child;

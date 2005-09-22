@@ -200,6 +200,7 @@
 	     not null terminating strings.
 	     -->
 	    <xsd:attribute name="nullterm" type="xsd:boolean"/>
+	    <xsd:attribute name="init_string" type="xsd:normalizedString"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
