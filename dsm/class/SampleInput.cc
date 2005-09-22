@@ -349,8 +349,8 @@ DOMElement* SampleInputStream::toDOMElement(DOMElement* node)
 
 SampleInputMerger::SampleInputMerger() :
 	name("SampleInputMerger"),
-	inputSorter(1000,name + "InputSorter"),
-	procSampSorter(250,name + "ProcSampSorter"),
+	inputSorter(500,name + "InputSorter"),
+	procSampSorter(500,name + "ProcSampSorter"),
 	unrecognizedSamples(0)
 {
 }
@@ -450,3 +450,79 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
 
     return false;
 }
+
+/*
+ * Constructor, with a IOChannel (which may be null).
+ */
+SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel,int sortLenArg):
+    SampleInputStream(iochannel),sortLen(sortLenArg),sorter1(0),sorter2(0)
+{
+}
+
+/*
+ * Copy constructor, with a new IOChannel.
+ */
+SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel): SampleInputStream(x,iochannel),sortLen(x.sortLen),
+	sorter1(0),sorter2(0)
+{
+}
+
+/*
+ * Clone myself, with a new IOChannel.
+ */
+SampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
+{
+    return new SortedSampleInputStream(*this,iochannel);
+}
+
+SortedSampleInputStream::~SortedSampleInputStream()
+{
+    delete sorter1;
+    delete sorter2;
+}
+
+void SortedSampleInputStream::addSampleClient(SampleClient* client) throw()
+{
+    if (!sorter1) sorter1 = new SampleSorter(sortLen,"Sorter1");
+    SampleInputStream::addSampleClient(sorter1);
+    sorter1->addSampleClient(client);
+    if (!sorter1->isRunning()) sorter1->start();
+}
+
+void SortedSampleInputStream::removeSampleClient(SampleClient* client) throw()
+{
+    sorter1->removeSampleClient(client);
+    SampleInputStream::removeSampleClient(sorter1);
+}
+void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
+{
+    sensorMapMutex.lock();
+    sensorMap[sensor->getId()] = sensor;
+    sensorMapMutex.unlock();
+    if (!sorter2) sorter2 = new SampleSorter(sortLen,"Sorter2");
+
+    sensor->addSampleClient(sorter2);
+    sorter2->addSampleClient(client);
+    if (!sorter2->isRunning()) sorter2->start();
+}
+
+void SortedSampleInputStream::removeProcessedSampleClient(SampleClient* client,
+	DSMSensor* sensor)
+{
+    sensor->removeSampleClient(sorter2);
+    sorter2->removeSampleClient(client);
+}
+
+void SortedSampleInputStream::close() throw(atdUtil::IOException)
+{
+    if (sorter1) {
+        if (sorter1->isRunning()) sorter1->interrupt();
+	sorter1->join();
+    }
+    if (sorter2) {
+        if (sorter2->isRunning()) sorter2->interrupt();
+	sorter2->join();
+    }
+}
+

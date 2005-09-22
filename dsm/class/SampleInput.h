@@ -384,6 +384,45 @@ private:
 
 };
 
+class SortedSampleInputStream: public SampleInputStream
+{
+public:
+    SortedSampleInputStream(IOChannel* iochannel = 0,int sortLen = 0);
+    /**
+     * Copy constructor, with a new, connected IOChannel.
+     */
+    SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel);
+
+    virtual ~SortedSampleInputStream();
+
+    /**
+     * Create a clone, with a new, connected IOChannel.
+     */
+    SampleInputStream* clone(IOChannel* iochannel);
+
+    void addSampleClient(SampleClient* client) throw();
+
+    void removeSampleClient(SampleClient* client) throw();
+
+    void addProcessedSampleClient(SampleClient* client, DSMSensor* sensor);
+
+    void removeProcessedSampleClient(SampleClient* client, DSMSensor* sensor);
+
+    void close() throw(atdUtil::IOException);
+
+
+private:
+    /**
+     * Length of sorter, in milliseconds.
+     */
+    int sortLen;
+
+    SampleSorter *sorter1;
+
+    SampleSorter *sorter2;
+
+};
+
 }
 
 #endif
