@@ -262,24 +262,32 @@
 	  than 25 hz.
 
 	  BR to set the baud rate,
-	  MD=0 means turn off Model 715 extra output
-	  	Stuart says generating the 715 output slows it down.
-	  UN=2 millibars
-	  PI=10 10 millisec integration time (the minimum)
-	  PR=1 1 cycle integration time
+	  MD=0	turn off Model 715 extra output
+	  UN=2	millibars
+	  PI=10	pressure integration time in millisec
+	  PR=1	pressure integration time in oscillator periods
 
+	  prompted mode:  need prompt tag, remove rate in sample tag
 	  *9900BR=57600
 	  *0100EW*0100MD=0
-	  *0100EW*0100DM=3
 	  *0100EW*0100UN=2
 	  *0100EW*0100PI=10
-	  *0100EW*0100PR=1
+
+	  unprompted mode, remove prompt tag, set rate in sample tag
+	  *9900BR=57600
+	  *0100EW*0100MD=0
+	  *0100EW*0100UN=2
+	  *0100EW*0100PI=10	rate=50
+	  *0100P4
 	-->
 
-        <sample id="1" scanfFormat="*%*2d%*2d%f">
+        <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
 	</sample>
         <message separator="\n" position="end" length="0"/>
+	<!--
+	Prompt string when running in prompted mode
         <prompt string="*0100P3\r\n" rate="20"/>
+	-->
     </serialSensor>
 
 
