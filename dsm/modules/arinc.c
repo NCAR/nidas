@@ -90,15 +90,19 @@ struct recvHandle
   unsigned int        speed;
   unsigned int        parity;
   char                sim_xmit;
+  int 		      pollDtMsec;	// number of millisecs between polls
 
   /* run-time info... */
+  int		      nSweeps;
   unsigned int        lps_cnt;
+  unsigned int	      lps_cnt_current;
   unsigned int        overflow;
   unsigned int        underflow;
   unsigned char       rate[0400];
   unsigned char       msg_id[0400];
   unsigned char       arcfgs[0400];
   unsigned int        nArcfg;
+
 };
 static struct recvHandle  chn_info[N_ARINC_RX];
 static struct dsm_sample* sample = 0;
@@ -203,8 +207,6 @@ void arinc_timesync(void* junk)
 /* -- IRIG CALLBACK --------------------------------------------------- */
 void arinc_sweep(void* channel)
 {
-  static int nSweeps, lps_cnt;
-
   // Warning: this is a hack!!!!!!!!!!
   // sleep before starting sweep. Seems to
   // cure A2D spike problems.
@@ -216,17 +218,28 @@ void arinc_sweep(void* channel)
   int nData;
   tt_data_t *data = (tt_data_t*)sample->data;
 
-  /* set the sweep block's time tag */
+  /* Set the sweep block's time tag to an estimate of
+   * the timetag of the earliest data in the sweep.
+   * We'll use the computed time of the previous sweep.
+   *
+   * Using the earliest sample time as the time tag
+   * of the sweep improves the chances that samples
+   * will get sorted correctly later with a minimum
+   * of buffering.
+   */
   sample->timetag = GET_MSEC_CLOCK;
+  if (sample->timetag < hdl->pollDtMsec)
+  	sample->timetag += MSECS_PER_DAY;
+  sample->timetag -= hdl->pollDtMsec;
 
   /* read ARINC channel until it's empty or our buffer is full */
   status = ar_getwordst(BOARD_NUM, chn, LPB, &nData, data);
 
   /* measure the number of received labels per second */
-  lps_cnt += nData;
-  if (++nSweeps >= irigClockEnumToRate(hdl->poll)) {
-    hdl->lps_cnt = lps_cnt;
-    nSweeps = lps_cnt = 0;
+  hdl->lps_cnt_current += nData;
+  if (++hdl->nSweeps >= irigClockEnumToRate(hdl->poll)) {
+    hdl->lps_cnt = hdl->lps_cnt_current;
+    hdl->nSweeps = hdl->lps_cnt_current = 0;
   }
   /* log possible buffer underflows */
   if (status == ARS_NODATA) {
@@ -259,6 +272,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
   int lbl;
   short status;
+  int pollRate;
 
   switch (cmd) {
   case GET_NUM_PORTS:
@@ -300,8 +314,14 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
     /* round up to the next highest poll rate (bps+1) based upon the
      * buffering capacity of the channel */
-    if ((hdl->poll = irigClockRateToEnum(hdl->lps/LPB+1)) == IRIG_NUM_RATES)
+    pollRate = hdl->lps / LPB + 1;
+
+    // poll at least 4 times/sec
+    if (pollRate < 4) pollRate = 4;
+
+    if ((hdl->poll = irigClockRateToEnum(pollRate)) == IRIG_NUM_RATES)
       return -EINVAL;
+    hdl->pollDtMsec = 1000 / pollRate;
 
     /* un-filter this label on this channel */
     status = ar_label_filter(BOARD_NUM, chn, val.label, ARU_FILTER_OFF);
@@ -397,6 +417,8 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     hdl->speed         = 0;
     hdl->parity        = 0;
     hdl->lps_cnt       = 0;
+    hdl->lps_cnt_current = 0;
+    hdl->nSweeps 	= 0;
     hdl->overflow      = 0;
     hdl->underflow     = 0;
     hdl->sim_xmit      = 0;
