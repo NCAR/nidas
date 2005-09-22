@@ -105,6 +105,15 @@ public:
 
     SampleOutput* clone(IOChannel* iochannel=0) const;
 
+    /**
+     * Get the IOStream of this SampleOutputStream.
+     * SampleOutputStream owns the pointer and
+     * will delete the IOStream in its destructor.
+     * The IOStream is available after the
+     * call to init() and before close() (or the destructor).
+     */
+    IOStream* getIOStream() { return iostream; }
+
     void setName(const std::string& val) { name = val; }
 
     const std::string& getName() const { return name; }

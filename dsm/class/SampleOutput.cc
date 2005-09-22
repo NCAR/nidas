@@ -204,7 +204,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     catch(const atdUtil::IOException& ioe) {
 	atdUtil::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s",getName().c_str(),ioe.what());
-	connectionRequester->disconnected(this);
+	if (connectionRequester) connectionRequester->disconnected(this);
+	else close();
 	return false;
     }
     return true;
