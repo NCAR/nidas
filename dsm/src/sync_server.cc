@@ -18,7 +18,7 @@
 
 #include <FileSet.h>
 #include <Socket.h>
-#include <RawSampleInputStream.h>
+#include <SampleInput.h>
 #include <DSMEngine.h>
 #include <SyncRecordGenerator.h>
 
@@ -171,7 +171,7 @@ int SyncServer::main(int argc, char** argv)
 	fset->setFileName(rstr.dataFileName);
 #endif
 
-	RawSampleInputStream input(iochan);	// RawSampleStream owns the iochan ptr.
+	SortedSampleInputStream input(iochan,2000);	// SortedSampleStream owns the iochan ptr.
 	input.init();
 
 	auto_ptr<Project> project;
@@ -225,19 +225,23 @@ int SyncServer::main(int argc, char** argv)
 	dsm_time_t nextDataSec = 0;
 	dsm_time_t timeOffset = 0;
 	dsm_time_t ttprev = 0;
-	int granularity = USECS_PER_SEC / 10;
+	int granularity = USECS_PER_SEC / 10;	// how often to wake up
 	bool first = true;
 	try {
 	    for (;;) {
-		Sample* samp = input.readSample();
+	        if (!output->getIOStream()) break;	 // check for disconn
 		if (interrupted) break;
+
+		Sample* samp = input.readSample();
 
 		dsm_time_t tt = samp->getTimeTag();
 		if (simulationMode) {
+#ifdef DEBUG
 		    cerr << "tt=" << tt/USECS_PER_SEC << '.' <<
 			setfill('0') << setw(3) << (tt % USECS_PER_SEC) / 1000 <<
 			" nextDataSec=" <<  nextDataSec/USECS_PER_SEC << '.' <<
 			setfill('0') << setw(3) << ( nextDataSec % USECS_PER_SEC) / 1000 << endl;
+#endif
 		    while (tt > nextDataSec) {
 			dsm_time_t tnow = getSystemTime();
 			long tsleep = granularity - (tnow % granularity);
@@ -248,14 +252,12 @@ int SyncServer::main(int argc, char** argv)
 
 			tnow += tsleep;
 
-			if (timeOffset == 0) {
+			// time diff between now and data timetags
+			if (timeOffset == 0) {	
 			    timeOffset = tnow - tt;
 			    timeOffset -= (timeOffset % granularity);
 			}
-			// cerr << "tnow=" << tnow <<
-			// 	" timeOffset=" << timeOffset << endl;
-			nextDataSec = tnow - timeOffset + granularity;
-			// cerr << "nextDataSec=" << nextDataSec << endl;
+			nextDataSec = tnow - timeOffset;
 		    }
 		}
 		if (first) {
