@@ -31,7 +31,7 @@ using namespace xercesc;
 
 SyncRecordSource::SyncRecordSource():
 	syncRecord(0),doHeader(false),badTimes(0),aircraft(0),
-	initialized(false)
+	initialized(false),unknownSampleType(0)
 {
 }
 
@@ -413,12 +413,12 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	allocateRecord(syncTime);
     }
 	
-    // need to screen bad times
+    // screen bad times
     if (tt < syncTime) {
-        badTimes++;
-#ifdef DEBUG
-	cerr << "SyncRecordSource badTime" << endl;
-#endif
+        if (!(badTimes++ % 100))
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		"SyncRecordSource badTime, diff=%d, sampleid=%d\n",
+		(int)(syncTime - tt),sampid);
 	return false;
     }
     if (tt >= syncTime + USECS_PER_SEC) {
@@ -464,6 +464,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     //	50	20000
     //  12.5	80000
     //  10	100000
+    //  8       125000
     //	1	1000000
     //
 
@@ -477,12 +478,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	    const float* fp = (const float*)samp->getConstVoidDataPtr();
 	    const float* ep = fp + samp->getDataLength();
 
-	    if ((unsigned)varOffset[0] == groupOffsets[groupId] && timeIndex == 0) {
-#ifdef DEBUG
-	        cerr << "groupId=" << groupId << " lag=" << tt - syncTime << endl;
-#endif
+	    if ((unsigned)varOffset[0] == groupOffsets[groupId] &&
+	    	timeIndex == 0)
 		floatPtr[groupOffsets[groupId]] = tt - syncTime;	// lag
-	    }
 
 	    for (size_t i = 0; i < numVar; i++) {
 	        size_t vlen = varLen[i];
@@ -498,6 +496,10 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	}
 	break;
     default:
+	if (!(unknownSampleType++ % 1000)) 
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    	"sample id %d is not a float type",sampid);
+
         break;
     }
     return true;

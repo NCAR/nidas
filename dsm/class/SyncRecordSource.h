@@ -157,6 +157,8 @@ protected:
 
     bool initialized;
 
+    int unknownSampleType;
+
 };
 
 }
