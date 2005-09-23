@@ -227,7 +227,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (header.eof()) goto eof;
 
 	string vlongname = getQuotedString(header);
-	// cerr << "vlongname=" << vlongname << endl;
+	// cerr << "vlongname=\"" << vlongname << "\"" << endl;
 	if (header.eof()) goto eof;
 
 	vector<float> coefs;
@@ -409,7 +409,7 @@ string SyncRecordReader::getQuotedString(istringstream& istr)
 
 
     for (;;) {
-	istr >> dquote;
+	istr.get(dquote);
 	if (istr.eof() || dquote == '\"') break;
 	val += dquote;
     }
