@@ -33,6 +33,9 @@ class SyncRecordGenerator: public SampleIOProcessor
 {
 public:
     
+    /**
+     * Constructor.
+     */
     SyncRecordGenerator();
 
     SyncRecordGenerator(const SyncRecordGenerator&);

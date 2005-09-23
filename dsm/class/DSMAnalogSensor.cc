@@ -253,7 +253,7 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	 * because the A2D calibration is done in a similar
 	 * way to normal sensor calibration, where Y are the
 	 * set points from an input standard, and X is the measured
-	 * value.
+	 * voltage value.
 	 *
 	 *    Vcorr = Vuncorr * corSlope + corIntercept
 	 *	    = (cnts * 20 / 65536 / gain + offset) * corSlope +
