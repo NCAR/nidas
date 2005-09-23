@@ -236,10 +236,13 @@ int SyncDumper::main(int argc, char** argv)
     int irate = (int)ceil(var->getSampleRate());
     int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
 
+
     dsm_time_t tt;
     float* rec = new float[numFloats];
     struct tm tm;
     char cstr[64];
+    cout << var->getName() << " (" << var->getUnits() << ") \"" <<
+    	var->getLongName() << "\"" << endl;
 
     try {
 	for (;;) {
