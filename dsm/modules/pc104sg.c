@@ -1393,8 +1393,11 @@ static void portCallback(void* privateData)
 	 */
 	if (abs(td) > 3) {
 	    clockState = RESET_COUNTERS;
+#ifdef DEBUG
+	    if (dev->inFifoFd >= 0)
 	    DSMLOG_DEBUG("tv=%d.%06d, tt=%d, td=%d, status=0x%x\n",
 		tv.tv_sec,tv.tv_usec,tt,td,extendedStatus);
+#endif
 	}
     }
 
