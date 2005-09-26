@@ -256,14 +256,14 @@
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
-        baud="57600" parity="none" databits="8" stopbits="1"
-	init_string="*0100P4\r\n">
+        baud="57600" parity="none" databits="8" stopbits="1">
 	<!-- initialization commands for the Paro:
 	  Still can't get it to run in prompted mode at anything higher
 	  than 25 hz.
 
 	  BR to set the baud rate,
-	  MD=0	turn off Model 715 extra output
+	  MD=0	turn off Model 715 output
+	  MD=2	turn off Model 715 output, unprompted
 	  UN=2	millibars
 	  PI=10	pressure integration time in millisec
 	  PR=1	pressure integration time in oscillator periods
@@ -271,17 +271,16 @@
 	  prompted mode:  need prompt tag, remove rate in sample tag
 	  	remove init_string
 	  *9900BR=57600
-	  *0100EW*0100MD=0
+	  *0100EW*0100MD=0	turn off Model 715 output
 	  *0100EW*0100UN=2
 	  *0100EW*0100PI=10
 
 	  unprompted mode, remove prompt tag, set rate in sample tag
-	  		add *0100P4\r\n init string
+	  	If we set MD=2, don't need P4 init string
 	  *9900BR=57600
-	  *0100EW*0100MD=0
+	  *0100EW*0100MD=2	turn off  Model 715 output, unprompted
 	  *0100EW*0100UN=2
 	  *0100EW*0100PI=10	rate=50
-	  *0100P4
 	-->
 
         <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
