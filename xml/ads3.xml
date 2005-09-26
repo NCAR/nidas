@@ -224,17 +224,20 @@
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
-        baud="57600" parity="none" databits="8" stopbits="1"
-	init_string="*0100P4\r\n">
+        baud="57600" parity="none" databits="8" stopbits="1">
 	<!-- initialization commands for the Paro:
 	  Still can't get it to run in prompted mode at anything higher
 	  than 20 hz.
 
 	  BR to set the baud rate,
-	  MD=0	turn off Model 715 extra output
+	  MD=0	turn off Model 715 output
+	  MD=2	turn off Model 715 output, unprompted
 	  UN=2	millibars
 	  PI=10	pressure integration time in millisec
 	  PR=1	pressure integration time in oscillator periods
+	  To set the init_string, add this sensor attribute:
+	    (not needed if MD=2):
+	    init_string="*0100P4\r\n"
 
 	  prompted mode:  need prompt tag, remove rate in sample tag
 	  *9900BR=57600
@@ -244,10 +247,9 @@
 
 	  unprompted mode, remove prompt tag, set rate in sample tag
 	  *9900BR=57600
-	  *0100EW*0100MD=0
+	  *0100EW*0100MD=2	
 	  *0100EW*0100UN=2
 	  *0100EW*0100PI=10	rate=50
-	  *0100P4
 	-->
 
         <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
@@ -373,11 +375,11 @@
 
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
-                <variable name="A2D0" units="V">
+                <variable name="A2D0" units="V" longname="a long      long name">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
-                <variable name="A2D1" units="V">
+                <variable name="A2D1" units="V" longname="a long      long name">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
                 </variable>
