@@ -250,6 +250,12 @@
 
     <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
         baud="57600" parity="none" databits="8" stopbits="1">
+	<!-- Turn off internal filtering on the Mensor:
+		#1FL ?	query the value (factory default is 90%)
+		#1FL 0	set to 0
+		#1FL ?
+		#1SAVE 	save to EEPROM
+	-->
         <sample id="1" scanfFormat="%*1d%f"/>
         <message separator="\n" position="end" length="0"/>
         <prompt string="#1?\r" rate="50"/>
