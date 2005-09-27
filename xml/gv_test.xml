@@ -554,7 +554,7 @@
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.918388" type="float"/>
                     <parameter name="corIntercept" value="-0.286011" type="float"/>
-		    <-- lab cal of Sept 21, 2005 confirmed that these coefs
+		    <!-- lab cal of Sept 21, 2005 confirmed that these coefs
 		        give a temp within 0.18 degC for -50 to 40 degC
 		    -->
 		    <linear slope="10.0" intercept="-50.0" units="degC"/>
