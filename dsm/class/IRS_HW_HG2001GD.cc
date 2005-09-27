@@ -63,13 +63,13 @@ float IRS_HW_HG2001GD::processLabel(const long data)
   case 0014:  // BCD - mag heading          (deg)
   case 0044:  // BCD - true heading         (deg)
     if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
-    if ((data & SSM) == SSM) sign = -1;
+    if ((data & SSM) == SSM) {sign = -1; carry = 360.0;}
     return (
             ((data & (0x3<<26)) >> 26) * 100.0 +
             ((data & (0xf<<22)) >> 22) * 10.0 +
             ((data & (0xf<<18)) >> 18) * 1.0 +
             ((data & (0xf<<14)) >> 14) * 0.1
-            ) * sign;
+            ) * sign + carry;
 
   case 0015:  // BCD - wind speed           (knot)
     if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
@@ -81,12 +81,12 @@ float IRS_HW_HG2001GD::processLabel(const long data)
 
   case 0016:  // BCD - wind dir true        (deg)
     if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
-    if ((data & SSM) == SSM) sign = -1;
+    if ((data & SSM) == SSM) {sign = -1; carry = 360.0;}
     return (
             ((data & (0x3<<26)) >> 26) * 100.0 +
             ((data & (0xf<<22)) >> 22) * 10.0 +
             ((data & (0xf<<18)) >> 18) * 1.0
-            ) * sign;
+            ) * sign + carry;
 
   case 0126:  // BNR - Time in Nav          (min)
     if ((data & SSM) != SSM) break;
@@ -117,7 +117,6 @@ float IRS_HW_HG2001GD::processLabel(const long data)
     carry = _irs_ptch_corr; goto corr;
   case 0325:  // BNR - roll_angle           (deg)
     carry = _irs_roll_corr; goto corr;
-
   case 0314:  // BNR - true_heading         (deg)
     carry = _irs_thdg_corr;
   case 0313:  // BNR - track_angle_true     (deg)
@@ -125,10 +124,7 @@ float IRS_HW_HG2001GD::processLabel(const long data)
   case 0317:  // BNR - trk angle mag        (deg)
   case 0320:  // BNR - mag heading          (deg)
   case 0334:  // BNR - platform_hdg         (deg)
-    if (data & 0x10000000)
-      carry += 360.0;
-    goto corr;
-
+    if (data & 0x10000000) carry += 360.0; goto corr;
   case 0321:  // BNR - drift_angle          (deg)
   case 0322:  // BNR - flt pth angle        (deg)
   corr:
@@ -165,7 +161,8 @@ float IRS_HW_HG2001GD::processLabel(const long data)
 
   case 0335:  // BNR - track_ang_rate       (deg/s)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>13) * 1.220703125e-4;
+    if (data & 0x10000000) carry += 360.0;
+    return (data<<3>>13) * 1.220703125e-4 + carry;
 
   case 0351:  // BCD - time_to_nav_ready    (min)
     if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
