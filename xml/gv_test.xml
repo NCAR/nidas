@@ -390,28 +390,28 @@
 	-->
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
-                devicename="/dev/dsmser0" id="110" nullterm="0">
+                devicename="/dev/dsmser0" id="110">
 	    <sample id="1">
                 <variable name="PSF" units="mb"/>
 	    </sample>
         </serialSensor>
 
         <serialSensor IDREF="DewPointer"
-                devicename="/dev/dsmser1" id="130" nullterm="0">
+                devicename="/dev/dsmser1" id="130">
 	    <sample id="1">
                 <variable name="DPLS" units="C"/>
 	    </sample>
         </serialSensor>
 
         <serialSensor IDREF="DewPointer"
-                devicename="/dev/dsmser2" id="140" nullterm="0">
+                devicename="/dev/dsmser2" id="140">
 	    <sample id="1">
                 <variable name="DPRS" units="C"/>
 	    </sample>
         </serialSensor>
 
         <serialSensor IDREF="Garmin_GPS"
-                devicename="/dev/dsmser5" id="120" nullterm="0">
+                devicename="/dev/dsmser5" id="120">
         </serialSensor>
 
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
@@ -498,28 +498,28 @@
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <serialSensor IDREF="Mensor_6100"
-                devicename="/dev/dsmser0" id="110" nullterm="0">
+                devicename="/dev/dsmser0" id="110">
             <sample id="1">
                 <variable name="QCF" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
-                devicename="/dev/dsmser1" id="112" nullterm="0">
+                devicename="/dev/dsmser1" id="112">
             <sample id="1">
                 <variable name="QCR" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
-                devicename="/dev/dsmser2" id="114" nullterm="0">
+                devicename="/dev/dsmser2" id="114">
             <sample id="1">
                 <variable name="ADIFR" units="mb"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
-                devicename="/dev/dsmser3" id="116" nullterm="0">
+                devicename="/dev/dsmser3" id="116">
             <sample id="1">
                 <variable name="BDIFR" units="mb"/>
             </sample>
