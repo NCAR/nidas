@@ -345,12 +345,21 @@ public:
     dsm_sample_id_t getId() const { return GET_FULL_ID(tid); }
     void setId(dsm_sample_id_t val) { tid = SET_FULL_ID(tid,val); }
 
+    /**
+     * Get the DSM identifier for the sample.
+     */
     unsigned short getDSMId() const { return GET_DSM_ID(tid); }
     void setDSMId(unsigned short val) { tid = SET_DSM_ID(tid,val); }
 
+    /**
+     * Get the short sample identifier for the sample.
+     */
     unsigned short getShortId() const { return GET_SHORT_ID(tid); }
     void setShortId(unsigned short val) { tid = SET_SHORT_ID(tid,val); }
 
+    /**
+     * Get the data type of this sample.
+     */
     unsigned char getType() const { return GET_SAMPLE_TYPE(tid); }
     void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
 
@@ -363,15 +372,26 @@ public:
 
 protected:
 
-    /* Time-tag. By convention, microseconds since Jan 1, 1970 00:00 GMT */
+    /**
+     * Time-tag in microseconds since Jan 1, 1970 00:00 GMT.
+     */
     dsm_time_t tt; 
 
-    /* Length of data (# of bytes) in the sample - does not include
-     * header fields */
+    /**
+     * Length of data (# of bytes) in the sample - does not include
+     * header fields
+     */
     dsm_sample_length_t length;
 
-    /* An identifier for this sample, packed fields:
-     * most significant 6 bits: type, other 26: id
+    /**
+     * An identifier for this sample consisting of packed bit fields.
+     * The most significant 6 bits are a data type enumeration
+     * (float, double etc), which is accessed with set/getType().
+     *
+     * The other 26 bits are the sample identifier, which is further
+     * broken into 10 bits of a DSM identifier, acccessed with get/setDSMId(),
+     * and 16 bits of a sensor/sample identifier, accessed with
+     * get/setShortId().
      */
     dsm_sample_id_t tid;
 };

@@ -46,6 +46,8 @@ public:
     /**
      * Constructor from a connected atdUtil::Socket.
      * @param sock Pointer to the connected atdUtil::Socket.
+     * Socket will own the pointer and will delete it
+     * it its destructor.
      */
     Socket(atdUtil::Socket* sock);
 
