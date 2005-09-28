@@ -324,11 +324,21 @@ int FileDump::main(int argc, char** argv)
     list<DSMSensor*> allsensors;
 
     if (rstr.xmlFileName.length() > 0) {
-	auto_ptr<xercesc::DOMDocument> doc(
+	try {
+	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(rstr.xmlFileName));
 
-        project = auto_ptr<Project>(Project::getInstance());
-	project->fromDOMElement(doc->getDocumentElement());
+	    project = auto_ptr<Project>(Project::getInstance());
+	    project->fromDOMElement(doc->getDocumentElement());
+	}
+	catch (dsm::XMLException& e) {
+	    cerr << e.what() << endl;
+	    return 1;
+	}
+	catch (atdUtil::InvalidParameterException& e) {
+	    cerr << e.what() << endl;
+	    return 1;
+	}
 
 	const list<Site*>& sitelist = project->getSites();
 	list<Site*>::const_iterator ai;

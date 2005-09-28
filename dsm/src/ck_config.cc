@@ -107,11 +107,8 @@ int main(int argc, char** argv)
 	    handler->addDSMSensor(*si);
 	}
     }
-    catch (const DOMException& e) {
-        cerr << XMLStringConverter(e.getMessage()) << endl;
-    }
-    catch (const XMLException& e) {
-        cerr << XMLStringConverter(e.getMessage()) << endl;
+    catch (const dsm::XMLException& e) {
+        cerr << e.what() << endl;
     }
     catch (const atdUtil::InvalidParameterException& e) {
         cerr << e.what() << endl;

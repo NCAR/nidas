@@ -297,6 +297,10 @@ int SyncServer::main(int argc, char** argv)
         cerr << ioe.what() << endl;
 	return 1;
     }
+    catch (dsm::XMLException& e) {
+        cerr << e.what() << endl;
+	return 1;
+    }
     catch (atdUtil::Exception& e) {
         cerr << e.what() << endl;
 	return 1;

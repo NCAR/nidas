@@ -11,7 +11,7 @@ myenv = env.Copy()
 ##
 ## Look for PostgreSQL library.
 ## It looks like this check needs to be at the top of this file,
-## (just after the env.Copy(), otherwise it hangs forever.
+## just after the env.Copy(), otherwise it hangs forever.
 ##
 conf = Configure(myenv)
 conf.CheckLibWithHeader('pq','libpq-fe.h','c','PQconnectdb("");')
