@@ -95,21 +95,8 @@ int DSMServer::main(int argc, char** argv) throw()
 	try {
 	    project = parseXMLConfigFile();
 	}
-	catch (const SAXException& e) {
-	    logger->log(LOG_ERR,
-		    XMLStringConverter(e.getMessage()));
-	    result = 1;
-	    break;
-	}
-	catch (const DOMException& e) {
-	    logger->log(LOG_ERR,
-		    XMLStringConverter(e.getMessage()));
-	    result = 1;
-	    break;
-	}
-	catch (const XMLException& e) {
-	    logger->log(LOG_ERR,
-		    XMLStringConverter(e.getMessage()));
+	catch (const dsm::XMLException& e) {
+	    logger->log(LOG_ERR,e.what());
 	    result = 1;
 	    break;
 	}
@@ -235,12 +222,10 @@ void DSMServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
 /* static */
 Project* DSMServer::parseXMLConfigFile()
-        throw(atdUtil::Exception,
-        DOMException,SAXException,XMLException,
-	atdUtil::InvalidParameterException)
+        throw(dsm::XMLException,atdUtil::InvalidParameterException)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
-    // throws Exception, DOMException
+    // throws dsm::XMLException
                                                                                 
     // If parsing a local file, turn on validation
     parser->setDOMValidation(true);
@@ -253,6 +238,7 @@ Project* DSMServer::parseXMLConfigFile()
                                                                                 
     // This document belongs to the caching parser
     DOMDocument* doc = parser->parse(getXMLFileName());
+    // throws dsm::XMLException;
                                                                                 
     Project* project = Project::getInstance();
                                                                                 

@@ -38,14 +38,27 @@ public:
     {}
 
     XMLStringConverter(const char* val) :
-    	str((char*)val),
+    	str(new char[strlen(val) + 1]),
 	xstr(xercesc::XMLString::transcode(val)),
 	releaseChar(false)
-    {}
+    {
+        strcpy(str,val);
+    }
+
+    XMLStringConverter(const std::string& val) :
+    	str(new char[strlen(val.c_str()) + 1]),
+	xstr(xercesc::XMLString::transcode(val.c_str())),
+	releaseChar(false)
+    {
+        strcpy(str,val.c_str());
+    }
 
     ~XMLStringConverter() { 
   	if (releaseChar) xercesc::XMLString::release(&str);
-  	else xercesc::XMLString::release(&xstr);
+	else {
+	    delete [] str;
+	    xercesc::XMLString::release(&xstr);
+	}
     }
 
     /**

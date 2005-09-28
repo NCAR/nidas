@@ -22,12 +22,12 @@
 #include <StatusThread.h>
 #include <XMLConfigInput.h>
 #include <DSMEngineIntf.h>
+#include <XMLException.h>
 
 #include <atdUtil/Socket.h>
 #include <atdUtil/Logger.h>
 
 #include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/sax/SAXException.hpp>
 
 namespace dsm {
 
@@ -102,16 +102,14 @@ public:
      * a given multicast socket address.
      */
     xercesc::DOMDocument* requestXMLConfig(const atdUtil::Inet4SocketAddress&)
-	throw(atdUtil::Exception,xercesc::DOMException,
-		xercesc::SAXException,xercesc::XMLException);
+	throw(atdUtil::Exception);
 
     /**
      * This function is used as a utility and does not need an instance
      * of DSMEngine.
      */
     static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
-	throw(atdUtil::Exception,xercesc::DOMException,
-		xercesc::SAXException,xercesc::XMLException);
+	throw(dsm::XMLException);
 
 protected:
 

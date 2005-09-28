@@ -21,8 +21,7 @@
 #include <DSMServerIntf.h>
 #include <Project.h>
 #include <DOMable.h>
-
-#include <xercesc/sax/SAXException.hpp>
+#include <XMLException.h>
 
 #include <list>
 
@@ -64,9 +63,7 @@ protected:
      * from main(), that is when a server is actually run.
      */
     static Project* parseXMLConfigFile()
-        throw(atdUtil::Exception,xercesc::DOMException,
-	xercesc::SAXException,xercesc::XMLException,
-	atdUtil::InvalidParameterException);
+        throw(dsm::XMLException,atdUtil::InvalidParameterException);
 
 public:
 

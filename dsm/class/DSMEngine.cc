@@ -250,26 +250,15 @@ void DSMEngine::run() throw()
 	else
           projectDoc = parseXMLConfigFile(_configFile);
       }
+      catch (const dsm::XMLException& e) {
+	_logger->log(LOG_ERR,e.what());
+	continue;
+      }
       catch (const atdUtil::Exception& e) {
 	// DSMEngine::interrupt() does an _xmlRequestSocket->close(),
 	// which will throw an IOException in requestXMLConfig 
 	// if we were still waiting for the XML config.
 	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-      catch (const SAXException& e) {
-	_logger->log(LOG_ERR,
-                    XMLStringConverter(e.getMessage()));
-	continue;
-      }
-      catch (const DOMException& e) {
-	_logger->log(LOG_ERR,
-                    XMLStringConverter(e.getMessage()));
-	continue;
-      }
-      catch (const XMLException& e) {
-	_logger->log(LOG_ERR,
-                    XMLStringConverter(e.getMessage()));
 	continue;
       }
       if (_interrupt) continue;
@@ -395,14 +384,13 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
 DOMDocument* DSMEngine::requestXMLConfig(
 	const atdUtil::Inet4SocketAddress &mcastAddr)
-	throw(atdUtil::Exception,
-	    DOMException,SAXException,XMLException)
+	throw(atdUtil::Exception)
 {
     if (!mcastAddr.getInet4Address().isMultiCastAddress())
 	throw atdUtil::Exception(mcastAddr.toString() + " is not a multicast address");
 
     auto_ptr<XMLParser> parser(new XMLParser());
-    // throws Exception, DOMException
+    // throws dsm::XMLException
 
     // If parsing xml received from a server over a socket,
     // turn off validation - assume the server has validated the XML.
@@ -432,13 +420,9 @@ DOMDocument* DSMEngine::requestXMLConfig(
     cerr << "parsing socket input" << endl;
     DOMDocument* doc = 0;
     try {
-	// throws SAXException, XMLException, DOMException
-	// according to xerces API doc
-	// (xercesc source code doesn't have throw lists)
 	doc = parser->parse(sockSource);
     }
     catch(...) {
-        cerr << "XML Config Service did not find this DSM" << endl;
 	configSock->close();
 	throw;
     }
@@ -450,11 +434,10 @@ DOMDocument* DSMEngine::requestXMLConfig(
 
 /* static */
 DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
-	throw(atdUtil::Exception,
-	DOMException,SAXException,XMLException)
+	throw(dsm::XMLException)
 {
     auto_ptr<XMLParser> parser(new XMLParser());
-    // throws Exception, DOMException
+    // throws XMLException
 
     // If parsing a local file, turn on validation
     parser->setDOMValidation(true);
@@ -466,7 +449,6 @@ DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesUserAdoptsDOMDocument(true);
 
     DOMDocument* doc = parser->parse(xmlFileName);
-
     return doc;
 }
 

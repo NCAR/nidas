@@ -22,6 +22,7 @@
 #include <xercesc/dom/DOMLocator.hpp>
 
 #include <iostream>
+#include <sstream>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,7 +37,7 @@ atdUtil::Mutex XMLImplementation::lock;
 
 /* static */
 DOMImplementation*
-XMLImplementation::getImplementation() throw(atdUtil::Exception)
+XMLImplementation::getImplementation() throw(dsm::XMLException)
 {
     if (!impl) {
 	atdUtil::Synchronized autosync(lock);
@@ -50,8 +51,8 @@ XMLImplementation::getImplementation() throw(atdUtil::Exception)
 	    // no exceptions thrown, but may return null if no implementation
 	    static const XMLCh gLS[] = { chLatin_L, chLatin_S, chNull };
 	    impl = DOMImplementationRegistry::getDOMImplementation(gLS);
-	    if (!impl) throw atdUtil::Exception(
-	    	" DOMImplementationRegistry::getDOMImplementation(gLS) failed");
+	    if (!impl) throw dsm::XMLException(
+	    	string("DOMImplementationRegistry::getDOMImplementation(gLS) failed"));
 	}
     }
     return impl;
@@ -70,8 +71,7 @@ void XMLImplementation::terminate()
 }
     
 
-XMLParser::XMLParser() throw (DOMException,
-	atdUtil::Exception)
+XMLParser::XMLParser() throw (dsm::XMLException)
 {
 
     impl = XMLImplementation::getImplementation();
@@ -84,9 +84,14 @@ XMLParser::XMLParser() throw (DOMException,
     //    parsed doc.
     // See: http://xml.apache.org/xerces-c/apiDocs/classDOMImplementationLS.html
     //
-    // throws DOMException
-    parser = ((DOMImplementationLS*)impl)->createDOMBuilder(
-		DOMImplementationLS::MODE_SYNCHRONOUS, 0);
+    try {
+	// throws DOMException
+	parser = ((DOMImplementationLS*)impl)->createDOMBuilder(
+		    DOMImplementationLS::MODE_SYNCHRONOUS, 0);
+    }
+    catch (const DOMException& e) {
+        throw dsm::XMLException(e);
+    }
 
     // Create our error handler and install it
     parser->setErrorHandler(&errorHandler);
@@ -135,7 +140,7 @@ XMLParser::~XMLParser()
 
 
 DOMDocument* XMLParser::parse(const string& xmlFile) 
-    throw (SAXException, XMLException, DOMException)
+    throw (dsm::XMLException)
 {
 
     //reset error count first
@@ -148,31 +153,47 @@ DOMDocument* XMLParser::parse(const string& xmlFile)
 	the document object is not yet parsed when this method returns. 
      */
     // throws XMLException, DOMException, SAXException
-    DOMDocument* doc = parser->parseURI(
-    	(const XMLCh*)XMLStringConverter(xmlFile.c_str()));
+    DOMDocument* doc = 0;
+    try {
+	doc = parser->parseURI(
+	    (const XMLCh*)XMLStringConverter(xmlFile.c_str()));
+	const XMLException* xe = errorHandler.getXMLException();
+	if (xe) throw *xe;
+    }
+    catch (const xercesc::XMLException& e) { throw dsm::XMLException(e); }
+    catch (const xercesc::SAXException& e) { throw dsm::XMLException(e); }
+    catch (const xercesc::DOMException& e) { throw dsm::XMLException(e); }
     return doc;
 }
 
 DOMDocument* XMLParser::parse(xercesc::InputSource& source) 
-    throw (SAXException, XMLException, DOMException)
+    throw (dsm::XMLException)
 {
 
     //reset error count first
     errorHandler.resetErrors();
 
-    // throws XMLException, DOMException, SAXException
-    xercesc::Wrapper4InputSource wrapper(&source,false);
-    DOMDocument* doc = parser->parse(wrapper);
-    // throws SAXException, XMLException, DOMException
+    DOMDocument* doc = 0;
+    try {
+	xercesc::Wrapper4InputSource wrapper(&source,false);
+        doc = parser->parse(wrapper);
+	// throws SAXException, XMLException, DOMException
+	const XMLException* xe = errorHandler.getXMLException();
+	if (xe) throw *xe;
+    }
+    catch (const xercesc::XMLException& e) { throw dsm::XMLException(e); }
+    catch (const xercesc::SAXException& e) { throw dsm::XMLException(e); }
+    catch (const xercesc::DOMException& e) { throw dsm::XMLException(e); }
     return doc;
 }
 
-XMLErrorHandler::XMLErrorHandler()
+XMLErrorHandler::XMLErrorHandler(): xmlException(0)
 {
 }
 
 XMLErrorHandler::~XMLErrorHandler()
 {
+    delete xmlException;
 }
 
 
@@ -181,19 +202,25 @@ XMLErrorHandler::~XMLErrorHandler()
 // ---------------------------------------------------------------------------
 bool XMLErrorHandler::handleError(const DOMError& domError)
 {
-    if (domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING)
-        std::cerr << "\nWarning at file ";
-    else if (domError.getSeverity() == DOMError::DOM_SEVERITY_ERROR)
-        std::cerr << "\nError at file ";
-    else
-        std::cerr << "\nFatal Error at file ";
 
-    std::cerr << std::string(XMLStringConverter(
-    	domError.getLocation()->getURI()))
-         << ", line " << domError.getLocation()->getLineNumber()
-         << ", char " << domError.getLocation()->getColumnNumber()
-         << "\n  Message: " <<
-	std::string(XMLStringConverter(domError.getMessage())) << std::endl;
+    string uri(XMLStringConverter(domError.getLocation()->getURI()));
+    string msg(XMLStringConverter(domError.getMessage()));
+
+    ostringstream ost;
+    if (uri.length() > 0)
+	ost << uri << ", line " << domError.getLocation()->getLineNumber() <<
+         ", char " << domError.getLocation()->getColumnNumber() <<
+         ": " << msg;
+    else
+	ost << msg;
+
+    // cerr << ost.str() << endl;
+    if (domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING)
+	warningMessages.push_back(ost.str());
+    else if (domError.getSeverity() == DOMError::DOM_SEVERITY_ERROR)
+        xmlException = new XMLException(ost.str());
+    else 
+        xmlException = new XMLException(ost.str());
 
     // true=proceed, false=give up
     return domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING;
@@ -201,6 +228,9 @@ bool XMLErrorHandler::handleError(const DOMError& domError)
 
 void XMLErrorHandler::resetErrors()
 {
+    warningMessages.clear();
+    delete xmlException;
+    xmlException = 0;
 }
 
 /* static */
@@ -211,7 +241,7 @@ atdUtil::Mutex XMLCachingParser::instanceLock;
 
 /* static */
 XMLCachingParser* XMLCachingParser::getInstance()
-    throw(DOMException,atdUtil::Exception)
+    throw(dsm::XMLException)
 {
     if (!instance) {
         atdUtil::Synchronized autosync(instanceLock);
@@ -230,7 +260,7 @@ void XMLCachingParser::destroyInstance()
     }
 }
 
-XMLCachingParser::XMLCachingParser() throw(DOMException,atdUtil::Exception):
+XMLCachingParser::XMLCachingParser() throw(dsm::XMLException):
 	XMLParser()
 {
 }
@@ -238,7 +268,7 @@ XMLCachingParser::XMLCachingParser() throw(DOMException,atdUtil::Exception):
 XMLCachingParser::~XMLCachingParser()
 {
     atdUtil::Synchronized autosync(cacheLock);
-    std::map<std::string,DOMDocument*>::const_iterator di;
+    map<string,DOMDocument*>::const_iterator di;
     for (di = docCache.begin(); di != docCache.end(); ++di) {
 	DOMDocument* doc = di->second;
 	cerr << "releasing doc" << endl;
@@ -247,7 +277,7 @@ XMLCachingParser::~XMLCachingParser()
 }
 
 DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
-    throw (SAXException, XMLException, DOMException)
+    throw (dsm::XMLException)
 {
     // synchronize access to the cache
     atdUtil::Synchronized autosync(cacheLock);
@@ -271,7 +301,7 @@ DOMDocument* XMLCachingParser::parse(const string& xmlFile)
 }
 
 /* static */
-time_t XMLCachingParser::getFileModTime(const std::string&  name) throw(atdUtil::IOException)
+time_t XMLCachingParser::getFileModTime(const string&  name) throw(atdUtil::IOException)
 {
     struct stat filestat;
     if (stat(name.c_str(),&filestat) < 0)

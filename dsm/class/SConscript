@@ -123,6 +123,7 @@ sources = [ Split("""
   XMLParser.cc
   XMLConfigWriter.cc
   XMLFdFormatTarget.cc
+  XMLException.cc
 
   DSMService.cc
   XMLConfigService.cc

@@ -27,7 +27,7 @@ using namespace std;
 using namespace xercesc;
 
 #ifdef NEEDED
-XMLConfigWriter::XMLConfigWriter() throw (atdUtil::Exception): filter(0)
+XMLConfigWriter::XMLConfigWriter() throw (dsm::XMLException): filter(0)
 {
     impl = XMLImplementation::getImplementation();
     writer = ((DOMImplementationLS*)impl)->createDOMWriter();
@@ -35,7 +35,7 @@ XMLConfigWriter::XMLConfigWriter() throw (atdUtil::Exception): filter(0)
 #endif
 
 XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm)
-	throw (atdUtil::Exception)
+	throw (dsm::XMLException)
 {
 
     impl = XMLImplementation::getImplementation();

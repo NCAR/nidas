@@ -16,6 +16,8 @@
 #ifndef DSM_XMLPARSER_H
 #define DSM_XMLPARSER_H
 
+#include <XMLException.h>
+
 #include <atdUtil/ThreadSupport.h>
 #include <atdUtil/IOException.h>
 
@@ -23,18 +25,18 @@
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/InputSource.hpp>
-#include <xercesc/sax/SAXException.hpp>
 #include <xercesc/dom/DOMBuilder.hpp>
 
 #include <string>
 #include <map>
+#include <list>
 
 namespace dsm {
 
 class XMLImplementation {
 public:
     static xercesc::DOMImplementation *getImplementation()
-    	throw(atdUtil::Exception);
+    	throw(dsm::XMLException);
     static void terminate();
 
 private:
@@ -44,7 +46,7 @@ private:
     
 class XMLErrorHandler : public xercesc::DOMErrorHandler
 {
-    public:
+public:
     // -----------------------
     //  Constructors and Destructor
     // ----------------------
@@ -55,15 +57,35 @@ class XMLErrorHandler : public xercesc::DOMErrorHandler
     //  Implementation of the DOM ErrorHandler interface
     // -------------------------
     bool handleError(const xercesc::DOMError& domError);
+
     void resetErrors();
 
+    int getWarningCount() const { return warningMessages.size(); }
 
-    private :
+    const std::list<std::string>& getWarningMessages() const
+    	{ return warningMessages; }
+
+    const XMLException* getXMLException() const { return xmlException; }
+
+private :
+
     // -----------------------------
     //  Unimplemented constructors and operators
     // ----------------------------
     XMLErrorHandler(const XMLErrorHandler&);
+
     void operator=(const XMLErrorHandler&);
+
+    /**
+     * Accumulated warning messages.
+     */
+    std::list<std::string> warningMessages;
+
+    /**
+     * Accumulated error messages.
+     */
+    XMLException* xmlException;
+
 };
 /**
  * Wrapper class around xerces-c DOMBuilder to parse XML.
@@ -71,7 +93,7 @@ class XMLErrorHandler : public xercesc::DOMErrorHandler
 class XMLParser {
 public:
 
-    XMLParser() throw(xercesc::DOMException,atdUtil::Exception);
+    XMLParser() throw(dsm::XMLException);
 
     /**
      * Nuke the parser. This does a release() (delete) of the
@@ -165,12 +187,10 @@ public:
     void setXercesUserAdoptsDOMDocument(bool val);
 
     xercesc::DOMDocument* parse(const std::string& xmlFile)
-    	throw(xercesc::SAXException,xercesc::XMLException,
-		xercesc::DOMException);
+    	throw(dsm::XMLException);
 
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
-    	throw(xercesc::SAXException,xercesc::XMLException,
-		xercesc::DOMException);
+    	throw(dsm::XMLException);
 
 
 protected:
@@ -190,7 +210,7 @@ class XMLCachingParser : public XMLParser {
 public:
 
     static XMLCachingParser* getInstance()
-    	throw(xercesc::DOMException,atdUtil::Exception);
+    	throw(dsm::XMLException);
 
     static void destroyInstance();
 
@@ -201,15 +221,13 @@ public:
      * parsed.
      */
     xercesc::DOMDocument* parse(const std::string& xmlFile)
-    	throw(xercesc::SAXException, xercesc::XMLException,
-		xercesc::DOMException);
+    	throw(dsm::XMLException);
 
     /**
      * Parse from an InputSource. This is not cached.
      */
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
-    	throw(xercesc::SAXException,xercesc::XMLException,
-		xercesc::DOMException)
+    	throw(dsm::XMLException)
     {
         return XMLParser::parse(source);
     }
@@ -217,7 +235,7 @@ public:
     static time_t getFileModTime(const std::string&  name) throw(atdUtil::IOException);
 
 protected:
-    XMLCachingParser() throw(xercesc::DOMException,atdUtil::Exception);
+    XMLCachingParser() throw(dsm::XMLException);
     ~XMLCachingParser();
 
 protected:

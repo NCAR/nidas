@@ -19,6 +19,7 @@
 #include <DSMConfig.h>
 
 #include <XMLParser.h>
+#include <XMLException.h>
 
 #include <atdUtil/IOException.h>
 
@@ -55,9 +56,9 @@ protected:
 class XMLConfigWriter {
 public:
 
-    // XMLConfigWriter() throw(atdUtil::Exception);
+    // XMLConfigWriter() throw(dsm::XMLException);
 
-    XMLConfigWriter(const DSMConfig* dsm) throw(atdUtil::Exception);
+    XMLConfigWriter(const DSMConfig* dsm) throw(dsm::XMLException);
 
     ~XMLConfigWriter();
 
