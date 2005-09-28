@@ -271,8 +271,7 @@ XMLCachingParser::~XMLCachingParser()
     map<string,DOMDocument*>::const_iterator di;
     for (di = docCache.begin(); di != docCache.end(); ++di) {
 	DOMDocument* doc = di->second;
-	cerr << "releasing doc" << endl;
-	doc->release();
+	if (doc) doc->release();
     }
 }
 
