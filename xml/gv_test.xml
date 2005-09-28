@@ -248,6 +248,12 @@
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
+    <serialSensor ID="DewPointer" class="DSMSerialSensor"
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="%*d,%f" rate="1"/>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
     <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
         baud="57600" parity="none" databits="8" stopbits="1">
 	<!-- Turn off internal filtering on the Mensor:
@@ -390,6 +396,20 @@
 	    </sample>
         </serialSensor>
 
+        <serialSensor IDREF="DewPointer"
+                devicename="/dev/dsmser1" id="130" nullterm="0">
+	    <sample id="1">
+                <variable name="DPLS" units="C"/>
+	    </sample>
+        </serialSensor>
+
+        <serialSensor IDREF="DewPointer"
+                devicename="/dev/dsmser2" id="140" nullterm="0">
+	    <sample id="1">
+                <variable name="DPRS" units="C"/>
+	    </sample>
+        </serialSensor>
+
         <serialSensor IDREF="Garmin_GPS"
                 devicename="/dev/dsmser5" id="120" nullterm="0">
         </serialSensor>
@@ -509,7 +529,7 @@
 	    <!-- corSlope/Intercepts from a cal done on 9/6/2005, for gain=2,bipolar=0 -->
             <sample id="1" rate="500">
                 <variable name="TTLH2" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.937533" type="float"/>
                     <parameter name="corIntercept" value="-0.3803725" type="float"/>
@@ -517,7 +537,7 @@
 		    <poly coefs="-69.3696 24.3936 -0.499973" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.911300" type="float"/>
                     <parameter name="corIntercept" value="-0.1155527" type="float"/>
@@ -525,7 +545,7 @@
 		    <poly coefs="-70.6254 24.5259 -0.516697" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.919487" type="float"/>
                     <parameter name="corIntercept" value="-0.1942475" type="float"/>
