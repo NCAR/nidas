@@ -224,7 +224,6 @@ int SyncServer::main(int argc, char** argv)
 	struct timespec nsleep;
 	dsm_time_t nextDataSec = 0;
 	dsm_time_t timeOffset = 0;
-	dsm_time_t ttprev = 0;
 	int granularity = USECS_PER_SEC / 10;	// how often to wake up
 	bool first = true;
 	try {
@@ -235,6 +234,7 @@ int SyncServer::main(int argc, char** argv)
 		Sample* samp = input.readSample();
 
 		dsm_time_t tt = samp->getTimeTag();
+		// dsm_sample_id_t sampid = samp->getId();
 		if (simulationMode) {
 #ifdef DEBUG
 		    cerr << "tt=" << tt/USECS_PER_SEC << '.' <<
@@ -264,10 +264,6 @@ int SyncServer::main(int argc, char** argv)
 		    syncGen.sendHeader(tt,output->getIOStream());
 		    first = false;
 		}
-		long ttdiff = tt - ttprev;
-		if (ttdiff < 0) cerr << "ttprev=" << ttprev << " tt=" << tt <<
-		    " ttdiff=" << ttdiff << endl;
-		ttprev = tt;
 		input.distribute(samp);
 		samp->freeReference();
 	    }
