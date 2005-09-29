@@ -44,7 +44,7 @@ SyncRecordGenerator::~SyncRecordGenerator()
 {
 }
 
-SampleIOProcessor* SyncRecordGenerator::clone() const
+SyncRecordGenerator* SyncRecordGenerator::clone() const
 {
     // this shouldn't be cloned
     assert(false);

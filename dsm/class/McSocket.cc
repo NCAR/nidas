@@ -51,7 +51,7 @@ McSocket::McSocket(const McSocket& x,atdUtil::Socket* sock):
 {
 }
 
-IOChannel* McSocket::clone() const
+McSocket* McSocket::clone() const
 {
     return new McSocket(*this);
 }

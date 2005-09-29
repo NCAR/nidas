@@ -39,7 +39,7 @@ public:
      */
     RawSampleInputStream(const RawSampleInputStream&x,IOChannel*);
 
-    SampleInputStream* clone(IOChannel*);
+    RawSampleInputStream* clone(IOChannel*);
 
     virtual ~RawSampleInputStream();
 

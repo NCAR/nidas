@@ -37,7 +37,7 @@ public:
     virtual ~SampleLengthException() throw() {}
 
     virtual SampleLengthException* clone() const {
-      return new SampleLengthException(*this);
+	return new SampleLengthException(*this);
     }
 
     virtual const char* what() const throw() { return _what.c_str(); }

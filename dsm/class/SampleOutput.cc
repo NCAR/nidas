@@ -72,7 +72,7 @@ SampleOutputStream::~SampleOutputStream()
     delete iochan;
 }
 
-SampleOutput* SampleOutputStream::clone(IOChannel* iochannel) const
+SampleOutputStream* SampleOutputStream::clone(IOChannel* iochannel) const
 {
     // invoke copy constructor
     if (!iochannel) return new SampleOutputStream(*this);
@@ -132,11 +132,7 @@ void SampleOutputStream::connected(IOChannel* iochannel) throw()
 	assert(connectionRequester);
 	// This is a new iochannel - probably a connected socket.
 	// Clone myself and report back to connectionRequester.
-	// FIX: redesign so we don't need this static_cast.
-	SampleOutput* newso = clone(iochannel);
-	SampleOutputStream* newout =
-		dynamic_cast<SampleOutputStream*>(newso);
-	assert(newout);
+	SampleOutputStream* newout = clone(iochannel);
 	connectionRequester->connected(newout);
 	cerr << "SampleOutputStream::connected new channel" << endl;
     }
@@ -328,7 +324,7 @@ SortedSampleOutputStream::~SortedSampleOutputStream()
     }
 }
 
-SampleOutput* SortedSampleOutputStream::clone(IOChannel* iochannel) const 
+SortedSampleOutputStream* SortedSampleOutputStream::clone(IOChannel* iochannel) const 
 {
     if (iochannel) return new SortedSampleOutputStream(*this,iochannel);
     else return new SortedSampleOutputStream(*this);

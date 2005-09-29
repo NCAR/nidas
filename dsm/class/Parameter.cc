@@ -99,7 +99,7 @@ Parameter* Parameter::createParameter(const DOMElement* node)
 }
 
 template<class T>
-Parameter* ParameterT<T>::clone() const
+ParameterT<T>* ParameterT<T>::clone() const
 {
     return new ParameterT<T>(*this);
 }

@@ -42,7 +42,7 @@ PSQLProcessor::~PSQLProcessor()
 {
 }
 
-SampleIOProcessor* PSQLProcessor::clone() const {
+PSQLProcessor* PSQLProcessor::clone() const {
     return new PSQLProcessor(*this);
 }
 

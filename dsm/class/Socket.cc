@@ -55,7 +55,7 @@ Socket::~Socket()
     delete socket;
 }
 
-IOChannel* Socket::clone() const 
+Socket* Socket::clone() const 
 {
     return new Socket(*this);
 }
@@ -128,7 +128,7 @@ ServerSocket::~ServerSocket()
     delete servSock;
 }
 
-IOChannel* ServerSocket::clone() const 
+ServerSocket* ServerSocket::clone() const 
 {
     return new ServerSocket(*this);
 }

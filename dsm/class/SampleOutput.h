@@ -103,7 +103,7 @@ public:
 
     virtual ~SampleOutputStream();
 
-    SampleOutput* clone(IOChannel* iochannel=0) const;
+    SampleOutputStream* clone(IOChannel* iochannel=0) const;
 
     /**
      * Get the IOStream of this SampleOutputStream.
@@ -234,7 +234,7 @@ public:
 
     virtual ~SortedSampleOutputStream();
 
-    SampleOutput* clone(IOChannel* iochannel=0) const;
+    SortedSampleOutputStream* clone(IOChannel* iochannel=0) const;
 
     void init() throw();
 

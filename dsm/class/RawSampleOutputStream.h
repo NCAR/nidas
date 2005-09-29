@@ -33,7 +33,7 @@ public:
 
     ~RawSampleOutputStream();
 
-    SampleOutput* clone(IOChannel* iochannel=0) const;
+    RawSampleOutputStream* clone(IOChannel* iochannel=0) const;
 
     bool isRaw() const { return true; }
 

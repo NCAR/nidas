@@ -38,7 +38,7 @@ public:
     /**
      * Clone method.
      */
-    IOChannel* clone() const;
+    PSQLChannel* clone() const;
 
     void setName(const std::string& val) { name = val; }
 

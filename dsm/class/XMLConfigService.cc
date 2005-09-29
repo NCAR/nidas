@@ -55,18 +55,6 @@ XMLConfigService::~XMLConfigService()
     }
 }
 
-/*
- * clone myself
- */
-/*
-DSMService* XMLConfigService::clone() const
-{
-    // invoke copy constructor.
-    XMLConfigService* newserv = new XMLConfigService(*this);
-    return newserv;
-}
-*/
-
 void XMLConfigService::schedule() throw(atdUtil::Exception)
 {
     iochan->requestConnection(this,XML_CONFIG);

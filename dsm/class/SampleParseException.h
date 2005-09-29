@@ -42,8 +42,8 @@ class SampleParseException : public atdUtil::Exception {
     /**
      * clone myself (a "virtual" constructor).
      */
-    Exception* clone() const {
-      return new SampleParseException(*this);
+    SampleParseException* clone() const {
+	return new SampleParseException(*this);
     }
   };
 }

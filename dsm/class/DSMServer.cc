@@ -252,22 +252,6 @@ DSMServer::DSMServer()
 {
 }
 
-/*
- * Copy constructor.
- */
-/*
-DSMServer::DSMServer(const DSMServer& x):
-	site(x.site),name(x.name)
-{
-    list<DSMService*>::const_iterator si;
-    for (si=x.services.begin(); si != x.services.end(); ++si) {
-	DSMService* svc = *si;
-	DSMService* newsvc = svc->clone();
-	newsvc->setDSMServer(this);
-	services.push_back(newsvc);
-    }
-}
-*/
 DSMServer::~DSMServer()
 {
 

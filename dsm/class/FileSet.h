@@ -54,7 +54,10 @@ public:
 
     IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
 
-    IOChannel* clone() const { return new FileSet(*this); }
+    /**
+     * Clone myself.
+     */
+    FileSet* clone() const { return new FileSet(*this); }
 
     dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
 	throw(atdUtil::IOException);

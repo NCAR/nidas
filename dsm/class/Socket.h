@@ -53,7 +53,7 @@ public:
 
     ~Socket();
 
-    IOChannel* clone() const;
+    Socket* clone() const;
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);
@@ -141,8 +141,7 @@ public:
 
     ~ServerSocket();
 
-    IOChannel* clone() const;
-
+    ServerSocket* clone() const;
 
     void requestConnection(ConnectionRequester* service,int pseudoPort)
     	throw(atdUtil::IOException);

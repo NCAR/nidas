@@ -59,8 +59,8 @@ class XMLException : public atdUtil::Exception {
     /**
      * clone myself (a "virtual" constructor).
      */
-    Exception* clone() const {
-      return new XMLException(*this);
+    XMLException* clone() const {
+	return new XMLException(*this);
     }
   };
 }

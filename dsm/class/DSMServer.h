@@ -127,9 +127,14 @@ protected:
 
 private:
     /**
-     * Copy constructor.
+     * Copy not supported.
      */
     DSMServer(const DSMServer&);
+
+    /**
+     * Assignment not supported.
+     */
+    DSMServer& operator=(const DSMServer&);
 
 };
 

@@ -50,7 +50,7 @@ public:
 
     ~McSocket() { delete socket; }
 
-    IOChannel* clone() const;
+    McSocket* clone() const;
 
     /**
      * Does this McSocket request connections, or does it

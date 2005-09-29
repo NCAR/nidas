@@ -44,7 +44,7 @@ RawSampleOutputStream::~RawSampleOutputStream()
 {
 }
 
-SampleOutput* RawSampleOutputStream::clone(IOChannel* iochannel) const 
+RawSampleOutputStream* RawSampleOutputStream::clone(IOChannel* iochannel) const 
 {
     return new RawSampleOutputStream(*this,iochannel);
 }

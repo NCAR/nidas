@@ -55,7 +55,7 @@ void PSQLChannel::setUser(const std::string& val)
     setName(user + "@" + host + ":" + dbname);
 }
 
-IOChannel* PSQLChannel::clone() const
+PSQLChannel* PSQLChannel::clone() const
 {
     return new PSQLChannel(*this);
 }

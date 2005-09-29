@@ -42,7 +42,7 @@ SampleArchiver::~SampleArchiver()
 {
 }
 
-SampleIOProcessor* SampleArchiver::clone() const {
+SampleArchiver* SampleArchiver::clone() const {
     return new SampleArchiver(*this);
 }
 

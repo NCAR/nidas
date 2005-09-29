@@ -68,7 +68,7 @@ class Linear: public VariableConverter
 {
 public:
 
-    VariableConverter* clone() const { return new Linear(*this); }
+    Linear* clone() const { return new Linear(*this); }
 
     void setSlope(float val) { slope = val; }
 
@@ -106,7 +106,7 @@ public:
 
     ~Polynomial() { delete [] coefs; }
 
-    VariableConverter* clone() const { return new Polynomial(*this); }
+    Polynomial* clone() const { return new Polynomial(*this); }
 
     void setCoefficients(const std::vector<float>& vals);
 

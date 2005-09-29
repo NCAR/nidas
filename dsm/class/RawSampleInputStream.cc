@@ -40,7 +40,7 @@ RawSampleInputStream::RawSampleInputStream(const RawSampleInputStream& x,
 /**
  * Create a clone, with a new, connected IOChannel.
  */
-SampleInputStream* RawSampleInputStream::clone(IOChannel* iochannel)
+RawSampleInputStream* RawSampleInputStream::clone(IOChannel* iochannel)
 {
     return new RawSampleInputStream(*this,iochannel);
 }

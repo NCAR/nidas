@@ -470,7 +470,7 @@ SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& 
 /*
  * Clone myself, with a new IOChannel.
  */
-SampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
+SortedSampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
 {
     return new SortedSampleInputStream(*this,iochannel);
 }

@@ -35,7 +35,7 @@ public:
 
     virtual ~PSQLProcessor();
 
-    SampleIOProcessor* clone() const;
+    PSQLProcessor* clone() const;
 
     bool singleDSM() const { return false; }
 

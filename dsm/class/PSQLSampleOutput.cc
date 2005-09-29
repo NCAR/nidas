@@ -50,7 +50,7 @@ PSQLSampleOutput::~PSQLSampleOutput()
     delete psqlChannel;
 }
 
-SampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
+PSQLSampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
 {
     PSQLSampleOutput* out = new PSQLSampleOutput(*this);
     out->psqlChannel = iochannel;

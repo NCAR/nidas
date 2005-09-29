@@ -39,8 +39,6 @@ public:
 
     ~RawSampleService();
 
-    // DSMService* clone() const;
-
     int run() throw(atdUtil::Exception);
 
     void interrupt() throw();

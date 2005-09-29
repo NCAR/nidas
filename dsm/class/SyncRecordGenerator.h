@@ -42,7 +42,7 @@ public:
 
     virtual ~SyncRecordGenerator();
 
-    SampleIOProcessor* clone() const;
+    SyncRecordGenerator* clone() const;
 
     virtual bool singleDSM() const { return false; }
 

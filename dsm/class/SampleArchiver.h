@@ -35,7 +35,7 @@ public:
 
     virtual ~SampleArchiver();
 
-    SampleIOProcessor* clone() const;
+    SampleArchiver* clone() const;
 
     bool singleDSM() const { return false; }
 

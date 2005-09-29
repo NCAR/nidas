@@ -33,8 +33,6 @@ public:
 
     ~XMLConfigService();
 
-    // DSMService* clone() const;
-
     int run() throw(atdUtil::Exception);
 
     void interrupt() throw();

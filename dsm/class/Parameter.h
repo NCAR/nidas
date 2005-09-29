@@ -105,7 +105,7 @@ public:
 
     ParameterT(): Parameter(getParamType(T())) {}
 
-    Parameter* clone() const;
+    ParameterT* clone() const;
 
     int getLength() const { return values.size(); }
 

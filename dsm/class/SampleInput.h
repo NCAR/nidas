@@ -398,7 +398,7 @@ public:
     /**
      * Create a clone, with a new, connected IOChannel.
      */
-    SampleInputStream* clone(IOChannel* iochannel);
+    SortedSampleInputStream* clone(IOChannel* iochannel);
 
     void addSampleClient(SampleClient* client) throw();
 
