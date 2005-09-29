@@ -264,7 +264,7 @@
 	-->
         <sample id="1" scanfFormat="%*1d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="#1?\r" rate="50"/>
+        <prompt string="#1?\r" rate="40"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
@@ -533,24 +533,24 @@
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.937533" type="float"/>
                     <parameter name="corIntercept" value="-0.3803725" type="float"/>
-		    <!-- cal done Sept 8, 2005 -->
-		    <poly coefs="-69.3696 24.3936 -0.499973" units="degC"/>
+		    <!-- cal done Sept 29, 2005 -->
+		    <poly coefs="-92.9237 32.3972 -0.628028" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.911300" type="float"/>
                     <parameter name="corIntercept" value="-0.1155527" type="float"/>
-		    <!-- cal done Sept 8, 2005 -->
-		    <poly coefs="-70.6254 24.5259 -0.516697" units="degC"/>
+		    <!-- cal done Sept 29, 2005 -->
+		    <poly coefs="-98.2183 32.2157 -0.576652" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.919487" type="float"/>
                     <parameter name="corIntercept" value="-0.1942475" type="float"/>
-		    <!-- cal done Sept 7, 2005 -->
-		    <poly coefs="-69.1569 23.4074 -0.441698" units="degC"/>
+		    <!-- cal done Sept 29, 2005 -->
+		    <poly coefs="-94.9449 31.0052 -0.432849" units="degC"/>
                 </variable>
                 <variable name="TTRH1" units="V">
 		    <!-- The amplifier on this sensor is a Rosemount 510BF48
@@ -563,7 +563,8 @@
 		    <!-- values computed for gain=4 -->
                     <parameter name="corSlope" value="0.917102" type="float"/>
                     <parameter name="corIntercept" value="-0.08322121" type="float"/>
-		    <poly coefs="-83.1554 54.9762 -2.16709" units="degC"/>
+		    <!-- cal done Sept 29, 2005 -->
+		    <poly coefs="-98.4431 30.4345 -0.384762" units="degC"/>
 		    <!-- values computed for gain=2
                     <parameter name="corSlope" value="0.916395" type="float"/>
                     <parameter name="corIntercept" value="-0.167106" type="float"/>
