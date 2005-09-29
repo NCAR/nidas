@@ -417,8 +417,8 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (tt < syncTime) {
         if (!(badTimes++ % 100))
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-		"SyncRecordSource badTime, diff=%d, sampleid=%d\n",
-		(int)(syncTime - tt),sampid);
+		"SyncRecordSource badTime, diff=%d, dsm=%d, id=%d\n",
+		(int)(syncTime - tt),GET_DSM_ID(sampid),GET_SHORT_ID(sampid));
 	return false;
     }
     if (tt >= syncTime + USECS_PER_SEC) {
