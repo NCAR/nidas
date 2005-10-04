@@ -310,23 +310,11 @@
                     <socket type="server" port="30000"/>
                 </output>
             </processor>
-            <!--
-            <processor class="PSQLProcessor">
-                <parameter name="averageMsec" value="1000" type="int"/>
-                <output class="PSQLSampleOutput">
-                    <postgresdb host="hyper"
-                        dbname="c130" user="ads"/>
-                </output>
-            </processor>
-            -->
             <processor class="SyncRecordGenerator">
                 <output class="SampleOutputStream">
-                    <fileset dir="/tmp/${PROJECT}/${AIRCRAFT}"
-                        file="syncrec_%Y%m%d_%H%M%S.dat"
-                        length="0" />
-                </output>
-                <output class="SampleOutputStream">
-                    <socket type="server" port="30001"/>
+		    <!-- use a port other than 30001 for testing
+		         on sloop.  30001 is used by post-processing -->
+                    <socket type="server" port="30011"/>
                 </output>
             </processor>
         </service>
