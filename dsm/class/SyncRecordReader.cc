@@ -59,6 +59,7 @@ int SyncRecordReader::run() throw(atdUtil::Exception) {
     catch (const atdUtil::EOFException& e) {
 	cerr << e.what() << endl;
 	eof = true;
+    	ioException = new atdUtil::EOFException(e);
     }
     catch (const atdUtil::IOException& e) {
 	cerr << e.what() << endl;
@@ -447,8 +448,9 @@ size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(atdUt
 	{
 	    atdUtil::Synchronized autolock(syncRecCond);
 	    if (syncRecs.size() == 0) {
-		if (!eof && ioException == 0) continue;	// no data, wait again
-		if (eof) return 0;
+		// if (!eof && ioException == 0) continue;	// no data, wait again
+		// if (eof) return 0;
+		if (ioException == 0) continue;	// no data, wait again
 		throw *ioException;
 	    }
 	    samp = syncRecs.front();
