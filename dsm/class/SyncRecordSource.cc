@@ -96,13 +96,80 @@ void SyncRecordSource::disconnect(SampleInput* input) throw()
 
 void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 {
-    if (dynamic_cast<DSMAnalogSensor*>(sensor))
-	analogSensors.push_back(sensor);
-    else if (dynamic_cast<DSMSerialSensor*>(sensor))
-	serialSensors.push_back(sensor);
-    else if (dynamic_cast<DSMArincSensor*>(sensor))
-	arincSensors.push_back(sensor);
-    else otherSensors.push_back(sensor);
+    // for a given rate, the group id
+    map<float,int> groupsByRate;
+    map<float,int>::const_iterator mi;
+
+    list<DSMSensor*>::const_iterator si;
+
+    const vector<const SampleTag*>& tags = sensor->getSampleTags();
+
+    vector<const SampleTag*>::const_iterator ti;
+    for (ti = tags.begin(); ti != tags.end(); ++ti) {
+	const SampleTag* tag = *ti;
+
+	if (!tag->isProcessed()) continue;
+
+	dsm_sample_id_t sampleId = tag->getId();
+	float rate = tag->getRate();
+
+	const vector<const Variable*>& vars = tag->getVariables();
+	// skip samples with one non-continuous, non-counter variable
+	if (vars.size() == 1) {
+	    Variable::type_t vt = vars.front()->getType();
+	    if (vt != Variable::CONTINUOUS && vt != Variable::COUNTER)
+		    continue;
+	}
+
+	int groupId;
+
+	mi = groupsByRate.find(rate);
+	if (mi == groupsByRate.end()) {
+	    // new rate for this sensor type
+	    groupId = varsOfRate.size();
+	    varsOfRate.push_back(list<const Variable*>());
+	    groupsByRate[rate] = groupId;
+
+	    groupLengths.push_back(0);
+	    groupOffsets.push_back(0);
+
+	    rates.push_back(rate);
+	    usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
+	    samplesPerSec.push_back((int)ceil(rate));
+	}
+	else groupId = mi->second;
+#ifdef DEBUG
+	cerr << "SyncRecordSource, rate=" << rate <<
+	    " groupId=" << groupId << endl;
+#endif
+
+	groupIds[sampleId] = groupId;
+
+	int* varOffset = new int[vars.size()];
+	varOffsets[sampleId] = varOffset;
+
+	size_t* varLen = new size_t[vars.size()];
+	varLengths[sampleId] = varLen;
+
+	numVars[sampleId] = vars.size();
+
+	vector<const Variable*>::const_iterator vi;
+	int iv;
+	for (vi = vars.begin(),iv=0; vi != vars.end(); ++vi,iv++) {
+	    const Variable* var = *vi;
+	    size_t vlen = var->getLength();
+	    varLen[iv] = vlen;
+
+	    Variable::type_t vt = var->getType();
+	    varOffset[iv] = -1;
+	    if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER) {
+		varOffset[iv] = groupLengths[groupId];
+		groupLengths[groupId]+= vlen * samplesPerSec[groupId];
+		varsOfRate[groupId].push_back(var);
+		variables.push_back(var);
+	    }
+	}
+    }
 }
 
 void SyncRecordSource::init() throw()
@@ -112,30 +179,6 @@ void SyncRecordSource::init() throw()
     initialized = true;
 
     headerStream.str("");	// initialize header to empty string
-
-    scanSensors(analogSensors);
-    analogSensors.clear();
-
-#ifdef DEBUG
-    cerr << "SyncRecordSource, # of serial sensors=" <<
-    	serialSensors.size() << endl;
-#endif
-    scanSensors(serialSensors);
-    serialSensors.clear();
-
-#ifdef DEBUG
-    cerr << "SyncRecordSource, # of arinc sensors=" <<
-    	arincSensors.size() << endl;
-#endif
-    scanSensors(arincSensors);
-    arincSensors.clear();
-
-#ifdef DEBUG
-    cerr << "SyncRecordSource, # of other sensors=" <<
-    	otherSensors.size() << endl;
-#endif
-    scanSensors(otherSensors);
-    otherSensors.clear();
 
     int offset = 0;
     // iterate over the group ids
@@ -267,88 +310,6 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
     ost << "}" << endl;
 
 }
-
-void SyncRecordSource::scanSensors(const list<DSMSensor*>& sensors)
-{
-    // for a given rate, the group id
-    map<float,int> groupsByRate;
-    map<float,int>::const_iterator mi;
-
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-        DSMSensor* sensor = *si;
-
-	const vector<const SampleTag*>& tags = sensor->getSampleTags();
-
-	vector<const SampleTag*>::const_iterator ti;
-	for (ti = tags.begin(); ti != tags.end(); ++ti) {
-	    const SampleTag* tag = *ti;
-
-	    if (!tag->isProcessed()) continue;
-
-	    dsm_sample_id_t sampleId = tag->getId();
-	    float rate = tag->getRate();
-
-	    const vector<const Variable*>& vars = tag->getVariables();
-	    // skip samples with one non-continuous, non-counter variable
-	    if (vars.size() == 1) {
-	        Variable::type_t vt = vars.front()->getType();
-		if (vt != Variable::CONTINUOUS && vt != Variable::COUNTER)
-			continue;
-	    }
-
-	    int groupId;
-
-	    mi = groupsByRate.find(rate);
-	    if (mi == groupsByRate.end()) {
-		// new rate for this sensor type
-		groupId = varsOfRate.size();
-		varsOfRate.push_back(list<const Variable*>());
-		groupsByRate[rate] = groupId;
-
-		groupLengths.push_back(0);
-		groupOffsets.push_back(0);
-
-		rates.push_back(rate);
-		usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
-		samplesPerSec.push_back((int)ceil(rate));
-	    }
-	    else groupId = mi->second;
-#ifdef DEBUG
-	    cerr << "SyncRecordSource, rate=" << rate <<
-	    	" groupId=" << groupId << endl;
-#endif
-
-	    groupIds[sampleId] = groupId;
-
-	    int* varOffset = new int[vars.size()];
-	    varOffsets[sampleId] = varOffset;
-
-	    size_t* varLen = new size_t[vars.size()];
-	    varLengths[sampleId] = varLen;
-
-	    numVars[sampleId] = vars.size();
-
-	    vector<const Variable*>::const_iterator vi;
-	    int iv;
-	    for (vi = vars.begin(),iv=0; vi != vars.end(); ++vi,iv++) {
-		const Variable* var = *vi;
-		size_t vlen = var->getLength();
-		varLen[iv] = vlen;
-
-	        Variable::type_t vt = var->getType();
-		varOffset[iv] = -1;
-		if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER) {
-		    varOffset[iv] = groupLengths[groupId];
-		    groupLengths[groupId]+= vlen * samplesPerSec[groupId];
-		    varsOfRate[groupId].push_back(var);
-		    variables.push_back(var);
-		}
-	    }
-	}
-    }
-}
-
 
 void SyncRecordSource::allocateRecord(dsm_time_t timetag)
 {

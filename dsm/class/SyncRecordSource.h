@@ -57,8 +57,6 @@ protected:
 
     void addSensor(DSMSensor* sensor) throw();
 
-    void scanSensors(const std::list<DSMSensor*>& sensors);
-
     void allocateRecord(dsm_time_t timetag);
 
 protected:
@@ -149,11 +147,6 @@ protected:
     int badTimes;
 
     const Aircraft* aircraft;
-
-    std::list<DSMSensor*> analogSensors;
-    std::list<DSMSensor*> serialSensors;
-    std::list<DSMSensor*> arincSensors;
-    std::list<DSMSensor*> otherSensors;
 
     bool initialized;
 
