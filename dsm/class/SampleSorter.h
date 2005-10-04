@@ -74,7 +74,7 @@ public:
      *   samples into this sorter.  If false, then discard any
      *   samples that are received while heapSize exceeds heapMax.
      */
-    void setHeapBlock(bool val) { heapBlock = true; }
+    void setHeapBlock(bool val) { heapBlock = val; }
 
     bool getHeapBlock() const { return heapBlock; }
 

@@ -427,7 +427,7 @@ public:
      *   samples that are received while heapSize exceeds heapMax.
      * @see SampleSorter::setHeapBlock().
      */
-    void setHeapBlock(bool val) { heapBlock = true; }
+    void setHeapBlock(bool val) { heapBlock = val; }
 
     bool getHeapBlock() const { return heapBlock; }
 
