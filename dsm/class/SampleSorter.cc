@@ -37,7 +37,12 @@ SampleSorter::SampleSorter(int sorterLength, const string& name) :
     blockSignal(SIGTERM);
 }
 
-SampleSorter::~SampleSorter() {
+SampleSorter::~SampleSorter()
+{
+    // make sure thread is not running.
+    if (isRunning()) interrupt();
+    if (!isJoined()) join();
+
     SortedSampleSet::iterator iv;
     for (iv = samples.begin(); iv != samples.end(); iv++) {
 	const Sample *s = *iv;
