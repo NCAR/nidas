@@ -18,6 +18,8 @@
 
 #include <iostream>
 
+#include <atdUtil/Logger.h>
+
 using namespace dsm;
 using namespace std;
 
@@ -122,7 +124,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
     dsm_time_t tnow = getSystemTime();
     int tdiff = tnow - lastWrite;	// microseconds
 
-    int nagain = 0;
+    int nEAGAIN = 0;
 
     ibuf = 0;
 
@@ -131,7 +133,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 	/* space for more data in buffer */
 	size_t space = eob - head;
 
-	/* number of bytes in buffer */
+	/* number of bytes already in buffer */
 	size_t wlen = head - tail;
 
 	if ((wlen > 0) && (wlen >= buflen || tdiff >= maxUsecs)) {
@@ -140,16 +142,21 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 		l = iochannel.write(tail,wlen);
 	    }
 	    catch (const atdUtil::IOException& ioe) {
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+			"%s, nEAGAIN=%d, wlen=%d, tlen=%d\n",
+			ioe.what(),nEAGAIN,wlen,tlen);
 		if (ioe.getError() == EAGAIN) {
 		    l = 0;
-		    nagain++;
-		    if (nagain > 5) throw ioe;
+		    nEAGAIN++;
+		    if (nEAGAIN > 5) throw ioe;
+		    struct timespec ns = {0, NSECS_PER_SEC / 100};
+		    nanosleep(&ns,0);
 		}
 		else throw ioe;
 	    }
 	    tail += l;
 	    if (tail == head) {
-	        tail = head = buffer;
+	        tail = head = buffer;	// empty buffer
 		space = eob - head;
 	    }
 	    lastWrite = tnow;
@@ -168,6 +175,9 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 		    head = tail + wlen;
 		    space = eob - head;
 		}
+		// don't give up yet if we're doing a large write
+		// the only time we give up on a large write is after
+		// too many EAGAINs.
 	    }
 	    else {
 		if (tail == buffer) return false;	// can't make more
@@ -191,7 +201,7 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 	    lens[ibuf] -= l;
 	    space -= l;
 	    tlen -= l;
-	    if (lens[ibuf] > 0) break;	// out of space but data left
+	    if (lens[ibuf] > 0) break;	// out of space but data left to write
 	}
 	// if tlen > 0 at this point then we're doing a large write
     }

@@ -33,7 +33,7 @@ CREATOR_ENTRY_POINT(SampleOutputStream)
 SampleOutputStream::SampleOutputStream(IOChannel* i):
 	name("SampleOutputStream"),iochan(i),iostream(0),
 	pseudoPort(0),service(0),connectionRequester(0),
-	nextFileTime(0)
+	nextFileTime(0),nsamplesDiscarded(0)
 {
 }
 
@@ -46,7 +46,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	pseudoPort(x.pseudoPort),
 	dsms(x.dsms),service(x.service),
 	connectionRequester(x.connectionRequester),
-	nextFileTime(0)
+	nextFileTime(0),nsamplesDiscarded(0)
 {
 }
 
@@ -59,7 +59,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x,IOChannel* io
 	pseudoPort(x.pseudoPort),
 	dsms(x.dsms),service(x.service),
 	connectionRequester(x.connectionRequester),
-	nextFileTime(0)
+	nextFileTime(0),nsamplesDiscarded(0)
 {
 }
 
@@ -195,7 +195,13 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    if (connectionRequester)
 		connectionRequester->sendHeader(tsamp,iostream);
 	}
-	write(samp);
+	bool success = write(samp);
+	if (!success) {
+	    if (!(nsamplesDiscarded++ % 1000)) 
+		atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    "%s: %d samples discarded due to output jambs\n",
+		    getName().c_str(),nsamplesDiscarded);
+	}
     }
     catch(const atdUtil::IOException& ioe) {
 	atdUtil::Logger::getInstance()->log(LOG_ERR,
@@ -207,7 +213,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     return true;
 }
 
-size_t SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
+bool SampleOutputStream::write(const Sample* samp) throw(atdUtil::IOException)
 {
 #ifdef DEBUG
     static int nsamps = 0;

@@ -151,7 +151,7 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    size_t write(const Sample* samp) throw(atdUtil::IOException);
+    bool write(const Sample* samp) throw(atdUtil::IOException);
 
     void flush() throw(atdUtil::IOException);
 
@@ -190,6 +190,8 @@ protected:
     dsm_time_t nextFileTime;
 
 private:
+
+    size_t nsamplesDiscarded;
 };
 
 /**
