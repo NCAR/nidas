@@ -340,17 +340,17 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 	    samp->freeReference();
 	}
     }
-    catch (atdUtil::EOFException& eof) {
-	cerr << eof.what() << endl;
+    catch (atdUtil::EOFException& e) {
+	input.close();
 	syncGen.disconnect(&input);
 	syncGen.disconnected(output);
-	throw eof;
+	throw e;
     }
-    catch (atdUtil::IOException& ioe) {
-	cerr << ioe.what() << endl;
+    catch (atdUtil::IOException& e) {
+	input.close();
 	syncGen.disconnect(&input);
 	syncGen.disconnected(output);
-	throw ioe;
+	throw e;
     }
 }
 
