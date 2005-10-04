@@ -249,11 +249,11 @@ int SyncDumper::main(int argc, char** argv)
 	    size_t len = reader.read(&tt,rec,numFloats);
 	    if (interrupted) {
 		reader.interrupt();
-		continue;
+		break;
 	    }
 	    if (len == 0) continue;
 
-	    cerr << "lag= " << rec[lagoffset] << endl;
+	    cout << "lag= " << rec[lagoffset] << endl;
 	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 
 	    for (int i = 0; i < irate; i++) {
@@ -268,8 +268,8 @@ int SyncDumper::main(int argc, char** argv)
 	    cout << endl;
 	}
     }
-    catch (const atdUtil::IOException& ioe) {
-        cerr << ioe.what() << endl;
+    catch (const atdUtil::IOException& e) {
+        cerr << "SyncDumper::main: " << e.what() << endl;
     }
     return 0;
 }
