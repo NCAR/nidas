@@ -52,7 +52,31 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    unsigned long size() const { return samples.size(); }
+    size_t size() const { return samples.size(); }
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     */
+    void setHeapMax(size_t val) { heapMax = val; }
+
+    size_t getHeapMax() const { return heapMax; }
+
+    /**
+     * Get the current amount of heap being used for sorting.
+     */
+    size_t getHeapSize() const { return heapSize; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     */
+    void setHeapBlock(bool val) { heapBlock = true; }
+
+    bool getHeapBlock() const { return heapBlock; }
 
     // void setDebug(bool val) { debug = val; }
 
@@ -79,13 +103,42 @@ protected:
 
 private:
 
-    atdUtil::Cond samplesAvail;
+    /**
+     * Utility function to decrement the heap size after writing
+     * one or more samples. If the heapSize has has shrunk below
+     * heapMax then signal any threads waiting on heapCond.
+     */
+    void inline heapDecrement(size_t bytes);
 
-    int threadSignalFactor;
-
-    int sampleCtr;
+    atdUtil::Cond sampleSetCond;
 
     // bool debug;
+
+    /**
+     * Limit on the maximum size of memory to use while buffering
+     * samples.
+     */
+    size_t heapMax;
+
+    /**
+     * Current heap size, in bytes.
+     */
+    size_t heapSize;
+
+    /**
+     * If heapSize exceeds heapMax, do we wait for heapSize to
+     * be less then heapMax, which will block any SampleSources
+     * that are inserting samples into this sorter, or if
+     * heapBlock is false, then discard any samples that
+     * are received while heapSize exceeds heapMax.
+     */
+    bool heapBlock;
+
+    atdUtil::Cond heapCond;
+
+    size_t discardedSamples;
+
+    int discardWarningCount;
 
 };
 }

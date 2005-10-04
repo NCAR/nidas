@@ -398,7 +398,7 @@ public:
     /**
      * Create a clone, with a new, connected IOChannel.
      */
-    SortedSampleInputStream* clone(IOChannel* iochannel);
+    SampleInputStream* clone(IOChannel* iochannel);
 
     void addSampleClient(SampleClient* client) throw();
 
@@ -410,6 +410,27 @@ public:
 
     void close() throw(atdUtil::IOException);
 
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val) { heapMax = val; }
+
+    size_t getHeapMax() const { return heapMax; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    void setHeapBlock(bool val) { heapBlock = true; }
+
+    bool getHeapBlock() const { return heapBlock; }
+
 
 private:
     /**
@@ -420,6 +441,10 @@ private:
     SampleSorter *sorter1;
 
     SampleSorter *sorter2;
+
+    size_t heapMax;
+
+    bool heapBlock;
 
 };
 

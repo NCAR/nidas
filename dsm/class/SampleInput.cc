@@ -455,7 +455,8 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
  * Constructor, with a IOChannel (which may be null).
  */
 SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel,int sortLenArg):
-    SampleInputStream(iochannel),sortLen(sortLenArg),sorter1(0),sorter2(0)
+    SampleInputStream(iochannel),sortLen(sortLenArg),sorter1(0),sorter2(0),
+    heapMax(1000000),heapBlock(false)
 {
 }
 
@@ -463,14 +464,14 @@ SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel,int sortLe
  * Copy constructor, with a new IOChannel.
  */
 SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel): SampleInputStream(x,iochannel),sortLen(x.sortLen),
-	sorter1(0),sorter2(0)
+	sorter1(0),sorter2(0),heapMax(x.heapMax),heapBlock(x.heapBlock)
 {
 }
 
 /*
  * Clone myself, with a new IOChannel.
  */
-SortedSampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
+SampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
 {
     return new SortedSampleInputStream(*this,iochannel);
 }
@@ -483,7 +484,11 @@ SortedSampleInputStream::~SortedSampleInputStream()
 
 void SortedSampleInputStream::addSampleClient(SampleClient* client) throw()
 {
-    if (!sorter1) sorter1 = new SampleSorter(sortLen,"Sorter1");
+    if (!sorter1) {
+        sorter1 = new SampleSorter(sortLen,"Sorter1");
+	sorter1->setHeapBlock(getHeapBlock());
+	sorter1->setHeapMax(getHeapMax());
+    }
     SampleInputStream::addSampleClient(sorter1);
     sorter1->addSampleClient(client);
     if (!sorter1->isRunning()) sorter1->start();
@@ -500,7 +505,11 @@ void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
     sensorMapMutex.lock();
     sensorMap[sensor->getId()] = sensor;
     sensorMapMutex.unlock();
-    if (!sorter2) sorter2 = new SampleSorter(sortLen,"Sorter2");
+    if (!sorter2) {
+        sorter2 = new SampleSorter(sortLen,"Sorter2");
+	sorter2->setHeapBlock(getHeapBlock());
+	sorter2->setHeapMax(getHeapMax());
+    }
 
     sensor->addSampleClient(sorter2);
     sorter2->addSampleClient(client);
