@@ -96,11 +96,6 @@ void SyncRecordSource::disconnect(SampleInput* input) throw()
 
 void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 {
-    // for a given rate, the group id
-    map<float,int> groupsByRate;
-    map<float,int>::const_iterator mi;
-
-    list<DSMSensor*>::const_iterator si;
 
     const vector<const SampleTag*>& tags = sensor->getSampleTags();
 
@@ -114,6 +109,7 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 	float rate = tag->getRate();
 
 	const vector<const Variable*>& vars = tag->getVariables();
+
 	// skip samples with one non-continuous, non-counter variable
 	if (vars.size() == 1) {
 	    Variable::type_t vt = vars.front()->getType();
@@ -121,23 +117,16 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 		    continue;
 	}
 
-	int groupId;
+	int groupId = varsOfRate.size();
+	varsOfRate.push_back(list<const Variable*>());
 
-	mi = groupsByRate.find(rate);
-	if (mi == groupsByRate.end()) {
-	    // new rate for this sensor type
-	    groupId = varsOfRate.size();
-	    varsOfRate.push_back(list<const Variable*>());
-	    groupsByRate[rate] = groupId;
+	groupLengths.push_back(0);
+	groupOffsets.push_back(0);
 
-	    groupLengths.push_back(0);
-	    groupOffsets.push_back(0);
+	rates.push_back(rate);
+	usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
+	samplesPerSec.push_back((int)ceil(rate));
 
-	    rates.push_back(rate);
-	    usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
-	    samplesPerSec.push_back((int)ceil(rate));
-	}
-	else groupId = mi->second;
 #ifdef DEBUG
 	cerr << "SyncRecordSource, rate=" << rate <<
 	    " groupId=" << groupId << endl;
