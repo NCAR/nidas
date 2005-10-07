@@ -167,8 +167,6 @@ void SyncRecordSource::init() throw()
     if (initialized) return;
     initialized = true;
 
-    headerStream.str("");	// initialize header to empty string
-
     int offset = 0;
     // iterate over the group ids
     for (unsigned int i = 0; i < varsOfRate.size(); i++) {
@@ -207,7 +205,6 @@ void SyncRecordSource::init() throw()
     cerr << "SyncRecordSource, recSize=" << recSize << endl;
 #endif
 
-    createHeader(headerStream);
 }
 
 /* local utility function to replace one character in a string
@@ -318,6 +315,8 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 
 void SyncRecordSource::sendHeader() throw()
 {
+    headerStream.str("");	// initialize header to empty string
+    createHeader(headerStream);
     string headstr = headerStream.str();
 
     SampleT<char>* headerRec = getSample<char>(headstr.length()+1);

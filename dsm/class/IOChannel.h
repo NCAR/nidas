@@ -133,8 +133,6 @@ public:
         return LONG_LONG_MAX;
     }
 
-    virtual void openNextFile() throw(atdUtil::IOException) {}
-
     /**
      * Tell this IOChannel which DSM it is serving.
      * Right now this is only used by FileSet,

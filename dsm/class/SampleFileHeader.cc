@@ -15,6 +15,8 @@
 
 #include <SampleFileHeader.h>
 
+#include <Project.h>
+
 using namespace dsm;
 using namespace std;
 
@@ -79,6 +81,12 @@ void SampleFileHeader::check(IOStream* iostream)
 
 	    cerr << headers[itag].tag << ' ' << value << endl;
 	    (this->*headers[itag].setFunc)(value);
+
+	    if (headers[itag].getFunc == &SampleFileHeader::getObsPeriodName) {
+		ObsPeriod obs(value);
+	        Project::getInstance()->setCurrentObsPeriod(obs);
+	    }
+	        
 	    ic = 0;
 	}
     } 

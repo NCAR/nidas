@@ -37,7 +37,9 @@ Project* Project::getInstance()
 
 Project::Project(): currentSite(0),catalog(0)
 {
-    currentObsPeriod.setName("test");
+    const char* obsPer = getenv("ADS3_FLIGHT");
+    if (obsPer == NULL) currentObsPeriod.setName("unknown");
+    else currentObsPeriod.setName(obsPer);
 }
 
 Project::~Project()

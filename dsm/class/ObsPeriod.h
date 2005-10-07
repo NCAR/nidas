@@ -25,7 +25,11 @@ namespace dsm {
  */
 class ObsPeriod {
 public:
+
     ObsPeriod() {}
+
+    ObsPeriod(const std::string& n): name(n) {}
+
     virtual ~ObsPeriod() {}
 
     /**
