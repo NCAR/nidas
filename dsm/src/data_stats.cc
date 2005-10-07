@@ -202,7 +202,8 @@ void CounterClient::printResults()
 	    ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
-	    float(nsamps[id]) / ((t2s[id]-t1s[id]) / USECS_PER_SEC) << endl;
+	    double(nsamps[id]) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
+	    endl;
     }
 }
 
