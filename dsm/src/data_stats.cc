@@ -54,9 +54,16 @@ private:
     map<dsm_sample_id_t,string> sensorNames;
 
     set<dsm_sample_id_t> sampids;
+
     map<dsm_sample_id_t,dsm_time_t> t1s;
+
     map<dsm_sample_id_t,dsm_time_t> t2s;
-    map<dsm_sample_id_t,unsigned long> nsamps;
+
+    map<dsm_sample_id_t,size_t> nsamps;
+
+    map<dsm_sample_id_t,size_t> minlens;
+
+    map<dsm_sample_id_t,size_t> maxlens;
 };
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors)
@@ -96,24 +103,50 @@ bool CounterClient::receive(const Sample* samp) throw()
 	    make_pair<dsm_sample_id_t,dsm_time_t>(sampid,sampt));
     t2s[sampid] = sampt;
     nsamps[sampid]++;
+
+    size_t slen = samp->getDataByteLength();
+    size_t mlen;
+
+    map<dsm_sample_id_t,size_t>::iterator li = minlens.find(sampid);
+    if (li == minlens.end()) minlens[sampid] = slen;
+    else {
+	mlen = li->second;
+	if (slen < mlen) minlens[sampid] = slen;
+    }
+
+    mlen = maxlens[sampid];
+    if (slen > mlen) maxlens[sampid] = slen;
+
     // cerr << samp->getId() << " " << samp->getTimeTag() << endl;
     return true;
 }
 
 void CounterClient::printResults()
 {
-    size_t maxlen = 6;
+    size_t maxnamelen = 6;
+    int lenpow[2] = {5,5};
     set<dsm_sample_id_t>::iterator si;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	const string& sname = sensorNames[id];
-	if (sname.length() > maxlen) maxlen = sname.length();
+	if (sname.length() > maxnamelen) maxnamelen = sname.length();
+	size_t m = minlens[id];
+	if (m > 0) {
+	    int p = (int)ceil(log10((double)m));
+	    if (p >= lenpow[0]) lenpow[0] = p + 1;
+	}
+	m = maxlens[id];
+	if (m > 0) {
+	    int p = (int)ceil(log10((double)m));
+	    if (p >= lenpow[1]) lenpow[1] = p + 1;
+	}
     }
         
     struct tm tm;
     char tstr[64];
-    cout << left << setw(maxlen) << (maxlen > 0 ? "sensor" : "") << right <<
-    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << endl;
+    cout << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
+    	right <<
+    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << setw(lenpow[0] + lenpow[1]) << "mn&mx_len" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / USECS_PER_SEC;
@@ -128,13 +161,14 @@ void CounterClient::printResults()
 	msec = (int)(t2s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
-        cout << left << setw(maxlen) << sensorNames[id] << right << ' ' <<
+        cout << left << setw(maxnamelen) << sensorNames[id] << right << ' ' <<
 	    setw(4) << GET_DSM_ID(id) << ' ' <<
 	    setw(5) << GET_SHORT_ID(id) << ' ' <<
 	    ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
 	    double(nsamps[id]) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
+	    setw(lenpow[0]) << minlens[id] << setw(lenpow[1]) << maxlens[id] <<
 	    endl;
     }
 }
@@ -291,6 +325,8 @@ int DataStats::run() throw()
 {
 
     int result = 0;
+    CounterClient* counter = 0;
+
     try {
 	dsm::IOChannel* iochan;
 
@@ -360,24 +396,23 @@ int DataStats::run() throw()
 	    }
 	}
 
-	CounterClient counter(allsensors);
+	counter = new CounterClient(allsensors);
 
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->init();
-		sis.addProcessedSampleClient(&counter,sensor);
+		sis.addProcessedSampleClient(counter,sensor);
 	    }
 	}
-	else sis.addSampleClient(&counter);
+	else sis.addSampleClient(counter);
 
 
 	for (;;) {
 	    sis.readSamples();
 	    if (interrupted) break;
 	}
-	counter.printResults();
     }
     catch (atdUtil::EOFException& eof) {
         cerr << eof.what() << endl;
@@ -390,6 +425,9 @@ int DataStats::run() throw()
         cerr << ioe.what() << endl;
 	result = 1;
     }
+
+    counter->printResults();
+    delete counter;
 
     return result;
 }
