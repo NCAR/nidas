@@ -14,7 +14,6 @@
 */
 
 #include <SampleOutput.h>
-#include <SampleFileHeader.h>
 #include <DSMTime.h>
 #include <Version.h>
 #include <Project.h>

@@ -13,7 +13,6 @@
 */
 
 #include <SampleArchiver.h>
-#include <SampleFileHeader.h>
 #include <DSMConfig.h>
 #include <DSMServer.h>
 #include <SampleInput.h>

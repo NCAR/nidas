@@ -13,7 +13,7 @@
 */
 
 #include <ConnectionRequester.h>
-#include <SampleFileHeader.h>
+#include <SampleInputHeader.h>
 #include <Version.h>
 #include <Project.h>
 #include <Site.h>
@@ -25,7 +25,7 @@ void SampleConnectionRequester::sendHeader(dsm_time_t thead,IOStream* iostream)
 	throw(atdUtil::IOException)
 {
     cerr << "ConnectionRequester::sendHeader" << endl;
-    SampleFileHeader header;
+    SampleInputHeader header;
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());
     header.setProjectName(Project::getInstance()->getName());

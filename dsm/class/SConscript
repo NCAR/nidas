@@ -140,7 +140,7 @@ sources = [ Split("""
 
   SampleInput.cc
   SampleOutput.cc
-  SampleFileHeader.cc
+  SampleInputHeader.cc
   RawSampleOutputStream.cc
   RawSampleInputStream.cc
   SampleDater.cc

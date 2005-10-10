@@ -13,7 +13,6 @@
 */
 
 #include <SyncRecordGenerator.h>
-#include <SampleFileHeader.h>
 #include <DSMSerialSensor.h>
 #include <DSMArincSensor.h>
 #include <Version.h>
