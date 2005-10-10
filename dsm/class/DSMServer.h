@@ -39,31 +39,32 @@ public:
     static int main(int argc, char** argv) throw();
 
     /**
-     * When a server is run from the command line, this is the name
-     * of the XML file that it is running.
+     * Send usage message to cerr.
+     */
+    static int usage(const char* argv0);
+
+    /**
+     * Get current running instance of DSMServer.
+     */
+    static DSMServer* getInstance() { return serverInstance; }
+
+    /**
+     * What is the XML configuration file name.
      */
     static const std::string& getXMLFileName() { return xmlFileName; }
 
-    static void setXMLFileName(const std::string& val) { xmlFileName = val; }
-
     /**
-     * Return value of ADS3 configuration directory which is
-     * created from environment variables as follows:
-     *	$ADS3_CONFIG/projects/$ADS3_PROJECT/$ADS3_AIRCRAFT/flights/$ADS3_FLIGHT
+     * Parse an XMLConfigFile.
      */
-    static std::string getADS3ConfigDir();
+    static Project* parseXMLConfigFile(const std::string& xmlFileName)
+        throw(dsm::XMLException,atdUtil::InvalidParameterException);
 
 protected:
     static void setupSignals();
 
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
-    /**
-     * Parse an XMLConfigFile. This is a static method called
-     * from main(), that is when a server is actually run.
-     */
-    static Project* parseXMLConfigFile()
-        throw(dsm::XMLException,atdUtil::InvalidParameterException);
+    static int parseRunstring(int argc, char** argv);
 
 public:
 
@@ -102,17 +103,33 @@ public:
 
 protected:
 
+    /**
+     * -d option. If user wants messages on stderr rather than syslog.
+     */
+    static bool debug;
+
+    /**
+     * The xml file that is being used for configuration information.
+     */
+    static std::string xmlFileName;
+
+    /**
+     * Current running instance of DSMServer.
+     */
+    static DSMServer* serverInstance;
+
     static void startXmlRpcThread() throw(atdUtil::Exception);
+
     static void killXmlRpcThread() throw(atdUtil::Exception);
 
-    const Site* site;
-
-    static std::string xmlFileName;
     static bool quit;
+
     static bool restart;
 
     /** This thread provides XML-based Remote Procedure calls */
     static DSMServerIntf* _xmlrpcThread;
+
+    const Site* site;
 
     /**
      * Name of this server. This should correspond to a hostname
@@ -136,29 +153,6 @@ private:
      */
     DSMServer& operator=(const DSMServer&);
 
-};
-
-/**
- * Class for parse the server program runstring.
- */
-class DSMServerRunstring {
-public:
-    DSMServerRunstring(int argc, char** argv);
-                                                                                
-    /**
-     * Send usage message to cerr, then exit(1).
-     */
-    static void usage(const char* argv0);
-                                                                                
-    /**
-     * -d option. If user wants messages on stderr rather than syslog.
-     */
-    bool debug;
-                                                                                
-    /**
-     * Name of XML configuration file. Required.
-     */
-    std::string configFile;
 };
 
 }

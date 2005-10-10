@@ -52,6 +52,41 @@ Project::~Project()
     instance = 0;
 }
 
+/* static */
+string Project::getConfigName(const string& root, const string& projectsDir,
+	const string& project, const string& site,const string& siteSubDir,
+	const string& obsPeriod, const string& fileName)
+		throw(atdUtil::InvalidParameterException)
+{
+    string rootName = root;
+    if (root.length() > 0 && root[0] == '$') {
+	const char* val = getenv(root.c_str()+1);
+	if (!val) throw atdUtil::InvalidParameterException("environment",root,"null");
+	rootName = val;
+    }
+    string projectName = project;
+    if (project.length() > 0 && project[0] == '$') {
+	const char* val = getenv(project.c_str()+1);
+	if (!val) throw atdUtil::InvalidParameterException("environment",project,"null");
+	projectName = val;
+    }
+    string siteName = site;
+    if (site.length() > 0 && site[0] == '$') {
+	const char* val = getenv(site.c_str()+1);
+	if (!val) throw atdUtil::InvalidParameterException("environment",site,"null");
+	siteName = val;
+    }
+    string obsName = obsPeriod;
+    if (obsPeriod.length() > 0 && obsPeriod[0] == '$') {
+	const char* val = getenv(obsPeriod.c_str()+1);
+	if (!val) throw atdUtil::InvalidParameterException("environment",obsPeriod,"null");
+	obsName = val;
+    }
+
+    return string(rootName) + '/' + projectsDir + '/' + projectName + '/' +
+	siteName + '/' + siteSubDir + '/' + obsName + '/' + fileName;
+}
+
 void Project::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {

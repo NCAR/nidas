@@ -31,7 +31,10 @@ using namespace std;
 using namespace xercesc;
 
 /* static */
-std::string DSMServer::xmlFileName;
+DSMServer* DSMServer::serverInstance = 0;
+
+/* static */
+string DSMServer::xmlFileName;
 
 /* static */
 bool DSMServer::quit = false;
@@ -39,38 +42,21 @@ bool DSMServer::quit = false;
 /* static */
 bool DSMServer::restart = false;
 
+bool DSMServer::debug = false;
+
 /* static */
 DSMServerIntf* DSMServer::_xmlrpcThread = 0;
 
 /* static */
-std::string DSMServer::getADS3ConfigDir()
-{
-    const char* ads3Config = getenv("ADS3_CONFIG");
-    if (!ads3Config) ads3Config = "/usr/local/ads3";
-
-    const char* ads3Project = getenv("ADS3_PROJECT");
-    if (!ads3Project) ads3Project = "test";
-
-    const char* ads3Aircraft = getenv("ADS3_AIRCRAFT");
-    if (!ads3Aircraft) ads3Aircraft = "GV";
-
-    const char* ads3Flight = getenv("ADS3_FLIGHT");
-    if (!ads3Flight) ads3Flight = "tf0";
-
-    return string(ads3Config) + "/projects/" + ads3Project + '/' +
-	ads3Aircraft + "/flights/" + ads3Flight;
-}
-
-/* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
-    DSMServerRunstring rstr(argc,argv);
+
+    int result;
+    if ((result = parseRunstring(argc,argv)) != 0) return result;
+
     atdUtil::Logger* logger = 0;
 
-    char hostname[MAXHOSTNAMELEN];
-    gethostname(hostname,sizeof(hostname));
-                                                                                
-    if (rstr.debug) logger = atdUtil::Logger::createInstance(stderr);
+    if (debug) logger = atdUtil::Logger::createInstance(stderr);
     else {
         logger = atdUtil::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
@@ -81,19 +67,15 @@ int DSMServer::main(int argc, char** argv) throw()
 	}
     }
 
-    setXMLFileName(rstr.configFile);
-
     setupSignals();
 
-    int result = 0;
-
-    DSMServer::startXmlRpcThread();
+    startXmlRpcThread();
 
     while (!quit) {
 
         Project* project = 0;
 	try {
-	    project = parseXMLConfigFile();
+	    project = parseXMLConfigFile(xmlFileName);
 	}
 	catch (const dsm::XMLException& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -113,20 +95,23 @@ int DSMServer::main(int argc, char** argv) throw()
 
 	const list<Site*>& sitelist = project->getSites();
 
-	DSMServer* serverp = 0;
+	serverInstance = 0;
 
 	try {
+	    char hostname[MAXHOSTNAMELEN];
+	    gethostname(hostname,sizeof(hostname));
+                                                                                
 	    for (list<Site*>::const_iterator ai=sitelist.begin();
 		ai != sitelist.end(); ++ai) {
 		Site* site = *ai;
-		serverp = site->findServer(hostname);
-		if (serverp) {
+		serverInstance = site->findServer(hostname);
+		if (serverInstance) {
 		    project->setCurrentSite(site);
 		    break;
 		}
 	    }
 
-	    if (!serverp)
+	    if (!serverInstance)
 	    	throw atdUtil::InvalidParameterException("site","server",
 			string("Can't find server entry for ") + hostname);
 	}
@@ -138,18 +123,18 @@ int DSMServer::main(int argc, char** argv) throw()
 
 
 	try {
-	    serverp->scheduleServices();
+	    serverInstance->scheduleServices();
 	}
 	catch (const atdUtil::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
 	}
 
-	serverp->waitOnServices();
+	serverInstance->waitOnServices();
 
 	delete project;
     }
 
-    DSMServer::killXmlRpcThread();
+    killXmlRpcThread();
 
     // cerr << "XMLCachingParser::destroyInstance()" << endl;
     XMLCachingParser::destroyInstance();
@@ -221,7 +206,7 @@ void DSMServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 }
 
 /* static */
-Project* DSMServer::parseXMLConfigFile()
+Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
         throw(dsm::XMLException,atdUtil::InvalidParameterException)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
@@ -237,7 +222,7 @@ Project* DSMServer::parseXMLConfigFile()
     parser->setXercesUserAdoptsDOMDocument(true);
                                                                                 
     // This document belongs to the caching parser
-    DOMDocument* doc = parser->parse(getXMLFileName());
+    DOMDocument* doc = parser->parse(xmlFileName);
     // throws dsm::XMLException;
                                                                                 
     Project* project = Project::getInstance();
@@ -277,8 +262,8 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
+	    const string& aname = attr.getName();
+	    const string& aval = attr.getValue();
 	    if (!aname.compare("name")) setName(aval);
 	}
     }
@@ -343,9 +328,9 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	const std::list<DSMConfig*>& dsms = getSite()->getDSMConfigs();
+	const list<DSMConfig*>& dsms = getSite()->getDSMConfigs();
 	cerr << "adding " << dsms.size() << " DSMConfigs to service" << endl;
-	std::list<DSMConfig*>::const_iterator di;
+	list<DSMConfig*>::const_iterator di;
 	for (di = dsms.begin(); di != dsms.end(); ++di) {
 	    DSMConfig* dsm = *di;
 	    dsm->initSensors();
@@ -431,7 +416,9 @@ void DSMServer::waitOnServices() throw()
     cerr << "services joined" << endl;
 }
 
-DSMServerRunstring::DSMServerRunstring(int argc, char** argv) {
+/* static */
+int DSMServer::parseRunstring(int argc, char** argv)
+{
     debug = false;
     // extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
@@ -443,22 +430,27 @@ DSMServerRunstring::DSMServerRunstring(int argc, char** argv) {
             debug = true;
             break;
         case '?':
-            usage(argv[0]);
+            return usage(argv[0]);
         }
     }
-    if (optind == argc - 1) configFile = string(argv[optind++]);
-    else configFile = DSMServer::getADS3ConfigDir() + "/ads3.xml";
+    if (optind == argc - 1) xmlFileName = string(argv[optind++]);
+    else xmlFileName = Project::getConfigName(
+    	"$ADS3_CONFIG","projects","$ADS3_PROJECT","$ADS3_AIRCRAFT",
+	"flights","$ADS3_FLIGHT","ads3.xml");
+    return 0;
 }
 
 /* static */
-void DSMServerRunstring::usage(const char* argv0)
+int DSMServer::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << "[-d] [config]\n\
   -d: debug. Run in foreground and send messages to stderr.\n\
       Otherwise it will run in the background and messages to syslog\n\
-  config: name of DSM configuration file (required).\n\
-" << endl;
-    exit(1);
+  config: (optional) name of DSM configuration file.\n\
+          default:\n\
+	    $ADS3_CONFIG/projects/$ADS3_PROJECT/\
+	    $ADS3_AIRCRAFT/flights/$ADS3_FLIGHT/ads3.xml" << endl;
+    return 1;
 }
 

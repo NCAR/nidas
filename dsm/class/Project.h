@@ -78,6 +78,66 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
     		throw(xercesc::DOMException);
 
+    /**
+     * Create the full path name of a configuration file from
+     * pieces. The path name is created by simply putting
+     * a '/' between the value of each of the arguments:
+     *      root/projectsDir/project/site/siteSubDir/obsPeriod/fileName
+     *
+     * This supports configurations in a tree structure looking like so
+     * (where directories have a trailing slash):
+     *
+     *	/root/
+     *	  projects/
+     *      PROJECT1/
+     *        aircraft1/
+     *          flights/
+     *            flight1/
+     *              config.xml
+     *            flight2/
+     *              config.xml
+     *        valley_site_1/
+     *          configs/
+     *            test/
+     *              met.xml
+     *            may_june/
+     *              met.xml
+     *      PROJECT2/
+     *        aircraft1/
+     *	    ...
+     *
+     *
+     * If root,project,site or obsPeriod begin with a dollar sign,
+     * they are treated as environment variables, and their
+     * value is fetched from the process environment.
+     * If they are not found in the environment, an
+     * InvalidParameterException is thrown.
+     *
+     * @param root Root path of configuration tree, typically
+     *    a directory path starting with a '/', like
+     *	  "/home/data_sys", or an environment variable
+     *    like  $DATASYS_CONFIG, with a value of "/home/data_sys".
+     * @param projectsDir Directory path under root where
+     *    project configuration files are stored, typically
+     *	  something like "projects".
+     * @param project Name of project.
+     * @param site Name of measurement site, like an aircraft name,
+     *    or surface measurement site.
+     * @param siteSubDir Directory under the site name where
+     *    config files for the observation periods are kept,
+     *    like "flights", or "configs".
+     * @param obsPeriod  Name of observation period, like
+     *    "flight1", "joes_calibration" or "operations".
+     * @param fileName  Finally, the name of the file, e.g. "config.xml".
+     *     
+     */
+    static std::string getConfigName(const std::string& root,
+    	const std::string& projectsDir,
+    	const std::string& project, const std::string& site,
+	const std::string& siteSubDir,const std::string& obsPeriod,
+	const std::string& fileName)
+	throw(atdUtil::InvalidParameterException);
+
 protected:
     static Project* instance;
 
