@@ -232,9 +232,10 @@ int SyncDumper::main(int argc, char** argv)
 
     const SyncRecordVariable* var = *vi;
     size_t varoffset = var->getSyncRecOffset();
-    size_t lagoffset = lagoffset = var->getLagOffset();
+    size_t lagoffset = var->getLagOffset();
     int irate = (int)ceil(var->getSampleRate());
     int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
+    int vlen = var->getLength();
 
 
     dsm_time_t tt;
@@ -253,7 +254,7 @@ int SyncDumper::main(int argc, char** argv)
 	    }
 	    if (len == 0) continue;
 
-	    cout << "lag= " << rec[lagoffset] << endl;
+	    // cout << "lag= " << rec[lagoffset] << endl;
 	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 
 	    for (int i = 0; i < irate; i++) {
@@ -261,11 +262,11 @@ int SyncDumper::main(int argc, char** argv)
 		gmtime_r(&ut,&tm);
 		int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
 		strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
-		cout << cstr << '.' << setw(3) << setfill('0') << msec << ' ' <<
-		    rec[varoffset + i] << endl;
+		cout << cstr << '.' << setw(3) << setfill('0') << msec;
+		for (int j = 0; j < vlen; j++)
+		    cout << ' ' << rec[varoffset + i*vlen + j] << endl;
 		tt += deltatUsec;
 	    }
-	    cout << endl;
 	}
     }
     catch (const atdUtil::IOException& e) {
