@@ -88,7 +88,7 @@ int XMLConfigService::run() throw(atdUtil::Exception)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
-    DOMDocument* doc = parser->parse(DSMServer::getXMLFileName());
+    DOMDocument* doc = parser->parse(DSMServer::getInstance()->getXMLFileName());
 
     XMLFdFormatTarget formatter(iochan->getName(),iochan->getFd());
 
