@@ -13,7 +13,7 @@
 
 */
 
-#include <SampleFileHeader.h>
+#include <SampleInputHeader.h>
 
 #include <Project.h>
 
@@ -21,25 +21,25 @@ using namespace dsm;
 using namespace std;
 
 /* static */
-struct SampleFileHeader::headerField SampleFileHeader::headers[] = {
-    { "archive version:", &SampleFileHeader::setArchiveVersion,
-	    &SampleFileHeader::getArchiveVersion },
-    { "software version:", &SampleFileHeader::setSoftwareVersion,
-	    &SampleFileHeader::getSoftwareVersion },
-    { "project name:", &SampleFileHeader::setProjectName,
-	    &SampleFileHeader::getProjectName },
-    { "site name:", &SampleFileHeader::setSiteName,
-	    &SampleFileHeader::getSiteName },
-    { "observation period name:", &SampleFileHeader::setObsPeriodName,
-	    &SampleFileHeader::getObsPeriodName },
-    { "xml name:", &SampleFileHeader::setXMLName,
-	    &SampleFileHeader::getXMLName },
-    { "xml version:", &SampleFileHeader::setXMLVersion,
-	    &SampleFileHeader::getXMLVersion },
+struct SampleInputHeader::headerField SampleInputHeader::headers[] = {
+    { "archive version:", &SampleInputHeader::setArchiveVersion,
+	    &SampleInputHeader::getArchiveVersion },
+    { "software version:", &SampleInputHeader::setSoftwareVersion,
+	    &SampleInputHeader::getSoftwareVersion },
+    { "project name:", &SampleInputHeader::setProjectName,
+	    &SampleInputHeader::getProjectName },
+    { "site name:", &SampleInputHeader::setSiteName,
+	    &SampleInputHeader::getSiteName },
+    { "observation period name:", &SampleInputHeader::setObsPeriodName,
+	    &SampleInputHeader::getObsPeriodName },
+    { "xml name:", &SampleInputHeader::setXMLName,
+	    &SampleInputHeader::getXMLName },
+    { "xml version:", &SampleInputHeader::setXMLVersion,
+	    &SampleInputHeader::getXMLVersion },
     { "end header\n", 0, 0 },
 };
 
-void SampleFileHeader::check(IOStream* iostream)
+void SampleInputHeader::check(IOStream* iostream)
 	throw(atdUtil::IOException)
 {
     size_t l;
@@ -82,7 +82,7 @@ void SampleFileHeader::check(IOStream* iostream)
 	    cerr << headers[itag].tag << ' ' << value << endl;
 	    (this->*headers[itag].setFunc)(value);
 
-	    if (headers[itag].getFunc == &SampleFileHeader::getObsPeriodName) {
+	    if (headers[itag].getFunc == &SampleInputHeader::getObsPeriodName) {
 		ObsPeriod obs(value);
 	        Project::getInstance()->setCurrentObsPeriod(obs);
 	    }
@@ -93,7 +93,7 @@ void SampleFileHeader::check(IOStream* iostream)
     iostream->putback(buf,ic);
 }
 
-void SampleFileHeader::write(IOStream* iostream)
+void SampleInputHeader::write(IOStream* iostream)
 	throw(atdUtil::IOException)
 {
     const char* str = "NCAR ADS3\n";

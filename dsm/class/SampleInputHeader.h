@@ -20,7 +20,7 @@
 
 namespace dsm {
 
-class SampleFileHeader
+class SampleInputHeader
 {
 public:
 
@@ -60,12 +60,12 @@ protected:
 	/* ptr to setXXX member function for setting an attribute of this
 	 * class, based on the value of the tag from the IOStream.
 	 */
-	void (SampleFileHeader::* setFunc)(const std::string&);
+	void (SampleInputHeader::* setFunc)(const std::string&);
 
 	/* ptr to getXXX member function for getting an attribute of this
 	 * class, in order to write the value of the tag to the IOStream.
 	 */
-	const std::string& (SampleFileHeader::* getFunc)() const;
+	const std::string& (SampleInputHeader::* getFunc)() const;
 
     };
 
