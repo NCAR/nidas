@@ -20,6 +20,7 @@
 #include <Socket.h>
 #include <RawSampleInputStream.h>
 #include <DSMEngine.h>
+#include <SampleInputHeader.h>
 
 #ifdef NEEDED
 // #include <Sample.h>
@@ -56,112 +57,6 @@ private:
 
 };
 
-class Runstring {
-public:
-    Runstring(int argc, char** argv);
-
-    static void usage(const char* argv0);
-    bool process;
-    string xmlFileName;
-    string dataFileName;
-    string hostName;
-    int port;
-    dsm_sample_id_t sampleId;
-    DumpClient::format_t format;
-};
-
-Runstring::Runstring(int argc, char** argv): process(false),
-	port(30000),sampleId(0),
-	format(DumpClient::DEFAULT)
-{
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-
-    xmlFileName = DSMServer::getADS3ConfigDir() + "/ads3.xml";
-										
-    while ((opt_char = getopt(argc, argv, "Ad:FHps:Sx:")) != -1) {
-	switch (opt_char) {
-	case 'A':
-	    format = DumpClient::ASCII;
-	    break;
-	case 'd':
-	    sampleId = SET_DSM_ID(sampleId,atoi(optarg));
-	    break;
-	case 'F':
-	    format = DumpClient::FLOAT;
-	    break;
-	case 'H':
-	    format = DumpClient::HEX;
-	    break;
-	case 'p':
-	    process = true;
-	    break;
-	case 's':
-	    sampleId = SET_SHORT_ID(sampleId,atoi(optarg));
-	    break;
-	case 'S':
-	    format = DumpClient::SIGNED_SHORT;
-	    break;
-	case 'x':
-	    xmlFileName = optarg;
-	    break;
-	case '?':
-	    usage(argv[0]);
-	}
-    }
-    if (format == DumpClient::DEFAULT)
-    	format = (process ? DumpClient::FLOAT : DumpClient::HEX);
-
-    if (optind == argc - 1) {
-	string url(argv[optind++]);
-	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
-	    url = url.substr(5);
-	    size_t ic = url.find(':');
-	    hostName = url.substr(0,ic);
-	    if (ic < string::npos) {
-		istringstream ist(url.substr(ic+1));
-		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    usage(argv[0]);
-		}
-	    }
-	}
-	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
-	    url = url.substr(5);
-	    dataFileName = url;
-	}
-	else dataFileName = url;
-    }
-    if (dataFileName.length() == 0 && hostName.length() == 0) usage(argv[0]);
-    if (process && xmlFileName.length() == 0) usage(argv[0]);
-
-    if (sampleId < 0) usage(argv[0]);
-    if (optind != argc) usage(argv[0]);
-}
-
-void Runstring::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << " [-p] -d dsmid -s sampleId -x xml_file URL [-A | -H | -S]\n\
-  -d dsmid: numeric id of DSM that you want to dump samples from\n\
-  -s sampleId: numeric id of sample that you want to dump\n\
-       (use data_stats program to see DSM ids and sample ids of data in a file)\n\
-  -p: process (optional). Pass samples to sensor process method\n\
-  -x xml_file (optional). Name of XML file (required with -p option)\n\
-  -A: ASCII output (for samples from a serial sensor)\n\
-  -F: floating point output (default for processed output)\n\
-  -H: hex output (default for raw output)\n\
-  -S: signed short output (useful for samples from an A2D)\n\
-  URL (required). Either \"file:file_path\", \"sock:host:port\",\n\
-      or simply a file_path.\n\
-Examples:\n" <<
-	argv0 << " -d 0 -s 100 /tmp/xxx.dat\n" <<
-	argv0 << " -d 0 -s 100 file:/tmp/xxx.dat\n" <<
-	argv0 << " -d 0 -s 200 -p -x ads3.xml sock:hyper:30000\n" << endl;
-    exit(1);
-}
 
 DumpClient::DumpClient(dsm_sample_id_t id,format_t fmt,ostream &outstr):
 	sampleId(id),format(fmt),ostr(outstr)
@@ -233,22 +128,143 @@ bool DumpClient::receive(const Sample* samp) throw()
     return true;
 }
 
-class FileDump
+class DataDump
 {
 public:
+
+    DataDump();
+
+    int parseRunstring(int argc, char** argv);
+
+    int run() throw();
+
+    static int main(int argc, char** argv);
+
+    static int usage(const char* argv0);
 
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     static void setupSignals();
 
-    static int main(int argc, char** argv);
-
+private:
     static bool interrupted;
+
+    bool processData;
+
+    string xmlFileName;
+
+    list<string> dataFileNames;
+
+    string hostName;
+
+    int port;
+
+    dsm_sample_id_t sampleId;
+
+    DumpClient::format_t format;
+
 };
 
-bool FileDump::interrupted = false;
+DataDump::DataDump(): processData(false),
+	port(30000),sampleId(0),
+	format(DumpClient::DEFAULT)
+{
+}
 
-void FileDump::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+int DataDump::parseRunstring(int argc, char** argv)
+{
+    extern char *optarg;       /* set by getopt() */
+    extern int optind;       /* "  "     "     */
+    int opt_char;     /* option character */
+
+    while ((opt_char = getopt(argc, argv, "Ad:FHps:Sx:")) != -1) {
+	switch (opt_char) {
+	case 'A':
+	    format = DumpClient::ASCII;
+	    break;
+	case 'd':
+	    sampleId = SET_DSM_ID(sampleId,atoi(optarg));
+	    break;
+	case 'F':
+	    format = DumpClient::FLOAT;
+	    break;
+	case 'H':
+	    format = DumpClient::HEX;
+	    break;
+	case 'p':
+	    processData = true;
+	    break;
+	case 's':
+	    sampleId = SET_SHORT_ID(sampleId,atoi(optarg));
+	    break;
+	case 'S':
+	    format = DumpClient::SIGNED_SHORT;
+	    break;
+	case 'x':
+	    xmlFileName = optarg;
+	    break;
+	case '?':
+	    return usage(argv[0]);
+	}
+    }
+    if (format == DumpClient::DEFAULT)
+    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX);
+
+    for ( ; optind < argc; optind++) {
+	string url(argv[optind]);
+	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+	    url = url.substr(5);
+	    size_t ic = url.find(':');
+	    hostName = url.substr(0,ic);
+	    if (ic < string::npos) {
+		istringstream ist(url.substr(ic+1));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		    return usage(argv[0]);
+		}
+	    }
+	}
+	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	    url = url.substr(5);
+	    dataFileNames.push_back(url);
+	}
+	else dataFileNames.push_back(url);
+    }
+    if (dataFileNames.size() == 0 && hostName.length() == 0) return usage(argv[0]);
+
+    if (sampleId < 0) return usage(argv[0]);
+    return 0;
+}
+
+int DataDump::usage(const char* argv0)
+{
+    cerr << "\
+Usage: " << argv0 << " -d dsmid -s sampleId [-p] -x xml_file [-A | -H | -S] inputURL ...\n\
+    -d dsmid: numeric id of DSM that you want to dump samples from\n\
+    -s sampleId: numeric id of sample that you want to dump\n\
+	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
+    -p: process (optional). Pass samples to sensor process method\n\
+    -x xml_file (optional), default: \n\
+         $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
+         where <project>, <aircraft> and <flight> are read from the input data header\n\
+    -A: ASCII output (for samples from a serial sensor)\n\
+    -F: floating point output (default for processed output)\n\
+    -H: hex output (default for raw output)\n\
+    -S: signed short output (useful for samples from an A2D)\n\
+    inputURL: data input (required). Either \"sock:host:port\" or\n\
+         one or more \"file:file_path\" or simply one or more file paths.\n\
+Examples:\n" <<
+	argv0 << " -d 0 -s 100 xxx.dat\n" <<
+	argv0 << " -d 0 -s 100 xxx.dat yyy.dat\n" <<
+	argv0 << " -d 0 -s 200 -p -x ads3.xml sock:hyper:30000\n" << endl;
+    return 1;
+}
+/* static */
+bool DataDump::interrupted = false;
+
+/* static */
+void DataDump::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -259,12 +275,13 @@ void FileDump::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            FileDump::interrupted = true;
+            DataDump::interrupted = true;
     break;
     }
 }
 
-void FileDump::setupSignals()
+/* static */
+void DataDump::setupSignals()
 {
     sigset_t sigset;
     sigemptyset(&sigset);
@@ -277,113 +294,137 @@ void FileDump::setupSignals()
     sigemptyset(&sigset);
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = FileDump::sigAction;
+    act.sa_sigaction = DataDump::sigAction;
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-int FileDump::main(int argc, char** argv)
+/* static */
+int DataDump::main(int argc, char** argv)
 {
-
-    Runstring rstr(argc,argv);
-
     setupSignals();
 
-    IOChannel* iochan = 0;
+    DataDump dump;
 
-    if (rstr.dataFileName.length() > 0) {
-	dsm::FileSet* fset = new dsm::FileSet();
-	iochan = fset;
+    int res;
+
+    if ((res = dump.parseRunstring(argc,argv))) return res;
+
+    return dump.run();
+}
+
+int DataDump::run() throw()
+{
+
+    try {
+	IOChannel* iochan = 0;
+
+	if (dataFileNames.size() > 0) {
+	    dsm::FileSet* fset = new dsm::FileSet();
+	    iochan = fset;
 
 #ifdef USE_FILESET_TIME_CAPABILITY
-	struct tm tm;
-	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t start = timegm(&tm);
+	    struct tm tm;
+	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	    time_t start = timegm(&tm);
 
-	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t end = timegm(&tm);
+	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	    time_t end = timegm(&tm);
 
-	fset->setDir("/tmp/RICO/hiaper");
-	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	fset->setStartTime(start);
-	fset->setEndTime(end);
+	    fset->setDir("/tmp/RICO/hiaper");
+	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
+	    fset->setStartTime(start);
+	    fset->setEndTime(end);
 #else
-	fset->setFileName(rstr.dataFileName);
+	    list<string>::const_iterator fi;
+	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
+		  fset->addFileName(*fi);
 #endif
-    }
-    else {
-	atdUtil::Socket* sock = new atdUtil::Socket(rstr.hostName,rstr.port);
-	iochan = new dsm::Socket(sock);
-    }
+	}
+	else {
+	    atdUtil::Socket* sock = new atdUtil::Socket(hostName,port);
+	    iochan = new dsm::Socket(sock);
+	}
 
-    RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
-    sis.init();
+	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
+	sis.init();
+	sis.readHeader();
+	SampleInputHeader header = sis.getHeader();
 
-    auto_ptr<Project> project;
-    list<DSMSensor*> allsensors;
 
-    if (rstr.xmlFileName.length() > 0) {
-	try {
+	auto_ptr<Project> project;
+	list<DSMSensor*> allsensors;
+
+	if (xmlFileName.length() == 0) xmlFileName =
+	    Project::getConfigName("$ADS3_CONFIG", "projects",
+	    header.getProjectName(),
+	    header.getSiteName(),"flights",
+	    header.getObsPeriodName(),"ads3.xml");
+
+	struct stat statbuf;
+	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
 	    auto_ptr<xercesc::DOMDocument> doc(
-		DSMEngine::parseXMLConfigFile(rstr.xmlFileName));
+		DSMEngine::parseXMLConfigFile(xmlFileName));
 
 	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
-	}
-	catch (dsm::XMLException& e) {
-	    cerr << e.what() << endl;
-	    return 1;
-	}
-	catch (atdUtil::InvalidParameterException& e) {
-	    cerr << e.what() << endl;
-	    return 1;
-	}
-
-	const list<Site*>& sitelist = project->getSites();
-	list<Site*>::const_iterator ai;
-	for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
-	    Site* site = *ai;
-	    const list<DSMConfig*>& dsms = site->getDSMConfigs();
-	    list<DSMConfig*>::const_iterator di;
-	    for (di = dsms.begin(); di != dsms.end(); ++di) {
-		DSMConfig* dsm = *di;
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+	    const list<Site*>& sitelist = project->getSites();
+	    list<Site*>::const_iterator ai;
+	    for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
+		Site* site = *ai;
+		const list<DSMConfig*>& dsms = site->getDSMConfigs();
+		list<DSMConfig*>::const_iterator di;
+		for (di = dsms.begin(); di != dsms.end(); ++di) {
+		    DSMConfig* dsm = *di;
+		    const list<DSMSensor*>& sensors = dsm->getSensors();
+		    allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+		}
 	    }
 	}
-    }
 
-    DumpClient dumper(rstr.sampleId,rstr.format,cout);
+	DumpClient dumper(sampleId,format,cout);
 
-    if (rstr.process) {
-	list<DSMSensor*>::const_iterator si;
-	for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    sensor->init();
-	    sis.addProcessedSampleClient(&dumper,sensor);
+	if (processData) {
+	    list<DSMSensor*>::const_iterator si;
+	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		sensor->init();
+		sis.addProcessedSampleClient(&dumper,sensor);
+	    }
 	}
-    }
-    else sis.addSampleClient(&dumper);
+	else sis.addSampleClient(&dumper);
 
-    dumper.printHeader();
+	dumper.printHeader();
 
-    try {
 	for (;;) {
 	    sis.readSamples();
 	    if (interrupted) break;
 	}
     }
-    catch (atdUtil::EOFException& eof) {
-        cerr << eof.what() << endl;
+    catch (dsm::XMLException& e) {
+	cerr << e.what() << endl;
+	return 1;
     }
-    catch (atdUtil::IOException& ioe) {
-        cerr << ioe.what() << endl;
+    catch (atdUtil::InvalidParameterException& e) {
+	cerr << e.what() << endl;
+	return 1;
+    }
+    catch (atdUtil::EOFException& e) {
+	cerr << e.what() << endl;
+    }
+    catch (atdUtil::IOException& e) {
+	cerr << e.what() << endl;
+	return 1;
+    }
+    catch (atdUtil::Exception& e) {
+	cerr << e.what() << endl;
+	return 1;
     }
     return 0;
 }
 
 int main(int argc, char** argv)
 {
-    return FileDump::main(argc,argv);
+    return DataDump::main(argc,argv);
 }

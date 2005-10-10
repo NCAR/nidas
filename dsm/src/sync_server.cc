@@ -65,7 +65,7 @@ private:
 
     string xmlFileName;
 
-    string dataFileName;
+    list<string> dataFileNames;
 
     int port;
 
@@ -124,10 +124,13 @@ void SyncServer::setupSignals()
 int SyncServer::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-x xml_file] [-p port] raw_data_file\n\
-  -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
-  -s: simulation mode (pause a second before sending each sync record)\n\
-  -x xml_file (optional), default: $ADS3_CONFIG/projects/$ADS3_PROJECT/$ADS3_AIRCRAFT/flights/$ADS3_FLIGHT\n\
+Usage: " << argv0 << " [-x xml_file] [-p port] raw_data_file ...\n\
+    -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
+    -s: simulation mode (pause a second before sending each sync record)\n\
+    -x xml_file (optional), default: \n\
+	$ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
+	where <project>, <aircraft> and <flight> are read from the input data header\n\
+    raw_data_file: names of one or more raw data files, separated by spaces\n\
 " << endl;
     return 1;
 }
@@ -157,8 +160,6 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    xmlFileName = DSMServer::getADS3ConfigDir() + "/ads3.xml";
-										
     while ((opt_char = getopt(argc, argv, "p:sx:")) != -1) {
 	switch (opt_char) {
 	case 'p':
@@ -181,9 +182,8 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
 	    usage(argv[0]);
 	}
     }
-    if (optind == argc - 1) dataFileName = argv[optind++];
-    if (dataFileName.length() == 0) usage(argv[0]);
-    if (optind != argc) return usage(argv[0]);
+    for (; optind < argc; ) dataFileNames.push_back(argv[optind++]);
+    if (dataFileNames.size() == 0) usage(argv[0]);
     return 0;
 }
 
@@ -209,17 +209,27 @@ int SyncServer::run() throw()
 	fset->setStartTime(start);
 	fset->setEndTime(end);
 #else
-	fset->setFileName(dataFileName);
+	list<string>::const_iterator fi;
+	for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
+	    fset->addFileName(*fi);
 #endif
 
 	SortedSampleInputStream input(iochan,2000);	// SortedSampleStream owns the iochan ptr.
+
 	// Block while waiting for heapSize to become less than heapMax.
 	input.setHeapBlock(true);
 	input.setHeapMax(10000000);
 	input.init();
 
-	auto_ptr<Project> project;
+	input.readHeader();
+	SampleInputHeader header = input.getHeader();
 
+	if (xmlFileName.length() == 0)
+	    xmlFileName = Project::getConfigName("$ADS3_CONFIG","projects",
+		header.getProjectName(),header.getSiteName(),"flights",
+		header.getObsPeriodName(),"ads3.xml");
+
+	auto_ptr<Project> project;
 	auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
@@ -229,7 +239,7 @@ int SyncServer::run() throw()
 	Site* site = 0;
 	const list<Site*>& sites = project->getSites();
 
-	const char* aircraft = getenv("ADS3_AIRCRAFT");
+	string aircraft = header.getSiteName();
 
 	list<Site*>::const_iterator ai = sites.begin();
 	if (sites.size() == 1) site = *ai;

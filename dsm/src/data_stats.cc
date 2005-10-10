@@ -35,75 +35,7 @@ using namespace std;
 class Runstring {
 public:
     Runstring(int argc, char** argv);
-    static void usage(const char* argv0);
-    bool process;
-    string xmlFileName;
-    string dataFileName;
-    string hostName;
-    int port;
 };
-
-Runstring::Runstring(int argc, char** argv): process(false),port(30000)
-{
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-
-    xmlFileName = DSMServer::getADS3ConfigDir() + "/ads3.xml";
-										
-    while ((opt_char = getopt(argc, argv, "px:")) != -1) {
-	switch (opt_char) {
-	case 'p':
-	    process = true;
-	    break;
-	case 'x':
-	    xmlFileName = optarg;
-	    break;
-	case '?':
-	    usage(argv[0]);
-	}
-    }
-    if (optind == argc - 1) {
-	string url(argv[optind++]);
-	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
-	    url = url.substr(5);
-	    size_t ic = url.find(':');
-	    hostName = url.substr(0,ic);
-	    if (ic < string::npos) {
-		istringstream ist(url.substr(ic+1));
-		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    usage(argv[0]);
-		}
-	    }
-	}
-	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
-	    url = url.substr(5);
-	    dataFileName = url;
-	}
-	else dataFileName = url;
-    }
-    if (dataFileName.length() == 0 && hostName.length() == 0) usage(argv[0]);
-
-    if (process && xmlFileName.length() == 0) usage(argv[0]);
-    if (optind != argc) usage(argv[0]);
-}
-
-void Runstring::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << "[-p] [-x xml_file] URL\n\
-  -p: process (optional). Pass samples to sensor process method\n\
-  -x xml_file (optional). Name of XML file (required with -p option)\n\
-  URL (required). Either \"file:file_path\", \"sock:host:port\",\n\
-      or simply a file_path.\n\
-Examples:\n" <<
-	argv0 << " /tmp/xxx.dat\n" <<
-	argv0 << " file:/tmp/xxx.dat\n" <<
-	argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
-    exit(1);
-}
 
 class CounterClient: public SampleClient 
 {
@@ -207,24 +139,43 @@ void CounterClient::printResults()
     }
 }
 
-class FileStats
+class DataStats
 {
 public:
-    FileStats() {}
-    ~FileStats() {}
+    DataStats();
+
+    ~DataStats() {}
+
+    int run() throw();
+
+    int parseRunstring(int argc, char** argv);
 
     static int main(int argc, char** argv);
+
+    static int usage(const char* argv0);
 
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     static void setupSignals();
 
+private:
     static bool interrupted;
+
+    bool processData;
+
+    string xmlFileName;
+
+    list<string> dataFileNames;
+
+    string hostName;
+
+    int port;
+
 };
 
-bool FileStats::interrupted = false;
+bool DataStats::interrupted = false;
 
-void FileStats::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void DataStats::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -235,12 +186,12 @@ void FileStats::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            FileStats::interrupted = true;
+            DataStats::interrupted = true;
     break;
     }
 }
 
-void FileStats::setupSignals()
+void DataStats::setupSignals()
 {
     sigset_t sigset;
     sigemptyset(&sigset);
@@ -253,102 +204,197 @@ void FileStats::setupSignals()
     sigemptyset(&sigset);
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = FileStats::sigAction;
+    act.sa_sigaction = DataStats::sigAction;
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-int FileStats::main(int argc, char** argv)
+DataStats::DataStats(): processData(false),port(30000)
 {
-    Runstring rstr(argc,argv);
-    dsm::IOChannel* iochan;
-    setupSignals();
+}
 
-    if (rstr.dataFileName.length() > 0) {
-
-	FileSet* fset = new dsm::FileSet();
-	iochan = fset;
-
-#ifdef USE_FILESET_TIME_CAPABILITY
-	struct tm tm;
-	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t start = timegm(&tm);
-
-	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t end = timegm(&tm);
-
-	fset->setDir("/tmp/RICO/hiaper");
-	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	fset->setStartTime(start);
-	fset->setEndTime(end);
-#else
-	fset->setFileName(rstr.dataFileName);
-#endif
-
+int DataStats::parseRunstring(int argc, char** argv)
+{
+    extern char *optarg;       /* set by getopt() */
+    extern int optind;       /* "  "     "     */
+    int opt_char;     /* option character */
+										
+    while ((opt_char = getopt(argc, argv, "px:")) != -1) {
+	switch (opt_char) {
+	case 'p':
+	    processData = true;
+	    break;
+	case 'x':
+	    xmlFileName = optarg;
+	    break;
+	case '?':
+	    return usage(argv[0]);
+	}
     }
-    else {
-	atdUtil::Socket* sock = new atdUtil::Socket(rstr.hostName,rstr.port);
-        iochan = new dsm::Socket(sock);
-    }
-    RawSampleInputStream sis(iochan);
-    sis.init();
-
-    auto_ptr<Project> project;
-    list<DSMSensor*> allsensors;
-
-    if (rstr.xmlFileName.length() > 0) {
-	auto_ptr<xercesc::DOMDocument> doc(
-		DSMEngine::parseXMLConfigFile(rstr.xmlFileName));
-
-        project = auto_ptr<Project>(Project::getInstance());
-	project->fromDOMElement(doc->getDocumentElement());
-
-	const list<Site*>& sitelist = project->getSites();
-	list<Site*>::const_iterator ai;
-	for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
-	    Site* site = *ai;
-	    const list<DSMConfig*>& dsms = site->getDSMConfigs();
-	    list<DSMConfig*>::const_iterator di;
-	    for (di = dsms.begin(); di != dsms.end(); ++di) {
-		DSMConfig* dsm = *di;
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+    for (; optind < argc; optind++) {
+	string url(argv[optind]);
+	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+	    url = url.substr(5);
+	    size_t ic = url.find(':');
+	    hostName = url.substr(0,ic);
+	    if (ic < string::npos) {
+		istringstream ist(url.substr(ic+1));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		    return usage(argv[0]);
+		}
 	    }
 	}
-    }
-
-    CounterClient counter(allsensors);
-
-    if (rstr.process) {
-	list<DSMSensor*>::const_iterator si;
-	for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    sensor->init();
-	    sis.addProcessedSampleClient(&counter,sensor);
+	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	    url = url.substr(5);
+	    dataFileNames.push_back(url);
 	}
+	else dataFileNames.push_back(url);
     }
-    else sis.addSampleClient(&counter);
+    if (dataFileNames.size() == 0 && hostName.length() == 0) return usage(argv[0]);
 
+    return 0;
+}
 
+int DataStats::usage(const char* argv0)
+{
+    cerr << "\
+Usage: " << argv0 << "[-p] [-x xml_file] inputURL ...\n\
+    -p: process (optional). Pass samples to sensor process method\n\
+    -x xml_file (optional), default: \n\
+	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
+	 where <project>, <aircraft> and <flight> are read from the input data header\n\
+    inputURL: data input (required). Either \"sock:host:port\" or\n\
+	 one or more \"file:file_path\" or simply one or more file paths.\n\
+Examples:\n" <<
+    argv0 << " xxx.dat yyy.dat\n" <<
+    argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
+    argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
+    return 1;
+}
+
+int DataStats::main(int argc, char** argv)
+{
+    DataStats stats;
+
+    int result;
+    if ((result = stats.parseRunstring(argc,argv))) return result;
+
+    setupSignals();
+
+    return stats.run();
+}
+
+int DataStats::run() throw()
+{
+
+    int result = 0;
     try {
+	dsm::IOChannel* iochan;
+
+	if (dataFileNames.size() > 0) {
+
+	    FileSet* fset = new dsm::FileSet();
+	    iochan = fset;
+
+#ifdef USE_FILESET_TIME_CAPABILITY
+	    struct tm tm;
+	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	    time_t start = timegm(&tm);
+
+	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
+	    time_t end = timegm(&tm);
+
+	    fset->setDir("/tmp/RICO/hiaper");
+	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
+	    fset->setStartTime(start);
+	    fset->setEndTime(end);
+#else
+	    list<string>::const_iterator fi;
+	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
+		fset->addFileName(*fi);
+#endif
+
+	}
+	else {
+	    atdUtil::Socket* sock = new atdUtil::Socket(hostName,port);
+	    iochan = new dsm::Socket(sock);
+	}
+	RawSampleInputStream sis(iochan);
+	sis.init();
+	sis.readHeader();
+
+	SampleInputHeader header = sis.getHeader();
+
+	auto_ptr<Project> project;
+	list<DSMSensor*> allsensors;
+
+	if (xmlFileName.length() == 0) xmlFileName =
+	    Project::getConfigName("$ADS3_CONFIG", "projects",
+	    header.getProjectName(),
+	    header.getSiteName(),"flights",
+	    header.getObsPeriodName(),"ads3.xml");
+
+	struct stat statbuf;
+	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
+
+	    auto_ptr<xercesc::DOMDocument> doc(
+		    DSMEngine::parseXMLConfigFile(xmlFileName));
+
+	    project = auto_ptr<Project>(Project::getInstance());
+	    project->fromDOMElement(doc->getDocumentElement());
+
+	    const list<Site*>& sitelist = project->getSites();
+	    list<Site*>::const_iterator ai;
+	    for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
+		Site* site = *ai;
+		const list<DSMConfig*>& dsms = site->getDSMConfigs();
+		list<DSMConfig*>::const_iterator di;
+		for (di = dsms.begin(); di != dsms.end(); ++di) {
+		    DSMConfig* dsm = *di;
+		    const list<DSMSensor*>& sensors = dsm->getSensors();
+		    allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+		}
+	    }
+	}
+
+	CounterClient counter(allsensors);
+
+	if (processData) {
+	    list<DSMSensor*>::const_iterator si;
+	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
+		DSMSensor* sensor = *si;
+		sensor->init();
+		sis.addProcessedSampleClient(&counter,sensor);
+	    }
+	}
+	else sis.addSampleClient(&counter);
+
+
 	for (;;) {
 	    sis.readSamples();
 	    if (interrupted) break;
 	}
+	counter.printResults();
     }
     catch (atdUtil::EOFException& eof) {
         cerr << eof.what() << endl;
     }
     catch (atdUtil::IOException& ioe) {
         cerr << ioe.what() << endl;
+	result = 1;
+    }
+    catch (atdUtil::Exception& ioe) {
+        cerr << ioe.what() << endl;
+	result = 1;
     }
 
-    counter.printResults();
-    return 0;
+    return result;
 }
 
 int main(int argc, char** argv)
 {
-    return FileStats::main(argc,argv);
+    return DataStats::main(argc,argv);
 }
