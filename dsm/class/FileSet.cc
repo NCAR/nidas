@@ -33,11 +33,6 @@ void FileSet::setName(const std::string& val)
     name = val;
 }
 
-void FileSet::setDir(const string& val)
-{
-    atdUtil::FileSet::setDir(val);
-}
-
 void FileSet::setFileName(const string& val)
 {
     atdUtil::FileSet::setFileName(val);

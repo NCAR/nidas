@@ -41,8 +41,6 @@ public:
 
     const std::string& getName() const;
 
-    void setDir(const std::string& val);
-
     void setFileName(const std::string& val);
 
     std::string FileSet::expandString(const std::string& input);
