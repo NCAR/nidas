@@ -15,7 +15,6 @@
 #include <SampleInput.h>
 #include <DSMSensor.h>
 #include <DSMService.h>
-#include <SampleFileHeader.h>
 
 #include <atdUtil/Logger.h>
 
@@ -34,6 +33,8 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
+    if (iochan) iostream =
+    	new IOStream(*iochan,iochan->getBufferSize());
 }
 
 /*
@@ -46,6 +47,8 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,IOChannel* iocha
     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
+    if (iochan) iostream =
+    	new IOStream(*iochan,iochan->getBufferSize());
 }
 
 /*
@@ -78,6 +81,7 @@ void SampleInputStream::connected(IOChannel* iochannel) throw()
 {
     cerr << "SampleInputStream connected, iochannel=" <<
     	iochannel->getRemoteInet4Address().getHostAddress() << endl;
+    // this create a clone of myself
     service->connected(clone(iochannel));
 }
 
@@ -103,8 +107,8 @@ void SampleInputStream::init() throw()
     cerr << "SampleInputStream::init(), buffer size=" << 
     	iochan->getBufferSize() << endl;
 #endif
-    delete iostream;
-    iostream = new IOStream(*iochan,iochan->getBufferSize());
+    if (!iostream)
+	iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 void SampleInputStream::close() throw(atdUtil::IOException)
@@ -120,6 +124,10 @@ atdUtil::Inet4Address SampleInputStream::getRemoteInet4Address() const
     else return atdUtil::Inet4Address();
 }
 
+void SampleInputStream::readHeader() throw(atdUtil::IOException)
+{
+    inputHeader.check(iostream);
+}
 /**
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
@@ -140,8 +148,7 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 #endif
     iostream->read();		// read a buffer's worth
     if (iostream->isNewFile()) {	// first read from a new file
-	SampleFileHeader header;
-	header.check(iostream);
+	readHeader();
 	if (samp) samp->freeReference();
 	samp = 0;
     }
@@ -247,8 +254,7 @@ restart:
 	while (iostream->available() < header.getSizeOf()) {
 	    iostream->read();
 	    if (iostream->isNewFile()) {
-		SampleFileHeader header;
-		header.check(iostream);
+		inputHeader.check(iostream);
 	    }
 	}
 
@@ -273,8 +279,7 @@ restart:
 	    iostream->putback(dptr,len);
 	    samp->freeReference();
 	    samp = 0;
-	    SampleFileHeader header;
-	    header.check(iostream);
+	    inputHeader.check(iostream);
 	    goto restart;
 	}
 	dptr += len;

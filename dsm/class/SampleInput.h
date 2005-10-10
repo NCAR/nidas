@@ -20,6 +20,7 @@
 #include <IOStream.h>
 #include <ConnectionRequester.h>
 #include <SampleSorter.h>
+#include <SampleInputHeader.h>
 
 namespace dsm {
 
@@ -257,8 +258,6 @@ public:
 
     std::string getName() const;
 
-    // bool isRaw() const { return false; }
-
     void setPseudoPort(int val) { pseudoPort = val; }
 
     int getPseudoPort() const { return pseudoPort; }
@@ -286,6 +285,10 @@ public:
     {
         dsms.push_back(val);
     }
+
+    void readHeader() throw(atdUtil::IOException);
+
+    const SampleInputHeader& getHeader() const { return inputHeader; }
 
     void addProcessedSampleClient(SampleClient*,DSMSensor*);
 
@@ -381,6 +384,8 @@ private:
      * Copy constructor.
      */
     SampleInputStream(const SampleInputStream&);
+
+    SampleInputHeader inputHeader;
 
 };
 
