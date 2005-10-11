@@ -436,6 +436,10 @@ DOMDocument* DSMEngine::requestXMLConfig(
 DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(dsm::XMLException)
 {
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"parsing: %s",xmlFileName.c_str());
+
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws XMLException
 

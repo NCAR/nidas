@@ -13,10 +13,10 @@ namespace dsm {
 
 class SampleTimetagComparator {
 public:
-  bool operator() (const Sample* x, const Sample *y) const {
-    // return true if x is less than y
-    return x->getTimeTag() < y->getTimeTag();
-  }
+    inline bool operator() (const Sample* x, const Sample *y) const {
+	// return true if x is less than y
+	return x->getTimeTag() < y->getTimeTag();
+    }
 };
 
 class SortedSampleSet: public std::multiset<const Sample*,SampleTimetagComparator> {};

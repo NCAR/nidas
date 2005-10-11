@@ -146,7 +146,7 @@ void CounterClient::printResults()
     char tstr[64];
     cout << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
     	right <<
-    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << setw(lenpow[0] + lenpow[1]) << "mn&mx_len" << endl;
+    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << setw(lenpow[0] + lenpow[1]) << "minMaxLen" << endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / USECS_PER_SEC;
