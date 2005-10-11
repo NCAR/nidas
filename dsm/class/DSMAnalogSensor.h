@@ -205,6 +205,16 @@ protected:
      * Sensor latency, in seconds.
      */
     float latency;
+
+    /**
+     * Expected size of raw sample.
+     */
+    size_t rawSampleLen;
+
+    /**
+     * Counter of number of raw samples of wrong size.
+     */
+    size_t badRawSamples;
 };
 
 }

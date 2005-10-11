@@ -60,7 +60,7 @@ DSMAnalogSensor::DSMAnalogSensor() :
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
     sampleTimes(0),
     deltatUsec(0),nSamplePerRawSample(0),
-    outsamples(0),latency(0.1)
+    outsamples(0),latency(0.1),badRawSamples(0)
 {
 }
 
@@ -92,9 +92,11 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 	a2d.gain[chan] = channels[chan].gainSetting;
 	a2d.offset[chan] = !channels[chan].bipolar;	// flip logic
 	if (a2d.Hz[chan] > maxrate) maxrate = a2d.Hz[chan];
+#ifdef DEBUG
 	cerr << "chan=" << chan << " Hz=" << a2d.Hz[chan] <<
 		" gain=" << a2d.gain[chan] << 
 		" offset=" << a2d.offset[chan] << endl;
+#endif
     }
     for( ; chan < MAXA2DS; chan++) {
 	a2d.Hz[chan] = 0;
@@ -115,10 +117,10 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     int nexpect = (signed)sizeof(a2d.filter)/sizeof(a2d.filter[0]);
     readFilterFile(filtername,a2d.filter,nexpect);
 
-    cerr << "doing A2D_SET_CONFIG" << endl;
+    // cerr << "doing A2D_SET_CONFIG" << endl;
     ioctl(A2D_SET_CONFIG, &a2d, sizeof(A2D_SET));
 
-    cerr << "doing A2D_RUN_IOCTL" << endl;
+    // cerr << "doing A2D_RUN_IOCTL" << endl;
     ioctl(A2D_RUN_IOCTL,(const void*)0,0);
 
     RTL_DSMSensor::open(flags);
@@ -126,7 +128,7 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 
 void DSMAnalogSensor::close() throw(atdUtil::IOException)
 {
-    cerr << "doing A2D_STOP_IOCTL" << endl;
+    // cerr << "doing A2D_STOP_IOCTL" << endl;
     ioctl(A2D_STOP_IOCTL,(const void*)0,0);
     RTL_DSMSensor::close();
 }
@@ -198,6 +200,10 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
     convSlope = new float[nvariables];
     convIntercept = new float[nvariables];
 
+#define REPORTING_RATE 100
+
+    rawSampleLen = 0;
+
     set<int>::const_iterator si;
     int ivar = 0;
     for (si = sortedChannelNums.begin(); si != sortedChannelNums.end();
@@ -268,6 +274,11 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	else 
 	    convIntercept[ivar] = corIntercepts[ichan] +
 	    	10.0 / channels[ichan].gain * corSlopes[ichan];
+        rawSampleLen += (int)rint(rateVec[sampleIndices[ivar]] / REPORTING_RATE);
+#ifdef DEBUG
+	cerr << "ivar=" << ivar << " sampleIndices[ivar]=" << sampleIndices[ivar] <<
+		" rate=" << rateVec[sampleIndices[ivar]] << " rawSampleLen=" << rawSampleLen << endl;
+#endif
     }
 
     unsigned int nsamples = rateVec.size();
@@ -287,7 +298,6 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
     }
     minDeltatUsec = deltatUsec[imax];
 
-#define REPORTING_RATE 100
     if (maxRate >= REPORTING_RATE) {
 	assert(fmod(maxRate,REPORTING_RATE) == 0.0);
         nSamplePerRawSample = (int)(maxRate / REPORTING_RATE);
@@ -343,6 +353,9 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
     // pointer to raw A2D counts
     const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
 
+    // raw data are shorts
+    assert((insamp->getDataByteLength() % sizeof(short)) == 0);
+
     // number of data values in this raw sample.
     unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
 
@@ -351,7 +364,18 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 
     // One raw sample from A2D contains multiple sweeps
     // of the A2D channels.
-    assert((nvalues % nvariables) == 0);
+    if (nvalues != rawSampleLen) {
+        if (!(badRawSamples++ % 1000)) 
+		atdUtil::Logger::getInstance()->log(LOG_ERR,
+			"A/D sample id %d (dsm=%d,sensor=%d): Expected %d raw values, got %d",
+			insamp->getId(),GET_DSM_ID(insamp->getId()),GET_SHORT_ID(insamp->getId()),
+			rawSampleLen,nvalues);
+	return false;
+    }
+
+#ifdef DEBUG
+    bool debug = GET_DSM_ID(insamp->getId()) == 0;
+#endif
 
     for (unsigned int ival = 0; ival < nvalues; ) {
 
@@ -361,7 +385,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    int sampIndex = subSampleIndices[ivalmod];
 
 #ifdef DEBUG
-	    if (!(debugcntr % 100))
+	    if (debug && !(debugcntr % 100))
 	    cerr << " nvariables=" << nvariables << " nvalues=" << nvalues <<
 		    " ival=" << ival << " ivalmod=" << ivalmod <<
 		    " isamp=" << isamp << " sampIndex=" << sampIndex << endl;
@@ -369,7 +393,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    SampleT<float>* osamp = outsamples[isamp];
 
 #ifdef DEBUG
-	    if (!(debugcntr % 100))
+	    if (debug && !(debugcntr % 100))
 	    cerr << "tt=" << tt << " sampleTimes=" << sampleTimes[isamp] << endl;
 #endif
 	    // send out last sample if time tag has incremented
@@ -377,13 +401,13 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 		if (osamp) {
 		    osamp->setTimeTag(sampleTimes[isamp]);
 #ifdef DEBUG
-	    if (!(debugcntr % 100)) {
-		    cerr << "tt=" << osamp->getTimeTag() <<
-			    " len=" << osamp->getDataLength() << " data:";
-		    for (unsigned int j = 0; j < osamp->getDataLength(); j++)
-			cerr << osamp->getDataPtr()[j] <<  ' ';
-		    cerr << endl;
-	    }
+		    if (debug && !(debugcntr % 100)) {
+			cerr << "tt=" << osamp->getTimeTag() <<
+				" len=" << osamp->getDataLength() << " data:";
+			for (unsigned int j = 0; j < osamp->getDataLength(); j++)
+			    cerr << osamp->getDataPtr()[j] <<  ' ';
+			cerr << endl;
+		    }
 #endif
 		    result.push_back(osamp);	// pass the sample on
 		    sampleTimes[isamp] += deltatUsec[isamp];
@@ -392,14 +416,14 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 		else
 		    sampleTimes[isamp] = tt;
 #ifdef DEBUG
-	    if (!(debugcntr % 100))
+	    if (debug && !(debugcntr % 100))
 		cerr << "getSample, numVarsInSample[" << isamp << "]=" << numVarsInSample[isamp] << endl;
 #endif
 		osamp = getSample<float>(numVarsInSample[isamp]);
 		outsamples[isamp] = osamp;
 		osamp->setId(sampleIds[isamp]);
 #ifdef DEBUG
-	    if (!(debugcntr % 100))
+	    if (debug && !(debugcntr % 100))
 		cerr << "osamp->getDataLength()=" << osamp->getDataLength() << endl;
 #endif
 		float *fp = osamp->getDataPtr();
@@ -412,22 +436,22 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) 
 	    if (sval == -32768) volts = floatNAN;
 	    else volts = convIntercept[ivalmod] + convSlope[ivalmod] * sval;
 #ifdef DEBUG
-	    if (!(debugcntr % 100))
-	    cerr << "ivalmod=" << ivalmod << " ival=" << ival <<
-		" sval=" << sval << " volts=" << volts <<
-		" convIntercept[ivalmod]=" << convIntercept[ivalmod] <<
-		" convSlope[ivalmod]=" << convSlope[ivalmod] <<
+	    if (debug && !(debugcntr % 100))
+		cerr << "ivalmod=" << ivalmod << " ival=" << ival <<
+		    " sval=" << sval << " volts=" << volts <<
+		    " convIntercept[ivalmod]=" << convIntercept[ivalmod] <<
+		    " convSlope[ivalmod]=" << convSlope[ivalmod] <<
 		" outindex=" << sampIndex << endl;
 #endif
 	    osamp->getDataPtr()[sampIndex] = volts;
 	}
 	tt += minDeltatUsec;
-
     }
 #ifdef DEBUG
-    debugcntr++;
+    if (debug) debugcntr++;
 #endif
     return true;
+#undef DEBUG
 }
 
 void DSMAnalogSensor::addSampleTag(SampleTag* tag)
