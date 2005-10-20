@@ -270,62 +270,18 @@
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
         baud="57600" parity="none" databits="8" stopbits="1">
 	<!-- initialization commands for the Paro:
-	  Still can't get it to run in prompted mode at anything higher
-	  than 25 hz.
-
-	  BR to set the baud rate,
-	  MD=0	turn off Model 715 output
-	  MD=2	turn off Model 715 output, unprompted
-	  UN=2	millibars
-	  PI=10	pressure integration time in millisec
-	  PR=1	pressure integration time in oscillator periods
-
-	  prompted mode:  need prompt tag, remove rate in sample tag
-	  	remove init_string
-	  *9900BR=57600
-	  *0100EW*0100MD=0	turn off Model 715 output
-	  *0100EW*0100UN=2
-	  *0100EW*0100PI=10
-
-	  unprompted mode, remove prompt tag, set rate in sample tag
+	  unprompted mode, set rate with PI (and in sample tag)
 	  	If we set MD=2, don't need P4 init string
 	  *9900BR=57600
 	  *0100EW*0100MD=2	turn off  Model 715 output, unprompted
-	  *0100EW*0100UN=2
+	  *0100EW*0100UN=2	units=millibars
 	  *0100EW*0100PI=10	rate=50
 	-->
 
         <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
 	</sample>
         <message separator="\n" position="end" length="0"/>
-	<!--
-	Prompt string when running in prompted mode
-        <prompt string="*0100P3\r\n" rate="20"/>
-	-->
     </serialSensor>
-
-
-    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible. -->
-<!--
-    <anythingSensor ID="AnythingIO" class="DSMMesaSensor">
-        <mesacfg name="Counter" rate="100" chan="2"/>
-        <mesacfg name="Radar" rate="5" chan="1"/>
-        <mesacfg name="PMS260" rate="10" chan="1"/>
--->
-    <!-- Max 1 or 2 counters, 1 radar alt. and 1 PMS-260 possible.  -->
-<!--
-    <anythingSensor ID="AnythingIO" class="DSMMesaSensor"
-                    devicename="/dev/dsmany0">
-        <sample id="1" rate="5">
-            <variable name="Radar" units="meters"/>
-            <sample id="2" rate="100">
-            <variable name="Counter0" units="counts"/>
-            <sample id="3" rate="100">
-            <variable name="Counter1" units="counts"/>
-            <sample id="4" rate="10">
-            <variable name="PMS260"/>
-    </anythingSensor>
--->
 
 </sensorcatalog>
 <site name="GV" class="Aircraft">
@@ -360,15 +316,6 @@
                     <socket type="server" port="30000"/>
                 </output>
             </processor>
-            <!--
-            <processor class="PSQLProcessor">
-                <parameter name="averageMsec" value="1000" type="int"/>
-                <output class="PSQLSampleOutput">
-                    <postgresdb host="hyper"
-                        dbname="c130" user="ads"/>
-                </output>
-            </processor>
-            -->
             <processor class="SyncRecordGenerator">
                 <output class="SampleOutputStream">
                     <socket type="server" port="30001"/>
@@ -378,6 +325,7 @@
     </server>
 
     <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="30002">
+
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc0" id="1000"
@@ -386,8 +334,6 @@
 		suffix="_I2"/>
         <arincSensor IDREF="ADC-GV" devicename="/dev/arinc2" id="3000"/>
         <arincSensor IDREF="GPS-GV" devicename="/dev/arinc3" id="4000"/>
-	<!--
-	-->
 
         <serialSensor IDREF="Paro_DigiQuartz_1000"
                 devicename="/dev/dsmser0" id="110">
@@ -482,8 +428,6 @@
                 </variable>
             </sample>
         </sensor>
-        <!--
-        -->
 
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
@@ -607,8 +551,6 @@
                 </variable>
             </sample>
         </sensor>
-        <!--
-        -->
 
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
