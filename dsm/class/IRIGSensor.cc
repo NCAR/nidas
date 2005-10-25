@@ -32,7 +32,7 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(IRIGSensor)
+CREATOR_FUNCTION(IRIGSensor)
 
 IRIGSensor::IRIGSensor()
 {

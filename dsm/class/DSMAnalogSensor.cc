@@ -53,7 +53,7 @@
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(DSMAnalogSensor)
+CREATOR_FUNCTION(DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
     RTL_DSMSensor(),initialized(false),

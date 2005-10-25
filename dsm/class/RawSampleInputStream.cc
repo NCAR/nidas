@@ -23,7 +23,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(RawSampleInputStream)
+CREATOR_FUNCTION(RawSampleInputStream)
 
 RawSampleInputStream::RawSampleInputStream(IOChannel* iochan):
 	SampleInputStream(iochan)

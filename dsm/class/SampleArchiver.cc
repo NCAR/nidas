@@ -24,7 +24,7 @@
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(SampleArchiver)
+CREATOR_FUNCTION(SampleArchiver)
 
 SampleArchiver::SampleArchiver(): SampleIOProcessor(),input(0)
 {

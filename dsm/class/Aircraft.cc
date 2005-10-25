@@ -21,7 +21,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(Aircraft)
+CREATOR_FUNCTION(Aircraft)
 
 Aircraft::Aircraft()
 {

@@ -29,7 +29,7 @@
 using namespace std;
 using namespace dsm;
 
-CREATOR_ENTRY_POINT(RTL_DSMSensor)
+CREATOR_FUNCTION(RTL_DSMSensor)
 
 RTL_DSMSensor::RTL_DSMSensor() :
     DSMSensor(),devIoctl(0),infifofd(-1),outfifofd(-1)

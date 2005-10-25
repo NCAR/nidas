@@ -26,7 +26,7 @@
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(A2DBoardTempSensor)
+CREATOR_FUNCTION(A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
     RTL_DSMSensor(),rate(IRIG_1_HZ),

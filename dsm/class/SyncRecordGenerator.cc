@@ -25,7 +25,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(SyncRecordGenerator);
+CREATOR_FUNCTION(SyncRecordGenerator);
 
 SyncRecordGenerator::SyncRecordGenerator():
 	SampleIOProcessor(),input(0)

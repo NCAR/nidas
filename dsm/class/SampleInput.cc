@@ -22,7 +22,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(SampleInputStream)
+CREATOR_FUNCTION(SampleInputStream)
 
 /*
  * Constructor, with a IOChannel (which may be null).

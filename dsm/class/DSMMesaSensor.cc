@@ -30,7 +30,7 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(DSMMesaSensor)
+CREATOR_FUNCTION(DSMMesaSensor)
 
 DSMMesaSensor::DSMMesaSensor()
 {

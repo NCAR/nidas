@@ -19,7 +19,7 @@
 
 using namespace dsm;
 
-CREATOR_ENTRY_POINT(ADC_HW_EB7022597);
+CREATOR_FUNCTION(ADC_HW_EB7022597);
 
 float ADC_HW_EB7022597::processLabel(const long data)
 {

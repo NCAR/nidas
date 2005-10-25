@@ -23,7 +23,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-// CREATOR_ENTRY_POINT(Project)
+// CREATOR_FUNCTION(Project)
 
 /* static */
 Project* Project::instance = 0;

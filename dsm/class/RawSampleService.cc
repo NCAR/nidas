@@ -24,7 +24,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(RawSampleService)
+CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
 	DSMService("RawSampleService"),input(0)

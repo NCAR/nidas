@@ -19,7 +19,7 @@
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(GPS_NMEA_Serial)
+CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 	throw(atdUtil::InvalidParameterException)

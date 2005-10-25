@@ -21,8 +21,8 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(Socket)
-CREATOR_ENTRY_POINT(ServerSocket)
+CREATOR_FUNCTION(Socket)
+CREATOR_FUNCTION(ServerSocket)
 
 Socket::Socket():
 	remoteSockAddr(),socket(0),firstRead(true),newFile(true)

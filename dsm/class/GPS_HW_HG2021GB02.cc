@@ -19,7 +19,7 @@
 
 using namespace dsm;
 
-CREATOR_ENTRY_POINT(GPS_HW_HG2021GB02);
+CREATOR_FUNCTION(GPS_HW_HG2021GB02);
 
 float GPS_HW_HG2021GB02::processLabel(const long data)
 {

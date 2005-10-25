@@ -21,7 +21,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(Site)
+CREATOR_FUNCTION(Site)
 
 Site::Site()
 {

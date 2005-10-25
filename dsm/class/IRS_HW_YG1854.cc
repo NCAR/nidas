@@ -16,7 +16,7 @@
 
 using namespace dsm;
 
-CREATOR_ENTRY_POINT(IRS_HW_YG1854);
+CREATOR_FUNCTION(IRS_HW_YG1854);
 
 float IRS_HW_YG1854::processLabel(const long data)
 {

@@ -27,7 +27,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(SampleOutputStream)
+CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
 	name("SampleOutputStream"),iochan(i),iostream(0),

@@ -21,7 +21,7 @@ using namespace std;
 using namespace xercesc;
 
 
-CREATOR_ENTRY_POINT(McSocket)
+CREATOR_FUNCTION(McSocket)
 
 /*
  * ctor

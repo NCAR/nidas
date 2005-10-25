@@ -19,7 +19,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(PSQLChannel)
+CREATOR_FUNCTION(PSQLChannel)
 
 PSQLChannel::PSQLChannel(): _conn(0),lastCommand(0),lastNchars(0)
 {

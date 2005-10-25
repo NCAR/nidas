@@ -34,7 +34,7 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(DSMSerialSensor)
+CREATOR_FUNCTION(DSMSerialSensor)
 
 DSMSerialSensor::DSMSerialSensor():
     sepAtEOM(true),

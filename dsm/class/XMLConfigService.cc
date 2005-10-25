@@ -32,7 +32,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(XMLConfigService)
+CREATOR_FUNCTION(XMLConfigService)
 
 XMLConfigService::XMLConfigService():
 	DSMService("XMLConfigService"),iochan(0),dsm(0)

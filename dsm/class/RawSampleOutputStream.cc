@@ -23,7 +23,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(RawSampleOutputStream)
+CREATOR_FUNCTION(RawSampleOutputStream)
 
 RawSampleOutputStream::RawSampleOutputStream()
 {

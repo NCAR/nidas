@@ -27,7 +27,7 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
-//CREATOR_ENTRY_POINT(DSMArincSensor);
+//CREATOR_FUNCTION(DSMArincSensor);
 
 DSMArincSensor::DSMArincSensor() :
   _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD), sim_xmit(false)

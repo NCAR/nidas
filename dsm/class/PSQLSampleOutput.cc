@@ -30,7 +30,7 @@ using namespace dsm;
 using namespace std;
 using namespace xercesc;
 
-CREATOR_ENTRY_POINT(PSQLSampleOutput)
+CREATOR_FUNCTION(PSQLSampleOutput)
 
 PSQLSampleOutput::PSQLSampleOutput(): 
     connectionRequester(0),service(0),psqlChannel(0),

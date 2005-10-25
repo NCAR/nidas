@@ -41,7 +41,7 @@ public:
      *    "DOMable* createXXXX()" must exist (where XXXX is the 
      *    class name), which returns a pointer to a new instance
      *    of the class.  This function can be defined with
-     *    the CREATOR_ENTRY_POINT(className) macro found in
+     *    the CREATOR_FUNCTION(className) macro found in
      *    DOMable.h.
      * -# The extern "C" function can be either statically
      *    linked in the program, or in a shareable library.

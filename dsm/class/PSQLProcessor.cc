@@ -23,7 +23,7 @@
 using namespace dsm;
 using namespace std;
 
-CREATOR_ENTRY_POINT(PSQLProcessor)
+CREATOR_FUNCTION(PSQLProcessor)
 
 PSQLProcessor::PSQLProcessor(): SampleIOProcessor(),input(0)
 {
