@@ -273,7 +273,7 @@ int SyncServer::run() throw()
 	output->connect();
 	syncGen.connected(output);
 
-	if (true || simulationMode) simLoop(input,output,syncGen);
+	if (simulationMode) simLoop(input,output,syncGen);
 	else normLoop(input,output,syncGen);
     }
     catch (atdUtil::EOFException& eof) {
@@ -368,22 +368,28 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 	SyncRecordGenerator& syncGen) throw(atdUtil::IOException)
 {
 
+    Sample* samp = input.readSample();
+    dsm_time_t tt = samp->getTimeTag();
+    syncGen.sendHeader(tt,output->getIOStream());
+    input.distribute(samp);
+    samp->freeReference();
+
     try {
 	for (;;) {
 	    if (interrupted) break;
 	    input.readSamples();
 	}
     }
-    catch (atdUtil::EOFException& eof) {
-	cerr << eof.what() << endl;
+    catch (atdUtil::EOFException& e) {
+	input.close();
 	syncGen.disconnect(&input);
 	syncGen.disconnected(output);
-	throw eof;
+	throw e;
     }
-    catch (atdUtil::IOException& ioe) {
-	cerr << ioe.what() << endl;
+    catch (atdUtil::IOException& e) {
+	input.close();
 	syncGen.disconnect(&input);
 	syncGen.disconnected(output);
-	throw ioe;
+	throw e;
     }
 }
