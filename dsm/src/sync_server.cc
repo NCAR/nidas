@@ -306,6 +306,7 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     struct timespec nsleep;
     dsm_time_t nextDataSec = 0;
     dsm_time_t timeOffset = 0;
+    dsm_time_t ttLast = 0;
     int granularity = USECS_PER_SEC / 10;	// how often to wake up
     bool first = true;
     try {
@@ -327,20 +328,23 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 		while (tt > nextDataSec) {
 		    dsm_time_t tnow = getSystemTime();
 		    long tsleep = granularity - (tnow % granularity);
-		    // cerr << "tsleep=" << tsleep << endl;
+		    // cerr << "tt=" << tt << " nextDataSec=" << nextDataSec << " tsleep=" << tsleep << endl;
 		    nsleep.tv_sec = tsleep / USECS_PER_SEC;
 		    nsleep.tv_nsec = (tsleep % USECS_PER_SEC) * 1000;
 		    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 
 		    tnow += tsleep;
+		    int tdiff = (int)((tt - ttLast) / USECS_PER_SEC);
 
 		    // time diff between now and data timetags
-		    if (timeOffset == 0) {	
+		    // if a big jump in the data, recompute timeOffset
+		    if (tdiff > 10) {	
 			timeOffset = tnow - tt;
 			timeOffset -= (timeOffset % granularity);
 		    }
 		    nextDataSec = tnow - timeOffset;
 		}
+		ttLast = tt;
 	    }
 	    if (first) {
 		syncGen.sendHeader(tt,output->getIOStream());
