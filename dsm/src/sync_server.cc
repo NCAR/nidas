@@ -303,52 +303,51 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 	SyncRecordGenerator& syncGen) throw(atdUtil::IOException)
 {
 
-    struct timespec nsleep;
-    dsm_time_t nextDataSec = 0;
-    dsm_time_t timeOffset = 0;
-    dsm_time_t ttLast = 0;
-    int granularity = USECS_PER_SEC / 10;	// how often to wake up
-    bool first = true;
     try {
+	Sample* samp = input.readSample();
+	dsm_time_t tt = samp->getTimeTag();
+	syncGen.sendHeader(tt,output->getIOStream());
+	input.distribute(samp);
+	samp->freeReference();
+
+	int simClockRes = USECS_PER_SEC / 10;	// simulated clock resolution
+
+	// simulated data clock. Round it up to next simClockRes.
+	dsm_time_t simClock = tt + simClockRes - (tt % simClockRes);
+
+	const int MAX_WAIT = 5;
+
 	for (;;) {
-	    if (!output->getIOStream()) break;	 // check for disconn
+	    if (!output->getIOStream()) break;	 // check for disconnect
 	    if (interrupted) break;
 
-	    Sample* samp = input.readSample();
+	    samp = input.readSample();
 
-	    dsm_time_t tt = samp->getTimeTag();
-	    // dsm_sample_id_t sampid = samp->getId();
-	    if (simulationMode) {
+	    tt = samp->getTimeTag();
+
+	    while (tt > simClock) {	// getting ahead of simulated data clock
+
 #ifdef DEBUG
-		cerr << "tt=" << tt/USECS_PER_SEC << '.' <<
-		    setfill('0') << setw(3) << (tt % USECS_PER_SEC) / 1000 <<
-		    " nextDataSec=" <<  nextDataSec/USECS_PER_SEC << '.' <<
-		    setfill('0') << setw(3) << ( nextDataSec % USECS_PER_SEC) / 1000 << endl;
+	        cerr << "tt=" << tt / USECS_PER_SEC << '.' <<
+			setfill('0') << setw(3) << (tt % USECS_PER_SEC) / 1000 <<
+		    " simClock=" <<  simClock / USECS_PER_SEC << '.' <<
+		    	setfill('0') << setw(3) <<  (simClock % USECS_PER_SEC) / 1000 <<
+		    endl;
 #endif
-		while (tt > nextDataSec) {
-		    dsm_time_t tnow = getSystemTime();
-		    long tsleep = granularity - (tnow % granularity);
-		    // cerr << "tt=" << tt << " nextDataSec=" << nextDataSec << " tsleep=" << tsleep << endl;
-		    nsleep.tv_sec = tsleep / USECS_PER_SEC;
-		    nsleep.tv_nsec = (tsleep % USECS_PER_SEC) * 1000;
-		    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
+			
+		// correct for drift
+		long tsleep = simClockRes - (getSystemTime() % simClockRes);
+		struct timespec nsleep;
+		nsleep.tv_sec = tsleep / USECS_PER_SEC;
+		nsleep.tv_nsec = (tsleep % USECS_PER_SEC) * 1000;
+		if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 
-		    tnow += tsleep;
-		    int tdiff = (int)((tt - ttLast) / USECS_PER_SEC);
+		simClock += simClockRes;
 
-		    // time diff between now and data timetags
-		    // if a big jump in the data, recompute timeOffset
-		    if (tdiff > 10) {	
-			timeOffset = tnow - tt;
-			timeOffset -= (timeOffset % granularity);
-		    }
-		    nextDataSec = tnow - timeOffset;
-		}
-		ttLast = tt;
-	    }
-	    if (first) {
-		syncGen.sendHeader(tt,output->getIOStream());
-		first = false;
+		int tdiff = (int)((tt - simClock) / USECS_PER_SEC);
+		// if a big jump in the data, wait a max of 5 seconds for the impatient.
+		if (tdiff > MAX_WAIT) 
+		    simClock += (tdiff - MAX_WAIT) * USECS_PER_SEC;
 	    }
 	    input.distribute(samp);
 	    samp->freeReference();
