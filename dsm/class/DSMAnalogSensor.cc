@@ -233,9 +233,10 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 	 * 
 	 * Example: -10:10 V input, gain=1,bipolar=true
 	 *	F=gain*10=10,  C=0.2,  offset=2
+	 *    Here are the values after the above steps:
 	 *	-10:10 -> -2:2 -> -4:0 -> 4:0 -> 32767:-32767
 	 *
-	 * The driver inverts the counts before passing them
+	 * a2d_driver inverts the counts before passing them
 	 * back to user space, so for purposes here, we can
 	 * pretend that the A2D converts -4:0 volts to -32767:32767 counts
 	 *
