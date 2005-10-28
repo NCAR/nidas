@@ -44,7 +44,7 @@ Socket::Socket(const Socket& x):
 }
 
 /*
- * Copy constructor with a connected atdUtil::Socket.
+ * Constructor with a connected atdUtil::Socket.
  */
 Socket::Socket(atdUtil::Socket* sock):
 	remoteSockAddr(
@@ -80,25 +80,18 @@ atdUtil::Inet4Address Socket::getRemoteInet4Address() const throw()
 
 IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
 {
-    atdUtil::Socket waitsock;
-    waitsock.connect(*remoteSockAddr);
-
-    dsm::Socket* newsocket =
-    	new dsm::Socket(new atdUtil::Socket(waitsock));
-    return newsocket;
+    atdUtil::Socket* waitsock = new atdUtil::Socket();
+    waitsock->connect(*remoteSockAddr.get());
+    return new dsm::Socket(waitsock);
 }
 
 void Socket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort) throw(atdUtil::IOException)
 {
-    atdUtil::Socket waitsock;
-    waitsock.connect(*remoteSockAddr);
-
-    dsm::Socket* newsocket =
-    	new dsm::Socket(new atdUtil::Socket(waitsock));
-
-    cerr << "Socket::connected " << getName();
-    requester->connected(newsocket);
+    atdUtil::Socket* waitsock = new atdUtil::Socket();
+    waitsock->connect(*remoteSockAddr.get());
+    // cerr << "Socket::connected " << getName();
+    requester->connected(new dsm::Socket(waitsock));
 }
 
 /*
