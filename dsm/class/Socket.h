@@ -111,7 +111,7 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    atdUtil::Inet4SocketAddress remoteSockAddr;
+    std::auto_ptr<atdUtil::SocketAddress> remoteSockAddr;
 
     atdUtil::Socket* socket;
 

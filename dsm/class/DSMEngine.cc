@@ -414,7 +414,7 @@ DOMDocument* DSMEngine::requestXMLConfig(
     delete _xmlRequestSocket;
     _xmlRequestSocket = 0;
 
-    std::string sockName = configSock->getInet4SocketAddress().toString();
+    std::string sockName = configSock->getRemoteSocketAddress().toString();
     XMLFdInputSource sockSource(sockName,configSock->getFd());
 
     cerr << "parsing socket input" << endl;

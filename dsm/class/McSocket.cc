@@ -78,7 +78,7 @@ void McSocket::requestConnection(ConnectionRequester* requester,
 
 void McSocket::connected(atdUtil::Socket* sock)
 {
-    cerr << "McSocket::connected, sock=" << sock->getInet4SocketAddress().toString() << endl;
+    cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
     McSocket* newsock = new McSocket(*this,sock);
     assert(connectionRequester);
     connectionRequester->connected(newsock);
@@ -86,8 +86,13 @@ void McSocket::connected(atdUtil::Socket* sock)
 
 atdUtil::Inet4Address McSocket::getRemoteInet4Address() const throw()
 {
-    if (socket) return socket->getInet4Address();
-    else return atdUtil::Inet4Address();
+    if (socket) {
+	const atdUtil::SocketAddress& addr = socket->getRemoteSocketAddress();
+	const atdUtil::Inet4SocketAddress* i4addr =
+		dynamic_cast<const atdUtil::Inet4SocketAddress*>(&addr);
+	if (i4addr) return i4addr->getInet4Address();
+    }
+    return atdUtil::Inet4Address();
 }
 
 size_t McSocket::getBufferSize() const throw()
@@ -189,5 +194,3 @@ DOMElement* McSocket::toDOMElement(DOMElement* node)
 {
     return node;
 }
-
-

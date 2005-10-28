@@ -25,16 +25,20 @@ CREATOR_FUNCTION(Socket)
 CREATOR_FUNCTION(ServerSocket)
 
 Socket::Socket():
-	remoteSockAddr(),socket(0),firstRead(true),newFile(true)
+	remoteSockAddr(
+		auto_ptr<atdUtil::SocketAddress>(new atdUtil::Inet4SocketAddress())),
+	socket(0),firstRead(true),newFile(true)
 {
-    setName("Socket " + remoteSockAddr.toString());
+    setName("Socket " + remoteSockAddr->toString());
 }
 
 /*
  * Copy constructor.  Should only be called before connection.
  */
 Socket::Socket(const Socket& x):
-	remoteSockAddr(x.remoteSockAddr),socket(0),name(x.name),
+	remoteSockAddr(
+		auto_ptr<atdUtil::SocketAddress>(x.remoteSockAddr->clone())),
+	socket(0),name(x.name),
 	firstRead(true),newFile(true)
 {
 }
@@ -43,10 +47,12 @@ Socket::Socket(const Socket& x):
  * Copy constructor with a connected atdUtil::Socket.
  */
 Socket::Socket(atdUtil::Socket* sock):
-	remoteSockAddr(sock->getInet4SocketAddress()),socket(sock),
+	remoteSockAddr(
+	    auto_ptr<atdUtil::SocketAddress>(sock->getRemoteSocketAddress().clone())),
+	socket(sock),
 	firstRead(true),newFile(true)
 {
-    setName(socket->getInet4SocketAddress().toString());
+    setName(remoteSockAddr->toString());
 }
 
 Socket::~Socket()
@@ -62,15 +68,20 @@ Socket* Socket::clone() const
 
 atdUtil::Inet4Address Socket::getRemoteInet4Address() const throw()
 {
-    if (socket) return socket->getInet4Address();
-    else return atdUtil::Inet4Address();
+    if (socket) {
+	const atdUtil::SocketAddress& addr = socket->getRemoteSocketAddress();
+	const atdUtil::Inet4SocketAddress* i4addr =
+		dynamic_cast<const atdUtil::Inet4SocketAddress*>(&addr);
+	if (i4addr) return i4addr->getInet4Address();
+    }
+    return atdUtil::Inet4Address();
 }
 
 
 IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
 {
     atdUtil::Socket waitsock;
-    waitsock.connect(remoteSockAddr);
+    waitsock.connect(*remoteSockAddr);
 
     dsm::Socket* newsocket =
     	new dsm::Socket(new atdUtil::Socket(waitsock));
@@ -81,7 +92,7 @@ void Socket::requestConnection(ConnectionRequester* requester,
 	int pseudoPort) throw(atdUtil::IOException)
 {
     atdUtil::Socket waitsock;
-    waitsock.connect(remoteSockAddr);
+    waitsock.connect(*remoteSockAddr);
 
     dsm::Socket* newsocket =
     	new dsm::Socket(new atdUtil::Socket(waitsock));
@@ -226,7 +237,8 @@ void Socket::fromDOMElement(const DOMElement* node)
 	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
-    remoteSockAddr = atdUtil::Inet4SocketAddress(addr,port);
+    remoteSockAddr =
+    	auto_ptr<atdUtil::SocketAddress>(new atdUtil::Inet4SocketAddress(addr,port));
 }
 
 DOMElement* Socket::toDOMParent(

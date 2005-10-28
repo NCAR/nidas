@@ -32,7 +32,7 @@ public:
 
     const std::string getName() const
     {
-        return getInet4SocketAddress().toString();
+        return getLocalSocketAddress().toString();
     }
 
     RemoteSerialConnection* acceptConnection() throw(atdUtil::IOException);

@@ -585,7 +585,7 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 	}
 	if (pollfds[0].revents & POLLERR) {
 	    throw atdUtil::IOException(
-	    	socket->getInet4SocketAddress().toString(),"poll","POLLERR");
+	    	socket->getRemoteSocketAddress().toString(),"poll","POLLERR");
 	    interrupt();
 	}
 	if (nfds > 1 && pollfds[1].revents & POLLIN) {	// data on stdin
@@ -613,7 +613,7 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 	}
 	if (nfds > 1 && pollfds[1].revents & POLLERR) {
 	    throw atdUtil::IOException(
-	    	socket->getInet4SocketAddress().toString(),"poll","POLLERR");
+	    	socket->getRemoteSocketAddress().toString(),"poll","POLLERR");
 	    interrupt();
 	}
     }

@@ -264,7 +264,7 @@
 	-->
         <sample id="1" scanfFormat="%*1d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="#1?\r" rate="25"/>
+        <prompt string="#1?\r" rate="50"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
@@ -473,26 +473,26 @@
 	    <!-- corSlope/Intercepts from a cal done on 9/29/2005, for gain=2,bipolar=0 -->
             <sample id="1" rate="500">
                 <variable name="TTLH2" units="V">
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.937495" type="float"/>
-                    <parameter name="corIntercept" value="-0.18754" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-76.94 22.964 0.4274" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.910957" type="float"/>
-                    <parameter name="corIntercept" value="-0.0524519" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-79.19 24.022 0.2613" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.919758" type="float"/>
-                    <parameter name="corIntercept" value="-0.0939478" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-77.78 23.781 0.2942" units="degC"/>
                 </variable>
@@ -505,8 +505,8 @@
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
 		    <!-- values computed for gain=4 -->
-                    <parameter name="corSlope" value="0.916679" type="float"/>
-                    <parameter name="corIntercept" value="-0.0806654" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-82.21 24.938 0.0008" units="degC"/>
 		    <!-- values computed for gain=2
@@ -517,8 +517,8 @@
                 <variable name="NOSETMP" units="V">
                     <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.918388" type="float"/>
-                    <parameter name="corIntercept" value="-0.286011" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <!-- lab cal of Sept 21, 2005 confirmed that these coefs
 		        give a temp within 0.18 degC for -50 to 40 degC
 		    -->
@@ -527,20 +527,20 @@
                 <variable name="A2D5_NOSE" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="0.90814" type="float"/>
-                    <parameter name="corIntercept" value="-0.152318" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="A2D6_NOSE" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="0.917574" type="float"/>
-                    <parameter name="corIntercept" value="-0.258812" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="A2D7_NOSE" units="V">
                     <parameter name="gain" value="1.0" type="float"/>
                     <parameter name="bipolar" value="1" type="bool"/>
-                    <parameter name="corSlope" value="0.917146" type="float"/>
-                    <parameter name="corIntercept" value="-0.255251" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
             </sample>
         </sensor>
