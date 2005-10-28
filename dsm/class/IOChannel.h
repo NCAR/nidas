@@ -18,10 +18,6 @@
 
 #include <ConnectionRequester.h>
 
-#ifdef VALIDATOR	// still in "thought" stage.
-#include <DataHeaderValidator.h>
-#endif
-
 #include <dsm_sample.h>
 #include <DOMable.h>
 
@@ -58,14 +54,14 @@ public:
      * of establishing a connection to the remote host.
      * The pseudoPort number is used when establishing McSocket
      * connections and is ignored otherwise.
-     * Only when the connected() method is called back is the channel
-     * actually open and ready for IO.
+     * Only when the ConnectionRequester::connected() method
+     * is called back is the channel actually open and ready for IO.
      */
     virtual void requestConnection(ConnectionRequester*,int pseudoPort)
     	throw(atdUtil::IOException) = 0;
 
     /**
-     * Establish a connection. This waits for the connection to be
+     * Establish a connection. On return, the connection has been
      * established. It returns a new instance of an IOChannel.
      */
     virtual IOChannel* connect(int pseudoPort) throw(atdUtil::IOException) = 0;
@@ -128,7 +124,8 @@ public:
      * @param exact Use exact time when creating file name, else
      *        the time is adjusted to an even time interval.
      */
-    virtual dsm_time_t createFile(dsm_time_t t,bool exact) throw(atdUtil::IOException)
+    virtual dsm_time_t createFile(dsm_time_t t,bool exact)
+    	throw(atdUtil::IOException)
     {
         return LONG_LONG_MAX;
     }
@@ -155,18 +152,9 @@ public:
         return dsms;
     }
 
-#ifdef VALIDATOR	// still in "thought" stage.
-    void setDataHeaderValidator(DataHeaderValidator* val) {
-        headerValidator = val;
-    }
-#endif
-
 private:
     std::list<const DSMConfig*> dsms;
 
-#ifdef VALIDATOR	// still in "thought" stage.
-    DataHeaderValidator* headerValidator;
-#endif
 };
 
 }
