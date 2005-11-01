@@ -22,24 +22,6 @@ using namespace XmlRpc;
 
 namespace dsm {
 
-/// gets a list of projects in the $ADS3_CONFIG folder
-class GetProjectList : public XmlRpcServerMethod
-{
-public:
-  GetProjectList(XmlRpcServer* s) : XmlRpcServerMethod("GetProjectList", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help GetProjectList"); }
-};
-
-/// sets the path to the selected project
-class SetProject : public XmlRpcServerMethod
-{
-public:
-  SetProject(XmlRpcServer* s) : XmlRpcServerMethod("SetProject", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help SetProject"); }
-};
-
 /// gets a list of DSMs and their locations from the configuration
 class GetDsmList : public XmlRpcServerMethod
 {
