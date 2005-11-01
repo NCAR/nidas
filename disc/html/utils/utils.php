@@ -164,6 +164,7 @@ function find_and_decode_xml($buf, $debug) {
  * @param pass		 password for authentication
  * @param secure	 secure. wether to use fsockopen_ssl. (requires special php build).
  * @param output	 array. xml output options. can be null.  details below:
+ * @param nodecode       if true then don't find_and_decode_xml
  *
  *     output_type: return data as either php native data types or xml
  *                  encoded. ifphp is used, then the other values are ignored. default = xml
@@ -195,7 +196,7 @@ function find_and_decode_xml($buf, $debug) {
  */
 function xu_rpc_http_concise($params) {
    $host = $uri = $port = $method = $args = $debug = null;
-   $timeout = $user = $pass = $secure = $debug = null;
+   $timeout = $user = $pass = $secure = $debug = $nodecode = null;
 
 	extract($params);
 
@@ -216,7 +217,10 @@ function xu_rpc_http_concise($params) {
       $response_buf = xu_query_http_post($request_xml, $host, $uri, $port, $debug,
                                          $timeout, $user, $pass, $secure);
 
-      $retval = find_and_decode_xml($response_buf, $debug);
+      if ($nodecode)
+        $retval = $response_buf;
+      else
+        $retval = find_and_decode_xml($response_buf, $debug);
    }
    return $retval;
 }
