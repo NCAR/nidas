@@ -29,6 +29,9 @@ using namespace std;
 using namespace dsm;
 using namespace xercesc;
 
+/* static */
+bool DSMSensor::zebra = false;
+
 DSMSensor::DSMSensor() :
     classname("unknown"),dsm(0),devname("unknown"),id(0),
     BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
@@ -218,11 +221,17 @@ float DSMSensor::getObservedDataRate() const {
 
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 {
+  static char *glyph[] = {"\\","|","/","-"};
+  static int anim=0;
+  if (++anim == 4) anim=0;
+  zebra = false;
+
   string dsm_name(getDSMConfig()->getName());
   string dsm_lctn(getDSMConfig()->getLocation());
 
     ostr <<
-"<table id=\"sensor_status\"><caption>"+dsm_lctn+" ("+dsm_name+")</caption>\
+"<table id=\"sensor_status\">\
+<caption>"+dsm_lctn+" ("+dsm_name+") "+glyph[anim]+"</caption>\
 <tr>\
 <th>name</th>\
 <th>samp/sec</th>\
@@ -242,9 +251,8 @@ void DSMSensor::printStatusTrailer(std::ostream& ostr) throw()
 }
 void DSMSensor::printStatus(std::ostream& ostr) throw()
 {
-    static bool odd = false;
-    string oe(odd?"odd":"even");
-    odd = !odd;
+    string oe(zebra?"odd":"even");
+    zebra = !zebra;
     ostr <<
         "<tr class=\"" << oe << "\"><td align=left>" <<
                 getDeviceName() << "</td>" << endl <<

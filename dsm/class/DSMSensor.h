@@ -401,6 +401,9 @@ private:
 
     // no assignment
     DSMSensor& operator=(const DSMSensor& x);
+
+    // toggle flag for zebra striping printStatus
+    static bool zebra;
 };
 
 }
