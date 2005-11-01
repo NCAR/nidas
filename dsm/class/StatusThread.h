@@ -13,7 +13,6 @@
 
 */
 
-
 #ifndef DSM_STATUSTHREAD_H
 #define DSM_STATUSTHREAD_H
 
@@ -30,11 +29,10 @@ namespace dsm {
 class StatusThread: public atdUtil::Thread
 {
 public:
-    
     /**
      * Constructor.
      */
-    StatusThread(const std::string& name,int runPeriod);
+    StatusThread(const std::string& name);
 
     virtual ~StatusThread() {
       std::cerr << __FUNCTION__ << std::endl;
@@ -57,13 +55,6 @@ public:
       std::cerr << "StatusThread:" << __FUNCTION__ << std::endl;
       Thread::start();
     }
-
-protected:
-    /**
-     * How often to run, in seconds.
-     */
-    int period;
-
 };
 
 }

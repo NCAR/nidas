@@ -289,7 +289,7 @@ void DSMEngine::run() throw()
 
       // start the status Thread
       // initialize the status thread
-      _statusThread = new StatusThread("DSMEngineStatus",10);
+      _statusThread = new StatusThread("DSMEngineStatus");
       _statusThread->start();
 
       cerr << "DSMEngine: wait()" << endl;
