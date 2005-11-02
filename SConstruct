@@ -7,7 +7,7 @@ import os
 ## command line options
 ##
 opts = Options('nids.conf')
-opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nids')
+opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/net/opt_lnx/ads3')
 ##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
