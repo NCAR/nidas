@@ -56,4 +56,4 @@ nodes = []
 for i in apps:
   nodes += myenv.Program( i )
 
-myenv.Install('$ADS3_INSTALL/bin',nodes)
+myenv.Install('$PREFIX/bin',nodes)

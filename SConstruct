@@ -1,9 +1,23 @@
 # -*- python -*-
-
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+import os
+
 ##
-Help("""
+## command line options
+##
+opts = Options('nids.conf')
+opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nids')
+##
+##  Create a new construction environment variable and
+##  restrict it's build methods to be POSIX based only.
+##
+env = Environment(platform = 'posix',options=opts,
+    ENV = {'PATH' : os.environ['PATH']})
+
+opts.Save('nids.conf',env)
+
+Help(opts.GenerateHelpText(env) + """
 targets
 (none) build ARM driver modules and ARM & X86 library and executables.
 x86    build library and executable programs for X86.
@@ -11,31 +25,7 @@ arm    build driver modules, library and executable programs for ARM.
 lib    build library for X86 and ARM.
 x86_install  build and install X86 library and executables.
 arm_install  build and install ARM modules, library and executables.
-
-Files are installed at /opt/ads3/arm and /opt/ads3/x86.
 """)
-
-##
-##  Store all signatures in the '.sconsign.dblite'
-##  file at the top-level SConstruct directory.
-##
-SConsignFile()
-
-##
-##  Create a new construction environment variable and
-##  restrict it's build methods to be POSIX based only.
-##
-##  If you want to use the user's env variable PATH to find
-##  the compiler and build tools, uncomment these two lines,
-##  and remove the hard-coded paths to the arm-linux-*
-##  tools below.
-##
-# import os
-# env = Environment(platform = 'posix',ENV= os.environ)
-##
-##  Otherwise, do this:
-##
-env = Environment(platform = 'posix')
 
 ##
 ##  TODO - Check out missing files from source control.
@@ -47,6 +37,11 @@ env = Environment(platform = 'posix')
 ##  your build a little by disabling these searches as follows:
 ##
 env.SourceCode('.', None)
+##
+##  Store all signatures in the '.sconsign.dblite'
+##  file at the top-level SConstruct directory.
+##
+SConsignFile()
 
 ##
 ##  Define it's compiler flags for the all build tools.
@@ -74,7 +69,11 @@ env['CPPPATH'] = Split("""
 ##
 arm_env = env.Copy()
 
-arm_env.Replace(ADS3_INSTALL = '/opt/ads3/arm')
+##
+## Append arm to PREFIX
+##
+armprefix = arm_env['PREFIX'] + '/arm'
+arm_env.Replace(PREFIX = armprefix)
 
 # arm_env.AppendUnique(CCFLAGS=Split("""
 #   -mcpu=xscale
@@ -83,14 +82,14 @@ arm_env.Replace(ADS3_INSTALL = '/opt/ads3/arm')
 
 arm_env.AppendUnique(CPPPATH =
     Split("""
-	$ADS3_INSTALL/include
+	$PREFIX/include
     """)
 )
 
 arm_env.AppendUnique(LIBPATH =
     Split("""
 	#dsm/class/arm
-	$ADS3_INSTALL/lib
+	$PREFIX/lib
     """)
 )
 
@@ -100,7 +99,7 @@ arm_env.AppendUnique(LIBPATH =
 arm_env.AppendUnique(RPATH = 
     Split("""
 	/var/tmp/lib
-	$ADS3_INSTALL/lib
+	$PREFIX/lib
     """)
 )
 
@@ -118,7 +117,11 @@ arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 ##
 x86_env = env.Copy()
 
-x86_env.Replace(ADS3_INSTALL = '/opt/ads3/x86')
+##
+## Append x86 to PREFIX
+##
+x86prefix = x86_env['PREFIX'] + '/x86'
+x86_env.Replace(PREFIX = x86prefix)
 
 ##
 ##  Define it's compiler flags for the all build tools.
@@ -129,14 +132,14 @@ x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
 ##     /scr/tmp/maclean/isa_tmp/fc3/include
 x86_env.AppendUnique(CPPPATH =
     Split("""
-	$ADS3_INSTALL/include
+	$PREFIX/include
     """)
 )
 
 x86_env.AppendUnique(LIBPATH =
     Split("""
 	#dsm/class/x86
-	$ADS3_INSTALL/lib
+	$PREFIX/lib
     """)
 )
 
@@ -145,22 +148,22 @@ x86_env.AppendUnique(LIBPATH =
 ##
 x86_env.AppendUnique(RPATH = [
     x86_env.Dir("#dsm/class/x86").get_abspath(),
-    '$ADS3_INSTALL/lib'
+    '$PREFIX/lib'
     ]) 
 
 ##
-##  Build dsm/modules
+##  Build dsm/modules/arm
 ##
 SConscript('dsm/modules/SConscript',
 	build_dir='dsm/modules/arm',
-	duplicate=0,exports={'env':arm_env})
+	duplicate=0,exports={'env':arm_env,'headers_only':0})
 
 ##
-##  Build dsm/modules
+##  Build dsm/modules/x86, but only target the headers
 ##
-## SConscript('dsm/modules/SConscript',
-## 	build_dir='dsm/modules/x86',
-## 	duplicate=0,exports={'env':x86_env})
+SConscript('dsm/modules/SConscript',
+	build_dir='dsm/modules/x86',
+	duplicate=0,exports={'env':x86_env,'headers_only':1})
 
 ##
 ##
@@ -206,22 +209,25 @@ Alias('lib', ['dsm/class/x86','dsm/class/arm'])
 ##
 ##  target for installing arm modules, library and executables
 ##
-Alias('arm_install', [
-	arm_env['ADS3_INSTALL'] + '/modules',
-	arm_env['ADS3_INSTALL'] + '/include',
-	arm_env['ADS3_INSTALL'] + '/lib',
-	arm_env['ADS3_INSTALL'] + '/bin'
+arm_env.Alias('arm_install', [
+	'$PREFIX/modules',
+	'$PREFIX/include',
+	'$PREFIX/lib',
+	'$PREFIX/bin'
     ]
 )
 
 ##
 ##  target for installing x86 library and executables
 ##
-Alias('x86_install', [
-	x86_env['ADS3_INSTALL'] + '/include',
-	x86_env['ADS3_INSTALL'] + '/lib',
-	x86_env['ADS3_INSTALL'] + '/bin'
+x86_env.Alias('x86_install', [
+	'$PREFIX/include',
+	'$PREFIX/lib',
+	'$PREFIX/bin'
     ]
 )
+#	'$PREFIX/modules',
 
 Alias('install', ['arm_install','x86_install'])
+
+Default([ 'arm', 'x86' ])

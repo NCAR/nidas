@@ -175,7 +175,7 @@ lib = myenv.SharedLibrary('Dsm' , sources)
 ##
 ## Install target for library.
 ##
-myenv.Install('$ADS3_INSTALL/lib',lib)
+myenv.Install('$PREFIX/lib',lib)
 
 ##
 ## Install target for headers.  Must look in parent of build directory
@@ -187,4 +187,4 @@ headers = glob.glob("../*.h")
 # headers = Glob("*.h")
 # print(["headers="] + [str(h) for h in headers])
 
-myenv.Install('$ADS3_INSTALL/include',headers)
+myenv.Install('$PREFIX/include',headers)

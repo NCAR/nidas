@@ -9,6 +9,7 @@ import glob
 ##
 
 Import('env')
+Import('headers_only')
 myenv = env.Copy()
 
 version = myenv.Command('dsm_version.h','dsm_version.h.tmpl',
@@ -72,14 +73,19 @@ modules = Split("""
 ##
 ##  Build the modules
 ##
-objs = []
-for i in modules:
-  objs += myenv.Object( i )
 
-myenv.Install('$ADS3_INSTALL/modules',objs)
-##
-## Install target for headers.  Must look in parent of build directory
-##
+objs = []
+if not headers_only:
+    for i in modules:
+      objs += myenv.Object( i )
+
+## Headers are up one from build directory
 headers = glob.glob("../*.h")
+
+# print(["PREFIX="] + [myenv['PREFIX']])
 # print(["headers="] + headers)
-myenv.Install('$ADS3_INSTALL/include',headers)
+
+myenv.Install('$PREFIX/modules',objs)
+
+myenv.Install('$PREFIX/include',headers)
+
