@@ -284,10 +284,35 @@
     </serialSensor>
 
     <serialSensor ID="Water CN Counter" class="DSMSerialSensor"
-        baud="115200" parity="none" databits="8" stopbits="1">
-        <sample id="1" scanfFormat="%*1d%f"/>
+        baud="115200" parity="none" databits="8" stopbits="1"
+        init_string="SM,4,1">
         <message separator="\n" position="end" length="0"/>
-        <prompt string="#1?\r" rate="50"/>
+        <sample id="1" scanfFormat="D,%d,%d,%f,%f,%f,%f,%*f,%f">
+	    <variable name="MCN_W" units=""
+	    	longname="WCN Current Operating Mode"/>
+	    <variable name="SFCN_W" units="" 
+                longname="WCN Status Flags"/>
+	    <variable name="CONCN_W" units="#/cm3"
+                longname="WCN Aggregated Concentration"/>
+	    <variable name="ETCN_W" units="second" 
+                longname="WCN Sample Time (Elapsed Time)"/>
+	    <variable name="LTCN_W" units="second" longname="WCN Live Time"/>
+	    <variable name="CNTS_W" units="count" 
+                longname="WCN Accumulated Particle Counts"/>
+	    <variable name="RPCN_W" units="" longname="WCN Raw Photometric Value"/>
+        </sample>
+        <sample id="2" scanfFormat="S,%f,%f,%f,%f,%f">
+	    <variable name="FCN_W" units="cm3/min" 
+                longname="WCN Aerosol Flow Rate"/>
+	    <variable name="PCN_W" units="mbar" 
+                longname="WCN Absolute Pressure"/>
+	    <variable name="STCN_W" units="deg_C" 
+                longname="WCN Saturator Temperature"/>
+	    <variable name="GTCN_W" units="deg_C" 
+                longname="WCN Growth Tube Temperature"/>
+	    <variable name="OTCN_W" units="deg_C" 
+                longname="WCN Optics Temperature"/>
+        </sample>
     </serialSensor>
 
 </sensorcatalog>
