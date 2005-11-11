@@ -288,31 +288,40 @@
         init_string="SM,4,1">
         <message separator="\n" position="end" length="0"/>
         <sample id="1" scanfFormat="D,%d,%d,%f,%f,%f,%f,%*f,%f">
-	    <variable name="MCN_W" units=""
-	    	longname="WCN Current Operating Mode"/>
-	    <variable name="SFCN_W" units="" 
-                longname="WCN Status Flags"/>
-	    <variable name="CONCN_W" units="#/cm3"
-                longname="WCN Aggregated Concentration"/>
-	    <variable name="ETCN_W" units="second" 
-                longname="WCN Sample Time (Elapsed Time)"/>
-	    <variable name="LTCN_W" units="second" longname="WCN Live Time"/>
-	    <variable name="CNTS_W" units="count" 
-                longname="WCN Accumulated Particle Counts"/>
-	    <variable name="RPCN_W" units="" longname="WCN Raw Photometric Value"/>
+	    <variable name="MCN_WCN" units="" longname="WCN Current Operating Mode"/>
+	    <variable name="SFCN_WCN" units="" longname="WCN Status Flags"/>
+	    <variable name="CONCN_WCN" units="#/cm3" longname="WCN Aggregated Concentration"/>
+	    <variable name="ETCN_WCN" units="second" longname="WCN Sample Time (Elapsed Time)"/>
+	    <variable name="LTCN_WCN" units="second" longname="WCN Live Time"/>
+	    <variable name="CNTS_WCN" units="count" longname="WCN Accumulated Particle Counts"/>
+	    <variable name="RPCN_WCN" units="" longname="WCN Raw Photometric Value"/>
         </sample>
         <sample id="2" scanfFormat="S,%f,%f,%f,%f,%f">
-	    <variable name="FCN_W" units="cm3/min" 
-                longname="WCN Aerosol Flow Rate"/>
-	    <variable name="PCN_W" units="mbar" 
-                longname="WCN Absolute Pressure"/>
-	    <variable name="STCN_W" units="deg_C" 
-                longname="WCN Saturator Temperature"/>
-	    <variable name="GTCN_W" units="deg_C" 
-                longname="WCN Growth Tube Temperature"/>
-	    <variable name="OTCN_W" units="deg_C" 
-                longname="WCN Optics Temperature"/>
+	    <variable name="FCN_WCN" units="cm3/min" longname="WCN Aerosol Flow Rate"/>
+	    <variable name="PCN_WCN" units="mbar" longname="WCN Absolute Pressure"/>
+	    <variable name="STCN_WCN" units="deg_C" longname="WCN Saturator Temperature"/>
+	    <variable name="GTCN_WCN" units="deg_C" longname="WCN Growth Tube Temperature"/>
+	    <variable name="OTCN_WCN" units="deg_C" longname="WCN Optics Temperature"/>
         </sample>
+    </serialSensor>
+
+    <serialSensor ID="TDLH2O" class="DSMSerialSensor"
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="%f %f %f %f %*f %*f %u %d %d %d %u %d %d %d">
+	    <variable name="MR_LHS" units="" longname="TDLH2O MR Short Wave"/>
+	    <variable name="MR_LHL" units="" longname="TDLH2O MR Long Wave"/>
+	    <variable name="PCELL_LHS" units="" longname=""/>
+	    <variable name="TCELL_LHS" units="" longname=""/>
+	    <variable name="PP2F_LHS" units="" longname=""/>
+	    <variable name="PWR_LHS" units="" longname=""/>
+	    <variable name="IDX_LHS" units="" longname=""/>
+	    <variable name="DK_LHS" units="" longname=""/>
+	    <variable name="PP2F_LHL" units="" longname=""/>
+	    <variable name="PWR_LHL" units="" longname=""/>
+	    <variable name="IDX_LHL" units="" longname=""/>
+	    <variable name="DK_LHL" units="" longname=""/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
 </sensorcatalog>
@@ -377,14 +386,14 @@
         <serialSensor IDREF="DewPointer"
                 devicename="/dev/dsmser1" id="130">
 	    <sample id="1">
-                <variable name="DPLS" units="C"/>
+                <variable name="DPLS" units="C" longname="Dew/Frost Point Temperature, Fuselage Left"/>
 	    </sample>
         </serialSensor>
 
         <serialSensor IDREF="DewPointer"
                 devicename="/dev/dsmser2" id="140">
 	    <sample id="1">
-                <variable name="DPRS" units="C"/>
+                <variable name="DPRS" units="C" longname="Dew/Frost Point Temperature, Fuselage Right"/>
 	    </sample>
         </serialSensor>
 
@@ -401,14 +410,14 @@
 		     so the combined cals are  m=m1*m2  b=m2*b1 + b2,
 		     where m1,b1 are the slope/intercept from the first cal,
 		     m2,b2 are from the second. -->
-                <variable name="DPL" units="V">
+                <variable name="DPL" units="V" longname="Dew/Frost Point Temperature, Fuselage Left">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.929518" type="float"/>
                     <parameter name="corIntercept" value="-0.208666" type="float"/>
 		    <linear slope="12.5" intercept="-75.0" units="degC"/>
                 </variable>
-                <variable name="DPR" units="V">
+                <variable name="DPR" units="V" longname="Dew/Frost Point Temperature, Fuselage Right">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="0.937081" type="float"/>
@@ -476,35 +485,35 @@
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser0" id="110">
             <sample id="1">
-                <variable name="QCF" units="mb"/>
+                <variable name="QCF" units="mb" longname="Raw Dynamic Pressure, Fuselage"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser1" id="112">
             <sample id="1">
-                <variable name="QCR" units="mb"/>
+                <variable name="QCR" units="mb" longname="Raw Dynamic Pressure, Radome"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser2" id="114">
             <sample id="1">
-                <variable name="ADIFR" units="mb"/>
+                <variable name="ADIFR" units="mb" longname="Vertical Differential Pressure, Radome"/>
             </sample>
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser3" id="116">
             <sample id="1">
-                <variable name="BDIFR" units="mb"/>
+                <variable name="BDIFR" units="mb" longname="Horizontal Differential Pressure, Radome"/>
             </sample>
         </serialSensor>
 
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
 	    <!-- corSlope/Intercepts from a cal done on 9/29/2005, for gain=2,bipolar=0 -->
             <sample id="1" rate="500">
-                <variable name="TTLH2" units="V">
+                <variable name="TTLH2" units="V" longname="Total Temperature, Deiced Left">
                     <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
@@ -512,7 +521,7 @@
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-76.94 22.964 0.4274" units="degC"/>
                 </variable>
-                <variable name="TTLH1" units="V">
+                <variable name="TTLH1" units="V" longname="Total Temperature, Deiced Left">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
@@ -520,7 +529,7 @@
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-79.19 24.022 0.2613" units="degC"/>
                 </variable>
-                <variable name="TTRH2" units="V">
+                <variable name="TTRH2" units="V" longname="Total Temperature, Deiced Right">
                     <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
@@ -528,7 +537,7 @@
 		    <!-- Al Schanot: Oct 04, 2005 -->
 		    <poly coefs="-77.78 23.781 0.2942" units="degC"/>
                 </variable>
-                <variable name="TTRH1" units="V">
+                <variable name="TTRH1" units="V" longname="Total Temperature, Deiced Right">
 		    <!-- The amplifier on this sensor is a Rosemount 510BF48
 		     which has half the gain of the others
 		     (output of around 0:2.5V) so we're using a gain of 4
@@ -589,6 +598,162 @@
         </output>
 
     </dsm>
+
+    <dsm name="dsm306" location="chaps_rack" id="2" rserialPort="30002">
+
+        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+        <serialSensor IDREF="Mensor_6100"
+                devicename="/dev/dsmser0" id="110">
+            <sample id="1">
+                <variable name="QCRAKE" units="mb"/>
+            </sample>
+        </serialSensor>
+
+        <serialSensor IDREF="Paro_DigiQuartz_1000"
+                devicename="/dev/dsmser1" id="112">
+	    <sample id="1">
+                <variable name="PSRAKE" units="mb"/>
+	    </sample>
+        </serialSensor>
+
+        <serialSensor IDREF="Mensor_6100"
+                devicename="/dev/dsmser0" id="114">
+            <sample id="1">
+                <variable name="PCONE" units="mb"/>
+            </sample>
+        </serialSensor>
+
+        <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
+            <sample id="1" rate="500">
+                <variable name="PDUMPPR" units="V">
+                    <parameter name="gain" value="1.5" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="PDUMPPL" units="V">
+                    <parameter name="gain" value="1.5" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="PCAB" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="THIML1T" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="THIML1S" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="THIML2T" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="THIML2S" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="TRAKET" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+            </sample>
+        </sensor>
+        <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d1" id="210">
+            <sample id="1" rate="500">
+                <variable name="TRAKES" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="TCAB1" units="V">
+                    <parameter name="gain" value="100.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+            </sample>
+        </sensor>
+
+    </dsm>
+
+    <dsm name="dsm307" location="TDLH2O_rack" id="3" rserialPort="30002">
+
+        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+        <serialSensor IDREF="TDLH2O"
+                devicename="/dev/dsmser0" id="120">
+        </serialSensor>
+
+    </dsm>
+
+    <dsm name="dsm308" location="AEROSOL_rack" id="4" rserialPort="30002">
+
+        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+        <serialSensor IDREF="TDLH2O"
+                devicename="/dev/dsmser1" id="120">
+        </serialSensor>
+
+        <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
+            <sample id="1" rate="500">
+                <variable name="XCOMR" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="XCOCNTS" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="TCAB2" units="V">
+                    <parameter name="gain" value="100.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="TCAB3" units="V">
+                    <parameter name="gain" value="100.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="PHIM1" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="PHIM2" units="V">
+                    <parameter name="gain" value="1.0" type="float"/>
+                    <parameter name="bipolar" value="1" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+            </sample>
+        </sensor>
+    </dsm>
+
 </site>
 </project>
-
