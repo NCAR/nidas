@@ -285,9 +285,9 @@
 
     <serialSensor ID="Water CN Counter" class="DSMSerialSensor"
         baud="115200" parity="none" databits="8" stopbits="1"
-        init_string="SM,4,1">
+        init_string="SM,4,1\r">
         <message separator="\n" position="end" length="0"/>
-        <sample id="1" scanfFormat="D,%d,%d,%f,%f,%f,%f,%*f,%f">
+        <sample id="1" scanfFormat="D,%f,%f,%f,%f,%f,%f,%*f,%f">
 	    <variable name="MCN_WCN" units="" longname="WCN Current Operating Mode"/>
 	    <variable name="SFCN_WCN" units="" longname="WCN Status Flags"/>
 	    <variable name="CONCN_WCN" units="#/cm3" longname="WCN Aggregated Concentration"/>
