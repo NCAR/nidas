@@ -306,8 +306,8 @@
     </serialSensor>
 
     <serialSensor ID="TDLH2O" class="DSMSerialSensor"
-        baud="9600" parity="none" databits="8" stopbits="1">
-        <sample id="1" scanfFormat="%f %f %f %f %*f %*f %u %d %d %d %u %d %d %d">
+        baud="115200" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="%f %f %f %f %*f %*f %f %f %f %f %f %f %f %f">
 	    <variable name="MR_LHS" units="" longname="TDLH2O MR Short Wave"/>
 	    <variable name="MR_LHL" units="" longname="TDLH2O MR Long Wave"/>
 	    <variable name="PCELL_LHS" units="" longname=""/>
