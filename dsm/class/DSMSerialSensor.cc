@@ -176,7 +176,7 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
 
     const string& sfmt = tag->getScanfFormat();
     if (sfmt.length() > 0) {
-	if (scanners.size() == 0 && sampleTags.size() > 0) {
+	if (scanners.size() != sampleTags.size()) {
 	    ostringstream ost;
 	    ost << tag->getSampleId();
 	    throw atdUtil::InvalidParameterException(getName(),
@@ -185,7 +185,7 @@ void DSMSerialSensor::addSampleTag(SampleTag* tag)
 	}
 	AsciiScanner* scanner = new AsciiScanner();
 	try {
-	   scanner->setFormat(tag->getScanfFormat());
+	   scanner->setFormat(replaceBackslashSequences(sfmt));
 	}
 	catch (atdUtil::ParseException& pe) {
 	    throw atdUtil::InvalidParameterException(getName(),
