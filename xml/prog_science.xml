@@ -321,7 +321,7 @@
 	    <variable name="IDX_LHL" units="" longname=""/>
 	    <variable name="DK_LHL" units="" longname=""/>
         </sample>
-        <message separator="\n" position="end" length="0"/>
+        <message separator="\r\n" position="end" length="0"/>
     </serialSensor>
 
 </sensorcatalog>
@@ -365,7 +365,7 @@
         </service>
     </server>
 
-    <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="30002">
+    <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
@@ -475,7 +475,7 @@
         </output>
     </dsm>
 
-    <dsm name="dsm305" location="radome" id="1" rserialPort="30002">
+    <dsm name="dsm305" location="radome" id="5" rserialPort="30002">
         <config class="XMLConfig">
             <socket type="mcrequest"/>
         </config>
@@ -599,7 +599,7 @@
 
     </dsm>
 
-    <dsm name="dsm306" location="chaps_rack" id="2" rserialPort="30002">
+    <dsm name="dsm306" location="chaps_rack" id="6" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
@@ -695,7 +695,7 @@
 
     </dsm>
 
-    <dsm name="dsm307" location="TDLH2O_rack" id="3" rserialPort="30002">
+    <dsm name="dsm307" location="TDLH2O_rack" id="7" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
@@ -705,7 +705,7 @@
 
     </dsm>
 
-    <dsm name="dsm308" location="AEROSOL_rack" id="4" rserialPort="30002">
+    <dsm name="dsm308" location="AEROSOL_rack" id="8" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
