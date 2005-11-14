@@ -283,26 +283,29 @@
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
-    <serialSensor ID="Water CN Counter" class="DSMSerialSensor"
+    <serialSensor ID="Water_CN_Counter" class="DSMSerialSensor"
         baud="115200" parity="none" databits="8" stopbits="1"
         init_string="SM,4,1\r">
-        <message separator="\n" position="end" length="0"/>
-        <sample id="1" scanfFormat="D,%f,%f,%f,%f,%f,%f,%*f,%f">
+        <sample id="1" rate="10" scanfFormat="D,%f,%f,%f,%f,%f,%f,%f,%f">
 	    <variable name="MCN_WCN" units="" longname="WCN Current Operating Mode"/>
 	    <variable name="SFCN_WCN" units="" longname="WCN Status Flags"/>
 	    <variable name="CONCN_WCN" units="#/cm3" longname="WCN Aggregated Concentration"/>
 	    <variable name="ETCN_WCN" units="second" longname="WCN Sample Time (Elapsed Time)"/>
 	    <variable name="LTCN_WCN" units="second" longname="WCN Live Time"/>
 	    <variable name="CNTS_WCN" units="count" longname="WCN Accumulated Particle Counts"/>
+	    <variable name="PHCN_WCN" units="" longname="WCN Place Holder"/>
 	    <variable name="RPCN_WCN" units="" longname="WCN Raw Photometric Value"/>
         </sample>
-        <sample id="2" scanfFormat="S,%f,%f,%f,%f,%f">
+        <sample id="2" rate="10" scanfFormat="S,%f,%f,%f,%f,%f,%f,%f">
 	    <variable name="FCN_WCN" units="cm3/min" longname="WCN Aerosol Flow Rate"/>
 	    <variable name="PCN_WCN" units="mbar" longname="WCN Absolute Pressure"/>
 	    <variable name="STCN_WCN" units="deg_C" longname="WCN Saturator Temperature"/>
 	    <variable name="GTCN_WCN" units="deg_C" longname="WCN Growth Tube Temperature"/>
 	    <variable name="OTCN_WCN" units="deg_C" longname="WCN Optics Temperature"/>
+	    <variable name="U1CN_WCN" units="" longname="WCN Unknown 1"/>
+	    <variable name="U2CN_WCN" units="" longname="WCN Unknown 2"/>
         </sample>
+        <message separator="\r" position="end" length="0"/>
     </serialSensor>
 
     <serialSensor ID="TDLH2O" class="DSMSerialSensor"
@@ -364,6 +367,19 @@
             </processor>
         </service>
     </server>
+
+    <dsm name="dsm302" location="lab" id="2" rserialPort="30002">
+
+        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+        <serialSensor IDREF="Water_CN_Counter"
+                devicename="/dev/dsmser0" id="120">
+        </serialSensor>
+
+        <output class="RawSampleOutputStream">
+            <socket type="mcrequest"/>
+        </output>
+    </dsm>
 
     <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
 
@@ -708,6 +724,10 @@
     <dsm name="dsm308" location="AEROSOL_rack" id="8" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
+
+        <serialSensor IDREF="Water_CN_Counter"
+                devicename="/dev/dsmser0" id="110">
+        </serialSensor>
 
         <serialSensor IDREF="TDLH2O"
                 devicename="/dev/dsmser1" id="120">
