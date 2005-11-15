@@ -293,17 +293,17 @@
 	    <variable name="ETCN_WCN" units="second" longname="WCN Sample Time (Elapsed Time)"/>
 	    <variable name="LTCN_WCN" units="second" longname="WCN Live Time"/>
 	    <variable name="CNTS_WCN" units="count" longname="WCN Accumulated Particle Counts"/>
-	    <variable name="PHCN_WCN" units="" longname="WCN Place Holder"/>
+	    <variable name="PCN_WCN" units="mbar" longname="WCN Absolute Pressure"/>
 	    <variable name="RPCN_WCN" units="" longname="WCN Raw Photometric Value"/>
         </sample>
         <sample id="2" rate="10" scanfFormat="S,%f,%f,%f,%f,%f,%f,%f">
-	    <variable name="FCN_WCN" units="cm3/min" longname="WCN Aerosol Flow Rate"/>
-	    <variable name="PCN_WCN" units="mbar" longname="WCN Absolute Pressure"/>
+	    <variable name="FCN_WCN" units="cm3/min" longname="WCN Sample Flow Rate"/>
+	    <variable name="TFCN_WCN" units="cm3/min" longname="WCN Total Flow Rate"/>
+	    <variable name="SFCN_WCN" units="cm3/min" longname="WCN Sheath Flow Rate"/>
+	    <variable name="APCN_WCN" units="mbar" longname="WCN Absolute Pressure"/>
 	    <variable name="STCN_WCN" units="deg_C" longname="WCN Saturator Temperature"/>
 	    <variable name="GTCN_WCN" units="deg_C" longname="WCN Growth Tube Temperature"/>
 	    <variable name="OTCN_WCN" units="deg_C" longname="WCN Optics Temperature"/>
-	    <variable name="U1CN_WCN" units="" longname="WCN Unknown 1"/>
-	    <variable name="U2CN_WCN" units="" longname="WCN Unknown 2"/>
         </sample>
         <message separator="\r" position="end" length="0"/>
     </serialSensor>
