@@ -288,7 +288,7 @@
         init_string="SM,4,1\r">
         <sample id="1" rate="10" scanfFormat="D,%f,%f,%f,%f,%f,%f,%f,%f">
 	    <variable name="MCN_WCN" units="" longname="WCN Current Operating Mode"/>
-	    <variable name="SFCN_WCN" units="" longname="WCN Status Flags"/>
+	    <variable name="SFLCN_WCN" units="" longname="WCN Status Flags"/>
 	    <variable name="CONCN_WCN" units="#/cm3" longname="WCN Aggregated Concentration"/>
 	    <variable name="ETCN_WCN" units="second" longname="WCN Sample Time (Elapsed Time)"/>
 	    <variable name="LTCN_WCN" units="second" longname="WCN Live Time"/>
