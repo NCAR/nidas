@@ -264,7 +264,7 @@
 	-->
         <sample id="1" scanfFormat="%*1d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="#1?\r" rate="50"/>
+        <prompt string="#1?\r" rate="25"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
@@ -310,7 +310,7 @@
 
     <serialSensor ID="TDLH2O" class="DSMSerialSensor"
         baud="115200" parity="none" databits="8" stopbits="1">
-        <sample id="1" rate="1" scanfFormat="%f %f %f %f %*f %*f %f %f %f %f %f %f %f %f">
+        <sample id="1" rate="20" scanfFormat="%f %f %f %f %*f %*f %f %f %f %f %f %f %f %f">
 	    <variable name="MR_LHS" units="" longname="TDLH2O MR Short Wave"/>
 	    <variable name="MR_LHL" units="" longname="TDLH2O MR Long Wave"/>
 	    <variable name="PCELL_LHS" units="" longname=""/>
@@ -324,7 +324,7 @@
 	    <variable name="IDX_LHL" units="" longname=""/>
 	    <variable name="DK_LHL" units="" longname=""/>
         </sample>
-        <message separator="\r\n" position="end" length="0"/>
+        <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
 </sensorcatalog>
@@ -367,7 +367,7 @@
             </processor>
         </service>
     </server>
-
+<!--
     <dsm name="dsm302" location="lab" id="2" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
@@ -380,7 +380,7 @@
             <socket type="mcrequest"/>
         </output>
     </dsm>
-
+-->
     <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
@@ -502,7 +502,7 @@
 		    <poly coefs="-76.94 22.964 0.4274" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V" longname="Total Temperature, Deiced Left">
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -510,7 +510,7 @@
 		    <poly coefs="-79.19 24.022 0.2613" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V" longname="Total Temperature, Deiced Right">
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -523,7 +523,7 @@
 		     (output of around 0:2.5V) so we're using a gain of 4
 		     for this channel
 		     -->
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
 		    <!-- values computed for gain=4 -->
                     <parameter name="corSlope" value="1" type="float"/>
@@ -580,46 +580,56 @@
         </serialSensor>
 
         <serialSensor IDREF="Mensor_6100"
-                devicename="/dev/dsmser0" id="114">
+                devicename="/dev/dsmser2" id="114">
             <sample id="1">
                 <variable name="PCONE" units="mb"/>
             </sample>
         </serialSensor>
 
+        <serialSensor IDREF="TDLH2O"
+                devicename="/dev/dsmser3" id="120">
+        </serialSensor>
+
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
                 <variable name="PDUMPPR" units="V">
-                    <parameter name="gain" value="1.5" type="float"/>
+                    <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="PDUMPPL" units="V">
-                    <parameter name="gain" value="1.5" type="float"/>
+                    <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="PCAB" units="V">
-                    <parameter name="gain" value="1" type="float"/>
+                    <parameter name="gain" value="2" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="TRAKET" units="V">
-                    <parameter name="gain" value="1" type="float"/>
+                    <parameter name="gain" value="20" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="TRAKES" units="V">
-                    <parameter name="gain" value="1" type="float"/>
+                    <parameter name="gain" value="20" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="TCAB1" units="V">
-                    <parameter name="gain" value="100" type="float"/>
+                    <parameter name="gain" value="20" type="float"/>
+                    <parameter name="bipolar" value="0" type="bool"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
+                </variable>
+                <variable name="TCAB4" units="V">
+                    <parameter name="gain" value="20" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -627,15 +637,9 @@
             </sample>
         </sensor>
 
-    </dsm>
-
-    <dsm name="dsm307" location="TDLH2O_rack" id="7" rserialPort="30002">
-
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
-
-        <serialSensor IDREF="TDLH2O"
-                devicename="/dev/dsmser0" id="120">
-        </serialSensor>
+        <output class="RawSampleOutputStream">
+            <socket type="mcrequest"/>
+        </output>
 
     </dsm>
 
@@ -644,35 +648,31 @@
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
         <serialSensor IDREF="Water_CN_Counter"
-                devicename="/dev/dsmser0" id="110">
-        </serialSensor>
-
-        <serialSensor IDREF="TDLH2O"
-                devicename="/dev/dsmser1" id="120">
+                devicename="/dev/dsmser1" id="110">
         </serialSensor>
 
         <sensor class="DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
                 <variable name="XCOMR" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="XCOCNTS" units="V">
-                    <parameter name="gain" value="2" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="TCAB2" units="V">
-                    <parameter name="gain" value="100" type="float"/>
+                    <parameter name="gain" value="20" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
                 </variable>
                 <variable name="TCAB3" units="V">
-                    <parameter name="gain" value="100" type="float"/>
+                    <parameter name="gain" value="20" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -691,6 +691,11 @@
                 </variable>
             </sample>
         </sensor>
+
+        <output class="RawSampleOutputStream">
+            <socket type="mcrequest"/>
+        </output>
+
     </dsm>
 
 </site>
