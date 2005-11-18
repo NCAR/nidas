@@ -264,7 +264,7 @@
 	-->
         <sample id="1" scanfFormat="%*1d%f"/>
         <message separator="\n" position="end" length="0"/>
-        <prompt string="#1?\r" rate="50"/>
+        <prompt string="#1?\r" rate="25"/>
     </serialSensor>
 
     <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
@@ -324,7 +324,7 @@
         </service>
     </server>
 
-    <dsm name="dsm304" location="cabin_mpdb" id="0" rserialPort="30002">
+    <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
 
         <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100"/>
 
@@ -372,15 +372,15 @@
                 <variable name="DPL" units="V">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.929518" type="float"/>
-                    <parameter name="corIntercept" value="-0.208666" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <linear slope="12.5" intercept="-75.0" units="degC"/>
                 </variable>
                 <variable name="DPR" units="V">
                     <parameter name="gain" value="2.0" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
-                    <parameter name="corSlope" value="0.937081" type="float"/>
-                    <parameter name="corIntercept" value="-0.272116" type="float"/>
+                    <parameter name="corSlope" value="1" type="float"/>
+                    <parameter name="corIntercept" value="0" type="float"/>
 		    <linear slope="12.5" intercept="-75.0" units="degC"/>
                 </variable>
                 <variable name="A2D2_MP" units="V">
@@ -434,7 +434,7 @@
         </output>
     </dsm>
 
-    <dsm name="dsm305" location="radome" id="1" rserialPort="30002">
+    <dsm name="dsm305" location="radome" id="5" rserialPort="30002">
         <config class="XMLConfig">
             <socket type="mcrequest"/>
         </config>
@@ -481,7 +481,7 @@
 		    <poly coefs="-76.94 22.964 0.4274" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V">
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -489,7 +489,7 @@
 		    <poly coefs="-79.19 24.022 0.2613" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V">
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -502,7 +502,7 @@
 		     (output of around 0:2.5V) so we're using a gain of 4
 		     for this channel
 		     -->
-                    <parameter name="gain" value="4" type="float"/>
+                    <parameter name="gain" value="3.6" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
 		    <!-- values computed for gain=4 -->
                     <parameter name="corSlope" value="1" type="float"/>

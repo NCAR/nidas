@@ -494,7 +494,7 @@
 	    <!-- corSlope/Intercepts from a cal done on 9/29/2005, for gain=2,bipolar=0 -->
             <sample id="1" rate="500">
                 <variable name="TTLH2" units="V" longname="Total Temperature, Deiced Left">
-                    <parameter name="gain" value="3.6" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -502,7 +502,7 @@
 		    <poly coefs="-76.94 22.964 0.4274" units="degC"/>
                 </variable>
                 <variable name="TTLH1" units="V" longname="Total Temperature, Deiced Left">
-                    <parameter name="gain" value="3.6" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -510,7 +510,7 @@
 		    <poly coefs="-79.19 24.022 0.2613" units="degC"/>
                 </variable>
                 <variable name="TTRH2" units="V" longname="Total Temperature, Deiced Right">
-                    <parameter name="gain" value="3.6" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
                     <parameter name="corSlope" value="1" type="float"/>
                     <parameter name="corIntercept" value="0" type="float"/>
@@ -523,7 +523,7 @@
 		     (output of around 0:2.5V) so we're using a gain of 4
 		     for this channel
 		     -->
-                    <parameter name="gain" value="3.6" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="0" type="bool"/>
 		    <!-- values computed for gain=4 -->
                     <parameter name="corSlope" value="1" type="float"/>
