@@ -88,11 +88,11 @@ function clicker(that) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='dsm[]' size="4" multiple="multiple"
+  <select name='dsm[]' size="8" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
-    <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,11, '_')?>'>
-       <?=str_pad($val,11, '_')?> (---- -- -- --:--:--)</option>
+    <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,12, '_')?>'>
+       <?=str_pad($val,12, '_')?> (---- -- -- --:--:--)</option>
     <?php } ?>
   </select><p>
 
