@@ -374,7 +374,7 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 	// Point to the appropriate DAC channel
 	outb(D2AChsel, brd->chan_addr);		// Set the card channel pointer
 
-	GainCode = (UC)(A2DGAINFIX*(int)A2DGain/10);
+	GainCode = (UC)(A2DGAIN_MUL*A2DGain/A2DGAIN_DIV);
 
 	// Write the code to the selected DAC
 	outb(GainCode, DACAddr);

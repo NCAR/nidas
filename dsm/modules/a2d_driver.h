@@ -156,7 +156,8 @@ typedef struct
  */
 #define A2DSTATMASK	0xbbfe	// mask for status bits to check
 #define A2DEXPSTATUS	0x8252	// expected value of unmasked bits
-#define	A2DGAINFIX	9	// Multiplies GainCode by A2DGAINFIX/10 in driver.
+#define	A2DGAIN_MUL	17 	// Multiplies GainCode
+#define	A2DGAIN_DIV	20 	// Divides GainCode
 
 #ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
