@@ -16,6 +16,7 @@
 #include <Site.h>
 
 #include <iostream>
+#include <set>
 
 using namespace dsm;
 using namespace std;
@@ -96,6 +97,9 @@ void Site::fromDOMElement(const DOMElement* node)
 	}
     }
 
+    // keep a set of DSM ids to make sure they are unique
+    set<int> dsm_ids;
+
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -110,6 +114,12 @@ void Site::fromDOMElement(const DOMElement* node)
 	    dsm->setSite(this);
 	    dsm->fromDOMElement((DOMElement*)child);
 	    addDSMConfig(dsm);
+	    if (!dsm_ids.insert(dsm->getId()).second) {
+		ostringstream ost;
+		ost << dsm->getId();
+		throw atdUtil::InvalidParameterException("dsm id",
+			ost.str(),"is not unique");
+	    }
 	}
 	else if (!elname.compare("server")) {
 	    DSMServer* server = new DSMServer();
