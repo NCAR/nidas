@@ -178,7 +178,7 @@
     <xsd:attribute name="latency" type="xsd:float"/>
 </xsd:complexType>
 
-<xsd:complexType name="serialSensorT">
+<xsd:complexType name="messageSensorT">
     <xsd:complexContent>
 	<xsd:extension base="sensorT">
 	    <xsd:choice minOccurs="1" maxOccurs="2">
@@ -189,10 +189,6 @@
 	    <!-- Currently can't provide defaults here, because the defaults
                  then over-ride the values that were specified for a sensor in
                  the catalog.  Need to fix this. -->
-	    <xsd:attribute name="baud" type="baudtype"/>
-	    <xsd:attribute name="parity" type="paritytype"/>
-	    <xsd:attribute name="databits" type="databitstype"/>
-	    <xsd:attribute name="stopbits" type="stopbitstype"/>
 	    <!-- whether the driver has null-terminated the data strings.
 	     It is generally not necessary to specify this attribute - the
 	     DSMSerialSensor class is able to determine the correct value,
@@ -201,6 +197,28 @@
 	     -->
 	    <xsd:attribute name="nullterm" type="xsd:boolean"/>
 	    <xsd:attribute name="init_string" type="xsd:normalizedString"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="serialSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="messageSensorT">
+	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
+	    <xsd:attribute name="baud" type="baudtype"/>
+	    <xsd:attribute name="parity" type="paritytype"/>
+	    <xsd:attribute name="databits" type="databitstype"/>
+	    <xsd:attribute name="stopbits" type="stopbitstype"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="socketSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="messageSensorT">
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
@@ -239,6 +257,7 @@
 	    </xsd:unique>
 	</xsd:element>
 	<xsd:element name="irigSensor"  type="sensorT"/>
+	<xsd:element name="socketSensor"  type="socketSensorT"/>
     </xsd:choice>
 </xsd:group>
 
@@ -270,7 +289,7 @@
 	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger" default="0"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
-	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor"/>
+	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor"/>
 	<xsd:field    xpath="@id"/>
     </xsd:unique>
 </xsd:element>
