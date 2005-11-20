@@ -450,7 +450,7 @@ Usage: " << argv0 << "[-d] [config]\n\
   config: (optional) name of DSM configuration file.\n\
           default:\n\
 	    $ADS3_CONFIG/projects/$ADS3_PROJECT/\
-	    $ADS3_AIRCRAFT/flights/$ADS3_FLIGHT/ads3.xml" << endl;
+$ADS3_AIRCRAFT/flights/$ADS3_FLIGHT/ads3.xml" << endl;
     return 1;
 }
 
