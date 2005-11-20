@@ -99,6 +99,8 @@ void Site::fromDOMElement(const DOMElement* node)
 
     // keep a set of DSM ids to make sure they are unique
     set<int> dsm_ids;
+    // likewise with dsm names
+    set<string> dsm_names;
 
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -120,6 +122,9 @@ void Site::fromDOMElement(const DOMElement* node)
 		throw atdUtil::InvalidParameterException("dsm id",
 			ost.str(),"is not unique");
 	    }
+	    if (!dsm_names.insert(dsm->getName()).second)
+		throw atdUtil::InvalidParameterException("dsm name",
+			dsm->getName(),"is not unique");
 	}
 	else if (!elname.compare("server")) {
 	    DSMServer* server = new DSMServer();
