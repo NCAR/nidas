@@ -455,6 +455,14 @@
             </sample>
         </serialSensor>
 
+	<socketSensor class="PSI9116_Sensor" devicename="inet:localhost:9000"
+		id="114">
+            <sample id="1" rate="1">
+                <variable name="PRES" units="mb" length="16"/>
+            </sample>
+	    <message separator="\x01" position="beg" length="68"/>
+        </socketSensor>
+
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
