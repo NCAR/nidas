@@ -42,7 +42,6 @@ struct SampleInputHeader::headerField SampleInputHeader::headers[] = {
 void SampleInputHeader::check(IOStream* iostream)
 	throw(atdUtil::IOException)
 {
-    size_t l;
     char buf[256];
 
     if (iostream->read(buf,10) != 10 || strncmp(buf,"NCAR ADS3\n",10))
@@ -82,9 +81,10 @@ void SampleInputHeader::check(IOStream* iostream)
 	    // cerr << headers[itag].tag << ' ' << value << endl;
 	    (this->*headers[itag].setFunc)(value);
 
-	    if (headers[itag].getFunc == &SampleInputHeader::getObsPeriodName) {
+	    if (headers[itag].getFunc == &SampleInputHeader::getObsPeriodName &&
+		    value.compare("unknown")) {
 		ObsPeriod obs(value);
-	        Project::getInstance()->setCurrentObsPeriod(obs);
+		Project::getInstance()->setCurrentObsPeriod(obs);
 	    }
 	        
 	    ic = 0;

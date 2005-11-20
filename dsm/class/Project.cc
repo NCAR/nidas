@@ -17,6 +17,8 @@
 #include <Aircraft.h>
 #include <DOMObjectFactory.h>
 
+#include <atdUtil/Logger.h>
+
 #include <iostream>
 
 using namespace dsm;
@@ -38,8 +40,12 @@ Project* Project::getInstance()
 Project::Project(): currentSite(0),catalog(0)
 {
     const char* obsPer = getenv("ADS3_FLIGHT");
+
     if (obsPer == NULL) currentObsPeriod.setName("unknown");
     else currentObsPeriod.setName(obsPer);
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"ADS3_FLIGHT=%s",
+    	currentObsPeriod.getName().c_str());
 }
 
 Project::~Project()
