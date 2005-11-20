@@ -38,7 +38,8 @@ MessageStreamSensor::MessageStreamSensor():
     latency(0.1),nullTerminated(true),
     BUFSIZE(8192),MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
     buffer(0),separatorCnt(0),separatorLen(0),separator(0),
-    osamp(0),sampleOverflows(0)
+    osamp(0),sampleOverflows(0),
+    usecsPerChar(0),sampleLengthAlloc(0)
 
 {
 }
