@@ -368,6 +368,9 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
     	si != sampleTags.end(); ++si) {
 	SampleTag* stag = *si;
 
+	if (getShortId() == 0) throw atdUtil::InvalidParameterException(
+	    	getName(),"id","zero or missing");
+
 	// set the suffix
 	if (getSuffix().length() > 0) stag->setSuffix(getSuffix());
 
