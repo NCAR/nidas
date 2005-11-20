@@ -249,7 +249,7 @@ int SyncDumper::main(int argc, char** argv)
 	for (;;) {
 	    size_t len = reader.read(&tt,rec,numFloats);
 	    if (interrupted) {
-		reader.interrupt();
+		// reader.interrupt();
 		break;
 	    }
 	    if (len == 0) continue;
