@@ -51,7 +51,11 @@ public:
     void setId(unsigned short val) { id = val; }
 
     void addSensor(DSMSensor* sensor);
-    const std::list<DSMSensor*>& getSensors() const { return sensors; }
+
+    const std::list<DSMSensor*>& getSensors() const
+    {
+	return ownedSensors;
+    }
 
     void openSensors(PortSelector*) throw(atdUtil::IOException);
 
@@ -88,7 +92,7 @@ protected:
     /**
      * The list of sensors on this DSM.
      */
-    std::list<DSMSensor*> sensors;
+    // std::list<DSMSensor*> sensors;
 
     /**
      * Another list of the sensors on this DSM, but this one

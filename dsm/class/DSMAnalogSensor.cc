@@ -222,17 +222,17 @@ void DSMAnalogSensor::init() throw(atdUtil::InvalidParameterException)
 
 	/*
 	 * A2D chip converts 0:4 V to -32767:32767
-	 * 1. Input voltages are first converted by a F/256 converter
-	 *     where F is the gainFactor, F=gain*10.
+	 * 1. Input voltages are first converted by a Gf/256 converter
+	 *     where Gf is the gainFactor, Gf=gain*10.
 	 * 1.a Then inputs go through a *5.11 multiplier.
-	 *    These two steps combined are a  C=gain*0.2
-	 *	(actually gain*0.019961)
+	 *    These two steps combined are a  F=gain*0.2
+	 *	(actually gain*10*5.11/256 = gain*0.19961)
 	 * 2. Then either a 2(bipolar) or 4(unipolar) volt offset is removed.
 	 * 3. Then the voltage is inverted.
 	 * 4. Converted to counts
 	 * 
 	 * Example: -10:10 V input, gain=1,bipolar=true
-	 *	F=gain*10=10,  C=0.2,  offset=2
+	 *	Gf=gain*10=10,  F=0.2,  offset=2
 	 *    Here are the values after the above steps:
 	 *	-10:10 -> -2:2 -> -4:0 -> 4:0 -> 32767:-32767
 	 *

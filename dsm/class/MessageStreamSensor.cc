@@ -37,7 +37,8 @@ MessageStreamSensor::MessageStreamSensor():
     parsebuf(0),parsebuflen(0),prompted(false),
     latency(0.1),nullTerminated(true),
     BUFSIZE(8192),MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
-    buffer(0),separatorCnt(0),separator(0),osamp(0),sampleOverflows(0)
+    buffer(0),separatorCnt(0),separatorLen(0),separator(0),
+    osamp(0),sampleOverflows(0)
 
 {
 }
@@ -369,12 +370,14 @@ dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
     dsm_time_t ttres = 0;
 
     size_t rlen = sensor->read(buffer,BUFSIZE);
+    // cerr << "readSamplesSepBOM, rlen=" << rlen << endl;
     const char* eob = buffer + rlen;
     tfirstchar -= rlen * usecsPerChar;
 
     sampleLengthAlloc = std::max(messageLength,separatorLen + 2);
     if (!osamp) {
 	osamp = getSample<char>(sampleLengthAlloc);
+	osamp->setId(sensor->getId());
 	outSampLen = 0;
 	outSampDataPtr = osamp->getDataPtr();
     }
@@ -399,9 +402,11 @@ dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
 		// assert: if outSampLen is > 0 then bomtt is valid.
 		osamp->setTimeTag(bomtt);
 		ttres = osamp->getTimeTag();
-		sensor->distribute(osamp);
+		sensor->distributeRaw(osamp);
+		osamp->freeReference();
 
 		osamp = getSample<char>(sampleLengthAlloc);
+		osamp->setId(sensor->getId());
 		outSampLen = 0;
 		outSampDataPtr = osamp->getDataPtr();
 		separatorCnt = 0;	// start over
@@ -442,7 +447,8 @@ dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
 			    	'\0';
 			    osamp->setDataLength(outSampLen);
 			    ttres = osamp->getTimeTag();
-			    sensor->distribute(osamp);
+			    sensor->distributeRaw(osamp);
+			    osamp->freeReference();
 
 			    // readjust sampleLengthAlloc if this
 			    // good sample was bigger.
@@ -450,6 +456,7 @@ dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
 				sampleLengthAlloc = std::min(
 				    outSampLen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
 			    osamp = getSample<char>(sampleLengthAlloc);
+			    osamp->setId(sensor->getId());
 			    outSampLen = 0;
 			    outSampDataPtr = osamp->getDataPtr();
 
@@ -537,6 +544,7 @@ dsm_time_t MessageStreamSensor::readSamplesSepEOM(SampleDater* dater,
     sampleLengthAlloc = std::max(messageLength,separatorLen + 2);
     if (!osamp) {
 	osamp = getSample<char>(sampleLengthAlloc);
+	osamp->setId(sensor->getId());
 	outSampLen = 0;
 	outSampDataPtr = osamp->getDataPtr();
     }
@@ -559,9 +567,11 @@ dsm_time_t MessageStreamSensor::readSamplesSepEOM(SampleDater* dater,
 		    '\0';
 		osamp->setDataLength(outSampLen);
 		ttres = osamp->getTimeTag();
-		sensor->distribute(osamp);
+		sensor->distributeRaw(osamp);
+		osamp->freeReference();
 
 		osamp = getSample<char>(sampleLengthAlloc);
+		osamp->setId(sensor->getId());
 		outSampLen = 0;
 		separatorCnt = 0;
 		outSampDataPtr = osamp->getDataPtr();
@@ -594,9 +604,11 @@ dsm_time_t MessageStreamSensor::readSamplesSepEOM(SampleDater* dater,
 			outSampDataPtr[outSampLen++] = '\0';
 		    osamp->setDataLength(outSampLen);
 		    ttres = osamp->getTimeTag();
-		    sensor->distribute(osamp);
+		    sensor->distributeRaw(osamp);
+		    osamp->freeReference();
 
 		    osamp = getSample<char>(sampleLengthAlloc);
+		    osamp->setId(sensor->getId());
 		    outSampLen = 0;
 		    outSampDataPtr = osamp->getDataPtr();
 		    separatorCnt = 0;
@@ -625,9 +637,11 @@ dsm_time_t MessageStreamSensor::readSamplesSepEOM(SampleDater* dater,
 			    outSampDataPtr[outSampLen++] = '\0';
 			osamp->setDataLength(outSampLen);
 			ttres = osamp->getTimeTag();
-			sensor->distribute(osamp);
+			sensor->distributeRaw(osamp);
+			osamp->freeReference();
 
 			osamp = getSample<char>(sampleLengthAlloc);
+			osamp->setId(sensor->getId());
 			outSampLen = 0;
 			outSampDataPtr = osamp->getDataPtr();
 			separatorCnt = 0;

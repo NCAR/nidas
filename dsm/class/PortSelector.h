@@ -30,6 +30,7 @@
 #include <sys/select.h>
 
 #include <vector>
+#include <set>
 
 namespace dsm {
 
@@ -106,15 +107,17 @@ public:
      * Thread function.
      */
     virtual int run() throw(atdUtil::Exception);
+    
+    std::vector<DSMSensor*> getSensors() const;
 
 protected:
 
     void handleChangedSensors();
 
-    atdUtil::Mutex sensorsMutex;
+    mutable atdUtil::Mutex sensorsMutex;
     std::vector<int> pendingDSMSensorFds;
     std::vector<DSMSensor*> pendingDSMSensors;
-    std::vector<DSMSensor*> pendingDSMSensorClosures;
+    std::set<DSMSensor*> pendingDSMSensorClosures;
 
     std::vector<int> activeDSMSensorFds;
     std::vector<DSMSensor*> activeDSMSensors;

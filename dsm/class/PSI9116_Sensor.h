@@ -44,6 +44,9 @@ public:
 
     void PSI9116_Sensor::purge(int msec) throw(atdUtil::IOException);
 
+    void startStreams() throw(atdUtil::IOException);
+
+    void stopStreams() throw(atdUtil::IOException);
 
 protected:
 

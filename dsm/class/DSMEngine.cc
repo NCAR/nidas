@@ -506,8 +506,8 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 	output->requestConnection(this);
     }
     
-    const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
-    list<DSMSensor*>::const_iterator si;
+    const vector<DSMSensor*> sensors = _selector->getSensors();
+    vector<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	// If we're outputting processed samples add
@@ -534,8 +534,8 @@ void DSMEngine::connected(SampleOutput* output) throw()
 	disconnected(output);
     }
 
-    const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
-    list<DSMSensor*>::const_iterator si;
+    const vector<DSMSensor*> sensors = _selector->getSensors();
+    vector<DSMSensor*>::const_iterator si;
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
@@ -554,8 +554,8 @@ void DSMEngine::connected(SampleOutput* output) throw()
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
     cerr << "SampleOutput " << output->getName() << " disconnected" << endl;
-    const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
-    list<DSMSensor*>::const_iterator si;
+    const vector<DSMSensor*> sensors = _selector->getSensors();
+    vector<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	cerr << "removing output from sensor " << sensor->getName() << endl;

@@ -50,7 +50,7 @@ public:
     }
 };
 
-class SyncRecordReader: public atdUtil::Thread, private SampleClient
+class SyncRecordReader
 {
 public:
 
@@ -97,13 +97,7 @@ public:
      */
     size_t read(dsm_time_t* tt, float *ptr,size_t len) throw(atdUtil::IOException);
 
-protected:
-
-    int run() throw(atdUtil::Exception);
-
 private:
-
-    bool receive(const Sample*) throw();
 
     void scanHeader(const Sample* samp) throw();
 
@@ -113,21 +107,8 @@ private:
     
     std::string getKeyedValue(std::istringstream& header,const std::string& key)
     	throw(SyncRecHeaderException);
-    /**
-     * Once the sync record header has been scanned, then this
-     * is set to true, and the varCond is signaled, so that
-     * the waiting thread can proceed.
-     */
-    bool headerScanned;
-
-    /**
-     * Condition variable to wait on til the header is scanned.
-     */
-    atdUtil::Cond headerCond;
 
     SyncRecHeaderException* headException;
-
-    atdUtil::IOException* ioException;
 
     std::list<SampleTag*> sampleTags;
 
@@ -135,15 +116,7 @@ private:
 
     std::map<std::string,const SyncRecordVariable*> variableMap;
 
-    atdUtil::Semaphore syncRecSem;
-
-    atdUtil::Cond syncRecCond;
-
-    std::list<const Sample*> syncRecs;
-
     size_t numFloats;
-
-    bool eof;
 
     std::string projectName;
 

@@ -60,6 +60,8 @@ public:
     void open(int flags)
     	throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
+    void init() throw(atdUtil::InvalidParameterException);
+
     /**
     * Read from the sensor.
     */
@@ -96,10 +98,7 @@ public:
     /**
     * close the sensor (and any associated FIFOs).
     */
-    void close() throw(atdUtil::IOException)
-    {
-        if (socket.get()) socket->close();
-    }
+    void close() throw(atdUtil::IOException);
 
     dsm_time_t readSamples(SampleDater* dater)
     	throw(atdUtil::IOException);

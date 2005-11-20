@@ -45,7 +45,7 @@ DSMConfig::~DSMConfig()
 
 void DSMConfig::addSensor(DSMSensor* sensor)
 {
-    sensors.push_back(sensor);
+    // sensors.push_back(sensor);
     ownedSensors.push_back(sensor);
 }
 
@@ -55,9 +55,21 @@ void DSMConfig::openSensors(PortSelector* selector)
     list<DSMSensor*>::iterator si;
     for (si = ownedSensors.begin(); si != ownedSensors.end(); ) {
 	DSMSensor* sensor = *si;
-	sensor->open(sensor->getDefaultMode());
-	selector->addDSMSensor(sensor);
-	si = ownedSensors.erase(si);
+	try {
+	    sensor->open(sensor->getDefaultMode());
+	    selector->addDSMSensor(sensor);
+	    si = ownedSensors.erase(si);
+	}
+	catch(const atdUtil::IOException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    sensor->getName().c_str(),e.what());
+            ++si;
+	}
+	catch(const atdUtil::InvalidParameterException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    sensor->getName().c_str(),e.what());
+            ++si;
+	}
     }
 }
 
@@ -114,6 +126,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		"unrecognized attribute",aname);
 	}
     }
+
+    list<DSMSensor*> tmpSensorList;
 
     DOMNode* child;
     DOMable* domable;
@@ -224,6 +238,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    }
 	    sensor->fromDOMElement((DOMElement*)child);
 	    addSensor(sensor);
+	    tmpSensorList.push_back(sensor);
 	}
 	else if (!elname.compare("output")) {
 	    const string& classattr = xchild.getAttributeValue("class");
@@ -269,8 +284,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     sens_map_t sensorIdCheck;
     sens_map_t sampleIdCheck;
 
-    for (list<DSMSensor*>::const_iterator si = sensors.begin();
-    	si != sensors.end(); ++si) {
+    for (list<DSMSensor*>::const_iterator si = tmpSensorList.begin();
+    	si != tmpSensorList.end(); ++si) {
 	DSMSensor* sensor = *si;
 
 	if (sensor->getId() < 0)
@@ -281,10 +296,12 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		make_pair<unsigned short,DSMSensor*>(sensor->getId(),sensor));
 	if (!ins.second) {
 	    ostringstream ost;
-	    ost << sensor->getId();
+	    ost << sensor->getId() <<
+	    	"(dsm id=" << sensor->getDSMId() <<
+		",sensor id=" << sensor->getShortId() << ')';
 	    DSMSensor* other = ins.first->second;
 	    throw atdUtil::InvalidParameterException(
-	    	sensor->getName() + " has same id (" + ost.str() + ") as " +
+	    	sensor->getName() + " has same id=" + ost.str() + " as " +
 		    other->getName());
 	}
 

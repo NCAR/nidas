@@ -84,6 +84,14 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	socket->send(ost.str().c_str(),ost.str().size());
 	ost.str("");
     }
+    else {
+	ost << 9999 << ' ' <<
+	    "even" << ' ' <<
+	    8 << ' ' <<
+	    1 << endl;
+	socket->send(ost.str().c_str(),ost.str().size());
+	ost.str("");
+    }
 
     ost << msgSensor->getBackslashedMessageSeparator() << endl;
     socket->send(ost.str().c_str(),ost.str().size());

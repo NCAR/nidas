@@ -48,6 +48,17 @@ string PSI9116_Sensor::sendCommand(const string& cmd,int readlen)
     return string(ibuf,res);
 }
 
+/* start the stream, only read back 1 char, after that it's data */
+void PSI9116_Sensor::startStreams() throw(atdUtil::IOException)
+{
+    sendCommand("c 01 0",1);
+}
+
+void PSI9116_Sensor::stopStreams() throw(atdUtil::IOException)
+{
+    sendCommand("c 02 0");
+}
+
 void PSI9116_Sensor::open(int flags)
         throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
@@ -64,10 +75,11 @@ void PSI9116_Sensor::open(int flags)
     int format = 8;	// 8=binary little-endian floats
     int nsamples = 0;	// 0=continuous
 
+    cerr << "nchannels=" << nchannels << endl;
     unsigned int chans = 0;
     for (int i = 0; i < nchannels; i++) chans = chans * 2 + 1;
 
-    cmdstream.str();
+    cmdstream.str("");
     cmdstream.clear();
     cmdstream << "c 00 " << stream << ' ' <<
     	hex << setw(4) << setfill('0') <<
@@ -79,8 +91,7 @@ void PSI9116_Sensor::open(int flags)
 
     sendCommand(cmdstream.str());
 
-    /* start the stream, only read back 1 char, after that it's data */
-    sendCommand("c 01 1",1);
+    startStreams();
 
     sequenceNumber = 0;
 }
@@ -89,6 +100,7 @@ void PSI9116_Sensor::open(int flags)
 void PSI9116_Sensor::purge(int msec) throw(atdUtil::IOException)
 {
     // flip valves to PURGE (via LEAK/CHECK)
+    stopStreams();
     sendCommand("w1201",1);
     sendCommand("w0C01",1);
 
@@ -100,6 +112,7 @@ void PSI9116_Sensor::purge(int msec) throw(atdUtil::IOException)
     // flip valves back to RUN (via LEAK/CHECK)
     sendCommand("w0C00",1);
     sendCommand("w1200",1);
+    startStreams();
 
     sequenceNumber = 0;
 }
@@ -155,7 +168,8 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
         if (!(outOfSequence++ % 1000))
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
 			"%d out of sequence samples from %s",
-			getName().c_str());
+			outOfSequence,getName().c_str());
+	sequenceNumber = seqval;
     }
     input += 4;
 

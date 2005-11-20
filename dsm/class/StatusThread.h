@@ -55,6 +55,8 @@ public:
       std::cerr << "StatusThread:" << __FUNCTION__ << std::endl;
       Thread::start();
     }
+
+protected:
 };
 
 }

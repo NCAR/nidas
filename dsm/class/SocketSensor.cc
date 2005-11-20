@@ -15,6 +15,8 @@
 
 #include <SocketSensor.h>
 
+#include <atdUtil/Logger.h>
+
 using namespace dsm;
 using namespace std;
 using namespace xercesc;
@@ -28,7 +30,17 @@ SocketSensor::SocketSensor():
 
 SocketSensor::~SocketSensor()
 {
+    cerr << "~SocketSensor" << endl;
     close();
+}
+
+void SocketSensor::close() throw(atdUtil::IOException)
+{
+    if (socket.get()) {
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "closing: %s",getName().c_str());
+        socket->close();
+    }
 }
 
 void SocketSensor::parseAddress(const string& name)
@@ -71,6 +83,9 @@ void SocketSensor::parseAddress(const string& name)
 void SocketSensor::open(int flags)
 	throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
+    atdUtil::Logger::getInstance()->log(LOG_NOTICE,
+    	"opening: %s",getName().c_str());
+
     if (addrtype < 0) {
 	try {
 	    parseAddress(getDeviceName());
@@ -92,6 +107,13 @@ void SocketSensor::open(int flags)
 
     socket.reset(new atdUtil::Socket());
     socket->connect(*sockAddr.get());
+    init();
+
+}
+
+void SocketSensor::init() throw(atdUtil::InvalidParameterException)
+{
+    MessageStreamSensor::init();
 }
 
 dsm_time_t SocketSensor::readSamples(SampleDater* dater)
@@ -100,7 +122,7 @@ dsm_time_t SocketSensor::readSamples(SampleDater* dater)
     if (MessageStreamSensor::getMessageSeparatorAtEOM())
 	return readSamplesSepEOM(dater,this);
     else
-	return readSamplesSepEOM(dater,this);
+	return readSamplesSepBOM(dater,this);
 }
 
 void SocketSensor::fromDOMElement(const DOMElement* node)

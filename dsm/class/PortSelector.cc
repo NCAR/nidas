@@ -96,6 +96,11 @@ void PortSelector::calcStatistics(dsm_time_t tnow)
   }
 }
 
+std::vector<DSMSensor*> PortSelector::getSensors() const
+{
+    Synchronized autosync(sensorsMutex);
+    return pendingDSMSensors;
+}
 
 /**
  * Thread function, select loop.
@@ -171,6 +176,7 @@ int PortSelector::run() throw(atdUtil::Exception)
 		// log the error but don't exit
 		catch (IOException &ioe) {
 		  Logger::getInstance()->log(LOG_ERR,"%s",ioe.toString().c_str());
+		  closeDSMSensor(sensor);
 		}
 		if (++nfd == nfdsel) break;
 	    }
@@ -295,7 +301,7 @@ void PortSelector::closeDSMSensor(DSMSensor *sensor)
 	    break;
 	}
     }
-    pendingDSMSensorClosures.push_back(sensor);
+    pendingDSMSensorClosures.insert(sensor);
     sensorsChanged = true;
 }
 
@@ -365,12 +371,17 @@ void PortSelector::handleChangedSensors() {
 	activeDSMSensorFds = pendingDSMSensorFds;
 	activeDSMSensors = pendingDSMSensors;
 	// close any sensors
-	for (i = 0; i < pendingDSMSensorClosures.size(); i++) {
-	    pendingDSMSensorClosures[i]->close();
-	    delete pendingDSMSensorClosures[i];
+	set<DSMSensor*>::const_iterator si;
+	for (si = pendingDSMSensorClosures.begin();
+		si != pendingDSMSensorClosures.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    sensor->close();
+	    delete sensor;
 	}
 	pendingDSMSensorClosures.clear();
 	sensorsChanged = false;
+	atdUtil::Logger::getInstance()->log(LOG_INFO,"%d active sensors",
+		activeDSMSensors.size());
     }
 
     selectn = 0;
