@@ -16,6 +16,8 @@
 #include <unistd.h>
 
 #include <RemoteSerialConnection.h>
+#include <DSMSerialSensor.h>
+#include <SocketSensor.h>
 
 #include <atdUtil/Logger.h>
 
@@ -46,12 +48,22 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	sensor = 0;
 	return;
     }
-    sensor = dynamic_cast<DSMSerialSensor*>(val);
+    DSMSerialSensor* serSensor = 0;
+    SocketSensor* sockSensor = 0;
+    msgSensor = 0;
+
+    sensor = serSensor = dynamic_cast<DSMSerialSensor*>(val);
+    msgSensor = serSensor;
+
+    if (!sensor) {
+    	sensor = sockSensor = dynamic_cast<SocketSensor*>(val);
+	msgSensor = sockSensor;
+    }
 
     ostringstream ost;
 
     if(!sensor) {
-	ost << val->getName() << " is not a DSMSerialSensor";
+	ost << val->getName() << " is not a DSMSerialSensor or SocketSensor";
 	atdUtil::Logger::getInstance()->log(LOG_INFO,"%s",ost.str().c_str());
 
 	ost << endl;
@@ -64,24 +76,28 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << sensor->getBaudRate() << ' ' << sensor->getParityString() <<
-    	' ' << sensor->getDataBits() << ' ' << sensor->getStopBits() << endl;
+    if (serSensor) {
+	ost << serSensor->getBaudRate() << ' ' <<
+	    serSensor->getParityString() << ' ' <<
+	    serSensor->getDataBits() << ' ' <<
+	    serSensor->getStopBits() << endl;
+	socket->send(ost.str().c_str(),ost.str().size());
+	ost.str("");
+    }
+
+    ost << msgSensor->getBackslashedMessageSeparator() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << sensor->getBackslashedMessageSeparator() << endl;
+    ost << msgSensor->getMessageSeparatorAtEOM() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << sensor->getMessageSeparatorAtEOM() << endl;
+    ost << msgSensor->getMessageLength() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << sensor->getMessageLength() << endl;
-    socket->send(ost.str().c_str(),ost.str().size());
-    ost.str("");
-
-    nullTerminated = sensor->isNullTerminated();
+    nullTerminated = msgSensor->isNullTerminated();
     cerr << "nullTerminated=" << nullTerminated << endl;
 
     val->addRawSampleClient(this);
@@ -181,9 +197,16 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 		// remove escape sequence from buffer
 		input = input.substr(2);
 		if (sensor) {
-		    sensor->togglePrompting();
-		    string msg = string("dsm: prompting = ") +
-		    	(sensor->isPrompting() ? "ON" : "OFF") + "\r\n";
+		    string msg;
+		    try {
+			msgSensor->togglePrompting();
+			msg = string("dsm: prompting = ") +
+			    (msgSensor->isPrompting() ? "ON" : "OFF") + "\r\n";
+		    }
+		    catch (const atdUtil::IOException& e)
+		    {
+			msg = e.what();
+		    }
 		    try {
 			socket->send(msg.c_str(),msg.size());
 		    }

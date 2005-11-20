@@ -246,14 +246,15 @@ public:
      * Read raw samples from my associated file descriptor,
      * and distribute() them to my RawSampleClient's.
      *
-     * readSamples() assumes that the data read from
-     * the file descriptor is formatted into samples
-     * in the format of a struct dsm_sample, i.e. a
-     * 4 byte unsigned integer time-tag (milliseconds since
-     * midnight GMT), followed by a 4 byte unsigned integer data
-     * length, and then length number of bytes of data.
+     * The DSMSensor implementation of readSamples() assumes
+     * that the data read from the file descriptor is
+     * formatted into samples in the format of a
+     * struct dsm_sample, i.e. a 4 byte unsigned integer
+     * time-tag (milliseconds since midnight GMT), followed
+     * by a 4 byte unsigned integer data length, and then
+     * length number of bytes of data.
      */
-    dsm_time_t readSamples(SampleDater* dater)
+    virtual dsm_time_t readSamples(SampleDater* dater)
     	throw(atdUtil::IOException);
 
     /**

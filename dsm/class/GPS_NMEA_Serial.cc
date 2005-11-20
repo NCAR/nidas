@@ -265,7 +265,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
 
-    if (!nullTerminated && slen >= inputStrLen) {
+    if (!isNullTerminated() && slen >= inputStrLen) {
         delete [] inputStr;
 	inputStrLen = slen + 1;
 	inputStr = new char[inputStrLen];

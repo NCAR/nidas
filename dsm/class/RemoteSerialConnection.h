@@ -17,7 +17,8 @@
 #define DSM_REMOTESERIALCONNECTION_H
 
 #include <atdUtil/Socket.h>
-#include <DSMSerialSensor.h>
+#include <DSMSensor.h>
+#include <MessageStreamSensor.h>
 #include <SampleClient.h>
 #include <atdUtil/EOFException.h>
 
@@ -72,7 +73,9 @@ private:
 
     std::string devname;
 
-    DSMSerialSensor* sensor;
+    DSMSensor* sensor;
+
+    MessageStreamSensor* msgSensor;
 
     /**
      * Left over input characters after previous parse for escape sequences.

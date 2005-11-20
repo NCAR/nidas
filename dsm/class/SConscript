@@ -99,12 +99,15 @@ sources = [ Split("""
       IRS_HW_HG2001GD.cc
       IRS_HW_YG1854.cc
   
+  MessageStreamSensor.cc
   DSMSerialSensor.cc
   AsciiScanner.cc
   GPS_NMEA_Serial.cc
   IRIGSensor.cc
   DSMAnalogSensor.cc
   A2DBoardTempSensor.cc
+  SocketSensor.cc
+  PSI9116_Sensor.cc
 
   Sample.cc
   Variable.cc

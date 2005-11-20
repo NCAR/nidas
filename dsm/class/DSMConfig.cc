@@ -17,6 +17,8 @@
 #include <Project.h>
 #include <PortSelector.h>
 
+#include <atdUtil/Logger.h>
+
 #include <DOMObjectFactory.h>
 
 #include <iostream>
@@ -125,7 +127,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	if (!elname.compare("sensor") ||
 	    !elname.compare("serialSensor") ||
             !elname.compare("arincSensor") ||
-            !elname.compare("irigSensor")) {
+            !elname.compare("irigSensor") ||
+            !elname.compare("socketSensor")) {
 	    const string& idref = xchild.getAttributeValue("IDREF");
 
 	    DSMSensor* sensor = 0;
@@ -251,6 +254,13 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	else throw atdUtil::InvalidParameterException(
 		string("dsm") + ": " + getName(),
 		    "unrecognized element",elname);
+    }
+
+    // Warn if no outputs
+    if (getOutputs().size() == 0) {
+	ostringstream ost;
+        atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		"dsm id %d has no configured outputs",getId());
     }
 
     // check for sensor ids which have value less than 10, or are not unique.

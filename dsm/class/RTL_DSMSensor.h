@@ -32,15 +32,16 @@ public:
 
     /**
      * Create a sensor.  No IO (open/read/write/ioctl)
-     * operations to the sensor are performed in the constructor.
+     * operations to the sensor are performed in the constructor,
+     * hence no IOExceptions.
      */
     RTL_DSMSensor();
 
     virtual ~RTL_DSMSensor();
 
     /**
-     * Constructor for a sensor.
-     * @param val devname The device name.
+     * Set the device name to be opened for this sensor.
+     * @param val The device name.
      * Since we have to generate 4 FIFO names
      * from this devname, the devname should follow this convention:
      * <ul>
