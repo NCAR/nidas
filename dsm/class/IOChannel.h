@@ -102,11 +102,6 @@ public:
     virtual size_t write(const void* buf, size_t len)
     	throw(atdUtil::IOException) = 0;
 
-    /**
-     * Default flush does nothing.
-     */
-    virtual void flush() throw(atdUtil::IOException) {}
-
     virtual void close() throw(atdUtil::IOException) = 0;
 
     virtual int getFd() const = 0;

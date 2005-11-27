@@ -99,17 +99,20 @@ public:
 
     /**
      * Write data.  This supports an atomic write of
-     * data from multiple buffers into an output buffer for later
-     * tranmission. The write either completely
-     * succeeds (all buffers written), or completely fails (no buffers
-     * written). This prevents partial data samples from being written,
+     * data from multiple buffers into an output buffer.
+     * The write either completely succeeds (all buffers written),
+     * or completely fails (no buffers written).
+     * This prevents partial data samples from being written,
      * and also reduces the need for copying to a temporary buffer.
-     * @return true: all data in bufs was received; false: no data
-     *         copied because the buffer was full and the
-     *         physical device is bogged down. Most processes
-     *         will chuck the data and proceed.
+     * @param bufs Array of pointers to buffers of data to be written.
+     * @param lens Array specifying length of each buffer.
+     * @param nbufs Number of buffers, the length of bufs and lens.
+     * @return true: all data in bufs was copied to output buffer;
+     *    false: no data copied because the buffer was full and the
+     *    physical device is bogged down. Typically one must
+     *    chuck the data and proceed.
      */
-    bool write(const void** bufs, size_t* lens, int nbufs)
+    bool write(const void *const * bufs,const size_t* lens, int nbufs)
   	throw(atdUtil::IOException);
 
     bool write(const void*buf,size_t len) throw (atdUtil::IOException);

@@ -106,15 +106,15 @@ bool IOStream::write(const void*buf,size_t len) throw (atdUtil::IOException)
     return write(&buf,&len,1);
 }
 
-/**
- * Buffered atomic write. We change the contents of lens argument.
+/*
+ * Buffered atomic write - all data is written to buffer, or none.
  */
-bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::IOException)
+bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) throw (atdUtil::IOException)
 {
     size_t l;
     int ibuf;
 
-    /* total length of user buffers */
+    /* compute total length of user buffers */
     size_t tlen = 0;
     for (ibuf = 0; ibuf < nbufs; ibuf++) tlen += lens[ibuf];
 
@@ -127,7 +127,8 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
     int nEAGAIN = 0;
 
     ibuf = 0;
-
+    const char* bufptr = (const char*)bufs[ibuf];
+    size_t lenbuf = lens[ibuf];
     while (tlen > 0) {
 
 	/* space for more data in buffer */
@@ -192,16 +193,20 @@ bool IOStream::write(const void**bufs,size_t* lens, int nbufs) throw (atdUtil::I
 	    }
 	}
 
-	for (; ibuf < nbufs && space > 0; ibuf++) {
-	    l = lens[ibuf];
+	for (; tlen > 0 && space > 0; ) {
+	    l = lenbuf;
 	    if (l > space) l = space;
-	    memcpy(head,bufs[ibuf],l);
+	    memcpy(head,bufptr,l);
 	    head += l;
-	    ((const char*&)(bufs[ibuf])) += l;
-	    lens[ibuf] -= l;
+	    lenbuf -= l;
 	    space -= l;
 	    tlen -= l;
-	    if (lens[ibuf] > 0) break;	// out of space but data left to write
+
+	    if (lenbuf == 0 && ++ibuf < nbufs) {
+		bufptr = (const char*) bufs[ibuf];
+		lenbuf = lens[ibuf];
+	    }
+	    else bufptr += l;	// space == 0
 	}
 	// if tlen > 0 at this point then we're doing a large write
     }
