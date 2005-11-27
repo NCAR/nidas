@@ -51,6 +51,7 @@ apps = Split("""
   status_listener.cc
   rserial.cc
   psi9116_sim.cc
+  cat_nids.cc
 """)
 
 nodes = []
