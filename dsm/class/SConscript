@@ -45,9 +45,6 @@ conf = Configure(myenv)
 ##
 if conf.CheckCHeader('libpq-fe.h'):
     PSQLSources = Split("""
-	PSQLChannel.cc
-	PSQLSampleOutput.cc
-	PSQLProcessor.cc
     """)
 else:
     PSQLSources = []
