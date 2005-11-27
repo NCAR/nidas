@@ -53,7 +53,7 @@ PSQLSampleOutput::~PSQLSampleOutput()
 PSQLSampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
 {
     PSQLSampleOutput* out = new PSQLSampleOutput(*this);
-    out->psqlChannel = iochannel;
+    out->psqlChannel = static_cast<PSQLChannel*>(iochannel);
     return out;
 }
 
@@ -434,12 +434,14 @@ void PSQLSampleOutput::fromDOMElement(const DOMElement* node)
     {
         if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 
-        psqlChannel = IOChannel::createIOChannel((DOMElement*)child);
+	IOChannel* iochan = IOChannel::createIOChannel((DOMElement*)child);
 
-	if (!dynamic_cast<PSQLChannel*>(psqlChannel))
+	if (!(psqlChannel = dynamic_cast<PSQLChannel*>(psqlChannel))) {
+	    delete iochan;
             throw atdUtil::InvalidParameterException(
                     "PSQLSampleOutput::fromDOMElement",
                     "output", "must be a PSQLChannel");
+	}
 
         psqlChannel->setDSMConfigs(getDSMConfigs());
 

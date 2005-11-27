@@ -18,6 +18,7 @@
 
 #include <SampleOutput.h>
 #include <SampleTag.h>
+#include <PSQLChannel.h>
 
 #include <map>
 
@@ -103,7 +104,7 @@ protected:
 
     const DSMService* service;
 
-    IOChannel* psqlChannel;
+    PSQLChannel* psqlChannel;
 
     // std::list<const SampleTag*> sampleTags;
 
