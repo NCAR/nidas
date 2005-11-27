@@ -44,8 +44,8 @@ Project::Project(): currentSite(0),catalog(0)
     if (obsPer == NULL) currentObsPeriod.setName("unknown");
     else currentObsPeriod.setName(obsPer);
 
-    atdUtil::Logger::getInstance()->log(LOG_INFO,"ADS3_FLIGHT=%s",
-    	currentObsPeriod.getName().c_str());
+    // atdUtil::Logger::getInstance()->log(LOG_INFO,"ADS3_FLIGHT=%s",
+    // 	currentObsPeriod.getName().c_str());
 }
 
 Project::~Project()
