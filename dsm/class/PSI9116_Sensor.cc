@@ -25,7 +25,8 @@ CREATOR_FUNCTION(PSI9116_Sensor)
 
 PSI9116_Sensor::PSI9116_Sensor():
 	msecPeriod(0),nchannels(0),sampleId(0),
-	psiConvert(68.94757),sequenceNumber(0),outOfSequence(0)
+	psiConvert(68.94757),sequenceNumber(0),outOfSequence(0),
+	inSequence(0)
 {
 }
 
@@ -161,19 +162,35 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     if (slen < 1 || *input++ != 1) return false;
     if (slen < 5) return false;
 
-    unsigned int seqval;
-    ::memcpy(&seqval,input,4);
-    if (sequenceNumber == 0) sequenceNumber = seqval;
-    else if (seqval != ++sequenceNumber) {
+    union flip {
+	unsigned long lval;
+	float fval;
+	char bytes[4];
+    } seqnum;
+
+    // sequence number is big endian.
+#if __BYTE_ORDER == __BIG_ENDIAN
+    ::memcpy(&seqnum,input,sizeof(seqnum));
+    input += 4;
+#else
+    seqnum.bytes[3] = *input++;
+    seqnum.bytes[2] = *input++;
+    seqnum.bytes[1] = *input++;
+    seqnum.bytes[0] = *input++;
+#endif
+
+    if (sequenceNumber == 0) sequenceNumber = seqnum.lval;
+    else if (seqnum.lval != ++sequenceNumber) {
         if (!(outOfSequence++ % 1000))
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-			"%d out of sequence samples from %s",
-			outOfSequence,getName().c_str());
-	sequenceNumber = seqval;
-    }
-    input += 4;
+    "%d out of sequence samples from %s (%d in sequence), num=%u, expected=%u,slen=%d",
+		    outOfSequence,getName().c_str(),inSequence,seqnum.lval,sequenceNumber,slen);
 
-    int nvalsin = (slen - 5) / 4;
+	sequenceNumber = seqnum.lval;
+    }
+    else inSequence++;
+
+    int nvalsin = (slen - 5) / sizeof(float);
     if (nvalsin > nchannels) nvalsin = nchannels;
 
     SampleT<float>* outs = getSample<float>(nchannels);
@@ -181,10 +198,20 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(sampleId);
     float* dout = outs->getDataPtr();
 
+    // data values in format 8 are little endian floats
     int iout;
     for (iout = 0; iout < nvalsin; iout++) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+	union flip d;
+	seqnum.bytes[3] = *input++;
+	seqnum.bytes[2] = *input++;
+	seqnum.bytes[1] = *input++;
+	seqnum.bytes[0] = *input++;
+	dout[iout] = d.fval;
+#else
         ::memcpy(dout+iout,input,4);
 	input += 4;
+#endif
     }
     for ( ; iout < nchannels; iout++) dout[iout] = floatNAN;
 
