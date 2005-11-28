@@ -25,8 +25,7 @@ CREATOR_FUNCTION(PSI9116_Sensor)
 
 PSI9116_Sensor::PSI9116_Sensor():
 	msecPeriod(0),nchannels(0),sampleId(0),
-	psiConvert(68.94757),sequenceNumber(0),outOfSequence(0),
-	inSequence(0)
+	psiConvert(68.94757),sequenceNumber(0),outOfSequence(0)
 {
 }
 
@@ -76,7 +75,6 @@ void PSI9116_Sensor::open(int flags)
     int format = 8;	// 8=binary little-endian floats
     int nsamples = 0;	// 0=continuous
 
-    cerr << "nchannels=" << nchannels << endl;
     unsigned int chans = 0;
     for (int i = 0; i < nchannels; i++) chans = chans * 2 + 1;
 
@@ -183,12 +181,11 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     else if (seqnum.lval != ++sequenceNumber) {
         if (!(outOfSequence++ % 1000))
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-    "%d out of sequence samples from %s (%d in sequence), num=%u, expected=%u,slen=%d",
-		    outOfSequence,getName().c_str(),inSequence,seqnum.lval,sequenceNumber,slen);
+    "%d out of sequence samples from %s, num=%u, expected=%u,slen=%d",
+		    outOfSequence,getName().c_str(),seqnum.lval,sequenceNumber,slen);
 
 	sequenceNumber = seqnum.lval;
     }
-    else inSequence++;
 
     int nvalsin = (slen - 5) / sizeof(float);
     if (nvalsin > nchannels) nvalsin = nchannels;

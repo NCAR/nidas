@@ -73,8 +73,6 @@ protected:
 
     size_t outOfSequence;
 
-    size_t inSequence;
-
 };
 
 }

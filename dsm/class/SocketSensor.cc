@@ -30,7 +30,6 @@ SocketSensor::SocketSensor():
 
 SocketSensor::~SocketSensor()
 {
-    cerr << "~SocketSensor" << endl;
     close();
 }
 
@@ -66,7 +65,6 @@ void SocketSensor::parseAddress(const string& name)
 	if (idx2 != string::npos) {
 	    desthost = name.substr(idx,idx2-idx);
 	    string portstr = name.substr(idx2+1);
-	    cerr << "portstr=" << portstr << endl;
 	    istringstream ist(portstr);
 	    ist >> destport;
 	    if (ist.fail()) destport = -1;
