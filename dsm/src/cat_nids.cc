@@ -69,9 +69,9 @@ int Concater::main(int argc, char** argv) throw()
 int Concater::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-o output_file] input_file ...\n\
+Usage: " << argv0 << " [-o output_file] input_file ...\n\
     -o output_file: Name of output file, which must not exist.\n\
-	If no output file, output will be to stdout.\n\
+	If no -o option, or output_file is '-', output will be to stdout.\n\
     input_file: one or more input files\n" << endl;
     return 1;
 }
@@ -139,7 +139,6 @@ int Concater::run() throw()
 	catch (atdUtil::EOFException& eof) {
 	    outStream.flush();
 	    outStream.close();
-	    cerr << eof.what() << endl;
 	}
     }
     catch (atdUtil::IOException& ioe) {

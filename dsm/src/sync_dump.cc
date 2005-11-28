@@ -264,7 +264,8 @@ int SyncDumper::main(int argc, char** argv)
 		strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
 		cout << cstr << '.' << setw(3) << setfill('0') << msec;
 		for (int j = 0; j < vlen; j++)
-		    cout << ' ' << rec[varoffset + i*vlen + j] << endl;
+		    cout << ' ' << rec[varoffset + i*vlen + j];
+		cout << endl;
 		tt += deltatUsec;
 	    }
 	}
