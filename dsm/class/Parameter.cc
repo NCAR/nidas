@@ -135,6 +135,7 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		else {
 		    std::istringstream ist(aval);
+		    ist >> boolalpha;
 		    T val;
 		    for (int i = 0; ; i++) {
 			ist >> val;
@@ -144,9 +145,15 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 			    " eof=" << ist.eof() <<
 			    " fail=" << ist.fail() << std::endl;
 #endif
-			if (ist.fail())
-			    throw atdUtil::InvalidParameterException(
-				"parameter",aname,aval);
+			// In case a bool was entered as "0" or "1", turn off boolalpha and try again.
+			if (ist.fail()) {
+			    ist.clear();
+			    ist >> noboolalpha >> val;
+			    if (ist.fail())
+				throw atdUtil::InvalidParameterException(
+				    "parameter",getName(),aval);
+			    ist >> boolalpha;
+			}
 			setValue(i,val);
 			if (ist.eof()) break;
 		    }

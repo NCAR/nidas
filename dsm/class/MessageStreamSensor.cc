@@ -148,11 +148,15 @@ void MessageStreamSensor::fromDOMElement(
 	    const std::string& aval = attr.getValue();
 
 	    if (!aname.compare("nullterm")) {
-                istringstream ist(aval);
-                ist >> nullTerminated;
-                if (ist.fail())
-                    throw atdUtil::InvalidParameterException(getSensorName(),aname,
-                        aval);
+		istringstream ist(aval);
+		ist >> boolalpha >> nullTerminated;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> nullTerminated;
+		    if (ist.fail())
+			throw atdUtil::InvalidParameterException(getSensorName(),aname,
+			    aval);
+		}
             }
 	    else if (!aname.compare("init_string"))
 		setInitString(aval);

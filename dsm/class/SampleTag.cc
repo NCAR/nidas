@@ -87,10 +87,14 @@ void SampleTag::fromDOMElement(const DOMElement* node)
 
 	    else if (!attr.getName().compare("process")) {
 		bool process;
-		ist >> process;
-		if (ist.fail())
-		    throw atdUtil::InvalidParameterException("sample",
-		    	attr.getName(),attr.getValue());
+		ist >> boolalpha >> process;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> process;
+		    if (ist.fail())
+			throw atdUtil::InvalidParameterException("sample",
+			    attr.getName(),attr.getValue());
+		}
 		setProcessed(process);
 		// cerr << "processed=" << process << endl;
             }
