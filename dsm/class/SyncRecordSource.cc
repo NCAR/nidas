@@ -431,16 +431,17 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	    	timeIndex == 0)
 		floatPtr[groupOffsets[groupId]] = tt - syncTime;	// lag
 
-	    for (size_t i = 0; i < numVar; i++) {
-	        size_t vlen = varLen[i];
-		assert(fp + vlen <= ep);
+	    for (size_t i = 0; i < numVar && fp < ep; i++) {
+	        size_t outlen = varLen[i];
+	        size_t inlen = std::min((unsigned)(ep-fp),outlen);
 
 		if (varOffset[i] >= 0) {
-		    float* dp = floatPtr + varOffset[i] + 1 + vlen * timeIndex;
-		    assert(dp + vlen <= floatPtr + recSize);
-		    memcpy(dp,fp,vlen*sizeof(float));
+		    float* dp = floatPtr + varOffset[i] + 1 +
+		    	outlen * timeIndex;
+		    assert(dp + outlen <= floatPtr + recSize);
+		    memcpy(dp,fp,inlen*sizeof(float));
 		}
-		fp += vlen;
+		fp += inlen;
 	    }
 	}
 	break;
