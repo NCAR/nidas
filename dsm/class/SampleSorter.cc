@@ -160,7 +160,7 @@ void inline SampleSorter::heapDecrement(size_t bytes)
 	if (heapSize > heapMax) {	// SampleSource must be waiting
 	    heapSize -= bytes;
 	    if (heapSize <= heapMax) {
-		cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
+		// cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
 		heapCond.signal();
 	    }
 	}
@@ -212,10 +212,10 @@ bool SampleSorter::receive(const Sample *s) throw()
 	// if heapMax will be exceeded, then wait until heapSize comes down
 	while (heapSize > heapMax) {
 	    // Wait until we've distributed enough samples
-	    cerr << "waiting on heap condition, heapSize=" << heapSize << endl;
+	    // cerr << "waiting on heap condition, heapSize=" << heapSize << endl;
 	    sampleSetCond.signal();
 	    heapCond.wait();
-	    cerr << "received heap signal, heapSize=" << heapSize << endl;
+	    // cerr << "received heap signal, heapSize=" << heapSize << endl;
 	}
     }
     heapCond.unlock();

@@ -229,7 +229,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	varmap[vname] = var;
 	newvars.push_back(var);
     }
-    cerr << "done with variable loop" << endl;
+    // cerr << "done with variable loop" << endl;
     section = "rates";
 
     tmpstr.clear();
@@ -252,7 +252,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     for (;;) {
 	float rate;
         header >> rate;
-	cerr << "read rate=" << rate << endl;
+	// cerr << "read rate=" << rate << endl;
 	if (header.fail()) break;
 	if (header.eof()) goto eof;
 
@@ -267,7 +267,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	for (;;) {
 	    string vname;
 	    header >> vname;
-	    cerr << "variable of rate: " << vname << endl;
+	    // cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
 	    if (!vname.compare(";")) break;
 	    vi = varmap.find(vname);
@@ -299,7 +299,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	}
 	lagoffset += groupSize;
     }
-    cerr << "out of rate loop" << endl;
+
     header.clear();	// clear fail bit
     tmpstr.clear();
     header >> tmpstr;
@@ -328,7 +328,6 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     }
 
     numFloats = offset;
-    cerr << "scanHeader done" << endl;
     return;
 
 eof: 
