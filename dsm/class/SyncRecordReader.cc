@@ -74,6 +74,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     delete headException;
     headException = 0;
 
+    startTime = (time_t)(samp->getTimeTag() / USECS_PER_SEC);
+
     istringstream header(
     	string((const char*)samp->getConstVoidDataPtr(),
 		samp->getDataLength()));

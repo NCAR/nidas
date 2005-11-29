@@ -70,6 +70,11 @@ public:
     const std::string& getFlightName() const { return flightName; }
 
     /**
+     * Get UNIX time of the start time of data in the SyncRecords.
+     */
+    time_t getStartTime() const { return startTime; }
+
+    /**
      * Get the list of variables in a sync record.
      */
     const std::list<const SyncRecordVariable*> getVariables()
@@ -123,6 +128,8 @@ private:
     std::string aircraftName;
 
     std::string flightName;
+
+    time_t startTime;
 
 };
 
