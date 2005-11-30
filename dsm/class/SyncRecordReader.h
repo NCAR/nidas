@@ -87,7 +87,8 @@ public:
     const SyncRecordVariable* getVariable(const std::string& name) const;
 
     /**
-     * Get number of floats in a sync record.
+     * Get number of floats in a sync record.  This includes data and
+     * dynamic lag values.
      */
     size_t getNumFloats() const { return numFloats; }
 
