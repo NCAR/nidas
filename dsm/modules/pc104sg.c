@@ -248,7 +248,7 @@ int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
     ptr = callbackpool.next;
     if (ptr == &callbackpool) {		/* none left */
 	rtl_pthread_mutex_unlock(&cblistmutex);
-        return -RTL_ENOMEM;
+        return -ENOMEM;
     }
 
     cbentry = list_entry(ptr,struct irigCallback, list);
@@ -1110,13 +1110,13 @@ static void *pc104sg_100hz_thread (void *param)
 	    }
 	    else if (rtl_errno == RTL_EINTR) {
 	        DSMLOG_NOTICE("thread interrupted\n");
-		status = rtl_errno;
+		status = convert_rtl_errno(rtl_errno);
 		break;
 	    }
 	    else {
 	        DSMLOG_WARNING("thread error, error=%d\n",
 			rtl_errno);
-		status = rtl_errno;
+		status = convert_rtl_errno(rtl_errno);
 		break;
 	    }
 	}
@@ -1447,7 +1447,7 @@ static void portCallback(void* privateData)
 static int ioctlCallback(int cmd, int board, int portNum,
         void *buf, rtl_size_t len)
 {
-    int retval = -RTL_EINVAL;
+    int retval = -EINVAL;
     int isRT = 0;
 #ifdef DEBUG
     DSMLOG_DEBUG("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
@@ -1633,8 +1633,9 @@ int init_module (void)
     /* check for module parameters */
     addr = (unsigned int)ioport + SYSTEM_ISA_IOPORT_BASE;
 
+    errval = -EBUSY;
     /* Grab the region so that no one else tries to probe our ioports. */
-    if ((errval = check_region(addr, PC104SG_IOPORT_WIDTH)) < 0) goto err0;
+    if (check_region(addr, PC104SG_IOPORT_WIDTH)) goto err0;
     request_region(addr, PC104SG_IOPORT_WIDTH, "pc104sg");
     isa_address = addr;
 
@@ -1659,24 +1660,27 @@ int init_module (void)
 
     // remove broken device file before making a new one
     if (rtl_unlink(portDev->inFifoName) < 0)
-      if ( (errval = -rtl_errno) != -RTL_ENOENT ) goto err0;
+      if (rtl_errno != RTL_ENOENT) {
+          errval = -convert_rtl_errno(rtl_errno);
+          goto err0;
+      }
 
     if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
-	errval = -rtl_errno;
+	errval = -convert_rtl_errno(rtl_errno);
 	DSMLOG_WARNING("rtl_mkfifo %s failed, errval=%d\n",
 	    portDev->inFifoName,errval);
-	if (errval != -RTL_EEXIST && errval != -EBADE) goto err0;
+	goto err0;
     }
 
     /* setup our device */
     if (!(ioctlhandle = openIoctlFIFO(devprefix,
 	0,ioctlCallback,nioctlcmds,ioctlcmds))) {
-	errval = -RTL_EINVAL;
+	errval = -EINVAL;
 	goto err0;
     }
 
     /* create our pool of callback entries */
-    errval = -RTL_ENOMEM;
+    errval = -ENOMEM;
     for (i = 0; i < CALL_BACK_POOL_SIZE; i++) {
 	struct irigCallback* cbentry =
 	    (struct irigCallback*) rtl_gpos_malloc( sizeof(struct irigCallback) );
@@ -1692,9 +1696,9 @@ int init_module (void)
     irq_requested = 1;
 
     /* start the 100 Hz thread */
-    if ((errval = rtl_pthread_create(
-    	&pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0))) {
-        errval = -errval;
+    if (rtl_pthread_create(
+    	&pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0)) {
+        errval = -convert_rtl_errno(rtl_errno);
 	goto err0;
     }
 

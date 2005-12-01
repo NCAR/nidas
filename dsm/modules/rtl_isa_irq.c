@@ -390,7 +390,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
 int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callbackPtr)
 {
     int i;
-    int ret = -RTL_EINVAL;		/* no such isa irq */
+    int ret = -EINVAL;		/* no such isa irq */
     unsigned long flags;
 
     rtl_spin_lock_irqsave(&irq_controller_lock,flags);
@@ -399,10 +399,10 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callba
 
 	    DSMLOG_DEBUG("requesting isa irq=%d, index=%d\n",irq,i);
 
-	    ret = -RTL_EBUSY;
+	    ret = -EBUSY;
 	    if (isa_isrs[i]) break;	// already requested (no sharing!)
 
-	    ret = -RTL_ENOMEM;
+	    ret = -ENOMEM;
 	    isa_isrs[i] = rtl_gpos_malloc( sizeof(struct isrData) );
 	    if (!isa_isrs[i]) break;
 
@@ -426,7 +426,7 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callba
 int rtl_free_isa_irq(unsigned int irq)
 {
     int i;
-    int ret = -RTL_EINVAL;		/* no such isa irq */
+    int ret = -EINVAL;		/* no such isa irq */
     unsigned long flags;
     rtl_spin_lock_irqsave(&irq_controller_lock,flags);
 
@@ -446,7 +446,7 @@ int rtl_free_isa_irq(unsigned int irq)
 
     rtl_spin_unlock_irqrestore(&irq_controller_lock,flags);
 
-    if (ret == -RTL_EINVAL) DSMLOG_ERR("can't free isa irq=%d\n",irq);
+    if (ret == -EINVAL) DSMLOG_ERR("can't free isa irq=%d\n",irq);
     return ret;
 }
 
@@ -508,7 +508,7 @@ int init_module (void)
     /* failed... */
     cleanup_module();
     DSMLOG_ERR("could not allocate IRQ %d\n",VIPER_CPLD_IRQ);
-    return -RTL_EIO;
+    return -EIO;
   }
   DSMLOG_DEBUG("allocated IRQ %d\n",irq);
 
