@@ -64,7 +64,7 @@ public:
 
     int run() throw(atdUtil::Exception)
     {
-	Inet4SocketAddress addr(Inet4Address::getByName("localhost"),9000);
+	Inet4SocketAddress addr(Inet4Address(),9000);
 	auto_ptr<atdUtil::Socket> socket;
 	{
 	    atdUtil::ServerSocket waiter(addr);
@@ -95,7 +95,6 @@ int PSI::main() throw()
 
     auto_ptr<PSI> psi;
     try {
-	Inet4SocketAddress addr(Inet4Address::getByName("localhost"),9000);
 	psi.reset(new PSI());
 	psi->start();
 
