@@ -144,7 +144,7 @@ public:
      */
     void interrupt()
     {
-        if (opener.isRunning()) opener.interrupt();
+        if (opener.isRunning()) opener.cancel();
 	Thread::interrupt();
     }
 
