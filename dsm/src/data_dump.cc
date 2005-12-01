@@ -65,12 +65,13 @@ DumpClient::DumpClient(dsm_sample_id_t id,format_t fmt,ostream &outstr):
 
 void DumpClient::printHeader()
 {
-    cout << "|--- date time -------|  bytes" << endl;
+    cout << "|--- date time -------| deltaT   bytes" << endl;
 }
 
 bool DumpClient::receive(const Sample* samp) throw()
 {
     dsm_time_t tt = samp->getTimeTag();
+    static dsm_time_t prev_tt = 0;
 
     dsm_sample_id_t sampid = samp->getId();
     if (sampid != sampleId) return false;
@@ -82,7 +83,9 @@ bool DumpClient::receive(const Sample* samp) throw()
     int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
     strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
     ostr << cstr << '.' << setw(3) << setfill('0') << msec << ' ';
+    ostr << setw(3) << (tt - prev_tt) / 1000 << ' ';
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
+    prev_tt = tt;
 
     switch(format) {
     case ASCII:
