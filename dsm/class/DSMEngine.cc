@@ -489,8 +489,16 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
     _selector = new PortSelector(_dsmConfig->getRemoteSerialSocketPort());
+    _selector->setRealTimeFIFOPriority(50);
     _selector->start();
-    _dsmConfig->openSensors(_selector);
+
+    const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+	_selector->addSensor(sensor);
+    }
+    _dsmConfig->removeSensors();
 }
 
 void DSMEngine::connectOutputs() throw(atdUtil::IOException)
@@ -506,8 +514,8 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 	output->requestConnection(this);
     }
     
-    const vector<DSMSensor*> sensors = _selector->getSensors();
-    vector<DSMSensor*>::const_iterator si;
+    const list<DSMSensor*> sensors = _selector->getSensors();
+    list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	// If we're outputting processed samples add
@@ -534,8 +542,8 @@ void DSMEngine::connected(SampleOutput* output) throw()
 	disconnected(output);
     }
 
-    const vector<DSMSensor*> sensors = _selector->getSensors();
-    vector<DSMSensor*>::const_iterator si;
+    const list<DSMSensor*> sensors = _selector->getSensors();
+    list<DSMSensor*>::const_iterator si;
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
@@ -554,8 +562,8 @@ void DSMEngine::connected(SampleOutput* output) throw()
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
     cerr << "SampleOutput " << output->getName() << " disconnected" << endl;
-    const vector<DSMSensor*> sensors = _selector->getSensors();
-    vector<DSMSensor*>::const_iterator si;
+    const list<DSMSensor*> sensors = _selector->getSensors();
+    list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	cerr << "removing output from sensor " << sensor->getName() << endl;

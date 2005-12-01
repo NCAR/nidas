@@ -21,6 +21,7 @@
 #include <DSMTime.h>
 
 #include <DSMSensor.h>
+#include <SensorOpener.h>
 #include <RemoteSerialListener.h>
 #include <atdUtil/Thread.h>
 #include <atdUtil/ThreadSupport.h>
@@ -59,8 +60,23 @@ public:
     PortSelector(unsigned short rserialPort = 0);
     ~PortSelector();
 
-    void addDSMSensor(DSMSensor *sensor);
-    void closeDSMSensor(DSMSensor *sensor);
+    /**
+     * Add an unopened sensor to the PortSelector. PortSelector
+     * will then own the DSMSensor.
+     */
+    void addSensor(DSMSensor *sensor);
+
+    /**
+     * Request that PortSelector close the sensor.
+     */
+    void closeSensor(DSMSensor *sensor);
+
+    /**
+     * After SensorOpener has opened the sensor, it will
+     * notify PortSelector via this method that the
+     * sensor is open.
+     */
+    void sensorOpen(DSMSensor *sensor);
 
     void addRemoteSerialConnection(RemoteSerialConnection*)
     	throw(atdUtil::IOException);
@@ -108,19 +124,59 @@ public:
      */
     virtual int run() throw(atdUtil::Exception);
     
-    std::vector<DSMSensor*> getSensors() const;
+    std::list<DSMSensor*> getSensors() const;
+
+    std::set<DSMSensor*> getOpenedSensors() const;
+
+    /**
+     * Cancel this PortSelector. We catch this
+     * cancel so that we can pass it on the SensorOpener.
+     */
+    void cancel() throw(atdUtil::Exception)
+    {
+        if (opener.isRunning()) opener.cancel();
+	Thread::cancel();
+    }
+
+    /**
+     * Interrupt this thread.  We catch this
+     * interrupt so that we can pass it on the SensorOpener.
+     */
+    void interrupt()
+    {
+        if (opener.isRunning()) opener.interrupt();
+	Thread::interrupt();
+    }
+
+    /**
+     * Join this thread.
+     */
+    int join() throw(atdUtil::Exception)
+    {
+        if (!opener.isJoined()) opener.join();
+	return Thread::join();
+    }
 
 protected:
 
     void handleChangedSensors();
 
-    mutable atdUtil::Mutex sensorsMutex;
-    std::vector<int> pendingDSMSensorFds;
-    std::vector<DSMSensor*> pendingDSMSensors;
-    std::set<DSMSensor*> pendingDSMSensorClosures;
+    /**
+     * Pass this sensor to the SensorOpener to be reopened.
+     */
+    void reopenSensor(DSMSensor *sensor);
 
-    std::vector<int> activeDSMSensorFds;
-    std::vector<DSMSensor*> activeDSMSensors;
+    mutable atdUtil::Mutex sensorsMutex;
+
+    std::list<DSMSensor*> allSensors;
+
+    std::set<DSMSensor*> pendingSensors;
+
+    std::set<DSMSensor*> pendingSensorClosures;
+
+    std::vector<int> activeSensorFds;
+
+    std::vector<DSMSensor*> activeSensors;
 
     bool sensorsChanged;
 
@@ -153,6 +209,8 @@ protected:
      * Statistics period, in microseconds.
      */
     unsigned long statisticsPeriod;
+
+    SensorOpener opener;
 
 };
 }

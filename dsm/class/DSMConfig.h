@@ -52,12 +52,18 @@ public:
 
     void addSensor(DSMSensor* sensor);
 
+    /**
+     * Remove all DSMSensors from the list managed by DSMConfig.
+     * Typically this is done after the sensors are being
+     * managed by the PortSelector in a DSMEngine.
+     * it.
+     */
+    void removeSensors();
+
     const std::list<DSMSensor*>& getSensors() const
     {
 	return ownedSensors;
     }
-
-    void openSensors(PortSelector*) throw(atdUtil::IOException);
 
     void initSensors() throw(atdUtil::IOException);
 

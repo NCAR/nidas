@@ -45,6 +45,7 @@ RTL_DevIoctl::~RTL_DevIoctl()
 void RTL_DevIoctl::open() throw(atdUtil::IOException)
 {
     
+    atdUtil::Synchronized autosync(ioctlMutex);
     /*
      * A RTL_DevIoctl can be shared by one or more RTL_Sensors.
      * Therefore we only do the actual FIFO open on the
@@ -63,6 +64,7 @@ void RTL_DevIoctl::open() throw(atdUtil::IOException)
 
 void RTL_DevIoctl::close()
 {
+    atdUtil::Synchronized autosync(ioctlMutex);
     if (!(--usageCount)) {
 	if (infifofd >= 0) ::close(infifofd);
 	infifofd = -1;

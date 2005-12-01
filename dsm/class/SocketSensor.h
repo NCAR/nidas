@@ -100,6 +100,16 @@ public:
     */
     void close() throw(atdUtil::IOException);
 
+    void setTcpNoDelay(bool val) throw(atdUtil::IOException)
+    {
+        socket->setTcpNoDelay(val);
+    }
+
+    bool getTcpNoDelay() throw(atdUtil::IOException)
+    {
+        return socket->getTcpNoDelay();
+    }
+
     dsm_time_t readSamples(SampleDater* dater)
     	throw(atdUtil::IOException);
 

@@ -115,6 +115,7 @@ sources = [ Split("""
   SampleClientList.cc
   SampleSourceImpl.cc
 
+  SensorOpener.cc
   PortSelector.cc
   PortSelectorTest.cc
   RemoteSerialConnection.cc

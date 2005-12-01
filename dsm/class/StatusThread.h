@@ -34,27 +34,9 @@ public:
      */
     StatusThread(const std::string& name);
 
-    virtual ~StatusThread() {
-      std::cerr << __FUNCTION__ << std::endl;
-      if (isRunning()) {
-        cancel();
-        join();
-        std::cerr << __FUNCTION__ << " canceled...joined..." << std::endl;
-      }
-    }
+    ~StatusThread();
+
     int run() throw(atdUtil::Exception);
-
-    // DEBUG trace!
-    virtual void interrupt() {
-      std::cerr << "StatusThread:" << __FUNCTION__ << std::endl;
-      Thread::interrupt();
-    }
-
-    // DEBUG trace!
-    virtual void start() throw (atdUtil::Exception) {
-      std::cerr << "StatusThread:" << __FUNCTION__ << std::endl;
-      Thread::start();
-    }
 
 protected:
 };

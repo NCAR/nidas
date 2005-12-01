@@ -21,7 +21,7 @@ using namespace std;
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	inputStream(iochan),headException(0),
-	numFloats(0)
+	numFloats(0),startTime(0)
 {
     try {
 	inputStream.init();

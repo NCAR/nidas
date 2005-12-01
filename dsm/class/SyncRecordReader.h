@@ -23,8 +23,6 @@
 
 #include <atdUtil/Thread.h>
 
-#include <semaphore.h>
-
 namespace dsm {
 
 class SyncRecHeaderException: public atdUtil::Exception 

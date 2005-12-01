@@ -45,32 +45,12 @@ DSMConfig::~DSMConfig()
 
 void DSMConfig::addSensor(DSMSensor* sensor)
 {
-    // sensors.push_back(sensor);
     ownedSensors.push_back(sensor);
 }
 
-void DSMConfig::openSensors(PortSelector* selector)
-	throw(atdUtil::IOException)
+void DSMConfig::removeSensors()
 {
-    list<DSMSensor*>::iterator si;
-    for (si = ownedSensors.begin(); si != ownedSensors.end(); ) {
-	DSMSensor* sensor = *si;
-	try {
-	    sensor->open(sensor->getDefaultMode());
-	    selector->addDSMSensor(sensor);
-	    si = ownedSensors.erase(si);
-	}
-	catch(const atdUtil::IOException& e) {
-	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		    sensor->getName().c_str(),e.what());
-            ++si;
-	}
-	catch(const atdUtil::InvalidParameterException& e) {
-	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		    sensor->getName().c_str(),e.what());
-            ++si;
-	}
-    }
+    ownedSensors.clear();
 }
 
 void DSMConfig::initSensors()

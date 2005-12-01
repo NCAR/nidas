@@ -31,10 +31,14 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
     blockSignal(SIGTERM);
 }
 
+StatusThread::~StatusThread()
+{
+}
+
 int StatusThread::run() throw(atdUtil::Exception)
 {
     DSMEngine* engine = DSMEngine::getInstance();
-    const DSMConfig* dsm = engine->getDSMConfig();
+    // const DSMConfig* dsm = engine->getDSMConfig();
 
     const PortSelector* selector = engine->getPortSelector();
     const SampleDater* dater = engine->getSampleDater();
@@ -65,23 +69,12 @@ int StatusThread::run() throw(atdUtil::Exception)
 	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 	    if (isInterrupted()) break;
 
-	    IRIGSensor* irig_sensor = 0;
-	    const std::vector<DSMSensor*> sensors = selector->getSensors();
-	    std::vector<DSMSensor*>::const_iterator si;
+	    // Must make a copy of list of selector sensors
+	    std::set<DSMSensor*> sensors = selector->getOpenedSensors();
+	    std::set<DSMSensor*>::const_iterator si;
 	
-	    // locate the IRIG sensor
-	    for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		if (!(sensor->getClassName().compare("IRIGSensor"))) {
-		    irig_sensor = (IRIGSensor*) sensor;
-		    break;
-		}
-	    }
-	    if (!irig_sensor) throw atdUtil::Exception(
-	      string("Cannot display time.  IRIGSensor not found in XML configuration"));
 
-
-            dsm_time_t tt = irig_sensor->getIRIGTime();
+	    dsm_time_t tt = dater->getDataSystemTime();
             time_t     ut = tt / USECS_PER_SEC;
             gmtime_r(&ut,&tm);
 //          int msec = tt % 1000;
