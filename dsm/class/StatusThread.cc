@@ -82,7 +82,7 @@ int StatusThread::run() throw(atdUtil::Exception)
 //          cerr << cstr << endl;  // DEBUG show clock...
             statStream << "<?xml version=\"1.0\"?>";
 
-            if (!nSec)
+            if (!nSec && sensors.size() > 0)
               statStream << "<group>";
 
             statStream << "<clock>" << cstr << "</clock>";
