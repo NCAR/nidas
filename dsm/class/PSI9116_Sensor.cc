@@ -63,6 +63,7 @@ void PSI9116_Sensor::open(int flags)
         throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     SocketSensor::open(flags);
+    SocketSensor::setTcpNoDelay(true);
 
     sendCommand("A");
 
