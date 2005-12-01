@@ -81,7 +81,6 @@ DSMEngine::~DSMEngine()
 	    }
 	}
     }
-    cerr << "DSMEngine deleted" << endl;
     delete _project;
 }
 
@@ -95,8 +94,6 @@ DSMEngine* DSMEngine::getInstance()
 /* static */
 int DSMEngine::main(int argc, char** argv) throw()
 {
-    cerr << "compiled on " << __DATE__ << " at " << __TIME__ << endl;
-
     auto_ptr<DSMEngine> engine(getInstance());
 
     int res;
@@ -160,7 +157,6 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	}
 	else _configFile = url;
     }
-    cerr << "optind=" << optind << " argc=" << argc << endl;
 
     if (optind != argc) {
 	usage(argv[0]);
@@ -201,9 +197,6 @@ void DSMEngine::run() throw()
     // default the loop to run only once
     _quit = true;
     do {
-      _logger->log(LOG_ERR,
-         "---------------------> top of DSMEngine loop <-------------------------");
-
       // purge members before re-starting the loop
       if (_selector) {
         _selector->interrupt();
@@ -235,14 +228,11 @@ void DSMEngine::run() throw()
         _runCond.unlock();
         if (_quit) continue;
       }
-      else
-        _logger->log(LOG_DEBUG,"don't wait on the _runCond condition variable...");
 
       if (projectDoc) {
         projectDoc->release();
         projectDoc = 0;
       }
-      cerr << "DSMEngine: first fetch the configuration" << endl;
       // first fetch the configuration
       try {
 	if (_configFile.length() == 0)
@@ -262,7 +252,6 @@ void DSMEngine::run() throw()
 	continue;
       }
       if (_interrupt) continue;
-      cerr << "DSMEngine: then initialize the DSMEngine" << endl;
       // then initialize the DSMEngine
       try {
         if (projectDoc)
@@ -275,7 +264,6 @@ void DSMEngine::run() throw()
       projectDoc->release();
       projectDoc = 0;
 
-      cerr << "DSMEngine: start your sensors" << endl;
       // start your sensors
       try {
 	openSensors();
@@ -292,7 +280,6 @@ void DSMEngine::run() throw()
       _statusThread = new StatusThread("DSMEngineStatus");
       _statusThread->start();
 
-      cerr << "DSMEngine: wait()" << endl;
       try {
 	wait();
       }
@@ -417,7 +404,6 @@ DOMDocument* DSMEngine::requestXMLConfig(
     std::string sockName = configSock->getRemoteSocketAddress().toString();
     XMLFdInputSource sockSource(sockName,configSock->getFd());
 
-    cerr << "parsing socket input" << endl;
     DOMDocument* doc = 0;
     try {
 	doc = parser->parse(sockSource);
@@ -426,9 +412,7 @@ DOMDocument* DSMEngine::requestXMLConfig(
 	configSock->close();
 	throw;
     }
-    cerr << "DSMEngine::requestXMLConfig: configSock closing" << endl;
     configSock->close();
-    cerr << "DSMEngine::requestXMLConfig: configSock closed" << endl;
     return doc;
 }
 
@@ -547,9 +531,6 @@ void DSMEngine::connected(SampleOutput* output) throw()
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
-	cerr << "adding " << (output->isRaw() ? "raw" : "nonraw") <<
-		" output to sensor " << sensor->getName() << 
-		" output=" << output->getName() << endl;
 	if (output->isRaw()) sensor->addRawSampleClient(output);
 	else sensor->addSampleClient(output);
     }
@@ -561,12 +542,10 @@ void DSMEngine::connected(SampleOutput* output) throw()
 /* An output wants to disconnect (probably the remote server went down) */
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
-    cerr << "SampleOutput " << output->getName() << " disconnected" << endl;
     const list<DSMSensor*> sensors = _selector->getSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
-	cerr << "removing output from sensor " << sensor->getName() << endl;
 	if (output->isRaw()) sensor->removeRawSampleClient(output);
 	else sensor->removeSampleClient(output);
     }
@@ -607,8 +586,6 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 	    "DSMEngine::interrupt, cancelling status thread");
       _statusThread->cancel();
       _statusThread->join();
-	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt, status thread joined");
     }
     // If DSMEngine is waiting for an XML connection, closing the
     // _xmlRequestSocket here will cause an IOException in
@@ -629,5 +606,5 @@ void DSMEngine::interrupt() throw(atdUtil::Exception)
 void DSMEngine::wait() throw(atdUtil::Exception)
 {
   _selector->join();
-  cerr << "DSMEngine::wait() _selector joined" << endl;
+  // cerr << "DSMEngine::wait() _selector joined" << endl;
 }

@@ -36,9 +36,11 @@ SocketSensor::~SocketSensor()
 void SocketSensor::close() throw(atdUtil::IOException)
 {
     if (socket.get()) {
-	atdUtil::Logger::getInstance()->log(LOG_INFO,
-	    "closing: %s",getName().c_str());
-        socket->close();
+	if (socket->getFd() >= 0) {
+	    atdUtil::Logger::getInstance()->log(LOG_INFO,
+		"closing: %s",getName().c_str());
+	    socket->close();
+	}
     }
 }
 

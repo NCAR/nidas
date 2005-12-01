@@ -63,6 +63,9 @@ public:
 
     int run() throw(atdUtil::Exception);
 
+    void cancel() throw(atdUtil::Exception);
+
+    void interrupt();
 
 protected:
     PortSelector* selector;

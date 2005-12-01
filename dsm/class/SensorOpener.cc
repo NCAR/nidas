@@ -64,6 +64,28 @@ void SensorOpener::reopenSensor(DSMSensor *sensor)
 }
 
 /**
+ * Interrupt this SensorOpener. Send a sensorCond.signal()
+ * so it will see the interrupt.
+ */
+void SensorOpener::interrupt()
+{
+    Thread::interrupt();
+    sensorCond.signal();
+}
+
+/**
+ * Cancel this SensorOpener. Since Cond::wait
+ * is not interrupted by a cancel, we must do
+ * a sensorCond.signal() first.
+ */
+void SensorOpener::cancel() throw(atdUtil::Exception)
+{
+    interrupt();
+    Thread::cancel();
+}
+
+
+/**
  * Thread function, open sensors.
  */
 int SensorOpener::run() throw(atdUtil::Exception)
@@ -71,10 +93,12 @@ int SensorOpener::run() throw(atdUtil::Exception)
 
     for (;;) {
 	sensorCond.lock();
-	while ((sensors.size() + problemSensors.size()) == 0)
+	while (!isInterrupted() &&
+		(sensors.size() + problemSensors.size()) == 0)
 		sensorCond.wait();
+	if (isInterrupted()) break;
 
-	DSMSensor* sensor;
+	DSMSensor* sensor = 0;
 	if (sensors.size() > 0) {
 	    sensor = sensors.front();
 	    sensors.pop_front();
@@ -107,6 +131,8 @@ int SensorOpener::run() throw(atdUtil::Exception)
 	    sensorCond.unlock();
 	}
     }
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"%s: run method finished",
+	  getName().c_str());
     return RUN_OK;
 }
 

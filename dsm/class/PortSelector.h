@@ -153,8 +153,9 @@ public:
      */
     int join() throw(atdUtil::Exception)
     {
+	int res = Thread::join();
         if (!opener.isJoined()) opener.join();
-	return Thread::join();
+	return res;
     }
 
 protected:
