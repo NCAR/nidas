@@ -87,7 +87,7 @@ int StatusThread::run() throw(atdUtil::Exception)
 
             statStream << "<clock>" << cstr << "</clock>";
 
-            if (!nSec) {
+            if (!nSec && sensors.size() > 0) {
               statStream << "<status><![CDATA[" << endl;
 
               DSMSensor* asen = *(sensors.begin());
