@@ -101,7 +101,7 @@ int main(int argc, char** argv)
    sensor destructors.
 */
 
-	    handler->addDSMSensor(sens);
+	    handler->addSensor(sens);
 	}
     }
     catch (atdUtil::IOException& ioe) {

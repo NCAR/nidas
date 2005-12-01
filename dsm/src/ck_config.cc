@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 	    	(*si)->getDeviceName() << endl;
 	    (*si)->open((*si)->getDefaultMode());
 	    (*si)->addSampleClient(&test);
-	    handler->addDSMSensor(*si);
+	    handler->addSensor(*si);
 	}
     }
     catch (const dsm::XMLException& e) {
