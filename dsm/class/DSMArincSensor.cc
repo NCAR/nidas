@@ -53,11 +53,6 @@ void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::Invalid
 #endif
     ioctl(ARINC_SIM_XMIT,(const void*)0,0);
   }
-  else
-#ifdef DEBUG
-    err("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< receiving");
-#endif
-
 
   // Do other sensor initialization.
   init();
