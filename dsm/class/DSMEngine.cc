@@ -473,7 +473,7 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
     _selector = new PortSelector(_dsmConfig->getRemoteSerialSocketPort());
-    // _selector->setRealTimeFIFOPriority(50);
+    _selector->setRealTimeFIFOPriority(50);
     _selector->start();
 
     const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
