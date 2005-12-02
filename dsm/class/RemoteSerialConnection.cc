@@ -53,7 +53,7 @@ void RemoteSerialConnection::readSensorName() throw(atdUtil::IOException)
     * the first message will have the device name in it.
     */
     char dev[128];
-    int n = socket->recv(dev, (sizeof devname) - 1, 0);
+    int n = socket->recv(dev, (sizeof dev) - 1, 0);
 
     dev[n] = 0;
     char* nl = strchr(dev,'\n');
