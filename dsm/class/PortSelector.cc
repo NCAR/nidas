@@ -59,7 +59,6 @@ PortSelector::PortSelector(unsigned short rserialPort) :
 PortSelector::~PortSelector()
 {
     delete rserial;
-    cerr << "closing activeSensors" << endl;
     for (unsigned int i = 0; i < activeSensors.size(); i++)
 	activeSensors[i]->close();
 
@@ -302,8 +301,11 @@ void PortSelector::addSensor(DSMSensor *sensor)
  */
 void PortSelector::sensorOpen(DSMSensor *sensor)
 {
+    // cerr << "PortSelector::sensorOpen" << endl;
     Synchronized autosync(sensorsMutex);
     pendingSensors.push_back(sensor);
+    // cerr << "PortSelector::sensorOpen pendingSensors.size="  <<
+    // 	pendingSensors.size() << endl;
     sensorsChanged = true;
 }
 
@@ -390,6 +392,7 @@ void PortSelector::removeRemoteSerialConnection(RemoteSerialConnection* conn)
 
 
 void PortSelector::handleChangedSensors() {
+    // cerr << "handleChangedSensors" << endl;
     unsigned int i;
     if (sensorsChanged) {
 	Synchronized autosync(sensorsMutex);
@@ -397,11 +400,14 @@ void PortSelector::handleChangedSensors() {
 	activeSensors.clear();
 	activeSensorFds.clear();
 
+	// cerr << "handleChangedSensors, pendingSensors.size()" <<
+	// 	pendingSensors.size() << endl;
 	list<DSMSensor*>::iterator si;
 	for (si = pendingSensors.begin();
-		si != pendingSensors.end(); ++si) {
+		si != pendingSensors.end(); ) {
 	    DSMSensor* sensor = *si;
 	    if (sensor->getReadFd() >= 0) {
+		// cerr << "readfd=" << sensor->getReadFd() << endl;
 		activeSensors.push_back(sensor);
 		activeSensorFds.push_back(sensor->getReadFd());
 		++si;
