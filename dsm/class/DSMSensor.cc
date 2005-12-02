@@ -163,7 +163,6 @@ bool DSMSensor::receive(const Sample *samp) throw()
     return true;
 }
 
-
 /**
  * Default implementation of process just passes samples on.
  */
@@ -174,15 +173,13 @@ bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
     return true;
 }
 
-
-
 void DSMSensor::initStatistics()
 {
     currStatsIndex = reportStatsIndex = 0;
 										
     sampleRateObs = 0.0;
     maxSampleLength[0] = maxSampleLength[1] = 0;
-    minSampleLength[0] = minSampleLength[1] = 999999999;
+    minSampleLength[0] = minSampleLength[1] = 999999;
     readErrorCount[0] = readErrorCount[1] = 0;
     writeErrorCount[0] = writeErrorCount[1] = 0;
     nsamples = 0;
@@ -195,7 +192,7 @@ void DSMSensor::calcStatistics(unsigned long periodUsec)
     reportStatsIndex = currStatsIndex;
     currStatsIndex = (currStatsIndex + 1) % 2;
     maxSampleLength[currStatsIndex] = 0;
-    minSampleLength[currStatsIndex] = 999999999;
+    minSampleLength[currStatsIndex] = 999999;
 										
     sampleRateObs = ((float)nsamples / periodUsec) * USECS_PER_SEC;
 

@@ -473,7 +473,7 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
     _selector = new PortSelector(_dsmConfig->getRemoteSerialSocketPort());
-    _selector->setRealTimeFIFOPriority(50);
+    // _selector->setRealTimeFIFOPriority(50);
     _selector->start();
 
     const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
@@ -498,7 +498,7 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 	output->requestConnection(this);
     }
     
-    const list<DSMSensor*> sensors = _selector->getSensors();
+    const list<DSMSensor*> sensors = _selector->getAllSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
@@ -526,7 +526,7 @@ void DSMEngine::connected(SampleOutput* output) throw()
 	disconnected(output);
     }
 
-    const list<DSMSensor*> sensors = _selector->getSensors();
+    const list<DSMSensor*> sensors = _selector->getAllSensors();
     list<DSMSensor*>::const_iterator si;
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -542,7 +542,7 @@ void DSMEngine::connected(SampleOutput* output) throw()
 /* An output wants to disconnect (probably the remote server went down) */
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
-    const list<DSMSensor*> sensors = _selector->getSensors();
+    const list<DSMSensor*> sensors = _selector->getAllSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;

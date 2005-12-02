@@ -124,9 +124,9 @@ public:
      */
     virtual int run() throw(atdUtil::Exception);
     
-    std::list<DSMSensor*> getSensors() const;
+    std::list<DSMSensor*> getAllSensors() const;
 
-    std::set<DSMSensor*> getOpenedSensors() const;
+    std::list<DSMSensor*> getOpenedSensors() const;
 
     /**
      * Cancel this PortSelector. We catch this
@@ -171,9 +171,9 @@ protected:
 
     std::list<DSMSensor*> allSensors;
 
-    std::set<DSMSensor*> pendingSensors;
+    std::list<DSMSensor*> pendingSensors;
 
-    std::set<DSMSensor*> pendingSensorClosures;
+    std::list<DSMSensor*> pendingSensorClosures;
 
     std::vector<int> activeSensorFds;
 
@@ -192,7 +192,6 @@ protected:
 
     bool rserialConnsChanged;
 
-    struct timeval tval;
     fd_set readfdset;
     int selectn;
 
@@ -200,8 +199,7 @@ protected:
     int rserialListenErrors;
 
     size_t timeoutMsec;
-    size_t timeoutSec;
-    size_t timeoutUsec;
+    struct timeval timeoutVal;
     size_t timeoutWarningMsec;
 
     dsm_time_t statisticsTime;

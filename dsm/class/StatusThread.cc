@@ -70,9 +70,8 @@ int StatusThread::run() throw(atdUtil::Exception)
 	    if (isInterrupted()) break;
 
 	    // Must make a copy of list of selector sensors
-	    std::set<DSMSensor*> sensors = selector->getOpenedSensors();
-	    std::set<DSMSensor*>::const_iterator si;
-	
+	    std::list<DSMSensor*> sensors = selector->getOpenedSensors();
+	    std::list<DSMSensor*>::const_iterator si;
 
 	    dsm_time_t tt = dater->getDataSystemTime();
             time_t     ut = tt / USECS_PER_SEC;
@@ -90,13 +89,15 @@ int StatusThread::run() throw(atdUtil::Exception)
             if (!nSec && sensors.size() > 0) {
               statStream << "<status><![CDATA[" << endl;
 
-              DSMSensor* asen = *(sensors.begin());
-              asen->printStatusHeader(statStream);
+	      DSMSensor* sensor = 0;
               for (si = sensors.begin(); si != sensors.end(); ++si) {
-		DSMSensor* sensor = *si;
+		sensor = *si;
+		cerr << "StatusThread: sensor=" << sensor->getName() << endl;
+		if (si == sensors.begin())
+			sensor->printStatusHeader(statStream);
 		sensor->printStatus(statStream);
               }
-              asen->printStatusTrailer(statStream);
+              if (sensor) sensor->printStatusTrailer(statStream);
               statStream << "]]></status></group>";
             }
             statStream << endl;
