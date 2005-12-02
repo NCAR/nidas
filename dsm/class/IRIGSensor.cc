@@ -102,19 +102,26 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
     unsigned char status;
 
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-    cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
-    	" (" << statusString(status,false) << ')' << endl;
+
+    atdUtil::Logger::getInstance()->log(LOG_DEBUG,
+    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)status,
+    	statusString(status,false).c_str());
+
+    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
+    // 	" (" << statusString(status,false) << ')' << endl;
 
     irigTime = getIRIGTime();
     unixTime = getSystemTime();
 
     if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
 	(status & CLOCK_STATUS_NOMAJT)) {
-	cerr << "Setting IRIG clock to unix clock" << endl;
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
     }
     else if (::llabs(unixTime-irigTime) > 180LL*USECS_PER_DAY) {
-	cerr << "Setting year in IRIG clock" << endl;
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "Setting year in IRIG clock");
 	setIRIGTime(unixTime);
     }
 
@@ -135,9 +142,15 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	if (ntry > 0) {
 	    double dtunix = unixTime - unixTimeLast;
 	    double dtirig = irigTime- irigTimeLast;
-	    cerr << "UNIX-IRIG=" << unixTime - irigTime <<
-		", dtunix=" << dtunix << ", dtirig=" << dtirig <<
-		", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
+	    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "UNIX-IRIG=%lld usec, dtunix=%f, dtirig=%f, rate ratio diff=%f",
+		unixTime - irigTime,dtunix,dtirig,
+		fabs(dtunix - dtirig) / dtunix);
+
+	    // cerr << "UNIX-IRIG=" << unixTime - irigTime <<
+	    // 	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
+	    // 	", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
+
 	    if (::llabs(unixTime - irigTime) < 10 * USECS_PER_SEC &&
 		fabs(dtunix - dtirig) / dtunix < 1.e-2) break;
 	}
@@ -146,10 +159,12 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 	irigTimeLast = irigTime;
     }
     if (ntry == NTRY)
-	cerr << "IRIG clock not behaving, UNIX-IRIG=" <<
-	    unixTime-irigTime << " usecs" << endl;
+	atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    "IRIG clock not behaving, UNIX-IRIG=%lld usec",
+	    unixTime-irigTime);
 
-    cerr << "setting SampleDater clock to " << irigTime << endl;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+	"setting SampleDater clock to %lld",irigTime);
     DSMEngine::getInstance()->getSampleDater()->setTime(irigTime);
 }
 
