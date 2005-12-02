@@ -27,7 +27,10 @@ void SampleDater::setTime(dsm_time_t clockT)
     t0day = timeFloor(clockTime,USECS_PER_DAY);
     dsm_time_t tnow = getSystemTime();
     sysTimeMutex.lock();
-    if (::llabs(tnow - clockT) > LONG_MAX) sysTimeAhead = 0;
+    if (::llabs(tnow - clockT) > LONG_MAX) {
+        if (tnow > clockT) sysTimeAhead = LONG_MAX;
+        else sysTimeAhead = -(LONG_MAX-1);
+    }
     else sysTimeAhead = tnow - clockT;
     sysTimeMutex.unlock();
     if (abs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
