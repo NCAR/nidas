@@ -76,7 +76,8 @@ void DSMSensor::initBuffer() throw()
 {
     bufhead = buftail = 0;
     delete [] buffer;
-    buffer = new char[BUFSIZE];
+    // cerr << "allocating buffer BUFSIZE=" << DSMSensor::BUFSIZE << endl;
+    buffer = new char[DSMSensor::BUFSIZE];
 }
 
 void DSMSensor::destroyBuffer() throw()
@@ -88,7 +89,7 @@ void DSMSensor::destroyBuffer() throw()
 dsm_time_t DSMSensor::readSamples(SampleDater* dater)
 	throw (atdUtil::IOException)
 {
-    size_t len = BUFSIZE - bufhead;	// length to read
+    size_t len = DSMSensor::BUFSIZE - bufhead;	// length to read
     size_t rlen;			// read result
     dsm_time_t tt = 0;
 
