@@ -27,9 +27,13 @@ namespace dsm {
 class RemoteSerialConnection : public SampleClient {
 public:
 
-    RemoteSerialConnection(atdUtil::Socket* sock, const std::string& d);
+    RemoteSerialConnection(atdUtil::Socket* sock);
 
     virtual ~RemoteSerialConnection();
+
+    void close() throw(atdUtil::IOException);
+
+    void readSensorName() throw(atdUtil::IOException);
 
     int getFd() const { return socket->getFd(); }
     const std::string& getSensorName() const { return devname; }
@@ -37,6 +41,12 @@ public:
     void setDSMSensor(DSMSensor* val) throw(atdUtil::IOException);
 
     DSMSensor* getDSMSensor() const { return sensor; }
+
+    /** 
+     * Notify this RemoteSerialConnection that a sensor
+     * matching getSensorName() was not found.
+     */
+    void sensorNotFound() throw(atdUtil::IOException);
 
     /**
      * Receive a sample from the DSMSensor, write data portion to socket.

@@ -41,23 +41,6 @@ RemoteSerialListener::~RemoteSerialListener() throw (IOException)
 
 RemoteSerialConnection* RemoteSerialListener::acceptConnection() throw(IOException)
 {
-
     Socket* newsock = accept();
-
-    /*
-    * the first message will have the device name in it.
-    */
-    char devname[128];
-    int n = newsock->recv(devname, (sizeof devname) - 1, 0);
-
-    devname[n] = 0;
-    char* nl = strchr(devname,'\n');
-    if (nl) *nl = 0;
-
-    cerr << "RemoteSerial accepted connection for devname \"" <<
-    	devname << "\"" << endl;
-
-    newsock->setNonBlocking(true);
-
-    return new RemoteSerialConnection(newsock,devname);
+    return new RemoteSerialConnection(newsock);
 }

@@ -26,9 +26,8 @@
 using namespace dsm;
 using namespace std;
 
-RemoteSerialConnection::RemoteSerialConnection(atdUtil::Socket* sock,
-	const std::string& d):
-	socket(sock),devname(d),sensor(0),nullTerminated(false)
+RemoteSerialConnection::RemoteSerialConnection(atdUtil::Socket* sock):
+	socket(sock),sensor(0),nullTerminated(false)
 {
 }
 
@@ -41,13 +40,50 @@ RemoteSerialConnection::~RemoteSerialConnection()
     delete socket;
 }
 
+void RemoteSerialConnection::close() throw(atdUtil::IOException)
+{
+    if (sensor) sensor->removeRawSampleClient(this);
+    sensor = 0;
+    socket->close();
+}
+
+void RemoteSerialConnection::readSensorName() throw(atdUtil::IOException)
+{
+    /*
+    * the first message will have the device name in it.
+    */
+    char dev[128];
+    int n = socket->recv(dev, (sizeof devname) - 1, 0);
+
+    dev[n] = 0;
+    char* nl = strchr(dev,'\n');
+    if (nl) *nl = 0;
+
+    devname = string(dev);
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+    	"RemoteSerial accepted connection for \"%s\"",
+    	devname.c_str());
+
+    socket->setNonBlocking(true);
+}
+
+void RemoteSerialConnection::sensorNotFound()
+	throw(atdUtil::IOException)
+{
+    ostringstream ost;
+    ost << "ERROR: sensor " << getSensorName() << " not found.";
+    ost << endl;
+    string msg = ost.str();
+    socket->send(msg.c_str(),msg.length());
+    close();
+    return;
+}
+
+
 void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
-	throw(atdUtil::IOException) {
-    if (!val) {
-	if (sensor) sensor->removeRawSampleClient(this);
-	sensor = 0;
-	return;
-    }
+	throw(atdUtil::IOException)
+{
     DSMSerialSensor* serSensor = 0;
     SocketSensor* sockSensor = 0;
     msgSensor = 0;
@@ -69,6 +105,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	ost << endl;
 	string msg = "ERROR: " + ost.str();
 	socket->send(msg.c_str(),msg.size());
+	close();
 	return;
     }
 
@@ -106,7 +143,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     ost.str("");
 
     nullTerminated = msgSensor->isNullTerminated();
-    cerr << "nullTerminated=" << nullTerminated << endl;
+    // cerr << "nullTerminated=" << nullTerminated << endl;
 
     val->addRawSampleClient(this);
 }
@@ -126,7 +163,10 @@ bool RemoteSerialConnection::receive(const Sample* s) throw()
     }
     catch (const atdUtil::IOException& e)
     {
-	setDSMSensor(0);
+	try {
+	    close();
+	}
+	catch (const atdUtil::IOException& e2) {}
     }
     return true;
 }
@@ -179,13 +219,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 		    if (idx == 2) {	// no digits
 			string msg = "Invalid baud rate: \"" +
 			    input.substr(2) + "\"\r\n" ;
-			try {
-			    socket->send(msg.c_str(),msg.size());
-			}
-			catch (const atdUtil::IOException& e)
-			{
-			    setDSMSensor(0);
-			}
+			socket->send(msg.c_str(),msg.size());
 			output += input.substr(0,idx);
 			input = input.substr(idx);
 			break;
@@ -215,13 +249,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 		    {
 			msg = e.what();
 		    }
-		    try {
-			socket->send(msg.c_str(),msg.size());
-		    }
-		    catch (const atdUtil::IOException& e)
-		    {
-			setDSMSensor(0);
-		    }
+		    socket->send(msg.c_str(),msg.size());
 		}
 		// cerr << "toggle prompting" << endl;
 		break;
@@ -236,13 +264,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		"%s",msg.c_str());
 	    msg.append("\r\n");
-	    try {
-		socket->send(msg.c_str(),msg.size());
-	    }
-	    catch (const atdUtil::IOException& e)
-	    {
-		setDSMSensor(0);
-	    }
+	    socket->send(msg.c_str(),msg.size());
 	}
     }
     if (esc == string::npos) {
