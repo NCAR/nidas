@@ -370,7 +370,7 @@ bool MessageStreamSensor::scanMessageSample(const Sample* samp,list<const Sample
 dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
 	DSMSensor* sensor) throw (atdUtil::IOException)
 {
-    dsm_time_t tfirstchar = getSystemTime();
+    dsm_time_t tfirstchar = dater->getDataSystemTime();
 
     dsm_time_t ttres = 0;
 
@@ -538,7 +538,7 @@ dsm_time_t MessageStreamSensor::readSamplesSepBOM(SampleDater* dater,
 dsm_time_t MessageStreamSensor::readSamplesSepEOM(SampleDater* dater,
 	DSMSensor* sensor) throw (atdUtil::IOException)
 {
-    dsm_time_t tfirstchar = getSystemTime();
+    dsm_time_t tfirstchar = dater->getDataSystemTime();
 
     dsm_time_t ttres = 0;
 
