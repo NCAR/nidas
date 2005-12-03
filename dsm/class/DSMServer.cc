@@ -61,10 +61,10 @@ int DSMServer::main(int argc, char** argv) throw()
         logger = atdUtil::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
 	// fork to background, send stdout/stderr to /dev/null
-	if (daemon(1,0) < 0) {
-	    logger->log(LOG_ERR, "Cannot run as daemon: %m");
-	    cerr << "daemon(1,1) failed: " << strerror(errno) << endl;
-	}
+	// if (daemon(1,0) < 0) {
+	//     logger->log(LOG_ERR, "Cannot run as daemon: %m");
+	//     cerr << "daemon(1,1) failed: " << strerror(errno) << endl;
+	// }
     }
 
     setupSignals();
