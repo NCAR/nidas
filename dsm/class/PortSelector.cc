@@ -208,7 +208,19 @@ int PortSelector::run() throw(atdUtil::Exception)
 		if (++nfd == nfdsel) break;
 	    }
 	}
-	if (rtime > statisticsTime) calcStatistics(rtime);
+	if (rtime > statisticsTime) {
+	    calcStatistics(rtime);
+	    list<SamplePoolInterface*> pools =
+	    	SamplePools::getInstance()->getPools();
+	    for (list<SamplePoolInterface*>::const_iterator pi = pools.begin();
+	    	pi != pools.end(); ++pi) 
+	    {
+		SamplePoolInterface* pool = *pi;
+	        Logger::getInstance()->log(LOG_INFO,
+			"pool nsamples alloc=%d, nsamples out=%d",
+			pool->getNSamplesAlloc(),pool->getNSamplesOut());
+	    }
+	}
 
 	if (nfd == nfdsel) continue;
 

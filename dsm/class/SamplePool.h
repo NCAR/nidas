@@ -20,9 +20,31 @@
 #include <Sample.h>
 
 #include <vector>
+#include <list>
 #include <iostream>
 
 namespace dsm {
+
+class SamplePoolInterface
+{
+public:
+    virtual ~SamplePoolInterface() {}
+    virtual int getNSamplesAlloc() const = 0;
+    virtual int getNSamplesOut() const = 0;
+};
+
+class SamplePools
+{
+public:
+    static SamplePools* getInstance();
+    std::list<SamplePoolInterface*> getPools() const;
+    void addPool(SamplePoolInterface* pool);
+    void removePool(SamplePoolInterface* pool);
+private:
+    static SamplePools* instance;
+    static atdUtil::Mutex instanceLock;
+    std::list<SamplePoolInterface*> pools;
+};
 
 /**
  * A pool of Samples.  Actually two pools, containing
@@ -30,12 +52,12 @@ namespace dsm {
  * as a singleton, and accessed from anywhere, via the
  * getInstance() static member function.
  */
-
-template <class SampleType>
-class SamplePool {
+template <typename SampleType>
+class SamplePool : public SamplePoolInterface {
 
 private:
-    static SamplePool<SampleType>* instance;
+    // static SamplePool<SampleType>* instance;
+    static SamplePool* instance;
     static atdUtil::Mutex instanceLock;
 
 public:
@@ -62,6 +84,10 @@ public:
      * Return a sample to the pool.
      */
     void putSample(const SampleType *);
+
+    int getNSamplesAlloc() const { return nsamplesAlloc; }
+
+    int getNSamplesOut() const { return nsamplesOut; }
 
 protected:
     SampleType *getSample(SampleType** vec,int *veclen, size_t len)
@@ -100,7 +126,10 @@ SamplePool<SampleType> *SamplePool<SampleType>::getInstance()
 {
     if (!instance) {
 	atdUtil::Synchronized pooler(instanceLock);
-	if (!instance) instance = new SamplePool<SampleType>();
+	if (!instance) {
+	    instance = new SamplePool<SampleType>();
+	    SamplePools::getInstance()->addPool(instance);
+	}
     }
     return instance;
 }
@@ -110,6 +139,7 @@ template<class SampleType>
 void SamplePool<SampleType>::deleteInstance()
 {
     atdUtil::Synchronized pooler(instanceLock);
+    SamplePools::getInstance()->removePool(instance);
     delete instance;
     instance = 0;
 }

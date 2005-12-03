@@ -107,6 +107,7 @@ sources = [ Split("""
   PSI9116_Sensor.cc
 
   Sample.cc
+  SamplePool.cc
   Variable.cc
   VariableConverter.cc
   SampleTag.cc
