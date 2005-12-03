@@ -100,6 +100,9 @@ string FileSet::expandString(const string& input)
 string FileSet::getTokenValue(const string& token)
 {
     if (!token.compare("PROJECT")) return Project::getInstance()->getName();
+
+    if (!token.compare("FLIGHT"))
+    	return Project::getInstance()->getCurrentObsPeriod().getName();
         
     const list<const DSMConfig*>& dsms = getDSMConfigs();
     if (!token.compare("AIRCRAFT") || !token.compare("SITE")) {
