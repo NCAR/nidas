@@ -130,22 +130,14 @@ void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len)
 size_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)
 {
     ssize_t l = ::read(infifofd,buf,len);
-    if (l < 0) {
-	readErrorCount[0]++;	// [0] is recent, [1] is cumulative
-	readErrorCount[1]++;
-        throw atdUtil::IOException(inFifoName,"read",errno);
-    }
+    if (l < 0) throw atdUtil::IOException(inFifoName,"read",errno);
     return l;
 }
 
 size_t RTL_DSMSensor::write(const void *buf, size_t len) throw(atdUtil::IOException)
 {
     ssize_t l = ::write(outfifofd,buf,len);
-    if (l < 0) {
-	writeErrorCount[0]++;	// [0] is recent, [1] is cumulative
-	writeErrorCount[1]++;
-	throw atdUtil::IOException(outFifoName,"write",errno);
-    }
+    if (l < 0) throw atdUtil::IOException(outFifoName,"write",errno);
     return l;
 }
 
