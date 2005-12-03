@@ -14,7 +14,7 @@ DESC="dsm"
 
 ruser=ads
 server=server		# found in /etc/hosts
-adspath=/home/local/nids
+adspath=/opt/ads3/arm
 
 modpath=/var/tmp/modules
 libpath=/var/tmp/lib
@@ -128,16 +128,16 @@ copy_modules() {
     modules=($(get_modules))
     for m in ${modules[*]}; do
         [ $m == rtl ] && continue	# don't fetch rtl.o
-	scp $ruser@$server:$adspath/dsm/modules/arm/$m.o $modpath
+	scp $ruser@$server:$adspath/modules/$m.o $modpath
     done
 }
 copy_apps() {
         [ -d $libpath ] || mkdir -p $libpath
         [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
         
-	scp $ruser@$server:$adspath/dsm/class/arm/libDsm.so $libpath
-	scp $ruser@$server:$adspath/dsm/src/arm/dsm $dsmpath
-	scp $ruser@$server:$adspath/dsm/filters/*.cfg $dsmpath/filters
+	scp $ruser@$server:$adspath/lib/libDsm.so $libpath
+	scp $ruser@$server:$adspath/bin/dsm $dsmpath
+	scp $ruser@$server:$adspath/filters/*.cfg $dsmpath/filters
 }
 
 start_app() {
