@@ -56,7 +56,6 @@ int StatusThread::run() throw(atdUtil::Exception)
     struct timespec nsleep;
 
     try {
-        int nSec = 0;
 	for (;;) {
 	    dsm_time_t tnow = dater->getDataSystemTime();
 
@@ -81,12 +80,14 @@ int StatusThread::run() throw(atdUtil::Exception)
 //          cerr << cstr << endl;  // DEBUG show clock...
             statStream << "<?xml version=\"1.0\"?>";
 
-            if (!nSec && sensors.size() > 0)
+	    // Send full status at 00:00, 00:10, etc.
+	    bool fullStatus = (ut % 10) == 0;
+            if (fullStatus && sensors.size() > 0)
               statStream << "<group>";
 
             statStream << "<clock>" << cstr << "</clock>";
 
-            if (!nSec && sensors.size() > 0) {
+            if (fullStatus && sensors.size() > 0) {
               statStream << "<status><![CDATA[" << endl;
 
 	      DSMSensor* sensor = 0;
@@ -107,7 +108,6 @@ int StatusThread::run() throw(atdUtil::Exception)
 	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
 
             // 10 Second period for generating status messages as well.
-            if (++nSec == 10) nSec=0;
 	}
     }
     catch(const atdUtil::IOException& e) {
