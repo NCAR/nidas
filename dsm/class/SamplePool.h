@@ -17,7 +17,7 @@
 #define DSM_SAMPLEPOOL_H
 
 #include <atdUtil/ThreadSupport.h>
-#include <Sample.h>
+#include <SampleLengthException.h>
 
 #include <vector>
 #include <list>
