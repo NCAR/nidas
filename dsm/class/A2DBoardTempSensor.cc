@@ -41,13 +41,13 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 void A2DBoardTempSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
     init();
-    cerr << "doing A2D_OPEN_I2CT" << endl;
+    // cerr << "doing A2D_OPEN_I2CT" << endl;
     ioctl(A2D_OPEN_I2CT,&rate,sizeof(rate));
     RTL_DSMSensor::open(flags);
 }
 void A2DBoardTempSensor::close() throw(atdUtil::IOException)
 {
-    cerr << "doing A2D_CLOSE_I2CT" << endl;
+    // cerr << "doing A2D_CLOSE_I2CT" << endl;
     ioctl(A2D_CLOSE_I2CT,(const void*)0,0);
     RTL_DSMSensor::close();
 }
