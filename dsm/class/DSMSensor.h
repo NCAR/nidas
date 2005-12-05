@@ -287,9 +287,9 @@ public:
     void calcStatistics(unsigned long periodUsec);
 
     size_t getMaxSampleLength() const
-    	{ return maxSampleLength[currStatsIndex]; }
+    	{ return maxSampleLength[reportStatsIndex]; }
     size_t getMinSampleLength() const
-    	{ return minSampleLength[currStatsIndex]; }
+    	{ return minSampleLength[reportStatsIndex]; }
 
     int getReadErrorCount() const
        { return readErrorCount[0]; }
