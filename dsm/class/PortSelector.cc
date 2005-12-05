@@ -137,6 +137,7 @@ int PortSelector::run() throw(atdUtil::Exception)
     }
 
     SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
+    size_t nsamplesAlloc = 0;
 
     for (;;) {
 	if (amInterrupted()) break;
@@ -211,15 +212,26 @@ int PortSelector::run() throw(atdUtil::Exception)
 	}
 	if (rtime > statisticsTime) {
 	    calcStatistics(rtime);
+
+	    // watch for sample memory leaks
+	    size_t nsamp = 0;
 	    list<SamplePoolInterface*> pools =
 	    	SamplePools::getInstance()->getPools();
 	    for (list<SamplePoolInterface*>::const_iterator pi = pools.begin();
 	    	pi != pools.end(); ++pi) 
 	    {
 		SamplePoolInterface* pool = *pi;
-	        Logger::getInstance()->log(LOG_INFO,
+		nsamp += pool->getNSamplesAlloc();
+	    }
+	    if (nsamp > nsamplesAlloc) {
+		for (list<SamplePoolInterface*>::const_iterator pi =
+			pools.begin(); pi != pools.end(); ++pi) {
+		    SamplePoolInterface* pool = *pi;
+		    Logger::getInstance()->log(LOG_INFO,
 			"pool nsamples alloc=%d, nsamples out=%d",
 			pool->getNSamplesAlloc(),pool->getNSamplesOut());
+		}
+	        nsamplesAlloc = nsamp;
 	    }
 	}
 
