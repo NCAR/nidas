@@ -1,0 +1,13 @@
+
+
+1. Establish a terminal connection to the DSM console serial port,
+   115200,N,8,1.
+2. Power up DSM, do a Ctrl-C to interrupt RedBoot.
+
+3. Do:
+
+fis load kernel
+exec -c "ro console=ttyS0,115200n8 root=/dev/mtdblock3 -s"
+
+4. Enter root password
+
