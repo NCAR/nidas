@@ -15,6 +15,8 @@
 #include <atdUtil/McSocket.h>
 #include <atdUtil/Thread.h>
 
+#include <DSMTime.h>
+
 #include <vector>
 
 using namespace atdUtil;
@@ -30,22 +32,37 @@ public:
 
     int run() throw(atdUtil::Exception)
     {
-	unsigned char bufout[69];
-	unsigned char* bp;
+	char bufout[sizeof(float)*12+5];
+	char* bp;
 
-	bufout[0] = 1;
+	union flip {
+	    unsigned long lval;
+	    char bytes[4];
+	} seqnum;
+
+	struct timespec sleepspec = { 0, NSECS_PER_SEC / 50 };
 
 	for (size_t seq = 1; ;seq++) {
-	    bp = bufout + 1;
-	    ::memcpy(bp,&seq,4);
+	    bp = bufout;
+	    *bp++ = 1;
+	    // sequence number is big endian
+	    seqnum.lval = seq;
+#if __BYTE_ORDER == __BIG_ENDIAN
+	    ::memcpy(&seqnum,bp,4);
 	    bp += 4;
-	    for (int i = 0; i < 16; i++) {
+#else
+	    *bp++ = seqnum.bytes[3];
+	    *bp++ = seqnum.bytes[2];
+	    *bp++ = seqnum.bytes[1];
+	    *bp++ = seqnum.bytes[0];
+#endif
+	    for (int i = 0; i < 12; i++) {
 		float val = seq + i;
 	        ::memcpy(bp,&val,4);
 		bp += 4;
 	    }
 	    int l = socket->send(bufout,bp-bufout);
-	    sleep(1);
+	    nanosleep(&sleepspec,0);
 	}
 	return RUN_OK;
     }
