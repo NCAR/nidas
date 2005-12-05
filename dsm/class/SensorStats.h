@@ -59,10 +59,10 @@ public:
     virtual void calcStatistics(unsigned long periodUsec);
 
     size_t getMaxSampleLength() const
-    	{ return maxSampleLength[currStatsIndex]; }
+    	{ return maxSampleLength[reportStatsIndex]; }
 
     size_t getMinSampleLength() const
-    	{ return minSampleLength[currStatsIndex]; }
+    	{ return minSampleLength[reportStatsIndex]; }
 
     size_t getBadTimeTagCount() const
     {
