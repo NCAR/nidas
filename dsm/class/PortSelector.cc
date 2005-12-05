@@ -30,20 +30,18 @@ PortSelector::PortSelector(unsigned short rserialPort) :
   remoteSerialSocketPort(rserialPort),rserial(0),rserialConnsChanged(false),
   selectn(0),selectErrors(0),rserialListenErrors(0),opener(this)
 {
-  setStatisticsPeriod(60 * MSECS_PER_SEC);
+  setStatisticsPeriod(10 * MSECS_PER_SEC);
 
-  /* start out with a 1/10 second select timeout.
+  /* start out with a 1/50 second select timeout.
    * While we're adding sensors we want select to
    * timeout fairly quickly, so when new DSMSensors are opened
    * and added they are read from without much time delay.
    * Otherwise if you add a sensor that isn't transmitting,
    * then one which is generating alot of output, the buffers for
    * the second sensor may fill before the first timeout.
-   * Later it can be increased, but there may not be much to 
-   * gain from increasing it.
    */
   setTimeout(MSECS_PER_SEC / 50);
-  setTimeoutWarning(300 * MSECS_PER_SEC);
+  setTimeoutWarning(60 * MSECS_PER_SEC);
   FD_ZERO(&readfdset);
   statisticsTime = timeCeiling(getSystemTime(),
   	statisticsPeriod);
@@ -88,9 +86,11 @@ int PortSelector::getTimeoutWarning() const {
 
 void PortSelector::calcStatistics(dsm_time_t tnow)
 {
-  statisticsTime += statisticsPeriod;
-  if (statisticsTime < tnow)
-    statisticsTime = timeCeiling(tnow,statisticsPeriod);
+    statisticsTime += statisticsPeriod;
+    if (statisticsTime < tnow) {
+	// cerr << "tnow-statisticsTime=" << (tnow - statisticsTime) << endl;
+	statisticsTime = timeCeiling(tnow,statisticsPeriod);
+    }
 
 
   list<DSMSensor*>::const_iterator si;
@@ -135,6 +135,9 @@ int PortSelector::run() throw(atdUtil::Exception)
 	    Logger::getInstance()->log(LOG_WARNING,"%s: continuing anyhow",e.what());
 	}
     }
+
+    SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
+
     for (;;) {
 	if (amInterrupted()) break;
 
@@ -175,8 +178,6 @@ int PortSelector::run() throw(atdUtil::Exception)
 
 	int nfd = 0;
 	int fd = 0;
-
-	SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
 
 	for (unsigned int ifd = 0; ifd < activeSensorFds.size(); ifd++) {
 	    fd = activeSensorFds[ifd];

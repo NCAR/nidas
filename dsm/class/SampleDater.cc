@@ -34,9 +34,9 @@ void SampleDater::setTime(dsm_time_t clockT)
     else sysTimeAhead = tnow - clockT;
     sysTimeMutex.unlock();
     if (abs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
-	if (!(timeWarnCount++ % 60))
+	if (!(timeWarnCount++ % 100))
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-	    	"sysTimeAhead=%d usec, warn_count=%d\n",sysTimeAhead,timeWarnCount);
+	    	"sysTimeAhead=%d usec, warn_count=%d (expected situation if no IRIG feed)",sysTimeAhead,timeWarnCount);
     }
 }
 
