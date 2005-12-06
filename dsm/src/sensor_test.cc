@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 	p.lflag() = ICANON;
 	break;
     case Runstring::PARO_1000:
-	p.setBaudRate(115200);
+	p.setBaudRate(57600);
 	p.iflag() = 0;
 	p.oflag() = OPOST;
 	p.lflag() = ICANON;
