@@ -1331,7 +1331,7 @@ static int openA2D(struct A2DBoard* brd)
 		    brd->a2dFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
-	if (rtl_ftruncate(brd->a2dfd, sizeof(brd->buffer)) < 0) {
+	if (rtl_ftruncate(brd->a2dfd, sizeof(brd->buffer)*4) < 0) {
 	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		    brd->a2dFifoName,sizeof(brd->buffer),
 		    rtl_strerror(rtl_errno));
