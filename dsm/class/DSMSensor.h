@@ -159,6 +159,13 @@ public:
     virtual int getWriteFd() const = 0;
 
     /**
+     * Whether to reopen this sensor on an IOException.
+     * The base method returns true.  Over-ride if
+     * a reopen should not be attempted.
+     */
+    virtual bool reopenOnIOException() const { return true; }
+
+    /**
      * Set the various levels of the sensor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample

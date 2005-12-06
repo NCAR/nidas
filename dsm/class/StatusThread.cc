@@ -93,7 +93,6 @@ int StatusThread::run() throw(atdUtil::Exception)
 	      DSMSensor* sensor = 0;
               for (si = sensors.begin(); si != sensors.end(); ++si) {
 		sensor = *si;
-		cerr << "StatusThread: sensor=" << sensor->getName() << endl;
 		if (si == sensors.begin())
 			sensor->printStatusHeader(statStream);
 		sensor->printStatus(statStream);

@@ -94,6 +94,14 @@ public:
     */
     virtual void close() throw(atdUtil::IOException);
 
+    /**
+     * Whether to reopen this sensor on an IOException.
+     * The read/write errors seen on RTL Fifos to this point
+     * have fixed by a re-open.  If an RTL Fifo runs out of
+     * memory, a re-open causes a segmentation fault.
+     */
+    bool reopenOnIOException() const { return false; }
+
     virtual const std::string& getInFifoName() const { return inFifoName; }
     virtual const std::string& getOutFifoName() const { return outFifoName; }
 

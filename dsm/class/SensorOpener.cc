@@ -122,13 +122,22 @@ int SensorOpener::run() throw(atdUtil::Exception)
 	    sensor->open(sensor->getDefaultMode());
 	    selector->sensorOpen(sensor);
 	}
-	catch(const atdUtil::Exception& e) {
+	catch(const atdUtil::IOException& e) {
 	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		  sensor->getName().c_str(),e.what());
 
 	    sensorCond.lock();
 	    problemSensors.push_back(sensor);
 	    sensorCond.unlock();
+	}
+	// On InvalidParameterException, report the error
+	// and don't try to open again.  Time will
+	// not likely fix an InvalidParameterException,
+	// it needs human interaction.
+	catch(const atdUtil::InvalidParameterException& e) {
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		  sensor->getName().c_str(),e.what());
+	    
 	}
     }
     atdUtil::Logger::getInstance()->log(LOG_INFO,"%s: run method finished",

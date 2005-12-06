@@ -187,17 +187,21 @@ int PortSelector::run() throw(atdUtil::Exception)
 		try {
 		  rtime = sensor->readSamples(dater);
 		}
-		// log the error but don't exit
 		catch (IOException &ioe) {
 		  Logger::getInstance()->log(LOG_ERR,"%s",ioe.toString().c_str());
-		  try {
-		      sensor->close();
-		  }
-		  catch (IOException &e) {
-		    Logger::getInstance()->log(LOG_ERR,"%s",
-		    	e.toString().c_str());
-		  }
-		  reopenSensor(sensor);
+		  // Try to reopen
+		  if (sensor->reopenOnIOException()) {
+		      try {
+			  sensor->close();
+		      }
+		      catch (IOException &e) {
+			Logger::getInstance()->log(LOG_ERR,"%s",
+			    e.toString().c_str());
+		      }
+		      reopenSensor(sensor);
+		    }
+		    // report error but don't reopen
+		    else closeSensor(sensor);
 		}
 		if (++nfd == nfdsel) break;
 	    }
