@@ -1183,7 +1183,9 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
-	if (rtl_ftruncate(brd->i2cTempfd, sizeof(I2C_TEMP_SAMPLE)*2) < 0) {
+	int fifosize = sizeof(I2C_TEMP_SAMPLE)*10;
+	if (fifosize < 512) fifosize = 512;
+	if (rtl_ftruncate(brd->i2cTempfd, fifosize) < 0) {
 	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		    brd->i2cTempFifoName,sizeof(I2C_TEMP_SAMPLE),
 		    rtl_strerror(rtl_errno));
