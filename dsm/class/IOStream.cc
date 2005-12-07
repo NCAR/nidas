@@ -144,16 +144,26 @@ bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) thro
 	    }
 	    catch (const atdUtil::IOException& ioe) {
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
-			"%s, nEAGAIN=%d, wlen=%d, tlen=%d\n",
-			ioe.what(),nEAGAIN,wlen,tlen);
+		    "%s: %s, nEAGAIN=%d, wlen=%d, tlen=%d\n",
+		    getName().c_str(),ioe.what(),nEAGAIN,wlen,tlen);
 		if (ioe.getError() == EAGAIN) {
 		    l = 0;
 		    nEAGAIN++;
-		    if (nEAGAIN > 5) throw ioe;
+		    // if (nEAGAIN > 5) throw ioe;
 		    struct timespec ns = {0, NSECS_PER_SEC / 100};
 		    nanosleep(&ns,0);
 		}
 		else throw ioe;
+	    }
+	    if (l == 0) {
+		nEAGAIN++;
+		if ((nEAGAIN % 100) == 0) {
+		    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+			    "%s: nEAGAIN=%d, wlen=%d, tlen=%d\n",
+			getName().c_str(),nEAGAIN,wlen,tlen);
+		}
+		struct timespec ns = {0, NSECS_PER_SEC / 100};
+		nanosleep(&ns,0);
 	    }
 	    tail += l;
 	    if (tail == head) {
