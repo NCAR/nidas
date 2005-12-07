@@ -1185,13 +1185,6 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 	    return -convert_rtl_errno(rtl_errno);
 	}
 
-	size_t fifofree;
-	if (rtl_ioctl(brd->i2cTempfd,RTF_GETFREE,&fifofree) < 0) {
-	    DSMLOG_ERR("error: RTF_GETFREE %s: %s\n",
-		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
-	}
-	else DSMLOG_INFO("RTF_GETFREE %s: %d\n",
-		    brd->i2cTempFifoName,fifofree);
 // #define DO_FTRUNCATE
 #ifdef DO_FTRUNCATE
 	int fifosize = sizeof(I2C_TEMP_SAMPLE)*10;
