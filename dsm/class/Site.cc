@@ -101,6 +101,8 @@ void Site::fromDOMElement(const DOMElement* node)
     set<int> dsm_ids;
     // likewise with dsm names
     set<string> dsm_names;
+    // likewise with variable names
+    set<string> var_names;
 
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -136,6 +138,28 @@ void Site::fromDOMElement(const DOMElement* node)
 	    Parameter* parameter =
 	    	Parameter::createParameter((DOMElement*)child);
 	    addParameter(parameter);
+	}
+    }
+    list<DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+        DSMConfig* dsm = *di;
+	const std::list<DSMSensor*>& sensors = dsm->getSensors();
+	std::list<DSMSensor*>::const_iterator si;
+	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
+	    const std::vector<const SampleTag*>& tags = sensor->getSampleTags();
+	    std::vector<const SampleTag*>::const_iterator ti;
+	    for (ti = tags.begin(); ti != tags.end(); ++ti) {
+		const SampleTag* tag = *ti;
+		const std::vector<const Variable*>& vars = tag->getVariables();
+		std::vector<const Variable*>::const_iterator vi;
+		for (vi = vars.begin(); vi != vars.end(); ++vi) {
+		    const Variable* var = *vi;
+		    if (!var_names.insert(var->getName()).second)
+			throw atdUtil::InvalidParameterException("variable",
+				var->getName(),"is not unique");
+		}
+	    }
 	}
     }
 }
