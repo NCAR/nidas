@@ -147,9 +147,6 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     	throw atdUtil::IOException(inputFifoName,
 	"ioctl read errval","wrong len read");
 
-    if (errval != 0) throw atdUtil::IOException(getDSMSensorName(port),
-	"ioctl",errval);
-
     size_t inlen;
     if ((lread = read(infifofd,&inlen,sizeof(inlen))) < 0)
 	throw atdUtil::IOException(inputFifoName,"read",errno);
@@ -157,6 +154,32 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     	throw atdUtil::IOException(inputFifoName,
 	"ioctl read inlen","wrong len read");
 
+    // Device is reporting an ioctl error. Read the message and ETX
+    // and throw the IOException.
+    if (errval != 0) {
+	if (inlen > 256)
+	    throw atdUtil::IOException(inputFifoName,"read",
+	    	"error message length out of range");
+        auto_ptr<char> msgbuf(new char[inlen]);
+	char* bufptr = msgbuf.get();
+	while (inlen > 0) {
+	    if ((lread = read(infifofd,bufptr,inlen)) < 0)
+		throw atdUtil::IOException(inputFifoName,"read",errno);
+	    bufptr += lread;
+	    inlen -= lread;
+	}
+	msgbuf.get()[inlen-1] = '\0';	// make sure it is 0 terminated
+	unsigned char in_etx;
+	if (read(infifofd,&in_etx,1) < 0)
+	throw atdUtil::IOException(inputFifoName,"read",errno);
+
+	if (in_etx != etx)
+	throw atdUtil::IOException(inputFifoName,"read","failed to read ETX");
+
+	// now finally throw the exception
+        throw atdUtil::IOException(getDSMSensorName(port),
+		string("ioctl: ") + msgbuf.get(),errval);
+    }
     if (_IOC_DIR(cmd) & _IOC_READ) {
 	if (inlen < len) len = inlen;
 	if ((lread = read(infifofd,buf,len)) < 0)
