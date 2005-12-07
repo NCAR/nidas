@@ -17,6 +17,8 @@
 #include <DSMArincSensor.h>
 #include <RTL_DevIoctlStore.h>
 
+#include <atdUtil/Logger.h>
+
 #include <math.h>
 #include <asm/ioctls.h>
 #include <iostream>
@@ -180,7 +182,10 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
       "</td>" << endl;
   }
   catch(const atdUtil::IOException& ioe) {
-    ostr << "<td>" << ioe.what() << "</td>" << endl;
+      ostr << "<td>" << ioe.what() << "</td>" << endl;
+      atdUtil::Logger::getInstance()->log(LOG_ERR,
+            "%s: printStatus: %s",getName().c_str(),
+            ioe.what());
   }
 }
 

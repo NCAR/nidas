@@ -338,6 +338,9 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 		"</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: printStatus: %s",getName().c_str(),
+	    ioe.what());
         ostr << "<td>" << ioe.what() << "</td>" << endl;
     }
 }

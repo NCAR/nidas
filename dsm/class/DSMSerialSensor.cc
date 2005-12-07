@@ -19,6 +19,7 @@
 #include <RTL_DevIoctlStore.h>
 
 #include <atdUtil/ThreadSupport.h>
+#include <atdUtil/Logger.h>
 
 #include <asm/ioctls.h>
 
@@ -186,6 +187,9 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
     }
     catch(const atdUtil::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: printStatus: %s",getName().c_str(),
+	    ioe.what());
     }
 }
 

@@ -77,6 +77,9 @@ void A2DBoardTempSensor::printStatus(std::ostream& ostr) throw()
 	    tdeg << " degC</td>" << endl;
     }
     catch (const atdUtil::IOException& e) {
+        atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: printStatus: %s",getName().c_str(),
+	    e.what());
 	ostr << "<td>" << e.what() << "</td>" << endl;
     }
 }

@@ -221,6 +221,9 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     }
     catch(const atdUtil::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+            "%s: printStatus: %s",getName().c_str(),
+            ioe.what());
     }
 }
 
