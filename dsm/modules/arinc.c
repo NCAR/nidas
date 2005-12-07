@@ -351,12 +351,15 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 	  return -convert_rtl_errno(rtl_errno);
       }
 
+// #define DO_FTRUNCATE
+#ifdef DO_FTRUNCATE
       if (rtl_ftruncate(hdl->fd, (SIZEOF_DSM_SAMPLE_HEADER + LPB*8)*2) < 0) {
 	  DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		  hdl->fname, SIZEOF_DSM_SAMPLE_HEADER + LPB*8,
 		  rtl_strerror(rtl_errno));
 	  return -convert_rtl_errno(rtl_errno);
       }
+#endif
 
       /* increase the RTLinux FIFO to fit the large sample size writes */
 /* dsm/modules/arinc.c: arinc_ioctl: calling ftruncate(hdl->fd, 2056) */

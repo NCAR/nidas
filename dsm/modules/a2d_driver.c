@@ -54,6 +54,7 @@ Revisions:
 #include <rtl_pthread.h>
 #include <rtl_unistd.h>
 #include <sys/rtl_stat.h>
+#include <sys/rtl_ioctl.h>
 #include <linux/ioport.h>
 
 #include <dsmlog.h>
@@ -1183,6 +1184,16 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+
+	size_t fifofree;
+	if (rtl_ioctl(brd->i2cTempfd,RTF_GETFREE,&fifofree) < 0) {
+	    DSMLOG_ERR("error: RTF_GETFREE %s: %s\n",
+		    brd->i2cTempFifoName,rtl_strerror(rtl_errno));
+	}
+	else DSMLOG_INFO("RTF_GETFREE %s: %d\n",
+		    brd->i2cTempFifoName,fifofree);
+// #define DO_FTRUNCATE
+#ifdef DO_FTRUNCATE
 	int fifosize = sizeof(I2C_TEMP_SAMPLE)*10;
 	if (fifosize < 512) fifosize = 512;
 	if (rtl_ftruncate(brd->i2cTempfd, fifosize) < 0) {
@@ -1191,6 +1202,7 @@ static int openI2CTemp(struct A2DBoard* brd,int rate)
 		    rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#endif
 	brd->i2cTempRate = rate;
 	register_irig_callback(&i2cTempIrigCallback,rate, brd);
 
@@ -1331,12 +1343,14 @@ static int openA2D(struct A2DBoard* brd)
 		    brd->a2dFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#ifdef DO_FTRUNCATE
 	if (rtl_ftruncate(brd->a2dfd, sizeof(brd->buffer)*4) < 0) {
 	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		    brd->a2dFifoName,sizeof(brd->buffer),
 		    rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#endif
 
 	// Start a RT thread to allow syncing with 1PPS
 	int res = A2DWait1PPS(brd);

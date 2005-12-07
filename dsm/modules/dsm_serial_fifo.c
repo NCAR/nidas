@@ -272,14 +272,17 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 		    port->inFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+// #define DO_FTRUNCATE
+#ifdef DO_FTRUNCATE
 	DSMLOG_DEBUG("ftruncate %s: size=%d\n",
 		port->inFifoName,DSMSERIAL_BUFFER_SIZE);
-	if (rtl_ftruncate(port->inFifoFd, DSMSERIAL_BUFFER_SIZE) < 0) {
+	if (rtl_ftruncate(port->inFifoFd, DSMSERIAL_BUFFER_SIZE*2) < 0) {
 	    DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		    port->inFifoName,DSMSERIAL_BUFFER_SIZE,
 		    rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#endif
 
 #ifdef DEBUG
 	DSMLOG_DEBUG("opening %s\n",port->devname);
@@ -316,6 +319,7 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 		    port->outFifoName,rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#ifdef DO_FTRUNCATE
 	DSMLOG_DEBUG("ftruncate %s: size=%d\n",
 		port->outFifoName,DSMSERIAL_BUFFER_SIZE);
 	if (rtl_ftruncate(port->outFifoFd,DSMSERIAL_BUFFER_SIZE) < 0) {
@@ -324,6 +328,7 @@ static int open_port(struct dsm_serial_fifo_port* port,int mode)
 		    rtl_strerror(rtl_errno));
 	    return -convert_rtl_errno(rtl_errno);
 	}
+#endif
 
 	if (port->devfd < 0) {
 #ifdef DEBUG

@@ -152,6 +152,8 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	return 0;
     }
 
+// #define DO_FTRUNCATE
+#ifdef DO_FTRUNCATE
     size_t fifobufsize = handle->bufsize * 2;
     if (fifobufsize < 128) fifobufsize = 256;
     DSMLOG_DEBUG("ftruncate %s: size=%d\n", handle->inFifoName,fifobufsize);
@@ -162,6 +164,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	closeIoctlFIFO(handle);
 	return 0;
     }
+#endif
 
     handle->outFifoName = makeDevName(devicePrefix,"_octl_",boardNum);
 #ifdef DEBUG
@@ -179,6 +182,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	closeIoctlFIFO(handle);
 	return 0;
     }
+#ifdef DO_FTRUNCATE
     DSMLOG_DEBUG("ftruncate %s: size=%d\n", handle->outFifoName,fifobufsize);
     if (rtl_ftruncate(handle->outFifofd, fifobufsize) < 0) {
 	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
@@ -187,7 +191,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	closeIoctlFIFO(handle);
 	return 0;
     }
-
+#endif
 
     handle->bytesRead = handle->bytesToRead = 0;
     handle->icmd = -1;
@@ -268,8 +272,7 @@ void closeIoctlFIFO(struct ioctlHandle* handle)
  */
 static int sendError(int fifofd,int errval, const char* msg)
 {
-  DSMLOG_WARNING("sendError, errval=%d,msg=%s\n",
-  	errval,msg);
+  DSMLOG_WARNING("errval=%d,msg=%s\n",errval,msg);
   rtl_write(fifofd,&errval,sizeof(int));
   int len = strlen(msg) + 1;
   rtl_write(fifofd,&len,sizeof(int));

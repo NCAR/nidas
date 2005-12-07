@@ -1357,11 +1357,14 @@ static int open_port(struct irig_port* port)
 	return -convert_rtl_errno(rtl_errno);
     }
 
-    if (rtl_ftruncate(port->inFifoFd,256) < 0) {
+// #define DO_FTRUNCATE
+#ifdef DO_FTRUNCATE
+    if (rtl_ftruncate(port->inFifoFd,4096) < 0) {
 	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
 		port->inFifoName,256,rtl_strerror(rtl_errno));
 	return -convert_rtl_errno(rtl_errno);
     }
+#endif
 
     return retval;
 }
