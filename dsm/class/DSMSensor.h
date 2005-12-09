@@ -96,10 +96,21 @@ public:
     virtual void setDeviceName(const std::string& val) { devname = val; }
 
     /**
+     * Set the IDREF name of the sensor found in the catalog.
+     * @param val IDREF Name of device, e.g. "DewPointer".
+     */
+    virtual void setIdRefName(const std::string& val) { idrefname = val; }
+
+    /**
      * Fetch the name of the system device that the sensor
      * is connected to.
      */
     virtual const std::string& getDeviceName() const { return devname; }
+
+    /**
+     * Fetch the IDREF name of the sensor found in the catalog.
+     */
+    virtual const std::string& getIdRefName() const { return idrefname; }
 
     /**
      * Set the class name of this sensor. The class name is
@@ -344,6 +355,8 @@ protected:
     const DSMConfig* dsm;
 
     std::string devname;
+
+    std::string idrefname;
 
     std::string location;
 

@@ -253,7 +253,8 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
     zebra = !zebra;
     ostr <<
         "<tr class=\"" << oe << "\"><td align=left>" <<
-                getDeviceName() << "</td>" << endl <<
+                getIdRefName() << "(" <<
+                getDeviceName() << ")</td>" << endl <<
     	"<td>" << fixed << setprecision(2) <<
 		getObservedSamplingRate() << "</td>" << endl <<
     	"<td>" << setprecision(0) <<
@@ -288,6 +289,8 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    // get attribute name
 	    if (!attr.getName().compare("devicename"))
 		setDeviceName(attr.getValue());
+	    else if (!attr.getName().compare("IDREF"))
+		setIdRefName(attr.getValue());
 	    else if (!attr.getName().compare("class"))
 		setClassName(attr.getValue());
 	    else if (!attr.getName().compare("location"))
