@@ -13,8 +13,12 @@
 
 */
 
+#define _LARGEFILE64_SOURCE
+
 #define _XOPEN_SOURCE	/* glibc2 needs this */
 #include <time.h>
+
+
 
 #include <FileSet.h>
 #include <UnixIOChannel.h>
@@ -108,7 +112,7 @@ int Concater::run() throw()
 	int outfd;
 	if (outName.length() == 0 || !outName.compare("-"))
 	    outfd = 1;	// stdout
-	else if ((outfd = ::open(outName.c_str(),
+	else if ((outfd = ::open64(outName.c_str(),
 	    O_WRONLY | O_CREAT | O_EXCL,0444)) < 0)
 	    throw atdUtil::IOException(outName,"open",errno);
 
