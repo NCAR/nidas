@@ -26,7 +26,7 @@ public:
     Runstring(int argc, char** argv);
     static void usage(const char* argv0);
     string device;
-    enum sens_type { MENSOR_6100, PARO_1000, UNKNOWN } type;
+    enum sens_type { MENSOR_6100, PARO_1000, BUCK_DP, UNKNOWN } type;
 };
 
 Runstring::Runstring(int argc, char** argv): type(UNKNOWN)
@@ -35,13 +35,16 @@ Runstring::Runstring(int argc, char** argv): type(UNKNOWN)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 										
-    while ((opt_char = getopt(argc, argv, "mp")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dmp")) != -1) {
 	switch (opt_char) {
 	case 'm':
 	    type = MENSOR_6100;
 	    break;
 	case 'p':
 	    type = PARO_1000;
+	    break;
+	case 'd':
+	    type = BUCK_DP;
 	    break;
 	case '?':
 	    usage(argv[0]);
@@ -59,6 +62,7 @@ void Runstring::usage(const char* argv0)
 Usage: " << argv0 << "[-p | -m]  device\n\
   -p: simulate ParoScientific DigiQuartz 1000\n\
   -m: simulate Mensor 6100\n\
+  -d: simulate Buck dewpointer\n\
   device: Name of serial device, e.g. /dev/ttyS1\n\
 " << endl;
     exit(1);
@@ -83,26 +87,50 @@ int main(int argc, char** argv)
 	p.oflag() = OPOST;
 	p.lflag() = ICANON;
 	break;
+    case Runstring::BUCK_DP:
+	p.setBaudRate(9600);
+	p.iflag() = 0;
+	p.oflag() = OPOST;
+	p.lflag() = ICANON;
+	break;
+    case Runstring::UNKNOWN:
+        return 1;
     }
 
-    char inbuf[64];
-    char outbuf[64];
+    char inbuf[128];
+    char outbuf[128];
+    int iout = 0;
 
-    const char* promptStrings[] = { "#1?\n", "*0100P3\r\n" };
-    const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n" };
+    string promptStrings[] = { "#1?\n", "*0100P3\r\n",""};
+    const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n", 
+    	"14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08\r\n"};
 
     try {
 	p.open(O_RDWR);
 
 	for (;;) {
-	    int l = p.readline(inbuf,sizeof(inbuf));
-	    inbuf[l] = '\0';
+	    if (promptStrings[rstr.type].length() > 0) {
+		int l = p.readline(inbuf,sizeof(inbuf));
+		inbuf[l] = '\0';
 
-	    if (!strcmp(inbuf,promptStrings[rstr.type])) {
-	        sprintf(outbuf,dataFormats[rstr.type],1000.0);
-	        p.write(outbuf,strlen(outbuf));
+		if (!strcmp(inbuf,promptStrings[rstr.type].c_str())) {
+		    sprintf(outbuf,dataFormats[rstr.type],1000.0);
+		    p.write(outbuf,strlen(outbuf));
+		}
+		else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
 	    }
-	    else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
+	    else {
+	        sleep(1);
+		if (iout++ < 10) {
+		    // simulate empty outputs
+		    strcpy(outbuf,"\n");
+		    p.write(outbuf,strlen(outbuf));
+		}
+		else {
+		    strcpy(outbuf,dataFormats[rstr.type]);
+		    p.write(outbuf,strlen(outbuf));
+		}
+	    }
 	}
     }
     catch(atdUtil::IOException& ioe) {
