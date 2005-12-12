@@ -256,6 +256,12 @@ void AsciiScanner::setFormat(const std::string& val)
 
 int AsciiScanner::sscanf(const char* input, float* output, int nout) throw()
 {
+
+    /*
+     * The following sscanf parses up to 60 values.  If one wants
+     * to increase MAX_OUTPUT_VALUES, then one must add more
+     * bufptrs[XX] to the sscanf.
+     */
     assert(MAX_OUTPUT_VALUES <= 60);
     assert(nout <= MAX_OUTPUT_VALUES);
 
@@ -278,7 +284,8 @@ int AsciiScanner::sscanf(const char* input, float* output, int nout) throw()
     	" data=" << input << std::endl;
     */
 
-    if (!nparsed) return nparsed;
+    // sscanf returns EOF (-1) if end-of-string reached before parsing anything.
+    if (nparsed <= 0) return 0;
 
     if (nparsed < nout) nout = nparsed;
 
