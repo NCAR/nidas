@@ -64,6 +64,10 @@ private:
     map<dsm_sample_id_t,size_t> minlens;
 
     map<dsm_sample_id_t,size_t> maxlens;
+
+    map<dsm_sample_id_t,int> minDeltaTs;
+
+    map<dsm_sample_id_t,int> maxDeltaTs;
 };
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors)
@@ -98,9 +102,16 @@ bool CounterClient::receive(const Sample* samp) throw()
 
     map<dsm_sample_id_t,dsm_time_t>::iterator t1i =
 	t1s.find(sampid);
-    if (t1i == t1s.end())
+    if (t1i == t1s.end()) {
 	t1s.insert(
 	    make_pair<dsm_sample_id_t,dsm_time_t>(sampid,sampt));
+	minDeltaTs[sampid] = INT_MAX;
+    }
+    else {
+        int deltaT = (sampt - t2s[sampid] + USECS_PER_MSEC/2) / USECS_PER_MSEC;
+	minDeltaTs[sampid] = std::min(minDeltaTs[sampid],deltaT);
+	maxDeltaTs[sampid] = std::max(maxDeltaTs[sampid],deltaT);
+    }
     t2s[sampid] = sampt;
     nsamps[sampid]++;
 
@@ -125,6 +136,7 @@ void CounterClient::printResults()
 {
     size_t maxnamelen = 6;
     int lenpow[2] = {5,5};
+    int dtlog10[2] = {7,7};
     set<dsm_sample_id_t>::iterator si;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
@@ -133,12 +145,22 @@ void CounterClient::printResults()
 	size_t m = minlens[id];
 	if (m > 0) {
 	    int p = (int)ceil(log10((double)m));
-	    if (p >= lenpow[0]) lenpow[0] = p + 1;
+	    lenpow[0] = std::max(lenpow[0],p+1);
 	}
 	m = maxlens[id];
 	if (m > 0) {
 	    int p = (int)ceil(log10((double)m));
-	    if (p >= lenpow[1]) lenpow[1] = p + 1;
+	    lenpow[1] = std::max(lenpow[1],p+1);
+	}
+	int dt = abs(minDeltaTs[id]);
+	if (dt > 0 && dt < INT_MAX) {
+	    int p = (int)ceil(log10((double)dt+1));
+	    dtlog10[0] = std::max(dtlog10[0],p + 2);
+	}
+	dt = maxDeltaTs[id];
+	if (dt > 0) {
+	    int p = (int)ceil(log10((double)dt+1));
+	    dtlog10[1] = std::max(dtlog10[1],p + 2);
 	}
     }
         
@@ -146,7 +168,10 @@ void CounterClient::printResults()
     char tstr[64];
     cout << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
     	right <<
-    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" << setw(lenpow[0] + lenpow[1]) << "minMaxLen" << endl;
+    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" <<
+		setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)" <<
+		setw(lenpow[0] + lenpow[1]) << " minMaxLen" <<
+		endl;
     for (si = sampids.begin(); si != sampids.end(); ++si) {
 	dsm_sample_id_t id = *si;
 	time_t ut = t1s[id] / USECS_PER_SEC;
@@ -168,6 +193,10 @@ void CounterClient::printResults()
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
 	    double(nsamps[id]) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
+	    setw(dtlog10[0]) << setprecision(3) <<
+	    (minDeltaTs[id] < INT_MAX ? (float)minDeltaTs[id] / MSECS_PER_SEC : 0) <<
+	    setw(dtlog10[1]) << setprecision(3) <<
+	    (float)maxDeltaTs[id] / MSECS_PER_SEC <<
 	    setw(lenpow[0]) << minlens[id] << setw(lenpow[1]) << maxlens[id] <<
 	    endl;
     }
