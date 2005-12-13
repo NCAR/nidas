@@ -192,7 +192,7 @@ void CounterClient::printResults()
 	    ' ' << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
-	    double(nsamps[id]) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
+	    double(nsamps[id]-1) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
 	    setw(dtlog10[0]) << setprecision(3) <<
 	    (minDeltaTs[id] < INT_MAX ? (float)minDeltaTs[id] / MSECS_PER_SEC : 0) <<
 	    setw(dtlog10[1]) << setprecision(3) <<
