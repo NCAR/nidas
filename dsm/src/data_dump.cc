@@ -21,6 +21,7 @@
 #include <RawSampleInputStream.h>
 #include <DSMEngine.h>
 #include <SampleInputHeader.h>
+#include <IRIGSensor.h>
 
 #ifdef NEEDED
 // #include <Sample.h>
@@ -40,7 +41,7 @@ class DumpClient: public SampleClient
 {
 public:
 
-    typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, FLOAT } format_t;
+    typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, FLOAT, IRIG } format_t;
 
     DumpClient(dsm_sample_id_t,format_t,ostream&);
 
@@ -125,6 +126,24 @@ bool DumpClient::receive(const Sample* samp) throw()
 	ostr << endl;
 	}
         break;
+    case IRIG:
+	{
+	const unsigned char* dp = (const unsigned char*) samp->getConstVoidDataPtr();
+	struct timeval tv;
+	memcpy(&tv,dp,sizeof(tv));
+	dp += sizeof(tv);
+	unsigned char status = *dp;
+	char timestr[128];
+	struct tm tm;
+	gmtime_r(&tv.tv_sec,&tm);
+	strftime(timestr,sizeof(timestr)-1,"%Y %m %d %H:%M:%S",&tm);
+
+	ostr << timestr << '.' << setw(6) << setfill('0') << tv.tv_usec <<
+		' ' << setw(2) << setfill('0') << hex << (int)status << dec <<
+		'(' << IRIGSensor::statusString(status) << ')';
+	ostr << endl;
+	}
+        break;
     case DEFAULT:
         break;
     }
@@ -180,7 +199,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHps:Sx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHIps:Sx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -193,6 +212,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'H':
 	    format = DumpClient::HEX;
+	    break;
+	case 'I':
+	    format = DumpClient::IRIG;
 	    break;
 	case 'p':
 	    processData = true;
@@ -254,6 +276,7 @@ Usage: " << argv0 << " -d dsmid -s sampleId [-p] -x xml_file [-A | -H | -S] inpu
     -A: ASCII output (for samples from a serial sensor)\n\
     -F: floating point output (default for processed output)\n\
     -H: hex output (default for raw output)\n\
+    -I: output of IRIG clock samples\n\
     -S: signed short output (useful for samples from an A2D)\n\
     inputURL: data input (required). Either \"sock:host:port\" or\n\
          one or more \"file:file_path\" or simply one or more file paths.\n\
