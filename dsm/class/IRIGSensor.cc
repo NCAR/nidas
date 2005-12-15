@@ -182,6 +182,8 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
 	const char* str[2];	// state when bit=0, state when bit=1
 	const char* xml[2];	// state when bit=0, state when bit=1
     } statusCode[] = {
+	{0x20,{"SYNC","NOSYNC"},
+		{"SYNC","<font color=red><b>NOSYNC</b></font>"}},
 	{0x10,{"YEAR","NOYEAR"},
 		{"YEAR","<font color=red><b>NOYEAR</b></font>"}},
     	{0x08,{"MAJTM","NOMAJTM"},
