@@ -23,6 +23,10 @@
 #define CLOCK_STATUS_NOPPS        0x04 /* Set if PPS input invalid */
 #define CLOCK_STATUS_NOMAJT       0x08 /* Set if major time NOT set since jam */
 #define CLOCK_STATUS_NOYEAR       0x10 /* Set if year NOT set */
+/* Bit that will be set if no Status_Port Sync. Perhaps this will always
+ * be the same as the extended status setting, but we need to test.
+ */
+#define CLOCK_SYNC_NOT_OK	  0x20 /* Set if Status_Port Sync_OK bit not set */
 
 #ifdef __RTCORE_KERNEL__
 

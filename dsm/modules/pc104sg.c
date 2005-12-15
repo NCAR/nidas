@@ -137,6 +137,8 @@ static unsigned char lastStatus =
     DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT |
     DP_Extd_Sts_NoYear;
 
+static unsigned char syncOK = 0;
+
 /**
  * The year field in the pc104sg time registers
  * ranges from 0-99, so we keep track of the century.
@@ -1299,6 +1301,7 @@ static inline void checkExtStatus()
 static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl_frame *regs)
 {
     unsigned char status = inb(isa_address+Status_Port);
+    syncOK = status & Sync_OK;
 
     if ((status & Heartbeat) && (intmask & Heartbeat_Int_Enb)) {
 	/* acknowledge interrupt */
@@ -1411,6 +1414,7 @@ static void portCallback(void* privateData)
 
 	irig2timeval(&ti,&dev->samp.data.tval);
 	dev->samp.data.status = extendedStatus;
+	if (!syncOK) dev->samp.data.status |= CLOCK_SYNC_NOT_OK;
 
 #ifdef DEBUG
 	DSMLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
