@@ -108,6 +108,12 @@ static const char* devprefix = "dsma2d";
 
 // #define A2D_ACQ_IN_SEPARATE_THREAD
 
+/*
+ * Stack for 1PPS and reset threads
+ */
+#define THREAD_STACK_SIZE 1024
+
+
 int  init_module(void);
 void cleanup_module(void);
 
@@ -134,6 +140,7 @@ static struct rtl_timespec usec10 = { 0, 10000 };
 static struct rtl_timespec usec20 = { 0, 20000 };
 static struct rtl_timespec usec100 = { 0, 100000 };
 
+static int startA2DResetThread(struct A2DBoard* brd);
 
 void getIRIGClock(dsm_sample_time_t* msecp,long *nsecp)
 {
@@ -965,26 +972,17 @@ static void* A2DSetupThread(void *thread_arg)
 	return (void*)ret;
 }
 
-/*--------------------- Thread function ----------------------*/
-/* Waits for 1PPS neg-going pulse from IRIG card
- * Return: positive Linux errno (not RTLinux error) cast
- *	as a pointer to void.
- */
-
-static void* A2DWait1PPSThread(void *arg)
-{
-	struct A2DBoard* brd = (struct A2DBoard*) arg;
-	int ret;
-	if ((ret = waitFor1PPS(brd)) < 0) return (void*)-ret;
-	return 0;
-}
-
 /*
  * return:  negative: negative errno of write to RTL FIFO
  *          positive: number of bad status values in A2D data
  */
 static inline int getA2DSample(struct A2DBoard* brd)
 {
+	if (!brd->enableReads) return 0;
+	// make sure only getA2DSample function is running
+	if (brd->readActive) return 0;
+	brd->readActive = 1;
+
 	A2DSAMPLE samp;
 
 	samp.timestamp = GET_MSEC_CLOCK;
@@ -1034,7 +1032,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	}
 
 	if (nbad > 0) {
-	    brd->nbadBufs++;	// number of bad fifo scans in past 100 scans
+	    brd->nbadScans++;	// number of bad fifo scans in past 100 scans
 	    A2DClearFIFO(brd);	// Reset FIFO
 	}
 	else if (!A2DFIFOEmpty(brd)) {
@@ -1045,8 +1043,8 @@ static inline int getA2DSample(struct A2DBoard* brd)
 
 	if (!(++brd->readCtr % 100)) {
 	    dsm_sample_time_t tnow = GET_MSEC_CLOCK;
-	    if (!(brd->readCtr % 10000) || brd->nbadBufs) {
-		DSMLOG_DEBUG("GET_MSEC_CLOCK=%d\n",tnow);
+	    if (!(brd->readCtr % 10000) || brd->nbadScans) {
+		DSMLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",tnow,brd->nbadScans);
 		DSMLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
 		    brd->cur_status.goodval[0],
 		    brd->cur_status.goodval[1],
@@ -1074,10 +1072,11 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		    brd->cur_status.nbad[5],
 		    brd->cur_status.nbad[6],
 		    brd->cur_status.nbad[7]);
+		if (brd->nbadScans > 10) startA2DResetThread(brd);
+		// startA2DResetThread(brd);
 		brd->readCtr = 0;
-
 	    }
-	    brd->nbadBufs = 0;
+	    brd->nbadScans = 0;
 	    // copy current status to prev_status for access by ioctl A2D_GET_STATUS
 	    memcpy(&brd->prev_status,&brd->cur_status,sizeof(A2D_STATUS));
 	    memset(&brd->cur_status,0,sizeof(A2D_STATUS));
@@ -1099,6 +1098,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 			    brd->head-brd->tail,brd->a2dFifoName,rtl_strerror(rtl_errno));
 		    rtl_close(brd->a2dfd);
 		    brd->a2dfd = -1;
+		    brd->readActive = 0;
 		    return -convert_rtl_errno(ierr);
 		}
 		if (wlen != brd->head-brd->tail)
@@ -1129,6 +1129,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		samp.timestamp,GET_MSEC_CLOCK);
 #endif
 
+	brd->readActive = 0;
 	return nbad;
 }
 
@@ -1253,33 +1254,117 @@ static void* A2DGetDataThread(void *thread_arg)
 }
 
 /*
- * Return: 0=OK
- *         <0: errno
+ * Reset the A2D, but do not close the fifos.
+ * This does an unregister_irig_callback, so it can't be
+ * called from the irig callback function itself.
+ * Use startA2DResetThread in that case.
  */
-static int A2DWait1PPS(struct A2DBoard* brd)
+static int resetA2D(struct A2DBoard* brd) 
 {
-	void* thread_status;
-	// DSMLOG_DEBUG("1PPSThread starting, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
-	if (rtl_pthread_create(&brd->pps_thread, NULL, A2DWait1PPSThread, brd) < 0)
-	    return -convert_rtl_errno(rtl_errno);
-	if (rtl_pthread_join(brd->pps_thread, &thread_status) < 0) {
-	    brd->pps_thread = 0;
-	    return -convert_rtl_errno(rtl_errno);
+	DSMLOG_DEBUG("doing unregister_irig_callback\n");
+	unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ,brd);
+	DSMLOG_DEBUG("unregister_irig_callback done\n");
+
+	// interrupt the 1PPS or acquisition thread
+	brd->interrupted = 1;
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
+	if (brd->acq_thread) {
+	    rtl_sem_post(&brd->acq_sem);
+	    rtl_pthread_join(brd->acq_thread, &thread_status);
+	    brd->acq_thread = 0;
+	    if (thread_status != (void*)0) ret = -(int)thread_status;
 	}
-	brd->pps_thread = 0;
-	if (thread_status != (void*)0) return -(int)thread_status;
-	// DSMLOG_DEBUG("1PPSThread done, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
+#endif
+
+	brd->interrupted = 0;
+	// Start a RT thread to allow syncing with 1PPS
+	DSMLOG_DEBUG("doing waitFor1PPS\n");
+	int res = waitFor1PPS(brd);
+	if (res) return res;
+	DSMLOG_DEBUG("Found initial PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
+
+
+	A2DResetAll(brd);	// Send Abort command to all A/Ds
+	A2DStatusAll(brd);	// Read status from all A/Ds
+
+	A2DStartAll(brd);	// Start all the A/Ds
+	A2DStatusAll(brd);	// Read status again from all A/Ds
+
+	A2DSetSYNC(brd);	// Stop A/D clocks
+	A2DAuto(brd);		// Switch to automatic mode
+
+	DSMLOG_DEBUG("Final FIFO Clear\n");
+	A2DClearFIFO(brd);	// Reset FIFO
+
+	DSMLOG_DEBUG("Setting 1PPS Enable line\n");
+
+	A2D1PPSEnable(brd);// Enable sync with 1PPS
+	res = waitFor1PPS(brd);
+	if (res) return res;
+
+	DSMLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
+
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
+	// Zero the semaphore
+	rtl_sem_init(&brd->acq_sem,0,0);
+	// Start data acquisition thread
+	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd)) {
+		DSMLOG_ERR("Error starting acq thread: %s\n",
+			rtl_strerror(rtl_errno));
+		return -convert_rtl_errno(rtl_errno);
+        }
+#endif
+
+	brd->discardNextScan = 1;		// discard the initial scan
+	brd->readActive = 0;
+	brd->enableReads = 1;
+	brd->interrupted = 0;
+	brd->skippedSamples = 0;
+	brd->nbadScans = 0;
+	brd->fifoNotEmpty = 0;
+	brd->readCtr = 0;
+
+	// start the IRIG callback routine at 100 Hz
+	register_irig_callback(&a2dIrigCallback,IRIG_100_HZ, brd);
+
+	return 0;
+}
+
+static void* A2DResetThreadFunc(void *thread_arg)
+{
+	struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
+	int ret = resetA2D(brd);
+	return (void*)-ret;
+}
+
+static int startA2DResetThread(struct A2DBoard* brd)
+{
+	brd->enableReads = 0;
+	// Shut down any existing reset thread
+	if (brd->reset_thread) {
+	    rtl_pthread_cancel(brd->reset_thread);
+	    rtl_pthread_join(brd->reset_thread, NULL);
+	    brd->reset_thread = 0;
+	}
+
+	DSMLOG_DEBUG("Starting reset thread\n");
+	
+	rtl_pthread_attr_t attr;
+	rtl_pthread_attr_init(&attr);
+	rtl_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
+	rtl_pthread_attr_setstackaddr(&attr,brd->reset_thread_stack);
+	if (rtl_pthread_create(&brd->reset_thread, &attr, A2DResetThreadFunc, brd)) {
+		DSMLOG_ERR("Error starting A2DResetThreadFunc: %s\n",
+			rtl_strerror(rtl_errno));
+		return -convert_rtl_errno(rtl_errno);
+	}
+	rtl_pthread_attr_destroy(&attr);
 	return 0;
 }
 
 static int openA2D(struct A2DBoard* brd)
 {
 	brd->busy = 1;	// Set the busy flag
-	brd->interrupted = 0;
-	brd->skippedSamples = 0;
-	brd->nbadBufs = 0;
-	brd->fifoNotEmpty = 0;
-	brd->readCtr = 0;
 	brd->doTemp = 0;
 	brd->acq_thread = 0;
 	brd->latencyCnt = brd->config.latencyUsecs /
@@ -1345,46 +1430,13 @@ static int openA2D(struct A2DBoard* brd)
 	}
 #endif
 
-	// Start a RT thread to allow syncing with 1PPS
-	int res = A2DWait1PPS(brd);
-	if (res) return res;
-	DSMLOG_DEBUG("Found initial PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
+	int res = startA2DResetThread(brd);
+	void* thread_status;
+        rtl_pthread_join(brd->reset_thread, &thread_status);
+	brd->reset_thread = 0;
+        if (thread_status != (void*)0) res = -(int)thread_status;
 
-
-	A2DResetAll(brd);	// Send Abort command to all A/Ds
-	A2DStatusAll(brd);	// Read status from all A/Ds
-
-	A2DStartAll(brd);	// Start all the A/Ds
-	A2DStatusAll(brd);	// Read status again from all A/Ds
-
-	A2DSetSYNC(brd);	// Stop A/D clocks
-	A2DAuto(brd);		// Switch to automatic mode
-
-	DSMLOG_DEBUG("Final FIFO Clear\n");
-	A2DClearFIFO(brd);	// Reset FIFO
-
-	DSMLOG_DEBUG("Setting 1PPS Enable line\n");
-
-	A2D1PPSEnable(brd);// Enable sync with 1PPS
-	res = A2DWait1PPS(brd);
-	if (res) return res;
-
-	DSMLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
-
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	// Zero the semaphore
-	rtl_sem_init(&brd->acq_sem,0,0);
-	// Start data acquisition thread
-	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd) < 0)
-		return -convert_rtl_errno(rtl_errno);
-#endif
-
-	brd->discardNextScan = 1;		// discard the initial scan
-
-	// start the IRIG callback routine at 100 Hz
-	register_irig_callback(&a2dIrigCallback,IRIG_100_HZ, brd);
-
-	return 0;
+	return res;
 }
 
 /**
@@ -1395,7 +1447,9 @@ static int openA2D(struct A2DBoard* brd)
 static int closeA2D(struct A2DBoard* brd) 
 {
 	int ret = 0;
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	void* thread_status;
+#endif
 
 	brd->doTemp = 0;
 	// interrupt the 1PPS or acquisition thread
@@ -1408,18 +1462,20 @@ static int closeA2D(struct A2DBoard* brd)
 	    brd->setup_thread = 0;
 	}
 
-	// Shut down the pps thread
-	if (brd->pps_thread) {
-	    rtl_pthread_cancel(brd->pps_thread);
-	    rtl_pthread_join(brd->pps_thread, NULL);
-	    brd->pps_thread = 0;
+	// Shut down the reset thread
+	if (brd->reset_thread) {
+	    rtl_pthread_cancel(brd->reset_thread);
+	    rtl_pthread_join(brd->reset_thread, NULL);
+	    brd->reset_thread = 0;
 	}
-
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	if (brd->acq_thread) {
+	    rtl_sem_post(&brd->acq_sem);
 	    rtl_pthread_join(brd->acq_thread, &thread_status);
 	    brd->acq_thread = 0;
 	    if (thread_status != (void*)0) ret = -(int)thread_status;
 	}
+#endif
 
 	//Turn off the callback routine
 	unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ,brd);
@@ -1491,7 +1547,11 @@ static int ioctlCallback(int cmd, int board, int port,
 		memcpy(&brd->config,(A2D_SET*)buf,sizeof(A2D_SET));
 
 		DSMLOG_DEBUG("Starting setup thread\n");
-		rtl_pthread_create(&brd->setup_thread, NULL, A2DSetupThread, brd);
+		if (rtl_pthread_create(&brd->setup_thread, NULL, A2DSetupThread, brd)) {
+			DSMLOG_ERR("Error starting A2DSetupThread: %s\n",
+				rtl_strerror(rtl_errno));
+			return -convert_rtl_errno(rtl_errno);
+                }
 		rtl_pthread_join(brd->setup_thread, &thread_status);
 		DSMLOG_DEBUG("Setup thread finished\n");
 		brd->setup_thread = 0;
@@ -1515,12 +1575,14 @@ static int ioctlCallback(int cmd, int board, int port,
 
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		// clean up acquisition thread if it was left around
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 		if (brd->acq_thread) {
 		    brd->interrupted = 1;
 		    rtl_pthread_cancel(brd->acq_thread);
 		    rtl_pthread_join(brd->acq_thread, &thread_status);
 		    brd->acq_thread = 0;
 		}
+#endif
 
 		DSMLOG_DEBUG("A2D_RUN_IOCTL\n");
 		ret = openA2D(brd);
@@ -1584,19 +1646,21 @@ void cleanup_module(void)
 		brd->setup_thread = 0;
 	    }
 
-	    // Shut down the pps thread
-	    if (brd->pps_thread) {
-		rtl_pthread_cancel(brd->pps_thread);
-		rtl_pthread_join(brd->pps_thread, NULL);
-		brd->pps_thread = 0;
+	    // Shut down the setup thread
+	    if (brd->reset_thread) {
+		rtl_pthread_cancel(brd->reset_thread);
+		rtl_pthread_join(brd->reset_thread, NULL);
+		brd->reset_thread = 0;
 	    }
 
 	    // Shut down the acquisition thread
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	    if (brd->acq_thread) {
 		rtl_pthread_cancel(brd->acq_thread);
 		rtl_pthread_join(brd->acq_thread, NULL);
 		brd->acq_thread = 0;
 	    }
+#endif
 
 	    // close and remove A2D fifo
 	    if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
@@ -1604,7 +1668,9 @@ void cleanup_module(void)
 		rtl_unlink(brd->a2dFifoName);
 		rtl_gpos_free(brd->a2dFifoName);
 	    }
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	    rtl_sem_destroy(&brd->acq_sem);
+#endif
 
 	    // close and remove temperature fifo
 	    if (brd->i2cTempfd >= 0) rtl_close(brd->i2cTempfd);
@@ -1612,6 +1678,8 @@ void cleanup_module(void)
 		rtl_unlink(brd->i2cTempFifoName);
 		rtl_gpos_free(brd->i2cTempFifoName);
 	    }
+
+	    if (brd->reset_thread_stack) rtl_gpos_free(brd->reset_thread_stack);
 
 	    if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
 	    brd->ioctlhandle = 0;
@@ -1662,7 +1730,9 @@ int init_module()
 	    // that are non-zero
 	    memset(brd,0,sizeof(struct A2DBoard));
 
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	    rtl_sem_init(&brd->acq_sem,0,0);
+#endif
 	    brd->a2dfd = -1;
 	    brd->i2cTempfd = -1;
 	    // default latency, 1/10 second.
@@ -1729,6 +1799,10 @@ int init_module()
 		error = -convert_rtl_errno(rtl_errno);
 		goto err;
 	    }
+
+	    /* allocate thread stacks at init module time */
+	    if (!(brd->reset_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
+	    	goto err;
 	}
 
 	DSMLOG_DEBUG("A2D init_module complete.\n");
@@ -1739,8 +1813,11 @@ err:
 	if (boardInfo) {
 	    for (ib = 0; ib < numboards; ib++) {
 		struct A2DBoard* brd = boardInfo + ib;
+		if (brd->reset_thread_stack) rtl_gpos_free(brd->reset_thread_stack);
 
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
 		rtl_sem_destroy(&brd->acq_sem);
+#endif
 		if (brd->a2dFifoName) {
 		    rtl_unlink(brd->a2dFifoName);
 		    rtl_gpos_free(brd->a2dFifoName);

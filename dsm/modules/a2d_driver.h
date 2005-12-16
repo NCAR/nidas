@@ -250,8 +250,12 @@ struct A2DBoard {
     unsigned int addr;	// Base address of board
     unsigned int chan_addr;	// 
     rtl_pthread_t setup_thread;
-    rtl_pthread_t pps_thread;
+
     rtl_pthread_t acq_thread;
+
+    rtl_pthread_t reset_thread;
+    void* reset_thread_stack;
+
     rtl_sem_t acq_sem;	// 100Hz semaphore
     int a2dfd;			// File descriptor of RTL FIFO for A2D data
     char* a2dFifoName;
@@ -269,7 +273,7 @@ struct A2DBoard {
     int busy;
     int interrupted;
     size_t readCtr;
-    int nbadBufs;
+    int nbadScans;
     int fifoNotEmpty;
     int master;
     int nreads;			// number of reads to empty fifo
@@ -287,6 +291,8 @@ struct A2DBoard {
     char invertCounts;		// whether to invert counts from this A2D
     char doTemp;		// fetch temperature after next A2D scan
     char discardNextScan;	// should we discard the next scan
+    int readActive;
+    int enableReads;
 };
 
 #endif
