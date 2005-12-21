@@ -1155,7 +1155,7 @@ static void a2dIrigCallback(void *ptr)
 	}
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	/* If the data acquisition is done in another thread
-	 * simple post the semaphore so the A2DGetDataThread
+	 * simply post the semaphore so the A2DGetDataThread
 	 * can do its thing
 	 */
 	rtl_sem_post(&((struct A2DBoard*)brd)->acq_sem);
@@ -1308,11 +1308,16 @@ static int resetA2D(struct A2DBoard* brd)
 	// Zero the semaphore
 	rtl_sem_init(&brd->acq_sem,0,0);
 	// Start data acquisition thread
-	if (rtl_pthread_create(&brd->acq_thread, NULL, A2DGetDataThread, brd)) {
+	rtl_pthread_attr_t attr;
+	rtl_pthread_attr_init(&attr);
+	rtl_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
+	rtl_pthread_attr_setstackaddr(&attr,brd->acq_thread_stack);
+	if (rtl_pthread_create(&brd->acq_thread, &attr, A2DGetDataThread, brd)) {
 		DSMLOG_ERR("Error starting acq thread: %s\n",
 			rtl_strerror(rtl_errno));
 		return -convert_rtl_errno(rtl_errno);
         }
+	rtl_pthread_attr_destroy(&attr);
 #endif
 
 	brd->discardNextScan = 1;		// discard the initial scan
@@ -1660,6 +1665,8 @@ void cleanup_module(void)
 		rtl_pthread_join(brd->acq_thread, NULL);
 		brd->acq_thread = 0;
 	    }
+	    rtl_sem_destroy(&brd->acq_sem);
+	    if (brd->acq_thread_stack) rtl_gpos_free(brd->acq_thread_stack);
 #endif
 
 	    // close and remove A2D fifo
@@ -1668,9 +1675,6 @@ void cleanup_module(void)
 		rtl_unlink(brd->a2dFifoName);
 		rtl_gpos_free(brd->a2dFifoName);
 	    }
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	    rtl_sem_destroy(&brd->acq_sem);
-#endif
 
 	    // close and remove temperature fifo
 	    if (brd->i2cTempfd >= 0) rtl_close(brd->i2cTempfd);
@@ -1803,6 +1807,10 @@ int init_module()
 	    /* allocate thread stacks at init module time */
 	    if (!(brd->reset_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
 	    	goto err;
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
+	    if (!(brd->acq_thread_stack = rtl_gpos_malloc(THREAD_STACK_SIZE)))
+	    	goto err;
+#endif
 	}
 
 	DSMLOG_DEBUG("A2D init_module complete.\n");
@@ -1814,6 +1822,9 @@ err:
 	    for (ib = 0; ib < numboards; ib++) {
 		struct A2DBoard* brd = boardInfo + ib;
 		if (brd->reset_thread_stack) rtl_gpos_free(brd->reset_thread_stack);
+#ifdef A2D_ACQ_IN_SEPARATE_THREAD
+		if (brd->acq_thread_stack) rtl_gpos_free(brd->acq_thread_stack);
+#endif
 
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
 		rtl_sem_destroy(&brd->acq_sem);
