@@ -106,6 +106,11 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
 */
 
 /* TEST RESULTS (Jan 14, 2005 GDM)
+ * Keep in mind here that this discussion applies to the
+ * viper GPIO interrupt, asserted by the CPLD,
+ * which is multiplexing the ISA interrupts.  It does
+ * not apply to the ISA interrupts themselves.
+ *
  * Test system:  IRIG programmed to interrupt at 1000 hz, three
  *    serial ports being prompted at 100Hz each, 115200 baud.
  *    The simulated sensor responses are coming from two of Viper's
@@ -118,8 +123,8 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
  *    register after calling each irq handler like so:
  * 	VIPER_ISA_IRQ_STATUS = imask;
  *
- * WIN_MODE (AUTO_CLR=1, RETRIG=1, rising edge, DO_STATUS_LOOP,
- * 	no CLEAR_STATUS_BIT)
+ * WIN_MODE (AUTO_CLR=1, RETRIG=1, rising edge, DO_STATUS_LOOP on,
+ * 	CLEAR_STATUS_BIT off)
  *    The 100Hz IRIG loop reports semaphore timeouts about
  *    every 2 minutes. A typical sequence showed a timeout
  *    after 256 seconds, then 347, 225,9 and 10 seconds. These timeouts
@@ -133,13 +138,13 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
  *    Third test: 119,163,165
  *    Fourth test: 40,29,27,36,0,539(yay!),
  *
- *    DO_STATUS_LOOP, CLEAR_STATUS_BIT
+ *    DO_STATUS_LOOP on, CLEAR_STATUS_BIT on
  *	first test: saw similar results to 256,347,255,9,10 sequence.
  *      second test: 182,373 with about 20 spurious status=0 ints/sec
  *
  *     no DO_STATUS_LOOP, no CLEAR_STATUS_BIT:
  *       zillions of timeouts when serial ports running, nic died
- *     no DO_STATUS_LOOP, CLEAR_STATUS_BIT:
+ *     no DO_STATUS_LOOP, CLEAR_STATUS_BIT on:
  *       zillions of timeouts when serial ports running
  *
  *  AUTO_CLR MODE (AUTO_CLR=1, RETRIG=0, rising edge,
@@ -148,19 +153,19 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
  *       20 status=0 spurious interrupts per sec
  *    no CLEAR_STATUS_BIT, no DO_STATUS_LOOP:
  *       zillions of timeouts when serial ports running,
- *    CLEAR_STATUS_BIT, DO_STATUS_LOOP:
+ *    CLEAR_STATUS_BIT on, DO_STATUS_LOOP:
  *       Semaphore timeouts: 66,62,87,125,67,32,47,123 seconds
  *          10-20 status=0 spurious interrupts/sec
  *
  *  LINUX MODE (AUTO_CLR=0, RETRIG=0, level based=rising&falling edge,
- *     CLEAR_STATUS_BIT, no DO_STATUS_LOOP)
+ *     CLEAR_STATUS_BIT (must be on), no DO_STATUS_LOOP)
  *    Saw semaphore timeouts about every 10 seconds, with
  *    no spurious interrupts. Second test same results
  *          timeout sequence: 20,6,37,8,1,18,0,35,31,31,19 secs
  *     IF DO_STATUS_LOOP: similiar timeout rate:  44,35,4,24,0,0,27,67,35,2,75
  *        with 200 status=0 interrupts every second
  *     
- *  RETRIG MODE (AUTO_CLR=0, RETRIG=1, level based, CLEAR_STATUS_BIT,
+ *  RETRIG MODE (AUTO_CLR=0, RETRIG=1, level based, CLEAR_STATUS_BIT on,
  *    no DO_STATUS_LOOP)
  *    Saw semaphore timeouts about every 10 seconds, with
  *    no spurious interrupts.  Same as native LINUX/no DO_STATUS_LOOP
@@ -173,6 +178,7 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
  *
  * Conclusions: AUTO_CLR=1 is better than AUTO_CLR=0
  *	must use DO_STATUS_LOOP if AUTO_CLR=1
+ *	must use CLEAR_STATUS_BIT if AUTO_CLR=0
  *	RETRIG and CLEAR_STATUS_BIT don't seem to have much effect
  *      with AUTO_CLR=1.  We'll set RETRIG, but not CLEAR_STATUS_BIT
  */
@@ -180,7 +186,6 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
 /* Define GPI01 interrupt mode */
 #define AUTOCLR_MODE
 #define RETRIG_MODE
-// #define CLEAR_STATUS_BIT
 
 
 /********* AUTOCLR_MODE ****************************************/
@@ -194,6 +199,7 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
 
 #define ICR_AUTOCLR 0
 #define IRQ_EDGE GPIO_BOTH_EDGES
+#define CLEAR_STATUS_BIT
 
 #endif	/* end AUTOCLR_MODE */
 /************ AUTOCLR_MODE end *********************************/
@@ -207,6 +213,7 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
 #else
 
 #define ICR_RETRIG 0
+// #define DO_STATUS_LOOP	// optional
 
 #endif
 /************ RETRIG_MODE end **********************************/
