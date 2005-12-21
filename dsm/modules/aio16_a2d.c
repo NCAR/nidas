@@ -46,7 +46,8 @@ Revisions:
 /* ioport addresses of installed boards, 0=no board installed */
 static int ioport_parm[MAX_AIO16_BOARDS] = { 0x200, 0, 0, 0 };
 
-static int irq_param[MAX_AIO16_BOARDS] = { 3, 0, 0, 0 };
+/* irqs. 0=poll instead of using interrupts */
+static int irq_param[MAX_AIO16_BOARDS] = { 12, 0, 0, 0 };
 
 /* number of AIO16 boards in system (number of non-zero ioport values) */
 static int numboards = 0;
@@ -59,7 +60,7 @@ MODULE_PARM(ioport_parm, "1-" __MODULE_STRING(MAX_AIO16_BOARDS) "i");
 MODULE_PARM_DESC(ioport_parm, "ISA port address of each board, e.g.: 0x200");
 
 MODULE_PARM(irq_param, "1-" __MODULE_STRING(MAX_AIO16_BOARDS) "i");
-MODULE_PARM_DESC(irq_param, "IRQ of each board");
+MODULE_PARM_DESC(irq_param, "IRQ of each board, 0=poll");
 
 static struct AIO16_Board* boardInfo = 0;
 
@@ -135,6 +136,13 @@ static void setChanSwitchDelay(struct AIO16_Board* brd, unsigned int val)
     setTimerClock(brd,0,2,val);
 }
 
+/**
+ * pthread function that waits on fifoSem, then
+ * reads a fifo sample (containing 1024 a2d samples)
+ * from the fifoSamples list, assembles the data into
+ * dsm_samples which contain data from one channel scan,
+ * and sends this data on the RTL fifo to user space.
+ */
 static void* sampleThreadFunc(void *thread_arg)
 {
     struct AIO16_Board* brd = (struct AIO16_Board*) thread_arg;
@@ -196,15 +204,20 @@ static void* sampleThreadFunc(void *thread_arg)
 	if (tt < dt) tt += MSECS_PER_DAY;
 	tt -= dt;
 
-	register short *dp = (short *)insamp->data;
-	register short *ep = dp + nval;
+	register unsigned short *dp = (unsigned short *)insamp->data;
+	register unsigned short *ep = dp + nval;
 
 	for (; dp < ep; ) {
-	    int sum = 0;
 	    int chanNum = outChan + brd->lowChan;
 	    if (brd->requested[chanNum]) {
+		unsigned long sum = 0;
 		for (i = 0; i < nover; i++) sum += *dp++;
 		*outptr++ = sum / nover;
+#ifdef DEBUG
+		if (chanNum == 0)
+			DSMLOG_INFO("sum=%d,nover=%d,res=%d\n",
+			sum,nover,sum/nover);
+#endif
 	    }
 	    else dp += nover;
 
@@ -268,6 +281,51 @@ static void* sampleThreadFunc(void *thread_arg)
 	rtl_spin_unlock_irqrestore(&brd->queuelock,flags);
     }
     return 0;
+}
+
+/**
+ * Poll function, a substitute for interrupts.
+ */
+static void pollAIOFifoCallback(void *ptr)
+{
+    static int missed = 0;
+
+    struct AIO16_Board* brd = (struct AIO16_Board*)ptr;
+    brd->status.reg = inb(brd->addr + AIO16_R_CONFIG_STATUS);
+    if (!(brd->status.reg & AIO16_STATUS_FIFO_HALF_FULL)) return;
+
+    int i;
+    struct dsm_sample* samp =
+        GET_HEAD(brd->fifoSamples,AIO16_FIFO_QUEUE_SIZE);
+    if (!samp) {                // no output sample available
+        brd->status.missedSamples += AIO16_HALF_FIFO_SIZE / sizeof(short);
+	if (!(missed++ % 100))
+	    DSMLOG_WARNING("%d missed samples\n",missed);
+	for (i = 0; i < AIO16_HALF_FIFO_SIZE; i++) {
+	    brd->junk += inw(brd->addr + AIO16_R_FIFO);
+	}
+    }
+
+    samp->timetag = GET_MSEC_CLOCK;
+    register unsigned short* dp = (unsigned short *)samp->data;
+
+    for (i = 0; i < AIO16_HALF_FIFO_SIZE; i++)
+	*dp++ = inw(brd->addr + AIO16_R_FIFO);
+#ifdef DEBUG
+    dp = (unsigned short *)samp->data;
+    for (i = 0; i < 16; i++) DSMLOG_INFO("val=%u\n",*dp++);
+#endif
+    samp->length = AIO16_HALF_FIFO_SIZE * sizeof(short);
+
+    /* increment head, this sample is ready for consumption */
+    INCREMENT_HEAD(brd->fifoSamples,AIO16_FIFO_QUEUE_SIZE);
+    rtl_sem_post(&brd->fifoSem);
+
+#ifdef DEBUG
+    brd->status.reg = inb(brd->addr + AIO16_R_CONFIG_STATUS);
+    DSMLOG_DEBUG("time=%d, status=0x%x\n",
+    	GET_MSEC_CLOCK,(unsigned int)brd->status.reg);
+#endif
 }
 
 /*
@@ -402,6 +460,9 @@ static int stopA2D(struct AIO16_Board* brd)
     outb(0,brd->addr + AIO16_W_EXT_TRIG_SEL);	// turn off trigger
     outb(AIO16_DISABLE_IRQ,brd->addr + AIO16_W_ENABLE_IRQ);
 
+    if (!brd->irq)
+    	unregister_irig_callback(&pollAIOFifoCallback,IRIG_100_HZ,brd);
+
     if (brd->sampleThread) {
 	// interrupt the sample thread
 	brd->interrupted = 1;
@@ -472,17 +533,21 @@ static int startA2D(struct AIO16_Board* brd)
     }
     rtl_pthread_attr_destroy(&attr);
 
+    outb(AIO16_TIMED, brd->addr + AIO16_W_AD_COUNTER_MD);
+
     unsigned char chanNibbles = (brd->highChan << 4) + brd->lowChan;
     DSMLOG_INFO("highChan=%d,lowChan=%d,nib=0x%x\n",
     	brd->highChan,brd->lowChan,(int)chanNibbles);
     outb(chanNibbles, brd->addr + AIO16_W_CHANNELS);
 
+    DSMLOG_INFO("gainSetting=%d\n",brd->gainSetting);
     outb(brd->gainSetting, brd->addr + AIO16_W_SW_GAIN);
 
-    outb(AIO16_TIMED, brd->addr + AIO16_W_AD_COUNTER_MD);
+    // outb(AIO16_TIMED, brd->addr + AIO16_W_AD_COUNTER_MD);
 
     // 500nsec delay when switching channels
-    setChanSwitchDelay(brd,500);
+    // setChanSwitchDelay(brd,500);
+    setChanSwitchDelay(brd,1000);
 
     unsigned long ticks = USECS_PER_SEC * 10 / brd->maxRate;
     DSMLOG_INFO("clock ticks=%d,maxRate=%d\n",ticks,brd->maxRate);
@@ -522,16 +587,20 @@ static int startA2D(struct AIO16_Board* brd)
 	overval = AIO16_OVERSAMPLE_X2;
 	break;
     case 1:
+    default:
 	overval = AIO16_OVERSAMPLE_X1;
 	break;
     }
 
-    outb(AIO16_ENABLE_IRQ,brd->addr + AIO16_W_ENABLE_IRQ);
+    if (brd->irq)
+	outb(AIO16_ENABLE_IRQ,brd->addr + AIO16_W_ENABLE_IRQ);
+    else
+	register_irig_callback(&pollAIOFifoCallback,IRIG_100_HZ,brd);
 
     brd->status.reg = inb(brd->addr + AIO16_R_CONFIG_STATUS);
     DSMLOG_INFO("status=0x%x\n",(int)brd->status.reg);
 
-    outb(AIO16_OVERSAMPLE_X16, brd->addr + AIO16_W_OVERSAMPLE);
+    outb(overval, brd->addr + AIO16_W_OVERSAMPLE);
 
     return ret;
 }
@@ -544,68 +613,68 @@ static int startA2D(struct AIO16_Board* brd)
 static int ioctlCallback(int cmd, int board, int port,
 	void *buf, rtl_size_t len) 
 {
-	// return LINUX errnos here, not RTL_XXX errnos.
-  	int ret = -EINVAL;
+    // return LINUX errnos here, not RTL_XXX errnos.
+    int ret = -EINVAL;
 
-	// paranoid check if initialized (probably not necessary)
-	if (!boardInfo) return ret;
+    // paranoid check if initialized (probably not necessary)
+    if (!boardInfo) return ret;
 
-	struct AIO16_Board* brd = boardInfo + board;
+    struct AIO16_Board* brd = boardInfo + board;
 
 #ifdef DEBUG
-  	DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
-	    cmd,board,port,len);
+    DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
+	cmd,board,port,len);
 #endif
 
-  	switch (cmd) 
-	{
-  	case GET_NUM_PORTS:		/* user get */
-		if (len != sizeof(int)) break;
-		DSMLOG_DEBUG("GET_NUM_PORTS\n");
-		*(int *) buf = N_AIO16_DEVICES;	
-		ret = sizeof(int);
-  		break;
+    switch (cmd) 
+    {
+    case GET_NUM_PORTS:		/* user get */
+	    if (len != sizeof(int)) break;
+	    DSMLOG_DEBUG("GET_NUM_PORTS\n");
+	    *(int *) buf = N_AIO16_DEVICES;	
+	    ret = sizeof(int);
+	    break;
 
-  	case AIO16_STATUS:		/* user get of status */
-		if (port != 0) break;	// only port 0
-		if (len != sizeof(struct AIO16_Status)) break;
-		memcpy(buf,&brd->status,len);
-		ret = len;
-		break;
+    case AIO16_STATUS:		/* user get of status */
+	    if (port != 0) break;	// only port 0
+	    if (len != sizeof(struct AIO16_Status)) break;
+	    memcpy(buf,&brd->status,len);
+	    ret = len;
+	    break;
 
-  	case AIO16_CONFIG:		/* user set */
-		DSMLOG_DEBUG("AIO16_CONFIG\n");
-		if (port != 0) break;	// only port 0
-		if (len != sizeof(struct AIO16_Config)) break;	// invalid length
-		if(brd->busy) {
-			DSMLOG_ERR("A2D's running. Can't configure\n");
-			ret = -EBUSY;
-			break;
-		}
-		ret = configA2D(brd,(struct AIO16_Config*)buf);
-		DSMLOG_DEBUG("AIO16_CONFIG done, ret=%d\n", ret);
-   		break;
+    case AIO16_CONFIG:		/* user set */
+	    DSMLOG_DEBUG("AIO16_CONFIG\n");
+	    if (port != 0) break;	// only port 0
+	    if (len != sizeof(struct AIO16_Config)) break;	// invalid length
+	    if(brd->busy) {
+		    DSMLOG_ERR("A2D's running. Can't configure\n");
+		    ret = -EBUSY;
+		    break;
+	    }
+	    ret = configA2D(brd,(struct AIO16_Config*)buf);
+	    DSMLOG_DEBUG("AIO16_CONFIG done, ret=%d\n", ret);
+	    break;
 
-  	case AIO16_START:
+    case AIO16_START:
 
-		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
-		// clean up acquisition thread if it was left around
+	    if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
+	    // clean up acquisition thread if it was left around
 
-		DSMLOG_DEBUG("AIO16_START\n");
-		ret = startA2D(brd);
-		DSMLOG_DEBUG("AIO16_START finished\n");
-		break;
+	    DSMLOG_DEBUG("AIO16_START\n");
+	    ret = startA2D(brd);
+	    DSMLOG_DEBUG("AIO16_START finished\n");
+	    break;
 
-  	case AIO16_STOP:
-		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
-		DSMLOG_DEBUG("AIO16_STOP_IOCTL\n");
-		ret = stopA2D(brd);
-		DSMLOG_DEBUG("closeA2D, ret=%d\n",ret);
-		break;
-	default:
-		break;
-  	}
-  	return ret;
+    case AIO16_STOP:
+	    if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
+	    DSMLOG_DEBUG("AIO16_STOP_IOCTL\n");
+	    ret = stopA2D(brd);
+	    DSMLOG_DEBUG("closeA2D, ret=%d\n",ret);
+	    break;
+    default:
+	    break;
+    }
+    return ret;
 }
 
 unsigned int aio16_irq_handler(unsigned int irq,
@@ -614,7 +683,6 @@ unsigned int aio16_irq_handler(unsigned int irq,
     static int spurious = 0;
     static int count = 0;
     static int missed = 0;
-
 
     struct AIO16_Board* brd = (struct AIO16_Board*) callbackptr;
 
@@ -642,7 +710,7 @@ unsigned int aio16_irq_handler(unsigned int irq,
     }
 
     samp->timetag = GET_MSEC_CLOCK;
-    register short* dp = (short *)samp->data;
+    register unsigned short* dp = (short *)samp->data;
 
     for (i = 0; i < AIO16_HALF_FIFO_SIZE; i++)
 	*dp++ = inw(brd->addr + AIO16_R_FIFO);
@@ -654,7 +722,6 @@ unsigned int aio16_irq_handler(unsigned int irq,
 
     return 0;
 }
-
 
 /*-----------------------Module------------------------------*/
 
@@ -760,13 +827,15 @@ int init_module()
 
 	brd->overSample = 16;
 	error = -EBUSY;
-	if ((error = rtl_request_isa_irq(irq_param[ib],aio16_irq_handler,
+
+	if (irq_param[ib] > 0 &&
+	    (error = rtl_request_isa_irq(irq_param[ib],aio16_irq_handler,
 			  brd)) < 0) goto err;
-	brd->irq =  irq_param[ib];
+	brd->irq = irq_param[ib];
 
     }
 
-    DSMLOG_DEBUG("AIO16 init_module complete.\n");
+    DSMLOG_DEBUG("complete.\n");
 
     return 0;
 err:
@@ -817,57 +886,54 @@ err:
 // Stops the A/D and releases reserved memory
 void cleanup_module(void)
 {
-	int ib;
-	int i;
-	if (!boardInfo) return;
+    int ib;
+    int i;
+    if (!boardInfo) return;
 
-	for (ib = 0; ib < numboards; ib++) {
-	    struct AIO16_Board* brd = boardInfo + ib;
+    for (ib = 0; ib < numboards; ib++) {
+	struct AIO16_Board* brd = boardInfo + ib;
 
-	    if (brd->irq) rtl_free_isa_irq(brd->irq);
-	    brd->irq = 0;
+	if (brd->irq) rtl_free_isa_irq(brd->irq);
+	// doesn't hurt to unregister if isn't registered.
+	else unregister_irig_callback(&pollAIOFifoCallback,IRIG_100_HZ,brd);
 
-	    // Shut down the sample thread
-	    if (brd->sampleThread) {
-		rtl_pthread_cancel(brd->sampleThread);
-		rtl_pthread_join(brd->sampleThread, NULL);
-		brd->sampleThread = 0;
-	    }
-
-	    if (brd->sampleThreadStack) {
-		rtl_gpos_free(brd->sampleThreadStack);
-		brd->sampleThreadStack = 0;
-		rtl_sem_destroy(&brd->fifoSem);
-	    }
-
-	    // close and remove RTL fifo
-	    if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
-	    if (brd->a2dFifoName) {
-		rtl_unlink(brd->a2dFifoName);
-		rtl_gpos_free(brd->a2dFifoName);
-	    }
-
-	    if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
-	    brd->ioctlhandle = 0;
-
-	    if (brd->fifoSamples.buf) {
-		for (i = 0; i < AIO16_FIFO_QUEUE_SIZE; i++)
-		    if (brd->fifoSamples.buf[i])
-		    	rtl_gpos_free(brd->fifoSamples.buf[i]);
-	        rtl_gpos_free(brd->fifoSamples.buf);
-	    }
-
-	    if (brd->addr)
-		release_region(brd->addr, AIO16_IOPORT_WIDTH);
-	    brd->addr = 0;
-
+	// Shut down the sample thread
+	if (brd->sampleThread) {
+	    rtl_pthread_cancel(brd->sampleThread);
+	    rtl_pthread_join(brd->sampleThread, NULL);
 	}
 
-        rtl_gpos_free(boardInfo);
-        boardInfo = 0;
+	if (brd->sampleThreadStack) {
+	    rtl_gpos_free(brd->sampleThreadStack);
+	    brd->sampleThreadStack = 0;
+	    rtl_sem_destroy(&brd->fifoSem);
+	}
 
-  	DSMLOG_DEBUG("Analog cleanup complete\n");
+	// close and remove RTL fifo
+	if (brd->a2dfd >= 0) rtl_close(brd->a2dfd);
+	if (brd->a2dFifoName) {
+	    rtl_unlink(brd->a2dFifoName);
+	    rtl_gpos_free(brd->a2dFifoName);
+	}
 
-	return;
+	if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
+
+	if (brd->fifoSamples.buf) {
+	    for (i = 0; i < AIO16_FIFO_QUEUE_SIZE; i++)
+		if (brd->fifoSamples.buf[i])
+		    rtl_gpos_free(brd->fifoSamples.buf[i]);
+	    rtl_gpos_free(brd->fifoSamples.buf);
+	}
+
+	if (brd->addr)
+	    release_region(brd->addr, AIO16_IOPORT_WIDTH);
+    }
+
+    rtl_gpos_free(boardInfo);
+    boardInfo = 0;
+
+    DSMLOG_DEBUG("complete\n");
+
+    return;
 }
 
