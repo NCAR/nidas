@@ -90,9 +90,9 @@ MODULE_PARM_DESC(ioport0, "IOPORT of first UART on each board");
  * interrupt id register (COM8_BC_IIR) that provides a bit
  * mask for the interrupting ports.
  */
-static int irqs[MAX_NUM_BOARDS] = { 11,0,0 };
-MODULE_PARM(irqs, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
-MODULE_PARM_DESC(irqs, "IRQ number");
+static int irq_param[MAX_NUM_BOARDS] = { 11,0,0 };
+MODULE_PARM(irq_param, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
+MODULE_PARM_DESC(irq_param, "IRQ number");
 
 static struct serialBoard *boardInfo = 0;
 
@@ -2115,7 +2115,7 @@ int init_module(void)
 
     /* check non-zero irqs */
     for (ib = 0; ib < MAX_NUM_BOARDS; ib++) 
-	if (irqs[ib] == 0) break;
+	if (irq_param[ib] == 0) break;
     numirqs = ib;
 
     if (numirqs != numboards) {
@@ -2208,6 +2208,8 @@ int init_module(void)
 	    port->uart_samples.buf = rtl_gpos_malloc(UART_SAMPLE_QUEUE_SIZE *
 	    	sizeof(void*) );
 	    if (!port->uart_samples.buf) goto err1;
+	    memset(port->uart_samples.buf,0,
+	    	UART_SAMPLE_QUEUE_SIZE *sizeof(void*) );
 
 	    for (i = 0; i < UART_SAMPLE_QUEUE_SIZE; i++) {
 		struct dsm_sample* samp = (struct dsm_sample*)
@@ -2223,6 +2225,8 @@ int init_module(void)
 	    	rtl_gpos_malloc(OUTPUT_SAMPLE_QUEUE_SIZE *
 		    sizeof(void*) );
 	    if (!port->output_samples.buf) goto err1;
+	    memset(port->output_samples.buf,0,
+	    	OUTPUT_SAMPLE_QUEUE_SIZE *sizeof(void*) );
 
 	    for (i = 0; i < OUTPUT_SAMPLE_QUEUE_SIZE; i++) {
 		struct dsm_sample* samp = (struct dsm_sample*)
@@ -2234,7 +2238,7 @@ int init_module(void)
 		port->output_samples.buf[i] = samp;
 	    }
 
-	    port->irq = irqs[ib];
+	    port->irq = irq_param[ib];
 
 	    if (boardirq == 0) boardirq = port->irq;
 	    retval = -EINVAL;
@@ -2247,8 +2251,8 @@ int init_module(void)
 	     * IRQs per board, but we don't actually support
 	     * that yet.
 	     */
-	    if (numirqs == numboards) port->irq = irqs[ib];
-	    else port->irq = irqs[portcounter];
+	    if (numirqs == numboards) port->irq = irq_param[ib];
+	    else port->irq = irq_param[portcounter];
 
 	    if (boardirq == 0) boardirq = port->irq;
 	    retval = -EINVAL;

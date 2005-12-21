@@ -137,7 +137,6 @@ struct dsm_serial_status {
 
 #ifdef __RTCORE_KERNEL__
 
-#include <linux/circ_buf.h>
 #include <rtl_pthread.h>
 #include <rtl_semaphore.h>
 
@@ -150,33 +149,6 @@ extern const char* dsm_serial_get_devprefix();
 extern int dsm_serial_get_numports(int board);
 
 extern const char* dsm_serial_get_devname(int port);
-
-/* Macros for manipulating sample circular buffers
- * (in addition to those in linux/circ_buf.h
- */
-
-
-#define GET_HEAD(circbuf,size) \
-    ((CIRC_SPACE(circbuf.head,circbuf.tail,size) > 0) ? \
-        circbuf.buf[circbuf.head] : 0)
-
-#define INCREMENT_HEAD(circbuf,size) \
-        (circbuf.head = (circbuf.head + 1) & (size-1))
-
-#define INCREMENT_TAIL(circbuf,size) \
-        (circbuf.tail = (circbuf.tail + 1) & (size-1))
-
-#define NEXT_HEAD(circbuf,size) \
-        (INCREMENT_HEAD(circbuf,size), GET_HEAD(circbuf,size))
-
-/* circular buffer of samples, compatible with macros in
-   linux/circ_buf.h
-*/
-struct dsm_sample_circ_buf {
-    struct dsm_sample **buf;
-    int head;
-    int tail;
-};
 
 #define UART_SAMPLE_QUEUE_SIZE 32
 #define OUTPUT_SAMPLE_QUEUE_SIZE 16
