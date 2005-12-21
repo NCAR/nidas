@@ -1102,12 +1102,13 @@ static void *pc104sg_100hz_thread (void *param)
 		    increment_clock(MSEC_PER_THREAD_SIGNAL);
 		    increment_hz100_cnt();
 		}
-		if (!(ntimeouts++ % 1)) {
+		if (!(ntimeouts++ % 500)) {
 		    DSMLOG_NOTICE("thread semaphore timeout #%d, msecs since last timeout=%d\n",
 			    ntimeouts, msecs_since_last_timeout);
 		    DSMLOG_NOTICE("doing ackHeartBeatInt\n");
-		    ackHeartBeatInt();
+		    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 		}
+		ackHeartBeatInt();
 		msecs_since_last_timeout = 0;
 	    }
 	    else if (rtl_errno == RTL_EINTR) {
@@ -1304,7 +1305,8 @@ static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl
     syncOK = status & Sync_OK;
 
     if ((status & Heartbeat) && (intmask & Heartbeat_Int_Enb)) {
-	/* acknowledge interrupt */
+
+	/* acknowledge interrupt (essential!) */
 	ackHeartBeatInt();
 
 	increment_clock(MSEC_PER_INTRPT);
