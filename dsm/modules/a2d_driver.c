@@ -139,7 +139,7 @@ static struct rtl_timespec usec1 = { 0, 1000 };
 static struct rtl_timespec usec10 = { 0, 10000 };
 static struct rtl_timespec usec20 = { 0, 20000 };
 static struct rtl_timespec usec100 = { 0, 100000 };
-static struct rtl_timespec msec10 = { 0, 10000000 };
+static struct rtl_timespec msec20 = { 0, 20000000 };
 
 static int startA2DResetThread(struct A2DBoard* brd);
 
@@ -1309,7 +1309,7 @@ static int resetA2D(struct A2DBoard* brd)
 
 	DSMLOG_DEBUG("Setting 1PPS Enable line\n");
         
-	rtl_nanosleep(&msec10,0);
+	rtl_nanosleep(&msec20,0);
 	A2D1PPSEnable(brd);// Enable sync with 1PPS
 
 	DSMLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
