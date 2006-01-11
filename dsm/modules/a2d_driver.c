@@ -139,6 +139,7 @@ static struct rtl_timespec usec1 = { 0, 1000 };
 static struct rtl_timespec usec10 = { 0, 10000 };
 static struct rtl_timespec usec20 = { 0, 20000 };
 static struct rtl_timespec usec100 = { 0, 100000 };
+static struct rtl_timespec msec10 = { 0, 10000000 };
 
 static int startA2DResetThread(struct A2DBoard* brd);
 
@@ -677,17 +678,20 @@ static inline void A2DGetFIFOStatus(struct A2DBoard* brd)
 	// Figure out which 1/4 of the 1024 FIFO words we're filled to
 	switch(stat&0x03) // Switch on stat's 2 LSB's
 	{
-		case 3:		//FIFO half full (bit0) and allmost full (bit 1)
+		case 3:		//FIFO     allmost full,     half full (3/4 to 4/4)
+			DSMLOG_DEBUG("ERROR FIFO is > 3/4 full (check IRIG timeing cable)\n");
 			brd->cur_status.fifo44ctr++; // 3/4 <= FIFO < full
 			break;
-		case 2:		//FIFO not half full and allmost empty
-			brd->cur_status.fifo14ctr++; // empty < FIFO <= 1/4
-			break;
-		case 1:		//FIFO half full and not almost full
+		case 2:		//FIFO     allmost full, not half full (2/4 to 3/4)
+			DSMLOG_DEBUG("ERROR FIFO is > 1/4 full (check IRIG timeing cable)\n");
 			brd->cur_status.fifo34ctr++; // 1/2 <= FIFO < 3/4
 			break;
-		case 0:
+		case 1:		//FIFO    allmost empty,     half full (1/4 to 2/4)
+			DSMLOG_DEBUG("ERROR FIFO is > 1/2 full (check IRIG timeing cable)\n");
 			brd->cur_status.fifo24ctr++; // 1/4 < FIFO <= 1/2
+			break;
+		case 0:		//FIFO    allmost empty, not half full (0/4 to 1/4)
+			brd->cur_status.fifo14ctr++; // empty < FIFO <= 1/4
 		default:
 			break;
 	}
@@ -978,8 +982,8 @@ static void* A2DSetupThread(void *thread_arg)
  */
 static inline int getA2DSample(struct A2DBoard* brd)
 {
-	if (!brd->enableReads) return 0;
 	// make sure only getA2DSample function is running
+	if (!brd->enableReads) return 0;
 	if (brd->readActive) return 0;
 	brd->readActive = 1;
 
@@ -1045,6 +1049,13 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	    dsm_sample_time_t tnow = GET_MSEC_CLOCK;
 	    if (!(brd->readCtr % 10000) || brd->nbadScans) {
 		DSMLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",tnow,brd->nbadScans);
+		DSMLOG_DEBUG("FIFO: %d (full) %d (3/4) %d (1/2) %d (1/4) %d (empty) %d\n",
+                             brd->cur_status.fifofullctr,
+                             brd->cur_status.fifo44ctr,
+                             brd->cur_status.fifo34ctr,
+                             brd->cur_status.fifo24ctr,
+                             brd->cur_status.fifo14ctr,
+                             brd->cur_status.fifoemptyctr);
 		DSMLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
 		    brd->cur_status.goodval[0],
 		    brd->cur_status.goodval[1],
@@ -1278,7 +1289,7 @@ static int resetA2D(struct A2DBoard* brd)
 
 	brd->interrupted = 0;
 	// Start a RT thread to allow syncing with 1PPS
-	DSMLOG_DEBUG("doing waitFor1PPS\n");
+	DSMLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
 	int res = waitFor1PPS(brd);
 	if (res) return res;
 	DSMLOG_DEBUG("Found initial PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
@@ -1297,11 +1308,13 @@ static int resetA2D(struct A2DBoard* brd)
 	A2DClearFIFO(brd);	// Reset FIFO
 
 	DSMLOG_DEBUG("Setting 1PPS Enable line\n");
-
+        
+	rtl_nanosleep(&msec10,0);
 	A2D1PPSEnable(brd);// Enable sync with 1PPS
+
+	DSMLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
 	res = waitFor1PPS(brd);
 	if (res) return res;
-
 	DSMLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
 
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD

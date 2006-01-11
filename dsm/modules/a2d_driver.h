@@ -64,6 +64,7 @@
 typedef struct
 {
 	size_t 			fifofullctr;	// FIFO filled
+#define COMPLETE_FIFO_STATUS
 #ifdef COMPLETE_FIFO_STATUS
 	size_t 			fifo44ctr;	// 3/4 <= FIFO < full event counter
 	size_t 			fifo34ctr;	// 1/2 <= FIFO < 3/4 event counter
