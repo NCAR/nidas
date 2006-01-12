@@ -322,20 +322,26 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
     try {
 	ioctl(A2D_GET_STATUS,&stat,sizeof(stat));
 	ostr << "<td align=left>";
-	bool allOK = true;
+	ostr << "fifo 1/4ths=" <<
+		stat.preFifoLevel[0] << ',' <<
+		stat.preFifoLevel[1] << ',' <<
+		stat.preFifoLevel[2] << ',' <<
+		stat.preFifoLevel[3] << ',' <<
+		stat.preFifoLevel[4] << ',' <<
+		stat.preFifoLevel[5];
+	ostr << ", #badlev=" << stat.nbadFifoLevel + stat.fifoNotEmpty <<
+		", #lost=" << stat.skippedSamples;
+
 	set<int>::const_iterator si;
 	for (si = sortedChannelNums.begin(); si != sortedChannelNums.end(); si++) {
 	    int ichan = *si;
 	    if (stat.nbad[ichan] > 0) {
-		ostr << "c=" << ichan << 
+		ostr << " ,c=" << ichan << 
 			",nbad=" << stat.nbad[ichan] <<
-			",stat=" << hex << stat.badval[ichan] << dec << ' ';
-		allOK = false;
+			",stat=" << hex << stat.badval[ichan] << dec;
 	    }
 	}
-	if (allOK) ostr << "all channels OK ";
-	ostr << "#full=" << stat.fifofullctr <<
-		"</td>" << endl;
+        ostr << "</td>";
     }
     catch(const atdUtil::IOException& ioe) {
 	atdUtil::Logger::getInstance()->log(LOG_ERR,
