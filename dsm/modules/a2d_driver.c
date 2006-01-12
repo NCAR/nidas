@@ -1000,7 +1000,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	int flevel = getA2DFIFOLevel(brd);
 	brd->cur_status.preFifoLevel[flevel]++;
 	if (flevel != brd->expectedFifoLevel) {
-	    if (!(brd->nbadFifoLevel++ % 100))
+	    if (!(brd->nbadFifoLevel++ % 1000))
 		DSMLOG_ERR("clock=%d, pre-read fifo level=%d is not expected value=%d (%d times)\n",
 		GET_MSEC_CLOCK,flevel,brd->expectedFifoLevel,brd->nbadFifoLevel);
 	    if (flevel == 0) {
@@ -1051,12 +1051,11 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	brd->cur_status.postFifoLevel[flevel]++;
 
 	if (flevel > 0) {
-	    if (!(brd->fifoNotEmpty++ % 100))
-		DSMLOG_WARNING("post-read fifo not empty %d times\n",
-			brd->fifoNotEmpty);
-	    // we're completely out of sync
-	    if (flevel > brd->expectedFifoLevel) {
-	        startA2DResetThread(brd);
+	    if (!(brd->fifoNotEmpty++ % 1000) ||
+		    flevel > brd->expectedFifoLevel) {
+		DSMLOG_WARNING("post-read fifo level=%d (not empty): %d times. Resetting A2D\n",
+			flevel,brd->fifoNotEmpty);
+		startA2DResetThread(brd);
 		brd->readActive = 0;
 		return nbad;
 	    }
@@ -1115,6 +1114,8 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		    brd->cur_status.nbad[6],
 		    brd->cur_status.nbad[7]);
 		    if (brd->nbadScans > 10) {
+			DSMLOG_WARNING("nbadScans=%d. Resetting A2D\n",
+				brd->nbadScans);
 		        startA2DResetThread(brd);
 			brd->readActive = 0;
 			return 0;
@@ -1163,7 +1164,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		memcpy(brd->buffer+brd->head,&samp,slen);
 		brd->head += slen;
 	    }
-	    else if (!(brd->skippedSamples++ % 100))
+	    else if (!(brd->skippedSamples++ % 1000))
 		    DSMLOG_WARNING("warning: %d samples lost due to backlog in %s\n",
 			brd->skippedSamples,brd->a2dFifoName);
 	}
