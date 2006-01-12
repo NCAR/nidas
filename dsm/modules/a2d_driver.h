@@ -63,19 +63,17 @@
 /* A2D status info */
 typedef struct
 {
-	size_t 			fifofullctr;	// FIFO filled
-#define COMPLETE_FIFO_STATUS
-#ifdef COMPLETE_FIFO_STATUS
-	size_t 			fifo44ctr;	// 3/4 <= FIFO < full event counter
-	size_t 			fifo34ctr;	// 1/2 <= FIFO < 3/4 event counter
-	size_t 			fifo24ctr;	// 1/4 < FIFO  < 1/2   event counter
-	size_t 			fifo14ctr;	// empty < FIFO <= 1/4  event counter
-	size_t 			fifoemptyctr;	// FIFO empty event counter
-#endif
-	size_t nbad[MAXA2DS];	// number of bad status words in last 100 scans
+	// fifoLevel indexes 0-5 correspond to return value of getA2DFIFOLevel
+	// 0(empty),1(<=1/4),2(<2/4),3(<3/4),4(<4/4),5(full)
+	size_t preFifoLevel[6];	 // counters for fifo level, pre-read
+	size_t postFifoLevel[6]; // counters for fifo level, post-read
+	size_t nbad[MAXA2DS];	 // number of bad status words in last 100 scans
 	unsigned short badval[MAXA2DS];	// value of last bad status word
 	unsigned short goodval[MAXA2DS];// value of last good status word
 	unsigned short	ser_num;	// A/D card serial number
+	size_t nbadFifoLevel;	// #times hw fifo not at expected level pre-read
+	size_t fifoNotEmpty;	// #times hw fifo not empty post-read
+	size_t skippedSamples;	// discarded samples because of slow RTL fifo
 } A2D_STATUS;
 
 typedef struct 
@@ -275,13 +273,16 @@ struct A2DBoard {
     int interrupted;
     size_t readCtr;
     int nbadScans;
-    int fifoNotEmpty;
+    int expectedFifoLevel;
     int master;
     int nreads;			// number of reads to empty fifo
     int head;			// pointer to head of buffer
     int tail;			// pointer to tail of buffer
     int latencyCnt;		// number of samples to buffer
     size_t sampleCnt;		// sample counter
+
+    size_t nbadFifoLevel;
+    size_t fifoNotEmpty;
     size_t skippedSamples;	// discarded samples because of 
     				// RTL FIFO sluggishness.
     unsigned char buffer[A2D_BUFFER_SIZE];	// data buffer

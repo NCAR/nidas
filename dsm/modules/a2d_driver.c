@@ -659,43 +659,45 @@ static int A2DEmptyFIFO( struct A2DBoard* brd)
 
 }
 /*-----------------------Utility------------------------------*/
-// Grab the h/w FIFO data flags for posterity
-static inline void A2DGetFIFOStatus(struct A2DBoard* brd)
+/**
+ * Get the FIFO fill level:
+ * @return 0: empty
+ *	   1: not empty but less than or = 1/4 full
+ *         2: more than 1/4 but less than 1/2
+ *         3: more than or = 1/2 but less than 3/4
+ *         4: more than or = 3/4 but not totally full
+ *         5: full
+ */
+static inline int getA2DFIFOLevel(struct A2DBoard* brd)
 {
 	unsigned short stat;
 	outb(A2DIOFIFOSTAT,brd->chan_addr);
 	stat = inw(brd->addr);
 
-	brd->cur_status.ser_num = (stat & 0xFFC0)>>6; // S/N is upper 10 bits  
-
 	// If FIFONOTFULL is 0, fifo IS full
-	if((stat & FIFONOTFULL) == 0) brd->cur_status.fifofullctr++;	// FIFO is full
+	if((stat & FIFONOTFULL) == 0) return 5;
 
-#ifdef COMPLETE_FIFO_STATUS
 	// If FIFONOTEMPTY is 0, fifo IS empty
-	else if((stat & FIFONOTEMPTY) == 0) brd->cur_status.fifoemptyctr++; 
+	else if((stat & FIFONOTEMPTY) == 0) return 0;
 
 	// Figure out which 1/4 of the 1024 FIFO words we're filled to
+
+	// bit 0, 0x1, half full
+	// bit 1, 0x2, either almost full (>=3/4) or almost empty (<=1/4).
 	switch(stat&0x03) // Switch on stat's 2 LSB's
 	{
-		case 3:		//FIFO     allmost full,     half full (3/4 to 4/4)
-			DSMLOG_DEBUG("ERROR FIFO is > 3/4 full (check IRIG timeing cable)\n");
-			brd->cur_status.fifo44ctr++; // 3/4 <= FIFO < full
-			break;
-		case 2:		//FIFO     allmost full, not half full (2/4 to 3/4)
-			DSMLOG_DEBUG("ERROR FIFO is > 1/4 full (check IRIG timeing cable)\n");
-			brd->cur_status.fifo34ctr++; // 1/2 <= FIFO < 3/4
-			break;
-		case 1:		//FIFO    allmost empty,     half full (1/4 to 2/4)
-			DSMLOG_DEBUG("ERROR FIFO is > 1/2 full (check IRIG timeing cable)\n");
-			brd->cur_status.fifo24ctr++; // 1/4 < FIFO <= 1/2
-			break;
-		case 0:		//FIFO    allmost empty, not half full (0/4 to 1/4)
-			brd->cur_status.fifo14ctr++; // empty < FIFO <= 1/4
-		default:
-			break;
+		case 3:	// allmost full/empty, half full (>=3/4 to <4/4)
+		    return 4;
+		case 2:	// allmost full/empty, not half full (empty to <=1/4)
+		    return 1;
+		case 1:	// not allmost full/empty, half full (>=2/4 to <3/4)
+		    return 3;
+		case 0:	// not allmost full/empty, not half full (>1/4 to <2/4)
+		default:	// can't happen, but avoid compiler warn
+		    return 2;
+		    break;
 	}
-#endif
+	return 1;	// can't happen, but avoid compiler warn
 }
 	
 /*-----------------------Utility------------------------------*/
@@ -982,8 +984,9 @@ static void* A2DSetupThread(void *thread_arg)
  */
 static inline int getA2DSample(struct A2DBoard* brd)
 {
-	// make sure only getA2DSample function is running
 	if (!brd->enableReads) return 0;
+
+	// make sure only one getA2DSample function is running
 	if (brd->readActive) return 0;
 	brd->readActive = 1;
 
@@ -994,9 +997,15 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	if (samp.timestamp < brd->ttMsecAdj) samp.timestamp += MSECS_PER_DAY;
 	samp.timestamp -= brd->ttMsecAdj;
 
-	// rtl_nanosleep(&usec20,0);
-
-	// A2DGetFIFOStatus(brd);
+	int flevel = getA2DFIFOLevel(brd);
+	brd->cur_status.preFifoLevel[flevel]++;
+	if (flevel != brd->expectedFifoLevel) {
+	    if (!(brd->nbadFifoLevel++ % 100))
+		DSMLOG_ERR("Pre-read fifo level=%d is not expected value=%d (%d times)\n",
+		flevel,brd->expectedFifoLevel,brd->nbadFifoLevel);
+	    if (flevel == 5) 
+		DSMLOG_ERR("Fifo level=%d. Is the external clock cable plugged into the A2D board?\n",flevel);
+	}
 
 	// dataptr points to beginning of data section of A2DSAMPLE
 	register SS *dataptr = samp.data;
@@ -1034,28 +1043,45 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	    if (brd->requested[ichan]) *dataptr++ = counts;
 
 	}
+	flevel = getA2DFIFOLevel(brd);
+	brd->cur_status.postFifoLevel[flevel]++;
 
-	if (nbad > 0) {
-	    brd->nbadScans++;	// number of bad fifo scans in past 100 scans
-	    A2DClearFIFO(brd);	// Reset FIFO
-	}
-	else if (!A2DFIFOEmpty(brd)) {
+	if (flevel > 0) {
 	    if (!(brd->fifoNotEmpty++ % 100))
-		DSMLOG_WARNING("fifo not empty %d times\n",brd->fifoNotEmpty);
-	    A2DClearFIFO(brd);	// Reset FIFO
+		DSMLOG_WARNING("post-read fifo not empty %d times\n",
+			brd->fifoNotEmpty);
+	    // we're completely out of sync
+	    if (flevel > brd->expectedFifoLevel) {
+	        startA2DResetThread(brd);
+		brd->readActive = 0;
+		return nbad;
+	    }
 	}
+	if (nbad > 0) brd->nbadScans++;
 
-	if (!(++brd->readCtr % 100)) {
-	    dsm_sample_time_t tnow = GET_MSEC_CLOCK;
-	    if (!(brd->readCtr % 10000) || brd->nbadScans) {
-		DSMLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",tnow,brd->nbadScans);
-		DSMLOG_DEBUG("FIFO: %d (full) %d (3/4) %d (1/2) %d (1/4) %d (empty) %d\n",
-                             brd->cur_status.fifofullctr,
-                             brd->cur_status.fifo44ctr,
-                             brd->cur_status.fifo34ctr,
-                             brd->cur_status.fifo24ctr,
-                             brd->cur_status.fifo14ctr,
-                             brd->cur_status.fifoemptyctr);
+	/* DSMSensor::printStatus queries these values every 10 seconds */
+	if (!(++brd->readCtr % (INTRP_RATE * 10))) {
+	    // debug print every minute, or if there are bad scans
+	    if (!(brd->readCtr % (INTRP_RATE * 60)) || brd->nbadScans) {
+		DSMLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",
+			GET_MSEC_CLOCK,brd->nbadScans);
+		DSMLOG_DEBUG("nbadFifoLevel=%d, #fifoNotEmpty=%d, #skipped=%d\n",
+		    brd->nbadFifoLevel,brd->fifoNotEmpty,brd->skippedSamples);
+		DSMLOG_DEBUG("pre-scan  fifo=%d,%d,%d,%d,%d,%d (0,<=1/4,<2/4,<3/4,<4/4,full)\n",
+                             brd->cur_status.preFifoLevel[0],
+                             brd->cur_status.preFifoLevel[1],
+                             brd->cur_status.preFifoLevel[2],
+                             brd->cur_status.preFifoLevel[3],
+                             brd->cur_status.preFifoLevel[4],
+                             brd->cur_status.preFifoLevel[5]);
+		DSMLOG_DEBUG("post-scan fifo 1/4ths=%d,%d,%d,%d,%d,%d\n",
+
+                             brd->cur_status.postFifoLevel[0],
+                             brd->cur_status.postFifoLevel[1],
+                             brd->cur_status.postFifoLevel[2],
+                             brd->cur_status.postFifoLevel[3],
+                             brd->cur_status.postFifoLevel[4],
+                             brd->cur_status.postFifoLevel[5]);
 		DSMLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
 		    brd->cur_status.goodval[0],
 		    brd->cur_status.goodval[1],
@@ -1065,7 +1091,8 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		    brd->cur_status.goodval[5],
 		    brd->cur_status.goodval[6],
 		    brd->cur_status.goodval[7]);
-		DSMLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x\n",
+		if (brd->nbadScans > 0) {
+		    DSMLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x\n",
 		    brd->cur_status.badval[0],
 		    brd->cur_status.badval[1],
 		    brd->cur_status.badval[2],
@@ -1074,7 +1101,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		    brd->cur_status.badval[5],
 		    brd->cur_status.badval[6],
 		    brd->cur_status.badval[7]);
-		DSMLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
+		    DSMLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
 		    brd->cur_status.nbad[0],
 		    brd->cur_status.nbad[1],
 		    brd->cur_status.nbad[2],
@@ -1083,12 +1110,21 @@ static inline int getA2DSample(struct A2DBoard* brd)
 		    brd->cur_status.nbad[5],
 		    brd->cur_status.nbad[6],
 		    brd->cur_status.nbad[7]);
-		if (brd->nbadScans > 10) startA2DResetThread(brd);
-		// startA2DResetThread(brd);
+		    if (brd->nbadScans > 10) {
+		        startA2DResetThread(brd);
+			brd->readActive = 0;
+			return 0;
+		    }
+		}
+			
+
 		brd->readCtr = 0;
-	    }
+	    }	// debug printout
 	    brd->nbadScans = 0;
 	    // copy current status to prev_status for access by ioctl A2D_GET_STATUS
+	    brd->cur_status.nbadFifoLevel = brd->nbadFifoLevel;
+	    brd->cur_status.fifoNotEmpty = brd->fifoNotEmpty;
+	    brd->cur_status.skippedSamples = brd->skippedSamples;
 	    memcpy(&brd->prev_status,&brd->cur_status,sizeof(A2D_STATUS));
 	    memset(&brd->cur_status,0,sizeof(A2D_STATUS));
 	}
@@ -1151,6 +1187,8 @@ static inline int getA2DSample(struct A2DBoard* brd)
 static void a2dIrigCallback(void *ptr)
 {
 	struct A2DBoard* brd = (struct A2DBoard*) ptr;
+	// We're now clearing the fifo in the last initialization
+	// step, so this does not appear
         if (brd->discardNextScan) {
 	    rtl_nanosleep(&usec20,0);
 	    A2DClearFIFO(brd);	// Reset FIFO
@@ -1304,9 +1342,6 @@ static int resetA2D(struct A2DBoard* brd)
 	A2DSetSYNC(brd);	// Stop A/D clocks
 	A2DAuto(brd);		// Switch to automatic mode
 
-	DSMLOG_DEBUG("Final FIFO Clear\n");
-	A2DClearFIFO(brd);	// Reset FIFO
-
 	DSMLOG_DEBUG("Setting 1PPS Enable line\n");
         
 	rtl_nanosleep(&msec20,0);
@@ -1316,6 +1351,7 @@ static int resetA2D(struct A2DBoard* brd)
 	res = waitFor1PPS(brd);
 	if (res) return res;
 	DSMLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
+	A2DClearFIFO(brd);	// Reset FIFO
 
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
 	// Zero the semaphore
@@ -1333,14 +1369,23 @@ static int resetA2D(struct A2DBoard* brd)
 	rtl_pthread_attr_destroy(&attr);
 #endif
 
-	brd->discardNextScan = 1;		// discard the initial scan
+	// We're now clearing the fifo in the last initialization
+	// step, and discarding the initial scan does not appear necessary.
+	// After further testing we can remove this variable 
+	// and the check in a2dIrigCallback.
+	brd->discardNextScan = 0;	// whether to discard the initial scan
+
 	brd->readActive = 0;
 	brd->enableReads = 1;
+
 	brd->interrupted = 0;
-	brd->skippedSamples = 0;
+
 	brd->nbadScans = 0;
-	brd->fifoNotEmpty = 0;
 	brd->readCtr = 0;
+
+	brd->nbadFifoLevel = 0;
+	brd->fifoNotEmpty = 0;
+	brd->skippedSamples = 0;
 
 	// start the IRIG callback routine at 100 Hz
 	register_irig_callback(&a2dIrigCallback,IRIG_100_HZ, brd);
@@ -1399,6 +1444,11 @@ static int openA2D(struct A2DBoard* brd)
 	brd->tail = 0;
 
 	brd->nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
+
+	// expected fifo level just before we read
+	brd->expectedFifoLevel = (brd->nreads * 4) / HWFIFODEPTH + 1;
+	// level of 1 means <=1/4
+	if (brd->nreads == HWFIFODEPTH/4) brd->expectedFifoLevel = 1;
 
 	/*
 	 * How much to adjust the time tags backwards.
