@@ -1001,8 +1001,12 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	brd->cur_status.preFifoLevel[flevel]++;
 	if (flevel != brd->expectedFifoLevel) {
 	    if (!(brd->nbadFifoLevel++ % 100))
-		DSMLOG_ERR("Pre-read fifo level=%d is not expected value=%d (%d times)\n",
-		flevel,brd->expectedFifoLevel,brd->nbadFifoLevel);
+		DSMLOG_ERR("clock=%d, pre-read fifo level=%d is not expected value=%d (%d times)\n",
+		GET_MSEC_CLOCK,flevel,brd->expectedFifoLevel,brd->nbadFifoLevel);
+	    if (flevel == 0) {
+		brd->readActive = 0;
+	        return 0;
+	    }
 	    if (flevel == 5) 
 		DSMLOG_ERR("Fifo level=%d. Is the external clock cable plugged into the A2D board?\n",flevel);
 	}
@@ -1074,7 +1078,7 @@ static inline int getA2DSample(struct A2DBoard* brd)
                              brd->cur_status.preFifoLevel[3],
                              brd->cur_status.preFifoLevel[4],
                              brd->cur_status.preFifoLevel[5]);
-		DSMLOG_DEBUG("post-scan fifo 1/4ths=%d,%d,%d,%d,%d,%d\n",
+		DSMLOG_DEBUG("post-scan fifo=%d,%d,%d,%d,%d,%d\n",
 
                              brd->cur_status.postFifoLevel[0],
                              brd->cur_status.postFifoLevel[1],
@@ -1473,8 +1477,8 @@ static int openA2D(struct A2DBoard* brd)
 		(USECS_PER_SEC / INTRP_RATE - USECS_PER_SEC / brd->MaxHz) /
 			USECS_PER_MSEC;
 
-	DSMLOG_DEBUG("nreads=%d, ttMsecAdj=%d\n",
-		brd->nreads,brd->ttMsecAdj);
+	DSMLOG_DEBUG("nreads=%d, expectedFifoLevel=%d, ttMsecAdj=%d\n",
+		brd->nreads,brd->expectedFifoLevel,brd->ttMsecAdj);
 #ifdef DEBUG
 #endif
 
