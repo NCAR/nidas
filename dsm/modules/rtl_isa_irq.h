@@ -22,7 +22,7 @@
 
 // #define NUM_ISA_IRQS 8
 
-typedef unsigned int (*isa_irq_hander_t) (unsigned int irq, void* callbackPtr,
+typedef unsigned int (*isa_irq_handler_t) (unsigned int irq, void* callbackPtr,
 	struct rtl_frame *regs);
 
 /* register an ISA interrupt handler to be called on receipt of ISA
@@ -33,6 +33,6 @@ typedef unsigned int (*isa_irq_hander_t) (unsigned int irq, void* callbackPtr,
  *    callbackPtr: the pointer that you want passed to your handler,
  *	which may be (void*)0 (NULL) if you don't need it.
  */
-int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler,void* callbackPtr);
+int rtl_request_isa_irq(unsigned int irq, isa_irq_handler_t handler,void* callbackPtr);
 
 int rtl_free_isa_irq(unsigned int irq);

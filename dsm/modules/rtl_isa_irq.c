@@ -221,7 +221,7 @@ MODULE_DESCRIPTION("RTLinux ISA IRQ de-multiplexing Module");
 static unsigned short rtl_isa_irq_enabled_mask = 0;
 
 struct isrData {
-    isa_irq_hander_t handler;
+    isa_irq_handler_t handler;
     void* callbackPtr;
 };
 
@@ -394,7 +394,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
  * Otherwise, one could declare fixed arrays of ISRs (say 5) for
  * each IRQ. Or use a pool of entries.
  */
-int rtl_request_isa_irq(unsigned int irq, isa_irq_hander_t handler, void* callbackPtr)
+int rtl_request_isa_irq(unsigned int irq, isa_irq_handler_t handler, void* callbackPtr)
 {
     int i;
     int ret = -EINVAL;		/* no such isa irq */
