@@ -74,6 +74,7 @@ typedef struct
 	size_t nbadFifoLevel;	// #times hw fifo not at expected level pre-read
 	size_t fifoNotEmpty;	// #times hw fifo not empty post-read
 	size_t skippedSamples;	// discarded samples because of slow RTL fifo
+	int resets;		// number of board resets since last open
 } A2D_STATUS;
 
 typedef struct 
@@ -285,6 +286,8 @@ struct A2DBoard {
     size_t fifoNotEmpty;
     size_t skippedSamples;	// discarded samples because of 
     				// RTL FIFO sluggishness.
+    int resets;			// number of board resets since last open
+
     unsigned char buffer[A2D_BUFFER_SIZE];	// data buffer
     US OffCal;			// offset and cal bits
     UC FIFOCtl;			// hardware FIFO control word storage

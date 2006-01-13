@@ -330,6 +330,7 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 		stat.preFifoLevel[4] << ',' <<
 		stat.preFifoLevel[5];
 	ostr << ", #badlev=" << stat.nbadFifoLevel + stat.fifoNotEmpty <<
+		", #resets=" << stat.resets <<
 		", #lost=" << stat.skippedSamples;
 
 	set<int>::const_iterator si;
