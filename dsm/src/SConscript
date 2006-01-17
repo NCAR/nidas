@@ -52,6 +52,7 @@ apps = Split("""
   rserial.cc
   psi9116_sim.cc
   cat_nids.cc
+  ck_a2d.cc
 """)
 
 nodes = []

@@ -16,11 +16,8 @@
                  $HeadURL$
 */
 
-// A2D_RUN_IOCTL control messages
-#define	RUN	0x00000001
-#define	STOP	0x00000002
-#define	RESTART	0x00000003
 
+#ifdef NEEDED
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,39 +30,39 @@
 #include <sys/select.h>
 
 #include <ioctl_fifo.h>
+
+#endif
+
 #include <a2d_driver.h>
-#include <RTL_DSMSensor.h>
+#include <DSMAnalogSensor.h>
 
 using namespace std;
 using namespace dsm;
 
 
-void loada2dstruct(A2D_SET *a);
 void A2D_SETDump(A2D_SET *a);
-int  sleepytime = 1, printmodulus = 1;
-char *filtername = "fir10KHz.cfg";
 
 
 int main(int argc, char** argv)
 {
-  A2D_SET *a2d; 	//set up a control struct 
-  A2DSAMPLE buf; 	// and a data struct
-  UL run_msg;
   int ii, jj, i;
-
-  fd_set readfds;
+  int sleepytime = 1;
+  int printmodulus = 1;
+  int sample_rate = 500;
+  int firstchan = 0;
+  int lastchan = 7;
 
   if(argc < 2)
   {
-	printf("\n\nUsage:\nck_a2d <#cycles> [print interval]\n");
-	printf("Note print interval defaults to 1\n");
+	printf("\n\nUsage:\nck_a2d <#cycles> [print interval] [rate] [firstchan] [lastchan]\n");
+	printf("Defaults:\nprint interval=%d, rate=%d, firstchan=%d,lastchan=%d\n",
+		printmodulus,sample_rate,firstchan,lastchan);
 		
 	printf("\nExample:\nck_a2d 8 2 will do 8 cycles printing every other cycle.\n\n");
 	exit(0);
   }
-  else	
-	sleepytime = atoi(argv[1]);
 
+  sleepytime = atoi(argv[1]);
   if(sleepytime < 0)sleepytime = 1;
 
   if(argc > 2)
@@ -75,22 +72,51 @@ int main(int argc, char** argv)
   	if(printmodulus > sleepytime)printmodulus = sleepytime;
   }
 
-
-    if(argc == 4)
-    {
-        strcpy(filtername, argv[3]);
-    }
-
-    printf("Using filter file %s \n", filtername);
+  if(argc > 3) sample_rate = atoi(argv[3]);
+  if(argc > 4) firstchan = atoi(argv[4]);
+  if(argc > 5) lastchan = atoi(argv[5]);
 
   cerr << endl << endl;
   cerr << "----CK_A2D----" << endl; 
   cerr << __FILE__ << ": Creating sensor class ..." << endl;
 
-  RTL_DSMSensor sensor;
-
-  cerr << "setting Device name" << endl;
+  DSMAnalogSensor sensor;
   sensor.setDeviceName("/dev/dsma2d0");
+
+  SampleTag* sample = new SampleTag();
+  sample->setSensorId(0);
+  sample->setSampleId(0);
+  sample->setDSMId(0);
+  sample->setRate(sample_rate);
+
+  const int NVARIABLES = lastchan - firstchan + 1;
+
+  for (int i = firstchan; i <= lastchan; i++) {
+      Variable* var = new Variable();
+      ostringstream ost;
+      ost << "c" << i;
+      var->setName(ost.str());
+      var->setUnits("V");
+
+      ParameterT<float>* gain = new ParameterT<float>;
+      gain->setName("gain");
+      gain->setValue(1.0);
+      var->addParameter(gain);
+
+      ParameterT<bool>* bipolar = new ParameterT<bool>;
+      bipolar->setName("bipolar");
+      bipolar->setValue(true);
+      var->addParameter(bipolar);
+
+      ParameterT<int>* chan = new ParameterT<int>;
+      chan->setName("channel");
+      chan->setValue(i);
+      var->addParameter(chan);
+
+      sample->addVariable(var);
+  }
+  sensor.addSampleTag(sample);
+
   cerr << "opening" << endl;
 
   try {
@@ -103,138 +129,55 @@ int main(int argc, char** argv)
 
   cerr << __FILE__ << ": Up Fifo opened" << endl;
 
-  // Load some phoney data into the a2d structure
-  a2d = (A2D_SET *)malloc(sizeof(A2D_SET));
-  loada2dstruct(a2d);
-  cerr << __FILE__ << ": Structure loaded" << endl;
-  cerr << __FILE__ << ": Size of A2D_SET = " << sizeof(A2D_SET) << endl;
+  const size_t MAX_DATA_SIZE =
+  	NVARIABLES * sample_rate / INTRP_RATE * sizeof(short);
 
-  //Send the struct to the a2d_driver
- 
-  sensor.ioctl(A2D_SET_IOCTL, a2d, sizeof(A2D_SET));	
+  dsm_sample* buf = (dsm_sample*) malloc(SIZEOF_DSM_SAMPLE_HEADER +
+  	MAX_DATA_SIZE);
 
-  cerr << __FILE__ << ": Initialization data sent to driver" << endl;
-
-  for(int iset = 0; iset < MAXA2DS; iset++)
-  {
-  if(iset == 0)a2d->calset[iset] = 1;
-  else a2d->calset[iset] = 0;
-  if(iset == 1)a2d->offset[iset] = 1;
-  else a2d->offset[iset] = 0;
-  }
-
-  A2D_SETDump(a2d);
-/*
-  sensor.ioctl(A2D_CAL_IOCTL, a2d, sizeof(A2D_SET));
-
-  cerr << __FILE__ << ": Calibration command sent to driver" << endl;
-*/
-  run_msg = RUN;	
-
-  sensor.ioctl(A2D_RUN_IOCTL, &run_msg, sizeof(int));
-  
-  cerr << __FILE__ << ": Run command sent to driver" << endl;
-
-  usleep(10000); // Wait for one 100 Hz cycle to complete
-
+  dsm_sample_time_t timetagLast = 0;
   for(i = 0; i <  sleepytime; i++)
   {
-	int lread;
+	size_t lread;
 
-	FD_ZERO(&readfds);
-	FD_SET(sensor.getReadFd(), &readfds);
-	select(1+sensor.getReadFd(), &readfds, NULL, NULL, NULL);
+	// read header (timetag and sample size)
+	lread = sensor.read(buf, SIZEOF_DSM_SAMPLE_HEADER);
+	assert(lread == SIZEOF_DSM_SAMPLE_HEADER);
+	// read data
+	if (buf->length > MAX_DATA_SIZE) {
+	    cerr << "sample length=" << buf->length <<
+	    	" exceeds " << MAX_DATA_SIZE << endl;
+	    break;
+	}
+	lread = sensor.read(buf->data, buf->length);
+	assert(lread == buf->length);
 
-	lread = sensor.read(&buf, sizeof(A2DSAMPLE));
-	cerr << "sizeof a2dsample = " << sizeof(A2DSAMPLE);
 //	cerr << "lread=" << lread << endl;
 
 	if(i%printmodulus == 0)
 	{	
 		printf("\n\nindex = %6d\n", i);
-		printf("0x%08lX\n", buf.timestamp);
-//		printf("0x%08X\n", (UL)buf.size);
+		printf("time(msec)=%8ld, dt=%d\n",
+		    buf->timetag, 
+		    (i > 0 ?
+		    	(signed)(buf->timetag) - (signed)timetagLast : 0));
+//		printf("0x%08X\n", buf->length);
 
-		for(ii = 0; ii < INTRP_RATE ; ii++)
+
+		short* dp = (short*) buf->data;
+		for(ii = 0; ii < sample_rate / INTRP_RATE ; ii++)
 		{
-			printf("0x%05X: ", ii*MAXA2DS);
-			for(jj = 0; jj < MAXA2DS; jj++)
+			for(jj = 0; jj < NVARIABLES; jj++)
 			{
-				printf("%05d  ", buf.data[ii][jj]);
+				printf("%05d  ", *dp++);
 			}
 			printf("\n");	
 		}
 	}
+	timetagLast = buf->timetag;
   }
 
-  run_msg = STOP;	
-
-  sensor.ioctl(A2D_RUN_IOCTL, &run_msg, sizeof(int));
-  
-  cerr << __FILE__ << ": Stop command sent to driver" << endl;
-
+  sensor.close();
 
 }
 
-void loada2dstruct(A2D_SET *a2d)
-{
-	int i;
-	FILE *fp;
-	char fline[80];
-	
-/*
-Load up some phoney data in the A2D control structure, A2D_SET  
-*/
-
-  	for(i = 0; i < MAXA2DS; i++)
-	{
-		a2d->gain[i] = i;
-		a2d->ctr[i] = 0;
-		a2d->Hz[i] = (US)(2*(float)(i/4+1)*25+.5);
-		a2d->status[i] = 0;
-		a2d->ptr[i] = 0;
-		a2d->calset[i] = 0;
- 		a2d->offset[i] = 0;
-	}
- 	a2d->vcalx8 = 128;
-
-	if((fp = fopen(filtername, "r")) == NULL)
-	{
-		printf("No filter file!\n");
-		exit(1);
-	}
-	
-    for(i = 0; i < CONFBLLEN*CONFBLOCKS + 1; i++)
-    {
-        fscanf(fp, "%4x\n", &a2d->filter[i]);
-
-#ifdef DEBUGFILT
-		if(i%10==0)printf("\n%03d: ", i);
-        printf(" %04X", a2d->filter[i]);
-#endif
-    }
-
-#ifdef DEBUG
-	for(i = 0; i < 10; i++)
-	{
-		printf("0x%04X\n", a2d->filter[i]);
-	}
-#endif
-
-	return;
-}
-
-void A2D_SETDump(A2D_SET *a2d)
-{
-	int i;
-	for(i = 0;i < 8; i++)
-	{
-		printf("Gain_%1d  = %3d\t", i, a2d->gain[i]);
-		printf("Hz_%1d    = %3d\n", i, a2d->Hz[i]);
-	}
-
-	printf("Vcalx8  = %3d\n", a2d->vcalx8);
-	printf("filter0 = 0x%04X\n", a2d->filter[0]);
-
-	return;
-}
