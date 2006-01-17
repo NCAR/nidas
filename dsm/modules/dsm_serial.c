@@ -1582,6 +1582,14 @@ int inline check_lsr(struct serialPort*port, unsigned char lsr)
 }
 
 /*
+ * Copy all available characters from the UART receive fifo
+ * into a sample. This function is called from the uart
+ * interrupt handler.
+ * After copying the characters into the sample, the head
+ * pointer of the sample queue is incremented and a semaphore
+ * is posted so that the reader of this device can then
+ * proceed to read & parse the sample at non-interrupt time.
+ *
  * nchar_delay: estimate of the delay between when the
  * last character was received and when the interrupt service
  * routine was called.  A 16850 UART (and possibly others)
