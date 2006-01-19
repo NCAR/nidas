@@ -455,7 +455,7 @@ int DataStats::run() throw()
 	result = 1;
     }
 
-    counter->printResults();
+    if (counter) counter->printResults();
     delete counter;
 
     return result;
