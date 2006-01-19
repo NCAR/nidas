@@ -89,7 +89,7 @@ void AIO16_A2DSensor::open(int flags) throw(atdUtil::IOException)
 
 void AIO16_A2DSensor::close() throw(atdUtil::IOException)
 {
-    // cerr << "doing AIO16_STOP" << endl;
+    cerr << "doing AIO16_STOP" << endl;
     ioctl(AIO16_STOP,(const void*)0,0);
     RTL_DSMSensor::close();
 }
@@ -150,9 +150,9 @@ void AIO16_A2DSensor::init() throw(atdUtil::InvalidParameterException)
 	 * voltage value.
 	 *
 	 *    Vcorr = Vuncorr * corSlope + corIntercept
-	 *	    = (cnts * 20 / 65536 / gain + offset) * corSlope +
+	 *	    = (cnts * 20 / 65535 / gain + offset) * corSlope +
 	 *			corIntercept
-	 *	    = cnts * 20 / 65536 / gain * corSlope +
+	 *	    = cnts * 20 / 65535 / gain * corSlope +
 	 *		offset * corSlope + corIntercept
 	 */
 
@@ -211,7 +211,7 @@ bool AIO16_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) 
     dsm_time_t tt = insamp->getTimeTag();
 
     // pointer to raw A2D counts
-    const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
+    const unsigned short* sp = (const unsigned short*) insamp->getConstVoidDataPtr();
 
     // raw data are shorts
     assert((insamp->getDataByteLength() % sizeof(short)) == 0);
@@ -235,7 +235,7 @@ bool AIO16_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) 
     bool debug = GET_DSM_ID(insamp->getId()) == 0;
 #endif
 
-    for (unsigned int ival = 0; ival < nvalues; ) {
+    for (unsigned int ival = 0; ival < nvalues; ival++) {
 
 	int isamp = sampleIndices[ival];
 	int sampIndex = subSampleIndices[ival];
@@ -287,16 +287,16 @@ bool AIO16_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) 
 		fp[j] = floatNAN;
 	}
 
-	signed short sval = sp[ival];
+	unsigned short sval = sp[ival];
 	float volts;
-	if (sval == -32768) volts = floatNAN;
-	else volts = convIntercept[ival] + convSlope[ival] * sval;
+	// if (sval == 32768) volts = floatNAN;
+	volts = convIntercept[ival] + convSlope[ival] * sval;
 #ifdef DEBUG
 	if (debug && !(debugcntr % 100))
 	    cerr << " ival=" << ival <<
 		" sval=" << sval << " volts=" << volts <<
-		" convIntercept[ivalmod]=" << convIntercept[ivalmod] <<
-		" convSlope[ivalmod]=" << convSlope[ivalmod] <<
+		" convIntercept[ival]=" << convIntercept[ival] <<
+		" convSlope[ival]=" << convSlope[ival] <<
 	    " outindex=" << sampIndex << endl;
 #endif
 	osamp->getDataPtr()[sampIndex] = volts;
