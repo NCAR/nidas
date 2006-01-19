@@ -102,6 +102,7 @@ sources = [ Split("""
   GPS_NMEA_Serial.cc
   IRIGSensor.cc
   DSMAnalogSensor.cc
+  DSC_A2DSensor.cc
   A2DBoardTempSensor.cc
   SocketSensor.cc
   PSI9116_Sensor.cc
