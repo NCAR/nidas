@@ -352,7 +352,7 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 // The gain can go down to .7 before the system has saturation problems
 // Check this 
 
-static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
+static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGainMul, int A2DGainDiv)
 {
 	DSMLOG_DEBUG("*brd = %x   A2DSel = %d   A2DGain = %d\n", brd, A2DSel, A2DGain);
 	unsigned int DACAddr;
@@ -383,7 +383,7 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain)
 	// Point to the appropriate DAC channel
 	outb(D2AChsel, brd->chan_addr);		// Set the card channel pointer
 
-	GainCode = (UC)(A2DGAIN_MUL*A2DGain/A2DGAIN_DIV);
+	GainCode = (UC)(A2DGainMul*A2DGain/A2DGainDiv);
 
 	// Write the code to the selected DAC
 	outb(GainCode, DACAddr);
@@ -912,7 +912,7 @@ static int A2DSetup(struct A2DBoard* brd)
 	for(i = 0; i < MAXA2DS; i++)
 	{	
 		// Pass filter info to init routine
-		if ((ret = A2DSetGain(brd,i,a2d->gain[i])) < 0) return ret;
+		if ((ret = A2DSetGain(brd,i,a2d->gain[i],a2d->gainMul[i],a2d->gainDiv[i])) < 0) return ret;
 		if(a2d->Hz[i] > brd->MaxHz) brd->MaxHz = a2d->Hz[i];	// Find maximum rate
 		DSMLOG_DEBUG("brd->MaxHz = %d   a2d->Hz[%d] = %d\n", brd->MaxHz, i, a2d->Hz[i]);
 		brd->requested[i] = (a2d->Hz[i] > 0);

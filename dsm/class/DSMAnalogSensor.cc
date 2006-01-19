@@ -90,6 +90,8 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     {
 	a2d.Hz[chan] = channels[chan].rateSetting;
 	a2d.gain[chan] = channels[chan].gainSetting;
+	a2d.gainMul[chan] = channels[chan].gainMul;
+	a2d.gainDiv[chan] = channels[chan].gainDiv;
 	a2d.offset[chan] = !channels[chan].bipolar;	// flip logic
 	if (a2d.Hz[chan] > maxrate) maxrate = a2d.Hz[chan];
 #ifdef DEBUG
@@ -489,6 +491,8 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	const Variable* var = *vi;
 
 	float gain = 0.0;
+        int gainMul = A2DGAIN_MUL;
+        int gainDiv = A2DGAIN_DIV;
 	bool bipolar = true;
 	int ichan = channels.size();
 	float corSlope = 1.0;
@@ -505,6 +509,18 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 		    	pname,"no value");
 			
 		gain = param->getNumericValue(0);
+	    }
+	    else if (!pname.compare("gainMul")) {
+		if (param->getLength() != 1)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	pname,"no value");
+		gainMul = param->getNumericValue(0);
+	    }
+	    else if (!pname.compare("gainDiv")) {
+		if (param->getLength() != 1)
+		    throw atdUtil::InvalidParameterException(getName(),
+		    	pname,"no value");
+		gainDiv = param->getNumericValue(0);
 	    }
 	    else if (!pname.compare("bipolar")) {
 		if (param->getLength() != 1)
@@ -563,6 +579,8 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 
 	ci.gain = gain;
 	ci.gainSetting = gainSetting(gain);
+	ci.gainMul = gainMul;
+	ci.gainDiv = gainDiv;
 	ci.bipolar = bipolar;
 	channels[ichan] = ci;
 

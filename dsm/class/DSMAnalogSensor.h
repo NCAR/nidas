@@ -100,6 +100,8 @@ protected:
 	int rateSetting;
 	float gain;
 	int gainSetting;
+	int gainMul;
+	int gainDiv;
 	bool bipolar;
     };
     std::vector<struct chan_info> channels;

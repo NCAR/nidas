@@ -1,6 +1,6 @@
 /* a2d_driver.h
 
-   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
+   Time-stamp: <Thu 19-Jan-2006 02:38:06 pm>
 
    Header for test rtl driver.
 
@@ -80,6 +80,8 @@ typedef struct
 typedef struct 
 {
 	int	gain[MAXA2DS];	// Gain settings 
+	int	gainMul[MAXA2DS];	// Gain Code multiplier
+	int	gainDiv[MAXA2DS];	// Gain Code divider
 	int	Hz[MAXA2DS];		// Sample rate in Hz. 0 is off.
 	int	offset[MAXA2DS];	// Offset flags
 	long	latencyUsecs;	// buffer latency in micro-seconds
