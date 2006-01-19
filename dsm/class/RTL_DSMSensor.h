@@ -51,7 +51,7 @@ public:
      * non-digit,
      * <li>followed by one or more digits.
      * </ul>
-     * The trailing digits specify the port number.
+     * The trailing digits specify the device number.
      * Examples:   /dev/xxxx0, /dev/xxxx_0, /dev/acme99_4,  /dev/xxx09
      */
     virtual void setDeviceName(const std::string& val);
@@ -114,9 +114,9 @@ protected:
     std::string prefix;
 
     /**
-     * Port number that is parsed from sensor name.
+     * Device number that is parsed from sensor name.
      */
-    int portNum;
+    int devNum;
 
     /**
     * Actual name of RT-Linux FIFO that is used to read data from the

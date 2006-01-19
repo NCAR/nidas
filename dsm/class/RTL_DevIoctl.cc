@@ -28,9 +28,9 @@ using namespace dsm;
 using namespace std;
 
 RTL_DevIoctl::RTL_DevIoctl(const string& prefixArg, int boardNumArg,
-	int firstPortArg):
+	int firstDevArg):
     prefix(prefixArg),
-    boardNum(boardNumArg),firstPortNum(firstPortArg),numPorts(-1),
+    boardNum(boardNumArg),firstDevNum(firstDevArg),numDevs(-1),
     inputFifoName(makeInputFifoName(prefix,boardNum)),
     outputFifoName(makeOutputFifoName(prefix,boardNum)),
     infifofd(-1),outfifofd(-1),usageCount(0)
@@ -74,28 +74,30 @@ void RTL_DevIoctl::close()
 }
 
 
-int RTL_DevIoctl::getNumPorts() throw(atdUtil::IOException)
+int RTL_DevIoctl::getNumDevs() throw(atdUtil::IOException)
 {
 
-    if (numPorts > 0) return numPorts;
+    if (numDevs > 0) return numDevs;
     if (!usageCount) open();
-    ioctl(GET_NUM_PORTS,0,&numPorts,sizeof(numPorts));
+    ioctl(GET_NUM_PORTS,0,&numDevs,sizeof(numDevs));
 
 #ifdef DEBUG
-    std::cerr << dec << "numPorts=" << numPorts << std::endl;
+    std::cerr << dec << "numDevs=" << numDevs << std::endl;
 #endif
 
-    return numPorts;
+    return numDevs;
 }
 
 
-void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
+void RTL_DevIoctl::ioctl(int cmd, int dev, void *buf, size_t len)
     throw(atdUtil::IOException)
 {
     // allow only one ioctl at a time
     atdUtil::Synchronized autosync(ioctlMutex);
 
     static const unsigned char etx = '\003';
+
+    int port = dev - firstDevNum;
 
     unsigned char* wbuf;
     unsigned char* wptr;
@@ -177,7 +179,7 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
 	throw atdUtil::IOException(inputFifoName,"read","failed to read ETX");
 
 	// now finally throw the exception
-        throw atdUtil::IOException(getDSMSensorName(port),
+        throw atdUtil::IOException(getDSMSensorName(dev),
 		string("ioctl: ") + msgbuf.get(),errval);
     }
     if (_IOC_DIR(cmd) & _IOC_READ) {
@@ -207,14 +209,14 @@ void RTL_DevIoctl::ioctl(int cmd, int port, void *buf, size_t len)
     throw atdUtil::IOException(inputFifoName,"read","failed to read ETX");
 }
 
-void RTL_DevIoctl::ioctl(int cmd, int port, const void *buf, size_t len)
+void RTL_DevIoctl::ioctl(int cmd, int dev, const void *buf, size_t len)
     throw(atdUtil::IOException)
 {
     if (_IOC_DIR(cmd) & _IOC_READ)
-	throw atdUtil::IOException(getDSMSensorName(port),
+	throw atdUtil::IOException(getDSMSensorName(dev),
 	"ioctl","cannot do ioctl get into const buf");
 
-     ioctl(cmd,port,(void*)buf,len);
+     ioctl(cmd,dev,(void*)buf,len);
 }
    
 
@@ -234,9 +236,9 @@ string RTL_DevIoctl::makeOutputFifoName(const string& prefix, int boardNum)
     return prefix + "_octl_" +  num;
 }
 
-string RTL_DevIoctl::getDSMSensorName(int portNum) const
+string RTL_DevIoctl::getDSMSensorName(int devNum) const
 {
     char num[16];
-    sprintf(num,"%d",portNum);
+    sprintf(num,"%d",devNum);
     return prefix +  num;
 }

@@ -58,12 +58,12 @@ void RTL_DSMSensor::setDeviceName(const std::string& val)
     // string prefix = devname.substr(0,pi-devname.begin());
     prefix = string(devname.begin(),pi);
 
-    string portstr(pi,devname.end());
+    string devstr(pi,devname.end());
 
-    portNum = atoi(portstr.c_str());
+    devNum = atoi(devstr.c_str());
 
-    inFifoName = prefix + "_in_" + portstr;
-    outFifoName = prefix + "_out_" + portstr;
+    inFifoName = prefix + "_in_" + devstr;
+    outFifoName = prefix + "_out_" + devstr;
 }
 
 
@@ -110,10 +110,10 @@ void RTL_DSMSensor::ioctl(int request, void* buf, size_t len)
 {
     if (!devIoctl) {
         devIoctl =
-		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
+		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,devNum);
 	devIoctl->open();
     }
-    devIoctl->ioctl(request,portNum,buf,len);
+    devIoctl->ioctl(request,devNum,buf,len);
 }
 
 void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len) 
@@ -121,10 +121,10 @@ void RTL_DSMSensor::ioctl(int request, const void* buf, size_t len)
 {
     if (!devIoctl) {
         devIoctl =
-		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,portNum);
+		RTL_DevIoctlStore::getInstance()->getDevIoctl(prefix,devNum);
 	devIoctl->open();
     }
-    devIoctl->ioctl(request,portNum,buf,len);
+    devIoctl->ioctl(request,devNum,buf,len);
 }
 
 size_t RTL_DSMSensor::read(void *buf, size_t len) throw(atdUtil::IOException)

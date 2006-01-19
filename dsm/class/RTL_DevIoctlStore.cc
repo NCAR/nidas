@@ -52,27 +52,27 @@ RTL_DevIoctlStore::~RTL_DevIoctlStore()
 }
 
 RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix,
-	int portNum) throw(atdUtil::IOException)
+	int devNum) throw(atdUtil::IOException)
 {
     /*
      * First loop over vector of found RTL_DevIoctls.
-     * For each one found, get the number of ports it supports.
-     * If the requested portNum is within the range of
-     * ports for that board, then you have the correct RTL_DevIoctl.
+     * For each one found, get the number of devices it supports.
+     * If the requested devNum is within the range of
+     * devices for that board, then you have the correct RTL_DevIoctl.
      */
     RTL_DevIoctl* fifo = 0;
     int boardNum = -1;
-    int firstPort = 0;
-    int nports = 0;
+    int firstDev = 0;
+    int ndevs = 0;
 
     fifosMutex.lock();
     for (vector<RTL_DevIoctl*>::const_iterator fi = fifos.begin();
 	fi != fifos.end(); ++fi) {
 	if ((*fi)->getPrefix() == prefix) {
 	    boardNum = (*fi)->getBoardNum();
-	    firstPort = (*fi)->getFirstPortNum();
-	    nports = (*fi)->getNumPorts();
-	    if (firstPort + nports > portNum) {
+	    firstDev = (*fi)->getFirstDevNum();
+	    ndevs = (*fi)->getNumDevs();
+	    if (firstDev + ndevs > devNum) {
 	      fifo = *fi;
 	      break;
 	    }
@@ -85,18 +85,18 @@ RTL_DevIoctl*  RTL_DevIoctlStore::getDevIoctl(const string& prefix,
      * Have to look at subsequent boards
      */
     boardNum++;
-    firstPort += nports;
+    firstDev += ndevs;
 
     for ( ; ; boardNum++ ) {
-        fifo = RTL_DevIoctlStore::getDevIoctl(prefix,boardNum,firstPort);
+        fifo = RTL_DevIoctlStore::getDevIoctl(prefix,boardNum,firstDev);
 
 	fifosMutex.lock();
 	fifos.push_back(fifo);
 	fifosMutex.unlock();
 
-	nports = fifo->getNumPorts();
-	if (firstPort + nports > portNum) break;
-	firstPort += nports;
+	ndevs = fifo->getNumDevs();
+	if (firstDev + ndevs > devNum) break;
+	firstDev += ndevs;
     }
     return fifo;
 }

@@ -10,7 +10,38 @@
 
 namespace dsm {
 /**
- * A class providing ioctl capabilities to/from an RTL_DSMDevice.
+ * A class providing ioctl capabilities to/from an RTL DSM device.
+ * The ioctl is implemented with two RTL FIFOs, one read-only,
+ * the other write-only, which communicate with the RTL driver module.
+ *
+ * One RTL driver module may support more than one device.
+ * For example the dsm_serial modules can support multiple boards,
+ * and each board supports 8 serial ports.
+ * The module can create as many fifo pairs as it wants to, as
+ * long as the first pair is called
+ *     /dev/prefix_ictl_0 and /dev/prefix_octl_0.
+ * where "prefix" is the device prefix of the module, e.g. "dsmser".
+ *
+ * Scenario;
+ * A user wants to open and send an ioctl to device /dev/prefix_14.
+ * This code first sends a GET_NUM_PORTS request over /dev/prefix_[io]ctl_0.
+ *
+ * In this example, the module responds with a value of 8 ports,
+ * meaning it supports devices /dev/prefix_0 - /dev/prefix_7
+ * over ioctl fifos /dev/prefix_[io]ctl_0.
+ *
+ * Device 14 is out of this range,  so the code increments the name
+ * to /dev/prefix_[io]ctl_1 (the "board" number is now 1) and
+ * sends a GET_NUM_PORTS request over that fifo.
+ * If the module again responds
+ * with 8 ports, then /dev/prefix_[io]ctl_1 is the correct fifo
+ * pair to use for that device.  The ioctls for this device
+ * will be addressed to board 1 (the second board), port 6,
+ * because device 14 is the 6th port on the second board.
+ * 
+ * In this way we can conserve fifos - we don't need a pair of ioctl
+ * fifos for every device - just one (or more) for each driver module.
+ * 
  */
 class RTL_DevIoctl {
 public:
@@ -18,9 +49,11 @@ public:
     /**
      * Constructor.
      * @param prefix The device prefix, containing the leading "/dev/".
+     * @boardNum: board number.
+     * @firstDev: first device number on the board. 
      * @see RTL_DSMSensor::RTL_DSMSensor()
      */
-    RTL_DevIoctl(const std::string& prefix, int boardNum, int firstPort);
+    RTL_DevIoctl(const std::string& prefix, int boardNum, int firstDev);
 
     ~RTL_DevIoctl();
 
@@ -36,15 +69,15 @@ public:
     int getBoardNum() const { return boardNum; }
 
     /**
-     * Return the first port number of the board.
+     * Return the first device number of the board.
      */
-    int getFirstPortNum() const { return firstPortNum; }
+    int getFirstDevNum() const { return firstDevNum; }
 
     /**
-     * How many ports are on this board?  This is fetched
+     * How many devices are on this board?  This is fetched
      * via the GET_NUM_PORTS ioctl to the board module.
      */
-    int getNumPorts() throw(atdUtil::IOException);
+    int getNumDevs() throw(atdUtil::IOException);
 
     /**
      * Open this RTL_DevIoctl.
@@ -87,9 +120,9 @@ protected:
 
     int boardNum;
 
-    int firstPortNum;
+    int firstDevNum;
 
-    int numPorts;
+    int numDevs;
      
     std::string inputFifoName;
 
@@ -102,8 +135,6 @@ protected:
     int usageCount;
 
     atdUtil::Mutex ioctlMutex;
-
-
 
 };
 
