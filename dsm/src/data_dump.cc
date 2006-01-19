@@ -41,7 +41,8 @@ class DumpClient: public SampleClient
 {
 public:
 
-    typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, FLOAT, IRIG } format_t;
+    typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
+    	FLOAT, IRIG } format_t;
 
     DumpClient(dsm_sample_id_t,format_t,ostream&);
 
@@ -110,6 +111,16 @@ bool DumpClient::receive(const Sample* samp) throw()
 	{
 	const short* sp =
 		(const short*) samp->getConstVoidDataPtr();
+	ostr << setfill(' ');
+	for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
+	    ostr << setw(6) << sp[i] << ' ';
+	ostr << endl;
+	}
+        break;
+    case UNSIGNED_SHORT:
+	{
+	const unsigned short* sp =
+		(const unsigned short*) samp->getConstVoidDataPtr();
 	ostr << setfill(' ');
 	for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
 	    ostr << setw(6) << sp[i] << ' ';
@@ -199,7 +210,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHIps:Sx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHIps:SUx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -224,6 +235,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'S':
 	    format = DumpClient::SIGNED_SHORT;
+	    break;
+	case 'U':
+	    format = DumpClient::UNSIGNED_SHORT;
 	    break;
 	case 'x':
 	    xmlFileName = optarg;
