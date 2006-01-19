@@ -147,11 +147,11 @@ struct AIO16_Status
 #define AIO16_8254_RW_LS_MS	0x30	// next r/w is least followed by most
 
 #define AIO16_8254_MODE_0	0x00
-#define AIO16_8254_MODE_1	0x01
-#define AIO16_8254_MODE_2	0x02
-#define AIO16_8254_MODE_3	0x03
-#define AIO16_8254_MODE_4	0x04
-#define AIO16_8254_MODE_5	0x05
+#define AIO16_8254_MODE_1	0x02
+#define AIO16_8254_MODE_2	0x04
+#define AIO16_8254_MODE_3	0x06
+#define AIO16_8254_MODE_4	0x08
+#define AIO16_8254_MODE_5	0x0a
 
 #define AIO16_FIFO_QUEUE_SIZE	4	// 
 
