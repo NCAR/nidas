@@ -1,9 +1,6 @@
 
 /*  a2d_driver.c/
 
-
-Time-stamp: <Wed 13-Apr-2005 05:57:57 pm>
-
 Driver and utility modules for Diamond System A2D cards.
 
 Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -46,11 +43,13 @@ Revisions:
 /* ioport addresses of installed boards, 0=no board installed */
 static int ioports[MAX_DSC_BOARDS] = { 0x330, 0, 0, 0 };
 
-/* irqs. 0=poll instead of using interrupts */
+/* irqs, required for each board */
 static int irqs[MAX_DSC_BOARDS] = { 6, 0, 0, 0 };
 
 /* board types: 0=MM16AT, 1=MM32XAT 
  * See #defines for DSC_XXXXX_BOARD)
+ * Doesn't seem to be an easy way to auto-detect the board type,
+ * but it's probably do-able.
  */
 static int types[MAX_DSC_BOARDS] = { DSC_MM16AT_BOARD, 0, 0, 0 };
 
@@ -87,7 +86,7 @@ void cleanup_module(void);
 
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
-  { DSC_CONFIG,_IOC_SIZE(DSC_CONFIG) },
+  { DSC_CONFIG,sizeof(struct DSC_Config) },
   { DSC_STATUS,_IOC_SIZE(DSC_STATUS)  },
   { DSC_START, _IOC_SIZE(DSC_START)  },
   { DSC_STOP,_IOC_SIZE(DSC_STOP) },
@@ -113,7 +112,7 @@ static void setTimerClock(struct DSC_Board* brd,
      * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
      * bits 5,4: 0=ctr latch, 1=r/w lsbyte only, 2=r/w msbyte, 3=lsbtye,msbyte
      * bits 3,2,1: mode, 2=rate generator
-     * bit 0: binary 16 bit counter, 1=4 decade BCD
+     * bit 0: 0=binary 16 bit counter, 1=4 decade BCD
      */
     unsigned char ctrl = 0;
     int caddr = 0;
@@ -146,7 +145,7 @@ static void setTimerClock(struct DSC_Board* brd,
     	(int)ctrl,(int)lobyte,(int)hibyte);
 }
 
-static void initializeA2DTimer(struct DSC_Board* brd)
+static void initializeA2DClock(struct DSC_Board* brd)
 {
 
     unsigned long ticks = (USECS_PER_SEC * 10 + brd->maxRate/2) / brd->maxRate;
@@ -201,8 +200,8 @@ static void* sampleThreadFunc(void *thread_arg)
     DSMLOG_INFO("scanDeltaT=%d\n",scanDeltaT);
 
 #ifdef DEBUG
-#endif
     dsm_sample_time_t lasttt;
+#endif
 
     dsm_sample_time_t tt0 = 0;
     dsm_sample_time_t tt = tt0;
@@ -224,8 +223,8 @@ static void* sampleThreadFunc(void *thread_arg)
 	    continue;
 	}
 #ifdef DEBUG
-	DSMLOG_DEBUG("ThreadFunc, time=%d, status=0x%x, head=%d,tail=%d\n",
-	    GET_MSEC_CLOCK,(unsigned int)brd->status.reg,
+	DSMLOG_DEBUG("ThreadFunc, time=%d, head=%d,tail=%d\n",
+	    GET_MSEC_CLOCK,
 	    brd->samples.head,brd->samples.tail);
 #endif
 
@@ -234,29 +233,38 @@ static void* sampleThreadFunc(void *thread_arg)
 
 	int nval = insamp->length / sizeof(short);
 
-	// compute time of first whole scan in this fifo dump 
+	// compute time of first whole scan in this fifo dump.
+	// The fifoThreshold of MM16AT is fixed at 256 samples,
+	// which may not be an integral number of scans.
+	// This sample may not contain an integral number of scans.
 	tt0 = insamp->timetag;
 	int ndt;
 	if (outChanIndex == 0)
 	    ndt = nval / brd->nchans;
 	else
 	    ndt = (nval - (brd->nchans-outChanIndex)) / brd->nchans;
-
-	// conversion time of first sample in input
 	long dt = ndt * scanDeltaT;
+
+	// tt0 is conversion time of first sample in input
 	if (tt0 < dt) tt0 += MSECS_PER_DAY;
 	tt0 -= dt;
 	if (outChanIndex == 0) tt = tt0;
 
 #ifdef DEBUG
-#endif
 	DSMLOG_INFO("clock=%d, tt=%d, tt0=%d, nval=%d, ndt=%d, dt=%d, lasttt=%d, diff=%d\n",
 		GET_MSEC_CLOCK,insamp->timetag,tt0,nval, ndt,dt,lasttt,
 		insamp->timetag - lasttt);
 	lasttt = tt;
+#endif
 
-	register unsigned short *dp = (unsigned short *)insamp->data;
-	register unsigned short *ep = dp + nval;
+	register short *dp = (short *)insamp->data;
+	register short *ep = dp + nval;
+
+#ifdef DEBUG
+	DSMLOG_DEBUG("thread: data0=%d,dataN=%d\n",
+	    dp[0],dp[brd->fifoThreshold-1]);
+#endif
+
 
 	for (; dp < ep; ) {
 	    int chanNum = outChanIndex + brd->lowChan;
@@ -307,9 +315,7 @@ static void* sampleThreadFunc(void *thread_arg)
 			memcpy(brd->buffer+brd->head,&outsamp,slen);
 			brd->head += slen;
 		    }
-		    else if (!(brd->skippedSamples++ % 100))
-			DSMLOG_WARNING("warning: %d samples lost due to backlog in %s\n",
-			    brd->skippedSamples,brd->outFifoName);
+		    else brd->status.missedSamples++;
 		}
 		outptr = outsamp.data;
 		tt0 += scanDeltaT;
@@ -361,34 +367,43 @@ unsigned int dsc_irq_handler(unsigned int irq,
 	GET_HEAD(brd->samples,DSC_SAMPLE_QUEUE_SIZE);
     if (!samp) {                // no output sample available
         brd->status.missedSamples += brd->fifoThreshold;
-	for (i = 0; i < brd->fifoThreshold; i++) {
-	    inb(brd->addr);
-	    inb(brd->addr + 1);
-	}
+	for (i = 0; i < brd->fifoThreshold; i++) inw(brd->addr);
         return 0;
     }
 
     samp->timetag = GET_MSEC_CLOCK;
     register char* dp = samp->data;
 
-    for (i = 0; i < brd->fifoThreshold; i++) {
-	*dp++ = inb(brd->addr);
-	*dp++ = inb(brd->addr + 1);
+    // the actual fifo read
+    insw(brd->addr,dp,brd->fifoThreshold);
+    samp->length = brd->fifoThreshold * sizeof(short);
+
+    // acknowledge interrupt
+    outb(brd->int_ack_val, brd->int_ack_reg);
+
+    /* On the MM16AT the fifo empty bit isn't set after reading
+     * threshold number of values.  Perhaps it's a board bug?
+     * On the MM32XAT the fifo empty bit is set at this point.
+     */
+    flevel = brd->getFifoLevel(brd);
+    if (flevel != 0) {
+        brd->status.fifoNotEmpty++;
+#ifdef DEBUG
+	DSMLOG_INFO("fifo level=%d, base+8=0x%x, base+10=0x%x\n",
+		flevel,inb(brd->addr+8),inb(brd->addr+10));
+#endif
     }
-    samp->length = dp - samp->data;
+
+#ifdef DEBUG
+    dp = samp->data;
+    DSMLOG_DEBUG("irq: timetag=%d, data0=%d,dataN=%d\n",
+	samp->timetag,
+    	((short *)dp)[0],((short *)dp)[brd->fifoThreshold-1]);
+#endif
 
     /* increment head, this sample is ready for consumption */
     INCREMENT_HEAD(brd->samples,DSC_SAMPLE_QUEUE_SIZE);
     rtl_sem_post(&brd->sampleSem);
-
-    flevel = brd->getFifoLevel(brd);
-    if (flevel != 0) {
-        brd->status.fifoNotEmpty++;
-	DSMLOG_INFO("fifo level=%d\n",flevel);
-    }
-
-    // acknowledge interrupt
-    outb(brd->int_ack_val, brd->int_ack_reg);
 
     return 0;
 }
@@ -491,6 +506,8 @@ static int selectChannelsMM16AT(struct DSC_Board* brd)
     rtl_spin_lock_irqsave(&brd->boardlock,flags);
     outb(chanNibbles, brd->addr + 2);
     rtl_spin_unlock_irqrestore(&brd->boardlock,flags);
+
+    brd->waitForA2DSettle(brd);
     return 0;
 }
 
@@ -512,6 +529,8 @@ static int selectChannelsMM32XAT(struct DSC_Board* brd)
     outb(brd->lowChan, brd->addr + 2);
     outb(brd->highChan, brd->addr + 3);
     rtl_spin_unlock_irqrestore(&brd->boardlock,flags);
+
+    brd->waitForA2DSettle(brd);
     return 0;
 }
 
@@ -634,7 +653,7 @@ static int getGainSettingMM32XAT(struct DSC_Board* brd, int gain,
 /*
  * Returns:
  * 3: fifo full or overflowed
- * 2: fifo at or threshold but not full
+ * 2: fifo at or above threshold but not full
  * 1: fifo not empty but less than threshold
  * 0: fifo empty
  */
@@ -663,7 +682,7 @@ static int getFifoLevelMM16AT(struct DSC_Board* brd)
 /*
  * Returns:
  * 3: fifo full or overflowed
- * 2: fifo at or threshold but not full
+ * 2: fifo at or above threshold but not full
  * 1: fifo not empty but less than threshold
  * 0: fifo empty
  */
@@ -702,6 +721,23 @@ static void resetFifoMM32XAT(struct DSC_Board* brd)
     outb(0x02,brd->addr + 7);
 }
 
+static void waitForA2DSettleMM16AT(struct DSC_Board* brd)
+{
+    int ntry = 0;
+    do {
+	unsigned long j = jiffies + 1;
+	while (jiffies < j) schedule();
+    } while(ntry++ < 50 && inb(brd->addr + 10) & 0x80);
+    DSMLOG_INFO("ntry=%d\n",ntry);
+}
+
+static void waitForA2DSettleMM32XAT(struct DSC_Board* brd)
+{
+    do {
+	unsigned long j = jiffies + 1;
+	while (jiffies < j) schedule();
+    } while(inb(brd->addr + 11) & 0x80);
+}
 /*
  * Configure board.  Board should not be busy.
  */
@@ -863,6 +899,8 @@ static int startA2D(struct DSC_Board* brd)
     outb(brd->gainSetting,brd->addr + 11);
     rtl_spin_unlock_irqrestore(&brd->boardlock,flags);
 
+    brd->waitForA2DSettle(brd);
+
     memset(&brd->status,0,sizeof(brd->status));
 
     brd->start(brd);
@@ -899,7 +937,7 @@ static int startMM16AT(struct DSC_Board* brd)
 
     brd->fifoThreshold = 256;
 
-    initializeA2DTimer(brd);
+    initializeA2DClock(brd);
 
      /*
       * base+9, Control register
@@ -927,16 +965,17 @@ static int startMM32XAT(struct DSC_Board* brd)
 
     // compute fifo threshold
     // number of scans in latencyMsecs
-    int nscans = brd->latencyMsecs * brd->maxRate / MSECS_PER_SEC;
+    int nscans = (brd->latencyMsecs * brd->maxRate) / MSECS_PER_SEC;
     if (nscans == 0) nscans = 1;
 
     int nsamps = nscans * brd->nchans;
     // fifo is 1024 samples. Want an interrupt before it is 1/2 full
     if (nsamps > 512) nsamps = (512 / nsamps) * nsamps;
-    if ((nsamps % 2)) nsamps -= brd->nchans;		// must be even
+    if ((nsamps % 2)) nsamps += brd->nchans;		// must be even
 
     brd->fifoThreshold = nsamps;
-    DSMLOG_INFO("fifoThreshold=%d\n",brd->fifoThreshold);
+    DSMLOG_INFO("fifoThreshold=%d,latency=%d,nchans=%d,nsamps=%d\n",
+    	brd->fifoThreshold,brd->latencyMsecs,brd->nchans,nsamps);
     // register value is 1/2 the threshold
     nsamps /= 2;
 
@@ -971,7 +1010,7 @@ static int startMM32XAT(struct DSC_Board* brd)
      */
     outb(0x0,brd->addr + 10);
 
-    initializeA2DTimer(brd);
+    initializeA2DClock(brd);
 
      /*
       * base+9, Control register
@@ -1002,17 +1041,17 @@ static int ioctlCallback(int cmd, int board, int port,
     // return LINUX errnos here, not RTL_XXX errnos.
     int ret = -EINVAL;
 
+    DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
+	cmd,board,port,len);
+#ifdef DEBUG
+#endif
+
     // paranoid check if initialized (probably not necessary)
     if (!boardInfo) return ret;
 
     if (board >= numboards) return ret;
 
     struct DSC_Board* brd = boardInfo + board;
-
-#ifdef DEBUG
-    DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
-	cmd,board,port,len);
-#endif
 
     switch (cmd) 
     {
@@ -1141,6 +1180,7 @@ int init_module()
 	    brd->getGainSetting = getGainSettingMM16AT;
 	    brd->getFifoLevel = getFifoLevelMM16AT;
 	    brd->resetFifo = resetFifoMM16AT;
+	    brd->waitForA2DSettle = waitForA2DSettleMM16AT;
 	    brd->maxFifoThreshold = 256;
 	    break;
 
@@ -1159,6 +1199,7 @@ int init_module()
 	    brd->getGainSetting = getGainSettingMM32XAT;
 	    brd->getFifoLevel = getFifoLevelMM32XAT;
 	    brd->resetFifo = resetFifoMM32XAT;
+	    brd->waitForA2DSettle = waitForA2DSettleMM32XAT;
 	    brd->maxFifoThreshold = 512;
 	    break;
 	}

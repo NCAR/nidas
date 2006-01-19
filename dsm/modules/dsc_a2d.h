@@ -150,6 +150,7 @@ struct DSC_Board {
                     unsigned char* val);
     int (*getFifoLevel)(struct DSC_Board* brd);
     void (*resetFifo)(struct DSC_Board* brd);
+    void (*waitForA2DSettle)(struct DSC_Board* brd);
 
     unsigned char requested[NUM_DSC_CHANNELS];// 1=channel requested, 0=isn't
     int lowChan;		// lowest channel scanned
@@ -166,8 +167,6 @@ struct DSC_Board {
     int interrupted;
     int head;			// pointer to head of buffer
     int tail;			// pointer to tail of buffer
-    size_t skippedSamples;	// discarded samples because of 
-    				// RTL FIFO sluggishness.
     unsigned char buffer[OUT_BUFFER_SIZE];	// data buffer
 
     struct ioctlHandle* ioctlhandle;
