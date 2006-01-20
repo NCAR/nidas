@@ -1325,7 +1325,8 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 		    // the receipt time of the initial character is the
 		    // timetag for the sample.
 		    if (port->sepcnt == 0) port->bomtt =
-		    	compute_time_tag(usamp,0,port->usecs_per_char);
+		    	compute_time_tag(usamp,cp-usamp->data,
+				port->usecs_per_char);
 
 		    if (++port->sepcnt == port->recinfo.sepLen) {
 			if (osamp->length > 0)
