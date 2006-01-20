@@ -42,6 +42,7 @@
 
 /* DSM includes... */
 #include <arinc.h>
+#include <dsm_viper.h>
 #include <irigclock.h>
 #include <dsmlog.h>
 
@@ -68,12 +69,15 @@ static struct ioctlHandle* ioctlhandle = 0;
 
 /* Set the base address of the ARINC card */
 void* phys_membase;
-static volatile unsigned long basemem = 0x3c0d0000;
+static unsigned long basemem;
+
+static unsigned long iomem = 0xd0000;
+
 static enum irigClockRates sync_rate = IRIG_1_HZ;
 
 /* module prameters (can be passed in via command line) */
-MODULE_PARM(basemem,   "1l");
-MODULE_PARM_DESC(basemem,   "ISA memory base (default 0x3c0d000)");
+MODULE_PARM(iomem,   "1l");
+MODULE_PARM_DESC(iomem,   "ISA memory base (default 0xd0000)");
 
 /* global variables */
 char requested_region  = 0;
@@ -683,6 +687,7 @@ static int __init arinc_init(void)
   int chn;
 
   /* map ISA card memory into kernel memory */
+  basemem = SYSTEM_ISA_IOMEM_BASE + iomem;
   phys_membase = ioremap(basemem, PAGE_SIZE);
   if (!phys_membase) {
     err("ioremap failed.\n");

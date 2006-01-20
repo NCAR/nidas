@@ -23,6 +23,7 @@
 #include <asm/arch/viper.h>
 
 #define SYSTEM_ISA_IOPORT_BASE 0xf7000000
+#define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
 /*
  * Register definitions.
