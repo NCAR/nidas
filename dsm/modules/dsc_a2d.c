@@ -44,14 +44,14 @@ Revisions:
 static int ioports[MAX_DSC_BOARDS] = { 0x330, 0, 0, 0 };
 
 /* irqs, required for each board */
-static int irqs[MAX_DSC_BOARDS] = { 6, 0, 0, 0 };
+static int irqs[MAX_DSC_BOARDS] = { 12, 0, 0, 0 };
 
 /* board types: 0=MM16AT, 1=MM32XAT 
  * See #defines for DSC_XXXXX_BOARD)
  * Doesn't seem to be an easy way to auto-detect the board type,
  * but it's probably do-able.
  */
-static int types[MAX_DSC_BOARDS] = { DSC_MM16AT_BOARD, 0, 0, 0 };
+static int types[MAX_DSC_BOARDS] = { DSC_MM32XAT_BOARD, 0, 0, 0 };
 
 /* number of DSC boards in system (number of non-zero ioport values) */
 static int numboards = 0;
@@ -64,7 +64,7 @@ MODULE_PARM(ioports, "1-" __MODULE_STRING(MAX_DSC_BOARDS) "i");
 MODULE_PARM_DESC(ioports, "ISA port address of each board, e.g.: 0x200");
 
 MODULE_PARM(irqs, "1-" __MODULE_STRING(MAX_DSC_BOARDS) "i");
-MODULE_PARM_DESC(irqs, "IRQ of each board, 0=poll");
+MODULE_PARM_DESC(irqs, "IRQ of each board");
 
 MODULE_PARM(types, "1-" __MODULE_STRING(MAX_DSC_BOARDS) "i");
 MODULE_PARM_DESC(types, "Type of each board: 0=MM16AT, 1=MM32XAT");
