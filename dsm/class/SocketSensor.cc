@@ -24,7 +24,7 @@ using namespace xercesc;
 CREATOR_FUNCTION(SocketSensor)
 
 SocketSensor::SocketSensor():
-    addrtype(-1),destport(-1)
+    addrtype(-1),destport(-1),socket(0)
 {
 }
 
@@ -35,13 +35,13 @@ SocketSensor::~SocketSensor()
 
 void SocketSensor::close() throw(atdUtil::IOException)
 {
-    if (socket.get()) {
-	if (socket->getFd() >= 0) {
-	    atdUtil::Logger::getInstance()->log(LOG_INFO,
-		"closing: %s",getName().c_str());
-	    socket->close();
-	}
+    if (socket && socket->getFd() >= 0) {
+	atdUtil::Logger::getInstance()->log(LOG_INFO,
+	    "closing: %s",getName().c_str());
+	socket->close();
     }
+    delete socket;
+    socket = 0;
 }
 
 void SocketSensor::parseAddress(const string& name)
@@ -105,8 +105,10 @@ void SocketSensor::open(int flags)
     }
     else sockAddr.reset(new atdUtil::UnixSocketAddress(desthost));
 
-    socket.reset(new atdUtil::Socket());
+    if (!socket) socket = new atdUtil::Socket();
+
     socket->connect(*sockAddr.get());
+
     init();
 
 }

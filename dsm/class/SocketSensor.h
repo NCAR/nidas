@@ -42,7 +42,7 @@ public:
      */
     int getReadFd() const
     {
-	if (socket.get()) return socket->getFd();
+	if (socket) return socket->getFd();
 	return -1;
     }
 
@@ -50,7 +50,7 @@ public:
      * The file descriptor used when writing to this sensor.
      */
     int getWriteFd() const {
-	if (socket.get()) return socket->getFd();
+	if (socket) return socket->getFd();
     	return -1;
     }
 
@@ -133,16 +133,28 @@ protected:
      */
     int addrtype;	
 
+    /**
+     * Destination host name from sensor name.
+     */
     std::string desthost;
-
-    int destport;
 
     /**
      * Port number that is parsed from sensor name.
      */
+    int destport;
+
+    /**
+     * The destination socket address.
+     */
     std::auto_ptr<atdUtil::SocketAddress> sockAddr;
 
-    std::auto_ptr<atdUtil::Socket> socket;
+    /**
+     * The socket.  This isn't in an auto_ptr because
+     * one must close the socket prior to deleting it.
+     * The atdUtil::Socket destructor does not close
+     * the file descriptor.
+     */
+    atdUtil::Socket* socket;
 
 };
 
