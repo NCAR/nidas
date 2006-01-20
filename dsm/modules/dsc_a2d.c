@@ -433,6 +433,9 @@ static void stopMM32XAT(struct DSC_Board* brd)
 
     // full reset
     // outb(0x20, brd->addr + 8);
+
+    // set page to 0
+    outb(0x00, brd->addr + 8);
     
     // disable interrupts, hardware clock
     outb(0,brd->addr + 9);
