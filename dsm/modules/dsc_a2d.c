@@ -1044,9 +1044,9 @@ static int ioctlCallback(int cmd, int board, int port,
     // return LINUX errnos here, not RTL_XXX errnos.
     int ret = -EINVAL;
 
+#ifdef DEBUG
     DSMLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
 	cmd,board,port,len);
-#ifdef DEBUG
 #endif
 
     // paranoid check if initialized (probably not necessary)
