@@ -354,10 +354,11 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 
 static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGainMul, int A2DGainDiv)
 {
-	DSMLOG_DEBUG("*brd = %x   A2DSel = %d   A2DGain = %d\n", brd, A2DSel, A2DGain);
+	DSMLOG_DEBUG("JDW *brd = %x   A2DSel = %d   A2DGain = %d   A2DGainMul = %d   A2DGainDiv = %d\n",
+                     brd, A2DSel, A2DGain, A2DGainMul, A2DGainDiv);
 	unsigned int DACAddr;
 	int D2AChsel = -1;
-	UC GainCode = 1;
+	UC GainCode = 0;
 
 	//Check that gain is within limits
 
@@ -383,7 +384,9 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGain
 	// Point to the appropriate DAC channel
 	outb(D2AChsel, brd->chan_addr);		// Set the card channel pointer
 
-	GainCode = (UC)(A2DGainMul*A2DGain/A2DGainDiv);
+        // unused channel gains are set to zero
+        if (A2DGain != 0)
+          GainCode = (UC)(A2DGainMul*A2DGain/A2DGainDiv);
 
 	// Write the code to the selected DAC
 	outb(GainCode, DACAddr);
