@@ -1073,6 +1073,9 @@ static void *pc104sg_100hz_thread (void *param)
 
     rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 
+//    struct rtl_timespec irigts;
+//    dsm_sample_time_t   tstart = 0, tend = 0, tduty, tduty_max=0;
+
     for (;;) {
 
 	/* wait for the pc104sg_isr to signal us */
@@ -1125,6 +1128,10 @@ static void *pc104sg_100hz_thread (void *param)
 	}
 	else msecs_since_last_timeout += MSEC_PER_THREAD_SIGNAL;
 
+//        if ((hz100_cnt % 1000) == 0) {
+//          irig_clock_gettime(&irigts);
+//          tstart = (irigts.tv_sec % SECS_PER_DAY) * NSECS_PER_SEC + irigts.tv_nsec;
+//        }
 	rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
 
 	/* this macro creates a code block enclosed in {} brackets,
@@ -1185,6 +1192,14 @@ _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
 
         /* perform  0.1 Hz processing... */
         doCallbacklist(callbacklists + IRIG_0_1_HZ);
+
+//        irig_clock_gettime(&irigts);
+//        tend = (irigts.tv_sec % SECS_PER_DAY) * NSECS_PER_SEC + irigts.tv_nsec;
+//        tduty = tend - tstart;
+//        if (tduty_max < tduty) tduty_max = tduty;
+//        DSMLOG_DEBUG("JDW   tend: %12u ns\n", tend);
+//        DSMLOG_DEBUG("JDW tstart: %12u ns\n", tstart);
+//        DSMLOG_DEBUG("JDW  tduty: %12u ns    tduty_max: %u ns\n", tduty, tduty_max);        
 
 cleanup_pop:
 	rtl_pthread_cleanup_pop(1);
