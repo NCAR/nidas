@@ -40,6 +40,7 @@ apps = Split("""
   dsm.cc
   serial_test.cc
   sensor_test.cc
+  sensor_sim.cc
   ck_serial.cc
   ck_config.cc
   ck_selector.cc

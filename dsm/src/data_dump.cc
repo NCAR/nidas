@@ -396,11 +396,18 @@ int DataDump::run() throw()
 	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;
 
-	if (xmlFileName.length() == 0) xmlFileName =
-	    Project::getConfigName("$ADS3_CONFIG", "projects",
-	    header.getProjectName(),
-	    header.getSiteName(),"flights",
-	    header.getObsPeriodName(),"ads3.xml");
+	if (xmlFileName.length() == 0) {
+	    if (getenv("ISFF") != 0)
+		xmlFileName = Project::getConfigName("$ISFF",
+		    "projects", header.getProjectName(),
+		    header.getSiteName(),"ops",
+		    header.getObsPeriodName(),"ads3.xml");
+	    else
+	    	xmlFileName = Project::getConfigName("$ADS3_CONFIG",
+		    "projects",header.getProjectName(),
+		    header.getSiteName(),"flights",
+		    header.getObsPeriodName(),"ads3.xml");
+	}
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {

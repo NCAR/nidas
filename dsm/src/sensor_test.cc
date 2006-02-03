@@ -101,9 +101,20 @@ int main(int argc, char** argv)
     char outbuf[128];
     int iout = 0;
 
-    string promptStrings[] = { "#1?\n", "*0100P3\r\n",""};
+    struct timespec nsleep1sec = { 1, 0 };
+    struct timespec nsleep20msec = { 0, 20000000 };
+
+    //				mensor   paro        buck
+    // string promptStrings[] = { "#1?\n", "*0100P3\r\n",""};
+    string promptStrings[] = { "#1?\n", "",""};
+
+    // for free running, non-prompted sensors, how much to sleep between
+    // outputs
+    struct timespec sleeps[] = { nsleep1sec, nsleep20msec,nsleep1sec};
+
     const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n", 
     	"14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08\r\n"};
+
 
     try {
 	p.open(O_RDWR);
@@ -120,15 +131,23 @@ int main(int argc, char** argv)
 		else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
 	    }
 	    else {
-	        sleep(1);
-		if (iout++ < 10) {
-		    // simulate empty outputs
-		    strcpy(outbuf,"\n");
+	        nanosleep(sleeps + rstr.type,0);
+		switch(rstr.type) {
+		case Runstring::BUCK_DP:
+		    if (!(iout++ % 20)) {
+			// simulate empty outputs
+			strcpy(outbuf,"\n");
+			p.write(outbuf,strlen(outbuf));
+		    }
+		    else {
+			strcpy(outbuf,dataFormats[rstr.type]);
+			p.write(outbuf,strlen(outbuf));
+		    }
+		    break;
+		case Runstring::PARO_1000:
+		    sprintf(outbuf,dataFormats[rstr.type],1000.0);
 		    p.write(outbuf,strlen(outbuf));
-		}
-		else {
-		    strcpy(outbuf,dataFormats[rstr.type]);
-		    p.write(outbuf,strlen(outbuf));
+		    break;
 		}
 	    }
 	}

@@ -67,7 +67,7 @@ int SerialTest::run() throw(atdUtil::Exception)
 	prompt.rate = IRIG_10_HZ;
 	s.ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
-	s.ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
+	s.ioctl(DSMSER_START_PROMPTER,0,0);
     }
     catch (atdUtil::IOException& ioe) {
       std::cerr << ioe.what() << std::endl;

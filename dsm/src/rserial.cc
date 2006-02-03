@@ -76,6 +76,8 @@ public:
      */
     void interrupt() { interrupted = true; }
 
+    static const char ESC = '\x1b';	// escape character
+
 private:
 
     RemoteSerial();
@@ -95,7 +97,7 @@ private:
 
     enum output { HEX, ASCII, BOTH };
 
-    void hexout(char c);
+    void charout(char c);
 
     static RemoteSerial* instance;
 
@@ -107,13 +109,7 @@ private:
      */
     bool escapeNonprinting;
 		
-    /**
-     * indicates that a extra newline is to be added when outputting
-     * each line to the terminal.
-     */
-    bool addNewLine;
-
-    enum output binaryOutputOption;
+    enum output outputOption;
 
     string hostName;
 
@@ -157,7 +153,7 @@ private:
 RemoteSerial* RemoteSerial::instance = 0;
 
 RemoteSerial::RemoteSerial(): interrupted(false),
-    escapeNonprinting(true),addNewLine(false),binaryOutputOption(HEX),
+    outputOption(ASCII),
     socketPort(30002),stdinAltered(false),socket(0),
     BUFSIZE(1024),buffer(new char[BUFSIZE]),
 	bufhead(0),buftail(0)
@@ -229,34 +225,20 @@ void RemoteSerial::setupSignals() throw(atdUtil::IOException)
 	throw atdUtil::Exception("sigaction",errno);
 }
 
-void RemoteSerial::hexout(char c) {
-  switch (binaryOutputOption) {
-  case HEX:	/* hex only */
-    printf("%.2x ",(unsigned char) c);
-    break;
-  case BOTH:
-    printf("%.2x",(unsigned char) c);
-    if (isprint(c)) printf("'%c' ",c);
-    else printf("    ");
-    break;
-  case ASCII:
-    if (isprint(c) || isspace(c)) putc(c,stdout);
-    else printf("\\%#.2x",c);
-    break;
-  }
-}
-
 void RemoteSerial::openConnection(atdUtil::Inet4SocketAddress saddr,
 	const string& sensorName) throw(atdUtil::IOException)
 {
+    cerr << "connecting to " << saddr.toString() << endl;
     socket = new atdUtil::Socket(saddr);
+    cerr << "connected to " << saddr.toString() << endl;
 
     // send the device name
     string msg = sensorName + '\n';
     socket->sendall(msg.c_str(),msg.size());
+    cerr << "sent:\"" << msg << "\"" << endl;
 
     string line = socketReadLine();
-    // cerr << "line=\"" << line << "\"" << endl;
+    cerr << "line=\"" << line << "\"" << endl;
     if (line.compare("OK"))
     	throw atdUtil::IOException("socket","read acknowledgement",line);
 
@@ -294,11 +276,14 @@ void RemoteSerial::openConnection(atdUtil::Inet4SocketAddress saddr,
     if (ist.fail())
     	throw atdUtil::IOException("socket","read messageLength",line);
 
+    string prompted = socketReadLine();
+
     cerr << "parameters: " << baud << ' ' << parity << ' ' <<
     	databits << ' ' << stopbits <<
 	" \"" << messageSeparator << "\" " <<
-	separatorAtEOM <<  ' ' << messageLength << endl;
-    messageSeparator = dsm::DSMSerialSensor::replaceBackslashSequences(messageSeparator);
+	separatorAtEOM <<  ' ' << messageLength << ' '<<
+	prompted << endl;
+    messageSeparator = dsm::DSMSensor::replaceBackslashSequences(messageSeparator);
 }
 
 string RemoteSerial::socketReadLine() throw(atdUtil::IOException)
@@ -349,7 +334,8 @@ void RemoteSerial::setupStdin() throw(atdUtil::IOException)
     term_io_new.c_lflag |= ECHO;
 
     term_io_new.c_iflag &= ~INLCR & ~IGNCR; 
-    term_io_new.c_iflag |= ICRNL;		// input CR -> NL
+    // term_io_new.c_iflag |= ICRNL;		// input CR -> NL
+    term_io_new.c_iflag &= ~ICRNL;		// input CR -> NL
 
     term_io_new.c_oflag &= ~OPOST;
 
@@ -445,19 +431,16 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
   extern int optind;
   int c;
 
-  while ((c = getopt(argc, argv, "neaA")) != EOF)
+  while ((c = getopt(argc, argv, "abh")) != EOF)
     switch (c) {
-    case 'n':
-      addNewLine = true;
-      break;
-    case 'e':
-      escapeNonprinting = false;
-      break;
     case 'a':
-      binaryOutputOption = BOTH;
+      outputOption = ASCII;
       break;
-    case 'A':
-      binaryOutputOption = ASCII;
+    case 'b':
+      outputOption = BOTH;
+      break;
+    case 'h':
+      outputOption = HEX;
       break;
     case '?':
       usage(argv[0]);
@@ -480,11 +463,16 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
 void RemoteSerial::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << "\
-[-n] [-e] [-A | -a] sensorName dsmName [socketPort]\n\
--n: add (extra) newline at end of each record\n\
--e: for non-binary sensors, don't print escape sequence for special characters\n\
--A: for binary sensors, print as ASCII, not hex\n\
--a: for binary sensors, print ASCII in addition to hex\n" << endl;
+[-a] [-h] [-b] sensorName dsmName [socketPort]\n\
+-a: print as ASCII, not hex\n\
+-h: print as hex\n\
+-b: print as both ASCII and hex\n\
+\n\
+Escape commands:\n\
+ESC a   ASCII output\n\
+ESC h   hex output\n\
+ESC p	toggle sensor prompting\n\
+" << endl;
     exit (1);
 }
 
@@ -502,6 +490,16 @@ void RemoteSerial::run() throw(atdUtil::IOException)
     int lsync = messageSeparator.size();
     int nsync = 0;
     int nout = 0;
+    bool lastCharEsc = false;
+    bool nullTerm = false;
+    if (separatorAtEOM && lsync > 0) {
+        switch (messageSeparator[lsync-1]) {
+	case '\r':
+	case '\n':
+	    nullTerm = true;
+	default:;
+	}
+    }
 
     // the polling loop
     while (!interrupted) {
@@ -531,54 +529,36 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 
 	    for (int ic = 0; ic < nread; ic++) {
 		char c = buffer[ic];
-		if (messageLength > 0) {		/* BINARY data */
-		    if (nsync == lsync) {
-			nout++;
-			/*
-			 * If read all chars in this record,
-			 * set nsync to 0 to look for sync bytes next
-			 */
-			if (nout == messageLength) nsync = nout = 0;
-			hexout(c);
-		    }
-		    else {
-			/*
-			 * checking against sync string.
-			 */
-			if (!separatorAtEOM) {
-			    if (c != messageSeparator[nsync]) {
-				for (int j = 0; j < nsync; j++)
-				    hexout(messageSeparator[j]);
-				if (c != messageSeparator[nsync = 0]) hexout(c);
-				else nsync++;
-			    }
-			    else nsync++;
-
-			    if (nsync == lsync) {
-				printf("\r\n");
-				for (nsync=0; nsync < lsync; nsync++)
-				    hexout(messageSeparator[nsync]);
-			    }
-			    else {
-				hexout(c);
-				if (c == messageSeparator[nsync] ||
-					    c == messageSeparator[nsync = 0])
-				    nsync++;
-				    if (nsync == lsync) printf("\r\n");
-			    }
-			}
-		    }
+		if (nullTerm && c == '\0' && nsync == 0) continue;
+		if (messageLength > 0 && nsync == lsync) {
+		    // matched record separator
+		    nout++;
+		    /*
+		     * If read all chars in this record,
+		     * set nsync to 0 to look for sync bytes next
+		     */
+		    if (nout == messageLength) nsync = 0;
+		    charout(c);
 		}
 		else {
-		    if (!escapeNonprinting) putc(c,stdout);
-		    else {
-			/* printf("%.2x ",(unsigned char) c); */
+		    /*
+		     * checking against sync string.
+		     */
+		    if (c != messageSeparator[nsync]) {
+			for (int j = 0; j < nsync; j++)
+			    charout(messageSeparator[j]);
+			if (c != messageSeparator[nsync = 0]) charout(c);
+			else nsync++;
+		    }
+		    else nsync++;
 
-			if (isprint(c)) putc(c,stdout);
-			else if (c == '\r') printf("\\r");
-			else if (c == '\n') printf("\\n");
-			else printf("\\%#02x",(unsigned char)c);
-			if (c == messageSeparator[0]) printf("\r\n");
+		    if (nsync == lsync) {
+			if (!separatorAtEOM) printf("\r\n");
+			for (nsync=0; nsync < lsync; nsync++)
+			    charout(messageSeparator[nsync]);
+			if (separatorAtEOM) printf("\r\n");
+			nsync = 0;
+			nout = 0;
 		    }
 		}
 	    }
@@ -608,8 +588,46 @@ void RemoteSerial::run() throw(atdUtil::IOException)
 		interrupt();
 		break;
 	    }
+	    int iout = 0;	// next character to send out
+	    for (int i = 0; i < nread; i++) {
+		if (lastCharEsc) {
+		    switch (buffer[i]) {
+		    case 'a':
+			outputOption = ASCII;
+			iout = i + 1;
+			break;
+		    case 'h':
+			outputOption = HEX;
+			iout = i + 1;
+			break;
+		    case ESC:
+		    default:
+			{
+			    char tmp[2];
+			    tmp[0] = ESC;
+			    tmp[1] = buffer[i];
+			    socket->sendall(tmp,2);
+			}
+			iout = i + 1;
+			break;
+		    }
+		    // we send two escapes in a row
+		    lastCharEsc = false;
+		}
+		else if (buffer[i] == ESC) {	// escape character
+		    // send everything up to ESC
+		    if (i > iout) socket->sendall(buffer+iout,i-iout);
+		    iout = i + 1;
+		    lastCharEsc = true;
+		}
+		else lastCharEsc = false;
+	    }
+
 	    /* send bytes to adam */
-	    if (nread > 0) socket->sendall(buffer, nread);
+	    if (iout < nread) {
+		// cerr << "sending " << nread-iout << " chars" << endl;
+	        socket->sendall(buffer+iout, nread-iout);
+	    }
 	}
 	if (nfds > 1 && pollfds[1].revents & POLLERR) {
 	    throw atdUtil::IOException(
@@ -620,3 +638,22 @@ void RemoteSerial::run() throw(atdUtil::IOException)
     printf("\r\n");
 }
 
+void RemoteSerial::charout(char c)
+{
+    switch (outputOption) {
+    case HEX:	/* hex only */
+	printf("%02x ",(unsigned char) c);
+	break;
+    case BOTH:
+	printf("%02x",(unsigned char) c);
+	if (isprint(c)) printf("'%c' ",c);
+	else printf("    ");
+	break;
+    case ASCII:
+	if (isprint(c)) putc(c,stdout);
+	else if (c == '\r') printf("\\r");
+	else if (c == '\n') printf("\\n");
+	else printf("\\%#02x",(unsigned char)c);
+	break;
+    }
+}

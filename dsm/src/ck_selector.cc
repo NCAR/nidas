@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 	    prompt.rate = IRIG_1_HZ;
 	    sens->ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
 
-	    sens->ioctl(DSMSER_START_PROMPTER,(const void*)0,0);
+	    sens->ioctl(DSMSER_START_PROMPTER,0,0);
 
 /* Add the SampleClient to the sensor. It will receive all the samples */
 

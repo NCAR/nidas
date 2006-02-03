@@ -224,10 +224,18 @@ int SyncServer::run() throw()
 	input.readHeader();
 	SampleInputHeader header = input.getHeader();
 
-	if (xmlFileName.length() == 0)
-	    xmlFileName = Project::getConfigName("$ADS3_CONFIG","projects",
-		header.getProjectName(),header.getSiteName(),"flights",
-		header.getObsPeriodName(),"ads3.xml");
+	if (xmlFileName.length() == 0) {
+	    if (getenv("ISFF") != 0)
+		xmlFileName = Project::getConfigName("$ISFF",
+		    "projects", header.getProjectName(),
+		    header.getSiteName(),"ops",
+		    header.getObsPeriodName(),"ads3.xml");
+	    else
+		xmlFileName = Project::getConfigName("$ADS3_CONFIG",
+		    "projects", header.getProjectName(),
+		    header.getSiteName(),"flights",
+		    header.getObsPeriodName(),"ads3.xml");
+	}
 
 	auto_ptr<Project> project;
 	auto_ptr<xercesc::DOMDocument> doc(
