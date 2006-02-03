@@ -70,6 +70,7 @@ sources = [ Split("""
   Project.cc
   Site.cc
   Aircraft.cc
+  GroundStation.cc
   DSMConfig.cc
   SensorCatalog.cc
 
@@ -84,10 +85,14 @@ sources = [ Split("""
   StatusThread.cc
   XmlRpcThread.cc
 
+  RTL_IODevice.cc
+  SocketIODevice.cc
+
+  SampleScanner.cc
+
   DSMSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
-  RTL_DSMSensor.cc
 
   DSMArincSensor.cc
     ADC_HW_EB7022597.cc
@@ -96,15 +101,13 @@ sources = [ Split("""
       IRS_HW_HG2001GD.cc
       IRS_HW_YG1854.cc
   
-  MessageStreamSensor.cc
+  CharacterSensor.cc
   DSMSerialSensor.cc
-  AsciiScanner.cc
   GPS_NMEA_Serial.cc
   IRIGSensor.cc
   DSMAnalogSensor.cc
   DSC_A2DSensor.cc
   A2DBoardTempSensor.cc
-  SocketSensor.cc
   PSI9116_Sensor.cc
 
   Sample.cc
@@ -113,6 +116,8 @@ sources = [ Split("""
   VariableConverter.cc
   SampleTag.cc
   Parameter.cc
+
+  AsciiSscanf.cc
 
   SampleClientList.cc
   SampleSourceImpl.cc
@@ -168,7 +173,7 @@ sources = [ Split("""
 ##     -Pscanf_fmt_yy -+
 ## """)
 
-myenv.CXXFile(target='AsciiScanner.cc',source='AsciiScanner.ll')
+myenv.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
 
 ##
 ##  Build the libArmDsm.a library.
