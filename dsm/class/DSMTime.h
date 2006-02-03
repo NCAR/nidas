@@ -53,6 +53,10 @@
 #define NSECS_PER_USEC 1000
 #endif
 
+#ifndef NSECS_PER_MSEC
+#define NSECS_PER_MSEC 1000000
+#endif
+
 
 namespace dsm {
 
