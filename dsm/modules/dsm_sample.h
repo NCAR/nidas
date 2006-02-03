@@ -46,11 +46,11 @@ typedef unsigned long dsm_sample_length_t;
     rtl_write(fifofd,samp,SIZEOF_DSM_SAMPLE_HEADER + len);
  */
 
-struct dsm_sample {
+typedef struct dsm_sample {
   dsm_sample_time_t timetag;		/* timetag of sample */
   dsm_sample_length_t length;		/* number of bytes in data */
   char data[0];				/* space holder for the data */
-};
+} dsm_sample_t;
 
 #define SIZEOF_DSM_SAMPLE_HEADER \
 	(sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
