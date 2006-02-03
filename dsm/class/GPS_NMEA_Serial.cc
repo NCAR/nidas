@@ -265,15 +265,6 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
 
-    if (!isNullTerminated() && slen >= inputStrLen) {
-        delete [] inputStr;
-	inputStrLen = slen + 1;
-	inputStr = new char[inputStrLen];
-	memcpy(inputStr,input,slen);
-	inputStr[slen] = '\0';
-	input = inputStr;
-    }
-
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
 
     if (!strncmp(input,"$GPGGA,",7)) {
