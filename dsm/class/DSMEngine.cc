@@ -504,8 +504,6 @@ void DSMEngine::connectOutputs() throw(atdUtil::IOException)
 	DSMSensor* sensor = *si;
 	// If we're outputting processed samples add
 	// sensors as a RawSampleClient of themselves.
-	// If it's a clock sensor, also have the clock
-	// sensor process its raw samples.
 	if (processedOutput) sensor->addRawSampleClient(sensor);
     }
 }
