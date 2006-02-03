@@ -261,6 +261,11 @@ public:
     virtual void allocateData(size_t val) throw(SampleLengthException) = 0;
 
     /**
+     * Re-allocate a number of bytes of data, saving old contents.
+     */
+    virtual void reallocateData(size_t val) throw(SampleLengthException) = 0;
+
+    /**
      * Increment the reference count for this sample.
      * Sample supports a form of reference counting.
      */
@@ -488,6 +493,23 @@ public:
 	  data = new DataT[val];
 	  allocLen = val * sizeof(DataT);
 	  setDataLength(0);
+	}
+    }
+
+    /**
+     * Re-allocate data, space, keeping contents.
+     * @param val: number of DataT's to allocated.
+     */
+    void reallocateData(size_t val) throw(SampleLengthException) {
+	if (val  > getMaxDataLength())
+	    throw SampleLengthException(
+	    	"SampleT::allocateData:",val,getMaxDataLength());
+	if (allocLen < val * sizeof(DataT)) {
+	  DataT* newdata = new DataT[val];
+	  memcpy(newdata,data,allocLen);
+	  delete [] data;
+	  data = newdata;
+	  allocLen = val * sizeof(DataT);
 	}
     }
 
