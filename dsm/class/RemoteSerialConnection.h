@@ -17,8 +17,7 @@
 #define DSM_REMOTESERIALCONNECTION_H
 
 #include <atdUtil/Socket.h>
-#include <DSMSensor.h>
-#include <MessageStreamSensor.h>
+#include <CharacterSensor.h>
 #include <SampleClient.h>
 #include <atdUtil/EOFException.h>
 
@@ -40,7 +39,7 @@ public:
 
     void setDSMSensor(DSMSensor* val) throw(atdUtil::IOException);
 
-    DSMSensor* getDSMSensor() const { return sensor; }
+    DSMSensor* getDSMSensor() const { return charSensor; }
 
     /** 
      * Notify this RemoteSerialConnection that a sensor
@@ -83,9 +82,7 @@ private:
 
     std::string devname;
 
-    DSMSensor* sensor;
-
-    MessageStreamSensor* msgSensor;
+    CharacterSensor* charSensor;
 
     /**
      * Left over input characters after previous parse for escape sequences.

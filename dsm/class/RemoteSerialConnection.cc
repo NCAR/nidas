@@ -17,7 +17,6 @@
 
 #include <RemoteSerialConnection.h>
 #include <DSMSerialSensor.h>
-#include <SocketSensor.h>
 
 #include <atdUtil/Logger.h>
 
@@ -27,7 +26,7 @@ using namespace dsm;
 using namespace std;
 
 RemoteSerialConnection::RemoteSerialConnection(atdUtil::Socket* sock):
-	socket(sock),sensor(0),nullTerminated(false)
+	socket(sock),charSensor(0),nullTerminated(false)
 {
 }
 
@@ -35,15 +34,15 @@ RemoteSerialConnection::~RemoteSerialConnection()
 {
 
     atdUtil::Logger::getInstance()->log(LOG_INFO,"~RemoteSerialConnection()");
-    if (sensor) sensor->removeRawSampleClient(this);
+    if (charSensor) charSensor->removeRawSampleClient(this);
     socket->close();
     delete socket;
 }
 
 void RemoteSerialConnection::close() throw(atdUtil::IOException)
 {
-    if (sensor) sensor->removeRawSampleClient(this);
-    sensor = 0;
+    if (charSensor) charSensor->removeRawSampleClient(this);
+    charSensor = 0;
     socket->close();
 }
 
@@ -84,22 +83,14 @@ void RemoteSerialConnection::sensorNotFound()
 void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	throw(atdUtil::IOException)
 {
-    DSMSerialSensor* serSensor = 0;
-    SocketSensor* sockSensor = 0;
-    msgSensor = 0;
 
-    sensor = serSensor = dynamic_cast<DSMSerialSensor*>(val);
-    msgSensor = serSensor;
-
-    if (!sensor) {
-    	sensor = sockSensor = dynamic_cast<SocketSensor*>(val);
-	msgSensor = sockSensor;
-    }
+    charSensor = dynamic_cast<CharacterSensor*>(val);
+    DSMSerialSensor* serSensor = dynamic_cast<DSMSerialSensor*>(charSensor);
 
     ostringstream ost;
 
-    if(!sensor) {
-	ost << val->getName() << " is not a DSMSerialSensor or SocketSensor";
+    if(!charSensor) {
+	ost << val->getName() << " is not a CharacterSensor";
 	atdUtil::Logger::getInstance()->log(LOG_INFO,"%s",ost.str().c_str());
 
 	ost << endl;
@@ -130,19 +121,23 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	ost.str("");
     }
 
-    ost << msgSensor->getBackslashedMessageSeparator() << endl;
+    ost << charSensor->getBackslashedMessageSeparator() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << msgSensor->getMessageSeparatorAtEOM() << endl;
+    ost << charSensor->getMessageSeparatorAtEOM() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << msgSensor->getMessageLength() << endl;
+    ost << charSensor->getMessageLength() << endl;
     socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    nullTerminated = msgSensor->isNullTerminated();
+    ost << "prompted=" << boolalpha << charSensor->isPrompted() << endl;
+    socket->send(ost.str().c_str(),ost.str().size());
+    ost.str("");
+
+    nullTerminated = charSensor->getNullTerminated();
     // cerr << "nullTerminated=" << nullTerminated << endl;
 
     val->addRawSampleClient(this);
@@ -155,7 +150,7 @@ bool RemoteSerialConnection::receive(const Sample* s) throw()
 {
     size_t slen = s->getDataLength();
     if (nullTerminated && ((const char*) s->getConstVoidDataPtr())[slen-1] == '\0') {
-	cerr << "nullTerminated=" << nullTerminated << " slen=" << slen << endl;
+	// cerr << "nullTerminated=" << nullTerminated << " slen=" << slen << endl;
 	slen--;
     }
     try {
@@ -232,18 +227,18 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 			 input[idx] == '\r')) idx++;
 		    input = input.substr(idx);
 		    cerr << "baud=" << baud << endl;
-		    // if (sensor) sensor->setBaudRate(baud);
+		    // if (charSensor) charSensor->setBaudRate(baud);
 		    break;
 		}
 	    case 'p':		// toggle prompting
 		// remove escape sequence from buffer
 		input = input.substr(2);
-		if (sensor) {
+		if (charSensor) {
 		    string msg;
 		    try {
-			msgSensor->togglePrompting();
+			charSensor->togglePrompting();
 			msg = string("dsm: prompting = ") +
-			    (msgSensor->isPrompting() ? "ON" : "OFF") + "\r\n";
+			    (charSensor->isPrompting() ? "ON" : "OFF") + "\r\n";
 		    }
 		    catch (const atdUtil::IOException& e)
 		    {
@@ -260,7 +255,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 	    }
 	}
 	catch (const atdUtil::IOException& e) {
-	    string msg = sensor->getName() + ": " + e.what();
+	    string msg = charSensor->getName() + ": " + e.what();
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		"%s",msg.c_str());
 	    msg.append("\r\n");
@@ -287,13 +282,13 @@ void RemoteSerialConnection::read() throw(atdUtil::IOException)
 	//     LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
     // if (i == 0) throw atdUtil::EOFException("rserial socket","read");
 
-    // were not handling the situation of a write() not writing
+    // we're not handling the situation of a write() not writing
     // all the data.
-    if (sensor) {
+    if (charSensor) {
 	string output = doEscCmds(string(buffer,i));
 	if (output.length() > 0) {
-	    nlTocrnl(output);
-	    sensor->write(output.c_str(),output.length());
+	    // nlTocrnl(output);
+	    charSensor->write(output.c_str(),output.length());
 	}
     }
 }
