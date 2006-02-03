@@ -354,8 +354,6 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 
 static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGainMul, int A2DGainDiv)
 {
-	DSMLOG_DEBUG("JDW *brd = %x   A2DSel = %d   A2DGain = %d   A2DGainMul = %d   A2DGainDiv = %d\n",
-                     brd, A2DSel, A2DGain, A2DGainMul, A2DGainDiv);
 	unsigned int DACAddr;
 	int D2AChsel = -1;
 	UC GainCode = 0;
@@ -387,6 +385,9 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGain
         // unused channel gains are set to zero
         if (A2DGain != 0)
           GainCode = (UC)(A2DGainMul*A2DGain/A2DGainDiv);
+               
+	DSMLOG_DEBUG("A2DSel = %d   A2DGain = %d   A2DGainMul = %d   A2DGainDiv = %d   GainCode = %d\n",
+                     A2DSel, A2DGain, A2DGainMul, A2DGainDiv, GainCode);
 
 	// Write the code to the selected DAC
 	outb(GainCode, DACAddr);
@@ -1034,6 +1035,9 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	int nbad = 0;
 	int iread;
 
+/*         rtl_irqstate_t irqstate;     // JDW */
+/*         rtl_no_interrupts(irqstate); // JDW */
+
 	outb(A2DIOFIFO,brd->chan_addr);
 
 	for (iread = 0; iread < brd->nreads; iread++) {
@@ -1060,12 +1064,16 @@ static inline int getA2DSample(struct A2DBoard* brd)
 	    else counts = inw(brd->addr);
 
 #endif
-
+//if (counts > 0x1000)
+//  DSMLOG_DEBUG("Greater than 0x1000\n");
+  
 	    if (brd->requested[ichan]) *dataptr++ = counts;
 
 	}
 	flevel = getA2DFIFOLevel(brd);
 	brd->cur_status.postFifoLevel[flevel]++;
+
+/*         rtl_restore_interrupts(irqstate); // JDW */
 
 	if (flevel > 0) {
 	    if (!(brd->fifoNotEmpty++ % 1000))
