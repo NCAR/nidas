@@ -322,6 +322,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 
     // poll at least 4 times/sec
     if (pollRate < 4) pollRate = 4;
+    if (pollRate > 5) pollRate = 25;
 
     if ((hdl->poll = irigClockRateToEnum(pollRate)) == IRIG_NUM_RATES)
       return -EINVAL;
