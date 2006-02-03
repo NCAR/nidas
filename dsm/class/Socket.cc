@@ -27,7 +27,7 @@ CREATOR_FUNCTION(ServerSocket)
 Socket::Socket():
 	remoteSockAddr(
 		auto_ptr<atdUtil::SocketAddress>(new atdUtil::Inet4SocketAddress())),
-	socket(0),firstRead(true),newFile(true)
+	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200)
 {
     setName("Socket " + remoteSockAddr->toString());
 }
@@ -39,7 +39,7 @@ Socket::Socket(const Socket& x):
 	remoteSockAddr(
 		auto_ptr<atdUtil::SocketAddress>(x.remoteSockAddr->clone())),
 	socket(0),name(x.name),
-	firstRead(true),newFile(true)
+	firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs)
 {
 }
 
@@ -49,10 +49,15 @@ Socket::Socket(const Socket& x):
 Socket::Socket(atdUtil::Socket* sock):
 	remoteSockAddr(
 	    auto_ptr<atdUtil::SocketAddress>(sock->getRemoteSocketAddress().clone())),
-	socket(sock),
-	firstRead(true),newFile(true)
+	socket(sock),firstRead(true),newFile(true),
+	keepAliveIdleSecs(7200)
 {
     setName(remoteSockAddr->toString());
+    try {
+	keepAliveIdleSecs = socket->getKeepAliveIdleSecs();
+    }
+    catch (const atdUtil::IOException& e) {
+    }
 }
 
 Socket::~Socket()
@@ -82,6 +87,7 @@ IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
 {
     atdUtil::Socket* waitsock = new atdUtil::Socket();
     waitsock->connect(*remoteSockAddr.get());
+    waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     return new dsm::Socket(waitsock);
 }
 
@@ -90,6 +96,7 @@ void Socket::requestConnection(ConnectionRequester* requester,
 {
     atdUtil::Socket* waitsock = new atdUtil::Socket();
     waitsock->connect(*remoteSockAddr.get());
+    waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     // cerr << "Socket::connected " << getName();
     requester->connected(new dsm::Socket(waitsock));
 }
@@ -105,7 +112,7 @@ size_t Socket::read(void* buf, size_t len) throw (atdUtil::IOException)
 }
 
 ServerSocket::ServerSocket(int p):port(p),servSock(0),
-	connectionRequester(0),thread(0)
+	connectionRequester(0),thread(0),keepAliveIdleSecs(7200)
 {
     atdUtil::Inet4SocketAddress addr(INADDR_ANY,port);
     setName("ServerSocket " + addr.toString());
@@ -113,7 +120,8 @@ ServerSocket::ServerSocket(int p):port(p),servSock(0),
 
 ServerSocket::ServerSocket(const ServerSocket& x):
 	port(x.port),name(x.name),
-	servSock(0),connectionRequester(0),thread(0)
+	servSock(0),connectionRequester(0),thread(0),
+	keepAliveIdleSecs(x.keepAliveIdleSecs)
 {
 }
 
@@ -140,7 +148,9 @@ ServerSocket* ServerSocket::clone() const
 IOChannel* ServerSocket::connect(int pseudoPort) throw(atdUtil::IOException)
 {
     if (!servSock) servSock= new atdUtil::ServerSocket(port);
-    return new dsm::Socket(servSock->accept());
+    atdUtil::Socket* newsock = servSock->accept();
+    newsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
+    return new dsm::Socket(newsock);
 }
 
 void ServerSocket::requestConnection(ConnectionRequester* requester,
@@ -161,7 +171,11 @@ int ServerSocketConnectionThread::run() throw(atdUtil::IOException)
 {
     for (;;) {
 	// create dsm::Socket from atdUtil::Socket
-	dsm::Socket* newsock = new dsm::Socket(socket.servSock->accept());
+	atdUtil::Socket* lowsock = socket.servSock->accept();
+	lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
+
+	dsm::Socket* newsock = new dsm::Socket(lowsock);
+
 	atdUtil::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
 		newsock->getRemoteInet4Address().getHostAddress().c_str());
@@ -226,6 +240,18 @@ void Socket::fromDOMElement(const DOMElement* node)
 			throw atdUtil::InvalidParameterException(
 			    "socket","invalid socket type",aval);
 	    }
+	    else if (!aname.compare("maxIdle")) {
+		istringstream ist(aval);
+		int secs;
+		ist >> secs;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),"maxIdle",aval);
+		try {
+		    setKeepAliveIdleSecs(secs);
+		}
+		catch (const atdUtil::IOException& e) {		// won't happen
+		}
+	    }
 	    else throw atdUtil::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);
 	}
@@ -276,6 +302,18 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 		if (aval.compare("server"))
 			throw atdUtil::InvalidParameterException(
 			    "socket","invalid socket type",aval);
+	    }
+	    else if (!aname.compare("maxIdle")) {
+		istringstream ist(aval);
+		int secs;
+		ist >> secs;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),"maxIdle",aval);
+		try {
+		    setKeepAliveIdleSecs(secs);
+		}
+		catch (const atdUtil::IOException& e) {		// won't happen
+		}
 	    }
 	    else throw atdUtil::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

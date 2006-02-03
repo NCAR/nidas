@@ -75,6 +75,18 @@ public:
 
     atdUtil::Inet4Address getRemoteInet4Address() const throw();
 
+    void setKeepAliveIdleSecs(int val) throw (atdUtil::IOException)
+    {
+	if (socket) socket->setKeepAliveIdleSecs(val);
+        keepAliveIdleSecs = val;
+    }
+
+    int getKeepAliveIdleSecs() const throw (atdUtil::IOException)
+    {
+	if (socket) return socket->getKeepAliveIdleSecs();
+        return keepAliveIdleSecs;
+    }
+
     size_t getBufferSize() const throw();
 
     /**
@@ -117,6 +129,8 @@ protected:
     bool firstRead;
 
     bool newFile;
+
+    int keepAliveIdleSecs;
 };
 
 }

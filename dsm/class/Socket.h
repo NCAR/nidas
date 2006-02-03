@@ -63,6 +63,24 @@ public:
     virtual bool isNewFile() const { return newFile; }
 
     /**
+     * Do setKeepAliveIdleSecs(int secs) on underlying socket.
+     */
+    void setKeepAliveIdleSecs(int val) throw (atdUtil::IOException)
+    {
+	keepAliveIdleSecs = val;
+	if (socket) socket->setKeepAliveIdleSecs(val);
+    }
+
+    /**
+     * Return getKeepAliveIdleSecs() on underlying socket.
+     */
+    int getKeepAliveIdleSecs() const throw (atdUtil::IOException)
+    {
+	if (socket) return socket->getKeepAliveIdleSecs();
+	return keepAliveIdleSecs;
+    }
+
+    /**
      * Do the actual hardware read.
      */
     size_t read(void* buf, size_t len) throw (atdUtil::IOException);
@@ -120,6 +138,8 @@ protected:
     bool firstRead;
 
     bool newFile;
+
+    int keepAliveIdleSecs;
 };
 
 /**
@@ -158,6 +178,24 @@ public:
 	return -1;
     }
 
+
+    /**
+     * Set the value of keepAliveIdleSecs.  This is set on each
+     * accepted socket connection. It does not pertain to the socket
+     * which is waiting for connections.
+     */
+    void setKeepAliveIdleSecs(int val) throw (atdUtil::IOException)
+    {
+	keepAliveIdleSecs = val;
+    }
+
+    /**
+     * Return keepAliveIdleSecs for this ServerSocket.
+     */
+    int getKeepAliveIdleSecs() const throw (atdUtil::IOException)
+    {
+	return keepAliveIdleSecs;
+    }
 
     /**
     * ServerSocket will never be called to do an actual read.
@@ -211,6 +249,8 @@ protected:
     atdUtil::Thread* thread;
 
     friend class ServerSocketConnectionThread;
+
+    int keepAliveIdleSecs;
 
 };
 

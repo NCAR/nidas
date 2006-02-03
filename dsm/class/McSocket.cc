@@ -27,7 +27,7 @@ CREATOR_FUNCTION(McSocket)
  * ctor
  */
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
-    firstRead(true),newFile(true)
+    firstRead(true),newFile(true),keepAliveIdleSecs(7200)
 {
 }
 
@@ -37,7 +37,7 @@ McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
 McSocket::McSocket(const McSocket& x):
     atdUtil::McSocket(x),socket(0),
     connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newFile(true)
+    firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs)
 {
 }
 
@@ -47,8 +47,17 @@ McSocket::McSocket(const McSocket& x):
 McSocket::McSocket(const McSocket& x,atdUtil::Socket* sock):
     atdUtil::McSocket(x),socket(sock),
     connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newFile(true)
+    firstRead(true),newFile(true),
+    keepAliveIdleSecs(x.keepAliveIdleSecs)
+
 {
+    if (socket->getKeepAliveIdleSecs() != keepAliveIdleSecs) {
+	try {
+	    socket->setKeepAliveIdleSecs(keepAliveIdleSecs);
+	}
+	catch (const atdUtil::IOException& e) {
+	}
+    }
 }
 
 McSocket* McSocket::clone() const
@@ -63,6 +72,7 @@ IOChannel* McSocket::connect(int pseudoPort)
     atdUtil::Socket* sock;
     if (isRequester()) sock = atdUtil::McSocket::connect();
     else sock = accept();
+    sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     return new McSocket(*this,sock);
 }
 
@@ -78,7 +88,8 @@ void McSocket::requestConnection(ConnectionRequester* requester,
 
 void McSocket::connected(atdUtil::Socket* sock)
 {
-    cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
+    // cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
+    sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     McSocket* newsock = new McSocket(*this,sock);
     assert(connectionRequester);
     connectionRequester->connected(newsock);
@@ -153,6 +164,12 @@ void McSocket::fromDOMElement(const DOMElement* node)
 	    else if (!aname.compare("type")) {
 		if (!aval.compare("mcaccept")) setRequester(false);
 		else setRequester(true);
+	    }
+	    else if (!aname.compare("maxIdle")) {
+		istringstream ist(aval);
+		ist >> keepAliveIdleSecs;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(getName(),"maxIdle",aval);
 	    }
 	    else throw atdUtil::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);
