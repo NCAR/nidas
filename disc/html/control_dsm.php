@@ -22,7 +22,7 @@ foreach ($_POST['dsm'] as $dsm) {
                                         'args'   => '',
                                         'host'   => $dsm,
                                         'uri'    => '/RPC2',
-                                        'port'   => '30003',
+                                        'port'   => '30004',
                                         'debug'  => '0',
                                         'output' => 'xmlrpc' ));
 

@@ -20,7 +20,7 @@ $dsmList = xu_rpc_http_concise( array( 'method' => 'GetDsmList',
                                        'args'   => '',
                                        'host'   => 'localhost',
                                        'uri'    => '/RPC2',
-                                       'port'   => '30002',
+                                       'port'   => '30003',
                                        'debug'  =>  '0',
                                        'output' => 'xmlrpc' ));
 
@@ -35,12 +35,12 @@ if ($dsmList == "")
 <!-- The Hidden iframe below will contain javascript that will call recvResp.-->
 <!-- ----------------------------------------------------------------------- -->
 var xmlrpc = importModule("xmlrpc");
-GetClocks = new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30005&method=GetClocks', '');
+GetClocks = new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetClocks', '');
 
 GetStatus = new Array();
 <?php foreach ($dsmList as $key => $val) { ?>
 GetStatus['<?=$key?>'] =
-  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30005&method=GetStatus&args=<?=$key?>', '');
+  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=<?=$key?>', '');
 <?php } ?>
 
 var selectedDsm = '';
