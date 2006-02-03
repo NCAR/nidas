@@ -185,7 +185,12 @@ SampleType* SamplePool<SampleType>::getSample(size_t len) {
     //		number held by others.
     assert(nsamplesAlloc == nsmall + nmedium + nsamplesOut);
 
-    if (len < 32) return getSample((SampleType**)smallSamples,&nsmall,len);
+    if (len < 32) {
+	if (nsmall == 0 && nmedium > 20)
+	    return getSample((SampleType**)mediumSamples,&nmedium,len);
+	else
+	    return getSample((SampleType**)smallSamples,&nsmall,len);
+    }
     else return getSample((SampleType**)mediumSamples,&nmedium,len);
 }
 
