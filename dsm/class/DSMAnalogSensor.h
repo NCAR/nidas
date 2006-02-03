@@ -15,7 +15,7 @@
 #ifndef DSMANALOGSENSOR_H
 #define DSMANALOGSENSOR_H
 
-#include <RTL_DSMSensor.h>
+#include <DSMSensor.h>
 
 #include <vector>
 #include <map>
@@ -25,12 +25,16 @@ namespace dsm {
 /**
  * A sensor connected to the DSM A2D
  */
-class DSMAnalogSensor : public RTL_DSMSensor {
+class DSMAnalogSensor : public DSMSensor {
 
 public:
 
     DSMAnalogSensor();
     ~DSMAnalogSensor();
+
+    IODevice* buildIODevice() throw(atdUtil::IOException);
+
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.
@@ -56,22 +60,6 @@ public:
 
     void addSampleTag(SampleTag* tag)
             throw(atdUtil::InvalidParameterException);
-
-    /**
-     * Set desired latency, providing some control
-     * over the response time vs buffer efficiency tradeoff.
-     * Setting a latency of 1/10 sec means buffer
-     * data in the driver for a 1/10 sec, then send the data
-     * to user space. As implemented here, it must be
-     * set before doing a sensor open().
-     * @param val Latency, in seconds.
-     */
-    void setLatency(float val) throw(atdUtil::InvalidParameterException)
-    {
-        latency = val;
-    }
-
-    float getLatency() const { return latency; }
 
     int DSMAnalogSensor::rateSetting(float rate)
 	    throw(atdUtil::InvalidParameterException);
@@ -202,11 +190,6 @@ protected:
      * Allocated samples.
      */
     SampleT<float>** outsamples;
-
-    /**
-     * Sensor latency, in seconds.
-     */
-    float latency;
 
     /**
      * Expected size of raw sample.

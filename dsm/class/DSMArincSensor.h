@@ -16,7 +16,7 @@
 #define DSMARINCSENSOR_H
 
 #include <arinc.h>
-#include <RTL_DSMSensor.h>
+#include <DSMSensor.h>
 #include <atdUtil/InvalidParameterException.h>
 
 // Significant bits masks
@@ -70,7 +70,7 @@ namespace dsm {
   /**
    * A sensor connected to an ARINC port.
    */
-  class DSMArincSensor : public RTL_DSMSensor {
+  class DSMArincSensor : public DSMSensor {
 
   public:
 
@@ -80,6 +80,10 @@ namespace dsm {
      */
     DSMArincSensor();
     ~DSMArincSensor();
+
+    IODevice* buildIODevice() throw(atdUtil::IOException);
+
+    SampleScanner* buildSampleScanner();
 
     /** This opens the associated RT-Linux FIFOs. */
     void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);

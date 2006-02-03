@@ -19,6 +19,7 @@
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
+#include <atdUtil/Logger.h>
 
 #include <iostream>
 #include <iomanip>
@@ -33,19 +34,19 @@ using namespace xercesc;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
-    classname("unknown"),dsm(0),devname("unknown"),id(0),
-    BUFSIZE(8192),buffer(0),bufhead(0),buftail(0),samp(0),
-    questionableTimeTags(0)
+    iodev(0),scanner(0),dsm(0),id(0),
+    latency(0.1)	// default sensor latency, 0.1 secs
 {
-    initStatistics();
 }
 
 
 DSMSensor::~DSMSensor()
 {
-    delete [] buffer;
+
     for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) delete *si;
+    delete scanner;
+    delete iodev;
 }
 
 void DSMSensor::addSampleTag(SampleTag* tag)
@@ -72,95 +73,43 @@ const std::string& DSMSensor::getLocation() const {
     return location;
 }
 
-void DSMSensor::initBuffer() throw()
+/*
+ * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
+ */
+void DSMSensor::open(int flags)
+	throw(atdUtil::IOException,atdUtil::InvalidParameterException) 
 {
-    bufhead = buftail = 0;
-    delete [] buffer;
-    // cerr << "allocating buffer BUFSIZE=" << DSMSensor::BUFSIZE << endl;
-    buffer = new char[DSMSensor::BUFSIZE];
+    if (!iodev) iodev = buildIODevice();
+    cerr << "iodev->setName " << getDeviceName() << endl;
+    iodev->setName(getDeviceName());
+
+    atdUtil::Logger::getInstance()->log(LOG_NOTICE,
+    	"opening: %s",getDeviceName().c_str());
+
+    iodev->open(flags);
+    if (!scanner) scanner = buildSampleScanner();
+    scanner->init();
 }
 
-void DSMSensor::destroyBuffer() throw()
+/*
+ * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
+ */
+void DSMSensor::close() throw(atdUtil::IOException) 
 {
-    delete [] buffer;
-    buffer = 0;
+    atdUtil::Logger::getInstance()->log(LOG_INFO,
+    	"closing: %s",getDeviceName().c_str());
+    iodev->close();
 }
 
-dsm_time_t DSMSensor::readSamples(SampleDater* dater)
-	throw (atdUtil::IOException)
+void DSMSensor::init() throw(atdUtil::InvalidParameterException)
 {
-    size_t len = DSMSensor::BUFSIZE - bufhead;	// length to read
-    size_t rlen;			// read result
-    dsm_time_t tt = 0;
-
-    rlen = read(buffer+bufhead,len);
-    bufhead += rlen;
-
-    // process all data in buffer, pass samples onto clients
-    for (;;) {
-        if (samp) {
-	    rlen = bufhead - buftail;	// bytes available in buffer
-	    len = sampDataToRead;	// bytes left to fill sample
-	    if (rlen < len) len = rlen;
-	    memcpy(sampDataPtr,buffer+buftail,len);
-	    buftail += len;
-	    sampDataPtr += len;
-	    sampDataToRead -= len;
-	    if (!sampDataToRead) {		// done with sample
-		nbytes += samp->getDataByteLength();
-		SampleDater::status_t status = setSampleTime(dater,samp);
-		if (status == SampleDater::OK) {
-		    tt = samp->getTimeTag();	// return last time tag read
-		    distributeRaw(samp);
-		}
-		else questionableTimeTags++;
-		samp->freeReference();
-		nsamples++;
-		samp = 0;
-		// Finished with sample. Check for more data in buffer
-	    }
-	    else break;		// done with buffer
-	}
-	// Read the header of the next sample
-        if (bufhead - buftail <
-		(signed)(len = SIZEOF_DSM_SAMPLE_HEADER))
-		break;
-
-	struct dsm_sample header;	// temporary header to read into
-	memcpy(&header,buffer+buftail,len);
-	buftail += len;
-
-	len = header.length;
-	samp = getSample<char>(len);
-	// convert time tag to microseconds since 00:00 GMT
-	samp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_MSEC);
-	samp->setDataLength(len);
-	samp->setId(getId());	// set sample id to id of this sensor
-	sampDataPtr = (char*) samp->getVoidDataPtr();
-	sampDataToRead = len;
-
-	// keeps some stats
-	if(len < minSampleLength[currStatsIndex]) 
-	    minSampleLength[currStatsIndex] = len;
-	if (len > maxSampleLength[currStatsIndex])
-	    maxSampleLength[currStatsIndex] = len;
-    }
-
-    // shift data down. There shouldn't be much - less than a header's worth.
-    register char* bp;
-    for (bp = buffer; buftail < bufhead; ) 
-    	*bp++ = *(buffer + buftail++);
-
-    bufhead = bp - buffer;
-    buftail = 0;
-    return tt;
 }
 
 bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
     process(samp,results);
-    distribute(results);	// this does a sample->freeReference
+    distribute(results);	// distribute on a list does the freeReference
     return true;
 }
 
@@ -172,49 +121,6 @@ bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
     s->holdReference();
     result.push_back(s);
     return true;
-}
-
-void DSMSensor::initStatistics()
-{
-    currStatsIndex = reportStatsIndex = 0;
-										
-    sampleRateObs = 0.0;
-    maxSampleLength[0] = maxSampleLength[1] = 0;
-    minSampleLength[0] = minSampleLength[1] = 999999;
-    readErrorCount[0] = readErrorCount[1] = 0;
-    writeErrorCount[0] = writeErrorCount[1] = 0;
-    nsamples = 0;
-    nbytes = 0;
-    initialTimeSecs = time(0);
-}
-
-void DSMSensor::calcStatistics(unsigned long periodUsec)
-{
-    reportStatsIndex = currStatsIndex;
-    currStatsIndex = (currStatsIndex + 1) % 2;
-    maxSampleLength[currStatsIndex] = 0;
-    minSampleLength[currStatsIndex] = 999999;
-										
-    sampleRateObs = ((float)nsamples / periodUsec) * USECS_PER_SEC;
-
-    dataRateObs = ((float)nbytes / periodUsec) * USECS_PER_SEC;
-
-    readErrorCount[0] = writeErrorCount[0] = 0;
-
-    nsamples = 0;
-    nbytes = 0;
-}
-
-float DSMSensor::getObservedSamplingRate() const {
-  if (reportStatsIndex == currStatsIndex)
-      return (float)nsamples/(time(0) - initialTimeSecs);
-  else return sampleRateObs;
-}
-
-float DSMSensor::getObservedDataRate() const {
-  if (reportStatsIndex == currStatsIndex)
-      return (float)nbytes/(time(0) - initialTimeSecs);
-  else return dataRateObs;
 }
 
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
@@ -237,8 +143,6 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 <th>min&nbsp;samp<br>length</th>\
 <th>max&nbsp;samp<br>length</th>\
 <th>bad<br>timetags</th>\
-<th>read&nbsp;errs<br>rcnt,cum</th>\
-<th>write&nbsp;errs<br>rcnt,cum</th>\
 <th>extended&nbsp;status</th>\
 <tbody align=center>" << endl;	// default alignment in table body
 }
@@ -253,19 +157,17 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
     zebra = !zebra;
     ostr <<
         "<tr class=\"" << oe << "\"><td align=left>" <<
-                getIdRefName() << "(" <<
-                getDeviceName() << ")</td>" << endl <<
+                getDeviceName() << ',' <<
+		(getCatalogName().length() > 0 ?
+			getCatalogName() : getClassName()) <<
+		"</td>" << endl <<
     	"<td>" << fixed << setprecision(2) <<
 		getObservedSamplingRate() << "</td>" << endl <<
     	"<td>" << setprecision(0) <<
 		getObservedDataRate() << "</td>" << endl <<
 	"<td>" << getMinSampleLength() << "</td>" << endl <<
 	"<td>" << getMaxSampleLength() << "</td>" << endl <<
-	"<td>" << getBadTimeTagCount() << "</td>" << endl <<
-	"<td>" << getReadErrorCount() << ", " <<
-		getCumulativeReadErrorCount() << "</td>" << endl <<
-	"<td>" << getWriteErrorCount() << ", " <<
-		getCumulativeWriteErrorCount() << "</td>" << endl;
+	"<td>" << getBadTimeTagCount() << "</td>" << endl;
 }
 
 void DSMSensor::fromDOMElement(const DOMElement* node)
@@ -289,10 +191,17 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    // get attribute name
 	    if (!attr.getName().compare("devicename"))
 		setDeviceName(attr.getValue());
-	    else if (!attr.getName().compare("IDREF"))
-		setIdRefName(attr.getValue());
-	    else if (!attr.getName().compare("class"))
-		setClassName(attr.getValue());
+	    // set the catalog name from the ID
+	    else if (!attr.getName().compare("ID"))
+		setCatalogName(attr.getValue());
+	    else if (!attr.getName().compare("class")) {
+	        if (getClassName().length() == 0)
+		    setClassName(attr.getValue());
+		else if (getClassName().compare(attr.getValue()))
+		    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		    	"class attribute=%s does not match getClassName()=%s\n",
+			attr.getValue().c_str(),getClassName().c_str());
+	    }
 	    else if (!attr.getName().compare("location"))
 		setLocation(attr.getValue());
 	    else if (!attr.getName().compare("id")) {
@@ -404,3 +313,96 @@ DOMElement* DSMSensor::toDOMElement(DOMElement* node)
     return node;
 }
 
+/* static */
+string DSMSensor::replaceBackslashSequences(string str)
+{
+    unsigned int bs;
+    for (unsigned int ic = 0; (bs = str.find('\\',ic)) != string::npos;
+    	ic = bs) {
+	bs++;
+	if (bs == str.length()) break;
+        switch(str[bs]) {
+	case 'n':
+	    str.erase(bs,1);
+	    str[bs-1] = '\n';
+	    break;
+	case 'r':
+	    str.erase(bs,1);
+	    str[bs-1] = '\r';
+	    break;
+	case 't':
+	    str.erase(bs,1);
+	    str[bs-1] = '\t';
+	    break;
+	case '\\':
+	    str.erase(bs,1);
+	    str[bs-1] = '\\';
+	    break;
+	case 'x':	//  \xhh	hex
+	    if (bs + 2 >= str.length()) break;
+	    {
+		istringstream ist(str.substr(bs+1,2));
+		int hx;
+		ist >> hex >> hx;
+		if (!ist.fail()) {
+		    str.erase(bs,3);
+		    str[bs-1] = (char)(hx & 0xff);
+		}
+	    }
+	    break;
+	case '0':	//  \000   octal
+	case '1':
+	case '2':
+	case '3':
+	    if (bs + 2 >= str.length()) break;
+	    {
+		istringstream ist(str.substr(bs,3));
+		int oc;
+		ist >> oct >> oc;
+		if (!ist.fail()) {
+		    str.erase(bs,3);
+		    str[bs-1] = (char)(oc & 0xff);
+		}
+	    }
+	    break;
+	}
+    }
+    return str;
+}
+
+/* static */
+string DSMSensor::addBackslashSequences(string str)
+{
+    string res;
+    for (unsigned int ic = 0; ic < str.length(); ic++) {
+	char c = str[ic];
+        switch(c) {
+	case '\n':
+	    res.append("\\n");
+	    break;
+	case '\r':
+	    res.append("\\r");
+	    break;
+	case '\t':
+	    res.append("\\t");
+	    break;
+	case '\\':
+	    res.append("\\\\");
+	    break;
+	default:
+	    // in C locale isprint returns true for
+	    // alpha-numeric, punctuation and the space character
+	    // but not other white-space characters like tabs,
+	    // newlines, carriage-returns,  form-feeds, etc.
+	    if (::isprint(c)) res.push_back(c);
+	    else {
+		ostringstream ost;
+		ost << "\\x" << hex << setw(2) << setfill('0') << (unsigned int) c;
+		res.append(ost.str());
+	    }
+	        
+	    break;
+	}
+    }
+    return res;
+}

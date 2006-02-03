@@ -14,6 +14,8 @@
 */
 
 #include <DSC_A2DSensor.h>
+#include <RTL_IODevice.h>
+#include <UnixIODevice.h>
 #include <dsc_a2d.h>
 
 #include <atdUtil/Logger.h>
@@ -29,11 +31,12 @@ using namespace std;
 CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    RTL_DSMSensor(),initialized(false),
+    DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),
     convSlope(0),convIntercept(0),
     sampleTimes(0),deltatUsec(0),
-    outsamples(0),latency(0.1),badRawSamples(0)
+    outsamples(0),latency(0.1),badRawSamples(0),
+    rtlinux(-1)
 {
 }
 
@@ -52,8 +55,34 @@ DSC_A2DSensor::~DSC_A2DSensor()
     }
 }
 
+bool DSC_A2DSensor::isRTLinux() const
+{
+    if (rtlinux < 0)  {
+        const string& dname = getDeviceName();
+        unsigned int fs = dname.rfind('/');
+        if (fs != string::npos && (fs + 6) < dname.length() &&
+            !dname.substr(fs+1,6).compare("rtldsc_a2d"))
+                    rtlinux = 1;
+        else rtlinux = 0;
+    }
+    return rtlinux == 1;
+}
+
+IODevice* DSC_A2DSensor::buildIODevice() throw(atdUtil::IOException)
+{
+    if (isRTLinux()) return new RTL_IODevice();
+    else return new UnixIODevice();
+}
+
+SampleScanner* DSC_A2DSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
 void DSC_A2DSensor::open(int flags) throw(atdUtil::IOException)
 {
+    DSMSensor::open(flags);
+
     init();
 
     int nchans;
@@ -91,16 +120,15 @@ void DSC_A2DSensor::open(int flags) throw(atdUtil::IOException)
     ioctl(DSC_CONFIG, &cfg, sizeof(struct DSC_Config));
 
     // cerr << "doing DSC_START" << endl;
-    ioctl(DSC_START,(const void*)0,0);
+    ioctl(DSC_START,0,0);
 
-    RTL_DSMSensor::open(flags);
 }
 
 void DSC_A2DSensor::close() throw(atdUtil::IOException)
 {
     cerr << "doing DSC_STOP" << endl;
-    ioctl(DSC_STOP,(const void*)0,0);
-    RTL_DSMSensor::close();
+    ioctl(DSC_STOP,0,0);
+    DSMSensor::close();
 }
 
 void DSC_A2DSensor::init() throw(atdUtil::InvalidParameterException)

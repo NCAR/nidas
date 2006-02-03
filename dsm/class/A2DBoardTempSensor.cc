@@ -29,7 +29,7 @@ using namespace std;
 CREATOR_FUNCTION(A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    RTL_DSMSensor(),rate(IRIG_1_HZ),
+    DSMSensor(),rate(IRIG_1_HZ),
     DEGC_PER_CNT(0.0625)
 {
 }
@@ -38,18 +38,28 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 {
 }
 
-void A2DBoardTempSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
+IODevice* A2DBoardTempSensor::buildIODevice() throw(atdUtil::IOException)
 {
-    init();
-    // cerr << "doing A2D_OPEN_I2CT" << endl;
-    ioctl(A2D_OPEN_I2CT,&rate,sizeof(rate));
-    RTL_DSMSensor::open(flags);
+    return new RTL_IODevice();
 }
+
+SampleScanner* A2DBoardTempSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
+void A2DBoardTempSensor::open(int flags)
+	throw(atdUtil::IOException,atdUtil::InvalidParameterException)
+{
+    DSMSensor::open(flags);
+    ioctl(A2D_OPEN_I2CT,&rate,sizeof(rate));
+}
+
 void A2DBoardTempSensor::close() throw(atdUtil::IOException)
 {
     // cerr << "doing A2D_CLOSE_I2CT" << endl;
-    ioctl(A2D_CLOSE_I2CT,(const void*)0,0);
-    RTL_DSMSensor::close();
+    ioctl(A2D_CLOSE_I2CT,0,0);
+    DSMSensor::close();
 }
 
 float A2DBoardTempSensor::getTemp() throw(atdUtil::IOException)

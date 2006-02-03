@@ -15,7 +15,7 @@
 #ifndef DSC_A2DSENSOR_H
 #define DSC_A2DSENSOR_H
 
-#include <RTL_DSMSensor.h>
+#include <DSMSensor.h>
 
 #include <vector>
 #include <map>
@@ -25,12 +25,18 @@ namespace dsm {
 /**
  * A sensor connected to the DSM A2D
  */
-class DSC_A2DSensor : public RTL_DSMSensor {
+class DSC_A2DSensor : public DSMSensor {
 
 public:
 
     DSC_A2DSensor();
     ~DSC_A2DSensor();
+
+    bool isRTLinux() const;
+
+    IODevice* buildIODevice() throw(atdUtil::IOException);
+
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.
@@ -187,6 +193,8 @@ protected:
      * Counter of number of raw samples of wrong size.
      */
     size_t badRawSamples;
+
+    mutable int rtlinux;
 };
 
 }

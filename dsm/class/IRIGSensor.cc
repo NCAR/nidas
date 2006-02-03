@@ -17,8 +17,8 @@
 
 #include <IRIGSensor.h>
 #include <DSMTime.h>
-#include <RTL_DevIoctlStore.h>
 #include <DSMEngine.h>
+#include <RTL_IODevice.h>
 
 #include <atdUtil/Logger.h>
 
@@ -40,8 +40,22 @@ IRIGSensor::IRIGSensor()
 
 IRIGSensor::~IRIGSensor() {
 }
+
+IODevice* IRIGSensor::buildIODevice() throw(atdUtil::IOException)
+{
+    return new RTL_IODevice();
+}
+
+SampleScanner* IRIGSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
 void IRIGSensor::open(int flags) throw(atdUtil::IOException)
 {
+
+    DSMSensor::open(flags);
+
     // checkClock sends the Unix time down to the pc104sg card.
     // If the card status indicates the pc104sg has good time codes, then
     // only the year is updated, since time codes don't contain the year.
@@ -63,9 +77,8 @@ void IRIGSensor::open(int flags) throw(atdUtil::IOException)
     sleep(2);
 
     // Request that fifo be opened at driver end.
-    ioctl(IRIG_OPEN,(const void*)0,0);
+    ioctl(IRIG_OPEN,0,0);
 
-    RTL_DSMSensor::open(flags);
 }
 
 /**
@@ -170,8 +183,8 @@ void IRIGSensor::checkClock() throw(atdUtil::IOException)
 
 void IRIGSensor::close() throw(atdUtil::IOException)
 {
-    ioctl(IRIG_CLOSE,(const void*)0,0);
-    RTL_DSMSensor::close();
+    ioctl(IRIG_CLOSE,0,0);
+    DSMSensor::close();
 }
 
 /* static */
@@ -257,7 +270,7 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 void IRIGSensor::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
-    RTL_DSMSensor::fromDOMElement(node);
+    DSMSensor::fromDOMElement(node);
 
     if (sampleTags.size() != 1) 
     	throw atdUtil::InvalidParameterException(getName(),"<sample>",

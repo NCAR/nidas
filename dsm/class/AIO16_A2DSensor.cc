@@ -29,11 +29,12 @@ using namespace std;
 CREATOR_FUNCTION(AIO16_A2DSensor)
 
 AIO16_A2DSensor::AIO16_A2DSensor() :
-    RTL_DSMSensor(),initialized(false),
+    DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),
     convSlope(0),convIntercept(0),
     sampleTimes(0),deltatUsec(0),
-    outsamples(0),latency(0.1),badRawSamples(0)
+    outsamples(0),latency(0.1),badRawSamples(0),
+    rtlinux(-1)
 {
 }
 
@@ -52,8 +53,35 @@ AIO16_A2DSensor::~AIO16_A2DSensor()
     }
 }
 
+bool AIO16_A2DSensor::isRTLinux() const
+{
+    if (rtlinux < 0)  {
+        const string& dname = getDeviceName();
+        unsigned int fs = dname.rfind('/');
+        if (fs != string::npos && (fs + 6) < dname.length() &&
+            !dname.substr(fs+1,6).compare("rtlaio_a2d"))
+                    rtlinux = 1;
+        else rtlinux = 0;
+    }
+    return rtlinux == 1;
+}
+
+IODevice* AIO16_A2DSensor::buildIODevice() throw(atdUtil::IOException)
+{
+    if (isRTLinux()) return new RTL_IODevice();
+    else return new UnixIODevice();
+}
+
+SampleScanner* DSC_A2DSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
+
 void AIO16_A2DSensor::open(int flags) throw(atdUtil::IOException)
 {
+    DSMSensor::open(flags);
+
     init();
 
     struct AIO16_Config cfg;
@@ -84,14 +112,13 @@ void AIO16_A2DSensor::open(int flags) throw(atdUtil::IOException)
     // cerr << "doing AIO16_START" << endl;
     ioctl(AIO16_START,(const void*)0,0);
 
-    RTL_DSMSensor::open(flags);
 }
 
 void AIO16_A2DSensor::close() throw(atdUtil::IOException)
 {
     cerr << "doing AIO16_STOP" << endl;
     ioctl(AIO16_STOP,(const void*)0,0);
-    RTL_DSMSensor::close();
+    DSMSensor::close();
 }
 
 void AIO16_A2DSensor::init() throw(atdUtil::InvalidParameterException)

@@ -14,7 +14,7 @@
 #ifndef PSI9116_SENSOR_H
 #define PSI9116_SENSOR_H
 
-#include <SocketSensor.h>
+#include <CharacterSensor.h>
 
 namespace dsm {
 
@@ -24,13 +24,16 @@ namespace dsm {
  * on TCP port 9000 and capable of receiving UDP broadcasts on port 7000.
  * Currently this class does not use UDP.
  */
-class PSI9116_Sensor: public SocketSensor
+class PSI9116_Sensor: public CharacterSensor
 {
+
 public:
 
     PSI9116_Sensor();
 
     ~PSI9116_Sensor() { }
+
+    IODevice* buildIODevice() throw(atdUtil::IOException);
 
     void open(int flags)
     	throw(atdUtil::IOException,atdUtil::InvalidParameterException);

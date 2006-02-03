@@ -17,17 +17,14 @@
 
 #include <dsm_serial.h>
 
-#include <RTL_DSMSensor.h>
-#include <MessageStreamSensor.h>
-#include <atdUtil/InvalidParameterException.h>
+#include <CharacterSensor.h>
 #include <atdTermio/Termios.h>
-#include <AsciiScanner.h>
 
 namespace dsm {
 /**
  * A sensor connected to a serial port.
  */
-class DSMSerialSensor : public RTL_DSMSensor, public MessageStreamSensor, public atdTermio::Termios {
+class DSMSerialSensor : public CharacterSensor, public atdTermio::Termios {
 
 public:
 
@@ -38,6 +35,8 @@ public:
     DSMSerialSensor();
 
     ~DSMSerialSensor();
+
+    SampleScanner* buildSampleScanner();
 
     /**
      * Override DSMSensor::getDefaultMode to allow writing.
@@ -50,16 +49,15 @@ public:
      */
     void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
-    void init() throw(atdUtil::InvalidParameterException);
-
-    void addSampleTag(SampleTag* var)
-    	throw(atdUtil::InvalidParameterException);
     /*
      * Close the device connected to the sensor.
      */
     void close() throw(atdUtil::IOException);
 
-    /**
+    void printStatus(std::ostream& ostr) throw();
+
+
+  /**
      * Is prompting active, i.e. isPrompted() is true, and startPrompting
      * has been called?
      */
@@ -69,32 +67,18 @@ public:
 
     void stopPrompting() throw(atdUtil::IOException);
 
-    unsigned long getSampleId() const { return sampleId; }
-
-    void printStatus(std::ostream& ostr) throw();
-
-    /**
-     * Process a raw sample, which in this case means do
-     * a sscanf on the character string contents, creating
-     * a processed sample of binary floating point data.
-     */
-    virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw();
-
-    void fromDOMElement(const xercesc::DOMElement*)
+    void fromDOMElement(const xercesc::DOMElement* node)
     	throw(atdUtil::InvalidParameterException);
-
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException);
 
 protected:
 
-    dsm_sample_id_t sampleId;
+    void rtlDevInit(int flags)
+    	throw(atdUtil::IOException,atdUtil::InvalidParameterException);
+
+    void unixDevInit(int flags)
+    	throw(atdUtil::IOException,atdUtil::InvalidParameterException);
+
+private:
 
     bool prompting;
 

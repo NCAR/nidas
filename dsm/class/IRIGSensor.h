@@ -17,14 +17,14 @@
 
 #include <dsm_serial.h>
 
-#include <RTL_DSMSensor.h>
+#include <DSMSensor.h>
 #include <atdUtil/InvalidParameterException.h>
 
 namespace dsm {
 /**
  * Sensor class for controlling and recieving data from an IRIG clock.
  */
-class IRIGSensor : public RTL_DSMSensor
+class IRIGSensor : public DSMSensor
 {
 
 public:
@@ -36,6 +36,10 @@ public:
     IRIGSensor();
 
     ~IRIGSensor();
+
+    IODevice* buildIODevice() throw(atdUtil::IOException);
+
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.

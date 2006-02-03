@@ -15,7 +15,7 @@
 
 #include <arinc.h>
 #include <DSMArincSensor.h>
-#include <RTL_DevIoctlStore.h>
+#include <RTL_IODevice.h>
 
 #include <atdUtil/Logger.h>
 
@@ -39,56 +39,66 @@ DSMArincSensor::DSMArincSensor() :
 DSMArincSensor::~DSMArincSensor() {
 }
 
+IODevice* DSMArincSensor::buildIODevice() throw(atdUtil::IOException)
+{
+    return new RTL_IODevice();
+}
+
+SampleScanner* DSMArincSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
 void DSMArincSensor::open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
-  // err("");
 
-  ioctl(ARINC_RESET, (const void*)0,0);
+    DSMSensor::open(flags);
+    // err("");
 
-  // sort SampleTags by rate then by label
-  set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
-    ( getSampleTags().begin(), getSampleTags().end() );
+    ioctl(ARINC_RESET, 0,0);
 
-  if (sim_xmit) {
-#ifdef DEBUG
-    err(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting");
-#endif
-    ioctl(ARINC_SIM_XMIT,(const void*)0,0);
-  }
+    // sort SampleTags by rate then by label
+    set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
+      ( getSampleTags().begin(), getSampleTags().end() );
 
-  // Do other sensor initialization.
-  init();
+    if (sim_xmit) {
+  #ifdef DEBUG
+      err(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting");
+  #endif
+      ioctl(ARINC_SIM_XMIT,0,0);
+    }
 
-  arcfg_t arcfg;
-  for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
-       si != sortedSampleTags.end(); ++si)
-  {
-    // remove the Sensor ID from the short ID to get the label
-    arcfg.label = (*si)->getSampleId();
+    // Do other sensor initialization.
+    init();
 
-    // round down the floating point rates
-    arcfg.rate  = (short) floor( (*si)->getRate() );
+    arcfg_t arcfg;
+    for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
+	 si != sortedSampleTags.end(); ++si)
+    {
+      // remove the Sensor ID from the short ID to get the label
+      arcfg.label = (*si)->getSampleId();
 
-#ifdef DEBUG
-    // Note - ARINC samples have only one variable...
-    const Variable* var = (*si)->getVariables().front();
+      // round down the floating point rates
+      arcfg.rate  = (short) floor( (*si)->getRate() );
 
-    err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
-        _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
-        (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
-#endif
+  #ifdef DEBUG
+      // Note - ARINC samples have only one variable...
+      const Variable* var = (*si)->getVariables().front();
 
-    ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
-  }
-  sortedSampleTags.clear();
-  ioctl(ARINC_MEASURE,(const void*)0,0);
+      err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
+	  _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
+	  (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
+  #endif
 
-  archn_t archn;
-  archn.speed  = _speed;
-  archn.parity = _parity;
-  ioctl(ARINC_GO, &archn, sizeof(archn_t));
+      ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
+    }
+    sortedSampleTags.clear();
+    ioctl(ARINC_MEASURE,0,0);
 
-  RTL_DSMSensor::open(flags);
+    archn_t archn;
+    archn.speed  = _speed;
+    archn.parity = _parity;
+    ioctl(ARINC_GO, &archn, sizeof(archn_t));
 }
 
 void DSMArincSensor::close() throw(atdUtil::IOException)
@@ -96,8 +106,8 @@ void DSMArincSensor::close() throw(atdUtil::IOException)
 #ifdef DEBUG
   err("");
 #endif
-  ioctl(ARINC_RESET, (const void*)0,0);
-  RTL_DSMSensor::close();
+  ioctl(ARINC_RESET,0,0);
+  DSMSensor::close();
 }
 
 /*
@@ -192,7 +202,7 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 void DSMArincSensor::fromDOMElement(const DOMElement* node)
   throw(atdUtil::InvalidParameterException)
 {
-  RTL_DSMSensor::fromDOMElement(node);
+  DSMSensor::fromDOMElement(node);
   XDOMElement xnode(node);
 
   // parse attributes...

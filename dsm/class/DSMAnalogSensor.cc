@@ -41,6 +41,7 @@
  */
 
 #include <DSMAnalogSensor.h>
+#include <RTL_IODevice.h>
 #include <a2d_driver.h>
 
 #include <atdUtil/Logger.h>
@@ -56,11 +57,11 @@ using namespace std;
 CREATOR_FUNCTION(DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
-    RTL_DSMSensor(),initialized(false),
+    DSMSensor(),initialized(false),
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
     sampleTimes(0),
     deltatUsec(0),nSamplePerRawSample(0),
-    outsamples(0),latency(0.1),badRawSamples(0)
+    outsamples(0),badRawSamples(0)
 {
 }
 
@@ -79,8 +80,20 @@ DSMAnalogSensor::~DSMAnalogSensor()
     }
 }
 
+IODevice* DSMAnalogSensor::buildIODevice() throw(atdUtil::IOException)
+{
+    return new RTL_IODevice();
+}
+
+SampleScanner* DSMAnalogSensor::buildSampleScanner()
+{
+    return new SampleScanner();
+}
+
 void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
 {
+
+    DSMSensor::open(flags);
     init();
 
     A2D_SET a2d;
@@ -123,16 +136,15 @@ void DSMAnalogSensor::open(int flags) throw(atdUtil::IOException)
     ioctl(A2D_SET_CONFIG, &a2d, sizeof(A2D_SET));
 
     // cerr << "doing A2D_RUN_IOCTL" << endl;
-    ioctl(A2D_RUN_IOCTL,(const void*)0,0);
+    ioctl(A2D_RUN_IOCTL,0,0);
 
-    RTL_DSMSensor::open(flags);
 }
 
 void DSMAnalogSensor::close() throw(atdUtil::IOException)
 {
     // cerr << "doing A2D_STOP_IOCTL" << endl;
-    ioctl(A2D_STOP_IOCTL,(const void*)0,0);
-    RTL_DSMSensor::close();
+    ioctl(A2D_STOP_IOCTL,0,0);
+    DSMSensor::close();
 }
 
 int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int nexpect)

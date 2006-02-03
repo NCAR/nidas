@@ -19,6 +19,8 @@
 #include <SampleClient.h>
 #include <SampleSource.h>
 #include <RawSampleSource.h>
+#include <IODevice.h>
+#include <SampleScanner.h>
 #include <SampleTag.h>
 #include <DOMable.h>
 #include <dsm_sample.h>
@@ -36,33 +38,36 @@ namespace dsm {
 
 class DSMConfig;
 
+
 /**
  * DSMSensor provides the basic support for reading, processing
  * and distributing samples from a sensor attached to a DSM.
  *
- * DSMSensor has a no-arg constructor, and can fill in its attributes
+ * Much of the implementation of a DSMSensor is delegated
+ * to an IODevice and a SampleScanner, which are
+ * passed in the constructor.
+ * DSMSensor can fill in its attributes
  * from an XML DOM element with fromDOMElement().
  * One attribute of a DSMSensor is the system device
  * name associated with this sensor, e.g. "/dev/xxx0".
  * Once a device name has been set, then a user of this sensor
- * can call open(),  and then ioctl(), read() and write().
- * These methods must be implemented by a derived class,
- * RTL_DSMSensor, for example.
+ * can call open(),  and then ioctl(), read() and write(),
+ * which are carried out by the IODevice.
  *
  * SampleClient's can call
  * addRawSampleClient()/removeRawSampleClient() if they want to
- * receive raw SampleT's from this sensor.
+ * receive raw Samples from this sensor.
  *
  * SampleClient's can also call
  * addSampleClient()/removeSampleClient() if they want to
- * receive (minimally) processed SampleT's from this sensor.
+ * receive (minimally) processed Samples from this sensor.
  *
  * A common usage of a DSMSensor is to add it to a PortSelector
  * object with PortSelector::addSensorPort().
  * When the PortSelector::run method has determined that there is data
  * available on a DSMSensor's file descriptor, it will then call
  * the readSamples() method which reads the samples from the
- * file descriptor, processes them, and forwards the raw and processed
+ * IODevice, and forwards the raw and processed
  * samples to all associated SampleClient's of this DSMSensor.
  *
  */
@@ -72,8 +77,14 @@ class DSMSensor : public RawSampleSource, public SampleSource,
 public:
 
     /**
-     * Create a sensor.
+     * Constructor.
+     * @param scanner Pointer to a SampleScanner to be used
+     *        for scanning raw data from the sensor into Samples.
+     * If this DSMSensor is being used in post-processing,
+     * then the scanner can be a null pointer(0).
+     * After construction, DSMSensor owns the SampleScanner.
      */
+
     DSMSensor();
 
     virtual ~DSMSensor();
@@ -81,48 +92,72 @@ public:
     /**
      * Set the DSMConfig for this sensor.
      */
-    void setDSMConfig(const DSMConfig* val) { dsm = val; }
+    void setDSMConfig(const DSMConfig* val)
+    {
+        dsm = val;
+    }
 
     /**
      * What DSMConfig am I associated with?
      */
-    const DSMConfig* getDSMConfig() const { return dsm; }
+    const DSMConfig* getDSMConfig() const
+    {
+        return dsm;
+    }
 
     /**
      * Set the name of the system device that the sensor
      * is connected to.
      * @param val Name of device, e.g. "/dev/xxx0".
      */
-    virtual void setDeviceName(const std::string& val) { devname = val; }
-
-    /**
-     * Set the IDREF name of the sensor found in the catalog.
-     * @param val IDREF Name of device, e.g. "DewPointer".
-     */
-    virtual void setIdRefName(const std::string& val) { idrefname = val; }
+    virtual void setDeviceName(const std::string& val)
+    {
+       devname = val;
+    }
 
     /**
      * Fetch the name of the system device that the sensor
      * is connected to.
      */
-    virtual const std::string& getDeviceName() const { return devname; }
+    virtual const std::string& getDeviceName() const
+    {
+	return devname;
+    }
 
     /**
-     * Fetch the IDREF name of the sensor found in the catalog.
+     * Set the class name. In the usual usage this
+     * method is not used, and getClassName() is
+     * over-ridden in a derived class to return
+     * a constant string.
      */
-    virtual const std::string& getIdRefName() const { return idrefname; }
-
-    /**
-     * Set the class name of this sensor. The class name is
-     * only used in informative messages - nothing else
-     * is done with it.
-     */
-    void setClassName(const std::string& val) { classname = val; }
+    virtual void setClassName(const std::string& val)
+    {
+        className = val;
+    }
 
     /**
      * Fetch the class name.
      */
-    virtual const std::string& getClassName() const { return classname; }
+    virtual const std::string& getClassName() const
+    {
+        return className;
+    }
+
+    /**
+     * Set the name of the catalog entry for this sensor.
+     */
+    virtual void setCatalogName(const std::string& val)
+    {
+        catalogName = val;
+    }
+
+    /**
+     * Fetch the name of the catalog entry for this sensor.
+     */
+    virtual const std::string& getCatalogName() const 
+    {
+        return catalogName;
+    }
 
     /**
      * Fetch the DSM name.
@@ -135,7 +170,8 @@ public:
      * has this format:
      *  dsmName:deviceName.
      */
-    virtual std::string getName() const {
+    virtual std::string getName() const
+    {
         return getDSMName() + ':' + getDeviceName();
     }
 
@@ -165,9 +201,17 @@ public:
     virtual const std::vector<const SampleTag*>& getSampleTags() const
     	{ return constSampleTags; }
 
-    virtual int getReadFd() const = 0;
+    virtual int getReadFd() const
+    {
+	if (iodev) return iodev->getReadFd();
+	return -1;
+    }
 
-    virtual int getWriteFd() const = 0;
+    virtual int getWriteFd() const
+    {
+	if (iodev) return iodev->getWriteFd();
+	return -1;
+    }
 
     /**
      * Whether to reopen this sensor on an IOException.
@@ -179,7 +223,7 @@ public:
     /**
      * Set the various levels of the sensor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
-     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
+     * 6-bit not used, 10-bit DSM id, and 16-bit sensor+sample ids
      */
     void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
     void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
@@ -195,9 +239,44 @@ public:
     unsigned short getShortId() const { return GET_SHORT_ID(id); }
 
     /**
+     * Set desired latency, providing some control
+     * over the response time vs buffer efficiency tradeoff.
+     * Setting a latency of 1/10 sec means buffer
+     * data in the driver for a 1/10 sec, then send the data
+     * to user space. As implemented here, it must be
+     * set before doing a sensor open().
+     * @param val Latency, in seconds.
+     */
+    void setLatency(float val)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        latency = val;
+    }
+
+    float getLatency() const { return latency; }
+
+    virtual SampleDater::status_t setSampleTime(SampleDater* dater,Sample* samp)
+    {
+        return dater->setSampleTime(samp);
+    }
+
+    /**
+     * Factory method for an IODevice for this DSMSensor.
+     * Must be implemented by derived classes.
+     */
+    virtual IODevice* buildIODevice() throw(atdUtil::IOException) = 0;
+
+    /**
+     * Factory method for a SampleScanner for this DSMSensor.
+     * Must be implemented by derived classes.
+     */
+    virtual SampleScanner* buildSampleScanner() = 0;
+
+    /**
     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
     */
-    virtual void open(int flags) throw(atdUtil::IOException,atdUtil::InvalidParameterException) = 0;
+    virtual void open(int flags)
+    	throw(atdUtil::IOException,atdUtil::InvalidParameterException);
 
     /**
      * Initialize the DSMSensor. If the DSMSensor is
@@ -207,7 +286,7 @@ public:
      * be called after setting the required properties,
      * and before calling readSamples(), receive(), or process().
      */
-    virtual void init() throw(atdUtil::InvalidParameterException) {}
+    virtual void init() throw(atdUtil::InvalidParameterException);
 
     /**
      * How do I want to be opened.  The user can ignore it if they want to.
@@ -216,49 +295,40 @@ public:
     virtual int getDefaultMode() const { return O_RDONLY; }
 
     /**
-     * Set desired sensor latency. This can be implemented as a
-     * way to improve buffering efficiency in the sensor driver.
-     * Override this virtual method if a DSMSensor supports latency.
-     * @param val Latency, in seconds.
-     */
-    virtual void setLatency(float val)
-    	throw(atdUtil::InvalidParameterException)
-    {
-        throw atdUtil::InvalidParameterException(
-		getName(),"latency","not supported");
-    }
-
-    virtual float getLatency() const { return 0.0; }
-
-    /**
      * Read from the device (duh). Behaves like the read(2) system call,
      * without a file descriptor argument, and with an IOException.
      */
-    virtual size_t read(void *buf, size_t len) throw(atdUtil::IOException) = 0;	
+    virtual size_t read(void *buf, size_t len)
+    	throw(atdUtil::IOException)
+    {
+        return iodev->read(buf,len);
+    }
 
     /**
      * Write to the device (duh). Behaves like write(2) system call,
      * without a file descriptor argument, and with an IOException.
      */
-    virtual size_t write(const void *buf, size_t len) throw(atdUtil::IOException) = 0;
+    virtual size_t write(const void *buf, size_t len)
+    	throw(atdUtil::IOException)
+    {
+        return iodev->write(buf,len);
+    }
 
     /**
      * Perform an ioctl on the device. request is an integer
      * value which must be supported by the device. Normally
      * this is a value from a header file for the device.
      */
-    virtual void ioctl(int request, void* buf, size_t len) throw(atdUtil::IOException) = 0;
-
-    /**
-     * Overloaded ioctl method, used when doing an ioctl set from
-     * a pointer to constant user data.
-     */
-    virtual void ioctl(int request, const void* buf, size_t len) throw(atdUtil::IOException) = 0;
+    virtual void ioctl(int request, void* buf, size_t len)
+    	throw(atdUtil::IOException)
+    {
+        iodev->ioctl(request,buf,len);
+    }
 
     /**
      * close my associated device.
      */
-    virtual void close() throw(atdUtil::IOException) = 0;
+    virtual void close() throw(atdUtil::IOException);
 
     /**
      * Read raw samples from my associated file descriptor,
@@ -273,7 +343,10 @@ public:
      * length number of bytes of data.
      */
     virtual dsm_time_t readSamples(SampleDater* dater)
-    	throw(atdUtil::IOException);
+    	throw(atdUtil::IOException) 
+    {
+        return scanner->readSamples(this,dater);
+    }
 
     /**
      * A DSMSensor can be configured as a RawSampleClient
@@ -295,38 +368,45 @@ public:
     virtual void printStatus(std::ostream&) throw();
     void printStatusTrailer(std::ostream& ostr) throw();
 
-    void initStatistics();
-
     /**
      * Update the sensor sampling statistics.  Should be called
      * every periodUsec by a user of this sensor.
      * @param periodUsec Statistics period.
      */
-    void calcStatistics(unsigned long periodUsec);
+    void calcStatistics(unsigned long periodUsec)
+    {
+        if (scanner) scanner->calcStatistics(periodUsec);
+    }
 
     size_t getMaxSampleLength() const
-    	{ return maxSampleLength[reportStatsIndex]; }
+    {
+	if (scanner) return scanner->getMaxSampleLength();
+	return 0;
+    }
+
     size_t getMinSampleLength() const
-    	{ return minSampleLength[reportStatsIndex]; }
+    {
+        if (scanner) return scanner->getMinSampleLength();
+	return 0;
+    }
 
-    int getReadErrorCount() const
-       { return readErrorCount[0]; }
-    int getCumulativeReadErrorCount() const
-       { return readErrorCount[1]; }
+    float getObservedSamplingRate() const
+    {
+        if (scanner) return scanner->getObservedSamplingRate();
+	return 0.0;
+    }
 
-    int getWriteErrorCount() const
-       { return writeErrorCount[0]; }
-    int getCumulativeWriteErrorCount() const
-       { return writeErrorCount[1]; }
+    float getObservedDataRate() const
+    {
+        if (scanner) return scanner->getObservedDataRate();
+	return 0.0;
+    }
 
     size_t getBadTimeTagCount() const
     {
-	return questionableTimeTags;
+	if (scanner) return scanner->getBadTimeTagCount();
+	return 0;
     }
-
-    float getObservedSamplingRate() const;
-
-    float getObservedDataRate() const;
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -339,26 +419,59 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
+    /**
+     * Utility function for replacing backslash sequences in a string.
+     *  \\n=newline, \\r=carriage-return, \\t=tab, \\\\=backslash
+     *  \\xhh=hex, where hh are (exactly) two hex digits and
+     *  \\000=octal, where 000 are exactly three octal digits.
+     */
+    static std::string replaceBackslashSequences(std::string str);
+
+    /* note that the above back slashes above are doubled so that
+     * doxygen displays them as one back slash.  One does
+     * not double them in the parameter string.
+     */
+
+    /**
+     * Utility function for substituting backslash sequences back
+     * into a string.
+     */
+    static std::string addBackslashSequences(std::string str);
+
 protected:
 
-    virtual SampleDater::status_t setSampleTime(SampleDater* dater,Sample* samp)
-    {
-        return dater->setSampleTime(samp);
-    }
+    IODevice* getIODevice() const { return iodev; }
+
+    SampleScanner* getSampleScanner() const { return scanner; }
+
+    virtual const std::vector<SampleTag*>& getMySampleTags()
+    	{ return sampleTags; }
+
+
+private:
+
+    std::string devname;
 
     /**
      * Class name attribute of this sensor. Only used here for
      * informative messages.
      */
-    std::string classname;
+    std::string className;
 
-    const DSMConfig* dsm;
+    std::string catalogName;
 
-    std::string devname;
-
-    std::string idrefname;
+    /**
+     * Sensor suffix, which is added to variable names.
+     */
+    std::string suffix;
 
     std::string location;
+
+    IODevice* iodev;
+
+    SampleScanner* scanner;
+
+    const DSMConfig* dsm;
 
     /**
      * Id of this sensor.  Raw samples from this sensor will
@@ -366,55 +479,15 @@ protected:
      */
     dsm_sample_id_t id;
 
+protected:
+
     std::vector<SampleTag*> sampleTags;
+
+private:
 
     std::vector<const SampleTag*> constSampleTags;
 
-    /**
-     * Must be called before invoking readSamples(). Derived
-     * classes should call initBuffer in their 
-     * open() method.
-     */
-    void initBuffer() throw();
-
-
-    /**
-     * Delete the sensor buffer.  Derived classes should call
-     * destroyBuffer in their close() method.
-     */
-    void destroyBuffer() throw();
-    const int BUFSIZE;
-    char* buffer;
-    int bufhead;
-    int buftail;
-                                                                                
-    Sample* samp;
-    size_t sampDataToRead;
-    char* sampDataPtr;
-
-    /**
-     * DSMSensor maintains some counters that can be queried
-     * to provide the current status.
-     */
-    time_t initialTimeSecs;
-    size_t minSampleLength[2];
-    size_t maxSampleLength[2];
-    int readErrorCount[2];     // [0] is recent, [1] is cumulative
-    int writeErrorCount[2];    // [0] is recent, [1] is cumulative
-    int currStatsIndex;
-    int reportStatsIndex;
-    size_t nsamples;
-    size_t nbytes;
-    size_t questionableTimeTags;
-
-    /**
-    * Observed number of samples per second.
-    */
-    float sampleRateObs;
-
-    float dataRateObs;
-
-    std::string suffix;
+    float latency;
 
 private:
     // no copying
@@ -425,6 +498,7 @@ private:
 
     // toggle flag for zebra striping printStatus
     static bool zebra;
+
 };
 
 }

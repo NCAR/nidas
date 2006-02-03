@@ -184,6 +184,9 @@ static long filelengthq(FILE *f)
 
 void DSMMesaSensor::open(int flags) throw(atdUtil::IOException)
 {
+
+  DSMSensor::open(flags);
+
   char devstr[30];
   int fd_mesa_counter[3];  // file pointers 
   int fd_mesa_radar[1];  // file pointers 
@@ -192,7 +195,6 @@ void DSMMesaSensor::open(int flags) throw(atdUtil::IOException)
 
   cerr << __PRETTY_FUNCTION__ << "mps-begin" << endl;
 
-  RTL_DSMSensor::open(flags);
 
   // Open up the FPGA program FIFO to the driver...
   sprintf(devstr, "/dev/mesa_program_board");

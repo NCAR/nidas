@@ -12,6 +12,8 @@
 */
 
 #include <PSI9116_Sensor.h>
+#include <SocketIODevice.h>
+#include <DSMTime.h>
 
 #include <atdUtil/Logger.h>
 
@@ -27,6 +29,13 @@ PSI9116_Sensor::PSI9116_Sensor():
 	msecPeriod(0),nchannels(0),sampleId(0),
 	psiConvert(68.94757),sequenceNumber(0),outOfSequence(0)
 {
+}
+
+IODevice* PSI9116_Sensor::buildIODevice() throw(atdUtil::IOException)
+{
+    SocketIODevice* dev = new SocketIODevice();
+    dev->setTcpNoDelay(true);
+    return dev;
 }
 
 string PSI9116_Sensor::sendCommand(const string& cmd,int readlen)
@@ -62,8 +71,7 @@ void PSI9116_Sensor::stopStreams() throw(atdUtil::IOException)
 void PSI9116_Sensor::open(int flags)
         throw(atdUtil::IOException,atdUtil::InvalidParameterException)
 {
-    SocketSensor::open(flags);
-    SocketSensor::setTcpNoDelay(true);
+    DSMSensor::open(flags);
 
     sendCommand("A");
 
