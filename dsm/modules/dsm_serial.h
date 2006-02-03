@@ -201,6 +201,7 @@ struct serialPort {
     unsigned long read_timeout_nsec;	/* semaphore timeout in read method */
     rtl_sem_t sample_sem;
 
+    dsm_sample_t* cosamp;		/* current output sample */
     char* unwrittenp;		/* pointer to remaining sample to be written */
     rtl_ssize_t unwrittenl;		/* length left to be written */
 

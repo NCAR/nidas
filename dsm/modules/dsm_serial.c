@@ -180,7 +180,7 @@ static int termios_get_baud_rate(struct termios* termios)
                                                                                 
         i = cflag & CBAUD;
 #ifdef DEBUG
-	DSMLOG_DEBUG("get_baud_rate, i=%d\n",i);
+	DSMLOG_DEBUG("get_baud_rate, i=%d, CBAUD=0x%x\n",i,CBAUD);
 #endif
         if (i & CBAUDEX) {
 #ifdef DEBUG
@@ -537,6 +537,10 @@ static void flush_port_nolock(struct serialPort* port)
     port->output_samples.head = port->output_samples.tail = 0;
     port->unwrittenp = 0;
     port->unwrittenl = 0;
+    port->cosamp = 0;
+    port->max_fifo_usage = 0;
+    port->min_fifo_usage = UART_SAMPLE_SIZE;
+    port->promptOn = 0;
 }
 
 /*
@@ -1008,7 +1012,7 @@ static void port_prompter(void* privateData)
  */
 static int start_prompter(struct serialPort* port)
 {
-    if (!port->promptOn) 
+    if (!port->promptOn)
 	register_irig_callback(port_prompter,port->prompt.rate,port);
     port->promptOn = 1;
     return 0;
@@ -1080,8 +1084,17 @@ static int set_latency_usec(struct serialPort* port, long val)
     DSMLOG_DEBUG("latency=%d usecs\n",val);
 #endif
 
+    // screen latencies which are too small.
+    // A latency of zero will cause the serial driver to hang!
+    // We'll enforce a minimum of 1 millisec.
+    if (val <= USECS_PER_MSEC) {
+	long minval = USECS_PER_MSEC;
+	DSMLOG_ERR("%s: illegal latency value = %d usecs, setting to %d usecs\n",
+		port->devname,val, minval);
+	val = minval;
+    }
     port->read_timeout_sec = val / USECS_PER_SEC;
-    port->read_timeout_nsec = (val % USECS_PER_SEC) * 1000;
+    port->read_timeout_nsec = (val % USECS_PER_SEC) * NSECS_PER_USEC;
 
     rtl_spin_unlock_irqrestore(&port->lock,flags);
     return 0;
@@ -1297,6 +1310,8 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 {
     // initial conditions: sepcnt = 0;
 
+    // initial samples in the output queue will have length==0
+
     struct dsm_sample* osamp =
     	GET_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
     if (!osamp) {		// no output sample available
@@ -1306,8 +1321,6 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 
     register char* cp = usamp->data;
     char* ep = cp + usamp->length;
-    
-    // initial samples in the output queue will have length==0
 
     for ( ; cp < ep; cp++) {
         register char c = *cp;
@@ -1336,7 +1349,6 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 			    port->input_chars_lost += (ep - cp) - 1;
 			    return;
 			}
-			osamp->length = 0;
 			osamp->timetag = port->bomtt;
 			// copy separator to next sample
 			memcpy(osamp->data,port->recinfo.sep,
@@ -1359,14 +1371,12 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 			if (osamp->length + port->sepcnt >=
 				MAX_DSM_SERIAL_SAMPLE_SIZE) {
 			    port->sample_overflows++;
-			    osamp->timetag = port->bomtt;
 			    osamp = NEXT_HEAD(port->output_samples,
 				    OUTPUT_SAMPLE_QUEUE_SIZE);
 			    if (!osamp) {
 				port->input_chars_lost += (ep - cp);
 				return;
 			    }
-			    osamp->length = 0;
 			    osamp->timetag =
 			    	compute_time_tag(usamp,cp-usamp->data,
 					port->usecs_per_char);
@@ -1389,7 +1399,6 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 				port->input_chars_lost += (ep - cp);
 				return;
 			    }
-			    osamp->length = 0;
 			}
 
 			if (osamp->length == 0)
@@ -1400,7 +1409,7 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 			break;			// character was input
 		    }
 		}
-	    }
+	    }	// searching for BOM string
 	    else {
 		// At this point we have a match to the BOM separater string.
 		// and are filling the data buffer.
@@ -1423,7 +1432,6 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 				port->input_chars_lost += (ep - cp);
 				return;
 			    }
-			    osamp->length = 0;
 			    port->sepcnt = 0;
 			    osamp->timetag =
 			    	compute_time_tag(usamp,cp-usamp->data,
@@ -1439,7 +1447,8 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 		    // recordLen < sizeof(buffer)
 		    osamp->data[osamp->length++] = c;
 		    // If we're done, scan for separator next.
-		    if (osamp->length == port->recinfo.recordLen)
+		    if (osamp->length == port->recinfo.recordLen +
+		    	port->recinfo.sepLen)
 		    	port->sepcnt = 0;
 		    break;
 		}
@@ -1465,7 +1474,7 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 
     for ( ; cp < ep; cp++) {
         char c = *cp;
-	if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE - port->addNull) {
+	if (osamp->length + port->addNull == MAX_DSM_SERIAL_SAMPLE_SIZE) {
 	    port->sample_overflows++;
 	    // send this bogus sample on
 	    if (port->addNull)
@@ -1475,7 +1484,6 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 		port->input_chars_lost += (ep - cp);
 		return;
 	    }
-	    osamp->length = 0;
 	    port->sepcnt = 0;
 	}
 
@@ -1498,7 +1506,6 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 			port->input_chars_lost += (ep - cp);
 			return;
 		    }
-		    osamp->length = 0;
 		    port->sepcnt = 0;
 		}
 	    }
@@ -1529,7 +1536,6 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 			    port->input_chars_lost += (ep - cp);
 			    return;
 			}
-			osamp->length = 0;
 			port->sepcnt = 0;
 		    }
 		}
@@ -1831,12 +1837,12 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 
     while (count > 0) {
 	// write any available samples from 
-	struct dsm_sample* samp;
 #ifdef DEBUG
 	DSMLOG_DEBUG("dsm_ser_read, count=%d, port->unwrittenl=%d,output cnt=%d\n",
 	    count,port->unwrittenl,
 	    CIRC_CNT(port->output_samples.head,port->output_samples.tail,OUTPUT_SAMPLE_QUEUE_SIZE));
 #endif
+	// copy samples to buf, until its full or no samples left
 	for (;;) {
 	    // write last partially unwritten sample.
 	    if ((lout = port->unwrittenl) > 0) {
@@ -1848,14 +1854,17 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 		retval += lout;
 		buf += lout;
 		// couldn't write all this sample, buffer must be full
-		if (port->unwrittenl != 0) return retval;
+		if (port->unwrittenl > 0) return retval;
+		port->cosamp->length = 0;	// finished with it
 		INCREMENT_TAIL(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
 	    }
 	    if (port->output_samples.head == port->output_samples.tail) break;
-	    samp = port->output_samples.buf[port->output_samples.tail];
-	    port->unwrittenp = (char*) samp;
-	    port->unwrittenl = SIZEOF_DSM_SAMPLE_HEADER + samp->length;
+	    port->cosamp = port->output_samples.buf[port->output_samples.tail];
+	    port->unwrittenp = (char*) port->cosamp;
+	    port->unwrittenl = SIZEOF_DSM_SAMPLE_HEADER + port->cosamp->length;
 	}
+
+	// room left in buf, wait for more data
 
 	/* Note that we don't increment the absolute
 	 * time of the timeout again unless no data have arrived.
@@ -1863,7 +1872,6 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 	 * We want to return the data in a timely manner -
 	 * typical tradeoff between efficiency and responsiveness.
 	 */
-
 	if (rtl_sem_timedwait(&port->sample_sem,&timeout) < 0)
 	{
 	    if (rtl_errno == RTL_EINTR) {
@@ -1906,7 +1914,8 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 	 * Only scan one uart sample here
 	 */
 	if (port->uart_samples.head != port->uart_samples.tail) {
-	    samp = port->uart_samples.buf[port->uart_samples.tail];
+	    struct dsm_sample* samp =
+	    	port->uart_samples.buf[port->uart_samples.tail];
 #ifdef DEBUG
 	    DSMLOG_DEBUG("scanning\n");
 #endif
@@ -1950,8 +1959,9 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
     switch (request) {
     case DSMSER_TCSETS:		/* user set of termios parameters */
 	termios = (struct termios*) arg;
+
 #ifdef DEBUG
-	DSMLOG_DEBUG("DSMSER_TCSETS\n");
+	DSMLOG_DEBUG("DSMSER_TCSETS,port->devname=%s\n",port->devname);
 
 	DSMLOG_DEBUG("sizeof(struct termios)=%d\n",sizeof(struct termios));
 	DSMLOG_DEBUG("termios=0x%x\n",termios);

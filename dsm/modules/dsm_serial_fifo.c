@@ -448,6 +448,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
 	if (portNum < 0 || portNum >= boardInfo[board].numports) break;
 	int mode = *(int*) buf;
         // RTLinux uses a different bitmask for these values...
+	mode &= O_ACCMODE;
         if      (mode == O_RDWR)   mode = RTL_O_RDWR;
         else if (mode == O_RDONLY) mode = RTL_O_RDONLY;
         else if (mode == O_WRONLY) mode = RTL_O_WRONLY;
