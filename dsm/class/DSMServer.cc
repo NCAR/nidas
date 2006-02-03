@@ -73,6 +73,7 @@ int DSMServer::main(int argc, char** argv) throw()
 
     while (!quit) {
 
+	cerr << "start of while(!quit) loop" << endl;
         Project* project = 0;
 	try {
 	    project = parseXMLConfigFile(xmlFileName);
@@ -342,12 +343,14 @@ void DSMServer::scheduleServices() throw(atdUtil::Exception)
 
 void DSMServer::interruptServices() throw()
 {
+    cerr << "interrupting services, size=" << services.size() << endl;
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
 	// cerr << "doing interrupt on " << svc->getName() << endl;
 	svc->interrupt();
     }
+    cerr << "interrupting services done" << endl;
 }
 
 void DSMServer::cancelServices() throw()
@@ -405,13 +408,16 @@ void DSMServer::waitOnServices() throw()
     }
     cerr << "Break out of wait loop, interrupting services" << endl;
     interruptServices();	
+    cerr << "services interrupted" << endl;
 
     // wait a bit, then cancel whatever is still running
     sleepTime.tv_sec = 1;
     sleepTime.tv_nsec = 0;
     nanosleep(&sleepTime,0);
 
+    cerr << "cancelling services" << endl;
     cancelServices();	
+    cerr << "joining services" << endl;
     joinServices();
     cerr << "services joined" << endl;
 }
@@ -434,7 +440,12 @@ int DSMServer::parseRunstring(int argc, char** argv)
         }
     }
     if (optind == argc - 1) xmlFileName = string(argv[optind++]);
-    else xmlFileName = Project::getConfigName(
+    else if (getenv("ISFF") != 0)
+	xmlFileName = Project::getConfigName(
+	    "$ISFF", "projects", "$PROJECT","ISFF",
+	    "ops", "$OPS","ads3.xml");
+    else
+    	xmlFileName = Project::getConfigName(
     	"$ADS3_CONFIG","projects","$ADS3_PROJECT","$ADS3_AIRCRAFT",
 	"flights","$ADS3_FLIGHT","ads3.xml");
     return 0;
