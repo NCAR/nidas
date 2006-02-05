@@ -39,13 +39,19 @@ Project* Project::getInstance()
 
 Project::Project(): currentSite(0),catalog(0)
 {
-    const char* obsPer = getenv("ADS3_FLIGHT");
+    const char* obsPer = 0;
 
-    if (obsPer == NULL) currentObsPeriod.setName("unknown");
-    else currentObsPeriod.setName(obsPer);
+    if (::getenv("ISFF") != 0)
+	obsPer = ::getenv("OPS");
+    else if(::getenv("ADS3_CONFIG") != 0)
+	obsPer = getenv("ADS3_FLIGHT");
 
-    // atdUtil::Logger::getInstance()->log(LOG_INFO,"ADS3_FLIGHT=%s",
-    // 	currentObsPeriod.getName().c_str());
+    if (obsPer == 0) obsPer = "unknown";
+
+    currentObsPeriod.setName(obsPer);
+
+    atdUtil::Logger::getInstance()->log(LOG_INFO,"currentObsPeriod=%s",
+    	currentObsPeriod.getName().c_str());
 }
 
 Project::~Project()

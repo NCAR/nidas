@@ -73,7 +73,6 @@ int DSMServer::main(int argc, char** argv) throw()
 
     while (!quit) {
 
-	cerr << "start of while(!quit) loop" << endl;
         Project* project = 0;
 	try {
 	    project = parseXMLConfigFile(xmlFileName);
