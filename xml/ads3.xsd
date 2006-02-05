@@ -313,8 +313,20 @@
    </xsd:complexType>
 </xsd:element>
 
+<xsd:element name="mount">
+   <xsd:complexType>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="dev" type="xsd:token" default=""/>
+        <xsd:attribute name="type" type="xsd:token" default="auto"/>
+        <xsd:attribute name="options" type="xsd:token" default=""/>
+   </xsd:complexType>
+</xsd:element>
+
 <xsd:element name="fileset">
    <xsd:complexType>
+        <xsd:choice minOccurs="0" maxOccurs="1">
+            <xsd:element ref="mount"/>
+        </xsd:choice>
         <xsd:attribute name="dir" type="xsd:token" use="required"/>
         <xsd:attribute name="file" type="xsd:token" use="required"/>
         <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
