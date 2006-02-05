@@ -49,6 +49,9 @@ IOChannel* FileSet::connect(int pseudoPort)
     setDir(expandString(getDir()));
     setFileName(expandString(getFileName()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+
+    if (mount) mount->mount();
+
     return clone();
 }
 
@@ -61,6 +64,9 @@ void FileSet::requestConnection(ConnectionRequester* requester,int pseudoPort)
     setDir(expandString(getDir()));
     setFileName(expandString(getFileName()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+
+    if (mount) mount->mount();
+
     requester->connected(this); 
 }
 
@@ -158,6 +164,23 @@ void FileSet::fromDOMElement(const DOMElement* node)
 	    else throw atdUtil::InvalidParameterException(getName(),
 			"unrecognized attribute", aname);
 	}
+    }
+
+    DOMNode* child;
+    DOMable* domable;
+    for (child = node->getFirstChild(); child != 0;
+	    child=child->getNextSibling())
+    {
+	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((DOMElement*) child);
+	const string& elname = xchild.getNodeName();
+
+	if (!elname.compare("mount")) {
+	    mount = new FsMount();
+	    mount->fromDOMElement((const DOMElement*) child);
+	}
+	else throw atdUtil::InvalidParameterException("mount",
+		    "unrecognized child element", elname);
     }
 }
 

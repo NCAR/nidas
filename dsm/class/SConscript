@@ -149,6 +149,7 @@ sources = [ Split("""
   Socket.cc
   McSocket.cc
   FileSet.cc
+  FsMount.cc
 
   SampleInput.cc
   SampleOutput.cc

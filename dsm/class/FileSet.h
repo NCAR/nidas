@@ -19,6 +19,7 @@
 #include <IOChannel.h>
 #include <ConnectionRequester.h>
 #include <dsm_sample.h>
+#include <FsMount.h>
 
 #include <atdUtil/FileSet.h>
 
@@ -33,9 +34,9 @@ class FileSet: public IOChannel, public atdUtil::FileSet {
 
 public:
 
-    FileSet():IOChannel(),atdUtil::FileSet() {}
+    FileSet():IOChannel(),atdUtil::FileSet(),mount(0) {}
 
-    virtual ~FileSet() {}
+    ~FileSet() { delete mount; }
 
     bool isNewFile() const { return atdUtil::FileSet::isNewFile(); }
 
@@ -51,6 +52,11 @@ public:
     	throw(atdUtil::IOException);
 
     IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+
+    /**
+     * FileSet will own the FsMount.
+     */
+    void setMount(FsMount* val) { mount = val; }
 
     /**
      * Clone myself.
@@ -98,6 +104,8 @@ protected:
     void setName(const std::string& val);
 
     std::string name;
+
+    FsMount* mount;
 
 };
 
