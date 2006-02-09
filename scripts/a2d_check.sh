@@ -19,7 +19,7 @@
 #
 
 usage() {
-    echo "usage: $1 dsmid sensorid chan delta [xml]"
+    echo "usage: $1 dsmid sensorid chan nchan delta [xml]"
     echo "dsmid: integer dsm id from xml file"
     echo "sensorid: integer A2D sensor id (typically 200)"
     echo "chan: which A2D channel to monitor: 0-N (where N is number of config'd channels"
