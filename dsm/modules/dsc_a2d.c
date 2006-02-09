@@ -41,7 +41,7 @@ Revisions:
 #include <dsm_version.h>
 
 /* ioport addresses of installed boards, 0=no board installed */
-static int ioports[MAX_DSC_BOARDS] = { 0x330, 0, 0, 0 };
+static int ioports[MAX_DSC_BOARDS] = { 0x380, 0, 0, 0 };
 
 /* irqs, required for each board */
 static int irqs[MAX_DSC_BOARDS] = { 12, 0, 0, 0 };
