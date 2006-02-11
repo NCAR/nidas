@@ -71,7 +71,7 @@ MODULE_PARM_DESC(types, "Type of each board: 0=MM16AT, 1=MM32XAT");
 
 static struct DSC_Board* boardInfo = 0;
 
-static const char* devprefix = "dsc_rtl_a2d";
+static const char* devprefix = "rtldsc_a2d";
 
 /* number of devices on a board. This is the number of
  * /dev/dsc_a2d* devices, from the user's point of view, that one

@@ -60,8 +60,8 @@ bool DSC_A2DSensor::isRTLinux() const
     if (rtlinux < 0)  {
         const string& dname = getDeviceName();
         unsigned int fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 6) < dname.length() &&
-            !dname.substr(fs+1,6).compare("rtldsc_a2d"))
+        if (fs != string::npos && (fs + 10) < dname.length() &&
+            !dname.substr(fs+1,10).compare("rtldsc_a2d"))
                     rtlinux = 1;
         else rtlinux = 0;
     }
