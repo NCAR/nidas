@@ -45,6 +45,8 @@ public:
 
     void sendHeader(dsm_time_t timetag) throw();
 
+    void finish() throw();
+
     void flush() throw();
 
     void connect(SampleInput* input) throw();

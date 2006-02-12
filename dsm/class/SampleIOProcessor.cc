@@ -93,7 +93,7 @@ void SampleIOProcessor::disconnect(SampleInput* input) throw(atdUtil::IOExceptio
     list<SampleOutput*>::iterator oi;
     for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        output->flush();
+        output->finish();
     }
 }
  

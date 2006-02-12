@@ -26,11 +26,11 @@
 using namespace dsm;
 using namespace std;
 
-SampleSorter::SampleSorter(int sorterLength, const string& name) :
-    Thread(name),sorterLengthUsec(sorterLength*USECS_PER_MSEC),
+SampleSorter::SampleSorter(const string& name) :
+    Thread(name),sorterLengthUsec(250*USECS_PER_MSEC),
     sampleSetCond("sampleSetCond"),
     heapMax(1000000),heapSize(0),heapBlock(false),discardedSamples(0),
-    discardWarningCount(1000)
+    discardWarningCount(1000),doFlush(false),flushed(false)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -43,12 +43,16 @@ SampleSorter::~SampleSorter()
     if (isRunning()) interrupt();
     if (!isJoined()) join();
 
-    SortedSampleSet::iterator iv;
-    for (iv = samples.begin(); iv != samples.end(); iv++) {
-	const Sample *s = *iv;
+    sampleSetCond.lock();
+    SortedSampleSet tmpset = samples;
+    samples.clear();
+    sampleSetCond.unlock();
+
+    SortedSampleSet::const_iterator si;
+    for (si = tmpset.begin(); si != tmpset.end(); ++si) {
+	const Sample *s = *si;
 	s->freeReference();
     }
-    samples.clear();
 }
 
 /**
@@ -56,7 +60,10 @@ SampleSorter::~SampleSorter()
  */
 int SampleSorter::run() throw(atdUtil::Exception) {
 
-    cerr << "SampleSorter, sorterLengthUsec=" << sorterLengthUsec << endl;
+    atdUtil::Logger::getInstance()->log(LOG_NOTICE,
+	"%s: sorterLengthUsec=%d\n",
+	getName().c_str(),sorterLengthUsec);
+
     sampleSetCond.lock();
     for (;;) {
 
@@ -124,6 +131,12 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	heapDecrement(ssum);
 
 	sampleSetCond.lock();
+
+	if (doFlush && samples.size() == 1) {
+	    flush();
+	    flushed = true;
+	    doFlush = false;
+	}
     }
     sampleSetCond.unlock();
     return RUN_OK;
@@ -172,22 +185,33 @@ void inline SampleSorter::heapDecrement(size_t bytes)
 /**
  * flush all samples from buffer, distributing them to SampleClients.
  */
-void SampleSorter::flush() throw (atdUtil::IOException)
+void SampleSorter::finish() throw()
 {
-    sampleSetCond.lock();
-    SortedSampleSet tmpset = samples;
-    samples.clear();
-    sampleSetCond.unlock();
+    SampleT<char>* eofSample = getSample<char>(0);
+    numeric_limits<long long> ll;
+    eofSample->setTimeTag(ll.max());
+    eofSample->setId(0);
 
-    SortedSampleSet::const_iterator si;
-    size_t ssum = 0;
-    for (si = tmpset.begin(); si != tmpset.end(); ++si) {
-	const Sample *s = *si;
-	distribute(s);
-	ssum += s->getDataByteLength() + s->getHeaderLength();
-	s->freeReference();
+    sampleSetCond.lock();
+    flushed = false;
+    doFlush = true;
+    samples.insert(samples.end(),eofSample);
+    sampleSetCond.unlock();
+    sampleSetCond.signal();
+
+
+    for (int i = 0; ; i++) {
+	struct timespec ns = {0, NSECS_PER_SEC / 10};
+	nanosleep(&ns,0);
+	sampleSetCond.lock();
+	if (!(i % 10))
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+		"waiting for buffer to empty, size=%d\n",
+			samples.size());
+	if (samples.size() == 1 && flushed) break;
+	sampleSetCond.unlock();
     }
-    heapDecrement(ssum);
+    sampleSetCond.unlock();
 }
 
 bool SampleSorter::receive(const Sample *s) throw()

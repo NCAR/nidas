@@ -354,10 +354,12 @@ DOMElement* SampleInputStream::toDOMElement(DOMElement* node)
 
 SampleInputMerger::SampleInputMerger() :
 	name("SampleInputMerger"),
-	inputSorter(500,name + "InputSorter"),
-	procSampSorter(500,name + "ProcSampSorter"),
+	inputSorter(name + "InputSorter"),
+	procSampSorter(name + "ProcSampSorter"),
 	unrecognizedSamples(0)
 {
+    inputSorter.setLengthMsecs(250);
+    procSampSorter.setLengthMsecs(250);
 }
 
 SampleInputMerger::~SampleInputMerger()
@@ -459,17 +461,22 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
 /*
  * Constructor, with a IOChannel (which may be null).
  */
-SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel,int sortLenArg):
-    SampleInputStream(iochannel),sortLen(sortLenArg),sorter1(0),sorter2(0),
-    heapMax(1000000),heapBlock(false)
+SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel):
+    SampleInputStream(iochannel),
+    sorter1(0),sorter2(0),
+    heapMax(1000000),heapBlock(false),
+    sorterLengthMsecs(250)
 {
 }
 
 /*
  * Copy constructor, with a new IOChannel.
  */
-SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel): SampleInputStream(x,iochannel),sortLen(x.sortLen),
-	sorter1(0),sorter2(0),heapMax(x.heapMax),heapBlock(x.heapBlock)
+SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel):
+	SampleInputStream(x,iochannel),
+	sorter1(0),sorter2(0),
+	heapMax(x.heapMax),heapBlock(x.heapBlock),
+	sorterLengthMsecs(x.sorterLengthMsecs)
 {
 }
 
@@ -483,6 +490,7 @@ SampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
 
 SortedSampleInputStream::~SortedSampleInputStream()
 {
+    cerr << "~SortedSampleInputStream" << endl;
     delete sorter1;
     delete sorter2;
 }
@@ -490,7 +498,8 @@ SortedSampleInputStream::~SortedSampleInputStream()
 void SortedSampleInputStream::addSampleClient(SampleClient* client) throw()
 {
     if (!sorter1) {
-        sorter1 = new SampleSorter(sortLen,"Sorter1");
+        sorter1 = new SampleSorter("Sorter1");
+	sorter1->setLengthMsecs(getSorterLengthMsecs());
 	sorter1->setHeapBlock(getHeapBlock());
 	sorter1->setHeapMax(getHeapMax());
     }
@@ -511,7 +520,8 @@ void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
     sensorMap[sensor->getId()] = sensor;
     sensorMapMutex.unlock();
     if (!sorter2) {
-        sorter2 = new SampleSorter(sortLen,"Sorter2");
+        sorter2 = new SampleSorter("Sorter2");
+	sorter2->setLengthMsecs(getSorterLengthMsecs());
 	sorter2->setHeapBlock(getHeapBlock());
 	sorter2->setHeapMax(getHeapMax());
     }
@@ -528,6 +538,13 @@ void SortedSampleInputStream::removeProcessedSampleClient(SampleClient* client,
     sorter2->removeSampleClient(client);
 }
 
+void SortedSampleInputStream::flush() throw()
+{
+    if (sorter1) sorter1->finish();
+    if (sorter2) sorter2->finish();
+}
+
+
 void SortedSampleInputStream::close() throw(atdUtil::IOException)
 {
     if (sorter1) {
@@ -537,6 +554,34 @@ void SortedSampleInputStream::close() throw(atdUtil::IOException)
     if (sorter2) {
         if (sorter2->isRunning()) sorter2->interrupt();
 	sorter2->join();
+    }
+}
+void SortedSampleInputStream::fromDOMElement(const DOMElement* node)
+	throw(atdUtil::InvalidParameterException)
+{
+    SampleInputStream::fromDOMElement(node);
+    XDOMElement xnode(node);
+    const string& elname = xnode.getNodeName();
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            const std::string& aval = attr.getValue();
+	    if (!aname.compare("sorterLength")) {
+	        istringstream ist(aval);
+		int len;
+		ist >> len;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(
+		    	"SortedSampleOutputStream",
+			attr.getName(),attr.getValue());
+		setSorterLengthMsecs(len);
+	    }
+	}
     }
 }
 

@@ -74,7 +74,7 @@ public:
     /**
      * Distribute a sample to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
-     * Afterwards does a freeReference() on the sample.
+     * Does NOT do a s->freeReference().
      */
     virtual void distribute(const Sample* s) throw()
     {
@@ -84,12 +84,22 @@ public:
     /**
      * Distribute a list of samples to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
+     * Does do a s->freeReference() on each sample in the list.
      */
     virtual void distribute(const std::list<const Sample*>& samps) throw()
     {
         distributeImpl(samps);
     }
 
+    /**
+     * Request that this SampleSource flush it's buffers.
+     * Default implementation passes a finish() request
+     * onto all its clients.
+     */
+    virtual void flush() throw()
+    {
+        flushImpl();
+    }
 };
 }
 

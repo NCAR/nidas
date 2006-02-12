@@ -58,7 +58,7 @@ DSMEngine::~DSMEngine()
     for (oi = _connectedOutputs.begin(); oi != _connectedOutputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	try {
-	    output->flush();
+	    output->finish();
 	    output->close();
 	}
 	catch(const atdUtil::IOException& e) {

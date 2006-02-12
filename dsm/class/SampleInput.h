@@ -392,7 +392,7 @@ private:
 class SortedSampleInputStream: public SampleInputStream
 {
 public:
-    SortedSampleInputStream(IOChannel* iochannel = 0,int sortLen = 0);
+    SortedSampleInputStream(IOChannel* iochannel = 0);
     /**
      * Copy constructor, with a new, connected IOChannel.
      */
@@ -415,6 +415,8 @@ public:
 
     void close() throw(atdUtil::IOException);
 
+    void flush() throw();
+
     /**
      * Set the maximum amount of heap memory to use for sorting samples.
      * @param val Maximum size of heap in bytes.
@@ -436,12 +438,24 @@ public:
 
     bool getHeapBlock() const { return heapBlock; }
 
+    /**
+     * Set length of SampleSorter, in milliseconds.
+     */
+    void setSorterLengthMsecs(int val)
+    {
+        sorterLengthMsecs = val;
+    }
+
+    int getSorterLengthMsecs() const
+    {
+        return sorterLengthMsecs;
+    }
+
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(atdUtil::InvalidParameterException);
+
 
 private:
-    /**
-     * Length of sorter, in milliseconds.
-     */
-    int sortLen;
 
     SampleSorter *sorter1;
 
@@ -450,6 +464,21 @@ private:
     size_t heapMax;
 
     bool heapBlock;
+
+    /**
+     * No copying.
+     */
+    SortedSampleInputStream(const SortedSampleInputStream&);
+
+    /**
+     * No assignment.
+     */
+    SortedSampleInputStream& operator=(const SortedSampleInputStream&);
+
+    /**
+     * Length of SampleSorter, in milli-seconds.
+     */
+    int sorterLengthMsecs;
 
 };
 

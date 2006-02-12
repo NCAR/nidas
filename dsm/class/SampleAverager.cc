@@ -84,9 +84,9 @@ void SampleAverager::addVariable(const Variable *var)
 }
 
 /*
- * Todo: implement flush.  Perhaps it isn't really necessary.
+ * Todo: implement finish.
  */
-void SampleAverager::flush() throw () {}
+void SampleAverager::finish() throw () {}
 
 bool SampleAverager::receive(const Sample* samp) throw()
 {

@@ -75,3 +75,12 @@ void SampleSourceImpl::distributeImpl(const list<const Sample*>& samples)
 	s->freeReference();
     }
 }
+
+void SampleSourceImpl::flushImpl() throw()
+{
+    // copy constructor does a lock
+    SampleClientList tmp(clients);
+    list<SampleClient*>::const_iterator li;
+    for (li = tmp.begin(); li != tmp.end(); ++li)
+	(*li)->finish();
+}

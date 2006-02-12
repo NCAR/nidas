@@ -27,7 +27,7 @@ using namespace xercesc;
 CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
-	DSMService("RawSampleService"),input(0)
+	DSMService("RawSampleService"),input(0),merger(0)
 {
 }
 
@@ -37,7 +37,8 @@ RawSampleService::RawSampleService():
  */
 RawSampleService::RawSampleService(const RawSampleService& x,
 	SampleInputStream* newinput):
-	DSMService((const DSMService&)x),input(newinput)
+	DSMService((const DSMService&)x),input(newinput),
+	merger(0)
 {
     // loop over x's processors
     const list<SampleIOProcessor*>& xprocs = x.getProcessors();
@@ -62,7 +63,7 @@ RawSampleService::~RawSampleService()
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	// cerr << "~RawSampleService, disconnecting proc " << proc->getName() << endl;
-	if (!proc->singleDSM()) proc->disconnect(&merger);
+	if (!proc->singleDSM() && merger) proc->disconnect(merger);
 	else if (input) proc->disconnect(input);
     }
 
@@ -82,6 +83,7 @@ RawSampleService::~RawSampleService()
 #endif
 	delete processor;
     }
+    delete merger;
     // cerr << "~RawSampleService done" << endl;
 }
 
@@ -94,7 +96,8 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
     cerr << "RawSampleService::schedule, dsms.size=" <<
     	getDSMConfigs().size() << endl;
 
-    merger.setDSMConfigs(getDSMConfigs());
+    merger = new SampleInputMerger;
+    merger->setDSMConfigs(getDSMConfigs());
 
     // Connect non-single DSM processors to merger
     list<SampleIOProcessor*>::const_iterator oi;
@@ -102,13 +105,13 @@ void RawSampleService::schedule() throw(atdUtil::Exception)
         SampleIOProcessor* processor = *oi;
 	if (!processor->singleDSM()) {
 	    try {
-		processor->connect(&merger);
+		processor->connect(merger);
 	    }
 	    catch(const atdUtil::IOException& ioe) {
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		    "%s: %s connect to %s: %s",
 		    getName().c_str(),processor->getName().c_str(),
-		    merger.getName().c_str(),ioe.what());
+		    merger->getName().c_str(),ioe.what());
 	    }
 	}
     }
@@ -121,7 +124,7 @@ void RawSampleService::interrupt() throw()
 	cerr << "subServices.size()=" << subServices.size() <<
 		" closing " << input->getName() << endl;
 	input->close();
-	merger.removeInput(input);
+	if (merger) merger->removeInput(input);
     }
     DSMService::interrupt();
 }
@@ -167,7 +170,7 @@ void RawSampleService::connected(SampleInput* newinput) throw()
 	addSubService(newserv);
     }
     // merger does not own newstream. It just adds sample clients to it.
-    merger.addInput(newstream);
+    merger->addInput(newstream);
 }
 
 /*
@@ -222,7 +225,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 	return;
     }
 
-    merger.removeInput(inputx);
+    merger->removeInput(inputx);
 
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = service->getProcessors().begin();
@@ -234,7 +237,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
     // non-single DSM processors
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	if (!proc->singleDSM()) proc->disconnect(&merger);
+	if (!proc->singleDSM()) proc->disconnect(merger);
     }
 
     try {

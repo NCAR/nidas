@@ -232,15 +232,22 @@ void IOStream::flush() throw (atdUtil::IOException)
     size_t wlen = head - tail;
 
     if (wlen == 0) return;
-    try {
-	l = iochannel.write(tail,wlen);
+    for (int ntry = 0; head > tail && ntry < 1000; ntry++) {
+	try {
+	    l = iochannel.write(tail,wlen);
+	}
+	catch (const atdUtil::IOException& ioe) {
+	    if (ioe.getError() == EAGAIN) {
+	        l = 0;
+		struct timespec ns = {0, NSECS_PER_SEC / 10};
+		nanosleep(&ns,0);
+	    }
+	    else throw ioe;
+	}
+	tail += l;
+	if (tail == head) tail = head = buffer;
     }
-    catch (const atdUtil::IOException& ioe) {
-	if (ioe.getError() == EAGAIN) l = 0;
-	else throw ioe;
-    }
-    tail += l;
-    if (tail == head) tail = head = buffer;
+    iochannel.flush();
     lastWrite = getSystemTime();
 }
 

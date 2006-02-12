@@ -73,7 +73,7 @@ protected:
 
     SampleInputStream* input;
 
-    SampleInputMerger merger;
+    SampleInputMerger* merger;
 
     std::list<SampleIOProcessor*> processors;
 

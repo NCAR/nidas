@@ -74,8 +74,6 @@ public:
 
     virtual void init() throw(atdUtil::IOException) = 0;
 
-    virtual void flush() throw(atdUtil::IOException) = 0;
-
     virtual void close() throw(atdUtil::IOException) = 0;
 
 protected:
@@ -153,7 +151,7 @@ public:
 
     bool write(const Sample* samp) throw(atdUtil::IOException);
 
-    void flush() throw(atdUtil::IOException);
+    void finish() throw();
 
     void close() throw(atdUtil::IOException);
 
@@ -242,12 +240,33 @@ public:
 
     bool receive(const Sample *s) throw();
 
-protected:
-    bool initialized;
+    /**
+     * Set length of SampleSorter, in milliseconds.
+     */
+    void setSorterLengthMsecs(int val)
+    {
+        sorterLengthMsecs = val;
+    }
 
-    SampleSorter sorter;
+    int getSorterLengthMsecs() const
+    {
+        return sorterLengthMsecs;
+    }
+
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(atdUtil::InvalidParameterException);
+
+
+protected:
+
+    SampleSorter* sorter;
 
     SampleOutputStreamProxy proxy;
+
+    /**
+     * Length of SampleSorter, in milli-seconds.
+     */
+    int sorterLengthMsecs;
 
 private:
 };

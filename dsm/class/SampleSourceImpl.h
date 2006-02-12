@@ -89,6 +89,8 @@ protected:
     virtual void distributeImpl(const std::list<const Sample*>& samples)
     	throw();
 
+    virtual void flushImpl() throw();
+
 protected:
 
     /**

@@ -19,6 +19,7 @@
 #include <SampleSource.h>
 #include <SampleClient.h>
 #include <SortedSampleSet.h>
+#include <DSMTime.h>
 
 #include <atdUtil/Thread.h>
 #include <atdUtil/ThreadSupport.h>
@@ -45,7 +46,7 @@ public:
      * Constructor.
      * @param sorterLength Length of the SampleSorter, in milliseconds.
      */
-    SampleSorter(int sorterLength,const std::string& name);
+    SampleSorter(const std::string& name);
     virtual ~SampleSorter();
 
     void interrupt();
@@ -53,6 +54,17 @@ public:
     bool receive(const Sample *s) throw();
 
     size_t size() const { return samples.size(); }
+
+    void setLengthMsecs(int val)
+    {
+        sorterLengthUsec = val * USECS_PER_MSEC;
+    }
+
+    int getLengthMsecs() const
+    {
+        return sorterLengthUsec / USECS_PER_MSEC;
+    }
+
 
     /**
      * Set the maximum amount of heap memory to use for sorting samples.
@@ -83,7 +95,7 @@ public:
     /**
      * flush all samples from buffer, distributing them to SampleClients.
      */
-    void flush() throw (atdUtil::IOException);
+    void finish() throw();
 
 protected:
 
@@ -93,7 +105,7 @@ protected:
     virtual int run() throw(atdUtil::Exception);
 
     /**
-     * Length of SampleSorter, in milliseconds.
+     * Length of SampleSorter, in micro-seconds.
      */
     int sorterLengthUsec;
 
@@ -139,6 +151,15 @@ private:
     size_t discardedSamples;
 
     int discardWarningCount;
+
+    bool doFlush;
+
+    bool flushed;
+
+    /**
+     * No assignment.
+     */
+    SampleSorter& operator=(const SampleSorter&);
 
 };
 }

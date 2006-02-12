@@ -66,7 +66,6 @@ void SyncRecordGenerator::disconnect(SampleInput* oldinput)
     assert(input == oldinput);
 
     syncRecSource.disconnect(input);
-    syncRecSource.flush();
 
     list<SampleOutput*>::iterator oi;
     for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {

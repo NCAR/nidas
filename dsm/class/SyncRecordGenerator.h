@@ -19,7 +19,7 @@
 
 #include <SampleIOProcessor.h>
 #include <SyncRecordSource.h>
-#include <SampleSorter.h>
+// #include <SampleSorter.h>
 
 #include <vector>
 #include <map>

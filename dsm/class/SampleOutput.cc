@@ -176,9 +176,15 @@ int SampleOutputStream::getFd() const
     else return -1;
 }
 
-void SampleOutputStream::flush() throw(atdUtil::IOException)
+void SampleOutputStream::finish() throw()
 {
-    if (iostream) iostream->flush();
+    try {
+	if (iostream) iostream->flush();
+    }
+    catch (atdUtil::IOException& ioe) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: %s",getName().c_str(),ioe.what());
+    }
 }
 
 bool SampleOutputStream::receive(const Sample *samp) throw()
@@ -297,8 +303,9 @@ DOMElement* SampleOutputStream::toDOMElement(DOMElement* node)
 }
 
 SortedSampleOutputStream::SortedSampleOutputStream():
-	SampleOutputStream(),initialized(false),
-	sorter(250,"SortedSampleOutputStream"),proxy(0,*this)
+	SampleOutputStream(),
+	sorter(0),proxy(0,*this),
+	sorterLengthMsecs(250)
 {
 }
 /*
@@ -306,8 +313,9 @@ SortedSampleOutputStream::SortedSampleOutputStream():
  */
 SortedSampleOutputStream::SortedSampleOutputStream(
 	const SortedSampleOutputStream& x)
-	: SampleOutputStream(x),initialized(false),
-	sorter(x.sorter),proxy(0,*this)
+	: SampleOutputStream(x),
+	sorter(0),proxy(0,*this),
+	sorterLengthMsecs(x.sorterLengthMsecs)
 {
 }
 
@@ -316,16 +324,18 @@ SortedSampleOutputStream::SortedSampleOutputStream(
  */
 SortedSampleOutputStream::SortedSampleOutputStream(
 	const SortedSampleOutputStream& x,IOChannel* iochannel)
-	: SampleOutputStream(x,iochannel),initialized(false),
-	sorter(x.sorter),proxy(0,*this)
+	: SampleOutputStream(x,iochannel),
+	sorter(0),proxy(0,*this),
+	sorterLengthMsecs(x.sorterLengthMsecs)
 {
 }
 
 SortedSampleOutputStream::~SortedSampleOutputStream()
 {
-    if (initialized) {
-	sorter.interrupt();
-	sorter.join();
+    if (sorter) {
+	sorter->interrupt();
+	sorter->join();
+	delete sorter;
     }
 }
 
@@ -337,17 +347,46 @@ SortedSampleOutputStream* SortedSampleOutputStream::clone(IOChannel* iochannel) 
 
 void SortedSampleOutputStream::init() throw()
 {
+    if (!sorter) sorter = new SampleSorter("SortedSampleOutputStream");
+    sorter->setLengthMsecs(getSorterLengthMsecs());
     SampleOutputStream::init();
     try {
-	sorter.start();
+	sorter->start();
     }
     catch(const atdUtil::Exception& e) {
     }
-    sorter.addSampleClient(&proxy);
-    initialized = true;
+    sorter->addSampleClient(&proxy);
 }
 bool SortedSampleOutputStream::receive(const Sample *s) throw()
 {
-    return sorter.receive(s);
+    return sorter->receive(s);
 }
 
+void SortedSampleOutputStream::fromDOMElement(const DOMElement* node)
+	throw(atdUtil::InvalidParameterException)
+{
+    SampleOutputStream::fromDOMElement(node);
+    XDOMElement xnode(node);
+    const string& elname = xnode.getNodeName();
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            const std::string& aval = attr.getValue();
+	    if (!aname.compare("sorterLength")) {
+	        istringstream ist(aval);
+		int len;
+		ist >> len;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(
+		    	"SortedSampleOutputStream",
+			attr.getName(),attr.getValue());
+		setSorterLengthMsecs(len);
+	    }
+	}
+    }
+}

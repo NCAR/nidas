@@ -63,7 +63,7 @@ public:
     /**
      * flush all samples from buffer, distributing them to SampleClients.
      */
-    void flush() throw ();
+    void finish() throw ();
 
 protected:
    

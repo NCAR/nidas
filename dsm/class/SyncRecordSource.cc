@@ -337,6 +337,11 @@ void SyncRecordSource::sendHeader() throw()
 
 }
 
+void SyncRecordSource::finish() throw()
+{
+    flush();
+}
+
 void SyncRecordSource::flush() throw()
 {
     if (syncRecord) {
