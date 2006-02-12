@@ -214,7 +214,9 @@ int SyncServer::run() throw()
 	    fset->addFileName(*fi);
 #endif
 
-	SortedSampleInputStream input(iochan,2000);	// SortedSampleStream owns the iochan ptr.
+	// SortedSampleStream owns the iochan ptr.
+	SortedSampleInputStream input(iochan);
+	input.setSorterLengthMsecs(2000);
 
 	// Block while waiting for heapSize to become less than heapMax.
 	input.setHeapBlock(true);
@@ -392,8 +394,11 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 	}
     }
     catch (atdUtil::EOFException& e) {
-	input.close();
+	cerr << "EOF received: flushing buffers" << endl;
+	input.flush();
 	syncGen.disconnect(&input);
+
+	input.close();
 	syncGen.disconnected(output);
 	throw e;
     }

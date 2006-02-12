@@ -134,7 +134,11 @@ bool TestClient::receive(const Sample *s) throw()
 class SampleTest 
 {
 public:
-    SampleTest():sorter1(100,"sorter1"),sorter2(100,"sorter2") {}
+    SampleTest():sorter1("sorter1"),sorter2("sorter2")
+    {
+        sorter1.setLengthMsecs(100);
+        sorter2.setLengthMsecs(100);
+    }
 
     void test() throw(atdUtil::Exception);
     void print();

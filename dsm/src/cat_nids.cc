@@ -141,7 +141,7 @@ int Concater::run() throw()
 	    for (;;) sis.readSamples();
 	}
 	catch (atdUtil::EOFException& eof) {
-	    outStream.flush();
+	    outStream.finish();
 	    outStream.close();
 	}
     }
