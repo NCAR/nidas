@@ -74,7 +74,7 @@ static struct DSC_Board* boardInfo = 0;
 static const char* devprefix = "rtldsc_a2d";
 
 /* number of devices on a board. This is the number of
- * /dev/dsc_a2d* devices, from the user's point of view, that one
+ * /dev/rtldsc_a2d* devices, from the user's point of view, that one
  * board represents.
  */
 #define N_DSC_DEVICES 1
