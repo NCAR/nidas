@@ -359,6 +359,7 @@
             <xsd:element ref="postgresdb"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
+        <xsd:attribute name="sorterLength" type="xsd:positiveInteger" default="250"/>
    </xsd:complexType>
 </xsd:element>
 
