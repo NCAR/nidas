@@ -968,6 +968,13 @@ static int startMM32XAT(struct DSC_Board* brd)
 
     rtl_spin_lock_irqsave(&brd->boardlock,flags);
 
+    outb(0x03,brd->addr + 8);	// set page 3
+    outb(0xa6,brd->addr + 15);	// enable enhanced features
+    outb(0x04,brd->addr + 8);	// set page 4
+    outb(0x02,brd->addr + 14);	// abort any currently running autocal
+    outb(0x10,brd->addr + 14);	// disable auto-cal
+    outb(0x00,brd->addr + 8);	// set page 0
+
     // compute fifo threshold
     // number of scans in latencyMsecs
     int nscans = (brd->latencyMsecs * brd->maxRate) / MSECS_PER_SEC;
@@ -985,8 +992,6 @@ static int startMM32XAT(struct DSC_Board* brd)
     nsamps /= 2;
 
     if (nsamps > 255) {
-        outb(0x03,brd->addr + 8);	// set page 3
-        outb(0xA6,brd->addr + 15);	// enable enhanced features
         outb(0x02,brd->addr + 8);	// set page 2
         outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
         outb(0x00,brd->addr + 8);	// set page 0
