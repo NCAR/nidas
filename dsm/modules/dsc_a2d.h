@@ -91,7 +91,7 @@ struct DSC_Status
 
 #define MAX_DSC_BOARDS	4	// number of boards supported by driver
 
-#define DSC_SAMPLE_QUEUE_SIZE 16
+#define DSC_SAMPLE_QUEUE_SIZE 64
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
 #define DSC_UNIPOLAR		0x04

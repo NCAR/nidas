@@ -469,8 +469,10 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 	sortedChannelNums.insert(ichan);
 
         sampleIndexVec.push_back(nsample);	// which output sample this variable belongs to
+#ifdef DEBUG
 	cerr << "sampleIndexVec.size()=" << sampleIndexVec.size() << 
 		" var=" << var->getName() << endl;
+#endif
 	subSampleIndexVec.push_back(ivar);	// which variable within sample
     }
 }

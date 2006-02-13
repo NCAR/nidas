@@ -368,6 +368,8 @@ unsigned int dsc_irq_handler(unsigned int irq,
     if (!samp) {                // no output sample available
         brd->status.missedSamples += brd->fifoThreshold;
 	for (i = 0; i < brd->fifoThreshold; i++) inw(brd->addr);
+	// acknowledge interrupt
+	outb(brd->int_ack_val, brd->int_ack_reg);
         return 0;
     }
 
