@@ -149,14 +149,19 @@ static void initializeA2DClock(struct DSC_Board* brd)
 {
 
     unsigned long ticks = (USECS_PER_SEC * 10 + brd->maxRate/2) / brd->maxRate;
-    if ((USECS_PER_SEC * 10) % brd->maxRate) {
+    if (ticks % 2) ticks--;
+    // maximum sampling rate should divide evenly into 10MHz
+    // Also, since the minimum counter value for a 82C54 clock chip in (mode 3)
+    // is 2, then 10MHz/maxRate must be even.
+    // the
+    if ((USECS_PER_SEC * 10) % (brd->maxRate * 2)) {
 	DSMLOG_WARNING(
 	"maximum sampling rate=%d Hz does not divide evenly into 10 MHz. Actual sampling rate will be %d Hz\n",
 		brd->maxRate,(USECS_PER_SEC*10)/ticks);
     }
 
     DSMLOG_INFO("clock ticks=%d,maxRate=%d\n",ticks,brd->maxRate);
-    unsigned short c1 = 2;
+    unsigned short c1 = 1;
 
     while (ticks > 65535) {
         if (!(ticks % 2)) {
@@ -167,6 +172,11 @@ static void initializeA2DClock(struct DSC_Board* brd)
 	    c1 *= 5;
 	    ticks /= 5;
 	}
+    }
+    // clock counters must be > 1
+    if (c1 < 2) {
+        c1 = 2;
+	ticks /= 2;
     }
     DSMLOG_INFO("clock ticks=%d,%d\n",
 	c1,ticks);
