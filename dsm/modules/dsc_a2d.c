@@ -868,6 +868,7 @@ static int startA2D(struct DSC_Board* brd)
 {
     int result;
     unsigned long flags;
+    int nbuf = 10;
 
     if (brd->busy) stopA2D(brd);
 
@@ -891,10 +892,11 @@ static int startA2D(struct DSC_Board* brd)
 		brd->outFifoName,rtl_strerror(rtl_errno));
 	return -convert_rtl_errno(rtl_errno);
     }
+#define DO_FTRUNCATE
 #ifdef DO_FTRUNCATE
-    if (rtl_ftruncate(brd->outfd, sizeof(brd->buffer)*4) < 0) {
+    if (rtl_ftruncate(brd->outfd, sizeof(brd->buffer)*nbuf) < 0) {
 	DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
-		brd->outFifoName,sizeof(brd->buffer),
+		brd->outFifoName,sizeof(brd->buffer)*nbuf,
 		rtl_strerror(rtl_errno));
 	return -convert_rtl_errno(rtl_errno);
     }
@@ -999,7 +1001,7 @@ static int startMM32XAT(struct DSC_Board* brd)
 
     int nsamps = nscans * brd->nchans;
     // fifo is 1024 samples. Want an interrupt before it is 1/2 full
-    if (nsamps > 512) nsamps = (512 / nsamps) * nsamps;
+    if (nsamps > 512) nsamps = (512 / brd->nchans) * brd->nchans;
     if ((nsamps % 2)) nsamps += brd->nchans;		// must be even
 
     brd->fifoThreshold = nsamps;

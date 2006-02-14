@@ -123,7 +123,7 @@ struct DSC_Status
 #define DSC_8254_MODE_4	0x08
 #define DSC_8254_MODE_5	0x0a
 
-#define OUT_BUFFER_SIZE		8192
+#define OUT_BUFFER_SIZE		16384
 
 #define THREAD_STACK_SIZE	8192
 
