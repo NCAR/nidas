@@ -156,7 +156,7 @@ static void initializeA2DClock(struct DSC_Board* brd)
     }
 
     DSMLOG_INFO("clock ticks=%d,maxRate=%d\n",ticks,brd->maxRate);
-    unsigned short c1 = 1;
+    unsigned short c1 = 2;
 
     while (ticks > 65535) {
         if (!(ticks % 2)) {
@@ -201,10 +201,12 @@ static void* sampleThreadFunc(void *thread_arg)
 
 #ifdef DEBUG
     dsm_sample_time_t lasttt;
+    int debugctr = 0;
 #endif
 
     dsm_sample_time_t tt0 = 0;
     dsm_sample_time_t tt = tt0;
+
 
     for (;; ) {
 
@@ -288,6 +290,7 @@ static void* sampleThreadFunc(void *thread_arg)
 			(outsamp.timetag - brd->lastWriteTT) > brd->latencyMsecs) {
 			// Write to up-fifo
 #ifdef DEBUG
+			if (!(debugctr % 1000))
 			DSMLOG_INFO("doing write, head=%d,slen=%d,size=%d,tt=%d,wlen=%d\n",
 			    brd->head,slen,sizeof(brd->buffer),outsamp.timetag,
 			    brd->head-brd->tail);
@@ -341,6 +344,8 @@ unsigned int dsc_irq_handler(unsigned int irq,
 
     unsigned char status = inb(brd->int_status_reg);
     if (!(status & brd->ad_int_mask)) return 0;	// not my interrupt
+
+    brd->status.irqsReceived++;
 
     int flevel = brd->getFifoLevel(brd);
     switch (flevel) {
@@ -866,6 +871,8 @@ static int startA2D(struct DSC_Board* brd)
 
     // buffer indices
     brd->head = brd->tail = 0;
+
+    brd->status.irqsReceived = 0;
 
     if((brd->outfd = rtl_open(brd->outFifoName,
 	    RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0)

@@ -46,6 +46,7 @@ struct DSC_Status
     size_t fifoOverflows;	// A2D FIFO has overflowed (error)
     size_t fifoUnderflows;	// A2D FIFO less than expected level (error)
     size_t fifoNotEmpty;	// A2D FIFO not empty after reading
+    size_t irqsReceived;
 };
 
 #define DSC_MM16AT_BOARD	0
@@ -179,6 +180,7 @@ struct DSC_Board {
     struct DSC_Status status;
     dsm_sample_time_t lastWriteTT;
     long latencyMsecs;	// buffer latency in milli-seconds
+
 };
 
 #endif

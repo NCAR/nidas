@@ -229,7 +229,8 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "FIFO: over=" << stat.fifoOverflows << 
 		", under=" << stat.fifoUnderflows <<
 		", not empty=" << stat.fifoNotEmpty <<
-		", lostSamples=" << stat.missedSamples;
+		", lostSamples=" << stat.missedSamples <<
+		", irqs=" << stat.irqsReceived;
 	ostr << "</td>" << endl;
     }
     catch(const atdUtil::IOException& ioe) {
