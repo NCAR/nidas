@@ -1,0 +1,35 @@
+// to generate an image of this digraph:
+//   dot -Tjpg module_deps.dot > module_deps.jpg
+
+digraph depmod {
+	graph [	fontname = "Helvetica",
+		fontsize = 18,
+		label = "\nRTLinux module dependencies"
+		size = "6,6"];
+
+	node [color=lightgrey, style=filled];
+	{rank=max;  "arinc" "a2d_driver" "dsm_serial_fifo";}
+
+	"dsm_serial" -> "dsm_serial_fifo";
+
+	"pc104sg" -> "dsm_serial";
+	"pc104sg" -> "a2d_driver";
+	"pc104sg" -> "arinc";
+
+	"ioctl_fifo" -> "dsm_serial_fifo";
+	"ioctl_fifo" -> "dsm_serial";
+	"ioctl_fifo" -> "a2d_driver";
+	"ioctl_fifo" -> "arinc";
+	"ioctl_fifo" -> "pc104sg";
+
+	"rtl_isa_irq" -> "dsm_serial";
+	"rtl_isa_irq" -> "pc104sg";
+
+	"rtl" -> "dsm_serial_fifo";
+	"rtl" -> "dsm_serial";
+	"rtl" -> "a2d_driver";
+	"rtl" -> "arinc";
+	"rtl" -> "pc104sg";
+	"rtl" -> "ioctl_fifo";
+	"rtl" -> "rtl_isa_irq";
+}
