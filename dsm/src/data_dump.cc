@@ -284,7 +284,6 @@ Usage: " << argv0 << " -d dsmid -s sampleId [-p] -x xml_file [-A | -H | -S] inpu
     -s sampleId: numeric id of sample that you want to dump\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
     -p: process (optional). Pass samples to sensor process method\n\
-         (when processing an a2d channel add that channel number to the sample id)\n\
     -x xml_file (optional), default: \n\
          $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
          where <project>, <aircraft> and <flight> are read from the input data header\n\
@@ -299,7 +298,7 @@ Examples:\n" <<
 	argv0 << " -d 0 -s 100 xxx.dat\n" <<
 	argv0 << " -d 0 -s 100 xxx.dat yyy.dat\n" <<
 	argv0 << " -d 0 -s 200 -x ads3.xml sock:hyper:30000\n" <<
-	argv0 << " -d 0 -s 202 -p sock:hyper:30000  # processes second channel...\n" << endl;
+	argv0 << " -d 0 -s 201 -p sock:hyper:30000\n" << endl;
     return 1;
 }
 /* static */
