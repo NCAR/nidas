@@ -69,14 +69,19 @@ void StatusHandler::startElement(const XMLCh* const uri,
 //     cerr << "attributes.getValue(" << index << "): ";
 //     cerr << XMLStringConverter(attributes.getValue(index)) << endl;
 //   }
-  if (!strcmp(XMLStringConverter(qname),"clock"))       _element = TIME;
+  if (!strcmp(XMLStringConverter(qname),"name"))        _element = SOURCE;
+  else if (!strcmp(XMLStringConverter(qname),"clock"))  _element = TIME;
   else if (!strcmp(XMLStringConverter(qname),"status")) _element = STATUS;
 }
 
-void StatusHandler::characters(const     XMLCh* const    chars,
+void StatusHandler::characters(const   XMLCh* const    chars,
                                const   unsigned int    length)
 {
   switch (_element) {
+  case SOURCE:
+    _src = XMLStringConverter(chars);
+    break;
+
   case TIME:
     _listener->_clocks[_src] = XMLStringConverter(chars);
     break;

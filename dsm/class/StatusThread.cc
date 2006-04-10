@@ -40,6 +40,8 @@ int StatusThread::run() throw(atdUtil::Exception)
     DSMEngine* engine = DSMEngine::getInstance();
     // const DSMConfig* dsm = engine->getDSMConfig();
 
+    string dsm_name(engine->getDSMConfig()->getName());
+
     const PortSelector* selector = engine->getPortSelector();
     const SampleDater* dater = engine->getSampleDater();
 
@@ -77,17 +79,14 @@ int StatusThread::run() throw(atdUtil::Exception)
             gmtime_r(&ut,&tm);
 //          int msec = tt % 1000;
             strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
-//          cerr << cstr << endl;  // DEBUG show clock...
-            statStream << "<?xml version=\"1.0\"?>";
 
-	    // Send full status at 00:00, 00:10, etc.
-	    bool fullStatus = (ut % 10) == 0;
-            if (fullStatus && sensors.size() > 0)
-              statStream << "<group>";
+            statStream << "<?xml version=\"1.0\"?><group>"
+	               << "<name>" << dsm_name << "</name>"
+                       << "<clock>" << cstr << "</clock>";
 
-            statStream << "<clock>" << cstr << "</clock>";
+	    // Send status at 00:00, 00:10, etc.
+            if ( ((ut % 10) == 0) && sensors.size() > 0) {
 
-            if (fullStatus && sensors.size() > 0) {
               statStream << "<status><![CDATA[" << endl;
 
 	      DSMSensor* sensor = 0;
@@ -98,15 +97,13 @@ int StatusThread::run() throw(atdUtil::Exception)
 		sensor->printStatus(statStream);
               }
               if (sensor) sensor->printStatusTrailer(statStream);
-              statStream << "]]></status></group>";
+              statStream << "]]></status>";
             }
-            statStream << endl;
+            statStream << "</group>" << endl;
 
 	    string statstr = statStream.str();
 	    statStream.str("");
 	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
-
-            // 10 Second period for generating status messages as well.
 	}
     }
     catch(const atdUtil::IOException& e) {

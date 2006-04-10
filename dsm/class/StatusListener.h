@@ -70,7 +70,7 @@ public:
 
   void execute(XmlRpcValue& params, XmlRpcValue& result)
   {
-    cerr << "GetClocks" << endl;
+//  cerr << "GetClocks" << endl;
     map<string, string>::const_iterator mi;
     for (mi  = _listener->_clocks.begin();
          mi != _listener->_clocks.end();    ++mi)
@@ -94,7 +94,7 @@ public:
   void execute(XmlRpcValue& params, XmlRpcValue& result)
   {
     std::string& arg = params[0];
-    cerr << "GetStatus for " << arg << endl;
+//  cerr << "GetStatus for " << arg << endl;
     result = _listener->_status[arg];
   }
   std::string help() { return std::string("help GetStatus"); }

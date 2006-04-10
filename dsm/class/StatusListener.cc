@@ -66,10 +66,9 @@ int StatusListener::run() throw(Exception)
   for (;;) {
     // blocking read on multicast socket
     size_t l = msock.recvfrom(buf,sizeof(buf),0,from);
-    string IP = from.getInet4Address().getHostName();
     if (l==8192) throw Exception(" char *buf exceeded!");
 
-//     cerr << "[" << IP << "] " << buf << endl;
+//    cerr << buf << endl;
     // convert char* buf into a parse-able memory stream
     MemBufInputSource* memBufIS = new MemBufInputSource
     (
@@ -78,7 +77,6 @@ int StatusListener::run() throw(Exception)
        , "fakeSysId"
        , false
     );
-    _handler->setSource(IP);
     try {
       _parser->parse(*memBufIS);
     }

@@ -52,14 +52,11 @@ public:
 
     void characters(const XMLCh* const chars, const unsigned int length);
 
-    /// Call this prior to parsing to define the sources host name.
-    void setSource(const string& val) { _src = val; }
-  
     /// reference to listener thread
     StatusListener* _listener;
 
  protected:
-    enum { TIME, STATUS } _element;
+    enum { SOURCE, TIME, STATUS } _element;
 
     /// host name of socket source
     string _src;

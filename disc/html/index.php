@@ -42,6 +42,10 @@ GetStatus = new Array();
 GetStatus['<?=$key?>'] =
   new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=<?=$key?>', '');
 <?php } ?>
+GetStatus['dsm_server'] =
+  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=dsm_server', '');
+GetStatus['nimbus'] =
+  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=nimbus', '');
 
 var selectedDsm = '';
 function recvResp(content) {
@@ -94,6 +98,10 @@ function clicker(that) {
     <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,12, '_')?>'>
        <?=str_pad($val,12, '_')?> (---- -- -- --:--:--)</option>
     <?php } ?>
+    <option value='dsm_server' id='dsm_server' label='dsm_server__'>
+       dsm_server__ (---- -- -- --:--:--)</option>
+    <option value='nimbus'     id='nimbus'     label='nimbus______'>
+       nimbus______ (---- -- -- --:--:--)</option>
   </select><p>
 
   action:&nbsp
