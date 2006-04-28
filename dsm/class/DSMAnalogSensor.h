@@ -61,10 +61,10 @@ public:
     void addSampleTag(SampleTag* tag)
             throw(atdUtil::InvalidParameterException);
 
-    int DSMAnalogSensor::rateSetting(float rate)
+    int rateSetting(float rate)
 	    throw(atdUtil::InvalidParameterException);
 
-    int DSMAnalogSensor::gainSetting(float gain)
+    int gainSetting(float gain)
 	    throw(atdUtil::InvalidParameterException);
 
 protected:

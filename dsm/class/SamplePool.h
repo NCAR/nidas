@@ -19,6 +19,7 @@
 #include <atdUtil/ThreadSupport.h>
 #include <SampleLengthException.h>
 
+#include <cassert>
 #include <vector>
 #include <list>
 #include <iostream>

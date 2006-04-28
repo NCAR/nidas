@@ -44,9 +44,9 @@ public:
 
     void setFileName(const std::string& val);
 
-    std::string FileSet::expandString(const std::string& input);
+    std::string expandString(const std::string& input);
 
-    std::string FileSet::getTokenValue(const std::string& name);
+    std::string getTokenValue(const std::string& name);
 
     void requestConnection(ConnectionRequester* requester,int pseudoPort)
     	throw(atdUtil::IOException);
@@ -63,7 +63,7 @@ public:
      */
     FileSet* clone() const { return new FileSet(*this); }
 
-    dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
+    dsm_time_t createFile(dsm_time_t t,bool exact)
 	throw(atdUtil::IOException);
 
     size_t read(void* buf, size_t len) throw(atdUtil::IOException)
