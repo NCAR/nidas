@@ -179,7 +179,10 @@ protected:
 
     PortSelector*    _selector;
 
-    StatusThread*    _statusThread;
+    /**
+     * A thread that generates streaming XML time and status.
+     */
+    DSMEngineStat*    _statusThread;
 
     /** This thread provides XML-based Remote Procedure calls */
     DSMEngineIntf*   _xmlrpcThread;

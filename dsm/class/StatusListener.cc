@@ -95,3 +95,33 @@ int StatusListener::run() throw(Exception)
     delete memBufIS;
   }
 }
+
+// ----------
+
+void GetClocks::execute(XmlRpcValue& params, XmlRpcValue& result)
+{
+//cerr << "GetClocks" << endl;
+  map<string, string>::iterator mi;
+  for (mi  = _listener->_clocks.begin();
+       mi != _listener->_clocks.end();    ++mi)
+  {
+    // only mark stalled numeric time changes as '-- stopped --'
+    if (mi->second[0] == '2') // as in 2006 ...
+      if (mi->second.compare(_listener->_oldclk[mi->first]) == 0) {
+        if (_listener->_nstale[mi->first]++ > 3)
+          mi->second = "----- stopped -----";
+      }
+      else
+        _listener->_nstale[mi->first] = 0;
+
+    _listener->_oldclk[mi->first] = mi->second;
+    result[mi->first] = mi->second;
+  }
+}
+
+void GetStatus::execute(XmlRpcValue& params, XmlRpcValue& result)
+{
+  std::string& arg = params[0];
+//cerr << "GetStatus for " << arg << endl;
+  result = _listener->_status[arg];
+}

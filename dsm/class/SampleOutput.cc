@@ -13,6 +13,7 @@
 
 */
 
+#include <StatusThread.h>
 #include <SampleOutput.h>
 #include <DSMTime.h>
 #include <Version.h>
@@ -192,6 +193,9 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     if (!iostream) return false;
 
     dsm_time_t tsamp = samp->getTimeTag();
+
+    DSMServerStat::getInstance()->setSomeTime(tsamp);
+
     try {
 	if (tsamp >= nextFileTime) {
 	    // The very first file we use an exact time in the name,

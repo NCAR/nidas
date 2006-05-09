@@ -49,6 +49,8 @@ public:
  private:
   /// this map contains the latest clock from each DSM
   map<string, string> _clocks;
+  map<string, string> _oldclk;
+  map<string, int>    _nstale;
 
   /// this map contains the latest status message from each DSM
   map<string, string> _status;
@@ -68,14 +70,8 @@ public:
   GetClocks(XmlRpcServer* s, StatusListener* lstn):
     XmlRpcServerMethod("GetClocks", s), _listener(lstn) {}
 
-  void execute(XmlRpcValue& params, XmlRpcValue& result)
-  {
-//  cerr << "GetClocks" << endl;
-    map<string, string>::const_iterator mi;
-    for (mi  = _listener->_clocks.begin();
-         mi != _listener->_clocks.end();    ++mi)
-      result[mi->first] = mi->second;
-  }
+  void execute(XmlRpcValue& params, XmlRpcValue& result);
+
   std::string help() { return std::string("help GetClocks"); }
 
 protected:
@@ -91,12 +87,8 @@ public:
   GetStatus(XmlRpcServer* s, StatusListener* lstn):
     XmlRpcServerMethod("GetStatus", s), _listener(lstn) {}
 
-  void execute(XmlRpcValue& params, XmlRpcValue& result)
-  {
-    std::string& arg = params[0];
-//  cerr << "GetStatus for " << arg << endl;
-    result = _listener->_status[arg];
-  }
+  void execute(XmlRpcValue& params, XmlRpcValue& result);
+
   std::string help() { return std::string("help GetStatus"); }
 
 protected:

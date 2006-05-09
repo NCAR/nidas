@@ -45,13 +45,16 @@ bool DSMServer::restart = false;
 bool DSMServer::debug = false;
 
 /* static */
+DSMServerStat* DSMServer::_statusThread = 0;
+
+/* static */
 DSMServerIntf* DSMServer::_xmlrpcThread = 0;
 
 /* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
 
-    int result;
+    int result = 0;
     if ((result = parseRunstring(argc,argv)) != 0) return result;
 
     atdUtil::Logger* logger = 0;
@@ -69,6 +72,7 @@ int DSMServer::main(int argc, char** argv) throw()
 
     setupSignals();
 
+    startStatusThread();
     startXmlRpcThread();
 
     while (!quit) {
@@ -134,6 +138,7 @@ int DSMServer::main(int argc, char** argv) throw()
 	delete project;
     }
 
+    killStatusThread();
     killXmlRpcThread();
 
     // cerr << "XMLCachingParser::destroyInstance()" << endl;
@@ -144,6 +149,25 @@ int DSMServer::main(int argc, char** argv) throw()
     return result;
 }
                                                                                 
+/* static */
+void DSMServer::startStatusThread() throw(atdUtil::Exception)
+{
+    _statusThread = DSMServerStat::getInstance();
+    _statusThread->start();
+}
+
+/* static */
+void DSMServer::killStatusThread() throw(atdUtil::Exception)
+{
+    cerr << "statusthread cancel" << endl;
+    _statusThread->cancel();
+    cerr << "statusthread join" << endl;
+    _statusThread->join();
+    cerr << "statusthread delete" << endl;
+    delete _statusThread;
+    _statusThread = 0;
+}
+
 /* static */
 void DSMServer::startXmlRpcThread() throw(atdUtil::Exception)
 {

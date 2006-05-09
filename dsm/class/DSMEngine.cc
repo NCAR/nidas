@@ -276,8 +276,7 @@ void DSMEngine::run() throw()
       if (_interrupt) continue;
 
       // start the status Thread
-      // initialize the status thread
-      _statusThread = new StatusThread("DSMEngineStatus");
+      _statusThread = new DSMEngineStat("DSMEngineStat");
       _statusThread->start();
 
       try {

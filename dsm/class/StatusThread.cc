@@ -20,9 +20,15 @@
 #include <Datagrams.h>
 
 #include <atdUtil/Socket.h>
+#include <atdUtil/Exception.h>
+#include <atdISFF/TimerThread.h>
+
+#define mSecSleep 1000
 
 using namespace dsm;
 using namespace std;
+using namespace atdISFF;
+using namespace atdUtil;
 
 StatusThread::StatusThread(const std::string& name):Thread(name)
 {
@@ -31,11 +37,7 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
     blockSignal(SIGTERM);
 }
 
-StatusThread::~StatusThread()
-{
-}
-
-int StatusThread::run() throw(atdUtil::Exception)
+int DSMEngineStat::run() throw(Exception)
 {
     DSMEngine* engine = DSMEngine::getInstance();
     // const DSMConfig* dsm = engine->getDSMConfig();
@@ -63,7 +65,7 @@ int StatusThread::run() throw(atdUtil::Exception)
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    long tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
-	    // cerr << "StatusThread, sleep " << tdiff << " usecs" << endl;
+	    // cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
 
@@ -87,7 +89,7 @@ int StatusThread::run() throw(atdUtil::Exception)
 	    // Send status at 00:00, 00:10, etc.
             if ( ((ut % 10) == 0) && sensors.size() > 0) {
 
-              statStream << "<status><![CDATA[" << endl;
+              statStream << "<status><![CDATA[";
 
 	      DSMSensor* sensor = 0;
               for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -111,6 +113,109 @@ int StatusThread::run() throw(atdUtil::Exception)
 	throw e;
     }
     msock.close();
-    cerr << "StatusThread run method returning" << endl;
+    cerr << "DSMEngineStat run method returning" << endl;
+    return 0;
+}
+
+/* static */
+DSMServerStat* DSMServerStat::_instance = 0;
+
+/* static */
+DSMServerStat* DSMServerStat::getInstance() 
+{
+    if (!_instance) _instance = new DSMServerStat("DSMServerStat");
+    return _instance;
+}
+
+/* static */
+int DSMServerStat::run() throw(Exception)
+{
+    const std::string DATA_NETWORK = "192.168.184";
+    atdUtil::MulticastSocket msock;
+    atdUtil::Inet4Address maddr =
+    	atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+    atdUtil::Inet4SocketAddress msaddr =
+	atdUtil::Inet4SocketAddress(maddr,DSM_MULTICAST_STATUS_PORT);
+
+    // Set to proper interface if this computer has more than one.
+    std::list<atdUtil::Inet4Address> itf = msock.getInterfaceAddresses();
+    std::list<atdUtil::Inet4Address>::iterator itfi;
+    for (itfi = itf.begin(); itfi != itf.end(); ++itfi)
+      if ((*itfi).getHostAddress().compare(0, DATA_NETWORK.size(), DATA_NETWORK) == 0)
+        msock.setInterface(*itfi);
+
+    std::ostringstream statStream;
+
+    struct tm tm;
+    char cstr[24];
+
+    struct timespec sleepTime;
+
+    /* sleep a bit so that we're on an even interval boundary */
+    TimerThread timer("timer");
+    unsigned long mSecVal =
+      mSecSleep - (unsigned long)(timer.currentTimeMsec() % mSecSleep);
+
+    sleepTime.tv_sec = mSecVal / 1000;
+    sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
+    if (nanosleep(&sleepTime,0) < 0) {
+      if (errno == EINTR) return RUN_OK;
+      throw Exception(string("nanosleep: ") + Exception::errnoToString(errno));
+    }
+
+    dsm_time_t lasttime = 0;
+    char *glyph[] = {"\\","|","/","-"};
+    int anim=0;
+
+    try {
+        while (!amInterrupted()) {
+
+            if (++anim == 4) anim=0;
+
+	    dsm_time_t tt = _sometime;
+            time_t     ut = tt / USECS_PER_SEC;
+            gmtime_r(&ut,&tm);
+
+            strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
+
+            if (lasttime != _sometime)
+            {
+              lasttime = _sometime;
+              statStream << "<?xml version=\"1.0\"?><group>"
+	                 << "<name>dsm_server</name>"
+                         << "<clock>" << cstr << "</clock>";
+            }
+            else
+              statStream << "<?xml version=\"1.0\"?><group>"
+	                 << "<name>dsm_server</name>"
+                         << "<clock>no DSMs active...."+string(glyph[anim])+"</clock>";
+
+//            // Send status at 00:00, 00:10, etc.
+//            if ( ((ut % 10) == 0) && _sometime) {
+//                statStream << "<status><![CDATA[";
+//                statStream << "]]></status>";
+//            }
+            statStream << "</group>" << endl;
+	    string statstr = statStream.str();
+	    statStream.str("");
+	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
+
+            // sleep until the next interval...
+            mSecVal =
+              mSecSleep - (unsigned long)(timer.currentTimeMsec() % mSecSleep);
+            sleepTime.tv_sec = mSecVal / 1000;
+            sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
+            if (nanosleep(&sleepTime,0) < 0) {
+                if (errno == EINTR) break;
+                throw Exception(string("nanosleep: ") + Exception::errnoToString(errno));
+            }
+	}
+    }
+    catch(const atdUtil::IOException& e) {
+	msock.close();
+	throw e;
+    }
+    msock.close();
+    cerr << "DSMServerStat run method returning" << endl;
     return 0;
 }

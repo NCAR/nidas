@@ -21,6 +21,7 @@
 #include <DSMServerIntf.h>
 #include <Project.h>
 #include <DOMable.h>
+#include <StatusThread.h>
 #include <XMLException.h>
 
 #include <list>
@@ -118,6 +119,10 @@ protected:
      */
     static DSMServer* serverInstance;
 
+    static void startStatusThread() throw(atdUtil::Exception);
+
+    static void killStatusThread() throw(atdUtil::Exception);
+
     static void startXmlRpcThread() throw(atdUtil::Exception);
 
     static void killXmlRpcThread() throw(atdUtil::Exception);
@@ -125,6 +130,9 @@ protected:
     static bool quit;
 
     static bool restart;
+
+    /** This thread that generates streaming XML time and status. */
+    static DSMServerStat* _statusThread;
 
     /** This thread provides XML-based Remote Procedure calls */
     static DSMServerIntf* _xmlrpcThread;
