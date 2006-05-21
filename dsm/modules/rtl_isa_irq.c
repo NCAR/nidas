@@ -281,7 +281,7 @@ static unsigned int rtl_isa_irq_demux_isr (unsigned int irq, struct rtl_frame *r
     unsigned short imask = 1;
 
 // #define CHECK_REENTRANT
-#define COUNT_SPURIOUS_0
+// #define COUNT_SPURIOUS_0
 // #define COUNT_SPURIOUS
 
 #ifdef CHECK_REENTRANT

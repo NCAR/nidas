@@ -48,7 +48,12 @@ SampleArchiver* SampleArchiver::clone() const {
 void SampleArchiver::connect(SampleInput* newinput) throw(atdUtil::IOException)
 {
     input = newinput;
-    SampleIOProcessor::connect(newinput);
+    SampleTagIterator ti = input->getSampleTagIterator();
+    for ( ; ti.hasNext(); ) {
+	const SampleTag* stag = ti.next();
+	addSampleTag(new SampleTag(*stag));
+    }
+    SampleIOProcessor::connect(input);
 }
  
 void SampleArchiver::disconnect(SampleInput* oldinput) throw(atdUtil::IOException)
@@ -56,8 +61,9 @@ void SampleArchiver::disconnect(SampleInput* oldinput) throw(atdUtil::IOExceptio
     if (!input) return;
     assert(input == oldinput);
 
-    list<SampleOutput*>::iterator oi;
-    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
+    list<SampleOutput*>::const_iterator oi =
+    	getConnectedOutputs().begin();
+    for ( ; oi != getConnectedOutputs().end(); ++oi) {
         SampleOutput* output = *oi;
         input->removeSampleClient(output);
     }

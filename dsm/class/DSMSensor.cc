@@ -16,11 +16,14 @@
 
 #include <DSMSensor.h>
 #include <DSMConfig.h>
+#include <Site.h>
+#include <NidsIterators.h>
 
 #include <dsm_sample.h>
 #include <SamplePool.h>
 #include <atdUtil/Logger.h>
 
+#include <math.h>
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -35,6 +38,8 @@ bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
     iodev(0),scanner(0),dsm(0),id(0),
+    rawSampleTag(0),
+    height(floatNAN),
     latency(0.1)	// default sensor latency, 0.1 secs
 {
 }
@@ -43,17 +48,33 @@ DSMSensor::DSMSensor() :
 DSMSensor::~DSMSensor()
 {
 
-    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
+    for (set<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) delete *si;
+    delete rawSampleTag;
     delete scanner;
     delete iodev;
+
+    map<std::string,Parameter*>::const_iterator pi;
+    for (pi = parameters.begin(); pi != parameters.end(); ++pi)
+	delete pi->second;
 }
 
-void DSMSensor::addSampleTag(SampleTag* tag)
-	throw(atdUtil::InvalidParameterException)
+
+void DSMSensor::addSampleTag(SampleTag* val)
+    throw(atdUtil::InvalidParameterException)
 {
-    sampleTags.push_back(tag);
-    constSampleTags.push_back(tag);
+    sampleTags.insert(val);
+    constSampleTags.insert(val);
+}
+
+SampleTagIterator DSMSensor::getSampleTagIterator() const
+{
+    return SampleTagIterator(this);
+}
+
+VariableIterator DSMSensor::getVariableIterator() const
+{
+    return VariableIterator(this);
 }
 
 /**
@@ -71,6 +92,115 @@ const std::string& DSMSensor::getDSMName() const {
 const std::string& DSMSensor::getLocation() const {
     if (location.length() == 0 && dsm) return dsm->getLocation();
     return location;
+}
+
+void DSMSensor::setHeight(const string& val)
+{
+    heightString = val;
+    if (heightString.length() > 0) {
+	float h;
+	istringstream ist(val);
+	ist >> h;
+	if (ist.fail()) height = floatNAN;
+	else if (!ist.eof()) {
+	    string units;
+	    ist >> units;
+	    if (!ist.fail()) {
+		if (units == "cm") h /= 10.0;
+		else if (units != "m") h = floatNAN;
+	    }
+	    height = h;
+	}
+	setSuffix(string(".") + heightString + getSiteSuffix());
+    }
+    else {
+	height = floatNAN;
+	setSuffix(getSiteSuffix());
+    }
+}
+
+void DSMSensor::setHeight(float val)
+{
+    height = val;
+    if (! isnan(height)) {
+	ostringstream ost;
+	ost << height << 'm';
+	heightString = ost.str();
+	setSuffix(string(".") + heightString + getSiteSuffix());
+    }
+    else setSuffix(getSiteSuffix());
+}
+
+void DSMSensor::setDepth(const string& val)
+{
+    depthString = val;
+    if (depthString.length() > 0) {
+	float d;
+	istringstream ist(val);
+	ist >> d;
+	if (ist.fail()) height = floatNAN;
+	else if (!ist.eof()) {
+	    string units;
+	    ist >> units;
+	    if (!ist.fail()) {
+		if (units == "cm") d /= 10.0;
+		else if (units != "m") d = floatNAN;
+	    }
+	    height = -d;
+	}
+	setSuffix(string(".") + depthString + getSiteSuffix());
+    }
+    else {
+	height = floatNAN;
+	setSuffix(getSiteSuffix());
+    }
+}
+
+void DSMSensor::setDepth(float val)
+{
+    height = -val;
+    if (! isnan(height)) {
+	ostringstream ost;
+	ost << val * 10.0 << "cm";
+	depthString = ost.str();
+	setSuffix(string(".") + depthString + getSiteSuffix());
+    }
+    else setSuffix(getSiteSuffix());
+}
+
+/*
+ * Add a parameter to my map, and list.
+ */
+void DSMSensor::addParameter(Parameter* val)
+{
+    map<string,Parameter*>::iterator pi = parameters.find(val->getName());
+    if (pi == parameters.end()) {
+        parameters[val->getName()] = val;
+	constParameters.push_back(val);
+    }
+    else {
+	// parameter with name exists. If the pointers aren't equal
+	// delete the old parameter.
+	Parameter* p = pi->second;
+	if (p != val) {
+	    // remove it from constParameters list
+	    list<const Parameter*>::iterator cpi = constParameters.begin();
+	    for ( ; cpi != constParameters.end(); ) {
+		if (*cpi == p) cpi = constParameters.erase(cpi);
+		else ++cpi;
+	    }
+	    delete p;
+	    pi->second = val;
+	    constParameters.push_back(val);
+	}
+    }
+}
+
+const Parameter* DSMSensor::getParameter(const std::string& name) const
+{
+    map<string,Parameter*>::const_iterator pi = parameters.find(name);
+    if (pi == parameters.end()) return 0;
+    return pi->second;
 }
 
 /*
@@ -180,6 +310,7 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
      * tag of the <dsm>.
      */
     setDSMId(getDSMConfig()->getId());
+    const Site* site = getDSMConfig()->getSite();
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -189,34 +320,34 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    if (!attr.getName().compare("devicename"))
+	    if (attr.getName() == "devicename")
 		setDeviceName(attr.getValue());
 	    // set the catalog name from the ID
-	    else if (!attr.getName().compare("ID"))
+	    else if (attr.getName() == "ID")
 		setCatalogName(attr.getValue());
-	    else if (!attr.getName().compare("class")) {
+	    else if (attr.getName() == "class") {
 	        if (getClassName().length() == 0)
 		    setClassName(attr.getValue());
-		else if (getClassName().compare(attr.getValue()))
+		else if (getClassName() != attr.getValue())
 		    atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		    	"class attribute=%s does not match getClassName()=%s\n",
 			attr.getValue().c_str(),getClassName().c_str());
 	    }
-	    else if (!attr.getName().compare("location"))
+	    else if (attr.getName() == "location")
 		setLocation(attr.getValue());
-	    else if (!attr.getName().compare("id")) {
+	    else if (attr.getName() == "id") {
 		istringstream ist(attr.getValue());
 		// If you unset the dec flag, then a leading '0' means
 		// octal, and 0x means hex.
 		ist.unsetf(ios::dec);
-		unsigned short val;
+		unsigned long val;
 		ist >> val;
 		if (ist.fail())
 		    throw atdUtil::InvalidParameterException("sensor",
 		    	attr.getName(),attr.getValue());
 		setShortId(val);
 	    }
-	    else if (!attr.getName().compare("latency")) {
+	    else if (attr.getName() == "latency") {
 		istringstream ist(attr.getValue());
 		float val;
 		ist >> val;
@@ -225,8 +356,12 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 		    	attr.getName(),attr.getValue());
 		setLatency(val);
 	    }
-	    else if (!attr.getName().compare("suffix"))
-		setSuffix(attr.getValue());
+	    else if (attr.getName() == "height")
+	    	setHeight(attr.getValue());
+	    else if (attr.getName() == "depth")
+	    	setDepth(attr.getValue());
+	    else if (attr.getName() == "suffix")
+	    	setSuffix(attr.getValue());
 	}
     }
     DOMNode* child;
@@ -237,54 +372,78 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-	if (!elname.compare("sample")) {
+	if (elname == "sample") {
 	    SampleTag* newtag = new SampleTag();
+	    newtag->setDSM(getDSMConfig());
+	    newtag->setDSMId(getDSMConfig()->getId());
+	    newtag->setSensorId(getShortId());
 	    newtag->fromDOMElement((DOMElement*)child);
+
 	    if (newtag->getSampleId() == 0) {
 		delete newtag;
 		throw atdUtil::InvalidParameterException(
 		    getName(),"sample id invalid or not found","0");
 	    }
 
-	    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
-		si != sampleTags.end(); ++si) {
+	    set<SampleTag*>& stags = getncSampleTags();
+	    set<SampleTag*>::const_iterator si = stags.begin();
+	    for ( ; si != stags.end(); ++si) {
 		SampleTag* stag = *si;
-		// If a sample id matches a previous one (most likely the
-		// catalog) then update it from this DOMElement.
+		// If a sample id matches a previous one (most likely
+		// from the catalog) then update it from this DOMElement.
 		if (stag->getSampleId() == newtag->getSampleId()) {
 		    // update the sample with the new DOMElement
-		    stag->fromDOMElement((DOMElement*)child);
 		    stag->setDSMId(getDSMConfig()->getId());
 		    stag->setSensorId(getShortId());
+
+		    stag->fromDOMElement((DOMElement*)child);
+		    
 		    delete newtag;
 		    newtag = 0;
 		    break;
 		}
 	    }
-	    if (newtag) {
-		newtag->setDSMId(getDSMConfig()->getId());
-		newtag->setSensorId(getShortId());
-		addSampleTag(newtag);
-	    }
+	    if (newtag) addSampleTag(newtag);
+	}
+	else if (elname == "parameter") {
+	    Parameter* parameter =
+	    Parameter::createParameter((xercesc::DOMElement*)child);
+	    addParameter(parameter);
 	}
     }
+
+    rawSampleTag = new SampleTag();
+    rawSampleTag->setSampleId(0);
+    rawSampleTag->setSensorId(getShortId());
+    rawSampleTag->setDSMId(getDSMConfig()->getId());
+    rawSampleTag->setDSM(getDSMConfig());
+
+    if (getSuffix().length() > 0)
+    	rawSampleTag->setSuffix(getSuffix());
+    if (site) rawSampleTag->setStation(site->getNumber());
 
     // sensors in the catalog may not have any sample tags
     // so at this point it is OK if sampleTags.size() == 0.
 
     // Check that sample ids are unique for this sensor.
-    set<unsigned short> ids;
-    for (vector<SampleTag*>::const_iterator si = sampleTags.begin();
-    	si != sampleTags.end(); ++si) {
+    // Estimate the rate of the raw sample as the sum of
+    // the rates of the processed samples.
+    float rawRate = 0.0;
+    set<unsigned long> ids;
+    set<SampleTag*>& stags = getncSampleTags();
+    set<SampleTag*>::const_iterator si = stags.begin();
+    for ( ; si != stags.end(); ++si) {
 	SampleTag* stag = *si;
+
+	stag->setSensorId(getShortId());
+	if (getSuffix().length() > 0)
+	    stag->setSuffix(getSuffix());
+	if (site) stag->setStation(site->getNumber());
 
 	if (getShortId() == 0) throw atdUtil::InvalidParameterException(
 	    	getName(),"id","zero or missing");
 
-	// set the suffix
-	if (getSuffix().length() > 0) stag->setSuffix(getSuffix());
-
-	pair<set<unsigned short>::const_iterator,bool> ins =
+	pair<set<unsigned long>::const_iterator,bool> ins =
 		ids.insert(stag->getId());
 	if (!ins.second) {
 	    ostringstream ost;
@@ -292,7 +451,10 @@ void DSMSensor::fromDOMElement(const DOMElement* node)
 	    throw atdUtil::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}
+	rawRate += stag->getRate();
     }
+    rawSampleTag->setRate(rawRate);
+
 }
 
 DOMElement* DSMSensor::toDOMParent(
@@ -406,3 +568,4 @@ string DSMSensor::addBackslashSequences(string str)
     }
     return res;
 }
+

@@ -16,7 +16,7 @@
 
 #include <XMLConfigService.h>
 #include <Site.h>
-// #include <DSMServer.h>
+#include <DSMServer.h>
 
 #include <Datagrams.h>
 
@@ -57,7 +57,8 @@ XMLConfigService::~XMLConfigService()
 
 void XMLConfigService::schedule() throw(atdUtil::Exception)
 {
-    iochan->requestConnection(this,XML_CONFIG);
+    iochan->setRequestNumber(XML_CONFIG);
+    iochan->requestConnection(this);
 }
 
 void XMLConfigService::interrupt() throw()
@@ -70,10 +71,13 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
     // Figure out what DSM it came from
     atdUtil::Inet4Address remoteAddr = iochan->getRemoteInet4Address();
     cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
-    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
-    if (!dsm)
-	throw atdUtil::Exception(string("can't find DSM for address ") +
-	    remoteAddr.getHostAddress());
+    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
+    if (!dsm) {
+        atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    "can't find DSM for address %s" ,
+	    remoteAddr.getHostAddress().c_str());
+	return;
+    }
 
     cerr << "findDSM, dsm=" << dsm->getName() << endl;
     // make a copy of myself, assign it to a specific dsm

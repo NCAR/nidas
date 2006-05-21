@@ -2,40 +2,25 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+    $LastChangedDate: 2006-02-11 17:55:33 -0700 (Sat, 11 Feb 2006) $
 
-    $LastChangedRevision$
+    $LastChangedRevision: 3284 $
 
-    $LastChangedBy$
+    $LastChangedBy: maclean $
 
-    $HeadURL$
+    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/SampleSourceImpl.cc $
  ********************************************************************
 
 */
 
 
-#include <SampleSourceImpl.h>
+#include <SampleSource.h>
+#include <NidsIterators.h>
 
 using namespace dsm;
 using namespace std;
 
-void SampleSourceImpl::addSampleClientImpl(SampleClient* client) throw() {
-    clients.add(client);
-}
-
-void SampleSourceImpl::removeSampleClientImpl(SampleClient* client) throw() {
-    clients.remove(client);
-}
-  
-void SampleSourceImpl::removeAllSampleClientsImpl() throw() {
-    clients.removeAll();
-}
-
-int SampleSourceImpl::getClientCountImpl() const throw() {
-    return clients.size();
-}
-  
-void SampleSourceImpl::distributeImpl(const Sample* sample) throw()
+void SampleSource::distribute(const Sample* sample) throw()
 {
     // copy constructor does a lock
     SampleClientList tmp(clients);
@@ -59,24 +44,24 @@ void SampleSourceImpl::distributeImpl(const Sample* sample) throw()
      * more thought.
      */
 
-    list<SampleClient*>::const_iterator li;
-    for (li = tmp.begin(); li != tmp.end(); ++li)
+    list<SampleClient*>::const_iterator li = tmp.begin();
+    for ( ; li != tmp.end(); ++li)
 	(*li)->receive(sample);
+    sample->freeReference();
     numSamplesSent++;
 }
 
-void SampleSourceImpl::distributeImpl(const list<const Sample*>& samples)
+void SampleSource::distribute(const list<const Sample*>& samples)
 	throw()
 {
     list<const Sample*>::const_iterator si;
     for (si = samples.begin(); si != samples.end(); ++si) {
 	const Sample *s = *si;
-	distributeImpl(s);
-	s->freeReference();
+	distribute(s);
     }
 }
 
-void SampleSourceImpl::flushImpl() throw()
+void SampleSource::flush() throw()
 {
     // copy constructor does a lock
     SampleClientList tmp(clients);
@@ -84,3 +69,9 @@ void SampleSourceImpl::flushImpl() throw()
     for (li = tmp.begin(); li != tmp.end(); ++li)
 	(*li)->finish();
 }
+
+SampleTagIterator SampleSource::getSampleTagIterator() const
+{
+    return SampleTagIterator(this);
+}
+

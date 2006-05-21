@@ -80,10 +80,9 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors)
 
 	// for samples show the first variable name, followed by ",..."
 	// if more than one.
-	const vector<const SampleTag*>& stags = sensor->getSampleTags();
-	vector<const SampleTag*>::const_iterator ti;
-	for (ti = stags.begin(); ti != stags.end(); ++ti) {
-	    const SampleTag* stag = *ti;
+	SampleTagIterator ti = sensor->getSampleTagIterator();
+	for ( ; ti.hasNext(); ) {
+	    const SampleTag* stag = ti.next();
 	    if (stag->getVariables().size() > 0) {
 		string varname = stag->getVariables().front()->getName();
 		if (stag->getVariables().size() > 1) varname += ",...";
@@ -418,17 +417,11 @@ int DataStats::run() throw()
 	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
 
-	    const list<Site*>& sitelist = project->getSites();
-	    list<Site*>::const_iterator ai;
-	    for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
-		Site* site = *ai;
-		const list<DSMConfig*>& dsms = site->getDSMConfigs();
-		list<DSMConfig*>::const_iterator di;
-		for (di = dsms.begin(); di != dsms.end(); ++di) {
-		    DSMConfig* dsm = *di;
-		    const list<DSMSensor*>& sensors = dsm->getSensors();
-		    allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-		}
+	    for ( DSMConfigIterator di = project->getDSMConfigIterator();
+	    	di.hasNext(); ) {
+		const DSMConfig* dsm = di.next();
+		const list<DSMSensor*>& sensors = dsm->getSensors();
+		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
 	    }
 	}
 

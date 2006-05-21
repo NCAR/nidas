@@ -32,6 +32,7 @@
 #endif
 
 #include <Sample.h>
+#include <SampleTag.h>
 #include <atdUtil/ParseException.h>
 
 #include <vector>
@@ -72,8 +73,8 @@ public:
 
     const std::string& getFormat() const { return format; }
 
-    void setSampleId(dsm_sample_id_t val) { sampleId = val; }
-    dsm_sample_id_t getSampleId() const { return sampleId; }
+    void setSampleTag(const SampleTag* val) { sampleTag = val; }
+    const SampleTag* getSampleTag() const { return sampleTag; }
 
     /**
      * SampleClient receive method.
@@ -161,10 +162,10 @@ private:
     char** bufptrs;
 
     /**
-     * A scanner may produce dsm samples. sampleId is the id
-     * of those samples.
+     * A scanner may produce dsm samples. sampleTag points to
+     * to SampleTag describing the samples produced.
      */
-    dsm_sample_id_t sampleId;
+    const SampleTag* sampleTag;
 
 };
 

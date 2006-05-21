@@ -43,6 +43,9 @@ public:
 
     virtual ~RawSampleInputStream();
 
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(atdUtil::InvalidParameterException);
+
 protected:
 };
 

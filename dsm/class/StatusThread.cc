@@ -21,13 +21,11 @@
 
 #include <atdUtil/Socket.h>
 #include <atdUtil/Exception.h>
-#include <atdISFF/TimerThread.h>
 
 #define mSecSleep 1000
 
 using namespace dsm;
 using namespace std;
-using namespace atdISFF;
 using namespace atdUtil;
 
 StatusThread::StatusThread(const std::string& name):Thread(name)
@@ -127,6 +125,11 @@ DSMServerStat* DSMServerStat::getInstance()
     return _instance;
 }
 
+DSMServerStat::DSMServerStat(const std::string& name):
+	StatusThread(name),_sometime(getSystemTime())
+{
+}
+
 /* static */
 int DSMServerStat::run() throw(Exception)
 {
@@ -152,9 +155,8 @@ int DSMServerStat::run() throw(Exception)
     struct timespec sleepTime;
 
     /* sleep a bit so that we're on an even interval boundary */
-    TimerThread timer("timer");
     unsigned long mSecVal =
-      mSecSleep - (unsigned long)(timer.currentTimeMsec() % mSecSleep);
+      mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
 
     sleepTime.tv_sec = mSecVal / 1000;
     sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
@@ -202,7 +204,7 @@ int DSMServerStat::run() throw(Exception)
 
             // sleep until the next interval...
             mSecVal =
-              mSecSleep - (unsigned long)(timer.currentTimeMsec() % mSecSleep);
+	      mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
             sleepTime.tv_sec = mSecVal / 1000;
             sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
             if (nanosleep(&sleepTime,0) < 0) {

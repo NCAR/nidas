@@ -29,7 +29,7 @@ using namespace std;
 SampleSorter::SampleSorter(const string& name) :
     Thread(name),sorterLengthUsec(250*USECS_PER_MSEC),
     sampleSetCond("sampleSetCond"),
-    heapMax(1000000),heapSize(0),heapBlock(false),discardedSamples(0),
+    heapMax(10000000),heapSize(0),heapBlock(false),discardedSamples(0),
     discardWarningCount(1000),doFlush(false),flushed(false)
 {
     blockSignal(SIGINT);
@@ -55,6 +55,21 @@ SampleSorter::~SampleSorter()
     }
 }
 
+void SampleSorter::addSampleTag(const SampleTag* tag,SampleClient* client)
+    	throw(atdUtil::InvalidParameterException)
+{
+    clientMapLock.lock();
+    map<dsm_sample_id_t,SampleClientList>::iterator ci =
+    	clientsBySampleId.find(tag->getId());
+
+    if (ci == clientsBySampleId.end()) {
+	SampleClientList clients;
+	clients.add(client);
+	clientsBySampleId[tag->getId()] = clients;
+    }
+    else ci->second.add(client);
+    clientMapLock.unlock();
+}
 /**
  * Thread function.
  */
@@ -124,9 +139,20 @@ int SampleSorter::run() throw(atdUtil::Exception) {
 	size_t ssum = 0;
 	for (si = agedsamples.begin(); si < agedsamples.end(); ++si) {
 	    const Sample *s = *si;
-	    distribute(s);
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
-	    s->freeReference();
+
+	    clientMapLock.lock();
+	    map<dsm_sample_id_t,SampleClientList>::const_iterator ci =
+		clientsBySampleId.find(s->getId());
+	    if (ci != clientsBySampleId.end()) {
+	        SampleClientList tmp(ci->second);
+		clientMapLock.unlock();
+		list<SampleClient*>::const_iterator li = tmp.begin();
+		for ( ; li != tmp.end(); ++li) (*li)->receive(s);
+	    }
+	    else clientMapLock.unlock();
+
+	    distribute(s);
 	}
 	heapDecrement(ssum);
 

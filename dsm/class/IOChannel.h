@@ -24,11 +24,12 @@
 #include <atdUtil/IOException.h>
 #include <atdUtil/Inet4Address.h>
 
+#include <set>
+
 namespace dsm {
 
-class DSMConfig;
+class SampleTag;
 class DSMService;
-
 
 /**
  * A channel for Input or Output of data.
@@ -45,6 +46,14 @@ public:
 
     virtual const std::string& getName() const = 0;
 
+    /*
+     * The requestNum number is used when establishing McSocket
+     * connections and is ignored otherwise.
+     */
+    virtual void setRequestNumber(int val) {}
+
+    virtual int getRequestNumber() const { return -1; }
+
     virtual bool isNewFile() const { return false; }
 
     /**
@@ -52,19 +61,19 @@ public:
      * requestConnection to get things started. It is like opening
      * a device, but in the case of sockets, it just starts the process
      * of establishing a connection to the remote host.
-     * The pseudoPort number is used when establishing McSocket
-     * connections and is ignored otherwise.
      * Only when the ConnectionRequester::connected() method
      * is called back is the channel actually open and ready for IO.
+     * The IOChannel* returned by ConnectionRequester::connected
+     * may be another instance of an IOChannel.
      */
-    virtual void requestConnection(ConnectionRequester*,int pseudoPort)
+    virtual void requestConnection(ConnectionRequester*)
     	throw(atdUtil::IOException) = 0;
 
     /**
      * Establish a connection. On return, the connection has been
      * established. It returns a new instance of an IOChannel.
      */
-    virtual IOChannel* connect(int pseudoPort) throw(atdUtil::IOException) = 0;
+    virtual IOChannel* connect() throw(atdUtil::IOException) = 0;
 
     /**
      * Derived classes must provide clone.
@@ -131,30 +140,25 @@ public:
     }
 
     /**
-     * Tell this IOChannel which DSM it is serving.
-     * Right now this is only used by FileSet,
-     * which uses attributes of DSMConfig as
-     * fields in filenames.
+     * An IOChannel often needs to know what samples it is providing
+     * I/O for.  It can use the sample ids to lookup up stuff that is
+     * may need in the Project tree, like DSMConfig, DSMSensor, etc.
+     * Right now this is mostly useful for the FileSet IOChannel,
+     * which needs to match some string tokens like "{SITE}".
      */
-    virtual void addDSMConfig(const DSMConfig* val)
+    virtual void addSampleTag(const SampleTag* val) 
     {
-        dsms.push_back(val);
+        sampleTags.insert(val);
     }
 
-    void setDSMConfigs(const std::list<const DSMConfig*>& val)
+    virtual const std::set<const SampleTag*>& getSampleTags() const
     {
-        dsms = val;
-    }
-
-
-    virtual const std::list<const DSMConfig*>& getDSMConfigs() const
-    {
-        return dsms;
+        return sampleTags;
     }
 
 private:
-    std::list<const DSMConfig*> dsms;
 
+    std::set<const SampleTag*> sampleTags;
 };
 
 }

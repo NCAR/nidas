@@ -14,6 +14,7 @@
 */
 
 #include <RawSampleOutputStream.h>
+#include <Datagrams.h>
 
 #include <atdUtil/Logger.h>
 
@@ -49,3 +50,11 @@ RawSampleOutputStream* RawSampleOutputStream::clone(IOChannel* iochannel) const
     return new RawSampleOutputStream(*this,iochannel);
 }
 
+
+void RawSampleOutputStream::fromDOMElement(const DOMElement* node)
+        throw(atdUtil::InvalidParameterException)
+{
+    SortedSampleOutputStream::fromDOMElement(node);
+    if (getIOChannel()->getRequestNumber() < 0)
+    	getIOChannel()->setRequestNumber(RAW_SAMPLE);
+}

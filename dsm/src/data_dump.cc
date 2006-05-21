@@ -76,6 +76,14 @@ bool DumpClient::receive(const Sample* samp) throw()
     static dsm_time_t prev_tt = 0;
 
     dsm_sample_id_t sampid = samp->getId();
+
+#ifdef DEBUG
+    cerr << "sampid=" << GET_DSM_ID(sampid) << ',' <<
+    	GET_SHORT_ID(sampid) << endl;
+    cerr << "sampleId=" << GET_DSM_ID(sampleId) << ',' <<
+    	GET_SHORT_ID(sampleId) << endl;
+#endif
+
     if (sampid != sampleId) return false;
 
     struct tm tm;
@@ -196,11 +204,16 @@ private:
 
     DumpClient::format_t format;
 
+    bool allDSMs;
+
+    bool allSamples;
+
 };
 
 DataDump::DataDump(): processData(false),
 	port(30000),sampleId(0),
-	format(DumpClient::DEFAULT)
+	format(DumpClient::DEFAULT),
+	allDSMs(true),allSamples(true)
 {
 }
 
@@ -217,6 +230,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'd':
 	    sampleId = SET_DSM_ID(sampleId,atoi(optarg));
+	    allDSMs = false;
 	    break;
 	case 'F':
 	    format = DumpClient::FLOAT;
@@ -232,6 +246,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 's':
 	    sampleId = SET_SHORT_ID(sampleId,atoi(optarg));
+	    allSamples = false;
 	    break;
 	case 'S':
 	    format = DumpClient::SIGNED_SHORT;
@@ -417,17 +432,17 @@ int DataDump::run() throw()
 
 	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
-	    const list<Site*>& sitelist = project->getSites();
-	    list<Site*>::const_iterator ai;
-	    for (ai = sitelist.begin(); ai != sitelist.end(); ++ai) {
-		Site* site = *ai;
-		const list<DSMConfig*>& dsms = site->getDSMConfigs();
-		list<DSMConfig*>::const_iterator di;
-		for (di = dsms.begin(); di != dsms.end(); ++di) {
-		    DSMConfig* dsm = *di;
-		    const list<DSMSensor*>& sensors = dsm->getSensors();
-		    allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-		}
+
+	    DSMConfigIterator di = project->getDSMConfigIterator();
+
+	    for ( ; di.hasNext(); ) {
+		const DSMConfig* dsm = di.next();
+		const list<DSMSensor*>& sensors = dsm->getSensors();
+		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+
+		for (list<DSMSensor*>::const_iterator si = sensors.begin();
+			si != sensors.end(); ++si)
+		    cerr << "sensor=" << (*si)->getName() << endl;
 	    }
 	}
 

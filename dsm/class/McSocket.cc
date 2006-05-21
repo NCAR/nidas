@@ -29,13 +29,14 @@ CREATOR_FUNCTION(McSocket)
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
     firstRead(true),newFile(true),keepAliveIdleSecs(7200)
 {
+    setName("McSocket");
 }
 
 /*
  * Copy constructor. Should only be called before socket connection.
  */
 McSocket::McSocket(const McSocket& x):
-    atdUtil::McSocket(x),socket(0),
+    atdUtil::McSocket(x),socket(0),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
     firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs)
 {
@@ -45,7 +46,7 @@ McSocket::McSocket(const McSocket& x):
  * constructor, but with a new, connected atdUtil::Socket
  */
 McSocket::McSocket(const McSocket& x,atdUtil::Socket* sock):
-    atdUtil::McSocket(x),socket(sock),
+    atdUtil::McSocket(x),socket(sock),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
     firstRead(true),newFile(true),
     keepAliveIdleSecs(x.keepAliveIdleSecs)
@@ -65,23 +66,21 @@ McSocket* McSocket::clone() const
     return new McSocket(*this);
 }
 
-IOChannel* McSocket::connect(int pseudoPort)
+IOChannel* McSocket::connect()
     throw(atdUtil::IOException)
 {
-    setPseudoPort(pseudoPort);
     atdUtil::Socket* sock;
     if (isRequester()) sock = atdUtil::McSocket::connect();
     else sock = accept();
     sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
+    setName(sock->getRemoteSocketAddress().toString());
     return new McSocket(*this,sock);
 }
 
-void McSocket::requestConnection(ConnectionRequester* requester,
-	int pseudoPort)
+void McSocket::requestConnection(ConnectionRequester* requester)
     throw(atdUtil::IOException)
 {
     connectionRequester = requester;
-    setPseudoPort(pseudoPort);
     if (isRequester()) request();	// starts requester thread
     else listen();			// starts listener thread
 }
@@ -91,6 +90,7 @@ void McSocket::connected(atdUtil::Socket* sock)
     // cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
     sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     McSocket* newsock = new McSocket(*this,sock);
+    newsock->setName(sock->getRemoteSocketAddress().toString());
     assert(connectionRequester);
     connectionRequester->connected(newsock);
 }
@@ -145,9 +145,9 @@ int McSocket::getFd() const
 void McSocket::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
-    string stype;
     string saddr;
     string sport;
+    bool multicast = true;
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -161,9 +161,34 @@ void McSocket::fromDOMElement(const DOMElement* node)
             const std::string& aval = attr.getValue();
 	    if (!aname.compare("address")) saddr = aval;
 	    else if (!aname.compare("port")) sport = aval;
+	    else if (!aname.compare("requestNumber")) {
+		int i;
+	        istringstream ist(aval);
+		ist >> i;
+		if (ist.fail())
+		    throw atdUtil::InvalidParameterException(
+			    getName(),aname,aval);
+		setRequestNumber(i);
+	    }
 	    else if (!aname.compare("type")) {
-		if (!aval.compare("mcaccept")) setRequester(false);
-		else setRequester(true);
+		if (!aval.compare("mcaccept")) {
+		    multicast = true;
+		    setRequester(false);
+		}
+		else if (!aval.compare("mcrequest")) {
+		    multicast = true;
+		    setRequester(true);
+		}
+		else if (!aval.compare("dgaccept")) {
+		    multicast = false;
+		    setRequester(false);
+		}
+		else if (!aval.compare("dgrequest")) {
+		    multicast = false;
+		    setRequester(true);
+		}
+		else throw atdUtil::InvalidParameterException(
+			getName(),"type",aval);
 	    }
 	    else if (!aname.compare("maxIdle")) {
 		istringstream ist(aval);
@@ -176,20 +201,29 @@ void McSocket::fromDOMElement(const DOMElement* node)
 	}
     }
 
-
-    int port = 0;
-    if (sport.length() > 0) port = atoi(sport.c_str());
-    else port = DSM_MULTICAST_PORT;
-
-    if (saddr.length() == 0) saddr = DSM_MULTICAST_ADDR;
+    // Default address for multicast requesters and accepters
+    // is DSM_MULTICAST_ADDR.
+    // Default address for unicast accepters is INADDR_ANY.
+    // Unicast requesters must know who they are requesting
+    // from
+    if (saddr.length() == 0) {
+        if (multicast) saddr = DSM_MULTICAST_ADDR;
+	else if (!isRequester()) saddr = "0.0.0.0";	// any
+	else throw atdUtil::InvalidParameterException(
+	    	getName(),"address","unknown address for dgrequest socket");
+    }
     atdUtil::Inet4Address iaddr;
     try {
 	iaddr = atdUtil::Inet4Address::getByName(saddr);
     }
     catch(const atdUtil::UnknownHostException& e) {
 	throw atdUtil::InvalidParameterException(
-	    "parsing XML","unknown IP address",saddr);
+	    "mcsocket: parsing XML","unknown IP address",saddr);
     }
+
+    int port = 0;
+    if (sport.length() > 0) port = atoi(sport.c_str());
+    else port = DSM_SVC_REQUEST_PORT;
 
     setInet4McastSocketAddress(atdUtil::Inet4SocketAddress(iaddr,port));
 }

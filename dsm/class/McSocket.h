@@ -52,6 +52,14 @@ public:
 
     McSocket* clone() const;
 
+    void setRequestNumber(int val) {
+    	atdUtil::McSocket::setRequestNumber(val);
+    }
+
+    int getRequestNumber() const {
+    	return atdUtil::McSocket::getRequestNumber();
+    }
+
     /**
      * Does this McSocket request connections, or does it
      * listen for incoming connections.
@@ -64,10 +72,10 @@ public:
 
     const std::string& getName() const { return name; }
 
-    void requestConnection(ConnectionRequester* service,int pseudoPort)
+    void requestConnection(ConnectionRequester* service)
     	throw(atdUtil::IOException);
 
-    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+    IOChannel* connect() throw(atdUtil::IOException);
 
     virtual bool isNewFile() const { return newFile; }
 

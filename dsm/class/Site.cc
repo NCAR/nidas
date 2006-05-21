@@ -14,6 +14,7 @@
 */
 
 #include <Site.h>
+#include <DSMServer.h>
 
 #include <iostream>
 #include <set>
@@ -24,7 +25,7 @@ using namespace xercesc;
 
 CREATOR_FUNCTION(Site)
 
-Site::Site()
+Site::Site(): number(-1)
 {
 }
 
@@ -41,9 +42,53 @@ Site::~Site()
     	is != servers.end(); ++is) delete *is;
 
     // cerr << "deleting DSMConfigs" << endl;
-    for (list<DSMConfig*>::iterator it = dsms.begin();
-    	it != dsms.end(); ++it) delete *it;
+    for (list<DSMConfig*>::iterator it = ncDsms.begin();
+    	it != ncDsms.end(); ++it) delete *it;
 
+}
+
+DSMConfigIterator Site::getDSMConfigIterator() const
+{
+    return DSMConfigIterator(this);
+}
+
+SensorIterator Site::getSensorIterator() const
+{
+    return SensorIterator(this);
+}
+
+SampleTagIterator Site::getSampleTagIterator() const
+{
+    return SampleTagIterator(this);
+}
+
+VariableIterator Site::getVariableIterator() const
+{
+    return VariableIterator(this);
+}
+
+/**
+ * Initialize all sensors for a Site.
+ */
+void Site::initSensors() throw(atdUtil::IOException)
+{
+    list<const DSMConfig*>::const_iterator di = getDSMConfigs().begin();
+    for ( ; di != getDSMConfigs().end(); ++di) {
+	DSMConfig* ncdsm = const_cast<DSMConfig*>(*di);
+    	ncdsm->initSensors();
+    }
+}
+
+/**
+ * Initialize all sensors for a given dsm.
+ */
+void Site::initSensors(const DSMConfig* dsm) throw(atdUtil::IOException)
+{
+    list<const DSMConfig*>::const_iterator di = getDSMConfigs().begin();
+    for ( ; di != getDSMConfigs().end(); ++di) {
+	DSMConfig* ncdsm = const_cast<DSMConfig*>(*di);
+    	if (ncdsm == dsm) ncdsm->initSensors();
+    }
 }
 
 const list<string> Site::getAllowedParameterNames() const
@@ -79,8 +124,8 @@ void Site::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    if (xnode.getNodeName().compare("site") &&
-    	xnode.getNodeName().compare("aircraft"))
+    if (xnode.getNodeName() != "site" &&
+    	xnode.getNodeName() != "aircraft")
 	    throw atdUtil::InvalidParameterException(
 		    "Site::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
@@ -93,7 +138,18 @@ void Site::fromDOMElement(const DOMElement* node)
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    string aname = attr.getName();
 	    string aval = attr.getValue();
-	    if (!aname.compare("name")) setName(aval);
+	    if (aname == "name") setName(aval);
+	    else if (aname == "suffix") setSuffix(aval);
+	    else if (aname == "number") {
+	        istringstream ist(aval);
+		int num;
+		ist >> num;
+		if (ist.fail()) 
+		    throw atdUtil::InvalidParameterException(
+		    	((getName().length() == 0) ? "site" : getName()),
+				aname,aval);
+		setNumber(num);
+	    }
 	}
     }
 
@@ -101,8 +157,6 @@ void Site::fromDOMElement(const DOMElement* node)
     set<int> dsm_ids;
     // likewise with dsm names
     set<string> dsm_names;
-    // likewise with variable names
-    set<string> var_names;
 
     DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -113,9 +167,10 @@ void Site::fromDOMElement(const DOMElement* node)
 	const string& elname = xchild.getNodeName();
 	// cerr << "element name=" << elname << endl;
 
-	if (!elname.compare("dsm")) {
+	if (elname == "dsm") {
 	    DSMConfig* dsm = new DSMConfig();
 	    dsm->setSite(this);
+	    dsm->setSiteSuffix(getSuffix());
 	    dsm->fromDOMElement((DOMElement*)child);
 	    addDSMConfig(dsm);
 	    if (!dsm_ids.insert(dsm->getId()).second) {
@@ -128,39 +183,26 @@ void Site::fromDOMElement(const DOMElement* node)
 		throw atdUtil::InvalidParameterException("dsm name",
 			dsm->getName(),"is not unique");
 	}
-	else if (!elname.compare("server")) {
+	else if (elname == "server") {
 	    DSMServer* server = new DSMServer();
-	    server->setSite(this);
 	    server->fromDOMElement((DOMElement*)child);
+	    server->addSite(this);
 	    addServer(server);
 	}
-	else if (!elname.compare("parameter"))  {
+	else if (elname == "parameter")  {
 	    Parameter* parameter =
 	    	Parameter::createParameter((DOMElement*)child);
 	    addParameter(parameter);
 	}
     }
-    list<DSMConfig*>::const_iterator di;
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        DSMConfig* dsm = *di;
-	const std::list<DSMSensor*>& sensors = dsm->getSensors();
-	std::list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    const std::vector<const SampleTag*>& tags = sensor->getSampleTags();
-	    std::vector<const SampleTag*>::const_iterator ti;
-	    for (ti = tags.begin(); ti != tags.end(); ++ti) {
-		const SampleTag* tag = *ti;
-		const std::vector<const Variable*>& vars = tag->getVariables();
-		std::vector<const Variable*>::const_iterator vi;
-		for (vi = vars.begin(); vi != vars.end(); ++vi) {
-		    const Variable* var = *vi;
-		    if (!var_names.insert(var->getName()).second)
-			throw atdUtil::InvalidParameterException("variable",
-				var->getName(),"is not unique");
-		}
-	    }
-	}
+
+    // likewise with variables.
+    set<Variable> varset;
+    for (VariableIterator vi = getVariableIterator(); vi.hasNext(); ) {
+	const Variable* var = vi.next();
+	if (!varset.insert(*var).second)
+	    throw atdUtil::InvalidParameterException("variable",
+		var->getName(),"is not unique");
     }
 }
 
@@ -190,7 +232,7 @@ DSMServer* Site::findServer(const string& hostname) const
 	si != servers.end(); ++si) {
 	DSMServer* srvr = *si;
 	if (srvr->getName().length() == 0 ||
-	    !srvr->getName().compare(hostname)) {
+	    srvr->getName() == hostname) {
 	    server = srvr;
 	    break;
 	}
@@ -214,15 +256,45 @@ DSMServer* Site::findServer(const string& hostname) const
 
 const DSMConfig* Site::findDSM(const atdUtil::Inet4Address& addr) const
 {
-    for (list<DSMConfig*>::const_iterator di=dsms.begin();
+    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
 	di != dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
+#ifdef DEBUG
+	cerr << "Checking dsm " << dsm->getName() << endl;
+#endif
 	list<atdUtil::Inet4Address> addrs =
 		atdUtil::Inet4Address::getAllByName(dsm->getName());
 	for (list<atdUtil::Inet4Address>::const_iterator ai=addrs.begin();
 	    ai != addrs.end(); ++ai) {
 	    if (*ai == addr) return dsm;
 	}
+    }
+    return 0;
+}
+
+const DSMConfig* Site::findDSM(unsigned long id) const
+{
+    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
+	di != dsms.end(); ++di) {
+	const DSMConfig* dsm = *di;
+#ifdef DEBUG
+	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
+#endif
+	if (dsm->getId() == id) return dsm;
+    }
+    return 0;
+}
+
+DSMSensor* Site::findSensor(unsigned long id) const
+{
+    SensorIterator si = getSensorIterator();
+    for ( ; si.hasNext(); ) {
+	DSMSensor* sensor = si.next();
+#ifdef DEBUG
+	cerr << "Site::findSensor, getId=" << hex << sensor->getId() <<
+		" against id=" << id << dec << endl;
+#endif
+	if (sensor->getId() == id) return sensor;
     }
     return 0;
 }

@@ -12,6 +12,7 @@
  ********************************************************************
 */
 
+#include <Project.h>
 #include <SampleInput.h>
 #include <DSMSensor.h>
 #include <DSMService.h>
@@ -29,26 +30,26 @@ CREATOR_FUNCTION(SampleInputStream)
  */
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     service(0),iochan(iochannel),iostream(0),
-    pseudoPort(0),
     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
-    if (iochan) iostream =
-    	new IOStream(*iochan,iochan->getBufferSize());
+    if (iochan)
+        iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 /*
  * Copy constructor, with a new IOChannel.
  */
-SampleInputStream::SampleInputStream(const SampleInputStream& x,IOChannel* iochannel):
-    service(x.service),dsms(x.dsms),
+SampleInputStream::SampleInputStream(const SampleInputStream& x,
+	IOChannel* iochannel):
+    service(x.service),
     iochan(iochannel),iostream(0),
-    pseudoPort(x.pseudoPort),
+    sampleTags(x.sampleTags),
     samp(0),leftToRead(0),dptr(0),
     unrecognizedSamples(0)
 {
-    if (iochan) iostream =
-    	new IOStream(*iochan,iochan->getBufferSize());
+    if (iochan)
+        iostream = new IOStream(*iochan,iochan->getBufferSize());
 }
 
 /*
@@ -74,7 +75,7 @@ void SampleInputStream::requestConnection(DSMService* requester)
             throw(atdUtil::IOException)
 {
     service = requester;
-    iochan->requestConnection(this,getPseudoPort());
+    iochan->requestConnection(this);
 }
 
 void SampleInputStream::connected(IOChannel* iochannel) throw()
@@ -90,6 +91,15 @@ void SampleInputStream::addProcessedSampleClient(SampleClient* client,
 {
     sensorMapMutex.lock();
     sensorMap[sensor->getId()] = sensor;
+
+    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+    	sensorsByClient.find(client);
+    if (sci != sensorsByClient.end()) sci->second.push_back(sensor);
+    else {
+        list<DSMSensor*> sensors;
+	sensors.push_back(sensor);
+	sensorsByClient[client] = sensors;
+    }
     sensorMapMutex.unlock();
 
     sensor->addSampleClient(client);
@@ -98,7 +108,27 @@ void SampleInputStream::addProcessedSampleClient(SampleClient* client,
 void SampleInputStream::removeProcessedSampleClient(SampleClient* client,
 	DSMSensor* sensor)
 {
-    sensor->removeSampleClient(client);
+    if (!sensor) {		// remove client for all sensors
+	sensorMapMutex.lock();
+	map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+	    sensorsByClient.find(client);
+	if (sci != sensorsByClient.end()) {
+	    list<DSMSensor*>& sensors = sci->second;
+	    for (list<DSMSensor*>::iterator si = sensors.begin();
+	    	si != sensors.end(); ++si) {
+		sensor = *si;
+		sensor->removeSampleClient(client);
+		if (sensor->getClientCount() == 0)
+		    sensorMap.erase(sensor->getId());
+	    }
+	}
+	sensorMapMutex.unlock();
+    }
+    else {
+        sensor->removeSampleClient(client);
+	if (sensor->getClientCount() == 0)
+	    sensorMap.erase(sensor->getId());
+    }
 }
 
 void SampleInputStream::init() throw()
@@ -177,18 +207,21 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 	    	" getDataByteLength=" << header.getDataByteLength() <<
 		endl;
 #endif
-	    if (header.getType() >= UNKNOWN_ST) {
+	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 10) {
 	        unrecognizedSamples++;
 		atdUtil::Logger::getInstance()->log(LOG_WARNING,
 		    "SampleInputStream UNKNOWN_ST unrecognizedSamples=%d",
 			    unrecognizedSamples);
 		cerr << "read header " <<
 		    " getTimeTag=" << header.getTimeTag() <<
-		    " getId=" << header.getId() <<
-		    " getType=" << (int) header.getType() <<
+		    " getId=" << header.getId() << 
+		    '(' << GET_DSM_ID(header.getId()) << ',' <<
+		    	GET_SHORT_ID(header.getId()) <<
+		    ") getType=" << (int) header.getType() <<
 		    " getDataByteLength=" << header.getDataByteLength() <<
 		    " chars=" << string((const char*)&header,16) << endl;
-		continue;
+		cerr << "nbytes=" << iostream->getNBytes() << endl;
+		throw atdUtil::IOException(iostream->getName(),"read","bad data");
 	    }
 	    else
 		samp = dsm::getSample((sampleType)header.getType(),
@@ -215,7 +248,6 @@ void SampleInputStream::readSamples() throw(atdUtil::IOException)
 #endif
 
 	distribute(samp);
-	samp->freeReference();
 	samp = 0;
     }
 }
@@ -382,6 +414,12 @@ void SampleInputMerger::addInput(SampleInput* input)
     	" addSampleClient, &inputSorter=" << &inputSorter << endl;
 #endif
     input->addSampleClient(&inputSorter);
+
+    SampleTagIterator si = input->getSampleTagIterator();
+    for ( ; si.hasNext(); ) {
+        addSampleTag(si.next());
+        inputSorter.addSampleTag(si.next());
+    }
 }
 
 void SampleInputMerger::removeInput(SampleInput* input)
@@ -396,11 +434,28 @@ void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
     // samples with an Id equal to the sensor Id get forwarded to
     // the sensor
     sensorMap[sensor->getId()] = sensor;
+    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+    	sensorsByClient.find(client);
+    if (sci != sensorsByClient.end()) sci->second.push_back(sensor);
+    else {
+        list<DSMSensor*> sensors;
+	sensors.push_back(sensor);
+	sensorsByClient[client] = sensors;
+    }
     sensorMapMutex.unlock();
+
+    // add sensor processed sample tags
+    SampleTagIterator si = sensor->getSampleTagIterator();
+    for ( ; si.hasNext(); ) {
+	const SampleTag* stag = si.next();
+        addSampleTag(stag);
+	procSampSorter.addSampleTag(stag);
+    }
 
     procSampSorter.addSampleClient(client);
     sensor->addSampleClient(&procSampSorter);
     inputSorter.addSampleClient(this);
+
     if (!procSampSorter.isRunning()) procSampSorter.start();
 }
 
@@ -414,7 +469,30 @@ void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
     //	simple way: remove procSampSorter as sampleClient of sensor
     //		if there are no more clients of procSampSorter
     if (procSampSorter.getClientCount() == 0) {
-    	sensor->removeSampleClient(&procSampSorter);
+	if (!sensor) {		// remove client for all sensors
+	    sensorMapMutex.lock();
+	    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+		sensorsByClient.find(client);
+	    if (sci != sensorsByClient.end()) {
+		list<DSMSensor*>& sensors = sci->second;
+		for (list<DSMSensor*>::iterator si = sensors.begin();
+		    si != sensors.end(); ++si) {
+		    sensor = *si;
+		    sensor->removeSampleClient(client);
+		    if (sensor->getClientCount() == 0)
+			sensorMap.erase(sensor->getId());
+		}
+	    }
+	    sensorMapMutex.unlock();
+	}
+    	else {
+	    sensor->removeSampleClient(&procSampSorter);
+	    if (sensor->getClientCount() == 0) {
+		sensorMapMutex.lock();
+		sensorMap.erase(sensor->getId());
+		sensorMapMutex.unlock();
+	    }
+	}
 	inputSorter.removeSampleClient(this);
     }
 }
@@ -431,6 +509,20 @@ void SampleInputMerger::removeSampleClient(SampleClient* client) throw()
 {
     inputSorter.removeSampleClient(client);
 }
+
+
+void SampleInputMerger::addSampleTag(const SampleTag* stag)
+{
+    sampleTags.insert(stag);
+#ifdef DO_DSM_CONFIG
+    const DSMConfig* dsm =
+	 Project::getInstance()->findDSM(stag->getDSMId());
+    list<const DSMConfig*>::const_iterator di =
+	find(dsmConfigs.begin(),dsmConfigs.end(),dsm);
+    if (di == dsmConfigs.end()) dsmConfigs.push_back(dsm);
+#endif
+}
+
 
 bool SampleInputMerger::receive(const Sample* samp) throw()
 {
@@ -458,13 +550,25 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
     return false;
 }
 
+void SampleInputStream::addSampleTag(const SampleTag* stag)
+{
+    sampleTags.insert(stag);
+#ifdef DO_DSM_CONFIG
+    const DSMConfig* dsm =
+	 Project::getInstance()->findDSM(stag->getDSMId());
+    list<const DSMConfig*>::const_iterator di =
+	find(dsmConfigs.begin(),dsmConfigs.end(),dsm);
+    if (di == dsmConfigs.end()) dsmConfigs.push_back(dsm);
+#endif
+}
+
 /*
  * Constructor, with a IOChannel (which may be null).
  */
 SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel):
     SampleInputStream(iochannel),
     sorter1(0),sorter2(0),
-    heapMax(1000000),heapBlock(false),
+    heapMax(10000000),heapBlock(false),
     sorterLengthMsecs(250)
 {
 }
@@ -483,14 +587,14 @@ SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& 
 /*
  * Clone myself, with a new IOChannel.
  */
-SampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
+SortedSampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
 {
     return new SortedSampleInputStream(*this,iochannel);
 }
 
 SortedSampleInputStream::~SortedSampleInputStream()
 {
-    cerr << "~SortedSampleInputStream" << endl;
+    // cerr << "~SortedSampleInputStream" << endl;
     delete sorter1;
     delete sorter2;
 }
@@ -510,15 +614,26 @@ void SortedSampleInputStream::addSampleClient(SampleClient* client) throw()
 
 void SortedSampleInputStream::removeSampleClient(SampleClient* client) throw()
 {
-    sorter1->removeSampleClient(client);
-    SampleInputStream::removeSampleClient(sorter1);
+    if (sorter1) {
+        sorter1->removeSampleClient(client);
+	SampleInputStream::removeSampleClient(sorter1);
+    }
 }
 void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
 	DSMSensor* sensor)
 {
     sensorMapMutex.lock();
     sensorMap[sensor->getId()] = sensor;
+    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+    	sensorsByClient.find(client);
+    if (sci != sensorsByClient.end()) sci->second.push_back(sensor);
+    else {
+        list<DSMSensor*> sensors;
+	sensors.push_back(sensor);
+	sensorsByClient[client] = sensors;
+    }
     sensorMapMutex.unlock();
+
     if (!sorter2) {
         sorter2 = new SampleSorter("Sorter2");
 	sorter2->setLengthMsecs(getSorterLengthMsecs());
@@ -527,15 +642,41 @@ void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
     }
 
     sensor->addSampleClient(sorter2);
-    sorter2->addSampleClient(client);
     if (!sorter2->isRunning()) sorter2->start();
+
+    SampleTagIterator si = sensor->getSampleTagIterator();
+    for ( ; si.hasNext(); ) {
+	const SampleTag* stag = si.next();
+        addSampleTag(stag);
+	sorter2->addSampleTag(stag,client);
+    }
 }
 
 void SortedSampleInputStream::removeProcessedSampleClient(SampleClient* client,
 	DSMSensor* sensor)
 {
-    sensor->removeSampleClient(sorter2);
-    sorter2->removeSampleClient(client);
+    if (!sensor) {		// remove client for all sensors
+	sensorMapMutex.lock();
+	map<SampleClient*,list<DSMSensor*> >::iterator sci = 
+	    sensorsByClient.find(client);
+	if (sci != sensorsByClient.end()) {
+	    list<DSMSensor*>& sensors = sci->second;
+	    for (list<DSMSensor*>::iterator si = sensors.begin();
+	    	si != sensors.end(); ++si) {
+		sensor = *si;
+		sensor->removeSampleClient(sorter2);
+		if (sensor->getClientCount() == 0)
+		    sensorMap.erase(sensor->getId());
+	    }
+	}
+	sensorMapMutex.unlock();
+    }
+    else {
+        sensor->removeSampleClient(sorter2);
+	if (sensor->getClientCount() == 0)
+	    sensorMap.erase(sensor->getId());
+    }
+    if (sorter2) sorter2->removeSampleClient(client);
 }
 
 void SortedSampleInputStream::flush() throw()

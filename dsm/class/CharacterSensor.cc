@@ -54,7 +54,7 @@ bool CharacterSensor::isRTLinux() const
 	const string& dname = getDeviceName();
 	unsigned int fs = dname.rfind('/');
 	if (fs != string::npos && (fs + 6) < dname.length() &&
-	    !dname.substr(fs+1,6).compare("dsmser"))
+	    dname.substr(fs+1,6) == "dsmser")
 		    rtlinux = 1;
 	else rtlinux = 0;
     }
@@ -96,7 +96,7 @@ void CharacterSensor::addSampleTag(SampleTag* tag)
             throw atdUtil::InvalidParameterException(getName(),
                    "setScanfFormat",pe.what());
         }
-        sscanf->setSampleId(tag->getId());
+        sscanf->setSampleTag(tag);
         sscanfers.push_back(sscanf);
         maxScanfFields = std::max(maxScanfFields,sscanf->getNumberOfFields());
     }
@@ -186,34 +186,32 @@ void CharacterSensor::fromDOMElement(
 	    setPromptRate(rate);
 	}
     }
-    /* a prompt rate of IRIG_ZERO_HZ means no prompting */
+    /* a prompt rate of 0 means no prompting */
     prompted = getPromptRate() > 0.0 && getPromptString().size();
     // If sensor is prompted, set sampling rates for variables if unknown
-    vector<SampleTag*>::const_iterator si;
+    set<SampleTag*>::const_iterator si;
     if (getPromptRate() > 0.0) {
-        for (si = getMySampleTags().begin();
-		si != getMySampleTags().end(); ++si) {
+        for (si = getncSampleTags().begin();
+		si != getncSampleTags().end(); ++si) {
             SampleTag* samp = *si;
             if (samp->getRate() == 0.0) samp->setRate(getPromptRate());
         }
-    }
 
-    // make sure sampling rates are positive and equal
-    float frate = -1.0;
-    for (si = getMySampleTags().begin();
-    	si != getMySampleTags().end(); ++si) {
-        SampleTag* samp = *si;
-        if (samp->getRate() <= 0.0)
-            throw atdUtil::InvalidParameterException(
-                getName() + " has sample rate of 0.0");
-        if (si == sampleTags.begin()) frate = samp->getRate();
-        if (fabs((frate - samp->getRate()) / frate) > 1.e-3) {
-            ostringstream ost;
-            ost << frate << " & " << samp->getRate();
-            throw atdUtil::InvalidParameterException(
-                getName() + " has different sample rates: " +
-                    ost.str() + " samples/sec");
-        }
+	// make sure prompted sampling rates are positive and equal
+	for (si = getncSampleTags().begin();
+	    si != getncSampleTags().end(); ++si) {
+	    SampleTag* samp = *si;
+	    if (samp->getRate() <= 0.0)
+		throw atdUtil::InvalidParameterException(
+		    getName() + " prompted sensor has sample rate <= 0.0");
+	    if (fabs((getPromptRate() - samp->getRate()) / getPromptRate()) > 1.e-3) {
+		ostringstream ost;
+		ost << " prompt rate=" << getPromptRate() <<
+			", sample rate= " << samp->getRate();
+		throw atdUtil::InvalidParameterException(
+		    getName() + ost.str() + " samples/sec");
+	    }
+	}
     }
 }
 
@@ -243,6 +241,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     SampleT<float>* outs = getSample<float>(maxScanfFields);
 
+    const SampleTag* stag = 0;
     int nparsed = 0;
     for (unsigned int ntry = 0; ntry < sscanfers.size(); ntry++) {
 	AsciiSscanf* sscanf = *nextSscanfer;
@@ -250,7 +249,8 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 		sscanf->getNumberOfFields());
 	if (++nextSscanfer == sscanfers.end()) nextSscanfer = sscanfers.begin();
 	if (nparsed > 0) {
-	    outs->setId(sscanf->getSampleId());
+	    stag = sscanf->getSampleTag();
+	    outs->setId(stag->getId());
 	    if (nparsed != sscanf->getNumberOfFields()) scanfPartials++;
 	    break;
 	}
@@ -258,10 +258,16 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     if (!nparsed) {
 	scanfFailures++;
-	outs->freeReference();		// remember!
+	outs->freeReference();	// remember!
 	return false;		// no sample
     }
 
+    float* fp = outs->getDataPtr();
+    const vector<const Variable*>& vars = stag->getVariables();
+    for (int i = 0; i < nparsed && i < (signed)vars.size(); i++,fp++) {
+	const VariableConverter* conv = vars[i]->getConverter();
+	if (conv) *fp = conv->convert(*fp);
+    }
     outs->setTimeTag(samp->getTimeTag());
     outs->setDataLength(nparsed);
     results.push_back(outs);

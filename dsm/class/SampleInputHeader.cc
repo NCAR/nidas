@@ -23,21 +23,25 @@ using namespace std;
 /* static */
 struct SampleInputHeader::headerField SampleInputHeader::headers[] = {
     { "archive version:", &SampleInputHeader::setArchiveVersion,
-	    &SampleInputHeader::getArchiveVersion },
+	    &SampleInputHeader::getArchiveVersion,false },
     { "software version:", &SampleInputHeader::setSoftwareVersion,
-	    &SampleInputHeader::getSoftwareVersion },
+	    &SampleInputHeader::getSoftwareVersion,false },
     { "project name:", &SampleInputHeader::setProjectName,
-	    &SampleInputHeader::getProjectName },
-    { "site name:", &SampleInputHeader::setSiteName,
-	    &SampleInputHeader::getSiteName },
+	    &SampleInputHeader::getProjectName,false },
+    { "system name:", &SampleInputHeader::setSystemName,
+	    &SampleInputHeader::getSystemName,false },
     { "observation period name:", &SampleInputHeader::setObsPeriodName,
-	    &SampleInputHeader::getObsPeriodName },
+	    &SampleInputHeader::getObsPeriodName,false },
     { "xml name:", &SampleInputHeader::setXMLName,
-	    &SampleInputHeader::getXMLName },
+	    &SampleInputHeader::getXMLName,false },
     { "xml version:", &SampleInputHeader::setXMLVersion,
-	    &SampleInputHeader::getXMLVersion },
-    { "end header\n", 0, 0 },
+	    &SampleInputHeader::getXMLVersion,false },
+    // old
+    { "site name:", &SampleInputHeader::setSystemName,
+	    &SampleInputHeader::getSystemName,true },
+    { "end header\n", 0, 0,false },
 };
+
 
 void SampleInputHeader::check(IOStream* iostream)
 	throw(atdUtil::IOException)
@@ -93,25 +97,26 @@ void SampleInputHeader::check(IOStream* iostream)
     iostream->putback(buf,ic);
 }
 
-void SampleInputHeader::write(IOStream* iostream)
+void SampleInputHeader::write(SampleOutput* output)
 	throw(atdUtil::IOException)
 {
     const char* str = "NCAR ADS3\n";
-    iostream->write(str,strlen(str));
+    output->write(str,strlen(str));
 
     int ntags = sizeof(headers)/sizeof(struct headerField);
 
     int itag;
     for (itag = 0; itag < ntags; itag++) {
+	if (headers[itag].obsolete) continue;
 	str = headers[itag].tag;
-	iostream->write(str,strlen(str));
+	output->write(str,strlen(str));
 	if (headers[itag].getFunc) {
 	    str = " ";
-	    iostream->write(str,strlen(str));
+	    output->write(str,strlen(str));
 	    str = (this->*headers[itag].getFunc)().c_str();
-	    iostream->write(str,strlen(str));
+	    output->write(str,strlen(str));
 	    str = "\n";
-	    iostream->write(str,strlen(str));
+	    output->write(str,strlen(str));
 	}
     } 
 }

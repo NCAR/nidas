@@ -55,6 +55,11 @@ public:
     
     void init() throw();
 
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return sampleTags;
+    }
+
 protected:
 
     void addSensor(DSMSensor* sensor) throw();
@@ -66,6 +71,8 @@ protected:
     void sendHeader() throw();
 
     void createHeader(std::ostream&) throw();
+
+    std::set<DSMSensor*> sensors;
 
     /**
      * A variable group is a list of variables with equal sampling rates,
@@ -131,11 +138,18 @@ protected:
      */
     std::list<const Variable*> variables;
 
+    SampleTag syncRecordHeaderSampleTag;
+
+    SampleTag syncRecordDataSampleTag;
+
+    std::set<const SampleTag*> sampleTags;
+
     int recSize;
 
     dsm_time_t syncTime;
 
     SampleT<float>* syncRecord;
+
     float* floatPtr;
 
     size_t unrecognizedSamples;

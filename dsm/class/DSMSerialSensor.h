@@ -18,13 +18,15 @@
 #include <dsm_serial.h>
 
 #include <CharacterSensor.h>
+#include <LooperClient.h>
 #include <atdTermio/Termios.h>
 
 namespace dsm {
 /**
  * A sensor connected to a serial port.
  */
-class DSMSerialSensor : public CharacterSensor, public atdTermio::Termios {
+class DSMSerialSensor : public CharacterSensor, public atdTermio::Termios,
+	public LooperClient {
 
 public:
 
@@ -57,7 +59,7 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
 
-  /**
+    /**
      * Is prompting active, i.e. isPrompted() is true, and startPrompting
      * has been called?
      */
@@ -66,6 +68,11 @@ public:
     void startPrompting() throw(atdUtil::IOException);
 
     void stopPrompting() throw(atdUtil::IOException);
+
+    /**
+     * Method called by Looper in order to send a prompt.
+     */
+    void looperNotify() throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(atdUtil::InvalidParameterException);
@@ -81,6 +88,12 @@ protected:
 private:
 
     bool prompting;
+
+    char* cPromptString;
+
+    int cPromptStringLen;
+
+    int promptPeriodMsec;
 
 };
 

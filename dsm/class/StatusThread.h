@@ -54,7 +54,7 @@ class DSMServerStat: public StatusThread
 {
 protected:
   /** The protected constructor, called from getInstance. */
-  DSMServerStat(const std::string& name):StatusThread(name) {};
+  DSMServerStat(const std::string& name);
 
 public:
   int run() throw(atdUtil::Exception);

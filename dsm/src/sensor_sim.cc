@@ -17,63 +17,12 @@
 #include <iostream>
 #include <string.h>
 
+#include <Looper.h>
+
 #include <atdTermio/SerialPort.h>
 
 using namespace std;
-
-class Runstring {
-public:
-    Runstring(int argc, char** argv);
-    static void usage(const char* argv0);
-    string device;
-    enum sens_type { MENSOR_6100, PARO_1000, BUCK_DP, UNKNOWN } type;
-    bool openpty;
-};
-
-Runstring::Runstring(int argc, char** argv): type(UNKNOWN)
-{
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-
-    openpty = false;
-
-    while ((opt_char = getopt(argc, argv, "dmpt")) != -1) {
-	switch (opt_char) {
-	case 'd':
-	    type = BUCK_DP;
-	    break;
-	case 'm':
-	    type = MENSOR_6100;
-	    break;
-	case 'p':
-	    type = PARO_1000;
-	    break;
-	case 't':
-	    openpty = true;
-	    break;
-	case '?':
-	    usage(argv[0]);
-	}
-    }
-    if (optind == argc - 1) device = string(argv[optind++]);
-    if (device.length() == 0) usage(argv[0]);
-    if (type == UNKNOWN) usage(argv[0]);
-    if (optind != argc) usage(argv[0]);
-}
-
-void Runstring::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << "[-p | -m]  device\n\
-  -p: simulate ParoScientific DigiQuartz 1000\n\
-  -m: simulate Mensor 6100\n\
-  -d: simulate Buck dewpointer\n\
-  -t: open pseudo-terminal device\n\
-  device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\
-" << endl;
-    exit(1);
-}
+using namespace dsm;
 
 int createPtyLink(const std::string& link) throw(atdUtil::IOException)
 {
@@ -112,83 +61,227 @@ int createPtyLink(const std::string& link) throw(atdUtil::IOException)
     return fd;
 }
 
-int main(int argc, char** argv)
+class MensorSim: public LooperClient
 {
-  
-    Runstring rstr(argc,argv);
+public:
+    MensorSim(atdTermio::SerialPort* p):port(p) {}
+    void looperNotify() throw();
+private:
+    atdTermio::SerialPort* port;
+};
 
+void MensorSim::looperNotify() throw()
+{
+    char outbuf[128];
+    sprintf(outbuf,"1%f\r\n",1000.0);
+    port->write(outbuf,strlen(outbuf));
+}
+
+class ParoSim: public LooperClient
+{
+public:
+    ParoSim(atdTermio::SerialPort* p):port(p) {}
+    void looperNotify() throw();
+private:
+    atdTermio::SerialPort* port;
+};
+
+void ParoSim::looperNotify() throw()
+{
+    char outbuf[128];
+    sprintf(outbuf,"*0001%f\r\n",1000.0);
+    port->write(outbuf,strlen(outbuf));
+}
+
+class BuckSim: public LooperClient
+{
+public:
+    BuckSim(atdTermio::SerialPort* p):port(p) {}
+    void looperNotify() throw();
+private:
+    atdTermio::SerialPort* port;
+};
+
+void BuckSim::looperNotify() throw()
+{
+    const char* outbuf =
+    	"14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08\r\n";
+    port->write(outbuf,strlen(outbuf));
+}
+
+class Csat3Sim: public LooperClient
+{
+public:
+    Csat3Sim(atdTermio::SerialPort* p):port(p),counter(0) {}
+    void looperNotify() throw();
+private:
+    atdTermio::SerialPort* port;
+    unsigned char counter;
+};
+
+void Csat3Sim::looperNotify() throw()
+{
+    unsigned char outbuf[] =
+    	{0,4,0,4,0,4,0,4,0x40,0x05,0x55,0xaa};
+
+    outbuf[8] = (outbuf[8] & 0xc0) + counter++;
+    counter &= 0x3f;
+    port->write((const char*)outbuf,12);
+}
+
+class SensorSim {
+public:
+    SensorSim();
+    int parseRunstring(int argc, char** argv);
+    int run();
+    static int usage(const char* argv0);
+private:
+    string device;
+    enum sens_type { MENSOR_6100, PARO_1000, BUCK_DP, CSAT3, UNKNOWN } type;
+    bool openpty;
+    float rate;
+};
+
+SensorSim::SensorSim(): type(UNKNOWN),openpty(false),rate(50.0)
+{
+}
+
+int SensorSim::parseRunstring(int argc, char** argv)
+{
+    extern char *optarg;       /* set by getopt() */
+    extern int optind;       /* "  "     "     */
+    int opt_char;     /* option character */
+
+    openpty = false;
+
+    while ((opt_char = getopt(argc, argv, "cdmpr:t")) != -1) {
+	switch (opt_char) {
+	case 'c':
+	    type = CSAT3;
+	    break;
+	case 'd':
+	    type = BUCK_DP;
+	    break;
+	case 'm':
+	    type = MENSOR_6100;
+	    break;
+	case 'p':
+	    type = PARO_1000;
+	    break;
+	case 'r':
+	    rate = atof(optarg);
+	    break;
+	case 't':
+	    openpty = true;
+	    break;
+	case '?':
+	    return usage(argv[0]);
+	}
+    }
+    if (optind == argc - 1) device = string(argv[optind++]);
+    if (device.length() == 0) return usage(argv[0]);
+    if (type == UNKNOWN) return usage(argv[0]);
+    if (optind != argc) return usage(argv[0]);
+    return 0;
+}
+
+int SensorSim::usage(const char* argv0)
+{
+    cerr << "\
+Usage: " << argv0 << "[-p | -m]  device\n\
+  -c: simulate CSAT3 sonic anemometer (9600n81, unprompted)\n\
+  -d: simulate Buck dewpointer (9600n81, unprompted)\n\
+  -m: simulate Mensor 6100 (57600n81,prompted)\n\
+  -p: simulate ParoScientific DigiQuartz 1000 (57600n81, unprompted)\n\
+  -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
+  -t: open pseudo-terminal device\n\
+  device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\
+" << endl;
+    return 1;
+}
+
+int SensorSim::run()
+{
     try {
-
 	auto_ptr<atdTermio::SerialPort> port;
+	auto_ptr<LooperClient> sim;
 
-	if (rstr.openpty) {
-	    int fd = createPtyLink(rstr.device);
+	if (openpty) {
+	    int fd = createPtyLink(device);
 	    port.reset(new atdTermio::SerialPort("/dev/ptmx",fd));
 	}
-	else port.reset(new atdTermio::SerialPort(rstr.device));
+	else port.reset(new atdTermio::SerialPort(device));
 
-	switch (rstr.type) {
-	case Runstring::MENSOR_6100:
+	unsigned long msecPeriod =
+		(unsigned long)rint(MSECS_PER_SEC / rate);
+	// cerr << "msecPeriod=" << msecPeriod << endl;
+
+	string promptStrings[] = { "#1?\n", "","",""};
+
+	switch (type) {
+	case MENSOR_6100:
 	    port->setBaudRate(57600);
 	    port->iflag() = ICRNL;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
+	    sim.reset(new MensorSim(port.get()));
 	    break;
-	case Runstring::PARO_1000:
+	case PARO_1000:
 	    port->setBaudRate(57600);
 	    port->iflag() = 0;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
+	    sim.reset(new ParoSim(port.get()));
 	    break;
-	case Runstring::BUCK_DP:
+	case BUCK_DP:
 	    port->setBaudRate(9600);
 	    port->iflag() = 0;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
+	    sim.reset(new BuckSim(port.get()));
 	    break;
-	case Runstring::UNKNOWN:
+	case CSAT3:
+	    port->setBaudRate(9600);
+	    port->iflag() = 0;
+	    port->oflag() = 0;
+	    port->lflag() = ICANON;
+	    sim.reset(new Csat3Sim(port.get()));
+	    break;
+	case UNKNOWN:
 	    return 1;
 	}
 
-	char inbuf[128];
-	char outbuf[128];
-	int iout = 0;
-	struct timespec sleep10msec = { 0, 10000000 };
-	struct timespec sleep100msec = { 0, 100000000 };
+	if (!openpty) port->open(O_RDWR);
 
-	string promptStrings[] = { "#1?\n", "",""};
-	const char* dataFormats[] = { "1%f\r\n" , "*0001%f\r\n", 
-	    "14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08\r\n"};
+	Looper* looper = 0;
+	if (promptStrings[type].length() == 0) {
+	    looper = Looper::getInstance();
+	    looper->addClient(sim.get(),msecPeriod);
+	    looper->join();
+	}
+	else {
 
-	if (!rstr.openpty) port->open(O_RDWR);
-
-	for (;;) {
-	    if (promptStrings[rstr.type].length() > 0) {
+	    for (;;) {
+		char inbuf[128];
 		int l = port->readline(inbuf,sizeof(inbuf));
 		inbuf[l] = '\0';
-
-		if (!strcmp(inbuf,promptStrings[rstr.type].c_str())) {
-		    sprintf(outbuf,dataFormats[rstr.type],1000.0);
-		    port->write(outbuf,strlen(outbuf));
-		}
+		if (!strcmp(inbuf,promptStrings[type].c_str()))
+		    sim->looperNotify();
 		else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
-	    }
-	    else {
-	        nanosleep(&sleep100msec,0);
-		cerr << "writing" << endl;
-		if (iout++ < 10) {
-		    // simulate empty outputs
-		    strcpy(outbuf,"\n");
-		    port->write(outbuf,strlen(outbuf));
-		}
-		else {
-		    strcpy(outbuf,dataFormats[rstr.type]);
-		    port->write(outbuf,strlen(outbuf));
-		}
 	    }
 	}
     }
     catch(atdUtil::IOException& ioe) {
 	cerr << ioe.what() << endl;
+	return 1;
     }
+    return 0;
 }
+int main(int argc, char** argv)
+{
+    SensorSim sim;
+    int res;
+    if ((res = sim.parseRunstring(argc,argv)) != 0) return res;
+    sim.run();
+}
+

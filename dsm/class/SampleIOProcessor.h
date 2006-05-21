@@ -18,12 +18,12 @@
 
 #include <SampleInput.h>
 #include <SampleOutput.h>
+#include <SampleTag.h>
 #include <ConnectionRequester.h>
 #include <DOMable.h>
 
 namespace dsm {
 
-class DSMConfig;
 class DSMService;
 
 /**
@@ -49,6 +49,29 @@ public:
     virtual const std::string& getName() const;
 
     virtual void setName(const std::string& val);
+
+    virtual void setOptional(bool val) 
+    {
+        optional = val;
+    }
+
+    virtual bool isOptional() const
+    {
+        return optional;
+    }
+
+    /**
+     * What DSMService am I associated with?
+     */
+    virtual const DSMService* getService() const
+    {
+        return service;
+    }
+
+    virtual void setService(const DSMService* val)
+    {
+        service = val;
+    }
 
     /**
      * Does this SampleIOProcessor only expect input samples from
@@ -99,6 +122,39 @@ public:
 	dconOutputs.push_back(val);
     }
 
+    /**
+     * Add a SampleTag to this processor.
+     * Throw an exception if you don't like the variables in the sample.
+     * SampleIOProcessor will own the tag.
+     */
+    virtual void addSampleTag(SampleTag* var)
+    	throw(atdUtil::InvalidParameterException);
+
+    virtual const std::set<const SampleTag*>& getSampleTags() const
+    	{ return constSampleTags; }
+
+    /**
+     * Set the various levels of the processor identification.
+     * A sensor ID is a 32-bit value comprised of four parts:
+     * 6-bit not used, 10-bit DSM id, and a 16-bit processor id.
+     */
+    void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
+    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
+    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
+
+    /**
+     * Get the various levels of the processor's identification.
+     * A sample tag ID is a 32-bit value comprised of four parts:
+     * 6-bit type_id  10-bit DSM_id, and a 16-bit processor id.
+     */
+    dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
+    unsigned long getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned long getShortId() const { return GET_SHORT_ID(id); }
+
+    SampleTagIterator getSampleTagIterator() const;
+
+    VariableIterator getVariableIterator() const;
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
 
@@ -110,9 +166,16 @@ public:
 
 protected:
 
-    virtual void addConnectedOutput(SampleOutput* val);
+    void addConnectedOutput(SampleOutput* val);
 
-    virtual void removeConnectedOutput(SampleOutput* val);
+    void removeConnectedOutput(SampleOutput* val);
+
+    const std::list<SampleOutput*>& getConnectedOutputs() const 
+    {
+        return conOutputs;
+    }
+
+private:
 
     std::string name;
 
@@ -120,6 +183,23 @@ protected:
 
     std::list<SampleOutput*> conOutputs;
 
+    /**
+     * Id of this processor.  Samples from this processor will
+     * have this id. It is analogous to a sensor id.
+     */
+    dsm_sample_id_t id;
+
+
+    std::set<SampleTag*> sampleTags;
+
+    std::set<const SampleTag*> constSampleTags;
+
+    bool optional;
+
+    /**
+     * What service am I a part of?
+     */
+    const DSMService* service;
 };
 
 

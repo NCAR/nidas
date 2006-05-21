@@ -37,22 +37,31 @@ public:
      */
     UnixIOChannel(const std::string& name, int fdarg): fd(fdarg) {}
 
+    /**
+     * Destructor. Does not close the device.
+     */
     ~UnixIOChannel() {}
 
+    /**
+     * Clone invokes default copy constructor.
+     */
     UnixIOChannel* clone() const { return new UnixIOChannel(*this); }
 
     /**
-     * requestConnection does nothing.
+     * RequestConnection just returns connected immediately.
      */
-    void requestConnection(ConnectionRequester* service,int pseudoPort)
-    	throw(atdUtil::IOException) {}
+    void requestConnection(ConnectionRequester* rqstr)
+    	throw(atdUtil::IOException)
+    {
+        rqstr->connected(this);
+    }
 
     /**
-     * connect does nothing.
+     * Pretty simple, we're connected already.
      */
-    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException)
+    IOChannel* connect() throw(atdUtil::IOException)
     {
-        throw atdUtil::IOException(getName(),"connect","not supported");
+	return this;
     }
 
     virtual bool isNewFile() const { return newFile; }

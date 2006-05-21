@@ -115,7 +115,7 @@ void DSMArincSensor::close() throw(atdUtil::IOException)
  */
 void DSMArincSensor::init() throw(atdUtil::InvalidParameterException)
 {
-    vector<const SampleTag*>::const_iterator si;
+    set<const SampleTag*>::const_iterator si;
     for (si = getSampleTags().begin(); si != getSampleTags().end(); ++si) {
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.

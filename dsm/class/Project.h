@@ -16,15 +16,17 @@
 #ifndef DSM_PROJECT_H
 #define DSM_PROJECT_H
 
+#include <Site.h>
+#include <DSMServer.h>
 #include <DOMable.h>
 #include <SensorCatalog.h>
 #include <ObsPeriod.h>
 
+#include <atdUtil/ThreadSupport.h>
+
 #include <list>
 
 namespace dsm {
-
-class Site;
 
 /**
  */
@@ -38,6 +40,9 @@ public:
     void setName(const std::string& val) { name = val; }
     const std::string& getName() const { return name; }
 
+    void setSystemName(const std::string& val) { sysname = val; }
+    const std::string& getSystemName() const { return sysname; }
+
     void setCurrentObsPeriod(const ObsPeriod& val) { currentObsPeriod = val; }
     const ObsPeriod& getCurrentObsPeriod() const { return currentObsPeriod; }
 
@@ -47,25 +52,92 @@ public:
     void setXMLName(const std::string& val) { xmlName = val; }
     const std::string& getXMLName() const { return xmlName; }
 
-    void addSite(Site* val) { sites.push_back(val); }
+    void addSite(Site* val);
+
     const std::list<Site*>& getSites() const { return sites; }
 
     /**
-     * When the Project configuration is being used
-     * for a specific Site, the value of the current site
-     * can be set with setCurrentSite().  Other objects can
-     * then have access to the current Site via the
-     * getCurrentSite() method of the Project singleton.
-     * This may not be the best way to implement this -
-     * perhaps we could provide access to the current Site
-     * via static methods in the Site class.
+     * Convenience function to return the maximum site number.
      */
-    void setCurrentSite(const Site* val) { currentSite = val; }
+    int getMaxSiteNumber() const { return maxSiteNumber; }
 
-    const Site* getCurrentSite() const { return currentSite; }
+    int getMinSiteNumber() const { return minSiteNumber; }
+
+    /**
+     * A Project has one or more DSMServers.
+     */
+    void addServer(DSMServer* srvr) { servers.push_back(srvr); }
+
+    const std::list<DSMServer*>& getServers() const { return servers; }
+
+    /**
+     * Look for a server for this project that either has no name or whose
+     * name matches hostname.  If none found, remove any domain names
+     * and try again. Then search the project Sites.
+     */
+    DSMServer* findServer(const std::string& hostname) const;
+
+    /**
+     * Find a DSM whose name corresponds to
+     * a given IP address.
+     */
+    const DSMConfig* findDSM(const atdUtil::Inet4Address& addr) const;
+
+    /**
+     * Find a DSM matching id;
+     */
+    const DSMConfig* findDSM(unsigned long id) const;
+
+    DSMSensor* findSensor(dsm_sample_id_t id) const;
+
+    /**
+     * Find a Site with the given station number.
+     */
+    Site* findSite(int stationNumber) const;
+
+    /**
+     * Get a temporary unique sample id for a given DSM id.
+     * This id can be used for identifying derived samples
+     * during processing, when they are passed between
+     * SampleSources and SampleClients.  The value of these
+     * ids is not saved anywhere, and so they are meant to be
+     * used for temporary connections, not for archived samples.
+     */
+    dsm_sample_id_t getUniqueSampleId(unsigned long dsmid);
 
     void setSensorCatalog(SensorCatalog* val) { catalog = val; }
     SensorCatalog* getSensorCatalog() const { return catalog; }
+
+    DSMServerIterator getDSMServerIterator() const;
+
+    DSMServiceIterator getDSMServiceIterator() const;
+
+    ProcessorIterator getProcessorIterator() const;
+
+    SiteIterator getSiteIterator() const;
+
+    DSMConfigIterator getDSMConfigIterator() const;
+
+    SensorIterator getSensorIterator() const;
+
+    SampleTagIterator getSampleTagIterator() const;
+
+    VariableIterator getVariableIterator() const;
+
+    /**
+     * Initialize all sensors for a Project.
+     */
+    void initSensors() throw(atdUtil::IOException);
+
+    /**
+     * Initialize all sensors for a given Site.
+     */
+    void initSensors(const Site* site) throw(atdUtil::IOException);
+
+    /**
+     * Initialize all sensors for a given dsm.
+     */
+    void initSensors(const DSMConfig* dsm) throw(atdUtil::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
@@ -143,6 +215,8 @@ protected:
 
     std::string name;
 
+    std::string sysname;
+
     std::string version;
 
     /**
@@ -157,6 +231,27 @@ protected:
     SensorCatalog* catalog;
 
     ObsPeriod currentObsPeriod;
+
+    std::list<DSMServer*> servers;
+
+    mutable atdUtil::Mutex lookupLock;
+
+    mutable std::map<dsm_sample_id_t,const DSMConfig*> dsmById;
+
+    mutable atdUtil::Mutex sensorMapLock;
+
+    mutable std::map<dsm_sample_id_t,DSMSensor*> sensorById;
+
+    std::map<int,Site*> siteByStationNumber;
+
+    std::set<dsm_sample_id_t> usedIds;
+
+    dsm_sample_id_t nextTempId;
+
+    int maxSiteNumber;
+
+    int minSiteNumber;
+
 };
 
 }

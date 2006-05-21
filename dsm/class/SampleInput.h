@@ -44,26 +44,14 @@ public:
     virtual atdUtil::Inet4Address getRemoteInet4Address() const = 0;
 
     /**
-     * What DSMConfigs are associated with this SampleInput.
-     */
-    virtual const std::list<const DSMConfig*>& getDSMConfigs() const = 0;
-
-    virtual void setDSMConfigs(const std::list<const DSMConfig*>& val) = 0;
-
-    virtual void addDSMConfig(const DSMConfig* val) = 0;
-
-    // virtual size_t getUnrecognizedSamples() const = 0;
-
-    /**
      * Client wants samples from the process() method of the
      * given DSMSensor.
      */
     virtual void addProcessedSampleClient(SampleClient*,DSMSensor*) = 0;
 
-    virtual void removeProcessedSampleClient(SampleClient*,DSMSensor*) = 0;
+    virtual void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0) = 0;
 
 };
-
 
 /**
  * SampleInputMerger sorts samples that are coming from one
@@ -114,14 +102,6 @@ public:
     {
         return atdUtil::Inet4Address(INADDR_ANY);
     }
-    /**
-     * What DSMConfigs are associated with this SampleInput.
-     */
-    const std::list<const DSMConfig*>& getDSMConfigs() const { return dsms; }
-
-    void addDSMConfig(const DSMConfig* val) { dsms.push_back(val); }
-
-    void setDSMConfigs(const std::list<const DSMConfig*>& val) { dsms = val; }
 
     /**
      * Add an input to be merged and sorted.
@@ -137,7 +117,7 @@ public:
      */
     void addProcessedSampleClient(SampleClient*,DSMSensor*);
 
-    void removeProcessedSampleClient(SampleClient*,DSMSensor*);
+    void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0);
 
     /**
      * Add a SampleClient that wants samples which have been
@@ -149,13 +129,28 @@ public:
 
     bool receive(const Sample*) throw();
 
+    void addSampleTag(const SampleTag* stag);
+
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return sampleTags;
+    }
+
+    /**
+     * What DSMConfigs are associated with this SampleInput.
+     */
+    const std::list<const DSMConfig*>& getDSMConfigs() const
+    {
+        return dsmConfigs;
+    }
+
 protected:
 
     std::string name;
 
-    std::list<const DSMConfig*> dsms;
-
     std::map<unsigned long int, DSMSensor*> sensorMap;
+
+    std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
 
     atdUtil::Mutex sensorMapMutex;
 
@@ -164,6 +159,10 @@ protected:
     SampleSorter procSampSorter;
 
     size_t unrecognizedSamples;
+
+    std::set<const SampleTag*> sampleTags;
+
+    std::list<const DSMConfig*> dsmConfigs;
 
 };
 
@@ -179,10 +178,6 @@ class SampleInputReader: public SampleInput, public ConnectionRequester, public 
 public:
 
     virtual ~SampleInputReader() {}
-
-    virtual void setPseudoPort(int val) = 0;
-
-    virtual int getPseudoPort() const = 0;
 
     virtual void requestConnection(DSMService*)
         throw(atdUtil::IOException) = 0;
@@ -258,33 +253,12 @@ public:
 
     std::string getName() const;
 
-    void setPseudoPort(int val) { pseudoPort = val; }
-
-    int getPseudoPort() const { return pseudoPort; }
-
-    /**
-     * What DSMConfigs are associated with this SampleInput.
-     */
-    const std::list<const DSMConfig*>& getDSMConfigs() const
+    const std::set<const SampleTag*>& getSampleTags() const
     {
-	return dsms;
+        return sampleTags;
     }
 
-    void setDSMConfigs(const std::list<const DSMConfig*>& val)
-    {
-	dsms = val;
-    }
-
-    void setDSMConfigs(const std::list<DSMConfig*>& val)
-    {
-	for (std::list<DSMConfig*>::const_iterator di = val.begin();
-		di != val.end(); ++di) addDSMConfig(*di);
-    }
-
-    void addDSMConfig(const DSMConfig* val)
-    {
-        dsms.push_back(val);
-    }
+    void addSampleTag(const SampleTag* stag);
 
     void readHeader() throw(atdUtil::IOException);
 
@@ -292,7 +266,7 @@ public:
 
     void addProcessedSampleClient(SampleClient*,DSMSensor*);
 
-    void removeProcessedSampleClient(SampleClient*,DSMSensor*);
+    void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0);
 
     void requestConnection(DSMService*) throw(atdUtil::IOException);
 
@@ -347,17 +321,17 @@ protected:
      */
     DSMService* service;
 
-    std::list<const DSMConfig*> dsms;
-
     IOChannel* iochan;
 
     IOStream* iostream;
 
-    int pseudoPort;
-
     std::map<unsigned long int, DSMSensor*> sensorMap;
 
+    std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
+
     atdUtil::Mutex sensorMapMutex;
+
+    std::set<const SampleTag*> sampleTags;
 
 private:
 
@@ -403,7 +377,7 @@ public:
     /**
      * Create a clone, with a new, connected IOChannel.
      */
-    SampleInputStream* clone(IOChannel* iochannel);
+    SortedSampleInputStream* clone(IOChannel* iochannel);
 
     void addSampleClient(SampleClient* client) throw();
 
@@ -411,7 +385,7 @@ public:
 
     void addProcessedSampleClient(SampleClient* client, DSMSensor* sensor);
 
-    void removeProcessedSampleClient(SampleClient* client, DSMSensor* sensor);
+    void removeProcessedSampleClient(SampleClient* client, DSMSensor* sensor = 0);
 
     void close() throw(atdUtil::IOException);
 

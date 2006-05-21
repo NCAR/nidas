@@ -37,6 +37,8 @@ namespace dsm {
  * This is implemented as a Thread, which must be started,
  * otherwise the sorter will grow and no samples will be
  * sent to clients.
+ * This can be a client of multiple DSMSensors, so that the
+ * processed samples are sorted in time.
  */
 class SampleSorter : public atdUtil::Thread,
 	public SampleClient, public SampleSource {
@@ -97,6 +99,23 @@ public:
      */
     void finish() throw();
 
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return sampleTags;
+    }
+
+    void addSampleTag(const SampleTag* tag)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        sampleTags.insert(tag);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     */
+    void addSampleTag(const SampleTag* tag,SampleClient*)
+    	throw(atdUtil::InvalidParameterException);
+
 protected:
 
     /**
@@ -155,6 +174,12 @@ private:
     bool doFlush;
 
     bool flushed;
+
+    std::set<const SampleTag*> sampleTags;
+
+    std::map<dsm_sample_id_t,SampleClientList> clientsBySampleId;
+
+    atdUtil::Mutex clientMapLock;
 
     /**
      * No assignment.

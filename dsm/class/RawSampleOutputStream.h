@@ -18,7 +18,6 @@
 #define DSM_RAWSAMPLEOUTPUTSTREAM_H
 
 #include <SampleOutput.h>
-#include <Datagrams.h>
 
 namespace dsm {
 
@@ -37,8 +36,8 @@ public:
 
     bool isRaw() const { return true; }
 
-    int getPseudoPort() const { return RAW_SAMPLE; }
-
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(atdUtil::InvalidParameterException);
 protected:
 };
 

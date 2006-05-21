@@ -124,7 +124,6 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	    }
 	    cerr << endl;
 	    distribute(osamp);
-	    osamp->freeReference();
 	    endTime += averagePeriod;
 	    if (tt > endTime) endTime = timeCeiling(tt,averagePeriod);
 	}

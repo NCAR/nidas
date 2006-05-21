@@ -44,35 +44,42 @@ public:
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
 
+    const std::string& getSiteSuffix() const { return suffix; }
+    void setSiteSuffix(const std::string& val) { suffix = val; }
+
     const std::string& getLocation() const { return location; }
     void setLocation(const std::string& val) { location = val; }
 
-    const unsigned short getId() const { return id; }
-    void setId(unsigned short val) { id = val; }
+    const dsm_sample_id_t getId() const { return id; }
+    void setId(dsm_sample_id_t val) { id = val; }
 
     void addSensor(DSMSensor* sensor);
 
-    /**
-     * Remove all DSMSensors from the list managed by DSMConfig.
-     * Typically this is done after the sensors are being
-     * managed by the PortSelector in a DSMEngine.
-     * it.
-     */
-    void removeSensors();
-
     const std::list<DSMSensor*>& getSensors() const
     {
-	return ownedSensors;
+	return sensors;
     }
 
     void initSensors() throw(atdUtil::IOException);
 
+    /**
+     * Pass my sensors to the PortSelector for opening.
+     */
+    void openSensors(PortSelector*);
+
     void addOutput(SampleOutput* output) { outputs.push_back(output); }
+
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 
     unsigned short getRemoteSerialSocketPort() const { return remoteSerialSocketPort; }
 
     void setRemoteSerialSocketPort(unsigned short val) { remoteSerialSocketPort = val; }
+
+    SensorIterator getSensorIterator() const;
+
+    SampleTagIterator getSampleTagIterator() const;
+
+    VariableIterator getVariableIterator() const;
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
@@ -91,23 +98,20 @@ protected:
 
     std::string name;
     
+    std::string suffix;
+
     std::string location;
 
     unsigned char id;
 
     /**
-     * The list of sensors on this DSM.
-     */
-    // std::list<DSMSensor*> sensors;
-
-    /**
-     * Another list of the sensors on this DSM, but this one
-     * contains the sensors that have not been passed to
+     * A list of the sensors on this DSM, containing
+     * the sensors that have not been passed to
      * a PortSelector, i.e. the sensors that DSMConfig still ownes.
      * On a running DSM this list will be empty.  On a DSMServer
      * it will contain all the sensors.
      */
-    std::list<DSMSensor*> ownedSensors;
+    std::list<DSMSensor*> sensors;
 
     /**
      * SampleOutputs.

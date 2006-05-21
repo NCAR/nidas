@@ -49,14 +49,6 @@ public:
 
     void schedule() throw(atdUtil::Exception);
 
-    /**
-     * Add a processor to this RawSampleService. This is done
-     * at configuration (XML) time.
-     */
-    void addProcessor(SampleIOProcessor* proc) { processors.push_back(proc); }
-
-    const std::list<SampleIOProcessor*>& getProcessors() const { return processors; }
-
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
 
@@ -68,14 +60,9 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
-
 protected:
 
-    SampleInputStream* input;
-
     SampleInputMerger* merger;
-
-    std::list<SampleIOProcessor*> processors;
 
 };
 

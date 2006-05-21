@@ -13,10 +13,9 @@
 */
 
 #include <SyncRecordSource.h>
-#include <DSMSerialSensor.h>
-#include <DSMArincSensor.h>
-#include <DSMAnalogSensor.h>
+#include <SampleInput.h>
 #include <Aircraft.h>
+#include <Project.h>
 #include <atdUtil/Logger.h>
 
 #include <iomanip>
@@ -33,6 +32,17 @@ SyncRecordSource::SyncRecordSource():
 	syncRecord(0),doHeader(false),badTimes(0),aircraft(0),
 	initialized(false),unknownSampleType(0)
 {
+    syncRecordHeaderSampleTag.setDSMId(0);
+    syncRecordHeaderSampleTag.setSensorId(0);
+    syncRecordHeaderSampleTag.setSampleId(SYNC_RECORD_HEADER_ID);
+    syncRecordHeaderSampleTag.setRate(0.0);
+    sampleTags.insert(&syncRecordHeaderSampleTag);
+
+    syncRecordDataSampleTag.setDSMId(0);
+    syncRecordDataSampleTag.setSensorId(0);
+    syncRecordDataSampleTag.setSampleId(SYNC_RECORD_ID);
+    syncRecordDataSampleTag.setRate(1.0);
+    sampleTags.insert(&syncRecordDataSampleTag);
 }
 
 SyncRecordSource::~SyncRecordSource()
@@ -46,60 +56,56 @@ SyncRecordSource::~SyncRecordSource()
     map<dsm_sample_id_t,size_t*>::const_iterator vi2;
     for (vi2 = varLengths.begin(); vi2 != varLengths.end(); ++vi2)
 	delete [] vi2->second;
+
 }
 
 void SyncRecordSource::connect(SampleInput* input) throw()
 {
-    const list<const DSMConfig*>& dsms =  input->getDSMConfigs();
 
-    list<const DSMConfig*>::const_iterator di;
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        const DSMConfig* dsm = *di;
+    SampleTagIterator si = input->getSampleTagIterator();
 
-	const Site* site = dsm->getSite();
-	const Aircraft* acft = dynamic_cast<const Aircraft*>(site);
-	assert(acft);
+    for ( ; si.hasNext(); ) {
+        const SampleTag* stag = si.next();
 
-	if (!aircraft) aircraft = acft;
-	else {
-	    if (acft != aircraft)
-	    	cerr << "multiple aircraft: " << acft->getName() <<
-			" and " << aircraft->getName();
+	// nimbus needs to know the aircraft
+	if (!aircraft) {
+	    const DSMConfig* dsm =
+		    Project::getInstance()->findDSM(stag->getDSMId());
+	    const Site* site = dsm->getSite();
+	    const Aircraft* acft = dynamic_cast<const Aircraft*>(site);
+	    aircraft = acft;
 	}
 
-	const list<DSMSensor*>& sensors = dsm->getSensors();
-	list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    addSensor(sensor);
-	    input->addProcessedSampleClient(this,sensor);
+	DSMSensor* sensor =
+		Project::getInstance()->findSensor(stag->getId());
+	if (!sensor) {
+	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
+	    	"sensor matching dsm id=%d, sensor id=%d, not found",
+		stag->getDSMId(),stag->getSensorId());
+	    continue;
 	}
+	addSensor(sensor);
+	input->addProcessedSampleClient(this,sensor);
     }
     init();
 }
 
 void SyncRecordSource::disconnect(SampleInput* input) throw()
 {
-    const list<const DSMConfig*>& dsms = input->getDSMConfigs();
-    list<const DSMConfig*>::const_iterator di;
-    for (di = dsms.begin(); di != dsms.end(); ++di) {
-        const DSMConfig* dsm = *di;
-
-	const list<DSMSensor*>& sensors = dsm->getSensors();
-	list<DSMSensor*>::const_iterator si;
-	for (si = sensors.begin(); si != sensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-	    input->removeProcessedSampleClient(this,sensor);
-	}
+    set<DSMSensor*>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+        DSMSensor* sensor = *si;
+	input->removeProcessedSampleClient(this,sensor);
     }
 }
 
 void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 {
+    sensors.insert(sensor);
 
-    const vector<const SampleTag*>& tags = sensor->getSampleTags();
+    const set<const SampleTag*>& tags = sensor->getSampleTags();
 
-    vector<const SampleTag*>::const_iterator ti;
+    set<const SampleTag*>::const_iterator ti;
     for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	const SampleTag* tag = *ti;
 
@@ -157,6 +163,8 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 		varsOfRate[groupId].push_back(var);
 		variables.push_back(var);
 	    }
+	    syncRecordHeaderSampleTag.addVariable(new Variable(*var));
+	    syncRecordDataSampleTag.addVariable(new Variable(*var));
 	}
     }
 }
@@ -332,7 +340,6 @@ void SyncRecordSource::sendHeader() throw()
     strcpy(headerRec->getDataPtr(),headstr.c_str());
 
     distribute(headerRec);
-    headerRec->freeReference();
     doHeader = false;
 
 }
@@ -346,7 +353,6 @@ void SyncRecordSource::flush() throw()
 {
     if (syncRecord) {
 	distribute(syncRecord);
-	syncRecord->freeReference();
 	syncRecord = 0;
 	syncTime += USECS_PER_SEC;
     }

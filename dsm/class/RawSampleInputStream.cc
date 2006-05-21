@@ -28,7 +28,6 @@ CREATOR_FUNCTION(RawSampleInputStream)
 RawSampleInputStream::RawSampleInputStream(IOChannel* iochan):
 	SampleInputStream(iochan)
 {
-	setPseudoPort(RAW_SAMPLE);
 }
 
 RawSampleInputStream::RawSampleInputStream(const RawSampleInputStream& x,
@@ -50,3 +49,10 @@ RawSampleInputStream::~RawSampleInputStream()
 {
 }
 
+void RawSampleInputStream::fromDOMElement(const DOMElement* node)
+        throw(atdUtil::InvalidParameterException)
+{
+    SampleInputStream::fromDOMElement(node);
+    if (iochan->getRequestNumber() < 0)
+    	iochan->setRequestNumber(RAW_SAMPLE);
+}

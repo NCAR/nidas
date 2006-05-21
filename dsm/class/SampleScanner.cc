@@ -69,8 +69,10 @@ dsm_time_t SampleScanner::readSamples(DSMSensor* sensor,
 		    samp->setId(sensor->getId());
 		    sensor->distributeRaw(samp);
 		}
-		else incrementBadTimeTags();
-		samp->freeReference();
+		else {
+		    incrementBadTimeTags();
+		    samp->freeReference();
+		}
 		samp = 0;
 		// Finished with sample. Check for more data in buffer
 	    }
@@ -268,7 +270,6 @@ dsm_time_t MessageStreamScanner::readSamplesSepBOM(DSMSensor* sensor,
 		osamp->setId(sensor->getId());
 		ttres = osamp->getTimeTag();
 		sensor->distributeRaw(osamp);
-		osamp->freeReference();
 
 		osamp = getSample<char>(sampleLengthAlloc);
 		outSampLen = 0;
@@ -315,7 +316,6 @@ dsm_time_t MessageStreamScanner::readSamplesSepBOM(DSMSensor* sensor,
 			    ttres = osamp->getTimeTag();
 			    osamp->setId(sensor->getId());
 			    sensor->distributeRaw(osamp);
-			    osamp->freeReference();
 
 			    // good sample
 			    // readjust sampleLengthAlloc if this
@@ -433,7 +433,6 @@ dsm_time_t MessageStreamScanner::readSamplesSepEOM(DSMSensor* sensor,
 		ttres = osamp->getTimeTag();
 		osamp->setId(sensor->getId());
 		sensor->distributeRaw(osamp);
-		osamp->freeReference();
 
 		osamp = getSample<char>(sampleLengthAlloc);
 		outSampLen = 0;
@@ -471,7 +470,6 @@ dsm_time_t MessageStreamScanner::readSamplesSepEOM(DSMSensor* sensor,
 		    ttres = osamp->getTimeTag();
 		    osamp->setId(sensor->getId());
 		    sensor->distributeRaw(osamp);
-		    osamp->freeReference();
 
 		    if (outSampLen > sampleLengthAlloc)
 			sampleLengthAlloc = std::min(
@@ -509,7 +507,6 @@ dsm_time_t MessageStreamScanner::readSamplesSepEOM(DSMSensor* sensor,
 			ttres = osamp->getTimeTag();
 			osamp->setId(sensor->getId());
 			sensor->distributeRaw(osamp);
-			osamp->freeReference();
 			if (outSampLen > sampleLengthAlloc)
 			    sampleLengthAlloc = std::min(
 				outSampLen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);

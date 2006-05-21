@@ -141,6 +141,8 @@ public:
 
     const std::string& getName() const { return iochannel.getName(); }
 
+    size_t getNBytes() const { return nbytes; }
+
 protected:
 
     IOChannel& iochannel;
@@ -184,6 +186,8 @@ protected:
      * Was the previous read performed on a newly opened file?
      */
     bool newFile;
+
+    size_t nbytes;
 
 private:
 

@@ -74,16 +74,16 @@ Parameter* Parameter::createParameter(const DOMElement* node)
 	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
-	    if (!aname.compare("type")) {
-	        if (!aval.compare("float"))
+	    if (aname == "type") {
+	        if (aval == "float")
 			parameter = new ParameterT<float>();
-	        else if (!aval.compare("bool"))
+	        else if (aval == "bool")
 			parameter = new ParameterT<bool>();
-	        else if (!aval.compare("string"))
+	        else if (aval == "string")
 			parameter = new ParameterT<string>();
-	        else if (!aval.compare("space_delim_string"))
+	        else if (aval == "strings")
 			parameter = new ParameterT<string>();
-	        else if (!aval.compare("int"))
+	        else if (aval == "int")
 			parameter = new ParameterT<int>();
 		else throw atdUtil::InvalidParameterException("parameter",
 			aname,aval);
@@ -105,6 +105,17 @@ ParameterT<T>* ParameterT<T>::clone() const
 }
 
 template<class T>
+void ParameterT<T>::assign(const Parameter& x)
+{
+    if (type == x.getType()) {
+	name = x.getName();
+	const ParameterT<T> * xT =
+	    dynamic_cast<const ParameterT<T>*>(&x);
+	if (xT) values = xT->values;
+    }
+}
+
+template<class T>
 void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
@@ -113,7 +124,7 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
     if(node->hasAttributes()) {
 	// get all the attributes of the node
 
-	bool oneString = !xnode.getAttributeValue("type").compare("string");
+	bool oneString = xnode.getAttributeValue("type") == "string";
 
 	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
@@ -122,8 +133,8 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
 
-	    if (!aname.compare("name")) setName(aval);
-	    else if (!aname.compare("value")) {
+	    if (aname == "name") setName(aval);
+	    else if (aname == "value") {
 		// get attribute value(s)
 
 		// If type is simply "string", don't break it up.
@@ -163,7 +174,7 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 			getLength() << std::endl;
 #endif
 	    }
-	    else if (aname.compare("type"))
+	    else if (aname != "type")
 		throw atdUtil::InvalidParameterException(
 		    "parameter",aname,aval);
 	}
@@ -186,5 +197,4 @@ DOMElement* Parameter::toDOMElement(DOMElement* node)
 {
     return node;
 }
-
 

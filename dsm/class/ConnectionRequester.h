@@ -23,7 +23,6 @@
 namespace dsm {
 
 class IOChannel;
-class IOStream;
 class SampleInput;
 class SampleOutput;
 
@@ -56,7 +55,7 @@ public:
      * sendHeader will be called when a client of SampleConnectRequester
      * wants a header written, for example at the beginning of a file.
      */
-    virtual void sendHeader(dsm_time_t,IOStream* iostream)
+    virtual void sendHeader(dsm_time_t,SampleOutput* output)
     	throw(atdUtil::IOException);
 };
 

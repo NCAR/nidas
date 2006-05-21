@@ -272,12 +272,14 @@ void IRIGSensor::fromDOMElement(const DOMElement* node)
 {
     DSMSensor::fromDOMElement(node);
 
-    if (sampleTags.size() != 1) 
+    if (getncSampleTags().size() != 1) 
     	throw atdUtil::InvalidParameterException(getName(),"<sample>",
 		"should only be one <sample> tag");
 
-    SampleTag* samp = sampleTags.front();
+    SampleTag* samp = *getncSampleTags().begin();
     samp->setRate(1.0);
+    getncRawSampleTag()->setRate(1.0);
+
     sampleId = samp->getId();
     const vector<const Variable*>& vars = samp->getVariables();
     assert(vars.size() == 1);

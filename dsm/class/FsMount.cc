@@ -14,6 +14,8 @@
 */
 
 #include <FsMount.h>
+#include <FileSet.h>
+#include <atdUtil/Logger.h>
 
 #include <fstream>
 
@@ -23,19 +25,64 @@ using namespace xercesc;
 
 CREATOR_FUNCTION(FsMount)
 
-FsMount::FsMount() : type("auto") {}
+FsMount::FsMount() : type("auto"),fileset(0),worker(0) {}
 
 void FsMount::mount()
        throw(atdUtil::IOException)
 {
-    if (isMounted()) return;
-
     if (::mount(getDevice().c_str(),getDir().c_str(),
     	getType().c_str(),0,getOptions().c_str()) < 0)
-	throw atdUtil::IOException(
+	    throw atdUtil::IOException(
 	    string("mount ") + getDevice() + " -t " + getType() +
 	    (getOptions().length() > 0 ?  string(" -o ") + getOptions() : "") +
 	    ' ' + getDir(),"failed",errno);
+}
+
+void FsMount::mount(FileSet* fset)
+{
+    fileset = fset;
+    if (isMounted()) {
+        fileset->mounted();
+	return;
+    }
+    cancel();		// cancel previous request if running
+    worker = new FsMountWorkerThread(this);
+    worker->start();	// start mounter thread
+}
+
+void FsMount::cancel()
+{
+    atdUtil::Synchronized autolock(workerLock);
+    if (worker) {
+	// since we have the workerLock and worker is non-null
+	// the joiner will not delete the worker
+	if (!worker->isJoined()) {
+	    if (worker->isRunning()) {
+		atdUtil::Logger::getInstance()->log(LOG_ERR,
+		    "Cancelling previous mount of %s\n",
+			getDevice().c_str());
+		try {
+		    worker->cancel();
+		}
+		catch(const atdUtil::Exception& e) {
+		    atdUtil::Logger::getInstance()->log(LOG_ERR,
+			"cannot cancel mount of %s: %s\n",
+			    getDevice().c_str(),e.what());
+		}
+	    }
+	    // worker run method starts the ThreadJoiner
+	}
+    }
+}
+
+void FsMount::finished()
+{
+    cerr << "FsMount::finished" << endl;
+    workerLock.lock();
+    worker = 0;
+    workerLock.unlock();
+    fileset->mounted();
+    cerr << "FsMount::finished finished" << endl;
 }
 
 void FsMount::unmount()
@@ -43,7 +90,7 @@ void FsMount::unmount()
 {
     if (!isMounted()) return;
 
-    if (umount(getDir().c_str()) < 0)
+    if (::umount(getDir().c_str()) < 0)
 	throw atdUtil::IOException(string("umount ") + getDir(),
 		"failed",errno);
 }
@@ -101,5 +148,33 @@ DOMElement* FsMount::toDOMElement(DOMElement* node)
     throw(DOMException)
 {
     return node;
+}
+
+FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
+    atdUtil::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt) {}
+
+int FsMountWorkerThread::run() throw(atdUtil::Exception)
+{
+    int sleepsecs = 30;
+    for (;;) {
+	try {
+	    fsmount->mount();
+	    break;
+	}
+	catch(const atdUtil::IOException& e) {
+	    if (e.getErrno() == EINTR) break;
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,
+		    "%s mount failed: %s, waiting %d secs to try again.\n",
+		getName().c_str(),e.what(),sleepsecs);
+	}
+	if (isInterrupted()) break;
+	struct timespec slp = { sleepsecs, 0};
+	::nanosleep(&slp,0);
+	if (isInterrupted()) break;
+    }
+    fsmount->finished();
+    atdUtil::ThreadJoiner* joiner = new atdUtil::ThreadJoiner(this);
+    joiner->start();
+    return RUN_OK;
 }
 

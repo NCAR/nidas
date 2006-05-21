@@ -26,6 +26,7 @@
 namespace dsm {
 
 class SampleTag;
+class Site;
 
 /**
  * Class describing a sampled variable.
@@ -34,7 +35,7 @@ class Variable : public DOMable
 {
 public:
 
-    typedef enum var_type { CONTINUOUS, COUNTER, CLOCK, OTHER } type_t;
+    typedef enum var_type { CONTINUOUS, COUNTER, CLOCK, OTHER, WEIGHT } type_t;
 
     /**
      * Create a variable.
@@ -46,7 +47,22 @@ public:
      */
     Variable(const Variable&);
 
+    /**
+     * Assignment.
+     */
+    Variable& operator=(const Variable&);
+
     virtual ~Variable();
+
+    /**
+     * Equivalence operator for Variable, checks
+     * length, name and station equivalence.
+     */
+    bool operator == (const Variable& x) const;
+
+    bool operator != (const Variable& x) const;
+
+    bool operator < (const Variable& x) const;
 
     type_t getType() const { return type; }
 
@@ -63,21 +79,67 @@ public:
     void setSampleTag(const SampleTag* val) { sampleTag = val; }
 
     /**
-     * Convienence routine to get the SampleTag rate.
+     * Convenience routine to get the SampleTag rate.
      */
     float getSampleRate() const;
 
-    void setName(const std::string& val);
+    /**
+     * Set the name prefix.  The full variable name will
+     * be the concatenation of: prefix + suffix + site
+     */
+    void setPrefix(const std::string& val)
+    {
+        prefix = val;
+	name = prefix + suffix + siteSuffix;
+	nameWithoutSite = prefix + suffix;
+    }
+
+    const std::string& getPrefix() const { return prefix; }
+
+    /**
+     * Variable suffix, which is added to the name.  The full variable name
+     * is created from  prefix + suffix + siteSuffix.  suffix and/or
+     * siteSuffix may be empty strings.
+     */
+    const std::string& getSuffix() const { return suffix; }
+
+    void setSuffix(const std::string& val)
+    {
+        suffix = val;
+	name = prefix + suffix + siteSuffix;
+	nameWithoutSite = prefix + suffix;
+    }
+
+    /**
+     * Site suffix, which is added to the name.
+     */
+    const std::string& getSiteSuffix() const { return siteSuffix; }
+
+    void setSiteSuffix(const std::string& val);
+
+    /**
+     * Set the full name. This clears the suffix and site
+     * portions of the name.
+     */
+    void setName(const std::string& val) 
+    {
+	suffix.clear();
+	siteSuffix.clear();
+	prefix = val;
+        name = prefix;
+	nameWithoutSite = prefix;
+    }
 
     const std::string& getName() const { return name; }
 
     /**
-     * Variable suffix, which is added to the name.
+     * Get the name without the site suffix.
      */
-    const std::string& getSuffix() const { return suffix; }
+    const std::string& getNameWithoutSite() const { return nameWithoutSite; }
 
-    void setSuffix(const std::string& val);
-
+    /**
+     * Descriptive, long name, e.g. "Ambient air temperature".
+     */
     void setLongName(const std::string& val) { longname = val; }
 
     const std::string& getLongName() const { return longname; }
@@ -92,6 +154,17 @@ public:
     size_t getLength() const { return length; }
 
     void setLength(size_t val) { length = val; }
+
+    /**
+     * Station number of this variable:
+     * @return -1: not associated with a specific site number
+     *        0-N: a site number
+     */
+    int getStation() const { return station; }
+
+    void setStation(int val);
+
+    void setSite(const Site* val);
 
     /**
      * Set the VariableConverter for this Variable.
@@ -131,15 +204,21 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
 		throw(xercesc::DOMException);
 
-protected:
-
-    void setNameWithSuffix(const std::string& nval,const std::string& sval); 
+private:
 
     const SampleTag* sampleTag;
 
     std::string name;
 
+    std::string nameWithoutSite;
+
+    std::string prefix;
+
     std::string suffix;
+
+    std::string siteSuffix;
+
+    int station;
 
     std::string longname;
 
@@ -161,13 +240,6 @@ protected:
      * getParameters().
      */
     std::list<const Parameter*> constParameters;
-
-private:
-
-    /**
-     * Assignment not supported.
-     */
-    Variable& operator=(const Variable&);
 
 };
 

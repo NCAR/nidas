@@ -141,8 +141,10 @@ static void setTimerClock(struct DSC_Board* brd,
     unsigned char hibyte = val >> 8;
     outb(hibyte,brd->addr + caddr);
 
+#ifdef DEBUG
     DSMLOG_INFO("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
     	(int)ctrl,(int)lobyte,(int)hibyte);
+#endif
 }
 
 static void initializeA2DClock(struct DSC_Board* brd)
@@ -195,7 +197,9 @@ static void initializeA2DClock(struct DSC_Board* brd)
 static void* sampleThreadFunc(void *thread_arg)
 {
     struct DSC_Board* brd = (struct DSC_Board*) thread_arg;
+#ifdef DEBUG
     DSMLOG_DEBUG("DSC thread started\n");
+#endif
 
     struct {
 	dsm_sample_time_t timetag;    // timetag of sample
@@ -207,9 +211,9 @@ static void* sampleThreadFunc(void *thread_arg)
     register short *outptr = outsamp.data;
 
     long scanDeltaT = MSECS_PER_SEC / brd->maxRate;
-    DSMLOG_INFO("scanDeltaT=%d\n",scanDeltaT);
 
 #ifdef DEBUG
+    DSMLOG_INFO("scanDeltaT=%d\n",scanDeltaT);
     dsm_sample_time_t lasttt;
     int debugctr = 0;
 #endif
@@ -917,7 +921,9 @@ static int startA2D(struct DSC_Board* brd)
 
     if ((result = brd->selectChannels(brd))) return result;
 
+#ifdef DEBUG
     DSMLOG_INFO("gainSetting=%x\n",brd->gainSetting);
+#endif
     rtl_spin_lock_irqsave(&brd->boardlock,flags);
     // same addr on MM16AT and MM32XAT
     outb(brd->gainSetting,brd->addr + 11);
@@ -1086,17 +1092,20 @@ static int ioctlCallback(int cmd, int board, int port,
     {
     case GET_NUM_PORTS:		/* user get */
 	    if (len != sizeof(int)) break;
+#ifdef DEBUG
 	    DSMLOG_DEBUG("GET_NUM_PORTS\n");
+#endif
 	    *(int *) buf = N_DSC_DEVICES;	
 	    ret = sizeof(int);
 	    break;
 
     case DSC_GET_NCHAN:
 	    if (port != 0) break;	// port 0 is the A2D
+#ifdef DEBUG
 	    DSMLOG_DEBUG("DSC_GET_NCHAN\n");
+#endif
 	    if (len != sizeof(int)) break;
 	    *(int *)buf = brd->getNumChannels(brd);
-	    DSMLOG_DEBUG("DSC_GET_NCHAN finished\n");
 	    ret = sizeof(int);
 	    break;
     case DSC_STATUS:		/* user get of status */
@@ -1107,25 +1116,28 @@ static int ioctlCallback(int cmd, int board, int port,
 	    break;
 
     case DSC_CONFIG:		/* user set */
+#ifdef DEBUG
 	    DSMLOG_DEBUG("DSC_CONFIG\n");
+#endif
 	    if (port != 0) break;	// only port 0
 	    if (len != sizeof(struct DSC_Config)) break;// invalid length
 	    ret = configA2D(brd,(struct DSC_Config*)buf);
-	    DSMLOG_DEBUG("DSC_CONFIG done, ret=%d\n", ret);
 	    break;
 
     case DSC_START:
 	    if (port != 0) break;	// port 0 is the A2D
+#ifdef DEBUG
 	    DSMLOG_DEBUG("DSC_START\n");
+#endif
 	    ret = startA2D(brd);
-	    DSMLOG_DEBUG("DSC_START finished\n");
 	    break;
 
     case DSC_STOP:
 	    if (port != 0) break;	// port 0 is the A2D
+#ifdef DEBUG
 	    DSMLOG_DEBUG("DSC_STOP\n");
+#endif
 	    ret = stopA2D(brd);
-	    DSMLOG_DEBUG("DSC_STOP finished, ret=%d\n",ret);
 	    break;
     default:
 	    break;

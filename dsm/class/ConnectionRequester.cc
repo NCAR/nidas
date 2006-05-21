@@ -21,7 +21,8 @@
 using namespace dsm;
 using namespace std;
 
-void SampleConnectionRequester::sendHeader(dsm_time_t thead,IOStream* iostream)
+void SampleConnectionRequester::sendHeader(dsm_time_t thead,
+	SampleOutput* output)
 	throw(atdUtil::IOException)
 {
     cerr << "ConnectionRequester::sendHeader" << endl;
@@ -30,14 +31,13 @@ void SampleConnectionRequester::sendHeader(dsm_time_t thead,IOStream* iostream)
     header.setSoftwareVersion(Version::getSoftwareVersion());
     header.setProjectName(Project::getInstance()->getName());
 
-    const Site* csite = Project::getInstance()->getCurrentSite();
-    if (csite) header.setSiteName(csite->getName());
-    else header.setSiteName("unknown");
+    string sysname = Project::getInstance()->getSystemName();
+    header.setSystemName(sysname);
 
     header.setObsPeriodName(Project::getInstance()->getCurrentObsPeriod().getName());
     header.setXMLName(Project::getInstance()->getXMLName());
     header.setXMLVersion(Project::getInstance()->getVersion());
-    header.write(iostream);
+    header.write(output);
 }
 
 

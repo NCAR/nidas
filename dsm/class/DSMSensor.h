@@ -18,7 +18,6 @@
 #include <SampleDater.h>
 #include <SampleClient.h>
 #include <SampleSource.h>
-#include <RawSampleSource.h>
 #include <IODevice.h>
 #include <SampleScanner.h>
 #include <SampleTag.h>
@@ -71,8 +70,8 @@ class DSMConfig;
  * samples to all associated SampleClient's of this DSMSensor.
  *
  */
-class DSMSensor : public RawSampleSource, public SampleSource,
-	public SampleClient, public DOMable {
+class DSMSensor : public SampleSource, public SampleClient,
+	public DOMable {
 
 public:
 
@@ -191,15 +190,95 @@ public:
 
     void setSuffix(const std::string& val) { suffix = val; }
 
-    /**
-     * Add a SampleTag to this sensor.
-     * Throw an exception if you don't like the variables in the sample.
-     */
-    virtual void addSampleTag(SampleTag* var)
-    	throw(atdUtil::InvalidParameterException);
+    void setSiteSuffix(const std::string& val)
+    {
+        siteSuffix = val;
+	if (getHeightString().length() > 0)
+	    setSuffix(std::string(".") + getHeightString() + getSiteSuffix());
+	else
+	    setSuffix(getSiteSuffix());
+    }
 
-    virtual const std::vector<const SampleTag*>& getSampleTags() const
-    	{ return constSampleTags; }
+    /**
+     * Sensor site suffix, which is added to variable names.
+     */
+    const std::string& getSiteSuffix() const
+    {
+        return siteSuffix;
+    }
+
+    /**
+     * Set sensor height above ground via a string which is added
+     * to variable names. 
+     * @param val String containing sensor height and units
+     * in meters (m) or centimeters(cm), e.g. "15m".
+     * This height string is added to all the variable names,
+     * with a "." separator, so that a variable "u" for this
+     * sensor becomes "u.15m".
+     */
+    void setHeight(const std::string& val);
+
+    /**
+     * Set sensor height above ground.
+     * @param val height above ground, in meters.
+     * The height is added to all the variable names,
+     * with a "." separator, so that a variable "u" for this
+     * sensor becomes "u.15m".
+     */
+    void setHeight(float val);
+
+    /**
+     * Get sensor height above ground in a string.
+     * @return Height of sensor above ground,  e.g. "15m".
+     */
+    const std::string& getHeightString() const { return heightString; }
+
+    /**
+     * Get sensor height above ground.
+     * @return Height of sensor above ground, in meters. Nan if unknown.
+     */
+    float getHeight() const { return height; }
+
+    /**
+     * Set sensor depth below ground via a string which is added
+     * to variable names. 
+     * @param val String containing sensor below and units
+     * in meters (m) or centimeters(cm), e.g. "5cm".
+     * This depth string is added to all the variable names,
+     * with a "." separator, so that a variable "Tsoil" for this
+     * sensor becomes "Tsoil.5cm".
+     */
+    void setDepth(const std::string& val);
+
+    /**
+     * Set sensor depth below ground.
+     * @param val depth below ground, in meters.
+     * The depth is converted to centimeters and is added
+     * to all the variable names, with a "." separator, so
+     * that a variable "Tsoil" for this
+     * sensor becomes "Tsoil.5cm".
+     */
+    void setDepth(float val);
+
+    /**
+     * Get sensor depth below ground in a string.
+     * @return Depth of sensor below ground,  e.g. "5cm".
+     */
+    const std::string& getDepthString() const { return depthString; }
+
+    /**
+     * Get sensor depth below ground.
+     * @return Depth of sensor below ground, in meters.
+     */
+    float getDepth() const { return -height; }
+
+    /**
+     * Implementation of SampleSource::getSampleTags().
+     */
+    virtual const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return constSampleTags;
+    }
 
     virtual int getReadFd() const
     {
@@ -223,20 +302,22 @@ public:
     /**
      * Set the various levels of the sensor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
-     * 6-bit not used, 10-bit DSM id, and 16-bit sensor+sample ids
+     * 6-bit sample type id (not used by DSMSensor), 10-bit DSM id,
+     * and 16-bit sensor+sample ids.
      */
     void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
-    void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
-    void setDSMId(unsigned short val) { id = SET_DSM_ID(id,val); }
+    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
+    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the various levels of the samples identification.
      * A sample tag ID is a 32-bit value comprised of four parts:
-     * 6-bit type_id  10-bit DSM_id  16-bit sensor+sample
+     * 6-bit sample type id(not used by DSMSensor), a 10-bit DSM id,
+     * 16-bit sensor+sample ids.
      */
     dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
-    unsigned short getDSMId()   const { return GET_DSM_ID(id); }
-    unsigned short getShortId() const { return GET_SHORT_ID(id); }
+    unsigned long getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned long getShortId() const { return GET_SHORT_ID(id); }
 
     /**
      * Set desired latency, providing some control
@@ -255,7 +336,61 @@ public:
 
     float getLatency() const { return latency; }
 
-    virtual SampleDater::status_t setSampleTime(SampleDater* dater,Sample* samp)
+    /**
+     * DSMSensor provides a SampleSource interface for its raw samples.
+     */
+    void addRawSampleClient(SampleClient* c) throw() {
+        rawSource.addSampleClient(c);
+    }
+
+    /**
+     * DSMSensor provides a SampleSource interface for its raw samples.
+     */
+    void removeRawSampleClient(SampleClient* c) throw() {
+        rawSource.removeSampleClient(c);
+    }
+
+    /**
+     * What is my raw sample?
+     */
+    const SampleTag* getRawSampleTag() const
+    {
+        return rawSampleTag;
+    }
+
+    /**
+     * Add a parameter to this DSMSensor. DSMSensor
+     * will then own the pointer and will delete it
+     * in its destructor. If a Parameter exists with the
+     * same name, it will be replaced with the new Parameter.
+     */
+    void addParameter(Parameter* val);
+
+    /**
+     * Get list of parameters.
+     */
+    const std::list<const Parameter*>& getParameters() const
+    {
+	return constParameters;
+    }
+
+    /**
+     * Fetch a parameter by name. Returns a NULL pointer if
+     * no such parameter exists.
+     */
+    const Parameter* getParameter(const std::string& name) const;
+
+    /**
+     * Distribute a sample to my clients. Calls receive() method
+     * of each client, passing the pointer to the Sample.
+     */
+    void distributeRaw(const Sample* s) throw()
+    {
+        rawSource.distribute(s);
+    }
+
+    virtual SampleDater::status_t setSampleTime(SampleDater* dater,
+    	Sample* samp)
     {
         return dater->setSampleTime(samp);
     }
@@ -408,6 +543,10 @@ public:
 	return 0;
     }
 
+    SampleTagIterator getSampleTagIterator() const;
+
+    VariableIterator getVariableIterator() const;
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
 
@@ -444,8 +583,30 @@ protected:
 
     SampleScanner* getSampleScanner() const { return scanner; }
 
-    virtual const std::vector<SampleTag*>& getMySampleTags()
-    	{ return sampleTags; }
+    /**
+     * Add a SampleTag to this sensor.
+     * Throw an exception the DSMSensor cannot support
+     * the sample (bad rate, wrong number of variables, etc).
+     * DSMSensor will own the pointer.
+     */
+    virtual void addSampleTag(SampleTag* val)
+    	throw(atdUtil::InvalidParameterException);
+
+    /**
+     * Get non-const SampleTag pointers.
+     */
+    virtual std::set<SampleTag*>& getncSampleTags() 
+    {
+        return sampleTags;
+    }
+
+    /**
+     * What is my raw sample?
+     */
+    SampleTag* getncRawSampleTag() const
+    {
+        return rawSampleTag;
+    }
 
 
 private:
@@ -465,6 +626,8 @@ private:
      */
     std::string suffix;
 
+    std::string siteSuffix;
+
     std::string location;
 
     IODevice* iodev;
@@ -479,15 +642,51 @@ private:
      */
     dsm_sample_id_t id;
 
-protected:
+    std::set<SampleTag*> sampleTags;
 
-    std::vector<SampleTag*> sampleTags;
+    std::set<const SampleTag*> constSampleTags;
 
-private:
+    SampleTag* rawSampleTag;
 
-    std::vector<const SampleTag*> constSampleTags;
+    /**
+     * Used for the implementation of a SampleSource for
+     * raw samples.
+     */
+    class RawSampleSource: public SampleSource
+    {
+    public:
+	/**
+	 * Must implement this.
+	 */
+	const std::set<const SampleTag*>& getSampleTags() const
+	{
+	    return tags;
+	}
+    private:
+        std::set<const SampleTag*> tags;
+    } rawSource;
+
+    // toggle flag for zebra striping printStatus
+    static bool zebra;
+
+    std::string heightString;
+
+    std::string depthString;
+
+    float height;
 
     float latency;
+
+    /**
+     * Map of parameters by name.
+     */
+    std::map<std::string,Parameter*> parameters;
+
+    /**
+     * List of const pointers to Parameters for providing via
+     * getParameters().
+     */
+    std::list<const Parameter*> constParameters;
 
 private:
     // no copying
@@ -495,9 +694,6 @@ private:
 
     // no assignment
     DSMSensor& operator=(const DSMSensor& x);
-
-    // toggle flag for zebra striping printStatus
-    static bool zebra;
 
 };
 

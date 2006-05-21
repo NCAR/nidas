@@ -106,7 +106,7 @@
 	<xsd:enumeration value="float"/>
 	<xsd:enumeration value="bool"/>
 	<xsd:enumeration value="string"/>
-	<xsd:enumeration value="space_delim_string"/>
+	<xsd:enumeration value="strings"/>
 	<xsd:enumeration value="int"/>
     </xsd:restriction>
 </xsd:simpleType>
@@ -130,6 +130,13 @@
     <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
 </xsd:complexType>
 
+<xsd:complexType name="variables">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="names" type="xsd:normalizedString" use="required"/>
+</xsd:complexType>
+
 <xsd:complexType name="sample">
     <xsd:annotation>
         <xsd:documentation>
@@ -143,9 +150,12 @@
     </xsd:annotation>
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="variable" type="variable"/>
+	<xsd:element name="variables" type="variable"/>
+	<xsd:element name="parameter" type="parameter"/>
     </xsd:choice>
-    <xsd:attribute name="id" type="xsd:short"/>
+    <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
     <xsd:attribute name="rate" type="xsd:float"/>
+    <xsd:attribute name="period" type="xsd:float"/>
     <xsd:attribute name="process" type="xsd:boolean"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
 </xsd:complexType>
@@ -162,11 +172,16 @@
         </xsd:documentation>
         <xsd:documentation>
 	    The sensor suffix is a string which is added to
-	    all variable names from the sensor.
+	    all variable names from the sensor, e.g. "_south".
+	    height/depth can be used instead of the suffix, and
+	    is likewise added to all variables names, e.g.
+	    height="5m", or depth="2cm". Use suffix or height or depth 
+	    or nothing.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="sample" type="sample"/>
+	<xsd:element name="parameter" type="parameter"/>
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
@@ -174,8 +189,10 @@
     <xsd:attribute name="devicename" type="xsd:token"/>
     <xsd:attribute name="location" type="xsd:token"/>
     <xsd:attribute name="suffix" type="xsd:token"/>
-    <xsd:attribute name="id" type="xsd:short"/>
+    <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
     <xsd:attribute name="latency" type="xsd:float"/>
+    <xsd:attribute name="height" type="xsd:token"/>
+    <xsd:attribute name="depth" type="xsd:token"/>
 </xsd:complexType>
 
 <xsd:complexType name="messageSensorT">
@@ -276,6 +293,8 @@
 		A DSM can listen on a socket for RemoteSerialConnections.
 		Specify a non-zero value for rserialPort if you want
 		this service.
+		The suffix is added to all the variables from this dsm,
+		after their respective suffix/height or depth.
 	    </xsd:documentation>
 	</xsd:annotation>
 	<xsd:choice minOccurs="1" maxOccurs="unbounded">
@@ -284,7 +303,8 @@
 	    <xsd:element ref="output"/>
 	</xsd:choice>
 	<xsd:attribute name="name" type="xsd:token" use="required"/>
-	<xsd:attribute name="location" type="xsd:token" use="required"/>
+	<xsd:attribute name="suffix" type="xsd:token" use="optional"/>
+	<xsd:attribute name="location" type="xsd:token" use="optional"/>
 	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="required"/>
 	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger" default="0"/>
     </xsd:complexType>
@@ -298,6 +318,8 @@
     <xsd:restriction base="xsd:token">
 	<xsd:enumeration value="mcaccept"/>
 	<xsd:enumeration value="mcrequest"/>
+	<xsd:enumeration value="dgaccept"/>
+	<xsd:enumeration value="dgrequest"/>
 	<xsd:enumeration value="server"/>
 	<xsd:enumeration value="client"/>
     </xsd:restriction>
@@ -309,6 +331,7 @@
         <xsd:attribute name="port" type="xsd:nonNegativeInteger"
 		default="30000"/>
         <xsd:attribute name="address" type="xsd:token"/>
+        <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="maxIdle" type="xsd:positiveInteger"/>
    </xsd:complexType>
 </xsd:element>
@@ -330,6 +353,21 @@
         <xsd:attribute name="dir" type="xsd:token" use="required"/>
         <xsd:attribute name="file" type="xsd:token" use="required"/>
         <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="ncserver">
+   <xsd:complexType>
+        <xsd:attribute name="server" type="xsd:token" default="localhost"/>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="file" type="xsd:token" use="required"/>
+        <xsd:attribute name="length" type="xsd:nonNegativeInteger"
+		default="86400"/>
+        <xsd:attribute name="floatFill" type="xsd:float" use="required"/>
+        <xsd:attribute name="timeout" type="xsd:positiveInteger"
+		default="60"/>
+        <xsd:attribute name="batchPeriod" type="xsd:positiveInteger"
+		default="60"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -357,6 +395,7 @@
             <xsd:element ref="socket"/>
             <xsd:element ref="fileset"/>
             <xsd:element ref="postgresdb"/>
+            <xsd:element ref="ncserver"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
         <xsd:attribute name="sorterLength" type="xsd:positiveInteger" default="250"/>
@@ -367,8 +406,12 @@
    <xsd:complexType>
         <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="output"/>
+	    <xsd:element name="sample" type="sample"/>
+	    <xsd:element name="parameter" type="parameter"/>
         </xsd:choice>
 	<xsd:attribute name="class" type="xsd:token" use="required"/>
+	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
+	<xsd:attribute name="optional" type="xsd:boolean" default="false"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -402,6 +445,12 @@
 </xsd:element>
 
 <xsd:complexType name="siteType">
+    <xsd:annotation>
+	<xsd:documentation>
+	    If a suffix attribute exists, it is set on all the dsms at
+	    this site.
+	</xsd:documentation>
+    </xsd:annotation>
     <xsd:choice minOccurs="1" maxOccurs="unbounded">
 	<xsd:element name="parameter" type="parameter"/>
 	<xsd:element ref="server"/>
@@ -409,16 +458,20 @@
     </xsd:choice>
     <xsd:attribute name="name"   type="xsd:token" use="required"/>
     <xsd:attribute name="class" type="xsd:token" use="required"/>
+    <xsd:attribute name="number"   type="xsd:nonNegativeInteger" use="optional"/>
+    <xsd:attribute name="suffix"   type="xsd:token" use="optional"/>
 </xsd:complexType>
 
 <xsd:element name="project">
     <xsd:complexType>
         <xsd:choice minOccurs="1" maxOccurs="unbounded">
             <xsd:element ref="sensorcatalog" minOccurs="0"/>
+	    <xsd:element ref="server" minOccurs="0"/>
 	    <xsd:element name="site" type="siteType" maxOccurs="unbounded"/>
 	    <xsd:element name="aircraft" type="siteType" maxOccurs="unbounded"/>
         </xsd:choice>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
+        <xsd:attribute name="system"   type="xsd:token" use="required"/>
         <xsd:attribute name="version"   type="xsd:normalizedString"
 		use="required"/>
         <xsd:attribute name="xmlname"   type="xsd:normalizedString" use="required"/>

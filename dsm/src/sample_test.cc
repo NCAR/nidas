@@ -91,11 +91,27 @@ using namespace std;
 class TestSource: public SampleSource, public atdUtil::Thread
 {
 public:
-    TestSource():Thread("TestSource"),nsamples(0) {}
+    TestSource():Thread("TestSource"),nsamples(0)
+    {
+        stag.setDSMId(0);
+        stag.setSensorId(10);
+        stag.setSampleId(0x0010);
+	sampleTags.insert(&stag);
+    }
+
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return sampleTags;
+    }
 
     int run() throw(atdUtil::Exception);
 
     unsigned long nsamples;
+
+private:
+    SampleTag stag;
+
+    std::set<const SampleTag*> sampleTags;
 
 };
 
@@ -108,7 +124,7 @@ int TestSource::run() throw(atdUtil::Exception)
 	dsm_time_t tnow = getSystemTime();
 	// add 10000 microseconds of noise
 	samp->setTimeTag(tnow + random() / (RAND_MAX / (USECS_PER_MSEC * 10)) );
-	samp->setId(0x0010);
+	samp->setId(stag.getId());
 	distribute(samp);
 	samp->freeReference();
 	if (!(nsamples++ % 10000)) testCancel();

@@ -44,7 +44,7 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 
 SyncRecordReader::~SyncRecordReader()
 {
-    list<SampleTag*>::iterator si;
+    set<SampleTag*>::iterator si;
     for (si = sampleTags.begin(); si != sampleTags.end(); ++si)
 	delete *si;
     delete headException;
@@ -262,7 +262,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	offset++;		// first float in group is the lag value
 
 	SampleTag* stag = new SampleTag();
-	sampleTags.push_back(stag);
+	sampleTags.insert(stag);
 	stag->setRate(rate);
 
 	// read variable names of this rate

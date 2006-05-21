@@ -61,13 +61,13 @@ int DSMServer::main(int argc, char** argv) throw()
 
     if (debug) logger = atdUtil::Logger::createInstance(stderr);
     else {
+	// fork to background, send stdout/stderr to /dev/null
+	if (daemon(0,0) < 0) {
+	    atdUtil::IOException e("DSMServer","daemon",errno);
+	    cerr << "Warning: " << e.toString() << endl;
+	}
         logger = atdUtil::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
-	// fork to background, send stdout/stderr to /dev/null
-	// if (daemon(1,0) < 0) {
-	//     logger->log(LOG_ERR, "Cannot run as daemon: %m");
-	//     cerr << "daemon(1,1) failed: " << strerror(errno) << endl;
-	// }
     }
 
     setupSignals();
@@ -97,26 +97,16 @@ int DSMServer::main(int argc, char** argv) throw()
 	    break;
 	}
 
-	const list<Site*>& sitelist = project->getSites();
-
 	serverInstance = 0;
 
 	try {
 	    char hostname[MAXHOSTNAMELEN];
 	    gethostname(hostname,sizeof(hostname));
-                                                                                
-	    for (list<Site*>::const_iterator ai=sitelist.begin();
-		ai != sitelist.end(); ++ai) {
-		Site* site = *ai;
-		serverInstance = site->findServer(hostname);
-		if (serverInstance) {
-		    project->setCurrentSite(site);
-		    break;
-		}
-	    }
+
+	    serverInstance = Project::getInstance()->findServer(hostname);
 
 	    if (!serverInstance)
-	    	throw atdUtil::InvalidParameterException("site","server",
+	    	throw atdUtil::InvalidParameterException("project","server",
 			string("Can't find server entry for ") + hostname);
 	}
 	catch (const atdUtil::Exception& e) {
@@ -235,7 +225,7 @@ Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
     // throws dsm::XMLException
-                                                                                
+
     // If parsing a local file, turn on validation
     parser->setDOMValidation(true);
     parser->setDOMValidateIfSchema(true);
@@ -244,19 +234,19 @@ Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
-                                                                                
+
     // This document belongs to the caching parser
     DOMDocument* doc = parser->parse(xmlFileName);
     // throws dsm::XMLException;
-                                                                                
+
     Project* project = Project::getInstance();
-                                                                                
+
     project->fromDOMElement(doc->getDocumentElement());
     // throws atdUtil::InvalidParameterException;
 
     return project;
 }
-                                                                                
+
 DSMServer::DSMServer()
 {
 }
@@ -274,6 +264,37 @@ DSMServer::~DSMServer()
 	delete svc;
     }
 }
+
+DSMServiceIterator DSMServer::getDSMServiceIterator() const
+{
+    return DSMServiceIterator(this);
+}
+
+ProcessorIterator DSMServer::getProcessorIterator() const
+{
+    return ProcessorIterator(this);
+}
+
+SiteIterator DSMServer::getSiteIterator() const
+{
+    return SiteIterator(this);
+}
+
+DSMConfigIterator DSMServer::getDSMConfigIterator() const
+{
+    return DSMConfigIterator(this);
+}
+
+SensorIterator DSMServer::getSensorIterator() const
+{
+    return SensorIterator(this);
+}
+
+SampleTagIterator DSMServer::getSampleTagIterator() const
+{
+    return SampleTagIterator(this);
+}
+
 void DSMServer::fromDOMElement(const DOMElement* node)
     throw(atdUtil::InvalidParameterException)
 {
@@ -321,8 +342,6 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 	    }
 	    service->setDSMServer(this);
 	    service->fromDOMElement((DOMElement*)child);
-
-
 	    addService(service);
 	}
     }
@@ -348,17 +367,19 @@ DOMElement* DSMServer::toDOMElement(DOMElement* node)
 
 void DSMServer::scheduleServices() throw(atdUtil::Exception)
 {
-
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	const list<DSMConfig*>& dsms = getSite()->getDSMConfigs();
-	cerr << "adding " << dsms.size() << " DSMConfigs to service" << endl;
-	list<DSMConfig*>::const_iterator di;
-	for (di = dsms.begin(); di != dsms.end(); ++di) {
-	    DSMConfig* dsm = *di;
-	    dsm->initSensors();
-	    svc->addDSMConfig(*di);
+
+	SiteIterator si = getSiteIterator();
+	for ( ; si.hasNext(); ) {
+	    const Site* site = si.next();
+	    DSMConfigIterator di =
+		site->getDSMConfigIterator();
+	    for ( ; di.hasNext(); ) {
+		const DSMConfig* dsm = di.next();
+		Project::getInstance()->initSensors(dsm);
+	    }
 	}
 	svc->schedule();
     }
@@ -412,15 +433,15 @@ void DSMServer::waitOnServices() throw()
 
     for (;;) {
 
-	int nthreads = atdUtil::McSocketListener::check();
+	int nservices = atdUtil::McSocketListener::check();
 
 	list<DSMService*>::const_iterator si;
 	for (si=services.begin(); si != services.end(); ++si) {
 	    DSMService* svc = *si;
-	    nthreads += svc->checkSubServices();
+	    nservices += svc->checkSubServices();
 	}
 	
-	cerr << "DSMServer::wait nthreads=" << nthreads << endl;
+	cerr << "DSMServer::wait #services=" << nservices << endl;
 
 	if (quit || restart) break;
 

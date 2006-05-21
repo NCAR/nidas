@@ -22,7 +22,9 @@
 #include <DOMable.h>
 #include <SampleInput.h>
 #include <SampleOutput.h>
-#include <ConnectionRequester.h>
+#include <SampleIOProcessor.h>
+// #include <ConnectionRequester.h>
+#include <Site.h>
 
 namespace dsm {
 
@@ -47,22 +49,32 @@ public:
      */
     DSMService(const DSMService& x);
 
+    /**
+     * Copy constuctor with a new input.
+     */
+    DSMService(const DSMService& x,SampleInputStream*);
+
     virtual ~DSMService();
 
-    virtual void setDSMServer(DSMServer* val) { server = val; }
+    virtual void setDSMServer(DSMServer* val);
 
     virtual DSMServer* getDSMServer() const { return server; }
 
-    virtual const Site* getSite() const;
-
-    const std::list<const DSMConfig*>& getDSMConfigs() const
+    /**
+     * Add a processor to this RawSampleService. This is done
+     * at configuration (XML) time.
+     */
+    virtual void addProcessor(SampleIOProcessor* proc)
     {
-        return dsms;
+        processors.push_back(proc);
     }
 
-    void addDSMConfig(const DSMConfig* val) {
-        dsms.push_back(val);
+    virtual const std::list<SampleIOProcessor*>& getProcessors() const
+    {
+        return processors;
     }
+
+    ProcessorIterator getProcessorIterator() const;
 
     /**
      * schedule this service to run.
@@ -91,11 +103,14 @@ protected:
 
     DSMServer* server;
 
-    std::list<const DSMConfig*> dsms;
-
     std::set<DSMService*> subServices;
 
     atdUtil::Mutex subServiceMutex;
+
+    SampleInputStream* input;
+
+    std::list<SampleIOProcessor*> processors;
+
 };
 
 }

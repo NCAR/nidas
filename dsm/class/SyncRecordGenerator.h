@@ -54,7 +54,12 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void sendHeader(dsm_time_t thead,IOStream* iostream) throw(atdUtil::IOException);
+    void sendHeader(dsm_time_t thead,SampleOutput* output) throw(atdUtil::IOException);
+
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return syncRecSource.getSampleTags();
+    }
 
 protected:
     void init() throw();

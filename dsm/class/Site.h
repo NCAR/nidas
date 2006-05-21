@@ -18,14 +18,15 @@
 
 #include <DOMable.h>
 #include <DSMConfig.h>
-#include <DSMServer.h>
-#include <Project.h>
 #include <Parameter.h>
 
 #include <list>
 #include <map>
 
 namespace dsm {
+
+class Project;
+class DSMServer;
 
 /**
  * A measurement site. It could be an Aircraft, or a grouping of
@@ -42,6 +43,24 @@ public:
     void setName(const std::string& val) { name = val; }
 
     const std::string& getName() const { return name; }
+
+    /**
+     * Identify the Site by number. The site number
+     * can be used for things like a NetCDF station
+     * dimension. 
+     * @param Site number, -1 means no number is associated with the site.
+     */
+    void setNumber(int val) { number = val; }
+
+    const int getNumber() const { return number; }
+
+    /**
+     * Set the suffix for the Site. All variable names from this
+     * site will have the suffix.
+     */
+    void setSuffix(const std::string& val) { suffix = val; }
+
+    const std::string& getSuffix() const { return suffix; }
 
     /**
      * Provide pointer to Project.
@@ -61,9 +80,10 @@ public:
     void addDSMConfig(DSMConfig* dsm)
     {
         dsms.push_back(dsm);
+        ncDsms.push_back(dsm);
     }
 
-    const std::list<DSMConfig*>& getDSMConfigs() const
+    const std::list<const DSMConfig*>& getDSMConfigs() const
     {
         return dsms;
     }
@@ -88,6 +108,26 @@ public:
      */
     const DSMConfig* findDSM(const atdUtil::Inet4Address& addr) const;
 
+    /**
+     * Find a DSM by id.
+     */
+    const DSMConfig* findDSM(unsigned long id) const;
+
+    /**
+     * Find a DSMSensor by the full id, both the DSM id and the sensor id.
+     */
+    DSMSensor* findSensor(unsigned long id) const;
+
+    /**
+     * Initialize all sensors for a Site.
+     */
+    void initSensors() throw(atdUtil::IOException);
+
+    /**
+     * Initialize all sensors for a given dsm.
+     */
+    void initSensors(const DSMConfig* dsm) throw(atdUtil::IOException);
+
     virtual const std::list<std::string> getAllowedParameterNames() const;
 
     /**
@@ -101,6 +141,14 @@ public:
 
     virtual const std::list<const Parameter*>& getParameters() const;
 
+    DSMConfigIterator getDSMConfigIterator() const;
+
+    SensorIterator getSensorIterator() const;
+
+    SampleTagIterator getSampleTagIterator() const;
+
+    VariableIterator getVariableIterator() const;
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(atdUtil::InvalidParameterException);
 
@@ -113,6 +161,12 @@ public:
     		throw(xercesc::DOMException);
 
 protected:
+
+    const std::list<DSMConfig*>& getncDSMConfigs() const
+    {
+        return ncDsms;
+    }
+
     /**
      * Pointer back to my project.
      */
@@ -120,7 +174,13 @@ protected:
 	
     std::string name;
 
-    std::list<DSMConfig*> dsms;
+    int number;
+
+    std::string suffix;
+
+    std::list<const DSMConfig*> dsms;
+
+    std::list<DSMConfig*> ncDsms;
 
     std::list<DSMServer*> servers;
 
@@ -136,7 +196,6 @@ protected:
      * getParameters().
      */
     std::list<const Parameter*> constParameters;
-
 };
 
 }

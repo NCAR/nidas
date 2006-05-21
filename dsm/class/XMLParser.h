@@ -93,6 +93,10 @@ private :
 class XMLParser {
 public:
 
+    /**
+     * Constructor. The default setting for
+     * setXercesUserAdoptsDOMDocument(true) is true.
+     */
     XMLParser() throw(dsm::XMLException);
 
     /**

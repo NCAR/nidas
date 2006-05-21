@@ -59,7 +59,7 @@ bool AIO16_A2DSensor::isRTLinux() const
         const string& dname = getDeviceName();
         unsigned int fs = dname.rfind('/');
         if (fs != string::npos && (fs + 6) < dname.length() &&
-            !dname.substr(fs+1,6).compare("rtlaio_a2d"))
+            dname.substr(fs+1,6) == "rtlaio_a2d")
                     rtlinux = 1;
         else rtlinux = 0;
     }

@@ -29,7 +29,7 @@ using namespace std;
 CREATOR_FUNCTION(A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    DSMSensor(),rate(IRIG_1_HZ),
+    DSMSensor(), sampleId(0),rate(IRIG_1_HZ),
     DEGC_PER_CNT(0.0625)
 {
 }
@@ -71,10 +71,11 @@ float A2DBoardTempSensor::getTemp() throw(atdUtil::IOException)
 
 void A2DBoardTempSensor::init() throw(atdUtil::InvalidParameterException)
 {
-    const vector<const SampleTag*>& stags = getSampleTags();
-    if (stags.size() == 1) {
-        sampleId = stags[0]->getId();
-	rate = irigClockRateToEnum((int)stags[0]->getRate());
+    for (SampleTagIterator ti = getSampleTagIterator(); ti.hasNext(); ) {
+	const SampleTag* tag = ti.next();
+	rate = irigClockRateToEnum((int)tag->getRate());
+	sampleId = tag->getId();
+	break;
     }
 }
 

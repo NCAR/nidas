@@ -161,7 +161,7 @@ inline sampleType getSampleType(void* ptr)
 
 /**
  * Interface to a sample of raw data.  A sample contains
- * a time_tag, a data length field, a sensor id value, and some data.
+ * a time_tag, a data length field, an id value, and some data.
  */
 class Sample {
 public:
@@ -191,7 +191,7 @@ public:
      * Set the id portion of the sample header. The id can
      * identify the sensor of origin of the sample.
      */
-    virtual void setId(unsigned long val) = 0;
+    virtual void setId(dsm_sample_id_t val) = 0;
 
     /**
      * Get the id portion of the sample header.
@@ -202,23 +202,23 @@ public:
      * Set the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    virtual void setShortId(unsigned short val) = 0;
+    virtual void setShortId(unsigned long val) = 0;
 
     /**
-     * Get the short id portion of the sample header.
+     * Get the long id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    virtual unsigned short getShortId() const = 0;
+    virtual unsigned long getShortId() const = 0;
 
     /**
      * Set the DSM id portion of the sample header.
      */
-    virtual void setDSMId(unsigned short val) = 0;
+    virtual void setDSMId(unsigned long val) = 0;
 
     /**
      * Get the DSM id portion of the sample header.
      */
-    virtual unsigned short getDSMId() const = 0;
+    virtual unsigned long getDSMId() const = 0;
 
     /**
      * Set the type of the sample.
@@ -353,14 +353,14 @@ public:
     /**
      * Get the DSM identifier for the sample.
      */
-    unsigned short getDSMId() const { return GET_DSM_ID(tid); }
-    void setDSMId(unsigned short val) { tid = SET_DSM_ID(tid,val); }
+    unsigned long getDSMId() const { return GET_DSM_ID(tid); }
+    void setDSMId(unsigned long val) { tid = SET_DSM_ID(tid,val); }
 
     /**
-     * Get the short sample identifier for the sample.
+     * Get the long sample identifier for the sample.
      */
-    unsigned short getShortId() const { return GET_SHORT_ID(tid); }
-    void setShortId(unsigned short val) { tid = SET_SHORT_ID(tid,val); }
+    unsigned long getShortId() const { return GET_SHORT_ID(tid); }
+    void setShortId(unsigned long val) { tid = SET_SHORT_ID(tid,val); }
 
     /**
      * Get the data type of this sample.
@@ -416,11 +416,11 @@ public:
     void setId(dsm_sample_id_t val) { header.setId(val); }
     dsm_sample_id_t getId() const { return header.getId(); }
 
-    void setShortId(unsigned short val) { header.setShortId(val); }
-    unsigned short getShortId() const { return header.getShortId(); }
+    void setShortId(unsigned long val) { header.setShortId(val); }
+    unsigned long getShortId() const { return header.getShortId(); }
 
-    void setDSMId(unsigned short val) { header.setDSMId(val); }
-    unsigned short getDSMId() const { return header.getDSMId(); }
+    void setDSMId(unsigned long val) { header.setDSMId(val); }
+    unsigned long getDSMId() const { return header.getDSMId(); }
 
     sampleType getType() const { return getSampleType(data); }
     /**

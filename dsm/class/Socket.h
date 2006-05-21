@@ -55,10 +55,10 @@ public:
 
     Socket* clone() const;
 
-    void requestConnection(ConnectionRequester* service,int pseudoPort)
+    void requestConnection(ConnectionRequester* service)
     	throw(atdUtil::IOException);
 
-    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+    IOChannel* connect() throw(atdUtil::IOException);
 
     virtual bool isNewFile() const { return newFile; }
 
@@ -78,6 +78,24 @@ public:
     {
 	if (socket) return socket->getKeepAliveIdleSecs();
 	return keepAliveIdleSecs;
+    }
+
+    /**
+     * Return getInQueueSize() on underlying socket.
+     */
+    int getInQueueSize() const throw (atdUtil::IOException)
+    {
+	if (socket) return socket->getInQueueSize();
+	return 0;
+    }
+
+    /**
+     * Return getOutQueueSize() on underlying socket.
+     */
+    int getOutQueueSize() const throw (atdUtil::IOException)
+    {
+	if (socket) return socket->getOutQueueSize();
+	return 0;
     }
 
     /**
@@ -163,10 +181,10 @@ public:
 
     ServerSocket* clone() const;
 
-    void requestConnection(ConnectionRequester* service,int pseudoPort)
+    void requestConnection(ConnectionRequester* service)
     	throw(atdUtil::IOException);
 
-    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+    IOChannel* connect() throw(atdUtil::IOException);
 
     const std::string& getName() const { return name; }
 

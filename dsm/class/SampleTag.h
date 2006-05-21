@@ -18,12 +18,16 @@
 #include <DOMable.h>
 #include <Variable.h>
 #include <Sample.h>
+#include <NidsIterators.h>
 
 #include <vector>
 #include <list>
 #include <algorithm>
 
 namespace dsm {
+
+class DSMConfig;
+
 /**
  * Class describing a group of variables that are sampled and
  * handled together.
@@ -76,14 +80,19 @@ public:
     /**
      * Constructor.
      */
-    SampleTag():id(0),sampleId(0),sensorId(0),rate(0.0),processed(true) {}
+    SampleTag();
+
+    /**
+     * Copy constructor.
+     */
+    SampleTag(const SampleTag&);
 
     virtual ~SampleTag();
 
     /**
      * Set the sample portion of the shortId.
      */
-    void setSampleId(unsigned short val) {
+    void setSampleId(unsigned long val) {
 	sampleId = val;
         id = SET_SHORT_ID(id,sensorId + sampleId);
     }
@@ -91,12 +100,12 @@ public:
     /**
      * Get the sample portion of the shortId.
      */
-    unsigned short getSampleId() const { return sampleId; }
+    unsigned long getSampleId() const { return sampleId; }
 
     /**
      * Set the sensor portion of the shortId.
      */
-    void setSensorId(unsigned short val) {
+    void setSensorId(unsigned long val) {
         sensorId = val;
     	id = SET_SHORT_ID(id,sensorId + sampleId);
     }
@@ -104,17 +113,17 @@ public:
     /**
      * Get the sensor portion of the shortId.
      */
-    unsigned short getSensorId() const { return sensorId; }
+    unsigned long getSensorId() const { return sensorId; }
 
     /**
      * Set the DSM portion of the id.
      */
-    void setDSMId(unsigned short val) { id = SET_DSM_ID(id,val); }
+    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the DSM portion of the id.
      */
-    unsigned short  getDSMId() const { return GET_DSM_ID(id); }
+    unsigned long  getDSMId() const { return GET_DSM_ID(id); }
 
     /**
      * Get the 26 bit id, containing the DSM id and the sensor+sample id.
@@ -124,15 +133,25 @@ public:
     /**
      * Get the sensor+sample portion of the id.
      */
-    unsigned short  getShortId() const { return GET_SHORT_ID(id); }
+    unsigned long  getShortId() const { return GET_SHORT_ID(id); }
 
     /**
-     * Suffix, which is added to variable names.
+     * Suffix, which is appended to variable names.
      */
     const std::string& getSuffix() const { return suffix; }
 
     void setSuffix(const std::string& val);
 
+    /**
+     * Station number.
+     */
+    int getStation() const { return station; }
+
+    void setStation(int val);
+
+    const DSMConfig* getDSM() const { return dsm; }
+
+    void setDSM(const DSMConfig* val) { dsm = val; }
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can
      * override this method and throw an InvalidParameterException
@@ -151,6 +170,26 @@ public:
      * an unknown rate.
      */
     virtual float getRate() const { return rate; }
+
+    /**
+     * Set sampling period (1/rate) in sec.
+     * A value of 0.0 means an unknown period.
+     */
+    virtual void setPeriod(float val)
+    	throw(atdUtil::InvalidParameterException)
+    {
+        rate = (val > 0.0) ? 1.0 / val : 0.0;
+    }
+
+    /**
+     * Get sampling period (1/rate) in sec.
+     * A value of 0.0 means an unknown rate.
+     */
+    virtual float getPeriod() const
+    {
+
+	return (rate > 0.0) ?  1.0 / rate : 0.0;
+    }
 
     /**
      * Set if this sample is going to be post processed.
@@ -181,6 +220,29 @@ public:
     const std::vector<const Variable*>& getVariables() const;
 
     /**
+     * Provide a reference to a variable - allowing one to modify it.
+     */
+    Variable& getVariable(int i) { return *variables[i]; }
+
+    /**
+     * Add a parameter to this SampleTag. SampleTag
+     * will then own the pointer and will delete it
+     * in its destructor.
+     */
+    void addParameter(Parameter* val)
+    {
+        parameters.push_back(val);
+        constParameters.push_back(val);
+    }
+
+    const std::list<const Parameter*>& getParameters() const
+    {
+        return constParameters;
+    }
+
+    const Parameter* getParameter(const std::string& name) const;
+
+    /**
      * What is the index of a Variable in this SampleTag.
      * @return -1: 'tain't here
      */
@@ -190,6 +252,21 @@ public:
 	    std::find(constVariables.begin(),constVariables.end(),var);
         return (vi == constVariables.end() ? -1 : vi - constVariables.begin());
     }
+
+    /**
+     * Utility function to expand ${TOKEN} fields in a string.
+     * Here in the SampleTag is a strange place for it,
+     * but the fields may be associated with a SampleTag,
+     * like ${DSM} to get the DSM name.
+     */
+    std::string expandString(const std::string& input) const;
+
+    /**
+     * Utility function to get the value of a token.
+     */
+    std::string getTokenValue(const std::string& token) const;
+
+    VariableIterator getVariableIterator() const;
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(atdUtil::InvalidParameterException);
@@ -217,25 +294,45 @@ protected:
      * can't keep track of the sensor and sample portions of the
      * shortID.
      */
-    void setShortId(unsigned short val) { id = SET_SHORT_ID(id,val); }
+    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
+
+private:
 
     dsm_sample_id_t id;
 
-    unsigned short sampleId;
+    unsigned long sampleId;
 
-    unsigned short sensorId;
+    unsigned long sensorId;
 
     std::string suffix;
+
+    int station;
 
     float rate;
 
     bool processed;
 
+    const DSMConfig* dsm;
+
     std::vector<const Variable*> constVariables;
 
     std::vector<Variable*> variables;
 
+    std::vector<std::string> variableNames;
+
     std::string scanfFormat;
+
+    /**
+     * List of pointers to Parameters.
+     */
+    std::list<Parameter*> parameters;
+
+    /**
+     * List of const pointers to Parameters for providing via
+     * getParameters().
+     */
+    std::list<const Parameter*> constParameters;
+
 };
 
 }

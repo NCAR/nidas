@@ -21,20 +21,6 @@
 #include <atdUtil/IOException.h>
 #include <atdUtil/InvalidParameterException.h>
 
-#ifdef NEEDED
-#include <SampleClient.h>
-#include <SampleSource.h>
-#include <RawSampleSource.h>
-#include <SampleTag.h>
-#include <DOMable.h>
-
-#include <string>
-#include <list>
-
-#include <fcntl.h>
-#endif
-
-
 namespace dsm {
 
 class DSMSensor;

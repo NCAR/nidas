@@ -57,7 +57,7 @@ LETTER	[a-zA-Z]
 %}
 	currentField->length = 1;
 
-\%\%		;	/* two parenthesis */
+\%\%		;	/* two percent signs */
 
 \%{DIGIT}*lf	{ return(DOUBLE); }
 \%\*{DIGIT}*lf	;	/* %*lf means skip field */
@@ -123,7 +123,7 @@ LETTER	[a-zA-Z]
 AsciiSscanf::AsciiSscanf(): 
 	MAX_OUTPUT_VALUES(60),charfmt(0),allFloats(true),
 	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
-	sampleId(0)
+	sampleTag(0)
 {
     for (int i = 0; i < MAX_OUTPUT_VALUES; i++)
     	bufptrs[i] = 0;

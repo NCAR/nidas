@@ -98,18 +98,19 @@ arm_env.AppendUnique(LIBPATH =
 ##
 arm_env.AppendUnique(RPATH = 
     Split("""
-	/var/tmp/lib
+	/usr/local/lib
 	$PREFIX/lib
     """)
 )
 
-arm_env.Replace(AR	= '/opt/arm_tools/bin/arm-linux-ar')
-arm_env.Replace(AS	= '/opt/arm_tools/bin/arm-linux-as')
-arm_env.Replace(CC	= '/opt/arm_tools/bin/arm-linux-gcc')
-arm_env.Replace(CXX	= '/opt/arm_tools/bin/arm-linux-g++')
-arm_env.Replace(LINK	= '/opt/arm_tools/bin/arm-linux-g++')
-arm_env.Replace(RANLIB	= '/opt/arm_tools/bin/arm-linux-ranlib')
-arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
+arm_env.Replace(AR	= 'arm-linux-ar')
+arm_env.Replace(AS	= 'arm-linux-as')
+arm_env.Replace(CC	= 'arm-linux-gcc')
+arm_env.Replace(CXX	= 'arm-linux-g++')
+arm_env.Replace(LINK	= 'arm-linux-g++')
+arm_env.Replace(RANLIB	= 'arm-linux-ranlib')
+arm_env.Replace(LEX	= 'flex++')
+## arm_env.Replace(LEX	= '/opt/arm_tools/arm-linux/bin/flex++')
 
 
 ##

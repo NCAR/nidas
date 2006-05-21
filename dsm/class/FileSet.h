@@ -17,6 +17,7 @@
 #define DSM_FILESET_H
 
 #include <IOChannel.h>
+#include <DSMConfig.h>
 #include <ConnectionRequester.h>
 #include <dsm_sample.h>
 #include <FsMount.h>
@@ -34,7 +35,13 @@ class FileSet: public IOChannel, public atdUtil::FileSet {
 
 public:
 
-    FileSet():IOChannel(),atdUtil::FileSet(),mount(0) {}
+    FileSet():IOChannel(),atdUtil::FileSet(),requester(0),mount(0) {}
+
+    /**
+     * Copy constructor.
+     */
+    FileSet(const FileSet& x):
+    	IOChannel(x),atdUtil::FileSet(x),requester(0),mount(x.mount) {}
 
     ~FileSet() { delete mount; }
 
@@ -44,14 +51,10 @@ public:
 
     void setFileName(const std::string& val);
 
-    std::string expandString(const std::string& input);
-
-    std::string getTokenValue(const std::string& name);
-
-    void requestConnection(ConnectionRequester* requester,int pseudoPort)
+    void requestConnection(ConnectionRequester* requester)
     	throw(atdUtil::IOException);
 
-    IOChannel* connect(int pseudoPort) throw(atdUtil::IOException);
+    IOChannel* connect() throw(atdUtil::IOException);
 
     /**
      * FileSet will own the FsMount.
@@ -59,9 +62,22 @@ public:
     void setMount(FsMount* val) { mount = val; }
 
     /**
+     * This method is called by FsMount when it is done.
+     */
+    void mounted();
+
+    /**
      * Clone myself.
      */
-    FileSet* clone() const { return new FileSet(*this); }
+    FileSet* clone() const
+    {
+        return new FileSet(*this);
+    }
+
+    /**
+     * Search for the dsm corresponding to the first of my sample tags.
+     */
+    const DSMConfig* firstDSM();
 
     dsm_time_t createFile(dsm_time_t t,bool exact)
 	throw(atdUtil::IOException);
@@ -79,10 +95,7 @@ public:
         return atdUtil::FileSet::write(buf,len);
     }
         
-    void close() throw(atdUtil::IOException)
-    {
-        atdUtil::FileSet::closeFile();
-    }
+    void close() throw(atdUtil::IOException);
 
     int getFd() const { return atdUtil::FileSet::getFd(); }
         
@@ -94,7 +107,7 @@ public:
 
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
-    
+
 protected:
 
     /**
@@ -104,6 +117,8 @@ protected:
     void setName(const std::string& val);
 
     std::string name;
+
+    ConnectionRequester* requester;
 
     FsMount* mount;
 

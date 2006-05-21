@@ -92,6 +92,7 @@ XMLParser::XMLParser() throw (dsm::XMLException)
     catch (const DOMException& e) {
         throw dsm::XMLException(e);
     }
+    setXercesUserAdoptsDOMDocument(true);
 
     // Create our error handler and install it
     parser->setErrorHandler(&errorHandler);

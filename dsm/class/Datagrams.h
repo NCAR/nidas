@@ -16,7 +16,7 @@
 #ifndef DSM_DATAGRAMS_H
 #define DSM_DATAGRAMS_H
 
-#define DSM_MULTICAST_PORT        30000
+#define DSM_SVC_REQUEST_PORT	  30000
 #define DSM_MULTICAST_STATUS_PORT 30001
 #define RSERIAL_PORT    	  30002 // DSMServerIntf.cc
 #define ADS_XMLRPC_PORT           30003 // DSMServerIntf.cc
@@ -30,8 +30,7 @@ namespace dsm {
 
 typedef enum datagramTypes {
     XML_CONFIG,
-    RAW_SAMPLE,
-    SYNC_RECORD,
+    RAW_SAMPLE
 } datagramType_t;
 
 }

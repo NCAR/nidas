@@ -23,6 +23,10 @@
 
 #include <Sample.h>
 
+#ifndef SECS_PER_DAY
+#define SECS_PER_DAY 86400
+#endif
+
 #ifndef MSECS_PER_DAY
 #define MSECS_PER_DAY 86400000
 #define MSECS_PER_HALF_DAY 43200000

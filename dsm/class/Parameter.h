@@ -35,6 +35,8 @@ public:
 
     typedef enum parType parType;
 
+    virtual void assign(const Parameter&) = 0;
+
     virtual ~Parameter() {}
 
     virtual Parameter* clone() const = 0;
@@ -69,6 +71,7 @@ protected:
     std::string name;
 
     parType type;
+
 
 };
 
@@ -107,6 +110,11 @@ public:
 
     ParameterT* clone() const;
 
+    /**
+     * A virtual assignment operator.
+     */
+    void assign(const Parameter& x);
+
     int getLength() const { return values.size(); }
 
     const std::vector<T> getValues() const { return values; }
@@ -144,6 +152,22 @@ protected:
     std::vector<T> values;
 
 };
+
+/**
+ * Functor class for Parameter, doing an equality check of
+ * parameter name and type. Can be used with find_if.
+ */
+class ParameterNameTypeComparator {
+public:
+    ParameterNameTypeComparator(const Parameter* param):p(param) {}
+    bool operator()(const Parameter* x) const {
+        return x->getName() == p->getName() &&
+                x->getType() == p->getType();
+    }
+private:
+    const Parameter* p;
+};
+
 
 
 }

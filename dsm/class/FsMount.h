@@ -16,6 +16,7 @@
 #ifndef DSM_FSMOUNT_H
 #define DSM_FSMOUNT_H
 
+#include <atdUtil/Thread.h>
 #include <atdUtil/IOException.h>
 
 #include <DOMable.h>
@@ -27,6 +28,9 @@
 
 namespace dsm {
 
+class FileSet;
+class FsMountWorkerThread;
+
 /**
  * Filesystem mounter/unmounter.
  */
@@ -35,6 +39,10 @@ class FsMount : public DOMable {
 public:
 
     FsMount();
+
+    FsMount(const FsMount& x):
+    	dir(x.dir),device(x.device),type(x.type),
+	options(x.options),fileset(0),worker(0) {}
 
     void setDir(const std::string& val)
     {
@@ -69,9 +77,22 @@ public:
      */
     bool isMounted();
 
+    /**
+     * Synchronous mount request (on return the file system is mounted).
+     */
     void mount() throw(atdUtil::IOException);
 
+    /**
+     * Asynchronous mount request. finished() method will
+     * be called when mount is done.
+     */
+    void mount(FileSet*);
+
     void unmount() throw(atdUtil::IOException);
+
+    void cancel();
+
+    void finished();
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(atdUtil::InvalidParameterException);
@@ -92,6 +113,25 @@ protected:
  
     std::string options;
 
+    FileSet* fileset;
+
+    FsMountWorkerThread* worker;
+
+    atdUtil::Mutex workerLock;
+
+};
+
+/**
+ * Filesystem mounter/unmounter.
+ */
+class FsMountWorkerThread : public atdUtil::Thread
+{
+public:
+    FsMountWorkerThread(FsMount* fsm);
+    int run() throw(atdUtil::Exception);
+
+private:
+    FsMount* fsmount;
 };
 
 }

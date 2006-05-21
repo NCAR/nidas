@@ -44,6 +44,9 @@ IOChannel* IOChannel::createIOChannel(const DOMElement* node)
     else if (!type.compare("postgresdb"))
     	domable = DOMObjectFactory::createObject("PSQLChannel");
 
+    else if (!type.compare("ncserver"))
+    	domable = DOMObjectFactory::createObject("NcServerRPC");
+
     else throw atdUtil::InvalidParameterException(
 	    "IOChannel::fromIOChannelDOMElement","unknown element",type);
 

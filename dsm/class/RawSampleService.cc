@@ -17,6 +17,8 @@
 #include <RawSampleService.h>
 #include <DOMObjectFactory.h>
 #include <Aircraft.h>
+#include <Project.h>
+#include <DSMServer.h>
 
 #include <atdUtil/Logger.h>
 
@@ -27,7 +29,7 @@ using namespace xercesc;
 CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
-	DSMService("RawSampleService"),input(0),merger(0)
+	DSMService("RawSampleService"),merger(0)
 {
 }
 
@@ -36,8 +38,7 @@ RawSampleService::RawSampleService():
  * RawSampleService when an input has connected.
  */
 RawSampleService::RawSampleService(const RawSampleService& x,
-	SampleInputStream* newinput):
-	DSMService((const DSMService&)x),input(newinput),
+	SampleInputStream* newinput): DSMService(x,newinput),
 	merger(0)
 {
     // loop over x's processors
@@ -47,7 +48,7 @@ RawSampleService::RawSampleService(const RawSampleService& x,
         SampleIOProcessor* xproc = *oi;
 
 	// We don't clone non-single DSM processors.
-	if (xproc->singleDSM()) {
+	if (!xproc->isOptional() && xproc->singleDSM()) {
 	    // clone processor
 	    SampleIOProcessor* proc = xproc->clone();
 	    addProcessor(proc);
@@ -63,26 +64,12 @@ RawSampleService::~RawSampleService()
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	// cerr << "~RawSampleService, disconnecting proc " << proc->getName() << endl;
-	if (!proc->singleDSM() && merger) proc->disconnect(merger);
-	else if (input) proc->disconnect(input);
+	if (!proc->isOptional()) {
+	    if (!proc->singleDSM() && merger) proc->disconnect(merger);
+	    else if (input) proc->disconnect(input);
+	}
     }
 
-    if (input) {
-	// cerr << "~RawSampleService, closing " << input->getName() << endl;
-        input->close();
-	delete input;
-    }
-#ifdef DEBUG
-    cerr << "~RawSampleService, deleting processors" << endl;
-#endif
-    for (pi = processors.begin(); pi != processors.end(); ++pi) {
-        SampleIOProcessor* processor = *pi;
-#ifdef DEBUG
-	cerr << "~RawSampleService, deleting " <<
-	    processor->getName() << endl;
-#endif
-	delete processor;
-    }
     delete merger;
     // cerr << "~RawSampleService done" << endl;
 }
@@ -93,17 +80,20 @@ RawSampleService::~RawSampleService()
  */
 void RawSampleService::schedule() throw(atdUtil::Exception)
 {
-    cerr << "RawSampleService::schedule, dsms.size=" <<
-    	getDSMConfigs().size() << endl;
-
+    DSMServer* server = getDSMServer();
     merger = new SampleInputMerger;
-    merger->setDSMConfigs(getDSMConfigs());
+
+    SensorIterator si = server->getSensorIterator();
+    for ( ; si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+	merger->addSampleTag(sensor->getRawSampleTag());
+    }
 
     // Connect non-single DSM processors to merger
     list<SampleIOProcessor*>::const_iterator oi;
     for (oi = processors.begin(); oi != processors.end(); ++oi) {
         SampleIOProcessor* processor = *oi;
-	if (!processor->singleDSM()) {
+	if (!processor->isOptional() && !processor->singleDSM()) {
 	    try {
 		processor->connect(merger);
 	    }
@@ -144,7 +134,7 @@ void RawSampleService::connected(SampleInput* newinput) throw()
     assert(newstream);
 
     atdUtil::Inet4Address remoteAddr = newstream->getRemoteInet4Address();
-    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
+    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
     if (!dsm) {
 	atdUtil::Logger::getInstance()->log(LOG_WARNING,
@@ -158,8 +148,6 @@ void RawSampleService::connected(SampleInput* newinput) throw()
 	newstream->getName().c_str(),dsm->getName().c_str(),
 	getName().c_str());
 
-    newstream->addDSMConfig(dsm);
-	    
     // If this is a new input make a copy of myself.
     // The copy will own the input.
     if (newstream != input) {
@@ -194,7 +182,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
 
     // Figure out what DSM it came from. Not necessary, just for info.
     atdUtil::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
-    const DSMConfig* dsm = getSite()->findDSM(remoteAddr);
+    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
     cerr << "RawSampleService::disconnected, dsm=" << dsm << 
     	" getDSMConfig()=" << getDSMConfig() << endl;
@@ -231,13 +219,14 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
     for (pi = service->getProcessors().begin();
     	pi != service->getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	proc->disconnect(inputx);
+	if (!proc->isOptional()) proc->disconnect(inputx);
     }
 
     // non-single DSM processors
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	if (!proc->singleDSM()) proc->disconnect(merger);
+	if (!proc->isOptional() && !proc->singleDSM())
+		proc->disconnect(merger);
     }
 
     try {
@@ -262,6 +251,7 @@ int RawSampleService::run() throw(atdUtil::Exception)
     for (pi = processors.begin(); pi != processors.end();
     	++pi) {
         SampleIOProcessor* processor = *pi;
+	if (processor->isOptional()) continue;
 	try {
 	    processor->connect(input);
 	}
@@ -297,6 +287,7 @@ int RawSampleService::run() throw(atdUtil::Exception)
 	list<SampleIOProcessor*>::const_iterator pi;
 	for (pi = processors.begin(); pi != processors.end(); ++pi) {
 	    SampleIOProcessor* processor = *pi;
+	    if (processor->isOptional()) continue;
 	    cerr << getName() << " calling disconnect of " << input->getName() <<
 	    	" on " << processor->getName() << endl;
 	    processor->disconnect(input);
@@ -320,85 +311,19 @@ void RawSampleService::fromDOMElement(const DOMElement* node)
 	throw(atdUtil::InvalidParameterException)
 {
 
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-        // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const string& aname = attr.getName();
-            const string& aval = attr.getValue();
-        }
-    }
+    DSMService::fromDOMElement(node);
 
-    // process <input> and <processor> child elements
-    xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-	DOMable* domable;
-        if (!elname.compare("input")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		    "RawSampleService::fromDOMElement",
-		    elname, "class not specified");
-            try {
-                domable = DOMObjectFactory::createObject(classattr);
-            }
-            catch (const atdUtil::Exception& e) {
-                throw atdUtil::InvalidParameterException("service",
-                    classattr,e.what());
-            }
-	    input = dynamic_cast<RawSampleInputStream*>(domable);
-            if (!input) {
-		delete domable;
-                throw atdUtil::InvalidParameterException("service",
-                    classattr,"is not a RawSampleInputStream");
-	    }
-            input->fromDOMElement((DOMElement*)child);
-	}
-        else if (!elname.compare("processor")) {
-	    const string& classattr = xchild.getAttributeValue("class");
-	    if (classattr.length() == 0)
-		throw atdUtil::InvalidParameterException(
-		    "RawSampleService::fromDOMElement",
-		    elname, "class not specified");
-            try {
-                domable = DOMObjectFactory::createObject(classattr);
-            }
-            catch (const atdUtil::Exception& e) {
-                atdUtil::InvalidParameterException ipe("service",
-                    classattr,e.what());
-		atdUtil::Logger::getInstance()->log(LOG_WARNING,"%s",ipe.what());
-		continue;
-            }
-	    SampleIOProcessor* processor = dynamic_cast<SampleIOProcessor*>(domable);
-            if (!processor) {
-		delete domable;
-                throw atdUtil::InvalidParameterException("service",
-                    classattr,"is not of type SampleIOProcessor");
-	    }
-            processor->fromDOMElement((DOMElement*)child);
-	    addProcessor(processor);
-        }
-        else throw atdUtil::InvalidParameterException(
-                "RawSampleService::fromDOMElement",
-                elname, "unsupported element");
+    if (!dynamic_cast<RawSampleInputStream*>(input)) {
+	string iname = input->getName();
+	delete input;
+	throw atdUtil::InvalidParameterException("input",
+	    iname,"is not a RawSampleInputStream");
     }
-    if (!input)
-        throw atdUtil::InvalidParameterException(
-                "RawSampleService::fromDOMElement",
-                "input", "no inputs specified");
-    if (processors.size() == 0)
-        throw atdUtil::InvalidParameterException(
-                "RawSampleService::fromDOMElement",
-                "processor", "no processors specified");
+    SensorIterator si = getDSMServer()->getSensorIterator();
+    for ( ; si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+	input->addSampleTag(sensor->getRawSampleTag());
+    }
 }
 
 DOMElement* RawSampleService::toDOMParent(

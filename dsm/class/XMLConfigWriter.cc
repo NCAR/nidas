@@ -79,22 +79,24 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 	return DOMNodeFilter::FILTER_REJECT;
     }
 
-    if (!xnode.getNodeName().compare("aircraft")) {
-	// scan dsms of this aircraft. If we find a matching dsm
-	// then pass this aircraft node on
+    string nodename = xnode.getNodeName();
+
+    if (!nodename.compare("aircraft") || !nodename.compare("site")) {
+	// scan dsms of this aircraft/site. If we find a matching dsm
+	// then pass this aircraft/site node on
 	DOMNode* child;
 	for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
 	{
 	    if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	    XDOMElement xchild((DOMElement*) child);
-	    const string& elname = xchild.getNodeName();
-	    // cerr << "element name=" << elname << endl;
-	    if (!elname.compare("dsm") && acceptDSMNode(node))
+	    if (!xchild.getNodeName().compare("dsm") &&
+	    	acceptDSMNode(child) == DOMNodeFilter::FILTER_ACCEPT)
 	    	return DOMNodeFilter::FILTER_ACCEPT;
 	}
-	// dsm not found for this aircraft
-	cerr << "rejecting aircraft node, name=" << xnode.getAttributeValue("name") << endl;
+	// dsm not found for this aircraft/site
+	cerr << "rejecting " << nodename << " node, name=" <<
+		xnode.getAttributeValue("name") << endl;
 	return DOMNodeFilter::FILTER_REJECT;
     }
     else if (!xnode.getNodeName().compare("dsm"))
@@ -112,20 +114,12 @@ short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const
     if(!node->hasAttributes()) 
 	return DOMNodeFilter::FILTER_REJECT;	// no attribute
 
-    DOMNamedNodeMap *pAttributes = node->getAttributes();
-    int nSize = pAttributes->getLength();
-    for(int i=0;i<nSize;++i) {
-	XDOMAttr attr((DOMAttr*) pAttributes->item(i));
-	// get attribute name
-	const string& aname = attr.getName();
-	const string& aval = attr.getValue();
-	if (!aname.compare("name") && !aval.compare(dsm->getName())) {
-	    cerr << "accepting dsm node, name=" <<
-	    	xnode.getAttributeValue("name") << endl;
-		return DOMNodeFilter::FILTER_ACCEPT;	// match!
-	}
+    const string& dsmName = xnode.getAttributeValue("name");
+    if (!dsmName.compare(dsm->getName())) {
+	cerr << "accepting dsm node, name=" << dsmName << endl;
+	return DOMNodeFilter::FILTER_ACCEPT;
     }
-    cerr << "rejecting dsm node, name=" << xnode.getAttributeValue("name") << endl;
+    cerr << "rejecting dsm node, name=" << dsmName << endl;
     return DOMNodeFilter::FILTER_REJECT;	// no match
 }
 

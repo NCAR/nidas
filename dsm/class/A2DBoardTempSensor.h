@@ -61,7 +61,7 @@ public:
      */
     float getTemp() throw(atdUtil::IOException);
 
-protected:
+private:
 
     dsm_sample_id_t sampleId;
 

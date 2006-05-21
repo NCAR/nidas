@@ -16,6 +16,7 @@
 #include <dsm_serial_fifo.h>
 #include <dsm_serial.h>
 #include <DSMSerialSensor.h>
+#include <Looper.h>
 
 #include <atdUtil/Logger.h>
 
@@ -31,12 +32,14 @@ using namespace xercesc;
 
 CREATOR_FUNCTION(DSMSerialSensor)
 
-DSMSerialSensor::DSMSerialSensor():prompting(false)
+DSMSerialSensor::DSMSerialSensor():prompting(false),cPromptString(0),
+	cPromptStringLen(0)
 {
 }
 
 DSMSerialSensor::~DSMSerialSensor()
 {
+    delete [] cPromptString;
 }
 
 SampleScanner* DSMSerialSensor::buildSampleScanner()
@@ -184,7 +187,33 @@ void DSMSerialSensor::unixDevInit(int flags)
     else fres = ::tcflush(getReadFd(),TCIOFLUSH);
     if (fres < 0) throw atdUtil::IOException(getName(),"tcflush",errno);
 
-    // need to support prompting.
+    if (isPrompted()) {
+	string nprompt =
+		DSMSensor::replaceBackslashSequences(getPromptString());
+
+	cPromptStringLen = nprompt.length();
+	delete [] cPromptString;
+	cPromptString = new char[cPromptStringLen + 1];
+	strcpy(cPromptString,nprompt.c_str());
+
+	promptPeriodMsec = (int) rint(1000.0 / getPromptRate());
+
+	cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
+
+	startPrompting();
+    }
+}
+
+void DSMSerialSensor::looperNotify() throw()
+{
+    try {
+	write(cPromptString,cPromptStringLen);
+    }
+    catch(const atdUtil::IOException& e) {
+	atdUtil::Logger::getInstance()->log(LOG_ERR,
+	    "%s: write prompt: %s",getName().c_str(),
+	    e.what());
+    }
 }
 
 void DSMSerialSensor::close() throw(atdUtil::IOException)
@@ -199,7 +228,8 @@ void DSMSerialSensor::close() throw(atdUtil::IOException)
 void DSMSerialSensor::startPrompting() throw(atdUtil::IOException)
 {
     if (isPrompted()) {
-	ioctl(DSMSER_START_PROMPTER,0,0);
+	if (isRTLinux()) ioctl(DSMSER_START_PROMPTER,0,0);
+	else Looper::getInstance()->addClient(this,promptPeriodMsec);
 	prompting = true;
     }
 }
@@ -207,7 +237,8 @@ void DSMSerialSensor::startPrompting() throw(atdUtil::IOException)
 void DSMSerialSensor::stopPrompting() throw(atdUtil::IOException)
 {
     if (isPrompted()) {
-	ioctl(DSMSER_STOP_PROMPTER,0,0);
+	if (isRTLinux()) ioctl(DSMSER_STOP_PROMPTER,0,0);
+	else Looper::getInstance()->removeClient(this);
 	prompting = false;
     }
 }
@@ -266,12 +297,12 @@ void DSMSerialSensor::fromDOMElement(
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
 
-	    if (!aname.compare("ID"));
-	    else if (!aname.compare("IDREF"));
-	    else if (!aname.compare("class"));
-	    else if (!aname.compare("devicename"));
-	    else if (!aname.compare("id"));
-	    else if (!aname.compare("baud")) {
+	    if (aname == "ID");
+	    else if (aname == "IDREF");
+	    else if (aname == "class");
+	    else if (aname == "devicename");
+	    else if (aname == "id");
+	    else if (aname == "baud") {
 		istringstream ist(aval);
 		int val;
 		ist >> val;
@@ -280,15 +311,15 @@ void DSMSerialSensor::fromDOMElement(
 		    	string("DSMSerialSensor:") + getName(),
 			aname,aval);
 	    }
-	    else if (!aname.compare("parity")) {
-		if (!aval.compare("odd")) setParity(ODD);
-		else if (!aval.compare("even")) setParity(EVEN);
-		else if (!aval.compare("none")) setParity(NONE);
+	    else if (aname == "parity") {
+		if (aval == "odd") setParity(ODD);
+		else if (aval == "even") setParity(EVEN);
+		else if (aval == "none") setParity(NONE);
 		else throw atdUtil::InvalidParameterException(
 		    string("DSMSerialSensor:") + getName(),
 		    aname,aval);
 	    }
-	    else if (!aname.compare("databits")) {
+	    else if (aname == "databits") {
 		istringstream ist(aval);
 		int val;
 		ist >> val;
@@ -298,7 +329,7 @@ void DSMSerialSensor::fromDOMElement(
 		    	aname, aval);
 		setDataBits(val);
 	    }
-	    else if (!aname.compare("stopbits")) {
+	    else if (aname == "stopbits") {
 		istringstream ist(aval);
 		int val;
 		ist >> val;
@@ -308,9 +339,11 @@ void DSMSerialSensor::fromDOMElement(
 		    	aname, aval);
 		setStopBits(val);
 	    }
-	    else if (!aname.compare("nullterm"));
-	    else if (!aname.compare("init_string"));
-	    else if (!aname.compare("suffix"));
+	    else if (aname == "nullterm");
+	    else if (aname == "init_string");
+	    else if (aname == "suffix");
+	    else if (aname == "height");
+	    else if (aname == "depth");
 	    else throw atdUtil::InvalidParameterException(
 		string("DSMSerialSensor:") + getName(),
 		"unknown attribute",aname);
@@ -326,9 +359,10 @@ void DSMSerialSensor::fromDOMElement(
 	XDOMElement xchild((DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-	if (!elname.compare("message"));
-	else if (!elname.compare("prompt"));
-	else if (!elname.compare("sample"));
+	if (elname == "message");
+	else if (elname == "prompt");
+	else if (elname == "sample");
+	else if (elname == "parameter");
 	else throw atdUtil::InvalidParameterException(
 	    string("DSMSerialSensor:") + getName(),
 	    "unknown element",elname);

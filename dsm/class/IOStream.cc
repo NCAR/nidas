@@ -25,7 +25,7 @@ using namespace std;
 
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	iochannel(iochan),buflen(blen),maxUsecs(USECS_PER_SEC/4),newFile(true)
+	iochannel(iochan),buflen(blen),maxUsecs(USECS_PER_SEC/4),newFile(true),nbytes(0)
 {
     buffer = new char[buflen * 2];
     eob = buffer + buflen * 2;
@@ -86,6 +86,7 @@ size_t IOStream::read(void* buf, size_t len) throw(atdUtil::IOException)
     if (len < l) l = len;
     memcpy(buf,tail,l);
     tail += l;
+    nbytes += l;
     return l;
 }
 
@@ -98,6 +99,7 @@ size_t IOStream::putback(const void* buf, size_t len) throw()
     if (space < len) len = space;
     memcpy(tail - len,buf,len);
     tail -= len;
+    nbytes -= len;
     return len;
 }
 

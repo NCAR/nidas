@@ -265,13 +265,23 @@ int SyncServer::run() throw()
 	if (!site) throw atdUtil::InvalidParameterException("site",aircraft,
 		"not found");
 
-	const list<DSMConfig*>& dsms = site->getDSMConfigs();
-	input.setDSMConfigs(dsms);
+	set<DSMSensor*> sensors;
+	SampleTagIterator ti = site->getSampleTagIterator();
+	for ( ; ti.hasNext(); ) {
+	    const SampleTag* stag = ti.next();
+	    input.addSampleTag(stag);
 
-	list<DSMConfig*>::const_iterator di;
-	for (di = dsms.begin(); di != dsms.end(); ++di) {
-	    DSMConfig* dsm = *di;
-	    dsm->initSensors();
+	    DSMSensor* sensor = site->findSensor(stag->getId());
+	    if (!sensor) {
+	        cerr << "sensor with dsm id=" << stag->getDSMId() <<
+		", sensor id=" << stag->getSensorId() << " not found" << endl;
+		continue;
+	    }
+	    set<DSMSensor*>::const_iterator si = sensors.find(sensor);
+	    if (si == sensors.end()) {
+	        sensors.insert(sensor);
+		sensor->init();
+	    }
 	}
 
 	SyncRecordGenerator syncGen;
@@ -316,7 +326,7 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     try {
 	Sample* samp = input.readSample();
 	dsm_time_t tt = samp->getTimeTag();
-	syncGen.sendHeader(tt,output->getIOStream());
+	syncGen.sendHeader(tt,output);
 	input.distribute(samp);
 	samp->freeReference();
 
@@ -383,7 +393,7 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 
     Sample* samp = input.readSample();
     dsm_time_t tt = samp->getTimeTag();
-    syncGen.sendHeader(tt,output->getIOStream());
+    syncGen.sendHeader(tt,output);
     input.distribute(samp);
     samp->freeReference();
 

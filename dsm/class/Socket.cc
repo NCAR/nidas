@@ -83,7 +83,7 @@ atdUtil::Inet4Address Socket::getRemoteInet4Address() const throw()
 }
 
 
-IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
+IOChannel* Socket::connect() throw(atdUtil::IOException)
 {
     atdUtil::Socket* waitsock = new atdUtil::Socket();
     waitsock->connect(*remoteSockAddr.get());
@@ -91,8 +91,8 @@ IOChannel* Socket::connect(int pseudoPort) throw(atdUtil::IOException)
     return new dsm::Socket(waitsock);
 }
 
-void Socket::requestConnection(ConnectionRequester* requester,
-	int pseudoPort) throw(atdUtil::IOException)
+void Socket::requestConnection(ConnectionRequester* requester)
+	throw(atdUtil::IOException)
 {
     atdUtil::Socket* waitsock = new atdUtil::Socket();
     waitsock->connect(*remoteSockAddr.get());
@@ -145,7 +145,7 @@ ServerSocket* ServerSocket::clone() const
     return new ServerSocket(*this);
 }
 
-IOChannel* ServerSocket::connect(int pseudoPort) throw(atdUtil::IOException)
+IOChannel* ServerSocket::connect() throw(atdUtil::IOException)
 {
     if (!servSock) servSock= new atdUtil::ServerSocket(port);
     atdUtil::Socket* newsock = servSock->accept();
@@ -153,8 +153,8 @@ IOChannel* ServerSocket::connect(int pseudoPort) throw(atdUtil::IOException)
     return new dsm::Socket(newsock);
 }
 
-void ServerSocket::requestConnection(ConnectionRequester* requester,
-	int pseudoPort) throw(atdUtil::IOException)
+void ServerSocket::requestConnection(ConnectionRequester* requester)
+	throw(atdUtil::IOException)
 {
     connectionRequester = requester;
     if (!servSock) servSock= new atdUtil::ServerSocket(port);
@@ -192,7 +192,8 @@ IOChannel* Socket::createSocket(const DOMElement* node)
     XDOMElement xnode(node);
     const string& type = xnode.getAttributeValue("type");
 
-    if (!type.compare("mcaccept") || !type.compare("mcrequest"))
+    if (!type.compare("mcaccept") || !type.compare("mcrequest") ||
+	!type.compare("dgaccept") || !type.compare("dgrequest"))
     	channel = new McSocket();
     else if (!type.compare("server"))
     	channel = new ServerSocket();

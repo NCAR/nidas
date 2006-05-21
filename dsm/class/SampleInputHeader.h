@@ -26,7 +26,7 @@ public:
 
     void check(IOStream* iostream) throw(atdUtil::IOException);
 
-    void write(IOStream* iostream) throw(atdUtil::IOException);
+    void write(SampleOutput* output) throw(atdUtil::IOException);
 
     void setArchiveVersion(const std::string& val) { archiveVersion = val; }
     const std::string& getArchiveVersion() const { return archiveVersion; }
@@ -43,8 +43,11 @@ public:
     void setProjectName(const std::string& val) { projectName = val; }
     const std::string& getProjectName() const { return projectName; }
 
-    void setSiteName(const std::string& val) { siteName = val; }
-    const std::string& getSiteName() const { return siteName; }
+    void setSiteName(const std::string& val) { systemName = val; }
+    const std::string& getSiteName() const { return systemName; }
+
+    void setSystemName(const std::string& val) { systemName = val; }
+    const std::string& getSystemName() const { return systemName; }
 
     void setObsPeriodName(const std::string& val) { obsPeriodName = val; }
     const std::string& getObsPeriodName() const { return obsPeriodName; }
@@ -67,6 +70,8 @@ protected:
 	 */
 	const std::string& (SampleInputHeader::* getFunc)() const;
 
+	bool obsolete;
+
     };
 
     static struct headerField headers[];
@@ -76,7 +81,7 @@ protected:
     std::string xMLName;
     std::string xMLVersion;
     std::string projectName;
-    std::string siteName;
+    std::string systemName;
     std::string obsPeriodName;
 
 };

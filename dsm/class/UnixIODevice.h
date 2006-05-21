@@ -90,7 +90,6 @@ public:
 	ssize_t result;
         if ((result = ::write(fd,buf,len)) < 0)
 		throw atdUtil::IOException(getName(),"write",errno);
-	std::cerr << "wrote " << result << " chars to " << getName() << std::endl;
 	return result;
     }
 

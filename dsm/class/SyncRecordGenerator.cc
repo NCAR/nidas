@@ -67,8 +67,8 @@ void SyncRecordGenerator::disconnect(SampleInput* oldinput)
 
     syncRecSource.disconnect(input);
 
-    list<SampleOutput*>::iterator oi;
-    for (oi = conOutputs.begin(); oi != conOutputs.end(); ++oi) {
+    list<SampleOutput*>::const_iterator oi = getConnectedOutputs().begin();
+    for ( ; oi != getConnectedOutputs().end(); ++oi) {
         SampleOutput* output = *oi;
 	syncRecSource.removeSampleClient(output);
     }
@@ -88,10 +88,10 @@ void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
     SampleIOProcessor::disconnected(output);
 }
 
-void SyncRecordGenerator::sendHeader(dsm_time_t thead,IOStream* iostream)
+void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
 	throw(atdUtil::IOException)
 {
-    SampleConnectionRequester::sendHeader(thead,iostream);
+    SampleConnectionRequester::sendHeader(thead,output);
     syncRecSource.sendHeader(thead);
 }
 

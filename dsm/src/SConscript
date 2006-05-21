@@ -36,8 +36,10 @@ myenv.AppendUnique(LIBS = Split("""
     """))
 
 apps = Split("""
+  nidsmerge.cc
   dsm_server.cc
   dsm.cc
+  statsproc.cc
   serial_test.cc
   sensor_sim.cc
   ck_serial.cc
@@ -53,6 +55,7 @@ apps = Split("""
   psi9116_sim.cc
   cat_nids.cc
   ck_a2d.cc
+  gps_nmea_sysclock.cc
 """)
 
 nodes = []

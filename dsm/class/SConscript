@@ -72,6 +72,18 @@ sources = [ Split("""
   Aircraft.cc
   GroundStation.cc
   DSMConfig.cc
+  DSMSensor.cc
+
+  Sample.cc
+  SamplePool.cc
+  Variable.cc
+  VariableConverter.cc
+  SampleTag.cc
+  Parameter.cc
+
+  SampleSource.cc
+  SampleClientList.cc
+
   SensorCatalog.cc
 
   DSMEngine.cc
@@ -89,10 +101,12 @@ sources = [ Split("""
   SocketIODevice.cc
 
   SampleScanner.cc
+  SampleDater.cc
 
-  DSMSensor.cc
   RTL_DevIoctl.cc
   RTL_DevIoctlStore.cc
+
+  NidsIterators.cc
 
   DSMArincSensor.cc
     ADC_HW_EB7022597.cc
@@ -109,18 +123,13 @@ sources = [ Split("""
   DSC_A2DSensor.cc
   A2DBoardTempSensor.cc
   PSI9116_Sensor.cc
+  SonicAnemometer.cc
+  CSAT3_Sonic.cc
+  CS_Krypton.cc
 
-  Sample.cc
-  SamplePool.cc
-  Variable.cc
-  VariableConverter.cc
-  SampleTag.cc
-  Parameter.cc
+  AdaptiveDespiker.cc
 
   AsciiSscanf.cc
-
-  SampleClientList.cc
-  SampleSourceImpl.cc
 
   SensorOpener.cc
   PortSelector.cc
@@ -142,6 +151,9 @@ sources = [ Split("""
   RawSampleService.cc
 
   SampleSorter.cc
+  NearestResampler.cc
+  StatisticsCruncher.cc
+  StatisticsProcessor.cc
   SyncRecordSource.cc
 
   IOChannel.cc
@@ -150,21 +162,26 @@ sources = [ Split("""
   McSocket.cc
   FileSet.cc
   FsMount.cc
+  NetcdfRPCChannel.cc
+  NetcdfRPCOutput.cc
+  nc_server_rpc_xdr.c
 
   SampleInput.cc
-  SampleOutput.cc
   SampleInputHeader.cc
-  RawSampleOutputStream.cc
   RawSampleInputStream.cc
-  SampleDater.cc
+
+  SampleOutput.cc
+  RawSampleOutputStream.cc
+  AsciiOutput.cc
 
   SampleIOProcessor.cc
   SyncRecordGenerator.cc
   SampleArchiver.cc
-  SampleAverager.cc
   ConnectionRequester.cc
 
   SyncRecordReader.cc
+
+  Looper.cc
 
 """),PSQLSources]
 

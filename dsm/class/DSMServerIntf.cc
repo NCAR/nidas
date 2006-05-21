@@ -15,7 +15,6 @@
 #include <DSMServerIntf.h>
 
 #include <Project.h>
-#include <Site.h>
 #include <Datagrams.h> // defines ADS_XMLRPC_PORT
 
 // #include <atdUtil/Logger.h>
@@ -31,16 +30,12 @@ using namespace XmlRpc;
 
 void GetDsmList::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  Project*                project  = Project::getInstance();
-  const list<Site*>&      sitelist = project->getSites();
-  Site*                   site     = sitelist.front();
-  const list<DSMConfig*>& dsms     = site->getDSMConfigs();
-  list<DSMConfig*>::const_iterator di;
-  for (di = dsms.begin(); di != dsms.end(); ++di) {
-    DSMConfig* dsm = *di;
-    result[dsm->getName()] = dsm->getLocation();
-  }
-  cerr << "GetDsmList::execute " << &result << endl;
+    DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+    for ( ; di.hasNext(); ) {
+	const DSMConfig* dsm = di.next();
+	result[dsm->getName()] = dsm->getLocation();
+    }
+    cerr << "GetDsmList::execute " << &result << endl;
 }
 
 

@@ -89,22 +89,23 @@ int main(int argc, char** argv)
 
 	Site* site = sitelist.front();
 
-	const list<DSMConfig*>& dsms = site->getDSMConfigs();
+	const list<const DSMConfig*>& dsms = site->getDSMConfigs();
 
 	if (!dsms.size()) goto done;
 
-	DSMConfig* dsm = dsms.front();
+	const DSMConfig* dsm = dsms.front();
 
 	const list<DSMSensor*>& sensors = dsm->getSensors();
 
 	list<DSMSensor*>::const_iterator si;
 
 	for (si = sensors.begin(); si != sensors.end(); ++si) {
+	    DSMSensor* sensor = *si;
 	    std::cerr << "doing sens->open of" <<
-	    	(*si)->getDeviceName() << endl;
-	    (*si)->open((*si)->getDefaultMode());
-	    (*si)->addSampleClient(&test);
-	    handler->addSensor(*si);
+	    	sensor->getDeviceName() << endl;
+	    sensor->open(sensor->getDefaultMode());
+	    sensor->addSampleClient(&test);
+	    handler->addSensor(sensor);
 	}
     }
     catch (const dsm::XMLException& e) {

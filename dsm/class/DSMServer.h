@@ -73,15 +73,29 @@ public:
 
     virtual ~DSMServer();
 
-    void setSite(const Site* val) { site = val; }
-    const Site* getSite() const { return site; }
-
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
 
     void addService(DSMService* service) { services.push_back(service); }
-    // const std::list<DSMService*>& getServices() const { return services; }
-                                                                                
+
+    const std::list<DSMService*>& getServices() const { return services; }
+
+    void addSite(Site* val) { sites.push_back(val); }
+
+    const std::list<Site*>& getSites() const { return sites; }
+
+    DSMServiceIterator getDSMServiceIterator() const;
+
+    ProcessorIterator getProcessorIterator() const;
+
+    SiteIterator getSiteIterator() const;
+
+    DSMConfigIterator getDSMConfigIterator() const;
+
+    SensorIterator getSensorIterator() const;
+
+    SampleTagIterator getSampleTagIterator() const;
+
     void addThread(atdUtil::Thread* thrd);
 
     void scheduleServices() throw(atdUtil::Exception);
@@ -137,7 +151,10 @@ protected:
     /** This thread provides XML-based Remote Procedure calls */
     static DSMServerIntf* _xmlrpcThread;
 
-    const Site* site;
+    /**
+     * Sites that I serve.
+     */
+    std::list<Site*> sites;
 
     /**
      * Name of this server. This should correspond to a hostname

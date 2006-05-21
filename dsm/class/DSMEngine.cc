@@ -38,7 +38,7 @@ DSMEngine::DSMEngine():
     try {
 	_mcastSockAddr = atdUtil::Inet4SocketAddress(
 	    atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
-	    DSM_MULTICAST_PORT);
+	    DSM_SVC_REQUEST_PORT);
     }
     catch(const atdUtil::UnknownHostException& e) {	// shouldn't happen
         cerr << e.what();
@@ -131,19 +131,16 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	if(url.length() > 7 && !url.compare(0,7,"mcsock:")) {
 	    url = url.substr(7);
 	    size_t ic = url.find(':');
-	    if (ic == string::npos) {
-		cerr << "Invalid host:port parameter: " << url << endl;
-		usage(argv[0]);
-		return 1;
-	    }
 	    string mcastAddr = url.substr(0,ic);
-	    istringstream ist(url.substr(ic+1));
-	    int port;
-	    ist >> port;
-	    if (ist.fail()) {
-		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		usage(argv[0]);
-		return 1;
+	    int port = DSM_SVC_REQUEST_PORT;
+	    if (ic != string::npos) {
+		istringstream ist(url.substr(ic+1));
+		ist >> port;
+		if (ist.fail()) {
+		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+		    usage(argv[0]);
+		    return 1;
+		}
 	    }
 	    try {
 		_mcastSockAddr = atdUtil::Inet4SocketAddress(
@@ -174,13 +171,19 @@ Usage: " << argv0 << " [-dw] [ config ]\n\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a multicast socket address in the form \"mcsock:addr:port\".\n\
 The default config is \"mcsock:" <<
-	DSM_MULTICAST_ADDR << ":" << DSM_MULTICAST_PORT << "\"" << endl;
+	DSM_MULTICAST_ADDR << ":" << DSM_SVC_REQUEST_PORT << "\"" << endl;
 }
 
 void DSMEngine::initLogger()
 {
-    if (_syslogit)
+    if (_syslogit) {
+	// fork to background
+	if (daemon(0,0) < 0) {
+	    atdUtil::IOException e("DSMEngine","daemon",errno);
+	    cerr << "Warning: " << e.toString() << endl;
+	}
 	_logger = atdUtil::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+    }
     else
 	_logger = atdUtil::Logger::createInstance(stderr);
 }
@@ -372,8 +375,8 @@ DOMDocument* DSMEngine::requestXMLConfig(
 	const atdUtil::Inet4SocketAddress &mcastAddr)
 	throw(atdUtil::Exception)
 {
-    if (!mcastAddr.getInet4Address().isMultiCastAddress())
-	throw atdUtil::Exception(mcastAddr.toString() + " is not a multicast address");
+    // if (!mcastAddr.getInet4Address().isMultiCastAddress())
+	// throw atdUtil::Exception(mcastAddr.toString() + " is not a multicast address");
 
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws dsm::XMLException
@@ -456,9 +459,9 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
     	throw atdUtil::InvalidParameterException("project","site",
 		"multiple site tags in XML config");
     const Site* site = sitelist.front();
-    _project->setCurrentSite(site);
+    // _project->setCurrentSite(site);
 
-    const list<DSMConfig*>& dsms = site->getDSMConfigs();
+    const list<const DSMConfig*>& dsms = site->getDSMConfigs();
     if (dsms.size() == 0)
     	throw atdUtil::InvalidParameterException("site","dsm",
 		"no dsm tag in XML config");
@@ -466,22 +469,15 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
     if (dsms.size() > 1)
     	throw atdUtil::InvalidParameterException("site","dsm",
 		"multiple dsm tags in XML config");
-    _dsmConfig = dsms.front();
+    _dsmConfig = const_cast<DSMConfig*>(dsms.front());
 }
 
 void DSMEngine::openSensors() throw(atdUtil::IOException)
 {
     _selector = new PortSelector(_dsmConfig->getRemoteSerialSocketPort());
-    // _selector->setRealTimeFIFOPriority(50);
+    _selector->setRealTimeFIFOPriority(50);
     _selector->start();
-
-    const list<DSMSensor*>& sensors = _dsmConfig->getSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	_selector->addSensor(sensor);
-    }
-    _dsmConfig->removeSensors();
+    _dsmConfig->openSensors(_selector);
 }
 
 void DSMEngine::connectOutputs() throw(atdUtil::IOException)
@@ -536,7 +532,10 @@ void DSMEngine::connected(SampleOutput* output) throw()
     _outputMutex.unlock();
 }
 
-/* An output wants to disconnect (probably the remote server went down) */
+/*
+ * An output wants to disconnect (probably the remote server went down).
+ * Caution: don't delete it (yet).
+ */
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
     const list<DSMSensor*> sensors = _selector->getAllSensors();
@@ -564,6 +563,9 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
     _outputMutex.unlock();
 
     // try to reconnect (should probably restart and request XML again)
+    // TODO: add this to a list of disconnected outputs.
+    // It is a clone of the original - so that compilicates matters
+    // somewhat.
     output->requestConnection(this);
     return;
 }

@@ -31,12 +31,12 @@ public:
             setInet4McastSocketAddress(
                 atdUtil::Inet4SocketAddress(
                     atdUtil::Inet4Address::getByName(DSM_MULTICAST_ADDR),
-                    DSM_MULTICAST_PORT));
+                    DSM_SVC_REQUEST_PORT));
         }
         catch(const atdUtil::UnknownHostException& e) {
         }
 
-        setPseudoPort(XML_CONFIG);
+        setRequestNumber(XML_CONFIG);
     }
 
 protected:
