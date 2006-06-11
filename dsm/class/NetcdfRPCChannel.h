@@ -249,7 +249,7 @@ protected:
     void connect(NetcdfRPCChannel* conn,float fillValue)
 	  throw(atdUtil::IOException);
 
-    void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
+    void write(NetcdfRPCChannel* conn,const Sample* samp,
     	int stationNumber) throw(atdUtil::IOException);
 
 private:
