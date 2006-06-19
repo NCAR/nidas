@@ -328,7 +328,6 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 	dsm_time_t tt = samp->getTimeTag();
 	syncGen.sendHeader(tt,output);
 	input.distribute(samp);
-	samp->freeReference();
 
 	int simClockRes = USECS_PER_SEC / 10;	// simulated clock resolution
 
@@ -370,7 +369,6 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 		    simClock += (tdiff - MAX_WAIT) * USECS_PER_SEC;
 	    }
 	    input.distribute(samp);
-	    samp->freeReference();
 	}
     }
     catch (atdUtil::EOFException& e) {
@@ -395,7 +393,6 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
     dsm_time_t tt = samp->getTimeTag();
     syncGen.sendHeader(tt,output);
     input.distribute(samp);
-    samp->freeReference();
 
     try {
 	for (;;) {
