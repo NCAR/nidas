@@ -266,17 +266,10 @@ int SyncServer::run() throw()
 		"not found");
 
 	set<DSMSensor*> sensors;
-	SampleTagIterator ti = site->getSampleTagIterator();
+	SensorIterator ti = site->getSensorIterator();
 	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
-	    input.addSampleTag(stag);
-
-	    DSMSensor* sensor = site->findSensor(stag->getId());
-	    if (!sensor) {
-	        cerr << "sensor with dsm id=" << stag->getDSMId() <<
-		", sensor id=" << stag->getSensorId() << " not found" << endl;
-		continue;
-	    }
+	    DSMSensor* sensor = ti.next();
+	    input.addSampleTag(sensor->getRawSampleTag());
 	    set<DSMSensor*>::const_iterator si = sensors.find(sensor);
 	    if (si == sensors.end()) {
 	        sensors.insert(sensor);
@@ -326,7 +319,7 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     try {
 	Sample* samp = input.readSample();
 	dsm_time_t tt = samp->getTimeTag();
-	syncGen.sendHeader(tt,output);
+	// syncGen.sendHeader(tt,output);
 	input.distribute(samp);
 
 	int simClockRes = USECS_PER_SEC / 10;	// simulated clock resolution

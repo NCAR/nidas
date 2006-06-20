@@ -291,8 +291,11 @@ DSMSensor* Site::findSensor(unsigned long id) const
     for ( ; si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
 #ifdef DEBUG
-	cerr << "Site::findSensor, getId=" << hex << sensor->getId() <<
-		" against id=" << id << dec << endl;
+	cerr << "Site::findSensor, getId=" <<
+		GET_DSM_ID(sensor->getId()) << ',' <<
+			GET_SHORT_ID(sensor->getId()) <<
+		" against id=" <<
+		GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) << endl;
 #endif
 	if (sensor->getId() == id) return sensor;
     }

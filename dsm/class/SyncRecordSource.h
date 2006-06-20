@@ -68,8 +68,6 @@ protected:
 
 protected:
 
-    void sendHeader() throw();
-
     void createHeader(std::ostream&) throw();
 
     std::set<DSMSensor*> sensors;
@@ -155,8 +153,6 @@ protected:
     size_t unrecognizedSamples;
 
     std::ostringstream headerStream;
-
-    volatile bool doHeader;
 
     volatile dsm_time_t headerTime;
 

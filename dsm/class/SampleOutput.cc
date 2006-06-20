@@ -185,7 +185,7 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
     	nextFileTime == LONG_LONG_MIN);
     if (connectionRequester)
 	connectionRequester->sendHeader(tt,this);
-    else header.write(this);
+    // else header.write(this);
 }
 
 void SampleOutputBase::write(const void* buf, size_t len)

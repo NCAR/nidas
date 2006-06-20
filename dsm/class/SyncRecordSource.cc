@@ -29,7 +29,7 @@ using namespace std;
 using namespace xercesc;
 
 SyncRecordSource::SyncRecordSource():
-	syncRecord(0),doHeader(false),badTimes(0),aircraft(0),
+	syncRecord(0),badTimes(0),aircraft(0),
 	initialized(false),unknownSampleType(0)
 {
     syncRecordHeaderSampleTag.setDSMId(0);
@@ -62,10 +62,13 @@ SyncRecordSource::~SyncRecordSource()
 void SyncRecordSource::connect(SampleInput* input) throw()
 {
 
-    SampleTagIterator si = input->getSampleTagIterator();
+    // make a copy of input's SampleTags collection
+    list<const SampleTag*> itags(input->getSampleTags().begin(),
+    	input->getSampleTags().end());
+    list<const SampleTag*>::const_iterator si = itags.begin();
 
-    for ( ; si.hasNext(); ) {
-        const SampleTag* stag = si.next();
+    for ( ; si != itags.end(); ++si) {
+        const SampleTag* stag = *si;
 
 	// nimbus needs to know the aircraft
 	if (!aircraft) {
@@ -80,11 +83,14 @@ void SyncRecordSource::connect(SampleInput* input) throw()
 		Project::getInstance()->findSensor(stag->getId());
 	if (!sensor) {
 	    atdUtil::Logger::getInstance()->log(LOG_WARNING,
-	    	"sensor matching dsm id=%d, sensor id=%d, not found",
-		stag->getDSMId(),stag->getSensorId());
+	    	"sensor matching dsm id=%d,%d, not found, input=%s,%x",
+		GET_DSM_ID(stag->getId()),GET_SHORT_ID(stag->getId()),
+		input->getName().c_str(),input);
 	    continue;
 	}
 	addSensor(sensor);
+	// This adds sample tags to input, hence the copy of the
+	// set above.
 	input->addProcessedSampleClient(this,sensor);
     }
     init();
@@ -314,21 +320,14 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
     for (int i = 0; i < recSize; i++) floatPtr[i] = floatNAN;
 }
 
-
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
-{
-    headerTime = thead;
-    doHeader = true;
-}
-
-void SyncRecordSource::sendHeader() throw()
 {
     headerStream.str("");	// initialize header to empty string
     createHeader(headerStream);
     string headstr = headerStream.str();
 
     SampleT<char>* headerRec = getSample<char>(headstr.length()+1);
-    headerRec->setTimeTag(headerTime);
+    headerRec->setTimeTag(thead);
 
 #ifdef DEBUG
     cerr << "SyncRecordSource::sendHeader timetag=" << headerRec->getTimeTag() << endl;
@@ -340,7 +339,6 @@ void SyncRecordSource::sendHeader() throw()
     strcpy(headerRec->getDataPtr(),headstr.c_str());
 
     distribute(headerRec);
-    doHeader = false;
 
 }
 
@@ -386,8 +384,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	cerr << "distribute syncRecord, tt=" <<
 		tt << " syncTime=" << syncTime << endl;
 #endif
-
-	if (doHeader) sendHeader();
 
 	flush();
 	if (tt >= syncTime + USECS_PER_SEC) {	// leap forward

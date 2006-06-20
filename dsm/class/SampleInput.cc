@@ -18,6 +18,7 @@
 #include <DSMService.h>
 
 #include <atdUtil/Logger.h>
+#include <atdUtil/UTime.h>
 
 using namespace dsm;
 using namespace std;
@@ -286,15 +287,20 @@ restart:
 	while (iostream->available() < header.getSizeOf()) {
 	    iostream->read();
 	    if (iostream->isNewFile()) {
-		inputHeader.check(iostream);
+		cerr << "reading inputHeader" << endl;
+		readHeader();
 	    }
 	}
 
 	iostream->read(&header,header.getSizeOf());
 	if (header.getType() >= UNKNOWN_ST) {
 	    unrecognizedSamples++;
-	    samp = dsm::getSample((sampleType)CHAR_ST,
-		header.getDataByteLength());
+	    atdUtil::Logger::getInstance()->log(LOG_ERR,
+		"SampleInputStream unrecognizedSample: %s, id=%d,len=%d,data=%.16s",
+		atdUtil::UTime(header.getTimeTag()).format(true,"%c").c_str(),
+			header.getId(),header.getDataByteLength(),
+			(const char*)&header);
+	    return 0;
 	}
 	else
 	    samp = dsm::getSample((sampleType)header.getType(),

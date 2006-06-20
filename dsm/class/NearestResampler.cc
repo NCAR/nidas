@@ -73,9 +73,14 @@ void NearestResampler::connect(SampleInput* input)
 
     long dsmid = -1;
     bool oneDSM = true;
-    SampleTagIterator inti = input->getSampleTagIterator();
-    for ( ; inti.hasNext(); ) {
-        const SampleTag* intag = inti.next();
+
+    // make a copy of input's SampleTags collection.
+    list<const SampleTag*> intags(input->getSampleTags().begin(),
+    	input->getSampleTags().end());
+
+    list<const SampleTag*>::const_iterator inti = intags.begin();
+    for ( ; inti != intags.end(); ++inti ) {
+	const SampleTag* intag = *inti;
 	dsm_sample_id_t id = intag->getId();
 	dsm_sample_id_t sensorId = id - intag->getSampleId();
 

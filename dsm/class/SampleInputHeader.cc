@@ -93,7 +93,7 @@ void SampleInputHeader::check(IOStream* iostream)
 	        
 	    ic = 0;
 	}
-    } 
+    }
     iostream->putback(buf,ic);
 }
 

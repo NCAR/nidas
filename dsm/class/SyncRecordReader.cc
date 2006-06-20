@@ -14,6 +14,7 @@
 
 #include <SyncRecordReader.h>
 #include <SyncRecordSource.h>
+#include <SampleInputHeader.h>
 #include <atdUtil/EOFException.h>
 
 using namespace dsm;
@@ -25,6 +26,10 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 {
     try {
 	inputStream.init();
+	// inputStream.readHeader();
+	// const SampleInputHeader& header = inputStream.getHeader();
+	// cerr << "header, project=" << header.getProjectName() << " software=" <<
+		// header.getSoftwareVersion() << endl;
 	for (;;) {
 	    const Sample* samp = inputStream.readSample();
 	    // read/parse SyncRec header, full out variables list

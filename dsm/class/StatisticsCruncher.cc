@@ -783,9 +783,14 @@ void StatisticsCruncher::attach(SampleSource* src)
     int nvarMatch = 0;
     long dsmid = -1;
     bool oneDSM = true;
-    SampleTagIterator inti = src->getSampleTagIterator();
-    for ( ; nvarMatch < nvars && inti.hasNext(); ) {
-	const SampleTag* intag = inti.next();
+
+    // make a copy of src's SampleTags collection.
+    list<const SampleTag*> intags(src->getSampleTags().begin(),
+    	src->getSampleTags().end());
+
+    list<const SampleTag*>::const_iterator inti = intags.begin();
+    for ( ; nvarMatch < nvars && inti != intags.end(); ++inti ) {
+	const SampleTag* intag = *inti;
 	dsm_sample_id_t id = intag->getId();
 
 	map<dsm_sample_id_t,sampleInfo >::iterator vmi =

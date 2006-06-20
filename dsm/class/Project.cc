@@ -260,7 +260,6 @@ const DSMConfig* Project::findDSM(const atdUtil::Inet4Address& addr) const
 
 const DSMConfig* Project::findDSM(unsigned long id) const
 {
-    cerr << "Project::findDSM, id=" << id << endl;
     {
 	atdUtil::Synchronized autolock(lookupLock);
 	map<dsm_sample_id_t,const DSMConfig*>::const_iterator di =
@@ -270,7 +269,6 @@ const DSMConfig* Project::findDSM(unsigned long id) const
 
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
-	cerr << "Project::findDSM, site=" << site->getName() << endl;
 	const DSMConfig* dsm = site->findDSM(id);
 	if (dsm) {
 	    lookupLock.lock();
