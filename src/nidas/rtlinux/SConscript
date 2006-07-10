@@ -1,0 +1,107 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import glob
+
+##
+##  Import the cross-build environment.
+##
+
+Import('env')
+# Import('build_rtlinux_modules')
+myenv = env.Copy()
+
+version = myenv.Command('dsm_version.h','dsm_version.h.tmpl',
+	'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
+myenv.AlwaysBuild(version)
+Depends('dsm_version.h','dsm_version.h.tmpl')
+
+##
+##  RTLinux specific settings
+##
+myenv.Replace(CC = '/opt/rtldk-2.2/bin/arm-linux-gcc')
+
+myenv.AppendUnique(CCFLAGS=Split("""
+  -DMODULE -D__RTCORE_KERNEL__
+  -nostdinc
+  -isystem /opt/rtldk-2.2/bin/../lib/gcc-lib/arm-linux/3.3.2/include/  
+"""))
+
+#    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
+#    -mshort-load-bytes -mtune=strongarm -Uarm -DDSM
+#    -fno-omit-frame-pointer -fno-strict-aliasing
+
+myenv.AppendUnique(CPPPATH=Split("""
+  /opt/rtldk-2.2/rtlinuxpro/include/app/rtl
+  /opt/rtldk-2.2/rtlinuxpro/linux/include
+  /opt/rtldk-2.2/rtlinuxpro/include
+  #nidas/rtlinux/CEI420A/Include
+  #nidas/rtlinux/CEI420A/Source
+"""))
+
+##
+##  List of each module source
+##
+modules = Split("""
+    dsc_a2d.c
+    a2d_driver.c
+    dsm_serial.c
+    dsm_serial_fifo.c
+    rtl_isa_irq.c
+    pc104sg.c
+    ioctl_fifo.c
+    a2d_driver.c
+    arinc.c
+    aio16_a2d.c
+""")
+
+#       calramp.c
+#       gainramp.c
+#       testa2d.c
+#       testa2davg.c
+#       testa2dint.c
+#       testa2drdid.c
+#       testa2dfclr.c
+#       testa2dfifo.c
+#       testa2dtime.c
+#       testa2dsel.c
+#       testa2dstat.c
+#       testa2dsync.c
+#       testoffset.c
+
+
+##
+##  Build the modules
+##
+objs = []
+if myenv['ARCH'] == 'arm':
+    for i in modules:
+      objs += myenv.Object( i )
+# print(["objs="] + [str(h) for h in objs])
+
+headers = Split("""
+    a2d_driver.h
+    aio16_a2d.h
+    arinc.h
+    dsc_a2d.h
+    dsmlog.h
+    dsm_serial_fifo.h
+    dsm_serial.h
+    dsm_version.h
+    dsm_viper.h
+    ioctl_fifo.h
+    irigclock.h
+    pc104sg.h
+    rtl_isa_irq.h
+    win_com8.h
+""")
+
+## Headers are up one from build directory
+
+# print(["PREFIX="] + [myenv['PREFIX']])
+
+myenv.Install('$PREFIX/rtlinux',objs)
+
+myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
+

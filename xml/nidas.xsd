@@ -1,0 +1,515 @@
+<?xml version="1.0"?>
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://www.eol.ucar.edu/nidas"
+    xmlns="http://www.eol.ucar.edu/nidas"
+    elementFormDefault="qualified"
+    xml:lang="en">
+
+<xsd:annotation>
+    <xsd:documentation>
+    Schema describing a data acquisition system.
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+    </xsd:documentation>
+</xsd:annotation>
+
+<xsd:annotation><xsd:documentation>
+<xsd:element name="comment">
+    <xsd:complexType>
+	<xsd:sequence>
+	    <xsd:any minOccurs="0"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+</xsd:documentation></xsd:annotation>
+
+<xsd:simpleType name="baudtype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:enumeration value="300"/>
+	<xsd:enumeration value="600"/>
+	<xsd:enumeration value="1200"/>
+	<xsd:enumeration value="1800"/>
+	<xsd:enumeration value="2400"/>
+	<xsd:enumeration value="4800"/>
+	<xsd:enumeration value="9600"/>
+	<xsd:enumeration value="19200"/>
+	<xsd:enumeration value="38400"/>
+	<xsd:enumeration value="57600"/>
+	<xsd:enumeration value="115200"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="paritytype">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="none"/>
+	<xsd:enumeration value="even"/>
+	<xsd:enumeration value="odd"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="speedtype">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="high"/>
+	<xsd:enumeration value="low"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="databitstype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:minInclusive value="5"/>
+	<xsd:maxInclusive value="8"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="stopbitstype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:minInclusive value="1"/>
+	<xsd:maxInclusive value="2"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="messageDesc">
+    <xsd:attribute name="separator" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="position" use="required">
+	<xsd:simpleType>
+	    <xsd:restriction base="xsd:token">
+		<xsd:enumeration value="beg"/>
+		<xsd:enumeration value="end"/>
+	    </xsd:restriction>
+	</xsd:simpleType>
+    </xsd:attribute>
+    <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
+</xsd:complexType>
+
+<xsd:complexType name="promptType">
+    <xsd:attribute name="string" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="linear">
+    <xsd:attribute name="slope" type="xsd:float"/>
+    <xsd:attribute name="intercept" type="xsd:float"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+</xsd:complexType>
+
+<xsd:simpleType name="floatList">
+    <xsd:list itemType="xsd:float"/>
+</xsd:simpleType>
+
+<xsd:complexType name="poly">
+    <xsd:attribute name="coefs" type="floatList"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+</xsd:complexType>
+
+<xsd:simpleType name="parameterType">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="float"/>
+	<xsd:enumeration value="bool"/>
+	<xsd:enumeration value="string"/>
+	<xsd:enumeration value="strings"/>
+	<xsd:enumeration value="int"/>
+	<xsd:enumeration value="hex"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="parameter">
+    <xsd:attribute name="name" type="xsd:token" use="required"/>
+    <xsd:attribute name="value" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="type" type="parameterType" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="variable">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+        <xsd:element name="poly" type="poly"/>
+        <xsd:element name="linear" type="linear"/>
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="name" type="xsd:token" use="required"/>
+    <xsd:attribute name="longname" type="xsd:normalizedString"/>
+    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+    <xsd:attribute name="count" type="xsd:boolean" default="0"/>
+    <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
+</xsd:complexType>
+
+<xsd:complexType name="variables">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="names" type="xsd:normalizedString" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="sample">
+    <xsd:annotation>
+        <xsd:documentation>
+	    A sample has an id, a rate, and contains one or more
+	    variables.  The sum of the sensor id and this sample id 
+	    is used to tag each sample in the system, so that SampleClients
+	    that receive the sample can know what variables are in
+	    the sample, and what sensor it came from.
+	    Samples for a serial sensor also may have a scanfFormat string.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="variable" type="variable"/>
+	<xsd:element name="variables" type="variable"/>
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
+    <xsd:attribute name="rate" type="xsd:float"/>
+    <xsd:attribute name="period" type="xsd:float"/>
+    <xsd:attribute name="process" type="xsd:boolean"/>
+    <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
+</xsd:complexType>
+
+<xsd:complexType name="sensorT" abstract="false">
+    <xsd:annotation>
+        <xsd:documentation>
+	    The id (lower case) attribute is different from
+	    the ID attribute. The ID identifies the sensor in
+	    the catalog. A sensor is found in the catalog by
+	    matching its ID against an IDREF.  The sensor id
+	    is a numeric value, which is used to mark all
+	    samples from this sensor.
+        </xsd:documentation>
+        <xsd:documentation>
+	    The sensor suffix is a string which is added to
+	    all variable names from the sensor, e.g. "_south".
+	    height/depth can be used instead of the suffix, and
+	    is likewise added to all variables names, e.g.
+	    height="5m", or depth="2cm". Use suffix or height or depth 
+	    or nothing.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="sample" type="sample"/>
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="ID" type="xsd:ID"/>
+    <xsd:attribute name="IDREF" type="xsd:IDREF"/>
+    <xsd:attribute name="class" type="xsd:token"/>
+    <xsd:attribute name="devicename" type="xsd:token"/>
+    <xsd:attribute name="location" type="xsd:token"/>
+    <xsd:attribute name="suffix" type="xsd:token"/>
+    <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
+    <xsd:attribute name="latency" type="xsd:float"/>
+    <xsd:attribute name="height" type="xsd:token"/>
+    <xsd:attribute name="depth" type="xsd:token"/>
+</xsd:complexType>
+
+<xsd:complexType name="messageSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="sensorT">
+	    <xsd:choice minOccurs="1" maxOccurs="2">
+		<xsd:element name="message" type="messageDesc" minOccurs="1" maxOccurs="1"/>
+		<xsd:element name="prompt" type="promptType" minOccurs="0" maxOccurs="1"/>
+	    </xsd:choice>
+	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
+	    <!-- whether the driver has null-terminated the data strings.
+	     It is generally not necessary to specify this attribute - the
+	     DSMSerialSensor class is able to determine the correct value,
+	     except for early GV test flights when the driver was
+	     not null terminating strings.
+	     -->
+	    <xsd:attribute name="nullterm" type="xsd:boolean"/>
+	    <xsd:attribute name="init_string" type="xsd:normalizedString"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="serialSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="messageSensorT">
+	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
+	    <xsd:attribute name="baud" type="baudtype"/>
+	    <xsd:attribute name="parity" type="paritytype"/>
+	    <xsd:attribute name="databits" type="databitstype"/>
+	    <xsd:attribute name="stopbits" type="stopbitstype"/>
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="socketSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="messageSensorT">
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:complexType name="arincSensorT">
+    <xsd:annotation>
+        <xsd:documentation>
+            The id attributes of the sample child elements contain the
+	    ARINC label value.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+	<xsd:extension base="sensorT">
+	    <!-- these attributes must occur after the above sequence -->
+	    <!-- Currently can't provide defaults here, because the defaults
+                 then over-ride the values that were specified for a sensor in
+                 the catalog.  Need to fix this. -->
+	    <xsd:attribute name="parity"        type="paritytype"/>
+	    <xsd:attribute name="speed"         type="speedtype"/>
+            <xsd:attribute name="sim_xmit"      type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_thdg_corr" type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_ptch_corr" type="xsd:token" use="optional"/>
+            <xsd:attribute name="irs_roll_corr" type="xsd:token" use="optional"/>
+        </xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:group name="sensors">
+    <xsd:choice>
+	<xsd:element name="sensor"       type="sensorT"/>
+	<xsd:element name="serialSensor" type="serialSensorT"/>
+	<xsd:element name="arincSensor"  type="arincSensorT">
+	    <xsd:unique name="uniqueSampleId2">
+		<xsd:selector xpath="sample"/>
+		<xsd:field    xpath="@id"/>
+	    </xsd:unique>
+	</xsd:element>
+	<xsd:element name="irigSensor"  type="sensorT"/>
+	<xsd:element name="socketSensor"  type="socketSensorT"/>
+    </xsd:choice>
+</xsd:group>
+
+<xsd:element name="sensorcatalog">
+    <xsd:complexType>
+	<xsd:sequence minOccurs="0" maxOccurs="unbounded">
+	    <xsd:group ref="sensors"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="dsm">
+    <xsd:complexType>
+	<xsd:annotation>
+	    <xsd:documentation>
+		A DSM can listen on a socket for RemoteSerialConnections.
+		Specify a non-zero value for rserialPort if you want
+		this service.
+		The suffix is added to all the variables from this dsm,
+		after their respective suffix/height or depth.
+	    </xsd:documentation>
+	</xsd:annotation>
+	<xsd:choice minOccurs="0" maxOccurs="unbounded">
+	    <xsd:group ref="sensors"/>
+	    <xsd:element ref="output"/>
+	</xsd:choice>
+	<xsd:attribute name="ID" type="xsd:ID"/>
+	<xsd:attribute name="IDREF" type="xsd:IDREF"/>
+	<xsd:attribute name="name" type="xsd:token" use="optional"/>
+	<xsd:attribute name="suffix" type="xsd:token" use="optional"/>
+	<xsd:attribute name="location" type="xsd:token" use="optional"/>
+	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
+	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger"/>
+    </xsd:complexType>
+    <xsd:unique name="uniqueSensorId">
+	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor"/>
+	<xsd:field    xpath="@id"/>
+    </xsd:unique>
+</xsd:element>
+
+<xsd:element name="dsmcatalog">
+    <xsd:complexType>
+	<xsd:sequence minOccurs="0" maxOccurs="unbounded">
+	    <xsd:element ref="dsm"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="servicecatalog">
+    <xsd:complexType>
+	<xsd:sequence minOccurs="0" maxOccurs="unbounded">
+	    <xsd:element ref="service"/>
+	</xsd:sequence>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:simpleType name="sockettype">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="mcaccept"/>
+	<xsd:enumeration value="mcrequest"/>
+	<xsd:enumeration value="dgaccept"/>
+	<xsd:enumeration value="dgrequest"/>
+	<xsd:enumeration value="server"/>
+	<xsd:enumeration value="client"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="socket">
+   <xsd:complexType>
+	<xsd:attribute name="type" type="sockettype" default="mcrequest"/>
+        <xsd:attribute name="port" type="xsd:nonNegativeInteger"
+		default="30000"/>
+        <xsd:attribute name="address" type="xsd:token"/>
+        <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="maxIdle" type="xsd:positiveInteger"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="mount">
+   <xsd:complexType>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="dev" type="xsd:token" default=""/>
+        <xsd:attribute name="type" type="xsd:token" default="auto"/>
+        <xsd:attribute name="options" type="xsd:token" default=""/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="fileset">
+   <xsd:complexType>
+        <xsd:choice minOccurs="0" maxOccurs="1">
+            <xsd:element ref="mount"/>
+        </xsd:choice>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="file" type="xsd:token" use="required"/>
+        <xsd:attribute name="length" type="xsd:nonNegativeInteger" default="0"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="ncserver">
+   <xsd:complexType>
+        <xsd:attribute name="server" type="xsd:token" default="localhost"/>
+        <xsd:attribute name="dir" type="xsd:token" use="required"/>
+        <xsd:attribute name="file" type="xsd:token" use="required"/>
+        <xsd:attribute name="length" type="xsd:nonNegativeInteger"
+		default="86400"/>
+        <xsd:attribute name="floatFill" type="xsd:float" use="required"/>
+        <xsd:attribute name="timeout" type="xsd:positiveInteger"
+		default="60"/>
+        <xsd:attribute name="batchPeriod" type="xsd:positiveInteger"
+		default="60"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="goes">
+   <xsd:complexType>
+	<xsd:attribute name="baud" type="baudtype"/>
+	<xsd:attribute name="parity" type="paritytype"/>
+	<xsd:attribute name="databits" type="databitstype"/>
+	<xsd:attribute name="stopbits" type="stopbitstype"/>
+	<xsd:attribute name="devicename" type="xsd:token"/>
+	<xsd:attribute name="goesid" type="xsd:hexBinary"/>
+	<xsd:attribute name="model" type="xsd:token"/>
+	<xsd:attribute name="channel" type="xsd:positiveInteger"/>
+	<xsd:attribute name="xmitInterval" type="xsd:positiveInteger"/>
+	<xsd:attribute name="xmitOffset" type="xsd:nonNegativeInteger"/>
+	<xsd:attribute name="statusFile" type="xsd:token"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="postgresdb">
+   <xsd:complexType>
+        <xsd:attribute name="host" type="xsd:token" use="required"/>
+        <xsd:attribute name="dbname" type="xsd:token" use="required"/>
+        <xsd:attribute name="user" type="xsd:token" default="ads"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="input">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="1">
+            <xsd:element ref="socket"/>
+            <xsd:element ref="fileset"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="output">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+	    <xsd:element name="sample" type="sample" maxOccurs="unbounded"/>
+            <xsd:element ref="socket" maxOccurs="1"/>
+            <xsd:element ref="fileset" maxOccurs="1"/>
+            <xsd:element ref="postgresdb" maxOccurs="1"/>
+            <xsd:element ref="ncserver" maxOccurs="1"/>
+            <xsd:element ref="goes" maxOccurs="1"/>
+        </xsd:choice>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
+        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger" default="250"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="processor">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="output"/>
+	    <xsd:element name="sample" type="sample"/>
+	    <xsd:element name="parameter" type="parameter"/>
+        </xsd:choice>
+	<xsd:attribute name="class" type="xsd:token" use="required"/>
+	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
+	<xsd:attribute name="optional" type="xsd:boolean" default="false"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="service">
+   <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="input" minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element ref="output" minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element ref="processor" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:choice>
+	<xsd:attribute name="class" type="xsd:token"/>
+	<xsd:attribute name="ID" type="xsd:ID"/>
+	<xsd:attribute name="IDREF" type="xsd:IDREF"/>
+   </xsd:complexType>
+</xsd:element>
+
+<xsd:element name="server">
+    <xsd:complexType>
+	<xsd:choice minOccurs="1" maxOccurs="unbounded">
+	    <xsd:element ref="service"/>
+	</xsd:choice>
+        <xsd:attribute name="name" type="xsd:token" use="optional"/>
+    </xsd:complexType>
+</xsd:element>
+
+<xsd:complexType name="siteType">
+    <xsd:annotation>
+	<xsd:documentation>
+	    If a suffix attribute exists, it is set on all the dsms at
+	    this site.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="1" maxOccurs="unbounded">
+	<xsd:element name="parameter" type="parameter"/>
+	<xsd:element ref="server"/>
+	<xsd:element ref="dsm"/>
+    </xsd:choice>
+    <xsd:attribute name="name"   type="xsd:token" use="required"/>
+    <xsd:attribute name="class" type="xsd:token" use="required"/>
+    <xsd:attribute name="number"   type="xsd:nonNegativeInteger" use="optional"/>
+    <xsd:attribute name="suffix"   type="xsd:token" use="optional"/>
+</xsd:complexType>
+
+<xsd:element name="project">
+    <xsd:complexType>
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="sensorcatalog" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="dsmcatalog" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="servicecatalog" minOccurs="0" maxOccurs="1"/>
+	    <xsd:element ref="server" minOccurs="0"/>
+	    <xsd:element name="site" type="siteType" maxOccurs="unbounded"/>
+	    <xsd:element name="aircraft" type="siteType" maxOccurs="unbounded"/>
+	    <xsd:element name="parameter" type="parameter" minOccurs="0"
+	    	maxOccurs="unbounded"/>
+        </xsd:choice>
+        <xsd:attribute name="name"   type="xsd:token" use="required"/>
+        <xsd:attribute name="system"   type="xsd:token" use="required"/>
+        <xsd:attribute name="config" type="xsd:normalizedString"
+		use="required"/>
+        <xsd:attribute name="version" type="xsd:normalizedString"
+		use="required"/>
+    </xsd:complexType>
+</xsd:element>
+
+</xsd:schema>

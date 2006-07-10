@@ -1,0 +1,192 @@
+/*
+ ********************************************************************
+    Copyright by the National Center for Atmospheric Research
+
+    $LastChangedDate: 2004-10-15 17:53:32 -0600 (Fri, 15 Oct 2004) $
+
+    $LastChangedRevision: 671 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
+ ********************************************************************
+
+*/
+
+#ifndef NIDAS_UTIL_FILESET_H
+#define NIDAS_UTIL_FILESET_H
+
+#include <nidas/util/IOException.h>
+
+#include <list>
+#include <set>
+#include <string>
+#include <locale>
+#include <ctime>
+
+namespace nidas { namespace util {
+
+/**
+ * A description of a set of output files, consisting of a 
+ * directory name and a file name format containing UNIX strftime
+ * conversion specifiers, like %Y, %m, etc. Typically this class
+ * is used by an archive method.
+ */
+class FileSet {
+public:
+
+    /**
+     * constructor
+     */
+    FileSet();
+
+    /**
+     * Copy constructor.
+     */
+    FileSet(const FileSet& x);
+
+    /**
+     * Destructor. Closes current file, ignoring possible IOException
+     * if the file isn't open.
+     */
+    virtual ~FileSet();
+
+    /**
+     * Set directory portion of file path.  This may
+     * contain strftime conversion specifiers, like %Y in order to
+     * put a year in the directory name.
+     */
+    virtual void setDir(const std::string& val) { dir = val; }
+    const std::string& getDir() const { return dir; }
+
+    const int getFd() const { return fd; }
+
+    bool isNewFile() const { return newFile; }
+
+    /**
+     * Set file name portion of file path. This can contain
+     * strftime conversion specifiers.  FileSet inserts
+     * the pathSeparator between the directory and the file name
+     * when creating the full file path string. Otherwise there
+     * is no distinction between the directory and file portion.
+     */
+    virtual void setFileName(const std::string& val) { filename = val; }
+    const std::string& getFileName() const { return filename; }
+
+    virtual void addFileName(const std::string& val) { fileset.push_back(val); }
+
+    /**
+     * Set/get the file length in seconds.  The file length
+     * parameter is only used when writing files.
+     */
+    void setFileLengthSecs(int val)
+    {
+	if (val <= 0) fileLength = UINT_MAX;
+	else fileLength = val;
+    }
+    int getFileLengthSecs() const { return fileLength; }
+
+    time_t getNextFileTime() const;
+
+
+    /**
+     * Create a new file, with a name formed from a time.
+     * @param tfile Time to use when creating file name.
+     * @param exact Use exact time when creating file name, else
+     *        the time is truncated by getFileLengthSecs.
+     * @return Start time of next file, i.e. when to create next file.
+     */
+    time_t createFile(time_t tfile,bool exact) throw(IOException);
+
+    void setStartTime(time_t val) { startTime = val; } 
+    void setEndTime(time_t val) { endTime = val; } 
+
+    /**
+     * Get name of current file.
+     */
+    const std::string& getCurrentName() const { return currname; }
+
+    void closeFile() throw(IOException);
+
+    void openNextFile() throw(IOException);
+
+    /**
+     * Read from current file.
+     */
+    ssize_t read(void* buf, size_t count) throw(IOException);
+
+    /**
+     * Write to current file.
+     */
+    ssize_t write(const void* buf, size_t count) throw(IOException);
+
+    static const char pathSeparator;
+
+    static void createDirectory(const std::string& name)
+        throw(IOException);
+
+    /**
+     * Utility function to return the directory portion of a
+     * file path. If the directory portion is empty, returns ".".
+     * Uses pathSeparator to determine directory and file portion.
+     */
+    static std::string getDirPortion(const std::string& path);
+
+    /**
+     * Utility function to return the file portion of a
+     * file path.  Uses pathSeparator to determine directory and file
+     * portion.
+     */
+    static std::string getFilePortion(const std::string& path);
+
+    /**
+     * Utility function to create a full path name from a directory
+     * and file portion. If the directory portion is an empty string,
+     * or ".", then the result path will have no directory portion.
+     */
+    static std::string makePath(const std::string& dir,const std::string& file);
+
+protected:
+
+    std::string formatName(time_t t1);
+
+    std::string initialSearch() throw(IOException);
+
+    std::list<std::string> matchFiles(time_t t1, time_t t2)
+    	throw(IOException);
+
+    static void replaceChars(std::string& in,const std::string& pat,
+    	const std::string& rep);
+
+    const std::time_put<char> &timeputter;
+
+private:
+    std::string dir;
+
+    std::string filename;
+
+    std::string currname;
+
+    std::string fullpath;
+
+    int fd;
+
+    time_t startTime;
+    time_t endTime;
+
+    std::list<std::string> fileset;
+    std::list<std::string>::iterator fileiter;
+
+    bool initialized;
+
+    time_t fileLength;
+
+    time_t nextFileTime;
+
+    bool newFile;
+
+};
+
+}}	// namespace nidas namespace util
+
+#endif

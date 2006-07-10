@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<!-- 
+   valgrind - -tool=memcheck - -leak-check=yes dsm_server -d sim.xml
+
+   valgrind - -tool=memcheck - -leak-check=yes dsm -d
+
+   sensor_sim -t -m /tmp/pty/dev0
+   sensor_sim -t -p -r 50 /tmp/pty/dev1
+   -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="devel"
+    system="ISFF"
+    config="sim.xml"
+    version="$LastChangedRevision: 3233 $"
+    >
+
+<sensorcatalog>
+
+    <serialSensor ID="Mensor_6100" class="DSMSerialSensor"
+        baud="57600" parity="none" databits="8" stopbits="1">
+        <sample id="1" scanfFormat="%*1d%f"/>
+        <message separator="\n" position="end" length="0"/>
+        <prompt string="#1?\n" rate="50"/>
+    </serialSensor>
+
+    <serialSensor ID="Paro_DigiQuartz_1000" class="DSMSerialSensor"
+        baud="57600" parity="none" databits="8" stopbits="1">
+
+        <sample id="1" scanfFormat="*%*2d%*2d%f" rate="50">
+	</sample>
+        <message separator="\n" position="end" length="0"/>
+	<!--
+	Prompt string when running in prompted mode
+        <prompt string="*0100P3\r\n" rate="50"/>
+	-->
+    </serialSensor>
+    <serialSensor ID="Buck_1011C_DP" class="DSMSerialSensor"
+        baud="9600" parity="none" databits="8" stopbits="1">
+
+        <!--  From Buck 1011C manual:
+            9600 baud, 8-N-1 parity. Use included null modem cable to
+            connect to computer running Hyperterminal or similar serial
+            port emulator software.
+            14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08
+            14060,-13.95,0,0,-54,0, 33.00,05/08/2003, 17:47:09
+            13721,-13.69,0,0,-52,0, 33.00,05/08/2003, 17:47:10
+            13342,-13.40,0,0,-50,0, 33.00,05/08/2003, 17:47:11
+            Balance, mirror temperature, flag, pressure, PWM, mirror,
+                board temp, date, time.
+            Balance - number that indicates how close the servo is to
+                being balanced and a dew/frost point being measured
+                on the mirror.
+            Mirror temperature - temperature on the mirror surface.
+            Flag - Indicates the following:
+                    0 - normal operation
+                    1 - dew or frost point achieved on mirror
+                    2 - balance mode
+            Pressure - pressure in mb if sensor installed
+            PWM - - 255 to + 255. Indicates how much heating (+) or
+                cooling (-) being applied to the mirror
+            Mirror - Indicates the following:
+                    0 - mirror normal
+                    1 - mirror contaminated and will need cleaning soon
+            Board temp - temperature on main circuit board
+            Date - Date in month/day/year
+            Time - 24 hr time
+        -->
+
+	<sample id="1" scanfFormat="%*d,%f" rate="1"/>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+</sensorcatalog>
+
+<site name="test" class="isff.GroundStation">
+    <server>
+        <service class="XMLConfigService">
+            <output>
+                <socket type="dgaccept"/>
+            </output>
+        </service>
+        <service class="RawSampleService">
+            <!-- input from every DSM on this aircraft that has
+                 a socket output of type RawSampleOutputStream -->
+            <input class="RawSampleInputStream">
+                <socket type="dgaccept" maxIdle="60"/>
+            </input>
+            <processor class="SampleArchiver">
+                <output class="SampleOutputStream">
+                    <fileset dir="/tmp"
+                        file="${DSM}_%Y%m%d_%H%M%S.ads"
+                        length="7200"/>
+                </output>
+                <output class="SampleOutputStream">
+                    <socket type="server" port="30000"/>
+                </output>
+            </processor>
+            <processor class="raf.SyncRecordGenerator">
+                <output class="SampleOutputStream">
+		    <!-- use a port other than 30001 for testing
+		         on sloop.  30001 is used by post-processing -->
+                    <socket type="server" port="30011"/>
+                </output>
+            </processor>
+        </service>
+    </server>
+
+    <dsm name="localhost" location="tail" id="3" rserialPort="30002">
+	<serialSensor IDREF="Mensor_6100" 
+	    devicename="/tmp/pty/dev0" id="10">
+	    <sample id="1">
+                <variable name="MENSOR" units="degC">
+		</variable>
+            </sample>
+	</serialSensor>
+	<serialSensor IDREF="Paro_DigiQuartz_1000" 
+	    devicename="/tmp/pty/dev1" id="20">
+	    <sample id="1">
+                <variable name="PARO" units="degC">
+		</variable>
+            </sample>
+	</serialSensor>
+        <output class="RawSampleOutputStream">
+            <socket type="dgrequest" address="127.0.0.1"/>
+        </output>
+    </dsm>
+</site>
+</project>
+

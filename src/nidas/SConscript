@@ -1,0 +1,64 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import glob
+import fnmatch
+import os
+
+##
+##  Import the cross-build environment.
+##
+Import('env')
+myenv = env.Copy()
+
+conf = Configure(myenv)
+
+myenv = conf.Finish()
+
+# -ggdb
+# -DXML_DEBUG
+myenv.AppendUnique(CXXFLAGS = Split("""
+"""))
+
+##
+##  Build libnidas_util
+##
+SConscript('util/SConscript',
+	build_dir='build_util',
+	duplicate=0,exports={'env':myenv})
+##
+##  Build libnidas
+##
+SConscript('core/SConscript',
+	build_dir='build_core',
+	duplicate=0,exports={'env':myenv})
+##
+##  Build libnidas_dynld
+##
+SConscript('dynld/SConscript',
+	build_dir='build_dynld',
+	duplicate=0,exports={'env':myenv})
+##
+##  Build executables
+##
+SConscript('apps/SConscript',
+	build_dir='build_apps',
+	duplicate=0,exports={'env':myenv})
+
+##
+##  Build nidas/rtlinux
+##
+SConscript('rtlinux/SConscript',
+        build_dir='build_rtl',
+        duplicate=0,exports={'env':myenv})
+
+##
+##  Build nidas/rtlinux/build_x86, but only target the headers
+##
+# SConscript('nidas/rtlinux/SConscript',
+#       build_dir='nidas/rtlinux/build_x86',
+#       duplicate=0,exports={'env':x86_env,'build_rtlinux_modules':0})
+
+Default([ 'build_core','build_dynld', 'build_apps', 'build_rtl' ])
+

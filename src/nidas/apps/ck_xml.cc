@@ -1,0 +1,91 @@
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate: 2006-05-23 11:30:55 -0700 (Tue, 23 May 2006) $
+
+    $LastChangedRevision: 3364 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://svn/svn/nids/branches/nidas_reorg/src/nidas/apps/ck_config.cc $
+ ********************************************************************
+*/
+
+#include <nidas/core/XMLParser.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
+// #include <DSMConfig.h>
+#include <nidas/core/PortSelectorTest.h>
+
+#include <iostream>
+
+using namespace nidas::core;
+using namespace std;
+// using namespace xercesc;
+
+namespace n_u = nidas::util;
+
+int usage(const char* argv0)
+{
+    cerr << "Usage: " << argv0 << " xml_file" << endl;
+    return 1;
+}
+
+int main(int argc, char** argv)
+{
+    if (argc < 2)
+      return usage(argv[0]);
+
+    Project* project = 0;
+    try {
+	cerr << "creating parser" << endl;
+	XMLParser* parser = new XMLParser();
+
+	// turn on validation
+	parser->setDOMValidation(true);
+	parser->setDOMValidateIfSchema(true);
+	parser->setDOMNamespaces(true);
+	parser->setXercesSchema(true);
+	parser->setXercesSchemaFullChecking(true);
+	parser->setDOMDatatypeNormalization(false);
+	parser->setXercesUserAdoptsDOMDocument(true);
+
+	xercesc::DOMDocument* doc = parser->parse(argv[1]);
+	cerr << "parsed" << endl;
+	project = Project::getInstance();
+	project->fromDOMElement(doc->getDocumentElement());
+	cerr << "deleting parser" << endl;
+	delete parser;
+
+	for (SiteIterator si = project->getSiteIterator();
+		si.hasNext(); ) {
+	    Site* site = si.next();
+	    for (DSMConfigIterator di = site->getDSMConfigIterator();
+	    	di.hasNext(); ) {
+		const DSMConfig* dsm = di.next();
+		for (SensorIterator si2 = dsm->getSensorIterator(); 
+			si2.hasNext(); ) {
+		    DSMSensor* sensor = si2.next();
+		    cout << "site:" << site->getName() << ' ' <<
+		    	site->getNumber() << 
+		    	", dsm:" << dsm->getName() <<
+			", sensor: " << sensor->getName() << endl;
+		}
+	    }
+	}
+
+	delete project;
+    }
+    catch (const nidas::core::XMLException& e) {
+        cerr << e.what() << endl;
+    }
+    catch (const n_u::InvalidParameterException& e) {
+        cerr << e.what() << endl;
+    }
+    catch (n_u::IOException& ioe) {
+      std::cerr << ioe.what() << std::endl;
+      throw n_u::Exception(ioe.what());
+    }
+    return 0;
+}

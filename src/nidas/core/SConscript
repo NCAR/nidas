@@ -1,0 +1,213 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import glob
+import fnmatch
+import os
+
+##
+##  Import the cross-build environment.
+##
+Import('env')
+myenv = env.Copy()
+
+conf = Configure(myenv)
+
+myenv = conf.Finish()
+
+version = myenv.Command('Version.h','Version.h.tmpl',
+        'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
+myenv.AlwaysBuild(version)
+Depends('Version.h','Version.h.tmpl')
+
+# -ggdb
+# -DXML_DEBUG
+myenv.AppendUnique(CXXFLAGS = Split("""
+"""))
+
+myenv.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
+
+##
+##  List of headers files
+##
+# headers = glob.glob("../../util/*.h")
+# print(["glob headers="] + [str(h) for h in headers])
+headers = [ Split("""
+    AdaptiveDespiker.h
+    AsciiSscanf.h
+    CharacterSensor.h
+    ConnectionRequester.h
+    Datagrams.h
+    DOMable.h
+    DOMObjectFactory.h
+    DSMCatalog.h
+    DSMConfig.h
+    DSMEngine.h
+    DSMEngineIntf.h
+    dsm_sample.h
+    DSMSensor.h
+    DSMServer.h
+    DSMServerIntf.h
+    DSMService.h
+    DSMTime.h
+    DynamicLoader.h
+    IOChannel.h
+    IODevice.h
+    IOStream.h
+    LooperClient.h
+    Looper.h
+    McSocket.h
+    NearestResampler.h
+    NidsIterators.h
+    Parameter.h
+    PhysConstants.h
+    PortSelectorTest.h
+    Project.h
+    RemoteSerialConnection.h
+    RemoteSerialListener.h
+    RTL_DevIoctl.h
+    RTL_DevIoctlStore.h
+    RTL_IODevice.h
+    SampleAverager.h
+    SampleClient.h
+    SampleClientList.h
+    SampleDater.h
+    Sample.h
+    SampleInput.h
+    SampleInputHeader.h
+    SampleIOProcessor.h
+    SampleLengthException.h
+    SampleOutput.h
+    SampleParseException.h
+    SamplePool.h
+    SampleScanner.h
+    SampleSorter.h
+    SampleSource.h
+    SampleTag.h
+    SensorCatalog.h
+    SensorHandler.h
+    SensorOpener.h
+    ServiceCatalog.h
+    Site.h
+    Socket.h
+    SocketIODevice.h
+    SortedSampleSet.h
+    StatusHandler.h
+    StatusListener.h
+    StatusThread.h
+    TestSampleClient.h
+    UnixIOChannel.h
+    UnixIODevice.h
+    VariableConverter.h
+    Variable.h
+    Version.h
+    XDOM.h
+    XMLConfigInput.h
+    XMLConfigWriter.h
+    XMLException.h
+    XMLFdBinInputStream.h
+    XMLFdFormatTarget.h
+    XMLFdInputSource.h
+    XMLParser.h
+    XmlRpcThread.h
+    XMLStringConverter.h
+    """)
+]
+# print(["headers="] + [str(h) for h in headers])
+
+sources = [ Split("""
+    AdaptiveDespiker.cc
+    AsciiSscanf.cc
+    CharacterSensor.cc
+    ConnectionRequester.cc
+    DOMable.cc
+    DOMObjectFactory.cc
+    DSMCatalog.cc
+    DSMConfig.cc
+    DSMEngine.cc
+    DSMEngineIntf.cc
+    DSMSensor.cc
+    DSMServer.cc
+    DSMServerIntf.cc
+    DSMService.cc
+    DynamicLoader.cc
+    IOChannel.cc
+    IOStream.cc
+    Looper.cc
+    McSocket.cc
+    NearestResampler.cc
+    NidsIterators.cc
+    Parameter.cc
+    PortSelectorTest.cc
+    Project.cc
+    RemoteSerialConnection.cc
+    RemoteSerialListener.cc
+    RTL_DevIoctl.cc
+    RTL_DevIoctlStore.cc
+    RTL_IODevice.cc
+    SampleAverager.cc
+    Sample.cc
+    SampleClientList.cc
+    SampleDater.cc
+    SampleInputHeader.cc
+    SampleIOProcessor.cc
+    SampleOutput.cc
+    SamplePool.cc
+    SampleScanner.cc
+    SampleSorter.cc
+    SampleSource.cc
+    SampleTag.cc
+    SensorCatalog.cc
+    SensorHandler.cc
+    SensorOpener.cc
+    ServiceCatalog.cc
+    Site.cc
+    Socket.cc
+    SocketIODevice.cc
+    StatusHandler.cc
+    StatusListener.cc
+    StatusThread.cc
+    TestSampleClient.cc
+    Variable.cc
+    VariableConverter.cc
+    XMLConfigWriter.cc
+    XMLException.cc
+    XMLFdFormatTarget.cc
+    XMLParser.cc
+    XmlRpcThread.cc
+
+    ../util/BitArray.cc
+    ../util/Exception.cc
+    ../util/FileSet.cc
+    ../util/Inet4Address.cc
+    ../util/Inet4SocketAddress.cc
+    ../util/Logger.cc
+    ../util/McSocket.cc
+    ../util/SerialOptions.cc
+    ../util/SerialPort.cc
+    ../util/Socket.cc
+    ../util/Termios.cc
+    ../util/Thread.cc
+    ../util/ThreadSupport.cc
+    ../util/UnixSocketAddress.cc
+    ../util/UTime.cc
+    """)
+]
+
+# kludge
+# utilobjs = glob.glob("../util/*.cc")
+# print(["utilobjs="] + [str(h) for h in utilobjs])
+
+##
+##  Build the libnidas library.
+##
+# lib = myenv.SharedLibrary('nidas' , [ sources, utilobjs] )
+lib = myenv.SharedLibrary('nidas' , [ sources ] )
+
+##
+## Install target for library.
+##
+myenv.Install('$PREFIX/lib',lib)
+
+myenv.Install('$PREFIX/include/nidas/core',headers)

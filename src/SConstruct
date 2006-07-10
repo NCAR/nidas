@@ -1,0 +1,226 @@
+# -*- python -*-
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import os
+
+##
+## command line options
+##
+opts = Options('nidas.conf')
+opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nidas')
+##
+##  Create a new construction environment variable and
+##  restrict it's build methods to be POSIX based only.
+##
+env = Environment(platform = 'posix',options=opts,
+    ENV = {'PATH' : os.environ['PATH']})
+
+opts.Save('nidas.conf',env)
+
+Help(opts.GenerateHelpText(env) + """
+targets
+(none) build ARM rtlinux driver modules and ARM & X86 library and executables.
+x86    build library and executable programs for X86.
+arm    build rtlinux driver modules, library and executable programs for ARM.
+lib    build library for X86 and ARM.
+x86_install  build and install X86 library and executables.
+arm_install  build and install ARM modules, library and executables.
+""")
+
+##
+##  TODO - Check out missing files from source control.
+##
+##  scons will, by default, fetch files from SCCS or RCS subdirecto-
+##  ries without explicit configuration.  This takes some extra pro-
+##  cessing time to search for the necessary source code  management
+##  files  on disk.  You can avoid these extra searches and speed up
+##  your build a little by disabling these searches as follows:
+##
+env.SourceCode('.', None)
+##
+##  Store all signatures in the '.sconsign.dblite'
+##  file at the top-level SConstruct directory.
+##
+SConsignFile()
+
+##
+##  Define it's compiler flags for the all build tools.
+##-O2 <-> -g
+env['CCFLAGS'] = Split("""
+    -Wall -O2
+""")
+
+env['CXXFLAGS'] = Split("""
+    -Wall -O2
+""")
+
+##
+##  Define it's C/C++ include paths for all builds.
+##
+
+env['CPPPATH'] = Split("""
+  #
+""")
+
+##
+##  Adjust the env for cross-building to the xScale ARM processor...
+##
+arm_env = env.Copy()
+
+##
+## Append arm to PREFIX
+##
+armprefix = arm_env['PREFIX'] + '/arm'
+arm_env.Replace(PREFIX = armprefix)
+arm_env.Replace(ARCH = 'arm')
+
+# arm_env.AppendUnique(CCFLAGS=Split("""
+#   -mcpu=xscale
+# """))
+
+
+arm_env.AppendUnique(CPPPATH =
+    Split("""
+	$PREFIX/include
+    """)
+)
+
+arm_env.AppendUnique(LIBPATH =
+    Split("""
+	#build_arm/build_core
+	$PREFIX/lib
+    """)
+)
+
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
+##
+arm_env.AppendUnique(RPATH = 
+    Split("""
+	$PREFIX/lib
+    """)
+)
+
+arm_env.Replace(AR	= 'arm-linux-ar')
+arm_env.Replace(AS	= 'arm-linux-as')
+arm_env.Replace(CC	= 'arm-linux-gcc')
+arm_env.Replace(CXX	= 'arm-linux-g++')
+arm_env.Replace(LINK	= 'arm-linux-g++')
+arm_env.Replace(RANLIB	= 'arm-linux-ranlib')
+arm_env.Replace(LEX	= 'arm-linux-flex')
+
+
+##
+##  Adjust the env for building to the x86 processor...
+##
+x86_env = env.Copy()
+
+##
+## Append x86 to PREFIX
+##
+x86prefix = x86_env['PREFIX'] + '/x86'
+x86_env.Replace(PREFIX = x86prefix)
+x86_env.Replace(ARCH = 'x86')
+
+##
+##  Define it's compiler flags for the all build tools.
+##-O2 <-> -g
+x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
+x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
+
+x86_env.AppendUnique(CPPPATH =
+    Split("""
+	$PREFIX/include
+    """)
+)
+
+x86_env.AppendUnique(LIBPATH =
+    Split("""
+	#build_x86/build_core
+	$PREFIX/lib
+    """)
+)
+
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
+##
+x86_env.AppendUnique(RPATH = [
+    x86_env.Dir("#build_x86/build_core").get_abspath(),
+    '$PREFIX/lib'
+    ]) 
+##
+##  Build nidas/rtlinux
+##
+# SConscript('nidas/rtlinux/SConscript',
+# 	build_dir='build_arm/build_rtl',
+# 	duplicate=0,exports={'env':arm_env,'build_rtlinux_modules':1})
+
+##
+##  Build nidas/rtlinux/build_x86, but only target the headers
+##
+# SConscript('nidas/rtlinux/SConscript',
+# 	build_dir='nidas/rtlinux/build_x86',
+# 	duplicate=0,exports={'env':x86_env,'build_rtlinux_modules':0})
+
+##
+##
+##  Build nidas library and applications for arm
+##
+SConscript('nidas/SConscript',
+ 	build_dir='build_arm',
+	duplicate=0,exports={'env':arm_env})
+
+##
+##  Build nidas library and applications for x86
+##
+SConscript('nidas/SConscript',
+ 	build_dir='build_x86',
+	duplicate=0,exports={'env':x86_env})
+##
+##  target for creating arm modules, library and executables
+##
+Alias('arm', ['build_arm/build_core', 'build_arm/build_dynld',
+	'build_arm/build_apps', 'build_arm/build_rtl'])
+##
+##  target for creating x86 library and executables
+##
+Alias('x86', ['build_x86/build_core', 'build_x86/build_dynld',
+	'build_x86/build_apps', 'build_x86/build_rtl'])
+##
+##  target for creating arm and x86 libraries
+##
+Alias('lib', ['build_x86/build_core','build_x86/build_dynld',
+	      'build_arm/build_core','build_arm/build_dynld'
+	])
+##
+##  target for installing arm modules, library and executables
+##
+arm_env.Alias('arm_install', [
+	'$PREFIX/include/nidas/util',
+	'$PREFIX/include/nidas/core',
+	'$PREFIX/include/nidas/dynld',
+	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/lib',
+	'$PREFIX/bin',
+	'$PREFIX/rtlinux'
+    ]
+)
+#	'$PREFIX/rtlinux',
+
+##
+##  target for installing x86 library and executables
+##
+x86_env.Alias('x86_install', [
+	'$PREFIX/include/nidas/util',
+	'$PREFIX/include/nidas/core',
+	'$PREFIX/include/nidas/dynld',
+	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/lib',
+	'$PREFIX/bin'
+    ]
+)
+#	'$PREFIX/rtlinux',
+
+Alias('install', ['arm_install','x86_install'])
+
+Default([ 'arm', 'x86' ])

@@ -1,0 +1,90 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import glob
+import fnmatch
+import os
+
+##
+##  Import the cross-build environment.
+##
+Import('env')
+myenv = env.Copy()
+
+conf = Configure(myenv)
+
+myenv = conf.Finish()
+
+# -ggdb
+# -DXML_DEBUG
+myenv.AppendUnique(CXXFLAGS = Split("""
+"""))
+
+##
+##  List of headers files
+##
+# headers = glob.glob("../../util/*.h")
+# print(["glob headers="] + [str(h) for h in headers])
+headers = [ Split("""
+    BitArray.h
+    DatagramPacket.h
+    EOFException.h
+    Exception.h
+    FileSet.h
+    Inet4Address.h
+    Inet4SocketAddress.h
+    InterruptedException.h
+    InvalidParameterException.h
+    IOException.h
+    IOTimeoutException.h
+    Logger.h
+    McSocket.h
+    ParseException.h
+    SerialOptions.h
+    SerialPort.h
+    SocketAddress.h
+    Socket.h
+    Termios.h
+    Thread.h
+    ThreadSupport.h
+    UnixSocketAddress.h
+    UnknownHostException.h
+    UTime.h
+    """)
+]
+# print(["headers="] + [str(h) for h in headers])
+
+# sources = glob.glob("../../util/*.cc")
+# print(["glob sources="] + [str(h) for h in sources])
+sources = [ Split("""
+    BitArray.cc
+    Exception.cc
+    FileSet.cc
+    Inet4Address.cc
+    Inet4SocketAddress.cc
+    Logger.cc
+    McSocket.cc
+    SerialOptions.cc
+    SerialPort.cc
+    Socket.cc
+    Termios.cc
+    Thread.cc
+    ThreadSupport.cc
+    UnixSocketAddress.cc
+    UTime.cc
+    """)
+]
+# print(["sources="] + [str(h) for h in sources])
+
+##
+##  Build the libnidas library.
+##
+lib = myenv.SharedLibrary('nidas_util' , sources)
+
+##
+## Install target for library.
+##
+myenv.Install('$PREFIX/lib',lib)
+
+myenv.Install('$PREFIX/include/nidas/util',headers)

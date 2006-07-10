@@ -1,0 +1,316 @@
+/*
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate: 2005-09-10 07:54:23 -0600 (Sat, 10 Sep 2005) $
+
+    $LastChangedRevision: 2879 $
+
+    $LastChangedBy: maclean $
+
+    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/CSAT3_Sonic.h $
+
+*/
+
+#ifndef NIDAS_DNYLD_ISFF_SONICANEMOMETER_H
+#define NIDAS_DNYLD_ISFF_SONICANEMOMETER_H
+
+#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/AdaptiveDespiker.h>
+
+namespace nidas { namespace dynld { namespace isff {
+
+class WindRotator {
+public:
+
+    WindRotator();
+
+    float getAngleDegrees() const;
+
+    void setAngleDegrees(float val);
+
+    void rotate(float* up, float* vp) const;
+
+private:
+
+    float angle;
+
+    double sinAngle;
+
+    double cosAngle;
+};
+
+/**
+ * WindTilter is used to apply a 3d rotation matrix to a wind vector.
+ *
+ * WindTilter generates a matrix for rotating 3d wind
+ * vectors from an orthogonal sonic coordinate system to a new coordinate
+ * system whose w axis is defined by two angles, lean and leanaz.  It is
+ * commonly used to rotate sonic wind data to mean flow
+ * coordinates, whose w axis is normal to the plane of the observed flow.
+ *
+ * lean is the angle in radians between the flow normal and the
+ * sonic w axis (0 <= lean <= 180)
+ *
+ * leanaz is the clock angle in radians from the sonic u axis of the
+ * projection of the flow normal in the sonic uv plane, positive
+ * toward the sonic v axis. (0 <= leanaz < 360)
+ *
+ * The unit axes of sonic coordinates:		Us, Vs, Ws
+ * The unix axes of the flow coordiate system:	Uf, Vf, Wf
+ *
+ * This is primarily a rotation of the W axis. The Uf axis
+ * remains in the plane of Us and an "up" direction.
+ *
+ * There is some uncertainty regarding what's "up", though
+ * it usually makes so little difference that it's probably not worth
+ * worrying about.  This code assumes "up" is Wf.
+ * I suppose if you had your sonic on the side
+ * of a steep hill you may want "up" to be the sonic W axis.
+ *
+ * If "up" is the flow normal, then
+ *   
+ *  Uf = (Wf X Us) X Wf 	(normalized)
+ *  
+ * If "up" is the sonic W axis, then 
+ *
+ * Uf = Vs X Wf		cross product of Vs and Wf
+ *    = (0 1 0) X Wf	In sonic coords Vs is just (0 1 0)
+ *			Then normalize Uf.
+ *
+ * **********************************************************************
+ * How to determine the flow normal from sonic wind data.
+ *
+ * The value of W in flow coordinates (Wf) is the dot product of
+ * the corrected sonic wind vector (us-uoff,vs-voff,ws-woff) with the
+ * Wf unit vector, in sonic coordinates.
+ * uoff, voff and woff are the sonic biases.
+ *
+ * Wf = (us-uoff) * sin(lean)cos(leanaz) + (vs-voff)*sin(lean)sin(leanaz)
+ *  + (ws-woff) * cos(lean)
+ *
+ * An averaged Wf is by definition zero, which gives an equation
+ * for wsbar in terms of usbar and vsbar.
+ *
+ * wsbar = woff - (usbar-uoff)*tan(lean)cos(leanaz)
+ *	 - (vsbar-voff)*tan(lean)sin(leanaz)
+ *
+ * Therefore wsbar should look like a linear function of the corrected
+ * and averaged U and V components from the sonic, (uscor=usbar-uoff):
+ *
+ *  wsbar = b1 + b2 * uscor + b3 * vscor
+ *
+ * One can determine these b coefficients with a minimum variance
+ * fit, and
+ *
+ *  b1 = woff
+ *  b2 = -tan(lean)cos(leanaz)
+ *  b3 = -tan(lean)sin(leanaz)
+ *
+ * lean and leanaz are therefore:
+ * lean = atan(sqrt(b2*b2 + b3*b3))
+ * leanaz = atan2(-b3,-b2)
+ *
+ * @version $Revision: 1.8 $
+ * @author  $Author: maclean $
+ */
+class WindTilter {
+public:
+
+    WindTilter();
+
+    float getLeanDegrees() const
+    {
+	return (float)(lean * 180.0 / M_PI);
+    }
+    void setLeanDegrees(float val)
+    {
+	lean = (float)(val * M_PI / 180.0);
+	computeMatrix();
+    }
+
+    float getLeanAzimuthDegrees() const
+    {
+	return (float)(leanaz * 180.0 / M_PI);
+    }
+    void setLeanAzimuthDegrees(float val)
+    {
+	leanaz = (float)(val * M_PI / 180.);
+	if (!identity) computeMatrix();
+    }
+
+    bool isIdentity() const
+    {
+        return identity;
+    }
+
+    void rotate(float*u, float*v, float*w) const;
+
+private:
+
+    void computeMatrix();
+
+    float lean;
+
+    float leanaz;
+
+    bool identity;
+
+    double mat[3][3];
+
+    bool UP_IS_SONIC_W;
+
+};
+
+/**
+ * A class for performing the common processes on
+ * wind data from a 3D sonic anemometer.
+ */
+class SonicAnemometer: public DSMSerialSensor
+{
+public:
+
+    SonicAnemometer();
+
+    ~SonicAnemometer() {}
+
+    void setBias(int i,float val)
+    {
+        if (i >= 0 && i < 3) bias[i] = val;
+    }
+
+    float getBias(int i) const
+    {
+        return bias[i];
+    }
+
+    float getVazimuth() const
+    {
+	return rotator.getAngleDegrees();
+    }
+
+    /**
+     * Wind vectors in geographic coordinates are expressed
+     * by U, the component of the wind blowing toward the east,
+     * and V, the component of the wind blowing toward the north.
+     * If the V axis of a sonic anemometer is pointing
+     * north then no rotation is necessary to convert from
+     * sonic coordinates to geographic.  So the compass azimuth
+     * (0=north,90=east, etc) of the sonic +V axis is the
+     * angle between geographic and sonic coordinates.
+     */
+    void setVazimuth(float val)
+    {
+	rotator.setAngleDegrees(val);
+    }
+
+    float getLeanDegrees() const
+    {
+	return tilter.getLeanDegrees();
+    }
+    void setLeanDegrees(float val)
+    {
+	tilter.setLeanDegrees(val);
+    }
+
+    float getLeanAzimuthDegrees() const
+    {
+	return tilter.getLeanAzimuthDegrees();
+    }
+    void setLeanAzimuthDegrees(float val)
+    {
+	tilter.setLeanAzimuthDegrees(val);
+    }
+
+    void setDespike(bool val)
+    {
+        despike = val;
+    }
+
+    bool getDespike() const
+    {
+        return despike;
+    }
+
+    void setOutlierProbability(float val)
+    {
+	for (int i = 0; i < 4; i++)
+	    despiker[i].setOutlierProbability(val);
+    }
+
+    double getOutlierProbability() const
+    {
+        return despiker[0].getOutlierProbability();
+    }
+
+    void setDiscLevelMultiplier(double val)
+    {
+	for (int i = 0; i < 4; i++)
+	    despiker[i].setDiscLevelMultiplier(val);
+    }
+
+    double getDiscLevelMultiplier() const
+    {
+        return despiker[0].getDiscLevelMultiplier();
+    }
+
+    double getDiscLevel() const
+    {
+        return despiker[0].getDiscLevel();
+    }
+
+    /**
+     * Virtual method to correct sonic virtual temperature, tc,
+     * for the lengthening of the pulse path due to
+     * the wind.  Default method returns unchanged tc.
+     * Derived SonicAnemometer classes should over-ride
+     * this method in order to perform any correction
+     * based on their geometry.
+     */
+    virtual float correctTcForPathCurvature(float tc,
+    	float u, float v, float w);
+
+    void addSampleTag(SampleTag* stag)
+            throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Do standard processing of 3d sonic anemometer data.
+     * @tt time tag of the data, used to search for a parameter
+     *    a file containing a calibration time series.
+     * @param uvwt Pointer to an array of 4 floats, containing
+     *    u,v,w and tc(virtual temperature).  u,v,w are despiked
+     *    and rotated, based on attributes of SonicAnemometer.
+     *    tc is despiked and optionally corrected for
+     *    path curvature.
+     * @param flags Either 0 (NULL), or a pointer to an array of
+     *    4 floats, uflag, vflag, wflag, and tcflag.
+     *    uflag is set to 1 is a spike or missing value is detected on u.
+     */
+    void processSonicData(dsm_time_t tt,float* uvwt,float*spd,float*dir,
+    	float* flags) throw();
+
+    void fromDOMElement(const xercesc::DOMElement* node)
+	throw(nidas::util::InvalidParameterException);
+
+protected:
+
+    static const int DATA_GAP_USEC = 60000000;
+
+    int counter;
+
+    dsm_time_t ttlast[4];
+
+    float bias[3];
+
+    bool despike;
+
+    AdaptiveDespiker despiker[4];
+ 
+    WindRotator rotator;
+
+    WindTilter tilter;
+
+};
+
+}}}	// namespace nidas namespace dynld namespace isff
+
+#endif
