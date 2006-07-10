@@ -431,7 +431,6 @@ void Project::fromDOMElement(const DOMElement* node)
 	    addSite(site);
 	}
 	else if (elname == "aircraft") {
-	    cerr << "aircraft!!!!!!!!!" << endl;
 	    // <aircraft> tag is the same as <site class="Aircraft">
 	    Aircraft* site = new Aircraft();
 	    site->setProject(this);

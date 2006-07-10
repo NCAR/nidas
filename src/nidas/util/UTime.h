@@ -143,7 +143,11 @@ public:
 
     bool operator<(const UTime& u) const { return _utime < u._utime; }
 
+    bool operator<=(const UTime& u) const { return _utime <= u._utime; }
+
     bool operator>(const UTime& u) const { return _utime > u._utime; }
+
+    bool operator>=(const UTime& u) const { return _utime >= u._utime; }
 
     bool operator==(const UTime& u) const { return _utime == u._utime; }
 

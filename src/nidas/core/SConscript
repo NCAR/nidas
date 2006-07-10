@@ -64,6 +64,7 @@ headers = [ Split("""
     PhysConstants.h
     PortSelectorTest.h
     Project.h
+    ProjectConfigs.h
     RemoteSerialConnection.h
     RemoteSerialListener.h
     RTL_DevIoctl.h
@@ -141,6 +142,7 @@ sources = [ Split("""
     Parameter.cc
     PortSelectorTest.cc
     Project.cc
+    ProjectConfigs.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc
     RTL_DevIoctl.cc

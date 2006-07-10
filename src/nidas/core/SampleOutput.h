@@ -164,14 +164,14 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
+    IOChannel* getIOChannel() { return iochan; }
+
 protected:
 
     /**
      * Set the IOChannel for this output.
      */
     virtual void setIOChannel(IOChannel* val);
-
-    IOChannel* getIOChannel() { return iochan; }
 
     SampleConnectionRequester* getSampleConnectionRequester()
     {

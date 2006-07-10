@@ -429,11 +429,8 @@ int DataDump::run() throw()
 	    for ( ; di.hasNext(); ) {
 		const DSMConfig* dsm = di.next();
 		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-
-		for (list<DSMSensor*>::const_iterator si = sensors.begin();
-			si != sensors.end(); ++si)
-		    cerr << "sensor=" << (*si)->getName() << endl;
+		allsensors.insert(allsensors.end(),sensors.begin(),
+			sensors.end());
 	    }
 	}
 

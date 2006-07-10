@@ -14,7 +14,7 @@ DESC="dsm"
 
 ruser=ads
 server=server		# found in /etc/hosts
-adspath=/opt/ads3/arm
+adspath=/opt/nidas/arm
 
 modpath=/var/tmp/modules
 libpath=/var/tmp/lib
@@ -128,8 +128,8 @@ copy_modules() {
     modules=($(get_modules))
     for m in ${modules[*]}; do
         [ $m == rtl ] && continue	# don't fetch rtl.o
-	echo scp $ruser@$server:$adspath/modules/$m.o $modpath
-	scp $ruser@$server:$adspath/modules/$m.o $modpath
+	echo scp $ruser@$server:$adspath/rtlinux/$m.o $modpath
+	scp $ruser@$server:$adspath/rtlinux/$m.o $modpath
     done
 }
 copy_apps() {
