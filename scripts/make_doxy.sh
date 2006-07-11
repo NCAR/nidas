@@ -14,17 +14,22 @@
 ##
 
 nidas_dir() {
-    # echo /scr/tmp/$LOGNAME/nidas_doxy
-    echo /tmp/nidas_doxy
+    if [ -z "$TMPDIR" ]; then
+	echo /tmp/nidas_doxy
+    else
+	echo $TMPDIR/nidas_doxy
+    fi
 }
 
 svn_co_nidas() {
     local dir=`nidas_dir`
-    [ -d $dir ] && rm -rf $dir
-    mkdir -p $dir
-    cd $dir
-    svn co http://svn/svn/nids/branches/nidas_reorg nidas
-    cd nidas
+    if [ -d $dir ]; then
+	cd $dir
+	svn update nidas
+    else
+	mkdir -p $dir
+	svn co http://svn/svn/nids/trunk nidas
+    fi
 }
 
 codir=`nidas_dir`/nidas
