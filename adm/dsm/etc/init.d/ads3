@@ -136,8 +136,12 @@ copy_apps() {
         [ -d $libpath ] || mkdir -p $libpath
         [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
         
-	echo scp $ruser@$server:$adspath/lib/libDsm.so $libpath
-	scp $ruser@$server:$adspath/lib/libDsm.so $libpath
+	echo scp $ruser@$server:$adspath/lib/libnidas.so $libpath
+	scp $ruser@$server:$adspath/lib/libnidas.so $libpath
+	echo scp $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath
+	scp $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath
+	echo scp $ruser@$server:$adspath/lib/libnidas_util.so $libpath
+	scp $ruser@$server:$adspath/lib/libnidas_util.so $libpath
 	echo scp $ruser@$server:$adspath/bin/dsm $dsmpath
 	scp $ruser@$server:$adspath/bin/dsm $dsmpath
 	echo scp $ruser@$server:$adspath/filters/*.cfg $dsmpath/filters
