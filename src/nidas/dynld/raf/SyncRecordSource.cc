@@ -333,9 +333,8 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 
 #ifdef DEBUG
     cerr << "SyncRecordSource::sendHeader timetag=" << headerRec->getTimeTag() << endl;
-#endif
-
     cerr << "sync header=" << endl << headstr << endl;
+#endif
 
     headerRec->setId(SYNC_RECORD_HEADER_ID);
     strcpy(headerRec->getDataPtr(),headstr.c_str());
