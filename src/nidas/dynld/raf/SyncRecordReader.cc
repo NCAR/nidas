@@ -24,7 +24,7 @@ namespace n_u = nidas::util;
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	inputStream(iochan),headException(0),
-	numFloats(0),startTime(0)
+	numFloats(0),startTime(0),_debug(false)
 {
     try {
 	inputStream.init();
@@ -32,7 +32,8 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	    const Sample* samp = inputStream.readSample();
 	    // read/parse SyncRec header, full out variables list
 	    if (samp->getId() == SYNC_RECORD_HEADER_ID) {
-		cerr << "received SYNC_RECORD_HEADER_ID" << endl;
+                if (_debug)
+		    cerr << "received SYNC_RECORD_HEADER_ID" << endl;
 		scanHeader(samp);
 		samp->freeReference();
 		break;
@@ -83,8 +84,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     	string((const char*)samp->getConstVoidDataPtr(),
 		samp->getDataLength()));
 
-    cerr << "header=\n" << 
-    	string((const char*)samp->getConstVoidDataPtr(),
+    if (_debug)
+        cerr << "header=\n" << string((const char*)samp->getConstVoidDataPtr(),
 		samp->getDataLength()) << endl;
 
     try {
@@ -124,7 +125,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	string vname;
 	header >> vname;
 
-	// cerr << "vname=" << vname << endl;
+        if (_debug)
+	    cerr << "vname=" << vname << endl;
 
 	if (header.eof()) goto eof;
 
@@ -135,8 +137,10 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	int vlen;
 
 	header >> vtypestr >> vlen;
-	// cerr << "vtypestr=" << vtypestr << endl;
-	// cerr << "vlen=" << vlen << endl;
+        if (_debug) {
+	    cerr << "vtypestr=" << vtypestr << endl;
+	    cerr << "vlen=" << vlen << endl;
+        }
 	if (header.eof()) goto eof;
 
 	// screen bad variable types here
@@ -167,11 +171,13 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	}
 
 	string vunits = getQuotedString(header);
-	// cerr << "vunits=" << vunits << endl;
+        if (_debug)
+	    cerr << "vunits=" << vunits << endl;
 	if (header.eof()) goto eof;
 
 	string vlongname = getQuotedString(header);
-	// cerr << "vlongname=\"" << vlongname << "\"" << endl;
+        if (_debug)
+	    cerr << "vlongname=\"" << vlongname << "\"" << endl;
 	if (header.eof()) goto eof;
 
 	vector<float> coefs;
@@ -180,7 +186,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    float val;
 	    header >> val;
 	    if (header.fail()) break;
-	    // cerr << "val=" << val << endl;
+            if (_debug)
+	        cerr << "val=" << val << endl;
 	    coefs.push_back(val);
 	}
 	if (header.eof()) goto eof;
@@ -188,7 +195,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
 	// converted units
 	string cunits = getQuotedString(header);
-	// cerr << "cunits=" << vunits << endl;
+        if (_debug)
+	    cerr << "cunits=" << vunits << endl;
 	if (header.eof()) goto eof;
 
 	char semicolon = 0;
@@ -234,7 +242,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	varmap[vname] = var;
 	newvars.push_back(var);
     }
-    // cerr << "done with variable loop" << endl;
+    if (_debug)
+        cerr << "done with variable loop" << endl;
     section = "rates";
 
     tmpstr.clear();
@@ -257,7 +266,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     for (;;) {
 	float rate;
         header >> rate;
-	// cerr << "read rate=" << rate << endl;
+        if (_debug)
+	    cerr << "read rate=" << rate << endl;
 	if (header.fail()) break;
 	if (header.eof()) goto eof;
 
@@ -272,7 +282,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	for (;;) {
 	    string vname;
 	    header >> vname;
-	    // cerr << "variable of rate: " << vname << endl;
+            if (_debug)
+	        cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
 	    if (!vname.compare(";")) break;
 	    vi = varmap.find(vname);
@@ -319,7 +330,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    headException = new SyncRecHeaderException(
 	    	string("variable ") + var->getName() +
 		" not found in a rate group");
-	    cerr << headException->what() << endl;
+            if (_debug)
+	        cerr << headException->what() << endl;
 	    return;
 	}
     }

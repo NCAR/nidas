@@ -130,6 +130,7 @@ private:
 
     time_t startTime;
 
+    bool _debug;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
