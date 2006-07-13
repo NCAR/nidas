@@ -237,7 +237,7 @@ void GOESOutput::init() throw()
 			getName().c_str(),stationNumber);
     }
       
-    if (goesXmtr->getXmitOffset() == 0) {
+    if (getXmitOffset() == 0) {
         const Parameter* offs = project->getParameter("goes_xmitOffsets");
 	if (offs->getLength() > stationNumber)
 	    goesXmtr->setXmitOffset((int) offs->getNumericValue(stationNumber));
@@ -354,7 +354,7 @@ bool GOESOutput::receive(const Sample* samp)
 		// complain about a late sample, but send the data anyway.
 		const char* ttmsg = "Bad";
 		if (isamp->getTimeTag() == osamp->getTimeTag() -
-		    goesXmtr->getXmitInterval() * USECS_PER_SEC) {
+		    getXmitInterval() * USECS_PER_SEC) {
 		    ttmsg = "Late";
 		    osamp->getDataPtr()[ovari] = isamp->getConstDataPtr()[i];
 		}
@@ -377,8 +377,8 @@ void GOESOutput::interrupt()
 
 int GOESOutput::run() throw(n_u::Exception)
 {
-    unsigned int periodUsec = goesXmtr->getXmitInterval() * USECS_PER_SEC;
-    unsigned int offsetUsec = goesXmtr->getXmitOffset() * USECS_PER_SEC;
+    unsigned int periodUsec = getXmitInterval() * USECS_PER_SEC;
+    unsigned int offsetUsec = getXmitOffset() * USECS_PER_SEC;
 
 
     // When this thread wakes up - number of usecs after the

@@ -16,6 +16,7 @@
 #define NIDAS_DYNLD_ISFF_PACKETINPUTSTREAM_H
 
 #include <nidas/dynld/isff/Packets.h>
+#include <nidas/dynld/isff/GOESProject.h>
 #include <nidas/dynld/SampleInputStream.h>
 
 namespace nidas { namespace dynld { namespace isff {
@@ -82,69 +83,11 @@ public:
 
 private:
 
-    void collectSampleTags() throw(nidas::util::InvalidParameterException);
-
     const SampleTag* findSampleTag(int configId, int goesId, int sampleId)
 	    throw(nidas::util::InvalidParameterException);
 
-    int getXmitOffset(const SampleTag* tag);
-
-    class GOESProject
-    {
-    public:
-	GOESProject(Project*p): project(p) {}
-	~GOESProject();
-
-	Project* getProject() const { return project; }
-
-	/**
-	 * Get the station number, corresponding to a GOES id.
-	 * @return -1: goes id not found.
-	 * Throws InvalidParameterException if there is
-	 * no "goes_ids" integer parameter for the Project.
-	 */
-	int getStationNumber(unsigned long goesId)
-		throw(nidas::util::InvalidParameterException);
-
-	int getXmitOffset(int stationNumber)
-		throw(nidas::util::InvalidParameterException);
-
-	/**
-	 * Get a new SampleTag*, corresponding to station and sampleid.
-	 * @return 0: Site for stationNumber not found, or sample for
-	 *            with given sampleid not found.
-	 * Throws InvalidParameterException if there is
-	 * no "goes_ids" integer parameter for the Project.
-	 */
-	const SampleTag* getSampleTag(int stationNumber, int sampleId);
-
-	const std::set<const SampleTag*>& getSampleTags();
-
-	unsigned long getGOESId(int stationNum)
-	    throw(nidas::util::InvalidParameterException);
-
-    private:
-	GOESProject(const GOESProject& x); 	// no copying
-	
-	GOESProject& operator=(const GOESProject& x) const; 	// no assign
-
-	void readGOESIds()
-	    throw(nidas::util::InvalidParameterException);
-
-	Project* project;
-
-	std::vector<unsigned long> goesIds;
-
-	std::map<unsigned long,int> stationNumbersById;
-
-	std::map<dsm_sample_id_t,SampleTag*> sampleTagsById;
-
-	std::vector<int> xmitOffsets;
-
-	std::set<const SampleTag*> sampleTags;
-
-
-    };
+    const GOESProject* getGOESProject(int configid) const
+    	throw(nidas::util::InvalidParameterException);
 
     /**
      * Don't copy.
@@ -157,13 +100,7 @@ private:
 
     PacketParser* packetParser;
 
-    std::set<const SampleTag*> sampleTags;
-
-    std::map<int,GOESProject*> projectsByConfigId;
-
-    std::map<const SampleTag*,int> xmitOffsetsByTag;
-
-    std::vector<SampleTag*> goesTags;
+    mutable std::map<int,GOESProject*> projectsByConfigId;
 
 };
 

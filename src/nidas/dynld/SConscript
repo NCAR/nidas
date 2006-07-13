@@ -62,6 +62,7 @@ isffhdrs = [ Split("""
     isff/CS_Krypton.h
     isff/GOES.h
     isff/GOESOutput.h
+    isff/GOESProject.h
     isff/GOESXmtr.h
     isff/GroundStation.h
     isff/nc_server_rpc.h
@@ -118,6 +119,7 @@ isffsrcs = [ Split("""
     isff/CS_Krypton.cc
     isff/GOES.cc
     isff/GOESOutput.cc
+    isff/GOESProject.cc
     isff/GOESXmtr.cc
     isff/GroundStation.cc
     isff/nc_server_rpc_xdr.c

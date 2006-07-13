@@ -149,11 +149,6 @@ public:
         return sampleId;
     }
 
-    int getXmitOffset() const
-    {
-        return xmitOffset;
-    }
-
     void parseData(float*,int nvars);
 
 private:
@@ -202,8 +197,6 @@ private:
     int configId;
 
     int sampleId;
-
-    int xmitOffset;
 
 };
 

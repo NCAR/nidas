@@ -59,6 +59,24 @@ public:
         return new GOESOutput(*this);
     }
 
+    /**
+     * The GOES transmit interval, in seconds.
+     */
+    int getXmitInterval() const
+    { 
+        if (goesXmtr) return goesXmtr->getXmitInterval();
+	return -1;
+    }
+
+    /**
+     * The GOES transmit offset, in seconds.
+     */
+    int getXmitOffset() const
+    { 
+        if (goesXmtr) return goesXmtr->getXmitOffset();
+	return -1;
+    }
+
     void addSampleTag(const SampleTag* tag);
 
     void init() throw ();

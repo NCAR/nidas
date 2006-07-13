@@ -37,7 +37,8 @@ nidas::util::Mutex PacketParser::pregMutex;
 
 PacketParser::PacketParser() throw(n_u::ParseException):
     nmatch(10),	// max number of parenthesized expressions
-    pmatch(0),infoType(-1),packetInfo(0),stationId(-1)
+    pmatch(0),infoType(-1),packetInfo(0),stationId(-1),
+    configId(-1),sampleId(-1)
 {
     // 
     pmatch = new ::regmatch_t[nmatch];
@@ -106,6 +107,8 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 
     packetTime = n_u::UTime((time_t)0);
     stationId = -1;
+    configId = -1;
+    sampleId = -1;
 
     int regstatus;
 
@@ -129,9 +132,17 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 	    int year,jday,hour,minute,sec;
 	    assert(pmatch[1].rm_so >= 0 && pmatch[2].rm_so >= 0);
 
-	    sscanf(packetPtr + pmatch[1].rm_so,"%8x",&stationId);	// goesid
-	    sscanf(packetPtr + pmatch[2].rm_so,"%2d%3d%2d%2d%2d",
-		    &year,&jday,&hour,&minute,&sec);
+	    // hex goesid
+	    if (sscanf(packetPtr + pmatch[1].rm_so,"%8x",&stationId) != 1)
+		throw n_u::ParseException(string("bad goesid in packet:") +
+			string(packetPtr + pmatch[1].rm_so,8));
+
+	    // date
+	    if (sscanf(packetPtr + pmatch[2].rm_so,"%2d%3d%2d%2d%2d",
+		    &year,&jday,&hour,&minute,&sec) != 5)
+		throw n_u::ParseException(string("bad date in packet:") +
+			string(packetPtr + pmatch[2].rm_so,11));
+
 	    packetTime = n_u::UTime(true,year,jday,hour,minute,sec);
 	}
 	break;
@@ -148,7 +159,7 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 	break;
     }
 
-    if (itype == nInfoTypes) {      // not a packet
+    if (itype == nInfoTypes) {      // no match to any info type
 	ostringstream ost;
 	ost << "Bad packet (" << strlen(packet) << " bytes) \"" <<
 		packet << "\"";
@@ -193,21 +204,22 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
     int packetLength = std::min(packetInfo->getLength(),stringLength);
     endOfPacket = packetPtr + packetLength;
 
-    if (packetPtr < endOfPacket) configId = *packetPtr++ & 0x3f;
-    else configId = -1;
-
-    if (packetPtr < endOfPacket) sampleId = *packetPtr++ & 0x3f;
-    else sampleId = -1;
+    if (!(packetInfo->getStatusInt() & 0xf)) {
+	if (packetPtr < endOfPacket) configId = *packetPtr++ & 0x3f;
+	if (packetPtr < endOfPacket) sampleId = *packetPtr++ & 0x3f;
+    }
 
     return (packet_type) packetType;
 }
 
 void PacketParser::parseData(float* fptr, int nvars)
 {
-    int i;
-    for (i = 0; i < nvars && packetPtr+4 <= endOfPacket; i++) {
-	*fptr++ = GOES::float_decode_4x6(packetPtr);
-	packetPtr += 4;
+    int i = 0;
+    if (!(packetInfo->getStatusInt() & 0xf)) {
+	for ( ; i < nvars && packetPtr+4 <= endOfPacket; i++) {
+	    *fptr++ = GOES::float_decode_4x6(packetPtr);
+	    packetPtr += 4;
+	}
     }
     for ( ; i < nvars; i++) *fptr++ = nidas::core::floatNAN;
 }
