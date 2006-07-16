@@ -85,6 +85,8 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 		p->getName() == "counts" && p->getLength() == 1) {
 	    outputInfo.countsName = p->getStringValue(0);
 	}
+	else throw n_u::InvalidParameterException(getName(),
+		"unknown statistics parameter",p->getName());
     }
     if (!vparm) {
 	ostringstream ost;
@@ -92,7 +94,7 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	ost << "sample id=" << id << "(dsm=" << GET_DSM_ID(id) <<
 		", sample=" << GET_SHORT_ID(id) << ")";
         throw n_u::InvalidParameterException(
-    	getName(),ost.str(),"has no \"invars\" parameter");
+	    getName(),ost.str(),"has no \"invars\" parameter");
     }
     if (outputInfo.type == StatisticsCruncher::STATS_UNKNOWN) {
 	ostringstream ost;
@@ -100,7 +102,7 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	ost << "sample id=" << id << "(dsm=" << GET_DSM_ID(id) <<
 		", sample=" << GET_SHORT_ID(id) << ")";
         throw n_u::InvalidParameterException(
-    	getName(),ost.str(),"has no \"type\" parameter");
+	    getName(),ost.str(),"has no \"type\" parameter");
     }
 
     if (tag->getRate() <= 0.0) {
