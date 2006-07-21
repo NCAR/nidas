@@ -419,6 +419,12 @@ int GOESOutput::run() throw(n_u::Exception)
 	catch(const n_u::IOException& e) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		    getName().c_str(),e.what());
+	    goesXmtr->printStatus();	// no exception
+            try {
+		goesXmtr->reset();
+	    }
+	    catch(const n_u::IOException& e2) {
+	    }
 	    continue;
 	}
 
@@ -477,11 +483,20 @@ int GOESOutput::run() throw(n_u::Exception)
 		catch(const n_u::IOException& e) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 			    getName().c_str(),e.what());
+		    try {
+			goesXmtr->reset();
+		    }
+		    catch(const n_u::IOException& e2) {
+			n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+				getName().c_str(),e2.what());
+		    }
 		}
 	    }
 	    osamp->freeReference();
 	}
+	goesXmtr->printStatus();	// no exception
     }
+
     return n_u::Thread::RUN_OK;
 }
 

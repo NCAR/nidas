@@ -158,12 +158,19 @@ public:
 
     virtual void checkClock() throw(nidas::util::IOException) = 0;
 
-    void flush() throw (nidas::util::IOException) 
+    virtual void reset() throw(nidas::util::IOException) = 0;
+
+    /**
+     * Request that transmitter status be printed to an output stream.
+     */
+    virtual void printStatus() throw() = 0;
+
+    virtual void flush() throw (nidas::util::IOException) 
     {
         port.flushBoth();
     }
 
-    void close() throw (nidas::util::IOException);
+    virtual void close() throw (nidas::util::IOException);
 
     int getFd() const
     {

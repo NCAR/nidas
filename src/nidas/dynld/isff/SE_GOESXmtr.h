@@ -165,7 +165,16 @@ public:
     void cancelTransmit(const nidas::util::UTime& at)
     	throw(nidas::util::IOException);
 
-    void checkStatus() throw(nidas::util::IOException);
+    /**
+     * Queries the transmitter for status information.
+     * Returns a preliminary guess at the model number, which may be wrong.
+     * Use detectModel() for a more complete check of the model number.
+     */
+    int checkStatus() throw(nidas::util::IOException);
+
+    void printStatus() throw();
+
+    void printStatus(std::ostream&) throw();
 
     void setXmtrId() throw(nidas::util::IOException);
 
@@ -180,6 +189,10 @@ public:
     void checkClock() throw(nidas::util::IOException);
 
     void transmitDataSE110() throw(nidas::util::IOException);
+
+    void reset() throw(nidas::util::IOException);
+
+    void doSelfTest() throw(nidas::util::IOException);
 
     static std::string codeString(char pktType);
 
@@ -219,6 +232,8 @@ public:
         int value;
 	const char* msg;
     };
+
+    std::string getSelfTestStatusString();
 
     /** Get the transmitter's id */
     static const char PKT_GET_ID = '\x10';
@@ -336,6 +351,11 @@ public:
 
     static const char* errorCodeStrings[];
 
+    static struct selfTest {
+        short mask;
+	const char* text;
+    } selfTestCodes[2][10];
+
 private:
     
     /**
@@ -355,6 +375,29 @@ private:
     nidas::util::Logger* logger;
 
     int model;
+
+    /**
+     * Most recent value for GOES clock difference:  GOES clock - system clock.
+     */
+    int clockDiffMsecs;
+
+    nidas::util::UTime transmitQueueTime;
+
+    nidas::util::UTime transmitAtTime;
+
+    nidas::util::UTime transmitSampleTime;
+
+    std::string lastXmitStatus;
+
+    std::string softwareBuildDate;
+
+    short selfTestStatus;
+
+    int maxRFRate;
+
+    bool gpsNotInstalled;
+
+    size_t xmitNbytes;
 };
 
 

@@ -31,7 +31,7 @@ namespace nidas { namespace dynld { namespace isff {
 using namespace nidas::core;
 
 /**
- * An IOChannel implementation for a Signal Engineering GOES transmitter.
+ * An IOChannel implementation to simulate a GOES transmitter.
  */
 
 class SimGOESXmtr: public GOESXmtr {
@@ -79,14 +79,24 @@ public:
     /**
      * Queue a sample for writing to a GOES transmitter.
     */
-    virtual void transmitData(const nidas::util::UTime& at,
+    void transmitData(const nidas::util::UTime& at,
     	int configid,const Sample*) throw (nidas::util::IOException);
 
-    virtual void checkId() throw(nidas::util::IOException);
+    void checkId() throw(nidas::util::IOException);
 
-    virtual void checkClock() throw(nidas::util::IOException);
+    void checkClock() throw(nidas::util::IOException);
+
+    void printStatus() throw();
+
+    void reset() throw(nidas::util::IOException) {}
 
 private:
+
+    nidas::util::UTime transmitQueueTime;
+
+    nidas::util::UTime transmitAtTime;
+
+    nidas::util::UTime transmitSampleTime;
     
 };
 

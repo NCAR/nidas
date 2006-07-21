@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <iomanip>
 
 using namespace std;
@@ -102,6 +103,35 @@ const char* SE_GOESXmtr::errorCodeStrings[] = {
     "Command Timeout for multi-packet Command",
 };
 
+SE_GOESXmtr::selfTest SE_GOESXmtr::selfTestCodes[2][10] = {
+    // model 110
+    {
+    	{0x0001,"Ext RAM Test Failure"},
+    	{0x0002,"Ext RAM PageTest Failure"},
+    	{0x0004,"Battery Voltage < 10.5 Volts"},
+    	{0x0008,"EEPROM1 Program CRC Test Failure"},
+    	{0x0100,"RF Supply Voltage Failure"},
+    	{0x0200,"RF PLL Lock Failure"},
+    	{0x0000,""},
+    	{0x0000,""},
+    	{0x0000,""},
+    	{0x0000,""},
+    },
+    // model 120, 1200
+    {
+    	{0x0004,"Battery Voltage < 10.0 Volts"},
+    	{0x0008,"Software Boot Code Flash CRC Error"},
+    	{0x0010,"RS232 Software Flash CRC Error"},
+    	{0x0020,"Temperature Sensor Test Failure"},
+    	{0x0040,"TCX0 DAC Test Failure"},
+    	{0x0100,"HSB Software Flash CRC Error"},
+    	{0x0200,"RF PLL Lock Failure"},
+    	{0x0400,"TOD Interrrupt Test Failure"},
+    	{0x0800,"Modulation Interrupt Test Failure"},
+    	{0x1000,"Manufacturing Data Flash CRC Error"},
+    },
+};
+
 void SE_GOESXmtr::checkResponse(char ptype,const string& resp)
 	throw(n_u::IOException)
 {
@@ -174,7 +204,13 @@ void SE_GOESXmtr::checkACKResponse(char ptype,const string& resp,char seqnum)
     }
 }
 
-SE_GOESXmtr::SE_GOESXmtr(): model(0)
+SE_GOESXmtr::SE_GOESXmtr():
+	model(0),clockDiffMsecs(99999),
+	lastXmitStatus("unknown"),
+	selfTestStatus(0),
+	maxRFRate(0),
+	gpsNotInstalled(false),
+	xmitNbytes(0)
 {
     logger = n_u::Logger::getInstance();
     port.setBaudRate(9600);
@@ -188,7 +224,14 @@ SE_GOESXmtr::SE_GOESXmtr(): model(0)
     port.setRawTimeout(0);
 }
 
-SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x): GOESXmtr(x)
+SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
+	GOESXmtr(x),
+	model(0),clockDiffMsecs(99999),
+	lastXmitStatus("unknown"),
+	selfTestStatus(0),
+	maxRFRate(0),
+	gpsNotInstalled(false),
+	xmitNbytes(0)
 {
     logger = n_u::Logger::getInstance();
 }
@@ -197,11 +240,30 @@ SE_GOESXmtr::~SE_GOESXmtr()
 {
 }
 
+string SE_GOESXmtr::getSelfTestStatusString() 
+{
+    string res;
+    int imodel = 0;
+    if (getModel() == 120 || getModel() == 1200) imodel = 1;
+    int ncodes =
+    	sizeof(selfTestCodes[imodel]) / sizeof(selfTestCodes[imodel][0]);
+    for (int i = 0; i < ncodes; i++) {
+	if (selfTestStatus & selfTestCodes[imodel][i].mask) {
+	    if (res.length() > 0) res += ", ";
+	    res += selfTestCodes[imodel][i].text;
+	}
+    }
+    if (gpsNotInstalled) res += "No GPS Rcvr";
+    if (res.length() == 0) res = "OK";
+    return res;
+}
+
 void SE_GOESXmtr::open() throw(n_u::IOException)
 {
     GOESXmtr::open();
     try {
 	query();
+	checkStatus();
     }
     catch (const n_u::IOException& e) {
     	logger->log(LOG_ERR,"%s: open: %s", getName().c_str(),e.what());
@@ -220,7 +282,39 @@ void SE_GOESXmtr::query() throw(n_u::IOException)
     tosleep();
 }
 
-int SE_GOESXmtr::detectModel() throw(n_u::IOException)
+// This takes 20 seconds on a model 110, 15 seconds on a 120 or 1200
+void SE_GOESXmtr::doSelfTest() throw(n_u::IOException)
+{
+    wakeup();
+    send(PKT_SELFTEST_START);
+
+    string resp = recv();
+    checkResponse(PKT_SELFTEST_START,resp);
+    tosleep();
+}
+
+void SE_GOESXmtr::reset() throw(n_u::IOException)
+{
+    logger->log(LOG_INFO,"%s: doing transmitter reset and self test",
+	    getName().c_str());
+    wakeup();
+    send(PKT_RESET_XMTR);
+
+    string resp = recv();
+    checkResponse(PKT_RESET_XMTR,resp);
+
+    // This takes 20 seconds on a model 110, 15 seconds on a 120 or 1200
+    send(PKT_SELFTEST_START);
+
+    resp = recv();
+    checkResponse(PKT_SELFTEST_START,resp);
+    tosleep();
+
+    // this will force a detectModel() before the next tranmission
+    setModel(0);	
+}
+
+int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 {
     wakeup();
     send(PKT_DISPLAY_VERSION);
@@ -238,23 +332,22 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
     // of type PKT_XMT_DATA_SE120, so we must try a test transmission
     // on units that appear to be a 120.
 
-    int model = 110;
+    int lmodel = 110;
+    softwareBuildDate = "unknown";
     try {
 	checkResponse(PKT_DISPLAY_VERSION,resp);
     }
     catch(const GOESException& e) {
 	// checkResponse does a toSleep() if it throws an exception
         if (e.getStatus() == -ERR_BADTYPE) {
-	    setModel(model);
-	    logger->log(LOG_INFO,"%s: detectModel, model=%d",
-		    getName().c_str(),model);
-	    return model;
+	    logger->log(LOG_INFO,"%s: checkStatus, model=%d",
+		    getName().c_str(),lmodel);
+	    return lmodel;
 	}
 	throw;
     }
 
-    cout << "Software build time: " << resp.substr(18,8) << endl;
-    cout << "Software build date: " << resp.substr(34,10) << endl;
+    softwareBuildDate = resp.substr(34,10) + " " + resp.substr(18,8);
 
     send(PKT_SELFTEST_DISPL);
     resp = recv();
@@ -265,52 +358,83 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
         throw n_u::IOException(getName(),"display self test",
 		"short response");
 
-    if (resp[9] == 0) model = 120;
-    if (resp[9] == 5 || resp[9] == 6) model = 1200;
+    // grab the self test status bytes, least signif bits in first byte
+#if __BYTE_ORDER == __BIG_ENDIAN
+    swab(resp.c_str()+2,&selfTestStatus,2);
+#else
+    memcpy(&selfTestStatus,resp.c_str()+2,2);
+#endif
 
-    if (model == 1200 && resp[8] != 1)
+    maxRFRate = 100;
+
+    if (resp[9] == 0) lmodel = 120;
+    if (resp[9] == 5) {
+        lmodel = 1200;
+	maxRFRate = 300;
+    }
+    if (resp[9] == 6) {
+        lmodel = 1200;
+	maxRFRate = 1200;
+    }
+
+    gpsNotInstalled = false;
+
+    if (lmodel == 1200 && resp[8] != 1) {
+        gpsNotInstalled = true;
     	logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
 		getName().c_str());
-
-    // If model looks like a 120, double check with a test transmission.
-    if (model == 120 && !testTransmitSE120()) model = 110;
-
-    setModel(model);
-    logger->log(LOG_INFO,"%s: detectModel, model=%d",
-	    getName().c_str(),model);
-    return model;
+    }
+    return lmodel;
 }
 
-void SE_GOESXmtr::checkStatus() throw(n_u::IOException)
+int SE_GOESXmtr::detectModel() throw(n_u::IOException)
 {
-    wakeup();
-    send(PKT_DISPLAY_VERSION);
-    string resp = recv();
+    int lmodel = checkStatus();
 
-    if (resp.length() < 2) {
-	tosleep();
-        throw n_u::IOException(getName(),"display version","short response");
+    // If model looks like a 120, double check with a test transmission.
+    if (lmodel == 120 && !testTransmitSE120()) lmodel = 110;
+
+    setModel(lmodel);
+    logger->log(LOG_INFO,"%s: detectModel, model=%d",
+	    getName().c_str(),lmodel);
+    return lmodel;
+}
+
+void SE_GOESXmtr::printStatus() throw()
+{
+    if (getStatusFile().length() > 0) {
+        ofstream ost(getStatusFile().c_str());
+	if (ost.fail())
+	    logger->log(LOG_ERR,"GOES status file %s: %s",
+		    getStatusFile().c_str(),strerror(errno));
+	printStatus(ost);
+	ost.close();
     }
-    if (resp[0] == PKT_ERR_RESPONSE && resp[1] == ERR_BADTYPE) {
-	tosleep();
-    }
-    checkResponse(PKT_DISPLAY_VERSION,resp);
+    else printStatus(cout);
+}
 
-    cout << "Software build time: " << resp.substr(18,8) << endl;
-    cout << "Software build date: " << resp.substr(34,10) << endl;
-
-    send(PKT_SELFTEST_DISPL);
-    resp = recv();
-    checkResponse(PKT_SELFTEST_DISPL,resp);
-    tosleep();
-
-    if (resp.length() < 10)
-        throw n_u::IOException(getName(),"display self test",
-		"short response");
-
-    if (getModel() == 1200 && resp[8] != 1)
-    	logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
-		getName().c_str());
+void SE_GOESXmtr::printStatus(ostream& ost) throw()
+{
+        
+    ost << "SE GOES Transmitter\n" <<
+	"dev:\t\t" << port.getName() << '\n' <<
+    	"model:\t\t" << getModel() << '\n' <<
+	"software build:\t" << softwareBuildDate << '\n' <<
+	"self test:\t" << getSelfTestStatusString() << '\n' <<
+	"id:\t\t" << hex << setw(8) << setfill('0') <<
+		getXmtrId() << dec << '\n' <<
+	"channel:\t" << getChannel() << '\n' <<
+	"RFbaud:\t\t" << getRFBaud() << ", max=" << maxRFRate << '\n' <<
+	"xmit interval:\t" << getXmitInterval() << '\n' <<
+	"xmit offset:\t" << getXmitOffset() << '\n' <<
+	"xmtr clock:\t" << abs(clockDiffMsecs) << " msecs " <<
+	    	(clockDiffMsecs > 0 ? "ahead of " : "behind") <<
+		" UNIX clock\n" <<
+	"xmit queued at:\t" << transmitQueueTime.format(true,"%c") << '\n' <<
+	"xmit time:\t" << transmitAtTime.format(true,"%c") << '\n' <<
+	"data time:\t" << transmitSampleTime.format(true,"%c") << '\n' <<
+	"last transmit:\t" << xmitNbytes << " bytes\n" <<
+	"last status:\t" << lastXmitStatus << endl;
 }
 
 void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
@@ -382,18 +506,17 @@ void SE_GOESXmtr::checkId() throw(n_u::IOException)
 
 void SE_GOESXmtr::checkClock() throw(n_u::IOException)
 {
-    n_u::UTime xmtrClock = getXmtrClock();
-    n_u::UTime now;
-
     // check that it is within a second.
-    long long diff = xmtrClock - now;
+    long long diff = getXmtrClock() - n_u::UTime();
     if (::llabs(diff) > USECS_PER_SEC) {
 	logger->log(LOG_WARNING,
-		"%s: goes clock is %s system clock by %d milliseconds",
+		"%s: goes clock is %s system clock by %d milliseconds. Setting GOES clock",
 		getName().c_str(),(diff > 0 ? "ahead of" : "behind"),
 			::llabs(diff) / USECS_PER_MSEC);
 	setXmtrClock();
+	diff = getXmtrClock() - n_u::UTime();
     }
+    clockDiffMsecs = diff / USECS_PER_MSEC;
 }
 
 void SE_GOESXmtr::setXmtrClock() throw(n_u::IOException)
@@ -464,10 +587,12 @@ n_u::UTime SE_GOESXmtr::decodeClock(const char* pkt)
     int min = pkt[4];
     int sec = pkt[5];
     int usec = pkt[6] * 10 * USECS_PER_MSEC;
+#ifdef DEBUG
     cerr << "clock=" << year << ' ' << yday << ' ' <<
     	hour << ' ' << min << ' ' << sec << ' ' << usec << endl;
     cerr << "UTime=" <<
     	n_u::UTime(true,year,yday,hour,min,sec,usec).format(true,"%c") << endl;;
+#endif
     return n_u::UTime(true,year,yday,hour,min,sec,usec);
 }
 
@@ -476,16 +601,24 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 {
     for (int i = 0; i < 2; i++) {
 	try {
+	    transmitQueueTime = n_u::UTime();
+	    transmitAtTime = at;
+	    transmitSampleTime = samp->getTimeTag();
 	    if (getModel() == 0) detectModel();
 	    if (getModel() == 110) transmitDataSE110(at,configid,samp);
 	    else if (getModel() != 0) transmitDataSE120(at,configid,samp);
+	    xmitNbytes = samp->getDataByteLength();
+	    lastXmitStatus = "OK";
 	    break;
 	}
 	catch(const GOESException& e) {
+	    lastXmitStatus = string(e.what());
+	    xmitNbytes = 0;
+
 	    cerr << "transmit: " << e.what() <<
 	    	": status=" << e.getStatus() << endl;
 	    if (e.getStatus() == PKT_STATUS_CLOCK_NOT_LOADED) {
-		logger->log(LOG_ERR,"%s: %s, will reload id and clock",
+		logger->log(LOG_ERR,"%s: %s. Will reload id and clock",
 			getName().c_str(),e.what());
 		setXmtrId();
 		setXmtrClock();
@@ -496,7 +629,11 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	    // results in an ERR_TOOLONG
 	    else if (i < 2 &&
 	    	(e.getStatus() == -(int)ERR_BADTYPE ||
-			e.getStatus() == -(int)ERR_TOOLONG)) setModel(0);
+			e.getStatus() == -(int)ERR_TOOLONG)) {
+		    logger->log(LOG_ERR,"%s: %s. Will re-check model number",
+			getName().c_str(),e.what());
+		    setModel(0);
+	    }
 	    else throw e;
 	}
     }
