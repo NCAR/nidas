@@ -16,16 +16,6 @@
 
 #include <nidas/dynld/DSMSerialSensor.h>
 
-/**
- * Id of sample from GGA NMEA record.  Fixed at 1.
- */
-#define GGA_SAMPLE_ID 1
-
-/**
- * Id of sample from RMC NMEA record.  Fixed at 2.
- */
-#define RMC_SAMPLE_ID 2
-
 namespace nidas { namespace dynld {
 
 /**
@@ -36,9 +26,7 @@ class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
 
-    GPS_NMEA_Serial():DSMSerialSensor(),inputStr(0),inputStrLen(0) {}
-
-    ~GPS_NMEA_Serial() { delete [] inputStr; }
+    GPS_NMEA_Serial():DSMSerialSensor() {}
 
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
@@ -74,12 +62,14 @@ protected:
     dsm_sample_id_t rmcId;
 
     /**
-     * copy of input string, null terminated.
+     * Id of sample from GGA NMEA record.  Fixed at 1.
      */
-    char* inputStr;
+    static const int GGA_SAMPLE_ID;
 
-    int inputStrLen;
-
+    /**
+     * Id of sample from RMC NMEA record.  Fixed at 2.
+     */
+    static const int RMC_SAMPLE_ID;
 };
 
 }}	// namespace nidas namespace dynld

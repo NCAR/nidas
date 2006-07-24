@@ -22,6 +22,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
+const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
+
+
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
