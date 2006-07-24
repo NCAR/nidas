@@ -44,6 +44,7 @@ myenv.AppendUnique(CPPPATH=Split("""
 ##  List of each module source
 ##
 modules = Split("""
+    dsm_lams.c
     dsc_a2d.c
     a2d_driver.c
     dsm_serial.c
