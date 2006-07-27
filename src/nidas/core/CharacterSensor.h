@@ -43,6 +43,9 @@ public:
 
     SampleScanner* buildSampleScanner();
 
+    void open(int flags) throw(nidas::util::IOException,
+    	nidas::util::InvalidParameterException);
+
     void init() throw(nidas::util::InvalidParameterException);
 
     void addSampleTag(SampleTag* var)
@@ -173,6 +176,8 @@ public:
     void setInitString(const std::string& val) { initString = val; }
 
     const std::string& getInitString() const { return initString; }
+
+    virtual void sendInitString() throw(nidas::util::IOException);
 
     bool getNullTerminated() const 
     {

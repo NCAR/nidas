@@ -49,6 +49,20 @@ CharacterSensor::~CharacterSensor() {
     }
 }
 
+void CharacterSensor::open(int flags)
+	throw(n_u::IOException,n_u::InvalidParameterException)
+{
+    DSMSensor::open(flags);
+    sendInitString();
+}
+
+void CharacterSensor::sendInitString() throw(n_u::IOException)
+{
+    if (getInitString().length() > 0) {
+        string newstr = replaceBackslashSequences(getInitString());
+        write(newstr.c_str(),newstr.length());
+    }
+}
 
 bool CharacterSensor::isRTLinux() const
 {

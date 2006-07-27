@@ -214,7 +214,7 @@ void DSMSensor::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException) 
 {
     if (!iodev) iodev = buildIODevice();
-    cerr << "iodev->setName " << getDeviceName() << endl;
+    // cerr << "iodev->setName " << getDeviceName() << endl;
     iodev->setName(getDeviceName());
 
     n_u::Logger::getInstance()->log(LOG_NOTICE,
