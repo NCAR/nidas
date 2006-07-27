@@ -402,6 +402,22 @@ int GOESOutput::run() throw(n_u::Exception)
     // on one channel then this value for wakeOffUsec will have
     // to be reduced.
 
+    try {
+	goesXmtr->checkId();
+	goesXmtr->checkClock();
+    }
+    catch(const n_u::IOException& e) {
+	n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		getName().c_str(),e.what());
+	try {
+	    goesXmtr->reset();
+	}
+	catch(const n_u::IOException& e2) {
+	}
+    }
+
+    goesXmtr->printStatus();	// no exception
+
     for (; !interrupted; ) {
 	if (Looper::sleepUntil(periodUsec,wakeOffUsec)) break;
 

@@ -206,6 +206,9 @@ void SE_GOESXmtr::checkACKResponse(char ptype,const string& resp,char seqnum)
 
 SE_GOESXmtr::SE_GOESXmtr():
 	model(0),clockDiffMsecs(99999),
+	transmitQueueTime((time_t)0),
+	transmitAtTime((time_t)0),
+	transmitSampleTime((time_t)0),
 	lastXmitStatus("unknown"),
 	selfTestStatus(0),
 	maxRFRate(0),
@@ -227,6 +230,9 @@ SE_GOESXmtr::SE_GOESXmtr():
 SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
 	GOESXmtr(x),
 	model(0),clockDiffMsecs(99999),
+	transmitQueueTime((time_t)0),
+	transmitAtTime((time_t)0),
+	transmitSampleTime((time_t)0),
 	lastXmitStatus("unknown"),
 	selfTestStatus(0),
 	maxRFRate(0),
@@ -607,13 +613,11 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	    if (getModel() == 0) detectModel();
 	    if (getModel() == 110) transmitDataSE110(at,configid,samp);
 	    else if (getModel() != 0) transmitDataSE120(at,configid,samp);
-	    xmitNbytes = samp->getDataByteLength();
 	    lastXmitStatus = "OK";
 	    break;
 	}
 	catch(const GOESException& e) {
 	    lastXmitStatus = string(e.what());
-	    xmitNbytes = 0;
 
 	    cerr << "transmit: " << e.what() <<
 	    	": status=" << e.getStatus() << endl;
@@ -642,6 +646,8 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
+    xmitNbytes = 0;
+
     char pkt[256];
     char seqnum = 0;
 
@@ -702,11 +708,13 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	    *pktptr++ = (configid & 0x3f) | 0x40;
 	    *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
 	    first = false;
+	    xmitNbytes += 2;
 	}
 
 	while (fptr < endInput && pktptr+4 <= endPkt) {
 	    GOES::float_encode_4x6(*fptr++,pktptr);
 	    pktptr += 4;
+	    xmitNbytes += 4;
 	}
 
 	send(string(pkt,pktptr-pkt));
@@ -732,6 +740,8 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
+    xmitNbytes = 0;
+
     assert(samp->getType() == FLOAT_ST);
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
     short int ndata = fsamp->getDataLength() * 4 + 2;
@@ -767,12 +777,15 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
     const float* fptr = fsamp->getConstDataPtr();
     const float* endInput = fptr + fsamp->getDataLength();
     char* pktptr = pkt + 64;
+
     *pktptr++ = (configid & 0x3f) | 0x40;
     *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
+    xmitNbytes += 2;
 
     while (fptr < endInput) {
 	GOES::float_encode_4x6(*fptr++,pktptr);
 	pktptr += 4;
+	xmitNbytes += 4;
     }
 
     wakeup();
