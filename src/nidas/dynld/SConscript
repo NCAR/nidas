@@ -51,6 +51,7 @@ rafhdrs = [ Split("""
     raf/IRS_HW_HG2001GD.h
     raf/IRS_HW_YG1854.h
     raf/PSI9116_Sensor.h
+    raf/SPP200_Serial.h
     raf/SyncRecordGenerator.h
     raf/SyncRecordReader.h
     raf/SyncRecordSource.h
@@ -109,6 +110,7 @@ rafsrcs = [ Split("""
     raf/IRS_HW_HG2001GD.cc
     raf/IRS_HW_YG1854.cc
     raf/PSI9116_Sensor.cc
+    raf/SPP200_Serial.cc
     raf/SyncRecordGenerator.cc
     raf/SyncRecordReader.cc
     raf/SyncRecordSource.cc
