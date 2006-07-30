@@ -16,6 +16,7 @@
 
 #include <nidas/core/XMLStringConverter.h>
 #include <nidas/core/XMLParser.h>
+#include <nidas/core/Version.h>
 
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/XMLFdInputSource.h>
@@ -120,10 +121,14 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dw")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dvw")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
+	    break;
+	case 'v':
+	    cout << Version::getSoftwareVersion() << endl;
+	    return 1;
 	    break;
 	case 'w':
 	    _wait = true;

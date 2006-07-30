@@ -9,25 +9,18 @@
     $LastChangedBy: maclean $
 
     $HeadURL: http://svn.atd.ucar.edu/svn/hiaper/ads3/dsm/class/Version.h $
+
+    The macro DSM_VERSION should be defined with a compiler option:
+    	-DDSM_VERSION=XXXX.
  ********************************************************************
 
 */
 
-#ifndef NIDAS_CORE_VERSION_H
-#define NIDAS_CORE_VERSION_H
+#ifndef DSM_VERSION_H
+#define DSM_VERSION_H
 
-namespace nidas { namespace core {
+#define DSM_STRINGIFY(x) #x
 
-/**
- * Class of static member functions providing version strings.
- */
-class Version
-{
-public:
-    static const char* getSoftwareVersion() { return "SOFTWARE_VERSION"; }
-    static const char* getArchiveVersion() { return "1"; }
-};
-
-}}	// namespace nidas namespace core
+#define DSM_VERSION_STRING DSM_STRINGIFY(DSM_VERSION)
 
 #endif

@@ -490,8 +490,8 @@ int init_module (void)
 
   rtl_spin_lock_init(&irq_controller_lock);
 
-  // softwareVersion is found in dsm_version.h
-  DSMLOG_NOTICE("version: %s\n",softwareVersion);
+  // DSM_VERSION_STRING is found in dsm_version.h
+  DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 
   for (i=0; i<NUM_ISA_IRQS; i++) {
     isa_isrs[i] = NULL;

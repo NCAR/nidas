@@ -998,8 +998,8 @@ int init_module()
 
     boardInfo = 0;
 
-    // softwareVersion is found in dsm_version.h
-    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+    // DSM_VERSION_STRING is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 
     /* count non-zero ioport addresses, gives us the number of boards */
     for (ib = 0; ib < MAX_AIO16_BOARDS; ib++)

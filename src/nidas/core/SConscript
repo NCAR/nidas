@@ -6,6 +6,7 @@ import glob
 import fnmatch
 import os
 
+
 ##
 ##  Import the cross-build environment.
 ##
@@ -16,10 +17,30 @@ conf = Configure(myenv)
 
 myenv = conf.Finish()
 
-version = myenv.Command('Version.h','Version.h.tmpl',
-        'sed -e "s/SOFTWARE_VERSION/`svnversion .`/" < $SOURCE > $TARGET')
-myenv.AlwaysBuild(version)
-Depends('Version.h','Version.h.tmpl')
+def get_svnversion(env):
+    """
+    Return value reported by svnversion on top directory.
+    """
+    svn_path = env.WhereIs('svnversion', os.environ['PATH'])
+    revision = "Unknown"
+
+    if svn_path != None:
+	rev = os.popen('svnversion ' + env.Dir('#.').abspath).readline().strip()
+	if rev != "":
+		    revision = rev
+    return revision
+
+def write_version_cc(env,target,source):
+    """
+    Write Version.cc file containing the contents of source.
+    """
+    out = open(target[0].path, "w")
+    out.write('#include <nidas/core/Version.h>\n')
+    out.write('const char* nidas::core::Version::version="' +
+    	source[0].get_contents() + '";\n')
+    out.close()
+
+myenv.Command("Version.cc",[Value(get_svnversion(myenv))],write_version_cc)
 
 # -ggdb
 # -DXML_DEBUG
@@ -173,6 +194,7 @@ sources = [ Split("""
     TestSampleClient.cc
     Variable.cc
     VariableConverter.cc
+    Version.cc
     XMLConfigWriter.cc
     XMLException.cc
     XMLFdFormatTarget.cc

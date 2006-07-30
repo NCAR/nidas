@@ -533,7 +533,7 @@ unlock:
  */
 int init_module(void)
 {
-    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+    DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 #ifdef DEBUG
     DSMLOG_NOTICE("inputbuf=0x%x, inputbufsize=%d, nopen=%d\n",
     	inputbuf,inputbufsize,nopen);

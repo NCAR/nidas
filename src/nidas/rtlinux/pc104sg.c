@@ -1641,8 +1641,8 @@ int init_module (void)
     unsigned int addr;
     int irq_requested = 0;
 
-    // softwareVersion is found in dsm_version.h
-    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+    // DSM_VERSION_STRING is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 
     INIT_LIST_HEAD(&callbackpool);
     for (i = 0; i < IRIG_NUM_RATES; i++)

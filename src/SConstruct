@@ -57,9 +57,9 @@ env['CXXFLAGS'] = Split("""
 ##
 ##  Define it's C/C++ include paths for all builds.
 ##
-
 env['CPPPATH'] = Split("""
-  #
+   #
+   $PREFIX/include
 """)
 
 ##
@@ -79,11 +79,10 @@ arm_env.Replace(ARCH = 'arm')
 # """))
 
 
-arm_env.AppendUnique(CPPPATH =
-    Split("""
-	$PREFIX/include
-    """)
-)
+# arm_env.AppendUnique(CPPPATH =
+#     Split("""
+#     """)
+# )
 
 arm_env.AppendUnique(LIBPATH =
     Split("""
@@ -128,11 +127,10 @@ x86_env.Replace(ARCH = 'x86')
 x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
 x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
 
-x86_env.AppendUnique(CPPPATH =
-    Split("""
-	$PREFIX/include
-    """)
-)
+# x86_env.AppendUnique(CPPPATH =
+#     Split("""
+#     """)
+# )
 
 x86_env.AppendUnique(LIBPATH =
     Split("""

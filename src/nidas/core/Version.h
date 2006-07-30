@@ -9,18 +9,27 @@
     $LastChangedBy: maclean $
 
     $HeadURL: http://svn.atd.ucar.edu/svn/hiaper/ads3/dsm/class/Version.h $
-
-    This file is used as a template to create dsm_version.h.
-    At build time the string SOFTWARE_VERSION is replaced by the
-    results from the svnversion command.
  ********************************************************************
 
 */
 
-#ifndef DSM_VERSION_H
-#define DSM_VERSION_H
+#ifndef NIDAS_CORE_VERSION_H
+#define NIDAS_CORE_VERSION_H
 
+namespace nidas { namespace core {
 
-static const char* softwareVersion = "SOFTWARE_VERSION";
+/**
+ * Class of static member functions providing version strings.
+ */
+class Version
+{
+public:
+    static const char* getSoftwareVersion() { return version; }
+    static const char* getArchiveVersion() { return "1"; }
+
+    static const char* version;
+};
+
+}}	// namespace nidas namespace core
 
 #endif

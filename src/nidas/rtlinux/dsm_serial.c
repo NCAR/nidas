@@ -2119,8 +2119,8 @@ int init_module(void)
     clock_res_msec = get_msec_clock_resolution();
     clock_res_msec_o2 = clock_res_msec / 2;
 
-    // softwareVersion is found in dsm_version.h
-    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+    // DSM_VERSION_STRING is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 
     /* check board types to see how many boards are configured */
     for (ib = 0; ib < MAX_NUM_BOARDS; ib++)

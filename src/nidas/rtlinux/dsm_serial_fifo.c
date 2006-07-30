@@ -500,8 +500,8 @@ int init_module(void)
     int retval = -EINVAL;
     int ib,ip;
 
-    // softwareVersion is found in dsm_version.h
-    DSMLOG_NOTICE("version: %s\n",softwareVersion);
+    // DSM_VERSION_STRING is found in dsm_version.h
+    DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
 
     numboards = dsm_serial_get_numboards();
 
