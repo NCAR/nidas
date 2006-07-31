@@ -177,8 +177,9 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 void DSMEngine::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-dw] [ config ]\n\n\
+Usage: " << argv0 << " [-d ] [-v] [-w] [ config ]\n\n\
   -d:     debug - Send error messages to stderr, otherwise to syslog\n\
+  -v:     display software version number and exit\n\
   -w:     wait  - wait for the XmlRpc 'start' cammand\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a multicast socket address in the form \"mcsock:addr:port\".\n\

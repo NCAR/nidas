@@ -339,6 +339,8 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
     // on units that appear to be a 120.
 
     int lmodel = 110;
+    maxRFRate = 100;
+
     softwareBuildDate = "unknown";
     try {
 	checkResponse(PKT_DISPLAY_VERSION,resp);
@@ -370,8 +372,6 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 #else
     memcpy(&selfTestStatus,resp.c_str()+2,2);
 #endif
-
-    maxRFRate = 100;
 
     if (resp[9] == 0) lmodel = 120;
     if (resp[9] == 5) {
@@ -431,9 +431,9 @@ void SE_GOESXmtr::printStatus(ostream& ost) throw()
 		getXmtrId() << dec << '\n' <<
 	"channel:\t" << getChannel() << '\n' <<
 	"RFbaud:\t\t" << getRFBaud() << ", max=" << maxRFRate << '\n' <<
-	"xmit interval:\t" << getXmitInterval() << '\n' <<
-	"xmit offset:\t" << getXmitOffset() << '\n' <<
-	"xmtr clock:\t" << abs(clockDiffMsecs) << " msecs " <<
+	"xmit interval:\t" << getXmitInterval() << " sec\n" <<
+	"xmit offset:\t" << getXmitOffset() << " sec\n" <<
+	"xmtr clock:\t" << abs(clockDiffMsecs) << " msec " <<
 	    	(clockDiffMsecs > 0 ? "ahead of " : "behind") <<
 		" UNIX clock\n" <<
 	"xmit queued at:\t" << transmitQueueTime.format(true,"%c") << '\n' <<
@@ -1001,7 +1001,7 @@ void SE_GOESXmtr::tosleep() throw(n_u::IOException)
 	}
 	if (itry == NTRY_FOR_CTS)
 	    throw n_u::IOTimeoutException(getName(),
-	    	"wakeup (waiting for notCTS)");
+	    	"tosleep (waiting for notCTS)");
     }
 }
 

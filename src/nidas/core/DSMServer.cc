@@ -19,6 +19,7 @@
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/core/Version.h>
 
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/Logger.h>
@@ -477,11 +478,15 @@ int DSMServer::parseRunstring(int argc, char** argv)
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
                                                                                 
-    while ((opt_char = getopt(argc, argv, "d")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dv")) != -1) {
         switch (opt_char) {
         case 'd':
             debug = true;
             break;
+	case 'v':
+	    cout << Version::getSoftwareVersion() << endl;
+	    return 1;
+	    break;
         case '?':
             return usage(argv[0]);
         }
@@ -505,9 +510,10 @@ int DSMServer::usage(const char* argv0)
 {
     const char* cfg;
     cerr << "\
-Usage: " << argv0 << "[-d] [config]\n\
+Usage: " << argv0 << "[-d] [-v] [config]\n\
   -d: debug. Run in foreground and send messages to stderr.\n\
       Otherwise it will run in the background and messages to syslog\n\
+  -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
           default: $NIDAS_CONFIG=\"" <<
 	  	((cfg = getenv("NIDAS_CONFIG")) ? cfg : "<not set>") << endl;
