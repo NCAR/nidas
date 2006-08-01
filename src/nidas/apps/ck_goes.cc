@@ -34,8 +34,9 @@ int main(int argc, char** argv)
     try {
 	SE_GOESXmtr xmtr;
 	xmtr.setName(argv[1]);
-	xmtr.open();
+	xmtr.setChannel(95);
 	xmtr.setId(0x36414752);
+	xmtr.open();
 	xmtr.query();
 	int model = xmtr.detectModel();
 	cerr << "model=" << model << endl;
@@ -45,6 +46,9 @@ int main(int argc, char** argv)
 	cerr << hex << "id=" << id << dec << endl;
 
 	if (model != 1200) xmtr.setXmtrClock();
+
+	int msecDiff = xmtr.checkClock();
+	cerr << "GOES-system clock=" << msecDiff << " msecs" << endl;
     }
     catch (n_u::IOException& ioe) {
       std::cerr << ioe.what() << std::endl;

@@ -84,7 +84,7 @@ public:
 
     void checkId() throw(nidas::util::IOException);
 
-    void checkClock() throw(nidas::util::IOException);
+    int checkClock() throw(nidas::util::IOException);
 
     void printStatus() throw();
 

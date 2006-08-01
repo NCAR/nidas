@@ -32,7 +32,7 @@ using namespace nidas::dynld::isff;
 
 namespace n_u = nidas::util;
 
-#define DEBUG
+// #define DEBUG
 
 NIDAS_CREATOR_FUNCTION_NS(isff,SE_GOESXmtr)
 
@@ -269,7 +269,7 @@ void SE_GOESXmtr::open() throw(n_u::IOException)
     GOESXmtr::open();
     try {
 	query();
-	checkStatus();
+	detectModel();
     }
     catch (const n_u::IOException& e) {
     	logger->log(LOG_ERR,"%s: open: %s", getName().c_str(),e.what());
@@ -398,7 +398,11 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
     int lmodel = checkStatus();
 
     // If model looks like a 120, double check with a test transmission.
-    if (lmodel == 120 && !testTransmitSE120()) lmodel = 110;
+    if (lmodel == 120) {
+	setModel(lmodel);
+	checkClock();
+        if (!testTransmitSE120()) lmodel = 110;
+    }
 
     setModel(lmodel);
     logger->log(LOG_INFO,"%s: detectModel, model=%d",
@@ -510,8 +514,9 @@ void SE_GOESXmtr::checkId() throw(n_u::IOException)
     }
 }
 
-void SE_GOESXmtr::checkClock() throw(n_u::IOException)
+int SE_GOESXmtr::checkClock() throw(n_u::IOException)
 {
+    if (getModel() == 0) detectModel();
     // check that it is within a second.
     long long diff = getXmtrClock() - n_u::UTime();
     if (::llabs(diff) > USECS_PER_SEC) {
@@ -523,6 +528,7 @@ void SE_GOESXmtr::checkClock() throw(n_u::IOException)
 	diff = getXmtrClock() - n_u::UTime();
     }
     clockDiffMsecs = diff / USECS_PER_MSEC;
+    return clockDiffMsecs;
 }
 
 void SE_GOESXmtr::setXmtrClock() throw(n_u::IOException)
@@ -592,12 +598,12 @@ n_u::UTime SE_GOESXmtr::decodeClock(const char* pkt)
     int hour = pkt[3];
     int min = pkt[4];
     int sec = pkt[5];
-    int usec = pkt[6] * 10 * USECS_PER_MSEC;
+    int usec = pkt[6] * 100 * USECS_PER_MSEC;
 #ifdef DEBUG
     cerr << "clock=" << year << ' ' << yday << ' ' <<
     	hour << ' ' << min << ' ' << sec << ' ' << usec << endl;
     cerr << "UTime=" <<
-    	n_u::UTime(true,year,yday,hour,min,sec,usec).format(true,"%c") << endl;;
+    	n_u::UTime(true,year,yday,hour,min,sec,usec).format(true,"%%Y %m %d %H:%M:%S.%3f") << endl;;
 #endif
     return n_u::UTime(true,year,yday,hour,min,sec,usec);
 }
@@ -829,6 +835,9 @@ bool SE_GOESXmtr::testTransmitSE120()
     encodeClock(at,pkt+5,false);
 
     short int schan = getChannel();
+#ifdef DEBUG
+    cerr << "schan=" << schan << endl;
+#endif
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     memcpy(pkt+29,&schan,2);

@@ -156,7 +156,11 @@ public:
 
     virtual void checkId() throw(nidas::util::IOException) = 0;
 
-    virtual void checkClock() throw(nidas::util::IOException) = 0;
+    /**
+     * Check transmitter clock, and correct it if necessary.
+     * @return transmitter clock minus system clock, in milliseconds.
+     */
+    virtual int checkClock() throw(nidas::util::IOException) = 0;
 
     virtual void reset() throw(nidas::util::IOException) = 0;
 

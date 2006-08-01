@@ -55,8 +55,9 @@ void SimGOESXmtr::checkId() throw(n_u::IOException)
 {
 }
 
-void SimGOESXmtr::checkClock() throw(n_u::IOException)
+int SimGOESXmtr::checkClock() throw(n_u::IOException)
 {
+    return 0;
 }
 
 void SimGOESXmtr::transmitData(const n_u::UTime& at, int configid,
