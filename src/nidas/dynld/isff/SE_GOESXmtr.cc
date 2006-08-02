@@ -679,28 +679,18 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	catch(const GOESException& e) {
 	    lastXmitStatus = string(e.what());
 
-#ifdef DEBUG
-	    cerr << "transmit: " << e.what() <<
-	    	": status=" << e.getStatus() << endl;
-#endif
-	    if (e.getStatus() == PKT_STATUS_CLOCK_NOT_LOADED) {
-		logger->log(LOG_ERR,"%s: %s. Will reload id and clock",
-			getName().c_str(),e.what());
-		checkId();
-		setXmtrClock();
-	    }
 	    // sending a 120 transmit command to a 110
 	    // results in an ERR_BADTYPE
 	    // sending a 110 transmit command to a 120
 	    // results in an ERR_TOOLONG
-	    else if (i < 2 &&
+	    if (i < 2 &&
 	    	(e.getStatus() == -(int)ERR_BADTYPE ||
 			e.getStatus() == -(int)ERR_TOOLONG)) {
 		    logger->log(LOG_ERR,"%s: %s. Will re-check model number",
 			getName().c_str(),e.what());
 		    setModel(0);
 	    }
-	    else throw e;
+	    else throw;
 	}
 	catch(const n_u::IOException& e) {
 	    lastXmitStatus = string(e.what());
