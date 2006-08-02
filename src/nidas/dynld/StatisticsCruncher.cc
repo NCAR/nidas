@@ -45,9 +45,9 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     case STATS_MINIMUM:
     case STATS_MAXIMUM:
     case STATS_MEAN:
+    case STATS_VAR:
         crossTerms = false;
 	break;
-    case STATS_VAR:
     case STATS_COV:
     case STATS_TRIVAR:
     case STATS_PRUNEDTRIVAR:
@@ -754,10 +754,11 @@ void StatisticsCruncher::initStats()
 	}
     }
     else if (n2mom > 0) {
+	assert(n2mom == nvars);
 	double *xySumArray = new double[n2mom];
 	xySum = new double*[n2mom];
 	for (i = 0; i < nvars; i++)
-	    xySum[i] = xySumArray + i;
+	    xySum[i] = xySumArray;
     }
 
     delete [] xyzSum;
@@ -1059,8 +1060,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    if(! isnan(x)) {
 		vo = vindices[i][1];
 		xSum[vo] += x;
-		xySump = xySum[vo];
-		*xySump += x * x;
+		xySum[vo][vo] += x * x;
 		nSamples[vo]++;
 	    }
 	}
@@ -1268,7 +1268,8 @@ void StatisticsCruncher::computeStats()
 	if (statsType == STATS_SFLUX && nvars > 3) nr = 1;
 
 	for (i = 0; i < nr; i++) {
-	    nx = (statsType == STATS_FLUX && i > 2 ? i+1 : nvars);
+	    // no cross terms in STATS_VAR or in STATS_FLUX for scalar:scalar terms
+	    nx = (statsType == STATS_VAR || (statsType == STATS_FLUX && i > 2) ? i+1 : nvars);
 	    for (j=i; j < nx; j++,l++) {
 		xr = xySum[i][j] / nSamp - xSum[i] * xSum[j];
 		if ((i == j && xr < 0.0) || nSamp < 2) xr = 0.0;
