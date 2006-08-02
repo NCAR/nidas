@@ -27,6 +27,13 @@ public:
 
   SerialPort();
 
+  /**
+   * Copy constructor.  The attributes of the port are copied,
+   * but if the original is opened, the copy will not be
+   * opened.
+   */
+  SerialPort(const SerialPort&);
+
   SerialPort(const std::string& name);
 
   /**
@@ -133,6 +140,11 @@ public:
 
 private:
 
+  /**
+   * No assignment.
+   */
+  SerialPort& operator=(const SerialPort&);
+
   int _fd;
 
   std::string _name;
@@ -140,8 +152,12 @@ private:
   enum state { OK, TIMEOUT_OR_EOF} _state;
 
   char *_savep;
+
   char *_savebuf;
-  int _savelen,_savealloc;
+
+  int _savelen;
+  
+  int _savealloc;
 
   bool blocking;
 };

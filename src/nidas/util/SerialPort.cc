@@ -36,6 +36,13 @@ SerialPort::SerialPort(const string& name, int fd) throw(IOException) :
     getBlocking();
 }
 
+SerialPort::SerialPort(const SerialPort& x) : Termios(x),
+	_fd(0),_name(x._name),
+	_state(OK),_savebuf(0),_savelen(0),
+	_savealloc(0),blocking(x.blocking)
+{
+}
+
 SerialPort::~SerialPort()
 {
     close();
@@ -219,7 +226,7 @@ SerialPort::readUntil(char *buf, int len,char term) throw(IOException)
 
     while (toread > 0) {
 	switch(rd = read(buf,toread)) {
-	case 0:		// EOD
+	case 0:		// EOD or timeout, user must figure out which
 	    *buf = '\0';
 	    return len - toread;
 	default:

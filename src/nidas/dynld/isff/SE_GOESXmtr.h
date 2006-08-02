@@ -58,7 +58,7 @@ public:
      */
     SE_GOESXmtr* clone() const { return new SE_GOESXmtr(*this); }
 
-    void open() throw(nidas::util::IOException);
+    void init() throw (nidas::util::IOException);
 
     int getModel() const { return model; }
 
@@ -137,7 +137,7 @@ public:
      */
     static char crc(const std::string& msg);
 
-    void encodeClock(const nidas::util::UTime& ut,char* out,bool decisecs);
+    void encodeClock(const nidas::util::UTime& ut,char* out,bool fractsecs);
 
     nidas::util::UTime decodeClock(const char* in);
 
@@ -184,7 +184,7 @@ public:
 
     nidas::util::UTime getXmtrClock() throw(nidas::util::IOException);
 
-    void checkId() throw(nidas::util::IOException);
+    unsigned long checkId() throw(nidas::util::IOException);
 
     int checkClock() throw(nidas::util::IOException);
 
@@ -398,6 +398,11 @@ private:
     bool gpsNotInstalled;
 
     size_t xmitNbytes;
+
+    /**
+     * Actual id read from transmitter.
+     */
+    unsigned long activeId;
 };
 
 

@@ -31,28 +31,21 @@ int usage(const char* argv0)
 int main(int argc, char** argv)
 {
     if (argc < 2) return usage(argv[0]);
+    SE_GOESXmtr xmtr;
     try {
-	SE_GOESXmtr xmtr;
 	xmtr.setName(argv[1]);
 	xmtr.setChannel(95);
 	xmtr.setId(0x36414752);
 	xmtr.open();
-	xmtr.query();
-	int model = xmtr.detectModel();
-	cerr << "model=" << model << endl;
-	xmtr.setXmtrId();
 
-	unsigned long id = xmtr.getXmtrId();
-	cerr << hex << "id=" << id << dec << endl;
+	xmtr.init();
 
-	if (model != 1200) xmtr.setXmtrClock();
-
-	int msecDiff = xmtr.checkClock();
-	cerr << "GOES-system clock=" << msecDiff << " msecs" << endl;
+	xmtr.printStatus();
     }
     catch (n_u::IOException& ioe) {
-      std::cerr << ioe.what() << std::endl;
-      throw n_u::Exception(ioe.what());
+	xmtr.printStatus();
+	std::cerr << ioe.what() << std::endl;
+	throw n_u::Exception(ioe.what());
     }
     return 0;
 }

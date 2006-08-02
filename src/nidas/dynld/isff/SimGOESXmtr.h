@@ -82,13 +82,15 @@ public:
     void transmitData(const nidas::util::UTime& at,
     	int configid,const Sample*) throw (nidas::util::IOException);
 
-    void checkId() throw(nidas::util::IOException);
+    unsigned long checkId() throw(nidas::util::IOException);
 
     int checkClock() throw(nidas::util::IOException);
 
     void printStatus() throw();
 
     void reset() throw(nidas::util::IOException) {}
+
+    void init() throw(nidas::util::IOException) {}
 
 private:
 

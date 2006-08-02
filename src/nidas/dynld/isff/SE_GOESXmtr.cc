@@ -213,7 +213,8 @@ SE_GOESXmtr::SE_GOESXmtr():
 	selfTestStatus(0),
 	maxRFRate(0),
 	gpsNotInstalled(false),
-	xmitNbytes(0)
+	xmitNbytes(0),
+	activeId(0)
 {
     logger = n_u::Logger::getInstance();
     port.setBaudRate(9600);
@@ -223,8 +224,8 @@ SE_GOESXmtr::SE_GOESXmtr():
     port.setFlowControl(port.NOFLOWCONTROL);
     port.setLocal(true);
     port.setRaw(true);
-    port.setRawLength(1);
-    port.setRawTimeout(0);
+    port.setRawLength(0);
+    port.setRawTimeout(10);
 }
 
 SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
@@ -237,13 +238,38 @@ SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
 	selfTestStatus(0),
 	maxRFRate(0),
 	gpsNotInstalled(false),
-	xmitNbytes(0)
+	xmitNbytes(0),
+	activeId(0)
 {
     logger = n_u::Logger::getInstance();
+    port.setBaudRate(9600);
+    port.setParity(port.NONE);
+    port.setDataBits(8);
+    port.setStopBits(1);
+    port.setFlowControl(port.NOFLOWCONTROL);
+    port.setLocal(true);
+    port.setRaw(true);
+    port.setRawLength(0);
+    port.setRawTimeout(10);
 }
 
 SE_GOESXmtr::~SE_GOESXmtr()
 {
+}
+
+void SE_GOESXmtr::init() throw(n_u::IOException)
+{
+    try {
+	query();
+	detectModel();
+	setXmtrId();
+	checkClock();
+        lastXmitStatus = "OK";
+    }
+    catch(const n_u::IOException& e) {
+        lastXmitStatus = e.what();
+	throw;
+    }
 }
 
 string SE_GOESXmtr::getSelfTestStatusString() 
@@ -262,20 +288,6 @@ string SE_GOESXmtr::getSelfTestStatusString()
     if (gpsNotInstalled) res += "No GPS Rcvr";
     if (res.length() == 0) res = "OK";
     return res;
-}
-
-void SE_GOESXmtr::open() throw(n_u::IOException)
-{
-    GOESXmtr::open();
-    try {
-	query();
-	detectModel();
-    }
-    catch (const n_u::IOException& e) {
-    	logger->log(LOG_ERR,"%s: open: %s", getName().c_str(),e.what());
-    }
-    // Do not know the id at this point, can't set it.
-    // cerr << "SE_GOESXmtr::open, id=" << getId() << endl;
 }
 
 void SE_GOESXmtr::query() throw(n_u::IOException)
@@ -399,14 +411,15 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
 
     // If model looks like a 120, double check with a test transmission.
     if (lmodel == 120) {
-	setModel(lmodel);
-	checkClock();
+	checkClock();	// set clock before test transmission
         if (!testTransmitSE120()) lmodel = 110;
     }
 
     setModel(lmodel);
+#ifdef DEBUG
     logger->log(LOG_INFO,"%s: detectModel, model=%d",
 	    getName().c_str(),lmodel);
+#endif
     return lmodel;
 }
 
@@ -429,16 +442,16 @@ void SE_GOESXmtr::printStatus(ostream& ost) throw()
     ost << "SE GOES Transmitter\n" <<
 	"dev:\t\t" << port.getName() << '\n' <<
     	"model:\t\t" << getModel() << '\n' <<
-	"software build:\t" << softwareBuildDate << '\n' <<
+	"SE software:\t" << softwareBuildDate << '\n' <<
 	"self test:\t" << getSelfTestStatusString() << '\n' <<
 	"id:\t\t" << hex << setw(8) << setfill('0') <<
-		getXmtrId() << dec << '\n' <<
+		activeId << dec << '\n' <<
 	"channel:\t" << getChannel() << '\n' <<
 	"RFbaud:\t\t" << getRFBaud() << ", max=" << maxRFRate << '\n' <<
 	"xmit interval:\t" << getXmitInterval() << " sec\n" <<
 	"xmit offset:\t" << getXmitOffset() << " sec\n" <<
 	"xmtr clock:\t" << abs(clockDiffMsecs) << " msec " <<
-	    	(clockDiffMsecs > 0 ? "ahead of " : "behind") <<
+	    	(clockDiffMsecs > 0 ? "ahead of" : "behind") <<
 		" UNIX clock\n" <<
 	"xmit queued at:\t" << transmitQueueTime.format(true,"%c") << '\n' <<
 	"xmit time:\t" << transmitAtTime.format(true,"%c") << '\n' <<
@@ -450,16 +463,16 @@ void SE_GOESXmtr::printStatus(ostream& ost) throw()
 void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
 {
     char cmd[] = {PKT_SET_ID,0,0,0,0,0};
+    unsigned long lid = getId();
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    unsigned long id = getId();
-    memcpy(cmd+2,&id);
+    memcpy(cmd+2,&lid);
 #else
     union {
         unsigned long id;
 	char bytes[4];
     } idu;
-    idu.id = getId();
+    idu.id = lid;
     // flip the bytes
     cmd[2] = idu.bytes[3];
     cmd[3] = idu.bytes[2];
@@ -473,6 +486,7 @@ void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
     string resp = recv();
     checkResponse(PKT_SET_ID,resp);
     tosleep();
+    activeId = lid;
 }
 
 unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
@@ -485,9 +499,8 @@ unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
     checkResponse(PKT_GET_ID,resp);
     tosleep();
 
-    unsigned long id;
 #if __BYTE_ORDER == __BIG_ENDIAN
-    memcpy(&id,resp.c_str()+2,sizeof(id));
+    memcpy(&activeId,resp.c_str()+2,sizeof(activeId));
 #else
     union {
         unsigned long id;
@@ -498,27 +511,34 @@ unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
     idu.bytes[2] = resp[3];
     idu.bytes[1] = resp[4];
     idu.bytes[0] = resp[5];
-    id = idu.id;
+    activeId = idu.id;
 #endif
-    return id;
+    return activeId;
 }
 
-void SE_GOESXmtr::checkId() throw(n_u::IOException)
+unsigned long SE_GOESXmtr::checkId() throw(n_u::IOException)
 {
-    unsigned long activeId = getXmtrId();
-    if (activeId != getId()) {
+    unsigned long lid = getXmtrId();
+    if (lid != getId()) {
 	logger->log(LOG_WARNING,
 		"%s: incorrect id: %x, should be %x. Resetting",
 		getName().c_str(),activeId,getId());
 	setXmtrId();
     }
+    return lid;
 }
 
 int SE_GOESXmtr::checkClock() throw(n_u::IOException)
 {
-    if (getModel() == 0) detectModel();
+    long long diff = USECS_PER_SEC * 10;
+    try {
+	diff = getXmtrClock() - n_u::UTime();
+    }
+    catch (const GOESException& e) {
+        if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
+    }
+
     // check that it is within a second.
-    long long diff = getXmtrClock() - n_u::UTime();
     if (::llabs(diff) > USECS_PER_SEC) {
 	logger->log(LOG_WARNING,
 		"%s: goes clock is %s system clock by %d milliseconds. Setting GOES clock",
@@ -557,9 +577,10 @@ n_u::UTime SE_GOESXmtr::getXmtrClock() throw(n_u::IOException)
 	checkResponse(PKT_GET_TIME,resp);
     }
     catch (const GOESException& e) {
-        if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
+        // if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
 	// if status is PKT_STATUS_CLOCK_NOT_LOADED the time data is all 0
 	// which will be returned as 1991 Dec 31 00:00
+	throw e;
     }
     tosleep();
 
@@ -567,7 +588,7 @@ n_u::UTime SE_GOESXmtr::getXmtrClock() throw(n_u::IOException)
     return n_u::UTime((time_t)0);
 }
 
-void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool decisecs)
+void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool fractsecs)
 {
     struct tm tfields;
     int usecs;
@@ -583,7 +604,12 @@ void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool decisecs)
     out[3] = tfields.tm_hour;
     out[4] = tfields.tm_min;
     out[5] = tfields.tm_sec;
-    if (decisecs) out[6] = usecs / (USECS_PER_SEC / 10);
+    // fractional seconds field on 110s is 1/100 of a sec
+    // on 120 and 1200s it is 1/10 sec
+    if (fractsecs) {
+        if (getModel() == 110) out[6] = usecs / (USECS_PER_SEC / 100);
+	else out[6] = usecs / (USECS_PER_SEC / 10);
+    }
 }
 
 n_u::UTime SE_GOESXmtr::decodeClock(const char* pkt)
@@ -598,7 +624,32 @@ n_u::UTime SE_GOESXmtr::decodeClock(const char* pkt)
     int hour = pkt[3];
     int min = pkt[4];
     int sec = pkt[5];
-    int usec = pkt[6] * 100 * USECS_PER_MSEC;
+
+    // fractional seconds field on 110s is 1/100 of a sec
+    // on 120 and 1200s it is 1/10 sec
+    int usec = 0;
+
+#ifdef DEBUG
+    logger->log(LOG_INFO,"%s: model=%d, fract secs=%d",
+	    getName().c_str(),getModel(),pkt[6]);
+#endif
+
+    if (getModel() == 110) {
+	// check that fractional seconds are as documented in Signal Eng manual.
+	if (pkt[6] % 10) {
+	    logger->log(LOG_WARNING,"%s: model=%d, unexpected fract secs=%d",
+		    getName().c_str(),getModel(),pkt[6]);
+	}
+	usec = pkt[6] * 10 * USECS_PER_MSEC;
+    }
+    else {
+	if (pkt[6] > 9) {
+	    logger->log(LOG_WARNING,"%s: model=%d, unexpected fract secs=%d",
+		    getName().c_str(),getModel(),pkt[6]);
+	}
+	usec = pkt[6] * 100 * USECS_PER_MSEC;
+    }
+
 #ifdef DEBUG
     cerr << "clock=" << year << ' ' << yday << ' ' <<
     	hour << ' ' << min << ' ' << sec << ' ' << usec << endl;
@@ -617,6 +668,9 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	    transmitAtTime = at;
 	    transmitSampleTime = samp->getTimeTag();
 	    if (getModel() == 0) detectModel();
+	    checkId();
+	    checkClock();
+
 	    if (getModel() == 110) transmitDataSE110(at,configid,samp);
 	    else if (getModel() != 0) transmitDataSE120(at,configid,samp);
 	    lastXmitStatus = "OK";
@@ -625,12 +679,14 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	catch(const GOESException& e) {
 	    lastXmitStatus = string(e.what());
 
+#ifdef DEBUG
 	    cerr << "transmit: " << e.what() <<
 	    	": status=" << e.getStatus() << endl;
+#endif
 	    if (e.getStatus() == PKT_STATUS_CLOCK_NOT_LOADED) {
 		logger->log(LOG_ERR,"%s: %s. Will reload id and clock",
 			getName().c_str(),e.what());
-		setXmtrId();
+		checkId();
 		setXmtrClock();
 	    }
 	    // sending a 120 transmit command to a 110
@@ -645,6 +701,10 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 		    setModel(0);
 	    }
 	    else throw e;
+	}
+	catch(const n_u::IOException& e) {
+	    lastXmitStatus = string(e.what());
+	    throw;
 	}
     }
 }
@@ -795,8 +855,10 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
     }
 
     wakeup();
+#ifdef DEBUG
     cerr << "send length=" << (pktptr-pkt-2) <<
     	" pktlen=" << pktlen << endl;;
+#endif
     send(string(pkt+2,pktptr-pkt-2));
     string resp = recv();
     checkResponse(PKT_XMT_DATA_SE120,resp);
@@ -818,7 +880,9 @@ bool SE_GOESXmtr::testTransmitSE120()
     n_u::UTime at;
 
     at += periodUsec - (at.toUsecs() % periodUsec) + offsetUsec;
+#ifdef DEBUG
     cerr << "test transmit at=" << at.format(true,"%c") << endl;
+#endif
 
     short int ndata = 0;
     int pktlen = ndata + 64;
@@ -849,8 +913,11 @@ bool SE_GOESXmtr::testTransmitSE120()
 
     char* pktptr = pkt + 64;
     wakeup();
+
+#ifdef DEBUG
     cerr << "send length=" << (pktptr-pkt-2) <<
     	" pktlen=" << pktlen << endl;;
+#endif
     send(string(pkt+2,pktptr-pkt-2));
     string resp = recv();
 
@@ -873,7 +940,7 @@ void SE_GOESXmtr::cancelTransmit(const n_u::UTime& at) throw(n_u::IOException)
 {
     char cmd[] = {PKT_CANCEL_XMT,0,0,0,0,0,0,0,0};
 
-    encodeClock(at,cmd+2,true);
+    encodeClock(at,cmd+2,false);
 
     wakeup();
     send(string(cmd,9));

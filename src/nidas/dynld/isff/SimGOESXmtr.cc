@@ -51,8 +51,9 @@ void SimGOESXmtr::open() throw(n_u::IOException)
 }
 
 
-void SimGOESXmtr::checkId() throw(n_u::IOException)
+unsigned long SimGOESXmtr::checkId() throw(n_u::IOException)
 {
+    return 0;
 }
 
 int SimGOESXmtr::checkClock() throw(n_u::IOException)

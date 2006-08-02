@@ -403,8 +403,7 @@ int GOESOutput::run() throw(n_u::Exception)
     // to be reduced.
 
     try {
-	goesXmtr->checkId();
-	goesXmtr->checkClock();
+	goesXmtr->init();
     }
     catch(const n_u::IOException& e) {
 	n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
@@ -427,22 +426,6 @@ int GOESOutput::run() throw(n_u::Exception)
 #endif
 
 	if (interrupted) break;
-
-	try {
-	    goesXmtr->checkId();
-	    goesXmtr->checkClock();
-	}
-	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		    getName().c_str(),e.what());
-	    goesXmtr->printStatus();	// no exception
-            try {
-		goesXmtr->reset();
-	    }
-	    catch(const n_u::IOException& e2) {
-	    }
-	    continue;
-	}
 
 	// lock sampleVector, make a copy of the vector of outputSamples.
 	// Request new Samples from the pool and put them in outputSamples

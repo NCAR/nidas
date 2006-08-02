@@ -138,6 +138,11 @@ public:
     virtual void open() throw(nidas::util::IOException);
 
     /**
+     * Initialize tranmitter.
+     */
+    virtual void init() throw(nidas::util::IOException) = 0;
+
+    /**
      * Do the actual hardware read.
      */
     size_t read(void* buf, size_t len) throw (nidas::util::IOException) = 0;
@@ -154,7 +159,7 @@ public:
     virtual void transmitData(const nidas::util::UTime& at,
     	int configid,const Sample*) throw (nidas::util::IOException) = 0;
 
-    virtual void checkId() throw(nidas::util::IOException) = 0;
+    virtual unsigned long checkId() throw(nidas::util::IOException) = 0;
 
     /**
      * Check transmitter clock, and correct it if necessary.
