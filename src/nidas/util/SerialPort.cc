@@ -5,7 +5,6 @@
 
 
 #include <nidas/util/SerialPort.h>
-#include <nidas/util/SerialOptions.h>
 #include <sys/ioctl.h>
 #include <cerrno>
 
@@ -314,5 +313,44 @@ SerialPort::readchar() throw(IOException)
     }
     _savelen--;
     return *_savep++;
+}
+
+/* static */
+int SerialPort::createPtyLink(const std::string& link) throw(IOException)
+{
+    int fd;
+    const char* ptmx = "/dev/ptmx";
+
+    // could also use getpt() here.
+    if ((fd = ::open(ptmx,O_RDWR|O_NOCTTY)) < 0) 
+    	throw IOException(ptmx,"open",errno);
+
+    char* slave = ptsname(fd);
+    if (!slave) throw IOException(ptmx,"ptsname",errno);
+
+    // cerr << "slave pty=" << slave << endl;
+
+    if (grantpt(fd) < 0) throw IOException(ptmx,"grantpt",errno);
+    if (unlockpt(fd) < 0) throw IOException(ptmx,"unlockpt",errno);
+
+    struct stat linkstat;
+    if (lstat(link.c_str(),&linkstat) < 0) {
+        if (errno != ENOENT)
+		throw IOException(link,"stat",errno);
+    }
+    else {
+        if (S_ISLNK(linkstat.st_mode)) {
+	    cerr << link << " is a symbolic link, deleting" << endl;
+	    if (unlink(link.c_str()) < 0)
+		throw IOException(link,"unlink",errno);
+	}
+	else
+	    throw IOException(link,
+	    	"exists and is not a symbolic link","");
+
+    }
+    if (symlink(slave,link.c_str()) < 0)
+	throw IOException(link,"symlink",errno);
+    return fd;
 }
 

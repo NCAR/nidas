@@ -27,43 +27,6 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-int createPtyLink(const std::string& link) throw(n_u::IOException)
-{
-    int fd;
-    const char* ptmx = "/dev/ptmx";
-
-    if ((fd = open(ptmx,O_RDWR)) < 0) 
-    	throw n_u::IOException(ptmx,"open",errno);
-
-    char* slave = ptsname(fd);
-    if (!slave) throw n_u::IOException(ptmx,"ptsname",errno);
-
-    cerr << "slave pty=" << slave << endl;
-
-    if (grantpt(fd) < 0) throw n_u::IOException(ptmx,"grantpt",errno);
-    if (unlockpt(fd) < 0) throw n_u::IOException(ptmx,"unlockpt",errno);
-
-    struct stat linkstat;
-    if (lstat(link.c_str(),&linkstat) < 0) {
-        if (errno != ENOENT)
-		throw n_u::IOException(link,"stat",errno);
-    }
-    else {
-        if (S_ISLNK(linkstat.st_mode)) {
-	    cerr << link << " is a symbolic link, deleting" << endl;
-	    if (unlink(link.c_str()) < 0)
-		throw n_u::IOException(link,"unlink",errno);
-	}
-	else
-	    throw n_u::IOException(link,
-	    	"exists and is not a symbolic link","");
-
-    }
-    if (symlink(slave,link.c_str()) < 0)
-	throw n_u::IOException(link,"symlink",errno);
-    return fd;
-}
-
 class MensorSim: public LooperClient
 {
 public:
@@ -232,7 +195,7 @@ int SensorSim::run()
 	auto_ptr<LooperClient> sim;
 
 	if (openpty) {
-	    int fd = createPtyLink(device);
+	    int fd = n_u::SerialPort::createPtyLink(device);
 	    port.reset(new n_u::SerialPort("/dev/ptmx",fd));
 	}
 	else port.reset(new n_u::SerialPort(device));

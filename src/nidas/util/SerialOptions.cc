@@ -20,7 +20,7 @@ SerialOptions::SerialOptions() throw(ParseException) :
   /*     baud      par    data   stop  local/ flow   raw/    newline*/
   /*                                   modem  cntl   cook */
   regexpression =
-    "([0-9]+)([neo])([78])([12])([lm])([nhs])([rc])([ncx][nc])?";
+    "^([0-9]+)([neo])([78])([12])([lm])([nhs])([rc])([ncdx][ncx])?$";
 
   int cflags = REG_EXTENDED;	// REG_EXTENDED, REG_ICASE, REG_NOSUB, REG_NEWLINE
   compileResult = regcomp(&compRegex,regexpression,cflags);
@@ -34,7 +34,7 @@ SerialOptions::~SerialOptions()
 
 /* static */
 const char* SerialOptions::usage() {
-  return "format of SerialOptions string (no spaces between values):\
+  return "format of SerialOptions string (no spaces between values):\n\
 baud parity data stop local_modem flow_control raw_cooked newline_opts\n\
   baud: 300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, etc bits/sec\n\
   parity:  n=none, o=odd, e=even\n\
@@ -48,9 +48,11 @@ baud parity data stop local_modem flow_control raw_cooked newline_opts\n\
     only necessary if \"cooked\" option is enabled\n\
     input option:  n=convert input carriage-return (CR) to new-line (NL)\n\
 		   c=convert input NL to CR\n\
-		   x=discard input CRs\n\
+		   d=discard input CRs\n\
+		   x=no change to CRs\n\
     output option: n=convert output CR to NL\n\
 		   c=convert output NL to CR\n\
+		   x=no change to CR\n\
 example:\n\
   9600n81lncnc : 9600 baud, no parity, local, no flow control\n\
     cooked, convert input CR->NL, output NL->CR (unix terminal)\n";
@@ -158,8 +160,8 @@ void SerialOptions::parse(const string& input) throw(ParseException)
   }
   imtch++;
 
-  // input: n = cr->nl,ICRNL, c = nl->cr,INLCR, x = cr->nothing,IGNCR
-  // output: c = nl->crnl,ONLCR, n = cr->nl,OCRNL
+  // input: n = cr->nl,ICRNL, c = nl->cr,INLCR, d = cr->nothing,IGNCR, x = no change
+  // output: c = nl->crnl,ONLCR, n = cr->nl,OCRNL, x = no change
   iflag = 0;
   oflag = 0;
   if (matches[imtch].rm_so != -1 &&
@@ -169,7 +171,8 @@ void SerialOptions::parse(const string& input) throw(ParseException)
     switch(val.at(0)) {
     case 'n': iflag |= ICRNL; break;
     case 'c': iflag |= INLCR; break;
-    case 'x': iflag |= IGNCR; break;
+    case 'd': iflag |= IGNCR; break;
+    case 'x': break;
     default:
       throw ParseException(
 	string("invalid input carriage-return/newline value \'") + val + "\' in \"" + input + "\"");
@@ -178,6 +181,7 @@ void SerialOptions::parse(const string& input) throw(ParseException)
       switch(val.at(1)) {
       case 'n': oflag |= OCRNL; break;
       case 'c': oflag |= ONLCR; break;
+      case 'x': break;
       default:
 	throw ParseException(
 	  string("invalid output carriage-return/newline value \'") + val + "\' in \"" + input + "\"");

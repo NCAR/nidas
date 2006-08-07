@@ -96,7 +96,7 @@ public:
   void setRawTimeout(unsigned char val);
   unsigned char getRawTimeout() const;
 
-  void setOptions(SerialOptions& opts);
+  void setOptions(const SerialOptions& opts);
 
   tcflag_t &iflag() { return tio.c_iflag; }
   tcflag_t &oflag() { return tio.c_oflag; }

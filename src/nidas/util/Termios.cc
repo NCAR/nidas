@@ -116,7 +116,7 @@ Termios::setDefaultTermios()
 
 
 void
-Termios::setOptions(SerialOptions& sopts) {
+Termios::setOptions(const SerialOptions& sopts) {
 
   setBaudRate(sopts.getBaudRate());
   setParity(sopts.getParity());

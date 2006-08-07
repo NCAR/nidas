@@ -19,8 +19,6 @@
 
 namespace nidas { namespace util {
 
-class SerialOptions;
-
 class SerialPort : public Termios {
 
 public:
@@ -137,6 +135,17 @@ public:
 
   virtual int write(const void *buf,int len) throw(IOException);
 
+  /**
+   * Static utility that creates a pseudo-terminal, returning the
+   * file descriptor of the master side and creating a symbolic
+   * link with the given name to the slave side.
+   * @param linkname: Name of symbolic link to be created that links to the
+   *	slave side of the pseudo-terminal. If a symbolic link already exists
+   *	with that name it will be removed and re-created. If linkname already
+   *	exists and it isn't a symbolic link, an error will be returned.
+   * @return The file descriptor of the master side of the pseudo-terminal.
+   */
+  static int createPtyLink(const std::string& linkname) throw(IOException);
 
 private:
 

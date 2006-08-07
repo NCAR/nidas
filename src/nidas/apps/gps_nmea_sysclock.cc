@@ -190,7 +190,8 @@ int GPS_SetClock::run()
 
 	    int nfd;
 	    struct timeval selto = timeout;
-	    if ((nfd = ::select(maxfd,&readfds,0,0,&selto)) < 0)
+	    fd_set fds = readfds;
+	    if ((nfd = ::select(maxfd,&fds,0,0,&selto)) < 0)
 	    	throw n_u::IOException(gps.getName(),"select",errno);
 
 	    if (nfd == 0) {
