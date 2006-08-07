@@ -425,8 +425,12 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     //	1	1000000
     //
 
-    int timeIndex = (int)rint((tt - syncTime) / usecsPerSamp);
+    int timeIndex = (tt - syncTime) / usecsPerSamp;
     assert(timeIndex < samplesPerSec[groupId]);
+
+    int offsetIndex = groupOffsets[groupId];
+    if (::isnan(floatPtr[offsetIndex])) floatPtr[offsetIndex] =
+	    tt - syncTime - (timeIndex * usecsPerSamp);
 
     switch (samp->getType()) {
 
@@ -434,10 +438,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	{
 	    const float* fp = (const float*)samp->getConstVoidDataPtr();
 	    const float* ep = fp + samp->getDataLength();
-
-	    if ((unsigned)varOffset[0] == groupOffsets[groupId] &&
-	    	timeIndex == 0)
-		floatPtr[groupOffsets[groupId]] = tt - syncTime;	// lag
 
 	    for (size_t i = 0; i < numVar && fp < ep; i++) {
 	        size_t outlen = varLen[i];
