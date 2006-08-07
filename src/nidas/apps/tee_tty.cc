@@ -35,33 +35,40 @@ public:
     int run();
     static int usage(const char* argv0);
 private:
+    string progname;
     string ttyname;
     n_u::SerialOptions ttyopts;
     list<string> rwptys;
     list<string> roptys;
 
     bool readonly;
+    bool asDaemon;
 };
 
-TeeTTy::TeeTTy():readonly(true)
+TeeTTy::TeeTTy():readonly(true),asDaemon(true)
 {
 }
 
 int TeeTTy::parseRunstring(int argc, char** argv)
 {
+    progname = argv[0];
     string ttyoptstr;
     int iarg = 1;
-    if (iarg < argc) ttyname = argv[iarg++];
-    if (iarg < argc) ttyoptstr = argv[iarg++];
 
-    for ( ; iarg < argc; ) {
+    for ( ; iarg < argc; iarg++) {
 	string arg = argv[iarg];
 	if (arg == "-w") {
 	    if (++iarg == argc) usage(argv[0]);
-	    rwptys.push_back(argv[iarg++]);	// user will read and write to/from this pty
+	    rwptys.push_back(argv[iarg]);	// user will read and write to/from this pty
 	    readonly = false;
 	}
-	else roptys.push_back(argv[iarg++]);	// user will only read from this pty
+	else if (arg == "-f") asDaemon = false;	// don't put in background
+	else if (arg[0] == '-') return usage(argv[0]);
+	else {
+	    if (ttyname.length() == 0) ttyname = argv[iarg];
+	    else if (ttyoptstr.length() == 0) ttyoptstr = argv[iarg];
+	    else roptys.push_back(argv[iarg]);	// user will only read from this pty
+	}
     }
 
     if (ttyname.length() == 0) return usage(argv[0]);
@@ -81,7 +88,8 @@ int TeeTTy::parseRunstring(int argc, char** argv)
 int TeeTTy::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "tty ttyopts [ (-w ptyname) |  ptyname ] ... ]\n\
+Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) |  ptyname ] ... ]\n\
+  -f: foreground. Don't run as background daemon\n\
   tty: name of serial port to open\n\
   ttyopts: SerialOptions string, see below\n\
   -w ptyname: name of one or more read-write pseudo-terminals\n\
@@ -92,8 +100,8 @@ Usage: " << argv0 << "tty ttyopts [ (-w ptyname) |  ptyname ] ... ]\n\
 
 int TeeTTy::run()
 {
-
     try {
+	if (asDaemon && daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
 
 	fd_set readfds;
 	fd_set writefds;

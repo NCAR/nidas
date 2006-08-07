@@ -126,10 +126,12 @@ Termios::setOptions(const SerialOptions& sopts) {
   setFlowControl(sopts.getFlowControl());
   setRaw(sopts.getRaw());
 
-  // turn CRNL->NL and NL->CRNL conversions back on
+  // set iflag, oflag options if not raw
   if (!sopts.getRaw()) {
+    iflag() &= ~(INLCR | ICRNL | IGNCR);
     iflag() |= sopts.getNewlineIflag();
-    oflag() |= OPOST | sopts.getNewlineOflag();
+    oflag() &= ~(ONLCR | OCRNL);
+    oflag() |= sopts.getNewlineOflag();
   }
 }
 
