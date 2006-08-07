@@ -139,7 +139,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	{
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(4) << setfill(' ');
+	ostr << setprecision(7) << setfill(' ');
 	for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
 	    ostr << setw(10) << fp[i] << ' ';
 	ostr << endl;
@@ -189,7 +189,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	    {
 	    const float* fp =
 		    (const float*) samp->getConstVoidDataPtr();
-	    ostr << setprecision(4) << setfill(' ');
+	    ostr << setprecision(6) << setfill(' ');
 	    for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
 		ostr << setw(10) << fp[i] << ' ';
 	    ostr << endl;
