@@ -6,6 +6,7 @@
 
 #include <nidas/util/SerialPort.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>	// MAXPATHLEN
 #include <cerrno>
 
 #include <sstream>
@@ -341,8 +342,8 @@ int SerialPort::createPtyLink(const std::string& link) throw(IOException)
     }
     else {
         if (S_ISLNK(linkstat.st_mode)) {
-	    char linkdest[PATH_MAX];
-	    int ld = readlink(link.c_str(),linkdest,PATH_MAX-1);
+	    char linkdest[MAXPATHLEN];
+	    int ld = readlink(link.c_str(),linkdest,MAXPATHLEN-1);
 	    if (ld < 0)
 		throw IOException(link,"readlink",errno);
 	    linkdest[ld] = 0;
