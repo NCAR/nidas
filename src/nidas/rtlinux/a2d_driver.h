@@ -165,7 +165,7 @@ typedef struct
 /********  Start of definitions used by the driver module only **********/
 
 #include <rtl_semaphore.h>
-#include <nidas/rtlinux/dsm_viper.h>		// get SYSTEM_ISA_IOPORT_BASE
+#include <nidas/rtlinux/dsm_viper.h>	// get SYSTEM_ISA_IOPORT_BASE
 
 #define MAX_A2D_BOARDS		4	// maximum number of A2D boards
 
@@ -192,7 +192,7 @@ typedef struct
 #define	A2DIOSTAT		0x1	//A/D status (read), command (write)
 #define	A2DSTATRD		0x9	//Same as A2DIOSTAT; BSD3(=A2DRWN) high (rd)
 #define	A2DCMNDWR		0x1	//Same as A2DIOSTAT; BSD3(=A2DRWN) low	(wr)
-#define A2DIODATA		0x2 // A/D data(read), config(write)
+#define A2DIODATA		0x2	// A/D data(read), config(write)
 #define	A2DDATARD		0xA	// Same as A2DIODATA; BSD3(=A2DRWN) high (rd)
 #define	A2DCONFWR		0x2	// Same as A2DIODATA; BSD3(=A2DRWN) low  (wr)
 #define	A2DIOGAIN03		0x3	//A/D chan 0-3 gain read/write
@@ -201,7 +201,7 @@ typedef struct
 #define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
 #define A2DIOCALOFF		0x6	//A/D INT lines(read),Cal/offset (write)
 #define A2DIOINTRD		0x6	//A/D INT lines(read),Cal/offset (write)
-#define	A2DIOFIFOSTAT	0x7	//FIFO stat (read), Set master A/D (write) 
+#define	A2DIOFIFOSTAT		0x7	//FIFO stat (read), Set master A/D (write) 
 #define	A2DIOLOAD		0xF	//Load A/D configuration data
 
 //A/D Chip command words (See A2DIOSTAT and A2DCMNDWR above)
@@ -226,8 +226,8 @@ typedef struct
 // FIFO Status bits
 #define	FIFOHF			0x01	// FIFO half full
 #define FIFOAFAE		0x02	// FIFO almost full/almost empty
-#define FIFONOTEMPTY	0x04	// FIFO not empty
-#define	FIFONOTFULL		0x08  // FIFO not full
+#define FIFONOTEMPTY		0x04	// FIFO not empty
+#define	FIFONOTFULL		0x08	// FIFO not full
 #define INV1PPS			0x10	// Inverted 1 PPS pulse
 #define PRESYNC			0x20	// Presync bit
 
@@ -237,7 +237,7 @@ typedef struct
 typedef struct 
 {
 	dsm_sample_time_t timestamp;	// timetag of sample 
-	dsm_sample_length_t size;		// number of bytes in data 
+	dsm_sample_length_t size;	// number of bytes in data 
   	SS data[RATERATIO*MAXA2DS]; 
 } A2DSAMPLE;
 
@@ -249,8 +249,8 @@ typedef struct
 } I2C_TEMP_SAMPLE;
 
 struct A2DBoard {
-    unsigned int addr;	// Base address of board
-    unsigned int chan_addr;	// 
+    unsigned int addr;			// Base address of board
+    unsigned int chan_addr;
     rtl_pthread_t setup_thread;
 
     rtl_pthread_t acq_thread;
@@ -258,7 +258,7 @@ struct A2DBoard {
     rtl_pthread_t reset_thread;
     void* reset_thread_stack;
 
-    rtl_sem_t acq_sem;	// 100Hz semaphore
+    rtl_sem_t acq_sem;		// 100Hz semaphore
     int a2dfd;			// File descriptor of RTL FIFO for A2D data
     char* a2dFifoName;
     int i2cTempfd;		// File descriptor of RTL FIFO for I2C Temp data
