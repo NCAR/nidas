@@ -12,20 +12,28 @@
 
 */
 
-#include <xxxx_driver.h>
 
-/* RTLinux module includes...  */
+// RTLinux module includes... 
 #define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
 #include <rtl_posixio.h>
-#include <rtl_pthread.h>
 #include <rtl_stdio.h>
 #include <rtl_unistd.h>
-#include <asm/uaccess.h>
+
+// Linux module includes...
+#include <linux/init.h>          // module_init, module_exit
 #include <linux/ioport.h>
 
-/****************  IOCTL Section ***************8*********/
+// DSM includes...
+#include <nidas/rtlinux/dsmlog.h>
+#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/rtlinux/ioctl_fifo.h>
+//#include <nidas/rtlinux/irigclock.h>
 
+#include <nidas/rtlinux/xxxx_driver.h>
+
+/* Define IOCTLs */
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
   { XXXX_GET_IOCTL,_IOC_SIZE(XXXX_GET_IOCTL) },
@@ -33,7 +41,6 @@ static struct ioctlCmd ioctlcmds[] = {
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
-
 static struct ioctlHandle* ioctlhandle = 0;
 
 /****************  End of IOCTL Section ******************/
@@ -54,16 +61,16 @@ MODULE_DESCRIPTION("Test RTL driver");
  * ioctl FIFO.
  */
 static int ioctlCallback(int cmd, int board, int port,
-	void *buf, rtl_size_t len) {
-
-  rtl_printf("ioctlCallback, cmd=%d, board=%d, port=%d,len=%d\n",
+	void *buf, rtl_size_t len)
+{
+  DSMLOG_DEBUG("ioctlCallback, cmd=%d, board=%d, port=%d,len=%d\n",
 		cmd,board,port,len);
 
   int ret = -RTL_EINVAL;
   switch (cmd) {
   case GET_NUM_PORTS:		/* user get */
     {
-	rtl_printf("GET_NUM_PORTS\n");
+	DSMLOG_DEBUG("GET_NUM_PORTS\n");
 	*(int *) buf = nports;
 	ret = sizeof(int);
     }
@@ -79,7 +86,7 @@ static int ioctlCallback(int cmd, int board, int port,
   case XXXX_SET_IOCTL:		/* user set */
       {
 	struct xxxx_set* ts = (struct xxxx_set*) buf;
-	rtl_printf("received xxxx_set.c=%s\n",ts->c);
+	DSMLOG_DEBUG("received xxxx_set.c=%s\n",ts->c);
 	ret = len;
     }
     break;
@@ -87,27 +94,25 @@ static int ioctlCallback(int cmd, int board, int port,
   return ret;
 }
 
-
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-
   /* Close my ioctl FIFOs, deregister my ioctlCallback function */
   closeIoctlFIFO(ioctlhandle);
-
 }
 
 /* -- MODULE ---------------------------------------------------------- */
 int init_module (void)
 {
-  rtl_printf("(%s) %s:\t compiled on %s at %s\n\n",
+  DSMLOG_DEBUG("(%s) %s:\t compiled on %s at %s\n\n",
 	     __FILE__, __FUNCTION__, __DATE__, __TIME__);
 
   /* Open up my ioctl FIFOs, register my ioctlCallback function */
   ioctlhandle = openIoctlFIFO("xxxx",boardNum,ioctlCallback,
   	nioctlcmds,ioctlcmds);
-  if (!ioctlhandle) return -RTL_EIO;
+
+  if (!ioctlhandle)
+    return -RTL_EIO;
 
   return 0;
-
 }
