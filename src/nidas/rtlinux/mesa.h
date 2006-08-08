@@ -14,26 +14,28 @@
                  $HeadURL$
 */
 
-#ifndef MESA_DRIVER_H
-#define MESA_DRIVER_H
+#ifndef _mesa_driver_h_
+#define _mesa_driver_h_
 
-#define BOARD_NUM  0
-#define N_PORTS    4
-#define MAX_BUFFER  1024
-#define READ_SIZE  1000
+#include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
+
+#define BOARD_NUM	0
+#define N_PORTS		4
+#define MAX_BUFFER	1024
+#define READ_SIZE	1000
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
  * the definition of the structures.
  */
 
-#define MESA_4I34_MAX_NR_DEVS 4 /* maximum number of Mesa 4I34 cards in sys */
-#define MESA_REGION_SIZE 0x10 /* number of 1-byte registers */
+#define MESA_4I34_MAX_NR_DEVS	4	// maximum number of Mesa 4I34 cards in sys
+#define MESA_REGION_SIZE	0x10	// number of 1-byte registers
 
-/* registers on the Mesa 4I34 starting at the ioport address */
-#define R_4I34DATA    0 /* 4I34 data register. */
-#define R_4I34CONTROL 1 /* 4I34 control register. */
-#define R_4I34STATUS  1 /* 4I34 status register. */
+// registers on the Mesa 4I34 starting at the ioport address
+#define R_4I34DATA    0		// 4I34 data register.
+#define R_4I34CONTROL 1		// 4I34 control register.
+#define R_4I34STATUS  1		// 4I34 status register.
 
 /* Masks for R_4I34CONTROL.
 */
@@ -77,19 +79,28 @@
 #define COUNT1_READ_OFFSET       0x08
 #define RADAR_READ_OFFSET        0x0A
 
-/* number of counters, radar altimeters and PMS260X */
-#define N_MESA 1
-#define N_COUNTERS 2
-#define N_RADARS 1
-#define N_PMS260X 1
+// number of counters, radar altimeters and PMS260X
+#define N_MESA		1
+#define N_COUNTERS	2
+#define N_RADARS	1
+#define N_PMS260X	1
 
-typedef unsigned long dsm_sample_timetag_t;  
-struct dsm_mesa_sample {
-  dsm_sample_timetag_t timetag; /* timetag of sample */
-  unsigned int data;      /* the data */
-};
+typedef struct
+{
+  dsm_sample_time_t timetag;	// timetag of sample
+  dsm_sample_length_t lsize;	// number of bytes in data
+  unsigned short data;		// the data
+} MESA_SIXTEEN_BIT_SAMPLE;
 
-/* Structures that are passed via ioctls to/from this driver */
+typedef struct
+{
+  dsm_sample_time_t timetag;	// timetag of sample
+  dsm_sample_length_t lsize;	// number of bytes in data
+  unsigned short house[8];	// housekeeping
+  unsigned short data[64];	// the data
+} MESA_TWO_SIXTY_X_SAMPLE;
+
+// Structures that are passed via ioctls to/from this driver */
 struct counters_set {
   int channel;
   int rate;
@@ -107,11 +118,11 @@ struct pms260x_set {
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define MESA_LOAD        _IOW(MESA_MAGIC,0,unsigned long)
-#define COUNTERS_SET     _IOW(MESA_MAGIC,1,struct counters_set)
-#define RADAR_SET        _IOW(MESA_MAGIC,2,struct radar_set)
-#define PMS260X_SET      _IOW(MESA_MAGIC,3,struct pms260x_set)
-#define MESA_STOP         _IO(MESA_MAGIC,4)
+#define MESA_LOAD	_IOW(MESA_MAGIC, 0, unsigned long)
+#define COUNTERS_SET	_IOW(MESA_MAGIC, 1, struct counters_set)
+#define RADAR_SET	_IOW(MESA_MAGIC, 2, struct radar_set)
+#define PMS260X_SET	_IOW(MESA_MAGIC, 3, struct pms260x_set)
+#define	MESA_STOP	_IO(MESA_MAGIC, 4)
 
 #include <nidas/rtlinux/ioctl_fifo.h>
 

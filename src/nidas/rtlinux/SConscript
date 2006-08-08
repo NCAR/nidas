@@ -55,17 +55,17 @@ myenv.AppendUnique(CPPPATH=Split("""
 ##  List of each module source
 ##
 modules = Split("""
-    dsm_lams.c
-    dsc_a2d.c
     a2d_driver.c
+    aio16_a2d.c
+    arinc.c
+    dsc_a2d.c
+    dsm_lams.c
     dsm_serial.c
     dsm_serial_fifo.c
-    rtl_isa_irq.c
-    pc104sg.c
     ioctl_fifo.c
-    a2d_driver.c
-    arinc.c
-    aio16_a2d.c
+    mesa.c
+    pc104sg.c
+    rtl_isa_irq.c
 """)
 
 #       calramp.c
@@ -98,12 +98,14 @@ headers = Split("""
     arinc.h
     dsc_a2d.h
     dsmlog.h
+    dsm_lams.h
     dsm_serial_fifo.h
     dsm_serial.h
     dsm_version.h
     dsm_viper.h
     ioctl_fifo.h
     irigclock.h
+    mesa.h
     pc104sg.h
     rtl_isa_irq.h
     win_com8.h

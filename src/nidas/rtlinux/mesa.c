@@ -17,7 +17,7 @@
                  $HeadURL$
 */
 
-/* RTLinux includes...  */
+// RTLinux includes...
 #define __RTCORE_POLLUTED_APP__
 #include <gpos_bridge/sys/gpos.h>
 #include <rtl.h>
@@ -25,23 +25,26 @@
 #include <rtl_stdio.h>
 #include <rtl_unistd.h>
 
-/* Linux module includes... */
+// Linux module includes...
 #include <linux/init.h>          // module_init, module_exit
 #include <linux/ioport.h>
-#include <bits/posix1_lim.h>
+//#include <bits/posix1_lim.h>
 
-/* DSM includes... */
-#include <mesa.h>
-#include <irigclock.h>
+// DSM includes...
+#include <nidas/rtlinux/dsmlog.h>
+#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/rtlinux/ioctl_fifo.h>
+#include <nidas/rtlinux/irigclock.h>
+
+#include <nidas/rtlinux/mesa.h>
 
 RTLINUX_MODULE(mesa);
-
-#define err(format, arg...) \
-     rtl_printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
+MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
+MODULE_DESCRIPTION("Mesa ISA driver for RTLinux");
 
 void load_finish(void);
 
-/* Define IOCTLs */
+// Define IOCTLs
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS, _IOC_SIZE(GET_NUM_PORTS) },
   { MESA_LOAD,     _IOC_SIZE(MESA_LOAD    ) },
@@ -54,22 +57,25 @@ static struct ioctlCmd ioctlcmds[] = {
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 static struct ioctlHandle* ioctlhandle = 0;
 
-/* Set the base address of the Mesa 4I34 card */
+// Set the base address of the Mesa 4I34 card
 volatile unsigned long phys_membase;
 static volatile unsigned long baseadd = MESA_BASE;
 MODULE_PARM(baseadd, "1l");
 MODULE_PARM_DESC(baseadd, "ISA memory base (default 0xf7000220)");
 
-/* global variables */
+// global variables
 unsigned long filesize;
 static int counter_channels = 0;
 static int radar_channels   = 0;
+
 static enum irigClockRates counter_rate = IRIG_NUM_RATES;
 static enum irigClockRates radar_rate   = IRIG_NUM_RATES;
+
 enum flag {TRUE, FALSE};
+
 char requested_region = 0;
 
-/* File pointers to data and command FIFOs */
+// File pointers to data and command FIFOs
 static int fd_mesa_load;
 static int fd_mesa_counter[N_COUNTERS];
 static int fd_mesa_radar[N_RADARS];
@@ -78,48 +84,50 @@ static struct rtl_sigaction cmndAct;
 void cleanup_module (void);
 
 /* -- IRIG CALLBACK --------------------------------------------------- */
-void read_counter(void* channel)
+void read_counter(void * channel)
 {
-  struct dsm_mesa_sample sample;
-  short chn = (int) channel;
-  int ii, read_address_offset;
+  MESA_SIXTEEN_BIT_SAMPLE sample;
+  short	chn = (int) channel;
+  int	i, read_address_offset;
 
-  for (ii=0; ii<chn; ii++) {
-
-    if (ii == 0)
+  for (i = 0; i < chn; i++)
+  {
+    if (i == 0)
       read_address_offset = COUNT0_READ_OFFSET;
     else
       read_address_offset = COUNT1_READ_OFFSET;
 
-    /* read from the counter channel */
+    // read from the counter channel
     if ((sample.data = readw(MESA_BASE + read_address_offset)) == 0)
-      err("NO COUNTS");
+      DSMLOG_ERR("NO COUNTS!\n");
 
-    sample.data = 111 * (ii+1);
-    err("chn: %d  sample.data: %d", ii, sample.data);
+    sample.data = 111 * (i+1);
+    DSMLOG_DEBUG("chn: %d  sample.data: %d\n", i, sample.data);
 
-    /* write the counts to the user's FIFO */
+    // write the counts to the user's FIFO
     sample.timetag = GET_MSEC_CLOCK;
-    rtl_write(fd_mesa_counter[ii], &sample, sizeof(sample));
+    rtl_write(fd_mesa_counter[i], &sample, sizeof(sample));
   }
 }
+
 /* -- IRIG CALLBACK --------------------------------------------------- */
-void read_radar(void* channel)
+void read_radar(void * channel)
 {
-  struct dsm_mesa_sample sample;
+  MESA_SIXTEEN_BIT_SAMPLE sample;
   short chn = (int) channel;
 
-  /* read from the radar channel */
+  // read from the radar channel
   if ((sample.data = readw(MESA_BASE + RADAR_READ_OFFSET)) <= 0)
-    err("BAD ALTITUDE");
+    DSMLOG_ERR("BAD ALTITUDE!\n");
 
   sample.data = 333;
-  err("chn: %d  sample.data: %d", chn-1, sample.data);
+  DSMLOG_DEBUG("chn: %d  sample.data: %d", chn-1, sample.data);
 
-  /* write the altitude to the user's FIFO */
+  // write the altitude to the user's FIFO
   sample.timetag = GET_MSEC_CLOCK;
   rtl_write(fd_mesa_radar[chn-1], &sample, sizeof(sample));
 }
+
 /* -- UTILITY --------------------------------------------------------- */
 
 /* dsm/modules/mesa.c: load_start: outb(5) */
@@ -134,145 +142,157 @@ void load_start()
            M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
 
   outb(config,MESA_BASE + R_4I34CONTROL);
-  err("outb(%d)", config);
+  DSMLOG_DEBUG("outb(%d)\n", config);
   status = inb(MESA_BASE + R_4I34STATUS);
-  err("inb = %d", status);
+  DSMLOG_DEBUG("inb = %d\n", status);
 
   /* Note that if we see DONE at the start of programming, it's most likely due
-   * to an attempt to access the 4I34 at the wrong I/O location. */
+   * to an attempt to access the 4I34 at the wrong I/O location.
+   */
   if (status & M_4I34PROGDUN)
   {
-    err("failed - attempted to access the 4I34 at the wrong I/O location?");
+    DSMLOG_ERR("failed - attempted to access the 4I34 at the wrong I/O location?\n");
     cleanup_module();
   }
   config = M_4I34CFGCSON | M_4I34CFGINITDEASSERT |
            M_4I34CFGWRITEENABLE | M_4I34LEDON;
 
   outb(config,MESA_BASE + R_4I34CONTROL);
-  err("outb(%d)", config);
+  DSMLOG_DEBUG("outb(%d)\n", config);
 
   // Multi task for 100 us
-/*   struct rtl_timespec ts; */
-/*   rtl_clock_gettime(RTL_CLOCK_REALTIME, &ts); */
-/*   rtl_timespec_add_ns(&ts, 100000); */
-/*   rtl_clock_nanosleep(RTL_CLOCK_REALTIME, TIMER_ABSTIME, &ts, NULL); */
+//   struct rtl_timespec ts;
+//   rtl_clock_gettime(RTL_CLOCK_REALTIME, &ts);
+//   rtl_timespec_add_ns(&ts, 100000);
+//   rtl_clock_nanosleep(RTL_CLOCK_REALTIME, TIMER_ABSTIME, &ts, NULL);
 
   /* Delay 100 uS. */
-  for(count=0; count <= 1000; count++)
+  for (count = 0; count <= 1000; count++)
     status = inb(MESA_BASE + R_4I34STATUS);
 }
+
 /* -- SIGACTION ------------------------------------------------------- */
 void load_program(int sig, rtl_siginfo_t *siginfo, void *v)
 {
-  char buf[MAX_BUFFER];
+  int	i;
+  char	buf[MAX_BUFFER];
   unsigned long len;
   static unsigned long total = 0;
   unsigned char *bptr;
-  int i;
 
-  /* start of load process */
+  // start of load process
   if (total == 0)
       load_start();
 
-  /* ignore if not incoming data */
+  // ignore if not incoming data
   if (siginfo->si_fd != fd_mesa_load) {
-    err("ignored... unknown file pointer");
+    DSMLOG_ERR("ignored... unknown file pointer.\n");
     return;
   }
   if (siginfo->si_code != RTL_POLL_IN) {
-    err("ignored... not incoming data");
+    DSMLOG_ERR("ignored... not incoming data.\n");
     return;
   }
 
-  /* read the FIFO into a buffer and then program the FPGA*/
+  // read the FIFO into a buffer and then program the FPGA
   len = rtl_read(siginfo->si_fd, &buf, MAX_BUFFER);
   total += len;
 
-  /* Now program the FPGA */
+  // Now program the FPGA
   bptr = buf;
-  for(i=0; i < len; i++)
-     outb(*bptr++, MESA_BASE + R_4I34DATA);
+  for (i = 0; i < len; i++)
+    outb(*bptr++, MESA_BASE + R_4I34DATA);
 
   // end of load process
   if (total == filesize)
     load_finish();
 }
+
 /* -- UTILITY --------------------------------------------------------- */
 void load_finish()
 {
-  int count, waitcount;
+  int waitcount, count;
   unsigned char config;
   enum flag success;
 
-  err("start");
+  DSMLOG_DEBUG("start");
   config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
            M_4I34CFGWRITEDISABLE | M_4I34LEDON;
   outb(config, MESA_BASE + R_4I34CONTROL);
-  err("outb success");
+  DSMLOG_DEBUG("outb success");
 
-  /* Wait for Done bit set */
+  // Wait for Done bit set
   success = FALSE;
-  for(waitcount = PROGWAITLOOPCOUNT; waitcount != 0; --waitcount) {
-
-    if( inb(MESA_BASE + R_4I34STATUS) & M_4I34PROGDUN ) {
-
-      err("waitcount: %d", waitcount);
+  for (waitcount = PROGWAITLOOPCOUNT; waitcount != 0; --waitcount)
+  {
+    if ( inb(MESA_BASE + R_4I34STATUS) & M_4I34PROGDUN )
+    {
+      DSMLOG_DEBUG("waitcount: %d", waitcount);
       success = TRUE;
       continue;
     }
   }
-  if(success) {
 
-    err("FPGA programming done");
+  if (success)
+  {
+    DSMLOG_NOTICE("FPGA programming done.\n");
 
-    /* Indicate end of programming by turning off 4I34 led */
+    // Indicate end of programming by turning off 4I34 led
     config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
              M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
     outb(config,MESA_BASE + R_4I34CONTROL);
 
-    /* Now send out extra configuration completion clocks */
-    for(count = 24; count != 0; --count) {
+    // Now send out extra configuration completion clocks
+    for (count = 24; count != 0; --count)
       outb(0xFF, MESA_BASE + R_4I34DATA);
-    }
   }
-  else {
-    err("FPGA programming not successful");
+  else
+  {
+    DSMLOG_ERR("FPGA programming not successful.\n");
     cleanup_module();
   }
 }
+
 /* -- UTILITY --------------------------------------------------------- */
 void close_ports( void )
 {
-  int chn;
+  int	chn;
 
-  /* close and unlink eack counter port... */
-  for(chn=0; chn < counter_channels; chn++)
+  // close and unlink eack counter port...
+  for (chn = 0; chn < counter_channels; chn++)
   {
-    if (fd_mesa_counter[chn]) {
+    if (fd_mesa_counter[chn])
+    {
       rtl_close( fd_mesa_counter[chn] );
-      err("closed fd_mesa_counter[%d]", chn);
+      DSMLOG_DEBUG("closed fd_mesa_counter[%d]\n", chn);
     }
   }
-  /* unregister poll function from IRIG module */
-  if (counter_rate != IRIG_NUM_RATES) {
-    unregister_irig_callback(&read_counter, counter_rate);
-    err("unregistered read_counter() from IRIG");
-  }
-  /* close and unlink eack radar port... */
-  for(chn=counter_channels; chn < counter_channels + radar_channels; chn++)
-  {
-    if (fd_mesa_radar[chn-counter_channels]) {
 
+  // unregister poll function from IRIG module
+  if (counter_rate != IRIG_NUM_RATES)
+  {
+    unregister_irig_callback(&read_counter, counter_rate, counter_channels);
+    DSMLOG_DEBUG("unregistered read_counter() from IRIG.\n");
+  }
+
+  // close and unlink eack radar port...
+  for (chn = counter_channels; chn < counter_channels + radar_channels; chn++)
+  {
+    if (fd_mesa_radar[chn-counter_channels])
+    {
       rtl_close( fd_mesa_radar[chn-counter_channels] );
-      err("closed fd_mesa_radar[%d]", chn-counter_channels);
+      DSMLOG_DEBUG("closed fd_mesa_radar[%d]\n", chn-counter_channels);
     }
   }
-  /* unregister poll function from IRIG module */
-  if (radar_rate != IRIG_NUM_RATES) {
-    unregister_irig_callback(&read_radar, radar_rate);
-    err("unregistered read_radar()   from IRIG");
+
+  // unregister poll function from IRIG module
+  if (radar_rate != IRIG_NUM_RATES)
+  {
+    unregister_irig_callback(&read_radar, radar_rate, radar_channels);
+    DSMLOG_DEBUG("unregistered read_radar() from IRIG.\n");
   }
 }
+
 /* -- IOCTL CALLBACK -------------------------------------------------- */
 /*
  * Function that is called on receipt of ioctl request over the
@@ -296,7 +316,7 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, rtl_size_t len)
       break;
 
     case COUNTERS_SET:
-      /* create and open counter data FIFOs */
+      // create and open counter data FIFOs
       counter_ptr = (struct counters_set*) buf;
       counter_channels = counter_ptr->channel;
       for (j=0; j < counter_channels; j++)
@@ -306,14 +326,14 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, rtl_size_t len)
         if (fd_mesa_counter[j] < 0)
           return fd_mesa_counter[j];
       }
-      /* register poll routine with the IRIG driver */
+      // register poll routine with the IRIG driver
       counter_rate = irigClockRateToEnum(counter_ptr->rate);
       register_irig_callback(&read_counter, counter_rate,
                              (void *)counter_channels);
       break;
 
     case RADAR_SET:
-      /* create and open radar data FIFOs */
+      // create and open radar data FIFOs
       radar_ptr = (struct radar_set*) buf;
       radar_channels = radar_ptr->channel;
       for (j=counter_channels; j < counter_channels + radar_channels; j++)
@@ -323,14 +343,14 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, rtl_size_t len)
         if (fd_mesa_radar[j-counter_channels] < 0)
           return fd_mesa_radar[j-counter_channels];
       }
-      /* register poll routine with the IRIG driver */
+      // register poll routine with the IRIG driver
       radar_rate = irigClockRateToEnum(radar_ptr->rate);
       register_irig_callback(&read_radar, radar_rate,
                              (void *)radar_channels);
       break;
 
     case PMS260X_SET:
-      err("PMS260X_SET");
+      DSMLOG_ERROR("PMS260X_SET\n");
       break;
 
     case MESA_STOP:
@@ -338,105 +358,112 @@ static int mesa_ioctl(int cmd, int board, int port, void *buf, rtl_size_t len)
       break;
 
     default:
-      err("unknown ioctl cmd");
+      DSMLOG_ERROR("unknown ioctl cmd.\n");
       break;
   }
   return len;
 }
+
 /* -- MODULE ---------------------------------------------------------- */
 void cleanup_module (void)
 {
-  char devstr[30];
-  int  chn;
+  int	chn;
+  char	devstr[30];
 
-  /* close and destroy the mesa load fifo */
+  // close and destroy the mesa load fifo
   sprintf(devstr, "/dev/mesa_program_board");
-  err("closing '%s' @ 0x%x", devstr, fd_mesa_load);
+  DSMLOG_DEBUG("closing '%s' @ 0x%x\n", devstr, fd_mesa_load);
   if (fd_mesa_load)
     rtl_close( fd_mesa_load );
   rtl_unlink( devstr );
 
-  /* close the data fifos */
+  // close the data fifos
   close_ports();
 
-  /* destroy the data fifos */
-  for (chn=0; chn<N_PORTS; chn++)
+  // destroy the data fifos
+  for (chn = 0; chn < N_PORTS; chn++)
   {
-    sprintf(devstr, "/dev/mesa_in_%d", chn);
+    sprintf(devstr, "/dev/mesa_in_%d\n", chn);
     rtl_unlink( devstr );
   }
-  /* Close my ioctl FIFO, deregister my mesa_ioctl function */
+
+  // Close my ioctl FIFO, deregister my mesa_ioctl function
   if (ioctlhandle)
     closeIoctlFIFO(ioctlhandle);
 
-  /* free up the ISA memory region */
-  if ( requested_region ) {
+  // free up the ISA memory region
+  if ( requested_region )
+  {
     release_region(baseadd, MESA_REGION_SIZE);
-    err("freed up the ISA memory region");
+    DSMLOG_DEBUG("freed up the ISA memory region.\n");
   }
 
-  err("done.\n");
+  DSMLOG_DEBUG("done.\n");
 }
+
 /* -- MODULE ---------------------------------------------------------- */
 int init_module (void)
 {
-  err("compiled on %s at %s", __DATE__, __TIME__);
+  int	chn;
+  char	devstr[30];
 
-  char devstr[30];
-  int chn;
+  // DSM_VERSION_STRING is found in dsm_version.h
+  DSMLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
+  DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
-  /* open up ioctl FIFO, register mesa_ioctl function */
+  // open up ioctl FIFO, register mesa_ioctl function
   ioctlhandle = openIoctlFIFO("mesa", BOARD_NUM, mesa_ioctl,
                               nioctlcmds, ioctlcmds);
   if (!ioctlhandle) return -RTL_EIO;
 
-  for (chn=0; chn<N_PORTS; chn++)
+  for (chn = 0; chn < N_PORTS; chn++)
   {
-    /* create its output FIFO */
+    // create its output FIFO
     sprintf( devstr, "/dev/mesa_in_%d", chn );
 
     // remove broken device file before making a new one
     if (rtl_unlink(devstr) < 0)
-      if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
+      if ( rtl_errno != RTL_ENOENT )
+        return -rtl_errno;
 
-    err("rtl_mkfifo( %s, 0666 );", devstr);
+    DSMLOG_DEBUG("rtl_mkfifo( %s, 0666 );\n", devstr);
     rtl_mkfifo( devstr, 0666 );
   }
 
-  /* Make 4I34 board Ioctl Fifo... */
+  // Make 4I34 board Ioctl Fifo...
   sprintf(devstr, "/dev/mesa_program_board");
 
   // remove broken device file before making a new one
   if (rtl_unlink(devstr) < 0)
-    if ( rtl_errno != RTL_ENOENT ) return -rtl_errno;
+    if ( rtl_errno != RTL_ENOENT )
+      return -rtl_errno;
 
-  err("rtl_mkfifo( %s, 0666 );", devstr);
+  DSMLOG_DEBUG("rtl_mkfifo( %s, 0666 );\n", devstr);
   rtl_mkfifo( devstr, 0666 );
   fd_mesa_load = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_RDONLY );
-  err("opened '%s' @ 0x%x", devstr, fd_mesa_load);
+  DSMLOG_DEBUG("opened '%s' @ 0x%x\n", devstr, fd_mesa_load);
 
-  /* create FIFO handler */
+  // create FIFO handler
   cmndAct.sa_sigaction = load_program;
   cmndAct.sa_fd        = fd_mesa_load;
   cmndAct.sa_flags     = RTL_SA_RDONLY | RTL_SA_SIGINFO;
   if ( rtl_sigaction( RTL_SIGPOLL, &cmndAct, NULL ) != 0 )
   {
-    err("Cannot create FIFO handler for %s", devstr);
+    DSMLOG_ERROR("Cannot create FIFO handler for %s.\n", devstr);
     cleanup_module();
     return -RTL_EIO;
   }
-  /* reserve the ISA memory region */
+
+  // reserve the ISA memory region
   if (!request_region(baseadd, MESA_REGION_SIZE, "mesa"))
   {
-    err("couldn't allocate I/O range %x - %x\n", baseadd,
+    DSMLOG_ERROR("couldn't allocate I/O range %x - %x\n", baseadd,
         baseadd + MESA_REGION_SIZE - 1);
     cleanup_module();
     return -RTL_EBUSY;
   }
-  requested_region = 1;
-  err("done.\n");
-  return 0; /* success */
-}
-MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
-MODULE_DESCRIPTION("Mesa ISA driver for RTLinux");
 
+  requested_region = 1;
+  DSMLOG_DEBUG("done.\n");
+  return 0;	// success
+}
