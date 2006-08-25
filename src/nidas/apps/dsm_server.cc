@@ -22,7 +22,7 @@ bool dsmServerIsAlreadyRunning()
 {
   int runCnt = 0;
   char buffer[256];
-  FILE *fp = popen("ps ax | grep \"dsm_server\" | grep -v grep", "r");
+  FILE *fp = popen("ps ax | grep \"dsm_server\" | grep -v grep | grep -v gdb", "r");
 
   while (fgets(buffer, 256, fp) != 0)
   {
