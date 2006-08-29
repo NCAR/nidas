@@ -19,8 +19,19 @@
 #ifndef DSM_VERSION_H
 #define DSM_VERSION_H
 
-#define DSM_STRINGIFY(x) #x
+/*
+ * must have two levels of these stringify macros,
+ * because "y(x) #x" does not pre-expand x if x is a macro.
+ * These are the same as the STRINGX,XSTRING macros in <symcat.h>,
+ * but we can't #include the standard header files here in driver code.
+ */
+#define DSM_STRINGX(x) #x
+#define DSM_STRING(x) DSM_STRINGX(x)
 
-#define DSM_VERSION_STRING DSM_STRINGIFY(DSM_VERSION)
+#if !defined(DSM_VERSION)
+#define DSM_VERSION unknown
+#endif
+
+#define DSM_VERSION_STRING DSM_STRING(DSM_VERSION)
 
 #endif
