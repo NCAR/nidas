@@ -46,6 +46,7 @@ rafhdrs = [ Split("""
     raf/Arinc_IRS.h
     raf/DSMAnalogSensor.h
     raf/DSMArincSensor.h
+    raf/DSMMesaSensor.h
     raf/GPS_HW_HG2021GB02.h
     raf/IRIGSensor.h
     raf/IRS_HW_HG2001GD.h
@@ -104,6 +105,7 @@ rafsrcs = [ Split("""
     raf/Arinc_IRS.cc
     raf/DSMAnalogSensor.cc
     raf/DSMArincSensor.cc
+    raf/DSMMesaSensor.cc
     raf/GPS_HW_HG2021GB02.cc
     raf/IRIGSensor.cc
     raf/IRS_HW_HG2001GD.cc
