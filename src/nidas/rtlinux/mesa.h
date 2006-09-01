@@ -18,9 +18,10 @@
 #define _mesa_driver_h_
 
 #include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
+#include <nidas/rtlinux/irigclock.h>
 
-#define BOARD_NUM	0
-#define N_PORTS		4
+typedef unsigned short dsm_sample_id_t;
+
 #define MAX_BUFFER	1024
 #define READ_SIZE	1000
 
@@ -56,9 +57,9 @@
 #define M_4I34LEDOFF          (0x0 << B_4I34LED)
 
 /* Masks for R_4I34STATUS.  */
-#define B_4I34PROGDUN 0 /* Programming-done flag. Set when the FPGA "program" has been successfully uploaded to the 4I34. */
-#define M_4I34PROGDUN (0x1 << B_4I34PROGDUN)
-#define PROGWAITLOOPCOUNT 20000
+#define B_4I34PROGDUN		0 /* Programming-done flag. Set when the FPGA "program" has been successfully uploaded to the 4I34. */
+#define M_4I34PROGDUN		(0x1 << B_4I34PROGDUN)
+#define PROGWAITLOOPCOUNT	20000
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
@@ -66,63 +67,112 @@
  * distinct magic numbers one can catch a user sending
  * a ioctl to the wrong device.
  */
-#define MESA_MAGIC              'M'
+#define MESA_MAGIC		'M'
 
-#define MESA_BASE                0xf7000220
-#define STROBES_OFFSET           0x00
-#define HISTOGRAM_CLEAR_OFFSET   0x01
-#define HISTOGRAM_READ_OFFSET    0x02
-#define HOUSE_ADVANCE_OFFSET     0x03
-#define HOUSE_READ_OFFSET        0x04
-#define HOUSE_RESET_OFFSET       0x05
-#define COUNT0_READ_OFFSET       0x06
-#define COUNT1_READ_OFFSET       0x08
-#define RADAR_READ_OFFSET        0x0A
+#define MESA_BASE		0x220
+#define STROBES_OFFSET		0x00
+#define HISTOGRAM_CLEAR_OFFSET	0x01
+#define HISTOGRAM_READ_OFFSET	0x02
+#define HOUSE_ADVANCE_OFFSET	0x03
+#define HOUSE_READ_OFFSET	0x04
+#define HOUSE_RESET_OFFSET	0x05
+#define COUNT0_READ_OFFSET	0x06
+#define COUNT1_READ_OFFSET	0x08
+#define RADAR_READ_OFFSET	0x0A
+#define TWOSIXTY_READ_OFFSET	0x0C
+
+// Sample ID's
+#define ID_COUNTERS	1
+#define ID_DIG_IN	2
+#define ID_DIG_OUT	3
+#define ID_260X		4
+#define ID_RADAR	5
 
 // number of counters, radar altimeters and PMS260X
-#define N_MESA		1
+#define N_MESA_DEVICES	1
 #define N_COUNTERS	2
 #define N_RADARS	1
 #define N_PMS260X	1
 
+#define MAX_SAMPLES	2
+
+#define N_PORTS		(N_COUNTERS+N_RADARS+N_PMS260X)
+
+#define TWO_SIXTY_BINS	64
+
 typedef struct
 {
   dsm_sample_time_t timetag;	// timetag of sample
-  dsm_sample_length_t lsize;	// number of bytes in data
-  unsigned short data;		// the data
+  dsm_sample_length_t size;	// number of bytes in data
+  dsm_sample_id_t sampleID;	// Sample ID of this data.
+  unsigned short data[MAX_SAMPLES];		// the data
 } MESA_SIXTEEN_BIT_SAMPLE;
 
 typedef struct
 {
   dsm_sample_time_t timetag;	// timetag of sample
-  dsm_sample_length_t lsize;	// number of bytes in data
+  dsm_sample_length_t size;	// number of bytes in data
+  dsm_sample_id_t sampleID;	// Sample ID of this data.
+  unsigned short strobes;	// Total strobes.
   unsigned short house[8];	// housekeeping
-  unsigned short data[64];	// the data
+  unsigned short data[TWO_SIXTY_BINS];	// the data
 } MESA_TWO_SIXTY_X_SAMPLE;
 
-// Structures that are passed via ioctls to/from this driver */
+// Structures that are passed via ioctls to/from this driver
+struct _prog {
+  int len;
+  char buffer[MAX_BUFFER];
+};
+
+struct digital_in {
+  int nChannels;
+  int value;
+};
 struct counters_set {
-  int channel;
+  int nChannels;
   int rate;
 };
 struct radar_set {
-  int channel;
+  int nChannels;
   int rate;
 };
 struct pms260x_set {
-  int channel;
+  int nChannels;
   int rate;
 };
+
+
+struct MESA_Board
+{
+  int irq;			// requested IRQ ... are we using this?
+  unsigned long addr;		// Base address of board
+
+  int outfd;
+  char * fifoName;
+
+  enum irigClockRates counter_rate;
+  enum irigClockRates radar_rate;
+  enum irigClockRates twoSixty_rate;
+
+  int	nCounters;
+  int	nRadars;
+  int	n260X;
+
+  struct ioctlHandle * ioctlhandle;
+};
+
 
 /*
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define MESA_LOAD	_IOW(MESA_MAGIC, 0, unsigned long)
-#define COUNTERS_SET	_IOW(MESA_MAGIC, 1, struct counters_set)
-#define RADAR_SET	_IOW(MESA_MAGIC, 2, struct radar_set)
-#define PMS260X_SET	_IOW(MESA_MAGIC, 3, struct pms260x_set)
-#define	MESA_STOP	_IO(MESA_MAGIC, 4)
+#define MESA_LOAD	_IOW(MESA_MAGIC, 0, struct _prog)
+#define MESA_DONE	_IO(MESA_MAGIC, 1)
+#define COUNTERS_SET	_IOW(MESA_MAGIC, 2, struct counters_set)
+#define RADAR_SET	_IOW(MESA_MAGIC, 3, struct radar_set)
+#define PMS260X_SET	_IOW(MESA_MAGIC, 4, struct pms260x_set)
+#define DIGITAL_IN_SET	_IOW(MESA_MAGIC, 5, struct digital_in)
+#define	MESA_STOP	_IO(MESA_MAGIC, 6)
 
 #include <nidas/rtlinux/ioctl_fifo.h>
 

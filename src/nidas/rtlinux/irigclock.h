@@ -103,12 +103,12 @@ struct dsm_clock_sample {
     					 * length and data! */
 };
 
-#define IRIG_MAGIC 'I'
-#define IRIG_OPEN _IO(IRIG_MAGIC,0)
-#define IRIG_CLOSE _IO(IRIG_MAGIC,1)
-#define IRIG_GET_STATUS _IOR(IRIG_MAGIC,2,unsigned char)
-#define IRIG_GET_CLOCK _IOR(IRIG_MAGIC,3,struct rtl_timeval)
-#define IRIG_SET_CLOCK _IOW(IRIG_MAGIC,4,struct rtl_timeval)
+#define IRIG_MAGIC	'I'
+#define IRIG_OPEN	_IO(IRIG_MAGIC,0)
+#define IRIG_CLOSE	_IO(IRIG_MAGIC,1)
+#define IRIG_GET_STATUS	_IOR(IRIG_MAGIC,2,unsigned char)
+#define IRIG_GET_CLOCK	_IOR(IRIG_MAGIC,3,struct rtl_timeval)
+#define IRIG_SET_CLOCK	_IOW(IRIG_MAGIC,4,struct rtl_timeval)
 #define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct rtl_timeval)
 
 
