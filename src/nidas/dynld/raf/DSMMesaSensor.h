@@ -84,10 +84,10 @@ private:
    * @see sendFPGACodeToDriver()
    */
   void
-  DSMMesaSensor::selectfiletype(FILE * fp);
+  selectfiletype(FILE * fp);
 
   long
-  DSMMesaSensor::filelengthq(FILE * f);
+  filelengthq(FILE * f);
 
   struct radar_set radar_info;
   struct pms260x_set p260x_info;
