@@ -22,6 +22,8 @@
 #include <nidas/core/XMLFdInputSource.h>
 
 #include <iostream>
+#include <fstream>
+#include <limits>
 
 using namespace nidas::core;
 using namespace std;
@@ -492,14 +494,12 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 void DSMEngine::openSensors() throw(n_u::IOException)
 {
     _selector = new SensorHandler(_dsmConfig->getRemoteSerialSocketPort());
-#ifdef USE_RT_THREAD_PRIORITY
     /*
      * Can't use real-time FIFO priority in user space via
      * pthread_setschedparam under RTLinux. How ironic.
      * It causes ENOSPC on the RTLinux fifos.
      */
-    _selector->setRealTimeFIFOPriority(50);
-#endif
+     if (!isRTLinux()) _selector->setRealTimeFIFOPriority(50);
     _selector->start();
     _dsmConfig->openSensors(_selector);
 }
@@ -637,4 +637,19 @@ void DSMEngine::wait() throw(n_u::Exception)
 {
   _selector->join();
   // cerr << "DSMEngine::wait() _selector joined" << endl;
+}
+
+/* static */
+bool DSMEngine::isRTLinux()
+{
+    ifstream modfile("/proc/modules");
+
+    // check to see if rtl module is loaded.
+    while (!modfile.eof() && !modfile.fail()) {
+        string module;
+        modfile >> module;
+        if (module == "rtl") return true;
+        modfile.ignore(std::numeric_limits<int>::max(),'\n');
+    }
+    return false;
 }

@@ -111,6 +111,12 @@ public:
     static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
 	throw(nidas::core::XMLException);
 
+
+    /**
+     * Is system running RTLinux?  Checks if rtl module is loaded.
+     */
+    static bool isRTLinux();
+
 private:
 
     /**
