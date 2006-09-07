@@ -194,6 +194,10 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		    	"variable","length",attr.getValue());
 		setLength(val);
 	    }
+	    else if (attr.getName() == "count") {
+                if (attr.getValue() == "true")
+                    setType(Variable::COUNTER);
+            }
 	}
     }
 
