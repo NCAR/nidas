@@ -146,19 +146,6 @@ x86_env.AppendUnique(RPATH = [
     x86_env.Dir("#build_x86/build_core").get_abspath(),
     '$PREFIX/lib'
     ]) 
-##
-##  Build nidas/rtlinux
-##
-# SConscript('nidas/rtlinux/SConscript',
-# 	build_dir='build_arm/build_rtl',
-# 	duplicate=0,exports={'env':arm_env,'build_rtlinux_modules':1})
-
-##
-##  Build nidas/rtlinux/build_x86, but only target the headers
-##
-# SConscript('nidas/rtlinux/SConscript',
-# 	build_dir='nidas/rtlinux/build_x86',
-# 	duplicate=0,exports={'env':x86_env,'build_rtlinux_modules':0})
 
 ##
 ##
@@ -178,12 +165,12 @@ SConscript('nidas/SConscript',
 ##  target for creating arm modules, library and executables
 ##
 Alias('arm', ['build_arm/build_core', 'build_arm/build_dynld',
-	'build_arm/build_apps', 'build_arm/build_rtl'])
+	'build_arm/build_apps', 'build_arm/build_rtl', 'build_arm/build_linux' ])
 ##
 ##  target for creating x86 library and executables
 ##
 Alias('x86', ['build_x86/build_core', 'build_x86/build_dynld',
-	'build_x86/build_apps', 'build_x86/build_rtl'])
+	'build_x86/build_apps', 'build_x86/build_rtl', 'build_x86/build_linux'])
 ##
 ##  target for creating arm and x86 libraries
 ##
@@ -198,12 +185,12 @@ arm_env.Alias('arm_install', [
 	'$PREFIX/include/nidas/core',
 	'$PREFIX/include/nidas/dynld',
 	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/include/nidas/linux',
 	'$PREFIX/lib',
 	'$PREFIX/bin',
 	'$PREFIX/rtlinux'
     ]
 )
-#	'$PREFIX/rtlinux',
 
 ##
 ##  target for installing x86 library and executables
@@ -213,11 +200,11 @@ x86_env.Alias('x86_install', [
 	'$PREFIX/include/nidas/core',
 	'$PREFIX/include/nidas/dynld',
 	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/include/nidas/linux',
 	'$PREFIX/lib',
 	'$PREFIX/bin'
     ]
 )
-#	'$PREFIX/rtlinux',
 
 Alias('install', ['arm_install','x86_install'])
 

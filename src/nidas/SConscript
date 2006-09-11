@@ -54,11 +54,11 @@ SConscript('rtlinux/SConscript',
         duplicate=0,exports={'env':myenv})
 
 ##
-##  Build nidas/rtlinux/build_x86, but only target the headers
+##  Build nidas/linux
 ##
-# SConscript('nidas/rtlinux/SConscript',
-#       build_dir='nidas/rtlinux/build_x86',
-#       duplicate=0,exports={'env':x86_env,'build_rtlinux_modules':0})
+SConscript('linux/SConscript',
+        build_dir='build_linux',
+        duplicate=0,exports={'env':myenv})
 
-Default([ 'build_core','build_dynld', 'build_apps', 'build_rtl' ])
+Default([ 'build_core','build_dynld', 'build_apps', 'build_rtl', 'build_linux' ])
 

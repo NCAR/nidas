@@ -62,6 +62,7 @@ apps = Split("""
   gps_nmea_sysclock.cc
   ck_xml.cc
   isff/pdecode.cc
+  isff/set_emerald.cc
   tee_tty.cc
 """)
 

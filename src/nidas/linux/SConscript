@@ -1,0 +1,54 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+import os
+import glob
+
+##
+##  Import the cross-build environment.
+##
+
+Import('env')
+myenv = env.Copy()
+
+def get_svnversion(env):
+    """
+    Return value reported by svnversion on top directory.
+    """
+    svn_path = env.WhereIs('svnversion', os.environ['PATH'])
+    revision = "Unknown"
+
+    if svn_path != None:
+	rev = os.popen('svnversion ' + env.Dir('#.').abspath).readline().strip()
+	if rev != "":
+		    revision = rev
+    return revision
+
+##
+##  List of each module source
+##
+modules = Split("""
+""")
+
+##
+##  Build the modules
+##
+objs = []
+if myenv['ARCH'] == 'arm':
+    for i in modules:
+      objs += myenv.Object( i )
+# print(["objs="] + [str(h) for h in objs])
+
+headers = Split("""
+    diamond/emerald/emerald.h
+""")
+
+## Headers are up one from build directory
+
+# print(["PREFIX="] + [myenv['PREFIX']])
+
+myenv.Install('$PREFIX/linux',objs)
+
+myenv.Install('$PREFIX/include/nidas/linux/diamond/emerald',headers)
+
