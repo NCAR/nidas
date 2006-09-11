@@ -34,6 +34,9 @@ namespace n_u = nidas::util;
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
+/* static */
+int DSMEngine::rtlinux = -1;	// unknown
+
 DSMEngine::DSMEngine():
     _syslogit(true),_wait(false),
     _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
@@ -642,14 +645,20 @@ void DSMEngine::wait() throw(n_u::Exception)
 /* static */
 bool DSMEngine::isRTLinux()
 {
+    if (rtlinux >= 0) return rtlinux > 0;
+
     ifstream modfile("/proc/modules");
 
     // check to see if rtl module is loaded.
     while (!modfile.eof() && !modfile.fail()) {
         string module;
         modfile >> module;
-        if (module == "rtl") return true;
+        if (module == "rtl") {
+	    rtlinux = 1;
+	    return true;
+	}
         modfile.ignore(std::numeric_limits<int>::max(),'\n');
     }
+    rtlinux = 0;
     return false;
 }

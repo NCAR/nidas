@@ -25,7 +25,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
-	statisticsType stype,string cntsName):
+	statisticsType stype,string cntsName,const Site* sitex):
 	countsName(cntsName),
 	numpoints(countsName.length() > 0),
 	crossTerms(false),
@@ -37,7 +37,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	tout(LONG_LONG_MIN),
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
 	nSamples(0),triComb(0),
-	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0)
+	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0),
+	site(sitex)
 
 {
     switch(statsType) {
@@ -86,7 +87,8 @@ StatisticsCruncher::StatisticsCruncher(const StatisticsCruncher& x):
 	tout(LONG_LONG_MIN),
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
 	nSamples(0),triComb(0),
-	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0)
+	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0),
+	site(x.site)
 
 {
     vector<Variable*>::const_iterator vi;
@@ -791,7 +793,6 @@ void StatisticsCruncher::attach(SampleSource* src)
     long dsmid = -1;
     bool oneDSM = true;
 
-
     // make a copy of src's SampleTags collection.
     list<const SampleTag*> intags(src->getSampleTags().begin(),
 	src->getSampleTags().end());
@@ -837,6 +838,7 @@ void StatisticsCruncher::attach(SampleSource* src)
 		if (*var == *inVariables[i]) {
 		    // paranoid check that this variable hasn't been added
 		    // cerr << "match for " << var->getName() << endl;
+
 		    unsigned int j;
 		    for (j = 0; j < v.size(); j++)
 			if ((unsigned)v[j][1] == i) break;
@@ -844,6 +846,8 @@ void StatisticsCruncher::attach(SampleSource* src)
 			int* idxs = new int[2];
 			idxs[0] = iv;	// input index
 			idxs[1] = i;	// output index
+			// if crossTerms, then all variables must
+			// be in one input sample.
 			if (crossTerms) assert(v.size() == i);
 			v.push_back(idxs);
 			if (dsmid < 0) dsmid = intag->getDSMId();
@@ -853,6 +857,15 @@ void StatisticsCruncher::attach(SampleSource* src)
 		    }
 		    // copy attributes of variable
 		    *inVariables[i] = *var;
+		    const Site* vsite = var->getSite();
+		    if (vsite != site)
+			n_u::Logger::getInstance()->log(LOG_INFO,
+			"StatisticsCruncher: variables %s is from site %s, first site is %s",
+				var->getName().c_str(),vsite->getName().c_str(),
+				(site ? site->getName().c_str() : "unknown"));
+
+		    if (site && inVariables[i]->getStation() < 0)
+		    	inVariables[i]->setSiteSuffix(site->getSuffix());
 #ifdef DEBUG
 		    cerr << "inVariables[" << i << "]=" <<
 		    	inVariables[i]->getName() << '(' <<

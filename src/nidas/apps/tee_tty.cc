@@ -9,6 +9,9 @@
     $LastChangedBy: cjw $
 
     $HeadURL: http://localhost:8080/svn/nids/branches/nidas_reorg/src/nidas/apps/sensor_sim.cc $
+
+    Simple program to "tee" I/O from a serial port to one
+    or more pseudo-terminals.
  ********************************************************************
 
 */
@@ -88,12 +91,12 @@ int TeeTTy::parseRunstring(int argc, char** argv)
 int TeeTTy::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) |  ptyname ] ... ]\n\
+Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) | ptyname ] ... ]\n\
   -f: foreground. Don't run as background daemon\n\
   tty: name of serial port to open\n\
   ttyopts: SerialOptions string, see below\n\
   -w ptyname: name of one or more read-write pseudo-terminals\n\
-  ptyname: name of one or more read only pseudo-terminals\n\n\
+  ptyname: name of one or more read-only pseudo-terminals\n\n\
   ttyopts:\n  " << n_u::SerialOptions::usage() << endl;
     return 1;
 }

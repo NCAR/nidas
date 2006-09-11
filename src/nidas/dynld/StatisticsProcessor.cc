@@ -138,7 +138,7 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
     for ( ; myti != configTags.end(); ++myti ) {
 	const SampleTag* mytag = *myti;
 	if (mytag->getVariables().size() < 1) continue;
-	// find matches against first variable.
+	// find all matches against first variable.
 	const Variable* myvar = mytag->getVariables().front();
 #ifdef DEBUG
 	cerr << "StatsProc::connect, myvar=" << myvar << ' ' <<
@@ -170,13 +170,12 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
 		    SampleTag* tmptag = new SampleTag(*mytag);
 		    tmptag->setSampleId(
 		    	Project::getInstance()->getUniqueSampleId(0));
-		    if (myvar->getStation() < 0 && invar->getStation() >= 0)
-			tmptag->setStation(invar->getStation());
+		    const Site* site = invar->getSite();
 
 		    struct OutputInfo info = infoBySampleId[mytag->getId()];
 		    StatisticsCruncher* cruncher =
 			new StatisticsCruncher(tmptag,info.type,
-				info.countsName);
+				info.countsName,site);
 		    crunchers.push_back(cruncher);
 		    cruncher->connect(input);
 		    newtags.insert(newtags.begin(),

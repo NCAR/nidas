@@ -252,7 +252,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
         }
     }
 
-    // process <output> child elements
+    // process <output> and <sample> child elements
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
             child=child->getNextSibling())
@@ -289,6 +289,8 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 	    stag->setDSMId(getDSMId());
 	    stag->setSensorId(getShortId());
 	    addSampleTag(stag);
+	    if (stag->getSampleId() == 0)
+	        stag->setSampleId(getSampleTags().size());
 	}
         else throw n_u::InvalidParameterException(
                 className + " SampleIOProcessor::fromDOMElement",

@@ -22,9 +22,41 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResampler::NearestResampler(const vector<Variable*>& vars):
-	nvars(vars.size()),outlen(nvars+1),master(0),nmaster(0)
+NearestResampler::NearestResampler(const vector<const Variable*>& vars)
 {
+    ctorCommon(vars);
+}
+
+NearestResampler::NearestResampler(const vector<Variable*>& vars)
+{
+    vector<const Variable*> newvars;
+    for (unsigned int i = 0; i < vars.size(); i++)
+    	newvars.push_back(vars[i]);
+    ctorCommon(newvars);
+}
+
+NearestResampler::~NearestResampler()
+{
+    delete [] prevTT;
+    delete [] nearTT;
+    delete [] prevData;
+    delete [] nearData;
+    delete [] samplesSinceMaster;
+
+    map<dsm_sample_id_t,vector<int*> >::iterator vmi;
+    for (vmi = sampleMap.begin(); vmi != sampleMap.end(); ++vmi) {
+	vector<int*>& vindices = vmi->second;
+	for (unsigned int iv = 0; iv < vindices.size(); iv++)
+	    delete [] vindices[iv];
+    }
+}
+
+void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
+{
+    nvars = vars.size();
+    outlen = nvars + 1;
+    master = 0;
+    nmaster = 0;
     prevTT = new dsm_time_t[nvars];
     nearTT = new dsm_time_t[nvars];
     prevData = new float[nvars];
@@ -49,23 +81,6 @@ NearestResampler::NearestResampler(const vector<Variable*>& vars):
     v->setUnits("");
     outSample.addVariable(v);
 }
-
-NearestResampler::~NearestResampler()
-{
-    delete [] prevTT;
-    delete [] nearTT;
-    delete [] prevData;
-    delete [] nearData;
-    delete [] samplesSinceMaster;
-
-    map<dsm_sample_id_t,vector<int*> >::iterator vmi;
-    for (vmi = sampleMap.begin(); vmi != sampleMap.end(); ++vmi) {
-	vector<int*>& vindices = vmi->second;
-	for (unsigned int iv = 0; iv < vindices.size(); iv++)
-	    delete [] vindices[iv];
-    }
-}
-
 void NearestResampler::connect(SampleInput* input)
 	throw(n_u::IOException)
 {

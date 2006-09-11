@@ -154,6 +154,19 @@ public:
     void setDSM(const DSMConfig* val) { dsm = val; }
 
     /**
+     * Figure out the Site of this SampleTag. Returns NULL if it
+     * cannot be determined.
+     */
+    /**
+     * Try to determine the associated site for this SampleTag.
+     * A reference to the Site is not kept with the SampleTag.
+     * Instead this method uses the station number, getStation(),
+     * to find a site with the given number, or if that fails,
+     * uses the dsm id found in the associated DSM.
+     */
+    const Site* getSite() const;
+
+    /**
      * Set sampling rate in samples/sec.  Derived SampleTags can
      * override this method and throw an InvalidParameterException
      * if they can't support the rate value.  Sometimes

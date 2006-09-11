@@ -118,6 +118,15 @@ public:
     void setSiteSuffix(const std::string& val);
 
     /**
+     * Try to determine the associated site for this variable.
+     * A reference to the Site is not kept with the variable.
+     * Instead this method uses the station number, getStation(),
+     * to find a site with the given number, or if that fails,
+     * uses SampleTag::getSite().
+     */
+    const Site* getSite() const;
+
+    /**
      * Set the full name. This clears the suffix and site
      * portions of the name.
      */
@@ -163,8 +172,6 @@ public:
     int getStation() const { return station; }
 
     void setStation(int val);
-
-    void setSite(const Site* val);
 
     /**
      * Set the VariableConverter for this Variable.

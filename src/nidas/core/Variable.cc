@@ -112,12 +112,6 @@ void Variable::setSiteSuffix(const string& val)
     name = prefix + suffix + siteSuffix;
 }
 
-void Variable::setSite(const Site* site)
-{
-    if (site == 0) setSiteSuffix("");
-    else setSiteSuffix(site->getSuffix());
-}
-
 void Variable::setStation(int val)
 {
     if (val < 0) name = prefix + suffix;
@@ -137,6 +131,18 @@ void Variable::setStation(int val)
 	}
     }
     station = val;
+}
+
+const Site* Variable::getSite() const
+{
+    const Site* site = 0;
+    if (getStation() >= 0)
+	site = Project::getInstance()->findSite(getStation());
+    if (!site) {
+        const SampleTag* stag = getSampleTag();
+	if (stag) site = stag->getSite();
+    }
+    return site;
 }
 
 bool Variable::operator == (const Variable& x) const {

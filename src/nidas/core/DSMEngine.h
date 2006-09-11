@@ -209,6 +209,11 @@ private:
 
     nidas::util::Logger*          _logger;
 
+    /**
+     * Cached result for isRTLinux. -1 means it has not been determined yet.
+     */
+    static int rtlinux;
+
 };
 
 }}	// namespace nidas namespace core

@@ -447,12 +447,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    newtag->setDSMId(getDSMConfig()->getId());
 	    newtag->setSensorId(getShortId());
 	    newtag->fromDOMElement((xercesc::DOMElement*)child);
-
-	    if (newtag->getSampleId() == 0) {
-		delete newtag;
-		throw n_u::InvalidParameterException(
-		    getName(),"sample id invalid or not found","0");
-	    }
+	    if (newtag->getSampleId() == 0)
+	        newtag->setSampleId(getSampleTags().size()+1);
 
 	    set<SampleTag*>& stags = getncSampleTags();
 	    set<SampleTag*>::const_iterator si = stags.begin();

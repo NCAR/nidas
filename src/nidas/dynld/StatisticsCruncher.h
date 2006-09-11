@@ -46,7 +46,7 @@ public:
      * Constructor.
      */
     StatisticsCruncher(const SampleTag* stag,statisticsType type,
-    	std::string countsName);
+    	std::string countsName,const Site*);
 
     /**
      * Copy constructor.  Making a copy is only valid
@@ -221,6 +221,8 @@ private:
      * No assignment.
      */
     StatisticsCruncher& operator=(const StatisticsCruncher&);
+
+    const Site* site;
 
 };
 

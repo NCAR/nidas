@@ -48,7 +48,9 @@ public:
     /**
      * Constructor.
      */
-    NearestResampler(const std::vector<Variable*>& vnames);
+    NearestResampler(const std::vector<const Variable*>& vars);
+
+    NearestResampler(const std::vector<Variable*>& vars);
 
     ~NearestResampler();
 
@@ -75,6 +77,11 @@ public:
     void disconnect(SampleInput* input) throw(nidas::util::IOException);
 
 private:
+
+    /**
+     * Common tasks of constructors.
+     */
+    void ctorCommon(const std::vector<const Variable*>& vars);
 
     std::set<const SampleTag*> sampleTags;
 

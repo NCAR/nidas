@@ -113,6 +113,24 @@ const Parameter* SampleTag::getParameter(const string& name) const
     return 0;
 }
 
+const Site* SampleTag::getSite() const 
+{
+    const Site* site = 0;
+    const DSMConfig* dsm = getDSM();
+    if (dsm) site = dsm->getSite();
+    if (site) return site;
+
+    if (getStation() >= 0) {
+	site = Project::getInstance()->findSite(getStation());
+	if (site) return site;
+    }
+    if (!dsm) {
+	dsm = Project::getInstance()->findDSM(getDSMId());
+	if (dsm) site = dsm->getSite();
+    }
+    return site;
+}
+
 void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
@@ -193,7 +211,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    if (nvars == variables.size()) var = new Variable();
 	    else var = variables[nvars];
 
-	    if (site) var->setSite(site);
+	    if (site) var->setSiteSuffix(site->getSuffix());
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);
 	    if (nvars == variables.size()) addVariable(var);
