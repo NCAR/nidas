@@ -60,11 +60,13 @@ apps = Split("""
   cat_nids.cc
   ck_a2d.cc
   gps_nmea_sysclock.cc
+  garmin.cc
   ck_xml.cc
   isff/pdecode.cc
   isff/set_emerald.cc
   tee_tty.cc
 """)
+#   prep.cc
 
 nodes = []
 for i in apps:
