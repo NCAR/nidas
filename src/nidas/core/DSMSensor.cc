@@ -554,39 +554,40 @@ xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* node)
 }
 
 /* static */
-string DSMSensor::replaceBackslashSequences(string str)
+string DSMSensor::replaceBackslashSequences(const string& str)
 {
     unsigned int bs;
-    for (unsigned int ic = 0; (bs = str.find('\\',ic)) != string::npos;
+    string res = str;
+    for (unsigned int ic = 0; (bs = res.find('\\',ic)) != string::npos;
     	ic = bs) {
 	bs++;
-	if (bs == str.length()) break;
-        switch(str[bs]) {
+	if (bs == res.length()) break;
+        switch(res[bs]) {
 	case 'n':
-	    str.erase(bs,1);
-	    str[bs-1] = '\n';
+	    res.erase(bs,1);
+	    res[bs-1] = '\n';
 	    break;
 	case 'r':
-	    str.erase(bs,1);
-	    str[bs-1] = '\r';
+	    res.erase(bs,1);
+	    res[bs-1] = '\r';
 	    break;
 	case 't':
-	    str.erase(bs,1);
-	    str[bs-1] = '\t';
+	    res.erase(bs,1);
+	    res[bs-1] = '\t';
 	    break;
 	case '\\':
-	    str.erase(bs,1);
-	    str[bs-1] = '\\';
+	    res.erase(bs,1);
+	    res[bs-1] = '\\';
 	    break;
 	case 'x':	//  \xhh	hex
-	    if (bs + 2 >= str.length()) break;
+	    if (bs + 2 >= res.length()) break;
 	    {
-		istringstream ist(str.substr(bs+1,2));
+		istringstream ist(res.substr(bs+1,2));
 		int hx;
 		ist >> hex >> hx;
 		if (!ist.fail()) {
-		    str.erase(bs,3);
-		    str[bs-1] = (char)(hx & 0xff);
+		    res.erase(bs,3);
+		    res[bs-1] = (char)(hx & 0xff);
 		}
 	    }
 	    break;
@@ -594,24 +595,24 @@ string DSMSensor::replaceBackslashSequences(string str)
 	case '1':
 	case '2':
 	case '3':
-	    if (bs + 2 >= str.length()) break;
+	    if (bs + 2 >= res.length()) break;
 	    {
-		istringstream ist(str.substr(bs,3));
+		istringstream ist(res.substr(bs,3));
 		int oc;
 		ist >> oct >> oc;
 		if (!ist.fail()) {
-		    str.erase(bs,3);
-		    str[bs-1] = (char)(oc & 0xff);
+		    res.erase(bs,3);
+		    res[bs-1] = (char)(oc & 0xff);
 		}
 	    }
 	    break;
 	}
     }
-    return str;
+    return res;
 }
 
 /* static */
-string DSMSensor::addBackslashSequences(string str)
+string DSMSensor::addBackslashSequences(const string& str)
 {
     string res;
     for (unsigned int ic = 0; ic < str.length(); ic++) {

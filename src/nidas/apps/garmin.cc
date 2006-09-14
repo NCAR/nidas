@@ -18,9 +18,11 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <set>
 
 #include <nidas/util/SerialPort.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/UTime.h>
 
@@ -40,29 +42,31 @@ public:
 
     string getStringField(const string& str, int nfield);
 
-    bool setBaudRateOption();
+    bool setBaudRateOption() throw(n_u::IOException);
 
-    void enablePPS();
+    bool enablePPS() throw(n_u::IOException);
 
-    void disablePPS();
+    bool disablePPS() throw(n_u::IOException);
 
-    bool enableMessage(const string& msg);
+    bool enableMessage(const string& msg) throw(n_u::IOException);
 
-    bool disableMessage(const string& msg);
+    bool disableMessage(const string& msg) throw(n_u::IOException);
 
-    bool disableAllMessages();
+    bool disableAllMessages() throw(n_u::IOException);
 
-    bool enableAllMessages();
+    bool enableAllMessages() throw(n_u::IOException);
 
     bool checkMessage(const string& msg);
 
-    void scanMessages(int seconds) throw(n_u::IOException);
+    bool scanMessages(int seconds) throw(n_u::IOException);
 
     string readMessage() throw(n_u::IOException);
 
     static int getBaudRateIndex(int rate);
 
     static int getBaudRate(int index);
+
+    static string substCRNL(const string& str);
 
 private:
     string device;
@@ -76,6 +80,8 @@ private:
     bool ppsDisable;
 
     int pulseWidth;
+
+    bool enableAllMsg;
 
     bool disableAllMsg;
 
@@ -97,6 +103,8 @@ private:
         int rate;
 	int index;
     } baudRateTable[];
+
+    bool rescanMessages;
 
 };
 
@@ -134,7 +142,9 @@ Garmin::Garmin():
 	ppsEnable(false),
 	ppsDisable(false),
 	pulseWidth(-1),
-	disableAllMsg(false)
+	enableAllMsg(false),
+	disableAllMsg(false),
+	rescanMessages(true)
 {
 }
 
@@ -144,7 +154,7 @@ int Garmin::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "b:B:d:De:np:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:B:cd:De:Enp:")) != -1) {
 	switch (opt_char) {
 	case 'b':
 	    baudRate = atoi(optarg);
@@ -160,15 +170,24 @@ int Garmin::parseRunstring(int argc, char** argv)
 	    }
 	    break;
 	case 'd':
-	    if (!checkMessage(optarg)) return usage(argv[0]);
+	    if (!checkMessage(optarg)) {
+	        cerr << "optarg is not a supported message" << endl;
+		return usage(argv[0]);
+	    }
 	    toDisable.insert(optarg);
 	    break;
 	case 'D':
 	    disableAllMsg = true;
 	    break;
 	case 'e':
-	    if (!checkMessage(optarg)) return usage(argv[0]);
+	    if (!checkMessage(optarg)) {
+	        cerr << "optarg is not a supported message" << endl;
+		return usage(argv[0]);
+	    }
 	    toEnable.insert(optarg);
+	    break;
+	case 'E':
+	    enableAllMsg = true;
 	    break;
 	case 'n':
 	    ppsDisable = true;
@@ -192,21 +211,28 @@ int Garmin::parseRunstring(int argc, char** argv)
 int Garmin::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-b baud] [-B baud] [-d msg ...] [-e msg ...] [-n | -p pw] device\n\
+Usage: " << argv0 << "[-b baud] [-B baud] [-d msg ...] [-D] [-e msg ...] [-E] [-n | -p pw] device\n\
   -b baud: baud rate, default=4800\n\
   -B baud: set Garmin baud rate (300,600,1200,2400,4800,9600,19200) \n\
   -d msg: disable output message (can specify more than one -d option)\n\
   -D: disable all output messages\n\
   -e msg: enable output message (can specify more than one -e option)\n\
+  -E: enable all output messages\n\
   -n: disable PPS output\n\
   -p pw: enable PPS output, pw=pulse width in msec (20 to 980)\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/gps0\n\
 \n\
+If no enable or disable options are entered, then " << argv0 << "\n\
+reads the GPS and returns a status of 0 if the data looks like\n\
+GPS data, or status=1 if data is garbage. This provides a way to check\n\
+from a script that the baud rate is OK.\n\
 \n\
-  Message types that can be enabled/disabled:\n\
+Returns: 0=success, 1=error\n\
+\n\
+Message types that can be enabled/disabled:\n\
 GPGGA: GPS Fix Data\n\
 	time,lat,lon,qual,nsat,hordil,alt,geoidht,diffage,diffid\n\
-GPGSA: DOP and Active Satellites\n\
+GPGSA: Dilution of Position and Active Satellites\n\
  	mode,fix,sat,sat,sat,...,posdil,hordil,verdil\n\
 GPGSV: Satellites in View\n\
 GPRMC: Recommended Minimum (needed by NTP)\n\
@@ -236,7 +262,7 @@ string Garmin::readMessage() throw(n_u::IOException)
     if (nfd == 0)
 	throw n_u::IOTimeoutException(gps.getName(),"read");
     char buf[256];
-    int l = gps.readLine(buf,sizeof(buf));
+    int l = gps.readUntil(buf,sizeof(buf),'\n');
     return string(buf,buf+l);
 }
   
@@ -255,13 +281,21 @@ string Garmin::getStringField(const string& str, int nfield)
     for (int i = 0; i < nfield; i++) {
 	nc1 = str.find(',',nc1);
 	if (nc1 == string::npos) return "";
+	nc1++;
     }
     string::size_type nc2 = str.find(',',nc1);
-    return str.substr(nc1,nc2);
+    return str.substr(nc1,nc2-nc1);
 }
 
-bool Garmin::setBaudRateOption() 
+/* static */
+string Garmin::substCRNL(const string& str)
 {
+    return nidas::core::DSMSensor::addBackslashSequences(str);
+}
+
+bool Garmin::setBaudRateOption()  throw(n_u::IOException)
+{
+    cerr << "setBaudRateOption:" << endl;
     int baudRateIndex = getBaudRateIndex(newBaudRate);
     if (baudRateIndex <= 0) {
 	cerr << "Baud baud rate: " << newBaudRate << endl;
@@ -269,30 +303,52 @@ bool Garmin::setBaudRateOption()
     }
 
     ostringstream ost;
-    ost << "$PGRMC,,,,,,,,,," << baudRateIndex << ",,,,\r\n";
-    string str = ost.str();
-    gps.write(str.c_str(),str.length());
+    ost << baudRateIndex;
+    string baudstr = ost.str();
+
+    ost.str("");
+    ost << "$PGRMC,,,,,,,,,," << baudstr << ",,,,\r\n";
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
 
     // read answer back
     for (int i = 0; i < 2; i++) {
 	try {
-	    str = readMessage();
+	    string instr = readMessage();
+	    cerr << substCRNL(instr) << endl;
+	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "setBaudRateOption: " << e.what() << endl;
 	    return false;
 	}
-	if (str.substr(0,6) == "$PGRMC") {
-	    str = getStringField(str,10);
-	    if (str.length() > 0) {
-		istringstream ist(str);
-		int bi;
-		ist >> bi;
-		if (bi == baudRateIndex) return true;
-		cerr << "Read back wrong baud rate index=" << bi <<
-		    " rate=" << getBaudRate(bi) << endl;
-		return false;
+    }
+    ost.str("");
+    ost << "$PGRMCE\r\n";
+    outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
+
+    for (int i = 0; i < 10; i++) {
+	try {
+	    string instr = readMessage();
+	    if (instr.substr(0,6) == "$PGRMC") {
+	        cerr << "current $PGRMC settings:" << endl;
+		cerr << substCRNL(instr) << endl;
+		string baud = getStringField(instr,10);
+		// cerr << "baud=" << baud << endl;
+		if (baud != baudstr) {
+		    int bi = atoi(baud.c_str());
+		    cerr << "Active baud rate is " << getBaudRate(bi) << 
+		    	" (" << baud << "). Power cycle GPS for new rate." << endl;
+		    return false;
+		}
+		return true;
 	    }
+	    cerr << substCRNL(instr) << endl;
+	}
+	catch(const n_u::IOTimeoutException& e) {
+	    cerr << "setBaudRateOption: " << e.what() << endl;
+	    break;
 	}
     }
 
@@ -300,18 +356,20 @@ bool Garmin::setBaudRateOption()
     return false;
 }
 
-void Garmin::enablePPS()
+bool Garmin::enablePPS() throw(n_u::IOException)
 {
+    cerr << "enablePPS:" << endl;
     ostringstream ost;
     ost << "$PGRMC,,,,,,,,,,,,2," << pulseWidth << ",\r\n";
-    string str = ost.str();
-    gps.write(str.c_str(),str.length());
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
 
     for (int i = 0; i < 10; i++) {
 	try {
-	    str = readMessage();
-	    cerr << "enablePPS: " << str << endl;
-	    if (str.substr(0,6) == "$PGRMC") break;
+	    string instr = readMessage();
+	    cerr << substCRNL(instr) << endl;
+	    // if (str.substr(0,6) == "$PGRMC") break;
+	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "enablePPS: " << e.what() << endl;
@@ -320,34 +378,47 @@ void Garmin::enablePPS()
     }
     ost.str("");
     ost << "$PGRMCE\r\n";
-    str = ost.str();
-    gps.write(str.c_str(),str.length());
+    outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
 
     for (int i = 0; i < 10; i++) {
 	try {
-	    str = readMessage();
-	    cerr << "enablePPS: " << str << endl;
-	    if (str.substr(0,6) == "$PGRMC") break;
+	    string instr = readMessage();
+	    if (instr.substr(0,6) == "$PGRMC") {
+	        cerr << "current $PGRMC settings:" << endl;
+		cerr << substCRNL(instr) << endl;
+		string pps = getStringField(instr,12);
+		// cerr << "pps=" << pps << endl;
+		if (pps == "2") return true;
+		cerr << "Currently PPS is disabled. Power cycle GPS to enable." << endl;
+		return false;
+	    }
+	    cerr << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "enablePPS: " << e.what() << endl;
 	    break;
 	}
     }
+    cerr << "enablePPS: no $PGRMC message received" << endl;
+    return false;
 }
 
-void Garmin::disablePPS()
+
+bool Garmin::disablePPS() throw(n_u::IOException)
 {
+    cerr << "disablePPS:" << endl;
     ostringstream ost;
     ost << "$PGRMC,,,,,,,,,,,,1,,\r\n";
-    string str = ost.str();
-    gps.write(str.c_str(),str.length());
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
 
     for (int i = 0; i < 10; i++) {
 	try {
-	    str = readMessage();
-	    cerr << "disablePPS: " << str << endl;
-	    if (str.substr(0,6) == "$PGRMC") break;
+	    string instr = readMessage();
+	    cerr << substCRNL(instr) << endl;
+	    // if (str.substr(0,6) == "$PGRMC") break;
+	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << e.what() << endl;
@@ -357,14 +428,22 @@ void Garmin::disablePPS()
     }
     ost.str("");
     ost << "$PGRMCE\r\n";
-    str = ost.str();
-    gps.write(str.c_str(),str.length());
+    outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
 
     for (int i = 0; i < 10; i++) {
 	try {
-	    str = readMessage();
-	    cerr << "disablePPS: " << str << endl;
-	    if (str.substr(0,6) == "$PGRMC") break;
+	    string instr = readMessage();
+	    if (instr.substr(0,6) == "$PGRMC") {
+	        cerr << "current $PGRMC settings:" << endl;
+		cerr << substCRNL(instr) << endl;
+		string pps = getStringField(instr,12);
+		// cerr << "pps=" << pps << endl;
+		if (pps == "1") return true;
+		cerr << "Currently PPS is enabled. Power cycle GPS to enable." << endl;
+		return false;
+	    }
+	    cerr << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << e.what() << endl;
@@ -372,11 +451,19 @@ void Garmin::disablePPS()
 	    break;
 	}
     }
-
+    cerr << "disablePPS: no $PGRMC message received" << endl;
+    return false;
 }
 
-bool Garmin::enableMessage(const string& msg)
+bool Garmin::enableMessage(const string& msg) throw(n_u::IOException)
 {
+    // check if message is already being received.
+    if (rescanMessages && !scanMessages(2)) return false;
+    set<string>::const_iterator mi =
+    	currentMessages.find(msg);
+    if (mi != currentMessages.end()) return true;
+
+    cerr << "enableMessage: " << msg << endl;
     ostringstream ost;
     ost << "$PGRMO," << msg << ",1\r\n";
     string str = ost.str();
@@ -385,7 +472,7 @@ bool Garmin::enableMessage(const string& msg)
     for (int i = 0; i < 5; i++) {
 	try {
 	    str = readMessage();
-	    cerr << "enable " << msg << ": " << str << endl;
+	    cerr << substCRNL(str) << endl;
 	    if (str.substr(1,5) == msg) return true;
 	}
 	catch(const n_u::IOTimeoutException& e) {
@@ -397,27 +484,44 @@ bool Garmin::enableMessage(const string& msg)
     return false;
 }
 
-bool Garmin::disableAllMessages()
+bool Garmin::disableMessage(const string& msg) throw(n_u::IOException)
 {
+    cerr << "disableMessage: " << msg << endl;
+
+    rescanMessages = true;
+
     ostringstream ost;
-    ost << "$PGRMO,,2\r\n";
+    ost << "$PGRMO," << msg << ",0\r\n";
     string str = ost.str();
+
     gps.write(str.c_str(),str.length());
-    for (int i = 0; i < 2; i++) {
+
+    n_u::UTime tmsg;
+
+    for (int i = 0; i < 5 &&
+    	(n_u::UTime() - tmsg) < (3 * USECS_PER_SEC); i++) {
 	try {
 	    str = readMessage();
-	    cerr << "disableAllMessages " << str << endl;
+	    cerr << substCRNL(str) << endl;
+	    if (str.substr(1,5) == msg) tmsg = n_u::UTime();
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    return true;	// expected timeout
+	    cerr << "disableMessage: " << e.what() << endl;
+	    return true;
 	}
     }
-    cerr << "disableAllMessages not successful" << endl;
-    return false;
+    if ((n_u::UTime() - tmsg) < 3 * USECS_PER_SEC) {
+	cerr << "message=" << msg << " not disabled successfully" << endl;
+	return false;
+    }
+    return true;
 }
 
-bool Garmin::enableAllMessages()
+bool Garmin::enableAllMessages() throw(n_u::IOException)
 {
+    cerr << "enableAllMessages:" << endl;
+    rescanMessages = true;
+
     ostringstream ost;
     ost << "$PGRMO,,3\r\n";
     string str = ost.str();
@@ -425,7 +529,7 @@ bool Garmin::enableAllMessages()
     for (int i = 0; i < 2; i++) {
 	try {
 	    str = readMessage();
-	    cerr << "enableAllMessages " << str << endl;
+	    cerr << substCRNL(str) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "enableAllMessages: " << e.what() << endl;
@@ -435,50 +539,57 @@ bool Garmin::enableAllMessages()
     return true;
 }
 
-bool Garmin::disableMessage(const string& msg)
+bool Garmin::disableAllMessages() throw(n_u::IOException)
 {
+    cerr << "disableAllMessages:" << endl;
+
+    rescanMessages = true;
+
     ostringstream ost;
-    ost << "$PGRMO," << msg << ",0\r\n";
-    string str = ost.str();
-
-    gps.write(str.c_str(),str.length());
-
-    n_u::UTime tmsg;
-    for (int i = 0; i < 5 && (n_u::UTime() - tmsg) < 3 * n_u::UTime::USECS_PER_SEC; i++) {
+    ost << "$PGRMO,,2\r\n";
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
+    for (int i = 0; i < 20; i++) {
 	try {
-	    str = readMessage();
-	    cerr << "disable " << msg << ": " << str << endl;
-	    if (str.substr(1,5) == msg) tmsg = n_u::UTime();
+	    string instr = readMessage();
+	    cerr << substCRNL(instr) << endl;
+	    if (instr == outstr) return true;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "enableMessage: " << e.what() << endl;
-	    return true;
+	    return true;	// expected timeout
 	}
     }
-    if ((n_u::UTime() - tmsg) < 3 * n_u::UTime::USECS_PER_SEC) {
-	cerr << "message=" << msg << " not disabled successfully" << endl;
-	return false;
-    }
-    return true;
+    cerr << "disableAllMessages not successful" << endl;
+    return false;
 }
 
-void Garmin::scanMessages(int seconds) throw(n_u::IOException)
+/* returns true if data looks like GPS data, or a timeout. */
+bool Garmin::scanMessages(int seconds) throw(n_u::IOException)
 {
-    n_u::UTime tthen = n_u::UTime() + seconds * n_u::UTime::USECS_PER_SEC;
+    bool OK = true;
+    cerr << "scanMessages: " << endl;
+    n_u::UTime tthen = n_u::UTime() + seconds * USECS_PER_SEC;
 
     currentMessages.clear();
 
     while (n_u::UTime() < tthen) {
 	try {
 	    string str = readMessage();
-	    if (str[0] == '$' && str.length() > 5)
+	    cerr << substCRNL(str) << endl;
+	    if (str[0] == '$' && str.length() > 5) {
 		currentMessages.insert(str.substr(1,5));
+		OK = true;
+	    }
+	    else OK = false;
+
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "scanMessages: " << e.what() << endl;
 	}
     }
-
+    if (!OK) cerr << "Data doesn't look like Garmin GPS data. Wrong baud rate?" << endl;
+    rescanMessages = false;
+    return OK;
 }
 int Garmin::run()
 {
@@ -490,6 +601,9 @@ int Garmin::run()
 	gps.iflag() = ICRNL;
 	gps.oflag() = OPOST;
 	gps.lflag() = ICANON;
+	gps.setRaw(true);
+	gps.setRawTimeout(20);
+	gps.setRawLength(0);
 
 	gps.open(O_RDWR);
 
@@ -499,19 +613,23 @@ int Garmin::run()
 	maxfd = gps.getFd() + 1;
 
 	// read messages for 5 seconds
-	scanMessages(5);
+	if (!scanMessages(2)) return 1;
 
 	if (newBaudRate >= 0) setBaudRateOption();
 
-	if (ppsDisable) disablePPS();
-	else if (pulseWidth >= 0) enablePPS();
+	if (disableAllMsg) disableAllMessages();
+	if (enableAllMsg) enableAllMessages();
 
 	set<string>::const_iterator mi = toDisable.begin();
 	for ( ; mi != toDisable.end(); ++mi) 
 	    if (!disableMessage(*mi)) return 1;
 
+	mi = toEnable.begin();
 	for ( ; mi != toEnable.end(); ++mi) 
 	    if (!enableMessage(*mi)) return 1;
+
+	if (ppsDisable && !disablePPS()) return 1;
+	else if (pulseWidth >= 0 && !enablePPS()) return 1;
 
 	gps.close();
 
