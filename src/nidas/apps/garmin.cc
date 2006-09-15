@@ -44,6 +44,8 @@ public:
 
     bool setBaudRateOption() throw(n_u::IOException);
 
+    int checkPPS(int* pulseWidth) throw(n_u::IOException);
+
     bool enablePPS() throw(n_u::IOException);
 
     bool disablePPS() throw(n_u::IOException);
@@ -67,6 +69,10 @@ public:
     static int getBaudRate(int index);
 
     static string substCRNL(const string& str);
+
+    static int getPulseWidth(int index);
+
+    static int getPulseWidthIndex(int width);
 
 private:
     string device;
@@ -135,6 +141,17 @@ int Garmin::getBaudRate(int index)
         if (baudRateTable[i].index == index) return baudRateTable[i].rate;
     return -1;
 }
+
+
+int Garmin::getPulseWidth(int index)
+{
+    return (index + 1) * 20;
+}
+
+int Garmin::getPulseWidthIndex(int width)
+{
+    return (width / 20) - 1;
+}
        
 Garmin::Garmin():
 	baudRate(4800),
@@ -164,14 +181,14 @@ int Garmin::parseRunstring(int argc, char** argv)
 	    {
 		int baudRateIndex = getBaudRateIndex(newBaudRate);
 		if (baudRateIndex < 0) {
-		    cerr << "Unsupported baud rate: " << newBaudRate << endl;
+		    cerr << "ERROR: Unsupported baud rate: " << newBaudRate << endl;
 		    return usage(argv[0]);
 		}
 	    }
 	    break;
 	case 'd':
 	    if (!checkMessage(optarg)) {
-	        cerr << "optarg is not a supported message" << endl;
+	        cerr << "ERROR: " <<  optarg << " is not a supported message" << endl;
 		return usage(argv[0]);
 	    }
 	    toDisable.insert(optarg);
@@ -181,7 +198,7 @@ int Garmin::parseRunstring(int argc, char** argv)
 	    break;
 	case 'e':
 	    if (!checkMessage(optarg)) {
-	        cerr << "optarg is not a supported message" << endl;
+	        cerr << "ERROR: " <<  optarg << " is not a supported message" << endl;
 		return usage(argv[0]);
 	    }
 	    toEnable.insert(optarg);
@@ -194,7 +211,7 @@ int Garmin::parseRunstring(int argc, char** argv)
 	    break;
 	case 'p':
 	    pulseWidth = atoi(optarg);
-	    pulseWidth = (pulseWidth / 20) - 1;
+	    pulseWidth = getPulseWidthIndex(pulseWidth);
 	    if (pulseWidth < 0 || pulseWidth > 48)
 	    	return usage(argv[0]);
 	    break;
@@ -295,10 +312,10 @@ string Garmin::substCRNL(const string& str)
 
 bool Garmin::setBaudRateOption()  throw(n_u::IOException)
 {
-    cerr << "setBaudRateOption:" << endl;
+    cout << "setBaudRateOption:" << endl;
     int baudRateIndex = getBaudRateIndex(newBaudRate);
     if (baudRateIndex <= 0) {
-	cerr << "Baud baud rate: " << newBaudRate << endl;
+	cerr << "ERROR: Incorrect baud rate requested: " << newBaudRate << endl;
 	return false;
     }
 
@@ -315,11 +332,11 @@ bool Garmin::setBaudRateOption()  throw(n_u::IOException)
     for (int i = 0; i < 2; i++) {
 	try {
 	    string instr = readMessage();
-	    cerr << substCRNL(instr) << endl;
+	    cout << substCRNL(instr) << endl;
 	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "setBaudRateOption: " << e.what() << endl;
+	    cerr << "ERROR: setBaudRateOption: " << e.what() << endl;
 	    return false;
 	}
     }
@@ -332,33 +349,89 @@ bool Garmin::setBaudRateOption()  throw(n_u::IOException)
 	try {
 	    string instr = readMessage();
 	    if (instr.substr(0,6) == "$PGRMC") {
-	        cerr << "current $PGRMC settings:" << endl;
-		cerr << substCRNL(instr) << endl;
+	        cout << "current $PGRMC settings:" << endl;
+		cout << substCRNL(instr) << endl;
 		string baud = getStringField(instr,10);
-		// cerr << "baud=" << baud << endl;
+		// cout << "baud=" << baud << endl;
 		if (baud != baudstr) {
 		    int bi = atoi(baud.c_str());
-		    cerr << "Active baud rate is " << getBaudRate(bi) << 
+		    cerr << "ERROR: Active baud rate is " << getBaudRate(bi) << 
 		    	" (" << baud << "). Power cycle GPS for new rate." << endl;
 		    return false;
 		}
 		return true;
 	    }
-	    cerr << substCRNL(instr) << endl;
+	    cout << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "setBaudRateOption: " << e.what() << endl;
+	    cerr << "ERROR:setBaudRateOption: " << e.what() << endl;
 	    break;
 	}
     }
 
-    cerr << "setBaudRateOption: no $PGRMC message received" << endl;
+    cerr << "ERROR: setBaudRateOption: no $PGRMC message received" << endl;
     return false;
+}
+
+/* return 1: PPS disabled, 2: PPS enabled, 0: unknown(error) */
+int Garmin::checkPPS(int* pulseWidthPtr) throw(n_u::IOException)
+{
+    cout << "checkPPS:" << endl;
+
+    int ppsSetting = 0;
+    int pwSetting = -1;
+
+    ostringstream ost;
+    ost << "$PGRMCE\r\n";
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
+
+    for (int i = 0; i < 2; i++) {
+	try {
+	    string instr = readMessage();
+	    if (instr.substr(0,6) == "$PGRMC") {
+	        cout << "current $PGRMC settings:" << endl;
+		cout << substCRNL(instr) << endl;
+		string pps = getStringField(instr,12);
+		// cout << "pps=" << pps << endl;
+		istringstream ist(pps);
+		ist >> ppsSetting;
+		if (ist.fail() || ppsSetting < 1 || ppsSetting > 2) {
+		    cerr << "ERROR: Unknown PPS setting: " << pps << endl;
+		    ppsSetting = 0;
+		}
+		pps = getStringField(instr,13);
+		ist.str(pps);
+		ist.clear();
+		ist >> pwSetting;
+		if (ist.fail() || pwSetting < 0 || pwSetting > 48) {
+		    cerr << "ERROR: Unknown pulse length setting: " << pps << endl;
+		    pwSetting = -1;
+		}
+		*pulseWidthPtr = pwSetting;
+		return ppsSetting;
+	    }
+	    cout << substCRNL(instr) << endl;
+	}
+	catch(const n_u::IOTimeoutException& e) {
+	    cerr << "ERROR: checkPPS: " << e.what() << endl;
+	    break;
+	}
+    }
+    cerr << "ERROR: checkPPS: no $PGRMC message received" << endl;
+    *pulseWidthPtr = -1;
+    return 0;
 }
 
 bool Garmin::enablePPS() throw(n_u::IOException)
 {
-    cerr << "enablePPS:" << endl;
+
+    int pwSetting;
+    int ppsSetting = checkPPS(&pwSetting);
+
+    cout << "enablePPS:" << endl;
+    if (ppsSetting == 2 && pwSetting == pulseWidth) return true;
+
     ostringstream ost;
     ost << "$PGRMC,,,,,,,,,,,,2," << pulseWidth << ",\r\n";
     string outstr = ost.str();
@@ -367,47 +440,40 @@ bool Garmin::enablePPS() throw(n_u::IOException)
     for (int i = 0; i < 10; i++) {
 	try {
 	    string instr = readMessage();
-	    cerr << substCRNL(instr) << endl;
+	    cout << substCRNL(instr) << endl;
 	    // if (str.substr(0,6) == "$PGRMC") break;
 	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "enablePPS: " << e.what() << endl;
+	    cerr << "ERROR: enablePPS: " << e.what() << endl;
 	    break;
 	}
     }
-    ost.str("");
-    ost << "$PGRMCE\r\n";
-    outstr = ost.str();
-    gps.write(outstr.c_str(),outstr.length());
 
-    for (int i = 0; i < 10; i++) {
-	try {
-	    string instr = readMessage();
-	    if (instr.substr(0,6) == "$PGRMC") {
-	        cerr << "current $PGRMC settings:" << endl;
-		cerr << substCRNL(instr) << endl;
-		string pps = getStringField(instr,12);
-		// cerr << "pps=" << pps << endl;
-		if (pps == "2") return true;
-		cerr << "Currently PPS is disabled. Power cycle GPS to enable." << endl;
-		return false;
-	    }
-	    cerr << substCRNL(instr) << endl;
-	}
-	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "enablePPS: " << e.what() << endl;
-	    break;
-	}
+    ppsSetting = checkPPS(&pwSetting);
+    if (ppsSetting == 2) {
+	if (pwSetting == pulseWidth) return true;
+	// pulse width change should happen immediately, no power cycle req'd
+	cerr << "ERROR: PPS width is " << getPulseWidth(pwSetting) <<
+		" msec and did not change.\n" << endl;
+	return false;
     }
-    cerr << "enablePPS: no $PGRMC message received" << endl;
+    if (ppsSetting == 1) {
+	cerr << "ERROR: Currently PPS is disabled. Power cycle the Garmin to enable PPS." << endl;
+	return false;
+    }
     return false;
 }
 
-
 bool Garmin::disablePPS() throw(n_u::IOException)
 {
-    cerr << "disablePPS:" << endl;
+
+    int pwSetting;
+    int ppsSetting = checkPPS(&pwSetting);
+
+    cout << "disablePPS:" << endl;
+    if (ppsSetting == 1) return true;
+
     ostringstream ost;
     ost << "$PGRMC,,,,,,,,,,,,1,,\r\n";
     string outstr = ost.str();
@@ -416,42 +482,22 @@ bool Garmin::disablePPS() throw(n_u::IOException)
     for (int i = 0; i < 10; i++) {
 	try {
 	    string instr = readMessage();
-	    cerr << substCRNL(instr) << endl;
+	    cout << substCRNL(instr) << endl;
 	    // if (str.substr(0,6) == "$PGRMC") break;
 	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << e.what() << endl;
-	    cerr << "disablePPS: " << e.what() << endl;
+	    cerr << "ERROR: disablePPS:" << e.what() << endl;
 	    break;
 	}
     }
-    ost.str("");
-    ost << "$PGRMCE\r\n";
-    outstr = ost.str();
-    gps.write(outstr.c_str(),outstr.length());
 
-    for (int i = 0; i < 10; i++) {
-	try {
-	    string instr = readMessage();
-	    if (instr.substr(0,6) == "$PGRMC") {
-	        cerr << "current $PGRMC settings:" << endl;
-		cerr << substCRNL(instr) << endl;
-		string pps = getStringField(instr,12);
-		// cerr << "pps=" << pps << endl;
-		if (pps == "1") return true;
-		cerr << "Currently PPS is enabled. Power cycle GPS to enable." << endl;
-		return false;
-	    }
-	    cerr << substCRNL(instr) << endl;
-	}
-	catch(const n_u::IOTimeoutException& e) {
-	    cerr << e.what() << endl;
-	    cerr << "disablePPS: " << e.what() << endl;
-	    break;
-	}
+    ppsSetting = checkPPS(&pwSetting);
+    if (ppsSetting == 1) return true;
+    if (ppsSetting == 2) {
+	cerr << "ERROR: Currently PPS is enabled. Power cycle the Garmin to disable PPS." << endl;
+	return false;
     }
-    cerr << "disablePPS: no $PGRMC message received" << endl;
     return false;
 }
 
@@ -463,7 +509,7 @@ bool Garmin::enableMessage(const string& msg) throw(n_u::IOException)
     	currentMessages.find(msg);
     if (mi != currentMessages.end()) return true;
 
-    cerr << "enableMessage: " << msg << endl;
+    cout << "enableMessage: " << msg << endl;
     ostringstream ost;
     ost << "$PGRMO," << msg << ",1\r\n";
     string str = ost.str();
@@ -472,21 +518,21 @@ bool Garmin::enableMessage(const string& msg) throw(n_u::IOException)
     for (int i = 0; i < 5; i++) {
 	try {
 	    str = readMessage();
-	    cerr << substCRNL(str) << endl;
+	    cout << substCRNL(str) << endl;
 	    if (str.substr(1,5) == msg) return true;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "enable " << msg << ": " << e.what() << endl;
+	    cerr << "ERROR: enable " << msg << ": " << e.what() << endl;
 	    break;
 	}
     }
-    cerr << "message=" << msg << " not read back after being enabled" << endl;
+    cerr << "ERROR: message=" << msg << " not read back after being enabled" << endl;
     return false;
 }
 
 bool Garmin::disableMessage(const string& msg) throw(n_u::IOException)
 {
-    cerr << "disableMessage: " << msg << endl;
+    cout << "disableMessage: " << msg << endl;
 
     rescanMessages = true;
 
@@ -502,16 +548,16 @@ bool Garmin::disableMessage(const string& msg) throw(n_u::IOException)
     	(n_u::UTime() - tmsg) < (3 * USECS_PER_SEC); i++) {
 	try {
 	    str = readMessage();
-	    cerr << substCRNL(str) << endl;
+	    cout << substCRNL(str) << endl;
 	    if (str.substr(1,5) == msg) tmsg = n_u::UTime();
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "disableMessage: " << e.what() << endl;
+	    cerr << "ERROR: disableMessage: " << e.what() << endl;
 	    return true;
 	}
     }
     if ((n_u::UTime() - tmsg) < 3 * USECS_PER_SEC) {
-	cerr << "message=" << msg << " not disabled successfully" << endl;
+	cerr << "ERROR: message=" << msg << " not disabled successfully" << endl;
 	return false;
     }
     return true;
@@ -519,7 +565,7 @@ bool Garmin::disableMessage(const string& msg) throw(n_u::IOException)
 
 bool Garmin::enableAllMessages() throw(n_u::IOException)
 {
-    cerr << "enableAllMessages:" << endl;
+    cout << "enableAllMessages:" << endl;
     rescanMessages = true;
 
     ostringstream ost;
@@ -529,10 +575,10 @@ bool Garmin::enableAllMessages() throw(n_u::IOException)
     for (int i = 0; i < 2; i++) {
 	try {
 	    str = readMessage();
-	    cerr << substCRNL(str) << endl;
+	    cout << substCRNL(str) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "enableAllMessages: " << e.what() << endl;
+	    cerr << "ERROR: enableAllMessages: " << e.what() << endl;
 	    if (i > 0) return false;
 	}
     }
@@ -541,7 +587,7 @@ bool Garmin::enableAllMessages() throw(n_u::IOException)
 
 bool Garmin::disableAllMessages() throw(n_u::IOException)
 {
-    cerr << "disableAllMessages:" << endl;
+    cout << "disableAllMessages:" << endl;
 
     rescanMessages = true;
 
@@ -552,14 +598,14 @@ bool Garmin::disableAllMessages() throw(n_u::IOException)
     for (int i = 0; i < 20; i++) {
 	try {
 	    string instr = readMessage();
-	    cerr << substCRNL(instr) << endl;
+	    cout << substCRNL(instr) << endl;
 	    if (instr == outstr) return true;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    return true;	// expected timeout
 	}
     }
-    cerr << "disableAllMessages not successful" << endl;
+    cerr << "ERROR: disableAllMessages not successful" << endl;
     return false;
 }
 
@@ -567,7 +613,7 @@ bool Garmin::disableAllMessages() throw(n_u::IOException)
 bool Garmin::scanMessages(int seconds) throw(n_u::IOException)
 {
     bool OK = true;
-    cerr << "scanMessages: " << endl;
+    cout << "scanMessages: " << endl;
     n_u::UTime tthen = n_u::UTime() + seconds * USECS_PER_SEC;
 
     currentMessages.clear();
@@ -575,7 +621,7 @@ bool Garmin::scanMessages(int seconds) throw(n_u::IOException)
     while (n_u::UTime() < tthen) {
 	try {
 	    string str = readMessage();
-	    cerr << substCRNL(str) << endl;
+	    cout << substCRNL(str) << endl;
 	    if (str[0] == '$' && str.length() > 5) {
 		currentMessages.insert(str.substr(1,5));
 		OK = true;
