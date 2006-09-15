@@ -409,6 +409,11 @@ int Garmin::checkPPS(int* pulseWidthPtr) throw(n_u::IOException)
 		    pwSetting = -1;
 		}
 		*pulseWidthPtr = pwSetting;
+		if (ppsSetting == 2)
+		    cout << "PPS currently enabled, width="
+		    	<< getPulseWidth(pwSetting) << " msec" << endl;
+		else if (ppsSetting == 1)
+		    cout << "PPS currently disabled" << endl;
 		return ppsSetting;
 	    }
 	    cout << substCRNL(instr) << endl;
@@ -570,16 +575,16 @@ bool Garmin::enableAllMessages() throw(n_u::IOException)
 
     ostringstream ost;
     ost << "$PGRMO,,3\r\n";
-    string str = ost.str();
-    gps.write(str.c_str(),str.length());
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
     for (int i = 0; i < 2; i++) {
 	try {
-	    str = readMessage();
-	    cout << substCRNL(str) << endl;
+	    string instr = readMessage();
+	    cout << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "ERROR: enableAllMessages: " << e.what() << endl;
-	    if (i > 0) return false;
+	    return false;
 	}
     }
     return true;
@@ -599,13 +604,20 @@ bool Garmin::disableAllMessages() throw(n_u::IOException)
 	try {
 	    string instr = readMessage();
 	    cout << substCRNL(instr) << endl;
-	    if (instr == outstr) return true;
+	    if (instr == outstr) {
+		rescanMessages = false;
+		currentMessages.clear();
+		return true;
+	    }
 	}
 	catch(const n_u::IOTimeoutException& e) {
-	    return true;	// expected timeout
+	    // actually should have gotten a $PGRM0 echo back
+	    cerr << "ERROR: disableAllMessages: " << e.what() << endl;
+	    return false;
 	}
     }
     cerr << "ERROR: disableAllMessages not successful" << endl;
+
     return false;
 }
 
