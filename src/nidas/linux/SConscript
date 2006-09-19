@@ -25,6 +25,13 @@ def get_svnversion(env):
 		    revision = rev
     return revision
 
+###
+###
+###
+# diamond/emerald/emerald.ko
+objs = Split("""
+emerald.ko
+""")
 ##
 ##  List of each module source
 ##
@@ -34,7 +41,6 @@ modules = Split("""
 ##
 ##  Build the modules
 ##
-objs = []
 if myenv['ARCH'] == 'arm':
     for i in modules:
       objs += myenv.Object( i )
