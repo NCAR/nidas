@@ -43,7 +43,8 @@
                                                                                 
 #include <asm/system.h>     /* cli(), *_flags */
                                                                                 
-#include <nidas/linux/diamond/emerald/emerald.h>	/* local definitions */
+// #include <nidas/linux/diamond/emerald/emerald.h>	/* local definitions */
+#include "emerald.h"	/* local definitions */
 
 #ifdef CONFIG_ARCH_VIPER
 #include <asm/arch/viper.h>
@@ -290,15 +291,15 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
     return len;
 }
 
-static void emerald_create_proc()
+static void emerald_create_proc(void)
 {
     PDEBUGG("within emerald_create_proc\n");
-    create_proc_read_entry("emerald", 0 /* default mode */,
+    create_proc_read_entry("emerald", 0644 /* default mode */,
                            NULL /* parent dir */, emerald_read_procmem,
                            NULL /* client data */);
 }
                                                                                 
-static void emerald_remove_proc()
+static void emerald_remove_proc(void)
 {
     /* no problem if it was not registered */
     remove_proc_entry("emerald", NULL /* parent dir */);

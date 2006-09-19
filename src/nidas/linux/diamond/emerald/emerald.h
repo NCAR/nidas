@@ -15,6 +15,8 @@
 #ifndef NIDAS_LINUX_EMERALD_H
 #define NIDAS_LINUX_EMERALD_H
 
+#define EMERALD_DEBUG
+
 #undef PDEBUG             /* undef it, just in case */
 #ifdef EMERALD_DEBUG
 #  ifdef __KERNEL__
