@@ -63,7 +63,6 @@ apps = Split("""
   garmin.cc
   ck_xml.cc
   isff/pdecode.cc
-  isff/set_emerald.cc
   tee_tty.cc
 """)
 #   prep.cc
@@ -71,5 +70,8 @@ apps = Split("""
 nodes = []
 for i in apps:
   nodes += myenv.Program( i )
+
+# suppress linking against nidas libraries
+nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
 
 myenv.Install('$PREFIX/bin',nodes)
