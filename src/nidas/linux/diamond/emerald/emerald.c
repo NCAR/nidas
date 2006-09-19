@@ -43,7 +43,14 @@
                                                                                 
 #include <asm/system.h>     /* cli(), *_flags */
                                                                                 
-#include "emerald.h"          /* local definitions */
+#include <nidas/linux/diamond/emerald/emerald.h>	/* local definitions */
+
+#ifdef CONFIG_ARCH_VIPER
+#include <asm/arch/viper.h>
+static unsigned long ioport_base = VIPER_PC104IO_BASE;
+#else
+static unsigned long ioport_base = 0;
+#endif
 
 static int emerald_major =   EMERALD_MAJOR;
 static unsigned long ioports[EMERALD_MAX_NR_DEVS] = {0,0,0,0};
@@ -361,7 +368,7 @@ static int __init emerald_init_module(void)
     memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
     for (i=0; i < emerald_nr_addrs; i++) {
 	emerald_board* ebrd = emerald_boards + i;
-        ebrd->ioport = ioports[i];
+        ebrd->ioport = ioports[i] + ioport_base;
 	if (!( ebrd->region =
 	    request_region(ebrd->ioport,EMERALD_IO_REGION_SIZE,
 			"emerald"))) {
@@ -523,6 +530,11 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
       case EMERALD_IOCGNBOARD:
         if (copy_to_user((int*) arg,&emerald_nr_ok,
 	      	sizeof(int)) != 0) ret = -EFAULT;
+	break;
+
+      case EMERALD_IOCGISABASE:
+        if (copy_to_user((unsigned long*) arg,&ioport_base,
+	      	sizeof(unsigned long)) != 0) ret = -EFAULT;
 	break;
 
       default:  /* redundant, as cmd was checked against MAXNR */

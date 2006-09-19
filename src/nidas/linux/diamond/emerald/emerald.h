@@ -113,7 +113,8 @@ int     emerald_ioctl (struct inode *inode, struct file *filp,
 #define EMERALD_IOCEECONFIGLOAD _IO(EMERALD_IOC_MAGIC,  6)
 #define EMERALD_IOCPORTENABLE _IO(EMERALD_IOC_MAGIC,  7)
 #define EMERALD_IOCGNBOARD _IOR(EMERALD_IOC_MAGIC,  8, int)
-#define EMERALD_IOC_MAXNR 8
+#define EMERALD_IOCGISABASE _IOR(EMERALD_IOC_MAGIC,9,unsigned long)
+#define EMERALD_IOC_MAXNR 9
 
 #endif	/* _EMERALD_H */
 
