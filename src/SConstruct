@@ -188,7 +188,8 @@ arm_env.Alias('arm_install', [
 	'$PREFIX/include/nidas/linux',
 	'$PREFIX/lib',
 	'$PREFIX/bin',
-	'$PREFIX/rtlinux'
+	'$PREFIX/rtlinux',
+	'$PREFIX/linux'
     ]
 )
 
