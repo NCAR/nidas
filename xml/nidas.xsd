@@ -379,6 +379,7 @@
         <xsd:attribute name="server" type="xsd:token" default="localhost"/>
         <xsd:attribute name="dir" type="xsd:token" use="required"/>
         <xsd:attribute name="file" type="xsd:token" use="required"/>
+        <xsd:attribute name="cdl" type="xsd:token"/>
         <xsd:attribute name="length" type="xsd:nonNegativeInteger"
 		default="86400"/>
         <xsd:attribute name="floatFill" type="xsd:float" use="required"/>
