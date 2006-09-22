@@ -272,7 +272,7 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
     int limit = count - 80; /* Don't print more than this */
     PDEBUGG("read_proc, count=%d\n",count);
                                                                                 
-    for (i = 0; i < emerald_nr_addrs && len <= limit; i++) {
+    for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
         struct emerald_board *d = emerald_boards + i;
 	PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)d);
         if (down_interruptible(&d->sem))
@@ -327,7 +327,7 @@ static void __exit emerald_cleanup_module(void)
     }
 
     if (emerald_boards) {
-        for (i=0; i<emerald_nr_addrs; i++) {
+        for (i=0; i<emerald_nr_ok; i++) {
 	    if (emerald_boards[i].region) 
 		release_region(emerald_boards[i].ioport,EMERALD_IO_REGION_SIZE);
         }
@@ -377,6 +377,10 @@ static int __init emerald_init_module(void)
 	    goto fail;
 	}
 	sema_init(&ebrd->sem,1);
+	/*
+	 * Read EEPROM configuration and see if it looks OK.
+	 * emerald_nr_ok will be the number of the last good board.
+	 */
 	if (!emerald_read_eeconfig(ebrd,&ebrd->config) &&
 	    emerald_check_config(&ebrd->config)) 
 			emerald_nr_ok = i + 1;
