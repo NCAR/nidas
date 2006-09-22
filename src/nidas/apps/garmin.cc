@@ -142,7 +142,6 @@ int Garmin::getBaudRate(int index)
     return -1;
 }
 
-
 int Garmin::getPulseWidth(int index)
 {
     return (index + 1) * 20;
@@ -269,17 +268,11 @@ LCVTG: Track Made Good and Ground Speed with LORAN Talker ID\n\
 
 string Garmin::readMessage() throw(n_u::IOException)
 {
-    int nfd;
-    struct timeval timeout = { 2,0};
 
-    fd_set fds = readfds;
-    if ((nfd = ::select(maxfd,&fds,0,0,&timeout)) < 0)
-	throw n_u::IOException(gps.getName(),"select",errno);
-
-    if (nfd == 0)
-	throw n_u::IOTimeoutException(gps.getName(),"read");
     char buf[256];
     int l = gps.readUntil(buf,sizeof(buf),'\n');
+    if (l == 0)
+	throw n_u::IOTimeoutException(gps.getName(),"read");
     return string(buf,buf+l);
 }
   
@@ -446,7 +439,6 @@ bool Garmin::enablePPS() throw(n_u::IOException)
 	try {
 	    string instr = readMessage();
 	    cout << substCRNL(instr) << endl;
-	    // if (str.substr(0,6) == "$PGRMC") break;
 	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
@@ -488,7 +480,6 @@ bool Garmin::disablePPS() throw(n_u::IOException)
 	try {
 	    string instr = readMessage();
 	    cout << substCRNL(instr) << endl;
-	    // if (str.substr(0,6) == "$PGRMC") break;
 	    if (instr == outstr) break;
 	}
 	catch(const n_u::IOTimeoutException& e) {
@@ -517,18 +508,25 @@ bool Garmin::enableMessage(const string& msg) throw(n_u::IOException)
     cout << "enableMessage: " << msg << endl;
     ostringstream ost;
     ost << "$PGRMO," << msg << ",1\r\n";
-    string str = ost.str();
-    gps.write(str.c_str(),str.length());
+    string outstr = ost.str();
 
-    for (int i = 0; i < 5; i++) {
-	try {
-	    str = readMessage();
-	    cout << substCRNL(str) << endl;
-	    if (str.substr(1,5) == msg) return true;
-	}
-	catch(const n_u::IOTimeoutException& e) {
-	    cerr << "ERROR: enable " << msg << ": " << e.what() << endl;
-	    break;
+    for (int j = 0; j < 2; j++) {
+	gps.write(outstr.c_str(),outstr.length());
+
+	// may be other messages too
+	for (int i = 0; i < 5; i++) {
+	    try {
+		string instr = readMessage();
+		cout << substCRNL(instr) << endl;
+		// garmin echoed back string
+		if (instr == outstr) return true;
+		if (instr.length() > 5 && instr.substr(1,5) == msg)
+			return true;
+	    }
+	    catch(const n_u::IOTimeoutException& e) {
+		cerr << "ERROR: enable " << msg << ": " << e.what() << endl;
+		break;
+	    }
 	}
     }
     cerr << "ERROR: message=" << msg << " not read back after being enabled" << endl;
@@ -543,25 +541,28 @@ bool Garmin::disableMessage(const string& msg) throw(n_u::IOException)
 
     ostringstream ost;
     ost << "$PGRMO," << msg << ",0\r\n";
-    string str = ost.str();
+    string outstr = ost.str();
 
-    gps.write(str.c_str(),str.length());
+    gps.write(outstr.c_str(),outstr.length());
 
     n_u::UTime tmsg;
 
     for (int i = 0; i < 5 &&
-    	(n_u::UTime() - tmsg) < (3 * USECS_PER_SEC); i++) {
+	(n_u::UTime() - tmsg) < (3 * USECS_PER_SEC); i++) {
 	try {
-	    str = readMessage();
-	    cout << substCRNL(str) << endl;
-	    if (str.substr(1,5) == msg) tmsg = n_u::UTime();
+	    string instr = readMessage();
+	    cout << substCRNL(instr) << endl;
+	    // garmin echoed back string
+	    if (instr == outstr) return true;
+	    if (instr.length() > 5 && instr.substr(1,5) == msg)
+		    tmsg = n_u::UTime();
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "ERROR: disableMessage: " << e.what() << endl;
 	    return true;
 	}
     }
-    if ((n_u::UTime() - tmsg) < 3 * USECS_PER_SEC) {
+    if ((n_u::UTime() - tmsg) < 2 * USECS_PER_SEC) {
 	cerr << "ERROR: message=" << msg << " not disabled successfully" << endl;
 	return false;
     }
@@ -580,6 +581,8 @@ bool Garmin::enableAllMessages() throw(n_u::IOException)
     for (int i = 0; i < 2; i++) {
 	try {
 	    string instr = readMessage();
+	    // garmin echoed back string
+	    if (instr == outstr) return true;
 	    cout << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
@@ -634,7 +637,7 @@ bool Garmin::scanMessages(int seconds) throw(n_u::IOException)
 	try {
 	    string str = readMessage();
 	    cout << substCRNL(str) << endl;
-	    if (str[0] == '$' && str.length() > 5) {
+	    if (str.length() > 5 && str[0] == '$') {
 		currentMessages.insert(str.substr(1,5));
 		OK = true;
 	    }
@@ -656,9 +659,6 @@ int Garmin::run()
 	gps.setName(device);
 
 	gps.setBaudRate(baudRate);
-	gps.iflag() = ICRNL;
-	gps.oflag() = OPOST;
-	gps.lflag() = ICANON;
 	gps.setRaw(true);
 	gps.setRawTimeout(20);
 	gps.setRawLength(0);
