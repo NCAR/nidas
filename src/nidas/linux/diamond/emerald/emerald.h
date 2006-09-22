@@ -65,33 +65,35 @@
 #  endif /* __KERNEL__ */
 
 typedef struct emerald_serial_port {
-  unsigned int ioport;		/* ISA ioport address, e.g. 0x100 */
-  unsigned int irq;		/* ISA IRQ */
+    unsigned int ioport;	/* ISA ioport address, e.g. 0x100 */
+    unsigned int irq;		/* ISA IRQ */
 } emerald_serial_port;
 
 typedef struct emerald_config {
-  emerald_serial_port ports[EMERALD_NR_PORTS];
+    emerald_serial_port ports[EMERALD_NR_PORTS];
 } emerald_config;
 
 #  ifdef __KERNEL__
 
 typedef struct emerald_board {
-  unsigned long ioport;		/* virtual ioport addr of the emerald card */
-  emerald_config config;	/* ioport and irq of 8 serial ports */
-  struct semaphore sem;		/* mutual exclusion semaphore */
-  struct resource* region;
+    unsigned long ioport;	/* virtual ioport addr of the emerald card */
+    emerald_config config;	/* ioport and irq of 8 serial ports */
+    struct semaphore sem;	/* mutual exclusion semaphore */
+    struct resource* region;
+    int digioval;		/* current digital I/O value */
+    int digioout;		/* bit=1, dig I/O direction = out */
 } emerald_board;
 
 typedef struct emerald_port {
-  emerald_board* board;
-  int portNum;
+    emerald_board* board;
+    int portNum;
 } emerald_port;
 
 extern struct file_operations emerald_fops;
 
 #ifdef NEEDED
-// extern int emerald_major;     /* main.c */
-extern int emerald_nr_devices;     /* main.c */
+// extern int emerald_major;	/* main.c */
+extern int emerald_nr_devices;	/* main.c */
 
 ssize_t emerald_read (struct file *filp, char *buf, size_t count,
                     loff_t *f_pos);
@@ -116,7 +118,20 @@ int     emerald_ioctl (struct inode *inode, struct file *filp,
 #define EMERALD_IOCPORTENABLE _IO(EMERALD_IOC_MAGIC,  7)
 #define EMERALD_IOCGNBOARD _IOR(EMERALD_IOC_MAGIC,  8, int)
 #define EMERALD_IOCGISABASE _IOR(EMERALD_IOC_MAGIC,9,unsigned long)
-#define EMERALD_IOC_MAXNR 9
+
+/* Get direction of digital I/O line for a port, 1=out, 0=in */
+#define EMERALD_IOCGDIOOUT _IOR(EMERALD_IOC_MAGIC,10,int)
+
+/* Set direction of digital I/O line for a port, 1=out, 0=in */
+#define EMERALD_IOCSDIOOUT _IOW(EMERALD_IOC_MAGIC,11,int)
+
+/* Get value of digital I/O line for a port */
+#define EMERALD_IOCGDIO _IOR(EMERALD_IOC_MAGIC,12,int)
+
+/* Set value of digital I/O line for a port */
+#define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,13,int)
+
+#define EMERALD_IOC_MAXNR 13
 
 #endif	/* _EMERALD_H */
 

@@ -260,6 +260,45 @@ static int emerald_load_config_from_eeprom(emerald_board* brd) {
   return result;
 }
 
+static int emerald_get_digio_port_out(emerald_board* brd,int port)
+{
+    return (brd->digioout & (1 << port)) != 1;
+}
+
+static void emerald_set_digio_out(emerald_board* brd,int val)
+{
+    outb(val,brd->ioport+EMERALD_DDR);
+    brd->digioout = val;
+}
+
+static int emerald_set_digio_port_out(emerald_board* brd,int port,int val)
+{
+    if (val) brd->digioout |= 1 << port;
+    else brd->digioout &= ~(1 << port);
+    outb(brd->digioout,brd->ioport+EMERALD_DDR);
+}
+
+static int emerald_read_digio(emerald_board* brd)
+{
+    brd->digioval = inb(brd->ioport+EMERALD_DIR);
+    return brd->digioval;
+}
+
+static int emerald_read_digio_port(emerald_board* brd,int port)
+{
+    int val = emerald_read_digio(brd);
+    return (val & (1 << port)) != 1;
+}
+
+static void emerald_write_digio_port(emerald_board* brd,int port,int val)
+{
+    if (val) brd->digioval |= 1 << port;
+    else brd->digioval &= ~(1 << port);
+
+    // this does not effect digital input lines
+    outb(brd->digioval,brd->ioport+EMERALD_DOR);
+}
+
 #ifdef EMERALD_DEBUG /* use proc only if debugging */
 /*
  * The proc filesystem: function to read
@@ -388,6 +427,8 @@ static int __init emerald_init_module(void)
 	    release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
 	    ebrd->region = 0;
 	}
+	emerald_set_digio_out(ebrd,0);
+	emerald_read_digio(ebrd);
     }
 
     emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
@@ -402,7 +443,7 @@ static int __init emerald_init_module(void)
 	emerald_port* eport = emerald_ports + i;
 	emerald_board* ebrd = emerald_boards + (i / EMERALD_NR_PORTS);
 	eport->board = ebrd;
-	eport->portNum = i % EMERALD_NR_PORTS;
+	eport->portNum = i % EMERALD_NR_PORTS;	// 0-7
     }
     /* ... */
                                                                                 
@@ -474,18 +515,18 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 
     switch(cmd) {
 
-      case EMERALD_IOCGIOPORT:
+    case EMERALD_IOCGIOPORT:
         if (copy_to_user((unsigned long*) arg,&brd->ioport,
 	      	sizeof(unsigned long)) != 0) ret = -EFAULT;
         break;
 
-      case EMERALD_IOCGPORTCONFIG:	/* get port config */
+    case EMERALD_IOCGPORTCONFIG:	/* get port config */
         if (copy_to_user((emerald_config *) arg,&brd->config,
 	      	sizeof(emerald_config)) != 0) ret = -EFAULT;
         break;
         
-      case EMERALD_IOCSPORTCONFIG:	/* set port config */
-	{
+    case EMERALD_IOCSPORTCONFIG:	/* set port config */
+{
 	    emerald_config tmpconfig;
 	    if (copy_from_user(&tmpconfig,(emerald_config *) arg,
 	      	sizeof(emerald_config)) != 0) ret = -EFAULT;
@@ -496,7 +537,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	}
         break;
 
-      case EMERALD_IOCGEEPORTCONFIG:	/* get config from eeprom */
+    case EMERALD_IOCGEEPORTCONFIG:	/* get config from eeprom */
         {
 	  emerald_config eeconfig;
 	  if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
@@ -507,7 +548,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	}
         break;
         
-      case EMERALD_IOCSEEPORTCONFIG:	/* set config in eeprom */
+    case EMERALD_IOCSEEPORTCONFIG:	/* set config in eeprom */
 	{
 	    emerald_config eeconfig;
 	    if (copy_from_user(&eeconfig,(emerald_config *) arg,
@@ -518,31 +559,79 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	}
         break;
 
-      case EMERALD_IOCEECONFIGLOAD:	/* load EEPROM config */
+    case EMERALD_IOCEECONFIGLOAD:	/* load EEPROM config */
 	{
-	  if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
-	  ret = emerald_load_config_from_eeprom(brd);
-	  up(&brd->sem);
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    ret = emerald_load_config_from_eeprom(brd);
+	    up(&brd->sem);
 	}
         break;
-      case EMERALD_IOCPORTENABLE:
+    case EMERALD_IOCPORTENABLE:
 	{
-	  if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
-	  emerald_enable_ports(brd);
-	  up(&brd->sem);
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    emerald_enable_ports(brd);
+	    up(&brd->sem);
 	}
 	break;
-      case EMERALD_IOCGNBOARD:
+    case EMERALD_IOCGNBOARD:
         if (copy_to_user((int*) arg,&emerald_nr_ok,
 	      	sizeof(int)) != 0) ret = -EFAULT;
 	break;
 
-      case EMERALD_IOCGISABASE:
+    case EMERALD_IOCGISABASE:
         if (copy_to_user((unsigned long*) arg,&ioport_base,
 	      	sizeof(unsigned long)) != 0) ret = -EFAULT;
 	break;
 
-      default:  /* redundant, as cmd was checked against MAXNR */
+    /* get digio direction for a port, 1=out, 0=in */
+    case EMERALD_IOCGDIOOUT:
+	{
+	    int iport = port->portNum;
+	    int val;
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    val = emerald_get_digio_port_out(brd,iport);
+	    if (copy_to_user((int*) arg,&val,
+		    sizeof(int)) != 0) ret = -EFAULT;
+	    up(&brd->sem);
+	}
+	break;
+    /* set digio direction for a port, 1=out, 0=in */
+    case EMERALD_IOCSDIOOUT:
+	{
+	    int iport = port->portNum;
+	    int val = (int) arg;
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    emerald_set_digio_port_out(brd,iport,val);
+	    up(&brd->sem);
+	}
+	break;
+
+    /* get digio value for a port */
+    case EMERALD_IOCGDIO:
+	{
+	    int iport = port->portNum;
+	    int val;
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    val = emerald_read_digio_port(brd,iport);
+	    if (copy_to_user((int*) arg,&val,
+		    sizeof(int)) != 0) ret = -EFAULT;
+	    up(&brd->sem);
+	}
+	break;
+
+    /* set digio value for a port */
+    case EMERALD_IOCSDIO:
+	{
+	    int iport = port->portNum;
+	    int val = (int) arg;
+	    // digio line must be an output
+	    if (! (brd->digioout & (1 << iport))) return -EINVAL;
+	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
+	    emerald_write_digio_port(brd,iport,val);
+	    up(&brd->sem);
+	}
+	break;
+    default:  /* redundant, as cmd was checked against MAXNR */
         return -ENOTTY;
     }
     return ret;
