@@ -254,19 +254,29 @@ int NidsMerge::run() throw()
 
 	    // SampleInputStream owns the iochan ptr.
 	    SampleInputStream* input = new SampleInputStream(fset);
+	    inputs.push_back(input);
+	    lastTimes.push_back(LLONG_MIN);
 
 	    input->init();
 
-	    input->readHeader();
-	    SampleInputHeader header = input->getHeader();
-	    if (!headerWritten) {
-		outStream.setHeader(header);
-		headerWritten = true;
+	    try {
+		input->readHeader();
+		SampleInputHeader header = input->getHeader();
+		if (!headerWritten) {
+		    outStream.setHeader(header);
+		    headerWritten = true;
+		}
+		// string systemName = header.getSystemName();
 	    }
-	    string systemName = header.getSystemName();
-
-	    inputs.push_back(input);
-	    lastTimes.push_back(LLONG_MIN);
+	    catch (const n_u::EOFException& e) {
+		cerr << e.what() << endl;
+		lastTimes[ii] = LLONG_MAX;
+	    }
+	    catch (const n_u::IOException& e) {
+		if (e.getErrno() != ENOENT) throw e;
+		cerr << e.what() << endl;
+		lastTimes[ii] = LLONG_MAX;
+	    }
 	}
 
 	SortedSampleSet2 sorter;
@@ -294,6 +304,11 @@ int NidsMerge::run() throw()
 		    lastTimes[ii] = lastTime;
 		}
 		catch (const n_u::EOFException& e) {
+		    cerr << e.what() << endl;
+		    lastTimes[ii] = LLONG_MAX;
+		}
+		catch (const n_u::IOException& e) {
+		    if (e.getErrno() != ENOENT) throw e;
 		    cerr << e.what() << endl;
 		    lastTimes[ii] = LLONG_MAX;
 		}
