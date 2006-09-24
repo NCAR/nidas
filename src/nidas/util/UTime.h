@@ -108,6 +108,8 @@ public:
 
     UTime(bool utc, int year,int yday,int hour, int min, int sec, int usecs = 0);
 
+    void setFromSecs(time_t t) { _utime = fromSecs(t); }
+
     struct tm* toTm(bool utc,struct tm* tmp, int* usecs = 0) const;
 
     static long long fromTm(bool utc,const struct tm* tmp, int usecs = 0);

@@ -432,9 +432,23 @@ string UTime::format(bool utc, const string& fmt) const
     if (utc) gmtime_r(&ut,&tm);
     else localtime_r(&ut,&tm);
 
+#ifdef USE_STRFTIME
     char out[512];
     strftime(out,sizeof(out),newfmt.c_str(),&tm);
     return out;
+#else
+    // use std::time_put to format path into a file name
+    // this converts the strftime %Y,%m type format descriptors
+    // into date/time fields.
+    ostringstream ostr;
+    ostr.str("");
+
+    const time_put<char> &timeputter(use_facet<time_put<char> >(locale()));
+    timeputter.put(ostr.rdbuf(),ostr,' ',&tm,
+        newfmt.data(),newfmt.data()+newfmt.length());
+
+    return ostr.str();
+#endif
 }
 
 void UTime::setDefaultFormat(const string& fmt)

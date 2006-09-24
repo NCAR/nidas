@@ -145,12 +145,18 @@ public:
      * or ".", then the result path will have no directory portion.
      */
     static std::string makePath(const std::string& dir,const std::string& file);
+    /**
+     * Check that any date or time descriptors, e.g. "%y", "%m", in
+     * the full file path string are in the correct order, so that
+     * a default lexical sort will sort the file path names in time order.
+     * The descriptors in the path must be in decreasing time-interval
+     * order, e.g. year before month, month before day, etc.
+     */
+    void checkPathFormat(time_t t1, time_t t2) throw(IOException);
 
 protected:
 
     std::string formatName(time_t t1);
-
-    std::string initialSearch() throw(IOException);
 
     std::list<std::string> matchFiles(time_t t1, time_t t2)
     	throw(IOException);
