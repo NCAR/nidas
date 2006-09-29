@@ -17,12 +17,14 @@
 #define NIDAS_UTIL_FILESET_H
 
 #include <nidas/util/IOException.h>
+#include <nidas/util/UTime.h>
 
 #include <list>
 #include <set>
 #include <string>
 #include <locale>
 #include <ctime>
+#include <limits.h>
 
 namespace nidas { namespace util {
 
@@ -76,17 +78,21 @@ public:
     virtual void addFileName(const std::string& val) { fileset.push_back(val); }
 
     /**
-     * Set/get the file length in seconds.  The file length
-     * parameter is only used when writing files.
+     * Set/get the file length in seconds.
      */
     void setFileLengthSecs(int val)
     {
-	if (val <= 0) fileLength = UINT_MAX;
-	else fileLength = val;
+	if (val <= 0) fileLength = 400 * USECS_PER_DAY;
+	else fileLength = (long long) val * USECS_PER_SEC;
     }
-    int getFileLengthSecs() const { return fileLength; }
 
-    time_t getNextFileTime() const;
+    int getFileLengthSecs() const
+    {
+	if (fileLength > 365 * USECS_PER_DAY) return 0;
+        return (int)(fileLength / USECS_PER_SEC);
+    }
+
+    UTime getNextFileTime() const;
 
 
     /**
@@ -96,10 +102,15 @@ public:
      *        the time is truncated by getFileLengthSecs.
      * @return Start time of next file, i.e. when to create next file.
      */
-    time_t createFile(time_t tfile,bool exact) throw(IOException);
+    UTime createFile(UTime tfile,bool exact) throw(IOException);
 
-    void setStartTime(time_t val) { startTime = val; } 
-    void setEndTime(time_t val) { endTime = val; } 
+    void setStartTime(const UTime& val) { startTime = val; } 
+
+    UTime getStartTime() const { return startTime; } 
+
+    void setEndTime(const UTime& val) { endTime = val; } 
+
+    UTime getEndTime() const { return endTime; } 
 
     /**
      * Get name of current file.
@@ -145,6 +156,8 @@ public:
      * or ".", then the result path will have no directory portion.
      */
     static std::string makePath(const std::string& dir,const std::string& file);
+
+#if !defined(NIDAS_EMBEDDED)
     /**
      * Check that any date or time descriptors, e.g. "%y", "%m", in
      * the full file path string are in the correct order, so that
@@ -152,13 +165,14 @@ public:
      * The descriptors in the path must be in decreasing time-interval
      * order, e.g. year before month, month before day, etc.
      */
-    void checkPathFormat(time_t t1, time_t t2) throw(IOException);
+    void checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException);
+#endif
 
 protected:
 
-    std::string formatName(time_t t1);
+    std::string formatName(const UTime& t1);
 
-    std::list<std::string> matchFiles(time_t t1, time_t t2)
+    std::list<std::string> matchFiles(const UTime& t1, const UTime& t2)
     	throw(IOException);
 
     static void replaceChars(std::string& in,const std::string& pat,
@@ -177,17 +191,20 @@ private:
 
     int fd;
 
-    time_t startTime;
-    time_t endTime;
+    UTime startTime;
+    UTime endTime;
 
     std::list<std::string> fileset;
     std::list<std::string>::iterator fileiter;
 
     bool initialized;
 
-    time_t fileLength;
+    /**
+     * File length, in microseconds.
+     */
+    long long fileLength;
 
-    time_t nextFileTime;
+    UTime nextFileTime;
 
     bool newFile;
 

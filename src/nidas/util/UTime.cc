@@ -581,7 +581,7 @@ basic_istream<charT, Traits>& operator >>
 	    if (err == ios_base::goodbit && *is == '.') {
 		double fsecs;
 	        is >> fsecs;
-		ut += fsecs * UTime::USECS_PER_SEC;
+		ut += (long long)(fsecs * USECS_PER_SEC);
 	    }
 	}
     }

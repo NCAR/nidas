@@ -30,9 +30,8 @@ const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-	fd(-1),startTime(0),endTime(0),
-	fileiter(fileset.begin()),
-	initialized(false),fileLength(UINT_MAX),nextFileTime(0),newFile(false)
+	fd(-1),fileiter(fileset.begin()),
+	initialized(false),fileLength(400*USECS_PER_DAY),newFile(false)
 {
 }
 
@@ -43,7 +42,7 @@ FileSet::FileSet(const FileSet& x):
 	fd(-1),startTime(x.startTime),endTime(x.endTime),
 	fileset(x.fileset),fileiter(fileset.begin()),
 	initialized(x.initialized),
-	fileLength(x.fileLength),nextFileTime(0),newFile(false)
+	fileLength(x.fileLength),newFile(false)
 {
 }
 
@@ -90,7 +89,7 @@ void FileSet::createDirectory(const string& name) throw(IOException)
  * Create a file using a time to create the name.
  * Return the time of the next file.
  */
-time_t FileSet::createFile(time_t ftime,bool exact) throw(IOException)
+UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
 {
 #ifdef DEBUG
     cerr << "nidas::util::FileSet::createFile, ftime=" << ftime << endl;
@@ -98,28 +97,12 @@ time_t FileSet::createFile(time_t ftime,bool exact) throw(IOException)
 
     closeFile();
 
-    if (!exact && fileLength < INT_MAX && fileLength > 0)
-	ftime -= ftime % fileLength;
+    if (!exact && fileLength <= 366 * USECS_PER_DAY)
+	ftime -= ftime.toUsecs() % fileLength;
 
     // break input time into date/time fields using GMT timezone
-    struct tm gmt;
-    gmtime_r(&ftime,&gmt);
+    currname = ftime.format(true,fullpath);
 
-    string path = makePath(getDir(),getFileName());
-
-#ifdef DEBUG
-    cerr << "nidas::util::FileSet:: path=" << path << endl;
-#endif
-
-    // use std::time_put to format path into a file name
-    // this converts the strftime %Y,%m type format descriptors
-    // into date/time fields.
-    ostringstream ostr;
-    ostr.str("");
-    timeputter.put(ostr.rdbuf(),ostr,' ',&gmt,
-        path.data(),path.data()+path.length());
-
-    currname = ostr.str();
 #ifdef DEBUG
     cerr << "nidas::util::FileSet:: currname=" << currname << endl;
 #endif
@@ -134,9 +117,8 @@ time_t FileSet::createFile(time_t ftime,bool exact) throw(IOException)
     if ((fd = ::open64(currname.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0)
         throw IOException(currname,"open",errno);
 
-    if (fileLength < INT_MAX && fileLength > 0)
-        nextFileTime = (((ftime + 1) / fileLength) + 1) * fileLength;
-    else nextFileTime = INT_MAX;
+    nextFileTime = ftime + USECS_PER_SEC;	// add one sec
+    nextFileTime += fileLength - (nextFileTime.toUsecs() % fileLength);
 
 #ifdef DEBUG
     cerr << "nidas::util::FileSet:: nextFileTime=" << nextFileTime << endl;
@@ -184,15 +166,15 @@ void FileSet::openNextFile() throw(IOException)
 	        string firstFile = fileset.front();
 		string t1File = formatName(startTime);
 		if (firstFile.compare(t1File) > 0) {
-		    time_t t1;
+		    UTime t1;
 		    // roll back a day
-		    if (fileLength == INT_MAX || fileLength == 0)
-		    	t1 = startTime - 86400;
+		    if (fileLength > 366 * USECS_PER_DAY)
+		    	t1 = startTime - USECS_PER_DAY;
 		    else {
-		        t1 = (startTime / fileLength) * fileLength;
-			if (t1 == startTime) t1 -= fileLength;
+			t1 = startTime;
+			t1 -= t1.toUsecs() % fileLength;
 		    }
-		    time_t t2 = startTime;
+		    UTime t2 = startTime;
 		    list<string> files = matchFiles(t1,t2);
 		    if (files.size() > 0)  {
 			list<string>::const_reverse_iterator ptr = files.rbegin();
@@ -244,25 +226,18 @@ string FileSet::makePath(const string& dir,const string& file)
     return dir + pathSeparator + file;
 }
 
-string FileSet::formatName(time_t t1)
+string FileSet::formatName(const UTime& t1)
 {
-    struct tm gmt;
-    gmtime_r(&t1,&gmt);
-    ostringstream ostr;
-    timeputter.put(ostr.rdbuf(),ostr,' ',&gmt,
-	fullpath.data(),fullpath.data()+fullpath.length());
-    return ostr.str();
+    return t1.format(true,fullpath);
 }
 
 #if !defined(NIDAS_EMBEDDED)
-void FileSet::checkPathFormat(time_t t1, time_t t2) throw(IOException)
+void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException)
 {
     if (fullpath.find("%b") != string::npos) {
-        UTime ut(t1);
-	string m1 = ut.format(true,"%b");
-	ut.setFromSecs(t2);
-	string m2 = ut.format(true,"%b");
-	if (::llabs(t1-t2) > 31 * 86400 || m1 != m2) 
+	string m1 = t1.format(true,"%b");
+	string m2 = t2.format(true,"%b");
+	if (::llabs(t1-t2) > 31 * USECS_PER_DAY || m1 != m2) 
 	    throw IOException(
 		string("FileSet: ") + fullpath,"search",
 		"%b (alpha month) does not sort to time order");
@@ -302,51 +277,33 @@ void FileSet::checkPathFormat(time_t t1, time_t t2) throw(IOException)
 }
 #endif
 
-list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
+list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOException)
 {
 
     set<string> matchedFiles;
     string openedDir;
     DIR *dirp = 0;
-    struct tm gmt1;
-    struct tm gmt2;
-    ostringstream ostr;
-    time_t requestDeltat = t2 - t1;
+    long long requestDeltat = t2 - t1;
 
+#if !defined(NIDAS_EMBEDDED)
     // Check that format sorts correctly
     checkPathFormat(t1,t2);
+#endif
 
 
 #ifdef DEBUG
     cerr << "fullpath=" << fullpath << endl;
 #endif
 
-    gmtime_r(&t1,&gmt1);
-    ostr.str("");
-    timeputter.put(ostr.rdbuf(),ostr,' ',&gmt1,
-	fullpath.data(),fullpath.data()+fullpath.length());
+    string t1path = t1.format(true,fullpath);
+    string t2path = t2.format(true,fullpath);
 
-    // matched filenames must compare to be greater than or equal to t1path
-    string t1path = ostr.str();
 #ifdef DEBUG
     cerr << "t1path=" << t1path << endl;
-#endif
-
-    gmtime_r(&t2,&gmt2);
-    ostr.str("");
-    timeputter.put(ostr.rdbuf(),ostr,' ',&gmt2,
-	fullpath.data(),fullpath.data()+fullpath.length());
-    // matched filenames must compare to be less than to t2path
-    string t2path = ostr.str();
-#ifdef DEBUG
     cerr << "t2path=" << t2path << endl;
 #endif
 
     bool t1path_eq_t2path = t1path == t2path;
-
-#ifdef DEBUG
-    cerr << "ostr.str()=" << ostr.str() << endl;
-#endif
 
     // Check if there are time fields in the directory portion.
     // If so, it complicates things.
@@ -359,21 +316,23 @@ list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
 #ifdef DEBUG
     cerr << "openedDir=" << openedDir << endl;
 #endif
-    gmtime_r(&t1,&gmt1);
-    ostr.str("");
-    timeputter.put(ostr.rdbuf(),ostr,' ',&gmt1,
-	openedDir.data(),openedDir.data()+openedDir.length());
 
-    time_t dirDeltat = 365 * 86400;
+    string tmpPath = t1.format(true,openedDir);
+
+    long long dirDeltat = 365 * USECS_PER_DAY;
     // Check if file name has changed via the above time formatting,
     // therefore there must be % fields in it.
-    if (ostr.str() != openedDir) {
-	if (openedDir.find("%H") != string::npos) dirDeltat = 3600;
-	else if (openedDir.find("%d") != string::npos) dirDeltat = 86400;
-	else if (openedDir.find("%m") != string::npos) dirDeltat = 28 * 86400;
-	else if (openedDir.find("%y") != string::npos) dirDeltat = 365 * 86400;
-	else if (openedDir.find("%Y") != string::npos) dirDeltat = 365 * 86400;
-	else dirDeltat = 3600;	// wierd
+    if (tmpPath != openedDir) {
+	if (openedDir.find("%H") != string::npos) dirDeltat = USECS_PER_HOUR;
+	else if (openedDir.find("%d") != string::npos)
+		dirDeltat = USECS_PER_DAY;
+	else if (openedDir.find("%m") != string::npos)
+		dirDeltat = 28 * USECS_PER_DAY;
+	else if (openedDir.find("%y") != string::npos)
+		dirDeltat = 365 * USECS_PER_DAY;
+	else if (openedDir.find("%Y") != string::npos)
+		dirDeltat = 365 * USECS_PER_DAY;
+	else dirDeltat = USECS_PER_HOUR;	// wierd
     }
     openedDir.clear();
 
@@ -385,16 +344,10 @@ list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
     // must execute this loop at least once with time of t1.
     // If t2 > t1 then increment time by dirDeltat each iteration,
     // but in the last iteration, time should be == t2.
-    for ( ; t1 <= t2; ) {
-
-	gmtime_r(&t1,&gmt1);
-	ostr.str("");
-	timeputter.put(ostr.rdbuf(),ostr,' ',&gmt1,
-	    fullpath.data(),fullpath.data()+fullpath.length());
-
+    for (UTime ftime = t1; ftime <= t2; ) {
 	// currpath is the full path name of a file with a name
-	// corresponding to time t1
-	string currpath = ostr.str();
+	// corresponding to time ftime
+	string currpath = ftime.format(true,fullpath);
 #ifdef DEBUG
 	cerr << "currpath=" << currpath << endl;
 #endif
@@ -428,11 +381,11 @@ list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
 	// by dirDeltat that we match files for the intermediate month.
 	// dirDeltat is never more than a year, so we don't have to
 	// substitute for %y or %Y.
-	if (requestDeltat > 28 * 86400) {
+	if (requestDeltat > 28 * USECS_PER_DAY) {
 	    replaceChars(fileregex,"%m","[0-1][0-9]");
 	    replaceChars(fileregex,"%b","[a-zA-Z][a-zA-Z][a-zA-Z]");
 	}
-	else if (requestDeltat > 86400)
+	else if (requestDeltat > USECS_PER_DAY)
 	    replaceChars(fileregex,"%d","[0-3][0-9]");
 	replaceChars(fileregex,"%H","[0-2][0-9]");
 	replaceChars(fileregex,"%M","[0-5][0-9]");
@@ -441,11 +394,7 @@ list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
 	cerr << "fileregex=" << fileregex << endl;
 #endif
 
-	// use std::time_put to format path into a file name
-	ostr.str("");
-	timeputter.put(ostr.rdbuf(),ostr,' ',&gmt1,
-	    fileregex.data(),fileregex.data()+fileregex.length());
-	fileregex = ostr.str();
+	fileregex = ftime.format(true,fileregex);
 #ifdef DEBUG
 	cerr << "fileregex=" << fileregex << endl;
 #endif
@@ -487,9 +436,9 @@ list<string> FileSet::matchFiles(time_t t1, time_t t2) throw(IOException)
         }
 	regfree(&preg);
 
-	if (t1 == t2) break;
-	t1 += dirDeltat;
-	if (t1 > t2) t1 = t2;
+	if (ftime == t2) break;
+	ftime += dirDeltat;
+	if (ftime > t2) ftime = t2;
     }
     if (dirp) closedir(dirp);
 #ifdef DEBUG

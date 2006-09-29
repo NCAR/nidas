@@ -27,6 +27,41 @@
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/ParseException.h>
 
+#ifndef SECS_PER_HOUR
+#define SECS_PER_HOUR 3600
+#endif
+
+#ifndef SECS_PER_DAY
+#define SECS_PER_DAY 86400
+#endif
+
+#ifndef MSECS_PER_SEC
+#define MSECS_PER_SEC 1000
+#endif
+
+#ifndef MSECS_PER_DAY
+#define MSECS_PER_DAY 86400000
+#define MSECS_PER_HALF_DAY 43200000
+#endif
+
+#ifndef USECS_PER_SEC
+#define USECS_PER_SEC 1000000
+#endif
+
+#ifndef USECS_PER_MSEC
+#define USECS_PER_MSEC 1000
+#endif
+
+#ifndef USECS_PER_HOUR
+#define USECS_PER_HOUR 3600000000LL
+#endif
+
+
+#ifndef USECS_PER_DAY
+#define USECS_PER_DAY 86400000000LL
+#define USECS_PER_HALF_DAY 43200000000LL
+#endif
+
 namespace nidas { namespace util {
 
 class UTime {
@@ -36,44 +71,6 @@ public:
      * A very early time.
      */
     // static const long long BIGBANG = LLONG_MIN;
-
-    /**
-     * Time conversion constants.
-     */
-#ifndef MSECS_PER_SEC
-    static const long MSECS_PER_SEC = 1000;
-#endif
-#ifndef USECS_PER_MSEC
-    static const long USECS_PER_MSEC = 1000;
-#endif
-#ifndef NSECS_PER_USEC
-    static const long NSECS_PER_USEC = 1000;
-#endif
-
-#ifndef USECS_PER_SEC
-    static const long USECS_PER_SEC = MSECS_PER_SEC * USECS_PER_MSEC;
-#endif
-
-    /**
-     * A little math on this easily overflows a long, so
-     * we'll put it in a long long.
-     */
-#ifndef NSECS_PER_SEC
-    static const long long NSECS_PER_SEC = USECS_PER_SEC * NSECS_PER_USEC;
-#endif
-
-    static const long SECS_PER_HOUR = 3600;
-
-    static const long long USECS_PER_HOUR =
-    	(unsigned)SECS_PER_HOUR * USECS_PER_SEC;
-
-#ifndef SECS_PER_DAY
-    static const long SECS_PER_DAY = SECS_PER_HOUR * 24;
-#endif
-
-#ifndef USECS_PER_DAY
-    static const long long USECS_PER_DAY = USECS_PER_HOUR * 24;
-#endif
 
     /**
      * No-arg constructor initializes to current time.
