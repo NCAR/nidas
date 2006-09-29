@@ -73,6 +73,7 @@ arm_env = env.Copy()
 armprefix = arm_env['PREFIX'] + '/arm'
 arm_env.Replace(PREFIX = armprefix)
 arm_env.Replace(ARCH = 'arm')
+arm_env.Append(CXXFLAGS = '-D NIDAS_EMBEDDED')
 
 # arm_env.AppendUnique(CCFLAGS=Split("""
 #   -mcpu=xscale

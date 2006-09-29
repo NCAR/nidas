@@ -185,58 +185,66 @@ IOChannel* NetcdfRPCChannel::connect()
     Project* project = Project::getInstance();
 
     // will be negative if no numbered stations
-    int nstations = project->getMaxSiteNumber() -
+
+    // This code only works if we are crunching
+    // a whole project, not if working from a
+    // configuration of one site.
+    // TODO: add something to the config
+    // to indicate that a variable shouldn't have
+    // a station dimenstion in the netcdf
+
+    unsigned int nstations = project->getMaxSiteNumber() -
     	project->getMinSiteNumber() + 1;
+    set<int> stns;
     
     set<const SampleTag*>::const_iterator si = getSampleTags().begin();
     for ( ; si != getSampleTags().end(); ++si) {
         const SampleTag* stag = *si;
 
-	vector<ParameterT<int> > dims;
-
-	int stationNumber = -99;
-	int numStations = 0;
+	int tagStation = stag->getStation();
 	for (VariableIterator vi = stag->getVariableIterator();
 		vi.hasNext(); ) {
 	    const Variable* var = vi.next();
+
+#ifdef DEBUG
+	    cerr << "NetcdfRPCChannel::connect(), var=" << var->getName() <<
+	    	" varstation=" << var->getStation() << 
+		" tagstation=" << tagStation << endl;
+#endif
 	    int vstn = var->getStation();
 
-	    set<int> stns;
+	    if (vstn < 0) n_u::Logger::getInstance()->log(LOG_WARNING,
+		"var %s is from station %d",
+		var->getName().c_str(),vstn);
 
-	    set<const SampleTag*>::const_iterator si2 = getSampleTags().begin();
-	    // if a variable name is not unique, then we must add
-	    // a station dimension
-	    for ( ; si2 != getSampleTags().end(); ++si2) {
-		const SampleTag* stag2 = *si2;
-		for (VariableIterator vi2 = stag2->getVariableIterator();
-			vi2.hasNext(); ) {
-		    const Variable* var2 = vi2.next();
-
-		    if (vstn >= 0 && var2->getStation() >= 0 &&
-		    	var->getNameWithoutSite() == var2->getNameWithoutSite())
-			stns.insert(var2->getStation());
-		}
-	    }
-
-	    numStations = std::max((signed) stns.size(),numStations);
-#ifdef DEBUG
-	    cerr << var->getName() << '(' << vstn << ')' << 
-	    	" numberOfStations=" << stns.size() << endl;
-#endif
-	    if (vstn >= 0) {
-		if (stationNumber == -99) stationNumber = vstn;
-		// mix of station numbers - ugh
-		else if (stationNumber != vstn) stationNumber = -1;
-	    }
+	    if (vstn > 0) stns.insert(vstn);
+	    if (vstn != tagStation) n_u::Logger::getInstance()->log(LOG_WARNING,
+		"var %s is from station %d, others in this sample are from %d",
+		var->getName().c_str(),vstn,tagStation);
 	}
+	stationIndexById[stag->getId()] = tagStation - 1;
+    }
+
+    vector<ParameterT<int> > dims;
+
+    // all the "non"-station, station 0
+    if (stns.size() == 0 && nstations == 1) nstations = 0;
+    else {
+	if (stns.size() != nstations)
+	    n_u::Logger::getInstance()->log(LOG_WARNING,
+		"nstations=%d, stns.size()=%d",
+		nstations,stns.size());
+
+	ParameterT<int> stnDim;
+	stnDim.setName("station");
+	stnDim.setValue(nstations);
+	dims.push_back(stnDim);
+    }
+        
+    si = getSampleTags().begin();
+    for ( ; si != getSampleTags().end(); ++si) {
+        const SampleTag* stag = *si;
 	
-	if (stationNumber >= 0 && numStations > 1) {
-	    ParameterT<int> stnDim;
-	    stnDim.setName("station");
-	    stnDim.setValue(nstations);
-	    dims.push_back(stnDim);
-	}
-
 	NcVarGroupFloat* grp = getNcVarGroupFloat(dims,stag);
 	if (!grp) {
 	    grp = new NcVarGroupFloat(dims,stag,fillValue);
@@ -247,7 +255,6 @@ IOChannel* NetcdfRPCChannel::connect()
 	cerr << "adding to groupById, tag=" << stag->getId() << endl;
 #endif
 	groupById[stag->getId()] = grp;
-	stationNumById[stag->getId()] = stationNumber;
     }
     return this;
 }
@@ -309,13 +316,13 @@ void NetcdfRPCChannel::write(const Sample* samp)
 
     NcVarGroupFloat* g = gi->second;
 
-    int stationNumber = stationNumById[samp->getId()];
+    int stationIndex = stationIndexById[samp->getId()];
 #ifdef DEBUG
-    cerr << "NetcdfRPCChannel::write, stationNumber=" << stationNumber <<
+    cerr << "NetcdfRPCChannel::write, stationIndex=" << stationIndex <<
     	endl;
 #endif
 
-    g->write(this,samp,stationNumber);
+    g->write(this,samp,stationIndex);
 }
 
 void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
@@ -429,7 +436,6 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
 	// get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
@@ -669,7 +675,7 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float fillValue)
 }
 
 void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
-	int stationNumber) throw(n_u::IOException)
+	int stationIndex) throw(n_u::IOException)
 {
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
    
@@ -682,14 +688,14 @@ void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
 #ifdef DEBUG
     n_u::UTime ut(fsamp->getTimeTag());
     cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f ") <<
-    	stationNumber << ' ';
+    	stationIndex << ' ';
     for (unsigned int i = 0; i < fsamp->getDataLength(); i++)
 	cerr << fsamp->getConstDataPtr()[i] << ' ';
     cerr << endl;
 #endif
 
-    if (stationNumber >= 0) {
-	rec.start.start_val[0] = stationNumber;
+    if (stationIndex >= 0) {
+	rec.start.start_val[0] = stationIndex;
 	rec.count.count_val[0] = 1;
     }
     else {

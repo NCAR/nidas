@@ -171,7 +171,7 @@ public:
      */
     int getStation() const { return station; }
 
-    void setStation(int val);
+    void setSiteAttributes(const Site* site);
 
     /**
      * Set the VariableConverter for this Variable.

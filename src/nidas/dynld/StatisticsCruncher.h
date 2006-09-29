@@ -168,8 +168,6 @@ private:
 
     SampleTag outSample;
 
-    int outStation;
-
     unsigned int nOutVar;
 
     int outlen;

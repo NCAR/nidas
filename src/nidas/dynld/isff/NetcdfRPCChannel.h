@@ -221,7 +221,7 @@ private:
 
     std::map<dsm_sample_id_t,NcVarGroupFloat*> groupById;
 
-    std::map<dsm_sample_id_t,int> stationNumById;
+    std::map<dsm_sample_id_t,int> stationIndexById;
 
     std::list<NcVarGroupFloat*> groups;
 

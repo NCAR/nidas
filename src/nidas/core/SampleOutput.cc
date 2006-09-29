@@ -205,21 +205,8 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
-	}
-    }
 
     // process <socket>, <fileset> child elements (should only be one)
-
     int niochan = 0;
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;

@@ -142,13 +142,6 @@ public:
 
     void setSuffix(const std::string& val);
 
-    /**
-     * Station number.
-     */
-    int getStation() const { return station; }
-
-    void setStation(int val);
-
     const DSMConfig* getDSM() const { return dsm; }
 
     void setDSM(const DSMConfig* val) { dsm = val; }
@@ -165,6 +158,20 @@ public:
      * uses the dsm id found in the associated DSM.
      */
     const Site* getSite() const;
+
+    /**
+     * Set the site attributes of this SampleTag.
+     * The Site pointer is not kept with the SampleTag.
+     * The Site number is set on the SampleTag,
+     * and if the Site number is 0, then the Site suffix
+     * is appended to the Variable names.
+     */
+    void setSiteAttributes(const Site* val);
+
+    /**
+     * Station number.
+     */
+    int getStation() const { return station; }
 
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can

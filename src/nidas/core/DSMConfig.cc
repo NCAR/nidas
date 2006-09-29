@@ -20,6 +20,7 @@
 #include <nidas/util/Logger.h>
 
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/dynld/FileSet.h>
 
 #include <iostream>
 
@@ -94,6 +95,20 @@ void DSMConfig::openSensors(SensorHandler* selector)
     }
     sensors.clear();
 }
+
+nidas::dynld::FileSet* DSMConfig::findFileSet() const 
+{
+    const list<SampleOutput*>& outputs = getOutputs();
+    list<SampleOutput*>::const_iterator oi = outputs.begin();
+    for ( ; oi != outputs.end(); ) {
+        SampleOutput* output = *oi;
+	IOChannel* iochan = output->getIOChannel();
+	nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(iochan);
+	if (fset) return fset;
+    }
+    return 0;
+}
+
 void DSMConfig::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {

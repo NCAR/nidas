@@ -77,13 +77,19 @@ public:
      * name matches hostname.  If none found, remove any domain names
      * and try again. Then search the project Sites.
      */
-    DSMServer* findServer(const std::string& hostname) const;
+    DSMServer* findServer(const std::string& hostname) const
+	throw(nidas::util::UnknownHostException);
+
+    DSMServer* findServer(const nidas::util::Inet4Address& addr) const;
 
     /**
      * Find a DSM whose name corresponds to
      * a given IP address.
      */
     const DSMConfig* findDSM(const nidas::util::Inet4Address& addr) const;
+
+    const DSMConfig* findDSM(const std::string& name) const
+	throw(nidas::util::UnknownHostException);
 
     /**
      * Find a DSM matching id;

@@ -288,9 +288,9 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 	    stag->fromDOMElement((xercesc::DOMElement*)child);
 	    stag->setDSMId(getDSMId());
 	    stag->setSensorId(getShortId());
-	    addSampleTag(stag);
 	    if (stag->getSampleId() == 0)
 	        stag->setSampleId(getSampleTags().size());
+	    addSampleTag(stag);
 	}
         else throw n_u::InvalidParameterException(
                 className + " SampleIOProcessor::fromDOMElement",

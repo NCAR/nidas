@@ -117,8 +117,9 @@ void FileSet::close() throw(n_u::IOException)
 dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
 	throw(n_u::IOException)
 {
-    return (dsm_time_t)n_u::FileSet::createFile(
-    	(time_t)(t/USECS_PER_SEC),exact) * USECS_PER_SEC;
+    n_u::UTime ut(t);
+    ut = n_u::FileSet::createFile(ut,exact);
+    return ut.toUsecs();
 }
 
 void FileSet::fromDOMElement(const DOMElement* node)

@@ -79,7 +79,8 @@ GOESProject::GOESProject(Project* p)
         Site* site = si.next();
 
 	ProcessorIterator pi = site->getProcessorIterator();
-	int stationNumber = site->getNumber();	// numbered from 0
+	// 0 is the "non" station. Otherwise stations are numbered from 1
+	int stationNumber = site->getNumber();
 
 	for ( ; pi.hasNext(); ) {
 	    SampleIOProcessor* proc = pi.next();
@@ -103,8 +104,8 @@ GOESProject::GOESProject(Project* p)
 
 		    for (; ti != tags.end(); ++ti) {
 			SampleTag* tag = *ti;
-			tag->setStation(stationNumber);
-			tag->setDSMId(stationNumber+1);
+			tag->setSiteAttributes(site);
+			tag->setDSMId(stationNumber);
 			sampleTags.insert(tag);
 			sampleTagsById[tag->getId()] = tag;
 			maxSampleId = std::max(maxSampleId,tag->getShortId());
@@ -142,9 +143,9 @@ GOESProject::GOESProject(Project* p)
 			    var->setLongName(goesVars[i][2]);
 			    gtag->addVariable(var);
 			}
-			gtag->setStation(stationNumber);
+			gtag->setSiteAttributes(site);
 			gtag->setSampleId(maxSampleId+1);
-			gtag->setDSMId(stationNumber+1);
+			gtag->setDSMId(stationNumber);
 			gtag->setPeriod(xmitInterval);
 			goesTags[stationNumber] = gtag;
 			sampleTags.insert(gtag);

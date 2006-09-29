@@ -15,6 +15,8 @@
 
 #include <ctime>
 
+#include <unistd.h>
+
 #include <nidas/core/Project.h>
 #include <nidas/dynld/FileSet.h>
 #include <nidas/core/Socket.h>
@@ -49,7 +51,13 @@ public:
 
     static int usage(const char* argv0);
 
+
 private:
+
+    FileSet* findFileSet(const string& dsmName)
+	throw(n_u::UnknownHostException);
+
+    string argv0;
 
     static bool interrupted;
 
@@ -57,13 +65,21 @@ private:
 
     list<string> dataFileNames;
 
-    string hostName;
+    string dsmName;
+
+    string sockHostName;
 
     int port;
 
     int sorterLength;
 
     bool daemonMode;
+
+    n_u::UTime beginTime;
+
+    n_u::UTime endTime;
+
+    int niceValue;
 
 };
 
@@ -118,6 +134,10 @@ int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << " [-x xml_file] [-z] input ...\n\
+    -b \"yyyy mm dd HH:MM:SS\": begin time\n\
+    -e \"yyyy mm dd HH:MM:SS\": end time\n\
+    -d dsmName\n\
+    -n niceValue: run at a lower priority (niceValue > 0)\n\
     -s sorterLength: input data sorter length in milliseconds\n\
     -x xml_file: (optional), the default value is read from the input\n\
     -z: run in daemon mode (in the background, log messages to syslog)\n\
@@ -137,7 +157,7 @@ int StatsProcess::main(int argc, char** argv) throw()
     
     if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
 
-    if (stats.daemonMode && stats.hostName.length() > 0) {
+    if (stats.daemonMode) {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
 	    n_u::IOException e("DSMServer","daemon",errno);
@@ -145,11 +165,13 @@ int StatsProcess::main(int argc, char** argv) throw()
 	}
         n_u::Logger::createInstance("statsproc",LOG_CONS,LOG_LOCAL5);
     }
+
     return stats.run();
 }
 
 
-StatsProcess::StatsProcess(): port(30000),sorterLength(1000),daemonMode(false)
+StatsProcess::StatsProcess(): port(30000),sorterLength(1000),
+	daemonMode(false),niceValue(0)
 {
 }
 
@@ -159,8 +181,41 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "s:x:z")) != -1) {
+    argv0 = argv[0];
+
+    while ((opt_char = getopt(argc, argv, "b:d:e:n:s:x:z")) != -1) {
 	switch (opt_char) {
+	case 'b':
+	    try {
+		beginTime = n_u::UTime::parse(true,optarg);
+	    }
+	    catch (const n_u::ParseException& pe) {
+	        cerr << pe.what() << endl;
+		return usage(argv[0]);
+	    }
+	    break;
+	case 'e':
+	    try {
+		endTime = n_u::UTime::parse(true,optarg);
+	    }
+	    catch (const n_u::ParseException& pe) {
+	        cerr << pe.what() << endl;
+		return usage(argv[0]);
+	    }
+	    break;
+	case 'd':
+	    dsmName = optarg;
+	    break;
+	case 'n':
+	    {
+	        istringstream ist(optarg);
+		ist >> niceValue;
+		if (ist.fail()) {
+                    cerr << "Invalid nice value: " << optarg << endl;
+                    return usage(argv[0]);
+		}
+	    }
+	    break;
 	case 's':
 	    {
 	        istringstream ist(optarg);
@@ -178,7 +233,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    daemonMode = true;
 	    break;
 	case '?':
-	    usage(argv[0]);
+	    return usage(argv[0]);
 	}
     }
     for ( ; optind < argc; optind++) {
@@ -186,7 +241,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         if (url.length() > 5 && !url.compare(0,5,"sock:")) {
             url = url.substr(5);
             size_t ic = url.find(':');
-            hostName = url.substr(0,ic);
+            sockHostName = url.substr(0,ic);
             if (ic < string::npos) {
                 istringstream ist(url.substr(ic+1));
                 ist >> port;
@@ -202,45 +257,50 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         }
         else dataFileNames.push_back(url);
     }
-    if (dataFileNames.size() == 0 && hostName.length() == 0)
+    if (dataFileNames.size() == 0 && sockHostName.length() == 0)
     	return usage(argv[0]);
+    return 0;
+}
+
+FileSet* StatsProcess::findFileSet(const string& dsmName)
+    throw(n_u::UnknownHostException)
+{
+    const DSMConfig* dsm = Project::getInstance()->findDSM(dsmName);
+    if (dsm) return dsm->findFileSet();
     return 0;
 }
 
 int StatsProcess::run() throw()
 {
+    if (niceValue > 0 && nice(niceValue) < 0)  {
+    	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: nice(%d): %s",
+		argv0.c_str(),niceValue,strerror(errno));
+	return 1;
+    }
 
     IOChannel* iochan = 0;
+    if (dsmName.length() == 0) {
+	char hostname[256];
+	gethostname(hostname,sizeof(hostname));
+	dsmName = hostname;
+    }
+
+    auto_ptr<Project> project;
+    if (xmlFileName.length() > 0) {
+	xmlFileName = Project::expandEnvVars(xmlFileName);
+	XMLParser parser;
+	cerr << "parsing: " << xmlFileName << endl;
+	auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+	project.reset(Project::getInstance());
+	project->fromDOMElement(doc->getDocumentElement());
+    }
 
     try {
-	if (dataFileNames.size() > 0) {
-	    FileSet* fset = new nidas::dynld::FileSet();
-	    iochan = fset;
-
-#ifdef USE_FILESET_TIME_CAPABILITY
-	    struct tm tm;
-	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t start = timegm(&tm);
-
-	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t end = timegm(&tm);
-
-	    fset->setDir("/tmp/RICO/hiaper");
-	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	    fset->setStartTime(start);
-	    fset->setEndTime(end);
-#else
-	    list<string>::const_iterator fi;
-	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-		fset->addFileName(*fi);
-#endif
-
-	}
-	else {
+	if (sockHostName.length() > 0) {
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !interrupted; i++) {
 		try {
-		    sock = new n_u::Socket(hostName,port);
+		    sock = new n_u::Socket(sockHostName,port);
 		}
 		catch(const n_u::IOException& e) {
 		    if (i > 2)
@@ -250,6 +310,30 @@ int StatsProcess::run() throw()
 		}
 	    }
 	    iochan = new nidas::core::Socket(sock);
+	}
+	else {
+	    FileSet* fset = 0;
+
+	    // User must have specified the xml file
+	    if (dataFileNames.size() == 0) {
+	        fset = findFileSet(dsmName);
+		if (!fset) {
+		    n_u::Logger::getInstance()->log(LOG_ERR,
+		    "Cannot find a FileSet for dsm %s",
+		    	dsmName.c_str());
+		    return 1;
+		}
+	    }
+	    else fset = new FileSet();
+	    iochan = fset;
+
+	    list<string>::const_iterator fi;
+	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
+		    fset->addFileName(*fi);
+
+	    if (beginTime.toUsecs() != 0) fset->setStartTime(beginTime);
+	    if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
+
 	}
 
 	// SortedSampleStream owns the iochan ptr.
@@ -268,45 +352,35 @@ int StatsProcess::run() throw()
 
 	string systemName = header.getSystemName();
 
-	if (xmlFileName.length() == 0)
+	if (xmlFileName.length() == 0) {
 	    xmlFileName = header.getConfigName();
-	xmlFileName = Project::expandEnvVars(xmlFileName);
-
-	auto_ptr<Project> project;
-	XMLParser parser;
-
-	cerr << "parsing: " << xmlFileName << endl;
-	auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-
-	project = auto_ptr<Project>(Project::getInstance());
-	project->fromDOMElement(doc->getDocumentElement());
+	    xmlFileName = Project::expandEnvVars(xmlFileName);
+	    XMLParser parser;
+	    cerr << "parsing: " << xmlFileName << endl;
+	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+	    project.reset(Project::getInstance());
+	    project->fromDOMElement(doc->getDocumentElement());
+	}
 
 	// Find a server with a StatisticsProcessor
-	DSMServer* server = 0;
+	DSMServer* server = project->findServer(dsmName);
+	if (!server) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    "Cannot find a DSMServer for dsm %s",
+		dsmName.c_str());
+	    return 1;
+	}
 	StatisticsProcessor* sproc = 0;
-	DSMServerIterator sitr = project->getDSMServerIterator();
-
-	char hostname[256];
-	gethostname(hostname,sizeof(hostname));
-	for ( ; sitr.hasNext(); ) {
-	    server = sitr.next();
-	    cerr << "hostname=" << hostname <<
-	    	" server=" << server->getName() << endl;
-
-	    if (server->getName().length() == 0 ||
-	    	server->getName() == hostname) {
-
-		ProcessorIterator pitr = server->getProcessorIterator();
-		for ( ; pitr.hasNext(); ) {
-		    SampleIOProcessor* proc = pitr.next();
-		    sproc = dynamic_cast<StatisticsProcessor*>(proc);
-		    if (sproc) break;
-		}
-		if (sproc) break;
-	    }
+	ProcessorIterator pitr = server->getProcessorIterator();
+	for ( ; pitr.hasNext(); ) {
+	    SampleIOProcessor* proc = pitr.next();
+	    sproc = dynamic_cast<StatisticsProcessor*>(proc);
+	    if (sproc) break;
 	}
 	if (!sproc) {
-	    cerr << "No StatisticsProcessor found" << endl;
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    "Cannot find a StatisticsProcessor for dsm %s",
+		dsmName.c_str());
 	    return 1;
 	}
 
@@ -337,8 +411,9 @@ int StatsProcess::run() throw()
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
 	    input.flush();
+	    cerr << "sproc->disconnect" << endl;
 	    sproc->disconnect(&input);
-
+	    cerr << "input.close" << endl;
 	    input.close();
 	    // sproc->disconnected(output);
 	    throw e;
@@ -352,7 +427,7 @@ int StatsProcess::run() throw()
     }
     catch (n_u::EOFException& eof) {
         cerr << eof.what() << endl;
-	return 1;
+	return 0;
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;

@@ -108,35 +108,29 @@ Variable::~Variable()
 
 void Variable::setSiteSuffix(const string& val)
 {
+    // don't repeat site suffix, in case
+    // user has only set full name with setName().
+    if (siteSuffix.length() == 0 && suffix.length() == 0) {
+	unsigned nl = name.length();
+	unsigned vl = val.length();
+	if (vl > 0 && nl > vl && name.substr(nl-vl,vl) == val)
+	    prefix = name.substr(0,nl-vl);
+    }
     siteSuffix = val;
     name = prefix + suffix + siteSuffix;
 }
 
-void Variable::setStation(int val)
+void Variable::setSiteAttributes(const Site* site)
 {
-    if (val < 0) name = prefix + suffix;
-    else {
-	Site* site = Project::getInstance()->findSite(val);
-	if (site) {
-	    string newSuffix = site->getSuffix();
-	    // don't repeat site suffix, in case
-	    // user has only set full name with setName().
-	    if (siteSuffix.length() == 0 && suffix.length() == 0) {
-		unsigned nl = name.length();
-		unsigned sl = newSuffix.length();
-		if (sl > 0 && nl > sl && name.substr(nl-sl,sl) == newSuffix)
-		    prefix = name.substr(0,nl-sl);
-	    }
-	    setSiteSuffix(newSuffix);
-	}
-    }
-    station = val;
+    station = site->getNumber();
+    if (station == 0) setSiteSuffix(site->getSuffix());
+    else setSiteSuffix("");
 }
 
 const Site* Variable::getSite() const
 {
     const Site* site = 0;
-    if (getStation() >= 0)
+    if (getStation() > 0)
 	site = Project::getInstance()->findSite(getStation());
     if (!site) {
         const SampleTag* stag = getSampleTag();

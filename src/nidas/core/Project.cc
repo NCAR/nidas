@@ -18,6 +18,7 @@
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DOMObjectFactory.h>
 
+#include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
 
 #include <iostream>
@@ -54,7 +55,7 @@ Project::~Project()
     delete dsmCatalog;
     delete serviceCatalog;
     // cerr << "deleting sites" << endl;
-    for (std::list<Site*>::const_iterator it = sites.begin();
+    for (list<Site*>::const_iterator it = sites.begin();
     	it != sites.end(); ++it) delete *it;
 
     for (list<DSMServer*>::const_iterator is = servers.begin();
@@ -80,14 +81,14 @@ const string& Project::getFlightName() const
 void Project::addSite(Site* val)
 {
     sites.push_back(val);
-    if (val->getNumber() >= 0) {
+    // station number 0 doesn't belong to a specific site
+    if (val->getNumber() > 0) {
 	lookupLock.lock();
         siteByStationNumber[val->getNumber()] = val;
 	lookupLock.unlock();
-	maxSiteNumber = std::max(val->getNumber(),maxSiteNumber);
-	minSiteNumber = std::min(val->getNumber(),minSiteNumber);
-
     }
+    maxSiteNumber = std::max(val->getNumber(),maxSiteNumber);
+    minSiteNumber = std::min(val->getNumber(),minSiteNumber);
 }
 
 Site* Project::findSite(int stationNumber) const
@@ -179,44 +180,63 @@ void Project::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
 }
 
 /**
- * Look for a server on this aircraft that either has no name or whose
+ * Look for a server for this project that either has no name or whose
  * name matches hostname.  If none found, remove any domain names
  * and try again.
  */
 DSMServer* Project::findServer(const string& hostname) const
+    throw(n_u::UnknownHostException)
 {
-    DSMServer* server = 0;
-    for (list<DSMServer*>::const_iterator si=servers.begin();
-        si != servers.end(); ++si) {
-        DSMServer* srvr = *si;
-        if (srvr->getName().length() == 0 ||
-            srvr->getName() == hostname) {
-            server = srvr;
-            break;
-        }
+    DSMServerIterator sitr = getDSMServerIterator();
+    for ( ; sitr.hasNext(); ) {
+        DSMServer* srvr = sitr.next();
+        if (srvr->getName() == hostname) return srvr;
     }
-    if (server) return server;
-
     // Not found, remove domain name, try again
     int dot = hostname.find('.');
-    for (list<DSMServer*>::const_iterator si=servers.begin();
-        si != servers.end(); ++si) {
-        DSMServer* srvr = *si;
+    sitr = getDSMServerIterator();
+    for ( ; sitr.hasNext(); ) {
+        DSMServer* srvr = sitr.next();
         const string& sname = srvr->getName();
         int sdot = sname.find('.');
-        if (!sname.compare(0,sdot,hostname,0,dot)) {
-            server = srvr;
-            break;
-        }
+        if (!sname.compare(0,sdot,hostname,0,dot)) return srvr;
     }
-    if (server) return server;
 
-    for ( SiteIterator si = getSiteIterator(); si.hasNext(); ) {
-        const Site* site = si.next();
-	server = site->findServer(hostname);
-	if (server) return server;
+    // address match
+    list<n_u::Inet4Address> addrs =
+	    n_u::Inet4Address::getAllByName(hostname);
+    list<n_u::Inet4Address>::const_iterator ai = addrs.begin();
+    for ( ; ai != addrs.end(); ++ai) {
+	DSMServer* srvr = findServer(*ai);
+	if (srvr) return srvr;
     }
-    return server;
+
+    // empty name
+    sitr = getDSMServerIterator();
+    for ( ; sitr.hasNext(); ) {
+        DSMServer* srvr = sitr.next();
+        if (srvr->getName().length() == 0) return srvr;
+    }
+    return 0;
+}
+
+DSMServer* Project::findServer(const n_u::Inet4Address& addr) const
+{
+    DSMServerIterator sitr = getDSMServerIterator();
+    for ( ; sitr.hasNext(); ) {
+        DSMServer* srvr = sitr.next();
+	if (srvr->getName().length() > 0) {
+	    try {
+		list<n_u::Inet4Address> saddrs =
+		    n_u::Inet4Address::getAllByName(srvr->getName());
+		list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+		for ( ; ai != saddrs.end(); ++ai)
+		    if (addr == *ai) return srvr;
+	    }
+	    catch (n_u::UnknownHostException& e) {}
+	}
+    }
+    return 0;
 }
 
 const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
@@ -253,6 +273,31 @@ const DSMConfig* Project::findDSM(unsigned long id) const
 	    lookupLock.unlock();
 	    return dsm;
 	}
+    }
+    return 0;
+}
+
+const DSMConfig* Project::findDSM(const string& name) const
+	throw(n_u::UnknownHostException)
+{
+    cerr <<  "Checking sites" << endl;
+    for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
+        const Site* site = si.next();
+	cerr <<  "Checking site " << site->getName() << " for dsm with name " << name << endl;
+	const DSMConfig* dsm = site->findDSM(name);
+	if (dsm) {
+	    cerr <<  "Found dsm " << name <<
+	    	" at site " << site->getName() << endl;
+	    return dsm;
+	}
+    }
+
+    list<n_u::Inet4Address> saddrs =
+	n_u::Inet4Address::getAllByName(name);
+    list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+    for ( ; ai != saddrs.end(); ++ai) {
+	const DSMConfig* dsm = findDSM(*ai);
+	if (dsm) return dsm;
     }
     return 0;
 }

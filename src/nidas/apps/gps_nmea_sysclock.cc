@@ -119,8 +119,8 @@ void GPS_SetClock::setSysTime(const n_u::UTime& tgps) throw(n_u::IOException)
 {
     n_u::UTime tsys;
     struct timeval tv;
-    tv.tv_sec = tgps.toUsecs() / n_u::UTime::USECS_PER_SEC;
-    tv.tv_usec = tgps.toUsecs() % n_u::UTime::USECS_PER_SEC;
+    tv.tv_sec = tgps.toUsecs() / USECS_PER_SEC;
+    tv.tv_usec = tgps.toUsecs() % USECS_PER_SEC;
     if (settimeofday(&tv,0) < 0) 
 	throw n_u::IOException("settimeofday",tgps.format(true),errno);
     cerr << "Sys time: " <<
@@ -128,7 +128,7 @@ void GPS_SetClock::setSysTime(const n_u::UTime& tgps) throw(n_u::IOException)
 	"Gps time: " <<
 	tgps.format(false,"%Y %b %d %H:%M:%S %Z") << endl <<
 	"Gps-Sys:  " <<
-	(tgps - tsys) / n_u::UTime::MSECS_PER_SEC << " millisec" << endl;
+	(tgps - tsys) / MSECS_PER_SEC << " millisec" << endl;
 }
 
 int GPS_SetClock::run()
@@ -158,9 +158,9 @@ int GPS_SetClock::run()
 	n_u::UTime tgps;
 	n_u::UTime tbegin;
 	n_u::UTime deadline = n_u::UTime() +
-		lockTimeout * n_u::UTime::USECS_PER_SEC;
+		lockTimeout * USECS_PER_SEC;
 	n_u::UTime reportTime = n_u::UTime() +
-		gpsLockReport * n_u::UTime::USECS_PER_SEC;
+		gpsLockReport * USECS_PER_SEC;
 
 	fd_set readfds;
 	FD_ZERO(&readfds);
@@ -175,8 +175,8 @@ int GPS_SetClock::run()
 	while ((tnow = n_u::UTime()) < deadline) {
 
 	    if (tnow > reportTime) {
-		int tdiff = (tnow - tbegin + n_u::UTime::USECS_PER_SEC/2) /
-			n_u::UTime::USECS_PER_SEC;
+		int tdiff = (tnow - tbegin + USECS_PER_SEC/2) /
+			USECS_PER_SEC;
 		if (status == 'V') 
 		    cerr << "$GPRMC status='V' for " << tdiff <<
 		    	" seconds" << endl;
@@ -185,7 +185,7 @@ int GPS_SetClock::run()
 		    	" seconds. Wrong baud rate?" << endl;
 		else cerr << "No data for " << tdiff <<
 			" seconds. Is GPS connected?" << endl;
-		reportTime += gpsLockReport * n_u::UTime::USECS_PER_SEC;
+		reportTime += gpsLockReport * USECS_PER_SEC;
 	    }
 
 	    int nfd;
@@ -229,8 +229,8 @@ int GPS_SetClock::run()
 		}
 	    }
 	}
-	int tdiff = (n_u::UTime() - tbegin + n_u::UTime::USECS_PER_SEC/2) /
-		n_u::UTime::USECS_PER_SEC;
+	int tdiff = (n_u::UTime() - tbegin + USECS_PER_SEC/2) /
+		USECS_PER_SEC;
 	if (status == 'V') {
 	    cerr << "$GPRMC status='V' for " << tdiff <<
 		" seconds. Setting system clock anyway" << endl;

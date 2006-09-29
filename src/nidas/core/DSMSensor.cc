@@ -489,7 +489,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     	rawSampleTag->setSuffix(getSuffix());
 
     const Site* site = getDSMConfig()->getSite();
-    if (site) rawSampleTag->setStation(site->getNumber());
+    if (site) rawSampleTag->setSiteAttributes(site);
 
     // sensors in the catalog may not have any sample tags
     // so at this point it is OK if sampleTags.size() == 0.
@@ -507,7 +507,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	stag->setSensorId(getShortId());
 	if (getSuffix().length() > 0)
 	    stag->setSuffix(getSuffix());
-	if (site) stag->setStation(site->getNumber());
+	if (site) stag->setSiteAttributes(site);
 
 	if (getShortId() == 0) throw n_u::InvalidParameterException(
 	    	getName(),"id","zero or missing");

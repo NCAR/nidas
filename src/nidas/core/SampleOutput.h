@@ -71,6 +71,9 @@ public:
 
     virtual int getFd() const = 0;
 
+    virtual IOChannel* getIOChannel() const = 0;
+
+
     virtual void init() throw(nidas::util::IOException) = 0;
 
     /**
@@ -164,7 +167,7 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 
-    IOChannel* getIOChannel() { return iochan; }
+    IOChannel* getIOChannel() const { return iochan; }
 
 protected:
 

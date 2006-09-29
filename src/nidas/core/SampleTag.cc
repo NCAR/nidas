@@ -83,13 +83,13 @@ void SampleTag::setSuffix(const std::string& val)
 
 }
 
-void SampleTag::setStation(int val)
+void SampleTag::setSiteAttributes(const Site* site)
 {
-    station = val;
+    station = site->getNumber();
     for (vector<Variable*>::const_iterator vi = variables.begin();
     	vi != variables.end(); ++vi) {
 	Variable* var = *vi;
-	var->setStation(station);
+	var->setSiteAttributes(site);
     }
 }
 
@@ -120,7 +120,7 @@ const Site* SampleTag::getSite() const
     if (dsm) site = dsm->getSite();
     if (site) return site;
 
-    if (getStation() >= 0) {
+    if (getStation() > 0) {
 	site = Project::getInstance()->findSite(getStation());
 	if (site) return site;
     }
@@ -211,7 +211,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    if (nvars == variables.size()) var = new Variable();
 	    else var = variables[nvars];
 
-	    if (site) var->setSiteSuffix(site->getSuffix());
+	    if (site) var->setSiteAttributes(site);
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);
 	    if (nvars == variables.size()) addVariable(var);

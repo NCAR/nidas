@@ -32,7 +32,6 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	resampler(0),
 	statsType(stype),
 	nwordsSuffix(0),
-	outStation(-99),
 	outlen(0),
 	tout(LONG_LONG_MIN),
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
@@ -63,13 +62,21 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     for (VariableIterator vi = stag->getVariableIterator(); vi.hasNext(); ) {
 	const Variable* vin = vi.next();
 	Variable* v = new Variable(*vin);
+	if (site) v->setSiteAttributes(site);
 	inVariables.push_back(v);
+#ifdef DEBUG
+	cerr << "StatisticsCruncher, var=" << v->getName() <<
+		" site=" << (site ? site->getName() : "unknown") <<
+		" suffix=" << (site ? site->getSuffix() : "unknown") <<
+		" site number=" << (site ? site->getNumber() : -99) << endl;
+#endif
     }
     nvars = inVariables.size();
     periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
     outSample.setSampleId(stag->getId());
     outSample.setRate(stag->getRate());
+    outSample.setSiteAttributes(site);
 
     createCombinations();
 }
@@ -82,7 +89,6 @@ StatisticsCruncher::StatisticsCruncher(const StatisticsCruncher& x):
 	resampler(0),
 	statsType(x.statsType),
 	nwordsSuffix(0),
-	outStation(x.outStation),
 	outlen(0),
 	tout(LONG_LONG_MIN),
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
@@ -161,7 +167,7 @@ void StatisticsCruncher::splitNames()
 {
     splitVarNames.clear();
     for (unsigned int i = 0; i < inVariables.size(); i++) {
-        const string& n = inVariables[i]->getNameWithoutSite();
+        const string& n = inVariables[i]->getName();
 	vector<string> words;
 	for (unsigned int cpos = 0;;) {
 	    unsigned int dot = n.find('.',cpos+1);
@@ -341,11 +347,6 @@ void StatisticsCruncher::setupMoments(int nv,int nmoment)
 	}
 	outSample.getVariable(nOutVar).setName(name);
 	outSample.getVariable(nOutVar++).setUnits(units);
-	if (inVariables[i]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[i]->getStation();
-	    else if (inVariables[i]->getStation() != outStation)
-	    	outStation = -1;	// multiple stations
-	}
     }
 }
 
@@ -364,11 +365,6 @@ void StatisticsCruncher::setupCovariances()
 	    }
 	    outSample.getVariable(nOutVar).setName(name);
 	    outSample.getVariable(nOutVar++).setUnits(units);
-	}
-	if (inVariables[i]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[i]->getStation();
-	    else if (inVariables[i]->getStation() != outStation)
-		outStation = -1;	// multiple stations
 	}
     }
 }
@@ -389,11 +385,6 @@ void StatisticsCruncher::setupTrivariances()
 		outSample.getVariable(nOutVar).setName(name);
 		outSample.getVariable(nOutVar++).setUnits(units);
 	    }
-	}
-	if (inVariables[i]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[i]->getStation();
-	    else if (inVariables[i]->getStation() != outStation)
-		outStation = -1;	// multiple stations
 	}
     }
 }
@@ -549,11 +540,6 @@ void StatisticsCruncher::setupReducedFluxes()
 	    outSample.getVariable(nOutVar).setName(name);
 	    outSample.getVariable(nOutVar++).setUnits(units);
 	}
-	if (inVariables[i]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[i]->getStation();
-	    else if (inVariables[i]->getStation() != outStation)
-		outStation = -1;	// multiple stations
-	}
     }
     assert(nc==ncov);
 }
@@ -580,11 +566,6 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 	}
 	outSample.getVariable(nOutVar).setName(name);
 	outSample.getVariable(nOutVar++).setUnits(units);
-	if (inVariables[j]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[j]->getStation();
-	    else if (inVariables[j]->getStation() != outStation)
-		outStation = -1;	// multiple stations
-	}
     }
 }
 void StatisticsCruncher::setupMinMax(const string& suffix)
@@ -604,18 +585,12 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 	}
 	outSample.getVariable(nOutVar).setName(name);
 	outSample.getVariable(nOutVar++).setUnits(makeUnits(i));
-	if (inVariables[i]->getStation() >= 0) {
-	    if (outStation == -99) outStation = inVariables[i]->getStation();
-	    else if (inVariables[i]->getStation() != outStation)
-		outStation = -1;	// multiple stations
-	}
     }
 }
 
 
 void StatisticsCruncher::createCombinations()
 {
-    outStation = -99;
     if (triComb) {
 	for (int i=0; i < ntri; i++) delete [] triComb[i];
 	delete [] triComb;
@@ -696,7 +671,6 @@ void StatisticsCruncher::createCombinations()
     }
     cerr << endl;
 #endif
-    if (outStation >= 0) outSample.setStation(outStation);
 }
 
 void StatisticsCruncher::initStats()
@@ -713,6 +687,14 @@ void StatisticsCruncher::initStats()
 	v->setName(countsName);
 	v->setType(Variable::WEIGHT);
 	v->setUnits("");
+	if (site) v->setSiteAttributes(site);
+#ifdef DEBUG
+	cerr << "initStats counts, var name=" << v->getName() << 
+		" station=" << v->getStation() <<
+		" site=" << (site ? site->getName() : "unknown") << 
+		" site number=" << (site ? site->getNumber() : -99) <<
+		endl;
+#endif
 	outSample.addVariable(v);
     }
 
@@ -836,6 +818,8 @@ void StatisticsCruncher::attach(SampleSource* src)
 			
 		// variable match
 		if (*var == *inVariables[i]) {
+		    const Site* vsite = var->getSite();
+		    if (site && vsite != site) continue;
 		    // paranoid check that this variable hasn't been added
 		    // cerr << "match for " << var->getName() << endl;
 
@@ -857,19 +841,12 @@ void StatisticsCruncher::attach(SampleSource* src)
 		    }
 		    // copy attributes of variable
 		    *inVariables[i] = *var;
-		    const Site* vsite = var->getSite();
-		    if (vsite != site)
-			n_u::Logger::getInstance()->log(LOG_INFO,
-			"StatisticsCruncher: variables %s is from site %s, first site is %s",
-				var->getName().c_str(),vsite->getName().c_str(),
-				(site ? site->getName().c_str() : "unknown"));
 
-		    if (site && inVariables[i]->getStation() < 0)
-		    	inVariables[i]->setSiteSuffix(site->getSuffix());
 #ifdef DEBUG
-		    cerr << "inVariables[" << i << "]=" <<
-		    	inVariables[i]->getName() << '(' <<
-			inVariables[i]->getStation() << ')' << endl;
+		    cerr << "StatisticsCruncher::attach, inVariables[" <<
+		    	i << "]=" << inVariables[i]->getName() << 
+			" station=" << inVariables[i]->getStation() <<
+			endl;
 #endif
 		}
 	    }

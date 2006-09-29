@@ -60,6 +60,11 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
 
+    // We do not yet add these tags to the base class with
+    // SampleIOProcessor::addSampleTag.
+    if (tag->getSampleId() == 0)
+	tag->setSampleId(configTags.size()+1);
+
     const std::list<const Parameter*>& parms = tag->getParameters();
     std::list<const Parameter*>::const_iterator pi;
 
@@ -186,8 +191,10 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
 		}
 	    }
 	}
-	if (nmatches == 0) throw n_u::IOException(getName(),
-		"connect",string("no match for variable ") + myvar->getName());
+	if (nmatches == 0)
+	    n_u::Logger::getInstance()->log(LOG_WARNING,
+		"%s: no match for variable %s",
+		getName().c_str(),myvar->getName().c_str());
     }
 
     for (list<const SampleTag*>::const_iterator si = newtags.begin();
@@ -208,7 +215,7 @@ void StatisticsProcessor::disconnect(SampleInput* input) throw(n_u::IOException)
 	cruncher->disconnect(input);
 	cruncher->flush();
     }
-    SampleIOProcessor::connect(input);
+    SampleIOProcessor::disconnect(input);
 }
  
 void StatisticsProcessor::connected(SampleOutput* orig,

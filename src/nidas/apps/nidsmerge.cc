@@ -25,6 +25,7 @@
 
 #include <iomanip>
 
+// hack for arm-linux-gcc from Arcom which doesn't define LLONG_MAX
 #ifndef LLONG_MAX
 #   define LLONG_MAX    9223372036854775807LL
 #   define LLONG_MIN    (-LLONG_MAX - 1LL)

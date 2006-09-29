@@ -22,6 +22,10 @@
 
 #include <list>
 
+namespace nidas { namespace dynld {
+    class FileSet;
+} }
+
 namespace nidas { namespace core {
 
 class Site;
@@ -71,6 +75,8 @@ public:
     void addOutput(SampleOutput* output) { outputs.push_back(output); }
 
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
+
+    nidas::dynld::FileSet* findFileSet() const;
 
     unsigned short getRemoteSerialSocketPort() const { return remoteSerialSocketPort; }
 

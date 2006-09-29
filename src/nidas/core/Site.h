@@ -114,6 +114,11 @@ public:
     const DSMConfig* findDSM(unsigned long id) const;
 
     /**
+     * Find a DSM by name.
+     */
+    const DSMConfig* findDSM(const std::string& name) const;
+
+    /**
      * Find a DSMSensor by the full id, both the DSM id and the sensor id.
      */
     DSMSensor* findSensor(unsigned long id) const;

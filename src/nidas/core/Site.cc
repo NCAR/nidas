@@ -25,7 +25,7 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-Site::Site(): project(0),number(-1)
+Site::Site(): project(0),number(0)
 {
 }
 
@@ -312,6 +312,19 @@ const DSMConfig* Site::findDSM(unsigned long id) const
 	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
 #endif
 	if (dsm->getId() == id) return dsm;
+    }
+    return 0;
+}
+
+const DSMConfig* Site::findDSM(const string& name) const
+{
+    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
+	di != dsms.end(); ++di) {
+	const DSMConfig* dsm = *di;
+#ifdef DEBUG
+	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
+#endif
+	if (dsm->getName() == name) return dsm;
     }
     return 0;
 }
