@@ -68,8 +68,8 @@ void FileSet::closeFile() throw(IOException)
 void FileSet::createDirectory(const string& name) throw(IOException)
 {
 #ifdef DEBUG
-    cerr << "FileSet::createDirectory, name=" << name << endl;
 #endif
+    cerr << "FileSet::createDirectory, name=" << name << endl;
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
 
     struct stat64 statbuf;
@@ -100,10 +100,15 @@ UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
     if (!exact && fileLength <= 366 * USECS_PER_DAY)
 	ftime -= ftime.toUsecs() % fileLength;
 
+
+    fullpath = makePath(getDir(),getFileName());
+
+
     // break input time into date/time fields using GMT timezone
     currname = ftime.format(true,fullpath);
 
 #ifdef DEBUG
+    cerr << "nidas::util::FileSet:: fullpath=" << fullpath << endl;
     cerr << "nidas::util::FileSet:: currname=" << currname << endl;
 #endif
 
@@ -155,6 +160,9 @@ void FileSet::openNextFile() throw(IOException)
     if (!initialized) {
 
 	fullpath = makePath(getDir(),getFileName());
+#ifdef DEBUG
+	cerr << "openNextFile, fullpath=" << fullpath << endl;
+#endif
 	if (fullpath.length() > 0) {
 
 	    fileset = matchFiles(startTime,endTime);

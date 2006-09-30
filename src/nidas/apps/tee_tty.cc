@@ -126,10 +126,6 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
-#ifdef DO_NONBLOCK
-	    if (::fcntl(fd,F_SETFL,O_NONBLOCK) < 0)
-	        throw n_u::IOException(name,"fcntl F_SETFL,O_NONBLOCK",errno);
-#endif
 	    FD_SET(fd,&readfds);
 	    FD_SET(fd,&writefds);
 	    maxfd = std::max(maxfd,fd + 1);
@@ -137,14 +133,12 @@ int TeeTTy::run()
 	    ptyfds.push_back(fd);
 	    ptynames.push_back(name);
 	}
+
+	// user will only read from these ptys, so we only write to them.
 	li = roptys.begin();
 	for ( ; li != roptys.end(); ++li) {
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
-#ifdef DO_NONBLOCK
-	    if (::fcntl(fd,F_SETFL,O_NONBLOCK) < 0)
-	        throw n_u::IOException(name,"fcntl F_SETFL,O_NONBLOCK",errno);
-#endif
 	    FD_SET(fd,&writefds);
 	    maxfd = std::max(maxfd,fd + 1);
 
@@ -177,10 +171,25 @@ int TeeTTy::run()
 		nfd--;
 	    }
 
-	    for (int ifd = 0; nfd > 0 && ifd < maxfd; ifd++) {
-		if (FD_ISSET(ifd,&rfds)) {
-		    int l = ::read(ifd,buf,sizeof(buf));
-		    if (l < 0) throw n_u::IOException(ptynames[ifd],"read",errno);
+	    for (unsigned int i = 0; i < ptyfds.size(); i++)  {
+		int fd = ptyfds[i];
+		if (FD_ISSET(fd,&rfds)) {
+		    int l = ::read(fd,buf,sizeof(buf));
+		    if (l < 0) {
+		        n_u::IOException e(ptynames[i],"read",errno);
+			cerr << e.what() << endl;
+			::close(fd);
+			FD_CLR(fd,&writefds);
+			FD_CLR(fd,&readfds);
+
+			// open a new one
+			fd = n_u::SerialPort::createPtyLink(ptynames[i]);
+			FD_SET(fd,&readfds);
+			FD_SET(fd,&writefds);
+			maxfd = std::max(maxfd,fd + 1);
+
+			ptyfds[i] = fd;
+		    }
 		    if (l > 0) tty.write(buf,l);
 		    nfd--;
 		}
