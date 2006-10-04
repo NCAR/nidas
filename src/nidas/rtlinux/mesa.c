@@ -115,7 +115,7 @@ static void read_radar(void * channel)
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
   sample.timetag = GET_MSEC_CLOCK;
   sample.data[0] = readw(brd->addr + RADAR_READ_OFFSET);
-//DSMLOG_DEBUG("chn: %d  sample.data: %d", 0, sample.data[0]);
+//DSMLOG_DEBUG("chn: %d  sample.data: %d\n", 0, sample.data[0]);
 
   // write the altitude to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
@@ -246,11 +246,11 @@ static int load_finish(struct MESA_Board * brd)
   unsigned char config;
   enum flag success;
 
-  DSMLOG_DEBUG("start");
+  DSMLOG_DEBUG("start\n");
   config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
            M_4I34CFGWRITEDISABLE | M_4I34LEDON;
   outb(config, brd->addr + R_4I34CONTROL);
-  DSMLOG_DEBUG("outb success");
+  DSMLOG_DEBUG("outb success\n");
 
   // Wait for Done bit set
   success = FALSE;
@@ -258,7 +258,7 @@ static int load_finish(struct MESA_Board * brd)
   {
     if ( inb(brd->addr + R_4I34STATUS) & M_4I34PROGDUN )
     {
-      DSMLOG_DEBUG("waitcount: %d", waitcount);
+      DSMLOG_DEBUG("waitcount: %d\n", waitcount);
       success = TRUE;
       continue;
     }
@@ -295,10 +295,8 @@ static int load_program(struct MESA_Board * brd, struct _prog * buf)
 
   // start of load process
   if (total == 0)
-  {
     if ((ret = load_start(brd)) < 0)
       return ret;
-  }
 
   // read the FIFO into a buffer and then program the FPGA
   total += buf->len;
@@ -379,6 +377,7 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
   switch (cmd)
   {
     case GET_NUM_PORTS:
+DSMLOG_DEBUG("GET_NUM_PORTS\n");
       *(int *) buf = N_PORTS;
       ret = sizeof(int);
       break;
@@ -551,12 +550,20 @@ int init_module (void)
 
     /* Open up my ioctl FIFOs, register my ioctlCallback function */
     error = -EIO;
+    DSMLOG_NOTICE("devprefix:      %s\n",   devprefix);
+    DSMLOG_NOTICE("ioctlCallback:  0x%x\n", ioctlCallback);
+    DSMLOG_NOTICE("ib:             %d\n",   ib);
+    DSMLOG_NOTICE("nioctlcmds:     %d\n",   nioctlcmds);
+    DSMLOG_NOTICE("ioctlcmds:      0x%x\n", ioctlcmds);
+
     brd->ioctlhandle = openIoctlFIFO(devprefix, ib, ioctlCallback,
                               nioctlcmds, ioctlcmds);
+    DSMLOG_NOTICE("ioctlhandle:    0x%x\n", brd->ioctlhandle);
     if (!brd->ioctlhandle) goto err;
 
     // create its output FIFO
     brd->fifoName = createFifo("_in_", ib);
+    DSMLOG_NOTICE("fifoName:       %s\n", brd->fifoName);
     if (brd->fifoName == 0)
     {
       error = -convert_rtl_errno(rtl_errno);
