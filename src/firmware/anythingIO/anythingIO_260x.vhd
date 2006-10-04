@@ -137,9 +137,9 @@ begin
   RadarAltimeter: process (SynClk)
   begin
     if rising_edge(SynClk) then
-	 alt_clock_old2 <= alt_clock_old1;      
-	 alt_clock_old1 <= alt_clock;
-	 if alt_clock_old2 = '1' and alt_clock_old1 = '0' then
+      alt_clock_old2 <= alt_clock_old1;      
+      alt_clock_old1 <= alt_clock;
+      if alt_clock_old2 = '1' and alt_clock_old1 = '0' then
         altitude <= altitude(1 to 23) & radar_alt; --bit into lsb
 --      altitude <= radar_alt & altitude(0 to 22); --bit into msb
       end if;
@@ -153,18 +153,18 @@ begin
       pulse0_old2 <= pulse0_old1;
       pulse1_old1 <= pulse1;
       pulse1_old2 <= pulse1_old1;
-	 if count_clear = '1' then
-	   count0 <= X"0000";
-	   count1 <= X"0000";
-	   ndebug <= '1';
+      if count_clear = '1' then
+        count0 <= X"0000";
+        count1 <= X"0000";
+        ndebug <= '1';
       else
-	   ndebug <= '0';
+        ndebug <= '0';
       end if;
       if pulse0_old2 = '0' and pulse0_old1 = '1' then
         count0 <= count0 + 1;
-	   pdebug <= '1';
+        pdebug <= '1';
       else
-	   pdebug <= '0';
+        pdebug <= '0';
       end if;
       if pulse1_old2 = '0' and pulse1_old1 = '1' then
         count1 <= count1 + 1;
@@ -177,16 +177,16 @@ begin
     if rising_edge(SynClk) then
       latch_count_old1 <= latch_count;	 
       latch_count_old2 <= latch_count_old1;
-	 if latch_count_old2 = '0' and latch_count_old1 = '1' then
+      if latch_count_old2 = '0' and latch_count_old1 = '1' then
         count0_latch <= count0;	   
         count1_latch <= count1;
 --	   count0 <= X"0000";
 --	   count1 <= X"0000";
-	   count_clear <= '1';
-	   ldebug <= '1';	   
-	 else 
-	   count_clear <= '0';
-	   ldebug <= '0';
+        count_clear <= '1';
+        ldebug <= '1';	   
+      else 
+        count_clear <= '0';
+        ldebug <= '0';
       end if;
     end if;
   end process LatchCounts;
@@ -197,8 +197,8 @@ begin
       house_data <= X"0000"; 
     elsif rising_edge(SynClk) then
       Hdata_old2 <= Hdata_old1;
-	 Hdata_old1 <= Hdata;
-	 if Hdata_old2 = '0' and Hdata_old1 = '1' then
+      Hdata_old1 <= Hdata;
+      if Hdata_old2 = '0' and Hdata_old1 = '1' then
         house_data <= house_data + 1;	   
       end if;
     end if;
@@ -208,18 +208,15 @@ begin
   begin 
     if SA(9 downto 4) = Decode and AEN = '0' then 
       CardSelect <= '1';
+      LBE <= '0';
     else
+      LBE <= '1';
       CardSelect <= '0';
     end if;
   end process CSelect;	
   
   Localbuffer: process (CardSelect, IORD)
   begin
-    if CardSelect = '1' then
-      LBE <= '0';
-    else
-      LBE <= '1';
-    end if;
     if (CardSelect = '1') and (IORD = '0') then
       LBDIR <= '0';
     else
@@ -227,57 +224,60 @@ begin
     end if;
   end process Localbuffer;	
 
-  AddDecode: process (CardSelect)
+  AddDecode: process (SA, AEN, IORD)
   begin
-    if SA(3 downto 0) = "0000" and CardSelect = '1' and IORD = '0' then 
-      SD(15 downto 0) <= strobes(15 downto 0);
-	 IOCS16 <= '0';
-      		
-    elsif SA(3 downto 0) = "0001" and CardSelect = '1' then 
+    if SA(3 downto 0) = "0000" and SA(9 downto 4) = Decode and AEN = '0' then
+      IOCS16 <= '0';
+      if IORD = '0' then 
+        SD(15 downto 0) <= strobes(15 downto 0);
+      end if;		
+    elsif SA(3 downto 0) = "0001" and SA(9 downto 4) = Decode and AEN = '0' then 
       clear_hist <= '1';
       index <= "000000";
-	 IOCS16 <= 'Z';
-	       
-    elsif SA(3 downto 0) = "0010" and CardSelect = '1' and IORD = '0' then       
-      SD <= Histogram(conv_integer(index));
-      index <= index + 1;
-	 IOCS16 <= '0';
-	     
-    elsif SA(3 downto 0) = "0011" and CardSelect = '1' and IOWR = '0' then  
+      IOCS16 <= 'Z';	       
+    elsif SA(3 downto 0) = "0010" and SA(9 downto 4) = Decode and AEN = '0' then       
+      IOCS16 <= '0';
+      if IORD = '0' then 
+        SD <= Histogram(conv_integer(index));
+        index <= index + 1;
+      end if;     
+    elsif SA(3 downto 0) = "0011" and SA(9 downto 4) = Decode and AEN = '0' then
+      IOCS16 <= 'Z';
       Hadvance <= '1';
       house_adv <= '1';
-	 IOCS16 <= 'Z';
-	 
-    elsif SA(3 downto 0) = "0100" and CardSelect = '1' and IORD = '0' then       
-      SD <= house_data;
-	 IOCS16 <= '0';
-	     
-    elsif SA(3 downto 0) = "0101" and CardSelect = '1' and IOWR = '0' then   
+    elsif SA(3 downto 0) = "0100" and SA(9 downto 4) = Decode and AEN = '0' then
+      IOCS16 <= '0';
+      if IORD = '0' then       
+        SD <= house_data;
+      end if;     
+    elsif SA(3 downto 0) = "0101" and SA(9 downto 4) = Decode and AEN = '0' then
+      IOCS16 <= 'Z';
       Hreset <= '1';
-	 IOCS16 <= 'Z';
- 
-    elsif SA(3 downto 0) = "0110" and CardSelect = '1' then 
-      SD(15 downto 0) <= count0_latch(15 downto 0);
-	 IOCS16 <= '0';
-	 cdebug <='0';    
-      
-    elsif SA(3 downto 0) = "1000" and CardSelect = '1' then 
-      SD(15 downto 0) <= count1_latch(15 downto 0); 
-	 IOCS16 <= '0';
-	       
-    elsif SA(3 downto 0) = "1010" and CardSelect = '1' then 
-      SD(15 downto 8) <= altitude(2 to 9);      
-      SD(7 downto 1) <= altitude(10 to 16);      
-      SD(0) <= altitude(20) or altitude(21) or altitude (22);
-	 IOCS16 <= '0';
-
+    elsif SA(3 downto 0) = "0110" and SA(9 downto 4) = Decode and AEN = '0' then 
+      IOCS16 <= '0';
+      if IORD = '0' then 
+        SD(15 downto 0) <= count0_latch(15 downto 0);
+        cdebug <='0';    
+      end if;
+    elsif SA(3 downto 0) = "1000" and SA(9 downto 4) = Decode and AEN = '0' then 
+      IOCS16 <= '0';
+      if IORD = '0' then 
+        SD(15 downto 0) <= count1_latch(15 downto 0); 
+      end if;	       
+    elsif SA(3 downto 0) = "1010" and SA(9 downto 4) = Decode and AEN = '0' then 
+      IOCS16 <= '0';
+      if IORD = '0' then 
+        SD(15 downto 8) <= altitude(2 to 9);      
+        SD(7 downto 1) <= altitude(10 to 16);      
+        SD(0) <= altitude(20) or altitude(21) or altitude (22);
+      end if;
     else
       Hadvance <= '0';
       house_adv <= '0';
       Hreset <= '0';
-	 SD(15 downto 0) <= "ZZZZZZZZZZZZZZZZ";
-	 IOCS16 <= 'Z';
-	 cdebug <= '1';
+      SD(15 downto 0) <= "ZZZZZZZZZZZZZZZZ";
+      IOCS16 <= 'Z';
+      cdebug <= '1';
     end if;
   end process AddDecode;
 
@@ -286,7 +286,7 @@ begin
   begin
     if (clear_hist = '1') then
       i := 63;
-	 while i>=32 loop
+      while i>=32 loop
         Histogram(i) <= X"0000";
         i := i - 1;
       end loop;
@@ -297,8 +297,8 @@ begin
       end loop;   
     elsif rising_edge(SynClk) then
       strobe_old2 <= strobe_old1;
-	 strobe_old1 <= strobe;
-	 if strobe_old2 = '1' and strobe_old1 = '0' then
+      strobe_old1 <= strobe;
+      if strobe_old2 = '1' and strobe_old1 = '0' then
         strobes <= strobes + 1;
         hist_index <= conv_integer(Histbits);
         hist_data <= Histogram(hist_index) + 1;
