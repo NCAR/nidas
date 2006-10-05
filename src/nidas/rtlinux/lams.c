@@ -42,11 +42,11 @@
 
 #include <linux/kernel.h>
 #include <linux/termios.h>
-#include <nidas/rtlinux/dsm_lams.h>
+#include <nidas/rtlinux/lams.h>
 
 // #define SERIAL_DEBUG_AUTOCONF
 
-RTLINUX_MODULE(dsm_lams);
+RTLINUX_MODULE(lams);
 
 /* Number of boards this module can support a one time */
 #define MAX_NUM_BOARDS 3
@@ -72,7 +72,7 @@ MODULE_PARM(irq_param, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
 MODULE_PARM_DESC(irq_param, "IRQ number");
 
 MODULE_PARM(brdtype, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
-MODULE_PARM_DESC(brdtype, "type of each board, see dsm_lams.h");
+MODULE_PARM_DESC(brdtype, "type of each board, see lams.h");
 
 MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
 MODULE_DESCRIPTION("LAMS ISA driver for RTLinux");
@@ -218,7 +218,7 @@ static char irqBusy = 0;
 
 /************************************************************************/
 /* -- IRQ HANDLER ----------------------------------------------------- */
-unsigned int dsm_lams_irq_handler(unsigned int irq,
+unsigned int lams_irq_handler(unsigned int irq,
 	void* callbackptr, struct rtl_frame *regs)
 {
   struct lamsPort* lams = 0;
@@ -335,7 +335,7 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
 #ifndef FAKE
       // activate interupt service routine
       DSMLOG_DEBUG("activate interupt service routine.  irq=%d chn=%d\n", boardInfo[chn].irq, chn);
-      if ((rtl_request_isa_irq(boardInfo[chn].irq,dsm_lams_irq_handler, boardInfo)) < 0) {
+      if ((rtl_request_isa_irq(boardInfo[chn].irq,lams_irq_handler, boardInfo)) < 0) {
         rtl_free_isa_irq(boardInfo[chn].irq); 
         DSMLOG_DEBUG("rtl_free_isa_irq(%d) ok\n", boardInfo[chn].irq);
       }
@@ -364,12 +364,12 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
 }
 /*
 static struct rtl_file_operations rtl_dsm_ser_fops = {
-    read:           rtl_dsm_lams_read,
-    write:          rtl_dsm_lams_write,
-    ioctl:          ioctlCallback,
-    open:           rtl_dsm_lams_open,
-    release:        rtl_dsm_lams_release,
-    install_poll_handler: rtl_dsm_lams_poll_handler,
+    read:                 lams_read,
+    write:                lams_write,
+    ioctl:                ioctlCallback,
+    open:                 lams_open,
+    release:              lams_release,
+    install_poll_handler: lams_poll_handler,
 };
 */
 /************************************************************************/

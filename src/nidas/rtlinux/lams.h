@@ -1,4 +1,4 @@
-/* dsm_lams.h
+/* lams.h
 
    Header for the LAMS interface.
 
