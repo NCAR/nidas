@@ -31,7 +31,7 @@
 #include <nidas/core/RTL_IODevice.h>
 // Mesa driver includes
 #include <nidas/core/DSMSensor.h>
-#include <nidas/rtlinux/dsm_lams.h>
+#include <nidas/rtlinux/lams.h>
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
