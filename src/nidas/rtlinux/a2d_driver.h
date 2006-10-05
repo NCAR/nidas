@@ -1,6 +1,6 @@
 /* a2d_driver.h
 
-   Time-stamp: <Thu 19-Jan-2006 02:38:06 pm>
+   Time-stamp: <Thu 07-Sep-2006 02:29:36 pm>
 
    Header for test rtl driver.
 
@@ -190,18 +190,19 @@ typedef struct
 //FIFO Control Word bit definitions
 #define	A2DIOFIFO		0x0	//FIFO data (read), FIFO Control (write)
 #define	A2DIOSTAT		0x1	//A/D status (read), command (write)
+#define A2DIODATA		0x2	// A/D data(read), config(write)
+#define	A2DIOGAIN03		0x3	//A/D chan 0-3 gain read/write                   D2A0
+#define	A2DIOGAIN47		0x4	//A/D chan 4-7 gain read/write                   D2A1
+#define	A2DIOVCAL		0x5	//VCAL set (DAC ch 0) read/write                 D2A2
+#define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
+#define	A2DIOFIFOSTAT		0x7	//FIFO stat (read), Set master A/D (write) 
+
 #define	A2DSTATRD		0x9	//Same as A2DIOSTAT; BSD3(=A2DRWN) high (rd)
 #define	A2DCMNDWR		0x1	//Same as A2DIOSTAT; BSD3(=A2DRWN) low	(wr)
-#define A2DIODATA		0x2	// A/D data(read), config(write)
 #define	A2DDATARD		0xA	// Same as A2DIODATA; BSD3(=A2DRWN) high (rd)
 #define	A2DCONFWR		0x2	// Same as A2DIODATA; BSD3(=A2DRWN) low  (wr)
-#define	A2DIOGAIN03		0x3	//A/D chan 0-3 gain read/write
-#define	A2DIOGAIN47		0x4	//A/D chan 4-7 gain read/write
-#define	A2DIOVCAL		0x5	//VCAL set (DAC ch 0) read/write
-#define A2DIOSYSCTL		0x6	//A/D INT lines(read),Cal/offset (write)
 #define A2DIOCALOFF		0x6	//A/D INT lines(read),Cal/offset (write)
 #define A2DIOINTRD		0x6	//A/D INT lines(read),Cal/offset (write)
-#define	A2DIOFIFOSTAT		0x7	//FIFO stat (read), Set master A/D (write) 
 #define	A2DIOLOAD		0xF	//Load A/D configuration data
 
 //A/D Chip command words (See A2DIOSTAT and A2DCMNDWR above)
@@ -220,8 +221,8 @@ typedef struct
 #define	A2DSYNCCK		0x08	//Cycle to latch A2DSYNC bit value
 #define	A2D1PPSEBL		0x10	//Set to allow GPS 1PPS to clear SYNC
 #define	FIFODAFAE		0x20	//Set to clamp value of AFAE in FIFO 
-#define	A2DSTATEBL		0x40	//Not used. 
-#define	FIFOWREBL		0x80	//Enable writing to FIFO.
+#define	A2DSTATEBL		0x40	//Enable A2D status.
+#define	FIFOWREBL		0x80	//Enable writing to FIFO. (not used)
 
 // FIFO Status bits
 #define	FIFOHF			0x01	// FIFO half full
