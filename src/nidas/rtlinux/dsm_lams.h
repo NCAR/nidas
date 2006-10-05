@@ -39,15 +39,18 @@
  * distinct magic numbers one can catch a user sending
  * a ioctl to the wrong device.
  */
-#define LAMS_MAGIC              'S'
+#define LAMS_MAGIC              'L'
 #define LAMS_BASE                0xf7000220
-#define DATA_OFFSET              0x01
-#define AIR_SPEED_OFFSET         0x03
+
 #define FLAGS_OFFSET             0x00
-#define DEBUG_OFFSET             0x02
-#define FIFO_EMPTY               0x01
-#define FIFO_HALF_FULL           0x02
-#define FIFO_FULL                0x04
+#define DATA_OFFSET              0x02
+#define DEBUG_OFFSET             0x04
+#define AIR_SPEED_OFFSET         0x06
+
+#define FIFO_EMPTY               0x1
+#define FIFO_HALF_FULL           0x2
+#define FIFO_FULL                0x4
+
 #define LAMS_PATTERN             0x5555
 #define NUM_ARRAYS               128
 #define N_LAMS                   3
@@ -66,6 +69,10 @@ struct lamsPort {
 struct lamsBoard {
     int type;
     unsigned long addr;
+
+    int outfd;
+    char * fifoName;
+
     int irq;
 //    struct serialPort* ports;
     int numports;
@@ -74,13 +81,6 @@ struct lamsBoard {
 };
 
 #endif /* __RTCORE_KERNEL__ */
-
-/*
- * The enumeration of IOCTLs that this driver supports.
- */
-#define GET_NUM_BOARDS   _IOW(LAMS_MAGIC,0,unsigned long)
-#define LAMS_SET         _IOW(LAMS_MAGIC,1,struct lams_set)
-#define AIR_SPEED        _IOW(LAMS_MAGIC,2,unsigned int)
 
 /* Structures that are passed via ioctls to/from this driver */
 struct lams_set {
@@ -92,5 +92,11 @@ struct LamsData
   int data[MAX_BUFFER];
   int msec;
 };
+
+/*
+ * The enumeration of IOCTLs that this driver supports.
+ */
+#define LAMS_SET         _IOW(LAMS_MAGIC,0, struct lams_set)
+#define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
 
 #endif /* LAMS_DRIVER_H */

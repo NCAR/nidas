@@ -12,15 +12,15 @@
      $LastChangedRevision$
          $LastChangedDate: 2006-07-10 15:46:04 -0600 (Mon, 10 Jul 2006) $
            $LastChangedBy$
-                 $HeadURL: http://svn/svn/nids/trunk/src/nidas/apps/ck_mesa.cc $
-
+                 $HeadURL: http://svn/svn/nids/trunk/src/nidas/apps/ck_lams.cc $
 */
 
 // Linux include files.
 #include <fcntl.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <sys/select.h>
 #include <unistd.h>
 #include <iostream>
@@ -32,6 +32,9 @@
 // Mesa driver includes
 #include <nidas/core/DSMSensor.h>
 #include <nidas/rtlinux/dsm_lams.h>
+
+#undef max
+#define max(x,y) ((x) > (y) ? (x) : (y))
 
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
@@ -77,6 +80,13 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
 /* -------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
+  err("compiled on %s at %s", __DATE__, __TIME__);
+
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s outfile\n", argv[0]);
+    return -EINVAL;
+  }
+
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
   sigemptyset(&sigset);
@@ -94,149 +104,106 @@ int main(int argc, char** argv)
   sigaction(SIGINT,&act,(struct sigaction *)0);
   sigaction(SIGTERM,&act,(struct sigaction *)0);
 
-  err("compiled on %s at %s", __DATE__, __TIME__);
-
-  char devstr[30];
-  int status;
-  int fd_lams_data[3];  // file pointers 
-  int fdLamsAirspeedfifo;
-  int fdLamsDatafile;
-  int lams_channels = 1;
-  int air_speed = 0;
-  int len = 0;
-  struct lams_set set_lams;
-
   // create the board sensor
   TestLams sensor_in_0;
   sensor_in_0.setDeviceName("/dev/lams0");
 
-  LamsData data_buf[3];
-
-  set_lams.channel = 1;
-  //lams_channels = set_lams.channel;
-
-  // Open up the Airspeed FIFO to the driver...
-  sprintf(devstr, "/dev/lams_air_speed");
-  err("opening '%s'", devstr);
-  fdLamsAirspeedfifo = open(devstr, O_NONBLOCK | O_WRONLY);
-  err("fdLamsAirspeedfifo = 0x%x", fdLamsAirspeedfifo);
-
   // Open up the disk for writing lams data
-  sprintf(devstr, "/opt/lams_data.data");
-  err("opening '%s'", devstr);
-  fdLamsDatafile = open(devstr, O_NONBLOCK | O_WRONLY);
-  err("fdLamsDatafile = 0x%x", fdLamsDatafile);
+  string ofName(argv[1]);
+  int fdLamsDatafile;
+  fdLamsDatafile = creat(ofName.c_str(), 0666);
+  if (fdLamsDatafile < 0)
+  {
+    err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
+    goto failed;
+  }
+  err("file opened: fdLamsDatafile = 0x%x", fdLamsDatafile);
 
-
-  // open up the mesa sensor
+  err("open up the lams sensor");
+  // open up the lams sensor
   try {
     sensor_in_0.open(O_RDONLY);
+    err("sensor_in_0.open(O_RDONLY) success!");
   }
   catch (n_u::IOException& ioe) {
     err("%s",ioe.what());
-    goto close;
+    goto failed;
   }
+  int fd_lams_data;
+  fd_lams_data = sensor_in_0.getReadFd();
+  err("sensor_in_0.getReadFd() = 0x%x", fd_lams_data);
 
-  //Send the Load Air Speed ioctl
-  sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(unsigned int));
-  status      = write(fdLamsAirspeedfifo, &air_speed,1); 
-  if (status < 0)
-  {
-    err("failed to write... errno: %d", errno);
-    goto close;
-  }
-  close(fdLamsAirspeedfifo);
+  //Send the Air Speed
+  unsigned int air_speed;
+  air_speed = 0;
+  err("send AIR_SPEED");
+  err("AIR_SPEED: 0x%x", AIR_SPEED);
+  err("air_speed: %d",   air_speed);
+  sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
 
-  err(" opening sensors...");
-
-  // open all of the data FIFOs
-  for (int ii=0; ii < lams_channels; ii++)
-  {
-    sprintf(devstr, "/dev/lams_in_%d", ii);
-    fd_lams_data[ii] = open(devstr, O_RDONLY);
-    if (fd_lams_data[ii] < 0)
-    {
-      err("failed to open '%s'", devstr);
-      return 0;
-    }
-    err("opened '%s' @ 0x%x", devstr, fd_lams_data[ii]);
-  }
+  // Set the lams.   
+  struct lams_set set_lams;
+  set_lams.channel = 1;
+  err("send LAMS_SET");
+  sensor_in_0.ioctl(LAMS_SET, &set_lams, sizeof(set_lams));
 
   // Note: fd_set is a 1024 bit mask.
   fd_set readfds;
 
-  // initialize the data buffers
-  for (int ii=0; ii < lams_channels; ii++)
-  {
-    data_buf[ii].msec = 0;
-    for (int j = 0; ii < MAX_BUFFER; j++)
-    data_buf[ii].data[j] = 0;
-  }
-
-  // Set the lams.   
-  sensor_in_0.ioctl(LAMS_SET, &set_lams, sizeof(set_lams));
-
   // Main loop for gathering data from the lams channels
+  int len, rlen, status, nsel;
+  len = 0;
+  unsigned int databuf[MAX_BUFFER];
+
+  int nfds;
   while (running)
   {
+    nfds = 0;
+
     // zero the readfds bitmask
     FD_ZERO(&readfds);
 
     // set the fd's to read data from ALL ports
-    for (int ii=0; ii < lams_channels; ii++)
-      FD_SET(fd_lams_data[ii], &readfds);
+    FD_SET(fd_lams_data, &readfds);
+    nfds = max (nfds, fd_lams_data);
 
     // The select command waits for inbound FIFO data for ALL ports
-    select((lams_channels)*2+1, &readfds, NULL, NULL, NULL);
+    nsel = select(nfds+1, &readfds, NULL, NULL, 0);
+    if (nsel < 0) // select error
+      err("select error");
 
-    for (int ii=0; ii < lams_channels; ii++)
+    // check to see if there is data on this FIFO
+    if (FD_ISSET(fd_lams_data, &readfds))
     {
-      // check to see if there is data on this FIFO
-      if (FD_ISSET(fd_lams_data[ii], &readfds))
+      len += rlen = read(fd_lams_data, &databuf, MAX_BUFFER);
+      status = write(fdLamsDatafile, &databuf, rlen); 
+      err("spectra recv'd len=%d rlen=%d", len, rlen);
+      if (status < 0)
       {
-        // read '256' integers from the FIFO.
-        for(int j = 0; j <= 255; j++){
-          // check to see if there is data on this FIFO
-          if (FD_ISSET(fd_lams_data[ii], &readfds))
-          len += read(fd_lams_data[ii], &data_buf[ii].data[j], SSIZE_MAX);
-          status = write(fdLamsDatafile, &data_buf[ii].data[j], 1); 
-          if (status < 0)
-          {
-            err("failed to write... errno: %d", errno);
-            goto close;
-          }
-	}  
+        err("failed to write... errno: %d", errno);
+        goto failed;
+      }
+      // after reading '256' integers 
+      if (len == 512) {
+        err("spectra recv'd");
+        len = 0;
       }
     }
-
-    if (len != 256) 
-    {
-      sprintf(devstr, "len = %d", len);
-      err("%s : %d\n", devstr, len);
-    } 
-    else 
-    {
-      len = 0;
-      sprintf(devstr, "/dev/lams_data_%d_in", 0);
-      err("%s : %d\n", devstr, data_buf[0].data[0]);
-    }
- 
  }
-
-close:
+//goto failed; // SCANNING DEBUG EXIT
+failed:
   err(" closing sensors...");
 
-  for (int ii=0; ii < lams_channels; ii++)
-    close(fd_lams_data[ii]);
-/*
-  try {
-    sensor_in_0.ioctl(LAMS_STOP, (void *)NULL, 0);
-    sensor_in_0.close();
-  }
-  catch (n_u::IOException& ioe) {
-    err("%s",ioe.what());
-  }
+  if (fdLamsDatafile)
+    close(fdLamsDatafile);
+  sensor_in_0.close();
+//try {
+//  sensor_in_0.ioctl(LAMS_STOP, (void *)NULL, 0);
+//  sensor_in_0.close();
+//}
+//catch (n_u::IOException& ioe) {
+//  err("%s",ioe.what());
+//}
   err("sensors closed.");
-*/
   return 1;
 }
