@@ -88,7 +88,7 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	int boardNum,ioctlCallback_t* callback,
 	int nioctls,struct ioctlCmd* ioctls)
 {
-    int l;
+    int len;
     struct ioctlHandle* handle = 
 	(struct ioctlHandle*) rtl_gpos_malloc( sizeof(struct ioctlHandle) );
 
@@ -111,8 +111,8 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
     if (!(handle->buf = rtl_gpos_malloc( handle->bufsize ))) goto error;
 
     /* increase size of input buffer if necessary */
-    l = handle->bufsize + sizeof(struct ioctlHeader) + 1;
-    if (inputbufsize < l) {
+    len = handle->bufsize + sizeof(struct ioctlHeader) + 1;
+    if (inputbufsize < len) {
 
 #ifdef DEBUG
 	DSMLOG_DEBUG("nopen=%d, inputbuf=0x%x, inputbufsize=%d\n",
@@ -122,11 +122,11 @@ struct ioctlHandle* openIoctlFIFO(const char* devicePrefix,
 	rtl_pthread_mutex_lock(&bufmutex);
 
 	rtl_gpos_free(inputbuf);
-	inputbuf = rtl_gpos_malloc(l);
+	inputbuf = rtl_gpos_malloc(len);
 
 	rtl_pthread_mutex_unlock(&bufmutex);
 	if (!inputbuf) goto error;
-	inputbufsize = l;
+	inputbufsize = len;
 
 	if (inputbufsize > DSMIOCTL_BUFSIZE) 
 	    DSMLOG_WARNING("increase DSMIOCTL_BUFSIZE=%d, inputbufsize=%d\n",
