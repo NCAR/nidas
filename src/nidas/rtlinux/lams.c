@@ -138,47 +138,38 @@ static unsigned int dsm_irq_handler(unsigned char chn,
                                     struct lamsPort* lams)
 {
   static char glyph = 0;
-  unsigned int dump, n, i, n5;
+  unsigned int dump, n, i;
+  static unsigned n5 = 0;
   unsigned int lams_flags;
-
-#define FIFO_EMPTY               0x1
-#define FIFO_HALF_FULL           0x2
-#define FIFO_FULL                0x4
+  unsigned int count = 0;
+  static   int num_arrays = 0;
+  unsigned long lidar_data[MAX_BUFFER];
 
 //while (readw(LAMS_BASE + FLAGS_OFFSET) == 0x6);
-
-/*
-  for (i=0; i<512; i++) {
-    dump = readw(LAMS_BASE + DATA_OFFSET);
-    if (dump == LAMS_PATTERN) {
-//    n5++;
-//    if (n5n1000++ > 1000) {
-        DSMLOG_DEBUG("i=%03d n5=%03d\n", i, n5);
-//      n5n1000=0;
-//    }
-    }
-  }
-*/
       // flush the hardware data FIFO
-      n5 = 0;
+//      glyph += 1;
+/*
+      n5 += 1;
       n = 0;
       lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
       while (! (lams_flags & FIFO_EMPTY) ) {  
         dump       = readw(LAMS_BASE + DATA_OFFSET);
         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-        if (dump == LAMS_PATTERN) n5++;
+//       if (dump == LAMS_PATTERN) n5++;
         n++;
       }
-      DSMLOG_DEBUG("%d n5=%3d flushed %4d words\n", glyph++, n5, n);
-      if (glyph==4) glyph=0;
-
-#if 0
-  unsigned int count = 0;
-  unsigned int dump, lams_flags = 0;
-  static   int num_arrays = 0;
-  unsigned long lidar_data[MAX_BUFFER];
+      if (n != 512) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
+      if (n5 == 1024){
+         DSMLOG_DEBUG("flushed %4d words, data = %4x, glyph = %d\n", n, dump, glyph);
+         n5 = 0;
+         glyph += 1;
+         if(glyph == 4) glyph = 0;
+      }
+//      if (glyph==4) glyph=0;
+*/
 
   // discard all data up to the pattern
+/*
   while (1) {
     lidar_data[0] = readw(LAMS_BASE + DATA_OFFSET);
     if (lidar_data[0] == LAMS_PATTERN) break;
@@ -188,29 +179,42 @@ static unsigned int dsm_irq_handler(unsigned char chn,
   }
   if (lidar_data[0] != LAMS_PATTERN) return 1;
   if (lams_flags & FIFO_EMPTY) return 1; 
-
-  for (count = 1; count <= 255; count++) {
+*/
+  for (count = 0; count <= 255; count++) {
     lidar_data[count] += (unsigned long) readw(LAMS_BASE + DATA_OFFSET);
+    lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
+    if (lams_flags & FIFO_EMPTY ) return 0;
   }
+/*
   if (++num_arrays == NUM_ARRAYS) {
-    for(count = 1; count <= 255; count++){
+    for(count = 0; count <= 255; count++){
       lams->data[count] = (unsigned int) (lidar_data[count] / NUM_ARRAYS);
       lidar_data[count] = 0;
     }
     num_arrays = 0;
   }
-  lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-  if (lams_flags & FIFO_HALF_FULL){  
-    for (count = 0; count <= 255; count++){
-      dump = readw(LAMS_BASE + DATA_OFFSET);
-    }
+*/
+  n5 += 1;
+  n = 0;
+//lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
+  while (! (lams_flags & FIFO_EMPTY) ) {  
+    dump       = readw(LAMS_BASE + DATA_OFFSET);
+    lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
+    n++;
   }
+  if (n != 256) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
+  if (n5 == 1024){
+    DSMLOG_DEBUG("flushed %4d words, data = %4x, glyph = %d\n", n, dump, glyph);
+    n5 = 0;
+    glyph += 1;
+    if(glyph == 4) glyph = 0;
+ }
+/*
 #ifndef IRIGLESS
   lams->timetag = GET_MSEC_CLOCK;
 #endif
-  DSMLOG_DEBUG("\n",lams.data[0]);
   rtl_write(fd_lams_data[chn], &lams, sizeof(lams));
-#endif // 0
+*/
   return 0;
 }
 
@@ -331,19 +335,19 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
         n++;
       }
-      DSMLOG_DEBUG("the hardware data FIFO is flushed\n");
+//      DSMLOG_DEBUG("the hardware data FIFO is flushed\n");
 #ifndef FAKE
       // activate interupt service routine
-      DSMLOG_DEBUG("activate interupt service routine.  irq=%d chn=%d\n", boardInfo[chn].irq, chn);
+//      DSMLOG_DEBUG("activate interupt service routine.  irq=%d chn=%d\n", boardInfo[chn].irq, chn);
       if ((rtl_request_isa_irq(boardInfo[chn].irq,lams_irq_handler, boardInfo)) < 0) {
         rtl_free_isa_irq(boardInfo[chn].irq); 
-        DSMLOG_DEBUG("rtl_free_isa_irq(%d) ok\n", boardInfo[chn].irq);
+//        DSMLOG_DEBUG("rtl_free_isa_irq(%d) ok\n", boardInfo[chn].irq);
       }
 #else
-      DSMLOG_DEBUG("DON'T activate interupt service routine.\n");
+//      DSMLOG_DEBUG("DON'T activate interupt service routine.\n");
 #endif // FAKE
       // flush the hardware data FIFO
-      DSMLOG_DEBUG("flushing the hardware data FIFO again\n");
+//      DSMLOG_DEBUG("flushing the hardware data FIFO again\n");
       for  (n=0; n<512; n++)
         readw(LAMS_BASE + DATA_OFFSET);
       n=0;
@@ -353,7 +357,7 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
         n++;
       }
-      DSMLOG_DEBUG("again the hardware data FIFO is flushed\n");
+//      DSMLOG_DEBUG("again the hardware data FIFO is flushed\n");
       break;
 
     default:
