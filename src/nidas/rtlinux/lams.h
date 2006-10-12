@@ -5,7 +5,7 @@
    Original Author: Mike Spowart
 
    Copyright by the National Center for Atmospheric Research 2004
- 
+
    Revisions:
 
      $LastChangedRevision$
@@ -21,7 +21,7 @@
 
 #define BOARD_NUM  0
 #define N_PORTS    3
-#define MAX_BUFFER 512 
+#define MAX_BUFFER 512
 #define READ_SIZE  1024
 
 /* This header is also included from user-side code that
@@ -55,11 +55,12 @@
 #define NUM_ARRAYS               128
 #define N_LAMS                   3
 #define N_CHANNELS               1
+
 enum boardTypes { BOARD_LAMS = 1, BOARD_UNKNOWN };
 
 #ifdef __RTCORE_KERNEL__
 
-typedef unsigned long dsm_sample_timetag_t;  
+typedef unsigned long dsm_sample_timetag_t;
 struct lamsPort {
   dsm_sample_timetag_t timetag; /* timetag of sample */
   unsigned int data[MAX_BUFFER];            /* the data */
@@ -87,7 +88,7 @@ struct lams_set {
   int channel;
 };
 
-struct LamsData 
+struct LamsData
 {
   int data[MAX_BUFFER];
   int msec;
