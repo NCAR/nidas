@@ -1,5 +1,6 @@
+#define PROC        // activate a thread to process the data
 //#define FAKE        // activate a thread to generate fake data
-//#define IRIGLESS    // run without the IRIG card
+#define IRIGLESS    // run without the IRIG card
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -128,21 +129,28 @@ static char * createFifo(char inName[], int chan)
    return devName;
 }
 
-/* -- PROCESS DATA THREAD --------------------------------------------- */
 unsigned long lidar_data[MAX_BUFFER];
+
+#ifdef PROC
+/* -- PROCESS DATA THREAD --------------------------------------------- */
 
 rtl_sem_t sample_sem;
 static rtl_pthread_t procThread = 0;
 
 static void* proc_thread(void * chan)
 {
+   int nf=0, nc=0, glyph=0;
    struct rtl_timespec timeout; // semaphore timeout in nanoseconds
-   unsigned long nsec_deltat = 2800; // 2.8 ms
+   unsigned long nsec_deltat = 1000000000; // 2.8 ms
    unsigned int lams_flags, dump, count, n, num_arrays = 0;
-   struct lamsPort* lams;
+   struct lamsPort* lams = 0;
 
    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
+// return 0; // DEBUG bail out!
+   timeout.tv_sec = 0;
+   timeout.tv_nsec = 0;
 
+   DSMLOG_DEBUG("while (1)\n");
    while (1)
    {
       timeout.tv_nsec += nsec_deltat;
@@ -150,46 +158,60 @@ static void* proc_thread(void * chan)
          timeout.tv_sec++;
          timeout.tv_nsec -= NSECS_PER_SEC;
       }
+//    glyph += 1; if(glyph == 4) glyph = 0;
+//    DSMLOG_DEBUG("%d wait for the dsm_irq_handler to signal us\n", glyph);
       // wait for the dsm_irq_handler to signal us
       if (rtl_sem_timedwait(&sample_sem, &timeout) < 0) {
 
          // timed out... flush the hardware data FIFO
          lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
+         nf = 0;
          while (! (lams_flags & FIFO_EMPTY) ) {
+            nf++;
             dump       = readw(LAMS_BASE + DATA_OFFSET);
             lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
          }
+         glyph += 1; if(glyph == 4) glyph = 0;
+         DSMLOG_DEBUG("%d timed out... lams_flags: 0x%04x flushed: %d\n", glyph, lams_flags, nf);
       } else {
+//       if (++nc == 5) {
+//          if(++glyph == 4) glyph = 0;
+//          DSMLOG_DEBUG("%d caught semaphore!\n", glyph);
+//          nc = 0;
+//       }
          if (++num_arrays == NUM_ARRAYS) {
             n = 0;
             for(count = 0; count <= 255; count++) {
-               lams->data[count] = (unsigned int) (lidar_data[count] / NUM_ARRAYS);
+//               lams->data[count] = (unsigned int) (lidar_data[count] / NUM_ARRAYS);
+               lams->data[count] = lidar_data[count];
                lidar_data[count] = 0;
                n++;
             }
             num_arrays = 0;
+#ifndef IRIGLESS
             lams->timetag = GET_MSEC_CLOCK;
-            rtl_write(fd_lams_data[0], &lams, sizeof(lams));
-            DSMLOG_DEBUG("time: %d flushed %4d words\n", lams->timetag, n);
+#endif // IRIGLESS
+//          rtl_write(fd_lams_data[0], &lams, sizeof(lams));
+//          DSMLOG_DEBUG("time: %d flushed %4d words\n", lams->timetag, n);
          }
       }
    }
 }
+#endif // PROC
 
 /************************************************************************/
 // the sensor gathers 512 words of spectral data at the rate of 38900 spectra
 // every 1/10th of a sec.
 // The sensor's processor averages 256 wspectra
 /* -- IRQ HANDLER ----------------------------------------------------- */
-static unsigned int dsm_irq_handler(unsigned char chn,
-                                    struct lamsPort* lams)
+static unsigned int dsm_irq_handler(unsigned char chn )
+//                                    struct lamsPort* lams)
 {
    static char glyph = 0;
-   unsigned int dump, n, i;
+   unsigned int dump, n;
    static unsigned n5 = 0;
    unsigned int lams_flags;
    unsigned int count = 0;
-   static   int num_arrays = 0;
 
    // flush the hardware data FIFO
 // while (readw(LAMS_BASE + FLAGS_OFFSET) == 0x6);
@@ -224,12 +246,13 @@ static unsigned int dsm_irq_handler(unsigned char chn,
    if (lidar_data[0] != LAMS_PATTERN) return 1;
    if (lams_flags & FIFO_EMPTY) return 1;
 */
+/*
    for (count = 0; count <= 255; count++) {
       lidar_data[count] += (unsigned long) readw(LAMS_BASE + DATA_OFFSET);
       lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
       if (lams_flags & FIFO_EMPTY ) return 0;
    }
-   rtl_sem_post(&sample_sem);
+*/
 /*
    if (++num_arrays == NUM_ARRAYS) {
       for(count = 0; count <= 255; count++){
@@ -239,21 +262,26 @@ static unsigned int dsm_irq_handler(unsigned char chn,
       num_arrays = 0;
    }
 */
+
    n5 += 1;
    n = 0;
-// lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
+   dump = 0;
+   lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
    while (! (lams_flags & FIFO_EMPTY) ) {
       dump       = readw(LAMS_BASE + DATA_OFFSET);
       lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
       n++;
    }
-   if (n != 256) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
+//   if (n != 512) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
    if (n5 == 1024){
-      DSMLOG_DEBUG("flushed %4d words, data = %4x, glyph = %d\n", n, dump, glyph);
+      DSMLOG_DEBUG("flushed %4d words, data = %x, glyph = %d\n", n, dump, glyph);
       n5 = 0;
       glyph += 1;
       if(glyph == 4) glyph = 0;
    }
+#ifdef PROC
+   rtl_sem_post(&sample_sem);
+#endif // PROC
 /*
 #ifndef IRIGLESS
    lams->timetag = GET_MSEC_CLOCK;
@@ -274,9 +302,9 @@ unsigned int lams_irq_handler(unsigned int irq,
    int retval = 0;
 
    irqBusy = 1;
-   rtl_spin_lock(&lams->lock);
-   retval = dsm_irq_handler(irq,lams);
-   rtl_spin_unlock(&lams->lock);
+// rtl_spin_lock(&lams->lock);
+   retval = dsm_irq_handler(irq); //,lams);
+// rtl_spin_unlock(&lams->lock);
    irqBusy = 0;
 
    if (retval) return retval;
@@ -403,6 +431,17 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
             n++;
          }
 //       DSMLOG_DEBUG("again the hardware data FIFO is flushed\n");
+
+#ifdef PROC
+         // create a process thread
+         DSMLOG_DEBUG("create a process thread\n");
+         rtl_sem_init(&sample_sem,0,0);
+         if (rtl_pthread_create( &procThread, NULL,
+                                 proc_thread, (void *)0)) {
+            DSMLOG_ERR("rtl_pthread_create failure: %s\n", rtl_strerror(rtl_errno));
+            return -convert_rtl_errno(rtl_errno);
+         }
+#endif // PROC
          break;
 
       default:
@@ -428,6 +467,7 @@ void cleanup_module (void)
    char devstr[30];
    int  chn;
 
+#ifdef PROC
    DSMLOG_DEBUG("delete the process thread");
    rtl_sem_destroy(&sample_sem);
    if (procThread) {
@@ -435,6 +475,7 @@ void cleanup_module (void)
          DSMLOG_ERR("rtl_pthread_kill failure: %s\n", rtl_strerror(rtl_errno));
       rtl_pthread_join( procThread, NULL );
    }
+#endif // PROC
 #ifdef FAKE
    // stop the fake thread
 #ifdef IRIGLESS
@@ -530,15 +571,6 @@ int init_module (void)
       return -RTL_EBUSY;
    }
    requested_region = 1;
-
-   // DEBUG create an irig callback to generate fake data
-   DSMLOG_DEBUG("create a process thread");
-   rtl_sem_init(&sample_sem,0,0);
-   if (rtl_pthread_create( &procThread, NULL,
-                           proc_thread, (void *)0)) {
-      DSMLOG_ERR("rtl_pthread_create failure: %s\n", rtl_strerror(rtl_errno));
-      return -convert_rtl_errno(rtl_errno);
-   }
 #ifdef FAKE
    // DEBUG create an irig callback to generate fake data
 #ifdef IRIGLESS

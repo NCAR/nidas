@@ -63,7 +63,7 @@ enum boardTypes { BOARD_LAMS = 1, BOARD_UNKNOWN };
 typedef unsigned long dsm_sample_timetag_t;
 struct lamsPort {
   dsm_sample_timetag_t timetag; /* timetag of sample */
-  unsigned int data[MAX_BUFFER];            /* the data */
+  unsigned long data[MAX_BUFFER];            /* the data */
   rtl_spinlock_t lock;
 };
 
