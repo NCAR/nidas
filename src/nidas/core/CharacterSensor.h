@@ -51,7 +51,7 @@ public:
     void addSampleTag(SampleTag* var)
     	throw(nidas::util::InvalidParameterException);
 
-  /**
+    /**
      * The messageSeparator is the string of bytes that sensor
      * generates to separate messages.
       */
