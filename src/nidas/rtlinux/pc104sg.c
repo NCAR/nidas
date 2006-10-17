@@ -1154,7 +1154,7 @@ static void *pc104sg_100hz_thread (void *param)
       /* perform 25Hz processing... */
       doCallbacklist(callbacklists + IRIG_25_HZ);
 
-     _5:     if ((hz100_cnt %   5)) goto cleanup_pop;
+_5:   if ((hz100_cnt %   5)) goto cleanup_pop;
 
       /* perform 20Hz processing... */
       doCallbacklist(callbacklists + IRIG_20_HZ);
@@ -1169,7 +1169,7 @@ static void *pc104sg_100hz_thread (void *param)
       /* perform  5Hz processing... */
       doCallbacklist(callbacklists + IRIG_5_HZ);
 
-     _25:    if ((hz100_cnt %  25)) goto cleanup_pop;
+_25:  if ((hz100_cnt %  25)) goto cleanup_pop;
 
       /* perform  4Hz processing... */
       doCallbacklist(callbacklists + IRIG_4_HZ);
@@ -1201,7 +1201,7 @@ static void *pc104sg_100hz_thread (void *param)
 //    DSMLOG_DEBUG("JDW tstart: %12u ns\n", tstart);
 //    DSMLOG_DEBUG("JDW  tduty: %12u ns    tduty_max: %u ns\n", tduty, tduty_max);
 
-     cleanup_pop:
+cleanup_pop:
       rtl_pthread_cleanup_pop(1);
    }
 #ifdef DEBUG
