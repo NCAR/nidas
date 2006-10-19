@@ -581,9 +581,9 @@ bool Garmin::enableAllMessages() throw(n_u::IOException)
     for (int i = 0; i < 2; i++) {
 	try {
 	    string instr = readMessage();
+	    cout << substCRNL(instr) << endl;
 	    // garmin echoed back string
 	    if (instr == outstr) return true;
-	    cout << substCRNL(instr) << endl;
 	}
 	catch(const n_u::IOTimeoutException& e) {
 	    cerr << "ERROR: enableAllMessages: " << e.what() << endl;

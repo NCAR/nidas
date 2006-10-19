@@ -27,49 +27,49 @@ myenv = conf.Finish()
 ##     """))
 
 myenv.AppendUnique(LIBS = Split("""
-      nidas
-      nidas_dynld
-      xerces-c
-      pthread
-      dl
-      XmlRpc
+    nidas
+    nidas_dynld
+    xerces-c
+    pthread
+    dl
+    XmlRpc
     """))
 
 # ck_lams.cc
 apps = Split("""
-  ck_lams.cc
-  ck_arinc.cc
-  nidsmerge.cc
-  dsm_server.cc
-  dsm.cc
-  statsproc.cc
-  serial_test.cc
-  sensor_sim.cc
-  ck_serial.cc
-  ck_config.cc
-  ck_goes.cc
-  ck_selector.cc
-  sample_test.cc
-  data_stats.cc
-  data_dump.cc
-  sync_dump.cc
-  sync_server.cc
-  status_listener.cc
-  rserial.cc
-  psi9116_sim.cc
-  cat_nids.cc
-  ck_a2d.cc
-  gps_nmea_sysclock.cc
-  garmin.cc
-  ck_xml.cc
-  isff/pdecode.cc
-  tee_tty.cc
+    ck_lams.cc
+    ck_arinc.cc
+    nidsmerge.cc
+    dsm_server.cc
+    dsm.cc
+    statsproc.cc
+    serial_test.cc
+    sensor_sim.cc
+    ck_serial.cc
+    ck_config.cc
+    ck_goes.cc
+    ck_selector.cc
+    sample_test.cc
+    data_stats.cc
+    data_dump.cc
+    sync_dump.cc
+    sync_server.cc
+    status_listener.cc
+    rserial.cc
+    psi9116_sim.cc
+    cat_nids.cc
+    ck_a2d.cc
+    gps_nmea_sysclock.cc
+    garmin.cc
+    ck_xml.cc
+    tee_tty.cc
+    isff/pdecode.cc
+    isff/prep.cc
 """)
-#   prep.cc
 
 nodes = []
 for i in apps:
-  nodes += myenv.Program( i )
+    nodes += myenv.Program( i )
 
 # suppress linking against nidas libraries
 nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
