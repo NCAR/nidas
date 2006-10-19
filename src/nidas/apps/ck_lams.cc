@@ -177,7 +177,7 @@ int main(int argc, char** argv)
     {
       len += rlen = read(fd_lams_data, &databuf, MAX_BUFFER);
       status = write(fdLamsDatafile, &databuf, rlen); 
-      err("spectra recv'd len=%d rlen=%d", len, rlen);
+//    err("spectra recv'd len=%d rlen=%d", len, rlen);
       if (status < 0)
       {
         err("failed to write... errno: %d", errno);

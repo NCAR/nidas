@@ -1,6 +1,3 @@
-#define PROC        // activate a thread to process the data
-//#define FAKE        // activate a thread to generate fake data
-#define IRIGLESS    // run without the IRIG card
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -14,9 +11,6 @@
     $HeadURL: http://orion/svn/hiaper/ads3/dsm/class/RTL_DSMSensor.h $
 
     RTLinux LAMS driver for the ADS3 DSM.
-
-    Much of this was taken from linux serial driver:
-        linux/drivers/char/serial.c
 
  ********************************************************************
 */
@@ -32,7 +26,6 @@
 #include <rtl_time.h>
 #include <rtl_posixio.h>
 #include <rtl_stdio.h>
-#include <linux/init.h>          // module_init, module_exit
 #include <linux/ioport.h>
 
 #include <nidas/rtlinux/dsmlog.h>
@@ -48,68 +41,36 @@
 
 RTLINUX_MODULE(lams);
 
-// Number of boards this module can support a one time 
-#define MAX_NUM_BOARDS 3
-
-// Maximum number of ports on a board 
-#define MAX_NUM_PORTS_PER_BOARD 1
-
-// Maximum number of ports on a board 
-#define MAX_NUM_PORTS_TOTAL 3
-
-/* how many lams cards are we supporting. Determined at init time
- * by checking known board types.
- */
-static int numboards = 1;
-
-// type of board, from dsm_serial.h.  BOARD_UNKNOWN means board doesn't exist 
-//static int brdtype[MAX_NUM_BOARDS] = { BOARD__LAMS, BOARD_UNKNOWN};
-static int brdtype = 1;
-
-// IRQs of each port 
-static int irq_param[MAX_NUM_BOARDS] = { 4,0,0 };
-MODULE_PARM(irq_param, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
-MODULE_PARM_DESC(irq_param, "IRQ number");
-
-MODULE_PARM(brdtype, "1-" __MODULE_STRING(MAX_NUM_BOARDS) "i");
-MODULE_PARM_DESC(brdtype, "type of each board, see lams.h");
-
-MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
+MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("LAMS ISA driver for RTLinux");
 
-static struct lamsBoard *boardInfo = 0;
+// module parameters (can be passed in via command line)
+static int irq = 4;
+static int ioport = 0x220;
 
-enum flag {TRUE, FALSE};
+MODULE_PARM(irq, "i");
+MODULE_PARM_DESC(irq, "ISA irq setting (default 4)");
 
+MODULE_PARM(ioport, "i");
+MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
+
+volatile unsigned long baseAddr;
 static const char* devprefix = "lams";
-static char * fifoName;
+static struct ioctlHandle* ioctlHandle = 0;
+static rtl_sem_t threadSem;
+static rtl_pthread_t lamsThread = 0;
+static int fd_lams_data = 0;
+static struct lamsPort lams;
 
-// Define IOCTLs
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
    { LAMS_SET,       _IOC_SIZE(LAMS_SET)      },
 };
-
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
-unsigned int airspeed;
-static int lams_channels;
-static struct ioctlHandle* ioctlhandle = 0;
-static char requested_region = 0;
 
-void cleanup_module (void);
-
-// Set the base address of the LAMS card 
-volatile unsigned long phys_membase;
-volatile unsigned long baseadd = LAMS_BASE;
-MODULE_PARM(baseadd, "1l");
-MODULE_PARM_DESC(baseadd, "ISA memory base");
-
-// File pointers to data and command FIFOs 
-static int fd_lams_data[N_CHANNELS];
-
-/************************************************************************/
-/* -- CREATE FIFO NAME ------------------------------------------------ */
+// -- UTIL ---------------------------------------------------------------------
+// TODO - share this with other modules
 static char * createFifo(char inName[], int chan)
 {
    char * devName;
@@ -128,254 +89,160 @@ static char * createFifo(char inName[], int chan)
    }
    return devName;
 }
-
-unsigned long lidar_data[MAX_BUFFER];
-
-#ifdef PROC
-/* -- PROCESS DATA THREAD --------------------------------------------- */
-
-rtl_sem_t sample_sem;
-static rtl_pthread_t procThread = 0;
-
-static void* proc_thread(void * chan)
+#if 0
+void flush_it ()
 {
-   int nf=0, nc=0, glyph=0;
+   // flush the hardware data FIFO
+   static int nGlyph;
+   int n5=0, n4=0, n3=0, n2=0, n1=0, n0=0, nBad=0, nWhile=0;
+   unsigned int data, flags;
+
+   data  = readw(baseAddr + DATA_OFFSET);
+   flags = readw(baseAddr + FLAGS_OFFSET);
+      DSMLOG_DEBUG("data: 0x%04x flags: 0x%04x\n", data, flags);
+   while (flags != FIFO_EMPTY) {
+      data  = readw(baseAddr + DATA_OFFSET);
+      flags = readw(baseAddr + FLAGS_OFFSET);
+//    rtl_usleep(10);
+      nWhile++;
+      switch (flags) {
+      case 5: // FIFO_FULL:
+         n5++;
+         break;
+      case 4: // FIFO_FULL:
+         n4++;
+         break;
+      case 3: // FIFO_EMPTY:
+         n3++;
+         break;
+      case 2: // FIFO_EMPTY:
+         n2++;
+         break;
+      case 1: // FIFO_EMPTY:
+         n1++;
+         break;
+      case 0: // FIFO_EMPTY:
+         n0++;
+         break;
+      default:
+         nBad++;
+         break;
+      }
+   }
+      if (++nGlyph == 4) nGlyph = 0;
+      DSMLOG_DEBUG("(%d) n5:%d n4:%d n3:%d n2:%d n1: %d n0: %d nBad: %d nWhile: %d\n",
+                   nGlyph, n5, n4, n3, n2, n1, n0, nBad, nWhile);
+}
+#endif // 0
+// -- THREAD -------------------------------------------------------------------
+static void *lams_thread (void * chan)
+{
    struct rtl_timespec timeout; // semaphore timeout in nanoseconds
-   unsigned long nsec_deltat = 1000000000; // 2.8 ms
-   unsigned int lams_flags, dump, count, n, num_arrays = 0;
-   struct lamsPort* lams = 0;
 
    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
-// return 0; // DEBUG bail out!
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-   DSMLOG_DEBUG("while (1)\n");
-   while (1)
-   {
-      timeout.tv_nsec += nsec_deltat;
+   for (;;) {
+      timeout.tv_nsec += 300 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
          timeout.tv_sec++;
          timeout.tv_nsec -= NSECS_PER_SEC;
       }
-//    glyph += 1; if(glyph == 4) glyph = 0;
-//    DSMLOG_DEBUG("%d wait for the dsm_irq_handler to signal us\n", glyph);
-      // wait for the dsm_irq_handler to signal us
-      if (rtl_sem_timedwait(&sample_sem, &timeout) < 0) {
-
-         // timed out... flush the hardware data FIFO
-         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-         nf = 0;
-         while (! (lams_flags & FIFO_EMPTY) ) {
-            nf++;
-            dump       = readw(LAMS_BASE + DATA_OFFSET);
-            lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-         }
-         glyph += 1; if(glyph == 4) glyph = 0;
-         DSMLOG_DEBUG("%d timed out... lams_flags: 0x%04x flushed: %d\n", glyph, lams_flags, nf);
+      if (rtl_sem_timedwait(&threadSem, &timeout) < 0) {
+         DSMLOG_DEBUG("thread timed out!\n");
+         // timed out!  flush the hardware FIFO
+         while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY )
+            readw(baseAddr + DATA_OFFSET);
       } else {
-//       if (++nc == 5) {
-//          if(++glyph == 4) glyph = 0;
-//          DSMLOG_DEBUG("%d caught semaphore!\n", glyph);
-//          nc = 0;
-//       }
-         if (++num_arrays == NUM_ARRAYS) {
-            n = 0;
-            for(count = 0; count <= 255; count++) {
-//               lams->data[count] = (unsigned int) (lidar_data[count] / NUM_ARRAYS);
-               lams->data[count] = lidar_data[count];
-               lidar_data[count] = 0;
-               n++;
-            }
-            num_arrays = 0;
-#ifndef IRIGLESS
-            lams->timetag = GET_MSEC_CLOCK;
-#endif // IRIGLESS
-//          rtl_write(fd_lams_data[0], &lams, sizeof(lams));
-//          DSMLOG_DEBUG("time: %d flushed %4d words\n", lams->timetag, n);
-         }
+         lams.timetag = GET_MSEC_CLOCK;
+         if (fd_lams_data)
+            rtl_write(fd_lams_data, &lams, sizeof(lams));
       }
+      if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
 }
-#endif // PROC
-
-/************************************************************************/
-// the sensor gathers 512 words of spectral data at the rate of 38900 spectra
-// every 1/10th of a sec.
-// The sensor's processor averages 256 wspectra
-/* -- IRQ HANDLER ----------------------------------------------------- */
-static unsigned int dsm_irq_handler(unsigned char chn )
-//                                    struct lamsPort* lams)
-{
-   static char glyph = 0;
-   unsigned int dump, n;
-   static unsigned n5 = 0;
-   unsigned int lams_flags;
-   unsigned int count = 0;
-
-   // flush the hardware data FIFO
-// while (readw(LAMS_BASE + FLAGS_OFFSET) == 0x6);
-// glyph += 1;
 /*
-   n5 += 1;
-   n = 0;
-   lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-   while (! (lams_flags & FIFO_EMPTY) ) {
-      dump       = readw(LAMS_BASE + DATA_OFFSET);
-      lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-//    if (dump == LAMS_PATTERN) n5++;
-      n++;
-   }
-   if (n != 512) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
-   if (n5 == 1024){
-      DSMLOG_DEBUG("flushed %4d words, data = %4x, glyph = %d\n", n, dump, glyph);
-      n5 = 0;
-      glyph += 1;
-      if(glyph == 4) glyph = 0;
-   }
-// if (glyph==4) glyph=0;
+   unsigned int flags = 0, data = 0;
+   static int glyph = 0;
 
-   // discard all data up to the pattern
-   while (1) {
-      lidar_data[0] = readw(LAMS_BASE + DATA_OFFSET);
-      if (lidar_data[0] == LAMS_PATTERN) break;
-      lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-      if (lams_flags & FIFO_EMPTY) break;
-//    DSMLOG_DEBUG("data=0x%x\n",lams.data[0]);
-   }
-   if (lidar_data[0] != LAMS_PATTERN) return 1;
-   if (lams_flags & FIFO_EMPTY) return 1;
-*/
-/*
-   for (count = 0; count <= 255; count++) {
-      lidar_data[count] += (unsigned long) readw(LAMS_BASE + DATA_OFFSET);
-      lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-      if (lams_flags & FIFO_EMPTY ) return 0;
-   }
-*/
-/*
-   if (++num_arrays == NUM_ARRAYS) {
-      for(count = 0; count <= 255; count++){
-         lams->data[count] = (unsigned int) (lidar_data[count] / NUM_ARRAYS);
-         lidar_data[count] = 0;
-      }
-      num_arrays = 0;
-   }
-*/
-
-   n5 += 1;
-   n = 0;
-   dump = 0;
-   lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-   while (! (lams_flags & FIFO_EMPTY) ) {
-      dump       = readw(LAMS_BASE + DATA_OFFSET);
-      lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-      n++;
-   }
-//   if (n != 512) DSMLOG_DEBUG("flushed %4d words, data = %d\n", n, dump);
-   if (n5 == 1024){
-      DSMLOG_DEBUG("flushed %4d words, data = %x, glyph = %d\n", n, dump, glyph);
-      n5 = 0;
-      glyph += 1;
-      if(glyph == 4) glyph = 0;
-   }
-#ifdef PROC
-   rtl_sem_post(&sample_sem);
-#endif // PROC
-/*
-#ifndef IRIGLESS
-   lams->timetag = GET_MSEC_CLOCK;
-#endif
-   rtl_write(fd_lams_data[chn], &lams, sizeof(lams));
-*/
-   return 0;
-}
-
-static char irqBusy = 0;
-
-/************************************************************************/
-/* -- IRQ HANDLER ----------------------------------------------------- */
-unsigned int lams_irq_handler(unsigned int irq,
-                              void* callbackptr, struct rtl_frame *regs)
-{
-   struct lamsPort* lams = 0;
-   int retval = 0;
-
-   irqBusy = 1;
-// rtl_spin_lock(&lams->lock);
-   retval = dsm_irq_handler(irq); //,lams);
-// rtl_spin_unlock(&lams->lock);
-   irqBusy = 0;
-
-   if (retval) return retval;
-   return 0;
-}
-#ifdef FAKE
-/* -- LAMS DEBUG CALLBACK --------------------------------------------- */
-#ifdef IRIGLESS
-static rtl_pthread_t fakeThread = 0;
-#endif
-static void* fake_thread(void * chan)
-{
-   unsigned int lams_flags, dump, n, n5;
-   static char glyph = 0;
-
-#ifdef IRIGLESS
-   while (1) {
+   // this always shows flags: 0x0006
+   for (;;) {
       rtl_usleep(1000000);
-#endif
-      lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-      dump       = readw(LAMS_BASE + DATA_OFFSET);
-      DSMLOG_DEBUG("%d lams_flags = 0x%04x   dump = 0x%04x\n", glyph++, lams_flags, dump);
-      if (glyph==4) glyph=0;
-/*
-//    if (lams_flags != 0x6)
-//      DSMLOG_DEBUG("%d lams_flags = 0x%x\n", glyph++, lams_flags);
-      if (irqBusy) return;
+      if (rtl_errno == RTL_EINTR) break; // thread interrupted
 
-      // flush the hardware data FIFO
-      n  = 0;
-      n5 = 0;
-//    while ( (lams_flags != FIFO_EMPTY) ) {
-         while ( !(lams_flags & FIFO_EMPTY) ) {
-            lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-            dump       = readw(LAMS_BASE + DATA_OFFSET);
-            n++;
-            if (dump == 0x5555) n5++;
-         }
-//    }
-      DSMLOG_DEBUG("%d lams_flags=0x%04x flushed %4d words n5=%d\n", glyph, lams_flags, n, n5);
-*/
-#ifdef IRIGLESS
+      flush_it();
+//    flags = readw(baseAddr + FLAGS_OFFSET);
+//    data  = readw(baseAddr + DATA_OFFSET);
+//    DSMLOG_DEBUG("(%d) flags: 0x%04x   data: 0x%04x\n", glyph, flags, data);
+//    if (++glyph == 4) glyph=0;
    }
-#endif
-}
-#endif // FAKE
+   // very tight loop...
+   for (;;) {
+      rtl_usleep(10000);
+      if (rtl_errno == RTL_EINTR) break; // thread interrupted
 
-/************************************************************************/
-/* -- IOCTL CALLBACK -------------------------------------------------- */
-/*
- * Function that is called on receipt of ioctl request over the
- * ioctl FIFO.
- */
-static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
+      if (0x5 != (flags = readw(baseAddr + FLAGS_OFFSET))) {
+         DSMLOG_DEBUG("(%d) bad flag: 0x%04x\n", glyph, flags);
+         if (++glyph == 4) glyph=0;
+      }
+   }
+*/
+// -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
+static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
+                              struct rtl_frame *regs)
+{
+   static unsigned long sum[MAX_BUFFER];
+   static int nAvg;
+// static int nTattle, nGlyph;
+   int n, flags;
+
+   for (n=0; n<MAX_BUFFER; n++)
+      sum[n] += readw(baseAddr + DATA_OFFSET);
+   for (n=0; n<MAX_BUFFER; n++)
+      readw(baseAddr + DATA_OFFSET);
+
+   if (++nAvg == N_AVG) {
+      for (n=0; n<MAX_BUFFER; n++) {
+         lams.data[n] = sum[n] / N_AVG;
+         sum[n] = 0;
+      }
+      nAvg = 0;
+      rtl_sem_post( &threadSem );
+   }
+   n = 0;
+   while ( (flags = readw(baseAddr + FLAGS_OFFSET)) != FIFO_EMPTY ) {
+      readw(baseAddr + DATA_OFFSET);
+//    n++;
+   }
+// if (++nTattle == 1024) {
+//    nTattle = 0;
+//    if (++nGlyph == 4) nGlyph = 0;
+//    DSMLOG_DEBUG("(%d) nExtra: %d flags: %d sum: 0x%04x lams.data: 0x%04x\n",
+//                 nGlyph, n, flags, sum[0], lams.data[0]);
+// }
+   return 0;
+}
+// -- IOCTL --------------------------------------------------------------------
+static int ioctlCallback(int cmd, int board, int chn,
+                         void *buf, rtl_size_t len)
 {
    int ret = len;
-   char devstr[30];
+   unsigned int airspeed, lams_channels;
    struct lams_set* lams_ptr;
-   unsigned int dump, lams_flags, n;
+   char devstr[30];
 
    switch (cmd)
    {
-      case GET_NUM_PORTS:         /* user get */
+      case GET_NUM_PORTS:
          DSMLOG_DEBUG("GET_NUM_PORTS\n");
          *(int *) buf = N_CHANNELS;
          break;
 
-      case AIR_SPEED:              // send the air speed to the board
+      case AIR_SPEED:
          DSMLOG_DEBUG("AIR_SPEED\n");
          airspeed = *(unsigned int*) buf;
-//       writew(airspeed, LAMS_BASE + AIR_SPEED_OFFSET);
+//       writew(airspeed, baseAddr + AIR_SPEED_OFFSET);
          break;
 
       case LAMS_SET:
@@ -384,64 +251,14 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
          lams_channels = lams_ptr->channel;
          DSMLOG_DEBUG("LAMS_SET lams_channels=%d\n", lams_channels);
 
-         // open the channels data FIFO 
-         for (n=0; n < lams_channels; n++)
-         {
-            sprintf( devstr, "%s/lams_in_%d", getDevDir(), n);
-            if ((fd_lams_data[n] =
-                 rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY )) < 0) {
+         // open the channel's data FIFO
+         sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
+         if ((fd_lams_data =
+            rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY )) < 0) {
                DSMLOG_ERR("error: open %s: %s\n", devstr,
                           rtl_strerror(rtl_errno));
-               return -convert_rtl_errno(rtl_errno);
-            }
-            DSMLOG_DEBUG("LAMS_SET fd_lams_data[%d]=0x%x '%s'\n", n,
-                         fd_lams_data[n], devstr);
-         }
-         // flush the hardware data FIFO
-         DSMLOG_DEBUG("flushing the hardware data FIFO\n");
-         for  (n=0; n<512; n++)
-            readw(LAMS_BASE + DATA_OFFSET);
-         n=0;
-         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-         while (! (lams_flags & FIFO_EMPTY) ) {
-            dump =       readw(LAMS_BASE + DATA_OFFSET);
-            lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-            n++;
-         }
-//       DSMLOG_DEBUG("the hardware data FIFO is flushed\n");
-#ifndef FAKE
-         // activate interupt service routine
-//       DSMLOG_DEBUG("activate interupt service routine.  irq=%d chn=%d\n", boardInfo[chn].irq, chn);
-         if ((rtl_request_isa_irq(boardInfo[chn].irq,lams_irq_handler, boardInfo)) < 0) {
-            rtl_free_isa_irq(boardInfo[chn].irq);
-//          DSMLOG_DEBUG("rtl_free_isa_irq(%d) ok\n", boardInfo[chn].irq);
-         }
-#else
-//       DSMLOG_DEBUG("DON'T activate interupt service routine.\n");
-#endif // FAKE
-         // flush the hardware data FIFO
-//       DSMLOG_DEBUG("flushing the hardware data FIFO again\n");
-         for  (n=0; n<512; n++)
-            readw(LAMS_BASE + DATA_OFFSET);
-         n=0;
-         lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-         while (! (lams_flags & FIFO_EMPTY) ) {
-            dump =       readw(LAMS_BASE + DATA_OFFSET);
-            lams_flags = readw(LAMS_BASE + FLAGS_OFFSET);
-            n++;
-         }
-//       DSMLOG_DEBUG("again the hardware data FIFO is flushed\n");
-
-#ifdef PROC
-         // create a process thread
-         DSMLOG_DEBUG("create a process thread\n");
-         rtl_sem_init(&sample_sem,0,0);
-         if (rtl_pthread_create( &procThread, NULL,
-                                 proc_thread, (void *)0)) {
-            DSMLOG_ERR("rtl_pthread_create failure: %s\n", rtl_strerror(rtl_errno));
             return -convert_rtl_errno(rtl_errno);
          }
-#endif // PROC
          break;
 
       default:
@@ -450,150 +267,75 @@ static int ioctlCallback(int cmd, int board, int chn, void *buf, rtl_size_t len)
    }
    return ret;
 }
-/*
-static struct rtl_file_operations rtl_dsm_ser_fops = {
-   read:                 lams_read,
-   write:                lams_write,
-   ioctl:                ioctlCallback,
-   open:                 lams_open,
-   release:              lams_release,
-   install_poll_handler: lams_poll_handler,
-};
-*/
-/************************************************************************/
-/* -- MODULE ---------------------------------------------------------- */
+// -- CLEANUP MODULE -----------------------------------------------------------
 void cleanup_module (void)
 {
+   DSMLOG_DEBUG("start\n");
+
+   // close the RTL data fifo
+   DSMLOG_DEBUG("closing fd_lams_data: %x\n", fd_lams_data);
+   if (fd_lams_data)
+      rtl_close( fd_lams_data );
+
+   // destroy the RTL data fifo
    char devstr[30];
-   int  chn;
+   sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
+   rtl_unlink( devstr );
 
-#ifdef PROC
-   DSMLOG_DEBUG("delete the process thread");
-   rtl_sem_destroy(&sample_sem);
-   if (procThread) {
-      if (rtl_pthread_kill( procThread,SIGTERM ) < 0)
-         DSMLOG_ERR("rtl_pthread_kill failure: %s\n", rtl_strerror(rtl_errno));
-      rtl_pthread_join( procThread, NULL );
-   }
-#endif // PROC
-#ifdef FAKE
-   // stop the fake thread
-#ifdef IRIGLESS
-   DSMLOG_DEBUG("delete the irig-less thread that generates fake data");
-   if (fakeThread) {
-      if (rtl_pthread_kill( fakeThread,SIGTERM ) < 0)
-         DSMLOG_ERR("rtl_pthread_kill failure: %s\n", rtl_strerror(rtl_errno));
-      rtl_pthread_join( fakeThread, NULL );
-   }
-#else
-   DSMLOG_DEBUG("delete the irig callback that generates fake data");
-   unregister_irig_callback(&fake_thread, IRIG_1_HZ, 0);
-#endif // IRIGLESS
-#endif // FAKE
+   // undo what was done in reverse order upon cleanup
+   rtl_free_isa_irq(irq);
+   rtl_pthread_kill(lamsThread, SIGTERM);
+   rtl_pthread_join(lamsThread, NULL);
+   rtl_sem_destroy(&threadSem);
+   release_region(baseAddr, REGION_SIZE);
+   closeIoctlFIFO(ioctlHandle);
 
-   // close and unlink eack data port... 
-   for(chn=0; chn < lams_channels; chn++)
-   {
-      if (fd_lams_data[chn]) {
-         rtl_close( fd_lams_data[chn] );
-         DSMLOG_DEBUG("closed fd_lams_data[%d]\n", chn);
-      }
-   }
-
-   // destroy the data fifos 
-   for (chn=0; chn<lams_channels; chn++)
-   {
-      sprintf( devstr, "%s/lams_in_%d", getDevDir(), chn);
-      rtl_unlink( devstr );
-   }
-   // Close my ioctl FIFO, deregister my lams_ioctl function 
-   if (ioctlhandle)
-      closeIoctlFIFO(ioctlhandle);
-
-   // Free up the ISA memory region 
-   release_region(baseadd, LAMS_REGION_SIZE);
-
-   DSMLOG_DEBUG("cleanup_module\n");
+   DSMLOG_DEBUG("done\n");
 }
-/* -- MODULE ---------------------------------------------------------- */
+// -- INIT MODULE --------------------------------------------------------------
 int init_module (void)
 {
-   int chn;
-   int error = -EINVAL;
-
-   // DSM_VERSION_STRING is found in dsm_version.h
-   DSMLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
+   baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
    DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
-   boardInfo = rtl_gpos_malloc( numboards * sizeof(struct lamsBoard) );
-   DSMLOG_NOTICE("boardInfo:      0x%x\n", boardInfo);
-   if (!boardInfo) return -RTL_EIO;
-
-   for (chn = 0; chn < numboards; chn++) {
-      boardInfo[chn].type = brdtype;
-      boardInfo[chn].addr = 0;
-      boardInfo[chn].irq = irq_param[chn];
-      boardInfo[chn].numports = 0;
-      boardInfo[chn].int_mask = 0;
-   }
-
-   // open up ioctl FIFO, register lams_ioctl function 
-   DSMLOG_NOTICE("devprefix:      %s\n", devprefix);
-   DSMLOG_NOTICE("ioctlCallback:  0x%x\n", ioctlCallback);
-   DSMLOG_NOTICE("BOARD_NUM:      %d\n", BOARD_NUM);
-   DSMLOG_NOTICE("nioctlcmds:     %d\n", nioctlcmds);
-   DSMLOG_NOTICE("ioctlcmds:      0x%x\n", ioctlcmds);
-
-   ioctlhandle = openIoctlFIFO(devprefix, BOARD_NUM, ioctlCallback,
+   // open up ioctl FIFO, register ioctl function
+   createFifo("_in_", BOARD_NUM);
+   ioctlHandle = openIoctlFIFO(devprefix, BOARD_NUM, ioctlCallback,
                                nioctlcmds, ioctlcmds);
-   DSMLOG_NOTICE("ioctlhandle:    0x%x\n", ioctlhandle);
-   if (!ioctlhandle) return -RTL_EIO;
+   if (!ioctlHandle) return -RTL_EIO;
 
-// for (chn=0; chn<N_CHANNELS; chn++)
-// {
-   chn = 0;
+   request_region(baseAddr, REGION_SIZE, "lams");
 
-   // create its output FIFO
-   fifoName = createFifo("_in_", BOARD_NUM);
-   DSMLOG_NOTICE("fifoName:       %s\n", fifoName);
-   if (fifoName == 0)
-   {
-      error = -convert_rtl_errno(rtl_errno);
-      goto err;
+   // initialize the semaphore to the thread
+   if ( rtl_sem_init( &threadSem, 1, 0) < 0) {
+      DSMLOG_ERR("rtl_sem_init failure: %s\n", rtl_strerror(rtl_errno));
+      goto rtl_sem_init_err;
    }
-// }
-   // reserve the ISA memory region
-   if (!request_region(baseadd, LAMS_REGION_SIZE, "lams"))
-   {
-      DSMLOG_DEBUG("%s: couldn't allocate I/O range %x - %x\n", __FILE__, baseadd,
-                   baseadd + LAMS_REGION_SIZE - 1);
-      cleanup_module();
-      return -RTL_EBUSY;
-   }
-   requested_region = 1;
-#ifdef FAKE
-   // DEBUG create an irig callback to generate fake data
-#ifdef IRIGLESS
-   DSMLOG_DEBUG("create an irig-less thread to generate fake data");
-   if (rtl_pthread_create( &fakeThread, NULL,
-                           fake_thread, (void *)0)) {
+   // create the thread to write data to the FIFO
+   if (rtl_pthread_create( &lamsThread, NULL,
+                           lams_thread, (void *)0)) {
       DSMLOG_ERR("rtl_pthread_create failure: %s\n", rtl_strerror(rtl_errno));
-      return -convert_rtl_errno(rtl_errno);
+      goto rtl_pthread_create_err;
    }
-#else
-   DSMLOG_DEBUG("create an irig callback to generate fake data");
-   register_irig_callback(&fake_thread, IRIG_1_HZ, 0);
-#endif
-#endif // FAKE
+   // activate interupt service routine
+   while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY ) // pre-enable-flush
+      readw(baseAddr + DATA_OFFSET);
+   if (rtl_request_isa_irq(irq, lams_isr, 0) < 0) {
+      DSMLOG_ERR("rtl_request_isa_irq failure: %s\n", rtl_strerror(rtl_errno));
+      goto rtl_request_isa_irq_err;
+   }
+   while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY ) // post-enable-flush
+      readw(baseAddr + DATA_OFFSET);
 
-   DSMLOG_DEBUG("complete.\n");
-   return 0; //success
+   DSMLOG_DEBUG("done\n");
+   return 0;
 
-  err:
-   release_region(baseadd, LAMS_REGION_SIZE);
-   if (ioctlhandle)
-      closeIoctlFIFO(ioctlhandle);
-   rtl_gpos_free(boardInfo);
-   boardInfo = 0;
-   return error;
+   // undo what was done in reverse order upon failure
+   rtl_request_isa_irq_err: rtl_free_isa_irq(irq);
+                            rtl_pthread_kill(lamsThread, SIGTERM);
+                            rtl_pthread_join(lamsThread, NULL);
+   rtl_pthread_create_err:  rtl_sem_destroy(&threadSem);
+   rtl_sem_init_err:        release_region(baseAddr, REGION_SIZE);
+                            closeIoctlFIFO(ioctlHandle);
+   return -convert_rtl_errno(rtl_errno);
 }
