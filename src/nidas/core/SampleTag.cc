@@ -258,18 +258,25 @@ string SampleTag::expandString(const string& input) const
 	lastpos = dollar;
 
 	string::size_type openparen = input.find('{',dollar);
-	if (openparen != dollar + 1) break;
+	string token;
 
-	string::size_type closeparen = input.find('}',openparen);
-	if (closeparen == string::npos) break;
-
-	string token = input.substr(openparen+1,closeparen-openparen-1);
+	if (openparen == dollar + 1) {
+	    string::size_type closeparen = input.find('}',openparen);
+	    if (closeparen == string::npos) break;
+	    token = input.substr(openparen+1,closeparen-openparen-1);
+	    lastpos = closeparen + 1;
+	}
+	else {
+	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
+	    if (endtok == string::npos) endtok = input.length();
+	    token = input.substr(dollar+1,endtok-dollar-1);
+	    lastpos = endtok;
+	}
 	if (token.length() > 0) {
 	    string val = getTokenValue(token);
 	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
 	    result.append(val);
 	}
-	lastpos = closeparen + 1;
     }
 
     result.append(input.substr(lastpos));

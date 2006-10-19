@@ -106,11 +106,16 @@ int DSMServer::main(int argc, char** argv) throw()
 	    char hostname[MAXHOSTNAMELEN];
 	    gethostname(hostname,sizeof(hostname));
 
-	    serverInstance = Project::getInstance()->findServer(hostname);
+	    list<DSMServer*> servers =
+	    	Project::getInstance()->findServers(hostname);
 
-	    if (!serverInstance)
+	    if (servers.size() == 0)
 	    	throw n_u::InvalidParameterException("project","server",
 			string("Can't find server entry for ") + hostname);
+	    if (servers.size() > 1)
+	    	throw n_u::InvalidParameterException("project","server",
+			string("Multiple servers for ") + hostname);
+	    serverInstance = servers.front();
 	}
 	catch (const n_u::Exception& e) {
 	    logger->log(LOG_ERR,e.what());

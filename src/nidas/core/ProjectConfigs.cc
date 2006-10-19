@@ -16,6 +16,7 @@
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/XDOM.h>
+#include <nidas/core/DSMEngine.h>
 
 #include <iostream>
 
@@ -38,7 +39,7 @@ ProjectConfigs::~ProjectConfigs()
 }
 
 void ProjectConfigs::parseXML(const std::string& xmlFileName)
-    throw(nidas::core::XMLException,
+    throw(XMLException,
 	 nidas::util::InvalidParameterException)
 {
     XMLParser parser;
@@ -78,10 +79,11 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& atname = attr.getName();
 	    const string& atval = attr.getValue();
 	    if (atname == "name") setName(atval);
+	    else if (atname == "xml") setXMLName(atval);
 	    else if (atname == "begin") {
 		n_u::UTime ut;
 		try {
-		    ut.parse(true,atval);
+		    ut.set(atval,true);
 		}
 		catch(const n_u::ParseException& e) {
 		    throw n_u::InvalidParameterException(atname,
@@ -92,7 +94,7 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (atname == "end") {
 		n_u::UTime ut;
 		try {
-		    ut.parse(true,atval);
+		    ut.set(atval,true);
 		}
 		catch(const n_u::ParseException& e) {
 		    throw n_u::InvalidParameterException(atname,
@@ -109,8 +111,43 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
     list<const ProjectConfig*>::const_iterator ci = constConfigs.begin();
     for ( ; ci != constConfigs.end(); ++ci) {
         const ProjectConfig* cfg = *ci;
+#ifdef DEBUG
+        cerr << "ut=" << ut.format(true,"%c") << endl;
+        cerr << "begin=" << cfg->getBeginTime().format(true,"%c") << endl;
+        cerr << "end=" << cfg->getEndTime().format(true,"%c") << endl;
+#endif
 	if (cfg->getBeginTime() <= ut &&
 		cfg->getEndTime() >= ut) return cfg;
     }
     return 0;
+}
+
+/* static */
+Project* ProjectConfigs::getProject(const string& xmlFileName,
+        const n_u::UTime& beginTime)
+        throw(XMLException,
+		n_u::InvalidParameterException)
+{
+
+    string configXML =
+        Project::expandEnvVars(xmlFileName);
+
+    ProjectConfigs configs;
+    configs.parseXML(configXML);
+
+    const ProjectConfig* cfg = configs.getConfig(beginTime);
+    if (!cfg) throw n_u::InvalidParameterException(configXML,
+        "no config for time",beginTime.format(true,"%c"));
+    string xmlFileName2 = Project::expandEnvVars(cfg->getXMLName());
+
+    struct stat statbuf;
+    if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
+        throw n_u::IOException(xmlFileName2,"open",errno);
+
+    auto_ptr<xercesc::DOMDocument> doc(
+        DSMEngine::parseXMLConfigFile(xmlFileName2));
+
+    auto_ptr<Project> project(Project::getInstance());
+    project->fromDOMElement(doc->getDocumentElement());
+    return project.release();
 }

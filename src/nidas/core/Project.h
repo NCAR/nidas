@@ -22,6 +22,12 @@
 #include <nidas/core/SensorCatalog.h>
 #include <nidas/core/DSMCatalog.h>
 #include <nidas/core/ServiceCatalog.h>
+#include <nidas/util/UTime.h>
+#include <nidas/util/UnknownHostException.h>
+
+namespace nidas { namespace dynld {
+    class FileSet;
+} }
 
 #include <nidas/util/ThreadSupport.h>
 
@@ -77,7 +83,7 @@ public:
      * name matches hostname.  If none found, remove any domain names
      * and try again. Then search the project Sites.
      */
-    DSMServer* findServer(const std::string& hostname) const
+    std::list<DSMServer*> findServers(const std::string& hostname) const
 	throw(nidas::util::UnknownHostException);
 
     DSMServer* findServer(const nidas::util::Inet4Address& addr) const;
@@ -95,6 +101,22 @@ public:
      * Find a DSM matching id;
      */
     const DSMConfig* findDSM(unsigned long id) const;
+
+    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets(
+	const std::string& hostName) const
+	    throw(nidas::util::UnknownHostException);
+    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
+
+#ifdef NEED_THESE
+    nidas::dynld::FileSet* findSampleOutputStreamFileSet(
+	const std::string& hostName,const nidas::util::UTime& t1,
+	const nidas::util::UTime& t2) const
+	    throw(nidas::util::UnknownHostException);
+    nidas::dynld::FileSet* findSampleOutputStreamFileSet(
+	const nidas::util::UTime& t1,
+	const nidas::util::UTime& t2) const
+	    throw(nidas::util::UnknownHostException);
+#endif
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
 

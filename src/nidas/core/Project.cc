@@ -17,6 +17,7 @@
 #include <nidas/dynld/raf/Aircraft.h>
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/dynld/FileSet.h>
 
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
@@ -184,40 +185,56 @@ void Project::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
  * name matches hostname.  If none found, remove any domain names
  * and try again.
  */
-DSMServer* Project::findServer(const string& hostname) const
+list<DSMServer*> Project::findServers(const string& hostname) const
     throw(n_u::UnknownHostException)
 {
-    DSMServerIterator sitr = getDSMServerIterator();
-    for ( ; sitr.hasNext(); ) {
-        DSMServer* srvr = sitr.next();
-        if (srvr->getName() == hostname) return srvr;
-    }
-    // Not found, remove domain name, try again
-    int dot = hostname.find('.');
-    sitr = getDSMServerIterator();
-    for ( ; sitr.hasNext(); ) {
-        DSMServer* srvr = sitr.next();
-        const string& sname = srvr->getName();
-        int sdot = sname.find('.');
-        if (!sname.compare(0,sdot,hostname,0,dot)) return srvr;
-    }
+    list<DSMServer*> servers;
+    if (hostname.length() > 0) {
+	DSMServerIterator sitr = getDSMServerIterator();
+	for ( ; sitr.hasNext(); ) {
+	    DSMServer* srvr = sitr.next();
+	    if (srvr->getName() == hostname) {
+		servers.push_back(srvr);
+		break;
+	    }
+	}
+	if (servers.size() == 0) {
+	    // Not found, remove domain name, try again
+	    int dot = hostname.find('.');
+	    sitr = getDSMServerIterator();
+	    for ( ; sitr.hasNext(); ) {
+		DSMServer* srvr = sitr.next();
+		const string& sname = srvr->getName();
+		int sdot = sname.find('.');
+		if (!sname.compare(0,sdot,hostname,0,dot)) {
+		    servers.push_back(srvr);
+		    break;
+		}
+	    }
+	}
 
-    // address match
-    list<n_u::Inet4Address> addrs =
-	    n_u::Inet4Address::getAllByName(hostname);
-    list<n_u::Inet4Address>::const_iterator ai = addrs.begin();
-    for ( ; ai != addrs.end(); ++ai) {
-	DSMServer* srvr = findServer(*ai);
-	if (srvr) return srvr;
+	if (servers.size() == 0) {
+	    // look for address match
+	    list<n_u::Inet4Address> addrs =
+		    n_u::Inet4Address::getAllByName(hostname);
+	    list<n_u::Inet4Address>::const_iterator ai = addrs.begin();
+	    for ( ; ai != addrs.end(); ++ai) {
+		DSMServer* srvr = findServer(*ai);
+		if (srvr) {
+		    servers.push_back(srvr);
+		    break;
+		}
+	    }
+	}
     }
 
     // empty name
-    sitr = getDSMServerIterator();
+    DSMServerIterator sitr = getDSMServerIterator();
     for ( ; sitr.hasNext(); ) {
         DSMServer* srvr = sitr.next();
-        if (srvr->getName().length() == 0) return srvr;
+        if (srvr->getName().length() == 0) servers.push_back(srvr);
     }
-    return 0;
+    return servers;
 }
 
 DSMServer* Project::findServer(const n_u::Inet4Address& addr) const
@@ -302,6 +319,80 @@ const DSMConfig* Project::findDSM(const string& name) const
     return 0;
 }
 
+list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
+	const string& hostName) const throw(n_u::UnknownHostException)
+{
+    list<nidas::dynld::FileSet*> filesets;
+    if (hostName.length() > 0) {
+        const DSMConfig* dsm = findDSM(hostName);
+        if (dsm) filesets = dsm->findSampleOutputStreamFileSets();
+    }
+    
+    list<DSMServer*> servers = findServers(hostName);
+
+    list<DSMServer*>::const_iterator si = servers.begin();
+
+    for ( ; si != servers.end(); ++si) {
+        DSMServer* server = *si;
+        ProcessorIterator pi = server->getProcessorIterator();
+        for ( ; pi.hasNext(); ) {
+            SampleIOProcessor* proc = pi.next();
+            const std::list<SampleOutput*> outputs =
+                proc->getOutputs();
+            std::list<SampleOutput*>::const_iterator oi =
+                outputs.begin();
+            for ( ; oi != outputs.end(); ++oi) {
+                SampleOutput* output = *oi;
+                IOChannel* ioc = output->getIOChannel();
+                nidas::dynld::FileSet* fset =
+			dynamic_cast<nidas::dynld::FileSet*>(ioc);
+                if (fset) filesets.push_back(fset);
+            }
+        }
+    }
+    return filesets;
+}
+
+list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets() const
+{
+    try {
+        return findSampleOutputStreamFileSets();
+    }
+    catch (const n_u::UnknownHostException& e) {}
+    return list<nidas::dynld::FileSet*>();
+}
+
+#ifdef NEED_THESE
+nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
+	const string& hostName,const n_u::UTime& t1, const n_u::UTime& t2)
+	const throw(n_u::UnknownHostException)
+{
+    list<nidas::dynld::FileSet*> filesets =
+        findSampleOutputStreamFileSets(hostName);
+    list<nidas::dynld::FileSet*>::const_iterator fi = filesets.begin();
+    for ( ; fi != filesets.end(); ++fi) {
+        nidas::dynld::FileSet* fset = *fi;
+	list<string> files = fset->matchFiles(t1,t2);
+	if (files.size() > 0) return fset;
+    }
+    return 0;
+}
+
+nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
+	const n_u::UTime& t1, const n_u::UTime& t2)
+	const throw(n_u::UnknownHostException)
+{
+    list<nidas::dynld::FileSet*> filesets = findSampleOutputStreamFileSets();
+    list<nidas::dynld::FileSet*>::const_iterator fi = filesets.begin();
+    for ( ; fi != filesets.end(); ++fi) {
+        nidas::dynld::FileSet* fset = *fi;
+	list<string> files = fset->matchFiles(t1,t2);
+	if (files.size() > 0) return fset;
+    }
+    return 0;
+}
+#endif
+
 DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 {
     {
@@ -348,7 +439,7 @@ string Project::expandEnvVars(const string& input)
 	}
 	else {
 	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
-	    if (endtok == string::npos) endtok = input.length() + 1;
+	    if (endtok == string::npos) endtok = input.length();
 	    token = input.substr(dollar+1,endtok-dollar-1);
 	    lastpos = endtok;
 	}

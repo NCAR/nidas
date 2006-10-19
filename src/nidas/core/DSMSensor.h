@@ -199,7 +199,7 @@ public:
     }
 
     /**
-     * Sensor site suffix, which is added to variable names.
+     * Site suffix, which is added to variable names.
      */
     const std::string& getSiteSuffix() const
     {
@@ -552,9 +552,6 @@ public:
      * necessary.
      */
     static const std::string getClassName(const xercesc::DOMElement* node)
-    	throw(nidas::util::InvalidParameterException);
-
-    void checkConfig()
     	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)

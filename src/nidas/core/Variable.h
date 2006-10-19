@@ -171,6 +171,8 @@ public:
      */
     int getStation() const { return station; }
 
+    void setStation(int val) { station = val; }
+
     void setSiteAttributes(const Site* site);
 
     /**

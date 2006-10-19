@@ -95,6 +95,7 @@ void NearestResampler::connect(SampleInput* input)
     list<const SampleTag*> intags(input->getSampleTags().begin(),
 	input->getSampleTags().end());
 
+    // cerr << "NearestResamples, intags.size()=" << intags.size() << endl;
     list<const SampleTag*>::const_iterator inti = intags.begin();
     for ( ; inti != intags.end(); ++inti ) {
 	const SampleTag* intag = *inti;
@@ -111,6 +112,7 @@ void NearestResampler::connect(SampleInput* input)
 	// if it is a raw sample from a sensor, then
 	// this should be non-NULL.
 	DSMSensor* sensor = Project::getInstance()->findSensor(sensorId);
+        // cerr << "NearestResampler, sensor=" << (sensor ? sensor->getName() : "not found") << endl;
 
 	// loop over variables in this input sample, checking
 	// for a match against one of my variable names.

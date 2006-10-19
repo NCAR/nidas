@@ -76,7 +76,7 @@ public:
 
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 
-    nidas::dynld::FileSet* findFileSet() const;
+    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
 
     unsigned short getRemoteSerialSocketPort() const { return remoteSerialSocketPort; }
 

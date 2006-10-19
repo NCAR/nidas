@@ -343,10 +343,14 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      * element, then parse the catalog element, then do a full parse
      * of the actual element.
      */
-  
     setDSMId(getDSMConfig()->getId());
 
     XDOMElement xnode(node);
+
+    // Set device name before scanning catalog entry,
+    // so that error messages have something useful in the name.
+    const string& dname = xnode.getAttributeValue("devicename");
+    if (dname.length() > 0) setDeviceName(dname);
 
     // set id before scanning catalog entry
     const string& idstr = xnode.getAttributeValue("id");
@@ -363,7 +367,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		"id",idstr);
 	setShortId(val);
     }
-
     const string& idref = xnode.getAttributeValue("IDREF");
     // scan catalog entry
     if (idref.length() > 0) {
@@ -523,15 +526,20 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	rawRate = std::max(rawRate,stag->getRate());
     }
     rawSampleTag->setRate(rawRate);
-}
-
-void DSMSensor::checkConfig()
-    throw(n_u::InvalidParameterException)
-{
     if (getDeviceName().length() == 0) 
-	throw n_u::InvalidParameterException(
-	    getDSMConfig()->getName() + ": " + getName(),
-	    "no device name","");
+	throw n_u::InvalidParameterException(getName(),
+            "no device name","");
+
+#ifdef DEBUG
+    cerr << getName() << ", suffix=" << getSuffix() << ", sitesuff=" <<
+        getSiteSuffix() << ": ";
+    VariableIterator vi = getVariableIterator();
+    for ( ; vi.hasNext(); ) {
+        const Variable* var = vi.next();
+        cerr << var->getName() << ',';
+    }
+    cerr << endl;
+#endif
 
 }
 

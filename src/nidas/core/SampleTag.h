@@ -275,10 +275,12 @@ public:
     }
 
     /**
-     * Utility function to expand ${TOKEN} fields in a string.
-     * Here in the SampleTag is a strange place for it,
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string.  Here in the SampleTag is a strange place for it,
      * but the fields may be associated with a SampleTag,
-     * like ${DSM} to get the DSM name.
+     * like ${DSM} to get the DSM name.  If curly brackets are not
+     * used, then the TOKEN should be delimited by a '/', a '.' or
+     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
      */
     std::string expandString(const std::string& input) const;
 

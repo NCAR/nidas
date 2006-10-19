@@ -21,6 +21,7 @@
 
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/dynld/FileSet.h>
+#include <nidas/dynld/SampleOutputStream.h>
 
 #include <iostream>
 
@@ -96,17 +97,23 @@ void DSMConfig::openSensors(SensorHandler* selector)
     sensors.clear();
 }
 
-nidas::dynld::FileSet* DSMConfig::findFileSet() const 
+list<nidas::dynld::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
 {
+    list<nidas::dynld::FileSet*> filesets;
     const list<SampleOutput*>& outputs = getOutputs();
     list<SampleOutput*>::const_iterator oi = outputs.begin();
-    for ( ; oi != outputs.end(); ) {
+    for ( ; oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	IOChannel* iochan = output->getIOChannel();
-	nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(iochan);
-	if (fset) return fset;
+	nidas::dynld::SampleOutputStream* outstream =
+		dynamic_cast<nidas::dynld::SampleOutputStream*>(output);
+	if (outstream) {
+	    IOChannel* iochan = outstream->getIOChannel();
+	    nidas::dynld::FileSet* fset =
+	    	dynamic_cast<nidas::dynld::FileSet*>(iochan);
+	    if (fset) filesets.push_back(fset);
+	}
     }
-    return 0;
+    return filesets;
 }
 
 void DSMConfig::fromDOMElement(const DOMElement* node)
@@ -129,6 +136,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    string("dsm") + ": " + getName(),"id",idstr);
 	setId(id);
     }
+    const string& dname = xnode.getAttributeValue("name");
+    if (dname.length() > 0) setName(dname);
 
     const string& idref = xnode.getAttributeValue("IDREF");
     // then parse catalog entry, then main entry
@@ -242,7 +251,6 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    sensor->setDSMConfig(this);
 	    try {
 		sensor->fromDOMElement((DOMElement*)child);
-		sensor->checkConfig();
 	    }
 	    catch (const n_u::InvalidParameterException& e) {
 	        delete sensor;

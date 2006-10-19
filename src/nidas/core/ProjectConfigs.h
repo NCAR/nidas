@@ -19,6 +19,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/core/XMLException.h>
+#include <nidas/core/Project.h>
 
 // #include <xercesc/dom/DOMDocument.hpp>
 // #include <xercesc/dom/DOMNode.hpp>
@@ -38,6 +39,10 @@ public:
 
     void setName(const std::string& val) { name = val; }
 
+    const std::string& getXMLName() const { return xmlName; }
+
+    void setXMLName(const std::string& val) { xmlName = val; }
+
     const nidas::util::UTime& getBeginTime() const { return beginTime; }
 
     void setBeginTime(const nidas::util::UTime& val) { beginTime = val; }
@@ -52,6 +57,8 @@ public:
 private:
 
     std::string name;
+
+    std::string xmlName;
 
     nidas::util::UTime beginTime;
 
@@ -82,12 +89,20 @@ public:
         constConfigs.push_back(cfg);
     }
 
+    /**
+     * Convienence routine for getting a Project*, given
+     * a ProjectsConfig XML file name, and a time.
+     */
+    static Project* getProject(const std::string& xmlFileName,
+        const nidas::util::UTime& begin)
+        throw(nidas::core::XMLException,
+		nidas::util::InvalidParameterException);
+
 private:
 
     std::list<const ProjectConfig*> constConfigs;
 
     std::list<ProjectConfig*> configs;
-
 
 };
 
