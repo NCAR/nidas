@@ -184,6 +184,20 @@ public:
 
     nidas::util::UTime getXmtrClock() throw(nidas::util::IOException);
 
+    /**
+     * Get the transmission delay of the transmitter clock.
+     * @param nchar Number of characters sent to set the
+     *     clock, or number of characters received when getting
+     *     the clock.
+     * @return The number of microseconds that the receipt
+     *     of a transmitter clock value was delayed due
+     *	   to serial transmission. This value is
+     *	   typically  14 * 10 * 10^6 / 9600 = 14583.
+     * The clock packet is 14 bytes long,
+     * assume 10 transmitted bits per byte, at 9600 baud.
+     */
+    int getXmtrClockDelay(int nchar) const;
+
     unsigned long checkId() throw(nidas::util::IOException);
 
     int checkClock() throw(nidas::util::IOException);

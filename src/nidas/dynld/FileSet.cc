@@ -28,6 +28,13 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
+/* Copy constructor. */
+FileSet::FileSet(const FileSet& x):
+    	IOChannel(x),nidas::util::FileSet(x),requester(0),mount(0)
+{
+    if (x.mount) mount = new FsMount(*x.mount);
+}
+
 const std::string& FileSet::getName() const
 {
     return name;
@@ -126,7 +133,7 @@ void FileSet::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
+    // const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
 	// get all the attributes of the node
         DOMNamedNodeMap *pAttributes = node->getAttributes();
@@ -153,7 +160,6 @@ void FileSet::fromDOMElement(const DOMElement* node)
     }
 
     DOMNode* child;
-    DOMable* domable;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {

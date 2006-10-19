@@ -42,8 +42,7 @@ public:
     /**
      * Copy constructor.
      */
-    FileSet(const FileSet& x):
-    	IOChannel(x),nidas::util::FileSet(x),requester(0),mount(x.mount) {}
+    FileSet(const FileSet& x);
 
     ~FileSet() { delete mount; }
 

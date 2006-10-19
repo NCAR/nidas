@@ -81,7 +81,7 @@ void CSAT3_Sonic::addSampleTag(SampleTag* stag)
 	}
 	if (spdIndex < 0 || dirIndex < 0)
 	    throw n_u::InvalidParameterException(getName() +
-	      " cannot find speed or direction variables");
+	      " CSAT3 cannot find speed or direction variables");
 	break;
     case 2:
 	kh2oSampleId = stag->getId();

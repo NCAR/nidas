@@ -532,20 +532,22 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
 {
     long long diff = USECS_PER_SEC * 10;
     try {
-	diff = getXmtrClock() - n_u::UTime();
+	diff = getXmtrClock() - n_u::UTime() + getXmtrClockDelay(14);
     }
     catch (const GOESException& e) {
         if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
     }
 
-    // check that it is within a second.
-    if (::llabs(diff) > USECS_PER_SEC) {
+    // Precision of SE clocks is 1/10th of a second,
+    // so we'll check that it is within .150 secs of
+    // system clock.
+    if (::llabs(diff) > USECS_PER_MSEC * 150) {
 	logger->log(LOG_WARNING,
 		"%s: goes clock is %s system clock by %d milliseconds. Setting GOES clock",
 		getName().c_str(),(diff > 0 ? "ahead of" : "behind"),
 			::llabs(diff) / USECS_PER_MSEC);
 	setXmtrClock();
-	diff = getXmtrClock() - n_u::UTime();
+	diff = getXmtrClock() - n_u::UTime() + getXmtrClockDelay(14);
     }
     clockDiffMsecs = diff / USECS_PER_MSEC;
     return clockDiffMsecs;
@@ -555,7 +557,7 @@ void SE_GOESXmtr::setXmtrClock() throw(n_u::IOException)
 {
     char cmd[] = {PKT_SET_TIME,0,0,0,0,0,0,0,0};
 
-    n_u::UTime ut;
+    n_u::UTime ut = n_u::UTime() + getXmtrClockDelay(sizeof(cmd) + 4);
     encodeClock(ut,cmd+2,true);
 
     wakeup();
@@ -586,6 +588,11 @@ n_u::UTime SE_GOESXmtr::getXmtrClock() throw(n_u::IOException)
 
     if (resp.length() > 9) return decodeClock(resp.c_str() + 3);
     return n_u::UTime((time_t)0);
+}
+int SE_GOESXmtr::getXmtrClockDelay(int nchar) const
+{
+    // Assume 10 transmitted bits per byte
+    return  nchar * 10 * USECS_PER_SEC / port.getBaudRate();
 }
 
 void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool fractsecs)

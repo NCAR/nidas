@@ -46,19 +46,24 @@ public:
     	dir(x.dir),device(x.device),type(x.type),
 	options(x.options),fileset(0),worker(0) {}
 
-    void setDir(const std::string& val)
-    {
-        dir = val;
-    }
+    /**
+     * Set the mount point directory. It may contain
+     * environment variables, e.g.: $DATA, or ${DATA}.
+     */
+    void setDir(const std::string& val);
 
     const std::string& getDir() const { return dir; }
 
-    void setDevice(const std::string& val)
-    {
-        device = val;
-    }
+    /**
+     * Get the mount point directory, with environment variables expanded.
+     */
+    const std::string& getDirExp() const { return dirExpanded; }
+
+    void setDevice(const std::string& val);
 
     const std::string& getDevice() const { return device; }
+
+    const std::string& getDeviceExp() const { return deviceExpanded; }
 
     void setType(const std::string& val)
     {
@@ -109,7 +114,15 @@ protected:
 
     std::string dir;
 
+    std::string dirExpanded;
+
+    std::string dirMsg;
+
     std::string device;
+
+    std::string deviceExpanded;
+
+    std::string deviceMsg;
 
     std::string type;
  

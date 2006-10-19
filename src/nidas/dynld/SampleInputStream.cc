@@ -332,17 +332,6 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
         throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-        // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
-        }
-    }
 
     // process <socket>, <fileset> child elements (should only be one)
 
@@ -548,6 +537,7 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
 void SampleInputStream::addSampleTag(const SampleTag* stag)
 {
     sampleTags.insert(stag);
+    if (iochan) addSampleTag(stag);
 }
 
 /*
@@ -690,7 +680,6 @@ void SortedSampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 {
     SampleInputStream::fromDOMElement(node);
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
     // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();

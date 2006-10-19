@@ -16,6 +16,7 @@
 #include <nidas/dynld/FsMount.h>
 #include <nidas/dynld/FileSet.h>
 #include <nidas/util/Logger.h>
+#include <nidas/core/Project.h>
 
 #include <fstream>
 
@@ -27,15 +28,37 @@ namespace n_u = nidas::util;
 
 FsMount::FsMount() : type("auto"),fileset(0),worker(0) {}
 
+void FsMount::setDevice(const std::string& val)
+{
+    device = val;
+    deviceExpanded = Project::expandEnvVars(val);
+    deviceMsg = (device == deviceExpanded) ? device :
+        device + "(" + deviceExpanded + ")";
+
+}
+
+void FsMount::setDir(const std::string& val)
+{
+    dir = val;
+    dirExpanded = Project::expandEnvVars(val);
+    dirMsg = (dir == dirExpanded) ? dir :
+        dir + "(" + dirExpanded + ")";
+}
+
 void FsMount::mount()
        throw(n_u::IOException)
 {
-    if (::mount(getDevice().c_str(),getDir().c_str(),
+    if (isMounted()) return;
+    n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
+        deviceMsg.c_str(),dirMsg.c_str());
+
+    if (::mount(getDeviceExp().c_str(),getDirExp().c_str(),
     	getType().c_str(),MS_NOATIME,getOptions().c_str()) < 0)
 	    throw n_u::IOException(
-	    string("mount ") + getDevice() + " -t " + getType() +
-	    (getOptions().length() > 0 ?  string(" -o ") + getOptions() : "") +
-	    ' ' + getDir(),"failed",errno);
+                string("mount ") + deviceMsg + " -t " + getType() +
+                (getOptions().length() > 0 ?
+                   string(" -o ") + getOptions() : "") + ' ' +
+                dirMsg,"failed",errno);
 }
 
 void FsMount::mount(FileSet* fset)
@@ -90,8 +113,8 @@ void FsMount::unmount()
 {
     if (!isMounted()) return;
 
-    if (::umount(getDir().c_str()) < 0)
-	throw n_u::IOException(string("umount ") + getDir(),
+    if (::umount(getDirExp().c_str()) < 0)
+	throw n_u::IOException(string("umount ") + dirMsg,
 		"failed",errno);
 }
 
@@ -101,10 +124,11 @@ bool FsMount::isMounted() {
     for (;;) {
 	string mdev,mpt;
 	mfile >> mdev >> mpt;
+        // cerr << "mdev=" << mdev << " mpt=" << mpt << endl;
 	mfile.ignore(1000,'\n');
 	if (mfile.fail()) return false;
 	if (mfile.eof()) return false;
-	if (mpt == getDir()) return true;
+	if (mpt == getDirExp()) return true;
     }
 }
 
@@ -112,7 +136,6 @@ void FsMount::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
 	// get all the attributes of the node
         DOMNamedNodeMap *pAttributes = node->getAttributes();

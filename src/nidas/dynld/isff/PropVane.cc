@@ -50,22 +50,22 @@ void PropVane::addSampleTag(SampleTag* stag)
     for (int i = 0; vi.hasNext(); i++) {
 	const Variable* var = vi.next();
 	const string& vname = var->getName();
-	if (vname.length() > getUName().length() &&
+	if (vname.length() >= getUName().length() &&
 		vname.substr(0,getUName().length()) == getUName())
 	    uIndex = i;
-	else if (vname.length() > getVName().length() &&
+	else if (vname.length() >= getVName().length() &&
 		vname.substr(0,getVName().length()) == getVName())
 	    vIndex = i;
-	else if (vname.length() > getSpeedName().length() &&
+	else if (vname.length() >= getSpeedName().length() &&
 		vname.substr(0,getSpeedName().length()) == getSpeedName())
 	    speedIndex = i;
-	else if (vname.length() > getDirName().length() &&
+	else if (vname.length() >= getDirName().length() &&
 		vname.substr(0,getDirName().length()) == getDirName())
 	    dirIndex = i;
     }
     if (speedIndex < 0 || dirIndex < 0)
 	throw n_u::InvalidParameterException(getName() +
-	  " cannot find speed or direction variables");
+	  " PropVane cannot find speed or direction variables");
 
     outlen = stag->getVariables().size();
 }
@@ -82,6 +82,7 @@ bool PropVane::process(const Sample* samp,
     if (results.size() != 1 || speedIndex < 0 || dirIndex < 0 || uIndex < 0 || vIndex < 0)
     	return true;
 
+    // derive U,V from Spd,Dir
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(results.front());
 
     int slen = (int)fsamp->getDataLength();
