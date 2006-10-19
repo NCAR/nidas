@@ -42,7 +42,7 @@ public:
 
     int run() throw();
 
-// static functions
+    // static functions
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     static void setupSignals();
@@ -53,9 +53,6 @@ public:
 
 
 private:
-
-    FileSet* findFileSet(const string& dsmName)
-	throw(n_u::UnknownHostException);
 
     string argv0;
 
@@ -68,6 +65,8 @@ private:
     string dsmName;
 
     string sockHostName;
+
+    static int defaultPort;
 
     int port;
 
@@ -91,6 +90,9 @@ int main(int argc, char** argv)
 
 /* static */
 bool StatsProcess::interrupted = false;
+
+/* static */
+int StatsProcess::defaultPort = 30000;
 
 /* static */
 void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -130,23 +132,6 @@ void StatsProcess::setupSignals()
 }
 
 /* static */
-int StatsProcess::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << " [-x xml_file] [-z] input ...\n\
-    -b \"yyyy mm dd HH:MM:SS\": begin time\n\
-    -e \"yyyy mm dd HH:MM:SS\": end time\n\
-    -d dsmName\n\
-    -n niceValue: run at a lower priority (niceValue > 0)\n\
-    -s sorterLength: input data sorter length in milliseconds\n\
-    -x xml_file: (optional), the default value is read from the input\n\
-    -z: run in daemon mode (in the background, log messages to syslog)\n\
-    input: names of one or more raw data files, or sock:hostname\n\
-" << endl;
-    return 1;
-}
-
-/* static */
 int StatsProcess::main(int argc, char** argv) throw()
 {
     setupSignals();
@@ -170,8 +155,8 @@ int StatsProcess::main(int argc, char** argv) throw()
 }
 
 
-StatsProcess::StatsProcess(): port(30000),sorterLength(1000),
-	daemonMode(false),niceValue(0)
+StatsProcess::StatsProcess(): port(defaultPort),
+	sorterLength(1000),daemonMode(false),niceValue(0)
 {
 }
 
@@ -183,9 +168,9 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "b:d:e:n:s:x:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:d:E:n:s:x:z")) != -1) {
 	switch (opt_char) {
-	case 'b':
+	case 'B':
 	    try {
 		beginTime = n_u::UTime::parse(true,optarg);
 	    }
@@ -194,7 +179,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		return usage(argv[0]);
 	    }
 	    break;
-	case 'e':
+	case 'd':
+	    dsmName = optarg;
+	    break;
+	case 'E':
 	    try {
 		endTime = n_u::UTime::parse(true,optarg);
 	    }
@@ -202,9 +190,6 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	        cerr << pe.what() << endl;
 		return usage(argv[0]);
 	    }
-	    break;
-	case 'd':
-	    dsmName = optarg;
 	    break;
 	case 'n':
 	    {
@@ -240,16 +225,19 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         string url(argv[optind]);
         if (url.length() > 5 && !url.compare(0,5,"sock:")) {
             url = url.substr(5);
-            size_t ic = url.find(':');
-            sockHostName = url.substr(0,ic);
-            if (ic < string::npos) {
-                istringstream ist(url.substr(ic+1));
-                ist >> port;
-                if (ist.fail()) {
-                    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-                    return usage(argv[0]);
-                }
-            }
+	    sockHostName = "127.0.0.1";
+	    if (url.length() > 0) {
+		size_t ic = url.find(':');
+		sockHostName = url.substr(0,ic);
+		if (ic < string::npos) {
+		    istringstream ist(url.substr(ic+1));
+		    ist >> port;
+		    if (ist.fail()) {
+			cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+			return usage(argv[0]);
+		    }
+		}
+	    }
         }
         else if (url.length() > 5 && !url.compare(0,5,"file:")) {
             url = url.substr(5);
@@ -257,17 +245,43 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         }
         else dataFileNames.push_back(url);
     }
-    if (dataFileNames.size() == 0 && sockHostName.length() == 0)
+    // must specify either:
+    //  1. some data files to read, and optional begin and end times,
+    //  2. a socket to connect to
+    //  3. or a time period and a $PROJECT environment variable
+    if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
+        beginTime.toUsecs() == 0) return usage(argv[0]);
+
     	return usage(argv[0]);
     return 0;
 }
 
-FileSet* StatsProcess::findFileSet(const string& dsmName)
-    throw(n_u::UnknownHostException)
+/* static */
+int StatsProcess::usage(const char* argv0)
 {
-    const DSMConfig* dsm = Project::getInstance()->findDSM(dsmName);
-    if (dsm) return dsm->findFileSet();
-    return 0;
+    cerr << "\
+Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-s sorterLength] [-x xml_file] [-z] input ...\n\
+    -B \"yyyy mm dd HH:MM:SS\": begin time\n\
+    -E \"yyyy mm dd HH:MM:SS\": end time\n\
+    -d dsm\n\
+    -n nice: run at a lower priority (nice > 0)\n\
+    -s sorterLength: input data sorter length in milliseconds\n\
+    -x xml_file: (optional), the default value is read from the input\n\
+    -z: run in daemon mode (in the background, log messages to syslog)\n\
+    input: names of one or more raw data files, or sock:[hostname[:port]]\n\
+\n\
+sock:[hostname[:port]:  default hostname is \"localhost\", default port is " <<
+        defaultPort << "\n\
+\n\
+User must specify either: one or more data files, sock:[hostname[:port]], or\n\
+a begin time and a $PROJECT environment variable.\n\
+\n\
+Examples:\n" <<
+        argv0 << "" << '\n' <<
+        argv0 << "" << '\n' <<
+        argv0 << "" << '\n' <<
+        argv0 << "" << endl;
+    return 1;
 }
 
 int StatsProcess::run() throw()
@@ -275,14 +289,14 @@ int StatsProcess::run() throw()
     if (niceValue > 0 && nice(niceValue) < 0)  {
     	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: nice(%d): %s",
 		argv0.c_str(),niceValue,strerror(errno));
-	return 1;
+        return 1;
     }
 
     IOChannel* iochan = 0;
     if (dsmName.length() == 0) {
-	char hostname[256];
-	gethostname(hostname,sizeof(hostname));
-	dsmName = hostname;
+        char hostname[256];
+        gethostname(hostname,sizeof(hostname));
+        dsmName = hostname;
     }
 
     auto_ptr<Project> project;
@@ -299,15 +313,15 @@ int StatsProcess::run() throw()
 	if (sockHostName.length() > 0) {
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !interrupted; i++) {
-		try {
-		    sock = new n_u::Socket(sockHostName,port);
-		}
-		catch(const n_u::IOException& e) {
-		    if (i > 2)
-		    	n_u::Logger::getInstance()->log(LOG_WARNING,
-		    	"%s: retrying",e.what());
-		    sleep(10);
-		}
+                try {
+                    sock = new n_u::Socket(sockHostName,port);
+                }
+                catch(const n_u::IOException& e) {
+                    if (i > 2)
+                        n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: retrying",e.what());
+                    sleep(10);
+                }
 	    }
 	    iochan = new nidas::core::Socket(sock);
 	}
@@ -316,13 +330,15 @@ int StatsProcess::run() throw()
 
 	    // User must have specified the xml file
 	    if (dataFileNames.size() == 0) {
-	        fset = findFileSet(dsmName);
-		if (!fset) {
+	        list<FileSet*> fsets = project->findSampleOutputStreamFileSets(
+			dsmName);
+		if (fsets.size() == 0) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
 		    "Cannot find a FileSet for dsm %s",
 		    	dsmName.c_str());
 		    return 1;
 		}
+                fset = fsets.front();
 	    }
 	    else fset = new FileSet();
 	    iochan = fset;
@@ -363,20 +379,25 @@ int StatsProcess::run() throw()
 	}
 
 	// Find a server with a StatisticsProcessor
-	DSMServer* server = project->findServer(dsmName);
-	if (!server) {
+	list<DSMServer*> servers = project->findServers(dsmName);
+	if (servers.size() == 0) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    "Cannot find a DSMServer for dsm %s",
 		dsmName.c_str());
 	    return 1;
 	}
+    DSMServer* server = 0;
 	StatisticsProcessor* sproc = 0;
-	ProcessorIterator pitr = server->getProcessorIterator();
-	for ( ; pitr.hasNext(); ) {
-	    SampleIOProcessor* proc = pitr.next();
-	    sproc = dynamic_cast<StatisticsProcessor*>(proc);
-	    if (sproc) break;
-	}
+	list<DSMServer*>::const_iterator svri = servers.begin();
+    for ( ; !sproc && svri != servers.end(); ++svri) {
+        server = *svri;
+        ProcessorIterator pitr = server->getProcessorIterator();
+        for ( ; pitr.hasNext(); ) {
+            SampleIOProcessor* proc = pitr.next();
+            sproc = dynamic_cast<StatisticsProcessor*>(proc);
+            if (sproc) break;
+        }
+    }
 	if (!sproc) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    "Cannot find a StatisticsProcessor for dsm %s",
