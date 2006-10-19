@@ -111,7 +111,10 @@ public:
 
     static long long fromTm(bool utc,const struct tm* tmp, int usecs = 0);
 
-    static UTime parse(bool utc,const std::string& string) 
+    void set(const std::string& string,bool utc=false) 
+    	throw(ParseException);
+
+    static UTime parse(bool utc,const std::string& string)
     	throw(ParseException);
 
     static UTime parse(bool utc,const std::string& string,
@@ -152,7 +155,7 @@ public:
 
     UTime earlier(long long y) const;
 
-    static int month(const std::string& monstr);
+    static int month(std::string monstr);
 
     // conversion operator
     // operator long long() const { return _utime; }

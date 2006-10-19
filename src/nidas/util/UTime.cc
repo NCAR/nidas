@@ -202,6 +202,7 @@ struct tm* UTime::toTm(bool utc,struct tm* tmp,int *usecs) const
     else return localtime_r(&ut,tmp);
 }
 
+/* static */
 UTime UTime::parse(bool utc,const string& str) throw(ParseException)
 {
     char cmon[32];
@@ -293,6 +294,11 @@ UTime UTime::parse(bool utc,const string& str) throw(ParseException)
 	return UTime(utc,year,yday,hour,min,dsec);
     else
 	return UTime(utc,year,mon,day,hour,min,dsec);
+}
+
+void UTime::set(const string& str,bool utc) throw(ParseException)
+{
+    *this = UTime::parse(utc,str);
 }
 
 /* static */
@@ -530,22 +536,28 @@ ostream& operator<<(ostream& s, const UTime &x) {
 /*
  * Return month number in the range 1-12, corresponding to a string.
  */
-int UTime::month(const string& monstr)
+int UTime::month(string monstr)
 {
+    if (monstr.length() > 0 && std::islower(monstr[0]))
+        monstr[0] = std::toupper(monstr[0]);
+
     istringstream iss(monstr);
 
     // make this a static member?  Need to mutex it? Probably.
     const time_get<char>& tim_get = use_facet<time_get<char> >(iss.getloc());
 
-    const ios_base::iostate good = ios_base::goodbit;
-    ios_base::iostate errorstate = good;
 
     iss.imbue(iss.getloc());
     istreambuf_iterator<char> is_it01(iss);
     istreambuf_iterator<char> end;
     struct tm timestruct;
-    errorstate = good;
+    ios_base::iostate errorstate = ios_base::goodbit;
+
     tim_get.get_monthname(is_it01, end, iss, errorstate, &timestruct);
+    if (errorstate & ios_base::failbit) {
+        cerr << "error in parsing " << monstr << endl;
+        return 0;
+    }
     return timestruct.tm_mon + 1;
 }
 

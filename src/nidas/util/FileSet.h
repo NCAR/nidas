@@ -58,7 +58,8 @@ public:
      * contain strftime conversion specifiers, like %Y in order to
      * put a year in the directory name.
      */
-    virtual void setDir(const std::string& val) { dir = val; }
+    virtual void setDir(const std::string& val);
+
     const std::string& getDir() const { return dir; }
 
     const int getFd() const { return fd; }
@@ -72,7 +73,8 @@ public:
      * when creating the full file path string. Otherwise there
      * is no distinction between the directory and file portion.
      */
-    virtual void setFileName(const std::string& val) { filename = val; }
+    virtual void setFileName(const std::string& val);
+
     const std::string& getFileName() const { return filename; }
 
     virtual void addFileName(const std::string& val) { fileset.push_back(val); }
@@ -168,12 +170,12 @@ public:
     void checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException);
 #endif
 
+    std::list<std::string> matchFiles(const UTime& t1, const UTime& t2)
+    	throw(IOException);
+
 protected:
 
     std::string formatName(const UTime& t1);
-
-    std::list<std::string> matchFiles(const UTime& t1, const UTime& t2)
-    	throw(IOException);
 
     static void replaceChars(std::string& in,const std::string& pat,
     	const std::string& rep);

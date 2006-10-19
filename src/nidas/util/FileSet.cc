@@ -54,6 +54,19 @@ FileSet::~FileSet()
     catch(const IOException& e) {}
 }
 
+void FileSet::setDir(const std::string& val)
+{
+    dir = val;
+    fullpath = makePath(getDir(),getFileName());
+}
+
+void FileSet::setFileName(const std::string& val)
+{
+    filename = val;
+    fullpath = makePath(getDir(),getFileName());
+}
+
+
 void FileSet::closeFile() throw(IOException)
 {
     if (fd >= 0) {
@@ -92,16 +105,13 @@ void FileSet::createDirectory(const string& name) throw(IOException)
 UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
 {
 #ifdef DEBUG
-    cerr << "nidas::util::FileSet::createFile, ftime=" << ftime << endl;
+    cerr << "nidas::util::FileSet::createFile, ftime=" << ftime.format(true,"%c") << endl;
 #endif
 
     closeFile();
 
     if (!exact && fileLength <= 366 * USECS_PER_DAY)
 	ftime -= ftime.toUsecs() % fileLength;
-
-
-    fullpath = makePath(getDir(),getFileName());
 
 
     // break input time into date/time fields using GMT timezone
@@ -126,7 +136,7 @@ UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
     nextFileTime += fileLength - (nextFileTime.toUsecs() % fileLength);
 
 #ifdef DEBUG
-    cerr << "nidas::util::FileSet:: nextFileTime=" << nextFileTime << endl;
+    cerr << "nidas::util::FileSet:: nextFileTime=" << nextFileTime.format(true,"%c") << endl;
 #endif
     newFile = true;
 
@@ -159,7 +169,6 @@ void FileSet::openNextFile() throw(IOException)
 {
     if (!initialized) {
 
-	fullpath = makePath(getDir(),getFileName());
 #ifdef DEBUG
 	cerr << "openNextFile, fullpath=" << fullpath << endl;
 #endif
@@ -289,8 +298,6 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 {
 
     set<string> matchedFiles;
-    string openedDir;
-    DIR *dirp = 0;
     long long requestDeltat = t2 - t1;
 
 #if !defined(NIDAS_EMBEDDED)
@@ -316,7 +323,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // Check if there are time fields in the directory portion.
     // If so, it complicates things.
 
-    openedDir = getDirPortion(fullpath);
+    string openedDir = getDirPortion(fullpath);
 
     // use std::time_put to format path into a file name
     // this converts the strftime %Y,%m type format descriptors
@@ -352,6 +359,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // must execute this loop at least once with time of t1.
     // If t2 > t1 then increment time by dirDeltat each iteration,
     // but in the last iteration, time should be == t2.
+    DIR *dirp = 0;
     for (UTime ftime = t1; ftime <= t2; ) {
 	// currpath is the full path name of a file with a name
 	// corresponding to time ftime
