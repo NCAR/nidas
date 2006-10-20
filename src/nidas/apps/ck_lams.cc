@@ -29,9 +29,14 @@
 #include <signal.h>          // sigaction
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/core/RTL_IODevice.h>
-// Mesa driver includes
 #include <nidas/core/DSMSensor.h>
 #include <nidas/rtlinux/lams.h>
+
+using namespace std;
+using namespace nidas::core;
+namespace n_u = nidas::util;
+
+#ifdef __LINUX_ARM_ARCH
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -39,14 +44,9 @@
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
-using namespace std;
-using namespace nidas::core;
-namespace n_u = nidas::util;
-
 int running = 1;
 
-
-class TestLams : public DSMSensor
+class LamsSensor : public DSMSensor
 {
 public:
   IODevice* buildIODevice() throw(n_u::IOException)
@@ -105,13 +105,12 @@ int main(int argc, char** argv)
   sigaction(SIGTERM,&act,(struct sigaction *)0);
 
   // create the board sensor
-  TestLams sensor_in_0;
+  LamsSensor sensor_in_0;
   sensor_in_0.setDeviceName("/dev/lams0");
 
   // Open up the disk for writing lams data
   string ofName(argv[1]);
-  int fdLamsDatafile;
-  fdLamsDatafile = creat(ofName.c_str(), 0666);
+  int fdLamsDatafile = creat(ofName.c_str(), 0666);
   if (fdLamsDatafile < 0)
   {
     err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
@@ -153,7 +152,7 @@ int main(int argc, char** argv)
   // Main loop for gathering data from the lams channels
   int len, rlen, status, nsel;
   len = 0;
-  unsigned int databuf[MAX_BUFFER];
+  unsigned int databuf[sizeof(set_lams)*2];
 
   int nfds;
   while (running)
@@ -175,22 +174,22 @@ int main(int argc, char** argv)
     // check to see if there is data on this FIFO
     if (FD_ISSET(fd_lams_data, &readfds))
     {
-      len += rlen = read(fd_lams_data, &databuf, MAX_BUFFER);
+      len += rlen = read(fd_lams_data, &databuf, sizeof(lamsPort));
       status = write(fdLamsDatafile, &databuf, rlen); 
-//    err("spectra recv'd len=%d rlen=%d", len, rlen);
+      
+      err("spectrum recv'd len=%d rlen=%d", len, rlen);
       if (status < 0)
       {
         err("failed to write... errno: %d", errno);
         goto failed;
       }
-      // after reading '256' integers 
-      if (len == 512) {
-        err("spectra recv'd");
-        len = 0;
-      }
+      // was a full record of spectrum read?
+//    if (len == sizeof(lamsPort)) {
+//      err("spectrum recv'd");
+//      len = 0;
+//    }
     }
  }
-//goto failed; // SCANNING DEBUG EXIT
 failed:
   err(" closing sensors...");
 
@@ -207,3 +206,36 @@ failed:
   err("sensors closed.");
   return 1;
 }
+
+#else
+
+int main(int argc, char** argv)
+{
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s infile\n", argv[0]);
+    return -EINVAL;
+  }
+  string ifName(argv[1]);
+
+  int ifPtr = open(ifName.c_str(), 0);
+
+  char readBuf[sizeof(lamsPort)];
+  unsigned int nRead;
+
+  struct lamsPort* data = (lamsPort*) &readBuf;
+
+  do {
+    nRead = read(ifPtr, &readBuf, sizeof(lamsPort));
+
+    if ( nRead > 0 ) {
+//    printf("%d -", data->timetag);
+      for (int n=0; n<MAX_BUFFER; n++)
+        printf(" %04x", data->data[n]);
+      printf("\n");
+    }
+  } while ( nRead > 0 );
+
+  close(ifPtr);
+  return 0;
+}
+#endif
