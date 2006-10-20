@@ -139,13 +139,18 @@ const Site* Variable::getSite() const
     return site;
 }
 
-bool Variable::operator == (const Variable& x) const {
+bool Variable::operator == (const Variable& x) const
+{
     if (getLength() != x.getLength()) return false;
 
     bool stnMatch = station == x.station ||
 	station == -1 || x.station == -1;
     if (!stnMatch) return stnMatch;
-    if (name == x.name || nameWithoutSite == x.nameWithoutSite) return true;
+    if (name == x.name) return true;
+    if (station < 0 && x.station == 0) 
+        return name == x.nameWithoutSite;
+    if (x.station < 0 && station == 0) 
+        return x.name == nameWithoutSite;
     return false;
 }
 

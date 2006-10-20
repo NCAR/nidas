@@ -904,12 +904,20 @@ void StatisticsCruncher::connect(SampleInput* input)
 	    // loop over variables in this input, checking
 	    // for a match against one of my variable names.
 	    int nTagVarMatch = 0;	// variable matches within this tag
-	    VariableIterator vi = intag->getVariableIterator();
-	    for (int iv = 0; vi.hasNext(); iv++) {
-		const Variable* var = vi.next();
-		for (unsigned int i = 0; i < inVariables.size(); i++)
-		    if (*var == *inVariables[i]) nTagVarMatch++;
-	    }
+            for (unsigned int i = 0; i < inVariables.size(); i++) {
+                VariableIterator vi = intag->getVariableIterator();
+                for ( ; vi.hasNext(); ) {
+                    const Variable* var = vi.next();
+		    if (*var == *inVariables[i]) {
+#ifdef DEBUG
+                        cerr << "match, var=" << var->getName() << 
+                            ", inVar=" << inVariables[i]->getName() << endl;
+#endif
+                        nTagVarMatch++;
+                        break;
+                    }
+                }
+            }
 	    // resample:
 	    //	  when variables are spread across more than
 	    //	  one sample AND outputs involve cross-term products

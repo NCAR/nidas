@@ -173,8 +173,9 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
 		// first variable match
 		if (*invar == *myvar) {
 		    SampleTag* tmptag = new SampleTag(*mytag);
-		    tmptag->setSampleId(
-		    	Project::getInstance()->getUniqueSampleId(0));
+		    if (tmptag->getSampleId() == 0) 
+                        tmptag->setSampleId(
+                            Project::getInstance()->getUniqueSampleId(0));
 		    const Site* site = invar->getSite();
 
 		    struct OutputInfo info = infoBySampleId[mytag->getId()];
