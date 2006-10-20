@@ -55,12 +55,12 @@
 
 //enum boardTypes { BOARD_LAMS = 1, BOARD_UNKNOWN };
 
-#ifdef __RTCORE_KERNEL__
-
 struct lamsPort {
   dsm_sample_time_t timetag;     // timetag of sample
   unsigned short data[MAX_BUFFER]; // the data
 };
+#ifdef __RTCORE_KERNEL__
+
 /*
 struct lamsBoard {
     int type;
