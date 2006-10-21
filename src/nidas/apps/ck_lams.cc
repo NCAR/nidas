@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 failed:
   err(" closing sensors...");
 
-  if (ofPtr) close(ofPtr);
+  if (ofPtr != -1) close(ofPtr);
   sensor_in_0.close();
 //try {
 //  sensor_in_0.ioctl(LAMS_STOP, (void *)NULL, 0);
@@ -205,6 +205,12 @@ failed:
 
 int main(int argc, char** argv)
 {
+  char readbuf[sizeof(lamsPort)];
+  char linebuf[11+MAX_BUFFER*5];
+  unsigned int n, nRead, nHead;
+
+  struct lamsPort* data = (lamsPort*) &readbuf;
+
   err("X86 version - compiled on %s at %s", __DATE__, __TIME__);
 
   string ifName, ofName;
@@ -216,7 +222,7 @@ int main(int argc, char** argv)
     ofName = string(argv[2]);
   }
   
-  int ifPtr=0, ofPtr=0;
+  int ifPtr=-1, ofPtr=-1;
   ifPtr = open(ifName.c_str(), 0);
   if (ifPtr < 0) {
     err("failed to open '%s' (%s)", ifName.c_str(), strerror(errno));
@@ -227,11 +233,6 @@ int main(int argc, char** argv)
     err("failed to create '%s' (%s)", ofName.c_str(), strerror(errno));
     goto failed;
   }
-  char readbuf[sizeof(lamsPort)];
-  char linebuf[11+MAX_BUFFER*5];
-  unsigned int n, nRead, nHead;
-
-  struct lamsPort* data = (lamsPort*) &readbuf;
 
   do {
     nRead = read(ifPtr, &readbuf, sizeof(lamsPort));
@@ -253,8 +254,8 @@ int main(int argc, char** argv)
   } while ( nRead > 0 );
 
 failed:
-  if (ofPtr) close(ofPtr);
-  if (ifPtr) close(ifPtr);
+  if (ofPtr != -1) close(ofPtr);
+  if (ifPtr != -1) close(ifPtr);
   return 0;
 }
 #endif
