@@ -36,13 +36,13 @@ using namespace std;
 using namespace nidas::core;
 namespace n_u = nidas::util;
 
-#ifdef __LINUX_ARM_ARCH
+#define err(format, arg...) \
+     printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
+
+#if defined(__arm__)
 
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
-
-#define err(format, arg...) \
-     printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
 int running = 1;
 
@@ -80,12 +80,13 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
 /* -------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
-  err("compiled on %s at %s", __DATE__, __TIME__);
+  err("ARM version - compiled on %s at %s", __DATE__, __TIME__);
 
-  if (argc < 2) {
-    fprintf (stderr, "Usage: %s outfile\n", argv[0]);
-    return -EINVAL;
-  }
+  string ofName;
+  if (argc < 2)
+    ofName = string("/mnt/tmp/lams.dat");
+  else
+    ofName = string(argv[1]);
 
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
@@ -109,16 +110,11 @@ int main(int argc, char** argv)
   sensor_in_0.setDeviceName("/dev/lams0");
 
   // Open up the disk for writing lams data
-  string ofName(argv[1]);
-  int fdLamsDatafile = creat(ofName.c_str(), 0666);
-  if (fdLamsDatafile < 0)
-  {
+  int ofPtr = creat(ofName.c_str(), 0666);
+  if (ofPtr < 0) {
     err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
     goto failed;
   }
-  err("file opened: fdLamsDatafile = 0x%x", fdLamsDatafile);
-
-  err("open up the lams sensor");
   // open up the lams sensor
   try {
     sensor_in_0.open(O_RDONLY);
@@ -175,11 +171,10 @@ int main(int argc, char** argv)
     if (FD_ISSET(fd_lams_data, &readfds))
     {
       len += rlen = read(fd_lams_data, &databuf, sizeof(lamsPort));
-      status = write(fdLamsDatafile, &databuf, rlen); 
+      status = write(ofPtr, &databuf, rlen); 
       
-      err("spectrum recv'd len=%d rlen=%d", len, rlen);
-      if (status < 0)
-      {
+//    err("spectrum recv'd len=%d rlen=%d", len, rlen);
+      if (status < 0) {
         err("failed to write... errno: %d", errno);
         goto failed;
       }
@@ -193,8 +188,7 @@ int main(int argc, char** argv)
 failed:
   err(" closing sensors...");
 
-  if (fdLamsDatafile)
-    close(fdLamsDatafile);
+  if (ofPtr) close(ofPtr);
   sensor_in_0.close();
 //try {
 //  sensor_in_0.ioctl(LAMS_STOP, (void *)NULL, 0);
@@ -211,31 +205,56 @@ failed:
 
 int main(int argc, char** argv)
 {
+  err("X86 version - compiled on %s at %s", __DATE__, __TIME__);
+
+  string ifName, ofName;
   if (argc < 2) {
-    fprintf (stderr, "Usage: %s infile\n", argv[0]);
-    return -EINVAL;
+    ifName = string("/tmp/lams.dat");
+    ofName = string("/tmp/lams.hex");
+  } else {
+    ifName = string(argv[1]);
+    ofName = string(argv[2]);
   }
-  string ifName(argv[1]);
+  
+  int ifPtr=0, ofPtr=0;
+  ifPtr = open(ifName.c_str(), 0);
+  if (ifPtr < 0) {
+    err("failed to open '%s' (%s)", ifName.c_str(), strerror(errno));
+    goto failed;
+  }
+  ofPtr = creat(ofName.c_str(), 0666);
+  if (ofPtr < 0) {
+    err("failed to create '%s' (%s)", ofName.c_str(), strerror(errno));
+    goto failed;
+  }
+  char readbuf[sizeof(lamsPort)];
+  char linebuf[11+MAX_BUFFER*5];
+  unsigned int n, nRead, nHead;
 
-  int ifPtr = open(ifName.c_str(), 0);
-
-  char readBuf[sizeof(lamsPort)];
-  unsigned int nRead;
-
-  struct lamsPort* data = (lamsPort*) &readBuf;
+  struct lamsPort* data = (lamsPort*) &readbuf;
 
   do {
-    nRead = read(ifPtr, &readBuf, sizeof(lamsPort));
+    nRead = read(ifPtr, &readbuf, sizeof(lamsPort));
 
     if ( nRead > 0 ) {
-//    printf("%d -", data->timetag);
-      for (int n=0; n<MAX_BUFFER; n++)
-        printf(" %04x", data->data[n]);
-      printf("\n");
+
+      nHead = 0;
+      sprintf(&linebuf[nHead], "%08lx -", data->timetag); nHead+=10;
+      for (n=0; n<MAX_BUFFER; n++)
+        sprintf(&linebuf[nHead+n*5], " %04x", data->data[n]);
+      sprintf(&linebuf[nHead+n*5], "\n");
+
+      int status = write(ofPtr, &linebuf, strlen(linebuf)); 
+      if (status < 0) {
+        err("failed to write... errno: %d", errno);
+        goto failed;
+      }
     }
   } while ( nRead > 0 );
 
-  close(ifPtr);
+failed:
+  if (ofPtr) close(ofPtr);
+  if (ifPtr) close(ifPtr);
   return 0;
 }
 #endif
