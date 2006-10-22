@@ -274,7 +274,7 @@ void SampleInputStream::distribute(const Sample* samp) throw()
     SampleSource::distribute(samp);
 }
 
-/**
+/*
  * Read the next sample. The caller must call freeReference on the
  * sample when they're done with it.
  */
@@ -282,47 +282,87 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 {
     // user probably won't mix the two readSample methods on one stream,
     // but if they do, checking for non-null samp here should make things work.
-restart:
-    if (!samp) {
-	SampleHeader header;
-	while (iostream->available() < header.getSizeOf()) {
-	    iostream->read();
-	    if (iostream->isNewFile()) {
-		inputHeader.check(iostream);
-	    }
-	}
+    for (;;) {
+        if (!samp) {
+            SampleHeader header;
+            while (iostream->available() < header.getSizeOf()) {
+                iostream->read();
+                if (iostream->isNewFile()) {
+                    inputHeader.check(iostream);
+                }
+            }
 
-	iostream->read(&header,header.getSizeOf());
-	if (header.getType() >= UNKNOWN_ST) {
-	    unrecognizedSamples++;
-	    samp = nidas::core::getSample((sampleType)CHAR_ST,
-		header.getDataByteLength());
-	}
-	else
-	    samp = nidas::core::getSample((sampleType)header.getType(),
-		header.getDataByteLength());
+            iostream->read(&header,header.getSizeOf());
+            if (header.getType() >= UNKNOWN_ST) {
+                unrecognizedSamples++;
+                samp = nidas::core::getSample((sampleType)CHAR_ST,
+                    header.getDataByteLength());
+            }
+            else
+                samp = nidas::core::getSample((sampleType)header.getType(),
+                    header.getDataByteLength());
 
-	samp->setTimeTag(header.getTimeTag());
-	samp->setId(header.getId());
-	leftToRead = samp->getDataByteLength();
-	dptr = (char*) samp->getVoidDataPtr();
+            samp->setTimeTag(header.getTimeTag());
+            samp->setId(header.getId());
+            leftToRead = samp->getDataByteLength();
+            dptr = (char*) samp->getVoidDataPtr();
+        }
+        while (leftToRead > 0) {
+            size_t len = iostream->read(dptr, leftToRead);
+            if (iostream->isNewFile()) {
+                iostream->backup(len);
+                samp->freeReference();
+                samp = 0;
+                inputHeader.check(iostream);
+                // go back and read the header
+                break;
+            }
+            dptr += len;
+            leftToRead -= len;
+        }
+        if (leftToRead == 0) {
+            Sample* tmp = samp;
+            samp = 0;
+            return tmp;
+        }
     }
-    while (leftToRead > 0) {
-	size_t len = iostream->read(dptr, leftToRead);
-	if (iostream->isNewFile()) {
-	    iostream->putback(dptr,len);
-	    samp->freeReference();
-	    samp = 0;
-	    inputHeader.check(iostream);
-	    goto restart;
-	}
-	dptr += len;
-	leftToRead -= len;
-	if (leftToRead == 0) break;
+}
+
+/*
+ * Read the next sample. The caller must call freeReference on the
+ * sample when they're done with it.
+ */
+void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
+{
+    SampleHeader header;
+    for (;;) {
+        while (iostream->available() < header.getSizeOf()) {
+            iostream->read();
+            if (iostream->isNewFile()) {
+                inputHeader.check(iostream);
+            }
+        }
+
+        iostream->read(&header,header.getSizeOf());
+        if (header.getType() >= UNKNOWN_ST) unrecognizedSamples++;
+        // cerr << header.getTimeTag() << " " << tt.toUsecs() << endl;
+        if (header.getTimeTag() >= tt.toUsecs()) {
+            iostream->backup(header.getSizeOf());
+            return;
+        }
+
+        leftToRead = header.getDataByteLength();
+
+        while (leftToRead > 0) {
+            size_t len = iostream->skip(leftToRead);
+            if (iostream->isNewFile()) {
+                iostream->backup(len);
+                inputHeader.check(iostream);
+                break;
+            }
+            leftToRead -= len;
+        }
     }
-    Sample* tmp = samp;
-    samp = 0;
-    return tmp;
 }
 
 /*
@@ -537,7 +577,7 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
 void SampleInputStream::addSampleTag(const SampleTag* stag)
 {
     sampleTags.insert(stag);
-    if (iochan) addSampleTag(stag);
+    if (iochan) iochan->addSampleTag(stag);
 }
 
 /*

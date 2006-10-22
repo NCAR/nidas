@@ -16,6 +16,7 @@
 #define NIDAS_DYNLD_SAMPLEINPUTSTREAM_H
 
 #include <nidas/core/SampleInput.h>
+#include <nidas/util/UTime.h>
 
 namespace nidas { namespace dynld {
 
@@ -108,6 +109,8 @@ public:
      */
     void readSamples() throw(nidas::util::IOException);
 
+    void search(const nidas::util::UTime& tt) throw(nidas::util::IOException);
+
     /**
      * Read the next sample from the InputStream. The caller must
      * call freeReference on the sample when they're done with it.
@@ -128,7 +131,7 @@ public:
 
     xercesc::DOMElement* toDOMParent(xercesc::DOMElement* parent)
     	throw(xercesc::DOMException);
-                                                                                
+
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
 

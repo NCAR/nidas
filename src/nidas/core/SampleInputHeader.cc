@@ -137,7 +137,7 @@ void SampleInputHeader::check(IOStream* iostream)
 	    ic = 0;
 	}
     } 
-    iostream->putback(buf,ic);
+    iostream->backup(ic);
 }
 
 void SampleInputHeader::write(SampleOutput* output)

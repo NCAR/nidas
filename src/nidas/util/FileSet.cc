@@ -179,27 +179,27 @@ void FileSet::openNextFile() throw(IOException)
 	    // If the first matched file is later than the
 	    // start time, then we'll look to find an earlier
 	    // file.
-	    if (fileset.size() > 0) {
-	        string firstFile = fileset.front();
-		string t1File = formatName(startTime);
-		if (firstFile.compare(t1File) > 0) {
-		    UTime t1;
-		    // roll back a day
-		    if (fileLength > 366 * USECS_PER_DAY)
-		    	t1 = startTime - USECS_PER_DAY;
-		    else {
-			t1 = startTime;
-			t1 -= t1.toUsecs() % fileLength;
-		    }
-		    UTime t2 = startTime;
-		    list<string> files = matchFiles(t1,t2);
-		    if (files.size() > 0)  {
-			list<string>::const_reverse_iterator ptr = files.rbegin();
-			string f1 = *ptr;
-			if (f1.compare(firstFile) < 0) fileset.push_front(f1);
-		    }
-		}
-	    }
+            string firstFile;
+            string t1File = formatName(startTime);
+	    if (fileset.size() > 0) firstFile = fileset.front();
+	    if (fileset.size() == 0 || firstFile.compare(t1File) > 0) {
+                UTime t1;
+                // roll back a day
+                if (fileLength > 366 * USECS_PER_DAY)
+                    t1 = startTime - USECS_PER_DAY;
+                else {
+                    t1 = startTime;
+                    t1 -= t1.toUsecs() % fileLength;
+                }
+                UTime t2 = startTime;
+                list<string> files = matchFiles(t1,t2);
+                if (files.size() > 0)  {
+                    list<string>::const_reverse_iterator ptr = files.rbegin();
+                    string fl = *ptr;
+                    if (firstFile.length() == 0 || 
+                        fl.compare(firstFile) < 0) fileset.push_front(fl);
+                }
+            }
 
 	    if (fileset.size() == 0) throw IOException(fullpath,"open",ENOENT);
 	}

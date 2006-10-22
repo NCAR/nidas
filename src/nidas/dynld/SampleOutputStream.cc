@@ -231,7 +231,6 @@ void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
 {
     SampleOutputStream::fromDOMElement(node);
     XDOMElement xnode(node);
-    const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
     // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();

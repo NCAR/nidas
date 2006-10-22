@@ -186,7 +186,6 @@ void Project::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
  * and try again.
  */
 list<DSMServer*> Project::findServers(const string& hostname) const
-    throw(n_u::UnknownHostException)
 {
     list<DSMServer*> servers;
     if (hostname.length() > 0) {
@@ -215,16 +214,19 @@ list<DSMServer*> Project::findServers(const string& hostname) const
 
 	if (servers.size() == 0) {
 	    // look for address match
-	    list<n_u::Inet4Address> addrs =
-		    n_u::Inet4Address::getAllByName(hostname);
-	    list<n_u::Inet4Address>::const_iterator ai = addrs.begin();
-	    for ( ; ai != addrs.end(); ++ai) {
-		DSMServer* srvr = findServer(*ai);
-		if (srvr) {
-		    servers.push_back(srvr);
-		    break;
-		}
-	    }
+            try {
+                list<n_u::Inet4Address> addrs =
+                        n_u::Inet4Address::getAllByName(hostname);
+                list<n_u::Inet4Address>::const_iterator ai = addrs.begin();
+                for ( ; ai != addrs.end(); ++ai) {
+                    DSMServer* srvr = findServer(*ai);
+                    if (srvr) {
+                        servers.push_back(srvr);
+                        break;
+                    }
+                }
+            }
+            catch(const n_u::UnknownHostException& e) {}
 	}
     }
 
@@ -295,7 +297,6 @@ const DSMConfig* Project::findDSM(unsigned long id) const
 }
 
 const DSMConfig* Project::findDSM(const string& name) const
-	throw(n_u::UnknownHostException)
 {
     cerr <<  "Checking sites" << endl;
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
@@ -309,18 +310,21 @@ const DSMConfig* Project::findDSM(const string& name) const
 	}
     }
 
-    list<n_u::Inet4Address> saddrs =
-	n_u::Inet4Address::getAllByName(name);
-    list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
-    for ( ; ai != saddrs.end(); ++ai) {
-	const DSMConfig* dsm = findDSM(*ai);
-	if (dsm) return dsm;
+    try {
+        list<n_u::Inet4Address> saddrs =
+            n_u::Inet4Address::getAllByName(name);
+        list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+        for ( ; ai != saddrs.end(); ++ai) {
+            const DSMConfig* dsm = findDSM(*ai);
+            if (dsm) return dsm;
+        }
     }
+    catch(const n_u::UnknownHostException& e) {}
     return 0;
 }
 
 list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
-	const string& hostName) const throw(n_u::UnknownHostException)
+	const string& hostName) const
 {
     list<nidas::dynld::FileSet*> filesets;
     if (hostName.length() > 0) {
@@ -355,17 +359,12 @@ list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
 
 list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets() const
 {
-    try {
-        return findSampleOutputStreamFileSets();
-    }
-    catch (const n_u::UnknownHostException& e) {}
-    return list<nidas::dynld::FileSet*>();
+    return findSampleOutputStreamFileSets("");
 }
 
 #ifdef NEED_THESE
 nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
 	const string& hostName,const n_u::UTime& t1, const n_u::UTime& t2)
-	const throw(n_u::UnknownHostException)
 {
     list<nidas::dynld::FileSet*> filesets =
         findSampleOutputStreamFileSets(hostName);
@@ -380,7 +379,6 @@ nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
 
 nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
 	const n_u::UTime& t1, const n_u::UTime& t2)
-	const throw(n_u::UnknownHostException)
 {
     list<nidas::dynld::FileSet*> filesets = findSampleOutputStreamFileSets();
     list<nidas::dynld::FileSet*>::const_iterator fi = filesets.begin();

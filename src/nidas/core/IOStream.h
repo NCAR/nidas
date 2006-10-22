@@ -70,6 +70,10 @@ public:
      */
     size_t read(void* buf, size_t len) throw(nidas::util::IOException);
 
+    size_t skip(size_t len) throw(nidas::util::IOException);
+
+    size_t backup(size_t len) throw();
+
     /**
      * Read into the user buffer until a terminating character
      * is found.
@@ -78,12 +82,6 @@ public:
      *		was empty, and an end-of-file was encountered.
      */
     size_t readUntil(void* buf, size_t len,char term) throw(nidas::util::IOException);
-
-    /**
-     * Put bytes back into the buffer.
-     * @return number of characters put back.
-     */
-    size_t putback(const void* buf, size_t len) throw();
 
     /**
      * Incoming data is buffered, and the buffer written to the

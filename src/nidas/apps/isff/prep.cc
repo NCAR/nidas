@@ -19,8 +19,10 @@
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
+#include <nidas/core/NearestResamplerAtRate.h>
 
 #include <nidas/core/ProjectConfigs.h>
+#include <nidas/core/Version.h>
 
 #include <nidas/util/UTime.h>
 
@@ -39,7 +41,7 @@ class DumpClient: public SampleClient
 {
 public:
 
-    typedef enum format { DEFAULT, ASCII, BINARY1, BINARY2 } format_t;
+    typedef enum format { ASCII, BINARY1, BINARY2 } format_t;
 
     DumpClient(format_t,ostream&);
 
@@ -47,80 +49,37 @@ public:
 
     bool receive(const Sample* samp) throw();
 
-    void printHeader();
+    void printHeader(vector<const Variable*> vars);
+
+    void setStartTime(const n_u::UTime& val)
+    {
+        startTime = val;
+        checkStart = true;
+    }
+
+    void setEndTime(const n_u::UTime& val)
+    {
+        endTime = val;
+        checkEnd = true;
+    }
+
 
 private:
+
     format_t format;
+
     ostream& ostr;
+
+    n_u::UTime startTime;
+
+    n_u::UTime endTime;
+
+    bool checkStart;
+
+    bool checkEnd;
 
 };
 
-
-DumpClient::DumpClient(format_t fmt,ostream &outstr):
-	format(fmt),ostr(outstr)
-{
-}
-
-void DumpClient::printHeader()
-{
-    cout << "|--- date time -------| deltaT   bytes" << endl;
-}
-
-bool DumpClient::receive(const Sample* samp) throw()
-{
-    dsm_time_t tt = samp->getTimeTag();
-
-#ifdef DEBUG
-    cerr << "sampid=" << GET_DSM_ID(samp->getId()) << ',' <<
-    	GET_SHORT_ID(samp->getId()) << endl;
-#endif
-
-    switch(format) {
-    case ASCII:
-	{
-	n_u::UTime ut(tt);
-	ostr << ut.format(true,"%Y %m %d %H:%M:%S.%3f");
-
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(4) << setfill(' ');
-        // last value is number of non-NAs
-	for (unsigned int i = 0;
-		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
-	    ostr << setw(10) << fp[i] << ' ';
-	ostr << endl;
-	}
-        break;
-    case BINARY1:
-	{
-
-	int fsecs = tt % USECS_PER_SEC;
-	double ut = tt - fsecs + (double) fsecs / USECS_PER_SEC;
-
-	ostr.write((const char*)&ut,sizeof(ut));
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
-	for (unsigned int i = 0;
-		i < samp->getDataByteLength()/sizeof(float); i++)
-	    ostr.write((const char*)(fp+i),sizeof(float));
-	}
-        break;
-    case BINARY2:
-	{
-
-	ostr.write((const char*)&tt,sizeof(tt));
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
-	for (unsigned int i = 0;
-		i < samp->getDataByteLength()/sizeof(float); i++)
-	    ostr.write((const char*)(fp+i),sizeof(float));
-	}
-        break;
-    case DEFAULT:
-        break;
-    }
-    return true;
-}
 
 class DataPrep
 {
@@ -143,6 +102,8 @@ public:
     vector<const Variable*> matchVariables(Project* project,
         set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
+
+    static void interrupt() { interrupted = true; }
 
 private:
 
@@ -170,11 +131,96 @@ private:
 
     list<Variable*> reqVars;
 
-    n_u::UTime beginTime;
+    n_u::UTime startTime;
 
     n_u::UTime endTime;
 
+    float rate;
+
 };
+
+DumpClient::DumpClient(format_t fmt,ostream &outstr):
+	format(fmt),ostr(outstr),startTime((time_t)0),endTime((time_t)0),
+        checkStart(false),checkEnd(false)
+{
+}
+
+void DumpClient::printHeader(vector<const Variable*>vars)
+{
+    // cout << "|--- date time -------| deltaT   bytes" << endl;
+    vector<const Variable*>::const_iterator vi = vars.begin();
+    for (; vi != vars.end(); ++vi) {
+        const Variable* var = *vi;
+        cout << var->getName() << ' ';
+    }
+    cout << endl;
+    vi = vars.begin();
+    for (; vi != vars.end(); ++vi) {
+        const Variable* var = *vi;
+        cout << '"' << var->getUnits() << "\" ";
+    }
+    cout << endl;
+}
+
+bool DumpClient::receive(const Sample* samp) throw()
+{
+    dsm_time_t tt = samp->getTimeTag();
+    if (checkStart && tt < startTime.toUsecs()) return false;
+    if (checkEnd && tt > endTime.toUsecs()) {
+        DataPrep::interrupt();
+        return false;
+    }
+
+#ifdef DEBUG
+    cerr << "sampid=" << GET_DSM_ID(samp->getId()) << ',' <<
+    	GET_SHORT_ID(samp->getId()) << endl;
+#endif
+
+    switch(format) {
+    case ASCII:
+	{
+	n_u::UTime ut(tt);
+	ostr << ut.format(true,"%Y %m %d %H:%M:%S.%3f");
+
+	const float* fp =
+		(const float*) samp->getConstVoidDataPtr();
+	ostr << setprecision(4) << setfill(' ');
+        // last value is number of non-NAs
+	for (unsigned int i = 0;
+		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
+	    ostr << setw(10) << fp[i] << ' ';
+	ostr << endl;
+	}
+        break;
+    case BINARY1:
+	{
+
+	int fsecs = tt % USECS_PER_SEC;
+	double ut = (double)((tt - fsecs) / USECS_PER_SEC) +
+            (double) fsecs / USECS_PER_SEC;
+
+	ostr.write((const char*)&ut,sizeof(ut));
+	const float* fp =
+		(const float*) samp->getConstVoidDataPtr();
+	for (unsigned int i = 0;
+		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
+	    ostr.write((const char*)(fp+i),sizeof(float));
+	}
+        break;
+    case BINARY2:
+	{
+
+	ostr.write((const char*)&tt,sizeof(tt));
+	const float* fp =
+		(const float*) samp->getConstVoidDataPtr();
+	for (unsigned int i = 0;
+		i < samp->getDataByteLength()/sizeof(float); i++)
+	    ostr.write((const char*)(fp+i),sizeof(float));
+	}
+        break;
+    }
+    return true;
+}
 
 /* static */
 int DataPrep::defaultPort = 30000;
@@ -182,8 +228,9 @@ int DataPrep::defaultPort = 30000;
 DataPrep::DataPrep(): 
 	port(defaultPort),
 	sorterLength(250),
-	format(DumpClient::DEFAULT),
-        beginTime((time_t)0),endTime((time_t)0)
+	format(DumpClient::ASCII),
+        startTime((time_t)0),endTime((time_t)0),
+        rate(0.0)
 {
 }
 
@@ -196,14 +243,14 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:E:x:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:E:r:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
 	    break;
 	case 'B':
 	    try {
-		beginTime = n_u::UTime::parse(true,optarg);
+		startTime = n_u::UTime::parse(true,optarg);
 	    }
 	    catch(const n_u::ParseException& e) {
 	        cerr << e.what() << endl;
@@ -264,6 +311,17 @@ int DataPrep::parseRunstring(int argc, char** argv)
 		return usage(argv[0]);
 	    }
 	    break;
+      case 'r':
+            {
+                istringstream ist(optarg);
+                ist >> rate;
+                if (ist.fail() || rate < 0) {
+                    cerr << "Invalid resample rate: " << optarg << endl;
+                    return usage(argv[0]);
+                }
+            }
+            break;
+
       case 's':
             {
                 istringstream ist(optarg);
@@ -275,6 +333,10 @@ int DataPrep::parseRunstring(int argc, char** argv)
             }
             break;
 
+	case 'v':
+	    cout << "Version: " << Version::getSoftwareVersion() << endl;
+	    exit(0);
+	    break;
 	case 'x':
 	    xmlFileName = optarg;
 	    break;
@@ -318,18 +380,19 @@ int DataPrep::parseRunstring(int argc, char** argv)
     //  2. a socket to connect to
     //	3. or a time period and a $PROJECT environment variable
     if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
-    	beginTime.toUsecs() == 0) return usage(argv[0]);
+    	startTime.toUsecs() == 0) return usage(argv[0]);
     return 0;
 }
 
 int DataPrep::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-s sorterLength] [-x xml_file] [-z] [input] ...\n\
+Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-r rate] [-s sorterLength] [-x xml_file] [-z] [input] ...\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -d dsm\n\
     -n nice: run at a lower priority (nice > 0)\n\
+    -r rate: resample rate, in Hz\n\
     -s sorterLength: input data sorter length in milliseconds\n\
     -x xml_file: (optional), the default value is read from the input\n\
     input: names of one or more raw data files, or sock:[hostname[:port]]\n\
@@ -455,11 +518,12 @@ int DataPrep::run() throw()
 
 	auto_ptr<Project> project;
 
+	auto_ptr<Resampler> resampler;
+
 	auto_ptr<SortedSampleInputStream> sis;
 
 	vector<const Variable*> variables;
 
-	auto_ptr<NearestResampler> resampler;
 
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
@@ -486,7 +550,7 @@ int DataPrep::run() throw()
 	    //  4. iochan, SortedSampleInputStream
 
             string configXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-	    project.reset(ProjectConfigs::getProject(configXML,beginTime));
+	    project.reset(ProjectConfigs::getProject(configXML,startTime));
 
 	    // match the requested variables.
 	    // on a match:
@@ -503,27 +567,21 @@ int DataPrep::run() throw()
 
 	    // now look for the files.
 	    FileSet* fset = 0;
-	    if (activeDsms.size() == 1) {
+            list<FileSet*> fsets =
+                project->findSampleOutputStreamFileSets();
+            if (fsets.size() == 0 && activeDsms.size() == 1) {
                 const DSMConfig* dsm = *(activeDsms.begin());
-                // cerr << "dsm=" << dsm->getName() << endl;
-	    	list<FileSet*> fsets = dsm->findSampleOutputStreamFileSets();
-                if (fsets.size() == 0) {
-		    n_u::InvalidParameterException(
-			progname,"cannot find fileset for dsm",dsm->getName());
-                }
-                fset = fsets.front();
-                // cerr << "fset=" << fset->getDir() << '/' << fset->getFileName() << endl;
+	    	fsets =
+                    project->findSampleOutputStreamFileSets(dsm->getName());
+                if (fsets.size() == 0)
+                    throw n_u::InvalidParameterException(
+                        progname,"cannot find fileset for dsm",dsm->getName());
             }
-	    else {
-	        // must find a merged fileset
-	    	list<FileSet*> fsets = project->findSampleOutputStreamFileSets();
-                if (fsets.size() == 0) {
-		    n_u::InvalidParameterException(
-			progname,"cannot find fileset","");
-                }
-                fset = fsets.front();
-	    }
-            fset->setStartTime(beginTime);
+            if (fsets.size() == 0) 
+                throw n_u::InvalidParameterException(progname,
+                    "cannot find fileset","");
+            fset = fsets.front();
+            fset->setStartTime(startTime);
             fset->setEndTime(endTime);
             iochan = fset;
 	}
@@ -588,12 +646,21 @@ int DataPrep::run() throw()
         sis.reset(new SortedSampleInputStream(iochan));
         sis->setHeapBlock(true);
 
-	resampler.reset(new NearestResampler(variables));
+
+        if (rate > 0.0) {
+            NearestResamplerAtRate* smplr =
+                new NearestResamplerAtRate(variables);
+            smplr->setRate(rate);
+            smplr->setFillGaps(true);
+            resampler.reset(smplr);
+        }
+        else {
+            resampler.reset(new NearestResampler(variables));
+        }
 
 	si = activeSensors.begin();
 	for ( ; si != activeSensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
-            // cerr << "sensor=" << sensor->getName() << endl;
 	    sensor->init();
             SampleTagIterator ti = sensor->getSampleTagIterator();
             for ( ; ti.hasNext(); ) {
@@ -603,7 +670,6 @@ int DataPrep::run() throw()
 	    // sis->addProcessedSampleClient(resampler.get(),sensor);
 	}
 
-
         sis->init();
         resampler->connect(sis.get());
 
@@ -611,13 +677,21 @@ int DataPrep::run() throw()
 
 	resampler->addSampleClient(&dumper);
 
-	dumper.printHeader();
+        if (startTime.toUsecs() != 0) {
+            cerr << "Searching for time " <<
+                startTime.format(true,"%Y %m %d %H:%M:%S");
+            sis->search(startTime);
+            cerr << " done." << endl;
+            dumper.setStartTime(startTime);
+        }
+        if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
+
+	dumper.printHeader(variables);
 
 	for (;;) {
 	    sis->readSamples();
 	    if (interrupted) break;
 	}
-        cerr << "reading done " << sis->getName() << endl;
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;

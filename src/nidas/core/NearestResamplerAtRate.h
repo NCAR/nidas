@@ -2,19 +2,19 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-03-03 12:46:08 -0700 (Fri, 03 Mar 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3299 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:5080/svn/nids/branches/ISFF_TREX/dsm/class/SampleSorter.h $
+    $HeadURL$
  ********************************************************************
 
 */
 
-#ifndef NIDAS_CORE_NEARESTRESAMPLER_H
-#define NIDAS_CORE_NEARESTRESAMPLER_H
+#ifndef NIDAS_CORE_NEARESTRESAMPLERATRATE_H
+#define NIDAS_CORE_NEARESTRESAMPLERATRATE_H
 
 #include <nidas/core/Resampler.h>
 #include <nidas/core/SampleInput.h>
@@ -27,31 +27,51 @@ namespace nidas { namespace core {
 /**
  * A simple, nearest-point resampler, for generating merged
  * samples from variables from one or more sample sources.
- * The first variable added to NearestResample with the
- * addVariable() method becomes the "master" variable.
- * The time tags of the master variable become the output
- * sample time tags, and values of other variables are merged
+ * The output sample time tags will be evenly spaced at the
+ * given rate, and values of other variables are merged
  * into the output sample by associating those values with
- * the nearest time tag to the master times.
+ * the nearest time tag to the output time tags.
  *
  * The only requirement is that the samples which are fed
  * to the receive() method should be sorted in time. It they
  * aren't sorted some data will be lost.
- * NearestResampler does not need to know sampling
+ * NearestResamplerAtRate does not need to know sampling
  * rates, and the sampling rates of the input variables, including
  * the master variable, may vary.
  */
-class NearestResampler : public Resampler {
+class NearestResamplerAtRate : public Resampler {
 public:
 
     /**
      * Constructor.
      */
-    NearestResampler(const std::vector<const Variable*>& vars);
+    NearestResamplerAtRate(const std::vector<const Variable*>& vars);
 
-    NearestResampler(const std::vector<Variable*>& vars);
+    NearestResamplerAtRate(const std::vector<Variable*>& vars);
 
-    ~NearestResampler();
+    ~NearestResamplerAtRate();
+
+    void setRate(float val)
+    {
+        rate = val;
+        deltatUsec = (long long)(USECS_PER_SEC / rate);
+        deltatUsec10 = deltatUsec / 10;
+    }
+
+    float getRate() const
+    {
+        return rate;
+    }
+
+    void setFillGaps(bool val)
+    {
+        fillGaps = val;
+    }
+
+    bool getFillGaps() const
+    {
+        return fillGaps;
+    }
 
     bool receive(const Sample *s) throw();
 
@@ -77,6 +97,8 @@ public:
 
 private:
 
+    void sendSample(dsm_time_t) throw();
+
     /**
      * Common tasks of constructors.
      */
@@ -84,7 +106,7 @@ private:
 
     std::set<const SampleTag*> sampleTags;
 
-    SampleTag outSample;
+    SampleTag outSampleTag;
 
     int nvars;
 
@@ -92,9 +114,15 @@ private:
 
     std::map<dsm_sample_id_t,std::vector<int*> > sampleMap;
 
-    int master;
+    float rate;
 
-    int nmaster;
+    int deltatUsec;
+
+    int deltatUsec10;
+
+    dsm_time_t outputTT;
+
+    dsm_time_t nextOutputTT;
 
     dsm_time_t* prevTT;
 
@@ -104,17 +132,21 @@ private:
 
     float* nearData;
 
-    int* samplesSinceMaster;
+    int* samplesSinceOutput;
+
+    SampleT<float>* osamp;
+
+    bool fillGaps;
 
     /**
      * No assignment.
      */
-    NearestResampler& operator=(const NearestResampler&);
+    NearestResamplerAtRate& operator=(const NearestResamplerAtRate&);
 
     /**
      * No copy.
      */
-    NearestResampler(const NearestResampler& x);
+    NearestResamplerAtRate(const NearestResamplerAtRate& x);
 };
 
 }}	// namespace nidas namespace core

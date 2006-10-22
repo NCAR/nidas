@@ -92,6 +92,24 @@ size_t IOStream::read(void* buf, size_t len) throw(n_u::IOException)
 }
 
 /*
+ * Skip over nbytes of IOStream buffer.
+ * May return less than len.
+ */
+size_t IOStream::skip(size_t len) throw(n_u::IOException)
+{
+    newFile = false;
+    size_t l = available();
+    if (l == 0) {
+        read();
+	l = available();
+    }
+    if (len < l) l = len;
+    tail += l;
+    nbytes += l;
+    return l;
+}
+
+/*
  * Read data until finding a terminator character or the user's
  * buffer is filled.  This may do more than one physical read.
  */
@@ -123,11 +141,10 @@ size_t IOStream::readUntil(void* buf, size_t len,char term)
 /*
  * Put data back in buffer.
  */
-size_t IOStream::putback(const void* buf, size_t len) throw()
+size_t IOStream::backup(size_t len) throw()
 {
     size_t space = tail - buffer;
     if (space < len) len = space;
-    memcpy(tail - len,buf,len);
     tail -= len;
     nbytes -= len;
     return len;

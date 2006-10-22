@@ -80,6 +80,7 @@ headers = [ Split("""
     Looper.h
     McSocket.h
     NearestResampler.h
+    NearestResamplerAtRate.h
     NidsIterators.h
     Parameter.h
     PhysConstants.h
@@ -88,6 +89,7 @@ headers = [ Split("""
     ProjectConfigs.h
     RemoteSerialConnection.h
     RemoteSerialListener.h
+    Resampler.h
     RTL_DevIoctl.h
     RTL_DevIoctlStore.h
     RTL_IODevice.h
@@ -159,6 +161,7 @@ sources = [ Split("""
     Looper.cc
     McSocket.cc
     NearestResampler.cc
+    NearestResamplerAtRate.cc
     NidsIterators.cc
     Parameter.cc
     PortSelectorTest.cc
