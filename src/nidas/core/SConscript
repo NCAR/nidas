@@ -205,6 +205,7 @@ sources = [ Split("""
     XmlRpcThread.cc
 
     ../util/BitArray.cc
+    ../util/EndianConverter.cc
     ../util/Exception.cc
     ../util/FileSet.cc
     ../util/Inet4Address.cc

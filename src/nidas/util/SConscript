@@ -29,6 +29,7 @@ myenv.AppendUnique(CXXFLAGS = Split("""
 headers = [ Split("""
     BitArray.h
     DatagramPacket.h
+    EndianConverter.h
     EOFException.h
     Exception.h
     FileSet.h
@@ -55,10 +56,10 @@ headers = [ Split("""
 ]
 # print(["headers="] + [str(h) for h in headers])
 
-# sources = glob.glob("../../util/*.cc")
-# print(["glob sources="] + [str(h) for h in sources])
+# Also add .cc files to ../core/SConscript!
 sources = [ Split("""
     BitArray.cc
+    EndianConverter.cc
     Exception.cc
     FileSet.cc
     Inet4Address.cc
