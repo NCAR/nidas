@@ -3,6 +3,7 @@
 //              Copyright 2004 (C) by UCAR
 //
 
+#include <cassert>
 #include <stdexcept>
 #include <nidas/util/EndianConverter.h>
 
