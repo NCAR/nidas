@@ -28,12 +28,12 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-
 SampleOutputBase::SampleOutputBase(IOChannel* i):
 	name("SampleOutputBase"),
 	iochan(i),
 	connectionRequester(0),
-	nextFileTime(LONG_LONG_MIN)
+	nextFileTime(LONG_LONG_MIN),
+        headerSource(0)
 {
 }
 
@@ -46,7 +46,8 @@ SampleOutputBase::SampleOutputBase(const SampleOutputBase& x):
 	iochan(x.iochan->clone()),
 	sampleTags(x.sampleTags),
 	connectionRequester(x.connectionRequester),
-	nextFileTime(LONG_LONG_MIN)
+	nextFileTime(LONG_LONG_MIN),
+        headerSource(x.headerSource)
 {
 }
 
@@ -59,7 +60,8 @@ SampleOutputBase::SampleOutputBase(const SampleOutputBase& x,IOChannel* ioc):
 	iochan(ioc),
 	sampleTags(x.sampleTags),
 	connectionRequester(x.connectionRequester),
-	nextFileTime(LONG_LONG_MIN)
+	nextFileTime(LONG_LONG_MIN),
+        headerSource(x.headerSource)
 {
 }
 
@@ -184,8 +186,9 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
     // otherwise it is truncated down.
     nextFileTime = getIOChannel()->createFile(tt,
     	nextFileTime == LONG_LONG_MIN);
-    if (connectionRequester)
-	connectionRequester->sendHeader(tt,this);
+    if (headerSource)
+	headerSource->sendHeader(tt,this);
+    else HeaderSource::sendDefaultHeader(this);
     // else header.write(this);
 }
 

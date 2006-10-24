@@ -21,6 +21,7 @@
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/IOStream.h>
+#include <nidas/core/HeaderSource.h>
 #include <nidas/core/ConnectionRequester.h>
 
 // #include <nidas/util/McSocket.h>
@@ -84,6 +85,8 @@ public:
     	throw(nidas::util::IOException) = 0;
 
     virtual void close() throw(nidas::util::IOException) = 0;
+
+    virtual void setHeaderSource(HeaderSource* val) = 0;
 
 protected:
     
@@ -154,9 +157,11 @@ public:
     void write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
+#ifdef OLD_HEADER_WAY
     void setHeader(const SampleInputHeader& hdr) {
         header = hdr;
     }
+#endif
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
@@ -168,6 +173,11 @@ public:
     	throw(xercesc::DOMException);
 
     IOChannel* getIOChannel() const { return iochan; }
+
+    void setHeaderSource(HeaderSource* val)
+    {
+        headerSource = val;
+    }
 
 protected:
 
@@ -193,7 +203,11 @@ private:
 
     dsm_time_t nextFileTime;
 
+#ifdef OLD_HEADER_WAY
     SampleInputHeader header;
+#endif
+
+    HeaderSource* headerSource;
 
 };
 

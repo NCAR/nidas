@@ -30,7 +30,7 @@ using namespace nidas::core;
 
 class nidas::core::DSMSensor;
 
-class SyncRecordGenerator: public SampleIOProcessor
+class SyncRecordGenerator: public SampleIOProcessor, public HeaderSource
 {
 public:
     
@@ -55,7 +55,11 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void sendHeader(dsm_time_t thead,SampleOutput* output) throw(nidas::util::IOException);
+    /**
+     * Method called to write a header to an SampleOutput.
+     */
+    void sendHeader(dsm_time_t thead,SampleOutput* output)
+        throw(nidas::util::IOException);
 
     const std::set<const SampleTag*>& getSampleTags() const
     {

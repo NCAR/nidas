@@ -296,7 +296,7 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     try {
 	Sample* samp = input.readSample();
 	dsm_time_t tt = samp->getTimeTag();
-	syncGen.sendHeader(tt,output);
+	// syncGen.sendHeader(tt,output);
 	input.distribute(samp);
 
 	int simClockRes = USECS_PER_SEC / 10;	// simulated clock resolution
@@ -361,7 +361,7 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 
     Sample* samp = input.readSample();
     dsm_time_t tt = samp->getTimeTag();
-    syncGen.sendHeader(tt,output);
+    // syncGen.sendHeader(tt,output);
     input.distribute(samp);
 
     try {

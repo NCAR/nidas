@@ -83,18 +83,21 @@ void SyncRecordGenerator::connected(SampleOutput* orig,
 {
     SampleIOProcessor::connected(orig,output);
     syncRecSource.addSampleClient(output);
+    output->setHeaderSource(this);
 }
 
 void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
 {
     syncRecSource.removeSampleClient(output);
     SampleIOProcessor::disconnected(output);
+    output->setHeaderSource(0);
 }
 
 void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
 	throw(n_u::IOException)
 {
-    SampleConnectionRequester::sendHeader(thead,output);
+    HeaderSource::sendDefaultHeader(output);
+    // syncRecSource sends a header sample to the stream
     syncRecSource.sendHeader(thead);
 }
 

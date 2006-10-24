@@ -17,6 +17,7 @@
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
+#include <nidas/core/HeaderSource.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
@@ -37,7 +38,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class NidsMerge
+class NidsMerge: public HeaderSource
 {
 public:
 
@@ -56,6 +57,9 @@ public:
 
     static int usage(const char* argv0);
 
+    void sendHeader(dsm_time_t thead,SampleOutput* out)
+        throw(n_u::IOException);
+
 private:
 
     static bool interrupted;
@@ -73,6 +77,8 @@ private:
     n_u::UTime endTime;
 
     int outputFileLength;
+
+    SampleInputHeader header;
 
 };
 
@@ -219,6 +225,12 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
+void NidsMerge::sendHeader(dsm_time_t thead,SampleOutput* out)
+    throw(n_u::IOException)
+{
+    header.write(out);
+}
+
 int NidsMerge::run() throw()
 {
 
@@ -262,12 +274,8 @@ int NidsMerge::run() throw()
 
 	    try {
 		input->readHeader();
-		SampleInputHeader header = input->getHeader();
-		if (!headerWritten) {
-		    outStream.setHeader(header);
-		    headerWritten = true;
-		}
-		// string systemName = header.getSystemName();
+                // save header for later writing to output
+		header = input->getHeader();
 	    }
 	    catch (const n_u::EOFException& e) {
 		cerr << e.what() << endl;
