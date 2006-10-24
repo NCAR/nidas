@@ -168,7 +168,7 @@ void SampleIOProcessor::connected(SampleOutput* orig,SampleOutput* output) throw
     }
     outputMutex.lock();
     outputMap[output] = orig;
-    outputs.insert(output);
+    outputSet.insert(output);
 
     list<SampleOutput*>::const_iterator oi = pendingOutputClosures.begin();
     for (; oi != pendingOutputClosures.end(); ++oi) {
@@ -199,7 +199,7 @@ void SampleIOProcessor::disconnected(SampleOutput* output) throw()
     if (output != orig) pendingOutputClosures.push_back(output);
 
     outputMap.erase(output);
-    outputs.erase(output);
+    outputSet.erase(output);
 
     outputMutex.unlock();
 

@@ -33,6 +33,9 @@ namespace n_u = nidas::util;
 DSMArincSensor::DSMArincSensor() :
   _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD), sim_xmit(false)
 {
+    for (unsigned int label = 0;
+        label < sizeof(_processed)/sizeof(_processed[0]); label++)
+            _processed[label] = false;
 }
 
 DSMArincSensor::~DSMArincSensor() {

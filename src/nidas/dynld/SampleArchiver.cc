@@ -64,8 +64,8 @@ void SampleArchiver::disconnect(SampleInput* oldinput) throw(n_u::IOException)
     if (!input) return;
     assert(input == oldinput);
 
-    const list<SampleOutput*>& cnctdOutputs = getConnectedOutputs();
-    list<SampleOutput*>::const_iterator oi =
+    const set<SampleOutput*>& cnctdOutputs = getConnectedOutputs();
+    set<SampleOutput*>::const_iterator oi =
     	cnctdOutputs.begin();
     for ( ; oi != cnctdOutputs.end(); ++oi) {
         SampleOutput* output = *oi;

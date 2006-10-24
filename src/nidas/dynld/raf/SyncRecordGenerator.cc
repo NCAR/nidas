@@ -69,8 +69,9 @@ void SyncRecordGenerator::disconnect(SampleInput* oldinput)
 
     syncRecSource.disconnect(input);
 
-    list<SampleOutput*>::const_iterator oi = getConnectedOutputs().begin();
-    for ( ; oi != getConnectedOutputs().end(); ++oi) {
+    const set<SampleOutput*>& tmpputs = getConnectedOutputs();
+    set<SampleOutput*>::const_iterator oi = tmpputs.begin();
+    for ( ; oi != tmpputs.end(); ++oi) {
         SampleOutput* output = *oi;
 	syncRecSource.removeSampleClient(output);
     }

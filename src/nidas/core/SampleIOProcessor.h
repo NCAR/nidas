@@ -127,9 +127,9 @@ public:
         return origOutputs;
     }
 
-    std::list<SampleOutput*> getConnectedOutputs() const 
+    const std::set<SampleOutput*>& getConnectedOutputs() const 
     {
-        return std::list<SampleOutput*>(outputs.begin(),outputs.end());
+        return outputSet;
     }
 
     /**
@@ -186,7 +186,11 @@ private:
      */
     std::map<SampleOutput*,SampleOutput*> outputMap;
 
-    std::set<SampleOutput*> outputs;
+    /**
+     * The connected outputs, kept in a set to
+     * avoid duplicates.
+     */
+    std::set<SampleOutput*> outputSet;
 
     std::list<SampleOutput*> pendingOutputClosures;
 
