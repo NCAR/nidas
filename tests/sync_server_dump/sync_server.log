@@ -1,0 +1,37 @@
+==14901== Memcheck, a memory error detector.
+==14901== Copyright (C) 2002-2005, and GNU GPL'd, by Julian Seward et al.
+==14901== Using LibVEX rev 1575, a library for dynamic binary translation.
+==14901== Copyright (C) 2004-2005, and GNU GPL'd, by OpenWorks LLP.
+==14901== Using valgrind-3.1.1, a dynamic binary instrumentation framework.
+==14901== Copyright (C) 2000-2005, and GNU GPL'd, by Julian Seward et al.
+==14901== For more details, rerun with: -v
+==14901== 
+opening: data/dsm_20060908_200303.ads
+parsing: /h/eol/maclean/work/nidas/tests/sync_server_dump/config/TrailCone/GV_N677F/nidas/default.xml
+Sorter2(id=87354288,Non-RT,prior=0,joinable,cancel=deferred) run...
+Sorter2: sorterLengthUsec=2000000
+
+SampleInputStream:  has connected to SyncRecordGenerator
+SampleOutputBase: inet:localhost.localdomain:57865 has connected to SyncRecordGenerator, #outputs=0
+EOF received: flushing buffers
+waiting for buffer to empty, size=1
+
+SampleInputStream:  is disconnecting from SyncRecordGenerator
+Sorter2(id=87354288,Non-RT,prior=0,joinable,cancel=deferred) run method finished
+SampleOutputBase: inet:localhost.localdomain:57865 has disconnected from SyncRecordGenerator
+~SampleSorter, isRunning()=0 joined=1
+EOFException: : open: EOF
+==14901== 
+==14901== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 37 from 2)
+==14901== malloc/free: in use at exit: 194,218 bytes in 7,015 blocks.
+==14901== malloc/free: 61,996 allocs, 54,981 frees, 2,031,333 bytes allocated.
+==14901== For counts of detected errors, rerun with: -v
+==14901== searching for pointers to 7,015 not-freed blocks.
+==14901== checked 11,394,900 bytes.
+==14901== 
+==14901== LEAK SUMMARY:
+==14901==    definitely lost: 448 bytes in 8 blocks.
+==14901==      possibly lost: 2,072 bytes in 94 blocks.
+==14901==    still reachable: 191,698 bytes in 6,913 blocks.
+==14901==         suppressed: 0 bytes in 0 blocks.
+==14901== Use --leak-check=full to see details of leaked memory.
