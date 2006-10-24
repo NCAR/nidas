@@ -28,9 +28,9 @@ def get_svnversion(env):
 ###
 ###
 ###
-# diamond/emerald/emerald.ko
+
+# emerald.ko
 objs = Split("""
-emerald.ko
 """)
 ##
 ##  List of each module source
