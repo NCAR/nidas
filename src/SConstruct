@@ -4,19 +4,21 @@
 import os
 
 ##
-## command line options
-##
-opts = Options('nidas.conf')
-opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nidas')
-opts.Add('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:', '/opt/nidas/x86')
-opts.Add('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:', '/opt/nidas/arm')
-##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
 ##
-env = Environment(platform = 'posix',options=opts,
-    ENV = {'PATH' : os.environ['PATH']})
+env = Environment(platform = 'posix', ENV = {'PATH' : os.environ['PATH']})
 
+##
+## command line options
+##
+opts = Options('nidas.conf')
+opts.AddOptions(
+    PathOption('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nidas'),
+    PathOption('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:', '/opt/nidas/x86'),
+    PathOption('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:', '/opt/nidas/arm'),
+    )
+opts.Update(env)
 opts.Save('nidas.conf',env)
 
 Help(opts.GenerateHelpText(env) + """
@@ -150,7 +152,7 @@ x86_env.AppendUnique(LIBPATH =
 ##
 x86_env.AppendUnique(RPATH = [
     x86_env.Dir("#build_x86/build_core").get_abspath(),
-    '$PREFIX/lib'
+    '$PREFIX/lib',
     '$OTHER_X86/lib'
     ]) 
 
