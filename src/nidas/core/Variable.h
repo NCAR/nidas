@@ -99,7 +99,9 @@ public:
     /**
      * Variable suffix, which is added to the name.  The full variable name
      * is created from  prefix + suffix + siteSuffix.  suffix and/or
-     * siteSuffix may be empty strings.
+     * siteSuffix may be empty strings.  The suffix commonly
+     * comes from the DSMSensor::getFullSuffix(), containing
+     * an optional sensor suffix and a height/depth string.
      */
     const std::string& getSuffix() const { return suffix; }
 
@@ -128,7 +130,8 @@ public:
 
     /**
      * Set the full name. This clears the suffix and site
-     * portions of the name.
+     * portions of the name.  Once this is called,
+     * the suffix and siteSuffix fields are cleared.
      */
     void setName(const std::string& val) 
     {
@@ -166,8 +169,9 @@ public:
 
     /**
      * Station number of this variable:
-     * @return -1: not associated with a specific site number
-     *        0-N: a site number
+     * @return -1: the wild card value, matching any site,
+     *          0: the "non" site, or the project-wide site,
+     *        1-N: a site number
      */
     int getStation() const { return station; }
 

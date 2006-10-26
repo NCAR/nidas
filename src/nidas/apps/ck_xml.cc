@@ -70,11 +70,27 @@ int main(int argc, char** argv)
 		for (SensorIterator si2 = dsm->getSensorIterator(); 
 			si2.hasNext(); ) {
 		    DSMSensor* sensor = si2.next();
-		    cout << "site:" << site->getName() << ' ' <<
-		    	site->getNumber() << 
-		    	", dsm:" << dsm->getName() <<
-			", sensor: " << sensor->getName() << endl;
+                    cout << "site:" << site->getName();
+		    if (site->getNumber() > 0)
+                        cout << ",stn#" << site->getNumber();
+                    cout << ", sensor: " << sensor->getName() << 
+                        '(' << sensor->getDSMId() << ',' <<
+                        sensor->getShortId() << ')' << endl;
+                    for (SampleTagIterator ti = sensor->getSampleTagIterator();
+                        ti.hasNext(); ) {
+                        const SampleTag* tag = ti.next();
+                        cout << "  samp#" << tag->getSampleId() << ": ";
+                        int iv = 0;
+                        for (VariableIterator vi = tag->getVariableIterator();
+                            vi.hasNext(); iv++) {
+                            const Variable* var = vi.next();
+                            if (iv) cout << ',' << var->getName();
+                            else cout << var->getName();
+                        }
+                        cout << endl;
+                    }
 		}
+                cout << "-----------------------------------------" << endl;
 	    }
 	}
 

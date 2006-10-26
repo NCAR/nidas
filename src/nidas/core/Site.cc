@@ -185,7 +185,6 @@ void Site::fromDOMElement(const DOMElement* node)
 	if (elname == "dsm") {
 	    DSMConfig* dsm = new DSMConfig();
 	    dsm->setSite(this);
-	    dsm->setSiteSuffix(getSuffix());
 	    try {
 		dsm->fromDOMElement((DOMElement*)child);
 	    }
@@ -227,13 +226,28 @@ void Site::fromDOMElement(const DOMElement* node)
 	}
     }
 
-    // likewise with variables.
+    // Check that variables are unique. Loop over dsms and
+    // sensors so that you can report the dsm and sensor name
+    // of duplicate variable.
     set<Variable> varset;
-    for (VariableIterator vi = getVariableIterator(); vi.hasNext(); ) {
-	const Variable* var = vi.next();
-	if (!varset.insert(*var).second)
-	    throw n_u::InvalidParameterException("variable",
-		var->getName(),"is not unique");
+    for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
+        const DSMConfig* dsm = di.next();
+        for (SensorIterator si = dsm->getSensorIterator(); si.hasNext(); ) {
+            const DSMSensor* sensor = si.next();
+            for (VariableIterator vi = sensor->getVariableIterator();
+                vi.hasNext(); ) {
+                const Variable* var = vi.next();
+                if (!varset.insert(*var).second) {
+                    ostringstream ost;
+                    ost << var->getName() << " from sensor=" <<
+                        sensor->getName() << '(' <<
+                        sensor->getDSMId() << ',' <<
+                        sensor->getShortId() << ')';
+                    throw n_u::InvalidParameterException("variable",
+                        ost.str(),"is not unique");
+                }
+            }
+        }
     }
 }
 

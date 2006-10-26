@@ -39,13 +39,13 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
-    iodev(0),scanner(0),dsm(0),id(0),
-    rawSampleTag(0),
+    iodev(0),
     height(floatNAN),
+    scanner(0),dsm(0),id(0),
+    rawSampleTag(0),
     latency(0.1)	// default sensor latency, 0.1 secs
 {
 }
-
 
 DSMSensor::~DSMSensor()
 {
@@ -81,6 +81,15 @@ VariableIterator DSMSensor::getVariableIterator() const
     return VariableIterator(this);
 }
 
+/*
+ * What Site am I associated with?
+ */
+const Site* DSMSensor::getSite() const
+{
+    if (dsm) return dsm->getSite();
+    return 0;
+}
+
 /**
  * Fetch the DSM name.
  */
@@ -98,9 +107,21 @@ const std::string& DSMSensor::getLocation() const {
     return location;
 }
 
+void DSMSensor::setSuffix(const std::string& val)
+{
+    suffix = val;
+    if (heightString.length() > 0)
+        setFullSuffix(suffix + string(".") + heightString);
+    else if (depthString.length() > 0)
+        setFullSuffix(suffix + string(".") + heightString);
+    else
+        setFullSuffix(suffix);
+}
+
 void DSMSensor::setHeight(const string& val)
 {
     heightString = val;
+    depthString = "";
     if (heightString.length() > 0) {
 	float h;
 	istringstream ist(val);
@@ -115,11 +136,11 @@ void DSMSensor::setHeight(const string& val)
 	    }
 	    height = h;
 	}
-	setSuffix(string(".") + heightString + getSiteSuffix());
+	setFullSuffix(getSuffix() + string(".") + heightString);
     }
     else {
 	height = floatNAN;
-	setSuffix(getSiteSuffix());
+	setFullSuffix(getSuffix());
     }
 }
 
@@ -130,14 +151,16 @@ void DSMSensor::setHeight(float val)
 	ostringstream ost;
 	ost << height << 'm';
 	heightString = ost.str();
-	setSuffix(string(".") + heightString + getSiteSuffix());
+	setFullSuffix(getSuffix() + string(".") + heightString);
+        depthString = "";
     }
-    else setSuffix(getSiteSuffix());
+    else setFullSuffix(getSuffix());
 }
 
 void DSMSensor::setDepth(const string& val)
 {
     depthString = val;
+    heightString = "";
     if (depthString.length() > 0) {
 	float d;
 	istringstream ist(val);
@@ -152,11 +175,11 @@ void DSMSensor::setDepth(const string& val)
 	    }
 	    height = -d;
 	}
-	setSuffix(string(".") + depthString + getSiteSuffix());
+	setFullSuffix(getSuffix() + string(".") + depthString);
     }
     else {
 	height = floatNAN;
-	setSuffix(getSiteSuffix());
+        setFullSuffix(getSuffix());
     }
 }
 
@@ -167,9 +190,10 @@ void DSMSensor::setDepth(float val)
 	ostringstream ost;
 	ost << val * 10.0 << "cm";
 	depthString = ost.str();
-	setSuffix(string(".") + depthString + getSiteSuffix());
+	setFullSuffix(getSuffix() + string(".") + depthString);
+        heightString = "";
     }
-    else setSuffix(getSiteSuffix());
+    else setFullSuffix(getSuffix());
 }
 
 /*
@@ -488,10 +512,10 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	rawSampleTag->setDSM(getDSMConfig());
     }
 
-    if (getSuffix().length() > 0)
-    	rawSampleTag->setSuffix(getSuffix());
+    if (getFullSuffix().length() > 0)
+    	rawSampleTag->setSuffix(getFullSuffix());
 
-    const Site* site = getDSMConfig()->getSite();
+    const Site* site = getSite();
     if (site) rawSampleTag->setSiteAttributes(site);
 
     // sensors in the catalog may not have any sample tags
@@ -508,8 +532,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	SampleTag* stag = *si;
 
 	stag->setSensorId(getShortId());
-	if (getSuffix().length() > 0)
-	    stag->setSuffix(getSuffix());
+	if (getFullSuffix().length() > 0)
+	    stag->setSuffix(getFullSuffix());
 	if (site) stag->setSiteAttributes(site);
 
 	if (getShortId() == 0) throw n_u::InvalidParameterException(

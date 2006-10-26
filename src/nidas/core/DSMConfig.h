@@ -48,9 +48,6 @@ public:
     const std::string& getName() const { return name; }
     void setName(const std::string& val) { name = val; }
 
-    const std::string& getSiteSuffix() const { return suffix; }
-    void setSiteSuffix(const std::string& val) { suffix = val; }
-
     const std::string& getLocation() const { return location; }
     void setLocation(const std::string& val) { location = val; }
 
@@ -58,7 +55,6 @@ public:
     void setId(dsm_sample_id_t val) { id = val; }
 
     void addSensor(DSMSensor* sensor);
-
 
     const std::list<DSMSensor*>& getSensors() const
     {

@@ -172,7 +172,6 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             const string& aval = attr.getValue();
 
             if (aname == "name") setName(aval);
-            else if (aname == "suffix") setSiteSuffix(aval);
             else if (aname == "location") setLocation(aval);
             else if (aname == "id");	// already scanned
             else if (aname == "rserialPort") {

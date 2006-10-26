@@ -104,6 +104,11 @@ public:
     }
 
     /**
+     * What Site am I associated with?
+     */
+    const Site* getSite() const;
+
+    /**
      * Set the name of the system device that the sensor
      * is connected to.
      * @param val Name of device, e.g. "/dev/xxx0".
@@ -184,27 +189,19 @@ public:
 
     /**
      * Sensor suffix, which is added to variable names.
+     * It is only necessary to have a sensor suffix
+     * to make variable names unique.  For example, if
+     * there are multiple sensors at the same height,
+     * with common variable names, then one can
+     * use a sensor suffix to make unique names.
+     * The sensor suffix is the second dot-separated
+     * word in a variable name, where only the first
+     * word is required:
+     *  variable[.sensor][.height][.site]
      */
     const std::string& getSuffix() const { return suffix; }
 
-    void setSuffix(const std::string& val) { suffix = val; }
-
-    void setSiteSuffix(const std::string& val)
-    {
-        siteSuffix = val;
-	if (getHeightString().length() > 0)
-	    setSuffix(std::string(".") + getHeightString() + getSiteSuffix());
-	else
-	    setSuffix(getSiteSuffix());
-    }
-
-    /**
-     * Site suffix, which is added to variable names.
-     */
-    const std::string& getSiteSuffix() const
-    {
-        return siteSuffix;
-    }
+    void setSuffix(const std::string& val);
 
     /**
      * Set sensor height above ground via a string which is added
@@ -270,6 +267,15 @@ public:
      * @return Depth of sensor below ground, in meters.
      */
     float getDepth() const { return -height; }
+
+    /**
+     * Full sensor suffix, the concatenation of the
+     * sensor suffix, if any, and the height or depth
+     * string, if any.  The full sensor suffix are
+     * words 2 and 3 in the dot-separated name:
+     *  variable[.sensor][.height][.site]
+     */
+    const std::string& getFullSuffix() const { return fullSuffix; }
 
     /**
      * Implementation of SampleSource::getSampleTags().
@@ -615,10 +621,13 @@ protected:
         return rawSampleTag;
     }
 
+    void setFullSuffix(const std::string& val) { fullSuffix = val; }
 
 private:
 
     std::string devname;
+
+    IODevice* iodev;
 
     /**
      * Class name attribute of this sensor. Only used here for
@@ -633,11 +642,18 @@ private:
      */
     std::string suffix;
 
-    std::string siteSuffix;
+    std::string heightString;
+
+    std::string depthString;
+
+    float height;
+
+    /**
+     * Concatenation of sensor suffix, and the height or depth string
+     */
+    std::string fullSuffix;    
 
     std::string location;
-
-    IODevice* iodev;
 
     SampleScanner* scanner;
 
@@ -675,12 +691,6 @@ private:
 
     // toggle flag for zebra striping printStatus
     static bool zebra;
-
-    std::string heightString;
-
-    std::string depthString;
-
-    float height;
 
     float latency;
 
