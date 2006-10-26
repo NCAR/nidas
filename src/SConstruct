@@ -8,6 +8,8 @@ import os
 ##
 opts = Options('nidas.conf')
 opts.Add('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nidas')
+opts.Add('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:', '/opt/nidas/x86')
+opts.Add('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:', '/opt/nidas/arm')
 ##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
@@ -80,15 +82,17 @@ arm_env.Append(CXXFLAGS = '-D NIDAS_EMBEDDED')
 # """))
 
 
-# arm_env.AppendUnique(CPPPATH =
-#     Split("""
-#     """)
-# )
+arm_env.AppendUnique(CPPPATH =
+    Split("""
+        $OTHER_ARM/include
+    """)
+)
 
 arm_env.AppendUnique(LIBPATH =
     Split("""
 	#build_arm/build_core
 	$PREFIX/lib
+	$OTHER_ARM/lib
     """)
 )
 
@@ -97,7 +101,6 @@ arm_env.AppendUnique(LIBPATH =
 ##
 arm_env.AppendUnique(RPATH = 
     Split("""
-	$PREFIX/lib
     """)
 )
 
@@ -128,15 +131,17 @@ x86_env.Replace(ARCH = 'x86')
 x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
 x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
 
-# x86_env.AppendUnique(CPPPATH =
-#     Split("""
-#     """)
-# )
+x86_env.AppendUnique(CPPPATH =
+    Split("""
+	$OTHER_X86/include
+    """)
+)
 
 x86_env.AppendUnique(LIBPATH =
     Split("""
 	#build_x86/build_core
 	$PREFIX/lib
+	$OTHER_X86/lib
     """)
 )
 
@@ -146,6 +151,7 @@ x86_env.AppendUnique(LIBPATH =
 x86_env.AppendUnique(RPATH = [
     x86_env.Dir("#build_x86/build_core").get_abspath(),
     '$PREFIX/lib'
+    '$OTHER_X86/lib'
     ]) 
 
 ##
