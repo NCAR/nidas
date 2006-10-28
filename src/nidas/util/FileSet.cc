@@ -401,7 +401,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	    replaceChars(fileregex,"%m","[0-1][0-9]");
 	    replaceChars(fileregex,"%b","[a-zA-Z][a-zA-Z][a-zA-Z]");
 	}
-	else if (requestDeltat > USECS_PER_DAY)
+	if (requestDeltat > USECS_PER_DAY)
 	    replaceChars(fileregex,"%d","[0-3][0-9]");
 	replaceChars(fileregex,"%H","[0-2][0-9]");
 	replaceChars(fileregex,"%M","[0-5][0-9]");

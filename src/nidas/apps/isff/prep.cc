@@ -381,6 +381,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
     //	3. or a time period and a $PROJECT environment variable
     if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
     	startTime.toUsecs() == 0) return usage(argv[0]);
+    if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
+        endTime = startTime + 31 * USECS_PER_DAY;
     return 0;
 }
 

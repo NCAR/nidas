@@ -14,9 +14,9 @@
 */
 
 #include <nidas/core/Project.h>
-#include <nidas/dynld/raf/Aircraft.h>
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/dynld/SampleArchiver.h>
 #include <nidas/dynld/FileSet.h>
 
 #include <nidas/util/Inet4Address.h>
@@ -27,8 +27,6 @@
 using namespace nidas::core;
 using namespace std;
 using namespace xercesc;
-
-using nidas::dynld::raf::Aircraft;
 
 namespace n_u = nidas::util;
 
@@ -341,16 +339,20 @@ list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
         ProcessorIterator pi = server->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            const std::list<SampleOutput*> outputs =
-                proc->getOutputs();
-            std::list<SampleOutput*>::const_iterator oi =
-                outputs.begin();
-            for ( ; oi != outputs.end(); ++oi) {
-                SampleOutput* output = *oi;
-                IOChannel* ioc = output->getIOChannel();
-                nidas::dynld::FileSet* fset =
-			dynamic_cast<nidas::dynld::FileSet*>(ioc);
-                if (fset) filesets.push_back(fset);
+            nidas::dynld::SampleArchiver* archiver =
+                    dynamic_cast<nidas::dynld::SampleArchiver*>(proc);
+            if (archiver) {
+                const std::list<SampleOutput*> outputs =
+                    proc->getOutputs();
+                std::list<SampleOutput*>::const_iterator oi =
+                    outputs.begin();
+                for ( ; oi != outputs.end(); ++oi) {
+                    SampleOutput* output = *oi;
+                    IOChannel* ioc = output->getIOChannel();
+                    nidas::dynld::FileSet* fset =
+                            dynamic_cast<nidas::dynld::FileSet*>(ioc);
+                    if (fset) filesets.push_back(fset);
+                }
             }
         }
     }
@@ -565,8 +567,19 @@ void Project::fromDOMElement(const DOMElement* node)
 	    addSite(site);
 	}
 	else if (elname == "aircraft") {
-	    // <aircraft> tag is the same as <site class="Aircraft">
-	    Aircraft* site = new Aircraft();
+	    DOMable* domable;
+	    // <aircraft> tag is the same as <site class="raf.Aircraft">
+	    try {
+                domable = DOMObjectFactory::createObject("raf.Aircraft");
+	    }
+	    catch (const n_u::Exception& e) {
+		throw n_u::InvalidParameterException("aircraft",
+		    "raf.Aircraft",e.what());
+	    }
+	    Site* site = dynamic_cast<Site*>(domable);
+	    if (!site)
+		throw n_u::InvalidParameterException("project",
+		    "raf.Aircraft","is not a sub-class of Site");
 	    site->setProject(this);
 	    site->fromDOMElement((DOMElement*)child);
 	    addSite(site);

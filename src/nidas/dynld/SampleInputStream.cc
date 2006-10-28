@@ -37,6 +37,8 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
+    tscreen0 = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
+    tscreen1 = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
 }
 
 /*
@@ -52,6 +54,8 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
+    tscreen0 = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
+    tscreen1 = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
 }
 
 /*
@@ -172,12 +176,7 @@ void SampleInputStream::readHeader() throw(n_u::IOException)
 void SampleInputStream::readSamples() throw(n_u::IOException)
 {
 // #define DEBUG
-#ifdef DEBUG
-    static int nsamps = 0;
 
-    cerr << "readSamples, iostream->read(), available=" << iostream->available() <<
-    	", iostream=" << iostream << endl;
-#endif
     iostream->read();		// read a buffer's worth
     if (iostream->isNewFile()) {	// first read from a new file
 	readHeader();
@@ -190,40 +189,25 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
     // process all in buffer
     for (;;) {
 	if (!samp) {
-#ifdef DEBUG
-	    cerr << "available=" << iostream->available() << endl;
-#endif
 	    if (iostream->available() < header.getSizeOf()) break;
 
-#ifndef DEBUG
 	    iostream->read(&header,header.getSizeOf());
-#else
-	    size_t len = iostream->read(&header,header.getSizeOf());
-	    assert(header.getSizeOf() == 16);
-	    assert(len == 16);
 
-	    cerr << "read header " <<
-	    	" getTimeTag=" << header.getTimeTag() <<
-	    	" getId=" << header.getId() <<
-	    	" getType=" << (int) header.getType() <<
-	    	" getDataByteLength=" << header.getDataByteLength() <<
-		endl;
-#endif
-	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 100) {
-	        unrecognizedSamples++;
-		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "SampleInputStream UNKNOWN_ST unrecognizedSamples=%d",
-			    unrecognizedSamples);
-		cerr << "read header " <<
-		    " getTimeTag=" << header.getTimeTag() <<
-		    " getId=" << header.getId() << 
-		    '(' << GET_DSM_ID(header.getId()) << ',' <<
-		    	GET_SHORT_ID(header.getId()) <<
-		    ") getType=" << (int) header.getType() <<
-		    " getDataByteLength=" << header.getDataByteLength() <<
-		    " chars=" << string((const char*)&header,16) << endl;
-		cerr << "nbytes=" << iostream->getNBytes() << endl;
-		throw n_u::IOException(iostream->getName(),"read","bad header data");
+            // screen bad headers.
+            // TODO: replace these fixed times with u
+	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 40 ||
+                header.getDataByteLength() > 32767 ||
+                header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
+	        if (!(unrecognizedSamples++ % 1000)) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        getName().c_str(), unrecognizedSamples,
+                        iostream->getNBytes()-header.getSizeOf(),
+                        GET_DSM_ID(header.getId()),GET_SHORT_ID(header.getId()),
+                        header.getType(),header.getDataByteLength());
+                }
+                iostream->backup(header.getSizeOf() - 1);
+                continue;
 	    }
 	    else
 		samp = nidas::core::getSample((sampleType)header.getType(),

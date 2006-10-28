@@ -30,13 +30,15 @@ namespace n_u = nidas::util;
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
-    	IOChannel(x),nidas::util::FileSet(x),requester(0),mount(0)
+    	IOChannel(x),nidas::util::FileSet(x),name(x.name),
+        requester(0),mount(0)
 {
     if (x.mount) mount = new FsMount(*x.mount);
 }
 
 const std::string& FileSet::getName() const
 {
+    if (getCurrentName().length() > 0) return getCurrentName();
     return name;
 }
 

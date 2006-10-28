@@ -182,6 +182,10 @@ private:
 
     SampleInputHeader inputHeader;
 
+    dsm_time_t tscreen0;
+
+    dsm_time_t tscreen1;
+
 };
 
 class SortedSampleInputStream: public SampleInputStream
