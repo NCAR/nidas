@@ -27,7 +27,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NetcdfRPCChannel::NetcdfRPCChannel(): fillValue(1.e37),
-	fileLength(SECS_PER_DAY),clnt(0),ntry(0)
+	fileLength(SECS_PER_DAY),clnt(0),ntry(0),
+        timeInterval(300)
 {
     setName("NetcdfRPCChannel");
     setRPCTimeout(300);
@@ -49,7 +50,7 @@ NetcdfRPCChannel::NetcdfRPCChannel(const NetcdfRPCChannel& x):
 	rpcBatchPeriod(x.rpcBatchPeriod),
 	rpcWriteTimeout(x.rpcWriteTimeout),
 	rpcOtherTimeout(x.rpcOtherTimeout),
-	ntry(0)
+	ntry(0),timeInterval(x.timeInterval)
 {
     rpcBatchTimeout.tv_sec = 0;
     rpcBatchTimeout.tv_usec = 0;
@@ -57,6 +58,11 @@ NetcdfRPCChannel::NetcdfRPCChannel(const NetcdfRPCChannel& x):
 
 NetcdfRPCChannel::~NetcdfRPCChannel()
 {
+}
+
+void NetcdfRPCChannel::addSampleTag(const SampleTag* val)
+{
+    sampleTags.insert(val);
 }
 
 void NetcdfRPCChannel::setName(const std::string& val)
@@ -129,17 +135,18 @@ void NetcdfRPCChannel::requestConnection(ConnectionRequester* rqstr)
 IOChannel* NetcdfRPCChannel::connect()
        throw(n_u::IOException)
 {
-    // expand the file and directory names. We wait til now
-    // because these may contain tokens that depend on the
-    // the sample tag
-    const SampleTag* stag = 0;
-    if (getSampleTags().size() > 0) stag = *getSampleTags().begin();
+    // expand the file and directory names.
 
-    if (!stag) throw n_u::IOException(getName(),"connect","no samples");
-
-    setDirectory(stag->expandString(getDirectory()));
-    setFileNameFormat(stag->expandString(getFileNameFormat()));
-    setCDLFileName(stag->expandString(getCDLFileName()));
+    if (getDSMConfig()) {
+        setDirectory(getDSMConfig()->expandString(getDirectory()));
+        setFileNameFormat(getDSMConfig()->expandString(getFileNameFormat()));
+        setCDLFileName(getDSMConfig()->expandString(getCDLFileName()));
+    }
+    else {
+        setDirectory(Project::getInstance()->expandString(getDirectory()));
+        setFileNameFormat(Project::getInstance()->expandString(getFileNameFormat()));
+        setCDLFileName(Project::getInstance()->expandString(getCDLFileName()));
+    }
 
     clnt = clnt_create(getServer().c_str(),
     	NETCDFSERVERPROG, NETCDFSERVERVERS,"tcp");
@@ -153,7 +160,7 @@ IOChannel* NetcdfRPCChannel::connect()
     conn.outputdir = (char *)getDirectory().c_str();
     conn.cdlfile = (char *)getCDLFileName().c_str();
     conn.filelength = getFileLength();
-    conn.interval = stag->getPeriod();
+    conn.interval = getTimeInterval();
 
     int result = 0;
     enum clnt_stat clnt_stat;
@@ -181,17 +188,7 @@ IOChannel* NetcdfRPCChannel::connect()
 
     lastFlush = time((time_t *)0);
 
-
     Project* project = Project::getInstance();
-
-    // will be negative if no numbered stations
-
-    // This code only works if we are crunching
-    // a whole project, not if working from a
-    // configuration of one site.
-    // TODO: add something to the config
-    // to indicate that a variable shouldn't have
-    // a station dimenstion in the netcdf
 
     unsigned int nstations = project->getMaxSiteNumber() -
     	project->getMinSiteNumber() + 1;
@@ -449,6 +446,15 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "dir") setDirectory(aval);
 	    else if (aname == "file") setFileNameFormat(aval);
 	    else if (aname == "cdl") setCDLFileName(aval);
+	    else if (aname == "interval") {
+		istringstream ist(aval);
+		int val;
+		ist >> val;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(getName(),
+			aval, aval);
+		setTimeInterval(val);
+            }
 	    else if (aname == "length") {
 		istringstream ist(aval);
 		int val;

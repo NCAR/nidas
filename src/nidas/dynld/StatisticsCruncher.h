@@ -21,6 +21,7 @@
 #include <nidas/core/SampleInput.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/DSMTime.h>
+#include <nidas/util/UTime.h>
 
 #include <vector>
 
@@ -46,7 +47,7 @@ public:
      * Constructor.
      */
     StatisticsCruncher(const SampleTag* stag,statisticsType type,
-    	std::string countsName,const Site*);
+    	std::string countsName,bool higherMoments, const Site*);
 
     /**
      * Copy constructor.  Making a copy is only valid
@@ -80,6 +81,17 @@ public:
 
     static statisticsType getStatisticsType(const std::string& type)
     	throw(nidas::util::InvalidParameterException);
+
+    void setStartTime(const nidas::util::UTime& val) 
+    {
+        startTime = val;
+    }
+
+    void setEndTime(const nidas::util::UTime& val) 
+    {
+        endTime = val;
+    }
+
 protected:
 
     void attach(SampleSource* src);
@@ -215,12 +227,19 @@ private:
      * Total number of products to compute.
      */
     int ntot;
+
+    bool higherMoments;
+
     /**
      * No assignment.
      */
     StatisticsCruncher& operator=(const StatisticsCruncher&);
 
     const Site* site;
+
+    nidas::util::UTime startTime;
+
+    nidas::util::UTime endTime;
 
 };
 

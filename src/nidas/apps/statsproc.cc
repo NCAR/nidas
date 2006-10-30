@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include <nidas/core/Project.h>
+#include <nidas/core/ProjectConfigs.h>
 #include <nidas/dynld/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
@@ -74,7 +75,7 @@ private:
 
     bool daemonMode;
 
-    n_u::UTime beginTime;
+    n_u::UTime startTime;
 
     n_u::UTime endTime;
 
@@ -156,7 +157,9 @@ int StatsProcess::main(int argc, char** argv) throw()
 
 
 StatsProcess::StatsProcess(): port(defaultPort),
-	sorterLength(1000),daemonMode(false),niceValue(0)
+	sorterLength(1000),daemonMode(false),
+        startTime((time_t)0),endTime((time_t)0),
+        niceValue(0)
 {
 }
 
@@ -172,7 +175,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	switch (opt_char) {
 	case 'B':
 	    try {
-		beginTime = n_u::UTime::parse(true,optarg);
+		startTime = n_u::UTime::parse(true,optarg);
 	    }
 	    catch (const n_u::ParseException& pe) {
 	        cerr << pe.what() << endl;
@@ -250,9 +253,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     //  2. a socket to connect to
     //  3. or a time period and a $PROJECT environment variable
     if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
-        beginTime.toUsecs() == 0) return usage(argv[0]);
+        startTime.toUsecs() == 0) return usage(argv[0]);
 
-    	return usage(argv[0]);
+    if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
+             endTime = startTime + 366 * USECS_PER_DAY;
     return 0;
 }
 
@@ -292,7 +296,6 @@ int StatsProcess::run() throw()
         return 1;
     }
 
-    IOChannel* iochan = 0;
     if (dsmName.length() == 0) {
         char hostname[256];
         gethostname(hostname,sizeof(hostname));
@@ -300,16 +303,19 @@ int StatsProcess::run() throw()
     }
 
     auto_ptr<Project> project;
-    if (xmlFileName.length() > 0) {
-	xmlFileName = Project::expandEnvVars(xmlFileName);
-	XMLParser parser;
-	cerr << "parsing: " << xmlFileName << endl;
-	auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-	project.reset(Project::getInstance());
-	project->fromDOMElement(doc->getDocumentElement());
-    }
-
+    auto_ptr<SortedSampleInputStream> sis;
+    IOChannel* iochan = 0;
+    FileSet* fset = 0;
     try {
+        if (xmlFileName.length() > 0) {
+            xmlFileName = Project::expandEnvVars(xmlFileName);
+            XMLParser parser;
+            cerr << "parsing: " << xmlFileName << endl;
+            auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+            project.reset(Project::getInstance());
+            project->fromDOMElement(doc->getDocumentElement());
+        }
+
 	if (sockHostName.length() > 0) {
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !interrupted; i++) {
@@ -324,12 +330,17 @@ int StatsProcess::run() throw()
                 }
 	    }
 	    iochan = new nidas::core::Socket(sock);
-	}
+        }
 	else {
-	    FileSet* fset = 0;
 
-	    // User must have specified the xml file
 	    if (dataFileNames.size() == 0) {
+
+                // User has not specified the xml file
+                if (!project.get()) {
+                     string configXML =
+                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+                     project.reset(ProjectConfigs::getProject(configXML,startTime));
+                }
 	        list<FileSet*> fsets = project->findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
@@ -339,44 +350,39 @@ int StatsProcess::run() throw()
 		    return 1;
 		}
                 fset = fsets.front();
+
+                if (startTime.toUsecs() != 0) fset->setStartTime(startTime);
+                if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
 	    }
-	    else fset = new FileSet();
+	    else {
+                fset = new FileSet();
+                list<string>::const_iterator fi;
+                for (fi = dataFileNames.begin();
+                    fi != dataFileNames.end(); ++fi)
+                        fset->addFileName(*fi);
+            }
 	    iochan = fset;
-
-	    list<string>::const_iterator fi;
-	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-		    fset->addFileName(*fi);
-
-	    if (beginTime.toUsecs() != 0) fset->setStartTime(beginTime);
-	    if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
-
 	}
 
-	// SortedSampleStream owns the iochan ptr.
-	SortedSampleInputStream input(iochan);
-	input.setSorterLengthMsecs(sorterLength);
+        iochan = iochan->connect();
+        sis.reset(new SortedSampleInputStream(iochan));
+        sis->setHeapBlock(true);
+        sis->setHeapMax(10000000);
+        sis->init();
+	sis->setSorterLengthMsecs(sorterLength);
 
-	cerr << "input, #sampleTags=" << input.getSampleTags().size() << endl;
+        if (!project.get()) {
+            sis->readHeader();
+            SampleInputHeader header = sis->getHeader();
 
-	// Block while waiting for heapSize to become less than heapMax.
-	input.setHeapBlock(true);
-	input.setHeapMax(10000000);
-	input.init();
-
-	input.readHeader();
-	SampleInputHeader header = input.getHeader();
-
-	string systemName = header.getSystemName();
-
-	if (xmlFileName.length() == 0) {
-	    xmlFileName = header.getConfigName();
-	    xmlFileName = Project::expandEnvVars(xmlFileName);
-	    XMLParser parser;
-	    cerr << "parsing: " << xmlFileName << endl;
-	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-	    project.reset(Project::getInstance());
-	    project->fromDOMElement(doc->getDocumentElement());
-	}
+            // parse the config file.
+            xmlFileName = header.getConfigName();
+            xmlFileName = Project::expandEnvVars(xmlFileName);
+            XMLParser parser;
+            auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+            project.reset(Project::getInstance());
+            project->fromDOMElement(doc->getDocumentElement());
+        }
 
 	// Find a server with a StatisticsProcessor
 	list<DSMServer*> servers = project->findServers(dsmName);
@@ -386,18 +392,18 @@ int StatsProcess::run() throw()
 		dsmName.c_str());
 	    return 1;
 	}
-    DSMServer* server = 0;
+        DSMServer* server = 0;
 	StatisticsProcessor* sproc = 0;
 	list<DSMServer*>::const_iterator svri = servers.begin();
-    for ( ; !sproc && svri != servers.end(); ++svri) {
-        server = *svri;
-        ProcessorIterator pitr = server->getProcessorIterator();
-        for ( ; pitr.hasNext(); ) {
-            SampleIOProcessor* proc = pitr.next();
-            sproc = dynamic_cast<StatisticsProcessor*>(proc);
-            if (sproc) break;
+        for ( ; !sproc && svri != servers.end(); ++svri) {
+            server = *svri;
+            ProcessorIterator pitr = server->getProcessorIterator();
+            for ( ; pitr.hasNext(); ) {
+                SampleIOProcessor* proc = pitr.next();
+                sproc = dynamic_cast<StatisticsProcessor*>(proc);
+                if (sproc) break;
+            }
         }
-    }
 	if (!sproc) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    "Cannot find a StatisticsProcessor for dsm %s",
@@ -414,34 +420,41 @@ int StatsProcess::run() throw()
 	SampleTagIterator ti = server->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    input.addSampleTag(stag);
+	    sis->addSampleTag(stag);
 	}
 
-	sproc->connect(&input);
+	sproc->connect(sis.get());
+	cerr << "#sampleTags=" << sis->getSampleTags().size() << endl;
 
-	// AsciiOutput* output = new AsciiOutput();
-	// sproc->connected(output);
-	// output->connect();
+        if (startTime.toUsecs() != 0) {
+            cerr << "Searching for time " <<
+                startTime.format(true,"%Y %m %d %H:%M:%S");
+            sis->search(startTime);
+            cerr << " done." << endl;
+            sproc->setStartTime(startTime);
+        }
+        if (endTime.toUsecs() != 0)
+            sproc->setEndTime(endTime);
 
 	try {
 	    for (;;) {
 		if (interrupted) break;
-		input.readSamples();
+		sis->readSamples();
 	    }
 	}
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
-	    input.flush();
+	    sis->flush();
 	    cerr << "sproc->disconnect" << endl;
-	    sproc->disconnect(&input);
-	    cerr << "input.close" << endl;
-	    input.close();
+	    sproc->disconnect(sis.get());
+	    cerr << "sis->close" << endl;
+	    sis->close();
 	    // sproc->disconnected(output);
 	    throw e;
 	}
 	catch (n_u::IOException& e) {
-	    input.close();
-	    sproc->disconnect(&input);
+	    sis->close();
+	    sproc->disconnect(sis.get());
 	    // sproc->disconnected(output);
 	    throw e;
 	}

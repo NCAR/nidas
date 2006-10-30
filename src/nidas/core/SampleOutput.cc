@@ -33,7 +33,7 @@ SampleOutputBase::SampleOutputBase(IOChannel* i):
 	iochan(i),
 	connectionRequester(0),
 	nextFileTime(LONG_LONG_MIN),
-        headerSource(0)
+        headerSource(0),dsm(0)
 {
 }
 
@@ -43,12 +43,16 @@ SampleOutputBase::SampleOutputBase(IOChannel* i):
 
 SampleOutputBase::SampleOutputBase(const SampleOutputBase& x):
 	name(x.name),
-	iochan(x.iochan->clone()),
+	iochan(0),
 	sampleTags(x.sampleTags),
 	connectionRequester(x.connectionRequester),
 	nextFileTime(LONG_LONG_MIN),
-        headerSource(x.headerSource)
+        headerSource(x.headerSource),dsm(x.dsm)
 {
+    if (x.iochan) {
+        iochan = x.iochan->clone();
+        iochan->setDSMConfig(dsm);
+    }
 }
 
 /*
@@ -61,8 +65,10 @@ SampleOutputBase::SampleOutputBase(const SampleOutputBase& x,IOChannel* ioc):
 	sampleTags(x.sampleTags),
 	connectionRequester(x.connectionRequester),
 	nextFileTime(LONG_LONG_MIN),
-        headerSource(x.headerSource)
+        headerSource(x.headerSource),dsm(x.dsm)
 {
+    if (iochan && !iochan->getDSMConfig())
+        iochan->setDSMConfig(dsm);
 }
 
 SampleOutputBase::~SampleOutputBase()
@@ -97,13 +103,6 @@ const set<const SampleTag*>& SampleOutputBase::getSampleTags() const
 void SampleOutputBase::addSampleTag(const SampleTag* val)
 {
     sampleTags.insert(val);
-    /*
-    if (iochan) {
-	cerr << getName() << " adding sample tag #" <<
-		val->getId() << " to " << iochan->getName() << endl;
-	iochan->addSampleTag(val);
-    }
-    */
 }
 
 void SampleOutputBase::setIOChannel(IOChannel* val)
@@ -113,20 +112,14 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
 	iochan = val;
 	if (iochan) setName(string("SampleOutputBase: ") + iochan->getName());
     }
+    if (iochan && !iochan->getDSMConfig())
+        iochan->setDSMConfig(dsm);
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
 	throw(n_u::IOException)
 {
     set<const SampleTag*>::const_iterator si = getSampleTags().begin();
-    for ( ; si != getSampleTags().end(); ++si) {
-#ifdef DEBUG
-	cerr << "iochan=" << iochan->getName() << " add tag=" <<
-		(*si)->getId() << endl;
-#endif
-	iochan->addSampleTag(*si);
-    }
-
     connectionRequester = requester;
     iochan->requestConnection(this);
 }
@@ -164,6 +157,8 @@ void SampleOutputBase::connected(IOChannel* ioc) throw()
     	ioc->getName() << " fd="  <<
     	ioc->getFd() << endl;
 #endif
+    if (iochan && !iochan->getDSMConfig())
+        iochan->setDSMConfig(dsm);
 
 }
 
@@ -189,7 +184,6 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
     if (headerSource)
 	headerSource->sendHeader(tt,this);
     else HeaderSource::sendDefaultHeader(this);
-    // else header.write(this);
 }
 
 void SampleOutputBase::write(const void* buf, size_t len)
@@ -208,6 +202,7 @@ void SampleOutputBase::write(const void* buf, size_t len)
 void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
+    cerr << "SampleOutputBase::fromDOMElement" << endl;
     XDOMElement xnode(node);
 
     // process <socket>, <fileset> child elements (should only be one)
@@ -240,6 +235,7 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
                 "SampleOutputBase::fromDOMElement",
 		"output", "must have one child element");
     setName(string("SampleOutputBase: ") + getIOChannel()->getName());
+    cerr << "SampleOutputBase::fromDOMElement done" << endl;
 }
 
 xercesc::DOMElement* SampleOutputBase::toDOMParent(

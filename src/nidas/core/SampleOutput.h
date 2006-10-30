@@ -28,6 +28,8 @@
 
 namespace nidas { namespace core {
 
+class DSMConfig;
+
 /**
  * Interface of an output stream of samples.
  */
@@ -88,8 +90,12 @@ public:
 
     virtual void setHeaderSource(HeaderSource* val) = 0;
 
+    virtual void setDSMConfig(const DSMConfig* val) = 0;
+
+    virtual const DSMConfig* getDSMConfig() const = 0;
+
 protected:
-    
+
 };
 
 /**
@@ -179,6 +185,16 @@ public:
         headerSource = val;
     }
 
+    void setDSMConfig(const DSMConfig* val)
+    {
+        dsm = val;
+    }
+
+    const DSMConfig* getDSMConfig() const
+    {
+        return dsm;
+    }
+
 protected:
 
     /**
@@ -209,6 +225,7 @@ private:
 
     HeaderSource* headerSource;
 
+    const DSMConfig* dsm;
 };
 
 }}	// namespace nidas namespace core

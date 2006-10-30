@@ -173,6 +173,8 @@ private:
      */
     char* dptr;
 
+    size_t badInputSamples;
+
     size_t unrecognizedSamples;
 
     /**

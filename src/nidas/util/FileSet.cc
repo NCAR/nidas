@@ -57,13 +57,13 @@ FileSet::~FileSet()
 void FileSet::setDir(const std::string& val)
 {
     dir = val;
-    fullpath = makePath(getDir(),getFileName());
+    fullpath = makePath(val,getFileName());
 }
 
 void FileSet::setFileName(const std::string& val)
 {
     filename = val;
-    fullpath = makePath(getDir(),getFileName());
+    fullpath = makePath(getDir(),val);
 }
 
 

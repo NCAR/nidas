@@ -516,16 +516,17 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
 int DataPrep::run() throw()
 {
 
+    auto_ptr<Project> project;
+
+    auto_ptr<Resampler> resampler;
+
+    auto_ptr<SortedSampleInputStream> sis;
+
+    auto_ptr<DumpClient> dumper;
+
     try {
 
-	auto_ptr<Project> project;
-
-	auto_ptr<Resampler> resampler;
-
-	auto_ptr<SortedSampleInputStream> sis;
-
 	vector<const Variable*> variables;
-
 
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
@@ -600,6 +601,7 @@ int DataPrep::run() throw()
 	    //	3. set of sensors
 
 	    FileSet* fset = new nidas::dynld::FileSet();
+            iochan = fset;
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		  fset->addFileName(*fi);
@@ -634,20 +636,11 @@ int DataPrep::run() throw()
             variables = matchVariables(project.get(),activeDsms,activeSensors);
 	}
 
-	set<DSMSensor*>::const_iterator si = activeSensors.begin();
-	for ( ; si != activeSensors.end(); ++si) {
-	    DSMSensor* sensor = *si;
-            SampleTagIterator ti = sensor->getSampleTagIterator();
-            for ( ; ti.hasNext(); ) {
-                const SampleTag* tag = ti.next();
-                iochan->addSampleTag(tag);
-            }
-        }
-
         iochan = iochan->connect();
-        sis.reset(new SortedSampleInputStream(iochan));
-        sis->setHeapBlock(true);
-
+        if (!sis.get()) {
+            sis.reset(new SortedSampleInputStream(iochan));
+            sis->setHeapBlock(true);
+        }
 
         if (rate > 0.0) {
             NearestResamplerAtRate* smplr =
@@ -660,7 +653,7 @@ int DataPrep::run() throw()
             resampler.reset(new NearestResampler(variables));
         }
 
-	si = activeSensors.begin();
+	set<DSMSensor*>::const_iterator si = activeSensors.begin();
 	for ( ; si != activeSensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
 	    sensor->init();
@@ -675,20 +668,20 @@ int DataPrep::run() throw()
         sis->init();
         resampler->connect(sis.get());
 
-	DumpClient dumper(format,cout);
+	dumper.reset(new DumpClient(format,cout));
 
-	resampler->addSampleClient(&dumper);
+	resampler->addSampleClient(dumper.get());
 
         if (startTime.toUsecs() != 0) {
             cerr << "Searching for time " <<
                 startTime.format(true,"%Y %m %d %H:%M:%S");
             sis->search(startTime);
             cerr << " done." << endl;
-            dumper.setStartTime(startTime);
+            dumper->setStartTime(startTime);
         }
-        if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
+        if (endTime.toUsecs() != 0) dumper->setEndTime(endTime);
 
-	dumper.printHeader(variables);
+	dumper->printHeader(variables);
 
 	for (;;) {
 	    sis->readSamples();
@@ -704,6 +697,12 @@ int DataPrep::run() throw()
 	return 1;
     }
     catch (n_u::EOFException& e) {
+        cerr << "EOF received: flushing buffers" << endl;
+        sis->flush();
+        cerr << "sis->close" << endl;
+        sis->close();
+	resampler->removeSampleClient(dumper.get());
+        resampler->disconnect(sis.get());
 	cerr << e.what() << endl;
 	return 1;
     }

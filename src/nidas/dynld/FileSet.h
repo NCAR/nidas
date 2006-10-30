@@ -37,7 +37,8 @@ class FileSet: public IOChannel, public nidas::util::FileSet {
 
 public:
 
-    FileSet():IOChannel(),nidas::util::FileSet(),requester(0),mount(0) {}
+    FileSet():IOChannel(),nidas::util::FileSet(),
+        expandedFileName(false),expandedDir(0),requester(0),mount(0) {}
 
     /**
      * Copy constructor.
@@ -46,10 +47,29 @@ public:
 
     ~FileSet() { delete mount; }
 
+    /**
+     * Set the DSM associated with this FileSet.
+     * FileSet needs this in order to substitute
+     * tokens like $DSM in the file or directory names.
+     */
+    void setDSMConfig(const DSMConfig* val);
+
     bool isNewFile() const { return nidas::util::FileSet::isNewFile(); }
 
     const std::string& getName() const;
 
+    /**
+     * Set the directory portion of the file search path.
+     * This may contain environment variables,
+     * and tokens like $DSM, $SITE, $AIRCRAFT.
+     */
+    void setDir(const std::string& val);
+
+    /**
+     * Set the file portion of the file search path.
+     * This may contain environment variables,
+     * and tokens like $DSM, $SITE, $AIRCRAFT.
+     */
     void setFileName(const std::string& val);
 
     void requestConnection(ConnectionRequester* requester)
@@ -74,11 +94,6 @@ public:
     {
         return new FileSet(*this);
     }
-
-    /**
-     * Search for the dsm corresponding to the first of my sample tags.
-     */
-    const DSMConfig* firstDSM();
 
     dsm_time_t createFile(dsm_time_t t,bool exact)
 	throw(nidas::util::IOException);
@@ -110,6 +125,10 @@ public:
     	throw(xercesc::DOMException);
 
 protected:
+
+    bool expandedFileName;
+
+    bool expandedDir;
 
     /**
      * Recognizeable name of this IOChannel - used for informative

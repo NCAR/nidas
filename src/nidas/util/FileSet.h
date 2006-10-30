@@ -60,7 +60,7 @@ public:
      */
     virtual void setDir(const std::string& val);
 
-    const std::string& getDir() const { return dir; }
+    virtual const std::string& getDir() { return dir; }
 
     const int getFd() const { return fd; }
 
@@ -75,7 +75,7 @@ public:
      */
     virtual void setFileName(const std::string& val);
 
-    const std::string& getFileName() const { return filename; }
+    virtual const std::string& getFileName() { return filename; }
 
     virtual void addFileName(const std::string& val) { fileset.push_back(val); }
 

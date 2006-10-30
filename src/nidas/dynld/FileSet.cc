@@ -30,11 +30,21 @@ namespace n_u = nidas::util;
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
-    	IOChannel(x),nidas::util::FileSet(x),name(x.name),
-        requester(0),mount(0)
+    	IOChannel(x),nidas::util::FileSet(x),
+        expandedFileName(false),expandedDir(false),
+        name(x.name),requester(0),mount(0)
 {
     if (x.mount) mount = new FsMount(*x.mount);
 }
+
+void FileSet::setDSMConfig(const DSMConfig* val) 
+{
+    IOChannel::setDSMConfig(val);
+    n_u::FileSet::setFileName(val->expandString(getFileName()));
+    n_u::FileSet::setDir(val->expandString(getDir()));
+    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+}
+
 
 const std::string& FileSet::getName() const
 {
@@ -49,30 +59,27 @@ void FileSet::setName(const std::string& val)
 
 void FileSet::setFileName(const string& val)
 {
-    n_u::FileSet::setFileName(val);
+    if (getDSMConfig())
+	n_u::FileSet::setFileName(getDSMConfig()->expandString(val));
+    else if (Project::getInstance())
+	n_u::FileSet::setFileName(Project::getInstance()->expandString(val));
+    else n_u::FileSet::setFileName(val);
+    setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+}
+
+void FileSet::setDir(const string& val)
+{
+    if (getDSMConfig())
+	n_u::FileSet::setDir(getDSMConfig()->expandString(val));
+    else if (Project::getInstance())
+	n_u::FileSet::setDir(Project::getInstance()->expandString(val));
+    else n_u::FileSet::setDir(val);
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
 }
 
 IOChannel* FileSet::connect()
        throw(n_u::IOException)
 {
-    const SampleTag* stag = 0;
-    if (getSampleTags().size() > 0) stag = *getSampleTags().begin();
-
-    if (stag > 0) {
-	// expand the file and directory names. We wait til now
-	// because these may contain tokens that depend on 
-	// our SampleTags.
-	setDir(stag->expandString(getDir()));
-	setFileName(stag->expandString(getFileName()));
-	setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
-    }
-    else {
-       n_u::Logger::getInstance()->log(LOG_WARNING,
-       	"%s: no sample tags at connect time",
-		getName().c_str());
-    }
-
     // synchronous mount
     if (mount) mount->mount();
     return clone();
@@ -81,23 +88,6 @@ IOChannel* FileSet::connect()
 void FileSet::requestConnection(ConnectionRequester* rqstr)
        throw(n_u::IOException)
 {
-    // expand the file and directory names. We wait til now
-    // because these may contain tokens that depend on the
-    // SampleTag and we may not know then until now.
-    const SampleTag* stag = 0;
-    if (getSampleTags().size() > 0) stag = *getSampleTags().begin();
-
-    if (stag > 0) {
-	setDir(stag->expandString(getDir()));
-	setFileName(stag->expandString(getFileName()));
-	setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
-    }
-    else {
-       n_u::Logger::getInstance()->log(LOG_WARNING,
-       	"%s: no sample tags at requestConnection time",
-		getName().c_str());
-    }
-
     if (mount && !mount->isMounted()) {
 	requester = rqstr;
 	mount->mount(this);	// start mount request
@@ -109,9 +99,7 @@ void FileSet::requestConnection(ConnectionRequester* rqstr)
 
 void FileSet::mounted()
 {
-    cerr << "doing requester->connected..." << endl;
     if (mount && mount->isMounted()) requester->connected(this);
-    cerr << "requester->connected done" << endl;
 }
 
 void FileSet::close() throw(n_u::IOException)

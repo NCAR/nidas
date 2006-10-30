@@ -274,21 +274,6 @@ public:
         return (vi == constVariables.end() ? -1 : vi - constVariables.begin());
     }
 
-    /**
-     * Utility function to expand ${TOKEN} or $TOKEN fields
-     * in a string.  Here in the SampleTag is a strange place for it,
-     * but the fields may be associated with a SampleTag,
-     * like ${DSM} to get the DSM name.  If curly brackets are not
-     * used, then the TOKEN should be delimited by a '/', a '.' or
-     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
-     */
-    std::string expandString(const std::string& input) const;
-
-    /**
-     * Utility function to get the value of a token.
-     */
-    std::string getTokenValue(const std::string& token) const;
-
     VariableIterator getVariableIterator() const;
 
     void fromDOMElement(const xercesc::DOMElement*)

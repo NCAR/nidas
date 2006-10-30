@@ -95,6 +95,19 @@ public:
     	toDOMElement(xercesc::DOMElement* node)
     		throw(xercesc::DOMException);
 
+    /**
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string.  If curly brackets are not
+     * used, then the TOKEN should be delimited by a '/', a '.' or
+     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     */
+    std::string expandString(const std::string& input) const;
+
+    /**
+     * Utility function to get the value of a token.
+     */
+    std::string getTokenValue(const std::string& token) const;
+
 protected:
 
     void removeSensor(DSMSensor* sensor);

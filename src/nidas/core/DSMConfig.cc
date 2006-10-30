@@ -282,6 +282,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    classattr,"is not a SampleOutput");
             }
 	    try {
+                output->setDSMConfig(this);
 		output->fromDOMElement((DOMElement*)child);
 	    }
 	    catch (const n_u::InvalidParameterException& e) {
@@ -388,5 +389,63 @@ DOMElement* DSMConfig::toDOMParent(DOMElement* parent) throw(DOMException) {
 }
 DOMElement* DSMConfig::toDOMElement(DOMElement* node) throw(DOMException) {
     return node;
+}
+
+string DSMConfig::expandString(const string& input) const
+{
+    string::size_type lastpos = 0;
+    string::size_type dollar;
+
+    string result;
+
+    while ((dollar = input.find('$',lastpos)) != string::npos) {
+
+        result.append(input.substr(lastpos,dollar-lastpos));
+	lastpos = dollar;
+
+	string::size_type openparen = input.find('{',dollar);
+	string token;
+
+	if (openparen == dollar + 1) {
+	    string::size_type closeparen = input.find('}',openparen);
+	    if (closeparen == string::npos) break;
+	    token = input.substr(openparen+1,closeparen-openparen-1);
+	    lastpos = closeparen + 1;
+	}
+	else {
+	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
+	    if (endtok == string::npos) endtok = input.length();
+	    token = input.substr(dollar+1,endtok-dollar-1);
+	    lastpos = endtok;
+	}
+	if (token.length() > 0) {
+	    string val = getTokenValue(token);
+	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
+	    result.append(val);
+	}
+    }
+
+    result.append(input.substr(lastpos));
+    // cerr << "input: \"" << input << "\" expanded to \"" <<
+    // 	result << "\"" << endl;
+    return result;
+}
+
+string DSMConfig::getTokenValue(const string& token) const
+{
+    if (token == "PROJECT") return Project::getInstance()->getName();
+
+    if (token == "SYSTEM") return Project::getInstance()->getSystemName();
+
+    if (token == "AIRCRAFT" || token == "SITE") return getSite()->getName();
+        
+    if (token == "DSM") return getName();
+        
+    if (token == "LOCATION") return getLocation();
+
+    // if none of the above, try to get token value from UNIX environment
+    const char* val = ::getenv(token.c_str());
+    if (val) return string(val);
+    else return string("${") + token + "}";      // unknown value, return original token
 }
 

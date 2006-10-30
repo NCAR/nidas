@@ -25,7 +25,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
-	statisticsType stype,string cntsName,const Site* sitex):
+	statisticsType stype,string cntsName,bool himom,
+        const Site* sitex):
 	countsName(cntsName),
 	numpoints(countsName.length() > 0),
 	crossTerms(false),
@@ -37,8 +38,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
 	nSamples(0),triComb(0),
 	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0),
-	site(sitex)
-
+        higherMoments(himom),
+	site(sitex),startTime((time_t)0),endTime(LONG_LONG_MAX)
 {
     switch(statsType) {
     case STATS_UNKNOWN:
@@ -94,8 +95,8 @@ StatisticsCruncher::StatisticsCruncher(const StatisticsCruncher& x):
 	xMin(0),xMax(0),xSum(0),xySum(0),xyzSum(0),x4Sum(0),
 	nSamples(0),triComb(0),
 	ncov(0),ntri(0),n1mom(0),n2mom(0),n3mom (0),n4mom(0),ntot(0),
-	site(x.site)
-
+        higherMoments(x.higherMoments),
+	site(x.site),startTime(x.startTime),endTime(x.endTime)
 {
     vector<Variable*>::const_iterator vi;
     for (vi = x.inVariables.begin(); vi != x.inVariables.end(); ++vi) {
@@ -618,38 +619,48 @@ void StatisticsCruncher::createCombinations()
     case STATS_COV:
 	setupMoments(nvars,1);
 	setupCovariances();
-	setupMoments(nvars,3);
-	setupMoments(nvars,4);
+        if (higherMoments) {
+            setupMoments(nvars,3);
+            setupMoments(nvars,4);
+        }
 	break;
     case STATS_TRIVAR:
 	setupMoments(nvars,1);
 	setupCovariances();
 	setupTrivariances();
-	setupMoments(nvars,4);
+        if (higherMoments)
+            setupMoments(nvars,4);
 	break;
     case STATS_PRUNEDTRIVAR:
 	setupMoments(nvars,1);
 	setupCovariances();
 	setupPrunedTrivariances();
-	setupMoments(nvars,4);
+        if (higherMoments)
+            setupMoments(nvars,4);
 	break;
     case STATS_FLUX:
 	setupMoments(nvars,1);
 	setupFluxes();
-	setupMoments(nvars,3);
-	setupMoments(nvars,4);
+        if (higherMoments) {
+            setupMoments(nvars,3);
+            setupMoments(nvars,4);
+        }
 	break;
     case STATS_RFLUX:
 	setupMoments(3,1);	// means of winds only
 	setupReducedFluxes();
-	setupMoments(3,3);
-	setupMoments(3,4);
+        if (higherMoments) {
+            setupMoments(3,3);
+            setupMoments(3,4);
+        }
 	break;
     case STATS_SFLUX:
 	setupMoments(1,1);	// means of scalar only
 	setupReducedScalarFluxes();	// covariances of first member
-	setupMoments(1,3);
-	setupMoments(1,4);
+        if (higherMoments) {
+            setupMoments(1,3);
+            setupMoments(1,4);
+        }
 	break;
     default:
 	break;
@@ -976,6 +987,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 
     dsm_time_t tt = fs->getTimeTag();
     if (tt > tout) {
+        if (tt > endTime.toUsecs()) return false;
 	if (tout != LONG_LONG_MIN) {
 	    computeStats();
 	    zeroStats();
@@ -1076,8 +1088,10 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
-	    xyzSum[i] += (xy = x * x * x);
-	    x4Sum[i] += xy * x;
+            if (higherMoments) {
+                xyzSum[i] += (xy = x * x * x);
+                x4Sum[i] += xy * x;
+            }
 	}
 	nSamples[0]++;		// only need one nSamples
 	break;
@@ -1095,16 +1109,20 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
-	    xyzSum[i] += (xy = x * x * x);
-	    x4Sum[i] += xy * x;
+            if (higherMoments) {
+                xyzSum[i] += (xy = x * x * x);
+                x4Sum[i] += xy * x;
+            }
 	}
 	for (; i < nvarsin; i++) {	// scalar means and variances
 	    vi = vindices[i][0];
 	    x = inData[vi];
 	    xSum[i] += x;
 	    *xySump++ += (xy = x * x);
-	    xyzSum[i] += (xy *= x);
-	    x4Sum[i] += xy * x;
+            if (higherMoments) {
+                xyzSum[i] += (xy *= x);
+                x4Sum[i] += xy * x;
+            }
 	}
 	nSamples[0]++;		// only need one nSamples
 	break;
@@ -1122,8 +1140,10 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
-	    xyzSum[i] += (xy = x * x * x);
-	    x4Sum[i] += xy * x;
+            if (higherMoments) {
+                xyzSum[i] += (xy = x * x * x);
+                x4Sum[i] += xy * x;
+            }
 	}
 	for (; i < nvarsin; i++) {	// scalar means
 	    vi = vindices[i][0];
@@ -1145,8 +1165,10 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    xy = x * inData[vj];
 	    *xySump++ += xy;
 	}
-	xyzSum[i] += (xy = x * x * x);
-	x4Sum[i] += xy * x;
+        if (higherMoments) {
+            xyzSum[i] += (xy = x * x * x);
+            x4Sum[i] += xy * x;
+        }
 	nSamples[0]++;		// only need one nSamples
 #ifdef DEBUG
 	if (GET_DSM_ID(id) == 1 && GET_SHORT_ID(id) == 32768) {
@@ -1175,7 +1197,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		for (k=j; k < nvarsin; k++) {
 		    vk = vindices[k][0];
 		    *xyzSump++ += xy * inData[vk];
-		    if (k == i) x4Sum[i] += xy * x * x;
+		    if (higherMoments && k == i) x4Sum[i] += xy * x * x;
 		}
 	    }
 	}
@@ -1195,7 +1217,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
-	    x4Sum[i] += x * x * x * x;
+	    if (higherMoments) x4Sum[i] += x * x * x * x;
 	}
 	for (int n = 0; n < ntri; n++) {
 	    i = triComb[n][0];
@@ -1290,18 +1312,20 @@ void StatisticsCruncher::computeStats()
 			 + ( 2. * xm * xSum[j] * xSum[k]);
 		    if (nSamp < 2) xr = 0.;
 		    outData[l] = xr;
-		    if (k == i)
+		    if (higherMoments && k == i)
 		      x4Sum[i] = x4Sum[i] / nSamp
 				 - 4. * xm * x / nSamp
 				 + 6. * xm * xm * xySum[i][i] / nSamp
 				 - 3. * xm * xm * xm * xm;
 		  }
 	    }
-	    for (i = 0; i < nvars; i++,l++) {
-		xr = x4Sum[i];
-		if (xr < 0.) xr = 0.;
-		outData[l] = xr;
-	    }
+            if (higherMoments) {
+                for (i = 0; i < nvars; i++,l++) {
+                    xr = x4Sum[i];
+                    if (xr < 0.) xr = 0.;
+                    outData[l] = xr;
+                }
+            }
 	    break;
 	case STATS_PRUNEDTRIVAR:
 	    xyzSump = xyzSum;
@@ -1318,17 +1342,19 @@ void StatisticsCruncher::computeStats()
 			+ ( 2. * xSum[i] * xSum[j] * xSum[k]);
 		if (nSamp < 2) xr = 0.;
 		outData[l] = xr;
-		if (i == j && j == k)
+		if (higherMoments && i == j && j == k)
 		  x4Sum[i] = x4Sum[i] / nSamp
 			     - 4. * xm * x / nSamp
 			     + 6. * xm * xm * xySum[i][i] / nSamp
 			     - 3. * xm * xm * xm * xm;
 	    }
-	    for (i = 0; i < nvars; i++,l++) {
-		xr = x4Sum[i];
-		if (xr < 0.) xr = 0.;
-		outData[l] = xr;
-	    }
+            if (higherMoments) {
+                for (i = 0; i < nvars; i++,l++) {
+                    xr = x4Sum[i];
+                    if (xr < 0.) xr = 0.;
+                    outData[l] = xr;
+                }
+            }
 	    break;
 	default:
 	    // Third order moments

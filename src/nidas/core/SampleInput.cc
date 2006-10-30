@@ -157,7 +157,6 @@ void SampleInputMerger::addSampleTag(const SampleTag* stag)
     sampleTags.insert(stag);
 }
 
-
 bool SampleInputMerger::receive(const Sample* samp) throw()
 {
     // pass sample to the appropriate sensor for distribution.
@@ -183,4 +182,3 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
 
     return false;
 }
-

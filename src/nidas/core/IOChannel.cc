@@ -22,8 +22,7 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-IOChannel::IOChannel()
-	// : headerValidator(0)
+IOChannel::IOChannel(): dsm(0)
 {
 }
 

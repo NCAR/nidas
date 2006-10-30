@@ -28,8 +28,8 @@
 
 namespace nidas { namespace core {
 
-class SampleTag;
 class DSMService;
+class DSMConfig;
 
 /**
  * A channel for Input or Output of data.
@@ -139,26 +139,20 @@ public:
         return LONG_LONG_MAX;
     }
 
-    /**
-     * An IOChannel often needs to know what samples it is providing
-     * I/O for.  It can use the sample ids to lookup up stuff that is
-     * may need in the Project tree, like DSMConfig, DSMSensor, etc.
-     * Right now this is mostly useful for the FileSet IOChannel,
-     * which needs to match some string tokens like "{SITE}".
-     */
-    virtual void addSampleTag(const SampleTag* val) 
+    virtual void setDSMConfig(const DSMConfig* val) 
     {
-        sampleTags.insert(val);
+        dsm = val;
     }
 
-    virtual const std::set<const SampleTag*>& getSampleTags() const
+    virtual const DSMConfig* getDSMConfig() const 
     {
-        return sampleTags;
+        return dsm;
     }
 
 private:
+    
+    const DSMConfig* dsm;
 
-    std::set<const SampleTag*> sampleTags;
 };
 
 }}	// namespace nidas namespace core

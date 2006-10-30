@@ -186,9 +186,22 @@ public:
     
     static std::string getEnvVar(const std::string& token);
 
+    /**
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string.  If curly brackets are not
+     * used, then the TOKEN should be delimited by a '/', a '.' or
+     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     */
+    std::string expandString(const std::string& input) const;
+
+    /**
+     * Utility function to get the value of a token.
+     */
+    std::string getTokenValue(const std::string& token) const;
+
 protected:
     /**
-     * Add a parameter to this SampleTag. SampleTag
+     * Add a parameter to this Project. Project
      * will then own the pointer and will delete it
      * in its destructor.
      */

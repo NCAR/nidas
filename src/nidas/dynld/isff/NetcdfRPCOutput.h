@@ -59,6 +59,8 @@ public:
         return new NetcdfRPCOutput(*this);
     }
 
+    void addSampleTag(const SampleTag*);
+
     /**
     * Raw write not supported.
     */

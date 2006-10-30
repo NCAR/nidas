@@ -135,6 +135,20 @@ public:
     float getFillValue() const { return fillValue; }
 
     /**
+     * DeltaT in seconds for the time variable in the NetCDF file.
+     * Common value is 300 seconds.
+     */
+    void setTimeInterval(int val)
+    {
+        timeInterval = val;
+    }
+
+    int getTimeInterval() const
+    {
+        return timeInterval;
+    }
+
+    /**
      * File length, in seconds.
      */
     const int getFileLength() const { return fileLength; }
@@ -160,6 +174,13 @@ public:
     xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
     	throw(xercesc::DOMException);
     
+    void addSampleTag(const SampleTag*);
+
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return sampleTags;
+    }
+
 private:
 
     friend class NcVarGroupFloat;
@@ -224,6 +245,13 @@ private:
     std::map<dsm_sample_id_t,int> stationIndexById;
 
     std::list<NcVarGroupFloat*> groups;
+    
+    std::set<const SampleTag*> sampleTags;
+
+    /**
+     * Deltat in seconds of the time variable in the NetCDF file.
+     */
+    int timeInterval;
 
 };
 

@@ -33,7 +33,7 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     service(0),iochan(iochannel),iostream(0),
     samp(0),leftToRead(0),dptr(0),
-    unrecognizedSamples(0)
+    badInputSamples(0),unrecognizedSamples(0)
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
@@ -50,7 +50,7 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     iochan(iochannel),iostream(0),
     sampleTags(x.sampleTags),
     samp(0),leftToRead(0),dptr(0),
-    unrecognizedSamples(0)
+    badInputSamples(0),unrecognizedSamples(0)
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
@@ -194,14 +194,13 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	    iostream->read(&header,header.getSizeOf());
 
             // screen bad headers.
-            // TODO: replace these fixed times with u
 	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 40 ||
                 header.getDataByteLength() > 32767 ||
                 header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
-	        if (!(unrecognizedSamples++ % 1000)) {
+	        if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
-                        getName().c_str(), unrecognizedSamples,
+                        getName().c_str(), badInputSamples,
                         iostream->getNBytes()-header.getSizeOf(),
                         GET_DSM_ID(header.getId()),GET_SHORT_ID(header.getId()),
                         header.getType(),header.getDataByteLength());
@@ -278,7 +277,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 
             iostream->read(&header,header.getSizeOf());
             if (header.getType() >= UNKNOWN_ST) {
-                unrecognizedSamples++;
+                badInputSamples++;
                 samp = nidas::core::getSample((sampleType)CHAR_ST,
                     header.getDataByteLength());
             }
@@ -328,7 +327,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
         }
 
         iostream->read(&header,header.getSizeOf());
-        if (header.getType() >= UNKNOWN_ST) unrecognizedSamples++;
+        if (header.getType() >= UNKNOWN_ST) badInputSamples++;
         // cerr << header.getTimeTag() << " " << tt.toUsecs() << endl;
         if (header.getTimeTag() >= tt.toUsecs()) {
             iostream->backup(header.getSizeOf());
@@ -399,169 +398,9 @@ xercesc::DOMElement* SampleInputStream::toDOMElement(xercesc::DOMElement* node)
     return node;
 }
 
-SampleInputMerger::SampleInputMerger() :
-	name("SampleInputMerger"),
-	inputSorter(name + "InputSorter"),
-	procSampSorter(name + "ProcSampSorter"),
-	unrecognizedSamples(0)
-{
-    inputSorter.setLengthMsecs(250);
-    procSampSorter.setLengthMsecs(250);
-}
-
-SampleInputMerger::~SampleInputMerger()
-{
-    if (inputSorter.isRunning()) {
-	inputSorter.interrupt();
-	inputSorter.join();
-    }
-    if (procSampSorter.isRunning()) {
-	procSampSorter.interrupt();
-	procSampSorter.join();
-    }
-}
-
-void SampleInputMerger::addInput(SampleInput* input)
-{
-    if (!inputSorter.isRunning()) inputSorter.start();
-#ifdef DEBUG
-    cerr << "SampleInputMerger: " << input->getName() << 
-    	" addSampleClient, &inputSorter=" << &inputSorter << endl;
-#endif
-    input->addSampleClient(&inputSorter);
-
-    SampleTagIterator si = input->getSampleTagIterator();
-    for ( ; si.hasNext(); ) {
-        addSampleTag(si.next());
-        inputSorter.addSampleTag(si.next());
-    }
-}
-
-void SampleInputMerger::removeInput(SampleInput* input)
-{
-    input->removeSampleClient(&inputSorter);
-}
-
-void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    sensorMapMutex.lock();
-    // samples with an Id equal to the sensor Id get forwarded to
-    // the sensor
-    sensorMap[sensor->getId()] = sensor;
-    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-    	sensorsByClient.find(client);
-    if (sci != sensorsByClient.end()) sci->second.push_back(sensor);
-    else {
-        list<DSMSensor*> sensors;
-	sensors.push_back(sensor);
-	sensorsByClient[client] = sensors;
-    }
-    sensorMapMutex.unlock();
-
-    // add sensor processed sample tags
-    SampleTagIterator si = sensor->getSampleTagIterator();
-    for ( ; si.hasNext(); ) {
-	const SampleTag* stag = si.next();
-        addSampleTag(stag);
-	procSampSorter.addSampleTag(stag);
-    }
-
-    procSampSorter.addSampleClient(client);
-    sensor->addSampleClient(&procSampSorter);
-    inputSorter.addSampleClient(this);
-
-    if (!procSampSorter.isRunning()) procSampSorter.start();
-}
-
-void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    procSampSorter.removeSampleClient(client);
-
-    // check:
-    //	are there still existing clients of procSampSorter for this sensor?
-    //	simple way: remove procSampSorter as sampleClient of sensor
-    //		if there are no more clients of procSampSorter
-    if (procSampSorter.getClientCount() == 0) {
-	if (!sensor) {		// remove client for all sensors
-	    sensorMapMutex.lock();
-	    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-		sensorsByClient.find(client);
-	    if (sci != sensorsByClient.end()) {
-		list<DSMSensor*>& sensors = sci->second;
-		for (list<DSMSensor*>::iterator si = sensors.begin();
-		    si != sensors.end(); ++si) {
-		    sensor = *si;
-		    sensor->removeSampleClient(client);
-		    if (sensor->getClientCount() == 0)
-			sensorMap.erase(sensor->getId());
-		}
-	    }
-	    sensorMapMutex.unlock();
-	}
-    	else {
-	    sensor->removeSampleClient(&procSampSorter);
-	    if (sensor->getClientCount() == 0) {
-		sensorMapMutex.lock();
-		sensorMap.erase(sensor->getId());
-		sensorMapMutex.unlock();
-	    }
-	}
-	inputSorter.removeSampleClient(this);
-    }
-}
-
-/*
- * Redirect addSampleClient requests to inputSorter.
- */
-void SampleInputMerger::addSampleClient(SampleClient* client) throw()
-{
-    inputSorter.addSampleClient(client);
-}
-
-void SampleInputMerger::removeSampleClient(SampleClient* client) throw()
-{
-    inputSorter.removeSampleClient(client);
-}
-
-
-void SampleInputMerger::addSampleTag(const SampleTag* stag)
-{
-    sampleTags.insert(stag);
-}
-
-
-bool SampleInputMerger::receive(const Sample* samp) throw()
-{
-    // pass sample to the appropriate sensor for distribution.
-    dsm_sample_id_t sampid = samp->getId();
-
-    sensorMapMutex.lock();
-    map<unsigned long,DSMSensor*>::const_iterator sensori
-	    = sensorMap.find(sampid);
-
-    if (sensori != sensorMap.end()) {
-	DSMSensor* sensor = sensori->second;
-	sensorMapMutex.unlock();
-	sensor->receive(samp);
-	return true;
-    }
-    sensorMapMutex.unlock();
-
-    if (!(unrecognizedSamples++) % 100) {
-	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "SampleInputStream unrecognizedSamples=%d",
-		    unrecognizedSamples);
-    }
-
-    return false;
-}
-
 void SampleInputStream::addSampleTag(const SampleTag* stag)
 {
     sampleTags.insert(stag);
-    if (iochan) iochan->addSampleTag(stag);
 }
 
 /*

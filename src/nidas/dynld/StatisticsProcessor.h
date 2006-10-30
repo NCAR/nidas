@@ -17,6 +17,7 @@
 
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/dynld/StatisticsCruncher.h>
+#include <nidas/util/UTime.h>
 
 namespace nidas { namespace dynld {
 
@@ -82,6 +83,16 @@ public:
      */
     virtual void disconnected(SampleOutput* output) throw();
 
+    void setStartTime(const nidas::util::UTime& val) 
+    {
+        startTime = val;
+    }
+
+    void setEndTime(const nidas::util::UTime& val) 
+    {
+        endTime = val;
+    }
+
 protected:
 
     std::list<StatisticsCruncher*> crunchers;
@@ -89,11 +100,16 @@ protected:
     struct OutputInfo {
         StatisticsCruncher::statisticsType type;
 	std::string countsName;
+        bool higherMoments;
     };
 
     std::map<dsm_sample_id_t,struct OutputInfo> infoBySampleId;
 
     std::list<SampleTag*> configTags;
+
+    nidas::util::UTime startTime;
+
+    nidas::util::UTime endTime;
 
 };
 

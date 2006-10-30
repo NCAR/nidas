@@ -178,6 +178,7 @@ sources = [ Split("""
     Sample.cc
     SampleClientList.cc
     SampleDater.cc
+    SampleInput.cc
     SampleInputHeader.cc
     SampleIOProcessor.cc
     SampleOutput.cc

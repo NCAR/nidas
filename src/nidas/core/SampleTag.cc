@@ -26,7 +26,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
-	id(0),sampleId(0),sensorId(0),rate(0.0),processed(true),dsm(0) {}
+	id(0),sampleId(0),sensorId(0),station(0),
+        rate(0.0),processed(true),dsm(0) {}
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
@@ -243,72 +244,5 @@ xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* node)
     throw(xercesc::DOMException)
 {
     return node;
-}
-
-string SampleTag::expandString(const string& input) const
-{
-    string::size_type lastpos = 0;
-    string::size_type dollar;
-
-    string result;
-
-    while ((dollar = input.find('$',lastpos)) != string::npos) {
-
-        result.append(input.substr(lastpos,dollar-lastpos));
-	lastpos = dollar;
-
-	string::size_type openparen = input.find('{',dollar);
-	string token;
-
-	if (openparen == dollar + 1) {
-	    string::size_type closeparen = input.find('}',openparen);
-	    if (closeparen == string::npos) break;
-	    token = input.substr(openparen+1,closeparen-openparen-1);
-	    lastpos = closeparen + 1;
-	}
-	else {
-	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
-	    if (endtok == string::npos) endtok = input.length();
-	    token = input.substr(dollar+1,endtok-dollar-1);
-	    lastpos = endtok;
-	}
-	if (token.length() > 0) {
-	    string val = getTokenValue(token);
-	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-	    result.append(val);
-	}
-    }
-
-    result.append(input.substr(lastpos));
-    // cerr << "input: \"" << input << "\" expanded to \"" <<
-    // 	result << "\"" << endl;
-    return result;
-}
-
-string SampleTag::getTokenValue(const string& token) const
-{
-    if (token == "PROJECT") return Project::getInstance()->getName();
-
-    if (token == "SYSTEM") return Project::getInstance()->getSystemName();
-
-    if (token == "AIRCRAFT" || token == "SITE") {
-	if (dsm) return dsm->getSite()->getName();
-	else return "unknown";
-    }
-        
-    if (token == "DSM") {
-	if (dsm) return dsm->getName();
-	else return "unknown";
-    }
-        
-    if (token == "LOCATION") {
-	if (dsm) return dsm->getLocation();
-	else return "unknown";
-    }
-
-    // if none of the above, try to get token value from UNIX environment
-    const char* val = ::getenv(token.c_str());
-    if (val) return string(val);
-    else return "unknown";
 }
 

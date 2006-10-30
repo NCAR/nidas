@@ -74,6 +74,7 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
     struct OutputInfo outputInfo;
     outputInfo.countsName = "";
     outputInfo.type = StatisticsCruncher::STATS_UNKNOWN;
+    outputInfo.higherMoments = false;
 
     for (pi = parms.begin(); pi != parms.end(); ++pi) {
         const Parameter* p = *pi;
@@ -89,6 +90,10 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	else if (p->getType() == Parameter::STRING_PARAM &&
 		p->getName() == "counts" && p->getLength() == 1) {
 	    outputInfo.countsName = p->getStringValue(0);
+	}
+	else if (p->getType() == Parameter::BOOL_PARAM &&
+		p->getName() == "highmoments" && p->getLength() == 1) {
+	    outputInfo.higherMoments = p->getNumericValue(0) != 0;
 	}
 	else throw n_u::InvalidParameterException(getName(),
 		"unknown statistics parameter",p->getName());
@@ -181,7 +186,7 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
 		    struct OutputInfo info = infoBySampleId[mytag->getId()];
 		    StatisticsCruncher* cruncher =
 			new StatisticsCruncher(tmptag,info.type,
-				info.countsName,site);
+				info.countsName,info.higherMoments,site);
 		    crunchers.push_back(cruncher);
 		    cruncher->connect(input);
 		    newtags.insert(newtags.begin(),

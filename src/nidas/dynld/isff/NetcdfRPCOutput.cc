@@ -65,10 +65,18 @@ void NetcdfRPCOutput::setIOChannel(IOChannel* val)
     if (getIOChannel()) {
         setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
 	ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
+        const set<const SampleTag*>& tags = getSampleTags();
+        for (set<const SampleTag*>::const_iterator ti = tags.begin();
+            ti != tags.end(); ++ti) ncChannel->addSampleTag(*ti);
     }
     else ncChannel = 0;
 }
 
+void NetcdfRPCOutput::addSampleTag(const SampleTag* tag)
+{
+    if (ncChannel) ncChannel->addSampleTag(tag);
+    SampleOutputBase::addSampleTag(tag);
+}
 
 bool NetcdfRPCOutput::receive(const Sample* samp) 
     throw()
