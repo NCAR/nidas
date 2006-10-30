@@ -1,0 +1,950 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="TREX"
+    system="ISFF"
+    config="$ISFF/projects/$PROJECT/ISFF/config/trex.xml"
+    version="$LastChangedRevision$">
+
+    <sensorcatalog>
+	<serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="1" rate="60">
+		<variable name="u" units="m/s"/>
+		<variable name="v" units="m/s"/>
+		<variable name="w" units="m/s"/>
+		<variable name="tc" units="degC"/>
+		<variable name="diag" units=""/>
+		<variable name="spd" units="m/s"/>
+		<variable name="dir" units="deg"/>
+		<variable name="uflag" units=""/>
+		<variable name="vflag" units=""/>
+		<variable name="wflag" units=""/>
+		<variable name="tcflag" units=""/>
+	    </sample>
+	    <message separator="\x55\xaa" position="end" length="10"/>
+	</serialSensor>
+
+	<serialSensor ID="NCAR_TRH" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <!--  |TRH703 21.67 10.25\n\r| -->
+	    <sample id="1" rate="1" scanfFormat="TRH%*d%f%f">
+		<variable name="T" units="degC"/>
+		<variable name="RH" units="%"/>
+	    </sample>
+	    <message separator="\r" position="end" length="0"/>
+	</serialSensor>
+
+	<serialSensor ID="Vais_PTB" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- |B7  832.44  22.7\r\n| -->
+	    <sample id="1" rate="0.5" scanfFormat="%*c%*d%f%f">
+		<variable name="P" units="mb"/>
+		<variable name="Tbaro" units="degC"/>
+	    </sample>
+	    <message separator="\n" position="end" length="0"/>
+	</serialSensor>
+
+	<serialSensor ID="SOAD" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message separator="\r" position="end" length="0"/>
+	    <prompt string="#86OD\r" rate="1"/>
+	</serialSensor>
+	<serialSensor ID="SOAD_NOPROMPT" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <message separator="\r" position="end" length="0"/>
+	</serialSensor>
+	
+    </sensorcatalog>
+
+    <server>
+        <service class="XMLConfigService">
+            <output>
+                <socket type="dgaccept" maxIdle="60"/>
+            </output>
+        </service>
+        <service class="RawSampleService">
+            <!-- input from every DSM on this aircraft that has
+                 a socket output of type RawSampleOutputStream -->
+            <input class="RawSampleInputStream">
+                <socket type="dgaccept"/>
+            </input>
+            <processor class="SampleArchiver">
+                <output class="SampleOutputStream">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
+                </output>
+                <output class="SampleOutputStream">
+                    <socket type="server" port="30000"/>
+                </output>
+            </processor>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+	        <sample id="1" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_baro"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="P Tbaro"/>
+		</sample>
+	        <sample id="2" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad" type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Vtcase.in Tcase.in Vtcase.out Tcase.out Tsoil Gsoil Vqsoil Qsoil Vpile Vheat Tau63"/>
+		</sample>
+	        <sample id="3" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad_10m"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vbatt.10m.c Rpile.in.10m.c Rpile.out.10m.c Vtcase.in.10m.c Vtcase.out.10m.c Rlw.in.10m.c Rlw.out.10m.c Tcase.in.10m.c Tcase.out.10m.c"/>
+		</sample>
+	        <sample id="4" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad_a1"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vbatt.a1 Rpile.out.a1.c Vtcase.out.a1.c Rlw.out.a1.c Tcase.out.a1"/>
+		</sample>
+	        <sample id="5" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad_a2"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vbatt.a2.c Rpile.out.a2.c Vtcase.out.a2.c Rlw.out.a2.c Tcase.out.a2.c"/>
+		</sample>
+	        <sample id="6" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.1m v.1m w.1m tc.1m"/>
+		</sample>
+	        <sample id="7" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.1m vflag.1m wflag.1m tcflag.1m diag.1m"/>
+		</sample>
+	        <sample id="8" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.2m v.2m w.2m tc.2m"/>
+		</sample>
+	        <sample id="9" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.2m vflag.2m wflag.2m tcflag.2m diag.2m"/>
+		</sample>
+	        <sample id="10" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.3m v.3m w.3m tc.3m"/>
+		</sample>
+	        <sample id="11" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.3m vflag.3m wflag.3m tcflag.3m diag.3m"/>
+		</sample>
+	        <sample id="12" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.5m v.5m w.5m tc.5m"/>
+		</sample>
+	        <sample id="13" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.5m vflag.5m wflag.5m tcflag.5m diag.5m kh2oV.5m"/>
+		</sample>
+	        <sample id="14" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="kh2o.5m u.5m v.5m w.5m"/>
+		</sample>
+	        <sample id="15" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="co2.5m.c u.5m.c v.5m.c w.5m.c"/>
+		</sample>
+	        <sample id="16" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="h2o.5m.c u.5m.c v.5m.c w.5m.c"/>
+		</sample>
+	        <sample id="17" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_co2" type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="co2raw.5m.c h2oraw.5m.c Tcell.5m.c Pcell.5m.c"/>
+		</sample>
+	        <sample id="18" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_TRH_5m"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="RH.5m T.5m"/>
+		</sample>
+	        <sample id="19" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.10m v.10m w.10m tc.10m"/>
+		</sample>
+	        <sample id="20" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.10m vflag.10m wflag.10m tcflag.10m diag.10m"/>
+		</sample>
+	        <sample id="21" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.15m v.15m w.15m tc.15m"/>
+		</sample>
+	        <sample id="22" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.15m vflag.15m wflag.15m tcflag.15m diag.15m"/>
+		</sample>
+	        <sample id="23" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_TRH_15m"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="RH.15m T.15m"/>
+		</sample>
+	        <sample id="24" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.20m v.20m w.20m tc.20m"/>
+		</sample>
+	        <sample id="25" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.20m vflag.20m wflag.20m tcflag.20m diag.20m"/>
+		</sample>
+	        <sample id="26" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.25m v.25m w.25m tc.25m"/>
+		</sample>
+	        <sample id="27" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.25m vflag.25m wflag.25m tcflag.25m diag.25m"/>
+		</sample>
+	        <sample id="28" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="u.30m v.30m w.30m tc.30m"/>
+		</sample>
+	        <sample id="29" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars"
+			type="strings"
+			value="uflag.30m vflag.30m wflag.30m tcflag.30m diag.30m kh2oV.30m"/>
+		</sample>
+	        <sample id="30" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="invars"
+			type="strings"
+			value="kh2o.30m u.30m v.30m w.30m"/>
+		</sample>
+	        <sample id="31" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_TRH_30m"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="RH.30m T.30m"/>
+		</sample>
+	        <sample id="32" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vpile Vheat Tau63"/>
+		</sample>
+	        <sample id="33" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_aerosol"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="N07.5m N10.5m N20.5m N30.5m N40.5m N50.5m"/>
+		</sample>
+	        <sample id="34" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_power"
+		    	type="string"/>
+		    <parameter name="invars"
+			type="strings"
+			value="Vbatt Iload Isolar Icell Tbatt"/>
+		</sample>
+	        <sample id="35" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.5m"/>
+		</sample>
+	        <sample id="36" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.10m"/>
+		</sample>
+	        <sample id="37" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.15m"/>
+		</sample>
+	        <sample id="38" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.20m"/>
+		</sample>
+	        <sample id="39" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.25m"/>
+		</sample>
+	        <sample id="40" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars"
+			type="strings"
+			value="spd.30m"/>
+		</sample>
+		<!--
+                <output class="AsciiOutput">
+		    <fileset dir="/tmp/${PROJECT}/${SYSTEM}"
+		    	file="stats_%Y%m%d_%H%M%S.dat" length="3600"/>
+                </output>
+		-->
+                <output class="isff.NetcdfRPCOutput">
+		    <ncserver
+			server="linooski"
+		        dir="${ISFF}/projects/${PROJECT}/netcdf_new"
+		    	file="isff_%Y%m%d.nc" length="86400"
+			cdl="${ISFF}/projects/${PROJECT}/ISFF/config/trex.cdl"
+			floatFill="1.e37"
+			timeout="300"
+			batchPeriod="300"/>
+                </output>
+	    </processor>
+        </service>
+    </server>
+
+    <site name="central" class="isff.GroundStation" number="1" suffix=".c">
+
+	<dsm location="central" name="central" id="1" rserialPort="30002">
+
+	    <!-- height: 0m -->
+	    <serialSensor IDREF="Vais_PTB"
+		    devicename="/dev/ttyS1" id="8">
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS2" id="10">
+		<!-- 4 radiometer loggers through Zigbee radios  -->
+		<!-- sample messages:
+		170,4,12.51,0,96.288,0,.66842,.23644,.57106,.455,1.0575,23.4,1.0565,23.422,22.477,-.87701,521.18,7.2221,-99999,-.09755,-9999,0\r\n
+		133,3,12.51,3.3873,3.7701,1.1301,1.1408,432.29,431.33,21.764,21.532\r\n
+		119,2,12.506,.87674,1.1257,430.34,21.859\r\n
+		119,1,12.529,1.4313,1.1321,430.08,21.72\r\n
+		-->
+		<sample id="1" rate="0.2"
+		    scanfFormat="%*d,4,%f,%f,%f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rain" units=".01in/5sec"/>
+		    <variable name="Rnet" units="W/m^2"/>
+		    <variable name="Rpile.in" units="W/m^2"/>
+		    <variable name="Rpile.out" units="W/m^2"/>
+		    <variable name="Rsw.in" units="W/m^2"/>
+		    <variable name="Rsw.out" units="W/m^2"/>
+		    <variable name="Vtcase.in" units="V"/>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Vtcase.out" units="V"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tsoil" units="degC"/>
+		    <variable name="Gsoil" units="W/m^2"/>
+		    <variable name="Vqsoil" units="mV"/>
+		    <variable name="Qsoil" units="vol%"/>
+		    <variable name="Vpile" units="mV"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s"/>
+		</sample>
+		<sample id="4" rate="0.2"
+		    scanfFormat="%*d,3,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.10m" units="V"/>
+		    <variable name="Rpile.in.10m" units="W/m^2"/>
+		    <variable name="Rpile.out.10m" units="W/m^2"/>
+		    <variable name="Vtcase.in.10m" units="V"/>
+		    <variable name="Vtcase.out.10m" units="V"/>
+		    <variable name="Rlw.in.10m" units="W/m^2"/>
+		    <variable name="Rlw.out.10m" units="W/m^2"/>
+		    <variable name="Tcase.in.10m" units="degC"/>
+		    <variable name="Tcase.out.10m" units="degC"/>
+		</sample>
+		<!-- logger id#1, down looking pyrgeometers, over bare dirt -->
+		<sample id="2" rate="0.2"
+		    scanfFormat="%*d,1,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.a1" units="V"/>
+		    <variable name="Rpile.out.a1" units="W/m^2"/>
+		    <variable name="Vtcase.out.a1" units="V"/>
+		    <variable name="Rlw.out.a1" units="W/m^2"/>
+		    <variable name="Tcase.out.a1" units="degC"/>
+		</sample>
+		<!-- logger id#2, down looking pyrgeometers, over saltbrush -->
+		<sample id="3" rate="0.2"
+		    scanfFormat="%*d,2,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.a2" units="V"/>
+		    <variable name="Rpile.out.a2" units="W/m^2"/>
+		    <variable name="Vtcase.out.a2" units="V"/>
+		    <variable name="Rlw.out.a2" units="W/m^2"/>
+		    <variable name="Tcase.out.a2" units="degC"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="SOAD"
+		    devicename="/dev/ttyS13" id="20">
+		<!--  -->
+		<sample id="1" scanfFormat="%*c86%f%f%f%f">
+                    <variable name="Vbatt" units=".1mV">
+                        <!-- from a quick bench cal -->
+                        <linear units="V" slope=".000706" intercept="0.0"/>
+                    </variable>
+                    <variable name="Iload" units=".1mV">
+                        <!-- crude correction to slope of .0005 -->
+                        <linear units="A" slope=".00055" intercept="0.0"/>
+                    </variable>
+                    <variable name="Isolar" units=".1mV">
+                        <linear units="A" slope=".001" intercept="0.0"/>
+                    </variable>
+                    <variable name="Icell" units=".1mV">
+                        <linear units="A" slope="0.001" intercept="0.0"/>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+	    <!-- height 1m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS18" id="2" height="1m">
+	    </serialSensor>
+	    <!-- height 2m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS19" id="4" height="2m">
+	    </serialSensor>
+	    <!-- height 3m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS20" id="6" height="3m">
+	    </serialSensor>
+
+	    <!-- height 5m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS3" id="50" height="5m">
+		<!-- CSAT3 process method now creates a separate sample
+		     for krypton data, since it has a different timetag.
+		     Since there were sensors defined with ids 52 and 54,
+		     we'll set the krypton sample id to 50+6 to make it unique.
+		 -->
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1390 -->
+		<parameter name="kryptonKw" type="float" value="-0.151"/>
+		<parameter name="kryptonV0" type="float" value="968.0"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS5" id="52" height="5m">
+	    </serialSensor>
+
+	    <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS14" id="54" height="5m">
+		<!-- sample record
+    (Data (Ndx 15577)(DiagVal 249)(CO2Raw 8.5337991e-2)(CO2D 1.5145348e1)(H2ORaw 2.1379828e-2)(H2OD 1.1764858e2)(Temp 2.5422911e1)(Pres 8.2840404e1)(Aux -1.0012015e-3)(Cooler 1.6293035))\n
+		-->
+
+		<sample id="1" rate="10"
+    scanfFormat=" (Data (Ndx%*f)(DiagVal%*f)(CO2Raw%f)(CO2D%f)(H2ORaw%f)(H2OD%f)(Temp%f)(Pres%f)(Aux%*f)(Cooler%*f))">
+		    <variable name="co2raw" units=""/>
+		    <variable name="co2" units="mmol/m^3"/>
+		    <variable name="h2oraw" units=""/>
+		    <variable name="h2o" units="mmol/m^3"/>
+		    <variable name="Tcell" units="degC"/>
+		    <variable name="Pcell" units="kPa"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <!-- height 10m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS6" id="100" height="10m">
+	    </serialSensor>
+
+	    <!-- height 15m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS7" id="150" height="15m">
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS8" id="152" height="15m">
+	    </serialSensor>
+
+	    <!-- height 20m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS9" id="200" height="20m">
+	    </serialSensor>
+
+	    <!-- height 25m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS10" id="250" height="25m">
+	    </serialSensor>
+
+	    <!-- height 30m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS11" id="300" height="30m">
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1394 -->
+		<parameter name="kryptonKw" type="float" value="-0.166"/>
+		<parameter name="kryptonV0" type="float" value="2601.6"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS12" id="302" height="30m">
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="192.168.12.1"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usb/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="/var/tmp/usb" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+        <dsm location="central" name="daisy" id="4" rserialPort="30002">
+	    <serialSensor IDREF="CSAT3" suffix=".hf"
+                devicename="/dev/ttyS1" id="10" height="1m">
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3" suffix=".hf"
+                devicename="/dev/ttyS2" id="20" height="2m">
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3" suffix=".hf"
+                devicename="/dev/ttyS3" id="30" height="3m">
+	    </serialSensor>
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS4" id="12" height="1m">
+		<sample id="1" scanfFormat="%d">
+		    <variable name="Pdir" units="V">
+                        <linear units="deg" slope="0.00011606" intercept="0.0"/>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS5" id="22" height="2m">
+		<sample id="1" scanfFormat="%d">
+		    <variable name="Pdir" units="V">
+                        <linear units="deg" slope="0.00011606" intercept="0.0"/>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS6" id="32" height="3m">
+		<sample id="1" scanfFormat="%d">
+		    <variable name="Pdir" units="V">
+                        <linear units="deg" slope="0.00011606" intercept="0.0"/>
+                    </variable>
+                </sample>
+	    </serialSensor>
+            <sensor class="DSC_A2DSensor" devicename="/dev/quack0" id="100">
+                <sample id="1" rate="2000">
+                    <!--
+                        /*
+                         * bipolar gains
+                         *      gain    range
+                         *      1       +-10V
+                         *      2       +-5V
+                         *      4       +-2.5V
+                         *      8       +-1.25V
+                         *      16      +-0.625V
+                         * unipolar gains
+                         *      gain    range
+                         *      1       0-20V   not avail
+                         *      2       0-10V
+                         *      4       0-5V
+                         *      8       0-2.5
+                         *      16      0-1.25
+                         */
+                    -->
+                    <variable name="va.1m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.1m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.1m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.2m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.2m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.2m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.3m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.3m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.3m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                </sample>
+            </sensor>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$RAWDATADIR/projects/$PROJECT/hotfilm"
+		    file="hfnew_%Y%m%d_%H%M%S.dat"
+		    length="1800">
+		</fileset>
+	    </output>
+
+        </dsm>
+    </site>
+
+    <site name="south" class="isff.GroundStation" number="2" suffix=".s">
+	<dsm location="south" name="south" id="2" rserialPort="30002">
+
+	    <!-- height: 0m -->
+	    <serialSensor IDREF="Vais_PTB"
+		    devicename="/dev/ttyS1" id="8">
+	    </serialSensor>
+
+	    <!-- Campbell logger: rain,short wave, long wave, soil -->
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS2" id="10">
+		<!--
+		186,1,12.57,0,100.86,0,1.724,3.6873,.54368,.54593,21.656,21.66,21.733,21.727,22.88,-1.7649,602.14,12.849,-99999,-.09042,-9999,0\r\n
+		-->
+		<sample id="1" rate="0.2"
+		    scanfFormat="%*d,1,%f,%f,%f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rain" units=".01in/5sec"/>
+		    <variable name="Rnet" units="W/m^2"/>
+		    <variable name="Rpile.in" units="W/m^2"/>
+		    <variable name="Rpile.out" units="W/m^2"/>
+		    <variable name="Rsw.in" units="W/m^2"/>
+		    <variable name="Rsw.out" units="W/m^2"/>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tdome.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tdome.out" units="degC"/>
+		    <variable name="Tsoil" units="degC"/>
+		    <variable name="Gsoil" units="W/m^2"/>
+		    <variable name="Vqsoil" units="mV"/>
+		    <variable name="Qsoil" units="vol%"/>
+		    <variable name="Vpile" units="mV"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="SOAD"
+		    devicename="/dev/ttyS13" id="20">
+		<!--  -->
+		<sample id="1" scanfFormat="%*c86%f%f%f%f">
+                    <variable name="Vbatt" units=".1mV">
+                        <!-- from a quick bench cal -->
+                        <linear units="V" slope=".000706" intercept="0.0"/>
+                    </variable>
+                    <variable name="Iload" units=".1mV">
+                        <!-- crude correction to slope of .0005 -->
+                        <linear units="A" slope=".00055" intercept="0.0"/>
+                    </variable>
+                    <variable name="Isolar" units=".1mV">
+                        <linear units="A" slope=".001" intercept="0.0"/>
+                    </variable>
+                    <variable name="Tbatt" units=".1mV">
+			<linear units="degC" slope="-0.00870" intercept="162.07"/>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+
+	    <!-- height 5m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS3" id="50" height="5m">
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1391 -->
+		<parameter name="kryptonKw" type="float" value="-0.151"/>
+		<parameter name="kryptonV0" type="float" value="3961.4"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS5" id="52" height="5m">
+	    </serialSensor>
+
+	    <!-- height 10m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS6" id="100" height="10m">
+	    </serialSensor>
+
+	    <!-- height 15m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS7" id="150" height="15m">
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS8" id="152" height="15m">
+	    </serialSensor>
+
+	    <!-- height 20m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS9" id="200" height="20m">
+	    </serialSensor>
+
+	    <!-- height 25m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS10" id="250" height="25m">
+	    </serialSensor>
+
+	    <!-- height 30m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS11" id="300" height="30m">
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1393 -->
+		<parameter name="kryptonKw" type="float" value="-0.158"/>
+		<parameter name="kryptonV0" type="float" value="2988.3"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS12" id="302" height="30m">
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="192.168.12.1"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usb/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="/var/tmp/usb" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+    </site>
+
+    <site name="west" class="isff.GroundStation" number="3" suffix=".w">
+	<dsm location="west" name="west" id="3" rserialPort="30002">
+
+	    <!-- height: 0m -->
+	    <serialSensor IDREF="Vais_PTB"
+		    devicename="/dev/ttyS1" id="8">
+	    </serialSensor>
+
+	    <!-- radiometer logger -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS2" id="10">
+		<!-- sample message
+		186,1,12.68,0,107.03,0,.83583,0,.32881,.33331,21.495,21.489,21.536,21.518,21.481,2.084,684.14,18.547,-99999,-.10279,-9999,0\r
+		-->
+		<sample id="1" rate="0.2"
+		    scanfFormat="%*d,1,%f,%f,%f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rain" units=".01in/5sec"/>
+		    <variable name="Rnet" units="W/m^2"/>
+		    <variable name="Rpile.in" units="W/m^2"/>
+		    <variable name="Rpile.out" units="W/m^2"/>
+		    <variable name="Rsw.in" units="W/m^2"/>
+		    <variable name="Rsw.out" units="W/m^2"/>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tdome.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tdome.out" units="degC"/>
+		    <variable name="Tsoil" units="degC"/>
+		    <variable name="Gsoil" units="W/m^2"/>
+		    <variable name="Vqsoil" units="mV"/>
+		    <variable name="Qsoil" units="vol%"/>
+		    <variable name="Vpile" units="mV"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="SOAD_NOPROMPT"
+		    devicename="/dev/ttyS13" id="20">
+		<!--  -->
+		<sample id="1" scanfFormat="BBox:%f%f%f%f">
+                    <variable name="Vbatt" units="V"/>
+                    <variable name="Isolar" units="A"/>
+                    <variable name="Iload" units="A">
+			<!-- quick cal:  slope=0.5526, intcp=0.008 -->
+                        <linear units="A" slope=".55" intercept="0.0"/>
+                    </variable>
+                    <variable name="Tbatt" units="degC"/>
+                </sample>
+	    </serialSensor>
+
+	    <!-- height 5m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS3" id="50" height="5m">
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1395 -->
+		<parameter name="kryptonKw" type="float" value="-0.155"/>
+		<parameter name="kryptonV0" type="float" value="4295.0"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS5" id="52" height="5m">
+	    </serialSensor>
+
+	    <!-- MetOne Model 9012 6 Channel Particle Counter -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS14" id="54" height="5m">
+		<!-- sample message (where's the date?)
+		301,1,3186,298,171,107,54,4,\r\n
+		-->
+		<sample id="1" rate="1"
+		    scanfFormat="%*d,%*d,%f,%f,%f,%f,%f,%f">
+		    <variable name="N07" units=""/>
+		    <variable name="N10" units=""/>
+		    <variable name="N20" units=""/>
+		    <variable name="N30" units=""/>
+		    <variable name="N40" units=""/>
+		    <variable name="N50" units=""/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <!-- height 10m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS6" id="100" height="10m">
+	    </serialSensor>
+
+	    <!-- height 15m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS7" id="150" height="15m">
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS8" id="152" height="15m">
+	    </serialSensor>
+
+	    <!-- height 20m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS9" id="200" height="20m">
+	    </serialSensor>
+
+	    <!-- height 25m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS10" id="250" height="25m">
+	    </serialSensor>
+
+	    <!-- height 30m -->
+	    <serialSensor IDREF="CSAT3"
+		    devicename="/dev/ttyS11" id="300" height="30m">
+		<sample id="6">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3"/>
+		</sample>
+		<!-- Krypton SN 1258 -->
+		<parameter name="kryptonKw" type="float" value="-0.158"/>
+		<parameter name="kryptonV0" type="float" value="4307.0"/>
+		<parameter name="kryptonPathLength" type="float" value="1.3"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		    devicename="/dev/ttyS12" id="302" height="30m">
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="192.168.14.21"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usb/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="/var/tmp/usb" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+    </site>
+</project>
+
