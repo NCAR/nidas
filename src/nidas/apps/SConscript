@@ -65,6 +65,8 @@ apps = Split("""
     tee_tty.cc
     isff/pdecode.cc
     isff/prep.cc
+    raf/cvi_lv_test_in.cc
+    raf/cvi_lv_test_out.cc
 """)
 
 nodes = []
