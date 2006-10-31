@@ -20,6 +20,7 @@
 #include <nidas/util/Socket.h>
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 
 using namespace std;
@@ -28,22 +29,31 @@ namespace n_u = nidas::util;
 
 int usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " host port" << endl;
+    cerr << "Usage: " << argv0 << " file host port" << endl;
     return 1;
 }
 
 int main(int argc, char** argv)
 {
-    if (argc < 3)
+    if (argc < 4)
       return usage(argv[0]);
 
-    const char* host = argv[1];
+    const char* file = argv[1];
 
-    istringstream ist(argv[2]);
+    const char* host = argv[2];
+
+    istringstream ist(argv[3]);
     int port;
 
     ist >> port;
     if (ist.fail()) return usage(argv[0]);
+
+    ifstream fin(file);
+    if (fin.fail())
+        throw n_u::IOException(file,"open",errno);
+    char buf[1024];
+    fin.getline(buf,sizeof(buf),'\n');
+    fin.getline(buf,sizeof(buf),'\n');
 
     for (;;) {
 
@@ -52,19 +62,22 @@ int main(int argc, char** argv)
             sock.connect(host,port);
             cerr << "connected: " << sock.getRemoteSocketAddress().toString() << endl;
 
-            ostringstream ost;
+            for (;;) {
 
-            for (int j = 0; ; j++) {
+                fin.getline(buf,sizeof(buf),'\n');
+                if (fin.eof()) {
+                    fin.seekg(0,ios_base::beg);
+                    fin.getline(buf,sizeof(buf),'\n');
+                    fin.getline(buf,sizeof(buf),'\n');
+                    continue;
+                }
+                if (fin.fail()) throw n_u::IOException(file,"read",errno);
 
-                for (int i = 0; i < 4; i++) ost << i+j << ' ';
-                ost << endl;
-
-                string outstr = ost.str();
-                sock.send(outstr.c_str(),outstr.length());
+                buf[fin.gcount()-1] = '\n';
+                sock.send(buf,fin.gcount());
                 sleep(1);
-
-                ost.str("");
             }
+
         }
         catch(const n_u::UnknownHostException&e )
         {
