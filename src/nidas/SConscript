@@ -1,64 +1,67 @@
 # -*- python -*-
 
-##  Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-import glob
-import fnmatch
-import os
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 ##
-##  Import the cross-build environment.
+##  Import the build environment.
 ##
 Import('env')
-myenv = env.Copy()
 
-conf = Configure(myenv)
-
-myenv = conf.Finish()
-
-# -ggdb
-# -DXML_DEBUG
-myenv.AppendUnique(CXXFLAGS = Split("""
-"""))
+# The following settings modify this environment according to the
+# architecture being built, as specified in the ARCH construction
+# variable.  
+prefix = env['PREFIX'] + '/' + env['ARCH']
+env.Replace(PREFIX = prefix)
 
 ##
-##  Build libnidas_util
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
 ##
-SConscript('util/SConscript',
-	build_dir='build_util',
-	duplicate=0,exports={'env':myenv})
-##
-##  Build libnidas
-##
-SConscript('core/SConscript',
-	build_dir='build_core',
-	duplicate=0,exports={'env':myenv})
-##
-##  Build libnidas_dynld
-##
-SConscript('dynld/SConscript',
-	build_dir='build_dynld',
-	duplicate=0,exports={'env':myenv})
-##
-##  Build executables
-##
-SConscript('apps/SConscript',
-	build_dir='build_apps',
-	duplicate=0,exports={'env':myenv})
+# Note that the addition of "build_core" to LIBPATH actually causes the
+# addition of FOUR -L options to the linker commands.  It appears scons
+# parses the name in multiple places, recognizes it as a build directory,
+# then adds a -L argument for every combination of build and source
+# directories with build_core in it.  Maybe it's a bug in scons, or some
+# deep mystery.  Anyway, this is avoided by putting a directory node for
+# build_core in the path instead of a string.
+#
+env.PrependUnique(LIBPATH = [env.Dir("build_core")])
+env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
+
+
+subdirs=Split("""util core dynld apps rtlinux linux""")
+defaultdirs=subdirs[1:]
+libdirs=subdirs[1:3]
 
 ##
-##  Build nidas/rtlinux
+## ARCH target for creating modules, library, and executables
 ##
-SConscript('rtlinux/SConscript',
-        build_dir='build_rtl',
-        duplicate=0,exports={'env':myenv})
+arch = env['ARCH']
+env.Alias(arch, ['build_%s' % dir for dir in defaultdirs])
+Alias('lib', ['build_%s' % d for d in libdirs])
 
-##
-##  Build nidas/linux
-##
-SConscript('linux/SConscript',
-        build_dir='build_linux',
-        duplicate=0,exports={'env':myenv})
+# Provide an arch-specific install alias
+archinstall= env.Alias(arch+'_install', [
+	'$PREFIX/include/nidas/util',
+	'$PREFIX/include/nidas/core',
+	'$PREFIX/include/nidas/dynld',
+	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/include/nidas/linux',
+	'$PREFIX/lib',
+	'$PREFIX/bin',
+        ])
 
-Default([ 'build_core','build_dynld', 'build_apps', 'build_rtl', 'build_linux' ])
+conf = Configure(env)
+env = conf.Finish()
 
+if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
+    env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
+
+if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
+    env.AppendUnique(CXXFLAGS = ['-ggdb'])
+
+for dir in subdirs:
+    SConscript('%s/SConscript' % dir,
+               build_dir='build_%s' % dir,
+               duplicate=0,exports={'env':env})
+
+Default([ "build_%s" % dir for dir in defaultdirs ])
