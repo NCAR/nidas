@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -15,6 +15,7 @@
 
 #include <fcntl.h>
 #include <iostream>
+#include <fstream>
 #include <cstring>
 
 #include <nidas/core/Looper.h>
@@ -111,6 +112,73 @@ void FixedSim::looperNotify() throw()
     port->write(msg.c_str(),msg.length());
 }
 
+
+using std::cin;
+
+/**
+ * Read serial records from a file and feed them at a fixed rate.
+ **/
+class FileSim: public LooperClient
+{
+public:
+    FileSim(n_u::SerialPort* p,const string& path):
+	_port(p),_path(path), _in(0)
+    {
+	if (_path.length() == 0)
+	{
+	    throw n_u::Exception("FileSim requires an input file.");
+	}
+	if (_path == "-")
+	{
+	    _in = &std::cin;
+	}
+	else
+	{
+	    // Enable exceptions to get at any failure messages on open, 
+	    // then disable them again.
+	    try {
+		_infile.exceptions(ios::failbit);
+		_infile.open (path.c_str());
+	    }
+	    catch (const std::exception& failure)
+	    {
+		throw n_u::Exception(failure.what());
+	    }
+	    _infile.exceptions(std::ios::goodbit);
+	    _in = &_infile;
+	}
+    }
+
+    ~FileSim()
+    {
+	_in = 0;
+    }
+	
+    void looperNotify() throw();
+
+private:
+    n_u::SerialPort* _port;
+    string _path;
+    std::ifstream _infile;
+    std::istream* _in;
+};
+
+
+void FileSim::looperNotify() throw()
+{
+    // Grab the next line from input.
+    string msg;
+    if (std::getline(*_in, msg))
+    {
+	msg += "\r\n";
+	CharacterSensor::replaceBackslashSequences(msg);
+	//std::cout << msg << std::endl;
+	_port->write(msg.c_str(),msg.length());
+    }
+}
+
+
+
 class SensorSim {
 public:
     SensorSim();
@@ -119,10 +187,15 @@ public:
     static int usage(const char* argv0);
 private:
     string device;
-    enum sens_type { MENSOR_6100, PARO_1000, BUCK_DP, CSAT3, FIXED, UNKNOWN } type;
+    enum sens_type
+    { 
+      MENSOR_6100, PARO_1000, BUCK_DP, CSAT3, FIXED, 
+      ISS_CAMPBELL, UNKNOWN
+    } type;
     bool openpty;
     float rate;
     string outputMessage;
+    string inputFile;
 };
 
 SensorSim::SensorSim(): type(UNKNOWN),openpty(false),rate(1.0)
@@ -137,7 +210,7 @@ int SensorSim::parseRunstring(int argc, char** argv)
 
     openpty = false;
 
-    while ((opt_char = getopt(argc, argv, "cdmo:pr:t")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdmio:pr:tf:")) != -1) {
 	switch (opt_char) {
 	case 'c':
 	    type = CSAT3;
@@ -147,6 +220,9 @@ int SensorSim::parseRunstring(int argc, char** argv)
 	    break;
 	case 'm':
 	    type = MENSOR_6100;
+	    break;
+	case 'i':
+	    type = ISS_CAMPBELL;
 	    break;
 	case 'o':
 	    outputMessage = optarg;
@@ -160,6 +236,9 @@ int SensorSim::parseRunstring(int argc, char** argv)
 	    break;
 	case 't':
 	    openpty = true;
+	    break;
+	case 'f':
+	    inputFile = optarg;
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -179,9 +258,11 @@ Usage: " << argv0 << "[-p | -m]  device\n\
   -c: simulate CSAT3 sonic anemometer (9600n81, unprompted)\n\
   -d: simulate Buck dewpointer (9600n81, unprompted)\n\
   -m: simulate Mensor 6100 (57600n81,prompted)\n\
+  -i: simulate ISS Campbell (96008n1,unprompted)\n\
   -o output_msg:  send a fixed output message at the specified rate\n\
   -p: simulate ParoScientific DigiQuartz 1000 (57600n81, unprompted)\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
+  -f file_input: input file for simulated sensors which need it\n\
   -t: open pseudo-terminal device\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\
 " << endl;
@@ -204,7 +285,7 @@ int SensorSim::run()
 		(unsigned long)rint(MSECS_PER_SEC / rate);
 	// cerr << "msecPeriod=" << msecPeriod << endl;
 
-	string promptStrings[] = { "#1?\n","","","",""};
+	string promptStrings[] = { "#1?\n","","","","","" };
 
 	switch (type) {
 	case MENSOR_6100:
@@ -241,6 +322,13 @@ int SensorSim::run()
 	    port->lflag() = ICANON;
 	    sim.reset(new FixedSim(port.get(),outputMessage));
 	    break;
+	case ISS_CAMPBELL:
+	    port->setBaudRate(9600);
+	    port->iflag() = 0;
+	    port->oflag() = OPOST;
+	    port->lflag() = ICANON;
+	    sim.reset(new FileSim(port.get(),inputFile));
+	    break;
 	case UNKNOWN:
 	    return 1;
 	}
@@ -265,8 +353,8 @@ int SensorSim::run()
 	    }
 	}
     }
-    catch(n_u::IOException& ioe) {
-	cerr << ioe.what() << endl;
+    catch(n_u::Exception& ex) {
+	cerr << ex.what() << endl;
 	return 1;
     }
     return 0;
