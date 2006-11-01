@@ -119,11 +119,9 @@ private:
 
     list<string> dataFileNames;
 
-    string sockHostName;
+    auto_ptr<n_u::SocketAddress> sockAddr;
 
-    static int defaultPort;
-
-    int port;
+    static const int DEFAULT_PORT = 30000;
 
     int sorterLength;
 
@@ -222,11 +220,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     return true;
 }
 
-/* static */
-int DataPrep::defaultPort = 30000;
-
 DataPrep::DataPrep(): 
-	port(defaultPort),
 	sorterLength(250),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
@@ -243,7 +237,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:E:r:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:E:hr:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -311,6 +305,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
 		return usage(argv[0]);
 	    }
 	    break;
+      case 'h':
+            return usage(argv[0]);
+            break;
       case 'r':
             {
                 istringstream ist(optarg);
@@ -355,10 +352,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	string url(argv[optind]);
 	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	    url = url.substr(5);
-	    sockHostName = "127.0.0.1";
+	    string hostName = "127.0.0.1";
+            int port = DEFAULT_PORT;
 	    if (url.length() > 0) {
 		size_t ic = url.find(':');
-		sockHostName = url.substr(0,ic);
+		hostName = url.substr(0,ic);
 		if (ic < string::npos) {
 		    istringstream ist(url.substr(ic+1));
 		    ist >> port;
@@ -368,10 +366,18 @@ int DataPrep::parseRunstring(int argc, char** argv)
 		    }
 		}
 	    }
+            try {
+                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+            }
+            catch(const n_u::UnknownHostException& e) {
+                cerr << e.what() << endl;
+                return usage(argv[0]);
+            }
 	}
-	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
 	    url = url.substr(5);
-	    dataFileNames.push_back(url);
+            sockAddr.reset(new n_u::UnixSocketAddress(url));
 	}
 	else dataFileNames.push_back(url);
     }
@@ -379,7 +385,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     //	1. some data files to read, and optional begin and end times,
     //  2. a socket to connect to
     //	3. or a time period and a $PROJECT environment variable
-    if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
+    if (dataFileNames.size() == 0 && !sockAddr.get() &&
     	startTime.toUsecs() == 0) return usage(argv[0]);
     if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
         endTime = startTime + 31 * USECS_PER_DAY;
@@ -389,27 +395,39 @@ int DataPrep::parseRunstring(int argc, char** argv)
 int DataPrep::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-r rate] [-s sorterLength] [-x xml_file] [-z] [input] ...\n\
-    -B \"yyyy mm dd HH:MM:SS\": begin time\n\
-    -E \"yyyy mm dd HH:MM:SS\": end time\n\
-    -d dsm\n\
-    -n nice: run at a lower priority (nice > 0)\n\
-    -r rate: resample rate, in Hz\n\
-    -s sorterLength: input data sorter length in milliseconds\n\
-    -x xml_file: (optional), the default value is read from the input\n\
-    input: names of one or more raw data files, or sock:[hostname[:port]]\n\
+Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
+        [-h] [-r rate] [-s sorterLength] [-x xml_file] [input ...]\n\
+    -A :ascii output (default)\n\
+    -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
+    -D var[,var,...]: One or more variable names to display\n\
+    -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
+    -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
+    -h : this help\n\
+    -r rate: optional resample rate, in Hz (optional)\n\
+    -s sorterLength: input data sorter length in milliseconds (optional)\n\
+    -v : show version\n\
+    -x xml_file: if not specified, the xml file name is determined by either reading\n\
+       the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
+    input: data input (optional). One of the following:\n\
+        sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
+        unix:sockpath             unix socket name\n\
+        file[,file,...]           one or more archive file names\n\
 \n\
-sock:[hostname[:port]:  default hostname is \"localhost\", default port is " <<
-	defaultPort << "\n\
-\n\
-User must specify either: one or more data files, sock:[hostname[:port], or\n\
-a begin time and a $PROJECT environment variable.\\n\
+If no inputs are specified, then the -B time option must be given, and\n" <<
+argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\
+find an xml configuration for the begin time, read it to find a\n\
+<fileset> archive for the given variables, and then open data files\n\
+matching the <fileset> path descriptor and time period.\n\
+\n" <<
+argv0 << " does simple resampling, using the nearest sample to the times of the first\n\
+variable requested, or if the -r rate option is specified, to evenly spaced times\n\
+at the given rate.\n\
 \n\
 Examples:\n" <<
-	argv0 << "" << '\n' <<
-	argv0 << "" << '\n' <<
-	argv0 << "" << '\n' <<
-	argv0 << "" << endl;
+	argv0 << " -D u.10m,v.10m,w.10m -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
+	argv0 << " -D u.10m,v.10m,w.10m sock:dsmhost\n" <<
+	argv0 << " -D u.10m,v.10m,w.10m -r 60 unix:/tmp/data_socket\n" <<
+        endl;
     return 1;
 }
 

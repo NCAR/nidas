@@ -110,15 +110,24 @@ size_t Socket::read(void* buf, size_t len) throw (n_u::IOException)
     return socket->recv(buf,len);
 }
 
-ServerSocket::ServerSocket(int p):port(p),servSock(0),
-	connectionRequester(0),thread(0),keepAliveIdleSecs(7200)
+ServerSocket::ServerSocket():
+	localSockAddr(new n_u::Inet4SocketAddress(0)),
+        servSock(0),connectionRequester(0),
+        thread(0),keepAliveIdleSecs(7200)
 {
-    n_u::Inet4SocketAddress addr(INADDR_ANY,port);
-    setName("ServerSocket " + addr.toString());
+    setName("ServerSocket " + localSockAddr->toString());
+}
+
+ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
+	localSockAddr(addr.clone()),
+        servSock(0),connectionRequester(0),
+        thread(0),keepAliveIdleSecs(7200)
+{
+    setName("ServerSocket " + localSockAddr->toString());
 }
 
 ServerSocket::ServerSocket(const ServerSocket& x):
-	port(x.port),name(x.name),
+	localSockAddr(x.localSockAddr->clone()),name(x.name),
 	servSock(0),connectionRequester(0),thread(0),
 	keepAliveIdleSecs(x.keepAliveIdleSecs)
 {
@@ -152,7 +161,7 @@ void ServerSocket::close() throw (nidas::util::IOException)
 
 IOChannel* ServerSocket::connect() throw(n_u::IOException)
 {
-    if (!servSock) servSock= new n_u::ServerSocket(port);
+    if (!servSock) servSock= new n_u::ServerSocket(*localSockAddr.get());
     n_u::Socket* newsock = servSock->accept();
     newsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     return new nidas::core::Socket(newsock);
@@ -162,7 +171,7 @@ void ServerSocket::requestConnection(ConnectionRequester* requester)
 	throw(n_u::IOException)
 {
     connectionRequester = requester;
-    if (!servSock) servSock= new n_u::ServerSocket(port);
+    if (!servSock) servSock= new n_u::ServerSocket(*localSockAddr.get());
     if (!thread) thread = new ServerSocketConnectionThread(*this);
     try {
 	if (!thread->isRunning()) thread->start();
@@ -213,7 +222,9 @@ void Socket::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     n_u::Inet4Address addr;
-    int port;
+    bool inet4Addr = false;
+    int port = -1;
+    string path;
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -225,6 +236,7 @@ void Socket::fromDOMElement(const DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
+            // Inet4 address
 	    if (!aname.compare("address")) {
 		try {
 		    addr = n_u::Inet4Address::getByName(aval);
@@ -233,6 +245,11 @@ void Socket::fromDOMElement(const DOMElement* node)
 		    throw n_u::InvalidParameterException(
 			"socket","unknown host",aval);
 		}
+                inet4Addr = true;
+	    }
+            // Unix socket address
+	    else if (!aname.compare("path")) {
+                path = aval;
 	    }
 	    else if (!aname.compare("port")) {
 		istringstream ist(aval);
@@ -240,6 +257,7 @@ void Socket::fromDOMElement(const DOMElement* node)
 		if (ist.fail())
 			throw n_u::InvalidParameterException(
 			    "socket","invalid port number",aval);
+                inet4Addr = true;
 	    }
 	    else if (!aname.compare("type")) {
 		if (aval.compare("client"))
@@ -262,8 +280,17 @@ void Socket::fromDOMElement(const DOMElement* node)
 	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
-    remoteSockAddr =
-    	auto_ptr<n_u::SocketAddress>(new n_u::Inet4SocketAddress(addr,port));
+    if (inet4Addr && path.length() > 0)
+        throw n_u::InvalidParameterException("socket","address",
+            "cannot specify both an IP socket address and a unix socket path");
+    if (port >= 0 && path.length() > 0)
+        throw n_u::InvalidParameterException("socket","address",
+            "cannot specify both an IP socket port and a unix socket path");
+
+    if (path.length() > 0) 
+        remoteSockAddr.reset(new n_u::UnixSocketAddress(path));
+    else
+        remoteSockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
 }
 
 DOMElement* Socket::toDOMParent(
@@ -287,6 +314,9 @@ DOMElement* Socket::toDOMElement(DOMElement* node)
 void ServerSocket::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
+    int port = -1;
+    string path;
+
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
@@ -303,6 +333,10 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 		if (ist.fail())
 			throw n_u::InvalidParameterException(
 			    "socket","invalid port number",aval);
+	    }
+            // Unix socket address
+	    else if (!aname.compare("path")) {
+                path = aval;
 	    }
 	    else if (!aname.compare("type")) {
 		if (aval.compare("server"))
@@ -325,6 +359,14 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
+    if (port >= 0 && path.length() > 0)
+        throw n_u::InvalidParameterException("socket","address",
+            "cannot specify both an IP socket port and a unix socket path");
+
+    if (path.length() > 0) 
+        localSockAddr.reset(new n_u::UnixSocketAddress(path));
+    else
+        localSockAddr.reset(new n_u::Inet4SocketAddress(port));
 }
 
 DOMElement* ServerSocket::toDOMParent(

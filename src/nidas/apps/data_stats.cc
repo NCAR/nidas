@@ -35,11 +35,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class Runstring {
-public:
-    Runstring(int argc, char** argv);
-};
-
 class CounterClient: public SampleClient 
 {
 public:
@@ -226,15 +221,15 @@ public:
 private:
     static bool interrupted;
 
+    static const int DEFAULT_PORT = 30000;
+
     bool processData;
 
     string xmlFileName;
 
     list<string> dataFileNames;
 
-    string hostName;
-
-    int port;
+    auto_ptr<n_u::SocketAddress> sockAddr;
 
 };
 
@@ -275,7 +270,7 @@ void DataStats::setupSignals()
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-DataStats::DataStats(): processData(false),port(30000)
+DataStats::DataStats(): processData(false)
 {
 }
 
@@ -302,7 +297,8 @@ int DataStats::parseRunstring(int argc, char** argv)
 	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	    url = url.substr(5);
 	    size_t ic = url.find(':');
-	    hostName = url.substr(0,ic);
+	    string hostName = url.substr(0,ic);
+            int port = DEFAULT_PORT;
 	    if (ic < string::npos) {
 		istringstream ist(url.substr(ic+1));
 		ist >> port;
@@ -311,14 +307,22 @@ int DataStats::parseRunstring(int argc, char** argv)
 		    return usage(argv[0]);
 		}
 	    }
+            try {
+                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+            }
+            catch(const n_u::UnknownHostException& e) {
+                cerr << e.what() << endl;
+                return usage(argv[0]);
+            }
 	}
-	else if (url.length() > 5 && !url.compare(0,5,"file:")) {
+	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
 	    url = url.substr(5);
-	    dataFileNames.push_back(url);
+            sockAddr.reset(new n_u::UnixSocketAddress(url));
 	}
 	else dataFileNames.push_back(url);
     }
-    if (dataFileNames.size() == 0 && hostName.length() == 0) return usage(argv[0]);
+    if (dataFileNames.size() == 0 && !sockAddr.get()) return usage(argv[0]);
 
     return 0;
 }
@@ -331,8 +335,10 @@ Usage: " << argv0 << "[-p] [-x xml_file] inputURL ...\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
 	 where <project>, <aircraft> and <flight> are read from the input data header\n\
-    inputURL: data input (required). Either \"sock:host:port\" or\n\
-	 one or more \"file:file_path\" or simply one or more file paths.\n\
+    inputURL: data input (required). One of the following:\n\
+        sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
+        unix:sockpath             unix socket name\n\
+        path                      one or more file names\n\
 Examples:\n" <<
     argv0 << " xxx.dat yyy.dat\n" <<
     argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
@@ -386,7 +392,7 @@ int DataStats::run() throw()
 
 	}
 	else {
-	    n_u::Socket* sock = new n_u::Socket(hostName,port);
+	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
 	    iochan = new nidas::core::Socket(sock);
 	}
 	RawSampleInputStream sis(iochan);

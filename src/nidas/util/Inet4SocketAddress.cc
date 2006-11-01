@@ -16,6 +16,14 @@ Inet4SocketAddress::Inet4SocketAddress()
     memset(&sockaddr,0,sizeof(struct sockaddr_in));
 }
 
+Inet4SocketAddress::Inet4SocketAddress(int port)
+{
+    memset(&sockaddr,0,sizeof(struct sockaddr_in));
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_port = htons(port);
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+}
+
 Inet4SocketAddress::Inet4SocketAddress(const Inet4Address& addr, int port)
 {
     memset(&sockaddr,0,sizeof(struct sockaddr_in));

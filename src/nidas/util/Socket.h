@@ -65,6 +65,12 @@ public:
 
     int getFd() const { return fd; }
 
+    /**
+     * Get the domain of this socket: PF_UNIX, PF_INET, etc,
+     * from sys/socket.h.
+     */
+    int getDomain() const { return sockdomain; }
+
     void setBacklog(int val) { backlog = val; }
 
     /**
@@ -604,6 +610,8 @@ public:
 	return impl.getLocalPort();
     }
 
+    int getDomain() const { return impl.getDomain(); }
+
 protected:
     SocketImpl impl;
 };
@@ -731,6 +739,8 @@ public:
     }
 
     int getLocalPort() const throw() { return impl.getLocalPort(); }
+
+    int getDomain() const { return impl.getDomain(); }
 
 protected:
     SocketImpl impl;

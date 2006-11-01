@@ -26,6 +26,7 @@
 #include <nidas/dynld/AsciiOutput.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/util/Logger.h>
+#include <nidas/core/Version.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -65,11 +66,9 @@ private:
 
     string dsmName;
 
-    string sockHostName;
+    auto_ptr<n_u::SocketAddress> sockAddr;
 
-    static int defaultPort;
-
-    int port;
+    static const int DEFAULT_PORT = 30000;
 
     int sorterLength;
 
@@ -91,9 +90,6 @@ int main(int argc, char** argv)
 
 /* static */
 bool StatsProcess::interrupted = false;
-
-/* static */
-int StatsProcess::defaultPort = 30000;
 
 /* static */
 void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -156,7 +152,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 }
 
 
-StatsProcess::StatsProcess(): port(defaultPort),
+StatsProcess::StatsProcess():
 	sorterLength(1000),daemonMode(false),
         startTime((time_t)0),endTime((time_t)0),
         niceValue(0)
@@ -171,7 +167,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:d:E:n:s:x:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:d:E:hn:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -194,6 +190,9 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		return usage(argv[0]);
 	    }
 	    break;
+	case 'h':
+	    return usage(argv[0]);
+	    break;
 	case 'n':
 	    {
 	        istringstream ist(optarg);
@@ -214,6 +213,9 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		}
 	    }
 	    break;
+	case 'v':
+	    cout << "Version: " << Version::getSoftwareVersion() << endl;
+	    exit(0);
 	case 'x':
 	    xmlFileName = optarg;
 	    break;
@@ -228,10 +230,11 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         string url(argv[optind]);
         if (url.length() > 5 && !url.compare(0,5,"sock:")) {
             url = url.substr(5);
-	    sockHostName = "127.0.0.1";
+	    string hostName = "127.0.0.1";
+            int port = DEFAULT_PORT;
 	    if (url.length() > 0) {
 		size_t ic = url.find(':');
-		sockHostName = url.substr(0,ic);
+		hostName = url.substr(0,ic);
 		if (ic < string::npos) {
 		    istringstream ist(url.substr(ic+1));
 		    ist >> port;
@@ -241,18 +244,26 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		    }
 		}
 	    }
+            try {
+                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+            }
+            catch(const n_u::UnknownHostException& e) {
+                cerr << e.what() << endl;
+                return usage(argv[0]);
+            }
         }
-        else if (url.length() > 5 && !url.compare(0,5,"file:")) {
-            url = url.substr(5);
-            dataFileNames.push_back(url);
-        }
+	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
+	    url = url.substr(5);
+            sockAddr.reset(new n_u::UnixSocketAddress(url));
+	}
         else dataFileNames.push_back(url);
     }
     // must specify either:
     //  1. some data files to read, and optional begin and end times,
     //  2. a socket to connect to
     //  3. or a time period and a $PROJECT environment variable
-    if (dataFileNames.size() == 0 && sockHostName.length() == 0 &&
+    if (dataFileNames.size() == 0 && !sockAddr.get() &&
         startTime.toUsecs() == 0) return usage(argv[0]);
 
     if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
@@ -264,28 +275,35 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-s sorterLength] [-x xml_file] [-z] input ...\n\
+Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-s sorterLength]\n\
+       [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
-    -d dsm\n\
+    -d dsm (optional)\n\
     -n nice: run at a lower priority (nice > 0)\n\
     -s sorterLength: input data sorter length in milliseconds\n\
-    -x xml_file: (optional), the default value is read from the input\n\
+    -x xml_file: if not specified, the xml file name is determined by either reading\n\
+       the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
     -z: run in daemon mode (in the background, log messages to syslog)\n\
-    input: names of one or more raw data files, or sock:[hostname[:port]]\n\
+    input: data input (optional). One of the following:\n\
+        sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
+        unix:sockpath             unix socket name\n\
+        file[,file,...]           one or more archive file names\n\
 \n\
-sock:[hostname[:port]:  default hostname is \"localhost\", default port is " <<
-        defaultPort << "\n\
-\n\
-User must specify either: one or more data files, sock:[hostname[:port]], or\n\
-a begin time and a $PROJECT environment variable.\n\
+If no inputs are specified, then the -B time option must be given, and\n" <<
+argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\
+find an xml configuration for the begin time, read it to find a\n\
+<fileset> archive for the dsm, and then open data files\n\
+matching the <fileset> path descriptor and time period.\n\
+\n" <<
+argv0 << " scans the xml file for a <processor> of class StatisticsProcessor\n\
+in order to determine what statistics to generate.\n\
 \n\
 Examples:\n" <<
-        argv0 << "" << '\n' <<
-        argv0 << "" << '\n' <<
-        argv0 << "" << '\n' <<
-        argv0 << "" << endl;
-    return 1;
+	argv0 << " -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
+	argv0 << " sock:dsmhost\n" <<
+	argv0 << " unix:/tmp/data_socket\n" <<
+        endl;
 }
 
 int StatsProcess::run() throw()
@@ -316,11 +334,11 @@ int StatsProcess::run() throw()
             project->fromDOMElement(doc->getDocumentElement());
         }
 
-	if (sockHostName.length() > 0) {
+	if (sockAddr.get()) {
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !interrupted; i++) {
                 try {
-                    sock = new n_u::Socket(sockHostName,port);
+                    sock = new n_u::Socket(*sockAddr.get());
                 }
                 catch(const n_u::IOException& e) {
                     if (i > 2)

@@ -31,31 +31,57 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class Runstring {
+class SyncDumper
+{
 public:
-    Runstring(int argc, char** argv);
 
-    static void usage(const char* argv0);
+    SyncDumper();
+
+public:
+
+    int parseRunstring(int argc, char** argv);
+
+    static int usage(const char* argv0);
+
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+    static void setupSignals();
+
+    int run();
+
+    static bool interrupted;
+
+    void printHeader();
+
+public:
+
     string dataFileName;
-    string hostName;
-    int port;
+
+    auto_ptr<n_u::SocketAddress> sockAddr;
+
+    static const int DEFAULT_PORT = 30001;
 
     string varname;
+
 };
 
-Runstring::Runstring(int argc, char** argv):port(30001)
+SyncDumper::SyncDumper()
 {
-    extern char *optarg;       /* set by getopt() */
+}
+
+int SyncDumper::parseRunstring(int argc, char** argv)
+{
+    // extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
     while ((opt_char = getopt(argc, argv, "")) != -1) {
 	switch (opt_char) {
 	case '?':
-	    usage(argv[0]);
+	    return usage(argv[0]);
 	}
     }
-    if (optind != argc - 2) usage(argv[0]);
+    if (optind != argc - 2) return usage(argv[0]);
 
     varname = string(argv[optind++]);
 
@@ -63,63 +89,49 @@ Runstring::Runstring(int argc, char** argv):port(30001)
     if (url.length() > 5 && !url.compare(0,5,"sock:")) {
 	url = url.substr(5);
 	size_t ic = url.find(':');
-	hostName = url.substr(0,ic);
+	string hostName = url.substr(0,ic);
+        int port = DEFAULT_PORT;
 	if (ic < string::npos) {
 	    istringstream ist(url.substr(ic+1));
 	    ist >> port;
 	    if (ist.fail()) {
 		cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		usage(argv[0]);
+		return usage(argv[0]);
 	    }
 	}
+        try {
+            n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+            sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+        }
+        catch(const n_u::UnknownHostException& e) {
+            cerr << e.what() << endl;
+            return usage(argv[0]);
+        }
     }
-    else if (url.length() > 5 && !url.compare(0,5,"file:")) {
-	url = url.substr(5);
-	dataFileName = url;
+    else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
+        url = url.substr(5);
+        sockAddr.reset(new n_u::UnixSocketAddress(url));
     }
     else dataFileName = url;
+    return 0;
 }
 
-void Runstring::usage(const char* argv0)
+int SyncDumper::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " variable URL\n\
-  var: a variable name\n\
-  URL: Either \"file:file_path\", \"sock:host:port\",\n\
-      or simply a file_path.\n\
+Usage: " << argv0 << " variable inputURL\n\
+    var: a variable name\n\
+    inputURL: data input (required). One of the following:\n\
+        sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
+        unix:sockpath             unix socket name\n\
+        path                      one or more file names\n\
 Examples:\n" <<
 	argv0 << " DPRES /tmp/xxx.dat\n" <<
 	argv0 << " DPRES file:/tmp/xxx.dat\n" <<
-	argv0 << " DPRES sock:hyper:10001\n" << endl;
-    exit(1);
+	argv0 << " DPRES sock:hyper:30001\n" << endl;
+    return 1;
 }
 
-
-class SyncDumper
-{
-public:
-
-    SyncDumper();
-
-    ~SyncDumper();
-
-public:
-
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-
-    static void setupSignals();
-
-    static int main(int argc, char** argv);
-
-    static bool interrupted;
-
-    void printHeader();
-
-};
-
-SyncDumper::SyncDumper()
-{
-}
 
 void SyncDumper::printHeader()
 {
@@ -162,16 +174,13 @@ void SyncDumper::setupSignals()
 //    sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
-int SyncDumper::main(int argc, char** argv)
+int SyncDumper::run()
 {
 
-    Runstring rstr(argc,argv);
-
-    setupSignals();
 
     IOChannel* iochan = 0;
 
-    if (rstr.dataFileName.length() > 0) {
+    if (dataFileName.length() > 0) {
 	FileSet* fset = new nidas::dynld::FileSet();
 	iochan = fset;
 
@@ -188,11 +197,11 @@ int SyncDumper::main(int argc, char** argv)
 	fset->setStartTime(start);
 	fset->setEndTime(end);
 #else
-	fset->setFileName(rstr.dataFileName);
+	fset->setFileName(dataFileName);
 #endif
     }
     else {
-	n_u::Socket* sock = new n_u::Socket(rstr.hostName,rstr.port);
+	n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
 	iochan = new nidas::core::Socket(sock);
     }
 
@@ -217,7 +226,7 @@ int SyncDumper::main(int argc, char** argv)
 	}
     private:
 	string _name;
-    } matcher(rstr.varname);
+    } matcher(varname);
 
     list<const SyncRecordVariable*>::const_iterator vi =
 	std::find_if(vars.begin(), vars.end(), matcher);
@@ -225,12 +234,12 @@ int SyncDumper::main(int argc, char** argv)
     list<const SyncRecordVariable*>::const_iterator vi;
     for (vi = vars.begin(); vi != vars.end(); ++vi) {
         const SyncRecordVariable *var = *vi;
-	if (!rstr.varname.compare(var->getName())) break;
+	if (!varname.compare(var->getName())) break;
     }
 #endif
 
     if (vi == vars.end()) {
-        cerr << "Can't find variable " << rstr.varname << endl;
+        cerr << "Can't find variable " << varname << endl;
 	return 1;
     }
 
@@ -282,5 +291,13 @@ int SyncDumper::main(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-    return SyncDumper::main(argc,argv);
+    SyncDumper dumper;
+
+    int res;
+
+    if ((res = dumper.parseRunstring(argc,argv)) != 0) return res;
+
+    SyncDumper::setupSignals();
+
+    return dumper.run();
 }

@@ -349,6 +349,7 @@
         <xsd:attribute name="port" type="xsd:nonNegativeInteger"
 		default="30000"/>
         <xsd:attribute name="address" type="xsd:token"/>
+        <xsd:attribute name="path" type="xsd:token"/>
         <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="maxIdle" type="xsd:positiveInteger"/>
    </xsd:complexType>

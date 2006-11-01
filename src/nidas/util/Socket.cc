@@ -108,12 +108,24 @@ void SocketImpl::close() throw(IOException)
 {
 
 #ifdef DEBUG
-    cerr << "closing, local=" << getLocalAddress().toString() <<
+    cerr << "closing, local=" << getLocalSocketAddress().toString() <<
     	" remote=" << getAddress().toString() << endl;
 #endif
     if (fd >= 0 && ::close(fd) < 0) 
     	throw IOException("Socket","close",errno);
     fd = -1;
+    if (getDomain() == PF_UNIX) {
+        string path = getLocalSocketAddress().toString();
+        if (path.substr(0,5) == "unix:") path = path.substr(5);
+        if (path != "null") {
+            struct stat statbuf;
+            if (::stat(path.c_str(),&statbuf) == 0 &&
+                S_ISSOCK(statbuf.st_mode)) {
+                cerr << "unlinking: " << path << endl;
+                ::unlink(path.c_str());
+            }
+        }
+    }
 }
 
 void SocketImpl::connect(const std::string& host, int port)
@@ -517,6 +529,7 @@ bool SocketImpl::getTcpNoDelay() throw(IOException)
 
 void SocketImpl::setKeepAlive(bool val) throw(IOException)
 {
+    if (getDomain() != PF_INET) return;
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
     // man 7 socket
@@ -528,6 +541,7 @@ void SocketImpl::setKeepAlive(bool val) throw(IOException)
 
 bool SocketImpl::getKeepAlive() const throw(IOException)
 {
+    if (getDomain() != PF_INET) return false;
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,(char *)&opt,&len) < 0) {
@@ -539,6 +553,7 @@ bool SocketImpl::getKeepAlive() const throw(IOException)
 
 void SocketImpl::setKeepAliveIdleSecs(int val) throw(IOException)
 {
+    if (getDomain() != PF_INET) return;
     socklen_t len = sizeof(val);
     /* man 7 tcp:
         tcp_keepalive_time
@@ -561,6 +576,7 @@ void SocketImpl::setKeepAliveIdleSecs(int val) throw(IOException)
 
 int SocketImpl::getKeepAliveIdleSecs() const throw(IOException)
 {
+    if (getDomain() != PF_INET) return 0;
     int val = 0;
     socklen_t len = sizeof(val);
     if (getsockopt(fd,SOL_TCP,TCP_KEEPIDLE,(char *)&val,&len) < 0) {
@@ -572,6 +588,7 @@ int SocketImpl::getKeepAliveIdleSecs() const throw(IOException)
 
 int SocketImpl::getInQueueSize() const throw(IOException)
 {
+    if (getDomain() != PF_INET) return 0;
     int val = 0;
     if (::ioctl(fd,SIOCINQ,&val) < 0) {	// man 7 tcp
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
@@ -582,6 +599,7 @@ int SocketImpl::getInQueueSize() const throw(IOException)
 
 int SocketImpl::getOutQueueSize() const throw(IOException)
 {
+    if (getDomain() != PF_INET) return 0;
     int val = 0;
     if (::ioctl(fd,SIOCOUTQ,&val) < 0) {	// man 7 tcp
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno

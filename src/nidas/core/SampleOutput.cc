@@ -28,13 +28,14 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SampleOutputBase::SampleOutputBase(IOChannel* i):
+SampleOutputBase::SampleOutputBase(IOChannel* ioc):
 	name("SampleOutputBase"),
-	iochan(i),
+	iochan(0),
 	connectionRequester(0),
 	nextFileTime(LONG_LONG_MIN),
         headerSource(0),dsm(0)
 {
+        setIOChannel(ioc);
 }
 
 /*
@@ -49,10 +50,8 @@ SampleOutputBase::SampleOutputBase(const SampleOutputBase& x):
 	nextFileTime(LONG_LONG_MIN),
         headerSource(x.headerSource),dsm(x.dsm)
 {
-    if (x.iochan) {
-        iochan = x.iochan->clone();
-        iochan->setDSMConfig(dsm);
-    }
+    if (x.iochan)
+        setIOChannel(x.iochan->clone());
 }
 
 /*
@@ -61,14 +60,13 @@ SampleOutputBase::SampleOutputBase(const SampleOutputBase& x):
 
 SampleOutputBase::SampleOutputBase(const SampleOutputBase& x,IOChannel* ioc):
 	name(x.name),
-	iochan(ioc),
+	iochan(0),
 	sampleTags(x.sampleTags),
 	connectionRequester(x.connectionRequester),
 	nextFileTime(LONG_LONG_MIN),
         headerSource(x.headerSource),dsm(x.dsm)
 {
-    if (iochan && !iochan->getDSMConfig())
-        iochan->setDSMConfig(dsm);
+    setIOChannel(ioc);
 }
 
 SampleOutputBase::~SampleOutputBase()
@@ -110,10 +108,11 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
     if (val != iochan) {
 	delete iochan;
 	iochan = val;
-	if (iochan) setName(string("SampleOutputBase: ") + iochan->getName());
     }
-    if (iochan && !iochan->getDSMConfig())
-        iochan->setDSMConfig(dsm);
+    if (iochan) {
+        if (!iochan->getDSMConfig()) iochan->setDSMConfig(dsm);
+	setName(string("SampleOutputBase: ") + iochan->getName());
+    }
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
@@ -127,6 +126,8 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
 void SampleOutputBase::connect()
 	throw(n_u::IOException)
 {
+    // if iochan is a ServerSocket here, it will
+    // be closed in setIOChannel() after this connnect.
     IOChannel* ioc = iochan->connect();
     setIOChannel(ioc);
 }
@@ -137,7 +138,7 @@ void SampleOutputBase::connect()
 void SampleOutputBase::connected(IOChannel* ioc) throw()
 {
 
-    if (!iochan) iochan = ioc;
+    if (!iochan) setIOChannel(ioc);
     else if (iochan != ioc) {
 	assert(connectionRequester);
 	// This is a new ioc- probably a connected socket.
@@ -148,8 +149,8 @@ void SampleOutputBase::connected(IOChannel* ioc) throw()
     }
     else {
 	assert(connectionRequester);
-        connectionRequester->connected(this,this);
 	setName(string("SampleOutputBase: ") + iochan->getName());
+        connectionRequester->connected(this,this);
 	cerr << "SampleOutputBase::connected old channel" << endl;
     }
 #ifdef DEBUG
@@ -157,8 +158,6 @@ void SampleOutputBase::connected(IOChannel* ioc) throw()
     	ioc->getName() << " fd="  <<
     	ioc->getFd() << endl;
 #endif
-    if (iochan && !iochan->getDSMConfig())
-        iochan->setDSMConfig(dsm);
 
 }
 
@@ -202,7 +201,6 @@ void SampleOutputBase::write(const void* buf, size_t len)
 void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
-    cerr << "SampleOutputBase::fromDOMElement" << endl;
     XDOMElement xnode(node);
 
     // process <socket>, <fileset> child elements (should only be one)
@@ -235,7 +233,6 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
                 "SampleOutputBase::fromDOMElement",
 		"output", "must have one child element");
     setName(string("SampleOutputBase: ") + getIOChannel()->getName());
-    cerr << "SampleOutputBase::fromDOMElement done" << endl;
 }
 
 xercesc::DOMElement* SampleOutputBase::toDOMParent(

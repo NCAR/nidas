@@ -74,6 +74,11 @@ UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
 	// 	sizeof(sockaddr.sun_path) << endl;
 	path = ost.str();
     }
+#ifdef DEBUG
+    cerr << "sockaddr.sun_path[0]=0x" <<
+        hex << (int) sockaddr.sun_path[0] << dec <<
+        " path=" << path << endl;
+#endif
 }
 
 /* copy constructor */

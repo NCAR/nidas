@@ -170,7 +170,12 @@ public:
     /**
      * Constructor.
      */
-    ServerSocket(int port = 0);
+    ServerSocket();
+
+    /**
+     * Constructor.
+     */
+    ServerSocket(const nidas::util::SocketAddress& addr);
 
     /**
      * Copy constructor.
@@ -253,7 +258,8 @@ public:
                 throw(xercesc::DOMException);
 
 protected:
-    int port;
+
+    std::auto_ptr<nidas::util::SocketAddress> localSockAddr;
 
     std::string name;
 

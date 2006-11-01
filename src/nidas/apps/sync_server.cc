@@ -61,7 +61,7 @@ public:
 
     static int usage(const char* argv0);
 
-    static const int DEFAULT_PORT;
+    static const int DEFAULT_PORT = 30001;
 
 private:
 
@@ -71,7 +71,7 @@ private:
 
     list<string> dataFileNames;
 
-    int port;
+    auto_ptr<n_u::SocketAddress> addr;
 
     bool simulationMode;
 };
@@ -84,8 +84,6 @@ int main(int argc, char** argv)
 
 /* static */
 bool SyncServer::interrupted = false;
-
-const int SyncServer::DEFAULT_PORT = 30001;
 
 /* static */
 void SyncServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -154,7 +152,8 @@ int SyncServer::main(int argc, char** argv) throw()
 
 
 SyncServer::SyncServer():
-	port(DEFAULT_PORT),simulationMode(false)
+    addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
+    simulationMode(false)
 {
 }
 
@@ -168,12 +167,11 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
 	switch (opt_char) {
 	case 'p':
 	    {
+                int port;
 		istringstream ist(optarg);
 		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << optarg << endl;
-		    usage(argv[0]);
-		}
+		if (ist.fail()) addr.reset(new n_u::UnixSocketAddress(optarg));
+                else addr.reset(new n_u::Inet4SocketAddress(port));
 	    }
 	    break;
 	case 's':
@@ -257,7 +255,7 @@ int SyncServer::run() throw()
 	SyncRecordGenerator syncGen;
 	syncGen.connect(&input);
 
-	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(port);
+	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*addr.get());
 	SampleOutputStream* output = new SampleOutputStream(servSock);
 
 	output->connect();

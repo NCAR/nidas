@@ -78,7 +78,7 @@ public:
     socklen_t getSockAddrLen() const { return sizeof(sockaddr); }
 
     /**
-     * Java style toString: returns "inet:hostname:port"
+     * Java style toString: returns "unix:path"
      */
     std::string toString() const;
 
