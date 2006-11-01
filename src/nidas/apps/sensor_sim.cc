@@ -121,9 +121,16 @@ using std::cin;
 class FileSim: public LooperClient
 {
 public:
-    FileSim(n_u::SerialPort* p,const string& path):
-	_port(p),_path(path), _in(0)
+    FileSim(n_u::SerialPort* p, const string& path, bool verbose = false):
+	_port(p),_path(path), _in(0), _reopen(false), _verbose(verbose)
     {
+	open();
+    }
+
+    void
+    open()
+    {
+	close();
 	if (_path.length() == 0)
 	{
 	    throw n_u::Exception("FileSim requires an input file.");
@@ -134,26 +141,60 @@ public:
 	}
 	else
 	{
-	    // Enable exceptions to get at any failure messages on open, 
-	    // then disable them again.
+	    // Enable exceptions to get at any failure messages on open,
+	    // then disable them again.  If opening ever fails, disable
+	    // reopen flag so we don't keep attempting it.
 	    try {
+		_infile.clear();
 		_infile.exceptions(ios::failbit);
-		_infile.open (path.c_str());
+		_infile.open (_path.c_str());
+		_infile.exceptions(std::ios::goodbit);
+		_in = &_infile;
+		_reopen = true;
 	    }
 	    catch (const std::exception& failure)
 	    {
+		_reopen = false;
 		throw n_u::Exception(failure.what());
 	    }
-	    _infile.exceptions(std::ios::goodbit);
-	    _in = &_infile;
 	}
     }
 
-    ~FileSim()
+    void
+    close()
     {
 	_in = 0;
+	_infile.close();
     }
-	
+
+    void
+    rewind()
+    {
+	// Implement rewind with a seek rather than re-opening.
+	if (_reopen)
+	{
+	    if (_verbose)
+		std::cerr << "FileSim: rewinding " << _path << std::endl;
+	    _infile.clear();
+	    _infile.seekg(0);
+	    return;
+	}
+	close();
+	if (_reopen) try
+	{
+	    if (_verbose)
+		std::cerr << "FileSim: re-opening input file " 
+			  << _path << std::endl;
+	    open();
+	}
+	catch (n_u::Exception& e)
+	{
+	    std::cerr << "FileSim: exception on file input: " 
+		      << e.what() << std::endl;
+	}
+    }
+
+
     void looperNotify() throw();
 
 private:
@@ -161,20 +202,38 @@ private:
     string _path;
     std::ifstream _infile;
     std::istream* _in;
+    std::string _msg;
+    bool _reopen;
+    bool _verbose;
 };
 
 
 void FileSim::looperNotify() throw()
 {
-    // Grab the next line from input.
+    // Grab the next line from input.  If the standard input has finished,
+    // repeat the last message forever, otherwise loop over the file.
     string msg;
-    if (std::getline(*_in, msg))
+
+    if (_in && !std::getline(*_in, msg))
+    {
+	rewind();
+	if (_in && !std::getline(*_in, msg))
+	{
+	    // empty file, quit trying
+	    std::cerr << "FileSim: file is empty, reopens disabled.\n";
+	    close();
+	    _reopen = false;
+	}
+    }
+    // if file is still open, then we read a new message
+    if (_in)
     {
 	msg += "\r\n";
 	CharacterSensor::replaceBackslashSequences(msg);
-	//std::cout << msg << std::endl;
-	_port->write(msg.c_str(),msg.length());
+	_msg = msg;
     }
+    if (_verbose) std::cout << _msg;
+    _port->write(_msg.c_str(), _msg.length());
 }
 
 
@@ -193,12 +252,13 @@ private:
       ISS_CAMPBELL, UNKNOWN
     } type;
     bool openpty;
+    bool verbose;
     float rate;
     string outputMessage;
     string inputFile;
 };
 
-SensorSim::SensorSim(): type(UNKNOWN),openpty(false),rate(1.0)
+SensorSim::SensorSim(): type(UNKNOWN),openpty(false),verbose(false),rate(1.0)
 {
 }
 
@@ -210,7 +270,7 @@ int SensorSim::parseRunstring(int argc, char** argv)
 
     openpty = false;
 
-    while ((opt_char = getopt(argc, argv, "cdmio:pr:tf:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdmio:pr:tf:v")) != -1) {
 	switch (opt_char) {
 	case 'c':
 	    type = CSAT3;
@@ -240,6 +300,9 @@ int SensorSim::parseRunstring(int argc, char** argv)
 	case 'f':
 	    inputFile = optarg;
 	    break;
+	case 'v':
+	    verbose = true;
+	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
@@ -263,6 +326,9 @@ Usage: " << argv0 << "[-p | -m]  device\n\
   -p: simulate ParoScientific DigiQuartz 1000 (57600n81, unprompted)\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
   -f file_input: input file for simulated sensors which need it\n\
+     Use standard input if file_input is '-', and repeat the last message.\n\
+     Otherwise loop over the given file forever.\n\
+  -v: Verbose mode.  Echo simulated output and other messages.\n\
   -t: open pseudo-terminal device\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\
 " << endl;
@@ -327,7 +393,7 @@ int SensorSim::run()
 	    port->iflag() = 0;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
-	    sim.reset(new FileSim(port.get(),inputFile));
+	    sim.reset(new FileSim(port.get(), inputFile, verbose));
 	    break;
 	case UNKNOWN:
 	    return 1;
