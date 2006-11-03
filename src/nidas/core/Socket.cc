@@ -26,7 +26,8 @@ namespace n_u = nidas::util;
 Socket::Socket():
 	remoteSockAddr(
 		auto_ptr<n_u::SocketAddress>(new n_u::Inet4SocketAddress())),
-	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200)
+	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+        minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
 {
     setName("Socket " + remoteSockAddr->toString());
 }
@@ -38,7 +39,8 @@ Socket::Socket(const Socket& x):
 	remoteSockAddr(
 		auto_ptr<n_u::SocketAddress>(x.remoteSockAddr->clone())),
 	socket(0),name(x.name),
-	firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs)
+	firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
+        minWriteInterval(x.minWriteInterval),lastWrite(0)
 {
 }
 
@@ -49,7 +51,8 @@ Socket::Socket(n_u::Socket* sock):
 	remoteSockAddr(
 	    auto_ptr<n_u::SocketAddress>(sock->getRemoteSocketAddress().clone())),
 	socket(sock),firstRead(true),newFile(true),
-	keepAliveIdleSecs(7200)
+	keepAliveIdleSecs(7200),
+        minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
 {
     setName(remoteSockAddr->toString());
     try {
@@ -68,6 +71,21 @@ Socket::~Socket()
 Socket* Socket::clone() const 
 {
     return new Socket(*this);
+}
+
+size_t Socket::getBufferSize() const throw()
+{
+    size_t blen = 16384;
+    try {
+	if (socket) blen = socket->getReceiveBufferSize();
+    }
+    catch (const n_u::IOException& e) {}
+
+    // linux sockets (x86 laptop, FC5) return a receive buffer
+    // sizeof 87632.  We don't need that much.
+    // 
+    if (blen > 16384) blen = 16384;
+    return blen;
 }
 
 n_u::Inet4Address Socket::getRemoteInet4Address() const throw()
@@ -113,7 +131,8 @@ size_t Socket::read(void* buf, size_t len) throw (n_u::IOException)
 ServerSocket::ServerSocket():
 	localSockAddr(new n_u::Inet4SocketAddress(0)),
         servSock(0),connectionRequester(0),
-        thread(0),keepAliveIdleSecs(7200)
+        thread(0),keepAliveIdleSecs(7200),
+        minWriteInterval(USECS_PER_SEC/100)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -121,7 +140,8 @@ ServerSocket::ServerSocket():
 ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 	localSockAddr(addr.clone()),
         servSock(0),connectionRequester(0),
-        thread(0),keepAliveIdleSecs(7200)
+        thread(0),keepAliveIdleSecs(7200),
+        minWriteInterval(USECS_PER_SEC/100)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -129,7 +149,8 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 ServerSocket::ServerSocket(const ServerSocket& x):
 	localSockAddr(x.localSockAddr->clone()),name(x.name),
 	servSock(0),connectionRequester(0),thread(0),
-	keepAliveIdleSecs(x.keepAliveIdleSecs)
+	keepAliveIdleSecs(x.keepAliveIdleSecs),
+        minWriteInterval(x.minWriteInterval)
 {
 }
 
@@ -164,7 +185,11 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
     if (!servSock) servSock= new n_u::ServerSocket(*localSockAddr.get());
     n_u::Socket* newsock = servSock->accept();
     newsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
-    return new nidas::core::Socket(newsock);
+
+    nidas::core::Socket* newCSocket = new nidas::core::Socket(newsock);
+    newCSocket->setMinWriteInterval(getMinWriteInterval());
+
+    return newCSocket;
 }
 
 void ServerSocket::requestConnection(ConnectionRequester* requester)
@@ -189,6 +214,7 @@ int ServerSocketConnectionThread::run() throw(n_u::IOException)
 	lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
 
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
+        newsock->setMinWriteInterval(socket.getMinWriteInterval());
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
@@ -237,7 +263,7 @@ void Socket::fromDOMElement(const DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
             // Inet4 address
-	    if (!aname.compare("address")) {
+	    if (aname == "address") {
 		try {
 		    addr = n_u::Inet4Address::getByName(aval);
 		}
@@ -248,10 +274,10 @@ void Socket::fromDOMElement(const DOMElement* node)
                 inet4Addr = true;
 	    }
             // Unix socket address
-	    else if (!aname.compare("path")) {
+	    else if (aname == "path") {
                 path = aval;
 	    }
-	    else if (!aname.compare("port")) {
+	    else if (aname == "port") {
 		istringstream ist(aval);
 		ist >> port;
 		if (ist.fail())
@@ -259,12 +285,12 @@ void Socket::fromDOMElement(const DOMElement* node)
 			    "socket","invalid port number",aval);
                 inet4Addr = true;
 	    }
-	    else if (!aname.compare("type")) {
-		if (aval.compare("client"))
+	    else if (aname == "type") {
+		if (aval != "client")
 			throw n_u::InvalidParameterException(
 			    "socket","invalid socket type",aval);
 	    }
-	    else if (!aname.compare("maxIdle")) {
+	    else if (aname == "maxIdle") {
 		istringstream ist(aval);
 		int secs;
 		ist >> secs;
@@ -275,6 +301,14 @@ void Socket::fromDOMElement(const DOMElement* node)
 		}
 		catch (const n_u::IOException& e) {		// won't happen
 		}
+	    }
+	    else if (aname == "minWrite") {
+		istringstream ist(aval);
+		int usecs;
+		ist >> usecs;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
+                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);
@@ -327,7 +361,7 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (!aname.compare("port")) {
+	    if (aname == "port") {
 		istringstream ist(aval);
 		ist >> port;
 		if (ist.fail())
@@ -335,15 +369,15 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 			    "socket","invalid port number",aval);
 	    }
             // Unix socket address
-	    else if (!aname.compare("path")) {
+	    else if (aname == "path") {
                 path = aval;
 	    }
-	    else if (!aname.compare("type")) {
-		if (aval.compare("server"))
+	    else if (aname == "type") {
+		if (aval != "server")
 			throw n_u::InvalidParameterException(
 			    "socket","invalid socket type",aval);
 	    }
-	    else if (!aname.compare("maxIdle")) {
+	    else if (aname == "maxIdle") {
 		istringstream ist(aval);
 		int secs;
 		ist >> secs;
@@ -354,6 +388,14 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 		}
 		catch (const n_u::IOException& e) {		// won't happen
 		}
+	    }
+	    else if (aname == "minWrite") {
+		istringstream ist(aval);
+		int usecs;
+		ist >> usecs;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
+                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

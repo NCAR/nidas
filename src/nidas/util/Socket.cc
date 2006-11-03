@@ -484,6 +484,9 @@ int SocketImpl::getReceiveBufferSize() throw(IOException) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(localaddr->toString(),"getsockopt SO_RCVBUF",ierr);
     }
+#ifdef DEBUG
+    cerr << "SocketImpl::getReceiveBufferSize()=" << size << endl;
+#endif
     return size;
 }
 
@@ -503,6 +506,9 @@ int SocketImpl::getSendBufferSize() throw(IOException) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(localaddr->toString(),"getsockopt SO_SNDBUF",ierr);
     }
+#ifdef DEBUG
+    cerr << "SocketImpl::getSendBufferSize()=" << size << endl;
+#endif
     return size;
 }
 

@@ -84,7 +84,7 @@ public:
     size_t readUntil(void* buf, size_t len,char term) throw(nidas::util::IOException);
 
     /**
-     * Incoming data is buffered, and the buffer written to the
+     * Outgoing data is buffered, and the buffer is written to the
      * physical device either when the buffer is full, or if this
      * many seconds have elapsed since the last write.
      * This is a useful parameter for real-time applications.
@@ -92,17 +92,6 @@ public:
      *        Default: 250000 microseconds (1/4 sec)
      */
     void setMaxTimeBetweenWrites(int val) { maxUsecs = val; }
-
-    /**
-     * This is a useful parameter for socket connections.
-     * If the network is jambed, this parameter reduces
-     * the frequency of attempted writes. If a physical
-     * write partially succeeds, then successive writes
-     * will be delayed by this amount.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 250000 microseconds (1/4 sec).
-     */
-    void setWriteBackoffTime(int val) { backoffUsecs = val; }
 
     /**
      * Write data.  This supports an atomic write of
@@ -154,6 +143,9 @@ protected:
 
     IOChannel& iochannel;
 
+    void reallocateBuffer(size_t len);
+
+private:
     /** data buffer */
     char *buffer;
 
@@ -164,9 +156,11 @@ protected:
     char* tail;
 
     /**
-     * One half the actual buffer size.
+     * The actual buffer size.
      */
     size_t buflen;
+
+    size_t halflen;
 
     /**
      * One past end of buffer.
@@ -177,12 +171,6 @@ protected:
      * Maximum number of microseconds between physical writes.
      */
     int maxUsecs;
-
-    /**
-     * Back off period in microseconds if physical device is not
-     * being cooperative.
-     */
-    int backoffUsecs;
 
     /**
      * Time of last physical write.
@@ -196,7 +184,7 @@ protected:
 
     size_t nbytes;
 
-private:
+    size_t nEAGAIN;
 
     /** No copying */
     IOStream(const IOStream&);

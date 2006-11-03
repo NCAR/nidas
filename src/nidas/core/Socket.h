@@ -80,23 +80,7 @@ public:
 	return keepAliveIdleSecs;
     }
 
-    /**
-     * Return getInQueueSize() on underlying socket.
-     */
-    int getInQueueSize() const throw (nidas::util::IOException)
-    {
-	if (socket) return socket->getInQueueSize();
-	return 0;
-    }
-
-    /**
-     * Return getOutQueueSize() on underlying socket.
-     */
-    int getOutQueueSize() const throw (nidas::util::IOException)
-    {
-	if (socket) return socket->getOutQueueSize();
-	return 0;
-    }
+    size_t getBufferSize() const throw();
 
     /**
      * Do the actual hardware read.
@@ -104,12 +88,17 @@ public:
     size_t read(void* buf, size_t len) throw (nidas::util::IOException);
 
     /**
-    * Do the actual hardware write.
-    */
+     * Do the actual hardware write.
+     */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+        dsm_time_t tnow = getSystemTime();
+        if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
+        if (tnow - lastWrite < minWriteInterval) return 0;
+        lastWrite = tnow;
 	return socket->send(buf,len,MSG_DONTWAIT | MSG_NOSIGNAL);
+
     }
 
     void close() throw (nidas::util::IOException)
@@ -146,7 +135,21 @@ public:
         toDOMElement(xercesc::DOMElement* node)
                 throw(xercesc::DOMException);
 
-protected:
+    /**
+     * Set the minimum write interval in microseconds so we don't
+     * flood the network.
+     * @param val Number of microseconds between physical writes.
+     *        Default: 10000 microseconds (1/100 sec).
+     */
+    void setMinWriteInterval(int val) {
+        minWriteInterval = val;
+    }
+
+    int getMinWriteInterval() const {
+        return minWriteInterval;
+    }
+
+private:
     std::auto_ptr<nidas::util::SocketAddress> remoteSockAddr;
 
     nidas::util::Socket* socket;
@@ -158,6 +161,17 @@ protected:
     bool newFile;
 
     int keepAliveIdleSecs;
+
+    /**
+     * Minimum write interval in microseconds so we don't flood network.
+     */
+    int minWriteInterval;
+
+    /**
+     * Time of last physical write.
+     */
+    dsm_time_t lastWrite;
+
 };
 
 /**
@@ -238,6 +252,22 @@ public:
 	return 0;
     }
 
+    /**
+     * Set the minimum write interval in microseconds so we don't
+     * flood the network.  This gets passed onto any sockets
+     * that are connected by this ServerSocket.
+     * @param val Number of microseconds between physical writes.
+     *        Default: 10000 microseconds (1/100 sec).
+     */
+    void setMinWriteInterval(int val) {
+        minWriteInterval = val;
+    }
+
+    int getMinWriteInterval() const {
+        return minWriteInterval;
+    }
+
+
     void close() throw (nidas::util::IOException);
 
     /**
@@ -257,7 +287,7 @@ public:
         toDOMElement(xercesc::DOMElement* node)
                 throw(xercesc::DOMException);
 
-protected:
+private:
 
     std::auto_ptr<nidas::util::SocketAddress> localSockAddr;
 
@@ -272,6 +302,11 @@ protected:
     friend class ServerSocketConnectionThread;
 
     int keepAliveIdleSecs;
+
+    /**
+     * Minimum write interval in microseconds so we don't flood network.
+     */
+    int minWriteInterval;
 
 };
 

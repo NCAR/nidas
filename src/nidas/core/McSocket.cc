@@ -26,7 +26,8 @@ namespace n_u = nidas::util;
  * ctor
  */
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
-    firstRead(true),newFile(true),keepAliveIdleSecs(7200)
+    firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+    minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
 {
     setName("McSocket");
 }
@@ -37,7 +38,8 @@ McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
 McSocket::McSocket(const McSocket& x):
     n_u::McSocket(x),socket(0),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs)
+    firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
+    minWriteInterval(x.minWriteInterval),lastWrite(0)
 {
 }
 
@@ -48,7 +50,8 @@ McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
     n_u::McSocket(x),socket(sock),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
     firstRead(true),newFile(true),
-    keepAliveIdleSecs(x.keepAliveIdleSecs)
+    keepAliveIdleSecs(x.keepAliveIdleSecs),
+    minWriteInterval(x.minWriteInterval),lastWrite(0)
 
 {
     if (socket->getKeepAliveIdleSecs() != keepAliveIdleSecs) {
@@ -107,11 +110,17 @@ n_u::Inet4Address McSocket::getRemoteInet4Address() const throw()
 
 size_t McSocket::getBufferSize() const throw()
 {
+    size_t blen = 16384;
     try {
-	if (socket) return socket->getReceiveBufferSize();
+	if (socket) blen = socket->getReceiveBufferSize();
     }
     catch (const n_u::IOException& e) {}
-    return 16384;
+
+    // linux sockets (x86 laptop, FC5) return a receive buffer
+    // sizeof 87632.  We don't need that much.
+    // 
+    if (blen > 16384) blen = 16384;
+    return blen;
 }
 
 /*
@@ -194,6 +203,14 @@ void McSocket::fromDOMElement(const DOMElement* node)
 		ist >> keepAliveIdleSecs;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
+	    }
+	    else if (aname == "minWrite") {
+		istringstream ist(aval);
+		int usecs;
+		ist >> usecs;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
+                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

@@ -97,6 +97,19 @@ public:
     virtual size_t getBufferSize() const throw() { return 8192; }
 
     /**
+     * Set the minimum time in microseconds between physical writes
+     * to the device. Useful for sockets. The default implementation
+     * of this method ignores the value set.
+     */
+    virtual void setMinWriteInterval(int val) { }
+
+    /**
+     * Get the minimum time in microseconds between physical writes
+     * to the device.
+     */
+    virtual int getMinWriteInterval() const { return 0; }
+
+    /**
      * Physical read method which must be implemented in derived
      * classes. Returns the number of bytes written, which
      * may be less than the number requested.
@@ -124,7 +137,7 @@ public:
             throw(nidas::util::InvalidParameterException);
 
     /**
-     * Request that derived class open a new file, with a name
+     * Request that an IOChannel open a new file, with a name
      * based on a time. This should be implemented by derived
      * classes which write to disk files. Other derived classes
      * (e.g. sockets) can just use this default implementation -

@@ -107,7 +107,27 @@ public:
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
+	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+        dsm_time_t tnow = getSystemTime();
+        if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
+        if (tnow - lastWrite < minWriteInterval) return 0;
+        lastWrite = tnow;
 	return socket->send(buf,len,MSG_DONTWAIT | MSG_NOSIGNAL);
+
+    }
+
+    /**
+     * Set the minimum write interval in microseconds so we don't
+     * flood the network.
+     * @param val Number of microseconds between physical writes.
+     *        Default: 10000 microseconds (1/100 sec).
+     */
+    void setMinWriteInterval(int val) {
+        minWriteInterval = val;
+    }
+
+    int getMinWriteInterval() const {
+        return minWriteInterval;
     }
 
     void close() throw (nidas::util::IOException);
@@ -125,7 +145,7 @@ public:
         toDOMElement(xercesc::DOMElement* node)
                 throw(xercesc::DOMException);
 
-protected:
+private:
     nidas::util::Socket* socket;
 
     std::string name;
@@ -139,6 +159,17 @@ protected:
     bool newFile;
 
     int keepAliveIdleSecs;
+
+    /**
+     * Minimum write interval in microseconds so we don't flood network.
+     */
+    int minWriteInterval;
+
+    /**
+     * Time of last physical write.
+     */
+    dsm_time_t lastWrite;
+
 };
 
 }}	// namespace nidas namespace core

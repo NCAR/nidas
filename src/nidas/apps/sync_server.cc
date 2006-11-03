@@ -256,6 +256,8 @@ int SyncServer::run() throw()
 	syncGen.connect(&input);
 
 	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*addr.get());
+        // For post processing, write as fast as you can
+        servSock->setMinWriteInterval(0);
 	SampleOutputStream* output = new SampleOutputStream(servSock);
 
 	output->connect();

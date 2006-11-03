@@ -26,17 +26,44 @@ using namespace std;
 namespace n_u = nidas::util;
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	iochannel(iochan),buflen(blen),maxUsecs(USECS_PER_SEC/4),newFile(true),nbytes(0)
+	iochannel(iochan),buffer(0),
+        maxUsecs(USECS_PER_SEC/4),
+        newFile(true),nbytes(0),nEAGAIN(0)
 {
-    buffer = new char[buflen * 2];
-    eob = buffer + buflen * 2;
-    head = tail = buffer;
+    reallocateBuffer(blen * 2);
     lastWrite = getSystemTime();
 }
 
 IOStream::~IOStream()
 {
     delete [] buffer;
+}
+
+void IOStream::reallocateBuffer(size_t len)
+{
+#ifdef DEBUG
+    cerr << "IOStream::reallocateBuffer, len=" << len << endl;
+#endif
+    if (buffer) {
+        char* newbuf = new char[len];
+        // will silently lose data if len  is too small.
+        size_t wlen = head - tail;
+        if (wlen > len) wlen = len;
+        memcpy(newbuf,tail,wlen);
+
+        delete [] buffer;
+        buffer = newbuf;
+        buflen = len;
+        tail = buffer;
+        head = tail + wlen;
+    }
+    else {
+        buffer = new char[len];
+        buflen = len;
+        head = tail = buffer;
+    }
+    eob = buffer + buflen;
+    halflen = buflen / 2;
 }
 
 /*
@@ -167,109 +194,66 @@ bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) thro
     size_t tlen = 0;
     for (ibuf = 0; ibuf < nbufs; ibuf++) tlen += lens[ibuf];
 
-    // large writes, bigger than 1/2 the buffer size
-    bool largewrite = tlen > buflen;
+    // If we need to expand the buffer for a large sample.
+    // This does not screen rediculous sample sizes.
+    if (tlen > buflen) reallocateBuffer(tlen);
 
     dsm_time_t tnow = getSystemTime();
     int tdiff = tnow - lastWrite;	// microseconds
 
-    int nEAGAIN = 0;
+    /* space available for in buffer */
+    size_t space = eob - head;
 
-    ibuf = 0;
-    const char* bufptr = (const char*)bufs[ibuf];
-    size_t lenbuf = lens[ibuf];
-    while (tlen > 0) {
+    /* number of bytes already in buffer */
+    size_t wlen = head - tail;
 
-	/* space for more data in buffer */
-	size_t space = eob - head;
+    // there is data in the buffer and the buffer is full enough,
+    // or maxUsecs has elapsed since the last write.
+    if (wlen >= halflen || (wlen > 0 && tdiff >= maxUsecs)) {
 
-	/* number of bytes already in buffer */
-	size_t wlen = head - tail;
-
-	if ((wlen > 0) && (wlen >= buflen || tdiff >= maxUsecs)) {
-	    if (wlen > buflen) wlen = buflen;
-	    try {
-		l = iochannel.write(tail,wlen);
-	    }
-	    catch (const n_u::IOException& ioe) {
-		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %s, nEAGAIN=%d, wlen=%d, tlen=%d\n",
-		    getName().c_str(),ioe.what(),nEAGAIN,wlen,tlen);
-		if (ioe.getError() == EAGAIN) {
-		    l = 0;
-		    nEAGAIN++;
-		    // if (nEAGAIN > 5) throw ioe;
-		    struct timespec ns = {0, NSECS_PER_SEC / 100};
-		    nanosleep(&ns,0);
-		}
-		else throw ioe;
-	    }
-	    if (l == 0) {
-		nEAGAIN++;
-		if ((nEAGAIN % 100) == 0) {
-		    n_u::Logger::getInstance()->log(LOG_WARNING,
-			    "%s: nEAGAIN=%d, wlen=%d, tlen=%d\n",
-			getName().c_str(),nEAGAIN,wlen,tlen);
-		}
-		struct timespec ns = {0, NSECS_PER_SEC / 100};
-		nanosleep(&ns,0);
-	    }
-	    tail += l;
-	    if (tail == head) {
-	        tail = head = buffer;	// empty buffer
-		space = eob - head;
-	    }
-	    lastWrite = tnow;
-	}
-
-	// not enough space for the entire request.
-	// See if we can make more space
-	if (space < tlen) {
-	    if (largewrite) {
-		// less than 1/2 buffer available
-	        if (space < buflen && tail > buffer) {
-		    // shift data down
-		    wlen = head - tail;
-		    memmove(buffer,tail,wlen);
-		    tail = buffer;
-		    head = tail + wlen;
-		    space = eob - head;
-		}
-		// don't give up yet if we're doing a large write
-		// the only time we give up on a large write is after
-		// too many EAGAINs.
-	    }
-	    else {
-		if (tail == buffer) return false;	// can't make more
-		// shift data down. memmove supports overlapping memory areas
-		wlen = head - tail;
-		memmove(buffer,tail,wlen);
-		tail = buffer;
-		head = tail + wlen;
-		space = eob - head;
-		if (space < tlen) return false;	// gave it our best shot
-		// small writes will either succeed or fail completely
-	    }
-	}
-
-	for (; tlen > 0 && space > 0; ) {
-	    l = lenbuf;
-	    if (l > space) l = space;
-	    memcpy(head,bufptr,l);
-	    head += l;
-	    lenbuf -= l;
-	    space -= l;
-	    tlen -= l;
-
-	    if (lenbuf == 0 && ++ibuf < nbufs) {
-		bufptr = (const char*) bufs[ibuf];
-		lenbuf = lens[ibuf];
-	    }
-	    else bufptr += l;	// space == 0
-	}
-	// if tlen > 0 at this point then we're doing a large write
+        // if streaming small samples, don't write more than
+        // halflen number of bytes.  The idea is that <= halflen
+        // is a good size for the output device.
+        if (tlen < halflen && wlen > halflen) wlen = halflen;
+        try {
+            l = iochannel.write(tail,wlen);
+        }
+        catch (const n_u::IOException& ioe) {
+            if (ioe.getError() == EAGAIN) l = 0;
+            else throw ioe;
+        }
+        if (l == 0 && (nEAGAIN++ % 100) == 0) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "%s: nEAGAIN=%d, wlen=%d, tlen=%d\n",
+                getName().c_str(),nEAGAIN,wlen,tlen);
+        }
+        tail += l;
+        if (tail == head) {
+            tail = head = buffer;	// empty buffer
+            space = eob - head;
+        }
+        lastWrite = tnow;
     }
 
+    // not enough space for the entire request.
+    // See if we can make more space
+    if (space < tlen) {
+        if (tail == buffer) return false;   // nope
+        // shift data down. memmove supports overlapping memory areas
+        wlen = head - tail;
+        memmove(buffer,tail,wlen);
+        tail = buffer;
+        head = tail + wlen;
+        space = eob - head;
+        if (space < tlen) return false;	// gave it our best shot
+    }
+
+    // copy all user buffers. We know there is space
+    for (ibuf = 0; ibuf < nbufs; ibuf++) {
+        l = lens[ibuf];
+        memcpy(head,bufs[ibuf],l);
+        head += l;
+    }
     return true;
 }
 
@@ -280,20 +264,16 @@ void IOStream::flush() throw (n_u::IOException)
     /* number of bytes in buffer */
     size_t wlen = head - tail;
 
-    if (wlen == 0) return;
-    for (int ntry = 0; head > tail && ntry < 1000; ntry++) {
+    for (int ntry = 0; wlen > 0 && ntry < 5; ntry++) {
 	try {
 	    l = iochannel.write(tail,wlen);
 	}
 	catch (const n_u::IOException& ioe) {
-	    if (ioe.getError() == EAGAIN) {
-	        l = 0;
-		struct timespec ns = {0, NSECS_PER_SEC / 10};
-		nanosleep(&ns,0);
-	    }
+	    if (ioe.getError() == EAGAIN) l = 0;
 	    else throw ioe;
 	}
 	tail += l;
+        wlen -= l;
 	if (tail == head) tail = head = buffer;
     }
     iochannel.flush();
