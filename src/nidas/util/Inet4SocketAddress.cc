@@ -14,6 +14,7 @@ using namespace std;
 Inet4SocketAddress::Inet4SocketAddress()
 {
     memset(&sockaddr,0,sizeof(struct sockaddr_in));
+    sockaddr.sin_family = AF_INET;
 }
 
 Inet4SocketAddress::Inet4SocketAddress(int port)

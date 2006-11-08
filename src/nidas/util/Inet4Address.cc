@@ -40,7 +40,7 @@ Inet4Address::Inet4Address(const struct in_addr* a):
 
 Inet4Address::Inet4Address(unsigned int a)
 {
-	inaddr.s_addr = a;
+    inaddr.s_addr = htonl(a);
 }
 
 string Inet4Address::getHostAddress() const {
@@ -50,12 +50,12 @@ string Inet4Address::getHostAddress() const {
     return caddr;
 }
 
-const string Inet4Address::getHostName() const throw() {
-  return getHostName(*this);
+string Inet4Address::getHostName() const throw() {
+    return getHostName(*this);
 }
 
 /* static */
-const string Inet4Address::getHostName(const Inet4Address& addr) throw()
+string Inet4Address::getHostName(const Inet4Address& addr) throw()
 {
     {
 	Synchronized sync(addrToNameLock);
@@ -72,13 +72,14 @@ const string Inet4Address::getHostName(const Inet4Address& addr) throw()
 
     if (addr.inaddr.s_addr == INADDR_ANY) {
 	pair<Inet4Address,string> p1;
-	Synchronized sync(addrToNameLock);
-
 	p1.first = addr;
 	p1.second = addr.getHostAddress();
+
+	Synchronized sync(addrToNameLock);
 	addrToName.insert(p1);
 	return p1.second;
     }
+
 #ifdef DEBUG
     cerr << "getHostName: " << addr.getHostAddress() <<
     	" is not in cache" << endl;
@@ -90,7 +91,7 @@ const string Inet4Address::getHostName(const Inet4Address& addr) throw()
     const int numtries = 5;
     char auxbuf[1024];	// haven't found any doc about how big this should be
 
-    for (int ntry=0; h_error == TRY_AGAIN ; ntry++) {
+    for (int ntry=0; h_error == TRY_AGAIN && ntry < numtries ; ntry++) {
 	if (!gethostbyaddr_r(addr.getInAddrPtr(),sizeof(struct in_addr),
 		AF_INET, &hent,auxbuf,sizeof(auxbuf),
 		&result,&h_error)) {
@@ -124,18 +125,6 @@ const string Inet4Address::getHostName(const Inet4Address& addr) throw()
 #ifdef DEBUG
 	    cerr << "gethostbyaddr_r TRY_AGAIN, ntry=" << ntry << endl;
 #endif
-	    if (ntry == numtries) {
-		// throw UnknownHostException(addr.getHostAddress() +
-		// 	": numerous temporary name server errors");
-
-	        h_error = NO_RECOVERY;
-	    }
-	    else {
-		struct timespec slp;
-		slp.tv_sec = 1;
-		slp.tv_nsec = 0;
-		nanosleep(&slp,0);
-	    }
 	    break;
 	default:
 #ifdef DEBUG
@@ -147,8 +136,10 @@ const string Inet4Address::getHostName(const Inet4Address& addr) throw()
 #ifdef DEBUG
     cerr << "result=" << hex << (void*)result << " &hent=" <<
     	(void*)&hent << dec << " addr=" << addr.getHostAddress() << endl;
-    cerr << "hent.h_name=" << hex << (void*) hent.h_name << 
-	" strlen(hent.h_name)=" << strlen(hent.h_name) << endl;
+    cerr << "hent.h_name=" << hex << (void*) hent.h_name << dec <<
+        " hent.h_name=" << hent.h_name <<
+	" strlen(hent.h_name)=" << strlen(hent.h_name) <<
+        endl;
 #endif
 
     pair<Inet4Address,string> p1;
@@ -162,6 +153,10 @@ const string Inet4Address::getHostName(const Inet4Address& addr) throw()
     addrToNameLock.lock();
     addrToName.insert(p1);
     addrToNameLock.unlock();
+
+#ifdef DEBUG
+    cerr << "static Inet4Address::getHostName()=" << p1.second << endl;
+#endif
 
     return p1.second;
 }
@@ -208,12 +203,6 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 	    if (ntry == numtries)
 		throw UnknownHostException(hostname +
 			": numerous temporary name server errors");
-	    {
-		struct timespec slp;
-		slp.tv_sec = 1;
-		slp.tv_nsec = 0;
-		nanosleep(&slp,0);
-	    }
 	    break;
 	default:
 #ifdef DEBUG
@@ -246,17 +235,6 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 	p1.second = addrlist;
 	nameToAddrs.insert(p1);
     }
-
-#ifdef DONT_DO_THIS
-    // add reverse lookup with given hostname
-    if (addrlist.size() > 0) {
-	pair<Inet4Address,string> p2;
-	p2.first = addrlist.front();
-	p2.second = hostname;
-	Synchronized autolock(addrToNameLock);
-	addrToName.insert(p2);
-    }
-#endif
 
     return addrlist;
 }

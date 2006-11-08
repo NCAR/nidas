@@ -44,12 +44,14 @@ public:
   	throw(UnknownHostException);
 
     /**
-     * Do reverse lookup of a name given an address.
+     * Do reverse lookup of a name, given an address.
      * This is the address-to-name lookup method.
      * The address and name are cached in a static map
      * for subsequent lookups by a process.
+     * If a host name is not found for the address, returns
+     * a string in dot notation: "x.x.x.x" using getHostAddress().
      */
-    static const std::string getHostName(const Inet4Address& addr) throw();
+    static std::string getHostName(const Inet4Address& addr) throw();
 
     /**
      * Default constructor. Creates address: 0.0.0.0, aka: INADDR_ANY.
@@ -72,10 +74,10 @@ public:
     std::string getHostAddress() const;
 
     /**
-     * Return a hostname for this address. Calls static getHostName
+     * Return a hostname for this address. Calls static getHostName()
      * method.
      */
-    const std::string getHostName() const throw();
+    std::string getHostName() const throw();
 
     /**
      * Return const pointer to struct in_addr.

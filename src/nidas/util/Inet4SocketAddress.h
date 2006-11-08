@@ -53,7 +53,7 @@ public:
     /**
      * Return the address family, AF_INET.
      */
-    int getFamily() const { return AF_INET; }
+    int getFamily() const { return sockaddr.sin_family; }
 
     /**
      * Return the port number.
