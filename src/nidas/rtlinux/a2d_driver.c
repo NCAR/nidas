@@ -1,3 +1,5 @@
+//#define DAC8408  // original DAC chip
+
 // #define TEMPDEBUG
 // #define BFIR
 // #define DEBUGA2DGET
@@ -344,7 +346,7 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 }
 
 /*-----------------------Utility------------------------------*/
-// A2DSetGain sets the A/D Channel gain.
+// A2DSetGain sets an A/D Channel gain selected by A2DSel.
 // Allowable gain values are 1 <= A2DGain <= 25.5
 //   in 255 gain steps.
 // The gain is calculated from gaincode (0-255) as:
@@ -352,47 +354,99 @@ static void A2DCommand(struct A2DBoard* brd,int A2DSel, US Command)
 // The gain can go down to .7 before the system has saturation problems
 // Check this 
 
-static int A2DSetGain(struct A2DBoard* brd, int A2DSel, int A2DGain, int A2DGainMul, int A2DGainDiv)
+static int A2DSetGain(struct A2DBoard* brd, int A2DSel)
 {
-	unsigned int DACAddr;
-	int D2AChsel = -1;
-	UC GainCode = 0;
+#ifdef DAC8408
+  typedef UC utype;
+#else
+  typedef US utype;
+#endif
+  // If no A/D selected return error -1
+  if(A2DSel < 0 || A2DSel >= MAXA2DS) return -EINVAL;
 
-	//Check that gain is within limits
+  A2D_SET *a2d   = &brd->config;
+  int A2DGain    = a2d->gain[A2DSel];
+  int A2DGainMul = a2d->gainMul[A2DSel];
+  int A2DGainDiv = a2d->gainDiv[A2DSel];
+  utype GainCode = 0;
 
-/* This is no longer necessary. GRG 7/21/05
-	if(A2DGain < 1 || A2DGain > 255) {
-	    DSMLOG_DEBUG("bad gain value: %d\n",A2DGain);
-	    return -EINVAL;
-	}
+  // unused channel gains are set to zero in the configuration
+  if (A2DGain != 0)
+    GainCode = (utype)(A2DGainMul*A2DGain/A2DGainDiv);
+
+  DSMLOG_DEBUG("A2DSel = %d   A2DGain = %d   "
+               "A2DGainMul = %d   A2DGainDiv = %d   GainCode = %d\n",
+               A2DSel, A2DGain, A2DGainMul, A2DGainDiv, GainCode);
+
+#ifdef DAC8408
+  unsigned int DACAddr;
+  int D2AChsel = -1;
+
+  if(A2DSel < 4) {
+    D2AChsel = A2DIOGAIN03;
+    DACAddr = brd->addr + A2DSel;
+  }
+  else {
+    D2AChsel = A2DIOGAIN47;
+    DACAddr = brd->addr + A2DSel - 4;
+  }
+  // Point to the appropriate DAC channel
+  outb(D2AChsel, brd->chan_addr);
+
+  // Write the code to the selected DAC
+  outb(GainCode, DACAddr);
+#else
+  // new DAC chip
+
+  // The new 12-bit DAC has lower input resistance (7K ohms as opposed
+  // to 10K ohms for the 8-bit DAC). The gain is the ratio of the amplifier
+  // feedback resistor to the input resistance. Therefore, for the same
+  // gain codes, the new board will yield higher gains by a factor of
+  // approximately 1.43. I believe you will want to divide the old gain
+  // codes (0-255) by 1.43. The new gain code will be between
+  // 0 - 4095. So, after you divide the old gain code by 1.43 you
+  // will want to multiply by 16. This is the same as multiplying
+  // by 16/1.43 = 11.2.
+  GainCode = (GainCode << 4) & 0xfff0;
+    GainCode = 0x1000 + A2DSel;
+//GainCode = 0xa234;
+  unsigned int i, NGC = 0;
+  // reverse the order of bits
+  for (i=0; i<16; i++)
+    NGC |= (GainCode & (1<<i)) >> i << (15-i);
+  NGC = GainCode;
+
+  DSMLOG_DEBUG("GainCode: 0x%04x    NGC: 0x%04x\n", GainCode, NGC);
+//DSMLOG_DEBUG("NEW-DAC-CHIP GainCode = 0x%04x\n", GainCode);
+
+  // 1.  Write (or set) D2A0. This is accomplished by writing to the A/D with the lower
+  // four address bits (SA0-SA3) set to all "ones" and the data bus to 0x03.
+  outw((int)A2DIOGAIN03, brd->chan_addr); // sends 0x3
+  rtl_usleep(1000);
+  // 2. Then write to the A/D card with lower address bits set to "zeros" and data
+  // bus set to the gain value for the specific channel with the upper data three bits
+  // equal to the channel address. The lower 12 bits are the gain code and data bit 12
+  // is equal zero. So for channel 0 write: (xxxxxxxxxxxx0000) where the x's are the
+  // gain code.
+
+  outw((int)NGC, brd->addr);
+  rtl_usleep(1000);
+
+  // 3. Then set D2A1. This is accomplished by writing to the A/D with the lower
+  // four address bits (SA0-SA3) set to all "ones" and the data bus to 0x04.
+/*
+  rtl_usleep(5);
+  utb(A2DIOGAIN47, brd->chan_addr); // sends 0x4
+  rtl_usleep(2);
+  utb(A2DIOVCAL,   brd->chan_addr); // sends 0x5
+  rtl_usleep(2);
+  utb(A2DIOGAIN47, brd->chan_addr); // sends 0x4
+  rtl_usleep(5);
 */
-	// If no A/D selected return error -1
-	if(A2DSel < 0 || A2DSel >= MAXA2DS) return -EINVAL;
+  // 4. Go back to step 1 and repeat steps 1 - 4 for all other DAC channels. 
+#endif
 
-	if(A2DSel < 4)	// If setting gain on channels 0-3
-	{
-		D2AChsel = A2DIOGAIN03;	// Use this channel select
-		DACAddr = brd->addr + A2DSel; // this address
-	}
-	else {
-		D2AChsel = A2DIOGAIN47;		// Use this channel select and
-		DACAddr = brd->addr + A2DSel - 4; // this address
-	}
-
-	// Point to the appropriate DAC channel
-	outb(D2AChsel, brd->chan_addr);		// Set the card channel pointer
-
-        // unused channel gains are set to zero
-        if (A2DGain != 0)
-          GainCode = (UC)(A2DGainMul*A2DGain/A2DGainDiv);
-               
-	DSMLOG_DEBUG("A2DSel = %d   A2DGain = %d   A2DGainMul = %d   A2DGainDiv = %d   GainCode = %d\n",
-                     A2DSel, A2DGain, A2DGainMul, A2DGainDiv, GainCode);
-
-	// Write the code to the selected DAC
-	outb(GainCode, DACAddr);
-
-	return 0;
+  return 0;
 }
 
 /*-----------------------Utility------------------------------*/
@@ -915,15 +969,18 @@ static int A2DSetup(struct A2DBoard* brd)
 
 	for(i = 0; i < MAXA2DS; i++)
 	{	
-		// Pass filter info to init routine
-		if ((ret = A2DSetGain(brd,i,a2d->gain[i],a2d->gainMul[i],a2d->gainDiv[i])) < 0) return ret;
+		if ((ret = A2DSetGain(brd,i)) < 0) return ret;
 		if(a2d->Hz[i] > brd->MaxHz) brd->MaxHz = a2d->Hz[i];	// Find maximum rate
-		DSMLOG_DEBUG("brd->MaxHz = %d   a2d->Hz[%d] = %d\n", brd->MaxHz, i, a2d->Hz[i]);
+//		DSMLOG_DEBUG("brd->MaxHz = %d   a2d->Hz[%d] = %d\n", brd->MaxHz, i, a2d->Hz[i]);
 		brd->requested[i] = (a2d->Hz[i] > 0);
 	}
+	rtl_usleep(5);
+	outw((int)A2DIOGAIN47, brd->chan_addr); // sends 0x4
+	outw((int)A2DIOVCAL,   brd->chan_addr); // sends 0x5
+	outw((int)A2DIOGAIN47, brd->chan_addr); // sends 0x4
 
 	brd->cur_status.ser_num = getSerialNumber(brd);
-	DSMLOG_DEBUG("A2D serial number = %d\n", brd->cur_status.ser_num);
+//	DSMLOG_DEBUG("A2D serial number = %d\n", brd->cur_status.ser_num);
 	
 	if ((ret = A2DSetMaster(brd,brd->master)) < 0) return ret;
 
@@ -934,8 +991,7 @@ static int A2DSetup(struct A2DBoard* brd)
 }
 
 /*--------------------- Thread function ----------------------*/
-// A2DThread loads the A/D designated by A2DDes with filter 
-// data from A2D structure.
+// A2DThread loads the A2Ds with filter data from A2D structure.
 //   
 // NOTE: This must be called from within a real-time thread
 // 			Otherwise the critical delays will not work properly
@@ -945,24 +1001,26 @@ static void* A2DSetupThread(void *thread_arg)
 	struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
 	int ret = 0;
 
-	ret = A2DSetup(brd);
-	DSMLOG_DEBUG("ret = %d\n", ret);
-	if (ret < 0) return (void*)-ret;
+// 0xa234
+//while (1) {
+  ret = A2DSetup(brd);
+  DSMLOG_DEBUG("loop forever... ret = %d\n", ret);
+  if (ret < 0) return (void*)-ret;
+//rtl_usleep(1000000); // Let them run a few milliseconds
+//}
 
-// Make sure SYNC is cleared so clocks are running
-	DSMLOG_DEBUG("Clearing SYNC\n");
-	A2DClearSYNC(brd);
+  // Make sure SYNC is cleared so clocks are running
+  DSMLOG_DEBUG("Clearing SYNC\n");
+  A2DClearSYNC(brd);
 
+  // Start then reset the A/D's
+  // Start conversions
+  DSMLOG_DEBUG("Starting A/D's\n");
+  A2DStartAll(brd);
 
     // If starting from a cold boot, one needs to 
     // let the A2Ds run for a bit before downloading
     // the filter data.
-
-    // Start then reset the A/D's
-    // Start conversions
-	DSMLOG_DEBUG("Starting A/D's\n");
-   	A2DStartAll(brd);
-
 	rtl_usleep(50000); // Let them run a few milliseconds (50)
 
 // Then do a soft reset
@@ -1650,12 +1708,11 @@ static int ioctlCallback(int cmd, int board, int port,
 		if (len != sizeof(A2D_CAL)) break;	// invalid length
 		memcpy(&brd->cal,(A2D_CAL*)buf,sizeof(A2D_CAL));
 		A2DSetVcal(brd);
-		A2DSetCal(brd);	//Call A2DSetup with structure pointer ts 
+		A2DSetCal(brd);
 		ret = 0;
    		break;
 
   	case A2D_RUN_IOCTL:
-
 		if (port != 0) break;	// port 0 is the A2D, port 1 is I2C temp
 		// clean up acquisition thread if it was left around
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
@@ -1790,6 +1847,11 @@ int init_module()
 
 	// DSM_VERSION_STRING is found in dsm_version.h
 	DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
+#ifdef DAC8408
+	DSMLOG_NOTICE("<<<<<<<<<<<< old DAC chip test >>>>>>>>>>>>>>\n");
+#else
+	DSMLOG_NOTICE("<<<<<<<<<<<< NEW DAC CHIP TEST >>>>>>>>>>>>>>\n");
+#endif
 
 	/* count non-zero ioport addresses, gives us the number of boards */
 	for (ib = 0; ib < MAX_A2D_BOARDS; ib++)
@@ -1844,7 +1906,7 @@ int init_module()
 
 	    request_region(addr, A2DIOWIDTH, "A2D_DRIVER");
 	    brd->addr = addr;
-	    brd->chan_addr = addr + 0xF;
+	    brd->chan_addr = addr + A2DIOLOAD;
 
 	    /* Open up my ioctl FIFOs, register my ioctlCallback function */
 	    error = -EIO;
