@@ -215,6 +215,7 @@ sources = [ Split("""
     ../util/Inet4SocketAddress.cc
     ../util/Logger.cc
     ../util/McSocket.cc
+    ../util/Process.cc
     ../util/SerialOptions.cc
     ../util/SerialPort.cc
     ../util/Socket.cc

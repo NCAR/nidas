@@ -20,6 +20,7 @@
 
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/XMLFdInputSource.h>
+#include <nidas/util/Process.h>
 
 #include <iostream>
 #include <fstream>
@@ -113,6 +114,20 @@ int DSMEngine::main(int argc, char** argv) throw()
     if ((res = engine->parseRunstring(argc,argv)) != 0) return res;
 
     engine->initLogger();
+
+    // Open and check the pid file after the above daemon() call.
+    try {
+        pid_t pid = n_u::Process::checkPidFile("/tmp/dsm.pid");
+        if (pid > 0) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "dsm process, pid=%d is already running",pid);
+            return 1;
+        }
+    }
+    catch(const n_u::IOException& e) {
+        n_u::Logger::getInstance()->log(LOG_ERR,"dsm: %s",e.what());
+        return 1;
+    }
 
     engine->run();		// doesn't throw exceptions
 
@@ -662,3 +677,4 @@ bool DSMEngine::isRTLinux()
     rtlinux = 0;
     return false;
 }
+

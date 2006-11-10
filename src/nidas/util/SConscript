@@ -42,6 +42,7 @@ headers = [ Split("""
     Logger.h
     McSocket.h
     ParseException.h
+    Process.h
     SerialOptions.h
     SerialPort.h
     SocketAddress.h
@@ -66,6 +67,7 @@ sources = [ Split("""
     Inet4SocketAddress.cc
     Logger.cc
     McSocket.cc
+    Process.cc
     SerialOptions.cc
     SerialPort.cc
     Socket.cc

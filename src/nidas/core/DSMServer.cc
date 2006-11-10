@@ -24,6 +24,7 @@
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/McSocket.h>
+#include <nidas/util/Process.h>
 
 #include <unistd.h>
 
@@ -71,6 +72,20 @@ int DSMServer::main(int argc, char** argv) throw()
 	}
         logger = n_u::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
+    }
+
+    // Open and check the pid file after the above daemon() call.
+    try {
+        pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
+        if (pid > 0) {
+            logger->log(LOG_ERR,
+                "dsm_server process, pid=%d is already running",pid);
+            return 1;
+        }
+    }
+    catch(const n_u::IOException& e) {
+        logger->log(LOG_ERR,"dsm_server: %s",e.what());
+        return 1;
     }
 
     setupSignals();
