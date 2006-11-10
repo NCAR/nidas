@@ -37,21 +37,23 @@ pid_t Process::checkPidFile(const string& pidFile)
         throw IOException(pidFile,"open",errno);
 
     // lock the file so that all the following operations
-    // on the pid file are atomic - other dsm_servers cannot
-    // interfere.
+    // on the pid file are atomic - to exclude checkPidFile()
+    // in other processes from reading or writing to the same file
+    // until we are done.
     struct flock fl;
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-    fl.l_pid = 0;
-    if (::fcntl(fd,F_SETLK,&fl) < 0) {
+    for (;;) {
+        fl.l_type = F_WRLCK;
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+        if (::fcntl(fd,F_SETLK,&fl) == 0) break;    // successful lock
         if (errno != EACCES && errno != EAGAIN) {
             int ierr = errno;
             ::close(fd);
             throw IOException(pidFile,"fcntl(,F_SETLK,)",ierr);
         }
-        // file is locked, get pid of locking process
+        // file is locked, get process id of locking process
         if (::fcntl(fd,F_GETLK,&fl) < 0) {
             int ierr = errno;
             ::close(fd);
@@ -62,6 +64,8 @@ pid_t Process::checkPidFile(const string& pidFile)
             // cerr << "file locked by pid " << fl.l_pid << endl;
             return fl.l_pid;
         }
+        // F_GETLK has returned F_UNLCK in l_type, meaning the file
+        // should now be lockable, so this shouldn't infinitely loop.
     }
 
     // read process id from file, check for /proc/xxxxx directory
