@@ -445,7 +445,7 @@ size_t SocketImpl::sendto(const void* buf, size_t len, int flags,
     	to.getConstSockAddrPtr(),to.getSockAddrLen())) < 0) {
 	if (errno == EAGAIN) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(remoteaddr->toString(), "sendto",ierr);
+	throw IOException(to.toString(), "sendto",ierr);
     }
     return res;
 }

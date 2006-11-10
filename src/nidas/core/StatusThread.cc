@@ -134,19 +134,37 @@ DSMServerStat::DSMServerStat(const std::string& name):
 /* static */
 int DSMServerStat::run() throw(n_u::Exception)
 {
-    const std::string DATA_NETWORK = "192.168.184";
-    n_u::MulticastSocket msock;
-    n_u::Inet4Address maddr =
-    	n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+    // TODO: multicast network should be configured in the XML
+    const std::string DATA_NETWORK = "192.168.184.0";
+    n_u::Inet4Address dataAddr;
+    n_u::Inet4Address maddr;
+    try {
+        dataAddr = n_u::Inet4Address::getByName(DATA_NETWORK);
+        maddr = n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+    }
+    catch(const n_u::UnknownHostException& e) {
+    }
+
     n_u::Inet4SocketAddress msaddr =
 	n_u::Inet4SocketAddress(maddr,DSM_MULTICAST_STATUS_PORT);
 
-    // Set to proper interface if this computer has more than one.
+    n_u::MulticastSocket msock;
+
+    // Set to interface with closest address if this computer has more
+    // than one.
+    int matchbits = -1;
+    n_u::Inet4Address matchIface;
+
     std::list<n_u::Inet4Address> itf = msock.getInterfaceAddresses();
     std::list<n_u::Inet4Address>::iterator itfi;
-    for (itfi = itf.begin(); itfi != itf.end(); ++itfi)
-      if ((*itfi).getHostAddress().compare(0, DATA_NETWORK.size(), DATA_NETWORK) == 0)
-        msock.setInterface(*itfi);
+    for (itfi = itf.begin(); itfi != itf.end(); ++itfi) {
+        int i = itfi->bitsMatch(dataAddr);
+        if (i > matchbits) {
+            matchIface = *itfi;
+            matchbits = i;
+        }
+    }
+    if (matchbits >= 0) msock.setInterface(matchIface);
 
     std::ostringstream statStream;
 

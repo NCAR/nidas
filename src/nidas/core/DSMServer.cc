@@ -173,9 +173,15 @@ void DSMServer::startStatusThread() throw(n_u::Exception)
 void DSMServer::killStatusThread() throw(n_u::Exception)
 {
     cerr << "statusthread cancel" << endl;
-    _statusThread->cancel();
-    cerr << "statusthread join" << endl;
-    _statusThread->join();
+    if (_statusThread->isRunning()) _statusThread->cancel();
+    try {
+        cerr << "statusthread join" << endl;
+        _statusThread->join();
+    }
+    catch(const n_u::Exception&e ) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+        "statusThread: %s",e.what());
+    }
     cerr << "statusthread delete" << endl;
     delete _statusThread;
     _statusThread = 0;
