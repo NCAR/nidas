@@ -90,14 +90,12 @@ int DSMServer::main(int argc, char** argv) throw()
 
     setupSignals();
 
-    startStatusThread();
-    startXmlRpcThread();
-
     while (!quit) {
 
-        Project* project = 0;
+        auto_ptr<Project> project;
+
 	try {
-	    project = parseXMLConfigFile(xmlFileName);
+	    project.reset(parseXMLConfigFile(xmlFileName));
 	}
 	catch (const nidas::core::XMLException& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -146,19 +144,31 @@ int DSMServer::main(int argc, char** argv) throw()
 	    logger->log(LOG_ERR,e.what());
 	}
 
+        startStatusThread();
+        startXmlRpcThread();
+
 	serverInstance->waitOnServices();
 
-	delete project;
+        killStatusThread();
+        killXmlRpcThread();
+
+        // Project gets deleted here, which includes serverInstance.
+
     }
 
-    killStatusThread();
-    killXmlRpcThread();
-
-    // cerr << "XMLCachingParser::destroyInstance()" << endl;
+#ifdef DEBUG
+    cerr << "XMLCachingParser::destroyInstance()" << endl;
+#endif
     XMLCachingParser::destroyInstance();
 
-    // cerr << "XMLImplementation::terminate()" << endl;
+#ifdef DEBUG
+    cerr << "XMLImplementation::terminate()" << endl;
+#endif
     XMLImplementation::terminate();
+
+#ifdef DEBUG
+    cerr << "clean return from main" << endl;
+#endif
     return result;
 }
                                                                                 
@@ -169,23 +179,48 @@ void DSMServer::startStatusThread() throw(n_u::Exception)
     _statusThread->start();
 }
 
+// #define DEBUG
 /* static */
 void DSMServer::killStatusThread() throw(n_u::Exception)
 {
-    cerr << "statusthread cancel" << endl;
-    if (_statusThread->isRunning()) _statusThread->cancel();
+
+    _statusThread->interrupt();
+    // canceling statusThread results in segmentation fault.
+    // There seems to be some incompatibility between
+    // nanosleep and pthread_cancel.  So we just interrupt
+    // it and have to wait up to a second for the join.
+#define STATUS_THREAD_CANCEL
+#ifdef STATUS_THREAD_CANCEL
     try {
-        cerr << "statusthread join" << endl;
-        _statusThread->join();
+#ifdef DEBUG
+        cerr << "statusthread cancel, running=" <<
+            _statusThread->isRunning() << endl;
+#endif
+        if (_statusThread->isRunning()) _statusThread->cancel();
     }
-    catch(const n_u::Exception&e ) {
+    catch(const n_u::Exception& e) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
         "statusThread: %s",e.what());
     }
+#endif
+
+    try {
+#ifdef DEBUG
+        cerr << "statusthread join" << endl;
+#endif
+        _statusThread->join();
+    }
+    catch(const n_u::Exception& e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+        "statusThread: %s",e.what());
+    }
+#ifdef DEBUG
     cerr << "statusthread delete" << endl;
+#endif
     delete _statusThread;
     _statusThread = 0;
 }
+// #undef DEBUG
 
 /* static */
 void DSMServer::startXmlRpcThread() throw(n_u::Exception)
@@ -197,11 +232,31 @@ void DSMServer::startXmlRpcThread() throw(n_u::Exception)
 /* static */
 void DSMServer::killXmlRpcThread() throw(n_u::Exception)
 {
-    cerr << "xmlrpcthread cancel" << endl;
-    _xmlrpcThread->cancel();
+    _xmlrpcThread->interrupt();
+
+#define XMLRPC_THREAD_CANCEL
+#ifdef XMLRPC_THREAD_CANCEL
+    // if we're using XmlRpcServer::work(-1.0) we must
+    // do a cancel here.
+    try {
+        if (_xmlrpcThread->isRunning()) _xmlrpcThread->cancel();
+    }
+    catch(const n_u::Exception& e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+        "xmlRpcThread: %s",e.what());
+    }
+#endif
+
+#ifdef DEBUG
     cerr << "xmlrpcthread join" << endl;
-    _xmlrpcThread->join();
-    cerr << "xmlrpcthread delete" << endl;
+#endif
+    try {
+        _xmlrpcThread->join();
+    }
+    catch(const n_u::Exception& e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+        "xmlRpcThread: %s",e.what());
+    }
     delete _xmlrpcThread;
     _xmlrpcThread = 0;
 }
@@ -286,12 +341,19 @@ DSMServer::~DSMServer()
     // delete services. These are the configured services,
     // not the cloned copies.
     list<DSMService*>::const_iterator si;
-    // cerr << "~DSMServer services.size=" << services.size() << endl;
+#ifdef DEBUG
+    cerr << "~DSMServer services.size=" << services.size() << endl;
+#endif
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
-	// cerr << "~DSMServer: deleting " << svc->getName() << endl;
+#ifdef DEBUG
+	cerr << "~DSMServer: deleting " << svc->getName() << endl;
+#endif
 	delete svc;
     }
+#ifdef DEBUG
+    cerr << "~DSMServer: deleted services " << endl;
+#endif
 }
 
 DSMServiceIterator DSMServer::getDSMServiceIterator() const
@@ -417,14 +479,18 @@ void DSMServer::scheduleServices() throw(n_u::Exception)
 
 void DSMServer::interruptServices() throw()
 {
+#ifdef DEBUG
     cerr << "interrupting services, size=" << services.size() << endl;
+#endif
     list<DSMService*>::const_iterator si;
     for (si=services.begin(); si != services.end(); ++si) {
 	DSMService* svc = *si;
 	// cerr << "doing interrupt on " << svc->getName() << endl;
 	svc->interrupt();
     }
+#ifdef DEBUG
     cerr << "interrupting services done" << endl;
+#endif
 }
 
 void DSMServer::cancelServices() throw()
@@ -471,7 +537,9 @@ void DSMServer::waitOnServices() throw()
 	    nservices += svc->checkSubServices();
 	}
 	
+#ifdef DEBUG
 	cerr << "DSMServer::wait #services=" << nservices << endl;
+#endif
 
 	if (quit || restart) break;
 
@@ -480,20 +548,35 @@ void DSMServer::waitOnServices() throw()
 	if (quit || restart) break;
                                                                                 
     }
+
+#ifdef DEBUG
     cerr << "Break out of wait loop, interrupting services" << endl;
+#endif
+
     interruptServices();	
+
+#ifdef DEBUG
     cerr << "services interrupted" << endl;
+#endif
 
     // wait a bit, then cancel whatever is still running
     sleepTime.tv_sec = 1;
     sleepTime.tv_nsec = 0;
     nanosleep(&sleepTime,0);
 
+#ifdef DEBUG
     cerr << "cancelling services" << endl;
+#endif
     cancelServices();	
+
+#ifdef DEBUG
     cerr << "joining services" << endl;
+#endif
     joinServices();
+#ifdef DEBUG
     cerr << "services joined" << endl;
+#endif
+
 }
 
 /* static */

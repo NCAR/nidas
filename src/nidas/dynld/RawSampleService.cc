@@ -61,19 +61,25 @@ RawSampleService::RawSampleService(const RawSampleService& x,
 RawSampleService::~RawSampleService()
 {
 
-    // cerr << "~RawSampleService, disconnecting processors" << endl;
+#ifdef DEBUG
+    cerr << "~RawSampleService, disconnecting processors" << endl;
+#endif
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	// cerr << "~RawSampleService, disconnecting proc " << proc->getName() << endl;
 	if (!proc->isOptional()) {
+#ifdef DEBUG
+            cerr << "~RawSampleService, disconnecting proc " << proc->getName() << endl;
+#endif
 	    if (!proc->singleDSM() && merger) proc->disconnect(merger);
 	    else if (input) proc->disconnect(input);
 	}
     }
 
     delete merger;
-    // cerr << "~RawSampleService done" << endl;
+#ifdef DEBUG
+    cerr << "~RawSampleService done" << endl;
+#endif
 }
 
 

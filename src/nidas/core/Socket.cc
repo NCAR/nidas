@@ -159,7 +159,13 @@ ServerSocket::~ServerSocket()
     if (thread) {
 	try {
 	    if (thread->isRunning()) thread->cancel();
+#ifdef DEBUG
+            cerr << "~ServerSocket joining thread" << endl;
+#endif
 	    thread->join();
+#ifdef DEBUG
+            cerr << "~ServerSocket joined thread" << endl;
+#endif
 	}
 	catch(const n_u::Exception& e) {
 	}

@@ -30,9 +30,12 @@ public:
     
     /** Constructor. */
     XmlRpcThread(const std::string& name);
+
     ~XmlRpcThread();
 
- protected:
+    void interrupt();
+
+protected:
 
   XmlRpc::XmlRpcServer* _xmlrpc_server;
 };

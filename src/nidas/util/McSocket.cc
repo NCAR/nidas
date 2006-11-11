@@ -217,7 +217,10 @@ void McSocket::offer(Socket* socket,int err)
     Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer done");
 #endif
 }
+
 // #undef DEBUG
+
+// #define DEBUG
 
 void McSocket::close() throw(IOException)
 {
@@ -258,10 +261,17 @@ void McSocket::close() throw(IOException)
 	}
     }
 
+#ifdef DEBUG
+    Logger::getInstance()->log(LOG_DEBUG,"McsocketListener::close");
+#endif
     try {
 	McSocketListener::close(this);
     }
     catch (const Exception& e) {
+#ifdef DEBUG
+        Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::close exception: %s",
+    	    e.what());
+#endif
 	throw IOException(mcastAddr.toString(),"close",e.what());
     }
 #ifdef DEBUG
@@ -270,6 +280,7 @@ void McSocket::close() throw(IOException)
 #endif
 }
 
+// #undef DEBUG
 
 /* static */
 Mutex McSocketListener::listener_mutex;
@@ -305,6 +316,7 @@ void McSocketListener::accept(McSocket* mcsocket)
     }
 }
 
+// #define DEBUG
 /* static */
 void McSocketListener::close(McSocket* mcsocket)
 	throw(Exception)
@@ -313,6 +325,9 @@ void McSocketListener::close(McSocket* mcsocket)
 
     Synchronized sync(listener_mutex);
 
+#ifdef DEBUG
+    cerr << "McSocketListener::close, map size=" << listener_map.size() << endl;
+#endif
     map<Inet4SocketAddress,McSocketListener*>::iterator mapi =
 	listener_map.find(mcAddr);
 
@@ -327,12 +342,20 @@ void McSocketListener::close(McSocket* mcsocket)
     cerr << "nsock=" << nsock << endl;
 #endif
     if (nsock == 0) {
-	lnr->cancel();
+	lnr->interrupt();
+	// lnr->cancel();
+#ifdef DEBUG
+        cerr << "McSocketListener::close, lnr->join()" << endl;
+#endif
 	lnr->join();
+#ifdef DEBUG
+        cerr << "McSocketListener::close, lnr->joined" << endl;
+#endif
 	delete lnr;
 	listener_map.erase(mapi);
     }
 }
+// #undef DEBUG
 
 /* static */
 int McSocketListener::check() throw()
@@ -381,6 +404,7 @@ int McSocketListener::remove(McSocket* mcsocket)
     return nsock;
 }
 
+// #define DEBUG
 int McSocketListener::run() throw(Exception)
 {
     auto_ptr<DatagramSocket> readsock;
@@ -393,9 +417,9 @@ int McSocketListener::run() throw(Exception)
     }
     else
 	readsock.reset(new DatagramSocket(mcastAddr.getPort()));
-    readsock->setTimeout(500);		// 500 millisecs
+    readsock->setTimeout(1000);		// 1000 millisecs
 
-    while (!isInterrupted()) {
+    while (!amInterrupted()) {
 
 	McSocketDatagram dgram;
 
@@ -405,19 +429,28 @@ int McSocketListener::run() throw(Exception)
 	 * the startedClients.
 	 */
 	try {
-	    // cerr << "McSocketListener::receive" << endl;
+#ifdef DEBUG
+	    cerr << "McSocketListener::receive" << endl;
+#endif
 	    readsock->receive(dgram);
-	    // cerr << "McSocketListener::received from " <<
-	    // 	dgram.getSocketAddress().toString() << 
-	// 	" length=" << dgram.getLength() << endl;
+#ifdef DEBUG
+	    cerr << "McSocketListener::received from " <<
+	     	dgram.getSocketAddress().toString() << 
+	 	" length=" << dgram.getLength() << endl;
+#endif
 	}
 	catch(const IOTimeoutException& e)
 	{
-	    // cerr << "McSocketListener::run: " << e.toString() << endl;
+#ifdef DEBUG
+	    cerr << "McSocketListener::run: " << e.toString() << endl;
+#endif
 	    continue;
 	}
 	catch(const IOException& e)
 	{
+#ifdef DEBUG
+	    cerr << "McSocketListener::run: " << e.what() << endl;
+#endif
 	    if (e.getError() == EINTR) break;
 	    throw e;
 	}
@@ -470,9 +503,12 @@ int McSocketListener::run() throw(Exception)
 	}
     }
 
-    // cerr << "McSocketListener::run returning" << endl;
+#ifdef DEBUG
+    cerr << "McSocketListener::run returning" << endl;
+#endif
     return 0;
 }
+// #undef DEBUG
 
 McSocketMulticaster::McSocketMulticaster(McSocket* mcsock) :
         Thread("McSocketMulticaster"),

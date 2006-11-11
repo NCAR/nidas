@@ -39,7 +39,6 @@ void GetDsmList::execute(XmlRpcValue& params, XmlRpcValue& result)
     cerr << "GetDsmList::execute " << &result << endl;
 }
 
-
 int DSMServerIntf::run() throw(n_u::Exception)
 {
   // Create an XMLRPC server
@@ -49,7 +48,7 @@ int DSMServerIntf::run() throw(n_u::Exception)
   GetDsmList     getdsmlist     (_xmlrpc_server);
 
   // DEBUG - set verbosity of the xmlrpc server HIGH...
-  XmlRpc::setVerbosity(5);
+  XmlRpc::setVerbosity(1);
 
   // Create the server socket on the specified port
   _xmlrpc_server->bindAndListen(ADS_XMLRPC_PORT);
@@ -57,8 +56,32 @@ int DSMServerIntf::run() throw(n_u::Exception)
   // Enable introspection
   _xmlrpc_server->enableIntrospection(true);
 
-  // Wait for requests indefinitely
-  _xmlrpc_server->work(-1.0);
+    // Wait for requests indefinitely
+
+    // work(-1.0) does a select on the the rpc file descriptors
+    // without a timeout, so if there are no rpc requests
+    // coming in, then work(-1.0) will never finish, even if
+    // you do a XmlRpcServer::exit() or XmlRpcServer::shutdown().
+    // So if you do work(-1.0), you must use Thread::cancel()
+    // (or send a signal), to break out of work(-1.0), because
+    // select is a cancelation point.
+
+    // Or one can do a work(1.0) which gives a 1 second timeout
+    // to the select() in work, and you can loop here,
+    // checking for isInterrupted(). Do Thread::interrupt()
+    // to exit the loop.  The problem is, work() can return
+    // instantly if there is nothing to do, and so this
+    // could become an infinite loop.
+
+// #define DO_XML_RPC_WORK_LOOP
+#ifdef DO_XML_RPC_WORK_LOOP
+    for (;;) {
+        if (isInterrupted()) break;
+        _xmlrpc_server->work(1.0);
+    }
+#else
+    _xmlrpc_server->work(-1.0);
+#endif
 
   return RUN_OK;
 }

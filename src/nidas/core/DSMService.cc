@@ -48,7 +48,9 @@ DSMService::DSMService(const DSMService& x,SampleInputStream* newinput):
 DSMService::~DSMService()
 {
     if (input) {
-	// cerr << "~DSMService, closing " << input->getName() << endl;
+#ifdef DEBUG
+	cerr << "~DSMService, closing " << input->getName() << endl;
+#endif
         input->close();
 	delete input;
     }
@@ -64,7 +66,9 @@ DSMService::~DSMService()
 #endif
 	delete processor;
     }
-    // cerr << "~DSMService" << endl;
+#ifdef DEBUG
+    cerr << "~DSMService" << endl;
+#endif
 }
 
 ProcessorIterator DSMService::getProcessorIterator() const

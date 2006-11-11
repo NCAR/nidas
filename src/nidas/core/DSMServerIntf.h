@@ -41,6 +41,7 @@ public:
   DSMServerIntf() : XmlRpcThread("DSMServerIntf") {}
 
   int run() throw(nidas::util::Exception);
+
 };
 
 }}	// namespace nidas namespace core

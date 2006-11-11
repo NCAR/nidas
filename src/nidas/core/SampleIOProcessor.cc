@@ -43,6 +43,7 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
     }
 }
 
+// #define DEBUG
 SampleIOProcessor::~SampleIOProcessor()
 {
 #ifdef DEBUG

@@ -22,7 +22,7 @@
 #include <nidas/util/Socket.h>
 #include <nidas/util/Exception.h>
 
-#define mSecSleep 1000
+#define mSecSleep MSECS_PER_SEC
 
 using namespace nidas::core;
 using namespace std;
@@ -66,7 +66,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    long tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
 	    // cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
-	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * 1000;
+	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
 
 	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 	    if (isInterrupted()) break;
@@ -78,7 +78,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    dsm_time_t tt = dater->getDataSystemTime();
             time_t     ut = tt / USECS_PER_SEC;
             gmtime_r(&ut,&tm);
-//          int msec = tt % 1000;
+//          int msec = tt % MSECS_PER_SEC;
             strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
 
             statStream << "<?xml version=\"1.0\"?><group>"
@@ -112,7 +112,6 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	throw e;
     }
     msock.close();
-    cerr << "DSMEngineStat run method returning" << endl;
     return 0;
 }
 
@@ -135,7 +134,8 @@ DSMServerStat::DSMServerStat(const std::string& name):
 int DSMServerStat::run() throw(n_u::Exception)
 {
     // TODO: multicast network should be configured in the XML
-    const std::string DATA_NETWORK = "192.168.184.0";
+    // const std::string DATA_NETWORK = "192.168.184.0";
+    const std::string DATA_NETWORK = "127.0.0.0";
     n_u::Inet4Address dataAddr;
     n_u::Inet4Address maddr;
     try {
@@ -164,26 +164,55 @@ int DSMServerStat::run() throw(n_u::Exception)
             matchbits = i;
         }
     }
-    if (matchbits >= 0) msock.setInterface(matchIface);
+    if (matchbits >= 0) {
+#ifdef DEBUG
+        cerr << "setting interface for multicast socket to " <<
+            matchIface.getHostAddress() << ", bits=" << matchbits << endl;
+#endif
+        msock.setInterface(matchIface);
+    }
 
     std::ostringstream statStream;
 
     struct tm tm;
     char cstr[24];
 
+    // For some reason Thread::cancel() to a thread
+    // waiting in nanosleep causes a seg fault.
+    // Using select() works.  g++ 4.1.1, FC5
+    // When cancelled, select does not return EINVAL,
+    // it just never returns and the thread is gone.
+
+// #define USE_NANOSLEEP
+#ifdef USE_NANOSLEEP
     struct timespec sleepTime;
+    struct timespec leftTime;   // try to figure out why nanosleep
+                                // seg faults on thread cancel.
+#else
+    struct timeval sleepTime;
+#endif
 
     /* sleep a bit so that we're on an even interval boundary */
     unsigned long mSecVal =
       mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
 
-    sleepTime.tv_sec = mSecVal / 1000;
-    sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
-    if (nanosleep(&sleepTime,0) < 0) {
-      if (errno == EINTR) return RUN_OK;
-      throw n_u::Exception(string("nanosleep: ") +
-      	n_u::Exception::errnoToString(errno));
+#ifdef USE_NANOSLEEP
+    sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
+    sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
+    if (nanosleep(&sleepTime,&leftTime) < 0) {
+        if (errno == EINTR) return RUN_OK;
+        throw n_u::Exception(string("nanosleep: ") +
+            n_u::Exception::errnoToString(errno));
     }
+#else
+    sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
+    sleepTime.tv_usec = (mSecVal % MSECS_PER_SEC) * USECS_PER_MSEC;
+    if (::select(0,0,0,0,&sleepTime) < 0) {
+        if (errno == EINTR) return RUN_OK;
+        throw n_u::Exception(string("select: ") +
+            n_u::Exception::errnoToString(errno));
+    }
+#endif
 
     dsm_time_t lasttime = 0;
     char *glyph[] = {"\\","|","/","-"};
@@ -225,13 +254,25 @@ int DSMServerStat::run() throw(n_u::Exception)
             // sleep until the next interval...
             mSecVal =
 	      mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
-            sleepTime.tv_sec = mSecVal / 1000;
-            sleepTime.tv_nsec = (mSecVal % 1000) * 1000000;
-            if (nanosleep(&sleepTime,0) < 0) {
+#ifdef USE_NANOSLEEP
+            sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
+            sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
+            if (nanosleep(&sleepTime,&leftTime) < 0) {
+                cerr << "nanosleep error return" << endl;
                 if (errno == EINTR) break;
                 throw n_u::Exception(string("nanosleep: ") +
 			n_u::Exception::errnoToString(errno));
             }
+#else
+            sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
+            sleepTime.tv_usec = (mSecVal % MSECS_PER_SEC) * USECS_PER_MSEC;
+            if (::select(0,0,0,0,&sleepTime) < 0) {
+                if (errno == EINTR) return RUN_OK;
+                cerr << "select error" << endl;
+                throw n_u::Exception(string("select: ") +
+                    n_u::Exception::errnoToString(errno));
+            }
+#endif
 	}
     }
     catch(const n_u::IOException& e) {
@@ -239,6 +280,5 @@ int DSMServerStat::run() throw(n_u::Exception)
 	throw e;
     }
     msock.close();
-    cerr << "DSMServerStat run method returning" << endl;
-    return 0;
+    return RUN_OK;
 }

@@ -42,10 +42,18 @@ SampleSorter::SampleSorter(const string& name) :
 SampleSorter::~SampleSorter()
 {
     // make sure thread is not running.
-    cerr << "~SampleSorter, isRunning()=" << isRunning() << 
-    	" joined=" << isJoined() << endl;
     if (isRunning()) interrupt();
-    if (!isJoined()) join();
+    if (!isJoined()) {
+        try {
+#ifdef DEBUG
+            cerr << "~SampleSorter, joining" << endl;
+#endif
+            join();
+        }
+        catch(const n_u::Exception& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+        }
+    }
 
     sampleSetCond.lock();
     SortedSampleSet tmpset = samples;

@@ -31,12 +31,20 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
   blockSignal(SIGTERM);
 }
 
+void XmlRpcThread::interrupt()
+{
+    Thread::interrupt();
+    // XmlRpcServer::exit() will not cause an exit of
+    // XmlRpcServer::work(-1.0) if there are no rpc
+    // requests coming in, but we'll do it anyway.
+    if (_xmlrpc_server) _xmlrpc_server->exit();
+}
+
 
 XmlRpcThread::~XmlRpcThread()
 {
-  if (isRunning()) {
-    cancel();
-    join();
-  }
-  delete _xmlrpc_server;
+    // user must have done a join of this thread before calling
+    // this destructor.
+    if (_xmlrpc_server) _xmlrpc_server->shutdown();
+    delete _xmlrpc_server;
 }
