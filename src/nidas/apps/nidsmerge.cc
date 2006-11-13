@@ -59,6 +59,11 @@ public:
 
     void sendHeader(dsm_time_t thead,SampleOutput* out)
         throw(n_u::IOException);
+    
+    /**
+     * for debugging.
+     */
+    void printHeader();
 
 private:
 
@@ -228,7 +233,18 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 void NidsMerge::sendHeader(dsm_time_t thead,SampleOutput* out)
     throw(n_u::IOException)
 {
+    printHeader();
     header.write(out);
+}
+
+void NidsMerge::printHeader()
+{
+    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
+    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
+    cerr << "ProjectName:" << header.getProjectName() << endl;
+    cerr << "SystemName:" << header.getSystemName() << endl;
+    cerr << "ConfigName:" << header.getConfigName() << endl;
+    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
 }
 
 int NidsMerge::run() throw()
@@ -239,19 +255,19 @@ int NidsMerge::run() throw()
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 
-	SampleOutputStream outStream(outSet);
-	outStream.init();
+        SampleOutputStream outStream(outSet);
+        outStream.setHeaderSource(this);
+        outStream.init();
 
 	vector<SampleInputStream*> inputs;
-	bool headerWritten = false;
 
 	for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
 
 	    const list<string>& inputFiles = inputFileNames[ii];
 
 	    FileSet* fset = new nidas::dynld::FileSet();
-	    fset->setStartTime(startTime.toUsecs() / USECS_PER_SEC);
-	    fset->setEndTime(endTime.toUsecs() / USECS_PER_SEC);
+	    fset->setStartTime(startTime);
+	    fset->setEndTime(endTime);
 
 	    list<string>::const_iterator fi = inputFiles.begin();
 	    for (; fi != inputFiles.end(); ++fi) {

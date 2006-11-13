@@ -30,10 +30,10 @@ public:
 
     void setArchiveVersion(const std::string& val) { archiveVersion = val; }
     const std::string& getArchiveVersion() const { return archiveVersion; }
-                                                                                
+
     void setSoftwareVersion(const std::string& val) { softwareVersion = val; }
     const std::string& getSoftwareVersion() const { return softwareVersion; }
-                                                                                
+                                                                               
     void setProjectName(const std::string& val) { projectName = val; }
     const std::string& getProjectName() const { return projectName; }
 
@@ -42,16 +42,14 @@ public:
 
     void setConfigName(const std::string& val) { configName = val; }
     const std::string& getConfigName() const { return configName; }
-                                                                                
+
     void setConfigVersion(const std::string& val) { configVersion = val; }
     const std::string& getConfigVersion() const { return configVersion; }
 
-                                                                                
 private:
 
     void setDummyString(const std::string& val) { }
     const std::string& getDummyString() const { return dummy; }
-                                                                                
 
     struct headerField {
 

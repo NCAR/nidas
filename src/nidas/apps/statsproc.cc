@@ -304,6 +304,7 @@ Examples:\n" <<
 	argv0 << " sock:dsmhost\n" <<
 	argv0 << " unix:/tmp/data_socket\n" <<
         endl;
+    return 1;
 }
 
 int StatsProcess::run() throw()

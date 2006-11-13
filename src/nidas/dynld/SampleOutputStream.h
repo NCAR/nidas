@@ -54,6 +54,10 @@ public:
      */
     IOStream* getIOStream() { return iostream; }
 
+    /**
+     * Call init() after the IOChannel is configured for a
+     * SampleOutputStream. init() creates the buffered IOStream.
+     */
     void init() throw();
 
     void close() throw(nidas::util::IOException);
