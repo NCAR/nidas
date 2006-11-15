@@ -45,18 +45,24 @@ int main(int argc, char** argv)
     try {
         n_u::ServerSocket servsock(port);
 
-        n_u::Socket* sock = servsock.accept();
-        cerr << "connection from " <<
-            sock->getRemoteSocketAddress().toString() << endl;
-
         for (;;) {
+            n_u::Socket* sock = servsock.accept();
+            cerr << "connection from " <<
+                sock->getRemoteSocketAddress().toString() << endl;
 
-            char buffer[1024];
-
-            size_t inlen = sock->recv(buffer,sizeof(buffer));
-            buffer[inlen] = 0;
-
-            cout << "buffer=" << buffer;
+            try {
+                char buffer[1024];
+                for (;;) {
+                    size_t inlen = sock->recv(buffer,sizeof(buffer));
+                    buffer[inlen] = 0;
+                    cout << buffer;
+                }
+            }
+            catch (const n_u::EOFException&e)
+            {
+                cerr << e.what() << endl;
+                sock->close();
+            }
         }
     }
     catch (const n_u::IOException&e)

@@ -8,6 +8,7 @@
 #include <nidas/util/Inet4SocketAddress.h>
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/IOTimeoutException.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
@@ -328,7 +329,7 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
 }
 
 
-void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException,IOTimeoutException)
+void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
 {
     int res;
     if (hasTimeout) {
@@ -373,7 +374,7 @@ void SocketImpl::send(const DatagramPacketBase& packet) throw(IOException)
 
 
 size_t SocketImpl::recv(void* buf, size_t len, int flags)
-	throw(IOException,IOTimeoutException)
+	throw(IOException)
 {
     ssize_t res;
     if (hasTimeout) {
@@ -398,7 +399,7 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
 }
 
 size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
-	SocketAddress& from) throw(IOException,IOTimeoutException)
+	SocketAddress& from) throw(IOException)
 {
     ssize_t res;
     if (hasTimeout) {

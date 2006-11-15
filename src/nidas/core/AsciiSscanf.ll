@@ -39,6 +39,8 @@
 #include <nidas/core/Sample.h>
 
 #include <iostream>
+
+#define NDEBUG      // define NDEBUG to turn off the asserts
 #include <cassert>
 #include <cmath>
 
@@ -258,13 +260,21 @@ void AsciiSscanf::setFormat(const std::string& val)
 int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 {
 
+    // If there are more than MAX_OUTPUT_VALUES number of
+    // % descriptors in charfmt, then the ::sscanf will seg fault.
+    // The user should have been warned of the situation
+    // earlier with a ParseException in setFormat(),
+    // because (nfields == MAX_OUTPUT_VALUES).
+    // So one should be able to safely disable these
+    // asserts with #define NDEBUG.
+    assert(nout <= MAX_OUTPUT_VALUES);
+
     /*
      * The following sscanf parses up to 60 values.  If one wants
      * to increase MAX_OUTPUT_VALUES, then one must add more
-     * bufptrs[XX] to the sscanf.
+     * bufptrs[XX] here to the sscanf.
      */
     assert(MAX_OUTPUT_VALUES <= 60);
-    assert(nout <= MAX_OUTPUT_VALUES);
 
     int nparsed = ::sscanf(input,charfmt,
 	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],

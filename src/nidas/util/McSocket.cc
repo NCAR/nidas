@@ -16,6 +16,7 @@
 
 #include <nidas/util/McSocket.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <iostream>
 

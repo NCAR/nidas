@@ -12,7 +12,6 @@
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
-#include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/DatagramPacket.h>
 
 #include <sys/types.h>
@@ -210,15 +209,21 @@ public:
     void connect(const SocketAddress& addr)
 	throw(IOException);
 
-    void receive(DatagramPacketBase& packet) throw(IOException,IOTimeoutException);
+    void receive(DatagramPacketBase& packet) throw(IOException);
 
     void send(const DatagramPacketBase& packet) throw(IOException);
 
+    /**
+     * Receive data on a socket. See "man 2 recv" for values of the
+     * flags parameter (none of which have been tested).
+     * An EOFException is returned if the remote host does
+     * an orderly shutdown of the socket.
+     */
     size_t recv(void* buf, size_t len, int flags=0)
-	throw(IOException,IOTimeoutException);
+	throw(IOException);
 
     size_t recvfrom(void* buf, size_t len, int flags,
-    	SocketAddress& from) throw(IOException,IOTimeoutException);
+    	SocketAddress& from) throw(IOException);
 
     /**
      * send data on socket. See send UNIX man page.
