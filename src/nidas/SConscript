@@ -6,12 +6,12 @@
 ##  Import the build environment.
 ##
 Import('env')
+arch = env['ARCH']
 
-# The following settings modify this environment according to the
-# architecture being built, as specified in the ARCH construction
-# variable.  
-prefix = env['PREFIX'] + '/' + env['ARCH']
-env.Replace(PREFIX = prefix)
+env.AppendUnique(CPPPATH = [env.subst("$PREFIX/include")] )
+env.AppendUnique(CPPPATH = [env.subst("$OTHER_PREFIX/include")] )
+env.AppendUnique(LIBPATH = [env.subst("$PREFIX/lib")] )
+env.AppendUnique(LIBPATH = [env.subst("$OTHER_PREFIX/lib")] )
 
 ##
 ## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
@@ -24,9 +24,17 @@ env.Replace(PREFIX = prefix)
 # deep mystery.  Anyway, this is avoided by putting a directory node for
 # build_core in the path instead of a string.
 #
+# dynld is needed on the path to link to libnidas_dynld.so.  Without it,
+# scons will install dynld first so it can be linked into dependencies
+# through the install path, which also means scons will remove the
+# installed copy with the -c option, which is not usually what one wants
+# from a clean.
+#
+env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
 env.PrependUnique(LIBPATH = [env.Dir("build_core")])
-env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
-
+if arch != 'arm':
+    env.PrependUnique(RPATH = [env.Dir("build_dynld").get_abspath()])
+    env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
 
 subdirs=Split("""util core dynld apps rtlinux linux""")
 defaultdirs=subdirs[1:]
@@ -35,7 +43,6 @@ libdirs=subdirs[1:3]
 ##
 ## ARCH target for creating modules, library, and executables
 ##
-arch = env['ARCH']
 env.Alias(arch, ['build_%s' % dir for dir in defaultdirs])
 Alias('lib', ['build_%s' % d for d in libdirs])
 

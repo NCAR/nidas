@@ -69,8 +69,7 @@ SConsignFile()
 ##
 env['CCFLAGS'] = Split("""-Wall -O2""")
 env['CXXFLAGS'] = Split("""-Wall -O2""")
-env['CPPPATH'] = Split("# $PREFIX/include $OTHER_PREFIX/include")
-env.AppendUnique(LIBPATH = [ "$PREFIX/lib", "$OTHER_PREFIX/lib"])
+env['CPPPATH'] = Split("#")
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor...
@@ -79,7 +78,8 @@ if 'arm' in env['ARCHITECTURES']:
     print "Setting up for ARM builds..."
     arm_env = env.Copy(tools = ['armcross'], toolpath=['sconstools'],
                        ARCH = 'arm',
-                       OTHER_PREFIX=env['OTHER_ARM'])
+                       PREFIX = env['PREFIX'] + '/arm',
+                       OTHER_PREFIX = env['OTHER_ARM'])
     arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
                build_dir='build_arm',
@@ -92,10 +92,13 @@ if 'arm' in env['ARCHITECTURES']:
 ##
 if 'x86' in env['ARCHITECTURES']:
     print "Setting up for x86 builds..."
-    x86_env = env.Copy(ARCH = 'x86', OTHER_PREFIX=env['OTHER_X86'])
+    x86_env = env.Copy(ARCH = 'x86',
+                       PREFIX = env['PREFIX'] + '/x86',
+                       OTHER_PREFIX = env['OTHER_X86'])
     x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
     x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
-    x86_env.AppendUnique(RPATH = ['$PREFIX/lib', '$OTHER_PREFIX/lib'])
+    x86_env.AppendUnique(RPATH = [x86_env.subst('$PREFIX/lib')] )
+    x86_env.AppendUnique(RPATH = [x86_env.subst('$OTHER_PREFIX/lib')] )
     SConscript('nidas/SConscript',
                build_dir='build_x86',
                duplicate=0, exports={'env':x86_env})
