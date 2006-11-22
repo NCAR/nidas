@@ -1,5 +1,5 @@
 # -*- python -*-
-##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 import os
 
@@ -14,29 +14,12 @@ env = Environment(platform = 'posix', ENV = {'PATH' : os.environ['PATH']})
 ##
 opts = Options('nidas.conf')
 opts.AddOptions(
-    PathOption('PREFIX',
-               'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/share',
-               '/opt/nidas'))
-
-# Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
-# prefixes will just be redundant if not specified.
-# 
-opts.Update(env)
-opts.AddOptions(
-    PathOption('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:',
-               '$PREFIX'),
-    PathOption('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:',
-               '$PREFIX')
+    PathOption('PREFIX', 'installation path: $PREFIX/x86, $PREFIX/arm', '/opt/nidas'),
+    PathOption('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:', '/opt/nidas/x86'),
+    PathOption('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:', '/opt/nidas/arm'),
     )
-opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install.',
-         'x86 arm')
-opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
-opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Update(env)
 opts.Save('nidas.conf',env)
-
-env['ARCHITECTURES'] = Split(env['BUILDS'])
 
 Help(opts.GenerateHelpText(env) + """
 targets
@@ -65,50 +48,174 @@ env.SourceCode('.', None)
 SConsignFile()
 
 ##
-##  Define compiler flags and paths for all builds.
-##
-env['CCFLAGS'] = Split("""-Wall -O2""")
-env['CXXFLAGS'] = Split("""-Wall -O2""")
-env['CPPPATH'] = Split("#")
+##  Define it's compiler flags for the all build tools.
+##-O2 <-> -g
+env['CCFLAGS'] = Split("""
+    -Wall -O2
+""")
+
+env['CXXFLAGS'] = Split("""
+    -Wall -O2
+""")
 
 ##
-##  Create the env for cross-building to the xScale ARM processor...
+##  Define it's C/C++ include paths for all builds.
 ##
-if 'arm' in env['ARCHITECTURES']:
-    print "Setting up for ARM builds..."
-    arm_env = env.Copy(tools = ['armcross'], toolpath=['sconstools'],
-                       ARCH = 'arm',
-                       PREFIX = env['PREFIX'] + '/arm',
-                       OTHER_PREFIX = env['OTHER_ARM'])
-    arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
-    SConscript('nidas/SConscript',
-               build_dir='build_arm',
-               duplicate=0, exports={'env':arm_env})
-    arm_env.Alias('arm_install', ['$PREFIX/rtlinux','$PREFIX/linux'])
-    Alias('install','arm_install')
+env['CPPPATH'] = Split("""
+   #
+   $PREFIX/include
+""")
 
 ##
-##  Create the env for building to the x86 processor...
+##  Adjust the env for cross-building to the xScale ARM processor...
 ##
-if 'x86' in env['ARCHITECTURES']:
-    print "Setting up for x86 builds..."
-    x86_env = env.Copy(ARCH = 'x86',
-                       PREFIX = env['PREFIX'] + '/x86',
-                       OTHER_PREFIX = env['OTHER_X86'])
-    x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
-    x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
-    x86_env.AppendUnique(RPATH = [x86_env.subst('$PREFIX/lib')] )
-    x86_env.AppendUnique(RPATH = [x86_env.subst('$OTHER_PREFIX/lib')] )
-    SConscript('nidas/SConscript',
-               build_dir='build_x86',
-               duplicate=0, exports={'env':x86_env})
-    Alias('install','x86_install')
+arm_env = env.Copy()
+
+##
+## Append arm to PREFIX
+##
+armprefix = arm_env['PREFIX'] + '/arm'
+arm_env.Replace(PREFIX = armprefix)
+arm_env.Replace(ARCH = 'arm')
+arm_env.Append(CXXFLAGS = '-D NIDAS_EMBEDDED')
+
+# arm_env.AppendUnique(CCFLAGS=Split("""
+#   -mcpu=xscale
+# """))
 
 
-Default(env['ARCHITECTURES'])
+arm_env.AppendUnique(CPPPATH =
+    Split("""
+        $OTHER_ARM/include
+    """)
+)
 
-# Install the schema where it can be referenced globally on the system.
-Alias('install',
-      Alias('xml_install',
-            env.Install('$PREFIX/share/xml','#../xml/nidas.xsd')))
+arm_env.AppendUnique(LIBPATH =
+    Split("""
+	#build_arm/build_core
+	$PREFIX/lib
+	$OTHER_ARM/lib
+    """)
+)
 
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
+##
+arm_env.AppendUnique(RPATH = 
+    Split("""
+    """)
+)
+
+arm_env.Replace(AR	= 'arm-linux-ar')
+arm_env.Replace(AS	= 'arm-linux-as')
+arm_env.Replace(CC	= 'arm-linux-gcc')
+arm_env.Replace(CXX	= 'arm-linux-g++')
+arm_env.Replace(LINK	= 'arm-linux-g++')
+arm_env.Replace(RANLIB	= 'arm-linux-ranlib')
+arm_env.Replace(LEX	= 'arm-linux-flex')
+
+
+##
+##  Adjust the env for building to the x86 processor...
+##
+x86_env = env.Copy()
+
+##
+## Append x86 to PREFIX
+##
+x86prefix = x86_env['PREFIX'] + '/x86'
+x86_env.Replace(PREFIX = x86prefix)
+x86_env.Replace(ARCH = 'x86')
+
+##
+##  Define it's compiler flags for the all build tools.
+##-O2 <-> -g
+x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
+x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
+
+x86_env.AppendUnique(CPPPATH =
+    Split("""
+	$OTHER_X86/include
+    """)
+)
+
+x86_env.AppendUnique(LIBPATH =
+    Split("""
+	#build_x86/build_core
+	$PREFIX/lib
+	$OTHER_X86/lib
+    """)
+)
+
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later
+##
+x86_env.AppendUnique(RPATH = [
+    x86_env.Dir("#build_x86/build_core").get_abspath(),
+    '$PREFIX/lib',
+    '$OTHER_X86/lib'
+    ]) 
+
+##
+##
+##  Build nidas library and applications for arm
+##
+SConscript('nidas/SConscript',
+ 	build_dir='build_arm',
+	duplicate=0,exports={'env':arm_env})
+
+##
+##  Build nidas library and applications for x86
+##
+SConscript('nidas/SConscript',
+ 	build_dir='build_x86',
+	duplicate=0,exports={'env':x86_env})
+##
+##  target for creating arm modules, library and executables
+##
+Alias('arm', ['build_arm/build_core', 'build_arm/build_dynld',
+	'build_arm/build_apps', 'build_arm/build_rtl', 'build_arm/build_linux' ])
+##
+##  target for creating x86 library and executables
+##
+Alias('x86', ['build_x86/build_core', 'build_x86/build_dynld',
+	'build_x86/build_apps', 'build_x86/build_rtl', 'build_x86/build_linux'])
+##
+##  target for creating arm and x86 libraries
+##
+Alias('lib', ['build_x86/build_core','build_x86/build_dynld',
+	      'build_arm/build_core','build_arm/build_dynld'
+	])
+##
+##  target for installing arm modules, library and executables
+##
+arm_env.Alias('arm_install', [
+	'$PREFIX/include/nidas/util',
+	'$PREFIX/include/nidas/core',
+	'$PREFIX/include/nidas/dynld',
+	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/include/nidas/linux',
+	'$PREFIX/lib',
+	'$PREFIX/bin',
+	'$PREFIX/rtlinux',
+	'$PREFIX/linux'
+    ]
+)
+
+##
+##  target for installing x86 library and executables
+##
+x86_env.Alias('x86_install', [
+	'$PREFIX/include/nidas/util',
+	'$PREFIX/include/nidas/core',
+	'$PREFIX/include/nidas/dynld',
+	'$PREFIX/include/nidas/rtlinux',
+	'$PREFIX/include/nidas/linux',
+	'$PREFIX/lib',
+	'$PREFIX/bin'
+    ]
+)
+
+Alias('install', ['arm_install','x86_install'])
+
+Default([ 'arm', 'x86' ])
