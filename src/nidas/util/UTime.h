@@ -114,11 +114,11 @@ public:
     void set(const std::string& string,bool utc=false) 
     	throw(ParseException);
 
-    static UTime parse(bool utc,const std::string& string)
+    static UTime parse(bool utc,const std::string& string,int* nparsed=0)
     	throw(ParseException);
 
     static UTime parse(bool utc,const std::string& string,
-    	const std::string& format) throw(ParseException);
+    	const std::string& format,int* nparsed=0) throw(ParseException);
 
     std::string format(bool utc,const std::string& fmt) const;
 

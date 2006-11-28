@@ -20,6 +20,8 @@
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/SampleClientList.h>
 
+#include <set>
+
 namespace nidas { namespace core {
 
 /**

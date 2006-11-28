@@ -153,7 +153,6 @@ int DSMServer::main(int argc, char** argv) throw()
         killXmlRpcThread();
 
         // Project gets deleted here, which includes serverInstance.
-
     }
 
 #ifdef DEBUG

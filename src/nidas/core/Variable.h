@@ -188,7 +188,7 @@ public:
     	converter = val;
     }
 
-    const VariableConverter* getConverter() const { return converter; }
+    VariableConverter* getConverter() const { return converter; }
 
     /**
      * Add a parameter to this Variable. Variable
@@ -204,6 +204,16 @@ public:
     const std::list<const Parameter*>& getParameters() const
     {
         return constParameters;
+    }
+
+    void setMissingValue(float val)
+    {
+        missingValue = val;
+    }
+
+    float getMissingValue() const
+    {
+        return missingValue;
     }
 
     void fromDOMElement(const xercesc::DOMElement*)
@@ -253,6 +263,8 @@ private:
      * getParameters().
      */
     std::list<const Parameter*> constParameters;
+
+    float missingValue;
 
 };
 

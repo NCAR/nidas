@@ -30,9 +30,8 @@ CSAT3_Sonic::CSAT3_Sonic():
 	dirIndex(-1),
 	spikeIndex(-1),
 	windSampleId(0),
-	kh2oSampleId(0),
 	nttsave(-2),
-	counter(0),kh2oOut(-1)
+	counter(0)
 {
 }
 
@@ -45,7 +44,7 @@ void CSAT3_Sonic::addSampleTag(SampleTag* stag)
 {
     if (getSampleTags().size() > 1)
         throw n_u::InvalidParameterException(getName() +
-		" can only create two samples (wind and kh2o)");
+		" can only create two samples (wind and extra)");
 
     /*
      * nvars
@@ -53,46 +52,45 @@ void CSAT3_Sonic::addSampleTag(SampleTag* stag)
      * 7	u,v,w,tc,diag,spd,dir
      * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
      * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
-     * 2	kh2oV,kh2o
      */
-    size_t nvars = stag->getVariables().size();
-    switch(nvars) {
-    case 5:
-    case 9:
-	windSampleId = stag->getId();
-	windNumOut = nvars;
-	if (nvars == 9) spikeIndex = 5;
-	break;
-    case 11:
-    case 7:
-	windSampleId = stag->getId();
-	windNumOut = nvars;
-	if (nvars == 11) spikeIndex = 7;
-	{
-	    VariableIterator vi = stag->getVariableIterator();
-	    for (int i = 0; vi.hasNext(); i++) {
-		const Variable* var = vi.next();
-		const string& vname = var->getName();
-		if (vname.length() > 2 && vname.substr(0,3) == "spd")
-		    spdIndex = i;
-		else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-		    dirIndex = i;
-	    }
-	}
-	if (spdIndex < 0 || dirIndex < 0)
-	    throw n_u::InvalidParameterException(getName() +
-	      " CSAT3 cannot find speed or direction variables");
-	break;
-    case 2:
-	kh2oSampleId = stag->getId();
-	kh2oNumOut = nvars;
-	totalInLen = 14;	// additional 16-bit a2d value for kh2o voltage
-	break;
-    default:
-        throw n_u::InvalidParameterException(getName() +
-      " unsupported number of variables. Must be: u,v,w,tc,diag,[4xflags][kh2o,kh2oV]");
+    if (stag->getSampleId() == 1) {
+        size_t nvars = stag->getVariables().size();
+        switch(nvars) {
+        case 5:
+        case 9:
+            windSampleId = stag->getId();
+            windNumOut = nvars;
+            if (nvars == 9) spikeIndex = 5;
+            break;
+        case 11:
+        case 7:
+            windSampleId = stag->getId();
+            windNumOut = nvars;
+            if (nvars == 11) spikeIndex = 7;
+            {
+                VariableIterator vi = stag->getVariableIterator();
+                for (int i = 0; vi.hasNext(); i++) {
+                    const Variable* var = vi.next();
+                    const string& vname = var->getName();
+                    if (vname.length() > 2 && vname.substr(0,3) == "spd")
+                        spdIndex = i;
+                    else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+                        dirIndex = i;
+                }
+            }
+            if (spdIndex < 0 || dirIndex < 0)
+                throw n_u::InvalidParameterException(getName() +
+                  " CSAT3 cannot find speed or direction variables");
+            break;
+        default:
+            throw n_u::InvalidParameterException(getName() +
+          " unsupported number of variables. Must be: u,v,w,tc,diag,[spd,dir][4xflags]]");
+        }
     }
-
+    else {
+	extraSampleTags.push_back(stag);
+	totalInLen += 2;	// 2 bytes for each additional input
+    }
     SonicAnemometer::addSampleTag(stag);
 
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -196,29 +194,29 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	results.push_back(wsamp);
     }
 
-    if (kh2oSampleId > 0 && inlen >= windInLen + 2) {
-	SampleT<float>* hsamp = getSample<float>(kh2oNumOut);
-	hsamp->setTimeTag(samp->getTimeTag());
-	hsamp->setId(kh2oSampleId);
+    for (unsigned int i = 0; i < extraSampleTags.size(); i++) {
+        if (inlen >= windInLen + (i+1) * 2) {
+            SampleTag* stag = extraSampleTags[i];
+            const vector<const Variable*>& vars = stag->getVariables();
+            size_t nvars = vars.size();
+            SampleT<float>* hsamp = getSample<float>(nvars);
+            hsamp->setTimeTag(samp->getTimeTag());
+            hsamp->setId(stag->getId());
 
-	unsigned short counts = ((const unsigned short*) win)[5];
-	float volts;
-	float kh2o;
-	if (counts < 65500) {
-	    volts = counts * 0.0001;
-	    /* low krypton voltages are usually bad --
-	     * remove all less than 10mV */
-	    if (volts < 0.01) kh2o = floatNAN;
-	    else kh2o = krypton.convert(volts);
-	}
-	else {
-	    volts = floatNAN;
-	    kh2o = floatNAN;
-	}
+            unsigned short counts = ((const unsigned short*) win)[i+5];
+            float volts;
+            if (counts < 65500) volts = counts * 0.0001;
+            else volts = floatNAN;
 
-	hsamp->getDataPtr()[0] = volts;
-	hsamp->getDataPtr()[1] = kh2o;
-	results.push_back(hsamp);
+            for (unsigned int j = 0; j < nvars; j++) {
+                const Variable* var = vars[j];
+                VariableConverter* conv = var->getConverter();
+                if (!conv) hsamp->getDataPtr()[j] = volts;
+                else hsamp->getDataPtr()[j] =
+                    conv->convert(hsamp->getTimeTag(),volts);
+            }
+            results.push_back(hsamp);
+        }
     }
     return true;
 }
@@ -226,28 +224,5 @@ bool CSAT3_Sonic::process(const Sample* samp,
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-
     DSMSerialSensor::fromDOMElement(node);
-
-    static struct ParamSet {
-        const char* name;	// parameter name
-        void (CSAT3_Sonic::* setFunc)(float);
-        			// ptr to setXXX member function
-				// for setting parameter.
-    } paramSet[] = {
-	{ "kryptonKw",		&CSAT3_Sonic::setKryptonKw },
-	{ "kryptonV0",		&CSAT3_Sonic::setKryptonV0 },
-	{ "kryptonPathLength",	&CSAT3_Sonic::setKryptonPathLength },
-	{ "kryptonBias",	&CSAT3_Sonic::setKryptonBias },
-    };
-
-    for (unsigned int i = 0; i < sizeof(paramSet) / sizeof(paramSet[0]); i++) {
-	const Parameter* param = getParameter(paramSet[i].name);
-	if (!param) continue;
-	if (param->getLength() != 1) 
-	    throw n_u::InvalidParameterException(getName(),
-		"parameter", string("bad length for ") + paramSet[i].name);
-	// invoke setXXX member function
-	(this->*paramSet[i].setFunc)(param->getNumericValue(0));
-    }
 }

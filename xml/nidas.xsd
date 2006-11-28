@@ -86,10 +86,18 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
+<xsd:complexType name="calfile">
+    <xsd:attribute name="path" type="xsd:normalizedString"/>
+    <xsd:attribute name="file" type="xsd:normalizedString"/>
+</xsd:complexType>
+
 <xsd:complexType name="linear">
+    <xsd:choice minOccurs="0" maxOccurs="1">
+        <xsd:element name="calfile" type="calfile"/>
+    </xsd:choice>
     <xsd:attribute name="slope" type="xsd:float"/>
     <xsd:attribute name="intercept" type="xsd:float"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:simpleType name="floatList">
@@ -97,8 +105,20 @@
 </xsd:simpleType>
 
 <xsd:complexType name="poly">
+    <xsd:choice minOccurs="0" maxOccurs="1">
+        <xsd:element name="calfile" type="calfile"/>
+    </xsd:choice>
     <xsd:attribute name="coefs" type="floatList"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
+</xsd:complexType>
+
+<xsd:complexType name="converter">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+        <xsd:element name="calfile" type="calfile" maxOccurs="1"/>
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="class" type="xsd:normalizedString"/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:simpleType name="parameterType">
@@ -122,6 +142,7 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
         <xsd:element name="poly" type="poly"/>
         <xsd:element name="linear" type="linear"/>
+        <xsd:element name="converter" type="converter"/>
 	<xsd:element name="parameter" type="parameter"/>
     </xsd:choice>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
@@ -129,6 +150,7 @@
     <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
     <xsd:attribute name="count" type="xsd:boolean" default="0"/>
     <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
+    <xsd:attribute name="missingValue" type="xsd:float"/>
 </xsd:complexType>
 
 <xsd:complexType name="variables">
@@ -183,6 +205,7 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="sample" type="sample"/>
 	<xsd:element name="parameter" type="parameter"/>
+        <xsd:element name="calfile" type="calfile" maxOccurs="1"/>
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
@@ -405,6 +428,7 @@
 	<xsd:attribute name="xmitInterval" type="xsd:positiveInteger"/>
 	<xsd:attribute name="xmitOffset" type="xsd:nonNegativeInteger"/>
 	<xsd:attribute name="statusFile" type="xsd:token"/>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
    </xsd:complexType>
 </xsd:element>
 

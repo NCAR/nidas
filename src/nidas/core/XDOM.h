@@ -56,7 +56,9 @@ public:
     }
     const std::string& getNodeName() const { return nodename; }
 
-protected:
+    const xercesc::DOMElement* getElement() const { return elem; }
+
+private:
     const xercesc::DOMElement* elem;
     std::map<std::string,std::string> attrs;
     std::string nodename;

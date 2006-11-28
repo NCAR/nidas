@@ -16,11 +16,15 @@
 #define NIDAS_CORE_VARIABLECONVERTER_H
 
 #include <nidas/core/DOMable.h>
+#include <nidas/core/Sample.h>
+#include <nidas/core/Parameter.h>
 
 #include <string>
 #include <vector>
 
 namespace nidas { namespace core {
+
+class CalFile;
 
 class VariableConverter: public DOMable
 {
@@ -30,7 +34,9 @@ public:
 
     virtual VariableConverter* clone() const = 0;
 
-    virtual float convert(float) const = 0;
+    virtual void setCalFile(CalFile*) = 0;
+
+    virtual float convert(dsm_time_t,float v) = 0;
 
     void setUnits(const std::string& val) { units = val; }
     virtual const std::string& getUnits() const { return units; }
@@ -41,10 +47,32 @@ public:
     	throw(nidas::util::InvalidParameterException) = 0;
 
     static VariableConverter* createVariableConverter(
-    	const std::string& elname);
+    	XDOMElement& child);
 
     static VariableConverter* createFromString(const std::string&)
     	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Add a parameter to this VariableConverter. VariableConverter
+     * will then own the pointer and will delete it
+     * in its destructor. If a Parameter exists with the
+     * same name, it will be replaced with the new Parameter.
+     */
+    void addParameter(Parameter* val);
+
+    /**
+     * Get list of parameters.
+     */
+    const std::list<const Parameter*>& getParameters() const
+    {
+	return constParameters;
+    }
+
+    /**
+     * Fetch a parameter by name. Returns a NULL pointer if
+     * no such parameter exists.
+     */
+    const Parameter* getParameter(const std::string& name) const;
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
@@ -62,13 +90,32 @@ protected:
 
     std::string units;
 
+    /**
+     * Map of parameters by name.
+     */
+    std::map<std::string,Parameter*> parameters;
+
+    /**
+     * List of const pointers to Parameters for providing via
+     * getParameters().
+     */
+    std::list<const Parameter*> constParameters;
+
 };
 
 class Linear: public VariableConverter
 {
 public:
 
-    Linear* clone() const { return new Linear(*this); }
+    Linear();
+
+    Linear(const Linear& x);
+
+    Linear* clone() const;
+
+    ~Linear();
+
+    void setCalFile(CalFile*);
 
     void setSlope(float val) { slope = val; }
 
@@ -78,7 +125,7 @@ public:
 
     float getIntercept() const { return intercept; }
 
-    float convert(float val) const { return val * slope + intercept; }
+    float convert(dsm_time_t t,float val);
 
     std::string toString() const;
 
@@ -90,38 +137,38 @@ public:
 
 private:
     float slope;
+
     float intercept;
+
+    CalFile* calFile;
+
+    dsm_time_t calTime;
+
+
 };
 
 class Polynomial: public VariableConverter
 {
 public:
 
-    Polynomial() : coefs(0) {}
+    Polynomial();
 
     /**
      * Copy constructor.
      */
     Polynomial(const Polynomial&);
 
-    ~Polynomial() { delete [] coefs; }
+    ~Polynomial();
 
-    Polynomial* clone() const { return new Polynomial(*this); }
+    Polynomial* clone() const;
+
+    void setCalFile(CalFile*);
 
     void setCoefficients(const std::vector<float>& vals);
 
     const std::vector<float>& getCoefficients() const { return coefvec; }
 
-    inline float convert(float val) const
-    {
-	double result = 0.0;
-	for (int i = ncoefs - 1; i > 0; i--) {
-	    result += coefs[i];
-	    result *= val;
-	}
-	result += coefs[0];
-	return result;
-    }
+    float convert(dsm_time_t t,float val);
 
     std::string toString() const;
 
@@ -137,6 +184,10 @@ private:
     float* coefs;
 
     unsigned int ncoefs;
+
+    CalFile* calFile;
+
+    dsm_time_t calTime;
 
 };
 

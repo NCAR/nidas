@@ -203,11 +203,12 @@ struct tm* UTime::toTm(bool utc,struct tm* tmp,int *usecs) const
 }
 
 /* static */
-UTime UTime::parse(bool utc,const string& str) throw(ParseException)
+UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
 {
     char cmon[32];
     int year,mon,day,yday,hour,min;
     double dsec = 0.;
+    int nchar = 0;
 
     year = 70;
     yday = -1;
@@ -218,20 +219,20 @@ UTime UTime::parse(bool utc,const string& str) throw(ParseException)
 
     // 97 Feb 1 11:22:33.4
     else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %d:%d:%lf",
-	&year,cmon,&day,&hour,&min,&dsec) == 6) {
+    	"%d %31[A-Za-z] %d %d:%d:%lf%n",
+	&year,cmon,&day,&hour,&min,&dsec,&nchar) >= 6) {
 	mon = month(cmon);
     }
 
     // 97 Feb 1 11:22
     else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %d:%d",&year,cmon,&day,&hour,&min) == 5) {
+    	"%d %31[A-Za-z] %d %d:%d%n",&year,cmon,&day,&hour,&min,&nchar) >= 5) {
 	mon = month(cmon);
     }
 
     // 97 Feb 1 112233.4
     else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %lf",&year,cmon,&day,&dsec) == 4) {
+    	"%d %31[A-Za-z] %d %lf%n",&year,cmon,&day,&dsec,&nchar) >= 4) {
 	mon = month(cmon);
 	hour = (int) dsec / 10000;
 	dsec -= hour * 10000;
@@ -241,21 +242,21 @@ UTime UTime::parse(bool utc,const string& str) throw(ParseException)
 
     // 97 Feb 1
     else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d",&year,cmon,&day) == 3) {
+    	"%d %31[A-Za-z] %d%n",&year,cmon,&day,&nchar) >= 3) {
 	mon = month(cmon);
     }
 
     // 97 2 1 11:22:33.4
-    else if (sscanf(str.c_str(),"%d %d %d %d:%d:%lf",
-    	&year,&mon,&day,&hour,&min,&dsec) == 6);
+    else if (sscanf(str.c_str(),"%d %d %d %d:%d:%lf%n",
+    	&year,&mon,&day,&hour,&min,&dsec,&nchar) >= 6);
 
     // 97 2 1 11:22
-    else if (sscanf(str.c_str(),"%d %d %d %d:%d",
-    	&year,&mon,&day,&hour,&min) == 5);
+    else if (sscanf(str.c_str(),"%d %d %d %d:%d%n",
+    	&year,&mon,&day,&hour,&min,&nchar) >= 5);
 
     // 97 2 1 112233.4
     else if (sscanf(str.c_str(),
-    	"%d %d %d %lf",&year,&mon,&day,&dsec) == 4) {
+    	"%d %d %d %lf%n",&year,&mon,&day,&dsec,&nchar) >= 4) {
 	hour = (int) dsec / 10000;
 	dsec -= hour * 10000;
 	min = (int) dsec / 100;
@@ -264,31 +265,33 @@ UTime UTime::parse(bool utc,const string& str) throw(ParseException)
 
     // 97 32 11:22:33.4
     else if (sscanf(str.c_str(),
-    	"%d %d %d:%d:%lf",&year,&yday,&hour,&min,&dsec) == 5) {
+    	"%d %d %d:%d:%lf%n",&year,&yday,&hour,&min,&dsec,&nchar) >= 5) {
 	mon = day = 1;
     }
 
     // 97 32 11:22
     else if (sscanf(str.c_str(),
-    	"%d %d %d:%d:",&year,&yday,&hour,&min) == 4) {
+    	"%d %d %d:%d%n",&year,&yday,&hour,&min,&nchar) >= 4) {
 	mon = day = 1;
     }
 
     // 97 2 1
     else if (sscanf(str.c_str(),
-    	"%d %d %d",&year,&mon,&day) == 3) {
+    	"%d %d %d%n",&year,&mon,&day,&nchar) >= 3) {
 	yday = 1;
     }
 
     // 97 32 
     else if (sscanf(str.c_str(),
-    	"%d %d",&year,&yday) == 2) {
+    	"%d %d%n",&year,&yday,&nchar) >= 2) {
       mon = day = 1;
     }
-    else if (sscanf(str.c_str(),"%lf",&dsec)) {
+    else if (sscanf(str.c_str(),"%lf%n",&dsec,&nchar)) {
 	return UTime((long long)trunc(dsec) * USECS_PER_SEC +
 	    (long long)rint(fmod(dsec,1.0) * USECS_PER_SEC));
     }
+
+    if (ncharp) *ncharp = nchar;
 
     if (yday > 0)
 	return UTime(utc,year,yday,hour,min,dsec);
@@ -302,7 +305,7 @@ void UTime::set(const string& str,bool utc) throw(ParseException)
 }
 
 /* static */
-UTime UTime::parse(bool utc,const string& str, const string& fmt)
+UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 	throw(ParseException)
 {
     struct tm tm;
@@ -320,6 +323,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt)
 
     string newfmt;
     long usecs = 0;
+    int ncharParsed = 0;
 
     for (i0 = 0;  (i1 = fmt.find('%',i0)) != string::npos; i0 = i1 ) {
 
@@ -344,12 +348,14 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt)
 	    }
 	    cp2 = strptime(cptr,newfmt.c_str(),&tm);
 	    if (!cp2) throw ParseException(str,fmt);
+            ncharParsed += cp2 - cptr;
 	    cptr = cp2;
 	    int nchar = 0;
 	    if (sscanf(cptr,sfmt.c_str(),&usecs,&nchar) < 1)
 		throw ParseException(str,fmt);
 	    for (int i = nchar; i < 6; i++) usecs *= 10;
 	    cptr += nchar;
+            ncharParsed += nchar;
 	    newfmt.clear();
 	}
     }
@@ -358,16 +364,20 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt)
     if (newfmt.length() > 0) {
     	cp2 = strptime(cptr,newfmt.c_str(),&tm);
 	if (!cp2) throw ParseException(str,fmt);
+        ncharParsed += cp2 - cptr;
     }
 
     // cerr << "tm.tm_mday=" << tm.tm_mday << " usecs=" << usecs << endl;
+
+    if (ncharp) *ncharp = ncharParsed;
 
     return UTime(utc,&tm) + (long long)usecs;
 
 }
 
 
-string UTime::format(bool utc) const {
+string UTime::format(bool utc) const
+{
     return format(utc,getFormat());
 }
 
@@ -529,7 +539,8 @@ UTime_stream_manip2 UTsetTZ(const char *TZ)
     return UTime_stream_manip2(&UTime::setTZ,TZ);
 }
 
-ostream& operator<<(ostream& s, const UTime &x) {
+ostream& nidas::util::operator<<(ostream& s, const UTime &x)
+{
     return s << x.format(false);
 }
 

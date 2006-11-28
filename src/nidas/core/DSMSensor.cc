@@ -22,6 +22,7 @@
 
 #include <nidas/core/dsm_sample.h>
 #include <nidas/core/SamplePool.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>
 
 #include <cmath>
@@ -43,7 +44,8 @@ DSMSensor::DSMSensor() :
     height(floatNAN),
     scanner(0),dsm(0),id(0),
     rawSampleTag(0),
-    latency(0.1)	// default sensor latency, 0.1 secs
+    latency(0.1),	// default sensor latency, 0.1 secs
+    calFile(0)
 {
 }
 
@@ -61,6 +63,8 @@ DSMSensor::~DSMSensor()
     map<std::string,Parameter*>::const_iterator pi;
     for (pi = parameters.begin(); pi != parameters.end(); ++pi)
 	delete pi->second;
+
+    delete calFile;
 }
 
 
@@ -501,6 +505,11 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    Parameter* parameter =
 	    Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
+	}
+	else if (elname == "calfile") {
+	    CalFile* cf = new CalFile();
+            cf->fromDOMElement((xercesc::DOMElement*)child);
+	    setCalFile(cf);
 	}
     }
 

@@ -13,17 +13,78 @@
 */
 
 #include <nidas/core/VariableConverter.h>
+#include <nidas/core/CalFile.h>
+#include <nidas/util/Logger.h>
 
 #include <iomanip>
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
+// using namespace xercesc;
 
 namespace n_u = nidas::util;
 
 #include <sstream>
 #include <iostream>
+
+/*
+ * Add a parameter to my map, and list.
+ */
+void VariableConverter::addParameter(Parameter* val)
+{
+    map<string,Parameter*>::iterator pi = parameters.find(val->getName());
+    if (pi == parameters.end()) {
+        parameters[val->getName()] = val;
+	constParameters.push_back(val);
+    }
+    else {
+	// parameter with name exists. If the pointers aren't equal
+	// delete the old parameter.
+	Parameter* p = pi->second;
+	if (p != val) {
+	    // remove it from constParameters list
+	    list<const Parameter*>::iterator cpi = constParameters.begin();
+	    for ( ; cpi != constParameters.end(); ) {
+		if (*cpi == p) cpi = constParameters.erase(cpi);
+		else ++cpi;
+	    }
+	    delete p;
+	    pi->second = val;
+	    constParameters.push_back(val);
+	}
+    }
+}
+
+const Parameter* VariableConverter::getParameter(const std::string& name) const
+{
+    map<string,Parameter*>::const_iterator pi = parameters.find(name);
+    if (pi == parameters.end()) return 0;
+    return pi->second;
+}
+
+Linear::Linear(): calFile(0),calTime(0)
+{
+}
+
+Linear::Linear(const Linear& x):calFile(0),calTime(0)
+{
+    if (x.calFile) calFile = new CalFile(*x.calFile);
+}
+
+Linear* Linear::clone() const
+{
+    return new Linear(*this);
+}
+
+Linear::~Linear()
+{
+    delete calFile;
+}
+
+void Linear::setCalFile(CalFile* val)
+{
+    calFile = val;
+}
 
 std::string Linear::toString() const
 {
@@ -34,16 +95,35 @@ std::string Linear::toString() const
     return ost.str();
 }
 
+Polynomial::Polynomial() : coefs(0),calFile(0),calTime(0)
+{
+}
+
 /*
  * Copy constructor.
  */
 Polynomial::Polynomial(const Polynomial& x):
 	VariableConverter(x),
-	coefvec(),coefs(0),ncoefs(0)
+	coefvec(),coefs(0),ncoefs(0),calFile(0)
 {
     setCoefficients(x.getCoefficients());
+    if (x.calFile) calFile = new CalFile(*x.calFile);
 }
 
+Polynomial* Polynomial::clone() const
+{
+    return new Polynomial(*this);
+}
+
+Polynomial::~Polynomial()
+{
+    delete [] coefs; delete calFile;
+}
+
+void Polynomial::setCalFile(CalFile* val)
+{
+    calFile = val;
+}
 
 std::string Polynomial::toString() const
 {
@@ -153,36 +233,77 @@ void Polynomial::fromString(const std::string& str)
 }
 
 VariableConverter* VariableConverter::createVariableConverter(
-	const std::string& elname)
+	XDOMElement& xchild)
 {
-    if (!elname.compare("linear")) return new Linear();
-    else if (!elname.compare("poly")) return new Polynomial();
+    const string& elname = xchild.getNodeName();
+    if (elname == "linear") return new Linear();
+    else if (elname == "poly") return new Polynomial();
+    else if (elname == "converter") {
+        const string& classattr = xchild.getAttributeValue("class");
+        DOMable* domable = 0;
+        try {
+            domable = DOMObjectFactory::createObject(classattr);
+        }
+        catch (const n_u::Exception& e) {
+            throw n_u::InvalidParameterException(xchild.getNodeName(),
+                classattr,e.what());
+        }
+        VariableConverter* converter =
+            dynamic_cast<VariableConverter*>(domable);
+        if (!converter) {
+            throw n_u::InvalidParameterException(
+                elname + ": " + classattr + " is not a VariableConverter");
+            delete domable;
+        }
+        return converter;
+    }
     return 0;
 }
 
-void VariableConverter::fromDOMElement(const DOMElement* node)
+void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    if (!attr.getName().compare("units"))
 		setUnits(attr.getValue());
 	}
     }
+    xercesc::DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+	    child=child->getNextSibling())
+    {
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
+	const string& elname = xchild.getNodeName();
+
+	if (elname == "calfile") {
+	    CalFile* calf = new CalFile();
+	    calf->fromDOMElement((xercesc::DOMElement*)child);
+	    setCalFile(calf);
+	}
+	else if (elname == "parameter") {
+	    Parameter* parameter =
+	    Parameter::createParameter((xercesc::DOMElement*)child);
+	    addParameter(parameter);
+	}
+	else throw n_u::InvalidParameterException(xnode.getNodeName(),
+		"unknown child element",elname);
+    }
 }
 
-DOMElement* VariableConverter::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
+xercesc::DOMElement* VariableConverter::toDOMParent(
+    xercesc::DOMElement* parent)
+    throw(xercesc::DOMException)
 {
-    DOMElement* elem =
+    xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -190,13 +311,13 @@ DOMElement* VariableConverter::toDOMParent(
     return toDOMElement(elem);
 }
 
-DOMElement* VariableConverter::toDOMElement(DOMElement* node)
-    throw(DOMException)
+xercesc::DOMElement* VariableConverter::toDOMElement(xercesc::DOMElement* node)
+    throw(xercesc::DOMException)
 {
     return node;
 }
 
-void Linear::fromDOMElement(const DOMElement* node)
+void Linear::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
 
@@ -206,10 +327,10 @@ void Linear::fromDOMElement(const DOMElement* node)
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
@@ -239,7 +360,7 @@ void Polynomial::setCoefficients(const vector<float>& vals)
     for (unsigned int i = 0; i < vals.size(); i++) coefs[i] = vals[i];
 }
 
-void Polynomial::fromDOMElement(const DOMElement* node)
+void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     // do base class fromDOMElement
@@ -248,10 +369,10 @@ void Polynomial::fromDOMElement(const DOMElement* node)
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
@@ -272,5 +393,84 @@ void Polynomial::fromDOMElement(const DOMElement* node)
 	    }
 	}
     }
+}
+
+
+float Linear::convert(dsm_time_t t,float val)
+{
+    if (calFile) {
+        while(t >= calTime) {
+            float d[2];
+            try {
+                int n = calFile->readData(d,sizeof d/sizeof(d[0]));
+                if (n == 2) {
+                    setIntercept(d[0]);
+                    setSlope(d[1]);
+                }
+                calTime = calFile->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e)
+            {
+                calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    calFile->getName().c_str(),e.what());
+                setIntercept(floatNAN);
+                setSlope(floatNAN);
+                calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    calFile->getName().c_str(),e.what());
+                setIntercept(floatNAN);
+                setSlope(floatNAN);
+                calTime = LONG_LONG_MAX;
+            }
+        }
+    }
+    return val * slope + intercept;
+}
+
+float Polynomial::convert(dsm_time_t t,float val)
+{
+    if (calFile && t > calTime) {
+        auto_ptr<float> d(new float[ncoefs]);
+        size_t n = 0;
+        while(t >= calTime) {
+            try {
+                n = calFile->readData(d.get(),ncoefs);
+                calTime = calFile->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e) {}
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    calFile->getName().c_str(),e.what());
+                for (unsigned int i = 0; i < ncoefs; i++) d.get()[i] = floatNAN;
+                calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    calFile->getName().c_str(),e.what());
+                for (unsigned int i = 0; i < ncoefs; i++) d.get()[i] = floatNAN;
+                calTime = LONG_LONG_MAX;
+            }
+        }
+        if (n == ncoefs) {
+            vector<float> vals(d.get(),d.get()+ncoefs);
+            setCoefficients(vals);
+        }
+    }
+    double result = 0.0;
+    for (int i = ncoefs - 1; i > 0; i--) {
+        result += coefs[i];
+        result *= val;
+    }
+    result += coefs[0];
+    return result;
 }
 

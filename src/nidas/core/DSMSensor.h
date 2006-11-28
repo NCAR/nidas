@@ -623,6 +623,21 @@ protected:
 
     void setFullSuffix(const std::string& val) { fullSuffix = val; }
 
+    /**
+     * Set the calibration file for this DSMSensor. After this
+     * method is finished, DSMSensor will own the pointer, and
+     * will delete it in the DSMSensor destructor.
+     */
+    void setCalFile(CalFile* val)
+    {
+        calFile = val;
+    }
+
+    CalFile* getCalFile()
+    {
+        return calFile;
+    }
+
 private:
 
     std::string devname;
@@ -704,6 +719,8 @@ private:
      * getParameters().
      */
     std::list<const Parameter*> constParameters;
+
+    CalFile* calFile;
 
 private:
     // no copying

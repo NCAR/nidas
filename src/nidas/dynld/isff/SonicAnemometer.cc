@@ -13,6 +13,8 @@
 
 #include <nidas/dynld/isff/SonicAnemometer.h>
 #include <nidas/core/PhysConstants.h>
+#include <nidas/core/CalFile.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 
@@ -22,7 +24,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SonicAnemometer::SonicAnemometer(): counter(-1),despike(false)
+SonicAnemometer::SonicAnemometer(): counter(-1),despike(false),calTime(0)
 {
     for (int i = 0; i < 3; i++) {
 	bias[i] = 0.0;
@@ -84,6 +86,46 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
 	if (despike) memcpy(uvwt,duvwt,4*sizeof(float));
     }
 
+    // Read CalFile of bias and rotation angles.
+    // u.off   v.off   w.off    theta  phi    Vazimuth  
+    CalFile* cf = getCalFile();
+    if (cf) {
+        while(tt >= calTime) {
+            float d[6];
+            try {
+                int n = cf->readData(d,sizeof d/sizeof(d[0]));
+                for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
+                if (n > 3) setLeanDegrees(d[3]);
+                if (n > 4) setLeanAzimuthDegrees(d[4]);
+                if (n > 5) setVazimuth(d[5]);
+                calTime = cf->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e)
+            {
+                calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    cf->getName().c_str(),e.what());
+                for (int i = 0; i < 3; i++) setBias(i,d[i]);
+                setLeanDegrees(floatNAN);
+                setLeanAzimuthDegrees(floatNAN);
+                setVazimuth(floatNAN);
+                calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    cf->getName().c_str(),e.what());
+                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
+                setLeanDegrees(floatNAN);
+                setLeanAzimuthDegrees(floatNAN);
+                setVazimuth(floatNAN);
+                calTime = LONG_LONG_MAX;
+            }
+        }
+    }
     for (int i=0; i<3; i++)
 	if (!isnan(uvwt[i])) uvwt[i] -= bias[i];
 

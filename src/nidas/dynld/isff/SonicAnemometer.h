@@ -309,6 +309,8 @@ protected:
 
     WindTilter tilter;
 
+    dsm_time_t calTime;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

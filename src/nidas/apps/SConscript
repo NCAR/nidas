@@ -39,6 +39,7 @@ myenv.AppendUnique(LIBS = Split("""
 apps = Split("""
     ck_lams.cc
     ck_arinc.cc
+    ck_calfile.cc
     nidsmerge.cc
     dsm_server.cc
     dsm.cc

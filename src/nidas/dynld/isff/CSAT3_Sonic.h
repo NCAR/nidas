@@ -36,57 +36,6 @@ public:
 
     ~CSAT3_Sonic();
 
-    /**
-     * @param val Krypton hygrometer Kw parameter from sensor calibration.
-     */
-    void setKryptonKw(float val)
-    {
-        krypton.setKw(val);
-    }
-
-    float getKryptonKw() const
-    {
-        return krypton.getKw();
-    }
-
-    /**
-     * @param val Krypton hygrometer V0 value in millivolts.
-     */
-    void setKryptonV0(float val)
-    {
-        krypton.setV0(val);
-    }
-
-    float getKryptonV0() const
-    {
-        return krypton.getV0();
-    }
-
-    /**
-     * @param val Pathlength of krypton hygrometer sensor, in cm.
-     */
-    void setKryptonPathLength(float val)
-    {
-        krypton.setPathLength(val);
-    }
-
-    float getKryptonPathLength() const
-    {
-        return krypton.getPathLength();
-    }
-
-    /**
-     * @param val Bias (g/m^3) to be removed from hygrometer data values.
-     */
-    void setKryptonBias(float val)
-    {
-        krypton.setBias(val);
-    }
-
-    float getKryptonBias() const
-    {
-        return krypton.getBias();
-    }
 
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
@@ -115,11 +64,6 @@ protected:
     int windNumOut;
 
     /**
-     * Requested number of output krypton hygrometer variables.
-     */
-    int kh2oNumOut;
-
-    /**
      * If user requests wind speed, variable name "spd", its index in the output sample.
      */
     int spdIndex;
@@ -141,19 +85,15 @@ protected:
     dsm_sample_id_t windSampleId;
 
     /**
-     * Output sample id of the kyrpton hygrometer sample.
+     * Sample tags of extra "serializer" values.
      */
-    dsm_sample_id_t kh2oSampleId;
+    std::vector<SampleTag*> extraSampleTags;
 
     dsm_time_t timetags[2];
 
     int nttsave;
 
     int counter;
-
-    CS_Krypton krypton;
-
-    int kh2oOut;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     auto_ptr<short> swapBuf;

@@ -22,8 +22,6 @@
 #include <nidas/util/Socket.h>
 #include <nidas/util/Exception.h>
 
-#define mSecSleep MSECS_PER_SEC
-
 using namespace nidas::core;
 using namespace std;
 
@@ -126,7 +124,8 @@ DSMServerStat* DSMServerStat::getInstance()
 }
 
 DSMServerStat::DSMServerStat(const std::string& name):
-	StatusThread(name),_sometime(getSystemTime())
+	StatusThread(name),_sometime(getSystemTime()),
+        uSecPeriod(USECS_PER_SEC)
 {
 }
 
@@ -193,20 +192,20 @@ int DSMServerStat::run() throw(n_u::Exception)
 #endif
 
     /* sleep a bit so that we're on an even interval boundary */
-    unsigned long mSecVal =
-      mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
+    unsigned long uSecVal =
+      uSecPeriod - (unsigned long)(getSystemTime() % uSecPeriod);
 
 #ifdef USE_NANOSLEEP
-    sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
-    sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
+    sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
+    sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
     if (nanosleep(&sleepTime,&leftTime) < 0) {
         if (errno == EINTR) return RUN_OK;
         throw n_u::Exception(string("nanosleep: ") +
             n_u::Exception::errnoToString(errno));
     }
 #else
-    sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
-    sleepTime.tv_usec = (mSecVal % MSECS_PER_SEC) * USECS_PER_MSEC;
+    sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
+    sleepTime.tv_usec = uSecVal % USECS_PER_SEC;
     if (::select(0,0,0,0,&sleepTime) < 0) {
         if (errno == EINTR) return RUN_OK;
         throw n_u::Exception(string("select: ") +
@@ -252,11 +251,11 @@ int DSMServerStat::run() throw(n_u::Exception)
 	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
 
             // sleep until the next interval...
-            mSecVal =
-	      mSecSleep - (unsigned long)((getSystemTime() / USECS_PER_MSEC) % mSecSleep);
+            uSecVal =
+	      uSecPeriod - (unsigned long)(getSystemTime() % uSecPeriod);
 #ifdef USE_NANOSLEEP
-            sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
-            sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
+            sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
+            sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
             if (nanosleep(&sleepTime,&leftTime) < 0) {
                 cerr << "nanosleep error return" << endl;
                 if (errno == EINTR) break;
@@ -264,8 +263,8 @@ int DSMServerStat::run() throw(n_u::Exception)
 			n_u::Exception::errnoToString(errno));
             }
 #else
-            sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
-            sleepTime.tv_usec = (mSecVal % MSECS_PER_SEC) * USECS_PER_MSEC;
+            sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
+            sleepTime.tv_usec = uSecVal % USECS_PER_SEC;
             if (::select(0,0,0,0,&sleepTime) < 0) {
                 if (errno == EINTR) return RUN_OK;
                 cerr << "select error" << endl;

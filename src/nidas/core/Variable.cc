@@ -29,7 +29,8 @@ Variable::Variable(): sampleTag(0),
 	station(-1),
 	type(CONTINUOUS),
 	length(1),
-	converter(0)
+	converter(0),
+        missingValue(1.e37)
 {
 }
 
@@ -46,7 +47,8 @@ Variable::Variable(const Variable& x):
 	units(x.units),
 	type(x.type),
 	length(x.length),
-	converter(0)
+	converter(0),
+        missingValue(x.missingValue)
 {
     if (x.converter) converter = x.converter->clone();
     const list<const Parameter*>& params = x.getParameters();
@@ -72,6 +74,7 @@ Variable& Variable::operator=(const Variable& x)
     units = x.units;
     type = x.type;
     length = x.length;
+    missingValue = x.missingValue;
 
     // this invalidates the previous pointer to the converter, hmm.
     // don't want to create a virtual assignment op for converters.
@@ -199,6 +202,15 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		    	"variable","length",attr.getValue());
 		setLength(val);
 	    }
+	    else if (attr.getName() == "missingValue") {
+	        istringstream ist(attr.getValue());
+		float val;
+		ist >> val;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+		    	"variable","missingValue",attr.getValue());
+		setMissingValue(val);
+	    }
 	    else if (attr.getName() == "count") {
                 if (attr.getValue() == "true")
                     setType(Variable::COUNTER);
@@ -220,13 +232,14 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	    	Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
 	}
-	else {
+	else if (elname == "linear" || elname == "poly" ||
+            elname == "converter") {
 	    if (nconverters > 0)
 	    	throw n_u::InvalidParameterException(getName(),
 		    "only one child converter allowed, <linear>, <poly> etc",
 		    	elname);
 	    VariableConverter* cvtr =
-	    	VariableConverter::createVariableConverter(elname);
+	    	VariableConverter::createVariableConverter(xchild);
 	    if (!cvtr) throw n_u::InvalidParameterException(getName(),
 		    "unsupported child element",elname);
 	    cvtr->fromDOMElement((xercesc::DOMElement*)child);

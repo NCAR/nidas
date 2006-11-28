@@ -282,8 +282,9 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     float* fp = outs->getDataPtr();
     const vector<const Variable*>& vars = stag->getVariables();
     for (int i = 0; i < nparsed && i < (signed)vars.size(); i++,fp++) {
-	const VariableConverter* conv = vars[i]->getConverter();
-	if (conv) *fp = conv->convert(*fp);
+	VariableConverter* conv = vars[i]->getConverter();
+        if (*fp == vars[i]->getMissingValue()) *fp = floatNAN;
+	if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
     }
     outs->setTimeTag(samp->getTimeTag());
     outs->setDataLength(nparsed);

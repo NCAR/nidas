@@ -29,7 +29,7 @@ def get_svnversion(env):
 ###
 ###
 
-# emerald.ko
+#    emerald.ko
 objs = Split("""
 """)
 ##
@@ -58,3 +58,10 @@ myenv.Install('$PREFIX/linux',objs)
 
 myenv.Install('$PREFIX/include/nidas/linux/diamond/emerald',headers)
 
+# initial hacks for building linux modules
+# myenv.AppendUnique(TMPBUILD='/tmp/emerald_build')
+# myenv.Command("emerald.ko",['diamond/emerald/emerald.c'],
+#     [Mkdir('$TMPBUILD'),
+#         Copy('${SOURCE.dir}','$TMPBUILD'),
+#         "cd $TMPBUILD && make ARCH=$ARCH AS=arm-linux-gas CC=arm-linux-gcc LD=arm-linux-ld -C $KERNELDIR M=$PWD modules",
+#         Delete('$TMPBUILD')])

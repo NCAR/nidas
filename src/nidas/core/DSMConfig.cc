@@ -239,9 +239,12 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			classattr,e.what());
 		}
 		sensor = dynamic_cast<DSMSensor*>(domable);
-		if (!sensor) throw n_u::InvalidParameterException(
-		    string("dsm") + ": " + getName(),
-		    elname,"is not a DSMSensor");
+		if (!sensor) {
+                    throw n_u::InvalidParameterException(
+                        string("dsm") + ": " + getName(),
+                        elname,"is not a DSMSensor");
+                    delete domable;
+                }
 	    }
 
 	    // do setDSMConfig before fromDOMElement, because

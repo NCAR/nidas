@@ -57,6 +57,7 @@ myenv.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
 headers = [ Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
+    CalFile.h
     CharacterSensor.h
     ConnectionRequester.h
     Datagrams.h
@@ -144,6 +145,7 @@ headers = [ Split("""
 sources = [ Split("""
     AdaptiveDespiker.cc
     AsciiSscanf.cc
+    CalFile.cc
     CharacterSensor.cc
     ConnectionRequester.cc
     DOMable.cc

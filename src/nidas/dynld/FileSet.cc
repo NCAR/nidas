@@ -24,7 +24,6 @@ NIDAS_CREATOR_FUNCTION(FileSet);
 
 using namespace nidas::dynld;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -119,17 +118,17 @@ dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
     return ut.toUsecs();
 }
 
-void FileSet::fromDOMElement(const DOMElement* node)
+void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     // const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
 	// get all the attributes of the node
-        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
@@ -149,28 +148,28 @@ void FileSet::fromDOMElement(const DOMElement* node)
 	}
     }
 
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
 	if (!elname.compare("mount")) {
 	    mount = new FsMount();
-	    mount->fromDOMElement((const DOMElement*) child);
+	    mount->fromDOMElement((const xercesc::DOMElement*) child);
 	}
 	else throw n_u::InvalidParameterException("mount",
 		    "unrecognized child element", elname);
     }
 }
 
-DOMElement* FileSet::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
+xercesc::DOMElement* FileSet::toDOMParent(
+    xercesc::DOMElement* parent)
+    throw(xercesc::DOMException)
 {
-    DOMElement* elem =
+    xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 (const XMLCh*)XMLStringConverter("dsmconfig"),
 			DOMable::getNamespaceURI());
@@ -178,8 +177,8 @@ DOMElement* FileSet::toDOMParent(
     return toDOMElement(elem);
 }
 
-DOMElement* FileSet::toDOMElement(DOMElement* node)
-    throw(DOMException)
+xercesc::DOMElement* FileSet::toDOMElement(xercesc::DOMElement* node)
+    throw(xercesc::DOMException)
 {
     return node;
 }

@@ -306,7 +306,7 @@ DOMDocument* XMLCachingParser::parse(const string& xmlFile)
 time_t XMLCachingParser::getFileModTime(const string&  name) throw(n_u::IOException)
 {
     struct stat filestat;
-    if (stat(name.c_str(),&filestat) < 0)
+    if (::stat(name.c_str(),&filestat) < 0)
 	throw n_u::IOException(name,"stat",errno);
     return filestat.st_mtime;
 }
