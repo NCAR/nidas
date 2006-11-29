@@ -123,12 +123,12 @@ CalFile::~CalFile()
     if (--reUsers == 0 && reCompiled) freeREs();
 }
 
-const string& CalFile::getFileName() const
+const string& CalFile::getFile() const
 {
     return fileName;
 }
 
-void CalFile::setFileName(const string& val)
+void CalFile::setFile(const string& val)
 {
     // fileName = val.replace('\\',File.separatorChar);
     // fileName = fileName.replace('/',File.separatorChar);
@@ -172,29 +172,29 @@ void CalFile::open() throw(n_u::IOException)
 
         string::size_type nc = path.find(':',ic);
 
-        if (nc == string::npos) fullFileName = path.substr(ic);
-        else fullFileName = path.substr(ic,nc-ic);
+        if (nc == string::npos) currentFileName = path.substr(ic);
+        else currentFileName = path.substr(ic,nc-ic);
 
-        if (fullFileName.length() > 0) fullFileName += '/';
-        fullFileName += getFileName();
-        if (dsm) fullFileName = dsm->expandString(fullFileName);
+        if (currentFileName.length() > 0) currentFileName += '/';
+        currentFileName += getFile();
+        if (dsm) currentFileName = dsm->expandString(currentFileName);
         else if (Project::getInstance())
-            fullFileName = Project::getInstance()->expandString(fullFileName);
+            currentFileName = Project::getInstance()->expandString(currentFileName);
 
-        // cerr << "stat fullFileName=" << fullFileName << endl;
+        // cerr << "stat currentFileName=" << currentFileName << endl;
 
         struct stat filestat;
-        if (::stat(fullFileName.c_str(),&filestat) == 0 &&
+        if (::stat(currentFileName.c_str(),&filestat) == 0 &&
             S_ISREG(filestat.st_mode)) break;
 
         if (nc == string::npos) throw n_u::IOException(
-            getName(),"open",ENOENT);
+            currentFileName,"open",ENOENT);
         ic = nc + 1;
     }
 
-    fin.open(getName().c_str());
-    if (fin.fail()) throw n_u::IOException(getName(),"open",errno);
-    cerr << "CalFile: " + getName() << endl;
+    fin.open(currentFileName.c_str());
+    if (fin.fail()) throw n_u::IOException(currentFileName,"open",errno);
+    cerr << "CalFile: " + currentFileName << endl;
     savedLines.clear();
     eofState = false;
     curline = "";
@@ -262,7 +262,7 @@ n_u::UTime CalFile::parseTime()
     }
     catch(const n_u::ParseException& e) {
         if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
-        throw n_u::ParseException(getName(),e.what(),nline);
+        throw n_u::ParseException(getCurrentFileName(),e.what(),nline);
     }
     curpos += nchars;
     if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
@@ -323,7 +323,7 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
             break;
         }
         if (fin.bad()) 
-            throw n_u::IOException(getName(),"read",errno);
+            throw n_u::IOException(getCurrentFileName(),"read",errno);
         nline++;
 
         for (curpos = 0; cbuf[curpos] && std::isspace(cbuf[curpos]);
@@ -372,9 +372,10 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 /**
  * Read numeric data from a CalFile into a float [];
  */
-int CalFile::readData(float* data, int ndata) throw(n_u::IOException,n_u::ParseException)
+int CalFile::readData(float* data, int ndata)
+    throw(n_u::IOException,n_u::ParseException)
 {
-    if (eof()) throw n_u::EOFException(getName(),"read");
+    if (eof()) throw n_u::EOFException(getCurrentFileName(),"read");
     if (include) return include->readData(data,ndata);
     if (curline.substr(curpos).length() == 0) return 0;
 
@@ -424,7 +425,7 @@ int CalFile::readData(float* data, int ndata) throw(n_u::IOException,n_u::ParseE
             if (!sin.fail() && ::strlen(possibleNaN) > 1 &&
                 ::toupper(possibleNaN[0]) == 'N' &&
                 ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
-            else throw n_u::ParseException(getName(),
+            else throw n_u::ParseException(getCurrentFileName(),
                 curline.substr(curpos),nline);
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
@@ -448,10 +449,10 @@ void CalFile::openInclude(const string& name)
 
     include = new CalFile();
     include->setPath(getPath());
-    include->setFileName(name);
+    include->setFile(name);
 
     include->open();
-    // cerr << "searching " << include->getName() << " t=" << prevTime << endl;
+    // cerr << "searching " << include->getCurrentFileName() << " t=" << prevTime << endl;
     include->search(prevTime);
 }
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
@@ -469,8 +470,8 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 	    if (!aname.compare("path")) setPath(aval);
-	    else if (!aname.compare("file")) setFileName(aval);
-	    else throw n_u::InvalidParameterException(getName(),
+	    else if (!aname.compare("file")) setFile(aval);
+	    else throw n_u::InvalidParameterException(xnode.getNodeName(),
 			"unrecognized attribute", aname);
 	}
     }

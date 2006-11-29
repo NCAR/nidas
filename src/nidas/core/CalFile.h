@@ -35,6 +35,7 @@ namespace nidas { namespace core {
  *
  * CalFile supports reading files like the following:
  *
+ * <pre>
  *  # example cal file
  *  # dateFormat = "%Y %b %d %H:%M:%S"
  *  # timeZone = "US/Mountain"
@@ -44,6 +45,7 @@ namespace nidas { namespace core {
  *  2006 Sep 29 01:13:00    1.0 1.0
  *  # use calibrations for ACME sensor SN#99 after Oct 1
  *  2006 Oct 01 00:00:00    include "acme_sn99.dat"
+ * </pre>
  *
  * As shown, comment lines begin with a '#'.  There are two
  * special comment lines, of the form 'dateFormat="blahblah"'
@@ -65,37 +67,62 @@ namespace nidas { namespace core {
  *    <th>field<th>example<th>UNIX<th>java
  *  <tr>
  *    <td>year<td>2006<td>%Y<td>YYYY
+ *  <tr>
  *    <td>month abrev<td>Sep<td>%b<td>MMM
+ *  <tr>
  *    <td>numeric month<td>9<td>%m<td>MM
+ *  <tr>
  *    <td>day of month<td>9<td>%d<td>dd
+ *  <tr>
  *    <td>day of year (1-366)<td>252<td>%j<td>DDD
+ *  <tr>
  *    <td>hour in day (0-23)<td>13<td>%H<td>HH
+ *  <tr>
  *    <td>minute(0-59)<td>47<td>%M<td>mm
+ *  <tr>
  *    <td>second(0-59)<td>47<td>%M<td>ss
+ *  <tr>
  *    <td>millisecond(0-999)<td>447<td>%03F<td>SSS
  *  </table>
  * 
  *  Following the time fields in each record should be either
  *  numeric values or an "include" directive.
  *
- *  The numeric values should be in a form compatible with
- *  floating point input, or the strings "na" or "nan" in
- *  either upper or lower case, representing not-a-number.
+ *  The numeric values should be space or tab separated
+ *  in a numeric form compatible with floating point input,
+ *  or the strings "na" or "nan" in either upper or lower case,
+ *  representing not-a-number.
  *  Since math using nan results in a nan, a calibration
  *  record containing a nan values is a way to overwrite
- *  bad data with nan, indicating missing data.
+ *  bad data with nan, indicating non-recoverable data.
  *
  *  An "include" directive causes another calibration
  *  file to be opened for input.  The included file will
- *  be sequentially read to set the input position to the
+ *  be sequentially searched to set the input position to the
  *  latest record with a time less than or equal to the time
- *  value of the "include" directive.
+ *  value of the "include directive. What this means
+ *  is that the next readData() will return data
+ *  from the included file that is appropriate for the
+ *  time of the include directive.
  *
  *  An included file can also contain "include" directives.
- * 
- *  A typical usage of a CalFile is as follows:
- * <pre>
  *
+ *  The include directive is useful when sensors are swapped
+ *  during a data acquisition period.  One can keep the
+ *  sensor specific calibrations in separate files, and
+ *  then create a CalFile which includes the sensor
+ *  calibrations for the periods that a sensor was deployed.
+ *  Example:
+ * <pre>
+ *  # initially krypton hygrometer 1101 at this site
+ *  2006 Sep 23 00:00:00    include "krypton1101"
+ *  # Replaced 1101 with 1393 on Oct 3.
+ *  2006 Oct  3 01:13:00    include "krypton1393"
+ * </pre>
+ *
+ *  A typical usage of a CalFile is as follows:
+ *
+ * <pre>
  *  CalFile calfile;
  *  calfile.setFile("acme_sn1.dat")
  *  calfile.setPath("$ROOT/projects/$PROJECT/cal_files:$ROOT/cal_files");
@@ -103,8 +130,8 @@ namespace nidas { namespace core {
  *
  *  ...
  *  while (tsample > calTime) {
- *      float caldata[5];
  *      try {
+     *      float caldata[5];
  *          int n = calfile.readData(caldata,5);
  *          for (int i = 0; i < n; i++) coefs[i] = caldata[i];
  *          // read the time of the next calibration record
@@ -118,6 +145,7 @@ namespace nidas { namespace core {
  *      }
  *  }
  *  // use coefs[] to calibrate sample.
+ * </pre>
  *      
  */
 class CalFile: public nidas::core::DOMable {
@@ -137,12 +165,12 @@ public:
      */
     ~CalFile();
 
-    const std::string& getFileName() const;
+    const std::string& getFile() const;
 
     /**
      * Set the base name of the file to be opened.
      */
-    void setFileName(const std::string& val);
+    void setFile(const std::string& val);
 
     /**
      * Set the search path to find the file, and any
@@ -161,10 +189,13 @@ public:
     /**
      * Return the full file path of the current file.
      */
-    const std::string& getName() const
+    const std::string& getCurrentFileName() const
     {
-        return fullFileName;
+        if (include) return include->getCurrentFileName();
+        return currentFileName;
     }
+
+    int getLineNumber() const { return nline; }
 
     /** 
      * Open the file. It is not necessary to call open().
@@ -261,7 +292,7 @@ private:
 
     std::string path;
 
-    std::string fullFileName;
+    std::string currentFileName;
 
     std::string timeZone;
 

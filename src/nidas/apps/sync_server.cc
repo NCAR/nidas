@@ -198,23 +198,9 @@ int SyncServer::run() throw()
 	FileSet* fset = new nidas::dynld::FileSet();
 	iochan = fset;
 
-#ifdef USE_FILESET_TIME_CAPABILITY
-	struct tm tm;
-	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t start = timegm(&tm);
-
-	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t end = timegm(&tm);
-
-	fset->setDir("/tmp/RICO/hiaper");
-	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	fset->setStartTime(start);
-	fset->setEndTime(end);
-#else
 	list<string>::const_iterator fi;
 	for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 	    fset->addFileName(*fi);
-#endif
 
 	// SortedSampleStream owns the iochan ptr.
 	SortedSampleInputStream input(iochan);
@@ -296,7 +282,6 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     try {
 	Sample* samp = input.readSample();
 	dsm_time_t tt = samp->getTimeTag();
-	// syncGen.sendHeader(tt,output);
 	input.distribute(samp);
 
 	int simClockRes = USECS_PER_SEC / 10;	// simulated clock resolution
@@ -358,11 +343,6 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
 void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 	SyncRecordGenerator& syncGen) throw(n_u::IOException)
 {
-
-    Sample* samp = input.readSample();
-    dsm_time_t tt = samp->getTimeTag();
-    // syncGen.sendHeader(tt,output);
-    input.distribute(samp);
 
     try {
 	for (;;) {

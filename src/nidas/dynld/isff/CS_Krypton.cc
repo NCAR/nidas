@@ -83,7 +83,7 @@ float CS_Krypton::convert(dsm_time_t t,float volts)
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
+                    calFile->getCurrentFileName().c_str(),e.what());
                 setKw(floatNAN);
                 setV0(floatNAN);
                 setPathLength(floatNAN);
@@ -93,7 +93,7 @@ float CS_Krypton::convert(dsm_time_t t,float volts)
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
+                    calFile->getCurrentFileName().c_str(),e.what());
                 setKw(floatNAN);
                 setV0(floatNAN);
                 setBias(floatNAN);

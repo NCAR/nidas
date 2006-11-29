@@ -107,7 +107,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getName().c_str(),e.what());
+                    cf->getCurrentFileName().c_str(),e.what());
                 for (int i = 0; i < 3; i++) setBias(i,d[i]);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
@@ -117,7 +117,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getName().c_str(),e.what());
+                    cf->getCurrentFileName().c_str(),e.what());
                 for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);

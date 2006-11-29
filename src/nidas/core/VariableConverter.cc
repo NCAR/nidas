@@ -62,11 +62,12 @@ const Parameter* VariableConverter::getParameter(const std::string& name) const
     return pi->second;
 }
 
-Linear::Linear(): calFile(0),calTime(0)
+Linear::Linear(): slope(1.0),intercept(0.0),calFile(0),calTime(0)
 {
 }
 
-Linear::Linear(const Linear& x):calFile(0),calTime(0)
+Linear::Linear(const Linear& x):
+    slope(x.slope),intercept(x.intercept),calFile(0),calTime(0)
 {
     if (x.calFile) calFile = new CalFile(*x.calFile);
 }
@@ -97,6 +98,8 @@ std::string Linear::toString() const
 
 Polynomial::Polynomial() : coefs(0),calFile(0),calTime(0)
 {
+    float tmpcoefs[] = { 0.0, 1.0 };
+    setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
 }
 
 /*
@@ -117,7 +120,8 @@ Polynomial* Polynomial::clone() const
 
 Polynomial::~Polynomial()
 {
-    delete [] coefs; delete calFile;
+    delete [] coefs;
+    delete calFile;
 }
 
 void Polynomial::setCalFile(CalFile* val)
@@ -416,7 +420,7 @@ float Linear::convert(dsm_time_t t,float val)
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
+                    calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
                 calTime = LONG_LONG_MAX;
@@ -424,7 +428,7 @@ float Linear::convert(dsm_time_t t,float val)
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
+                    calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
                 calTime = LONG_LONG_MAX;
@@ -437,33 +441,38 @@ float Linear::convert(dsm_time_t t,float val)
 float Polynomial::convert(dsm_time_t t,float val)
 {
     if (calFile && t > calTime) {
-        auto_ptr<float> d(new float[ncoefs]);
+        float d[6];
         size_t n = 0;
+        size_t nmax = sizeof d / sizeof d[0];
         while(t >= calTime) {
             try {
-                n = calFile->readData(d.get(),ncoefs);
+                n = calFile->readData(d,nmax);
                 calTime = calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e) {}
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
-                for (unsigned int i = 0; i < ncoefs; i++) d.get()[i] = floatNAN;
+                    calFile->getCurrentFileName().c_str(),e.what());
+                n = 2;
+                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
                 calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getName().c_str(),e.what());
-                for (unsigned int i = 0; i < ncoefs; i++) d.get()[i] = floatNAN;
+                    calFile->getCurrentFileName().c_str(),e.what());
+                n = 2;
+                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
                 calTime = LONG_LONG_MAX;
             }
+            if (n == nmax)
+                n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "%s: possible overrun of coefficients at line %d, max allowed=%d",
+                    calFile->getCurrentFileName().c_str(),
+                    calFile->getLineNumber(),nmax);
         }
-        if (n == ncoefs) {
-            vector<float> vals(d.get(),d.get()+ncoefs);
-            setCoefficients(vals);
-        }
+        if (n > 0) setCoefficients(vector<float>(d,d+n));
     }
     double result = 0.0;
     for (int i = ncoefs - 1; i > 0; i--) {

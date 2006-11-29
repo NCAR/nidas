@@ -34,7 +34,7 @@ int main(int argc, char** argv)
     CalFile cf;
 
     cf.setPath(argv[1]);
-    cf.setFileName(argv[2]);
+    cf.setFile(argv[2]);
 
     float data[10];
 
