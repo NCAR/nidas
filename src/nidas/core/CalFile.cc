@@ -207,7 +207,7 @@ void CalFile::close()
     if (fin.is_open()) fin.close();
 }
 
-/**
+/*
  * 
  * Position the current file at the beginning of the latest record
  * whose time is less than or equal to tsearch.
@@ -230,8 +230,8 @@ void CalFile::search(const n_u::UTime& tsearch)
     list<string> tmpLines;
     for (;;) {
         readLine();
-        if (eof()) break;
         if (tmpLines.size() == 2) tmpLines.pop_front();
+        if (eof()) break;
         tmpLines.push_back(curline);
 
         n_u::UTime t = parseTime();
@@ -262,14 +262,14 @@ n_u::UTime CalFile::parseTime()
     }
     catch(const n_u::ParseException& e) {
         if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
-        throw n_u::ParseException(getCurrentFileName(),e.what(),nline);
+        throw n_u::ParseException(getCurrentFileName(),e.what(),getLineNumber());
     }
     curpos += nchars;
     if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
     return t;
 }
 
-/**
+/*
  * Read time from a CalFile.
  * On EOF, it will return a time very far in the future.
  */
@@ -293,7 +293,7 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
 }
 
 
-/**
+/*
  * Read forward to next non-comment line in CalFile.
  * Also scans for and parses special comment lines
  * looking like
@@ -369,7 +369,7 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
     curline = cbuf;
 }
 
-/**
+/*
  * Read numeric data from a CalFile into a float [];
  */
 int CalFile::readData(float* data, int ndata)
@@ -426,7 +426,7 @@ int CalFile::readData(float* data, int ndata)
                 ::toupper(possibleNaN[0]) == 'N' &&
                 ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
             else throw n_u::ParseException(getCurrentFileName(),
-                curline.substr(curpos),nline);
+                curline.substr(curpos),getLineNumber());
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
         /*

@@ -66,43 +66,44 @@ namespace nidas { namespace core {
  *  <tr>
  *    <th>field<th>example<th>UNIX<th>java
  *  <tr>
- *    <td>year<td>2006<td>%Y<td>YYYY
+ *    <td>year<td>2006<td>\%Y<td>YYYY
  *  <tr>
- *    <td>month abrev<td>Sep<td>%b<td>MMM
+ *    <td>month abrev<td>Sep<td>\%b<td>MMM
  *  <tr>
- *    <td>numeric month<td>9<td>%m<td>MM
+ *    <td>numeric month<td>9<td>\%m<td>MM
  *  <tr>
- *    <td>day of month<td>9<td>%d<td>dd
+ *    <td>day of month<td>14<td>\%d<td>dd
  *  <tr>
- *    <td>day of year (1-366)<td>252<td>%j<td>DDD
+ *    <td>day of year (1-366)<td>257<td>\%j<td>DDD
  *  <tr>
- *    <td>hour in day (0-23)<td>13<td>%H<td>HH
+ *    <td>hour in day (00-23)<td>13<td>\%H<td>HH
  *  <tr>
- *    <td>minute(0-59)<td>47<td>%M<td>mm
+ *    <td>minute(00-59)<td>24<td>\%M<td>mm
  *  <tr>
- *    <td>second(0-59)<td>47<td>%M<td>ss
+ *    <td>second(00-59)<td>47<td>\%S<td>ss
  *  <tr>
- *    <td>millisecond(0-999)<td>447<td>%03F<td>SSS
+ *    <td>millisecond(000-999)<td>447<td>\%3f<br>(UTime extension)<td>SSS
  *  </table>
  * 
  *  Following the time fields in each record should be either
  *  numeric values or an "include" directive.
  *
  *  The numeric values should be space or tab separated
- *  in a numeric form compatible with floating point input,
+ *  values compatible with the usual floating point syntax,
  *  or the strings "na" or "nan" in either upper or lower case,
- *  representing not-a-number.
- *  Since math using nan results in a nan, a calibration
- *  record containing a nan values is a way to overwrite
- *  bad data with nan, indicating non-recoverable data.
+ *  representing not-a-number, or NaN.
+ *  Since math operations using NaN result in a NaN, a
+ *  calibration record containing a NaN value is a way to
+ *  generate output values of NaN, indicating non-recoverable
+ *  data.
  *
  *  An "include" directive causes another calibration
  *  file to be opened for input.  The included file will
  *  be sequentially searched to set the input position to the
- *  latest record with a time less than or equal to the time
+ *  last record with a time less than or equal to the time
  *  value of the "include directive. What this means
  *  is that the next readData() will return data
- *  from the included file that is appropriate for the
+ *  from the included file which is valid for the
  *  time of the include directive.
  *
  *  An included file can also contain "include" directives.
@@ -195,7 +196,11 @@ public:
         return currentFileName;
     }
 
-    int getLineNumber() const { return nline; }
+    int getLineNumber() const
+    {
+        if (include) return include->getLineNumber();
+        return nline;
+    }
 
     /** 
      * Open the file. It is not necessary to call open().
