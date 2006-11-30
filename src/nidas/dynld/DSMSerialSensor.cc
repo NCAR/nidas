@@ -365,6 +365,7 @@ void DSMSerialSensor::fromDOMElement(
 	else if (elname == "prompt");
 	else if (elname == "sample");
 	else if (elname == "parameter");
+	else if (elname == "calfile");
 	else throw n_u::InvalidParameterException(
 	    string("DSMSerialSensor:") + getName(),
 	    "unknown element",elname);
