@@ -1,0 +1,46 @@
+
+
+Import('env')
+
+sources = Split("""
+    CSAT3_Sonic.cc
+    CS_Krypton.cc
+    GOES.cc
+    GOESOutput.cc
+    GOESProject.cc
+    GOESXmtr.cc
+    GroundStation.cc
+    nc_server_rpc_xdr.c
+    NetcdfRPCChannel.cc
+    NetcdfRPCOutput.cc
+    Packets.cc
+    PacketInputStream.cc
+    PropVane.cc
+    SE_GOESXmtr.cc
+    SimGOESXmtr.cc
+    SonicAnemometer.cc
+""")
+
+headers = Split("""
+    CSAT3_Sonic.h
+    CS_Krypton.h
+    GOES.h
+    GOESOutput.h
+    GOESProject.h
+    GOESXmtr.h
+    GroundStation.h
+    nc_server_rpc.h
+    NetcdfRPCChannel.h
+    NetcdfRPCOutput.h
+    Packets.h
+    PacketInputStream.h
+    PropVane.h
+    SE_GOESXmtr.h
+    SimGOESXmtr.h
+    SonicAnemometer.h
+""")
+
+env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
+
+env.Install('$PREFIX/include/nidas/dynld/isff', headers)
+

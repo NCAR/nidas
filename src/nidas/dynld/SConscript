@@ -21,6 +21,8 @@ myenv = conf.Finish()
 myenv.AppendUnique(CXXFLAGS = Split("""
 """))
 
+SConscript(dirs = ["raf", "isff", "iss"], exports={'env':myenv})
+
 headers = [ Split("""
     AsciiOutput.h
     DSC_A2DSensor.h
@@ -37,44 +39,6 @@ headers = [ Split("""
     StatisticsCruncher.h
     StatisticsProcessor.h
     XMLConfigService.h
-""") ]
-
-rafhdrs = [ Split("""
-    raf/A2DBoardTempSensor.h
-    raf/ADC_HW_EB7022597.h
-    raf/Aircraft.h
-    raf/Arinc_IRS.h
-    raf/DSMAnalogSensor.h
-    raf/DSMArincSensor.h
-    raf/DSMMesaSensor.h
-    raf/GPS_HW_HG2021GB02.h
-    raf/IRIGSensor.h
-    raf/IRS_HW_HG2001GD.h
-    raf/IRS_HW_YG1854.h
-    raf/PSI9116_Sensor.h
-    raf/SyncRecordGenerator.h
-    raf/SyncRecordReader.h
-    raf/SyncRecordSource.h
-    raf/SyncRecordVariable.h
-""") ]
-
-isffhdrs = [ Split("""
-    isff/CSAT3_Sonic.h
-    isff/CS_Krypton.h
-    isff/GOES.h
-    isff/GOESOutput.h
-    isff/GOESProject.h
-    isff/GOESXmtr.h
-    isff/GroundStation.h
-    isff/nc_server_rpc.h
-    isff/NetcdfRPCChannel.h
-    isff/NetcdfRPCOutput.h
-    isff/Packets.h
-    isff/PacketInputStream.h
-    isff/PropVane.h
-    isff/SE_GOESXmtr.h
-    isff/SimGOESXmtr.h
-    isff/SonicAnemometer.h
 """) ]
 
 ##
@@ -98,50 +62,11 @@ sources = [ Split("""
     XMLConfigService.cc
 """) ]
 
-rafsrcs = [ Split("""
-    raf/A2DBoardTempSensor.cc
-    raf/ADC_HW_EB7022597.cc
-    raf/Aircraft.cc
-    raf/Arinc_IRS.cc
-    raf/DSMAnalogSensor.cc
-    raf/DSMArincSensor.cc
-    raf/DSMMesaSensor.cc
-    raf/GPS_HW_HG2021GB02.cc
-    raf/IRIGSensor.cc
-    raf/IRS_HW_HG2001GD.cc
-    raf/IRS_HW_YG1854.cc
-    raf/PSI9116_Sensor.cc
-    raf/SyncRecordGenerator.cc
-    raf/SyncRecordReader.cc
-    raf/SyncRecordSource.cc
-""") ]
-
-isffsrcs = [ Split("""
-    isff/CSAT3_Sonic.cc
-    isff/CS_Krypton.cc
-    isff/GOES.cc
-    isff/GOESOutput.cc
-    isff/GOESProject.cc
-    isff/GOESXmtr.cc
-    isff/GroundStation.cc
-    isff/nc_server_rpc_xdr.c
-    isff/NetcdfRPCChannel.cc
-    isff/NetcdfRPCOutput.cc
-    isff/Packets.cc
-    isff/PacketInputStream.cc
-    isff/PropVane.cc
-    isff/SE_GOESXmtr.cc
-    isff/SimGOESXmtr.cc
-    isff/SonicAnemometer.cc
-
-""") ]
-
-# print(["sources="] + [str(h) for h in sources])
-
 ##
 ##  Build the nidas_dynld library.
 ##
-lib = myenv.SharedLibrary('nidas_dynld' , [sources, rafsrcs, isffsrcs] )
+myenv.Append (LIBNIDAS_DYNLD_SOURCES = sources )
+lib = myenv.SharedLibrary('nidas_dynld' , myenv['LIBNIDAS_DYNLD_SOURCES'] )
 
 ##
 ## Install target for library.
@@ -149,15 +74,8 @@ lib = myenv.SharedLibrary('nidas_dynld' , [sources, rafsrcs, isffsrcs] )
 myenv.Install('$PREFIX/lib',lib)
 
 ##
-## Install target for headers.  Must look in parent of build directory
+## Install target for headers.
 ##
-# headers = glob.glob("../*.h")
-#
-# Glob is too sophisticated. It incorporates results of Configure,
-# and includes libpg-fe.h in its list.  Jeeeesh.
-# headers = Glob("*.h")
-# print(["headers="] + [str(h) for h in headers])
-
 myenv.Install('$PREFIX/include/nidas/dynld',headers)
-myenv.Install('$PREFIX/include/nidas/dynld/raf',rafhdrs)
-myenv.Install('$PREFIX/include/nidas/dynld/isff',isffhdrs)
+
+# SConscript(dirs="psql", duplicate=0, exports={'env':env})

@@ -1,0 +1,46 @@
+
+
+Import('env')
+
+sources = Split("""
+    A2DBoardTempSensor.cc
+    ADC_HW_EB7022597.cc
+    Aircraft.cc
+    Arinc_IRS.cc
+    DSMAnalogSensor.cc
+    DSMArincSensor.cc
+    DSMMesaSensor.cc
+    GPS_HW_HG2021GB02.cc
+    IRIGSensor.cc
+    IRS_HW_HG2001GD.cc
+    IRS_HW_YG1854.cc
+    PSI9116_Sensor.cc
+    SyncRecordGenerator.cc
+    SyncRecordReader.cc
+    SyncRecordSource.cc
+""")
+
+
+headers = Split("""
+    A2DBoardTempSensor.h
+    ADC_HW_EB7022597.h
+    Aircraft.h
+    Arinc_IRS.h
+    DSMAnalogSensor.h
+    DSMArincSensor.h
+    DSMMesaSensor.h
+    GPS_HW_HG2021GB02.h
+    IRIGSensor.h
+    IRS_HW_HG2001GD.h
+    IRS_HW_YG1854.h
+    PSI9116_Sensor.h
+    SyncRecordGenerator.h
+    SyncRecordReader.h
+    SyncRecordSource.h
+    SyncRecordVariable.h
+""")
+
+
+env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
+
+env.Install('$PREFIX/include/nidas/dynld/raf', headers)
