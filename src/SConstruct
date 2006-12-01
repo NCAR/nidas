@@ -112,3 +112,8 @@ Alias('install',
       Alias('xml_install',
             env.Install('$PREFIX/share/xml','#../xml/nidas.xsd')))
 
+dox = Command('#/../doc/doxygen/html/index.html',
+              '#/../doc/doxygen_conf/nidas.doxy',
+              'cd .. && doxygen $SOURCE')
+Alias('dox', dox)
+AlwaysBuild(dox)
