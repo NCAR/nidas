@@ -68,6 +68,16 @@ void TiltSensor::addSampleTag(SampleTag* stag)
 
 **/
 
+inline float
+decode_angle(const char* dp)
+{
+    // this should sign extend
+    int s = dp[0];
+    s <<= 8;
+    s += (((int)dp[1]) & 0xff);
+    return (float)s * 90.0 / 32768.0;
+}
+
 bool
 TiltSensor::
 process(const Sample* samp, std::list<const Sample*>& results) throw()
@@ -76,21 +86,22 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     if (inlen < 6) return false;	// not enough data
 
     const char* dinptr = (const char*) samp->getConstVoidDataPtr();
-    short checksum = (dinptr[1] + dinptr[2] + dinptr[3] + dinptr[4]) % 256;
+    unsigned short checksum = 
+	(dinptr[1] + dinptr[2] + dinptr[3] + dinptr[4]) % 256;
 
     // Compute pitch and roll.
-    float pitch = (((int)dinptr[1])*256 + dinptr[2])*90.0/32768.0;
-    float roll = (((int)dinptr[3])*256 + dinptr[4])*90.0/32768.0;
+    float pitch = decode_angle(dinptr+1);
+    float roll = decode_angle(dinptr+3);
 
 #ifdef DEBUG
     cerr << "inlen=" << inlen << ' ' 
-	 << hex << (short)dinptr[0] 
-	 << ',' << (short)dinptr[1]
-	 << ',' << (short)dinptr[2]
+	 << hex << (((unsigned short)dinptr[0]) & 0xff)
+	 << ',' << dec << (short)dinptr[1]
+	 << ',' << (((short)dinptr[2]) & 0xff)
 	 << ',' << (short)dinptr[3]
-	 << ',' << (short)dinptr[4]
-	 << ',' << (short)dinptr[5]
-	 << ", csum=" << checksum
+	 << ',' << (((short)dinptr[4]) & 0xff)
+	 << ',' << hex << (unsigned short)dinptr[5]
+	 << ", csum=" << hex << checksum
 	 << dec << ", pitch=" << pitch << ", roll=" << roll 
 	 << endl;
 #endif
@@ -106,6 +117,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     }
 
     SampleT<float>* outsamp = getSample<float>(2);
+    outsamp->setTimeTag(samp->getTimeTag());
     outsamp->setId(sampleId);
 
     float* values = outsamp->getDataPtr();
