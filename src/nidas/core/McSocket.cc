@@ -27,7 +27,8 @@ namespace n_u = nidas::util;
  */
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
     firstRead(true),newFile(true),keepAliveIdleSecs(7200),
-    minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
+    minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
+    nonBlocking(true)
 {
     setName("McSocket");
 }
@@ -39,27 +40,29 @@ McSocket::McSocket(const McSocket& x):
     n_u::McSocket(x),socket(0),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
     firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
-    minWriteInterval(x.minWriteInterval),lastWrite(0)
+    minWriteInterval(x.minWriteInterval),lastWrite(0),
+    nonBlocking(x.nonBlocking)
 {
 }
 
 /*
- * constructor, but with a new, connected n_u::Socket
+ * Copy constructor, but with a new, connected n_u::Socket
  */
 McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
     n_u::McSocket(x),socket(sock),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
     firstRead(true),newFile(true),
     keepAliveIdleSecs(x.keepAliveIdleSecs),
-    minWriteInterval(x.minWriteInterval),lastWrite(0)
+    minWriteInterval(x.minWriteInterval),lastWrite(0),
+    nonBlocking(x.nonBlocking)
 
 {
-    if (socket->getKeepAliveIdleSecs() != keepAliveIdleSecs) {
-	try {
+    try {
+        if (socket->getKeepAliveIdleSecs() != keepAliveIdleSecs)
 	    socket->setKeepAliveIdleSecs(keepAliveIdleSecs);
-	}
-	catch (const n_u::IOException& e) {
-	}
+        socket->setNonBlocking(nonBlocking);
+    }
+    catch (const n_u::IOException& e) {
     }
 }
 
@@ -75,6 +78,7 @@ IOChannel* McSocket::connect()
     if (isRequester()) sock = n_u::McSocket::connect();
     else sock = accept();
     sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
+    sock->setNonBlocking(nonBlocking);
     setName(sock->getRemoteSocketAddress().toString());
     return new McSocket(*this,sock);
 }
@@ -90,7 +94,6 @@ void McSocket::requestConnection(ConnectionRequester* requester)
 void McSocket::connected(n_u::Socket* sock)
 {
     // cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
-    sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     McSocket* newsock = new McSocket(*this,sock);
     newsock->setName(sock->getRemoteSocketAddress().toString());
     assert(connectionRequester);

@@ -27,7 +27,8 @@ Socket::Socket():
 	remoteSockAddr(
 		auto_ptr<n_u::SocketAddress>(new n_u::Inet4SocketAddress())),
 	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
+        minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
+        nonBlocking(true)
 {
     setName("Socket " + remoteSockAddr->toString());
 }
@@ -40,7 +41,8 @@ Socket::Socket(const Socket& x):
 		auto_ptr<n_u::SocketAddress>(x.remoteSockAddr->clone())),
 	socket(0),name(x.name),
 	firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
-        minWriteInterval(x.minWriteInterval),lastWrite(0)
+        minWriteInterval(x.minWriteInterval),lastWrite(0),
+        nonBlocking(x.nonBlocking)
 {
 }
 
@@ -57,6 +59,7 @@ Socket::Socket(n_u::Socket* sock):
     setName(remoteSockAddr->toString());
     try {
 	keepAliveIdleSecs = socket->getKeepAliveIdleSecs();
+        nonBlocking = sock->isNonBlocking();
     }
     catch (const n_u::IOException& e) {
     }
@@ -105,6 +108,7 @@ IOChannel* Socket::connect() throw(n_u::IOException)
     n_u::Socket* waitsock = new n_u::Socket();
     waitsock->connect(*remoteSockAddr.get());
     waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
+    waitsock->setNonBlocking(nonBlocking);
     return new nidas::core::Socket(waitsock);
 }
 
@@ -114,6 +118,7 @@ void Socket::requestConnection(ConnectionRequester* requester)
     n_u::Socket* waitsock = new n_u::Socket();
     waitsock->connect(*remoteSockAddr.get());
     waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
+    waitsock->setNonBlocking(nonBlocking);
     // cerr << "Socket::connected " << getName();
     requester->connected(new nidas::core::Socket(waitsock));
 }
@@ -132,7 +137,8 @@ ServerSocket::ServerSocket():
 	localSockAddr(new n_u::Inet4SocketAddress(0)),
         servSock(0),connectionRequester(0),
         thread(0),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100)
+        minWriteInterval(USECS_PER_SEC/100),
+        nonBlocking(true)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -141,7 +147,8 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 	localSockAddr(addr.clone()),
         servSock(0),connectionRequester(0),
         thread(0),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100)
+        minWriteInterval(USECS_PER_SEC/100),
+        nonBlocking(true)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -150,7 +157,8 @@ ServerSocket::ServerSocket(const ServerSocket& x):
 	localSockAddr(x.localSockAddr->clone()),name(x.name),
 	servSock(0),connectionRequester(0),thread(0),
 	keepAliveIdleSecs(x.keepAliveIdleSecs),
-        minWriteInterval(x.minWriteInterval)
+        minWriteInterval(x.minWriteInterval),
+        nonBlocking(x.nonBlocking)
 {
 }
 
@@ -194,6 +202,7 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
 
     nidas::core::Socket* newCSocket = new nidas::core::Socket(newsock);
     newCSocket->setMinWriteInterval(getMinWriteInterval());
+    newCSocket->setNonBlocking(nonBlocking);
 
     return newCSocket;
 }
@@ -218,6 +227,7 @@ int ServerSocketConnectionThread::run() throw(n_u::IOException)
 	// create nidas::core::Socket from n_u::Socket
 	n_u::Socket* lowsock = socket.servSock->accept();
 	lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
+        lowsock->setNonBlocking(socket.isNonBlocking());
 
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
         newsock->setMinWriteInterval(socket.getMinWriteInterval());

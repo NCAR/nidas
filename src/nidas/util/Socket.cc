@@ -328,6 +328,17 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
     }
 }
 
+bool SocketImpl::isNonBlocking() const throw(IOException)
+{
+    int flags;
+    /* set io to non-blocking, so network jams don't hang us up */
+    if ((flags = ::fcntl(fd, F_GETFL, 0)) < 0) {
+	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        throw IOException(localaddr->toString(),
+		"fcntl(...,F_GETFL,...)",ierr);
+    }
+    return (flags | O_NONBLOCK) != 0;
+}
 
 void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
 {

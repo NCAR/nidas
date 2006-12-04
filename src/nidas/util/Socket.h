@@ -112,6 +112,8 @@ public:
 
     void setNonBlocking(bool val) throw(IOException);
 
+    bool isNonBlocking() const throw(IOException);
+
     /**
      * Set the TCP_NODELAY (man 7 tcp) option on the socket.
      * This option is only appropriate for TCP sockets.
@@ -432,6 +434,11 @@ public:
     void setNonBlocking(bool val) throw(IOException)
     {
 	impl.setNonBlocking(val);
+    }
+
+    bool isNonBlocking() const throw(IOException)
+    {
+	return impl.isNonBlocking();
     }
 
     void setTcpNoDelay(bool val) throw(IOException)

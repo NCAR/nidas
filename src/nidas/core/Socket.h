@@ -80,6 +80,24 @@ public:
 	return keepAliveIdleSecs;
     }
 
+    /**
+     * Do setNonBlocking(val) on underlying socket.
+     */
+    void setNonBlocking(bool val) throw (nidas::util::IOException)
+    {
+	nonBlocking = val;
+	if (socket) socket->setNonBlocking(val);
+    }
+
+    /**
+     * Return isNonBlocking() of underlying socket.
+     */
+    bool isNonBlocking() const throw (nidas::util::IOException)
+    {
+	if (socket) return socket->isNonBlocking();
+	return nonBlocking;
+    }
+
     size_t getBufferSize() const throw();
 
     /**
@@ -97,7 +115,7 @@ public:
         if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
         if (tnow - lastWrite < minWriteInterval) return 0;
         lastWrite = tnow;
-	return socket->send(buf,len,MSG_DONTWAIT | MSG_NOSIGNAL);
+	return socket->send(buf,len, MSG_NOSIGNAL);
 
     }
 
@@ -172,6 +190,8 @@ private:
      */
     dsm_time_t lastWrite;
 
+    bool nonBlocking;
+
 };
 
 /**
@@ -235,6 +255,22 @@ public:
     }
 
     /**
+     * 
+     */
+    void setNonBlocking(bool val) throw (nidas::util::IOException)
+    {
+	nonBlocking = val;
+    }
+
+    /**
+     * 
+     */
+    bool isNonBlocking() const throw (nidas::util::IOException)
+    {
+	return nonBlocking;
+    }
+
+    /**
     * ServerSocket will never be called to do an actual read.
     */
     size_t read(void* buf, size_t len) throw (nidas::util::IOException)
@@ -266,7 +302,6 @@ public:
     int getMinWriteInterval() const {
         return minWriteInterval;
     }
-
 
     void close() throw (nidas::util::IOException);
 
@@ -307,6 +342,8 @@ private:
      * Minimum write interval in microseconds so we don't flood network.
      */
     int minWriteInterval;
+
+    bool nonBlocking;
 
 };
 

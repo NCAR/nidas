@@ -95,6 +95,24 @@ public:
         return keepAliveIdleSecs;
     }
 
+    /**
+     * Do setNonBlocking(val) on underlying socket.
+     */
+    void setNonBlocking(bool val) throw (nidas::util::IOException)
+    {
+	nonBlocking = val;
+	if (socket) socket->setNonBlocking(val);
+    }
+
+    /**
+     * Return isNonBlocking() of underlying socket.
+     */
+    bool isNonBlocking() const throw (nidas::util::IOException)
+    {
+	if (socket) return socket->isNonBlocking();
+	return nonBlocking;
+    }
+
     size_t getBufferSize() const throw();
 
     /**
@@ -112,7 +130,7 @@ public:
         if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
         if (tnow - lastWrite < minWriteInterval) return 0;
         lastWrite = tnow;
-	return socket->send(buf,len,MSG_DONTWAIT | MSG_NOSIGNAL);
+	return socket->send(buf,len,MSG_NOSIGNAL);
 
     }
 
@@ -169,6 +187,8 @@ private:
      * Time of last physical write.
      */
     dsm_time_t lastWrite;
+
+    bool nonBlocking;
 
 };
 
