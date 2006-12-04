@@ -271,7 +271,7 @@ public:
      * for tokens like $DSM in the file or path names.
      * Otherwise it is not necessary to setDSMConfig.
      */
-    void setDSMConfig(const nidas::core::DSMConfig* val);
+    void setDSMConfig(const DSMConfig* val);
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
@@ -323,7 +323,7 @@ private:
 
     CalFile* include;
 
-    nidas::core::DSMConfig* dsm;
+    const DSMConfig* dsm;
 
     static nidas::util::Mutex reMutex;
 

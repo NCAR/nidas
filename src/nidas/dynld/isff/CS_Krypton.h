@@ -40,6 +40,8 @@ public:
 
     void setCalFile(CalFile* val);
 
+    CalFile* getCalFile();
+
     /**
      * @param val Kw parameter from sensor calibration.
      */

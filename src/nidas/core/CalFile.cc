@@ -150,6 +150,11 @@ void CalFile::setPath(const std::string& val)
     // path = path.replace(':',File.pathSeparatorChar);
 }
 
+void CalFile::setDSMConfig(const DSMConfig* val)
+{
+    dsm = val;
+}
+
 void CalFile::setDateTimeFormat(const std::string& val)
 {
     dateTimeFormat = val;
@@ -383,9 +388,9 @@ int CalFile::readData(float* data, int ndata)
 
     int id;
     for (id = 0; !sin.eof() && id < ndata; id++) {
-
         sin >> data[id];
         if (sin.fail()) {
+            if (sin.eof()) break;
             // conversion failure
             if (id == 0) {
                 // first field, check if it is an include line
@@ -425,8 +430,12 @@ int CalFile::readData(float* data, int ndata)
             if (!sin.fail() && ::strlen(possibleNaN) > 1 &&
                 ::toupper(possibleNaN[0]) == 'N' &&
                 ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
-            else throw n_u::ParseException(getCurrentFileName(),
-                curline.substr(curpos),getLineNumber());
+            else {
+                ostringstream ost;
+                ost << ": field number " << (id+1);
+                throw n_u::ParseException(getCurrentFileName(),
+                    curline.substr(curpos) + ost.str(),getLineNumber());
+            }
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
         /*

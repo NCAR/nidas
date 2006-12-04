@@ -87,6 +87,11 @@ void Linear::setCalFile(CalFile* val)
     calFile = val;
 }
 
+CalFile* Linear::getCalFile()
+{
+    return calFile;
+}
+
 std::string Linear::toString() const
 {
     ostringstream ost;
@@ -127,6 +132,11 @@ Polynomial::~Polynomial()
 void Polynomial::setCalFile(CalFile* val)
 {
     calFile = val;
+}
+
+CalFile* Polynomial::getCalFile()
+{
+    return calFile;
 }
 
 std::string Polynomial::toString() const

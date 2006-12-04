@@ -37,15 +37,20 @@ int main(int argc, char** argv)
     cf.setFile(argv[2]);
 
     float data[10];
+    n_u::UTime tlast((time_t)0);
 
     try {
         for (;;) {
             n_u::UTime t = cf.readTime();
             if (cf.eof()) break;
             int n = cf.readData(data,sizeof data/sizeof data[0]);
-            cerr << t.format(true,"%Y %m %d %H:%M:%S.%3f %Z ");
-            for (int i = 0; i < n; i++) cerr << data[i] << ' ';
-            cerr << endl;
+            cout << t.format(true,"%Y %m %d %H:%M:%S.%3f %Z ");
+            for (int i = 0; i < n; i++) cout << data[i] << ' ';
+            cout << endl;
+            if (t < tlast) cerr << "backwards time at " <<
+                t.format(true,"%Y %m %d %H:%M:%S.%3f %Z ") <<
+                " nline=" << cf.getLineNumber() << endl;
+            tlast = t;
         }
     }
     catch (const n_u::ParseException& e) {

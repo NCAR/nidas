@@ -509,7 +509,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	else if (elname == "calfile") {
 	    CalFile* cf = new CalFile();
             cf->fromDOMElement((xercesc::DOMElement*)child);
+            cf->setDSMConfig(getDSMConfig());
 	    setCalFile(cf);
+
 	}
     }
 

@@ -15,6 +15,7 @@
 
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/CalFile.h>
 
 #include <sstream>
 #include <iostream>
@@ -216,6 +217,9 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);
 	    if (nvars == variables.size()) addVariable(var);
+            VariableConverter* cvtr = var->getConverter();
+            if (dsm && cvtr && cvtr->getCalFile())
+                cvtr->getCalFile()->setDSMConfig(dsm);
 	    nvars++;
 	}
 	else if (elname == "parameter")  {

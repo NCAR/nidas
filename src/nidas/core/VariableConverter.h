@@ -36,6 +36,8 @@ public:
 
     virtual void setCalFile(CalFile*) = 0;
 
+    virtual CalFile* getCalFile() = 0;
+
     virtual float convert(dsm_time_t,float v) = 0;
 
     void setUnits(const std::string& val) { units = val; }
@@ -117,6 +119,8 @@ public:
 
     void setCalFile(CalFile*);
 
+    CalFile* getCalFile();
+
     void setSlope(float val) { slope = val; }
 
     float getSlope() const { return slope; }
@@ -163,6 +167,8 @@ public:
     Polynomial* clone() const;
 
     void setCalFile(CalFile*);
+
+    CalFile* getCalFile();
 
     void setCoefficients(const std::vector<float>& vals);
 
