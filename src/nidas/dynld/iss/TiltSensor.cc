@@ -66,6 +66,48 @@ void TiltSensor::addSampleTag(SampleTag* stag)
 
  Pitch or Roll = (msb x 256 + lsb)*90/2^15
 
+================================================================
+Case Reference #00002361
+---------------------------------------------------------------
+Type: Inertial
+Sub Type: Tilt Sensors
+Case Reason: Installation and Operation
+Date Created: 11/30/2006
+Last Updated: 12/4/2006
+
+Subject:
+---------------------------------------------------------------
++/- sign in AccelView are opposite what the serial message seems to suggest
+from CXTILT
+
+
+Question:
+---------------------------------------------------------------
+If I run the AccelView software with our CXTILT02 sensor, it reports in the
+Tilt window the pitch is about -1.22 and roll about 0.55.  However, if I
+look at the serial data, it looks like the signs should be the opposite:
+
+ff 01 bb ff 2e e9
+
+In this message, 01 bb is the pitch, and that number is positive right?
+Likewise the roll is ff 2e, which is negative.  Is there an explanation for
+this discrepancy?  Thanks.
+
+
+Response:
+---------------------------------------------------------------
+We have verified this behavior in house and it appears as though the data
+sheet is incorrect.  You can simply multiply the end result values by -1 to
+obtain the correct values.  Accel-View does appear to be providing correct
+roll and pitch values in conjunction with the orientation of theunit.  We
+apologize for the error and will be making a correction shortly.
+
+Sincerely,
+
+Mike Smith
+Crossbow Technology, Inc
+www.xbow.com
+
 **/
 
 inline float
@@ -75,7 +117,7 @@ decode_angle(const char* dp)
     int s = dp[0];
     s <<= 8;
     s += (((int)dp[1]) & 0xff);
-    return (float)s * 90.0 / 32768.0;
+    return -(float)s * 90.0 / 32768.0;
 }
 
 bool
