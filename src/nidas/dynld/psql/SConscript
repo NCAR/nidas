@@ -1,0 +1,27 @@
+# -*- python -*-
+
+##  Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+##
+##  Import the cross-build environment.
+##
+Import('env')
+myenv = env.Copy()
+
+##
+## Look for PostgreSQL library.
+## It looks like this check needs to be at the top of this file,
+## just after the env.Copy(), otherwise it hangs forever.
+##
+conf = Configure(myenv)
+has_psql = conf.CheckLibWithHeader('pq','libpq-fe.h','c','PQconnectdb("");')
+myenv = conf.Finish()
+
+sources = Split("""PSQLChannel.cc PSQLSampleOutput.cc""")
+headers = Split("""PSQLChannel.h PSQLSampleOutput.h""")
+
+if has_psql:
+    so = myenv.SharedLibrary("nidas_dynld_psql", sources)
+    myenv.Install('$PREFIX/lib',so)
+    myenv.Install('$PREFIX/include',headers)
+

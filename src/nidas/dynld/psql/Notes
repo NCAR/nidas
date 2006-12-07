@@ -1,0 +1,58 @@
+
+Plan is to create separate tables for every sample tag, meaning a separate
+table for each set of variables which will have the same timestamps.
+
+For a simple solution, we could consider using a separate table for every
+variable.  Waste of timestamps perhaps, but very flexible.
+
+For ISS, need to establish database name and two users, one for read-only
+and one for writing, where the rw user needs a password.  Then we can
+establish conventions for different table names which clients can always
+expect to be there, like project parameters.
+
+-- Role: "iss"
+
+-- DROP ROLE iss;
+
+CREATE ROLE iss LOGIN
+  ENCRYPTED PASSWORD 'md5ab61a1f5f58f7448c67beed3f97f8d0b'
+  NOSUPERUSER INHERIT CREATEDB NOCREATEROLE;
+
+CREATE DATABASE iss
+  WITH ENCODING='UTF8'
+       OWNER=iss;
+
+
+-- For ISS CLIMODE, we need these streams:
+
+surface met and ship navigation: Ingest from the network broadcast and
+store in the database.
+
+tilt sensor: Sample the CXTILT and store in the database.
+
+Surface met needs to get from the database to the sounding system via a
+network broadcast.
+
+-- Difficulties:
+
+How to detect the existence of tables and avoid recreating them, and how to
+match up sample tags with existing tables.  When nidas restarts, it needs
+to make sure the existing tables have the right set of variables.  If
+variables have been added to or removed from a sample tag, then there needs
+to be a new table.
+
+ - For now, if a table exists but its variables do not match the sample
+tag--ie, the sample tag changed between runs--then issue a warning and
+refuse to write to the table.  Then the operator can decide to recreate the
+table.
+
+How to know that variables are equivalent between runs?  Basically this can
+be done by name, but it *is* possible that the same variable name gets used
+in multiple sample tags.  Can we get at the unique fully qualified sensor
+name from which a sample tag comes?  That would be the table name we want
+to use.
+
+We don't want to use rate as is done now, since multiple sensors will have
+the same rate, but they cannot be combined into a single table because
+their samples do not line up.
+
