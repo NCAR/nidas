@@ -43,7 +43,7 @@ IOChannel* IOChannel::createIOChannel(const DOMElement* node)
     	domable = DOMObjectFactory::createObject("FileSet");
 
     else if (!type.compare("postgresdb"))
-    	domable = DOMObjectFactory::createObject("PSQLChannel");
+    	domable = DOMObjectFactory::createObject("psql.PSQLChannel");
 
     else if (!type.compare("ncserver"))
     	domable = DOMObjectFactory::createObject("isff.NcServerRPC");
