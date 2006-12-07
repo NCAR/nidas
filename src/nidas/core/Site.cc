@@ -336,7 +336,8 @@ const DSMConfig* Site::findDSM(const string& name) const
 	di != dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
 #ifdef DEBUG
-	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
+	cerr << "Checking dsm " << dsm->getName()
+	     << " for name=" << name << endl;
 #endif
 	if (dsm->getName() == name) return dsm;
     }

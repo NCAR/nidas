@@ -566,8 +566,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
             "no device name","");
 
 #ifdef DEBUG
-    cerr << getName() << ", suffix=" << getSuffix() << ", sitesuff=" <<
-        getSiteSuffix() << ": ";
+    cerr << getName() << ", suffix=" << getSuffix() << ": ";
     VariableIterator vi = getVariableIterator();
     for ( ; vi.hasNext(); ) {
         const Variable* var = vi.next();

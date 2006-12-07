@@ -109,8 +109,8 @@ void SocketImpl::close() throw(IOException)
 {
 
 #ifdef DEBUG
-    cerr << "closing, local=" << getLocalSocketAddress().toString() <<
-    	" remote=" << getAddress().toString() << endl;
+    cerr << "closing, local=" << getLocalSocketAddress().toString()
+	 << " remote=" << getRemoteSocketAddress().toString() << endl;
 #endif
     if (fd >= 0 && ::close(fd) < 0) 
     	throw IOException("Socket","close",errno);
@@ -372,8 +372,8 @@ void SocketImpl::send(const DatagramPacketBase& packet) throw(IOException)
     int res;
 
 #ifdef DEBUG
-    cerr << "sending packet, length=" << packet.getLength() <<
-    	" slen=" << slen << endl;
+    cerr << "sending packet, length=" << packet.getLength()
+	 << " slen=" << packet.getSockAddrLen() << endl;
 #endif
 
     if ((res = ::sendto(fd,packet.getConstDataVoidPtr(),packet.getLength(),0,

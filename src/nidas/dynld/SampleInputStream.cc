@@ -175,8 +175,6 @@ void SampleInputStream::readHeader() throw(n_u::IOException)
  */
 void SampleInputStream::readSamples() throw(n_u::IOException)
 {
-// #define DEBUG
-
     iostream->read();		// read a buffer's worth
     if (iostream->isNewFile()) {	// first read from a new file
 	readHeader();
@@ -229,7 +227,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	if (leftToRead > 0) break;	// no more data in iostream buffer
 
 #ifdef DEBUG
-	if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
+	//if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
 #endif
 
 	distribute(samp);

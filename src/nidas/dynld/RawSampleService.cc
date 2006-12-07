@@ -192,8 +192,7 @@ void RawSampleService::disconnected(SampleInput* inputx) throw()
     n_u::Inet4Address remoteAddr = inputx->getRemoteInet4Address();
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
-    cerr << "RawSampleService::disconnected, dsm=" << dsm << 
-    	" getDSMConfig()=" << getDSMConfig() << endl;
+    cerr << "RawSampleService::disconnected, dsm=" << dsm << endl;
 #endif
 
     // figure out the cloned service for the input.

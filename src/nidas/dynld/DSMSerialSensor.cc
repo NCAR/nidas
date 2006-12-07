@@ -85,19 +85,19 @@ void DSMSerialSensor::rtlDevInit(int flags)
 {
 #ifdef DEBUG
     cerr << "sizeof(struct termios)=" << sizeof(struct termios) << endl;
-    cerr << "termios=" << hex << getTermiosPtr() << endl;
-    cerr << "c_iflag=" << &(getTermiosPtr()->c_iflag) << ' ' << getTermiosPtr()->c_iflag << endl;
-    cerr << "c_oflag=" << &(getTermiosPtr()->c_oflag) << ' ' << getTermiosPtr()->c_oflag << endl;
-    cerr << "c_cflag=" << &(getTermiosPtr()->c_cflag) << ' ' << getTermiosPtr()->c_cflag << endl;
-    cerr << "c_lflag=" << &(getTermiosPtr()->c_lflag) << ' ' << getTermiosPtr()->c_lflag << endl;
-    cerr << "c_line=" << (void *)&(getTermiosPtr()->c_line) << endl;
-    cerr << "c_cc=" << (void *)&(getTermiosPtr()->c_cc[0]) << endl;
+    cerr << "termios=" << hex << getTermios() << endl;
+    cerr << "c_iflag=" << &(getTermios()->c_iflag) << ' ' << getTermios()->c_iflag << endl;
+    cerr << "c_oflag=" << &(getTermios()->c_oflag) << ' ' << getTermios()->c_oflag << endl;
+    cerr << "c_cflag=" << &(getTermios()->c_cflag) << ' ' << getTermios()->c_cflag << endl;
+    cerr << "c_lflag=" << &(getTermios()->c_lflag) << ' ' << getTermios()->c_lflag << endl;
+    cerr << "c_line=" << (void *)&(getTermios()->c_line) << endl;
+    cerr << "c_cc=" << (void *)&(getTermios()->c_cc[0]) << endl;
 
     cerr << "c_iflag=" << iflag() << endl;
     cerr << "c_oflag=" << oflag() << endl;
     cerr << "c_cflag=" << cflag() << endl;
     cerr << "c_lflag=" << lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermiosPtr()) << endl;
+    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermios()) << endl;
     cerr << "baud rate=" << getBaudRate() << endl;
     cerr << "data bits=" << getDataBits() << endl;
     cerr << "stop bits=" << getStopBits() << endl;
@@ -169,7 +169,7 @@ void DSMSerialSensor::unixDevInit(int flags)
     cerr << "c_oflag=" << oflag() << endl;
     cerr << "c_cflag=" << cflag() << endl;
     cerr << "c_lflag=" << lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermiosPtr()) << endl;
+    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermios()) << endl;
     cerr << "baud rate=" << getBaudRate() << endl;
     cerr << "data bits=" << getDataBits() << endl;
     cerr << "stop bits=" << getStopBits() << endl;
