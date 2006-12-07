@@ -151,8 +151,8 @@ void PSI9116_Sensor::addSampleTag(SampleTag* stag)
     nchannels = var->getLength();
 
     if (!var->getUnits().compare("mb") ||
-	!var->getUnits().compare("millibar") ||
-	!var->getUnits().compare("millibars"))
+	!var->getUnits().compare("mbar") ||
+	!var->getUnits().compare("hPa"))
 	    psiConvert = 68.94757;
     else throw n_u::InvalidParameterException(getName(),
 		"units",
