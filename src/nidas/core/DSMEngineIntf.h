@@ -66,7 +66,11 @@ public:
 class DSMEngineIntf : public XmlRpcThread
 {
 public:
-  DSMEngineIntf() : XmlRpcThread("DSMEngineIntf") {}
+  DSMEngineIntf() : XmlRpcThread("DSMEngineIntf")
+  {
+      setCancelDeferred(true);
+      setCancelEnabled(true);
+  }
 
   int run() throw(nidas::util::Exception);
 };

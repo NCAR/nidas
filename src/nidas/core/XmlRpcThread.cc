@@ -29,6 +29,7 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
   blockSignal(SIGTERM);
+  unblockSignal(SIGUSR1);
 }
 
 void XmlRpcThread::interrupt()

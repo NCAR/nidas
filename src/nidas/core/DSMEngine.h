@@ -91,7 +91,7 @@ public:
     /** Quits the main loop (for the XMLRPC call). */
     void mainQuit();
 
-    SampleDater* getSampleDater() { return &_dater; }
+    SampleClock* getSampleClock() { return _clock; }
 
     const DSMConfig* getDSMConfig() const { return _dsmConfig; }
 
@@ -193,7 +193,7 @@ private:
     /** This thread provides XML-based Remote Procedure calls */
     DSMEngineIntf*   _xmlrpcThread;
 
-    SampleDater      _dater;
+    SampleClock*    _clock;
 
     /**
      * Mapping between connected outputs and the original

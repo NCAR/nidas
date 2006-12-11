@@ -41,7 +41,8 @@ int DSMEngine::rtlinux = -1;	// unknown
 DSMEngine::DSMEngine():
     _syslogit(true),_wait(false),
     _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
-    _statusThread(0),_xmlrpcThread(0),_xmlRequestSocket(0)
+    _statusThread(0),_xmlrpcThread(0),_clock(SampleClock::getInstance()),
+    _xmlRequestSocket(0)
 {
     setupSignals();
     try {
@@ -87,6 +88,7 @@ DSMEngine::~DSMEngine()
 	for ( ; oi != outputs.end(); ++oi) {
 	    SampleOutput* output = *oi;
 	    try {
+		output->finish();
 		output->close();	// DSMConfig will delete
 	    }
 	    catch(const n_u::IOException& e) {
@@ -545,7 +547,6 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
     }
 }
 
-
 /* A remote system has connnected to one of our outputs.
  * We don't clone the output here.
  */
@@ -624,16 +625,15 @@ void DSMEngine::interrupt() throw(n_u::Exception)
     _interrupt = true;
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine::interrupt() called");
-    if (_selector) {
-	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt, interrupting SensorHandler");
-        _selector->interrupt();
-    }
     if (_statusThread) {
-	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt, cancelling status thread");
-      _statusThread->cancel();
-      _statusThread->join();
+        if (_statusThread->isRunning()) _statusThread->cancel();
+        try {
+            _statusThread->join();
+        }
+        catch(const n_u::Exception& e) {
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "DSMEngine::interrupt, status thread: %s",e.what());
+        }
     }
     // If DSMEngine is waiting for an XML connection, closing the
     // _xmlRequestSocket here will cause an IOException in
@@ -643,18 +643,42 @@ void DSMEngine::interrupt() throw(n_u::Exception)
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine::interrupt() done");
 
+    if (_selector) {
+	n_u::Logger::getInstance()->log(LOG_INFO,
+	    "DSMEngine::interrupt, interrupting SensorHandler");
+        _selector->interrupt();
+    }
     // do not quit when controlled by XMLRPC
     // TODO override this feature for Ctrl-C
-    if (!_wait) // || signal_seen(SIGINT))
-      _quit = true;
+    if (!_wait) {
+        _quit = true;
+        try {
+            if (_xmlrpcThread->isRunning()) {
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "DSMEngine::interrupt, cancelling xmlrpcThread");
+                // if this is running under valgrind, then cancel doesn't
+                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
+                _xmlrpcThread->cancel();
+                // _xmlrpcThread->kill(SIGUSR1);
+            }
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "DSMEngine::interrupt, joining xmlrpcThread");
+            _xmlrpcThread->join();
+        }
+        catch(const n_u::Exception& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+            "xmlRpcThread: %s",e.what());
+        }
+    }
     else
       _logger->log(LOG_ERR,"DSMEngine::interrupt wait on the _runCond condition variable...");
 }
 
 void DSMEngine::wait() throw(n_u::Exception)
 {
-  _selector->join();
-  // cerr << "DSMEngine::wait() _selector joined" << endl;
+    cerr << "DSMEngine::wait() waiting on _selector" << endl;
+    _selector->join();
+    cerr << "DSMEngine::wait() _selector joined" << endl;
 }
 
 /* static */
