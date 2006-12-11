@@ -38,11 +38,12 @@ valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
 }
 
-server_errors=`valgrind_errors sync_server.log`
-echo "$server_errors errors reported by valgrind in sync_server.log"
-
 dump_errs=`valgrind_errors sync_dump.log`
 echo "$dump_errs errors reported by valgrind in sync_dump.log"
+
+sleep 5
+server_errors=`valgrind_errors sync_server.log`
+echo "$server_errors errors reported by valgrind in sync_server.log"
 
 
 
