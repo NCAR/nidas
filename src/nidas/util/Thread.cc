@@ -26,7 +26,7 @@ using namespace nidas::util;
 
 
 Mutex Thread::_threadsMutex;
-map<int,Thread*,less<int> > Thread::_threads;
+map<pthread_t,Thread*,less<pthread_t> > Thread::_threads;
 
 /**
  * the signals that we handle because the user has called unblockSignal()
@@ -37,7 +37,7 @@ set<int> Thread::_handledSignals;
 void
 Thread::sigAction(int sig,siginfo_t* siginfo,void* ptr)
 {
-  int id = Thread::currentThreadId();
+  pthread_t id = Thread::currentThreadId();
   Thread *thrptr = Thread::currentThread();
 
   if (thrptr) {
@@ -58,7 +58,7 @@ Thread::sigAction(int sig,siginfo_t* siginfo,void* ptr)
 }
 
 /*static*/
-int
+pthread_t
 Thread::currentThreadId ()
 {
   return ::pthread_self();
@@ -69,7 +69,7 @@ Thread::currentThreadId ()
 Thread *
 Thread::currentThread()
 {
-  int id = currentThreadId();
+  pthread_t id = currentThreadId();
   Thread *thrptr = 0;
 
   Synchronized sync(_threadsMutex);
@@ -222,13 +222,13 @@ Thread::thr_delete(void *me)
 void
 Thread::thr_cleanup(void *me) 
 { 
-  Thread *thr = (Thread*)me;
+    Thread *thr = (Thread*)me;
 #ifdef DEBUG
-  cerr << "thr_cleanup of " << thr->getFullName() << endl;
+    cerr << "thr_cleanup of " << thr->getFullName() << endl;
 #endif
-  thr->_running = false;
-  thr->unregisterThread();
-  thr->_joinMutex.unlock();
+    thr->_running = false;
+    thr->unregisterThread();
+    thr->_joinMutex.unlock();
 }
 
 /* static */

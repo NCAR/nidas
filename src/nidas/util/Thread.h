@@ -68,7 +68,7 @@ public:
    **/
   static Thread *currentThread ();
 
-  static int currentThreadId ();
+  static pthread_t currentThreadId ();
 
   /**
    * Convenience routine to return the name for the current thread,
@@ -81,7 +81,7 @@ public:
     return unknownName;
   }
 
-  typedef std::map<int, Thread *, std::less<int> > threadmap_t;
+  typedef std::map<pthread_t, Thread *, std::less<pthread_t> > threadmap_t;
 
   static Mutex _threadsMutex;
   static threadmap_t _threads;
@@ -313,6 +313,8 @@ protected:
   std::string fullName();
 
   void makeFullName();		// add thread id to name once we know it
+
+  pthread_t getId() const { return _id; }
 
 protected:
 
