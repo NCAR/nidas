@@ -584,6 +584,39 @@ static int set_interrupt_char(struct serialPort* port, unsigned char c)
     else DSMLOG_WARNING("special character interrupts not supported on this UART\n");
     return 0;
 }
+
+static int unset_interrupt_char(struct serialPort* port)
+{
+    if (port->type == PORT_16850) {
+	unsigned char efr,lcr;
+
+	lcr = serial_in(port, UART_LCR);
+	serial_outp(port, UART_LCR, 0xBF);
+
+	// On 16C850's the EMSR register becomes XOFF2 when LCR=0xBF
+	serial_outp(port,UART_EMSR,0);	// set xoff2 character
+#ifdef DEBUG
+	DSMLOG_DEBUG("c=0x%x, xoff2=0x%x\n",c,serial_in(port,UART_EMSR));
+#endif
+
+	efr = serial_in(port, UART_EFR);
+#ifdef DEBUG
+	DSMLOG_DEBUG("efr=0x%x\n",efr);
+#endif
+	// Disable special character detect, and enhanced function bits
+	efr &= ~UART_EFR_SCD & ~UART_EFR_ECB;
+#ifdef DEBUG
+	DSMLOG_DEBUG("efr=0x%x\n",efr);
+#endif
+	serial_outp(port, UART_EFR,efr);
+
+	serial_outp(port, UART_LCR, lcr);
+
+	port->IER &= ~0x20;	// XOFF interrupt disable
+	serial_out(port, UART_IER, port->IER);
+    }
+    return 0;
+}
 /*
  * Taken from linux drivers/char/serial.c change_speed
  * Does not do a spin_lock on port->lock.
@@ -1028,264 +1061,6 @@ static int stop_prompter(struct serialPort* port)
     return 0;
 }
 
-/*
- * Return: negative RTL errno
- */
-static int set_record_sep(struct serialPort* port,
-	struct dsm_serial_record_info* sep)
-{
-    unsigned long flags;
-    rtl_spin_lock_irqsave (&port->lock,flags);
-    memcpy(&port->recinfo,sep,sizeof(struct dsm_serial_record_info));
-
-    port->sepcnt = 0;
-    port->addNull = 0;
-
-    // set the interrupt character to the last
-    // character in the record separator
-    if (sep->sepLen > 0) {
-
-    	set_interrupt_char(port, sep->sep[sep->sepLen-1]);
-
-	// If separator is a terminating NL or CR, then assume
-	// these are ASCII records, and overwrite the termination
-	// character with a NULL in order to simplify later
-	// sscanf-ing.
-	if (sep->atEOM) {
-	    switch (sep->sep[sep->sepLen-1]) {
-	    case '\n':
-	    case '\r':
-		port->addNull = 1;
-		break;
-	    default:
-		break;
-	    }
-	}
-    }
-
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
-    return 0;
-}
-
-/*
- * Set the maximum time to wait when reading characters
- * from this serial device.  If characters are available
- * the the read will not block for more than val number
- * of microseconds.  This sets the timeout value 
- * for sample_sem.
- * Return: negative RTL errno
- */
-static int set_latency_usec(struct serialPort* port, long val)
-{
-    unsigned long flags;
-    rtl_spin_lock_irqsave (&port->lock,flags);
-
-#ifdef DEBUG
-    DSMLOG_DEBUG("latency=%d usecs\n",val);
-#endif
-
-    // screen latencies which are too small.
-    // A latency of zero will cause the serial driver to hang!
-    // We'll enforce a minimum of 1 millisec.
-    if (val <= USECS_PER_MSEC) {
-	long minval = USECS_PER_MSEC;
-	DSMLOG_ERR("%s: illegal latency value = %d usecs, setting to %d usecs\n",
-		port->devname,val, minval);
-	val = minval;
-    }
-    port->read_timeout_sec = val / USECS_PER_SEC;
-    port->read_timeout_nsec = (val % USECS_PER_SEC) * NSECS_PER_USEC;
-
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
-    return 0;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int get_record_sep(struct serialPort* port,
-	struct dsm_serial_record_info* sep)
-{
-    unsigned long flags;
-    rtl_spin_lock_irqsave (&port->lock,flags);
-    memcpy(sep,&port->recinfo,sizeof(struct dsm_serial_record_info));
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
-    return 0;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int get_status(struct serialPort* port,
-	struct dsm_serial_status* status)
-{
-    /* Note we're not doing rtl_spin_lock_irqsave here */
-
-#ifdef DEBUG
-    DSMLOG_DEBUG("pe_cnt=%d,oe_cnt=%d\n",port->pe_cnt,port->oe_cnt);
-#endif
-
-    status->pe_cnt = port->pe_cnt;
-    status->oe_cnt = port->oe_cnt;
-    status->fe_cnt = port->fe_cnt;
-    status->input_chars_lost = port->input_chars_lost;
-    status->output_chars_lost = port->output_chars_lost;
-    status->sample_overflows = port->sample_overflows;
-
-    status->uart_queue_avail =
-    	CIRC_SPACE(port->uart_samples.head,port->uart_samples.tail,
-		UART_SAMPLE_QUEUE_SIZE);
-
-    status->output_queue_avail =
-    	CIRC_SPACE(port->output_samples.head,port->output_samples.tail,
-		OUTPUT_SAMPLE_QUEUE_SIZE);
-
-    status->char_xmit_queue_avail =
-    	CIRC_SPACE(port->xmit.head, port->xmit.tail,SERIAL_XMIT_SIZE);
-
-    status->max_fifo_usage = port->max_fifo_usage;
-    port->max_fifo_usage = 0;
-
-    if (port->min_fifo_usage == UART_SAMPLE_SIZE)
-	status->min_fifo_usage = 0;
-    else
-	status->min_fifo_usage = port->min_fifo_usage;
-    port->min_fifo_usage = UART_SAMPLE_SIZE;
-
-    return 0;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int open_port(struct serialPort* port)
-{
-    int retval = 0;
-    unsigned long flags;
-
-    if (port->type == PORT_UNKNOWN &&
-    	(retval = autoconfig(port)) < 0) return retval;
-#ifdef DEBUG
-    DSMLOG_DEBUG("open_port, uart=%s\n",uart_config[port->type]);
-#endif
-
-    retval = uart_startup(port);
-
-    rtl_spin_lock_irqsave(&port->board->lock,flags);
-    port->board->int_mask |= (1 << port->portIndex);
-    rtl_spin_unlock_irqrestore(&port->board->lock,flags);
-
-    return retval;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int close_port(struct serialPort* port)
-{
-    unsigned long flags;
-
-    if (port->promptOn) stop_prompter(port);
-    uart_shutdown(port);
-
-    rtl_spin_lock_irqsave(&port->board->lock,flags);
-    port->board->int_mask &= ~(1 << port->portIndex);
-    rtl_spin_lock_irqsave(&port->board->lock,flags);
-
-    return 0;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int write_eeprom(struct serialBoard* board)
-{
-    unsigned long flags;
-    int ntry;
-    int ip;
-
-    rtl_spin_lock_irqsave(&board->lock,flags);
-
-    /* first enable writes to EEPROM */
-    serial_out(board,COM8_BC_ECR,0x30);
-    serial_out(board,COM8_BC_CR,1);
-
-    for (ntry = 10; ntry; ntry--) {
-        unsigned long jwait = jiffies + 1;
-	while (jiffies < jwait) schedule();
-
-	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
-    }
-    if (!ntry) {
-      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
-	rtl_spin_unlock_irqrestore(&board->lock,flags);
-      return -RTL_EIO;
-    }
-
-    for (ip = 0; ip < board->numports; ip++) {
-        struct serialPort* port = board->ports + ip;
-
-	serial_out(board,COM8_BC_ECR,ip | 0x40);
-	serial_out(board,COM8_BC_EHDR,(port->ioport >> 3) | 0x80);
-	serial_out(board,COM8_BC_ELDR,(port->irq & 0xf));
-
-	serial_out(board,COM8_BC_CR,1);
-
-	for (ntry = 10; ntry; ntry--) {
-	    unsigned long jwait = jiffies + 1;
-	    while (jiffies < jwait) schedule();
-	    if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
-	}
-	if (!ntry) {
-	  DSMLOG_ERR("writing config for port %d to EEPROM failed: timeout\n",
-	  	ip);
-	rtl_spin_unlock_irqrestore(&board->lock,flags);
-	  return -RTL_EIO;
-	}
-    }
-
-    /* disable writes to EEPROM */
-    serial_out(board,COM8_BC_ECR,0x0);
-    serial_out(board,COM8_BC_CR,1);
-
-    for (ntry = 10; ntry; ntry--) {
-	unsigned long jwait = jiffies + 1;
-	while (jiffies < jwait) schedule();
-	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
-    }
-    if (!ntry) {
-      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
-	rtl_spin_unlock_irqrestore(&board->lock,flags);
-      return -RTL_EIO;
-    }
-    rtl_spin_unlock_irqrestore(&board->lock,flags);
-    return 0;
-}
-
-/*
- * initialize a struct serialPort (mostly just zero it out)
- */
-static void init_serialPort_struct(struct serialPort* port)
-{
-    port->type = PORT_UNKNOWN;
-    rtl_spin_lock_init (&port->lock);
-    port->baud_base = 115200;
-    port->xmit_fifo_size = 1;
-
-    port->recinfo.atEOM = 1;
-
-    /* semaphore timeout in read method.
-     * Set from DSMSER_SET_LATENCY ioctl.
-     */
-    port->read_timeout_sec = 0;
-    port->read_timeout_nsec = NSECS_PER_SEC / 10;	// default 1/10th sec
-
-    rtl_sem_init(&port->sample_sem,0,0);
-
-    rtl_memset(&port->termios, 0, sizeof(struct termios));
-    port->termios.c_cflag = B38400 | CS8 | HUPCL;
-}
-
 static inline dsm_sample_time_t compute_time_tag(struct dsm_sample* usamp,int nchars,
 	int usecs_per_char)
 {
@@ -1542,6 +1317,321 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 	    }
 	}
     }
+}
+
+/*
+ * Scan a sample from a UART FIFO, copying the characters
+ * into the sample at the head of the output_sample queue.
+ * Break samples by a beginning of message separator.
+ * Timetag the output samples with the computed receipt
+ * time of the beginning-of-messages character.
+ */
+static void scan_by_length(struct serialPort* port,struct dsm_sample* usamp)
+{
+    // initial samples in the output queue will have length==0
+    struct dsm_sample* osamp =
+    	GET_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+    if (!osamp) {		// no output sample available
+        port->input_chars_lost += usamp->length;
+	return;
+    }
+
+    register char* op = osamp->data + osamp->length;
+    register char* cp = usamp->data;
+    int left;
+
+    if (osamp->length == 0)
+        osamp->timetag =
+            compute_time_tag(usamp,cp-usamp->data,port->usecs_per_char);
+
+    for (left = usamp->length; left > 0;) {
+        int nc = port->recinfo.recordLen - osamp->length;
+        if (nc > left) nc = left;
+
+        memcpy(op,cp,nc);
+        op += nc;
+        cp += nc;
+        left -= nc;
+        osamp->length += nc;
+        if (osamp->length == port->recinfo.recordLen) {
+            osamp = NEXT_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
+            if (!osamp) {
+                port->input_chars_lost += left;
+                return;
+            }
+            osamp->timetag =
+                compute_time_tag(usamp,cp-usamp->data,port->usecs_per_char);
+            op = osamp->data;
+        }
+    }
+}
+/*
+ * Return: negative RTL errno
+ */
+static int set_record_sep(struct serialPort* port,
+	struct dsm_serial_record_info* sep)
+{
+    unsigned long flags;
+    if (sep->recordLen >= MAX_DSM_SERIAL_SAMPLE_SIZE) {
+	DSMLOG_ERR("%s: record size=%d, exceeds maximum = %d\n",
+		port->devname,sep->recordLen, MAX_DSM_SERIAL_SAMPLE_SIZE);
+        return -RTL_EINVAL;
+    }
+      
+    rtl_spin_lock_irqsave (&port->lock,flags);
+    memcpy(&port->recinfo,sep,sizeof(struct dsm_serial_record_info));
+
+    port->sepcnt = 0;
+    port->addNull = 0;
+
+    // set the interrupt character to the last
+    // character in the record separator
+    if (sep->sepLen > 0) {
+
+    	set_interrupt_char(port, sep->sep[sep->sepLen-1]);
+
+	// If separator is a terminating NL or CR, then assume
+	// these are ASCII records, and overwrite the termination
+	// character with a NULL in order to simplify later
+	// sscanf-ing.
+        switch (sep->sep[sep->sepLen-1]) {
+        case '\n':
+        case '\r':
+            port->addNull = 1;
+            break;
+        default:
+            break;
+        }
+	if (sep->atEOM) port->scan_func = scan_sep_eom;
+        else port->scan_func = scan_sep_bom;
+    }
+    else {
+        port->scan_func = scan_by_length;
+        unset_interrupt_char(port);
+    }
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return 0;
+}
+
+/*
+ * Set the maximum time to wait when reading characters
+ * from this serial device.  If characters are available
+ * the the read will not block for more than val number
+ * of microseconds.  This sets the timeout value 
+ * for sample_sem.
+ * Return: negative RTL errno
+ */
+static int set_latency_usec(struct serialPort* port, long val)
+{
+    unsigned long flags;
+    rtl_spin_lock_irqsave (&port->lock,flags);
+
+#ifdef DEBUG
+    DSMLOG_DEBUG("latency=%d usecs\n",val);
+#endif
+
+    // screen latencies which are too small.
+    // A latency of zero will cause the serial driver to hang!
+    // We'll enforce a minimum of 1 millisec.
+    if (val <= USECS_PER_MSEC) {
+	long minval = USECS_PER_MSEC;
+	DSMLOG_ERR("%s: illegal latency value = %d usecs, setting to %d usecs\n",
+		port->devname,val, minval);
+	val = minval;
+    }
+    port->read_timeout_sec = val / USECS_PER_SEC;
+    port->read_timeout_nsec = (val % USECS_PER_SEC) * NSECS_PER_USEC;
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int get_record_sep(struct serialPort* port,
+	struct dsm_serial_record_info* sep)
+{
+    unsigned long flags;
+    rtl_spin_lock_irqsave (&port->lock,flags);
+    memcpy(sep,&port->recinfo,sizeof(struct dsm_serial_record_info));
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int get_status(struct serialPort* port,
+	struct dsm_serial_status* status)
+{
+    /* Note we're not doing rtl_spin_lock_irqsave here */
+
+#ifdef DEBUG
+    DSMLOG_DEBUG("pe_cnt=%d,oe_cnt=%d\n",port->pe_cnt,port->oe_cnt);
+#endif
+
+    status->pe_cnt = port->pe_cnt;
+    status->oe_cnt = port->oe_cnt;
+    status->fe_cnt = port->fe_cnt;
+    status->input_chars_lost = port->input_chars_lost;
+    status->output_chars_lost = port->output_chars_lost;
+    status->sample_overflows = port->sample_overflows;
+
+    status->uart_queue_avail =
+    	CIRC_SPACE(port->uart_samples.head,port->uart_samples.tail,
+		UART_SAMPLE_QUEUE_SIZE);
+
+    status->output_queue_avail =
+    	CIRC_SPACE(port->output_samples.head,port->output_samples.tail,
+		OUTPUT_SAMPLE_QUEUE_SIZE);
+
+    status->char_xmit_queue_avail =
+    	CIRC_SPACE(port->xmit.head, port->xmit.tail,SERIAL_XMIT_SIZE);
+
+    status->max_fifo_usage = port->max_fifo_usage;
+    port->max_fifo_usage = 0;
+
+    if (port->min_fifo_usage == UART_SAMPLE_SIZE)
+	status->min_fifo_usage = 0;
+    else
+	status->min_fifo_usage = port->min_fifo_usage;
+    port->min_fifo_usage = UART_SAMPLE_SIZE;
+
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int open_port(struct serialPort* port)
+{
+    int retval = 0;
+    unsigned long flags;
+
+    if (port->type == PORT_UNKNOWN &&
+    	(retval = autoconfig(port)) < 0) return retval;
+#ifdef DEBUG
+    DSMLOG_DEBUG("open_port, uart=%s\n",uart_config[port->type]);
+#endif
+
+    retval = uart_startup(port);
+
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+    port->board->int_mask |= (1 << port->portIndex);
+    rtl_spin_unlock_irqrestore(&port->board->lock,flags);
+
+    return retval;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int close_port(struct serialPort* port)
+{
+    unsigned long flags;
+
+    if (port->promptOn) stop_prompter(port);
+    uart_shutdown(port);
+
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+    port->board->int_mask &= ~(1 << port->portIndex);
+    rtl_spin_lock_irqsave(&port->board->lock,flags);
+
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int write_eeprom(struct serialBoard* board)
+{
+    unsigned long flags;
+    int ntry;
+    int ip;
+
+    rtl_spin_lock_irqsave(&board->lock,flags);
+
+    /* first enable writes to EEPROM */
+    serial_out(board,COM8_BC_ECR,0x30);
+    serial_out(board,COM8_BC_CR,1);
+
+    for (ntry = 10; ntry; ntry--) {
+        unsigned long jwait = jiffies + 1;
+	while (jiffies < jwait) schedule();
+
+	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
+    }
+    if (!ntry) {
+      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
+	rtl_spin_unlock_irqrestore(&board->lock,flags);
+      return -RTL_EIO;
+    }
+
+    for (ip = 0; ip < board->numports; ip++) {
+        struct serialPort* port = board->ports + ip;
+
+	serial_out(board,COM8_BC_ECR,ip | 0x40);
+	serial_out(board,COM8_BC_EHDR,(port->ioport >> 3) | 0x80);
+	serial_out(board,COM8_BC_ELDR,(port->irq & 0xf));
+
+	serial_out(board,COM8_BC_CR,1);
+
+	for (ntry = 10; ntry; ntry--) {
+	    unsigned long jwait = jiffies + 1;
+	    while (jiffies < jwait) schedule();
+	    if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
+	}
+	if (!ntry) {
+	  DSMLOG_ERR("writing config for port %d to EEPROM failed: timeout\n",
+	  	ip);
+	rtl_spin_unlock_irqrestore(&board->lock,flags);
+	  return -RTL_EIO;
+	}
+    }
+
+    /* disable writes to EEPROM */
+    serial_out(board,COM8_BC_ECR,0x0);
+    serial_out(board,COM8_BC_CR,1);
+
+    for (ntry = 10; ntry; ntry--) {
+	unsigned long jwait = jiffies + 1;
+	while (jiffies < jwait) schedule();
+	if ((serial_in(board,COM8_BC_SR) & 0xc0) == 0x80) break;
+    }
+    if (!ntry) {
+      DSMLOG_ERR("enable EEPROM write failed: timeout\n");
+	rtl_spin_unlock_irqrestore(&board->lock,flags);
+      return -RTL_EIO;
+    }
+    rtl_spin_unlock_irqrestore(&board->lock,flags);
+    return 0;
+}
+
+/*
+ * initialize a struct serialPort (mostly just zero it out)
+ */
+static void init_serialPort_struct(struct serialPort* port)
+{
+    port->type = PORT_UNKNOWN;
+    rtl_spin_lock_init (&port->lock);
+    port->baud_base = 115200;
+    port->xmit_fifo_size = 1;
+
+    port->recinfo.atEOM = 1;
+    port->scan_func = scan_sep_eom;
+
+    /* semaphore timeout in read method.
+     * Set from DSMSER_SET_LATENCY ioctl.
+     */
+    port->read_timeout_sec = 0;
+    port->read_timeout_nsec = NSECS_PER_SEC / 10;	// default 1/10th sec
+
+    rtl_sem_init(&port->sample_sem,0,0);
+
+    rtl_memset(&port->termios, 0, sizeof(struct termios));
+    port->termios.c_cflag = B38400 | CS8 | HUPCL;
 }
 
 /*
@@ -1919,8 +2009,8 @@ static rtl_ssize_t rtl_dsm_ser_read(struct rtl_file *filp, char *buf, rtl_size_t
 #ifdef DEBUG
 	    DSMLOG_DEBUG("scanning\n");
 #endif
-	    if (port->recinfo.atEOM) scan_sep_eom(port,samp);
-	    else scan_sep_bom(port,samp);
+
+            port->scan_func(port,samp);
 
 	    rtl_spin_lock_irqsave(&port->lock,flags);
 	    INCREMENT_TAIL(port->uart_samples,UART_SAMPLE_QUEUE_SIZE);
@@ -2014,13 +2104,13 @@ static int rtl_dsm_ser_ioctl(struct rtl_file *filp, unsigned int request,
 #endif
 	retval = stop_prompter(port);
 	break;
-    case DSMSER_SET_RECORD_SEP:	/* set the prompt for this port */
+    case DSMSER_SET_RECORD_SEP:	/* set the record separator for this port */
 #ifdef DEBUG
 	DSMLOG_DEBUG("DSMSER_SET_RECORD_SEP\n");
 #endif
 	retval = set_record_sep(port, (struct dsm_serial_record_info*)arg);
 	break;
-    case DSMSER_GET_RECORD_SEP:	/* get the prompt for this port */
+    case DSMSER_GET_RECORD_SEP:	/* get the record separator for this port */
 #ifdef DEBUG
 	DSMLOG_DEBUG("DSMSER_GET_RECORD_SEP\n");
 #endif

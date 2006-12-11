@@ -98,7 +98,7 @@ headers = [ Split("""
     SampleAverager.h
     SampleClient.h
     SampleClientList.h
-    SampleDater.h
+    SampleClock.h
     Sample.h
     SampleInput.h
     SampleInputHeader.h
@@ -179,7 +179,7 @@ sources = [ Split("""
     SampleAverager.cc
     Sample.cc
     SampleClientList.cc
-    SampleDater.cc
+    SampleClock.cc
     SampleInput.cc
     SampleInputHeader.cc
     SampleIOProcessor.cc

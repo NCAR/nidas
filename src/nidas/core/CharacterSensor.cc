@@ -35,6 +35,7 @@ namespace n_u = nidas::util;
 
 CharacterSensor::CharacterSensor():
     rtlinux(-1),
+    separatorAtEOM(true),
     promptRate(0.0),
     maxScanfFields(0),
     prompted(false)
@@ -172,7 +173,7 @@ void CharacterSensor::fromDOMElement(
 	    const string& str = xchild.getAttributeValue("position");
 	    if (str == "beg") setMessageSeparatorAtEOM(false);
 	    else if (str == "end") setMessageSeparatorAtEOM(true);
-	    else throw n_u::InvalidParameterException
+	    else if (str != "") throw n_u::InvalidParameterException
 			(getName(),"messageSeparator position",str);
 
 	    istringstream ist(xchild.getAttributeValue("length"));

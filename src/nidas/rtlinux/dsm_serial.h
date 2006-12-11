@@ -191,6 +191,9 @@ struct serialPort {
 
 			/* information about how records are separated
 			 * in the stream of data from the sensor */
+    /* function to scan characters into samples */
+    void (*scan_func)(struct serialPort* port,struct dsm_sample* usamp);
+
     struct dsm_serial_record_info recinfo;
     int sepcnt;				// current counter
 

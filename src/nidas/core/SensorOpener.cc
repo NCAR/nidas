@@ -70,6 +70,7 @@ void SensorOpener::reopenSensor(DSMSensor *sensor)
  */
 void SensorOpener::interrupt()
 {
+    cerr << "SensorOpener::interrupt" << endl;
     Thread::interrupt();
     sensorCond.signal();
 }
@@ -81,6 +82,7 @@ void SensorOpener::interrupt()
  */
 void SensorOpener::cancel() throw(n_u::Exception)
 {
+    cerr << "SensorOpener::cancel" << endl;
     interrupt();
     Thread::cancel();
 }
@@ -94,10 +96,10 @@ int SensorOpener::run() throw(n_u::Exception)
 
     for (;;) {
 	sensorCond.lock();
-	while (!isInterrupted() &&
+	while (!amInterrupted() &&
 		(sensors.size() + problemSensors.size()) == 0)
 		sensorCond.wait();
-	if (isInterrupted()) break;
+	if (amInterrupted()) break;
 
 	DSMSensor* sensor = 0;
 	if (sensors.size() > 0) {

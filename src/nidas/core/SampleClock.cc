@@ -14,7 +14,7 @@
 
 */
 
-#include <nidas/core/SampleDater.h>
+#include <nidas/core/SampleClock.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/util/Logger.h>
 
@@ -23,17 +23,31 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-void SampleDater::setTime(dsm_time_t clockT)
+SampleClock* SampleClock::_instance = new SampleClock();
+
+SampleClock::SampleClock():
+    maxClockDiffUsec(180 * USECS_PER_SEC),
+    t0day(0),clockTime(0),sysTimeAhead(0),
+    TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
+    timeWarnCount(0)
 {
-    clockTime = clockT;
+    clockTime = nidas::core::getSystemTime();
     t0day = timeFloor(clockTime,USECS_PER_DAY);
-    dsm_time_t tnow = getSystemTime();
+}
+
+
+void SampleClock::setTime(dsm_time_t val)
+{
+    clockTime = val;
+    t0day = timeFloor(clockTime,USECS_PER_DAY);
+
+    dsm_time_t tnow = nidas::core::getSystemTime();
     sysTimeMutex.lock();
-    if (::llabs(tnow - clockT) > LONG_MAX) {
-        if (tnow > clockT) sysTimeAhead = LONG_MAX;
+    if (::llabs(tnow - val) > LONG_MAX) {
+        if (tnow > val) sysTimeAhead = LONG_MAX;
         else sysTimeAhead = -(LONG_MAX-1);
     }
-    else sysTimeAhead = tnow - clockT;
+    else sysTimeAhead = tnow - val;
     sysTimeMutex.unlock();
     if (abs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
 	if (!(timeWarnCount++ % 100))
@@ -42,14 +56,13 @@ void SampleDater::setTime(dsm_time_t clockT)
     }
 }
 
-dsm_time_t SampleDater::getDataSystemTime() const 
+dsm_time_t SampleClock::getTime() const 
 {
     n_u::Synchronized autolock(sysTimeMutex);
     return nidas::core::getSystemTime() - sysTimeAhead;
 }
 
-
-SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
+SampleClock::status_t SampleClock::addSampleDate(Sample* samp) const
 {
     assert(samp->getTimeTag() < USECS_PER_DAY);
     dsm_time_t sampleTime = t0day + samp->getTimeTag();
@@ -75,7 +88,6 @@ SampleDater::status_t SampleDater::setSampleTime(Sample* samp) const
 	    sampleTime -= USECS_PER_DAY;
 	}
 	else {
-	    if (t0day == 0) return NO_CLOCK;
 	    cerr << "bad time? sampleTime=" << sampleTime <<
 	    	" (" << samp->getTimeTag() << '+' << t0day <<
 		"), clockTime=" << clockTime <<

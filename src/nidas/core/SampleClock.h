@@ -23,46 +23,54 @@
 namespace nidas { namespace core {
 
 /**
- * SampleDater adds date information to sample time tags.
+ * SampleClock adds date information to sample time tags.
  * Periodically a clock source must call setTime() to set
  * the current dsm_time_t (the number of microseconds
  * since Jan 1, 1970 00:00 GMT).
  * Samples which come from the UNIX driver level have
  * are only timetagged with the time since 00:00 GMT
  * of the current day.
- * SampleDater adds the day offset to the timetags, so
+ * SampleClock adds the day offset to the timetags, so
  * that they are an absolute time.
  */
-class SampleDater {
+class SampleClock {
 public:
+
+    static SampleClock* getInstance() { return _instance; }
 
     /**
      * Constructor.
-     * @param maxClockDiff A check for reasonable sample times (seconds).
+     */
+    SampleClock();
+
+    /**
+     * @param val: A check for reasonable sample times (seconds).
      *        If the sample time differs from the clock
      * 		source time (as set by setTime) by more than
      * 		maxClockDiff, then the state is set to OUT_OF_SPEC.
      */
-    SampleDater(int maxClockDiff = 180):
-    	maxClockDiffUsec(maxClockDiff * USECS_PER_SEC),
-	t0day(0),clockTime(0),sysTimeAhead(0),
-	TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
-	timeWarnCount(0)
+    void setMaxClockDiff(int val)
     {
+    	maxClockDiffUsec = val * USECS_PER_SEC;
     }
 
     /**
      * Set the absolute time, microseconds since Jan 1, 1970 00:00 GMT.
+     * This is only needed if a timing card (e.g. IRIG) on the
+     * system has a better clock that the OS clock.
      */
     void setTime(dsm_time_t);
 
     /**
-     * Get the absolute time, microseconds since Jan 1, 1970 00:00 GMT.
+     * Get the current system time in microseconds since Jan 1,
+     * 1970 00:00 GMT, as estimated by
+     * nidas::core::getSystemTime() + offset.
+     * offset is computed every time setTime() is called.
      */
-    dsm_time_t getTime() const { return clockTime; }
+    dsm_time_t getTime() const;
 
     /**
-     * Enumeration of the result of setSampleTime().
+     * Enumeration of the result of addSampleDate().
      */
     typedef enum { NO_CLOCK, OUT_OF_SPEC, OK } status_t;
 
@@ -78,17 +86,13 @@ public:
      *			is not valid,
      *		OK: good sample time.
      */
-    status_t setSampleTime(Sample* samp) const;
+    status_t addSampleDate(Sample* samp) const;
 
-    /**
-     * Get the current data system time.  As currently implemented,
-     * this does not make a clock fetch from the data system, but
-     * computes the time as getSystemTime() + offset, where
-     * offset is computed every time setTime() is called.
-     */
     dsm_time_t getDataSystemTime() const; 
 
 private:
+
+    static SampleClock* _instance;
 
     int maxClockDiffUsec;
 

@@ -86,10 +86,13 @@ void Looper::removeClient(LooperClient* clnt)
 	clientsByCntrMod.clear();
 	clientMutex.unlock();
         if (isRunning()) {
-	    n_u::Logger::getInstance()->log(LOG_INFO,
-		"No clients for Looper, doing cancel, join");
-	    cancel();
-	    join();
+	    interrupt();
+            if (Thread::currentThreadId() != getId()) {
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "No clients for Looper, doing cancel, join");
+                cancel();
+                join();
+            }
 	}
 	return;
     }
@@ -107,7 +110,7 @@ void Looper::setupClientMaps()
 	minperiod = ci->first;
 	break;
     }
-    assert(minperiod > 0);
+    if (minperiod == 0) return;
 
     unsigned long sleepval = minperiod;
     int n = 1;

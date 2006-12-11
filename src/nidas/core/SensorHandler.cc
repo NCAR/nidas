@@ -137,7 +137,6 @@ int SensorHandler::run() throw(n_u::Exception)
 	}
     }
 
-    SampleDater* dater = DSMEngine::getInstance()->getSampleDater();
     size_t nsamplesAlloc = 0;
 
     for (;;) {
@@ -187,7 +186,7 @@ int SensorHandler::run() throw(n_u::Exception)
 	    if (FD_ISSET(fd,&rset)) {
 		DSMSensor *sensor = activeSensors[ifd];
 		try {
-		  rtime = sensor->readSamples(dater);
+		  rtime = sensor->readSamples();
 		}
 		catch (n_u::IOException &ioe) {
 		  n_u::Logger::getInstance()->log(LOG_ERR,"%s",ioe.toString().c_str());
@@ -298,8 +297,8 @@ int SensorHandler::run() throw(n_u::Exception)
     for (ci = conns.begin(); ci != conns.end(); ++ci)
 	removeRemoteSerialConnection(*ci);
 
-    // n_u::Logger::getInstance()->log(LOG_INFO,
-	// "SensorHandler finished, closing remaining %d sensors ",activeSensors.size());
+    n_u::Logger::getInstance()->log(LOG_INFO,
+	"SensorHandler finished, closing remaining %d sensors ",activeSensors.size());
 
     sensorsMutex.lock();
     list<DSMSensor*> tsensors = pendingSensors;

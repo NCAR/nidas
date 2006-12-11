@@ -226,6 +226,12 @@ bool SortedSampleOutputStream::receive(const Sample *s) throw()
     return SampleOutputStream::receive(s);
 }
 
+void SortedSampleOutputStream::finish() throw()
+{
+    if (sorter) sorter->finish();
+    SampleOutputStream::finish();
+}
+
 void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {

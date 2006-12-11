@@ -16,6 +16,9 @@
 
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/util/IOTimeoutException.h>
+
+#include <sys/select.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -23,15 +26,17 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SampleScanner::SampleScanner():
-	BUFSIZE(8192),buffer(new char[BUFSIZE]),
-	bufhead(0),buftail(0),samp(0),sampDataToRead(0),
-	sampDataPtr(0),usecsPerByte(0)
+	BUFSIZE(1024),buffer(new char[BUFSIZE]),
+	bufhead(0),buftail(0),osamp(0),outSampRead(0),
+        outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
+        outSampDataPtr(0),usecsPerByte(0)
 {
     resetStatistics();
 }
 
 SampleScanner::~SampleScanner()
 {
+    if (osamp) osamp->freeReference();
     delete [] buffer;
 }
 
@@ -40,74 +45,88 @@ void SampleScanner::init()
     resetStatistics();
 }
 
-dsm_time_t SampleScanner::readSamples(DSMSensor* sensor,
-	SampleDater* dater)
+size_t SampleScanner::readBuffer(DSMSensor* sensor)
 	throw (n_u::IOException)
 {
-    size_t len = BUFSIZE - bufhead;	// length to read
-    size_t rlen;			// read result
-    dsm_time_t tt = 0;
+    // shift data down. If the user has read all samples in the
+    // previous buffer, there shouldn't be anything to move.
+    size_t len = bufhead - buftail;
+    if (len > 0 && buftail > 0) ::memmove(buffer,buffer+buftail,len);
+    bufhead = len;
+    buftail = 0;
 
-    rlen = sensor->read(buffer+bufhead,len);
-    // cerr << "SampleScanner::readSamples::read=" << rlen << endl;
+    len = BUFSIZE - bufhead;	// length to read
+    if (len == 0) return len;
+    size_t rlen = sensor->read(buffer+bufhead,len);
     addNumBytesToStats(rlen);
     bufhead += rlen;
+    return rlen;
+}
 
-    // process all data in buffer, pass samples onto clients
-    for (;;) {
-        if (samp) {
-	    rlen = bufhead - buftail;	// bytes available in buffer
-	    len = sampDataToRead;	// bytes left to fill sample
-	    if (rlen < len) len = rlen;
-	    memcpy(sampDataPtr,buffer+buftail,len);
-	    buftail += len;
-	    sampDataPtr += len;
-	    sampDataToRead -= len;
-	    if (!sampDataToRead) {		// done with sample
-		addSampleToStats(samp->getDataByteLength());
-		SampleDater::status_t status = sensor->setSampleTime(dater,samp);
-		if (status == SampleDater::OK) {
-		    tt = samp->getTimeTag();	// return last time tag read
-		    samp->setId(sensor->getId());
-		    sensor->distributeRaw(samp);
-		}
-		else {
-		    incrementBadTimeTags();
-		    samp->freeReference();
-		}
-		samp = 0;
-		// Finished with sample. Check for more data in buffer
-	    }
-	    else break;		// done with buffer
-	}
-	// Read the header of the next sample
-        if (bufhead - buftail <
-		(signed)(len = SIZEOF_DSM_SAMPLE_HEADER))
-		break;
-
-	struct dsm_sample header;	// temporary header to read into
-	memcpy(&header,buffer+buftail,len);
-	buftail += len;
-
-	len = header.length;
-	samp = getSample<char>(len);
-	// convert time tag to microseconds since 00:00 GMT
-	samp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_MSEC);
-	samp->setDataLength(len);
-
-	sampDataPtr = (char*) samp->getVoidDataPtr();
-	sampDataToRead = len;
-
+size_t SampleScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
+	throw (n_u::IOException)
+{
+    if (msecTimeout > 0) {
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        FD_SET(sensor->getReadFd(),&fdset);
+        struct timeval to =
+            { msecTimeout/MSECS_PER_SEC,
+                (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC};
+        int res;
+        if ((res = ::select(sensor->getReadFd()+1,&fdset,0,0,&to)) < 0)
+            throw n_u::IOException(sensor->getName(),"read",errno);
+        else if (res == 0)
+            throw n_u::IOTimeoutException(sensor->getName(),"read");
     }
+    return readBuffer(sensor);
+}
 
-    // shift data down. There shouldn't be much - less than a header's worth.
-    register char* bp;
-    for (bp = buffer; buftail < bufhead; ) 
-    	*bp++ = *(buffer + buftail++);
+Sample* SampleScanner::nextSample(DSMSensor* sensor)
+{
+    size_t avail = bufhead - buftail;	// bytes available in buffer
+    size_t len;
+    Sample* result = 0;
+    if (!osamp) {
+        // Read the header of the next sample
+        len = std::min(outSampToRead,avail);
+        ::memcpy(outSampDataPtr+outSampRead,buffer+buftail,len);
+        buftail += len;
+        outSampRead += len;
+        outSampToRead -= len;
+        avail -= len;
 
-    bufhead = bp - buffer;
-    buftail = 0;
-    return tt;
+        if (outSampToRead != 0) return 0;
+
+        outSampToRead = header.length;
+        osamp = getSample<char>(outSampToRead);
+        // convert time tag to microseconds since 00:00 GMT
+        osamp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_MSEC);
+        osamp->setId(sensor->getId());
+        osamp->setDataLength(outSampToRead);
+        outSampDataPtr = (char*) osamp->getVoidDataPtr();
+        outSampRead = 0;
+    }
+    len = std::min(outSampToRead,avail);
+    ::memcpy(outSampDataPtr + outSampRead,buffer+buftail,len);
+    buftail += len;
+    outSampRead += len;
+    outSampToRead -= len;
+    if (outSampToRead == 0) {		// done with sample
+        addSampleToStats(osamp->getDataByteLength());
+        SampleClock::status_t status =
+            SampleClock::getInstance()->addSampleDate(osamp);
+
+        if (status == SampleClock::OK) result = osamp;
+        else {
+            incrementBadTimeTags();
+            osamp->freeReference();
+        }
+        osamp = 0;
+        outSampToRead = SIZEOF_DSM_SAMPLE_HEADER;
+        outSampDataPtr = (char*) &header;
+    }
+    return result;
 }
 
 void SampleScanner::resetStatistics()
@@ -164,6 +183,7 @@ MessageSampleScanner::~MessageSampleScanner()
     delete [] separator;
 }
 
+
 /**
  * The messageSeparator is the string of bytes that a sensor
  * outputs between messages.  The string may contain
@@ -198,346 +218,352 @@ const std::string MessageSampleScanner::getBackslashedMessageSeparator() const
     return DSMSensor::addBackslashSequences(messageSeparator);
 }
 
-
 MessageStreamScanner::MessageStreamScanner(): MessageSampleScanner(),
-	MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),osamp(0),
-	separatorCnt(0),outSampLen(0),outSampDataPtr(0),
-	sampleOverflows(0),sampleLengthAlloc(0),
+        nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
+	MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
+	separatorCnt(0),sampleOverflows(0),sampleLengthAlloc(0),
 	nullTerminate(false)
 {
 }
 
 MessageStreamScanner::~MessageStreamScanner()
 {
-    if (osamp) osamp->freeReference();
 }
 
-
-void MessageStreamScanner::init()
+void MessageStreamScanner::setMessageLength(unsigned int val)
+    throw(n_u::InvalidParameterException)
 {
-    /* if termination character is not CR or NL then set
-     * nullTermination to false.
-     */
-    int sl;
-    if (getMessageSeparatorAtEOM() &&
-    	(sl = getMessageSeparator().length()) > 0) {
-	switch (getMessageSeparator()[sl-1]) {
-	case '\r':
-	case '\n':
-	    setNullTerminate(true);
-	    break;
-	default:
-	    setNullTerminate(false);
-	    break;
-	}
-    }
-    else setNullTerminate(false);
+    if (val + separatorLen > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
+        ostringstream ost;
+        ost << "message length=" << val << " plus separator length=" <<
+            separatorLen << " exceed maximum value=" <<
+            MAX_MESSAGE_STREAM_SAMPLE_SIZE;
+        throw n_u::InvalidParameterException(ost.str());
 
-    sampleLengthAlloc = getMessageLength() + separatorLen + 1;
+    }
+    MessageSampleScanner::setMessageLength(val);
+    setupMessageScanning();
+}
+
+void MessageStreamScanner::setMessageSeparator(const std::string& val)
+    throw(n_u::InvalidParameterException)
+{
+    MessageSampleScanner::setMessageSeparator(val);
+    setMessageLength(getMessageLength());   // checks max message len allowed
+    setupMessageScanning();
+}
+
+void MessageStreamScanner::setMessageSeparatorAtEOM(bool val)
+    	throw(nidas::util::InvalidParameterException)
+{
+    MessageSampleScanner::setMessageSeparatorAtEOM(val);
+    setupMessageScanning();
+}
+
+void MessageStreamScanner::setupMessageScanning()
+{
+    /* if message termination character is CR or NL then enable
+     * nullTermination.
+     */
+    setNullTerminate(false);
+    if (separatorLen > 0) {
+        if (getMessageSeparatorAtEOM()) nextSampleFunc =
+            &MessageStreamScanner::nextSampleSepEOM;
+        else nextSampleFunc = &MessageStreamScanner::nextSampleSepBOM;
+
+        switch (separator[separatorLen-1]) {
+        case '\r':
+        case '\n':
+            setNullTerminate(true);
+            break;
+        default:
+            break;
+        }
+    }
+    else nextSampleFunc = &MessageStreamScanner::nextSampleByLength;
+
+    sampleLengthAlloc = getMessageLength() + separatorLen + 
+        (getNullTerminate() ? 1 : 0);
+}
+
+/*
+ * Check that there is room to add nc number of characters to
+ * the current sample. If there is room return a null pointer.
+ * If space can be reallocated in the sample without exceeding
+ * MAX_MESSAGE_STREAM_SAMPLE_SIZE then do that and return null.
+ *
+ * Otherwise return pointer to current sample. Since that
+ * sample has overflowed, it probably means that BOM or EOM
+ * separator strings are not being found in the sensor input.
+ */
+Sample* MessageStreamScanner::checkSampleAlloc(int nc)
+{
+    Sample* result = 0;
+    if (outSampRead + (unsigned)nc > osamp->getAllocByteLength()) {
+        // reached maximum sample size
+        if (outSampRead + (unsigned)nc > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
+            sampleOverflows++;
+            // null terminate, over-writing last character.
+            if (getNullTerminate()) outSampDataPtr[outSampRead-1] =
+                '\0';
+            osamp->setDataLength(outSampRead);
+            addSampleToStats(outSampRead);
+            result = osamp;
+            osamp = 0;
+        }
+        else {		// allocate 50% more space
+            size_t newlen = std::max(outSampRead + outSampRead / 2,
+                            outSampRead + nc);
+            newlen = std::min(newlen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+            osamp->reallocateData(newlen);  // copies previous data
+            outSampDataPtr = (char*) osamp->getVoidDataPtr();
+        }
+    }
+    return result;
+}
+
+size_t MessageStreamScanner::readBuffer(DSMSensor* sensor)
+    throw(n_u::IOException)
+{
+    // grab the current time, since we assign timetags.
+    tfirstchar = nidas::core::getSystemTime();
+    size_t rlen = SampleScanner::readBuffer(sensor);
+    // cerr << "readBuffer, rlen=" << rlen << endl;
+    tfirstchar -= rlen * getUsecsPerByte();
+    return rlen;
+}
+
+size_t MessageStreamScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
+    throw(n_u::IOException)
+{
+    // grab the current time, since we assign timetags.
+    tfirstchar = nidas::core::getSystemTime();
+    size_t rlen = SampleScanner::readBuffer(sensor,msecTimeout);
+    // cerr << "readBuffer, rlen=" << rlen << endl;
+    tfirstchar -= rlen * getUsecsPerByte();
+    return rlen;
+}
+Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
+{
+    Sample* result = 0;
+
     if (!osamp) {
 	osamp = getSample<char>(sampleLengthAlloc);
-	outSampLen = 0;
-	outSampDataPtr = osamp->getDataPtr();
+        osamp->setId(sensor->getId());
+	outSampDataPtr = (char*) osamp->getVoidDataPtr();
+	outSampRead = 0;
 	separatorCnt = 0;
     }
-    SampleScanner::init();
+
+    if (outSampRead == 0)
+        osamp->setTimeTag(tfirstchar + buftail * getUsecsPerByte());
+
+    // if getMessageLength() > 0 copy multiple characters
+    int nc = getMessageLength() - outSampRead;
+    if (nc > 0) {
+        nc = std::min(bufhead-buftail,nc);
+        if (nc > 0) {
+            // actually don't need to checkSampleAlloc() here
+            // because if getMessageLength() is > 0, then
+            // sampleLengthAlloc should be big enough, but
+            // we'll do it to be sure.  Could put an
+            // assert here instead.
+            if ((result = checkSampleAlloc(nc))) return result;
+            ::memcpy(outSampDataPtr,buffer+buftail,nc);
+            outSampRead += nc;
+            buftail += nc;
+        }
+    }
+
+    // extra space needed for null terminator before processing next character
+    int nterm = getNullTerminate() ? 1 : 0;
+
+    // now loop through character by character, until we find the 
+    // separator string.
+    while (buftail < bufhead) {
+
+        if ((result = checkSampleAlloc(1 + nterm))) return result;
+
+        char c = buffer[buftail++];
+        outSampDataPtr[outSampRead++] = c;
+
+        // if the character matches the current character
+        // in the end of message separator string.
+        if (c == separator[separatorCnt]) {
+            // character matched
+            if (++separatorCnt == separatorLen) {   // sample is ready
+                if (getNullTerminate())
+                    outSampDataPtr[outSampRead++] = '\0';
+                osamp->setDataLength(outSampRead);
+                addSampleToStats(outSampRead);
+
+                result = osamp;
+                // adjust sampleLengthAlloc if necessary
+                if (outSampRead > sampleLengthAlloc ||
+                    sampleLengthAlloc > outSampRead + outSampRead / 4)
+                        sampleLengthAlloc = std::min(
+                            outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+                osamp = 0;
+                break;
+            }
+        }
+        else {
+            // no match of current character to EOM string.
+            // check for match at beginning of separator string
+            if (separatorCnt > 0 &&
+                  c == separator[separatorCnt = 0]) separatorCnt++;
+        }
+    }
+    return result;
 }
 
-dsm_time_t MessageStreamScanner::readSamplesSepBOM(DSMSensor* sensor,
-	SampleDater* dater)
-	throw (n_u::IOException)
+Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
 {
-    dsm_time_t tfirstchar = dater->getDataSystemTime();
+    Sample* result = 0;
 
-    dsm_time_t ttres = 0;
+    /*
+     * 1. first call, no chars scanned
+     * 2. last call scanned entire BOM separator, returned prev sample
+     *      try to read a chunk if possible
+     * 3. last call returned 0, partial sample scanned at end of buffer
+     *      a. not done with BOM separator
+     *      b. done with prev BOM, but haven't started next BOM
+     */
 
-    size_t rlen = sensor->read(buffer,BUFSIZE);
-    // cerr << "readSamplesSepBOM, rlen=" << rlen << endl;
-    const char* eob = buffer + rlen;
-    tfirstchar -= rlen * getUsecsPerByte();
-    addNumBytesToStats(rlen);
+    if (!osamp) {
+	osamp = getSample<char>(sampleLengthAlloc);
+        osamp->setId(sensor->getId());
+	outSampDataPtr = (char*) osamp->getVoidDataPtr();
+	outSampRead = 0;
+	separatorCnt = 0;
+    }
+
+    if (separatorCnt == separatorLen) {
+        // If possible copy multiple characters
+        // outSampRead includes the separator
+        int nc = getMessageLength() - (outSampRead - separatorCnt);
+        if (nc > 0) {
+            nc = std::min(bufhead-buftail,nc);
+            if (nc > 0) {
+                if ((result = checkSampleAlloc(nc))) return result;
+                ::memcpy(outSampDataPtr,buffer+buftail,nc);
+                outSampRead += nc;
+                buftail += nc;
+                if (buftail ==  bufhead) return 0;
+            }
+        }
+        separatorCnt = 0;
+    }
 
     // empty space needed in sample before processing next character
     int space = separatorLen;
     if (getNullTerminate()) space++;
 
-    for (register const char* cp = buffer; cp < eob; cp++) {
-        register char c = *cp;
+    // At this point we are currently scanning
+    // for the message separator at the beginning of the message.
+    for (;buftail < bufhead;) {
+        register char c = buffer[buftail];
 
-	// check if we need to enlarge sample
-	if (outSampLen + space > osamp->getAllocByteLength()) {
-	    if (outSampLen + space > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
+        if ((result = checkSampleAlloc(space))) return result;
 
-		// reached maximum sample size
-		sampleOverflows++;
+        if (c == separator[separatorCnt]) {
+            // We now have a character match to the record separator.
+            // increment the separator counter.
+            // if matched entire separator string, previous sample
+            // is ready, ship it.
 
-		if (getNullTerminate()) outSampDataPtr[outSampLen-1] = '\0';
-		osamp->setDataLength(outSampLen);
+            // the receipt time of the initial separator character
+            // is the timetag for the sample. Save this time
+            // in case the entire separator is not in this buffer.
+            if (separatorCnt == 0) bomtt =
+                tfirstchar + buftail * getUsecsPerByte();
+            buftail++;      // used character
 
-		addSampleToStats(outSampLen);
+            if (++separatorCnt == separatorLen) {
+                // send previous sample
+                if (outSampRead > 0) {
+                    if (getNullTerminate()) outSampDataPtr[outSampRead++] =
+                        '\0';
+                    osamp->setDataLength(outSampRead);
+                    addSampleToStats(outSampRead);
+                    result = osamp;
 
-		// assert: if outSampLen is > 0 then bomtt is valid.
-		osamp->setTimeTag(bomtt);
-		osamp->setId(sensor->getId());
-		ttres = osamp->getTimeTag();
-		sensor->distributeRaw(osamp);
-
-		osamp = getSample<char>(sampleLengthAlloc);
-		outSampLen = 0;
-		outSampDataPtr = osamp->getDataPtr();
-		separatorCnt = 0;	// start over
-	    }
-	    else {		// allocate 50% more space in sample
-		size_t newlen = std::max(outSampLen + outSampLen / 2,
-				outSampLen + space);
-		newlen = std::min(newlen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-		osamp->reallocateData(newlen);
-		outSampDataPtr = osamp->getDataPtr();
-	    }
-	}
-
-	// loop until we've figured out what to do with this character
-        for (;;) {
-            if (separatorCnt < separatorLen) {
-                // This block is entered if we are currently scanning
-                // for the message separator at the beginning of the message.
-                if (c == separator[separatorCnt]) {
-                    // We now have a character match to the record separator.
-                    // increment the separator counter.
-                    // if matched entire separator string, previous sample
-                    // is ready, ship it.
-
-                    // the receipt time of the initial separator character
-		    // is the timetag for the sample.
-		    // We haven't yet sent out the previous sample
-		    // because we're waiting for a complete match
-		    // to the separator string, so we have to
-		    // save this timetag.
-                    if (separatorCnt == 0) bomtt =
-			tfirstchar + (cp - buffer) * getUsecsPerByte();
-
-                    if (++separatorCnt == separatorLen) {
-			// send previous
-                        if (outSampLen > 0) {
-			    if (getNullTerminate()) outSampDataPtr[outSampLen++] =
-			    	'\0';
-			    osamp->setDataLength(outSampLen);
-			    addSampleToStats(outSampLen);
-
-			    ttres = osamp->getTimeTag();
-			    osamp->setId(sensor->getId());
-			    sensor->distributeRaw(osamp);
-
-			    // good sample
-			    // readjust sampleLengthAlloc if this
-			    // good sample was bigger.
-			    if (outSampLen > sampleLengthAlloc)
-				sampleLengthAlloc = std::min(
-				    outSampLen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-			    osamp = getSample<char>(sampleLengthAlloc);
-			    outSampLen = 0;
-			    outSampDataPtr = osamp->getDataPtr();
-			}
-                        osamp->setTimeTag(bomtt);
-                        // copy separator to next sample
-                        ::memcpy(outSampDataPtr+outSampLen,
-				separator,separatorCnt);
-                        outSampLen += separatorCnt;
-                        // leave separatorCnt equal to separatorLen
-                    }
-                    break;              // character was input
+                    // good sample. adjust sampleLengthAlloc if nec.
+                    if (outSampRead > sampleLengthAlloc ||
+                        sampleLengthAlloc > outSampRead + outSampRead / 4)
+                            sampleLengthAlloc = std::min(
+                                outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+                    osamp = getSample<char>(sampleLengthAlloc);
+                    osamp->setId(sensor->getId());
+                    outSampDataPtr = (char*) osamp->getVoidDataPtr();
                 }
-	        else {
-                    // At this point:
-                    // 1. we're expecting the BOM separator, but
-                    // 2. the current character fails a match with the
-                    //    BOM string
-                    // We'll send the faulty data along anyway so that
-                    // the user can see what is going on.
+                osamp->setTimeTag(bomtt);
+                // copy separator to beginning of next sample
+                ::memcpy(outSampDataPtr,separator,separatorCnt);
+                outSampRead = separatorCnt;
+                // leave separatorCnt equal to separatorLen
+                if (result) return result;
+            }
+        }
+        else {
+            // At this point:
+            // 1. we're looking for the BOM separator, but
+            // 2. the current character fails a match with the
+            //    BOM string
+            // We'll put the faulty data in the sample anyway so that
+            // the user can see what is going on.
 
-                    if (separatorCnt > 0) {     // previous partial match
-                        // We have a partial match to separator,
-			// copy chars to the sample data.
-                        ::memcpy(outSampDataPtr+outSampLen,
-				separator,separatorCnt);
-                        outSampLen += separatorCnt;
-                        separatorCnt = 0;	// start looking at beg
-                        // keep trying matching first character of separator
-                        // this won't infinitely loop because now
-			// separatorCnt=0
-                    }
-                    else {              // no match to first character in sep
-			if (outSampLen == 0) bomtt =
-			    tfirstchar + (cp - buffer) * getUsecsPerByte();
-			outSampDataPtr[outSampLen++] = c;
-			break;                  // character was input
-		    }
-		}
-	    }
-	    else {
-		// At this point we have a match to the BOM separator string.
-		// and are filling the data buffer.
-
-		// if a variable record length, then check to see
-		// if the character matches the initial character
-		// in the separator string.
-		if (getMessageLength() == 0) {
-		    if (c == separator[0]) {    // first char of next
-			separatorCnt = 0;
-			// loop again to try match to first character
-		    }
-		    else {
-			// no match, treat as data
-			outSampDataPtr[outSampLen++] = c;
-			break;
-		    }
-		}
-		else {
-		    // fixed record length, save character in buffer.
-		    // no chance for overflow here, as long as
-		    // messageLen < sizeof(buffer)
-		    outSampDataPtr[outSampLen++] = c;
-		    // If we're done, scan for separator next.
-		    if (outSampLen == (unsigned) getMessageLength() +
-		    	separatorLen)
-			separatorCnt = 0;
-		    break;
-		}
-	    }
-	}       // loop until we do something with character
-    }           // loop over characters in buffer
-    return ttres;
-}
-
-dsm_time_t MessageStreamScanner::readSamplesSepEOM(DSMSensor* sensor,
-	SampleDater* dater)
-	throw (n_u::IOException)
-{
-    dsm_time_t tfirstchar = dater->getDataSystemTime();
-
-    dsm_time_t ttres = 0;
-
-    size_t rlen = sensor->read(buffer,BUFSIZE);
-    // cerr << "readSamplesSepEOM, rlen=" << rlen << endl;
-    const char* eob = buffer + rlen;
-    addNumBytesToStats(rlen);
-
-    tfirstchar -= rlen * getUsecsPerByte();
-
-    // empty space needed in sample before processing next character
-    int space = getNullTerminate() ? 2 : 1;
-
-    for (register const char* cp = buffer; cp < eob; cp++) {
-        register char c = *cp;
-
-	// check if we need to enlarge sample
-	if (outSampLen + space > osamp->getAllocByteLength()) {
-	    // reached maximum sample size
-	    if (outSampLen + space > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
-		sampleOverflows++;
-
-		if (getNullTerminate()) outSampDataPtr[outSampLen-1] =
-		    '\0';
-		osamp->setDataLength(outSampLen);
-		addSampleToStats(outSampLen);
-
-		ttres = osamp->getTimeTag();
-		osamp->setId(sensor->getId());
-		sensor->distributeRaw(osamp);
-
-		osamp = getSample<char>(sampleLengthAlloc);
-		outSampLen = 0;
-		separatorCnt = 0;
-		outSampDataPtr = osamp->getDataPtr();
-
-	    }
-	    else {		// allocate 50% more space
-		size_t newlen = std::max(outSampLen + outSampLen / 2,
-				outSampLen + space);
-		newlen = std::min(newlen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-		osamp->reallocateData(newlen);
-		outSampDataPtr = osamp->getDataPtr();
-	    }
-	}
-
-	if (outSampLen == 0)
-	    osamp->setTimeTag(tfirstchar +
-		(cp - buffer) * getUsecsPerByte());
-	outSampDataPtr[outSampLen++] = c;
-
-	if (getMessageLength() == 0) {
-	    // if a variable record length, then check to see
-	    // if the character matches the current character
-	    // in the end of message separator string.
-	    if (c == separator[separatorCnt]) {
-		// character matched
-		if (++separatorCnt == separatorLen) {
-		    // sample is ready
-		    if (getNullTerminate())
-			outSampDataPtr[outSampLen++] = '\0';
-		    osamp->setDataLength(outSampLen);
-		    addSampleToStats(outSampLen);
-
-		    ttres = osamp->getTimeTag();
-		    osamp->setId(sensor->getId());
-		    sensor->distributeRaw(osamp);
-
-		    if (outSampLen > sampleLengthAlloc)
-			sampleLengthAlloc = std::min(
-			    outSampLen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-		    osamp = getSample<char>(sampleLengthAlloc);
-		    outSampLen = 0;
-		    outSampDataPtr = osamp->getDataPtr();
-		    separatorCnt = 0;
-		}
-	    }
-	    else {
-		// variable record length, no match of current character
-		// to EOM string.
-
-		// check for match at beginning of separator string
-		// since sepcnt > 0 we won't have a complete match since
-		// sepLen then must be > 1.
-		if (separatorCnt > 0 &&
-		      c == separator[separatorCnt = 0]) separatorCnt++;
-	    }
-	}
-	else {
-	    // fixed length record
-	    if (outSampLen >= (unsigned) getMessageLength()) {
-		// we've read in all our characters, now scan separator string
-		// if no match, check from beginning of separator string
-#ifdef DEBUG
-		cerr << "separatorCnt=" << separatorCnt <<
-		    " separatorLen=" << separatorLen << 
-		    " c=" << hex << (int)(unsigned char)c << 
-		    " sep=" << (int)(unsigned char)separator[separatorCnt] <<
-		    dec << endl;
-#endif
-			
-		if (c == separator[separatorCnt] ||
-		    c == separator[separatorCnt = 0]) {
-		    if (++separatorCnt == separatorLen) {
-			if (getNullTerminate())
-			    outSampDataPtr[outSampLen++] = '\0';
-			osamp->setDataLength(outSampLen);
-			addSampleToStats(outSampLen);
-
-			ttres = osamp->getTimeTag();
-			osamp->setId(sensor->getId());
-			sensor->distributeRaw(osamp);
-			if (outSampLen > sampleLengthAlloc)
-			    sampleLengthAlloc = std::min(
-				outSampLen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-			osamp = getSample<char>(sampleLengthAlloc);
-			outSampLen = 0;
-			outSampDataPtr = osamp->getDataPtr();
-			separatorCnt = 0;
-		    }
-		}
-	    }
-	}
+            if (separatorCnt > 0) {     // previous partial match
+                // We have a partial match to separator,
+                // copy chars to the sample data.
+                ::memcpy(outSampDataPtr+outSampRead,separator,separatorCnt);
+                outSampRead += separatorCnt;
+                separatorCnt = 0;	// start looking at beg
+                // keep trying matching first character of separator
+                // this won't infinitely loop because now separatorCnt=0
+            }
+            else {              // no match to first character in sep
+                if (outSampRead == 0)
+                    osamp->setTimeTag(tfirstchar + buftail * getUsecsPerByte());
+                outSampDataPtr[outSampRead++] = c;
+                buftail++;      // used character
+            }
+        }
     }
-    return ttres;
+
+    return result;
 }
 
+Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
+{
+    Sample* result = 0;
+    if (!osamp) {
+	osamp = getSample<char>(sampleLengthAlloc);
+        osamp->setId(sensor->getId());
+	outSampDataPtr = (char*) osamp->getVoidDataPtr();
+	outSampRead = 0;
+	separatorCnt = 0;
+    }
+
+    if (outSampRead == 0)
+        osamp->setTimeTag(tfirstchar + buftail * getUsecsPerByte());
+
+    int nc = getMessageLength() - outSampRead;
+    nc = std::min(bufhead-buftail,nc);
+    if (nc > 0) {
+        // actually don't need to checkSampleAlloc() here
+        // because if getMessageLength() is > 0, then
+        // sampleLengthAlloc should be big enough, but
+        // we'll do it to be sure.  Could put an
+        // assert here instead.
+        if ((result = checkSampleAlloc(nc))) return result;
+        ::memcpy(outSampDataPtr+outSampRead,buffer+buftail,nc);
+        outSampRead += nc;
+        buftail += nc;
+    }
+    if (outSampRead == (unsigned)getMessageLength()) {
+        result = osamp;
+        osamp = 0;
+    }
+    return result;
+}

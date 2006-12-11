@@ -15,7 +15,6 @@
 #ifndef NIDAS_CORE_DSMSENSOR_H
 #define NIDAS_CORE_DSMSENSOR_H
 
-#include <nidas/core/SampleDater.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/SampleSource.h>
 #include <nidas/core/IODevice.h>
@@ -394,12 +393,6 @@ public:
         rawSource.distribute(s);
     }
 
-    virtual SampleDater::status_t setSampleTime(SampleDater* dater,
-    	Sample* samp)
-    {
-        return dater->setSampleTime(samp);
-    }
-
     /**
      * Factory method for an IODevice for this DSMSensor.
      * Must be implemented by derived classes.
@@ -471,21 +464,40 @@ public:
     virtual void close() throw(nidas::util::IOException);
 
     /**
-     * Read raw samples from my associated file descriptor,
+     * Read samples from my associated file descriptor,
      * and distribute() them to my RawSampleClient's.
-     *
-     * The DSMSensor implementation of readSamples() assumes
-     * that the data read from the file descriptor is
-     * formatted into samples in the format of a
-     * struct dsm_sample, i.e. a 4 byte unsigned integer
-     * time-tag (milliseconds since midnight GMT), followed
-     * by a 4 byte unsigned integer data length, and then
-     * length number of bytes of data.
+     * This is a convienence method which does a
+     * readBuffer() to read available data from the DSMSensor
+     * into a buffer, and then repeatedly calls nextSample()
+     * to extract all samples out of that buffer.
      */
-    virtual dsm_time_t readSamples(SampleDater* dater)
+    virtual dsm_time_t readSamples()
+    	throw(nidas::util::IOException);
+
+    /**
+     * Read data from attached sensor into an internal buffer.
+     */
+    virtual size_t readBuffer() throw(nidas::util::IOException)
+    {
+        return scanner->readBuffer(this);
+    }
+
+    /**
+     * Read data from attached sensor into an internal buffer.
+     */
+    virtual size_t readBuffer(int msecTimeout)
     	throw(nidas::util::IOException) 
     {
-        return scanner->readSamples(this,dater);
+        return scanner->readBuffer(this,msecTimeout);
+    }
+
+    /**
+     * Extract the next sample from the buffer. Returns a
+     * null pointer if there are no samples left in the buffer.
+     */
+    virtual Sample* nextSample()
+    {
+        return scanner->nextSample(this);
     }
 
     /**

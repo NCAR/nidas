@@ -49,10 +49,16 @@ public:
      */
     void open(int flags) throw(nidas::util::IOException);
 
-    /*
+    /**
      * Close the device connected to the sensor.
      */
     void close() throw(nidas::util::IOException);
+
+    /**
+     * Over-ride nextSample() method. After an IRIGSensor sample
+     * is read, we set the system clock.
+     */
+    Sample* nextSample();
 
     /**
      * Get the current time from the IRIG card.
@@ -74,8 +80,6 @@ public:
      */
     bool process(const Sample* samp,std::list<const Sample*>& result)
     	throw();
-
-    virtual SampleDater::status_t setSampleTime(SampleDater*,Sample* samp);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
@@ -109,6 +113,8 @@ protected:
     void checkClock() throw(nidas::util::IOException);
 
     dsm_sample_id_t sampleId;
+
+    dsm_time_t lastTime;
 
 };
 

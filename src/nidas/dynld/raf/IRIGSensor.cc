@@ -152,7 +152,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
 	irigTime = getIRIGTime();
-	unixTime = getSystemTime();
+	unixTime = nidas::core::getSystemTime();
 
 	if (ntry > 0) {
 	    double dtunix = unixTime - unixTimeLast;
@@ -180,7 +180,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"setting SampleDater clock to %lld",irigTime);
-    DSMEngine::getInstance()->getSampleDater()->setTime(irigTime);
+    DSMEngine::getInstance()->getSampleClock()->setTime(irigTime);
 }
 
 void IRIGSensor::close() throw(n_u::IOException)
@@ -244,15 +244,19 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-SampleDater::status_t IRIGSensor::setSampleTime(SampleDater* dater,Sample* samp)
+/*
+ * Override nextSample in order to set the clock.
+ */
+Sample* IRIGSensor::nextSample()
 {
-    dsm_time_t clockt = getTime(samp);
-
+    Sample* samp = DSMSensor::nextSample();
     // since we're a clock sensor, we are responsible for setting
-    // the absolute time in the SampleDater.
-    dater->setTime(clockt);
-
-    return DSMSensor::setSampleTime(dater,samp);
+    // the absolute time in the SampleClock.
+    if (samp) {
+        dsm_time_t clockt = getTime(samp);
+        SampleClock::getInstance()->setTime(clockt);
+    }
+    return samp;
 }
 
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)

@@ -128,6 +128,8 @@ public:
 
     bool receive(const Sample *s) throw();
 
+    void finish() throw();
+
     /**
      * Set length of SampleSorter, in milliseconds.
      */

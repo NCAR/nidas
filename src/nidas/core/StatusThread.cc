@@ -42,7 +42,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
     string dsm_name(engine->getDSMConfig()->getName());
 
     const SensorHandler* selector = engine->getSensorHandler();
-    const SampleDater* dater = engine->getSampleDater();
+    const SampleClock* clock = engine->getSampleClock();
 
     n_u::MulticastSocket msock;
     n_u::Inet4Address maddr =
@@ -58,7 +58,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     try {
 	for (;;) {
-	    dsm_time_t tnow = dater->getDataSystemTime();
+	    dsm_time_t tnow = clock->getTime();
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    long tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
@@ -73,7 +73,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    std::list<DSMSensor*> sensors = selector->getOpenedSensors();
 	    std::list<DSMSensor*>::const_iterator si;
 
-	    dsm_time_t tt = dater->getDataSystemTime();
+	    dsm_time_t tt = clock->getTime();
             time_t     ut = tt / USECS_PER_SEC;
             gmtime_r(&ut,&tm);
 //          int msec = tt % MSECS_PER_SEC;
