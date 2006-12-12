@@ -65,7 +65,7 @@ class SampleScanner
 {
 public:
 
-    SampleScanner();
+    SampleScanner(int bufsize=8192);
 
     virtual ~SampleScanner();
 
@@ -287,7 +287,7 @@ class MessageSampleScanner: public SampleScanner
 {
 public:
     
-    MessageSampleScanner();
+    MessageSampleScanner(int bufsize=8192);
 
     ~MessageSampleScanner();
 
@@ -406,7 +406,7 @@ class MessageStreamScanner: public MessageSampleScanner
 {
 public:
     
-    MessageStreamScanner();
+    MessageStreamScanner(int bufsize=1024);
 
     ~MessageStreamScanner();
 

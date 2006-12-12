@@ -21,6 +21,7 @@
 #include <nidas/core/RTL_IODevice.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <iostream>
 #include <iomanip>
@@ -145,6 +146,9 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     nsleep.tv_nsec = NSECS_PER_SEC / 10;		// 1/10th sec
     int ntry = 0;
     const int NTRY = 50;
+
+    string timeFormat="%Y %b %d %H:%M:%S.%3f";
+
     for (ntry = 0; ntry < NTRY; ntry++) {
 
 	::nanosleep(&nsleep,0);
@@ -155,12 +159,17 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	unixTime = nidas::core::getSystemTime();
 
 	if (ntry > 0) {
-	    double dtunix = unixTime - unixTimeLast;
-	    double dtirig = irigTime- irigTimeLast;
+	    int dtunix = unixTime - unixTimeLast;
+	    int dtirig = irigTime- irigTimeLast;
+            n_u::UTime it(irigTime);
+            n_u::UTime ut(unixTime);
 	    n_u::Logger::getInstance()->log(LOG_INFO,
-	    "UNIX-IRIG=%lld usec, dtunix=%f, dtirig=%f, rate ratio diff=%f",
-		unixTime - irigTime,dtunix,dtirig,
-		fabs(dtunix - dtirig) / dtunix);
+                "UNIX: %s, dt=%7d",
+                ut.format(true,timeFormat).c_str(),dtunix);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "IRIG: %s, dt=%7d unix-irig=%10lld, rate ratio diff=%f",
+                it.format(true,timeFormat).c_str(),dtirig,
+                unixTime - irigTime,fabs(dtunix - dtirig) / dtunix);
 
 	    // cerr << "UNIX-IRIG=" << unixTime - irigTime <<
 	    // 	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
@@ -178,8 +187,14 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	    "IRIG clock not behaving, UNIX-IRIG=%lld usec",
 	    unixTime-irigTime);
 
+    n_u::UTime it(irigTime);
+    n_u::UTime ut(unixTime);
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"setting SampleDater clock to %lld",irigTime);
+            "UNIX: %s",ut.format(true,timeFormat).c_str());
+    n_u::Logger::getInstance()->log(LOG_INFO,
+            "IRIG: %s",it.format(true,timeFormat).c_str());
+    n_u::Logger::getInstance()->log(LOG_INFO,
+	"setting SampleClock to IRIG time");
     DSMEngine::getInstance()->getSampleClock()->setTime(irigTime);
 }
 

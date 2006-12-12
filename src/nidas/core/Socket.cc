@@ -28,7 +28,7 @@ Socket::Socket():
 		auto_ptr<n_u::SocketAddress>(new n_u::Inet4SocketAddress())),
 	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
-        nonBlocking(true)
+        nonBlocking(false)
 {
     setName("Socket " + remoteSockAddr->toString());
 }
@@ -138,7 +138,7 @@ ServerSocket::ServerSocket():
         servSock(0),connectionRequester(0),
         thread(0),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),
-        nonBlocking(true)
+        nonBlocking(false)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -148,7 +148,7 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
         servSock(0),connectionRequester(0),
         thread(0),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),
-        nonBlocking(true)
+        nonBlocking(false)
 {
     setName("ServerSocket " + localSockAddr->toString());
 }
@@ -306,6 +306,16 @@ void Socket::fromDOMElement(const DOMElement* node)
 			throw n_u::InvalidParameterException(
 			    "socket","invalid socket type",aval);
 	    }
+	    else if (aname == "block") {
+		std::istringstream ist(aval);
+		ist >> boolalpha;
+		bool val;
+		ist >> val;
+		if (ist.fail())
+			throw n_u::InvalidParameterException(
+			    "socket","block",aval);
+		setNonBlocking(!val);
+	    }
 	    else if (aname == "maxIdle") {
 		istringstream ist(aval);
 		int secs;
@@ -392,6 +402,16 @@ void ServerSocket::fromDOMElement(const DOMElement* node)
 		if (aval != "server")
 			throw n_u::InvalidParameterException(
 			    "socket","invalid socket type",aval);
+	    }
+	    else if (aname == "block") {
+		std::istringstream ist(aval);
+		ist >> boolalpha;
+		bool val;
+		ist >> val;
+		if (ist.fail())
+			throw n_u::InvalidParameterException(
+			    "socket","block",aval);
+		setNonBlocking(!val);
 	    }
 	    else if (aname == "maxIdle") {
 		istringstream ist(aval);

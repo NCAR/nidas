@@ -25,11 +25,11 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-SampleScanner::SampleScanner():
-	BUFSIZE(1024),buffer(new char[BUFSIZE]),
+SampleScanner::SampleScanner(int bufsize):
+	BUFSIZE(bufsize),buffer(new char[BUFSIZE]),
 	bufhead(0),buftail(0),osamp(0),outSampRead(0),
         outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
-        outSampDataPtr(0),usecsPerByte(0)
+        outSampDataPtr((char*)&header),usecsPerByte(0)
 {
     resetStatistics();
 }
@@ -172,8 +172,8 @@ float SampleScanner::getObservedDataRate() const {
     else return dataRateObs;
 }
 
-MessageSampleScanner::MessageSampleScanner():
-	SampleScanner(),messageLength(0),separatorAtEOM(true),
+MessageSampleScanner::MessageSampleScanner(int bufsize):
+	SampleScanner(bufsize),messageLength(0),separatorAtEOM(true),
 	separator(0),separatorLen(0)
 {
 }
@@ -218,11 +218,12 @@ const std::string MessageSampleScanner::getBackslashedMessageSeparator() const
     return DSMSensor::addBackslashSequences(messageSeparator);
 }
 
-MessageStreamScanner::MessageStreamScanner(): MessageSampleScanner(),
-        nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
-	MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
-	separatorCnt(0),sampleOverflows(0),sampleLengthAlloc(0),
-	nullTerminate(false)
+MessageStreamScanner::MessageStreamScanner(int bufsize):
+    MessageSampleScanner(bufsize),
+    nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
+    MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
+    separatorCnt(0),sampleOverflows(0),sampleLengthAlloc(0),
+    nullTerminate(false)
 {
 }
 

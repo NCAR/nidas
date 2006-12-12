@@ -519,7 +519,11 @@ void DSMEngine::openSensors() throw(n_u::IOException)
      * pthread_setschedparam under RTLinux. How ironic.
      * It causes ENOSPC on the RTLinux fifos.
      */
-     if (!isRTLinux()) _selector->setRealTimeFIFOPriority(50);
+     if (!isRTLinux()) {
+        n_u::Logger::getInstance()->log(LOG_INFO,
+            "DSMEngine: !RTLinux, so setting RT priority");
+         _selector->setRealTimeFIFOPriority(50);
+     }
     _selector->start();
     _dsmConfig->openSensors(_selector);
 }

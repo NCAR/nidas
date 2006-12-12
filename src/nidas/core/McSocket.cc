@@ -28,7 +28,7 @@ namespace n_u = nidas::util;
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
     firstRead(true),newFile(true),keepAliveIdleSecs(7200),
     minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
-    nonBlocking(true)
+    nonBlocking(false)
 {
     setName("McSocket");
 }
@@ -200,6 +200,16 @@ void McSocket::fromDOMElement(const DOMElement* node)
 		}
 		else throw n_u::InvalidParameterException(
 			getName(),"type",aval);
+	    }
+	    else if (aname == "block") {
+		std::istringstream ist(aval);
+		ist >> boolalpha;
+		bool val;
+		ist >> val;
+		if (ist.fail())
+			throw n_u::InvalidParameterException(
+			    "socket","block",aval);
+		setNonBlocking(!val);
 	    }
 	    else if (aname == "maxIdle") {
 		istringstream ist(aval);
