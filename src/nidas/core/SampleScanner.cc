@@ -123,8 +123,9 @@ Sample* SampleScanner::nextSample(DSMSensor* sensor)
             osamp->freeReference();
         }
         osamp = 0;
-        outSampToRead = SIZEOF_DSM_SAMPLE_HEADER;
         outSampDataPtr = (char*) &header;
+        outSampRead = 0;
+        outSampToRead = SIZEOF_DSM_SAMPLE_HEADER;
     }
     return result;
 }
