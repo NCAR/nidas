@@ -375,6 +375,7 @@
         <xsd:attribute name="path" type="xsd:token"/>
         <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="maxIdle" type="xsd:positiveInteger"/>
+        <xsd:attribute name="block" type="xsd:boolean"/>
    </xsd:complexType>
 </xsd:element>
 
