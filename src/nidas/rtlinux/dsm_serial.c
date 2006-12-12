@@ -47,6 +47,10 @@
 // #define DEBUG_ISR
 // #define DEBUG
 
+#ifndef MIN
+#define MIN(a,b)     ((a) < (b) ? (a) : (b))
+#endif
+
 RTLINUX_MODULE(dsm_serial);
 
 static char* devprefix = "dsmser";
@@ -1097,37 +1101,44 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
     register char* cp = usamp->data;
     char* ep = cp + usamp->length;
 
-    for ( ; cp < ep; cp++) {
-        register char c = *cp;
+    for ( ; cp < ep; ) {
 	// loop until we've figured out what to do with this character
+        register char c = *cp;
 	for (;;) {
 	    if (port->sepcnt < port->recinfo.sepLen) {
 		// This block is entered if we are currently scanning
 		// for the message separator at the beginning of the message.
 		if (c == port->recinfo.sep[port->sepcnt]) {
-		    // We now have a character match to the record separator.
-		    // increment the separator counter.
-		    // if matched entire separator string, previous sample
-		    // is ready, and increment the head of the queue.
-
 		    // the receipt time of the initial character is the
 		    // timetag for the sample.
 		    if (port->sepcnt == 0) port->bomtt =
 		    	compute_time_tag(usamp,cp-usamp->data,
 				port->usecs_per_char);
+                    cp++;
+		    // We now have a character match to the record separator.
+		    // increment the separator counter.
+		    // if matched entire separator string, previous sample
+		    // is ready, and increment the head of the queue.
 
 		    if (++port->sepcnt == port->recinfo.sepLen) {
+                        if (port->addNull) {
+                            if (osamp->length >= MAX_DSM_SERIAL_SAMPLE_SIZE) {
+                                port->sample_overflows++;
+                                port->input_chars_lost++;
+                                osamp->data[osamp->length-1] = '\0';
+                            }
+                            else osamp->data[osamp->length++] = '\0';
+                        }
 			if (osamp->length > 0)
 			  osamp = NEXT_HEAD(port->output_samples,
 				OUTPUT_SAMPLE_QUEUE_SIZE);
 			if (!osamp) {	// no samples
-			    port->input_chars_lost += (ep - cp) - 1;
+			    port->input_chars_lost += (ep - cp);
 			    return;
 			}
 			osamp->timetag = port->bomtt;
 			// copy separator to next sample
-			memcpy(osamp->data,port->recinfo.sep,
-				port->sepcnt);
+			memcpy(osamp->data,port->recinfo.sep, port->sepcnt);
 			osamp->length += port->sepcnt;
 			// leave sepcnt equal to recinfo.sepLen
 		    }
@@ -1142,9 +1153,11 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 		    // the user can see what is going on.
 
 		    if (port->sepcnt > 0) {	// previous partial match
-			// avoid array overflow
+			// avoid overflow
 			if (osamp->length + port->sepcnt >=
 				MAX_DSM_SERIAL_SAMPLE_SIZE) {
+                            if (port->addNull)
+                                osamp->data[osamp->length-1] = '\0';
 			    port->sample_overflows++;
 			    osamp = NEXT_HEAD(port->output_samples,
 				    OUTPUT_SAMPLE_QUEUE_SIZE);
@@ -1166,8 +1179,10 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 		    }
 		    else {		// no match to first character in sep
 			// avoid array overflow
-			if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE) {
+			if (osamp->length >= MAX_DSM_SERIAL_SAMPLE_SIZE) {
 			    port->sample_overflows++;
+                            if (port->addNull)
+                                osamp->data[osamp->length-1] = '\0';
 			    osamp = NEXT_HEAD(port->output_samples,
 				    OUTPUT_SAMPLE_QUEUE_SIZE);
 			    if (!osamp) {
@@ -1181,6 +1196,7 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 			    	compute_time_tag(usamp,cp-usamp->data,
 					port->usecs_per_char);
 			osamp->data[osamp->length++] = c;
+                        cp++;
 			break;			// character was input
 		    }
 		}
@@ -1189,44 +1205,47 @@ static void scan_sep_bom(struct serialPort* port,struct dsm_sample* usamp)
 		// At this point we have a match to the BOM separater string.
 		// and are filling the data buffer.
 
-		// if a variable record length, then check to see
-		// if the character matches the initial character
-		// in the separator string.
-		if (port->recinfo.recordLen == 0) {
-		    if (c == port->recinfo.sep[0]) {	// first char of next
-			port->sepcnt = 0;
-			// loop again to try match to first character
-		    }
-		    else {
-			// no match, treat as data
-			if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE) {
-			    port->sample_overflows++;
-			    osamp = NEXT_HEAD(port->output_samples,
-				    OUTPUT_SAMPLE_QUEUE_SIZE);
-			    if (!osamp) {
-				port->input_chars_lost += (ep - cp);
-				return;
-			    }
-			    port->sepcnt = 0;
-			    osamp->timetag =
-			    	compute_time_tag(usamp,cp-usamp->data,
-					port->usecs_per_char);
-			}
-			osamp->data[osamp->length++] = c;
-			break;
-		    }
-		}
-		else {
-		    // fixed record length, save character in buffer.
-		    // no chance for overflow here, as long as
-		    // recordLen < sizeof(buffer)
-		    osamp->data[osamp->length++] = c;
-		    // If we're done, scan for separator next.
-		    if (osamp->length == port->recinfo.recordLen +
-		    	port->recinfo.sepLen)
-		    	port->sepcnt = 0;
-		    break;
-		}
+                // fixed record length, save characters in buffer.
+                // no chance for overflow here, as long as
+                // recordLen < sizeof(buffer)
+                if (osamp->length <
+                    port->recinfo.recordLen + port->recinfo.sepLen) {
+                    int nc = MIN(port->recinfo.recordLen +
+                        port->recinfo.sepLen - osamp->length,ep-cp);
+                    memcpy(osamp->data + osamp->length,cp,nc);
+                    cp += nc;
+                    osamp->length += nc;
+                    break;
+                }
+
+		// check to see if the character matches the
+                // initial character in the separator string.
+                if (c == port->recinfo.sep[0]) {	// first char of next
+                    port->sepcnt = 0;
+                    // loop again to try match to first character
+                }
+                else {
+                    // no match, treat as data
+                    // make sure there is room
+                    if (osamp->length == MAX_DSM_SERIAL_SAMPLE_SIZE) {
+                        if (port->addNull)
+                            osamp->data[osamp->length-1] = '\0';
+                        port->sample_overflows++;
+                        osamp = NEXT_HEAD(port->output_samples,
+                                OUTPUT_SAMPLE_QUEUE_SIZE);
+                        if (!osamp) {
+                            port->input_chars_lost += (ep - cp);
+                            return;
+                        }
+                        port->sepcnt = 0;
+                        osamp->timetag =
+                            compute_time_tag(usamp,cp-usamp->data,
+                                    port->usecs_per_char);
+                    }
+                    osamp->data[osamp->length++] = c;
+                    cp++;
+                    break;
+                }
 	    }
 	}	// loop until we do something with character
     }		// loop over characters in uart sample
@@ -1242,13 +1261,12 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
         port->input_chars_lost += usamp->length;
 	return;
     }
-    // initial samples in the queue will have length==0
+    // samples fetched from the queue will have length==0
 
     register char* cp = usamp->data;
     char* ep = usamp->data + usamp->length;
 
-    for ( ; cp < ep; cp++) {
-        char c = *cp;
+    for ( ; cp < ep; ) {
 	if (osamp->length + port->addNull == MAX_DSM_SERIAL_SAMPLE_SIZE) {
 	    port->sample_overflows++;
 	    // send this bogus sample on
@@ -1265,9 +1283,11 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 	if (osamp->length == 0)
 	    osamp->timetag =
 		compute_time_tag(usamp,cp-usamp->data,port->usecs_per_char);
-	osamp->data[osamp->length++] = c;
 
 	if (port->recinfo.recordLen == 0) {
+            char c = *cp++;
+            osamp->data[osamp->length++] = c;
+
 	    // if a variable record length, then check to see
 	    // if the character matches the current character
 	    // in the end of message separator string.
@@ -1296,10 +1316,19 @@ static void scan_sep_eom(struct serialPort* port,struct dsm_sample* usamp)
 	    }
 	}
 	else {
-	    // fixed length record
-	    if (osamp->length >= port->recinfo.recordLen) {
+	    // fixed length record, memcpy what we can
+            if (osamp->length < port->recinfo.recordLen) {
+                int nc = MIN(port->recinfo.recordLen - osamp->length,ep-cp);
+                memcpy(osamp->data + osamp->length,cp,nc);
+                cp += nc;
+                osamp->length += nc;
+            }
+            else {
+                // at this point osamp->length >= port->recinfo.recordLen
 		// we've read in all our characters, now scan separator string
 		// if no match, check from beginning of separator string
+                char c = *cp++;
+                osamp->data[osamp->length++] = c;
 		if (c == port->recinfo.sep[port->sepcnt] ||
 		    c == port->recinfo.sep[port->sepcnt = 0]) {
 		    if (++port->sepcnt == port->recinfo.sepLen) {

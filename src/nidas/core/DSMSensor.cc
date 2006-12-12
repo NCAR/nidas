@@ -270,17 +270,26 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
 dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
 {
     dsm_time_t tt = 0;
+
+#ifdef DEBUG
     size_t rlen = readBuffer();
     cerr << "readBuffer=" << rlen << endl;
+    int nsamp = 0;
+#else
+    readBuffer();
+#endif
 
     // process all data in buffer, pass samples onto clients
-    int nsamp = 0;
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
         tt = samp->getTimeTag();        // return last time tag read
         distributeRaw(samp);
+#ifdef DEBUG
         nsamp++;
+#endif
     }
+#ifdef DEBUG
     cerr << "nsamp=" << nsamp << endl;
+#endif
     return tt;
 }
 
