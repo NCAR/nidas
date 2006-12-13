@@ -33,7 +33,13 @@ namespace nidas { namespace core {
 class XDOMElement {
 public:
     XDOMElement(const xercesc::DOMElement*e) :
-    	elem(e),
+    	elemConst(e),elemNonConst(0),
+	nodename((const char*)XMLStringConverter(e->getNodeName()))
+    {
+    }
+
+    XDOMElement(xercesc::DOMElement*e) :
+    	elemConst(e),elemNonConst(e),
 	nodename((const char*)XMLStringConverter(e->getNodeName()))
     {
     }
@@ -45,7 +51,7 @@ public:
 
 	    // returns empty string if attribute does not have a
 	    // specified or default value.
-	    XMLStringConverter aval(elem->getAttribute((const XMLCh*)cname));
+	    XMLStringConverter aval(elemConst->getAttribute((const XMLCh*)cname));
 
 	    std::pair<const std::string,const std::string>
 		    p(aname,std::string((const char*)aval));
@@ -54,12 +60,21 @@ public:
 	}
 	return ai->second;
     }
+    void setAttributeValue(const std::string& name,const std::string& val)
+    {
+        XMLStringConverter aname(name);
+        XMLStringConverter aval(val);
+        if (elemNonConst)
+            elemNonConst->setAttribute((const XMLCh*)aname,(const XMLCh*)aval);
+        attrs[name] = val;
+    }
     const std::string& getNodeName() const { return nodename; }
 
-    const xercesc::DOMElement* getElement() const { return elem; }
+    const xercesc::DOMElement* getElement() const { return elemConst; }
 
 private:
-    const xercesc::DOMElement* elem;
+    const xercesc::DOMElement* elemConst;
+    xercesc::DOMElement* elemNonConst;
     std::map<std::string,std::string> attrs;
     std::string nodename;
 };

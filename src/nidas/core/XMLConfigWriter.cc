@@ -83,7 +83,7 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 
     string nodename = xnode.getNodeName();
 
-    if (!nodename.compare("aircraft") || !nodename.compare("site")) {
+    if (nodename == "aircraft" || nodename == "site") {
 	// scan dsms of this aircraft/site. If we find a matching dsm
 	// then pass this aircraft/site node on
 	DOMNode* child;
@@ -101,11 +101,13 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 		xnode.getAttributeValue("name") << endl;
 	return DOMNodeFilter::FILTER_REJECT;
     }
-    else if (!xnode.getNodeName().compare("dsm"))
+    else if (xnode.getNodeName() == "dsm")
         return acceptDSMNode(node);
-    else if (!xnode.getNodeName().compare("server"))
+    else if (xnode.getNodeName() == "server")
 	return DOMNodeFilter::FILTER_REJECT;
-    return DOMNodeFilter::FILTER_ACCEPT;
+    else if (xnode.getNodeName() == "project")
+        return DOMNodeFilter::FILTER_ACCEPT;
+    else return DOMNodeFilter::FILTER_ACCEPT;
 }
 
 short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const

@@ -689,8 +689,6 @@ string Project::getTokenValue(const string& token) const
     if (token == "SYSTEM") return getSystemName();
 
     // if none of the above, try to get token value from UNIX environment
-    const char* val = ::getenv(token.c_str());
-    if (val) return string(val);
-    else return string("${") + token + "}";      // unknown value, return original token
+    return getEnvVar(token);
 }
 

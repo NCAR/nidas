@@ -199,6 +199,8 @@ public:
      */
     std::string getTokenValue(const std::string& token) const;
 
+    static std::string getEnvValue(const std::string& token);
+
 protected:
     /**
      * Add a parameter to this Project. Project

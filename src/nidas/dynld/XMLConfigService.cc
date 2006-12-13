@@ -26,6 +26,9 @@
 
 #include <nidas/util/Logger.h>
 
+// #include <xercesc/dom/DOMElement.hpp>
+#include <xercesc/dom/DOMNodeList.hpp>
+
 #include <iostream>
 
 using namespace nidas::core;
@@ -94,7 +97,19 @@ int XMLConfigService::run() throw(n_u::Exception)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
-    xercesc::DOMDocument* doc = parser->parse(DSMServer::getInstance()->getXMLFileName());
+    xercesc::DOMDocument* doc = parser->parse(
+        Project::expandEnvVars(DSMServer::getInstance()->getXMLFileName()));
+
+    xercesc::DOMNodeList* projnodes =
+        doc->getElementsByTagName((const XMLCh*)XMLStringConverter("project"));
+
+    for (unsigned int i = 0; i < projnodes->getLength(); i++) {
+        xercesc::DOMNode* proj = projnodes->item(i);
+        XDOMElement xnode((xercesc::DOMElement*)proj);
+        xnode.setAttributeValue("config",
+            DSMServer::getInstance()->getXMLFileName());
+    }
+    // delete projnodes;
 
     XMLFdFormatTarget formatter(iochan->getName(),iochan->getFd());
 

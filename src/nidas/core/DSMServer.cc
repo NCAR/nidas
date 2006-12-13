@@ -112,6 +112,7 @@ int DSMServer::main(int argc, char** argv) throw()
 	    result = 1;
 	    break;
 	}
+        project->setConfigName(xmlFileName);
 
 	serverInstance = 0;
 
@@ -318,8 +319,11 @@ Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
+    // expand environment variables in name
+    string expName = Project::expandEnvVars(xmlFileName);
+
     // This document belongs to the caching parser
-    DOMDocument* doc = parser->parse(xmlFileName);
+    DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 
     Project* project = Project::getInstance();
