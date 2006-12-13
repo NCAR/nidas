@@ -35,14 +35,20 @@ public:
     static DynamicLoader* getInstance() throw(nidas::util::Exception);
 
     /**
-     * Return a pointer to a symbol in the program itself. The
-     * program must have been loaded with the -rdynamic option.
+     * Return a pointer to a symbol in the program itself.  Throws an
+     * exception if the lookup fails.
      */
     void *lookup(const std::string& name) throw(nidas::util::Exception);
 
     /**
-     * Return a pointer to a symbol from a given library. Do
-     * "man dlopen" for information about library paths.
+     * Return a pointer to a symbol from the given library.  If the library
+     * path is absolute (begins with a forward slash), then it is opened as
+     * is.  Otherwise it is appended to the library install path built in
+     * at compile time.  This method throws an exception if the library
+     * could not be loaded or the symbol could not be found in the library.
+     * Note that if the library is loaded with dlopen(), then it will never
+     * be unloaded, even if the symbol is not found.  If the given library
+     * name is empty, this call is equivalent to lookup() above.
      */
     void *lookup(const std::string& library,const std::string& name)
     	throw(nidas::util::Exception);

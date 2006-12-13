@@ -158,7 +158,6 @@ sources = [ Split("""
     DSMServer.cc
     DSMServerIntf.cc
     DSMService.cc
-    DynamicLoader.cc
     HeaderSource.cc
     IOChannel.cc
     IOStream.cc
@@ -228,6 +227,10 @@ sources = [ Split("""
     ../util/UTime.cc
     """)
 ]
+
+dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
+sources += [ myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+
 
 # kludge
 # utilobjs = glob.glob("../util/*.cc")
