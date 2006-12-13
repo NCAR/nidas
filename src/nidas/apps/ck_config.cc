@@ -42,7 +42,7 @@ public:
 #ifdef DEBUG
 	cerr << dec << "timetag= " << tt <<
 		" id= " << s->getId() << " len=" << s->getDataLength();
-	float* data = ((FloatSample*)s)->getDataPtr();
+	float* data = ((SampleT<float>*)s)->getDataPtr();
 
 	for (unsigned int i = 0; i < s->getDataLength(); i++)
 	    std::cerr << ' ' << data[i];
