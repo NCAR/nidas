@@ -30,7 +30,9 @@ using namespace nidas::dynld::isff;
 
 namespace n_u = nidas::util;
 
+#ifndef DEBUG
 #define DEBUG
+#endif
 
 NIDAS_CREATOR_FUNCTION_NS(isff,SimGOESXmtr)
 
