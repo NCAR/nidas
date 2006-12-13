@@ -8,15 +8,6 @@
 Import('env')
 myenv = env.Copy()
 
-##
-## Look for PostgreSQL library.
-## It looks like this check needs to be at the top of this file,
-## just after the env.Copy(), otherwise it hangs forever.
-##
-conf = Configure(myenv)
-conf.CheckLibWithHeader('pq','libpq-fe.h','c','PQconnectdb("");')
-myenv = conf.Finish()
-
 # -D__cpluscplus   -fno-common  -fno-builtin
 # Import('arm_env')
 # src_arm_env = arm_env.Copy()

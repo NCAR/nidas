@@ -31,8 +31,10 @@ opts.AddOptions(
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
          'x86 arm')
+opts.Add(BoolOption('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
 opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
+opts.Add(BoolOption('PSQL_ENABLE', 'Build PSQL modules when detected.', 'off'))
 opts.Update(env)
 opts.Save('nidas.conf',env)
 
@@ -70,6 +72,15 @@ SConsignFile()
 env['CCFLAGS'] = Split("""-Wall -O2""")
 env['CXXFLAGS'] = Split("""-Wall -O2""")
 env['CPPPATH'] = Split("#")
+
+if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
+    env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
+
+if env.has_key('DEBUG') and env['DEBUG']:
+    env.AppendUnique(CPPDEFINES = ['DEBUG'])
+
+if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
+    env.AppendUnique(CXXFLAGS = ['-ggdb'])
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor...

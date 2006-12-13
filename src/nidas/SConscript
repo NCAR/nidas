@@ -57,15 +57,6 @@ archinstall= env.Alias(arch+'_install', [
 	'$PREFIX/bin',
         ])
 
-conf = Configure(env)
-env = conf.Finish()
-
-if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
-    env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
-
-if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
-    env.AppendUnique(CXXFLAGS = ['-ggdb'])
-
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
