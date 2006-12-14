@@ -28,6 +28,7 @@
 // Linux module includes...
 #include <linux/init.h>          // module_init, module_exit
 #include <linux/ioport.h>
+#include <linux/sched.h>
 //#include <bits/posix1_lim.h>
 
 // DSM includes...
@@ -53,8 +54,9 @@ static const char* devprefix = "mesa";
 // Define IOCTLs
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS, _IOC_SIZE(GET_NUM_PORTS) },
-  { MESA_LOAD,     _IOC_SIZE(MESA_LOAD    ) },
-  { MESA_DONE,     _IOC_SIZE(MESA_DONE    ) },
+  { MESA_LOAD_START,_IOC_SIZE(MESA_LOAD_START) },
+  { MESA_LOAD_BLOCK,_IOC_SIZE(MESA_LOAD_BLOCK) },
+  { MESA_LOAD_DONE, _IOC_SIZE(MESA_LOAD_DONE) },
   { COUNTERS_SET,  _IOC_SIZE(COUNTERS_SET ) },
   { RADAR_SET,     _IOC_SIZE(RADAR_SET    ) },
   { PMS260X_SET,   _IOC_SIZE(PMS260X_SET  ) },
@@ -66,8 +68,7 @@ static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
 
 // Set the base address of the Mesa 4I34 card
-volatile unsigned long phys_membase;
-static volatile unsigned long baseaddr = MESA_BASE;
+static unsigned long baseaddr = MESA_BASE;
 
 MODULE_PARM(baseaddr, "1l");
 MODULE_PARM_DESC(baseaddr, "ISA memory base (default 0x220)");
@@ -82,9 +83,11 @@ static void read_counter(void * channel)
   int	i, read_address_offset;
   MESA_SIXTEEN_BIT_SAMPLE sample;
   struct MESA_Board * brd = boardInfo;
+  // static long cntr = 0, cntr_cntr = 0;
 
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nCounters;
   sample.sampleID = ID_COUNTERS;
+  sample.timetag = GET_MSEC_CLOCK;
 
   for (i = 0; i < brd->nCounters; i++)
   {
@@ -94,11 +97,13 @@ static void read_counter(void * channel)
       read_address_offset = COUNT1_READ_OFFSET;
 
     // read from the counter channel
-    sample.timetag = GET_MSEC_CLOCK;
-    sample.data[i] = readw(brd->addr + read_address_offset);
+    sample.data[i] = inw(brd->addr + read_address_offset);
 //DSMLOG_DEBUG("chn: %d  sample.data: %d\n", i, sample.data[i]);
   }
 
+//cntr += sample.data[1];
+//if (++cntr_cntr % 50)
+//   DSMLOG_DEBUG("%d\n", cntr);
   // write the counts to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
 	+ sizeof(dsm_sample_time_t));
@@ -114,7 +119,7 @@ static void read_radar(void * channel)
   sample.sampleID = ID_RADAR;
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
   sample.timetag = GET_MSEC_CLOCK;
-  sample.data[0] = readw(brd->addr + RADAR_READ_OFFSET);
+  sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
 //DSMLOG_DEBUG("chn: %d  sample.data: %d\n", 0, sample.data[0]);
 
   // write the altitude to the user's FIFO
@@ -135,24 +140,24 @@ static void read_260x(void * channel)
   sample.sampleID = ID_260X;
   sample.timetag = GET_MSEC_CLOCK;
 
-  sample.strobes = readw(brd->addr + STROBES_OFFSET);
+  sample.strobes = inw(brd->addr + STROBES_OFFSET);
 
   // read 260X histogram data
   for (i = 0; i < TWO_SIXTY_BINS; ++i)
   {
-    sample.data[i] = readw(brd->addr + TWOSIXTY_READ_OFFSET);
+    sample.data[i] = inw(brd->addr + TWOSIXTY_READ_OFFSET);
   }
 
-  (void)readw(brd->addr + HISTOGRAM_CLEAR_OFFSET);
+  (void)inw(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 
   // read 260X housekeeping data
   for (i = 0; i < 8; ++i)
   {
-    sample.house[i] = readw(brd->addr + HOUSE_READ_OFFSET);
-    (void)readw(brd->addr + HOUSE_ADVANCE_OFFSET);
+    sample.house[i] = inw(brd->addr + HOUSE_READ_OFFSET);
+    (void)inw(brd->addr + HOUSE_ADVANCE_OFFSET);
   }
 
-  (void)readw(brd->addr + HOUSE_RESET_OFFSET);
+  (void)inw(brd->addr + HOUSE_RESET_OFFSET);
 
   // write the data to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
@@ -162,9 +167,8 @@ static void read_260x(void * channel)
 
 /* -- UTILITY --------------------------------------------------------- */
 
-static void outportbwswap(struct MESA_Board * brd, unsigned thebyte)
+static void outportbwswap(struct MESA_Board * brd, unsigned char thebyte)
 {
-  unsigned char* ptr;
   static unsigned char swaptab[256] =
   {
     0x00, 0x80, 0x40, 0xC0, 0x20, 0xA0, 0x60, 0xE0, 0x10, 0x90, 0x50, 0xD0,
@@ -191,8 +195,7 @@ static void outportbwswap(struct MESA_Board * brd, unsigned thebyte)
     0x3F, 0xBF, 0x7F, 0xFF
   };
 
-  ptr = &swaptab[thebyte];
-  outb(*ptr, brd->addr + R_4I34DATA);
+  outb(swaptab[thebyte], brd->addr + R_4I34DATA);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -201,16 +204,15 @@ static void outportbwswap(struct MESA_Board * brd, unsigned thebyte)
 /* dsm/modules/mesa.c: load_start: outb(10) */
 static int load_start(struct MESA_Board * brd)
 {
-  int count;
   unsigned char config, status;
 
   config = M_4I34CFGCSOFF | M_4I34CFGINITASSERT |
            M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
 
   outb(config, brd->addr + R_4I34CONTROL);
-  DSMLOG_DEBUG("outb(%d)\n", config);
+  DSMLOG_DEBUG("outb(%#x)\n", config);
   status = inb(brd->addr + R_4I34STATUS);
-  DSMLOG_DEBUG("inb = %d\n", status);
+  DSMLOG_DEBUG("inb = %#x\n", status);
 
   /* Note that if we see DONE at the start of programming, it's most likely due
    * to an attempt to access the 4I34 at the wrong I/O location.
@@ -224,7 +226,7 @@ static int load_start(struct MESA_Board * brd)
            M_4I34CFGWRITEENABLE | M_4I34LEDON;
 
   outb(config, brd->addr + R_4I34CONTROL);
-  DSMLOG_DEBUG("outb(%d)\n", config);
+  DSMLOG_DEBUG("outb(%#x)\n", config);
 
   // Multi task for 100 us
 //   struct rtl_timespec ts;
@@ -233,8 +235,12 @@ static int load_start(struct MESA_Board * brd)
 //   rtl_clock_nanosleep(RTL_CLOCK_REALTIME, TIMER_ABSTIME, &ts, NULL);
 
   /* Delay 100 uS. */
-  for (count = 0; count <= 1000; count++)
     status = inb(brd->addr + R_4I34STATUS);
+    unsigned long j = jiffies + 1;
+    while (time_before(jiffies,j)) schedule();
+  DSMLOG_DEBUG("load_start done, status=%#x\n", status);
+
+    brd->progNbytes = 0;
 
   return 0;
 }
@@ -246,7 +252,7 @@ static int load_finish(struct MESA_Board * brd)
   unsigned char config;
   enum flag success;
 
-  DSMLOG_DEBUG("start\n");
+  DSMLOG_DEBUG("load_finish, program nbytes=%d\n",brd->progNbytes);
   config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
            M_4I34CFGWRITEDISABLE | M_4I34LEDON;
   outb(config, brd->addr + R_4I34CONTROL);
@@ -254,17 +260,23 @@ static int load_finish(struct MESA_Board * brd)
 
   // Wait for Done bit set
   success = FALSE;
-  for (waitcount = PROGWAITLOOPCOUNT; waitcount != 0; --waitcount)
+  for (waitcount = 0; waitcount < 500; ++waitcount)
   {
-    if ( inb(brd->addr + R_4I34STATUS) & M_4I34PROGDUN )
+    // this is not called from a real-time thread, so use jiffies
+    // to delay
+    unsigned char status;
+    unsigned long j = jiffies + 10;
+    while (time_before(jiffies,j)) schedule();
+    if ( (status = inb(brd->addr + R_4I34STATUS)) & M_4I34PROGDUN )
     {
-      DSMLOG_DEBUG("waitcount: %d\n", waitcount);
+	DSMLOG_INFO("waitcount: %d, status=%#x\n", waitcount,status);
       success = TRUE;
-      continue;
+      break;
     }
+	DSMLOG_INFO("waitcount: %d, status=%#x\n", waitcount,status);
   }
 
-  if (success)
+  if (success == TRUE)
   {
     DSMLOG_NOTICE("FPGA programming done.\n");
 
@@ -291,15 +303,8 @@ static int load_program(struct MESA_Board * brd, struct _prog * buf)
   int	i, ret = buf->len;
   unsigned char *bptr;
 
-  static unsigned long total = 0;
-
-  // start of load process
-  if (total == 0)
-    if ((ret = load_start(brd)) < 0)
-      return ret;
-
   // read the FIFO into a buffer and then program the FPGA
-  total += buf->len;
+  brd->progNbytes += buf->len;
 
   // Now program the FPGA
   bptr = buf->buffer;
@@ -382,12 +387,17 @@ DSMLOG_DEBUG("GET_NUM_PORTS\n");
       ret = sizeof(int);
       break;
 
-    case MESA_LOAD:
+    case MESA_LOAD_START:
+DSMLOG_DEBUG("MESA_FPGA_LOAD\n");
+      ret = load_start(brd);
+      break;
+
+    case MESA_LOAD_BLOCK:
 DSMLOG_DEBUG("MESA_FPGA_LOAD\n");
       ret = load_program(brd, (struct _prog *)buf);
       break;
 
-    case MESA_DONE:
+    case MESA_LOAD_DONE:
 DSMLOG_DEBUG("MESA_FPGA_DONE\n");
       ret = load_finish(brd);
       break;
@@ -514,7 +524,6 @@ int init_module (void)
   boardInfo = rtl_gpos_malloc( numboards * sizeof(struct MESA_Board) );
   if (!boardInfo) goto err;
 
-
   /* initialize each AnythingIO board structure */
   for (ib = 0; ib < numboards; ib++)
   {
@@ -529,7 +538,6 @@ int init_module (void)
     brd->twoSixty_rate = IRIG_NUM_RATES;
     brd->outfd = -1;
   }
-
 
   struct MESA_Board * brd = 0;
   for (ib = 0; ib < numboards; ib++)
@@ -555,6 +563,7 @@ int init_module (void)
     DSMLOG_NOTICE("ib:             %d\n",   ib);
     DSMLOG_NOTICE("nioctlcmds:     %d\n",   nioctlcmds);
     DSMLOG_NOTICE("ioctlcmds:      0x%x\n", ioctlcmds);
+    DSMLOG_NOTICE("ioport:         0x%x\n", baseaddr);
 
     brd->ioctlhandle = openIoctlFIFO(devprefix, ib, ioctlCallback,
                               nioctlcmds, ioctlcmds);

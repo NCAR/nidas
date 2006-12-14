@@ -228,15 +228,18 @@ bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
   selectfiletype(fdMesaFPGAfile);
   cerr << "file type selected" << endl;
 
+  ioctl(MESA_LOAD_START,0,0);
+
   struct _prog prog;
   do
   {
     prog.len = fread(prog.buffer, 1, MAX_BUFFER, fdMesaFPGAfile);
-    ioctl(MESA_LOAD, &prog, sizeof(struct _prog));
+    if (ferror(fdMesaFPGAfile)) throw n_u::IOException(devstr,"read",errno);
+    if (prog.len > 0) ioctl(MESA_LOAD_BLOCK, &prog, sizeof(struct _prog));
   }
   while( !feof(fdMesaFPGAfile) );
 
-  ioctl(MESA_DONE, 0, 0);
+  ioctl(MESA_LOAD_DONE, 0, 0);
 
   cerr << "Done sending bit file down." << endl;
   fclose(fdMesaFPGAfile);

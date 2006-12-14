@@ -158,6 +158,7 @@ struct MESA_Board
   int	nCounters;
   int	nRadars;
   int	n260X;
+  size_t progNbytes;
 
   struct ioctlHandle * ioctlhandle;
 };
@@ -167,13 +168,14 @@ struct MESA_Board
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define MESA_LOAD	_IOW(MESA_MAGIC, 0, struct _prog)
-#define MESA_DONE	_IO(MESA_MAGIC, 1)
-#define COUNTERS_SET	_IOW(MESA_MAGIC, 2, struct counters_set)
-#define RADAR_SET	_IOW(MESA_MAGIC, 3, struct radar_set)
-#define PMS260X_SET	_IOW(MESA_MAGIC, 4, struct pms260x_set)
-#define DIGITAL_IN_SET	_IOW(MESA_MAGIC, 5, struct digital_in)
-#define	MESA_STOP	_IO(MESA_MAGIC, 6)
+#define MESA_LOAD_START	_IO(MESA_MAGIC, 0)
+#define MESA_LOAD_BLOCK	_IOW(MESA_MAGIC, 1, struct _prog)
+#define MESA_LOAD_DONE	_IO(MESA_MAGIC, 2)
+#define COUNTERS_SET	_IOW(MESA_MAGIC, 3, struct counters_set)
+#define RADAR_SET	_IOW(MESA_MAGIC, 4, struct radar_set)
+#define PMS260X_SET	_IOW(MESA_MAGIC, 5, struct pms260x_set)
+#define DIGITAL_IN_SET	_IOW(MESA_MAGIC, 6, struct digital_in)
+#define	MESA_STOP	_IO(MESA_MAGIC, 7)
 
 #include <nidas/rtlinux/ioctl_fifo.h>
 
