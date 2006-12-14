@@ -1,12 +1,16 @@
+# -*- python -*-
 
+##  Copyright 2006 UCAR, NCAR, All Rights Reserved
 
 Import('env')
 
-sources = env.SharedObject (source = Split("""TiltSensor.cc"""),
-                            CPPDEFINES = 'DEBUG')
+so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor.so",
+                        source = "TiltSensor.cc",
+                        CPPDEFINES = 'DEBUG',
+                        SHLIBPREFIX = '')
 
 headers = Split("""TiltSensor.h""")
 
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
+env.Install('$PREFIX/lib', so)
 env.Install('$PREFIX/include/nidas/dynld/iss', headers)
 
