@@ -27,6 +27,7 @@ myenv.AppendUnique(LIBS = Split("""
     """))
 
 # ck_lams.cc
+    # proj_configs.cc
 apps = Split("""
     ck_lams.cc
     ck_arinc.cc
@@ -44,7 +45,6 @@ apps = Split("""
     sample_test.cc
     data_stats.cc
     data_dump.cc
-    proj_configs.cc
     sync_dump.cc
     sync_server.cc
     status_listener.cc
