@@ -57,7 +57,7 @@ CalFile* CS_Krypton::getCalFile()
     return calFile;
 }
 
-std::string CS_Krypton::toString() const
+std::string CS_Krypton::toString()
 {
     return "CS_Krypton::toString() unsupported";
 }

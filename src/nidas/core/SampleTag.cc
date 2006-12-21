@@ -231,22 +231,3 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		"unknown child element of sample",elname);
     }
 }
-
-xercesc::DOMElement* SampleTag::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-

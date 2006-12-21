@@ -179,25 +179,3 @@ void PSQLChannel::fromDOMElement(const DOMElement* node)
     log->log(LOG_INFO, "created PSQLChannel: host=%s, user=%s, dbname=%s",
 	     getHost().c_str(), getUser().c_str(), getDBName().c_str());
 }
-
-
-DOMElement* PSQLChannel::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-
-DOMElement* PSQLChannel::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-
-

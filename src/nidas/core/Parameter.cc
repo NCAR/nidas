@@ -187,21 +187,3 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 }
-DOMElement* Parameter::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* Parameter::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-

@@ -382,18 +382,6 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* DSMConfig::toDOMParent(DOMElement* parent) throw(DOMException) {
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsm"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-DOMElement* DSMConfig::toDOMElement(DOMElement* node) throw(DOMException) {
-    return node;
-}
-
 string DSMConfig::expandString(const string& input) const
 {
     string::size_type lastpos = 0;
@@ -429,8 +417,10 @@ string DSMConfig::expandString(const string& input) const
     }
 
     result.append(input.substr(lastpos));
-    // cerr << "input: \"" << input << "\" expanded to \"" <<
-    // 	result << "\"" << endl;
+#ifdef DEBUG
+    cerr << "input: \"" << input << "\" expanded to \"" <<
+    	result << "\"" << endl;
+#endif
     return result;
 }
 

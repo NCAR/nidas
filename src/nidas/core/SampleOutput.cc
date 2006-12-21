@@ -235,21 +235,3 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
     setName(string("SampleOutputBase: ") + getIOChannel()->getName());
 }
 
-xercesc::DOMElement* SampleOutputBase::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-                        DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-                                                                                
-xercesc::DOMElement* SampleOutputBase::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-

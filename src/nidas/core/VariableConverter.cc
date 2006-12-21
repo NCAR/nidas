@@ -62,12 +62,12 @@ const Parameter* VariableConverter::getParameter(const std::string& name) const
     return pi->second;
 }
 
-Linear::Linear(): slope(1.0),intercept(0.0),calFile(0),calTime(0)
+Linear::Linear(): calTime(0),slope(1.0),intercept(0.0),calFile(0)
 {
 }
 
 Linear::Linear(const Linear& x):
-    slope(x.slope),intercept(x.intercept),calFile(0),calTime(0)
+    calTime(0),slope(x.slope),intercept(x.intercept),calFile(0)
 {
     if (x.calFile) calFile = new CalFile(*x.calFile);
 }
@@ -92,7 +92,7 @@ CalFile* Linear::getCalFile()
     return calFile;
 }
 
-std::string Linear::toString() const
+std::string Linear::toString()
 {
     ostringstream ost;
 
@@ -101,7 +101,7 @@ std::string Linear::toString() const
     return ost.str();
 }
 
-Polynomial::Polynomial() : coefs(0),calFile(0),calTime(0)
+Polynomial::Polynomial() : calTime(0),coefs(0),calFile(0)
 {
     float tmpcoefs[] = { 0.0, 1.0 };
     setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
@@ -139,7 +139,7 @@ CalFile* Polynomial::getCalFile()
     return calFile;
 }
 
-std::string Polynomial::toString() const
+std::string Polynomial::toString()
 {
     ostringstream ost;
 
@@ -311,24 +311,6 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 	else throw n_u::InvalidParameterException(xnode.getNodeName(),
 		"unknown child element",elname);
     }
-}
-
-xercesc::DOMElement* VariableConverter::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* VariableConverter::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
 }
 
 void Linear::fromDOMElement(const xercesc::DOMElement* node)

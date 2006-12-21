@@ -136,6 +136,7 @@ headers = [ Split("""
     XMLFdFormatTarget.h
     XMLFdInputSource.h
     XMLParser.h
+    XMLWriter.h
     XmlRpcThread.h
     XMLStringConverter.h
     """)
@@ -206,6 +207,7 @@ sources = [ Split("""
     XMLException.cc
     XMLFdFormatTarget.cc
     XMLParser.cc
+    XMLWriter.cc
     XmlRpcThread.cc
 
     ../util/BitArray.cc

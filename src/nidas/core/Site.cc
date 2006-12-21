@@ -251,20 +251,6 @@ void Site::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* Site::toDOMParent(DOMElement* parent)
-	throw(DOMException) {
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("aircraft"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-DOMElement* Site::toDOMElement(DOMElement* node)
-	throw(DOMException) {
-    return node;
-}
-
 /**
  * Look for a server on this aircraft that either has no name or whose
  * name matches hostname.  If none found, remove any domain names

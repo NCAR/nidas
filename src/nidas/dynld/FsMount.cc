@@ -155,24 +155,6 @@ void FsMount::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* FsMount::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("mount"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* FsMount::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-
 FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
     n_u::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt) {}
 

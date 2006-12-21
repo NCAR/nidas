@@ -75,15 +75,3 @@ void ServiceCatalog::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* ServiceCatalog::toDOMParent(DOMElement* parent) throw(DOMException) {
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("service"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-DOMElement* ServiceCatalog::toDOMElement(DOMElement* node) throw(DOMException) {
-    return node;
-}
-

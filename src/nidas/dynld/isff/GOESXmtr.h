@@ -198,12 +198,6 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
-    xercesc::DOMElement* toDOMParent(xercesc::DOMElement* parent)
-    	throw(xercesc::DOMException);
-
-    xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
-    	throw(xercesc::DOMException);
-    
 protected:
 
     nidas::util::SerialPort port;

@@ -442,24 +442,6 @@ void DSMServer::fromDOMElement(const DOMElement* node)
     }
 }
 
-DOMElement* DSMServer::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* DSMServer::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-
 void DSMServer::scheduleServices() throw(n_u::Exception)
 {
     list<DSMService*>::const_iterator si;

@@ -304,21 +304,3 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 
 }
 
-xercesc::DOMElement* SampleIOProcessor::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-                        DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* SampleIOProcessor::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-

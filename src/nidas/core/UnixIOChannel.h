@@ -110,18 +110,6 @@ public:
 		"UnixIOChannel::fromDOMElement not supported");
     }
 
-    xercesc::DOMElement* toDOMParent(xercesc::DOMElement* parent)
-    	throw(xercesc::DOMException)
-    {
-        return 0;
-    }
-
-    xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
-    	throw(xercesc::DOMException)
-    {
-        return 0;
-    }
-    
 protected:
 
     std::string name;

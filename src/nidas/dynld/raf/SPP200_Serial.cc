@@ -104,6 +104,7 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
     write(&_setup_pkt, sizeof(_setup_pkt));
 
     setMessageLength(sizeof(Init200_blk));
+    setMessageParameters();
     // half second timeout. Throws n_u::IOTimeoutException
     readBuffer(MSECS_PER_SEC / 2);
 
@@ -111,6 +112,7 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
     if (!samp) 
         throw n_u::IOException(getName(), "S200 init return packet","not read");
     setMessageLength(_packetLen);
+    setMessageParameters();
 
     cerr << "returned sample length=" << samp->getDataByteLength() << endl;
 

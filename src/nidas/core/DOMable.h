@@ -56,20 +56,20 @@ public:
      * Create a DOMElement and append it to the parent.
      */
     virtual xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException) = 0;
+    	toDOMParent(xercesc::DOMElement* parent) const
+		throw(xercesc::DOMException);
 
     /**
      * Add my content into a DOMElement.
      */
     virtual xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException) = 0;
+    	toDOMElement(xercesc::DOMElement* node) const
+		throw(xercesc::DOMException);
 
     static const XMLCh* getNamespaceURI() {
 	if (!namespaceURI) namespaceURI =
 		xercesc::XMLString::transcode(
-		        "http://www.eol.ucar.edu/daq");
+		        "http://www.eol.ucar.edu/nidas");
         return namespaceURI;
     }
 

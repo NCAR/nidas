@@ -42,6 +42,7 @@ void FileSet::setDSMConfig(const DSMConfig* val)
     n_u::FileSet::setFileName(val->expandString(getFileName()));
     n_u::FileSet::setDir(val->expandString(getDir()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+    cerr << "FileSet::setDSMConfig: " << getName() << endl;
 }
 
 
@@ -163,23 +164,5 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	else throw n_u::InvalidParameterException("mount",
 		    "unrecognized child element", elname);
     }
-}
-
-xercesc::DOMElement* FileSet::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* FileSet::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
 }
 

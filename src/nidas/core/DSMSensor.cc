@@ -603,24 +603,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 }
 
-xercesc::DOMElement* DSMSensor::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-
 /* static */
 string DSMSensor::replaceBackslashSequences(const string& str)
 {

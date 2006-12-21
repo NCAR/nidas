@@ -59,6 +59,16 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
+    /**
+     * Set message separator and message length parameters
+     * on the hardware device. When a device driver supports
+     * these parameters, and the device is open, a call to this
+     * method will notify the driver, via an ioctl(), of
+     * the current values for message length and the
+     * message separator.
+     */
+    void setMessageParameters() throw(nidas::util::IOException);
+
     void printStatus(std::ostream& ostr) throw();
 
 

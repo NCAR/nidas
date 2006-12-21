@@ -56,10 +56,7 @@ public:
      * generates to separate messages.
       */
     void setMessageSeparator(const std::string& val)
-        throw(nidas::util::InvalidParameterException)
-    {
-        messageSeparator = DSMSensor::replaceBackslashSequences(val);
-    }
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Get message separator with backslash sequences replaced by their
@@ -83,10 +80,7 @@ public:
      * or at the beginning (false)?
      */
     void setMessageSeparatorAtEOM(bool val)
-        throw(nidas::util::InvalidParameterException)
-    {
-	separatorAtEOM = val;
-    }
+        throw(nidas::util::InvalidParameterException);
 
     bool getMessageSeparatorAtEOM() const
     {
@@ -97,10 +91,7 @@ public:
      * Set the message length for this sensor, a zero or positive value.
      */
     void setMessageLength(int val)
-        throw(nidas::util::InvalidParameterException)
-    {
-	messageLength = val;
-    }
+        throw(nidas::util::InvalidParameterException);
 
     int getMessageLength() const
     {
@@ -214,15 +205,6 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
-
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException);
-
 
 private:
 

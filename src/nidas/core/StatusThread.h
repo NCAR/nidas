@@ -35,7 +35,7 @@ public:
      */
     StatusThread(const std::string& name);
 
-    virtual int run() throw(nidas::util::Exception) = 0;
+    // virtual int run() throw(nidas::util::Exception) = 0;
 
 protected:
 };

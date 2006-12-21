@@ -486,16 +486,3 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* CalFile::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    return toDOMElement(parent);
-}
-
-xercesc::DOMElement* CalFile::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-

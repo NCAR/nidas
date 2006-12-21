@@ -54,6 +54,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
     
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node) const
+    		throw(xercesc::DOMException);
+
 private:
 
     std::string name;
@@ -67,27 +75,34 @@ private:
 };
 
 /**
+ * Sample time tag comparator.
+ */
+class ProjectConfigTimeComparator {
+public:
+    /**
+     * Return true if x is less than y.
+     */
+    inline bool operator() (const ProjectConfig* x, const ProjectConfig *y)
+        const {
+        return x->getBeginTime() < y->getEndTime();
+    }
+};
+
+/**
  */
 class ProjectConfigs {
 public:
     ProjectConfigs();
     ~ProjectConfigs();
 
-    void parseXML(const std::string& xmlFileName)
-        throw(nidas::core::XMLException,
-		nidas::util::InvalidParameterException);
-
     const ProjectConfig* getConfig(const nidas::util::UTime& begin) const;
 
-    const std::list<const ProjectConfig*>& getConfigs() const
-    {
-        return constConfigs;
-    }
+    const std::list<const ProjectConfig*>& getConfigs() const;
 
-    void addConfig(ProjectConfig* cfg) {
-        configs.push_back(cfg);
-        constConfigs.push_back(cfg);
-    }
+    void addConfig(ProjectConfig* val)
+        throw(nidas::util::InvalidParameterException);
+
+    void removeConfig(const ProjectConfig* val);
 
     /**
      * Convienence routine for getting a Project*, given
@@ -97,6 +112,25 @@ public:
         const nidas::util::UTime& begin)
         throw(nidas::core::XMLException,
 		nidas::util::InvalidParameterException);
+
+    void parseXML(const std::string& xmlFileName)
+        throw(nidas::core::XMLException,
+		nidas::util::InvalidParameterException);
+
+    void writeXML(const std::string& xmlFileName)
+        throw(XMLException);
+
+    void fromDOMElement(const xercesc::DOMElement*)
+	throw(nidas::util::InvalidParameterException);
+    
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node) const
+    		throw(xercesc::DOMException);
+
 
 private:
 

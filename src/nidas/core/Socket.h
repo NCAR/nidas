@@ -145,14 +145,6 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
-    xercesc::DOMElement*
-        toDOMParent(xercesc::DOMElement* parent)
-                throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-        toDOMElement(xercesc::DOMElement* node)
-                throw(xercesc::DOMException);
-
     /**
      * Set the minimum write interval in microseconds so we don't
      * flood the network.

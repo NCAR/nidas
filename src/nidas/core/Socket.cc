@@ -353,24 +353,6 @@ void Socket::fromDOMElement(const DOMElement* node)
         remoteSockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
 }
 
-DOMElement* Socket::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* Socket::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-
 void ServerSocket::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {

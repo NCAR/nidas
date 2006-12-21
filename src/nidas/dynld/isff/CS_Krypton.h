@@ -102,7 +102,7 @@ public:
      */
     float convert(dsm_time_t t, float volts);
 
-    std::string toString() const;
+    std::string toString();
 
     void fromString(const std::string&) 
     	throw(nidas::util::InvalidParameterException);

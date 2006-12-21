@@ -493,21 +493,3 @@ void PSQLSampleOutput::fromDOMElement(const DOMElement* node)
     setName(psqlChannel->getName());
 }
 
-DOMElement* PSQLSampleOutput::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-                        DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-                                                                                
-DOMElement* PSQLSampleOutput::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}
-

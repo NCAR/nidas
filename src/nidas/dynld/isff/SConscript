@@ -16,6 +16,7 @@ sources = Split("""
     Packets.cc
     PacketInputStream.cc
     PropVane.cc
+    RebsLinear.cc
     SE_GOESXmtr.cc
     SimGOESXmtr.cc
     SonicAnemometer.cc
@@ -35,6 +36,7 @@ headers = Split("""
     Packets.h
     PacketInputStream.h
     PropVane.h
+    RebsLinear.h
     SE_GOESXmtr.h
     SimGOESXmtr.h
     SonicAnemometer.h

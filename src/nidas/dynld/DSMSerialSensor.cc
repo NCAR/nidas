@@ -112,18 +112,7 @@ void DSMSerialSensor::rtlDevInit(int flags)
     long latencyUsecs = (long)(getLatency() * USECS_PER_SEC);
     ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
-    /* send message separator information */
-    struct dsm_serial_record_info recinfo;
-    string nsep = getMessageSeparator();
-
-    strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
-    recinfo.sepLen = nsep.length();
-    if (recinfo.sepLen > (int)sizeof(recinfo.sep))
-    	recinfo.sepLen = sizeof(recinfo.sep);
-
-    recinfo.atEOM = getMessageSeparatorAtEOM() ? 1 : 0;
-    recinfo.recordLen = getMessageLength();
-    ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
+    setMessageParameters();
 
     if (isPrompted()) {
 	struct dsm_serial_prompt prompt;
@@ -203,6 +192,25 @@ void DSMSerialSensor::unixDevInit(int flags)
 	cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
 
 	startPrompting();
+    }
+}
+
+void DSMSerialSensor::setMessageParameters()
+    throw(nidas::util::IOException)
+{
+    if (isRTLinux() && getIODevice() && getReadFd() >= 0) {
+
+        struct dsm_serial_record_info recinfo;
+        string nsep = getMessageSeparator();
+
+        strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
+        recinfo.sepLen = nsep.length();
+        if (recinfo.sepLen > (int)sizeof(recinfo.sep))
+            recinfo.sepLen = sizeof(recinfo.sep);
+
+        recinfo.atEOM = getMessageSeparatorAtEOM() ? 1 : 0;
+        recinfo.recordLen = getMessageLength();
+        ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
     }
 }
 

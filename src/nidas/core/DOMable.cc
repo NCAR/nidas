@@ -22,3 +22,34 @@ using namespace nidas::core;
 
 /* static */
 XMLCh* DOMable::namespaceURI = 0;
+
+/**
+ * Create a DOMElement and append it to the parent.
+ */
+xercesc::DOMElement*
+    DOMable::toDOMParent(xercesc::DOMElement* parent) const
+            throw(xercesc::DOMException)
+{
+    XMLStringConverter msg("toDOMParent not supported in this DOMable");
+    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
+
+/*
+    DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+                (const XMLCh*)XMLStringConverter("name"),
+			DOMable::getNamespaceURI());
+    parent->appendChild(elem);
+    return toDOMElement(elem);
+*/
+}
+
+/**
+ * Add my content into a DOMElement.
+ */
+xercesc::DOMElement*
+    DOMable::toDOMElement(xercesc::DOMElement* node) const
+            throw(xercesc::DOMException)
+{
+    XMLStringConverter msg("toDOMParent not supported in this DOMable");
+    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
+}

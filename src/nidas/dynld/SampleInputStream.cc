@@ -378,24 +378,6 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 		"input", "must have one child element");
 }
                                                            
-xercesc::DOMElement* SampleInputStream::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-                        DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-                                                                                
-xercesc::DOMElement* SampleInputStream::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-
 void SampleInputStream::addSampleTag(const SampleTag* stag)
 {
     sampleTags.insert(stag);

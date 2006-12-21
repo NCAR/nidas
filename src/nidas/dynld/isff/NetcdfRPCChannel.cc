@@ -497,24 +497,6 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* NetcdfRPCChannel::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* NetcdfRPCChannel::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-
 NcVarGroupFloat::NcVarGroupFloat(
 	const std::vector<ParameterT<int> >& dims,
         const SampleTag* stag,float fill):

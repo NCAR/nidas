@@ -163,20 +163,8 @@ public:
     void write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
-#ifdef OLD_HEADER_WAY
-    void setHeader(const SampleInputHeader& hdr) {
-        header = hdr;
-    }
-#endif
-
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
-
-    xercesc::DOMElement* toDOMParent(xercesc::DOMElement* parent)
-    	throw(xercesc::DOMException);
-                                                                                
-    xercesc::DOMElement* toDOMElement(xercesc::DOMElement* node)
-    	throw(xercesc::DOMException);
 
     IOChannel* getIOChannel() const { return iochan; }
 

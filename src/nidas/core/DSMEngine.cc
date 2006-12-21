@@ -630,8 +630,8 @@ void DSMEngine::interrupt() throw(n_u::Exception)
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine::interrupt() called");
     if (_statusThread) {
-        if (_statusThread->isRunning()) _statusThread->cancel();
         try {
+            if (_statusThread->isRunning()) _statusThread->interrupt();
             _statusThread->join();
         }
         catch(const n_u::Exception& e) {
@@ -643,9 +643,6 @@ void DSMEngine::interrupt() throw(n_u::Exception)
     // _xmlRequestSocket here will cause an IOException in
     // DSMEngine::requestXMLConfig().
     if (_xmlRequestSocket) _xmlRequestSocket->close();
-
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"DSMEngine::interrupt() done");
 
     if (_selector) {
 	n_u::Logger::getInstance()->log(LOG_INFO,

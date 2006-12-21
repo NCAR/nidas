@@ -257,20 +257,3 @@ void McSocket::fromDOMElement(const DOMElement* node)
     setInet4McastSocketAddress(n_u::Inet4SocketAddress(iaddr,port));
 }
 
-DOMElement* McSocket::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* McSocket::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
-}

@@ -50,6 +50,27 @@ CharacterSensor::~CharacterSensor() {
     }
 }
 
+void CharacterSensor::setMessageSeparator(const std::string& val)
+    throw(nidas::util::InvalidParameterException)
+{
+    messageSeparator = DSMSensor::replaceBackslashSequences(val);
+    if (getSampleScanner()) getSampleScanner()->setMessageSeparator(messageSeparator);
+}
+
+void CharacterSensor::setMessageSeparatorAtEOM(bool val)
+    throw(nidas::util::InvalidParameterException)
+{
+    separatorAtEOM = val;
+    if (getSampleScanner()) getSampleScanner()->setMessageSeparatorAtEOM(val);
+}
+
+void CharacterSensor::setMessageLength(int val)
+    throw(nidas::util::InvalidParameterException)
+{
+    messageLength = val;
+    if (getSampleScanner()) getSampleScanner()->setMessageLength(val);
+}
+
 void CharacterSensor::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
@@ -231,24 +252,6 @@ void CharacterSensor::fromDOMElement(
 	    }
 	}
     }
-}
-
-DOMElement* CharacterSensor::toDOMParent(
-    DOMElement* parent)
-    throw(DOMException)
-{
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-DOMElement* CharacterSensor::toDOMElement(DOMElement* node)
-    throw(DOMException)
-{
-    return node;
 }
 
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)

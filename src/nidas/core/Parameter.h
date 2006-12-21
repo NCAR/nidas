@@ -56,14 +56,6 @@ public:
     static Parameter* createParameter(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
                                                                                 
-    xercesc::DOMElement*
-        toDOMParent(xercesc::DOMElement* parent)
-                throw(xercesc::DOMException);
-                                                                                
-    xercesc::DOMElement*
-        toDOMElement(xercesc::DOMElement* node)
-                throw(xercesc::DOMException);
-
 protected:
 
     Parameter(parType t): type(t) {}

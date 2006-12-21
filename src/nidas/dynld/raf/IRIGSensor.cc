@@ -307,21 +307,3 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
     samp->getVariable(0).setType(Variable::CLOCK);
 }
 
-xercesc::DOMElement* IRIGSensor::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
-{
-    xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-
-xercesc::DOMElement* IRIGSensor::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
-{
-    return node;
-}
-

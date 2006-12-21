@@ -575,14 +575,6 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException);
-
     /**
      * Utility function for replacing backslash sequences in a string.
      *  \\n=newline, \\r=carriage-return, \\t=tab, \\\\=backslash

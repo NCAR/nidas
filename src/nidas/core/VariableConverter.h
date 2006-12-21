@@ -41,12 +41,20 @@ public:
     virtual float convert(dsm_time_t,float v) = 0;
 
     void setUnits(const std::string& val) { units = val; }
+
     virtual const std::string& getUnits() const { return units; }
 
-    virtual std::string toString() const = 0;
+    /**
+     * Generate a string description of this VariableConverter.
+     * May be used in meta-data, for example Netcdf comment.
+     */
+    virtual std::string toString() = 0;
 
     virtual void fromString(const std::string&)
-    	throw(nidas::util::InvalidParameterException) = 0;
+    	throw(nidas::util::InvalidParameterException) {
+        throw nidas::util::InvalidParameterException(
+            "fromString() not supported in this VariableConverter");
+    }
 
     static VariableConverter* createVariableConverter(
     	XDOMElement& child);
@@ -78,15 +86,6 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
-
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent)
-		throw(xercesc::DOMException);
-
-    xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node)
-		throw(xercesc::DOMException);
-
 
 protected:
 
@@ -131,7 +130,7 @@ public:
 
     float convert(dsm_time_t t,float val);
 
-    std::string toString() const;
+    std::string toString();
 
     void fromString(const std::string&)
     	throw(nidas::util::InvalidParameterException);
@@ -139,15 +138,16 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+protected:
+
+    dsm_time_t calTime;
+
 private:
     float slope;
 
     float intercept;
 
     CalFile* calFile;
-
-    dsm_time_t calTime;
-
 
 };
 
@@ -176,13 +176,17 @@ public:
 
     float convert(dsm_time_t t,float val);
 
-    std::string toString() const;
+    std::string toString();
 
     void fromString(const std::string&)
     	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
+
+protected:
+
+    dsm_time_t calTime;
 
 private:
     std::vector<float> coefvec;
@@ -192,8 +196,6 @@ private:
     unsigned int ncoefs;
 
     CalFile* calFile;
-
-    dsm_time_t calTime;
 
 };
 

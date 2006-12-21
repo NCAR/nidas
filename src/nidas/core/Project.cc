@@ -467,7 +467,7 @@ string Project::getEnvVar(const string& token)
 {
     const char* val = ::getenv(token.c_str());
     if (val) return string(val);
-    else return "unknown";
+    else return string("${") + token + "}";      // unknown value, return original token
 }
 
 dsm_sample_id_t Project::getUniqueSampleId(unsigned long dsmid)
@@ -628,18 +628,6 @@ void Project::fromDOMElement(const DOMElement* node)
 	    server->addSite(site);
 	}
     }
-}
-
-DOMElement* Project::toDOMParent(DOMElement* parent) throw(DOMException) {
-    DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("project"),
-			DOMable::getNamespaceURI());
-    parent->appendChild(elem);
-    return toDOMElement(elem);
-}
-DOMElement* Project::toDOMElement(DOMElement* node) throw(DOMException) {
-    return node;
 }
 
 string Project::expandString(const string& input) const
