@@ -26,10 +26,12 @@ def get_svnversion(env):
 		    revision = rev
     return revision
 
+rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
+
 ##
 ##  RTLinux specific settings
 ##
-myenv.Replace(CC = '/opt/rtldk-2.2/bin/arm-linux-gcc')
+myenv.Replace(CC = rtlgcc)
 
 myenv.AppendUnique(CCFLAGS=[Split("""
       -DMODULE -D__RTCORE_KERNEL__
@@ -83,15 +85,6 @@ modules = Split("""
 #       testoffset.c
 
 
-##
-##  Build the modules
-##
-objs = []
-if myenv['ARCH'] == 'arm':
-    for i in modules:
-      objs += myenv.Object( i )
-# print(["objs="] + [str(h) for h in objs])
-
 headers = Split("""
     a2d_driver.h
     aio16_a2d.h
@@ -111,11 +104,14 @@ headers = Split("""
     win_com8.h
 """)
 
-## Headers are up one from build directory
-
-# print(["PREFIX="] + [myenv['PREFIX']])
-
-myenv.Install('$PREFIX/rtlinux',objs)
-
-myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
-
+## 
+## Build the modules and install headers only if the RTLinux Development
+## kit can be found.
+## 
+if os.path.exists(rtlgcc):
+    objs = [ myenv.Object(i) for i in modules ]
+    # print(["objs="] + [str(h) for h in objs])
+    myenv.Install('$PREFIX/rtlinux',objs)
+    myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
+else:
+    print "Skipping RTLinux builds: %s not found." % rtlgcc
