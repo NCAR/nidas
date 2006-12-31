@@ -177,7 +177,7 @@ public:
 	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
 
-    UTime& setFormat(std::string& val)
+    UTime& setFormat(const std::string& val)
     {
         _fmt = val;
 	return *this;
