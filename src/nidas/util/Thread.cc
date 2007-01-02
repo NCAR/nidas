@@ -671,6 +671,9 @@ int Thread::test(int argc, char** argv)
 	ThreadTest1(const std::string& name, bool detached) :
 		Thread(name,detached)
 	{
+            blockSignal(SIGINT);
+            blockSignal(SIGHUP);
+            blockSignal(SIGTERM);
 	}
 	~ThreadTest1() { std::cerr << getName() << " dtor, running=" << isRunning() <<
 		" joined=" << isJoined() << std::endl; }

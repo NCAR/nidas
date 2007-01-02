@@ -206,12 +206,11 @@ struct tm* UTime::toTm(bool utc,struct tm* tmp,int *usecs) const
 UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
 {
     char cmon[32];
-    int year,mon,day,yday,hour,min;
+    int year,mon,day,hour,min;
     double dsec = 0.;
     int nchar = 0;
 
     year = 70;
-    yday = -1;
     mon = day = 1;
     hour = min = 0;
 
@@ -263,29 +262,12 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
 	dsec -= min * 100;
     }
 
-    // 97 32 11:22:33.4
-    else if (sscanf(str.c_str(),
-    	"%d %d %d:%d:%lf%n",&year,&yday,&hour,&min,&dsec,&nchar) >= 5) {
-	mon = day = 1;
-    }
-
-    // 97 32 11:22
-    else if (sscanf(str.c_str(),
-    	"%d %d %d:%d%n",&year,&yday,&hour,&min,&nchar) >= 4) {
-	mon = day = 1;
-    }
-
     // 97 2 1
     else if (sscanf(str.c_str(),
     	"%d %d %d%n",&year,&mon,&day,&nchar) >= 3) {
-	yday = 1;
     }
 
-    // 97 32 
-    else if (sscanf(str.c_str(),
-    	"%d %d%n",&year,&yday,&nchar) >= 2) {
-      mon = day = 1;
-    }
+    // seconds since 1970
     else if (sscanf(str.c_str(),"%lf%n",&dsec,&nchar)) {
 	return UTime((long long)trunc(dsec) * USECS_PER_SEC +
 	    (long long)rint(fmod(dsec,1.0) * USECS_PER_SEC));
@@ -293,10 +275,7 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
 
     if (ncharp) *ncharp = nchar;
 
-    if (yday > 0)
-	return UTime(utc,year,yday,hour,min,dsec);
-    else
-	return UTime(utc,year,mon,day,hour,min,dsec);
+    return UTime(utc,year,mon,day,hour,min,dsec);
 }
 
 void UTime::set(const string& str,bool utc) throw(ParseException)
@@ -381,7 +360,7 @@ string UTime::format(bool utc) const
     return format(utc,getFormat());
 }
 
-// operator for conversion to string.
+// method for conversion to string.
 string UTime::format(bool utc, const string& fmt) const
 {
     //
@@ -467,10 +446,11 @@ string UTime::format(bool utc, const string& fmt) const
 #endif
 }
 
-void UTime::setDefaultFormat(const string& fmt)
+/* static */
+void UTime::setDefaultFormat(const string& val)
 {
     Synchronized autolock(_fmtMutex);
-    _defaultFormat = fmt;
+    _defaultFormat = val;
 }
 
 const string& UTime::getDefaultFormat()
@@ -479,7 +459,8 @@ const string& UTime::getDefaultFormat()
     return _defaultFormat;
 }
 
-void UTime::setTZ(const char *TZ)
+/* static */
+void UTime::setTZ(const string& val)
 {
     Synchronized autolock(_TZMutex);
     if (!_TZ) {					// initialize
@@ -495,15 +476,15 @@ void UTime::setTZ(const char *TZ)
     }
 
     char *oldtz = _TZ;
-    if (!TZ) {
+    if (val.length() == 0) {
 	if (strlen(_TZ)==3) return;	// no change
 	_TZ = new char[4];		// previous _TZ is deleted below
 	strcpy(_TZ,"TZ=");
     }
     else {
-	if (!strcmp(_TZ+3,TZ)) return;	// no change
-	_TZ = new char[4 + strlen(TZ)];	// previous _TZ is deleted below
-	sprintf(_TZ,"TZ=%s",TZ);
+	if (!strcmp(_TZ+3,val.c_str())) return;	// no change
+	_TZ = new char[4 + val.length()];	// previous _TZ is deleted below
+	sprintf(_TZ,"TZ=%s",val.c_str());
     }
     ::putenv(_TZ);			// change environment!
     ::tzset();
@@ -515,33 +496,6 @@ string UTime::getTZ()
     Synchronized autolock(_TZMutex);
     if (!_TZ) return string("");
     else return string(_TZ+3);
-}
-
-ostream& UTime::setDefaultFormat(ostream& os, const string& f)
-{
-    UTime::setDefaultFormat(f);
-    return os;
-}
-
-ostream& UTime::setTZ(ostream& os, const char *TZ)
-{
-    UTime::setTZ(TZ);
-    return os;
-}
-
-UTime_stream_manip1 UTsetDefaultFormat(const string& fmt)
-{
-    return UTime_stream_manip1(&UTime::setDefaultFormat,fmt);
-}
-
-UTime_stream_manip2 UTsetTZ(const char *TZ)
-{
-    return UTime_stream_manip2(&UTime::setTZ,TZ);
-}
-
-ostream& nidas::util::operator<<(ostream& s, const UTime &x)
-{
-    return s << x.format(false);
 }
 
 /*
@@ -585,6 +539,7 @@ long long UTime::pmod(long long x, long long y)
     else return x % y;
 }
 
+#ifdef USE_LOCALE_TIME
 template<class charT, class Traits>
 basic_istream<charT, Traits>& operator >> 
     (basic_istream<charT, Traits >& is, UTime& ut)
@@ -653,4 +608,5 @@ template<class charT, class Traits>
     if ( err ) os.setstate(err);
     return os;
 }
+#endif
 

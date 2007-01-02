@@ -62,6 +62,17 @@
 #define USECS_PER_HALF_DAY 43200000000LL
 #endif
 
+/**
+ * If UTIME_BASIC_STREAM_IO is defined, then the UTime class
+ * supports output to the std::basic_ostream<charT> template class.
+ * If it is not defined, then UTime only supports output to
+ * std::ostream, which is std::basic_ostream<char>.
+ * The general support for basic_ostream<charT> would only be useful
+ * if we want to support wide character output, which is not likely,
+ * but hey, we'll leave the code in for now.
+ */
+#define UTIME_BASIC_STREAM_IO
+
 namespace nidas { namespace util {
 
 class UTime {
@@ -189,21 +200,27 @@ public:
         return getDefaultFormat();
     }
 
-    static void setDefaultFormat(const std::string& f);
+    /**
+     * Static method to set the default output format.
+     */
+    static void setDefaultFormat(const std::string& val);
 
     static const std::string& getDefaultFormat();
 
-    static void setTZ(const char *TZ);
+    static void setTZ(const std::string& val);
 
     static std::string getTZ();
 
-    struct tm tm(bool local) const;
+    struct tm tm(bool utc) const;
 
-    friend std::ostream& operator<<(std::ostream&, const UTime &);
-
-    static std::ostream& setDefaultFormat(std::ostream& os, const std::string& f);
-
-    static std::ostream& setTZ(std::ostream& os, const char *tz);
+#ifdef UTIME_BASIC_STREAM_IO
+    template<typename charT> friend
+    std::basic_ostream<charT, std::char_traits<charT> >& operator << 
+        (std::basic_ostream<charT, std::char_traits<charT>  >& os,
+            const UTime& x);
+#else
+    friend std::ostream& operator<<(std::ostream& os, const UTime &x);
+#endif
 
     /**
      * Positive modulus:  if x > 0, returns x % y
@@ -266,36 +283,155 @@ private:
 // class for changing output format of UTime on ostream, in a way
 // like the standard stream manipulator classes.
 // This supports doing:
-//	cout << UTsetDefaultFormat("%H%M%S") << ut << endl;
-//	cout << ut.setFormat("%H%M%S") << endl;
+//	cout << nidas::util::setDefaultFormat("%H%M%S") << ut << endl;
 //
-class UTime_stream_manip1 {
+#ifdef UTIME_BASIC_STREAM_IO
+template<typename charT>
+#endif
+class UTime_stream_manip {
+
     std::string _fmt;
+#ifdef UTIME_BASIC_STREAM_IO
+    /** 
+     * Pointer to function that does a manipulation on a ostream
+     * with a string argument.
+     */
+    std::basic_ostream<charT,std::char_traits<charT> >& (*_f)(std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&);
+#else
     std::ostream& (*_f)(std::ostream&, const std::string&);
-public:
-    UTime_stream_manip1(std::ostream & (*f)(std::ostream&, const std::string&),
-	const std::string& fmt): _fmt(fmt),_f(f) {}
+#endif
 
-    friend std::ostream& operator<<(std::ostream& os, 
-				  const UTime_stream_manip1& m) {
-	return m._f(os,m._fmt); }
+public:
+    /**
+     * Constructor of manipulator.  Pass it a function that
+     * @param f A function that returns a reference to an ostream,
+     *          with arguments of the ostream reference and a string.
+     */
+#ifdef UTIME_BASIC_STREAM_IO
+    UTime_stream_manip(std::basic_ostream<charT,std::char_traits<charT> >&  (*f)(
+        std::basic_ostream<charT,std::char_traits<charT> >&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
+    {
+    }
+#else
+    UTime_stream_manip(std::ostream&  (*f)(
+        std::ostream&, const std::string&), const std::string& fmt): _fmt(fmt),_f(f)
+    {
+    }
+#endif
+
+    /**
+     * << operator of this manipulator on an ostream.
+     * Invokes the function that was passed to the constructor.
+     */
+#ifdef UTIME_BASIC_STREAM_IO
+    template<typename charTx>
+    friend std::basic_ostream<charTx, std::char_traits<charTx> >& operator << 
+        (std::basic_ostream<charTx, std::char_traits<charTx> >& os,const UTime_stream_manip<charTx>& m);
+#else
+    friend std::ostream& nidas::util::operator<<(std::ostream& os,
+        const UTime_stream_manip& m);
+#endif
 };
 
-class UTime_stream_manip2 {
-    std::string _fmt;
-    std::ostream& (*_f)(std::ostream&, const char*);
-public:
-    UTime_stream_manip2(std::ostream & (*f)(std::ostream&, const char*),
-	const char* fmt): _fmt(fmt),_f(f) {}
+#ifdef UTIME_BASIC_STREAM_IO
 
-    friend std::ostream& operator<<(std::ostream& os, 
-				  const UTime_stream_manip2& m) {
-	return m._f(os,m._fmt.c_str()); }
-};
+template<typename charT>
+std::basic_ostream<charT, std::char_traits<charT> >& operator << 
+    (std::basic_ostream<charT, std::char_traits<charT>  >& os, const nidas::util::UTime& x)
+{
+    return os << x.format(false);
+}
+template<typename charT>
+std::basic_ostream<charT, std::char_traits<charT> >& operator <<
+    (std::basic_ostream<charT, std::char_traits<charT> >& os,const nidas::util::UTime_stream_manip<charT>& m)
+{
+    return m._f(os,m._fmt);
+}
 
-UTime_stream_manip1 UTsetDefaultFormat(const std::string& fmt);
-UTime_stream_manip2 UTsetTZ(const char *fmt);
+/**
+ * Internal function to set the default UTime output format on an ostream.
+ * Typically this is invoked by an UTime_stream_manip << operator.
+ */
+template<typename charT>
+std::basic_ostream<charT, std::char_traits<charT> >& 
+    setOstreamDefaultFormat(std::basic_ostream<charT, std::char_traits<charT> >& os,
+        const std::string& val)
+{
+    UTime::setDefaultFormat(val);
+    return os;
+}
+
+/**
+ * Internal function to set the UTime timezone on an ostream.
+ * Passed to the manipulator constructor.
+ */
+template<typename charT>
+std::basic_ostream<charT, std::char_traits<charT> >& 
+    setOstreamTZ(std::basic_ostream<charT, std::char_traits<charT> >& os,
+        const std::string& val)
+{
+    UTime::setTZ(val);
+    return os;
+}
+
+/**
+ * Function to set the default UTime output format on an ostream.
+ */
+template<typename charT>
+UTime_stream_manip<charT> setDefaultFormat(const std::string& val)
+{
+    return UTime_stream_manip<charT>(&nidas::util::setOstreamDefaultFormat,val);
+}
+
+/**
+ * Function to set the UTime timezone on an ostream.
+ */
+template<typename charT>
+UTime_stream_manip<charT> setTZ(const std::string& val)
+{
+    return UTime_stream_manip<charT>(&nidas::util::setOstreamTZ,val);
+}
+
+#else
+
+inline std::ostream& operator<<(std::ostream& os, const UTime &x)
+{
+    return os << x.format(false);
+}
+
+inline std::ostream& operator<<(std::ostream& os,
+    const UTime_stream_manip& m)
+{
+    return m._f(os,m._fmt);
+}
+
+inline std::ostream& setOstreamDefaultFormat(std::ostream& os, const std::string& val)
+{
+    UTime::setDefaultFormat(val);
+    return os;
+}
+
+inline std::ostream& setOstreamTZ(std::ostream& os, const std::string& val)
+{
+    UTime::setTZ(val);
+    return os;
+}
+
+inline UTime_stream_manip setDefaultFormat(const std::string& val)
+{
+    return UTime_stream_manip(&nidas::util::setOstreamDefaultFormat,val);
+}
+
+inline UTime_stream_manip setTZ(const std::string& val)
+{
+    return UTime_stream_manip(&nidas::util::setOstreamTZ,val);
+}
+
+
+#endif
 
 }}	// namespace nidas namespace util
+
+
 
 #endif
