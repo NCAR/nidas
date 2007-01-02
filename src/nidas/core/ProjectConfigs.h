@@ -35,6 +35,8 @@ class ProjectConfig
 {
 public:
 
+    ProjectConfig();
+
     const std::string& getName() const { return name; }
 
     void setName(const std::string& val) { name = val; }
@@ -118,7 +120,7 @@ public:
 		nidas::util::InvalidParameterException);
 
     void writeXML(const std::string& xmlFileName)
-        throw(XMLException);
+        throw(XMLException,nidas::util::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);

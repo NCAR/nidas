@@ -26,6 +26,12 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+ProjectConfig::ProjectConfig()
+{
+    // default end of project is a year after the start
+    setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
+}
+
 ProjectConfigs::ProjectConfigs()
 {
 }
@@ -39,22 +45,50 @@ ProjectConfigs::~ProjectConfigs()
     }
 }
 
+namespace {
+string configErrorMsg(const ProjectConfig* c1,const ProjectConfig* c2)
+{
+    ostringstream ost;
+    ost << "end time of config named " << c1->getName() <<
+        " is later than begin time of next config named " << c2->getName();
+    return ost.str();
+}
+}
+
 void ProjectConfigs::addConfig(ProjectConfig* val)
     throw(n_u::InvalidParameterException)
 {
     list<ProjectConfig*>::iterator ci = configs.begin();
     list<const ProjectConfig*>::iterator cci = constConfigs.begin();
+    ProjectConfig* pcfg = 0;
     for ( ; ci != configs.end(); ++ci,++cci) {
         ProjectConfig* cfg = *ci;
         if (val->getBeginTime() < cfg->getBeginTime()) {
             if (val->getEndTime() > cfg->getBeginTime())
-                throw n_u::InvalidParameterException(val->getName(),"end time",
-                    string("is greater than begin time of ") + cfg->getName());
+                throw n_u::InvalidParameterException(configErrorMsg(val,cfg));
+            if (pcfg && pcfg->getEndTime() > val->getBeginTime())
+                throw n_u::InvalidParameterException(configErrorMsg(pcfg,val));
             configs.insert(ci,val); // insert before ci
             constConfigs.insert(cci,val); // insert before ci
             return;
         }
+        if (val->getBeginTime() == cfg->getBeginTime()) {
+            list<ProjectConfig*>::iterator ci2 = ci;
+            ci2++;
+            if (ci2 != configs.end()) {
+                ProjectConfig* cfg2 = *ci2;
+                if (val->getEndTime() > cfg2->getBeginTime())
+                    throw n_u::InvalidParameterException(configErrorMsg(val,pcfg));
+            }
+            delete cfg;
+            *ci = val;
+            *cci = val;
+            return;
+        }
+        pcfg = cfg;
     }
+    if (pcfg && pcfg->getEndTime() > val->getBeginTime())
+        throw n_u::InvalidParameterException(configErrorMsg(pcfg,val));
     configs.insert(ci,val); // append
     constConfigs.insert(cci,val); // append
 }
@@ -158,29 +192,67 @@ void ProjectConfigs::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void ProjectConfigs::writeXML(const std::string& xmlFileName)
-    throw(XMLException)
+    throw(XMLException,n_u::IOException)
 {
+    /*
+     * From www.w3.org Dom level 3 docs:
+     qualified name
+         A qualified name is the name of an element or attribute
+         defined as the concatenation of a local name
+         (as defined in this specification), optionally preceded
+         by a namespace prefix and colon character.
+         See Qualified Names in Namespaces in XML [XML Namespaces].
+    */
     XMLStringConverter qualifiedName("configs");
+
     xercesc::DOMDocument* doc =
         XMLImplementation::getImplementation()->createDocument(
             DOMable::getNamespaceURI(), (const XMLCh *)qualifiedName,0);
-    toDOMParent((xercesc::DOMElement*)doc);
+    try {
+        toDOMElement(doc->getDocumentElement());
+    }
+    catch(const xercesc::DOMException& e) {
+        XMLStringConverter excmsg(e.getMessage());
+        cerr << "DOMException: " << (const char *)excmsg << endl;
+        throw XMLException(e);
+    }
+
+    char* tmpName = new char[xmlFileName.length() + 8];
+    strcpy(tmpName,xmlFileName.c_str());
+    strcat(tmpName,".XXXXXX");
+    int fd = mkstemp(tmpName);
+    string newName = tmpName;
+    delete [] tmpName;
+    if (fd < 0) throw n_u::IOException(newName,"create",errno);
+    ::close(fd);
+
+    // cerr << "newName=" << newName << endl;
+
     XMLWriter writer;
-    writer.write(doc,xmlFileName);
+    writer.setPrettyPrint(true);
+    writer.write(doc,newName);
+
+    if (::rename(newName.c_str(),xmlFileName.c_str()) < 0)
+        throw n_u::IOException(newName,"rename",errno);
 }
 
 xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) const
-    throw(xercesc::DOMException) {
+    throw(xercesc::DOMException)
+{
+
+    cerr << "configs, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("configs"),
-			DOMable::getNamespaceURI());
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("configs"));
+    cerr << "configs, appendChild" << endl;
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
 xercesc::DOMElement* ProjectConfigs::toDOMElement(xercesc::DOMElement* elem) const
     throw(xercesc::DOMException)
 {
+    cerr << "configs, start toDOMElement" << endl;
     const std::list<const ProjectConfig*>& cfgs = getConfigs();
     std::list<const ProjectConfig*>::const_iterator ci =  cfgs.begin();
     for ( ; ci != cfgs.end(); ++ci) {
@@ -210,26 +282,24 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 	    if (atname == "name") setName(atval);
 	    else if (atname == "xml") setXMLName(atval);
 	    else if (atname == "begin") {
-		n_u::UTime ut;
 		try {
-		    ut.set(atval,true);
+                    n_u::UTime ut = n_u::UTime::parse(true,atval);
+                    setBeginTime(ut);
 		}
 		catch(const n_u::ParseException& e) {
 		    throw n_u::InvalidParameterException(atname,
 		    	atval,e.what());
 		}
-		setBeginTime(ut);
 	    }
 	    else if (atname == "end") {
-		n_u::UTime ut;
 		try {
-		    ut.set(atval,true);
+                    n_u::UTime ut = n_u::UTime::parse(true,atval);
+                    setEndTime(ut);
 		}
 		catch(const n_u::ParseException& e) {
 		    throw n_u::InvalidParameterException(atname,
 		    	atval,e.what());
 		}
-		setEndTime(ut);
 	    }
 	}
     }
@@ -238,21 +308,26 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) const
     throw(xercesc::DOMException)
 {
+    cerr << "config, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("config"),
-			DOMable::getNamespaceURI());
+                DOMable::getNamespaceURI(),
+                (const XMLCh*)XMLStringConverter("config"));
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
 xercesc::DOMElement* ProjectConfig::toDOMElement(xercesc::DOMElement* elem) const
 throw(xercesc::DOMException)
 {
+    cerr << "config, start toDOMElement" << endl;
     XDOMElement xelem(elem);
     xelem.setAttributeValue("name",getName());
     xelem.setAttributeValue("xml",getXMLName());
-    xelem.setAttributeValue("begin",getXMLName());
-    xelem.setAttributeValue("end",getXMLName());
+    xelem.setAttributeValue("begin",getBeginTime().format(true,"%Y %b %d %H:%M:%S"));
+    xelem.setAttributeValue("end",getEndTime().format(true,"%Y %b %d %H:%M:%S"));
     return elem;
 }
 
+void writeXMLFile()
+{
+}

@@ -272,6 +272,7 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
 	return UTime((long long)trunc(dsec) * USECS_PER_SEC +
 	    (long long)rint(fmod(dsec,1.0) * USECS_PER_SEC));
     }
+    else throw ParseException(str,"year month day hour:min:sec");
 
     if (ncharp) *ncharp = nchar;
 
