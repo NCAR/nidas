@@ -95,7 +95,6 @@ if 'arm' in env['ARCHITECTURES']:
     SConscript('nidas/SConscript',
                build_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
-    arm_env.Alias('arm_install', ['$PREFIX/rtlinux','$PREFIX/linux'])
     Alias('install','arm_install')
 
 ##

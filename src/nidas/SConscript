@@ -55,16 +55,9 @@ if arch == 'arm':
 env.Alias(arch, ['build_%s' % dir for dir in defaultdirs])
 Alias('lib', ['build_%s' % d for d in libdirs])
 
-# Provide an arch-specific install alias
-archinstall= env.Alias(arch+'_install', [
-	'$PREFIX/include/nidas/util',
-	'$PREFIX/include/nidas/core',
-	'$PREFIX/include/nidas/dynld',
-	'$PREFIX/include/nidas/rtlinux',
-	'$PREFIX/include/nidas/linux',
-	'$PREFIX/lib',
-	'$PREFIX/bin',
-        ])
+# Provide an arch-specific install alias.  Basically, install everything
+# that goes under the arch-specific install prefix.
+archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
