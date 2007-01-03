@@ -214,6 +214,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 #endif
 
     dsm_time_t lasttime = 0;
+    int sametime = 1;
     char *glyph[] = {"\\","|","/","-"};
     int anim=0;
 
@@ -228,8 +229,10 @@ int DSMServerStat::run() throw(n_u::Exception)
 
             strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
 
-            if (lasttime != _sometime)
+            if ((lasttime != _sometime) || sametime)
             {
+              if (lasttime != _sometime) sametime = 1;
+              else sametime = 0;
               lasttime = _sometime;
               statStream << "<?xml version=\"1.0\"?><group>"
 	                 << "<name>dsm_server</name>"
