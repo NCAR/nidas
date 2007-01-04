@@ -423,14 +423,21 @@ LogScheme::
 LogScheme(const std::string& name) :
   _name (name)
 {
-  log_fields.push_back(TimeField);
-  log_fields.push_back(LevelField);
-  log_fields.push_back(MessageField);
-
   // Force an empty name to the default, non-empty name.
   if (name.length() == 0)
   {
     *this = LogScheme();
+  }
+  else
+  {
+    log_fields.push_back(TimeField);
+    log_fields.push_back(LevelField);
+    log_fields.push_back(MessageField);
+
+    // Default to logging everything warning and above.
+    LogConfig lc;
+    lc.level = LOGGER_WARNING;
+    addConfig (lc);
   }
 }
 

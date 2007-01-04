@@ -118,7 +118,7 @@ logger_test()
   oss.str("");
   
   // Now disable logging and check that nothing is logged.
-  log->setScheme(LogScheme());
+  log->setScheme(LogScheme().clearConfigs());
   log_things_here();
   BOOST_CHECK_EQUAL(oss.str(), "");
   oss.str("");

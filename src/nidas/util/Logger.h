@@ -421,24 +421,32 @@ public:
   };
 
   /**
-   * Convert the name of a log information field to its enum.  such as
+   * Convert the name of a log information field to its enum, such as
    * Logger::ThreadField.  Returns NoneField if the name is not recognized.
    **/
   static LogField
   stringToField(const std::string& s);
 
+  /**
+   * Convert a LogField to its lower-case string name.  Returns "none"
+   * if the LogField is NoneField or invalid.
+   **/
   static std::string
   fieldToString(LogScheme::LogField lf);
 
   /**
-   * Default LogScheme has no LogConfig members, and thus disables
-   * all logging.
+   * The default LogScheme has show fields set to "time,level,message" and
+   * a single LogConfig to enable all messages with level LOGGER_WARNING
+   * and above.  The default name is "default".  Explicitly passing an
+   * empty name will also force a name of "default", since a LogScheme is
+   * prohibited from having an empty name.
    **/
   explicit
   LogScheme(const std::string& name = "default");
 
   /**
-   * LogScheme names must not be empty.
+   * LogScheme names must not be empty, so this method has no effect
+   * unless name.length() > 0.
    **/
   LogScheme&
   setName(const std::string& name)
@@ -455,11 +463,8 @@ public:
   }
 
   /**
-   * Clear the set of LogConfig's in the given @p scheme, thus disabling
-   * all logging for that scheme.  An empty scheme name applies to the
-   * current scheme.
-   *
-   * @param scheme The name of the scheme to be cleared.
+   * Clear the set of LogConfig's in this scheme.  An empty set of
+   * LogConfig's disables all logging for this scheme.
    **/
   LogScheme&
   clearConfigs();
@@ -473,9 +478,7 @@ public:
    * earlier config enables all points, then further configs can disable a
    * subset of log points.
    *
-   * @param lc The LogConfig to be added to the scheme.
-   * @param scheme The name of the scheme to modify, or 
-   *               empty to use the current scheme.
+   * @param lc The LogConfig to be added to this scheme.
    * @returns This scheme.
    **/
   LogScheme&
