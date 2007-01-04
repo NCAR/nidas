@@ -665,8 +665,8 @@ public:
    * LogConfig objects.  These methods are used to manipulate the set of
    * schemes known by the Logger.  At any time the logging configuration
    * can switch schemes by calling setScheme().  The first time a new
-   * scheme name is referenced, a new scheme is created with an empty list
-   * of configs, which disables all logging in that scheme.
+   * scheme name is referenced, a default LogScheme is created with that
+   * name.
    **/
   /**@{*/
 
