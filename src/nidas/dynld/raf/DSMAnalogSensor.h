@@ -94,6 +94,7 @@ protected:
 	int gainMul;
 	int gainDiv;
 	bool bipolar;
+        bool rawCounts;
     };
     std::vector<struct chan_info> channels;
 

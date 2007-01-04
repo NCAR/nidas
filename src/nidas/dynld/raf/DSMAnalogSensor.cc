@@ -284,12 +284,17 @@ void DSMAnalogSensor::init() throw(n_u::InvalidParameterException)
 	 *		offset * corSlope + corIntercept
 	 */
 
-	convSlope[ivar] = 20.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
-	if (channels[ichan].bipolar) 
-	    convIntercept[ivar] = corIntercepts[ichan];
-	else 
-	    convIntercept[ivar] = corIntercepts[ichan] +
-	    	10.0 / channels[ichan].gain * corSlopes[ichan];
+        if (channels[ichan].rawCounts) {
+            convSlope[ivar] = 1;
+            convIntercept[ivar] = 0.;
+        } else {
+            convSlope[ivar] = 20.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
+            if (channels[ichan].bipolar) 
+                convIntercept[ivar] = corIntercepts[ichan];
+            else 
+                convIntercept[ivar] = corIntercepts[ichan] +
+                    10.0 / channels[ichan].gain * corSlopes[ichan];
+        }
         rawSampleLen += (int)rint(rateVec[sampleIndices[ivar]] / REPORTING_RATE);
 #ifdef DEBUG
 	cerr << "ivar=" << ivar << " sampleIndices[ivar]=" << sampleIndices[ivar] <<
@@ -510,53 +515,60 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	int ichan = channels.size();
 	float corSlope = 1.0;
 	float corIntercept = 0.0;
+	bool rawCounts = false;
 
 	const std::list<const Parameter*>& params = var->getParameters();
 	list<const Parameter*>::const_iterator pi;
 	for (pi = params.begin(); pi != params.end(); ++pi) {
 	    const Parameter* param = *pi;
 	    const string& pname = param->getName();
-	    if (!pname.compare("gain")) {
+	    if (pname == "gain") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 			
 		gain = param->getNumericValue(0);
 	    }
-	    else if (!pname.compare("gainMul")) {
+	    else if (pname == "gainMul") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 		gainMul = param->getNumericValue(0);
 	    }
-	    else if (!pname.compare("gainDiv")) {
+	    else if (pname == "gainDiv") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 		gainDiv = param->getNumericValue(0);
 	    }
-	    else if (!pname.compare("bipolar")) {
+	    else if (pname == "bipolar") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 		bipolar = param->getNumericValue(0) != 0;
 	    }
-	    else if (!pname.compare("channel")) {
+	    else if (pname == "channel") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),pname,"no value");
 		ichan = (int)param->getNumericValue(0);
 	    }
-	    else if (!pname.compare("corSlope")) {
+	    else if (pname == "corSlope") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 		corSlope = param->getNumericValue(0);
 	    }
-	    else if (!pname.compare("corIntercept")) {
+	    else if (pname == "corIntercept") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
 		corIntercept = param->getNumericValue(0);
+	    }
+	    else if (pname == "rawCounts") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		rawCounts = param->getNumericValue(0);
 	    }
 
 	}
@@ -595,6 +607,7 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 	ci.gainMul = gainMul;
 	ci.gainDiv = gainDiv;
 	ci.bipolar = bipolar;
+        ci.rawCounts = rawCounts;
 	channels[ichan] = ci;
 
 	channelNums.push_back(ichan);
