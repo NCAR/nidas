@@ -10,6 +10,11 @@
 using namespace nidas::dynld::iss;
 using namespace std;
 
+#include <nidas/util/Logger.h>
+
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
+
 NIDAS_CREATOR_FUNCTION_NS(iss,TiltSensor)
 
 TiltSensor::
@@ -135,18 +140,21 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     float pitch = decode_angle(dinptr+1);
     float roll = decode_angle(dinptr+3);
 
-#ifdef DEBUG
-    cerr << "inlen=" << inlen << ' ' 
-	 << hex << (((unsigned short)dinptr[0]) & 0xff)
-	 << ',' << dec << (short)dinptr[1]
-	 << ',' << (((short)dinptr[2]) & 0xff)
-	 << ',' << (short)dinptr[3]
-	 << ',' << (((short)dinptr[4]) & 0xff)
-	 << ',' << hex << (unsigned short)dinptr[5]
-	 << ", csum=" << hex << checksum
-	 << dec << ", pitch=" << pitch << ", roll=" << roll 
-	 << endl;
-#endif
+    static LogContext lc(LOG_DEBUG);
+    if (lc.active())
+    {
+	LogMessage msg;
+	msg << "inlen=" << inlen << ' ' 
+	    << hex << (((unsigned short)dinptr[0]) & 0xff)
+	    << ',' << dec << (short)dinptr[1]
+	    << ',' << (((short)dinptr[2]) & 0xff)
+	    << ',' << (short)dinptr[3]
+	    << ',' << (((short)dinptr[4]) & 0xff)
+	    << ',' << hex << (unsigned short)dinptr[5]
+	    << ", csum=" << hex << checksum
+	    << dec << ", pitch=" << pitch << ", roll=" << roll;
+	lc.log (msg);
+    }
 
     // Check for the header byte.
     if (dinptr[0] != '\xff') return false;

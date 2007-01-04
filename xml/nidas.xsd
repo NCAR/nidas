@@ -47,6 +47,19 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="loglevel">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="emergency"/>
+	<xsd:enumeration value="alert"/>
+	<xsd:enumeration value="critical"/>
+	<xsd:enumeration value="error"/>
+	<xsd:enumeration value="warning"/>
+	<xsd:enumeration value="notice"/>
+	<xsd:enumeration value="info"/>
+	<xsd:enumeration value="debug"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="speedtype">
     <xsd:restriction base="xsd:token">
 	<xsd:enumeration value="high"/>
@@ -501,6 +514,52 @@
     </xsd:complexType>
 </xsd:element>
 
+<xsd:complexType name="loggerType">
+  <xsd:attribute name="scheme" type="xsd:token" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="logconfigType">
+    <xsd:annotation>
+	<xsd:documentation>
+	A configuration for a LogConfig.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:attribute name="filematch" type="xsd:token" use="optional"/>
+    <xsd:attribute name="functionmatch" type="xsd:token" use="optional"/>
+    <xsd:attribute name="level" type="loglevel" use="optional"/>
+    <xsd:attribute name="line" type="xsd:nonNegativeInteger" use="optional"/>
+    <xsd:attribute name="activate" type="xsd:boolean" use="optional"/>
+</xsd:complexType>
+
+<xsd:simpleType name="logfieldsType">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="level"/>
+	<xsd:enumeration value="time"/>
+	<xsd:enumeration value="message"/>
+	<xsd:enumeration value="function"/>
+	<xsd:enumeration value="file"/>
+	<xsd:enumeration value="thread"/>
+	<xsd:enumeration value="all"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="showfields" type='xsd:string'/> 
+
+<xsd:complexType name="logschemeType">
+    <xsd:annotation>
+	<xsd:documentation>
+	  A collection of logconfig elements which together constitute
+	  a logging configuration.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element ref="showfields" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="logconfig" type="logconfigType"
+		   minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute name="name"   type="xsd:token" use="required"/>
+</xsd:complexType>
+
 <xsd:complexType name="siteType">
     <xsd:annotation>
 	<xsd:documentation>
@@ -526,6 +585,9 @@
             <xsd:element ref="dsmcatalog" minOccurs="0" maxOccurs="1"/>
             <xsd:element ref="servicecatalog" minOccurs="0" maxOccurs="1"/>
 	    <xsd:element ref="server" minOccurs="0"/>
+	    <xsd:element name="logscheme" type="logschemeType" 
+			 minOccurs="0" maxOccurs="unbounded"/>
+	    <xsd:element name="logger" type="loggerType"/>
 	    <xsd:element name="site" type="siteType" maxOccurs="unbounded"/>
 	    <xsd:element name="aircraft" type="siteType" maxOccurs="unbounded"/>
 	    <xsd:element name="parameter" type="parameter" minOccurs="0"

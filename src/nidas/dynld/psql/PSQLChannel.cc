@@ -90,7 +90,7 @@ PSQLChannel::
 requestConnection(ConnectionRequester* requester)
     throw(nidas::util::IOException)
 {
-    ENTER;
+    DLOG(("enter"));
     connectDatabase();
     requester->connected(this);
 }
@@ -100,7 +100,7 @@ IOChannel*
 PSQLChannel::
 connect() throw(nidas::util::IOException)
 {
-    ENTER;
+    DLOG(("enter"));
     connectDatabase();
     return clone();
 }

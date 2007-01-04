@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -502,6 +502,57 @@ const Parameter* Project::getParameter(const string& name) const
     return 0;
 }
 
+
+static void
+LogSchemeFromDOMElement(const DOMElement* node)
+{
+    XDOMElement xnode(node);
+    const string& name = xnode.getAttributeValue("name");
+    DOMNode* child;
+    n_u::LogScheme scheme;
+    scheme.setName (name);
+    for (child = node->getFirstChild(); child != 0;
+	 child=child->getNextSibling())
+    {
+	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((DOMElement*) child);
+	const string& elname = xchild.getNodeName();
+	if (elname == "showfields")
+	{
+	    DOMElement* text = (DOMElement*)child->getFirstChild();
+	    if (text->getNodeType() == DOMNode::TEXT_NODE)
+	    {
+		std::string showfields = 
+		    (const char *)XMLStringConverter(text->getNodeValue());
+		scheme.setShowFields(showfields);
+	    }
+	}
+	else if (elname == "logconfig")
+	{
+	    n_u::LogConfig lc;
+	    if (child->hasAttributes()) 
+	    {
+		DOMNamedNodeMap *pAttributes = child->getAttributes();
+		int nSize = pAttributes->getLength();
+		for(int i=0;i<nSize;++i) {
+		    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+		    if (attr.getName() == "filematch") 
+			lc.filename_match = attr.getValue();
+		    else if (attr.getName() == "functionmatch")
+			lc.function_match = attr.getValue();
+		    else if (attr.getName() == "level")
+			lc.level = n_u::stringToLogLevel(attr.getValue());
+		    else if (attr.getName() == "line")
+			lc.line = atoi(attr.getValue().c_str());
+		}
+	    }
+	    scheme.addConfig (lc);
+	}
+    }
+    n_u::Logger::getInstance()->updateScheme(scheme);
+}
+
+
 void Project::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
@@ -614,6 +665,13 @@ void Project::fromDOMElement(const DOMElement* node)
 	    Parameter* parameter =
 	    	Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
+	}
+	else if (elname == "logscheme")  {
+	  LogSchemeFromDOMElement ((DOMElement*)child);
+	}
+	else if (elname == "logger") {
+	    const string& scheme = xchild.getAttributeValue("scheme");
+	    n_u::Logger::getInstance()->setScheme(scheme);
 	}
     }
 

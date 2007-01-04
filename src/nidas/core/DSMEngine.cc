@@ -220,7 +220,13 @@ void DSMEngine::initLogger()
 	_logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
     }
     else
-	_logger = n_u::Logger::createInstance(stderr);
+    {
+	_logger = n_u::Logger::createInstance(&std::cerr);
+    }
+    // Configure default logging to log anything NOTICE and above.
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_NOTICE;
+    _logger->setScheme(n_u::LogScheme().addConfig (lc));
 }
 
 void DSMEngine::run() throw()
@@ -456,7 +462,6 @@ DOMDocument* DSMEngine::requestXMLConfig(
 DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
-
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"parsing: %s",xmlFileName.c_str());
 
@@ -538,6 +543,9 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	if (!output->isRaw()) processedOutput = true;
+	_logger->log(LOG_DEBUG,
+		     "DSMEngine requesting connection from SampleOutput '%s'.",
+		     output->getName().c_str());
 	output->requestConnection(this);
     }
     

@@ -46,7 +46,7 @@ PSQLSampleOutput::~PSQLSampleOutput()
 
 PSQLSampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
 {
-    LOG (LOG_DEBUG, "PSQLSampleOutput: cloning %s", name.c_str());
+    DLOG (("cloning ") << name);
     PSQLSampleOutput* out = new PSQLSampleOutput(*this);
     out->psqlChannel = static_cast<PSQLChannel*>(iochannel);
     return out;
@@ -55,8 +55,7 @@ PSQLSampleOutput* PSQLSampleOutput::clone(IOChannel* iochannel) const
 void PSQLSampleOutput::requestConnection(SampleConnectionRequester* requester)
         throw(nidas::util::IOException)
 {
-    ENTER;
-    LOG(LOG_DEBUG, "connection requested of %s", name.c_str());
+    DLOG(("connection requested of ") << name);
     connectionRequester = requester;
     psqlChannel->requestConnection(this);
 }
@@ -65,8 +64,7 @@ void
 PSQLSampleOutput::
 connect() throw(nidas::util::IOException)
 {
-    ENTER;
-    LOG(LOG_DEBUG, "connection requested of %s", name.c_str());
+    DLOG(("connection requested of ") << name);
     // Where does the new IOChannel returned by this method go?
     psqlChannel->connect();
 }
@@ -91,8 +89,7 @@ void
 PSQLSampleOutput::
 connected(SampleOutput* origout, SampleOutput* newout) throw()
 {
-    ENTER;
-    LOG(LOG_DEBUG, "%s connected()", name.c_str());
+    DLOG(("connected() ") << name);
     connectionRequester->connected(origout, newout);
 }
 
@@ -102,8 +99,7 @@ PSQLSampleOutput::
 connected(IOChannel* output) throw()
 {
     // The PSQLChannel is telling us the connection succeeded.
-    ENTER;
-    LOG(LOG_DEBUG, "connected(%s)", output->getName().c_str());
+    DLOG(("connected(") << output->getName() << ")");
     SampleOutputStream::connected(output);
 }
 
@@ -125,7 +121,7 @@ PSQLSampleOutput::
 addSampleTag(const SampleTag* tag)
     throw(nidas::util::InvalidParameterException)
 {
-    ENTER;
+    DLOG(("enter"));
     map<float,const SampleTag*>::const_iterator ti;
 
     if ((ti = tagsByRate.find(tag->getRate())) != tagsByRate.end()) {
@@ -150,7 +146,8 @@ void
 PSQLSampleOutput::
 init() throw()
 {
-    ENTER;
+    DLOG(("enter"));
+    SampleOutputStream::init();
     try {
 	dropAllTables();      // Remove existing tables, this is a reset.
 	createTables();
@@ -214,44 +211,18 @@ void
 PSQLSampleOutput::
 dropAllTables() throw()
 {
-    ENTER;
+    DLOG(("enter"));
     try {
-	for (;;) submitCommand("DROP TABLE Global_Attributes");
-    }
-    catch(const nidas::util::IOException& ioe) {
-	nidas::util::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),ioe.what());
-    }
-    try {
-	for(;;) submitCommand("DROP TABLE Variable_List");
-    }
-    catch(const nidas::util::IOException& ioe) {
-	nidas::util::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),ioe.what());
-    }
-    try {
-	for(;;) submitCommand("DROP TABLE Categories");
-    }
-    catch(const nidas::util::IOException& ioe) {
-	nidas::util::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),ioe.what());
-    }
-    try {
-	for(;;) submitCommand("DROP TABLE RAF_LRT");
-    }
-    catch(const nidas::util::IOException& ioe) {
-	nidas::util::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),ioe.what());
-    }
-
-    try {
+	submitCommand("DROP TABLE Global_Attributes");
+	submitCommand("DROP TABLE Variable_List");
+	submitCommand("DROP TABLE Categories");
+	submitCommand("DROP TABLE RAF_LRT");
 	submitCommand("VACUUM FULL");
     }
-    catch(const nidas::util::IOException& ioe) {
-	nidas::util::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),ioe.what());
+    catch(const nidas::util::IOException& ioe) 
+    {
+	PLOG(("") << getName() << ": " << ioe.what());
     }
-
 }
 
 /* -------------------------------------------------------------------- */
@@ -259,7 +230,7 @@ void
 PSQLSampleOutput::
 initializeGlobalAttributes() throw(nidas::util::IOException)
 {
-    ENTER;
+    DLOG(("enter"));
     // Add Global Attributes/Flight Data.
     submitCommand(
 	"INSERT INTO global_attributes VALUES ('Source', 'NCAR Research Aviation Facility')");
@@ -445,7 +416,7 @@ bool PSQLSampleOutput::receive(const Sample* samp) throw()
 void PSQLSampleOutput::fromDOMElement(const DOMElement* node)
         throw(nidas::util::InvalidParameterException)
 {
-    ENTER;
+    DLOG(("enter"));
     XDOMElement xnode(node);
     //    const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {

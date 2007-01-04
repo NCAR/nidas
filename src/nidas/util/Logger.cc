@@ -10,13 +10,104 @@
  *
  */
 
-#include <nidas/util/Logger.h>
+#include "Logger.h"
+#include "ThreadSupport.h"
+#include "Thread.h"
+#include "UTime.h"
+
+using nidas::util::Mutex;
+using nidas::util::Synchronized;
+using nidas::util::Thread;
 
 #include <string>
 #include <cerrno>
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <cctype>
 
 using namespace nidas::util;
 using namespace std;
+
+//================================================================
+// LoggerPrivate
+//================================================================
+
+typedef vector<LogContext*> log_points_v;
+typedef map<string,LogScheme> log_schemes_t;
+
+static Mutex logger_mutex("logger_mutex");
+
+static log_points_v log_points;
+static log_schemes_t log_schemes;
+static LogScheme current_scheme;
+
+using std::cerr;
+
+#include <execinfo.h>
+
+static void
+stream_backtrace (std::ostream& out)
+{
+  void *array[200];
+  size_t size;
+  char **strings;
+  size_t i;
+
+  size = backtrace (array, 200);
+  strings = backtrace_symbols (array, size);
+
+  out << "Obtained " << size << " stack frames:\n";
+  for (i = 0; i < size; i++)
+    out << "  " << i << ". " << strings[i] << "\n";
+
+  free (strings);
+}
+
+#ifndef DEBUG_LOGGER
+#define DEBUG_LOGGER 0
+#endif
+
+namespace nidas { namespace util { 
+
+struct LoggerPrivate
+{
+  static void
+  reconfig (log_points_v::iterator firstpoint)
+  {
+    if (DEBUG_LOGGER)
+    {
+      stream_backtrace (cerr);
+      cerr << "current scheme: " << current_scheme.getName() << "\n";
+      cerr << " - " << current_scheme.log_configs.size() << " configs\n"
+	   << " - showfields: " 
+	   << current_scheme.getShowFieldsString() << "\n";
+      cerr << "currently " << log_points.size() << " log points.\n";
+    }
+    LogScheme::log_configs_v& log_configs = current_scheme.log_configs;
+    LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
+    LogScheme::log_configs_v::iterator ic;
+    log_points_v::iterator it;
+    for (it = firstpoint ; it != log_points.end(); ++it)
+    {
+      // If there are no configs, then disable the log point.
+      if (firstconfig == log_configs.end())
+	(*it)->_active = false;
+      for (ic = firstconfig ; ic != log_configs.end(); ++ic)
+      {
+	if (ic->matches(*(*it)))
+	  (*it)->_active = ic->activate;
+      }
+    }
+  }
+};
+
+}} // nidas::util
+  
+
+//================================================================
+// Logger
+//================================================================
 
 Logger::Logger(const char *ident, int logopt, int facility, const char *TZ):
 	output(0),syslogit(true),loggerTZ(0),saveTZ(0) {
@@ -24,15 +115,19 @@ Logger::Logger(const char *ident, int logopt, int facility, const char *TZ):
   ::openlog(ident,logopt,facility);
   setTZ(TZ);
 }
-Logger::Logger(FILE* out) : output(out),syslogit(false),loggerTZ(0),saveTZ(0) {
+
+Logger::Logger(ostream* out) : 
+  output(out),syslogit(false),loggerTZ(0),saveTZ(0) 
+{
 }
 
-Logger::Logger() : output(stderr),syslogit(false),loggerTZ(0),saveTZ(0) {
+Logger::Logger() : output(&cerr),syslogit(false),loggerTZ(0),saveTZ(0) 
+{
 }
 
 Logger::~Logger() {
   if (syslogit) ::closelog();
-  if (output) ::fflush(output);
+  if (output) output->flush();
   delete [] loggerTZ;
   delete [] saveTZ;
   _instance = 0;
@@ -42,22 +137,28 @@ Logger::~Logger() {
 Logger* Logger::_instance = 0;
 
 /* static */
-Logger* Logger::createInstance(const char *ident, int logopt, int facility, const char *TZ) {
+Logger* 
+Logger::
+createInstance(const char *ident, int logopt, int facility, const char *TZ) 
+{
+  Synchronized sync(logger_mutex);
   if (_instance) delete _instance;
   _instance = new Logger(ident,logopt,facility,TZ);
   return _instance;
 }
 
 /* static */
-Logger* Logger::createInstance(FILE* out) {
+Logger* Logger::createInstance(ostream* out) 
+{
+  Synchronized sync(logger_mutex);
   if (_instance) delete _instance;
   _instance = new Logger(out);
   return _instance;
 }
-                                                                                
+
 /* static */
 Logger* Logger::getInstance() {
-  if (!_instance) createInstance(stderr);
+  if (!_instance) createInstance(&cerr);
   return _instance;
 }
 
@@ -88,8 +189,98 @@ void Logger::setTZ(const char* val) {
   }
 }
 
+
+void
+Logger::
+msg (const LogContext& lc, const string& msg)
+{
+  static const char* fixedsep = "|";
+  const char* sep = "";
+  Synchronized sync(logger_mutex);
+
+  if (loggerTZ) {
+    putenv(loggerTZ);
+    tzset();
+  }
+  ostringstream oss;
+
+  for (unsigned int i = 0; i < current_scheme.log_fields.size(); ++i)
+  {
+    LogScheme::LogField show = current_scheme.log_fields[i];
+
+    if (show & LogScheme::FileField)
+    {
+      oss << sep << lc.filename() << "(" << lc.line() << ")" ;
+      sep = fixedsep;
+    }
+    if (show & LogScheme::LevelField)
+    {
+      string level = lc.levelName();
+      for (unsigned int i = 0; i < level.length(); ++i)
+	level[i] = toupper(level[i]);
+      oss << sep << level;
+      sep = fixedsep;
+    }
+    if (show & LogScheme::FunctionField)
+    {
+      oss << sep << lc.function();
+      sep = fixedsep;
+    }
+    if (show & LogScheme::ThreadField)
+    {
+      oss << sep << "~" << Thread::currentName() << "~";
+      sep = fixedsep;
+    }
+    if (show & LogScheme::TimeField)
+    {
+      UTime now;
+      oss << sep << now.setFormat("%F,%T");
+      sep = fixedsep;
+    }
+    if (show & LogScheme::MessageField)
+    {
+      oss << sep << msg;
+      sep = fixedsep;
+    }
+  }
+  if (oss.str().length() > 0)
+  {
+    if (syslogit)
+    {
+      syslog(lc.level(), "%s", oss.str().c_str());
+    }
+    else
+    {
+      *output << oss.str() << "\n";
+    }
+  }
+  if (loggerTZ) {
+    putenv(saveTZ);
+    tzset();
+  }
+}
+  
+
+/*
+ * Replace %m with strerror(errno), like syslog does.
+ */
+static string
+fillError(string fmt)
+{
+    int err = errno;	// grab it in case it changes!
+
+    string::size_type mp;
+    while ((mp = fmt.find ("%m")) != string::npos)
+    {
+      fmt.replace (mp, 2, strerror(err));
+    }
+    return fmt;
+}
+
+
 #if defined(SVR4) || ( defined(__GNUC__) && __GNUC__ > 1 )
-void Logger::log(int severity, const char *fmt, ...)
+void Logger::log(int severity, const char* file, const char* fn,
+		 int line, const char *fmt, ...)
 #elif defined(__GNUC__)
 void Logger::log(...)
 #else
@@ -100,6 +291,9 @@ va_dcl
   va_list args;
 #if !defined(SVR4) && ( !defined(__GNUC__) || __GNUC__ < 2 )
   int severity;
+  const char* file;
+  const char* fn;
+  int line;
   const char *fmt;
 #endif
 
@@ -108,44 +302,304 @@ va_dcl
 #else
   va_start(args);
   severity = va_arg(args,int);
+  file = va_arg(args,const char*);
+  fn = va_arg(args,const char*);
+  line = va_arg(args,int);
   fmt = va_arg(args,const char *);
 #endif
 
-  if (syslogit) {
-    if (loggerTZ) {
-      putenv(loggerTZ);
-      tzset();
-    }
-    vsyslog(severity,fmt,args);
-    if (loggerTZ) {
-      putenv(saveTZ);
-      tzset();
-    }
+  // Construct a LogContext here, then check if it's enabled by
+  // the current configuration.  It will be destroyed when this
+  // function returns.
+  LogContext lc(severity, file, fn, line);
+  if (lc.active())
+  {
+    string newfmt = fillError(fmt);
+    char buffer[512];
+    vsnprintf(buffer, sizeof(buffer), newfmt.c_str(), args);
+    msg (lc, buffer);
   }
-  else {
-    int err = errno;	// grab it in case it changes!
-    const char *p1,*p2;
-    std::string newfmt;
-
-    /*
-     * Replace %m with strerror(errno), like syslog does,
-     * then pass format to vfprintf.
-     */
-    for (p1=fmt; (p2 = strchr(p1,'%')); p1 = p2) {
-      p2++;
-      if (*p2 == 'm') {
-	newfmt.append(p1,p2-1);
-	newfmt.append(strerror(err));
-	p2++;
-      }
-      else newfmt.append(p1,p2);
-    }
-    newfmt.append(p1);
-
-    vfprintf(output,newfmt.c_str(),args);
-    fprintf(output,"\n");
-  }
-
   va_end(args);
 }
 
+
+void
+Logger::
+setScheme(const string& name)
+{
+  if (name.length() > 0)
+  {
+    Synchronized sync(logger_mutex);
+    // This might actually create a new scheme, and so we have
+    // to make sure we set the name on it.
+    log_schemes[name].setName(name);
+    current_scheme = log_schemes[name];
+    LoggerPrivate::reconfig(log_points.begin());
+  }
+}
+
+
+void
+Logger::
+setScheme(const LogScheme& scheme)
+{
+  Synchronized sync(logger_mutex);
+  log_schemes[scheme.getName()] = scheme;
+  current_scheme = scheme;
+  LoggerPrivate::reconfig(log_points.begin());
+}
+
+
+LogScheme
+Logger::
+getScheme(const std::string& name) const
+{
+  Synchronized sync(logger_mutex);
+  if (name.length() == 0)
+    return current_scheme;
+  log_schemes[name].setName(name);
+  return log_schemes[name];
+}
+
+
+void
+Logger::
+updateScheme(const LogScheme& scheme)
+{
+  Synchronized sync(logger_mutex);
+  log_schemes[scheme.getName()] = scheme;
+  if (current_scheme.getName() == scheme.getName())
+  {
+    current_scheme = scheme;
+    LoggerPrivate::reconfig(log_points.begin());
+  }
+}
+  
+
+//================================================================
+// LogMessage
+//================================================================
+
+LogMessage&
+LogMessage::
+format(const char *fmt, ...)
+{
+  va_list args;
+  va_start(args,fmt);
+
+  string newfmt = fillError(fmt);
+  char buffer[512];
+  vsnprintf(buffer, sizeof(buffer), newfmt.c_str(), args);
+  va_end(args);
+  this->msg += buffer;
+  return *this;
+}
+
+
+//================================================================
+// LogScheme
+//================================================================
+
+struct show_strings_t : public map<string, LogScheme::LogField>
+{
+  show_strings_t()
+  {
+    map<string, LogScheme::LogField>& show_strings = *this;
+    show_strings["thread"] = LogScheme::ThreadField;
+    show_strings["function"] = LogScheme::FunctionField;
+    show_strings["file"] = LogScheme::FileField;
+    show_strings["level"] = LogScheme::LevelField;
+    show_strings["time"] = LogScheme::TimeField;
+    show_strings["message"] = LogScheme::MessageField;
+    show_strings["all"] = LogScheme::AllFields;
+    show_strings["none"] = LogScheme::NoneField;
+  }
+};
+
+static show_strings_t show_strings;
+
+
+LogScheme::
+LogScheme(const std::string& name) :
+  _name (name)
+{
+  log_fields.push_back(TimeField);
+  log_fields.push_back(LevelField);
+  log_fields.push_back(MessageField);
+
+  // Force an empty name to the default, non-empty name.
+  if (name.length() == 0)
+  {
+    *this = LogScheme();
+  }
+}
+
+
+LogScheme&
+LogScheme::
+setShowFields(const std::vector<LogField>& fields)
+{
+  log_fields = fields;
+  return *this;
+}
+
+
+LogScheme&
+LogScheme::
+setShowFields(const std::string& fields)
+{
+  // Parse the string for field names and construct a vector from them.
+  std::vector<LogField> fv;
+  string::size_type at = 0;
+  do {
+    string::size_type comma = fields.find(',', at);
+    if (comma == string::npos) 
+      comma = fields.length();
+    LogField f = stringToField(fields.substr(at, comma-at));
+    if (f)
+    {
+      fv.push_back(f);
+    }
+    at = comma+1;
+  }
+  while (at < fields.length());
+  return setShowFields (fv);
+}
+
+
+std::string
+LogScheme::
+getShowFieldsString () const
+{
+  std::ostringstream oss;
+  for (unsigned int i = 0; i < log_fields.size(); ++i)
+  {
+    if (i > 0) oss << ",";
+    oss << fieldToString(log_fields[i]);
+  }
+  return oss.str();
+}
+
+
+LogScheme&
+LogScheme::
+clearConfigs()
+{
+  log_configs.clear();
+  return *this;
+}
+
+
+LogScheme&
+LogScheme::
+addConfig(const LogConfig& lc)
+{
+  log_configs.push_back(lc);
+  return *this;
+}
+
+
+LogScheme::LogField
+LogScheme::
+stringToField(const std::string& sin)
+{
+  //  init_level_map();
+  string s = sin; 
+  for (unsigned int i = 0; i < s.length(); ++i)
+    s[i] = tolower(s[i]);
+  show_strings_t::iterator it = show_strings.find(s);
+  if (it != show_strings.end())
+    return it->second;
+  return NoneField;
+}
+
+
+std::string
+LogScheme::
+fieldToString(LogScheme::LogField lf)
+{
+  show_strings_t::iterator it;
+  for (it = show_strings.begin(); it != show_strings.end(); ++it)
+  {
+    if (it->second == lf)
+      return it->first;
+  }
+  return "none";
+}
+
+//================================================================
+// LogContext
+//================================================================
+
+LogContext::
+LogContext (int level, const char* file, const char* function, int line) :
+  _level(level), _file(file), _function(function), _line(line),
+  _active(false)
+{
+  Synchronized sync(logger_mutex);
+  log_points.push_back(this);
+  LoggerPrivate::reconfig (--log_points.end());
+}
+
+
+
+LogContext::
+~LogContext()
+{
+  Synchronized sync(logger_mutex);
+  log_points_v::iterator it;
+  it = find(log_points.begin(), log_points.end(), this);
+  if (it != log_points.end())
+    log_points.erase(it);
+}
+
+
+// Initialize the level and field string maps in the constructor,
+// to avoid the need to synchronize initialization later.
+//
+struct level_strings_t : public map<string, int>
+{
+  level_strings_t()
+  {
+    map<string, int>& level_strings = *this;
+    level_strings["emergency"] = LOGGER_EMERGENCY;
+    level_strings["alert"] = LOGGER_ALERT;
+    level_strings["critical"] = LOGGER_CRITICAL;
+    level_strings["error"] = LOGGER_ERROR;
+    level_strings["problem"] = LOGGER_PROBLEM;
+    level_strings["warning"] = LOGGER_WARNING;
+    level_strings["notice"] = LOGGER_NOTICE;
+    level_strings["info"] = LOGGER_INFO;
+    level_strings["debug"] = LOGGER_DEBUG;
+  }
+};
+
+static level_strings_t level_strings;
+
+namespace nidas { namespace util {
+
+int
+stringToLogLevel(const std::string& slevel)
+{
+  string s = slevel; 
+  for (unsigned int i = 0; i < s.length(); ++i)
+    s[i] = tolower(s[i]);
+  level_strings_t::iterator it = level_strings.find(s);
+  if (it != level_strings.end())
+    return it->second;
+  return -1;
+}
+
+string
+logLevelToString(int level)
+{
+  level_strings_t::iterator it;
+  for (it = level_strings.begin(); it != level_strings.end(); ++it)
+  {
+    if (it->second == level)
+      return it->first;
+  }
+  return "emergency";
+}
+
+}}

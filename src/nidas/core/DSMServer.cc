@@ -63,7 +63,7 @@ int DSMServer::main(int argc, char** argv) throw()
 
     n_u::Logger* logger = 0;
 
-    if (debug) logger = n_u::Logger::createInstance(stderr);
+    if (debug) logger = n_u::Logger::createInstance(&std::cerr);
     else {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {

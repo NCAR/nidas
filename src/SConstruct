@@ -114,6 +114,10 @@ if 'x86' in env['ARCHITECTURES']:
                duplicate=0, exports={'env':x86_env})
     Alias('install','x86_install')
 
+    # Testing targets, built and run only on x86
+    if 'test' in COMMAND_LINE_TARGETS:
+        SConscript("../tests/tlogger/SConscript",exports={'env':env})
+
 
 Default(env['ARCHITECTURES'])
 
@@ -127,3 +131,4 @@ dox = Command('#/../doc/doxygen/html/index.html',
               'cd .. && doxygen $SOURCE')
 Alias('dox', dox)
 AlwaysBuild(dox)
+
