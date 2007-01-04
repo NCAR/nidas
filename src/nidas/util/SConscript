@@ -12,20 +12,12 @@ import os
 Import('env')
 myenv = env.Copy()
 
-conf = Configure(myenv)
-
-myenv = conf.Finish()
-
-# -ggdb
-# -DXML_DEBUG
 myenv.AppendUnique(CXXFLAGS = Split("""
 """))
 
 ##
 ##  List of headers files
 ##
-# headers = glob.glob("../../util/*.h")
-# print(["glob headers="] + [str(h) for h in headers])
 headers = [ Split("""
     BitArray.h
     DatagramPacket.h
@@ -57,7 +49,6 @@ headers = [ Split("""
 ]
 # print(["headers="] + [str(h) for h in headers])
 
-# Also add .cc files to ../core/SConscript!
 sources = [ Split("""
     BitArray.cc
     EndianConverter.cc
@@ -81,9 +72,9 @@ sources = [ Split("""
 # print(["sources="] + [str(h) for h in sources])
 
 ##
-##  Build the libnidas library.
+##  Build the libnidas_util library.
 ##
-lib = myenv.SharedLibrary('nidas_util' , sources)
+lib = myenv.SharedLibrary('nidas_util' , sources, LIBS = ['pthread'])
 
 ##
 ## Install target for library.
@@ -91,3 +82,4 @@ lib = myenv.SharedLibrary('nidas_util' , sources)
 myenv.Install('$PREFIX/lib',lib)
 
 myenv.Install('$PREFIX/include/nidas/util',headers)
+
