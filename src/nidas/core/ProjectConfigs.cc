@@ -240,7 +240,7 @@ xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) co
     throw(xercesc::DOMException)
 {
 
-    cerr << "configs, start toDOMParent" << endl;
+    // cerr << "configs, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
             DOMable::getNamespaceURI(),
@@ -252,7 +252,7 @@ xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) co
 xercesc::DOMElement* ProjectConfigs::toDOMElement(xercesc::DOMElement* elem) const
     throw(xercesc::DOMException)
 {
-    cerr << "configs, start toDOMElement" << endl;
+    // cerr << "configs, start toDOMElement" << endl;
     const std::list<const ProjectConfig*>& cfgs = getConfigs();
     std::list<const ProjectConfig*>::const_iterator ci =  cfgs.begin();
     for ( ; ci != cfgs.end(); ++ci) {
@@ -301,6 +301,8 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 		    	atval,e.what());
 		}
 	    }
+            else throw n_u::InvalidParameterException("config",
+		    	atname,"unknown attribute");
 	}
     }
 }
@@ -308,7 +310,7 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) const
     throw(xercesc::DOMException)
 {
-    cerr << "config, start toDOMParent" << endl;
+    // cerr << "config, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
                 DOMable::getNamespaceURI(),
@@ -319,7 +321,7 @@ xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) con
 xercesc::DOMElement* ProjectConfig::toDOMElement(xercesc::DOMElement* elem) const
 throw(xercesc::DOMException)
 {
-    cerr << "config, start toDOMElement" << endl;
+    // cerr << "config, start toDOMElement" << endl;
     XDOMElement xelem(elem);
     xelem.setAttributeValue("name",getName());
     xelem.setAttributeValue("xml",getXMLName());

@@ -214,7 +214,7 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
     mon = day = 1;
     hour = min = 0;
 
-    if (str.length() == 0 || !str.compare("now")) return UTime();
+    if (str.length() == 0 || str == "now") return UTime();
 
     // 97 Feb 1 11:22:33.4
     else if (sscanf(str.c_str(),

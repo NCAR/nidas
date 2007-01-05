@@ -91,8 +91,8 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i],"-l")) inUTC = false;
         else if (!strcmp(argv[i],"-L")) outUTC = false;
         else if (argv[i][0] != '+') {
+            if (dateTime.length() > 0) dateTime += ' ';
             dateTime += argv[i];
-            dateTime += ' ';
         }
         else if (!outformat) outformat = argv[i] + 1;
         else {

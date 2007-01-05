@@ -98,13 +98,15 @@ int main(int argc, char** argv)
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
+        return 1;
     }
     catch (const n_u::InvalidParameterException& e) {
         cerr << e.what() << endl;
+        return 1;
     }
-    catch (n_u::IOException& ioe) {
-      std::cerr << ioe.what() << std::endl;
-      throw n_u::Exception(ioe.what());
+    catch (n_u::IOException& e) {
+        cerr << e.what() << endl;
+        return 1;
     }
     return 0;
 }
