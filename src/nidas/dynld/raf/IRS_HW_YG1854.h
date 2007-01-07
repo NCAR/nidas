@@ -35,7 +35,11 @@ public:
    * No arg constructor.  Typically the device name and other
    * attributes must be set before the sensor device is opened.
    */
-  IRS_HW_YG1854() {err("");}
+  IRS_HW_YG1854() {
+#ifdef DEBUG
+  	err("");
+#endif
+  }
 
   /** Process all labels from this instrument. */
   float processLabel(const long data);
