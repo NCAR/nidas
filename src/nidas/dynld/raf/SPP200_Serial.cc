@@ -27,7 +27,6 @@ NIDAS_CREATOR_FUNCTION_NS(raf,SPP200_Serial)
 void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-
     DSMSerialSensor::fromDOMElement(node);
 
     memset((void *)&_setup_pkt, 0, sizeof(_setup_pkt));
@@ -75,9 +74,8 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
               "must be one <sample> tag for this sensor");
 
     _noutValues = 0;
-    const set<const SampleTag*>::const_iterator ti = tags.begin();
-    for ( ; ti != tags.end(); ) {
-        const SampleTag* stag = *tags.begin();
+    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); ) {
+        const SampleTag* stag = ti.next();
         _sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
@@ -94,7 +92,6 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
         ost << "total length of variables should be " << (_nChannels + 8);
           throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
-
 }
 
 void SPP200_Serial::sendInitString() throw(n_u::IOException)
