@@ -75,7 +75,8 @@ void CharacterSensor::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
-    sendInitString();
+    // Cannot sendInitString yet.
+    //  DSMSerialSensors are yet fully initialized.
 }
 
 void CharacterSensor::sendInitString() throw(n_u::IOException)
