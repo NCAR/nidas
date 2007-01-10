@@ -24,7 +24,6 @@ myenv.AppendUnique(LIBS = Split("""
     pthread
     dl
     XmlRpc
-    ssl
     """))
 
 # ck_lams.cc
