@@ -4,20 +4,23 @@
 //
 
 #include <cassert>
+#include <iostream>
 #include <stdexcept>
 #include <nidas/util/EndianConverter.h>
 
 using namespace nidas::util;
 
 /* static */
-EndianConverter::endianness EndianConverter::hostEndianness =
-	EndianConverter::privGetHostEndianness();
+Mutex EndianConverter::staticInitMutex = Mutex();
 
 /* static */
-EndianConverter* EndianConverter::flipConverter = new FlipConverter();
+EndianConverter::endianness EndianConverter::hostEndianness = EndianConverter::EC_UNKNOWN_ENDIAN;
 
 /* static */
-EndianConverter* EndianConverter::noflipConverter = new NoFlipConverter();
+EndianConverter* EndianConverter::flipConverter = 0;
+
+/* static */
+EndianConverter* EndianConverter::noflipConverter = 0;
 
 /* static */
 EndianConverter::endianness EndianConverter::privGetHostEndianness()
@@ -47,6 +50,25 @@ const EndianConverter* EndianConverter::getConverter(
 	EndianConverter::endianness input,
 	EndianConverter::endianness output)
 {
+    // since this method is itself static, we don't know if the
+    // static initializers for noFlipConverter, flipConverter, and
+    // hostEndianness have been completed, since this could
+    // itself have been called from a static initializer.
+    // I assume the order of execution of static initializers is not defined.
+    //
+    // This appeared to be the case when this getConverter() method was
+    // called from a static initializer, because this method was
+    // returning a null pointer for noflipConverter, even though
+    // it was being initialized with noflipConverter= new NoFlipConverter() above.
+    //
+    // We are relying on the initialization of staticInitMutex here though...
+    
+    staticInitMutex.lock();
+    if (!noflipConverter) noflipConverter = new NoFlipConverter();
+    if (!flipConverter) flipConverter = new FlipConverter();
+    hostEndianness = privGetHostEndianness();
+    staticInitMutex.unlock();
+    
     if (input == output) return noflipConverter;
     else return flipConverter;
 }

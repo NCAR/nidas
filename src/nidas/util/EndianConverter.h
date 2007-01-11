@@ -15,6 +15,8 @@
 
 #include <string.h> // memcpy
 
+#include <nidas/util/ThreadSupport.h>
+
 namespace nidas { namespace util {
 
 /**
@@ -343,6 +345,8 @@ private:
     static EndianConverter* flipConverter;
 
     static EndianConverter* noflipConverter;
+
+    static Mutex staticInitMutex;
 };
 
 /**
