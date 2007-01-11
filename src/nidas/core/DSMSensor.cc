@@ -679,7 +679,7 @@ string DSMSensor::addBackslashSequences(const string& str)
 	case '\e':
 	    res.append("\\e");
 	    break;
-	case 'f':
+	case '\f':
 	    res.append("\\f");
 	    break;
 	case '\n':
