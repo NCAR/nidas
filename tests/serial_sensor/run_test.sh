@@ -28,6 +28,7 @@ if [ ${#ofiles[*]} -ne 1 ]; then
     exit 1
 fi
 
+# look at raw data
 statsf=tmp/data_stats.out
 data_stats $ofiles > $statsf
 
@@ -51,6 +52,43 @@ for (( i = 0; i < 4; i++)); do
 }
 " $statsf || ok=0
 done
+
+cat tmp/data_stats.out
+if [ $ok -ne 1 ]; then
+    echo "test failed"
+    exit 1
+else
+    echo "test OK"
+fi
+
+
+
+# run data through process method
+statsf=tmp/data_stats.out
+data_stats -p $ofiles > $statsf
+
+nsensors=`egrep "^test1" $statsf | wc | awk '{print $1}'`
+if [ $nsensors -ne 4 ]; then
+    echo "Expected 4 sensors in $statsf, got $nsensors"
+    exit 1
+fi
+
+nsamps=(50 49 250 74)
+ok=1
+for (( i = 0; i < 4; i++)); do
+    sname=test$i
+    nsamp=${nsamps[$i]}
+    awk -v nsamp=$nsamp "
+/^test:tmp\/$sname/{
+    if (\$4 != nsamp) {
+        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+        exit(1)
+    }
+}
+" $statsf || ok=0
+done
+
+cat tmp/data_stats.out
 
 if [ $ok -ne 1 ]; then
     echo "test failed"

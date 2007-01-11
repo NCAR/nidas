@@ -39,7 +39,7 @@
                 baud="9600" parity="none" databits="8" stopbits="1"
                 devicename="tmp/test2" id="30" suffix=".t3">
                 <sample id="1">
-                    <variable name="u" units="m/s"/>
+                    <variable name="test1" units="m/s"/>
                     <variable name="v" units="m/s"/>
                     <variable name="w" units="m/s"/>
                     <variable name="tc" units="degC"/>
@@ -58,7 +58,7 @@
                 baud="9600" parity="none" databits="8" stopbits="1"
                 devicename="tmp/test3" id="40" suffix=".t4">
                 <sample id="1">
-                    <variable name="u" units="m/s"/>
+                    <variable name="test1" units="m/s"/>
                     <variable name="v" units="m/s"/>
                     <variable name="w" units="m/s"/>
                     <variable name="tc" units="degC"/>

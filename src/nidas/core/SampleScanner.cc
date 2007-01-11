@@ -513,6 +513,12 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
                 outSampRead = separatorCnt;
                 // leave separatorCnt equal to separatorLen
                 if (result) return result;
+                // If no previous sample then do a recursive call
+                // (or a goto to the beginning of this function).
+                // It won't be infinitely recursive, even if the sensor
+                // was only sending out BOM strings, because
+                // outSampRead is now > 0
+                else return nextSampleSepBOM(sensor);
             }
         }
         else {
