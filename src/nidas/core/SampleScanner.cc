@@ -448,7 +448,7 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
             nc = std::min(bufhead-buftail,nc);
             if (nc > 0) {
                 if ((result = checkSampleAlloc(nc))) return result;
-                ::memcpy(outSampDataPtr,buffer+buftail,nc);
+                ::memcpy(outSampDataPtr+outSampRead,buffer+buftail,nc);
                 outSampRead += nc;
                 buftail += nc;
                 if (buftail ==  bufhead) return 0;
