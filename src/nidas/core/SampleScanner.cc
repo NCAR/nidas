@@ -371,7 +371,7 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
             // we'll do it to be sure.  Could put an
             // assert here instead.
             if ((result = checkSampleAlloc(nc))) return result;
-            ::memcpy(outSampDataPtr,buffer+buftail,nc);
+            ::memcpy(outSampDataPtr+outSampRead,buffer+buftail,nc);
             outSampRead += nc;
             buftail += nc;
         }
@@ -424,12 +424,17 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
     Sample* result = 0;
 
     /*
-     * 1. first call, no chars scanned
-     * 2. last call scanned entire BOM separator, returned prev sample
-     *      try to read a chunk if possible
-     * 3. last call returned 0, partial sample scanned at end of buffer
-     *      a. not done with BOM separator
-     *      b. done with prev BOM, but haven't started next BOM
+     * scanner will be in one of these states:
+     * 1. first call, no chars scanned, osamp=NULL
+     * 2. last call scanned an entire BOM separator and returned
+     *    the sample previous to the separator. Therefore we're
+     *    currently reading the portion after the separator. If
+     *    getMessageLength() > 0, memcpy available characters, up to
+     *    the message length, then start scanning for the next BOM.
+     * 3. last call returned 0, meaning there was a partial sample
+     *      at end of the previous buffer. osamp then contains
+     *      a partial sample. We may or may not be done scanning
+     *      for the BOM separator.
      */
 
     if (!osamp) {
@@ -441,6 +446,7 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
     }
 
     if (separatorCnt == separatorLen) {
+        // BOM separator has been scanned
         // If possible copy multiple characters
         // outSampRead includes the separator
         int nc = getMessageLength() - (outSampRead - separatorCnt);
@@ -451,9 +457,11 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
                 ::memcpy(outSampDataPtr+outSampRead,buffer+buftail,nc);
                 outSampRead += nc;
                 buftail += nc;
-                if (buftail ==  bufhead) return 0;
+                if (buftail == bufhead) return 0;
             }
         }
+        // Copied data portion of sample, starting looking for BOM
+        // of next sample.
         separatorCnt = 0;
     }
 
@@ -512,16 +520,19 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
             // 1. we're looking for the BOM separator, but
             // 2. the current character fails a match with the
             //    BOM string
-            // We'll put the faulty data in the sample anyway so that
+            //
+            // Perhaps this is a faulty record, in which case
+            // we'll put the unexpected data in the sample anyway so that
             // the user can see what is going on.
+            // Or it could be simply that the current message length is
+            // greater than getMessageLength() and this is good data.
 
             if (separatorCnt > 0) {     // previous partial match
                 // We have a partial match to separator,
                 // copy chars to the sample data.
                 ::memcpy(outSampDataPtr+outSampRead,separator,separatorCnt);
                 outSampRead += separatorCnt;
-                separatorCnt = 0;	// start looking at beg
-                // keep trying matching first character of separator
+                separatorCnt = 0;	// start scanning for BOM again
                 // this won't infinitely loop because now separatorCnt=0
             }
             else {              // no match to first character in sep
