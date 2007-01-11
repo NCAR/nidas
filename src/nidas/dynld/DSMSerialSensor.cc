@@ -76,6 +76,10 @@ void DSMSerialSensor::open(int flags) throw(n_u::IOException,n_u::InvalidParamet
     if (isRTLinux()) rtlDevInit(flags);
     else unixDevInit(flags);
 
+    sendInitString();
+
+    if (isPrompted()) startPrompting();
+
     init();
 
 }
