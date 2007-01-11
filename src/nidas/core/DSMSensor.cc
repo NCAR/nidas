@@ -613,6 +613,14 @@ string DSMSensor::replaceBackslashSequences(const string& str)
 	bs++;
 	if (bs == res.length()) break;
         switch(res[bs]) {
+	case 'e':
+	    res.erase(bs,1);
+	    res[bs-1] = '\e';
+	    break;
+	case 'f':
+	    res.erase(bs,1);
+	    res[bs-1] = '\f';
+	    break;
 	case 'n':
 	    res.erase(bs,1);
 	    res[bs-1] = '\n';
@@ -668,6 +676,12 @@ string DSMSensor::addBackslashSequences(const string& str)
     for (unsigned int ic = 0; ic < str.length(); ic++) {
 	char c = str[ic];
         switch(c) {
+	case '\e':
+	    res.append("\\e");
+	    break;
+	case 'f':
+	    res.append("\\f");
+	    break;
 	case '\n':
 	    res.append("\\n");
 	    break;

@@ -11,7 +11,7 @@ cd ..
 
 # start sensor simulations on pseudo-terminals
 src/sensor_sim -f data/test.dat -r 10 -s 15 tmp/test0 &
-src/sensor_sim -f data/test.dat -r 10 -s 15 tmp/test1 &
+src/sensor_sim -f data/test.dat -b $'\e' -r 10 -s 15 tmp/test1 &
 src/sensor_sim -c -s 15 -r 60 tmp/test2 &
 src/sensor_sim -c -s 15 -r 60 tmp/test3 &
 
@@ -37,7 +37,7 @@ if [ $nsensors -ne 4 ]; then
     exit 1
 fi
 
-nsamps=(51 51 256 2982)
+nsamps=(51 50 256 2982)
 ok=1
 for (( i = 0; i < 4; i++)); do
     sname=test$i

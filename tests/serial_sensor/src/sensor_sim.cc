@@ -70,8 +70,10 @@ void Csat3Sim::looperNotify() throw()
 class FileSim: public LooperClient
 {
 public:
-    FileSim(n_u::SerialPort* p, const string& path, Looper* l):
-	_port(p),_path(path), _in(0), _looper(l)
+    FileSim(n_u::SerialPort* p, const string& path, Looper* l,bool bom,
+        string separator):
+	_port(p),_path(path), _in(0), _looper(l),
+        _bom(bom),_separator(separator)
     {
 	open();
     }
@@ -121,6 +123,8 @@ private:
     std::ifstream _infile;
     std::istream* _in;
     Looper* _looper;
+    bool _bom;
+    string _separator;
 };
 
 
@@ -135,8 +139,8 @@ void FileSim::looperNotify() throw()
         _looper->removeClient(this);
         return;
     }
-    msg = CharacterSensor::replaceBackslashSequences(msg);
-    msg += "\r\n";
+    if (_bom) msg = _separator + CharacterSensor::replaceBackslashSequences(msg);
+    else msg = CharacterSensor::replaceBackslashSequences(msg) + _separator;
     // cerr << "writing: " << msg << endl;
     _port->write(msg.c_str(),msg.length());
 }
@@ -149,10 +153,11 @@ public:
     static int usage(const char* argv0);
 private:
     string device;
-    enum sens_type { UNKNOWN, FROM_FILE, CSAT3 } type;
+    enum sens_type { UNKNOWN, FROM_FILE, BOM_FROM_FILE, CSAT3 } type;
     float rate;
     string inputFile;
     int initialSleep;
+    string separator;
 };
 
 SensorSim::SensorSim(): type(UNKNOWN),rate(1.0),initialSleep(10)
@@ -166,14 +171,21 @@ int SensorSim::parseRunstring(int argc, char** argv)
     int opt_char;     /* option character */
 
 
-    while ((opt_char = getopt(argc, argv, "cf:r:s:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:cf:r:s:")) != -1) {
 	switch (opt_char) {
+	    break;
+	case 'b':
+	    type = BOM_FROM_FILE;
+            separator = optarg;
 	    break;
 	case 'c':
 	    type = CSAT3;
 	    break;
 	case 'f':
-	    type = FROM_FILE;
+	    if (type == UNKNOWN) {
+                type = FROM_FILE;
+                separator = string("\r\n");
+            }
 	    inputFile = optarg;
             break;
 	case 'r':
@@ -223,11 +235,13 @@ int SensorSim::run()
 
 	switch (type) {
 	case FROM_FILE:
+	case BOM_FROM_FILE:
 	    port->setBaudRate(57600);
 	    port->iflag() = ICRNL;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
-	    sim.reset(new FileSim(port.get(),inputFile,looper));
+	    sim.reset(new FileSim(port.get(),inputFile,looper,
+                    type==BOM_FROM_FILE,separator));
 	    break;
 	case CSAT3:
 	    port->setBaudRate(9600);

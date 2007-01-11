@@ -21,18 +21,18 @@
 		    <variable name="test1" units="wacka-a-mole"/>
 		    <variable name="test2" units="wacka-a-mole"/>
 		</sample>
-		<message separator="\n" position="end" length="0"/>
+		<message separator="\n" position="end" length="3"/>
 	    </serialSensor>
 
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
 		devicename="tmp/test1" id="20" suffix=".t2">
 		<sample id="1"
-		    scanfFormat="%f %f">
+		    scanfFormat="\e%f %f">
 		    <variable name="test1" units="wacka-a-mole"/>
 		    <variable name="test2" units="wacka-a-mole"/>
 		</sample>
-		<message separator="\n" position="beg" length="0"/>
+		<message separator="\e" position="beg" length="3"/>
 	    </serialSensor>
 
             <serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
