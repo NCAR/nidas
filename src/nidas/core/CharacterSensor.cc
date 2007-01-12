@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -18,6 +18,8 @@
 #include <nidas/core/UnixIODevice.h>
 
 // #include <nidas/util/ThreadSupport.h>
+
+#include <nidas/util/Logger.h>
 
 // #include <asm/ioctls.h>
 
@@ -84,6 +86,8 @@ void CharacterSensor::open(int flags)
 void CharacterSensor::sendInitString() throw(n_u::IOException)
 {
     if (getInitString().length() > 0) {
+	DLOG(("sending init string '") << getInitString()
+	     << "' to " << getDeviceName());
         string newstr = replaceBackslashSequences(getInitString());
         write(newstr.c_str(),newstr.length());
     }
