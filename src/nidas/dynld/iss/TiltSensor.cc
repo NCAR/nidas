@@ -116,12 +116,12 @@ www.xbow.com
 **/
 
 inline float
-decode_angle(const char* dp)
+decode_angle(const signed char* dp)
 {
     // this should sign extend
     int s = dp[0];
     s <<= 8;
-    s += (((int)dp[1]) & 0xff);
+    s |= (((int)dp[1]) & 0xff);
     return -(float)s * 90.0 / 32768.0;
 }
 
@@ -130,11 +130,11 @@ TiltSensor::
 process(const Sample* samp, std::list<const Sample*>& results) throw()
 {
     size_t inlen = samp->getDataByteLength();
-    if (inlen < 6) return false;	// not enough data
-
-    const char* dinptr = (const char*) samp->getConstVoidDataPtr();
-    unsigned short checksum = 
-	(dinptr[1] + dinptr[2] + dinptr[3] + dinptr[4]) % 256;
+    if (inlen < 6) return false;	// bogus amount of data
+    const signed char* dinptr =
+	(const signed char*) samp->getConstVoidDataPtr();
+    const unsigned char* ud = (const unsigned char*) dinptr;
+    unsigned short checksum = (ud[1] + ud[2] + ud[3] + ud[4]) % 256;
 
     // Compute pitch and roll.
     float pitch = decode_angle(dinptr+1);
@@ -144,25 +144,27 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     if (lc.active())
     {
 	LogMessage msg;
-	msg << "inlen=" << inlen << ' ' 
-	    << hex << (((unsigned short)dinptr[0]) & 0xff)
-	    << ',' << dec << (short)dinptr[1]
-	    << ',' << (((short)dinptr[2]) & 0xff)
-	    << ',' << (short)dinptr[3]
-	    << ',' << (((short)dinptr[4]) & 0xff)
-	    << ',' << hex << (unsigned short)dinptr[5]
-	    << ", csum=" << hex << checksum
-	    << dec << ", pitch=" << pitch << ", roll=" << roll;
+	msg << "inlen=" << inlen << ' ' ;
+	msg.format ("%02x,%02x,%02x,%02x,%02x,%02x, csum=%02x",
+		    ud[0], ud[1], ud[2], ud[3], ud[4], ud[5], checksum);
+	msg << "; pitch=" << pitch << ", roll=" << roll;
 	lc.log (msg);
     }
 
     // Check for the header byte.
-    if (dinptr[0] != '\xff') return false;
+    if (dinptr[0] != '\xff') 
+    {
+	PLOG(("unexpected header byte, skipping bad sample"));
+	return false;
+    }
 
     // Now verify the checksum.
-    if (checksum != dinptr[5])
+    if (checksum != ud[5])
     {
-	++checksumFailures;
+	if (checksumFailures++ % 60 == 0)
+	{
+	    PLOG(("Checksum failures: ") << checksumFailures);
+	}
 	return false;
     }
 
