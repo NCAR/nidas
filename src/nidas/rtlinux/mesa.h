@@ -31,7 +31,7 @@ typedef unsigned short dsm_sample_id_t;
  */
 
 #define MESA_4I34_MAX_NR_DEVS	4	// maximum number of Mesa 4I34 cards in sys
-#define MESA_REGION_SIZE	0x10	// number of 1-byte registers
+#define MESA_REGION_SIZE	0x12	// number of 1-byte registers
 
 // registers on the Mesa 4I34 starting at the ioport address
 #define R_4I34DATA    0		// 4I34 data register.
@@ -71,16 +71,16 @@ typedef unsigned short dsm_sample_id_t;
 
 #define MESA_BASE 0x220
 
-#define STROBES_OFFSET         0x00 // "0000" (base address) = Read 260X total strobes
-#define HISTOGRAM_CLEAR_OFFSET 0x01 // "0001" clear histogram and clear histogram bin index pointer
-#define HISTOGRAM_READ_OFFSET  0x02 // "0010" read 260X histogram at bin pointed to by index
-#define HOUSE_ADVANCE_OFFSET   0x03 // "0011" 260X housekeeping advance
-#define HOUSE_READ_OFFSET      0x04 // "0100" 260X housekeeping data
-#define HOUSE_RESET_OFFSET     0x05 // "0101" 260X housekeeping reset
-#define COUNT0_READ_OFFSET     0x06 // "0110" Pulse counter #0
-#define COUNT1_READ_OFFSET     0x08 // "1000" Pulse counter #1
-#define RADAR_READ_OFFSET      0x0A // "1010" Altitude data
-#define TWOSIXTY_READ_OFFSET   0x0C // "1100" read 260X histogram data
+#define STROBES_OFFSET         0x02 // "0010" (base address) = Read 260X total strobes
+#define HISTOGRAM_CLEAR_OFFSET 0x03 // "0011" clear histogram and clear histogram bin index pointer
+#define HISTOGRAM_READ_OFFSET  0x04 // "0100" read 260X histogram at bin pointed to by index
+#define HOUSE_ADVANCE_OFFSET   0x05 // "0101" 260X housekeeping advance
+#define HOUSE_READ_OFFSET      0x06 // "0110" 260X housekeeping data
+#define HOUSE_RESET_OFFSET     0x07 // "0111" 260X housekeeping reset
+#define COUNT0_READ_OFFSET     0x08 // "1000" Pulse counter #0
+#define COUNT1_READ_OFFSET     0x0A // "1010" Pulse counter #1
+#define RADAR_READ_OFFSET      0x0C // "1100" Altitude data
+#define TWOSIXTY_READ_OFFSET   0x0E // "1110" read 260X histogram data
 
 // Sample ID's
 #define ID_COUNTERS	1

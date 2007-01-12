@@ -83,7 +83,6 @@ static void read_counter(void * channel)
   int	i, read_address_offset;
   MESA_SIXTEEN_BIT_SAMPLE sample;
   struct MESA_Board * brd = boardInfo;
-  // static long cntr = 0, cntr_cntr = 0;
 
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nCounters;
   sample.sampleID = ID_COUNTERS;
@@ -101,10 +100,6 @@ static void read_counter(void * channel)
 //DSMLOG_DEBUG("chn: %d  sample.data: %d\n", i, sample.data[i]);
   }
 
-//cntr += sample.data[1];
-//if (++cntr_cntr % 50)
-//   DSMLOG_DEBUG("%d\n", cntr);
-  // write the counts to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
 	+ sizeof(dsm_sample_time_t));
 }
@@ -146,7 +141,9 @@ static void read_260x(void * channel)
   for (i = 0; i < TWO_SIXTY_BINS; ++i)
   {
     sample.data[i] = inw(brd->addr + TWOSIXTY_READ_OFFSET);
+//DSMLOG_DEBUG("%d ", sample.data[i]);
   }
+//DSMLOG_DEBUG("\n");
 
   (void)inw(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 
@@ -256,24 +253,25 @@ static int load_finish(struct MESA_Board * brd)
   config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
            M_4I34CFGWRITEDISABLE | M_4I34LEDON;
   outb(config, brd->addr + R_4I34CONTROL);
-  DSMLOG_DEBUG("outb success\n");
 
   // Wait for Done bit set
   success = FALSE;
-  for (waitcount = 0; waitcount < 500; ++waitcount)
+  for (waitcount = 0; waitcount < 200; ++waitcount)
   {
     // this is not called from a real-time thread, so use jiffies
     // to delay
     unsigned char status;
-    unsigned long j = jiffies + 10;
-    while (time_before(jiffies,j)) schedule();
     if ( (status = inb(brd->addr + R_4I34STATUS)) & M_4I34PROGDUN )
     {
-	DSMLOG_INFO("waitcount: %d, status=%#x\n", waitcount,status);
+      DSMLOG_INFO("waitcount: %d, status=%#x,donebit=%#x\n",
+        waitcount,status,M_4I34PROGDUN);
       success = TRUE;
       break;
     }
-	DSMLOG_INFO("waitcount: %d, status=%#x\n", waitcount,status);
+    DSMLOG_INFO("waitcount: %d, status=%#x,donebit=%#x\n",
+        waitcount,status,M_4I34PROGDUN);
+    unsigned long j = jiffies + 1;	// 1/100 of a second.
+    while (time_before(jiffies,j)) schedule();
   }
 
   if (success == TRUE)
