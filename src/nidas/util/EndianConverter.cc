@@ -7,8 +7,10 @@
 #include <iostream>
 #include <stdexcept>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::util;
+using namespace std;
 
 /* static */
 Mutex EndianConverter::staticInitMutex = Mutex();
@@ -42,7 +44,24 @@ EndianConverter::endianness EndianConverter::privGetHostEndianness()
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     assert(endian == EC_LITTLE_ENDIAN);
 #endif
+
+#ifdef DEBUG
+    cerr <<  "endian=" << 
+        (endian == EC_LITTLE_ENDIAN ? "little" :
+            (endian == EC_BIG_ENDIAN ? "big" : "unknown")) << endl;
+#endif
     return endian;
+}
+
+/* static */
+EndianConverter::endianness EndianConverter::getHostEndianness()
+{
+    if (hostEndianness == EC_UNKNOWN_ENDIAN) {
+        staticInitMutex.lock();
+        hostEndianness = privGetHostEndianness();
+        staticInitMutex.unlock();
+    }
+    return hostEndianness;
 }
 
 /* static */
@@ -63,11 +82,12 @@ const EndianConverter* EndianConverter::getConverter(
     //
     // We are relying on the initialization of staticInitMutex here though...
     
-    staticInitMutex.lock();
-    if (!noflipConverter) noflipConverter = new NoFlipConverter();
-    if (!flipConverter) flipConverter = new FlipConverter();
-    hostEndianness = privGetHostEndianness();
-    staticInitMutex.unlock();
+    if (!noflipConverter) {
+        staticInitMutex.lock();
+        noflipConverter = new NoFlipConverter();
+        flipConverter = new FlipConverter();
+        staticInitMutex.unlock();
+    }
     
     if (input == output) return noflipConverter;
     else return flipConverter;

@@ -76,7 +76,9 @@ void CharacterSensor::open(int flags)
 {
     DSMSensor::open(flags);
     // Cannot sendInitString yet.
-    //  DSMSerialSensors are yet fully initialized.
+    // DSMSerialSensors are not yet fully initialized,
+    // so it must be done in a derived class open(), i.e.
+    // DSMSerialSensor.
 }
 
 void CharacterSensor::sendInitString() throw(n_u::IOException)

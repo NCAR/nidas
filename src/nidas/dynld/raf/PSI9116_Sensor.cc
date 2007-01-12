@@ -74,7 +74,7 @@ void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 void PSI9116_Sensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    DSMSensor::open(flags);
+    CharacterSensor::open(flags);
 
     sendCommand("A");
 

@@ -140,8 +140,6 @@ void DSMSerialSensor::rtlDevInit(int flags)
 	}
 	prompt.rate = erate;
 	ioctl(DSMSER_SET_PROMPT,&prompt,sizeof(prompt));
-
-	startPrompting();
     }
 }
 
@@ -194,8 +192,6 @@ void DSMSerialSensor::unixDevInit(int flags)
 	promptPeriodMsec = (int) rint(1000.0 / getPromptRate());
 
 	cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
-
-	startPrompting();
     }
 }
 

@@ -254,7 +254,7 @@ public:
     /**
      * Return endianness value for this host.
      */
-    static endianness getHostEndianness() { return hostEndianness; }
+    static endianness getHostEndianness();
 
     /**
      * Return an EndianConverter for converting from one endian to
