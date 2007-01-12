@@ -58,11 +58,8 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
 
     int usecs = (int)rint((bits * USECS_PER_SEC + getBaudRate() / 2) /
     	getBaudRate());
-#ifdef DEBUG
-    n_u::Logger::getInstance()->log(LOG_DEBUG,
-	"%s: baud=%d,bits=%d,usecsPerChar=%d\n",getName().c_str(),
-	getBaudRate(),bits,usecs);
-#endif
+    DLOG(("%s: baud=%d,bits=%d,usecsPerChar=%d",getName().c_str(),
+	  getBaudRate(),bits,usecs));
     scanr->setUsecsPerByte(usecs);
     return scanr;
 }

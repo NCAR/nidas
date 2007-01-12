@@ -17,6 +17,7 @@
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/Logger.h>
 
 #include <sys/select.h>
 
@@ -201,14 +202,16 @@ void MessageSampleScanner::setMessageSeparator(const std::string& val)
     separator = new char[separatorLen+1];
     strcpy(separator,messageSeparator.c_str());
 
-#ifdef DEBUG
-    cerr << "separator=" << hex;
-    for (int i = 0; i < separatorLen; i++)
-        cerr << (int)(unsigned char)separator[i] << ' ';
-    cerr << dec << endl;
-    cerr << "getMessageLength=" << getMessageLength() << endl;
-#endif
-
+    static n_u::LogContext log(LOG_DEBUG);
+    if (log.active())
+    {
+      n_u::LogMessage msg;
+      msg << "separator=" << hex;
+      for (int i = 0; i < separatorLen; i++)
+        msg << (int)(unsigned char)separator[i] << ' ';
+      msg << dec << "getMessageLength=" << getMessageLength();
+      log.log (msg);
+    }
 }
 
 /**
