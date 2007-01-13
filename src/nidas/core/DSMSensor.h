@@ -492,6 +492,14 @@ public:
     }
 
     /**
+     * Clear the internal buffer.
+     */
+    virtual void clearBuffer()
+    {
+        scanner->clearBuffer();
+    }
+
+    /**
      * Extract the next sample from the buffer. Returns a
      * null pointer if there are no samples left in the buffer.
      */

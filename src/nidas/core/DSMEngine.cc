@@ -40,8 +40,10 @@ int DSMEngine::rtlinux = -1;	// unknown
 
 DSMEngine::DSMEngine():
     _syslogit(true),_wait(false),
-    _interrupt(false),_runCond("_runCond"),_project(0),_dsmConfig(0),_selector(0),
-    _statusThread(0),_xmlrpcThread(0),_clock(SampleClock::getInstance()),
+    _interrupt(false),_runCond("_runCond"),_project(0),
+    _dsmConfig(0),_selector(0),
+    _statusThread(0),_xmlrpcThread(0),
+    _clock(SampleClock::getInstance()),
     _xmlRequestSocket(0)
 {
     setupSignals();
@@ -53,7 +55,6 @@ DSMEngine::DSMEngine():
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
         cerr << e.what();
    }
-
 }
 
 DSMEngine::~DSMEngine()
@@ -211,6 +212,7 @@ The default config is \"mcsock:" <<
 
 void DSMEngine::initLogger()
 {
+    n_u::LogConfig lc;
     if (_syslogit) {
 	// fork to background
 	if (daemon(0,0) < 0) {
@@ -218,20 +220,21 @@ void DSMEngine::initLogger()
 	    cerr << "Warning: " << e.toString() << endl;
 	}
 	_logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+        // Configure default logging to log anything NOTICE and above.
+        lc.level = n_u::LOGGER_NOTICE;
     }
     else
     {
 	_logger = n_u::Logger::createInstance(&std::cerr);
+        lc.level = n_u::LOGGER_DEBUG;
+        cerr << "not syslog" << endl;
     }
-    // Configure default logging to log anything NOTICE and above.
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_NOTICE;
+
     _logger->setScheme(n_u::LogScheme().addConfig (lc));
 }
 
 void DSMEngine::run() throw()
 {
-
     DOMDocument* projectDoc = 0;
 
     // start the xmlrpc control thread
@@ -295,7 +298,6 @@ void DSMEngine::run() throw()
 	_logger->log(LOG_ERR,e.what());
 	continue;
       }
-
       if (_interrupt) continue;
       // then initialize the DSMEngine
       try {
@@ -662,7 +664,7 @@ void DSMEngine::interrupt() throw(n_u::Exception)
     if (!_wait) {
         _quit = true;
         try {
-            if (_xmlrpcThread->isRunning()) {
+            if (_xmlrpcThread && _xmlrpcThread->isRunning()) {
                 n_u::Logger::getInstance()->log(LOG_INFO,
                     "DSMEngine::interrupt, cancelling xmlrpcThread");
                 // if this is running under valgrind, then cancel doesn't
@@ -672,7 +674,7 @@ void DSMEngine::interrupt() throw(n_u::Exception)
             }
             n_u::Logger::getInstance()->log(LOG_INFO,
                 "DSMEngine::interrupt, joining xmlrpcThread");
-            _xmlrpcThread->join();
+            if (_xmlrpcThread) _xmlrpcThread->join();
         }
         catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_WARNING,

@@ -29,13 +29,16 @@
 #include <csignal>          // sigaction
 
 // Mesa driver includes
-#include <nidas/core/RTL_DSMSensor.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/RTL_IODevice.h>
+
 #include <nidas/rtlinux/mesa.h>
 
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
 using namespace std;
+using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
@@ -61,6 +64,20 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
     break;
   }
 }
+
+class TestMesa : public DSMSensor
+{
+public:
+  IODevice* buildIODevice() throw(n_u::IOException)
+  {
+    return new RTL_IODevice();
+  }
+  SampleScanner* buildSampleScanner()
+  {
+    return new SampleScanner();
+  }
+};
+
 /* -------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
@@ -99,7 +116,9 @@ int main(int argc, char** argv)
   struct counters_set set_counter;
 
   // create the board sensor
-  RTL_DSMSensor sensor_in_0("/dev/mesa0");
+  TestMesa sensor_in_0;
+  sensor_in_0.setDeviceName("/dev/mesa0");
+
 
   struct PulseCounters
   {
@@ -115,12 +134,12 @@ int main(int argc, char** argv)
   };
   RadarAlt altitude_buf[2];
 
-  set_counter.channel = 2;
-  set_radar.channel = 1;
+  set_counter.nChannels = 2;
+  set_radar.nChannels = 1;
   set_counter.rate = 1;
   set_radar.rate = 1;
-  counter_channels = set_counter.channel;
-  radar_channels = set_radar.channel;
+  counter_channels = set_counter.nChannels;
+  radar_channels = set_radar.nChannels;
 
   // Open up the FPGA program FIFO to the driver...
   sprintf(devstr, "/dev/mesa_program_board");

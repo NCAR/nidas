@@ -1351,6 +1351,13 @@ static void scan_by_length(struct serialPort* port,struct dsm_sample* usamp)
     register char* cp = usamp->data;
     int left;
 
+#ifdef DEBUG
+    DSMLOG_DEBUG("in length=%d data=%#02x %#02x %#02x %#02x\n",
+        usamp->length,(unsigned)usamp->data[0],(unsigned)usamp->data[1],
+            (unsigned)usamp->data[2],(unsigned)usamp->data[3]);
+    DSMLOG_DEBUG("out length=%d\n", osamp->length);
+#endif
+
     if (osamp->length == 0)
         osamp->timetag =
             compute_time_tag(usamp,cp-usamp->data,port->usecs_per_char);
@@ -1365,6 +1372,12 @@ static void scan_by_length(struct serialPort* port,struct dsm_sample* usamp)
         left -= nc;
         osamp->length += nc;
         if (osamp->length == port->recinfo.recordLen) {
+
+#ifdef DEBUG
+            DSMLOG_DEBUG("read sample, out length=%d data=%#02x %#02x %#02x %#02x\n",
+                osamp->length,(unsigned)osamp->data[0],(unsigned)osamp->data[1],
+                (unsigned)osamp->data[2],(unsigned)osamp->data[3]);
+#endif
             osamp = NEXT_HEAD(port->output_samples,OUTPUT_SAMPLE_QUEUE_SIZE);
             if (!osamp) {
                 port->input_chars_lost += left;
@@ -1383,6 +1396,10 @@ static int set_record_sep(struct serialPort* port,
 	struct dsm_serial_record_info* sep)
 {
     unsigned long flags;
+
+#ifdef DEBUG
+    DSMLOG_DEBUG("%s: set_record_sep, reclen=%d\n",port->devname,sep->recordLen);
+#endif
     if (sep->recordLen + sep->sepLen + 1 >= MAX_DSM_SERIAL_SAMPLE_SIZE) {
 	DSMLOG_ERR("%s: record size=%d + separator size=%d + 1 exceeds maximum = %d\n",
 		port->devname,sep->recordLen, MAX_DSM_SERIAL_SAMPLE_SIZE);

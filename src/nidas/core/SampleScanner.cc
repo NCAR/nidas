@@ -19,6 +19,8 @@
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
+
 #include <sys/select.h>
 
 using namespace std;
@@ -83,6 +85,11 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
     return readBuffer(sensor);
 }
 
+void SampleScanner::clearBuffer()
+{
+    bufhead = buftail = 0;
+}
+
 Sample* SampleScanner::nextSample(DSMSensor* sensor)
 {
     size_t avail = bufhead - buftail;	// bytes available in buffer
@@ -108,11 +115,13 @@ Sample* SampleScanner::nextSample(DSMSensor* sensor)
         outSampDataPtr = (char*) osamp->getVoidDataPtr();
         outSampRead = 0;
     }
+
     len = std::min(outSampToRead,avail);
     ::memcpy(outSampDataPtr + outSampRead,buffer+buftail,len);
     buftail += len;
     outSampRead += len;
     outSampToRead -= len;
+
     if (outSampToRead == 0) {		// done with sample
         addSampleToStats(osamp->getDataByteLength());
         SampleClock::status_t status =

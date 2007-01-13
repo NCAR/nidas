@@ -130,6 +130,7 @@ static void read_260x(void * channel)
   struct MESA_Board * brd = boardInfo;
 
   int send_size = TWO_SIXTY_BINS+8+1+1;
+char outs[1028], t[20]; outs[0]=0;
 
   sample.size = sizeof(short) * send_size;
   sample.sampleID = ID_260X;
@@ -141,9 +142,11 @@ static void read_260x(void * channel)
   for (i = 0; i < TWO_SIXTY_BINS; ++i)
   {
     sample.data[i] = inw(brd->addr + TWOSIXTY_READ_OFFSET);
-//DSMLOG_DEBUG("%d ", sample.data[i]);
+sprintf(t, "%d ", sample.data[i]);
+strcat(outs, t);
   }
-//DSMLOG_DEBUG("\n");
+strcat(outs, "\n");
+//DSMLOG_DEBUG("%s", outs);
 
   (void)inw(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 
@@ -380,30 +383,29 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
   switch (cmd)
   {
     case GET_NUM_PORTS:
-DSMLOG_DEBUG("GET_NUM_PORTS\n");
+      DSMLOG_DEBUG("GET_NUM_PORTS\n");
       *(int *) buf = N_PORTS;
       ret = sizeof(int);
       break;
 
     case MESA_LOAD_START:
-DSMLOG_DEBUG("MESA_FPGA_LOAD\n");
+      DSMLOG_DEBUG("MESA_FPGA_START\n");
       ret = load_start(brd);
       break;
 
     case MESA_LOAD_BLOCK:
-DSMLOG_DEBUG("MESA_FPGA_LOAD\n");
+//      DSMLOG_DEBUG("MESA_FPGA_LOAD\n");
       ret = load_program(brd, (struct _prog *)buf);
       break;
 
     case MESA_LOAD_DONE:
-DSMLOG_DEBUG("MESA_FPGA_DONE\n");
+      DSMLOG_DEBUG("MESA_FPGA_DONE\n");
       ret = load_finish(brd);
       break;
 
     case DIGITAL_IN_SET:
+      DSMLOG_DEBUG("DIGITAL_IN not implmented.\n");
       digital_in_ptr = (struct digital_in *) buf;
-
-DSMLOG_DEBUG("DIGITAL_IN not implmented.\n");
 
       ret = len;
       break;
@@ -411,7 +413,7 @@ DSMLOG_DEBUG("DIGITAL_IN not implmented.\n");
     case COUNTERS_SET:
       // create and open counter data FIFOs
       counter_ptr = (struct counters_set *) buf;
-DSMLOG_DEBUG("COUNTERS_SET rate=%d\n", counter_ptr->rate);
+      DSMLOG_DEBUG("COUNTERS_SET rate=%d\n", counter_ptr->rate);
       // register poll routine with the IRIG driver
       brd->counter_rate = irigClockRateToEnum(counter_ptr->rate);
       register_irig_callback(&read_counter, brd->counter_rate, 0);
@@ -422,7 +424,7 @@ DSMLOG_DEBUG("COUNTERS_SET rate=%d\n", counter_ptr->rate);
     case RADAR_SET:
       // create and open radar data FIFOs
       radar_ptr = (struct radar_set *) buf;
-DSMLOG_DEBUG("RADAR_SET rate=%d\n", radar_ptr->rate);
+      DSMLOG_DEBUG("RADAR_SET rate=%d\n", radar_ptr->rate);
       // register poll routine with the IRIG driver
       brd->radar_rate = irigClockRateToEnum(radar_ptr->rate);
       register_irig_callback(&read_radar, brd->radar_rate, 0);
@@ -433,7 +435,7 @@ DSMLOG_DEBUG("RADAR_SET rate=%d\n", radar_ptr->rate);
     case PMS260X_SET:
       // create and open 260X data FIFOs
       twoSixty_ptr = (struct pms260x_set *) buf;
-DSMLOG_DEBUG("260X_SET rate=%d\n", twoSixty_ptr->rate);
+      DSMLOG_DEBUG("260X_SET rate=%d\n", twoSixty_ptr->rate);
       // register poll routine with the IRIG driver
       brd->twoSixty_rate = irigClockRateToEnum(twoSixty_ptr->rate);
       register_irig_callback(&read_260x, brd->twoSixty_rate, 0);
@@ -442,7 +444,7 @@ DSMLOG_DEBUG("260X_SET rate=%d\n", twoSixty_ptr->rate);
       break;
 
     case MESA_STOP:
-DSMLOG_DEBUG("MESA_STOP\n");
+      DSMLOG_DEBUG("MESA_STOP\n");
       close_ports(brd);
       ret = 0;
       break;

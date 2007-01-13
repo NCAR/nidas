@@ -173,6 +173,8 @@ public:
     virtual size_t readBuffer(DSMSensor* sensor,int msecTimeout)
         throw(nidas::util::IOException);
 
+    virtual void clearBuffer();
+
     /**
      * Extract the next sample from the buffer. Returns
      * NULL if there are no more samples in the buffer.

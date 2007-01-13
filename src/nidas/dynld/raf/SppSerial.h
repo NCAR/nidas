@@ -28,7 +28,7 @@ public:
 
   SppSerial() : DSMSerialSensor() {}
 
-  unsigned short computeCheckSum(unsigned char *pkt, int len);
+  unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
   /**
    * Max # for array sizing.  Valid number of channels are 10, 20, 30 and 40.
@@ -38,22 +38,34 @@ public:
 
 protected:
 
-  static const nidas::util::EndianConverter* toLittle;
+  static const nidas::util::EndianConverter * toLittle;
 
   /**
    * Number of channels requested to be recorded.
    */
-  size_t _nChannels;
+  int _nChannels;
+
+  unsigned short _range;
+
+  unsigned short _avgTransitWeight;
+
+  unsigned short _opcThreshold[MAX_CHANNELS];
+
+  /**
+   * sizeof Init_blk.  Unfortunatly the struct is not properly packed, so
+   * maintain our own length here.
+   */
+  int _initPacketLen;
 
   /**
    * Expected length of return data packet.
    */
-  size_t _packetLen;
+  int _packetLen;
 
   /**
    * Total number of floats in the processed output sample.
    */
-  size_t _noutValues;
+  int _noutValues;
 
   dsm_sample_id_t _sampleId;
 

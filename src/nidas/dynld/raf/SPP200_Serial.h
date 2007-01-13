@@ -14,7 +14,9 @@
 #ifndef NIDIS_DYNLD_RAF_SPP200_SERIAL_H
 #define NIDIS_DYNLD_RAF_SPP200_SERIAL_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/dynld/raf/SppSerial.h>
+
+#include <iostream>
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -22,11 +24,11 @@ namespace nidas { namespace dynld { namespace raf {
  * A class for reading PMS1D probes with the DMT interface conversion.
  * RS-422 @ 38400 baud.
  */
-class SPP200_Serial : public DSMSerialSensor
+class SPP200_Serial : public SppSerial
 {
 public:
 
-  SPP200_Serial() : DSMSerialSensor() {}
+  SPP200_Serial();
 
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
@@ -36,15 +38,12 @@ public:
   bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-  /**
-   * Max # for array sizing.  Valid number of channels are 10, 20, 30 and 40.
-   */
-  static const int MAX_CHANNELS = 40;
 
   // Packet to initialize probe with.
   struct Init200_blk
   {
-    ushort  id;                                 // ESC,id
+    char    esc;                                // ESC 0x1b
+    char    id;                                 // cmd id
     ushort  model;                              // model
     ushort  trig_thresh;                        // trigger threshold
     ushort  chanCnt;                            // chanCnt
@@ -57,6 +56,24 @@ public:
     ushort  chksum;                             // cksum
   };
   typedef struct Init200_blk Init200_blk;
+
+  struct Response200_blk
+  {
+    char    esc;                                // ESC 0x1b
+    char    id;                                 // cmd id
+    ushort  model;                              // model
+    ushort  firmware;                           // firmware
+    ushort  trig_thresh;                        // trigger threshold
+    ushort  chanCnt;                            // chanCnt
+    ushort  range;                              // range
+    ushort  avTranWe;                           // avgTransWeight
+    ushort  divFlag;                            // divisorflag 0=/2, 1=/4
+    ushort  max_width;                          // max_width threshold
+    ushort  OPCthreshold[MAX_CHANNELS];         // OPCthreshold[MAX_CHANNELS]
+    ushort  spares[4];
+    ushort  chksum;                             // cksum
+  };
+  typedef struct Response200_blk Response200_blk;
 
   // Data packet back from probe.
   struct DMT200_blk
@@ -78,22 +95,6 @@ public:
 private:
 
   Init200_blk _setup_pkt;
-  /**
-   * Number of channels requested to be recorded.
-   */
-  size_t _nChannels;
-
-  /**
-   * Expected length of return data packet.
-   */
-  size_t _packetLen;
-
-  /**
-   * Total number of floats in the processed output sample.
-   */
-  size_t _noutValues;
-
-  dsm_sample_id_t _sampleId;
 
 };
 

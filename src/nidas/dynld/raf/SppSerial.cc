@@ -23,11 +23,10 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,SppSerial)
 
-const n_u::EndianConverter* SppSerial::toLittle = n_u::EndianConverter::getConverter(
-    n_u::EndianConverter::EC_LITTLE_ENDIAN);
+const n_u::EndianConverter* SppSerial::toLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 
-unsigned short SppSerial::computeCheckSum(unsigned char *pkt, int len)
+unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
 {
     unsigned short local_len;
     unsigned short j, sum;
