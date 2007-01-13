@@ -34,6 +34,11 @@ inline double flipDoubleIn(const void* p)
     return u.v;
 }
 
+inline double flipDouble(const double& p)
+{
+    return flipDoubleIn(&p);
+}
+
 /**
  * Function for reading 4 bytes from an address,
  * flipping the bytes, and returning the float value.
@@ -48,6 +53,11 @@ inline float flipFloatIn(const void* p)
     for (int i = 3; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
+inline float flipFloat(const float& p)
+{
+    return flipFloatIn(&p);
+}
+
 
 /**
  * Function for reading 8 bytes from an address,
@@ -63,6 +73,11 @@ inline long long flipLonglongIn(const void* p)
     for (int i = 7; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
+inline long long flipLonglong(const long long& p)
+{
+    return flipLonglongIn(&p);
+}
+
 
 /**
  * Function for reading 4 bytes from an address,
@@ -78,6 +93,11 @@ inline long flipLongIn(const void* p)
     for (int i = 3; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
+inline long flipLong(const long& p)
+{
+    return flipLongIn(&p);
+}
+
 
 /**
  * Function for reading 4 bytes from an address,
@@ -93,6 +113,11 @@ inline unsigned long flipUlongIn(const void* p)
     for (int i = 3; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
+inline unsigned long flipUlong(const unsigned long& p)
+{
+    return flipUlongIn(&p);
+}
+
 
 /**
  * Function for reading 2 bytes from an address,
@@ -108,6 +133,11 @@ inline short flipShortIn(const void* p)
     u.b[0] = ((const char*)p)[1];
     return u.v;
 }
+inline short flipShort(const short& p)
+{
+    return flipShortIn(&p);
+}
+
 
 /**
  * Function for reading 2 bytes from an address,
@@ -123,6 +153,11 @@ inline unsigned short flipUshortIn(const void* p)
     u.b[0] = ((const char*)p)[1];
     return u.v;
 }
+inline unsigned short flipUshort(const unsigned short& p)
+{
+    return flipUshortIn(&p);
+}
+
 
 /**
  * Function for writing an 8 byte double value to
@@ -277,11 +312,15 @@ public:
      */
     virtual double doubleValue(const void* ) const = 0;
 
+    virtual double doubleValue(const double& ) const = 0;
+
     /**
      * Get 4 byte float at address, do endian conversion.
      * Pointer to address does not need to be 4-byte aligned.
      */
     virtual float floatValue(const void* ) const = 0;
+
+    virtual float floatValue(const float& ) const = 0;
 
     /**
      * Get 4 byte long at address, do endian conversion.
@@ -289,11 +328,15 @@ public:
      */
     virtual long longValue(const void* ) const = 0;
 
+    virtual long longValue(const long& ) const = 0;
+
     /**
      * Get 8 byte long long at address, do endian conversion.
      * Pointer to address does not need to be 8-byte aligned.
      */
     virtual long long longlongValue(const void* ) const = 0;
+
+    virtual long long longlongValue(const long long& ) const = 0;
 
     /**
      * Get 4 byte unsigned long at address, do endian conversion.
@@ -301,9 +344,15 @@ public:
      */
     virtual unsigned long ulongValue(const void* ) const = 0;
 
+    virtual unsigned long ulongValue(const unsigned long& ) const = 0;
+
     virtual short shortValue(const void* ) const = 0;
 
+    virtual short shortValue(const short& ) const = 0;
+
     virtual unsigned short ushortValue(const void* ) const = 0;
+
+    virtual unsigned short ushortValue(const unsigned short& ) const = 0;
 
     /**
      * Copy 8 byte double to the given address, doing endian conversion.
@@ -363,9 +412,19 @@ public:
         return flipDoubleIn(p);
     }
 
+    double doubleValue(const double& p) const
+    {
+        return flipDouble(p);
+    }
+
     float floatValue(const void* p) const
     {
         return flipFloatIn(p);
+    }
+
+    float floatValue(const float& p) const
+    {
+        return flipFloat(p);
     }
 
     long long longlongValue(const void* p) const
@@ -373,9 +432,19 @@ public:
         return flipLonglongIn(p);
     }
 
+    long long longlongValue(const long long& p) const
+    {
+        return flipLonglong(p);
+    }
+
     long longValue(const void* p) const
     {
         return flipLongIn(p);
+    }
+
+    long longValue(const long& p) const
+    {
+        return flipLong(p);
     }
 
     unsigned long ulongValue(const void* p) const
@@ -383,14 +452,29 @@ public:
         return flipUlongIn(p);
     }
 
+    unsigned long ulongValue(const unsigned long& p) const
+    {
+        return flipUlong(p);
+    }
+
     short shortValue(const void* p) const
     {
         return flipShortIn(p);
     }
 
+    short shortValue(const short& p) const
+    {
+        return flipShort(p);
+    }
+
     unsigned short ushortValue(const void* p) const
     {
         return flipUshortIn(p);
+    }
+
+    unsigned short ushortValue(const unsigned short& p) const
+    {
+        return flipUshort(p);
     }
 
     void doubleCopy(const double& v,void* p) const
@@ -443,11 +527,21 @@ public:
         return v;
     }
 
+    double doubleValue(const double& p) const
+    {
+        return p;
+    }
+
     float floatValue(const void* p) const
     {
         float v;
         memcpy(&v,p,sizeof(float));
         return v;
+    }
+
+    float floatValue(const float& p) const
+    {
+        return p;
     }
 
     long long longlongValue(const void* p) const
@@ -457,6 +551,11 @@ public:
         return v;
     }
 
+    long long longlongValue(const long long& p) const
+    {
+        return p;
+    }
+
     long longValue(const void* p) const
     {
         long v;
@@ -464,11 +563,21 @@ public:
         return v;
     }
 
+    long longValue(const long& p) const
+    {
+        return p;
+    }
+
     unsigned long ulongValue(const void* p) const
     {
         unsigned long v;
         memcpy(&v,p,sizeof(long));
         return v;
+    }
+
+    unsigned long ulongValue(const unsigned long& p) const
+    {
+        return p;
     }
 
     short shortValue(const void* p) const
@@ -482,6 +591,11 @@ public:
         return u.v;
     }
 
+    short shortValue(const short& p) const
+    {
+        return p;
+    }
+
     unsigned short ushortValue(const void* p) const
     {
         union {
@@ -491,6 +605,11 @@ public:
         u.b[0] = ((const char*)p)[0];
         u.b[1] = ((const char*)p)[1];
         return u.v;
+    }
+
+    unsigned short ushortValue(const unsigned short& p) const
+    {
+        return p;
     }
 
     void doubleCopy(const double& v,void* p) const
@@ -520,6 +639,8 @@ public:
 
     void shortCopy(const short &v,void* p) const
     {
+        memcpy(p,&v,sizeof(short));
+#ifdef BOZO
         union {
           short v;
           char b[2];
@@ -527,9 +648,12 @@ public:
         u.v = v;
         ((char*)p)[0] = u.b[1];
         ((char*)p)[1] = u.b[0];
+#endif
     }
 
     void ushortCopy(const unsigned short& v,void* p) const {
+        memcpy(p,&v,sizeof(unsigned short));
+#ifdef BOZO
         union {
           unsigned short v;
           char b[2];
@@ -537,6 +661,7 @@ public:
         u.v = v;
         ((char*)p)[0] = u.b[1];
         ((char*)p)[1] = u.b[0];
+#endif
     }
 };
 }}	// namespace nidas namespace util
