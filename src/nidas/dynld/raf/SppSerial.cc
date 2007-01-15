@@ -28,15 +28,14 @@ const n_u::EndianConverter* SppSerial::toLittle = n_u::EndianConverter::getConve
 
 unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
 {
-    unsigned short local_len;
-    unsigned short j, sum;
-
-    // Get the length of the data bytes, minus the length of the checksum field.
-    local_len = len - 2;
-
+    unsigned short sum = 0;
+    // Compute the checksum of a series of chars
     // Sum the byte count and data bytes;
-    for (j = 0, sum = 0; j < local_len; j++) {
+    cerr << "computeChecksum, len=" << len << hex << endl;
+    for (int j = 0; j < len; j++) {
         sum += (unsigned short)pkt[j];
+        cerr << sum << ' ';
     }
+    cerr << endl << dec << "computeChecksum, sum=" << hex << sum << dec << endl;
     return sum;
 }

@@ -29,8 +29,6 @@ NIDAS_CREATOR_FUNCTION_NS(raf,SPP200_Serial)
 
 SPP200_Serial::SPP200_Serial(): SppSerial()
 {
-  // struct is packed to incorrect length for 16 bit probe.  Compensate.
-  _initPacketLen = sizeof(Init200_blk) - 2;
 }
 
 
@@ -100,31 +98,43 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
 void SPP200_Serial::sendInitString() throw(n_u::IOException)
 {
-    memset((void *)&_setup_pkt, 0, sizeof(_setup_pkt));
+    Init200_blk setup_pkt;
 
-    _setup_pkt.esc = 0x1b;
-    _setup_pkt.id = 0x01;
-    _setup_pkt.model = toLittle->ushortValue(200);
-    _setup_pkt.trig_thresh = toLittle->ushortValue(80);
-    _setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
-    _setup_pkt.range = toLittle->ushortValue(_range);
-    _setup_pkt.avTranWe = toLittle->ushortValue(_avgTransitWeight);
-    _setup_pkt.divFlag = toLittle->ushortValue(0x02);
-    _setup_pkt.max_width = toLittle->ushortValue(0xFFFF);
+    memset((void *)&setup_pkt, 0, sizeof(setup_pkt));
+
+    setup_pkt.esc = 0x1b;
+    setup_pkt.id = 0x01;
+    setup_pkt.model = toLittle->ushortValue(200);
+    setup_pkt.trig_thresh = toLittle->ushortValue(80);
+    setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
+    setup_pkt.range = toLittle->ushortValue(_range);
+    setup_pkt.avTranWe = toLittle->ushortValue(_avgTransitWeight);
+    setup_pkt.divFlag = toLittle->ushortValue(0x1);
+    setup_pkt.max_width = toLittle->ushortValue(0xFFFF);
 
     for (int i = 0; i < _nChannels; i++)
-        _setup_pkt.OPCthreshold[i] = toLittle->ushortValue(_opcThreshold[i]);
+        setup_pkt.OPCthreshold[i] = toLittle->ushortValue(_opcThreshold[i]);
 
-    _setup_pkt.chksum = toLittle->ushortValue(
-	computeCheckSum((unsigned char*)&_setup_pkt, _initPacketLen));
+    // struct is padded at end to modulus 4. We want unpadded length.
+    int plen = (char*)(&setup_pkt.chksum + 1) - (char*)&setup_pkt;
+
+    cerr << "sizeof(Init200_blk) =" << sizeof(Init200_blk) <<
+        ", sizeof(setup_pkt)=" << sizeof(setup_pkt) << 
+        ", plen=" << plen << " _nChannels=" << _nChannels << endl;
+
+    // exclude chksum from the computation (but since it is zero
+    // at this point, it doesn't really matter).
+    setup_pkt.chksum = toLittle->ushortValue(
+	computeCheckSum((unsigned char*)&setup_pkt,
+            plen-sizeof(setup_pkt.chksum)));
 
     if (getMessageLength() != sizeof(Response200_blk)) {
         setMessageLength(sizeof(Response200_blk));
         setMessageParameters();
     }
 
-char t[20], *p = (char *)&_setup_pkt;
-for (int k = 0; k < _initPacketLen; ++k)
+char t[20], *p = (char *)&setup_pkt;
+for (int k = 0; k < plen; ++k)
 {
   sprintf(t, "0x%02X ", p[k]);
   cerr << t;
@@ -140,7 +150,7 @@ cerr << endl;
     }
     catch (const n_u::IOTimeoutException& e) {}
 
-    write(&_setup_pkt, _initPacketLen);
+    write(&setup_pkt, plen);
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
     size_t rlen = readBuffer(MSECS_PER_SEC / 2);
@@ -160,30 +170,36 @@ cerr << endl;
         throw n_u::IOException(getName(),"sendInitString",ost.str());
     }
 
-    // Fill this in from _setup_pkt.
+    // Fill this in from setup_pkt.
     Response200_blk expected_return;
-    ::memcpy(&expected_return, &_setup_pkt, 4);
-    toLittle->ushortCopy(0x105, &expected_return.firmware); 
-    PLOG(("expected firmware=") << hex << expected_return.firmware << dec);
-//    expected_return.firmware = 0x105;
-    ::memcpy(((ushort *)&expected_return)+3, ((ushort *)&_setup_pkt)+2, _initPacketLen-4);
+    ::memcpy(&expected_return, &setup_pkt, 4);
+    expected_return.firmware = toLittle->ushortValue(0x105);
+    ::memcpy(&expected_return.trig_thresh, &setup_pkt.trig_thresh, plen-4);
+    // on expected_return, plen excludes the chksum
+    expected_return.chksum = toLittle->ushortValue(
+	computeCheckSum((unsigned char*)&expected_return,plen));
 
     //
     Response200_blk* init_return = (Response200_blk*) samp->getVoidDataPtr();
 
 //char t[20], *p = (char *)init_return;
 p = (char *)init_return;
-for (int k = 0; k < 106; ++k)
+for (int k = 0; k < (signed)samp->getDataByteLength(); ++k)
 {
   sprintf(t, "0x%02X ", p[k]);
   cerr << t;
 }
 cerr << endl;
 
-    if (::memcmp(init_return, &expected_return, sizeof(Response200_blk)) != 0)
+    // 
+    if (::memcmp(init_return, &expected_return, plen) != 0)
     {
         samp->freeReference();
         throw n_u::IOException(getName(), "S200 init return packet","doesn't match");
+    }
+    if (init_return->chksum != expected_return.chksum) {
+        samp->freeReference();
+        throw n_u::IOException(getName(), "S200 init return packet","checksum doesn't match");
     }
     samp->freeReference();
 

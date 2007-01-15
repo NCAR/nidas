@@ -57,6 +57,9 @@ public:
   };
   typedef struct Init200_blk Init200_blk;
 
+  /**
+   * SP200 response adds a firmware field in the middle
+   */
   struct Response200_blk
   {
     char    esc;                                // ESC 0x1b
@@ -94,7 +97,6 @@ public:
 
 private:
 
-  Init200_blk _setup_pkt;
 
 };
 

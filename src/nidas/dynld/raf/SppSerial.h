@@ -52,12 +52,6 @@ protected:
   unsigned short _opcThreshold[MAX_CHANNELS];
 
   /**
-   * sizeof Init_blk.  Unfortunatly the struct is not properly packed, so
-   * maintain our own length here.
-   */
-  int _initPacketLen;
-
-  /**
    * Expected length of return data packet.
    */
   int _packetLen;
