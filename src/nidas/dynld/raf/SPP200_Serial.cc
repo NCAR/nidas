@@ -118,10 +118,6 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
     // struct is padded at end to modulus 4. We want unpadded length.
     int plen = (char*)(&setup_pkt.chksum + 1) - (char*)&setup_pkt;
 
-    cerr << "sizeof(Init200_blk) =" << sizeof(Init200_blk) <<
-        ", sizeof(setup_pkt)=" << sizeof(setup_pkt) << 
-        ", plen=" << plen << " _nChannels=" << _nChannels << endl;
-
     // exclude chksum from the computation (but since it is zero
     // at this point, it doesn't really matter).
     setup_pkt.chksum = toLittle->ushortValue(
@@ -133,13 +129,15 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
         setMessageParameters();
     }
 
-char t[20], *p = (char *)&setup_pkt;
-for (int k = 0; k < plen; ++k)
-{
-  sprintf(t, "0x%02X ", p[k]);
-  cerr << t;
-}
-cerr << endl;
+#ifdef DEBUG
+    char t[20], *p = (char *)&setup_pkt;
+    for (int k = 0; k < plen; ++k)
+    {
+      sprintf(t, "0x%02X ", p[k]);
+      cerr << t;
+    }
+    cerr << endl;
+#endif
 
     // clear whatever junk may be in the buffer til a timeout
     try {
@@ -153,13 +151,12 @@ cerr << endl;
     write(&setup_pkt, plen);
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
-    size_t rlen = readBuffer(MSECS_PER_SEC / 2);
-    PLOG(("readBuffer, rlen=") << rlen);
+    readBuffer(MSECS_PER_SEC / 2);
 
     Sample* samp = nextSample();
     if (!samp) 
-        throw n_u::IOException(getName(), "S200 init return packet","not read");
-    PLOG(("returned sample length=") << samp->getDataByteLength());
+        throw n_u::IOException(getName(),
+            "S200 init return packet","not read");
 
     if (samp->getDataByteLength() != sizeof(Response200_blk)) {
         ostringstream ost;
@@ -170,7 +167,9 @@ cerr << endl;
         throw n_u::IOException(getName(),"sendInitString",ost.str());
     }
 
-    // Fill this in from setup_pkt.
+    // Probe echoes back a structure like the setup packet
+    // but with a firmware field in the middle, and
+    // a new checksum.
     Response200_blk expected_return;
     ::memcpy(&expected_return, &setup_pkt, 4);
     expected_return.firmware = toLittle->ushortValue(0x105);
@@ -179,17 +178,19 @@ cerr << endl;
     expected_return.chksum = toLittle->ushortValue(
 	computeCheckSum((unsigned char*)&expected_return,plen));
 
-    //
+    // pointer to the returned data
     Response200_blk* init_return = (Response200_blk*) samp->getVoidDataPtr();
 
-//char t[20], *p = (char *)init_return;
-p = (char *)init_return;
-for (int k = 0; k < (signed)samp->getDataByteLength(); ++k)
-{
-  sprintf(t, "0x%02X ", p[k]);
-  cerr << t;
-}
-cerr << endl;
+#ifdef DEBUG
+    //char t[20], *p = (char *)init_return;
+    p = (char *)init_return;
+    for (int k = 0; k < (signed)samp->getDataByteLength(); ++k)
+    {
+      sprintf(t, "0x%02X ", p[k]);
+      cerr << t;
+    }
+    cerr << endl;
+#endif
 
     // 
     if (::memcmp(init_return, &expected_return, plen) != 0)
@@ -206,7 +207,6 @@ cerr << endl;
     setMessageLength(_packetLen);
     setMessageParameters();
 }
-
 
 bool SPP200_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()

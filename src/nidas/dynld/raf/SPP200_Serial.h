@@ -55,7 +55,6 @@ public:
     ushort  spares[4];
     ushort  chksum;                             // cksum
   };
-  typedef struct Init200_blk Init200_blk;
 
   /**
    * SP200 response adds a firmware field in the middle
@@ -76,7 +75,6 @@ public:
     ushort  spares[4];
     ushort  chksum;                             // cksum
   };
-  typedef struct Response200_blk Response200_blk;
 
   // Data packet back from probe.
   struct DMT200_blk
@@ -93,7 +91,6 @@ public:
       unsigned long ADCoverflow;
       unsigned long OPCchan[MAX_CHANNELS];	// 40 channels max
   };
-  typedef struct DMT200_blk DMT200_blk;
 
 private:
 

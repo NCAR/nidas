@@ -20,5 +20,5 @@ namespace n_u = nidas::util;
 
 int main(int argc, char** argv)
 {
-  DSMServer::main(argc,argv);
+    return DSMServer::main(argc,argv);
 }
