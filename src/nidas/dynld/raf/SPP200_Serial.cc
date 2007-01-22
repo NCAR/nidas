@@ -66,9 +66,10 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
     _packetLen = sizeof(DMT200_blk);
     _packetLen -= (MAX_CHANNELS - _nChannels) * sizeof(long);
 
-    // I have no explanation, but it's in the ADS2 code also.  cjw.
-    if (_nChannels == 30)
-      _packetLen -= 2;
+    /* According to the manual, packet lens are 74, 114, 154 and 194
+     * for 10, 20, 30 and 40 channels respectively.
+     */
+    _packetLen -= 2;
 
     const set<const SampleTag*> tags = getSampleTags();
     if (tags.size() != 1)
@@ -109,7 +110,7 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
     setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
     setup_pkt.range = toLittle->ushortValue(_range);
     setup_pkt.avTranWe = toLittle->ushortValue(_avgTransitWeight);
-    setup_pkt.divFlag = toLittle->ushortValue(0x1);
+    setup_pkt.divFlag = toLittle->ushortValue(0x2);
     setup_pkt.max_width = toLittle->ushortValue(0xFFFF);
 
     for (int i = 0; i < _nChannels; i++)
@@ -128,16 +129,6 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
         setMessageLength(sizeof(Response200_blk));
         setMessageParameters();
     }
-
-#ifdef DEBUG
-    char t[20], *p = (char *)&setup_pkt;
-    for (int k = 0; k < plen; ++k)
-    {
-      sprintf(t, "0x%02X ", p[k]);
-      cerr << t;
-    }
-    cerr << endl;
-#endif
 
     // clear whatever junk may be in the buffer til a timeout
     try {
@@ -181,17 +172,6 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
     // pointer to the returned data
     Response200_blk* init_return = (Response200_blk*) samp->getVoidDataPtr();
 
-#ifdef DEBUG
-    //char t[20], *p = (char *)init_return;
-    p = (char *)init_return;
-    for (int k = 0; k < (signed)samp->getDataByteLength(); ++k)
-    {
-      sprintf(t, "0x%02X ", p[k]);
-      cerr << t;
-    }
-    cerr << endl;
-#endif
-
     // 
     if (::memcmp(init_return, &expected_return, plen) != 0)
     {
@@ -215,6 +195,11 @@ bool SPP200_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     const DMT200_blk *input = (DMT200_blk *) samp->getConstVoidDataPtr();
 
+    unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
+
+    if (computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
+      cerr << "SPP200::process, bad checksum!\n";
+
     SampleT<float>* outs = getSample<float>(_noutValues);
 
     outs->setTimeTag(samp->getTimeTag());
@@ -226,10 +211,23 @@ bool SPP200_Serial::process(const Sample* samp,list<const Sample*>& results)
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     for (int iout = 0; iout < 8; ++iout)
-      *dout++ = input->cabinChan[iout];
+    {
+      if (iout == 0 || iout == 1 || iout == 2 || iout == 4)
+        *dout++ = (input->cabinChan[iout] - 2048) * 4.882812e-3;
+      else
+      if (iout == 7)
+        *dout++ = (input->cabinChan[iout] - 2328) * 0.9765625;
+      else
+        *dout++ = input->cabinChan[iout];
+    }
 
     for (int iout = 0; iout < _nChannels; ++iout)
-      *dout++ = input->OPCchan[iout];
+    {
+      unsigned long value = input->OPCchan[iout];
+      value = (input->OPCchan[iout] << 16);
+      value |= (input->OPCchan[iout] >> 16);
+      *dout++ = value;
+    }
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.

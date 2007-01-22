@@ -31,6 +31,6 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     unsigned short sum = 0;
     // Compute the checksum of a series of chars
     // Sum the byte count and data bytes;
-    for (int j = 0; j < len; j++) sum += pkt[j];
+    for (int j = 0; j < len; j++) sum += (unsigned short)pkt[j];
     return sum;
 }

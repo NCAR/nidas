@@ -76,12 +76,14 @@ public:
     ushort  chksum;                             // cksum
   };
 
-  // Data packet back from probe.
+  /**
+   * Data packet back from probe.  This is max size with 40 channels.
+   * e.g. if 30 channels are requested, then this packet will be 40 bytes
+   * shorter (10*sizeof(long)).
+   */
   struct DMT200_blk
   {
       unsigned short cabinChan[8];
-      unsigned short range;
-      unsigned short fill;
       unsigned short AvgTransit;
       unsigned short FIFOfull;
       unsigned short resetFlag;
@@ -90,6 +92,7 @@ public:
       unsigned short SyncErrC;
       unsigned long ADCoverflow;
       unsigned long OPCchan[MAX_CHANNELS];	// 40 channels max
+      unsigned short chksum;
   };
 
 private:
