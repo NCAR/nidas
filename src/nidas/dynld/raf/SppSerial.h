@@ -40,6 +40,8 @@ protected:
 
   static const nidas::util::EndianConverter * toLittle;
 
+  unsigned short _model;
+
   /**
    * Number of channels requested to be recorded.
    */
@@ -47,7 +49,13 @@ protected:
 
   unsigned short _range;
 
+  unsigned short _triggerThreshold;
+
   unsigned short _avgTransitWeight;
+
+  unsigned short _divFlag;
+
+  unsigned short _maxWidth;
 
   unsigned short _opcThreshold[MAX_CHANNELS];
 

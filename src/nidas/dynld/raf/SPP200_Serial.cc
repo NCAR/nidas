@@ -27,8 +27,9 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,SPP200_Serial)
 
 
-SPP200_Serial::SPP200_Serial(): SppSerial()
+SPP200_Serial::SPP200_Serial() : SppSerial()
 {
+  _model = 200;
 }
 
 
@@ -48,6 +49,10 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(),
           "RANGE","not found");
     _range = (unsigned short)p->getNumericValue(0);
+
+    _triggerThreshold = 80;
+    _divFlag = 0x02;
+    _maxWidth = 0xFFFF;
 
     p = getParameter("AVG_TRANSIT_WGT");
     if (!p) throw n_u::InvalidParameterException(getName(),
@@ -105,13 +110,13 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
-    setup_pkt.model = toLittle->ushortValue(200);
-    setup_pkt.trig_thresh = toLittle->ushortValue(80);
+    setup_pkt.model = toLittle->ushortValue(_model);
+    setup_pkt.trig_thresh = toLittle->ushortValue(_triggerThreshold);
     setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
     setup_pkt.range = toLittle->ushortValue(_range);
     setup_pkt.avTranWe = toLittle->ushortValue(_avgTransitWeight);
-    setup_pkt.divFlag = toLittle->ushortValue(0x2);
-    setup_pkt.max_width = toLittle->ushortValue(0xFFFF);
+    setup_pkt.divFlag = toLittle->ushortValue(_divFlag);
+    setup_pkt.max_width = toLittle->ushortValue(_maxWidth);
 
     for (int i = 0; i < _nChannels; i++)
         setup_pkt.OPCthreshold[i] = toLittle->ushortValue(_opcThreshold[i]);
