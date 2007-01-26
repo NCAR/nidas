@@ -1,7 +1,11 @@
 # -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import os
+import os,sys
+
+sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
+
+# import kmake
 
 ##
 ##  Create a new construction environment variable and
@@ -18,16 +22,31 @@ opts.AddOptions(
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/share',
                '/opt/nidas'))
 
+# def kerneldir_validator(key,val,env):
+# 	if val != '':
+# 		return PathOption.PathExists(key,val,end)
+# 	return
+
+
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.
 # 
 opts.Update(env)
 opts.AddOptions(
     PathOption('OTHER_X86', 'path to xerces-c and xmlrpc++ for X86:',
-               '$PREFIX'),
+               '$PREFIX/x86'),
     PathOption('OTHER_ARM', 'path to xerces-c and xmlrpc++ for ARM:',
-               '$PREFIX')
+               '$PREFIX/arm')
     )
+
+#     PathOption('KERNELDIR_ARM', 'path to linux kernel source for ARM:',
+#                '',kerneldir_validator),
+#     PathOption('KERNELDIR_X86', 'path to linux kernel source for X86:',
+#                '',kerneldir_validator)
+
+opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:','')
+opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86:','')
+
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
          'x86 arm')
@@ -42,9 +61,37 @@ env['ARCHITECTURES'] = Split(env['BUILDS'])
 
 Help(opts.GenerateHelpText(env) + """
 targets
-(none) build ARM rtlinux driver modules and ARM & X86 library and executables.
+(none) build linux modules or ARM & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
 x86    build library and executable programs for X86.
-arm    build rtlinux driver modules, library and executable programs for ARM.
+arm    build linux and rtlinux driver modules, library and executable programs for ARM.
+lib    build library for X86 and ARM.
+x86_install  build and install X86 library and executables.
+arm_install  build and install ARM modules, library and executables.
+""")
+
+##
+##  TODO - Check out missing files from source control.
+##
+##  scons will, by default, fetch files from SCCS or RCS subdirecto-
+##  ries without explicit configuration.  This takes some extra pro-
+##  cessing time to search for the necessary source code  management
+opts.Add('BUILDS',
+         'Space-separated list of architectures to build and install.',
+         'x86 arm')
+opts.Add(BoolOption('DEBUG', 'Define DEBUG symbol.', 'off'))
+opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
+opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
+opts.Add(BoolOption('PSQL_ENABLE', 'Build PSQL modules when detected.', 'off'))
+opts.Update(env)
+opts.Save('nidas.conf',env)
+
+env['ARCHITECTURES'] = Split(env['BUILDS'])
+
+Help(opts.GenerateHelpText(env) + """
+targets
+(none) build linux modules or ARM & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
+x86    build library and executable programs for X86.
+arm    build linux and rtlinux driver modules, library and executable programs for ARM.
 lib    build library for X86 and ARM.
 x86_install  build and install X86 library and executables.
 arm_install  build and install ARM modules, library and executables.
@@ -88,9 +135,12 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
 if 'arm' in env['ARCHITECTURES']:
     print "Setting up for ARM builds..."
     arm_env = env.Copy(tools = ['armcross'], toolpath=['sconstools'],
-                       ARCH = 'arm',
-                       PREFIX = env['PREFIX'] + '/arm',
-                       OTHER_PREFIX = env['OTHER_ARM'])
+	   ARCH = 'arm',
+	   PREFIX = env['PREFIX'] + '/arm',
+	   OTHER_PREFIX = env['OTHER_ARM'],
+	   KERNELDIR=env['KERNELDIR_ARM'],
+	   KMAKE='make ARCH=arm CROSS_COMPILE=arm-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARM'])
+
     arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
                build_dir='build_arm',
@@ -102,9 +152,13 @@ if 'arm' in env['ARCHITECTURES']:
 ##
 if 'x86' in env['ARCHITECTURES']:
     print "Setting up for x86 builds..."
-    x86_env = env.Copy(ARCH = 'x86',
-                       PREFIX = env['PREFIX'] + '/x86',
-                       OTHER_PREFIX = env['OTHER_X86'])
+    x86_env = env.Copy(tools = ['x86tools'], toolpath=['sconstools'],
+	    ARCH = 'x86',
+	    PREFIX = env['PREFIX'] + '/x86',
+	    OTHER_PREFIX = env['OTHER_X86'],
+	    KERNELDIR=env['KERNELDIR_X86'],
+	    KMAKE='make KERNELDIR=' + env['KERNELDIR_X86'])
+
     x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
     x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
     x86_env.AppendUnique(RPATH = [x86_env.subst('$PREFIX/lib')] )

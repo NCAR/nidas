@@ -1,0 +1,13 @@
+# -*- python -*-
+
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+
+##
+##  Import the build environment.
+##
+Import('env')
+
+emerald=env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
+
+Alias('install',emerald)
+

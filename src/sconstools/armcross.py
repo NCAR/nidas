@@ -4,6 +4,7 @@ Customize an environment to use the GCC ARM cross-compiler tools.
 """
 
 import os
+import kmake
 
 def generate(env):
     """
@@ -22,10 +23,15 @@ def generate(env):
     env.Replace(AR	= 'arm-linux-ar')
     env.Replace(AS	= 'arm-linux-as')
     env.Replace(CC	= 'arm-linux-gcc')
+    env.Replace(LD	= 'arm-linux-ld')
     env.Replace(CXX	= 'arm-linux-g++')
     env.Replace(LINK	= 'arm-linux-g++')
     env.Replace(RANLIB	= 'arm-linux-ranlib')
     env.Replace(LEX	= 'arm-linux-flex')
+
+    k = env.Builder(action=kmake.Kmake)
+    env.Append(BUILDERS = {'Kmake':k})
+
 
 def exists(env):
     return env.Detect(['arm-linux-gcc'])

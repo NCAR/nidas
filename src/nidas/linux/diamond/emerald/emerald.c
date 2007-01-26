@@ -24,9 +24,9 @@
 #ifndef MODULE
 #  define MODULE
 #endif
-                                                                                
-#include <linux/config.h>
-                                                                                
+
+// #include <linux/config.h>
+
 #include <linux/init.h>   /* module_init() */
 #include <linux/module.h>
 
