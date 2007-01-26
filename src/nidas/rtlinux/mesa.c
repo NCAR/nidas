@@ -130,27 +130,24 @@ static void read_260x(void * channel)
   struct MESA_Board * brd = boardInfo;
 
   int send_size = TWO_SIXTY_BINS+8+1+1;
-char outs[1028], t[20]; outs[0]=0;
 
   sample.size = sizeof(short) * send_size;
   sample.sampleID = ID_260X;
   sample.timetag = GET_MSEC_CLOCK;
 
   sample.strobes = inw(brd->addr + STROBES_OFFSET);
+  sample.resets = inw(brd->addr + TWOSIXTY_RESETS_OFFSET);
 
   // read 260X histogram data
   for (i = 0; i < TWO_SIXTY_BINS; ++i)
   {
-    sample.data[i] = inw(brd->addr + TWOSIXTY_READ_OFFSET);
-sprintf(t, "%d ", sample.data[i]);
-strcat(outs, t);
+    sample.data[i] = inw(brd->addr + HISTOGRAM_READ_OFFSET);
   }
-strcat(outs, "\n");
-//DSMLOG_DEBUG("%s", outs);
 
   (void)inw(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 
   // read 260X housekeeping data
+#ifdef HOUSE_260X
   for (i = 0; i < 8; ++i)
   {
     sample.house[i] = inw(brd->addr + HOUSE_READ_OFFSET);
@@ -158,6 +155,7 @@ strcat(outs, "\n");
   }
 
   (void)inw(brd->addr + HOUSE_RESET_OFFSET);
+#endif
 
   // write the data to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)

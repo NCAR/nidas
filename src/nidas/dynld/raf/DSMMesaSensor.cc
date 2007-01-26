@@ -105,12 +105,19 @@ bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     *dptr++ = sp[0];	// Strobes.
+    *dptr++ = sp[1];	// Resets.
 
+#ifdef HOUSE_260X
     for (size_t iout = 0; iout < 8; ++iout)
       *dptr++ = sp[iout+1];
+#endif
 
     for (size_t iout = 0; iout < TWO_SIXTY_BINS; ++iout)
+#ifdef HOUSE_260X
       *dptr++ = sp[iout+8+1];
+#else
+      *dptr++ = sp[iout+1];
+#endif
   }
   else
   {

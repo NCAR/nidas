@@ -80,7 +80,7 @@ typedef unsigned short dsm_sample_id_t;
 #define COUNT0_READ_OFFSET     0x08 // "1000" Pulse counter #0
 #define COUNT1_READ_OFFSET     0x0A // "1010" Pulse counter #1
 #define RADAR_READ_OFFSET      0x0C // "1100" Altitude data
-#define TWOSIXTY_READ_OFFSET   0x0E // "1110" read 260X histogram data
+#define TWOSIXTY_RESETS_OFFSET 0x0E // "1110" 260X Reset line.
 
 // Sample ID's
 #define ID_COUNTERS	1
@@ -115,7 +115,10 @@ typedef struct
   dsm_sample_length_t size;	// number of bytes in data
   dsm_sample_id_t sampleID;	// Sample ID of this data.
   unsigned short strobes;	// Total strobes.
+  unsigned short resets;	// Rejected strobes.
+#ifdef HOUSE_260X
   unsigned short house[8];	// housekeeping
+#endif
   unsigned short data[TWO_SIXTY_BINS];	// the data
 } MESA_TWO_SIXTY_X_SAMPLE;
 
