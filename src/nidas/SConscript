@@ -47,7 +47,7 @@ libdirs=subdirs[1:3]
 
 # No point in building or installing rtlinux except for arm builds.
 if arch == 'arm':
-    subdirs += Split("""rtlinux linux""")
+    subdirs += Split("""rtlinux""")
 
 ##
 ## ARCH target for creating modules, library, and executables

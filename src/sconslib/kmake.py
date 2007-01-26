@@ -19,9 +19,9 @@ def Kmake(env,target,source):
 		    sys.exit(code)
 
 
-	if not env.has_key('KERNELDIR') or env['KERNELDIR'] == '':
-		print "KERNELDIR not specified, " + target[0].abspath + " will not be built"
-		return
+    if not env.has_key('KERNELDIR') or env['KERNELDIR'] == '':
+	    print "KERNELDIR not specified, " + target[0].abspath + " will not be built"
+	    return
 
     # print (["sources="] + [s.path for s in source])
     # print (["targets="] + [s.path for s in target])

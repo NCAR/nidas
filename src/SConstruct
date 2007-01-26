@@ -85,18 +85,6 @@ opts.Add(BoolOption('PSQL_ENABLE', 'Build PSQL modules when detected.', 'off'))
 opts.Update(env)
 opts.Save('nidas.conf',env)
 
-env['ARCHITECTURES'] = Split(env['BUILDS'])
-
-Help(opts.GenerateHelpText(env) + """
-targets
-(none) build linux modules or ARM & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
-x86    build library and executable programs for X86.
-arm    build linux and rtlinux driver modules, library and executable programs for ARM.
-lib    build library for X86 and ARM.
-x86_install  build and install X86 library and executables.
-arm_install  build and install ARM modules, library and executables.
-""")
-
 ##
 ##  TODO - Check out missing files from source control.
 ##
