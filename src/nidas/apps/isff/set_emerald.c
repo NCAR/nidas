@@ -26,7 +26,7 @@
 #include <errno.h>
 
 // #include "emerald.h"
-#include <nidas/linux/diamond/emerald/emerald.h>
+#include <nidas/linux/diamond/emerald.h>
 
 int printConfig(int fd,const char* devname) {
   emerald_config config;

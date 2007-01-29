@@ -6,22 +6,29 @@
 ##  Import the build environment.
 ##
 Import('env')
-arch = env['ARCH']
 
-subdirs=Split("""emerald""")
+# The Makefile must be listed in the source dependencies
+# so that it is copied/linked to the build_dir.
+# The Kmake builder runs the make command in build_dir.
+#
+# Also, the SConscript command that invokes this SConscript
+# file should set duplicate=1, so that all the linux module
+# source files, including the Makefile, are copied to the build_dir.
+# so that make can find them and do its work outside of the
+# source tree.
 
-##
-## ARCH target for creating modules, library, and executables
-##
-env.Alias(arch, ['build_%s' % dir for dir in subdirs ])
+# emerald=env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
+# Alias('install',emerald)
+env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
 
-# Provide an arch-specific install alias.  Basically, install everything
-# that goes under the arch-specific install prefix.
-archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
+if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+    env.Install('$PREFIX/linux','emerald.ko')
 
-for dir in subdirs:
-    SConscript('%s/SConscript' % dir,
-               build_dir='build_%s' % dir,
-               duplicate=1,exports={'env':env})
+# Some kernel module header files define symbols that are needed
+# by user code. These must also be installed in $PREFIX/include
+headers = Split("""
+    emerald.h
+""")
 
-Default([ "build_%s" % dir for dir in subdirs ])
+env.Install('$PREFIX/include/nidas/linux/diamond',headers)
+
