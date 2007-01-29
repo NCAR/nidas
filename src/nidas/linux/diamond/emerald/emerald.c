@@ -40,9 +40,8 @@
 #include <linux/ioport.h>
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
-                                                                                
 #include <asm/system.h>     /* cli(), *_flags */
-                                                                                
+
 // #include <nidas/linux/diamond/emerald/emerald.h>	/* local definitions */
 #include "emerald.h"	/* local definitions */
 

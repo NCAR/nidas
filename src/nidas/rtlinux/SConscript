@@ -4,6 +4,7 @@
 
 import os
 import glob
+import kmake    # get_svnversion
 
 ##
 ##  Import the cross-build environment.
@@ -12,19 +13,6 @@ import glob
 Import('env')
 # Import('build_rtlinux_modules')
 myenv = env.Copy()
-
-def get_svnversion(env):
-    """
-    Return value reported by svnversion on top directory.
-    """
-    svn_path = env.WhereIs('svnversion', os.environ['PATH'])
-    revision = "Unknown"
-
-    if svn_path != None:
-	rev = os.popen('svnversion ' + env.Dir('#.').abspath).readline().strip()
-	if rev != "":
-		    revision = rev
-    return revision
 
 rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
 
@@ -38,7 +26,7 @@ myenv.AppendUnique(CCFLAGS=[Split("""
       -nostdinc
       -isystem /opt/rtldk-2.2/bin/../lib/gcc-lib/arm-linux/3.3.2/include/  
     """),
-    '-DDSM_VERSION=' + get_svnversion(myenv)]
+    '-DDSM_VERSION=' + kmake.get_svnversion(myenv)]
 )
 
 #    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
