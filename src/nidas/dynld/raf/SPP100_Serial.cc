@@ -26,6 +26,9 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,SPP100_Serial)
 
+const size_t SPP100_Serial::FREF_INDX = 4;
+const size_t SPP100_Serial::FTMP_INDX = 7;
+
 
 SPP100_Serial::SPP100_Serial(): SppSerial()
 {
@@ -113,12 +116,14 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
               "must be one <sample> tag for this sensor");
 
     _noutValues = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); ) {
+    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
+    {
         const SampleTag* stag = ti.next();
         _sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); ) {
+        for ( ; vi.hasNext(); )
+        {
             const Variable* var = vi.next();
             _noutValues += var->getLength();
         }
@@ -250,16 +255,12 @@ bool SPP100_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    for (int iout = 0; iout < 12; ++iout)
-    {
-      if (iout == 0 || iout == 1 || iout == 2 || iout == 4)
-        *dout++ = (input->cabinChan[iout] - 2048) * 4.882812e-3;
-      else
-      if (iout == 7)
-        *dout++ = (input->cabinChan[iout] - 2328) * 0.9765625;
-      else
-        *dout++ = input->cabinChan[iout];
-    }
+    *dout++ = (input->cabinChan[FREF_INDX] - 2048) * 4.882812e-3;
+    *dout++ = (input->cabinChan[FTMP_INDX] - 2328) * 0.9765625;
+    *dout++ = _range;
+    *dout++ = input->rejDOF;
+    *dout++ = input->rejAvgTrans;
+    *dout++ = input->ADCoverflow;
 
     for (int iout = 0; iout < _nChannels; ++iout)
     {

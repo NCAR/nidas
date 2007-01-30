@@ -26,7 +26,7 @@ class SppSerial : public DSMSerialSensor
 {
 public:
 
-  SppSerial() : DSMSerialSensor() {}
+  SppSerial() : DSMSerialSensor() { _range = 0; }
 
   unsigned short computeCheckSum(const unsigned char *pkt, int len);
 

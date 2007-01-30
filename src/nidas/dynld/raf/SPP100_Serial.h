@@ -102,6 +102,8 @@ public:
 
 protected:
 
+  static const size_t FREF_INDX, FTMP_INDX;
+
   unsigned short _transitReject;
   unsigned short _dofReject;
   unsigned short _attAccept;
