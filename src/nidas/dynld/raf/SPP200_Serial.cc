@@ -1,6 +1,8 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+    $Revision$
+
     $LastChangedDate$
 
     $LastChangedRevision$
@@ -25,6 +27,14 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,SPP200_Serial)
+
+const size_t SPP200_Serial::PHGB_INDX = 0;
+const size_t SPP200_Serial::PMGB_INDX = 1;
+const size_t SPP200_Serial::PLGB_INDX = 2;
+const size_t SPP200_Serial::PFLW_INDX = 3;
+const size_t SPP200_Serial::PREF_INDX = 4;
+const size_t SPP200_Serial::PFLWS_INDX = 6;
+const size_t SPP200_Serial::PTMP_INDX = 7;
 
 
 SPP200_Serial::SPP200_Serial() : SppSerial()
@@ -203,7 +213,7 @@ bool SPP200_Serial::process(const Sample* samp,list<const Sample*>& results)
     unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
 
     if (computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
-      cerr << "SPP200::process, bad checksum!\n";
+        cerr << "SPP200::process, bad checksum!\n";
 
     SampleT<float>* outs = getSample<float>(_noutValues);
 
@@ -215,23 +225,21 @@ bool SPP200_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    for (int iout = 0; iout < 8; ++iout)
-    {
-      if (iout == 0 || iout == 1 || iout == 2 || iout == 4)
-        *dout++ = (input->cabinChan[iout] - 2048) * 4.882812e-3;
-      else
-      if (iout == 7)
-        *dout++ = (input->cabinChan[iout] - 2328) * 0.9765625;
-      else
-        *dout++ = input->cabinChan[iout];
-    }
+    *dout++ = (input->cabinChan[PHGB_INDX] - 2048) * 4.882812e-3;
+    *dout++ = (input->cabinChan[PMGB_INDX] - 2048) * 4.882812e-3;
+    *dout++ = (input->cabinChan[PLGB_INDX] - 2048) * 4.882812e-3;
+    *dout++ = _flowAverager.average(input->cabinChan[PFLW_INDX]);
+    *dout++ = (input->cabinChan[PREF_INDX] - 2048) * 4.882812e-3;
+    *dout++ = _flowsAverager.average(input->cabinChan[PFLWS_INDX]);
+    *dout++ = (input->cabinChan[PTMP_INDX] - 2328) * 0.9765625;
+
 
     for (int iout = 0; iout < _nChannels; ++iout)
     {
-      unsigned long value = input->OPCchan[iout];
-      value = (input->OPCchan[iout] << 16);
-      value |= (input->OPCchan[iout] >> 16);
-      *dout++ = value;
+        unsigned long value = input->OPCchan[iout];
+        value = (input->OPCchan[iout] << 16);
+        value |= (input->OPCchan[iout] >> 16);
+        *dout++ = value;
     }
 
     // If this fails then the correct pre-checks weren't done

@@ -1,6 +1,8 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+    $Revision$
+
     $LastChangedDate$
 
     $LastChangedRevision$
@@ -11,10 +13,11 @@
 
 */
 
-#ifndef NIDIS_DYNLD_RAF_SPP200_SERIAL_H
-#define NIDIS_DYNLD_RAF_SPP200_SERIAL_H
+#ifndef NIDAS_DYNLD_RAF_SPP200_SERIAL_H
+#define NIDAS_DYNLD_RAF_SPP200_SERIAL_H
 
 #include <nidas/dynld/raf/SppSerial.h>
+#include <nidas/util/RunningAverage.h>
 
 #include <iostream>
 
@@ -95,8 +98,13 @@ public:
       unsigned short chksum;
   };
 
-private:
+protected:
 
+  static const size_t PHGB_INDX, PMGB_INDX, PLGB_INDX, PFLW_INDX, PREF_INDX,
+	PFLWS_INDX, PTMP_INDX;
+
+  nidas::util::RunningAverage<unsigned short, 44> _flowAverager;
+  nidas::util::RunningAverage<unsigned short, 44> _flowsAverager;
 
 };
 
