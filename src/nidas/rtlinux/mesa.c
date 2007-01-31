@@ -9,8 +9,7 @@
 
    Implementation notes:
 
-   Revisions:
-
+                $Revision$
      $LastChangedRevision$
          $LastChangedDate$
            $LastChangedBy$
