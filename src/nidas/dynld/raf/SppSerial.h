@@ -1,6 +1,8 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+    $Revision$
+
     $LastChangedDate$
 
     $LastChangedRevision$
@@ -11,8 +13,8 @@
 
 */
 
-#ifndef NIDIS_DYNLD_RAF_SPPSERIAL_H
-#define NIDIS_DYNLD_RAF_SPPSERIAL_H
+#ifndef NIDAS_DYNLD_RAF_SPPSERIAL_H
+#define NIDAS_DYNLD_RAF_SPPSERIAL_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/util/EndianConverter.h>
