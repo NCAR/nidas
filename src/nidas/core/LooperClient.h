@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-02-11 17:55:33 -0700 (Sat, 11 Feb 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3284 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/SampleClient.h $
+    $HeadURL$
  ********************************************************************
 
 */

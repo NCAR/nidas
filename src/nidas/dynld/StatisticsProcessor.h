@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-08-26 11:40:13 -0600 (Fri, 26 Aug 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 2733 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/StatisticsProcessor.h $
+    $HeadURL$
  ********************************************************************
 */
 

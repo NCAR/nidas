@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-06-10 14:01:31 -0600 (Fri, 10 Jun 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 2287 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:8080/svn/hiaper/ads3/dsm/src/file_dump.cc $
+    $HeadURL$
  ********************************************************************
 
 */

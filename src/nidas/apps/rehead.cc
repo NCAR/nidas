@@ -12,8 +12,8 @@
 //    project name: TREX
 //    site name: GV
 //    observation period name: rf02
-//    xml name: $HeadURL: http://localhost:8080/svn/hiaper/ads3/xml/ads3.xml $
-//    xml version: $LastChangedRevision: 2514 $
+//    xml name: $HeadURL$
+//    xml version: $LastChangedRevision$
 //    end header
 //
 //  to this:
@@ -25,7 +25,7 @@
 //    system name: GV_N677F
 //    config name: $PROJ_DIR/TREX/GV_N677F/nidas/rf01.xml
 //  
-//    config version: $LastChangedRevision: 3233 $
+//    config version: $LastChangedRevision$
 //    end header
 //    
 #define _LARGEFILE64_SOURCE

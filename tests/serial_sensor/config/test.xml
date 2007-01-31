@@ -9,7 +9,7 @@
     name="test"
     system="ISFF"
     config="./config/test.xml"
-    version="$LastChangedRevision: 3233 $">
+    version="$LastChangedRevision$">
 
     <site name="test" class="isff.GroundStation" suffix=".test">
 	<dsm rserialPort="30002" name="test" id="1">

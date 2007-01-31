@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-12-05 19:38:10 -0700 (Mon, 05 Dec 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3187 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/DSMSensor.h $
+    $HeadURL$
  ********************************************************************
 
 */

@@ -3,13 +3,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-02-21 08:27:41 -0700 (Tue, 21 Feb 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3296 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/Site.cc $
+    $HeadURL$
  ********************************************************************
 
 */

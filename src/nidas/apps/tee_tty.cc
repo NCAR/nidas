@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-07-04 09:51:31 -0600 (Tue, 04 Jul 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3424 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:8080/svn/nids/branches/nidas_reorg/src/nidas/apps/sensor_sim.cc $
+    $HeadURL$
 
     Simple program to "tee" I/O from a serial port to one
     or more pseudo-terminals.

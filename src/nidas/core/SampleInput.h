@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-05-22 14:51:10 -0600 (Mon, 22 May 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3363 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/nidas_reorg/src/nidas/dynld/SampleInput.h $
+    $HeadURL$
  ********************************************************************
 */
 

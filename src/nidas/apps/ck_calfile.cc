@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-05-23 11:30:55 -0700 (Tue, 23 May 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3364 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/nidas_reorg/src/nidas/apps/ck_config.cc $
+    $HeadURL$
  ********************************************************************
 */
 

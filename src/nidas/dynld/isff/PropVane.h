@@ -1,13 +1,13 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-09-10 07:54:23 -0600 (Sat, 10 Sep 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 2879 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/PropVane.h $
+    $HeadURL$
 
 */
 

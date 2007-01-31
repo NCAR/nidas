@@ -1,13 +1,13 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-07-24 07:51:51 -0600 (Mon, 24 Jul 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3446 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/raf/SppSerial.h $
+    $HeadURL$
 
 */
 

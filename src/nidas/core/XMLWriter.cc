@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-12-13 15:22:53 -0700 (Wed, 13 Dec 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3589 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/XMLConfigWriter.cc $
+    $HeadURL$
  ********************************************************************
 
 */

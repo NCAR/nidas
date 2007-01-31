@@ -2,13 +2,13 @@
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-11-19 21:42:40 -0700 (Sat, 19 Nov 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3128 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/CharacterSensor.h $
+    $HeadURL$
 
  ******************************************************************
 */

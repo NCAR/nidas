@@ -18,7 +18,7 @@
     name="devel"
     system="ISFF"
     config="sim.xml"
-    version="$LastChangedRevision: 3233 $"
+    version="$LastChangedRevision$"
     >
 
 <sensorcatalog>

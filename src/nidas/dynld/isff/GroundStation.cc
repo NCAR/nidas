@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-10-25 12:22:19 -0600 (Tue, 25 Oct 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3073 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/Aircraft.cc $
+    $HeadURL$
  ********************************************************************
 
 */

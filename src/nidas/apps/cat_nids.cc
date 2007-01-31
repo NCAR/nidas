@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-10-11 07:45:00 -0600 (Tue, 11 Oct 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3051 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/src/data_stats.cc $
+    $HeadURL$
  ********************************************************************
 
 */

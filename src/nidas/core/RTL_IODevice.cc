@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-01-19 16:57:44 -0700 (Thu, 19 Jan 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3235 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/RTL_IODevice.cc $
+    $HeadURL$
  ********************************************************************
 
 */

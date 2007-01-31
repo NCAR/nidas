@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-12-03 15:02:26 -0700 (Sat, 03 Dec 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3176 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/FsMount.cc $
+    $HeadURL$
  ********************************************************************
 
 */

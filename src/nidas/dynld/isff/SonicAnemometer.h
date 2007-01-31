@@ -1,13 +1,13 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-09-10 07:54:23 -0600 (Sat, 10 Sep 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 2879 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/CSAT3_Sonic.h $
+    $HeadURL$
 
 */
 
@@ -110,8 +110,8 @@ private:
  * lean = atan(sqrt(b2*b2 + b3*b3))
  * leanaz = atan2(-b3,-b2)
  *
- * @version $Revision: 1.8 $
- * @author  $Author: maclean $
+ * @version $Revision$
+ * @author  $Author$
  */
 class WindTilter {
 public:

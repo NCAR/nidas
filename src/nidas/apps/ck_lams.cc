@@ -10,9 +10,9 @@
    Revisions:
 
      $LastChangedRevision$
-         $LastChangedDate: 2006-07-10 15:46:04 -0600 (Mon, 10 Jul 2006) $
+         $LastChangedDate$
            $LastChangedBy$
-                 $HeadURL: http://svn/svn/nids/trunk/src/nidas/apps/ck_lams.cc $
+                 $HeadURL$
 */
 
 // Linux include files.

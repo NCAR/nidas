@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-01-20 09:58:25 -0700 (Fri, 20 Jan 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3245 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/SocketIODevice.cc $
+    $HeadURL$
  ********************************************************************
 
 */

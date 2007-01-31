@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-12-02 12:24:18 -0700 (Fri, 02 Dec 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3171 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:8080/svn/nids/trunk/dsm/class/PortSelector.cc $
+    $HeadURL$
  ********************************************************************
 
 */

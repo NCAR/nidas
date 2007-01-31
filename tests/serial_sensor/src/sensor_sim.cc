@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-11-01 14:44:31 -0700 (Wed, 01 Nov 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3546 $
+    $LastChangedRevision$
 
-    $LastChangedBy: granger $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/apps/sensor_sim.cc $
+    $HeadURL$
  ********************************************************************
 
 */

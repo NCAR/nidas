@@ -1,10 +1,10 @@
 /*              Copyright 2004 (C) by UCAR
  *
  * File       : $RCSfile: Logger.cpp,v $
- * Revision   : $Revision: 1.5 $
+ * Revision   : $Revision$
  * Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/Logger.cpp,v $
  * System     : PAM
- * Date       : $Date: 2005/01/18 00:13:52 $
+ * Date       : $Date$
  *
  * Description:
  *

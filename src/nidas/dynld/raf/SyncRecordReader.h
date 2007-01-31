@@ -3,13 +3,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-06-01 15:27:18 -0600 (Wed, 01 Jun 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 2169 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:8080/svn/hiaper/ads3/dsm/class/SyncRecordProcessor.h $
+    $HeadURL$
  ********************************************************************
 
 */

@@ -1,11 +1,11 @@
 /*              Copyright (C) 1989,90,91,92,93,94 by UCAR
  *
  * File       : $RCSfile: UTime.h,v $
- * Revision   : $Revision: 1.2 $
+ * Revision   : $Revision$
  * Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/UTime.h,v $
  * System     : ASTER
  * Author     : Gordon Maclean
- * Date       : $Date: 2006/03/28 05:51:41 $
+ * Date       : $Date$
  *
  * Description: class providing support for Unix process management:
  *      pid lock files, exec (eventually), etc.

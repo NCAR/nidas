@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-06-11 12:37:27 -0600 (Sun, 11 Jun 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3390 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/nidas_reorg/src/nidas/core/Project.h $
+    $HeadURL$
  ********************************************************************
 
 */

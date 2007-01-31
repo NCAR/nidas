@@ -3,13 +3,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-12-02 10:42:20 -0700 (Fri, 02 Dec 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3166 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/SensorHandler.h $
+    $HeadURL$
  ********************************************************************
 
 */

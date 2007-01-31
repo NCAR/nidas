@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-05-22 12:05:21 -0700 (Mon, 22 May 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3362 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/nidas_reorg/src/nidas/core/DSMCatalog.h $
+    $HeadURL$
  ********************************************************************
 
 */

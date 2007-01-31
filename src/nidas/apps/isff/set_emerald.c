@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-09-11 17:25:15 -0600 (Mon, 11 Sep 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3478 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/apps/isff/set_emerald.cc $
+    $HeadURL$
 
     App to query and set options on a Diamond emerald serial IO card.
     Interacts via ioctls with the emerald kernel module.

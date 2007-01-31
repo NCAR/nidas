@@ -1,10 +1,10 @@
 //              Copyright (C) by UCAR
 //
 // File       : $RCSfile: UTime.cpp,v $
-// Revision   : $Revision: 1.2 $
+// Revision   : $Revision$
 // Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/UTime.cpp,v $
 // System     : PAM
-// Date       : $Date: 2006/03/03 20:44:08 $
+// Date       : $Date$
 //
 // Description:
 //

@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2005-10-28 14:50:09 -0600 (Fri, 28 Oct 2005) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3093 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/dsm/class/Socket.h $
+    $HeadURL$
  ********************************************************************
 
 */

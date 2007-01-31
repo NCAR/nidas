@@ -1,13 +1,13 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-02-03 14:24:50 -0700 (Fri, 03 Feb 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3262 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/branches/ISFF_TREX/dsm/class/SonicAnemometer.cc $
+    $HeadURL$
 
 */
 

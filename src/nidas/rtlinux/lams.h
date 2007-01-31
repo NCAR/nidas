@@ -9,9 +9,9 @@
    Revisions:
 
      $LastChangedRevision$
-         $LastChangedDate: $
+         $LastChangedDate$
            $LastChangedBy$
-                 $HeadURL: $
+                 $HeadURL$
 */
 
 #ifndef LAMS_DRIVER_H

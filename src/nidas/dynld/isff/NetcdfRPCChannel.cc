@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-03-03 12:46:08 -0700 (Fri, 03 Mar 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3299 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://localhost:5080/svn/nids/branches/ISFF_TREX/dsm/class/NetcdfRPCChannel.cc $
+    $HeadURL$
  ********************************************************************
 
 */

@@ -3,13 +3,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2006-09-11 14:02:10 -0600 (Mon, 11 Sep 2006) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3477 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/Process.cc $
+    $HeadURL$
  ********************************************************************
 */
 
