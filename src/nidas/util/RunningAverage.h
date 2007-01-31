@@ -50,7 +50,7 @@ private:
   T _values[i];
   unsigned int _size;
 
-  long _sum;
+  double _sum;
 
   unsigned int _nValues;
   unsigned int _index;
