@@ -62,7 +62,7 @@ public:
 	        ::memcpy(bp,&val,4);
 		bp += 4;
 	    }
-	    int l = socket->send(bufout,bp-bufout);
+	    socket->send(bufout,bp-bufout);
 	    nanosleep(&sleepspec,0);
 	}
 	return RUN_OK;

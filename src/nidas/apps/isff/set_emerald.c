@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
   if (getbaseaddr) {
       unsigned long addr;
       int n = getISABaseAddr(fd,devname,&addr);
-      fprintf(stdout,"%#x\n",addr);
+      fprintf(stdout,"%#lx\n",addr);
       return n != 0;	// 0=OK if getISABaseAddr returns 0, else 1
   }
 

@@ -533,13 +533,13 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
-		gainMul = param->getNumericValue(0);
+		gainMul = (int)param->getNumericValue(0);
 	    }
 	    else if (pname == "gainDiv") {
 		if (param->getLength() != 1)
 		    throw n_u::InvalidParameterException(getName(),
 		    	pname,"no value");
-		gainDiv = param->getNumericValue(0);
+		gainDiv = (int)param->getNumericValue(0);
 	    }
 	    else if (pname == "bipolar") {
 		if (param->getLength() != 1)
