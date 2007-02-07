@@ -215,10 +215,10 @@ void MessageSampleScanner::setMessageSeparator(const std::string& val)
     if (log.active())
     {
       n_u::LogMessage msg;
-      msg << "separator=" << hex;
+      msg << "separator=" << std::ostringstream::hex;
       for (int i = 0; i < separatorLen; i++)
         msg << (int)(unsigned char)separator[i] << ' ';
-      msg << dec << "getMessageLength=" << getMessageLength();
+      msg << std::ostringstream::dec << "getMessageLength=" << getMessageLength();
       log.log (msg);
     }
 }
