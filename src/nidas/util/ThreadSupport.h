@@ -196,7 +196,7 @@ public:
    *   2. It blocks until the condition variable is signalled
    *   3. It locks the mutex again
    */
-  inline void Cond::wait()
+  inline void wait()
   {
     ::pthread_cond_wait (&p_cond, mutex.ptr());	// never returns error
   }
