@@ -47,12 +47,32 @@ public:
   /**
    * Lock the Mutex.
    */
-  void lock();
+  inline void lock() 
+  {
+      /*
+       * pthread_mutex_lock only returns EINVAL if mutex has not
+       * been properly initialized, or EDEADLK for "error checking" mutexes
+       * This is a fast mutex, so it won't see EDEADLK.
+       * Since the mutex must have been initialized in the constructor,
+       * we'll ignore error values, and not throw an exception.
+       */
+      ::pthread_mutex_lock(&p_mutex);
+  }
 
   /**
    * Unlock the Mutex.
    */
-  void unlock();
+  inline void unlock()
+  {
+    /*
+     * pthread_mutex_unlock only returns EINVAL if mutex has not
+     * been properly initialized, or EPERM for "error checking" mutexes.
+     * This is a fast mutex, so it won't see EPERM.
+     * Since the mutex must have been initialized in the constructor,
+     * we'll ignore error values, and not throw an exception.
+     */
+    ::pthread_mutex_unlock(&p_mutex);
+  }
 
   /**
    * Get the pointer to the pthread_mutex_t.
@@ -134,31 +154,52 @@ public:
    * xyCond.unlock();
    * @endcode
    */
-  void lock() { mutex.lock(); }
+  inline void lock()
+  {
+    mutex.lock();
+  }
 
   /**
    * Unlock the mutex associated with the condition variable.
    * @see lock() for an example.
    */
-  void unlock() { mutex.unlock(); }
+  inline void unlock()
+  {
+    mutex.unlock();
+  }
 
   /**
-   * Restart one thread waiting on the condition variable.
-   * @see lock() for an example.
+   * Unblock at least one thread waiting on the condition variable.
+   * @see lock() for an example.  According to the man page, it is
+   * not safe to call Cond::signal() from an asynchronous signal
+   * handler.
    */
-  void signal();
-
-  /**
-   * Wait on the condition variable.
-   * @see lock() for an example.
-   */
-  void wait();
+  inline void signal();
+  {
+    ::pthread_cond_signal (&p_cond);	// never returns error code
+  }
 
   /**
    * Restart all threads waiting on the condition variable.
    * @see lock().
    */
-  void broadcast();
+  inline void broadcast()
+  {
+    ::pthread_cond_broadcast (&p_cond);	// never returns error code
+  }
+
+  /**
+   * Wait on the condition variable.
+   * @see lock() for an example.
+   * The cond_wait() call does several things:
+   *   1. It immediately unlocks the mutex 
+   *   2. It blocks until the condition variable is signalled
+   *   3. It locks the mutex again
+   */
+  inline void Cond::wait()
+  {
+    ::pthread_cond_wait (&p_cond, mutex.ptr());	// never returns error
+  }
 
 private:
   /**

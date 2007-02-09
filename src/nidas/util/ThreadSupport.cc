@@ -46,42 +46,6 @@ Mutex::~Mutex() throw(Exception) {
     throw Exception(string("~") + getName() + ": " + Exception::errnoToString(errno));
 }
 
-
-void
-Mutex::lock()
-{
-  // Have to be careful with logging here, since the log appender may call
-  // Thread::currentThread() or Thread::currentName(), and so we can't call
-  // them here or we risk a recursive lock and consequent deadlock.  For
-  // that matter, I can't get logging to work here at all at present without
-  // a core dump, so leave it out.
-
-  /*
-   * pthread_mutex_lock only returns EINVAL if mutex has not
-   * been properly initialized, or EDEADLK for "error checking" mutexes
-   * This is a fast mutex, so it won't see EDEADLK.
-   * Since the mutex must have been initialized in the constructor,
-   * we'll ignore error values, and not throw an exception.
-   */
-  ::pthread_mutex_lock(&p_mutex);
-}
-
-void
-Mutex::unlock()
-{
-  // See the note about logging in lock() above.
-
-  /*
-   * pthread_mutex_unlock only returns EINVAL if mutex has not
-   * been properly initialized, or EPERM for "error checking" mutexes.
-   * This is a fast mutex, so it won't see EPERM.
-   * Since the mutex must have been initialized in the constructor,
-   * we'll ignore error values, and not throw an exception.
-   */
-  ::pthread_mutex_unlock(&p_mutex);
-}
-
-
 pthread_mutex_t*
 Mutex::ptr() {
    return &p_mutex;
@@ -122,31 +86,6 @@ Cond::~Cond() throw(Exception)
     throw Exception(string("~") + mutex.getName() + ": " + Exception::errnoToString(errno));
 }
 
-
-void
-Cond::signal() {
-  ::pthread_cond_signal (&p_cond);	// never returns error code
-}
-
-
-void
-Cond::broadcast() {
-  ::pthread_cond_broadcast (&p_cond);	// never returns error code
-}
-
-void Cond::wait()
-{
-//
-// A condition variable is sort of obscure in the way that it works!
-// A little explanation helps:
-// The cond_wait() call does several things:
-//   1. It immediately unlocks the mutex 
-//   2. It blocks until the condition variable is signalled
-//   3. It locks the mutex again
-//
-  // Thread *thread = Thread::currentThread ();
-  ::pthread_cond_wait (&p_cond, mutex.ptr());	// never returns error
-}
 
 Multisync::Multisync(int n):
  _co("Multisync"), _n(n), _count(0), debug(0) {
