@@ -174,7 +174,7 @@ public:
    * not safe to call Cond::signal() from an asynchronous signal
    * handler.
    */
-  inline void signal();
+  inline void signal()
   {
     ::pthread_cond_signal (&p_cond);	// never returns error code
   }
