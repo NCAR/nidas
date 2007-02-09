@@ -25,7 +25,8 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 
 CS_Krypton::CS_Krypton(): calFile(0),calTime(0)
 {
-    // readonable defaults
+    setUnits("g/m^3");
+    // reasonable defaults
     setPathLength(1.3);
     setKw(-0.150);
     setV0(5000);
