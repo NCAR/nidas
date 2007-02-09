@@ -532,7 +532,7 @@ void SortedSampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (!aname.compare("sorterLength")) {
+	    if (aname == "sorterLength") {
 	        istringstream ist(aval);
 		int len;
 		ist >> len;

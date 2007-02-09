@@ -15,8 +15,10 @@
 
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/DSMTime.h>
+#include <nidas/core/Looper.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <vector>
 
@@ -59,6 +61,7 @@ SampleSorter::~SampleSorter()
     SortedSampleSet tmpset = samples;
     samples.clear();
     sampleSetCond.unlock();
+    // Looper::getInstance()->removeClient(this);
 
 #ifdef DEBUG
     cerr << "freeing reference on samples" << endl;
@@ -88,13 +91,17 @@ void SampleSorter::addSampleTag(const SampleTag* tag,SampleClient* client)
 /**
  * Thread function.
  */
-int SampleSorter::run() throw(n_u::Exception) {
+int SampleSorter::run() throw(n_u::Exception)
+{
+
+    // Looper::getInstance()->addClient(this,sorterLengthUsec/2/USECS_PER_MSEC);
 
     n_u::Logger::getInstance()->log(LOG_NOTICE,
 	"%s: sorterLengthUsec=%d\n",
 	getName().c_str(),sorterLengthUsec);
 
     sampleSetCond.lock();
+    dsm_time_t tlast;
     for (;;) {
 
 	if (amInterrupted()) break;
@@ -139,8 +146,9 @@ int SampleSorter::run() throw(n_u::Exception) {
 	std::vector<const Sample*> agedsamples(rsb,rsi);
 
 #ifdef DEBUG
-	cerr << getFullName() << " agedsamples.size=" <<
-		agedsamples.size() << endl;
+	n_u::UTime now;
+	cerr << getFullName() << now.format(true,"%H:%M:%S.%6f") <<
+		" agedsamples.size=" << agedsamples.size() << endl;
 #endif
 
 	// remove samples from sorted multiset
@@ -155,6 +163,13 @@ int SampleSorter::run() throw(n_u::Exception) {
 	for (si = agedsamples.begin(); si < agedsamples.end(); ++si) {
 	    const Sample *s = *si;
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
+
+	    dsm_time_t tsamp = s->getTimeTag();
+	    if (tsamp < tlast) {
+		cerr << "tsamp=" << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+		    " tlast=" << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f") << endl;
+	    }
+	    tlast = tsamp;
 
 	    clientMapLock.lock();
 	    map<dsm_sample_id_t,SampleClientList>::const_iterator ci =
@@ -180,6 +195,7 @@ int SampleSorter::run() throw(n_u::Exception) {
 	}
     }
     sampleSetCond.unlock();
+    // Looper::getInstance()->removeClient(this);
     return RUN_OK;
 }
 
@@ -194,7 +210,7 @@ void SampleSorter::interrupt() {
     //	* hasn't started looping,
     // since those are the only times sampleSetCond is unlocked.
 
-    // If we only did a signal without locking, it
+    // If we only did a signal without locking,
     // the interrupt could be missed.
 
     Thread::interrupt();
@@ -285,13 +301,25 @@ bool SampleSorter::receive(const Sample *s) throw()
     }
     heapCond.unlock();
 
+    s->holdReference();
     sampleSetCond.lock();
     samples.insert(samples.end(),s);
     sampleSetCond.unlock();
-    s->holdReference();
 
+#ifndef USE_LOOPER
     sampleSetCond.signal();
+#endif
 
     return true;
 }
 
+#ifdef USE_LOOPER
+void SampleSorter::looperNotify() throw()
+{
+#ifdef DEBUG
+    n_u::UTime now;
+    cerr << "looperNotify: " << now.format(true,"%H:%M:%S.%6f") << endl;
+#endif
+    sampleSetCond.signal();
+}
+#endif

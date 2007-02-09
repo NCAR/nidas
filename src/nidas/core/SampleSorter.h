@@ -21,6 +21,10 @@
 #include <nidas/core/SortedSampleSet.h>
 #include <nidas/core/DSMTime.h>
 
+#ifdef USE_LOOPER
+#include <nidas/core/LooperClient.h>
+#endif
+
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
 
@@ -41,7 +45,12 @@ namespace nidas { namespace core {
  * processed samples are sorted in time.
  */
 class SampleSorter : public nidas::util::Thread,
-	public SampleClient, public SampleSource {
+	public SampleClient, public SampleSource
+
+#ifdef USE_LOOPER
+	, public LooperClient
+#endif
+{
 public:
 
     /**
@@ -116,6 +125,10 @@ public:
      */
     void addSampleTag(const SampleTag* tag,SampleClient*)
     	throw(nidas::util::InvalidParameterException);
+
+#ifdef USE_LOOPER
+    void looperNotify() throw();
+#endif
 
 protected:
 
