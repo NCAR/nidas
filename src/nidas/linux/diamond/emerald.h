@@ -89,7 +89,6 @@ typedef struct emerald_port {
     int portNum;
 } emerald_port;
 
-extern struct file_operations emerald_fops;
 
 #ifdef NEEDED
 // extern int emerald_major;	/* main.c */

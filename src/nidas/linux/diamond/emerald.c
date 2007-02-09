@@ -29,6 +29,7 @@
 
 #include <linux/init.h>   /* module_init() */
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 
 #include <linux/kernel.h>   /* printk() */
 #include <linux/slab.h>   /* kmalloc() */
@@ -60,8 +61,8 @@ static emerald_board* emerald_boards = 0;
 static emerald_port* emerald_ports = 0;
 static int emerald_nports = 0;
 
-MODULE_PARM(emerald_major,"i");
-MODULE_PARM(ioports,"1-4l");	/* io port virtual address */
+module_param(emerald_major,int,S_IRUGO);
+module_param_array(ioports,ulong,&emerald_nr_addrs,S_IRUGO);	/* io port virtual address */
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module to initialize emerald serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -270,7 +271,7 @@ static void emerald_set_digio_out(emerald_board* brd,int val)
     brd->digioout = val;
 }
 
-static int emerald_set_digio_port_out(emerald_board* brd,int port,int val)
+static void emerald_set_digio_port_out(emerald_board* brd,int port,int val)
 {
     if (val) brd->digioout |= 1 << port;
     else brd->digioout &= ~(1 << port);
@@ -372,93 +373,6 @@ static void __exit emerald_cleanup_module(void)
         kfree(emerald_boards);
     }
 
-}
-
-static int __init emerald_init_module(void)
-{
-    int result, i;
-
-    /*
-     * Register your major, and accept a dynamic number. This is the
-     * first thing to do, in order to avoid releasing other module's
-     * fops in emerald_cleanup_module()
-     */
-    result = register_chrdev(emerald_major, "emerald", &emerald_fops);
-    if (result < 0) {
-        printk(KERN_WARNING "emerald: can't get major %d\n",emerald_major);
-        return result;
-    }
-    if (emerald_major == 0) emerald_major = result; /* dynamic */
-    PDEBUGG("major=%d\n",emerald_major);
-
-    for (i=0; i < EMERALD_MAX_NR_DEVS; i++)
-      if (ioports[i] == 0) break;
-    emerald_nr_addrs = i;
-    PDEBUGG("nr_addrs=%d\n",emerald_nr_addrs);
-
-    /*
-     * allocate the board structures
-     */
-    emerald_boards = kmalloc(emerald_nr_addrs * sizeof(emerald_board), GFP_KERNEL);
-    if (!emerald_boards) {
-        result = -ENOMEM;
-        goto fail;
-    }
-    memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
-    for (i=0; i < emerald_nr_addrs; i++) {
-	emerald_board* ebrd = emerald_boards + i;
-        ebrd->ioport = ioports[i] + ioport_base;
-	if (!( ebrd->region =
-	    request_region(ebrd->ioport,EMERALD_IO_REGION_SIZE,
-			"emerald"))) {
-	    result = -ENODEV;
-	    goto fail;
-	}
-	sema_init(&ebrd->sem,1);
-	/*
-	 * Read EEPROM configuration and see if it looks OK.
-	 * emerald_nr_ok will be the number of the last good board.
-	 */
-	if (!emerald_read_eeconfig(ebrd,&ebrd->config) &&
-	    emerald_check_config(&ebrd->config)) 
-			emerald_nr_ok = i + 1;
-	else {
-	    release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
-	    ebrd->region = 0;
-	}
-	emerald_set_digio_out(ebrd,0);
-	emerald_read_digio(ebrd);
-    }
-
-    emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
-    emerald_ports = kmalloc(emerald_nports * sizeof(emerald_port), GFP_KERNEL);
-    if (!emerald_ports) {
-        result = -ENOMEM;
-        goto fail;
-    }
-    memset(emerald_ports, 0,emerald_nports * sizeof(emerald_port));
-
-    for (i=0; i < emerald_nports; i++) {
-	emerald_port* eport = emerald_ports + i;
-	emerald_board* ebrd = emerald_boards + (i / EMERALD_NR_PORTS);
-	eport->board = ebrd;
-	eport->portNum = i % EMERALD_NR_PORTS;	// 0-7
-    }
-    /* ... */
-                                                                                
-#ifndef EMERALD_DEBUG
-    // EXPORT_NO_SYMBOLS; /* otherwise, leave global symbols visible */
-#endif
-                                                                                
-#ifdef EMERALD_DEBUG /* only when debugging */
-    PDEBUGG("create_proc\n");
-    emerald_create_proc();
-#endif
-    return 0; /* succeed */
-
-  fail:
-    emerald_cleanup_module();
-    return result;
 }
 
 static int emerald_open (struct inode *inode, struct file *filp)
@@ -645,5 +559,92 @@ static struct file_operations emerald_fops = {
     release:    emerald_release,
 };
 						      
+static int __init emerald_init_module(void)
+{
+    int result, i;
+
+    /*
+     * Register your major, and accept a dynamic number. This is the
+     * first thing to do, in order to avoid releasing other module's
+     * fops in emerald_cleanup_module()
+     */
+    result = register_chrdev(emerald_major, "emerald", &emerald_fops);
+    if (result < 0) {
+        printk(KERN_WARNING "emerald: can't get major %d\n",emerald_major);
+        return result;
+    }
+    if (emerald_major == 0) emerald_major = result; /* dynamic */
+    PDEBUGG("major=%d\n",emerald_major);
+
+    for (i=0; i < EMERALD_MAX_NR_DEVS; i++)
+      if (ioports[i] == 0) break;
+    emerald_nr_addrs = i;
+    PDEBUGG("nr_addrs=%d\n",emerald_nr_addrs);
+
+    /*
+     * allocate the board structures
+     */
+    emerald_boards = kmalloc(emerald_nr_addrs * sizeof(emerald_board), GFP_KERNEL);
+    if (!emerald_boards) {
+        result = -ENOMEM;
+        goto fail;
+    }
+    memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
+    for (i=0; i < emerald_nr_addrs; i++) {
+	emerald_board* ebrd = emerald_boards + i;
+        ebrd->ioport = ioports[i] + ioport_base;
+	if (!( ebrd->region =
+	    request_region(ebrd->ioport,EMERALD_IO_REGION_SIZE,
+			"emerald"))) {
+	    result = -ENODEV;
+	    goto fail;
+	}
+	sema_init(&ebrd->sem,1);
+	/*
+	 * Read EEPROM configuration and see if it looks OK.
+	 * emerald_nr_ok will be the number of the last good board.
+	 */
+	if (!emerald_read_eeconfig(ebrd,&ebrd->config) &&
+	    emerald_check_config(&ebrd->config)) 
+			emerald_nr_ok = i + 1;
+	else {
+	    release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
+	    ebrd->region = 0;
+	}
+	emerald_set_digio_out(ebrd,0);
+	emerald_read_digio(ebrd);
+    }
+
+    emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
+    emerald_ports = kmalloc(emerald_nports * sizeof(emerald_port), GFP_KERNEL);
+    if (!emerald_ports) {
+        result = -ENOMEM;
+        goto fail;
+    }
+    memset(emerald_ports, 0,emerald_nports * sizeof(emerald_port));
+
+    for (i=0; i < emerald_nports; i++) {
+	emerald_port* eport = emerald_ports + i;
+	emerald_board* ebrd = emerald_boards + (i / EMERALD_NR_PORTS);
+	eport->board = ebrd;
+	eport->portNum = i % EMERALD_NR_PORTS;	// 0-7
+    }
+    /* ... */
+                                                                                
+#ifndef EMERALD_DEBUG
+    // EXPORT_NO_SYMBOLS; /* otherwise, leave global symbols visible */
+#endif
+                                                                                
+#ifdef EMERALD_DEBUG /* only when debugging */
+    PDEBUGG("create_proc\n");
+    emerald_create_proc();
+#endif
+    return 0; /* succeed */
+
+  fail:
+    emerald_cleanup_module();
+    return result;
+}
+
 module_init(emerald_init_module);
 module_exit(emerald_cleanup_module);
