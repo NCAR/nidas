@@ -109,8 +109,9 @@ public:
     */
     void close() throw(nidas::util::IOException)
     {
-        if (::close(fd) < 0)
+        if (fd >= 0 && ::close(fd) < 0)
 		throw nidas::util::IOException(getName(),"close",errno);
+        fd = -1;
     }
 
 protected:

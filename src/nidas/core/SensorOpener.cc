@@ -129,6 +129,16 @@ int SensorOpener::run() throw(n_u::Exception)
 	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		  sensor->getName().c_str(),e.what());
 
+            // file descriptor may still be open if the
+            // error happened in the after the libc ::open
+            // during some initialization.
+            try {
+                sensor->close();
+            }
+            catch(const n_u::IOException& e) {
+                n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+                      sensor->getName().c_str(),e.what());
+            }
 	    sensorCond.lock();
 	    problemSensors.push_back(sensor);
 	    sensorCond.unlock();
