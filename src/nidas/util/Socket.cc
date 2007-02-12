@@ -32,13 +32,13 @@ using namespace std;
 SocketImpl::SocketImpl(int domain,int type) throw(IOException):
     sockdomain(domain),socktype(type),
     localaddr(0),remoteaddr(0),
-    backlog(10),reuseaddr(true),
+    fd(-1),backlog(10),reuseaddr(true),
     hasTimeout(false)
 {
-    if ((fd = ::socket(sockdomain,socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
+    if ((fd = ::socket(sockdomain,socktype, 0)) < 0)
+	throw IOException("Socket","open",errno);
     getLocalAddr();
     remoteaddr = localaddr->clone();	// not connected yet
 }

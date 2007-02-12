@@ -51,7 +51,7 @@ int main(int argc, char** argv)
                 sock->getRemoteSocketAddress().toString() << endl;
 
             try {
-                char buffer[1024];
+                char buffer[2048];
                 for (;;) {
                     size_t inlen = sock->recv(buffer,sizeof(buffer));
                     buffer[inlen] = 0;

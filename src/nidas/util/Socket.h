@@ -1015,7 +1015,7 @@ public:
      * non-loopback interface that it finds.  If a firewall is blocking
      * multicast packets on that interface the packets won't be sent.
      */
-    MulticastSocket() throw(IOException)
+    MulticastSocket() throw(IOException): DatagramSocket()
     {
 	setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
     }

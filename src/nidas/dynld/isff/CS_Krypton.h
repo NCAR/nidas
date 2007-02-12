@@ -11,8 +11,8 @@
 
 */
 
-#ifndef CS_KRYPTON_H
-#define CS_KRYPTON_H
+#ifndef NIDAS_DYNLD_ISFF_CS_KRYPTON_H
+#define NIDAS_DYNLD_ISFF_CS_KRYPTON_H
 
 #include <nidas/core/VariableConverter.h>
 
