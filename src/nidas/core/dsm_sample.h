@@ -55,7 +55,7 @@ typedef struct dsm_sample {
 #define SIZEOF_DSM_SAMPLE_HEADER \
 	(sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
 
-#ifdef __RTCORE_KERNEL__
+#if defined(__RTCORE_KERNEL__) || defined(__KERNEL__)
 #include <linux/circ_buf.h>
 
 /* Macros for manipulating sample circular buffers
@@ -79,9 +79,33 @@ typedef struct dsm_sample {
 */
 struct dsm_sample_circ_buf {
     struct dsm_sample **buf;
-    int head;
-    int tail;
+    volatile int head;
+    volatile int tail;
 };
+
+#ifndef USECS_PER_MSEC
+#define USECS_PER_MSEC 1000
+#endif
+
+#ifndef USECS_PER_SEC
+#define USECS_PER_SEC 1000000
+#endif
+
+#ifndef MSECS_PER_SEC
+#define MSECS_PER_SEC 1000
+#endif
+
+#ifndef MSECS_PER_DAY
+#define MSECS_PER_DAY 86400000
+#endif
+
+
+inline dsm_sample_time_t getSystemTime(void)
+{
+    struct timeval tv;
+    do_gettimeofday(&tv);
+    return tv.tv_sec % 86400 + tv.tv_usec / USECS_PER_MSEC;
+}
 
 #endif
 

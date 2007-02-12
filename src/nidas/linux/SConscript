@@ -25,3 +25,9 @@ for dir in subdirs:
                duplicate=1,exports={'env':env})
 
 Default([ "build_%s" % dir for dir in subdirs ])
+
+headers = Split("""
+    klog.h
+""")
+
+env.Install('$PREFIX/include/nidas/linux/diamond',headers)

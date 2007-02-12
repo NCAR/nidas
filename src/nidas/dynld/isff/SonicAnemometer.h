@@ -51,7 +51,7 @@ private:
  * lean is the angle in radians between the flow normal and the
  * sonic w axis (0 <= lean <= 180)
  *
- * leanaz is the clock angle in radians from the sonic u axis of the
+ * leanaz is the clock angle in radians from the sonic u axis to the
  * projection of the flow normal in the sonic uv plane, positive
  * toward the sonic v axis. (0 <= leanaz < 360)
  *

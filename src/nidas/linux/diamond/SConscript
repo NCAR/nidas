@@ -20,14 +20,17 @@ Import('env')
 # emerald=env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
 # Alias('install',emerald)
 env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
+env.Kmake('dmd_mmat.ko',['dmd_mmat.c','dmd_mmat.h','Makefile'])
 
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
     env.Install('$PREFIX/linux','emerald.ko')
+    env.Install('$PREFIX/linux','dmd_mmat.ko')
 
 # Some kernel module header files define symbols that are needed
 # by user code. These must also be installed in $PREFIX/include
 headers = Split("""
     emerald.h
+    diamond_mm_at.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux/diamond',headers)
