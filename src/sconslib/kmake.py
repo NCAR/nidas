@@ -44,7 +44,7 @@ def Kmake(env,target,source):
 
     # print "os.getcwd()=" + os.getcwd()
 
-    # print 'makecmd=' + makecmd
+    print 'KMAKE=' + env['KMAKE']
     run(env['KMAKE'])
     os.chdir(cwd)
 

@@ -111,7 +111,7 @@ if 'arm' in env['ARCHITECTURES']:
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'],
 	   KERNELDIR=env['KERNELDIR_ARM'],
-	   KMAKE='make ARCH=arm CROSS_COMPILE=arm-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARM'])
+	   KMAKE='make ARCH=arm CROSS_COMPILE=arm-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARM'] +' KINCLUDE=' + env.Dir("#").get_abspath())
 
     arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
@@ -129,7 +129,7 @@ if 'x86' in env['ARCHITECTURES']:
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'],
 	    KERNELDIR=env['KERNELDIR_X86'],
-	    KMAKE='make KERNELDIR=' + env['KERNELDIR_X86'])
+	    KMAKE='make KERNELDIR=' + env['KERNELDIR_X86'] +' KINCLUDE=' + env.Dir("#").get_abspath())
 
     x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
     x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
