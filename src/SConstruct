@@ -19,7 +19,7 @@ env = Environment(platform = 'posix', ENV = {'PATH' : os.environ['PATH']})
 opts = Options('nidas.conf')
 opts.AddOptions(
     PathOption('PREFIX',
-               'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/share',
+               'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
                '/opt/nidas'))
 
 # def kerneldir_validator(key,val,env):
@@ -29,7 +29,7 @@ opts.AddOptions(
 
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
-         'x86 arm')
+         'x86 arm armbe')
 opts.Add(BoolOption('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
 opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
@@ -56,17 +56,25 @@ if 'arm' in BUILDS:
                                '$PREFIX/arm'))
     opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:','')
 
+if 'armbe' in BUILDS:
+    opts.AddOptions(PathOption('OTHER_ARMBE',
+                               'path to xerces-c and xmlrpc++ for ARMBE:',
+                               '$PREFIX/armbe'))
+    opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:','')
+
 opts.Update(env)
 opts.Save('nidas.conf',env)
 
 Help(opts.GenerateHelpText(env) + """
 targets
-(none) build linux modules or ARM & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
+(none) build linux modules for ARM, ARMBE, & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
 x86    build library and executable programs for X86.
 arm    build linux and rtlinux driver modules, library and executable programs for ARM.
-lib    build library for X86 and ARM.
+armbe  build linux driver modules, library and executable programs for ARMBE.
+lib    build library for X86, ARM, and ARMBE.
 x86_install  build and install X86 library and executables.
 arm_install  build and install ARM modules, library and executables.
+armbe_install  build and install ARMBE modules, library and executables.
 """)
 
 ##
@@ -102,7 +110,8 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
     env.AppendUnique(CXXFLAGS = ['-ggdb'])
 
 ##
-##  Create the env for cross-building to the xScale ARM processor...
+##  Create the env for cross-building to the xScale ARM processor
+##  (little-endian)...
 ##
 if 'arm' in env['ARCHITECTURES']:
     print "Setting up for ARM builds..."
@@ -118,6 +127,25 @@ if 'arm' in env['ARCHITECTURES']:
                build_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
     Alias('install','arm_install')
+
+##
+##  Create the env for cross-building to the xScale ARM processor
+##  (little-endian)...
+##
+if 'armbe' in env['ARCHITECTURES']:
+    print "Setting up for ARMBE builds..."
+    armbe_env = env.Copy(tools = ['armbecross'], toolpath=['sconstools'],
+	   ARCH = 'armbe',
+	   PREFIX = env['PREFIX'] + '/armbe',
+	   OTHER_PREFIX = env['OTHER_ARMBE'],
+	   KERNELDIR=env['KERNELDIR_ARMBE'],
+	   KMAKE='make ARCH=armbe CROSS_COMPILE=armbe-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARMBE'] +' KINCLUDE=' + env.Dir("#").get_abspath())
+
+    armbe_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
+    SConscript('nidas/SConscript',
+               build_dir='build_armbe',
+               duplicate=0, exports={'env':armbe_env})
+    Alias('install','armbe_install')
 
 ##
 ##  Create the env for building to the x86 processor...
@@ -157,4 +185,3 @@ dox = Command('#/../doc/doxygen/html/index.html',
               'cd .. && doxygen $SOURCE')
 Alias('dox', dox)
 AlwaysBuild(dox)
-
