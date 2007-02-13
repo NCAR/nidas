@@ -30,7 +30,7 @@ if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 # by user code. These must also be installed in $PREFIX/include
 headers = Split("""
     emerald.h
-    dmd_mm_at.h
+    dmd_mmat.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux/diamond',headers)
