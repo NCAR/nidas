@@ -96,7 +96,7 @@ protected:
     int counter;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    auto_ptr<short> swapBuf;
+    std::auto_ptr<short> swapBuf;
 #endif
 
 };
