@@ -466,7 +466,7 @@ void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
     unsigned long lid = getId();
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    memcpy(cmd+2,&lid);
+    memcpy(cmd+2,&lid,sizeof(lid));
 #else
     union {
         unsigned long id;
