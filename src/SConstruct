@@ -139,7 +139,7 @@ if 'armbe' in env['ARCHITECTURES']:
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'],
 	   KERNELDIR=env['KERNELDIR_ARMBE'],
-	   KMAKE='make ARCH=armbe CROSS_COMPILE=armbe-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARMBE'] +' KINCLUDE=' + env.Dir("#").get_abspath())
+	   KMAKE='make ARCH=arm CROSS_COMPILE=armbe-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARMBE'] +' KINCLUDE=' + env.Dir("#").get_abspath())
 
     armbe_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
