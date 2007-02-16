@@ -317,9 +317,9 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel)
    if (A2DGain != 0)
       GainCode = (US)(A2DGainMul*A2DGain/A2DGainDiv);
 
-// DSMLOG_DEBUG("A2DSel = %d   A2DGain = %d   "
-//              "A2DGainMul = %d   A2DGainDiv = %d   GainCode = %d\n",
-//              A2DSel, A2DGain, A2DGainMul, A2DGainDiv, GainCode);
+//   DSMLOG_DEBUG("A2DSel = %d   A2DGain = %d   "
+//                "A2DGainMul = %d   A2DGainDiv = %d   GainCode = %d\n",
+//                A2DSel, A2DGain, A2DGainMul, A2DGainDiv, GainCode);
 
    // The new 12-bit DAC has lower input resistance (7K ohms as opposed
    // to 10K ohms for the 8-bit DAC). The gain is the ratio of the amplifier
@@ -331,31 +331,93 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel)
    // will want to multiply by 16. This is the same as multiplying
    // by 16/1.43 = 11.2.
 // GainCode = (GainCode << 4) & 0xfff0;
-   GainCode = 0x0040 + A2DSel;  //  +/- 10v -> rails!
-   GainCode = 0x0080 + A2DSel;  //  +/- 10v -> 7.275 to 7.65
-   GainCode = 0x0100 + A2DSel;  //  +/- 10v -> 
-// GainCode = 0x1000 + A2DSel;  //  good  WTF!  why doesn't this one work now!
-// GainCode = 0x1800 + A2DSel;  //  good  WTF!  why doesn't this one work now!
-// GainCode = 0x1C00 + A2DSel;  //  good  WTF!  why doesn't this one work now!
-// GainCode = 0x1C40 + A2DSel;  //  ???
-// GainCode = 0x1C80 + A2DSel;  //  +/- 10v rails
-// GainCode = 0x1D00 + A2DSel;  //  +/- 10v rails
-// GainCode = 0x1E00 + A2DSel;  //  +/- 10v rails and shifts the 0-4v signal down approx 1v.
+   //                               input 5Hz sine and/or saw
+   //           GC                  input:   at A2D:         raw counts:    on AEROS:      
+
+   GainCode = 0x0800 + A2DSel;  //  +/- 1v   1.84 to 2.14v      -83  1359   -0.02 to 0.42v
+   GainCode = 0x1000 + A2DSel;  //  +/- 1v   1.75 to 2.24v    -1595  2893   -0.48 to 0.88v
+   GainCode = 0x1950 + A2DSel;  //  +/- 1v   1.84 to 2.24v    -1585  2887   -0.48 to 0.88v
+   GainCode = 0x2000 + A2DSel;  //  +/- 1v   1.84 to 2.14v      -81  1360   -0.02 to 0.42v
+   GainCode = 0x1950 + A2DSel;  //  +/- 1v   1.74 to 2.24v    -1637  2916   -0.50 to 0.90v
+   GainCode = 0x0800 + A2DSel;  //  +/- 1v   1.74 to 2.24v    -1637  2919   -0.50 to 0.90v
+   GainCode = 0x2000 + A2DSel;  //  +/- 1v   1.74 to 2.26v    -2241  3510   -0.68 to 1.08v
+   GainCode = 0x1000 + A2DSel;  //  +/- 1v   1.64 to 2.30v    -2241  3513   -0.68 to 1.08v at taken w/ square wave
+   GainCode = 0x1950 + A2DSel;  //  +/- 1v   1.74 to 2.28v    -1636  2914   -0.50 to 0.90v at taken w/ square wave
+   // power cyle
+   GainCode = 0x1950 + A2DSel;  //  +/- 1v   0.44 to 3.48v   -21892 23643   -6.75 to 7.25v at taken w/ square wave
+   // reboot
+   GainCode = 0x4100 + A2DSel;  //  +/- 5v  30129        -27380
+   GainCode = 0x4200 + A2DSel;  //  +/- 5v  30147        -27390
+   GainCode = 0x4400 + A2DSel;  //  +/- 5v  31505        -28434
+   GainCode = 0x4800 + A2DSel;  //  +/- 5v  31536        -28451
+   GainCode = 0x4840 + A2DSel;  //  +/- 5v  32729        -32768
+   GainCode = 0x4800 + A2DSel;  //  +/- 5v  32765        -32768
+   // reboot
+   GainCode = 0x4400 + A2DSel;  //  +/- 5v  32765        -32768
+   // reboot
+   GainCode = 0x2410 + A2DSel;  //  +/-10v  31516        -28439
+
 // DSMLOG_DEBUG("GainCode: 0x%04x\n", GainCode);
 
+// if(A2DSel != 0) GainCode = 0x4790 + A2DSel;
+   GainCode = 0x1900 + A2DSel;  //  +/-10v  31516        -28439
+
+   if (a2d->offset[A2DSel]) {
+     if (a2d->gain[A2DSel] == 10)       GainCode = 0x1000 + A2DSel;  //   0 to +20  ???
+     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4000 + A2DSel;  //   0 to +10
+     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8000 + A2DSel;  //   0 to +5
+     else                               GainCode = 0x0000 + A2DSel;
+   } else {
+     if (a2d->gain[A2DSel] == 10)       GainCode = 0x1900 + A2DSel;  // -10 to +10
+     else                               GainCode = 0x0000 + A2DSel;
+   }
+/*
+              0x241  0x479
+02:15:57.042    639 -29518
+02:15:58.042    639 -29518
+chan 0 railed!
+chan 0 railed!
+chan 0 railed!
+chan 0 railed!
+02:15:59.042  21614  11551
+02:16:00.042  32696  32494
+02:16:01.042  32697  32496
+02:16:02.042  32698  32498
+02:16:03.042  32698  32498
+02:16:04.042  32698  32498
+02:16:05.042  32699  32499
+02:16:06.042  32699  32500
+02:16:07.042  32699  32501
+02:16:08.042  32700  32501
+02:16:09.042  32700  32501
+02:16:10.042  32700  32501
+02:16:11.042  32700  32501
+02:16:12.042  32700  32502
+02:16:13.042  32700  32502
+02:16:14.042  32700  32502
+02:16:15.042  32700  32502
+02:16:16.042  32701  32503
+02:16:17.042  32701  32503
+02:16:18.042  32701  32503
+02:16:19.042  32701  32503
+02:16:20.042  32701  32504
+02:16:21.042  32701  32504
+*/
    // 1.  Write (or set) D2A0. This is accomplished by writing to the A/D with the lower
    // four address bits (SA0-SA3) set to all "ones" and the data bus to 0x03.
-   DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_D2A0, brd->chan_addr);
+//   DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_D2A0, brd->chan_addr);
    outb(A2DIO_D2A0, brd->chan_addr);
-   rtl_usleep(10);
+   rtl_usleep(10000);
    // 2. Then write to the A/D card with lower address bits set to "zeros" and data
    // bus set to the gain value for the specific channel with the upper data three bits
    // equal to the channel address. The lower 12 bits are the gain code and data bit 12
    // is equal zero. So for channel 0 write: (xxxxxxxxxxxx0000) where the x's are the
    // gain code.
-   DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", GainCode, brd->addr);
+   DSMLOG_DEBUG("chn: %d   offset: %d   gain: %2d   outb( 0x%x, 0x%x)\n", A2DSel,
+                a2d->offset[A2DSel], a2d->gain[A2DSel], GainCode, brd->addr);
+// DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", GainCode, brd->addr);
    outw(GainCode, brd->addr);
-   rtl_usleep(10);
+   rtl_usleep(10000);
    return 0;
 }
 
@@ -383,18 +445,18 @@ static int A2DSetMaster(struct A2DBoard* brd,int A2DSel)
 /*-----------------------Utility------------------------------*/
 // Set a calibration voltage for all channels:
 //
-//  bit volts
-//  0x0 gnd
-//  0x1 +1
-//  0x2 +5
-//  0x4 -10
-//  0x8 +10
+//  bit  volts
+//  0x01 gnd
+//  0x02 +1
+//  0x04 +5
+//  0x08 -10
+//  0x10 +10
 //
 static int A2DSetVcal(struct A2DBoard* brd)
 {
    // Check that V is within limits
    int ret = -EINVAL;
-   int i, valid[] = {0x0, 0x1, 0x2, 0x4, 0x8};
+   int i, valid[] = {0x01, 0x02, 0x04, 0x08, 0x10};
    for (i=0; i<5; i++)
      if (brd->cal.vcalx8 == valid[i]) ret = 0;
    if (ret) return ret;
@@ -421,22 +483,26 @@ static int A2DSetVcal(struct A2DBoard* brd)
 //
 static void A2DSetCal(struct A2DBoard* brd)
 {
-   US Chans = 0;
+   US OffChans = 0;
+   US CalChans = 0;
    int i;
 
    // Change the calset array of bools into a byte
    for(i = 0; i < MAXA2DS; i++)
    {
-      Chans >>= 1;
-      if(brd->cal.calset[i] != 0) Chans += 0x80;
+      OffChans >>= 1;
+      CalChans >>= 1;
+      if(brd->config.offset[i] != 0) OffChans += 0x80;
+      if(brd->cal.calset[i] != 0)    CalChans += 0x80;
    }
    // Point at the system control input channel
    outb(A2DIO_SYSCTL, brd->chan_addr);
    DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_SYSCTL, brd->chan_addr);
 
    // Set the appropriate bits in OffCal
-   brd->OffCal &= 0xFF00;
-   brd->OffCal |= Chans;
+   brd->OffCal = (OffChans<<8) & 0xFF00;
+   brd->OffCal |= CalChans;
+   brd->OffCal = ~(brd->OffCal) & 0xFFFF; // invert bits
 
    // Send OffCal word to system control word
    outw(brd->OffCal, brd->addr);
@@ -453,25 +519,26 @@ static void A2DSetCal(struct A2DBoard* brd)
 //
 static void A2DSetOffset(struct A2DBoard* brd)
 {
-   US Chans = 0;
+   US OffChans = 0;
    int i;
 
    // Change the offset array of bools into a byte
    for(i = 0; i < MAXA2DS; i++)
    {
-      Chans >>= 1;
-      if(brd->config.offset[i] != 0) Chans += 0x80;
+      OffChans >>= 1;
+      if(brd->config.offset[i] != 0) OffChans += 0x80;
    }
    // Point at the system control input channel
    outb(A2DIO_SYSCTL, brd->chan_addr);
    DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_SYSCTL, brd->chan_addr);
 
    // Set the appropriate bits in OffCal
-   brd->OffCal = (Chans<<8) & 0xFF00;
+   brd->OffCal = (OffChans<<8) & 0xFF00;
+   brd->OffCal = ~(brd->OffCal) & 0xFFFF; // invert bits
 
    // Send OffCal word to system control word
    outw(brd->OffCal, brd->addr);
-   DSMLOG_DEBUG("brd->OffCal:  0x%04x\n", brd->OffCal);
+   DSMLOG_DEBUG("JDW brd->OffCal:  0x%04x\n", brd->OffCal);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -789,6 +856,7 @@ static int A2DConfigAll(struct A2DBoard* brd)
    return 0;
 }
 
+// the status bits are in the upper byte contain the serial number
 static int getSerialNumber(struct A2DBoard* brd)
 {
    unsigned short stat;
@@ -836,8 +904,9 @@ static int A2DSetup(struct A2DBoard* brd)
    brd->FIFOCtl = 0;            // Clear FIFO Control Word
 #endif
 
-   brd->OffCal = 0;
+   brd->OffCal = 0x0;
 
+   int repeat; for(repeat = 0; repeat < 3; repeat++) { // HACK! the CPLD logic needs to be fixed!
    for(i = 0; i < MAXA2DS; i++)
    {
       if ((ret = A2DSetGain(brd,i)) < 0) return ret;
@@ -845,11 +914,13 @@ static int A2DSetup(struct A2DBoard* brd)
 //    DSMLOG_DEBUG("brd->MaxHz = %d   a2d->Hz[%d] = %d\n", brd->MaxHz, i, a2d->Hz[i]);
       brd->requested[i] = (a2d->Hz[i] > 0);
    }
-   rtl_usleep(20);
    outb(A2DIO_D2A1, brd->chan_addr);
+   rtl_usleep(10000);
    outb(A2DIO_D2A2, brd->chan_addr);
+   rtl_usleep(10000);
    outb(A2DIO_D2A1, brd->chan_addr);
-
+   rtl_usleep(10000);
+   } // END HACK!
    brd->cur_status.ser_num = getSerialNumber(brd);
 // DSMLOG_DEBUG("A2D serial number = %d\n", brd->cur_status.ser_num);
 
@@ -1773,15 +1844,19 @@ int init_module()
       DSMLOG_ERR("No boards configured, all ioport[]==0\n");
       goto err;
    }
+   DSMLOG_DEBUG("configuring %d board(s)...\n", numboards);
 
    error = -ENOMEM;
    boardInfo = rtl_gpos_malloc( numboards * sizeof(struct A2DBoard) );
    if (!boardInfo) goto err;
 
+   DSMLOG_DEBUG("sizeof(struct A2DBoard): 0x%x\n", sizeof(struct A2DBoard));
+
    /* initialize each A2DBoard structure */
    for (ib = 0; ib < numboards; ib++) {
       struct A2DBoard* brd = boardInfo + ib;
 
+      DSMLOG_DEBUG("initializing board[%d] at 0x%x\n", ib, brd);
       // initialize structure to zero, then initialize things
       // that are non-zero
       memset(brd,0,sizeof(struct A2DBoard));
