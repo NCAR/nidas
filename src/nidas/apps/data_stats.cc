@@ -322,7 +322,18 @@ int DataStats::parseRunstring(int argc, char** argv)
 	}
 	else dataFileNames.push_back(url);
     }
-    if (dataFileNames.size() == 0 && !sockAddr.get()) return usage(argv[0]);
+    if (dataFileNames.size() == 0 && !sockAddr.get()) {
+        try {
+	    string hostName("localhost");
+            int port = DEFAULT_PORT;
+            n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+            sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+        }
+        catch(const n_u::UnknownHostException& e) {
+            cerr << e.what() << endl;
+            return usage(argv[0]);
+        }
+    }
 
     return 0;
 }
@@ -330,15 +341,16 @@ int DataStats::parseRunstring(int argc, char** argv)
 int DataStats::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] [-x xml_file] inputURL ...\n\
+Usage: " << argv0 << "[-p] [-x xml_file] [inputURL] ...\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
 	 where <project>, <aircraft> and <flight> are read from the input data header\n\
-    inputURL: data input (required). One of the following:\n\
+    inputURL: data input. One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
         unix:sockpath             unix socket name\n\
         path                      one or more file names\n\
+        The default URL is sock:localhost\n\
 Examples:\n" <<
     argv0 << " xxx.dat yyy.dat\n" <<
     argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
