@@ -337,7 +337,7 @@ bool SocketImpl::isNonBlocking() const throw(IOException)
         throw IOException(localaddr->toString(),
 		"fcntl(...,F_GETFL,...)",ierr);
     }
-    return (flags | O_NONBLOCK) != 0;
+    return (flags & O_NONBLOCK) != 0;
 }
 
 void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
