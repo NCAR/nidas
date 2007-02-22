@@ -105,7 +105,7 @@ n_u::Inet4Address Socket::getRemoteInet4Address() const throw()
 
 IOChannel* Socket::connect() throw(n_u::IOException)
 {
-    n_u::Socket* waitsock = new n_u::Socket();
+    n_u::Socket* waitsock = new n_u::Socket(remoteSockAddr->getFamily());
     waitsock->connect(*remoteSockAddr.get());
     waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     waitsock->setNonBlocking(nonBlocking);
@@ -115,7 +115,7 @@ IOChannel* Socket::connect() throw(n_u::IOException)
 void Socket::requestConnection(ConnectionRequester* requester)
 	throw(n_u::IOException)
 {
-    n_u::Socket* waitsock = new n_u::Socket();
+    n_u::Socket* waitsock = new n_u::Socket(remoteSockAddr->getFamily());
     waitsock->connect(*remoteSockAddr.get());
     waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     waitsock->setNonBlocking(nonBlocking);
@@ -198,6 +198,7 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
 {
     if (!servSock) servSock= new n_u::ServerSocket(*localSockAddr.get());
     n_u::Socket* newsock = servSock->accept();
+
     newsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
 
     nidas::core::Socket* newCSocket = new nidas::core::Socket(newsock);

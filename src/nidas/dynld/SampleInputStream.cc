@@ -538,9 +538,19 @@ void SortedSampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> len;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"SortedSampleOutputStream",
+		    	"SortedSampleInputStream",
 			attr.getName(),attr.getValue());
 		setSorterLengthMsecs(len);
+	    }
+	    else if (aname == "heapMax") {
+	        istringstream ist(aval);
+		int len;
+		ist >> len;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+		    	"SortedSampleInputStream",
+			attr.getName(),attr.getValue());
+		setHeapMax(len);
 	    }
 	}
     }

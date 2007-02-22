@@ -383,7 +383,6 @@ int StatsProcess::run() throw()
 	    iochan = fset;
 	}
 
-        iochan = iochan->connect();
         sis.reset(new SortedSampleInputStream(iochan));
         sis->setHeapBlock(true);
         sis->setHeapMax(10000000);
@@ -443,7 +442,7 @@ int StatsProcess::run() throw()
 	}
 
 	sproc->connect(sis.get());
-	cerr << "#sampleTags=" << sis->getSampleTags().size() << endl;
+	// cerr << "#sampleTags=" << sis->getSampleTags().size() << endl;
 
         if (startTime.toUsecs() != 0) {
             cerr << "Searching for time " <<

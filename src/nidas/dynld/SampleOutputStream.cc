@@ -161,7 +161,8 @@ SortedSampleOutputStream::SortedSampleOutputStream():
 	SampleOutputStream(),
 	sorter(0),
 	proxy(*this),
-	sorterLengthMsecs(250)
+	sorterLengthMsecs(250),
+	heapMax(10000000)
 {
 }
 /*
@@ -172,7 +173,8 @@ SortedSampleOutputStream::SortedSampleOutputStream(
 	: SampleOutputStream(x),
 	sorter(0),
 	proxy(*this),
-	sorterLengthMsecs(x.sorterLengthMsecs)
+	sorterLengthMsecs(x.sorterLengthMsecs),
+	heapMax(x.heapMax)
 {
 }
 
@@ -184,7 +186,8 @@ SortedSampleOutputStream::SortedSampleOutputStream(
 	: SampleOutputStream(x,ioc),
 	sorter(0),
 	proxy(*this),
-	sorterLengthMsecs(x.sorterLengthMsecs)
+	sorterLengthMsecs(x.sorterLengthMsecs),
+	heapMax(x.heapMax)
 {
 }
 
@@ -212,6 +215,7 @@ void SortedSampleOutputStream::init() throw()
     if (getSorterLengthMsecs() > 0) {
 	if (!sorter) sorter = new SampleSorter("SortedSampleOutputStream");
 	sorter->setLengthMsecs(getSorterLengthMsecs());
+	sorter->setHeapMax(getHeapMax());
 	try {
 	    sorter->start();
 	}
@@ -255,6 +259,16 @@ void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
 		    	"SortedSampleOutputStream",
 			attr.getName(),attr.getValue());
 		setSorterLengthMsecs(len);
+	    }
+	    else if (aname == "heapMax") {
+	        istringstream ist(aval);
+		unsigned long len;
+		ist >> len;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+		    	"SortedSampleOutputStream",
+			attr.getName(),attr.getValue());
+		setHeapMax(len);
 	    }
 	}
     }

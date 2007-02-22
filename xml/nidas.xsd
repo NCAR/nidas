@@ -382,8 +382,7 @@
 <xsd:element name="socket">
    <xsd:complexType>
 	<xsd:attribute name="type" type="sockettype" default="mcrequest"/>
-        <xsd:attribute name="port" type="xsd:nonNegativeInteger"
-		default="30000"/>
+        <xsd:attribute name="port" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="address" type="xsd:token"/>
         <xsd:attribute name="path" type="xsd:token"/>
         <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
@@ -461,6 +460,8 @@
             <xsd:element ref="fileset"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
+        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -475,7 +476,8 @@
             <xsd:element ref="goes" maxOccurs="1"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
-        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger" default="250"/>
+        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -595,8 +597,7 @@
         </xsd:choice>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
         <xsd:attribute name="system"   type="xsd:token" use="required"/>
-        <xsd:attribute name="config" type="xsd:normalizedString"
-		use="required"/>
+        <xsd:attribute name="config" type="xsd:normalizedString"/>
         <xsd:attribute name="version" type="xsd:normalizedString"
 		use="required"/>
     </xsd:complexType>

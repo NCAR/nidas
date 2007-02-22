@@ -143,6 +143,21 @@ public:
         return sorterLengthMsecs;
     }
 
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val)
+    {
+        heapMax = val;
+    }
+
+    size_t getHeapMax() const
+    {
+        return heapMax;
+    }
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
@@ -157,6 +172,8 @@ private:
      * Length of SampleSorter, in milli-seconds.
      */
     int sorterLengthMsecs;
+
+    size_t heapMax;
 
 };
 
