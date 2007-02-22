@@ -284,8 +284,11 @@ void DSMEngine::run() throw()
       try {
 	if (_configFile.length() == 0)
           projectDoc = requestXMLConfig(_mcastSockAddr);
-	else
-          projectDoc = parseXMLConfigFile(_configFile);
+	else {
+	    // expand environment variables in name
+	    string expName = Project::expandEnvVars(_configFile);
+	    projectDoc = parseXMLConfigFile(expName);
+	}
       }
       catch (const XMLException& e) {
 	_logger->log(LOG_ERR,e.what());
@@ -490,6 +493,8 @@ void DSMEngine::initialize(DOMDocument* projectDoc)
 
     _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
+    if (_configFile.length() > 0)
+	_project->setConfigName(_configFile);
 
     char hostname[256];
     gethostname(hostname,sizeof(hostname));
