@@ -9,9 +9,12 @@ Import('env')
 arch = env['ARCH']
 
 env.AppendUnique(CPPPATH = [env.subst("$PREFIX/include")] )
-env.AppendUnique(CPPPATH = [env.subst("$OTHER_PREFIX/include")] )
 env.AppendUnique(LIBPATH = [env.subst("$PREFIX/lib")] )
-env.AppendUnique(LIBPATH = [env.subst("$OTHER_PREFIX/lib")] )
+#
+# Commented out until needed.  cjw 2/22/07
+#
+#env.AppendUnique(CPPPATH = [env.subst("$OTHER_PREFIX/include")] )
+#env.AppendUnique(LIBPATH = [env.subst("$OTHER_PREFIX/lib")] )
 
 # Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.
