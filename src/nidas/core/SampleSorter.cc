@@ -101,7 +101,9 @@ int SampleSorter::run() throw(n_u::Exception)
 	getName().c_str(),sorterLengthUsec);
 
     sampleSetCond.lock();
+#ifdef DEBUG
     dsm_time_t tlast;
+#endif
     for (;;) {
 
 	if (amInterrupted()) break;
@@ -165,11 +167,15 @@ int SampleSorter::run() throw(n_u::Exception)
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 
 	    dsm_time_t tsamp = s->getTimeTag();
+#ifdef DEBUG
 	    if (tsamp < tlast) {
 		cerr << "tsamp=" << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f") <<
-		    " tlast=" << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f") << endl;
+		    " tlast=" << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+                    " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SHORT_ID(s->getId()) <<
+                        " sorterLength=" << sorterLengthUsec/USECS_PER_MSEC << " msec"<< endl;
 	    }
 	    tlast = tsamp;
+#endif
 
 	    clientMapLock.lock();
 	    map<dsm_sample_id_t,SampleClientList>::const_iterator ci =

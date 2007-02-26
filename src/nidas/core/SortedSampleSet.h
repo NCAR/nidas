@@ -100,6 +100,10 @@ class SortedSampleSet2: public std::set<const Sample*,SampleHeaderComparator>
 {
 };
 
+class SortedSampleSet3: public std::set<const Sample*,FullSampleComparator>
+{
+};
+
 }}	// namespace nidas namespace core
 
 #endif

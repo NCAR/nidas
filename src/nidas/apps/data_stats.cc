@@ -360,8 +360,13 @@ Examples:\n" <<
 
 int DataStats::main(int argc, char** argv)
 {
-    DataStats stats;
 
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_DEBUG;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
+
+    DataStats stats;
     int result;
     if ((result = stats.parseRunstring(argc,argv))) return result;
 

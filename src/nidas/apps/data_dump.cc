@@ -52,21 +52,35 @@ public:
     void printHeader();
 
 private:
-    dsm_sample_id_t sampleId;
-    format_t format;
-    ostream& ostr;
 
+    dsm_sample_id_t dsmId;
+
+    dsm_sample_id_t sensorId;
+
+    bool allDSMs;
+
+    bool allSensors;
+
+    format_t format;
+
+    ostream& ostr;
 };
 
 
 DumpClient::DumpClient(dsm_sample_id_t id,format_t fmt,ostream &outstr):
-	sampleId(id),format(fmt),ostr(outstr)
+        dsmId(GET_DSM_ID(id)),sensorId(GET_SHORT_ID(id)),
+        allDSMs(false),allSensors(false),
+	format(fmt),ostr(outstr)
 {
+    if (dsmId == 1023) allDSMs = true;
+    if (sensorId == 65535) allSensors = true;
 }
 
 void DumpClient::printHeader()
 {
-    cout << "|--- date time -------| deltaT   bytes" << endl;
+    cout << "|--- date time --------|  deltaT";
+    if (allDSMs || allSensors) cout << "   id   ";
+    cout << "     len bytes" << endl;
 }
 
 bool DumpClient::receive(const Sample* samp) throw()
@@ -83,16 +97,29 @@ bool DumpClient::receive(const Sample* samp) throw()
     	GET_SHORT_ID(sampleId) << endl;
 #endif
 
-    if (sampid != sampleId) return false;
+    if (!allDSMs && GET_DSM_ID(sampid) != dsmId) return false;
+    if (!allSensors && GET_SHORT_ID(sampid) != sensorId) return false;
 
     struct tm tm;
     char cstr[64];
     time_t ut = tt / USECS_PER_SEC;
     gmtime_r(&ut,&tm);
-    int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
+    int tmsec = (tt % USECS_PER_SEC) / (USECS_PER_MSEC / 10);
+
     strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
-    ostr << cstr << '.' << setw(3) << setfill('0') << msec << ' ';
-    ostr << setw(3) << (tt - prev_tt) / 1000 << ' ';
+    ostr << cstr << '.' << setw(4) << setfill('0') << tmsec << ' ';
+
+    ostr << setprecision(4) << setfill(' ');
+    if (prev_tt != 0) {
+        double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
+        ostr << setw(7) << tdiff << ' ';
+    }
+    else ostr << setw(7) << 0 << ' ';
+
+    if (allDSMs || allSensors)
+        ostr << setw(2) << setfill(' ') << GET_DSM_ID(sampid) <<
+        ',' << setw(4) << GET_SHORT_ID(sampid) << ' ';
+
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
     prev_tt = tt;
 
@@ -204,16 +231,12 @@ private:
 
     DumpClient::format_t format;
 
-    bool allDSMs;
-
-    bool allSamples;
 
 };
 
 DataDump::DataDump(): processData(false),
 	sampleId(0),
-	format(DumpClient::DEFAULT),
-	allDSMs(true),allSamples(true)
+	format(DumpClient::DEFAULT)
 {
 }
 
@@ -229,8 +252,13 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::ASCII;
 	    break;
 	case 'd':
-	    sampleId = SET_DSM_ID(sampleId,atoi(optarg));
-	    allDSMs = false;
+            {
+                int dsmid = atoi(optarg);
+                if (dsmid < 0)
+                    sampleId = SET_DSM_ID(sampleId,0xffffffff);
+                else
+                    sampleId = SET_DSM_ID(sampleId,dsmid);
+            }
 	    break;
 	case 'F':
 	    format = DumpClient::FLOAT;
@@ -245,8 +273,13 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    processData = true;
 	    break;
 	case 's':
-	    sampleId = SET_SHORT_ID(sampleId,atoi(optarg));
-	    allSamples = false;
+            {
+                int sensorid = atoi(optarg);
+                if (sensorid < 0)
+                    sampleId = SET_SHORT_ID(sampleId,0xffffffff);
+                else
+                    sampleId = SET_SHORT_ID(sampleId,sensorid);
+            }
 	    break;
 	case 'S':
 	    format = DumpClient::SIGNED_SHORT;
@@ -296,7 +329,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     }
     if (dataFileNames.size() == 0 && !sockAddr.get()) return usage(argv[0]);
 
-    if (sampleId < 0) return usage(argv[0]);
+    if (sampleId == 0) return usage(argv[0]);
     return 0;
 }
 
@@ -304,8 +337,8 @@ int DataDump::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << " -d dsmid -s sampleId [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
-    -d dsmid: numeric id of DSM that you want to dump samples from\n\
-    -s sampleId: numeric id of sample that you want to dump\n\
+    -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
+    -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\

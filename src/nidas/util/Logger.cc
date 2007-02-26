@@ -436,7 +436,7 @@ LogScheme(const std::string& name) :
 
     // Default to logging everything warning and above.
     LogConfig lc;
-    lc.level = LOGGER_WARNING;
+    lc.level = LOGGER_NOTICE;
     addConfig (lc);
   }
 }

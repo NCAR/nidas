@@ -81,8 +81,8 @@ void FileSet::closeFile() throw(IOException)
 void FileSet::createDirectory(const string& name) throw(IOException)
 {
 #ifdef DEBUG
-#endif
     cerr << "FileSet::createDirectory, name=" << name << endl;
+#endif
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
 
     struct stat64 statbuf;
@@ -93,6 +93,8 @@ void FileSet::createDirectory(const string& name) throw(IOException)
 	string tmpname = getDirPortion(name);
 	if (tmpname != ".") createDirectory(tmpname);  // recursive
 
+        Logger::getInstance()->log(LOG_INFO,"creating: %s",
+            name.c_str());
         if (::mkdir(name.c_str(),0777) < 0)
             throw IOException(name,"mkdir",errno);
     }

@@ -42,7 +42,9 @@ void FileSet::setDSMConfig(const DSMConfig* val)
     n_u::FileSet::setFileName(val->expandString(getFileName()));
     n_u::FileSet::setDir(val->expandString(getDir()));
     setName(string("FileSet: ") + getDir() + pathSeparator + getFileName());
+#ifdef DEBUG
     cerr << "FileSet::setDSMConfig: " << getName() << endl;
+#endif
 }
 
 

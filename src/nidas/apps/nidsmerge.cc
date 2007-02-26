@@ -304,13 +304,33 @@ int NidsMerge::run() throw()
 	    }
 	}
 
-	SortedSampleSet2 sorter;
+        /*
+         * SortedSampleSet2 does a sort by the full sample header -
+         *      the timetag, sample id and the sample length.
+         *      Subsequent Samples with identical headers but different
+         *      data will be discarded.
+         * SortedSampleSet3 sorts by the full sample header and
+         *      then compares the data, keeping a sample if it has
+         *      an identical header but different data.
+         * SortedSampleSet3 will be less efficient at merging multiple
+         * copies of an archive which contain many identical samples.
+         * Set3 is necessary for merging TREX ISFF hotfilm data samples which
+         * may have identical timetags on the 2KHz samples but different data,
+         * since the system clock was not well controlled: used a GPS but no PPS.
+         * TODO: create a SortedSampleSet interface, with the two implementations
+         * and allow the user to choose Set2 or Set3 with a command line option.
+         */
+        
+	SortedSampleSet3 sorter;
 	SampleT<char> dummy;
 	vector<size_t> samplesRead(inputs.size(),0);
+	vector<size_t> samplesUnique(inputs.size(),0);
 
 	cout << "     date(GMT)      ";
-	for (unsigned int ii = 0; ii < inputs.size(); ii++)
+	for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 	    cout << "  input" << ii;
+	    cout << " unique" << ii;
+        }
 	cout << "   before   after  output" << endl;
 
 	for (dsm_time_t tcur = startTime.toUsecs(); tcur <= endTime.toUsecs();
@@ -318,12 +338,14 @@ int NidsMerge::run() throw()
 	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 		SampleInputStream* input = inputs[ii];
 		size_t nread = 0;
+		size_t nunique = 0;
 		try {
 		    dsm_time_t lastTime = lastTimes[ii];
 		    while (!interrupted && lastTime < tcur + readAheadUsecs) {
 			Sample* samp = input->readSample();
 			lastTime = samp->getTimeTag();
 			if (!sorter.insert(samp).second) samp->freeReference();
+                        else nunique++;
 			nread++;
 		    }
 		    lastTimes[ii] = lastTime;
@@ -338,18 +360,19 @@ int NidsMerge::run() throw()
 		    lastTimes[ii] = LLONG_MAX;
 		}
 		samplesRead[ii] = nread;
+		samplesUnique[ii] = nunique;
 		if (interrupted) break;
 	    }
 	    if (interrupted) break;
 
-	    SortedSampleSet2::const_iterator rsb = sorter.begin();
+	    SortedSampleSet3::const_iterator rsb = sorter.begin();
 
 	    // get iterator pointing at first sample equal to or greater
 	    // than dummy sample
 	    dummy.setTimeTag(tcur);
-	    SortedSampleSet2::const_iterator rsi = sorter.lower_bound(&dummy);
+	    SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
-	    for (SortedSampleSet2::const_iterator si = rsb; si != rsi; ++si) {
+	    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
 		const Sample *s = *si;
 		if (s->getTimeTag() >= startTime.toUsecs())
 		    outStream.receive(s);
@@ -362,8 +385,10 @@ int NidsMerge::run() throw()
 	    size_t after = sorter.size();
 
 	    cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
-	    for (unsigned int ii = 0; ii < inputs.size(); ii++)
+	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 	    	cout << ' ' << setw(7) << samplesRead[ii];
+	    	cout << ' ' << setw(7) << samplesUnique[ii];
+            }
 	    cout << setw(7) << before << ' ' << setw(7) << after << ' ' <<
 	    	setw(7) << before - after << endl;
 	}
