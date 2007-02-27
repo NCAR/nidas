@@ -188,7 +188,7 @@ struct DMMAT_A2D
     struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
     struct dsm_sample_circ_buf samples;         // samples out of tasklet
     wait_queue_head_t read_queue;
-    int sampBytesLeft;
+    size_t sampBytesLeft;
     char* sampPtr;
 
     int maxFifoThreshold;

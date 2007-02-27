@@ -11,8 +11,8 @@ Revisions:
 
 */
 
-#include <linux/config.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 
@@ -969,7 +969,11 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
  * General IRQ handler for the board.  Calls the A2D handler or
  * (eventually) the pulse counter handler depending on who interrupted.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+static irqreturn_t dmmat_irq_handler(int irq, void* dev_id)
+#else
 static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
+#endif
 {
         irqreturn_t result = IRQ_NONE;
         struct DMMAT* brd = (struct DMMAT*) dev_id;
