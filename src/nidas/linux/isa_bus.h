@@ -21,9 +21,9 @@
 
 #ifdef __KERNEL__
 
-#ifdef ARCH_VIPER
-
-#define SYSTEM_ISA_IOPORT_BASE 0xf7000000
+#ifdef CONFIG_ARCH_VIPER
+#include <asm/arch/viper.h>
+#define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
 #else
