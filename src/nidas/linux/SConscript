@@ -8,7 +8,7 @@
 Import('env')
 arch = env['ARCH']
 
-subdirs=Split("""diamond""")
+subdirs=Split("""diamond usbtwod""")
 
 ##
 ## ARCH target for creating modules, library, and executables
