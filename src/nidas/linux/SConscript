@@ -8,12 +8,16 @@
 Import('env')
 arch = env['ARCH']
 
-subdirs=Split("""diamond usbtwod""")
+if (arch != "armbe"):
+    subdirs=Split("""diamond irig usbtwod""")
+else:
+    subdirs=Split("""irig usbtwod""")
 
 ##
 ## ARCH target for creating modules, library, and executables
 ##
-env.Alias(arch, ['build_%s' % dir for dir in subdirs ])
+build_dirs = ['build_%s' % dir for dir in subdirs]
+env.Alias(arch, build_dirs)
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
@@ -24,10 +28,10 @@ for dir in subdirs:
                build_dir='build_%s' % dir,
                duplicate=1,exports={'env':env})
 
-Default([ "build_%s" % dir for dir in subdirs ])
+Default(build_dirs)
 
 headers = Split("""
-    klog.h
+    diamond/klog.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux/diamond',headers)
+env.Install('$PREFIX/include/nidas/linux', headers)

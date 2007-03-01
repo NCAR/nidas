@@ -1,0 +1,37 @@
+# -*- python -*-
+
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+
+##
+##  Import the build environment.
+##
+Import('env')
+
+# The Makefile must be listed in the source dependencies
+# so that it is copied/linked to the build_dir.
+# The Kmake builder runs the make command in build_dir.
+#
+# Also, the SConscript command that invokes this SConscript
+# file should set duplicate=1, so that all the linux module
+# source files, including the Makefile, are copied to the build_dir.
+# so that make can find them and do its work outside of the
+# source tree.
+
+headers = Split("""
+dsmlog.h
+ioctl_fifo.h
+irigclock.h
+pc104sg.h
+""")
+env.Kmake('pc104sg.ko', headers + ['pc104sg.c', 'Makefile'])
+
+if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+    env.Install('$PREFIX/linux','pc104sg.ko')
+
+# Some kernel module header files define symbols that are needed
+# by user code. These must also be installed in $PREFIX/include
+shared_headers = Split("""
+""")
+
+env.Install('$PREFIX/include/nidas/linux/irig', shared_headers)
+
