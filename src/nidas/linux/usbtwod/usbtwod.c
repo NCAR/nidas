@@ -23,12 +23,12 @@
 #include "usbtwod.h"
 
 /* Define these values to match your devices */
-//#define USB_VENDOR_ID	0x2D2D
-//#define USB_PRODUCT_ID	0x2D00
+#define USB_VENDOR_ID	0x2D2D
+#define USB_PRODUCT_ID	0x2D00
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
-#define USB_VENDOR_ID	0x0547
-#define USB_PRODUCT_ID	0x1002
+//#define USB_VENDOR_ID	0x0547
+//#define USB_PRODUCT_ID	0x1002
 
 
 /* table of devices that work with this driver */
@@ -180,6 +180,8 @@ static void twod_rx_bulk_callback(struct urb *urb, struct pt_regs *regs)
 #ifndef BLOCKING_READ
   int retval, new_write_idx;
   struct usb_twod * dev = (struct usb_twod *)urb->context;
+  static size_t overFlow = 0;
+dbg("%s", __FUNCTION__);
 
   /* sync/async unlink faults aren't errors */
   if (urb->status) {
@@ -192,28 +194,22 @@ static void twod_rx_bulk_callback(struct urb *urb, struct pt_regs *regs)
   }
 
   spin_lock(&dev->read_buffer_lock);
-  new_write_idx = (dev->write_idx + TWOD_BUFF_SIZE) % RING_SIZE;
 
-  if (new_write_idx != dev->read_idx) {
-    memcpy(&dev->bulk_in_buffer[dev->write_idx], urb->transfer_buffer, urb->actual_length);
-    dev->write_idx = new_write_idx;
-  }
-  else {
-    err("%s - buffer overflow, incrementing read pointer.", __FUNCTION__);
+  /* We will always save the latest data, not the earliest. */
+  dev->write_idx = (dev->write_idx + TWOD_BUFF_SIZE) % RING_SIZE;
+  memcpy(&dev->bulk_in_buffer[dev->write_idx], urb->transfer_buffer, urb->actual_length);
+
+  /* If write pointer has caught up to read pointer then increment read
+   * pointer.
+   */
+  if (dev->write_idx == dev->read_idx) {
+    dev->read_idx = (dev->read_idx + TWOD_BUFF_SIZE) % RING_SIZE;
+    err("%s - buffer overflow, lost record count = %d.", __FUNCTION__, ++overFlow);
   }
   spin_unlock(&dev->read_buffer_lock);
 
 resubmit:
   /* Issue next read urb. */
-/*
-  usb_buffer_free(dev->udev, urb->transfer_buffer_length,
-                  urb->transfer_buffer, urb->transfer_dma);
-
-  retval = twod_make_urb(dev);
-  if (retval) {
-    err("%s - failed making read urb, error %d", __FUNCTION__, retval);
-  }
-*/
   retval = usb_submit_urb(urb, GFP_ATOMIC);
   if (retval) {
     err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
@@ -478,20 +474,22 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
   struct usb_endpoint_descriptor *endpoint;
   int i;
   int retval = -ENOMEM;
+dbg("%s", __FUNCTION__);
 
   /* allocate memory for our device state and initialize it */
-  dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+  dev = kmalloc(sizeof(*dev), GFP_KERNEL);
   if (dev == NULL) {
      err("Out of memory");
      goto error;
   }
+  memset(dev, 0x00, sizeof(*dev));
 
   dev->interface = interface;
   init_waitqueue_head(&dev->read_wait);
 //  sema_init(&dev->sem, 1);
   init_MUTEX(&dev->sem);
   sema_init(&dev->limit_sem, WRITES_IN_FLIGHT);
-  spin_lock_init (&dev->read_buffer_lock);
+  spin_lock_init(&dev->read_buffer_lock);
 
   dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
