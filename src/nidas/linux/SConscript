@@ -8,10 +8,12 @@
 Import('env')
 arch = env['ARCH']
 
-if (arch != "armbe"):
-    subdirs=Split("""diamond irig usbtwod""")
-else:
-    subdirs=Split("""irig usbtwod""")
+subdirs=Split("""
+    diamond
+    filters
+    irig
+    usbtwod
+""")
 
 ##
 ## ARCH target for creating modules, library, and executables
@@ -32,6 +34,7 @@ Default(build_dirs)
 
 headers = Split("""
     diamond/klog.h
+    isa_bus.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux', headers)

@@ -15,7 +15,7 @@
 #ifndef NIDAS_DIAMOND_DMD_MMAT_H
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
-#include <nidas/core/dsm_sample.h>		// get dsm_sample typedefs
+#include <nidas/linux/filters/short_filters.h>
 
 #ifndef __KERNEL__
 /* User programs need this for the _IO macros, but kernel
@@ -34,19 +34,28 @@
 
 struct DMMAT_A2D_Config
 {
-    int gain[MAX_DMMAT_A2D_CHANNELS];	// Gain settings, 1,2,5, or 10
-    int rate[MAX_DMMAT_A2D_CHANNELS];	// Sample rate in Hz. 0 is off.
-    int bipolar[MAX_DMMAT_A2D_CHANNELS];// 1=bipolar,0=unipolar
-    long latencyUsecs;	// buffer latency in micro-seconds
+        int gain[MAX_DMMAT_A2D_CHANNELS];   // Gain settings, 1,2,5, or 10
+        int bipolar[MAX_DMMAT_A2D_CHANNELS];// 1=bipolar,0=unipolar
+        int id[MAX_DMMAT_A2D_CHANNELS];     // sample id, 0,1, etc of each chan
+        long latencyUsecs;                  // buffer latency in micro-sec
+        int scanRate;                       // how fast to sample
+};
+
+struct DMMAT_A2D_Sample_Config
+{
+        int filterType;     // one of nidas_short_filter enum
+        int rate;           // output rate
+        int boxcarNpts;     // number of pts in boxcar avg
+        short id;           // sample id
 };
 
 struct DMMAT_A2D_Status
 {
-    size_t missedSamples;
-    size_t fifoOverflows;	// A2D FIFO has overflowed (error)
-    size_t fifoUnderflows;	// A2D FIFO less than expected level (error)
-    size_t fifoNotEmpty;	// A2D FIFO not empty after reading
-    size_t irqsReceived;
+        size_t missedSamples;
+        size_t fifoOverflows;	// A2D FIFO has overflowed (error)
+        size_t fifoUnderflows;	// A2D FIFO less than expected level (error)
+        size_t fifoNotEmpty;	// A2D FIFO not empty after reading
+        size_t irqsReceived;
 };
 
 #define DMM16AT_BOARD	0
@@ -71,6 +80,8 @@ struct DMMAT_A2D_Status
 #define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,2)
 #define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,3)
 #define DMMAT_GET_A2D_NCHAN  _IO(DMMAT_IOC_MAGIC,4)
+#define DMMAT_SET_A2D_SAMPLE \
+    _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
 #define DMMAT_IOC_MAXNR 4
 
@@ -143,20 +154,36 @@ struct DMMAT {
 
     spinlock_t spinlock;                // for quick locks
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
     struct mutex mutex;                   // for slow locks
+#else
+    struct semaphore mutex;                   // for slow locks
+#endif
 };
 
 struct a2d_sample
 {
-    dsm_sample_time_t timetag;    // timetag of sample
-    dsm_sample_length_t length;       // number of bytes in data
-    short data[MAX_DMMAT_A2D_CHANNELS];
+        dsm_sample_time_t timetag;    // timetag of sample
+        dsm_sample_length_t length;       // number of bytes in data
+        short data[MAX_DMMAT_A2D_CHANNELS];
 };
 
 struct a2d_tasklet_data
 {
-    struct a2d_sample outsamp;
-    int outChan;                            // next channel to output from fifo
+        struct a2d_sample saveSample;
+};
+
+struct DMMAT_A2D_Sample_Info {
+        int nchans;
+        int* channels;
+        int decimate;
+        enum nidas_short_filter filterType;
+        shortfilt_init_method finit;
+        shortfilt_config_method fconfig;
+        shortfilt_filter_method filter;
+        shortfilt_cleanup_method fcleanup;
+        void* filterObj;
+        short id;           // sample id
 };
 
 struct DMMAT_A2D
@@ -193,6 +220,9 @@ struct DMMAT_A2D
 
     int maxFifoThreshold;
     int fifoThreshold;		
+    
+    int nsamples;               // how many different samples
+    struct DMMAT_A2D_Sample_Info* sampleInfo;
 
     unsigned char requested[MAX_DMMAT_A2D_CHANNELS];// 1=channel requested, 0=isn't
     int lowChan;		// lowest channel scanned
@@ -205,6 +235,8 @@ struct DMMAT_A2D
     int ttMsecAdj;		// how much to adjust sample time-tags backwds
 
     long latencyMsecs;	// buffer latency in milli-seconds
+
+    struct list_head filters;
 };
 
 #endif
