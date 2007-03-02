@@ -28,8 +28,13 @@
 #endif
 
 #ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000
-#define MSECS_PER_HALF_DAY 43200000
+#define MSECS_PER_DAY 86400000L
+#define MSECS_PER_HALF_DAY 43200000L
+#endif
+
+#ifndef TMSECS_PER_DAY
+#define TMSECS_PER_DAY 864000000L
+#define TMSECS_PER_HALF_DAY 432000000L
 #endif
 
 #ifndef USECS_PER_DAY
@@ -41,12 +46,20 @@
 #define MSECS_PER_SEC 1000
 #endif
 
+#ifndef TMSECS_PER_SEC
+#define TMSECS_PER_SEC 10000
+#endif
+
 #ifndef USECS_PER_SEC
 #define USECS_PER_SEC 1000000
 #endif
 
 #ifndef USECS_PER_MSEC
 #define USECS_PER_MSEC 1000
+#endif
+
+#ifndef USECS_PER_TMSEC
+#define USECS_PER_TMSEC 100
 #endif
 
 #ifndef NSECS_PER_SEC
@@ -59,6 +72,10 @@
 
 #ifndef NSECS_PER_MSEC
 #define NSECS_PER_MSEC 1000000
+#endif
+
+#ifndef NSECS_PER_TMSEC
+#define NSECS_PER_TMSEC 100000
 #endif
 
 
