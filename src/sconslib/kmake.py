@@ -6,15 +6,18 @@ def run(cmd):
     import sys
     import os
     import SCons.Script
-    """Run a command and decipher the return code. Exit by default."""
+    """Run a command and return the return code."""
     res = os.system(cmd)
+    code = 0
     # Assumes that if a process doesn't call exit, it was successful
     if (os.WIFEXITED(res)):
         code = os.WEXITSTATUS(res)
         if code != 0:
             print "Error: return code: " + str(code)
-            if SCons.Script.keep_going_on_error == 0:
-                sys.exit(code)
+            raise Exception(cmd + ": error: return code: " + str(code))
+            # if SCons.Script.keep_going_on_error == 0:
+             #    sys.exit(code)
+    return code
 
 def Kmake(env,target,source):
 
