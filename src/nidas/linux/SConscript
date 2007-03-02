@@ -33,7 +33,7 @@ for dir in subdirs:
 Default(build_dirs)
 
 headers = Split("""
-    diamond/klog.h
+    klog.h
     isa_bus.h
 """)
 
