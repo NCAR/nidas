@@ -38,6 +38,13 @@
 
 #define DEBUG 1
 
+/* Kludge allert!  Until the rtl_fifo stuff gets
+ * cleared out of this driver, we'll be
+ * getting compile errors because errno doesn't exist.
+ * As a temp workaround, define it here:
+ */
+static int errno = 0;
+
 /* IRIG interrupt rate, in Hz */
 static const int INTERRUPT_RATE = 100;
 

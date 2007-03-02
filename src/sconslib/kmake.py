@@ -14,7 +14,7 @@ def run(cmd):
         code = os.WEXITSTATUS(res)
         if code != 0:
             print "Error: return code: " + str(code)
-            raise Exception(cmd + ": error: return code: " + str(code))
+            # raise Exception(cmd + ": error: return code: " + str(code))
             # if SCons.Script.keep_going_on_error == 0:
              #    sys.exit(code)
     return code
