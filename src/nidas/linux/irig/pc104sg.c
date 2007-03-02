@@ -16,6 +16,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -1524,8 +1525,13 @@ static inline void checkExtStatus(void)
 /*
  * pc104sg interrupt function.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+static irqreturn_t 
+pc104sg_isr (int irq, void* callbackPtr)
+#else
 static irqreturn_t 
 pc104sg_isr (int irq, void* callbackPtr, struct pt_regs *regs)
+#endif
 {
    unsigned char status = inb(ISA_Address + Status_Port);
    SyncOK = status & Sync_OK;
