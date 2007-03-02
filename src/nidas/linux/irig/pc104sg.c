@@ -49,10 +49,14 @@ static unsigned int Irq = 10;
 static int IoPort = 0x2a0;
 static const unsigned long IRQ_DEVID = 0xf0f0f0f0;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 module_param(Irq, int, 0);
 module_param(IoPort, int, 0);
+#else
 MODULE_PARM(Irq, "IRQ number");
 MODULE_PARM(IoPort, "I/O base address");
+#endif
+
 // We need GPL licensing to use the kernel workqueue stuff.
 MODULE_LICENSE("GPL");
 
