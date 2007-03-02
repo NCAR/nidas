@@ -20,8 +20,8 @@
 #ifndef DSM_SAMPLE_H
 #define DSM_SAMPLE_H
 
-/** Milliseconds since 00:00 UTC today */
-typedef unsigned long dsm_sample_time_t;
+/** tenths of milliseconds since 00:00 UTC today */
+typedef long dsm_sample_time_t;
 
 /** length of data portion of sample. */
 typedef unsigned long dsm_sample_length_t;
@@ -65,11 +65,25 @@ typedef struct dsm_sample {
     ((CIRC_SPACE(circbuf.head,circbuf.tail,size) > 0) ? \
         circbuf.buf[circbuf.head] : 0)
 
+/*
+ * use barrier() to disable optimizations so that head is always OK.
+ */
 #define INCREMENT_HEAD(circbuf,size) \
-        (circbuf.head = (circbuf.head + 1) & (size-1))
+        ({\
+            int tmp = (circbuf.head + 1) & ((size) - 1);\
+            barrier();\
+            circbuf.head = tmp;\
+        })
 
+/*
+ * use barrier() to disable optimizations so that tail is always OK.
+ */
 #define INCREMENT_TAIL(circbuf,size) \
-        (circbuf.tail = (circbuf.tail + 1) & (size-1))
+        ({\
+            int tmp = (circbuf.tail + 1) & ((size) - 1);\
+            barrier();\
+            circbuf.tail = tmp;\
+        })
 
 #define NEXT_HEAD(circbuf,size) \
         (INCREMENT_HEAD(circbuf,size), GET_HEAD(circbuf,size))
@@ -87,6 +101,15 @@ struct dsm_sample_circ_buf {
 #define USECS_PER_MSEC 1000
 #endif
 
+/* TMSEC is a tenth of a millisecond */
+#ifndef USECS_PER_TMSEC
+#define USECS_PER_TMSEC 100
+#endif
+
+#ifndef TMSECS_PER_MSEC
+#define TMSECS_PER_MSEC 10
+#endif
+
 #ifndef USECS_PER_SEC
 #define USECS_PER_SEC 1000000
 #endif
@@ -95,16 +118,28 @@ struct dsm_sample_circ_buf {
 #define MSECS_PER_SEC 1000
 #endif
 
+#ifndef TMSECS_PER_SEC
+#define TMSECS_PER_SEC 10000
+#endif
+
 #ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000
+#define MSECS_PER_DAY 86400000L
+#endif
+
+#ifndef TMSECS_PER_DAY
+#define TMSECS_PER_DAY 864000000L
 #endif
 
 
-inline dsm_sample_time_t getSystemTime(void)
+/*
+ * Return time in tenths of milliseconds since 00:00 UTC.
+ */
+inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
     struct timeval tv;
     do_gettimeofday(&tv);
-    return tv.tv_sec % 86400 + tv.tv_usec / USECS_PER_MSEC;
+    return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
+        tv.tv_usec / USECS_PER_TMSEC;
 }
 
 #endif
