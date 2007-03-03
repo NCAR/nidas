@@ -63,12 +63,16 @@ struct usb_twod
   struct usb_interface	*interface;		/* the interface for this device */
   struct semaphore	sem;			/* lock this structure */
   struct semaphore	limit_sem;		/* limiting the number of writes in progress */
-  spinlock_t		read_buffer_lock;
+  spinlock_t		read_lock;
 
   int			is_open;		/* don't allow multiple opens. */
 
-  struct urb		*read_urbs[READS_IN_FLIGHT];
+  struct urb		*read_urbs[READS_IN_FLIGHT];	/* All read urbs */
+  struct urb		*urbq[READS_IN_FLIGHT];	/* Read urbs which have calledback */
+
+#ifdef BLOCKING_READ
   unsigned char		*bulk_in_buffer;	/* the buffer to receive data */
+#endif
 
   unsigned int		write_idx;
   unsigned int		read_idx;
@@ -78,7 +82,6 @@ struct usb_twod
   size_t 		bulk_in_size;		/* the buffer to receive size */
 
   __u8			bulk_in_endpointAddr;	/* the address of the bulk in endpoint */
-
   __u8			bulk_out_endpointAddr;	/* the address of the bulk out endpoint */
 };
 
@@ -132,7 +135,9 @@ exit:
 static void twod_delete(struct usb_twod *dev)
 {	
   usb_put_dev(dev->udev);
+#ifdef BLOCKING_READ
   kfree(dev->bulk_in_buffer);
+#endif
   kfree(dev);
 }
 
@@ -178,10 +183,11 @@ exit:
 static void twod_rx_bulk_callback(struct urb *urb, struct pt_regs *regs)
 {
 #ifndef BLOCKING_READ
-  int retval, new_write_idx;
+  int retval;
   struct usb_twod * dev = (struct usb_twod *)urb->context;
   static size_t overFlow = 0;
-dbg("%s", __FUNCTION__);
+static int cnt = 0;
+((int *)urb->transfer_buffer)[0] = cnt++;
 
   /* sync/async unlink faults aren't errors */
   if (urb->status) {
@@ -189,31 +195,30 @@ dbg("%s", __FUNCTION__);
       goto exit;
     } else {
       dbg("%s - nonzero read bulk status received: %d", __FUNCTION__, urb->status);
-      goto resubmit; /* maybe we can recover */
+      goto exit; /* maybe we can recover */
     }
   }
 
-  spin_lock(&dev->read_buffer_lock);
+  spin_lock(&dev->read_lock);
 
   /* We will always save the latest data, not the earliest. */
-  dev->write_idx = (dev->write_idx + TWOD_BUFF_SIZE) % RING_SIZE;
-  memcpy(&dev->bulk_in_buffer[dev->write_idx], urb->transfer_buffer, urb->actual_length);
+  dev->urbq[dev->write_idx] = urb;
+  dev->write_idx = (dev->write_idx + 1) % READS_IN_FLIGHT;
 
   /* If write pointer has caught up to read pointer then increment read
-   * pointer.
+   * pointer and resubmit the urb before it is stepped on.
    */
   if (dev->write_idx == dev->read_idx) {
-    dev->read_idx = (dev->read_idx + TWOD_BUFF_SIZE) % RING_SIZE;
-    err("%s - buffer overflow, lost record count = %d.", __FUNCTION__, ++overFlow);
-  }
-  spin_unlock(&dev->read_buffer_lock);
+    retval = usb_submit_urb(dev->urbq[dev->read_idx], GFP_ATOMIC);
+    if (retval) {
+      err("%s - failed re-submitting urb, error = %d", __FUNCTION__, retval);
+    }
 
-resubmit:
-  /* Issue next read urb. */
-  retval = usb_submit_urb(urb, GFP_ATOMIC);
-  if (retval) {
-    err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
+    dev->read_idx = (dev->read_idx + 1) % READS_IN_FLIGHT;
+    err("%s - overflow, user is not keeping up reading, lost read count = %d.",
+	__FUNCTION__, ++overFlow);
   }
+  spin_unlock(&dev->read_lock);
 
 exit:
   wake_up_interruptible(&dev->read_wait);
@@ -347,14 +352,26 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
   }
 
 
+  // If they ask for less than actual_length, then the rest of the data in this
+  // buffer is lost.
+  bytes_read = min(count, dev->urbq[dev->read_idx]->actual_length);
+
   /* if we have a complete 2D buffer, then copy to user space. */
-
-  if (copy_to_user(buffer, &dev->bulk_in_buffer[dev->read_idx], count))
+  if (copy_to_user(buffer, dev->urbq[dev->read_idx]->transfer_buffer, bytes_read)) {
+    err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
     retval = -EFAULT;
-  else
-    retval = count;
+    goto unlock_exit;
+  }
 
-  dev->read_idx = (dev->read_idx + TWOD_BUFF_SIZE) % RING_SIZE;
+  retval = usb_submit_urb(dev->urbq[dev->read_idx], GFP_ATOMIC);
+  if (retval) {
+    err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
+    goto unlock_exit;
+  }
+
+  retval = bytes_read;
+
+  dev->read_idx = (dev->read_idx + 1) % READS_IN_FLIGHT;
 
 unlock_exit:
   up(&dev->sem);
@@ -489,7 +506,7 @@ dbg("%s", __FUNCTION__);
 //  sema_init(&dev->sem, 1);
   init_MUTEX(&dev->sem);
   sema_init(&dev->limit_sem, WRITES_IN_FLIGHT);
-  spin_lock_init(&dev->read_buffer_lock);
+  spin_lock_init(&dev->read_lock);
 
   dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
@@ -532,10 +549,12 @@ dbg("%s", __FUNCTION__);
     goto error;
   }
 
+#ifdef BLOCKING_READ
   if ((dev->bulk_in_buffer = kmalloc(TWOD_BUFF_SIZE * READS_IN_FLIGHT, GFP_KERNEL)) == NULL) {
     err("%s - out of memory for read buf", __FUNCTION__);
     goto error;
   }
+#endif
 
   /* let the user know what node this device is now attached to */
   info("USB PMS-2D device now attached to USBtwod-%d", interface->minor);
@@ -603,3 +622,5 @@ module_init(usb_twod_init);
 module_exit(usb_twod_exit);
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Chris Webster <cjw@ucar.edu>");
+MODULE_DESCRIPTION("USB PMS-2D Probe Driver");

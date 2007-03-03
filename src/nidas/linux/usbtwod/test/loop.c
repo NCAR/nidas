@@ -22,21 +22,25 @@ main()
     exit(1);
   }
 
-  for (i = 0; i < 10; ++i)
+  for (i = 0; i < 99; ++i)
   {
-    memset(buffer, 0, 100);
+    memset(buffer, 0, 5000);
     sprintf(buffer, "Hello, world #%02d", i);
+    len = strlen(buffer);
+    for (; len < 4096; ++len)
+      buffer[len] = '0' + len%10;
+    buffer[3500] = 0;
     len = strlen(buffer);
 
     n = write(fd, buffer, len);
-    printf("write: n = %d\n", n);
+    printf("write: n = %d, len was %d\n", n, len);
 
     FD_ZERO(&my_set);
     FD_SET(fd, &my_set);
     n = select(fd+1, &my_set, 0, 0, 0);
     printf("select = %d.\n", n);
 
-    memset(buffer, 0, 100);
+    memset(buffer, 0, 5000);
     n = read(fd, buffer, len);
     printf("read: n = %d, [%s]\n", n, buffer);
   }

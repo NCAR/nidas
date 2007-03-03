@@ -24,6 +24,7 @@ main()
 //    exit(1);
   }
 
+  printf("/dev/usbtwod opened\n");
   rec.id = htons(0x4331);
   tim.hour = 5;
   tim.minute = 17;
@@ -46,7 +47,7 @@ main()
         tim.msec = 0;
       }
       ++i;
-//      usleep(25000);
+      usleep(10000);
     }
     rec.hour = htons(tim.hour);
     rec.minute = htons(tim.minute);
