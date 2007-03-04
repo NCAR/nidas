@@ -13,10 +13,14 @@ Revisions:
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
+// #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/rtlinux/dsm_version.h>
 
 #include <nidas/linux/filters/short_filters.h>
+
+MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
+MODULE_LICENSE("Dual BSD/GPL");
 
 /**
  * Data object for the implementation of a pickoff filter.
@@ -50,7 +54,7 @@ static void* pickoff_init(void)
 }
 
 /**
- * Configure a pickoff filter. config parameter is not used.
+ * Configure a pickoff filter. Pointer to config structure is not used.
  */
 static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg)
 {
@@ -77,10 +81,10 @@ static int pickoff_filter(void* obj,dsm_sample_time_t tt, const short* in,
         if (this->count++ % this->decimate) return 0;
         this->count = 1;
         out->timetag = tt;
-        out->length = this->nvars * sizeof(short);
         *op++ = this->id;
         for (i = 0; i < this->nvars; i++)
             *op++ = in[this->vindices[i]];
+        out->length = (op - out->data) * sizeof(short);
         return 1;
 }
 
@@ -139,6 +143,8 @@ static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int 
         this->sums = (long*) kmalloc(nvars * sizeof(long),GFP_KERNEL);
         if (!this->sums) return -ENOMEM;
         memset(this->sums,0,nvars*sizeof(long));
+        KLOG_DEBUG("boxcar filter, decimate=%d, npts=%d\n",
+            this->decimate,this->npts);
         return 0;
 }
 
@@ -159,6 +165,8 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
         struct boxcar_filter* this = (struct boxcar_filter*) obj;
         int i;
         this->count++;
+        KLOG_DEBUG("boxcar filter, count=%d, npts=%d,decimate=%d\n",
+            this->count,this->npts, this->decimate);
 
         if (this->count <= this->npts) {
                 for (i = 0; i < this->nvars; i++)
@@ -168,17 +176,21 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                         short* op = out->data;
                         out->timetag = this->tsave +
                             (tt - this->tsave) / 2;     // middle time
-                        out->length = this->nvars * sizeof(short);
                         *op++ = this->id;
                         for (i = 0; i < this->nvars; i++) {
                             *op++ = this->sums[i] / this->npts;
                             this->sums[i] = 0;
                         }
+                        out->length = (op - out->data) * sizeof(short);
                         if (this->count == this->decimate) this->count = 0;
+                        KLOG_DEBUG("boxcar filter return sample, count=%d, npts=%d,decimate=%d\n",
+                            this->count,this->npts, this->decimate);
                         return 1;
                 }
         }
         if (this->count == this->decimate) this->count = 0;
+        KLOG_DEBUG("boxcar filter return nothing, count=%d, npts=%d,decimate=%d\n",
+            this->count,this->npts, this->decimate);
         return 0;
 }
 
@@ -226,6 +238,9 @@ struct short_filter_methods get_short_filter_methods(enum nidas_short_filter whi
         }
         return meths;
 }
+
+EXPORT_SYMBOL(get_short_filter_methods);
+
 int short_filters_init(void)
 {	
         // DSM_VERSION_STRING is found in dsm_version.h

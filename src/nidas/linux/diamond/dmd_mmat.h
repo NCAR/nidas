@@ -83,7 +83,7 @@ struct DMMAT_A2D_Status
 #define DMMAT_SET_A2D_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
-#define DMMAT_IOC_MAXNR 4
+#define DMMAT_IOC_MAXNR 5
 
 /**
  * Definitions of bits in board status byte.
@@ -101,12 +101,17 @@ struct DMMAT_A2D_Status
 
 #include <linux/cdev.h>
 
+#ifndef USE_TASKLETS
+#include <linux/workqueue.h>
+#endif
+
 /* Size of ISA I/O space (both MM16AT and MM32XAT) */
 #define	DMMAT_IOPORT_WIDTH	16
 
 #define MAX_DMMAT_BOARDS	4	// number of boards supported by driver
 
-#define DMMAT_SAMPLE_QUEUE_SIZE 64
+#define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
+#define DMMAT_SAMPLE_QUEUE_SIZE 2048
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
 #define DMMAT_UNIPOLAR		0x04
@@ -208,10 +213,16 @@ struct DMMAT_A2D
 
     int busy;                                   // a2d is running
 
+#ifdef USE_TASKLETS
     struct tasklet_struct tasklet;          // filter tasklet
+#else
+    struct work_struct worker;
+    wait_queue_head_t work_queue;
+#endif
     struct a2d_tasklet_data tl_data;       //
 
-    spinlock_t spinlock;                // for quick locks
+    // spinlock_t spinlock;                // for quick locks
+
     struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
     struct dsm_sample_circ_buf samples;         // samples out of tasklet
     wait_queue_head_t read_queue;
@@ -235,8 +246,9 @@ struct DMMAT_A2D
     int ttMsecAdj;		// how much to adjust sample time-tags backwds
 
     long latencyMsecs;	// buffer latency in milli-seconds
+    long latencyJiffies;	// buffer latency in jiffies
+    unsigned long lastWakeup;
 
-    struct list_head filters;
 };
 
 #endif

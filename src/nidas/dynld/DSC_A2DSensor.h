@@ -17,6 +17,8 @@
 
 #include <nidas/core/DSMSensor.h>
 
+#include <nidas/linux/filters/short_filters.h>
+
 #include <vector>
 #include <map>
 #include <set>
@@ -75,122 +77,87 @@ public:
      * set before doing a sensor open().
      * @param val Latency, in seconds.
      */
-    void setLatency(float val) throw(nidas::util::InvalidParameterException)
-    {
-        latency = val;
-    }
+    // void setLatency(float val) throw(nidas::util::InvalidParameterException)
+    // {
+      //   latency = val;
+    // }
 
-    float getLatency() const { return latency; }
+    // float getLatency() const { return latency; }
 
-protected:
+    void setScanRate(int val) { scanRate = val; }
+
+    int getScanRate() const { return scanRate; }
+
+    void fromDOMElement(const xercesc::DOMElement* node)
+            throw(nidas::util::InvalidParameterException);
+
+private:
 
     bool initialized;
 
+    int scanRate;     // requested sample rate
+
     /* What we need to know about a channel */
     struct chan_info {
-        int rate;
-	int gain;
+	int gain;   // 0 means this channel is not sampled
 	bool bipolar;
+        int id;     // which sample id does this channel belong to
     };
     std::vector<struct chan_info> channels;
 
-    /**
-     * Correction factors for converting from nominal volts to corrected voltages.
-     */
-    std::vector<float> corSlopes;
+    struct sample_info {
+        /**
+         * Full sample id
+         */
+        dsm_sample_id_t sampleId;
 
-    /**
-     * Correction offsets for converting from nominal volts to corrected voltages.
-     */
-    std::vector<float> corIntercepts;
+        /**
+         * "little" sample id, 0,1,2 etc
+         */
+        int id;
 
-    /**
-     * Requested A2D channels, 0 to (MAXA2DS-1),
-     * in the order they were requested.
-     */
-    std::vector<int> channelNums;
+        /**
+         * Output rate of this sample
+         */
+        int rate;                       // output rate
 
-    /*
-     * Requested A2D channels, in numeric order.
-     */
-    std::set<int> sortedChannelNums;
+        /**
+         * Which filter is being applied to these samples.
+         */
+        enum nidas_short_filter filterType;
 
-    /**
-     * Sample rate of each SampleTag.
-     */
-    std::vector<int> rateVec;
+        /**
+         * Number of points in boxcar averages, if boxcar filter.
+         */
+        int boxcarNpts;
 
-    /**
-     * For each SampleTag, the number of variables.
-     */
-    std::vector<int> numVarsInSample;
+        /** 
+         * Number of variables in the sample.
+         */
+        unsigned int nvars;
 
-    /**
-     * For each SampleTag, its sample id
-     */
-    std::vector<dsm_sample_id_t> sampleIds;
-
-    /**
-     * For each requested variable, which SampleTag does it correspond to,
-     * 0:(number_of_samples-1).
-     *	
-     */
-    std::vector<int> sampleIndexVec;
-
-    /**
-     * Same info as sampleIndexVec, but in channel order.
-     */
-    int* sampleIndices;		// optimized version
-
-    /**
-     * For each requested variable, which variable within the SampleTag
-     * does it correspond to, 0:(num_vars_in_sample - 1)
-     */
-    std::vector<int> subSampleIndexVec;
-
-    /**
-     * Same info as subSampleIndexVec, but in channel order.
-     */
-    int* subSampleIndices;	// optimized version
-
-
-    /**
-     * Conversion factor when converting from A2D counts to 
-     * voltage.  The gain is accounted for in this conversion, so that
-     * the resultant voltage is the true input voltage, before
-     * any A2D gain was applied.  These are in channel order.
-     */
-    float *convSlope;
-
-    /**
-     * Conversion offset when converting from A2D counts to 
-     * voltage.  The polarity is accounted for in this conversion, so that
-     * the resultant voltage is the true input voltage.
-     * These are in channel order.
-     */
-    float *convIntercept;
-
-    /**
-     * For each SampleTag, the next sample timetag to be output.
-     * This value is incremented by the sample deltat
-     * (1/rate) after each result sample is output.
-     */
-    dsm_time_t *sampleTimes;
-
-    /**
-     * The output delta t, 1/rate, in microseconds.
-     */
-    int *deltatUsec;
-
-    /*
-     * Allocated samples.
-     */
-    SampleT<float>** outsamples;
-
+        /**
+         * Conversion factor when converting from A2D counts to 
+         * voltage.  The gain is accounted for in this conversion, so that
+         * the resultant voltage is the true input voltage, before
+         * any A2D gain was applied.  These are in the order of
+         * the variables in the sample.
+         */
+        float* convSlopes;
+        /**
+         * Conversion offset when converting from A2D counts to 
+         * voltage.  The polarity is accounted for in this conversion, so that
+         * the resultant voltage is the true input voltage.
+         * These are in channel order.
+         */
+        float* convIntercepts;
+    };
+    std::vector<struct sample_info> samples;
+      
     /**
      * Sensor latency, in seconds.
      */
-    float latency;
+    // float latency;
 
     /**
      * Counter of number of raw samples of wrong size.

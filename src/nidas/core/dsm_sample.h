@@ -66,7 +66,11 @@ typedef struct dsm_sample {
         circbuf.buf[circbuf.head] : 0)
 
 /*
- * use barrier() to disable optimizations so that head is always OK.
+ * use barrier() to disable optimizations so that head is always OK,
+ * just in case the compiler would build code like the following:
+ *  head = head + 1;
+ *  head = head & (size -1);
+ * which leaves head in a bad state for a moment.
  */
 #define INCREMENT_HEAD(circbuf,size) \
         ({\

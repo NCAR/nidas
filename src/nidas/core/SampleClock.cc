@@ -29,7 +29,7 @@ SampleClock::SampleClock():
     maxClockDiffUsec(180 * USECS_PER_SEC),
     t0day(0),clockTime(0),sysTimeAhead(0),
     TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
-    timeWarnCount(0)
+    timeWarnCount(0),externalClock(false)
 {
     clockTime = nidas::core::getSystemTime();
     t0day = timeFloor(clockTime,USECS_PER_DAY);
@@ -54,6 +54,15 @@ void SampleClock::setTime(dsm_time_t val)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 	    	"sysTimeAhead=%d usec, warn_count=%d (expected situation if no IRIG feed)",sysTimeAhead,timeWarnCount);
     }
+    externalClock = true;
+}
+
+void SampleClock::setTime()
+{
+    clockTime = nidas::core::getSystemTime();
+    t0day = timeFloor(clockTime,USECS_PER_DAY);
+    sysTimeAhead = 0;
+    externalClock = false;
 }
 
 dsm_time_t SampleClock::getTime() const 
@@ -62,12 +71,17 @@ dsm_time_t SampleClock::getTime() const
     return nidas::core::getSystemTime() - sysTimeAhead;
 }
 
-SampleClock::status_t SampleClock::addSampleDate(Sample* samp) const
+SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 {
-    assert(samp->getTimeTag() < USECS_PER_DAY);
+    // assert(samp->getTimeTag() < USECS_PER_DAY);
     dsm_time_t sampleTime = t0day + samp->getTimeTag();
 
     int tdiff = sampleTime - clockTime;
+
+    if (!externalClock && abs(tdiff) > maxClockDiffUsec) {
+        setTime();
+        tdiff = sampleTime - clockTime;
+    }
 
     if (abs(tdiff) > maxClockDiffUsec) {
 	/* midnight rollover */

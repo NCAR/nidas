@@ -332,13 +332,13 @@ public:
      * set before doing a sensor open().
      * @param val Latency, in seconds.
      */
-    void setLatency(float val)
+    virtual void setLatency(float val)
     	throw(nidas::util::InvalidParameterException)
     {
         latency = val;
     }
 
-    float getLatency() const { return latency; }
+    virtual float getLatency() const { return latency; }
 
     /**
      * DSMSensor provides a SampleSource interface for its raw samples.
