@@ -450,7 +450,7 @@ static void stopMM32XAT(struct DSC_Board* brd)
     outb(0,brd->addr + 9);
 
     // disable and reset fifo, disable scan mode
-    outb(0x2,brd->addr + 9);
+    outb(0x2,brd->addr + 7);
 
     rtl_spin_unlock_irqrestore(&brd->boardlock,flags);
 }
