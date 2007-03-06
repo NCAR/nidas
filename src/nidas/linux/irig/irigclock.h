@@ -141,7 +141,7 @@ struct irigTime {
  * debugging, rather than real-time time tagging.  It involves
  * ISA bus transfers to/from the IRIG card. However, it has
  * a precision of better than a micro-second. The accuracy
- * is unknown and is probably effected by ISA contention.
+ * is unknown and is probably affected by ISA contention.
  */
 //XX void irig_clock_gettime(struct rtl_timespec* tp);
 void irig_clock_gettime(struct timespec* tp);
