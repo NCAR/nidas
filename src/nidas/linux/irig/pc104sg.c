@@ -35,15 +35,9 @@
 #include "irigclock.h"
 #include "ioctl_fifo.h"
 #include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/isa_bus.h>
 
-#define DEBUG 1
-
-/* Kludge allert!  Until the rtl_fifo stuff gets
- * cleared out of this driver, we'll be
- * getting compile errors because errno doesn't exist.
- * As a temp workaround, define it here:
- */
-static int errno = 0;
+//#define DEBUG
 
 /* IRIG interrupt rate, in Hz */
 static const int INTERRUPT_RATE = 100;
@@ -53,6 +47,7 @@ static const int A2DREF_RATE = 10000;
 
 /* module parameters (can be passed in via command line) */
 static unsigned int Irq = 10;
+
 static int IoPort = 0x2a0;
 static const unsigned long IRQ_DEVID = 0xf0f0f0f0;
 
@@ -70,7 +65,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("ISA pc104-SG jxi2 Driver");
 
-static const int SYSTEM_ISA_IOPORT_BASE = 0;
+//XX now from isa_bus.h
+//XX static const int SYSTEM_ISA_IOPORT_BASE = 0x3c000000;
 
 /* Actual physical address of this card. Set in init_module */
 static unsigned int ISA_Address;
@@ -199,7 +195,7 @@ static int DP_RamExtStatusEnabled = 1;
 static int DP_RamExtStatusRequested = 0;
 
 /*
- * pc104sg_100Hz_task() is the function to be called for each 100Hz
+ * pc104sg_task_100Hz() is the function to be called for each 100Hz
  * interrupt from the card.  The data value passed is INTERRUPT_100HZ if
  * it's called because of an actual interrupt from the IRIG card, or
  * TIMEOUT_100HZ if we timed out waiting for the interrupt.
@@ -220,9 +216,9 @@ DECLARE_TASKLET(Tasklet100HzInterrupt, pc104sg_task_100Hz,
 
 /*
  * 100Hz interrupt timeout timer.
- * We wait up to 11/8 * the expected interrupt interval before timing out.
+ * We wait up to 1.5 * the expected interrupt interval before timing out.
  */
-#define INTERRUPT_TIMEOUT_LENGTH ((HZ / INTERRUPT_RATE) * 11 / 8);
+#define INTERRUPT_TIMEOUT_LENGTH ((HZ / INTERRUPT_RATE) * 3 / 2)
 static struct timer_list Timeout100Hz_Timer;
 
 #define CALL_BACK_POOL_SIZE 32  /* number of callbacks we can support */
@@ -372,10 +368,6 @@ static void inline ackHeartBeatInt (void)
 {
    /* reset heart beat flag, write a 0 to bit 4, leave others alone */
    outb(IntMask & ~Heartbeat, ISA_Address + Status_Port);
-   {
-      unsigned char status = inb(ISA_Address + Status_Port);
-      DSMLOG_NOTICE("status = 0x%x\n", status);
-   }
 }
 
 /**
@@ -616,13 +608,13 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,
  */
 static void setHeartBeatOutput (int rate, int isRT)
 {
-   int divide;
+   int ticks_3MHz;
    unsigned char lsb, msb;
 
-   divide = 3000000 / rate;
+   ticks_3MHz = 3000000 / rate; // How many ticks of the 3 MHz clock?
 
-   lsb = (char)(divide & 0xff);
-   msb = (char)((divide & 0xff00)>>8);
+   lsb = (char)(ticks_3MHz & 0xff);
+   msb = (char)((ticks_3MHz & 0xff00)>>8);
 
    Set_Dual_Port_RAM (DP_Ctr1_ctl,
                       DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
@@ -672,13 +664,13 @@ static void getTimeCodeInputSelect(unsigned char *val, int isRT)
  */
 void setRate2Output (int rate, int isRT)
 {
-   int divide;
+   int ticks_3MHz;
    unsigned char lsb, msb;
 
-   divide = 3000000 / rate;
+   ticks_3MHz = 3000000 / rate;
 
-   lsb = (char)(divide & 0xff);
-   msb = (char)((divide & 0xff00)>>8);
+   lsb = (char)(ticks_3MHz & 0xff);
+   msb = (char)((ticks_3MHz & 0xff00)>>8);
    Set_Dual_Port_RAM (DP_Ctr0_ctl,
                       DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
 		      isRT);
@@ -801,10 +793,6 @@ static void getTimeFields(struct irigTime* ti, int offset)
     */
 
    ti->year = (year10year1 / 16) * 10 + (year10year1 & 0x0f);
-   /*
-     DSMLOG_DEBUG("getTimeFields, year=%d, century=%d\n",
-     ti->year, (StaticYear/100)*100);
-   */
 
    /* After cold start the year field is not set, and it
     * takes some time before the setYear to DPR takes effect.
@@ -1036,7 +1024,8 @@ static void setCounters(struct timeval* tv)
 /**
  * Update the clock counters to the current time.
  */
-static inline void setCountersToClock(void)
+static inline void 
+setCountersToClock(void)
 {
    // reset counters to clock
    struct irigTime ti;
@@ -1060,222 +1049,19 @@ static inline void doCallbacklist(struct list_head* list)
    }
 }
 
-/* /\** */
-/*  * This is the thread that runs forever waiting */
-/*  * on semaphores from the interrupt service routine. */
-/*  *\/ */
-/* static void  */
-/* pc104sg_100hz_thread(void *param) */
-/* { */
-/*    int isRT = 1; */
-/*    unsigned long nsec_deltat; */
-/*    long timeout; */
-/*    int ntimeouts = 0; */
-/*    int msecs_since_last_timeout = 0; */
-
-/*    /\* */
-/*     * Interrupts are not enabled at this point */
-/*     * until the call to enableHeartBeatInt() below. */
-/*     *\/ */
-/*    /\* */
-/*     * First initialize some dual port ram settings that */
-/*     * can't be done at init time. */
-/*     *\/ */
-/*    /\* IRIG-B is the default, but we'll set it anyway *\/ */
-/*    setTimeCodeInputSelect(DP_CodeSelect_IRIGB, isRT); */
-
-/* #ifdef DEBUG */
-/*    { */
-/*       unsigned char timecode; */
-/*       getTimeCodeInputSelect(&timecode, isRT); */
-/*       DSMLOG_DEBUG("timecode=0x%x\n", timecode); */
-/*    } */
-/* #endif */
-/*    setPrimarySyncReference(0, isRT);     // 0=PPS, 1=timecode */
-
-/*    setHeartBeatOutput(INTERRUPT_RATE, isRT); */
-/* #ifdef DEBUG */
-/*    DSMLOG_DEBUG("setHeartBeatOutput(%d) done\n", INTERRUPT_RATE); */
-/* #endif */
-
-/*    setRate2Output(A2DREF_RATE, isRT); */
-/* #ifdef DEBUG */
-/*    DSMLOG_DEBUG("setRate2Output(%d) done\n", A2DREF_RATE); */
-/* #endif */
-
-/*    /\* */
-/*     * Set the internal heart-beat and rate2 to be in phase with */
-/*     * the PPS/time_code reference */
-/*     *\/ */
-/*    counterRejam(isRT); */
-
-/*    ClockState = RESET_COUNTERS; */
-
-/*    /\* initial request of extended status from DPR *\/ */
-/*    Req_Dual_Port_RAM(DP_Extd_Sts); */
-
-/*    /\* start interrupts *\/ */
-/*    enableHeartBeatInt(); */
-/* #ifdef DEBUG */
-/*    DSMLOG_DEBUG("enableHeartBeatInt  done\n"); */
-/* #endif */
-
-/*    /\* event timeout in nanoseconds *\/ */
-/*    nsec_deltat = MSEC_PER_CALLBACK_CHECK * NSECS_PER_MSEC; */
-/*    nsec_deltat += (nsec_deltat * 3) / 8;        /\* add 3/8ths more *\/ */
-/*    // DSMLOG_DEBUG("nsec_deltat = %d\n", nsec_deltat); */
-
-/*    /\* event timeout in jiffies *\/ */
-/*    timeout = nsec_deltat / TICK_NSEC; */
-/*    timeout = 20; // 2 seconds, just for now */
-/*    DSMLOG_NOTICE("nsec_deltat: %lu, timeout: %lu, TICK_NSEC: %lu\n", */
-/* 		 nsec_deltat, timeout, TICK_NSEC); */
-   
-/* //    struct timespec irigts; */
-/* //    dsm_sample_time_t   tstart = 0, tend = 0, tduty, tduty_max=0; */
-
-/*    while(1) { */
-/*       long timeRemaining; */
-
-/*       /\* wait for the pc104sg_isr to signal us */
-/*        * If we time out while waiting, then we've missed */
-/*        * an irig interrupt.  Report the status and re-enable. */
-/*        *\/ */
-/*       DSMLOG_NOTICE("entering event wait\n"); */
-/*       timeRemaining = wait_event_interruptible_timeout(wq_100Hz, */
-/* 						       (Flag_100Hz != 0), */
-/* 						       timeout); */
-/*       DSMLOG_NOTICE("done waiting with %lu remaining, flag=%d\n", */
-/* 		    timeRemaining, Flag_100Hz); */
-/*       // If we timed out while waiting, then assume we missed an */
-/*       // interrupt */
-/*       if (Flag_100Hz == 0) { // timed out while waiting */
-/* 	 if (!(ntimeouts++ % 1)) { */
-/* 	     DSMLOG_NOTICE( */
-/* 		 "thread semaphore timeout #%d, %d msecs since last timeout\n", */
-/* 		 ntimeouts, msecs_since_last_timeout); */
-/* 	 } */
-/* 	 ackHeartBeatInt(); */
-/* 	 msecs_since_last_timeout = 0; */
-
-/*          /\* */
-/* 	  * If clock is not overidden and we have time codes, then */
-/* 	  * set counters to the clock */
-/* 	  *\/ */
-/*          if (ClockState == CODED) { */
-/* 	     ClockState = RESET_COUNTERS; */
-/* 	 } */
-/* 	 /\* */
-/* 	  * Otherwise, increment the clock and counter ourselves. */
-/* 	  * it is presumably safe to increment since interrupts */
-/* 	  * aren't happening!  This shouldn't violate the policy of */
-/* 	  * MsecClock[ReadClock], which is that it */
-/* 	  * isn't updated more often than once an interrupt. */
-/*           * See the comments in increment_clock. */
-/* 	  *\/ */
-/* 	 else { */
-/* 	    DSMLOG_NOTICE("incrementing clock\n"); */
-/* 	    increment_clock(MSEC_PER_CALLBACK_CHECK); */
-/* 	    increment_hz100_cnt(); */
-/* 	 } */
-
-/*       } */
-/*       // If the time remaining is not zero, then we were interrupted */
-/*       else if (timeRemaining != 0) { */
-/*          DSMLOG_NOTICE("thread interrupted\n"); */
-/*          break; */
-/*       } */
-/*       // Otherwise, success! */
-/*       else { */
-/* 	  Flag_100Hz = 0; */
-/* 	  msecs_since_last_timeout += MSEC_PER_CALLBACK_CHECK; */
-/*       } */
-
-/*       // lock the callback list */
-/*       down(&CbListMutex); */
-
-/*       /\* perform 100Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_100_HZ); */
-
-/*       if ((Hz100_Cnt %   2)) goto _5; */
-
-/*       /\* perform 50Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_50_HZ); */
-
-/*       if ((Hz100_Cnt %   4)) goto _5; */
-
-/*       /\* perform 25Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_25_HZ); */
-
-/* _5:   if ((Hz100_Cnt %   5)) goto cleanup; */
-
-/*       /\* perform 20Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_20_HZ); */
-
-/*       if ((Hz100_Cnt %  10)) goto _25; */
-
-/*       /\* perform 10Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_10_HZ); */
-
-/*       if ((Hz100_Cnt %  20)) goto _25; */
-
-/*       /\* perform  5Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_5_HZ); */
-
-/* _25:  if ((Hz100_Cnt %  25)) goto cleanup; */
-
-/*       /\* perform  4Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_4_HZ); */
-
-/*       if ((Hz100_Cnt %  50)) goto cleanup; */
-
-/*       /\* perform  2Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_2_HZ); */
-
-/*       if ((Hz100_Cnt % 100)) goto cleanup; */
-
-/* #ifdef DEBUG */
-/*       DSMLOG_DEBUG("Hz100_Cnt=%d, GET_MSEC_CLOCK=%lu\n", */
-/*                    Hz100_Cnt, GET_MSEC_CLOCK); */
-/* #endif */
-/*       /\* perform  1Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_1_HZ); */
-
-/*       if ((Hz100_Cnt % 1000)) goto cleanup; */
-
-/*       /\* perform  0.1 Hz processing... *\/ */
-/*       doCallbacklist(CallbackLists + IRIG_0_1_HZ); */
-
-/* //    irig_clock_gettime(&irigts); */
-/* //    tend = (irigts.tv_sec % SECS_PER_DAY) * NSECS_PER_SEC + irigts.tv_nsec; */
-/* //    tduty = tend - tstart; */
-/* //    if (tduty_max < tduty) tduty_max = tduty; */
-/* //    DSMLOG_DEBUG("JDW   tend: %12u ns\n", tend); */
-/* //    DSMLOG_DEBUG("JDW tstart: %12u ns\n", tstart); */
-/* //    DSMLOG_DEBUG("JDW  tduty: %12u ns    tduty_max: %u ns\n", tduty, tduty_max); */
-/* cleanup: */
-/*       up(&CbListMutex); */
-/*    } */
-/* #ifdef DEBUG */
-/*    DSMLOG_DEBUG("run method exiting!\n"); */
-/* #endif */
-/*    /\* nothing *\/; */
-/* //XX   return (void*) status; */
-/* } */
-
-
-
 
 static void 
 pc104sg_task_100Hz(unsigned long ul_trigger)
 {
    task_100Hz_trigger trigger = (task_100Hz_trigger)ul_trigger;
-   static int consecutive_timeouts = 0;
+   static int consecutiveTimeouts = 0;
+   static int nCollisions = 0;
+   static int lastInterruptMillis = 0; // milliseconds into minute
    static int initialized = 0;
+   struct irigTime ti;
    int isRT = 1;
 
-//   Timeout100Hz_Timer.expires = jiffies + INTERRUPT_TIMEOUT_LENGTH;
-   Timeout100Hz_Timer.expires = jiffies + 5 * HZ; // 5 seconds, for now
+   Timeout100Hz_Timer.expires = jiffies + INTERRUPT_TIMEOUT_LENGTH;
    add_timer(&Timeout100Hz_Timer);
 
    /*
@@ -1307,39 +1093,44 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 
        return;
    }
-   
-   {
-       unsigned char x9, xa, xb, xc;
-       int hours, minutes, seconds, tenths;
-       unsigned char status = inb(ISA_Address + Status_Port);
-       SyncOK = status & Sync_OK;
-       DSMLOG_NOTICE("status is 0x%x (sync %s OK)\n", status, 
-		     SyncOK ? "is" : "is not");
 
-       inb(ISA_Address + 0xf);
-       x9 = inb(ISA_Address + 0x9);
-       xa = inb(ISA_Address + 0xa);
-       xb = inb(ISA_Address + 0xb);
-       xc = inb(ISA_Address + 0xc);
+   getCurrentTime(&ti);
 
-       hours = (x9 & 0xf) * 10 + (xa >> 4);
-       minutes = (xa & 0xf) * 10 + (xb >> 4);
-       seconds = (xb & 0xf) * 10 + (xc >> 4);
-       tenths = xc & 0xf;
-//       DSMLOG_NOTICE("time is %02d:%02d:%02d.%1d\n", hours, minutes,
-//		     seconds, tenths);
-   }
+   if (! (Hz100_Cnt % 500))
+       DSMLOG_NOTICE("count: %d, time is %02d:%02d:%02d.%03d\n", 
+		     Hz100_Cnt, ti.hour, ti.min, ti.sec, ti.msec);
 
    /*
-    * Do some stuff depending on whether we were triggered by a real
-    * IRIG interrupt or by a timeout while waiting.
+    * Do some stuff depending on whether we were triggered by an IRIG
+    * interrupt or by a timeout while waiting for one.
     */
-   switch (trigger) 
+   switch (trigger)
    {
      case TASK_TIMEOUT_TRIGGER:
-       consecutive_timeouts++;
-       if (!(consecutive_timeouts % 100)) 
-	  DSMLOG_NOTICE("%d consecutive timeouts\n", consecutive_timeouts);
+       /*
+	* Check if this timeout collided with a very recent interrupt
+	*/
+       {
+	  int nowMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
+	  // Consider this a timeout/interrupt collision if the time
+	  // between this timeout and the last interrupt is less than
+	  // the interrupt interval.
+	  if ((nowMillis - lastInterruptMillis) < (1000 / INTERRUPT_RATE)) 
+	  {
+	     nCollisions++;
+	     if (nCollisions <= 10 || !(nCollisions % 100)) 
+	        DSMLOG_NOTICE("Timeout/interrupt collision, timeout ignored "
+			      "(%d ms delta)\n",
+			      nowMillis - lastInterruptMillis);
+	     return;
+	  }
+       }
+       /*
+	* Nope, it's a real timeout
+	*/
+       consecutiveTimeouts++;
+       if (consecutiveTimeouts <= 10 || !(consecutiveTimeouts % 100)) 
+	  DSMLOG_NOTICE("%d consecutive timeouts\n", consecutiveTimeouts);
 	   
        ackHeartBeatInt();
 
@@ -1364,7 +1155,8 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
        }
        break;
      case TASK_INTERRUPT_TRIGGER:
-       consecutive_timeouts = 0;
+       consecutiveTimeouts = 0;
+       lastInterruptMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
        break;
      default:
        DSMLOG_ERR("unknown trigger %d\n", trigger);
@@ -1547,7 +1339,6 @@ pc104sg_isr (int irq, void* callbackPtr, struct pt_regs *regs)
    unsigned char status = inb(ISA_Address + Status_Port);
    SyncOK = status & Sync_OK;
 
-   DSMLOG_DEBUG("status: %d, IntMask: %d", status, IntMask);
    if ((status & Heartbeat) && (IntMask & Heartbeat_Int_Enb)) {
 
       /* acknowledge interrupt (essential!) */
@@ -1837,9 +1628,9 @@ void cleanup_module (void)
    tasklet_kill(&Tasklet100HzInterrupt);
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("free_isa_irq\n");
+   DSMLOG_NOTICE("free_irq\n");
 #endif
-   free_irq(Irq, NULL);
+   free_irq(Irq, (void*)IRQ_DEVID);
 
    if (PortDev) {
 #ifdef DEBUG
@@ -1879,6 +1670,17 @@ int init_module (void)
 
    // DSM_VERSION_STRING is found in dsm_version.h
    DSMLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
+
+   // If our timeout for interrupts is less than 2 jiffies, then we're
+   // likely to get timeout/interrupt collisions.
+   if (INTERRUPT_TIMEOUT_LENGTH < 2) 
+   {
+       DSMLOG_NOTICE("Kernel timer HZ value of %d with IRIG interrupt rate "
+		     "of %d Hz\n", HZ, INTERRUPT_RATE);
+       DSMLOG_NOTICE("makes interrupt/timeout collisions very likely.\n");
+       DSMLOG_NOTICE("You should use a kernel with HZ set to at least %d\n",
+		     2 * INTERRUPT_RATE);
+   }
 
    INIT_LIST_HEAD(&CallbackPool);
    for (i = 0; i < IRIG_NUM_RATES; i++)
@@ -1945,7 +1747,79 @@ int init_module (void)
       if (!cbentry) goto err0;
       list_add(&cbentry->list, &CallbackPool);
    }
+# ifdef CONFIG_ARCH_IXP4XX
+   /*
+    * For IXP4xx architecture, we assume it's a Vulcan, where ISA
+    * interrupts go to specific GPIO interrupt pins, which show up as
+    * different IRQ numbers in the OS.  Handle the mapping automatically
+    * here.
+    */
+   {
+      int newIrq = Irq;
 
+      switch (Irq) 
+      {
+	// ISA IRQ 10 goes to GPIO 10, which maps to IRQ_IXP4XX_GPIO10
+	case 10:
+	   newIrq = IRQ_IXP4XX_GPIO10;
+	   break;
+	 // ISA IRQ 11 goes to GPIO 11, which maps to IRQ_IXP4XX_GPIO11
+	case 11:
+	   newIrq = IRQ_IXP4XX_GPIO11;
+	   break;
+	 // ISA IRQ 12 goes to GPIO 12, which maps to IRQ_IXP4XX_GPIO12
+	case 12:
+	   newIrq = IRQ_IXP4XX_GPIO12;
+	   break;
+	default:
+	   /* no remapping */;
+       }
+
+       if (newIrq != Irq)
+       {
+	  DSMLOG_NOTICE("Chosen IRQ %d remapped to IRQ %d for Vulcan\n", Irq,
+			 newIrq);
+	  Irq = newIrq;
+       }
+   }
+# elif defined(CONFIG_ARCH_VIPER)
+   /*
+    * For Viper, ISA interrupts all go to GPIO pin 1, and show up in Linux
+    * at remapped IRQs.  Do an automatic remapping here as well.  The
+    * remapped values are obtained from function viper_init_irq() in
+    * <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
+    */
+   {
+       int newIrq = Irq;
+       switch (Irq)
+       {
+	 case 10:
+	   newIrq = VIPER_IRQ(0) + 5;
+	   break;
+	 case 11:
+	   newIrq = VIPER_IRQ(0) + 6;
+	   break;
+	 case 12:
+	   newIrq = VIPER_IRQ(0) + 7;
+	   break;
+	 case 15:
+	   newIrq = VIPER_IRQ(0) + 10;
+	   break;
+	 default:
+	   /* no remapping */;
+       }
+
+       if (newIrq != Irq)
+       {
+	  DSMLOG_NOTICE("Chosen IRQ %d remapped to IRQ %d for Viper\n", Irq,
+			 newIrq);
+	  Irq = newIrq;
+       }
+   }
+# endif // architecture-specific IRQ remapping
+   
+	   
+       
    errval = request_irq(Irq, pc104sg_isr, SA_SHIRQ, "PC104-SG IRIG", 
 			(void*)IRQ_DEVID);
    if (errval < 0) {
