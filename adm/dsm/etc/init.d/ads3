@@ -1,11 +1,12 @@
 #! /bin/sh
 #
-#
 # Aircraft Data System startup script
 #
 # . /etc/default/rcS
 
 # set -x
+
+mount /opt
 
 # PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=dsm
@@ -16,9 +17,9 @@ ruser=ads
 server=server		# found in /etc/hosts
 adspath=/opt/nidas/arm
 
-modpath=/var/tmp/modules
-libpath=/var/tmp/lib
-dsmpath=/var/tmp
+modpath=/opt/modules
+libpath=/opt/lib
+dsmpath=/opt
 
 modconf=/etc/dsm_modules.conf
 
@@ -122,28 +123,16 @@ unload_modules() {
     done
 }
 
-
 copy_modules() {
     [ -d $modpath ] || mkdir -p $modpath
-    modules=($(get_modules))
-    for m in ${modules[*]}; do
-        [ $m == rtl ] && continue	# don't fetch rtl.o
-	echo scp $ruser@$server:$adspath/rtlinux/$m.o $modpath
-	scp $ruser@$server:$adspath/rtlinux/$m.o $modpath
-    done
+	rsync -rlptDzv $ruser@$server:$adspath/rtlinux/ $modpath/
 }
 copy_apps() {
         [ -d $libpath ] || mkdir -p $libpath
         [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
-        
-	echo scp $ruser@$server:$adspath/lib/libnidas.so $libpath
-	scp $ruser@$server:$adspath/lib/libnidas.so $libpath
-	echo scp $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath
-	scp $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath
-	echo scp $ruser@$server:$adspath/bin/dsm $dsmpath
-	scp $ruser@$server:$adspath/bin/dsm $dsmpath
-	echo scp $ruser@$server:$adspath/filters/*.cfg $dsmpath/filters
-	scp $ruser@$server:$adspath/filters/*.cfg $dsmpath/filters
+	rsync -rlptDzv $ruser@$server:$adspath/lib/libnidas*.so $libpath
+	rsync -rlptDzv $ruser@$server:$adspath/bin/dsm          $dsmpath
+	rsync -rlptDzv $ruser@$server:$adspath/filters/*.cfg    $dsmpath/filters/
 }
 
 start_app() {
@@ -228,7 +217,7 @@ case "$1" in
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
 	check_ntp
 	unload_modules < $modconf
-        copy_modules < $modconf
+        copy_modules
         load_modules < $modconf
         copy_apps
         start_app
@@ -273,7 +262,7 @@ case "$1" in
 	echo -n "Refetch_all of $DESC (stops app, unloads mods, fetches all, starts app): "
         stop_app
 	unload_modules < $modconf
-	copy_modules < $modconf
+	copy_modules
 	load_modules < $modconf
         copy_apps
 	start_app
