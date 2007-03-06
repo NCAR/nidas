@@ -67,10 +67,10 @@ static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
 
 // Set the base address of the Mesa 4I34 card
-static unsigned long baseaddr = MESA_BASE;
+static unsigned long ioport = MESA_BASE;
 
-MODULE_PARM(baseaddr, "1l");
-MODULE_PARM_DESC(baseaddr, "ISA memory base (default 0x220)");
+MODULE_PARM(ioport, "1l");
+MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 
 enum flag {TRUE, FALSE};
 
@@ -541,7 +541,7 @@ int init_module (void)
   {
     brd = boardInfo + ib;
     error = -EBUSY;
-    unsigned long addr = SYSTEM_ISA_IOPORT_BASE + baseaddr;
+    unsigned long addr = SYSTEM_ISA_IOPORT_BASE + ioport;
 
     // Get the mapped board address
     if (check_region(addr, MESA_REGION_SIZE)) {
@@ -560,7 +560,7 @@ int init_module (void)
     DSMLOG_NOTICE("ib:             %d\n",   ib);
     DSMLOG_NOTICE("nioctlcmds:     %d\n",   nioctlcmds);
     DSMLOG_NOTICE("ioctlcmds:      0x%x\n", ioctlcmds);
-    DSMLOG_NOTICE("ioport:         0x%x\n", baseaddr);
+    DSMLOG_NOTICE("ioport:         0x%x\n", ioport);
 
     brd->ioctlhandle = openIoctlFIFO(devprefix, ib, ioctlCallback,
                               nioctlcmds, ioctlcmds);
