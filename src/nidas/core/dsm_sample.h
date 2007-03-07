@@ -134,6 +134,17 @@ struct dsm_sample_circ_buf {
 #define TMSECS_PER_DAY 864000000L
 #endif
 
+/*
+ * Return time in milliseconds since 00:00 UTC.
+ */
+inline dsm_sample_time_t getSystemTimeMsecs(void)
+{
+    struct timeval tv;
+    do_gettimeofday(&tv);
+    return (tv.tv_sec % 86400) * MSECS_PER_SEC +
+        tv.tv_usec / USECS_PER_MSEC;
+}
+
 
 /*
  * Return time in tenths of milliseconds since 00:00 UTC.
