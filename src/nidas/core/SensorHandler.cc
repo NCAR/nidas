@@ -31,24 +31,24 @@ SensorHandler::SensorHandler(unsigned short rserialPort) :
    remoteSerialSocketPort(rserialPort),rserial(0),rserialConnsChanged(false),
    selectn(0),selectErrors(0),rserialListenErrors(0),opener(this)
 {
-   setStatisticsPeriod(10 * MSECS_PER_SEC);
+    setStatisticsPeriod(10 * MSECS_PER_SEC);
 
-   /* start out with a 1/50 second select timeout.
-    * While we're adding sensors we want select to
-    * timeout fairly quickly, so when new DSMSensors are opened
-    * and added they are read from without much time delay.
-    * Otherwise if you add a sensor that isn't transmitting,
-    * then one which is generating alot of output, the buffers for
-    * the second sensor may fill before the first timeout.
-    */
-   setTimeout(MSECS_PER_SEC / 50);
-   setTimeoutWarning(60 * MSECS_PER_SEC);
-   FD_ZERO(&readfdset);
-   statisticsTime = timeCeiling(getSystemTime(),
+    setTimeout(MSECS_PER_SEC * 60);     // one minute select timeout
+    FD_ZERO(&readfdset);
+    statisticsTime = timeCeiling(getSystemTime(),
                                 statisticsPeriod);
-   blockSignal(SIGINT);
-   blockSignal(SIGHUP);
-   blockSignal(SIGTERM);
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
+
+    if (::pipe(notifyPipe) < 0) {
+        // Can't throw exception, but report it. Check at beginning
+        // of thread that notifyPipe[0,1] are OK
+        n_u::IOException e("SensorHandler","pipe",errno);
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+        notifyPipe[0] = -1;
+        notifyPipe[1] = -1;
+    }
 }
 
 /**
@@ -64,6 +64,9 @@ SensorHandler::~SensorHandler()
    list<DSMSensor*>::const_iterator si;
    for (si = allSensors.begin(); si != allSensors.end(); ++si)
       delete *si;
+
+    if (notifyPipe[0] >= 0) ::close(notifyPipe[0]);
+    if (notifyPipe[1] >= 0) ::close(notifyPipe[1]);
 }
 
 
@@ -75,14 +78,6 @@ void SensorHandler::setTimeout(int val) {
 
 int SensorHandler::getTimeout() const {
    return timeoutMsec;
-}
-
-void SensorHandler::setTimeoutWarning(int val) {
-   timeoutWarningMsec = val;
-}
-
-int SensorHandler::getTimeoutWarning() const {
-   return timeoutWarningMsec;
 }
 
 void SensorHandler::calcStatistics(dsm_time_t tnow)
@@ -122,7 +117,12 @@ int SensorHandler::run() throw(n_u::Exception)
 
    dsm_time_t rtime = 0;
    struct timeval tout;
-   unsigned long timeoutSumMsec = 0;
+
+   if (notifyPipe[0] < 0 || notifyPipe[1] < 0) {
+        n_u::IOException e("SensorHandler cmd pipe","pipe",EBADF);
+        n_u::Logger::getInstance()->log(LOG_ERR,"%s",e.what());
+        throw e;
+   }
 
    opener.start();
 
@@ -138,6 +138,7 @@ int SensorHandler::run() throw(n_u::Exception)
    }
 
    size_t nsamplesAlloc = 0;
+   sensorsChanged = true;
 
    for (;;) {
       if (amInterrupted()) break;
@@ -161,26 +162,18 @@ int SensorHandler::run() throw(n_u::Exception)
             n_u::Logger::getInstance()->log(LOG_ERR,"%s",e.toString().c_str());
             sensorsChanged = rserialConnsChanged = true;
             if (errno != EINTR) selectErrors++;
-            timeoutSumMsec = 0;
          }
-         else {
-            timeoutSumMsec += timeoutMsec;
-            if (timeoutSumMsec >= timeoutWarningMsec) {
-               n_u::Logger::getInstance()->log(LOG_INFO,
-                                               "SensorHandler select timeout %d msecs",timeoutSumMsec);
-               timeoutSumMsec = 0;
-            }
-         }
+         else n_u::Logger::getInstance()->log(LOG_INFO,
+                   "SensorHandler select timeout %d msecs",timeoutMsec);
          rtime = getSystemTime();
          if (rtime > statisticsTime) calcStatistics(rtime);
          continue;
       }                               // end of select error section
 
-      timeoutSumMsec = 0;
-
       int nfd = 0;
       int fd = 0;
 
+      // check sensors
       for (unsigned int ifd = 0; ifd < activeSensorFds.size(); ifd++) {
          fd = activeSensorFds[ifd];
          if (FD_ISSET(fd,&rset)) {
@@ -275,17 +268,28 @@ int SensorHandler::run() throw(n_u::Exception)
             }
             catch (n_u::IOException &ioe) {
                n_u::Logger::getInstance()->log(LOG_ERR,
-                                               "SensorHandler rserial: %s",ioe.toString().c_str());
+                   "SensorHandler rserial: %s",ioe.toString().c_str());
                rserialListenErrors++;
             }
             if (++nfd == nfdsel) continue;
          }
          if (FD_ISSET(fd,&eset)) {
             n_u::Logger::getInstance()->log(LOG_ERR,"%s",
-                                            "SensorHandler select reports exception for rserial listen socket ");
+                "SensorHandler select reports exception for rserial listen socket ");
             rserialListenErrors++;
             if (++nfd == nfdsel) continue;
          }
+      }
+      if (notifyPipe[0] >= 0 && FD_ISSET(notifyPipe[0],&rset)) {
+          char z;
+          if (::read(notifyPipe[0],&z,1) < 0) {
+               n_u::IOException e("SensorHandler cmd pipe","read",errno);
+               n_u::Logger::getInstance()->log(LOG_ERR,
+                   "SensorHandler rserial: %s",e.what());
+          }
+          // Don't need to do anything, next loop will check
+          // for sensorsChanged.
+          if (++nfd == nfdsel) continue;
       }
    }
 
@@ -335,8 +339,11 @@ void SensorHandler::sensorOpen(DSMSensor *sensor)
    n_u::Synchronized autosync(sensorsMutex);
    pendingSensors.push_back(sensor);
    // cerr << "SensorHandler::sensorOpen pendingSensors.size="  <<
-   //  pendingSensors.size() << endl;
+     //   pendingSensors.size() << endl;
    sensorsChanged = true;
+   // Write a byte on the notifyPipe to wake up select.
+   char dummy = 0;
+   if (notifyPipe[1] >= 0) ::write(notifyPipe[1],&dummy,1);
 }
 
 /*
@@ -352,6 +359,9 @@ void SensorHandler::closeSensor(DSMSensor *sensor)
 
    pendingSensorClosures.push_back(sensor);
    sensorsChanged = true;
+   // Write a byte on the notifyPipe to wake up select.
+   char dummy = 0;
+   if (notifyPipe[1] >= 0) ::write(notifyPipe[1],&dummy,1);
 }
 
 /*
@@ -367,6 +377,9 @@ void SensorHandler::reopenSensor(DSMSensor *sensor)
 
    opener.reopenSensor(sensor);
    sensorsChanged = true;
+   // Write a byte on the notifyPipe to wake up select.
+   char dummy = 0;
+   if (notifyPipe[1] >= 0) ::write(notifyPipe[1],&dummy,1);
 }
 
 /*
@@ -488,6 +501,9 @@ void SensorHandler::handleChangedSensors() {
 
    selectn = 0;
    FD_ZERO(&readfdset);
+   if (notifyPipe[0] >= 0) FD_SET(notifyPipe[0],&readfdset);
+   selectn = std::max(notifyPipe[0]+1,selectn);
+
    for (i = 0; i < activeSensorFds.size(); i++) {
       FD_SET(activeSensorFds[i],&readfdset);
       selectn = std::max(activeSensorFds[i]+1,selectn);

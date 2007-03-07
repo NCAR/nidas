@@ -120,10 +120,8 @@ void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
         cfg.id = samples[i].id;
 	cfg.rate = samples[i].rate;
 	cfg.filterType = samples[i].filterType;
-    cerr << "cfg.filterType=" << (int) cfg.filterType << endl;
 	cfg.boxcarNpts = samples[i].boxcarNpts;
 
-    cerr << "i=" << i << " samples[].filterType=" << (int) samples[i].filterType << endl;
         ioctl(DMMAT_SET_A2D_SAMPLE, &cfg,
             sizeof(struct DMMAT_A2D_Sample_Config));
     }
@@ -168,7 +166,7 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
+bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw()
 {
     // pointer to raw A2D counts
     const short* sp = (const short*) insamp->getConstVoidDataPtr();
@@ -195,13 +193,14 @@ bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) th
             return false;
         }
         id0 = id;
+        nvalues--;
     }
 
     struct sample_info* sinfo = &samples[id0];
 
     SampleT<float>* osamp = getSample<float>(sinfo->nvars);
     osamp->setTimeTag(insamp->getTimeTag());
-    osamp->setId(sinfo->id);
+    osamp->setId(sinfo->sampleId);
     float *fp = osamp->getDataPtr();
 
     unsigned int ival;
@@ -215,6 +214,8 @@ bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& result) th
     }
 
     for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
+    results.push_back(osamp);
+
     return true;
 }
 
@@ -331,16 +332,12 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
     sinfo.sampleId = tagid;
     sinfo.id = id0;
     sinfo.rate = rate;
-    cerr << "filterType=" << (int) filterType << endl;
     sinfo.filterType = filterType;
-    cerr << "sinfo.filterType=" << (int) sinfo.filterType << endl;
     sinfo.boxcarNpts = boxcarNpts;
     sinfo.nvars = vars.size();
     sinfo.convSlopes = new float[sinfo.nvars];
     sinfo.convIntercepts = new float[sinfo.nvars];
     samples.push_back(sinfo);
-
-    cerr << "id0=" << id0 << " samples[].filterType=" << (int) samples[id0].filterType << endl;
 
     vector<const Variable*>::const_iterator vi;
     int ivar = 0;

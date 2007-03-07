@@ -11,9 +11,7 @@
 
     $HeadURL$
  ********************************************************************
-
-*/
-
+ */
 
 #ifndef NIDAS_CORE_PORTSELECTOR_H
 #define NIDAS_CORE_PORTSELECTOR_H
@@ -91,15 +89,6 @@ public:
     void setTimeout(int val);
 
     int getTimeout() const;
-
-    /**
-     * Set the timeout warning period. After no data has
-     * been received on any port for this period, issue a warning.
-     * @param val length of time, in milliseconds.
-     */
-    void setTimeoutWarning(int val);
-
-    int getTimeoutWarning() const;
 
     void calcStatistics(dsm_time_t);
 
@@ -207,8 +196,6 @@ private:
 
     size_t timeoutMsec;
     struct timeval timeoutVal;
-    size_t timeoutWarningMsec;
-
     dsm_time_t statisticsTime;
 
     /**
@@ -217,6 +204,12 @@ private:
     unsigned long statisticsPeriod;
 
     SensorOpener opener;
+
+    /*
+     * Pipe read/write file descriptors used to notify the select() call
+     * that action is needed.
+     */
+    int notifyPipe[2];
 
 };
 
