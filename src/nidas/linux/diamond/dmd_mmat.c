@@ -1346,7 +1346,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
-        size_t ocount = 0;
+        size_t countreq = count;
         int n;
         struct dsm_sample* insamp;
 
@@ -1380,18 +1380,16 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         if (!sampPtr) {
                 insamp = a2d->samples.buf[a2d->samples.tail];
                 sampPtr = (char*)insamp;
-                bytesLeft = insamp->length +
-                    ((char*)insamp->data - (char*)&insamp->timetag);
+                bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
         }
         else bytesLeft = a2d->sampBytesLeft;
 
         for ( ; count; ) {
 
-            KLOG_DEBUG("count=%d,ocount=%d,sampBytesLeft=%d\n",
-                count,ocount,bytesLeft);
+            KLOG_DEBUG("count=%d,copied=%d,sampBytesLeft=%d\n",
+                count,countreq-count,bytesLeft);
             if ((n = min(bytesLeft,count)) > 0) {
                     if (copy_to_user(buf,sampPtr,n)) return -EFAULT;
-                    ocount += n;
                     count -= n;
                     buf += n;
                     sampPtr += n;
@@ -1401,11 +1399,11 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
                     // finished with sample
                     INCREMENT_TAIL(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
                     if (a2d->samples.head == a2d->samples.tail) {
-                            KLOG_DEBUG("no more samples,ocount=%d\n",ocount);
+                            KLOG_DEBUG("no more samples,copied=%d\n",countreq-count);
                             a2d->sampPtr = 0;
 #ifdef OUT_DEBUG
-                            if (ocount > maxOcount) maxOcount = ocount;
-                            if (ocount < minOcount) minOcount = ocount;
+                            if (countreq - count > maxOcount) maxOcount = countreq - count;
+                            if (countreq - count < minOcount) minOcount = countreq - count;
                             if (!(nreads++ % 100))  {
                                 KLOG_INFO("minOcount=%lu, maxOcount=%lu\n",
                                     minOcount,maxOcount);
@@ -1414,18 +1412,17 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
                                 nreads = 1;
                             }
 #endif
-                            return ocount;
+                            return countreq - count;
                     }
                     insamp = a2d->samples.buf[a2d->samples.tail];
                     sampPtr = (char*)insamp;
-                    bytesLeft = insamp->length +
-                        ((char*)insamp->data - (char*)&insamp->timetag);
+                    bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
             }
         }
-        KLOG_DEBUG("ocount=%d\n",ocount);
+        KLOG_DEBUG("copied=%d\n",countreq - count);
 #ifdef OUT_DEBUG
-        if (ocount > maxOcount) maxOcount = ocount;
-        if (ocount < minOcount) minOcount = ocount;
+        if (countreq - count > maxOcount) maxOcount = countreq - count;
+        if (countreq - count < minOcount) minOcount = countreq - count;
         if (!(nreads++ % 100))  {
             KLOG_INFO("minOcount=%lu, maxOcount=%lu\n",
                 minOcount,maxOcount);
@@ -1436,7 +1433,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
 #endif
         a2d->sampPtr = sampPtr;
         a2d->sampBytesLeft = bytesLeft;
-        return ocount;
+        return countreq - count;
 }
 
 static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
