@@ -6,8 +6,6 @@
 
 # set -x
 
-mount /opt
-
 # PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=dsm
 NAME=dsm
@@ -17,9 +15,9 @@ ruser=ads
 server=server		# found in /etc/hosts
 adspath=/opt/nidas/arm
 
-modpath=/opt/modules
-libpath=/opt/lib
-dsmpath=/opt
+modpath=/tmp/code/modules
+libpath=/tmp/code/lib
+dsmpath=/tmp/code
 
 modconf=/etc/dsm_modules.conf
 
@@ -215,6 +213,8 @@ devdir=$(get_devdir < $modconf)
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
+	mkdir /var/tmp/code
+	mount /var/tmp/code
 	check_ntp
 	unload_modules < $modconf
         copy_modules
@@ -226,6 +226,8 @@ case "$1" in
   stop)
 	echo -n "Stopping $DESC: "
 	stop_app
+	unload_modules < $modconf
+	umount /var/tmp/code
 	echo "$NAME."
 	;;
   restart)

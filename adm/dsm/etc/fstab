@@ -1,7 +1,7 @@
 #device                 mount point             type    flags           0 0
 /dev/mtdblock3          /                       jffs2   defaults        0 0
 tmpfs                   /var/tmp                tmpfs   defaults,size=8M 0 0
+/dev/hda1               /var/tmp/code           ext3    defaults        0 0
 none                    /proc                   proc    defaults        0 0
 none                    /dev/pts                devpts  defaults        0 0
 /dev/sda1               /media/usbdisk          vfat    pamconsole,noatime,sync,fscontext=system_u:object_r:removable_t,exec,noauto,managed 0 0
-/dev/hda1               /opt                    ext3    defaults        0 0
