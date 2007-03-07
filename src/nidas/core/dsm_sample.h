@@ -59,7 +59,16 @@ typedef struct dsm_sample {
 #include <linux/circ_buf.h>
 
 /* Macros for manipulating sample circular buffers
- * (in addition to those in linux/circ_buf.h
+ * (in addition to those in linux/circ_buf.h */
+ 
+/*
+ * GET_HEAD accesses the head index twice.  The idea is that
+ * the space will only stay the same or get bigger between
+ * the CIRC_SPACE check and the return of buf[head] element,
+ * because only the calling thread should be changing head.
+ * If a separate consumer thread is messing with tail, CIRC_SPACE,
+ * will only stay the same or get bigger, not smaller, and
+ * and the head element will not become invalid.
  */
 #define GET_HEAD(circbuf,size) \
     ((CIRC_SPACE(circbuf.head,circbuf.tail,size) > 0) ? \
