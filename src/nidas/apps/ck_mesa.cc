@@ -148,7 +148,7 @@ int main(int argc, char** argv)
   err("fdMesaFPGAfifo = 0x%x", fdMesaFPGAfifo);
 
   // Open up the FPGA program drom disk...
-  sprintf(devstr, "/opt/mesa_fpga_file.bit");
+  sprintf(devstr, "/tmp/code/firmware/mesa_fpga_file.bit");
   err("opening '%s'", devstr);
   fdMesaFPGAfile = open(devstr, O_RDONLY);
 

@@ -110,6 +110,11 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
     env.AppendUnique(CXXFLAGS = ['-ggdb'])
 
 ##
+##  Install firmware
+##
+SConscript("firmware/anythingIO/SConscript",exports={'env':env})
+
+##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian)...
 ##

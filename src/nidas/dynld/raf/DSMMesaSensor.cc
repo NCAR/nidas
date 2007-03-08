@@ -221,7 +221,7 @@ bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
   FILE * fdMesaFPGAfile;
 
   // Open up the FPGA program from disk...
-  strcpy(devstr, "/opt/mesa_fpga_file.bit");
+  strcpy(devstr, "/tmp/code/firmware/mesa_fpga_file.bit");
   cerr << "opening " << devstr << endl;
   if ((fdMesaFPGAfile = fopen(devstr, "rb")) == NULL)
   {

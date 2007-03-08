@@ -15,9 +15,11 @@ ruser=ads
 server=server		# found in /etc/hosts
 adspath=/opt/nidas/arm
 
-modpath=/tmp/code/modules
-libpath=/tmp/code/lib
-dsmpath=/tmp/code
+dsmpath=/var/tmp/code
+fmwpath=$dsmpath/firmware
+ftrpath=$dsmpath/filters
+modpath=$dsmpath/modules
+libpath=$dsmpath/lib
 
 modconf=/etc/dsm_modules.conf
 
@@ -121,16 +123,31 @@ unload_modules() {
     done
 }
 
-copy_modules() {
-    [ -d $modpath ] || mkdir -p $modpath
-	rsync -rlptDzv $ruser@$server:$adspath/rtlinux/ $modpath/
+copy_firmware() {
+	[ -d $fmwpath ] || mkdir -p $fmwpath
+	modules=($(get_modules))
+	for m in ${modules[*]}; do
+	    [ $m == mesa ] && rsync -rlptDzv \
+	    $ruser@$server:$adspath/firmware/mesa_fpga_file.bit      $fmwpath/
+	done
 }
+
+copy_modules() {
+	[ -d $modpath ] || mkdir -p $modpath
+	modules=($(get_modules))
+	for m in ${modules[*]}; do
+            [ $m == rtl ] && continue	# don't fetch rtl.o
+	    rsync -rlptDzv $ruser@$server:$adspath/rtlinux/$m.o      $modpath/
+	done
+}
+
 copy_apps() {
         [ -d $libpath ] || mkdir -p $libpath
-        [ -d $dsmpath/filters ] || mkdir -p $dsmpath/filters
-	rsync -rlptDzv $ruser@$server:$adspath/lib/libnidas*.so $libpath
-	rsync -rlptDzv $ruser@$server:$adspath/bin/dsm          $dsmpath
-	rsync -rlptDzv $ruser@$server:$adspath/filters/*.cfg    $dsmpath/filters/
+        [ -d $ftrpath ] || mkdir -p $ftrpath
+	rsync -rlptDzv $ruser@$server:$adspath/lib/libnidas.so       $libpath/
+	rsync -rlptDzv $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath/
+	rsync -rlptDzv $ruser@$server:$adspath/bin/dsm               $dsmpath/
+	rsync -rlptDzv $ruser@$server:$adspath/filters/*.cfg         $ftrpath/
 }
 
 start_app() {
@@ -213,21 +230,22 @@ devdir=$(get_devdir < $modconf)
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
-	mkdir /var/tmp/code
-	mount /var/tmp/code
+        [ -d $dsmpath ] || mkdir -p $dsmpath
+	mount $dsmpath
 	check_ntp
 	unload_modules < $modconf
-        copy_modules
-        load_modules < $modconf
-        copy_apps
-        start_app
+	copy_firmware < $modconf
+	copy_modules < $modconf
+	load_modules < $modconf
+	copy_apps
+	start_app
 	echo "$NAME."
 	;;
   stop)
 	echo -n "Stopping $DESC: "
 	stop_app
 	unload_modules < $modconf
-	umount /var/tmp/code
+	umount $dsmpath
 	echo "$NAME."
 	;;
   restart)
@@ -264,7 +282,8 @@ case "$1" in
 	echo -n "Refetch_all of $DESC (stops app, unloads mods, fetches all, starts app): "
         stop_app
 	unload_modules < $modconf
-	copy_modules
+	copy_firmware < $modconf
+	copy_modules < $modconf
 	load_modules < $modconf
         copy_apps
 	start_app
