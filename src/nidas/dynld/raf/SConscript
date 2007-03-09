@@ -7,6 +7,7 @@ sources = Split("""
     ADC_HW_EB7022597.cc
     Aircraft.cc
     Arinc_IRS.cc
+    CDP_Serial.cc
     DSMAnalogSensor.cc
     DSMArincSensor.cc
     DSMMesaSensor.cc
@@ -29,6 +30,7 @@ headers = Split("""
     ADC_HW_EB7022597.h
     Aircraft.h
     Arinc_IRS.h
+    CDP_Serial.h
     DSMAnalogSensor.h
     DSMArincSensor.h
     DSMMesaSensor.h

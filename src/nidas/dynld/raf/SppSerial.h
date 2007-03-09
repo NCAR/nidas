@@ -32,6 +32,10 @@ public:
 
   unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
+
+  static unsigned long fuckedUpLongFlip(const char * p);
+
+
   /**
    * Max # for array sizing.  Valid number of channels are 10, 20, 30 and 40.
    */

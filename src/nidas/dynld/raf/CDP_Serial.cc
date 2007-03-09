@@ -1,21 +1,22 @@
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $Revision$
+    $Revision: 3654 $
 
-    $LastChangedDate$
+    $LastChangedDate: 2007-02-01 14:40:14 -0700 (Thu, 01 Feb 2007) $
 
-    $LastChangedRevision$
+    $LastChangedRevision: 3654 $
 
-    $LastChangedBy$
+    $LastChangedBy: cjw $
 
-    $HeadURL$
+    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/raf/CDP_Serial.cc $
 
 */
 
-#include <nidas/dynld/raf/SPP100_Serial.h>
+#include <nidas/dynld/raf/CDP_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 #include <nidas/util/IOTimeoutException.h>
 
 #include <sstream>
@@ -26,19 +27,19 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION_NS(raf,SPP100_Serial)
+NIDAS_CREATOR_FUNCTION_NS(raf,CDP_Serial)
 
-const size_t SPP100_Serial::FREF_INDX = 4;
-const size_t SPP100_Serial::FTMP_INDX = 7;
+const size_t CDP_Serial::FREF_INDX = 4;
+const size_t CDP_Serial::FTMP_INDX = 7;
 
 
-SPP100_Serial::SPP100_Serial(): SppSerial()
+CDP_Serial::CDP_Serial(): SppSerial()
 {
   _model = 100;
 }
 
 
-void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
+void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     DSMSerialSensor::fromDOMElement(node);
@@ -90,11 +91,6 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
           "CT_METHOD","not found");
     _ctMethod = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("MAX_WIDTH");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "MAX_WIDTH","not found");
-    _maxWidth = (unsigned short)p->getNumericValue(0);
-
     p = getParameter("CHAN_THRESH");
     if (!p) throw n_u::InvalidParameterException(getName(),
           "CHAN_THRESH","not found");
@@ -107,7 +103,7 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
     _packetLen = sizeof(DMT100_blk);
     _packetLen -= (MAX_CHANNELS - _nChannels) * sizeof(long);
 
-    /* According to the manual, packet lens are 74, 114, 154 and 194
+    /* According to the manual, packet lens are 76, 116, 156 and 196
      * for 10, 20, 30 and 40 channels respectively.
      */
     _packetLen -= 4;
@@ -140,7 +136,7 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-void SPP100_Serial::sendInitString() throw(n_u::IOException)
+void CDP_Serial::sendInitString() throw(n_u::IOException)
 {
     Init100_blk setup_pkt;
 
@@ -148,7 +144,6 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
-    setup_pkt.model = toLittle->ushortValue(_model);
     setup_pkt.trig_thresh = toLittle->ushortValue(_triggerThreshold);
     setup_pkt.transRej = toLittle->ushortValue(_transitReject);
     setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
@@ -158,7 +153,6 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
     setup_pkt.attAccept = toLittle->ushortValue(_attAccept);
     setup_pkt.divFlag = toLittle->ushortValue(_divFlag);
     setup_pkt.ct_method = toLittle->ushortValue(_ctMethod);
-    setup_pkt.max_width = toLittle->ushortValue(_maxWidth);
 
     for (int i = 0; i < _nChannels; i++)
         setup_pkt.OPCthreshold[i] = toLittle->ushortValue(_opcThreshold[i]);
@@ -171,11 +165,14 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
     setup_pkt.chksum = toLittle->ushortValue(
 	computeCheckSum((unsigned char*)&setup_pkt,
             plen-sizeof(setup_pkt.chksum)));
-
+/*
     if (getMessageLength() != sizeof(Response100_blk)) {
         setMessageLength(sizeof(Response100_blk));
         setMessageParameters();
     }
+*/
+    setMessageLength(2);
+    setMessageParameters(); // does the ioctl
 
     // clear whatever junk may be in the buffer til a timeout
     try {
@@ -186,58 +183,46 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
     }
     catch (const n_u::IOTimeoutException& e) {}
 
+    n_u::UTime twrite;
     write(&setup_pkt, plen);
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
-    readBuffer(MSECS_PER_SEC * 3);
-
+    readBuffer(MSECS_PER_SEC * 5);
 
     Sample* samp = nextSample();
     if (!samp) 
         throw n_u::IOException(getName(),
-            "S100 init return packet","not read");
+            "CDP init return packet","not read");
 
+    n_u::UTime tread;
+    cerr << "received init packet after " <<
+        (tread.toUsecs() - twrite.toUsecs()) << " usecs" << endl;
 
-    if (samp->getDataByteLength() != sizeof(Response100_blk)) {
+    if (samp->getDataByteLength() != 2) {
         ostringstream ost;
-        ost << "S100 init return packet, wrong size=" <<
+        ost << "CDP init return packet, wrong size=" <<
             samp->getDataByteLength() <<
-            " expected=" << sizeof(Response100_blk) << endl;
+            " expected=2" << endl;
         samp->freeReference();
         throw n_u::IOException(getName(),"sendInitString",ost.str());
     }
 
-    // Probe echoes back a structure like the setup packet
-    // but with a firmware field in the middle, and
-    // a new checksum.
-    Response100_blk expected_return;
-    ::memcpy(&expected_return, &setup_pkt, 4);
-    expected_return.firmware = toLittle->ushortValue(0x105);
-    ::memcpy(&expected_return.trig_thresh, &setup_pkt.trig_thresh, plen-4);
-    // on expected_return, plen excludes the chksum
-    expected_return.chksum = toLittle->ushortValue(
-	computeCheckSum((unsigned char*)&expected_return,plen));
-
     // pointer to the returned data
-    Response100_blk* init_return = (Response100_blk*) samp->getVoidDataPtr();
+    short * init_return = (short *) samp->getVoidDataPtr();
 
     // 
-    if (::memcmp(init_return, &expected_return, plen) != 0)
+    if (*init_return != 0x0606)
     {
         samp->freeReference();
-        throw n_u::IOException(getName(), "S100 init return packet","doesn't match");
-    }
-    if (init_return->chksum != expected_return.chksum) {
-        samp->freeReference();
-        throw n_u::IOException(getName(), "S100 init return packet","checksum doesn't match");
+        throw n_u::IOException(getName(), "CDP init return packet","doesn't match");
     }
     samp->freeReference();
 
     setMessageLength(_packetLen);
-    setMessageParameters();
+    setMessageParameters(); // does the ioctl
 }
 
-bool SPP100_Serial::process(const Sample* samp,list<const Sample*>& results)
+bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
     if ((signed)samp->getDataByteLength() != _packetLen) return false;
@@ -247,7 +232,8 @@ bool SPP100_Serial::process(const Sample* samp,list<const Sample*>& results)
     unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
 
     if (computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
-      cerr << "SPP100::process, bad checksum!\n";
+      cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum << ", computed = "
+	<< computeCheckSum((unsigned char *)input, _packetLen - 2) << std::endl;
 
     SampleT<float>* outs = getSample<float>(_noutValues);
 

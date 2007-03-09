@@ -36,3 +36,13 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     for (int j = 0; j < len; j++) sum += (unsigned short)pkt[j];
     return sum;
 }
+
+unsigned long SppSerial::fuckedUpLongFlip(const char * p)
+{
+  long l;
+
+  memcpy(&l, p, sizeof(unsigned long));
+
+  return (l << 16) | (l >> 16);
+
+}
