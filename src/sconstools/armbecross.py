@@ -22,6 +22,7 @@ def generate(env):
     env.Replace(CXX	= 'armbe-linux-g++')
     env.Replace(LINK	= 'armbe-linux-g++')
     env.Replace(RANLIB	= 'armbe-linux-ranlib')
+    env.Replace(LEX	= 'armbe-linux-flex')
 
     k = env.Builder(action=kmake.Kmake)
     env.Append(BUILDERS = {'Kmake':k})

@@ -10,11 +10,16 @@ arch = env['ARCH']
 
 env.AppendUnique(CPPPATH = [env.subst("$PREFIX/include")] )
 env.AppendUnique(LIBPATH = [env.subst("$PREFIX/lib")] )
-#
-# Commented out until needed.  cjw 2/22/07
-#
-#env.AppendUnique(CPPPATH = [env.subst("$OTHER_PREFIX/include")] )
-#env.AppendUnique(LIBPATH = [env.subst("$OTHER_PREFIX/lib")] )
+
+# Use the OTHER_ prefix only if it exists and is different than PREFIX
+if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
+    import os
+    other_include = env.subst("$OTHER_PREFIX/include")
+    other_lib = env.subst("$OTHER_PREFIX/lib")
+    if os.path.exists(other_include):
+        env.AppendUnique(CPPPATH = [ other_include ])
+    if os.path.exists(other_lib):
+        env.AppendUnique(LIBPATH = [ other_lib ])
 
 # Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.

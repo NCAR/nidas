@@ -44,22 +44,21 @@ BUILDS = Split(env['BUILDS'])
 env['ARCHITECTURES'] = BUILDS
 
 if 'x86' in BUILDS:
-    opts.AddOptions(PathOption('OTHER_X86',
-                               'path to xerces-c and xmlrpc++ for X86:',
-                               '$PREFIX/x86'))
+    opts.Add('OTHER_X86',
+             'Optional path to xerces-c and xmlrpc++ for X86:',
+             '$PREFIX/x86')
     opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86:','')
 
-
 if 'arm' in BUILDS:
-    opts.AddOptions(PathOption('OTHER_ARM',
-                               'path to xerces-c and xmlrpc++ for ARM:',
-                               '$PREFIX/arm'))
+    opts.Add('OTHER_ARM',
+             'Optional path to xerces-c and xmlrpc++ for ARM:',
+             '$PREFIX/arm')
     opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:','')
 
 if 'armbe' in BUILDS:
-    opts.AddOptions(PathOption('OTHER_ARMBE',
-                               'path to xerces-c and xmlrpc++ for ARMBE:',
-                               '$PREFIX/armbe'))
+    opts.Add('OTHER_ARMBE',
+             'Optional path to xerces-c and xmlrpc++ for ARMBE:',
+             '$PREFIX/armbe')
     opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:','')
 
 opts.Update(env)
