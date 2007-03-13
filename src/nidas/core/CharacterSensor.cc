@@ -38,6 +38,7 @@ namespace n_u = nidas::util;
 CharacterSensor::CharacterSensor():
     rtlinux(-1),
     separatorAtEOM(true),
+    messageLength(0),
     promptRate(0.0),
     maxScanfFields(0),
     prompted(false)

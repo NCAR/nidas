@@ -1402,7 +1402,7 @@ static int set_record_sep(struct serialPort* port,
 #endif
     if (sep->recordLen + sep->sepLen + 1 >= MAX_DSM_SERIAL_SAMPLE_SIZE) {
 	DSMLOG_ERR("%s: record size=%d + separator size=%d + 1 exceeds maximum = %d\n",
-		port->devname,sep->recordLen, MAX_DSM_SERIAL_SAMPLE_SIZE);
+		port->devname,sep->recordLen,sep->sepLen,MAX_DSM_SERIAL_SAMPLE_SIZE);
         return -RTL_EINVAL;
     }
       
