@@ -441,7 +441,9 @@ float Polynomial::convert(dsm_time_t t,float val)
                 n = calFile->readData(d,nmax);
                 calTime = calFile->readTime().toUsecs();
             }
-            catch(const n_u::EOFException& e) {}
+            catch(const n_u::EOFException& e) {
+                calTime = LONG_LONG_MAX;
+            }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
