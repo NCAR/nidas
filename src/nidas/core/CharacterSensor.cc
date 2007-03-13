@@ -41,6 +41,8 @@ CharacterSensor::CharacterSensor():
     messageLength(0),
     promptRate(0.0),
     maxScanfFields(0),
+    scanfFailures(0),
+    scanfPartials(0),
     prompted(false)
 {
 }

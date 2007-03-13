@@ -33,6 +33,8 @@
 #include <nidas/rtlinux/dsm_version.h>
 #include <nidas/linux/isa_bus.h>
 
+static int errno;
+
 //#define DEBUG
 
 /* IRIG interrupt rate, in Hz */

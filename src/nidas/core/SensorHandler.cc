@@ -281,8 +281,8 @@ int SensorHandler::run() throw(n_u::Exception)
          }
       }
       if (notifyPipe[0] >= 0 && FD_ISSET(notifyPipe[0],&rset)) {
-          char z;
-          if (::read(notifyPipe[0],&z,1) < 0) {
+          char z[4];
+          if (::read(notifyPipe[0],z,sizeof(z)) < 0) {
                n_u::IOException e("SensorHandler cmd pipe","read",errno);
                n_u::Logger::getInstance()->log(LOG_ERR,
                    "SensorHandler rserial: %s",e.what());
@@ -291,7 +291,7 @@ int SensorHandler::run() throw(n_u::Exception)
           // for sensorsChanged.
           if (++nfd == nfdsel) continue;
       }
-   }
+   }    // select loop
 
    rserialConnsMutex.lock();
    list<RemoteSerialConnection*> conns = pendingRserialConns;
