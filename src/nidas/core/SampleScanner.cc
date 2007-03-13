@@ -109,7 +109,7 @@ Sample* SampleScanner::nextSample(DSMSensor* sensor)
         outSampToRead = header.length;
         osamp = getSample<char>(outSampToRead);
         // convert time tag to microseconds since 00:00 GMT
-        osamp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_TMSEC);
+        osamp->setTimeTag((dsm_time_t)header.timetag * USECS_PER_MSEC);
         osamp->setId(sensor->getId());
         osamp->setDataLength(outSampToRead);
         outSampDataPtr = (char*) osamp->getVoidDataPtr();
