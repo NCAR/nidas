@@ -34,4 +34,4 @@ shared_headers = Split("""
 """)
 
 env.Install('$PREFIX/include/nidas/linux/irig', shared_headers)
-
+env.Program('test_irig', 'test_irig.c')

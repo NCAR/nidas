@@ -16,7 +16,11 @@
 #ifndef IRIGCLOCK_H
 #define IRIGCLOCK_H
 
-#include <linux/time.h>
+#if defined(__KERNEL__)
+#  include <linux/time.h>
+#else
+#  include <sys/time.h>
+#endif
 #include <nidas/core/dsm_sample.h>
 
 #ifndef MSECS_PER_DAY
@@ -100,18 +104,23 @@ struct dsm_clock_sample {
     					 * length and data! */
 };
 
-#define IRIG_MAGIC	'I'
-#define IRIG_OPEN	_IO(IRIG_MAGIC,0)
-#define IRIG_CLOSE	_IO(IRIG_MAGIC,1)
-#define IRIG_GET_STATUS	_IOR(IRIG_MAGIC,2,unsigned char)
-#define IRIG_GET_CLOCK	_IOR(IRIG_MAGIC,3,struct timeval)
-#define IRIG_SET_CLOCK	_IOW(IRIG_MAGIC,4,struct timeval)
-#define IRIG_OVERRIDE_CLOCK _IOW(IRIG_MAGIC,5,struct timeval)
+/**
+ * User IOCTLs that we support.
+ */
+#define IRIG_IOC_MAGIC 'I'	/* Unique(ish) char for IRIG ioctls */
 
+#define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 0, unsigned char)
+#define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 1, struct timeval)
+#define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 2, struct timeval)
+#define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 3, struct timeval)
 
 /****************  Start of symbols used by kernel modules **************************/
 
-#if defined(__RTCORE_KERNEL__) || defined(__KERNEL__)
+#if defined(__KERNEL__)
+
+#include <asm/semaphore.h>
+#include <linux/ioctl.h>
+#include <linux/wait.h>
 
 extern volatile unsigned long MsecClock[];
 extern volatile unsigned char ReadClock;
@@ -137,24 +146,28 @@ struct irigTime {
 #define GET_MSEC_CLOCK (MsecClock[ReadClock])
 
 /**
- * Fetch the IRIG clock value.  This is meant to be used for
- * debugging, rather than real-time time tagging.  It involves
- * ISA bus transfers to/from the IRIG card. However, it has
- * a precision of better than a micro-second. The accuracy
- * is unknown and is probably affected by ISA contention.
- */
-//XX void irig_clock_gettime(struct rtl_timespec* tp);
-void irig_clock_gettime(struct timespec* tp);
-
-/**
- * For modules who want to know the resolution of the clock
+ * For modules who want to know the resolution of the clock..
  */
 int get_msec_clock_resolution(void);
+
+/**
+ * Fetch the IRIG clock value directly.  This is meant to be used for
+ * debugging, rather than real-time time tagging.  It directly performs ISA
+ * bus transfers to/from the IRIG card, so the time is returned as quickly
+ * as possible.  Precision is better than 1 microsecond; the accuracy is
+ * unknown and is probably affected by ISA contention.
+ */
+void irig_clock_gettime(struct timespec* tp);
+
+
 
 typedef void irig_callback_t(void* privateData);
 
 void setRate2Output (int rate, int isRT);
 
+/*
+ * Schedule/unschedule timed regular callbacks of a particular function
+ */
 int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
@@ -162,12 +175,13 @@ void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
 struct irig_port {
-    char* inFifoName;
-    int inFifoFd;
     struct dsm_clock_sample samp;
+    int readyForRead;
+    struct semaphore lock;
+    wait_queue_head_t rwaitq;
 };
 
 
-#endif		/* __RTCORE_KERNEL__ */
+#endif	/* defined(__KERNEL__) */
 
 #endif
