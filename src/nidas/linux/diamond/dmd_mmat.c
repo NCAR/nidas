@@ -117,7 +117,7 @@ static void setTimerClock(struct DMMAT* brd,
         hibyte = val >> 8;
         outb(hibyte,brd->addr + caddr);
 
-        KLOG_INFO("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
+        KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
             (int)ctrl,(int)lobyte,(int)hibyte);
 }
 
@@ -136,7 +136,7 @@ static void initializeA2DClock(struct DMMAT_A2D* a2d)
                     a2d->scanRate,(USECS_PER_SEC*10)/ticks);
         }
 
-        KLOG_INFO("clock ticks=%ld,scanRate=%d\n",ticks,a2d->scanRate);
+        KLOG_DEBUG("clock ticks=%ld,scanRate=%d\n",ticks,a2d->scanRate);
         c1 = 1;
 
         while (ticks > 65535) {
@@ -567,12 +567,12 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
 
         a2d->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
         if (a2d->latencyJiffies == 0) a2d->latencyJiffies = HZ / 4;
-        KLOG_INFO("%s: latencyJiffies=%d, HZ=%d\n",
+        KLOG_DEBUG("%s: latencyJiffies=%d, HZ=%d\n",
                     a2d->deviceName,a2d->latencyJiffies,HZ);
 
         a2d->scanDeltaT =  TMSECS_PER_SEC / a2d->scanRate;
 
-        KLOG_INFO("%s:, scanRate=%d,scanDeltaT=%ld tmsec\n",
+        KLOG_DEBUG("%s:, scanRate=%d,scanDeltaT=%ld tmsec\n",
             a2d->deviceName,a2d->scanRate,a2d->scanDeltaT);
 
         KLOG_DEBUG("%s: complete\n", a2d->deviceName);
@@ -597,7 +597,7 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
 
         sinfo = &a2d->sampleInfo[cfg->id];
 
-        KLOG_INFO("%s:, scanRate=%d,cfg->rate=%d\n",
+        KLOG_DEBUG("%s:, scanRate=%d,cfg->rate=%d\n",
             a2d->deviceName,a2d->scanRate,cfg->rate);
 
         if (a2d->scanRate % cfg->rate) {
@@ -616,7 +616,7 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
         sinfo->filterType = cfg->filterType;
         sinfo->id = cfg->id;
 
-        KLOG_INFO("%s: decimate=%d,filterType=%d,id=%d\n",
+        KLOG_DEBUG("%s: decimate=%d,filterType=%d,id=%d\n",
             a2d->deviceName,sinfo->decimate,sinfo->filterType,sinfo->id);
         
         methods = get_short_filter_methods(cfg->filterType);
@@ -816,7 +816,7 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
                 return -EINVAL;
         }
 
-        KLOG_INFO("%s: fifoThreshold=%d,latency=%ld,nchans=%d\n",
+        KLOG_DEBUG("%s: fifoThreshold=%d,latency=%ld,nchans=%d\n",
             a2d->deviceName, a2d->fifoThreshold,a2d->latencyMsecs,
                 a2d->nchans);
         // register value is 1/2 the threshold
@@ -886,9 +886,6 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         memset(&a2d->status,0,sizeof(a2d->status));
 
-        a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
-        a2d->samples.head = a2d->samples.tail = 0;
-
         a2d->status.irqsReceived = 0;
         a2d->sampBytesLeft = 0;
         a2d->sampPtr = 0;
@@ -896,6 +893,13 @@ static int startA2D(struct DMMAT_A2D* a2d)
         if ((result = a2d->selectChannels(a2d))) return result;
 
         spin_lock_irqsave(&brd->spinlock,flags);
+
+        // Just in case the irq handler or bottom half is running,
+        // lock the board spinlock before resetting the circular
+        // buffer head
+        a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
+        a2d->samples.head = a2d->samples.tail = 0;
+
         // same addr on MM16AT and MM32XAT
         outb(a2d->gainSetting,a2d->brd->addr + 11);
         spin_unlock_irqrestore(&brd->spinlock,flags);
@@ -918,7 +922,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
 {
 
 #define DO_FILTER_DEBUG
-#ifdef DO_FILTER_DEBUG
+#if defined(DEBUG) & defined(DO_FILTER_DEBUG)
         static size_t nfilt = 0;
         static int maxAvail = 0;
         static int minAvail = 99999;
@@ -927,12 +931,12 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
         short_sample_t* osamp = (short_sample_t*)
             GET_HEAD(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
 
-#ifdef DO_FILTER_DEBUG
+#if defined(DEBUG) & defined(DO_FILTER_DEBUG)
         i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,DMMAT_SAMPLE_QUEUE_SIZE);
         if (i < minAvail) minAvail = i;
         if (i > maxAvail) maxAvail = i;
         if (!(nfilt++ % 1000)) {
-                KLOG_INFO("minAvail=%d,maxAvail=%d\n",minAvail,maxAvail);
+                KLOG_DEBUG("minAvail=%d,maxAvail=%d\n",minAvail,maxAvail);
                 maxAvail = 0;
                 minAvail = 99999;
                 nfilt = 1;
@@ -943,10 +947,9 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                 if (!osamp) {
                         // still execute filter so its state is up-to-date.
                         struct a2d_sample toss;
-                        if (!(a2d->status.missedSamples++ % 100))
-                            KLOG_INFO("%s: missedSamples=%d\n",
+                        if (!(a2d->status.missedSamples++ % 1000))
+                            KLOG_WARNING("%s: missedSamples=%d\n",
                                 a2d->deviceName,a2d->status.missedSamples);
-
                         a2d->sampleInfo[i].filter(
                             a2d->sampleInfo[i].filterObj,tt,dp,
                             (short_sample_t*)&toss);
@@ -1126,7 +1129,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         samp = GET_HEAD(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
         if (!samp) {                // no output sample available
             a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchans);
-            KLOG_INFO("%s: missedSamples=%d\n",
+            KLOG_WARNING("%s: missedSamples=%d\n",
                 a2d->deviceName,a2d->status.missedSamples);
             for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
             return IRQ_HANDLED;
@@ -1149,7 +1152,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         flevel = a2d->getFifoLevel(a2d);
         if (flevel != 0) {
             if (!(a2d->status.fifoNotEmpty++ % 1000))
-                    KLOG_INFO("fifo level=%d, base+7=0x%x,base+8=0x%x, base+10=0x%x\n",
+                    KLOG_DEBUG("fifo level=%d, base+7=0x%x,base+8=0x%x, base+10=0x%x\n",
                     flevel,inb(brd->addr+7),inb(brd->addr+8),inb(brd->addr+10));
         }
 #endif
@@ -1231,10 +1234,15 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         a2d = brd->a2d;
 
-        // spin_lock_irqsave(&a2d->spinlock,flags);
+        spin_lock_irqsave(&brd->spinlock,flags);
+
+        // Just in case the irq handler or bottom half is running,
+        // lock the board spinlock before resetting the circular
+        // buffer head
         a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
         a2d->samples.head = a2d->samples.tail = 0;
-        // spin_unlock_irqrestore(&a2d->spinlock,flags);
+
+        spin_unlock_irqrestore(&brd->spinlock,flags);
 
         /* a2d and pulse counter use interrupts */
         if (ia2d == 0 || ia2d == 3) {
@@ -1354,7 +1362,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         char* sampPtr = a2d->sampPtr;
 
 #define OUT_DEBUG
-#ifdef OUT_DEBUG
+#if defined(DEBUG) & defined(OUT_DEBUG)
         static int nreads = 0;
         static size_t maxOcount = 0;
         static size_t minOcount = 9999999;
@@ -1401,11 +1409,11 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
                     if (a2d->samples.head == a2d->samples.tail) {
                             KLOG_DEBUG("no more samples,copied=%d\n",countreq-count);
                             a2d->sampPtr = 0;
-#ifdef OUT_DEBUG
+#if defined(DEBUG) & defined(OUT_DEBUG)
                             if (countreq - count > maxOcount) maxOcount = countreq - count;
                             if (countreq - count < minOcount) minOcount = countreq - count;
                             if (!(nreads++ % 100))  {
-                                KLOG_INFO("minOcount=%lu, maxOcount=%lu\n",
+                                KLOG_DEBUG("minOcount=%lu, maxOcount=%lu\n",
                                     minOcount,maxOcount);
                                 maxOcount = 0;
                                 minOcount = 9999999;
@@ -1420,11 +1428,11 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
             }
         }
         KLOG_DEBUG("copied=%d\n",countreq - count);
-#ifdef OUT_DEBUG
+#if defined(DEBUG) & defined(OUT_DEBUG)
         if (countreq - count > maxOcount) maxOcount = countreq - count;
         if (countreq - count < minOcount) minOcount = countreq - count;
         if (!(nreads++ % 100))  {
-            KLOG_INFO("minOcount=%lu, maxOcount=%lu\n",
+            KLOG_DEBUG("minOcount=%lu, maxOcount=%lu\n",
                 minOcount,maxOcount);
             maxOcount = 0;
             minOcount = 9999999;
