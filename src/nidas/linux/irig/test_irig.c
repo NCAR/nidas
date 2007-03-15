@@ -4,7 +4,7 @@
 # include <time.h>
 # include <sys/ioctl.h>
 # include <sys/time.h>
-# include "irigclock.h"
+# include <nidas/linux/irigclock.h>
 
 int
 main() 

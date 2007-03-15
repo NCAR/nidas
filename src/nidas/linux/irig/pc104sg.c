@@ -31,10 +31,11 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 #include <asm/semaphore.h>
 #include <asm/uaccess.h>
 
-#include <nidas/linux/klog.h>
+#include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/klog.h>
+
 #include "pc104sg.h"
-#include "irigclock.h"
 
 MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");

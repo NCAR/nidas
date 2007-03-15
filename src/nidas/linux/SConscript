@@ -35,6 +35,7 @@ Default(build_dirs)
 headers = Split("""
     klog.h
     isa_bus.h
+    irigclock.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux', headers)
