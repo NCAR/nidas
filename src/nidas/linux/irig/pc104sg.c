@@ -1,16 +1,16 @@
 /* pc104sg.c
 
-   driver for the Brandywine's PC104-SG IRIG card
-   (adapted from Gordon Maclean's RT-Linux driver for the card)
+driver for the Brandywine's PC104-SG IRIG card
+(adapted from Gordon Maclean's RT-Linux driver for the card)
 
-   Copyright 2007 UCAR, NCAR, All Rights Reserved
+Copyright 2007 UCAR, NCAR, All Rights Reserved
 
-   Revisions:
+Revisions:
 
-     $LastChangedRevision: 3648 $
-     $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-     $LastChangedBy: cjw $
-     $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
+$LastChangedRevision: 3648 $
+$LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+$LastChangedBy: cjw $
+$HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 */
 
 #include <linux/kernel.h>
@@ -31,10 +31,10 @@
 #include <asm/semaphore.h>
 #include <asm/uaccess.h>
 
-#include "dsmlog.h"
+#include <nidas/linux/klog.h>
+#include <nidas/linux/isa_bus.h>
 #include "pc104sg.h"
 #include "irigclock.h"
-#include <nidas/linux/isa_bus.h>
 
 MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
@@ -107,7 +107,7 @@ static unsigned long volatile MsecClockTicker = 0;
  * interrupts.
  */
 static const int INTERRUPTS_PER_CALLBACK_CHECK = 1;
-#define MSEC_PER_CALLBACK_CHECK (MSEC_PER_INTERRUPT * \
+#define MSEC_PER_CALLBACK_CHECK (MSEC_PER_INTERRUPT *		\
 				 INTERRUPTS_PER_CALLBACK_CHECK)
 
 /*
@@ -217,7 +217,7 @@ static int UseInterruptTimeouts = 1;
 
 /* Nonzero if YEAR is a leap year (every 4 years,
    except every 100th isn't, and every 400th is).  */
-#define my_isleap(year) \
+#define my_isleap(year)							\
     ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0))
 
 #define DIV(a, b) ((a) / (b) - ((a) % (b) < 0))
@@ -387,7 +387,7 @@ enableHeartBeatInt(void)
 {
     IntMask |= Heartbeat_Int_Enb;
 #ifdef DEBUG
-    DSMLOG_DEBUG("IntMask=0x%x\n", IntMask);
+    KLOG_DEBUG("IntMask=0x%x\n", IntMask);
 #endif
     ackHeartBeatInt();   // reset flag too to avoid immediate interrupt
 }
@@ -441,7 +441,7 @@ disableAllInts(void)
     /* disable all interrupts */
     IntMask = 0x1f;
 #ifdef DEBUG
-    DSMLOG_DEBUG("IntMask=0x%x\n", IntMask);
+    KLOG_DEBUG("IntMask=0x%x\n", IntMask);
 #endif
     outb(IntMask, ISA_Address + Status_Port);
 }
@@ -488,12 +488,12 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val, int isRT)
 	status = inb(ISA_Address + Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 1) DSMLOG_DEBUG("ReadDualPortRAM, i=%d\n", i);
+    if (i > 1) KLOG_DEBUG("ReadDualPortRAM, i=%d\n", i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	DSMLOG_WARNING("timed out...\n");
+	KLOG_WARNING("timed out...\n");
 	return -1;
     }
 
@@ -527,7 +527,7 @@ GetDualPortRAM(unsigned char* val)
     /* check for a time out on the response... */
     if (!(status & Response_Ready)) {
 	if (!(ntimeouts++ % 100))
-	    DSMLOG_WARNING("timed out\n");
+	    KLOG_WARNING("timed out\n");
 	return;
     }
 
@@ -542,7 +542,7 @@ GetDualPortRAM(unsigned char* val)
  */
 static int 
 SetDualPortRAM(unsigned char addr, unsigned char value, 
-		  int isRT)
+	       int isRT)
 {
     int i;
     unsigned char status;
@@ -571,12 +571,12 @@ SetDualPortRAM(unsigned char addr, unsigned char value,
 	status = inb(ISA_Address + Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 3) DSMLOG_DEBUG("SetDualPortRAM 1, i=%d\n", i);
+    if (i > 3) KLOG_DEBUG("SetDualPortRAM 1, i=%d\n", i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	DSMLOG_WARNING("timed out...\n");
+	KLOG_WARNING("timed out...\n");
 	return -1;
     }
 
@@ -599,18 +599,18 @@ SetDualPortRAM(unsigned char addr, unsigned char value,
 	status = inb(ISA_Address + Extended_Status_Port);
     } while(i++ < 10 && !(status &  Response_Ready));
 #ifdef DEBUG
-    if (i > 3) DSMLOG_DEBUG("SetDualPortRAM 2, i=%d\n", i);
+    if (i > 3) KLOG_DEBUG("SetDualPortRAM 2, i=%d\n", i);
 #endif
 
     /* check for a time out on the response... */
     if (!(status &  Response_Ready)) {
-	DSMLOG_WARNING("timed out...\n");
+	KLOG_WARNING("timed out...\n");
 	return -1;
     }
 
     /* check that the written value matches */
     if (inb(ISA_Address + Dual_Port_Data_Port) != value) {
-	DSMLOG_WARNING("no match on read-back\n");
+	KLOG_WARNING("no match on read-back\n");
 	return -1;
     }
 
@@ -635,8 +635,8 @@ setHeartBeatOutput(int rate, int isRT)
     msb = (char)((ticks_3MHz & 0xff00)>>8);
 
     SetDualPortRAM(DP_Ctr1_ctl,
-                      DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
-                      isRT);
+		   DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
+		   isRT);
     SetDualPortRAM(DP_Ctr1_lsb, lsb, isRT);
     SetDualPortRAM(DP_Ctr1_msb, msb, isRT);
 
@@ -660,7 +660,7 @@ setPrimarySyncReference(unsigned char val, int isRT)
     else control0 &= ~DP_Control0_CodePriority;
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
+    KLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
 #endif
     SetDualPortRAM(DP_Control0, control0, isRT);
 }
@@ -826,7 +826,7 @@ getTimeFields(struct irigTime* ti, int offset)
      * I saw values of 165 for the year during this time.
      */
     if (ExtendedStatus & DP_Extd_Sts_NoYear) {
-	// DSMLOG_DEBUG("fixing year=%d to %d\n", ti->year, StaticYear);
+	// KLOG_DEBUG("fixing year=%d to %d\n", ti->year, StaticYear);
 	ti->year = StaticYear;
     }
     // This has a Y2K problem, but who cares - it was written in 2004 and
@@ -890,11 +890,11 @@ getCurrentTime(struct irigTime* ti)
 	tt %= (60 * MSECS_PER_SEC);
 	sc = tt / MSECS_PER_SEC;
 	tt %= MSECS_PER_SEC;
-	DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
-		     "clk=%02d:%02d:%02d.%03d, diff=%d, estat=0x%x, state=%d\n",
-		     ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec, 
-		     ti->usec, ti->nsec, hr, mn, sc, (int)tt, td, 
-		     ExtendedStatus, ClockState);
+	KLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
+		   "clk=%02d:%02d:%02d.%03d, diff=%d, estat=0x%x, state=%d\n",
+		   ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec, 
+		   ti->usec, ti->nsec, hr, mn, sc, (int)tt, td, 
+		   ExtendedStatus, ClockState);
     }
 #endif
 }
@@ -925,14 +925,13 @@ get_msec_clock_resolution()
 
 /**
  * set the year fields in Dual Port RAM.
- * May only be called from a real-time thread.
  */
 static void 
 setYear(int val, int isRT)
 {
     StaticYear = val;
 #ifdef DEBUG
-    DSMLOG_DEBUG("setYear=%d\n", val);
+    KLOG_DEBUG("setYear=%d\n", val);
 #endif
     SetDualPortRAM(DP_Year1000_Year100,
 		   ((val / 1000) << 4) + ((val % 1000) / 100), isRT);
@@ -949,7 +948,6 @@ setYear(int val, int isRT)
  *
  * The sub-second values are determined from the PPS input,
  * and I see no ways to change them if there is no PPS or time-code.
- * This may only be called from a real-time thread.
  */
 static int 
 setMajorTime(struct irigTime* ti, int isRT)
@@ -958,9 +956,10 @@ setMajorTime(struct irigTime* ti, int isRT)
 
 #ifdef DEBUG
     // unsigned char status = inb(ISA_Address + Status_Port);
-    DSMLOG_DEBUG("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x, state=%d\n",
-		 ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec, 
-		 ti->usec, ti->nsec, ExtendedStatus, ClockState);
+    KLOG_DEBUG("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
+	       "estat=0x%x, state=%d\n",
+	       ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec, 
+	       ti->usec, ti->nsec, ExtendedStatus, ClockState);
 #endif
     /* The year fields in Dual Port RAM are not technically
      * part of the major time, but we'll set them too.  */
@@ -1052,13 +1051,10 @@ setCounters(struct timeval* tv)
 	&& (Count100Hz-- == 0)) Count100Hz = MAX_INTERRUPT_COUNTER - 1;
     Count100Hz %= MAX_INTERRUPT_COUNTER;
 
-    DSMLOG_NOTICE("tv = %ld.%06ld, MsecClockTicker = %ld, Count100Hz = %d\n",
-		  tv->tv_sec, tv->tv_usec, MsecClockTicker, Count100Hz);
-
 #ifdef DEBUG
-    DSMLOG_DEBUG("tv=%d.%06d, MsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
-		 (int)tv->tv_sec, (int)tv->tv_usec, MsecClockTicker, td, 
-		 Count100Hz);
+    KLOG_DEBUG("tv=%d.%06d, MsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
+	       (int)tv->tv_sec, (int)tv->tv_usec, MsecClockTicker, td, 
+	       Count100Hz);
 #endif
 
 }
@@ -1153,8 +1149,8 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
     getCurrentTime(&ti);
 
     if (! (Count100Hz % 500))
-	DSMLOG_NOTICE("time is %02d:%02d:%02d.%03d\n", 
-		      ti.hour, ti.min, ti.sec, ti.msec);
+	KLOG_NOTICE("time is %02d:%02d:%02d.%03d\n", 
+		    ti.hour, ti.min, ti.sec, ti.msec);
 #endif
 
     /*
@@ -1177,9 +1173,9 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
           {
 	      nCollisions++;
 	      if (nCollisions <= 10 || !(nCollisions % 100)) 
-		  DSMLOG_NOTICE("Timeout/interrupt collision, timeout ignored "
-				"(%d ms delta)\n",
-				nowMillis - lastInterruptMillis);
+		  KLOG_NOTICE("Timeout/interrupt collision, timeout ignored "
+			      "(%d ms delta)\n",
+			      nowMillis - lastInterruptMillis);
 	      return;
           }
       }
@@ -1189,7 +1185,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
        */
       consecutiveTimeouts++;
       if (consecutiveTimeouts <= 10 || !(consecutiveTimeouts % 100)) 
-          DSMLOG_NOTICE("%d consecutive timeouts\n", consecutiveTimeouts);
+          KLOG_NOTICE("%d consecutive timeouts\n", consecutiveTimeouts);
            
       ackHeartBeatInt();
 
@@ -1218,7 +1214,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 	lastInterruptMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
 	break;
       default:
-	DSMLOG_ERR("unknown trigger %d\n", trigger);
+	KLOG_ERR("unknown trigger %d\n", trigger);
 	return;
     }
        
@@ -1267,10 +1263,6 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 
     if ((Count100Hz % 100)) goto cleanup;
 
-#ifdef DEBUG
-//   DSMLOG_DEBUG("Count100Hz=%d, GET_MSEC_CLOCK=%lu\n",
-//		Count100Hz, GET_MSEC_CLOCK);
-#endif
     /* perform  1Hz processing... */
     doCallbacklist(CallbackLists + IRIG_1_HZ);
 
@@ -1392,7 +1384,7 @@ checkExtStatus(void)
 static irqreturn_t 
 pc104sg_isr(int irq, void* callbackPtr)
 #else
-static irqreturn_t 
+    static irqreturn_t 
 pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
 #endif
 {
@@ -1427,10 +1419,10 @@ pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
     if ((status & Ext_Ready) && (IntMask & Ext_Ready_Int_Enb)) {
 	struct irigTime ti;
 	getExtEventTime(&ti);
-	DSMLOG_DEBUG("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
-		     "stat=0x%x, state=%d\n", ti.year, ti.yday, ti.hour, 
-		     ti.min, ti.sec, ti.msec, ti.usec, ti.nsec, 
-		     ExtendedStatus, ClockState);
+	KLOG_DEBUG("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
+		   "stat=0x%x, state=%d\n", ti.year, ti.yday, ti.hour, 
+		   ti.min, ti.sec, ti.msec, ti.usec, ti.nsec, 
+		   ExtendedStatus, ClockState);
     }
 #endif
     return 0;
@@ -1466,11 +1458,7 @@ writeTimeCallback(void* irigPortPtr)
 	 * time may have elapsed since the 100 Hz interrupt.
 	 */
 	if (abs(td) > 3) 
-	{
-	    DSMLOG_NOTICE("resetting counters after time offset of %d ms\n",
-			  td);
 	    ClockState = RESET_COUNTERS;
-	}
     }
 
     p->samp.timetag = tt;
@@ -1482,10 +1470,10 @@ writeTimeCallback(void* irigPortPtr)
     if (!SyncOK) p->samp.data.status |= CLOCK_SYNC_NOT_OK;
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
-		 (int)p->samp.data.tval.tv_sec, 
-		 (int)p->samp.data.tval.tv_usec,
-		 p->samp.data.status);
+    KLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
+	       (int)p->samp.data.tval.tv_sec, 
+	       (int)p->samp.data.tval.tv_usec,
+	       p->samp.data.status);
 #endif
 
     p->readyForRead = 1;
@@ -1502,27 +1490,24 @@ void
 pc104sg_cleanup(void)
 {
 #ifdef DEBUG
-    DSMLOG_DEBUG("cleaning up\n");
-#endif
-
-#ifdef DEBUG
-    DSMLOG_NOTICE("unregister_chrdev_region\n");
+    KLOG_DEBUG("cleaning up\n");
+    KLOG_NOTICE("unregister_chrdev_region\n");
 #endif
     unregister_chrdev_region(DevStart, 1);
 
 #ifdef DEBUG
-    DSMLOG_NOTICE("delete IRIG cdev\n");
+    KLOG_NOTICE("delete IRIG cdev\n");
 #endif
     cdev_del(&Cdev);
 
 #ifdef DEBUG
-    DSMLOG_NOTICE("free_callbacks\n");
+    KLOG_NOTICE("free_callbacks\n");
 #endif
     /* free up our pool of callbacks */
     free_callbacks();
 
 #ifdef DEBUG
-    DSMLOG_NOTICE("disableAllInts\n");
+    KLOG_NOTICE("disableAllInts\n");
 #endif
     disableAllInts();
 
@@ -1530,19 +1515,18 @@ pc104sg_cleanup(void)
     tasklet_kill(&Tasklet100HzInterrupt);
 
 #ifdef DEBUG
-    DSMLOG_NOTICE("free_irq\n");
+    KLOG_NOTICE("free_irq\n");
 #endif
     free_irq(Irq, (void*)IRQ_DEVID);
 
     /* free up the I/O region and remove /proc entry */
 #ifdef DEBUG
-    DSMLOG_NOTICE("release_region\n");
+    KLOG_NOTICE("release_region\n");
 #endif
     if (ISA_Address)
 	release_region(ISA_Address, PC104SG_IOPORT_WIDTH);
 
-    DSMLOG_NOTICE("done\n");
-
+    KLOG_NOTICE("done\n");
 }
 
 /* -- MODULE ---------------------------------------------------------- */
@@ -1556,16 +1540,17 @@ pc104sg_init(void)
     int got_irq = 0;
 
     /* 
-     * If our timeout for interrupts is less than 2 jiffies, then we're
-     * likely to get timeouts that show up at the same time as interrupts
-     * in pc104sg_task_100Hz, so just disable the timeout mechanism.
+     * If our timeout for interrupts is less than 2 jiffies, then the
+     * timeouts are likely to occur before the interrupts can
+     * arrive to cancel them.  In this case, we just disable the
+     * timeout mechanism.
      */
     if (INTERRUPT_TIMEOUT_LENGTH < 2) 
     {
-	DSMLOG_NOTICE("Kernel HZ value of %d with IRIG interrupt rate "
-		      "of %d Hz\n", HZ, INTERRUPT_RATE);
-	DSMLOG_NOTICE("PC104-SG IRIG interrupt timeouts disabled "
-		      "because HZ is too small\n");
+	KLOG_INFO("Kernel HZ value of %d with IRIG interrupt rate "
+		  "of %d Hz\n", HZ, INTERRUPT_RATE);
+	KLOG_INFO("PC104-SG IRIG interrupt timeouts disabled "
+		  "because HZ is too small\n");
 	UseInterruptTimeouts = 0;
     }
 
@@ -1628,8 +1613,8 @@ pc104sg_init(void)
 
 	if (newIrq != Irq)
 	{
-	    DSMLOG_NOTICE("Chosen ISA IRQ %d remapped to IRQ %d for Vulcan\n", 
-			  Irq, newIrq);
+	    KLOG_NOTICE("Chosen ISA IRQ %d remapped to IRQ %d for Vulcan\n", 
+			Irq, newIrq);
 	    Irq = newIrq;
 	}
     }
@@ -1662,8 +1647,8 @@ pc104sg_init(void)
 
 	if (newIrq != Irq)
 	{
-	    DSMLOG_NOTICE("Chosen IRQ %d remapped to IRQ %d for Viper\n", Irq,
-			  newIrq);
+	    KLOG_NOTICE("Chosen IRQ %d remapped to IRQ %d for Viper\n", Irq,
+			newIrq);
 	    Irq = newIrq;
 	}
     }
@@ -1673,13 +1658,13 @@ pc104sg_init(void)
 			 (void*)IRQ_DEVID);
     if (errval < 0) {
 	/* failed... */
-	DSMLOG_WARNING("could not allocate IRQ %d\n", Irq);
+	KLOG_ERR("could not allocate IRQ %d\n", Irq);
 	goto err0;
     }
     else 
     {
 #ifdef DEBUG
-	DSMLOG_DEBUG("got IRQ %d\n", Irq);
+	KLOG_DEBUG("got IRQ %d\n", Irq);
 #endif
     }
 
@@ -1700,18 +1685,18 @@ pc104sg_init(void)
      */
     if ((errval = alloc_chrdev_region(&DevStart, 0, 1, "irig")) < 0)
     {
-	DSMLOG_ERR("Error %d allocating device major number for 'irig'\n",
-		   -errval);
+	KLOG_ERR("Error %d allocating device major number for 'irig'\n",
+		 -errval);
         goto err0;
     }
     else
-	DSMLOG_NOTICE("Got major device number %d for 'irig'\n", 
-		      MAJOR(DevStart));
+	KLOG_NOTICE("Got major device number %d for 'irig'\n", 
+		    MAJOR(DevStart));
     
     cdev_init(&Cdev, &pc104sg_fops);
     if ((errval = cdev_add(&Cdev, DevStart, 1)) < 0)
     {
-	DSMLOG_ERR("cdev_add() for PC104SG failed!\n");
+	KLOG_ERR("cdev_add() for PC104SG failed!\n");
 	goto err0;
     }
 
@@ -1761,14 +1746,8 @@ pc104sg_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	/*
 	 * Wait for data to be ready
 	 */
-#ifdef DEBUG
-	DSMLOG_DEBUG("read going to sleep\n");
-#endif
 	if (wait_event_interruptible(p->rwaitq, (p->readyForRead != 0)))
 	    return -ERESTARTSYS;
-#ifdef DEBUG
-	DSMLOG_DEBUG("read awakened\n");
-#endif
 	/*
 	 * Regain our lock on the dev 
 	 */
@@ -1801,7 +1780,7 @@ pc104sg_open(struct inode *inode, struct file *filp)
     errval = register_irig_callback(writeTimeCallback, IRIG_1_HZ, p);
     if (errval < 0) 
     {
-	DSMLOG_ERR("Error %d registering callback\n", -errval);
+	KLOG_ERR("Error %d registering callback\n", -errval);
 	kfree(p);
 	return errval;
     }
@@ -1832,7 +1811,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
     unsigned long flags;
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("ioctlCallback, cmd=0x%x\n", cmd);
+    KLOG_DEBUG("cmd=0x%x\n", cmd);
 #endif
     
     /*
