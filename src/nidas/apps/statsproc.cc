@@ -148,6 +148,12 @@ int StatsProcess::main(int argc, char** argv) throw()
         n_u::Logger::createInstance("statsproc",LOG_CONS,LOG_LOCAL5);
     }
 
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_INFO;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
+
+
     return stats.run();
 }
 
@@ -368,7 +374,8 @@ int StatsProcess::run() throw()
 		    	dsmName.c_str());
 		    return 1;
 		}
-                fset = fsets.front();
+                // must clone, since fsets.front() belongs to project
+                fset = fsets.front()->clone();
 
                 if (startTime.toUsecs() != 0) fset->setStartTime(startTime);
                 if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
