@@ -18,8 +18,6 @@ Import('env')
 # source tree.
 
 headers = Split("""
-dsmlog.h
-ioctl_fifo.h
 irigclock.h
 pc104sg.h
 """)
