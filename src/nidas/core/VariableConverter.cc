@@ -27,6 +27,17 @@ namespace n_u = nidas::util;
 #include <sstream>
 #include <iostream>
 
+VariableConverter::VariableConverter(const VariableConverter& x):
+    units(x.units)
+{
+    const list<const Parameter*>& params = x.getParameters();
+    list<const Parameter*>::const_iterator pi;
+    for (pi = params.begin(); pi != params.end(); ++pi) {
+        const Parameter* parm = *pi;
+	Parameter* newp = parm->clone();
+	addParameter(newp);
+    }
+}
 /*
  * Add a parameter to my map, and list.
  */
@@ -67,6 +78,7 @@ Linear::Linear(): calTime(0),slope(1.0),intercept(0.0),calFile(0)
 }
 
 Linear::Linear(const Linear& x):
+    VariableConverter(x),
     calTime(0),slope(x.slope),intercept(x.intercept),calFile(0)
 {
     if (x.calFile) calFile = new CalFile(*x.calFile);
@@ -158,8 +170,8 @@ VariableConverter* VariableConverter::createFromString(const std::string& str)
     string which;
     ist >> which;
     VariableConverter* converter = 0;
-    if (!which.compare("linear")) converter = new Linear();
-    else if (!which.compare("poly")) converter = new Polynomial();
+    if (which == "linear") converter = new Linear();
+    else if (which == "poly") converter = new Polynomial();
     else throw n_u::InvalidParameterException("VariableConverter","fromString",str);
 
     converter->fromString(str);
@@ -172,7 +184,7 @@ void Linear::fromString(const std::string& str)
     istringstream ist(str);
     string which;
     ist >> which;
-    if (ist.eof() || ist.fail() || which.compare("linear"))
+    if (ist.eof() || ist.fail() || which != "linear")
     	throw n_u::InvalidParameterException("linear","fromString",str);
 
     char cstr[256];
@@ -214,7 +226,7 @@ void Polynomial::fromString(const std::string& str)
     istringstream ist(str);
     string which;
     ist >> which;
-    if (ist.eof() || ist.fail() || which.compare("poly"))
+    if (ist.eof() || ist.fail() || which != "poly")
     	throw n_u::InvalidParameterException("poly","fromString",str);
 
     char cstr[256];
@@ -286,7 +298,7 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
-	    if (!attr.getName().compare("units"))
+	    if (attr.getName() == "units")
 		setUnits(attr.getValue());
 	}
     }
@@ -330,15 +342,15 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
 	    // get attribute name
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
-	    if (!aname.compare("slope") || !aname.compare("intercept")) {
+	    if (aname == "slope" || aname == "intercept") {
 		istringstream ist(aval);
 		float fval;
 		ist >> fval;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException("linear",aname,
 		    	aval);
-		if (!aname.compare("slope")) setSlope(fval);
-		else if (!aname.compare("intercept")) setIntercept(fval);
+		if (aname == "slope") setSlope(fval);
+		else if (aname == "intercept") setIntercept(fval);
 	    }
 	}
     }
@@ -373,7 +385,7 @@ void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
 	    vector<float> fcoefs;
-	    if (!aname.compare("coefs")) {
+	    if (aname == "coefs") {
 		istringstream ist(aval);
 		for (;;) {
 		    float fval;

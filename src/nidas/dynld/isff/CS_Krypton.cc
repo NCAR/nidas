@@ -33,7 +33,8 @@ CS_Krypton::CS_Krypton(): calFile(0),calTime(0)
     setBias(0.0);
 }
 
-CS_Krypton::CS_Krypton(const CS_Krypton& x): calFile(0),calTime(0)
+CS_Krypton::CS_Krypton(const CS_Krypton& x):
+    VariableConverter(x),calFile(0),calTime(0)
 {
     if (x.calFile) calFile = new CalFile(*x.calFile);
 }

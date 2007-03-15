@@ -30,6 +30,12 @@ class VariableConverter: public DOMable
 {
 public:
 
+    VariableConverter() {}
+    /**
+     * Copy constructor.
+     */
+    VariableConverter(const VariableConverter& x);
+
     virtual ~VariableConverter() {}
 
     virtual VariableConverter* clone() const = 0;

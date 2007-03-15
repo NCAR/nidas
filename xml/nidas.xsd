@@ -160,9 +160,9 @@
     </xsd:choice>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
-    <xsd:attribute name="count" type="xsd:boolean" default="0"/>
-    <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
+    <xsd:attribute name="count" type="xsd:boolean"/>
+    <xsd:attribute name="length" type="xsd:positiveInteger"/>
     <xsd:attribute name="missingValue" type="xsd:float"/>
 </xsd:complexType>
 
