@@ -101,7 +101,22 @@ struct DMMAT_A2D_Status
 
 #include <linux/cdev.h>
 
-#ifndef USE_TASKLETS
+/*
+ * To use a tasklet to do the bottom half processing, define USE_TASKLET.
+ * Otherwise a work queue is used.  Define USE_MY_WORK_QUEUE to create a
+ * single thread work queue for dmd_mmat, otherwise the shared
+ * work queue will be used.
+ * Testing in March 2007, on a viper, running 2.6.16.28-arcom1-2-viper,
+ * doing 2KHz samping of 9 channels on a MM32XAT saw no difference 
+ * between the 3 methods.  We'll use a single thread, non-shared queue.
+ * It's cool because it shows up in a "ps" listing.
+ * We don't need the atomicity (word?) of tasklets - I guess they are
+ * run as a software interrupt.
+ */
+// #define USE_TASKLET
+
+#ifndef USE_TASKLET
+#define USE_MY_WORK_QUEUE
 #include <linux/workqueue.h>
 #endif
 
@@ -213,15 +228,15 @@ struct DMMAT_A2D
 
     int busy;                                   // a2d is running
 
-#ifdef USE_TASKLETS
+#ifdef USE_TASKLET
     struct tasklet_struct tasklet;          // filter tasklet
 #else
     struct work_struct worker;
-    wait_queue_head_t work_queue;
+#ifdef USE_MY_WORK_QUEUE
+    struct workqueue_struct* work_queue;
+#endif
 #endif
     struct a2d_tasklet_data tl_data;       //
-
-    // spinlock_t spinlock;                // for quick locks
 
     struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
     struct dsm_sample_circ_buf samples;         // samples out of tasklet
@@ -248,6 +263,8 @@ struct DMMAT_A2D
     long latencyMsecs;	// buffer latency in milli-seconds
     long latencyJiffies;	// buffer latency in jiffies
     unsigned long lastWakeup;
+
+    unsigned long delayedWork;
 
 };
 

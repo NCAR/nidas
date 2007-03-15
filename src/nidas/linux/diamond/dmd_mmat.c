@@ -566,7 +566,7 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
         if (a2d->latencyMsecs == 0) a2d->latencyMsecs = 500;
 
         a2d->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
-        if (a2d->latencyJiffies == 0) a2d->latencyJiffies = HZ / 4;
+        if (a2d->latencyJiffies == 0) a2d->latencyJiffies = HZ / 10;
         KLOG_DEBUG("%s: latencyJiffies=%d, HZ=%d\n",
                     a2d->deviceName,a2d->latencyJiffies,HZ);
 
@@ -714,8 +714,10 @@ static int stopA2D(struct DMMAT_A2D* a2d)
         int ret = 0;
 
         if (a2d->stop) a2d->stop(a2d);
-        // shut down tasklets
+#ifdef USE_TASKLET
+        // shut down tasklet. Not necessary, you can leave it enabled.
         // tasklet_disable(&a2d->tasklet);
+#endif
         a2d->busy = 0;	// Reset the busy flag
 
         return ret;
@@ -889,6 +891,8 @@ static int startA2D(struct DMMAT_A2D* a2d)
         a2d->status.irqsReceived = 0;
         a2d->sampBytesLeft = 0;
         a2d->sampPtr = 0;
+        a2d->delayedWork = 0;
+        a2d->lastWakeup = jiffies;
 
         if ((result = a2d->selectChannels(a2d))) return result;
 
@@ -908,7 +912,10 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         a2d->tl_data.saveSample.length = 0;
 
+#ifdef USE_TASKLET
+        // Not necessary to enable the tasklet, we don't disable it.
         // tasklet_enable(&a2d->tasklet);
+#endif
 
         a2d->start(a2d);
         return 0;
@@ -921,7 +928,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
     const short* dp)
 {
 
-#define DO_FILTER_DEBUG
+// #define DO_FILTER_DEBUG
 #if defined(DEBUG) & defined(DO_FILTER_DEBUG)
         static size_t nfilt = 0;
         static int maxAvail = 0;
@@ -974,10 +981,10 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
  * The contents of the fifo sample is not necessarily a multiple
  * of the number of channels scanned.
  */
-#ifdef USE_TASKLETS
-static void dmmat_a2d_do_tasklet(unsigned long dev)
+#ifdef USE_TASKLET
+static void dmmat_a2d_bottom_half(unsigned long dev)
 #else
-static void dmmat_a2d_do_tasklet(void* dev)
+static void dmmat_a2d_bottom_half(void* dev)
 #endif
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
@@ -1037,8 +1044,14 @@ static void dmmat_a2d_do_tasklet(void* dev)
                     tt0 += a2d->scanDeltaT;
                 }
                 INCREMENT_TAIL(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
+                // see fast bottom half for a discussion of this.
+                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                        DMMAT_SAMPLE_QUEUE_SIZE) < DMMAT_SAMPLE_QUEUE_SIZE/2) {
+                        wake_up_interruptible(&a2d->read_queue);
+                        a2d->lastWakeup = jiffies;
+                }
         }
-        wake_up_interruptible(&a2d->read_queue);
         tld->saveSample.length = saveChan * sizeof(short);
 }
 
@@ -1047,10 +1060,10 @@ static void dmmat_a2d_do_tasklet(void* dev)
  * The contents of the fifo sample must be a multiple
  * of the number of channels scanned.
  */
-#ifdef USE_TASKLETS
-static void dmmat_a2d_do_tasklet_fast(unsigned long dev)
+#ifdef USE_TASKLET
+static void dmmat_a2d_bottom_half_fast(unsigned long dev)
 #else
-static void dmmat_a2d_do_tasklet_fast(void* dev)
+static void dmmat_a2d_bottom_half_fast(void* dev)
 #endif
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
@@ -1084,10 +1097,23 @@ static void dmmat_a2d_do_tasklet_fast(void* dev)
                     tt0 += a2d->scanDeltaT;
                 }
                 INCREMENT_TAIL(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
-
-                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies) {
-                    wake_up_interruptible(&a2d->read_queue);
-                    a2d->lastWakeup = jiffies;
+                // We wake up the read_queue here so that the filters
+                // don't have to know about it.  How often the
+                // queue is woken depends on the requested latency.
+                // 
+                // If the user is sampling slowly, then the fifo threshold
+                // will be set to a small number so that interrupts
+                // happen at about the requested latency period.
+                // The read_queue will be woken here if latencyJiffies have elapsed.
+                // If sampling fast, then interrupts will happen
+                // much faster than the latency period.  Since the
+                // sample queue may fill up before latencyJiffies have elapsed,
+                // we also wake the read_queue if the output sample queue is half full.
+                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                        DMMAT_SAMPLE_QUEUE_SIZE) < DMMAT_SAMPLE_QUEUE_SIZE/2) {
+                        wake_up_interruptible(&a2d->read_queue);
+                        a2d->lastWakeup = jiffies;
                 }
         }
 }
@@ -1105,7 +1131,6 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         int i;
         struct dsm_sample* samp;
         char* dp;
-        int result;
 
         a2d->status.irqsReceived++;
         switch (flevel) {
@@ -1164,10 +1189,13 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         /* increment head, this sample is ready for consumption */
         INCREMENT_HEAD(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
 
-#ifdef USE_TASKLETS
+#ifdef USE_TASKLET
         tasklet_schedule(&a2d->tasklet);
+#elif defined(USE_MY_WORK_QUEUE)
+        if (queue_work(a2d->work_queue,&a2d->worker) != 0 && !(a2d->delayedWork++ % 1000)) 
+                KLOG_INFO("%s: delayedWork=%ld\n",
+                    a2d->deviceName,a2d->delayedWork);
 #else
-        // wake_up_interruptible(&a2d->work_queue);
         schedule_work(&a2d->worker);
 #endif
         return IRQ_HANDLED;
@@ -1224,7 +1252,6 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         struct DMMAT* brd;
         struct DMMAT_A2D* a2d;
-        unsigned long flags;
 
         KLOG_DEBUG("open_a2d, i=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
             i,ibrd,ia2d,numboards);
@@ -1233,16 +1260,6 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         a2d = brd->a2d;
-
-        spin_lock_irqsave(&brd->spinlock,flags);
-
-        // Just in case the irq handler or bottom half is running,
-        // lock the board spinlock before resetting the circular
-        // buffer head
-        a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
-        a2d->samples.head = a2d->samples.tail = 0;
-
-        spin_unlock_irqrestore(&brd->spinlock,flags);
 
         /* a2d and pulse counter use interrupts */
         if (ia2d == 0 || ia2d == 3) {
@@ -1270,18 +1287,6 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 #endif
                     return result;
                 }
-#ifndef USE_TASKLETS
-#ifdef BOZO
-                if ((result = schedule_work(&a2d->worker))) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-                    mutex_unlock(&brd->mutex);
-#else
-                    up(&brd->mutex);
-#endif
-                    return result;
-                }
-#endif
-#endif
                 brd->irq = irqs[ibrd];
                 brd->irq_users = 0;
             }
@@ -1371,19 +1376,11 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         KLOG_DEBUG("head=%d,tail=%d\n",
             a2d->samples.head,a2d->samples.tail);
 
-        while(!sampPtr && a2d->samples.head == a2d->samples.tail) {
-                DEFINE_WAIT(wait);
+        if(!sampPtr && a2d->samples.head == a2d->samples.tail) {
                 if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-                prepare_to_wait(&a2d->read_queue,&wait,TASK_INTERRUPTIBLE);
-                if (a2d->samples.head == a2d->samples.tail) schedule();
-                finish_wait(&a2d->read_queue,&wait);
-                KLOG_DEBUG("woke,head=%d,tail=%d\n",
-                    a2d->samples.head,a2d->samples.tail);
-                if (signal_pending(current)) return -ERESTARTSYS;
+                if (wait_event_interruptible(a2d->read_queue,
+                      a2d->samples.head == a2d->samples.tail)) return -ERESTARTSYS;
         }
-
-        // if (wait_event_interruptible(a2d->read_queue,
-          //       a2d->samples.head == a2d->samples.tail)) return -ERESTARTSYS;
 
         if (!sampPtr) {
                 insamp = a2d->samples.buf[a2d->samples.tail];
@@ -1620,11 +1617,14 @@ static int init_a2d(struct DMMAT* brd,int type)
             a2d->resetFifo = resetFifoMM16AT;
             a2d->waitForA2DSettle = waitForA2DSettleMM16AT;
             a2d->maxFifoThreshold = 256;
-#ifdef USE_TASKLETS
-            tasklet_init(&a2d->tasklet,dmmat_a2d_do_tasklet,
+#ifdef USE_TASKLET
+            tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half,
                 (unsigned long)a2d);
 #else
-            INIT_WORK(&a2d->worker,dmmat_a2d_do_tasklet,a2d);
+#ifdef USE_MY_WORK_QUEUE
+            a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
+#endif
+            INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half,a2d);
 #endif
             break;
 
@@ -1645,18 +1645,18 @@ static int init_a2d(struct DMMAT* brd,int type)
             a2d->resetFifo = resetFifoMM32XAT;
             a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
             a2d->maxFifoThreshold = 512;
-#ifdef USE_TASKLETS
-            tasklet_init(&a2d->tasklet,dmmat_a2d_do_tasklet_fast,
+#ifdef USE_TASKLET
+            tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half_fast,
                 (unsigned long)a2d);
 #else
-            INIT_WORK(&a2d->worker,dmmat_a2d_do_tasklet_fast,a2d);
+#ifdef USE_MY_WORK_QUEUE
+            a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
+#endif
+            INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast,a2d);
 #endif
             break;
         }
         init_waitqueue_head(&a2d->read_queue);
-#ifndef USE_TASKLETS
-        // init_waitqueue_head(&a2d->work_queue);
-#endif
 
         result = -ENOMEM;
         /*
@@ -1739,10 +1739,11 @@ static void cleanup_a2d(struct DMMAT* brd)
                 a2d->sampleInfo = 0;
         }
 
-#ifdef USE_TASKLETS
-        tasklet_kill(a2d->tasklet);
+#ifdef USE_TASKLET
+        tasklet_kill(&a2d->tasklet);
+#elif defined(USE_MY_WORK_QUEUE)
+        destroy_workqueue(a2d->work_queue);
 #endif
-
         kfree(a2d->deviceName);
         kfree(a2d);
         brd->a2d = 0;
