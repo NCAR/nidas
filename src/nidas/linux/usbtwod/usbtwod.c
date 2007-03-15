@@ -135,13 +135,15 @@ static int twod_release(struct inode *inode, struct file *file)
   wake_up_interruptible(&dev->read_wait);
 
 #ifndef BLOCKING_READ
-  for (i = 0; i < READS_IN_FLIGHT; ++i) {
+  for (i = 0; i < READS_IN_FLIGHT-1; ++i) {
     struct urb * urb = dev->read_urbs[i];
 
     usb_kill_urb(urb);
     usb_buffer_free(dev->udev, urb->transfer_buffer_length,
 		urb->transfer_buffer, urb->transfer_dma);
     usb_free_urb(urb);
+  }
+  for (i = 0; i < READS_IN_FLIGHT; ++i) {
     kfree(dev->readq.buf[i]);
   }
 #endif
@@ -174,7 +176,7 @@ static void twod_rx_bulk_callback(struct urb * urb)
 
   ++stats.total_urb_callbacks;
 
-((int *)urb->transfer_buffer)[0] = stats.total_urb_callbacks;
+//((int *)urb->transfer_buffer)[0] = stats.total_urb_callbacks;
 
   /* sync/async unlink faults aren't errors */
   if (urb->status) {
@@ -200,9 +202,9 @@ static void twod_rx_bulk_callback(struct urb * urb)
     goto resubmit;
   }
   else {
+    INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
     osamp->tag.timetag = getSystemTimeMsecs();
     osamp->urb = urb;
-    INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
     wake_up_interruptible(&dev->read_wait);
   }
 
@@ -223,6 +225,7 @@ static int twod_open(struct inode *inode, struct file *file)
   struct urb_sample * samp;
   int subminor;
   int i, retval = 0;
+  int submit = READS_IN_FLIGHT - 1;
 
   nonseekable_open(inode, file);
   subminor = iminor(inode);
@@ -267,7 +270,6 @@ static int twod_open(struct inode *inode, struct file *file)
 
   /* create urbs and readq. */
   for (i = 0; i < READS_IN_FLIGHT; ++i) {
-    dev->read_urbs[i] = twod_make_urb(dev);
 
     /* Readq for urbs. */
     samp = kmalloc(sizeof(struct urb_sample), GFP_KERNEL);
@@ -276,7 +278,8 @@ static int twod_open(struct inode *inode, struct file *file)
   }
 
   /* Submit all the urbs. */
-  for (i = 0; i < READS_IN_FLIGHT; ++i) {
+  for (i = 0; i < submit; ++i) {
+    dev->read_urbs[i] = twod_make_urb(dev);
     if (dev->read_urbs[i]) {
       retval = usb_submit_urb(dev->read_urbs[i], GFP_ATOMIC);
       if (retval) {

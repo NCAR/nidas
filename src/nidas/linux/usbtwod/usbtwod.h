@@ -49,7 +49,7 @@ struct urb_sample
 
 struct urb_sample_circ_buf
 {
-    struct urb_sample * buf[READS_IN_FLIGHT];
+    struct urb_sample * buf[READS_IN_FLIGHT];	// Must be power of 2.
     volatile int head;
     volatile int tail;
 };
