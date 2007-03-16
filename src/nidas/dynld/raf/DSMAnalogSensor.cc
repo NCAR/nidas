@@ -125,9 +125,9 @@ void DSMAnalogSensor::open(int flags) throw(n_u::IOException)
 
     ostringstream ost;
     if (maxrate >= 1000)
-	ost << "/tmp/filters/fir" << maxrate/1000. << "KHz.cfg";
+	ost << "/tmp/code/filters/fir" << maxrate/1000. << "KHz.cfg";
     else
-	ost << "/tmp/filters/fir" << maxrate << "Hz.cfg";
+	ost << "/tmp/code/filters/fir" << maxrate << "Hz.cfg";
     string filtername = ost.str();
 
     int nexpect = (signed)sizeof(a2d.filter)/sizeof(a2d.filter[0]);
