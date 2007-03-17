@@ -79,7 +79,7 @@ void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
     init();
 
     int nchans;
-    ioctl(DMMAT_GET_A2D_NCHAN,&nchans,sizeof(int));
+    ioctl(DMMAT_A2D_GET_NCHAN,&nchans,sizeof(int));
 
     if (channels.size() > (unsigned)nchans) {
         ostringstream ost;
@@ -112,7 +112,7 @@ void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
     cfg.scanRate = getScanRate();
 
     // cerr << "doing DMMAT_SET_A2D_CONFIG" << endl;
-    ioctl(DMMAT_SET_A2D_CONFIG, &cfg, sizeof(struct DMMAT_A2D_Config));
+    ioctl(DMMAT_A2D_SET_CONFIG, &cfg, sizeof(struct DMMAT_A2D_Config));
 
     for(unsigned int i = 0; i < samples.size(); i++) {
         struct DMMAT_A2D_Sample_Config cfg;
@@ -122,7 +122,7 @@ void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
 	cfg.filterType = samples[i].filterType;
 	cfg.boxcarNpts = samples[i].boxcarNpts;
 
-        ioctl(DMMAT_SET_A2D_SAMPLE, &cfg,
+        ioctl(DMMAT_A2D_SET_SAMPLE, &cfg,
             sizeof(struct DMMAT_A2D_Sample_Config));
     }
     // cerr << "doing DMMAT_A2D_START" << endl;
@@ -149,7 +149,7 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
 
     struct DMMAT_A2D_Status stat;
     try {
-	ioctl(DMMAT_GET_A2D_STATUS,&stat,sizeof(stat));
+	ioctl(DMMAT_A2D_GET_STATUS,&stat,sizeof(stat));
 	ostr << "<td align=left>";
 	ostr << "FIFO: over=" << stat.fifoOverflows << 
 		", under=" << stat.fifoUnderflows <<

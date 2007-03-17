@@ -73,17 +73,29 @@ struct DMMAT_A2D_Status
  * The enumeration of IOCTLs that this driver supports.
  * See pages 130-132 of Linux Device Driver's Manual 
  */
-#define DMMAT_SET_A2D_CONFIG \
+
+/* A2D Ioctls */
+#define DMMAT_A2D_SET_CONFIG \
     _IOW(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Config)
-#define DMMAT_GET_A2D_STATUS \
+#define DMMAT_A2D_GET_STATUS \
     _IOR(DMMAT_IOC_MAGIC,1,struct DMMAT_A2D_Status)
 #define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,2)
 #define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,3)
-#define DMMAT_GET_A2D_NCHAN  _IO(DMMAT_IOC_MAGIC,4)
-#define DMMAT_SET_A2D_SAMPLE \
+#define DMMAT_A2D_GET_NCHAN  _IO(DMMAT_IOC_MAGIC,4)
+#define DMMAT_A2D_SET_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
-#define DMMAT_IOC_MAXNR 5
+/* D2A Ioctls */
+#define DMMAT_D2A_GET_NOUTPUTS \
+    _IO(DMMAT_IOC_MAGIC,6)
+#define DMMAT_D2A_GET_CONVERSION \
+    _IOR(DMMAT_IOC_MAGIC,7,struct DMMAT_D2A_Conversion)
+#define DMMAT_D2A_SET \
+    _IOW(DMMAT_IOC_MAGIC,8,struct DMMAT_D2A_Outputs)
+#define DMMAT_D2A_GET \
+    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_D2A_Outputs)
+
+#define DMMAT_IOC_MAXNR 9
 
 /**
  * Definitions of bits in board status byte.
@@ -94,7 +106,39 @@ struct DMMAT_A2D_Status
 #define DMMAT_STATUS_A2D_INT		0x10	// interrupt from A2D
 #define DMMAT_STATUS_CHAN_MASK		0x0f	// current channel
 
-#
+/**
+ * Enumeration of possible jumper configurations for the D2A
+ */
+enum dmmat_d2a_config {
+        DMMAT_D2A_UNI_5,        // unipolar, 0-5V
+        DMMAT_D2A_UNI_10,       // unipolar, 0-10V
+        DMMAT_D2A_BI_5,         // bipolar, -5-5V
+        DMMAT_D2A_BI_10        // bipolar, -10-10V
+};
+
+#define DMMAT_D2A_OUTPUTS 4
+
+/**
+ * Structure describing the linear relation of counts
+ * and D2A voltage.  User does an ioctl query to get this
+ * from the D2A, and uses it to compute a count for a desired
+ * voltage, and sets the output by passing an integer count value
+ * via an ioctl. Alas, floating point is too much to expect from a
+ * kernel module...
+ */
+struct DMMAT_D2A_Conversion
+{
+        int vmin;
+        int vmax;
+        int cmin;
+        int cmax;
+};
+
+struct DMMAT_D2A_Outputs
+{
+        int active[DMMAT_D2A_OUTPUTS];     // 1=set, 0=ignore
+        int counts[DMMAT_D2A_OUTPUTS];      // counts value
+};
 
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
@@ -124,6 +168,21 @@ struct DMMAT_A2D_Status
 #define	DMMAT_IOPORT_WIDTH	16
 
 #define MAX_DMMAT_BOARDS	4	// number of boards supported by driver
+
+/*
+ * Board #0
+ * A2D: 1 device, minor number 0, /dev/dmmat_a2d0
+ * CNTR: 1 device, minor number 1 /dev/dmmat_cntr0
+ * D2A: 1 device, minor number 2, /dev/dmmat_d2a0
+ * DIO: 1 device, minor number 3, /dev/dmmat_dio0
+ *
+ * Board #1
+ * A2D: 1 device, minor number 0, /dev/dmmat_a2d1
+ * CNTR: 1 device, minor number 1 /dev/dmmat_cntr1
+ * D2A: 1 device, minor number 2, /dev/dmmat_d2a1
+ * DIO: 1 device, minor number 3, /dev/dmmat_dio1
+ */
+#define DMMAT_DEVICES_PER_BOARD 4
 
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
 #define DMMAT_SAMPLE_QUEUE_SIZE 2048
@@ -157,27 +216,31 @@ struct DMMAT_A2D_Status
 #define DMMAT_8254_MODE_4	0x08
 #define DMMAT_8254_MODE_5	0x0a
 
+/**
+ * Structure allocated for every DMMAT board in the system.
+ */
 struct DMMAT {
-    int num;                            // which board in system, from 0
-    unsigned long addr;                 // Base address of board
-    int irq;		                // requested IRQ
-    int irq_users;                      // how many users of irq
+        int num;                        // which board in system, from 0
+        unsigned long addr;             // Base address of board
+        int irq;		        // requested IRQ
+        int irq_users;                  // how many users of irq
 
-    unsigned long int_status_reg;	// addr of interrupt status register
-    unsigned long int_ack_reg;		// addr of interrupt acknowledge reg
+        unsigned long int_status_reg;	// addr of interrupt status register
+        unsigned long int_ack_reg;	// addr of interrupt acknowledge reg
 
-    unsigned char ad_int_mask;		// mask of A2D interrupt bit 
-    unsigned char pctr_int_mask;	// mask of counter interrupt bit 
-    unsigned char int_ack_val;		// value to write to int_act_reg
+        unsigned char ad_int_mask;	// mask of A2D interrupt bit 
+        unsigned char pctr_int_mask;	// mask of counter interrupt bit 
+        unsigned char int_ack_val;	// value to write to int_act_reg
 
-    struct DMMAT_A2D* a2d;              // pointer to DMMAT_A2D
+        struct DMMAT_A2D* a2d;          // pointer to DMMAT_A2D
+        struct DMMAT_D2A* d2a;          // pointer to DMMAT_D2A
 
-    spinlock_t spinlock;                // for quick locks
+        spinlock_t reglock;             // when accessing board registers
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-    struct mutex mutex;                   // for slow locks
+        struct mutex irqreq_mutex;         // when setting up irq handler
 #else
-    struct semaphore mutex;                   // for slow locks
+        struct semaphore irqreq_mutex;     // when setting up irq handler
 #endif
 };
 
@@ -193,6 +256,12 @@ struct a2d_tasklet_data
         struct a2d_sample saveSample;
 };
 
+/**
+ * From the user point of view a sample is a group of 
+ * A2D channels which the user wants output at a given
+ * rate, using a certain filter.  This structure describes
+ * such a sample.
+ */
 struct DMMAT_A2D_Sample_Info {
         int nchans;
         int* channels;
@@ -208,63 +277,79 @@ struct DMMAT_A2D_Sample_Info {
 
 struct DMMAT_A2D
 {
-    struct DMMAT* brd;
-    struct DMMAT_A2D_Status status;
+        struct DMMAT* brd;
+        struct DMMAT_A2D_Status status;
 
-    char* deviceName;
-    struct cdev cdev;
+        char* deviceName;
+        struct cdev cdev;
 
-    // methods
-    int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
-    void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
-    int (*getFifoLevel)(struct DMMAT_A2D* a2d);
-    int (*getNumChannels)(struct DMMAT_A2D* a2d);
-    int (*selectChannels)(struct DMMAT_A2D* a2d);
-    int (*getConvRateSetting)(struct DMMAT_A2D* a2d, unsigned char* val);
-    int (*getGainSetting)(struct DMMAT_A2D* a2d,int gain, int bipolar,
-                    unsigned char* val);
-    void (*resetFifo)(struct DMMAT_A2D* a2d);
-    void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
+        // methods which may have a different implementation
+        // for each board type
+        int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
+        void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
+        int (*getFifoLevel)(struct DMMAT_A2D* a2d);
+        int (*getNumChannels)(struct DMMAT_A2D* a2d);
+        int (*selectChannels)(struct DMMAT_A2D* a2d);
+        int (*getConvRateSetting)(struct DMMAT_A2D* a2d, unsigned char* val);
+        int (*getGainSetting)(struct DMMAT_A2D* a2d,int gain, int bipolar,
+                        unsigned char* val);
+        void (*resetFifo)(struct DMMAT_A2D* a2d);
+        void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
 
-    int busy;                                   // a2d is running
+        int busy;                                   // a2d is running
 
 #ifdef USE_TASKLET
-    struct tasklet_struct tasklet;          // filter tasklet
+        struct tasklet_struct tasklet;          // filter tasklet
 #else
-    struct work_struct worker;
+        struct work_struct worker;
 #ifdef USE_MY_WORK_QUEUE
-    struct workqueue_struct* work_queue;
+        struct workqueue_struct* work_queue;
 #endif
 #endif
-    struct a2d_tasklet_data tl_data;       //
+        struct a2d_tasklet_data tl_data;       // data for use by bottom half
 
-    struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
-    struct dsm_sample_circ_buf samples;         // samples out of tasklet
-    wait_queue_head_t read_queue;
-    size_t sampBytesLeft;
-    char* sampPtr;
+        struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
+        struct dsm_sample_circ_buf samples;         // samples out of tasklet
 
-    int maxFifoThreshold;
-    int fifoThreshold;		
-    
-    int nsamples;               // how many different samples
-    struct DMMAT_A2D_Sample_Info* sampleInfo;
+        wait_queue_head_t read_queue;   // user read & poll methods wait on this
+        size_t sampBytesLeft;       // bytes left to copy to user in last sample
+        char* sampPtr;              // pointer into last sample for copy to user
 
-    unsigned char requested[MAX_DMMAT_A2D_CHANNELS];// 1=channel requested, 0=isn't
-    int lowChan;		// lowest channel scanned
-    int highChan;		// highest channel scanned
-    int nchans;
-    unsigned char gainSetting;	// 
-    int scanRate;		// A/D scan sample rate
-    long scanDeltaT;
+        int maxFifoThreshold;       // maximum hardware fifo threshold
+        int fifoThreshold;	        // current hardware fifo threshold
+        
+        int nsamples;               // how many different output sample groups
+        struct DMMAT_A2D_Sample_Info* sampleInfo;
 
-    int ttMsecAdj;		// how much to adjust sample time-tags backwds
+        unsigned char requested[MAX_DMMAT_A2D_CHANNELS];// 1=channel requested, 0=isn't
+        int lowChan;		// lowest channel scanned
+        int highChan;		// highest channel scanned
+        int nchans;
+        unsigned char gainSetting;	// 
+        int scanRate;		// A/D scan sample rate
+        long scanDeltaT;
 
-    long latencyMsecs;	// buffer latency in milli-seconds
-    long latencyJiffies;	// buffer latency in jiffies
-    unsigned long lastWakeup;
+        long latencyMsecs;	        // buffer latency in milli-seconds
+        long latencyJiffies;	// buffer latency in jiffies
+        unsigned long lastWakeup;   // when were read & poll methods last woken
 
-    unsigned long delayedWork;
+        unsigned long delayedWork;
+
+};
+
+struct DMMAT_D2A {
+
+        struct DMMAT* brd;
+
+        struct cdev cdev;
+
+        char* deviceName;
+
+        struct DMMAT_D2A_Conversion conversion;
+
+        struct DMMAT_D2A_Outputs outputs;
+
+        int (*setD2A)(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* set);
 
 };
 

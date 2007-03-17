@@ -1,4 +1,3 @@
-
 /*  a2d_driver.c/
 
 Driver and utility modules for Diamond System MM AT analog IO cards.
@@ -58,11 +57,20 @@ static int types[MAX_DMMAT_BOARDS] = { DMM32XAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
 module_param_array(types,int,&numtypes,0);
 
+/*
+ * How is the D2A jumpered? Bipolar, unipolar, 5 or 10 volts.
+ */
+static int d2aconfig[MAX_DMMAT_BOARDS] = { DMMAT_D2A_UNI_5, 0, 0, 0 };
+static int numd2aconfig = 0;
+module_param_array(d2aconfig,int,&numd2aconfig,0);
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 
-#define DEVICES_PER_BOARD 4     // a2d, d2d, dio, pctr
-static dev_t board_device = MKDEV(0,0);
+/**
+ * Holds the major number of all DMMAT devices.
+ */
+static dev_t dmmat_device = MKDEV(0,0);
 
 /*
  * Pointer to first of dynamically allocated structures containing
@@ -170,9 +178,9 @@ static int getNumA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
         unsigned long flags;
         unsigned char status;
 
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
         status = inb(brd->addr + 8);
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 
         if (status & 0x20) nchan += 8;	// single-ended
         return nchan;
@@ -194,9 +202,9 @@ static int getNumA2DChannelsMM32XAT(struct DMMAT_A2D* a2d)
         //   2. channels 0-15 differential
         //   3. 0-7 DI, 8-15 SE, 24-31 SE (not continuous)
         //   4. 0-7 SE, 8-15 DI, 16-23 SE
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
         status = inb(brd->addr + 8);
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 
         nchan = 16;
         if (status & 0x20) nchan += 8;	// 0-7, 16-23 single-ended
@@ -223,9 +231,9 @@ static int selectA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
         KLOG_DEBUG("highChan=%d,lowChan=%d,nib=0x%x\n",
             a2d->highChan,a2d->lowChan,(int)chanNibbles);
 
-        spin_lock_irqsave(&a2d->brd->spinlock,flags);
+        spin_lock_irqsave(&a2d->brd->reglock,flags);
         outb(chanNibbles, a2d->brd->addr + 2);
-        spin_unlock_irqrestore(&a2d->brd->spinlock,flags);
+        spin_unlock_irqrestore(&a2d->brd->reglock,flags);
 
         a2d->waitForA2DSettle(a2d);
         return 0;
@@ -244,10 +252,10 @@ static int selectA2DChannelsMM32XAT(struct DMMAT_A2D* a2d)
             a2d->highChan < a2d->lowChan) return -EINVAL;
         if (a2d->lowChan > a2d->highChan) return -EINVAL;
           
-        spin_lock_irqsave(&a2d->brd->spinlock,flags);
+        spin_lock_irqsave(&a2d->brd->reglock,flags);
         outb(a2d->lowChan, a2d->brd->addr + 2);
         outb(a2d->highChan, a2d->brd->addr + 3);
-        spin_unlock_irqrestore(&a2d->brd->spinlock,flags);
+        spin_unlock_irqrestore(&a2d->brd->reglock,flags);
 
         a2d->waitForA2DSettle(a2d);
         return 0;
@@ -668,7 +676,7 @@ static void stopMM16AT_A2D(struct DMMAT_A2D* a2d)
 {
         struct DMMAT* brd = a2d->brd;
         unsigned long flags;
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
 
         // disable triggering and interrupts
         outb(0, brd->addr + 9);
@@ -679,7 +687,7 @@ static void stopMM16AT_A2D(struct DMMAT_A2D* a2d)
         // reset fifo
         outb(0x80,brd->addr + 10);
 
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 }
 
 /*
@@ -689,7 +697,7 @@ static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d)
 {
         struct DMMAT* brd = a2d->brd;
         unsigned long flags;
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
 
         // full reset
         outb(0x20, brd->addr + 8);
@@ -703,7 +711,7 @@ static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d)
         // disable and reset fifo, disable scan mode
         outb(0x2,brd->addr + 7);
 
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 }
 
 /**
@@ -732,7 +740,7 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
         unsigned long flags;
         struct DMMAT* brd = a2d->brd;
 
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
 
         // reset fifo
         outb(0x80,brd->addr + 10);
@@ -773,7 +781,7 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
           */
         outb(0x83,brd->addr + 9);
 
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 
         return result;
 }
@@ -789,10 +797,8 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
         int nscans;
         int nsamps;
 
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
 
-        outb(0x03,brd->addr + 8);	// set page 3
-        outb(0xa6,brd->addr + 15);	// enable enhanced features
         outb(0x04,brd->addr + 8);	// set page 4
         outb(0x02,brd->addr + 14);	// abort any currently running autocal
         outb(0x10,brd->addr + 14);	// disable auto-cal
@@ -868,7 +874,7 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
           */
         outb(0x83,brd->addr + 9);
 
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
         return result;
 }
 
@@ -896,17 +902,17 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         if ((result = a2d->selectChannels(a2d))) return result;
 
-        spin_lock_irqsave(&brd->spinlock,flags);
+        spin_lock_irqsave(&brd->reglock,flags);
 
         // Just in case the irq handler or bottom half is running,
-        // lock the board spinlock before resetting the circular
+        // lock the board reglock before resetting the circular
         // buffer head
         a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
         a2d->samples.head = a2d->samples.tail = 0;
 
         // same addr on MM16AT and MM32XAT
         outb(a2d->gainSetting,a2d->brd->addr + 11);
-        spin_unlock_irqrestore(&brd->spinlock,flags);
+        spin_unlock_irqrestore(&brd->reglock,flags);
 
         a2d->waitForA2DSettle(a2d);
 
@@ -1215,22 +1221,18 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
         struct DMMAT* brd = (struct DMMAT*) dev_id;
         unsigned char status;
 
-        spin_lock(&brd->spinlock);
+        spin_lock(&brd->reglock);
         status = inb(brd->int_status_reg);
         if (!status) {
-                spin_unlock(&brd->spinlock);
+                spin_unlock(&brd->reglock);
                 KLOG_DEBUG("spurious irq\n");
                 return result;
         }
         // acknowledge interrupt
         outb(brd->int_ack_val, brd->int_ack_reg);
 
-        if (status & brd->ad_int_mask) {
-            // struct DMMAT_A2D* a2d = brd->a2d;
-            // spin_lock(&a2d->spinlock);
+        if (status & brd->ad_int_mask)
             result = dmmat_a2d_handler(brd->a2d);
-            // spin_unlock(&a2d->spinlock);
-        }
         else {
                 KLOG_DEBUG("no a2d irq\n");
         }
@@ -1239,16 +1241,91 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
         // if (status & brd->pctr_int_mask)
             // result = dmmat_pctr_handler(brd->pctr);
 
-        spin_unlock(&brd->spinlock);
+        spin_unlock(&brd->reglock);
         return result;
 }
 
-/************ File Operations ****************/
+/************ D2A Utilities ****************/
+/*
+ * Set one or more analog output voltages on a MM16AT board.
+ */
+static int setD2A_MM16AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+{
+        int i;
+        unsigned long flags;
+        struct DMMAT* brd = d2a->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++) {
+                if (outputs->active[i]) {
+                        char lsb;
+                        char msb;
+                        if (outputs->counts[i] < d2a->conversion.cmin)
+                                outputs->counts[i] = d2a->conversion.cmin;
+                        if (outputs->counts[i] > d2a->conversion.cmax)
+                                outputs->counts[i] = d2a->conversion.cmax;
+                        lsb = outputs->counts[i] % 256;
+                        msb = outputs->counts[i] / 256;
+                        outb(lsb,brd->addr + 1);
+                        outb(msb,brd->addr + 4+i);
+
+                        d2a->outputs.active[i] = 1;
+                        d2a->outputs.counts[i] = outputs->counts[i];
+                }
+        }
+        inb(brd->addr+4);           // causes all outputs to be updated
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/*
+ * Set one or more analog output voltages on a MM32AT.
+ */
+static int setD2A_MM32AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+{
+        int i;
+        int nout = 0;
+        int nset = 0;
+        unsigned long flags;
+        struct DMMAT* brd = d2a->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        // Check if setting more than one output
+        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++)
+                if (outputs->active[i]) nout++;
+
+        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++) {
+                if (outputs->active[i]) {
+                        char lsb;
+                        char msb;
+                        if (outputs->counts[i] < d2a->conversion.cmin)
+                                outputs->counts[i] = d2a->conversion.cmin;
+                        if (outputs->counts[i] > d2a->conversion.cmax)
+                                outputs->counts[i] = d2a->conversion.cmax;
+                        lsb = outputs->counts[i] % 256;
+                        msb = outputs->counts[i] / 256;
+                        msb += i << 6;
+                        nset++;
+                        if (nset < nout) msb |= 0x20;
+                        outb(lsb,brd->addr + 4);
+                        outb(msb,brd->addr + 5);
+
+                        d2a->outputs.active[i] = 1;
+                        d2a->outputs.counts[i] = outputs->counts[i];
+                }
+        }
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/************ A2D File Operations ****************/
 static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 {
         int i = iminor(inode);
-        int ibrd = i / DEVICES_PER_BOARD;
-        int ia2d = i % DEVICES_PER_BOARD;
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int ia2d = i % DMMAT_DEVICES_PER_BOARD;
 
         struct DMMAT* brd;
         struct DMMAT_A2D* a2d;
@@ -1265,10 +1342,10 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         if (ia2d == 0 || ia2d == 3) {
             int result;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            if ((result = mutex_lock_interruptible(&brd->mutex)))
+            if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
                 return result;
 #else
-            if ((result = down_interruptible(&brd->mutex)))
+            if ((result = down_interruptible(&brd->irqreq_mutex)))
                 return result;
 #endif
             if (brd->irq == 0) {
@@ -1281,9 +1358,9 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
                     SA_SHIRQ,"dmd_mmat",brd);
                 if (result) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-                    mutex_unlock(&brd->mutex);
+                    mutex_unlock(&brd->irqreq_mutex);
 #else
-                    up(&brd->mutex);
+                    up(&brd->irqreq_mutex);
 #endif
                     return result;
                 }
@@ -1293,9 +1370,9 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
             else BUG_ON(brd->irq_users <= 0);
             brd->irq_users++;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            mutex_unlock(&brd->mutex);
+            mutex_unlock(&brd->irqreq_mutex);
 #else
-            up(&brd->mutex);
+            up(&brd->irqreq_mutex);
 #endif
         }
         filp->private_data = a2d;
@@ -1308,13 +1385,14 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
 
         int i = iminor(inode);
-        int ibrd = i / DEVICES_PER_BOARD;
-        int ia2d = i % DEVICES_PER_BOARD;
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int ia2d = i % DMMAT_DEVICES_PER_BOARD;
 
         struct DMMAT* brd;
         int result;
 
         if (ibrd >= numboards) return -ENXIO;
+        if (ia2d != 0) return -ENXIO;
 
         brd = board + ibrd;
         BUG_ON(a2d != brd->a2d);
@@ -1324,10 +1402,10 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         /* a2d and pulse counter use interrupts */
         if (ia2d == 0 || ia2d == 3) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            if ((result = mutex_lock_interruptible(&brd->mutex)))
+            if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
                 return result;
 #else
-            if ((result = down_interruptible(&brd->mutex)))
+            if ((result = down_interruptible(&brd->irqreq_mutex)))
                 return result;
 #endif
             if (--brd->irq_users == 0) {
@@ -1336,9 +1414,9 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
                 brd->irq = 0;
             }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            mutex_unlock(&brd->mutex);
+            mutex_unlock(&brd->irqreq_mutex);
 #else
-            up(&brd->mutex);
+            up(&brd->irqreq_mutex);
 #endif
         }
 
@@ -1447,8 +1525,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         struct DMMAT* brd;
         int i = iminor(inode);
-        int ibrd = i / DEVICES_PER_BOARD;
-        // int ia2d = i % DEVICES_PER_BOARD;
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        // int ia2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
 
          /* don't even decode wrong cmds: better returning
@@ -1479,15 +1557,15 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         switch (cmd) 
         {
 
-        case DMMAT_GET_A2D_NCHAN:
+        case DMMAT_A2D_GET_NCHAN:
                 result = a2d->getNumChannels(a2d);
                 break;
-        case DMMAT_GET_A2D_STATUS:	/* user get of status struct */
+        case DMMAT_A2D_GET_STATUS:	/* user get of status struct */
                 if (copy_to_user((void __user *)arg,&a2d->status,
                     sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
                 result = 0;
                 break;
-        case DMMAT_SET_A2D_CONFIG:      /* user set */
+        case DMMAT_A2D_SET_CONFIG:      /* user set */
             {
                 struct DMMAT_A2D_Config cfg;
                 if (copy_from_user(&cfg,(void __user *)arg,
@@ -1495,7 +1573,7 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 result = configA2D(a2d,&cfg);
             }
 	    break;
-        case DMMAT_SET_A2D_SAMPLE:      /* user set */
+        case DMMAT_A2D_SET_SAMPLE:      /* user set */
             {
                 struct DMMAT_A2D_Sample_Config cfg;
                 if (copy_from_user(&cfg,(void __user *)arg,
@@ -1532,6 +1610,119 @@ unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
         return mask;
 }
 
+/************ D2A File Operations ****************/
+static int dmmat_open_d2a(struct inode *inode, struct file *filp)
+{
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+
+        struct DMMAT* brd;
+        struct DMMAT_D2A* d2a;
+
+        KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
+            i,ibrd,ia2d,numboards);
+
+        if (ibrd >= numboards) return -ENXIO;
+        if (id2a != 0) return -ENXIO;
+
+        brd = board + ibrd;
+        d2a = brd->d2a;
+
+        filp->private_data = d2a;
+
+        return 0;
+}
+
+static int dmmat_release_d2a(struct inode *inode, struct file *filp)
+{
+        struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
+
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+
+        struct DMMAT* brd;
+        // int result;
+
+        if (ibrd >= numboards) return -ENXIO;
+        if (id2a != 0) return -ENXIO;
+
+        brd = board + ibrd;
+        BUG_ON(d2a != brd->d2a);
+
+        // return voltage to default?
+
+        return 0;
+}
+
+static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
+              unsigned int cmd, unsigned long arg)
+{
+        struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
+        struct DMMAT* brd;
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+        int result = -EINVAL,err = 0;
+
+        if (ibrd >= numboards) return -ENXIO;
+        if (id2a != 0) return -ENXIO;
+
+         /* don't even decode wrong cmds: better returning
+          * ENOTTY than EFAULT */
+        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_NR(cmd) > DMMAT_IOC_MAXNR) return -ENOTTY;
+
+        /*
+         * the type is a bitmask, and VERIFY_WRITE catches R/W
+         * transfers. Note that the type is user-oriented, while
+         * verify_area is kernel-oriented, so the concept of "read" and
+         * "write" is reversed
+         */
+        if (_IOC_DIR(cmd) & _IOC_READ)
+                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
+                    _IOC_SIZE(cmd));
+        else if (_IOC_DIR(cmd) & _IOC_WRITE)
+                err =  !access_ok(VERIFY_READ, (void __user *)arg,
+                    _IOC_SIZE(cmd));
+        if (err) return -EFAULT;
+
+        brd = board + ibrd;
+
+        BUG_ON(d2a != brd->d2a);
+
+        switch (cmd) 
+        {
+        case DMMAT_D2A_GET_NOUTPUTS:
+                result = DMMAT_D2A_OUTPUTS;
+                break;
+        case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
+                if (copy_to_user((void __user *)arg,&d2a->conversion,
+                    sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
+                result = 0;
+                break;
+        case DMMAT_D2A_SET:      /* user set */
+            {
+                struct DMMAT_D2A_Outputs outputs;
+                if (copy_from_user(&outputs,(void __user *)arg,
+                        sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
+                result = d2a->setD2A(d2a,&outputs);
+            }
+	    break;
+        case DMMAT_D2A_GET:      /* user get */
+            if (copy_to_user(&d2a->outputs,(void __user *)arg,
+                    sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
+            result = 0;
+	    break;
+        default:
+                result = -ENOTTY;
+                break;
+        }
+        return result;
+}
+
+
 static struct file_operations a2d_fops = {
         .owner   = THIS_MODULE,
         .read    = dmmat_read_a2d,
@@ -1541,15 +1732,14 @@ static struct file_operations a2d_fops = {
         .release = dmmat_release_a2d,
 };
 
-// TODO: implement
-#ifdef OTHER_FUNCTIONALITY
 static struct file_operations d2a_fops = {
         .owner   = THIS_MODULE,
-        .open    = dmmat_open_a2d,
-        .ioctl   = dmmat_ioctl_a2d,
-        .release = dmmat_release_a2d,
+        .open    = dmmat_open_d2a,
+        .ioctl   = dmmat_ioctl_d2a,
+        .release = dmmat_release_d2a,
 };
 
+#ifdef OTHER_FUNCTIONALITY
 // TODO: implement
 static struct file_operations dio_fops = {
         .owner   = THIS_MODULE,
@@ -1582,13 +1772,12 @@ static int init_a2d(struct DMMAT* brd,int type)
         memset(a2d,0, sizeof(struct DMMAT_A2D));
 
         a2d->brd = brd;
-        // spin_lock_init(&a2d->spinlock);
 
         // a2d device
         cdev_init(&a2d->cdev,&a2d_fops);
         a2d->cdev.owner = THIS_MODULE;
-        a2d->cdev.ops = &a2d_fops;  // why?
-        devno = MKDEV(MAJOR(board_device),brd->num*4);
+        // a2d->cdev.ops = &a2d_fops;  // why?
+        devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD);
         KLOG_DEBUG("MKDEV, major=%d minor=%d\n",
                 MAJOR(devno),MINOR(devno));
 
@@ -1600,61 +1789,64 @@ static int init_a2d(struct DMMAT* brd,int type)
 
         switch (type) {
         case DMM16AT_BOARD:
-            /* board registers */
-            brd->int_status_reg = brd->addr + 8;
-            brd->ad_int_mask = 0x10;
+                /* board registers */
+                brd->int_status_reg = brd->addr + 8;
+                brd->ad_int_mask = 0x10;
 
-            brd->int_ack_reg = brd->addr + 8;
-            brd->int_ack_val = 0x00;        // any value
+                brd->int_ack_reg = brd->addr + 8;
+                brd->int_ack_val = 0x00;        // any value
 
-            a2d->start = startMM16AT_A2D;
-            a2d->stop = stopMM16AT_A2D;
-            a2d->getNumChannels = getNumA2DChannelsMM16AT;
-            a2d->selectChannels = selectA2DChannelsMM16AT;
-            a2d->getConvRateSetting = getConvRateMM16AT;
-            a2d->getGainSetting = getGainSettingMM16AT;
-            a2d->getFifoLevel = getFifoLevelMM16AT;
-            a2d->resetFifo = resetFifoMM16AT;
-            a2d->waitForA2DSettle = waitForA2DSettleMM16AT;
-            a2d->maxFifoThreshold = 256;
+                a2d->start = startMM16AT_A2D;
+                a2d->stop = stopMM16AT_A2D;
+                a2d->getNumChannels = getNumA2DChannelsMM16AT;
+                a2d->selectChannels = selectA2DChannelsMM16AT;
+                a2d->getConvRateSetting = getConvRateMM16AT;
+                a2d->getGainSetting = getGainSettingMM16AT;
+                a2d->getFifoLevel = getFifoLevelMM16AT;
+                a2d->resetFifo = resetFifoMM16AT;
+                a2d->waitForA2DSettle = waitForA2DSettleMM16AT;
+                a2d->maxFifoThreshold = 256;
 #ifdef USE_TASKLET
-            tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half,
-                (unsigned long)a2d);
+                tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half,
+                    (unsigned long)a2d);
 #else
 #ifdef USE_MY_WORK_QUEUE
-            a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
+                a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
 #endif
-            INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half,a2d);
+                INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half,a2d);
 #endif
             break;
-
         case DMM32XAT_BOARD:
-            brd->int_status_reg = brd->addr + 9;
-            brd->ad_int_mask = 0x80;
+                brd->int_status_reg = brd->addr + 9;
+                brd->ad_int_mask = 0x80;
 
-            brd->int_ack_reg = brd->addr + 8;
-            brd->int_ack_val = 0x08;
+                brd->int_ack_reg = brd->addr + 8;
+                brd->int_ack_val = 0x08;
 
-            a2d->start = startMM32XAT_A2D;
-            a2d->stop = stopMM32XAT_A2D;
-            a2d->getNumChannels = getNumA2DChannelsMM32XAT;
-            a2d->selectChannels = selectA2DChannelsMM32XAT;
-            a2d->getConvRateSetting = getConvRateMM32XAT;
-            a2d->getGainSetting = getGainSettingMM32XAT;
-            a2d->getFifoLevel = getFifoLevelMM32XAT;
-            a2d->resetFifo = resetFifoMM32XAT;
-            a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
-            a2d->maxFifoThreshold = 512;
+                a2d->start = startMM32XAT_A2D;
+                a2d->stop = stopMM32XAT_A2D;
+                a2d->getNumChannels = getNumA2DChannelsMM32XAT;
+                a2d->selectChannels = selectA2DChannelsMM32XAT;
+                a2d->getConvRateSetting = getConvRateMM32XAT;
+                a2d->getGainSetting = getGainSettingMM32XAT;
+                a2d->getFifoLevel = getFifoLevelMM32XAT;
+                a2d->resetFifo = resetFifoMM32XAT;
+                a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
+                a2d->maxFifoThreshold = 512;
 #ifdef USE_TASKLET
-            tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half_fast,
-                (unsigned long)a2d);
+                tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half_fast,
+                    (unsigned long)a2d);
 #else
 #ifdef USE_MY_WORK_QUEUE
-            a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
+                a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
 #endif
-            INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast,a2d);
+                INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast,a2d);
 #endif
-            break;
+                // enable enhanced features on this board
+                outb(0x03,brd->addr + 8);	// set page 3
+                outb(0xa6,brd->addr + 15);	// enable enhanced features
+
+                break;
         }
         init_waitqueue_head(&a2d->read_queue);
 
@@ -1745,11 +1937,98 @@ static void cleanup_a2d(struct DMMAT* brd)
         destroy_workqueue(a2d->work_queue);
 #endif
         kfree(a2d->deviceName);
+        a2d->deviceName = 0;
         kfree(a2d);
         brd->a2d = 0;
 }
 
-/*-----------------------Module------------------------------*/
+static int init_d2a(struct DMMAT* brd,int type)
+{
+        int result = -ENOMEM;
+        struct DMMAT_D2A* d2a;
+        dev_t devno;
+
+        brd->d2a = d2a = kmalloc(sizeof(struct DMMAT_D2A),GFP_KERNEL);
+        if (!d2a) return result;
+        memset(d2a,0, sizeof(struct DMMAT_D2A));
+
+        d2a->brd = brd;
+
+        // a2d device
+        cdev_init(&d2a->cdev,&d2a_fops);
+        d2a->cdev.owner = THIS_MODULE;
+        // d2a->cdev.ops = &d2a_fops;  // why?
+
+        devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD+2);
+        KLOG_DEBUG("A2D MKDEV, major=%d minor=%d\n",
+                MAJOR(devno),MINOR(devno));
+
+        // for informational messages only at this point
+        d2a->deviceName = kmalloc(64,GFP_KERNEL);
+        if (!d2a->deviceName) return result;
+        sprintf(d2a->deviceName,"/dev/dmmat_d2a%d",brd->num);
+        KLOG_DEBUG("deviceName=%s\n",d2a->deviceName);
+
+        switch (type) {
+        case DMM16AT_BOARD:
+                d2a->setD2A = setD2A_MM16AT;
+                if (d2aconfig[brd->num] == DMMAT_D2A_UNI_10 ||
+                        d2aconfig[brd->num] == DMMAT_D2A_BI_10) {
+                        KLOG_ERR("%s: is a DMM16AT and does not support 10 V D2A\n",
+                        d2a->deviceName);
+                        return -EINVAL;
+                }
+                break;
+        case DMM32XAT_BOARD:
+                d2a->setD2A = setD2A_MM32AT;
+                break;
+        }
+            
+        // calculate conversion relation based on presumed
+        // correct value for d2aconfig runstring parameter
+        d2a->conversion.cmin = 0;
+        d2a->conversion.cmax = 4095;;
+
+        switch(d2aconfig[brd->num]) {
+        case DMMAT_D2A_UNI_5:
+                d2a->conversion.vmin = 0;
+                d2a->conversion.vmax = 5;
+                break;
+        case DMMAT_D2A_UNI_10:
+                d2a->conversion.vmin = 0;
+                d2a->conversion.vmax = 10;
+                break;
+        case DMMAT_D2A_BI_5:
+                d2a->conversion.vmin = -5;
+                d2a->conversion.vmax = 5;
+                break;
+        case DMMAT_D2A_BI_10:
+                d2a->conversion.vmin = -10;
+                d2a->conversion.vmax = 10;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        /* After calling cdev_all the device is "live"
+         * and ready for user operation.
+         */
+        result = cdev_add (&d2a->cdev, devno,1);
+        return result;
+}
+
+static void cleanup_d2a(struct DMMAT* brd)
+{
+        struct DMMAT_D2A* d2a = brd->d2a;
+        if (!d2a) return;
+        cdev_del(&d2a->cdev);
+
+        kfree(d2a->deviceName);
+        kfree(d2a);
+        brd->d2a = 0;
+}
+
+/*-----------------------Module ------------------------------*/
 
 void dmd_mmat_cleanup(void)
 {
@@ -1760,10 +2039,11 @@ void dmd_mmat_cleanup(void)
             struct DMMAT* brd = board + ib;
 
             cleanup_a2d(brd);
+            cleanup_d2a(brd);
+
             // TODO: implement
             // cleanup_pctr(brd);
             // cleanup_dio(brd);
-            // cleanup_d2a(brd);
 
             if (brd->irq) {
                     KLOG_NOTICE("freeing irq %d\n",brd->irq);
@@ -1777,8 +2057,8 @@ void dmd_mmat_cleanup(void)
         board = 0;
     }
 
-    if (MAJOR(board_device) != 0)
-        unregister_chrdev_region(board_device, numboards * DEVICES_PER_BOARD);
+    if (MAJOR(dmmat_device) != 0)
+        unregister_chrdev_region(dmmat_device, numboards * DMMAT_DEVICES_PER_BOARD);
 
     KLOG_DEBUG("complete\n");
 
@@ -1807,16 +2087,16 @@ int dmd_mmat_init(void)
         /*
          * Minor number:
          *  (0,4,8,...)     A2D
-         *  (1,5,9,...)     Analog out
-         *  (2,6,10,...)    Digital out
-         *  (3,7,11,...)    Pulse counter
+         *  (1,5,9,...)    Pulse counter
+         *  (2,6,10,...)     Analog out
+         *  (3,7,11,...)    Digital out
          */
   
-        result = alloc_chrdev_region(&board_device, 0,
-            numboards * DEVICES_PER_BOARD,"dmd_mmat");
+        result = alloc_chrdev_region(&dmmat_device, 0,
+            numboards * DMMAT_DEVICES_PER_BOARD,"dmd_mmat");
         if (result < 0) goto err;
         KLOG_DEBUG("alloc_chrdev_region done, major=%d minor=%d\n",
-                MAJOR(board_device),MINOR(board_device));
+                MAJOR(dmmat_device),MINOR(dmmat_device));
 
         result = -ENOMEM;
         board = kmalloc( numboards * sizeof(struct DMMAT),GFP_KERNEL);
@@ -1830,11 +2110,11 @@ int dmd_mmat_init(void)
                 KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
 
                 brd->num = ib;
-                spin_lock_init(&brd->spinlock);
+                spin_lock_init(&brd->reglock);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-                mutex_init(&brd->mutex);
+                mutex_init(&brd->irqreq_mutex);
 #else
-                init_MUTEX(&brd->mutex);
+                init_MUTEX(&brd->irqreq_mutex);
 #endif
                 result = -EBUSY;
                 // Get the mapped board address
@@ -1857,24 +2137,16 @@ int dmd_mmat_init(void)
                 if (result) goto err;
                 brd->a2d->stop(brd->a2d);
 
-#ifdef IMPLEMENT_THIS
-                // d2a device
-                cdev_init(&brd->d2a_cdev,&d2a_fops);
-                brd->d2a_cdev.owner = THIS_MODULE;
-                // brd->cdev.ops = &scullc_fops;
-                devno = MKDEV(MAJOR(board_device),ib*4+1);
-                /* After calling cdev_all the device is "live"
-                 * and ready for user operation.
-                 */
-                result = cdev_add (&brd->d2a_cdev, devno, 1);
-                // 
-                if (result < 0) goto err;
+                // setup D2A
+                result = init_d2a(brd,types[ib]);
+                if (result) goto err;
 
+#ifdef IMPLEMENT_THIS
                 // digital io device
                 cdev_init(&brd->dio_cdev,&dio_fops);
                 brd->dio_cdev.owner = THIS_MODULE;
                 // brd->cdev.ops = &scullc_fops;
-                devno = MKDEV(MAJOR(board_device),ib*4+2);
+                devno = MKDEV(MAJOR(dmmat_device),ib*4+2);
                 /* After calling cdev_all the device is "live"
                  * and ready for user operation.
                  */
@@ -1886,7 +2158,7 @@ int dmd_mmat_init(void)
                 cdev_init(&brd->pctr_cdev,&pctr_fops);
                 brd->pctr_cdev.owner = THIS_MODULE;
                 // brd->cdev.ops = &scullc_fops;
-                devno = MKDEV(MAJOR(board_device),ib*4+3);
+                devno = MKDEV(MAJOR(dmmat_device),ib*4+3);
                 /* After calling cdev_all the device is "live"
                  * and ready for user operation.
                  */
