@@ -85,17 +85,21 @@ struct DMMAT_A2D_Status
 #define DMMAT_A2D_SET_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
+#define DMMAT_CNTR_START \
+    _IOW(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Config)
+#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,7)
+
 /* D2A Ioctls */
 #define DMMAT_D2A_GET_NOUTPUTS \
-    _IO(DMMAT_IOC_MAGIC,6)
+    _IO(DMMAT_IOC_MAGIC,8)
 #define DMMAT_D2A_GET_CONVERSION \
-    _IOR(DMMAT_IOC_MAGIC,7,struct DMMAT_D2A_Conversion)
+    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_D2A_Conversion)
 #define DMMAT_D2A_SET \
-    _IOW(DMMAT_IOC_MAGIC,8,struct DMMAT_D2A_Outputs)
+    _IOW(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Outputs)
 #define DMMAT_D2A_GET \
-    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_D2A_Outputs)
+    _IOR(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
 
-#define DMMAT_IOC_MAXNR 9
+#define DMMAT_IOC_MAXNR 11
 
 /**
  * Definitions of bits in board status byte.
@@ -107,9 +111,10 @@ struct DMMAT_A2D_Status
 #define DMMAT_STATUS_CHAN_MASK		0x0f	// current channel
 
 /**
- * Enumeration of possible jumper configurations for the D2A
+ * Enumeration of supported jumper configurations for the D2A.
+ * Currently don't support the programmable mode.
  */
-enum dmmat_d2a_config {
+enum dmmat_d2a_jumpers {
         DMMAT_D2A_UNI_5,        // unipolar, 0-5V
         DMMAT_D2A_UNI_10,       // unipolar, 0-10V
         DMMAT_D2A_BI_5,         // bipolar, -5-5V
@@ -117,6 +122,17 @@ enum dmmat_d2a_config {
 };
 
 #define DMMAT_D2A_OUTPUTS 4
+
+struct DMMAT_CNTR_Config
+{
+        int msecPeriod;         // how long to count for
+};
+
+struct DMMAT_CNTR_Status
+{
+        size_t lostSamples;
+        size_t irqsReceived;
+};
 
 /**
  * Structure describing the linear relation of counts
@@ -144,6 +160,7 @@ struct DMMAT_D2A_Outputs
 /********  Start of definitions used by the driver module only **********/
 
 #include <linux/cdev.h>
+// #include <linux/timer.h>
 
 /*
  * To use a tasklet to do the bottom half processing, define USE_TASKLET.
@@ -185,7 +202,8 @@ struct DMMAT_D2A_Outputs
 #define DMMAT_DEVICES_PER_BOARD 4
 
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
-#define DMMAT_SAMPLE_QUEUE_SIZE 2048
+#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 2048
+#define DMMAT_CNTR_QUEUE_SIZE 16
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
 #define DMMAT_UNIPOLAR		0x04
@@ -223,17 +241,19 @@ struct DMMAT {
         int num;                        // which board in system, from 0
         unsigned long addr;             // Base address of board
         int irq;		        // requested IRQ
-        int irq_users;                  // how many users of irq
+        int irq_users[2];               // number of irq users each type:
+                                        // a2d=0, cntr=1
+        unsigned long itr_status_reg;	// addr of interrupt status register
+        unsigned long itr_ack_reg;	// addr of interrupt acknowledge reg
 
-        unsigned long int_status_reg;	// addr of interrupt status register
-        unsigned long int_ack_reg;	// addr of interrupt acknowledge reg
+        unsigned char ad_itr_mask;	// mask of A2D interrupt bit 
+        unsigned char pctr_itr_mask;	// mask of counter interrupt bit 
+        unsigned char itr_ack_val;	// value to write to int_act_reg
+        unsigned char itr_ctrl_val;     // interrupt control register value
 
-        unsigned char ad_int_mask;	// mask of A2D interrupt bit 
-        unsigned char pctr_int_mask;	// mask of counter interrupt bit 
-        unsigned char int_ack_val;	// value to write to int_act_reg
-
-        struct DMMAT_A2D* a2d;          // pointer to DMMAT_A2D
-        struct DMMAT_D2A* d2a;          // pointer to DMMAT_D2A
+        struct DMMAT_A2D* a2d;          // pointer to A2D device struct
+        struct DMMAT_CNTR* cntr;        // pointer to CNTR device struct
+        struct DMMAT_D2A* d2a;          // pointer to D2A device struct
 
         spinlock_t reglock;             // when accessing board registers
 
@@ -251,7 +271,7 @@ struct a2d_sample
         short data[MAX_DMMAT_A2D_CHANNELS];
 };
 
-struct a2d_tasklet_data
+struct a2d_bh_data
 {
         struct a2d_sample saveSample;
 };
@@ -306,10 +326,10 @@ struct DMMAT_A2D
         struct workqueue_struct* work_queue;
 #endif
 #endif
-        struct a2d_tasklet_data tl_data;       // data for use by bottom half
+        struct a2d_bh_data bh_data;       // data for use by bottom half
 
-        struct dsm_sample_circ_buf fifo_samples;     // raw samples for tasklet
-        struct dsm_sample_circ_buf samples;         // samples out of tasklet
+        struct dsm_sample_circ_buf fifo_samples;     // samples for bottom half
+        struct dsm_sample_circ_buf samples;         // samples out of b.h.
 
         wait_queue_head_t read_queue;   // user read & poll methods wait on this
         size_t sampBytesLeft;       // bytes left to copy to user in last sample
@@ -334,6 +354,53 @@ struct DMMAT_A2D
         unsigned long lastWakeup;   // when were read & poll methods last woken
 
         unsigned long delayedWork;
+
+};
+
+struct cntr_sample {
+    dsm_sample_time_t timetag;
+    dsm_sample_length_t length;
+    unsigned long data;
+};
+
+struct cntr_sample_circ_buf {
+    struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
+    volatile int head;
+    volatile int tail;
+};
+
+
+struct DMMAT_CNTR {
+
+        struct DMMAT* brd;
+
+        struct cdev cdev;
+
+        char* deviceName;
+
+        struct DMMAT_CNTR_Status status;
+
+        struct timer_list timer;
+
+        int (*start)(struct DMMAT_CNTR* cntr);	// cntr start method
+
+        void (*stop)(struct DMMAT_CNTR* cntr);	// cntr stop method
+
+        volatile unsigned long sum;             // current counter sum
+
+        int jiffiePeriod;                       // how often to re-submit
+
+        int firstTime;
+
+        int shutdownTimer;
+
+        int lastVal;
+
+        struct cntr_sample_circ_buf samples;     // samples for read method
+
+        wait_queue_head_t read_queue;   // user read & poll methods wait on this
+
+        int busy;
 
 };
 

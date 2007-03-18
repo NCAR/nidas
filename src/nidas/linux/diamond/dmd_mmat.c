@@ -95,7 +95,7 @@ static void setTimerClock(struct DMMAT* brd,
          * 82C54 control word:
          * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
          * bits 5,4: 0=ctr latch, 1=r/w lsbyte only, 2=r/w msbyte, 3=lsbtye,msbyte
-         * bits 3,2,1: mode, 2=rate generator
+         * bits 3,2,1: mode: 0=interrupt on terminal count, 2=rate generator
          * bit 0: 0=binary 16 bit counter, 1=4 decade BCD
          */
         unsigned char ctrl = 0;
@@ -127,6 +127,52 @@ static void setTimerClock(struct DMMAT* brd,
 
         KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
             (int)ctrl,(int)lobyte,(int)hibyte);
+}
+
+/**
+ * Set counter value in a 82C54 clock.
+ * Works on both MM16AT and MM32XAT, assuming both have set
+ * page bit(s) to 0:
+ *	MM16AT: bit 6 in base+10 is the page bit
+ *	MM32XAT: bits 0-2 in base+8 are page bits
+ */
+static unsigned long readLatchedTimer(struct DMMAT* brd,int clock)
+{
+        unsigned char lobyte;
+        unsigned int hibyte;
+        int value;
+        /*
+         * 82C54 control word:
+         * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
+         * bits 5,4: 0=ctr latch
+         */
+        unsigned char ctrl = 0;
+        int caddr = 0;
+        switch (clock) {
+        case 0:
+            ctrl = 0x00;	// select counter 0
+            caddr = 12;
+            break;
+        case 1:
+            ctrl = 0x40;	// select counter 1
+            caddr = 13;
+            break;
+        case 2:
+            ctrl = 0x80;	// select counter 2
+            caddr = 14;
+            break;
+        }
+
+        outb(ctrl,brd->addr + 15);  // latch counter
+
+        lobyte = inb(brd->addr + caddr);
+        hibyte = inb(brd->addr + caddr);
+        value = (hibyte << 8) + lobyte;
+
+        KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d,value=%d\n",
+            (int)ctrl,(int)lobyte,(int)hibyte,value);
+
+        return value;
 }
 
 static void initializeA2DClock(struct DMMAT_A2D* a2d)
@@ -445,8 +491,8 @@ static void waitForA2DSettleMM16AT(struct DMMAT_A2D* a2d)
 {
         int ntry = 0;
         do {
-            unsigned long j = jiffies + 1;
-            while (jiffies < j) schedule();
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(1);
         } while(ntry++ < 50 && inb(a2d->brd->addr + 10) & 0x80);
         KLOG_DEBUG("ntry=%d\n",ntry);
 }
@@ -454,8 +500,8 @@ static void waitForA2DSettleMM16AT(struct DMMAT_A2D* a2d)
 static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
 {
         do {
-            unsigned long j = jiffies + 1;
-            while (jiffies < j) schedule();
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(1);
         } while(inb(a2d->brd->addr + 11) & 0x80);
 }
 
@@ -678,8 +724,9 @@ static void stopMM16AT_A2D(struct DMMAT_A2D* a2d)
         unsigned long flags;
         spin_lock_irqsave(&brd->reglock,flags);
 
-        // disable triggering and interrupts
-        outb(0, brd->addr + 9);
+        // disable A2D triggering and interrupts
+        brd->itr_ctrl_val &= ~0x83;
+        outb(brd->itr_ctrl_val, brd->addr + 9);
 
         // disble fifo, scans
         outb(0,brd->addr + 10);
@@ -700,13 +747,14 @@ static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d)
         spin_lock_irqsave(&brd->reglock,flags);
 
         // full reset
-        outb(0x20, brd->addr + 8);
+        // outb(0x20, brd->addr + 8);
 
         // set page to 0
         outb(0x00, brd->addr + 8);
         
-        // disable interrupts, hardware clock
-        outb(0,brd->addr + 9);
+        // disable A2D interrupts, hardware clock
+        brd->itr_ctrl_val &= ~0x83;
+        outb(brd->itr_ctrl_val, brd->addr + 9);
 
         // disable and reset fifo, disable scan mode
         outb(0x2,brd->addr + 7);
@@ -779,7 +827,8 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
           * bit 0: 1=internal hardware trigger, counter/timer 1&2
                 0=external trigger: DIN0, IO pin 48
           */
-        outb(0x83,brd->addr + 9);
+        brd->itr_ctrl_val |= 0x83;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
 
@@ -872,7 +921,8 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
           * bit 0: 1=internal hardware trigger, counter/timer 1&2
                 0=external trigger: DIN0, IO pin 48
           */
-        outb(0x83,brd->addr + 9);
+        brd->itr_ctrl_val |= 0x83;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
         return result;
@@ -916,7 +966,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         a2d->waitForA2DSettle(a2d);
 
-        a2d->tl_data.saveSample.length = 0;
+        a2d->bh_data.saveSample.length = 0;
 
 #ifdef USE_TASKLET
         // Not necessary to enable the tasklet, we don't disable it.
@@ -925,6 +975,152 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         a2d->start(a2d);
         return 0;
+}
+
+/*
+ * Function to stop the counter on a MM32AT
+ */
+static void stopMM16AT_CNTR(struct DMMAT_CNTR* cntr)
+{
+        struct DMMAT* brd = cntr->brd;
+
+         /*
+          * base+9, Control register
+          *
+          * bit 3: enable timer 0 interrupts
+          *     (can't set both 3 and 7 according to manual)
+          */
+        brd->itr_ctrl_val &= ~0x08;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+}
+
+/*
+ * Function to stop the counter on a MM32AT
+ */
+static void stopMM32AT_CNTR(struct DMMAT_CNTR* cntr)
+{
+        struct DMMAT* brd = cntr->brd;
+         /*
+          * base+9, Control register
+          *
+          * bit 5: enable timer 0 interrupts
+          */
+        brd->itr_ctrl_val &= ~0x20;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+}
+
+/**
+ * General function to stop a counter. Calls the board specific method.
+ */
+static int stopCNTR(struct DMMAT_CNTR* cntr)
+{
+        cntr->shutdownTimer = 1;
+        del_timer_sync(&cntr->timer);
+
+        // call the board-specific stop function
+        cntr->stop(cntr);
+
+        return 0;
+}
+
+/*
+ * Function to start the counter on a MM32AT
+ */
+static int startMM16AT_CNTR(struct DMMAT_CNTR* cntr)
+{
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+        int result = 0;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+         /*
+          * base+9, Control register
+          *
+          * bit 7: enable A/D interrupts
+          * bit 3: enable timer 0 interrupts
+          *     (can't set both 3 and 7 according to manual)
+          */
+        if (brd->itr_ctrl_val & 0x80) result = -EINVAL;
+        else {
+            brd->itr_ctrl_val |= 0x08;
+            outb(brd->itr_ctrl_val,brd->addr + 9);
+        }
+
+        setTimerClock(cntr->brd,0,0,0);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        return result;
+}
+
+/*
+ * Function to start the counter on a MM32AT
+ */
+static int startMM32AT_CNTR(struct DMMAT_CNTR* cntr)
+{
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+        spin_lock_irqsave(&brd->reglock,flags);
+        /*
+         * base+9, Control register
+         *
+         * bit 7: enable A/D interrupts
+         * bit 6: enable dio interrupts
+         * bit 5: enable timer 0 interrupts
+         * bit 1: 1=enable hardware A/D hardware clock
+                 0=A/D software triggered by write to base+0
+         * bit 0: 1=internal hardware trigger, counter/timer 1&2
+               0=external trigger: DIN0, IO pin 48
+         */
+        brd->itr_ctrl_val |= 0x20;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+
+        setTimerClock(cntr->brd,0,0,0);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/**
+ * General function to start a counter. Calls the board specific method.
+ */
+static int startCNTR(struct DMMAT_CNTR* cntr,struct DMMAT_CNTR_Config* cfg)
+{
+        int result;
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+        unsigned long jnext;
+
+        if (cntr->busy) stopCNTR(cntr);
+
+        cntr->busy = 1;	// Set the busy flag
+
+        memset(&cntr->status,0,sizeof(cntr->status));
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        cntr->samples.head = cntr->samples.tail = 0;
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        cntr->jiffiePeriod = (cfg->msecPeriod * HZ) / MSECS_PER_SEC;
+
+        /* start the timer, give it more than one period at first */
+        jnext = jiffies;
+        jnext += cntr->jiffiePeriod - (jnext % cntr->jiffiePeriod);
+        jnext += cntr->jiffiePeriod;
+
+        cntr->timer.expires = jnext;
+        cntr->shutdownTimer = 0;
+        cntr->firstTime = 1;
+        cntr->lastVal = 0;
+        add_timer(&cntr->timer);
+
+        // call the board-specific start function
+        result = cntr->start(cntr);
+
+        return result;
 }
 
 /**
@@ -942,10 +1138,10 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
 #endif
         int i;
         short_sample_t* osamp = (short_sample_t*)
-            GET_HEAD(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
+            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
 
 #if defined(DEBUG) & defined(DO_FILTER_DEBUG)
-        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,DMMAT_SAMPLE_QUEUE_SIZE);
+        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
         if (i < minAvail) minAvail = i;
         if (i > maxAvail) maxAvail = i;
         if (!(nfilt++ % 1000)) {
@@ -968,14 +1164,14 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                             (short_sample_t*)&toss);
                         // try again
                         osamp = (short_sample_t*)
-                            GET_HEAD(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
+                            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                 }
                 else if (
                     a2d->sampleInfo[i].filter(
                         a2d->sampleInfo[i].filterObj,tt,dp,osamp)) {
-                        INCREMENT_HEAD(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
+                        INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                         osamp = (short_sample_t*)
-                            GET_HEAD(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
+                            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                         KLOG_DEBUG("do_filters: samples head=%d,tail=%d\n",
                             a2d->samples.head,a2d->samples.tail);
                 }
@@ -994,7 +1190,7 @@ static void dmmat_a2d_bottom_half(void* dev)
 #endif
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
-        struct a2d_tasklet_data* tld = &a2d->tl_data;
+        struct a2d_bh_data* tld = &a2d->bh_data;
 
         dsm_sample_time_t tt0;
 
@@ -1053,7 +1249,7 @@ static void dmmat_a2d_bottom_half(void* dev)
                 // see fast bottom half for a discussion of this.
                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
                         CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        DMMAT_SAMPLE_QUEUE_SIZE) < DMMAT_SAMPLE_QUEUE_SIZE/2) {
+                        DMMAT_A2D_SAMPLE_QUEUE_SIZE) < DMMAT_A2D_SAMPLE_QUEUE_SIZE/2) {
                         wake_up_interruptible(&a2d->read_queue);
                         a2d->lastWakeup = jiffies;
                 }
@@ -1117,7 +1313,7 @@ static void dmmat_a2d_bottom_half_fast(void* dev)
                 // we also wake the read_queue if the output sample queue is half full.
                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
                         CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        DMMAT_SAMPLE_QUEUE_SIZE) < DMMAT_SAMPLE_QUEUE_SIZE/2) {
+                        DMMAT_A2D_SAMPLE_QUEUE_SIZE) < DMMAT_A2D_SAMPLE_QUEUE_SIZE/2) {
                         wake_up_interruptible(&a2d->read_queue);
                         a2d->lastWakeup = jiffies;
                 }
@@ -1208,6 +1404,16 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 }
 
 /*
+ * Handler for counter 0 interrupts. Called from board interrupt handler.
+ */
+static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
+{
+        cntr->sum += 65536;
+        cntr->status.irqsReceived++;
+        return IRQ_HANDLED;
+}
+
+/*
  * General IRQ handler for the board.  Calls the A2D handler or
  * (eventually) the pulse counter handler depending on who interrupted.
  */
@@ -1222,24 +1428,21 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
         unsigned char status;
 
         spin_lock(&brd->reglock);
-        status = inb(brd->int_status_reg);
+        status = inb(brd->itr_status_reg);
         if (!status) {
                 spin_unlock(&brd->reglock);
                 KLOG_DEBUG("spurious irq\n");
                 return result;
         }
         // acknowledge interrupt
-        outb(brd->int_ack_val, brd->int_ack_reg);
+        outb(brd->itr_ack_val, brd->itr_ack_reg);
 
-        if (status & brd->ad_int_mask)
-            result = dmmat_a2d_handler(brd->a2d);
-        else {
-                KLOG_DEBUG("no a2d irq\n");
-        }
+        if (!status) return result;
 
-        // TODO: implement pctr interrupts
-        // if (status & brd->pctr_int_mask)
-            // result = dmmat_pctr_handler(brd->pctr);
+        if (status & brd->ad_itr_mask)
+                result = dmmat_a2d_handler(brd->a2d);
+        if (status & brd->pctr_itr_mask)
+                result = dmmat_cntr_handler(brd->cntr);
 
         spin_unlock(&brd->reglock);
         return result;
@@ -1320,7 +1523,91 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs
         return 0;
 }
 
+/*
+ * Both the A2D and the pulse counter device use interrupts.
+ * If an interrupt handler has already been set up for this
+ * board, then do nothing.
+ */
+static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
+{
+        int result;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
+                return result;
+#else
+        if ((result = down_interruptible(&brd->irqreq_mutex)))
+                return result;
+#endif
+        if (brd->irq == 0) {
+                BUG_ON(brd->irq_users[0] + brd->irq_users[1] != 0);
+                /* We don't use SA_INTERRUPT flag here.  We don't
+                 * need to block other interrupts while we're running.
+                 * Note: request_irq can wait, so spin_lock not advised.
+                 */
+                result = request_irq(irqs[brd->num],dmmat_irq_handler,
+                    SA_SHIRQ,"dmd_mmat",brd);
+                if (result) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+                        mutex_unlock(&brd->irqreq_mutex);
+#else
+                        up(&brd->irqreq_mutex);
+#endif
+                        return result;
+                }
+                brd->irq = irqs[brd->num];
+        }
+        else {
+                BUG_ON(brd->irq_users[0] + brd->irq_users[1] <= 0);
+                /* DMM16AT cannot do A2D interrupts and counter
+                 * interrupts simultaneously.  So, effectively
+                 * this card can be used for A2D or counting,
+                 * not both.
+                 */
+                if (types[brd->num] == DMM16AT_BOARD &&
+                        brd->irq_users[!user_type] > 0) {
+                        KLOG_ERR("board %d is a DMM16AT and cannot do interrupt driven A2D and pulse counting simultaneously",brd->num);
+                        result = -EINVAL;
+                }
+        }
+        brd->irq_users[user_type]++;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        mutex_unlock(&brd->irqreq_mutex);
+#else
+        up(&brd->irqreq_mutex);
+#endif
+        return result;
+}
+
+static int dmd_mmat_remove_irq_user(struct DMMAT* brd,int user_type)
+{
+        int result;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
+                return result;
+#else
+        if ((result = down_interruptible(&brd->irqreq_mutex)))
+                return result;
+#endif
+        brd->irq_users[user_type]--;
+        if (brd->irq_users[0] + brd->irq_users[1] == 0) {
+                KLOG_NOTICE("freeing irq %d\n",brd->irq);
+                free_irq(brd->irq,brd);
+                brd->irq = 0;
+        }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        mutex_unlock(&brd->irqreq_mutex);
+#else
+        up(&brd->irqreq_mutex);
+#endif
+        return result;
+}
+
 /************ A2D File Operations ****************/
+
+/* Most likely an A2D has only been opened by one thread.
+ * A second reader would cause problems, but a second
+ * thread could do GET_STATUS ioctls without causing problems.
+ */
 static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 {
         int i = iminor(inode);
@@ -1329,55 +1616,22 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         struct DMMAT* brd;
         struct DMMAT_A2D* a2d;
+        int result;
 
         KLOG_DEBUG("open_a2d, i=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
             i,ibrd,ia2d,numboards);
 
         if (ibrd >= numboards) return -ENXIO;
+        if (ia2d != 0) return -ENXIO;
 
         brd = board + ibrd;
         a2d = brd->a2d;
 
-        /* a2d and pulse counter use interrupts */
-        if (ia2d == 0 || ia2d == 3) {
-            int result;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
-                return result;
-#else
-            if ((result = down_interruptible(&brd->irqreq_mutex)))
-                return result;
-#endif
-            if (brd->irq == 0) {
-                BUG_ON(brd->irq_users != 0);
-                /* We don't use SA_INTERRUPT flag here.  We don't
-                 * need to block other interrupts while we're running.
-                 * Note: request_irq can wait, so spin_lock not advised.
-                 */
-                result = request_irq(irqs[ibrd],dmmat_irq_handler,
-                    SA_SHIRQ,"dmd_mmat",brd);
-                if (result) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-                    mutex_unlock(&brd->irqreq_mutex);
-#else
-                    up(&brd->irqreq_mutex);
-#endif
-                    return result;
-                }
-                brd->irq = irqs[ibrd];
-                brd->irq_users = 0;
-            }
-            else BUG_ON(brd->irq_users <= 0);
-            brd->irq_users++;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            mutex_unlock(&brd->irqreq_mutex);
-#else
-            up(&brd->irqreq_mutex);
-#endif
-        }
+        result = dmd_mmat_add_irq_user(brd,0);
+
         filp->private_data = a2d;
 
-        return 0;
+        return result;
 }
 
 static int dmmat_release_a2d(struct inode *inode, struct file *filp)
@@ -1399,26 +1653,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
 
         result = stopA2D(a2d);
 
-        /* a2d and pulse counter use interrupts */
-        if (ia2d == 0 || ia2d == 3) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
-                return result;
-#else
-            if ((result = down_interruptible(&brd->irqreq_mutex)))
-                return result;
-#endif
-            if (--brd->irq_users == 0) {
-                KLOG_NOTICE("freeing irq %d\n",brd->irq);
-                free_irq(brd->irq,brd);
-                brd->irq = 0;
-            }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-            mutex_unlock(&brd->irqreq_mutex);
-#else
-            up(&brd->irqreq_mutex);
-#endif
-        }
+        result = dmd_mmat_remove_irq_user(brd,0);
 
         /* cleanup filters */
         for (i = 0; i < a2d->nsamples; i++) {
@@ -1430,7 +1665,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
             sinfo->fcleanup = 0;
         }
 
-        return 0;
+        return result;
 }
 
 static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
@@ -1480,7 +1715,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
             }
             if (bytesLeft == 0) {
                     // finished with sample
-                    INCREMENT_TAIL(a2d->samples,DMMAT_SAMPLE_QUEUE_SIZE);
+                    INCREMENT_TAIL(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                     if (a2d->samples.head == a2d->samples.tail) {
                             KLOG_DEBUG("no more samples,copied=%d\n",countreq-count);
                             a2d->sampPtr = 0;
@@ -1610,21 +1845,173 @@ unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
         return mask;
 }
 
+/************ Pulse Counter File Operations ****************/
+static int dmmat_open_cntr(struct inode *inode, struct file *filp)
+{
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int icntr = i % DMMAT_DEVICES_PER_BOARD;
+
+        struct DMMAT* brd;
+        struct DMMAT_CNTR* cntr;
+        int result;
+
+        KLOG_DEBUG("open_cntr, i=%d,ibrd=%d,icntr=%d,numboards=%d\n",
+            i,ibrd,icntr,numboards);
+
+        if (ibrd >= numboards) return -ENXIO;
+        if (icntr != 1) return -ENXIO;
+
+        brd = board + ibrd;
+        cntr = brd->cntr;
+
+        result = dmd_mmat_add_irq_user(brd,1);
+
+        filp->private_data = cntr;
+
+        return result;
+}
+
+static int dmmat_release_cntr(struct inode *inode, struct file *filp)
+{
+        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
+
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        int icntr = i % DMMAT_DEVICES_PER_BOARD;
+
+        struct DMMAT* brd;
+        int result;
+
+        if (ibrd >= numboards) return -ENXIO;
+        if (icntr != 1) return -ENXIO;
+
+        brd = board + ibrd;
+        BUG_ON(cntr != brd->cntr);
+
+        result = stopCNTR(cntr);
+
+        result = dmd_mmat_remove_irq_user(brd,1);
+
+        return 0;
+}
+
+static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
+    size_t count,loff_t *f_pos)
+{
+        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
+        size_t countreq = count;
+        int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(long);
+        struct cntr_sample* insamp;
+
+        KLOG_DEBUG("head=%d,tail=%d\n",
+            cntr->samples.head,cntr->samples.tail);
+
+        if(cntr->samples.head == cntr->samples.tail) {
+                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
+                if (wait_event_interruptible(cntr->read_queue,
+                      cntr->samples.head == cntr->samples.tail)) return -ERESTARTSYS;
+        }
+
+        for ( ;cntr->samples.head != cntr->samples.tail &&
+            count > SIZEOF_DSM_SAMPLE_HEADER + sizeof(long); ) {
+
+                insamp = cntr->samples.buf[cntr->samples.tail];
+                if (copy_to_user(buf,insamp,n)) return -EFAULT;
+                count -= n;
+                buf += n;
+                INCREMENT_TAIL(cntr->samples,DMMAT_CNTR_QUEUE_SIZE);
+        }
+        KLOG_DEBUG("copied=%d\n",countreq - count);
+        return countreq - count;
+}
+
+static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
+              unsigned int cmd, unsigned long arg)
+{
+        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
+        struct DMMAT* brd;
+        int i = iminor(inode);
+        int ibrd = i / DMMAT_DEVICES_PER_BOARD;
+        // int icntr = i % DMMAT_DEVICES_PER_BOARD;
+        int result = -EINVAL,err = 0;
+
+         /* don't even decode wrong cmds: better returning
+          * ENOTTY than EFAULT */
+        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_NR(cmd) > DMMAT_IOC_MAXNR) return -ENOTTY;
+
+        /*
+         * the type is a bitmask, and VERIFY_WRITE catches R/W
+         * transfers. Note that the type is user-oriented, while
+         * verify_area is kernel-oriented, so the concept of "read" and
+         * "write" is reversed
+         */
+        if (_IOC_DIR(cmd) & _IOC_READ)
+                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
+                    _IOC_SIZE(cmd));
+        else if (_IOC_DIR(cmd) & _IOC_WRITE)
+                err =  !access_ok(VERIFY_READ, (void __user *)arg,
+                    _IOC_SIZE(cmd));
+        if (err) return -EFAULT;
+
+        if (ibrd >= numboards) return -ENXIO;
+
+        brd = board + ibrd;
+
+        BUG_ON(brd != cntr->brd);
+
+        switch (cmd) 
+        {
+        case DMMAT_CNTR_START:
+                {
+                struct DMMAT_CNTR_Config cfg;
+                if (copy_from_user(&cfg,(void __user *)arg,
+                        sizeof(struct DMMAT_CNTR_Config))) return -EFAULT;
+                result = startCNTR(cntr,&cfg);
+                }
+                break;
+        case DMMAT_CNTR_STOP:      /* user set */
+                result = stopCNTR(cntr);
+                break;
+        default:
+                result = -ENOTTY;
+                break;
+        }
+        return result;
+}
+
+/*
+ * Implementation of poll fops.
+ */
+unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
+{
+        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
+        unsigned int mask = 0;
+        poll_wait(filp, &cntr->read_queue, wait);
+        if (cntr->samples.head != cntr->samples.tail) 
+            mask |= POLLIN | POLLRDNORM;    /* readable */
+        if (mask) {
+            KLOG_DEBUG("mask=%x\n",mask);
+        }
+        return mask;
+}
+
 /************ D2A File Operations ****************/
 static int dmmat_open_d2a(struct inode *inode, struct file *filp)
 {
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
-        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD;
 
         struct DMMAT* brd;
         struct DMMAT_D2A* d2a;
 
-        KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
-            i,ibrd,ia2d,numboards);
+        KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,id2a=%d,numboards=%d\n",
+            i,ibrd,id2a,numboards);
 
         if (ibrd >= numboards) return -ENXIO;
-        if (id2a != 0) return -ENXIO;
+        if (id2a != 2) return -ENXIO;
 
         brd = board + ibrd;
         d2a = brd->d2a;
@@ -1634,19 +2021,20 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         return 0;
 }
 
+/* release currently does nothing, other than check arguments */
 static int dmmat_release_d2a(struct inode *inode, struct file *filp)
 {
         struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
 
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
-        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD;
 
         struct DMMAT* brd;
         // int result;
 
         if (ibrd >= numboards) return -ENXIO;
-        if (id2a != 0) return -ENXIO;
+        if (id2a != 2) return -ENXIO;
 
         brd = board + ibrd;
         BUG_ON(d2a != brd->d2a);
@@ -1663,11 +2051,11 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         struct DMMAT* brd;
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
-        int id2a = i % DMMAT_DEVICES_PER_BOARD - 2;
+        int id2a = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
 
         if (ibrd >= numboards) return -ENXIO;
-        if (id2a != 0) return -ENXIO;
+        if (id2a != 2) return -ENXIO;
 
          /* don't even decode wrong cmds: better returning
           * ENOTTY than EFAULT */
@@ -1732,6 +2120,15 @@ static struct file_operations a2d_fops = {
         .release = dmmat_release_a2d,
 };
 
+static struct file_operations cntr_fops = {
+        .owner   = THIS_MODULE,
+        .read    = dmmat_read_cntr,
+        .poll    = dmmat_poll_cntr,
+        .open    = dmmat_open_cntr,
+        .ioctl   = dmmat_ioctl_cntr,
+        .release = dmmat_release_cntr,
+};
+
 static struct file_operations d2a_fops = {
         .owner   = THIS_MODULE,
         .open    = dmmat_open_d2a,
@@ -1743,20 +2140,11 @@ static struct file_operations d2a_fops = {
 // TODO: implement
 static struct file_operations dio_fops = {
         .owner   = THIS_MODULE,
-        .open    = dmmat_open_a2d,
-        .ioctl   = dmmat_ioctl_a2d,
-        .release = dmmat_release_a2d,
+        .open    = dmmat_open_dio,
+        .ioctl   = dmmat_ioctl_dio,
+        .release = dmmat_release_dio,
 };
 
-// TODO: implement
-static struct file_operations pctr_fops = {
-        .owner   = THIS_MODULE,
-        .read    = dmmat_read_a2d,
-        .poll    = dmmat_poll_a2d,
-        .open    = dmmat_open_a2d,
-        .ioctl   = dmmat_ioctl_a2d,
-        .release = dmmat_release_a2d,
-};
 #endif
 
 static int init_a2d(struct DMMAT* brd,int type)
@@ -1790,11 +2178,11 @@ static int init_a2d(struct DMMAT* brd,int type)
         switch (type) {
         case DMM16AT_BOARD:
                 /* board registers */
-                brd->int_status_reg = brd->addr + 8;
-                brd->ad_int_mask = 0x10;
+                brd->itr_status_reg = brd->addr + 8;
+                brd->ad_itr_mask = 0x10;
 
-                brd->int_ack_reg = brd->addr + 8;
-                brd->int_ack_val = 0x00;        // any value
+                brd->itr_ack_reg = brd->addr + 8;
+                brd->itr_ack_val = 0x00;        // any value
 
                 a2d->start = startMM16AT_A2D;
                 a2d->stop = stopMM16AT_A2D;
@@ -1817,11 +2205,11 @@ static int init_a2d(struct DMMAT* brd,int type)
 #endif
             break;
         case DMM32XAT_BOARD:
-                brd->int_status_reg = brd->addr + 9;
-                brd->ad_int_mask = 0x80;
+                brd->itr_status_reg = brd->addr + 9;
+                brd->ad_itr_mask = 0x80;
 
-                brd->int_ack_reg = brd->addr + 8;
-                brd->int_ack_val = 0x08;
+                brd->itr_ack_reg = brd->addr + 8;
+                brd->itr_ack_val = 0x08;
 
                 a2d->start = startMM32XAT_A2D;
                 a2d->stop = stopMM32XAT_A2D;
@@ -1848,7 +2236,6 @@ static int init_a2d(struct DMMAT* brd,int type)
 
                 break;
         }
-        init_waitqueue_head(&a2d->read_queue);
 
         result = -ENOMEM;
         /*
@@ -1875,13 +2262,13 @@ static int init_a2d(struct DMMAT* brd,int type)
          * Output samples. Data portion just needs to be
          * as big as the number of channels on the board.
          */
-        a2d->samples.buf = kmalloc(DMMAT_SAMPLE_QUEUE_SIZE *
+        a2d->samples.buf = kmalloc(DMMAT_A2D_SAMPLE_QUEUE_SIZE *
             sizeof(void*),GFP_KERNEL);
         if (!a2d->samples.buf) return result;
         memset(a2d->samples.buf,0,
-            DMMAT_SAMPLE_QUEUE_SIZE * sizeof(void*));
+            DMMAT_A2D_SAMPLE_QUEUE_SIZE * sizeof(void*));
                 
-        for (i = 0; i < DMMAT_SAMPLE_QUEUE_SIZE; i++) {
+        for (i = 0; i < DMMAT_A2D_SAMPLE_QUEUE_SIZE; i++) {
             struct dsm_sample* samp = (struct dsm_sample*)
                 kmalloc(sizeof(struct a2d_sample),GFP_KERNEL);
             if (!samp) return result;
@@ -1891,6 +2278,7 @@ static int init_a2d(struct DMMAT* brd,int type)
 
         a2d->gainSetting = 0;	// default value
 
+        init_waitqueue_head(&a2d->read_queue);
 
         /* After calling cdev_all the device is "live"
          * and ready for user operation.
@@ -1910,7 +2298,7 @@ static void cleanup_a2d(struct DMMAT* brd)
         cdev_del(&a2d->cdev);
 
         if (a2d->samples.buf) {
-                for (i = 0; i < DMMAT_SAMPLE_QUEUE_SIZE; i++)
+                for (i = 0; i < DMMAT_A2D_SAMPLE_QUEUE_SIZE; i++)
                     if (a2d->samples.buf[i]) kfree(a2d->samples.buf[i]);
                 kfree(a2d->samples.buf);
                 a2d->samples.buf = 0;
@@ -1942,6 +2330,134 @@ static void cleanup_a2d(struct DMMAT* brd)
         brd->a2d = 0;
 }
 
+/**
+ * Timer function which fetches the current counter value,
+ * makes a timetagged sample out of it, puts it in
+ * the circular buffer for the read method and wakens
+ * the read queue.  This timer function is called at the
+ * rate requested by the user.
+ */
+static void cntr_timer_fn(unsigned long arg)
+{
+        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) arg;
+        struct DMMAT* brd = cntr->brd;
+
+        unsigned long jnext = jiffies;
+        unsigned long cval;
+        unsigned long total;
+        unsigned long flags;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        cval = readLatchedTimer(brd,0);
+        /*
+         * cntr->sum is incremented by 65535 in the
+         * interrupt function every time there is a 2^16 rollover.
+         */
+        total = cntr->sum + cval - cntr->lastVal;
+        cntr->sum = 0;
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        cntr->lastVal = cval;
+
+        // The first counting period is the wrong length, so ignore the data.
+        if (!cntr->firstTime) {
+                struct cntr_sample* osamp;
+                osamp = (struct cntr_sample*) GET_HEAD(cntr->samples,DMMAT_CNTR_QUEUE_SIZE);
+                if (!osamp && !(cntr->status.lostSamples++ % 100))
+                        KLOG_WARNING("%s: lostSamples=%d\n",
+                            cntr->deviceName,cntr->status.lostSamples);
+                else {
+                        osamp->data = total;
+                        osamp->timetag = getSystemTimeMsecs();
+                        osamp->length = sizeof(osamp->data);
+                        INCREMENT_HEAD(cntr->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
+                        // TODO: implement latency and buffering
+                        wake_up_interruptible(&cntr->read_queue);
+                }
+        }
+        else cntr->firstTime = 0;
+
+        jnext += cntr->jiffiePeriod - (jnext % cntr->jiffiePeriod);
+        if (!cntr->shutdownTimer) 
+            mod_timer(&cntr->timer,jnext);  // re-schedule
+}
+
+static int init_cntr(struct DMMAT* brd,int type)
+{
+        int result = -ENOMEM;
+        struct DMMAT_CNTR* cntr;
+        dev_t devno;
+        int i;
+
+        brd->cntr = cntr = kmalloc(sizeof(struct DMMAT_CNTR),GFP_KERNEL);
+        if (!cntr) return result;
+        memset(cntr,0, sizeof(struct DMMAT_CNTR));
+
+        cntr->brd = brd;
+
+        // cntr device
+        cdev_init(&cntr->cdev,&cntr_fops);
+        cntr->cdev.owner = THIS_MODULE;
+        // cntr->cdev.ops = &cntr_fops;  // why?
+
+        devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD+1);
+        KLOG_DEBUG("CNTR MKDEV, major=%d minor=%d\n",
+                MAJOR(devno),MINOR(devno));
+
+        // for informational messages only at this point
+        cntr->deviceName = kmalloc(64,GFP_KERNEL);
+        if (!cntr->deviceName) return result;
+        sprintf(cntr->deviceName,"/dev/dmmat_cntr%d",brd->num);
+        KLOG_DEBUG("deviceName=%s\n",cntr->deviceName);
+
+        switch (type) {
+        case DMM16AT_BOARD:
+                cntr->start = startMM16AT_CNTR;
+                cntr->stop = stopMM16AT_CNTR;
+                break;
+        case DMM32XAT_BOARD:
+                cntr->start = startMM32AT_CNTR;
+                cntr->stop = stopMM32AT_CNTR;
+                break;
+        }
+            
+        /*
+         * Allocate counter samples in circular buffer
+         */
+        result = -ENOMEM;
+        for (i = 0; i < DMMAT_CNTR_QUEUE_SIZE; i++) {
+                struct cntr_sample* samp = (struct cntr_sample*)
+                    kmalloc(SIZEOF_DSM_SAMPLE_HEADER + sizeof(long),GFP_KERNEL);
+                if (!samp) return result;
+                memset(samp,0,SIZEOF_DSM_SAMPLE_HEADER +sizeof(long));
+                cntr->samples.buf[i] = samp;
+        }
+        cntr->samples.head = cntr->samples.tail = 0;
+
+        init_waitqueue_head(&cntr->read_queue);
+
+        init_timer(&cntr->timer);
+        cntr->timer.function = cntr_timer_fn;
+        cntr->timer.data = (unsigned long)cntr;
+
+        /* After calling cdev_all the device is "live"
+         * and ready for user operation.
+         */
+        result = cdev_add (&cntr->cdev, devno,1);
+        return result;
+}
+
+static void cleanup_cntr(struct DMMAT* brd)
+{
+        struct DMMAT_CNTR* cntr = brd->cntr;
+        if (!cntr) return;
+        cdev_del(&cntr->cdev);
+
+        kfree(cntr->deviceName);
+        kfree(cntr);
+        brd->cntr = 0;
+}
+
 static int init_d2a(struct DMMAT* brd,int type)
 {
         int result = -ENOMEM;
@@ -1960,7 +2476,7 @@ static int init_d2a(struct DMMAT* brd,int type)
         // d2a->cdev.ops = &d2a_fops;  // why?
 
         devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD+2);
-        KLOG_DEBUG("A2D MKDEV, major=%d minor=%d\n",
+        KLOG_DEBUG("D2A MKDEV, major=%d minor=%d\n",
                 MAJOR(devno),MINOR(devno));
 
         // for informational messages only at this point
@@ -2039,10 +2555,10 @@ void dmd_mmat_cleanup(void)
             struct DMMAT* brd = board + ib;
 
             cleanup_a2d(brd);
+            cleanup_cntr(brd);
             cleanup_d2a(brd);
 
             // TODO: implement
-            // cleanup_pctr(brd);
             // cleanup_dio(brd);
 
             if (brd->irq) {
@@ -2073,7 +2589,7 @@ int dmd_mmat_init(void)
         board = 0;
 
         // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
+        KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_DMMAT_BOARDS; ib++)
@@ -2137,36 +2653,14 @@ int dmd_mmat_init(void)
                 if (result) goto err;
                 brd->a2d->stop(brd->a2d);
 
+                // setup CNTR
+                result = init_cntr(brd,types[ib]);
+                if (result) goto err;
+                brd->cntr->stop(brd->cntr);
+
                 // setup D2A
                 result = init_d2a(brd,types[ib]);
                 if (result) goto err;
-
-#ifdef IMPLEMENT_THIS
-                // digital io device
-                cdev_init(&brd->dio_cdev,&dio_fops);
-                brd->dio_cdev.owner = THIS_MODULE;
-                // brd->cdev.ops = &scullc_fops;
-                devno = MKDEV(MAJOR(dmmat_device),ib*4+2);
-                /* After calling cdev_all the device is "live"
-                 * and ready for user operation.
-                 */
-                result = cdev_add (&brd->dio_cdev, devno, 1);
-                // 
-                if (result < 0) goto err;
-
-                // pulse counter device
-                cdev_init(&brd->pctr_cdev,&pctr_fops);
-                brd->pctr_cdev.owner = THIS_MODULE;
-                // brd->cdev.ops = &scullc_fops;
-                devno = MKDEV(MAJOR(dmmat_device),ib*4+3);
-                /* After calling cdev_all the device is "live"
-                 * and ready for user operation.
-                 */
-                result = cdev_add (&brd->pctr_cdev, devno, 1);
-                // 
-                if (result < 0) goto err;
-#endif
-
         }
 
         KLOG_DEBUG("complete.\n");
