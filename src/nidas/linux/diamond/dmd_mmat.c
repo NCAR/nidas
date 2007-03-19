@@ -1185,11 +1185,19 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
  */
 #ifdef USE_TASKLET
 static void dmmat_a2d_bottom_half(unsigned long dev)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void dmmat_a2d_bottom_half(struct work_struct* work)
 #else
-static void dmmat_a2d_bottom_half(void* dev)
+static void dmmat_a2d_bottom_half(void* work)
 #endif
 {
+
+#ifdef USE_TASKLET
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
+#else
+        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
+#endif
+
         struct a2d_bh_data* tld = &a2d->bh_data;
 
         dsm_sample_time_t tt0;
@@ -1264,11 +1272,18 @@ static void dmmat_a2d_bottom_half(void* dev)
  */
 #ifdef USE_TASKLET
 static void dmmat_a2d_bottom_half_fast(unsigned long dev)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void dmmat_a2d_bottom_half_fast(struct work_struct* work)
 #else
-static void dmmat_a2d_bottom_half_fast(void* dev)
+static void dmmat_a2d_bottom_half_fast(void* work)
 #endif
 {
+
+#ifdef USE_TASKLET
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
+#else
+        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
+#endif
 
         dsm_sample_time_t tt0;
 
@@ -2200,7 +2215,12 @@ static int init_a2d(struct DMMAT* brd,int type)
 #ifdef USE_MY_WORK_QUEUE
                 a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
 #endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+                INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half);
+#else
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half,a2d);
+#endif
 #endif
             break;
         case DMM32XAT_BOARD:
@@ -2227,7 +2247,11 @@ static int init_a2d(struct DMMAT* brd,int type)
 #ifdef USE_MY_WORK_QUEUE
                 a2d->work_queue = create_singlethread_workqueue("dmd_mmat");
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+                INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast);
+#else
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast,a2d);
+#endif
 #endif
                 // enable enhanced features on this board
                 outb(0x03,brd->addr + 8);	// set page 3
