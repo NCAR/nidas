@@ -12,8 +12,8 @@
 
  ******************************************************************
 */
-#ifndef NIDAS_DYNLD_RAF_DSC_A2DSENSOR_H
-#define NIDAS_DYNLD_RAF_DSC_A2DSENSOR_H
+#ifndef NIDAS_DYNLD_DSC_A2DSENSOR_H
+#define NIDAS_DYNLD_DSC_A2DSENSOR_H
 
 #include <nidas/core/DSMSensor.h>
 
@@ -67,22 +67,6 @@ public:
 
     void addSampleTag(SampleTag* tag)
             throw(nidas::util::InvalidParameterException);
-
-    /**
-     * Set desired latency, providing some control
-     * over the response time vs buffer efficiency tradeoff.
-     * Setting a latency of 1/10 sec means buffer
-     * data in the driver for a 1/10 sec, then send the data
-     * to user space. As implemented here, it must be
-     * set before doing a sensor open().
-     * @param val Latency, in seconds.
-     */
-    // void setLatency(float val) throw(nidas::util::InvalidParameterException)
-    // {
-      //   latency = val;
-    // }
-
-    // float getLatency() const { return latency; }
 
     void setScanRate(int val) { scanRate = val; }
 
@@ -138,27 +122,22 @@ private:
 
         /**
          * Conversion factor when converting from A2D counts to 
-         * voltage.  The gain is accounted for in this conversion, so that
-         * the resultant voltage is the true input voltage, before
-         * any A2D gain was applied.  These are in the order of
-         * the variables in the sample.
+         * voltage for each variable in the sample.
+         * The gain is accounted for in this conversion, so that
+         * the resultant voltage value is an estimate of the actual
+         * input voltage, before any A2D gain was applied.
          */
         float* convSlopes;
+
         /**
          * Conversion offset when converting from A2D counts to 
          * voltage.  The polarity is accounted for in this conversion, so that
-         * the resultant voltage is the true input voltage.
-         * These are in channel order.
+         * the resultant voltage value should be the actual input voltage.
          */
         float* convIntercepts;
     };
     std::vector<struct sample_info> samples;
       
-    /**
-     * Sensor latency, in seconds.
-     */
-    // float latency;
-
     /**
      * Counter of number of raw samples of wrong size.
      */

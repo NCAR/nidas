@@ -247,7 +247,7 @@ struct DMMAT {
         unsigned long itr_ack_reg;	// addr of interrupt acknowledge reg
 
         unsigned char ad_itr_mask;	// mask of A2D interrupt bit 
-        unsigned char pctr_itr_mask;	// mask of counter interrupt bit 
+        unsigned char cntr_itr_mask;	// mask of counter interrupt bit 
         unsigned char itr_ack_val;	// value to write to int_act_reg
         unsigned char itr_ctrl_val;     // interrupt control register value
 
@@ -386,7 +386,7 @@ struct DMMAT_CNTR {
 
         void (*stop)(struct DMMAT_CNTR* cntr);	// cntr stop method
 
-        volatile unsigned long sum;             // current counter sum
+        volatile unsigned long rolloverSum;     // current counter sum
 
         int jiffiePeriod;                       // how often to re-submit
 

@@ -1408,7 +1408,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
  */
 static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
 {
-        cntr->sum += 65536;
+        cntr->rolloverSum += 65536;
         cntr->status.irqsReceived++;
         return IRQ_HANDLED;
 }
@@ -1429,19 +1429,18 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
 
         spin_lock(&brd->reglock);
         status = inb(brd->itr_status_reg);
+
+        // acknowledge interrupt
+        outb(brd->itr_ack_val, brd->itr_ack_reg);
+
         if (!status) {
                 spin_unlock(&brd->reglock);
                 KLOG_DEBUG("spurious irq\n");
                 return result;
         }
-        // acknowledge interrupt
-        outb(brd->itr_ack_val, brd->itr_ack_reg);
-
-        if (!status) return result;
-
         if (status & brd->ad_itr_mask)
                 result = dmmat_a2d_handler(brd->a2d);
-        if (status & brd->pctr_itr_mask)
+        if (status & brd->cntr_itr_mask)
                 result = dmmat_cntr_handler(brd->cntr);
 
         spin_unlock(&brd->reglock);
@@ -2347,14 +2346,18 @@ static void cntr_timer_fn(unsigned long arg)
         unsigned long total;
         unsigned long flags;
 
+        /*
+         * cntr->rolloverSum is incremented by 65535 in the
+         * interrupt function every time there is a 2^16 rollover.
+         * So the total count for the sampling period is the
+         * sum of the rollovers, plus the current counter value,
+         * minus the counter value at the end of the previous sampling
+         * period.  Note that we don't reset the hardware counter.
+         */
         spin_lock_irqsave(&brd->reglock,flags);
         cval = readLatchedTimer(brd,0);
-        /*
-         * cntr->sum is incremented by 65535 in the
-         * interrupt function every time there is a 2^16 rollover.
-         */
-        total = cntr->sum + cval - cntr->lastVal;
-        cntr->sum = 0;
+        total = cntr->rolloverSum + cval - cntr->lastVal;
+        cntr->rolloverSum = 0;
         spin_unlock_irqrestore(&brd->reglock,flags);
 
         cntr->lastVal = cval;
@@ -2367,11 +2370,13 @@ static void cntr_timer_fn(unsigned long arg)
                         KLOG_WARNING("%s: lostSamples=%d\n",
                             cntr->deviceName,cntr->status.lostSamples);
                 else {
-                        osamp->data = total;
                         osamp->timetag = getSystemTimeMsecs();
+
+                        // We'll standardize to little endian sensor output.
+                        osamp->data = cpu_to_le32(total);
                         osamp->length = sizeof(osamp->data);
                         INCREMENT_HEAD(cntr->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                        // TODO: implement latency and buffering
+                        // TODO: implement buffering and latency
                         wake_up_interruptible(&cntr->read_queue);
                 }
         }

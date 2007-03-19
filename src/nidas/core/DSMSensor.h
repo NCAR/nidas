@@ -328,7 +328,7 @@ public:
      * over the response time vs buffer efficiency tradeoff.
      * Setting a latency of 1/10 sec means buffer
      * data in the driver for a 1/10 sec, then send the data
-     * to user space. As implemented here, it must be
+     * to user space. Generally it should be
      * set before doing a sensor open().
      * @param val Latency, in seconds.
      */
