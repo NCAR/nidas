@@ -22,6 +22,7 @@ SConscript(dirs = ["raf", "isff", "iss"], exports={'env':myenv})
 headers = [ Split("""
     AsciiOutput.h
     DSC_A2DSensor.h
+    DSC_PulseCounter.h
     DSMSerialSensor.h
     FileSet.h
     FsMount.h
@@ -43,6 +44,7 @@ headers = [ Split("""
 sources = [ Split("""
     AsciiOutput.cc
     DSC_A2DSensor.cc
+    DSC_PulseCounter.cc
     DSMSerialSensor.cc
     FileSet.cc
     FsMount.cc

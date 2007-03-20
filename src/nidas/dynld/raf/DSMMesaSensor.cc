@@ -58,7 +58,8 @@ SampleScanner* DSMMesaSensor::buildSampleScanner()
 
 
 /*---------------------------------------------------------------------------*/
-void DSMMesaSensor::open(int flags) throw(n_u::IOException)
+void DSMMesaSensor::open(int flags) throw(n_u::IOException,
+    n_u::InvalidParameterException)
 {
   DSMSensor::open(flags);
 

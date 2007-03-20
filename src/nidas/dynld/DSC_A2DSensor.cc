@@ -72,7 +72,8 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
     return new SampleScanner();
 }
 
-void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
+void DSC_A2DSensor::open(int flags)
+    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     DSMSensor::open(flags);
 
@@ -84,7 +85,7 @@ void DSC_A2DSensor::open(int flags) throw(n_u::IOException)
     if (channels.size() > (unsigned)nchans) {
         ostringstream ost;
         ost << "max channel number is " << nchans;
-        throw n_u::IOException(getName(),"open",ost.str());
+        throw n_u::InvalidParameterException(getName(),"open",ost.str());
     }
 
     struct DMMAT_A2D_Config cfg;

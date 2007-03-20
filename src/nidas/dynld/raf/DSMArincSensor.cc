@@ -51,7 +51,8 @@ SampleScanner* DSMArincSensor::buildSampleScanner()
     return new SampleScanner();
 }
 
-void DSMArincSensor::open(int flags) throw(n_u::IOException,n_u::InvalidParameterException)
+void DSMArincSensor::open(int flags) throw(n_u::IOException,
+    n_u::InvalidParameterException)
 {
 
     DSMSensor::open(flags);

@@ -91,7 +91,8 @@ SampleScanner* DSMAnalogSensor::buildSampleScanner()
     return new SampleScanner();
 }
 
-void DSMAnalogSensor::open(int flags) throw(n_u::IOException)
+void DSMAnalogSensor::open(int flags)
+    throw(n_u::IOException,n_u::InvalidParameterException)
 {
 
     DSMSensor::open(flags);

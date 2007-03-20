@@ -82,7 +82,8 @@ SampleScanner* AIO16_A2DSensor::buildSampleScanner()
 }
 
 
-void AIO16_A2DSensor::open(int flags) throw(n_u::IOException)
+void AIO16_A2DSensor::open(int flags)
+    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
 

@@ -46,7 +46,8 @@ public:
    * open the sensor and perform any intialization to the driver.
    */
   void
-  open(int flags) throw(nidas::util::IOException);
+  open(int flags) throw(nidas::util::IOException,
+    nidas::util::InvalidParameterException);
 
   void
   fromDOMElement(const xercesc::DOMElement *)

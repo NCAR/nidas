@@ -89,7 +89,8 @@ namespace nidas { namespace dynld { namespace raf {
     SampleScanner* buildSampleScanner();
 
     /** This opens the associated RT-Linux FIFOs. */
-    void open(int flags) throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags) throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
 
     /** This closes the associated RT-Linux FIFOs. */
     void close() throw(nidas::util::IOException);
