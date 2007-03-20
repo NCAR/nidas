@@ -1340,8 +1340,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
  */
 static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 {
-        // brd->spin_lock and a2d->spin_lock are locked before
-        // entering this function
+        // brd->spin_lock is locked before entering this function
 
         struct DMMAT* brd = a2d->brd;
         int flevel = a2d->getFifoLevel(a2d);
@@ -1987,6 +1986,11 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
                 break;
         case DMMAT_CNTR_STOP:      /* user set */
                 result = stopCNTR(cntr);
+                break;
+        case DMMAT_CNTR_GET_STATUS:	/* user get of status struct */
+                if (copy_to_user((void __user *)arg,&cntr->status,
+                    sizeof(struct DMMAT_CNTR_Status))) return -EFAULT;
+                result = 0;
                 break;
         default:
                 result = -ENOTTY;

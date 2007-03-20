@@ -56,7 +56,8 @@ SampleScanner* DSC_PulseCounter::buildSampleScanner()
     return new SampleScanner();
 }
 
-void DSC_PulseCounter::open(int flags) throw(n_u::IOException)
+void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
+    n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
 

@@ -74,7 +74,7 @@ struct DMMAT_A2D_Status
  * See pages 130-132 of Linux Device Driver's Manual 
  */
 
-/* A2D Ioctls */
+/** A2D Ioctls */
 #define DMMAT_A2D_SET_CONFIG \
     _IOW(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Config)
 #define DMMAT_A2D_GET_STATUS \
@@ -85,21 +85,29 @@ struct DMMAT_A2D_Status
 #define DMMAT_A2D_SET_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
+/** Counter Ioctls */
 #define DMMAT_CNTR_START \
     _IOW(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Config)
 #define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,7)
+#define DMMAT_CNTR_GET_STATUS \
+    _IOR(DMMAT_IOC_MAGIC,8,struct DMMAT_CNTR_Status)
 
-/* D2A Ioctls */
+/**
+ * D2A Ioctls
+ * This D2A driver does not enforce any exclusive use policy:
+ * multiple threads can each have the same device open and set
+ * any of the output voltages.
+ */
 #define DMMAT_D2A_GET_NOUTPUTS \
-    _IO(DMMAT_IOC_MAGIC,8)
+    _IO(DMMAT_IOC_MAGIC,9)
 #define DMMAT_D2A_GET_CONVERSION \
-    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_D2A_Conversion)
+    _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Conversion)
 #define DMMAT_D2A_SET \
-    _IOW(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Outputs)
+    _IOW(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
 #define DMMAT_D2A_GET \
-    _IOR(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
+    _IOR(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
 
-#define DMMAT_IOC_MAXNR 11
+#define DMMAT_IOC_MAXNR 12
 
 /**
  * Definitions of bits in board status byte.
@@ -255,7 +263,8 @@ struct DMMAT {
         struct DMMAT_CNTR* cntr;        // pointer to CNTR device struct
         struct DMMAT_D2A* d2a;          // pointer to D2A device struct
 
-        spinlock_t reglock;             // when accessing board registers
+        spinlock_t reglock;             // lock when accessing board registers
+                                        // to avoid messing up the board.
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         struct mutex irqreq_mutex;         // when setting up irq handler
@@ -295,9 +304,13 @@ struct DMMAT_A2D_Sample_Info {
         short id;           // sample id
 };
 
+/**
+ * Information maintained for the A2D.
+ */
 struct DMMAT_A2D
 {
         struct DMMAT* brd;
+
         struct DMMAT_A2D_Status status;
 
         char* deviceName;
@@ -357,12 +370,19 @@ struct DMMAT_A2D
 
 };
 
+/**
+ * Sample from a pulse counter contains an unsigned 4 byte integer
+ * counts.
+ */
 struct cntr_sample {
     dsm_sample_time_t timetag;
     dsm_sample_length_t length;
     unsigned long data;
 };
 
+/**
+ * Circular buffer of pulse samples.
+ */
 struct cntr_sample_circ_buf {
     struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
     volatile int head;
@@ -370,6 +390,9 @@ struct cntr_sample_circ_buf {
 };
 
 
+/**
+ * Information maintained for the counter device.
+ */
 struct DMMAT_CNTR {
 
         struct DMMAT* brd;
@@ -388,17 +411,20 @@ struct DMMAT_CNTR {
 
         volatile unsigned long rolloverSum;     // current counter sum
 
-        int jiffiePeriod;                       // how often to re-submit
+        int jiffiePeriod;                       // how often to wake up
+                                                // and create an output
 
-        int firstTime;
+        int firstTime;                          // first count is bad
 
-        int shutdownTimer;
+        int shutdownTimer;                      // set to 1 to stop counting
 
-        int lastVal;
+        int lastVal;                            // previous value in the
+                                                // counter register
 
-        struct cntr_sample_circ_buf samples;     // samples for read method
+        struct cntr_sample_circ_buf samples;    // samples for read method
 
-        wait_queue_head_t read_queue;   // user read & poll methods wait on this
+        wait_queue_head_t read_queue;           // user read & poll methods
+                                                // wait on this queue
 
         int busy;
 
