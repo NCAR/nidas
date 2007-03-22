@@ -73,7 +73,7 @@ static struct usb_twod_stats stats;
 static DECLARE_MUTEX (disconnect_sem);
 
 static void twod_rx_bulk_callback(struct urb * urb);
-//void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs);
+static ssize_t write_data(struct file *file, const char *user_buffer, size_t count);
 
 
 /* -------------------------------------------------------------------- */
@@ -425,13 +425,20 @@ dbg("write_callback");
 
 static ssize_t twod_write(struct file *file, const char *user_buffer, size_t count, loff_t *ppos)
 {
+dbg("write");
+  return write_data(file, user_buffer, count);
+}
+
+/* Used by both twod_write & twod_ioctl to send data via the bulk write end-point
+ */
+static ssize_t write_data(struct file *file, const char *user_buffer, size_t count)
+{
   struct usb_twod *dev;
   int retval = 0;
   struct urb *urb = NULL;
   char *buf = NULL;
   size_t writesize = min(count, (size_t)MAX_TRANSFER);
 
-dbg("write");
   dev = (struct usb_twod *)file->private_data;
 
   /* verify that we actually have some data to write */
@@ -490,7 +497,6 @@ error:
 
 static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
-  struct usb_twod *dev;
   int retval = -EINVAL;
   unsigned char tas[3];
 
@@ -503,8 +509,9 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
       if (copy_from_user(tas, (void __user *)arg, 3))
         return -EFAULT;
 
-dbg("tas=%lu, <<<< TAS NEEDS TO BE SENT TO PROBE STILL! >>>>", tas);
-      retval = 0;
+      retval = write_data(file, tas, 3);
+      if (retval == 3)
+        retval = 0;
       break;
   }
 
