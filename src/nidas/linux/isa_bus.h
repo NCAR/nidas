@@ -39,6 +39,31 @@
     n;                                                                  \
 })
 
+#elsif defined(CONFIG_MACH_ARCOM_MERCURY)
+
+/* Arcom Mercury (or Vulcan) */
+#include <asm/irq.h>
+#define SYSTEM_ISA_IOPORT_BASE 0x0
+#define SYSTEM_ISA_IOMEM_BASE 0x0  /* ? */
+/* 
+ * On the Mercury/Vulcan, most of the ISA interrupts show up at GPIO
+ * pins on the processor.  Handle those mappings here.
+ */
+#define GET_SYSTEM_ISA_IRQ(x) \
+({					  \
+    const int irq_map[] = { 0, 1, 2, IRQ_IXP4XX_GPIO5, IRQ_IXP4XX_GPIO6,\
+                            IRQ_IXP4XX_GPIO7, IRQ_IXP4XX_GPIO8,         \
+                            IRQ_IXP4XX_GPIO9, 8, 9, IRQ_IXP4XX_GPIO10,  \
+                            IRQ_IXP4XX_GPIO11, IRQ_IXP4XX_GPIO12, 13,   \
+                            14, 15 };                                   \
+    int n;                                                              \
+    if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
+	n = irq_map[(x)];						\
+    else                                                                \
+	n = (x);							\
+    n;									\
+})
+
 #else
 
 #define SYSTEM_ISA_IOPORT_BASE 0x0
