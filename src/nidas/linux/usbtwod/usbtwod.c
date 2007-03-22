@@ -492,16 +492,19 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
 {
   struct usb_twod *dev;
   int retval = -EINVAL;
-  unsigned long tas;
+  unsigned char tas[3];
 
-  if (_IOC_TYPE(cmd) != USB2D_IOC_MAGIC) return -ENOTTY;
+  if (_IOC_TYPE(cmd) != USB2D_IOC_MAGIC)
+    return -ENOTTY;
 
   switch (cmd)
   {
     case USB2D_SET_TAS:
-      tas = arg;
-      retval = 0;
+      if (copy_from_user(tas, (void __user *)arg, 3))
+        return -EFAULT;
+
 dbg("tas=%lu, <<<< TAS NEEDS TO BE SENT TO PROBE STILL! >>>>", tas);
+      retval = 0;
       break;
   }
 
