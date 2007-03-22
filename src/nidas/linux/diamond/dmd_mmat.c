@@ -1551,8 +1551,8 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                  * need to block other interrupts while we're running.
                  * Note: request_irq can wait, so spin_lock not advised.
                  */
-#ifdef CONFIG_ARCH_VIPER
-                irq = GET_VIPER_IRQ(irqs[brd->num]);
+#ifdef GET_SYSTEM_ISA_IRQ
+                irq = GET_SYSTEM_ISA_IRQ(irqs[brd->num]);
 #else
                 irq = irqs[brd->num];
 #endif

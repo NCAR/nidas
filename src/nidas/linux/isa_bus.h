@@ -12,8 +12,8 @@
 
   *******************************************************************
 
-  Constants needed for driver code on an Arcom Viper card.
-
+  Macros needed for ISA drivers to get the right ioport addresses
+  and IRQs on various processors.
 */
 
 #ifndef NIDAS_LINUX_ISA_BUS_H
@@ -29,7 +29,7 @@
 /* The viper maps ISA irq 3,4,5,... to viper interrupts 104,105,106,etc.
  * See <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
  */
-#define GET_VIPER_IRQ(x) \
+#define GET_SYSTEM_ISA_IRQ(x) \
 ({                                                                      \
     const int isa_irqs[] = { 3, 4, 5, 6, 7, 10, 11, 12, 9, 14, 15 };    \
     int i;                                                              \
@@ -43,6 +43,7 @@
 
 #define SYSTEM_ISA_IOPORT_BASE 0x0
 #define SYSTEM_ISA_IOMEM_BASE 0x0
+#define GET_SYSTEM_ISA_IRQ(x) (x)
 
 #endif
 
