@@ -1539,6 +1539,7 @@ pc104sg_init(void)
     int i;
     int errval = 0;
     int got_irq = 0;
+    int newIrq;
 
     /* 
      * If our timeout for interrupts is less than 2 jiffies, then the
@@ -1585,75 +1586,17 @@ pc104sg_init(void)
 	if (!cbentry) goto err0;
 	list_add(&cbentry->list, &CallbackPool);
     }
-# ifdef CONFIG_MACH_ARCOM_MERCURY
+
     /*
-     * On the Arcom Mercury/Vulcan, interrupts go to specific GPIO interrupt
-     * pins, which show up as different IRQ numbers in the OS.  Handle the
-     * mapping automatically here.
+     * Allow for ISA interrupts to be remapped for some processors
      */
+    newIrq = GET_SYSTEM_ISA_IRQ(Irq);
+    if (newIrq != Irq)
     {
-	int newIrq = Irq;
-
-	switch (Irq) 
-	{
-	    // ISA IRQ 10 goes to GPIO 10, which maps to IRQ_IXP4XX_GPIO10
-	  case 10:
-	    newIrq = IRQ_IXP4XX_GPIO10;
-	    break;
-	    // ISA IRQ 11 goes to GPIO 11, which maps to IRQ_IXP4XX_GPIO11
-	  case 11:
-	    newIrq = IRQ_IXP4XX_GPIO11;
-	    break;
-	    // ISA IRQ 12 goes to GPIO 12, which maps to IRQ_IXP4XX_GPIO12
-	  case 12:
-	    newIrq = IRQ_IXP4XX_GPIO12;
-	    break;
-	  default:
-	    /* no remapping */;
-	}
-
-	if (newIrq != Irq)
-	{
-	    KLOG_NOTICE("Chosen ISA IRQ %d remapped to IRQ %d for Vulcan\n", 
-			Irq, newIrq);
-	    Irq = newIrq;
-	}
+	KLOG_NOTICE("ISA IRQ %d remapped to IRQ %d for this processor\n", 
+		    Irq, newIrq);
+	Irq = newIrq;
     }
-# elif defined(CONFIG_ARCH_VIPER)
-    /*
-     * For Viper, ISA interrupts all go to GPIO pin 1, and show up in Linux
-     * at remapped IRQs.  Do an automatic remapping here as well.  The
-     * remapped values are obtained from function viper_init_irq() in
-     * <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
-     */
-    {
-	int newIrq = Irq;
-	switch (Irq)
-	{
-	  case 10:
-	    newIrq = VIPER_IRQ(0) + 5;
-	    break;
-	  case 11:
-	    newIrq = VIPER_IRQ(0) + 6;
-	    break;
-	  case 12:
-	    newIrq = VIPER_IRQ(0) + 7;
-	    break;
-	  case 15:
-	    newIrq = VIPER_IRQ(0) + 10;
-	    break;
-	  default:
-	    /* no remapping */;
-	}
-
-	if (newIrq != Irq)
-	{
-	    KLOG_NOTICE("Chosen IRQ %d remapped to IRQ %d for Viper\n", Irq,
-			newIrq);
-	    Irq = newIrq;
-	}
-    }
-# endif // architecture-specific IRQ remapping
 
     errval = request_irq(Irq, pc104sg_isr, SA_SHIRQ, "PC104-SG IRIG", 
 			 (void*)IRQ_DEVID);
