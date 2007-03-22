@@ -11,6 +11,7 @@ import os
 ##
 Import('env')
 myenv = env.Copy()
+arch = myenv['ARCH']
 
 # -ggdb
 # -DXML_DEBUG
@@ -62,10 +63,23 @@ sources = [ Split("""
     XMLConfigService.cc
 """) ]
 
+if arch == 'arm':
+    archsources=Split("""
+        ViperDIO.cc
+    """)
+    archheaders=Split("""
+        ViperDIO.h
+    """)
+else:
+    archsources=Split("""
+    """)
+    archheaders=Split("""
+    """)
+
 ##
 ##  Build the nidas_dynld library.
 ##
-myenv.Append (LIBNIDAS_DYNLD_SOURCES = sources )
+myenv.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
 lib = myenv.SharedLibrary('nidas_dynld' , myenv['LIBNIDAS_DYNLD_SOURCES'] )
 
 ##
@@ -76,6 +90,6 @@ myenv.Install('$PREFIX/lib',lib)
 ##
 ## Install target for headers.
 ##
-myenv.Install('$PREFIX/include/nidas/dynld',headers)
+myenv.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 
 SConscript(dirs="psql", duplicate=0, exports={'env':env})

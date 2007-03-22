@@ -10,25 +10,17 @@ Revisions:
 
 */
 
+#include <linux/types.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
-
-#include <linux/sched.h>
-#include <linux/kernel.h>       /* printk() */
-#include <linux/fs.h>           /* everything... */
-#include <linux/errno.h>        /* error codes */
-#include <linux/delay.h>        /* udelay */
-#include <linux/kdev_t.h>
-#include <linux/slab.h>
-#include <linux/mm.h>
 #include <linux/ioport.h>
 #include <linux/interrupt.h>
+#include <linux/fs.h>           /* everything... */
 #include <linux/workqueue.h>
 #include <linux/poll.h>
-#include <linux/wait.h>
-
+#include <asm/uaccess.h>
 #include <asm/io.h>
 
 #include <nidas/linux/diamond/dmd_mmat.h>
@@ -43,8 +35,8 @@ static unsigned long ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 static int numboards = 0;
 module_param_array(ioports,ulong,&numboards,0);
 
-/* irqs, required for each board */
-static int irqs[MAX_DMMAT_BOARDS] = { 104, 0, 0, 0 };
+/* ISA irqs, required for each board. Can be shared. */
+static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 module_param_array(irqs,int,&numirqs,0);
 
@@ -78,7 +70,7 @@ static dev_t dmmat_device = MKDEV(0,0);
  */
 static struct DMMAT* board = 0;
 
-/********** Board Utility Functions *******************/
+/*********** Board Utility Functions *******************/
 /**
  * Set counter value in a 82C54 clock.
  * Works on both MM16AT and MM32XAT, assuming both have set
@@ -1552,13 +1544,19 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                 return result;
 #endif
         if (brd->irq == 0) {
+                int irq;
                 BUG_ON(brd->irq_users[0] + brd->irq_users[1] != 0);
+
                 /* We don't use SA_INTERRUPT flag here.  We don't
                  * need to block other interrupts while we're running.
                  * Note: request_irq can wait, so spin_lock not advised.
                  */
-                result = request_irq(irqs[brd->num],dmmat_irq_handler,
-                    SA_SHIRQ,"dmd_mmat",brd);
+#ifdef CONFIG_ARCH_VIPER
+                irq = GET_VIPER_IRQ(irqs[brd->num]);
+#else
+                irq = irqs[brd->num];
+#endif
+                result = request_irq(irq,dmmat_irq_handler,SA_SHIRQ,"dmd_mmat",brd);
                 if (result) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                         mutex_unlock(&brd->irqreq_mutex);
@@ -1567,7 +1565,7 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
 #endif
                         return result;
                 }
-                brd->irq = irqs[brd->num];
+                brd->irq = irq;
         }
         else {
                 BUG_ON(brd->irq_users[0] + brd->irq_users[1] <= 0);

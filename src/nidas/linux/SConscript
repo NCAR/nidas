@@ -11,21 +11,28 @@ arch = env['ARCH']
 subdirs=Split("""
     diamond
     filters
-    irig
     usbtwod
 """)
+
+if arch == 'arm':
+    archdirs=Split("""
+        viper
+    """)
+else:
+    archdirs=Split("""
+    """)
 
 ##
 ## ARCH target for creating modules, library, and executables
 ##
-build_dirs = ['build_%s' % dir for dir in subdirs]
+build_dirs = ['build_%s' % dir for dir in subdirs + archdirs]
 env.Alias(arch, build_dirs)
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
 archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
 
-for dir in subdirs:
+for dir in subdirs + archdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=1,exports={'env':env})

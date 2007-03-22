@@ -12,8 +12,8 @@
 
  ******************************************************************
 */
-#ifndef NIDAS_DYNLD_PULSECOUNTER_H
-#define NIDAS_DYNLD_PULSECOUNTER_H
+#ifndef NIDAS_DYNLD_DSC_ANALOG_OUT_H
+#define NIDAS_DYNLD_DSC_ANALOG_OUT_H
 
 #include <nidas/linux/diamond/dmd_mmat.h>
 

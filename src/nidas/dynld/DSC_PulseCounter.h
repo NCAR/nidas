@@ -12,8 +12,8 @@
 
  ******************************************************************
 */
-#ifndef NIDAS_DYNLD_PULSECOUNTER_H
-#define NIDAS_DYNLD_PULSECOUNTER_H
+#ifndef NIDAS_DYNLD_DSC_PULSECOUNTER_H
+#define NIDAS_DYNLD_DSC_PULSECOUNTER_H
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/EndianConverter.h>

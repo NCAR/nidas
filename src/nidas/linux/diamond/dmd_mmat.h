@@ -202,10 +202,10 @@ struct DMMAT_D2A_Outputs
  * DIO: 1 device, minor number 3, /dev/dmmat_dio0
  *
  * Board #1
- * A2D: 1 device, minor number 0, /dev/dmmat_a2d1
- * CNTR: 1 device, minor number 1 /dev/dmmat_cntr1
- * D2A: 1 device, minor number 2, /dev/dmmat_d2a1
- * DIO: 1 device, minor number 3, /dev/dmmat_dio1
+ * A2D: 1 device, minor number 4, /dev/dmmat_a2d1
+ * CNTR: 1 device, minor number 5 /dev/dmmat_cntr1
+ * D2A: 1 device, minor number 6, /dev/dmmat_d2a1
+ * DIO: 1 device, minor number 7, /dev/dmmat_dio1
  */
 #define DMMAT_DEVICES_PER_BOARD 4
 

@@ -26,6 +26,19 @@
 #define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
+/* The viper maps ISA irq 3,4,5,... to viper interrupts 104,105,106,etc.
+ * See <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
+ */
+#define GET_VIPER_IRQ(x) \
+({                                                                      \
+    const int isa_irqs[] = { 3, 4, 5, 6, 7, 10, 11, 12, 9, 14, 15 };    \
+    int i;                                                              \
+    int n = -1;                                                         \
+    for (i = 0; i < sizeof(isa_irqs)/sizeof(isa_irqs[0]); i++)          \
+        if (isa_irqs[i] == (x)) { n = VIPER_IRQ(0) + i; break; }        \
+    n;                                                                  \
+})
+
 #else
 
 #define SYSTEM_ISA_IOPORT_BASE 0x0
