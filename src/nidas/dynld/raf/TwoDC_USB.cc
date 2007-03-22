@@ -78,7 +78,7 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
 bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
         throw()
 {
-  assert(sizeof(long long) == 64);
+  assert(sizeof(long long) == 8);
 
   const unsigned char * input =
 		(const unsigned char *)samp->getConstVoidDataPtr();
@@ -126,7 +126,7 @@ void TwoDC_USB::fromDOMElement(const xercesc::DOMElement * node)
 /*---------------------------------------------------------------------------*/
 void TwoDC_USB::sendTrueAirspeed(float tas)
 {
-  unsigned char tx_tas[4], ntap, nmsec, ndiv;
+  unsigned char tx_tas[3], ntap, nmsec, ndiv;
 
   /* Notes from Mike Spowart:
    *
