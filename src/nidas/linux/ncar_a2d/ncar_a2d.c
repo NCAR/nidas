@@ -13,11 +13,16 @@
 */
 
 #include <linux/delay.h>
+#include <linux/fs.h>	/* has to be before <linux/cdev.h>! GRRR! */
+#include <linux/cdev.h>
+#include <linux/ioport.h>
+#include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/unistd.h>
 #include <linux/syscalls.h>
 
 #include <asm/io.h>
+#include <asm/uaccess.h>
 
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
@@ -33,8 +38,6 @@ MODULE_DESCRIPTION("NCAR A/D driver");
 
 #define DO_A2D_STATRD
 //#define TEMPDEBUG
-//#define DO_FTRUNCATE  // Truncate the size of the data FIFO
-//#define A2D_ACQ_IN_SEPARATE_THREAD
 
 MODULE_PARM(IoPort, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
@@ -66,32 +69,71 @@ static int NumBoards = 0;
 
 static struct A2DBoard* BoardInfo = 0;
 
-/* 
- * number of devices on a board. This is the number of
- * /dev/dsma2d* devices, from the user's point of view, that one
- * board represents.  Device 0 is the 8 A2D
- * channels, device 1 is the temperature sensor.
- */
-#define NDEVICES 2
-
 /*
- * init and cleanup prototypes
+ * prototypes
  */
 int init_module(void);
 void cleanup_module(void);
+static ssize_t ncar_a2d_read(struct file *filp, char __user *buf,
+			     size_t count,loff_t *f_pos);
+static int ncar_a2d_open(struct inode *inode, struct file *filp);
+static int ncar_a2d_release(struct inode *inode, struct file *filp);
+static int ncar_a2d_ioctl(struct inode *inode, struct file *filp, 
+			  unsigned int cmd, unsigned long arg);
+//static ssize_t i2c_temp_read(struct file *filp, char __user *buf,
+//			       size_t count,loff_t *f_pos);
+//static int i2c_temp_open(struct inode *inode, struct file *filp);
+//static int i2c_temp_release(struct inode *inode, struct file *filp);
+static int i2c_temp_ioctl(struct inode *inode, struct file *filp, 
+			    unsigned int cmd, unsigned long arg);
 
-/****************  End of IOCTL Section ******************/
 
-static struct timespec Usec1 =   { 0, 1000 };
-static struct timespec Usec10 =  { 0, 10000 };
-static struct timespec Usec20 =  { 0, 20000 };
-static struct timespec Usec100 = { 0, 100000 };
-static struct timespec Msec2 =  { 0, 2000000 };
-static struct timespec Msec10 =  { 0, 10000000 };
-static struct timespec Msec20 =  { 0, 20000000 };
-static struct timespec Msec30 =  { 0, 30000000 };
+static struct file_operations ncar_a2d_fops = {
+    .owner   = THIS_MODULE,
+    .read    = ncar_a2d_read,
+    .open    = ncar_a2d_open,
+    .ioctl   = ncar_a2d_ioctl,
+    .release = ncar_a2d_release,
+};
 
-static int startA2DResetThread(struct A2DBoard* brd);
+static struct file_operations i2c_temp_fops = {
+    .owner   = THIS_MODULE,
+//    .read    = i2c_temp_read,
+//    .open    = i2c_temp_open,
+    .ioctl   = i2c_temp_ioctl,
+//    .release = i2c_temp_release,
+};
+
+/**
+ * Info for A/D user devices
+ */
+#define DEVNAME_A2D "ncar_a2d"
+static dev_t A2DDevStart;
+static struct cdev A2DCdev;
+
+/**
+ * Info for I2C board temperature devices
+ */
+#define DEVNAME_A2D_TEMP "ncar_a2d_boardtemp"
+static dev_t I2CTempDevStart;
+static struct cdev I2CTempCdev;
+
+/**
+ * Utility function to tell how much space is available on a kfifo.
+ * Returns (fifo->size - kfifo_len(fifo))
+ */
+static inline unsigned int 
+kfifo_avail(struct kfifo *fifo)
+{
+    unsigned long flags;
+    unsigned int ret;
+    
+    spin_lock_irqsave(fifo->lock, flags);
+    ret = fifo->size - __kfifo_len(fifo);
+    spin_unlock_irqrestore(fifo->lock, flags);
+    return ret;
+}
+
 
 /*-----------------------Utility------------------------------*/
 // I2C serial bus control utilities
@@ -256,7 +298,7 @@ A2DTemp(struct A2DBoard* brd)
 /*-----------------------Utility------------------------------*/
 // Read status of A2D chip specified by A2DSel 0-7
 
-static US 
+static unsigned short 
 A2DStatus(struct A2DBoard* brd, int A2DSel)
 {
     // Point at the A/D status channel
@@ -291,7 +333,7 @@ A2DSetGain(struct A2DBoard* brd, int a2dSel)
     int a2dGain;
     int a2dGainMul;
     int a2dGainDiv;
-    US gainCode;
+    unsigned short gainCode;
 
     // If no A/D selected return error -1
     if(a2dSel < 0 || a2dSel >= MAXA2DS) return -EINVAL;
@@ -304,7 +346,7 @@ A2DSetGain(struct A2DBoard* brd, int a2dSel)
 
     // unused channel gains are set to zero in the configuration
     if (a2dGain != 0)
-	gainCode = (US)(a2dGainMul*a2dGain/a2dGainDiv);
+	gainCode = (unsigned short)(a2dGainMul*a2dGain/a2dGainDiv);
 
     //   KLOG_DEBUG("a2dSel = %d   a2dGain = %d   "
     //                "a2dGainMul = %d   a2dGainDiv = %d   gainCode = %d\n",
@@ -483,8 +525,8 @@ A2DSetVcal(struct A2DBoard* brd)
 static void 
 A2DSetCal(struct A2DBoard* brd)
 {
-    US OffChans = 0;
-    US CalChans = 0;
+    unsigned short OffChans = 0;
+    unsigned short CalChans = 0;
     int i;
 
     // Change the calset array of bools into a byte
@@ -520,7 +562,7 @@ A2DSetCal(struct A2DBoard* brd)
 static void 
 A2DSetOffset(struct A2DBoard* brd)
 {
-    US OffChans = 0;
+    unsigned short OffChans = 0;
     int i;
 
     // Change the offset array of bools into a byte
@@ -582,7 +624,7 @@ A2DClearSYNC(struct A2DBoard* brd)
 // Enable 1PPS sync
 
 static void 
-A2D1PPSEnable(struct A2DBoard* brd)
+A2DEnable1PPS(struct A2DBoard* brd)
 {
     // Point at the FIFO control byte
     outb(A2DIO_FIFO, brd->chan_addr);
@@ -597,7 +639,7 @@ A2D1PPSEnable(struct A2DBoard* brd)
 // Disable 1PPS sync
 
 static void 
-A2D1PPSDisable(struct A2DBoard* brd)
+A2DDisable1PPS(struct A2DBoard* brd)
 {
     // Point to FIFO control byte
     outb(A2DIO_FIFO, brd->chan_addr);
@@ -787,8 +829,8 @@ static int
 A2DConfig(struct A2DBoard* brd, int a2dSel)
 {
     int j, ctr = 0;
-    US stat;
-    UC intmask=1, intbits[8] = {1, 2, 4, 8, 16, 32, 64, 128};
+    unsigned short stat;
+    unsigned char intmask=1, intbits[8] = {1, 2, 4, 8, 16, 32, 64, 128};
     int tomsgctr = 0;
     int crcmsgctr = 0;
 
@@ -907,7 +949,8 @@ waitFor1PPS(struct A2DBoard* brd)
     return -ETIMEDOUT;
 }
 
-static int A2DSetup(struct A2DBoard* brd)
+static int 
+A2DSetup(struct A2DBoard* brd)
 {
     A2D_SET *a2d = &brd->config;
     int i;
@@ -951,21 +994,14 @@ static int A2DSetup(struct A2DBoard* brd)
 }
 
 
-/*--------------------- Thread function ----------------------*/
-// A2DThread loads the A2Ds with filter data from A2D structure.
-//
-// NOTE: This must be called from within a real-time thread
-//                      Otherwise the critical delays will not work properly
-
-static void* 
-A2DSetupThread(void *thread_arg)
+int
+setupBoard(struct A2DBoard* brd)
 {
-    struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
     int ret = 0;
 
     // while (1) { // DEBUG continuous DAC setting...
     // Configure DAC gain codes
-    if ((ret = A2DSetup(brd)) < 0) return (void*)-ret;
+    if ((ret = A2DSetup(brd)) < 0) return -ret;
     // KLOG_DEBUG("DAC settings - loop forever... ret = %d\n", ret);
     // mdelay(1000);
     // }
@@ -990,7 +1026,7 @@ A2DSetupThread(void *thread_arg)
     // Configure the A/D's
     // while (1) { // DEBUG continuous filter setting...
     KLOG_DEBUG("Sending filter config data to A/Ds\n");
-    if ((ret = A2DConfigAll(brd)) < 0) return (void*)-ret;
+    if ((ret = A2DConfigAll(brd)) < 0) return -ret;
     // KLOG_DEBUG("filter settings - loop forever... ret = %d\n", ret);
     // mdelay(1000);
     // }
@@ -1001,41 +1037,39 @@ A2DSetupThread(void *thread_arg)
     mdelay(1);  // Give A/D's a chance to load
     KLOG_DEBUG("A/Ds ready for synchronous start\n");
 
-    return (void*)ret;
+    return ret;
 }
 
-#if 0
-#define nlast 3
-static unsigned short last_stat[nlast][8];
-static unsigned short last_cnts[nlast][8];
-#endif
 
-/*-----------------------Utility------------------------------*/
-// return:  negative: negative errno of write to RTL FIFO
-//          positive: number of bad status values in A2D data
-
-static inline int 
-getA2DSample(struct A2DBoard* brd)
+static void
+taskSetupBoard(unsigned long taskletArg)
 {
+    struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
+    int status = setupBoard(brd);
+    if (status != 0)
+	KLOG_WARNING("setup error %d for board @ 0x%x\n", status, brd->addr);
+}
+    
+
+static void
+taskGetA2DSample(unsigned long taskletArg)
+{
+    struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
     int flevel;
     A2DSAMPLE samp;
-    register SS* dataptr;
+    register short* dataptr;
     int nbad;
     int iread;
     
-    if (!brd->enableReads) return 0;
-
-    // make sure only one getA2DSample function is running
-    if (brd->readActive) return 0;
-    brd->readActive = 1;
+    if (!brd->buffer || !brd->enableReads)
+	return;
 
     flevel = getA2DFIFOLevel(brd);
 
     if (brd->discardNextScan) {
 	if (flevel > 0) A2DEmptyFIFO(brd);
 	brd->discardNextScan = 0;
-	brd->readActive = 0;
-	return 0;
+	return;
     }
 
     samp.timestamp = GET_MSEC_CLOCK;
@@ -1052,15 +1086,12 @@ getA2DSample(struct A2DBoard* brd)
 	    if (flevel == 5)
 		KLOG_ERR("Is the external clock plugged into the A/D?\n");
 	    if (brd->nbadFifoLevel > 1) {
-		brd->readActive = 0;
-		startA2DResetThread(brd);
-		return 0;
+		tasklet_schedule(&brd->resetTasklet);
+		return;
 	    }
 	}
-	if (flevel == 0) {
-	    brd->readActive = 0;
-	    return 0;
-	}
+	if (flevel == 0)
+	    return;
     }
 
     // dataptr points to beginning of data section of A2DSAMPLE
@@ -1079,48 +1110,32 @@ getA2DSample(struct A2DBoard* brd)
 	unsigned short stat = inw(brd->addr);
 
 	// Inverted bits for later cards
-	if (brd->invertCounts) counts = -inw(brd->addr);
-	else counts = inw(brd->addr);
-#if 0
-	// DEBUG keep a history of the last few reads
-	int ilast;
-	for (ilast=0; ilast<nlast-1; ilast++) {
-	    last_stat[ilast][ichan] = last_stat[ilast+1][ichan];
-	    last_cnts[ilast][ichan] = last_cnts[ilast+1][ichan];
-	}
-	last_stat[ilast][ichan] = (unsigned short)stat;
-	last_cnts[ilast][ichan] = (unsigned short)counts;
-#endif
+	if (brd->invertCounts) 
+	    counts = -inw(brd->addr);
+	else 
+	    counts = inw(brd->addr);
+
 	// check for acceptable looking status value
 	if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
-#if 0
-	    KLOG_DEBUG("--------- SPIKE! --------- %d of %d\n", iread, brd->nreads);
-	    for (ilast=0; ilast<nlast; ilast++)
-		KLOG_DEBUG("%4x %4x  %4x %4x  %4x %4x  %4x %4x  %4x %4x  %4x %4x  %4x %4x  %4x %4x\n",
-			   last_stat[ilast][0], last_cnts[ilast][0],
-			   last_stat[ilast][1], last_cnts[ilast][1],
-			   last_stat[ilast][2], last_cnts[ilast][2],
-			   last_stat[ilast][3], last_cnts[ilast][3],
-			   last_stat[ilast][4], last_cnts[ilast][4],
-			   last_stat[ilast][5], last_cnts[ilast][5],
-			   last_stat[ilast][6], last_cnts[ilast][6],
-			   last_stat[ilast][7], last_cnts[ilast][7]);
-#endif
-	    KLOG_DEBUG("--------- SPIKE! --------- read: %2d  chn: %d  stat: %x  data: %x\n", iread, ichan, stat, counts);
+	    KLOG_DEBUG("--------- SPIKE! --------- read: %2d  chn: %d  "
+		       "stat: %x  data: %x\n", iread, ichan, stat, counts);
 	    nbad++;
 	    brd->cur_status.nbad[ichan]++;
 	    brd->cur_status.badval[ichan] = stat;
-	    //       counts = -32768;  // set to missing value
 	}
-	else brd->cur_status.goodval[ichan] = stat;
+	else 
+	    brd->cur_status.goodval[ichan] = stat;
 #else
 	// Inverted bits for later cards
-	if (brd->invertCounts) counts = -inw(brd->addr);
-	else counts = inw(brd->addr);
+	if (brd->invertCounts) 
+	    counts = -inw(brd->addr);
+	else
+	    counts = inw(brd->addr);
 
 #endif
 	//    if (counts > 0x1000) KLOG_DEBUG("Greater than 0x1000\n");
-	if (brd->requested[ichan]) *dataptr++ = counts;
+	if (brd->requested[ichan])
+	    *dataptr++ = counts;
     }
     flevel = getA2DFIFOLevel(brd);
     brd->cur_status.postFifoLevel[flevel]++;
@@ -1133,23 +1148,26 @@ getA2DSample(struct A2DBoard* brd)
 			 flevel, brd->fifoNotEmpty);
 
 	if (flevel > brd->expectedFifoLevel || brd->fifoNotEmpty > 1) {
-	    brd->readActive = 0;
-	    startA2DResetThread(brd);
-	    return nbad;
+	    tasklet_schedule(&brd->resetTasklet);
+	    if (nbad > 0)
+		KLOG_ERR("nbad is %d\n", nbad);
+	    return;
 	}
     }
-    if (nbad > 0) brd->nbadScans++;
+    if (nbad > 0)
+	brd->nbadScans++;
 
     // DSMSensor::printStatus queries these values every 10 seconds
     if (!(++brd->readCtr % (INTRP_RATE * 10))) {
-
 	// debug print every minute, or if there are bad scans
 	if (!(brd->readCtr % (INTRP_RATE * 60)) || brd->nbadScans) {
 	    KLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",
 		       GET_MSEC_CLOCK, brd->nbadScans);
-	    KLOG_DEBUG("nbadFifoLevel=%d, #fifoNotEmpty=%d, #skipped=%d, #resets=%d\n",
-		       brd->nbadFifoLevel, brd->fifoNotEmpty, brd->skippedSamples, brd->resets);
-	    KLOG_DEBUG("pre-scan  fifo=%d,%d,%d,%d,%d,%d (0,<=1/4,<2/4,<3/4,<4/4,full)\n",
+	    KLOG_DEBUG("nbadFifoLevel=%d, #fifoNotEmpty=%d, #skipped=%d, "
+		       "#resets=%d\n", brd->nbadFifoLevel, brd->fifoNotEmpty, 
+		       brd->skippedSamples, brd->resets);
+	    KLOG_DEBUG("pre-scan  fifo=%d,%d,%d,%d,%d,%d "
+		       "(0,<=1/4,<2/4,<3/4,<4/4,full)\n",
 		       brd->cur_status.preFifoLevel[0],
 		       brd->cur_status.preFifoLevel[1],
 		       brd->cur_status.preFifoLevel[2],
@@ -1163,7 +1181,8 @@ getA2DSample(struct A2DBoard* brd)
 		       brd->cur_status.postFifoLevel[3],
 		       brd->cur_status.postFifoLevel[4],
 		       brd->cur_status.postFifoLevel[5]);
-	    KLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x %04x %04x\n",
+	    KLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x "
+		       "%04x %04x\n",
 		       brd->cur_status.goodval[0],
 		       brd->cur_status.goodval[1],
 		       brd->cur_status.goodval[2],
@@ -1174,7 +1193,8 @@ getA2DSample(struct A2DBoard* brd)
 		       brd->cur_status.goodval[7]);
 
 	    if (brd->nbadScans > 0) {
-		KLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x %04x %04x %04x\n",
+		KLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x "
+			   "%04x %04x %04x\n",
 			   brd->cur_status.badval[0],
 			   brd->cur_status.badval[1],
 			   brd->cur_status.badval[2],
@@ -1183,7 +1203,8 @@ getA2DSample(struct A2DBoard* brd)
 			   brd->cur_status.badval[5],
 			   brd->cur_status.badval[6],
 			   brd->cur_status.badval[7]);
-		KLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d %4d %4d\n",
+		KLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d "
+			   "%4d %4d\n",
 			   brd->cur_status.nbad[0],
 			   brd->cur_status.nbad[1],
 			   brd->cur_status.nbad[2],
@@ -1194,9 +1215,8 @@ getA2DSample(struct A2DBoard* brd)
 			   brd->cur_status.nbad[7]);
 
 		if (brd->nbadScans > 10) {
-		    brd->readActive = 0;
-		    startA2DResetThread(brd);
-		    return 0;
+		    tasklet_schedule(&brd->resetTasklet);
+		    return;
 		}
 	    }
 	    brd->readCtr = 0;
@@ -1204,7 +1224,8 @@ getA2DSample(struct A2DBoard* brd)
 
 	brd->nbadScans = 0;
 
-	// copy current status to prev_status for access by ioctl A2D_GET_STATUS
+	// copy current status to prev_status for access by ioctl
+	// A2D_GET_STATUS
 	brd->cur_status.nbadFifoLevel = brd->nbadFifoLevel;
 	brd->cur_status.fifoNotEmpty = brd->fifoNotEmpty;
 	brd->cur_status.skippedSamples = brd->skippedSamples;
@@ -1215,41 +1236,31 @@ getA2DSample(struct A2DBoard* brd)
 
     samp.size = (char*)dataptr - (char*)samp.data;
 
-    if (brd->a2dfd >= 0 && samp.size > 0) {
-
+    if (samp.size > 0) {
+	unsigned long flags;
+	unsigned long avail;
 	size_t slen = SIZEOF_DSM_SAMPLE_HEADER + samp.size;
+	/*
+	 * Put the sample into the user device buffer only if we have
+	 * enough space for it.  Otherwise, drop the sample.
+	 */
+	spin_lock_irqsave(brd->buffer->lock, flags);
+	avail = brd->buffer->size - __kfifo_len(brd->buffer);
 
-	// check if buffer full, or latency time has elapsed.
-	if (brd->head + slen > sizeof(brd->buffer) ||
-	    !(++brd->sampleCnt % brd->latencyCnt)) {
+	if (avail >= slen) {
+	    __kfifo_put(brd->buffer, (unsigned char*)&samp, slen);
+	    /*
+	     * Wake up waiting read
+	     */
+	    wake_up_interruptible(&(brd->rwaitq));
+	}
+	else
+	    brd->skippedSamples++;
 
-	    // Write to up-fifo
-	    ssize_t wlen;
-//XX	    if ((wlen = sys_write(brd->a2dfd, brd->buffer+brd->tail, 
-//XX				  brd->head - brd->tail)) < 0) {
-//XX		int ierr = sys_errno;
-//XX		KLOG_ERR("error: write of %d bytes to %s: %s. Closing\n",
-//XX			 brd->head-brd->tail, brd->a2dFifoName, 
-//XX			 sys_strerror(sys_errno));
-//XX		sys_close(brd->a2dfd);
-//XX		brd->a2dfd = -1;
-//XX		brd->readActive = 0;
-//XX		return -convert_sys_errno(ierr);
-//XX	    }
-	    if (wlen != brd->head-brd->tail)
-		KLOG_WARNING("warning: short write: request=%d, actual=%d\n",
-			     brd->head-brd->tail, wlen);
-	    brd->tail += wlen;
-	    if (brd->tail == brd->head) brd->head = brd->tail = 0;
-	    brd->sampleCnt = 0;
-	}
-	if (brd->head + slen <= sizeof(brd->buffer)) {
-	    memcpy(brd->buffer+brd->head, &samp, slen);
-	    brd->head += slen;
-	}
-	else if (!(brd->skippedSamples++ % 1000))
-	    KLOG_WARNING("warning: %d samples lost due to backlog in %s\n",
-			 brd->skippedSamples, brd->a2dFifoName);
+	spin_unlock_irqrestore(brd->buffer->lock, flags);
+
+	if (brd->skippedSamples && !(brd->skippedSamples % 1000))
+	    KLOG_WARNING("%d samples lost\n", brd->skippedSamples);
     }
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
     if (brd->doTemp) {
@@ -1264,8 +1275,9 @@ getA2DSample(struct A2DBoard* brd)
 		     samp.timestamp, GET_MSEC_CLOCK);
 #endif
 
-    brd->readActive = 0;
-    return nbad;
+    if (nbad > 0)
+	KLOG_ERR("leaving taskGetA2DSample, nbad is %d\n", nbad);
+    return;
 }
 
 
@@ -1274,16 +1286,7 @@ static void
 a2dIrigCallback(void *ptr)
 {
     struct A2DBoard* brd = (struct A2DBoard*) ptr;
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-    // If the data acquisition is done in another thread
-    // simply post the semaphore so the A2DGetDataThread
-    // can do its thing
-    sys_sem_post(&((struct A2DBoard*)brd)->acq_sem);
-#else
-    // otherwise, get and send the sample
-    // udelay(10);
-    getA2DSample((struct A2DBoard*)brd);
-#endif
+    tasklet_schedule(&brd->getSampleTasklet);
 }
 
 static void i2cTempIrigCallback(void *ptr);
@@ -1341,52 +1344,17 @@ static void
 i2cTempIrigCallback(void *ptr)
 {
     struct A2DBoard* brd = (struct A2DBoard*)ptr;
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
     brd->doTemp = 1;
-#else
-//XX     sendTemp(brd);
-#endif
 }
 
-
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-/*------------------ Main A2D thread -------------------------*/
-// data acquisition loop
-// 1 waits on a semaphore from the 100Hz callback
-// 2 reads the A2D fifo
-// 3 repeat
-
-static void* 
-A2DGetDataThread(void *thread_arg)
-{
-    struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
-
-    int res;
-
-    // The A2Ds should be done writing to the FIFO in
-    // 2 * 8 * 800 nsec = 12.8 usec
-
-    KLOG_DEBUG("Starting data-acq loop, GET_MSEC_CLOCK=%d\n",
-	       GET_MSEC_CLOCK);
-
-    // Here's the acquisition loop
-    for (;;) {
-	sys_sem_wait(&brd->acq_sem);
-	if (brd->interrupted) break;
-	if ((res = getA2DSample(brd)) < 0) return (void*)(-res);
-    }
-    KLOG_DEBUG("Exiting A2DGetDataThread\n");
-    return 0;
-}
-#endif
 
 // Reset the A2D, but do not close the fifos.
 // This does an unregister_irig_callback, so it can't be
 // called from the irig callback function itself.
-// Use startA2DResetThread in that case.
+// Schedule the board's resetTasklet in that case.
 
 static int 
-resetA2D(struct A2DBoard* brd)
+resetBoard(struct A2DBoard* brd)
 {
     int res;
     
@@ -1394,20 +1362,7 @@ resetA2D(struct A2DBoard* brd)
     unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ, brd);
     KLOG_DEBUG("unregister_irig_callback done\n");
 
-    // interrupt the 1PPS or acquisition thread
-    brd->interrupted = 1;
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-    if (brd->acq_thread) {
-	sys_sem_post(&brd->acq_sem);
-	sys_pthread_join(brd->acq_thread, &thread_status);
-	brd->acq_thread = 0;
-	if (thread_status != (void*)0) ret = -(int)thread_status;
-    }
-#endif
-
-    brd->interrupted = 0;
-
-    // Start a RT thread to allow syncing with 1PPS
+    // Sync with 1PPS
     KLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
     res = waitFor1PPS(brd);
     if (res) return res;
@@ -1426,7 +1381,7 @@ resetA2D(struct A2DBoard* brd)
     KLOG_DEBUG("Setting 1PPS Enable line\n");
 
     mdelay(20);
-    A2D1PPSEnable(brd);// Enable sync with 1PPS
+    A2DEnable1PPS(brd);// Enable sync with 1PPS
 
     KLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
     res = waitFor1PPS(brd);
@@ -1436,24 +1391,7 @@ resetA2D(struct A2DBoard* brd)
     KLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%d\n", GET_MSEC_CLOCK);
     A2DClearFIFO(brd);  // Reset FIFO
 
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-    // Zero the semaphore
-    sys_sem_init(&brd->acq_sem, 0, 0);
-    // Start data acquisition thread
-    sys_pthread_attr_t attr;
-    sys_pthread_attr_init(&attr);
-    sys_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
-    sys_pthread_attr_setstackaddr(&attr, brd->acq_thread_stack);
-    if (sys_pthread_create(&brd->acq_thread, &attr, A2DGetDataThread, brd)) {
-	KLOG_ERR("Error starting acq thread: %s\n",
-		 sys_strerror(sys_errno));
-	return -convert_sys_errno(sys_errno);
-    }
-    sys_pthread_attr_destroy(&attr);
-#endif
-
     brd->discardNextScan = 1;  // whether to discard the initial scan
-    brd->readActive = 0;
     brd->enableReads = 1;
     brd->interrupted = 0;
     brd->nbadScans = 0;
@@ -1463,171 +1401,166 @@ resetA2D(struct A2DBoard* brd)
     brd->skippedSamples = 0;
     brd->resets++;
 
-    // start the IRIG callback routine at 100 Hz
-    register_irig_callback(&a2dIrigCallback, IRIG_100_HZ, brd);
-
     return 0;
 }
 
-# ifdef NOTDEF
-static void* 
-A2DResetThreadFunc(void *thread_arg)
+/*
+ * Task to perform a board reset.
+ */
+static void
+taskResetBoard(unsigned long taskletArg)
 {
-    struct A2DBoard* brd = (struct A2DBoard*) thread_arg;
-    int ret = resetA2D(brd);
-    return (void*)-ret;
-}
+    struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
+    int status;
 
-static int 
-startA2DResetThread(struct A2DBoard* brd)
-{
-    KLOG_WARNING("GET_MSEC_CLOCK=%d, Resetting A2D\n", GET_MSEC_CLOCK);
     brd->enableReads = 0;
-    // Shut down any existing reset thread
-    if (brd->reset_thread) {
-	sys_pthread_cancel(brd->reset_thread);
-	sys_pthread_join(brd->reset_thread, NULL);
-	brd->reset_thread = 0;
-    }
-
-    KLOG_DEBUG("Starting reset thread\n");
-
-    sys_pthread_attr_t attr;
-    sys_pthread_attr_init(&attr);
-    sys_pthread_attr_setstacksize(&attr, THREAD_STACK_SIZE);
-    sys_pthread_attr_setstackaddr(&attr, brd->reset_thread_stack);
-    if (sys_pthread_create(&brd->reset_thread, &attr, A2DResetThreadFunc, brd)) {
-	KLOG_ERR("Error starting A2DResetThreadFunc: %s\n",
-		 sys_strerror(sys_errno));
-	return -convert_sys_errno(sys_errno);
-    }
-    sys_pthread_attr_destroy(&attr);
-    return 0;
+    if ((status = resetBoard(brd)) != 0)
+	KLOG_WARNING("A2DResetTask() failed for board @ 0x%x with status %d\n",
+		     brd->addr, status);
 }
 
-static int 
-openA2D(struct A2DBoard* brd)
-{
-    brd->busy = 1;  // Set the busy flag
-    brd->doTemp = 0;
-    brd->acq_thread = 0;
-    brd->latencyCnt = brd->config.latencyUsecs /
-	(USECS_PER_SEC / INTRP_RATE);
-    if (brd->latencyCnt == 0) brd->latencyCnt = 1;
-#ifdef DEBUG
-    KLOG_DEBUG("latencyUsecs=%d, latencyCnt=%d\n",
-	       brd->config.latencyUsecs, brd->latencyCnt);
-#endif
 
-    brd->sampleCnt = 0;
-    // buffer indices
-    brd->head = 0;
-    brd->tail = 0;
+/* static int  */
+/* openA2D(struct A2DBoard* brd) */
+/* { */
+/*     int result; */
+    
+/*     brd->busy = 1;  // Set the busy flag */
+/*     brd->doTemp = 0; */
+/*     brd->latencyCnt = brd->config.latencyUsecs / */
+/* 	(USECS_PER_SEC / INTRP_RATE); */
+/*     if (brd->latencyCnt == 0) brd->latencyCnt = 1; */
+/* #ifdef DEBUG */
+/*     KLOG_DEBUG("latencyUsecs=%d, latencyCnt=%d\n", */
+/* 	       brd->config.latencyUsecs, brd->latencyCnt); */
+/* #endif */
 
-    brd->nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
+/*     brd->sampleCnt = 0; */
+/*     /\* */
+/*      * No buffer until a user opens the device */
+/*      *\/ */
+/*     brd->buffer = NULL; */
 
-    // expected fifo level just before we read
-    brd->expectedFifoLevel = (brd->nreads * 4) / HWFIFODEPTH + 1;
-    // level of 1 means <=1/4
-    if (brd->nreads == HWFIFODEPTH/4) brd->expectedFifoLevel = 1;
+/*     brd->nreads = brd->MaxHz * MAXA2DS / INTRP_RATE; */
 
-    /*
-     * How much to adjust the time tags backwards.
-     * Example:
-     *   interrupt rate = 100Hz (how often we download the A2D fifo)
-     *   max sample rate = 500Hz
-     * When we download the A2D fifos at time=00:00.010, we are getting
-     *   the 5 samples that (we assume) were sampled at times:
-     *   00:00.002, 00:00.004, 00:00.006, 00:00.008 and 00:00.010
-     * So the block of data containing the 5 samples will have
-     * a time tag of 00:00.002. Code that breaks the block
-     * into samples will use the block timetag for the initial sub-sample
-     * and then add 1/MaxHz to get successive time tags.
-     *
-     * Note that the lowest, on-board re-sample rate of this
-     * A2D is 500Hz.  Actually it is something like 340Hz,
-     * but 500Hz is a rate we can sub-divide into desired rates
-     * of 100Hz, 50Hz, etc. Support for lower sampling rates
-     * will involve FIR filtering, perhaps in this module.
-     */
-    brd->ttMsecAdj =     // compute in microseconds first to avoid trunc
-	(USECS_PER_SEC / INTRP_RATE - USECS_PER_SEC / brd->MaxHz) /
-	USECS_PER_MSEC;
+/*     // expected fifo level just before we read */
+/*     brd->expectedFifoLevel = (brd->nreads * 4) / HWFIFODEPTH + 1; */
+/*     // level of 1 means <=1/4 */
+/*     if (brd->nreads == HWFIFODEPTH/4) brd->expectedFifoLevel = 1; */
 
-    KLOG_DEBUG("nreads=%d, expectedFifoLevel=%d, ttMsecAdj=%d\n",
-	       brd->nreads, brd->expectedFifoLevel, brd->ttMsecAdj);
+/*     /\* */
+/*      * How much to adjust the time tags backwards. */
+/*      * Example: */
+/*      *   interrupt rate = 100Hz (how often we download the A2D fifo) */
+/*      *   max sample rate = 500Hz */
+/*      * When we download the A2D fifos at time=00:00.010, we are getting */
+/*      *   the 5 samples that (we assume) were sampled at times: */
+/*      *   00:00.002, 00:00.004, 00:00.006, 00:00.008 and 00:00.010 */
+/*      * So the block of data containing the 5 samples will have */
+/*      * a time tag of 00:00.002. Code that breaks the block */
+/*      * into samples will use the block timetag for the initial sub-sample */
+/*      * and then add 1/MaxHz to get successive time tags. */
+/*      * */
+/*      * Note that the lowest, on-board re-sample rate of this */
+/*      * A2D is 500Hz.  Actually it is something like 340Hz, */
+/*      * but 500Hz is a rate we can sub-divide into desired rates */
+/*      * of 100Hz, 50Hz, etc. Support for lower sampling rates */
+/*      * will involve FIR filtering, perhaps in this module. */
+/*      *\/ */
+/*     brd->ttMsecAdj =     // compute in microseconds first to avoid trunc */
+/* 	(USECS_PER_SEC / INTRP_RATE - USECS_PER_SEC / brd->MaxHz) / */
+/* 	USECS_PER_MSEC; */
 
-    memset(&brd->cur_status , 0, sizeof(A2D_STATUS));
-    memset(&brd->prev_status, 0, sizeof(A2D_STATUS));
+/*     KLOG_DEBUG("nreads=%d, expectedFifoLevel=%d, ttMsecAdj=%d\n", */
+/* 	       brd->nreads, brd->expectedFifoLevel, brd->ttMsecAdj); */
 
-    if (brd->a2dfd >= 0) sys_close(brd->a2dfd);
-    if((brd->a2dfd = sys_open(brd->a2dFifoName,
-			      SYS_O_NONBLOCK | SYS_O_WRONLY)) < 0)
-    {
-	KLOG_ERR("error: opening %s: %s\n",
-		 brd->a2dFifoName, sys_strerror(sys_errno));
-	return -convert_sys_errno(sys_errno);
-    }
-#ifdef DO_FTRUNCATE
-    if (sys_ftruncate(brd->a2dfd, sizeof(brd->buffer)*4) < 0) {
-	KLOG_ERR("error: ftruncate %s: size=%d: %s\n",
-		 brd->a2dFifoName, sizeof(brd->buffer),
-		 sys_strerror(sys_errno));
-	return -convert_sys_errno(sys_errno);
-    }
-#endif
+/*     memset(&brd->cur_status , 0, sizeof(A2D_STATUS)); */
+/*     memset(&brd->prev_status, 0, sizeof(A2D_STATUS)); */
 
-    int res = startA2DResetThread(brd);
-    void* thread_status;
-    sys_pthread_join(brd->reset_thread, &thread_status);
-    brd->reset_thread = 0;
-    if (thread_status != (void*)0) res = -(int)thread_status;
+/*     brd->enableReads = 0; */
+/*     result = resetBoard(brd); */
+/*     brd->resets = 0; */
 
-    brd->resets = 0;
+/*     return result; */
+/* } */
 
-    return res;
-}
+//XX /**
+//XX  * @return negative UNIX errno
+//XX  */
+//XX static int 
+//XX closeA2D(struct A2DBoard* brd)
+//XX {
+//XX     int ret = 0;
+//XX 
+//XX     brd->doTemp = 0;
+//XX     // interrupt the 1PPS or acquisition
+//XX     brd->interrupted = 1;
+//XX 
+//XX     // Turn off the callback routine
+//XX     unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ, brd);
+//XX 
+//XX     A2DStatusAll(brd);   // Read status and clear IRQ's
+//XX 
+//XX     A2DNotAuto(brd);     // Shut off auto mode (if enabled)
+//XX 
+//XX     // Abort all the A/D's
+//XX     A2DResetAll(brd);
+//XX 
+//XX     brd->busy = 0;       // Reset the busy flag
+//XX 
+//XX     return ret;
+//XX }
 
 /**
- * @param joinAcqThread 1 means do a pthread_join of the acquisition thread.
- *              0 means don't do pthread_join (to avoid a deadlock)
- * @return negative UNIX errno
+ * User-space open of the A/D device.
  */
 static int 
-closeA2D(struct A2DBoard* brd)
+ncar_a2d_open(struct inode *inode, struct file *filp)
 {
+    struct A2DBoard *brd = BoardInfo + iminor(inode);
+    int errval;
+
+    init_waitqueue_head(&brd->rwaitq);
+    spin_lock_init(&brd->bufLock);
+    brd->buffer = kfifo_alloc(A2D_BUFFER_SIZE, GFP_KERNEL, &brd->bufLock);
+    if (IS_ERR(brd->buffer)) {
+	errval = (int)brd->buffer;
+	KLOG_ERR("Error %d from kfifo_alloc\n", errval);
+	return errval;
+    }
+
+    // start the IRIG callback routine at 100 Hz
+    errval = register_irig_callback(&a2dIrigCallback, IRIG_100_HZ, brd);
+    if (errval < 0) 
+    {
+	KLOG_ERR("Error %d registering callback\n", errval);
+	return errval;
+    }
+
+    filp->private_data = brd;
+    return 0;
+}
+
+
+/**
+ * User-space close of the A/D device.
+ */
+static int 
+ncar_a2d_release(struct inode *inode, struct file *filp)
+{
+    struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+
     int ret = 0;
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-    void* thread_status;
-#endif
 
     brd->doTemp = 0;
-    // interrupt the 1PPS or acquisition thread
+    /*
+     * interrupt the 1PPS or acquisition
+     */
     brd->interrupted = 1;
 
-    // Shut down the setup thread
-    if (brd->setup_thread) {
-	sys_pthread_cancel(brd->setup_thread);
-	sys_pthread_join(brd->setup_thread, NULL);
-	brd->setup_thread = 0;
-    }
-
-    // Shut down the reset thread
-    if (brd->reset_thread) {
-	sys_pthread_cancel(brd->reset_thread);
-	sys_pthread_join(brd->reset_thread, NULL);
-	brd->reset_thread = 0;
-    }
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-    if (brd->acq_thread) {
-	sys_sem_post(&brd->acq_sem);
-	sys_pthread_join(brd->acq_thread, &thread_status);
-	brd->acq_thread = 0;
-	if (thread_status != (void*)0) ret = -(int)thread_status;
-    }
-#endif
-
-    // Turn off the callback routine
+    /*
+     * Turn off the callback routine
+     */
     unregister_irig_callback(&a2dIrigCallback, IRIG_100_HZ, brd);
 
     A2DStatusAll(brd);   // Read status and clear IRQ's
@@ -1637,144 +1570,219 @@ closeA2D(struct A2DBoard* brd)
     // Abort all the A/D's
     A2DResetAll(brd);
 
-    if (brd->a2dfd >= 0) {
-	int fdtmp = brd->a2dfd;
-	brd->a2dfd = -1;
-	sys_close(fdtmp);
-    }
+
     brd->busy = 0;       // Reset the busy flag
+    /*
+     * Get rid of the FIFO to hold data destined for user space
+     */
+    kfifo_free(brd->buffer);
+    brd->buffer = 0;
 
     return ret;
 }
 
+/**
+ * User-space read on the A/D device.
+ */
+static ssize_t 
+ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
+{
+    struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+    ssize_t nwritten;
+    int percent_full;
+    int fifo_len;
+    int wlen;
+    unsigned char c;
+    unsigned int csize = sizeof(c);
+
+    if ((kfifo_len(brd->buffer) == 0) && (filp->f_flags & O_NONBLOCK))
+	return -EAGAIN;
+
+
+    while (1) {
+	if (wait_event_interruptible(brd->rwaitq, 1))
+	    return -ERESTARTSYS;
+
+	/*
+	 * How full is the buffer?
+	 */
+	fifo_len = kfifo_len(brd->buffer);
+	percent_full = (100 * fifo_len) / A2D_BUFFER_SIZE;
+
+	/* 
+	 * Don't send anything until we have at least latencyCnt samples (or
+	 * the buffer is nearly full)
+	 */
+	if ((brd->sampleCnt < brd->latencyCnt) && (percent_full < 90))
+	    continue;
+
+	if (brd->sampleCnt < brd->latencyCnt)
+	    KLOG_INFO("Read proceeding with %d%% full buffer\n", percent_full);
+
+	if (count != fifo_len)
+	    KLOG_INFO("Read not getting all data in buffer (%d < %d)\n",
+		      count, fifo_len);
+	
+	/*
+	 * Bytes to write
+	 */
+	wlen = (count > fifo_len) ? fifo_len : count;
+
+	/*
+	 * Copy to the user's buffer
+	 */
+	nwritten = 0;
+	while ((nwritten < wlen) && 
+	       (kfifo_get(brd->buffer, &c, csize) == csize)) {
+	    if (put_user(c, buf++) != 0)
+		return -EFAULT;
+	    nwritten++;
+	}
+
+	/*
+	 * Zero the sample count when they empty the buffer.
+	 * BUG: Of course the sample count becomes inaccurate if the user
+	 * does not read enough to empty the buffer....
+	 */
+	if (nwritten == fifo_len)
+	    brd->sampleCnt = 0;
+
+	return nwritten;
+    }
+}
+
 /*
- * Function that is called on receipt of an ioctl request over the
- * ioctl FIFO.
- * Return: negative Linux errno (not RTLinux errnos), or 0=OK
+ * Function that is called on receipt of an ioctl request.
+ * Return: negative Linux errno, or 0=OK
  */
 static int 
-ioctlCallback(int cmd, int board, int port, void *buf, sys_size_t len)
+ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
+	       unsigned long arg)
 {
-    // return LINUX errnos here, not SYS_XXX errnos.
+    struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+    void __user* userptr = (void __user*)arg;
+//XX    int rate;
+    int len = _IOC_SIZE(cmd);
     int ret = -EINVAL;
-    void* thread_status;
-
-    // paranoid check if initialized (probably not necessary)
-    if (!BoardInfo) return ret;
-
-    struct A2DBoard* brd = BoardInfo + board;
 
 #ifdef DEBUG
-    KLOG_DEBUG("ioctlCallback cmd=%x board=%d port=%d len=%d\n",
-	       cmd, board, port, len);
+    KLOG_DEBUG("ncar_a2d_ioctl cmd=%x board addr=0x%x len=%d\n",
+	       cmd, brd->addr, len);
 #endif
 
     switch (cmd)
     {
-      case GET_NUM_PORTS:               /* user get */
-	if (len != sizeof(int)) break;
-	KLOG_DEBUG("GET_NUM_PORTS\n");
-	*(int *) buf = NDEVICES;
-	ret = sizeof(int);
-	break;
-
       case A2D_GET_STATUS:              /* user get of status */
-	if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
-	if (len != sizeof(A2D_STATUS)) break;
-	memcpy(buf, &brd->prev_status, len);
+	if (len != sizeof(A2D_STATUS)) 
+	    break;
+	memcpy(userptr, &brd->prev_status, len);
 	ret = len;
 	break;
 
       case A2D_SET_CONFIG:              /* user set */
-	if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
-	if (len != sizeof(A2D_SET)) break;     // invalid length
+	if (len != sizeof(A2D_SET)) 
+	    break;     // invalid length
 	if(brd->busy) {
 	    KLOG_ERR("A2D's running. Can't reset\n");
 	    ret = -EBUSY;
 	    break;
 	}
 	KLOG_DEBUG("A2D_SET_CONFIG\n");
-	memcpy(&brd->config, (A2D_SET*)buf, sizeof(A2D_SET));
+	memcpy(&brd->config, (A2D_SET*)userptr, sizeof(A2D_SET));
 
-	KLOG_DEBUG("Starting setup thread\n");
-	if (sys_pthread_create(&brd->setup_thread, NULL, A2DSetupThread, brd)) {
-	    KLOG_ERR("Error starting A2DSetupThread: %s\n",
-		     sys_strerror(sys_errno));
-	    return -convert_sys_errno(sys_errno);
-	}
-	sys_pthread_join(brd->setup_thread, &thread_status);
-	KLOG_DEBUG("Setup thread finished\n");
-	brd->setup_thread = 0;
+	KLOG_DEBUG("Starting setup\n");
+	ret = setupBoard(brd);
 
-	if (thread_status != (void*)0) ret = -(int)thread_status;
-	else ret = 0;          // OK
 	KLOG_DEBUG("A2D_SET_CONFIG done, ret=%d\n", ret);
 	break;
 
       case A2D_CAL_IOCTL:               /* user set */
 	KLOG_DEBUG("A2D_CAL_IOCTL\n");
-	if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
-	if (len != sizeof(A2D_CAL)) break;     // invalid length
-	memcpy(&brd->cal, (A2D_CAL*)buf, sizeof(A2D_CAL));
+	if (len != sizeof(A2D_CAL)) 
+	    break;     // invalid length
+	if (copy_from_user(&brd->cal, (A2D_CAL*)userptr, len) == 0)
+	{
+	    ret = -EFAULT;
+	    break;
+	}
 	A2DSetVcal(brd);
 	A2DSetCal(brd);
 	ret = 0;
 	break;
 
-      case A2D_RUN_IOCTL:
-	if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
-	// clean up acquisition thread if it was left around
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	if (brd->acq_thread) {
-	    brd->interrupted = 1;
-	    sys_pthread_cancel(brd->acq_thread);
-	    sys_pthread_join(brd->acq_thread, &thread_status);
-	    brd->acq_thread = 0;
-	}
-#endif
-	/*
-	  KLOG_DEBUG("DEBUG set a channel to a calibration voltage\n");
-	  brd->cal.vcalx8 = 0x2;  // REMOVE ME (TEST CAL)
-	  brd->cal.calset[0] = 1; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[1] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[2] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[3] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[4] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[5] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[6] = 0; // REMOVE ME (TEST CAL)
-	  brd->cal.calset[7] = 0; // REMOVE ME (TEST CAL)
-	  A2DSetVcal(brd);        // REMOVE ME (TEST CAL)
-	  A2DSetCal(brd);         // REMOVE ME (TEST CAL)
-	*/
-	KLOG_DEBUG("A2D_RUN_IOCTL\n");
-	ret = openA2D(brd);
-	KLOG_DEBUG("A2D_RUN_IOCTL finished\n");
+//XX      case A2D_RUN_IOCTL:
+//XX	/*
+//XX	KLOG_DEBUG("DEBUG set a channel to a calibration voltage\n");
+//XX		   brd->cal.vcalx8 = 0x2;  // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[0] = 1; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[1] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[2] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[3] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[4] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[5] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[6] = 0; // REMOVE ME (TEST CAL)
+//XX		   brd->cal.calset[7] = 0; // REMOVE ME (TEST CAL)
+//XX		   A2DSetVcal(brd);        // REMOVE ME (TEST CAL)
+//XX		   A2DSetCal(brd);         // REMOVE ME (TEST CAL)
+//XX	*/
+//XX	KLOG_DEBUG("A2D_RUN_IOCTL\n");
+//XX	ret = openA2D(brd);
+//XX	KLOG_DEBUG("A2D_RUN_IOCTL finished\n");
+//XX	break;
+
+//XX      case A2D_STOP_IOCTL:
+//XX	KLOG_DEBUG("A2D_STOP_IOCTL\n");
+//XX	ret = closeA2D(brd);
+//XX	KLOG_DEBUG("closeA2D, ret=%d\n", ret);
+//XX	break;
+
+//XX      case A2D_OPEN_I2CT:
+//XX	KLOG_DEBUG("A2D_OPEN_I2CT\n");
+//XX	if (len != sizeof(int)) 
+//XX	    break; // invalid length
+//XX	rate = *(int*)userptr;
+//XX	ret = openI2CTemp(brd, rate);
+//XX	break;
+
+//XX      case A2D_CLOSE_I2CT:
+//XX	KLOG_DEBUG("A2D_CLOSE_I2CT\n");
+//XX	ret = closeI2CTemp(brd);
+//XX	break;
+
+      case A2D_GET_I2CT:
+	if (len != sizeof(short)) 
+	    break;
+	*(short *)userptr = brd->i2cTempData;
+	ret = sizeof(short);
 	break;
 
-      case A2D_STOP_IOCTL:
-	if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
-	KLOG_DEBUG("A2D_STOP_IOCTL\n");
-	ret = closeA2D(brd);
-	KLOG_DEBUG("closeA2D, ret=%d\n", ret);
+      default:
 	break;
-      case A2D_OPEN_I2CT:
-	if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
-	KLOG_DEBUG("A2D_OPEN_I2CT\n");
-	if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
-	if (len != sizeof(int)) break; // invalid length
-	int rate = *(int*)buf;
-	ret = openI2CTemp(brd, rate);
-	break;
-      case A2D_CLOSE_I2CT:
-	if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
-	KLOG_DEBUG("A2D_CLOSE_I2CT\n");
-	if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
-	ret = closeI2CTemp(brd);
-	break;
+    }
+    return ret;
+}
+
+static int 
+i2c_temp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
+	       unsigned long arg)
+{
+    struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+    void __user* userptr = (void __user*)arg;
+//XX    int rate;
+    int len = _IOC_SIZE(cmd);
+    int ret = -EINVAL;
+
+#ifdef DEBUG
+    KLOG_DEBUG("i2c_temp_ioctl cmd=%x board addr=0x%x len=%d\n",
+	       cmd, brd->addr, len);
+#endif
+
+    switch (cmd)
+    {
       case A2D_GET_I2CT:
-	if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
-	if (len != sizeof(short)) break;
-	*(short *) buf = brd->i2cTempData;
+	if (len != sizeof(short)) 
+	    break;
+	*(short *)userptr = brd->i2cTempData;
 	ret = sizeof(short);
 	break;
 
@@ -1792,6 +1800,10 @@ cleanup_module(void)
     int ib;
     if (!BoardInfo) return;
 
+    cdev_del(&I2CTempCdev);
+
+    cdev_del(&A2DCdev);
+
     for (ib = 0; ib < NumBoards; ib++) {
 	struct A2DBoard* brd = BoardInfo + ib;
 
@@ -1802,49 +1814,7 @@ cleanup_module(void)
 
 	A2DStatusAll(brd);        // Read status and clear IRQ's
 
-	// Shut down the setup thread
-	if (brd->setup_thread) {
-	    sys_pthread_cancel(brd->setup_thread);
-	    sys_pthread_join(brd->setup_thread, NULL);
-	    brd->setup_thread = 0;
-	}
-
-	// Shut down the setup thread
-	if (brd->reset_thread) {
-	    sys_pthread_cancel(brd->reset_thread);
-	    sys_pthread_join(brd->reset_thread, NULL);
-	    brd->reset_thread = 0;
-	}
-
-	// Shut down the acquisition thread
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	if (brd->acq_thread) {
-	    sys_pthread_cancel(brd->acq_thread);
-	    sys_pthread_join(brd->acq_thread, NULL);
-	    brd->acq_thread = 0;
-	}
-	sys_sem_destroy(&brd->acq_sem);
-	if (brd->acq_thread_stack) kfree(brd->acq_thread_stack);
-#endif
-
-	// close and remove A2D fifo
-	if (brd->a2dfd >= 0) sys_close(brd->a2dfd);
-	if (brd->a2dFifoName) {
-	    sys_unlink(brd->a2dFifoName);
-	    kfree(brd->a2dFifoName);
-	}
-
-	// close and remove temperature fifo
-	if (brd->i2cTempfd >= 0) sys_close(brd->i2cTempfd);
-	if (brd->i2cTempFifoName) {
-	    sys_unlink(brd->i2cTempFifoName);
-	    kfree(brd->i2cTempFifoName);
-	}
-
-	if (brd->reset_thread_stack) kfree(brd->reset_thread_stack);
-
-	if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
-	brd->ioctlhandle = 0;
+//XX	Close user-space devices
 
 	if (brd->addr)
 	    release_region(brd->addr, A2DIOWIDTH);
@@ -1854,7 +1824,7 @@ cleanup_module(void)
     kfree(BoardInfo);
     BoardInfo = 0;
 
-    KLOG_DEBUG("Analog cleanup complete\n");
+    KLOG_DEBUG("NCAR A/D cleanup complete\n");
 
     return;
 }
@@ -1864,21 +1834,10 @@ cleanup_module(void)
 int 
 init_module()
 {
-#if 0
-    int ilast, ichan;
-    for (ilast=0; ilast<nlast; ilast++)
-	for (ichan=0; ichan<8; ichan++) {
-	    last_stat[ilast][ichan] = 0;
-	    last_cnts[ilast][ichan] = 0;
-	}
-#endif
     int error = -EINVAL;
     int ib;
 
     BoardInfo = 0;
-
-    // DSM_VERSION_STRING is found in dsm_version.h
-    KLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
 
     /* count non-zero ioport addresses, gives us the number of boards */
     for (ib = 0; ib < MAX_A2D_BOARDS; ib++)
@@ -1891,8 +1850,9 @@ init_module()
     KLOG_DEBUG("configuring %d board(s)...\n", NumBoards);
 
     error = -ENOMEM;
-    BoardInfo = kmalloc( NumBoards * sizeof(struct A2DBoard) );
-    if (!BoardInfo) goto err;
+    BoardInfo = kmalloc(NumBoards * sizeof(struct A2DBoard), GFP_KERNEL);
+    if (!BoardInfo)
+	goto err;
 
     KLOG_DEBUG("sizeof(struct A2DBoard): 0x%x\n", sizeof(struct A2DBoard));
 
@@ -1905,11 +1865,6 @@ init_module()
 	// that are non-zero
 	memset(brd, 0, sizeof(struct A2DBoard));
 
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	sys_sem_init(&brd->acq_sem, 0, 0);
-#endif
-	brd->a2dfd = -1;
-	brd->i2cTempfd = -1;
 	// default latency, 1/10 second.
 	brd->config.latencyUsecs = USECS_PER_SEC / 10;
 #ifdef DO_A2D_STATRD
@@ -1926,92 +1881,78 @@ init_module()
     /* initialize necessary members in each A2DBoard structure */
     for (ib = 0; ib < NumBoards; ib++) {
 	struct A2DBoard* brd = BoardInfo + ib;
+	unsigned int addr;
+	
+	tasklet_init(&brd->setupTasklet, taskSetupBoard, (unsigned long)brd);
+	tasklet_init(&brd->getSampleTasklet, taskGetA2DSample, 
+		     (unsigned long)brd);
+	tasklet_init(&brd->resetTasklet, taskResetBoard, (unsigned long)brd);
 
 	error = -EBUSY;
-	unsigned int addr =  IoPort[ib] + SYSTEM_ISA_IOPORT_BASE;
+	addr =  IoPort[ib] + SYSTEM_ISA_IOPORT_BASE;
 	// Get the mapped board address
-	if (check_region(addr, A2DIOWIDTH)) {
-	    KLOG_ERR("ioports at 0x%x already in use\n", addr);
+	if (! request_region(addr, A2DIOWIDTH, "NCAR A/D")) {
+	    KLOG_ERR("ioport at 0x%x already in use\n", addr);
 	    goto err;
 	}
 
-	request_region(addr, A2DIOWIDTH, "NCAR_A2D");
 	brd->addr = addr;
 	brd->chan_addr = addr + A2DIOLOAD;
-
-	/* Open up my ioctl FIFOs, register my ioctlCallback function */
-	error = -EIO;
-	brd->ioctlhandle =
-	    openIoctlFIFO(devprefix, ib, ioctlCallback,
-			  nioctlcmds, ioctlcmds);
-
-	if (!brd->ioctlhandle) goto err;
-
-	// Open the A2D fifo to user space
-	error = -ENOMEM;
-	brd->a2dFifoName = makeDevName(devprefix, "_in_", ib*NDEVICES);
-	if (!brd->a2dFifoName) goto err;
-
-	// remove broken device file before making a new one
-	if ((sys_unlink(brd->a2dFifoName) < 0 && sys_errno != SYS_ENOENT)
-	    || sys_mkfifo(brd->a2dFifoName, 0666) < 0) {
-	    KLOG_ERR("error: unlink/mkfifo %s: %s\n",
-		     brd->a2dFifoName, sys_strerror(sys_errno));
-	    error = -convert_sys_errno(sys_errno);
-	    goto err;
-	}
-
-	// Open the fifo for I2C temperature data to user space
-	error = -ENOMEM;
-	brd->i2cTempFifoName = makeDevName(devprefix, "_in_", ib*NDEVICES+1);
-	if (!brd->i2cTempFifoName) goto err;
-
-	// remove broken device file before making a new one
-	if ((sys_unlink(brd->i2cTempFifoName) < 0 && sys_errno != SYS_ENOENT)
-	    || sys_mkfifo(brd->i2cTempFifoName, 0666) < 0) {
-	    KLOG_ERR("error: unlink/mkfifo %s: %s\n",
-		     brd->i2cTempFifoName, sys_strerror(sys_errno));
-	    error = -convert_sys_errno(sys_errno);
-	    goto err;
-	}
-
-	/* allocate thread stacks at init module time */
-	if (!(brd->reset_thread_stack = kmalloc(THREAD_STACK_SIZE)))
-	    goto err;
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	if (!(brd->acq_thread_stack = kmalloc(THREAD_STACK_SIZE)))
-	    goto err;
-#endif
     }
 
     KLOG_DEBUG("A2D init_module complete.\n");
 
-    return 0;
-  err:
+    /*
+     * Initialize and add the user-visible devices for the A/D functions
+     */
+    if ((error = alloc_chrdev_region(&A2DDevStart, 0, NumBoards, 
+				     DEVNAME_A2D)) < 0)
+    {
+	KLOG_ERR("Error %d allocating device major number for '%s'\n",
+		 -error, DEVNAME_A2D);
+        goto err;
+    }
+    else
+	KLOG_NOTICE("Got major device number %d for '%s'\n",
+		    MAJOR(A2DDevStart), DEVNAME_A2D);
+    
+    cdev_init(&A2DCdev, &ncar_a2d_fops);
+    if ((error = cdev_add(&A2DCdev, A2DDevStart, NumBoards)) < 0)
+    {
+	KLOG_ERR("cdev_add() for NCAR A/D failed!\n");
+	goto err;
+    }
 
+    /*
+     * Initialize and add the user-visible devices for I2C board temperature
+     */
+    if ((error = alloc_chrdev_region(&I2CTempDevStart, 0, NumBoards, 
+				     DEVNAME_A2D_TEMP)) < 0)
+    {
+	KLOG_ERR("Error %d allocating device major number for '%s'\n",
+		 -error, DEVNAME_A2D_TEMP);
+        goto err;
+    }
+    else
+	KLOG_NOTICE("Got major device number %d for '%s'\n",
+		    MAJOR(I2CTempDevStart), DEVNAME_A2D_TEMP);
+    
+    cdev_init(&I2CTempCdev, &i2c_temp_fops);
+    if ((error = cdev_add(&I2CTempCdev, I2CTempDevStart, NumBoards)) < 0)
+    {
+	KLOG_ERR("cdev_add() for NCAR A/D temperature sensors failed!\n");
+	goto err;
+    }
+
+    return 0;
+
+  err:
+    
     if (BoardInfo) {
 	for (ib = 0; ib < NumBoards; ib++) {
 	    struct A2DBoard* brd = BoardInfo + ib;
-	    if (brd->reset_thread_stack) kfree(brd->reset_thread_stack);
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	    if (brd->acq_thread_stack) kfree(brd->acq_thread_stack);
-#endif
 
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	    sys_sem_destroy(&brd->acq_sem);
-#endif
-	    if (brd->a2dFifoName) {
-		sys_unlink(brd->a2dFifoName);
-		kfree(brd->a2dFifoName);
-	    }
-
-	    if (brd->i2cTempFifoName) {
-		sys_unlink(brd->i2cTempFifoName);
-		kfree(brd->i2cTempFifoName);
-	    }
-
-	    if (brd->ioctlhandle) closeIoctlFIFO(brd->ioctlhandle);
-	    brd->ioctlhandle = 0;
+//XX	    CLOSE USER-SPACE DEVICES
 
 	    if (brd->addr)
 		release_region(brd->addr, A2DIOWIDTH);
@@ -2024,4 +1965,3 @@ init_module()
     BoardInfo = 0;
     return error;
 }
-# endif // ifdef NOTDEF
