@@ -55,11 +55,7 @@ main()
   printf("/dev/usbtwod opened\n");
 
   // Test sending tas.
-  sendTAS(125.0);
-
-  // This is to get the simulater started, it waits for the 1st write.
-  n = write(fd, rec.data, 3);
-  printf("write n = %d\n", n);
+  printf("send tas ioctl = %d\n", sendTAS(125.0));
 
   for (i = 0; i < 1000; )
   {
