@@ -21,7 +21,8 @@
 
 #ifdef __KERNEL__
 
-#ifdef CONFIG_ARCH_VIPER
+#ifdef CONFIG_ARCH_VIPER  /* Arcom Viper */
+
 #include <asm/arch/viper.h>
 #define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
@@ -39,14 +40,13 @@
     n;                                                                  \
 })
 
-#elsif defined(CONFIG_MACH_ARCOM_MERCURY)
+#elif defined(CONFIG_MACH_ARCOM_MERCURY) /* Arcom Mercury (or Vulcan) */
 
-/* Arcom Mercury (or Vulcan) */
 #include <asm/irq.h>
 #define SYSTEM_ISA_IOPORT_BASE 0x0
 #define SYSTEM_ISA_IOMEM_BASE 0x0  /* ? */
 /* 
- * On the Mercury/Vulcan, most of the ISA interrupts show up at GPIO
+ * On the Mercury/Vulcan, most of the ISA interrupts are routed to GPIO
  * pins on the processor.  Handle those mappings here.
  */
 #define GET_SYSTEM_ISA_IRQ(x) \
@@ -64,7 +64,7 @@
     n;									\
 })
 
-#else
+#else  /* nothing machine/architecture specific */
 
 #define SYSTEM_ISA_IOPORT_BASE 0x0
 #define SYSTEM_ISA_IOMEM_BASE 0x0
