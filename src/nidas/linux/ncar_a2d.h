@@ -13,48 +13,30 @@ Original author: Grant Gray
 Revisions:
 */
 
+/* 
+ * This header is also included from user-side code that wants to get the
+ * values of the ioctl commands, and the definition of the structures.
+ */
+
 #ifndef NCAR_A2D_H
 #define NCAR_A2D_H
 
 #include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
 
+/* 
+ * User programs need these for the _IO macros, but kernel modules get
+ * theirs elsewhere.
+ */
 #ifndef __KERNEL__
-/* User programs need this for the _IO macros, but kernel
- * modules get their's elsewhere.
- */
-#include <sys/ioctl.h>
-#include <sys/types.h>
+#  include <sys/ioctl.h>
+#  include <sys/types.h>
 #endif
 
-/* This header is also included from user-side code that
- * wants to get the values of the ioctl commands, and
- * the definition of the structures.
- */
-
-//Conveniences
-#ifndef US
-#define US unsigned short
-#endif
-#ifndef UL
-#define UL unsigned long
-#endif
-#ifndef UC
-#define UC unsigned char
-#endif
-#ifndef SS
-#define SS short
-#endif
-#ifndef SL
-#define SL long
-#endif
-#ifndef SC
-#define SC char
-#endif
 
 #define MAXA2DS         8       // Max A/D's per card
 #define A2D_MAX_RATE    5000
 #define INTRP_RATE      100
-#define RATERATIO       (A2D_MAX_RATE/INTRP_RATE)
+#define RATERATIO       (A2D_MAX_RATE / INTRP_RATE)
 
 
 // A/D Filter configuration file parameters
@@ -86,7 +68,7 @@ typedef struct
     int  Hz[MAXA2DS];      // Sample rate in Hz. 0 is off.
     int  offset[MAXA2DS];  // Offset flags
     long latencyUsecs;     // buffer latency in micro-seconds
-    US   filter[CONFBLOCKS*CONFBLLEN+1]; // Filter data
+    unsigned short filter[CONFBLOCKS*CONFBLLEN+1]; // Filter data
 } A2D_SET;
 
 typedef struct
@@ -166,6 +148,10 @@ typedef struct
 /********  Start of definitions used by the driver module only **********/
 
 #include <linux/sem.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/kfifo.h>
+#include <linux/wait.h>
 
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
@@ -233,7 +219,7 @@ typedef struct
 {
     dsm_sample_time_t timestamp; // timetag of sample
     dsm_sample_length_t size;    // number of bytes in data
-    SS data[RATERATIO*MAXA2DS];
+    short data[RATERATIO*MAXA2DS];
 } A2DSAMPLE;
 
 typedef struct
@@ -246,18 +232,11 @@ typedef struct
 struct A2DBoard {
     unsigned int addr;           // Base address of board
     unsigned int chan_addr;
-//    rtl_pthread_t setup_thread;
 
-//    rtl_pthread_t acq_thread;
+    struct tasklet_struct setupTasklet;
+    struct tasklet_struct getSampleTasklet;
+    struct tasklet_struct resetTasklet;
 
-//    rtl_pthread_t reset_thread;
-    void* reset_thread_stack;
-
-    struct sem acq_sem;           // 100Hz semaphore
-    int a2dfd;                   // File descriptor of RTL FIFO for A2D data
-    char* a2dFifoName;
-    int i2cTempfd;               // File descriptor of RTL FIFO for I2C Temp data
-    char* i2cTempFifoName;
     int i2cTempRate;             // rate to query I2C temperature sensor
     struct ioctlHandle* ioctlhandle;
     A2D_SET config;              // board configuration
@@ -265,8 +244,8 @@ struct A2DBoard {
     A2D_STATUS cur_status;       // status info maintained by driver
     A2D_STATUS prev_status;      // status info maintained by driver
     unsigned char requested[MAXA2DS]; // 1=channel requested, 0=isn't
-    int MaxHz;                        // Maximum requested A/D sample rate
-    int ttMsecAdj;                    // how much to adjust sample time-tags backwds
+    int MaxHz;                   // Maximum requested A/D sample rate
+    int ttMsecAdj;               // how much to adjust sample time-tags backwds
     int busy;
     int interrupted;
     size_t readCtr;
@@ -274,26 +253,25 @@ struct A2DBoard {
     int expectedFifoLevel;
     int master;
     int nreads;               // number of reads to empty fifo
-    int head;                 // pointer to head of buffer
-    int tail;                 // pointer to tail of buffer
     int latencyCnt;           // number of samples to buffer
     size_t sampleCnt;         // sample counter
 
     size_t nbadFifoLevel;
     size_t fifoNotEmpty;
-    size_t skippedSamples;    // discarded samples because of
-    // RTL FIFO sluggishness.
+    size_t skippedSamples;    // how many samples have we missed?
     int resets;               // number of board resets since last open
 
-    unsigned char buffer[A2D_BUFFER_SIZE];    // data buffer
-    US OffCal;                // offset and cal bits
-    UC FIFOCtl;               // hardware FIFO control word storage
+    struct kfifo* buffer;     // holds data for transfer to user space
+    spinlock_t bufLock;       // lock for data buffer
+    wait_queue_head_t rwaitq; // wait queue for user reads
+
+    unsigned short OffCal;    // offset and cal bits
+    unsigned char FIFOCtl;    // hardware FIFO control word storage
     short i2cTempData;        // last measured temperature
     unsigned char i2c;        // data byte written to I2C
     char invertCounts;        // whether to invert counts from this A2D
     char doTemp;              // fetch temperature after next A2D scan
     char discardNextScan;     // should we discard the next scan
-    int readActive;
     int enableReads;
 };
 
