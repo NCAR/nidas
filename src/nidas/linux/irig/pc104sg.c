@@ -90,6 +90,9 @@ static unsigned char IntMask = 0x1f;
 unsigned long volatile MsecClock[2] = { 0, 0 };
 unsigned char volatile ReadClock = 0;
 
+EXPORT_SYMBOL(MsecClock);
+EXPORT_SYMBOL(ReadClock);
+
 /**
  * local clock variables.
  */
@@ -305,6 +308,8 @@ register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
     return 0;
 }
 
+EXPORT_SYMBOL(register_irig_callback);
+
 /**
  * Modules call this function to un-register their callbacks.
  * Note: this cannot be called from within a callback function
@@ -335,6 +340,8 @@ unregister_irig_callback(irig_callback_t* callback,
 
     up(&CbListMutex);
 }
+
+EXPORT_SYMBOL(unregister_irig_callback);
 
 /**
  * Cleanup function that un-registers all callbacks.
