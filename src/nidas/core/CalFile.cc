@@ -244,6 +244,7 @@ void CalFile::search(const n_u::UTime& tsearch)
     }
     nline -= tmpLines.size();
     savedLines = tmpLines;
+    if (savedLines.size() > 1) eofState = false;
 }
 
 n_u::UTime CalFile::parseTime()
@@ -455,6 +456,7 @@ void CalFile::openInclude(const string& name)
     // We will read records from the include file until
     // they are equal or later than this time.
     timeAfterInclude = readTime();
+    // cerr << "timeAfterInclude=" << timeAfterInclude.toUsecs() << endl;
 
     include = new CalFile();
     include->setPath(getPath());

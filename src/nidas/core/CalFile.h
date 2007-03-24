@@ -218,7 +218,10 @@ public:
     /**
      * Have we reached eof.
      */
-    bool eof() const { return eofState; }
+    bool eof() const {
+        if (include) return false;
+        return eofState;
+    }
 
     const std::string& getTimeZone() const { return timeZone; }
 
