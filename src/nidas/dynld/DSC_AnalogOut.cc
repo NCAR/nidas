@@ -110,6 +110,10 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
         cout = std::max(cout,conv.cmin);
         cout = std::min(cout,conv.cmax);
         out.counts[which[i]] = cout;
+#ifdef DEBUG
+        cerr << "which[" << i << "]=" << which[i] <<
+            ", out.counts[" << which[i] << "]=" << out.counts[which[i]] << endl;
+#endif
     }
 
     if (::ioctl(fd,DMMAT_D2A_SET,&out) < 0)

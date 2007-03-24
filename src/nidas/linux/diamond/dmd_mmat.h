@@ -54,6 +54,7 @@ struct DMMAT_A2D_Status
         size_t missedSamples;
         size_t fifoOverflows;	// A2D FIFO has overflowed (error)
         size_t fifoUnderflows;	// A2D FIFO less than expected level (error)
+        size_t fifoEmpty;	// A2D FIFO empty (error)
         size_t fifoNotEmpty;	// A2D FIFO not empty after reading
         size_t irqsReceived;
 };
@@ -81,7 +82,7 @@ struct DMMAT_A2D_Status
     _IOR(DMMAT_IOC_MAGIC,1,struct DMMAT_A2D_Status)
 #define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,2)
 #define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,3)
-#define DMMAT_A2D_GET_NCHAN  _IO(DMMAT_IOC_MAGIC,4)
+#define DMMAT_A2D_GET_NCHAN  _IOR(DMMAT_IOC_MAGIC,4,int)
 #define DMMAT_A2D_SET_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
 
@@ -313,7 +314,7 @@ struct DMMAT_A2D
 
         struct DMMAT_A2D_Status status;
 
-        char* deviceName;
+        char deviceName[32];
         struct cdev cdev;
 
         // methods which may have a different implementation
@@ -335,9 +336,6 @@ struct DMMAT_A2D
         struct tasklet_struct tasklet;          // filter tasklet
 #else
         struct work_struct worker;
-#ifdef USE_MY_WORK_QUEUE
-        struct workqueue_struct* work_queue;
-#endif
 #endif
         struct a2d_bh_data bh_data;       // data for use by bottom half
 
@@ -399,7 +397,7 @@ struct DMMAT_CNTR {
 
         struct cdev cdev;
 
-        char* deviceName;
+        char deviceName[32];
 
         struct DMMAT_CNTR_Status status;
 
@@ -436,7 +434,7 @@ struct DMMAT_D2A {
 
         struct cdev cdev;
 
-        char* deviceName;
+        char deviceName[32];
 
         struct DMMAT_D2A_Conversion conversion;
 

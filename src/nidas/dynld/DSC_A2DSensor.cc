@@ -79,8 +79,9 @@ void DSC_A2DSensor::open(int flags)
 
     init();
 
-    int nchans;
-    ioctl(DMMAT_A2D_GET_NCHAN,&nchans,sizeof(int));
+    int nchans = 0;
+
+    ioctl(DMMAT_A2D_GET_NCHAN,&nchans,sizeof(nchans));
 
     if (channels.size() > (unsigned)nchans) {
         ostringstream ost;

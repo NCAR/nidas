@@ -32,7 +32,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_PulseCounter)
 
 DSC_PulseCounter::DSC_PulseCounter() :
-    DSMSensor()
+    DSMSensor(),sampleId(0),msecPeriod(MSECS_PER_SEC),
+    cvtr(0)
 {
     setLatency(0.1);
 }
@@ -63,7 +64,9 @@ void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
 
     init();
 
-    ioctl(DMMAT_CNTR_START,0,0);
+    struct DMMAT_CNTR_Config cfg;
+    cfg.msecPeriod = msecPeriod;
+    ioctl(DMMAT_CNTR_START,&cfg,sizeof(cfg));
 }
 
 
@@ -81,10 +84,12 @@ void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
             "must have exactly one sample");
     const SampleTag* stag = *getSampleTags().begin();
 
-    if (stag->getVariables().size() != 0)
+    if (stag->getVariables().size() != 1)
         throw n_u::InvalidParameterException(getName(),"variable",
             "sample must contain exactly one variable");
     sampleId = stag->getId();
+
+    msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
     cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
@@ -121,7 +126,7 @@ bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results
     osamp->setId(sampleId);
     float *fp = osamp->getDataPtr();
 
-    // Note: we lose significant digits here when converting
+    // Note: we lose digits here when converting
     // from unsigned long to floats.
     *fp = (float)cvtr->ulongValue(insamp->getConstVoidDataPtr());
 

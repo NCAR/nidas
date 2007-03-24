@@ -20,6 +20,7 @@
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/NearestResamplerAtRate.h>
+#include <nidas/util/Logger.h>
 
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/Version.h>
@@ -237,7 +238,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:E:hr:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:E:hr:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -476,6 +477,11 @@ int DataPrep::main(int argc, char** argv)
 {
     setupSignals();
 
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_INFO;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
+
     DataPrep dump;
 
     int res;
@@ -627,6 +633,7 @@ int DataPrep::run() throw()
 	    // read the first header to get the project configuration
 	    // name
 	    sis.reset(new SortedSampleInputStream(fset));
+            sis->setSorterLengthMsecs(sorterLength);
             sis->setHeapBlock(true);
 	    sis->init();
 	    sis->readHeader();

@@ -72,6 +72,8 @@ private:
 
     dsm_sample_id_t sampleId;
 
+    int msecPeriod;
+
     const nidas::util::EndianConverter* cvtr;
 
 };
