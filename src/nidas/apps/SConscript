@@ -7,10 +7,9 @@
 ##
 Import('env')
 myenv = env.Copy()
+arch = myenv['ARCH']
 
 # -D__cpluscplus   -fno-common  -fno-builtin
-# Import('arm_env')
-# src_arm_env = arm_env.Copy()
 
 ## myenv.AppendUnique(CPPPATH = Split("""
 ##       #dsm/class
@@ -25,6 +24,15 @@ myenv.AppendUnique(LIBS = Split("""
     dl
     XmlRpc
     """))
+
+if arch == 'arm':
+    archapps=Split("""
+        ck_dout.cc
+    """)
+else:
+    archapps=Split("""
+    """)
+
 
 # ck_lams.cc
 apps = Split("""
@@ -65,7 +73,7 @@ apps = Split("""
 """)
 
 nodes = []
-for i in apps:
+for i in apps + archapps:
     nodes += myenv.Program( i )
 
 # suppress linking against nidas libraries

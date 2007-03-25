@@ -41,7 +41,7 @@ class DumpClient: public SampleClient
 public:
 
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
-    	FLOAT, IRIG } format_t;
+    	FLOAT, IRIG, LONG } format_t;
 
     DumpClient(dsm_sample_id_t,format_t,ostream&);
 
@@ -146,7 +146,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 	const short* sp =
 		(const short*) samp->getConstVoidDataPtr();
 	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
+	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(short); i++)
 	    ostr << setw(6) << sp[i] << ' ';
 	ostr << endl;
 	}
@@ -156,7 +156,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 	const unsigned short* sp =
 		(const unsigned short*) samp->getConstVoidDataPtr();
 	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
+	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(short); i++)
 	    ostr << setw(6) << sp[i] << ' ';
 	ostr << endl;
 	}
@@ -166,7 +166,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
 	ostr << setprecision(4) << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
+	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
 	    ostr << setw(10) << fp[i] << ' ';
 	ostr << endl;
 	}
@@ -186,6 +186,16 @@ bool DumpClient::receive(const Sample* samp) throw()
 	ostr << timestr << '.' << setw(6) << setfill('0') << tv.tv_usec <<
 		' ' << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << IRIGSensor::statusString(status) << ')';
+	ostr << endl;
+	}
+        break;
+    case LONG:
+	{
+	const long* lp =
+		(const long*) samp->getConstVoidDataPtr();
+	ostr << setfill(' ');
+	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(long); i++)
+	    ostr << setw(8) << lp[i] << ' ';
 	ostr << endl;
 	}
         break;
@@ -246,7 +256,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHIps:SUx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHILps:SUx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -268,6 +278,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'I':
 	    format = DumpClient::IRIG;
+	    break;
+	case 'L':
+	    format = DumpClient::LONG;
 	    break;
 	case 'p':
 	    processData = true;
@@ -348,6 +361,7 @@ Usage: " << argv0 << " -d dsmid -s sampleId [-p] [-x xml_file] [-A | -H | -S] in
     -F: floating point output (default for processed output)\n\
     -H: hex output (default for raw output)\n\
     -I: output of IRIG clock samples\n\
+    -L: signed long output\n\
     -S: signed short output (useful for samples from an A2D)\n\
     inputURL: data input (required). One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
