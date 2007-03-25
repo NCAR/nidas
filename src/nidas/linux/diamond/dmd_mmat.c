@@ -88,6 +88,7 @@ static void setTimerClock(struct DMMAT* brd,
 {
         unsigned char lobyte;
         unsigned char hibyte;
+
         /*
          * 82C54 control word:
          * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
@@ -95,76 +96,19 @@ static void setTimerClock(struct DMMAT* brd,
          * bits 3,2,1: mode: 0=interrupt on terminal count, 2=rate generator
          * bit 0: 0=binary 16 bit counter, 1=4 decade BCD
          */
-        unsigned char ctrl = 0;
-        int caddr = 0;
-        switch (clock) {
-        case 0:
-            ctrl = 0x00;	// select counter 0
-            caddr = 12;
-            break;
-        case 1:
-            ctrl = 0x40;	// select counter 1
-            caddr = 13;
-            break;
-        case 2:
-            ctrl = 0x80;	// select counter 2
-            caddr = 14;
-            break;
-        }
-
-        ctrl |= 0x30	// ls byte followed by ms byte
-            + (mode << 1);
+        unsigned char ctrl = (clock << 6) + 0x30 + (mode << 1);
 
         outb(ctrl,brd->addr + 15);
 
         lobyte = val & 0xff;
-        outb(lobyte,brd->addr + caddr);
+        outb(lobyte,brd->addr + 12 + clock);
         hibyte = val >> 8;
-        outb(hibyte,brd->addr + caddr);
+        outb(hibyte,brd->addr + 12 + clock);
 
-        KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
+        KLOG_DEBUG("ctrl=%#x, lobyte=%d,hibyte=%d\n",
             (int)ctrl,(int)lobyte,(int)hibyte);
 }
 
-static void setTimerClockLSB(struct DMMAT* brd,
-	int clock, int mode, unsigned short val)
-{
-        unsigned char lobyte;
-        /*
-         * 82C54 control word:
-         * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
-         * bits 5,4: 0=ctr latch, 1=r/w lsbyte only, 2=r/w msbyte, 3=lsbtye,msbyte
-         * bits 3,2,1: mode: 0=interrupt on terminal count, 2=rate generator
-         * bit 0: 0=binary 16 bit counter, 1=4 decade BCD
-         */
-        unsigned char ctrl = 0;
-        int caddr = 0;
-        switch (clock) {
-        case 0:
-            ctrl = 0x00;	// select counter 0
-            caddr = 12;
-            break;
-        case 1:
-            ctrl = 0x40;	// select counter 1
-            caddr = 13;
-            break;
-        case 2:
-            ctrl = 0x80;	// select counter 2
-            caddr = 14;
-            break;
-        }
-
-        ctrl |= 0x10	// ls byte
-            + (mode << 1);
-
-        outb(ctrl,brd->addr + 15);
-
-        lobyte = val & 0xff;
-        outb(lobyte,brd->addr + caddr);
-
-        KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d\n",
-            (int)ctrl,(int)lobyte,(int)hibyte);
-}
 /**
  * Read counter value in a 82C54 clock.
  * Works on both MM16AT and MM32XAT, assuming both have set
@@ -177,35 +121,22 @@ static unsigned long readLatchedTimer(struct DMMAT* brd,int clock)
         unsigned char lobyte;
         unsigned int hibyte;
         int value;
+
         /*
          * 82C54 control word:
          * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
          * bits 5,4: 0=ctr latch
+         * bits 3-0: don't care
          */
-        unsigned char ctrl = 0;
-        int caddr = 0;
-        switch (clock) {
-        case 0:
-            ctrl = 0x00;	// select counter 0
-            caddr = 12;
-            break;
-        case 1:
-            ctrl = 0x40;	// select counter 1
-            caddr = 13;
-            break;
-        case 2:
-            ctrl = 0x80;	// select counter 2
-            caddr = 14;
-            break;
-        }
+        unsigned char ctrl = clock << 6;
 
         outb(ctrl,brd->addr + 15);  // latch counter
 
-        lobyte = inb(brd->addr + caddr);
-        hibyte = inb(brd->addr + caddr);
+        lobyte = inb(brd->addr + 12 + clock);
+        hibyte = inb(brd->addr + 12 + clock);
         value = (hibyte << 8) + lobyte;
 
-        KLOG_DEBUG("ctrl=0x%x, lobyte=%d,hibyte=%d,value=%d\n",
+        KLOG_DEBUG("ctrl=%#x, lobyte=%d,hibyte=%d,value=%d\n",
             (int)ctrl,(int)lobyte,(int)hibyte,value);
 
         return value;
@@ -1080,7 +1011,10 @@ static int startMM16AT_CNTR(struct DMMAT_CNTR* cntr)
             outb(brd->itr_ctrl_val,brd->addr + 9);
         }
 
-        setTimerClock(cntr->brd,0,0,0);
+        // Use mode 2 on the 82C54 for pulse counting -
+        // it repeats indefinitely, generating interrupts
+        // when it rolls over.
+        setTimerClock(cntr->brd,0,2,0);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
 
@@ -1096,7 +1030,7 @@ static int startMM32AT_CNTR(struct DMMAT_CNTR* cntr)
         struct DMMAT* brd = cntr->brd;
         spin_lock_irqsave(&brd->reglock,flags);
         /*
-         * base+9, Control register
+         * base+9, Control register:
          *
          * bit 7: enable A/D interrupts
          * bit 6: enable dio interrupts
@@ -1109,7 +1043,10 @@ static int startMM32AT_CNTR(struct DMMAT_CNTR* cntr)
         brd->itr_ctrl_val |= 0x20;
         outb(brd->itr_ctrl_val,brd->addr + 9);
 
-        setTimerClock(cntr->brd,0,0,0);
+        // Use mode 2 on the 82C54 for pulse counting -
+        // it repeats indefinitely, generating interrupts
+        // when it rolls over.
+        setTimerClock(cntr->brd,0,2,0);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
@@ -1465,17 +1402,9 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
  */
 static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
 {
-        struct DMMAT* brd = cntr->brd;
-        /*
-        setTimerClockLSB(brd,0,0,0);
-        unsigned long cval = 65536 - readLatchedTimer(brd,0);
-        */
-        setTimerClock(brd,0,0,0);
-        brd->itr_ctrl_val |= 0x20;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
 
         cntr->rolloverSum += 65536;
-        KLOG_INFO("%s: rolloverSum=%ld\n",
+        KLOG_DEBUG("%s: rolloverSum=%ld\n",
             cntr->deviceName,cntr->rolloverSum);
         cntr->status.irqsReceived++;
         return IRQ_HANDLED;
@@ -1503,13 +1432,13 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
                 return result;
         }
 
-        if (status & brd->ad_itr_mask)
-                result = dmmat_a2d_handler(brd->a2d);
-        if (status & brd->cntr_itr_mask)
-                result = dmmat_cntr_handler(brd->cntr);
-
         // acknowledge interrupt
         outb(brd->itr_ack_val, brd->itr_ack_reg);
+
+        if (status & brd->cntr_itr_mask)
+                result = dmmat_cntr_handler(brd->cntr);
+        if (status & brd->ad_itr_mask)
+                result = dmmat_a2d_handler(brd->a2d);
 
         spin_unlock(&brd->reglock);
         return result;
@@ -2465,10 +2394,15 @@ static void cntr_timer_fn(unsigned long arg)
          * period.  Note that we don't reset the hardware counter.
          */
         spin_lock_irqsave(&brd->reglock,flags);
+
+        // timer counts down from 65536
         cval = 65536 - readLatchedTimer(brd,0);
+
         total = cntr->rolloverSum + cval - cntr->lastVal;
-        KLOG_DEBUG("lastVal=%d,cval=%ld,rollover=%ld,total=%ld\n",
-            cntr->lastVal,cval,cntr->rolloverSum,total);
+
+        KLOG_DEBUG("%s: lastVal=%d,cval=%ld,rollover=%ld,total=%ld\n",
+            cntr->deviceName,cntr->lastVal,cval,cntr->rolloverSum,total);
+
         cntr->rolloverSum = 0;
         spin_unlock_irqrestore(&brd->reglock,flags);
 
