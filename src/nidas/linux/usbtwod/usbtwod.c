@@ -498,7 +498,7 @@ error:
 static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
   int retval = -EINVAL;
-  unsigned char tas[3];
+  Tap2D encoded_tas;
 
   if (_IOC_TYPE(cmd) != USB2D_IOC_MAGIC)
     return -ENOTTY;
@@ -506,10 +506,10 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
   switch (cmd)
   {
     case USB2D_SET_TAS:
-      if (copy_from_user(tas, (void __user *)arg, 3))
+      if (copy_from_user(&encoded_tas, (void __user *)arg, 3))
         return -EFAULT;
 
-      retval = write_data(file, tas, 3);
+      retval = write_data(file, &encoded_tas, 3);
       if (retval == 3)
         retval = 0;
       break;

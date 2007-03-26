@@ -13,20 +13,10 @@
 
 sendTAS(float tas)
 {
-  unsigned char tx_tas[3], ntap, nmsec, ndiv;
-  size_t resolution = 25;
+  Tap2D tx_tas;
 
-  nmsec = 0;
-  ndiv = 0;
-
-  float freq = tas / resolution;
-  ntap = (1 - (1.0e6 / freq)) * 255;
-
-  tx_tas[0] = ntap;
-  tx_tas[1] = ndiv;
-  tx_tas[2] = nmsec;
-
-  ioctl(USB2D_SET_TAS, (unsigned long)tx_tas, 3);
+  TASToTap2D(&tx_tas, tas);
+  ioctl(USB2D_SET_TAS, (unsigned long)&tx_tas, 3);
 }
 
 main()
