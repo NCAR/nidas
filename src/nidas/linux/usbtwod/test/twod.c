@@ -19,13 +19,8 @@ sendTAS(float tas)
   nmsec = 0;
   ndiv = 0;
 
-  float freq = (float)(1.0e3 * (double)tas/(double)resolution);
-  if (freq <= 1000.0)
-    ntap = (unsigned char)(0.286 * freq - 144.4);
-  else if (freq > 2500.0)
-    ntap = (unsigned char)(0.0015 * freq + 225.88);
-  else
-    ntap = (unsigned char)(0.0323 * freq + 111.5);
+  float freq = tas / resolution;
+  ntap = (1 - (1.0e6 / freq)) * 255;
 
   tx_tas[0] = ntap;
   tx_tas[1] = ndiv;
