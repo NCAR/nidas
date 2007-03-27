@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/unistd.h>
 #include <linux/syscalls.h>
+#include <linux/version.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -39,15 +40,6 @@ MODULE_DESCRIPTION("NCAR A/D driver");
 #define DO_A2D_STATRD
 //#define TEMPDEBUG
 
-MODULE_PARM(IoPort, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
-MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
-
-MODULE_PARM(Invert, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
-MODULE_PARM_DESC(Invert, "Whether to invert counts, default=1(true)");
-
-MODULE_PARM(Master, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
-MODULE_PARM_DESC(Master, "Sets master A/D for each board, default=7");
-
 /* I/O port addresses of installed boards, 0=no board installed */
 static int IoPort[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
 
@@ -63,6 +55,20 @@ static int Master[MAX_A2D_BOARDS] = { 7, 7, 7, 7 };
  * set correctly in the firmware on the cards.
  */
 static int Invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1 };
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
+module_param_array(IoPort, int, NULL, 0);	// Do we want null for parm 3 ???
+module_param_array(Invert, int, NULL, 0);
+module_param_array(Master, int, NULL, 0);
+#else
+MODULE_PARM(IoPort, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
+MODULE_PARM(Invert, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
+MODULE_PARM(Master, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
+#endif
+
+MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
+MODULE_PARM_DESC(Invert, "Whether to invert counts, default=1(true)");
+MODULE_PARM_DESC(Master, "Sets master A/D for each board, default=7");
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int NumBoards = 0;
