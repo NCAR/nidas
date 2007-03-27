@@ -47,7 +47,7 @@ typedef struct _Tap2D {
 inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 {
     double freq = tas / resolution;
-    unsigned int ntap = (unsigned int)(1 - (1.0e6 / freq)) * 255;
+    unsigned int ntap = (unsigned int)((1 - (1.0e6 / freq)) * 255);
 
     t2d->vdiv = 0;      /* currently unused */
     t2d->nmsec = 0;     /* unused for USB probe */
