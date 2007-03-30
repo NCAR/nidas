@@ -75,6 +75,12 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
   cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
 }
 
+void TwoDC_USB::close() throw(n_u::IOException)
+{
+  _rtFeed->removeClient(this);
+  DSMSensor::close();
+}
+
 /*---------------------------------------------------------------------------*/
 bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
         throw()

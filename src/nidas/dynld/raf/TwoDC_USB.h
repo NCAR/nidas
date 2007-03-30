@@ -49,6 +49,9 @@ public:
   open(int flags) throw(nidas::util::IOException);
 
   virtual void
+  close() throw(nidas::util::IOException);
+
+  virtual void
   fromDOMElement(const xercesc::DOMElement *)
     throw(nidas::util::InvalidParameterException);
 
