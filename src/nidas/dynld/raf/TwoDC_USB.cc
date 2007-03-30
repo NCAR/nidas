@@ -66,10 +66,11 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
 
   cerr << __PRETTY_FUNCTION__ << "open-begin" << endl;
 
-
-
   // Shut the probe down until a valid TAS comes along.
   sendTrueAirspeed(0.0);
+
+  _rtFeed = nidas::core::ReadDerived::getInstance();
+  _rtFeed->addClient(this);
 
   cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
 }
@@ -124,6 +125,13 @@ void TwoDC_USB::fromDOMElement(const xercesc::DOMElement * node)
 }
 
 /*---------------------------------------------------------------------------*/
+void TwoDC_USB::derivedDataNotify(const nidas::core::ReadDerived * s) throw()
+{
+std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
+  sendTrueAirspeed(s->getTrueAirspeed());
+}
+
+/*---------------------------------------------------------------------------*/
 void TwoDC_USB::sendTrueAirspeed(float tas)
 {
   unsigned char tx_tas[3], ntap, nmsec, ndiv;
@@ -159,5 +167,12 @@ void TwoDC_USB::sendTrueAirspeed(float tas)
   tx_tas[1] = ndiv;
   tx_tas[2] = nmsec;
 
-  ioctl(USB2D_SET_TAS, tx_tas, 3);
+  try
+  {
+    ioctl(USB2D_SET_TAS, tx_tas, 3);
+  }
+  catch (const n_u::IOException& e)
+  {
+    n_u::Logger::getInstance()->log(LOG_WARNING,"%s", e.what());
+  }
 }

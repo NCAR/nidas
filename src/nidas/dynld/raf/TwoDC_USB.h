@@ -19,6 +19,7 @@
 #define _nidas_dynld_raf_2dc_usb_h_
 
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/ReadDerived.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -31,7 +32,7 @@ using namespace nidas::core;
  * for a PMS1D-260X, Pulse Counting, and the APN-232 Radar Altimeter.
  * Digital in/out coming soon.
  */
-class TwoDC_USB : public DSMSensor {
+class TwoDC_USB : public DSMSensor, public DerivedDataClient {
 
 public:
   TwoDC_USB();
@@ -44,18 +45,24 @@ public:
   /**
    * open the sensor and perform any intialization to the driver.
    */
-  void
+  virtual void
   open(int flags) throw(nidas::util::IOException);
 
-  void
+  virtual void
   fromDOMElement(const xercesc::DOMElement *)
     throw(nidas::util::InvalidParameterException);
 
-  bool
+  virtual bool
   process(const Sample * samp, std::list<const Sample *>& results)
 	throw();
 
+  virtual void
+  derivedDataNotify(const nidas::core::ReadDerived * s) throw();
+
+
 protected:
+
+  nidas::core::ReadDerived * _rtFeed;
 
   // Probe produces Big Endian.
   static const nidas::util::EndianConverter * toLittle;

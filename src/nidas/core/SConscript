@@ -91,6 +91,7 @@ headers = [ Split("""
     ProjectConfigs.h
     RemoteSerialConnection.h
     RemoteSerialListener.h
+    ReadDerived.h
     Resampler.h
     RTL_DevIoctl.h
     RTL_DevIoctlStore.h
@@ -171,6 +172,7 @@ sources = [ Split("""
     PortSelectorTest.cc
     Project.cc
     ProjectConfigs.cc
+    ReadDerived.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc
     RTL_DevIoctl.cc
