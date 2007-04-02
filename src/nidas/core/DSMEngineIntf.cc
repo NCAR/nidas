@@ -29,7 +29,7 @@ namespace n_u = nidas::util;
 
 void Start::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  DSMEngine::getInstance()->mainStart();
+  DSMEngine::getInstance()->start();
   result = "DSM started";
   cerr << &result << endl;
 }
@@ -37,7 +37,7 @@ void Start::execute(XmlRpcValue& params, XmlRpcValue& result)
 
 void Stop::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  DSMEngine::getInstance()->mainStop();
+  DSMEngine::getInstance()->stop();
   result = "DSM stopped";
   cerr << &result << endl;
 }
@@ -45,7 +45,7 @@ void Stop::execute(XmlRpcValue& params, XmlRpcValue& result)
 
 void Restart::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  DSMEngine::getInstance()->mainRestart();
+  DSMEngine::getInstance()->restart();
   result = "DSM restarted";
   cerr << &result << endl;
 }
@@ -53,7 +53,7 @@ void Restart::execute(XmlRpcValue& params, XmlRpcValue& result)
 
 void Quit::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-  DSMEngine::getInstance()->mainQuit();
+  DSMEngine::getInstance()->quit();
   result = "DSM quit";
   cerr << &result << endl;
 }

@@ -23,6 +23,7 @@
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/DSMEngineIntf.h>
 #include <nidas/core/XMLException.h>
+#include <nidas/core/ReadDerived.h>
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/Logger.h>
@@ -30,8 +31,6 @@
 #include <xercesc/dom/DOMDocument.hpp>
 
 namespace nidas { namespace core {
-
-class DSMRunstring;
 
 /**
  * A singleton class that drives an ADS3 data collection box.
@@ -80,16 +79,16 @@ public:
     void usage(const char* argv0);
 
     /** Starts the main loop (for the XMLRPC call). */
-    void mainStart();
+    void start();
 
     /** Stops the main loop (for the XMLRPC call). */
-    void mainStop();
+    void stop();
 
     /** Restarts the main loop (for the XMLRPC call). */
-    void mainRestart();
+    void restart();
 
     /** Quits the main loop (for the XMLRPC call). */
-    void mainQuit();
+    void quit();
 
     SampleClock* getSampleClock() { return _clock; }
 
@@ -136,9 +135,9 @@ private:
 
     void connectOutputs() throw(nidas::util::IOException);
 
-    void wait() throw(nidas::util::Exception);
+    void interrupt();
 
-    void interrupt() throw(nidas::util::Exception);
+    void deleteDataThreads();
 
     /**
      * Implementation of ConnectionRequester connected methods.
@@ -148,17 +147,24 @@ private:
 
     void disconnected(SampleOutput*) throw();
 
+    static void setupSignals();
+
+    /** Signal handler */
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
     static DSMEngine* _instance;
+
+    bool _externalControl;
+
+    enum run_states { CONFIG, INIT, RUNNING, STOPPED, ERROR } _runState;
+
+    enum next_states { STOP, START, QUIT, RESTART } _nextState;
 
     /**
      * Whether to log messages on syslog (true) or stderr (false).
      * Set to false from -d runstring option, otherwise true.
      */
     bool _syslogit;
-
-    /** -w runstring option. If user wants to wait for the XmlRpc
-     * 'start' cammand. */
-    bool _wait;
 
     /** Name of XML configuration file. If empty, multicast for config. */
     std::string _configFile;
@@ -168,16 +174,10 @@ private:
      */
     nidas::util::Inet4SocketAddress _mcastSockAddr;
 
-    /**  main loop "thread" control flags. */
-    bool          _run;
-    bool          _quit;
-    bool          _interrupt;
+    /**
+     * Condition variable to wait on for external command.
+     */
     nidas::util::Cond _runCond;
-
-    static void setupSignals();
-
-    /** Signal handler */
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
 
     Project*         _project;
 

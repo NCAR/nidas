@@ -131,11 +131,7 @@ public:
      * Interrupt this thread.  We catch this
      * interrupt so that we can pass it on the SensorOpener.
      */
-    void interrupt()
-    {
-        if (opener.isRunning()) opener.interrupt();
-	Thread::interrupt();
-    }
+    void interrupt();
 
     /**
      * Join this thread.

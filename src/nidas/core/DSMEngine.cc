@@ -39,8 +39,9 @@ DSMEngine* DSMEngine::_instance = 0;
 int DSMEngine::rtlinux = -1;	// unknown
 
 DSMEngine::DSMEngine():
-    _syslogit(true),_wait(false),
-    _interrupt(false),_runCond("_runCond"),_project(0),
+    _externalControl(false),_runState(STOPPED),_nextState(START),
+    _syslogit(true),
+    _runCond("_runCond"),_project(0),
     _dsmConfig(0),_selector(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
@@ -154,7 +155,8 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    return 1;
 	    break;
 	case 'w':
-	    _wait = true;
+            _externalControl = true;
+	    _nextState = STOP;
 	    break;
 	case '?':
 	    usage(argv[0]);
@@ -238,146 +240,234 @@ void DSMEngine::run() throw()
     DOMDocument* projectDoc = 0;
 
     // start the xmlrpc control thread
-    _xmlrpcThread = new DSMEngineIntf();
-    _xmlrpcThread->start();
+    if (_externalControl) {
+        _xmlrpcThread = new DSMEngineIntf();
+        _xmlrpcThread->start();
+    }
 
-    // default the loop to run only once
-    _quit = true;
-    do {
-      // purge members before re-starting the loop
-      if (_selector) {
-        _selector->interrupt();
-        _selector->join();
-        delete _selector;	// this closes any still-open sensors
-        _selector = 0;
-      }
-      if (_project) {
+    for (; _nextState != QUIT; ) {
+
+        if (_runState == ERROR && _nextState != STOP) sleep(15);
+
+        // cleanup before re-starting the loop
+        deleteDataThreads();
+
+        if (projectDoc) {
+            projectDoc->release();
+            projectDoc = 0;
+        }
+        if (_project) {
+            delete _project;
+            _project = 0;
+            _dsmConfig = 0;
+        }
+
+        if (_nextState == STOP) {
+            _runState = STOPPED;
+            // wait on the _runCond condition variable
+            _runCond.lock();
+            while (_nextState == STOP) _runCond.wait();
+            _runCond.unlock();
+        }
+        if (_nextState == RESTART) _nextState = START;
+        if (_nextState != START) continue;
+        _runState = CONFIG;
+
+        // first fetch the configuration
+        try {
+            if (_configFile.length() == 0)
+                projectDoc = requestXMLConfig(_mcastSockAddr);
+            else {
+                // expand environment variables in name
+                string expName = Project::expandEnvVars(_configFile);
+                projectDoc = parseXMLConfigFile(expName);
+            }
+        }
+        catch (const XMLException& e) {
+            _logger->log(LOG_ERR,e.what());
+            _runState = ERROR;
+            continue;
+        }
+        catch (const n_u::Exception& e) {
+            // DSMEngine::interrupt() does an _xmlRequestSocket->close(),
+            // which will throw an IOException in requestXMLConfig 
+            // if we were still waiting for the XML config.
+            _logger->log(LOG_ERR,e.what());
+            _runState = ERROR;
+            continue;
+        }
+        _runState = INIT;
+
+        if (_nextState != START) continue;
+
+        // then initialize the DSMEngine
+        try {
+            initialize(projectDoc);
+        }
+        catch (const n_u::InvalidParameterException& e) {
+            _logger->log(LOG_ERR,e.what());
+            _runState = ERROR;
+            continue;
+        }
+        projectDoc->release();
+        projectDoc = 0;
+
+        if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0)
+              ReadDerived::createInstance(_dsmConfig->getDerivedDataSocketAddr());
+
+        // start your sensors
+        try {
+            openSensors();
+            connectOutputs();
+        }
+        catch (const n_u::IOException& e) {
+            _logger->log(LOG_ERR,e.what());
+            _runState = ERROR;
+            continue;
+        }
+        if (_nextState != START) continue;
+
+        // start the status Thread
+        _statusThread = new DSMEngineStat("DSMEngineStat");
+        _statusThread->start();
+        _runState = RUNNING;
+
+        try {
+            _selector->join();
+        }
+        catch (const n_u::Exception& e) {
+            _logger->log(LOG_ERR,e.what());
+        }
+    }   // Run loop
+
+    interrupt();
+    deleteDataThreads();
+
+    if (projectDoc) {
+        projectDoc->release();
+        projectDoc = 0;
+    }
+    if (_project) {
         delete _project;
         _project = 0;
         _dsmConfig = 0;
-      }
-      // stop/join the status Thread
-      if (_statusThread) {
-	  _statusThread->cancel();
-	  _statusThread->join();
-	  delete _statusThread;
-	  _statusThread = 0;
-      }
+    }
 
-      if (_wait) {
-	_quit = false;
-        _logger->log(LOG_DEBUG,"wait on the _runCond condition variable...");
-        // wait on the _runCond condition variable
-        _runCond.lock();
-        while (!_run)
-          _runCond.wait();
-        _run = false;
-        _runCond.unlock();
-        if (_quit) continue;
-      }
-
-      if (projectDoc) {
-        projectDoc->release();
-        projectDoc = 0;
-      }
-      // first fetch the configuration
-      try {
-	if (_configFile.length() == 0)
-          projectDoc = requestXMLConfig(_mcastSockAddr);
-	else {
-	    // expand environment variables in name
-	    string expName = Project::expandEnvVars(_configFile);
-	    projectDoc = parseXMLConfigFile(expName);
-	}
-      }
-      catch (const XMLException& e) {
-	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-      catch (const n_u::Exception& e) {
-	// DSMEngine::interrupt() does an _xmlRequestSocket->close(),
-	// which will throw an IOException in requestXMLConfig 
-	// if we were still waiting for the XML config.
-	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-      if (_interrupt) continue;
-      // then initialize the DSMEngine
-      try {
-        if (projectDoc)
-          initialize(projectDoc);
-      }
-      catch (const n_u::InvalidParameterException& e) {
-	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-      projectDoc->release();
-      projectDoc = 0;
-
-      // start your sensors
-      try {
-	openSensors();
-	connectOutputs();
-      }
-      catch (const n_u::IOException& e) {
-	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-      if (_interrupt) continue;
-
-      // start the status Thread
-      _statusThread = new DSMEngineStat("DSMEngineStat");
-      _statusThread->start();
-
-      try {
-	wait();
-      }
-      catch (const n_u::Exception& e) {
-	_logger->log(LOG_ERR,e.what());
-	continue;
-      }
-    } while (!_quit);
-
-    if (projectDoc)
-      projectDoc->release();
+    if (_xmlrpcThread) {
+        try {
+            if (_xmlrpcThread->isRunning()) {
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "DSMEngine::interrupt, cancelling xmlrpcThread");
+                // if this is running under valgrind, then cancel doesn't
+                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
+                // _xmlrpcThread->cancel();
+                _xmlrpcThread->kill(SIGUSR1);
+            }
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "DSMEngine::interrupt, joining xmlrpcThread");
+           _xmlrpcThread->join();
+        }
+        catch(const n_u::Exception& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+            "xmlRpcThread: %s",e.what());
+        }
+    }
 
     _logger->log(LOG_NOTICE,"dsm shutting down");
 }
 
-void DSMEngine::mainStart()
+void DSMEngine::interrupt()
 {
-  _runCond.lock();
-  _run = true;
-  _runCond.signal();
-  _runCond.unlock();
+    // If DSMEngine is waiting for an XML connection, closing the
+    // _xmlRequestSocket here will cause an IOException in
+    // DSMEngine::requestXMLConfig().
+    if (_xmlRequestSocket) _xmlRequestSocket->close();
+
+    if (_statusThread) _statusThread->interrupt();
+    if (ReadDerived::getInstance()) ReadDerived::getInstance()->interrupt();
+    if (_selector) _selector->interrupt();
 }
 
-void DSMEngine::mainStop()
+void DSMEngine::deleteDataThreads()
 {
-  _runCond.lock();
-  _run = false;
-  _runCond.signal();
-  _runCond.unlock();
-  interrupt();
+    // This thread loops over sensors that have registered with it.
+    // They should un-register when they close, but it is
+    // probably wise to shut it down before closing the sensors.
+    if (ReadDerived::getInstance()) {
+        try {
+            if (ReadDerived::getInstance()->isRunning())
+                ReadDerived::getInstance()->kill(SIGUSR1);
+            ReadDerived::getInstance()->join();
+            ReadDerived::deleteInstance();
+        }
+        catch (const n_u::Exception& e) {
+            _logger->log(LOG_ERR,e.what());
+        }
+    }
+
+
+    // stop/join the status Thread. The status thread also loops
+    // over sensors.
+    if (_statusThread) {
+        try {
+            if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
+            _statusThread->join();
+        }
+        catch (const n_u::Exception& e) {
+            _logger->log(LOG_ERR,e.what());
+        }
+        delete _statusThread;
+        _statusThread = 0;
+    }
+
+    if (_selector) {
+        try {
+            _selector->join();
+        }
+        catch (const n_u::Exception& e) {
+            _logger->log(LOG_ERR,e.what());
+        }
+        delete _selector;	// this closes any still-open sensors
+        _selector = 0;
+    }
 }
 
-void DSMEngine::mainRestart()
+void DSMEngine::start()
 {
-  _runCond.lock();
-  _run = true;
-  _runCond.signal();
-  _runCond.unlock();
-  interrupt();
+    _runCond.lock();
+    _nextState = START;
+    _runCond.signal();
+    _runCond.unlock();
 }
 
-void DSMEngine::mainQuit()
+/*
+ * Stop data acquisition threads and wait for next command.
+ */
+void DSMEngine::stop()
 {
-  _runCond.lock();
-  _run  = true;
-  _runCond.signal();
-  _runCond.unlock();
-  interrupt();
-  _quit = true;
+    _runCond.lock();
+    _nextState = STOP;
+    _runCond.signal();
+    _runCond.unlock();
+    interrupt();
+}
+
+void DSMEngine::restart()
+{
+    _runCond.lock();
+    _nextState = RESTART;
+    _runCond.signal();
+    _runCond.unlock();
+    interrupt();
+}
+
+void DSMEngine::quit()
+{
+    _runCond.lock();
+    _nextState = QUIT;
+    _runCond.signal();
+    _runCond.unlock();
+    interrupt();
 }
 
 /* static */
@@ -389,7 +479,7 @@ void DSMEngine::setupSignals()
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
+
     struct sigaction act;
     sigemptyset(&sigset);
     act.sa_mask = sigset;
@@ -408,12 +498,13 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 	(siginfo ? siginfo->si_signo : -1),
 	(siginfo ? siginfo->si_errno : -1),
 	(siginfo ? siginfo->si_code : -1));
-                                                                                
     switch(sig) {
     case SIGHUP:
+      DSMEngine::getInstance()->restart();
+      break;
     case SIGTERM:
     case SIGINT:
-      DSMEngine::getInstance()->mainQuit();
+      DSMEngine::getInstance()->quit();
       break;
     }
 }
@@ -639,63 +730,6 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
     return;
 }
 
-void DSMEngine::interrupt() throw(n_u::Exception)
-{
-    _interrupt = true;
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"DSMEngine::interrupt() called");
-    if (_statusThread) {
-        try {
-            if (_statusThread->isRunning()) _statusThread->interrupt();
-            _statusThread->join();
-        }
-        catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine::interrupt, status thread: %s",e.what());
-        }
-    }
-    // If DSMEngine is waiting for an XML connection, closing the
-    // _xmlRequestSocket here will cause an IOException in
-    // DSMEngine::requestXMLConfig().
-    if (_xmlRequestSocket) _xmlRequestSocket->close();
-
-    if (_selector) {
-	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "DSMEngine::interrupt, interrupting SensorHandler");
-        _selector->interrupt();
-    }
-    // do not quit when controlled by XMLRPC
-    // TODO override this feature for Ctrl-C
-    if (!_wait) {
-        _quit = true;
-        try {
-            if (_xmlrpcThread && _xmlrpcThread->isRunning()) {
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "DSMEngine::interrupt, cancelling xmlrpcThread");
-                // if this is running under valgrind, then cancel doesn't
-                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
-                _xmlrpcThread->cancel();
-                // _xmlrpcThread->kill(SIGUSR1);
-            }
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine::interrupt, joining xmlrpcThread");
-            if (_xmlrpcThread) _xmlrpcThread->join();
-        }
-        catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-            "xmlRpcThread: %s",e.what());
-        }
-    }
-    else
-      _logger->log(LOG_ERR,"DSMEngine::interrupt wait on the _runCond condition variable...");
-}
-
-void DSMEngine::wait() throw(n_u::Exception)
-{
-    cerr << "DSMEngine::wait() waiting on _selector" << endl;
-    _selector->join();
-    cerr << "DSMEngine::wait() _selector joined" << endl;
-}
 
 /* static */
 bool DSMEngine::isRTLinux()

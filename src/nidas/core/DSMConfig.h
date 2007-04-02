@@ -19,6 +19,7 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleOutput.h>
+#include <nidas/util/Inet4SocketAddress.h>
 
 #include <list>
 
@@ -100,6 +101,16 @@ public:
      */
     std::string getTokenValue(const std::string& token) const;
 
+    void setDerivedDataSocketAddr(const nidas::util::Inet4SocketAddress& val)
+    {
+        derivedDataSocketAddr = val;
+    }
+
+    nidas::util::Inet4SocketAddress getDerivedDataSocketAddr() const
+    {
+        return derivedDataSocketAddr;
+    }
+
 protected:
 
     void removeSensor(DSMSensor* sensor);
@@ -135,6 +146,8 @@ private:
      * connections.  0=don't listen.
      */
     unsigned short remoteSerialSocketPort;	
+
+    nidas::util::Inet4SocketAddress derivedDataSocketAddr;
 
 };
 

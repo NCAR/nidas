@@ -318,6 +318,18 @@ int SensorHandler::run() throw(n_u::Exception)
 }
 
 /*
+ * Interrupt this thread.  We catch this
+ * interrupt so that we can pass it on the SensorOpener.
+ */
+void SensorHandler::interrupt()
+{
+    if (opener.isRunning()) opener.interrupt();
+    Thread::interrupt();
+    // send a byte on the notifyPipe to wake up select.
+    if (notifyPipe[1] >= 0) ::write(notifyPipe[1],this,1);
+}
+
+/*
  * Called from the main thread.
  */
 void SensorHandler::addSensor(DSMSensor *sensor)

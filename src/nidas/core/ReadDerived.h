@@ -18,7 +18,7 @@
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/ParseException.h>
-#include <nidas/util/ThreadSupport.h>
+#include <nidas/util/Thread.h>
 
 namespace nidas { namespace core {
 
@@ -26,33 +26,65 @@ namespace nidas { namespace core {
  * This class will read, parse and make available the parameters in the
  * onboard real-time broadcast of data.
  */
-class ReadDerived
+class ReadDerived : public nidas::util::Thread
 {
 public:
+
+  /**
+   * Constructor.  Generally the user does not call this
+   * constructor directly since in ordinary use it is a singleton.
+   * Instead, the first instance should be created with the static
+   * createInstance() method. A pointer to the singleton can be
+   * gotten with the static getInstance() method.
+   */
+  ReadDerived(const nidas::util::Inet4SocketAddress&)
+    throw(nidas::util::IOException);
+
+  ~ReadDerived();
+
   float getTrueAirspeed() const		{ return _tas; }
   float getAltitude() const		{ return _alt; }
   float getRadarAltitude() const	{ return _alt; }
 
-  int  getFd() const	{ return _udp->getFd(); }
+  int run() throw(nidas::util::Exception);
+
+  int  getFd() const
+  {
+      return _usock.getFd();
+  }
 
   /**
    * Read data callback.
    */
   void readData() throw(nidas::util::IOException,nidas::util::ParseException);
 
+  /**
+   * Add a client to ReadDerived.  The derivedDataNotify method of the
+   * client will be called when derived data is received.
+   */
   void addClient(DerivedDataClient * ddc);
+
   void removeClient(DerivedDataClient * ddc);
 
   /**
-   * Fetch the pointer to the instance of Looper
+   * Create the instance of ReadDerived.
+   */
+  static ReadDerived * createInstance(const nidas::util::Inet4SocketAddress&)
+    throw(nidas::util::IOException);
+
+  /**
+   * Delete the singleton instance of ReadDerived, shutting down the
+   * thread if is is running.
+   */
+  static void deleteInstance();
+
+  /**
+   * Fetch the pointer to the instance of ReadDerived.
    */
   static ReadDerived * getInstance();
 
 private:
-	ReadDerived();
-	~ReadDerived();
-
-        void notifyClients();
+    void notifyClients();
 
   static ReadDerived * _instance;
 
@@ -62,12 +94,15 @@ private:
 
   std::list<DerivedDataClient*> _clients;
 
+  /** 
+   * Socket for reading the derived data.
+   */
+  nidas::util::DatagramSocket _usock;
+
   /**
    * Parse the IWGADTS trivial broadcast.
    */
   bool parseIWGADTS(char s[]) throw(nidas::util::ParseException);
-
-  nidas::util::DatagramSocket * _udp;
 
   time_t _lastUpdate;	// Store last time we received a broadcast.
 

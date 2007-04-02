@@ -13,6 +13,7 @@
 */
 
 #include <nidas/core/ReadDerived.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 #include <iostream>
@@ -24,28 +25,49 @@ namespace n_u = nidas::util;
 
 /* static */
 ReadDerived * ReadDerived::_instance = 0;
+
 /* static */
 nidas::util::Mutex ReadDerived::_instanceMutex;
 
-
-ReadDerived::ReadDerived() : _tas(0), _alt(0), _radarAlt(0)
+ReadDerived::ReadDerived(const n_u::Inet4SocketAddress& addr)
+    throw(n_u::IOException): n_u::Thread("ReadDerived"),
+    _usock(addr),_tas(0), _alt(0), _radarAlt(0)
 {
-  _udp = new nidas::util::DatagramSocket(58802);
 }
 
 ReadDerived::~ReadDerived()
 {
-  _udp->close();
-  delete _udp;
+  _usock.close();
+}
+
+int ReadDerived::run() throw(nidas::util::Exception)
+{
+
+    for (;;) {
+        if (isInterrupted()) break;
+        try {
+            readData();
+        }
+        catch(const n_u::IOException& e) {
+            PLOG(("ReadDerived: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
+        }
+        catch(const n_u::ParseException& e) {
+            WLOG(("ReadDerived: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
+        }
+    }
+    return RUN_OK;
 }
 
 void ReadDerived::readData() throw(n_u::IOException,n_u::ParseException)
 {
   char buffer[5000];
-  size_t nBytes = _udp->recv(buffer, 5000, 0);
+  n_u::DatagramPacket packet(buffer,sizeof(buffer)-1);
 
-  if (nBytes == 0)
-    return;
+  _usock.receive(packet);
+  if (packet.getLength() == 0) return;
+
+  buffer[packet.getLength()] = 0;  // null terminate if nec.
+
 
   parseIWGADTS(buffer);
 
@@ -89,14 +111,45 @@ bool ReadDerived::parseIWGADTS(char buffer[])
   return true;
 }
 
-ReadDerived * ReadDerived::getInstance()
+ReadDerived * ReadDerived::createInstance(const n_u::Inet4SocketAddress & addr)
+    throw(n_u::IOException)
 {
   if (!_instance)
   {
     n_u::Synchronized autosync(_instanceMutex);
     if (!_instance)
-      _instance = new ReadDerived();
+      _instance = new ReadDerived(addr);
+      _instance->start();
   }
+  return _instance;
+}
+
+void ReadDerived::deleteInstance()
+{
+  if (!_instance)
+  {
+    n_u::Synchronized autosync(_instanceMutex);
+    if (_instance)
+      if (_instance->isRunning()) {
+          _instance->interrupt();
+          try {
+              // _instance->cancel();
+              // Send a SIGUSR1 signal, which should result in an
+              // EINTR on the socket read.
+              _instance->kill(SIGUSR1);
+              _instance->join();
+          }
+          catch(const n_u::Exception& e) {
+            PLOG(("ReadDerived: ") << "cancel/join:" << e.what());
+          }
+        }
+      _instance = 0;
+  }
+}
+
+
+ReadDerived * ReadDerived::getInstance()
+{
   return _instance;
 }
 

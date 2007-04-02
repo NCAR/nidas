@@ -182,6 +182,38 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		    string("dsm") + ": " + getName(), aname,aval);
 	        setRemoteSerialSocketPort(port);
 	    }
+            else if (aname == "derivedData") {
+                // format:  sock:addr:port or  sock::port
+                bool valOK = false;
+                if (aval.length() > 5 && aval.substr(0,5) == "sock:") {
+                    unsigned int colon = aval.find(':',5);
+
+                    if (colon < string::npos) {
+                        string straddr = aval.substr(5,colon);
+                        n_u::Inet4Address addr;
+                        // If no address part, it defaults to INADDR_ANY (0.0.0.0)
+                        if (straddr.length() > 0) {
+                            try {
+                                addr = n_u::Inet4Address::getByName(straddr);
+                            }
+                            catch(const n_u::UnknownHostException& e) {
+                                throw n_u::InvalidParameterException("dsm",aname,e.what());
+                            }
+                        }
+                            
+                        unsigned short port;
+                        istringstream ist(aval.substr(colon+1));
+                        ist >> port;
+                        if (!ist.fail()) {
+                            n_u::Inet4SocketAddress saddr(addr,port);
+                            setDerivedDataSocketAddr(saddr);
+                            valOK = true;
+                        }
+                    }
+                }
+                if (!valOK) throw n_u::InvalidParameterException(
+                        string("dsm") + ": " + getName(), aname,aval);
+	    }
             else if (aname == "ID");	// catalog entry
             else if (aname == "IDREF");	// already scanned
 	    else throw n_u::InvalidParameterException(
