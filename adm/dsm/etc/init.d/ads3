@@ -161,8 +161,8 @@ stop_app() {
         # cd $dsmpath
 	# start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
  	# 	--exec $DAEMON
- 	echo "sending HUP to dsm"
- 	pkill -HUP dsm
+ 	echo "sending TERM to dsm"
+ 	pkill -TERM dsm
  	i=0
  	while [ $i -lt 5 ]; do
 	 	sleep 2
