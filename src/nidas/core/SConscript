@@ -61,6 +61,8 @@ headers = [ Split("""
     CharacterSensor.h
     ConnectionRequester.h
     Datagrams.h
+    DerivedDataClient.h
+    DerivedDataReader.h
     DOMable.h
     DOMObjectFactory.h
     DSMCatalog.h
@@ -91,7 +93,6 @@ headers = [ Split("""
     ProjectConfigs.h
     RemoteSerialConnection.h
     RemoteSerialListener.h
-    ReadDerived.h
     Resampler.h
     RTL_DevIoctl.h
     RTL_DevIoctlStore.h
@@ -150,6 +151,7 @@ sources = [ Split("""
     CalFile.cc
     CharacterSensor.cc
     ConnectionRequester.cc
+    DerivedDataReader.cc
     DOMable.cc
     DOMObjectFactory.cc
     DSMCatalog.cc
@@ -172,7 +174,6 @@ sources = [ Split("""
     PortSelectorTest.cc
     Project.cc
     ProjectConfigs.cc
-    ReadDerived.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc
     RTL_DevIoctl.cc

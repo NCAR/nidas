@@ -19,7 +19,7 @@
 #define _nidas_dynld_raf_2dc_usb_h_
 
 #include <nidas/core/DSMSensor.h>
-#include <nidas/core/ReadDerived.h>
+#include <nidas/core/DerivedDataClient.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -60,12 +60,12 @@ public:
 	throw();
 
   virtual void
-  derivedDataNotify(const nidas::core::ReadDerived * s) throw();
+  derivedDataNotify(const nidas::core::DerivedDataReader * s) throw();
 
 
 protected:
 
-  nidas::core::ReadDerived * _rtFeed;
+  nidas::core::DerivedDataReader * _rtFeed;
 
   // Probe produces Big Endian.
   static const nidas::util::EndianConverter * toLittle;

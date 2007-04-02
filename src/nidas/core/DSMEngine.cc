@@ -313,7 +313,7 @@ void DSMEngine::run() throw()
         projectDoc = 0;
 
         if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0)
-              ReadDerived::createInstance(_dsmConfig->getDerivedDataSocketAddr());
+              DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
 
         // start your sensors
         try {
@@ -384,7 +384,7 @@ void DSMEngine::interrupt()
     if (_xmlRequestSocket) _xmlRequestSocket->close();
 
     if (_statusThread) _statusThread->interrupt();
-    if (ReadDerived::getInstance()) ReadDerived::getInstance()->interrupt();
+    if (DerivedDataReader::getInstance()) DerivedDataReader::getInstance()->interrupt();
     if (_selector) _selector->interrupt();
 }
 
@@ -393,12 +393,12 @@ void DSMEngine::deleteDataThreads()
     // This thread loops over sensors that have registered with it.
     // They should un-register when they close, but it is
     // probably wise to shut it down before closing the sensors.
-    if (ReadDerived::getInstance()) {
+    if (DerivedDataReader::getInstance()) {
         try {
-            if (ReadDerived::getInstance()->isRunning())
-                ReadDerived::getInstance()->kill(SIGUSR1);
-            ReadDerived::getInstance()->join();
-            ReadDerived::deleteInstance();
+            if (DerivedDataReader::getInstance()->isRunning())
+                DerivedDataReader::getInstance()->kill(SIGUSR1);
+            DerivedDataReader::getInstance()->join();
+            DerivedDataReader::deleteInstance();
         }
         catch (const n_u::Exception& e) {
             _logger->log(LOG_ERR,e.what());

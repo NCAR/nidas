@@ -7,14 +7,12 @@
 
     $LastChangedBy: cjw $
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/ReadDerived.h $
+    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/DerivedDataReader.h $
 
 */
 
-#ifndef _nidas_core_ReadDerived_h_
-#define _nidas_core_ReadDerived_h_
-
-#include <nidas/core/DerivedDataClient.h>
+#ifndef _nidas_core_DerivedDataReader_h_
+#define _nidas_core_DerivedDataReader_h_
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/ParseException.h>
@@ -22,11 +20,13 @@
 
 namespace nidas { namespace core {
 
+class DerivedDataClient;
+
 /**
  * This class will read, parse and make available the parameters in the
  * onboard real-time broadcast of data.
  */
-class ReadDerived : public nidas::util::Thread
+class DerivedDataReader : public nidas::util::Thread
 {
 public:
 
@@ -37,10 +37,10 @@ public:
    * createInstance() method. A pointer to the singleton can be
    * gotten with the static getInstance() method.
    */
-  ReadDerived(const nidas::util::Inet4SocketAddress&)
+  DerivedDataReader(const nidas::util::Inet4SocketAddress&)
     throw(nidas::util::IOException);
 
-  ~ReadDerived();
+  ~DerivedDataReader();
 
   float getTrueAirspeed() const		{ return _tas; }
   float getAltitude() const		{ return _alt; }
@@ -59,7 +59,7 @@ public:
   void readData() throw(nidas::util::IOException,nidas::util::ParseException);
 
   /**
-   * Add a client to ReadDerived.  The derivedDataNotify method of the
+   * Add a client to DerivedDataReader.  The derivedDataNotify method of the
    * client will be called when derived data is received.
    */
   void addClient(DerivedDataClient * ddc);
@@ -67,26 +67,26 @@ public:
   void removeClient(DerivedDataClient * ddc);
 
   /**
-   * Create the instance of ReadDerived.
+   * Create the instance of DerivedDataReader.
    */
-  static ReadDerived * createInstance(const nidas::util::Inet4SocketAddress&)
+  static DerivedDataReader * createInstance(const nidas::util::Inet4SocketAddress&)
     throw(nidas::util::IOException);
 
   /**
-   * Delete the singleton instance of ReadDerived, shutting down the
+   * Delete the singleton instance of DerivedDataReader, shutting down the
    * thread if is is running.
    */
   static void deleteInstance();
 
   /**
-   * Fetch the pointer to the instance of ReadDerived.
+   * Fetch the pointer to the instance of DerivedDataReader.
    */
-  static ReadDerived * getInstance();
+  static DerivedDataReader * getInstance();
 
 private:
     void notifyClients();
 
-  static ReadDerived * _instance;
+  static DerivedDataReader * _instance;
 
   static nidas::util::Mutex _instanceMutex;
 

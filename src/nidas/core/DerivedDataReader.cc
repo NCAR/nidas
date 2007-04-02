@@ -8,11 +8,12 @@
 
     $LastChangedBy: cjw $
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/ReadDerived.cc $
+    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/DerivedDataReader.cc $
  ********************************************************************
 */
 
-#include <nidas/core/ReadDerived.h>
+#include <nidas/core/DerivedDataReader.h>
+#include <nidas/core/DerivedDataClient.h>
 #include <nidas/util/Logger.h>
 
 #include <sstream>
@@ -24,23 +25,23 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-ReadDerived * ReadDerived::_instance = 0;
+DerivedDataReader * DerivedDataReader::_instance = 0;
 
 /* static */
-nidas::util::Mutex ReadDerived::_instanceMutex;
+nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
-ReadDerived::ReadDerived(const n_u::Inet4SocketAddress& addr)
-    throw(n_u::IOException): n_u::Thread("ReadDerived"),
+DerivedDataReader::DerivedDataReader(const n_u::Inet4SocketAddress& addr)
+    throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
     _usock(addr),_tas(0), _alt(0), _radarAlt(0)
 {
 }
 
-ReadDerived::~ReadDerived()
+DerivedDataReader::~DerivedDataReader()
 {
   _usock.close();
 }
 
-int ReadDerived::run() throw(nidas::util::Exception)
+int DerivedDataReader::run() throw(nidas::util::Exception)
 {
 
     for (;;) {
@@ -49,16 +50,16 @@ int ReadDerived::run() throw(nidas::util::Exception)
             readData();
         }
         catch(const n_u::IOException& e) {
-            PLOG(("ReadDerived: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
+            PLOG(("DerivedDataReader: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
         }
         catch(const n_u::ParseException& e) {
-            WLOG(("ReadDerived: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
+            WLOG(("DerivedDataReader: ") << _usock.getLocalSocketAddress().toString() << ": " << e.what());
         }
     }
     return RUN_OK;
 }
 
-void ReadDerived::readData() throw(n_u::IOException,n_u::ParseException)
+void DerivedDataReader::readData() throw(n_u::IOException,n_u::ParseException)
 {
   char buffer[5000];
   n_u::DatagramPacket packet(buffer,sizeof(buffer)-1);
@@ -75,7 +76,7 @@ void ReadDerived::readData() throw(n_u::IOException,n_u::ParseException)
 
 }
 
-bool ReadDerived::parseIWGADTS(char buffer[])
+bool DerivedDataReader::parseIWGADTS(char buffer[])
 	throw(n_u::ParseException)
 {
   if (memcmp(buffer, "IWG1", 4))
@@ -111,20 +112,20 @@ bool ReadDerived::parseIWGADTS(char buffer[])
   return true;
 }
 
-ReadDerived * ReadDerived::createInstance(const n_u::Inet4SocketAddress & addr)
+DerivedDataReader * DerivedDataReader::createInstance(const n_u::Inet4SocketAddress & addr)
     throw(n_u::IOException)
 {
   if (!_instance)
   {
     n_u::Synchronized autosync(_instanceMutex);
     if (!_instance)
-      _instance = new ReadDerived(addr);
+      _instance = new DerivedDataReader(addr);
       _instance->start();
   }
   return _instance;
 }
 
-void ReadDerived::deleteInstance()
+void DerivedDataReader::deleteInstance()
 {
   if (!_instance)
   {
@@ -140,7 +141,7 @@ void ReadDerived::deleteInstance()
               _instance->join();
           }
           catch(const n_u::Exception& e) {
-            PLOG(("ReadDerived: ") << "cancel/join:" << e.what());
+            PLOG(("DerivedDataReader: ") << "cancel/join:" << e.what());
           }
         }
       _instance = 0;
@@ -148,12 +149,12 @@ void ReadDerived::deleteInstance()
 }
 
 
-ReadDerived * ReadDerived::getInstance()
+DerivedDataReader * DerivedDataReader::getInstance()
 {
   return _instance;
 }
 
-void ReadDerived::addClient(DerivedDataClient * clnt)
+void DerivedDataReader::addClient(DerivedDataClient * clnt)
 {
     // prevent being added twice
     removeClient(clnt);
@@ -162,7 +163,7 @@ void ReadDerived::addClient(DerivedDataClient * clnt)
     _clientMutex.unlock();
 }
 
-void ReadDerived::removeClient(DerivedDataClient * clnt)
+void DerivedDataReader::removeClient(DerivedDataClient * clnt)
 {
   std::list<DerivedDataClient*>::iterator li;
   _clientMutex.lock();
@@ -172,7 +173,7 @@ void ReadDerived::removeClient(DerivedDataClient * clnt)
   }
   _clientMutex.unlock();
 }
-void ReadDerived::notifyClients()
+void DerivedDataReader::notifyClients()
 {
 
   /* make a copy of the list and iterate over the copy */

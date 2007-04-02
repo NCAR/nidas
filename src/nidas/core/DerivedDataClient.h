@@ -15,10 +15,9 @@
 #ifndef _nidas_core_DerivedDataClient_h_
 #define _nidas_core_DerivedDataClient_h_
 
+#include <nidas/core/DerivedDataReader.h>
 
 namespace nidas { namespace core {
-
-class ReadDerived;
 
 /**
  * Interface of a DerivedDataClient.
@@ -28,7 +27,7 @@ public:
 
   virtual ~DerivedDataClient() {}
 
-  virtual void derivedDataNotify(const ReadDerived * s) throw() = 0;
+  virtual void derivedDataNotify(const DerivedDataReader * s) throw() = 0;
 
 };
 

@@ -23,7 +23,7 @@
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/DSMEngineIntf.h>
 #include <nidas/core/XMLException.h>
-#include <nidas/core/ReadDerived.h>
+#include <nidas/core/DerivedDataReader.h>
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/Logger.h>
