@@ -81,6 +81,10 @@ function clicker(that) {
 <table border><tbody align='center' valign='top'>
 <tr>
 <td>
+<!--
+<center>flight number: rf02</center>
+<br>
+-->
 <!-- ----------------------------------------------------------------------- -->
 <!-- This form provides a selection of DSMs to control.  There are two       -->
 <!-- steps in this form: the selection of the dsm and the choice of action.  -->
@@ -92,7 +96,7 @@ function clicker(that) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='dsm[]' size="8" multiple="multiple"
+  <select name='dsm[]' size="9" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
     <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,12, '_')?>'>
@@ -121,7 +125,7 @@ function clicker(that) {
 </form>
 </td>
 <td>
-<img src='GV-top-456x402.jpg'>
+<img src='GV-top-228x201.jpg'>
 </td>
 </tr>
 <tr>
