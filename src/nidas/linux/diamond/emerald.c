@@ -29,6 +29,7 @@
 
 #include <linux/init.h>   /* module_init() */
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/moduleparam.h>
 
 #include <linux/kernel.h>   /* printk() */
@@ -53,7 +54,7 @@ static unsigned long ioport_base = VIPER_PC104IO_BASE;
 static unsigned long ioport_base = 0;
 #endif
 
-static int emerald_major =   EMERALD_MAJOR;
+static int emerald_major = EMERALD_MAJOR;
 static unsigned long ioports[EMERALD_MAX_NR_DEVS] = {0,0,0,0};
 static int emerald_nr_addrs = 0;
 static int emerald_nr_ok = 0;
@@ -61,8 +62,13 @@ static emerald_board* emerald_boards = 0;
 static emerald_port* emerald_ports = 0;
 static int emerald_nports = 0;
 
-module_param(emerald_major,int,S_IRUGO);
-module_param_array(ioports,ulong,&emerald_nr_addrs,S_IRUGO);	/* io port virtual address */
+module_param(emerald_major, int, S_IRUGO);
+#if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
+module_param_array(ioports, ulong, &emerald_nr_addrs, S_IRUGO);	/* io port virtual address */
+#else
+module_param_array(ioports, ulong, emerald_nr_addrs, S_IRUGO);	/* io port virtual address */
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module to initialize emerald serial port card");
 MODULE_LICENSE("Dual BSD/GPL");

@@ -12,10 +12,12 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/version.h>
+
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/module.h>
 #include <asm/uaccess.h>
 #include <linux/usb.h>
 #include <linux/poll.h>
@@ -72,7 +74,11 @@ static struct usb_twod_stats stats;
 
 static DECLARE_MUTEX (disconnect_sem);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 static void twod_rx_bulk_callback(struct urb * urb);
+#else
+static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs);
+#endif
 static ssize_t write_data(struct file *file, const char *user_buffer, size_t count);
 
 
@@ -167,7 +173,11 @@ exit:
   return retval;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 static void twod_rx_bulk_callback(struct urb * urb)
+#else
+static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
+#endif
 {
 #ifndef BLOCKING_READ
   int retval;
@@ -406,7 +416,11 @@ exit:
 
 
 /* -------------------------------------------------------------------- */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 static void twod_write_bulk_callback(struct urb *urb)
+#else
+static void twod_write_bulk_callback(struct urb *urb, struct pt_regs * regs)
+#endif
 {
   struct usb_twod * dev = (struct usb_twod *)urb->context;
 dbg("write_callback");
@@ -509,7 +523,7 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
       if (copy_from_user(&encoded_tas, (void __user *)arg, 3))
         return -EFAULT;
 
-      retval = write_data(file, &encoded_tas, 3);
+      retval = write_data(file, (const char *)&encoded_tas, 3);
       if (retval == 3)
         retval = 0;
       break;

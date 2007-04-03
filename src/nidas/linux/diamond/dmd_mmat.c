@@ -34,12 +34,10 @@ Revisions:
 static unsigned long ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 /* number of DMMAT boards in system (number of non-zero ioport values) */
 static int numboards = 0;
-module_param_array(ioports,ulong,&numboards,0);
 
 /* ISA irqs, required for each board. Can be shared. */
 static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
-module_param_array(irqs,int,&numirqs,0);
 
 /* board types: 0=DMM16AT, 1=DMM32XAT 
  * See #defines for DMM_XXXXX_BOARD)
@@ -48,14 +46,24 @@ module_param_array(irqs,int,&numirqs,0);
  */
 static int types[MAX_DMMAT_BOARDS] = { DMM32XAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
-module_param_array(types,int,&numtypes,0);
 
 /*
  * How is the D2A jumpered? Bipolar, unipolar, 5 or 10 volts.
  */
 static int d2aconfig[MAX_DMMAT_BOARDS] = { DMMAT_D2A_UNI_5, 0, 0, 0 };
 static int numd2aconfig = 0;
+
+#if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
+module_param_array(ioports,ulong,&numboards,0);
+module_param_array(irqs,int,&numirqs,0);
+module_param_array(types,int,&numtypes,0);
 module_param_array(d2aconfig,int,&numd2aconfig,0);
+#else
+module_param_array(ioports,ulong,numboards,0);
+module_param_array(irqs,int,numirqs,0);
+module_param_array(types,int,numtypes,0);
+module_param_array(d2aconfig,int,numd2aconfig,0);
+#endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
