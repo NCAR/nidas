@@ -69,7 +69,7 @@ void DerivedDataReader::readData() throw(n_u::IOException,n_u::ParseException)
 
   buffer[packet.getLength()] = 0;  // null terminate if nec.
 
-
+DLOG(("DerivedDataReader: ") << buffer);
   parseIWGADTS(buffer);
 
   notifyClients();

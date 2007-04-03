@@ -189,7 +189,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
                     unsigned int colon = aval.find(':',5);
 
                     if (colon < string::npos) {
-                        string straddr = aval.substr(5,colon);
+                        string straddr = aval.substr(5,colon-5);
                         n_u::Inet4Address addr;
                         // If no address part, it defaults to INADDR_ANY (0.0.0.0)
                         if (straddr.length() > 0) {

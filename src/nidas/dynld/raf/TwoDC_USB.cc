@@ -69,15 +69,14 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
   // Shut the probe down until a valid TAS comes along.
   sendTrueAirspeed(0.0);
 
-  _rtFeed = nidas::core::DerivedDataReader::getInstance();
-  _rtFeed->addClient(this);
+  DerivedDataReader::getInstance()->addClient(this);
 
   cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
 }
 
 void TwoDC_USB::close() throw(n_u::IOException)
 {
-  _rtFeed->removeClient(this);
+  DerivedDataReader::getInstance()->removeClient(this);
   DSMSensor::close();
 }
 
@@ -99,6 +98,7 @@ bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
 
   float * dout = outs->getDataPtr();
 
+  // Count number of particles (sync words) in the record and return.
   int cnt = 0;
   for (int i = 0; i < 512; ++i)
   {

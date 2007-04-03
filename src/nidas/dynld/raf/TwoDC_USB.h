@@ -65,8 +65,6 @@ public:
 
 protected:
 
-  nidas::core::DerivedDataReader * _rtFeed;
-
   // Probe produces Big Endian.
   static const nidas::util::EndianConverter * toLittle;
 

@@ -312,9 +312,14 @@ void DSMEngine::run() throw()
         projectDoc->release();
         projectDoc = 0;
 
-        if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0)
+        if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0) {
+	    try {
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
-
+	    }
+	    catch(n_u::IOException&e) {
+		_logger->log(LOG_ERR,e.what());
+	    }
+	}
         // start your sensors
         try {
             openSensors();
@@ -390,22 +395,6 @@ void DSMEngine::interrupt()
 
 void DSMEngine::deleteDataThreads()
 {
-    // This thread loops over sensors that have registered with it.
-    // They should un-register when they close, but it is
-    // probably wise to shut it down before closing the sensors.
-    if (DerivedDataReader::getInstance()) {
-        try {
-            if (DerivedDataReader::getInstance()->isRunning())
-                DerivedDataReader::getInstance()->kill(SIGUSR1);
-            DerivedDataReader::getInstance()->join();
-            DerivedDataReader::deleteInstance();
-        }
-        catch (const n_u::Exception& e) {
-            _logger->log(LOG_ERR,e.what());
-        }
-    }
-
-
     // stop/join the status Thread. The status thread also loops
     // over sensors.
     if (_statusThread) {
@@ -429,6 +418,18 @@ void DSMEngine::deleteDataThreads()
         }
         delete _selector;	// this closes any still-open sensors
         _selector = 0;
+    }
+
+    if (DerivedDataReader::getInstance()) {
+        try {
+            if (DerivedDataReader::getInstance()->isRunning())
+                DerivedDataReader::getInstance()->kill(SIGUSR1);
+            DerivedDataReader::getInstance()->join();
+            DerivedDataReader::deleteInstance();
+        }
+        catch (const n_u::Exception& e) {
+            _logger->log(LOG_ERR,e.what());
+        }
     }
 }
 
