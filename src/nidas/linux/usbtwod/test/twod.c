@@ -5,21 +5,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 
 // Resides somewhere in the raf repository.
 #include "/home/local/include/header.h"
 #include "../usbtwod.h"
 
-sendTAS(float tas)
+int sendTAS(float tas)
 {
   Tap2D tx_tas;
+  float resolution = 25e-6;
 
-  TASToTap2D(&tx_tas, tas);
-  ioctl(USB2D_SET_TAS, (unsigned long)&tx_tas, 3);
+  TASToTap2D(&tx_tas, tas, resolution);
+  return ioctl(USB2D_SET_TAS, (unsigned long)&tx_tas, 3);
 }
 
-main()
+int main()
 {
   int i, n;
   fd_set  my_set;
