@@ -64,6 +64,7 @@ apps = Split("""
     garmin.cc
     ck_xml.cc
     tee_tty.cc
+    set_pcmcom8.c
     isff/pdecode.cc
     isff/prep.cc
     raf/cvi_lv_test_in.cc

@@ -16,7 +16,7 @@
 #define NIDAS_LINUX_PCMCOM8_H
 
 
-#define PCMCOM8_NR_PORTS 8	/* number of serial ports */
+#define PCMCOM8_NR_PORTS 8	/* number of serial ports on a board */
 
 #  ifdef __KERNEL__
 
@@ -34,7 +34,7 @@
 #endif
 
 #define PCMCOM8_MAX_NR_DEVS 4	/* maximum number of pcmcom8 cards in sys */
-#define PCMCOM8_IO_REGION_SIZE 7 /* number of 1-byte registers */
+#define PCMCOM8_IO_REGION_SIZE 8 /* number of 1-byte registers */
 
 /* registers on the pcmcom8 starting at the ioport address */
 #define PCMCOM8_IDX 0x0	        /* index register, R/W */
@@ -52,6 +52,7 @@
 struct pcmcom8_serial_port {
         unsigned int ioport;	/* ISA ioport address, e.g. 0x100 */
         unsigned int irq;		/* ISA IRQ */
+        unsigned int enable;    /* whether to enable uart */
 } pcmcom8_serial_port;
 
 struct pcmcom8_config {
@@ -68,15 +69,10 @@ typedef struct pcmcom8_board {
 #else
         struct semaphore mutex;
 #endif
-        struct resource* region;
         struct cdev cdev;
-        int ready;
+        int region_req;     /* ioport region requested */
+        int cdev_ready;          /* cdev_add done */
 } pcmcom8_board;
-
-typedef struct pcmcom8_port {
-        pcmcom8_board* board;
-        int portNum;
-} pcmcom8_port;
 
 
 #  endif /* __KERNEL__ */
