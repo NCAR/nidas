@@ -328,6 +328,8 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
   struct usb_twod *dev;
   int retval = 0;
   size_t bytes_read;
+  int tagsize = sizeof(dsm_sample_t);
+  struct urb_sample* sample;
 
   if (count == 0)
     goto exit;
@@ -376,27 +378,28 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 
   // If they ask for less than actual_length, then the rest of the data in this
   // buffer is lost.
-  bytes_read = min(count,
-	dev->readq.buf[dev->readq.tail]->urb->actual_length + sizeof(dsm_sample_t));
+  sample = dev->readq.buf[dev->readq.tail];
+  bytes_read = min(count, sample->urb->actual_length + tagsize);
 
-  dev->readq.buf[dev->readq.tail]->tag.length = bytes_read;
+  sample->tag.length = bytes_read;
 
   /* if we have a complete 2D buffer, then copy to user space. */
-  if (copy_to_user(buffer, &dev->readq.buf[dev->readq.tail]->tag, sizeof(dsm_sample_t))) {
+  if (copy_to_user(buffer, &sample->tag, tagsize)) {
     err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
     retval = -EFAULT;
     goto unlock_exit;
   }
 
-  if (copy_to_user(&buffer[sizeof(dsm_sample_t)], dev->readq.buf[dev->readq.tail]->urb->transfer_buffer, bytes_read)) {
+  if (copy_to_user(buffer + tagsize, sample->urb->transfer_buffer, 
+		   bytes_read - tagsize)) {
     err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
     retval = -EFAULT;
     goto unlock_exit;
   }
 
-memset(dev->readq.buf[dev->readq.tail]->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
+  memset(sample->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
 
-  retval = usb_submit_urb(dev->readq.buf[dev->readq.tail]->urb, GFP_ATOMIC);
+  retval = usb_submit_urb(sample->urb, GFP_ATOMIC);
   if (retval) {
     err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
     goto unlock_exit;
