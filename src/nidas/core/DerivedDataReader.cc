@@ -95,15 +95,15 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
   _alt = atof(p);
 
 
-  // Radar Alt is the 5th parameter.
-  for (int i = 0; p && i < 2; ++i)
+  // Radar Alt is the 6th parameter.
+  for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
     p = strchr(p, ',')+1;
 
   if (p)
     _radarAlt = atof(p);
 
-  // True airspeed is the 7th parameter.
-  for (int i = 0; p && i < 2; ++i)
+  // True airspeed is the 8th parameter.
+  for (int i = 0; p && i < 2; ++i)	// Move forward 2 places.
     p = strchr(p, ',')+1;
 
   if (p)
