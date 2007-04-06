@@ -8,8 +8,23 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-// Resides somewhere in the raf repository.
-#include "/home/local/include/header.h"
+#define P2D_DATA        4096            /* PMS 2D image buffer array size */
+
+struct P2d_rec {
+  short id;                             /* 'P1','C1','P2','C2', H1, H2 */
+  short hour;
+  short minute;
+  short second;
+  short spare1;
+  short spare2;
+  short spare3;
+  short tas;                            /* true air speed */
+  short msec;                           /* msec of this record */
+  short overld;                         /* overload time, msec */
+  unsigned char data[P2D_DATA];         /* image buffer */
+};
+typedef struct P2d_rec P2d_rec;
+
 #include "../usbtwod.h"
 
 int sendTAS(float tas)
