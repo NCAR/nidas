@@ -856,6 +856,11 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
             outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
             outb(0x00,brd->addr + 8);	// set page 0
         }
+        else {
+            outb(0x02,brd->addr + 8);	// set page 2
+            outb(0x00,brd->addr + 12);	// turn off high bit for fifo threshold
+            outb(0x00,brd->addr + 8);	// set page 0
+        }
         outb(nsamps & 0xff, brd->addr + 6);
 
         /*
@@ -1318,7 +1323,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
  */
 static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 {
-        // brd->spin_lock is locked before entering this function
+        // brd->reglock is locked before entering this function
 
         struct DMMAT* brd = a2d->brd;
         int flevel = a2d->getFifoLevel(a2d);
@@ -1381,7 +1386,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         if (flevel != 0) {
             if (!(a2d->status.fifoNotEmpty++ % 1000))
                     KLOG_DEBUG("fifo level=%d, base+7=0x%x,base+8=0x%x, base+10=0x%x\n",
-                    flevel,inb(brd->addr+7),inb(brd->addr+8),inb(brd->addr+10));
+                    flevel,inb(brd->addr + 7),inb(brd->addr + 8),inb(brd->addr + 10));
         }
 #endif
 
@@ -1481,7 +1486,7 @@ static int setD2A_MM16AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs
                         d2a->outputs.counts[i] = outputs->counts[i];
                 }
         }
-        inb(brd->addr+4);           // causes all outputs to be updated
+        inb(brd->addr + 4);           // causes all outputs to be updated
         spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
@@ -2467,7 +2472,7 @@ static int init_cntr(struct DMMAT* brd,int type)
 
         switch (type) {
         case DMM16AT_BOARD:
-                brd->cntr_itr_mask = 0x10;  // not sure
+                brd->cntr_itr_mask = 0x40;
                 cntr->start = startMM16AT_CNTR;
                 cntr->stop = stopMM16AT_CNTR;
                 break;
