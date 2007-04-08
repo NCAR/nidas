@@ -693,11 +693,11 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
 /*
  * Function to stop the A2D on a MM16AT
  */
-static void stopMM16AT_A2D(struct DMMAT_A2D* a2d)
+static void stopMM16AT_A2D(struct DMMAT_A2D* a2d,int lock)
 {
         struct DMMAT* brd = a2d->brd;
-        unsigned long flags;
-        spin_lock_irqsave(&brd->reglock,flags);
+        unsigned long flags = 0;
+        if (lock) spin_lock_irqsave(&brd->reglock,flags);
 
         // disable A2D triggering and interrupts
         brd->itr_ctrl_val &= ~0x83;
@@ -709,17 +709,17 @@ static void stopMM16AT_A2D(struct DMMAT_A2D* a2d)
         // reset fifo
         outb(0x80,brd->addr + 10);
 
-        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
 }
 
 /*
  * Function to stop the A2D on a MM32XAT
  */
-static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d)
+static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
 {
         struct DMMAT* brd = a2d->brd;
-        unsigned long flags;
-        spin_lock_irqsave(&brd->reglock,flags);
+        unsigned long flags = 0;
+        if (lock) spin_lock_irqsave(&brd->reglock,flags);
 
         // set page to 0
         outb(0x00, brd->addr + 8);
@@ -731,17 +731,17 @@ static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d)
         // disable and reset fifo, disable scan mode
         outb(0x2,brd->addr + 7);
 
-        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
 }
 
 /**
  * General function to stop the A2D. Calls the board specific method.
  */
-static int stopA2D(struct DMMAT_A2D* a2d)
+static int stopA2D(struct DMMAT_A2D* a2d,int lock)
 {
         int ret = 0;
 
-        if (a2d->stop) a2d->stop(a2d);
+        if (a2d->stop) a2d->stop(a2d,lock);
 #ifdef USE_TASKLET
         // shut down tasklet. Not necessary, you can leave it enabled.
         // tasklet_disable(&a2d->tasklet);
@@ -754,13 +754,13 @@ static int stopA2D(struct DMMAT_A2D* a2d)
 /*
  * Function to start the A2D on a MM16AT
  */
-static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
+static int startMM16AT_A2D(struct DMMAT_A2D* a2d,int lock)
 {
         int result = 0;
-        unsigned long flags;
+        unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
 
-        spin_lock_irqsave(&brd->reglock,flags);
+        if (lock) spin_lock_irqsave(&brd->reglock,flags);
 
         // reset fifo
         outb(0x80,brd->addr + 10);
@@ -802,7 +802,7 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
         brd->itr_ctrl_val |= 0x83;
         outb(brd->itr_ctrl_val,brd->addr + 9);
 
-        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
 
         return result;
 }
@@ -810,15 +810,15 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d)
 /*
  * Function to start the A2D on a MM32XAT
  */
-static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
+static int startMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
 {
         int result = 0;
-        unsigned long flags;
+        unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
         int nscans;
         int nsamps;
 
-        spin_lock_irqsave(&brd->reglock,flags);
+        if (lock) spin_lock_irqsave(&brd->reglock,flags);
 
         outb(0x04,brd->addr + 8);	// set page 4
         outb(0x02,brd->addr + 14);	// abort any currently running autocal
@@ -901,25 +901,22 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d)
         brd->itr_ctrl_val |= 0x83;
         outb(brd->itr_ctrl_val,brd->addr + 9);
 
-        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
         return result;
 }
 
 /**
  * General function to start an A2D. Calls the board specific method.
  */
-static int startA2D(struct DMMAT_A2D* a2d)
+static int startA2D(struct DMMAT_A2D* a2d,int lock)
 {
         int result;
-        unsigned long flags;
+        unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
 
-        // if (a2d->busy) stopA2D(a2d);
-        stopA2D(a2d);
+        if (a2d->busy) stopA2D(a2d,lock);
 
         a2d->busy = 1;	// Set the busy flag
-
-        memset(&a2d->status,0,sizeof(a2d->status));
 
         a2d->status.irqsReceived = 0;
         a2d->sampBytesLeft = 0;
@@ -929,7 +926,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         if ((result = a2d->selectChannels(a2d))) return result;
 
-        spin_lock_irqsave(&brd->reglock,flags);
+        if (lock) spin_lock_irqsave(&brd->reglock,flags);
 
         // Just in case the irq handler or bottom half is running,
         // lock the board reglock before resetting the circular
@@ -939,7 +936,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         // same addr on MM16AT and MM32XAT
         outb(a2d->gainSetting,a2d->brd->addr + 11);
-        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
 
         a2d->waitForA2DSettle(a2d);
 
@@ -950,7 +947,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
         // tasklet_enable(&a2d->tasklet);
 #endif
 
-        a2d->start(a2d);
+        a2d->start(a2d,lock);
         return 0;
 }
 
@@ -1329,16 +1326,17 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         switch (flevel) {
         default:
         case 3:         // full or overflowed, we're falling behind
-            if (!(a2d->status.fifoOverflows++ % 100))
-                    KLOG_WARNING("%s: fifoOverflows=%d\n",
+            if (!(a2d->status.fifoOverflows++ % 10))
+                    KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
                             a2d->deviceName,a2d->status.fifoOverflows);
-            a2d->resetFifo(a2d);
+            a2d->stop(a2d,0);
+            a2d->start(a2d,0);
             return IRQ_HANDLED;
         case 2: break;	// at or above threshold, but not full (expected value)
 
-        case 1:         // less than threshold, shouldn't happen, but does
-            if (!(a2d->status.fifoUnderflows++ % 100))
-                    KLOG_DEBUG("%s: fifoUnderflows=%d,irqs=%d\n",
+        case 1:         // less than threshold, shouldn't happen
+            if (!(a2d->status.fifoUnderflows++ % 1000))
+                    KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
                             a2d->deviceName,
                             a2d->status.fifoUnderflows,
                             a2d->status.irqsReceived);
@@ -1438,13 +1436,13 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
                 return result;
         }
 
-        // acknowledge interrupt
-        outb(brd->itr_ack_val, brd->itr_ack_reg);
-
         if (status & brd->cntr_itr_mask)
                 result = dmmat_cntr_handler(brd->cntr);
         if (status & brd->ad_itr_mask)
                 result = dmmat_a2d_handler(brd->a2d);
+
+        // acknowledge interrupt
+        outb(brd->itr_ack_val, brd->itr_ack_reg);
 
         spin_unlock(&brd->reglock);
         return result;
@@ -1727,6 +1725,8 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         filp->private_data = a2d;
 
+        memset(&a2d->status,0,sizeof(a2d->status));
+
         return result;
 }
 
@@ -1750,7 +1750,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(a2d != brd->a2d);
 
-        result = stopA2D(a2d);
+        result = stopA2D(a2d,1);
 
         result = dmd_mmat_remove_irq_user(brd,0);
 
@@ -1924,10 +1924,10 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
             }
 	    break;
         case DMMAT_A2D_START:
-                result = startA2D(a2d);
+                result = startA2D(a2d,1);
                 break;
         case DMMAT_A2D_STOP:
-                result = stopA2D(a2d);
+                result = stopA2D(a2d,1);
                 break;
         default:
                 result = -ENOTTY;
@@ -2422,7 +2422,7 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         if (!a2d) return;
 
-        stopA2D(a2d);
+        stopA2D(a2d,1);
 
         cdev_del(&a2d->cdev);
 
@@ -2790,7 +2790,7 @@ int dmd_mmat_init(void)
                 // setup A2D
                 result = init_a2d(brd,types[ib]);
                 if (result) goto err;
-                brd->a2d->stop(brd->a2d);
+                brd->a2d->stop(brd->a2d,1);
 
                 // setup CNTR
                 result = init_cntr(brd,types[ib]);

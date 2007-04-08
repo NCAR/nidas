@@ -322,8 +322,8 @@ struct DMMAT_A2D
 
         // methods which may have a different implementation
         // for each board type
-        int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
-        void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
+        int (*start)(struct DMMAT_A2D* a2d,int lock);	// a2d start method
+        void (*stop)(struct DMMAT_A2D* a2d,int lock);	// a2d stop method
         int (*getFifoLevel)(struct DMMAT_A2D* a2d);
         int (*getNumChannels)(struct DMMAT_A2D* a2d);
         int (*selectChannels)(struct DMMAT_A2D* a2d);
