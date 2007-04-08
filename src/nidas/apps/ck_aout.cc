@@ -29,7 +29,7 @@ int main(int argc, char** argv)
     if (argc < 2) {
         cerr << "Usage: " << argv[0] << " device [i v ...]" << endl;
         cerr << "   device: typically /dev/dmmat_d2a0" << endl;
-        cerr << "   i: analog output channel, 0-3" << endl;
+        cerr << "   i: analog output channel, 0-N" << endl;
         cerr << "   v: voltage, 0.0-5.0" << endl;
         return 1;
     }
@@ -39,10 +39,10 @@ int main(int argc, char** argv)
     aout.open();
 
     cerr << "num outputs=" << aout.getNumOutputs() << endl;
-
-    cerr << "min voltage=" << aout.getMinVoltage() << endl;
-
-    cerr << "max voltage=" << aout.getMaxVoltage() << endl;
+    for (int i = 0; i < aout.getNumOutputs(); i++) {
+        cerr << "min voltage " << i << " = " << aout.getMinVoltage(i) << endl;
+        cerr << "max voltage " << i << " = " << aout.getMaxVoltage(i) << endl;
+    }
 
     vector<int> which;
     vector<float> volts;

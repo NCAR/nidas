@@ -76,14 +76,14 @@ public:
     }
 
     /**
-     * Return the minimum setable voltage on this device.
+     * Return the minimum setable voltage of an output.
      */
-    float getMinVoltage() const;
+    float getMinVoltage(int i) const;
 
     /**
-     * Return the maximum setable voltage on this device.
+     * Return the maximum setable voltage of an output.
      */
-    float getMaxVoltage() const;
+    float getMaxVoltage(int i) const;
 
     /**
      * Set a voltage on an output.

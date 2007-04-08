@@ -67,14 +67,16 @@ void DSC_AnalogOut::close() throw(n_u::IOException)
 }
 
 
-float DSC_AnalogOut::getMinVoltage() const
+float DSC_AnalogOut::getMinVoltage(int i) const
 {
-    return conv.vmin;
+    if (i < 0 || i >= noutputs) return 0.0;
+    return conv.vmin[i];
 }
 
-float DSC_AnalogOut::getMaxVoltage() const
+float DSC_AnalogOut::getMaxVoltage(int i) const
 {
-    return conv.vmax;
+    if (i < 0 || i >= noutputs) return 0.0;
+    return conv.vmax[i];
 }
 
 void DSC_AnalogOut::setVoltages(const vector<int>& which,
@@ -104,11 +106,11 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
         }
 
         out.active[which[i]] = 1;
-        int cout = conv.cmin +
+        int cout = conv.cmin[i] +
             (int)rint(val[i] /
-                (conv.vmax - conv.vmin) * (conv.cmax - conv.cmin));
-        cout = std::max(cout,conv.cmin);
-        cout = std::min(cout,conv.cmax);
+                (conv.vmax[i] - conv.vmin[i]) * (conv.cmax[i] - conv.cmin[i]));
+        cout = std::max(cout,conv.cmin[i]);
+        cout = std::min(cout,conv.cmax[i]);
         out.counts[which[i]] = cout;
 #ifdef DEBUG
         cerr << "which[" << i << "]=" << which[i] <<

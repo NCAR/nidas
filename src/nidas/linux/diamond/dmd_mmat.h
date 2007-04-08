@@ -30,7 +30,10 @@
  * the definition of the structures.
  */
 
+#define MAX_DMMAT_BOARDS	4	// number of boards supported by driver
 #define	MAX_DMMAT_A2D_CHANNELS 32	// max num A/D channels per card
+#define DMMAT_D2A_OUTPUTS_PER_BRD 4
+#define	MAX_DMMAT_D2A_OUTPUTS (MAX_DMMAT_BOARDS * DMMAT_D2A_OUTPUTS_PER_BRD)
 
 struct DMMAT_A2D_Config
 {
@@ -130,7 +133,6 @@ enum dmmat_d2a_jumpers {
         DMMAT_D2A_BI_10        // bipolar, -10-10V
 };
 
-#define DMMAT_D2A_OUTPUTS 4
 
 struct DMMAT_CNTR_Config
 {
@@ -153,16 +155,17 @@ struct DMMAT_CNTR_Status
  */
 struct DMMAT_D2A_Conversion
 {
-        int vmin;
-        int vmax;
-        int cmin;
-        int cmax;
+        int vmin[MAX_DMMAT_D2A_OUTPUTS];
+        int vmax[MAX_DMMAT_D2A_OUTPUTS];
+        int cmin[MAX_DMMAT_D2A_OUTPUTS];
+        int cmax[MAX_DMMAT_D2A_OUTPUTS];
 };
 
 struct DMMAT_D2A_Outputs
 {
-        int active[DMMAT_D2A_OUTPUTS];     // 1=set, 0=ignore
-        int counts[DMMAT_D2A_OUTPUTS];      // counts value
+        int active[MAX_DMMAT_D2A_OUTPUTS];     // 1=set, 0=ignore
+        int counts[MAX_DMMAT_D2A_OUTPUTS];      // counts value
+        int nout;
 };
 
 #ifdef __KERNEL__
@@ -436,11 +439,17 @@ struct DMMAT_D2A {
 
         char deviceName[32];
 
-        struct DMMAT_D2A_Conversion conversion;
-
         struct DMMAT_D2A_Outputs outputs;
 
-        int (*setD2A)(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* set);
+        int (*setD2A)(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* set,int i);
+
+        int vmin;
+
+        int vmax;
+
+        int cmin;
+
+        int cmax;
 
 };
 

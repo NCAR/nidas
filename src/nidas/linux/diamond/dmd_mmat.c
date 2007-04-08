@@ -1112,18 +1112,14 @@ static int startCNTR(struct DMMAT_CNTR* cntr,struct DMMAT_CNTR_Config* cfg)
 static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
     const short* dp)
 {
+        int i;
 
 // #define DO_FILTER_DEBUG
 #if defined(DEBUG) & defined(DO_FILTER_DEBUG)
         static size_t nfilt = 0;
         static int maxAvail = 0;
         static int minAvail = 99999;
-#endif
-        int i;
-        short_sample_t* osamp = (short_sample_t*)
-            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
 
-#if defined(DEBUG) & defined(DO_FILTER_DEBUG)
         i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
         if (i < minAvail) minAvail = i;
         if (i > maxAvail) maxAvail = i;
@@ -1135,8 +1131,10 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
         }
 #endif
         for (i = 0; i < a2d->nsamples; i++) {
-                // no output sample available
+                short_sample_t* osamp = (short_sample_t*)
+                    GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                 if (!osamp) {
+                        // no output sample available
                         // still execute filter so its state is up-to-date.
                         struct a2d_sample toss;
                         if (!(a2d->status.missedSamples++ % 1000))
@@ -1145,16 +1143,11 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                         a2d->sampleInfo[i].filter(
                             a2d->sampleInfo[i].filterObj,tt,dp,
                             (short_sample_t*)&toss);
-                        // try again
-                        osamp = (short_sample_t*)
-                            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                 }
                 else if (
-                    a2d->sampleInfo[i].filter(
-                        a2d->sampleInfo[i].filterObj,tt,dp,osamp)) {
+                        a2d->sampleInfo[i].filter(
+                            a2d->sampleInfo[i].filterObj,tt,dp,osamp)) {
                         INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                        osamp = (short_sample_t*)
-                            GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                         KLOG_DEBUG("do_filters: samples head=%d,tail=%d\n",
                             a2d->samples.head,a2d->samples.tail);
                 }
@@ -1461,7 +1454,8 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
 /*
  * Set one or more analog output voltages on a MM16AT board.
  */
-static int setD2A_MM16AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+static int setD2A_MM16AT(struct DMMAT_D2A* d2a,
+    struct DMMAT_D2A_Outputs* outputs,int iout)
 {
         int i;
         unsigned long flags;
@@ -1469,21 +1463,21 @@ static int setD2A_MM16AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs
 
         spin_lock_irqsave(&brd->reglock,flags);
 
-        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++) {
-                if (outputs->active[i]) {
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++) {
+                if (outputs->active[i+iout]) {
                         char lsb;
                         char msb;
-                        if (outputs->counts[i] < d2a->conversion.cmin)
-                                outputs->counts[i] = d2a->conversion.cmin;
-                        if (outputs->counts[i] > d2a->conversion.cmax)
-                                outputs->counts[i] = d2a->conversion.cmax;
-                        lsb = outputs->counts[i] % 256;
-                        msb = outputs->counts[i] / 256;
+                        if (outputs->counts[i+iout] < d2a->cmin)
+                                outputs->counts[i+iout] = d2a->cmin;
+                        if (outputs->counts[i+iout] > d2a->cmax)
+                                outputs->counts[i+iout] = d2a->cmax;
+                        lsb = outputs->counts[i+iout] % 256;
+                        msb = outputs->counts[i+iout] / 256;
                         outb(lsb,brd->addr + 1);
                         outb(msb,brd->addr + 4+i);
 
                         d2a->outputs.active[i] = 1;
-                        d2a->outputs.counts[i] = outputs->counts[i];
+                        d2a->outputs.counts[i] = outputs->counts[i+iout];
                 }
         }
         inb(brd->addr + 4);           // causes all outputs to be updated
@@ -1493,55 +1487,57 @@ static int setD2A_MM16AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs
 
 /*
  * Set one or more analog output voltages on a MM32AT.
+ * This supports setting outputs on more than one board.
  */
-static int setD2A_MM32AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
+    struct DMMAT_D2A_Outputs* outputs,int iout)
 {
         int i;
-        int nout = 0;
-        int nset = 0;
         unsigned long flags;
         struct DMMAT* brd = d2a->brd;
         int nwait;
+        int nout = 0;
+        int nset = 0;
+
+        // Check if setting more than one output
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++)
+                if (outputs->active[i+iout]) nout++;
+        KLOG_DEBUG("nout=%d\n",nout);
 
         spin_lock_irqsave(&brd->reglock,flags);
 
-        // Check if setting more than one output
-        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++)
-                if (outputs->active[i]) nout++;
-
-        KLOG_DEBUG("nout=%d\n",nout);
-        for (i = 0; i < DMMAT_D2A_OUTPUTS; i++) {
-                KLOG_DEBUG("active[%d]=%d\n",i,outputs->active[i]);
-                if (outputs->active[i]) {
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++) {
+                KLOG_DEBUG("active[%d]=%d\n",i+iout,outputs->active[i+iout]);
+                if (outputs->active[i+iout]) {
                         char lsb;
                         char msb;
-                        KLOG_DEBUG("counts[%d]=%d\n",i,outputs->counts[i]);
-                        if (outputs->counts[i] < d2a->conversion.cmin)
-                                outputs->counts[i] = d2a->conversion.cmin;
-                        if (outputs->counts[i] > d2a->conversion.cmax)
-                                outputs->counts[i] = d2a->conversion.cmax;
-                        lsb = outputs->counts[i] % 256;
-                        msb = outputs->counts[i] / 256;
+                        KLOG_DEBUG("counts[%d]=%d\n",i+iout,outputs->counts[i+iout]);
+                        if (outputs->counts[i+iout] < d2a->cmin)
+                                outputs->counts[i+iout] = d2a->cmin;
+                        if (outputs->counts[i+iout] > d2a->cmax)
+                                outputs->counts[i+iout] = d2a->cmax;
+                        lsb = outputs->counts[i+iout] % 256;
+                        msb = outputs->counts[i+iout] / 256;
                         msb += i << 6;
                         nset++;
                         if (nset < nout) msb |= 0x20;
                         KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
 
                         if (nset > 1) {
-                            // Check DAC busy if we have already set an output
-                            // Took nwait=3 on 400MHz viper without udelay
-                            nwait = 0;
-                            // according to manual DACBUSY=1 for 10usec
-                            while(inb(brd->addr + 4) & 0x80 && nwait++ < 5)
-                                udelay(5);
-                            KLOG_DEBUG("nwait=%d\n",nwait);
+                                // Check DAC busy if we have already set an output
+                                // Took nwait=3 on 400MHz viper without udelay
+                                nwait = 0;
+                                // according to manual DACBUSY=1 for 10usec
+                                while(inb(brd->addr + 4) & 0x80 && nwait++ < 5)
+                                    udelay(5);
+                                KLOG_DEBUG("nwait=%d\n",nwait);
                         }
 
                         outb(lsb,brd->addr + 4);
                         outb(msb,brd->addr + 5);
 
                         d2a->outputs.active[i] = 1;
-                        d2a->outputs.counts[i] = outputs->counts[i];
+                        d2a->outputs.counts[i] = outputs->counts[i+iout];
                 }
         }
         nwait = 0;
@@ -1552,6 +1548,70 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs
         return 0;
 }
 
+/* 
+ * Set the D2A outputs on 1 or more boards.
+ */
+static int setD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+{
+        int i;
+        struct DMMAT* brd = d2a->brd;
+        int res = 0;
+        // how many boards to affect
+        int nbrds = (outputs->nout + DMMAT_D2A_OUTPUTS_PER_BRD - 1) /
+            DMMAT_D2A_OUTPUTS_PER_BRD;
+        nbrds = min(nbrds,MAX_DMMAT_BOARDS-brd->num);
+
+        for (i = 0; i < nbrds; i++) {
+                res = d2a->setD2A(d2a,outputs,i * DMMAT_D2A_OUTPUTS_PER_BRD);
+                if (res) return res;
+                brd++;
+                d2a = brd->d2a;
+        }
+        return res;
+}
+
+/* 
+ * Get the D2A outputs on 1 or more boards.
+ */
+static void getD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
+{
+        int i,j,iout = 0;
+        struct DMMAT* brd = d2a->brd;
+        // how many boards to check
+        int nbrds = MAX_DMMAT_BOARDS-brd->num;
+
+        for (i = 0; i < nbrds; i++) {
+                for (j = 0; j < DMMAT_D2A_OUTPUTS_PER_BRD; j++) {
+                        outputs->counts[iout] = d2a->outputs.counts[j];
+                        outputs->active[iout++] = d2a->outputs.active[j];
+                }
+                brd++;
+                d2a = brd->d2a;
+        }
+        outputs->nout = nbrds * DMMAT_D2A_OUTPUTS_PER_BRD;
+}
+
+/* 
+ * Get the D2A conversion factors for 1 or more boards
+ */
+static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
+{
+        int i,j,iout = 0;
+        struct DMMAT* brd = d2a->brd;
+        // how many boards to check
+        int nbrds = MAX_DMMAT_BOARDS-brd->num;
+
+        for (i = 0; i < nbrds; i++) {
+                for (j = 0; j < DMMAT_D2A_OUTPUTS_PER_BRD; j++) {
+                        conv->vmin[iout] = d2a->vmin;
+                        conv->vmax[iout] = d2a->vmax;
+                        conv->cmin[iout] = d2a->cmin;
+                        conv->cmax[iout++] = d2a->cmax;
+                }
+                brd++;
+                d2a = brd->d2a;
+        }
+}
 /*
  * Both the A2D and the pulse counter device use interrupts.
  * If an interrupt handler has already been set up for this
@@ -2050,6 +2110,12 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
 }
 
 /************ D2A File Operations ****************/
+/*
+ * Opening a d2a provides access to the D2A outputs on that
+ * board and the D2A outputs on successive boards
+ * in the system.  By opening the first DMMAT D2A device
+ * the user can control all outputs.
+ */
 static int dmmat_open_d2a(struct inode *inode, struct file *filp)
 {
         int i = iminor(inode);
@@ -2135,26 +2201,35 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         switch (cmd) 
         {
         case DMMAT_D2A_GET_NOUTPUTS:
-                result = DMMAT_D2A_OUTPUTS;
+                result = (MAX_DMMAT_BOARDS-brd->num)*
+                    DMMAT_D2A_OUTPUTS_PER_BRD;
                 break;
         case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
-                if (copy_to_user((void __user *)arg,&d2a->conversion,
+                {
+                struct DMMAT_D2A_Conversion conv;
+                getD2A_conv(d2a,&conv);
+                if (copy_to_user((void __user *)arg,&conv,
                     sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
                 result = 0;
+                }
                 break;
         case DMMAT_D2A_SET:      /* user set */
-            {
+                {
                 struct DMMAT_D2A_Outputs outputs;
                 if (copy_from_user(&outputs,(void __user *)arg,
                         sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
-                result = d2a->setD2A(d2a,&outputs);
-            }
-	    break;
+                result = setD2A_mult(d2a,&outputs);
+                }
+                break;
         case DMMAT_D2A_GET:      /* user get */
-            if (copy_to_user(&d2a->outputs,(void __user *)arg,
+                {
+                struct DMMAT_D2A_Outputs outputs;
+                getD2A_mult(d2a,&outputs);
+                if (copy_to_user(&outputs,(void __user *)arg,
                     sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
-            result = 0;
-	    break;
+                result = 0;
+                }
+                break;
         default:
                 result = -ENOTTY;
                 break;
@@ -2559,25 +2634,25 @@ static int init_d2a(struct DMMAT* brd,int type)
             
         // calculate conversion relation based on presumed
         // correct value for d2aconfig runstring parameter
-        d2a->conversion.cmin = 0;
-        d2a->conversion.cmax = 4095;;
+        d2a->cmin = 0;
+        d2a->cmax = 4095;;
 
         switch(d2aconfig[brd->num]) {
         case DMMAT_D2A_UNI_5:
-                d2a->conversion.vmin = 0;
-                d2a->conversion.vmax = 5;
+                d2a->vmin = 0;
+                d2a->vmax = 5;
                 break;
         case DMMAT_D2A_UNI_10:
-                d2a->conversion.vmin = 0;
-                d2a->conversion.vmax = 10;
+                d2a->vmin = 0;
+                d2a->vmax = 10;
                 break;
         case DMMAT_D2A_BI_5:
-                d2a->conversion.vmin = -5;
-                d2a->conversion.vmax = 5;
+                d2a->vmin = -5;
+                d2a->vmax = 5;
                 break;
         case DMMAT_D2A_BI_10:
-                d2a->conversion.vmin = -10;
-                d2a->conversion.vmax = 10;
+                d2a->vmin = -10;
+                d2a->vmax = 10;
                 break;
         default:
                 return -EINVAL;
@@ -2606,7 +2681,6 @@ void dmd_mmat_cleanup(void)
 {
 
     int ib;
-
 
     if (board) {
 
