@@ -192,7 +192,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	    iostream->read(&header,header.getSizeOf());
 
             // screen bad headers.
-	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 40 ||
+	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
                 header.getDataByteLength() > 32767 ||
                 header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
 	        if (!(badInputSamples++ % 1000)) {
@@ -206,8 +206,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                 iostream->backup(header.getSizeOf() - 1);
                 continue;
 	    }
-	    else
-		samp = nidas::core::getSample((sampleType)header.getType(),
+	    else samp = nidas::core::getSample((sampleType)header.getType(),
 		    header.getDataByteLength());
 
 	    samp->setTimeTag(header.getTimeTag());
