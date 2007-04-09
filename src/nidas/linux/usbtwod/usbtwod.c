@@ -65,11 +65,15 @@ struct usb_twod
 
   __u8			bulk_in_endpointAddr;	/* the address of the bulk in endpoint */
   __u8			bulk_out_endpointAddr;	/* the address of the bulk out endpoint */
+  struct usb_twod_stats stats;
+
+  struct urb_sample	*out_sample;		/* sample which hasn't been completely read by user */
+  char 			*out_urb_ptr;	 	/* pointer into urb if what is left to copy */
+  size_t		left_to_copy;		/* how much is left to copy to user buffer of sample_ptr */
+  size_t		debug_cntr;
 };
 
 static struct usb_driver twod_driver;
-
-static struct usb_twod_stats stats;
 
 
 static DECLARE_MUTEX (disconnect_sem);
@@ -134,9 +138,9 @@ static int twod_release(struct inode *inode, struct file *file)
     goto exit;
   }
 
-  info("Total read urbs received = %d", stats.total_urb_callbacks);
-  info("Valid read urbs received = %d", stats.valid_urb_callbacks);
-  info("Read overflow count (lost records) = %d", stats.total_read_overflow);
+  info("Total read urbs received = %d", dev->stats.total_urb_callbacks);
+  info("Valid read urbs received = %d", dev->stats.valid_urb_callbacks);
+  info("Read overflow count (lost records) = %d", dev->stats.total_read_overflow);
 
   wake_up_interruptible(&dev->read_wait);
 
@@ -184,37 +188,54 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
   struct usb_twod * dev = (struct usb_twod *)urb->context;
   struct urb_sample * osamp;
 
-  ++stats.total_urb_callbacks;
+  ++dev->stats.total_urb_callbacks;
 
-//((int *)urb->transfer_buffer)[0] = stats.total_urb_callbacks;
+//((int *)urb->transfer_buffer)[0] = dev->stats.total_urb_callbacks;
 
   /* sync/async unlink faults aren't errors */
   if (urb->status) {
-    if (urb->status == -ENOENT || urb->status == -ECONNRESET || urb->status == -ESHUTDOWN) {
-      ;
-    } else {
-      dbg("%s - nonzero read bulk status received: %d, rx# = %d",
-		__FUNCTION__, urb->status, stats.total_urb_callbacks);
+    switch (urb->status) {
+    case -ENOENT:
+	// result of usb_kill_urb, don't resubmit
+	if (!(dev->stats.enoents++ % 1000))
+	    err("%s - urb->status=-ENOENT %d times", __FUNCTION__, dev->stats.enoents);
+        return;
+    case -ECONNRESET:
+	if (!(dev->stats.econnresets++ % 1000))
+	    err("%s - urb->status=-ECONNRESET %d times",
+			__FUNCTION__, dev->stats.econnresets);
+        break;
+    case -ESHUTDOWN:
+	if (!(dev->stats.eshutdowns++ % 1000))
+	    err("%s - urb->status=-ESHUTDOWN %d times",
+			__FUNCTION__, dev->stats.eshutdowns);
+        break;
+     default:
+	if (!(dev->stats.eothers++ % 1000))
+	    err("%s - urb->status=%d, %d times",
+			__FUNCTION__,urb->status, dev->stats.eothers);
+        break;
     }
     goto resubmit; /* maybe we can recover */
   }
 
-  ++stats.valid_urb_callbacks;
+  ++dev->stats.valid_urb_callbacks;
 
   osamp = (struct urb_sample *) GET_HEAD(dev->readq, READS_IN_FLIGHT);
   if (!osamp) {
     // overflow, no sample available for output.
-    ++stats.total_read_overflow;
+    ++dev->stats.total_read_overflow;
     err("%s - overflow, user is not keeping up reading, lost read count = %d/%d.",
-	__FUNCTION__, stats.total_read_overflow, stats.total_urb_callbacks);
+	__FUNCTION__, dev->stats.total_read_overflow, dev->stats.total_urb_callbacks);
 
     // resubmit the urb (current data is lost)
     goto resubmit;
   }
   else {
-    INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
-    osamp->tag.timetag = getSystemTimeMsecs();
+    osamp->timetag = getSystemTimeMsecs();
+    osamp->length = urb->actual_length;
     osamp->urb = urb;
+    INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
     wake_up_interruptible(&dev->read_wait);
   }
 
@@ -268,9 +289,11 @@ static int twod_open(struct inode *inode, struct file *file)
   }
   dev->is_open = 1;
 
-  stats.total_urb_callbacks = 0;
-  stats.valid_urb_callbacks = 0;
-  stats.total_read_overflow = 0;
+  memset(&dev->stats,0,sizeof(dev->stats));
+  dev->out_sample = 0;
+  dev->out_urb_ptr = 0;
+  dev->left_to_copy = 0;
+  dev->debug_cntr = 0;
 
   /* save our object in the file's private structure */
   file->private_data = dev;
@@ -325,96 +348,111 @@ static unsigned int twod_poll(struct file *file, poll_table *wait)
 
 static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *ppos)
 {
-  struct usb_twod *dev;
-  int retval = 0;
-  size_t bytes_read;
-  int tagsize = sizeof(dsm_sample_t);
-  struct urb_sample* sample;
+	struct usb_twod *dev;
+	ssize_t retval = 0;
+	ssize_t countreq = count;	// original request
+	size_t n;
+	struct urb_sample* sample;
 
-  if (count == 0)
-    goto exit;
+	if (count == 0) return countreq;
 
-  dev = (struct usb_twod *)file->private_data;
+	dev = (struct usb_twod *)file->private_data;
 
-#ifdef BLOCKING_READ
-  retval = usb_bulk_msg(dev->udev,
-		usb_rcvbulkpipe(dev->udev, dev->bulk_in_endpointAddr),
-		dev->bulk_in_buffer,
-		min(TWOD_BUFF_SIZE, count),
-		&bytes_read, 0);
+	/* lock this object */
+	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-  if (copy_to_user(buffer, dev->bulk_in_buffer, bytes_read)) {
-    return -EFAULT;
-  }
-
-  return bytes_read;
-
-#else
-
-  /* lock this object */
-  if (down_interruptible(&dev->sem)) {
-    retval = -ERESTARTSYS;
-    goto exit;
-  }
-
-  /* verify that the device wasn't unplugged */
-  if (dev->interface == NULL) {
-    retval = -ENODEV;
-    err("No device or device unplugged %d", retval);
-    goto unlock_exit;
-  }
+	/* verify that the device wasn't unplugged */
+	if (dev->interface == NULL) {
+		retval = -ENODEV;
+		err("No device or device unplugged %d", retval);
+		goto unlock_exit;
+	}
+	if (dev->readq.tail == dev->readq.head) {
+	  if (file->f_flags & O_NONBLOCK) {
+	    retval = -EAGAIN;
+	    goto unlock_exit;
+	  }
+	  retval = wait_event_interruptible(dev->read_wait, dev->readq.head != dev->readq.tail);
+	  if (retval < 0)
+	    goto unlock_exit;
+	}
 
 
-  if (dev->readq.tail == dev->readq.head) {
-    if (file->f_flags & O_NONBLOCK) {
-      retval = -EAGAIN;
-      goto unlock_exit;
-    }
-    retval = wait_event_interruptible(dev->read_wait, dev->readq.head != dev->readq.tail);
-    if (retval < 0)
-      goto unlock_exit;
-  }
+	// loop until user buffer is full (or no more samples)
+	for (;;) {
+		if (count == 0) {
+			retval = countreq;
+			break;
+		}
+ 
+#ifdef DEBUG
+		if (!(dev->debug_cntr % 100))
+			info("count=%d,left_to_copy=%d",count,dev->left_to_copy);
+#endif
+		// Check if there is data from previous urb to copy
+		if (dev->left_to_copy > 0) {
+			n = min(count,dev->left_to_copy);
+			if (copy_to_user(buffer, dev->out_urb_ptr, n)) {
+			        err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
+			        retval = -EFAULT;
+				break;
+			}
+			count -= n;
+			dev->left_to_copy -= n;
+			buffer += n;
+			dev->out_urb_ptr += n;
+			if (count == 0) {
+				// if count is 0, we're done.
+				retval = countreq;
+				break;
+			}
 
+			// otherwise we're finished with this urb
+			// left_to_copy will be 0 here
+			memset(dev->out_sample->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
+			INCREMENT_TAIL(dev->readq, READS_IN_FLIGHT);
+			retval = usb_submit_urb(dev->out_sample->urb, GFP_ATOMIC);
+			if (retval < 0) {
+				err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
+				break;
+			}
+		}
 
-  // If they ask for less than actual_length, then the rest of the data in this
-  // buffer is lost.
-  sample = dev->readq.buf[dev->readq.tail];
-  bytes_read = min(count, sample->urb->actual_length + tagsize);
+		// length of header (timetag + length)
+		n = sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t);
 
-  sample->tag.length = bytes_read;
+		// if no more samples or not enough room to copy header, then we're done
+		if (dev->readq.tail == dev->readq.head || count < n) {
+			retval = countreq - count;
+			break;
+		}
+		  
+		sample = dev->readq.buf[dev->readq.tail];
 
-  /* if we have a complete 2D buffer, then copy to user space. */
-  if (copy_to_user(buffer, &sample->tag, tagsize)) {
-    err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
-    retval = -EFAULT;
-    goto unlock_exit;
-  }
+		/* copy header to user space. We know there is room. */
+		if (copy_to_user(buffer, sample, n)) {
+		  err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
+		  retval = -EFAULT;
+		  break;
+		}
+		count -= n;
+		buffer += n;
 
-  if (copy_to_user(buffer + tagsize, sample->urb->transfer_buffer, 
-		   bytes_read - tagsize)) {
-    err("%s - copy_to_user failed - %d", __FUNCTION__, retval);
-    retval = -EFAULT;
-    goto unlock_exit;
-  }
-
-  memset(sample->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
-
-  retval = usb_submit_urb(sample->urb, GFP_ATOMIC);
-  if (retval) {
-    err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
-    goto unlock_exit;
-  }
-
-  retval = bytes_read;
-
-  INCREMENT_TAIL(dev->readq, READS_IN_FLIGHT);
+		dev->left_to_copy = sample->length;
+		dev->out_sample = sample;
+		dev->out_urb_ptr = sample->urb->transfer_buffer;
+#ifdef DEBUG
+		if (!(dev->debug_cntr % 100))
+			info("bottom count=%d,left_to_copy=%d",count,dev->left_to_copy);
+#endif
+	}
 
 unlock_exit:
-  up(&dev->sem);
+#ifdef DEBUG
+	if (!(dev->debug_cntr++ % 100)) info("retval=%d",retval);
 #endif
-
-exit:
-  return retval;
+	up(&dev->sem);
+	return retval;
 }
 
 
@@ -515,7 +553,6 @@ error:
 static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
   int retval = -EINVAL;
-  Tap2D encoded_tas;
 
   if (_IOC_TYPE(cmd) != USB2D_IOC_MAGIC)
     return -ENOTTY;
@@ -523,10 +560,7 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
   switch (cmd)
   {
     case USB2D_SET_TAS:
-      if (copy_from_user(&encoded_tas, (void __user *)arg, 3))
-        return -EFAULT;
-
-      retval = write_data(file, (const char *)&encoded_tas, 3);
+      retval = write_data(file,(const char*)arg, 3);
       if (retval == 3)
         retval = 0;
       break;

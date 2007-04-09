@@ -80,7 +80,8 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 
 struct urb_sample
 {
-    dsm_sample_t tag;
+    dsm_sample_time_t timetag;		/* timetag of sample */
+    dsm_sample_length_t length;		/* number of bytes in data */
     struct urb * urb;
 };
 
@@ -93,9 +94,13 @@ struct urb_sample_circ_buf
 
 struct usb_twod_stats
 {
-  int total_urb_callbacks;
-  int valid_urb_callbacks;
-  int total_read_overflow;
+  size_t total_urb_callbacks;
+  size_t valid_urb_callbacks;
+  size_t total_read_overflow;
+  size_t enoents;
+  size_t econnresets;
+  size_t eshutdowns;
+  size_t eothers;
 };
 
 #define USB2D_SET_TAS		_IOW(USB2D_IOC_MAGIC,0,float)
