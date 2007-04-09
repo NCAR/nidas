@@ -67,9 +67,10 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
   cerr << __PRETTY_FUNCTION__ << "open-begin" << endl;
 
   // Shut the probe down until a valid TAS comes along.
-  sendTrueAirspeed(0.0);
+  sendTrueAirspeed(33.0);
 
-  DerivedDataReader::getInstance()->addClient(this);
+  if (DerivedDataReader::getInstance())
+	  DerivedDataReader::getInstance()->addClient(this);
 
   cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
 }
@@ -172,6 +173,8 @@ void TwoDC_USB::sendTrueAirspeed(float tas)
   tx_tas[0] = ntap;
   tx_tas[1] = ndiv;
   tx_tas[2] = nmsec;
+	cerr << "ioctl USB2D_SET_TAS: ntap=" << (int)tx_tas[0] <<
+	" ndiv=" << (int)tx_tas[1] << " nmsec=" << (int)tx_tas[2] << endl;
 
   try
   {
