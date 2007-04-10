@@ -32,7 +32,6 @@ namespace n_u = nidas::util;
 
 SampleSorter::SampleSorter(const string& name) :
     Thread(name),sorterLengthUsec(250*USECS_PER_MSEC),
-    sampleSetCond("sampleSetCond"),
     heapMax(10000000),heapSize(0),heapBlock(false),discardedSamples(0),
     discardWarningCount(1000),doFlush(false),flushed(false)
 {

@@ -36,7 +36,7 @@ using namespace std;
 typedef vector<LogContext*> log_points_v;
 typedef map<string,LogScheme> log_schemes_t;
 
-static Mutex logger_mutex("logger_mutex");
+static Mutex logger_mutex;
 
 static log_points_v log_points;
 static log_schemes_t log_schemes;

@@ -23,12 +23,6 @@ public:
   static bool Debug;
 
   /**
-   * Construct a "fast" POSIX mutex, giving it a name for
-   * debugging.  See man page for pthread_mutex_init.
-   */
-  Mutex(const std::string& name);
-
-  /**
    * Construct a "fast" POSIX mutex.
    * See man page for pthread_mutex_init.
    */
@@ -79,19 +73,6 @@ public:
    */
   pthread_mutex_t* ptr();
 
-  /**
-   * Give the mutex a name, for diagnostic purposes.
-   **/
-  void setName(const std::string& nm);
-
-  /**
-   * Return the name of this mutex.
-   */
-  const std::string &getName() const
-  {
-    return name;
-  }
-
 private:
   /**
    * No assignment allowed.
@@ -99,7 +80,7 @@ private:
   Mutex& operator=(const Mutex&);
 
   pthread_mutex_t p_mutex;
-  std::string name;
+
 };
 
 /**
@@ -109,12 +90,6 @@ class Cond
 {
 
 public:
-
-  /**
-   * Construct a POSIX condition variable, with default attributes,
-   * and give it a name for debugging.  See man page for pthread_cond_init.
-   */
-  Cond(const std::string& name);
 
   /** 
    * Construct a POSIX condition variable, with default attributes.
@@ -206,7 +181,9 @@ private:
    * No assignment allowed.
    */
   Cond &operator= (const Cond &);
+
   pthread_cond_t p_cond;
+
   Mutex mutex;
 };
 

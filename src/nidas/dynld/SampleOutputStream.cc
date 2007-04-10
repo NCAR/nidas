@@ -19,6 +19,7 @@
 #include <nidas/util/Logger.h>
 
 #include <iostream>
+#include <byteswap.h>
 
 using namespace nidas::dynld;
 using namespace nidas::core;
@@ -143,8 +144,18 @@ bool SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 #endif
     const void* bufs[2];
     size_t lens[2];
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+    header.setTimeTag(bswap_64(samp->getTimeTag()));
+    header.setDataByteLength(bswap_32(samp->getDataByteLength()));
+    header.setRawId(bswap_32(samp->getRawId()));
+    bufs[0] = &header;
+    lens[0] = SampleHeader::getSizeOf();
+#else
     bufs[0] = samp->getHeaderPtr();
     lens[0] = samp->getHeaderLength();
+#endif
+
     assert(samp->getHeaderLength() == 16);
 
     bufs[1] = samp->getConstVoidDataPtr();

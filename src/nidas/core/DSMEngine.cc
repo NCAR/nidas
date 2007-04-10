@@ -41,7 +41,7 @@ int DSMEngine::rtlinux = -1;	// unknown
 DSMEngine::DSMEngine():
     _externalControl(false),_runState(STOPPED),_nextState(START),
     _syslogit(true),
-    _runCond("_runCond"),_project(0),
+    _project(0),
     _dsmConfig(0),_selector(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),

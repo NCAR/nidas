@@ -13,19 +13,7 @@
 using namespace std;
 using namespace nidas::util;
 
-/**
- * A fast pthread mutex.
- */
-Mutex::Mutex(const std::string& n) : name(n)
-{
-// mutex attribute of 0 gives a default
-// type of "fast". See the man page on pthread_mutex
-//	pthread_mutexattr_t attr;
-//	pthread_mutexattr_setkind_np(&attr, PTHREAD_MUTEX_ERRORCHECK_NP);
-  ::pthread_mutex_init (&p_mutex, 0);		// always returns 0
-}
-
-Mutex::Mutex() : name("Mutex")
+Mutex::Mutex()
 {
   ::pthread_mutex_init (&p_mutex, 0);		// always returns 0
 }
@@ -33,7 +21,7 @@ Mutex::Mutex() : name("Mutex")
 /*
  * Copy constructor. Creates a new, unlocked mutex.
  */
-Mutex::Mutex(const Mutex& x): name(x.name)
+Mutex::Mutex(const Mutex& x)
 {
   ::pthread_mutex_init (&p_mutex, 0);		// always returns 0
 }
@@ -43,27 +31,16 @@ Mutex::~Mutex() throw(Exception) {
    * pthread_mutex_destroy only checks that the mutex is unlocked.
    */
   if (::pthread_mutex_destroy(&p_mutex) && errno != EINTR)
-    throw Exception(string("~") + getName() + ": " + Exception::errnoToString(errno));
+    throw Exception(string("~Mutex") + ": " + Exception::errnoToString(errno));
 }
 
 pthread_mutex_t*
 Mutex::ptr() {
    return &p_mutex;
- }
-
-/** give the mutex a name, for diagnostic purposes
- */
-void Mutex::setName(const string& nm)
-{
-	name = nm;
 }
 
-Cond::Cond(const std::string& name_) : mutex(name_) 
-{
-  ::pthread_cond_init (&p_cond, 0);	// never returns an error code
-}
 
-Cond::Cond() : mutex("Cond") 
+Cond::Cond() : mutex() 
 {
   // there are no attributes for the cond_init
   ::pthread_cond_init (&p_cond, 0);	// never returns error code
@@ -83,12 +60,12 @@ Cond::~Cond() throw(Exception)
    */
 
   if (::pthread_cond_destroy (&p_cond) && errno != EINTR)
-    throw Exception(string("~") + mutex.getName() + ": " + Exception::errnoToString(errno));
+    throw Exception(string("~Cond") + ": " + Exception::errnoToString(errno));
 }
 
 
 Multisync::Multisync(int n):
- _co("Multisync"), _n(n), _count(0), debug(0) {
+ _co(), _n(n), _count(0), debug(0) {
 
   char* debug_env = getenv("MULTISYNC_DEBUG");
 

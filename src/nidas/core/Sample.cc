@@ -21,11 +21,11 @@ namespace n_u = nidas::util;
 
 #ifdef MUTEX_PROTECT_REF_COUNTS
 /* static */
-n_u::Mutex SampleBase::refLock;
+// n_u::Mutex Sample::refLock;
 #endif
 
 /* static */
-int SampleBase::nsamps = 0;
+int Sample::nsamps = 0;
 
 Sample* nidas::core::getSample(sampleType type, size_t len)
 {

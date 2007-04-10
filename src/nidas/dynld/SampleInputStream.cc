@@ -17,6 +17,8 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DSMService.h>
 
+#include <byteswap.h>
+
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -191,6 +193,12 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 
 	    iostream->read(&header,header.getSizeOf());
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+            header.setTimeTag(bswap_64(header.getTimeTag()));
+            header.setDataByteLength(bswap_32(header.getDataByteLength()));
+            header.setRawId(bswap_32(header.getRawId()));
+#endif
+
             // screen bad headers.
 	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
                 header.getDataByteLength() > 32767 ||
@@ -273,6 +281,12 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             }
 
             iostream->read(&header,header.getSizeOf());
+#if __BYTE_ORDER == __BIG_ENDIAN
+            header.setTimeTag(bswap_64(header.getTimeTag()));
+            header.setDataByteLength(bswap_32(header.getDataByteLength()));
+            header.setRawId(bswap_32(header.getRawId()));
+#endif
+
             if (header.getType() >= UNKNOWN_ST) {
                 badInputSamples++;
                 samp = nidas::core::getSample((sampleType)CHAR_ST,
@@ -324,6 +338,12 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
         }
 
         iostream->read(&header,header.getSizeOf());
+#if __BYTE_ORDER == __BIG_ENDIAN
+            header.setTimeTag(bswap_64(header.getTimeTag()));
+            header.setDataByteLength(bswap_32(header.getDataByteLength()));
+            header.setRawId(bswap_32(header.getRawId()));
+#endif
+
         if (header.getType() >= UNKNOWN_ST) badInputSamples++;
         // cerr << header.getTimeTag() << " " << tt.toUsecs() << endl;
         if (header.getTimeTag() >= tt.toUsecs()) {

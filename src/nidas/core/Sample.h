@@ -160,170 +160,8 @@ inline sampleType getSampleType(void* ptr)
 }
 
 /**
- * Interface to a sample of raw data.  A sample contains
- * a time_tag, a data length field, an id value, and some data.
- */
-class Sample {
-public:
-  
-    virtual ~Sample() {}
-
-    virtual void setTimeTag(dsm_time_t val) = 0;
-    virtual dsm_time_t getTimeTag() const = 0;
-
-    /**
-     * Set the number of elements in data portion of sample.
-     */
-    virtual void setDataLength(size_t val)
-    	throw(SampleLengthException) = 0;
- 
-    /**
-     * Get the number of elements in data portion of sample.
-     */
-    virtual size_t getDataLength() const = 0;
-
-    /**
-     * Get the number of bytes in data portion of sample.
-     */
-    virtual size_t getDataByteLength() const = 0;
-
-    /**
-     * Set the id portion of the sample header. The id can
-     * identify the sensor of origin of the sample.
-     */
-    virtual void setId(dsm_sample_id_t val) = 0;
-
-    /**
-     * Get the id portion of the sample header.
-     */
-    virtual dsm_sample_id_t getId() const = 0;
-
-    /**
-     * Set the short id portion of the sample header.
-     * This is the portion of the id without the DSM id.
-     */
-    virtual void setShortId(unsigned long val) = 0;
-
-    /**
-     * Get the long id portion of the sample header.
-     * This is the portion of the id without the DSM id.
-     */
-    virtual unsigned long getShortId() const = 0;
-
-    /**
-     * Set the DSM id portion of the sample header.
-     */
-    virtual void setDSMId(unsigned long val) = 0;
-
-    /**
-     * Get the DSM id portion of the sample header.
-     */
-    virtual unsigned long getDSMId() const = 0;
-
-    /**
-     * Set the type of the sample.
-     */
-    virtual sampleType getType() const = 0;
-
-    /**
-     * Number of bytes in header.
-     */
-    virtual size_t getHeaderLength() const = 0;
-
-    /**
-     * Get a pointer to the header portion of the sample.
-     */
-    virtual const void* getHeaderPtr() const = 0;
-
-    /**
-     * Get a void* pointer to the data portion of the sample.
-     */
-    virtual void* getVoidDataPtr() = 0;
-
-    /**
-     * Get a const void* pointer to the data portion of the sample.
-     */
-    virtual const void* getConstVoidDataPtr() const = 0;
-
-    /**
-     * Get number of elements allocated in data portion of sample.
-     */
-    virtual size_t getAllocLength() const = 0;
-
-    /**
-     * Get number of bytes allocated in data portion of sample.
-     */
-    virtual size_t getAllocByteLength() const = 0;
-
-    /**
-     * Allocate a number of bytes of data.
-     */
-    virtual void allocateData(size_t val) throw(SampleLengthException) = 0;
-
-    /**
-     * Re-allocate a number of bytes of data, saving old contents.
-     */
-    virtual void reallocateData(size_t val) throw(SampleLengthException) = 0;
-
-    /**
-     * Increment the reference count for this sample.
-     * Sample supports a form of reference counting.
-     */
-    virtual void holdReference() const = 0;
-
-    /**
-     * Decrement the reference count for this sample.
-     */
-    virtual void freeReference() const = 0;
-};
-
-
-class SampleBase : public Sample {
-
-public:
-    SampleBase() : refCount(1) { nsamps++; }
-    virtual ~SampleBase() { nsamps--; }
-
-    /**
-    * Increment the reference count for this sample.
-    * Sample supports a form of reference counting.
-    * See freeReference.  We have to use a hack-like
-    * cast of the this pointer to a const so that holdReference
-    * can be used on a const Sample.  The SamplePool class
-    * supports Sample reference counting.
-    */
-    void holdReference() const {
-#ifdef MUTEX_PROTECT_REF_COUNTS
-	refLock.lock();
-#endif
-        refCount++;
-#ifdef MUTEX_PROTECT_REF_COUNTS
-	refLock.unlock();
-#endif
-    }
-
-protected:
-
-  /**
-   * The reference count.
-   */
-  mutable volatile int refCount;
-
-#ifdef MUTEX_PROTECT_REF_COUNTS
-  static nidas::util::Mutex refLock;
-#endif
-
-  /**
-   * Global count of the number of samples in use by a process.
-   * Incremented in the constructor, decremented in the destructor.
-   * Useful for development debugging to track leaks.
-   */
-  static int nsamps;
-
-};
-
-/**
- * The header fields of a Sample.
+ * The header fields of a Sample: a time_tag, a data length field,
+ * and an identifier.
  */
 class SampleHeader {
 public:
@@ -331,8 +169,8 @@ public:
     SampleHeader(sampleType t=CHAR_ST) :
     	tt(0),length(0),tid((unsigned long)t << 26) {}
 
-
     dsm_time_t getTimeTag() const { return tt; }
+
     void setTimeTag(dsm_time_t val) { tt = val; }
 
     /**
@@ -350,6 +188,9 @@ public:
     dsm_sample_id_t getId() const { return GET_FULL_ID(tid); }
     void setId(dsm_sample_id_t val) { tid = SET_FULL_ID(tid,val); }
 
+    dsm_sample_id_t getRawId() const { return tid; }
+    void setRawId(dsm_sample_id_t val) { tid = val; }
+
     /**
      * Get the DSM identifier for the sample.
      */
@@ -357,7 +198,7 @@ public:
     void setDSMId(unsigned long val) { tid = SET_DSM_ID(tid,val); }
 
     /**
-     * Get the long sample identifier for the sample.
+     * Get the sample identifier for the sample.
      */
     unsigned long getShortId() const { return GET_SHORT_ID(tid); }
     void setShortId(unsigned long val) { tid = SET_SHORT_ID(tid,val); }
@@ -366,7 +207,8 @@ public:
      * Get the data type of this sample.
      */
     unsigned char getType() const { return GET_SAMPLE_TYPE(tid); }
-    void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
+
+    // void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
 
     static size_t getSizeOf()
     {
@@ -402,39 +244,191 @@ protected:
 };
 
 /**
+ * Interface to a sample of raw data.  A Sample contains
+ * a SampleHeader and some data.
+ */
+class Sample {
+public:
+  
+    Sample(sampleType t = CHAR_ST) : header(t),refCount(1) { nsamps++; }
+
+    virtual ~Sample() { nsamps--; }
+
+    void setTimeTag(dsm_time_t val) { header.setTimeTag(val); }
+
+    dsm_time_t getTimeTag() const { return header.getTimeTag(); }
+
+    /**
+     * Set the id portion of the sample header. The id 
+     * typically identifies the data system and
+     * sensor of origin of the sample.
+     */
+    void setId(dsm_sample_id_t val) { header.setId(val); }
+
+    /**
+     * Get the id portion of the sample header.
+     */
+    dsm_sample_id_t getId() const { return header.getId(); }
+
+    /**
+     * Set the full, raw id portion of the sample header.
+     * This method is not typically used except when
+     * doing raw IO on a sample. The raw id
+     * contains an enumeration of the sample type,
+     * along with the fields returned by getId().
+     */
+    void setRawId(dsm_sample_id_t val) { header.setRawId(val); }
+
+    dsm_sample_id_t getRawId() const { return header.getRawId(); }
+
+    /**
+     * Set the short id portion of the sample header.
+     * This is the portion of the id without the DSM id.
+     */
+    void setShortId(unsigned long val) { header.setShortId(val); }
+
+    /**
+     * Get the short id portion of the sample header.
+     * This is the portion of the id without the DSM id.
+     */
+    unsigned long getShortId() const { return header.getShortId(); }
+
+    /**
+     * Set the DSM (data system) id portion of the sample header.
+     */
+    void setDSMId(unsigned long val) { header.setDSMId(val); }
+
+    /**
+     * Get the DSM (data system) id portion of the sample header.
+     */
+    unsigned long getDSMId() const { return header.getDSMId(); }
+
+    /**
+     * Get the number of bytes in data portion of sample.
+     */
+    size_t getDataByteLength() const { return header.getDataByteLength(); }
+
+    /**
+     * Set the number of elements in data portion of sample.
+     */
+    virtual void setDataLength(size_t val)
+    	throw(SampleLengthException) = 0;
+ 
+    /**
+     * Get the number of elements in data portion of sample.
+     */
+    virtual size_t getDataLength() const = 0;
+
+    /**
+     * Get the type of the sample.
+     */
+    virtual sampleType getType() const = 0;
+
+    /**
+     * Number of bytes in header.
+     */
+    size_t getHeaderLength() const { return SampleHeader::getSizeOf(); }
+
+    /**
+     * Get a pointer to the header portion of the sample.
+     */
+    const void* getHeaderPtr() const { return &header; }
+
+    /**
+     * Get a void* pointer to the data portion of the sample.
+     */
+    virtual void* getVoidDataPtr() = 0;
+
+    /**
+     * Get a const void* pointer to the data portion of the sample.
+     */
+    virtual const void* getConstVoidDataPtr() const = 0;
+
+    /**
+     * Get number of elements allocated in data portion of sample.
+     */
+    virtual size_t getAllocLength() const = 0;
+
+    /**
+     * Get number of bytes allocated in data portion of sample.
+     */
+    virtual size_t getAllocByteLength() const = 0;
+
+    /**
+     * Allocate a number of bytes of data.
+     */
+    virtual void allocateData(size_t val) throw(SampleLengthException) = 0;
+
+    /**
+     * Re-allocate a number of bytes of data, saving old contents.
+     */
+    virtual void reallocateData(size_t val) throw(SampleLengthException) = 0;
+
+    /**
+     * Increment the reference count for this sample.
+     * Sample supports a form of reference counting.
+     * See freeReference.  We have to use a hack-like
+     * cast of the this pointer to a const so that holdReference
+     * can be used on a const Sample.  The SamplePool class
+     * supports Sample reference counting.
+     */
+    void holdReference() const {
+#ifdef MUTEX_PROTECT_REF_COUNTS
+	refLock.lock();
+#endif
+        refCount++;
+        // __sync_add_and_fetch(&refCount,1);
+#ifdef MUTEX_PROTECT_REF_COUNTS
+	refLock.unlock();
+#endif
+    }
+
+    /**
+     * Decrement the reference count for this sample.
+     */
+    virtual void freeReference() const = 0;
+
+protected:
+
+    SampleHeader header;
+
+    /**
+     * The reference count.
+     */
+    mutable volatile int refCount;
+
+#ifdef MUTEX_PROTECT_REF_COUNTS
+    mutable nidas::util::Mutex refLock;
+#endif
+
+    /**
+     * Global count of the number of samples in use by a process.
+     * Incremented in the constructor, decremented in the destructor.
+     * Useful for development debugging to track leaks.
+     */
+    static int nsamps;
+};
+
+/**
  * A typed Sample, with data of type DataT.
  */
 template <class DataT>
-class SampleT : public SampleBase {
+class SampleT : public Sample {
 public:
-    SampleT() : SampleBase(),header(getType()),data(0),allocLen(0) {}
+
+    SampleT() : Sample(getType()),data(0),allocLen(0) {}
+
     ~SampleT() { delete [] data; }
 
-    void setTimeTag(dsm_time_t val) { header.setTimeTag(val); }
-    dsm_time_t getTimeTag() const { return header.getTimeTag(); }
-
-    void setId(dsm_sample_id_t val) { header.setId(val); }
-    dsm_sample_id_t getId() const { return header.getId(); }
-
-    void setShortId(unsigned long val) { header.setShortId(val); }
-    unsigned long getShortId() const { return header.getShortId(); }
-
-    void setDSMId(unsigned long val) { header.setDSMId(val); }
-    unsigned long getDSMId() const { return header.getDSMId(); }
-
     sampleType getType() const { return getSampleType(data); }
+
     /**
      * Get number of elements of type DataT in data.
      */
     size_t getDataLength() const
     {
-        return header.getDataByteLength() / sizeof(DataT);
+        return getDataByteLength() / sizeof(DataT);
     }
-
-    /**
-     * Get number of bytes in data.
-     */
-    size_t getDataByteLength() const { return header.getDataByteLength(); }
 
     /**
      * Set the number of elements of type DataT in data.
@@ -455,13 +449,6 @@ public:
     {
     	return SampleHeader::getMaxDataLength() / sizeof(DataT);
     }
-
-    /**
-     * Get number of bytes in header portion of sample.
-     */
-    size_t getHeaderLength() const { return SampleHeader::getSizeOf(); }
-
-    const void* getHeaderPtr() const { return (void*) &header; }
 
     void* getVoidDataPtr() { return (void*) data; }
     const void* getConstVoidDataPtr() const { return (const void*) data; }
@@ -568,8 +555,6 @@ public:
 
 protected:
 
-    SampleHeader header;
-
     /**
      * Pointer to the actual data.
      */
@@ -621,6 +606,8 @@ void SampleT<DataT>::freeReference() const
     refLock.lock();
 #endif
     bool ref0 = --refCount == 0;
+    // TODO: use GCC 4.X atomic operations instead of Mutex
+    // bool ref0 = __sync_sub_and_fetch(&refCount,1) == 0;
     assert(refCount >= 0);
 #ifdef MUTEX_PROTECT_REF_COUNTS
     refLock.unlock();

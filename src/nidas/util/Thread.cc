@@ -98,9 +98,9 @@ Thread::unregisterThread()
 }
 
 Thread::Thread(const std::string& name, bool detached) : 
-    _mutex(name),
-    _joinMutex(name),
-    _fullnamemutex(name),
+    _mutex(),
+    _joinMutex(),
+    _fullnamemutex(),
     _name(name),
     _fullname(name),
     _id(0),
