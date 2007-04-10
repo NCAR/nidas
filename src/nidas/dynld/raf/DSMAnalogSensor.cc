@@ -42,6 +42,7 @@
 
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
 #include <nidas/rtlinux/a2d_driver.h>
 
 #include <nidas/util/Logger.h>
@@ -62,7 +63,8 @@ DSMAnalogSensor::DSMAnalogSensor() :
     sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
     sampleTimes(0),
     deltatUsec(0),nSamplePerRawSample(0),
-    outsamples(0),badRawSamples(0)
+    outsamples(0),badRawSamples(0),
+    rtlinux(-1)
 {
 }
 
@@ -81,9 +83,23 @@ DSMAnalogSensor::~DSMAnalogSensor()
     }
 }
 
+bool DSMAnalogSensor::isRTLinux() const
+{
+    if (rtlinux < 0)  {
+        const string& dname = getDeviceName();
+        unsigned int fs = dname.rfind('/');
+        if (fs != string::npos && (fs + 10) < dname.length() &&
+            dname.substr(fs+1,10) == "dsma2d")
+                    rtlinux = 1;
+        else rtlinux = 0;
+    }
+    return rtlinux == 1;
+}
+
 IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
 {
-    return new RTL_IODevice();
+    if (isRTLinux()) return new RTL_IODevice();
+    else return new UnixIODevice();
 }
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()

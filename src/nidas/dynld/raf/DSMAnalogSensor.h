@@ -35,6 +35,8 @@ public:
     DSMAnalogSensor();
     ~DSMAnalogSensor();
 
+    bool isRTLinux() const;
+
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner();
@@ -205,6 +207,8 @@ protected:
      * Counter of number of raw samples of wrong size.
      */
     size_t badRawSamples;
+
+    mutable int rtlinux;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
