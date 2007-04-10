@@ -146,6 +146,7 @@ bool SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
     size_t lens[2];
 
 #if __BYTE_ORDER == __BIG_ENDIAN
+    SampleHeader header;
     header.setTimeTag(bswap_64(samp->getTimeTag()));
     header.setDataByteLength(bswap_32(samp->getDataByteLength()));
     header.setRawId(bswap_32(samp->getRawId()));
