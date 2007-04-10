@@ -12,6 +12,7 @@ subdirs=Split("""
     diamond
     filters
     irig
+    ncar_a2d
     serial
     usbtwod
 """)
