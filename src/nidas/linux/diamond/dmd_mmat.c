@@ -1791,7 +1791,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         if(!sampPtr && a2d->samples.head == a2d->samples.tail) {
                 if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
                 if (wait_event_interruptible(a2d->read_queue,
-                      a2d->samples.head == a2d->samples.tail)) return -ERESTARTSYS;
+                      a2d->samples.head != a2d->samples.tail)) return -ERESTARTSYS;
         }
 
         if (!sampPtr) {
@@ -2017,7 +2017,7 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
         if(cntr->samples.head == cntr->samples.tail) {
                 if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
                 if (wait_event_interruptible(cntr->read_queue,
-                      cntr->samples.head == cntr->samples.tail)) return -ERESTARTSYS;
+                      cntr->samples.head != cntr->samples.tail)) return -ERESTARTSYS;
         }
 
         for ( ;cntr->samples.head != cntr->samples.tail &&
