@@ -53,7 +53,7 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
     t2d->nmsec = 0;     /* unused for USB probe */
     t2d->ntap = 0;
 
-    if (ntap < 0 || ntap > 255)
+    if (ntap > 255)
         return -EINVAL;
 
     t2d->ntap = (unsigned char)ntap;
