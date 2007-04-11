@@ -93,18 +93,18 @@ typedef struct
  */
 #define A2D_GET_STATUS _IOR(A2D_MAGIC, 0, A2D_STATUS)
 #define A2D_SET_CONFIG _IOW(A2D_MAGIC, 1, A2D_SET)
-#define A2D_CAL_IOCTL  _IOW(A2D_MAGIC, 2, A2D_CAL)
-#define A2D_RUN_IOCTL  _IO(A2D_MAGIC, 3)
-#define A2D_STOP_IOCTL _IO(A2D_MAGIC, 4)
+#define A2D_SET_CAL    _IOW(A2D_MAGIC, 2, A2D_CAL)
+#define A2D_RUN        _IO(A2D_MAGIC, 3)
+#define A2D_STOP       _IO(A2D_MAGIC, 4)
 #define A2D_OPEN_I2CT  _IOW(A2D_MAGIC, 5, int)
 #define A2D_CLOSE_I2CT _IO(A2D_MAGIC, 6)
 #define A2D_GET_I2CT   _IOR(A2D_MAGIC, 7, short)
 
-//A2D Status register bits
+//AD7725 Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
 #define A2DDATARDY      0x4000  //Data ready to be read (Read cycle)
 #define A2DDATAREQ      0x2000  //New data required (Write cycle)
-#define A2DIDERR        0x1000  //Chip ID error
+#define A2DIDERR        0x1000  //ID error
 #define A2DCRCERR       0x0800  //Data corrupted--CRC error
 #define A2DDATAERR      0x0400  //Conversion data invalid
 #define A2DINSTREG15    0x0200  //Instr reg bit 15
@@ -118,7 +118,8 @@ typedef struct
 #define A2DINSTREG00    0x0002  //                              00
 #define A2DCONFIGEND    0x0001  //Configuration End Flag.
 
-/* values in the A2D Status Register should look like so when
+
+/* values in the AD7725 Status Register should look like so when
  * the A2Ds are running.  The instruction is RdCONV=0x8d21.
  *
  * bit name             value (X=varies)
@@ -147,20 +148,23 @@ typedef struct
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
-#include <linux/sem.h>
+#include <linux/completion.h>
 #include <linux/interrupt.h>
-#include <linux/spinlock.h>
 #include <linux/kfifo.h>
+#include <linux/spinlock.h>
 #include <linux/wait.h>
+#include <linux/workqueue.h>
 
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
 #define HWFIFODEPTH             1024
 
-//Card base address for ISA bus
-#define A2DMASTER      0       // A/D chip designated to produce interrupts
-#define A2DIOWIDTH     0x10    // Width of I/O space
-#define A2DIOLOAD      0xF     // Load A/D configuration data
+#define A2DMASTER	0	// A/D chip designated to produce interrupts
+#define A2DIOWIDTH	0x10	// Width of I/O space
+
+// address offset for commands to the card itself
+//#define A2DCMDADDR	0xF	// address offset for board commands
+#define A2DCMDADDR	0xE	// address offset for board commands
 
 /*
  * 500samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
@@ -175,27 +179,33 @@ typedef struct
 //   will point the enable latch at the FIFO output.
 
 //FIFO Control Word bit definitions
-#define A2DIO_FIFO      0x0     // FIFO data (read), FIFO Control (write)
-#define A2DIO_STAT      0x1     // A/D status (read), command (write)
-#define A2DIO_DATA      0x2     // A/D data(read), config(write)                 // NOT USED
-#define A2DIO_D2A0      0x3
-#define A2DIO_D2A1      0x4
-#define A2DIO_D2A2      0x5
-#define A2DIO_SYSCTL    0x6     // A/D INT lines(read), Cal/offset (write)
-#define A2DIO_FIFOSTAT  0x7     // FIFO stat (read), Set master A/D (write)
+#define A2DIO_FIFO         0x0     // FIFO data (read), FIFO Control (write)
+//#define A2DIO_STAT         0x1     // A/D status (read), command (write)
+#define A2DIO_WRCMD        0x1     // write a command
+#define A2DIO_WRCOEF       0x2     // write a coefficient to one of the 7725s
+#define A2DIO_D2A0         0x3
+#define A2DIO_D2A1         0x4
+#define A2DIO_D2A2         0x5
+//#define A2DIO_SYSCTL       0x6     // A/D INT lines(read), Cal/offset (write)
+#define A2DIO_RDINTR       0x6     // read A/D INT lines
+#define A2DIO_WRCALOFF     0x6     // write cal/offset
+#define A2DIO_RDBOARDSTAT  0x7     // read board status
+#define A2DIO_WRMASTER     0x7     // set master A/D
+#define A2DIO_RDCHANSTAT   0x9     // read status from a specific A/D channel
+#define A2DIO_RDDATA       0xa     // read data
 
-#define A2DSTATRD       0x9     // Same as A2DIO_STAT; BSD3(=A2DRWN) high (rd)
-#define A2DCMNDWR       0x1     // Same as A2DIO_STAT; BSD3(=A2DRWN) low  (wr)
-#define A2DDATARD       0xA     // Same as A2DIO_DATA; BSD3(=A2DRWN) high (rd)    // NOT USED
-#define A2DCONFWR       0x2     // Same as A2DIO_DATA; BSD3(=A2DRWN) low  (wr)
+//#define A2DIO_STATRD       0x9     // Same as A2DIO_STAT; BSD3(=A2DRWN) high (rd)
+//#define A2DIO_CMNDWR       0x1     // Same as A2DIO_STAT; BSD3(=A2DRWN) low  (wr)
+//#define A2DDATARD       0xA     // Same as A2DIO_DATA; BSD3(=A2DRWN) high (rd)    // NOT USED
+//#define A2DCONFWR       0x2     // Same as A2DIO_DATA; BSD3(=A2DRWN) low  (wr)
 
-//A/D Chip command words (See A2DIOSTAT and A2DCMNDWR above)
-#define A2DREADID      0x8802  // Read device ID                         // NOT USED
-#define A2DREADDATA    0x8d21  // Read converted data
-#define A2DWRCONFIG    0x1800  // Write configuration data
-#define A2DWRCONFEM    0x1A00  // Write configuration, mask data         // NOT USED
-#define A2DABORT       0x0000  // Soft reset; still configured
-#define A2DBFIR        0x2000  // Boot from internal ROM                 // NOT USED
+// AD7725 chip command words (See A2DIO_WR7725CMD above)
+#define AD7725_READID      0x8802  // Read device ID (NOT USED)
+#define AD7725_READDATA    0x8d21  // Read converted data
+#define AD7725_WRCONFIG    0x1800  // Write configuration data
+#define AD7725_WRCONFEM    0x1A00  // Write configuration, mask data (NOT USED)
+#define AD7725_ABORT       0x0000  // Soft reset; still configured
+#define AD7725_BFIR        0x2000  // Boot from internal ROM (NOT USED)
 
 // A/D Control bits
 #define FIFOCLR        0x01    // Cycle this bit 0-1-0 to clear FIFO
@@ -208,12 +218,12 @@ typedef struct
 #define FIFOWREBL      0x80    // Enable writing to FIFO. (not used)     // NOT USED
 
 // FIFO Status bits
-#define FIFOHF         0x01    // FIFO half full                         // NOT USED
-#define FIFOAFAE       0x02    // FIFO almost full/almost empty          // NOT USED
+#define FIFOHF         0x01    // FIFO half full
+#define FIFOAFAE       0x02    // FIFO almost full/almost empty
 #define FIFONOTEMPTY   0x04    // FIFO not empty
 #define FIFONOTFULL    0x08    // FIFO not full
 #define INV1PPS        0x10    // Inverted 1 PPS pulse
-#define PRESYNC        0x20    // Presync bit                            // NOT USED
+#define PRESYNC        0x20    // Presync bit			// NOT USED
 
 typedef struct
 {
@@ -230,12 +240,19 @@ typedef struct
 } I2C_TEMP_SAMPLE;
 
 struct A2DBoard {
-    unsigned int addr;           // Base address of board
-    unsigned int chan_addr;
+    unsigned int base_addr;           // Base address of board
+    unsigned int cmd_addr;            // Address for commands to the board
 
     struct tasklet_struct setupTasklet;
-    struct tasklet_struct getSampleTasklet;
+    struct completion setupCompletion;
+    int setupStatus;             // non-zero if not set up
+
     struct tasklet_struct resetTasklet;
+    int resetStatus;             // non-zero if not set up
+    
+    struct tasklet_struct getSampleTasklet;
+    struct tasklet_struct stopTasklet;
+    struct work_struct getSampleWork;
 
     int i2cTempRate;             // rate to query I2C temperature sensor
     struct ioctlHandle* ioctlhandle;
