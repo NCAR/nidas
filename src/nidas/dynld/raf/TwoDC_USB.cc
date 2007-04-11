@@ -126,7 +126,7 @@ void TwoDC_USB::fromDOMElement(const xercesc::DOMElement * node)
   p = getParameter("RESOLUTION");
   if (!p)
     throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
-  _resolution = (int)p->getNumericValue(0);
+  _resolution = p->getNumericValue(0) * 1.0e-6;
 
   cerr << __PRETTY_FUNCTION__ << "fromDOMElement-end" << endl;
 }
@@ -141,44 +141,13 @@ std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
 /*---------------------------------------------------------------------------*/
 void TwoDC_USB::sendTrueAirspeed(float tas)
 {
-  unsigned char tx_tas[3], ntap, nmsec, ndiv;
+  Tap2D tx_tas;
 
-  /* Notes from Mike Spowart:
-   *
-   * Note below at the bottom that I send a 3 byte packet that is stuffed
-   * with memcpy(s). The three bytes are ndiv, ntap, and nmsec.
-   * Note that ndiv is presently set always to zero, but I wanted to reserve
-   * the option to change it in the future (it was zero for the USB1.1 probe
-   * but might be higher for the USB2.0 probe). Then the ntap byte is
-   * determined by the tas, where tas->freq->ntap. Finally, nmsec is
-   * sent to the probe as a number between 1 and 10 and is the count
-   * of 10 Hz transmissions. 
-   *
-   * The nmsec byte will not be used in the fast probe. You can set it to any
-   * value.  The TAS clock frequency is set entirely by ntap.
-   * The rate at which TAS is sent does not matter at all to me. Whenever I
-   * receive a new EP1OUT packet I will adjust the TAS clock. 
-   */
-  nmsec = 0;
-  ndiv = 0;
-
-  float freq = (float)(1.0e3 * (double)tas/(double)_resolution);
-  if (freq <= 1000.0)
-    ntap = (unsigned char)(0.286 * freq - 144.4);
-  else if (freq > 2500.0)
-    ntap = (unsigned char)(0.0015 * freq + 225.88);
-  else
-    ntap = (unsigned char)(0.0323 * freq + 111.5);
-
-  tx_tas[0] = ntap;
-  tx_tas[1] = ndiv;
-  tx_tas[2] = nmsec;
-	cerr << "ioctl USB2D_SET_TAS: ntap=" << (int)tx_tas[0] <<
-	" ndiv=" << (int)tx_tas[1] << " nmsec=" << (int)tx_tas[2] << endl;
+  TASToTap2D(&tx_tas, tas, _resolution);
 
   try
   {
-    ioctl(USB2D_SET_TAS, tx_tas, 3);
+    ioctl(USB2D_SET_TAS, (void *)&tx_tas, 3);
   }
   catch (const n_u::IOException& e)
   {

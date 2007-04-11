@@ -77,9 +77,9 @@ protected:
   void sendTrueAirspeed(float tas);
 
   /**
-   * Probe resolution in micrometers.  Acquired from XML config file.
+   * Probe resolution in meters.  Acquired from XML config file.
    */
-  int _resolution;
+  double _resolution;
 
   /**
    * Synchword mask.  This slice/word is written at the end of each particle.
