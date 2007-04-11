@@ -52,6 +52,9 @@ struct usb_twod
 
   int			is_open;		/* don't allow multiple opens. */
 
+  long			latestDAQ_TAS;		/* Latest tas from data system. */
+  long			latestProbeTAS;		/* Latest tas from the probe. */
+
 #ifdef BLOCKING_READ
   unsigned char		*bulk_in_buffer;	/* the buffer to receive data */
 #endif
@@ -120,7 +123,7 @@ exit:
 }
 
 static void twod_delete(struct usb_twod *dev)
-{	
+{
   usb_put_dev(dev->udev);
 #ifdef BLOCKING_READ
   kfree(dev->bulk_in_buffer);
@@ -190,8 +193,6 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
 
   ++dev->stats.total_urb_callbacks;
 
-//((int *)urb->transfer_buffer)[0] = dev->stats.total_urb_callbacks;
-
   /* sync/async unlink faults aren't errors */
   if (urb->status) {
     switch (urb->status) {
@@ -233,7 +234,9 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
   }
   else {
     osamp->timetag = getSystemTimeMsecs();
-    osamp->length = urb->actual_length;
+    osamp->length = urb->actual_length + sizeof(osamp->tas) + sizeof(osamp->id);
+    osamp->tas = dev->latestProbeTAS;
+    osamp->id = TWOD_DATA;
     osamp->urb = urb;
     INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
     wake_up_interruptible(&dev->read_wait);
@@ -418,8 +421,9 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 			}
 		}
 
-		// length of header (timetag + length)
-		n = sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t);
+		// length of header (timetag + length) + tas + id
+		n = sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t)
+			+ sizeof(sample->tas) + sizeof(sample->id);
 
 		// if no more samples or not enough room to copy header, then we're done
 		if (dev->readq.tail == dev->readq.head || count < n) {
@@ -438,7 +442,7 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 		count -= n;
 		buffer += n;
 
-		dev->left_to_copy = sample->length;
+		dev->left_to_copy = sample->length - sizeof(sample->tas) - sizeof(sample->id);
 		dev->out_sample = sample;
 		dev->out_urb_ptr = sample->urb->transfer_buffer;
 #ifdef DEBUG
@@ -454,7 +458,6 @@ unlock_exit:
 	up(&dev->sem);
 	return retval;
 }
-
 
 /* -------------------------------------------------------------------- */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
@@ -552,6 +555,7 @@ error:
 
 static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
+  struct usb_twod *dev = (struct usb_twod *)file->private_data;
   int retval = -EINVAL;
 
   if (_IOC_TYPE(cmd) != USB2D_IOC_MAGIC)
@@ -563,6 +567,8 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
       retval = write_data(file,(const char*)arg, 3);
       if (retval == 3)
         retval = 0;
+      copy_from_user((char *)&dev->latestDAQ_TAS, (const char *)arg, 3);
+      copy_from_user((char *)&dev->latestProbeTAS, (const char *)arg, 3);
       break;
   }
 

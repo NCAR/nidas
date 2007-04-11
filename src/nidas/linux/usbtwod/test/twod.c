@@ -86,5 +86,6 @@ int main()
 
   close(fd);
   fclose(fp_o);
+  return 0;
 }
 

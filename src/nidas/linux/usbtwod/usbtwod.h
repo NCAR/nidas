@@ -78,10 +78,15 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 #endif
 
 
+#define TWOD_DATA	0
+#define TWOD_HSKP	1
+
 struct urb_sample
 {
     dsm_sample_time_t timetag;		/* timetag of sample */
     dsm_sample_length_t length;		/* number of bytes in data */
+    unsigned long id;			/* Sample ID, we may have multiple things */
+    unsigned long tas;			/* True Airspeed */
     struct urb * urb;
 };
 
