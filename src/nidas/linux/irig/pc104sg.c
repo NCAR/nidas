@@ -45,8 +45,8 @@ MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
 /* desired IRIG interrupt rate, in Hz */
 static const int INTERRUPT_RATE = 100;
 
-/* desired IRIG interrupt rate for A/D, in Hz */
-static const int A2DREF_RATE = 10000;
+/* desired IRIG clock frequency for A/D, in Hz */
+static unsigned int A2DClockFreq = 10000;
 
 /* module parameters (can be passed in via command line) */
 static unsigned int Irq = 10;
@@ -56,9 +56,14 @@ static int IoPort = 0x2a0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 module_param(Irq, int, 0);
 module_param(IoPort, int, 0);
+module_param(A2DClockFreq, unsigned int, 0);
 #else
-MODULE_PARM(Irq, "IRQ number");
-MODULE_PARM(IoPort, "I/O base address");
+MODULE_PARM(Irq, "1i");
+MODULE_PARM_DESC(Irq, "IRQ number");
+MODULE_PARM(IoPort, "1i");
+MODULE_PARM_DESC(IoPort, "I/O base address");
+MODULE_PARM(A2DClockFreq, "1i");
+MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
 #endif
 
 /* 
@@ -202,6 +207,7 @@ typedef enum
  */
 DECLARE_TASKLET(Tasklet100HzInterrupt, pc104sg_task_100Hz, 
                 TASK_INTERRUPT_TRIGGER);
+
 
 /*
  * 100Hz interrupt timeout timer.
@@ -456,262 +462,316 @@ disableAllInts(void)
 
 /**
  * Read dual port RAM.
- * @param isRT    Set to 1 if this is called from a real-time thread.
- * in which case this function uses udelay().
- * Use isRT=0 if called from the ioctl callback (which is not a
- * real-time thread). In this case this function uses
- * a jiffy schedule method to delay.
+ * @param addr	dual-port RAM address to read
  */
 static int 
-ReadDualPortRAM(unsigned char addr, unsigned char* val, int isRT)
+ReadDualPortRAM(unsigned char addr, unsigned char* val)
 {
-    int i;
+    int attempts;
+    int waitcount;
+    int ret = -1;
+    unsigned long flags;
     unsigned char status;
-    unsigned long delay_usec = 10; // 10 microsecond wait
+    unsigned long delay_usec = 10; // wait time in microseconds
 
-    /* clear the response */
-    inb(ISA_Address + Dual_Port_Data_Port);
+    spin_lock_irqsave(&DP_RamLock, flags);
 
-    /* specify dual port address */
-    outb(addr, ISA_Address + Dual_Port_Address_Port);
-
-    wmb();
-
-    /* wait for PC104 to acknowledge.
-     * On a viper @ 200MHz, without a nanosleep or jiffy wait,
-     * this took about 32 loops to see the expected status.
-     * With a 1 usec sleep, it loops about 4 or 6 times.
-     * Changing it to 4 usec didn't change anything - must
-     * be below the resolution of the clock. Changing it
-     * to 10 usec resulted in a loop count of 1.
-     */
-    i = 0;
-    do {
-	if (isRT) 
-	    udelay(delay_usec);
-	else {
-	    unsigned long j = jiffies + 1;
-	    while (jiffies < j) schedule();
+    for (attempts = 0; attempts < 10; attempts++)
+    {
+	if (attempts > 0)
+	{
+	    /* 
+	     * Unlock and wait briefly before regaining the lock and trying
+	     * again.
+	     */
+	    spin_unlock_irqrestore(&DP_RamLock, flags);
+	    KLOG_NOTICE("try again\n");
+	    udelay(200);
+	    spin_lock_irqsave(&DP_RamLock, flags);
 	}
-	status = inb(ISA_Address + Extended_Status_Port);
-    } while(i++ < 10 && !(status &  Response_Ready));
-#ifdef DEBUG
-    if (i > 1) KLOG_DEBUG("ReadDualPortRAM, i=%d\n", i);
-#endif
+	
+	outb(addr, ISA_Address + Dual_Port_Address_Port);
+	mb();
 
-    /* check for a time out on the response... */
-    if (!(status &  Response_Ready)) {
-	KLOG_WARNING("timed out...\n");
-	return -1;
+	/* 
+	 * wait for the PC104SG to acknowledge
+	 */
+	for (waitcount = 0; waitcount < 10; waitcount++)
+	{
+	    udelay(delay_usec);
+	    status = inb(ISA_Address + Extended_Status_Port);
+	    if ((status & Response_Ready) != 0)
+		break;
+	}
+
+	if (waitcount > 1) 
+	    KLOG_DEBUG("ReadDualPortRAM, waitcount=%d\n", waitcount);
+
+	/* check for a time out on the response... */
+	if ((status & Response_Ready) == 0) {
+	    KLOG_NOTICE("timed out...\n");
+	    continue;
+	}
+
+	/* read the requested value */
+	*val = inb(ISA_Address + Dual_Port_Data_Port);
+
+	/* success */
+	if (attempts > 0)
+	    KLOG_NOTICE("done\n");
+	ret = 0;
+	goto done;
     }
-
-    /* return read DP_Control value */
-    *val = inb(ISA_Address + Dual_Port_Data_Port);
-    return 0;
-}
-
-/**
- * Make a request to DP ram
- */
-static inline void ReqDualPortRAM(unsigned char addr)
-{
-    /* clear the response */
-    inb(ISA_Address + Dual_Port_Data_Port);
-
-    /* specify dual port address */
-    outb(addr, ISA_Address + Dual_Port_Address_Port);
-}
-
-/**
- * Get requested value from DP ram. It must be ready.
- */
-static inline void 
-GetDualPortRAM(unsigned char* val)
-{
-    static int ntimeouts = 0;
-    unsigned char status;
-    status = inb(ISA_Address + Extended_Status_Port);
-
-    /* check for a time out on the response... */
-    if (!(status & Response_Ready)) {
-	if (!(ntimeouts++ % 100))
-	    KLOG_WARNING("timed out\n");
-	return;
-    }
-
-    /* return read DP_Control value */
-    *val = inb(ISA_Address + Dual_Port_Data_Port);
+    
+    /* failure */
+    KLOG_WARNING("failed dual-port read after %d attempts\n", attempts);
+    ret = -1;
+    
+  done:
+    spin_unlock_irqrestore(&DP_RamLock, flags);
+    return ret;
 }
 
 /**
  * Set a value in dual port RAM.
- * @param isRT    Set to 1 if this is called from a real-time thread.
- * in which case this function uses udelay().
+ * @param addr	dual-port RAM address to write
  */
 static int 
-SetDualPortRAM(unsigned char addr, unsigned char value, 
-	       int isRT)
+WriteDualPortRAM(unsigned char addr, unsigned char value)
 {
-    int i;
+    int attempts;
+    int waitcount;
+    int ret = -1;
     unsigned char status;
-    unsigned long delay_usec = 20; // 20 microsecond wait
+    unsigned long flags;
+    unsigned long delay_usec = 10; // wait time in microseconds
 
-    /* clear the response */
-    inb(ISA_Address + Dual_Port_Data_Port);
+    spin_lock_irqsave(&DP_RamLock, flags);
 
-    /* specify dual port address */
-    outb(addr, ISA_Address + Dual_Port_Address_Port);
-
-    wmb();
-
-    /* wait for PC104 to acknowledge */
-    /* On a 200Mhz viper, this took about 32 loops to
-     * see the expected status.
-     */
-    i = 0;
-    do {
-	if (isRT)
-	    udelay(delay_usec);
-	else {
-	    unsigned long j = jiffies + 1;
-	    while (jiffies < j) schedule();
+    for (attempts = 0; attempts < 10; attempts++)
+    {
+	if (attempts > 0)
+	{
+	    spin_unlock_irqrestore(&DP_RamLock, flags);
+	    KLOG_NOTICE("try again\n");
+	    udelay(200); /* wait briefly before trying again */
+	    spin_lock_irqsave(&DP_RamLock, flags);
 	}
-	status = inb(ISA_Address + Extended_Status_Port);
-    } while(i++ < 10 && !(status &  Response_Ready));
-#ifdef DEBUG
-    if (i > 3) KLOG_DEBUG("SetDualPortRAM 1, i=%d\n", i);
-#endif
+	
+	/* specify dual port address */
+	outb(addr, ISA_Address + Dual_Port_Address_Port);
+	mb();
 
-    /* check for a time out on the response... */
-    if (!(status &  Response_Ready)) {
-	KLOG_WARNING("timed out...\n");
-	return -1;
-    }
-
-    /* clear the response */
-    inb(ISA_Address + Dual_Port_Data_Port);
-
-    /* write new value to DP RAM */
-    outb(value, ISA_Address + Dual_Port_Data_Port);
-
-    wmb();
-
-    i = 0;
-    do {
-	if (isRT)
+	/* wait for PC104SG to acknowledge */
+	for (waitcount = 0; waitcount < 10; waitcount++)
+	{
 	    udelay(delay_usec);
-	else {
-	    unsigned long j = jiffies + 1;
-	    while (jiffies < j) schedule();
+	    status = inb(ISA_Address + Extended_Status_Port);
+	    if ((status & Response_Ready) != 0)
+		break;
 	}
-	status = inb(ISA_Address + Extended_Status_Port);
-    } while(i++ < 10 && !(status &  Response_Ready));
-#ifdef DEBUG
-    if (i > 3) KLOG_DEBUG("SetDualPortRAM 2, i=%d\n", i);
-#endif
 
-    /* check for a time out on the response... */
-    if (!(status &  Response_Ready)) {
-	KLOG_WARNING("timed out...\n");
-	return -1;
+	if (waitcount > 3) 
+	    KLOG_DEBUG("WriteDualPortRAM 1, waitcount=%d\n", waitcount);
+
+	/* check for a time out on the response... */
+	if ((status & Response_Ready) == 0) {
+	    KLOG_NOTICE("timed out 1...\n");
+	    continue; /* try again */
+	}
+
+	/* write new value to DP RAM */
+	outb(value, ISA_Address + Dual_Port_Data_Port);
+	mb();
+
+	for (waitcount = 0; waitcount < 10; waitcount++)
+	{
+	    udelay(delay_usec);
+	    status = inb(ISA_Address + Extended_Status_Port);
+	    if ((status & Response_Ready) != 0)
+		break;
+	}
+
+	if (waitcount > 3) 
+	    KLOG_DEBUG("WriteDualPortRAM 2, waitcount=%d\n", waitcount);
+
+	/* check for a time out on the response... */
+	if ((status & Response_Ready) == 0) {
+	    KLOG_NOTICE("timed out 2...\n");
+	    continue; /* try again */
+	}
+
+	/*
+	 * Wait a bit more here.  Why?  I don't know.  But this (or
+	 * a KLOG to print a message here) seems to create enough
+	 * delay to make setRate2Output() work properly.
+	 */
+	udelay(50);
+
+	/* check that the written value matches */
+	if (inb(ISA_Address + Dual_Port_Data_Port) != value) {
+	    KLOG_WARNING("no match on read-back\n");
+	    continue;  /* try again */
+	}
+
+	/* success */
+	if (attempts > 0)
+	    KLOG_NOTICE("done\n");
+	ret = 0;
+	goto done;
     }
 
-    /* check that the written value matches */
-    if (inb(ISA_Address + Dual_Port_Data_Port) != value) {
-	KLOG_WARNING("no match on read-back\n");
-	return -1;
-    }
 
-    /* success */
-    return 0;
+    /* failure */
+    KLOG_WARNING("failed dual-port write after %d attempts\n", attempts);
+    ret = -1;
+    
+  done:
+    spin_unlock_irqrestore(&DP_RamLock, flags);
+    return ret;
 }
 
 
 /* This controls COUNTER 1 on the PC104SG card
- * Since it calls SetDualPortRAM it may only be called from
+ * Since it calls WriteDualPortRAM it may only be called from
  * a real-time thread.
  */
 static void 
-setHeartBeatOutput(int rate, int isRT)
+setHeartBeatOutput(int rate)
 {
     int ticks_3MHz;
+    int attempts;
     unsigned char lsb, msb;
+    unsigned char test;
 
     ticks_3MHz = 3000000 / rate; // How many ticks of the 3 MHz clock?
 
-    lsb = (char)(ticks_3MHz & 0xff);
-    msb = (char)((ticks_3MHz & 0xff00)>>8);
+    lsb = (unsigned char)(ticks_3MHz & 0xff);
+    msb = (unsigned char)(ticks_3MHz >> 8);
 
-    SetDualPortRAM(DP_Ctr1_ctl,
-		   DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
-		   isRT);
-    SetDualPortRAM(DP_Ctr1_lsb, lsb, isRT);
-    SetDualPortRAM(DP_Ctr1_msb, msb, isRT);
+    for (attempts = 0; attempts < 10; attempts++)
+    {
+	if (attempts > 0) 
+	{
+	    KLOG_NOTICE("try again\n");
+	    udelay(100);
+	}
+	
+	WriteDualPortRAM(DP_Ctr1_ctl,
+			 DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
+	WriteDualPortRAM(DP_Ctr1_lsb, lsb);
+	WriteDualPortRAM(DP_Ctr1_msb, msb);
 
-    /* We'll wait until rate2 is set and then do a rejam. */
-    // SetDualPortRAM(DP_Command, Command_Set_Ctr1, isRT);
+	ReadDualPortRAM(DP_Ctr1_lsb, &test);
+	if (test != lsb)
+	{
+	    KLOG_WARNING("LSB does not match!\n");
+	    continue;
+	}
+	
+	ReadDualPortRAM(DP_Ctr1_msb, &test);
+	if (test != msb)
+	{
+	    KLOG_WARNING("MSB does not match!\n");
+	    continue;
+	}
+	return; // success!
+    }
+
+    KLOG_WARNING("failed after %d attempts\n", attempts);
+    return;
 }
 
 /**
  * Set the primary time reference.
  * @param val 0=PPS is primary time reference, 1=time code is primary
- * Since it calls SetDualPortRAM it may only be called from
+ * Since it calls WriteDualPortRAM it may only be called from
  * a real-time thread.
  */
 static void 
-setPrimarySyncReference(unsigned char val, int isRT)
+setPrimarySyncReference(unsigned char val)
 {
     unsigned char control0;
-    ReadDualPortRAM(DP_Control0, &control0, isRT);
+    ReadDualPortRAM(DP_Control0, &control0);
 
-    if (val) control0 |= DP_Control0_CodePriority;
-    else control0 &= ~DP_Control0_CodePriority;
+    if (val) 
+	control0 |= DP_Control0_CodePriority;
+    else 
+	control0 &= ~DP_Control0_CodePriority;
 
 #ifdef DEBUG
     KLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
 #endif
-    SetDualPortRAM(DP_Control0, control0, isRT);
+    WriteDualPortRAM(DP_Control0, control0);
 }
 
 static void 
-setTimeCodeInputSelect(unsigned char val, int isRT)
+setTimeCodeInputSelect(unsigned char val)
 {
-    SetDualPortRAM(DP_CodeSelect, val, isRT);
+    WriteDualPortRAM(DP_CodeSelect, val);
 }
 
 // static void 
-// getTimeCodeInputSelect(unsigned char *val, int isRT)
+// getTimeCodeInputSelect(unsigned char *val)
 // {
-//     ReadDualPortRAM(DP_CodeSelect, val, isRT);
+//     ReadDualPortRAM(DP_CodeSelect, val);
 // }
 
 /* -- Utility --------------------------------------------------------- */
 
-/* This controls COUNTER 0 on the PC104SG card
- * Since it calls SetDualPortRAM it may only be called from
- * a real-time thread.
+/* 
+ * Set the frequency for the Rate2 signal from the card.
  */
 void 
-setRate2Output(int rate, int isRT)
+setRate2Output(int rate)
 {
+    int attempts;
     int ticks_3MHz;
     unsigned char lsb, msb;
+    unsigned char test;
 
+    KLOG_INFO("setting rate 2 signal frequency to %d Hz\n", rate);
     ticks_3MHz = 3000000 / rate;
 
-    lsb = (char)(ticks_3MHz & 0xff);
-    msb = (char)((ticks_3MHz & 0xff00)>>8);
-    SetDualPortRAM(DP_Ctr0_ctl,
-		   DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin, 
-		   isRT);
-    SetDualPortRAM(DP_Ctr0_lsb, lsb, isRT);
-    SetDualPortRAM(DP_Ctr0_msb, msb, isRT);
+    lsb = (unsigned char)(ticks_3MHz & 0xff);
+    msb = (unsigned char)(ticks_3MHz >> 8);
+    for (attempts = 0; attempts < 10; attempts++)
+    {
+	if (attempts > 0) 
+	{
+	    KLOG_NOTICE("try again\n");
+	    udelay(100);
+	}
+	
+	WriteDualPortRAM(DP_Ctr0_ctl,
+			 DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin);
+	WriteDualPortRAM(DP_Ctr0_lsb, lsb);
+	WriteDualPortRAM(DP_Ctr0_msb, msb);
+
+	ReadDualPortRAM(DP_Ctr0_lsb, &test);
+	if (test != lsb)
+	{
+	    KLOG_WARNING("LSB does not match!\n");
+	    continue;
+	}
+
+	ReadDualPortRAM(DP_Ctr0_msb, &test);
+	if (test != msb)
+	{
+	    KLOG_WARNING("MSB does not match!\n");
+	    continue;
+	}
+	return; // success!
+    }
+    
+    KLOG_WARNING("failed after %d attempts!\n", attempts);
+    return;
 }
 
 static void 
-counterRejam(int isRT)
+counterRejam(void)
 {
-    SetDualPortRAM(DP_Command, Command_Rejam, isRT);
+    WriteDualPortRAM(DP_Command, Command_Rejam);
 }
 
 /**
@@ -935,18 +995,18 @@ get_msec_clock_resolution()
  * set the year fields in Dual Port RAM.
  */
 static void 
-setYear(int val, int isRT)
+setYear(int val)
 {
     StaticYear = val;
 #ifdef DEBUG
     KLOG_DEBUG("setYear=%d\n", val);
 #endif
-    SetDualPortRAM(DP_Year1000_Year100,
-		   ((val / 1000) << 4) + ((val % 1000) / 100), isRT);
+    WriteDualPortRAM(DP_Year1000_Year100,
+		   ((val / 1000) << 4) + ((val % 1000) / 100));
     val %= 100;
-    SetDualPortRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10), isRT);
+    WriteDualPortRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10));
 
-    SetDualPortRAM(DP_Command, Command_Set_Years, isRT);
+    WriteDualPortRAM(DP_Command, Command_Set_Years);
 }
 
 /**
@@ -958,7 +1018,7 @@ setYear(int val, int isRT)
  * and I see no ways to change them if there is no PPS or time-code.
  */
 static int 
-setMajorTime(struct irigTime* ti, int isRT)
+setMajorTime(struct irigTime* ti)
 {
     int val;
 
@@ -971,27 +1031,23 @@ setMajorTime(struct irigTime* ti, int isRT)
 #endif
     /* The year fields in Dual Port RAM are not technically
      * part of the major time, but we'll set them too.  */
-    setYear(ti->year, isRT);
+    setYear(ti->year);
 
     val = ti->yday;
-    SetDualPortRAM(DP_Major_Time_d100, val / 100, isRT);
+    WriteDualPortRAM(DP_Major_Time_d100, val / 100);
     val %= 100;
-    SetDualPortRAM(DP_Major_Time_d10d1, ((val / 10) << 4) + (val % 10), 
-		   isRT);
-
+    WriteDualPortRAM(DP_Major_Time_d10d1, ((val / 10) << 4) + (val % 10));
+    
     val = ti->hour;
-    SetDualPortRAM(DP_Major_Time_h10h1, ((val / 10) << 4) + (val % 10), 
-		   isRT);
-
+    WriteDualPortRAM(DP_Major_Time_h10h1, ((val / 10) << 4) + (val % 10));
+    
     val = ti->min;
-    SetDualPortRAM(DP_Major_Time_m10m1, ((val / 10) << 4) + (val % 10), 
-		   isRT);
+    WriteDualPortRAM(DP_Major_Time_m10m1, ((val / 10) << 4) + (val % 10));
 
     val = ti->sec;
-    SetDualPortRAM(DP_Major_Time_s10s1, ((val / 10) << 4) + (val % 10), 
-		   isRT);
+    WriteDualPortRAM(DP_Major_Time_s10s1, ((val / 10) << 4) + (val % 10));
 
-    SetDualPortRAM(DP_Command, Command_Set_Major, isRT);
+    WriteDualPortRAM(DP_Command, Command_Set_Major);
 
     return 0;
 }
@@ -1109,7 +1165,6 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
     static int lastInterruptMillis = 0; // milliseconds into hour
     static int initialized = 0;
     struct irigTime ti;
-    int isRT = 1;
 #ifdef DEBUG_COLLISIONS
     static int nCollisions = 0;
 #endif
@@ -1130,20 +1185,17 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
     if (! initialized) 
     {
 	/* IRIG-B is the default, but we'll set it anyway */
-	setTimeCodeInputSelect(DP_CodeSelect_IRIGB, isRT);
-	setPrimarySyncReference(0, isRT);     // 0=PPS, 1=timecode
+	setTimeCodeInputSelect(DP_CodeSelect_IRIGB);
+	setPrimarySyncReference(0);     // 0=PPS, 1=timecode
 	/*
 	 * Set the internal heart-beat and rate2 to be in phase with
 	 * the PPS/time_code reference
 	 */
-	setHeartBeatOutput(INTERRUPT_RATE, isRT);
-	setRate2Output(A2DREF_RATE, isRT);
-	counterRejam(isRT);
+	setHeartBeatOutput(INTERRUPT_RATE);
+	setRate2Output(A2DClockFreq);
+	counterRejam();
 
 	ClockState = RESET_COUNTERS;
-
-	/* initial request of extended status from DPR */
-	ReqDualPortRAM(DP_Extd_Sts);
 
 	/* start interrupts */
 	enableHeartBeatInt();
@@ -1293,32 +1345,8 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 static inline void 
 checkExtStatus(void)
 {
-
-    spin_lock(&DP_RamLock);
-
-    /* finish read of extended status from DPR.
-     * We split the read of DP_Extd_Sts into two parts.
-     * Send the request, and then at the next
-     * interrupt get the value. This avoids having
-     * to do sleeps or busy waits for it to be ready.
-     * The only gotcha is that other requests
-     * can't be sent in the meantime.
-     *
-     * Infrequently the user sends ioctl's which also access
-     * DP RAM. The spin_locks are used to avoid simultaneous access.
-     */
-
-    if (DP_RamExtStatusRequested) {
-	GetDualPortRAM(&ExtendedStatus);
-	DP_RamExtStatusRequested = 0;
-    }
-
-    /* send next request */
-    if (DP_RamExtStatusEnabled) {
-	ReqDualPortRAM(DP_Extd_Sts);
-	DP_RamExtStatusRequested = 1;
-    }
-    spin_unlock(&DP_RamLock);
+    if (DP_RamExtStatusEnabled)
+	ReadDualPortRAM(DP_Extd_Sts, &ExtendedStatus);
 
     switch (ClockState) {
       case USER_OVERRIDE_REQUESTED:
@@ -1338,8 +1366,8 @@ checkExtStatus(void)
 	else ClockState = CODED;
 	break;
       case USER_SET:
-	if (!(LastStatus & DP_Extd_Sts_Nocode) &&
-	    !(ExtendedStatus & DP_Extd_Sts_Nocode)) {
+	if ((LastStatus & DP_Extd_Sts_Nocode) == 0 &&
+	    (ExtendedStatus & DP_Extd_Sts_Nocode) == 0) {
             // have good clock again, set counters back to coded clock
             ClockState = RESET_COUNTERS;
 	}
@@ -1375,7 +1403,7 @@ checkExtStatus(void)
     // transition from no sync to sync, reset the counters
     if (ClockState == CODED &&
 	(LastStatus & DP_Extd_Sts_Nosync) &&
-	!(ExtendedStatus & DP_Extd_Sts_Nosync))
+	((ExtendedStatus & DP_Extd_Sts_Nosync) == 0))
 	ClockState = RESET_COUNTERS;
 
     if (ClockState == RESET_COUNTERS) {
@@ -1651,6 +1679,12 @@ pc104sg_init(void)
 	goto err0;
     }
 
+    /*
+     * Schedule the first call for the 100Hz task now, so that initialization
+     * happens soon.
+     */
+    tasklet_schedule(&Tasklet100HzInterrupt);
+
     return 0;
 
   err0:
@@ -1755,8 +1789,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 {
     void __user* userptr = (void __user*)arg;
     int len = _IOC_SIZE(cmd);
-    int retval = -EINVAL;
-    int isRT = 0;
+    int ret = -EINVAL;
     struct irigTime ti;
     struct timeval tv;
     unsigned long flags;
@@ -1783,29 +1816,29 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	return -EFAULT;
 	 
 
-    retval = -EFAULT;
+    ret = -EFAULT;
 
     switch (cmd) 
     {
       case IRIG_GET_STATUS:
 	if (len != sizeof(ExtendedStatus)) 
 	    break;
-	retval = copy_to_user(userptr, &ExtendedStatus, len) ? -EFAULT : len;
+	ret = copy_to_user(userptr, &ExtendedStatus, len) ? -EFAULT : len;
 	break;
       case IRIG_GET_CLOCK:
 	if (len != sizeof(tv)) 
 	    break;
 	getCurrentTime(&ti);
 	irig2timeval(&ti, &tv);
-	retval = copy_to_user(userptr, &tv, sizeof(tv)) ? -EFAULT : len;
+	ret = copy_to_user(userptr, &tv, sizeof(tv)) ? -EFAULT : len;
 	break;
       case IRIG_SET_CLOCK:
 	if (len != sizeof(UserClock)) 
 	    break;
 
-	retval = copy_from_user(&UserClock, userptr, sizeof(UserClock)) ? 
+	ret = copy_from_user(&UserClock, userptr, sizeof(UserClock)) ? 
 	    -EFAULT : len;
-	if (retval < 0)
+	if (ret < 0)
 	    break;
 
 	timeval2irig(&UserClock, &ti);
@@ -1816,9 +1849,9 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	spin_unlock_irqrestore(&DP_RamLock, flags);
 
 	if (ExtendedStatus & DP_Extd_Sts_Nocode) 
-	    setMajorTime(&ti, isRT);
+	    setMajorTime(&ti);
 	else
-	    setYear(ti.year, isRT);
+	    setYear(ti.year);
 
 	spin_lock_irqsave(&DP_RamLock, flags);
 	DP_RamExtStatusEnabled = 1;
@@ -1830,9 +1863,9 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	if (len != sizeof(UserClock)) 
 	    break;
 
-	retval = copy_from_user(&UserClock, userptr, sizeof(UserClock)) ? 
+	ret = copy_from_user(&UserClock, userptr, sizeof(UserClock)) ? 
 	    -EFAULT : len;
-	if (retval < 0)
+	if (ret < 0)
 	    break;
 	
 	timeval2irig(&UserClock, &ti);
@@ -1843,23 +1876,23 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	spin_unlock_irqrestore(&DP_RamLock, flags);
 
 	if (ExtendedStatus & DP_Extd_Sts_Nocode)
-	    setMajorTime(&ti, isRT);
+	    setMajorTime(&ti);
 	else
-	    setYear(ti.year, isRT);
+	    setYear(ti.year);
 
 	spin_lock_irqsave(&DP_RamLock, flags);
 	DP_RamExtStatusEnabled = 1;
 	spin_unlock_irqrestore(&DP_RamLock, flags);
 
 	ClockState = USER_OVERRIDE_REQUESTED;
-	retval = len;
+	ret = len;
 	break;
       default:
-	retval = -EINVAL;
+	ret = -EINVAL;
 	break;
     }
     
-    return retval;
+    return ret;
 }
 
 
