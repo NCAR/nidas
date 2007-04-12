@@ -185,7 +185,6 @@ struct dsm_clock_sample samp;
 
 static spinlock_t DP_RamLock = SPIN_LOCK_UNLOCKED;
 static int DP_RamExtStatusEnabled = 1;
-static int DP_RamExtStatusRequested = 0;
 
 /*
  * pc104sg_task_100Hz() is the function to be called for each 100Hz
@@ -471,7 +470,7 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
     int waitcount;
     int ret = -1;
     unsigned long flags;
-    unsigned char status;
+    unsigned char status = 0;
     unsigned long delay_usec = 10; // wait time in microseconds
 
     spin_lock_irqsave(&DP_RamLock, flags);
@@ -489,7 +488,11 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
 	    udelay(200);
 	    spin_lock_irqsave(&DP_RamLock, flags);
 	}
-	
+
+	/* clear Response_Ready */
+	inb(ISA_Address + Dual_Port_Data_Port);
+
+	/* select dual port address */
 	outb(addr, ISA_Address + Dual_Port_Address_Port);
 	mb();
 
@@ -542,7 +545,7 @@ WriteDualPortRAM(unsigned char addr, unsigned char value)
     int attempts;
     int waitcount;
     int ret = -1;
-    unsigned char status;
+    unsigned char status = 0;
     unsigned long flags;
     unsigned long delay_usec = 10; // wait time in microseconds
 
@@ -557,8 +560,11 @@ WriteDualPortRAM(unsigned char addr, unsigned char value)
 	    udelay(200); /* wait briefly before trying again */
 	    spin_lock_irqsave(&DP_RamLock, flags);
 	}
-	
-	/* specify dual port address */
+
+	/* clear Response_Ready */
+	inb(ISA_Address + Dual_Port_Data_Port);
+
+	/* select dual port address */
 	outb(addr, ISA_Address + Dual_Port_Address_Port);
 	mb();
 
@@ -579,6 +585,9 @@ WriteDualPortRAM(unsigned char addr, unsigned char value)
 	    KLOG_NOTICE("timed out 1...\n");
 	    continue; /* try again */
 	}
+
+	/* clear Response_Ready */
+	inb(ISA_Address + Dual_Port_Data_Port);
 
 	/* write new value to DP RAM */
 	outb(value, ISA_Address + Dual_Port_Data_Port);
@@ -1845,7 +1854,6 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
 	spin_lock_irqsave(&DP_RamLock, flags);
 	DP_RamExtStatusEnabled = 0;
-	DP_RamExtStatusRequested = 0;
 	spin_unlock_irqrestore(&DP_RamLock, flags);
 
 	if (ExtendedStatus & DP_Extd_Sts_Nocode) 
@@ -1872,7 +1880,6 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
 	spin_lock_irqsave(&DP_RamLock, flags);
 	DP_RamExtStatusEnabled = 0;
-	DP_RamExtStatusRequested = 0;
 	spin_unlock_irqrestore(&DP_RamLock, flags);
 
 	if (ExtendedStatus & DP_Extd_Sts_Nocode)
