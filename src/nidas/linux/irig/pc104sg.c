@@ -1171,11 +1171,11 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 {
     task_100Hz_trigger trigger = (task_100Hz_trigger)ul_trigger;
     static int consecutiveTimeouts = 0;
-    static int lastInterruptMillis = 0; // milliseconds into hour
     static int initialized = 0;
-    struct irigTime ti;
 #ifdef DEBUG_COLLISIONS
+    struct irigTime ti;
     static int nCollisions = 0;
+    static int lastInterruptMillis = 0; // milliseconds into hour
 #endif
 
     /*
@@ -1280,7 +1280,9 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
       break;
       case TASK_INTERRUPT_TRIGGER:
 	consecutiveTimeouts = 0;
+#ifdef DEBUG_COLLISIONS
 	lastInterruptMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
+#endif
 	break;
       default:
 	KLOG_ERR("unknown trigger %d\n", trigger);
