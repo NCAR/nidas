@@ -46,9 +46,9 @@ static const unsigned long I2CSDA = 0x1;
 //#define TEMPDEBUG
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
-  module_param_array(IoPort, charp, NULL, S_IRUGO);
-  module_param_array(Invert, bool, NULL, S_IRUGO);
-  module_param_array(Master, int, NULL, S_IRUGO);
+//  module_param_array(IoPort, charp, NULL, S_IRUGO);
+//  module_param_array(Invert, bool, NULL, S_IRUGO);
+//  module_param_array(Master, int, NULL, S_IRUGO);
 #else
   MODULE_PARM(IoPort, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
   MODULE_PARM(Invert, "1-" __MODULE_STRING(MAX_A2D_BOARDS) "i");
