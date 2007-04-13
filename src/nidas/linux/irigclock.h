@@ -163,7 +163,7 @@ void irig_clock_gettime(struct timespec* tp);
 
 typedef void irig_callback_t(void* privateData);
 
-void setRate2Output (int rate, int isRT);
+void setRate2Output (int rate);
 
 /*
  * Schedule/unschedule timed regular callbacks of a particular function
