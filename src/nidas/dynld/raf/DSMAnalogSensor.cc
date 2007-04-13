@@ -88,11 +88,12 @@ bool DSMAnalogSensor::isRTLinux() const
     if (rtlinux < 0)  {
         const string& dname = getDeviceName();
         unsigned int fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 10) < dname.length() &&
-            dname.substr(fs+1,10) == "dsma2d")
+        if (fs != string::npos && (fs + 6) < dname.length() &&
+            dname.substr(fs+1,6) == "dsma2d")
                     rtlinux = 1;
         else rtlinux = 0;
     }
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"DSMAnalogSensor::isRTLinux(): %d",rtlinux);
     return rtlinux == 1;
 }
 
