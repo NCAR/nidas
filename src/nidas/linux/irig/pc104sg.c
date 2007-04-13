@@ -56,7 +56,7 @@ static int IoPort = 0x2a0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 module_param(Irq, int, 0);
 module_param(IoPort, int, 0);
-module_param(A2DClockFreq, unsigned int, 0);
+module_param(A2DClockFreq, int, 0);
 #else
 MODULE_PARM(Irq, "1i");
 MODULE_PARM_DESC(Irq, "IRQ number");
