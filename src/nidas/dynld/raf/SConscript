@@ -23,6 +23,7 @@ sources = Split("""
     SyncRecordReader.cc
     SyncRecordSource.cc
     TwoDC_USB.cc
+    UHSAS_Serial.cc
 """)
 
 
@@ -48,6 +49,7 @@ headers = Split("""
     SyncRecordSource.h
     SyncRecordVariable.h
     TwoDC_USB.h
+    UHSAS_Serial.h
 """)
 
 
