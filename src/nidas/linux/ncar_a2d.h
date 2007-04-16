@@ -9,8 +9,6 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/ncar_a2d.h $
 
 Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-Original author: Grant Gray
-Revisions:
 */
 
 /* 
@@ -35,8 +33,8 @@ Revisions:
 
 #define MAXA2DS         8       // Max A/D's per card
 #define A2D_MAX_RATE    5000
-#define INTRP_RATE      100
-#define RATERATIO       (A2D_MAX_RATE / INTRP_RATE)
+#define INTERRUPT_RATE  100
+#define RATERATIO       (A2D_MAX_RATE / INTERRUPT_RATE)
 
 
 // A/D Filter configuration file parameters
@@ -48,9 +46,9 @@ typedef struct
 {
     // fifoLevel indexes 0-5 correspond to return value of getA2DFIFOLevel
     // 0(empty), 1(<=1/4), 2(<2/4), 3(<3/4), 4(<4/4), 5(full)
-    size_t preFifoLevel[6];           // counters for fifo level, pre-read
-    size_t postFifoLevel[6];          // counters for fifo level, post-read
-    size_t nbad[MAXA2DS];             // number of bad status words in last 100 scans
+    size_t preFifoLevel[6];   // counters for fifo level, pre-read
+    size_t postFifoLevel[6];  // counters for fifo level, post-read
+    size_t nbad[MAXA2DS];     // number of bad status words in last 100 scans
     unsigned short badval[MAXA2DS];   // value of last bad status word
     unsigned short goodval[MAXA2DS];  // value of last good status word
     unsigned short    ser_num;        // A/D card serial number
@@ -153,11 +151,12 @@ typedef struct
 #include <linux/kfifo.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
-#include <linux/workqueue.h>
 
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
-#define HWFIFODEPTH             1024
+#define HWFIFODEPTH             1024	// # of words in card's hardware FIFO
+
+#define TIMETAG_CBUF_SIZE	5
 
 #define A2DMASTER	0	// A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10	// Width of I/O space
@@ -250,9 +249,7 @@ struct A2DBoard {
     struct tasklet_struct resetTasklet;
     int resetStatus;             // non-zero if not set up
     
-    struct tasklet_struct getSampleTasklet;
-    struct tasklet_struct stopTasklet;
-    struct work_struct getSampleWork;
+    struct tasklet_struct readSamplesTasklet;
 
     int i2cTempRate;             // rate to query I2C temperature sensor
     struct ioctlHandle* ioctlhandle;
@@ -261,6 +258,7 @@ struct A2DBoard {
     A2D_STATUS cur_status;       // status info maintained by driver
     A2D_STATUS prev_status;      // status info maintained by driver
     unsigned char requested[MAXA2DS]; // 1=channel requested, 0=isn't
+    int nRequestedChannels;      // # of requested channels
     int MaxHz;                   // Maximum requested A/D sample rate
     int ttMsecAdj;               // how much to adjust sample time-tags backwds
     int busy;
@@ -269,7 +267,7 @@ struct A2DBoard {
     int nbadScans;
     int expectedFifoLevel;
     int master;
-    int nreads;               // number of reads to empty fifo
+    int sampsPerCallback;     // data values per IRIG callback per channel
     int latencyCnt;           // number of samples to buffer
     size_t sampleCnt;         // sample counter
 
@@ -290,6 +288,14 @@ struct A2DBoard {
     char doTemp;              // fetch temperature after next A2D scan
     char discardNextScan;     // should we discard the next scan
     int enableReads;
+
+    /*
+     * Circular buffer of time tags for our interrupts
+     */
+    dsm_sample_time_t intTimeTags[TIMETAG_CBUF_SIZE];
+    spinlock_t timetagCbufLock; // lock for updating the write index
+    int intTimeWriteNdx;
+    int intTimeReadNdx;
 };
 
 #endif
