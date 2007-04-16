@@ -19,6 +19,7 @@
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
@@ -46,7 +47,9 @@ IRIGSensor::~IRIGSensor() {
 
 IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 {
-    return new RTL_IODevice();
+    if (DSMEngine::getInstance()->isRTLinux())
+        return new RTL_IODevice();
+    else return new UnixIODevice();
 }
 
 SampleScanner* IRIGSensor::buildSampleScanner()
