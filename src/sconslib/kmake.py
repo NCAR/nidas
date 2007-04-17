@@ -14,7 +14,7 @@ def run(cmd):
         code = os.WEXITSTATUS(res)
         if code != 0:
             print "Error: return code: " + str(code)
-            # raise Exception(cmd + ": error: return code: " + str(code))
+            raise Exception(cmd + ": error: return code: " + str(code))
             # if SCons.Script.keep_going_on_error == 0:
              #    sys.exit(code)
     return code
@@ -48,7 +48,12 @@ def Kmake(env,target,source):
     # print "os.getcwd()=" + os.getcwd()
 
     print 'KMAKE=' + env['KMAKE']
-    run(env['KMAKE'])
+    try:
+      run(env['KMAKE'])
+    except:
+      os.chdir(cwd)
+      return -1
+      
     os.chdir(cwd)
 
 def get_svnversion(env):
