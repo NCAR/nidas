@@ -13,7 +13,12 @@ def generate(env):
 
     # Just put the common locations of arm tools on the path too, in case
     # they are not already there.
-    env.AppendENVPath('PATH', '/opt/arcom/bin')
+    env.PrependENVPath('PATH', '/opt/arcom/bin')
+
+    env.Execute("which arm-linux-gcc")
+    env.Execute("which arm-linux-g++")
+    env.Execute("which armbe-linux-gcc")
+    env.Execute("which armbe-linux-g++")
     
     env.Replace(AR	= 'armbe-linux-ar')
     env.Replace(AS	= 'armbe-linux-as')

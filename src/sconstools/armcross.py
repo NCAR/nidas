@@ -13,7 +13,7 @@ def generate(env):
 
     # Just put the common locations of arm tools on the path too, in case
     # they are not already there.
-    env.AppendENVPath('PATH', '/opt/arm_tools/bin')
+    env.PrependENVPath('PATH', '/opt/arm_tools/bin')
 #   env.AppendENVPath('PATH', '/net/opt_lnx/arm_tools/bin')
     
     env.Execute("which arm-linux-gcc")
