@@ -156,7 +156,13 @@ typedef struct
 
 #define HWFIFODEPTH             1024	// # of words in card's hardware FIFO
 
-#define TIMETAG_CBUF_SIZE	5
+/*
+ * Size of the circular buffer of samples waiting for processing by
+ * taskReadA2DSamples.  This should be one larger than the max number
+ * of samples to be buffered, since one element of the circular buffer
+ * is always available for the next write.
+ */
+#define DSMSAMPLE_CBUF_SIZE	5
 
 #define A2DMASTER	0	// A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10	// Width of I/O space
@@ -226,8 +232,8 @@ typedef struct
 
 typedef struct
 {
-    dsm_sample_time_t timestamp; // timetag of sample
-    dsm_sample_length_t size;    // number of bytes in data
+    dsm_sample_time_t timetag; // timetag of sample
+    dsm_sample_length_t length;    // number of bytes in data
     short data[RATERATIO*MAXA2DS];
 } A2DSAMPLE;
 
@@ -249,8 +255,6 @@ struct A2DBoard {
     struct tasklet_struct resetTasklet;
     int resetStatus;             // non-zero if not set up
     
-    struct tasklet_struct readSamplesTasklet;
-
     int i2cTempRate;             // rate to query I2C temperature sensor
     struct ioctlHandle* ioctlhandle;
     A2D_SET config;              // board configuration
@@ -268,7 +272,9 @@ struct A2DBoard {
     int expectedFifoLevel;
     int master;
     int sampsPerCallback;     // data values per IRIG callback per channel
-    int latencyCnt;           // number of samples to buffer
+    int latencyCnt;           // accumulate this many samples before 
+                              // allowing user-space read to continue
+
     size_t sampleCnt;         // sample counter
 
     size_t nbadFifoLevel;
@@ -288,14 +294,6 @@ struct A2DBoard {
     char doTemp;              // fetch temperature after next A2D scan
     char discardNextScan;     // should we discard the next scan
     int enableReads;
-
-    /*
-     * Circular buffer of time tags for our interrupts
-     */
-    dsm_sample_time_t intTimeTags[TIMETAG_CBUF_SIZE];
-    spinlock_t timetagCbufLock; // lock for updating the write index
-    int intTimeWriteNdx;
-    int intTimeReadNdx;
 };
 
 #endif

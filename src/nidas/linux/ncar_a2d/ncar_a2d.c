@@ -50,8 +50,11 @@ static const unsigned long I2CSDA = 0x1;
 /* I/O port addresses of installed boards, 0=no board installed */
 static int IoPort[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
 
-/* Which A2D chip is the master? */
-//static int Master[MAX_A2D_BOARDS] = { 0, 0, 0, 0 };
+/* 
+ * Which A2D chip is the master? (-1 causes the first requested channel to
+ * be the master)
+ */
+static int Master[MAX_A2D_BOARDS] = { -1, -1, -1, -1 };
 
 /*
  * Whether to invert counts.  This should be true for newer cards, but
@@ -64,11 +67,12 @@ static int Invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1 };
 
 module_param_array(IoPort, int, NULL, S_IRUGO);
 module_param_array(Invert, bool, NULL, S_IRUGO);
-//module_param_array(Master, int, NULL, S_IRUGO);
+module_param_array(Master, int, NULL, S_IRUGO);
 
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Invert, "Whether to invert counts, default=1(true)");
-//MODULE_PARM_DESC(Master, "Sets master A/D for each board, default=7");
+MODULE_PARM_DESC(Master, 
+		 "Master A/D for the board, default=first requested channel");
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int NumBoards = 0;
@@ -277,7 +281,7 @@ i2c_data_lo(struct A2DBoard* brd)
 //XX sendTemp(struct A2DBoard* brd)
 //XX {
 //XX     I2C_TEMP_SAMPLE samp;
-//XX     samp.timestamp = GET_MSEC_CLOCK;
+//XX     samp.timetag = GET_MSEC_CLOCK;
 //XX     samp.size = sizeof(short);
 //XX     samp.data = brd->i2cTempData = A2DTemp(brd);
 //XX #ifdef DEBUG
@@ -443,11 +447,7 @@ A2DSetGain(struct A2DBoard* brd, int channel)
 
     // unused channel gains are set to zero in the configuration
     if (a2dGain != 0)
-	gainCode = (unsigned short)(a2dGainMul*a2dGain/a2dGainDiv);
-
-    //   KLOG_DEBUG("channel = %d   a2dGain = %d   "
-    //                "a2dGainMul = %d   a2dGainDiv = %d   gainCode = %d\n",
-    //                channel, a2dGain, a2dGainMul, a2dGainDiv, gainCode);
+	gainCode = (unsigned short)(a2dGainMul * a2dGain / a2dGainDiv);
 
     // The new 12-bit DAC has lower input resistance (7K ohms as opposed
     // to 10K ohms for the 8-bit DAC). The gain is the ratio of the amplifier
@@ -458,9 +458,6 @@ A2DSetGain(struct A2DBoard* brd, int channel)
     // 0 - 4095. So, after you divide the old gain code by 1.43 you
     // will want to multiply by 16. This is the same as multiplying
     // by 16/1.43 = 11.2.
-    // gainCode = (gainCode << 4) & 0xfff0;
-    //                               input 5Hz sine and/or saw
-    //           GC                  input:   at A2D:         raw counts:    on AEROS:      
     if (a2d->offset[channel]) {
 	if (a2d->gain[channel] == 10)
 	    gainCode = 0x1000 + channel;  //   0 to +20  ???
@@ -672,21 +669,6 @@ A2DEnable1PPS(struct A2DBoard* brd)
 }
 
 /*-----------------------Utility------------------------------*/
-// Disable 1PPS sync
-
-//XX static void 
-//XX A2DDisable1PPS(struct A2DBoard* brd)
-//XX {
-//XX     // Point to FIFO control byte
-//XX     outb(A2DIO_FIFO, brd->cmd_addr);
-//XX 
-//XX     // Clear the 1PPS enable bit
-//XX     outb(brd->FIFOCtl & ~A2D1PPSEBL, brd->base_addr);
-//XX 
-//XX     return;
-//XX }
-
-/*-----------------------Utility------------------------------*/
 // Clear (reset) the data FIFO
 
 static void 
@@ -723,43 +705,6 @@ A2DBoardStatus(struct A2DBoard* brd)
     return inw(brd->base_addr);
 }
     
-// A2DFIFOEmpty checks the FIFO empty status bit and returns
-// 1 if empty, 0 if not empty
-static inline int 
-A2DFIFOEmpty(struct A2DBoard* brd)
-{
-    return (A2DBoardStatus(brd) & FIFONOTEMPTY) == 0;
-}
-
-// Read FIFO till empty, discarding data
-// return number of bad status values found
-static int 
-A2DEmptyFIFO(struct A2DBoard* brd)
-{
-    int nbad = 0;
-    int i;
-
-    while(!A2DFIFOEmpty(brd)) {
-	// Point to FIFO read subchannel
-	outb(A2DIO_FIFO, brd->cmd_addr);
-	for (i = 0; i < MAXA2DS; i++) {
-#ifdef DO_A2D_STATRD
-	    unsigned short stat = inw(brd->base_addr); // read the status word
-#  ifdef IGNORE_DATA_STATUS
-	    stat = A2DEXPSTATUS;
-#  endif
-	    /*
-	     * Check for an acceptable value
-	     */
-	    if ((stat & A2DSTATMASK) != A2DEXPSTATUS)
-		nbad++;
-#endif
-	    inw(brd->base_addr);  // drop the data word
-	}
-    }
-    return nbad;
-
-}
 /*-----------------------Utility------------------------------*/
 /**
  * Get the FIFO fill level:
@@ -783,7 +728,7 @@ getA2DFIFOLevel(struct A2DBoard* brd)
 
     // Figure out which 1/4 of the 1024 FIFO words we're filled to
 
-    // bit 0, 0x1, half full
+    // bit 0, 0x1, set when FIFO >= half full
     // bit 1, 0x2, either almost full (>=3/4) or almost empty (<=1/4).
     switch (stat&0x03) // Switch on stat's 2 LSB's
     {
@@ -802,9 +747,8 @@ getA2DFIFOLevel(struct A2DBoard* brd)
 }
 
 /*-----------------------Utility------------------------------*/
-// This routine sends the ABORT command to all A/D's.
-// The ABORT command amounts to a soft reset--they
-//  stay configured.
+// This routine sends the ABORT command to A/D chips.
+// The ABORT command amounts to a soft reset--they stay configured.
 
 static void 
 A2DStopRead(struct A2DBoard* brd, int channel)
@@ -817,6 +761,9 @@ A2DStopRead(struct A2DBoard* brd, int channel)
     return;
 }
 
+/*-----------------------Utility------------------------------*/
+// Send ABORT command to all A/D chips
+
 static void 
 A2DStopReadAll(struct A2DBoard* brd)
 {
@@ -827,7 +774,7 @@ A2DStopReadAll(struct A2DBoard* brd)
 }
 
 /*-----------------------Utility------------------------------*/
-// This routine sets the A/D's to auto mode
+// This routine sets all A/D chips to auto mode
 
 static void 
 A2DAuto(struct A2DBoard* brd)
@@ -842,7 +789,7 @@ A2DAuto(struct A2DBoard* brd)
 }
 
 /*-----------------------Utility------------------------------*/
-// This routine sets the A/D's to non-auto mode
+// This routine sets all A/D chips to non-auto mode
 
 static void 
 A2DNotAuto(struct A2DBoard* brd)
@@ -958,9 +905,6 @@ A2DConfig(struct A2DBoard* brd, int channel)
 
     outb(A2DIO_RDCHANSTAT, brd->cmd_addr);
     brd->cur_status.goodval[channel] = inw(CHAN_ADDR(brd, channel));
-//    KLOG_DEBUG("leaving A2DConfig, status for channel %d is 0x%04x\n", 
-//	       channel, brd->cur_status.goodval[channel]);
-//    mdelay(2);
     return 0;
 }
 
@@ -1019,13 +963,11 @@ waitFor1PPS(struct A2DBoard* brd)
 }
 
 static int 
-A2DSetup(struct A2DBoard* brd)
+A2DSetGainAndOffset(struct A2DBoard* brd)
 {
-    A2D_SET *a2d = &brd->config;
     int i;
     int ret;
     int repeat;
-    int haveMaster = 0;
 
 #ifdef DO_A2D_STATRD
     brd->FIFOCtl = A2DSTATEBL;   // Clear most of FIFO Control Word
@@ -1035,37 +977,8 @@ A2DSetup(struct A2DBoard* brd)
 
     brd->OffCal = 0x0;
 
-    /*
-     * Per channel setup
-     */
-    brd->nRequestedChannels = 0;
-
-    for (i = 0; i < MAXA2DS; i++)
-    {
-	if (a2d->Hz[i] > brd->MaxHz)
-	    brd->MaxHz = a2d->Hz[i];
-	/*
-	 * Requested channels are those with Hz > 0
-	 */
-	brd->requested[i] = (a2d->Hz[i] > 0);
-
-	if (brd->requested[i]) 
-	{
-	    brd->nRequestedChannels++;
-	    /*
-	     * Make this channel the master if we don't have one yet
-	     */
-	    if (! haveMaster)
-	    {
-		if ((ret = A2DSetMaster(brd, i)) < 0)
-		    return ret;
-		haveMaster = 1;
-	    }
-	}
-    }
-    
-
-    for (repeat = 0; repeat < 3; repeat++) { // HACK! the CPLD logic needs to be fixed!
+    // HACK! the CPLD logic needs to be fixed!	
+    for (repeat = 0; repeat < 3; repeat++) {
 	for (i = 0; i < MAXA2DS; i++)
 	{
 	    /*
@@ -1083,11 +996,11 @@ A2DSetup(struct A2DBoard* brd)
 	mdelay(10);
 	outb(A2DIO_D2A1, brd->cmd_addr);
 	mdelay(10);
-    } // END HACK!
+    } 
+    // END HACK!
 
 
     brd->cur_status.ser_num = getSerialNumber(brd);
-    // KLOG_DEBUG("A2D serial number = %d\n", brd->cur_status.ser_num);
 
     A2DSetOffset(brd);
 
@@ -1103,11 +1016,52 @@ taskSetupBoard(unsigned long taskletArg)
 {
     struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
     int ret = 0;
+    int haveMaster = 0;
+    int i;
 
     KLOG_DEBUG("In taskSetupBoard\n");
+
+    /*
+     * Set the master now if we were given an explicit one
+     */
+    if (Master[BOARD_INDEX(brd)] >= 0)
+    {
+	if ((ret = A2DSetMaster(brd, Master[BOARD_INDEX(brd)])) < 0)
+	    goto done;
+	haveMaster = 1;
+    }
     
+    /*
+     * Figure out requested channels and maximum sample rate.
+     */
+    brd->nRequestedChannels = 0;
+
+    for (i = 0; i < MAXA2DS; i++)
+    {
+	if (brd->config.Hz[i] > brd->MaxHz)
+	    brd->MaxHz = brd->config.Hz[i];
+	/*
+	 * Requested channels are those with Hz > 0
+	 */
+	brd->requested[i] = (brd->config.Hz[i] > 0);
+
+	if (brd->requested[i]) 
+	{
+	    brd->nRequestedChannels++;
+	    /*
+	     * Make this channel the master if we don't have one yet
+	     */
+	    if (! haveMaster)
+	    {
+		if ((ret = A2DSetMaster(brd, i)) < 0)
+		    goto done;
+		haveMaster = 1;
+	    }
+	}
+    }
+
     // Configure DAC gain codes
-    if ((ret = A2DSetup(brd)) != 0)
+    if ((ret = A2DSetGainAndOffset(brd)) != 0)
 	goto done;
     
     // Make sure SYNC is cleared so clocks are running
@@ -1141,28 +1095,36 @@ taskSetupBoard(unsigned long taskletArg)
     KLOG_DEBUG("A/Ds ready for synchronous start\n");
 
   done:
-    KLOG_DEBUG("setup for board %d done with state %d\n",
-	       BOARD_INDEX(brd), ret);
+    if (ret != 0)
+	KLOG_NOTICE("setup for board %d failed with state %d\n",
+		    BOARD_INDEX(brd), ret);
+    else
+	KLOG_DEBUG("setup for board %d succeeded\n", BOARD_INDEX(brd));
+
     brd->setupStatus = ret;
     complete_all(&brd->setupCompletion);
 }
 
 /*
- * Task to retrieve waiting sample(s)
+ * Function scheduled to be called from IIG driver at 100Hz frequency.
+ * Read the next DSM sample (which may contain a number of subsamples
+ * if the card is sampling faster than 100Hz), and put it into the
+ * kfifo buffer for later transfer to user space.
  */
-static void
-taskReadA2DSamples(unsigned long taskletArg)
+static void 
+ReadSampleCallback(void *ptr)
 {
-    struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
-    int nbadstatus;
-    int nloops;
-    unsigned long flags;
-    int flevel = getA2DFIFOLevel(brd);
-    A2DSAMPLE samp;
-    register short* dataptr;
-    int iread;
+    struct A2DBoard* brd = (struct A2DBoard*) ptr;
     static int entrycount = 0;
+    int preFlevel, postFlevel;
+    int s;
+    int chan;
+    A2DSAMPLE dsmSample;
+    short *data;
 
+    /*
+     * If the last reset didn't work properly, bail now.
+     */
     if (brd->resetStatus != 0)
     {
 	KLOG_ERR("stopping board %d because of bad reset status %d\n",
@@ -1171,296 +1133,126 @@ taskReadA2DSamples(unsigned long taskletArg)
 	goto done;
     }
 
-//    if (! (entrycount % 201))
-//    {
-//	KLOG_NOTICE("%d: taskReadA2DSamples for board %d @ clock %ld\n",
-//		    entrycount, BOARD_INDEX(brd), GET_MSEC_CLOCK);
-//	KLOG_NOTICE("(WriteNdx-ReadNdx) = %d\n", 
-//		    brd->intTimeWriteNdx - brd->intTimeReadNdx);
-//    }
-
-    if (!brd->buffer || !brd->enableReads)
-	goto done;
-
-    if (brd->discardNextScan) {
-	nbadstatus = 0;
-	
-//	KLOG_NOTICE("%d discarding scan, flevel=%d, fifo status=0x%x @ %ld\n", 
-//		    entrycount, flevel, A2DBoardStatus(brd) & 0xf, 
-//		    GET_MSEC_CLOCK);
-
-	if (flevel > 0) 
-	    nbadstatus = A2DEmptyFIFO(brd);
-
-	spin_lock_irqsave(&brd->timetagCbufLock, flags);
-	brd->intTimeWriteNdx = 0;
-	brd->intTimeReadNdx = 0;
-	spin_unlock_irqrestore(&brd->timetagCbufLock, flags);
-
-//	KLOG_NOTICE("done...\n");
+    /*
+     * Clear the card's FIFO if we were asked to discard a scan
+     */
+    if (brd->discardNextScan)
+    {
+	A2DClearFIFO(brd);
 	brd->discardNextScan = 0;
 	goto done;
     }
 
     /*
-     * Read data until we run out of interrupt time tags
+     * If FIFO is empty or full, there's a problem
      */
-    for (nloops = 0; brd->intTimeReadNdx != brd->intTimeWriteNdx; nloops++)
+    preFlevel = getA2DFIFOLevel(brd);
+    brd->cur_status.preFifoLevel[preFlevel]++;
+    if (preFlevel == 0 || preFlevel == 5) 
     {
-	/*
-	 * Get the next time tag from the circular buffer
-	 */
-	samp.timestamp = brd->intTimeTags[brd->intTimeReadNdx];
-//	spin_lock_irqsave(&brd->timetagCbufLock, flags);
-	brd->intTimeReadNdx = (brd->intTimeReadNdx + 1) % TIMETAG_CBUF_SIZE;
-//	spin_unlock_irqrestore(&brd->timetagCbufLock, flags);
-
-	/*
-	 * adjust time tag to time of first sub-sample
-	 */
-	if (samp.timestamp < brd->ttMsecAdj)
-	    samp.timestamp += MSECS_PER_DAY;
-	samp.timestamp -= brd->ttMsecAdj;
-
-	flevel = getA2DFIFOLevel(brd);
-	brd->cur_status.preFifoLevel[flevel]++;
-
-	/*
-	 * If FIFO is empty or full, there's a problem
-	 */
-	if (flevel == 0 || flevel == 5) 
-	{
-	    KLOG_ERR("%d Restarting card with %s FIFO @ %ld\n", entrycount,
-		     (flevel == 0) ? "empty" : "full", GET_MSEC_CLOCK);
-	    unregister_irig_callback(a2dIrigCallback, IRIG_100_HZ, brd);
-	    tasklet_schedule(&brd->resetTasklet);
-	    goto done;
-	}
-
-	// dataptr points to beginning of data section of A2DSAMPLE
-	dataptr = samp.data;
-
-	// Set up to read data
-	outb(A2DIO_FIFO, brd->cmd_addr);
-
-	nbadstatus = 0;
-	for (iread = 0; iread < (MAXA2DS * brd->sampsPerCallback); iread++) {
-	    int ichan = iread % MAXA2DS;
-	    signed short counts;
-	    unsigned short stat;
-	
-#ifdef DO_A2D_STATRD
-	    /*
-	     * Read the status word that precedes the data word.
-	     */
-	    stat = inw(brd->base_addr);
-#  ifdef IGNORE_DATA_STATUS
-	    /*
-	     * Just set the status to the expected value to ignore it
-	     */
-	    stat = A2DEXPSTATUS;
-#  endif // IGNORE_DATA_STATUS
-#endif // DO_A2D_STATRD
-	    /*
-	     * Read the data value
-	     */
-	    counts = inw(brd->base_addr);
-
-	    if (brd->requested[ichan]) {
-		// check for acceptable looking status value
-		if ((stat & A2DSTATMASK) != A2DEXPSTATUS) {
-		    KLOG_DEBUG("------- SPIKE! ------- read: %2d  chn: %d  "
-			       "stat: %x  data: %x\n", iread, ichan, stat, 
-			       counts);
-		    nbadstatus++;
-		    brd->cur_status.nbad[ichan]++;
-		    brd->cur_status.badval[ichan] = stat;
-		}
-		else 
-		    brd->cur_status.goodval[ichan] = stat;
-
-		/*
-		 * Finally, stash the count value, inverting if necessary
-		 */
-		*dataptr++ = brd->invertCounts ? counts : -counts;
-	    }
-	}
-
-	brd->sampleCnt++;
-	
-	if (nbadstatus > 0)
-	    brd->nbadScans++;
-
-	// DSMSensor::printStatus queries these values every 10 seconds
-	if (!(++brd->readCtr % (INTERRUPT_RATE * 10))) {
-	    // debug print every minute, or if there are bad scans
-	    if (!(brd->readCtr % (INTERRUPT_RATE * 60)) || brd->nbadScans) {
-		KLOG_DEBUG("GET_MSEC_CLOCK=%ld, nbadScans=%d\n",
-			   GET_MSEC_CLOCK, brd->nbadScans);
-		KLOG_DEBUG("nbadFifoLevel=%d, #fifoNotEmpty=%d, #skipped=%d, "
-			   "#resets=%d\n", brd->nbadFifoLevel, brd->fifoNotEmpty, 
-			   brd->skippedSamples, brd->resets);
-		KLOG_DEBUG("pre-scan  fifo=%d,%d,%d,%d,%d,%d "
-			   "(0,<=1/4,<2/4,<3/4,<4/4,full)\n",
-			   brd->cur_status.preFifoLevel[0],
-			   brd->cur_status.preFifoLevel[1],
-			   brd->cur_status.preFifoLevel[2],
-			   brd->cur_status.preFifoLevel[3],
-			   brd->cur_status.preFifoLevel[4],
-			   brd->cur_status.preFifoLevel[5]);
-		KLOG_DEBUG("post-scan fifo=%d,%d,%d,%d,%d,%d\n",
-			   brd->cur_status.postFifoLevel[0],
-			   brd->cur_status.postFifoLevel[1],
-			   brd->cur_status.postFifoLevel[2],
-			   brd->cur_status.postFifoLevel[3],
-			   brd->cur_status.postFifoLevel[4],
-			   brd->cur_status.postFifoLevel[5]);
-		KLOG_DEBUG("last good status= %04x %04x %04x %04x %04x %04x "
-			   "%04x %04x\n",
-			   brd->cur_status.goodval[0],
-			   brd->cur_status.goodval[1],
-			   brd->cur_status.goodval[2],
-			   brd->cur_status.goodval[3],
-			   brd->cur_status.goodval[4],
-			   brd->cur_status.goodval[5],
-			   brd->cur_status.goodval[6],
-			   brd->cur_status.goodval[7]);
-
-		if (brd->nbadScans > 0) {
-		    KLOG_DEBUG("last bad status=  %04x %04x %04x %04x %04x "
-			       "%04x %04x %04x\n",
-			       brd->cur_status.badval[0],
-			       brd->cur_status.badval[1],
-			       brd->cur_status.badval[2],
-			       brd->cur_status.badval[3],
-			       brd->cur_status.badval[4],
-			       brd->cur_status.badval[5],
-			       brd->cur_status.badval[6],
-			       brd->cur_status.badval[7]);
-		    KLOG_DEBUG("num  bad status=  %4d %4d %4d %4d %4d %4d "
-			       "%4d %4d\n",
-			       brd->cur_status.nbad[0],
-			       brd->cur_status.nbad[1],
-			       brd->cur_status.nbad[2],
-			       brd->cur_status.nbad[3],
-			       brd->cur_status.nbad[4],
-			       brd->cur_status.nbad[5],
-			       brd->cur_status.nbad[6],
-			       brd->cur_status.nbad[7]);
-
-		    if (brd->nbadScans > 10) {
-			tasklet_schedule(&brd->resetTasklet);
-			goto done;
-		    }
-		}
-		brd->readCtr = 0;
-	    } // debug printout
-
-	    brd->nbadScans = 0;
-
-	    // copy current status to prev_status for access by ioctl
-	    // A2D_GET_STATUS
-	    brd->cur_status.nbadFifoLevel = brd->nbadFifoLevel;
-	    brd->cur_status.fifoNotEmpty = brd->fifoNotEmpty;
-	    brd->cur_status.skippedSamples = brd->skippedSamples;
-	    brd->cur_status.resets = brd->resets;
-	    memcpy(&brd->prev_status, &brd->cur_status, sizeof(A2D_STATUS));
-	    memset(&brd->cur_status, 0, sizeof(A2D_STATUS));
-	}
-
-	samp.size = (char*)dataptr - (char*)samp.data;
-
-	if (samp.size > 0) {
-	    unsigned long avail;
-	    size_t slen = DSMSampleSize(brd);
-
-	    /*
-	     * Put the sample into the user device buffer only if we have
-	     * enough space for it.  Otherwise, drop the sample.
-	     */
-	    spin_lock_irqsave(brd->buffer->lock, flags);
-	    avail = brd->buffer->size - __kfifo_len(brd->buffer);
-
-	    if (avail >= slen) {
-		__kfifo_put(brd->buffer, (unsigned char*)&samp, slen);
-//		/*
-//		 * Wake up waiting read
-//		 */
-//		wake_up_interruptible(&(brd->rwaitq));
-	    }
-	    else
-		brd->skippedSamples++;
-
-	    spin_unlock_irqrestore(brd->buffer->lock, flags);
-
-	    if (brd->skippedSamples && !(brd->skippedSamples % 1000))
-		KLOG_WARNING("%d samples lost\n", brd->skippedSamples);
-	}
-
-#ifdef A2D_ACQ_IN_SEPARATE_THREAD
-	if (brd->doTemp) {
-//XX 	sendTemp(brd);
-	    brd->doTemp = 0;
-	}
-#endif
-
-	if (nbadstatus > 0)
-	    KLOG_ERR("nbadstatus is %d\n", nbadstatus);
+	KLOG_ERR("%d Restarting card with %s FIFO @ %ld\n", entrycount,
+		 (preFlevel == 0) ? "empty" : "full", GET_MSEC_CLOCK);
+	tasklet_schedule(&brd->resetTasklet);
+	goto done;
     }
 
-
-    if (nloops > 1)
-	KLOG_NOTICE("%d loops in taskReadA2DSamples\n", nloops);
-    
-  done:
-    wake_up_interruptible(&(brd->rwaitq));
-
-
-    if (! (entrycount % 400))
-	KLOG_NOTICE("%d done: flevel %d, fifo status 0x%x @ %ld\n", 
-		    entrycount, getA2DFIFOLevel(brd), 
-		    A2DBoardStatus(brd) & 0xf, GET_MSEC_CLOCK);
-    entrycount++;
-
-    return;
-}
-
-
-// function is scheduled to be called from IRIG driver at 100Hz
-static void 
-a2dIrigCallback(void *ptr)
-{
-    static int count = 0;
-    int ndxDiff;
-    struct A2DBoard* brd = (struct A2DBoard*) ptr;
-    
     /*
-     * If the timetag circ buffer is not full, add this time tag to it
-     * and schedule a read.
+     * Build the DSM sample header, setting the time tag to now, and 
+     * adjusting time tag to time of first subsample.
      */
-    spin_lock(&brd->timetagCbufLock);
-    ndxDiff = brd->intTimeReadNdx - brd->intTimeWriteNdx;
+    dsmSample.timetag = GET_MSEC_CLOCK;
+    if (dsmSample.timetag < brd->ttMsecAdj)
+	dsmSample.timetag += MSECS_PER_DAY;
+    dsmSample.timetag -= brd->ttMsecAdj;
 
-    if (ndxDiff < 0)
-	ndxDiff += TIMETAG_CBUF_SIZE;
+    dsmSample.length = DSMSampleSize(brd) - SIZEOF_DSM_SAMPLE_HEADER;
 
-    if (ndxDiff != 1)
+    data = dsmSample.data;
+
+    /*
+     * Read the data for the DSM sample from the card.  Note that a DSM
+     * sample will contain brd->sampsPerCallback individual samples for
+     * each requested channel.
+     */
+    outb(A2DIO_FIFO, brd->cmd_addr);    // Set up to read data
+
+    for (s = 0; s < brd->sampsPerCallback; s++) 
     {
-	brd->intTimeTags[brd->intTimeWriteNdx] = GET_MSEC_CLOCK;
-	brd->intTimeWriteNdx = 
-	    (brd->intTimeWriteNdx + 1) % TIMETAG_CBUF_SIZE;
-	tasklet_schedule(&brd->readSamplesTasklet);
+	for (chan = 0; chan < MAXA2DS; chan++) 
+	{
+	    short counts;
+#ifdef DO_A2D_STATRD
+	    /*
+	     * Read (and ignore) the status word that precedes the data word.
+	     */
+	    inw(brd->base_addr);
+#endif
+	    /*
+	     * Read the data word and stash it if it's from a requested 
+	     * channel.
+	     */
+	    counts = inw(brd->base_addr);
+	    if (brd->requested[chan])
+		*data++ = (brd->invertCounts) ? -counts : counts;
+	}
+    }
+    brd->readCtr++;
+
+    /*
+     * Keep track of the card's FIFO level when we're done reading
+     */
+    postFlevel = getA2DFIFOLevel(brd);
+    brd->cur_status.postFifoLevel[postFlevel]++;
+
+    /*
+     * Copy this DSM sample to the kfifo, if there's enough space for it
+     */
+    spin_lock(brd->buffer->lock);
+
+    if ((brd->buffer->size - __kfifo_len(brd->buffer)) >= DSMSampleSize(brd))
+    {
+	__kfifo_put(brd->buffer, (unsigned char*)&dsmSample, 
+		    DSMSampleSize(brd));
+	brd->sampleCnt++;
     }
     else
     {
-	KLOG_NOTICE("%d Timetag circ buffer is full.  Resetting card.\n", 
-		    count);
-	tasklet_schedule(&brd->resetTasklet);
+	KLOG_WARNING("DSM sample @ %ld dropped (not enough kfifo space)\n",
+		     dsmSample.timetag);
+	brd->skippedSamples++;
     }
 
-    spin_unlock(&brd->timetagCbufLock);
+    spin_unlock(brd->buffer->lock);
 
-    count++;
+    /*
+     * Update stats every 10 seconds
+     */
+    if (!(brd->readCtr % (INTERRUPT_RATE * 10))) {
+	brd->nbadScans = 0;
+
+	/*
+	 * copy current status to prev_status for access by ioctl
+	 * A2D_GET_STATUS
+	 */
+	brd->cur_status.nbadFifoLevel = brd->nbadFifoLevel;
+	brd->cur_status.fifoNotEmpty = brd->fifoNotEmpty;
+	brd->cur_status.skippedSamples = brd->skippedSamples;
+	brd->cur_status.resets = brd->resets;
+	memcpy(&brd->prev_status, &brd->cur_status, sizeof(A2D_STATUS));
+	memset(&brd->cur_status, 0, sizeof(A2D_STATUS));
+    }
+
+    if (!(entrycount % 400))
+	KLOG_NOTICE("ReadSampleCallback %d done, start fifo: %d, end fifo: %d\n",
+		    entrycount, preFlevel, postFlevel);
+    
+  done:
+    /*
+     * Wake up waiting reads
+     */
+    wake_up_interruptible(&(brd->rwaitq));
+
+    entrycount++;
 }
 
 // Callback function to send I2C temperature data to user space.
@@ -1531,12 +1323,12 @@ stopBoard(struct A2DBoard* brd)
     // interrupt the 1PPS or acquisition
     brd->interrupted = 1;
 
+    // Turn off the callback routine
+    unregister_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
+
     // wake any waiting reads
     wake_up_interruptible(&(brd->rwaitq));
  
-    // Turn off the callback routine
-    unregister_irig_callback(a2dIrigCallback, IRIG_100_HZ, brd);
-
     AD7725StatusAll(brd);   // Read status and clear IRQ's
  
     A2DNotAuto(brd);     // Shut off auto mode (if enabled)
@@ -1561,10 +1353,7 @@ resetBoard(struct A2DBoard* brd)
 
     KLOG_NOTICE("enter resetBoard()\n");
     
-    unregister_irig_callback(a2dIrigCallback, IRIG_100_HZ, brd);
-
-    // Disable the sample reading tasklet
-    tasklet_disable_nosync(&brd->readSamplesTasklet);
+    unregister_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
 
     // Sync with 1PPS
     KLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%ld\n", GET_MSEC_CLOCK);
@@ -1594,12 +1383,6 @@ resetBoard(struct A2DBoard* brd)
     KLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%ld\n", GET_MSEC_CLOCK);
     A2DClearFIFO(brd);  // Reset FIFO
 
-    /*
-     * Clear the circular buffer of interrupt times
-     */
-    brd->intTimeWriteNdx = 0;
-    brd->intTimeReadNdx = 0;
-
     brd->discardNextScan = 1;  // whether to discard the initial scan
     brd->enableReads = 1;
     brd->interrupted = 0;
@@ -1608,15 +1391,10 @@ resetBoard(struct A2DBoard* brd)
     brd->nbadFifoLevel = 0;
     brd->fifoNotEmpty = 0;
     brd->skippedSamples = 0;
-    brd->intTimeWriteNdx = 0;
-    brd->intTimeReadNdx = 0;
     brd->resets++;
 
-    // Re-enable the sample reading tasklet
-    tasklet_enable(&brd->readSamplesTasklet);
-
     // start the IRIG callback routine at 100 Hz
-    ret = register_irig_callback(a2dIrigCallback, IRIG_100_HZ, brd);
+    ret = register_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
     if (ret != 0)
 	KLOG_ERR("Error %d registering IRIG callback\n", ret);
     else
@@ -1746,34 +1524,6 @@ taskResetBoard(unsigned long taskletArg)
     KLOG_NOTICE("leave taskResetBoard\n");
 }
 
-
-//XX /**
-//XX  * @return negative UNIX errno
-//XX  */
-//XX static int 
-//XX closeA2D(struct A2DBoard* brd)
-//XX {
-//XX     int ret = 0;
-//XX 
-//XX     brd->doTemp = 0;
-//XX     // interrupt the 1PPS or acquisition
-//XX     brd->interrupted = 1;
-//XX 
-//XX     // Turn off the callback routine
-//XX     unregister_irig_callback(a2dIrigCallback, IRIG_100_HZ, brd);
-//XX 
-//XX     AD7725StatusAll(brd);   // Read status and clear IRQ's
-//XX 
-//XX     A2DNotAuto(brd);     // Shut off auto mode (if enabled)
-//XX 
-//XX     // Abort all the A/D's
-//XX     A2DStopReadAll(brd);
-//XX 
-//XX     brd->busy = 0;       // Reset the busy flag
-//XX 
-//XX     return ret;
-//XX }
-
 /**
  * User-space open of the A/D device.
  */
@@ -1797,7 +1547,6 @@ ncar_a2d_open(struct inode *inode, struct file *filp)
     filp->private_data = brd;
     return 0;
 }
-
 
 /**
  * User-space close of the A/D device.
@@ -1893,13 +1642,6 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	if ((brd->sampleCnt < brd->latencyCnt) && (percent_full < 90))
 	    goto next;
 
-//	if (brd->sampleCnt < brd->latencyCnt)
-//	    KLOG_INFO("Read proceeding with %d%% full buffer\n", percent_full);
-
-//	if (count < fifo_len)
-//	    KLOG_INFO("Read not getting all data in buffer (%d < %d)\n",
-//		      count, fifo_len);
-	
 	/*
 	 * Bytes to write
 	 */
@@ -1924,6 +1666,7 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 
       next:
 	spin_unlock_irqrestore(brd->buffer->lock, flags);
+	mdelay(50);
     }
 }
 
@@ -2041,7 +1784,6 @@ i2c_temp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
     void __user* userptr = (void __user*)arg;
-//XX    int rate;
     int len = _IOC_SIZE(cmd);
     int ret = -EINVAL;
 
@@ -2090,8 +1832,6 @@ cleanup_module(void)
 	}
 
 	AD7725StatusAll(brd);        // Read status and clear IRQ's
-
-//XX	Close user-space devices
 
 	if (brd->base_addr)
 	    release_region(brd->base_addr, A2DIOWIDTH);
@@ -2221,18 +1961,8 @@ init_module()
 	 * Initialize our tasklets
 	 */
 	tasklet_init(&brd->setupTasklet, taskSetupBoard, (unsigned long)brd);
-	tasklet_init(&brd->readSamplesTasklet, taskReadA2DSamples, 
-		     (unsigned long)brd);
 	tasklet_init(&brd->resetTasklet, taskResetBoard, (unsigned long)brd);
 
-	/*
-	 * Initialize the circular buffer of timetags for samples waiting
-	 * for read.
-	 */
-	spin_lock_init(&brd->timetagCbufLock);
-	brd->intTimeWriteNdx = 0;
-	brd->intTimeReadNdx = 0;
-	
 	/*
 	 * Other initialization
 	 */
@@ -2288,11 +2018,15 @@ init_module()
 
   err:
     
+    unregister_chrdev_region(I2CTempDevStart, NumBoards);
+    cdev_del(&I2CTempCdev);
+
+    unregister_chrdev_region(A2DDevStart, NumBoards);
+    cdev_del(&A2DCdev);
+
     if (BoardInfo) {
 	for (ib = 0; ib < NumBoards; ib++) {
 	    struct A2DBoard* brd = BoardInfo + ib;
-
-//XX	    CLOSE USER-SPACE DEVICES
 
 	    if (brd->base_addr)
 		release_region(brd->base_addr, A2DIOWIDTH);
