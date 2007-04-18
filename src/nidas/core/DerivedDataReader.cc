@@ -69,7 +69,7 @@ void DerivedDataReader::readData() throw(n_u::IOException,n_u::ParseException)
 
   buffer[packet.getLength()] = 0;  // null terminate if nec.
 
-  DLOG(("DerivedDataReader: ") << buffer);
+  // DLOG(("DerivedDataReader: ") << buffer);
   parseIWGADTS(buffer);
 
   notifyClients();
@@ -108,7 +108,7 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
 
   if (p)
     _tas = atof(p);
-  DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f, ",_alt,_radarAlt,_tas));
+  // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f, ",_alt,_radarAlt,_tas));
 
   return true;
 }
@@ -183,7 +183,7 @@ void DerivedDataReader::notifyClients()
   _clientMutex.unlock();
 
   std::list<DerivedDataClient*>::iterator li;
-  for (li = tmp.begin(); li != tmp.end(); ) {
+  for (li = tmp.begin(); li != tmp.end(); ++li) {
     DerivedDataClient *clnt = *li;
     clnt->derivedDataNotify(this);
   }
