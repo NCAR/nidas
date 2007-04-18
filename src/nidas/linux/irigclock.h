@@ -8,9 +8,9 @@
    Revisions:
 
      $LastChangedRevision: 3648 $
-         $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-           $LastChangedBy: cjw $
-                 $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/irigclock.h $
+     $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+     $LastChangedBy: cjw $
+     $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/irigclock.h $
 */
 
 #ifndef IRIGCLOCK_H
@@ -88,7 +88,7 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-    static unsigned int rate[] = {0,1,2,4,5,10,20,25,50,100,0};
+    static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};
     return rate[value];
 }
 
@@ -109,12 +109,14 @@ struct dsm_clock_sample {
  */
 #define IRIG_IOC_MAGIC 'I'	/* Unique(ish) char for IRIG ioctls */
 
-#define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 0, unsigned char)
-#define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 1, struct timeval)
-#define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 2, struct timeval)
-#define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 3, struct timeval)
+#define IRIG_OPEN		_IO(IRIG_MAGIC, 0)
+#define IRIG_CLOSE		_IO(IRIG_MAGIC, 1)
+#define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 2, unsigned char)
+#define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval)
+#define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval)
+#define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval)
 
-/****************  Start of symbols used by kernel modules **************************/
+/**********  Start of symbols used by kernel modules **********/
 
 #if defined(__KERNEL__)
 
@@ -163,7 +165,7 @@ void irig_clock_gettime(struct timespec* tp);
 
 typedef void irig_callback_t(void* privateData);
 
-void setRate2Output (int rate);
+void setRate2Output(int rate);
 
 /*
  * Schedule/unschedule timed regular callbacks of a particular function

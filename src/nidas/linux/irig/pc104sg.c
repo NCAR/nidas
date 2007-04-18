@@ -1125,11 +1125,10 @@ setCounters(struct timeval* tv)
     Count100Hz %= MAX_INTERRUPT_COUNTER;
 
 #ifdef DEBUG
-    KLOG_DEBUG("tv=%d.%06d, MsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
-	       (int)tv->tv_sec, (int)tv->tv_usec, MsecClockTicker, td, 
+    KLOG_DEBUG("tv=%ld.%06ld, MsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
+	       tv->tv_sec, tv->tv_usec, MsecClockTicker, td, 
 	       Count100Hz);
 #endif
-
 }
 
 /**
@@ -1723,6 +1722,7 @@ static ssize_t
 pc104sg_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
     struct irig_port *p = (struct irig_port*)filp->private_data;
+    int dsmSampleSize = SIZEOF_DSM_SAMPLE_HEADER + p->samp.length;
     int retval = 0;
     int n;
 
@@ -1751,7 +1751,7 @@ pc104sg_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	    return -ERESTARTSYS;
     }
     
-    n = (count > sizeof(p->samp)) ? sizeof(p->samp) : count;
+    n = (count > dsmSampleSize) ? dsmSampleSize : count;
     retval = copy_to_user(buf, &(p->samp), n) ? -EFAULT : n;
 
     p->readyForRead = 0;
@@ -1897,6 +1897,8 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	ret = len;
 	break;
       default:
+	KLOG_WARNING("Unrecognized ioctl %d (number %d, size %d)\n", cmd,
+		     _IOC_NR(cmd), _IOC_SIZE(cmd));
 	ret = -EINVAL;
 	break;
     }
