@@ -84,7 +84,8 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
     sleep(2);
 
     // Request that fifo be opened at driver end.
-    ioctl(IRIG_OPEN,0,0);
+    if (DSMEngine::getInstance()->isRTLinux())
+	ioctl(IRIG_OPEN,0,0);
 
 }
 
@@ -204,7 +205,8 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 
 void IRIGSensor::close() throw(n_u::IOException)
 {
-    ioctl(IRIG_CLOSE,0,0);
+    if (DSMEngine::getInstance()->isRTLinux())
+	ioctl(IRIG_CLOSE,0,0);
     DSMSensor::close();
 }
 
