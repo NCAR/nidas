@@ -1189,11 +1189,14 @@ ReadSampleCallback(void *ptr)
 #endif
 	    /*
 	     * Read the data word and stash it if it's from a requested 
-	     * channel.
+	     * channel.  Note that inw on the Vulcan munges things to 
+	     * local CPU (i.e. big-endian) order, and in the dsm_sample_t,
+	     * the data should be in the order that came from the card, so we
+	     * apply cpu_to_le16() to munge the bytes back...
 	     */
 	    counts = inw(brd->base_addr);
 	    if (brd->requested[chan])
-		*data++ = (brd->invertCounts) ? -counts : counts;
+		*data++ = cpu_to_le16((brd->invertCounts) ? -counts : counts);
 	}
     }
     brd->readCtr++;
