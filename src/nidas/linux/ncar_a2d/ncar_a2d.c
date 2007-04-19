@@ -1242,7 +1242,7 @@ ReadSampleCallback(void *ptr)
 	memset(&brd->cur_status, 0, sizeof(A2D_STATUS));
     }
 
-    if (!(entrycount % 400))
+    if (!(entrycount % 1000))
 	KLOG_NOTICE("ReadSampleCallback %d done, start fifo: %d, end fifo: %d\n",
 		    entrycount, preFlevel, postFlevel);
     
@@ -1614,7 +1614,6 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
     int percent_full;
     int fifo_len;
     int wlen;
-    unsigned long flags;
     unsigned char c;
     static int posInSample = 0;
 
@@ -1628,7 +1627,6 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	if (brd->interrupted)
 	    return 0;
 
-	spin_lock_irqsave(brd->buffer->lock, flags);
 	/*
 	 * How full is the buffer?
 	 */
@@ -1640,10 +1638,10 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	 * the buffer is nearly full)
 	 */
 	if ((brd->sampleCnt < brd->latencyCnt) && (percent_full < 90))
-	    goto next;
+	    continue;
 
 	/*
-	 * Bytes to write
+	 * Bytes to write to user
 	 */
 	wlen = (count > fifo_len) ? fifo_len : count;
 
@@ -1663,10 +1661,6 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	}
 
 	return nwritten;
-
-      next:
-	spin_unlock_irqrestore(brd->buffer->lock, flags);
-	mdelay(50);
     }
 }
 
