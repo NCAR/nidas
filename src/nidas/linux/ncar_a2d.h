@@ -172,7 +172,7 @@ typedef struct
 #define A2DCMDADDR	0xE	// address offset for board commands
 
 /*
- * 500samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
+ * 500 samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
  */
 #define A2D_BUFFER_SIZE         8192
 
