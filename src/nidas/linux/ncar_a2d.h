@@ -174,7 +174,7 @@ typedef struct
 /*
  * 500 samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
  */
-#define A2D_BUFFER_SIZE         8192
+#define A2D_BUFFER_SIZE         16384
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
@@ -239,8 +239,8 @@ typedef struct
 
 typedef struct
 {
-    dsm_sample_time_t timestamp; // timetag of sample
-    dsm_sample_length_t size;    // number of bytes in data
+    dsm_sample_time_t timetag; // timetag of sample
+    dsm_sample_length_t length;    // number of bytes in data
     short data;
 } I2C_TEMP_SAMPLE;
 
