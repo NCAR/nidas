@@ -1081,8 +1081,8 @@ static inline int getA2DSample(struct A2DBoard* brd)
                          last_stat[ilast][5],last_cnts[ilast][5],
                          last_stat[ilast][6],last_cnts[ilast][6],
                          last_stat[ilast][7],last_cnts[ilast][7]);
-#endif
          DSMLOG_DEBUG("--------- SPIKE! --------- read: %2d  chn: %d  stat: %x  data: %x\n", iread, ichan, stat, counts);
+#endif
          nbad++;
          brd->cur_status.nbad[ichan]++;
          brd->cur_status.badval[ichan] = stat;
