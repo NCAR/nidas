@@ -94,7 +94,7 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
     _noutValues = 0;
     for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); ) {
         const SampleTag* stag = ti.next();
-        _sampleId = stag->getId();
+//        dsm_sample_id_t sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
         for ( ; vi.hasNext(); ) {

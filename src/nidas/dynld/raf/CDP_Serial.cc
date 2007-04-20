@@ -117,7 +117,7 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
     {
         const SampleTag* stag = ti.next();
-        _sampleId = stag->getId();
+//        dsm_sample_id_t sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
         for ( ; vi.hasNext(); )
@@ -129,9 +129,10 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     // This logic should match what is in ::process, so that
     // an output sample of the correct size is created.
-    if (_noutValues != _nChannels + 6) {
+    const int nHousekeep = 6;
+    if (_noutValues != _nChannels + nHousekeep) {
         ostringstream ost;
-        ost << "total length of variables should be " << (_nChannels + 6);
+        ost << "total length of variables should be " << (_nChannels + nHousekeep);
           throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
 }

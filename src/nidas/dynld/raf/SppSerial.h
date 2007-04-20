@@ -75,8 +75,6 @@ protected:
    */
   int _noutValues;
 
-  dsm_sample_id_t _sampleId;
-
 
   /**
    * Here more for documentation.  This is the data polling request packet.
