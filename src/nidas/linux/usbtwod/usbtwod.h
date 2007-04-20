@@ -74,7 +74,7 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 #ifdef BLOCKING_READ
 #define READS_IN_FLIGHT         1
 #else
-#define READS_IN_FLIGHT         16
+#define READS_IN_FLIGHT         20
 #endif
 
 

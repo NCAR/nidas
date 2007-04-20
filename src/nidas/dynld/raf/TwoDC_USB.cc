@@ -55,7 +55,7 @@ IODevice* TwoDC_USB::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* TwoDC_USB::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new SampleScanner(65792);
 }
 
 
