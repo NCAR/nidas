@@ -110,6 +110,12 @@ static int ncar_a2d_ioctl(struct inode *inode, struct file *filp,
 static int i2c_temp_ioctl(struct inode *inode, struct file *filp, 
 			    unsigned int cmd, unsigned long arg);
 /*
+ * Tag to mark waiting for reset attempt.  Any value not likely to 
+ * show up as a system error is fine here...
+ */
+static const int WAITING_FOR_RESET = 77777;
+
+/*
  * Operations for the devices
  */
 static struct file_operations ncar_a2d_fops = {
@@ -1125,7 +1131,9 @@ ReadSampleCallback(void *ptr)
     /*
      * If the last reset didn't work properly, bail now.
      */
-    if (brd->resetStatus != 0)
+    if (brd->resetStatus == WAITING_FOR_RESET)
+	goto done;
+    else if (brd->resetStatus != 0)
     {
 	KLOG_ERR("stopping board %d because of bad reset status %d\n",
 		 BOARD_INDEX(brd), -brd->resetStatus);
@@ -1144,14 +1152,29 @@ ReadSampleCallback(void *ptr)
     }
 
     /*
-     * If FIFO is empty or full, there's a problem
+     * How full is the card's FIFO?
      */
     preFlevel = getA2DFIFOLevel(brd);
     brd->cur_status.preFifoLevel[preFlevel]++;
+
+    /*
+     * If FIFO is empty, just return
+     */
+    if (preFlevel == 0)
+    {
+	if (!(brd->cur_status.preFifoLevel[0] % 100))
+	    KLOG_NOTICE("empty FIFO %d\n", brd->cur_status.preFifoLevel[0]);
+	goto done;
+    }
+    
+    /*
+     * If FIFO is full, there's a problem
+     */
     if (preFlevel == 0 || preFlevel == 5) 
     {
 	KLOG_ERR("%d Restarting card with %s FIFO @ %ld\n", entrycount,
 		 (preFlevel == 0) ? "empty" : "full", GET_MSEC_CLOCK);
+	brd->resetStatus = WAITING_FOR_RESET;
 	tasklet_schedule(&brd->resetTasklet);
 	goto done;
     }
@@ -1220,11 +1243,12 @@ ReadSampleCallback(void *ptr)
     }
     else
     {
-	KLOG_WARNING("DSM sample @ %ld dropped "
-		     "(not enough kfifo space %d < %d)\n",
-		     dsmSample.timetag, 
-		     brd->buffer->size - __kfifo_len(brd->buffer),
-		     DSMSampleSize(brd));
+	if (!(brd->skippedSamples % 100))
+	    KLOG_WARNING("DSM sample @ %ld dropped "
+			 "(not enough kfifo space %d < %d)\n",
+			 dsmSample.timetag, 
+			 brd->buffer->size - __kfifo_len(brd->buffer),
+			 DSMSampleSize(brd));
 	brd->skippedSamples++;
     }
 
@@ -1249,8 +1273,8 @@ ReadSampleCallback(void *ptr)
     }
 
     if (!(entrycount % 1000))
-	KLOG_NOTICE("ReadSampleCallback %d done, start fifo: %d, end fifo: %d\n",
-		    entrycount, preFlevel, postFlevel);
+	KLOG_DEBUG("%d done, start fifo: %d, end fifo: %d\n", entrycount, 
+		   preFlevel, postFlevel);
     
   done:
     /*
@@ -1501,6 +1525,7 @@ startBoard(struct A2DBoard* brd)
      * Finally reset, which will start collection.
      */
     KLOG_NOTICE("scheduling resetTasklet\n");
+    brd->resetStatus = WAITING_FOR_RESET;
     tasklet_schedule(&brd->resetTasklet);
     ret = 0;
 
@@ -1627,7 +1652,10 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	    return -ERESTARTSYS;
 
 	if (brd->interrupted)
+	{
+	    KLOG_DEBUG("returning EOF after board interrupt\n");
 	    return 0;
+	}
 
 	/*
 	 * How full is the buffer?
@@ -1646,15 +1674,30 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	 * Bytes to write to user
 	 */
 	wlen = (count > fifo_len) ? fifo_len : count;
+	if (wlen == 0)
+	{
+	    KLOG_NOTICE("Nothing in kfifo\n");
+	    continue;
+	}
 
 	/*
 	 * Copy to the user's buffer
 	 */
 	nwritten = 0;
-	while ((nwritten < wlen) && 
-	       (kfifo_get(brd->buffer, &c, 1) == 1)) {
-	    if (put_user(c, buf++) != 0)
+	while (nwritten < wlen) 
+	{
+	    if (kfifo_get(brd->buffer, &c, 1) != 1)
+	    {
+		KLOG_WARNING("Did not get expected byte from kfifo\n");
 		return -EFAULT;
+	    }
+	    
+	    if (put_user(c, buf++) != 0)
+	    {
+		KLOG_WARNING("put_user failure\n");
+		return -EFAULT;
+	    }
+	    
 	    posInSample = (posInSample + 1) % DSMSampleSize(brd);
 	    // decrement the sample count when we finish a sample
 	    if (posInSample == 0)
