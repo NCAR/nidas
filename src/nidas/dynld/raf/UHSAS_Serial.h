@@ -17,13 +17,14 @@
 #define NIDAS_DYNLD_RAF_UHSAS_SERIAL_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/util/EndianConverter.h>
 
 #include <iostream>
 
 namespace nidas { namespace dynld { namespace raf {
 
 /**
- * A class for reading the UHSAS probe.
+ * A class for reading the UHSAS probe.  This appears to be an updated PCASP.
  * RS-232 @ 115,200 baud.
  */
 class UHSAS_Serial : public DSMSerialSensor
@@ -43,6 +44,23 @@ public:
 
 protected:
 
+  static const nidas::util::EndianConverter * toLittle;
+
+  /**
+   * Total number of floats in the processed output sample.
+   */
+  int _noutValues;
+
+  /**
+   * Number of channels requested to be recorded.  Fixed at 101 for
+   * this probe.
+   */
+  int _nChannels;
+
+  /**
+   * Number of housekeeping channels.  12 of 16 possible are used.
+   */
+  int _nHousekeep;
 
 };
 

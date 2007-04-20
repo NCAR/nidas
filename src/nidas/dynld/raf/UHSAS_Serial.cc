@@ -29,6 +29,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,UHSAS_Serial)
 
+const n_u::EndianConverter* UHSAS_Serial::toLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
+
 static const unsigned char setup_pkt[] =
 	{
 	0xff, 0xff, 0x10, 0xff, 0xff, 0x0e, 0x01, 0xff, 0xff, 0x0a, 0x04,
@@ -167,11 +169,43 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 {
     DSMSerialSensor::fromDOMElement(node);
 
+    _nChannels = 100;	// Fixed for this probe (at this time).
+    _nHousekeep = 12;	// 12 of the available 16 are used.
+
+
+    // Determine number of floats we will recieve (_noutValues)
+    const set<const SampleTag*> tags = getSampleTags();
+    if (tags.size() != 1)
+          throw n_u::InvalidParameterException(getName(),"sample",
+              "must be one <sample> tag for this sensor");
+
+    _noutValues = 0;
+    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
+    {
+        const SampleTag* stag = ti.next();
+//        dsm_sample_id_t sampleId = stag->getId();
+
+        VariableIterator vi = stag->getVariableIterator();
+        for ( ; vi.hasNext(); )
+        {
+            const Variable* var = vi.next();
+            _noutValues += var->getLength();
+        }
+    }
+
+    // This logic should match what is in ::process, so that
+    // an output sample of the correct size is created.
+    if (_noutValues != _nChannels + _nHousekeep) {
+        ostringstream ost;
+        ost << "total length of variables should be " << (_nChannels + _nHousekeep);
+          throw n_u::InvalidParameterException(getName(),"sample",ost.str());
+    }
 }
 
 void UHSAS_Serial::sendInitString() throw(n_u::IOException)
 {
-std::cerr << "UHSAS:: sendInitString\n";
+    std::cerr << "UHSAS:: sendInitString\n";
+
     // clear whatever junk may be in the buffer til a timeout
     try {
         for (;;) {
@@ -188,36 +222,57 @@ std::cerr << "UHSAS:: sendInitString\n";
 bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-/*
-    SampleT<float>* outs = getSample<float>(_noutValues);
-    float* dout = outs->getDataPtr();
-    const UHSAS_blk *input = (UHSAS_blk *) samp->getConstVoidDataPtr();
-
-
+    SampleT<float> * outs = getSample<float>(_noutValues);
+    float * dout = outs->getDataPtr();
+    const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
+    int offset = 0;
 
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);
 
-
-    // these values must correspond to the sequence of
-    // <variable> tags in the <sample> for this sensor.
-    *dout++ = (input->cabinChan[FREF_INDX] - 2048) * 4.882812e-3;
-    *dout++ = (input->cabinChan[FTMP_INDX] - 2328) * 0.9765625;
-    *dout++ = _range;
-    *dout++ = fuckedUpLongFlip((char *)&input->rejDOF);
-    *dout++ = fuckedUpLongFlip((char *)&input->rejAvgTrans);
-    *dout++ = fuckedUpLongFlip((char *)&input->ADCoverflow);
-
-    // DMT fucked up the word count.  Re-align long data on mod 4 boundary.
-    const char * p = (char *)input->OPCchan - 2;
-
-    for (int iout = 0; iout < _nChannels; ++iout)
+//cerr << "UHSAS::process, length " << samp->getDataByteLength() << std::endl;
+    if (samp->getDataByteLength() == 237)
     {
-      *dout++ = fuckedUpLongFlip(p);
-      p += sizeof(unsigned long);
+        char start_marker[6];
+        char mid_marker[6];
+        char end_marker[3];
+        start_marker[0] = 0xff, start_marker[1] = 0xff, start_marker[2] = 0;
+        start_marker[3] = 0xff, start_marker[4] = 0xff, start_marker[5] = 0x04;
+        mid_marker[0] = 0xff, mid_marker[1] = 0xff, mid_marker[2] = 0x05;
+        mid_marker[3] = 0xff, mid_marker[4] = 0xff, mid_marker[5] = 0x06;
+        end_marker[0] = 0xff, end_marker[1] = 0xff, end_marker[2] = 0x07;
+
+        if (memcmp(input, start_marker, 6))
+          cerr << "UHSAS::process, Incorrect start of data keyword.\n";
+
+        if (memcmp(&input[206], mid_marker, 6))
+          cerr << "UHSAS::process, Incorrect mid marker.\n";
+
+        if (memcmp(&input[234], end_marker, 3))
+          cerr << "UHSAS::process, Incorrect end of data keyword.\n";
+    }
+    else
+    {
+        cerr	<< "UHSAS::process, Unexpected packet length of "
+		<< samp->getDataByteLength() << std::endl;
+
+        offset = 76;	// Seems we can recover data from this record.
     }
 
+
+
+    // Pull out histogram data.
+    unsigned short * histogram = (unsigned short *)&input[6+offset];
+    for (int iout = 0; iout < _nChannels; ++iout)
+      *dout++ = toLittle->ushortValue(histogram[iout]);
+
+    // Pull out histogram data.
+    unsigned short * housekeeping = (unsigned short *)&input[212+offset];
+    // these values must correspond to the sequence of
+    // <variable> tags in the <sample> for this sensor.
+    for (int iout = 0; iout < _nHousekeep; ++iout)
+      *dout++ = toLittle->ushortValue(housekeeping[iout]);
+
     results.push_back(outs);
-*/
     return true;
 }
