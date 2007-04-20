@@ -1360,7 +1360,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 	up(&CbListMutex);
     }
 
-    if (nhandled > 4)
+    if (nhandled >= 20)
 	KLOG_NOTICE("%d 100Hz ticks handled at once @ %ld\n", nhandled,
 		    GET_MSEC_CLOCK);
 }
