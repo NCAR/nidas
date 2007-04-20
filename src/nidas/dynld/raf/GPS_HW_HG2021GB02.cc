@@ -200,7 +200,7 @@ float GPS_HW_HG2021GB02::processLabel(const long data)
     // 32|31 30|29 28|27 26 25 24|23|22 21 20 19|18 17 16 15|14 13 12 11|10  9| 8  7  6  5  4  3  2  1
     // --+-----+-----+-----------+--+-----------+-----------+-----------+-----+-----------------------
     // P | SSM | 10d |   1 day   |10|   1 mon   |  10 years |   1 year  | SDI |      8-bit label      
-// #include <time.h>
+// #include <ctime>
 //     if ((data & SSM) != SSM) break;
 //     struct tm tm;
 //     unsigned long time = data;

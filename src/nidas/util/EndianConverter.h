@@ -13,7 +13,7 @@
 #ifndef NIDAS_UTIL_ENDIANCONVERTER_H
 #define NIDAS_UTIL_ENDIANCONVERTER_H
 
-#include <string.h> // memcpy
+#include <cstring> // memcpy
 
 #include <nidas/util/ThreadSupport.h>
 
