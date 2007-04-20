@@ -1524,10 +1524,7 @@ writeTimeCallback(void* irigPortPtr)
 	 * time may have elapsed since the 100 Hz interrupt.
 	 */
 	if (abs(td) > 3) 
-	{
 	    ClockState = RESET_COUNTERS;
-	    KLOG_NOTICE("RESET_COUNTERS, td=%d ms\n", td);
-	}
     }
 
     p->samp.timetag = tt;

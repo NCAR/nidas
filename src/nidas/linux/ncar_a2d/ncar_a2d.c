@@ -1273,8 +1273,8 @@ ReadSampleCallback(void *ptr)
     }
 
     if (!(entrycount % 1000))
-	KLOG_DEBUG("%d done, start fifo: %d, end fifo: %d\n", entrycount, 
-		   preFlevel, postFlevel);
+	KLOG_NOTICE("%d done, start fifo: %d, end fifo: %d\n", entrycount, 
+		    preFlevel, postFlevel);
     
   done:
     /*
@@ -1524,7 +1524,6 @@ startBoard(struct A2DBoard* brd)
     /*
      * Finally reset, which will start collection.
      */
-    KLOG_NOTICE("scheduling resetTasklet\n");
     brd->resetStatus = WAITING_FOR_RESET;
     tasklet_schedule(&brd->resetTasklet);
     ret = 0;
@@ -1980,7 +1979,6 @@ init_module()
 
 	// default latency, 1/10 second.
 	brd->config.latencyUsecs = USECS_PER_SEC / 10;
-	KLOG_NOTICE("latencyUsecs %ld\n", brd->config.latencyUsecs);
 #ifdef DO_A2D_STATRD
 	brd->FIFOCtl = A2DSTATEBL;
 #else
