@@ -27,6 +27,7 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 #include <linux/timer.h>
 #include <linux/unistd.h>
 
+#include <asm/atomic.h>
 #include <asm/io.h>
 #include <asm/semaphore.h>
 #include <asm/uaccess.h>
@@ -39,6 +40,7 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 
 MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
+MODULE_LICENSE("GPL");
 
 //#define DEBUG
 
@@ -128,6 +130,12 @@ static const int INTERRUPTS_PER_CALLBACK_CHECK = 1;
  * The 100 Hz counter.
  */
 static int volatile Count100Hz = 0;
+
+/*
+ * How many 100Hz ticks are yet unhandled?
+ */
+static atomic_t Unhandled100Hz = ATOMIC_INIT(0);
+
 
 static struct timeval UserClock;
 
@@ -1100,6 +1108,7 @@ static inline void
 incrementCount100Hz(void)
 {
     if (++Count100Hz == MAX_INTERRUPT_COUNTER) Count100Hz = 0;
+    atomic_inc(&Unhandled100Hz);
 }
 
 /**
@@ -1160,7 +1169,6 @@ doCallbacklist(struct list_head* list)
     }
 }
 
-
 /**
  * Task to be run on a 100 Hz basis, which performs requested regular
  * callbacks.
@@ -1171,6 +1179,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
     task_100Hz_trigger trigger = (task_100Hz_trigger)ul_trigger;
     static int consecutiveTimeouts = 0;
     static int initialized = 0;
+    int nhandled;
 #ifdef DEBUG_COLLISIONS
     struct irigTime ti;
     static int nCollisions = 0;
@@ -1210,7 +1219,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 
 	initialized = 1;
 
-	return;
+//	return;
     }
 
 #ifdef DEBUG_COLLISIONS
@@ -1249,7 +1258,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
       }
 #endif
       /*
-       * It's a real timeout
+       * It's actually a timeout, and not a collision
        */
       consecutiveTimeouts++;
       if (consecutiveTimeouts <= 10 || !(consecutiveTimeouts % 100)) 
@@ -1287,62 +1296,73 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 	KLOG_ERR("unknown trigger %d\n", trigger);
 	return;
     }
-       
-    // lock the callback list
-    down(&CbListMutex);
 
-    /* perform 100Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_100_HZ);
+    /*
+     * Now handle all the unhandled 100Hz actions
+     */
+    for (nhandled = 0; atomic_read(&Unhandled100Hz) > 0; 
+	 nhandled++, atomic_dec(&Unhandled100Hz))
+    {
+	// lock the callback list
+	down(&CbListMutex);
 
-    if ((Count100Hz %   2)) goto _5;
+	/* perform 100Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_100_HZ);
 
-    /* perform 50Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_50_HZ);
+	if ((Count100Hz % 2)) goto _5;
 
-    if ((Count100Hz %   4)) goto _5;
+	/* perform 50Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_50_HZ);
 
-    /* perform 25Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_25_HZ);
+	if ((Count100Hz % 4)) goto _5;
 
-  _5:
-    if ((Count100Hz %   5)) goto cleanup;
+	/* perform 25Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_25_HZ);
 
-    /* perform 20Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_20_HZ);
+      _5:
+	if ((Count100Hz % 5)) goto cleanup;
 
-    if ((Count100Hz %  10)) goto _25;
+	/* perform 20Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_20_HZ);
 
-    /* perform 10Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_10_HZ);
+	if ((Count100Hz % 10)) goto _25;
 
-    if ((Count100Hz %  20)) goto _25;
+	/* perform 10Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_10_HZ);
 
-    /* perform  5Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_5_HZ);
+	if ((Count100Hz % 20)) goto _25;
 
-  _25:
-    if ((Count100Hz %  25)) goto cleanup;
+	/* perform  5Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_5_HZ);
 
-    /* perform  4Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_4_HZ);
+      _25:
+	if ((Count100Hz % 25)) goto cleanup;
 
-    if ((Count100Hz %  50)) goto cleanup;
+	/* perform  4Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_4_HZ);
 
-    /* perform  2Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_2_HZ);
+	if ((Count100Hz % 50)) goto cleanup;
 
-    if ((Count100Hz % 100)) goto cleanup;
+	/* perform  2Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_2_HZ);
 
-    /* perform  1Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_1_HZ);
+	if ((Count100Hz % 100)) goto cleanup;
 
-    if ((Count100Hz % 1000)) goto cleanup;
+	/* perform  1Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_1_HZ);
 
-    /* perform  0.1 Hz processing... */
-    doCallbacklist(CallbackLists + IRIG_0_1_HZ);
+	if ((Count100Hz % 1000)) goto cleanup;
 
-  cleanup:
-    up(&CbListMutex);
+	/* perform  0.1 Hz processing... */
+	doCallbacklist(CallbackLists + IRIG_0_1_HZ);
+
+      cleanup:
+	up(&CbListMutex);
+    }
+
+    if (nhandled > 4)
+	KLOG_NOTICE("%d 100Hz ticks handled at once @ %ld\n", nhandled,
+		    GET_MSEC_CLOCK);
 }
 
 /*
@@ -1504,7 +1524,10 @@ writeTimeCallback(void* irigPortPtr)
 	 * time may have elapsed since the 100 Hz interrupt.
 	 */
 	if (abs(td) > 3) 
+	{
 	    ClockState = RESET_COUNTERS;
+	    KLOG_NOTICE("RESET_COUNTERS, td=%d ms\n", td);
+	}
     }
 
     p->samp.timetag = tt;
@@ -1660,14 +1683,11 @@ pc104sg_init(void)
     got_irq = 1;
 
     /*
-     * Force an immediate timeout to schedule pc104sg_task_100Hz, so that it
-     * can initialize itself.
+     * Initialize our interrupt timeout timer
      */
     init_timer(&Timeout100Hz_Timer);
     Timeout100Hz_Timer.function = pc104sg_task_100Hz;
-    Timeout100Hz_Timer.expires = 0;
     Timeout100Hz_Timer.data = TASK_TIMEOUT_TRIGGER;
-    add_timer(&Timeout100Hz_Timer);
 
     /*
      * Initialize and add the user-visible device
@@ -1790,6 +1810,7 @@ pc104sg_release(struct inode *inode, struct file *filp)
 {
     struct irig_port *p = (struct irig_port*)filp->private_data;
     unregister_irig_callback(writeTimeCallback, IRIG_1_HZ, p);
+
     kfree(p);
     return 0;
 }
