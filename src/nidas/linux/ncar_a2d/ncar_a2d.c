@@ -96,6 +96,7 @@ CHAN_ADDR(struct A2DBoard* brd, int channel)
 int init_module(void);
 void cleanup_module(void);
 static int stopBoard(struct A2DBoard* brd);
+static void getDSMSampleData(struct A2DBoard* brd, A2DSAMPLE* dsmSample);
 static ssize_t ncar_a2d_read(struct file *filp, char __user *buf,
 			     size_t count,loff_t *f_pos);
 static int ncar_a2d_open(struct inode *inode, struct file *filp);
@@ -1123,13 +1124,12 @@ ReadSampleCallback(void *ptr)
     struct A2DBoard* brd = (struct A2DBoard*) ptr;
     static int entrycount = 0;
     int preFlevel, postFlevel;
-    int s;
-    int chan;
+    static int consecutiveNonEmpty = 0;
     A2DSAMPLE dsmSample;
-    short *data;
 
     /*
-     * If the last reset didn't work properly, bail now.
+     * If a board reset is pending, we're done already.
+     * If the last reset didn't work properly, stop the card and bail out.
      */
     if (brd->resetStatus == WAITING_FOR_RESET)
 	goto done;
@@ -1180,6 +1180,11 @@ ReadSampleCallback(void *ptr)
     }
 
     /*
+     * Get the next DSM sample of data from the card
+     */
+    getDSMSampleData(brd, &dsmSample);
+    
+    /*
      * Build the DSM sample header, setting the time tag to now, and 
      * adjusting time tag to time of first subsample.
      */
@@ -1190,38 +1195,6 @@ ReadSampleCallback(void *ptr)
 
     dsmSample.length = DSMSampleSize(brd) - SIZEOF_DSM_SAMPLE_HEADER;
 
-    data = dsmSample.data;
-
-    /*
-     * Read the data for the DSM sample from the card.  Note that a DSM
-     * sample will contain brd->sampsPerCallback individual samples for
-     * each requested channel.
-     */
-    outb(A2DIO_FIFO, brd->cmd_addr);    // Set up to read data
-
-    for (s = 0; s < brd->sampsPerCallback; s++) 
-    {
-	for (chan = 0; chan < MAXA2DS; chan++) 
-	{
-	    short counts;
-#ifdef DO_A2D_STATRD
-	    /*
-	     * Read (and ignore) the status word that precedes the data word.
-	     */
-	    inw(brd->base_addr);
-#endif
-	    /*
-	     * Read the data word and stash it if it's from a requested 
-	     * channel.  Note that inw on the Vulcan munges things to 
-	     * local CPU (i.e. big-endian) order, and in the dsm_sample_t,
-	     * the data should be in the order that came from the card, so we
-	     * apply cpu_to_le16() to munge the bytes back...
-	     */
-	    counts = inw(brd->base_addr);
-	    if (brd->requested[chan])
-		*data++ = cpu_to_le16((brd->invertCounts) ? -counts : counts);
-	}
-    }
     brd->readCtr++;
 
     /*
@@ -1229,6 +1202,28 @@ ReadSampleCallback(void *ptr)
      */
     postFlevel = getA2DFIFOLevel(brd);
     brd->cur_status.postFifoLevel[postFlevel]++;
+
+    /*
+     * If we have a bunch of consecutive reads that don't end with the
+     * card's FIFO empty, then a delay probably made us miss some samples 
+     * after we last cleared the FIFO, and hence we're time-tagging the data
+     * incorrectly.  Clear the FIFO again and we should get all synced
+     * up.  Note that we accept a few consecutive non-empty endings because
+     * this function gets called back at an *average* rate of 100Hz, but
+     * sometimes with gaps and then bursts of calls.
+     */
+    if (postFlevel > 0)
+	consecutiveNonEmpty++;
+    else
+	consecutiveNonEmpty = 0;
+    
+    if (consecutiveNonEmpty == 100)
+    {
+	KLOG_NOTICE("Clearing card FIFO after %d consecutive non-empty ends\n",
+		    consecutiveNonEmpty);
+	consecutiveNonEmpty = 0;
+	A2DClearFIFO(brd);
+    }
 
     /*
      * Copy this DSM sample to the kfifo, if there's enough space for it
@@ -1284,6 +1279,53 @@ ReadSampleCallback(void *ptr)
 
     entrycount++;
 }
+
+
+/*
+ * Fill in the data portion of the given A2DSAMPLE from the next data
+ * off the card.
+ */
+static void
+getDSMSampleData(struct A2DBoard* brd, A2DSAMPLE* dsmSample)
+{
+    short *data;
+    int s;
+    int chan;
+    
+    data = dsmSample->data;
+
+    /*
+     * Read the data for the DSM sample from the card.  Note that a DSM
+     * sample will contain brd->sampsPerCallback individual samples for
+     * each requested channel.
+     */
+    outb(A2DIO_FIFO, brd->cmd_addr);    // Set up to read data
+
+    for (s = 0; s < brd->sampsPerCallback; s++) 
+    {
+	for (chan = 0; chan < MAXA2DS; chan++) 
+	{
+	    short counts;
+#ifdef DO_A2D_STATRD
+	    /*
+	     * Read (and ignore) the status word that precedes the data word.
+	     */
+	    inw(brd->base_addr);
+#endif
+	    /*
+	     * Read the data word and stash it if it's from a requested 
+	     * channel.  Note that inw on the Vulcan munges things to 
+	     * local CPU (i.e. big-endian) order, and in the dsm_sample_t,
+	     * the data should be in the order that came from the card, so we
+	     * apply cpu_to_le16() to munge the bytes back...
+	     */
+	    counts = inw(brd->base_addr);
+	    if (brd->requested[chan])
+		*data++ = cpu_to_le16((brd->invertCounts) ? -counts : counts);
+	}
+    }
+}
+
 
 // Callback function to send I2C temperature data to user space.
 
