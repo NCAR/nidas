@@ -1220,8 +1220,11 @@ ReadSampleCallback(void *ptr)
     }
     else
     {
-	KLOG_WARNING("DSM sample @ %ld dropped (not enough kfifo space)\n",
-		     dsmSample.timetag);
+	KLOG_WARNING("DSM sample @ %ld dropped "
+		     "(not enough kfifo space %d < %d)\n",
+		     dsmSample.timetag, 
+		     brd->buffer->size - __kfifo_len(brd->buffer),
+		     DSMSampleSize(brd));
 	brd->skippedSamples++;
     }
 
@@ -1384,7 +1387,7 @@ resetBoard(struct A2DBoard* brd)
 	goto done;
 
     KLOG_DEBUG("Found second PPS, GET_MSEC_CLOCK=%ld\n", GET_MSEC_CLOCK);
-    A2DClearFIFO(brd);  // Reset FIFO
+    A2DClearFIFO(brd);  // Clear the board's FIFO...
 
     brd->discardNextScan = 1;  // whether to discard the initial scan
     brd->enableReads = 1;
@@ -1517,14 +1520,10 @@ taskResetBoard(unsigned long taskletArg)
 {
     struct A2DBoard* brd = (struct A2DBoard*)taskletArg;
 
-    KLOG_NOTICE("enter taskResetBoard\n");
-
     brd->enableReads = 0;
     if ((brd->resetStatus = resetBoard(brd)) != 0)
 	KLOG_WARNING("taskResetBoard() failed for board %d with status %d\n",
 		     BOARD_INDEX(brd), brd->resetStatus);
-
-    KLOG_NOTICE("leave taskResetBoard\n");
 }
 
 /**
