@@ -225,30 +225,23 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     SampleT<float> * outs = getSample<float>(_noutValues);
     float * dout = outs->getDataPtr();
     const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
-    int offset = 0;
 
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);
 
-//cerr << "UHSAS::process, length " << samp->getDataByteLength() << std::endl;
     if (samp->getDataByteLength() == 237)
     {
-        char start_marker[6];
-        char mid_marker[6];
-        char end_marker[3];
-        start_marker[0] = 0xff, start_marker[1] = 0xff, start_marker[2] = 0;
-        start_marker[3] = 0xff, start_marker[4] = 0xff, start_marker[5] = 0x04;
-        mid_marker[0] = 0xff, mid_marker[1] = 0xff, mid_marker[2] = 0x05;
-        mid_marker[3] = 0xff, mid_marker[4] = 0xff, mid_marker[5] = 0x06;
-        end_marker[0] = 0xff, end_marker[1] = 0xff, end_marker[2] = 0x07;
+        static unsigned char start_marker[] = { 0xff, 0xff, 0x00, 0xff, 0xff, 0x04 };
+        static unsigned char mid_marker[] = { 0xff, 0xff, 0x05, 0xff, 0xff, 0x06 };
+        static unsigned char end_marker[] = { 0xff, 0xff, 0x07 };
 
-        if (memcmp(input, start_marker, 6))
+        if (memcmp(input, start_marker, sizeof(start_marker)))
           cerr << "UHSAS::process, Incorrect start of data keyword.\n";
 
-        if (memcmp(&input[206], mid_marker, 6))
+        if (memcmp(&input[206], mid_marker, sizeof(mid_marker)))
           cerr << "UHSAS::process, Incorrect mid marker.\n";
 
-        if (memcmp(&input[234], end_marker, 3))
+        if (memcmp(&input[234], end_marker, sizeof(end_marker)))
           cerr << "UHSAS::process, Incorrect end of data keyword.\n";
     }
     else
@@ -256,18 +249,17 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         cerr	<< "UHSAS::process, Unexpected packet length of "
 		<< samp->getDataByteLength() << std::endl;
 
-        offset = 76;	// Seems we can recover data from this record.
+        return false;
     }
 
 
-
     // Pull out histogram data.
-    unsigned short * histogram = (unsigned short *)&input[6+offset];
+    unsigned short * histogram = (unsigned short *)&input[6];
     for (int iout = 0; iout < _nChannels; ++iout)
       *dout++ = toLittle->ushortValue(histogram[iout]);
 
     // Pull out histogram data.
-    unsigned short * housekeeping = (unsigned short *)&input[212+offset];
+    unsigned short * housekeeping = (unsigned short *)&input[212];
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     for (int iout = 0; iout < _nHousekeep; ++iout)
