@@ -136,6 +136,8 @@ public:
 
     nidas::util::Inet4Address getRemoteInet4Address() const throw();
 
+    const nidas::util::SocketAddress& getRemoteSocketAddress() const throw();
+
     /**
      * Create either a Socket or a McSocket from a DOMElement.
      */
@@ -159,12 +161,24 @@ public:
         return minWriteInterval;
     }
 
+
 private:
+
+    friend class ClientSocketConnectionThread;
+
+    void connectionThreadFinished();
+
     std::auto_ptr<nidas::util::SocketAddress> remoteSockAddr;
 
     nidas::util::Socket* socket;
 
     std::string name;
+
+    ConnectionRequester* connectionRequester;
+
+    nidas::util::Thread* connectionThread;
+
+    nidas::util::Mutex connectionMutex;
 
     bool firstRead;
 
@@ -183,6 +197,7 @@ private:
     dsm_time_t lastWrite;
 
     bool nonBlocking;
+
 
 };
 
@@ -324,7 +339,7 @@ private:
 
     ConnectionRequester* connectionRequester;
 
-    nidas::util::Thread* thread;
+    nidas::util::Thread* connectionThread;
 
     friend class ServerSocketConnectionThread;
 
@@ -349,6 +364,18 @@ public:
 
 protected:
     ServerSocket& socket;
+};
+
+class ClientSocketConnectionThread: public nidas::util::Thread
+{
+public:
+    ClientSocketConnectionThread(Socket& sock):
+    	Thread("ClientSocketConnectionThread"),socket(sock) {}
+
+    int run() throw(nidas::util::IOException);
+
+protected:
+    Socket socket;  // copy of original
 };
 
 }}	// namespace nidas namespace core

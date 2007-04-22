@@ -88,13 +88,14 @@ struct DMMAT_A2D_Status
 #define DMMAT_A2D_GET_NCHAN  _IOR(DMMAT_IOC_MAGIC,4,int)
 #define DMMAT_A2D_SET_SAMPLE \
     _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
+#define DMMAT_A2D_DO_AUTOCAL    _IO(DMMAT_IOC_MAGIC,6)
 
 /** Counter Ioctls */
 #define DMMAT_CNTR_START \
-    _IOW(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Config)
-#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,7)
+    _IOW(DMMAT_IOC_MAGIC,7,struct DMMAT_CNTR_Config)
+#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,8)
 #define DMMAT_CNTR_GET_STATUS \
-    _IOR(DMMAT_IOC_MAGIC,8,struct DMMAT_CNTR_Status)
+    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_CNTR_Status)
 
 /**
  * D2A Ioctls
@@ -103,15 +104,15 @@ struct DMMAT_A2D_Status
  * any of the output voltages.
  */
 #define DMMAT_D2A_GET_NOUTPUTS \
-    _IO(DMMAT_IOC_MAGIC,9)
+    _IO(DMMAT_IOC_MAGIC,10)
 #define DMMAT_D2A_GET_CONVERSION \
-    _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Conversion)
+    _IOR(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Conversion)
 #define DMMAT_D2A_SET \
-    _IOW(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
+    _IOW(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
 #define DMMAT_D2A_GET \
-    _IOR(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
+    _IOR(DMMAT_IOC_MAGIC,13,struct DMMAT_D2A_Outputs)
 
-#define DMMAT_IOC_MAXNR 12
+#define DMMAT_IOC_MAXNR 13
 
 /**
  * Definitions of bits in board status byte.
@@ -333,7 +334,9 @@ struct DMMAT_A2D
         void (*resetFifo)(struct DMMAT_A2D* a2d);
         void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
 
-        int busy;                                   // a2d is running
+        int running;                                   // a2d is running
+
+        atomic_t num_opened;                     // number of times opened
 
 #ifdef USE_TASKLET
         struct tasklet_struct tasklet;          // filter tasklet

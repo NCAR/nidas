@@ -24,9 +24,9 @@ using namespace xercesc;
 namespace n_u = nidas::util;
 
 Socket::Socket():
-	remoteSockAddr(
-		auto_ptr<n_u::SocketAddress>(new n_u::Inet4SocketAddress())),
-	socket(0),firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+	remoteSockAddr(new n_u::Inet4SocketAddress()),
+	socket(0),connectionRequester(0),connectionThread(0),
+        firstRead(true),newFile(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
         nonBlocking(false)
 {
@@ -37,10 +37,12 @@ Socket::Socket():
  * Copy constructor.  Should only be called before connection.
  */
 Socket::Socket(const Socket& x):
-	remoteSockAddr(
-		auto_ptr<n_u::SocketAddress>(x.remoteSockAddr->clone())),
+	remoteSockAddr(x.remoteSockAddr->clone()),
 	socket(0),name(x.name),
-	firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
+        connectionRequester(x.connectionRequester),
+        connectionThread(0),
+        firstRead(true),newFile(true),
+        keepAliveIdleSecs(x.keepAliveIdleSecs),
         minWriteInterval(x.minWriteInterval),lastWrite(0),
         nonBlocking(x.nonBlocking)
 {
@@ -50,10 +52,9 @@ Socket::Socket(const Socket& x):
  * Constructor with a connected n_u::Socket.
  */
 Socket::Socket(n_u::Socket* sock):
-	remoteSockAddr(
-	    auto_ptr<n_u::SocketAddress>(sock->getRemoteSocketAddress().clone())),
-	socket(sock),firstRead(true),newFile(true),
-	keepAliveIdleSecs(7200),
+	remoteSockAddr(sock->getRemoteSocketAddress().clone()),
+	socket(sock),connectionRequester(0),connectionThread(0),
+        firstRead(true),newFile(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
 {
     setName(remoteSockAddr->toString());
@@ -67,6 +68,12 @@ Socket::Socket(n_u::Socket* sock):
 
 Socket::~Socket()
 {
+    connectionMutex.lock();
+    if (connectionThread) {
+        connectionThread->interrupt();
+        connectionThread->kill(SIGUSR1);
+    }
+    connectionMutex.unlock();
     close();
     delete socket;
 }
@@ -74,6 +81,13 @@ Socket::~Socket()
 Socket* Socket::clone() const 
 {
     return new Socket(*this);
+}
+
+void Socket::connectionThreadFinished()
+{
+    connectionMutex.lock();
+    connectionThread = 0;
+    connectionMutex.unlock();
 }
 
 size_t Socket::getBufferSize() const throw()
@@ -102,6 +116,11 @@ n_u::Inet4Address Socket::getRemoteInet4Address() const throw()
     return n_u::Inet4Address();
 }
 
+const n_u::SocketAddress& Socket::getRemoteSocketAddress() const throw()
+{
+    if (socket) return socket->getRemoteSocketAddress();
+    else return *remoteSockAddr.get();
+}
 
 IOChannel* Socket::connect() throw(n_u::IOException)
 {
@@ -115,12 +134,14 @@ IOChannel* Socket::connect() throw(n_u::IOException)
 void Socket::requestConnection(ConnectionRequester* requester)
 	throw(n_u::IOException)
 {
-    n_u::Socket* waitsock = new n_u::Socket(remoteSockAddr->getFamily());
-    waitsock->connect(*remoteSockAddr.get());
-    waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
-    waitsock->setNonBlocking(nonBlocking);
-    // cerr << "Socket::connected " << getName();
-    requester->connected(new nidas::core::Socket(waitsock));
+    connectionRequester = requester;
+    connectionThread = new ClientSocketConnectionThread(*this);
+    try {
+	connectionThread->start();
+    }
+    catch(const n_u::Exception& e) {
+        throw n_u::IOException(getName(),"requestConnection",e.what());
+    }
 }
 
 /*
@@ -136,7 +157,7 @@ size_t Socket::read(void* buf, size_t len) throw (n_u::IOException)
 ServerSocket::ServerSocket():
 	localSockAddr(new n_u::Inet4SocketAddress(0)),
         servSock(0),connectionRequester(0),
-        thread(0),keepAliveIdleSecs(7200),
+        connectionThread(0),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),
         nonBlocking(false)
 {
@@ -146,7 +167,7 @@ ServerSocket::ServerSocket():
 ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 	localSockAddr(addr.clone()),
         servSock(0),connectionRequester(0),
-        thread(0),keepAliveIdleSecs(7200),
+        connectionThread(0),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/100),
         nonBlocking(false)
 {
@@ -155,7 +176,7 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 
 ServerSocket::ServerSocket(const ServerSocket& x):
 	localSockAddr(x.localSockAddr->clone()),name(x.name),
-	servSock(0),connectionRequester(0),thread(0),
+	servSock(0),connectionRequester(0),connectionThread(0),
 	keepAliveIdleSecs(x.keepAliveIdleSecs),
         minWriteInterval(x.minWriteInterval),
         nonBlocking(x.nonBlocking)
@@ -164,20 +185,20 @@ ServerSocket::ServerSocket(const ServerSocket& x):
 
 ServerSocket::~ServerSocket()
 {
-    if (thread) {
+    if (connectionThread) {
 	try {
-	    if (thread->isRunning()) thread->cancel();
+	    if (connectionThread->isRunning()) connectionThread->kill(SIGUSR1);
 #ifdef DEBUG
-            cerr << "~ServerSocket joining thread" << endl;
+            cerr << "~ServerSocket joining connectionThread" << endl;
 #endif
-	    thread->join();
+	    connectionThread->join();
 #ifdef DEBUG
-            cerr << "~ServerSocket joined thread" << endl;
+            cerr << "~ServerSocket joined connectionThread" << endl;
 #endif
 	}
 	catch(const n_u::Exception& e) {
 	}
-	delete thread;
+	delete connectionThread;
     }
     close();
     delete servSock;
@@ -213,9 +234,9 @@ void ServerSocket::requestConnection(ConnectionRequester* requester)
 {
     connectionRequester = requester;
     if (!servSock) servSock= new n_u::ServerSocket(*localSockAddr.get());
-    if (!thread) thread = new ServerSocketConnectionThread(*this);
+    if (!connectionThread) connectionThread = new ServerSocketConnectionThread(*this);
     try {
-	if (!thread->isRunning()) thread->start();
+	if (!connectionThread->isRunning()) connectionThread->start();
     }
     catch(const n_u::Exception& e) {
         throw n_u::IOException(getName(),"requestConnection",e.what());
@@ -238,6 +259,39 @@ int ServerSocketConnectionThread::run() throw(n_u::IOException)
 		newsock->getRemoteInet4Address().getHostAddress().c_str());
 	socket.connectionRequester->connected(newsock);
     }
+    return RUN_OK;
+}
+
+int ClientSocketConnectionThread::run() throw(n_u::IOException)
+{
+    for (; !isInterrupted(); ) {
+        try {
+            n_u::Socket* lowsock =
+                new n_u::Socket(socket.getRemoteSocketAddress());
+            lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
+            lowsock->setNonBlocking(socket.isNonBlocking());
+            // cerr << "Socket::connected " << getName();
+            nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
+            newsock->setMinWriteInterval(socket.getMinWriteInterval());
+            n_u::Logger::getInstance()->log(LOG_DEBUG,
+                    "connected to %s",
+                    newsock->getRemoteInet4Address().getHostAddress().c_str());
+            socket.connectionRequester->connected(newsock);
+            break;
+        }
+        catch(const n_u::IOException& e) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                    "%s: %s",getName().c_str(),e.what());
+            // keep trying in these case
+            if (e.getErrno() != ECONNREFUSED &&
+                e.getErrno() != ENETUNREACH &&
+                e.getErrno() != ETIMEDOUT) break;
+            if (!isInterrupted()) sleep(10);
+        }
+    }
+    socket.connectionThreadFinished();
+    n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
+    joiner->start();
     return RUN_OK;
 }
 

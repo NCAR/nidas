@@ -30,7 +30,9 @@ Variable::Variable(): sampleTag(0),
 	type(CONTINUOUS),
 	length(1),
 	converter(0),
-        missingValue(1.e37)
+        missingValue(1.e37),
+        minValue(-numeric_limits<float>::max()),
+        maxValue(numeric_limits<float>::max())
 {
 }
 
@@ -48,7 +50,9 @@ Variable::Variable(const Variable& x):
 	type(x.type),
 	length(x.length),
 	converter(0),
-        missingValue(x.missingValue)
+        missingValue(x.missingValue),
+        minValue(x.minValue),
+        maxValue(x.maxValue)
 {
     if (x.converter) converter = x.converter->clone();
     const list<const Parameter*>& params = x.getParameters();
@@ -75,6 +79,8 @@ Variable& Variable::operator=(const Variable& x)
     type = x.type;
     length = x.length;
     missingValue = x.missingValue;
+    minValue = x.minValue;
+    maxValue = x.maxValue;
 
     // this invalidates the previous pointer to the converter, hmm.
     // don't want to create a virtual assignment op for converters.
@@ -186,33 +192,40 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            const string& aname = attr.getName();
+            const string& aval = attr.getValue();
 	    // get attribute name
-	    if (attr.getName() == "name")
-		setPrefix(attr.getValue());
-	    else if (attr.getName() == "longname")
-		setLongName(attr.getValue());
-	    else if (attr.getName() == "units")
-		setUnits(attr.getValue());
-	    else if (attr.getName() == "length") {
-	        istringstream ist(attr.getValue());
+	    if (aname == "name")
+		setPrefix(aval);
+	    else if (aname == "longname")
+		setLongName(aval);
+	    else if (aname == "units")
+		setUnits(aval);
+	    else if (aname == "length") {
+	        istringstream ist(aval);
 		size_t val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"variable","length",attr.getValue());
+		    	"variable",aname,aval);
 		setLength(val);
 	    }
-	    else if (attr.getName() == "missingValue") {
-	        istringstream ist(attr.getValue());
+	    else if (aname == "missingValue" ||
+                    aname == "minValue" ||
+                    aname == "maxValue") {
+	        istringstream ist(aval);
 		float val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"variable","missingValue",attr.getValue());
-		setMissingValue(val);
+		    	"variable",aname,aval);
+                string sname = aname.substr(0,3);
+                if (sname == "mis") setMissingValue(val);
+                else if (sname == "min") setMinValue(val);
+                else if (sname == "max") setMaxValue(val);
 	    }
-	    else if (attr.getName() == "count") {
-                if (attr.getValue() == "true")
+	    else if (aname == "count") {
+                if (aval == "true")
                     setType(Variable::COUNTER);
             }
 	}

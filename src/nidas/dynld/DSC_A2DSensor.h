@@ -92,9 +92,9 @@ private:
 
     struct sample_info {
         /**
-         * Full sample id
+         * The tag of each requested sample.
          */
-        dsm_sample_id_t sampleId;
+        SampleTag* stag;
 
         /**
          * "little" sample id, 0,1,2 etc

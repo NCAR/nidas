@@ -199,20 +199,32 @@ bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& results) t
     }
 
     struct sample_info* sinfo = &samples[id0];
+    SampleTag* stag = sinfo->stag;
+    const vector<const Variable*>& vars = stag->getVariables();
 
     SampleT<float>* osamp = getSample<float>(sinfo->nvars);
     osamp->setTimeTag(insamp->getTimeTag());
-    osamp->setId(sinfo->sampleId);
+    osamp->setId(stag->getId());
     float *fp = osamp->getDataPtr();
 
     unsigned int ival;
-    for (ival = 0; ival < std::min(nvalues,sinfo->nvars); ival++) {
+    for (ival = 0; ival < std::min(nvalues,sinfo->nvars); ival++,fp++) {
 	short sval = *sp++;
-	float volts;
-	if (sval == -32768 || sval == 32767) volts = floatNAN;
-	else volts = sinfo->convIntercepts[ival] +
+	if (sval == -32768 || sval == 32767) {
+            *fp = floatNAN;
+            continue;
+        }
+
+	float volts = sinfo->convIntercepts[ival] +
             sinfo->convSlopes[ival] * sval;
-        *fp++ = volts;
+        const Variable* var = vars[ival];
+        if (volts < var->getMinValue() || volts > var->getMaxValue()) 
+            *fp = floatNAN;
+        else {
+            VariableConverter* conv = var->getConverter();
+            if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
+            else *fp = volts;
+        }
     }
 
     for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
@@ -323,15 +335,13 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
         }
     }
 
-    dsm_sample_id_t tagid = tag->getId();
-    
     int id0 = samples.size();       // which sample
 
     const vector<const Variable*>& vars = tag->getVariables();
 
     sample_info sinfo;
     memset(&sinfo,0,sizeof(sinfo));
-    sinfo.sampleId = tagid;
+    sinfo.stag = tag;
     sinfo.id = id0;
     sinfo.rate = rate;
     sinfo.filterType = filterType;

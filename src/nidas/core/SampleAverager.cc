@@ -16,24 +16,30 @@
 #include <nidas/core/SampleAverager.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/DSMTime.h>
+#include <nidas/util/UTime.h>
 
 #include <iomanip>
 
 using namespace nidas::core;
 using namespace std;
 
+namespace n_u = nidas::util;
+
 SampleAverager::SampleAverager():
 	outSampleId(50000),endTime(0),
 	nvariables(0),sums(0),cnts(0)
 {
     sampleTag.setSampleId(outSampleId);
+    _tags.insert(&sampleTag);
     setAveragePeriod(USECS_PER_SEC * 1);
+
 }
 
 
 SampleAverager::SampleAverager(const SampleAverager& x):
 	averagePeriod(x.averagePeriod),outSampleId(x.outSampleId),
-	endTime(0),nvariables(0), sums(0),cnts(0),sampleTag(x.sampleTag)
+	endTime(0),nvariables(0), sums(0),cnts(0),sampleTag(x.sampleTag),
+        _tags(x._tags)
 {
 }
 SampleAverager::~SampleAverager()
@@ -53,14 +59,11 @@ void SampleAverager::init() throw()
 
 void SampleAverager::addVariable(const Variable *var)
 {
-    // kludge until we support a variable type attribute
-    if (!var->getName().compare("Clock")) return;
 
     const SampleTag* stag = var->getSampleTag();
     int vindex = stag->getIndex(var);	// index of variable in its sample
     assert(vindex >= 0);
     dsm_sample_id_t sampid = stag->getId();
-
 
     std::map<dsm_sample_id_t,vector<int> >::iterator mi;
 
@@ -81,16 +84,44 @@ void SampleAverager::addVariable(const Variable *var)
 	assert((mi = outmap.find(sampid)) != outmap.end());
         mi->second.push_back(nvariables++);
     }
+#ifdef DEBUG
+    cerr << "SampleAverager: addVariable: var=" << var->getName() <<
+        " id=" << GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid) <<
+        " vindex=" << vindex << " nvariables=" << nvariables << endl;
+#endif
 }
 
 /*
- * Todo: implement finish.
+ * Send out last partial average.
  */
-void SampleAverager::finish() throw () {}
+void SampleAverager::finish() throw ()
+{
+    int nok = 0;
+    if (endTime > 0) {
+        SampleT<float>* osamp = getSample<float>(nvariables);
+        osamp->setTimeTag(endTime - averagePeriod / 2);
+        osamp->setId(outSampleId);
+        float* fp = osamp->getDataPtr();
+        for (int i = 0; i < nvariables; i++) {
+            if (cnts[i] > 0) {
+                nok++;
+                fp[i] = sums[i] / cnts[i];
+            }
+            else 
+                fp[i] = floatNAN;
+        }
+        if (nok) distribute(osamp);
+        else osamp->freeReference();
+        endTime += averagePeriod;
+    }
+    for (int i = 0; i < nvariables; i++) {
+        cnts[i] = 0;
+        sums[i] = 0.0;
+    }
+}
 
 bool SampleAverager::receive(const Sample* samp) throw()
 {
-    // processed clock samples are long long
     if (samp->getType() != FLOAT_ST) return false;
 
     dsm_sample_id_t id = samp->getId();
@@ -112,22 +143,32 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	    SampleT<float>* osamp = getSample<float>(nvariables);
 	    osamp->setTimeTag(endTime - averagePeriod / 2);
 	    osamp->setId(outSampleId);
-	    cerr << "SampleAverager: " << osamp->getTimeTag() <<
+// #define DEBUG
+#ifdef DEBUG
+	    cerr << "SampleAverager: " << n_u::UTime(osamp->getTimeTag()).format("%c") <<
 	    	" nvars=" << nvariables;
+#endif
 	    float* fp = osamp->getDataPtr();
 	    for (int i = 0; i < nvariables; i++) {
 		if (cnts[i] > 0)
 		    fp[i] = sums[i] / cnts[i];
 		else 
 		    fp[i] = floatNAN;
+#ifdef DEBUG
 		cerr << ' ' << setprecision(6) << setw(13) << fp[i];
+#endif
 	    }
+#ifdef DEBUG
 	    cerr << endl;
+#endif
 	    distribute(osamp);
 	    endTime += averagePeriod;
 	    if (tt > endTime) endTime = timeCeiling(tt,averagePeriod);
 	}
-	else endTime = timeCeiling(tt,averagePeriod);
+	else {
+            endTime = timeCeiling(tt,averagePeriod);
+            if (!cnts) init();
+        }
 	for (int i = 0; i < nvariables; i++) {
 	    cnts[i] = 0;
 	    sums[i] = 0.0;
@@ -135,15 +176,18 @@ bool SampleAverager::receive(const Sample* samp) throw()
     }
 
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
+    const float *fp = fsamp->getConstDataPtr();
 
     for (unsigned int i = 0; i < invec.size(); i++) {
 	unsigned int ii = invec[i];
-	assert(ii < fsamp->getDataLength());
-        float v = fsamp->getConstDataPtr()[ii];
+	if (ii >= fsamp->getDataLength()) continue;
+        float v = fp[ii];
 	int oi = outvec[i];
 	assert(oi < nvariables);
-	sums[oi] += v;
-	cnts[oi]++;
+        if (!isnan(v)) {
+            sums[oi] += v;
+            cnts[oi]++;
+        }
     }
     return true;
 }

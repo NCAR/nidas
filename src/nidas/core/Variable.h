@@ -216,6 +216,32 @@ public:
         return missingValue;
     }
 
+    /**
+     * Set the minimum allowed value for this variable.
+     * Variable values less than val will be set to NAN.
+     * Support for this check must be supported by
+     * each DSMSensor class.
+     */
+    void setMinValue(float val)
+    {
+        minValue = val;
+    }
+
+    const float getMinValue() const
+    {
+        return minValue;
+    }
+
+    void setMaxValue(float val)
+    {
+        maxValue = val;
+    }
+
+    const float getMaxValue() const
+    {
+        return maxValue;
+    }
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
@@ -257,6 +283,10 @@ private:
     std::list<const Parameter*> constParameters;
 
     float missingValue;
+
+    float minValue;
+
+    float maxValue;
 
 };
 

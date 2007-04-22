@@ -61,6 +61,14 @@ public:
     const SampleTag* getSampleTag() const { return &sampleTag; }
 
     /**
+     * Get the output SampleTag.
+     */
+    const std::set<const SampleTag*>& getSampleTags() const
+    {
+        return _tags;
+    }
+
+    /**
      * flush all samples from buffer, distributing them to SampleClients.
      */
     void finish() throw ();
@@ -86,6 +94,8 @@ protected:
     int *cnts;
 
     SampleTag sampleTag;
+
+    std::set<const SampleTag*> _tags;
 
 private:
 

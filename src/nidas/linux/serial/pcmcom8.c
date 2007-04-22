@@ -34,7 +34,7 @@
 #include <asm/system.h>     /* cli(), *_flags */
 
 #include <nidas/linux/isa_bus.h>
-#define DEBUG
+// #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/serial/pcmcom8.h>	/* local definitions */
 
@@ -69,9 +69,18 @@ MODULE_LICENSE("Dual BSD/GPL");
 static int pcmcom8_check_config(struct pcmcom8_config* config)
 {
         int i;
+        int sysirq;
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
-                if (config->ports[i].ioport > 0x3f8) return 0;
-                if (GET_SYSTEM_ISA_IRQ(config->ports[i].irq) < 0) return 0;
+                if (config->ports[i].ioport > 0x3f8) {
+                    KLOG_WARNING("bad ioport=%d",config->ports[i].ioport);
+                    return 0;
+                }
+                sysirq = GET_SYSTEM_ISA_IRQ(config->ports[i].irq);
+                if (sysirq <= 0) {
+                    KLOG_WARNING("bad irq=%d, system irq=%d",
+                        config->ports[i].irq,sysirq);
+                    return 0;
+                }
         }
         return 1;
 }
@@ -120,18 +129,21 @@ static int pcmcom8_write_config(pcmcom8_board* brd,struct pcmcom8_config* config
 }
 static int pcmcom8_wait_eedone(pcmcom8_board* brd)
 {
-        int ntry;
+        int cnt;
         unsigned char status;
 
-        ntry = 10;
-        while (ntry--) {
+        cnt = 10;
+        while (cnt--) {
                 set_current_state(TASK_INTERRUPTIBLE);
                 schedule_timeout(1);
                 status = inb(brd->ioport + PCMCOM8_STA);
                 if ((status & 0xc0) == 0x80) break;
         }
-        KLOG_DEBUG("read EERPOM ntry=%d\n",ntry);
-        if (ntry == 0) return -ETIMEDOUT;
+        KLOG_DEBUG("read EEPROM cnt=%d\n",cnt);
+        if (cnt == 0) {
+            KLOG_ERR("read EEPROM timeout\n");
+            return -ETIMEDOUT;
+        }
         return 0;
 }
 
@@ -145,7 +157,8 @@ static int pcmcom8_write_eeprom(pcmcom8_board* brd,int eeaddr, unsigned int valu
         outb(value & 0xff,brd->ioport+PCMCOM8_ELR);
         outb(0x01,brd->ioport+PCMCOM8_CMD);
 
-        if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
+        res = pcmcom8_wait_eedone(brd);
+        return res;
 }
 
 /*
@@ -159,7 +172,7 @@ static int pcmcom8_read_eeconfig(pcmcom8_board* brd,
         int res = 0;
         unsigned char val;
 
-        /* get ioport values from EEPROM addresses 0-7 */
+        /* get ioport, irq and enable EEPROM addresses 0-7 */
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
                 outb((eeaddr + i) | 0x80,brd->ioport+PCMCOM8_ECR);
                 outb(0x01,brd->ioport+PCMCOM8_CMD);
@@ -213,6 +226,7 @@ static int pcmcom8_load_config_from_eeprom(pcmcom8_board* brd,int eeaddr)
         outb(eeaddr+0x80,brd->ioport+PCMCOM8_ECR);
         outb(0x03,brd->ioport + PCMCOM8_CMD);
         if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
+        pcmcom8_read_config(brd);
         return res;
 }
 
@@ -428,12 +442,12 @@ static void __exit pcmcom8_cleanup_module(void)
 
 static int __init pcmcom8_init_module(void)
 {
-        int result, i;
+        int result, ib,itmp;
         dev_t devno;
 
-        for (i=0; i < PCMCOM8_MAX_NR_DEVS; i++)
-          if (ioports[i] == 0) break;
-        pcmcom8_numboards = i;
+        for (ib = 0; ib < PCMCOM8_MAX_NR_DEVS; ib++)
+          if (ioports[ib] == 0) break;
+        pcmcom8_numboards = ib;
         KLOG_DEBUG("numboards=%d\n",pcmcom8_numboards);
 
         /*
@@ -454,9 +468,9 @@ static int __init pcmcom8_init_module(void)
                 goto fail;
         }
         memset(pcmcom8_boards, 0, pcmcom8_numboards * sizeof(pcmcom8_board));
-        for (i=0; i < pcmcom8_numboards; i++) {
-                pcmcom8_board* brd = pcmcom8_boards + i;
-                unsigned long addr = ioports[i] + ioport_base;
+        for (ib = 0; ib < pcmcom8_numboards; ib++) {
+                pcmcom8_board* brd = pcmcom8_boards + ib;
+                unsigned long addr = ioports[ib] + ioport_base;
                 if (!request_region(addr,PCMCOM8_IO_REGION_SIZE,"pcmcom8")) {
                     result = -ENODEV;
                     goto fail;
@@ -470,21 +484,26 @@ static int __init pcmcom8_init_module(void)
                 init_MUTEX(&brd->mutex);
 #endif
                 /*
-                 * Read EEPROM configuration and see if it looks OK.
-                 * pcmcom8_nr_ok will be the number of the last good board.
+                 * Read EEPROM configuration. If it doesn't return
+                 * -ETIMEDOUT then it looks like there is a board at
+                 * the given address.
                  */
-                if (!pcmcom8_read_eeconfig(brd,&brd->config,0) &&
-                        pcmcom8_check_config(&brd->config)) 
-                                    pcmcom8_nr_ok = i + 1;
+                if (!pcmcom8_read_eeconfig(brd,&brd->config,0)) {
+                        pcmcom8_nr_ok = ib + 1;
+                        itmp = pcmcom8_check_config(&brd->config);
+                        KLOG_INFO("EEPROM config for board %d,ioport %#lx=%s\n",
+                            ib,ioports[ib],(itmp ? "OK":"looks invalid"));
+                }
                 else {
                         release_region(brd->ioport,PCMCOM8_IO_REGION_SIZE);
                         brd->ioport = 0;
                         brd->region_req = 0;
+                        break;
                 }
 
                 cdev_init(&brd->cdev,&pcmcom8_fops);
                 brd->cdev.owner = THIS_MODULE;
-                devno = MKDEV(MAJOR(pcmcom8_device),i);
+                devno = MKDEV(MAJOR(pcmcom8_device),ib);
                 // after calling cdev_add the device is ready for operations
                 result = cdev_add(&brd->cdev,devno,1);
                 if (result) return result;
@@ -495,6 +514,7 @@ static int __init pcmcom8_init_module(void)
         KLOG_DEBUG("create_proc\n");
         pcmcom8_create_proc();
 #endif
+        if (pcmcom8_nr_ok == 0) result = -ENODEV;
         return result; /* succeed */
 
 fail:

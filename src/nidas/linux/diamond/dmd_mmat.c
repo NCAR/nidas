@@ -493,7 +493,7 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
         int bipolar = 0;
         int uniqueIds[MAX_DMMAT_A2D_CHANNELS];
 
-        if(a2d->busy) {
+        if(a2d->running) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
@@ -610,7 +610,7 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
 }
 
 /*
- * Configure filter for A2D samples.  Board should not be busy.
+ * Configure filter for A2D samples.  A2D should not be running.
  */
 static int configA2DSample(struct DMMAT_A2D* a2d,
         struct DMMAT_A2D_Sample_Config* cfg)
@@ -619,6 +619,11 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
         struct short_filter_methods methods;
         int result;
 
+        if(a2d->running) {
+                KLOG_ERR("A2D's running. Can't configure\n");
+                return -EBUSY;
+        }
+
         KLOG_DEBUG("%s: id=%d,nsamples=%d\n",
             a2d->deviceName,cfg->id,a2d->nsamples);
 
@@ -626,7 +631,7 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
 
         sinfo = &a2d->sampleInfo[cfg->id];
 
-        KLOG_DEBUG("%s:, scanRate=%d,cfg->rate=%d\n",
+        KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
             a2d->deviceName,a2d->scanRate,cfg->rate);
 
         if (a2d->scanRate % cfg->rate) {
@@ -746,7 +751,7 @@ static int stopA2D(struct DMMAT_A2D* a2d,int lock)
         // shut down tasklet. Not necessary, you can leave it enabled.
         // tasklet_disable(&a2d->tasklet);
 #endif
-        a2d->busy = 0;	// Reset the busy flag
+        a2d->running = 0;
 
         return ret;
 }
@@ -914,9 +919,9 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
         unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
 
-        if (a2d->busy) stopA2D(a2d,lock);
+        if (a2d->running) stopA2D(a2d,lock);
 
-        a2d->busy = 1;	// Set the busy flag
+        a2d->running = 1;	// Set the running flag
 
         a2d->status.irqsReceived = 0;
         a2d->sampBytesLeft = 0;
@@ -949,6 +954,35 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
 
         a2d->start(a2d,lock);
         return 0;
+}
+
+static int startMM32XAT_AutoCal(struct DMMAT_A2D* a2d)
+{
+        unsigned long flags = 0;
+        struct DMMAT* brd = a2d->brd;
+        int ntry = 1000;
+        int a2dRunning = a2d->running;
+        int result = 0;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        if (a2dRunning) stopA2D(a2d,0);
+
+        outb(0x04,brd->addr + 8);	// set page 4
+        outb(0x01,brd->addr + 14);	// start cal
+        do {
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(1);
+        } while(inb(a2d->brd->addr + 14) & 0x02 && ntry--);
+        KLOG_INFO("auto calibration nloop=%d\n",1000-ntry);
+        outb(0x00,brd->addr + 8);	// set page 0
+        if (ntry == 0) {
+            KLOG_ERR("auto calibration timeout\n");
+            result = -ETIMEDOUT;
+        }
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (a2dRunning) startA2D(a2d,0);
+        return result;
 }
 
 /*
@@ -1557,13 +1591,13 @@ static int setD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
         // how many boards to affect
         int nbrds = (outputs->nout + DMMAT_D2A_OUTPUTS_PER_BRD - 1) /
             DMMAT_D2A_OUTPUTS_PER_BRD;
-        nbrds = min(nbrds,MAX_DMMAT_BOARDS-brd->num);
+        nbrds = min(nbrds,numboards-brd->num);
 
         for (i = 0; i < nbrds; i++) {
+                d2a = brd->d2a;
                 res = d2a->setD2A(d2a,outputs,i * DMMAT_D2A_OUTPUTS_PER_BRD);
                 if (res) return res;
                 brd++;
-                d2a = brd->d2a;
         }
         return res;
 }
@@ -1576,15 +1610,15 @@ static void getD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
         int i,j,iout = 0;
         struct DMMAT* brd = d2a->brd;
         // how many boards to check
-        int nbrds = MAX_DMMAT_BOARDS-brd->num;
+        int nbrds = numboards-brd->num;
 
         for (i = 0; i < nbrds; i++) {
+                d2a = brd->d2a;
                 for (j = 0; j < DMMAT_D2A_OUTPUTS_PER_BRD; j++) {
                         outputs->counts[iout] = d2a->outputs.counts[j];
                         outputs->active[iout++] = d2a->outputs.active[j];
                 }
                 brd++;
-                d2a = brd->d2a;
         }
         outputs->nout = nbrds * DMMAT_D2A_OUTPUTS_PER_BRD;
 }
@@ -1597,9 +1631,10 @@ static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
         int i,j,iout = 0;
         struct DMMAT* brd = d2a->brd;
         // how many boards to check
-        int nbrds = MAX_DMMAT_BOARDS-brd->num;
+        int nbrds = numboards-brd->num;
 
         for (i = 0; i < nbrds; i++) {
+                d2a = brd->d2a;
                 for (j = 0; j < DMMAT_D2A_OUTPUTS_PER_BRD; j++) {
                         conv->vmin[iout] = d2a->vmin;
                         conv->vmax[iout] = d2a->vmax;
@@ -1607,7 +1642,6 @@ static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
                         conv->cmax[iout++] = d2a->cmax;
                 }
                 brd++;
-                d2a = brd->d2a;
         }
 }
 /*
@@ -1710,7 +1744,7 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         struct DMMAT* brd;
         struct DMMAT_A2D* a2d;
-        int result;
+        int result = 0;
 
         KLOG_DEBUG("open_a2d, iminor=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
             i,ibrd,ia2d,numboards);
@@ -1721,11 +1755,14 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         a2d = brd->a2d;
 
-        result = dmd_mmat_add_irq_user(brd,0);
-
         filp->private_data = a2d;
 
         memset(&a2d->status,0,sizeof(a2d->status));
+
+        if (atomic_inc_return(&a2d->num_opened) == 1) 
+            result = dmd_mmat_add_irq_user(brd,0);
+        KLOG_DEBUG("open_a2d, num_opened=%d\n",
+            a2d->atomic_read(&a2d->num_opened));
 
         return result;
 }
@@ -1739,7 +1776,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         int ia2d = i % DMMAT_DEVICES_PER_BOARD;
 
         struct DMMAT* brd;
-        int result;
+        int result = 0;
 
         KLOG_DEBUG("release_a2d, iminor=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
             i,ibrd,ia2d,numboards);
@@ -1750,19 +1787,21 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(a2d != brd->a2d);
 
-        result = stopA2D(a2d,1);
-
-        result = dmd_mmat_remove_irq_user(brd,0);
-
-        /* cleanup filters */
-        for (i = 0; i < a2d->nsamples; i++) {
-            struct DMMAT_A2D_Sample_Info* sinfo;
-            sinfo = &a2d->sampleInfo[i];
-            if (sinfo->filterObj && sinfo->fcleanup) 
-                sinfo->fcleanup(sinfo->filterObj);
-            sinfo->filterObj = 0;
-            sinfo->fcleanup = 0;
+        if (atomic_dec_and_test(&a2d->num_opened)) {
+            if (a2d->running) stopA2D(a2d,1);
+            result = dmd_mmat_remove_irq_user(brd,0);
+            /* cleanup filters */
+            for (i = 0; i < a2d->nsamples; i++) {
+                struct DMMAT_A2D_Sample_Info* sinfo;
+                sinfo = &a2d->sampleInfo[i];
+                if (sinfo->filterObj && sinfo->fcleanup) 
+                    sinfo->fcleanup(sinfo->filterObj);
+                sinfo->filterObj = 0;
+                sinfo->fcleanup = 0;
+            }
         }
+        KLOG_DEBUG("release_a2d, num_opened=%d\n",
+            a2d->atomic_read(&a2d->num_opened));
 
         return result;
 }
@@ -1928,6 +1967,13 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 break;
         case DMMAT_A2D_STOP:
                 result = stopA2D(a2d,1);
+                break;
+        case DMMAT_A2D_DO_AUTOCAL:
+                if (types[brd->num] != DMM32XAT_BOARD) {
+                        KLOG_ERR("board %d is not a DMM32AT and does not support auto-calibration\n",brd->num);
+                        result = -EINVAL;
+                }
+                else result = startMM32XAT_AutoCal(a2d);
                 break;
         default:
                 result = -ENOTTY;
@@ -2201,7 +2247,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         switch (cmd) 
         {
         case DMMAT_D2A_GET_NOUTPUTS:
-                result = (MAX_DMMAT_BOARDS-brd->num)*
+                result = (numboards-brd->num) *
                     DMMAT_D2A_OUTPUTS_PER_BRD;
                 break;
         case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
@@ -2225,7 +2271,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                 {
                 struct DMMAT_D2A_Outputs outputs;
                 getD2A_mult(d2a,&outputs);
-                if (copy_to_user(&outputs,(void __user *)arg,
+                if (copy_to_user((void __user *)arg,&outputs,
                     sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
                 result = 0;
                 }
@@ -2297,6 +2343,8 @@ static int init_a2d(struct DMMAT* brd,int type)
         devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD);
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                 a2d->deviceName,MAJOR(devno),MINOR(devno));
+
+        atomic_set(&a2d->num_opened,0);
 
         switch (type) {
         case DMM16AT_BOARD:

@@ -58,7 +58,6 @@ void DSC_AnalogOut::open() throw(n_u::IOException)
 
 }
 
-
 void DSC_AnalogOut::close() throw(n_u::IOException)
 {
     // don't bother checking for error.
@@ -95,26 +94,30 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
     DMMAT_D2A_Outputs out;
     for (int i = 0; i < noutputs; i++) out.active[i] = out.counts[i] = 0;
 
+    out.nout = 0;
     for (unsigned int i = 0; i < which.size(); i++) {
 
-        if (which[i] < 0 || which[i] >= noutputs)  {
+        int ic = which[i];
+        if (ic < 0 || ic >= noutputs)  {
             ostringstream ost;
-            ost << "output number=" << which[i] <<
+            ost << "output number=" << ic <<
                 " is out of the range 0:" << noutputs - 1;
             throw n_u::InvalidParameterException(getName(),"setVoltage",
                 ost.str());
         }
 
-        out.active[which[i]] = 1;
+        // number of channels to change
+        out.nout = std::max(out.nout,ic+1);
+        out.active[ic] = 1;
         int cout = conv.cmin[i] +
             (int)rint(val[i] /
                 (conv.vmax[i] - conv.vmin[i]) * (conv.cmax[i] - conv.cmin[i]));
         cout = std::max(cout,conv.cmin[i]);
         cout = std::min(cout,conv.cmax[i]);
-        out.counts[which[i]] = cout;
+        out.counts[ic] = cout;
 #ifdef DEBUG
-        cerr << "which[" << i << "]=" << which[i] <<
-            ", out.counts[" << which[i] << "]=" << out.counts[which[i]] << endl;
+        cerr << "which[" << i << "]=" << ic <<
+            ", out.counts[" << ic << "]=" << out.counts[ic] << endl;
 #endif
     }
 

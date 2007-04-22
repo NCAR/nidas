@@ -6,8 +6,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 Original author:	Gordon Maclean
 
-Revisions:
-
 */
 
 #include <linux/module.h>
@@ -16,27 +14,6 @@ Revisions:
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>        /* access_ok */
-
-#ifdef NEEDED
-#include <linux/kernel.h>       /* printk() */
-#include <linux/kdev_t.h>
-#include <linux/moduleparam.h>
-
-#include <linux/sched.h>
-#include <linux/fs.h>           /* everything... */
-#include <linux/errno.h>        /* error codes */
-#include <linux/delay.h>        /* udelay */
-#include <linux/slab.h>
-#include <linux/mm.h>
-#include <linux/ioport.h>
-#include <linux/interrupt.h>
-#include <linux/workqueue.h>
-#include <linux/poll.h>
-#include <linux/wait.h>
-
-#include <asm/io.h>
-
-#endif
 
 #include <asm/arch-pxa/hardware.h>
 #include <asm/arch-pxa/pxa-regs.h>
