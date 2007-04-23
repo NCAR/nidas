@@ -103,11 +103,16 @@ int XMLConfigService::run() throw(n_u::Exception)
     xercesc::DOMNodeList* projnodes =
         doc->getElementsByTagName((const XMLCh*)XMLStringConverter("project"));
 
+    /**
+     * Overwrite project config attribute with its value
+     * from the Project.  The actual configuration name
+     * typically comes from a runstring argument to DSMServer or DSMEngine.
+     */
     for (unsigned int i = 0; i < projnodes->getLength(); i++) {
         xercesc::DOMNode* proj = projnodes->item(i);
         XDOMElement xnode((xercesc::DOMElement*)proj);
         xnode.setAttributeValue("config",
-            DSMServer::getInstance()->getXMLFileName());
+            Project::getInstance()->getConfigName());
     }
     // delete projnodes;
 
