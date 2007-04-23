@@ -146,6 +146,7 @@ typedef struct
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
+#include <linux/autoconf.h>
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/kfifo.h>
@@ -167,9 +168,22 @@ typedef struct
 #define A2DMASTER	0	// A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10	// Width of I/O space
 
-// address offset for commands to the card itself
-//#define A2DCMDADDR	0xF	// address offset for board commands
-#define A2DCMDADDR	0xE	// address offset for board commands
+/*
+ * address offset for commands to the card itself
+ *
+ * (Note that because of PC/104 16-bit card issues with Vulcan CPUs, 
+ * NCAR A/D cards for use on Vulcans must have alternate CPLD logic
+ * to use 0xE as the card command address, rather than 0xF.  A side
+ * effect of this change limits us to using A/D channels 0-6, i.e.,
+ * we have 7 rather than 8 channels available.)
+ */
+#if defined(CONFIG_MACH_ARCOM_MERCURY)
+#  define A2DCMDADDR	0xE
+   static const int NO_CHANNEL_7 = 1;	// can't address channel 7
+#else
+#  define A2DCMDADDR	0xF
+   static const int NO_CHANNEL_7 = 0;	// channel 7 is available
+#endif
 
 /*
  * 500 samples/sec * 8 channels * 2 bytes = 8000 bytes/sec

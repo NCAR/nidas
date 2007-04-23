@@ -12,6 +12,7 @@
   Copyright 2007 UCAR, NCAR, All Rights Reserved
 */
 
+#include <linux/autoconf.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
@@ -508,7 +509,13 @@ static int
 A2DSetMaster(struct A2DBoard* brd, int channel)
 {
     if (channel < 0 || channel >= MAXA2DS) {
-	KLOG_ERR("A2DSetMaster, bad chip number: %d\n", channel);
+	KLOG_ERR("bad master chip number: %d\n", channel);
+	return -EINVAL;
+    }
+
+    if (NO_CHANNEL_7 && channel == 7)
+    {
+	KLOG_ERR("Channel 7 is not available on 'Vulcan-ized' cards!\n");
 	return -EINVAL;
     }
 
@@ -959,7 +966,7 @@ waitFor1PPS(struct A2DBoard* brd)
 	// Read status, check INV1PPS bit
 	stat = A2DBoardStatus(brd);
 	if ((stat & INV1PPS) == 0) {
-	    KLOG_NOTICE("Found 1PPS after %d usecs\n", timeit * uwait);
+	    KLOG_DEBUG("Found 1PPS after %d usecs\n", timeit * uwait);
 	    return 0;
 	}
 	
@@ -991,11 +998,8 @@ A2DSetGainAndOffset(struct A2DBoard* brd)
 	    /*
 	     * Set gain for requested channels
 	     */
-	    if (brd->requested[i])
-	    {
-		if ((ret = A2DSetGain(brd, i)) < 0)
+	    if (brd->requested[i] && (ret = A2DSetGain(brd, i)) != 0)
 		    return ret;
-	    }
 	}
 	outb(A2DIO_D2A1, brd->cmd_addr);
 	mdelay(10);
@@ -1065,6 +1069,16 @@ taskSetupBoard(unsigned long taskletArg)
 		haveMaster = 1;
 	    }
 	}
+    }
+
+    /*
+     * Make sure nobody requests channel 7 on 'Vulcan'-ized cards.
+     */
+    if (NO_CHANNEL_7 && brd->requested[7])
+    {
+	KLOG_ERR("Channel 7 is not available on 'Vulcan'-ized cards!\n");
+	ret = -EINVAL;
+	goto done;
     }
 
     // Configure DAC gain codes
@@ -1267,10 +1281,6 @@ ReadSampleCallback(void *ptr)
 	memset(&brd->cur_status, 0, sizeof(A2D_STATUS));
     }
 
-    if (!(entrycount % 1000))
-	KLOG_NOTICE("%d done, start fifo: %d, end fifo: %d\n", entrycount, 
-		    preFlevel, postFlevel);
-    
   done:
     /*
      * Wake up waiting reads
@@ -1423,8 +1433,6 @@ resetBoard(struct A2DBoard* brd)
 {
     int ret;
 
-    KLOG_NOTICE("enter resetBoard()\n");
-    
     unregister_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
 
     // Sync with 1PPS
@@ -1672,13 +1680,15 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
     int percent_full;
     int fifo_len;
     int wlen;
-    unsigned char c;
-    static int posInSample = 0;
+    A2DSAMPLE dsmSamp;
+    int ssize = DSMSampleSize(brd); // size of a DSM sample for this board
+    static int entrycount = 0;
 
     if ((kfifo_len(brd->buffer) == 0) && (filp->f_flags & O_NONBLOCK))
 	return -EAGAIN;
 
     while (1) {
+	
 	if (wait_event_interruptible(brd->rwaitq, 1))
 	    return -ERESTARTSYS;
 
@@ -1705,9 +1715,14 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	 * Bytes to write to user
 	 */
 	wlen = (count > fifo_len) ? fifo_len : count;
+	/*
+	 * Adjust so we only send full samples
+	 */
+	wlen = wlen - (wlen % ssize);
+	
 	if (wlen == 0)
 	{
-	    KLOG_NOTICE("Nothing in kfifo\n");
+	    KLOG_NOTICE("No full sample in kfifo\n");
 	    continue;
 	}
 
@@ -1717,25 +1732,24 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 	nwritten = 0;
 	while (nwritten < wlen) 
 	{
-	    if (kfifo_get(brd->buffer, &c, 1) != 1)
+	    if (kfifo_get(brd->buffer, (void*)&dsmSamp, ssize) != ssize)
 	    {
-		KLOG_WARNING("Did not get expected byte from kfifo\n");
+		KLOG_WARNING("Did not get expected sample from kfifo\n");
 		return -EFAULT;
 	    }
-	    
-	    if (put_user(c, buf++) != 0)
+	    brd->sampleCnt--;
+
+	    if (copy_to_user(buf, &dsmSamp, ssize))
 	    {
-		KLOG_WARNING("put_user failure\n");
+		KLOG_WARNING("copy_to_user failure\n");
 		return -EFAULT;
 	    }
-	    
-	    posInSample = (posInSample + 1) % DSMSampleSize(brd);
-	    // decrement the sample count when we finish a sample
-	    if (posInSample == 0)
-		brd->sampleCnt--;
-	    nwritten++;
+	    buf += ssize;
+
+	    nwritten += ssize;
 	}
 
+	entrycount++;
 	return nwritten;
     }
 }
