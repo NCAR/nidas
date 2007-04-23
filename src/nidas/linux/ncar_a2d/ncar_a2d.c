@@ -1654,16 +1654,6 @@ static unsigned int
 ncar_a2d_poll(struct file *filp, poll_table *wait)
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
-    /*
-     * Maybe a quick bailout
-     */
-    if (brd->sampleCnt >= brd->latencyCnt)
-    {
-	return(POLLIN | POLLRDNORM);  // ready to read
-    }
-    /*
-     * Otherwise wait for action on rwaitq
-     */
     poll_wait(filp, &brd->rwaitq, wait);
     if (brd->sampleCnt >= brd->latencyCnt)
 	return(POLLIN | POLLRDNORM);  // ready to read
