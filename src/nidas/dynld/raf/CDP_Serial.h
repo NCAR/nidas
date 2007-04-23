@@ -88,6 +88,8 @@ protected:
   unsigned short _attAccept;
   unsigned short _ctMethod;
 
+  unsigned int _checkSumErrorCnt;
+
 };
 
 }}}	// namespace nidas namespace dynld raf
