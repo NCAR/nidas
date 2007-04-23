@@ -222,12 +222,7 @@ void UHSAS_Serial::sendInitString() throw(n_u::IOException)
 bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-    SampleT<float> * outs = getSample<float>(_noutValues);
-    float * dout = outs->getDataPtr();
     const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
-
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId() + 1);
 
     if (samp->getDataByteLength() == 237)
     {
@@ -252,6 +247,10 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         return false;
     }
 
+    SampleT<float> * outs = getSample<float>(_noutValues);
+    float * dout = outs->getDataPtr();
+    outs->setTimeTag(samp->getTimeTag());
+    outs->setId(getId() + 1);
 
     // Pull out histogram data.
     unsigned short * histogram = (unsigned short *)&input[6];
