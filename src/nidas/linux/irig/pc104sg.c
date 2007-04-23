@@ -19,6 +19,7 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 
 #include <linux/fs.h>	/* has to be before <linux/cdev.h>! GRRR! */
 #include <linux/cdev.h>
+#include <linux/poll.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
@@ -262,6 +263,7 @@ static DECLARE_MUTEX(CbListMutex);
  */
 static ssize_t pc104sg_read(struct file *filp, char __user *buf,
 			    size_t count,loff_t *f_pos);
+static unsigned int pc104sg_poll(struct file *filp, poll_table *wait);
 static int pc104sg_open(struct inode *inode, struct file *filp);
 static int pc104sg_release(struct inode *inode, struct file *filp);
 static int pc104sg_ioctl(struct inode *inode, struct file *filp,
@@ -270,6 +272,7 @@ static int pc104sg_ioctl(struct inode *inode, struct file *filp,
 static struct file_operations pc104sg_fops = {
     .owner   = THIS_MODULE,
     .read    = pc104sg_read,
+    .poll    = pc104sg_poll,
     .open    = pc104sg_open,
     .ioctl   = pc104sg_ioctl,
     .release = pc104sg_release,
@@ -1730,6 +1733,21 @@ pc104sg_init(void)
 	release_region(ISA_Address, PC104SG_IOPORT_WIDTH);
 
     return errval;
+}
+
+/*
+ * Implementation of poll fops.
+ */
+static unsigned int pc104sg_poll(struct file *filp, poll_table *wait)
+{
+    struct irig_port *p = (struct irig_port*)filp->private_data;
+    unsigned int mask = 0;
+    if (down_interruptible(&p->lock))
+	return -ERESTARTSYS;
+    poll_wait(filp, &p->rwaitq, wait);
+    if (p->readyForRead) mask |= POLLIN | POLLRDNORM;    /* readable */
+    up(&p->lock);
+    return mask;
 }
 
 /*

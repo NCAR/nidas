@@ -1985,7 +1985,7 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
 /*
  * Implementation of poll fops.
  */
-unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
+static unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         unsigned int mask = 0;
