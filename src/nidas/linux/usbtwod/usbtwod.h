@@ -71,6 +71,10 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 
 #define TWOD_BUFF_SIZE          4096
 
+/*
+ * Note that READS_IN_FLIGHT *MUST* be a power of two, because it works
+ * with kernel circular buffer macros which require it!
+ */
 #ifdef BLOCKING_READ
 #define READS_IN_FLIGHT         1
 #else
