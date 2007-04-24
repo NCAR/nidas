@@ -1682,76 +1682,57 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
     int wlen;
     A2DSAMPLE dsmSamp;
     int ssize = DSMSampleSize(brd); // size of a DSM sample for this board
-    static int entrycount = 0;
 
-    if ((kfifo_len(brd->buffer) == 0) && (filp->f_flags & O_NONBLOCK))
-	return -EAGAIN;
-
-    while (1) {
-	
-	if (wait_event_interruptible(brd->rwaitq, 1))
+    if (kfifo_len(brd->buffer) < ssize) {
+        if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
+	if (wait_event_interruptible(brd->rwaitq, kfifo_len(brd->buffer) >= ssize))
 	    return -ERESTARTSYS;
-
-	if (brd->interrupted)
-	{
-	    KLOG_DEBUG("returning EOF after board interrupt\n");
-	    return 0;
-	}
-
-	/*
-	 * How full is the buffer?
-	 */
-	fifo_len = kfifo_len(brd->buffer);
-	percent_full = (100 * fifo_len) / A2D_BUFFER_SIZE;
-
-	/* 
-	 * Don't send anything until we have at least latencyCnt samples (or
-	 * the buffer is nearly full)
-	 */
-	if ((brd->sampleCnt < brd->latencyCnt) && (percent_full < 90))
-	    continue;
-
-	/*
-	 * Bytes to write to user
-	 */
-	wlen = (count > fifo_len) ? fifo_len : count;
-	/*
-	 * Adjust so we only send full samples
-	 */
-	wlen = wlen - (wlen % ssize);
-	
-	if (wlen == 0)
-	{
-	    KLOG_NOTICE("No full sample in kfifo\n");
-	    continue;
-	}
-
-	/*
-	 * Copy to the user's buffer
-	 */
-	nwritten = 0;
-	while (nwritten < wlen) 
-	{
-	    if (kfifo_get(brd->buffer, (void*)&dsmSamp, ssize) != ssize)
-	    {
-		KLOG_WARNING("Did not get expected sample from kfifo\n");
-		return -EFAULT;
-	    }
-	    brd->sampleCnt--;
-
-	    if (copy_to_user(buf, &dsmSamp, ssize))
-	    {
-		KLOG_WARNING("copy_to_user failure\n");
-		return -EFAULT;
-	    }
-	    buf += ssize;
-
-	    nwritten += ssize;
-	}
-
-	entrycount++;
-	return nwritten;
     }
+
+    if (brd->interrupted)
+    {
+        KLOG_DEBUG("returning EOF after board interrupt\n");
+        return 0;
+    }
+
+    /*
+     * How full is the buffer?
+     */
+    fifo_len = kfifo_len(brd->buffer);
+
+    /*
+     * Bytes to write to user
+     */
+    wlen = (count > fifo_len) ? fifo_len : count;
+    /*
+     * Adjust so we only send full samples
+     */
+    wlen = wlen - (wlen % ssize);
+    
+    /*
+     * Copy to the user's buffer
+     */
+    nwritten = 0;
+    while (nwritten < wlen) 
+    {
+        if (kfifo_get(brd->buffer, (void*)&dsmSamp, ssize) != ssize)
+        {
+            KLOG_WARNING("Did not get expected sample from kfifo\n");
+            return -EFAULT;
+        }
+        brd->sampleCnt--;
+
+        if (copy_to_user(buf, &dsmSamp, ssize))
+        {
+            KLOG_WARNING("copy_to_user failure\n");
+            return -EFAULT;
+        }
+        buf += ssize;
+
+        nwritten += ssize;
+    }
+
+    return nwritten;
 }
 
 /*
