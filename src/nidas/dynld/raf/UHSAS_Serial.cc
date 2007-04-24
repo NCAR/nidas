@@ -255,14 +255,18 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // Pull out histogram data.
     unsigned short * histogram = (unsigned short *)&input[6];
     for (int iout = 0; iout < _nChannels; ++iout)
-      *dout++ = toLittle->ushortValue(histogram[iout]);
+      *dout++ = (float)toLittle->ushortValue(histogram[iout]);
 
-    // Pull out histogram data.
+    // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
+    static float hkScale[] = {
+	64000, 12800, 6400, 6400, 12800, 6400,
+	 6400, 12800, 6400, 6400, 12800, 6400 };
+
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     for (int iout = 0; iout < _nHousekeep; ++iout)
-      *dout++ = toLittle->ushortValue(housekeeping[iout]);
+      *dout++ = (float)toLittle->ushortValue(housekeeping[iout]) / hkScale[iout];
 
     results.push_back(outs);
     return true;
