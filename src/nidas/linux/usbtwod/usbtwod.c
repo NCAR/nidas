@@ -1,9 +1,5 @@
 #define DEBUG
 
-/* Set BLOCKING_READ in .h file if you want urb-less reads.
- */
-//#define BLOCKING_READ
-
 /*
  * USB PMS-2D driver - 2.0
  *
@@ -54,10 +50,6 @@ struct usb_twod
 
   long			latestDAQ_TAS;		/* Latest tas from data system. */
   long			latestProbeTAS;		/* Latest tas from the probe. */
-
-#ifdef BLOCKING_READ
-  unsigned char		*bulk_in_buffer;	/* the buffer to receive data */
-#endif
 
   struct urb		*read_urbs[READS_IN_FLIGHT];	/* All read urbs */
   struct urb_sample_circ_buf readq;
@@ -125,9 +117,6 @@ exit:
 static void twod_delete(struct usb_twod *dev)
 {
   usb_put_dev(dev->udev);
-#ifdef BLOCKING_READ
-  kfree(dev->bulk_in_buffer);
-#endif
   kfree(dev);
 }
 
@@ -147,8 +136,7 @@ static int twod_release(struct inode *inode, struct file *file)
 
   wake_up_interruptible(&dev->read_wait);
 
-#ifndef BLOCKING_READ
-  for (i = 0; i < READS_IN_FLIGHT-1; ++i) {
+  for (i = 0; i < READS_IN_FLIGHT; ++i) {
     struct urb * urb = dev->read_urbs[i];
 
     usb_kill_urb(urb);
@@ -156,10 +144,9 @@ static int twod_release(struct inode *inode, struct file *file)
 		urb->transfer_buffer, urb->transfer_dma);
     usb_free_urb(urb);
   }
-  for (i = 0; i < READS_IN_FLIGHT; ++i) {
+  for (i = 0; i < READ_QUEUE_SIZE; ++i) {
     kfree(dev->readq.buf[i]);
   }
-#endif
 
   if (down_interruptible(&dev->sem)) {
     retval = -ERESTARTSYS;
@@ -186,7 +173,6 @@ static void twod_rx_bulk_callback(struct urb * urb)
 static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
 #endif
 {
-#ifndef BLOCKING_READ
   int retval;
   struct usb_twod * dev = (struct usb_twod *)urb->context;
   struct urb_sample * osamp;
@@ -222,12 +208,14 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
 
   ++dev->stats.valid_urb_callbacks;
 
-  osamp = (struct urb_sample *) GET_HEAD(dev->readq, READS_IN_FLIGHT);
+  osamp = (struct urb_sample *) GET_HEAD(dev->readq, READ_QUEUE_SIZE);
   if (!osamp) {
     // overflow, no sample available for output.
-    ++dev->stats.total_read_overflow;
-    err("%s - overflow, user is not keeping up reading, lost read count = %d/%d.",
-	__FUNCTION__, dev->stats.total_read_overflow, dev->stats.total_urb_callbacks);
+    if (!(dev->stats.total_read_overflow++ % 1000))
+        err("%s - overflow: lost urbs = %d, read urbs= %d, total=%d\n",
+            __FUNCTION__, dev->stats.total_read_overflow,
+            dev->stats.total_urb_callbacks-dev->stats.total_read_overflow,
+            dev->stats.total_urb_callbacks);
 
     // resubmit the urb (current data is lost)
     goto resubmit;
@@ -238,7 +226,7 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
     osamp->tas = dev->latestProbeTAS;
     osamp->id = TWOD_DATA;
     osamp->urb = urb;
-    INCREMENT_HEAD(dev->readq, READS_IN_FLIGHT);
+    INCREMENT_HEAD(dev->readq, READ_QUEUE_SIZE);
     wake_up_interruptible(&dev->read_wait);
   }
 
@@ -249,7 +237,6 @@ resubmit:
   if (retval) {
     err("%s - failed re-submitting read urb, error %d", __FUNCTION__, retval);
   }
-#endif
 }
 
 static int twod_open(struct inode *inode, struct file *file)
@@ -259,7 +246,7 @@ static int twod_open(struct inode *inode, struct file *file)
   struct urb_sample * samp;
   int subminor;
   int i, retval = 0;
-  int submit = READS_IN_FLIGHT - 1;
+  // int submit = READS_IN_FLIGHT - 1;
 
   nonseekable_open(inode, file);
   subminor = iminor(inode);
@@ -301,12 +288,10 @@ static int twod_open(struct inode *inode, struct file *file)
   /* save our object in the file's private structure */
   file->private_data = dev;
 
-#ifndef BLOCKING_READ
   dev->readq.head = dev->readq.tail = 0;
 
   /* create urbs and readq. */
-  for (i = 0; i < READS_IN_FLIGHT; ++i) {
-
+  for (i = 0; i < READ_QUEUE_SIZE; ++i) {
     /* Readq for urbs. */
     samp = kmalloc(sizeof(struct urb_sample), GFP_KERNEL);
     memset(samp, 0, sizeof(struct urb_sample));
@@ -314,7 +299,7 @@ static int twod_open(struct inode *inode, struct file *file)
   }
 
   /* Submit all the urbs. */
-  for (i = 0; i < submit; ++i) {
+  for (i = 0; i < READS_IN_FLIGHT; ++i) {
     dev->read_urbs[i] = twod_make_urb(dev);
     if (dev->read_urbs[i]) {
       retval = usb_submit_urb(dev->read_urbs[i], GFP_ATOMIC);
@@ -323,7 +308,6 @@ static int twod_open(struct inode *inode, struct file *file)
       }
     }
   }
-#endif
 
   info("USB PMS-2D device now opened");
 
@@ -341,9 +325,7 @@ static unsigned int twod_poll(struct file *file, poll_table *wait)
   unsigned int mask = POLLOUT | POLLWRNORM;
 
   poll_wait(file, &dev->read_wait, wait);
-#ifndef BLOCKING_READ
   if (dev->readq.head != dev->readq.tail)
-#endif
     mask |= POLLIN | POLLRDNORM;
 
   return mask;
@@ -388,9 +370,13 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 			break;
 		}
  
+#define DEBUG
 #ifdef DEBUG
 		if (!(dev->debug_cntr % 100))
-			info("count=%d,left_to_copy=%d",count,dev->left_to_copy);
+			info("head=%d,tail=%d,urbs=%d,count=%d,left_to_copy=%d",
+                            dev->readq.head,dev->readq.tail,
+                            CIRC_CNT(dev->readq.head,dev->readq.tail,READ_QUEUE_SIZE),
+                            count,dev->left_to_copy);
 #endif
 		// Check if there is data from previous urb to copy
 		if (dev->left_to_copy > 0) {
@@ -413,7 +399,7 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 			// otherwise we're finished with this urb
 			// left_to_copy will be 0 here
 			memset(dev->out_sample->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
-			INCREMENT_TAIL(dev->readq, READS_IN_FLIGHT);
+			INCREMENT_TAIL(dev->readq, READ_QUEUE_SIZE);
 			retval = usb_submit_urb(dev->out_sample->urb, GFP_ATOMIC);
 			if (retval < 0) {
 				err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
@@ -455,6 +441,7 @@ unlock_exit:
 #ifdef DEBUG
 	if (!(dev->debug_cntr++ % 100)) info("retval=%d",retval);
 #endif
+#undef DEBUG
 	up(&dev->sem);
 	return retval;
 }
@@ -659,13 +646,6 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
     usb_set_intfdata(interface, NULL);
     goto error;
   }
-
-#ifdef BLOCKING_READ
-  if ((dev->bulk_in_buffer = kmalloc(TWOD_BUFF_SIZE * READS_IN_FLIGHT, GFP_KERNEL)) == NULL) {
-    err("%s - out of memory for read buf", __FUNCTION__);
-    goto error;
-  }
-#endif
 
   /* let the user know what node this device is now attached to */
   info("USB PMS-2D device now attached to USBtwod-%d", interface->minor);

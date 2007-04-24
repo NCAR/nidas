@@ -12,10 +12,6 @@
 
 #include <nidas/core/dsm_sample.h>
 
-/* Set BLOCKING_READ file if you want urb-less reads.
-#define BLOCKING_READ
- */
-
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With
@@ -61,7 +57,6 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 }
 #endif
 
-
 /* Get a minor range for your devices from the usb maintainer */
 #define USB_TWOD_MINOR_BASE     192
 
@@ -71,16 +66,13 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
 
 #define TWOD_BUFF_SIZE          4096
 
-/*
- * Note that READS_IN_FLIGHT *MUST* be a power of two, because it works
- * with kernel circular buffer macros which require it!
+/* READ_QUEUE_SIZE must be a power of 2 (required by circ_buf)
+ * In order for a circ_buf to tell the difference between empty
+ * and full, the maximum number of elements in a circ_buf is
+ * (size-1).  So we set the number of urbs in flight to (size-1).
  */
-#ifdef BLOCKING_READ
-#define READS_IN_FLIGHT         1
-#else
-#define READS_IN_FLIGHT         32
-#endif
-
+#define READ_QUEUE_SIZE         8
+#define READS_IN_FLIGHT         (READ_QUEUE_SIZE - 1)
 
 #define TWOD_DATA	0
 #define TWOD_HSKP	1
@@ -96,7 +88,7 @@ struct urb_sample
 
 struct urb_sample_circ_buf
 {
-    struct urb_sample * buf[READS_IN_FLIGHT];	// Must be power of 2.
+    struct urb_sample * buf[READ_QUEUE_SIZE];	// Must be power of 2.
     volatile int head;
     volatile int tail;
 };
