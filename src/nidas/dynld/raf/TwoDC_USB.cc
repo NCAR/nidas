@@ -55,7 +55,7 @@ IODevice* TwoDC_USB::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* TwoDC_USB::buildSampleScanner()
 {
-    return new SampleScanner(65792);
+    return new SampleScanner((4104+8)*4);
 }
 
 
@@ -135,7 +135,8 @@ void TwoDC_USB::fromDOMElement(const xercesc::DOMElement * node)
 void TwoDC_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
 {
 std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
-  sendTrueAirspeed(s->getTrueAirspeed());
+  if (!::isnan(s->getTrueAirspeed()))
+      sendTrueAirspeed(s->getTrueAirspeed());
 }
 
 /*---------------------------------------------------------------------------*/
