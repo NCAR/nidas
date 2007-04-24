@@ -178,7 +178,7 @@ void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 
 struct irig_port {
     struct dsm_clock_sample samp;
-    int readyForRead;
+    volatile int readyForRead;
     struct semaphore lock;
     wait_queue_head_t rwaitq;
 };
