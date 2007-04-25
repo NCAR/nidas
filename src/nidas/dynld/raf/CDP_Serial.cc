@@ -233,17 +233,19 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
 
     if (computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
-      ++_checkSumErrorCnt;
-
-    if (_checkSumErrorCnt < 5)
-      cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum << ", computed = "
-	<< computeCheckSum((unsigned char *)input, _packetLen - 2) << std::endl;
-
-    if (_checkSumErrorCnt == 1000)
     {
-      cerr << "CDP::process, bad checksum, repeated %d times."
-	<< _checkSumErrorCnt << std::endl;
-      _checkSumErrorCnt = 0;
+        ++_checkSumErrorCnt;
+
+        if (_checkSumErrorCnt < 5)
+            cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum << ", computed = "
+		<< computeCheckSum((unsigned char *)input, _packetLen - 2) << std::endl;
+
+        if (_checkSumErrorCnt == 1000)
+        {
+            cerr << "CDP::process, bad checksum, repeated %d times."
+		<< _checkSumErrorCnt << std::endl;
+            _checkSumErrorCnt = 0;
+        }
     }
 
     SampleT<float>* outs = getSample<float>(_noutValues);
