@@ -88,7 +88,19 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs);
 #endif
 static ssize_t write_data(struct file *file, const char *user_buffer, size_t count);
 
-static void usb_twod_submit_urb(struct usb_twod* dev,struct urb* urb)
+
+/*
+ * int mem_flags:
+ *  GFP_ATOMIC:
+ *      1. when called from urb callback handler,
+ *          interrupt, bottom half, tasklet or a timer callback.
+ *      2. If you're holding a spinlock or rwlock (but not a semaphore).
+ *      3. Current state is not TASK_RUNNING (i.e. current is non-null
+ *         and driver has not changed the state).
+ *  GFP_NOIO: block drivers.
+ *  GFP_KERNEL: all other circumstances.
+ */
+static void usb_twod_submit_urb(struct usb_twod* dev,struct urb* urb,int mem_flags)
 {
 #ifdef THROTTLE_URBS
         if (CIRC_SPACE(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE) == 0)
@@ -99,7 +111,7 @@ static void usb_twod_submit_urb(struct usb_twod* dev,struct urb* urb)
         }
 #else
         int retval;
-        retval = usb_submit_urb(urb, GFP_ATOMIC);
+        retval = usb_submit_urb(urb, mem_flags);
         if (retval < 0 && !(dev->urbSubmitError++ % 100))
                 err("%s urbSubmitErrors=%d",
                             __FUNCTION__,dev->urbSubmitError);
@@ -285,7 +297,8 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
   return;
 
 resubmit:
-  usb_twod_submit_urb(dev,urb);
+  // called from a urb completion handler, so use GFP_ATOMIC
+  usb_twod_submit_urb(dev,urb,GFP_ATOMIC);
 }
 
 static int twod_open(struct inode *inode, struct file *file)
@@ -352,7 +365,8 @@ static int twod_open(struct inode *inode, struct file *file)
   for (i = 0; i < READS_IN_FLIGHT; ++i) {
     dev->read_urbs[i] = twod_make_urb(dev);
     if (!dev->read_urbs[i]) return -ENOMEM;
-    usb_twod_submit_urb(dev,dev->read_urbs[i]);
+    // called from _init module, use GFP_KERNEL
+    usb_twod_submit_urb(dev,dev->read_urbs[i],GFP_KERNEL);
   }
 
 #ifdef THROTTLE_URBS
@@ -460,7 +474,8 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 #ifndef THROTTLE_URBS
                         submitUrbs[nsubmit++] = dev->out_sample->urb;
 #else
-                        usb_twod_submit_urb(dev,dev->out_sample->urb);
+                        // called from driver read method, use GFP_KERNEL
+                        usb_twod_submit_urb(dev,dev->out_sample->urb,GFP_KERNEL);
 #endif
 		}
 
@@ -499,7 +514,8 @@ unlock_exit:
 
 #ifndef THROTTLE_URBS
         for (i = 0; i < nsubmit; i++) 
-            usb_twod_submit_urb(dev,submitUrbs[i]);
+            // called from driver read method, use GFP_KERNEL
+            usb_twod_submit_urb(dev,submitUrbs[i],GFP_KERNEL);
 #endif
 
 #ifdef DEBUG
