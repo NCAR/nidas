@@ -1174,7 +1174,8 @@ doCallbacklist(struct list_head* list)
 
 /**
  * Task to be run on a 100 Hz basis, which performs requested regular
- * callbacks.
+ * callbacks.  Note that since this task is run as a tasklet, it and
+ * all the callbacks it performs happen in a soft interrupt context.
  */
 static void 
 pc104sg_task_100Hz(unsigned long ul_trigger)
@@ -1221,8 +1222,6 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 	enableHeartBeatInt();
 
 	initialized = 1;
-
-//	return;
     }
 
 #ifdef DEBUG_COLLISIONS
