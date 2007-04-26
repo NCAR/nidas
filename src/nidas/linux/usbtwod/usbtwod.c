@@ -407,11 +407,10 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 	size_t n;
 	struct urb_sample* sample;
 
-#ifndef THROTTLE_URBS
 	struct urb* submitUrbs[READ_QUEUE_SIZE];
         int nsubmit = 0;
         int i;
-#endif
+
 	if (count == 0) return countreq;
 
 	dev = (struct usb_twod *)file->private_data;
@@ -471,12 +470,8 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 			// otherwise we're finished with this urb
 			// left_to_copy will be 0 here
 			INCREMENT_TAIL(dev->readq, READ_QUEUE_SIZE);
-#ifndef THROTTLE_URBS
+                        // defer submitting them until read is done.
                         submitUrbs[nsubmit++] = dev->out_sample->urb;
-#else
-                        // called from driver read method, use GFP_KERNEL
-                        usb_twod_submit_urb(dev,dev->out_sample->urb,GFP_KERNEL);
-#endif
 		}
 
 		// length of header (timetag + length) + tas + id
@@ -512,11 +507,9 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 unlock_exit:
 	up(&dev->sem);
 
-#ifndef THROTTLE_URBS
         for (i = 0; i < nsubmit; i++) 
             // called from driver read method, use GFP_KERNEL
             usb_twod_submit_urb(dev,submitUrbs[i],GFP_KERNEL);
-#endif
 
 #ifdef DEBUG
 	if (!(dev->debug_cntr++ % 100)) info("retval=%d\n",retval);

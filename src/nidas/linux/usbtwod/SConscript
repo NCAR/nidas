@@ -17,7 +17,7 @@ Import('env')
 # so that make can find them and do its work outside of the
 # source tree.
 
-env.Kmake('usbtwod.ko',['usbtwod.c','Makefile'])
+env.Kmake('usbtwod.ko',['usbtwod.c','usbtwod.h','Makefile'])
 
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
     env.Install('$PREFIX/linux','usbtwod.ko')
