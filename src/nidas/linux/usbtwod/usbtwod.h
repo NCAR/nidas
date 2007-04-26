@@ -71,7 +71,7 @@ inline int TASToTap2D(Tap2D* t2d, float tas, float resolution)
  * and full, the maximum number of elements in a circ_buf is
  * (size-1).  So we set the number of urbs in flight to (size-1).
  */
-#define READ_QUEUE_SIZE         8
+#define READ_QUEUE_SIZE         2
 #define READS_IN_FLIGHT         (READ_QUEUE_SIZE - 1)
 
 #define TWOD_DATA	0
@@ -83,12 +83,19 @@ struct urb_sample
     dsm_sample_length_t length;		/* number of bytes in data */
     unsigned long id;			/* Sample ID, we may have multiple things */
     unsigned long tas;			/* True Airspeed */
-    struct urb * urb;
+    struct urb* urb;
 };
 
 struct urb_sample_circ_buf
 {
     struct urb_sample * buf[READ_QUEUE_SIZE];	// Must be power of 2.
+    volatile int head;
+    volatile int tail;
+};
+
+struct urb_circ_buf
+{
+    struct urb* buf[READ_QUEUE_SIZE];
     volatile int head;
     volatile int tail;
 };

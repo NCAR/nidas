@@ -1,5 +1,7 @@
 #define DEBUG
 
+/* Define THROTTLE_URBS if you want to control the resubmission of urbs */
+#define THROTTLE_URBS
 /*
  * USB PMS-2D driver - 2.0
  *
@@ -17,6 +19,7 @@
 #include <asm/uaccess.h>
 #include <linux/usb.h>
 #include <linux/poll.h>
+#include <linux/timer.h>
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 
@@ -27,7 +30,6 @@
 /* These are the default Cyprus EZ FX & FX2 ID's */
 //#define USB_VENDOR_ID	0x0547
 //#define USB_PRODUCT_ID	0x1002
-
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table [] = {
@@ -44,7 +46,6 @@ struct usb_twod
   struct usb_interface	*interface;		/* the interface for this device */
   struct semaphore	sem;			/* lock this structure */
   struct semaphore	limit_sem;		/* limiting the number of writes in progress */
-  spinlock_t		read_lock;
 
   int			is_open;		/* don't allow multiple opens. */
 
@@ -53,6 +54,8 @@ struct usb_twod
 
   struct urb		*read_urbs[READS_IN_FLIGHT];	/* All read urbs */
   struct urb_sample_circ_buf readq;
+
+  struct urb_circ_buf urbq;
 
   wait_queue_head_t	read_wait;		/* Zzzzz ... */
 
@@ -66,6 +69,11 @@ struct usb_twod
   char 			*out_urb_ptr;	 	/* pointer into urb if what is left to copy */
   size_t		left_to_copy;		/* how much is left to copy to user buffer of sample_ptr */
   size_t		debug_cntr;
+
+#ifdef THROTTLE_URBS
+  struct timer_list urbThrottle;
+#endif
+  size_t urbSubmitError;
 };
 
 static struct usb_driver twod_driver;
@@ -80,6 +88,47 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs);
 #endif
 static ssize_t write_data(struct file *file, const char *user_buffer, size_t count);
 
+static void usb_twod_submit_urb(struct usb_twod* dev,struct urb* urb)
+{
+#ifdef THROTTLE_URBS
+        if (CIRC_SPACE(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE) == 0)
+              err("programming error: no space in queue for resubmitting urbs");
+        else {
+            dev->urbq.buf[dev->urbq.head] = urb;
+            INCREMENT_HEAD(dev->urbq, READ_QUEUE_SIZE);
+        }
+#else
+        int retval;
+        retval = usb_submit_urb(urb, GFP_ATOMIC);
+        if (retval < 0 && !(dev->urbSubmitError++ % 100))
+                err("%s urbSubmitErrors=%d",
+                            __FUNCTION__,dev->urbSubmitError);
+#endif
+}
+
+#ifdef THROTTLE_URBS
+static void urb_throttle_func(unsigned long arg)
+{
+        struct usb_twod* dev = (struct usb_twod*) arg;
+        int retval;
+        static int debugcntr = 0;
+
+	while (dev->urbq.tail != dev->urbq.head) {
+		struct urb* urb = dev->urbq.buf[dev->urbq.tail];
+                if (!(debugcntr++ % 100))
+                    info("urb_throttle_func, queue cnt=%d,jiffies=%ld\n",
+                        CIRC_CNT(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE),
+                        jiffies);
+                retval = usb_submit_urb(urb, GFP_ATOMIC);
+                if (retval < 0 && !(dev->urbSubmitError++ % 100))
+                        err("%s urbSubmitErrors=%d",
+                                    __FUNCTION__,dev->urbSubmitError);
+                INCREMENT_TAIL(dev->urbq, READ_QUEUE_SIZE);
+        }
+        dev->urbThrottle.expires += 2;     // TODO: make this customizable
+        add_timer(&dev->urbThrottle);      // reschedule myself
+}
+#endif
 
 /* -------------------------------------------------------------------- */
 static struct urb * twod_make_urb(struct usb_twod * dev)
@@ -134,6 +183,10 @@ static int twod_release(struct inode *inode, struct file *file)
   info("Valid read urbs received = %d", dev->stats.valid_urb_callbacks);
   info("Read overflow count (lost records) = %d", dev->stats.total_read_overflow);
 
+#ifdef THROTTLE_URBS
+  del_timer_sync(&dev->urbThrottle);
+#endif
+
   wake_up_interruptible(&dev->read_wait);
 
   for (i = 0; i < READS_IN_FLIGHT; ++i) {
@@ -173,7 +226,6 @@ static void twod_rx_bulk_callback(struct urb * urb)
 static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
 #endif
 {
-  int retval;
   struct usb_twod * dev = (struct usb_twod *)urb->context;
   struct urb_sample * osamp;
 
@@ -233,10 +285,7 @@ static void twod_rx_bulk_callback(struct urb * urb, struct pt_regs * regs)
   return;
 
 resubmit:
-  retval = usb_submit_urb(urb, GFP_ATOMIC);
-  if (retval) {
-    err("%s - failed re-submitting read urb, error %d", __FUNCTION__, retval);
-  }
+  usb_twod_submit_urb(dev,urb);
 }
 
 static int twod_open(struct inode *inode, struct file *file)
@@ -246,7 +295,6 @@ static int twod_open(struct inode *inode, struct file *file)
   struct urb_sample * samp;
   int subminor;
   int i, retval = 0;
-  // int submit = READS_IN_FLIGHT - 1;
 
   nonseekable_open(inode, file);
   subminor = iminor(inode);
@@ -284,6 +332,7 @@ static int twod_open(struct inode *inode, struct file *file)
   dev->out_urb_ptr = 0;
   dev->left_to_copy = 0;
   dev->debug_cntr = 0;
+  dev->urbSubmitError = 0;
 
   /* save our object in the file's private structure */
   file->private_data = dev;
@@ -298,16 +347,21 @@ static int twod_open(struct inode *inode, struct file *file)
     dev->readq.buf[i] = samp;
   }
 
-  /* Submit all the urbs. */
+  /* Create urbs and put them in the submit queue */
+  dev->urbq.head = dev->urbq.tail = 0;
   for (i = 0; i < READS_IN_FLIGHT; ++i) {
     dev->read_urbs[i] = twod_make_urb(dev);
-    if (dev->read_urbs[i]) {
-      retval = usb_submit_urb(dev->read_urbs[i], GFP_ATOMIC);
-      if (retval) {
-        err("%s - failed submitting read urb %d, error %d", __FUNCTION__, i, retval);
-      }
-    }
+    if (!dev->read_urbs[i]) return -ENOMEM;
+    usb_twod_submit_urb(dev,dev->read_urbs[i]);
   }
+
+#ifdef THROTTLE_URBS
+  init_timer(&dev->urbThrottle);
+  dev->urbThrottle.function = urb_throttle_func;
+  dev->urbThrottle.expires = jiffies;
+  dev->urbThrottle.data = (unsigned long)dev;
+  add_timer(&dev->urbThrottle);
+#endif
 
   info("USB PMS-2D device now opened");
 
@@ -321,14 +375,14 @@ unlock_disconnect_exit:
 
 static unsigned int twod_poll(struct file *file, poll_table *wait)
 {
-  struct usb_twod * dev = file->private_data;
-  unsigned int mask = POLLOUT | POLLWRNORM;
+        struct usb_twod * dev = file->private_data;
+        unsigned int mask = POLLOUT | POLLWRNORM;
 
-  poll_wait(file, &dev->read_wait, wait);
-  if (dev->readq.head != dev->readq.tail)
-    mask |= POLLIN | POLLRDNORM;
+        poll_wait(file, &dev->read_wait, wait);
+        if (dev->readq.head != dev->readq.tail)
+          mask |= POLLIN | POLLRDNORM;
 
-  return mask;
+        return mask;
 }
 
 static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *ppos)
@@ -339,6 +393,11 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 	size_t n;
 	struct urb_sample* sample;
 
+#ifndef THROTTLE_URBS
+	struct urb* submitUrbs[READ_QUEUE_SIZE];
+        int nsubmit = 0;
+        int i;
+#endif
 	if (count == 0) return countreq;
 
 	dev = (struct usb_twod *)file->private_data;
@@ -361,7 +420,6 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 	  if (retval < 0)
 	    goto unlock_exit;
 	}
-
 
 	// loop until user buffer is full (or no more samples)
 	for (;;) {
@@ -398,13 +456,12 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 
 			// otherwise we're finished with this urb
 			// left_to_copy will be 0 here
-			memset(dev->out_sample->urb->transfer_buffer, 0, TWOD_BUFF_SIZE);
 			INCREMENT_TAIL(dev->readq, READ_QUEUE_SIZE);
-			retval = usb_submit_urb(dev->out_sample->urb, GFP_ATOMIC);
-			if (retval < 0) {
-				err("%s - failed submitting read urb, error %d", __FUNCTION__, retval);
-				break;
-			}
+#ifndef THROTTLE_URBS
+                        submitUrbs[nsubmit++] = dev->out_sample->urb;
+#else
+                        usb_twod_submit_urb(dev,dev->out_sample->urb);
+#endif
 		}
 
 		// length of header (timetag + length) + tas + id
@@ -438,11 +495,17 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 	}
 
 unlock_exit:
+	up(&dev->sem);
+
+#ifndef THROTTLE_URBS
+        for (i = 0; i < nsubmit; i++) 
+            usb_twod_submit_urb(dev,submitUrbs[i]);
+#endif
+
 #ifdef DEBUG
-	if (!(dev->debug_cntr++ % 100)) info("retval=%d",retval);
+	if (!(dev->debug_cntr++ % 100)) info("retval=%d\n",retval);
 #endif
 #undef DEBUG
-	up(&dev->sem);
 	return retval;
 }
 
@@ -563,7 +626,7 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
 }
 
 /* -------------------------------------------------------------------- */
-static const struct file_operations twod_fops = {
+static struct file_operations twod_fops = {
 	.owner =	THIS_MODULE,
 	.read =		twod_read,
 	.write =	twod_write,
@@ -601,10 +664,8 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
 
   dev->interface = interface;
   init_waitqueue_head(&dev->read_wait);
-//  sema_init(&dev->sem, 1);
   init_MUTEX(&dev->sem);
   sema_init(&dev->limit_sem, WRITES_IN_FLIGHT);
-  spin_lock_init(&dev->read_lock);
 
   dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
@@ -635,6 +696,7 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
     goto error;
   }
 
+
   /* save our data pointer in this interface device */
   usb_set_intfdata(interface, dev);
 
@@ -646,7 +708,6 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
     usb_set_intfdata(interface, NULL);
     goto error;
   }
-
   /* let the user know what node this device is now attached to */
   info("USB PMS-2D device now attached to USBtwod-%d", interface->minor);
   return 0;
