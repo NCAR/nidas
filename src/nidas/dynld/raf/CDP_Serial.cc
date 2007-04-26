@@ -237,13 +237,15 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
         ++_checkSumErrorCnt;
 
         if (_checkSumErrorCnt < 5)
-            cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum << ", computed = "
-		<< computeCheckSum((unsigned char *)input, _packetLen - 2) << std::endl;
+            cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum
+		<< ", computed = "
+		<< computeCheckSum((unsigned char *)input, _packetLen - 2)
+		<< std::endl;
 
         if (_checkSumErrorCnt == 1000)
         {
-            cerr << "CDP::process, bad checksum, repeated %d times."
-		<< _checkSumErrorCnt << std::endl;
+            cerr << "CDP::process, bad checksum, repeated "
+		<< _checkSumErrorCnt << " times.\n";
             _checkSumErrorCnt = 0;
         }
     }
