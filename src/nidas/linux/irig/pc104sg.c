@@ -21,12 +21,14 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
 #include <linux/cdev.h>
 #include <linux/poll.h>
 #include <linux/delay.h>
-#include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/syscalls.h>
 #include <linux/time.h>
 #include <linux/timer.h>
 #include <linux/unistd.h>
+#include <linux/wait.h>
+#include <linux/interrupt.h>
+#include <linux/workqueue.h>
 
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -196,35 +198,28 @@ static spinlock_t DP_RamLock = SPIN_LOCK_UNLOCKED;
 static int DP_RamExtStatusEnabled = 1;
 
 /*
- * pc104sg_task_100Hz() is the function to be called for each 100Hz
- * interrupt from the card.  The data value passed is
- * TASK_INTERRUPT_TRIGGER if it's called because of an actual interrupt
- * from the IRIG card, or TASK_TIMEOUT_TRIGGER if we timed out waiting for
- * the interrupt.
- */
-static void pc104sg_task_100Hz(unsigned long ul_trigger);
-typedef enum 
-{
-    TASK_INTERRUPT_TRIGGER,	// got interrupt from the IRIG
-    TASK_TIMEOUT_TRIGGER	// timed out waiting for interrupt
-} task_100Hz_trigger;
-
-/*
- * Here's the tasklet to be scheduled when we receive the 100Hz
- * interrupt.
- */
-DECLARE_TASKLET(Tasklet100HzInterrupt, pc104sg_task_100Hz, 
-                TASK_INTERRUPT_TRIGGER);
-
-
-/*
- * 100Hz interrupt timeout timer.
+ * Interrupt wait timing
+ *
  * We wait up to 1.5 * the expected interrupt interval before timing out.
  * By default, we want to use timeouts when waiting for interrupts.
  */
 #define INTERRUPT_TIMEOUT_LENGTH ((HZ / INTERRUPT_RATE) * 3 / 2)
-static struct timer_list Timeout100Hz_Timer;
 static int UseInterruptTimeouts = 1;
+static struct timer_list Timeout100Hz_Timer;
+
+/*
+ * Workqueue and work_struct stuff
+ */
+static struct workqueue_struct *WorkQueue100Hz = 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+    static void pc104sg_work_100Hz(struct work_struct* work);
+    DECLARE_WORK(Work100Hz, pc104sg_work_100Hz);
+#else
+    static void pc104sg_work_100Hz(void* work);
+    DECLARE_WORK(Work100Hz, pc104sg_work_100Hz, NULL);
+#endif
+
 
 /** macros borrowed from glibc/time functions */
 #define SECS_PER_HOUR   (60 * 60)
@@ -1173,23 +1168,20 @@ doCallbacklist(struct list_head* list)
 }
 
 /**
- * Task to be run on a 100 Hz basis, which performs requested regular
- * callbacks.  Note that since this task is run as a tasklet, it and
- * all the callbacks it performs happen in a soft interrupt context.
+ * Work to do on a 100 Hz basis, which performs requested regular
+ * callbacks.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 static void 
-pc104sg_task_100Hz(unsigned long ul_trigger)
-{
-    task_100Hz_trigger trigger = (task_100Hz_trigger)ul_trigger;
-    static int consecutiveTimeouts = 0;
-    static int initialized = 0;
-    int nhandled;
-#ifdef DEBUG_COLLISIONS
-    struct irigTime ti;
-    static int nCollisions = 0;
-    static int lastInterruptMillis = 0; // milliseconds into hour
+pc104sg_work_100Hz(struct work_struct* unused)
+#else
+static void 
+pc104sg_work_100Hz(void* unused)
 #endif
+{
+    int nhandled;
 
+#ifdef NOTDEF /* timeout not implemented for workqueue yet */
     /*
      * (maybe) schedule a timeout on waiting for the next interrupt
      */
@@ -1198,106 +1190,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
 	Timeout100Hz_Timer.expires = jiffies + INTERRUPT_TIMEOUT_LENGTH;
 	add_timer(&Timeout100Hz_Timer);
     }
-
-    /*
-     * On the first call here, we just initialize, setting
-     * some stuff that can't be done at init time.
-     */
-    if (! initialized) 
-    {
-	/* IRIG-B is the default, but we'll set it anyway */
-	setTimeCodeInputSelect(DP_CodeSelect_IRIGB);
-	setPrimarySyncReference(0);     // 0=PPS, 1=timecode
-	/*
-	 * Set the internal heart-beat and rate2 to be in phase with
-	 * the PPS/time_code reference
-	 */
-	setHeartBeatOutput(INTERRUPT_RATE);
-	setRate2Output(A2DClockFreq);
-	counterRejam();
-
-	ClockState = RESET_COUNTERS;
-
-	/* start interrupts */
-	enableHeartBeatInt();
-
-	initialized = 1;
-    }
-
-#ifdef DEBUG_COLLISIONS
-    getCurrentTime(&ti);
-
-    if (! (Count100Hz % 500))
-	KLOG_NOTICE("time is %02d:%02d:%02d.%03d\n", 
-		    ti.hour, ti.min, ti.sec, ti.msec);
 #endif
-
-    /*
-     * Do some stuff depending on whether we were triggered by an IRIG
-     * interrupt or by a timeout while waiting for one.
-     */
-    switch (trigger)
-    {
-      case TASK_TIMEOUT_TRIGGER:
-	/*
-	 * Check if this timeout collided with a very recent interrupt
-	 */
-#ifdef DEBUG_COLLISIONS
-      {
-          int nowMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
-          // Consider this a timeout/interrupt collision if the time
-          // between this timeout and the last interrupt is less than
-          // the interrupt interval.
-          if ((nowMillis - lastInterruptMillis) < (1000 / INTERRUPT_RATE)) 
-          {
-	      nCollisions++;
-	      if (nCollisions <= 10 || !(nCollisions % 100)) 
-		  KLOG_NOTICE("Timeout/interrupt collision, timeout ignored "
-			      "(%d ms delta)\n",
-			      nowMillis - lastInterruptMillis);
-	      return;
-          }
-      }
-#endif
-      /*
-       * It's actually a timeout, and not a collision
-       */
-      consecutiveTimeouts++;
-      if (consecutiveTimeouts <= 10 || !(consecutiveTimeouts % 100)) 
-          KLOG_NOTICE("%d consecutive timeouts\n", consecutiveTimeouts);
-           
-      ackHeartBeatInt();
-
-      /*
-       * If clock is not overidden and we have time codes, then
-       * set counters to the clock
-       */
-      if (ClockState == CODED) {
-          ClockState = RESET_COUNTERS;
-      }
-      /*
-       * Otherwise, increment the clock and counter ourselves.
-       * it is presumably safe to increment since interrupts
-       * aren't happening!  This shouldn't violate the policy of
-       * MsecClock[ReadClock], which is that it
-       * isn't updated more often than once an interrupt.
-       * See the comments in increment_clock.
-       */
-      else {
-          increment_clock(MSEC_PER_CALLBACK_CHECK);
-          incrementCount100Hz();
-      }
-      break;
-      case TASK_INTERRUPT_TRIGGER:
-	consecutiveTimeouts = 0;
-#ifdef DEBUG_COLLISIONS
-	lastInterruptMillis = ti.min * 60000 + ti.sec * 1000 + ti.msec;
-#endif
-	break;
-      default:
-	KLOG_ERR("unknown trigger %d\n", trigger);
-	return;
-    }
 
     /*
      * Now handle all the unhandled 100Hz actions
@@ -1375,7 +1268,7 @@ pc104sg_task_100Hz(unsigned long ul_trigger)
  * when changing the clock counters.
  */
 static inline void 
-checkExtStatus(void)
+checkExtendedStatus(void)
 {
     if (DP_RamExtStatusEnabled)
 	ReadDualPortRAM(DP_Extd_Sts, &ExtendedStatus);
@@ -1446,18 +1339,35 @@ checkExtStatus(void)
 }
 
 /*
- * pc104sg interrupt function.
+ * Handle heartbeat interrupts.  This function can be called with an
+ * IRQ of zero to indicate that a timeout occurred waiting for an
+ * interrupt.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 static irqreturn_t 
 pc104sg_isr(int irq, void* callbackPtr)
 #else
-    static irqreturn_t 
+static irqreturn_t 
 pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
 #endif
 {
     unsigned char status = inb(ISA_Address + Status_Port);
+    static int consecutiveTimeouts = 0;
+    static int entrycount = 0;
     SyncOK = status & Sync_OK;
+
+    /*
+     * If the IRQ is zero, we were called as a result of a timeout,
+     * and not a real h/w interrupt.
+     */
+    if (irq == 0) 
+    {
+	consecutiveTimeouts++;
+	if (consecutiveTimeouts <= 10 || !(consecutiveTimeouts % 100)) 
+	    KLOG_NOTICE("%d consecutive timeouts\n", consecutiveTimeouts);
+    }
+    else
+	consecutiveTimeouts = 0;
 
     if ((status & Heartbeat) && (IntMask & Heartbeat_Int_Enb)) {
 
@@ -1466,20 +1376,22 @@ pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
 
 	increment_clock(MSEC_PER_INTERRUPT);
 
-	checkExtStatus();
+	checkExtendedStatus();
+
+	if (UseInterruptTimeouts) 
+	{
+	    del_timer_sync(&Timeout100Hz_Timer);
+	    Timeout100Hz_Timer.expires = 
+		jiffies + INTERRUPT_TIMEOUT_LENGTH;
+	    add_timer(&Timeout100Hz_Timer);
+	}
 
 	/*
-	 * On 10 millisecond intervals execute the interrupt tasklet so it
-	 * can perform the requested callbacks.
+	 * On 10 millisecond intervals, schedule our 100Hz work.
 	 */
 	if (!(MsecClockTicker % MSEC_PER_CALLBACK_CHECK)) {
 	    incrementCount100Hz();
-	    /*
-	     * Cancel the existing timeout for the 100Hz task, then schedule
-	     * the task to execute.
-	     */
-	    del_timer_sync(&Timeout100Hz_Timer);
-	    tasklet_schedule(&Tasklet100HzInterrupt);
+	    queue_work(WorkQueue100Hz, &Work100Hz);
 	}
 
     }
@@ -1493,7 +1405,18 @@ pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
 		   ExtendedStatus, ClockState);
     }
 #endif
+    entrycount++;
     return 0;
+}
+
+static void
+timeoutHandler(unsigned long unused)
+{
+    /*
+     * Just call the interrupt handler with an IRQ of zero to 
+     * indicate that a timeout occurred.
+     */
+    pc104sg_isr(0, NULL, NULL);
 }
 
 /*
@@ -1580,7 +1503,8 @@ pc104sg_cleanup(void)
     disableAllInts();
 
     del_timer_sync(&Timeout100Hz_Timer);
-    tasklet_kill(&Tasklet100HzInterrupt);
+    flush_workqueue(WorkQueue100Hz);
+    destroy_workqueue(WorkQueue100Hz);
 
 #ifdef DEBUG
     KLOG_NOTICE("free_irq\n");
@@ -1685,8 +1609,8 @@ pc104sg_init(void)
      * Initialize our interrupt timeout timer
      */
     init_timer(&Timeout100Hz_Timer);
-    Timeout100Hz_Timer.function = pc104sg_task_100Hz;
-    Timeout100Hz_Timer.data = TASK_TIMEOUT_TRIGGER;
+    Timeout100Hz_Timer.function = timeoutHandler;
+    Timeout100Hz_Timer.data = 0;
 
     /*
      * Initialize and add the user-visible device
@@ -1709,16 +1633,45 @@ pc104sg_init(void)
     }
 
     /*
-     * Schedule the first call for the 100Hz task now, so that initialization
-     * happens soon.
+     * Set up the workqueue
      */
-    tasklet_schedule(&Tasklet100HzInterrupt);
+    WorkQueue100Hz = create_singlethread_workqueue("pc104sg");
+    if (! WorkQueue100Hz)
+    {
+	KLOG_ERR("Failed to create workqueue!\n");
+	goto err0;
+    }
 
+    /* 
+     * IRIG-B is the default, but we'll set it anyway 
+     */
+    setTimeCodeInputSelect(DP_CodeSelect_IRIGB);
+    setPrimarySyncReference(0);     // 0=PPS, 1=timecode
+
+    /*
+     * Set the internal heart-beat and rate2 to be in phase with
+     * the PPS/time_code reference
+     */
+    setHeartBeatOutput(INTERRUPT_RATE);
+    setRate2Output(A2DClockFreq);
+    counterRejam();
+
+    ClockState = RESET_COUNTERS;
+
+    /* start interrupts */
+    enableHeartBeatInt();
+	
     return 0;
 
   err0:
 
     del_timer_sync(&Timeout100Hz_Timer);
+
+    if (WorkQueue100Hz)
+    {
+	flush_workqueue(WorkQueue100Hz);
+	destroy_workqueue(WorkQueue100Hz);
+    }
    
     /* free up our pool of callbacks */
     free_callbacks();
@@ -1737,7 +1690,8 @@ pc104sg_init(void)
 /*
  * Implementation of poll fops.
  */
-static unsigned int pc104sg_poll(struct file *filp, poll_table *wait)
+static unsigned int 
+pc104sg_poll(struct file *filp, poll_table *wait)
 {
     struct irig_port *p = (struct irig_port*)filp->private_data;
     unsigned int mask = 0;
