@@ -149,7 +149,7 @@ void DSMSerialSensor::unixDevInit(int flags)
     setRaw(true);
     if (getMessageLength() > 0) setRawLength(getMessageLength() +
     	getMessageSeparator().length());
-    else setRawLength(4);
+    else setRawLength(1);
     setRawTimeout(0);
 
 #ifdef DEBUG
@@ -195,19 +195,26 @@ void DSMSerialSensor::unixDevInit(int flags)
 void DSMSerialSensor::setMessageParameters()
     throw(nidas::util::IOException)
 {
-    if (isRTLinux() && getIODevice() && getReadFd() >= 0) {
+    if (getIODevice() && getReadFd() >= 0) {
+        if (isRTLinux()) {
+            struct dsm_serial_record_info recinfo;
+            string nsep = getMessageSeparator();
 
-        struct dsm_serial_record_info recinfo;
-        string nsep = getMessageSeparator();
+            strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
+            recinfo.sepLen = nsep.length();
+            if (recinfo.sepLen > (int)sizeof(recinfo.sep))
+                recinfo.sepLen = sizeof(recinfo.sep);
 
-        strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
-        recinfo.sepLen = nsep.length();
-        if (recinfo.sepLen > (int)sizeof(recinfo.sep))
-            recinfo.sepLen = sizeof(recinfo.sep);
-
-        recinfo.atEOM = getMessageSeparatorAtEOM() ? 1 : 0;
-        recinfo.recordLen = getMessageLength();
-        ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
+            recinfo.atEOM = getMessageSeparatorAtEOM() ? 1 : 0;
+            recinfo.recordLen = getMessageLength();
+            ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
+        }
+        else {
+            if (getMessageLength() > 0) setRawLength(getMessageLength() +
+                getMessageSeparator().length());
+            else setRawLength(1);
+            setTermios(getReadFd(),getName());
+        }
     }
 }
 
