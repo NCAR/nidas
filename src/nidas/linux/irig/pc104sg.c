@@ -1378,13 +1378,11 @@ pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
 
 	checkExtendedStatus();
 
+	/*
+	 * Reset the timeout timer
+	 */
 	if (UseInterruptTimeouts) 
-	{
-	    del_timer_sync(&Timeout100Hz_Timer);
-	    Timeout100Hz_Timer.expires = 
-		jiffies + INTERRUPT_TIMEOUT_LENGTH;
-	    add_timer(&Timeout100Hz_Timer);
-	}
+	    mod_timer(&Timeout100Hz_Timer, jiffies + INTERRUPT_TIMEOUT_LENGTH);
 
 	/*
 	 * On 10 millisecond intervals, schedule our 100Hz work.
