@@ -65,7 +65,7 @@ typedef struct
     int  gainDiv[MAXA2DS]; // Gain Code divider
     int  Hz[MAXA2DS];      // Sample rate in Hz. 0 is off.
     int  offset[MAXA2DS];  // Offset flags
-    long latencyUsecs;     // buffer latency in micro-seconds
+    long latencyUsecs;     // buffer latency in micro-seconds (UNUSED)
     unsigned short filter[CONFBLOCKS*CONFBLLEN+1]; // Filter data
 } A2D_SET;
 
@@ -86,17 +86,15 @@ typedef struct
 #define A2D_MAGIC 'A'
 
 /*
- * The enumeration of IOCTLs that this driver supports.
- * See pages 130-132 of Linux Device Driver's Manual
+ * IOCTLs that this driver supports.
  */
 #define A2D_GET_STATUS _IOR(A2D_MAGIC, 0, A2D_STATUS)
 #define A2D_SET_CONFIG _IOW(A2D_MAGIC, 1, A2D_SET)
 #define A2D_SET_CAL    _IOW(A2D_MAGIC, 2, A2D_CAL)
 #define A2D_RUN        _IO(A2D_MAGIC, 3)
 #define A2D_STOP       _IO(A2D_MAGIC, 4)
-#define A2D_OPEN_I2CT  _IOW(A2D_MAGIC, 5, int)
-#define A2D_CLOSE_I2CT _IO(A2D_MAGIC, 6)
-#define A2D_GET_I2CT   _IOR(A2D_MAGIC, 7, short)
+#define A2DTEMP_GET_TEMP _IOR(A2D_MAGIC, 7, short)
+#define A2DTEMP_SET_RATE _IOW(A2D_MAGIC, 8, int)
 
 //AD7725 Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
@@ -269,8 +267,7 @@ struct A2DBoard {
     struct tasklet_struct resetTasklet;
     int resetStatus;             // non-zero if not set up
     
-    int i2cTempRate;             // rate to query I2C temperature sensor
-    struct ioctlHandle* ioctlhandle;
+    int tempRate;                // rate to query I2C temperature sensor
     A2D_SET config;              // board configuration
     A2D_CAL cal;                 // calibration configuration
     A2D_STATUS cur_status;       // status info maintained by driver
@@ -283,26 +280,22 @@ struct A2DBoard {
     int interrupted;
     size_t readCtr;
     int nbadScans;
-    int expectedFifoLevel;
     int master;
     int sampsPerCallback;     // data values per IRIG callback per channel
-    int latencyCnt;           // accumulate this many samples before 
-                              // allowing user-space read to continue
-
-    size_t sampleCnt;         // sample counter
 
     size_t nbadFifoLevel;
     size_t fifoNotEmpty;
     size_t skippedSamples;    // how many samples have we missed?
     int resets;               // number of board resets since last open
 
+    spinlock_t bufLock;       // lock for buffer and tempSamp below
     struct kfifo* buffer;     // holds data for transfer to user space
-    spinlock_t bufLock;       // lock for data buffer
+    I2C_TEMP_SAMPLE tempSamp; // last measured temp
+    int tempReady;            // do we have a new temperature sample?
     wait_queue_head_t rwaitq; // wait queue for user reads
 
     unsigned short OffCal;    // offset and cal bits
     unsigned char FIFOCtl;    // hardware FIFO control word storage
-    short i2cTempData;        // last measured temperature
     unsigned char i2c;        // data byte written to I2C
     char invertCounts;        // whether to invert counts from this A2D
     char doTemp;              // fetch temperature after next A2D scan

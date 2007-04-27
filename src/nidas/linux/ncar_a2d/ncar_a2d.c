@@ -109,8 +109,8 @@ static int ncar_a2d_ioctl(struct inode *inode, struct file *filp,
 //			       size_t count,loff_t *f_pos);
 //static int i2c_temp_open(struct inode *inode, struct file *filp);
 //static int i2c_temp_release(struct inode *inode, struct file *filp);
-static int i2c_temp_ioctl(struct inode *inode, struct file *filp, 
-			    unsigned int cmd, unsigned long arg);
+static int ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, 
+			      unsigned int cmd, unsigned long arg);
 /*
  * Tag to mark waiting for reset attempt.  Any value not likely to 
  * show up as a system error is fine here...
@@ -131,10 +131,11 @@ static struct file_operations ncar_a2d_fops = {
 
 static struct file_operations i2c_temp_fops = {
     .owner   = THIS_MODULE,
-//    .read    = i2c_temp_read,
-//    .open    = i2c_temp_open,
-    .ioctl   = i2c_temp_ioctl,
-//    .release = i2c_temp_release,
+//    .read    = ncar_a2dtemp_read,
+//    .open    = ncar_a2dtemp_open,
+    .ioctl   = ncar_a2dtemp_ioctl,
+//    .release = ncar_a2dtemp_release,
+//    .poll    = ncar_a2dtemp_poll,
 };
 
 /**
@@ -198,115 +199,86 @@ i2c_data_lo(struct A2DBoard* brd)
 // Read on-board LM92 temperature sensor via i2c serial bus
 // The signed short returned is weighted .0625 deg C per bit
 
-//XX static short 
-//XX A2DTemp(struct A2DBoard* brd)
-//XX {
-//XX     // This takes 68 i2c operations to perform.
-//XX     // Using a delay of 10 usecs, this should take
-//XX     // approximately 680 usecs.
-//XX 
-//XX     unsigned char b1;
-//XX     unsigned char b2;
-//XX     unsigned char t1;
-//XX     short x;
-//XX     unsigned char i, address = 0x48;  // Address of temperature register
-//XX 
-//XX 
-//XX     // shift the address over one, and set the READ indicator
-//XX     b1 = (address << 1) | 1;
-//XX 
-//XX     // a start state is indicated by data going from hi to lo,
-//XX     // when clock is high.
-//XX     i2c_data_hi(brd);
-//XX     i2c_clock_hi(brd);
-//XX     i2c_data_lo(brd);
-//XX     i2c_clock_lo(brd);
-//XX     // i2c_data_hi(brd);  // wasn't in Charlie's code
-//XX 
-//XX     // Shift out the address/read byte
-//XX     for (i = 0; i < 8; i++)
-//XX     {
-//XX 	// set data line
-//XX 	if (b1 & 0x80) i2c_data_hi(brd);
-//XX 	else i2c_data_lo(brd);
-//XX 
-//XX 	b1 = b1 << 1;
-//XX 	// raise clock
-//XX 	i2c_clock_hi(brd);
-//XX 	// lower clock
-//XX 	i2c_clock_lo(brd);
-//XX     }
-//XX 
-//XX     // clock the slave's acknowledge bit
-//XX     i2c_clock_hi(brd);
-//XX     i2c_clock_lo(brd);
-//XX 
-//XX     // shift in the first data byte
-//XX     b1 = 0;
-//XX     for (i = 0; i < 8; i++)
-//XX     {
-//XX 	// raise clock
-//XX 	i2c_clock_hi(brd);
-//XX 	// get data
-//XX 	t1 = 0x1 & inb(brd->base_addr);
-//XX 	b1 = (b1 << 1) | t1;
-//XX 	// lower clock
-//XX 	i2c_clock_lo(brd);
-//XX     }
-//XX 
-//XX     // Send the acknowledge bit
-//XX     i2c_data_lo(brd);
-//XX     i2c_clock_hi(brd);
-//XX     i2c_clock_lo(brd);
-//XX     // i2c_data_hi(brd);  // wasn't in Charlie's code
-//XX 
-//XX     // shift in the second data byte
-//XX     b2 = 0;
-//XX     for (i = 0; i < 8; i++)
-//XX     {
-//XX 	i2c_clock_hi(brd);
-//XX 	t1 = 0x1 & inb(brd->base_addr);
-//XX 	b2 = (b2 << 1) | t1;
-//XX 	i2c_clock_lo(brd);
-//XX     }
-//XX 
-//XX     // a stop state is signalled by data going from
-//XX     // lo to hi, when clock is high.
-//XX     i2c_data_lo(brd);
-//XX     i2c_clock_hi(brd);
-//XX     i2c_data_hi(brd);
-//XX 
-//XX     x = (short)(b1<<8 | b2)>>3;
-//XX 
-//XX #ifdef TEMPDEBUG
-//XX     KLOG_DEBUG("b1=0x%02X, b2=0x%02X, b1b2>>3 0x%04X, degC = %d.%1d\n",
-//XX 	       b1, b2, x, x/16, (10*(x%16))/16);
-//XX #endif
-//XX     return x;
-//XX }
+static short 
+A2DTemp(struct A2DBoard* brd)
+{
+    // This takes 68 i2c operations to perform.
+    // Using a delay of 10 usecs, this should take
+    // approximately 680 usecs.
 
-//XX static void 
-//XX sendTemp(struct A2DBoard* brd)
-//XX {
-//XX     I2C_TEMP_SAMPLE samp;
-//XX     samp.timetag = GET_MSEC_CLOCK;
-//XX     samp.size = sizeof(short);
-//XX     samp.data = brd->i2cTempData = A2DTemp(brd);
-//XX #ifdef DEBUG
-//XX     KLOG_DEBUG("Brd temp %d.%1d degC\n", samp.data/16, (10*(samp.data%16))/16);
-//XX #endif
-//XX 
-//XX     if (brd->i2cTempfd >= 0) {
-//XX 	// Write to up-fifo
-//XX 	if (sys_write(brd->i2cTempfd, &samp,
-//XX 		      SIZEOF_DSM_SAMPLE_HEADER + samp.size) < 0) {
-//XX 	    KLOG_ERR("error: write %s: %s, shutting down this fifo\n",
-//XX 		     brd->i2cTempFifoName, sys_strerror(sys_errno));
-//XX 	    sys_close(brd->i2cTempfd);
-//XX 	    brd->i2cTempfd = -1;
-//XX 	}
-//XX     }
-//XX }
+    unsigned char b1;
+    unsigned char b2;
+    unsigned char t1;
+    short x;
+    unsigned char i, address = 0x48;  // Address of temperature register
+
+
+    // shift the address over one, and set the READ indicator
+    b1 = (address << 1) | 1;
+
+    // a start state is indicated by data going from hi to lo,
+    // when clock is high.
+    i2c_data_hi(brd);
+    i2c_clock_hi(brd);
+    i2c_data_lo(brd);
+    i2c_clock_lo(brd);
+
+    // Shift out the address/read byte
+    for (i = 0; i < 8; i++)
+    {
+	// set data line
+	if (b1 & 0x80) i2c_data_hi(brd);
+	else i2c_data_lo(brd);
+
+	b1 = b1 << 1;
+	// raise clock
+	i2c_clock_hi(brd);
+	// lower clock
+	i2c_clock_lo(brd);
+    }
+
+    // clock the slave's acknowledge bit
+    i2c_clock_hi(brd);
+    i2c_clock_lo(brd);
+
+    // shift in the first data byte
+    b1 = 0;
+    for (i = 0; i < 8; i++)
+    {
+	// raise clock
+	i2c_clock_hi(brd);
+	// get data
+	t1 = 0x1 & inb(brd->base_addr);
+	b1 = (b1 << 1) | t1;
+	// lower clock
+	i2c_clock_lo(brd);
+    }
+
+    // Send the acknowledge bit
+    i2c_data_lo(brd);
+    i2c_clock_hi(brd);
+    i2c_clock_lo(brd);
+
+    // shift in the second data byte
+    b2 = 0;
+    for (i = 0; i < 8; i++)
+    {
+	i2c_clock_hi(brd);
+	t1 = 0x1 & inb(brd->base_addr);
+	b2 = (b2 << 1) | t1;
+	i2c_clock_lo(brd);
+    }
+
+    // a stop state is signalled by data going from
+    // lo to hi, when clock is high.
+    i2c_data_lo(brd);
+    i2c_clock_hi(brd);
+    i2c_data_hi(brd);
+
+    x = (short)(b1<<8 | b2)>>3;
+
+    return x;
+}
 
 /*-----------------------End I2C Utils -----------------------*/
 
@@ -1127,7 +1099,7 @@ taskSetupBoard(unsigned long taskletArg)
 }
 
 /*
- * Function scheduled to be called from IIG driver at 100Hz frequency.
+ * Function scheduled to be called from IRIG driver at 100Hz frequency.
  * Read the next DSM sample (which may contain a number of subsamples
  * if the card is sampling faster than 100Hz), and put it into the
  * kfifo buffer for later transfer to user space.
@@ -1184,10 +1156,10 @@ ReadSampleCallback(void *ptr)
     /*
      * If FIFO is full, there's a problem
      */
-    if (preFlevel == 0 || preFlevel == 5) 
+    if (preFlevel == 5) 
     {
-	KLOG_ERR("%d Restarting card with %s FIFO @ %ld\n", entrycount,
-		 (preFlevel == 0) ? "empty" : "full", GET_MSEC_CLOCK);
+	KLOG_ERR("%d Restarting card with full FIFO @ %ld\n", entrycount,
+		 GET_MSEC_CLOCK);
 	brd->resetStatus = WAITING_FOR_RESET;
 	tasklet_schedule(&brd->resetTasklet);
 	goto done;
@@ -1242,14 +1214,9 @@ ReadSampleCallback(void *ptr)
     /*
      * Copy this DSM sample to the kfifo, if there's enough space for it
      */
-    spin_lock(brd->buffer->lock);
-
-    if ((brd->buffer->size - __kfifo_len(brd->buffer)) >= DSMSampleSize(brd))
-    {
-	__kfifo_put(brd->buffer, (unsigned char*)&dsmSample, 
-		    DSMSampleSize(brd));
-	brd->sampleCnt++;
-    }
+    if ((brd->buffer->size - kfifo_len(brd->buffer)) >= DSMSampleSize(brd))
+	kfifo_put(brd->buffer, (unsigned char*)&dsmSample, 
+		  DSMSampleSize(brd));
     else
     {
 	if (!(brd->skippedSamples % 100))
@@ -1260,8 +1227,6 @@ ReadSampleCallback(void *ptr)
 			 DSMSampleSize(brd));
 	brd->skippedSamples++;
     }
-
-    spin_unlock(brd->buffer->lock);
 
     /*
      * Update stats every 10 seconds
@@ -1279,6 +1244,20 @@ ReadSampleCallback(void *ptr)
 	brd->cur_status.resets = brd->resets;
 	memcpy(&brd->prev_status, &brd->cur_status, sizeof(A2D_STATUS));
 	memset(&brd->cur_status, 0, sizeof(A2D_STATUS));
+    }
+
+    /*
+     * Get board temperature data if requested
+     */
+    if (brd->doTemp) {
+	brd->tempSamp.timetag = GET_MSEC_CLOCK;
+	brd->tempSamp.length = sizeof(short);
+	brd->tempSamp.data = A2DTemp(brd);
+	brd->tempReady = 1;
+	brd->doTemp = 0;
+
+	KLOG_NOTICE("Board temp. %d.%1d C\n", brd->tempSamp.data / 16, 
+		    (10 * (brd->tempSamp.data % 16)) / 16);
     }
 
   done:
@@ -1340,57 +1319,71 @@ getDSMSampleData(struct A2DBoard* brd, A2DSAMPLE* dsmSample)
 // Callback function to send I2C temperature data to user space.
 
 //XX static void 
-//XX i2cTempIrigCallback(void *ptr)
+//XX temperatureIrigCallback(void *ptr)
 //XX {
 //XX     struct A2DBoard* brd = (struct A2DBoard*)ptr;
 //XX     brd->doTemp = 1;
 //XX }
 
 //XX static int 
-//XX openI2CTemp(struct A2DBoard* brd, int rate)
+//XX ncar_a2dtemp_open(struct inode *inode, struct file *filp)
 //XX {
-//XX     // limit rate to something reasonable
-//XX     if (rate > IRIG_10_HZ) {
-//XX 	KLOG_ERR("Illegal rate for I2C temperature probe. Exceeds 10Hz\n");
-//XX 	return -EINVAL;
-//XX     }
+//XX     struct A2DBoard *brd = BoardInfo + iminor(inode);
+//XX 
 //XX     brd->i2c = 0x3;
 //XX 
-//XX     if (brd->i2cTempfd >= 0) sys_close(brd->i2cTempfd);
-//XX     if ((brd->i2cTempfd = sys_open(brd->i2cTempFifoName,
-//XX 				  SYS_O_NONBLOCK | SYS_O_WRONLY)) < 0)
-//XX     {
-//XX 	KLOG_ERR("error: opening %s: %s\n",
-//XX 		 brd->i2cTempFifoName, sys_strerror(sys_errno));
-//XX 	return -convert_sys_errno(sys_errno);
-//XX     }
-//XX 
-//XX #ifdef DO_FTRUNCATE
-//XX     int fifosize = sizeof(I2C_TEMP_SAMPLE)*10;
-//XX     if (fifosize < 512) fifosize = 512;
-//XX     if (sys_ftruncate(brd->i2cTempfd, fifosize) < 0) {
-//XX 	KLOG_ERR("error: ftruncate %s: size=%d: %s\n",
-//XX 		 brd->i2cTempFifoName, sizeof(I2C_TEMP_SAMPLE),
-//XX 		 sys_strerror(sys_errno));
-//XX 	return -convert_sys_errno(sys_errno);
-//XX     }
-//XX #endif
-//XX     brd->i2cTempRate = rate;
-//XX     register_irig_callback(i2cTempIrigCallback, rate, brd);
+//XX     register_irig_callback(temperatureIrigCallback, brd->tempRate, brd);
 //XX 
 //XX     return 0;
 //XX }
 
 //XX static int 
-//XX closeI2CTemp(struct A2DBoard* brd)
+//XX ncar_a2dtemp_release(struct inode *inode, struct file *filp)
 //XX {
-//XX     unregister_irig_callback(i2cTempIrigCallback, brd->i2cTempRate, brd);
+//XX     struct A2DBoard *brd = BoardInfo + iminor(inode);
+//XX 
+//XX     unregister_irig_callback(temperatureIrigCallback, brd->i2cTempRate, brd);
 //XX 
 //XX     brd->doTemp = 0;
-//XX     int fd = brd->i2cTempfd;
-//XX     brd->i2cTempfd = -1;
-//XX     if (fd >= 0) sys_close(fd);
 //XX     return 0;
+//XX }
+
+/*
+ * User-side temperature read function
+ */
+//XX static ssize_t 
+//XX ncar_a2dtemp_read(struct file *filp, char __user *buf, size_t count, 
+//XX 		  loff_t *f_pos)
+//XX {
+//XX     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+//XX     int n;
+//XX     int retval = 0;
+//XX 
+//XX     /*
+//XX      * Wait (or return for non-blocking read) if data aren't ready
+//XX      */
+//XX     while (! brd->tempReady)
+//XX     {
+//XX 	/*
+//XX 	 * Return now for a non-blocking read
+//XX 	 */
+//XX 	if (filp->f_flags & O_NONBLOCK)
+//XX 	    return -EAGAIN;
+//XX 	/*
+//XX 	 * Wait for data to be ready
+//XX 	 */
+//XX 	if (wait_event_interruptible(brd->rwaitq, brd->tempReady))
+//XX 	    return -ERESTARTSYS;
+//XX 	/*
+//XX 	 * Regain our lock on the dev 
+//XX 	 */
+//XX     }
+//XX     
+//XX     n = (count > sizeof(I2C_TEMP_SAMPLE)) ? sizeof(I2C_TEMP_SAMPLE) : count;
+//XX     retval = copy_to_user(buf, &(brd->tempSamp), n) ? -EFAULT : n;
+//XX 
+//XX     brd->tempReady = 0;
+//XX     return retval;
 //XX }
 
 /**
@@ -1504,19 +1497,6 @@ startBoard(struct A2DBoard* brd)
     KLOG_DEBUG("starting board %d\n", BOARD_INDEX(brd));
     
     brd->doTemp = 0;
-    brd->sampleCnt = 0;
-
-    /*
-     * Calculate the latency count
-     */
-    brd->latencyCnt = 
-	(brd->config.latencyUsecs * INTERRUPT_RATE) / USECS_PER_SEC;
-
-    if (brd->latencyCnt == 0) 
-	brd->latencyCnt = 1;
-
-    KLOG_DEBUG("latencyUsecs=%ld, latencyCnt=%d\n",
-	       brd->config.latencyUsecs, brd->latencyCnt);
 
     /*
      * Zero out status
@@ -1532,15 +1512,6 @@ startBoard(struct A2DBoard* brd)
 #ifdef DO_STAT_RD
     nReadsPerCallback *= 2; // twice as many reads if status is being sent
 #endif
-
-    /*
-     * Expected FIFO level just before we read.  The extra adjustment
-     * is because FIFO level 1 *includes* exactly 1/4 full, whereas 
-     * levels 2, 3, and 4 do *not* include their upper bounds.
-     */
-    brd->expectedFifoLevel = (nReadsPerCallback * 4) / HWFIFODEPTH + 1;
-    if (nReadsPerCallback == HWFIFODEPTH/4) 
-	brd->expectedFifoLevel = 1;
 
     /*
      * How much to adjust the time tags backwards.
@@ -1565,8 +1536,8 @@ startBoard(struct A2DBoard* brd)
 	(USECS_PER_SEC / INTERRUPT_RATE - USECS_PER_SEC / brd->MaxHz) /
 	USECS_PER_MSEC;
 
-    KLOG_DEBUG("sampsPerCallback=%d, expectedFifoLevel=%d, ttMsecAdj=%d\n",
-	       brd->sampsPerCallback, brd->expectedFifoLevel, brd->ttMsecAdj);
+    KLOG_DEBUG("sampsPerCallback=%d, ttMsecAdj=%d\n", brd->sampsPerCallback, 
+	       brd->ttMsecAdj);
 
     brd->enableReads = 0;
     brd->interrupted = 0;
@@ -1636,6 +1607,8 @@ ncar_a2d_release(struct inode *inode, struct file *filp)
     KLOG_NOTICE("Releasing board %d\n", BOARD_INDEX(brd));
 
     brd->doTemp = 0;
+    brd->resets = 0;
+    
     /*
      * interrupt the 1PPS or acquisition
      */
@@ -1662,8 +1635,10 @@ static unsigned int
 ncar_a2d_poll(struct file *filp, poll_table *wait)
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
+
     poll_wait(filp, &brd->rwaitq, wait);
-    if (brd->sampleCnt >= brd->latencyCnt)
+
+    if (kfifo_len(brd->buffer) >=  DSMSampleSize(brd))
 	return(POLLIN | POLLRDNORM);  // ready to read
     else
 	return 0;
@@ -1676,23 +1651,29 @@ static ssize_t
 ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
-    ssize_t nwritten;
-    int percent_full;
+    int nwritten;
     int fifo_len;
     int wlen;
+    static int entrycount = 0;
     A2DSAMPLE dsmSamp;
     int ssize = DSMSampleSize(brd); // size of a DSM sample for this board
-
-    if (kfifo_len(brd->buffer) < ssize) {
-        if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-	if (wait_event_interruptible(brd->rwaitq, kfifo_len(brd->buffer) >= ssize))
-	    return -ERESTARTSYS;
-    }
 
     if (brd->interrupted)
     {
         KLOG_DEBUG("returning EOF after board interrupt\n");
         return 0;
+    }
+
+    /*
+     * Wait now for a sample to be available (or return EAGAIN for a
+     * non-blocking read)
+     */
+    if (kfifo_len(brd->buffer) < ssize) {
+        if (filp->f_flags & O_NONBLOCK) 
+	    return -EAGAIN;
+	if (wait_event_interruptible(brd->rwaitq, 
+				     kfifo_len(brd->buffer) >= ssize))
+	    return -ERESTARTSYS;
     }
 
     /*
@@ -1704,6 +1685,7 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
      * Bytes to write to user
      */
     wlen = (count > fifo_len) ? fifo_len : count;
+
     /*
      * Adjust so we only send full samples
      */
@@ -1720,7 +1702,6 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
             KLOG_WARNING("Did not get expected sample from kfifo\n");
             return -EFAULT;
         }
-        brd->sampleCnt--;
 
         if (copy_to_user(buf, &dsmSamp, ssize))
         {
@@ -1745,12 +1726,11 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
     void __user* userptr = (void __user*)arg;
-//XX    int rate;
     int len = _IOC_SIZE(cmd);
     int ret = -EINVAL;
     
-    KLOG_DEBUG("ncar_a2d_ioctl for board %d: cmd=%x, len=%d\n",
-	       BOARD_INDEX(brd), cmd, len);
+    KLOG_DEBUG("IOCTL for board %d: cmd=%x, len=%d\n", BOARD_INDEX(brd), 
+	       cmd, len);
 
     switch (cmd)
     {
@@ -1791,7 +1771,6 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	break;
 
       case A2D_SET_CAL:
-	KLOG_DEBUG("A2D_CAL_IOCTL\n");
 	if (len != sizeof(A2D_CAL)) 
 	    break;     // invalid length
 	if (copy_from_user(&brd->cal, (A2D_CAL*)userptr, len) == 0)
@@ -1805,36 +1784,12 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	break;
 
       case A2D_RUN:
-	KLOG_DEBUG("A2D_RUN\n");
 	ret = startBoard(brd);
-	KLOG_DEBUG("A2D_RUN finished\n");
 	break;
 
       case A2D_STOP:
-	KLOG_DEBUG("A2D_STOP\n");
 	ret = stopBoard(brd);
-	KLOG_DEBUG("A2D_STOP done, ret=%d\n", ret);
 	break;
-
-//XX      case A2D_OPEN_I2CT:
-//XX	KLOG_DEBUG("A2D_OPEN_I2CT\n");
-//XX	if (len != sizeof(int)) 
-//XX	    break; // invalid length
-//XX	rate = *(int*)userptr;
-//XX	ret = openI2CTemp(brd, rate);
-//XX	break;
-
-//XX      case A2D_CLOSE_I2CT:
-//XX	KLOG_DEBUG("A2D_CLOSE_I2CT\n");
-//XX	ret = closeI2CTemp(brd);
-//XX	break;
-
-//XX      case A2D_GET_I2CT:
-//XX	if (len != sizeof(short)) 
-//XX	    break;
-//XX	*(short *)userptr = brd->i2cTempData;
-//XX	ret = sizeof(short);
-//XX	break;
 
       default:
 	KLOG_ERR("Bad A2D ioctl 0x%x\n", cmd);
@@ -1844,27 +1799,47 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 }
 
 static int 
-i2c_temp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
-	       unsigned long arg)
+ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
+		   unsigned long arg)
 {
     struct A2DBoard *brd = (struct A2DBoard*)filp->private_data;
     void __user* userptr = (void __user*)arg;
     int len = _IOC_SIZE(cmd);
+    int rate;
+    unsigned long flags;
     int ret = -EINVAL;
 
-    KLOG_DEBUG("i2c_temp_ioctl cmd=%x board addr=0x%x len=%d\n",
+    KLOG_DEBUG("IOCTL cmd=%x board addr=0x%x len=%d\n",
 	       cmd, brd->base_addr, len);
 
     switch (cmd)
     {
-      case A2D_GET_I2CT:
+      case A2DTEMP_GET_TEMP:
 	if (len != sizeof(short)) 
 	    break;
-	*(short *)userptr = brd->i2cTempData;
+	spin_lock_irqsave(brd->bufLock, flags);
+	ret = copy_to_user(userptr, &brd->tempSamp.data, len);
+	spin_unlock_irqrestore(brd->bufLock, flags);
 	ret = sizeof(short);
 	break;
 
+      case A2DTEMP_SET_RATE:
+	/*
+	 * Set temperature query rate (using enum irigClockRates)
+	 */
+	if (len != sizeof(int)) 
+	    break;
+	copy_from_user(&rate, userptr, len);
+	if (rate > IRIG_10_HZ)
+	{
+	    KLOG_WARNING("Illegal rate for A/D temp probe (> 10 Hz)\n");
+	    break;
+	}
+	brd->tempRate = rate;
+	break;
+
       default:
+	KLOG_ERR("Bad A2DTEMP ioctl 0x%x\n", cmd);
 	break;
     }
     return ret;
@@ -2004,17 +1979,20 @@ init_module()
 	    KLOG_NOTICE("NCAR A/D board confirmed at 0x%04x\n", 
 			brd->base_addr);
 
-	// default latency, 1/10 second.
-	brd->config.latencyUsecs = USECS_PER_SEC / 10;
+	/*
+	 * Do we tell the board to interleave status with data?
+	 */
 #ifdef DO_A2D_STATRD
 	brd->FIFOCtl = A2DSTATEBL;
 #else
 	brd->FIFOCtl = 0;
 #endif
-	brd->i2c = 0x3;
+	/*
+	 * Default to 0.1 Hz rate for getting board temperature
+	 */
+	brd->tempRate = IRIG_0_1_HZ; // 0.1 Hz default rate for temp query
 
 	brd->invertCounts = Invert[ib];
-//	brd->master = Master[ib];
 
 	/*
 	 * Initialize the read wait queue
