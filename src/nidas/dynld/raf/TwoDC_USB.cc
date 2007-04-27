@@ -35,7 +35,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf,TwoDC_USB)
 
 const n_u::EndianConverter* TwoDC_USB::toLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
-const long long TwoDC_USB::_syncMask = 0xAAAAAAA000000000LL;
+const long long TwoDC_USB::_syncWord = 0xAAAAAA0000000000LL;
+const long long TwoDC_USB::_syncMask = 0xFFFFFF0000000000LL;
 
 
 TwoDC_USB::TwoDC_USB()
@@ -105,7 +106,7 @@ bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
   {
     long long value = toLittle->longlongValue(&input[i*sizeof(long long)]);
 
-    if ((value & _syncMask) == _syncMask)
+    if ((value & _syncMask) == _syncWord)
       ++cnt;
   }
 

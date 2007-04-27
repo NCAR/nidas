@@ -85,7 +85,7 @@ protected:
    * Synchword mask.  This slice/word is written at the end of each particle.
    * 28 bits of synchronization and 36 bits of timing information.
    */
-  static const long long _syncMask;
+  static const long long _syncMask, _syncWord;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
