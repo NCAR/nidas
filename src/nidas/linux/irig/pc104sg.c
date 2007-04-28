@@ -1414,7 +1414,11 @@ timeoutHandler(unsigned long unused)
      * Just call the interrupt handler with an IRQ of zero to 
      * indicate that a timeout occurred.
      */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+    pc104sg_isr(0, NULL);
+#else
     pc104sg_isr(0, NULL, NULL);
+#endif
 }
 
 /*
