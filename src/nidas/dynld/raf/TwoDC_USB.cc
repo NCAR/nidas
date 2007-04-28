@@ -83,6 +83,7 @@ void TwoDC_USB::close() throw(n_u::IOException)
 }
 
 /*---------------------------------------------------------------------------*/
+#include <cstdio>
 bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
         throw()
 {
@@ -104,9 +105,7 @@ bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
   int cnt = 0;
   for (int i = 0; i < 512; ++i)
   {
-    long long value = toLittle->longlongValue(&input[i*sizeof(long long)]);
-
-    if ((value & _syncMask) == _syncWord)
+    if (memcmp(&input[i*sizeof(long long)], ((const char *)&_syncWord)+5, 3) == 0)
       ++cnt;
   }
 
