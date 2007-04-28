@@ -1976,7 +1976,7 @@ init_module()
 	    goto err;
 	}
 	else
-	    KLOG_NOTICE("NCAR A/D board confirmed at 0x%04x\n", 
+	    KLOG_NOTICE("NCAR A/D board confirmed at 0x%03x\n", 
 			brd->base_addr);
 
 	/*
