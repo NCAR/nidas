@@ -71,7 +71,8 @@ enum irigClockRates {
 static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
 {
     /* Round up to the next highest enumerated poll rate. */
-    if      (value <= 1)     return IRIG_1_HZ;
+    if      (value == 0)     return IRIG_0_1_HZ;
+    else if (value <= 1)     return IRIG_1_HZ;
     else if (value <= 2)     return IRIG_2_HZ;
     else if (value <= 4)     return IRIG_4_HZ;
     else if (value <= 5)     return IRIG_5_HZ;
