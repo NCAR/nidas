@@ -111,6 +111,7 @@ bool TwoDC_USB::process(const Sample * samp, list<const Sample *>& results)
   }
 
   *dout = cnt;
+  results.push_back(outs);
 
   return true;
 }
