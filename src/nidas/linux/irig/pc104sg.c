@@ -478,7 +478,7 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
     int ret = -1;
     unsigned long flags;
     unsigned char status = 0;
-    unsigned long delay_usec = 5; // wait time in microseconds
+    unsigned long delay_usec = 10; // wait time in microseconds
 
     spin_lock_irqsave(&DP_RamLock, flags);
 
@@ -515,8 +515,8 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
 	}
 
 	if (waitcount > 3)
-	    KLOG_NOTICE("ReadDualPortRAM, waitcount=%d (* %ld us)\n", 
-			waitcount, delay_usec);
+	    KLOG_DEBUG("ReadDualPortRAM, waitcount=%d (* %ld us)\n", 
+		       waitcount, delay_usec);
 
 	/* check for a time out on the response... */
 	if ((status & Response_Ready) == 0) {
