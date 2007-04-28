@@ -1817,9 +1817,9 @@ ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
       case A2DTEMP_GET_TEMP:
 	if (len != sizeof(short)) 
 	    break;
-	spin_lock_irqsave(brd->bufLock, flags);
+	spin_lock_irqsave(&brd->bufLock, flags);
 	ret = copy_to_user(userptr, &brd->tempSamp.data, len);
-	spin_unlock_irqrestore(brd->bufLock, flags);
+	spin_unlock_irqrestore(&brd->bufLock, flags);
 	ret = sizeof(short);
 	break;
 
