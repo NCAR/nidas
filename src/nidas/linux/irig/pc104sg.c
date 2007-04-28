@@ -1,6 +1,6 @@
 /* pc104sg.c
 
-driver for the Brandywine's PC104-SG IRIG card
+driver for Brandywine's PC104-SG IRIG card
 (adapted from Gordon Maclean's RT-Linux driver for the card)
 
 Copyright 2007 UCAR, NCAR, All Rights Reserved
@@ -196,6 +196,7 @@ struct dsm_clock_sample samp;
 
 static spinlock_t DP_RamLock = SPIN_LOCK_UNLOCKED;
 static int DP_RamExtStatusEnabled = 1;
+static int DP_RamExtStatusRequested = 0;
 
 /*
  * Interrupt wait timing
@@ -477,7 +478,7 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
     int ret = -1;
     unsigned long flags;
     unsigned char status = 0;
-    unsigned long delay_usec = 10; // wait time in microseconds
+    unsigned long delay_usec = 5; // wait time in microseconds
 
     spin_lock_irqsave(&DP_RamLock, flags);
 
@@ -513,8 +514,9 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
 		break;
 	}
 
-	if (waitcount > 1) 
-	    KLOG_DEBUG("ReadDualPortRAM, waitcount=%d\n", waitcount);
+	if (waitcount > 3)
+	    KLOG_NOTICE("ReadDualPortRAM, waitcount=%d (* %ld us)\n", 
+			waitcount, delay_usec);
 
 	/* check for a time out on the response... */
 	if ((status & Response_Ready) == 0) {
@@ -540,6 +542,46 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
     spin_unlock_irqrestore(&DP_RamLock, flags);
     return ret;
 }
+
+
+/**
+ * The ReqDualPortRAM()/GetDualPortRAM() pair allow us to break a 
+ * dual-port read into two parts.  This is used by checkExtendedStatus(),
+ * which in turn is used by our interrupt service routine.  Each entry
+ * into the ISR reads the value ready from the previous request, then
+ * issues another request.  In this way, the necessary delay between
+ * requesting dual-port RAM and actually getting the value happens
+ * between interrupts, rather than being time spent busy waiting in the
+ * interrupt handler itself.
+ */
+static inline void 
+ReqDualPortRAM(unsigned char addr)
+{
+    /* clear Response_Ready */
+    inb(ISA_Address + Dual_Port_Data_Port);
+
+    /* specify dual port address */
+    outb(addr, ISA_Address + Dual_Port_Data_Port);
+}
+
+static inline void 
+GetDualPortRAM(unsigned char* val)
+{
+   static int ntimeouts = 0;
+   unsigned char status;
+   status = inb(ISA_Address + Extended_Status_Port);
+
+   /* check for a time out on the response... */
+   if (!(status & Response_Ready)) {
+      if (!(++ntimeouts % 100))
+	  KLOG_WARNING("%d timeouts\n", ntimeouts);
+      return;
+   }
+
+   /* return read DP_Control value */
+   *val = inb(ISA_Address + Dual_Port_Data_Port);
+}
+
 
 /**
  * Set a value in dual port RAM.
@@ -1270,9 +1312,33 @@ pc104sg_work_100Hz(void* unused)
 static inline void 
 checkExtendedStatus(void)
 {
-    if (DP_RamExtStatusEnabled)
-	ReadDualPortRAM(DP_Extd_Sts, &ExtendedStatus);
+    /* 
+     * Finish read of extended status from dual-port RAM and submit the next
+     * request for extended status.
+     *
+     * Infrequently the user sends ioctl's which also access dual-port
+     * RAM. The spin_locks are used to avoid simultaneous access.
+     */
+    spin_lock(&DP_RamLock);
 
+    if (DP_RamExtStatusRequested)
+    {
+	GetDualPortRAM(&ExtendedStatus);
+	DP_RamExtStatusRequested = 0;
+    }
+
+    /* send next request */
+    if (DP_RamExtStatusEnabled)
+    {
+	ReqDualPortRAM(DP_Extd_Sts);
+	DP_RamExtStatusRequested = 1;
+    }
+
+    spin_unlock(&DP_RamLock);
+
+    /*
+     * This is where we can change clock state
+     */
     switch (ClockState) {
       case USER_OVERRIDE_REQUESTED:
 	setCounters(&UserClock);
@@ -1659,6 +1725,17 @@ pc104sg_init(void)
     counterRejam();
 
     ClockState = RESET_COUNTERS;
+
+    /*
+     * Initialize the first request for extended status from dual-port
+     * RAM.  The value will be read and successive requests will be 
+     * issued by checkExtendedStatus()
+     */
+    if (DP_RamExtStatusEnabled)
+    {
+	ReqDualPortRAM(DP_Extd_Sts);
+	DP_RamExtStatusRequested = 1;
+    }
 
     /* start interrupts */
     enableHeartBeatInt();
