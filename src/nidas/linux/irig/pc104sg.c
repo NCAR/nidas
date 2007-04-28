@@ -545,17 +545,17 @@ ReadDualPortRAM(unsigned char addr, unsigned char* val)
 
 
 /**
- * The ReqDualPortRAM()/GetDualPortRAM() pair allow us to break a 
- * dual-port read into two parts.  This is used by checkExtendedStatus(),
- * which in turn is used by our interrupt service routine.  Each entry
- * into the ISR reads the value ready from the previous request, then
- * issues another request.  In this way, the necessary delay between
- * requesting dual-port RAM and actually getting the value happens
- * between interrupts, rather than being time spent busy waiting in the
- * interrupt handler itself.
+ * The RequestDualPortRAM()/GetRequestedDualPortRAM() pair allow us to
+ * break a dual-port read into two parts.  This is used by
+ * checkExtendedStatus(), which in turn is used by our interrupt service
+ * routine.  Each entry into the ISR reads the value ready from the
+ * previous request, then issues another request.  In this way, the
+ * necessary delay between requesting dual-port RAM and actually getting
+ * the value happens between interrupts, rather than being time spent busy
+ * waiting in the interrupt handler itself.
  */
 static inline void 
-ReqDualPortRAM(unsigned char addr)
+RequestDualPortRAM(unsigned char addr)
 {
     /* clear Response_Ready */
     inb(ISA_Address + Dual_Port_Data_Port);
@@ -565,7 +565,7 @@ ReqDualPortRAM(unsigned char addr)
 }
 
 static inline void 
-GetDualPortRAM(unsigned char* val)
+GetRequestedDualPortRAM(unsigned char* val)
 {
    static int ntimeouts = 0;
    unsigned char status;
@@ -1304,10 +1304,10 @@ pc104sg_work_100Hz(void* unused)
 
 /*
  * Check the extended status byte.
- * If clock status has changed adjust our clock counters.
- * This function is called by the interrupt service routine
- * and so we don't have to worry about simultaneous access
- * when changing the clock counters.
+ *
+ * If clock status has changed adjust our clock counters.  This function is
+ * called by the interrupt service routine and so we don't have to worry
+ * about simultaneous access when changing the clock counters.
  */
 static inline void 
 checkExtendedStatus(void)
@@ -1323,14 +1323,14 @@ checkExtendedStatus(void)
 
     if (DP_RamExtStatusRequested)
     {
-	GetDualPortRAM(&ExtendedStatus);
+	GetRequestedDualPortRAM(&ExtendedStatus);
 	DP_RamExtStatusRequested = 0;
     }
 
     /* send next request */
     if (DP_RamExtStatusEnabled)
     {
-	ReqDualPortRAM(DP_Extd_Sts);
+	RequestDualPortRAM(DP_Extd_Sts);
 	DP_RamExtStatusRequested = 1;
     }
 
@@ -1502,7 +1502,7 @@ writeTimeCallback(void* irigPortPtr)
     down_interruptible(&p->lock);
 
     getCurrentTime(&ti);
-    
+
     // check clock sanity
     if (ClockState == CODED || ClockState == USER_SET) {
 	struct timeval tv;
@@ -1733,7 +1733,7 @@ pc104sg_init(void)
      */
     if (DP_RamExtStatusEnabled)
     {
-	ReqDualPortRAM(DP_Extd_Sts);
+	RequestDualPortRAM(DP_Extd_Sts);
 	DP_RamExtStatusRequested = 1;
     }
 
@@ -1774,10 +1774,17 @@ pc104sg_poll(struct file *filp, poll_table *wait)
 {
     struct irig_port *p = (struct irig_port*)filp->private_data;
     unsigned int mask = 0;
+
     if (down_interruptible(&p->lock))
 	return -ERESTARTSYS;
+
     poll_wait(filp, &p->rwaitq, wait);
-    if (p->readyForRead) mask |= POLLIN | POLLRDNORM;    /* readable */
+
+    if (p->readyForRead) 
+	mask = POLLIN | POLLRDNORM;    /* readable */
+    else
+	mask = 0;
+    
     up(&p->lock);
     return mask;
 }
