@@ -561,7 +561,7 @@ ReqDualPortRAM(unsigned char addr)
     inb(ISA_Address + Dual_Port_Data_Port);
 
     /* specify dual port address */
-    outb(addr, ISA_Address + Dual_Port_Data_Port);
+    outb(addr, ISA_Address + Dual_Port_Address_Port);
 }
 
 static inline void 
@@ -571,14 +571,14 @@ GetDualPortRAM(unsigned char* val)
    unsigned char status;
    status = inb(ISA_Address + Extended_Status_Port);
 
-   /* check for a time out on the response... */
+   /* make sure the response is ready */
    if (!(status & Response_Ready)) {
       if (!(++ntimeouts % 100))
 	  KLOG_WARNING("%d timeouts\n", ntimeouts);
-      return;
+      return; // val is unchanged
    }
 
-   /* return read DP_Control value */
+   /* return requested dual-port value */
    *val = inb(ISA_Address + Dual_Port_Data_Port);
 }
 
