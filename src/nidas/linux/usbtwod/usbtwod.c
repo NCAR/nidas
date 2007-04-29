@@ -1,13 +1,20 @@
-#define DEBUG
 
-/* Define THROTTLE_URBS if you want to control the resubmission of urbs */
-#define THROTTLE_URBS
 /*
  * USB PMS-2D driver - 2.0
  *
  * Copyright (C) 2007 University Corporation for Atmospheric Research
  *
+ *
+ * TODO: set READ_QUEUE_SIZE to something like 4, and
+ *	 make READS_IN_FLIGHT a variable, and kmalloc/kfree the
+ *       read_urbs array.
+ *	 Set buffer size on user side to 4 samples.
+ *       Then if throttleRate == 0 (no throttle) then
+ *       set READS_IN_FLIGHT to READ_QUEUE_SIZE-1.
+ *       If throttleRate > 0, then set READS_IN_FLIGHT to 1.
  */
+
+// #define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -20,8 +27,10 @@
 #include <linux/usb.h>
 #include <linux/poll.h>
 #include <linux/timer.h>
+#include <linux/moduleparam.h>
 
 #include <nidas/linux/usbtwod/usbtwod.h>
+#include <nidas/linux/klog.h>
 
 /* Define these values to match your devices */
 #define USB_VENDOR_ID	0x2D2D
@@ -38,6 +47,14 @@ static struct usb_device_id twod_table [] = {
 };
 MODULE_DEVICE_TABLE(usb, twod_table);
 
+static int throttleRate = 0;
+static int throttleJiffies = 0;
+
+#if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
+module_param(throttleRate,int,0);
+#else
+module_param(throttleRate,int,0);
+#endif
 
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
@@ -70,9 +87,7 @@ struct usb_twod
   size_t		left_to_copy;		/* how much is left to copy to user buffer of sample_ptr */
   size_t		debug_cntr;
 
-#ifdef THROTTLE_URBS
   struct timer_list urbThrottle;
-#endif
   size_t urbSubmitError;
 };
 
@@ -102,23 +117,23 @@ static ssize_t write_data(struct file *file, const char *user_buffer, size_t cou
  */
 static void usb_twod_submit_urb(struct usb_twod* dev,struct urb* urb,int mem_flags)
 {
-#ifdef THROTTLE_URBS
-        if (CIRC_SPACE(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE) == 0)
-              err("programming error: no space in queue for resubmitting urbs");
-        else {
-            dev->urbq.buf[dev->urbq.head] = urb;
-            INCREMENT_HEAD(dev->urbq, READ_QUEUE_SIZE);
-        }
-#else
-        int retval;
-        retval = usb_submit_urb(urb, mem_flags);
-        if (retval < 0 && !(dev->urbSubmitError++ % 100))
-                err("%s urbSubmitErrors=%d",
-                            __FUNCTION__,dev->urbSubmitError);
-#endif
+	if (throttleRate > 0) {
+		if (CIRC_SPACE(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE) == 0)
+		      err("programming error: no space in queue for resubmitting urbs");
+		else {
+		    dev->urbq.buf[dev->urbq.head] = urb;
+		    INCREMENT_HEAD(dev->urbq, READ_QUEUE_SIZE);
+		}
+	}
+	else {
+		int retval;
+		retval = usb_submit_urb(urb, mem_flags);
+		if (retval < 0 && !(dev->urbSubmitError++ % 100))
+			err("%s urbSubmitErrors=%d",
+				    __FUNCTION__,dev->urbSubmitError);
+	}
 }
 
-#ifdef THROTTLE_URBS
 static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod* dev = (struct usb_twod*) arg;
@@ -128,7 +143,7 @@ static void urb_throttle_func(unsigned long arg)
 	while (dev->urbq.tail != dev->urbq.head) {
 		struct urb* urb = dev->urbq.buf[dev->urbq.tail];
                 if (!(debugcntr++ % 100))
-                    info("urb_throttle_func, queue cnt=%d,jiffies=%ld\n",
+                    KLOG_DEBUG("urb_throttle_func, queue cnt=%d,jiffies=%ld\n",
                         CIRC_CNT(dev->urbq.head,dev->urbq.tail,READ_QUEUE_SIZE),
                         jiffies);
                 retval = usb_submit_urb(urb, GFP_ATOMIC);
@@ -137,10 +152,9 @@ static void urb_throttle_func(unsigned long arg)
                                     __FUNCTION__,dev->urbSubmitError);
                 INCREMENT_TAIL(dev->urbq, READ_QUEUE_SIZE);
         }
-        dev->urbThrottle.expires += 2;     // TODO: make this customizable
+        dev->urbThrottle.expires += throttleJiffies;
         add_timer(&dev->urbThrottle);      // reschedule myself
 }
-#endif
 
 /* -------------------------------------------------------------------- */
 static struct urb * twod_make_urb(struct usb_twod * dev)
@@ -195,9 +209,7 @@ static int twod_release(struct inode *inode, struct file *file)
   info("Valid read urbs received = %d", dev->stats.valid_urb_callbacks);
   info("Read overflow count (lost records) = %d", dev->stats.total_read_overflow);
 
-#ifdef THROTTLE_URBS
   del_timer_sync(&dev->urbThrottle);
-#endif
 
   wake_up_interruptible(&dev->read_wait);
 
@@ -369,15 +381,19 @@ static int twod_open(struct inode *inode, struct file *file)
     usb_twod_submit_urb(dev,dev->read_urbs[i],GFP_KERNEL);
   }
 
-#ifdef THROTTLE_URBS
   init_timer(&dev->urbThrottle);
-  dev->urbThrottle.function = urb_throttle_func;
-  dev->urbThrottle.expires = jiffies;
-  dev->urbThrottle.data = (unsigned long)dev;
-  add_timer(&dev->urbThrottle);
-#endif
 
-  info("USB PMS-2D device now opened");
+  if (throttleRate > 0) {
+	  throttleJiffies = HZ / throttleRate;
+	  if (throttleJiffies < 0) throttleJiffies = 1;
+	  dev->urbThrottle.function = urb_throttle_func;
+	  dev->urbThrottle.expires = jiffies + throttleJiffies;
+	  dev->urbThrottle.data = (unsigned long)dev;
+	  add_timer(&dev->urbThrottle);
+  }
+
+  info("USB PMS-2D device now opened, throttleRate=%d\n",
+	throttleRate);
 
 exit:
   up(&dev->sem);
@@ -441,7 +457,7 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 			break;
 		}
  
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 		if (!(dev->debug_cntr % 100))
 			info("head=%d,tail=%d,urbs=%d,count=%d,left_to_copy=%d",
@@ -500,7 +516,7 @@ static ssize_t twod_read(struct file *file, char *buffer, size_t count, loff_t *
 		dev->out_urb_ptr = sample->urb->transfer_buffer;
 #ifdef DEBUG
 		if (!(dev->debug_cntr % 100))
-			info("bottom count=%d,left_to_copy=%d",count,dev->left_to_copy);
+			KLOG_DEBUG("bottom count=%d,left_to_copy=%d",count,dev->left_to_copy);
 #endif
 	}
 
@@ -512,7 +528,7 @@ unlock_exit:
             usb_twod_submit_urb(dev,submitUrbs[i],GFP_KERNEL);
 
 #ifdef DEBUG
-	if (!(dev->debug_cntr++ % 100)) info("retval=%d\n",retval);
+	if (!(dev->debug_cntr++ % 100)) KLOG_DEBUG("retval=%d\n",retval);
 #endif
 #undef DEBUG
 	return retval;
@@ -718,7 +734,7 @@ static int twod_probe(struct usb_interface *interface, const struct usb_device_i
     goto error;
   }
   /* let the user know what node this device is now attached to */
-  info("USB PMS-2D device now attached to USBtwod-%d", interface->minor);
+  KLOG_INFO("USB PMS-2D device now attached to USBtwod-%d", interface->minor);
   return 0;
 
 error:
