@@ -643,7 +643,8 @@ static int twod_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
       if (retval == 3)
         retval = 0;
       copy_from_user((char *)&dev->latestDAQ_TAS, (const char *)arg, 3);
-      copy_from_user((char *)&dev->latestProbeTAS, (const char *)arg, 3);
+// To be removed when we start reading this from the probe.
+copy_from_user((char *)&dev->latestProbeTAS, (const char *)arg, 3);
       break;
   }
 
