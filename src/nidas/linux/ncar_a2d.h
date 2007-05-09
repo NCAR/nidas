@@ -197,24 +197,17 @@ typedef struct
 
 //FIFO Control Word bit definitions
 #define A2DIO_FIFO         0x0     // FIFO data (read), FIFO Control (write)
-//#define A2DIO_STAT         0x1     // A/D status (read), command (write)
 #define A2DIO_WRCMD        0x1     // write a command
 #define A2DIO_WRCOEF       0x2     // write a coefficient to one of the 7725s
 #define A2DIO_D2A0         0x3
 #define A2DIO_D2A1         0x4
 #define A2DIO_D2A2         0x5
-//#define A2DIO_SYSCTL       0x6     // A/D INT lines(read), Cal/offset (write)
 #define A2DIO_RDINTR       0x6     // read A/D INT lines
 #define A2DIO_WRCALOFF     0x6     // write cal/offset
 #define A2DIO_RDBOARDSTAT  0x7     // read board status
 #define A2DIO_WRMASTER     0x7     // set master A/D
 #define A2DIO_RDCHANSTAT   0x9     // read status from a specific A/D channel
 #define A2DIO_RDDATA       0xa     // read data
-
-//#define A2DIO_STATRD       0x9     // Same as A2DIO_STAT; BSD3(=A2DRWN) high (rd)
-//#define A2DIO_CMNDWR       0x1     // Same as A2DIO_STAT; BSD3(=A2DRWN) low  (wr)
-//#define A2DDATARD       0xA     // Same as A2DIO_DATA; BSD3(=A2DRWN) high (rd)    // NOT USED
-//#define A2DCONFWR       0x2     // Same as A2DIO_DATA; BSD3(=A2DRWN) low  (wr)
 
 // AD7725 chip command words (See A2DIO_WR7725CMD above)
 #define AD7725_READID      0x8802  // Read device ID (NOT USED)
@@ -251,10 +244,10 @@ typedef struct
 
 typedef struct
 {
-    dsm_sample_time_t timetag; // timetag of sample
-    dsm_sample_length_t length;    // number of bytes in data
-    short data;
-} I2C_TEMP_SAMPLE;
+    dsm_sample_time_t timetag;	// timetag of sample
+    dsm_sample_length_t length;	// number of bytes in data
+    short data;			// (deg. C / 0.0625)
+} A2DTEMPSAMPLE;
 
 struct A2DBoard {
     unsigned int base_addr;           // Base address of board
@@ -290,15 +283,14 @@ struct A2DBoard {
 
     spinlock_t bufLock;       // lock for buffer and tempSamp below
     struct kfifo* buffer;     // holds data for transfer to user space
-    I2C_TEMP_SAMPLE tempSamp; // last measured temp
-    int tempReady;            // do we have a new temperature sample?
     wait_queue_head_t rwaitq; // wait queue for user reads
+    A2DTEMPSAMPLE tempSamp;   // last measured temp
+    int tempReady;            // do we have a new temperature sample?
 
     unsigned short OffCal;    // offset and cal bits
     unsigned char FIFOCtl;    // hardware FIFO control word storage
     unsigned char i2c;        // data byte written to I2C
     char invertCounts;        // whether to invert counts from this A2D
-    char doTemp;              // fetch temperature after next A2D scan
     char discardNextScan;     // should we discard the next scan
     int enableReads;
 };
