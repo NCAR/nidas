@@ -33,12 +33,15 @@ public:
   CDP_Serial();
 
   void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
   void sendInitString() throw(nidas::util::IOException);
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+        throw();
+
+  void addSampleTag(SampleTag* tag)
+        throw(nidas::util::InvalidParameterException);
 
 
   // Packet to initialize probe with.
@@ -46,7 +49,6 @@ public:
   {
     char    esc;                                // ESC 0x1b
     char    id;                                 // cmd id
-//    ushort  model;                              // model
     ushort  trig_thresh;                        // trigger threshold
     ushort  transRej;                           // Transit Reject
     ushort  chanCnt;                            // chanCnt
@@ -56,7 +58,6 @@ public:
     ushort  attAccept;
     ushort  divFlag;                            // divisorflag 0=/2, 1=/4
     ushort  ct_method;
-//    ushort  max_width;                          // max_width threshold
     ushort  OPCthreshold[MAX_CHANNELS];         // OPCthreshold[MAX_CHANNELS]
     ushort  chksum;                             // cksum
   };
@@ -90,6 +91,11 @@ protected:
 
   unsigned int _checkSumErrorCnt;
 
+  /**
+   * Stash sample-rate.  The rw histogram counts we want to convert to
+   * a counts per second by multiplying by sample rate.
+   */
+  unsigned int _sampleRate;
 };
 
 }}}	// namespace nidas namespace dynld raf

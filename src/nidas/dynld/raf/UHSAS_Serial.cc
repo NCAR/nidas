@@ -244,7 +244,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // Pull out histogram data.
     unsigned short * histogram = (unsigned short *)&input[6];
     for (int iout = _nChannels-1; iout >= 0; --iout)
-      *dout++ = (float)toLittle->ushortValue(histogram[iout]);
+      *dout++ = (float)toLittle->ushortValue(histogram[iout]) * _sampleRate;
 
     // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
@@ -263,3 +263,11 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     results.push_back(outs);
     return true;
 }
+
+void UHSAS_Serial::addSampleTag(SampleTag* tag)
+        throw(n_u::InvalidParameterException)
+{
+  DSMSensor::addSampleTag(tag);
+  _sampleRate = (int)rint(tag->getRate());
+}
+

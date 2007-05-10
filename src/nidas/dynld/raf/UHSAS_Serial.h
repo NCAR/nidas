@@ -41,6 +41,9 @@ public:
   bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+  void addSampleTag(SampleTag* tag)
+        throw(nidas::util::InvalidParameterException);
+
 
 protected:
 
@@ -61,6 +64,12 @@ protected:
    * Number of housekeeping channels.  12 of 16 possible are used.
    */
   int _nHousekeep;
+
+  /**
+   * Stash sample-rate.  The rw histogram counts we want to convert to
+   * a counts per second by multiplying by sample rate.
+   */
+  unsigned int _sampleRate;
 
 };
 

@@ -19,6 +19,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOTimeoutException.h>
 
+#include <cmath>
 #include <sstream>
 
 using namespace nidas::core;
@@ -33,7 +34,7 @@ const size_t CDP_Serial::FREF_INDX = 4;
 const size_t CDP_Serial::FTMP_INDX = 7;
 
 
-CDP_Serial::CDP_Serial(): SppSerial(), _checkSumErrorCnt(0)
+CDP_Serial::CDP_Serial(): SppSerial(), _checkSumErrorCnt(0), _sampleRate(1)
 {
   _model = 100;
 }
@@ -232,7 +233,8 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
 
-    if (computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
+    if (packetCheckSum != 65535 &&
+	computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
     {
         ++_checkSumErrorCnt;
 
@@ -272,7 +274,7 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     for (int iout = 0; iout < _nChannels; ++iout)
     {
-      *dout++ = fuckedUpLongFlip(p);
+      *dout++ = fuckedUpLongFlip(p) * _sampleRate;
       p += sizeof(unsigned long);
     }
 
@@ -282,4 +284,11 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     results.push_back(outs);
     return true;
+}
+
+void CDP_Serial::addSampleTag(SampleTag* tag)
+        throw(n_u::InvalidParameterException)
+{
+  DSMSensor::addSampleTag(tag);
+  _sampleRate = (int)rint(tag->getRate());
 }
