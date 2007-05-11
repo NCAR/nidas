@@ -96,6 +96,7 @@ float ADC_HW_EB7022597::processLabel(const long data)
     return (data<<3>>13) * 7.62939453125e-6;
 
   case 0270:  // DIS - discrete #1          ()
+    return (data>>17) & 0x7;  // Air_Traffic_Control Select, Overspeed, Weight On Wheels
   case 0271:  // DIS - discrete #2          ()
   case 0350:  // DIS - maintence data #1    ()
   case 0351:  // DIS - maintence data #2    ()
