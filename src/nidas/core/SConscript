@@ -120,6 +120,7 @@ headers = [ Split("""
     Site.h
     Socket.h
     SocketIODevice.h
+    ServerSocketIODevice.h
     SortedSampleSet.h
     StatusHandler.h
     StatusListener.h
@@ -199,6 +200,7 @@ sources = [ Split("""
     Site.cc
     Socket.cc
     SocketIODevice.cc
+    ServerSocketIODevice.cc
     StatusHandler.cc
     StatusListener.cc
     StatusThread.cc

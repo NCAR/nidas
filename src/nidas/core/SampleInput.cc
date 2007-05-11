@@ -31,8 +31,8 @@ SampleInputMerger::SampleInputMerger() :
 	procSampSorter(name + "ProcSampSorter"),
 	unrecognizedSamples(0)
 {
-    inputSorter.setLengthMsecs(250);
-    procSampSorter.setLengthMsecs(250);
+    inputSorter.setLengthMsecs(1500);
+    procSampSorter.setLengthMsecs(100);
 }
 
 SampleInputMerger::~SampleInputMerger()

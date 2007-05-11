@@ -158,7 +158,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 {
     DSMSerialSensor::fromDOMElement(node);
 
-    _nChannels = 100;	// Fixed for this probe (at this time).
+    _nChannels = 99;	// Fixed for this probe (at this time).
     _nHousekeep = 9;	// 9 of the available 16 are used.
 
 
@@ -249,8 +249,8 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
     static float hkScale[] = {
-	64000, 12800, 6400, 6400, 12800, 6400,
-	 6400, 12800, 6400, 6400, 12800, 6400 };
+	16000, 16000, 13104, 16000, 16000, 13104,
+	16000, 16000, 13104, 13104, 16000, 8000 };
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
