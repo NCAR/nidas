@@ -367,7 +367,7 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
     packet.setLength(res);
 }
 
-void SocketImpl::send(const DatagramPacketBase& packet) throw(IOException)
+void SocketImpl::send(const DatagramPacketBase& packet,int flags) throw(IOException)
 {
     int res;
 
@@ -376,7 +376,7 @@ void SocketImpl::send(const DatagramPacketBase& packet) throw(IOException)
 	 << " slen=" << packet.getSockAddrLen() << endl;
 #endif
 
-    if ((res = ::sendto(fd,packet.getConstDataVoidPtr(),packet.getLength(),0,
+    if ((res = ::sendto(fd,packet.getConstDataVoidPtr(),packet.getLength(),flags,
     	packet.getConstSockAddrPtr(),packet.getSockAddrLen())) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(packet.getSocketAddress().toString(),"send",ierr);

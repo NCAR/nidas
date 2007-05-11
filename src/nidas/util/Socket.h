@@ -213,7 +213,7 @@ public:
 
     void receive(DatagramPacketBase& packet) throw(IOException);
 
-    void send(const DatagramPacketBase& packet) throw(IOException);
+    void send(const DatagramPacketBase& packet,int flags=0) throw(IOException);
 
     /**
      * Receive data on a socket. See "man 2 recv" for values of the
@@ -754,6 +754,17 @@ public:
 
     int getDomain() const { return impl.getDomain(); }
 
+    void setNonBlocking(bool val) throw(IOException)
+    {
+    	impl.setNonBlocking(val);
+    }
+
+    bool isNonBlocking() const throw(IOException)
+    {
+    	return impl.isNonBlocking();
+    }
+
+
 protected:
     SocketImpl impl;
 
@@ -879,9 +890,9 @@ public:
 	impl.receive(packet);
     }
 
-    void send(const DatagramPacketBase& packet) throw(IOException)
+    void send(const DatagramPacketBase& packet,int flags=0) throw(IOException)
     {
-	impl.send(packet);
+	impl.send(packet,flags);
     }
 
     size_t recv(void* buf, size_t len, int flags=0) throw(IOException)
