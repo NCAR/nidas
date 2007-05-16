@@ -158,6 +158,18 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 {
     DSMSerialSensor::fromDOMElement(node);
 
+    const Parameter *p;
+
+    // Get Housekeeping scale factors.
+    p = getParameter("HSKP_SCALE");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "HSKP_SCALE","not found");
+    if (p->getLength() != 12)
+        throw n_u::InvalidParameterException(getName(),
+              "HSKP_SCALE","not 12 long ");
+    for (int i = 0; i < p->getLength(); ++i)
+        _hkScale[i] = p->getNumericValue(i);
+
     _nChannels = 99;	// Fixed for this probe (at this time).
     _nHousekeep = 9;	// 9 of the available 16 are used.
 
@@ -248,9 +260,6 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
-    static float hkScale[] = {
-	16000, 16000, 13104, 16000, 16000, 13104,
-	16000, 16000, 13104, 13104, 16000, 8000 };
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
@@ -258,7 +267,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         if (iout == 8)
             ; 
         else
-            *dout++ = (float)toLittle->ushortValue(housekeeping[iout]) / hkScale[iout];
+            *dout++ = (float)toLittle->ushortValue(housekeeping[iout]) / _hkScale[iout];
 
     results.push_back(outs);
     return true;

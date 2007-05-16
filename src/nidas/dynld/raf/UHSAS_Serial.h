@@ -66,6 +66,11 @@ protected:
   int _nHousekeep;
 
   /**
+   * Housekeeping scale factors.
+   */
+  float _hkScale[16];
+
+  /**
    * Stash sample-rate.  The rw histogram counts we want to convert to
    * a counts per second by multiplying by sample rate.
    */
