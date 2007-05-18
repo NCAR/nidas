@@ -77,7 +77,12 @@ public:
     const SampleTag* getSampleTag() const { return sampleTag; }
 
     /**
-     * SampleClient receive method.
+     * scan input, storing up to nout number of values into
+     * output, as  floats.  If a conversion field is not for
+     * a float, like "%d", then the field is scanned into
+     * a the appropriate type (integer in this example)
+     * and then cast to a float.  So a scanf of "99" with a "%d"
+     * will result in a float, with value 99.0.
      */
     int sscanf(const char* input, float* output, int nout) throw();
 

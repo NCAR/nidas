@@ -37,6 +37,7 @@ headers = [ Split("""
     SampleOutputStream.h
     StatisticsCruncher.h
     StatisticsProcessor.h
+    TSI_CPC3772.h
     XMLConfigService.h
 """) ]
 
@@ -60,6 +61,7 @@ sources = [ Split("""
     SampleOutputStream.cc
     StatisticsCruncher.cc
     StatisticsProcessor.cc
+    TSI_CPC3772.cc
     XMLConfigService.cc
 """) ]
 
