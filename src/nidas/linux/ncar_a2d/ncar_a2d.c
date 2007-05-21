@@ -1894,10 +1894,10 @@ ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
     int len = _IOC_SIZE(cmd);
     int rate;
     unsigned long flags;
-    int ret = -EINVAL;
+    int ret;
 
-    KLOG_DEBUG("IOCTL cmd=%x board addr=0x%x len=%d\n",
-	       cmd, brd->base_addr, len);
+    KLOG_DEBUG("A2DTEMP IOCTL cmd=0x%x board %d len=%d\n", cmd, 
+	       BOARD_INDEX(brd), len);
 
     switch (cmd)
     {
@@ -1907,6 +1907,8 @@ ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	spin_lock_irqsave(&brd->bufLock, flags);
 	ret = copy_to_user(userptr, &brd->tempSamp.data, len);
 	spin_unlock_irqrestore(&brd->bufLock, flags);
+	if (ret < 0)
+	    break;
 	ret = sizeof(short);
 	break;
 
@@ -1915,18 +1917,24 @@ ncar_a2dtemp_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 	 * Set temperature query rate (using enum irigClockRates)
 	 */
 	if (len != sizeof(int)) 
-	    break;
-	if (copy_from_user(&rate, userptr, len) == 0)
 	{
-	    ret = -EFAULT;
+	    ret = -EINVAL;
 	    break;
 	}
+
+	if ((ret = copy_from_user(&rate, userptr, len)) < 0)
+	    break;
+
 	if (rate > IRIG_10_HZ)
 	{
+	    ret = -EINVAL;
 	    KLOG_WARNING("Illegal rate for A/D temp probe (> 10 Hz)\n");
 	    break;
 	}
+	unregister_irig_callback(TemperatureCallback, brd->tempRate, brd);
 	brd->tempRate = rate;
+	register_irig_callback(TemperatureCallback, brd->tempRate, brd);
+	ret = 0;
 	break;
 
       default:
