@@ -16,7 +16,6 @@
 #define NIDAS_DYNLD_RAF_A2DBOARDTEMPSENSOR_H
 
 #include <nidas/core/DSMSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/rtlinux/irigclock.h>
 
 namespace nidas { namespace dynld { namespace raf {
