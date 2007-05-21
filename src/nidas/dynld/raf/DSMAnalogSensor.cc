@@ -43,7 +43,7 @@
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
-#include <nidas/rtlinux/a2d_driver.h>
+#include <nidas/linux/ncar_a2d.h>
 
 #include <nidas/util/Logger.h>
 
@@ -155,14 +155,14 @@ void DSMAnalogSensor::open(int flags)
     ioctl(A2D_SET_CONFIG, &a2d, sizeof(A2D_SET));
 
     // cerr << "doing A2D_RUN_IOCTL" << endl;
-    ioctl(A2D_RUN_IOCTL,0,0);
+    ioctl(A2D_RUN, 0, 0);
 
 }
 
 void DSMAnalogSensor::close() throw(n_u::IOException)
 {
     // cerr << "doing A2D_STOP_IOCTL" << endl;
-    ioctl(A2D_STOP_IOCTL,0,0);
+    ioctl(A2D_STOP, 0, 0);
     DSMSensor::close();
 }
 

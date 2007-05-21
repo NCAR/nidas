@@ -28,7 +28,8 @@
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/klog.h>
-#include <nidas/linux/ncar_a2d.h>
+
+#include "ncar_a2d_priv.h"
 
 //#define DEBUG
 
@@ -1289,7 +1290,7 @@ ReadSampleCallback(void *ptr)
     /*
      * Update stats every 10 seconds
      */
-    if (!(brd->readCtr % (INTERRUPT_RATE * 10))) {
+    if (!(brd->readCtr % (A2D_INTERRUPT_RATE * 10))) {
 	brd->nbadScans = 0;
 
 	/*
@@ -1427,6 +1428,9 @@ ncar_a2dtemp_read(struct file *filp, char __user *buf, size_t count,
     int n;
     int retval = 0;
     unsigned long flags;
+    // Note that due to structure padding, sizeof(A2DTEMPSAMPLE) may be 
+    // different from the size we calculate here.  Use the calculated size!
+    int dsmSampSize = SIZEOF_DSM_SAMPLE_HEADER + sizeof(brd->tempSamp.data);
 
     /*
      * Wait (or return for non-blocking read) if data aren't ready
@@ -1451,7 +1455,10 @@ ncar_a2dtemp_read(struct file *filp, char __user *buf, size_t count,
 	spin_lock_irqsave(&brd->bufLock, flags);
     }
     
-    n = (count > sizeof(A2DTEMPSAMPLE)) ? sizeof(A2DTEMPSAMPLE) : count;
+    /*
+     * Return as much of the temperature sample as we can
+     */
+    n = (count > dsmSampSize) ? dsmSampSize : count;
     retval = copy_to_user(buf, &(brd->tempSamp), n) ? -EFAULT : n;
 
     brd->tempReady = 0;
@@ -1589,7 +1596,7 @@ startBoard(struct A2DBoard* brd)
     /*
      * How many data values do we read per interrupt?
      */
-    brd->sampsPerCallback = brd->MaxHz / INTERRUPT_RATE;
+    brd->sampsPerCallback = brd->MaxHz / A2D_INTERRUPT_RATE;
     nReadsPerCallback = MAXA2DS * brd->sampsPerCallback;
 #ifdef DO_STAT_RD
     nReadsPerCallback *= 2; // twice as many reads if status is being sent
@@ -1615,7 +1622,7 @@ startBoard(struct A2DBoard* brd)
      * will involve FIR filtering, perhaps in this module.
      */
     brd->ttMsecAdj =     // compute in microseconds first to avoid trunc
-	(USECS_PER_SEC / INTERRUPT_RATE - USECS_PER_SEC / brd->MaxHz) /
+	(USECS_PER_SEC / A2D_INTERRUPT_RATE - USECS_PER_SEC / brd->MaxHz) /
 	USECS_PER_MSEC;
 
     KLOG_DEBUG("sampsPerCallback=%d, ttMsecAdj=%d\n", brd->sampsPerCallback, 
@@ -1787,7 +1794,7 @@ ncar_a2d_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
         {
             KLOG_WARNING("copy_to_user failure\n");
             return -EFAULT;
-        }
+        } 
         buf += ssize;
 
         nwritten += ssize;

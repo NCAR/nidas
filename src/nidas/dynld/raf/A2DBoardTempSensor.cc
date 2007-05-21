@@ -14,7 +14,11 @@
 */
 
 #include <nidas/dynld/raf/A2DBoardTempSensor.h>
-#include <nidas/rtlinux/a2d_driver.h>
+#include <nidas/linux/ncar_a2d.h>
+
+#include <nidas/core/DSMEngine.h>
+#include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -29,10 +33,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION_NS(raf,A2DBoardTempSensor)
+NIDAS_CREATOR_FUNCTION_NS(raf, A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    DSMSensor(), sampleId(0),rate(IRIG_1_HZ),
+    DSMSensor(), sampleId(0), rate(IRIG_1_HZ),
     DEGC_PER_CNT(0.0625)
 {
 }
@@ -43,7 +47,10 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 
 IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
 {
-    return new RTL_IODevice();
+    if (DSMEngine::isRTLinux())
+	return new RTL_IODevice();
+    else
+	return new UnixIODevice();
 }
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
@@ -52,23 +59,26 @@ SampleScanner* A2DBoardTempSensor::buildSampleScanner()
 }
 
 void A2DBoardTempSensor::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
+	throw(n_u::IOException, n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
-    ioctl(A2D_OPEN_I2CT,&rate,sizeof(rate));
+    if (DSMEngine::isRTLinux())
+	ioctl(A2DTEMP_OPEN, &rate, sizeof(rate));
+    else
+	ioctl(A2DTEMP_SET_RATE, &rate, sizeof(rate));
 }
 
 void A2DBoardTempSensor::close() throw(n_u::IOException)
 {
-    // cerr << "doing A2D_CLOSE_I2CT" << endl;
-    ioctl(A2D_CLOSE_I2CT,0,0);
+    if (DSMEngine::isRTLinux())
+	ioctl(A2DTEMP_CLOSE, 0, 0);
     DSMSensor::close();
 }
 
 float A2DBoardTempSensor::getTemp() throw(n_u::IOException)
 {
     short tval;
-    ioctl(A2D_GET_I2CT,&tval,sizeof(tval));
+    ioctl(A2DTEMP_GET_TEMP, &tval, sizeof(tval));
     return tval * DEGC_PER_CNT;
 }
 
@@ -92,13 +102,13 @@ void A2DBoardTempSensor::printStatus(std::ostream& ostr) throw()
     }
     catch (const n_u::IOException& e) {
         n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: printStatus: %s",getName().c_str(),
+	    "%s: printStatus: %s", getName().c_str(),
 	    e.what());
 	ostr << "<td>" << e.what() << "</td>" << endl;
     }
 }
 
-bool A2DBoardTempSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
+bool A2DBoardTempSensor::process(const Sample* insamp, list<const Sample*>& result) throw()
 {
     // number of data values in this raw sample. Should be one.
     if (insamp->getDataByteLength() / sizeof(short) != 1) return false;

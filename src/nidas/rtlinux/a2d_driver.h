@@ -3,9 +3,9 @@
   Header for test rtl driver.
 
   $LastChangedRevision$
-      $LastChangedDate$
-        $LastChangedBy$
-              $HeadURL$
+  $LastChangedDate$
+  $LastChangedBy$
+  $HeadURL$
 
   Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -16,15 +16,8 @@
 #ifndef A2D_DRIVER_H
 #define A2D_DRIVER_H
 
-#include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
-
-#ifndef __RTCORE_KERNEL__
-/* User programs need this for the _IO macros, but kernel
- * modules get their's elsewhere.
- */
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#endif
+#include <nidas/linux/ncar_a2d.h>	// shared stuff
+#include <nidas/core/dsm_sample.h>	// get dsm_sample typedefs
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
@@ -51,72 +44,8 @@
 #define SC char
 #endif
 
-#define MAXA2DS         8       // Max A/D's per card
 #define A2D_MAX_RATE    5000
-#define INTRP_RATE      100
-#define RATERATIO       (A2D_MAX_RATE/INTRP_RATE)
-
-
-// A/D Filter configuration file parameters
-#define CONFBLOCKS      12  // 12 blocks as described below
-#define CONFBLLEN       43  // 42 data words plus 1 CRCC (Confirmed by ADI)
-
-/* A2D status info */
-typedef struct
-{
-      // fifoLevel indexes 0-5 correspond to return value of getA2DFIFOLevel
-      // 0(empty),1(<=1/4),2(<2/4),3(<3/4),4(<4/4),5(full)
-      size_t preFifoLevel[6];           // counters for fifo level, pre-read
-      size_t postFifoLevel[6];          // counters for fifo level, post-read
-      size_t nbad[MAXA2DS];             // number of bad status words in last 100 scans
-      unsigned short badval[MAXA2DS];   // value of last bad status word
-      unsigned short goodval[MAXA2DS];  // value of last good status word
-      unsigned short    ser_num;        // A/D card serial number
-      size_t nbadFifoLevel;     // #times hw fifo not at expected level pre-read
-      size_t fifoNotEmpty;      // #times hw fifo not empty post-read
-      size_t skippedSamples;    // discarded samples because of slow RTL fifo
-      int resets;               // number of board resets since last open
-} A2D_STATUS;
-
-typedef struct
-{
-      int  gain[MAXA2DS];    // Gain settings
-      int  gainMul[MAXA2DS]; // Gain Code multiplier
-      int  gainDiv[MAXA2DS]; // Gain Code divider
-      int  Hz[MAXA2DS];      // Sample rate in Hz. 0 is off.
-      int  offset[MAXA2DS];  // Offset flags
-      long latencyUsecs;     // buffer latency in micro-seconds
-      US   filter[CONFBLOCKS*CONFBLLEN+1]; // Filter data
-} A2D_SET;
-
-typedef struct
-{
-      int  calset[MAXA2DS];  // Calibration flags
-      int  vcalx8;           // Calibration voltage:
-      // 128=0, 48=-10, 208 = +10, .125 V/bit
-} A2D_CAL;
-
-
-/* Pick a character as the magic number of your driver.
- * It isn't strictly necessary that it be distinct between
- * all modules on the system, but is a good idea. With
- * distinct magic numbers one can catch a user sending
- * an ioctl to the wrong device.
- */
-#define A2D_MAGIC 'A'
-
-/*
- * The enumeration of IOCTLs that this driver supports.
- * See pages 130-132 of Linux Device Driver's Manual
- */
-#define A2D_GET_STATUS _IOR(A2D_MAGIC,0,A2D_STATUS)
-#define A2D_SET_CONFIG _IOW(A2D_MAGIC,1,A2D_SET)
-#define A2D_CAL_IOCTL  _IOW(A2D_MAGIC,2,A2D_CAL)
-#define A2D_RUN_IOCTL  _IO(A2D_MAGIC,3)
-#define A2D_STOP_IOCTL _IO(A2D_MAGIC,4)
-#define A2D_OPEN_I2CT  _IOW(A2D_MAGIC,5,int)
-#define A2D_CLOSE_I2CT _IO(A2D_MAGIC,6)
-#define A2D_GET_I2CT   _IOR(A2D_MAGIC,7,short)
+#define RATERATIO       (A2D_MAX_RATE/A2D_INTERRUPT_RATE)
 
 //A2D Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
@@ -159,10 +88,7 @@ typedef struct
  */
 #define A2DSTATMASK     0xbbfe  // mask for status bits to check
 #define A2DEXPSTATUS    0x8252  // expected value of unmasked bits
-#define A2DGAIN_MUL     9       // Multiplies GainCode
-#define A2DGAIN_DIV     10      // Divides GainCode
 
-#ifdef __RTCORE_KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
 #include <rtl_semaphore.h>
@@ -297,7 +223,5 @@ struct A2DBoard {
       int readActive;
       int enableReads;
 };
-
-#endif
 
 #endif

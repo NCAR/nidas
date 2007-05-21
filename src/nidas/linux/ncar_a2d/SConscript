@@ -18,6 +18,7 @@ Import('env')
 # source tree.
 
 headers = Split("""
+ncar_a2d_priv.h
 """)
 env.Kmake('ncar_a2d.ko', headers + ['ncar_a2d.c', 'Makefile'])
 

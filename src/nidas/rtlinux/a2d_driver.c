@@ -102,9 +102,9 @@ static struct ioctlCmd ioctlcmds[] = {
    { A2D_CAL_IOCTL,  sizeof(A2D_CAL) },
    { A2D_RUN_IOCTL,  _IOC_SIZE(A2D_RUN_IOCTL) },
    { A2D_STOP_IOCTL, _IOC_SIZE(A2D_STOP_IOCTL) },
-   { A2D_OPEN_I2CT,  _IOC_SIZE(A2D_OPEN_I2CT) },
-   { A2D_CLOSE_I2CT, _IOC_SIZE(A2D_CLOSE_I2CT) },
-   { A2D_GET_I2CT,   _IOC_SIZE(A2D_GET_I2CT) },
+   { A2DTEMP_OPEN,  _IOC_SIZE(A2DTEMP_OPEN) },
+   { A2DTEMP_CLOSE, _IOC_SIZE(A2DTEMP_CLOSE) },
+   { A2DTEMP_GET_TEMP,   _IOC_SIZE(A2DTEMP_GET_TEMP) },
 };
 
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -1117,10 +1117,10 @@ static inline int getA2DSample(struct A2DBoard* brd)
    if (nbad > 0) brd->nbadScans++;
 
    // DSMSensor::printStatus queries these values every 10 seconds
-   if (!(++brd->readCtr % (INTRP_RATE * 10))) {
+   if (!(++brd->readCtr % (A2D_INTERRUPT_RATE * 10))) {
 
       // debug print every minute, or if there are bad scans
-      if (!(brd->readCtr % (INTRP_RATE * 60)) || brd->nbadScans) {
+      if (!(brd->readCtr % (A2D_INTERRUPT_RATE * 60)) || brd->nbadScans) {
          DSMLOG_DEBUG("GET_MSEC_CLOCK=%d, nbadScans=%d\n",
                       GET_MSEC_CLOCK, brd->nbadScans);
          DSMLOG_DEBUG("nbadFifoLevel=%d, #fifoNotEmpty=%d, #skipped=%d, #resets=%d\n",
@@ -1471,7 +1471,7 @@ static int openA2D(struct A2DBoard* brd)
    brd->doTemp = 0;
    brd->acq_thread = 0;
    brd->latencyCnt = brd->config.latencyUsecs /
-      (USECS_PER_SEC / INTRP_RATE);
+      (USECS_PER_SEC / A2D_INTERRUPT_RATE);
    if (brd->latencyCnt == 0) brd->latencyCnt = 1;
 #ifdef DEBUG
    DSMLOG_DEBUG("latencyUsecs=%d, latencyCnt=%d\n",
@@ -1483,7 +1483,7 @@ static int openA2D(struct A2DBoard* brd)
    brd->head = 0;
    brd->tail = 0;
 
-   brd->nreads = brd->MaxHz*MAXA2DS/INTRP_RATE;
+   brd->nreads = brd->MaxHz*MAXA2DS/A2D_INTERRUPT_RATE;
 
    // expected fifo level just before we read
    brd->expectedFifoLevel = (brd->nreads * 4) / HWFIFODEPTH + 1;
@@ -1510,7 +1510,7 @@ static int openA2D(struct A2DBoard* brd)
     * will involve FIR filtering, perhaps in this module.
     */
    brd->ttMsecAdj =     // compute in microseconds first to avoid trunc
-      (USECS_PER_SEC / INTRP_RATE - USECS_PER_SEC / brd->MaxHz) /
+      (USECS_PER_SEC / A2D_INTERRUPT_RATE - USECS_PER_SEC / brd->MaxHz) /
       USECS_PER_MSEC;
 
    DSMLOG_DEBUG("nreads=%d, expectedFifoLevel=%d, ttMsecAdj=%d\n",
@@ -1715,7 +1715,7 @@ static int ioctlCallback(int cmd, int board, int port,
          ret = closeA2D(brd);
          DSMLOG_DEBUG("closeA2D, ret=%d\n",ret);
          break;
-      case A2D_OPEN_I2CT:
+      case A2DTEMP_OPEN:
          if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
          DSMLOG_DEBUG("A2D_OPEN_I2CT\n");
          if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
@@ -1723,13 +1723,13 @@ static int ioctlCallback(int cmd, int board, int port,
          int rate = *(int*)buf;
          ret = openI2CTemp(brd,rate);
          break;
-      case A2D_CLOSE_I2CT:
+      case A2DTEMP_CLOSE:
          if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
          DSMLOG_DEBUG("A2D_CLOSE_I2CT\n");
          if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
          ret = closeI2CTemp(brd);
          break;
-      case A2D_GET_I2CT:
+      case A2DTEMP_GET_TEMP:
          if (port != 1) break;  // port 0 is the A2D, port 1 is I2C temp
          if (len != sizeof(short)) break;
          *(short *) buf = brd->i2cTempData;
