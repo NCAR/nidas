@@ -96,7 +96,7 @@ function clicker(that) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='dsm[]' size="9" multiple="multiple"
+  <select name='dsm[]' size="12" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
     <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,12, '_')?>'>
