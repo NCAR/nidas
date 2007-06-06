@@ -148,6 +148,7 @@ copy_apps() {
 	rsync -rlptDzv $ruser@$server:$adspath/lib/libnidas_dynld.so $libpath/
 	rsync -rlptDzv $ruser@$server:$adspath/bin/dsm               $dsmpath/
 	rsync -rlptDzv $ruser@$server:$adspath/filters/*.cfg         $ftrpath/
+	ldconfig
 }
 
 start_app() {
@@ -222,16 +223,17 @@ check_ntp() {
     /etc/init.d/ntpd start
 }
 
-# get devdir and create it
-devdir=$(get_devdir < $modconf)
-[ -d $devdir ] || mkdir -p $devdir
-# echo "devdir=$devdir"
-
 case "$1" in
   start)
 	echo -n "Starting $DESC (fetch & load modules, fetch app, run app): "
         [ -d $dsmpath ] || mkdir -p $dsmpath
 	mount $dsmpath
+	
+        # get devdir and create it
+        devdir=$(get_devdir < $modconf)
+        echo "devdir=$devdir"
+        [ -d $devdir ] || mkdir -p $devdir
+
 	check_ntp
 	unload_modules < $modconf
 	copy_firmware < $modconf
