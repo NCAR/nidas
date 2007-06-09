@@ -40,6 +40,7 @@ apps = Split("""
     ck_aout.cc
     ck_arinc.cc
     ck_calfile.cc
+    merge_verify.cc
     nidsmerge.cc
     dsm_server.cc
     dsm.cc
@@ -71,6 +72,7 @@ apps = Split("""
     raf/cvi_lv_test_out.cc
     utime.cc
     proj_configs.cc
+    sensor_extract.cc
 """)
 
 nodes = []

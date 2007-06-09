@@ -287,14 +287,23 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             header.setRawId(bswap_32(header.getRawId()));
 #endif
 
-            if (header.getType() >= UNKNOWN_ST) {
-                badInputSamples++;
-                samp = nidas::core::getSample((sampleType)CHAR_ST,
-                    header.getDataByteLength());
-            }
-            else
-                samp = nidas::core::getSample((sampleType)header.getType(),
-                    header.getDataByteLength());
+            // screen bad headers.
+	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
+                header.getDataByteLength() > 32767 ||
+                header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
+	        if (!(badInputSamples++ % 1000)) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        getName().c_str(), badInputSamples,
+                        iostream->getNBytes()-header.getSizeOf(),
+                        GET_DSM_ID(header.getId()),GET_SHORT_ID(header.getId()),
+                        header.getType(),header.getDataByteLength());
+                }
+                iostream->backup(header.getSizeOf() - 1);
+                continue;
+	    }
+	    else samp = nidas::core::getSample((sampleType)header.getType(),
+		    header.getDataByteLength());
 
             samp->setTimeTag(header.getTimeTag());
             samp->setId(header.getId());

@@ -333,11 +333,18 @@ void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
     /*
      * Every so often check if nc_server actually responds
      */
-    if (time(0) - lastFlush > rpcBatchPeriod) return flush();
+    if (time(0) - lastFlush > rpcBatchPeriod) flush();
 
     /*
      * For RPC batch mode, the timeout is set to 0.
      */
+#ifdef DEBUG
+    n_u::UTime ut(rec->time);
+    cerr << "write " <<
+	ut.format(true,"%Y %m %d %H:%M:%S.%6f ") <<
+	" id=" << rec->datarecId <<
+	" v[0]=" << rec->data.data_val[0] << endl;
+#endif
     enum clnt_stat clnt_stat;
     clnt_stat = clnt_call(clnt, WRITEDATARECBATCH_FLOAT,
 	(xdrproc_t) xdr_datarec_float, (caddr_t) rec,

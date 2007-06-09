@@ -331,7 +331,7 @@ int NidsMerge::run() throw()
 	    cout << "  input" << ii;
 	    cout << " unique" << ii;
         }
-	cout << "   before   after  output" << endl;
+	cout << "    before   after  output" << endl;
 
 	for (dsm_time_t tcur = startTime.toUsecs(); tcur <= endTime.toUsecs();
 	    tcur += readAheadUsecs) {
@@ -389,7 +389,7 @@ int NidsMerge::run() throw()
 	    	cout << ' ' << setw(7) << samplesRead[ii];
 	    	cout << ' ' << setw(7) << samplesUnique[ii];
             }
-	    cout << setw(7) << before << ' ' << setw(7) << after << ' ' <<
+	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
 	    	setw(7) << before - after << endl;
 	}
 	outStream.finish();
