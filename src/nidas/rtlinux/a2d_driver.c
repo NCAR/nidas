@@ -99,9 +99,9 @@ static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
    { A2D_GET_STATUS, _IOC_SIZE(A2D_GET_STATUS) },
    { A2D_SET_CONFIG, sizeof(A2D_SET) },
-   { A2D_CAL_IOCTL,  sizeof(A2D_CAL) },
-   { A2D_RUN_IOCTL,  _IOC_SIZE(A2D_RUN_IOCTL) },
-   { A2D_STOP_IOCTL, _IOC_SIZE(A2D_STOP_IOCTL) },
+   { A2D_SET_CAL,  sizeof(A2D_CAL) },
+   { A2D_RUN,  _IOC_SIZE(A2D_RUN) },
+   { A2D_STOP, _IOC_SIZE(A2D_STOP) },
    { A2DTEMP_OPEN,  _IOC_SIZE(A2DTEMP_OPEN) },
    { A2DTEMP_CLOSE, _IOC_SIZE(A2DTEMP_CLOSE) },
    { A2DTEMP_GET_TEMP,   _IOC_SIZE(A2DTEMP_GET_TEMP) },
@@ -1669,7 +1669,7 @@ static int ioctlCallback(int cmd, int board, int port,
          DSMLOG_DEBUG("A2D_SET_CONFIG done, ret=%d\n", ret);
          break;
 
-      case A2D_CAL_IOCTL:               /* user set */
+      case A2D_SET_CAL:               /* user set */
          DSMLOG_DEBUG("A2D_CAL_IOCTL\n");
          if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
          if (len != sizeof(A2D_CAL)) break;     // invalid length
@@ -1679,7 +1679,7 @@ static int ioctlCallback(int cmd, int board, int port,
          ret = 0;
          break;
 
-      case A2D_RUN_IOCTL:
+      case A2D_RUN:
          if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
          // clean up acquisition thread if it was left around
 #ifdef A2D_ACQ_IN_SEPARATE_THREAD
@@ -1709,7 +1709,7 @@ static int ioctlCallback(int cmd, int board, int port,
          DSMLOG_DEBUG("A2D_RUN_IOCTL finished\n");
          break;
 
-      case A2D_STOP_IOCTL:
+      case A2D_STOP:
          if (port != 0) break;  // port 0 is the A2D, port 1 is I2C temp
          DSMLOG_DEBUG("A2D_STOP_IOCTL\n");
          ret = closeA2D(brd);
