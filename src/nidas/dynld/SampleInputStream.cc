@@ -201,7 +201,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 
             // screen bad headers.
 	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
-                header.getDataByteLength() > 32767 ||
+                header.getDataByteLength() > 64536 ||
                 header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
 	        if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -289,7 +289,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 
             // screen bad headers.
 	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
-                header.getDataByteLength() > 32767 ||
+                header.getDataByteLength() > 64536 ||
                 header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
 	        if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
