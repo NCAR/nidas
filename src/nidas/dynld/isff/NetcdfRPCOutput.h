@@ -64,7 +64,7 @@ public:
     /**
     * Raw write not supported.
     */
-    void write(const void* buf, size_t len)
+    size_t write(const void* buf, size_t len)
     	throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");

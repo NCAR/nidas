@@ -66,7 +66,7 @@ public:
 
     void finish() throw();
 
-    void write(const void* buf, size_t len)
+    size_t write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
 protected:

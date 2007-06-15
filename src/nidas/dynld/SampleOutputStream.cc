@@ -131,10 +131,10 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     return true;
 }
 
-void SampleOutputStream::write(const void* buf, size_t len)
+size_t SampleOutputStream::write(const void* buf, size_t len)
 	throw(n_u::IOException)
 {
-    iostream->write(buf,len);
+    return iostream->write(buf,len);
 }
 
 bool SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)

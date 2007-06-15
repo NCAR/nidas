@@ -185,17 +185,19 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
     else HeaderSource::sendDefaultHeader(this);
 }
 
-void SampleOutputBase::write(const void* buf, size_t len)
+size_t SampleOutputBase::write(const void* buf, size_t len)
 	throw(n_u::IOException)
 {
     // brute force it. This is typically only used for
     // writing the header.
     const char* cbuf = (const char*) buf;
+    size_t lout = 0;
     while (len > 0) {
-	size_t l = iochan->write(cbuf,len);
+	size_t l = iochan->write(cbuf+lout,len);
 	len -= l;
-	cbuf += l;
+        lout += l;
     }
+    return lout;
 }
 
 void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)

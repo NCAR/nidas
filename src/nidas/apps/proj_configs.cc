@@ -9,7 +9,9 @@
     $LastChangedBy$
 
     $HeadURL$
- ********************************************************************
+
+    Utility program to list, add and terminate the configurations
+    for a project.
 */
 
 #include <nidas/core/ProjectConfigs.h>
@@ -45,8 +47,10 @@ public:
 
     void getConfig();
 
-    enum tasks { NUTTIN_TO_DO, LIST_CONFIG_NAMES, LIST_CONFIGS, ADD_CONFIG, TERM_CONFIG, 
-        GET_CONFIG };
+    void getConfigForTime();
+
+    enum tasks { NUTTIN_TO_DO, LIST_CONFIG_NAMES, LIST_CONFIGS,
+        ADD_CONFIG, TERM_CONFIG, GET_CONFIG, GET_CONFIG_FOR_TIME };
 
 private:
 
@@ -90,8 +94,9 @@ private:
 /* static */
 int ProjConfigIO::usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " [-a ...] [-f [...]] [-g ...] [-l] [-n] [-t ...] configs_xml_file\n\
+    cerr << "Usage: " << argv0 << " [-a ...] [-c time] [-f [...]] [-g ...] [-l] [-n] [-t ...] configs_xml_file\n\
 -a: add a configuration entry to configs_xml_file\n\
+-c: list configurations corresponding to a  time\n\
 -f: print formatted times\n\
 -g: get a configuation entry by name, with times formatted as YYYY mmm dd HH:MM:SS\n\
 -l: list configurations in configs_xml_file\n\
@@ -105,7 +110,7 @@ Syntax:\n\
     ending at the time \"end\". If \"end\" is not given it defaults to\n\
     \"start\" plus two years.\n\
 -f [timeformat]\n\
-    Specify time input and output format for options -a -t, -g  and -l.\n\
+    Specify time input and output format for options -a, -c, -t, -g  and -l.\n\
     Default format is \"%Y %b %d %H:%M:%S\". If -f option is not specified,\n\
     input and output times will be in integer seconds since 1970 Jan 1 00:00 UTC\n\
 -t \"end\"\n\
@@ -144,7 +149,7 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
     string beginTime;
     string endTime;
 
-    while ((opt_char = getopt(argc, argv, "a:fg:lnt:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "a:c:fg:lnt:")) != -1) {
 
 #ifdef DEBUG
         cerr << "opt_char=" << (char) opt_char << ", optind=" << optind <<
@@ -171,6 +176,10 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
             if (optind >= argc - 1 || argv[optind][0] == '-') break;
             endTime = argv[optind++];
             break;
+        case 'c':
+	    task = GET_CONFIG_FOR_TIME;
+            beginTime = optarg;
+	    break;
 	case 'f':
             if (optind >= argc - 1 || argv[optind][0] == '-')
                 timeformat = "%Y %b %d %H:%M:%S";
@@ -249,6 +258,9 @@ int ProjConfigIO::run()
         case GET_CONFIG:
             getConfig();
             break;
+        case GET_CONFIG_FOR_TIME:
+            getConfigForTime();
+            break;
         default:
             return 1;
         }
@@ -311,6 +323,30 @@ void ProjConfigIO::getConfig()
 
         // may be more than one match
         if (cfg->getName() == cname) {
+            cout << cfg->getXMLName() << ' ';
+            if (timeformat.length() > 0)
+                cout << cfg->getBeginTime() << " - " << cfg->getEndTime() << endl;
+            else
+                cout << cfg->getBeginTime().toUsecs()/USECS_PER_SEC << ' ' <<
+                    cfg->getEndTime().toUsecs()/USECS_PER_SEC << endl;
+        }
+    }
+}
+
+void ProjConfigIO::getConfigForTime()
+{
+
+    if (timeformat.length() > 0) cout << n_u::setTZ<char>("GMT") <<
+        n_u::setDefaultFormat<char>(timeformat);
+
+    const list<const ProjectConfig*>& cfgs = configs.getConfigs();
+
+    list<const ProjectConfig*>::const_iterator ci = cfgs.begin();
+
+    for( ; ci != cfgs.end(); ++ci) {
+        const ProjectConfig* cfg = *ci;
+        if (cbegin >= cfg->getBeginTime().toUsecs() &&
+                cbegin < cfg->getEndTime()) {
             cout << cfg->getXMLName() << ' ';
             if (timeformat.length() > 0)
                 cout << cfg->getBeginTime() << " - " << cfg->getEndTime() << endl;

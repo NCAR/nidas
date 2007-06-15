@@ -83,7 +83,7 @@ public:
      * Plain raw write, typically only used to write an initial
      * header.
      */
-    virtual void write(const void* buf, size_t len)
+    virtual size_t write(const void* buf, size_t len)
     	throw(nidas::util::IOException) = 0;
 
     virtual void close() throw(nidas::util::IOException) = 0;
@@ -160,7 +160,7 @@ public:
      * Raw write method, typically used to write the initial
      * header.
      */
-    void write(const void* buf, size_t len)
+    size_t write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
     void fromDOMElement(const xercesc::DOMElement* node)

@@ -72,6 +72,7 @@ apps = Split("""
     raf/cvi_lv_test_out.cc
     utime.cc
     proj_configs.cc
+    n_hdr_util.cc
     sensor_extract.cc
 """)
 

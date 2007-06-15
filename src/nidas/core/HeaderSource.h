@@ -25,8 +25,7 @@ namespace nidas { namespace core {
 class SampleOutput;
 
 /**
- * Interface for an object that requests connections to Inputs
- * or Outputs.
+ * An interface for sending a SampleHeader to a SampleOutput.
  */
 class HeaderSource
 {

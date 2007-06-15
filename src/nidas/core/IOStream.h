@@ -72,6 +72,15 @@ public:
 
     size_t skip(size_t len) throw(nidas::util::IOException);
 
+    /**
+     * Move the read buffer pointer backwards by len number of bytes,
+     * so that the next read will return data that was previously read.  
+     * This just backs over bytes in the current buffer, and does
+     * not reposition the physical device.
+     * @return The number of bytes backed over, which may be
+     *      less than the number requested if there are fewer
+     *      than len number of bytes in the buffer.
+     */
     size_t backup(size_t len) throw();
 
     /**
@@ -108,10 +117,10 @@ public:
      *    physical device is bogged down. Typically one must
      *    chuck the data and proceed.
      */
-    bool write(const void *const * bufs,const size_t* lens, int nbufs)
+    size_t write(const void *const * bufs,const size_t* lens, int nbufs)
   	throw(nidas::util::IOException);
 
-    bool write(const void*buf,size_t len) throw (nidas::util::IOException);
+    size_t write(const void*buf,size_t len) throw (nidas::util::IOException);
 
     /**
      * Flush buffer to physical device.

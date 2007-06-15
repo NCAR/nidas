@@ -24,9 +24,13 @@ class SampleInputHeader
 {
 public:
 
+    SampleInputHeader(): _size(0) {}
+
     void check(IOStream* iostream) throw(nidas::util::IOException);
 
-    void write(SampleOutput* output) throw(nidas::util::IOException);
+    size_t write(SampleOutput* output) throw(nidas::util::IOException);
+
+    size_t write(IOStream* iostream) throw(nidas::util::IOException);
 
     void setArchiveVersion(const std::string& val) { archiveVersion = val; }
     const std::string& getArchiveVersion() const { return archiveVersion; }
@@ -94,6 +98,13 @@ private:
      * that may be found in existing sample files.
      */
     static const char* magicStrings[];
+
+    /**
+     * Size in bytes of the header. The value is saved, so that if we
+     * update one or more values, then we might be able to re-write
+     * the header without exceeding the original size.
+     */
+    int _size;
 
 };
 

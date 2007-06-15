@@ -58,11 +58,12 @@ const char* SampleInputHeader::magicStrings[] = {
 void SampleInputHeader::check(IOStream* iostream)
 	throw(n_u::IOException)
 {
-    char buf[256];
+    char buf[512];
 
     int nmagic = sizeof(magicStrings) / sizeof(magicStrings[0]);
     // cerr << "nmagic=" << nmagic << endl;
 
+    _size = 0;
     size_t minl = 99999999;
     int imagic;
     for (imagic = 0; imagic < nmagic; imagic++)
@@ -73,16 +74,18 @@ void SampleInputHeader::check(IOStream* iostream)
 	    string("header does not match \"") + magicStrings[0] + 
 	    string("\""));
 
+    _size += minl;
+
     for (imagic = 0; imagic < nmagic; imagic++) {
 	if (!::strncmp(buf,magicStrings[imagic],minl)) {
+            // partial match to magic string, read entire string
 	    size_t lmagic = ::strlen(magicStrings[imagic]);
-	    size_t nread = lmagic - minl;
-	    if ((nread > 0 && iostream->read(buf+minl,nread) != nread)
-	    	|| ::strncmp(buf,magicStrings[imagic],lmagic))
-		throw n_u::IOException(iostream->getName(),"open",
-		string("header does not match \"") + magicStrings[imagic] + 
-		    string("\""));
-	    break;
+	    size_t nread = lmagic - _size;
+	    if (nread > 0 && iostream->read(buf+_size,nread) != nread)
+		throw n_u::IOException(iostream->getName(),"read",
+                    "short header (does not contain magic string)");
+            _size += nread;
+	    if (!::strncmp(buf,magicStrings[imagic],lmagic)) break;
 	}
     }
     if (imagic == nmagic)
@@ -96,6 +99,7 @@ void SampleInputHeader::check(IOStream* iostream)
     for ( ;; ) {
         if (iostream->read(buf+ic,1) == 0) break;
 	ic++;
+        _size++;
 	int itag;
 	for (itag = 0; itag < ntags; itag++)
 	    if (!strncmp(headers[itag].tag,buf,ic)) break;
@@ -116,6 +120,7 @@ void SampleInputHeader::check(IOStream* iostream)
 	    if (!headers[itag].setFunc) break;		// endheader tag
 	    for(;;) {
 		if (iostream->read(buf+ic,1) == 0) return; // EOF
+                _size++;
 		if (buf[ic] == '\n') break;
 		if (++ic == sizeof(buf)) break;
 	    }
@@ -137,13 +142,15 @@ void SampleInputHeader::check(IOStream* iostream)
 	    ic = 0;
 	}
     } 
+    _size -= ic;
     iostream->backup(ic);
 }
 
-void SampleInputHeader::write(SampleOutput* output)
+size_t SampleInputHeader::write(SampleOutput* output)
 	throw(n_u::IOException)
 {
-    output->write(magicStrings[0],::strlen(magicStrings[0]));
+    int nout = 0;
+    nout += output->write(magicStrings[0],::strlen(magicStrings[0]));
 
     int ntags = sizeof(headers)/sizeof(struct headerField);
 
@@ -151,19 +158,51 @@ void SampleInputHeader::write(SampleOutput* output)
     for (itag = 0; itag < ntags; itag++) {
 	if (headers[itag].obsolete) continue;
 	const char* str = headers[itag].tag;
-	output->write(str,::strlen(str));
-	if (headers[itag].getFunc) {
-	    output->write(" ",1);
+        if (headers[itag].getFunc) { 
+            nout += output->write(str,::strlen(str));
+	    nout += output->write(" ",1);
 	    str = (this->*headers[itag].getFunc)().c_str();
-	    unsigned ls = ::strlen(str);
-	    output->write(str,ls);
-	    // pad out config tag to 128 characters
-	    if (headers[itag].getFunc == &SampleInputHeader::getConfigName) {
-		for (unsigned int i = ls; i < 128 || i < ls + 16; i++)
-		    output->write(" ",1);
-	    }
-	    str = "\n";
-	    output->write(str,1);
+	    nout += output->write(str,::strlen(str));
+	    nout += output->write("\n",1);
 	}
+        else {      // end tag
+            nout += ::strlen(str);
+            if (_size == 0) _size = nout + 128;     // add padding
+            for ( ; nout < _size - 1; ) nout += output->write(" ",1);
+            if (nout < _size) nout += output->write("\n",1);
+            output->write(str,::strlen(str));
+        }
     } 
+    return nout;
 }
+
+size_t SampleInputHeader::write(IOStream* output)
+	throw(n_u::IOException)
+{
+    int nout = 0;
+    nout += output->write(magicStrings[0],::strlen(magicStrings[0]));
+
+    int ntags = sizeof(headers)/sizeof(struct headerField);
+
+    int itag;
+    for (itag = 0; itag < ntags; itag++) {
+	if (headers[itag].obsolete) continue;
+	const char* str = headers[itag].tag;
+        if (headers[itag].getFunc) { 
+            nout += output->write(str,::strlen(str));
+	    nout += output->write(" ",1);
+	    str = (this->*headers[itag].getFunc)().c_str();
+	    nout += output->write(str,::strlen(str));
+	    nout += output->write("\n",1);
+	}
+        else {      // end tag
+            nout += ::strlen(str);
+            if (_size == 0) _size = nout + 128;     // add padding
+            for ( ; nout < _size - 1; ) nout += output->write(" ",1);
+            if (nout < _size) nout += output->write("\n",1);
+            output->write(str,::strlen(str));
+        }
+    } 
+    return nout;
+}
+

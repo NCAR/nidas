@@ -177,7 +177,7 @@ size_t IOStream::backup(size_t len) throw()
     return len;
 }
 
-bool IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
+size_t IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
 {
     return write(&buf,&len,1);
 }
@@ -185,7 +185,7 @@ bool IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
 /*
  * Buffered atomic write - all data is written to buffer, or none.
  */
-bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) throw (n_u::IOException)
+size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) throw (n_u::IOException)
 {
     size_t l;
     int ibuf;
@@ -195,7 +195,7 @@ bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) thro
     for (ibuf = 0; ibuf < nbufs; ibuf++) tlen += lens[ibuf];
 
     // If we need to expand the buffer for a large sample.
-    // This does not screen rediculous sample sizes.
+    // This does not screen ridiculous sample sizes.
     if (tlen > buflen) reallocateBuffer(tlen);
 
     dsm_time_t tnow = getSystemTime();
@@ -238,14 +238,14 @@ bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) thro
     // not enough space for the entire request.
     // See if we can make more space
     if (space < tlen) {
-        if (tail == buffer) return false;   // nope
+        if (tail == buffer) return 0;   // nope
         // shift data down. memmove supports overlapping memory areas
         wlen = head - tail;
         memmove(buffer,tail,wlen);
         tail = buffer;
         head = tail + wlen;
         space = eob - head;
-        if (space < tlen) return false;	// gave it our best shot
+        if (space < tlen) return 0;	// gave it our best shot
     }
 
     // copy all user buffers. We know there is space
@@ -254,7 +254,7 @@ bool IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) thro
         memcpy(head,bufs[ibuf],l);
         head += l;
     }
-    return true;
+    return tlen;
 }
 
 void IOStream::flush() throw (n_u::IOException)
