@@ -74,7 +74,6 @@ void FileSet::closeFile() throw(IOException)
 	    IOException(currname,"close",errno);
 	fd = -1;
     }
-    currname.clear();
 }
 
 /* static */
@@ -152,7 +151,7 @@ ssize_t FileSet::read(void* buf, size_t count) throw(IOException)
     if (fd < 0) openNextFile();		// throws EOFException
     ssize_t res = ::read(fd,buf,count);
     if (res <= 0) {
-        if (!res) fd = -1;	// next read will open next file
+        if (!res) closeFile();	// next read will open next file
 	else throw IOException(currname,"read",errno);
     }
     return res;
