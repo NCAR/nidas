@@ -53,6 +53,8 @@ private:
 
     string configVersion;
 
+    bool update;
+
 };
 
 int HeaderUtil::parseRunstring(int argc, char** argv) throw()
@@ -65,21 +67,27 @@ int HeaderUtil::parseRunstring(int argc, char** argv) throw()
 	switch (opt_char) {
 	case 'a':
             archiveVersion = optarg;
+            update = true;
 	    break;
 	case 's':
             softwareVersion = optarg;
+            update = true;
 	    break;
 	case 'p':
             projectName = optarg;
+            update = true;
 	    break;
 	case 'y':
             systemName = optarg;
+            update = true;
 	    break;
 	case 'c':
             configName = optarg;
+            update = true;
 	    break;
 	case 'v':
             configVersion = optarg;
+            update = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -95,8 +103,8 @@ int HeaderUtil::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << "\n\
-    -a archive_version -s software_version -p project_name -y system_name\n\
-    -c config_name -v config_version input\n\n\
+    [-a archive_version] [-s software_version] [-p project_name]\n\
+    [-y system_name] [-c config_name] [-v config_version] filename\n\n\
 The NIDAS header looks like so (with newlines between each line):\n\
 NIDAS (ncar.ucar.edu)\n\
 archive version: 1\n\
@@ -108,11 +116,13 @@ config name: $ISFF/projects/$PROJECT/ISFF/config/low.xml\n\
 config version: $LastChangedRevision: 511 $\n\
 end header\n\
 \n\n\
-Use the above options to change the value of any of the header fields." << endl;
+Use the above options to change the value of any of the header fields.\n\
+The new header is then printed to stdout, or if no options are specified,\n\
+the existing header is printed" << endl;
     return 1;
 }
 
-HeaderUtil::HeaderUtil()
+HeaderUtil::HeaderUtil():update(false)
 {
 }
 
@@ -130,19 +140,20 @@ int HeaderUtil::main(int argc, char** argv) throw()
 
 void HeaderUtil::printHeader(const SampleInputHeader& header)
 {
-    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cerr << "ProjectName:" << header.getProjectName() << endl;
-    cerr << "SystemName:" << header.getSystemName() << endl;
-    cerr << "ConfigName:" << header.getConfigName() << endl;
-    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
+    cout << "ArchiveVersion:" << header.getArchiveVersion() << endl;
+    cout << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
+    cout << "ProjectName:" << header.getProjectName() << endl;
+    cout << "SystemName:" << header.getSystemName() << endl;
+    cout << "ConfigName:" << header.getConfigName() << endl;
+    cout << "ConfigVersion:" << header.getConfigVersion() << endl;
 }
 
 int HeaderUtil::run() throw()
 {
 
     try {
-        int fd = ::open(fileName.c_str(),O_RDWR | O_LARGEFILE);
+        int fd = ::open(fileName.c_str(),
+            (update ? O_RDWR : O_RDONLY) | O_LARGEFILE);
         if (fd < 0)
             throw n_u::IOException(fileName,"open",errno);
 
@@ -153,36 +164,37 @@ int HeaderUtil::run() throw()
 
         header.check(&ios);
 
+        if (update) {
+
+            ios.skip(ios.available());
+
+            if (lseek(fd,0,SEEK_SET) < 0) 
+                throw n_u::IOException(fileName,"lseek",errno);
+
+            if (archiveVersion.length() > 0)
+                header.setArchiveVersion(archiveVersion);
+
+            if (softwareVersion.length() > 0)
+                header.setSoftwareVersion(softwareVersion);
+
+            if (projectName.length() > 0)
+                header.setProjectName(projectName);
+
+            if (systemName.length() > 0)
+                header.setSystemName(systemName);
+
+            if (configName.length() > 0)
+                header.setConfigName(configName);
+
+            if (configVersion.length() > 0)
+                header.setConfigVersion(configVersion);
+
+            header.write(&ios);
+
+            ios.flush();
+        }
+
         printHeader(header);
-
-        ios.skip(ios.available());
-
-        if (lseek(fd,0,SEEK_SET) < 0) 
-            throw n_u::IOException(fileName,"lseek",errno);
-
-        if (archiveVersion.length() > 0)
-            header.setArchiveVersion(archiveVersion);
-
-        if (softwareVersion.length() > 0)
-            header.setSoftwareVersion(softwareVersion);
-
-        if (projectName.length() > 0)
-            header.setProjectName(projectName);
-
-        if (systemName.length() > 0)
-            header.setSystemName(systemName);
-
-        if (configName.length() > 0)
-            header.setConfigName(configName);
-
-        if (configVersion.length() > 0)
-            header.setConfigVersion(configVersion);
-
-        printHeader(header);
-
-        header.write(&ios);
-
-        ios.flush();
 
         io.close();
     }
