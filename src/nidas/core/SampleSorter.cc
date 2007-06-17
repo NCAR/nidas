@@ -107,6 +107,12 @@ int SampleSorter::run() throw(n_u::Exception)
 
 	if (amInterrupted()) break;
 
+	if (doFlush && samples.size() == 1) {
+	    flush();
+	    flushed = true;
+	    doFlush = false;
+	}
+
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 
 	if (latest == samples.rend()) {	// empty set
@@ -193,11 +199,6 @@ int SampleSorter::run() throw(n_u::Exception)
 
 	sampleSetCond.lock();
 
-	if (doFlush && samples.size() == 1) {
-	    flush();
-	    flushed = true;
-	    doFlush = false;
-	}
     }
     sampleSetCond.unlock();
     // Looper::getInstance()->removeClient(this);
@@ -262,11 +263,11 @@ void SampleSorter::finish() throw()
     sampleSetCond.signal();
 
 
-    for (int i = 0; ; i++) {
+    for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
 	nanosleep(&ns,0);
 	sampleSetCond.lock();
-	if (!(i % 10))
+	if (!(i % 20))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"waiting for buffer to empty, size=%d\n",
 			samples.size());
