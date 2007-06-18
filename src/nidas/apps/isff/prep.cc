@@ -64,6 +64,15 @@ public:
         checkEnd = true;
     }
 
+    void setDOS(bool val)
+    {
+        dosOut = val;
+    }
+
+    bool getDOS() const
+    {
+        return dosOut;
+    }
 
 private:
 
@@ -78,6 +87,8 @@ private:
     bool checkStart;
 
     bool checkEnd;
+
+    bool dosOut;
 
 };
 
@@ -136,11 +147,13 @@ private:
 
     float rate;
 
+    bool dosOut;
+
 };
 
 DumpClient::DumpClient(format_t fmt,ostream &outstr):
 	format(fmt),ostr(outstr),startTime((time_t)0),endTime((time_t)0),
-        checkStart(false),checkEnd(false)
+        checkStart(false),checkEnd(false),dosOut(false)
 {
 }
 
@@ -152,12 +165,14 @@ void DumpClient::printHeader(vector<const Variable*>vars)
         const Variable* var = *vi;
         cout << var->getName() << ' ';
     }
+    if (dosOut) cout << '\r';
     cout << endl;
     vi = vars.begin();
     for (; vi != vars.end(); ++vi) {
         const Variable* var = *vi;
         cout << '"' << var->getUnits() << "\" ";
     }
+    if (dosOut) cout << '\r';
     cout << endl;
 }
 
@@ -188,6 +203,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 	for (unsigned int i = 0;
 		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
 	    ostr << setw(10) << fp[i] << ' ';
+        if (dosOut) cout << '\r';
 	ostr << endl;
 	}
         break;
@@ -225,7 +241,7 @@ DataPrep::DataPrep():
 	sorterLength(250),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
-        rate(0.0)
+        rate(0.0),dosOut(false)
 {
 }
 
@@ -238,7 +254,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:E:hr:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hr:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -296,6 +312,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
 		reqVars.push_back(var);
 
 	    }
+	    break;
+	case 'd':
+	    dosOut = true;
 	    break;
 	case 'E':
 	    try {
@@ -400,6 +419,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
         [-h] [-r rate] [-s sorterLength] [-x xml_file] [input ...]\n\
     -A :ascii output (default)\n\
     -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
+    -d : dos output (records terminated by CRNL instead of just NL)\n\
     -D var[,var,...]: One or more variable names to display\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
@@ -694,6 +714,7 @@ int DataPrep::run() throw()
         resampler->connect(sis.get());
 
 	dumper.reset(new DumpClient(format,cout));
+        dumper->setDOS(dosOut);
 
 	resampler->addSampleClient(dumper.get());
 

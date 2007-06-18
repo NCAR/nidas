@@ -171,8 +171,8 @@ int SampleSorter::run() throw(n_u::Exception)
 	    const Sample *s = *si;
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 
-	    dsm_time_t tsamp = s->getTimeTag();
 #ifdef DEBUG
+	    dsm_time_t tsamp = s->getTimeTag();
 	    if (tsamp < tlast) {
 		cerr << "tsamp=" << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f") <<
 		    " tlast=" << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f") <<

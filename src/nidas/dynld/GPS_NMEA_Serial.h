@@ -34,13 +34,13 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-protected:
-    void parseGGA(const char* input,float *dout,int nvars) 
+    static void parseGGA(const char* input,float *dout,int nvars) 
     	throw();
   
-    void parseRMC(const char* input,float *dout,int nvars)
+    static void parseRMC(const char* input,float *dout,int nvars)
     	throw();
 
+private:
     /**
      * Number of variables requested from GGA record (sample id == 1)
      */
