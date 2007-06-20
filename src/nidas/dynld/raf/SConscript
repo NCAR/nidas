@@ -11,6 +11,7 @@ sources = Split("""
     CVI_LV_Input.cc
     DSMAnalogSensor.cc
     DSMArincSensor.cc
+    LamsSensor.cc
     DSMMesaSensor.cc
     GPS_HW_HG2021GB02.cc
     IRIGSensor.cc
@@ -37,6 +38,7 @@ headers = Split("""
     CVI_LV_Input.h
     DSMAnalogSensor.h
     DSMArincSensor.h
+    LamsSensor.h
     DSMMesaSensor.h
     GPS_HW_HG2021GB02.h
     IRIGSensor.h
