@@ -53,6 +53,7 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	if (elname == "serialSensor" ||
 	    elname == "arincSensor" ||
             elname == "irigSensor" ||
+            elname == "lamsSensor" ||
             elname == "socketSensor" ||
 	    elname == "sensor") {
 	    const string& id = xchild.getAttributeValue("ID");

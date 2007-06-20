@@ -237,6 +237,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    elname == "serialSensor" ||
             elname == "arincSensor" ||
             elname == "irigSensor" ||
+            elname == "lamsSensor" ||
             elname == "socketSensor") {
 
 	    string classattr =
