@@ -28,8 +28,9 @@
 //#define READ_SIZE  1024
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
-#define N_AVG       40
-#define MAX_BUFFER  256
+#define N_AVG       80 
+#define N_PEAK      780 
+#define MAX_BUFFER  512
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between

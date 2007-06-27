@@ -47,7 +47,6 @@ MODULE_DESCRIPTION("LAMS ISA driver for RTLinux");
 // module parameters (can be passed in via command line)
 static int irq = 4;
 static int ioport = 0x220;
-
 MODULE_PARM(irq, "i");
 MODULE_PARM_DESC(irq, "ISA irq setting (default 4)");
 
@@ -89,60 +88,17 @@ static char * createFifo(char inName[], int chan)
    }
    return devName;
 }
-#if 0
-void flush_it ()
-{
-   // flush the hardware data FIFO
-   static int nGlyph;
-   int n5=0, n4=0, n3=0, n2=0, n1=0, n0=0, nBad=0, nWhile=0;
-   unsigned int data, flags;
-
-   data  = readw(baseAddr + DATA_OFFSET);
-   flags = readw(baseAddr + FLAGS_OFFSET);
-      DSMLOG_DEBUG("data: 0x%04x flags: 0x%04x\n", data, flags);
-   while (flags != FIFO_EMPTY) {
-      data  = readw(baseAddr + DATA_OFFSET);
-      flags = readw(baseAddr + FLAGS_OFFSET);
-//    rtl_usleep(10);
-      nWhile++;
-      switch (flags) {
-      case 5: // FIFO_FULL:
-         n5++;
-         break;
-      case 4: // FIFO_FULL:
-         n4++;
-         break;
-      case 3: // FIFO_EMPTY:
-         n3++;
-         break;
-      case 2: // FIFO_EMPTY:
-         n2++;
-         break;
-      case 1: // FIFO_EMPTY:
-         n1++;
-         break;
-      case 0: // FIFO_EMPTY:
-         n0++;
-         break;
-      default:
-         nBad++;
-         break;
-      }
-   }
-      if (++nGlyph == 4) nGlyph = 0;
-      DSMLOG_DEBUG("(%d) n5:%d n4:%d n3:%d n2:%d n1: %d n0: %d nBad: %d nWhile: %d\n",
-                   nGlyph, n5, n4, n3, n2, n1, n0, nBad, nWhile);
-}
-#endif // 0
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
 {
+   int n;
    struct rtl_timespec timeout; // semaphore timeout in nanoseconds
 
    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
+   dsm_sample_time_t jdw_timetag = 0;
    for (;;) {
       timeout.tv_nsec += 300 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
@@ -151,76 +107,53 @@ static void *lams_thread (void * chan)
       }
       if (rtl_sem_timedwait(&threadSem, &timeout) < 0) {
          DSMLOG_DEBUG("thread timed out!\n");
+         readw(baseAddr + FLAGS_OFFSET);
          // timed out!  flush the hardware FIFO
-         while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY )
+         for (n=0; n<MAX_BUFFER; n++)
             readw(baseAddr + DATA_OFFSET);
       } else {
-         lams.timetag = GET_MSEC_CLOCK;
+         lams.timetag = jdw_timetag++; //0x55555555; //GET_MSEC_CLOCK;
          if (fd_lams_data)
             rtl_write(fd_lams_data, &lams, sizeof(lams));
       }
       if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
 }
-/*
-   unsigned int flags = 0, data = 0;
-   static int glyph = 0;
-
-   // this always shows flags: 0x0006
-   for (;;) {
-      rtl_usleep(1000000);
-      if (rtl_errno == RTL_EINTR) break; // thread interrupted
-
-      flush_it();
-//    flags = readw(baseAddr + FLAGS_OFFSET);
-//    data  = readw(baseAddr + DATA_OFFSET);
-//    DSMLOG_DEBUG("(%d) flags: 0x%04x   data: 0x%04x\n", glyph, flags, data);
-//    if (++glyph == 4) glyph=0;
-   }
-   // very tight loop...
-   for (;;) {
-      rtl_usleep(10000);
-      if (rtl_errno == RTL_EINTR) break; // thread interrupted
-
-      if (0x5 != (flags = readw(baseAddr + FLAGS_OFFSET))) {
-         DSMLOG_DEBUG("(%d) bad flag: 0x%04x\n", glyph, flags);
-         if (++glyph == 4) glyph=0;
-      }
-   }
-*/
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   static unsigned long sum[MAX_BUFFER];
-   static int nAvg;
-// static int nTattle, nGlyph;
-   int n, flags;
+   static int nTattle, nGlyph;
+   static unsigned long sum[MAX_BUFFER], max;
+   static int m, n, nAvg = 0;
 
-   for (n=0; n<MAX_BUFFER; n++)
-      sum[n] += readw(baseAddr + DATA_OFFSET);
-   for (n=0; n<MAX_BUFFER; n++)
-      readw(baseAddr + DATA_OFFSET);
+   readw(baseAddr + FLAGS_OFFSET); //Clear Dual Port memory address counter
+   for (n=0; n<MAX_BUFFER; n++) {
+     sum[n] += readw(baseAddr + DATA_OFFSET);
+     if(sum[n] > max){
+       max = sum[n];
+       nGlyph = n;
+     }
+   }
+  // average N spectrum data
+   if (n == MAX_BUFFER) {
+      if (nAvg++ >= N_AVG) {
+         nAvg = 0;
+         for (n=0; n<MAX_BUFFER; n++) {
+            m = n;
+            if(n >= 510) m = n - 512;
+            lams.data[n] = sum[m+2] / N_AVG;
+            sum[n] = 0;
+         }
 
-   if (++nAvg == N_AVG) {
-      for (n=0; n<MAX_BUFFER; n++) {
-         lams.data[n] = sum[n] / N_AVG;
-         sum[n] = 0;
+         rtl_sem_post( &threadSem );
+        if (++nTattle == 13) {
+          nTattle = 0;
+          DSMLOG_DEBUG("(%d) lams.data: 0x%04x\n",
+                       nGlyph, max/N_AVG);
+        }
       }
-      nAvg = 0;
-      rtl_sem_post( &threadSem );
    }
-   n = 0;
-   while ( (flags = readw(baseAddr + FLAGS_OFFSET)) != FIFO_EMPTY ) {
-      readw(baseAddr + DATA_OFFSET);
-//    n++;
-   }
-// if (++nTattle == 1024) {
-//    nTattle = 0;
-//    if (++nGlyph == 4) nGlyph = 0;
-//    DSMLOG_DEBUG("(%d) nExtra: %d flags: %d sum: 0x%04x lams.data: 0x%04x\n",
-//                 nGlyph, n, flags, sum[0], lams.data[0]);
-// }
    return 0;
 }
 // -- IOCTL --------------------------------------------------------------------
@@ -305,6 +238,9 @@ int init_module (void)
    if (!ioctlHandle) return -RTL_EIO;
 
    request_region(baseAddr, REGION_SIZE, "lams");
+   int n;
+   lams.timetag = 0;
+   for (n=0; n<MAX_BUFFER; n++) lams.data[n] = 0;
 
    // initialize the semaphore to the thread
    if ( rtl_sem_init( &threadSem, 1, 0) < 0) {
@@ -318,15 +254,10 @@ int init_module (void)
       goto rtl_pthread_create_err;
    }
    // activate interupt service routine
-   while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY ) // pre-enable-flush
-      readw(baseAddr + DATA_OFFSET);
    if (rtl_request_isa_irq(irq, lams_isr, 0) < 0) {
       DSMLOG_ERR("rtl_request_isa_irq failure: %s\n", rtl_strerror(rtl_errno));
       goto rtl_request_isa_irq_err;
    }
-   while ( readw(baseAddr + FLAGS_OFFSET) != FIFO_EMPTY ) // post-enable-flush
-      readw(baseAddr + DATA_OFFSET);
-
    DSMLOG_DEBUG("done\n");
    return 0;
 
