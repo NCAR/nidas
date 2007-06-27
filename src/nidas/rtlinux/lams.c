@@ -63,8 +63,9 @@ static struct lamsPort lams;
 
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
+   { LAMS_OPEN,      _IOC_SIZE(LAMS_OPEN)     },
+   { LAMS_CLOSE,     _IOC_SIZE(LAMS_CLOSE)    },
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
-   { LAMS_SET,       _IOC_SIZE(LAMS_SET)      },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -98,7 +99,7 @@ static void *lams_thread (void * chan)
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-   dsm_sample_time_t jdw_timetag = 0;
+// dsm_sample_time_t jdw_timetag = 0;
    for (;;) {
       timeout.tv_nsec += 300 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
@@ -112,9 +113,14 @@ static void *lams_thread (void * chan)
          for (n=0; n<MAX_BUFFER; n++)
             readw(baseAddr + DATA_OFFSET);
       } else {
-         lams.timetag = jdw_timetag++; //0x55555555; //GET_MSEC_CLOCK;
+         lams.timetag = GET_MSEC_CLOCK; //jdw_timetag++;
          if (fd_lams_data)
-            rtl_write(fd_lams_data, &lams, sizeof(lams));
+           if (rtl_write(fd_lams_data,&lams,
+                SIZEOF_DSM_SAMPLE_HEADER + sizeof(lams)) < 0) {
+              DSMLOG_ERR("error: write: %s. Closing\n",
+                         rtl_strerror(rtl_errno));
+              rtl_close(fd_lams_data);
+	   }
       }
       if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
@@ -172,17 +178,11 @@ static int ioctlCallback(int cmd, int board, int chn,
          *(int *) buf = N_CHANNELS;
          break;
 
-      case AIR_SPEED:
-         DSMLOG_DEBUG("AIR_SPEED\n");
-         airspeed = *(unsigned int*) buf;
-//       writew(airspeed, baseAddr + AIR_SPEED_OFFSET);
-         break;
-
-      case LAMS_SET:
-         DSMLOG_DEBUG("LAMS_SET\n");
+      case LAMS_OPEN:
+         DSMLOG_DEBUG("LAMS_OPEN\n");
          lams_ptr = (struct lams_set*) buf;
          lams_channels = lams_ptr->channel;
-         DSMLOG_DEBUG("LAMS_SET lams_channels=%d\n", lams_channels);
+         DSMLOG_DEBUG("LAMS_OPEN lams_channels=%d\n", lams_channels);
 
          // open the channel's data FIFO
          sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
@@ -193,13 +193,28 @@ static int ioctlCallback(int cmd, int board, int chn,
             return -convert_rtl_errno(rtl_errno);
          }
          break;
-
+      
+      case LAMS_CLOSE:
+         // close the RTL data fifo
+         DSMLOG_DEBUG("closing fd_lams_data: %x\n", fd_lams_data);
+         if (fd_lams_data)
+            rtl_close( fd_lams_data );
+         break;
+ 
+      case AIR_SPEED:
+         DSMLOG_DEBUG("AIR_SPEED\n");
+         airspeed = *(unsigned int*) buf;
+//       writew(airspeed, baseAddr + AIR_SPEED_OFFSET);
+         break;
+	 	
       default:
          ret = -RTL_EIO;
          break;
    }
    return ret;
 }
+
+
 // -- CLEANUP MODULE -----------------------------------------------------------
 void cleanup_module (void)
 {
@@ -229,7 +244,7 @@ void cleanup_module (void)
 int init_module (void)
 {
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
-   DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+   DSMLOG_NOTICE("compiled on %s at %s by Ling\n", __DATE__, __TIME__);
 
    // open up ioctl FIFO, register ioctl function
    createFifo("_in_", BOARD_NUM);

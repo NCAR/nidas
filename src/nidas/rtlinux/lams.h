@@ -1,13 +1,10 @@
 /* lams.h
 
    Header for the LAMS interface.
-
    Original Author: Mike Spowart
-
    Copyright by the National Center for Atmospheric Research 2004
-
+   
    Revisions:
-
      $LastChangedRevision$
          $LastChangedDate$
            $LastChangedBy$
@@ -89,7 +86,8 @@ struct LamsData {
 };
 */
 // The enumeration of IOCTLs that this driver supports.
-#define LAMS_SET         _IOW(LAMS_MAGIC,0, struct lams_set)
+#define LAMS_OPEN        _IOW(LAMS_MAGIC,0, struct lams_set)
 #define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
+#define LAMS_CLOSE        _IO(LAMS_MAGIC,2)
 
 #endif // LAMS_DRIVER_H

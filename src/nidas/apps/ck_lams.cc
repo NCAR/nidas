@@ -144,8 +144,8 @@ int main(int argc, char** argv)
   // Set the lams.   
   struct lams_set set_lams;
   set_lams.channel = 1;
-  err("send LAMS_SET");
-  sensor_in_0.ioctl(LAMS_SET, &set_lams, sizeof(set_lams));
+  err("send LAMS_OPEN");
+  sensor_in_0.ioctl(LAMS_OPEN, &set_lams, sizeof(set_lams));
 
   // Note: fd_set is a 1024 bit mask.
   fd_set readfds;
