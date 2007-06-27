@@ -36,6 +36,8 @@ using namespace std;
 using namespace nidas::core;
 namespace n_u = nidas::util;
 
+#define DATA_ONLY
+
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
@@ -81,10 +83,11 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
 int main(int argc, char** argv)
 {
   err("ARM version - compiled on %s at %s", __DATE__, __TIME__);
+  err("sizeof(lamsPort): %d\n", sizeof(lamsPort));
 
   string ofName;
   if (argc < 2)
-    ofName = string("/mnt/tmp/lams.dat");
+    ofName = string("/mnt/lams.bin");
   else
     ofName = string(argv[1]);
 
@@ -110,12 +113,14 @@ int main(int argc, char** argv)
   sensor_in_0.setDeviceName("/dev/lams0");
 
   // Open up the disk for writing lams data
+  err("creating: %s", ofName.c_str());
   int ofPtr = creat(ofName.c_str(), 0666);
   if (ofPtr < 0) {
     err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
     goto failed;
   }
   // open up the lams sensor
+  err("opening: /dev/lams0");
   try {
     sensor_in_0.open(O_RDONLY);
     err("sensor_in_0.open(O_RDONLY) success!");
@@ -148,11 +153,15 @@ int main(int argc, char** argv)
   // Main loop for gathering data from the lams channels
   int len, rlen, status, nsel;
   len = 0;
-  unsigned int databuf[sizeof(set_lams)*2];
+//unsigned int databuf[sizeof(set_lams)*2];
+  char databuf[sizeof(lamsPort)];
+  struct lamsPort* data; data = (lamsPort*) &databuf;
 
   int nfds;
-  while (running)
-  {
+  err("entering main loop...");
+//int skip;  skip = 0;
+//int glyph; glyph = 0;
+  while (running) {
     nfds = 0;
 
     // zero the readfds bitmask
@@ -168,25 +177,38 @@ int main(int argc, char** argv)
       err("select error");
 
     // check to see if there is data on this FIFO
-    if (FD_ISSET(fd_lams_data, &readfds))
-    {
-      len += rlen = read(fd_lams_data, &databuf, sizeof(lamsPort));
-      status = write(ofPtr, &databuf, rlen); 
-      
-//    err("spectrum recv'd len=%d rlen=%d", len, rlen);
-      if (status < 0) {
-        err("failed to write... errno: %d", errno);
+    if (FD_ISSET(fd_lams_data, &readfds)) {
+      errno = 0;
+      rlen = read(fd_lams_data, &databuf[len], sizeof(lamsPort));
+      if (rlen < 0) {
+        err("failed to read (%s), fd_lams_data: %x", strerror(errno), fd_lams_data);
         goto failed;
       }
-      // was a full record of spectrum read?
-//    if (len == sizeof(lamsPort)) {
-//      err("spectrum recv'd");
-//      len = 0;
+      len += rlen;
+//    if (skip++ == 9) {
+//      skip=0;
+//      if (glyph++ == 9) glyph=0;
+//      err("%d rlen: %d data->data[0]: %x", glyph, rlen, data->data[0]);
 //    }
+      if (len == sizeof(lamsPort)) {
+        len = 0;
+        errno = 0;
+#ifdef DATA_ONLY
+        status = write(ofPtr, &(data->data), sizeof(data->data)); 
+#else
+        status = write(ofPtr, &databuf, sizeof(lamsPort)); 
+#endif
+        if (status < 0) {
+          err("failed to write (%s)", strerror(errno));
+          goto failed;
+        }
+//      fsync(fd_lams_data);
+        sync();
+      }
     }
- }
+  }
 failed:
-  err(" closing sensors...");
+  err("closing sensors...");
 
   if (ofPtr != -1) close(ofPtr);
   sensor_in_0.close();
