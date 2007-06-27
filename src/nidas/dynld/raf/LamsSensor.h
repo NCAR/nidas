@@ -46,14 +46,23 @@ public:
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
-  IODevice* buildIODevice() throw(n_u::IOException)
-  {
-    return new RTL_IODevice();
-  }
+  IODevice* buildIODevice() throw(n_u::IOException);
+  
   SampleScanner* buildSampleScanner()
   {
     return new SampleScanner();
   }
+ 
+  /**
+     * Open the device connected to the sensor.
+     */
+  void open(int flags) throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
+
+    /**
+     * Close the device connected to the sensor.
+     */
+  void close() throw(nidas::util::IOException);
 };
 
 }}}
