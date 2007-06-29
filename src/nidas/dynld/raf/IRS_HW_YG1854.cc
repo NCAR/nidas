@@ -39,6 +39,7 @@ float IRS_HW_YG1854::processLabel(const long data)
   case 0321:  // BNR - drift_angle          (rad)
   case 0324:  // BNR - pitch_angle          (rad)
   case 0325:  // BNR - roll_angle           (rad)
+  case 0334:  // BNR - platform_heading     (rad)
      return (float)(data>>11) * arinc20bits * 180.0;
 
   case 0312:  // BNR - ground_speed         (knot)
