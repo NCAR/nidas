@@ -63,8 +63,7 @@ static struct lamsPort lams;
 
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
-   { LAMS_OPEN,      _IOC_SIZE(LAMS_OPEN)     },
-   { LAMS_CLOSE,     _IOC_SIZE(LAMS_CLOSE)    },
+   { LAMS_SET_CHN,   _IOC_SIZE(LAMS_SET_CHN)  },
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -89,6 +88,25 @@ static char * createFifo(char inName[], int chan)
    }
    return devName;
 }
+#if 0
+static void read_radar(void * channel)
+{
+  MESA_SIXTEEN_BIT_SAMPLE sample;
+  struct MESA_Board * brd = boardInfo;
+
+  // read from the radar channel
+  sample.sampleID = ID_RADAR;
+  sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
+  sample.timetag = GET_MSEC_CLOCK;
+  sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
+//DSMLOG_DEBUG("chn: %d  sample.data: %d\n", 0, sample.data[0]);
+
+  // write the altitude to the user's FIFO
+  rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
+        + sizeof(dsm_sample_time_t));
+}
+#endif
+
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
 {
@@ -99,7 +117,6 @@ static void *lams_thread (void * chan)
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-// dsm_sample_time_t jdw_timetag = 0;
    for (;;) {
       timeout.tv_nsec += 300 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
@@ -113,14 +130,20 @@ static void *lams_thread (void * chan)
          for (n=0; n<MAX_BUFFER; n++)
             readw(baseAddr + DATA_OFFSET);
       } else {
-         lams.timetag = GET_MSEC_CLOCK; //jdw_timetag++;
-         if (fd_lams_data)
-           if (rtl_write(fd_lams_data,&lams,
-                SIZEOF_DSM_SAMPLE_HEADER + sizeof(lams)) < 0) {
+
+         // TODO this is constant... set its value in ...::init()
+         lams.size = sizeof(lams);
+
+         if (fd_lams_data) {
+           DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
+           lams.timetag = GET_MSEC_CLOCK;
+           if (rtl_write(fd_lams_data,&lams, lams.size) < 0) {
               DSMLOG_ERR("error: write: %s. Closing\n",
                          rtl_strerror(rtl_errno));
               rtl_close(fd_lams_data);
+              fd_lams_data = 0;
 	   }
+	}
       }
       if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
@@ -178,29 +201,25 @@ static int ioctlCallback(int cmd, int board, int chn,
          *(int *) buf = N_CHANNELS;
          break;
 
-      case LAMS_OPEN:
-         DSMLOG_DEBUG("LAMS_OPEN\n");
+      case LAMS_SET_CHN:
+         DSMLOG_DEBUG("LAMS_SET_CHN\n");
          lams_ptr = (struct lams_set*) buf;
          lams_channels = lams_ptr->channel;
-         DSMLOG_DEBUG("LAMS_OPEN lams_channels=%d\n", lams_channels);
+         DSMLOG_DEBUG("LAMS_SET_CHN lams_channels=%d\n", lams_channels);
 
          // open the channel's data FIFO
          sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
-         if ((fd_lams_data =
-            rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY )) < 0) {
+         DSMLOG_DEBUG("opening %s\n",devstr);
+         fd_lams_data = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
+         if (fd_lams_data < 0) {
                DSMLOG_ERR("error: open %s: %s\n", devstr,
                           rtl_strerror(rtl_errno));
+            fd_lams_data = 0;
             return -convert_rtl_errno(rtl_errno);
          }
+   	 DSMLOG_DEBUG("LAMS_SET_CHN fd_lams_data: %x\n", fd_lams_data);
          break;
       
-      case LAMS_CLOSE:
-         // close the RTL data fifo
-         DSMLOG_DEBUG("closing fd_lams_data: %x\n", fd_lams_data);
-         if (fd_lams_data)
-            rtl_close( fd_lams_data );
-         break;
- 
       case AIR_SPEED:
          DSMLOG_DEBUG("AIR_SPEED\n");
          airspeed = *(unsigned int*) buf;

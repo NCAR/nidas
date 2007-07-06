@@ -20,12 +20,22 @@
 #include <nidas/util/Logger.h>
 
 using namespace std;
-using namespace nidas::core;
 using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
+
+LamsSensor::LamsSensor()
+{
+  cerr << __PRETTY_FUNCTION__ << endl;
+
+  memset(&lams_info, 0, sizeof(lams_info));
+}
+
+LamsSensor::~LamsSensor()
+{
+}
 
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
 {
@@ -33,9 +43,23 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     // number of data values in this raw sample.
     unsigned int nvalues = samp->getDataByteLength() / sizeof(short);
 
-    n_u::Logger::getInstance()->log(LOG_ERR,"LamsSensor::process");
-    n_u::Logger::getInstance()->log(LOG_ERR," LamsSensor::process");
-    n_u::Logger::getInstance()->log(LOG_ERR,"  LamsSensor::process");
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"0 LamsSensor::process nvalues:%d", nvalues);
+    SampleT<short>* outs = getSample<short>(1);
+
+    outs->setTimeTag(samp->getTimeTag());
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"1 LamsSensor::process outs->getTimeTag: %d", outs->getTimeTag());
+
+    outs->setId(1);  // TODO sampleId fromDomElement
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process outs->getId: %d", outs->getId());
+    
+    outs->getDataPtr()[0]= 37.5;
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"3 LamsSensor::process outs->getDataLength: %d", outs->getDataLength());
+  
+    results.push_back( outs);
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"4 LamsSensor::process");
+
+    return true;
+    
     
 //    n_u::Logger::getInstance()->log(LOG_ERR,
 //            "LAMS sample id %d (dsm=%d,sensor=%d): Expected %d raw values, got %d",
@@ -76,53 +100,19 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     result.push_back(clksamp);
     return true;
 */
-    SampleT<short>* outs = getSample<short>(1);
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId()+1);
-    
-    outs->setDataLength(1);
-    outs->getDataPtr()[0]= 37;
-    //float* dout = outs->getDataPtr();
-    //    dout[0] = 42.0;
-    //  *dout++ = 35.9;
-
-    results.push_back(outs);
-    return true;
+   
 } 
 
 void LamsSensor::open(int flags) throw(n_u::IOException,
     n_u::InvalidParameterException)
 {
-
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open start");
     DSMSensor::open(flags);
-
     // Request that fifo be opened at driver end.
-    if (DSMEngine::getInstance()){
-      ioctl(LAMS_OPEN,0,0);
-      ioctl(AIR_SPEED, 0,0);
+    if (DSMEngine::getInstance()) {
+      lams_info.channel = 1;//TODO GET FROOM MXL CONFIG
+      ioctl(LAMS_SET_CHN, &lams_info, sizeof(lams_info));
+//      ioctl(AIR_SPEED, 0,0);
     }
-    n_u::Logger::getInstance()->log(LOG_ERR,"LamsSensor::open");
-    n_u::Logger::getInstance()->log(LOG_ERR," LamsSensor::open");
-    n_u::Logger::getInstance()->log(LOG_ERR,"  LamsSensor::open");
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());
 }
-
-void LamsSensor::close() throw(n_u::IOException)
-{
-    if (DSMEngine::getInstance()->isRTLinux())
-	ioctl(LAMS_CLOSE,0,0);
-    DSMSensor::close();
-}
-
-
-
- IODevice* LamsSensor::buildIODevice() throw(n_u::IOException)
-  {
-    //return new RTL_IODevice();
-    if (DSMEngine::getInstance()->isRTLinux())
-        return new RTL_IODevice();
-    else return new UnixIODevice();
-    
-  }
-  
-  
-  

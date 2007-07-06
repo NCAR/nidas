@@ -13,8 +13,8 @@
 */
 
 
-#ifndef NIDAS_DYNLD_LAMSSENSOR_H
-#define NIDAS_DYNLD_LAMSSENSOR_H
+#ifndef NIDAS_DYNLD_RAF_LAMSSENSOR_H
+#define NIDAS_DYNLD_RAF_LAMSSENSOR_H
 
 // Linux include files.
 #include <fcntl.h>
@@ -30,39 +30,44 @@
 #include <signal.h>          // sigaction
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/core/RTL_IODevice.h>
-#include <nidas/core/DSMSensor.h>
 #include <nidas/rtlinux/lams.h>
 
+#include <nidas/core/DSMSensor.h>
+#include <nidas/util/InvalidParameterException.h>
 
 namespace nidas { namespace dynld { namespace raf {
-  using namespace std;
-  using namespace nidas::core;
-  namespace n_u = nidas::util;
+
+using namespace nidas::core;
+namespace n_u = nidas::util;
  
 class LamsSensor : public DSMSensor
 {
 public:
+  LamsSensor();
+  ~LamsSensor();
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
-
-  IODevice* buildIODevice() throw(n_u::IOException);
-  
+	
+  IODevice* buildIODevice() throw(n_u::IOException)
+  {
+    return new RTL_IODevice();
+  }
+  	
   SampleScanner* buildSampleScanner()
   {
     return new SampleScanner();
   }
  
+  
   /**
-     * Open the device connected to the sensor.
-     */
+   * Open the device connected to the sensor.
+   */
   void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    /**
-     * Close the device connected to the sensor.
-     */
-  void close() throw(nidas::util::IOException);
+private:
+  struct lams_set lams_info;
 };
 
 }}}

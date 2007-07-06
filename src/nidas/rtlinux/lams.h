@@ -15,6 +15,8 @@
 #define LAMS_DRIVER_H
 
 #include <nidas/rtlinux/ioctl_fifo.h>
+#include <nidas/core/dsm_sample.h>
+typedef unsigned long dsm_sample_id_t;  // stolen from #include <nidas/core/Sample.h>
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
@@ -55,6 +57,7 @@
 
 struct lamsPort {
   dsm_sample_time_t timetag;     // timetag of sample
+  dsm_sample_length_t size;     // number of bytes in data
   unsigned short data[MAX_BUFFER]; // the data
 };
 #ifdef __RTCORE_KERNEL__
@@ -86,8 +89,7 @@ struct LamsData {
 };
 */
 // The enumeration of IOCTLs that this driver supports.
-#define LAMS_OPEN        _IOW(LAMS_MAGIC,0, struct lams_set)
+#define LAMS_SET_CHN     _IOW(LAMS_MAGIC,0, struct lams_set)
 #define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
-#define LAMS_CLOSE        _IO(LAMS_MAGIC,2)
 
 #endif // LAMS_DRIVER_H
