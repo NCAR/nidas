@@ -44,20 +44,19 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     unsigned int nvalues = samp->getDataByteLength() / sizeof(short);
 
     n_u::Logger::getInstance()->log(LOG_NOTICE,"0 LamsSensor::process nvalues:%d", nvalues);
-    SampleT<short>* outs = getSample<short>(1);
+    SampleT<float>* outs = getSample<float>(1);
 
     outs->setTimeTag(samp->getTimeTag());
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"1 LamsSensor::process outs->getTimeTag: %d", outs->getTimeTag());
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"1 LamsSensor::process outs->getTimeTag: %lu", outs->getTimeTag());
 
-    outs->setId(1);  // TODO sampleId fromDomElement
+    outs->setId(getId() + 1);  // TODO sampleId fromDomElement
     n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process outs->getId: %d", outs->getId());
     
-    outs->getDataPtr()[0]= 37.5;
+    float * dout = outs->getDataPtr();
+    *dout = 37.5;
     n_u::Logger::getInstance()->log(LOG_NOTICE,"3 LamsSensor::process outs->getDataLength: %d", outs->getDataLength());
   
-    results.push_back( outs);
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"4 LamsSensor::process");
-
+    results.push_back(outs);
     return true;
     
     
