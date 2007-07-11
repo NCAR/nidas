@@ -126,6 +126,35 @@ public:
 
     void newFile() throw(nidas::util::IOException);
 
+    void setFilterBadSamples(bool val)
+    {
+        filterBadSamples = val;
+    }
+
+    void setMaxDsmId(int val)
+    {
+        maxDsmId = val;
+        setFilterBadSamples(val < 1024);
+    }
+
+    void setMaxSampleLength(size_t val)
+    {
+        maxSampleLength = val;
+        setFilterBadSamples(val < ULONG_MAX);
+    }
+
+    void setMinSampleTime(nidas::util::UTime& val)
+    {
+        minSampleTime = val.toUsecs();
+        setFilterBadSamples(val.toUsecs() > LONG_LONG_MIN);
+    }
+
+    void setMaxSampleTime(nidas::util::UTime& val)
+    {
+        maxSampleTime = val.toUsecs();
+        setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
+    }
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
@@ -178,9 +207,15 @@ private:
 
     SampleInputHeader inputHeader;
 
-    dsm_time_t tscreen0;
+    bool filterBadSamples;
 
-    dsm_time_t tscreen1;
+    unsigned int maxDsmId;
+
+    size_t maxSampleLength;
+
+    dsm_time_t minSampleTime;
+
+    dsm_time_t maxSampleTime;
 
 };
 

@@ -86,6 +86,8 @@ public:
     virtual void interrupt() throw();
     virtual int join() throw();
 
+    void start() throw(nidas::util::Exception);
+
     static const std::string getClassName(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
@@ -105,6 +107,14 @@ protected:
     nidas::dynld::SampleInputStream* input;
 
     std::list<SampleIOProcessor*> processors;
+
+    /**
+     * Increment to be added to the nice value of the process.
+     * Positive values reduce the priority of the calling process.
+     * Negative values increase the priority.  Only the superuser
+     * may specifiy a negative increment.
+     */
+    int _niceIncrement;
 
 };
 

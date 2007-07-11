@@ -35,12 +35,16 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     service(0),iochan(iochannel),iostream(0),
     samp(0),leftToRead(0),dptr(0),
-    badInputSamples(0),unrecognizedSamples(0)
+    badInputSamples(0),unrecognizedSamples(0),
+    filterBadSamples(false),maxDsmId(1024),
+    maxSampleLength(ULONG_MAX),
+    minSampleTime(LONG_LONG_MIN),
+    maxSampleTime(LONG_LONG_MAX)
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
-    tscreen0 = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
-    tscreen1 = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
+    // minSampleTime = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
+    // maxSampleTime = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
 }
 
 /*
@@ -52,12 +56,15 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     iochan(iochannel),iostream(0),
     sampleTags(x.sampleTags),
     samp(0),leftToRead(0),dptr(0),
-    badInputSamples(0),unrecognizedSamples(0)
+    badInputSamples(0),unrecognizedSamples(0),
+    filterBadSamples(x.filterBadSamples),maxDsmId(x.maxDsmId),
+    maxSampleLength(x.maxSampleLength),minSampleTime(x.minSampleTime),
+    maxSampleTime(x.maxSampleTime)
 {
     if (iochan)
         iostream = new IOStream(*iochan,iochan->getBufferSize());
-    tscreen0 = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
-    tscreen1 = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
+    // minSampleTime = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
+    // maxSampleTime = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
 }
 
 /*
@@ -200,9 +207,12 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 #endif
 
             // screen bad headers.
-	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
-                header.getDataByteLength() > 64536 ||
-                header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
+	    if (filterBadSamples &&
+                (header.getType() >= UNKNOWN_ST ||
+                    GET_DSM_ID(header.getId()) > maxDsmId ||
+                header.getDataByteLength() > maxSampleLength ||
+                header.getTimeTag() < minSampleTime ||
+                header.getTimeTag() > maxSampleTime)) {
 	        if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
@@ -288,10 +298,13 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 #endif
 
             // screen bad headers.
-	    if (header.getType() >= UNKNOWN_ST || GET_DSM_ID(header.getId()) > 200 ||
-                header.getDataByteLength() > 64536 ||
-                header.getTimeTag() < tscreen0 || header.getTimeTag() > tscreen1) {
-	        if (!(badInputSamples++ % 1000)) {
+            if (filterBadSamples &&
+                (header.getType() >= UNKNOWN_ST ||
+                GET_DSM_ID(header.getId()) > maxDsmId ||
+                header.getDataByteLength() > maxSampleLength ||
+                header.getTimeTag() < minSampleTime ||
+                header.getTimeTag() > maxSampleTime)) {
+                if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
                         getName().c_str(), badInputSamples,

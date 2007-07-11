@@ -28,7 +28,7 @@ using nidas::dynld::SampleInputStream;
 namespace n_u = nidas::util;
 
 DSMService::DSMService(const std::string& name): n_u::Thread(name),
-	server(0),input(0)
+	server(0),input(0),_niceIncrement(0)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
@@ -85,6 +85,16 @@ void DSMService::addSubService(DSMService* svc) throw()
 {
     n_u::Synchronized autolock(subServiceMutex);
     subServices.insert(svc);
+}
+
+void DSMService::start() throw(n_u::Exception)
+{
+    if (_niceIncrement != 0 && ::nice(_niceIncrement) < 0) {
+	n_u::Logger::getInstance()->log(LOG_WARNING,
+	    "service %s: cannot set nice value (but continuing anyway): %s",
+	    getName().c_str(),n_u::Exception::errnoToString(errno).c_str());
+    }
+    Thread::start();
 }
 
 void DSMService::interrupt() throw()
@@ -247,6 +257,40 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
         fromDOMElement(mi->second);
     }
 
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+	int nSize = pAttributes->getLength();
+	for(int i=0;i<nSize;++i) {
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            const string& aname = attr.getName();
+            const string& aval = attr.getValue();
+	    if (aname == "priority") {
+		unsigned int colon = aval.find(':',0);
+		if (colon < string::npos) {
+		    string policy = aval.substr(0,colon);
+		    istringstream ist(aval.substr(colon+1));
+		    int priority;
+		    ist >> priority;
+		    if (ist.fail())
+			throw n_u::InvalidParameterException(
+			    "DSMService::fromDOMElement, cannot read priority",
+			    aname, aval);
+		    if (policy == "RT_FIFO")
+		    	setRealTimeFIFOPriority(priority);
+		    else if (policy == "RT_RR")
+		    	setRealTimeRoundRobinPriority(priority);
+		    else if (policy == "NICE")
+		    	_niceIncrement = priority;
+		    else
+			throw n_u::InvalidParameterException(
+			    "DSMService::fromDOMElement, invalid priority (should be RT_FIFO, RT_RR or NICE",
+			    aname, aval);
+		}
+	    }
+	}
+    }
+
     // process <input> and <processor> child elements
     xercesc::DOMNode* child = 0;
     for (child = node->getFirstChild(); child != 0;
@@ -256,7 +300,7 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
 	DOMable* domable;
-        if (!elname.compare("input")) {
+        if (elname == "input") {
 	    const string& classattr = xchild.getAttributeValue("class");
 	    if (classattr.length() == 0)
 		throw n_u::InvalidParameterException(
@@ -277,7 +321,7 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 	    }
             input->fromDOMElement((xercesc::DOMElement*)child);
 	}
-        else if (!elname.compare("processor")) {
+        else if (elname == "processor") {
 	    const string& classattr = xchild.getAttributeValue("class");
 	    if (classattr.length() == 0)
 		throw n_u::InvalidParameterException(

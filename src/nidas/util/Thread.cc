@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <cstring>
 #include <csignal>
+#include <errno.h>
 
 #include <iostream>
 #include <sstream>
@@ -386,7 +387,7 @@ Thread::start() throw(Exception)
   Synchronized sync(_mutex);
   if (! _running)
   {
-    int status;
+    int status = 0;
 
     /*
      * pthread_create can start the thr_run method before it sets the value of
@@ -395,13 +396,30 @@ Thread::start() throw(Exception)
      * You must sync on _mutex in ::pRun to avoid this.
      */
 
-    int state;
+    int state = 0;
     ::pthread_attr_getdetachstate( &thread_attr, &state);
 
-    if (state == PTHREAD_CREATE_DETACHED)
-	status = ::pthread_create(&_id, &thread_attr, thr_run_detached, this);
-    else
-	status = ::pthread_create(&_id, &thread_attr, thr_run, this);
+    for (int i = 0; i < 2; i++) {
+        if (state == PTHREAD_CREATE_DETACHED)
+            status = ::pthread_create(&_id, &thread_attr,
+                thr_run_detached, this);
+        else
+            status = ::pthread_create(&_id, &thread_attr,
+                thr_run, this);
+
+        if (!status) break;
+        // If we get a permissions problem in asking for a real-time 
+        // schedule policy, then warn about the problem and ask for non
+        // real-time.
+        int policy;
+        ::pthread_attr_getschedpolicy( &thread_attr, &policy);
+
+        if (status != EPERM || (policy != SCHED_FIFO && policy != SCHED_RR))
+            break;
+        cerr << getName() << ": start: " <<
+            Exception::errnoToString(errno) << ". Trying again with non-real-time priority." << endl;
+        setThreadScheduler(SCHED_OTHER,0);
+    }
 
     if (status) 
       throw Exception(getName(),
