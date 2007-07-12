@@ -21,6 +21,7 @@ sources = Split("""
     SppSerial.cc
     SPP100_Serial.cc
     SPP200_Serial.cc
+    SPP300_Serial.cc
     SyncRecordGenerator.cc
     SyncRecordReader.cc
     SyncRecordSource.cc
@@ -48,6 +49,7 @@ headers = Split("""
     SppSerial.h
     SPP100_Serial.h
     SPP200_Serial.h
+    SPP300_Serial.h
     SyncRecordGenerator.h
     SyncRecordReader.h
     SyncRecordSource.h
