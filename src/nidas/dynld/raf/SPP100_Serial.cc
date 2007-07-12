@@ -133,9 +133,10 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     // This logic should match what is in ::process, so that
     // an output sample of the correct size is created.
-    if (_noutValues != _nChannels + 6) {
+    static const int _nHskp = 6;
+    if (_noutValues != _nChannels + _nHskp) {
         ostringstream ost;
-        ost << "total length of variables should be " << (_nChannels + 6);
+        ost << "total length of variables should be " << (_nChannels + _nHskp);
           throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
 }
