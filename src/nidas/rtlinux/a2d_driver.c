@@ -363,12 +363,13 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel)
    GainCode = 0x1900 + A2DSel;  //  +/-10v  31516        -28439
 
    if (a2d->offset[A2DSel]) {
-     if (a2d->gain[A2DSel] == 10)       GainCode = 0x1000 + A2DSel;  //   0 to +20  ???
-     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4000 + A2DSel;  //   0 to +10
-     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8000 + A2DSel;  //   0 to +5
+     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x1100 + A2DSel;  //   0 to +20  ???
+     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //   0 to +10
+     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8800 + A2DSel;  //   0 to +5
      else                               GainCode = 0x0000 + A2DSel;
    } else {
-     if (a2d->gain[A2DSel] == 10)       GainCode = 0x1900 + A2DSel;  // -10 to +10
+     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x2200 + A2DSel;  // -10 to +10  // was 0x1900
+     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //  -5 to  +5
      else                               GainCode = 0x0000 + A2DSel;
    }
 /*
@@ -463,11 +464,11 @@ static int A2DSetVcal(struct A2DBoard* brd)
 
    // Point to the calibration DAC channel
    outb(A2DIO_D2A2, brd->chan_addr);
-   DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_D2A2, brd->chan_addr);
+   DSMLOG_DEBUG("outb( 0x%02x, 0x%x);\n", A2DIO_D2A2, brd->chan_addr);
 
    // Write cal voltage code
    outw(brd->cal.vcalx8, brd->addr);
-   DSMLOG_DEBUG("brd->cal.vcalx8=0x%x\n", brd->cal.vcalx8);
+   DSMLOG_DEBUG("outw( 0x%04x, 0x%x);\n", brd->cal.vcalx8, brd->addr);
    return 0;
 }
 
@@ -497,7 +498,7 @@ static void A2DSetCal(struct A2DBoard* brd)
    }
    // Point at the system control input channel
    outb(A2DIO_SYSCTL, brd->chan_addr);
-   DSMLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_SYSCTL, brd->chan_addr);
+   DSMLOG_DEBUG("outb( 0x%02x, 0x%x);\n", A2DIO_SYSCTL, brd->chan_addr);
 
    // Set the appropriate bits in OffCal
    brd->OffCal = (OffChans<<8) & 0xFF00;
@@ -506,7 +507,7 @@ static void A2DSetCal(struct A2DBoard* brd)
 
    // Send OffCal word to system control word
    outw(brd->OffCal, brd->addr);
-   DSMLOG_DEBUG("brd->OffCal:  0x%04x\n", brd->OffCal);
+   DSMLOG_DEBUG("outw( 0x%04x, 0x%x);\n", brd->OffCal, brd->addr);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -1017,7 +1018,56 @@ static inline int getA2DSample(struct A2DBoard* brd)
    // adjust time tag to time of first sub-sample
    if (samp.timestamp < brd->ttMsecAdj) samp.timestamp += MSECS_PER_DAY;
    samp.timestamp -= brd->ttMsecAdj;
+/*
+// DEBUG TEST - strobe across each channel and each VCAL voltage periodically
+   static int strobe_vcal_lastime = 0;
+   static int strobe_vcal_channel = 0;
+   static int strobe_vcal_voltage = 0x01;
+   char *strobe_vcal_voltage_str;
+   int i;
+   if (strobe_vcal_lastime == 0)
+      strobe_vcal_lastime = samp.timestamp + 10000;
+   if (samp.timestamp > strobe_vcal_lastime + 10000) {
+      strobe_vcal_lastime = samp.timestamp;
+      switch (strobe_vcal_voltage) {
+      case 0x01: strobe_vcal_voltage_str = " gnd"; break;
+      case 0x02: strobe_vcal_voltage_str = " +1v"; break;
+      case 0x04: strobe_vcal_voltage_str = " +5v"; break;
+      case 0x08: strobe_vcal_voltage_str = "-10v"; break;
+      case 0x10: strobe_vcal_voltage_str = "+10v"; break;
+      default: break;
+      }
+      DSMLOG_DEBUG("%d: set channel %d to calibration voltage to %s\n",
+                   strobe_vcal_lastime, strobe_vcal_channel, strobe_vcal_voltage_str);
 
+      for (i=0; i<8; i++)
+         if (strobe_vcal_channel == i)
+            brd->cal.calset[i] = 1;
+         else
+            brd->cal.calset[i] = 0;
+      brd->cal.vcalx8 = strobe_vcal_voltage;
+#if STROBE_VOLTS_THEN_CHANNELS
+      strobe_vcal_voltage<<=1;
+      if (strobe_vcal_voltage == 0x20) {
+         strobe_vcal_voltage = 0x01;
+         strobe_vcal_channel++;
+         if (strobe_vcal_channel == 8)
+            strobe_vcal_channel = 0;
+      }
+#else
+      strobe_vcal_channel++;
+      if (strobe_vcal_channel == 8) {
+         strobe_vcal_channel = 0;
+         strobe_vcal_voltage<<=1;
+         if (strobe_vcal_voltage == 0x20)
+            strobe_vcal_voltage = 0x01;
+      }
+#endif
+      A2DSetVcal(brd);
+      A2DSetCal(brd);
+   }
+// END DEBUG TEST - strobe across each channel and each VCAL voltage periodically
+*/
    brd->cur_status.preFifoLevel[flevel]++;
    if (flevel != brd->expectedFifoLevel) {
       if (!(brd->nbadFifoLevel++ % 1000)) {
@@ -1691,10 +1741,16 @@ static int ioctlCallback(int cmd, int board, int port,
          }
 #endif
 /*
+//  bit  volts
+//  0x01 gnd
+//  0x02 +1
+//  0x04 +5
+//  0x08 -10
+//  0x10 +10
          DSMLOG_DEBUG("DEBUG set a channel to a calibration voltage\n");
-         brd->cal.vcalx8 = 0x2;  // REMOVE ME (TEST CAL)
-         brd->cal.calset[0] = 1; // REMOVE ME (TEST CAL)
-         brd->cal.calset[1] = 0; // REMOVE ME (TEST CAL)
+         brd->cal.vcalx8 = 0x04; // REMOVE ME (TEST CAL)
+         brd->cal.calset[0] = 0; // REMOVE ME (TEST CAL)
+         brd->cal.calset[1] = 1; // REMOVE ME (TEST CAL)
          brd->cal.calset[2] = 0; // REMOVE ME (TEST CAL)
          brd->cal.calset[3] = 0; // REMOVE ME (TEST CAL)
          brd->cal.calset[4] = 0; // REMOVE ME (TEST CAL)
