@@ -21,6 +21,7 @@ myenv.AppendUnique(CXXFLAGS = Split("""
 SConscript(dirs = ["raf", "isff", "iss"], exports={'env':myenv})
 
 headers = [ Split("""
+    A2DSensor.h
     AsciiOutput.h
     DSC_A2DSensor.h
     DSC_AnalogOut.h
@@ -45,6 +46,7 @@ headers = [ Split("""
 ##  source files in libnidas_dynld
 ##
 sources = [ Split("""
+    A2DSensor.cc
     AsciiOutput.cc
     DSC_A2DSensor.cc
     DSC_AnalogOut.cc

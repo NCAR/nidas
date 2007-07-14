@@ -33,19 +33,13 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    DSMSensor(),initialized(false),
-    scanRate(0),badRawSamples(0),
-    rtlinux(-1)
+    A2DSensor()
 {
     setLatency(0.1);
 }
 
 DSC_A2DSensor::~DSC_A2DSensor()
 {
-    for (unsigned int i = 0; i < samples.size(); i++) {
-        delete [] samples[i].convSlopes;
-        delete [] samples[i].convIntercepts;
-    }
 }
 
 bool DSC_A2DSensor::isRTLinux() const
@@ -75,58 +69,7 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
 void DSC_A2DSensor::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-    DSMSensor::open(flags);
-
-    init();
-
-    int nchans = 0;
-
-    ioctl(DMMAT_A2D_GET_NCHAN,&nchans,sizeof(nchans));
-
-    if (channels.size() > (unsigned)nchans) {
-        ostringstream ost;
-        ost << "max channel number is " << nchans;
-        throw n_u::InvalidParameterException(getName(),"open",ost.str());
-    }
-
-    struct DMMAT_A2D_Config cfg;
-    unsigned int chan;
-    for(chan = 0; chan < channels.size(); chan++)
-    {
-	cfg.gain[chan] = channels[chan].gain;
-	cfg.bipolar[chan] = channels[chan].bipolar;
-	cfg.id[chan] = channels[chan].id;
-
-#ifdef DEBUG
-	cerr << "chan=" << chan << " rate=" << cfg.rate[chan] <<
-		" gain=" << cfg.gain[chan] << 
-		" bipolar=" << cfg.bipolar[chan] << endl;
-#endif
-    }
-    for( ; chan < MAX_DMMAT_A2D_CHANNELS; chan++) {
-	cfg.gain[chan] = 0;
-	cfg.bipolar[chan] = false;
-    }
-
-    cfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
-    if (cfg.latencyUsecs == 0) cfg.latencyUsecs = USECS_PER_SEC / 10;
-
-    cfg.scanRate = getScanRate();
-
-    // cerr << "doing DMMAT_SET_A2D_CONFIG" << endl;
-    ioctl(DMMAT_A2D_SET_CONFIG, &cfg, sizeof(struct DMMAT_A2D_Config));
-
-    for(unsigned int i = 0; i < samples.size(); i++) {
-        struct DMMAT_A2D_Sample_Config cfg;
-
-        cfg.id = samples[i].id;
-	cfg.rate = samples[i].rate;
-	cfg.filterType = samples[i].filterType;
-	cfg.boxcarNpts = samples[i].boxcarNpts;
-
-        ioctl(DMMAT_A2D_SET_SAMPLE, &cfg,
-            sizeof(struct DMMAT_A2D_Sample_Config));
-    }
+    A2DSensor::open(flags);
     // cerr << "doing DMMAT_A2D_START" << endl;
     ioctl(DMMAT_A2D_START,0,0);
 }
@@ -136,7 +79,7 @@ void DSC_A2DSensor::close() throw(n_u::IOException)
 {
     cerr << "doing DMMAT_A2D_STOP" << endl;
     ioctl(DMMAT_A2D_STOP,0,0);
-    DSMSensor::close();
+    A2DSensor::close();
 }
 
 void DSC_A2DSensor::init() throw(n_u::InvalidParameterException)
@@ -168,192 +111,20 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-bool DSC_A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw()
-{
-    // pointer to raw A2D counts
-    const short* sp = (const short*) insamp->getConstVoidDataPtr();
-
-    // raw data are shorts
-    if (insamp->getDataByteLength() % sizeof(short)) {
-        badRawSamples++;
-        return false;
-    }
-
-    // number of short values in this raw sample.
-    unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
-    if (nvalues < 1) {
-        badRawSamples++;
-        return false;      // nothin
-    }
-
-    unsigned int id0 = 0;
-    // if more than one sample, the first value is an index
-    if (samples.size() != 1 || nvalues == samples[0].nvars + 1) {
-        int id = *sp++;
-        if (id < 0 || id >= (signed) samples.size()) {
-            badRawSamples++;
-            return false;
-        }
-        id0 = id;
-        nvalues--;
-    }
-
-    struct sample_info* sinfo = &samples[id0];
-    SampleTag* stag = sinfo->stag;
-    const vector<const Variable*>& vars = stag->getVariables();
-
-    SampleT<float>* osamp = getSample<float>(sinfo->nvars);
-    osamp->setTimeTag(insamp->getTimeTag());
-    osamp->setId(stag->getId());
-    float *fp = osamp->getDataPtr();
-
-    unsigned int ival;
-    for (ival = 0; ival < std::min(nvalues,sinfo->nvars); ival++,fp++) {
-	short sval = *sp++;
-	if (sval == -32768 || sval == 32767) {
-            *fp = floatNAN;
-            continue;
-        }
-
-	float volts = sinfo->convIntercepts[ival] +
-            sinfo->convSlopes[ival] * sval;
-        const Variable* var = vars[ival];
-        if (volts < var->getMinValue() || volts > var->getMaxValue()) 
-            *fp = floatNAN;
-        else {
-            VariableConverter* conv = var->getConverter();
-            if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
-            else *fp = volts;
-        }
-    }
-
-    for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
-    results.push_back(osamp);
-
-    return true;
-}
-
 void DSC_A2DSensor::addSampleTag(SampleTag* tag)
         throw(n_u::InvalidParameterException)
 {
-    /*
-     Hypothetical, somewhat complex sensor configuration:
-     User wants to sample channels 0,4 and 5 at 10/s,
-     and channels 1 and 2 at 100/s:
 
-        <sensor>
-            <parameter name="rate" value="1000"/>   // sample rate 1KHz
-            <sample id="1" rate="10">               // output rate 10Hz
-                <parameter name="filter" value="boxcar"/>
-                <parameter name="numpoints" value="4"/>
-                <variable name="IN0"/>  // default channel 0
-                <variable name="IN4">
-                   <parameter name="channel" value="4"/>
-                </variable>
-                <variable name="IN5"/>  // channel=5 is 1 plus previous
-                </variable>
-            </sample>
-            <sample id="2" rate="100">              // output rate 100Hz
-                <parameter name="filter" value="boxcar"/>
-                <parameter name="numpoints" value="4"/>
-                <variable name="IN1">
-                   <parameter name="channel" value="1"/>
-                </variable>
-                <variable name="IN2"/>      // channel=2 is 1 plus previous
-            </sample>
-        </sensor>
+    int sindex = _samples.size();       // sample index, 0,1,...
+    A2DSensor::addSampleTag(tag);
 
-     For the driver, we save this information in
-     vector<struct chan_info> channels by channel number:
-         channels[0]
-            gain=X,bipolar=X,id=0 (id is one less than id="1")
-         channels[1]
-            gain=X,bipolar=X,id=1 (id is one less than id="2")
-         channels[2]
-            gain=X,bipolar=X,id=1 (id is one less than id="2")
-         channels[3]
-            gain=0,bipolar=0,id=0 (gain=0 means not sampled)
-         channels[4]
-            gain=X,bipolar=x,id=0 
-         channels[5]
-            gain=X,bipolar=X,id=0
-
-     Also build vector<struct sample_info> samples:
-     samples[0]
-        id=0,rate=10,filterType=X,nvars=3,convSlopes=(m,m,m) convIntercepts=(b,b,b)
-     samples[1]
-        id=1,rate=100,filterType=X,nvars=2,convSlopes=(m,m) convIntercepts=(b,b)
-
-     The process method will receive the individual samples. The first
-     short int in the data is the id.
-     For id==0, there should be 3 more short int values containing
-     the A2D counts for variables IN0,IN4 and IN5. The data length
-     of the raw sample should be 8 bytes.
-     For id==1, there should be 2 more short int values containing
-     the A2D counts for variables IN1,IN2, and the data length
-     should be 6 bytes.
-
-     If only one sample is configured, the driver does not add
-     an id to the samples (backward compatibility)
-     */
-    DSMSensor::addSampleTag(tag);
-
-    float frate = tag->getRate();
-    if (fmodf(frate,1.0) != 0.0) {
-	ostringstream ost;
-	ost << frate;
-        throw n_u::InvalidParameterException(getName(),
-		"rate must be an integer",ost.str());
-    }
-
-    int rate = (int)frate;
-    if (getScanRate() < rate) setScanRate(rate);
-    int boxcarNpts = 1;
-
-    enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
-    const std::list<const Parameter*>& params = tag->getParameters();
-    list<const Parameter*>::const_iterator pi;
-    for (pi = params.begin(); pi != params.end(); ++pi) {
-        const Parameter* param = *pi;
-        const string& pname = param->getName();
-        if (pname == "filter") {
-                if (param->getType() != Parameter::STRING_PARAM ||
-                    param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"sample",
-                        "filter parameter is not a string");
-                string fname = param->getStringValue(0);
-                if (fname == "boxcar") filterType = NIDAS_FILTER_BOXCAR;
-                else if (fname == "pickoff") filterType = NIDAS_FILTER_PICKOFF;
-                else throw n_u::InvalidParameterException(getName(),"sample",
-                        fname + " filter is not supported");
-        }
-        else if (pname == "numpoints") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"sample",
-                        "bad sampleRate parameter");
-                boxcarNpts = (int)param->getNumericValue(0);
-        }
-    }
-
-    int id0 = samples.size();       // which sample
+    struct sample_info* sinfo = &_samples[sindex];
 
     const vector<const Variable*>& vars = tag->getVariables();
 
-    sample_info sinfo;
-    memset(&sinfo,0,sizeof(sinfo));
-    sinfo.stag = tag;
-    sinfo.id = id0;
-    sinfo.rate = rate;
-    sinfo.filterType = filterType;
-    sinfo.boxcarNpts = boxcarNpts;
-    sinfo.nvars = vars.size();
-    sinfo.convSlopes = new float[sinfo.nvars];
-    sinfo.convIntercepts = new float[sinfo.nvars];
-    samples.push_back(sinfo);
-
     vector<const Variable*>::const_iterator vi;
     int ivar = 0;
-    int prevChan = channels.size() - 1;
+    int prevChan = _channels.size() - 1;
     int lastChan = -1;
 
     for (vi = vars.begin(); vi != vars.end(); ++vi,ivar++) {
@@ -373,6 +144,7 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 	float corIntercept = 0.0;
 
         const std::list<const Parameter*>& vparams = var->getParameters();
+        list<const Parameter*>::const_iterator pi;
 	for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
 	    const Parameter* param = *pi;
 	    const string& pname = param->getName();
@@ -433,9 +205,10 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 
 	struct chan_info ci;
 	memset(&ci,0,sizeof(ci));
-	for (int i = channels.size(); i <= ichan; i++) channels.push_back(ci);
+	for (int i = _channels.size(); i <= ichan; i++)
+            _channels.push_back(ci);
 
-	ci = channels[ichan];
+	ci = _channels[ichan];
 
 	if (ci.gain > 0) {
 	    ostringstream ost;
@@ -444,10 +217,10 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 		string("multiple variables for A2D channel ") + ost.str());
 	}
 
-	ci.gain = gain; 	// gain of 0 means don't sample
+	ci.gain = gain;
 	ci.bipolar = bipolar;
-        ci.id = id0;
-	channels[ichan] = ci;
+        ci.index = sindex;
+	_channels[ichan] = ci;
 
 	/*
 	 * DSC returns (32767) for maximum voltage of range and -32768 for
@@ -481,12 +254,13 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 	 *		offset * corSlope + corIntercept
 	 */
 
-	sinfo.convSlopes[ivar] = 20.0 / 65535 / channels[ichan].gain * corSlope;
-	if (channels[ichan].bipolar) 
-	    sinfo.convIntercepts[ivar] = corIntercept;
-	else 
-	    sinfo.convIntercepts[ivar] = corIntercept +
-	    	10.0 / channels[ichan].gain * corSlope;
+	sinfo->convSlopes[ivar] = 20.0 / 65535 /
+            _channels[ichan].gain * corSlope;
+	if (_channels[ichan].bipolar) 
+	    sinfo->convIntercepts[ivar] = corIntercept;
+        else 
+	    sinfo->convIntercepts[ivar] = corIntercept +
+	    	10.0 / _channels[ichan].gain * corSlope;
     }
 }
 
@@ -502,6 +276,7 @@ void DSC_A2DSensor::fromDOMElement(
     for (pi = params.begin(); pi != params.end(); ++pi) {
         const Parameter* param = *pi;
         const string& pname = param->getName();
+        // A sensor "rate" parameter is the A2D scan rate, before decimation
         if (pname == "rate") {
                 if (param->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),"parameter",

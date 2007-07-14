@@ -483,7 +483,7 @@ static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
 /*
  * Configure A2D board.  Board should not be busy.
  */
-static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
+static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
 {
 
         int result = 0;
@@ -491,74 +491,75 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
 
         int gain = 0;
         int bipolar = 0;
-        int uniqueIds[MAX_DMMAT_A2D_CHANNELS];
+        int uniqueSampleIndx[MAX_DMMAT_A2D_CHANNELS];
 
         if(a2d->running) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
 
-        if (a2d->sampleInfo) {
-                for (j = 0; j < a2d->nsamples; j++) {
-                        if (a2d->sampleInfo[j].channels)
-                                kfree(a2d->sampleInfo[j].channels);
-                        a2d->sampleInfo[j].channels = 0;
+        if (a2d->filters) {
+                for (j = 0; j < a2d->nfilters; j++) {
+                        if (a2d->filters[j].channels)
+                                kfree(a2d->filters[j].channels);
+                        a2d->filters[j].channels = 0;
                 }
-                kfree(a2d->sampleInfo);
-                a2d->sampleInfo = 0;
+                kfree(a2d->filters);
+                a2d->filters = 0;
         }
 
-        a2d->nsamples = 0;
+        a2d->nfilters = 0;
         a2d->lowChan = -1;
         a2d->highChan = 0;
 
         a2d->scanRate = cfg->scanRate;
 
-        /* count number of unique sample ids */
+        /* count number of unique samples requested.
+         * A filter will be created for each sample */
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int id = cfg->id[i];
-                // non-zero gain means the channel has been requested
+                int index = cfg->sampleIndex[i];
+                // zero gain means the channel is to be skipped
                 if (cfg->gain[i] == 0) continue;
-                for (j = 0; j < a2d->nsamples; j++)
-                    if (id == uniqueIds[j]) break;
-                if (j == a2d->nsamples) uniqueIds[a2d->nsamples++] = id;
+                for (j = 0; j < a2d->nfilters; j++)
+                    if (index == uniqueSampleIndx[j]) break;
+                if (j == a2d->nfilters) uniqueSampleIndx[a2d->nfilters++] = index;
         }
 
-        if (a2d->nsamples == 0) {
-                KLOG_ERR("%s: no channels requested, all gain==0\n",
+        if (a2d->nfilters == 0) {
+                KLOG_ERR("%s: no channels requested, all gains==0\n",
                     a2d->deviceName);
                 return -EINVAL;
         }
 
-        a2d->sampleInfo = kmalloc(a2d->nsamples *
-            sizeof(struct DMMAT_A2D_Sample_Info),GFP_KERNEL);
-        memset(a2d->sampleInfo,0,
-                a2d->nsamples * sizeof(struct DMMAT_A2D_Sample_Info));
+        a2d->filters = kmalloc(a2d->nfilters *
+            sizeof(struct a2d_filter_info),GFP_KERNEL);
+        memset(a2d->filters,0,
+                a2d->nfilters * sizeof(struct a2d_filter_info));
 
         /* Count number of channels for each sample */
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int id = cfg->id[i];
+                int index = cfg->sampleIndex[i];
                 if (cfg->gain[i] == 0) continue;
-                for (j = 0; j < a2d->nsamples; j++)
-                    if (id == uniqueIds[j]) break;
-                a2d->sampleInfo[j].nchans++;
+                for (j = 0; j < a2d->nfilters; j++)
+                    if (index == uniqueSampleIndx[j]) break;
+                a2d->filters[j].nchans++;
         }
 
         /* Allocate array of indicies into scanned channel sequence */
-        for (j = 0; j < a2d->nsamples; j++) {
-                a2d->sampleInfo[j].channels =
-                    kmalloc(a2d->sampleInfo[j].nchans * sizeof(int),GFP_KERNEL);
-                a2d->sampleInfo[j].nchans = 0;
+        for (j = 0; j < a2d->nfilters; j++) {
+                a2d->filters[j].channels =
+                    kmalloc(a2d->filters[j].nchans * sizeof(int),GFP_KERNEL);
+                a2d->filters[j].nchans = 0;
         }
 
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int id = cfg->id[i];
+                int index = cfg->sampleIndex[i];
                 a2d->requested[i] = 0;
                 if (cfg->gain[i] == 0) continue;
-                for (j = 0; j < a2d->nsamples; j++)
-                    if (id == uniqueIds[j]) break;
+                for (j = 0; j < a2d->nfilters; j++)
+                    if (index == uniqueSampleIndx[j]) break;
 
-                a2d->sampleInfo[j].channels[a2d->sampleInfo[j].nchans++] = i;
+                a2d->filters[j].channels[a2d->filters[j].nchans++] = i;
 
                 a2d->requested[i] = 1;
                 if (a2d->lowChan < 0) {
@@ -575,9 +576,9 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
                 if (cfg->bipolar[i] != bipolar) return -EINVAL;
         }
         // subtract low channel
-        for (j = 0; j < a2d->nsamples; j++) {
-                for (i = 0; i < a2d->sampleInfo[j].nchans; i++)
-                        a2d->sampleInfo[j].channels[i] -= a2d->lowChan;
+        for (j = 0; j < a2d->nfilters; j++) {
+                for (i = 0; i < a2d->filters[j].nchans; i++)
+                        a2d->filters[j].channels[i] -= a2d->lowChan;
         }
         a2d->nchans = a2d->highChan - a2d->lowChan + 1;
 
@@ -610,12 +611,12 @@ static int configA2D(struct DMMAT_A2D* a2d,struct DMMAT_A2D_Config* cfg)
 }
 
 /*
- * Configure filter for A2D samples.  A2D should not be running.
+ * Configure a filter.  A2D should not be running.
  */
-static int configA2DSample(struct DMMAT_A2D* a2d,
-        struct DMMAT_A2D_Sample_Config* cfg)
+static int configA2DFilter(struct DMMAT_A2D* a2d,
+        struct nidas_a2d_filter_config* cfg)
 {
-        struct DMMAT_A2D_Sample_Info* sinfo;
+        struct a2d_filter_info* fcfg;
         struct short_filter_methods methods;
         int result;
 
@@ -624,34 +625,34 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
                 return -EBUSY;
         }
 
-        KLOG_DEBUG("%s: id=%d,nsamples=%d\n",
-            a2d->deviceName,cfg->id,a2d->nsamples);
+        KLOG_DEBUG("%s: index=%d,nfilters=%d\n",
+            a2d->deviceName,cfg->index,a2d->nfilters);
 
-        if (cfg->id < 0 || cfg->id >= a2d->nsamples) return -EINVAL;
+        if (cfg->index < 0 || cfg->index >= a2d->nfilters) return -EINVAL;
 
-        sinfo = &a2d->sampleInfo[cfg->id];
+        fcfg = &a2d->filters[cfg->index];
 
         KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
             a2d->deviceName,a2d->scanRate,cfg->rate);
 
         if (a2d->scanRate % cfg->rate) {
                 KLOG_ERR("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
-                    a2d->deviceName,a2d->scanRate,cfg->rate,cfg->id);
+                    a2d->deviceName,a2d->scanRate,cfg->rate,cfg->index);
                 return -EINVAL;
         }
 
         /* cleanup a previous filter if one exists */
-        if (sinfo->filterObj && sinfo->fcleanup) 
-            sinfo->fcleanup(sinfo->filterObj);
-        sinfo->filterObj = 0;
-        sinfo->fcleanup = 0;
+        if (fcfg->filterObj && fcfg->fcleanup) 
+            fcfg->fcleanup(fcfg->filterObj);
+        fcfg->filterObj = 0;
+        fcfg->fcleanup = 0;
 
-        sinfo->decimate = a2d->scanRate / cfg->rate;
-        sinfo->filterType = cfg->filterType;
-        sinfo->id = cfg->id;
+        fcfg->decimate = a2d->scanRate / cfg->rate;
+        fcfg->filterType = cfg->filterType;
+        fcfg->index = cfg->index;
 
-        KLOG_DEBUG("%s: decimate=%d,filterType=%d,id=%d\n",
-            a2d->deviceName,sinfo->decimate,sinfo->filterType,sinfo->id);
+        KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
+            a2d->deviceName,fcfg->decimate,fcfg->filterType,fcfg->index);
         
         methods = get_short_filter_methods(cfg->filterType);
         if (!methods.init) {
@@ -659,32 +660,32 @@ static int configA2DSample(struct DMMAT_A2D* a2d,
                     a2d->deviceName,cfg->filterType);
                 return -EINVAL;
         }
-        sinfo->finit = methods.init;
-        sinfo->fconfig = methods.config;
-        sinfo->filter = methods.filter;
-        sinfo->fcleanup = methods.cleanup;
+        fcfg->finit = methods.init;
+        fcfg->fconfig = methods.config;
+        fcfg->filter = methods.filter;
+        fcfg->fcleanup = methods.cleanup;
 
         /* Create the filter object */
-        sinfo->filterObj = sinfo->finit();
-        if (!sinfo->filterObj) return -ENOMEM;
+        fcfg->filterObj = fcfg->finit();
+        if (!fcfg->filterObj) return -ENOMEM;
 
         /* Configure the filter */
-        switch(sinfo->filterType) {
+        switch(fcfg->filterType) {
         case NIDAS_FILTER_BOXCAR:
         {
                 struct boxcar_filter_config bcfg;
                 KLOG_DEBUG("%s: BOXCAR\n",a2d->deviceName);
                 bcfg.npts = cfg->boxcarNpts;
-                result = sinfo->fconfig(sinfo->filterObj,cfg->id,
-                    sinfo->nchans,sinfo->channels,
-                    sinfo->decimate,&bcfg);
+                result = fcfg->fconfig(fcfg->filterObj,cfg->index,
+                    fcfg->nchans,fcfg->channels,
+                    fcfg->decimate,&bcfg);
         }
                 break;
         case NIDAS_FILTER_PICKOFF:
                 KLOG_DEBUG("%s: PICKOFF\n",a2d->deviceName);
-                result = sinfo->fconfig(sinfo->filterObj,cfg->id,
-                    sinfo->nchans,sinfo->channels,
-                    sinfo->decimate,0);
+                result = fcfg->fconfig(fcfg->filterObj,cfg->index,
+                    fcfg->nchans,fcfg->channels,
+                    fcfg->decimate,0);
                 break;
         default:
                 result = -EINVAL;
@@ -1161,7 +1162,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                 nfilt = 1;
         }
 #endif
-        for (i = 0; i < a2d->nsamples; i++) {
+        for (i = 0; i < a2d->nfilters; i++) {
                 short_sample_t* osamp = (short_sample_t*)
                     GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                 if (!osamp) {
@@ -1171,13 +1172,13 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                         if (!(a2d->status.missedSamples++ % 1000))
                             KLOG_WARNING("%s: missedSamples=%d\n",
                                 a2d->deviceName,a2d->status.missedSamples);
-                        a2d->sampleInfo[i].filter(
-                            a2d->sampleInfo[i].filterObj,tt,dp,
+                        a2d->filters[i].filter(
+                            a2d->filters[i].filterObj,tt,dp,
                             (short_sample_t*)&toss);
                 }
                 else if (
-                        a2d->sampleInfo[i].filter(
-                            a2d->sampleInfo[i].filterObj,tt,dp,osamp)) {
+                        a2d->filters[i].filter(
+                            a2d->filters[i].filterObj,tt,dp,osamp)) {
                         INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                         KLOG_DEBUG("do_filters: samples head=%d,tail=%d\n",
                             a2d->samples.head,a2d->samples.tail);
@@ -1791,13 +1792,13 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
             if (a2d->running) stopA2D(a2d,1);
             result = dmd_mmat_remove_irq_user(brd,0);
             /* cleanup filters */
-            for (i = 0; i < a2d->nsamples; i++) {
-                struct DMMAT_A2D_Sample_Info* sinfo;
-                sinfo = &a2d->sampleInfo[i];
-                if (sinfo->filterObj && sinfo->fcleanup) 
-                    sinfo->fcleanup(sinfo->filterObj);
-                sinfo->filterObj = 0;
-                sinfo->fcleanup = 0;
+            for (i = 0; i < a2d->nfilters; i++) {
+                struct a2d_filter_info* fcfg;
+                fcfg = &a2d->filters[i];
+                if (fcfg->filterObj && fcfg->fcleanup) 
+                    fcfg->fcleanup(fcfg->filterObj);
+                fcfg->filterObj = 0;
+                fcfg->fcleanup = 0;
             }
         }
         KLOG_DEBUG("release_a2d, num_opened=%d\n",
@@ -1933,7 +1934,7 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         switch (cmd) 
         {
 
-        case DMMAT_A2D_GET_NCHAN:
+        case NIDAS_A2D_GET_NCHAN:
             {
                 u32 nchan = a2d->getNumChannels(a2d);
                 if (copy_to_user((void __user *)arg,&nchan,sizeof(nchan)))
@@ -1941,27 +1942,33 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 result = 0;
                 break;
             }
+        case NIDAS_A2D_SET_CONFIG:      /* user set */
+            {
+                struct nidas_a2d_config cfg;
+                if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
+                        KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
+                        MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
+                        result = -EINVAL;
+                }
+                if (copy_from_user(&cfg,(void __user *)arg,
+                        sizeof(struct nidas_a2d_config))) return -EFAULT;
+                result = configA2D(a2d,&cfg);
+            }
+	    break;
+        case NIDAS_A2D_ADD_FILTER:      /* user set */
+            {
+                struct nidas_a2d_filter_config cfg;
+                if (copy_from_user(&cfg,(void __user *)arg,
+                        sizeof(struct nidas_a2d_filter_config)))
+                            return -EFAULT;
+                result = configA2DFilter(a2d,&cfg);
+            }
+	    break;
         case DMMAT_A2D_GET_STATUS:	/* user get of status struct */
                 if (copy_to_user((void __user *)arg,&a2d->status,
                     sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
                 result = 0;
                 break;
-        case DMMAT_A2D_SET_CONFIG:      /* user set */
-            {
-                struct DMMAT_A2D_Config cfg;
-                if (copy_from_user(&cfg,(void __user *)arg,
-                        sizeof(struct DMMAT_A2D_Config))) return -EFAULT;
-                result = configA2D(a2d,&cfg);
-            }
-	    break;
-        case DMMAT_A2D_SET_SAMPLE:      /* user set */
-            {
-                struct DMMAT_A2D_Sample_Config cfg;
-                if (copy_from_user(&cfg,(void __user *)arg,
-                        sizeof(struct DMMAT_A2D_Sample_Config))) return -EFAULT;
-                result = configA2DSample(a2d,&cfg);
-            }
-	    break;
         case DMMAT_A2D_START:
                 result = startA2D(a2d,1);
                 break;
@@ -2486,14 +2493,14 @@ static void cleanup_a2d(struct DMMAT* brd)
                 kfree(a2d->fifo_samples.buf);
                 a2d->fifo_samples.buf = 0;
         }
-        if (a2d->sampleInfo) {
-                for (i = 0; i < a2d->nsamples; i++) {
-                        if (a2d->sampleInfo[i].channels)
-                                kfree(a2d->sampleInfo[i].channels);
-                        a2d->sampleInfo[i].channels = 0;
+        if (a2d->filters) {
+                for (i = 0; i < a2d->nfilters; i++) {
+                        if (a2d->filters[i].channels)
+                                kfree(a2d->filters[i].channels);
+                        a2d->filters[i].channels = 0;
                 }
-                kfree(a2d->sampleInfo);
-                a2d->sampleInfo = 0;
+                kfree(a2d->filters);
+                a2d->filters = 0;
         }
 
 #ifdef USE_TASKLET

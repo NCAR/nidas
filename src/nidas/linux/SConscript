@@ -47,6 +47,7 @@ headers = Split("""
     isa_bus.h
     irigclock.h
     ncar_a2d.h
+    a2d.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux', headers)

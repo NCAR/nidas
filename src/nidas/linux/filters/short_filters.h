@@ -30,6 +30,7 @@ enum nidas_short_filter {
     NIDAS_FILTER_BOXCAR,
 };
 
+#ifdef __KERNEL__
 /**
  * Form of data sample that the short filters operate on.
  */
@@ -46,7 +47,6 @@ typedef struct short_sample
     short data[0];
 } short_sample_t;
 
-#ifdef __KERNEL__
 
 /**
  * init method, kmallocs and returns a pointer to the filter object,

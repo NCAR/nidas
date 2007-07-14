@@ -16,6 +16,7 @@
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
 #include <nidas/linux/filters/short_filters.h>
+#include <nidas/linux/a2d.h>
 
 #ifndef __KERNEL__
 /* User programs need this for the _IO macros, but kernel
@@ -34,23 +35,6 @@
 #define	MAX_DMMAT_A2D_CHANNELS 32	// max num A/D channels per card
 #define DMMAT_D2A_OUTPUTS_PER_BRD 4
 #define	MAX_DMMAT_D2A_OUTPUTS (MAX_DMMAT_BOARDS * DMMAT_D2A_OUTPUTS_PER_BRD)
-
-struct DMMAT_A2D_Config
-{
-        int gain[MAX_DMMAT_A2D_CHANNELS];   // Gain settings, 1,2,5, or 10
-        int bipolar[MAX_DMMAT_A2D_CHANNELS];// 1=bipolar,0=unipolar
-        int id[MAX_DMMAT_A2D_CHANNELS];     // sample id, 0,1, etc of each chan
-        long latencyUsecs;                  // buffer latency in micro-sec
-        int scanRate;                       // how fast to sample
-};
-
-struct DMMAT_A2D_Sample_Config
-{
-        int filterType;     // one of nidas_short_filter enum
-        int rate;           // output rate
-        int boxcarNpts;     // number of pts in boxcar avg
-        short id;           // sample id
-};
 
 struct DMMAT_A2D_Status
 {
@@ -78,17 +62,12 @@ struct DMMAT_A2D_Status
  * See pages 130-132 of Linux Device Driver's Manual 
  */
 
-/** A2D Ioctls */
-#define DMMAT_A2D_SET_CONFIG \
-    _IOW(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Config)
+/** A2D Ioctls in addition to those in nidas_analog.h */
 #define DMMAT_A2D_GET_STATUS \
-    _IOR(DMMAT_IOC_MAGIC,1,struct DMMAT_A2D_Status)
-#define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,2)
-#define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,3)
-#define DMMAT_A2D_GET_NCHAN  _IOR(DMMAT_IOC_MAGIC,4,int)
-#define DMMAT_A2D_SET_SAMPLE \
-    _IOW(DMMAT_IOC_MAGIC,5,struct DMMAT_A2D_Sample_Config)
-#define DMMAT_A2D_DO_AUTOCAL    _IO(DMMAT_IOC_MAGIC,6)
+    _IOR(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Status)
+#define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,1)
+#define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,2)
+#define DMMAT_A2D_DO_AUTOCAL    _IO(DMMAT_IOC_MAGIC,3)
 
 /** Counter Ioctls */
 #define DMMAT_CNTR_START \
@@ -278,35 +257,9 @@ struct DMMAT {
 #endif
 };
 
-struct a2d_sample
-{
-        dsm_sample_time_t timetag;    // timetag of sample
-        dsm_sample_length_t length;       // number of bytes in data
-        short data[MAX_DMMAT_A2D_CHANNELS];
-};
-
 struct a2d_bh_data
 {
         struct a2d_sample saveSample;
-};
-
-/**
- * From the user point of view a sample is a group of 
- * A2D channels which the user wants output at a given
- * rate, using a certain filter.  This structure describes
- * such a sample.
- */
-struct DMMAT_A2D_Sample_Info {
-        int nchans;
-        int* channels;
-        int decimate;
-        enum nidas_short_filter filterType;
-        shortfilt_init_method finit;
-        shortfilt_config_method fconfig;
-        shortfilt_filter_method filter;
-        shortfilt_cleanup_method fcleanup;
-        void* filterObj;
-        short id;           // sample id
 };
 
 /**
@@ -355,8 +308,9 @@ struct DMMAT_A2D
         int maxFifoThreshold;       // maximum hardware fifo threshold
         int fifoThreshold;	        // current hardware fifo threshold
         
-        int nsamples;               // how many different output sample groups
-        struct DMMAT_A2D_Sample_Info* sampleInfo;
+        int nfilters;               // how many different output filters
+
+        struct a2d_filter_info* filters;
 
         unsigned char requested[MAX_DMMAT_A2D_CHANNELS];// 1=channel requested, 0=isn't
         int lowChan;		// lowest channel scanned
