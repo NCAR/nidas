@@ -18,6 +18,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -41,20 +42,38 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
 {
 // DEBUG LOG stuff...
     // number of data values in this raw sample.
+    const unsigned short * spdata =
+		(const unsigned short *)samp->getConstVoidDataPtr();
     unsigned int nvalues = samp->getDataByteLength() / sizeof(short);
 
+#ifdef DEBUG
     n_u::Logger::getInstance()->log(LOG_NOTICE,"0 LamsSensor::process nvalues:%d", nvalues);
-    SampleT<float>* outs = getSample<float>(1);
+#endif
+    SampleT<float>* outs = getSample<float>(nvalues);
 
     outs->setTimeTag(samp->getTimeTag());
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"1 LamsSensor::process outs->getTimeTag: %lu", outs->getTimeTag());
+#ifdef DEBUG
+    n_u::UTime tt(outs->getTimeTag());
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"1 LamsSensor::process outs->getTimeTag: %s",
+	tt.format(true,"%c").c_str());
+#endif
 
-    outs->setId(getId() + 1);  // TODO sampleId fromDomElement
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process outs->getId: %d", outs->getId());
+    outs->setId(getId() + 1);  
+#ifdef DEBUG
+    n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process outs->getId: %d,%d",
+          GET_DSM_ID(outs->getId()),GET_SHORT_ID(outs->getId()));
+#endif
     
     float * dout = outs->getDataPtr();
-    *dout = 37.5;
+    for (size_t iout = 0; iout < nvalues; ++iout){
+      *dout++ = (float)spdata[iout];
+//#ifdef DEBUG
+      n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process sp_idx: %d sp_data:%f", iout,spdata[iout]);
+//#endif
+    }    
+#ifdef DEBUG
     n_u::Logger::getInstance()->log(LOG_NOTICE,"3 LamsSensor::process outs->getDataLength: %d", outs->getDataLength());
+#endif
   
     results.push_back(outs);
     return true;
