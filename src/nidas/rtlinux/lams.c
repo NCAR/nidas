@@ -153,35 +153,54 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
    static int nTattle, nGlyph;
-   static unsigned long sum[MAX_BUFFER], max;
-   static int m, n, nAvg = 0;
+   static unsigned long sum[MAX_BUFFER], max1[MAX_BUFFER], temp0[MAX_BUFFER];
+   static unsigned long temp1[MAX_BUFFER], max;
+   static int n, nAvg = 0;
 
-   readw(baseAddr + FLAGS_OFFSET); //Clear Dual Port memory address counter
-   for (n=0; n<MAX_BUFFER; n++) {
-     sum[n] += readw(baseAddr + DATA_OFFSET);
-     if(sum[n] > max){
-       max = sum[n];
-       nGlyph = n;
+   readw(baseAddr + RAM_CLEAR_OFFSET); //Clear Dual Port memory address counter
+
+  for (n=3; n < MAX_BUFFER; n++) {
+     temp0[n] = readw(baseAddr + PEAK_DATA_OFFSET);
+     temp1[n] = readw(baseAddr + AVG_DATA_OFFSET);
+  }
+  for (n=0; n < 3; n++) {
+     temp0[n] = readw(baseAddr + PEAK_DATA_OFFSET);
+     temp1[n] = readw(baseAddr + AVG_DATA_OFFSET);
+  }
+  for (n=256; n < MAX_BUFFER; n++) {
+     sum[n] += temp1[n];
+     if(temp0[n] > max1[n-256]) {
+       max1[n-256] = temp0[n];
+     }
+     if(temp0[n] > max) {
+       max = temp0[n];
+       nGlyph = n-256;
      }
    }
-  // average N spectrum data
    if (n == MAX_BUFFER) {
-      if (nAvg++ >= N_AVG) {
-         nAvg = 0;
-         for (n=0; n<MAX_BUFFER; n++) {
-            m = n;
-            if(n >= 510) m = n - 512;
-            lams.data[n] = sum[m+2] / N_AVG;
-            sum[n] = 0;
+     if (nAvg++ >= N_AVG) {
+       nAvg = 0;
+       for (n=0; n < MAX_BUFFER; n++) {
+         if (n < MAX_BUFFER/2) {
+           lams.data[n] = max1[n]*300;
          }
+         else {
+           lams.data[n] = sum[n]/N_AVG ;
+         }
+         sum[n] = 0;
+       }
 
-         rtl_sem_post( &threadSem );
-        if (++nTattle == 13) {
-          nTattle = 0;
-          DSMLOG_DEBUG("(%d) lams.data: 0x%04x\n",
-                       nGlyph, max/N_AVG);
-        }
-      }
+       rtl_sem_post( &threadSem );
+       if (++nTattle == N_PEAK) {
+         nTattle = 0;
+         DSMLOG_DEBUG("(%d) lams.data: 0x%04x, max: 0x%04x\n",
+                      nGlyph,lams.data[nGlyph], max);
+         readw(baseAddr + PEAK_CLEAR_OFFSET); 
+         for (n=0; n < MAX_BUFFER; n++) {
+           max1[n] = 0;
+         }
+       }
+     }
    }
    return 0;
 }
