@@ -67,9 +67,9 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     float * dout = outs->getDataPtr();
     for (size_t iout = 0; iout < nvalues; ++iout){
       *dout++ = (float)spdata[iout];
-//#ifdef DEBUG
-      n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process sp_idx: %d sp_data:%f", iout,spdata[iout]);
-//#endif
+#ifdef DEBUG
+      n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process sp_idx: %d sp_data:%u", iout,spdata[iout]);
+#endif
     }    
 #ifdef DEBUG
     n_u::Logger::getInstance()->log(LOG_NOTICE,"3 LamsSensor::process outs->getDataLength: %d", outs->getDataLength());
