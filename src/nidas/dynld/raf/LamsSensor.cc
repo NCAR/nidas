@@ -66,8 +66,8 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     
     // Read out data, reversing the order in the process.
     float * dout = outs->getDataPtr();
-    for (size_t iout = nvalues-1; iout >= 0; ++iout){
-      *dout++ = (float)spdata[iout];
+    for (size_t iout = nvalues; iout > 0; ){
+      *dout++ = (float)spdata[--iout];
 #ifdef DEBUG
       n_u::Logger::getInstance()->log(LOG_NOTICE,"2 LamsSensor::process sp_idx: %d sp_data:%u", iout,spdata[iout]);
 #endif
