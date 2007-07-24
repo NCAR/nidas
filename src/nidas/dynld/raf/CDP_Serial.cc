@@ -220,9 +220,9 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
 
     // Now we're running. Set the message parameters appropriate for
     // normal operation.
-    setMessageLength(_packetLen);
     setMessageSeparator("\xff\xff");
     setMessageSeparatorAtEOM(true);
+    setMessageLength(_packetLen - 2);       // subtract off length of separator
     setMessageParameters(); // does the ioctl
 }
 

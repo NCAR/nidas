@@ -218,7 +218,7 @@ void MessageSampleScanner::setMessageSeparator(const std::string& val)
       msg << "separator=" << std::ostringstream::hex;
       for (int i = 0; i < separatorLen; i++)
         msg << (int)(unsigned char)separator[i] << ' ';
-      msg << std::ostringstream::dec << "getMessageLength=" << getMessageLength();
+      msg << std::ostringstream::dec << ", getMessageLength=" << getMessageLength();
       log.log (msg);
     }
 }
