@@ -167,13 +167,11 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     setup_pkt.chksum = toLittle->ushortValue(
 	computeCheckSum((unsigned char*)&setup_pkt,
             plen-sizeof(setup_pkt.chksum)));
-/*
-    if (getMessageLength() != sizeof(Response100_blk)) {
-        setMessageLength(sizeof(Response100_blk));
-        setMessageParameters();
-    }
-*/
+
+    // The initialization response is two bytes 0x0606 with
+    // no separator.
     setMessageLength(2);
+    setMessageSeparator("");
     setMessageParameters(); // does the ioctl
 
     // clear whatever junk may be in the buffer til a timeout
@@ -220,7 +218,11 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     }
     samp->freeReference();
 
+    // Now we're running. Set the message parameters appropriate for
+    // normal operation.
     setMessageLength(_packetLen);
+    setMessageSeparator("\xff\xff");
+    setMessageSeparatorAtEOM(true);
     setMessageParameters(); // does the ioctl
 }
 
