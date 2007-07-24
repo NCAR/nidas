@@ -113,8 +113,15 @@ static void read_radar(void * channel)
   sample.sampleID = ID_RADAR;
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
   sample.timetag = GET_MSEC_CLOCK;
+ 
+  unsigned short pdata = -1, count =0;
   sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-//DSMLOG_DEBUG("chn: %d  sample.data: %d\n", 0, sample.data[0]);
+  while (pdata != sample.data[0]) {
+    pdata=sample.data[0];
+    sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
+    count++;
+  }
+  DSMLOG_DEBUG("\nchn: %d  sample.data: %d loop_count: %d\n", channel, sample.data[0], count);
 
   // write the altitude to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
