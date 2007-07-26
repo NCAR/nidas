@@ -127,7 +127,6 @@ float IRS_HW_YG1854::processLabel(const long data)
   case 0333:  // BNR - normal_accel         (G)
   case 0362:  // BNR - along trk accel      (G)
   case 0363:  // BNR - cross trk accel      (G)
-  case 0364:  // BNR - vertical_accel       (G)
   case 0370:  // BNR - norm_accel           (G)
     if ((data & SSM) != SSM) break;
     return (data<<3>>11) * 1.0/(1<<19);
