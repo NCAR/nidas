@@ -103,6 +103,7 @@ static void read_counter(void * channel)
 	+ sizeof(dsm_sample_time_t));
 }
 
+static short s_count=0;
 /* -- IRIG CALLBACK --------------------------------------------------- */
 static void read_radar(void * channel)
 {
@@ -114,15 +115,19 @@ static void read_radar(void * channel)
   sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
   sample.timetag = GET_MSEC_CLOCK;
  
-  unsigned short pdata = -1, count =0;
+  unsigned short pdata, ppdata=-1, count =0;
+  pdata =  inw(brd->addr + RADAR_READ_OFFSET);
   sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-  while (pdata != sample.data[0]) {
-    pdata=sample.data[0];
+  while (count<100 && (ppdata != pdata || pdata != sample.data[0])) {
+    ppdata=sample.data[0];
+    pdata = inw(brd->addr + RADAR_READ_OFFSET);
     sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-    count++;
+    count++; s_count++;
   }
-  DSMLOG_DEBUG("\nchn: %d  sample.data: %d loop_count: %d\n", channel, sample.data[0], count);
-
+  if (count> 5 || s_count>100){
+    s_count=0; 
+    DSMLOG_DEBUG("\nchn: %d  sample.data: %d loop_count: %d\n", channel, sample.data[0], count);
+  }
   // write the altitude to the user's FIFO
   rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
 	+ sizeof(dsm_sample_time_t));
