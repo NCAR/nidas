@@ -141,7 +141,7 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
 	computeCheckSum((unsigned char*)&setup_pkt,
             plen-sizeof(setup_pkt.chksum)));
 
-    setMessageLength(sizeof(Response200_blk));
+    setMessageLength(1);
     setMessageSeparator("");
     setMessageParameters();
 
@@ -153,6 +153,9 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
         }
     }
     catch (const n_u::IOTimeoutException& e) {}
+
+    setMessageLength(sizeof(Response200_blk));
+    setMessageParameters();
 
     write(&setup_pkt, plen);
 

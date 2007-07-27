@@ -173,10 +173,9 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
 	computeCheckSum((unsigned char*)&setup_pkt,
             plen-sizeof(setup_pkt.chksum)));
 
-    if (getMessageLength() != sizeof(Response100_blk)) {
-        setMessageLength(sizeof(Response100_blk));
-        setMessageParameters();
-    }
+    setMessageLength(1);
+    setMessageSeparator("");
+    setMessageParameters();
 
     // clear whatever junk may be in the buffer til a timeout
     try {
@@ -187,11 +186,13 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
     }
     catch (const n_u::IOTimeoutException& e) {}
 
+    setMessageLength(sizeof(Response100_blk));
+    setMessageParameters();
+
     write(&setup_pkt, plen);
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
     readBuffer(MSECS_PER_SEC * 3);
-
 
     Sample* samp = nextSample();
     if (!samp) 
