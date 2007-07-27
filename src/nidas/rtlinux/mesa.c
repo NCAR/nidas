@@ -450,8 +450,21 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
       radar_ptr = (struct radar_set *) buf;
       DSMLOG_DEBUG("RADAR_SET rate=%d\n", radar_ptr->rate);
 
+      memset(&brd->rstate,0,sizeof(struct radar_state));
 
       brd->radar_rate = irigClockRateToEnum(radar_ptr->rate);
+      brd->rstate.NPOLL = MSECS_PER_SEC / radar_ptr->rate / 10;
+      /*
+       * We need to read the radar value 2 or 3 times so NPOLL can't be
+       * less then 4, which is a sampling rate of 25 Hz.
+       */
+      if (brd->rstate.NPOLL < 4) {
+	  DSMLOG_ERR(
+		"RADAR_SET error: sample rate=%d exceeds maximum rate of 25 Hz\n",
+		radar_ptr->rate);
+          ret = -EINVAL;
+	  break;
+      }
       /*
        * We schedule read_radar to be called every 100 Hz, since
        * we have to read the data twice to make sure it is OK.
@@ -460,8 +473,6 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
        */
       register_irig_callback(&read_radar, IRIG_100_HZ, 0);
 
-      memset(&brd->rstate,0,sizeof(struct radar_state));
-      brd->rstate.NPOLL = MSECS_PER_SEC / radar_ptr->rate / 10;
 
       brd->nRadars = radar_ptr->nChannels;
       ret = len;
