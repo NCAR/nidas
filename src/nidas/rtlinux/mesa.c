@@ -103,34 +103,49 @@ static void read_counter(void * channel)
 	+ sizeof(dsm_sample_time_t));
 }
 
-static short s_count=0;
 /* -- IRIG CALLBACK --------------------------------------------------- */
 static void read_radar(void * channel)
 {
-  MESA_SIXTEEN_BIT_SAMPLE sample;
-  struct MESA_Board * brd = boardInfo;
+    MESA_SIXTEEN_BIT_SAMPLE sample;
+    struct MESA_Board * brd = boardInfo;
+    struct radar_state* rstate = &brd->rstate;
 
-  // read from the radar channel
-  sample.sampleID = ID_RADAR;
-  sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
-  sample.timetag = GET_MSEC_CLOCK;
- 
-  unsigned short pdata, ppdata=-1, count =0;
-  pdata =  inw(brd->addr + RADAR_READ_OFFSET);
-  sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-  while (count<100 && (ppdata != pdata || pdata != sample.data[0])) {
-    ppdata=sample.data[0];
-    pdata = inw(brd->addr + RADAR_READ_OFFSET);
-    sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-    count++; s_count++;
-  }
-  if (count> 5 || s_count>100){
-    s_count=0; 
-    DSMLOG_DEBUG("\nchn: %d  sample.data: %d loop_count: %d\n", channel, sample.data[0], count);
-  }
-  // write the altitude to the user's FIFO
-  rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
-	+ sizeof(dsm_sample_time_t));
+    if (rstate->ngood == 0) {
+	rstate->prevData = inw(brd->addr + RADAR_READ_OFFSET);
+	rstate->ngood++;
+    } else if (rstate->ngood == 1) {
+	unsigned short rdata = inw(brd->addr + RADAR_READ_OFFSET);
+	if (rdata == rstate->prevData) {
+	    rstate->sample.timetag = GET_MSEC_CLOCK;
+	    rstate->ngood++;
+	} else rstate->prevData = rdata;	// leave ngood as 1
+    }
+
+    /*
+     * ngood cannot be 0 here
+     * if ngood is 1 then we haven't read two matching values
+     *		but we output a sample with a data value of 0 anyway.
+     *          0's in the output data means we're not
+     *          getting matching reads from the register.
+     * if ngood is 2 the data is good, send it out.
+     */
+    if (++rstate->npoll == rstate->NPOLL) {
+        if (rstate->ngood == 2)
+            rstate->sample.data[0] = rstate->prevData;
+        else {
+	    rstate->sample.timetag = GET_MSEC_CLOCK;
+            rstate->sample.data[0] = 0;
+        }
+	// write the altitude to the user's FIFO
+	rstate->sample.sampleID = ID_RADAR;
+	rstate->sample.size = sizeof(dsm_sample_id_t) +
+	      sizeof(short) * brd->nRadars;
+
+	rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
+	      + sizeof(dsm_sample_time_t));
+	rstate->ngood = 0;
+	rstate->npoll = 0;
+    }
 }
 
 /* -- IRIG CALLBACK --------------------------------------------------- */
@@ -434,9 +449,20 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
       // create and open radar data FIFOs
       radar_ptr = (struct radar_set *) buf;
       DSMLOG_DEBUG("RADAR_SET rate=%d\n", radar_ptr->rate);
-      // register poll routine with the IRIG driver
+
+
       brd->radar_rate = irigClockRateToEnum(radar_ptr->rate);
-      register_irig_callback(&read_radar, brd->radar_rate, 0);
+      /*
+       * We schedule read_radar to be called every 100 Hz, since
+       * we have to read the data twice to make sure it is OK.
+       * Then every NPOLL times that the read_radar function is
+       * called, we output a sample.
+       */
+      register_irig_callback(&read_radar, IRIG_100_HZ, 0);
+
+      memset(&brd->rstate,0,sizeof(struct radar_state));
+      brd->rstate.NPOLL = MSECS_PER_SEC / radar_ptr->rate / 10;
+
       brd->nRadars = radar_ptr->nChannels;
       ret = len;
       break;

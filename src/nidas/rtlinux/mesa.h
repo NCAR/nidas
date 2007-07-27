@@ -147,6 +147,15 @@ struct pms260x_set {
 };
 
 
+struct radar_state
+{
+  MESA_SIXTEEN_BIT_SAMPLE sample;
+  unsigned short prevData;
+  int ngood;
+  int npoll;
+  int NPOLL;
+};
+
 struct MESA_Board
 {
   int irq;			// requested IRQ ... are we using this?
@@ -165,6 +174,8 @@ struct MESA_Board
   size_t progNbytes;
 
   struct ioctlHandle * ioctlhandle;
+
+  struct radar_state rstate;
 };
 
 
