@@ -106,10 +106,14 @@ static void read_counter(void * channel)
 /* -- IRIG CALLBACK --------------------------------------------------- */
 static void read_radar(void * channel)
 {
-    MESA_SIXTEEN_BIT_SAMPLE sample;
     struct MESA_Board * brd = boardInfo;
     struct radar_state* rstate = &brd->rstate;
 
+#ifdef DEBUG
+    DSMLOG_DEBUG("ngood=%d,npoll=%d,NPOLL=%d\n",
+	rstate->ngood,rstate->npoll,rstate->NPOLL);
+#endif
+    
     if (rstate->ngood == 0) {
 	rstate->prevData = inw(brd->addr + RADAR_READ_OFFSET);
 	rstate->ngood++;
@@ -121,15 +125,15 @@ static void read_radar(void * channel)
 	} else rstate->prevData = rdata;	// leave ngood as 1
     }
 
-    /*
-     * ngood cannot be 0 here
-     * if ngood is 1 then we haven't read two matching values
-     *		but we output a sample with a data value of 0 anyway.
-     *          0's in the output data means we're not
-     *          getting matching reads from the register.
-     * if ngood is 2 the data is good, send it out.
-     */
     if (++rstate->npoll == rstate->NPOLL) {
+	/*
+	 * ngood cannot be 0 here
+	 * if ngood is 1 then we haven't read two matching values
+	 *		but we output a sample with a data value of 0 anyway.
+	 *          0's in the output data means we're not
+	 *          getting matching reads from the register.
+	 * if ngood is 2 the data is good, send it out.
+	 */
         if (rstate->ngood == 2)
             rstate->sample.data[0] = rstate->prevData;
         else {
@@ -141,7 +145,8 @@ static void read_radar(void * channel)
 	rstate->sample.size = sizeof(dsm_sample_id_t) +
 	      sizeof(short) * brd->nRadars;
 
-	rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
+	rtl_write(brd->outfd, &rstate->sample,
+		rstate->sample.size + sizeof(dsm_sample_length_t)
 	      + sizeof(dsm_sample_time_t));
 	rstate->ngood = 0;
 	rstate->npoll = 0;
@@ -359,7 +364,7 @@ static void close_ports( struct MESA_Board * brd )
   // unregister poll function from IRIG module
   if (brd->radar_rate != IRIG_NUM_RATES)
   {
-    unregister_irig_callback(&read_radar, brd->radar_rate, 0);
+    unregister_irig_callback(&read_radar, IRIG_100_HZ, 0);
     DSMLOG_DEBUG("unregistered read_radar() from IRIG.\n");
   }
 
@@ -472,7 +477,6 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
        * called, we output a sample.
        */
       register_irig_callback(&read_radar, IRIG_100_HZ, 0);
-
 
       brd->nRadars = radar_ptr->nChannels;
       ret = len;
