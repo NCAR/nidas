@@ -155,10 +155,9 @@ void SPP300_Serial::sendInitString() throw(n_u::IOException)
 	computeCheckSum((unsigned char*)&setup_pkt,
             plen-sizeof(setup_pkt.chksum)));
 
-    if (getMessageLength() != sizeof(Response300_blk)) {
-        setMessageLength(sizeof(Response300_blk));
-        setMessageParameters();
-    }
+    setMessageLength(sizeof(Response300_blk));
+    setMessageSeparator("");
+    setMessageParameters();
 
     // clear whatever junk may be in the buffer til a timeout
     try {
