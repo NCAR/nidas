@@ -83,7 +83,7 @@ static void read_counter(void * channel)
   MESA_SIXTEEN_BIT_SAMPLE sample;
   struct MESA_Board * brd = boardInfo;
 
-  sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nCounters;
+  sample.size = sizeof(short) + sizeof(short) * brd->nCounters;
   sample.sampleID = ID_COUNTERS;
   sample.timetag = GET_MSEC_CLOCK;
 
@@ -110,7 +110,7 @@ static void read_radar(void * channel)
     struct radar_state* rstate = &brd->rstate;
 
 #ifdef DEBUG
-    DSMLOG_DEBUG("ngood=%d,npoll=%d,NPOLL=%d\n",
+    DSMLOG_INFO("ngood=%d,npoll=%d,NPOLL=%d\n",
 	rstate->ngood,rstate->npoll,rstate->NPOLL);
 #endif
     
@@ -137,12 +137,14 @@ static void read_radar(void * channel)
         if (rstate->ngood == 2)
             rstate->sample.data[0] = rstate->prevData;
         else {
+	    // DSMLOG_NOTICE("ngood=%d,npoll=%d,NPOLL=%d\n",
+	// 	rstate->ngood,rstate->npoll,rstate->NPOLL);
 	    rstate->sample.timetag = GET_MSEC_CLOCK;
             rstate->sample.data[0] = 0;
         }
 	// write the altitude to the user's FIFO
 	rstate->sample.sampleID = ID_RADAR;
-	rstate->sample.size = sizeof(dsm_sample_id_t) +
+	rstate->sample.size = sizeof(short) +
 	      sizeof(short) * brd->nRadars;
 
 	rtl_write(brd->outfd, &rstate->sample,
@@ -160,12 +162,15 @@ static void read_260x(void * channel)
   MESA_TWO_SIXTY_X_SAMPLE sample;
   struct MESA_Board * brd = boardInfo;
 
-  int send_size = TWO_SIXTY_BINS+8+1+1;
-
-  sample.size = sizeof(short) * send_size;
-  sample.sampleID = ID_260X;
+  /* a short output value for id,strobes,resets and the bins */
+  int nshort = 3 + TWO_SIXTY_BINS;
+#ifdef HOUSE_260X
+  nshort += 8;
+#endif
   sample.timetag = GET_MSEC_CLOCK;
+  sample.size = sizeof(short) * nshort;
 
+  sample.sampleID = ID_260X;
   sample.strobes = inw(brd->addr + STROBES_OFFSET);
   sample.resets = inw(brd->addr + TWOSIXTY_RESETS_OFFSET);
 

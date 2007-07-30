@@ -93,9 +93,10 @@ bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
 		(const unsigned short *)samp->getConstVoidDataPtr();
 
   // We send up the SampleID as part of the data packet.
-  short sampleID = *sp++;
+  unsigned int nvalues = samp->getDataByteLength() / sizeof(short);
 
-  unsigned int nvalues = samp->getDataByteLength() / sizeof(short) - 1;
+  short sampleID = *sp++;
+  nvalues--;
 
   SampleT<float>* osamp = getSample<float>(nvalues);
   osamp->setTimeTag(samp->getTimeTag());
@@ -107,20 +108,19 @@ bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
   {
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dptr++ = sp[0];	// Strobes.
-    *dptr++ = sp[1];	// Resets.
+    if (nvalues > 1) {
+      *dptr++ = *sp++;	// Strobes.
+      *dptr++ = *sp++;	// Resets.
+      nvalues -= 2;
+    }
 
 #ifdef HOUSE_260X
-    for (size_t iout = 0; iout < 8; ++iout)
-      *dptr++ = sp[iout+1];
+    for (size_t iout = 0; iout < 8 && nvalues; ++iout,nvalues--)
+      *dptr++ = *sp++;
 #endif
 
-    for (size_t iout = 0; iout < TWO_SIXTY_BINS; ++iout)
-#ifdef HOUSE_260X
-      *dptr++ = sp[iout+8+1];
-#else
-      *dptr++ = sp[iout+1];
-#endif
+    for (size_t iout = 0; iout < TWO_SIXTY_BINS && nvalues; ++iout,nvalues--)
+      *dptr++ = *sp++;
   }
   else
   {

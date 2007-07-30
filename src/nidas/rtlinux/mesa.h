@@ -21,8 +21,6 @@
 #include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
 #include <nidas/rtlinux/irigclock.h>
 
-typedef unsigned short dsm_sample_id_t;
-
 #define MAX_BUFFER	1024
 #define READ_SIZE	1000
 
@@ -106,7 +104,7 @@ typedef struct
 {
   dsm_sample_time_t timetag;	// timetag of sample
   dsm_sample_length_t size;	// number of bytes in data
-  dsm_sample_id_t sampleID;	// Sample ID of this data.
+  unsigned short sampleID;	// Sample ID of this data.
   unsigned short data[MAX_SAMPLES];		// the data
 } MESA_SIXTEEN_BIT_SAMPLE;
 
@@ -114,7 +112,7 @@ typedef struct
 {
   dsm_sample_time_t timetag;	// timetag of sample
   dsm_sample_length_t size;	// number of bytes in data
-  dsm_sample_id_t sampleID;	// Sample ID of this data.
+  unsigned short sampleID;	// Sample ID of this data.
   unsigned short strobes;	// Total strobes.
   unsigned short resets;	// Rejected strobes.
 #ifdef HOUSE_260X
