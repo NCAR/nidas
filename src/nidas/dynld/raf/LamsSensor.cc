@@ -64,7 +64,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
           GET_DSM_ID(outs->getId()),GET_SHORT_ID(outs->getId()));
 #endif
 
-    // Read out data, reversing the order in the process.
+    // Read out data.
     float * dout = outs->getDataPtr();
     for (size_t iout = 0; iout < nvalues; ++iout){
       *dout++ = (float)spdata[iout];
