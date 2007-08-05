@@ -27,8 +27,13 @@ namespace nidas { namespace dynld { namespace raf {
 class SppSerial : public DSMSerialSensor
 {
 public:
+  enum DataTermination
+  {
+    FixedLength,	// CheckSum
+    Delimited
+  };
 
-  SppSerial() : DSMSerialSensor() { _range = 0; }
+  SppSerial();
 
   unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
@@ -75,6 +80,14 @@ protected:
    */
   int _noutValues;
 
+  /**
+   * Whether we are using fixed length data with checkSum (true),
+   * or the modified chips with message terminators.  Default is FixedLength.
+   * @see DataTermination
+   */
+  DataTermination _dataType;
+
+  size_t _checkSumErrorCnt;
 
   /**
    * Here more for documentation.  This is the data polling request packet.

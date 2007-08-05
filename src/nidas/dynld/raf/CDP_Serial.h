@@ -89,8 +89,6 @@ protected:
   unsigned short _attAccept;
   unsigned short _ctMethod;
 
-  unsigned int _checkSumErrorCnt;
-
   /**
    * Stash sample-rate.  The rw histogram counts we want to convert to
    * a counts per second by multiplying by sample rate.

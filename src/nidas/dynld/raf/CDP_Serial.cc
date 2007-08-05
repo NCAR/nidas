@@ -34,7 +34,7 @@ const size_t CDP_Serial::FREF_INDX = 4;
 const size_t CDP_Serial::FTMP_INDX = 7;
 
 
-CDP_Serial::CDP_Serial(): SppSerial(), _checkSumErrorCnt(0), _sampleRate(1)
+CDP_Serial::CDP_Serial(): SppSerial(), _sampleRate(1)
 {
   _model = 100;
 }

@@ -28,6 +28,12 @@ NIDAS_CREATOR_FUNCTION_NS(raf,SppSerial)
 const n_u::EndianConverter* SppSerial::toLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 
+SppSerial::SppSerial() : DSMSerialSensor(),
+  _range(0),
+  _dataType(FixedLength),
+  _checkSumErrorCnt(0)
+{ }
+
 unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
 {
     unsigned short sum = 0;
