@@ -255,6 +255,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	    	VariableConverter::createVariableConverter(xchild);
 	    if (!cvtr) throw n_u::InvalidParameterException(getName(),
 		    "unsupported child element",elname);
+            cvtr->setUnits(getUnits());
 	    cvtr->fromDOMElement((xercesc::DOMElement*)child);
 	    setConverter(cvtr);
 	    nconverters++;

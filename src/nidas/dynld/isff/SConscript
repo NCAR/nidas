@@ -10,6 +10,7 @@ sources = Split("""
     GOESProject.cc
     GOESXmtr.cc
     GroundStation.cc
+    MOSMote.cc
     nc_server_rpc_xdr.c
     NetcdfRPCChannel.cc
     NetcdfRPCOutput.cc
@@ -30,6 +31,7 @@ headers = Split("""
     GOESProject.h
     GOESXmtr.h
     GroundStation.h
+    MOSMote.h
     nc_server_rpc.h
     NetcdfRPCChannel.h
     NetcdfRPCOutput.h

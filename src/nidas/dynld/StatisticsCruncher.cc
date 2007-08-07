@@ -1001,7 +1001,8 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 
     const float* inData = fs->getConstDataPtr();
 
-    unsigned int nvarsin = std::min(vindices.size(),fs->getDataLength());
+    unsigned int nvarsin = vindices.size();
+    int nvsamp = fs->getDataLength();
 
     unsigned int i,j,k;
     int vi,vj,vk,vo;
@@ -1015,14 +1016,14 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     else if (crossTerms) {
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if(! isnan(inData[vi])) nonNANs++;
+	    if(vi < nvsamp && !isnan(inData[vi])) nonNANs++;
 	}
     }
 
 #ifdef DEBUG
     n_u::UTime ut(tt);
     cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f ");
-    for (i = 0; i < nvarsin; i++)
+    for (i = 0; i < nvsamp; i++)
 	cerr << inData[i] << ' ';
     cerr << endl;
 #endif
@@ -1033,8 +1034,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MINIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    x = inData[vi];
-	    if(! isnan(x)) {
+	    if (vi < nvsamp && !isnan(x = inData[vi])) {
 		vo = vindices[i][1];
 		if (x < xMin[vo]) xMin[vo] = x;
 		nSamples[vo]++;
@@ -1044,8 +1044,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MAXIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    x = inData[vi];
-	    if(! isnan(x)) {
+	    if (vi < nvsamp && !isnan(x = inData[vi])) {
 		vo = vindices[i][1];
 		if (x > xMax[vo]) xMax[vo] = x;
 		nSamples[vo]++;
@@ -1055,8 +1054,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MEAN:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    x = inData[vi];
-	    if(! isnan(x)) {
+	    if (vi < nvsamp && !isnan(x = inData[vi])) {
 		vo = vindices[i][1];
 		xSum[vo] += x;
 		nSamples[vo]++;
@@ -1066,8 +1064,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_VAR:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    x = inData[vi];
-	    if(! isnan(x)) {
+	    if (vi < nvsamp && !isnan(x = inData[vi])) {
 		vo = vindices[i][1];
 		xSum[vo] += x;
 		xySum[vo][vo] += x * x;
@@ -1076,15 +1073,17 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	}
 	return true;
     case STATS_COV:
-	// cross term product, all data must be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
 	    x = inData[vi];
 	    xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
+                assert(vj < nvsamp);
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
@@ -1097,15 +1096,17 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	break;
     case STATS_FLUX:
 	// no scalar:scalar cross terms
-	// cross term product, all data must be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];
 	for (i = 0; i < 3; i++) {
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
 	    x = inData[vi];
 	    xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
+                assert(vj < nvsamp);
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
@@ -1116,6 +1117,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	}
 	for (; i < nvarsin; i++) {	// scalar means and variances
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    x = inData[vi];
 	    xSum[i] += x;
 	    *xySump++ += (xy = x * x);
@@ -1128,15 +1130,17 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	break;
     case STATS_RFLUX:	
 	// only wind:scalar cross terms, no scalar:scalar terms
-	// cross term product, all data must be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];	
 	for (i = 0; i < 3; i++) {
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
 	    x = inData[vi];
 	    xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
+                assert(vj < nvsamp);
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
@@ -1147,20 +1151,23 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	}
 	for (; i < nvarsin; i++) {	// scalar means
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    xSum[i] += inData[vi];
 	}
 	nSamples[0]++;		// only need one nSamples
 	break;
     case STATS_SFLUX:	
 	// first term is scaler
-	// cross term product, all data must be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];		// no wind:wind terms
 	i = 0;
 	vi = vindices[i][0];
+        assert(vi < nvsamp);
 	// crossterms, so: vindices[i][1] == i;
 	x = inData[vi];
 	for (j = i; j < nvarsin; j++) {
 	    vj = vindices[j][0];
+            assert(vj < nvsamp);
 	    xSum[j] += inData[vj];
 	    xy = x * inData[vj];
 	    *xySump++ += xy;
@@ -1182,20 +1189,23 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 #endif
 	break;
     case STATS_TRIVAR:
-	// cross term product, all data must be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];
 	xyzSump = xyzSum;
 	for (i=0; i < nvarsin; i++) {	// no scalar:scalar cross terms
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
 	    x = inData[vi];
 	    xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
+                assert(vj < nvsamp);
 		xy = x * inData[vj];
 		*xySump++ += xy;
 		for (k=j; k < nvarsin; k++) {
 		    vk = vindices[k][0];
+                    assert(vk < nvsamp);
 		    *xyzSump++ += xy * inData[vk];
 		    if (higherMoments && k == i) x4Sum[i] += xy * x * x;
 		}
@@ -1204,16 +1214,18 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	nSamples[0]++;		// only need one nSamples
 	break;
     case STATS_PRUNEDTRIVAR:
-	// cross term product, all data be non-NAN
+	// cross term product, all input data is present and non-NAN
 	xySump = xySum[0];
 	xyzSump = xyzSum;
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
 	    x = inData[vi];
 	    xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
+                assert(vj < nvsamp);
 		xy = x * inData[vj];
 		*xySump++ += xy;
 	    }
@@ -1224,8 +1236,11 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    j = triComb[n][1];
 	    k = triComb[n][2];
 	    vi = vindices[i][0];
+            assert(vi < nvsamp);
 	    vj = vindices[j][0];
+            assert(vj < nvsamp);
 	    vk = vindices[k][0];
+            assert(vk < nvsamp);
 	    *xyzSump++ += (double)inData[vi] *
 	    	(double)inData[vj] * (double)inData[vk];
 	}

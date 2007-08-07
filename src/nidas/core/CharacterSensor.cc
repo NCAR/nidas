@@ -144,9 +144,14 @@ void CharacterSensor::addSampleTag(SampleTag* tag)
             throw n_u::InvalidParameterException(getName(),
                    "setScanfFormat",pe.what());
         }
+        int nv = tag->getVariables().size();
         sscanf->setSampleTag(tag);
         sscanfers.push_back(sscanf);
-        maxScanfFields = std::max(maxScanfFields,sscanf->getNumberOfFields());
+        if (sscanf->getNumberOfFields() < nv)
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                "%s: number of scanf fields (%d) is less than the number of variables (%d)",
+                getName().c_str(),sscanf->getNumberOfFields(),nv);
+        maxScanfFields = std::max(std::max(maxScanfFields,sscanf->getNumberOfFields()),nv);
     }
     else if (sscanfers.size() > 0) {
         ostringstream ost;
@@ -157,7 +162,6 @@ void CharacterSensor::addSampleTag(SampleTag* tag)
 must have a scanfFormat or no samples");
     }
 }
-
 
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
@@ -295,13 +299,14 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     float* fp = outs->getDataPtr();
     const vector<const Variable*>& vars = stag->getVariables();
-    for (int i = 0; i < nparsed && i < (signed)vars.size(); i++,fp++) {
-	VariableConverter* conv = vars[i]->getConverter();
-        if (*fp == vars[i]->getMissingValue()) *fp = floatNAN;
+    int nv;
+    for (nv = 0; nv < (signed)vars.size(); nv++,fp++) {
+	VariableConverter* conv = vars[nv]->getConverter();
+        if (nv >= nparsed || *fp == vars[nv]->getMissingValue()) *fp = floatNAN;
 	if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
     }
     outs->setTimeTag(samp->getTimeTag());
-    outs->setDataLength(nparsed);
+    outs->setDataLength(nv);
     results.push_back(outs);
     return true;
 }
