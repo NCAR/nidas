@@ -1403,6 +1403,17 @@ static void portCallback(void* privateData)
    dsm_sample_time_t tt = GET_MSEC_CLOCK;
    getCurrentTime(&ti);
 
+#define DEBUG_MIDNIGHT
+#ifdef DEBUG_MIDNIGHT
+   /* 6 minutes either side of midnight print out some time info */
+   if (tt > MSECS_PER_DAY - 360 * MSECS_PER_SEC ||
+        tt < 360 * MSECS_PER_SEC) {
+      DSMLOG_INFO("tt=%d, irig=%d j%d %2d:%2d:%2d.%03d%03d%03d\n",
+            tt,ti.year,ti.yday,ti.hour,ti.min,ti.sec,
+            ti.msec,ti.usec,ti.nsec);
+    }
+#endif
+
    // check clock sanity
    if (clockState == CODED || clockState == USER_SET) {
       struct rtl_timeval tv;
@@ -1422,6 +1433,7 @@ static void portCallback(void* privateData)
                          tv.tv_sec,tv.tv_usec,tt,td,extendedStatus);
 #endif
       }
+      DSMLOG_INFO("tt=%d, td=%d\n",tt,td);
    }
 
    if (dev->inFifoFd >= 0) {

@@ -275,6 +275,18 @@ Sample* IRIGSensor::nextSample()
     // the absolute time in the SampleClock.
     if (samp) {
         dsm_time_t clockt = getTime(samp);
+
+#define DEBUG_MIDNIGHT
+#ifdef DEBUG_MIDNIGHT
+        if ( clockt % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
+                clockt % USECS_PER_DAY < 360 * USECS_PER_SEC) {
+            n_u::UTime tt(samp->getTimeTag());
+            n_u::UTime ct(clockt);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "IRIGSensor::nextSample tt= %s, clockt=%s\n",
+                tt.format(true,"%c").c_str(),ct.format(true,"%c").c_str());
+        }
+#endif
         SampleClock::getInstance()->setTime(clockt);
     }
     return samp;

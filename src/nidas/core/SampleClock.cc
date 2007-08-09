@@ -17,6 +17,7 @@
 #include <nidas/core/SampleClock.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -42,6 +43,7 @@ void SampleClock::setTime(dsm_time_t val)
     t0day = timeFloor(clockTime,USECS_PER_DAY);
 
     dsm_time_t tnow = nidas::core::getSystemTime();
+
     sysTimeMutex.lock();
     if (::llabs(tnow - val) > LONG_MAX) {
         if (tnow > val) sysTimeAhead = LONG_MAX;
@@ -55,6 +57,21 @@ void SampleClock::setTime(dsm_time_t val)
 	    	"sysTimeAhead=%d usec, warn_count=%d (expected situation if no IRIG feed)",sysTimeAhead,timeWarnCount);
     }
     externalClock = true;
+
+#define DEBUG_MIDNIGHT
+#ifdef DEBUG_MIDNIGHT
+    if ( tnow % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
+        tnow % USECS_PER_DAY < 360 * USECS_PER_SEC) {
+            n_u::UTime tt(tnow);
+            n_u::UTime ct(clockTime);
+            n_u::UTime t0(t0day);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "SampleClock::setTime, externalClock tnow=%s, clockTime=%s, t0day=%s\n",
+                tt.format(true,"%c").c_str(),
+                ct.format(true,"%c").c_str(),
+                t0.format(true,"%c").c_str());
+    }
+#endif
 }
 
 void SampleClock::setTime()
@@ -62,6 +79,20 @@ void SampleClock::setTime()
     clockTime = nidas::core::getSystemTime();
     t0day = timeFloor(clockTime,USECS_PER_DAY);
     sysTimeAhead = 0;
+#ifdef DEBUG_MIDNIGHT
+    if ( clockTime % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
+        clockTime % USECS_PER_DAY < 360 * USECS_PER_SEC) {
+            dsm_time_t tnow = nidas::core::getSystemTime();
+            n_u::UTime tt(tnow);
+            n_u::UTime ct(clockTime);
+            n_u::UTime t0(t0day);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "SampleClock::setTime, internalClock tnow=%s, clockTime=%s, t0day=%s\n",
+                tt.format(true,"%c").c_str(),
+                ct.format(true,"%c").c_str(),
+                t0.format(true,"%c").c_str());
+    }
+#endif
     externalClock = false;
 }
 
@@ -86,28 +117,57 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
     if (abs(tdiff) > maxClockDiffUsec) {
 	/* midnight rollover */
 	if (abs(tdiff + USECS_PER_DAY) < maxClockDiffUsec) {
-#ifdef DEBUG
-	    cerr << "midnight rollover, sampleTime=" << sampleTime <<
-	    	" (" << samp->getTimeTag() << '+' << t0day <<
-		"), clockTime=" << clockTime <<
-		" samp-clock=" << sampleTime - clockTime << endl;
+#ifdef DEBUG_MIDNIGHT
+            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tt(sampleTime);
+            n_u::UTime ct(clockTime);
+            n_u::UTime t0(t0day);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "SampleClock::addSampleDate, rollover tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                tn.format(true,"%c").c_str(),
+                tt.format(true,"%c").c_str(),
+                ct.format(true,"%c").c_str(),
+                t0.format(true,"%c").c_str(),
+                samp->getTimeTag(),
+                GET_DSM_ID(samp->getId()),GET_SHORT_ID(samp->getId()),
+                tdiff);
 #endif
 	    sampleTime += USECS_PER_DAY;
 	}
 	else if (abs(tdiff - USECS_PER_DAY) < maxClockDiffUsec) {
-	    cerr << "backwards time near midnight, sampleTime=" << sampleTime <<
-	    	" (" << samp->getTimeTag() << '+' << t0day <<
-		"), clockTime=" << clockTime <<
-		" samp-clock=" << sampleTime - clockTime << endl;
+#ifdef DEBUG_MIDNIGHT
+            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tt(sampleTime);
+            n_u::UTime ct(clockTime);
+            n_u::UTime t0(t0day);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "SampleClock::addSampleDate, rollback tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                tn.format(true,"%c").c_str(),
+                tt.format(true,"%c").c_str(),
+                ct.format(true,"%c").c_str(),
+                t0.format(true,"%c").c_str(),
+                samp->getTimeTag(),
+                GET_DSM_ID(samp->getId()),GET_SHORT_ID(samp->getId()),
+                tdiff);
+#endif
 	    sampleTime -= USECS_PER_DAY;
 	}
 	else {
-	    cerr << "bad time? sampleTime=" << sampleTime <<
-	    	" (" << samp->getTimeTag() << '+' << t0day <<
-		"), clockTime=" << clockTime <<
-		" samp-clock=" << sampleTime - clockTime <<
-		", dsm=" << samp->getDSMId() <<
-		", sampid=" << samp->getShortId() << endl;
+#ifdef DEBUG_MIDNIGHT
+            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tt(sampleTime);
+            n_u::UTime ct(clockTime);
+            n_u::UTime t0(t0day);
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "SampleClock::addSampleDate, bad time tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                tn.format(true,"%c").c_str(),
+                tt.format(true,"%c").c_str(),
+                ct.format(true,"%c").c_str(),
+                t0.format(true,"%c").c_str(),
+                samp->getTimeTag(),
+                GET_DSM_ID(samp->getId()),GET_SHORT_ID(samp->getId()),
+                tdiff);
+#endif
 	    return OUT_OF_SPEC;
 	}
     }
