@@ -121,7 +121,7 @@ private:
 
     mutable nidas::util::Mutex sysTimeMutex;
 
-    long sysTimeAhead;
+    long long sysTimeAhead;
 
     /**
      * Issue a warning log message if the external clock differs from the

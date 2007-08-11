@@ -62,8 +62,12 @@ int DSMServer::main(int argc, char** argv) throw()
     if ((result = parseRunstring(argc,argv)) != 0) return result;
 
     n_u::Logger* logger = 0;
+    n_u::LogConfig lc;
 
-    if (debug) logger = n_u::Logger::createInstance(&std::cerr);
+    if (debug) {
+        logger = n_u::Logger::createInstance(&std::cerr);
+        lc.level = n_u::LOGGER_DEBUG;
+    }
     else {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
@@ -72,7 +76,9 @@ int DSMServer::main(int argc, char** argv) throw()
 	}
         logger = n_u::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
+        lc.level = n_u::LOGGER_INFO;
     }
+    logger->setScheme(n_u::LogScheme().addConfig (lc));
 
     // Open and check the pid file after the above daemon() call.
     try {

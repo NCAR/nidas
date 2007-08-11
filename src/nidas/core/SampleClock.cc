@@ -107,7 +107,7 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
     // assert(samp->getTimeTag() < USECS_PER_DAY);
     dsm_time_t sampleTime = t0day + samp->getTimeTag();
 
-    int tdiff = sampleTime - clockTime;
+    long long tdiff = sampleTime - clockTime;
 
     if (!externalClock && abs(tdiff) > maxClockDiffUsec) {
         setTime();

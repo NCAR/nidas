@@ -223,7 +223,7 @@ void DSMEngine::initLogger()
 	}
 	_logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
         // Configure default logging to log anything NOTICE and above.
-        lc.level = n_u::LOGGER_NOTICE;
+        lc.level = n_u::LOGGER_INFO;
     }
     else
     {
