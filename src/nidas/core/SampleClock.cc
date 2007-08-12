@@ -27,7 +27,7 @@ namespace n_u = nidas::util;
 SampleClock* SampleClock::_instance = new SampleClock();
 
 SampleClock::SampleClock():
-    maxClockDiffUsec(180 * USECS_PER_SEC),
+    maxClockDiffSec(180),
     t0day(0),clockTime(0),sysTimeAhead(0),
     TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
     timeWarnCount(0),externalClock(false)
@@ -45,20 +45,16 @@ void SampleClock::setTime(dsm_time_t val)
     dsm_time_t tnow = nidas::core::getSystemTime();
 
     sysTimeMutex.lock();
-    if (::llabs(tnow - val) > LONG_MAX) {
-        if (tnow > val) sysTimeAhead = LONG_MAX;
-        else sysTimeAhead = -(LONG_MAX-1);
-    }
-    else sysTimeAhead = tnow - val;
+    sysTimeAhead = tnow - val;
     sysTimeMutex.unlock();
-    if (abs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
+    if (::llabs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
 	if (!(timeWarnCount++ % 100))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 	    	"sysTimeAhead=%d usec, warn_count=%d (expected situation if no IRIG feed)",sysTimeAhead,timeWarnCount);
     }
     externalClock = true;
 
-#define DEBUG_MIDNIGHT
+// #define DEBUG_MIDNIGHT
 #ifdef DEBUG_MIDNIGHT
     if ( tnow % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
         tnow % USECS_PER_DAY < 360 * USECS_PER_SEC) {
@@ -107,16 +103,16 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
     // assert(samp->getTimeTag() < USECS_PER_DAY);
     dsm_time_t sampleTime = t0day + samp->getTimeTag();
 
-    long long tdiff = sampleTime - clockTime;
+    int tdiff = (sampleTime - clockTime) / USECS_PER_SEC;
 
-    if (!externalClock && abs(tdiff) > maxClockDiffUsec) {
+    if (!externalClock && abs(tdiff) > maxClockDiffSec) {
         setTime();
-        tdiff = sampleTime - clockTime;
+        tdiff = (sampleTime - clockTime) / USECS_PER_SEC;
     }
 
-    if (abs(tdiff) > maxClockDiffUsec) {
+    if (abs(tdiff) > maxClockDiffSec) {
 	/* midnight rollover */
-	if (abs(tdiff + USECS_PER_DAY) < maxClockDiffUsec) {
+	if (abs(tdiff + SECS_PER_DAY) < maxClockDiffSec) {
 #ifdef DEBUG_MIDNIGHT
             n_u::UTime tn(nidas::core::getSystemTime());
             n_u::UTime tt(sampleTime);
@@ -134,7 +130,7 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 #endif
 	    sampleTime += USECS_PER_DAY;
 	}
-	else if (abs(tdiff - USECS_PER_DAY) < maxClockDiffUsec) {
+	else if (abs(tdiff - SECS_PER_DAY) < maxClockDiffSec) {
 #ifdef DEBUG_MIDNIGHT
             n_u::UTime tn(nidas::core::getSystemTime());
             n_u::UTime tt(sampleTime);

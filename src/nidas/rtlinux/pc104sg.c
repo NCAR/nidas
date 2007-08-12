@@ -1403,7 +1403,7 @@ static void portCallback(void* privateData)
    dsm_sample_time_t tt = GET_MSEC_CLOCK;
    getCurrentTime(&ti);
 
-#define DEBUG_MIDNIGHT
+// #define DEBUG_MIDNIGHT
 #ifdef DEBUG_MIDNIGHT
    /* 6 minutes either side of midnight print out some time info */
    if (tt > MSECS_PER_DAY - 360 * MSECS_PER_SEC ||

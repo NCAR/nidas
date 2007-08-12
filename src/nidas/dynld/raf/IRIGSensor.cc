@@ -276,7 +276,7 @@ Sample* IRIGSensor::nextSample()
     if (samp) {
         dsm_time_t clockt = getTime(samp);
 
-#define DEBUG_MIDNIGHT
+// #define DEBUG_MIDNIGHT
 #ifdef DEBUG_MIDNIGHT
         if ( clockt % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
                 clockt % USECS_PER_DAY < 360 * USECS_PER_SEC) {

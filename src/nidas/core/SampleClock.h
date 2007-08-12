@@ -51,7 +51,7 @@ public:
      */
     void setMaxClockDiff(int val)
     {
-    	maxClockDiffUsec = val * USECS_PER_SEC;
+    	maxClockDiffSec = val;
     }
 
     /**
@@ -113,7 +113,7 @@ private:
 
     static SampleClock* _instance;
 
-    int maxClockDiffUsec;
+    int maxClockDiffSec;
 
     dsm_time_t t0day;
 
