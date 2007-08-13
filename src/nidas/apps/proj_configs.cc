@@ -94,9 +94,10 @@ private:
 /* static */
 int ProjConfigIO::usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " [-a ...] [-c time] [-f [...]] [-g ...] [-l] [-n] [-t ...] configs_xml_file\n\
+    cerr << "Usage: " << argv0 << " [-a ...] [-c [time]] [-f [...]] [-g ...] [-l] [-n] [-t ...] configs_xml_file\n\
 -a: add a configuration entry to configs_xml_file\n\
--c: list configurations corresponding to a  time\n\
+-c: list configurations corresponding to a time. If no time is specified,\n\
+    then list current configuration\n\
 -f: print formatted times\n\
 -g: get a configuation entry by name, with times formatted as YYYY mmm dd HH:MM:SS\n\
 -l: list configurations in configs_xml_file\n\
@@ -149,7 +150,7 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
     string beginTime;
     string endTime;
 
-    while ((opt_char = getopt(argc, argv, "a:c:fg:lnt:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "a:cfg:lnt:")) != -1) {
 
 #ifdef DEBUG
         cerr << "opt_char=" << (char) opt_char << ", optind=" << optind <<
@@ -178,7 +179,9 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
             break;
         case 'c':
 	    task = GET_CONFIG_FOR_TIME;
-            beginTime = optarg;
+            if (optind >= argc - 1 || argv[optind][0] == '-')
+                beginTime = n_u::UTime().format(true,timeformat);
+            else beginTime = argv[optind++];
 	    break;
 	case 'f':
             if (optind >= argc - 1 || argv[optind][0] == '-')
@@ -347,7 +350,7 @@ void ProjConfigIO::getConfigForTime()
         const ProjectConfig* cfg = *ci;
         if (cbegin >= cfg->getBeginTime().toUsecs() &&
                 cbegin < cfg->getEndTime()) {
-            cout << cfg->getXMLName() << ' ';
+            cout << cfg->getName() << ' ' << cfg->getXMLName() << ' ';
             if (timeformat.length() > 0)
                 cout << cfg->getBeginTime() << " - " << cfg->getEndTime() << endl;
             else
