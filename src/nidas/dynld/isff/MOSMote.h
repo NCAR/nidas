@@ -11,8 +11,8 @@
 
 */
 
-#ifndef NIDAS_DYNLD_ISFF_PROPVANE_H
-#define NIDAS_DYNLD_ISFF_PROPVANE_H
+#ifndef NIDAS_DYNLD_ISFF_MOSMOTE_H
+#define NIDAS_DYNLD_ISFF_MOSMOTE_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
 

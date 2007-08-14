@@ -111,13 +111,17 @@ bool CSAT3_Sonic::process(const Sample* samp,
     cerr << "inlen=" << inlen << ' ' << hex << (int)dinptr[inlen-2] <<
     	',' << (int)dinptr[inlen-1] << dec << endl;
 #endif
+
+    // Sometimes a serializer is connected to a sonic, in which
+    // case it generates records longer than 12 bytes.
+    // Check here that the record ends in 0x55 0xaa.
     if (dinptr[inlen-2] != '\x55' || dinptr[inlen-1] != '\xaa') return false;
 
     if (inlen > totalInLen) inlen = totalInLen;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     /* Swap bytes of input. Campbell output is little endian */
-    swab(dinptr,(char *)swapBuf.get(),inlen);
+    swab(dinptr,(char *)swapBuf.get(),inlen-2);     // dont' swap 0x55 0xaa
     const short* win = swapBuf.get();
 #else
     const short* win = (const short*) dinptr;
@@ -194,6 +198,9 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	results.push_back(wsamp);
     }
 
+    // inlen is now less than or equal to the expected input length
+    bool goodterm = dinptr[inlen-2] == '\x55' && dinptr[inlen-1] == '\xaa';
+
     for (unsigned int i = 0; i < extraSampleTags.size(); i++) {
         if (inlen >= windInLen + (i+1) * 2) {
             SampleTag* stag = extraSampleTags[i];
@@ -205,7 +212,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
             unsigned short counts = ((const unsigned short*) win)[i+5];
             float volts;
-            if (counts < 65500) volts = counts * 0.0001;
+            if (counts < 65500 && goodterm) volts = counts * 0.0001;
             else volts = floatNAN;
 
             for (unsigned int j = 0; j < nvars; j++) {

@@ -13,8 +13,6 @@
 
 #include <nidas/dynld/isff/MOSMote.h>
 
-#include <sstream>
-
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
 using namespace std;
