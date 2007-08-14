@@ -22,6 +22,7 @@ float IRS_HW_YG1854::processLabel(const long data)
 {
   int sign = 1;
   float carry = 0.0;
+  float value;
 
 //err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
 
@@ -93,15 +94,24 @@ float IRS_HW_YG1854::processLabel(const long data)
     return (data<<3>>11) * 1.0/(1<<12) * FT_MTR;
 
   case 0314:  // BNR - true_heading         (rad)
-    carry = _irs_thdg_corr; goto corr;
+    carry = _irs_thdg_corr;
+  case 0313:  // BNR - track_angle_true     (rad)
+  case 0316:  // BNR - wind_dir_true        (rad)
+    if ((data & SSM) != SSM) break;
+    value = (data<<3>>11) * 1.0/(1<<20) * 180.0 + carry;  // 21 bits
+
+    // C130 IRS puts out -180 to 180.  Convert to 0 to 360.
+    if (value < 0.0)
+      value += 360.0;
+
+    return value;
+
   case 0324:  // BNR - pitch_angle          (rad)
     carry = _irs_ptch_corr; goto corr;
   case 0325:  // BNR - roll_angle           (rad)
     carry = _irs_roll_corr; goto corr;
   case 0310:  // BNR - pos_latitude         (rad)
   case 0311:  // BNR - pos_longitude        (rad)
-  case 0313:  // BNR - track_angle_true     (rad)
-  case 0316:  // BNR - wind_dir_true        (rad)
   case 0317:  // BNR - wtrack_angle_mag     (rad)
   case 0320:  // BNR - mag_heading          (rad)
   case 0321:  // BNR - drift_angle          (rad)
