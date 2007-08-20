@@ -35,7 +35,7 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     service(0),iochan(iochannel),iostream(0),
     samp(0),leftToRead(0),dptr(0),
-    badInputSamples(0),unrecognizedSamples(0),
+    badInputSamples(0),
     filterBadSamples(false),maxDsmId(1024),
     maxSampleLength(ULONG_MAX),
     minSampleTime(LONG_LONG_MIN),
@@ -56,7 +56,7 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     iochan(iochannel),iostream(0),
     sampleTags(x.sampleTags),
     samp(0),leftToRead(0),dptr(0),
-    badInputSamples(0),unrecognizedSamples(0),
+    badInputSamples(0),
     filterBadSamples(x.filterBadSamples),maxDsmId(x.maxDsmId),
     maxSampleLength(x.maxSampleLength),minSampleTime(x.minSampleTime),
     maxSampleTime(x.maxSampleTime)
@@ -262,11 +262,6 @@ void SampleInputStream::distribute(const Sample* samp) throw()
 	map<unsigned long,DSMSensor*>::const_iterator sensori;
 	sensori = sensorMap.find(sampid);
 	if (sensori != sensorMap.end()) sensori->second->receive(samp);
-	else if (!(unrecognizedSamples++) % 100) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"SampleInputStream unrecognizedSamples=%d",
-			unrecognizedSamples);
-	}
     }
     sensorMapMutex.unlock();
     SampleSource::distribute(samp);

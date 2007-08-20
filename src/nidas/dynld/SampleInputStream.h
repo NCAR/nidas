@@ -120,7 +120,7 @@ public:
 
     void distribute(const Sample* s) throw();
 
-    size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
+    // size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
 
     void close() throw(nidas::util::IOException);
 
@@ -198,7 +198,7 @@ private:
 
     size_t badInputSamples;
 
-    size_t unrecognizedSamples;
+    // size_t unrecognizedSamples;
 
     /**
      * Copy constructor.

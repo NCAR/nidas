@@ -264,17 +264,14 @@ DSMServer* Project::findServer(const n_u::Inet4Address& addr) const
 
 const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 {
-    cerr <<  "Checking sites" << endl;
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
-	cerr <<  "Checking site " << site->getName() << " for dsm with address " << addr.getHostAddress() << endl;
 	const DSMConfig* dsm = site->findDSM(addr);
-	if (dsm) {
-	    cerr <<  "Found dsm " << dsm->getName() <<
-	    	"(" << addr.getHostAddress() << ") at site " << site->getName() << endl;
-	    return dsm;
-	}
+	if (dsm) return dsm;
     }
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "dsm with address %s not found",
+            addr.getHostAddress().c_str());
     return 0;
 }
 
@@ -297,21 +294,17 @@ const DSMConfig* Project::findDSM(unsigned long id) const
 	    return dsm;
 	}
     }
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "dsm with id %d not found",id);
     return 0;
 }
 
 const DSMConfig* Project::findDSM(const string& name) const
 {
-    cerr <<  "Checking sites" << endl;
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
-	cerr <<  "Checking site " << site->getName() << " for dsm with name " << name << endl;
 	const DSMConfig* dsm = site->findDSM(name);
-	if (dsm) {
-	    cerr <<  "Found dsm " << name <<
-	    	" at site " << site->getName() << endl;
-	    return dsm;
-	}
+	if (dsm) return dsm;
     }
 
     try {
@@ -324,6 +317,9 @@ const DSMConfig* Project::findDSM(const string& name) const
         }
     }
     catch(const n_u::UnknownHostException& e) {}
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "dsm with name %s not found",
+            name.c_str());
     return 0;
 }
 

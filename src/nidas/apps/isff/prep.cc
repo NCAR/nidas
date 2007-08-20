@@ -727,10 +727,10 @@ int DataPrep::run() throw()
 	resampler->addSampleClient(dumper.get());
 
         if (startTime.toUsecs() != 0) {
-            cerr << "Searching for time " <<
-                startTime.format(true,"%Y %m %d %H:%M:%S");
+            cerr << "searching for time " <<
+                startTime.format(true,"%Y %m %d %H:%M:%S") << endl;
             sis->search(startTime);
-            cerr << " done." << endl;
+            cerr << "search done." << endl;
             dumper->setStartTime(startTime);
         }
         if (endTime.toUsecs() != 0) dumper->setEndTime(endTime);
@@ -753,7 +753,6 @@ int DataPrep::run() throw()
     catch (n_u::EOFException& e) {
         cerr << "EOF received: flushing buffers" << endl;
         sis->flush();
-        cerr << "sis->close" << endl;
         sis->close();
 	resampler->removeSampleClient(dumper.get());
         resampler->disconnect(sis.get());

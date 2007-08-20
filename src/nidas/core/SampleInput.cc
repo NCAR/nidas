@@ -174,10 +174,11 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
     }
     sensorMapMutex.unlock();
 
-    if (!(unrecognizedSamples++) % 100) {
+    if (!(unrecognizedSamples++ % 100)) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "SampleInputStream unrecognizedSamples=%d",
-		    unrecognizedSamples);
+	    "SampleInputStream unrecognizedSamples=%d, id=%d,%d",
+                unrecognizedSamples,
+                GET_DSM_ID(samp->getId()),GET_SHORT_ID(samp->getId()));
     }
 
     return false;
