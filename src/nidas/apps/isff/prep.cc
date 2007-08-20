@@ -596,8 +596,17 @@ int DataPrep::run() throw()
 	    //	3. set of sensors, from project and variable list
 	    //  4. iochan, SortedSampleInputStream
 
-            string configXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-	    project.reset(ProjectConfigs::getProject(configXML,startTime));
+	    if (xmlFileName.length() == 0) {
+                string configXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+                project.reset(ProjectConfigs::getProject(configXML,startTime));
+            }
+            else {
+                xmlFileName = Project::expandEnvVars(xmlFileName);
+                auto_ptr<xercesc::DOMDocument> doc(
+                    DSMEngine::parseXMLConfigFile(xmlFileName));
+                project.reset(Project::getInstance());
+                project->fromDOMElement(doc->getDocumentElement());
+            }
 
 	    // match the requested variables.
 	    // on a match:
@@ -659,9 +668,8 @@ int DataPrep::run() throw()
 	    sis->readHeader();
 	    SampleInputHeader header = sis->getHeader();
 
-	    // parse the config file.
-	    xmlFileName = header.getConfigName();
-	    xmlFileName = Project::expandEnvVars(xmlFileName);
+	    if (xmlFileName.length() == 0)
+                xmlFileName = header.getConfigName();
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
