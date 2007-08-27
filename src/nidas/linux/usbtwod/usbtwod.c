@@ -474,9 +474,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length =
-                    urb->actual_length + sizeof (osamp->data) +
-                    sizeof (osamp->id);
+                osamp->length = urb->actual_length + sizeof(long);
                 osamp->id = TWOD_SOR_DATA;
                 osamp->pre_urb_data_len = sizeof(long);     // just the ID
                 osamp->urb = urb;
