@@ -20,74 +20,86 @@
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DerivedDataClient.h>
+
+
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
-
 /**
- * Sensors connected to the Mesa AnythingIO card.  Current programming is
- * for a PMS1D-260X, Pulse Counting, and the APN-232 Radar Altimeter.
- * Digital in/out coming soon.
+ * Two-d particle probe on a USB interface.
  */
-class TwoDC_USB : public DSMSensor, public DerivedDataClient {
+class TwoDC_USB:public DSMSensor, public DerivedDataClient
+{
 
 public:
-  TwoDC_USB();
-  ~TwoDC_USB();
+    TwoDC_USB();
+    ~TwoDC_USB();
 
-  IODevice* buildIODevice() throw(nidas::util::IOException);
+    IODevice *buildIODevice() throw(nidas::util::IOException);
 
-  SampleScanner* buildSampleScanner();
+    SampleScanner *buildSampleScanner();
 
-  int getDefaultMode() const { return O_RDWR; }
+    int getDefaultMode() const
+    {
+        return O_RDWR;
+    }
 
-  /**
-   * open the sensor and perform any intialization to the driver.
-   */
-  virtual void
-  open(int flags) throw(nidas::util::IOException);
+    /**
+    * open the sensor and perform any intialization to the driver.
+    */
+    void open(int flags) throw(nidas::util::IOException);
 
-  virtual void
-  close() throw(nidas::util::IOException);
+    void close() throw(nidas::util::IOException);
 
-  virtual void
-  fromDOMElement(const xercesc::DOMElement *)
-    throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement *)
+     throw(nidas::util::InvalidParameterException);
 
-  virtual bool
-  process(const Sample * samp, std::list<const Sample *>& results)
-	throw();
+     bool
+        process(const Sample * samp,
+                std::list < const Sample * >&results)
+     throw();
 
-  virtual void
-  derivedDataNotify(const nidas::core::DerivedDataReader * s) throw();
+    virtual void
+        derivedDataNotify(const nidas::core::
+                          DerivedDataReader * s) throw();
 
+private:
 
-protected:
+     bool processSOR(const Sample * samp,
+                     std::list < const Sample * >&results)
+     throw();
+    bool processImage(const Sample * samp,
+                      std::list < const Sample * >&results)
+     throw();
 
-  // Probe produces Big Endian.
-  static const nidas::util::EndianConverter * toLittle;
+    // Probe produces Big Endian.
+    static const nidas::util::EndianConverter * toLittle;
 
-  /**
-   * Encode and send the true airspeed to the USB driver, which will
-   * in turn send it to the probe.
-   */
-  void sendTrueAirspeed(float tas);
+    /**
+     * Encode and send the true airspeed to the USB driver, which will
+     * in turn send it to the probe.
+     */
+    void sendTrueAirspeed(float tas);
 
-  /**
-   * Probe resolution in meters.  Acquired from XML config file.
-   */
-  double _resolution;
+    /**
+     * Probe resolution in meters.  Acquired from XML config file.
+     */
+    double _resolution;
 
-  /**
-   * Synchword mask.  This slice/word is written at the end of each particle.
-   * 28 bits of synchronization and 36 bits of timing information.
-   */
-  static const long long _syncMask, _syncWord;
+    void addSampleTag(SampleTag * tag)
+     throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Synchword mask.  This slice/word is written at the end of each particle.
+     * 28 bits of synchronization and 36 bits of timing information.
+     */
+    static const long long _syncMask, _syncWord;
+
+    int _sorRate;
 };
 
-}}}	// namespace nidas namespace dynld namespace raf
-
+}}}                     // namespace nidas namespace dynld namespace raf
 #endif
