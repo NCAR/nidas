@@ -361,13 +361,11 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length =
-                    urb->actual_length + sizeof (osamp->data) +
-                    sizeof (osamp->id);
-                osamp->data = 0;
+                osamp->length = urb->actual_length + 2 * sizeof(long);
+                osamp->id = TWOD_IMG_DATA;
                 // stuff the current TAS value in the data.
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
-                osamp->id = TWOD_IMG_DATA;
+                osamp->pre_urb_data_len = 2 * sizeof(long);     // ID and TAS
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
@@ -479,12 +477,8 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->length =
                     urb->actual_length + sizeof (osamp->data) +
                     sizeof (osamp->id);
-                if (urb->actual_length >= sizeof (unsigned long))
-                        memcpy(&osamp->data, urb->transfer_buffer,
-                               sizeof (long));
-                else
-                        osamp->data = 0;
                 osamp->id = TWOD_SOR_DATA;
+                osamp->pre_urb_data_len = sizeof(long);     // just the ID
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
@@ -684,10 +678,10 @@ static int twod_open(struct inode *inode, struct file *file)
         info("USB PMS-2D device now opened, throttleRate=%d\n",
              throttleRate);
 
-      exit:
+exit:
         up(&dev->sem);
 
-      unlock_disconnect_exit:
+unlock_disconnect_exit:
         up(&disconnect_sem);
         return retval;
 }
@@ -724,11 +718,12 @@ static int twod_release(struct inode *inode, struct file *file)
 
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
-
-                usb_kill_urb(urb);
-                usb_buffer_free(dev->udev, urb->transfer_buffer_length,
-                                urb->transfer_buffer, urb->transfer_dma);
-                usb_free_urb(urb);
+                if (urb) {
+                        usb_kill_urb(urb);
+                        usb_buffer_free(dev->udev, urb->transfer_buffer_length,
+                                        urb->transfer_buffer, urb->transfer_dma);
+                        usb_free_urb(urb);
+                }
         }
 
         if (dev->img_urb_q.buf)
@@ -738,9 +733,9 @@ static int twod_release(struct inode *inode, struct file *file)
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->sor_urbs[i];
                 if (urb) {
-                    usb_kill_urb(urb);
-                    kfree(urb->transfer_buffer);
-                    usb_free_urb(urb);
+                        usb_kill_urb(urb);
+                        kfree(urb->transfer_buffer);
+                        usb_free_urb(urb);
                 }
         }
 
@@ -774,10 +769,10 @@ static int twod_release(struct inode *inode, struct file *file)
 
         dev->is_open = 0;
 
-      unlock_exit:
+unlock_exit:
         up(&dev->sem);
 
-      exit:
+exit:
         return retval;
 }
 
@@ -873,7 +868,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                                 break;
                         }
                         // otherwise we're finished with this sample
-                        // left_to_copy will be 0 here
+                        // dev->bytesLeft will be 0 here
                         switch (dev->readstate.pendingSample->id) {
                         case TWOD_IMG_DATA:
                                 BUG_ON(nimg >= IMG_URBS_IN_FLIGHT);
@@ -881,26 +876,35 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                                 imgUrbs[nimg++] =
                                     dev->readstate.pendingSample->urb;
                                 break;
+                        case TWOD_SOR_DATA:
+                                BUG_ON(nsor >= SOR_URBS_IN_FLIGHT);
+                                sorUrbs[nsor++] = sample->urb;
+                                break;
                         }
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
-
                 }
+                /* Finished writing previous sample, check for next. 
+                 * dev->bytesLeft will be 0 here.
+                 * If no more samples, then we're done
+                 */
+                if (dev->sampleq.tail == dev->sampleq.head) {
+                        retval = countreq - count;
+                        break;
+                }
+                sample = dev->sampleq.buf[dev->sampleq.tail];
 
                 /* length of initial, non-urb portion of sample for image or SOR samples = 
-                 *   (timetag + length) + id + data
+                 *   sizeof(timetag) + sizeof(length) + pre_urb_data_len
                  */
-                n = sizeof (dsm_sample_time_t) +
-                    sizeof (dsm_sample_length_t)
-                    + sizeof (sample->id) + sizeof (sample->data);
-                // if no more samples or not enough room to copy initial portion, then we're done
-                if (dev->sampleq.tail == dev->sampleq.head || count < n) {
+                n = sizeof (dsm_sample_time_t) + sizeof (dsm_sample_length_t) +
+                        sample->pre_urb_data_len;
+                /* if not enough room to copy initial portion, then we're done */
+                if (count < n) {
                         retval = countreq - count;
                         break;
                 }
 
-                sample = dev->sampleq.buf[dev->sampleq.tail];
-
-                /* copy initial portion to user space. We know there is room. */
+                /* copy initial portion to user space. */
                 if (copy_to_user(buffer, sample, n)) {
                         err("%s - copy_to_user failed - %d", __FUNCTION__,
                             retval);
@@ -909,22 +913,9 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                 }
                 count -= n;
                 buffer += n;
-                switch (sample->id) {
-                case TWOD_IMG_DATA:
-                        dev->readstate.bytesLeft =
-                            sample->length - sizeof (sample->id) -
-                            sizeof (sample->data);
-                        dev->readstate.pendingSample = sample;
-                        dev->readstate.dataPtr =
-                            sample->urb->transfer_buffer;
-                        break;
-                case TWOD_SOR_DATA:
-                        /* In the case of SOR data, we're done with this sample */
-                        BUG_ON(nsor >= SOR_URBS_IN_FLIGHT);
-                        sorUrbs[nsor++] = sample->urb;
-                        INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
-                        break;
-                }
+                dev->readstate.bytesLeft = sample->length - sample->pre_urb_data_len;
+                dev->readstate.pendingSample = sample;
+                dev->readstate.dataPtr = sample->urb->transfer_buffer;
 
 #ifdef DEBUG
                 if (!(dev->debug_cntr % 100))
@@ -933,7 +924,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 #endif
         }
 
-      unlock_exit:
+unlock_exit:
         up(&dev->sem);
         for (i = 0; i < nimg; i++)
                 // called from driver read method, use GFP_KERNEL

@@ -116,7 +116,8 @@ struct twod_urb_sample
         dsm_sample_time_t timetag;      /* timetag of sample */
         dsm_sample_length_t length;     /* number of bytes in data */
         unsigned long id;       /* Sample ID, we may have multiple things */
-        unsigned long data;     /* True Airspeed for image sample, shadowOR for sor sample */
+        unsigned long data;     /* True Airspeed for image sample */
+        int pre_urb_data_len;   /* size of data portion of sample before the urb */
         struct urb *urb;
 };
 
