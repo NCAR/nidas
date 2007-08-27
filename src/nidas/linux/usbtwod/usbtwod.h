@@ -39,7 +39,6 @@ typedef struct _Tap2D
         unsigned char dummy;
 } Tap2D;
 
-#define SIZEOF_TAP2D 4
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With

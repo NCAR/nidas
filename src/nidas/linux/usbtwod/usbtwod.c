@@ -365,7 +365,8 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                     urb->actual_length + sizeof (osamp->data) +
                     sizeof (osamp->id);
                 osamp->data = 0;
-                memcpy(&osamp->data, &dev->tasValue, SIZEOF_TAP2D);
+                // stuff the current TAS value in the data.
+                memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
                 osamp->id = TWOD_IMG_DATA;
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
@@ -630,10 +631,14 @@ static int twod_open(struct inode *inode, struct file *file)
 
         /* Allocate the shadow OR urbs and submit them */
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
-                dev->sor_urbs[i] = twod_make_sor_urb(dev);
-                if (!dev->sor_urbs[i])
-                        return -ENOMEM;
-                usb_twod_submit_sor_urb(dev, dev->sor_urbs[i], GFP_KERNEL);
+            /* Only submit sor in urbs if we have an SOR endpoint */
+            if (dev->sor_in_endpointAddr) {
+                    dev->sor_urbs[i] = twod_make_sor_urb(dev);
+                    if (!dev->sor_urbs[i])
+                            return -ENOMEM;
+                    usb_twod_submit_sor_urb(dev, dev->sor_urbs[i], GFP_KERNEL);
+            }
+            else dev->sor_urbs[i] = 0;
         }
 
         init_timer(&dev->urbThrottle);
@@ -732,10 +737,11 @@ static int twod_release(struct inode *inode, struct file *file)
 
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->sor_urbs[i];
-
-                usb_kill_urb(urb);
-                kfree(urb->transfer_buffer);
-                usb_free_urb(urb);
+                if (urb) {
+                    usb_kill_urb(urb);
+                    kfree(urb->transfer_buffer);
+                    usb_free_urb(urb);
+                }
         }
 
         if (dev->tas_urb_q.buf) {
@@ -957,27 +963,28 @@ static int twod_ioctl(struct inode *inode, struct file *file,
         switch (cmd) {
         case USB2D_SET_TAS:
                 if (copy_from_user
-                    ((char *) &dev->tasValue, (const char *) arg,
-                     sizeof (dev->tasValue)) != 0) {
-                        retval = -EFAULT;
-                        break;
-                }
-                retval = 0;
+                    ((char *) &dev->tasValue, (const void __user *) arg,
+                     sizeof (dev->tasValue)) != 0) retval = -EFAULT;
+                else retval = 0;
                 break;
         case USB2D_SET_SOR_RATE:
                 {
                         int sor_rate;
                         if (copy_from_user
-                            ((char *) &sor_rate, (const char *) arg,
-                             sizeof (int)) != 0) {
-                                retval = -EFAULT;
-                                break;
-                        }
-                        retval = twod_set_sor_rate(dev, sor_rate);
+                            ((char *) &sor_rate, (const void __user *) arg,
+                             sizeof (int)) != 0) retval = -EFAULT;
+                        else retval = twod_set_sor_rate(dev, sor_rate);
                 }
                 break;
+       case USB2D_GET_STATUS:      /* user get of status struct */
+                if (copy_to_user((void __user *)arg,&dev->stats,
+                    sizeof(struct usb_twod_stats))) retval = -EFAULT;
+                else retval = 0;
+                break;
+        default:
+                retval = -ENOTTY;       // inappropriate ioctl for device
+                break;
         }
-
         return retval;
 }
 
@@ -1050,25 +1057,21 @@ static int twod_probe(struct usb_interface *interface,
                           endpoint->wMaxPacketSize);
 
                 if (!dev->sor_in_endpointAddr &&
-                    ((endpoint->
-                      bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
+                    ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
                      USB_DIR_IN)
                     &&
-                    ((endpoint->
-                      bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+                    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
                      USB_ENDPOINT_XFER_BULK)
                     && endpoint->wMaxPacketSize < 512) {
-                        /* we found a slow bulk in endpoint, use if for the SOR */
+                        /* we found a slow bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
                         dev->sor_bulk_in_size = endpoint->wMaxPacketSize;
                 } else if (!dev->img_in_endpointAddr &&
-                           ((endpoint->
-                             bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
+                           ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
                             USB_DIR_IN)
                            &&
-                           ((endpoint->
-                             bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+                           ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
                             USB_ENDPOINT_XFER_BULK)
                            && endpoint->wMaxPacketSize >= 512) {
                         /* we found a fast bulk in endpoint, use it for images */
@@ -1076,12 +1079,10 @@ static int twod_probe(struct usb_interface *interface,
                             endpoint->bEndpointAddress;
                         dev->img_bulk_in_size = endpoint->wMaxPacketSize;
                 } else if (!dev->tas_out_endpointAddr &&
-                           ((endpoint->
-                             bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
+                           ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
                             USB_DIR_OUT)
                            &&
-                           ((endpoint->
-                             bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+                           ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
                             USB_ENDPOINT_XFER_BULK)) {
                         /* we found a bulk out endpoint for true air speed */
                         dev->tas_out_endpointAddr =
@@ -1090,12 +1091,13 @@ static int twod_probe(struct usb_interface *interface,
 
         }
 
-        if (!
-            (dev->img_in_endpointAddr && dev->tas_out_endpointAddr
-             && dev->sor_in_endpointAddr)) {
-                err("%s - Could not find both img-in or tas-out or sor_in endpoints", __FUNCTION__);
+        if (!dev->img_in_endpointAddr || !dev->tas_out_endpointAddr) {
+                KLOG_ERR("Could not find both img-in and tas-out endpoints");
                 goto error;
         }
+
+        if (!dev->sor_in_endpointAddr)
+                KLOG_WARNING("Could not find sor-in endpoint. Will not read SOR samples");
 
         /* save our data pointer in this interface device */
         usb_set_intfdata(interface, dev);
