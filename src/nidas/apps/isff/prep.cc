@@ -170,7 +170,10 @@ void DumpClient::printHeader(vector<const Variable*>vars)
     vi = vars.begin();
     for (; vi != vars.end(); ++vi) {
         const Variable* var = *vi;
-        cout << '"' << var->getUnits() << "\" ";
+        if (var->getConverter())
+            cout << '"' << var->getConverter()->getUnits() << "\" ";
+        else
+            cout << '"' << var->getUnits() << "\" ";
     }
     if (dosOut) cout << '\r';
     cout << endl;

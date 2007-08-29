@@ -195,6 +195,8 @@ public:
         return sscanfers;
     }
 
+    int getMaxScanfFields() const { return maxScanfFields; }
+
     /**
      * Process a raw sample, which in this case means do
      * a sscanf on the character string contents, creating

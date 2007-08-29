@@ -95,8 +95,8 @@ int SampleSorter::run() throw(n_u::Exception)
 
     // Looper::getInstance()->addClient(this,sorterLengthUsec/2/USECS_PER_MSEC);
 
-    n_u::Logger::getInstance()->log(LOG_NOTICE,
-	"%s: sorterLengthUsec=%d\n",
+    n_u::Logger::getInstance()->log(LOG_INFO,
+	"%s: sorterLengthUsec=%d",
 	getName().c_str(),sorterLengthUsec);
 
     sampleSetCond.lock();
@@ -141,7 +141,7 @@ int SampleSorter::run() throw(n_u::Exception)
 	        heapMax = heapSize;
 		heapCond.signal();
 	    	n_u::Logger::getInstance()->log(LOG_NOTICE,
-		    "increased heapMax to %d, # of samples=%d\n",
+		    "increased heapMax to %d, # of samples=%d",
 		    heapMax,size());
 	    }
 	    heapCond.unlock();
@@ -268,8 +268,8 @@ void SampleSorter::finish() throw()
 	nanosleep(&ns,0);
 	sampleSetCond.lock();
 	if (!(i % 20))
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"waiting for buffer to empty, size=%d\n",
+	    n_u::Logger::getInstance()->log(LOG_NOTICE,
+		"waiting for buffer to empty, size=%d",
 			samples.size());
 	if (samples.size() == 1 && flushed) break;
 	sampleSetCond.unlock();
@@ -288,7 +288,7 @@ bool SampleSorter::receive(const Sample *s) throw()
 	    heapCond.unlock();
 	    if (!(discardedSamples++ % discardWarningCount))
 	    	n_u::Logger::getInstance()->log(LOG_WARNING,
-	"%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)\n",
+	"%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
 		discardedSamples,heapSize,slen,heapMax);
 	    return false;
 	}

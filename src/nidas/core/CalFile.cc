@@ -15,7 +15,8 @@
 
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Sample.h>      // floatNAN
-#include <nidas/core/Project.h>      // floatNAN
+#include <nidas/core/Project.h>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -199,7 +200,7 @@ void CalFile::open() throw(n_u::IOException)
 
     fin.open(currentFileName.c_str());
     if (fin.fail()) throw n_u::IOException(currentFileName,"open",errno);
-    cerr << "CalFile: " + currentFileName << endl;
+    n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",currentFileName.c_str());
     savedLines.clear();
     eofState = false;
     curline = "";

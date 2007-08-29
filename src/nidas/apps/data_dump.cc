@@ -126,10 +126,11 @@ bool DumpClient::receive(const Sample* samp) throw()
     switch(format) {
     case ASCII:
 	{
-	string dstr((const char*)samp->getConstVoidDataPtr(),
-		samp->getDataByteLength());
-        ostr << dstr << endl;
-	}
+        const char* cp = (const char*)samp->getConstVoidDataPtr();
+        size_t l = samp->getDataByteLength();
+        if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
+        ostr << string(cp,l) << endl;
+        }
         break;
     case HEX:
         {

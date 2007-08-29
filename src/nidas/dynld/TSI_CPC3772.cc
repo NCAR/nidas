@@ -42,24 +42,45 @@ bool TSI_CPC3772::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
 
-    list<const Sample*> tmpResults;
-    DSMSerialSensor::process(samp,tmpResults);
+    assert(samp->getType() == CHAR_ST);
+    const char* inputstr = (const char*)samp->getConstVoidDataPtr();
 
-    list<const Sample*>::const_iterator si = tmpResults.begin();
-    for ( ; si != tmpResults.end(); ++si) {
-        const Sample* isamp = *si;
-        if (isamp->getType() == FLOAT_ST && isamp->getDataLength() == _rate) {
-            const float* ifp = (const float*) isamp->getConstVoidDataPtr();
-            for (unsigned int i = isamp->getDataLength(); i-- > 0; ) {
-                SampleT<float>* osamp = getSample<float>(1);
-                osamp->setTimeTag(isamp->getTimeTag() - i * _deltaTusecs);
-                osamp->setId(isamp->getId());
-                *osamp->getDataPtr() = *ifp++;
-                results.push_back(osamp);
-            }
-        }
-        isamp->freeReference();     // done with it.
+    SampleT<float>* isamp = getSample<float>(getMaxScanfFields());
+
+    const SampleTag* stag = 0;
+    int nparsed = 0;
+    const std::list<AsciiSscanf*>& xscanfers = getScanfers();
+    std::list<AsciiSscanf*>::const_iterator si = xscanfers.begin();
+    for ( ; si != xscanfers.end(); ++si) {
+	AsciiSscanf* sscanf = *si;
+	nparsed = sscanf->sscanf(inputstr,isamp->getDataPtr(),
+		sscanf->getNumberOfFields());
+	if (nparsed > 0) {
+	    stag = sscanf->getSampleTag();
+	    isamp->setId(stag->getId());
+	    break;
+	}
     }
+
+    if (!nparsed) {
+	isamp->freeReference();	// remember!
+	return false;		// no sample
+    }
+
+    isamp->setTimeTag(samp->getTimeTag());
+    isamp->setDataLength(nparsed);
+
+    if ((signed)isamp->getDataLength() == _rate) {
+        const float* ifp = (const float*) isamp->getConstVoidDataPtr();
+        for (unsigned int i = isamp->getDataLength(); i-- > 0; ) {
+            SampleT<float>* osamp = getSample<float>(1);
+            osamp->setTimeTag(isamp->getTimeTag() - i * _deltaTusecs);
+            osamp->setId(isamp->getId());
+            *osamp->getDataPtr() = *ifp++;
+            results.push_back(osamp);
+        }
+    }
+    isamp->freeReference();     // done with it.
     return results.size() > 0;
 }
 
