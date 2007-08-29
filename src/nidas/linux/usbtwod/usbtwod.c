@@ -876,7 +876,8 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                                 break;
                         case TWOD_SOR_DATA:
                                 BUG_ON(nsor >= SOR_URBS_IN_FLIGHT);
-                                sorUrbs[nsor++] = sample->urb;
+                                sorUrbs[nsor++] = 
+                                    dev->readstate.pendingSample->urb;
                                 break;
                         }
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);

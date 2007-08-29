@@ -24,6 +24,7 @@
 
 #include <linux/kernel.h>   /* printk() */
 #include <linux/slab.h>   /* kmalloc() */
+#include <linux/sched.h>   /* kmalloc() */
 #include <linux/fs.h>       /* everything... */
 #include <linux/types.h>    /* size_t */
 #include <linux/proc_fs.h>
