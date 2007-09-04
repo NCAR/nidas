@@ -5,7 +5,7 @@
  * Copyright (C) 2007 University Corporation for Atmospheric Research
  */
 
-// #define DEBUG
+#define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -262,6 +262,9 @@ static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) arg;
         int retval;
+#ifdef DEBUG
+        static int debugcntr = 0;
+#endif
 
         if (dev->img_urb_q.tail != dev->img_urb_q.head) {
                 struct urb *urb = dev->img_urb_q.buf[dev->img_urb_q.tail];
@@ -602,16 +605,19 @@ static int twod_open(struct inode *inode, struct file *file)
         /* In order to support throttling of the image urbs, we create
          * a circular buffer of the image urbs.
          */
-        dev->img_urb_q.head = dev->img_urb_q.tail = 0;
-        dev->img_urb_q.buf =
-            kmalloc(sizeof (struct urb *) * IMG_URB_QUEUE_SIZE,
-                    GFP_KERNEL);
-        if (!dev->img_urb_q.buf) {
-                retval = -ENOMEM;
-                goto exit;
+        dev->img_urb_q.buf = 0;
+        if (throttleRate > 0) {
+                dev->img_urb_q.head = dev->img_urb_q.tail = 0;
+                dev->img_urb_q.buf =
+                    kmalloc(sizeof (struct urb *) * IMG_URB_QUEUE_SIZE,
+                            GFP_KERNEL);
+                if (!dev->img_urb_q.buf) {
+                        retval = -ENOMEM;
+                        goto exit;
+                }
+                memset(dev->img_urb_q.buf, 0,
+                       sizeof (struct urb *) * IMG_URB_QUEUE_SIZE);
         }
-        memset(dev->img_urb_q.buf, 0,
-               sizeof (struct urb *) * IMG_URB_QUEUE_SIZE);
 
         /* Allocate the image urbs and submit them */
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
@@ -724,9 +730,10 @@ static int twod_release(struct inode *inode, struct file *file)
                 }
         }
 
-        if (dev->img_urb_q.buf)
+        if (dev->img_urb_q.buf) {
                 kfree(dev->img_urb_q.buf[0]);
-        kfree(dev->img_urb_q.buf);
+                kfree(dev->img_urb_q.buf);
+        }
 
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->sor_urbs[i];
@@ -883,7 +890,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 }
                 /* Finished writing previous sample, check for next. 
-                 * dev->bytesLeft will be 0 here.
+                 * dev->readstate.bytesLeft will be 0 here.
                  * If no more samples, then we're done
                  */
                 if (dev->sampleq.tail == dev->sampleq.head) {
@@ -918,8 +925,8 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
 #ifdef DEBUG
                 if (!(dev->debug_cntr % 100))
-                        KLOG_DEBUG("bottom count=%d,left_to_copy=%d",
-                                   count, dev->left_to_copy);
+                        KLOG_DEBUG("bottom count=%d,bytesLeft=%d",
+                                   count, dev->readstate.bytesLeft);
 #endif
         }
 
