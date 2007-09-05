@@ -121,12 +121,15 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
         }
 
         urb->transfer_flags = 0;
-
         usb_fill_bulk_urb(urb, dev->udev,
                           usb_sndbulkpipe(dev->udev,
                                           dev->tas_out_endpointAddr), buf,
                           TWOD_TAS_BUFF_SIZE, twod_tas_tx_bulk_callback,
                           dev);
+        if (urb->transfer_buffer != buf) {
+                KLOG_DEBUG("tas urb transfer buffer must be set\n");
+                urb->transfer_buffer = buf;
+        }
         return urb;
 }
 
