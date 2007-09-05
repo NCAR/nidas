@@ -92,6 +92,11 @@ public:
         endTime = val;
     }
 
+    long long getPeriodUsecs() const 
+    {
+        return _periodUsecs;
+    }
+
 protected:
 
     void attach(SampleSource* src);
@@ -158,7 +163,7 @@ private:
      */
     bool numpoints;
 
-    dsm_time_t periodUsecs;
+    dsm_time_t _periodUsecs;
 
     /**
      * Does this cruncher compute cross-terms?

@@ -25,7 +25,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
-StatisticsProcessor::StatisticsProcessor()
+StatisticsProcessor::StatisticsProcessor():_statsPeriod(0.0)
 {
     setName("StatisticsProcessor");
 }
@@ -34,7 +34,7 @@ StatisticsProcessor::StatisticsProcessor()
  * Copy constructor
  */
 StatisticsProcessor::StatisticsProcessor(const StatisticsProcessor& x):
-	SampleIOProcessor(x)
+	SampleIOProcessor(x),_statsPeriod(x._statsPeriod)
 {
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = x.crunchers.begin(); ci != x.crunchers.end(); ++ci) {
@@ -122,6 +122,21 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
         throw n_u::InvalidParameterException(
 	    getName(),ost.str(),"has an unknown period or rate");
     }
+
+    float sPeriod = tag->getPeriod();
+    if (_statsPeriod > 0.0) {
+        if (fabs(sPeriod - _statsPeriod) > 1.e-3) {
+            ostringstream ost;
+            ost << "average period (" << tag->getPeriod() <<
+                " secs) for sample id=" <<
+                getId() << '(' << getDSMId() << ',' << getShortId() << ')' <<
+                " differs from period of previous sample (" <<
+                _statsPeriod << " secs)";
+            throw n_u::InvalidParameterException(getName(),"rate",
+                ost.str());
+        }
+    } 
+    else _statsPeriod = sPeriod;
 
     vector<string> vnames;
     for (int i = 0; i < vparm->getLength(); i++) {

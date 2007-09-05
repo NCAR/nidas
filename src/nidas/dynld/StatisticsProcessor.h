@@ -93,6 +93,11 @@ public:
         endTime = val;
     }
 
+    float getPeriod() const 
+    {
+        return _statsPeriod;
+    }
+
 protected:
 
     std::list<StatisticsCruncher*> crunchers;
@@ -110,6 +115,8 @@ protected:
     nidas::util::UTime startTime;
 
     nidas::util::UTime endTime;
+
+    float _statsPeriod;
 
 };
 

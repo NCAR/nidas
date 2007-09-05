@@ -80,6 +80,10 @@ private:
 
     int niceValue;
 
+    static const int DEFAULT_PERIOD = 300;
+
+    int _period;
+
 };
 
 int main(int argc, char** argv)
@@ -161,7 +165,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 StatsProcess::StatsProcess():
 	sorterLength(1000),daemonMode(false),
         startTime((time_t)0),endTime((time_t)0),
-        niceValue(0)
+        niceValue(0),_period(DEFAULT_PERIOD)
 {
 }
 
@@ -173,7 +177,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:d:E:hn:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:d:E:hn:p:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -205,6 +209,16 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		ist >> niceValue;
 		if (ist.fail()) {
                     cerr << "Invalid nice value: " << optarg << endl;
+                    return usage(argv[0]);
+		}
+	    }
+	    break;
+	case 'p':
+	    {
+	        istringstream ist(optarg);
+		ist >> _period;
+		if (ist.fail() || _period < 0) {
+                    cerr << "Invalid period: " << optarg << endl;
                     return usage(argv[0]);
 		}
 	    }
@@ -281,11 +295,12 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-s sorterLength]\n\
+Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-p period] [-s sorterLength]\n\
        [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -d dsm (optional)\n\
+    -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
     -s sorterLength: input data sorter length in milliseconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
@@ -425,14 +440,22 @@ int StatsProcess::run() throw()
             ProcessorIterator pitr = server->getProcessorIterator();
             for ( ; pitr.hasNext(); ) {
                 SampleIOProcessor* proc = pitr.next();
-                sproc = dynamic_cast<StatisticsProcessor*>(proc);
-                if (sproc) break;
+                StatisticsProcessor* sp = 0;
+                sp = dynamic_cast<StatisticsProcessor*>(proc);
+                if (!sp) continue;
+                // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                  //   " equality=" << (sp->getPeriod() == _period) << endl;
+                if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                    sproc = sp;
+                    break;
+                }
             }
         }
 	if (!sproc) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    "Cannot find a StatisticsProcessor for dsm %s",
-		dsmName.c_str());
+	    "Cannot find a StatisticsProcessor for dsm %s with period=%d",
+		dsmName.c_str(),_period);
 	    return 1;
 	}
 

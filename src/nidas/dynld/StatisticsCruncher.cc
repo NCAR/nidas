@@ -73,7 +73,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 #endif
     }
     nvars = inVariables.size();
-    periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
+    _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
     outSample.setSampleId(stag->getId());
     outSample.setRate(stag->getRate());
@@ -85,7 +85,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 StatisticsCruncher::StatisticsCruncher(const StatisticsCruncher& x):
 	countsName(x.countsName),
 	numpoints(x.numpoints),
-	periodUsecs(x.periodUsecs),
+	_periodUsecs(x._periodUsecs),
 	crossTerms(x.crossTerms),
 	resampler(0),
 	statsType(x.statsType),
@@ -992,9 +992,9 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    computeStats();
 	    zeroStats();
 	}
-	tout = tt - (tt % periodUsecs) + periodUsecs;
+	tout = tt - (tt % _periodUsecs) + _periodUsecs;
     }
-    if (tt < tout - periodUsecs) return false;
+    if (tt < tout - _periodUsecs) return false;
 
     struct sampleInfo& sinfo = vmi->second;
     const vector<int*>& vindices = sinfo.varIndices;
@@ -1259,7 +1259,7 @@ void StatisticsCruncher::computeStats()
     double x,xm,xr;
 
     SampleT<float>* osamp = getSample<float>(outlen);
-    osamp->setTimeTag(tout - periodUsecs / 2);
+    osamp->setTimeTag(tout - _periodUsecs / 2);
     osamp->setId(outSample.getId());
     // osamp->setId(0);
     float* outData = osamp->getDataPtr();
@@ -1403,7 +1403,7 @@ void StatisticsCruncher::computeStats()
 
 #ifdef DEBUG
     cerr << "Covariance Sample: " <<
-    	n_u::UTime(tout-periodUsecs*.5).format(true,"%H:%M:%S");
+    	n_u::UTime(tout-_periodUsecs*.5).format(true,"%H:%M:%S");
     for (i = 0; i < ntot; i++) cerr << outData[i] << ' ';
     cerr << '\n';
 #endif
