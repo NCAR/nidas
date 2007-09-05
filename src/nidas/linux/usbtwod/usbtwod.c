@@ -525,6 +525,10 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
                                           dev->sor_in_endpointAddr), buf,
                           TWOD_SOR_BUFF_SIZE, twod_sor_rx_bulk_callback,
                           dev);
+        if (urb->transfer_buffer != buf) {
+                KLOG_DEBUG("sor urb transfer buffer must be set\n");
+                urb->transfer_buffer = buf;
+        }
         return urb;
 }
 
