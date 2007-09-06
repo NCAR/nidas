@@ -29,5 +29,5 @@ headers = Split("""
 """)
 
 env.Install('$PREFIX/include/nidas/linux/usbtwod',headers)
-env.Program('test/twod', 'test/twod.c')
+# env.Program('test/twod', 'test/twod.c')
 

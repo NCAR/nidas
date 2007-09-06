@@ -98,6 +98,9 @@ private:
      */
     static const long long _syncMask, _syncWord;
 
+    /**
+     * How often to request the shadow OR, in HZ.
+     */
     int _sorRate;
 };
 

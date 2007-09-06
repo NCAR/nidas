@@ -23,13 +23,13 @@
 #include <nidas/linux/klog.h>
 
 /* Define these values to match your devices */
-#define USB_VENDOR_ID	0x2D2D
-#define USB_PRODUCT_ID	0x2D00
+//#define USB_VENDOR_ID	0x2D2D
+//#define USB_PRODUCT_ID	0x2D00
 
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
-//#define USB_VENDOR_ID 0x0547
-//#define USB_PRODUCT_ID        0x1002
+#define USB_VENDOR_ID 0x0547
+#define USB_PRODUCT_ID        0x1002
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
@@ -121,15 +121,19 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
         }
 
         urb->transfer_flags = 0;
+	/* This sets urb->transfer_buffer for us. */
         usb_fill_bulk_urb(urb, dev->udev,
                           usb_sndbulkpipe(dev->udev,
                                           dev->tas_out_endpointAddr), buf,
                           TWOD_TAS_BUFF_SIZE, twod_tas_tx_bulk_callback,
                           dev);
+	
         if (urb->transfer_buffer != buf) {
-                KLOG_DEBUG("tas urb transfer buffer must be set\n");
+                KLOG_NOTICE("tas urb transfer buffer must be set\n");
                 urb->transfer_buffer = buf;
         }
+	KLOG_DEBUG("tas urb=%p transfer_buffer=%p\n",
+		urb,urb->transfer_buffer);
         return urb;
 }
 
@@ -139,8 +143,13 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 
 static void write_tas(struct usb_twod *dev, int kmalloc_flags)
 {
+        // KLOG_DEBUG("tail=%d,head=%d\n",
+	// 	dev->tas_urb_q.tail,dev->tas_urb_q.head);
+
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
+		// KLOG_DEBUG("write_tas urb=%p transfer_buffer=%p\n",
+		//	urb,urb->transfer_buffer);
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -672,15 +681,14 @@ static int twod_open(struct inode *inode, struct file *file)
         memset(dev->tas_urb_q.buf, 0,
                sizeof (struct urb *) * TAS_URB_QUEUE_SIZE);
 
-        /* Put urbs in queue */
-        for (i = 0; i < TAS_URB_QUEUE_SIZE - 1; ++i) {
+        /* Allocate urbs for queue */
+        for (i = 0; i < TAS_URB_QUEUE_SIZE; ++i) {
                 dev->tas_urb_q.buf[i] = twod_make_tas_urb(dev);
                 if (!dev->tas_urb_q.buf[i])
                         return -ENOMEM;
-                BUG_ON(CIRC_SPACE(dev->tas_urb_q.head, dev->tas_urb_q.tail,
-                                  TAS_URB_QUEUE_SIZE) == 0);
-                INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
         }
+        for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
+                INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
 #ifndef DO_IRIG_TIMING
         init_timer(&dev->sendTASTimer);
@@ -821,6 +829,8 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
         dev = (struct usb_twod *) file->private_data;
 
+	KLOG_DEBUG("read, count=%d, bytesLeft=%d\n",count,dev->readstate.bytesLeft);
+
         /* lock this object */
         if (down_interruptible(&dev->sem))
                 return -ERESTARTSYS;
@@ -853,7 +863,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
 #ifdef DEBUG
                 if (!(dev->debug_cntr % 100))
-                        info("head=%d,tail=%d,urbs=%d,count=%d,left_to_copy=%d",
+                        info("head=%d,tail=%d,urbs=%d,count=%d,bytesLeft=%d",
                         dev->sampleq.head, dev->sampleq.tail,
                         CIRC_CNT(dev->sampleq.head, dev->sampleq.tail,
                             SAMPLE_QUEUE_SIZE),
@@ -966,6 +976,7 @@ static int twod_ioctl(struct inode *inode, struct file *file,
 
         switch (cmd) {
         case USB2D_SET_TAS:
+		KLOG_DEBUG("SET_TAS, bytes=%d\n",sizeof(dev->tasValue));
                 if (copy_from_user
                     ((char *) &dev->tasValue, (const void __user *) arg,
                      sizeof (dev->tasValue)) != 0) retval = -EFAULT;
@@ -978,6 +989,7 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                             ((char *) &sor_rate, (const void __user *) arg,
                              sizeof (int)) != 0) retval = -EFAULT;
                         else retval = twod_set_sor_rate(dev, sor_rate);
+			KLOG_DEBUG("SET_SOR_RATE, rate=%d\n",sor_rate);
                 }
                 break;
        case USB2D_GET_STATUS:      /* user get of status struct */
@@ -989,6 +1001,7 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                 retval = -ENOTTY;       // inappropriate ioctl for device
                 break;
         }
+	KLOG_DEBUG("ioctl, retval=%d\n",retval);
         return retval;
 }
 

@@ -41,7 +41,7 @@ const long long TwoDC_USB::_syncWord = 0xAAAAAA0000000000LL;
 const long long TwoDC_USB::_syncMask = 0xFFFFFF0000000000LL;
 
 
-TwoDC_USB::TwoDC_USB()
+TwoDC_USB::TwoDC_USB():_sorRate(1)
 {
     cerr << __PRETTY_FUNCTION__ << endl;
 
@@ -57,7 +57,7 @@ IODevice *TwoDC_USB::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner *TwoDC_USB::buildSampleScanner()
-{
+{   
     return new SampleScanner((4104 + 8) * 4);
 }
 
@@ -72,7 +72,10 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
     // Shut the probe down until a valid TAS comes along.
     sendTrueAirspeed(33.0);
 
+    cerr << "SET_SOR_RATE, rate="<<_sorRate<<endl;
     ioctl(USB2D_SET_SOR_RATE, (void *) &_sorRate, sizeof (int));
+
+    sleep(20);
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
@@ -89,6 +92,7 @@ void TwoDC_USB::close() throw(n_u::IOException)
 bool TwoDC_USB::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
+    
     unsigned long lin = samp->getDataByteLength();
 
     if (lin < 2 * sizeof (long))
@@ -159,9 +163,9 @@ bool TwoDC_USB::process(const Sample * samp,
     int id = *lptr++;
 
     switch (id) {
-    case 0:                    // image data
+    case 1:                    // image data
         return processImage(samp, results);
-    case 1:
+    case 2:
         return processSOR(samp, results);
     }
     return false;
@@ -188,11 +192,10 @@ throw(n_u::InvalidParameterException)
     // Acquire probe diode/pixel resolution (in micrometers) for tas encoding.
     p = getParameter("RESOLUTION");
     if (!p)
-        throw n_u::InvalidParameterException(getName(), "RESOLUTION",
-                                             "not found");
+        throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolution = p->getNumericValue(0) * 1.0e-6;
 
-    cerr << __PRETTY_FUNCTION__ << "fromDOMElement-end" << endl;
+    std::cerr << __PRETTY_FUNCTION__ << "fromDOMElement-end" << endl;
 }
 
 /*---------------------------------------------------------------------------*/

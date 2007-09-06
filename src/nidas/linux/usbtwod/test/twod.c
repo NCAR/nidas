@@ -27,20 +27,20 @@ typedef struct P2d_rec P2d_rec;
 
 #include "../usbtwod.h"
 
+int fd;
+
 int sendTAS(float tas)
 {
   Tap2D tx_tas;
   float resolution = 25e-6;
 
   TASToTap2D(&tx_tas, tas, resolution);
-  return ioctl(USB2D_SET_TAS, (unsigned long)&tx_tas, 3);
+  return ioctl(fd, USB2D_SET_TAS, (void*)&tx_tas);
 }
 
 int main()
 {
   int i, n;
-  fd_set  my_set;
-  int fd;
   FILE * fp_o = fopen("data.2d", "w+");
   P2d_rec rec;
   char buffer[5000];
