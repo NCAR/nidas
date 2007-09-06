@@ -76,7 +76,7 @@ private:
      throw();
 
     // Probe produces Big Endian.
-    static const nidas::util::EndianConverter * toLittle;
+    static const nidas::util::EndianConverter * fromBig;
 
     /**
      * Encode and send the true airspeed to the USB driver, which will

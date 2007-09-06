@@ -33,9 +33,9 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoDC_USB)
 
-const n_u::EndianConverter * TwoDC_USB::toLittle =
+const n_u::EndianConverter * TwoDC_USB::fromBig =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
-                                       EC_LITTLE_ENDIAN);
+                                       EC_BIG_ENDIAN);
 
 const long long TwoDC_USB::_syncWord = 0xAAAAAA0000000000LL;
 const long long TwoDC_USB::_syncMask = 0xFFFFFF0000000000LL;
@@ -75,8 +75,6 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
     cerr << "SET_SOR_RATE, rate="<<_sorRate<<endl;
     ioctl(USB2D_SET_SOR_RATE, (void *) &_sorRate, sizeof (int));
 
-    sleep(20);
-
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
 
@@ -101,7 +99,7 @@ bool TwoDC_USB::processSOR(const Sample * samp,
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
     int id = *lptr++;
-    long sor = *lptr++;
+    long sor = fromBig->longValue(*lptr++);
 
     size_t nvalues = 1;
     SampleT < float >*outs = getSample < float >(nvalues);
@@ -162,10 +160,15 @@ bool TwoDC_USB::process(const Sample * samp,
         (const unsigned long *) samp->getConstVoidDataPtr();
     int id = *lptr++;
 
+    /* From the driver level, id=0 is image data, id=1 is SOR.
+     * Note that this is different from the typical XML configuration
+     * where for processed samples, id=sensorID+1 are the images,
+     * and id=sensorID+2 are the SORs.
+     */
     switch (id) {
-    case 1:                    // image data
+    case 0:                    // image data
         return processImage(samp, results);
-    case 2:
+    case 1:
         return processSOR(samp, results);
     }
     return false;

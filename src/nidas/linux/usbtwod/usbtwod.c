@@ -56,6 +56,9 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                                       struct pt_regs *regs)
 #endif
 {
+	/* Note that these urb callbacks are called in 
+         * software interrupt context. 
+         */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
 
         // there must be space, since TAIL was incremented before
@@ -127,20 +130,12 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
                                           dev->tas_out_endpointAddr), buf,
                           TWOD_TAS_BUFF_SIZE, twod_tas_tx_bulk_callback,
                           dev);
-	
-        if (urb->transfer_buffer != buf) {
-                KLOG_NOTICE("tas urb transfer buffer must be set\n");
-                urb->transfer_buffer = buf;
-        }
-	KLOG_DEBUG("tas urb=%p transfer_buffer=%p\n",
-		urb,urb->transfer_buffer);
         return urb;
 }
 
 /* Used by both irig callback or timer function to send the tas value via
  * the bulk write end-point
  */
-
 static void write_tas(struct usb_twod *dev, int kmalloc_flags)
 {
         // KLOG_DEBUG("tail=%d,head=%d\n",
@@ -315,14 +310,12 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                                       struct pt_regs *regs)
 #endif
 {
-        static int debug_out = 1;
+	/* Note that these urb callbacks are called in 
+         * software interrupt context. 
+         */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
-        if (debug_out) {
-                err("in interrupt : %lu", in_interrupt());
-                debug_out = 0;
-        }
         ++dev->stats.total_img_callbacks;
 
         switch (urb->status) {
@@ -435,6 +428,9 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                                       struct pt_regs *regs)
 #endif
 {
+	/* Note that these urb callbacks are called in 
+         * software interrupt context. 
+         */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
@@ -534,10 +530,6 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
                                           dev->sor_in_endpointAddr), buf,
                           TWOD_SOR_BUFF_SIZE, twod_sor_rx_bulk_callback,
                           dev);
-        if (urb->transfer_buffer != buf) {
-                KLOG_DEBUG("sor urb transfer buffer must be set\n");
-                urb->transfer_buffer = buf;
-        }
         return urb;
 }
 
@@ -829,8 +821,6 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
         dev = (struct usb_twod *) file->private_data;
 
-	KLOG_DEBUG("read, count=%d, bytesLeft=%d\n",count,dev->readstate.bytesLeft);
-
         /* lock this object */
         if (down_interruptible(&dev->sem))
                 return -ERESTARTSYS;
@@ -863,7 +853,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
 #ifdef DEBUG
                 if (!(dev->debug_cntr % 100))
-                        info("head=%d,tail=%d,urbs=%d,count=%d,bytesLeft=%d",
+                        KLOG_DEBUG("head=%d,tail=%d,urbs=%d,count=%d,bytesLeft=%d",
                         dev->sampleq.head, dev->sampleq.tail,
                         CIRC_CNT(dev->sampleq.head, dev->sampleq.tail,
                             SAMPLE_QUEUE_SIZE),
@@ -976,7 +966,6 @@ static int twod_ioctl(struct inode *inode, struct file *file,
 
         switch (cmd) {
         case USB2D_SET_TAS:
-		KLOG_DEBUG("SET_TAS, bytes=%d\n",sizeof(dev->tasValue));
                 if (copy_from_user
                     ((char *) &dev->tasValue, (const void __user *) arg,
                      sizeof (dev->tasValue)) != 0) retval = -EFAULT;

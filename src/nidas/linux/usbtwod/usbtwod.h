@@ -100,8 +100,20 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
  * In addition, SAMPLE_QUEUE_SIZE should be at least 
  * IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1 
  */
-#define SAMPLE_QUEUE_SIZE   8
-#define IMG_URB_QUEUE_SIZE  4   /* also must be a power of two */
+/*
+ * Throughput tests:
+ * Ling's laptop: Intel core2 2.33 GHz,  FC6,  Sep 6, 2007
+ * Test with the spinning disk, and TAS rate=10
+ * thruput idle SAMPLE_QUEUE_SIZE IMG_URB_QUEUE_SIZE  IMG_URBS_IN_FLIGHT
+ * 385/sec 91-96%	16		8			7
+ * 385/sec 91-96%	8		4			3
+ * 385/sec 89-95%	4		2			1
+ * So through-put did not depend on the queue size or # of urbs in flight.
+ * "top" CPU idle %age was similar for all tests.
+ * Needs testing on a vulcan.
+ */
+#define SAMPLE_QUEUE_SIZE   4
+#define IMG_URB_QUEUE_SIZE  2   /* also must be a power of two */
 #define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
 #define SOR_URBS_IN_FLIGHT   1
 
