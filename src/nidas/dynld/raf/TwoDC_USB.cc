@@ -43,8 +43,6 @@ const long long TwoDC_USB::_syncMask = 0xFFFFFF0000000000LL;
 
 TwoDC_USB::TwoDC_USB():_sorRate(1)
 {
-    cerr << __PRETTY_FUNCTION__ << endl;
-
 }
 
 TwoDC_USB::~TwoDC_USB()
@@ -197,8 +195,6 @@ throw(n_u::InvalidParameterException)
     if (!p)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolution = p->getNumericValue(0) * 1.0e-6;
-
-    std::cerr << __PRETTY_FUNCTION__ << "fromDOMElement-end" << endl;
 }
 
 /*---------------------------------------------------------------------------*/

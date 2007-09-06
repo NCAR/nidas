@@ -129,7 +129,7 @@ struct twod_urb_sample
         dsm_sample_length_t length;     /* number of bytes in data */
         unsigned long id;       /* Sample ID, we may have multiple things */
         unsigned long data;     /* True Airspeed for image sample */
-        int pre_urb_data_len;   /* size of data portion of sample before the urb */
+        int pre_urb_len;  	/* size of sample without urb contents */
         struct urb *urb;
 };
 

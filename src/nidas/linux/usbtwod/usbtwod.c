@@ -5,7 +5,7 @@
  * Copyright (C) 2007 University Corporation for Atmospheric Research
  */
 
-#define DEBUG
+// #define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -138,13 +138,8 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
  */
 static void write_tas(struct usb_twod *dev, int kmalloc_flags)
 {
-        // KLOG_DEBUG("tail=%d,head=%d\n",
-	// 	dev->tas_urb_q.tail,dev->tas_urb_q.head);
-
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
-		// KLOG_DEBUG("write_tas urb=%p transfer_buffer=%p\n",
-		//	urb,urb->transfer_buffer);
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -369,11 +364,16 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length = urb->actual_length + 2 * sizeof(long);
+                osamp->length = sizeof(osamp->id) +
+				sizeof(osamp->data) +
+				urb->actual_length;
                 osamp->id = TWOD_IMG_DATA;
                 // stuff the current TAS value in the data.
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
-                osamp->pre_urb_data_len = 2 * sizeof(long);     // ID and TAS
+                osamp->pre_urb_len = sizeof(osamp->timetag) +
+			sizeof(osamp->length) +
+			sizeof(osamp->id) +
+			sizeof(osamp->data);
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
@@ -485,9 +485,12 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length = urb->actual_length + sizeof(long);
+                osamp->length = sizeof(osamp->id) +
+				urb->actual_length;
                 osamp->id = TWOD_SOR_DATA;
-                osamp->pre_urb_data_len = sizeof(long);     // just the ID
+                osamp->pre_urb_len = sizeof(osamp->timetag) +
+			sizeof(osamp->length) +
+			sizeof(osamp->id);
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
@@ -906,12 +909,12 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                 }
                 sample = dev->sampleq.buf[dev->sampleq.tail];
 
-                /* length of initial, non-urb portion of sample for image or SOR samples = 
-                 *   sizeof(timetag) + sizeof(length) + pre_urb_data_len
+                /* length of initial, non-urb portion of
+                 * image or SOR samples.
                  */
-                n = sizeof (dsm_sample_time_t) + sizeof (dsm_sample_length_t) +
-                        sample->pre_urb_data_len;
-                /* if not enough room to copy initial portion, then we're done */
+                n = sample->pre_urb_len;
+                /* if not enough room to copy initial portion,
+		 * then we're done */
                 if (count < n) {
                         retval = countreq - count;
                         break;
@@ -926,8 +929,8 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                 }
                 count -= n;
                 buffer += n;
-                dev->readstate.bytesLeft = sample->length - sample->pre_urb_data_len;
                 dev->readstate.pendingSample = sample;
+                dev->readstate.bytesLeft = sample->urb->actual_length;
                 dev->readstate.dataPtr = sample->urb->transfer_buffer;
 
 #ifdef DEBUG
