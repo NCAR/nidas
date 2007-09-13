@@ -50,7 +50,8 @@ void SampleClock::setTime(dsm_time_t val)
     if (::llabs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
 	if (!(timeWarnCount++ % 100))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"sysTimeAhead=%d usec, warn_count=%d (expected situation if no IRIG feed)",sysTimeAhead,timeWarnCount);
+	    	"sysTimeAhead=%lld usec, warn_count=%d (expected situation if no IRIG feed)",
+		sysTimeAhead,timeWarnCount);
     }
     externalClock = true;
 }

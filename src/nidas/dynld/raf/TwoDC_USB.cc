@@ -25,6 +25,7 @@
 #include <asm/ioctls.h>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -202,22 +203,48 @@ void TwoDC_USB::derivedDataNotify(const nidas::core::DerivedDataReader *
                                   s) throw()
 {
     std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
-    if (!::isnan(s->getTrueAirspeed()))
-        sendTrueAirspeed(s->getTrueAirspeed());
+    if (!::isnan(s->getTrueAirspeed())) {
+	try {
+	    sendTrueAirspeed(s->getTrueAirspeed());
+	}
+	catch(const n_u::IOException & e)
+	{
+	    n_u::Logger::getInstance()->log(LOG_WARNING, "%s", e.what());
+	}
+    }
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoDC_USB::sendTrueAirspeed(float tas)
+void TwoDC_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 {
     Tap2D tx_tas;
-
     TASToTap2D(&tx_tas, tas, _resolution);
+    ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
+}
+void TwoDC_USB::printStatus(std::ostream& ostr) throw()
+{
+
+    DSMSensor::printStatus(ostr);
+    struct usb_twod_stats status;
 
     try {
-        ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
+	ioctl(USB2D_GET_STATUS,&status,sizeof(status));
+	long long tnow = getSystemTime();
+	float imagePerSec = float(status.numImages - _numImages) /
+		float(tnow - _lastStatusTime) * USECS_PER_SEC;
+	_numImages = status.numImages;
+	_lastStatusTime = tnow;
+
+	ostr << "<td align=left>" << "imgBlks/sec=" <<
+		fixed << setprecision(1) << imagePerSec <<
+		",lost=" << status.lostImages << ",lostSOR=" << status.lostSORs <<
+		",lostTAS=" << status.lostTASs << ", urbErrs=" << status.urbErrors <<
+		"</td>" << endl;
     }
-    catch(const n_u::IOException & e)
-    {
-        n_u::Logger::getInstance()->log(LOG_WARNING, "%s", e.what());
+    catch(const n_u::IOException& ioe) {
+        ostr << "<td>" << ioe.what() << "</td>" << endl;
+	n_u::Logger::getInstance()->log(LOG_ERR,
+            "%s: printStatus: %s",getName().c_str(),
+            ioe.what());
     }
 }

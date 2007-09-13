@@ -66,6 +66,8 @@ public:
         derivedDataNotify(const nidas::core::
                           DerivedDataReader * s) throw();
 
+    void printStatus(std::ostream& ostr) throw();
+
 private:
 
      bool processSOR(const Sample * samp,
@@ -82,7 +84,7 @@ private:
      * Encode and send the true airspeed to the USB driver, which will
      * in turn send it to the probe.
      */
-    void sendTrueAirspeed(float tas);
+    void sendTrueAirspeed(float tas) throw(nidas::util::IOException);
 
     /**
      * Probe resolution in meters.  Acquired from XML config file.
@@ -102,6 +104,16 @@ private:
      * How often to request the shadow OR, in HZ.
      */
     int _sorRate;
+
+    /**
+     * Number of image blocks processed by driver at time of last printStatus.
+     */
+    size_t _numImages;
+
+    /**
+     * Time of last printStatus.
+     */
+    long long _lastStatusTime;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

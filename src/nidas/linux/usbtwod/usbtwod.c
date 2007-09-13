@@ -1,4 +1,3 @@
-
 /*
  * USB PMS-2D driver - 2.0
  *
@@ -6,6 +5,7 @@
  */
 
 // #define DEBUG
+// #define DO_IRIG_TIMING 
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -21,6 +21,7 @@
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/linux/klog.h>
+#include <nidas/linux/irigclock.h>
 
 /* Define these values to match your devices */
 //#define USB_VENDOR_ID	0x2D2D
@@ -28,8 +29,9 @@
 
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
-#define USB_VENDOR_ID 0x0547
+#define USB_VENDOR_ID         0x0547
 #define USB_PRODUCT_ID        0x1002
+
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
@@ -72,31 +74,23 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                 break;
         case -ENOENT:
                 // result of usb_kill_urb
-                if (!(dev->stats.enoents++ % 1000))
-                        KLOG_WARNING
-                            ("urb->status=-ENOENT %d times",
-                             dev->stats.enoents);
+		// KLOG_WARNING("urb->status=-ENOENT\n");
+                dev->stats.urbErrors++;
                 break;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
-                if (!(dev->stats.econnresets++ % 1000))
-                        KLOG_WARNING
-                            ("urb->status=-ECONNRESET %d times",
-                             dev->stats.econnresets);
+		KLOG_WARNING("urb->status=-ECONNRESET\n");
+                dev->stats.urbErrors++;
                 break;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
-                if (!(dev->stats.eshutdowns++ % 1000))
-                        KLOG_WARNING
-                            ("urb->status=-ESHUTDOWN %d times",
-                             dev->stats.eshutdowns);
+		KLOG_WARNING("urb->status=-ESHUTDOWN\n");
+                dev->stats.urbErrors++;
                 break;
         default:
-                if (!(dev->stats.eothers++ % 1000))
-                        KLOG_WARNING("urb->status=%d, %d times",
-                                     urb->status,
-                                     dev->stats.eothers);
+		KLOG_WARNING("urb->status=%d\n",urb->status);
+                dev->stats.urbErrors++;
                 break;
         }
 }
@@ -150,8 +144,7 @@ static void write_tas(struct usb_twod *dev, int kmalloc_flags)
                                  dev->urbSubmitError);
         } else {
                 if (!(dev->stats.lostTASs++ % 100))
-                        KLOG_WARNING
-                            ("no urbs available for TAS write, lostTASs=%d\n",
+                        KLOG_WARNING("no urbs available for TAS write, lostTASs=%d\n",
                              dev->stats.lostTASs);
         }
 }
@@ -311,37 +304,31 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
-        ++dev->stats.total_img_callbacks;
-
         switch (urb->status) {
         case 0:
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-                if (!(dev->stats.enoents++ % 1000))
-                        err("%s - urb->status=-ENOENT %d times",
-                            __FUNCTION__, dev->stats.enoents);
+		// KLOG_WARNING("urb->status=-ENOENT\n");
+                dev->stats.urbErrors++;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
-                if (!(dev->stats.econnresets++ % 1000))
-                        err("%s - urb->status=-ECONNRESET %d times", __FUNCTION__, dev->stats.econnresets);
+		KLOG_WARNING("urb->status=-ECONNRESET\n");
+                dev->stats.urbErrors++;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
-                if (!(dev->stats.eshutdowns++ % 1000))
-                        err("%s - urb->status=-ESHUTDOWN %d times",
-                            __FUNCTION__, dev->stats.eshutdowns);
+		KLOG_WARNING("urb->status=-ESHUTDOWN\n");
+                dev->stats.urbErrors++;
                 return;
         default:
-                if (!(dev->stats.eothers++ % 1000))
-                        err("%s - urb->status=%d, %d times",
-                            __FUNCTION__, urb->status,
-                            dev->stats.eothers);
+		KLOG_WARNING("urb->status=%d\n",urb->status);
+                dev->stats.urbErrors++;
                 goto resubmit;  /* maybe we can recover */
         }
-        ++dev->stats.valid_img_callbacks;
+        dev->stats.numImages++;
 
         /*
          * The sampleq head pointer is incremented in two different callback
@@ -356,10 +343,8 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 spin_unlock(&dev->sampqlock);
                 // overflow, no sample available for output.
                 if (!(dev->stats.lostImages++ % 100))
-                        KLOG_WARNING
-                            ("sample queue full: lost images=%d, image urbs= %d\n",
-                             dev->stats.lostImages,
-                             dev->stats.valid_img_callbacks);
+                        KLOG_WARNING("sample queue full: lost images=%d\n",
+                             dev->stats.lostImages);
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
@@ -434,38 +419,33 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
-        ++dev->stats.total_sor_callbacks;
-
         switch (urb->status) {
         case 0:
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-                if (!(dev->stats.enoents++ % 1000))
-                        err("%s - urb->status=-ENOENT %d times",
-                            __FUNCTION__, dev->stats.enoents);
+		// KLOG_WARNING("urb->status=-ENOENT\n");
+                dev->stats.urbErrors++;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
-                if (!(dev->stats.econnresets++ % 1000))
-                        err("%s - urb->status=-ECONNRESET %d times", __FUNCTION__, dev->stats.econnresets);
+		KLOG_WARNING("urb->status=-ECONNRESET\n");
+                dev->stats.urbErrors++;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
-                if (!(dev->stats.eshutdowns++ % 1000))
-                        err("%s - urb->status=-ESHUTDOWN %d times",
-                            __FUNCTION__, dev->stats.eshutdowns);
+		twod_set_sor_rate(dev, 0);
+		KLOG_WARNING("urb->status=-ESHUTDOWN\n");
+                dev->stats.urbErrors++;
                 return;
         default:
-                if (!(dev->stats.eothers++ % 1000))
-                        err("%s - urb->status=%d, %d times",
-                            __FUNCTION__, urb->status,
-                            dev->stats.eothers);
+		KLOG_WARNING("urb->status=%d\n",urb->status);
+                dev->stats.urbErrors++;
                 goto resubmit;  /* maybe we can recover */
         }
 
-        ++dev->stats.valid_sor_callbacks;
+        dev->stats.numSORs++;
 
         /*
          * The sampleq head pointer is incremented in two different callback
@@ -480,7 +460,8 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 spin_unlock(&dev->sampqlock);
                 // overflow, no sample available for output.
                 if (!(dev->stats.lostSORs++ % 1000))
-                        err("%s - overflow: lost urbs = %d, read urbs= %d, total=%d\n", __FUNCTION__, dev->stats.lostSORs, dev->stats.valid_sor_callbacks, dev->stats.total_sor_callbacks);
+                        KLOG_WARNING("overflow: lost SOR urbs = %d\n",
+				dev->stats.lostSORs);
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
@@ -711,18 +692,12 @@ static int twod_release(struct inode *inode, struct file *file)
                 goto exit;
         }
 
-        info("Total read img_urbs received = %d",
-             dev->stats.total_img_callbacks);
-        info("Valid read img_urbs received = %d",
-             dev->stats.valid_img_callbacks);
-        info("Read overflow img_count (lost records) = %d",
-             dev->stats.lostImages);
-        info("Total read sor_urbs received = %d",
-             dev->stats.total_sor_callbacks);
-        info("Valid read sor_urbs received = %d",
-             dev->stats.valid_sor_callbacks);
-        info("Read overflow sor_count (lost records) = %d",
-             dev->stats.lostSORs);
+        info("Total images = %d",dev->stats.numImages);
+        info("Lost images = %d",dev->stats.lostImages);
+        info("Total SORs = %d",dev->stats.numSORs);
+        info("Lost SORs = %d",dev->stats.lostSORs);
+        info("Lost TASs = %d",dev->stats.lostTASs);
+        info("urb errors = %d",dev->stats.urbErrors);
 
         del_timer_sync(&dev->urbThrottle);
 
@@ -1054,45 +1029,36 @@ static int twod_probe(struct usb_interface *interface,
         info("%d endpoints in probe", iface_desc->desc.bNumEndpoints);
 
         for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
+		int psize,dir,type;
                 endpoint = &iface_desc->endpoint[i].desc;
+		// wMaxPacketSize is little endian
+                psize = le16_to_cpu(endpoint->wMaxPacketSize);
+		dir = endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK;
+		type = endpoint-> bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
                 KLOG_INFO("endpoint %d, dir=%s,type=%s,wMaxPackeSize=%d\n",
-                          i,
-                          (((endpoint->
-                             bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
-                            USB_DIR_IN) ? "IN" : "OUT"),
-                          (((endpoint->
-                             bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
-                            USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
-                          endpoint->wMaxPacketSize);
+                          i, ((dir == USB_DIR_IN) ? "IN" : "OUT"),
+                          ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
+				psize);
 
                 if (!dev->sor_in_endpointAddr &&
-                    ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
-                     USB_DIR_IN)
-                    &&
-                    ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
-                     USB_ENDPOINT_XFER_BULK)
-                    && endpoint->wMaxPacketSize < 512) {
-                        /* we found a slow bulk in endpoint, use it for the SOR */
+			dir == USB_DIR_IN &&
+			type == USB_ENDPOINT_XFER_BULK &&
+			psize < 512 && psize >= TWOD_SOR_BUFF_SIZE) {
+                        /* we found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
-                        dev->sor_bulk_in_size = endpoint->wMaxPacketSize;
+                        dev->sor_bulk_in_size = psize;
                 } else if (!dev->img_in_endpointAddr &&
-                           ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
-                            USB_DIR_IN)
-                           &&
-                           ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
-                            USB_ENDPOINT_XFER_BULK)
-                           && endpoint->wMaxPacketSize >= 512) {
-                        /* we found a fast bulk in endpoint, use it for images */
+                           dir == USB_DIR_IN &&
+                           type == USB_ENDPOINT_XFER_BULK &&
+                           psize >= 512) {
+                        /* we found a big bulk in endpoint, use it for images */
                         dev->img_in_endpointAddr =
                             endpoint->bEndpointAddress;
-                        dev->img_bulk_in_size = endpoint->wMaxPacketSize;
+                        dev->img_bulk_in_size = psize;
                 } else if (!dev->tas_out_endpointAddr &&
-                           ((endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
-                            USB_DIR_OUT)
-                           &&
-                           ((endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
-                            USB_ENDPOINT_XFER_BULK)) {
+                           dir == USB_DIR_OUT &&
+                           type == USB_ENDPOINT_XFER_BULK) {
                         /* we found a bulk out endpoint for true air speed */
                         dev->tas_out_endpointAddr =
                             endpoint->bEndpointAddress;
@@ -1139,6 +1105,9 @@ static void twod_disconnect(struct usb_interface *interface)
         down(&disconnect_sem);
 
         dev = usb_get_intfdata(interface);
+
+	twod_set_sor_rate(dev,0);
+	
         usb_set_intfdata(interface, NULL);
 
         down(&dev->sem);

@@ -15,17 +15,12 @@
 
 struct usb_twod_stats
 {
-        size_t total_img_callbacks;
-        size_t valid_img_callbacks;
+        size_t numImages;
         size_t lostImages;
-        size_t total_sor_callbacks;
-        size_t valid_sor_callbacks;
+        size_t numSORs;
         size_t lostSORs;
         size_t lostTASs;
-        size_t enoents;
-        size_t econnresets;
-        size_t eshutdowns;
-        size_t eothers;
+        size_t urbErrors;
 };
 
 /*
@@ -52,6 +47,7 @@ typedef struct _Tap2D
 #define USB2D_GET_STATUS	_IOR(USB2D_IOC_MAGIC,2,struct usb_twod_stats)
 
 #ifndef __KERNEL__
+#include <string.h>
 /*
  * Build the struct above from the true airspeed (in m/s)
  * @param t2d the Tap2D to be filled
@@ -62,6 +58,7 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
 {
         double freq = tas / resolution;
         unsigned int ntap = (unsigned int) ((1 - (1.0e6 / freq)) * 255);
+	memset(t2d,0,sizeof(Tap2D));
 
         t2d->vdiv = 0;          /* currently unused */
         t2d->nmsec = 0;         /* unused for USB probe */
@@ -110,7 +107,10 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
  * 385/sec 89-95%	4		2			1
  * So through-put did not depend on the queue size or # of urbs in flight.
  * "top" CPU idle %age was similar for all tests.
- * Needs testing on a vulcan.
+ *
+ * Vulcan: Sep 13, 2007
+ * 49/sec       	4		2			1
+ * 49/sec        	16		8			7
  */
 #define SAMPLE_QUEUE_SIZE   4
 #define IMG_URB_QUEUE_SIZE  2   /* also must be a power of two */
