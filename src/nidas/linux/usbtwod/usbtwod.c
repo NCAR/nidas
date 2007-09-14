@@ -352,7 +352,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 osamp->length = sizeof(osamp->id) +
 				sizeof(osamp->data) +
 				urb->actual_length;
-                osamp->id = TWOD_IMG_DATA;
+                osamp->id = cpu_to_be32(TWOD_IMG_DATA);
                 // stuff the current TAS value in the data.
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
@@ -468,7 +468,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->timetag = getSystemTimeMsecs();
                 osamp->length = sizeof(osamp->id) +
 				urb->actual_length;
-                osamp->id = TWOD_SOR_DATA;
+                osamp->id = cpu_to_be32(TWOD_SOR_DATA);
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
 			sizeof(osamp->length) +
 			sizeof(osamp->id);

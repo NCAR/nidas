@@ -97,7 +97,7 @@ bool TwoDC_USB::processSOR(const Sample * samp,
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = *lptr++;
+    int id = fromBig->longValue(*lptr++);
     long sor = fromBig->longValue(*lptr++);
 
     size_t nvalues = 1;
@@ -119,8 +119,8 @@ bool TwoDC_USB::processImage(const Sample * samp,
         return false;
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = *lptr++;
-    long tas = *lptr++;
+    int id = fromBig->longValue(*lptr++);
+    *lptr++;		// skip 4 byte TAS structure
     const long long *llptr = (const long long *) lptr;
 
     // We will compute 1 value, a count of particles.
@@ -157,7 +157,7 @@ bool TwoDC_USB::process(const Sample * samp,
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = *lptr++;
+    int id = fromBig->longValue(*lptr++);
 
     /* From the driver level, id=0 is image data, id=1 is SOR.
      * Note that this is different from the typical XML configuration
