@@ -13,6 +13,10 @@
 
 #include <nidas/core/dsm_sample.h>
 
+/*
+ * Structure of counters that can be queried with the
+ * USB2D_GET_STATUS ioctl.
+ */
 struct usb_twod_stats
 {
         size_t numImages;
@@ -72,8 +76,14 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
 }
 #endif                          // ifndef __KERNEL__
 
-#define TWOD_IMG_DATA	0
-#define TWOD_SOR_DATA   1
+/*
+ * Both image and shadow-OR samples are read from this device.
+ * We place the following 4-byte type values at the beginning of
+ * each data sample in big-endian form, so user code can
+ * figure out which is which.
+ */
+#define TWOD_IMG_TYPE	0
+#define TWOD_SOR_TYPE	1
 
 #ifdef __KERNEL__
 #include <linux/module.h>
@@ -90,10 +100,9 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
 #define TWOD_SOR_BUFF_SIZE          4
 #define TWOD_TAS_BUFF_SIZE          3
 
-/* SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf)
+/* SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf).
  * In order for a circ_buf to tell the difference between empty
- * and full, the maximum number of elements in a circ_buf is
- * (size-1).
+ * and full, a full circ_buf contains (size-1) elements.
  * In addition, SAMPLE_QUEUE_SIZE should be at least 
  * IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1 
  */
@@ -109,8 +118,8 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
  * "top" CPU idle %age was similar for all tests.
  *
  * Vulcan: Sep 13, 2007
- * 49/sec       	4		2			1
- * 49/sec        	16		8			7
+ * 380/sec       	4		2			1
+ * 380/sec        	16		8			7
  */
 #define SAMPLE_QUEUE_SIZE   4
 #define IMG_URB_QUEUE_SIZE  2   /* also must be a power of two */
@@ -127,7 +136,7 @@ struct twod_urb_sample
 {
         dsm_sample_time_t timetag;      /* timetag of sample */
         dsm_sample_length_t length;     /* number of bytes in data */
-        unsigned long id;       /* Sample ID, we may have multiple things */
+        unsigned long stype;     /* sample type, 0=image, 1=SOR */
         unsigned long data;     /* True Airspeed for image sample */
         int pre_urb_len;  	/* size of sample without urb contents */
         struct urb *urb;

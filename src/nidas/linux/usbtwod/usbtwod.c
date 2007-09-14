@@ -5,7 +5,6 @@
  */
 
 // #define DEBUG
-// #define DO_IRIG_TIMING 
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -192,6 +191,7 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 dev->sendTASJiffies = HZ / rate;
                 if (dev->sendTASJiffies <= 0)
                         dev->sendTASJiffies = 1;
+		KLOG_INFO("SOR rate=%d,jiffies=%d\n",rate,dev->sendTASJiffies);
                 dev->sendTASTimer.function = send_tas_timer_func;
                 dev->sendTASTimer.expires = jiffies + dev->sendTASJiffies;
                 dev->sendTASTimer.data = (unsigned long) dev;
@@ -349,15 +349,15 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length = sizeof(osamp->id) +
+                osamp->length = sizeof(osamp->stype) +
 				sizeof(osamp->data) +
 				urb->actual_length;
-                osamp->id = cpu_to_be32(TWOD_IMG_DATA);
+                osamp->stype = cpu_to_be32(TWOD_IMG_TYPE);
                 // stuff the current TAS value in the data.
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
 			sizeof(osamp->length) +
-			sizeof(osamp->id) +
+			sizeof(osamp->stype) +
 			sizeof(osamp->data);
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
@@ -413,6 +413,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                                       struct pt_regs *regs)
 #endif
 {
+
 	/* Note that these urb callbacks are called in 
          * software interrupt context. 
          */
@@ -466,12 +467,12 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 goto resubmit;
         } else {
                 osamp->timetag = getSystemTimeMsecs();
-                osamp->length = sizeof(osamp->id) +
+                osamp->length = sizeof(osamp->stype) +
 				urb->actual_length;
-                osamp->id = cpu_to_be32(TWOD_SOR_DATA);
+                osamp->stype = cpu_to_be32(TWOD_SOR_TYPE);
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
 			sizeof(osamp->length) +
-			sizeof(osamp->id);
+			sizeof(osamp->stype);
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
@@ -670,7 +671,7 @@ static int twod_open(struct inode *inode, struct file *file)
         init_timer(&dev->sendTASTimer);
 #endif
 
-        info("USB PMS-2D device now opened, throttleRate=%d\n",
+        KLOG_INFO("USB PMS-2D device now opened, throttleRate=%d\n",
              throttleRate);
 
 exit:
@@ -692,12 +693,12 @@ static int twod_release(struct inode *inode, struct file *file)
                 goto exit;
         }
 
-        info("Total images = %d",dev->stats.numImages);
-        info("Lost images = %d",dev->stats.lostImages);
-        info("Total SORs = %d",dev->stats.numSORs);
-        info("Lost SORs = %d",dev->stats.lostSORs);
-        info("Lost TASs = %d",dev->stats.lostTASs);
-        info("urb errors = %d",dev->stats.urbErrors);
+        KLOG_INFO("Total images = %d\n",dev->stats.numImages);
+        KLOG_INFO("Lost images = %d\n",dev->stats.lostImages);
+        KLOG_INFO("Total SORs = %d\n",dev->stats.numSORs);
+        KLOG_INFO("Lost SORs = %d\n",dev->stats.lostSORs);
+        KLOG_INFO("Lost TASs = %d\n",dev->stats.lostTASs);
+        KLOG_INFO("urb errors = %d\n",dev->stats.urbErrors);
 
         del_timer_sync(&dev->urbThrottle);
 
@@ -859,14 +860,14 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         }
                         // otherwise we're finished with this sample
                         // dev->bytesLeft will be 0 here
-                        switch (dev->readstate.pendingSample->id) {
-                        case TWOD_IMG_DATA:
+                        switch (be32_to_cpu(dev->readstate.pendingSample->stype)) {
+                        case TWOD_IMG_TYPE:
                                 BUG_ON(nimg >= IMG_URBS_IN_FLIGHT);
                                 // defer submitting them until read is done.
                                 imgUrbs[nimg++] =
                                     dev->readstate.pendingSample->urb;
                                 break;
-                        case TWOD_SOR_DATA:
+                        case TWOD_SOR_TYPE:
                                 BUG_ON(nsor >= SOR_URBS_IN_FLIGHT);
                                 sorUrbs[nsor++] = 
                                     dev->readstate.pendingSample->urb;
@@ -1026,7 +1027,7 @@ static int twod_probe(struct usb_interface *interface,
         /* use the first sor-in and tas-out endpoints */
         /* use the second ing_in endpoint */
         iface_desc = interface->cur_altsetting;
-        info("%d endpoints in probe", iface_desc->desc.bNumEndpoints);
+        // KLOG_INFO("%d endpoints in probe\n", iface_desc->desc.bNumEndpoints);
 
         for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
 		int psize,dir,type;
@@ -1087,7 +1088,7 @@ static int twod_probe(struct usb_interface *interface,
                 goto error;
         }
         /* let the user know what node this device is now attached to */
-        KLOG_INFO("USB PMS-2D device now attached to USBtwod-%d",
+        KLOG_INFO("USB PMS-2D device now attached to USBtwod-%d\n",
                   interface->minor);
         return 0;
 
@@ -1123,7 +1124,7 @@ static void twod_disconnect(struct usb_interface *interface)
 
         up(&disconnect_sem);
 
-        info("USB PMS-2D #%d now disconnected", minor);
+        KLOG_INFO("USB PMS-2D #%d now disconnected\n", minor);
 }
 
 /* -------------------------------------------------------------------- */

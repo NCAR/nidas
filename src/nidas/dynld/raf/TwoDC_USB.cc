@@ -66,8 +66,6 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
 {
     DSMSensor::open(flags);
 
-    cerr << __PRETTY_FUNCTION__ << "open-begin" << endl;
-
     // Shut the probe down until a valid TAS comes along.
     sendTrueAirspeed(33.0);
 
@@ -76,8 +74,6 @@ void TwoDC_USB::open(int flags) throw(n_u::IOException)
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
-
-    cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
 }
 
 void TwoDC_USB::close() throw(n_u::IOException)
@@ -97,7 +93,7 @@ bool TwoDC_USB::processSOR(const Sample * samp,
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = fromBig->longValue(*lptr++);
+    int stype = fromBig->longValue(*lptr++);
     long sor = fromBig->longValue(*lptr++);
 
     size_t nvalues = 1;
@@ -119,7 +115,7 @@ bool TwoDC_USB::processImage(const Sample * samp,
         return false;
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = fromBig->longValue(*lptr++);
+    int stype = fromBig->longValue(*lptr++);
     *lptr++;		// skip 4 byte TAS structure
     const long long *llptr = (const long long *) lptr;
 
@@ -157,14 +153,10 @@ bool TwoDC_USB::process(const Sample * samp,
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int id = fromBig->longValue(*lptr++);
+    int stype = fromBig->longValue(*lptr++);
 
-    /* From the driver level, id=0 is image data, id=1 is SOR.
-     * Note that this is different from the typical XML configuration
-     * where for processed samples, id=sensorID+1 are the images,
-     * and id=sensorID+2 are the SORs.
-     */
-    switch (id) {
+    /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
+    switch (stype) {
     case 0:                    // image data
         return processImage(samp, results);
     case 1:
@@ -202,7 +194,7 @@ throw(n_u::InvalidParameterException)
 void TwoDC_USB::derivedDataNotify(const nidas::core::DerivedDataReader *
                                   s) throw()
 {
-    std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
+    // std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
     if (!::isnan(s->getTrueAirspeed())) {
 	try {
 	    sendTrueAirspeed(s->getTrueAirspeed());
