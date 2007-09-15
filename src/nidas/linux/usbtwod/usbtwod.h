@@ -107,26 +107,23 @@ inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
  * IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1 
  */
 /*
- * Throughput tests:
- * Ling's laptop: Intel core2 2.33 GHz,  FC6,  Sep 6, 2007
- * Test with the spinning disk, and TAS rate=10
- * thruput idle SAMPLE_QUEUE_SIZE IMG_URB_QUEUE_SIZE  IMG_URBS_IN_FLIGHT
- * 385/sec 91-96%	16		8			7
- * 385/sec 91-96%	8		4			3
- * 385/sec 89-95%	4		2			1
- * So through-put did not depend on the queue size or # of urbs in flight.
- * "top" CPU idle %age was similar for all tests.
- *
- * Vulcan: Sep 13, 2007
- * 380/sec       	4		2			1
- * 380/sec        	16		8			7
+ * Throughput tests on both an Intel core laptop PC and an Arcom Vulcan
+ * showed no difference in throughput with the following values
+ * for the sample queue sizes and number of urbs in flight:
+ * SAMPLE_QUEUE_SIZE IMG_URB_QUEUE_SIZE  IMG_URBS_IN_FLIGHT
+ * 	16		8			7
+ * 	8		4			3
+ * 	4		2			1
+ * We'll use the middle values.
+ * Having more than one urb in flight means a read()
+ * can return more than one image sample.
  */
-#define SAMPLE_QUEUE_SIZE   4
-#define IMG_URB_QUEUE_SIZE  2   /* also must be a power of two */
+#define SAMPLE_QUEUE_SIZE   16
+#define IMG_URB_QUEUE_SIZE  8   /* power of two */
 #define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
-#define SOR_URBS_IN_FLIGHT   1
+#define SOR_URBS_IN_FLIGHT   4
 
-#define TAS_URB_QUEUE_SIZE   2
+#define TAS_URB_QUEUE_SIZE   2   /* power of two */
 
 #if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY)
 #define DO_IRIG_TIMING
@@ -204,7 +201,8 @@ struct usb_twod
         struct timer_list sendTASTimer;
         int sendTASJiffies;
 #endif
-        size_t urbSubmitError;
+        int latencyJiffies;
+	unsigned long lastWakeup;
 };
 #endif                          // ifdef __KERNEL__
 #endif

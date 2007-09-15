@@ -138,9 +138,9 @@ static void write_tas(struct usb_twod *dev, int kmalloc_flags)
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
                 if (usb_submit_urb(urb, kmalloc_flags) < 0 &&
-                    !(dev->urbSubmitError++ % 100))
-                        KLOG_ERR("urbSubmitErrors=%d",
-                                 dev->urbSubmitError);
+                    !(dev->stats.urbErrors++ % 100))
+                        KLOG_ERR("stats.urbErrors=%d",
+                                 dev->stats.urbErrors);
         } else {
                 if (!(dev->stats.lostTASs++ % 100))
                         KLOG_WARNING("no urbs available for TAS write, lostTASs=%d\n",
@@ -234,9 +234,9 @@ static void usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
         } else {
                 int retval;
                 retval = usb_submit_urb(urb, mem_flags);
-                if (retval < 0 && !(dev->urbSubmitError++ % 100))
-                        err("%s urbSubmitErrors=%d",
-                            __FUNCTION__, dev->urbSubmitError);
+                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
+                        err("%s stats.urbErrors=%d",
+                            __FUNCTION__, dev->stats.urbErrors);
         }
 }
 
@@ -246,9 +246,9 @@ static void usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb,
                                     int mem_flags)
 {
         int retval = usb_submit_urb(urb, mem_flags);
-        if (retval < 0 && !(dev->urbSubmitError++ % 100))
-                err("%s urbSubmitErrors=%d",
-                    __FUNCTION__, dev->urbSubmitError);
+        if (retval < 0 && !(dev->stats.urbErrors++ % 100))
+                err("%s stats.urbErrors=%d",
+                    __FUNCTION__, dev->stats.urbErrors);
 }
 
 
@@ -275,9 +275,9 @@ static void urb_throttle_func(unsigned long arg)
                 // This is a timer function, running in software
                 // interrupt context, so use GFP_ATOMIC.
                 retval = usb_submit_urb(urb, GFP_ATOMIC);
-                if (retval < 0 && !(dev->urbSubmitError++ % 100))
-                        err("%s urbSubmitErrors=%d",
-                            __FUNCTION__, dev->urbSubmitError);
+                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
+                        err("%s stats.urbErrors=%d",
+                            __FUNCTION__, dev->stats.urbErrors);
                 INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
         } else {
                 if (!(dev->stats.lostImages++ % 100))
@@ -362,10 +362,15 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
-                wake_up_interruptible(&dev->read_wait);
+
+		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
+                        CIRC_CNT(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) >=
+				SOR_URBS_IN_FLIGHT) {
+                        wake_up_interruptible(&dev->read_wait);
+                        dev->lastWakeup = jiffies;
+                }
         }
         return;
-
 resubmit:
         // called from a urb completion handler, so use GFP_ATOMIC
         usb_twod_submit_img_urb(dev, urb, GFP_ATOMIC);
@@ -443,7 +448,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         default:
 		KLOG_WARNING("urb->status=%d\n",urb->status);
                 dev->stats.urbErrors++;
-                goto resubmit;  /* maybe we can recover */
+                return;
         }
 
         dev->stats.numSORs++;
@@ -476,14 +481,18 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
-                wake_up_interruptible(&dev->read_wait);
+		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
+                        CIRC_CNT(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) >=
+				SOR_URBS_IN_FLIGHT) {
+                        wake_up_interruptible(&dev->read_wait);
+                        dev->lastWakeup = jiffies;
+                }
         }
-
         return;
-
-      resubmit:
-        // called from a urb completion handler, so use GFP_ATOMIC
-        usb_twod_submit_sor_urb(dev, urb, GFP_ATOMIC);
+resubmit:
+	// called from a urb completion handler, so use GFP_ATOMIC
+	usb_twod_submit_sor_urb(dev, urb, GFP_ATOMIC);
+        return;
 }
 
 /* -------------------------------------------------------------------- */
@@ -568,7 +577,9 @@ static int twod_open(struct inode *inode, struct file *file)
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
         dev->debug_cntr = 0;
-        dev->urbSubmitError = 0;
+
+	dev->latencyJiffies = 250 * HZ / MSECS_PER_SEC;
+	dev->lastWakeup = jiffies;
 
         /* save our object in the file's private structure */
         file->private_data = dev;
@@ -789,12 +800,6 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         size_t n;
         struct twod_urb_sample *sample;
 
-        struct urb *imgUrbs[IMG_URBS_IN_FLIGHT];
-        struct urb *sorUrbs[SOR_URBS_IN_FLIGHT];
-        int nimg = 0;
-        int nsor = 0;
-        int i;
-
         if (count == 0)
                 return count;
 
@@ -862,15 +867,12 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         // dev->bytesLeft will be 0 here
                         switch (be32_to_cpu(dev->readstate.pendingSample->stype)) {
                         case TWOD_IMG_TYPE:
-                                BUG_ON(nimg >= IMG_URBS_IN_FLIGHT);
-                                // defer submitting them until read is done.
-                                imgUrbs[nimg++] =
-                                    dev->readstate.pendingSample->urb;
+				usb_twod_submit_img_urb(dev,
+					dev->readstate.pendingSample->urb,GFP_KERNEL);
                                 break;
                         case TWOD_SOR_TYPE:
-                                BUG_ON(nsor >= SOR_URBS_IN_FLIGHT);
-                                sorUrbs[nsor++] = 
-                                    dev->readstate.pendingSample->urb;
+				usb_twod_submit_sor_urb(dev,
+					dev->readstate.pendingSample->urb,GFP_KERNEL);
                                 break;
                         }
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
@@ -918,12 +920,6 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
 unlock_exit:
         up(&dev->sem);
-        for (i = 0; i < nimg; i++)
-                // called from driver read method, use GFP_KERNEL
-                usb_twod_submit_img_urb(dev, imgUrbs[i], GFP_KERNEL);
-        for (i = 0; i < nsor; i++)
-                // called from driver read method, use GFP_KERNEL
-                usb_twod_submit_sor_urb(dev, sorUrbs[i], GFP_KERNEL);
 
 #ifdef DEBUG
         if (!(dev->debug_cntr++ % 100))
