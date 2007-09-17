@@ -90,7 +90,7 @@ void A2DSensor::config()
 	cfg.sampleIndex[chan] = _channels[chan].index;
 
 #ifdef DEBUG
-	cerr << "chan=" << chan << " rate=" << cfg.rate[chan] <<
+	cerr << "chan=" << chan << " rate=" << cfg.scanRate <<
 		" gain=" << cfg.gain[chan] << 
 		" bipolar=" << cfg.bipolar[chan] << endl;
 #endif

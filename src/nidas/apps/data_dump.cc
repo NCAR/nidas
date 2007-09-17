@@ -93,8 +93,6 @@ bool DumpClient::receive(const Sample* samp) throw()
 #ifdef DEBUG
     cerr << "sampid=" << GET_DSM_ID(sampid) << ',' <<
     	GET_SHORT_ID(sampid) << endl;
-    cerr << "sampleId=" << GET_DSM_ID(sampleId) << ',' <<
-    	GET_SHORT_ID(sampleId) << endl;
 #endif
 
     if (!allDSMs && GET_DSM_ID(sampid) != dsmId) return false;
