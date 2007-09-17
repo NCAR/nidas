@@ -18,6 +18,8 @@
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
+
 using namespace nidas::core;
 using namespace std;
 
@@ -424,14 +426,19 @@ int CalFile::readData(float* data, int ndata)
                 }
             }
             // at this point the read failed and it isn't an "include" line.
-            // Check if input field starts with "na", ignoring case.
+            // Check if input field starts with "na", ignoring case, or with '#'.
             sin.clear();
-            sin.width(4);
+
+            // setw(N) will read N-1 character fields, and add a NULL,
+            // so the character array can be declared to be N.
             char possibleNaN[4];
-            sin >> possibleNaN;
-            if (!sin.fail() && ::strlen(possibleNaN) > 1 &&
-                ::toupper(possibleNaN[0]) == 'N' &&
-                ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
+            sin >> setw(4) >> possibleNaN;
+            if (!sin.fail()) {
+                if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
+                    ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
+                else if (::strlen(possibleNaN) > 0 && possibleNaN[0] == '#')
+                    break;
+            }
             else {
                 ostringstream ost;
                 ost << ": field number " << (id+1);
