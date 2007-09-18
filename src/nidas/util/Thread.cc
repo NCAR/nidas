@@ -258,7 +258,7 @@ Thread::thr_run(void *me)
   // method.  So pass the work back into our thread object instance so it
   // can access its own members and call its run method.
   //
-  result = thisThread->pRun();
+  result = (void *)thisThread->pRun();
 
   // saw strange behavior (arm-linux-g++ 3.4.2, on viper)
   // If one does a join and then immediate delete of a thread, 
@@ -289,7 +289,7 @@ Thread::thr_run(void *me)
 void*
 Thread::thr_run_detached(void *me) 
 { 
-  void *result = 0;
+  int result = 0;
   Thread *thisThread = (Thread *)me;
 
   // At this point we have entered the new thread, but we are in a static
@@ -306,11 +306,10 @@ Thread::thr_run_detached(void *me)
 
   pthread_cleanup_pop(1);
 
-  return result;
+  return (void*)result;
 }
 
-
-void*
+int
 Thread::pRun()
 {
 
@@ -377,7 +376,7 @@ Thread::pRun()
     	ex.toString() << std::endl;
   }
 
-  return (void*)result;	// equivalent to calling pthread_exit(result);
+  return result;	// equivalent to calling pthread_exit(result);
 }
 
 
@@ -471,7 +470,7 @@ Thread::join() throw(Exception)
   // cerr << "Thread::joined on " << getName() << endl;
   if (thread_return == (void *) RUN_EXCEPTION && _exception)
   	throw *_exception;
-  return (int) thread_return;
+  return (long) thread_return;
 }
 
 void

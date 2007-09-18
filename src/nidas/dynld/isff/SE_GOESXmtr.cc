@@ -997,7 +997,7 @@ string SE_GOESXmtr::fix(const string& msg)
     string res = msg;
 
     // cerr << "res.length=" << res.length() << endl;
-    for (size_t i = 0; i < res.length() &&
+    for (string::size_type i = 0; i < res.length() &&
     	(i = res.find_first_of(specials,i)) < string::npos; i+=2) {
 	res.insert(i+1,1,~(unsigned char)res[i]);
 	res[i] = '#';
@@ -1010,7 +1010,7 @@ string SE_GOESXmtr::unfix(const string& msg)
 {
     // leading SOH and trailing EOT have been removed from message
     string res = msg;
-    for (size_t i = 0; i < res.length() &&
+    for (string::size_type i = 0; i < res.length() &&
     	(i = res.find('#',i)) < string::npos; i++)
 	res.replace(i,2,1,~(unsigned char)res[i+1]);
     return res;

@@ -37,11 +37,11 @@ const float floatNAN = nanf("");
 /** Microseconds since Jan 1 1970, 00:00 UTC */
 typedef long long dsm_time_t;
 
-typedef unsigned long dsm_sample_id_t;
+typedef unsigned int dsm_sample_id_t;
 
 /**
  * macros to get and set fields of the tid member of a Sample.
- * The 32 bit unsigned long tid is made of two fields:
+ * The 32 bit unsigned int tid is made of two fields:
  *	26 least significant bits containing the FULL_ID
  *	6 most significant bits containing a SAMPLE_TYPE enumeration (0-63)
  * The FULL_ID field is further split into a DSM_ID and SHORT_ID portion:
@@ -49,13 +49,13 @@ typedef unsigned long dsm_sample_id_t;
  *	10 most signmificant bits containing the DSM_ID (0-1023)
  */
 #define GET_SAMPLE_TYPE(tid) ((tid) >> 26)
-#define SET_SAMPLE_TYPE(tid,val) (((tid) & 0x03ffffff) | ((unsigned long)(val) << 26))
+#define SET_SAMPLE_TYPE(tid,val) (((tid) & 0x03ffffff) | ((unsigned int)(val) << 26))
 
 #define GET_FULL_ID(tid) ((tid) & 0x03ffffff)
 #define SET_FULL_ID(tid,val) (((tid) & 0xfc000000) | ((val) & 0x03ffffff))
 
 #define GET_DSM_ID(tid) (((tid) & 0x03ff0000) >> 16)
-#define SET_DSM_ID(tid,val) (((tid) & 0xfc00ffff) | (((unsigned long)(val) & 0x3ff) << 16))
+#define SET_DSM_ID(tid,val) (((tid) & 0xfc00ffff) | (((unsigned int)(val) & 0x3ff) << 16))
 
 #define GET_SHORT_ID(tid) ((tid) & 0xffff)
 #define SET_SHORT_ID(tid,val) (((tid) & 0xffff0000) | ((val) & 0xffff)) 
@@ -90,10 +90,12 @@ inline size_t maxValue(unsigned int arg)
     return UINT_MAX;
 }
 
+/*
 inline size_t maxValue(long arg)
 {
     return LONG_MAX;
 }
+*/
 
 inline size_t maxValue(unsigned long arg)
 {
@@ -102,8 +104,8 @@ inline size_t maxValue(unsigned long arg)
 
 typedef enum sampleType {
 	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
-	LONG_ST, ULONG_ST, FLOAT_ST, DOUBLE_ST,
-	LONG_LONG_ST, UNKNOWN_ST } sampleType;
+	INT32_ST, UINT32_ST, FLOAT_ST, DOUBLE_ST,
+	INT64_ST, UNKNOWN_ST } sampleType;
 
 /**
  * Overloaded function to return a enumerated value
@@ -129,14 +131,14 @@ inline sampleType getSampleType(short* ptr)
     return SHORT_ST;
 }
 
-inline sampleType getSampleType(unsigned long* ptr)
+inline sampleType getSampleType(unsigned int* ptr)
 {
-    return ULONG_ST;
+    return UINT32_ST;
 }
 
-inline sampleType getSampleType(long* ptr)
+inline sampleType getSampleType(int* ptr)
 {
-    return LONG_ST;
+    return INT32_ST;
 }
 
 inline sampleType getSampleType(float* ptr)
@@ -151,7 +153,7 @@ inline sampleType getSampleType(double* ptr)
 
 inline sampleType getSampleType(long long* ptr)
 {
-    return LONG_LONG_ST;
+    return INT64_ST;
 }
 
 inline sampleType getSampleType(void* ptr)
@@ -167,7 +169,7 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	tt(0),length(0),tid((unsigned long)t << 26) {}
+    	tt(0),length(0),tid((unsigned int)t << 26) {}
 
     dsm_time_t getTimeTag() const { return tt; }
 
@@ -194,14 +196,14 @@ public:
     /**
      * Get the DSM identifier for the sample.
      */
-    unsigned long getDSMId() const { return GET_DSM_ID(tid); }
-    void setDSMId(unsigned long val) { tid = SET_DSM_ID(tid,val); }
+    unsigned int getDSMId() const { return GET_DSM_ID(tid); }
+    void setDSMId(unsigned int val) { tid = SET_DSM_ID(tid,val); }
 
     /**
      * Get the sample identifier for the sample.
      */
-    unsigned long getShortId() const { return GET_SHORT_ID(tid); }
-    void setShortId(unsigned long val) { tid = SET_SHORT_ID(tid,val); }
+    unsigned int getShortId() const { return GET_SHORT_ID(tid); }
+    void setShortId(unsigned int val) { tid = SET_SHORT_ID(tid,val); }
 
     /**
      * Get the data type of this sample.
@@ -285,23 +287,23 @@ public:
      * Set the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    void setShortId(unsigned long val) { header.setShortId(val); }
+    void setShortId(unsigned int val) { header.setShortId(val); }
 
     /**
      * Get the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    unsigned long getShortId() const { return header.getShortId(); }
+    unsigned int getShortId() const { return header.getShortId(); }
 
     /**
      * Set the DSM (data system) id portion of the sample header.
      */
-    void setDSMId(unsigned long val) { header.setDSMId(val); }
+    void setDSMId(unsigned int val) { header.setDSMId(val); }
 
     /**
      * Get the DSM (data system) id portion of the sample header.
      */
-    unsigned long getDSMId() const { return header.getDSMId(); }
+    unsigned int getDSMId() const { return header.getDSMId(); }
 
     /**
      * Get the number of bytes in data portion of sample.

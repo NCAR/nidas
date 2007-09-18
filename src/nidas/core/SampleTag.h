@@ -92,7 +92,7 @@ public:
     /**
      * Set the sample portion of the shortId.
      */
-    void setSampleId(unsigned long val) {
+    void setSampleId(unsigned int val) {
 	sampleId = val;
         id = SET_SHORT_ID(id,sensorId + sampleId);
     }
@@ -100,12 +100,12 @@ public:
     /**
      * Get the sample portion of the shortId.
      */
-    unsigned long getSampleId() const { return sampleId; }
+    unsigned int getSampleId() const { return sampleId; }
 
     /**
      * Set the sensor portion of the shortId.
      */
-    void setSensorId(unsigned long val) {
+    void setSensorId(unsigned int val) {
         sensorId = val;
     	id = SET_SHORT_ID(id,sensorId + sampleId);
     }
@@ -113,17 +113,17 @@ public:
     /**
      * Get the sensor portion of the shortId.
      */
-    unsigned long getSensorId() const { return sensorId; }
+    unsigned int getSensorId() const { return sensorId; }
 
     /**
      * Set the DSM portion of the id.
      */
-    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
+    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the DSM portion of the id.
      */
-    unsigned long  getDSMId() const { return GET_DSM_ID(id); }
+    unsigned int  getDSMId() const { return GET_DSM_ID(id); }
 
     /**
      * Get the 26 bit id, containing the DSM id and the sensor+sample id.
@@ -133,7 +133,7 @@ public:
     /**
      * Get the sensor+sample portion of the id.
      */
-    unsigned long  getShortId() const { return GET_SHORT_ID(id); }
+    unsigned int  getShortId() const { return GET_SHORT_ID(id); }
 
     /**
      * Suffix, which is appended to variable names.
@@ -294,15 +294,15 @@ protected:
      * can't keep track of the sensor and sample portions of the
      * shortID.
      */
-    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
+    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
 
 private:
 
     dsm_sample_id_t id;
 
-    unsigned long sampleId;
+    unsigned int sampleId;
 
-    unsigned long sensorId;
+    unsigned int sensorId;
 
     std::string suffix;
 

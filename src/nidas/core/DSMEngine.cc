@@ -167,7 +167,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
         string url = string(argv[optind++]);
 	if(url.length() > 7 && !url.compare(0,7,"mcsock:")) {
 	    url = url.substr(7);
-	    size_t ic = url.find(':');
+	    string::size_type ic = url.find(':');
 	    string mcastAddr = url.substr(0,ic);
 	    int port = DSM_SVC_REQUEST_PORT;
 	    if (ic != string::npos) {

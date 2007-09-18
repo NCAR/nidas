@@ -174,8 +174,8 @@ bool RemoteSerialConnection::receive(const Sample* s) throw()
 
 void RemoteSerialConnection::nlTocrnl(string& input)
 {
-    size_t pos = 0;
-    size_t nl;
+    string::size_type pos = 0;
+    string::size_type nl;
     while (pos < input.length() &&
     	(nl = input.find('\n',pos)) != string::npos) {
 	// cerr << "pos=" << pos << " nl=" << nl << endl;
@@ -190,7 +190,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
     input += inputstr;
     string output;
     // cerr << "input.length() = " << input.length() << endl;
-    size_t esc = string::npos;
+    string::size_type esc = string::npos;
     bool done = false;
 
     for ( ; !done && input.length() > 0 &&

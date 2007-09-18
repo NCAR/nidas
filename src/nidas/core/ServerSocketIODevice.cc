@@ -55,7 +55,7 @@ void ServerSocketIODevice::closeServerSocket() throw(n_u::IOException)
 void ServerSocketIODevice::parseAddress(const string& name)
 	throw(n_u::ParseException)
 {
-    size_t idx = name.find(':');
+    string::size_type idx = name.find(':');
     addrtype = -1;
     unixPath = string();
     sockPort = -1;
@@ -76,7 +76,7 @@ void ServerSocketIODevice::parseAddress(const string& name)
                 "cannot parse unix socket name");
     }
     else {
-	size_t idx2 = name.find(':',idx);
+	string::size_type idx2 = name.find(':',idx);
 	if (idx2 != string::npos) {
 	    string portstr = name.substr(idx2+1);
 	    istringstream ist(portstr);

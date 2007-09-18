@@ -298,7 +298,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     // Add support for %f format to parse fractional seconds,
     // Note that %F is a GNU extension, so we'll use %f.
     //
-    unsigned int i0,i1;
+    string::size_type i0,i1;
     string::size_type flen = fmt.length();
 
     string newfmt;
@@ -370,7 +370,7 @@ string UTime::format(bool utc, const string& fmt) const
     // Note that %F is a GNU extension, so we'll use %f.
     //
     string newfmt; 
-    unsigned int i0,i1;
+    string::size_type i0,i1;
     string::size_type flen = fmt.length();
 
     long long ute = earlier(USECS_PER_SEC).toUsecs();

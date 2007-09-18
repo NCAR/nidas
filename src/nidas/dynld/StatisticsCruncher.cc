@@ -170,8 +170,8 @@ void StatisticsCruncher::splitNames()
     for (unsigned int i = 0; i < inVariables.size(); i++) {
         const string& n = inVariables[i]->getName();
 	vector<string> words;
-	for (unsigned int cpos = 0;;) {
-	    unsigned int dot = n.find('.',cpos+1);
+	for (string::size_type cpos = 0;;) {
+	    string::size_type dot = n.find('.',cpos+1);
 	    if (dot == string::npos) {
 	        words.push_back(n.substr(cpos));
 		break;

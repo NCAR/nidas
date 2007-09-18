@@ -36,7 +36,7 @@ namespace {
 string replace_util(const string& str,const string& s1, const string& s2) {
     string res = str;
     if (s1 != s2)
-	for (size_t bi; (bi = res.find(s1)) != string::npos;)
+	for (string::size_type bi; (bi = res.find(s1)) != string::npos;)
 	    res.replace(bi,s1.length(),s2);
     return res;
 }

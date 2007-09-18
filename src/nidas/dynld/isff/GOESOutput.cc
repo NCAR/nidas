@@ -292,8 +292,8 @@ void GOESOutput::init() throw()
 	SampleTag* otag = *si;
 	SampleT<float>* osamp = getSample<float>(otag->getVariables().size());
 
-	unsigned long periodUsec =
-	    (unsigned long)rint(otag->getPeriod()) * USECS_PER_SEC;
+	long periodUsec =
+	    (long)rint(otag->getPeriod()) * USECS_PER_SEC;
 
 	// time of next sample
 	n_u::UTime tnext = tnow.toUsecs() -
@@ -438,8 +438,8 @@ int GOESOutput::run() throw(n_u::Exception)
 	    SampleTag* otag = *si;
 	    SampleT<float>* osamp =
 	    	getSample<float>(otag->getVariables().size());
-	    unsigned long periodUsec =
-	    	(unsigned long)rint(otag->getPeriod()) * USECS_PER_SEC;
+	    long periodUsec =
+	    	(long)rint(otag->getPeriod()) * USECS_PER_SEC;
 
 	    // time of next sample
 	    n_u::UTime tnext = tnow.toUsecs() -

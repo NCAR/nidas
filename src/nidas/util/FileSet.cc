@@ -223,7 +223,7 @@ void FileSet::openNextFile() throw(IOException)
 /* static */
 string FileSet::getDirPortion(const string& path)
 {
-    size_t lslash = path.rfind(pathSeparator);
+    string::size_type lslash = path.rfind(pathSeparator);
     if (lslash == string::npos) return ".";
     else if (lslash == 0) return string(1,pathSeparator);
     else return path.substr(0,lslash);
@@ -232,7 +232,7 @@ string FileSet::getDirPortion(const string& path)
 /* static */
 string FileSet::getFilePortion(const string& path)
 {
-    size_t lslash = path.rfind(pathSeparator);
+    string::size_type lslash = path.rfind(pathSeparator);
     if (lslash == string::npos) return path;
     else return path.substr(lslash+1);
 }
@@ -262,7 +262,7 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOExceptio
     }
 
     vector<size_t> dseq;
-    size_t di;
+    string::size_type di;
     di = fullpath.find("%Y");
     if (di == string::npos) di = fullpath.find("%y");
     if (di == string::npos) di = 0;
@@ -467,7 +467,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 /* static */
 void FileSet::replaceChars(string& in,const string& pat, const string& rep) 
 {
-    unsigned int patpos;
+    string::size_type patpos;
     while ((patpos = in.find(pat,0)) != string::npos)
     	in.replace(patpos,pat.length(),rep);
 }

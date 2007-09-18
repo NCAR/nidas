@@ -186,7 +186,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
                 // format:  sock:addr:port or  sock::port
                 bool valOK = false;
                 if (aval.length() > 5 && aval.substr(0,5) == "sock:") {
-                    unsigned int colon = aval.find(':',5);
+                    string::size_type colon = aval.find(':',5);
 
                     if (colon < string::npos) {
                         string straddr = aval.substr(5,colon-5);

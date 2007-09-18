@@ -45,13 +45,15 @@ Sample* nidas::core::getSample(sampleType type, size_t len)
 	len /= sizeof(short);
 	samp = getSample<unsigned short>(len);
 	break;
-    case LONG_ST:
-	len /= sizeof(long);
-	samp = getSample<long>(len);
+    case INT32_ST:
+        assert(sizeof(int) == 4);
+	len /= sizeof(int);
+	samp = getSample<int>(len);
 	break;
-    case ULONG_ST:
-	len /= sizeof(long);
-	samp = getSample<unsigned long>(len);
+    case UINT32_ST:
+        assert(sizeof(unsigned int) == 4);
+	len /= sizeof(unsigned int);
+	samp = getSample<unsigned int>(len);
 	break;
     case FLOAT_ST:
 	len /= sizeof(float);
@@ -61,7 +63,7 @@ Sample* nidas::core::getSample(sampleType type, size_t len)
 	len /= sizeof(double);
 	samp = getSample<double>(len);
 	break;
-    case LONG_LONG_ST:
+    case INT64_ST:
 	len /= sizeof(long long);
 	samp = getSample<long long>(len);
 	break;

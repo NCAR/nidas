@@ -606,9 +606,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 /* static */
 string DSMSensor::replaceBackslashSequences(const string& str)
 {
-    unsigned int bs;
+    string::size_type bs;
     string res = str;
-    for (unsigned int ic = 0; (bs = res.find('\\',ic)) != string::npos;
+    for (string::size_type ic = 0; (bs = res.find('\\',ic)) != string::npos;
     	ic = bs) {
 	bs++;
 	if (bs == res.length()) break;

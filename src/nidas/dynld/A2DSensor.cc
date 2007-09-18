@@ -50,7 +50,7 @@ bool A2DSensor::isRTLinux() const
 {
     if (rtlinux < 0)  {
         const string& dname = getDeviceName();
-        unsigned int fs = dname.rfind('/');
+        string::size_type fs = dname.rfind('/');
         if (fs != string::npos && (fs + 3) < dname.length() &&
             dname.substr(fs+1,3) == "rtl")
                     rtlinux = 1;

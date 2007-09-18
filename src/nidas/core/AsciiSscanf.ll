@@ -224,7 +224,7 @@ void AsciiSscanf::setFormat(const std::string& val)
 	length = currentField->length;
 
 	/* Alignment */
-	if ((align_adj = (((unsigned int)bufptr) % size))) {
+	if ((align_adj = (((unsigned long)bufptr) % size))) {
 	    bufptr += (size - align_adj);
 	    tlen += (size - align_adj);
 	}
@@ -245,11 +245,11 @@ void AsciiSscanf::setFormat(const std::string& val)
     bufptr = databuf0 = new char[tlen + maxsize];
 
     // first address aligned with largest field
-    align_adj = ((unsigned int)bufptr) % maxsize;
+    align_adj = ((unsigned long)bufptr) % maxsize;
     if (align_adj) bufptr += (maxsize - align_adj);
 
     for (nfields = 0; nfields < (int)fields.size(); nfields++)
-	bufptrs[nfields] += (unsigned int)bufptr;
+	bufptrs[nfields] += (unsigned long)bufptr;
 
     // initialize the rest to the last pointer value.
     // It should never be dereferenced, but valgrind complains

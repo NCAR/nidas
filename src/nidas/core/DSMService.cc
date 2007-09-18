@@ -266,7 +266,7 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
 	    if (aname == "priority") {
-		unsigned int colon = aval.find(':',0);
+		string::size_type colon = aval.find(':',0);
 		if (colon < string::npos) {
 		    string policy = aval.substr(0,colon);
 		    istringstream ist(aval.substr(colon+1));

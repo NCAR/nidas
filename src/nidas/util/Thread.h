@@ -265,7 +265,7 @@ protected:
 
   static std::string unknownName;
 
-  virtual void*
+  virtual int
   pRun ();
 
   /**

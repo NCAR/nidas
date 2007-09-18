@@ -228,7 +228,7 @@ void SyncRecordSource::init() throw()
  */
 namespace {
 void replace_util(string& str,char c1, char c2) {
-    for (size_t bi; (bi = str.find(c1)) != string::npos;)
+    for (string::size_type bi; (bi = str.find(c1)) != string::npos;)
 	str.replace(bi,1,1,c2);
 }
 }
@@ -441,7 +441,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
 	    for (size_t i = 0; i < numVar && fp < ep; i++) {
 	        size_t outlen = varLen[i];
-	        size_t inlen = std::min((unsigned)(ep-fp),outlen);
+	        size_t inlen = std::min((size_t)(ep-fp),outlen);
 
 		if (varOffset[i] >= 0) {
 		    float* dp = floatPtr + varOffset[i] + 1 +

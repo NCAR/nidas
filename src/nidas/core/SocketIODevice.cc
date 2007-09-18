@@ -46,7 +46,7 @@ void SocketIODevice::close() throw(n_u::IOException)
 void SocketIODevice::parseAddress(const string& name)
 	throw(n_u::ParseException)
 {
-    size_t idx = name.find(':');
+    string::size_type idx = name.find(':');
     addrtype = -1;
     desthost = string();
     destport = -1;
@@ -62,7 +62,7 @@ void SocketIODevice::parseAddress(const string& name)
 
     if (addrtype == AF_UNIX) desthost = name.substr(idx);
     else {
-	size_t idx2 = name.find(':',idx);
+	string::size_type idx2 = name.find(':',idx);
 	if (idx2 != string::npos) {
 	    desthost = name.substr(idx,idx2-idx);
 	    string portstr = name.substr(idx2+1);

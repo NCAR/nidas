@@ -28,7 +28,7 @@ namespace n_u = nidas::util;
 namespace {
 void replaceChars(string& in,const string& pat, const string& rep)
 {
-    unsigned int patpos;
+    string::size_type patpos;
     while ((patpos = in.find(pat,0)) != string::npos)
         in.replace(patpos,pat.length(),rep);
 }

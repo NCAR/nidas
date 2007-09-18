@@ -100,7 +100,7 @@ bool CharacterSensor::isRTLinux() const
 {
     if (rtlinux < 0)  {
 	const string& dname = getDeviceName();
-	unsigned int fs = dname.rfind('/');
+	string::size_type fs = dname.rfind('/');
 	if (fs != string::npos && (fs + 6) < dname.length() &&
 	    dname.substr(fs+1,6) == "dsmser")
 		    rtlinux = 1;
