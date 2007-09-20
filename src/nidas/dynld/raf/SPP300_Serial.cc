@@ -13,6 +13,9 @@
 
 */
 
+// Remove all traces after netCDF file refactor.
+#define ZERO_BIN_HACK
+
 #include <nidas/dynld/raf/SPP300_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
@@ -119,7 +122,12 @@ void SPP300_Serial::fromDOMElement(const xercesc::DOMElement* node)
     // This logic should match what is in ::process, so that
     // an output sample of the correct size is created.
     static const int _nHskp = 2;
-    if (_noutValues != _nChannels + _nHskp) {
+#ifdef ZERO_BIN_HACK
+    const int zeroBinPadHack = 1;
+    if (_noutValues != _nChannels + _nHskp + zeroBinPadHack) {
+#else
+    if (_noutValues != _nChannels + _nHskp) { 
+#endif
         ostringstream ost;
         ost << "total length of variables should be " << (_nChannels + _nHskp);
           throw n_u::InvalidParameterException(getName(),"sample",ost.str());
@@ -253,6 +261,9 @@ bool SPP300_Serial::process(const Sample* samp,list<const Sample*>& results)
     // DMT fucked up the word count.  Re-align long data on mod 4 boundary.
     const char * p = (char *)input->OPCchan - 2;
 
+#ifdef ZERO_BIN_HACK
+    *dout++ = 0.0;
+#endif
     for (int iout = 0; iout < _nChannels; ++iout)
     {
       *dout++ = fuckedUpLongFlip(p);
