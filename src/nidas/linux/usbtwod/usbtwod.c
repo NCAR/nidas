@@ -858,24 +858,25 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         dev->readstate.bytesLeft -= n;
                         buffer += n;
                         dev->readstate.dataPtr += n;
+			if (dev->readstate.bytesLeft == 0) {
+				// we're finished with this sample
+				switch (be32_to_cpu(dev->readstate.pendingSample->stype)) {
+				case TWOD_IMG_TYPE:
+					usb_twod_submit_img_urb(dev,
+						dev->readstate.pendingSample->urb,GFP_KERNEL);
+					break;
+				case TWOD_SOR_TYPE:
+					usb_twod_submit_sor_urb(dev,
+						dev->readstate.pendingSample->urb,GFP_KERNEL);
+					break;
+				}
+				INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
+			}
                         if (count == 0) {
                                 // if count is 0, we're done.
                                 retval = countreq;
                                 break;
                         }
-                        // otherwise we're finished with this sample
-                        // dev->bytesLeft will be 0 here
-                        switch (be32_to_cpu(dev->readstate.pendingSample->stype)) {
-                        case TWOD_IMG_TYPE:
-				usb_twod_submit_img_urb(dev,
-					dev->readstate.pendingSample->urb,GFP_KERNEL);
-                                break;
-                        case TWOD_SOR_TYPE:
-				usb_twod_submit_sor_urb(dev,
-					dev->readstate.pendingSample->urb,GFP_KERNEL);
-                                break;
-                        }
-                        INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 }
                 /* Finished writing previous sample, check for next. 
                  * dev->readstate.bytesLeft will be 0 here.
