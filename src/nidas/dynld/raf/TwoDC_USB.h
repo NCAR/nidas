@@ -68,6 +68,14 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
+    /*
+     * Build the struct above from the true airspeed (in m/s)
+     * @param t2d the Tap2D to be filled
+     * @param tas the true airspeed in m/s
+     * @param resolution the resolution or diode size, in meters.
+     */
+    int TASToTap2D(Tap2D * t2d, float tas, float resolution);
+
 private:
 
      bool processSOR(const Sample * samp,
@@ -114,6 +122,7 @@ private:
      * Time of last printStatus.
      */
     long long _lastStatusTime;
+    
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

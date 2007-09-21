@@ -34,7 +34,7 @@ typedef struct _Tap2D
 {
         unsigned char ntap;     /* which tap in the variable resistor (0-255) */
         unsigned char vdiv;     /* boolean toggle for voltage divide by 10 */
-        unsigned char nmsec;    /* unused */
+        unsigned char cntr;     /* counter from 1 to 10 */
         unsigned char dummy;
 } Tap2D;
 
@@ -49,32 +49,6 @@ typedef struct _Tap2D
 #define USB2D_SET_TAS		_IOW(USB2D_IOC_MAGIC,0,Tap2D)
 #define USB2D_SET_SOR_RATE	_IOW(USB2D_IOC_MAGIC,1,int)
 #define USB2D_GET_STATUS	_IOR(USB2D_IOC_MAGIC,2,struct usb_twod_stats)
-
-#ifndef __KERNEL__
-#include <string.h>
-/*
- * Build the struct above from the true airspeed (in m/s)
- * @param t2d the Tap2D to be filled
- * @param tas the true airspeed in m/s
- * @param resolution the resolution or diode size, in meters.
- */
-inline int TASToTap2D(Tap2D * t2d, float tas, float resolution)
-{
-        double freq = tas / resolution;
-        unsigned int ntap = (unsigned int) ((1 - (1.0e6 / freq)) * 255);
-	memset(t2d,0,sizeof(Tap2D));
-
-        t2d->vdiv = 0;          /* currently unused */
-        t2d->nmsec = 0;         /* unused for USB probe */
-        t2d->ntap = 0;
-
-        if (ntap > 255)
-                return -EINVAL;
-
-        t2d->ntap = (unsigned char) ntap;
-        return 0;               /* Return success */
-}
-#endif                          // ifndef __KERNEL__
 
 /*
  * Both image and shadow-OR samples are read from this device.
@@ -185,8 +159,6 @@ struct usb_twod
 
         wait_queue_head_t read_wait;    /* Zzzzz ... */
 
-        size_t img_bulk_in_size;        /* the buffer to receive size */
-        size_t sor_bulk_in_size;
         __u8 img_in_endpointAddr;       /* the address of the image in endpoint */
         __u8 tas_out_endpointAddr;      /* the address of the tas out endpoint */
         __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */

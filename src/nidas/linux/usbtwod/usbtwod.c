@@ -23,18 +23,19 @@
 #include <nidas/linux/irigclock.h>
 
 /* Define these values to match your devices */
-//#define USB_VENDOR_ID	0x2D2D
-//#define USB_PRODUCT_ID	0x2D00
-
+// #define NCAR_VENDOR_ID         0x2D2D
+// #define TWODC_64BIT_PRODUCT_ID  0x2D00
+// #define TWODP_32BIT_PRODUCT_ID  0x2D01
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
-#define USB_VENDOR_ID         0x0547
-#define USB_PRODUCT_ID        0x1002
-
+#define NCAR_VENDOR_ID         0x0547
+#define TWODC_64BIT_PRODUCT_ID  0x1003
+#define TWODP_32BIT_PRODUCT_ID  0x1002
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
-        {USB_DEVICE(USB_VENDOR_ID, USB_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, TWODC_64BIT_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, TWODP_32BIT_PRODUCT_ID)},
         {}                      /* Terminating entry */
 };
 
@@ -133,6 +134,9 @@ static void write_tas(struct usb_twod *dev, int kmalloc_flags)
 {
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
+		dev->tasValue.cntr %= 10;
+		dev->tasValue.cntr++;
+		
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -1017,7 +1021,9 @@ static int twod_probe(struct usb_interface *interface,
         dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
         /* set up the endpoint information */
-
+        KLOG_INFO("idVendor: %x idProduct: %x\n",
+                  id->idVendor, id->idProduct); 
+                  
         KLOG_INFO("number of alternate interfaces: %d\n",
                   interface->num_altsetting);
 
@@ -1038,22 +1044,26 @@ static int twod_probe(struct usb_interface *interface,
                           ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
 				psize);
 
-                if (!dev->sor_in_endpointAddr &&
+			
+                if (!dev->img_in_endpointAddr && dir == USB_DIR_IN &&
+                           type == USB_ENDPOINT_XFER_BULK) {
+			switch(id->idProduct) {
+			case TWODC_64BIT_PRODUCT_ID:
+				/* we found a big bulk in endpoint on the TWODC_64, use it for images */
+				if (psize >= 512)
+					dev->img_in_endpointAddr = endpoint->bEndpointAddress;
+				break;
+			case TWODP_32BIT_PRODUCT_ID:
+				dev->img_in_endpointAddr = endpoint->bEndpointAddress;
+				break;
+			}
+                } else if (!dev->sor_in_endpointAddr &&
 			dir == USB_DIR_IN &&
 			type == USB_ENDPOINT_XFER_BULK &&
 			psize < 512 && psize >= TWOD_SOR_BUFF_SIZE) {
                         /* we found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
-                        dev->sor_bulk_in_size = psize;
-                } else if (!dev->img_in_endpointAddr &&
-                           dir == USB_DIR_IN &&
-                           type == USB_ENDPOINT_XFER_BULK &&
-                           psize >= 512) {
-                        /* we found a big bulk in endpoint, use it for images */
-                        dev->img_in_endpointAddr =
-                            endpoint->bEndpointAddress;
-                        dev->img_bulk_in_size = psize;
                 } else if (!dev->tas_out_endpointAddr &&
                            dir == USB_DIR_OUT &&
                            type == USB_ENDPOINT_XFER_BULK) {

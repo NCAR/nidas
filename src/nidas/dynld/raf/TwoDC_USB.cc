@@ -206,11 +206,32 @@ void TwoDC_USB::derivedDataNotify(const nidas::core::DerivedDataReader *
     }
 }
 
+int TwoDC_USB::TASToTap2D(Tap2D * t2d, float tas, float resolution)
+{
+        double freq = tas / resolution;
+        unsigned int ntap = (unsigned int) ((1 - (1.0e6 / freq)) * 255);
+	memset(t2d,0,sizeof(Tap2D));
+
+        t2d->vdiv = 0;          /* currently unused */
+        t2d->cntr = 0;		/* counter, initialize to 0 */
+        t2d->ntap = 0;
+
+        if (ntap > 255)
+                return -EINVAL;
+
+        t2d->ntap = (unsigned char) ntap;
+        return 0;               /* Return success */
+}
+
 /*---------------------------------------------------------------------------*/
 void TwoDC_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 {
     Tap2D tx_tas;
-    TASToTap2D(&tx_tas, tas, _resolution);
+    if (TASToTap2D(&tx_tas, tas, _resolution)) 
+	n_u::Logger::getInstance()->log(LOG_WARNING,
+            "%s: TASToTap2D reports bad airspeed=%f m/s\n",
+		getName().c_str(),tas);
+	
     ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
 }
 void TwoDC_USB::printStatus(std::ostream& ostr) throw()
