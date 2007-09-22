@@ -101,6 +101,8 @@ float IRS_HW_YG1854::processLabel(const long data)
     value = (data<<3>>11) * 1.0/(1<<20) * 180.0 + carry;  // 21 bits
 
     // C130 IRS puts out -180 to 180.  Convert to 0 to 360.
+    if (value > 360.0)
+      value -= 360.0;
     if (value < 0.0)
       value += 360.0;
 
