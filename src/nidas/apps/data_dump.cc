@@ -23,6 +23,7 @@
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/dynld/raf/IRIGSensor.h>
+#include <nidas/util/Logger.h>
 
 #include <set>
 #include <map>
@@ -418,6 +419,11 @@ void DataDump::setupSignals()
 int DataDump::main(int argc, char** argv)
 {
     setupSignals();
+
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_INFO;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
 
     DataDump dump;
 

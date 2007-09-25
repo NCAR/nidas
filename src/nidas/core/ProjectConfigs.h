@@ -53,6 +53,9 @@ public:
 
     void setEndTime(const nidas::util::UTime& val) { endTime = val; }
 
+    Project* getProject() const throw(nidas::core::XMLException,
+		nidas::util::InvalidParameterException);
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
     
@@ -97,7 +100,11 @@ public:
     ProjectConfigs();
     ~ProjectConfigs();
 
-    const ProjectConfig* getConfig(const nidas::util::UTime& begin) const;
+    const ProjectConfig* getConfig(const nidas::util::UTime& begin) const
+        throw(nidas::util::InvalidParameterException);
+
+    const ProjectConfig* getConfig(const std::string& name) const
+        throw(nidas::util::InvalidParameterException);
 
     const std::list<const ProjectConfig*>& getConfigs() const;
 
@@ -106,21 +113,12 @@ public:
 
     void removeConfig(const ProjectConfig* val);
 
-    /**
-     * Convienence routine for getting a Project*, given
-     * a ProjectsConfig XML file name, and a time.
-     */
-    static Project* getProject(const std::string& xmlFileName,
-        const nidas::util::UTime& begin)
-        throw(nidas::core::XMLException,
-		nidas::util::InvalidParameterException);
-
     void parseXML(const std::string& xmlFileName)
         throw(nidas::core::XMLException,
 		nidas::util::InvalidParameterException);
 
     void writeXML(const std::string& xmlFileName)
-        throw(XMLException,nidas::util::IOException);
+        throw(nidas::core::XMLException,nidas::util::IOException);
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
@@ -135,6 +133,8 @@ public:
 
 
 private:
+
+    std::string _xmlName;
 
     std::list<const ProjectConfig*> constConfigs;
 

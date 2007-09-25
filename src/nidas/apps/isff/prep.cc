@@ -145,6 +145,8 @@ private:
 
     n_u::UTime endTime;
 
+    std::string configName;
+
     float rate;
 
     bool dosOut;
@@ -600,8 +602,25 @@ int DataPrep::run() throw()
 	    //  4. iochan, SortedSampleInputStream
 
 	    if (xmlFileName.length() == 0) {
-                string configXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-                project.reset(ProjectConfigs::getProject(configXML,startTime));
+                if (!project.get()) {
+                    string configsXML = Project::expandEnvVars(
+                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
+                    ProjectConfigs configs;
+                    configs.parseXML(configsXML);
+                    const ProjectConfig* cfg = 0;
+
+                    // User has not specified the xml file. Get
+                    // the ProjectConfig from the configName or startTime
+                    // using the configs XML file, then parse the
+                    // XML of the ProjectConfig.
+                    if (configName.length() > 0)
+                        cfg = configs.getConfig(configName);
+                    else
+                        cfg = configs.getConfig(startTime);
+                    project.reset(cfg->getProject());
+                    if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
+                    if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
+                }
             }
             else {
                 xmlFileName = Project::expandEnvVars(xmlFileName);

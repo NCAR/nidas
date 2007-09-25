@@ -66,6 +66,8 @@ private:
 
     string dsmName;
 
+    string configName;
+
     auto_ptr<n_u::SocketAddress> sockAddr;
 
     static const int DEFAULT_PORT = 30000;
@@ -177,7 +179,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:d:E:hn:p:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:hn:p:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -187,6 +189,9 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	        cerr << pe.what() << endl;
 		return usage(argv[0]);
 	    }
+	    break;
+	case 'c':
+	    configName = optarg;
 	    break;
 	case 'd':
 	    dsmName = optarg;
@@ -282,12 +287,14 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     // must specify either:
     //  1. some data files to read, and optional begin and end times,
     //  2. a socket to connect to
-    //  3. or a time period and a $PROJECT environment variable
+    //  3. a time period and a $PROJECT environment variable
+    //  3b a configuration name and a $PROJECT environment variable
     if (dataFileNames.size() == 0 && !sockAddr.get() &&
-        startTime.toUsecs() == 0) return usage(argv[0]);
+        startTime.toUsecs() == 0 && configName.length() == 0)
+            return usage(argv[0]);
 
     if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
-             endTime = startTime + 366 * USECS_PER_DAY;
+             endTime = startTime + 7 * USECS_PER_DAY;
     return 0;
 }
 
@@ -295,11 +302,12 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-d dsm] [-n nice] [-p period] [-s sorterLength]\n\
+Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-p period] [-s sorterLength]\n\
        [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
-    -d dsm (optional)\n\
+    -c configName: (optional) name of configuration period to process, from configs.xml\n\
+    -d dsm: (optional)\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
     -s sorterLength: input data sorter length in milliseconds\n\
@@ -374,12 +382,25 @@ int StatsProcess::run() throw()
 	else {
 
 	    if (dataFileNames.size() == 0) {
-
-                // User has not specified the xml file
+                // User has not specified the xml file. Get
+                // the ProjectConfig from the configName or startTime
+                // using the configs XML file, then parse the
+                // XML of the ProjectConfig.
                 if (!project.get()) {
-                     string configXML =
-                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-                     project.reset(ProjectConfigs::getProject(configXML,startTime));
+                    string configsXML = Project::expandEnvVars(
+                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
+
+                    ProjectConfigs configs;
+                    configs.parseXML(configsXML);
+                    const ProjectConfig* cfg = 0;
+
+                    if (configName.length() > 0)
+                        cfg = configs.getConfig(configName);
+                    else
+                        cfg = configs.getConfig(startTime);
+                    project.reset(cfg->getProject());
+                    if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
+                    if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
 	        list<FileSet*> fsets = project->findSampleOutputStreamFileSets(
 			dsmName);

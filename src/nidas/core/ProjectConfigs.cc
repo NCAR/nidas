@@ -32,6 +32,23 @@ ProjectConfig::ProjectConfig()
     setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
 }
 
+Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
+		n_u::InvalidParameterException)
+{
+    string xmlFileName2 = Project::expandEnvVars(getXMLName());
+
+    struct stat statbuf;
+    if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
+        throw n_u::IOException(xmlFileName2,"open",errno);
+
+    auto_ptr<xercesc::DOMDocument> doc(
+        DSMEngine::parseXMLConfigFile(xmlFileName2));
+
+    auto_ptr<Project> project(Project::getInstance());
+    project->fromDOMElement(doc->getDocumentElement());
+    return project.release();
+}
+
 ProjectConfigs::ProjectConfigs()
 {
 }
@@ -109,6 +126,7 @@ void ProjectConfigs::removeConfig(const ProjectConfig* val)
 }
 
 const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
+    throw(n_u::InvalidParameterException)
 {
     list<const ProjectConfig*>::const_iterator ci = constConfigs.begin();
     for ( ; ci != constConfigs.end(); ++ci) {
@@ -121,7 +139,20 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
 	if (cfg->getBeginTime() <= ut &&
 		cfg->getEndTime() >= ut) return cfg;
     }
-    return 0;
+    throw n_u::InvalidParameterException(_xmlName,
+              "no config for time",ut.format(true,"%c"));
+}
+
+const ProjectConfig* ProjectConfigs::getConfig(const string& name) const
+    throw(n_u::InvalidParameterException)
+{
+    list<const ProjectConfig*>::const_iterator ci = constConfigs.begin();
+    for ( ; ci != constConfigs.end(); ++ci) {
+        const ProjectConfig* cfg = *ci;
+        if (cfg->getName() == name) return cfg;
+    }
+    throw n_u::InvalidParameterException(_xmlName,
+              "no config for name",name);
 }
 
 const std::list<const ProjectConfig*>& ProjectConfigs::getConfigs() const
@@ -129,40 +160,12 @@ const std::list<const ProjectConfig*>& ProjectConfigs::getConfigs() const
     return constConfigs;
 }
 
-
-/* static */
-Project* ProjectConfigs::getProject(const string& xmlFileName,
-        const n_u::UTime& beginTime)
-        throw(XMLException,
-		n_u::InvalidParameterException)
-{
-    string configXML =
-        Project::expandEnvVars(xmlFileName);
-
-    ProjectConfigs configs;
-    configs.parseXML(configXML);
-
-    const ProjectConfig* cfg = configs.getConfig(beginTime);
-    if (!cfg) throw n_u::InvalidParameterException(configXML,
-        "no config for time",beginTime.format(true,"%c"));
-    string xmlFileName2 = Project::expandEnvVars(cfg->getXMLName());
-
-    struct stat statbuf;
-    if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
-        throw n_u::IOException(xmlFileName2,"open",errno);
-
-    auto_ptr<xercesc::DOMDocument> doc(
-        DSMEngine::parseXMLConfigFile(xmlFileName2));
-
-    auto_ptr<Project> project(Project::getInstance());
-    project->fromDOMElement(doc->getDocumentElement());
-    return project.release();
-}
-
 void ProjectConfigs::parseXML(const std::string& xmlFileName)
-    throw(XMLException,
+    throw(nidas::core::XMLException,
 	 nidas::util::InvalidParameterException)
 {
+    _xmlName = xmlFileName;
+
     XMLParser parser;
     parser.setXercesUserAdoptsDOMDocument(true);
 
@@ -192,7 +195,7 @@ void ProjectConfigs::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void ProjectConfigs::writeXML(const std::string& xmlFileName)
-    throw(XMLException,n_u::IOException)
+    throw(nidas::core::XMLException,n_u::IOException)
 {
     /*
      * From www.w3.org Dom level 3 docs:
@@ -214,7 +217,7 @@ void ProjectConfigs::writeXML(const std::string& xmlFileName)
     catch(const xercesc::DOMException& e) {
         XMLStringConverter excmsg(e.getMessage());
         cerr << "DOMException: " << (const char *)excmsg << endl;
-        throw XMLException(e);
+        throw nidas::core::XMLException(e);
     }
 
     char* tmpName = new char[xmlFileName.length() + 8];
