@@ -45,21 +45,21 @@ public:
 
 
   // Packet to initialize probe with.
-  struct Init100_blk
+  struct InitCDP_blk
   {
     char    esc;                                // ESC 0x1b
     char    id;                                 // cmd id
-    ushort  trig_thresh;                        // trigger threshold
-    ushort  transRej;                           // Transit Reject
-    ushort  chanCnt;                            // chanCnt
-    ushort  dofRej;
-    ushort  range;                              // range
-    ushort  avTranWe;                           // avgTransWeight
-    ushort  attAccept;
-    ushort  divFlag;                            // divisorflag 0=/2, 1=/4
-    ushort  ct_method;
-    ushort  OPCthreshold[MAX_CHANNELS];         // OPCthreshold[MAX_CHANNELS]
-    ushort  chksum;                             // cksum
+    DMT_UShort  trig_thresh;                    // trigger threshold
+    DMT_UShort  transRej;                       // Transit Reject
+    DMT_UShort  chanCnt;                        // chanCnt
+    DMT_UShort  dofRej;
+    DMT_UShort  range;                          // range
+    DMT_UShort  avTranWe;                       // avgTransWeight
+    DMT_UShort  attAccept;
+    DMT_UShort  divFlag;                        // divisorflag 0=/2, 1=/4
+    DMT_UShort  ct_method;
+    DMT_UShort  OPCthreshold[MAX_CHANNELS];     // OPCthreshold[MAX_CHANNELS]
+    DMT_UShort  chksum;                         // cksum
   };
 
   /**
@@ -67,20 +67,24 @@ public:
    * e.g. if 30 channels are requested, then this packet will be 40 bytes
    * shorter (10*sizeof(long)).
    */
-  struct DMT100_blk
+  struct CDP_blk
   {
-      unsigned short cabinChan[8];
-      unsigned long rejDOF;
-      unsigned long rejAvgTrans;
-      unsigned short AvgTransit;
-      unsigned short FIFOfull;
-      unsigned short resetFlag;
-      unsigned long ADCoverflow;
-      unsigned long OPCchan[MAX_CHANNELS];	// 40 channels max
-      unsigned short chksum;
+      DMT_UShort cabinChan[8];
+      DMT_ULong rejDOF;
+      DMT_ULong rejAvgTrans;
+      DMT_UShort AvgTransit;
+      DMT_UShort FIFOfull;
+      DMT_UShort resetFlag;
+      DMT_ULong ADCoverflow;
+      DMT_ULong OPCchan[MAX_CHANNELS];	// 40 channels max
+      DMT_UShort chksum;
   };
 
 protected:
+
+  int calculatePacketLen(int nchannels) const {
+    return (36 + 4 * nchannels);
+  }
 
   static const size_t FREF_INDX, FTMP_INDX;
 

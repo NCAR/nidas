@@ -46,17 +46,17 @@ public:
   {
     char    esc;				// ESC 0x1b
     char    id;					// cmd id
-    ushort  model;				// model
-    ushort  trig_thresh;			// trigger threshold
-    ushort  chanCnt;				// chanCnt
-    ushort  dofRej;
-    ushort  range;				// range
-    ushort  avTranWe;				// avgTransWeight
-    ushort  divFlag;				// divisorflag 0=/2, 1=/4
-    ushort  max_width;				// max_width threshold
-    ushort  OPCthreshold[MAX_CHANNELS];		// OPCthreshold[MAX_CHANNELS]
-    ushort  spares[3];
-    ushort  chksum;				// cksum
+    DMT_UShort  model;				// model
+    DMT_UShort  trig_thresh;			// trigger threshold
+    DMT_UShort  chanCnt;			// chanCnt
+    DMT_UShort  dofRej;
+    DMT_UShort  range;				// range
+    DMT_UShort  avTranWe;			// avgTransWeight
+    DMT_UShort  divFlag;			// divisorflag 0=/2, 1=/4
+    DMT_UShort  max_width;			// max_width threshold
+    DMT_UShort  OPCthreshold[MAX_CHANNELS];	// OPCthreshold[MAX_CHANNELS]
+    DMT_UShort  spares[3];
+    DMT_UShort  chksum;				// cksum
   };
 
   /**
@@ -66,18 +66,18 @@ public:
   {
     char    esc;				// ESC 0x1b
     char    id;					// cmd id
-    ushort  model;				// model
-    ushort  firmware;				// firmware
-    ushort  trig_thresh;			// trigger threshold
-    ushort  chanCnt;				// chanCnt
-    ushort  dofRej;
-    ushort  range;				// range
-    ushort  avTranWe;				// avgTransWeight
-    ushort  divFlag;				// divisorflag 0=/2, 1=/4
-    ushort  max_width;				// max_width threshold
-    ushort  OPCthreshold[MAX_CHANNELS];		// OPCthreshold[MAX_CHANNELS]
-    ushort  spares[3];
-    ushort  chksum;				// cksum
+    DMT_UShort  model;				// model
+    DMT_UShort  firmware;			// firmware
+    DMT_UShort  trig_thresh;			// trigger threshold
+    DMT_UShort  chanCnt;			// chanCnt
+    DMT_UShort  dofRej;
+    DMT_UShort  range;				// range
+    DMT_UShort  avTranWe;			// avgTransWeight
+    DMT_UShort  divFlag;			// divisorflag 0=/2, 1=/4
+    DMT_UShort  max_width;			// max_width threshold
+    DMT_UShort  OPCthreshold[MAX_CHANNELS];	// OPCthreshold[MAX_CHANNELS]
+    DMT_UShort  spares[3];
+    DMT_UShort  chksum;				// cksum
   };
 
   /**
@@ -87,20 +87,22 @@ public:
    */
   struct DMT300_blk
   {
-      unsigned short cabinChan[8];
-      unsigned long rejDOF;
-      unsigned short range;
-      unsigned short AvgTransit;
-      unsigned short FIFOfull;
-      unsigned short resetFlag;
-      unsigned short SyncErrA;
-      unsigned short SyncErrB;
-      unsigned long ADCoverflow;
-      unsigned long OPCchan[MAX_CHANNELS];	// 40 channels max
-      unsigned short chksum;
+      DMT_UShort cabinChan[8];
+      DMT_ULong rejDOF;
+      DMT_UShort AvgTransit;
+      DMT_UShort FIFOfull;
+      DMT_UShort resetFlag;
+      DMT_UShort SyncErrA;
+      DMT_UShort SyncErrB;
+      DMT_ULong ADCoverflow;
+      DMT_ULong OPCchan[MAX_CHANNELS];	// 40 channels max
+      DMT_UShort chksum;
   };
 
 protected:
+  int calculatePacketLen(int nchannels) const {
+    return (36 + 4 * nchannels);
+  }
 
   static const size_t FREF_INDX, FTMP_INDX;
 

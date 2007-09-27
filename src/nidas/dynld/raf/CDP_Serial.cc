@@ -13,9 +13,6 @@
 
 */
 
-// Remove all traces after netCDF file refactor.
-#define ZERO_BIN_HACK
-
 #include <nidas/dynld/raf/CDP_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
@@ -40,25 +37,24 @@ const size_t CDP_Serial::FTMP_INDX = 7;
 CDP_Serial::CDP_Serial(): SppSerial(), _sampleRate(1)
 {
   _model = 100;
+  // This number should match the housekeeping added in ::process, so that
+  // an output sample of the correct size is created.
+  _nHskp = 6;
 }
 
 
 void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    SppSerial::fromDOMElement(node);
+
+    //
+    // Fixed record delimiter (for now?)
+    //
+    _dataType = Delimited;
+    _recDelimiter = 0xffff;
 
     const Parameter *p;
-
-    p = getParameter("NCHANNELS");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "NCHANNELS","not found");
-    _nChannels = (int)p->getNumericValue(0);
-
-    p = getParameter("RANGE");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "RANGE","not found");
-    _range = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("THRESHOLD");
     if (!p) throw n_u::InvalidParameterException(getName(),
@@ -75,11 +71,6 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
           "DOF_REJ","not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("AVG_TRANSIT_WGT");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "AVG_TRANSIT_WGT","not found");
-    _avgTransitWeight = (unsigned short)p->getNumericValue(0);
-
     p = getParameter("ATT_ACCEPT");
     if (!p) throw n_u::InvalidParameterException(getName(),
           "ATT_ACCEPT","not found");
@@ -94,87 +85,33 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(),
           "CT_METHOD","not found");
     _ctMethod = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("CHAN_THRESH");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "CHAN_THRESH","not found");
-    if (p->getLength() != _nChannels)
-        throw n_u::InvalidParameterException(getName(),
-              "CHAN_THRESH","not NCHANNELS long ");
-    for (int i = 0; i < p->getLength(); ++i)
-        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
-
-    _packetLen = sizeof(DMT100_blk);
-    _packetLen -= (MAX_CHANNELS - _nChannels) * sizeof(long);
-
-    /* According to the manual, packet lens are 76, 116, 156 and 196
-     * for 10, 20, 30 and 40 channels respectively.
-     */
-    _packetLen -= 4;
-
-    const set<const SampleTag*> tags = getSampleTags();
-    if (tags.size() != 1)
-          throw n_u::InvalidParameterException(getName(),"sample",
-              "must be one <sample> tag for this sensor");
-
-    _noutValues = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
-    {
-        const SampleTag* stag = ti.next();
-//        dsm_sample_id_t sampleId = stag->getId();
-
-        VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); )
-        {
-            const Variable* var = vi.next();
-            _noutValues += var->getLength();
-        }
-    }
-
-    // This logic should match what is in ::process, so that
-    // an output sample of the correct size is created.
-    const int nHousekeep = 6;
-#ifdef ZERO_BIN_HACK
-    const int zeroBinPadHack = 1;
-    if (_noutValues != _nChannels + nHousekeep + zeroBinPadHack) {
-#else
-    if (_noutValues != _nChannels + nHousekeep) { 
-#endif
-        ostringstream ost;
-        ost << "total length of variables should be " << (_nChannels + nHousekeep);
-          throw n_u::InvalidParameterException(getName(),"sample",ost.str());
-    }
 }
 
 void CDP_Serial::sendInitString() throw(n_u::IOException)
 {
-    Init100_blk setup_pkt;
+    InitCDP_blk setup_pkt;
 
     memset((void *)&setup_pkt, 0, sizeof(setup_pkt));
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
-    setup_pkt.trig_thresh = toLittle->ushortValue(_triggerThreshold);
-    setup_pkt.transRej = toLittle->ushortValue(_transitReject);
-    setup_pkt.chanCnt = toLittle->ushortValue((unsigned short)_nChannels);
-    setup_pkt.dofRej = toLittle->ushortValue(_dofReject);
-    setup_pkt.range = toLittle->ushortValue(_range);
-    setup_pkt.avTranWe = toLittle->ushortValue(_avgTransitWeight);
-    setup_pkt.attAccept = toLittle->ushortValue(_attAccept);
-    setup_pkt.divFlag = toLittle->ushortValue(_divFlag);
-    setup_pkt.ct_method = toLittle->ushortValue(_ctMethod);
+    setup_pkt.trig_thresh.putValue(_triggerThreshold);
+    setup_pkt.transRej.putValue(_transitReject);
+    setup_pkt.chanCnt.putValue((unsigned short)_nChannels);
+    setup_pkt.dofRej.putValue(_dofReject);
+    setup_pkt.range.putValue(_range);
+    setup_pkt.avTranWe.putValue(_avgTransitWeight);
+    setup_pkt.attAccept.putValue(_attAccept);
+    setup_pkt.divFlag.putValue(_divFlag);
+    setup_pkt.ct_method.putValue(_ctMethod);
 
     for (int i = 0; i < _nChannels; i++)
-        setup_pkt.OPCthreshold[i] = toLittle->ushortValue(_opcThreshold[i]);
-
-    // struct is padded at end to modulus 4. We want unpadded length.
-    int plen = (char*)(&setup_pkt.chksum + 1) - (char*)&setup_pkt;
+        setup_pkt.OPCthreshold[i].putValue(_opcThreshold[i]);
 
     // exclude chksum from the computation (but since it is zero
     // at this point, it doesn't really matter).
-    setup_pkt.chksum = toLittle->ushortValue(
-	computeCheckSum((unsigned char*)&setup_pkt,
-            plen-sizeof(setup_pkt.chksum)));
+    setup_pkt.chksum.putValue(computeCheckSum((unsigned char*)&setup_pkt,
+					      sizeof(setup_pkt) - 2));
 
     // The initialization response is two bytes 0x0606 with
     // no separator.
@@ -192,7 +129,11 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     catch (const n_u::IOTimeoutException& e) {}
 
     n_u::UTime twrite;
-    write(&setup_pkt, plen);
+    write(&setup_pkt, sizeof(setup_pkt));
+
+    //
+    // Get the response
+    //
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
     readBuffer(MSECS_PER_SEC * 5);
@@ -219,10 +160,13 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     short * init_return = (short *) samp->getVoidDataPtr();
 
     // 
+    // see if we got the expected response
+    //
     if (*init_return != 0x0606)
     {
         samp->freeReference();
-        throw n_u::IOException(getName(), "CDP init return packet","doesn't match");
+        throw n_u::IOException(getName(), "CDP init return packet",
+			       "doesn't match");
     }
     samp->freeReference();
 
@@ -234,34 +178,30 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     setMessageParameters(); // does the ioctl
 }
 
+
 bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-    if ((signed)samp->getDataByteLength() != _packetLen) return false;
+    if (! appendDataAndFindGood(samp))
+      return false;
 
-    const DMT100_blk *input = (DMT100_blk *) samp->getConstVoidDataPtr();
+    /*
+     * Copy the good record into our CDP_blk struct.
+     */
+    CDP_blk inRec;
 
-    unsigned short packetCheckSum = ((unsigned short *)input)[(_packetLen/2)-1];
+    ::memcpy(&inRec, _waitingData, _packetLen - 2);
+    ::memcpy(&inRec.chksum, _waitingData + _packetLen - 2, 2);
 
-    if (packetCheckSum != 65535 &&
-	computeCheckSum((unsigned char *)input, _packetLen - 2) != packetCheckSum)
-    {
-        ++_checkSumErrorCnt;
+    /*
+     * Shift the remaining data in _waitingData to the head of the line
+     */
+    _nWaitingData -= _packetLen;
+    ::memmove(_waitingData, _waitingData + _packetLen, _nWaitingData);
 
-        if (_checkSumErrorCnt < 5)
-            cerr << "CDP::process, bad checksum!  Sent = " << packetCheckSum
-		<< ", computed = "
-		<< computeCheckSum((unsigned char *)input, _packetLen - 2)
-		<< std::endl;
-
-        if (_checkSumErrorCnt == 1000)
-        {
-            cerr << "CDP::process, bad checksum, repeated "
-		<< _checkSumErrorCnt << " times.\n";
-            _checkSumErrorCnt = 0;
-        }
-    }
-
+    /*
+     * Create the output stuff
+     */
     SampleT<float>* outs = getSample<float>(_noutValues);
 
     outs->setTimeTag(samp->getTimeTag());
@@ -272,24 +212,19 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = (input->cabinChan[FREF_INDX] - 2048) * 4.882812e-3;
-    *dout++ = (input->cabinChan[FTMP_INDX] - 2328) * 0.9765625;
+    *dout++ = (inRec.cabinChan[FREF_INDX].value() - 2048) * 4.882812e-3;
+    *dout++ = (inRec.cabinChan[FTMP_INDX].value() - 2328) * 0.9765625;
     *dout++ = _range;
-    *dout++ = fuckedUpLongFlip((char *)&input->rejDOF);
-    *dout++ = fuckedUpLongFlip((char *)&input->rejAvgTrans);
-    *dout++ = fuckedUpLongFlip((char *)&input->ADCoverflow);
-
-    // DMT fucked up the word count.  Re-align long data on mod 4 boundary.
-    const char * p = (char *)input->OPCchan - 2;
+    *dout++ = inRec.rejDOF.value();
+    *dout++ = inRec.rejAvgTrans.value();
+    *dout++ = inRec.ADCoverflow.value();
 
 #ifdef ZERO_BIN_HACK
+    // add a bogus zeroth bin for historical reasons
     *dout++ = 0.0;
-#endif
+#endif    
     for (int iout = 0; iout < _nChannels; ++iout)
-    {
-      *dout++ = fuckedUpLongFlip(p) * _sampleRate;
-      p += sizeof(unsigned long);
-    }
+      *dout++ = inRec.OPCchan[iout].value() * _sampleRate;
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.
