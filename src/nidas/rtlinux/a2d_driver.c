@@ -363,13 +363,14 @@ static int A2DSetGain(struct A2DBoard* brd, int A2DSel)
    GainCode = 0x1900 + A2DSel;  //  +/-10v  31516        -28439
 
    if (a2d->offset[A2DSel]) {
-     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x1100 + A2DSel;  //   0 to +20  ???
-     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //   0 to +10
-     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8800 + A2DSel;  //   0 to +5
+     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x1100 + A2DSel;  //    0 to +20  ???
+     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //    0 to +10
+     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8800 + A2DSel;  //    0 to +5
      else                               GainCode = 0x0000 + A2DSel;
    } else {
-     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x2200 + A2DSel;  // -10 to +10  // was 0x1900
-     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //  -5 to  +5
+     if      (a2d->gain[A2DSel] == 10)  GainCode = 0x2200 + A2DSel;  //  -10 to +10  // was 0x1900
+     else if (a2d->gain[A2DSel] == 20)  GainCode = 0x4400 + A2DSel;  //   -5 to  +5
+     else if (a2d->gain[A2DSel] == 40)  GainCode = 0x8800 + A2DSel;  // -2.5 to  +2.5
      else                               GainCode = 0x0000 + A2DSel;
    }
 /*
