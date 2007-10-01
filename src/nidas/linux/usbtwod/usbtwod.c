@@ -23,19 +23,19 @@
 #include <nidas/linux/irigclock.h>
 
 /* Define these values to match your devices */
-// #define NCAR_VENDOR_ID         0x2D2D
-// #define TWODC_64BIT_PRODUCT_ID  0x2D00
-// #define TWODP_32BIT_PRODUCT_ID  0x2D01
+#define NCAR_VENDOR_ID         0x2D2D
+#define USB2D_N0_PRODUCT_ID    0x2D00
+#define USB2D_N1_PRODUCT_ID    0x2D01
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
-#define NCAR_VENDOR_ID         0x0547
-#define TWODC_64BIT_PRODUCT_ID  0x1003
-#define TWODP_32BIT_PRODUCT_ID  0x1002
+//#define NCAR_VENDOR_ID         0x0547
+//#define USB2D_N0_PRODUCT_ID  0x1003
+//#define USB2D_N1_PRODUCT_ID  0x1002
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
-        {USB_DEVICE(NCAR_VENDOR_ID, TWODC_64BIT_PRODUCT_ID)},
-        {USB_DEVICE(NCAR_VENDOR_ID, TWODP_32BIT_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_N0_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_N1_PRODUCT_ID)},
         {}                      /* Terminating entry */
 };
 
@@ -988,11 +988,18 @@ static struct file_operations twod_fops = {
  * usb class driver info in order to get a minor number from the usb core,
  * and to have the device registered with devfs and the driver core
  */
-static struct usb_class_driver twod_class = {
-        .name = "usbtwod%d",
+static struct usb_class_driver usbtwod_64 = {
+        .name = "usbtwod_64_%d",
         .fops = &twod_fops,
-        .minor_base = USB_TWOD_MINOR_BASE,
+        .minor_base = USB_TWOD_64_MINOR_BASE,
 };
+
+static struct usb_class_driver usbtwod_32 = {
+        .name = "usbtwod_32_%d",
+        .fops = &twod_fops,
+        .minor_base = USB_TWOD_32_MINOR_BASE,
+};
+
 
 static int twod_probe(struct usb_interface *interface,
                       const struct usb_device_id *id)
@@ -1021,9 +1028,12 @@ static int twod_probe(struct usb_interface *interface,
         dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
         /* set up the endpoint information */
-        KLOG_INFO("idVendor: %x idProduct: %x\n",
-                  id->idVendor, id->idProduct); 
-                  
+        KLOG_INFO("idVendor: %x idProduct: %x, speed: %s\n",
+                  id->idVendor, id->idProduct,
+		((dev->udev->speed == USB_SPEED_LOW) ? "low (1.1 mbps)" :
+		((dev->udev->speed == USB_SPEED_FULL) ? "full (12 mbps)" :
+		((dev->udev->speed == USB_SPEED_HIGH) ? "high (480 mbps)" : "unknown"))));
+	
         KLOG_INFO("number of alternate interfaces: %d\n",
                   interface->num_altsetting);
 
@@ -1048,12 +1058,12 @@ static int twod_probe(struct usb_interface *interface,
                 if (!dev->img_in_endpointAddr && dir == USB_DIR_IN &&
                            type == USB_ENDPOINT_XFER_BULK) {
 			switch(id->idProduct) {
-			case TWODC_64BIT_PRODUCT_ID:
-				/* we found a big bulk in endpoint on the TWODC_64, use it for images */
+			case USB2D_N0_PRODUCT_ID:
+				/* we found a big bulk in endpoint on the USB2D_N0 64bit, use it for images */
 				if (psize >= 512)
 					dev->img_in_endpointAddr = endpoint->bEndpointAddress;
 				break;
-			case TWODP_32BIT_PRODUCT_ID:
+			case USB2D_N1_PRODUCT_ID:
 				dev->img_in_endpointAddr = endpoint->bEndpointAddress;
 				break;
 			}
@@ -1086,7 +1096,19 @@ static int twod_probe(struct usb_interface *interface,
         usb_set_intfdata(interface, dev);
 
         /* we can register the device now, as it is ready */
-        retval = usb_register_dev(interface, &twod_class);
+	dev->ptype = TWOD_64;
+        switch(id->idProduct) {
+       	  case USB2D_N0_PRODUCT_ID:
+            KLOG_INFO("probe0\n");
+ 		dev->ptype = TWOD_64;
+            retval = usb_register_dev(interface, &usbtwod_64);
+ 	    break;
+          case USB2D_N1_PRODUCT_ID:
+ 		dev->ptype = TWOD_32;
+            KLOG_INFO("probe1\n");
+            retval = usb_register_dev(interface, &usbtwod_32);
+        }
+
         if (retval) {
                 /* something prevented us from registering this driver */
                 err("%s - Not able to get a minor for this device.",
@@ -1095,7 +1117,8 @@ static int twod_probe(struct usb_interface *interface,
                 goto error;
         }
         /* let the user know what node this device is now attached to */
-        KLOG_INFO("USB PMS-2D device now attached to USBtwod-%d\n",
+        KLOG_INFO("USB-PMS-2D %x,%x connected, minor number=%d\n",
+		id->idVendor, id->idProduct, 
                   interface->minor);
         return 0;
 
@@ -1121,7 +1144,14 @@ static void twod_disconnect(struct usb_interface *interface)
         down(&dev->sem);
 
         /* give back our minor */
-        usb_deregister_dev(interface, &twod_class);
+	switch(dev->ptype) {
+	case TWOD_64:
+		usb_deregister_dev(interface, &usbtwod_64);
+		break;
+	case TWOD_32:
+		usb_deregister_dev(interface, &usbtwod_32);
+		break;
+        }
 
         up(&dev->sem);
 
@@ -1131,7 +1161,7 @@ static void twod_disconnect(struct usb_interface *interface)
 
         up(&disconnect_sem);
 
-        KLOG_INFO("USB PMS-2D #%d now disconnected\n", minor);
+        KLOG_INFO("USB PMS-2D, minor=%d now disconnected\n", minor);
 }
 
 /* -------------------------------------------------------------------- */

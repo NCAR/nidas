@@ -65,7 +65,8 @@ typedef struct _Tap2D
 #include <nidas/linux/irigclock.h>
 
 /* Get a minor range for your devices from the usb maintainer */
-#define USB_TWOD_MINOR_BASE     192
+#define USB_TWOD_64_MINOR_BASE     192
+#define USB_TWOD_32_MINOR_BASE     196
 
 /* our private defines. if this grows any larger, use your own .h file */
 #define MAX_TRANSFER            ( PAGE_SIZE - 512 )
@@ -136,6 +137,8 @@ struct read_state
         struct twod_urb_sample *pendingSample;  /* sample partly copied to user space */
 };
 
+enum probe_type { TWOD_64, TWOD_32 };
+
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
 {
@@ -144,6 +147,7 @@ struct usb_twod
         struct semaphore sem;   /* lock this structure */
 
         int is_open;            /* don't allow multiple opens. */
+	enum probe_type ptype;
 
         Tap2D tasValue;         /* TAS value to send to probe (from user ioctl) */
         enum irigClockRates sorRate;
