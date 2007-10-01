@@ -214,7 +214,7 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
         // if streaming small samples, don't write more than
         // halflen number of bytes.  The idea is that <= halflen
         // is a good size for the output device.
-        if (tlen < halflen && wlen > halflen) wlen = halflen;
+        // if (tlen < halflen && wlen > halflen) wlen = halflen;
         try {
             l = iochannel.write(tail,wlen);
         }
@@ -222,11 +222,13 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
             if (ioe.getError() == EAGAIN) l = 0;
             else throw ioe;
         }
+#ifdef REPORT_EAGAINS
         if (l == 0 && (nEAGAIN++ % 100) == 0) {
             n_u::Logger::getInstance()->log(LOG_WARNING,
                     "%s: nEAGAIN=%d, wlen=%d, tlen=%d\n",
                 getName().c_str(),nEAGAIN,wlen,tlen);
         }
+#endif
         tail += l;
         if (tail == head) {
             tail = head = buffer;	// empty buffer

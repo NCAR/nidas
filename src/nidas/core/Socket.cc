@@ -27,7 +27,7 @@ Socket::Socket():
 	remoteSockAddr(new n_u::Inet4SocketAddress()),
 	socket(0),connectionRequester(0),connectionThread(0),
         firstRead(true),newFile(true),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
+        minWriteInterval(USECS_PER_SEC/2000),lastWrite(0),
         nonBlocking(false)
 {
     setName("Socket " + remoteSockAddr->toString());
@@ -55,7 +55,7 @@ Socket::Socket(n_u::Socket* sock):
 	remoteSockAddr(sock->getRemoteSocketAddress().clone()),
 	socket(sock),connectionRequester(0),connectionThread(0),
         firstRead(true),newFile(true),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100),lastWrite(0)
+        minWriteInterval(USECS_PER_SEC/2000),lastWrite(0)
 {
     setName(remoteSockAddr->toString());
     try {
@@ -158,7 +158,7 @@ ServerSocket::ServerSocket():
 	localSockAddr(new n_u::Inet4SocketAddress(0)),
         servSock(0),connectionRequester(0),
         connectionThread(0),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100),
+        minWriteInterval(USECS_PER_SEC/2000),
         nonBlocking(false)
 {
     setName("ServerSocket " + localSockAddr->toString());
@@ -168,7 +168,7 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 	localSockAddr(addr.clone()),
         servSock(0),connectionRequester(0),
         connectionThread(0),keepAliveIdleSecs(7200),
-        minWriteInterval(USECS_PER_SEC/100),
+        minWriteInterval(USECS_PER_SEC/2000),
         nonBlocking(false)
 {
     setName("ServerSocket " + localSockAddr->toString());
