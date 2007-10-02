@@ -1,0 +1,30 @@
+# -*- python -*-
+
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+
+##
+##  Import the build environment.
+##
+import os
+Import('env')
+
+modules = Split("""
+    short_filters.c
+""")
+
+headers = Split("""
+    short_filters.h
+""")
+
+rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
+## 
+## Build the modules and install headers only if the RTLinux Development
+## kit can be found.
+## 
+if os.path.exists(rtlgcc):
+    objs = [ env.Object(i) for i in modules ]
+    # print(["objs="] + [str(h) for h in objs])
+    env.Install('$PREFIX/rtlinux',objs)
+
+env.Install('$PREFIX/include/nidas/rtlinux/filters',headers)
+

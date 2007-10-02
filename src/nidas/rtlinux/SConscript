@@ -124,9 +124,9 @@ myenv.Alias(arch, ['build_%s' % dir for dir in subdirs])
 archinstall= myenv.Alias(arch+'_install', [ '$PREFIX' ])
 
 for dir in subdirs:
-    SConscript('%s/SConscript' % dir,
+    myenv.SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=0,exports={'env':myenv})
 
-Default([ "build_%s" % dir for dir in subdirs ])
+myenv.Default([ "build_%s" % dir for dir in subdirs ])
 
