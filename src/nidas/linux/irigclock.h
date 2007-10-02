@@ -21,40 +21,7 @@
 #else
 #  include <sys/time.h>
 #endif
-#include <nidas/core/dsm_sample.h>
-
-#ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000
-#endif
-
-#ifndef SECS_PER_DAY
-#define SECS_PER_DAY 86400
-#endif
-
-#ifndef MSECS_PER_SEC
-#define MSECS_PER_SEC 1000
-#endif
-
-#ifndef USECS_PER_SEC
-#define USECS_PER_SEC 1000000
-#endif
-
-#ifndef USECS_PER_MSEC
-#define USECS_PER_MSEC 1000
-#endif
-
-#ifndef NSECS_PER_SEC
-#define NSECS_PER_SEC 1000000000
-#endif
-
-#ifndef NSECS_PER_MSEC
-#define NSECS_PER_MSEC 1000000
-#endif
-
-#ifndef NSECS_PER_USEC
-#define NSECS_PER_USEC 1000
-#endif
-
+#include <nidas/linux/types.h>
 
 /**
  * Enumeration of the callback rates supported by this module.
@@ -162,8 +129,6 @@ int get_msec_clock_resolution(void);
  */
 void irig_clock_gettime(struct timespec* tp);
 
-
-
 typedef void irig_callback_t(void* privateData);
 
 void setRate2Output(int rate);
@@ -171,10 +136,10 @@ void setRate2Output(int rate);
 /*
  * Schedule/unschedule timed regular callbacks of a particular function
  */
-int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
+extern int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
-void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
+extern void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
 	void* privateData);
 
 struct irig_port {

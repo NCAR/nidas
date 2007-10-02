@@ -17,7 +17,7 @@
 #ifndef ARINC_DRIVER_H
 #define ARINC_DRIVER_H
 
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/types.h>
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and

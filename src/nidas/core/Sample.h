@@ -20,7 +20,7 @@
 
 #include <nidas/core/SampleLengthException.h>
 #include <nidas/util/ThreadSupport.h>
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/types.h>
 
 #include <climits>
 #include <iostream>

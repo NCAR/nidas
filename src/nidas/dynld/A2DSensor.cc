@@ -32,8 +32,7 @@ namespace n_u = nidas::util;
 
 A2DSensor::A2DSensor() :
     DSMSensor(),initialized(false),
-    scanRate(0),badRawSamples(0),
-    rtlinux(-1)
+    scanRate(0),badRawSamples(0)
 {
     setLatency(0.1);
 }
@@ -44,19 +43,6 @@ A2DSensor::~A2DSensor()
         delete [] _samples[i].convSlopes;
         delete [] _samples[i].convIntercepts;
     }
-}
-
-bool A2DSensor::isRTLinux() const
-{
-    if (rtlinux < 0)  {
-        const string& dname = getDeviceName();
-        string::size_type fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 3) < dname.length() &&
-            dname.substr(fs+1,3) == "rtl")
-                    rtlinux = 1;
-        else rtlinux = 0;
-    }
-    return rtlinux == 1;
 }
 
 void A2DSensor::open(int flags)
@@ -70,55 +56,6 @@ void A2DSensor::open(int flags)
 void A2DSensor::config()
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-
-    int nchans = 0;
-
-    ioctl(NIDAS_A2D_GET_NCHAN,&nchans,sizeof(nchans));
-
-    if (_channels.size() > (unsigned)nchans) {
-        ostringstream ost;
-        ost << "max channel number is " << nchans;
-        throw n_u::InvalidParameterException(getName(),"open",ost.str());
-    }
-
-    struct nidas_a2d_config cfg;
-    unsigned int chan;
-    for(chan = 0; chan < _channels.size(); chan++)
-    {
-	cfg.gain[chan] = _channels[chan].gain;
-	cfg.bipolar[chan] = _channels[chan].bipolar;
-	cfg.sampleIndex[chan] = _channels[chan].index;
-
-#ifdef DEBUG
-	cerr << "chan=" << chan << " rate=" << cfg.scanRate <<
-		" gain=" << cfg.gain[chan] << 
-		" bipolar=" << cfg.bipolar[chan] << endl;
-#endif
-    }
-    for( ; chan < MAX_A2D_CHANNELS; chan++) {
-	cfg.gain[chan] = 0;
-	cfg.bipolar[chan] = false;
-    }
-
-    cfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
-    if (cfg.latencyUsecs == 0) cfg.latencyUsecs = USECS_PER_SEC / 10;
-
-    cfg.scanRate = getScanRate();
-
-    // cerr << "doing NIDAS_A2D_SET_CONFIG" << endl;
-    ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(struct nidas_a2d_config));
-
-    for(unsigned int i = 0; i < _samples.size(); i++) {
-        struct nidas_a2d_filter_config fcfg;
-
-        fcfg.index = _samples[i].index;
-	fcfg.rate = _samples[i].rate;
-	fcfg.filterType = _samples[i].filterType;
-	fcfg.boxcarNpts = _samples[i].boxcarNpts;
-
-        ioctl(NIDAS_A2D_ADD_FILTER, &cfg,
-            sizeof(struct nidas_a2d_filter_config));
-    }
 }
 
 
@@ -274,6 +211,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
     int rate = (int)frate;
     if (getScanRate() < rate) setScanRate(rate);
     int boxcarNpts = 1;
+    bool temperature = false;
 
     enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
     const std::list<const Parameter*>& params = tag->getParameters();
@@ -298,7 +236,16 @@ void A2DSensor::addSampleTag(SampleTag* tag)
                         "bad numpoints parameter");
                 boxcarNpts = (int)param->getNumericValue(0);
         }
+        else if (pname == "temperature") {
+                cerr << "temperature parameter" << endl;
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),"sample",
+                        "bad temperature parameter");
+                temperature = (int)param->getNumericValue(0);
+                cerr << "temperature=" << temperature << endl;
+        }
     }
+    if (temperature) return;
 
     int sindex = _samples.size();       // sample index, 0,1,...
 

@@ -16,7 +16,7 @@
 #ifndef IRIGCLOCK_H
 #define IRIGCLOCK_H
 
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/types.h>
 
 #ifndef MSECS_PER_DAY
 #define MSECS_PER_DAY 86400000

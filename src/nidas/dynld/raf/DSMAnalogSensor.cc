@@ -13,33 +13,6 @@
  ******************************************************************
 */
 
-/* Some notes about blocking A2D data.
- * Suppose we support these rates of sampling:
- * 10K, 5K, 1K, 500, 100, 50,10,1 samples/sec
- *
- * Driver sends blocks of data at some rate, say 100/sec:
- * So a block would have:
- *    100 samples of each 10K/s channel
- *     50 samples of each 5K/s channel
- *     10 samples of each 1K/s channel
- *      5 samples of each 500/s channel
- *      1 samples of each 100/s channel
- * Every other block would have a sample from each 50/s channel
- * Every 1/10th block would have a sample from each 10/s channel
- * Every 1/100th block would have a sample from each 1/s channel
- *
- * One should be able to determine which samples are present
- * from the length of the data block, basically
- * step through the above table until counter==0.
- *
- * What are the time-tags of the samples? 
- * The block will have a time tag.
- * The timetags of the 10K data:
- *           t[i] = tblock - (99 - i) * .0001s , for i=0:99
- * Seems tricky to do the all of the above if the driver is doing FIR
- * filtering to achieve the given rates.
- */
-
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
@@ -50,8 +23,10 @@
 #include <cmath>
 
 #include <iostream>
+#include <iomanip>
 
 using namespace nidas::dynld::raf;
+using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
@@ -59,28 +34,16 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
-    DSMSensor(),initialized(false),
-    sampleIndices(0),subSampleIndices(0),convSlope(0),convIntercept(0),
-    sampleTimes(0),
-    deltatUsec(0),nSamplePerRawSample(0),
-    outsamples(0),badRawSamples(0),
-    rtlinux(-1)
+    A2DSensor(),rtlinux(-1),
+    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
+    DEGC_PER_CNT(0.0625)
 {
+    setScanRate(500);   // lowest scan rate supported by card
+    setLatency(0.1);
 }
 
 DSMAnalogSensor::~DSMAnalogSensor()
 {
-    delete [] sampleIndices;
-    delete [] subSampleIndices;
-    delete [] convSlope;
-    delete [] convIntercept;
-    delete [] sampleTimes;
-    delete [] deltatUsec;
-    if (outsamples) {
-	for (unsigned int i = 0; i < rateVec.size(); i++)
-	    if (outsamples[i]) outsamples[i]->freeReference();
-	delete [] outsamples;
-    }
 }
 
 bool DSMAnalogSensor::isRTLinux() const
@@ -117,44 +80,61 @@ void DSMAnalogSensor::open(int flags)
 
     A2D_SET a2d;
     unsigned int chan;
-    int maxrate = 0;
-    for(chan = 0; chan < channels.size(); chan++)
+    for(chan = 0; chan < _channels.size(); chan++)
     {
-	a2d.Hz[chan] = channels[chan].rateSetting;
-	a2d.gain[chan] = channels[chan].gainSetting;
-	a2d.gainMul[chan] = channels[chan].gainMul;
-	a2d.gainDiv[chan] = channels[chan].gainDiv;
-	a2d.offset[chan] = !channels[chan].bipolar;	// flip logic
-	if (a2d.Hz[chan] > maxrate) maxrate = a2d.Hz[chan];
-#ifdef DEBUG
-	cerr << "chan=" << chan << " Hz=" << a2d.Hz[chan] <<
-		" gain=" << a2d.gain[chan] << 
-		" offset=" << a2d.offset[chan] << endl;
-#endif
+	a2d.gain[chan] = _channels[chan].gainSetting;
+	a2d.gainMul[chan] = _channels[chan].gainMul;
+	a2d.gainDiv[chan] = _channels[chan].gainDiv;
+	a2d.offset[chan] = !_channels[chan].bipolar;	// flip logic
+        // for old driver
+	a2d.sampleIndex[chan] = _channels[chan].index;
+	a2d.Hz[chan] = 
+            (_channels[chan].gainSetting == 0) ? 0 : getScanRate();
     }
-    for( ; chan < MAXA2DS; chan++) {
-	a2d.Hz[chan] = 0;
+    for( ; chan < NUM_NCAR_A2D_CHANNELS; chan++) {
 	a2d.gain[chan] = 0;
 	a2d.offset[chan] = 0;
+	a2d.Hz[chan] = 0;
     }
 
     a2d.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
     if (a2d.latencyUsecs == 0) a2d.latencyUsecs = USECS_PER_SEC / 10;
 
     ostringstream ost;
-    if (maxrate >= 1000)
-	ost << "/tmp/code/filters/fir" << maxrate/1000. << "KHz.cfg";
+    if (getScanRate() >= 1000)
+	ost << "/tmp/code/filters/fir" << getScanRate()/1000. << "KHz.cfg";
     else
-	ost << "/tmp/code/filters/fir" << maxrate << "Hz.cfg";
+	ost << "/tmp/code/filters/fir" << getScanRate() << "Hz.cfg";
     string filtername = ost.str();
+
+    a2d.scanRate = getScanRate();
 
     int nexpect = (signed)sizeof(a2d.filter)/sizeof(a2d.filter[0]);
     readFilterFile(filtername,a2d.filter,nexpect);
 
-    // cerr << "doing A2D_SET_CONFIG" << endl;
+    cerr << "doing A2D_SET_CONFIG" << endl;
     ioctl(A2D_SET_CONFIG, &a2d, sizeof(A2D_SET));
 
-    // cerr << "doing A2D_RUN_IOCTL" << endl;
+    for(unsigned int i = 0; i < _samples.size(); i++) {
+        struct nidas_a2d_filter_config fcfg;
+
+        fcfg.index = _samples[i].index;
+	fcfg.rate = _samples[i].rate;
+	fcfg.filterType = _samples[i].filterType;
+	fcfg.boxcarNpts = _samples[i].boxcarNpts;
+
+        cerr << "doing NIDAS_A2D_ADD_FILTER" << endl;
+        ioctl(NIDAS_A2D_ADD_FILTER, &fcfg,
+            sizeof(struct nidas_a2d_filter_config));
+    }
+
+    if (_temperatureRate != IRIG_NUM_RATES) {
+        cerr << "Doing A2DTEMP_SET_RATE" << endl;
+	ioctl(A2DTEMP_SET_RATE, &_temperatureRate, sizeof(_temperatureRate));
+        cerr << "Done A2DTEMP_SET_RATE" << endl;
+    }
+
+    cerr << "doing A2D_RUN_IOCTL" << endl;
     ioctl(A2D_RUN, 0, 0);
 
 }
@@ -206,13 +186,6 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
     return ncoef;
 }
 
-int DSMAnalogSensor::rateSetting(float rate)
-	throw(n_u::InvalidParameterException)
-{
-    // todo: screen invalid rates
-    return (int)rint(rate);
-}
-
 int DSMAnalogSensor::gainSetting(float gain)
 	throw(n_u::InvalidParameterException)
 {
@@ -225,33 +198,357 @@ void DSMAnalogSensor::init() throw(n_u::InvalidParameterException)
     if (initialized) return;
     initialized = true;
 
-    // number of variables being sampled
-    unsigned int nvariables = sampleIndexVec.size();
+}
 
-    sampleIndices = new int[nvariables];
-    subSampleIndices = new int[nvariables];
-    convSlope = new float[nvariables];
-    convIntercept = new float[nvariables];
+float DSMAnalogSensor::getTemp() throw(n_u::IOException)
+{
+    short tval;
+    ioctl(A2DTEMP_GET_TEMP, &tval, sizeof(tval));
+    return tval * DEGC_PER_CNT;
+}
 
-#define REPORTING_RATE 100
+void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
 
-    rawSampleLen = 0;
+    A2D_STATUS stat;
+    try {
+	ioctl(A2D_GET_STATUS,&stat,sizeof(stat));
+        float tdeg = getTemp();
+	ostr << "<td align=left>";
+	ostr << "fifo 1/4ths=" <<
+		stat.preFifoLevel[0] << ',' <<
+		stat.preFifoLevel[1] << ',' <<
+		stat.preFifoLevel[2] << ',' <<
+		stat.preFifoLevel[3] << ',' <<
+		stat.preFifoLevel[4] << ',' <<
+		stat.preFifoLevel[5];
+	ostr << ", #badlev=" << stat.nbadFifoLevel + stat.fifoNotEmpty <<
+		", #resets=" << stat.resets <<
+		", #lost=" << stat.skippedSamples;
 
-    set<int>::const_iterator si;
+        vector<struct chan_info> _channels;
+        for (unsigned int ichan = 0; ichan < _channels.size(); ichan++) {
+            if (_channels[ichan].gainSetting > 0 && stat.nbad[ichan] > 0) {
+		ostr << " ,c=" << ichan << 
+			",nbad=" << stat.nbad[ichan] <<
+			",stat=" << hex << stat.badval[ichan] << dec;
+	    }
+	}
+	ostr << "temp" << fixed << setprecision(1) <<
+	    tdeg << " degC</td>" << endl;
+
+        ostr << "</td>";
+    }
+    catch(const n_u::IOException& ioe) {
+	n_u::Logger::getInstance()->log(LOG_ERR,
+	    "%s: printStatus: %s",getName().c_str(),
+	    ioe.what());
+        ostr << "<td>" << ioe.what() << "</td>" << endl;
+    }
+}
+
+bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample*>& result) throw()
+{
+    // number of data values in this raw sample. Should be two, an id and the temperature
+    if (insamp->getDataByteLength() / sizeof(short) != 2) return false;
+
+    const signed short* sp = (const signed short*)
+    	insamp->getConstVoidDataPtr();
+    if (*sp++ != NCAR_A2D_TEMPERATURE_INDEX) return false;
+
+    // cerr << "temperature=" << *sp << ", " << *sp * DEGC_PER_CNT << endl;
+
+    SampleT<float>* osamp = getSample<float>(1);
+    osamp->setTimeTag(insamp->getTimeTag());
+    osamp->setId(_temperatureTag->getId());
+    osamp->getDataPtr()[0] = *sp * DEGC_PER_CNT;
+
+    result.push_back(osamp);
+    return true;
+}
+
+bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results) throw()
+{
+
+// #define DEBUG
+#ifdef DEBUG
+    static size_t debugcntr = 0;
+#endif
+
+    // pointer to raw A2D counts
+    const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
+
+    // raw data are shorts
+    if (insamp->getDataByteLength() % sizeof(short)) {
+        badRawSamples++;
+        return false;
+    }
+
+    // number of short data values in this raw sample.
+    unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
+
+    if (nvalues < 1) {
+        badRawSamples++;
+        return false;      // nothin
+    }
+
+    int nsamp = 1;      // number of A2D samples in this input sample
+    int sindex = 0;
+    // if more than one sample, the first value is an index
+    if (_samples.size() > 1 || _temperatureTag || nvalues == _samples[0].nvars + 1) {
+        sindex = *sp++;
+        if (sindex < 0 || (sindex >= (signed)_samples.size() && sindex != NCAR_A2D_TEMPERATURE_INDEX)) {
+            badRawSamples++;
+            return false;
+        }
+        nvalues--;
+    }
+    else if (_samples.size() == 1 && (nvalues % _samples[0].nvars) == 0) {
+        // One raw sample from A2D contains multiple sweeps
+        // of the A2D channels.
+        nsamp = nvalues / _samples[0].nvars;
+    }
+    else {
+        badRawSamples++;
+        return false;
+    }
+
+    // cerr << "sindex=" << sindex << endl;
+
+    if (sindex == NCAR_A2D_TEMPERATURE_INDEX && _temperatureTag)
+        return processTemperature(insamp,results);
+
+    const signed short* spend = sp + nvalues;
+
+    for (int isamp = 0; isamp < nsamp; isamp++) {
+        struct sample_info* sinfo = &_samples[sindex];
+        SampleTag* stag = sinfo->stag;
+        const vector<const Variable*>& vars = stag->getVariables();
+
+        SampleT<float>* osamp = getSample<float>(sinfo->nvars);
+        dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
+        osamp->setTimeTag(tt);
+        osamp->setId(stag->getId());
+        float *fp = osamp->getDataPtr();
+
+        // readCalFile(tt);
+
+        unsigned int ival;
+        for (ival = 0; ival < sinfo->nvars && sp < spend;
+            ival++,fp++) {
+            short sval = *sp++;
+            if (sval == -32768 || sval == 32767) {
+                *fp = floatNAN;
+                continue;
+            }
+
+            float volts = sinfo->convIntercepts[ival] +
+                sinfo->convSlopes[ival] * sval;
+            const Variable* var = vars[ival];
+            if (volts < var->getMinValue() || volts > var->getMaxValue())
+                *fp = floatNAN;
+#ifdef EVENTUALLY
+            else {
+                VariableConverter* conv = var->getConverter();
+                if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
+                else *fp = volts;
+            }
+#else
+            else *fp = volts;
+#endif
+        }
+
+        for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
+        results.push_back(osamp);
+    }
+    return true;
+}
+
+void DSMAnalogSensor::readCalFile(dsm_time_t tt) 
+    throw(n_u::IOException)
+{
+    // Read CalFile 
+    // gain   bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1
+    CalFile* cf = getCalFile();
+    if (cf) {
+        while(tt >= _calTime) {
+            float d[6];
+            try {
+                int n = cf->readData(d,sizeof d/sizeof(d[0]));
+                _calTime = cf->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e)
+            {
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    cf->getCurrentFileName().c_str(),e.what());
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    cf->getCurrentFileName().c_str(),e.what());
+                _calTime = LONG_LONG_MAX;
+            }
+        }
+    }
+}
+
+void DSMAnalogSensor::addSampleTag(SampleTag* tag)
+        throw(n_u::InvalidParameterException)
+{
+
+    int sindex = _samples.size();       // sample index: 0,1,...
+    A2DSensor::addSampleTag(tag);
+
+    const Parameter* tparm = tag->getParameter("temperature");
+    if (tparm && tparm->getLength() == 1) {
+        _temperatureTag = tag;
+        _temperatureRate = irigClockRateToEnum((int)tag->getRate());
+        if (_temperatureRate == IRIG_NUM_RATES) {
+            ostringstream ost;
+            ost << tag->getRate();
+            throw n_u::InvalidParameterException(getName(),"temperature sample rate",ost.str());
+        }
+        return;
+    }
+
+    struct sample_info* sinfo = &_samples[sindex];
+
+    const vector<const Variable*>& vars = tag->getVariables();
+
     int ivar = 0;
-    for (si = sortedChannelNums.begin(); si != sortedChannelNums.end();
-    	si++,ivar++) {
-	int ichan = *si;	// a2d channel number
-	size_t i;		// which requested variable is ichan
-        for (i = 0; i < channelNums.size(); i++)
-	    if (channelNums[i] == ichan) break;
-	assert(i < channelNums.size());	// it must be here somewhere
+    int prevChan = _channels.size() - 1;
+    int lastChan = -1;
 
-	// In channel index order, which output samples a channel is
-	// to be written to.
-	sampleIndices[ivar] = sampleIndexVec[i];
-	// In channel index order, which index into an output sample
-	subSampleIndices[ivar] = subSampleIndexVec[i];
+    vector<const Variable*>::const_iterator vi;
+    for (vi = vars.begin(); vi != vars.end(); ++vi,ivar++) {
+
+	const Variable* var = *vi;
+
+        // current code doesn't support variables with length > 1
+        if (var->getLength() != 1) 
+            throw n_u::InvalidParameterException(getName(),
+                var->getName(),"must have length of 1");
+
+	float fgain = 0.0;
+        int gainMul = A2DGAIN_MUL;
+        int gainDiv = A2DGAIN_DIV;
+	bool bipolar = true;
+
+	int ichan = prevChan + 1;
+	float corSlope = 1.0;
+	float corIntercept = 0.0;
+	bool rawCounts = false;
+
+	const std::list<const Parameter*>& params = var->getParameters();
+	list<const Parameter*>::const_iterator pi;
+	for (pi = params.begin(); pi != params.end(); ++pi) {
+	    const Parameter* param = *pi;
+	    const string& pname = param->getName();
+	    if (pname == "gain") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+			
+		fgain = param->getNumericValue(0);
+	    }
+	    else if (pname == "gainMul") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		gainMul = (int)param->getNumericValue(0);
+	    }
+	    else if (pname == "gainDiv") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		gainDiv = (int)param->getNumericValue(0);
+	    }
+	    else if (pname == "bipolar") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		bipolar = param->getNumericValue(0) != 0;
+	    }
+	    else if (pname == "channel") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),pname,"no value");
+		ichan = (int)param->getNumericValue(0);
+	    }
+	    else if (pname == "corSlope") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		corSlope = param->getNumericValue(0);
+	    }
+	    else if (pname == "corIntercept") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		corIntercept = param->getNumericValue(0);
+	    }
+	    else if (pname == "rawCounts") {
+		if (param->getLength() != 1)
+		    throw n_u::InvalidParameterException(getName(),
+		    	pname,"no value");
+		rawCounts = param->getNumericValue(0);
+	    }
+
+	}
+        assert(MAX_A2D_CHANNELS >= NUM_NCAR_A2D_CHANNELS);
+	if (ichan >= NUM_NCAR_A2D_CHANNELS) {
+	    ostringstream ost;
+	    ost << NUM_NCAR_A2D_CHANNELS;
+	    throw n_u::InvalidParameterException(getName(),"variable",
+		string("cannot sample more than ") + ost.str() +
+		    string(" channels"));
+	}
+        if (ichan <= lastChan) {
+            ostringstream ost;
+            ost << NUM_NCAR_A2D_CHANNELS;
+            throw n_u::InvalidParameterException(getName(),"variable",
+                string("channel number ") + ost.str() + " is out of order in the sample");
+        }
+        prevChan = ichan;
+        lastChan = ichan;
+
+        if (fmodf(fgain,1.0) != 0.0) {
+            ostringstream ost;
+            ost << fgain;
+            throw n_u::InvalidParameterException(getName(),
+                    "gain must be an integer",ost.str());
+        }
+        if (fgain == 1.0 && !bipolar) {
+            throw n_u::InvalidParameterException(getName(),
+                    "gain of 1 and unipolar unsupported","");
+        }
+
+	struct chan_info ci;
+	memset(&ci,0,sizeof(ci));
+        ci.index = -1;
+	for (int i = _channels.size(); i <= ichan; i++)
+            _channels.push_back(ci);
+	ci = _channels[ichan];
+
+        if (ci.gainSetting > 0) {
+            ostringstream ost;
+            ost << ichan;
+            throw n_u::InvalidParameterException(getName(),"variable",
+                string("multiple variables for A2D channel ") + ost.str());
+        }
+
+	ci.gainSetting = gainSetting(fgain);
+	ci.gainMul = gainMul;
+	ci.gainDiv = gainDiv;
+	ci.bipolar = bipolar;
+        ci.rawCounts = rawCounts;
+        ci.index = sindex;
+	_channels[ichan] = ci;
 
 	/*
 	 * A2D chip converts 0:4 V to -32767:32767
@@ -302,344 +599,18 @@ void DSMAnalogSensor::init() throw(n_u::InvalidParameterException)
 	 *		offset * corSlope + corIntercept
 	 */
 
-        if (channels[ichan].rawCounts) {
-            convSlope[ivar] = 1;
-            convIntercept[ivar] = 0.;
+        if (_channels[ichan].rawCounts) {
+            sinfo->convSlopes[ivar] = 1;
+            sinfo->convIntercepts[ivar] = 0.;
         } else {
-            convSlope[ivar] = 20.0 / 65536 / channels[ichan].gain * corSlopes[ichan];
-            if (channels[ichan].bipolar) 
-                convIntercept[ivar] = corIntercepts[ichan];
+            sinfo->convSlopes[ivar] = 20.0 / 65536 / fgain * corSlope;
+            if (bipolar) 
+                sinfo->convIntercepts[ivar] = corIntercept;
             else 
-                convIntercept[ivar] = corIntercepts[ichan] +
-                    10.0 / channels[ichan].gain * corSlopes[ichan];
+                sinfo->convIntercepts[ivar] = corIntercept +
+                    10.0 / fgain * corSlope;
         }
-        rawSampleLen += (int)rint(rateVec[sampleIndices[ivar]] / REPORTING_RATE);
-#ifdef DEBUG
-	cerr << "ivar=" << ivar << " sampleIndices[ivar]=" << sampleIndices[ivar] <<
-		" rate=" << rateVec[sampleIndices[ivar]] << " rawSampleLen=" << rawSampleLen << endl;
-#endif
     }
-
-    unsigned int nsamples = rateVec.size();
-
-    deltatUsec = new int[nsamples];
-    sampleTimes = new dsm_time_t[nsamples];
-
-    float maxRate = 0.0;
-    int imax = 0;
-    for (unsigned int i = 0; i < rateVec.size(); i++) {
-	if (rateVec[i] > maxRate) {
-	    maxRate = rateVec[i];
-	    imax = i;
-	}
-	deltatUsec[i] = (int)rint(USECS_PER_SEC / rateVec[i]);
-	sampleTimes[i] = 0;
-    }
-    minDeltatUsec = deltatUsec[imax];
-
-    if (maxRate >= REPORTING_RATE) {
-	assert(fmod(maxRate,REPORTING_RATE) == 0.0);
-        nSamplePerRawSample = (int)(maxRate / REPORTING_RATE);
-    }
-    else nSamplePerRawSample = 1;
-
-#ifdef DEBUG
-    cerr << "maxRate=" << maxRate <<
-    	" nSamplePerRawSample=" << nSamplePerRawSample << endl;
-#endif
-
-    outsamples = new SampleT<float>*[nsamples];
-    for (unsigned int i = 0; i < nsamples; i++) outsamples[i] = 0;
-}
-
-void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
-{
-    DSMSensor::printStatus(ostr);
-
-    A2D_STATUS stat;
-    try {
-	ioctl(A2D_GET_STATUS,&stat,sizeof(stat));
-	ostr << "<td align=left>";
-	ostr << "fifo 1/4ths=" <<
-		stat.preFifoLevel[0] << ',' <<
-		stat.preFifoLevel[1] << ',' <<
-		stat.preFifoLevel[2] << ',' <<
-		stat.preFifoLevel[3] << ',' <<
-		stat.preFifoLevel[4] << ',' <<
-		stat.preFifoLevel[5];
-	ostr << ", #badlev=" << stat.nbadFifoLevel + stat.fifoNotEmpty <<
-		", #resets=" << stat.resets <<
-		", #lost=" << stat.skippedSamples;
-
-	set<int>::const_iterator si;
-	for (si = sortedChannelNums.begin(); si != sortedChannelNums.end(); si++) {
-	    int ichan = *si;
-	    if (stat.nbad[ichan] > 0) {
-		ostr << " ,c=" << ichan << 
-			",nbad=" << stat.nbad[ichan] <<
-			",stat=" << hex << stat.badval[ichan] << dec;
-	    }
-	}
-        ostr << "</td>";
-    }
-    catch(const n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: printStatus: %s",getName().c_str(),
-	    ioe.what());
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
-    }
-}
-
-bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& result) throw()
-{
-
-// #define DEBUG
-#ifdef DEBUG
-    static size_t debugcntr = 0;
-#endif
-    dsm_time_t tt = insamp->getTimeTag();
-
-    // pointer to raw A2D counts
-    const signed short* sp = (const signed short*) insamp->getConstVoidDataPtr();
-
-    // raw data are shorts
-    assert((insamp->getDataByteLength() % sizeof(short)) == 0);
-
-    // number of data values in this raw sample.
-    unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
-
-    // number of variables being sampled
-    unsigned int nvariables = sampleIndexVec.size();
-
-    // One raw sample from A2D contains multiple sweeps
-    // of the A2D channels.
-    if (nvalues != rawSampleLen) {
-        if (!(badRawSamples++ % 1000)) 
-		n_u::Logger::getInstance()->log(LOG_ERR,
-			"A/D sample id %d (dsm=%d,sensor=%d): Expected %d raw values, got %d",
-			insamp->getId(),GET_DSM_ID(insamp->getId()),GET_SHORT_ID(insamp->getId()),
-			rawSampleLen,nvalues);
-	return false;
-    }
-
-#ifdef DEBUG
-    bool debug = GET_DSM_ID(insamp->getId()) == 0;
-#endif
-
-    for (unsigned int ival = 0; ival < nvalues; ) {
-
-	for (unsigned int ivalmod = 0;
-		ivalmod < nvariables && ival < nvalues; ivalmod++,ival++) {
-	    int isamp = sampleIndices[ivalmod];
-	    int sampIndex = subSampleIndices[ivalmod];
-
-#ifdef DEBUG
-	    if (debug && !(debugcntr % 100))
-	    cerr << " nvariables=" << nvariables << " nvalues=" << nvalues <<
-		    " ival=" << ival << " ivalmod=" << ivalmod <<
-		    " isamp=" << isamp << " sampIndex=" << sampIndex << endl;
-#endif
-	    SampleT<float>* osamp = outsamples[isamp];
-
-#ifdef DEBUG
-	    if (debug && !(debugcntr % 100))
-	    cerr << "tt=" << tt << " sampleTimes=" << sampleTimes[isamp] << endl;
-#endif
-	    // send out last sample if time tag has incremented
-	    if (tt > sampleTimes[isamp]) {
-		if (osamp) {
-		    osamp->setTimeTag(sampleTimes[isamp]);
-#ifdef DEBUG
-		    if (debug && !(debugcntr % 100)) {
-			cerr << "tt=" << osamp->getTimeTag() <<
-				" len=" << osamp->getDataLength() << " data:";
-			for (unsigned int j = 0; j < osamp->getDataLength(); j++)
-			    cerr << osamp->getDataPtr()[j] <<  ' ';
-			cerr << endl;
-		    }
-#endif
-		    result.push_back(osamp);	// pass the sample on
-		    sampleTimes[isamp] += deltatUsec[isamp];
-		    if (tt > sampleTimes[isamp]) sampleTimes[isamp] = tt;
-		}
-		else
-		    sampleTimes[isamp] = tt;
-#ifdef DEBUG
-	    if (debug && !(debugcntr % 100))
-		cerr << "getSample, numVarsInSample[" << isamp << "]=" << numVarsInSample[isamp] << endl;
-#endif
-		osamp = getSample<float>(numVarsInSample[isamp]);
-		outsamples[isamp] = osamp;
-		osamp->setId(sampleIds[isamp]);
-#ifdef DEBUG
-	    if (debug && !(debugcntr % 100))
-		cerr << "osamp->getDataLength()=" << osamp->getDataLength() << endl;
-#endif
-		float *fp = osamp->getDataPtr();
-		for (unsigned int j = 0; j < osamp->getDataLength(); j++)
-		    fp[j] = floatNAN;
-	    }
-
-	    signed short sval = sp[ival];
-	    float volts;
-	    if (sval == -32768) volts = floatNAN;
-	    else volts = convIntercept[ivalmod] + convSlope[ivalmod] * sval;
-#ifdef DEBUG
-	    if (debug && !(debugcntr % 100))
-		cerr << "ivalmod=" << ivalmod << " ival=" << ival <<
-		    " sval=" << sval << " volts=" << volts <<
-		    " convIntercept[ivalmod]=" << convIntercept[ivalmod] <<
-		    " convSlope[ivalmod]=" << convSlope[ivalmod] <<
-		" outindex=" << sampIndex << endl;
-#endif
-	    osamp->getDataPtr()[sampIndex] = volts;
-	}
-	tt += minDeltatUsec;
-    }
-#ifdef DEBUG
-    if (debug) debugcntr++;
-#endif
-    return true;
-#undef DEBUG
-}
-
-void DSMAnalogSensor::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
-{
-
-    DSMSensor::addSampleTag(tag);
-
-    float rate = tag->getRate();
-    int ratesetting = rateSetting(rate);
-
-    int nsample = rateVec.size();	// which sample are we, from 0
-
-    rateVec.push_back(rate);	// rates can be repeated
-    sampleIds.push_back(tag->getId());
-
-    const vector<const Variable*>& vars = tag->getVariables();
-    numVarsInSample.push_back(vars.size());
-
-    vector<const Variable*>::const_iterator vi;
-    int ivar = 0;
-    for (vi = vars.begin(); vi != vars.end(); ++vi,ivar++) {
-
-	const Variable* var = *vi;
-
-	float gain = 0.0;
-        int gainMul = A2DGAIN_MUL;
-        int gainDiv = A2DGAIN_DIV;
-	bool bipolar = true;
-	int ichan = channels.size();
-	float corSlope = 1.0;
-	float corIntercept = 0.0;
-	bool rawCounts = false;
-
-	const std::list<const Parameter*>& params = var->getParameters();
-	list<const Parameter*>::const_iterator pi;
-	for (pi = params.begin(); pi != params.end(); ++pi) {
-	    const Parameter* param = *pi;
-	    const string& pname = param->getName();
-	    if (pname == "gain") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-			
-		gain = param->getNumericValue(0);
-	    }
-	    else if (pname == "gainMul") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		gainMul = (int)param->getNumericValue(0);
-	    }
-	    else if (pname == "gainDiv") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		gainDiv = (int)param->getNumericValue(0);
-	    }
-	    else if (pname == "bipolar") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		bipolar = param->getNumericValue(0) != 0;
-	    }
-	    else if (pname == "channel") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),pname,"no value");
-		ichan = (int)param->getNumericValue(0);
-	    }
-	    else if (pname == "corSlope") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		corSlope = param->getNumericValue(0);
-	    }
-	    else if (pname == "corIntercept") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		corIntercept = param->getNumericValue(0);
-	    }
-	    else if (pname == "rawCounts") {
-		if (param->getLength() != 1)
-		    throw n_u::InvalidParameterException(getName(),
-		    	pname,"no value");
-		rawCounts = param->getNumericValue(0);
-	    }
-
-	}
-	if (ichan >= MAXA2DS) {
-	    ostringstream ost;
-	    ost << MAXA2DS;
-	    throw n_u::InvalidParameterException(getName(),"variable",
-		string("cannot sample more than ") + ost.str() +
-		    string(" channels"));
-	}
-
-	struct chan_info ci;
-	memset(&ci,0,sizeof(ci));
-	for (int i = channels.size(); i <= ichan; i++) channels.push_back(ci);
-
-	for (int i = corSlopes.size(); i <= ichan; i++) {
-	    corSlopes.push_back(1.0);
-	    corIntercepts.push_back(0.0);
-	}
-	corSlopes[ichan] = corSlope;
-	corIntercepts[ichan] = corIntercept;
-
-	ci = channels[ichan];
-
-	if (gain == 0.0) {	// gain of 0 means don't sample, set rate=0 for driver
-	    ci.rate =  0;
-	    ci.rateSetting = 0;
-	}
-	else {
-	    ci.rate = rate;
-	    ci.rateSetting = ratesetting;
-	}
-
-	ci.gain = gain;
-	ci.gainSetting = gainSetting(gain);
-	ci.gainMul = gainMul;
-	ci.gainDiv = gainDiv;
-	ci.bipolar = bipolar;
-        ci.rawCounts = rawCounts;
-	channels[ichan] = ci;
-
-	channelNums.push_back(ichan);
-
-	if (sortedChannelNums.find(ichan) != sortedChannelNums.end()) {
-	    ostringstream ost;
-	    ost << MAXA2DS;
-	    throw n_u::InvalidParameterException(getName(),"variable",
-		string("multiple variables for A2D channel ") + ost.str());
-	}
-	sortedChannelNums.insert(ichan);
-
-        sampleIndexVec.push_back(nsample);	// which sample this variable belongs to
-	subSampleIndexVec.push_back(ivar);	// which variable within sample
-    }
+    _deltatUsec = (int)rint(USECS_PER_SEC / getScanRate());
 }
 

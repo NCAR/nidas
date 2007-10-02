@@ -31,6 +31,7 @@
 #include <nidas/rtlinux/dsmlog.h>
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/util.h>
 
 RTLINUX_MODULE(ioctl_fifo);
 
@@ -639,5 +640,50 @@ int convert_rtl_errno(int rtlerr)
     	rtlerr,rtl_strerror(rtlerr));
 				return EINVAL;
     }
+}
+
+int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
+{
+    char* sp;
+    int i;
+
+    if (!(c->buf = rtl_gpos_malloc(blen * sizeof(void*)))) return -ENOMEM;
+    memset(c->buf,0,blen * sizeof(void*));
+
+    dlen += SIZEOF_DSM_SAMPLE_HEADER;
+    if (dlen % 4) dlen += 4 - dlen % 4;
+    sp = rtl_gpos_malloc(blen * dlen);
+    if (!sp) {
+        rtl_gpos_free(c->buf);
+        c->buf = 0;
+        return -ENOMEM;
+    }
+    memset(sp,0,blen * dlen);
+    for (i = 0; i < blen; i++) {
+        c->buf[i] = (struct dsm_sample*)sp;
+        sp += dlen;
+    }
+    c->head = c->tail = 0;
+    c->size = blen;
+    return 0;
+}
+
+void free_dsm_circ_buf(struct dsm_sample_circ_buf* c)
+{
+    if (c->buf && c->buf[0]) rtl_gpos_free(c->buf[0]);
+    rtl_gpos_free(c->buf);
+    c->buf = 0;
+    c->size = 0;
+}
+
+int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
+{
+    free_dsm_circ_buf(c);
+    return alloc_dsm_circ_buf(c,dlen,blen);
+}
+
+void init_dsm_circ_buf(struct dsm_sample_circ_buf* c)
+{
+    c->head = c->tail = 0;
 }
 

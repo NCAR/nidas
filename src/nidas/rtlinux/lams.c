@@ -88,24 +88,6 @@ static char * createFifo(char inName[], int chan)
    }
    return devName;
 }
-#if 0
-static void read_radar(void * channel)
-{
-  MESA_SIXTEEN_BIT_SAMPLE sample;
-  struct MESA_Board * brd = boardInfo;
-
-  // read from the radar channel
-  sample.sampleID = ID_RADAR;
-  sample.size = sizeof(dsm_sample_id_t) + sizeof(short) * brd->nRadars;
-  sample.timetag = GET_MSEC_CLOCK;
-  sample.data[0] = inw(brd->addr + RADAR_READ_OFFSET);
-//DSMLOG_DEBUG("chn: %d  sample.data: %d\n", 0, sample.data[0]);
-
-  // write the altitude to the user's FIFO
-  rtl_write(brd->outfd, &sample, sample.size + sizeof(dsm_sample_length_t)
-        + sizeof(dsm_sample_time_t));
-}
-#endif
 
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
@@ -125,22 +107,21 @@ static void *lams_thread (void * chan)
       }
       if (rtl_sem_timedwait(&threadSem, &timeout) < 0) {
          DSMLOG_DEBUG("thread timed out!\n");
-//       readw(baseAddr + FLAGS_OFFSET);
+         readw(baseAddr + FLAGS_OFFSET);
          // timed out!  flush the hardware FIFO
-//       for (n=0; n<MAX_BUFFER; n++)
-//          readw(baseAddr + DATA_OFFSET);
+         for (n=0; n<MAX_BUFFER; n++)
+            readw(baseAddr + DATA_OFFSET);
       } else {
 
          // TODO this is constant... set its value in ...::init()
-         lams.size = MAX_BUFFER * sizeof(short);
+         lams.size = sizeof(lams);
+
          if (fd_lams_data) {
            DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
            lams.timetag = GET_MSEC_CLOCK;
-           if (rtl_write(fd_lams_data,&lams,
-                         SIZEOF_DSM_SAMPLE_HEADER + lams.size) < 0) {
-
-//              DSMLOG_ERR("error: write: %s. Closing\n",
-//                         rtl_strerror(rtl_errno));
+           if (rtl_write(fd_lams_data,&lams, lams.size) < 0) {
+              DSMLOG_ERR("error: write: %s. Closing\n",
+                         rtl_strerror(rtl_errno));
               rtl_close(fd_lams_data);
               fd_lams_data = 0;
 	   }
@@ -154,57 +135,35 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
    static int nTattle, nGlyph;
-   static unsigned long sum[MAX_BUFFER], max1[MAX_BUFFER], temp0[MAX_BUFFER];
-   static unsigned long temp1[MAX_BUFFER], max;
-   static int n, j, nAvg = 0;
+   static unsigned long sum[MAX_BUFFER], max;
+   static int m, n, nAvg = 0;
 
-   readw(baseAddr + RAM_CLEAR_OFFSET); //Clear Dual Port memory address counter
+   readw(baseAddr + FLAGS_OFFSET); //Clear Dual Port memory address counter
+   for (n=0; n<MAX_BUFFER; n++) {
+     sum[n] += readw(baseAddr + DATA_OFFSET);
+     if(sum[n] > max){
+       max = sum[n];
+       nGlyph = n;
+     }
+   }
+  // average N spectrum data
+   if (n == MAX_BUFFER) {
+      if (nAvg++ >= N_AVG) {
+         nAvg = 0;
+         for (n=0; n<MAX_BUFFER; n++) {
+            m = n;
+            if(n >= 510) m = n - 512;
+            lams.data[n] = sum[m+2] / N_AVG;
+            sum[n] = 0;
+         }
 
-  for (n=3; n < MAX_BUFFER; n++) {
-     temp0[n] = readw(baseAddr + PEAK_DATA_OFFSET);
-     temp1[n] = readw(baseAddr + AVG_DATA_OFFSET);
-  }
-  for (n=0; n < 3; n++) {
-     temp0[n] = readw(baseAddr + PEAK_DATA_OFFSET);
-     temp1[n] = readw(baseAddr + AVG_DATA_OFFSET);
-  }
-  j = 511;
-  for (n=256; n < MAX_BUFFER; n++) {
-     sum[j--] += temp1[n];
-     if(temp0[n] > max1[n-256]) {
-       max1[n-256] = temp0[n];
-     }
-     if(temp0[n] > max) {
-       max = temp0[n];
-       nGlyph = n-256;
-     }
-   }   if (n == MAX_BUFFER) {
-     if (nAvg++ >= N_AVG) {
-       nAvg = 0;
-       for (n=0; n < MAX_BUFFER; n++) {
-         if (n < MAX_BUFFER/2) {
-           lams.data[n] = max1[255-n]*10;
-//         lams.data[n] = 2048;
-         }
-         else {
-           lams.data[n] = sum[n]/N_AVG ;
-//         lams.data[n] = 1024 ;
-         }
-         sum[n] = 0;
-       }
-
-//     DSMLOG_DEBUG("rtl_sem_post( &threadSem );\n");
-       rtl_sem_post( &threadSem );
-       if (++nTattle == N_PEAK) {
-         nTattle = 0;
-         DSMLOG_ERR("(%d) lams.data: 0x%04x, max: 0x%04x\n",
-                      nGlyph,lams.data[nGlyph], max);
-         readw(baseAddr + PEAK_CLEAR_OFFSET); 
-         for (n=0; n < MAX_BUFFER; n++) {
-           max1[n] = 0;
-         }
-       }
-     }
+         rtl_sem_post( &threadSem );
+        if (++nTattle == 13) {
+          nTattle = 0;
+          DSMLOG_DEBUG("(%d) lams.data: 0x%04x\n",
+                       nGlyph, max/N_AVG);
+        }
+      }
    }
    return 0;
 }
@@ -286,7 +245,7 @@ void cleanup_module (void)
 int init_module (void)
 {
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
-   DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+   DSMLOG_NOTICE("compiled on %s at %s by Ling\n", __DATE__, __TIME__);
 
    // open up ioctl FIFO, register ioctl function
    createFifo("_in_", BOARD_NUM);

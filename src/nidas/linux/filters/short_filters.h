@@ -19,7 +19,7 @@
 #ifndef NIDAS_SHORT_FILTERS_H
 #define NIDAS_SHORT_FILTERS_H
 
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/types.h>
 
 /**
  * Enumeration of supported filter types.
@@ -40,10 +40,12 @@ typedef struct short_sample
      * timetag of sample. Signed tenths of milliseconds since 00:00 UTC.
      */
     dsm_sample_time_t timetag;
+
     /**
      * length of sample, in bytes.
      */
     dsm_sample_length_t length;
+
     short data[0];
 } short_sample_t;
 
@@ -77,7 +79,7 @@ typedef int (*shortfilt_config_method)(void* obj, short id, int nvars,
  * @return 1: Output sample is valid. 0: no output.
  */
 typedef int (*shortfilt_filter_method)(void* obj,
-    dsm_sample_time_t tt, const short* in, short_sample_t* out);
+    dsm_sample_time_t tt, const short* in, int skip_factor, short_sample_t* out);
 
 /**
  * Destructor. kfree's the passed pointer to the filter object.

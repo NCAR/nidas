@@ -2555,7 +2555,9 @@ void cleanup_module (void)
 		rtl_sem_destroy(&port->sample_sem);
 
 		if (port->devname) {
+#ifdef DEBUG
 		    DSMLOG_DEBUG("rtl_unregister_dev: %s\n",port->devname);
+#endif
 		    rtl_unregister_dev(port->devname);
 		    rtl_gpos_free(port->devname);
 		    port->devname = 0;

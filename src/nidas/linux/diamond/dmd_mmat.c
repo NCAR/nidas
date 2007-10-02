@@ -68,7 +68,7 @@ module_param_array(d2aconfig,int,numd2aconfig,0);
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 
-/**
+/*
  * Holds the major number of all DMMAT devices.
  */
 static dev_t dmmat_device = MKDEV(0,0);
@@ -518,8 +518,8 @@ static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
          * A filter will be created for each sample */
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
                 int index = cfg->sampleIndex[i];
-                // zero gain means the channel is to be skipped
-                if (cfg->gain[i] == 0) continue;
+                // index = -1 means the channel is to be skipped
+                if (index < 0) continue;
                 for (j = 0; j < a2d->nfilters; j++)
                     if (index == uniqueSampleIndx[j]) break;
                 if (j == a2d->nfilters) uniqueSampleIndx[a2d->nfilters++] = index;
@@ -533,16 +533,20 @@ static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
 
         a2d->filters = kmalloc(a2d->nfilters *
             sizeof(struct a2d_filter_info),GFP_KERNEL);
+        if (!a2d->filters) return -EINVAL;
         memset(a2d->filters,0,
                 a2d->nfilters * sizeof(struct a2d_filter_info));
 
         /* Count number of channels for each sample */
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
                 int index = cfg->sampleIndex[i];
-                if (cfg->gain[i] == 0) continue;
-                for (j = 0; j < a2d->nfilters; j++)
-                    if (index == uniqueSampleIndx[j]) break;
-                a2d->filters[j].nchans++;
+                if (index < 0) continue;
+                if (index >= a2d->nfilters) {
+                        KLOG_ERR("%s: invalid sample index=%d, max=%d\n",
+                             a2d->deviceName,index,a2d->nfilters-1);
+                        return -EINVAL;
+                }
+                a2d->filters[index].nchans++;
         }
 
         /* Allocate array of indicies into scanned channel sequence */
@@ -554,14 +558,9 @@ static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
 
         for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
                 int index = cfg->sampleIndex[i];
-                a2d->requested[i] = 0;
-                if (cfg->gain[i] == 0) continue;
-                for (j = 0; j < a2d->nfilters; j++)
-                    if (index == uniqueSampleIndx[j]) break;
+                if (index < 0) continue;
+                a2d->filters[index].channels[a2d->filters[index].nchans++] = i;
 
-                a2d->filters[j].channels[a2d->filters[j].nchans++] = i;
-
-                a2d->requested[i] = 1;
                 if (a2d->lowChan < 0) {
                     a2d->lowChan = i;
                     gain = cfg->gain[i];
@@ -676,14 +675,14 @@ static int configA2DFilter(struct DMMAT_A2D* a2d,
                 struct boxcar_filter_config bcfg;
                 KLOG_DEBUG("%s: BOXCAR\n",a2d->deviceName);
                 bcfg.npts = cfg->boxcarNpts;
-                result = fcfg->fconfig(fcfg->filterObj,cfg->index,
+                result = fcfg->fconfig(fcfg->filterObj,fcfg->index,
                     fcfg->nchans,fcfg->channels,
                     fcfg->decimate,&bcfg);
         }
                 break;
         case NIDAS_FILTER_PICKOFF:
                 KLOG_DEBUG("%s: PICKOFF\n",a2d->deviceName);
-                result = fcfg->fconfig(fcfg->filterObj,cfg->index,
+                result = fcfg->fconfig(fcfg->filterObj,fcfg->index,
                     fcfg->nchans,fcfg->channels,
                     fcfg->decimate,0);
                 break;
@@ -1173,12 +1172,12 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                             KLOG_WARNING("%s: missedSamples=%d\n",
                                 a2d->deviceName,a2d->status.missedSamples);
                         a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,
+                            a2d->filters[i].filterObj,tt,dp,1,
                             (short_sample_t*)&toss);
                 }
                 else if (
                         a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,osamp)) {
+                            a2d->filters[i].filterObj,tt,dp,1,osamp)) {
                         INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                         KLOG_DEBUG("do_filters: samples head=%d,tail=%d\n",
                             a2d->samples.head,a2d->samples.tail);
@@ -1218,6 +1217,7 @@ static void dmmat_a2d_bottom_half(void* work)
                     a2d->fifo_samples.buf[a2d->fifo_samples.tail];
 
                 int nval = insamp->length / sizeof(short);
+                // # of deltaT to back up for timetag of first sample
                 int ndt = (nval - 1) / a2d->nchans;
                 long dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
                 short *dp = (short *)insamp->data;
@@ -1303,18 +1303,20 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                     a2d->fifo_samples.buf[a2d->fifo_samples.tail];
 
                 int nval = insamp->length / sizeof(short);
-                // # of scans in fifo
-                int ndt = (nval - 1) / a2d->nchans;
-                long dt = ndt * a2d->scanDeltaT;
                 short *dp = (short *)insamp->data;
                 short *ep = dp + nval;
 
+                // # of deltaTs to backup for first timetag
+                int ndt = (nval - 1) / a2d->nchans;
+                long dt = ndt * a2d->scanDeltaT;
+
                 BUG_ON((nval % a2d->nchans) != 0);
-                KLOG_DEBUG("tasklet, nval=%d,ndt=%d, dt=%ld\n",
-                    nval,ndt,dt);
 
                 // tt0 is conversion time of first compete scan in fifo
                 tt0 = insamp->timetag - dt;  // fifo interrupt time
+
+                KLOG_DEBUG("bottom half, nval=%d,ndt=%d, dt=%ld\n",
+                    nval,ndt,dt);
 
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
@@ -1426,7 +1428,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 #ifdef USE_TASKLET
         tasklet_schedule(&a2d->tasklet);
 #elif defined(USE_MY_WORK_QUEUE)
-        if (!queue_work(work_queue,&a2d->worker) && !(a2d->delayedWork++ % 1000)) 
+        if (queue_work(work_queue,&a2d->worker) && !(a2d->delayedWork++ % 1000)) 
                 KLOG_INFO("%s: delayedWork=%ld,irqs=%d\n",
                     a2d->deviceName,a2d->delayedWork,
                     a2d->status.irqsReceived);
@@ -2062,7 +2064,7 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         size_t countreq = count;
         int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(long);
-        struct cntr_sample* insamp;
+        struct dsm_sample* insamp;
 
         KLOG_DEBUG("head=%d,tail=%d\n",
             cntr->samples.head,cntr->samples.tail);
@@ -2332,7 +2334,6 @@ static int init_a2d(struct DMMAT* brd,int type)
         int result;
         struct DMMAT_A2D* a2d;
         dev_t devno;
-        int i;
 
         result = -ENOMEM;
         brd->a2d = a2d = kmalloc(sizeof(struct DMMAT_A2D),GFP_KERNEL);
@@ -2421,44 +2422,24 @@ static int init_a2d(struct DMMAT* brd,int type)
                 break;
         }
 
-        result = -ENOMEM;
         /*
          * Samples from the FIFO. Data portion must be
          * as big as largest FIFO threshold.
          */
-        a2d->fifo_samples.buf = kmalloc(DMMAT_FIFO_SAMPLE_QUEUE_SIZE *
-            sizeof(void*),GFP_KERNEL);
-        if (!a2d->fifo_samples.buf) return result;
-        memset(a2d->fifo_samples.buf,0,
-            DMMAT_FIFO_SAMPLE_QUEUE_SIZE * sizeof(void*));
-                
-        for (i = 0; i < DMMAT_FIFO_SAMPLE_QUEUE_SIZE; i++) {
-            struct dsm_sample* samp = (struct dsm_sample*)
-                kmalloc(SIZEOF_DSM_SAMPLE_HEADER +
-                a2d->maxFifoThreshold * sizeof(short),GFP_KERNEL);
-            if (!samp) return result;
-            memset(samp,0,SIZEOF_DSM_SAMPLE_HEADER +
-                a2d->maxFifoThreshold * sizeof(short));
-            a2d->fifo_samples.buf[i] = samp;
-        }
+        result = alloc_dsm_circ_buf(&a2d->fifo_samples,
+            a2d->maxFifoThreshold * sizeof(short),
+            DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
+        if (result) return result;
 
         /*
          * Output samples. Data portion just needs to be
-         * as big as the number of channels on the board.
+         * as big as the number of channels on the board
+         * plus one for the sample id.
          */
-        a2d->samples.buf = kmalloc(DMMAT_A2D_SAMPLE_QUEUE_SIZE *
-            sizeof(void*),GFP_KERNEL);
-        if (!a2d->samples.buf) return result;
-        memset(a2d->samples.buf,0,
-            DMMAT_A2D_SAMPLE_QUEUE_SIZE * sizeof(void*));
-                
-        for (i = 0; i < DMMAT_A2D_SAMPLE_QUEUE_SIZE; i++) {
-            struct dsm_sample* samp = (struct dsm_sample*)
-                kmalloc(sizeof(struct a2d_sample),GFP_KERNEL);
-            if (!samp) return result;
-            memset(samp,0,sizeof(struct a2d_sample));
-            a2d->samples.buf[i] = samp;
-        }
+        result = alloc_dsm_circ_buf(&a2d->samples,
+            (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short),
+            DMMAT_A2D_SAMPLE_QUEUE_SIZE);
+        if (result) return result;
 
         a2d->gainSetting = 0;	// default value
 
@@ -2481,18 +2462,10 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         cdev_del(&a2d->cdev);
 
-        if (a2d->samples.buf) {
-                for (i = 0; i < DMMAT_A2D_SAMPLE_QUEUE_SIZE; i++)
-                    if (a2d->samples.buf[i]) kfree(a2d->samples.buf[i]);
-                kfree(a2d->samples.buf);
-                a2d->samples.buf = 0;
-        }
-        if (a2d->fifo_samples.buf) {
-                for (i = 0; i < DMMAT_FIFO_SAMPLE_QUEUE_SIZE; i++)
-                    if (a2d->fifo_samples.buf[i]) kfree(a2d->fifo_samples.buf[i]);
-                kfree(a2d->fifo_samples.buf);
-                a2d->fifo_samples.buf = 0;
-        }
+        free_dsm_circ_buf(&a2d->samples);
+
+        free_dsm_circ_buf(&a2d->fifo_samples);
+
         if (a2d->filters) {
                 for (i = 0; i < a2d->nfilters; i++) {
                         if (a2d->filters[i].channels)
@@ -2554,7 +2527,8 @@ static void cntr_timer_fn(unsigned long arg)
         // The first counting period is the wrong length, so ignore the data.
         if (!cntr->firstTime) {
                 struct cntr_sample* osamp;
-                osamp = (struct cntr_sample*) GET_HEAD(cntr->samples,DMMAT_CNTR_QUEUE_SIZE);
+                osamp = (struct cntr_sample*) GET_HEAD(cntr->samples,
+                    DMMAT_CNTR_QUEUE_SIZE);
                 if (!osamp && !(cntr->status.lostSamples++ % 100))
                         KLOG_WARNING("%s: lostSamples=%d\n",
                             cntr->deviceName,cntr->status.lostSamples);
@@ -2581,7 +2555,6 @@ static int init_cntr(struct DMMAT* brd,int type)
         int result = -ENOMEM;
         struct DMMAT_CNTR* cntr;
         dev_t devno;
-        int i;
 
         brd->cntr = cntr = kmalloc(sizeof(struct DMMAT_CNTR),GFP_KERNEL);
         if (!cntr) return result;
@@ -2616,15 +2589,9 @@ static int init_cntr(struct DMMAT* brd,int type)
         /*
          * Allocate counter samples in circular buffer
          */
-        result = -ENOMEM;
-        for (i = 0; i < DMMAT_CNTR_QUEUE_SIZE; i++) {
-                struct cntr_sample* samp = (struct cntr_sample*)
-                    kmalloc(SIZEOF_DSM_SAMPLE_HEADER + sizeof(long),GFP_KERNEL);
-                if (!samp) return result;
-                memset(samp,0,SIZEOF_DSM_SAMPLE_HEADER +sizeof(long));
-                cntr->samples.buf[i] = samp;
-        }
-        cntr->samples.head = cntr->samples.tail = 0;
+        result = alloc_dsm_circ_buf(&cntr->samples,
+            sizeof(long),DMMAT_CNTR_QUEUE_SIZE);
+        if (result) return result;
 
         init_waitqueue_head(&cntr->read_queue);
 
@@ -2644,6 +2611,8 @@ static void cleanup_cntr(struct DMMAT* brd)
         struct DMMAT_CNTR* cntr = brd->cntr;
         if (!cntr) return;
         cdev_del(&cntr->cdev);
+
+        free_dsm_circ_buf(&cntr->samples);
 
         kfree(cntr);
         brd->cntr = 0;

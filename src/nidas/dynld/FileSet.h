@@ -19,7 +19,6 @@
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/ConnectionRequester.h>
-#include <nidas/core/dsm_sample.h>
 #include <nidas/dynld/FsMount.h>
 
 #include <nidas/util/FileSet.h>

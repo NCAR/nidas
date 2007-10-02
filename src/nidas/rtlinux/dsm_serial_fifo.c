@@ -616,58 +616,64 @@ void cleanup_module (void)
    for (ib = 0; ib < numboards; ib++) {
 
       if (boardInfo[ib].ports) {
-         DSMLOG_NOTICE("ib=%d\n",ib);
+#ifdef DEBUG
+         DSMLOG_DEBUG("ib=%d\n",ib);
+#endif
          for (ip = 0; ip < boardInfo[ib].numports; ip++) {
             struct dsm_serial_fifo_port* port = boardInfo[ib].ports + ip;
 
-            DSMLOG_NOTICE("closing port %d\n",ip);
+#ifdef DEBUG
+            DSMLOG_DEBUG("closing port %d\n",ip);
+#endif
             close_port(port);
-            DSMLOG_NOTICE("closing port %d done\n",ip);
+#ifdef DEBUG
+            DSMLOG_DEBUG("closing port %d done\n",ip);
+#endif
 
             if (port->inFifoName) {
 #ifdef DEBUG
-               DSMLOG_NOTICE("unlinking %s\n",port->inFifoName);
+               DSMLOG_DEBUG("unlinking %s\n",port->inFifoName);
 #endif
                rtl_unlink(port->inFifoName);
 #ifdef DEBUG
-               DSMLOG_NOTICE("freeing %s\n",port->inFifoName);
+               DSMLOG_DEBUG("freeing %s\n",port->inFifoName);
 #endif
                rtl_gpos_free(port->inFifoName);
                port->inFifoName = 0;
             }
             if (port->outFifoName) {
 #ifdef DEBUG
-               DSMLOG_NOTICE("unlinking %s\n",port->outFifoName);
+               DSMLOG_DEBUG("unlinking %s\n",port->outFifoName);
 #endif
                rtl_unlink(port->outFifoName);
 #ifdef DEBUG
-               DSMLOG_NOTICE("freeing %s\n",port->outFifoName);
+               DSMLOG_DEBUG("freeing %s\n",port->outFifoName);
 #endif
                rtl_gpos_free(port->outFifoName);
                port->outFifoName = 0;
             }
             if (port->devname) {
 #ifdef DEBUG
-               DSMLOG_NOTICE("freeing %s\n",port->devname);
+               DSMLOG_DEBUG("freeing %s\n",port->devname);
 #endif
                rtl_gpos_free(port->devname);
                port->devname = 0;
             }
 #ifdef DEBUG
-            DSMLOG_NOTICE("freeing stack\n");
+            DSMLOG_DEBUG("freeing stack\n");
 #endif
             if (port->in_thread_stack) rtl_gpos_free(port->in_thread_stack);
             port->in_thread_stack = 0;
          }
 #ifdef DEBUG
-         DSMLOG_NOTICE("freeing ports\n");
+         DSMLOG_DEBUG("freeing ports\n");
 #endif
          rtl_gpos_free(boardInfo[ib].ports);
          boardInfo[ib].ports = 0;
       }
       if (boardInfo[ib].ioctlhandle) {
 #ifdef DEBUG
-         DSMLOG_NOTICE("closeIoctlFIFO\n");
+         DSMLOG_DEBUG("closeIoctlFIFO\n");
 #endif
          closeIoctlFIFO(boardInfo[ib].ioctlhandle);
       }
@@ -675,7 +681,7 @@ void cleanup_module (void)
    }
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("freeing boardInfo\n");
+   DSMLOG_DEBUG("freeing boardInfo\n");
 #endif
    rtl_gpos_free(boardInfo);
    boardInfo = 0;

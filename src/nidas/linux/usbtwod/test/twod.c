@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "../usbtwod.h"
+
 #define P2D_DATA        4096            /* PMS 2D image buffer array size */
 
 struct P2d_rec {
@@ -25,7 +27,6 @@ struct P2d_rec {
 };
 typedef struct P2d_rec P2d_rec;
 
-#include "../usbtwod.h"
 
 int fd;
 

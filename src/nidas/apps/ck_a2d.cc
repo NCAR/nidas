@@ -132,7 +132,7 @@ int main(int argc, char** argv)
   cerr << __FILE__ << ": Up Fifo opened" << endl;
 
   const size_t MAX_DATA_SIZE =
-  	NVARIABLES * sample_rate / A2D_INTERRUPT_RATE * sizeof(short);
+  	NVARIABLES * sample_rate / A2D_POLL_RATE * sizeof(short);
 
   dsm_sample* buf = (dsm_sample*) malloc(SIZEOF_DSM_SAMPLE_HEADER +
   	MAX_DATA_SIZE);
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 
 
 		short* dp = (short*) buf->data;
-		for(ii = 0; ii < sample_rate / A2D_INTERRUPT_RATE ; ii++)
+		for(ii = 0; ii < sample_rate / A2D_POLL_RATE ; ii++)
 		{
 			for(jj = 0; jj < NVARIABLES; jj++)
 			{

@@ -17,7 +17,9 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #ifndef NCAR_A2D_H
 #define NCAR_A2D_H
 
-#include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
+#include <nidas/linux/types.h>              // get nidas typedefs
+#include <nidas/linux/a2d.h>
+// #include <nidas/linux/filters/short_filters.h>
 
 /* 
  * User programs need these for the _IO macros, but kernel modules get
@@ -28,15 +30,19 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #  include <sys/types.h>
 #endif
 
+/*
+ * Board temperature samples will have this index value.
+ */
+#define NCAR_A2D_TEMPERATURE_INDEX 999
 
-#define MAXA2DS         8       // Max A/D's per card
+#define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
 #define A2DGAIN_MUL     9       // multiplies GainCode
 #define A2DGAIN_DIV     10      // divides GainCode
 
 /*
  * Frequency for getting data from the card's FIFO (Hz)
  */
-#define A2D_INTERRUPT_RATE  100
+#define A2D_POLL_RATE  100
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
@@ -54,10 +60,13 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define A2D_SET_CAL    _IOW(A2D_MAGIC, 2, A2D_CAL)
 #define A2D_RUN        _IO(A2D_MAGIC, 3)
 #define A2D_STOP       _IO(A2D_MAGIC, 4)
-#define A2DTEMP_OPEN   _IOW(A2D_MAGIC, 5, int)	// RTLinux only
-#define A2DTEMP_CLOSE  _IO(A2D_MAGIC, 6)	// RTLinux only
-#define A2DTEMP_GET_TEMP _IOR(A2D_MAGIC, 7, short)
-#define A2DTEMP_SET_RATE _IOW(A2D_MAGIC, 8, int)
+#define A2DTEMP_GET_TEMP _IOR(A2D_MAGIC, 5, short)
+#define A2DTEMP_SET_RATE _IOW(A2D_MAGIC, 6, int)
+/* obsolete RTLinux ioctls (reference by unused open method in 
+ * raf/A2DBoardTempSensor */
+#define A2DTEMP_OPEN   _IOW(A2D_MAGIC, 7, int)
+#define A2DTEMP_CLOSE  _IO(A2D_MAGIC, 8)
+
 
 /*
  * A/D filter configuration
@@ -67,13 +76,16 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 typedef struct
 {
-    int  gain[MAXA2DS];    // Gain settings
-    int  gainMul[MAXA2DS]; // Gain Code multiplier
-    int  gainDiv[MAXA2DS]; // Gain Code divider
-    int  Hz[MAXA2DS];      // Sample rate in Hz. 0 is off.
-    int  offset[MAXA2DS];  // Offset flags
-    long latencyUsecs;     // buffer latency in micro-seconds (UNUSED)
+    int  gain[NUM_NCAR_A2D_CHANNELS];    // Gain settings
+    int  gainMul[NUM_NCAR_A2D_CHANNELS]; // Gain Code multiplier
+    int  gainDiv[NUM_NCAR_A2D_CHANNELS]; // Gain Code divider
+    // Sample rate in Hz. 0 is off. Not used in new version
+    int  Hz[NUM_NCAR_A2D_CHANNELS];
+    int  offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
+    int  sampleIndex[NUM_NCAR_A2D_CHANNELS];  // index of corresponding sample
+    int latencyUsecs;     // buffer latency in micro-seconds (UNUSED)
     unsigned short filter[CONFBLOCKS*CONFBLLEN+1]; // Filter data
+    int scanRate;                       // how fast to sample
 } A2D_SET;
 
 /* A2D status info */
@@ -88,9 +100,9 @@ typedef struct
     //  5: full
     size_t preFifoLevel[6];   // counters for fifo level, pre-read
     size_t postFifoLevel[6];  // counters for fifo level, post-read
-    size_t nbad[MAXA2DS];     // number of bad status words in last 100 scans
-    unsigned short badval[MAXA2DS];   // value of last bad status word
-    unsigned short goodval[MAXA2DS];  // value of last good status word
+    size_t nbad[NUM_NCAR_A2D_CHANNELS];     // number of bad status words in last 100 scans
+    unsigned short badval[NUM_NCAR_A2D_CHANNELS];   // value of last bad status word
+    unsigned short goodval[NUM_NCAR_A2D_CHANNELS];  // value of last good status word
     unsigned short    ser_num;        // A/D card serial number
     size_t nbadFifoLevel;     // #times hw fifo not at expected level pre-read
     size_t fifoNotEmpty;      // #times hw fifo not empty post-read
@@ -103,7 +115,7 @@ typedef struct
  */
 typedef struct
 {
-    int  calset[MAXA2DS];  // Calibration flags
+    int  calset[NUM_NCAR_A2D_CHANNELS];  // Calibration flags
     int  vcalx8;           // Calibration voltage:
     // 128=0, 48=-10, 208 = +10, .125 V/bit
 } A2D_CAL;

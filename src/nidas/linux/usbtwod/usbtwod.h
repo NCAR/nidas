@@ -2,6 +2,8 @@
 #ifndef _nidas_usbtwod_h_
 #define _nidas_usbtwod_h_
 
+#include <nidas/linux/types.h>
+
 #ifndef __KERNEL__
 /* User programs need this for the _IO macros, but kernel
  * modules get their's elsewhere.
@@ -11,7 +13,7 @@
 #include <errno.h>
 #endif
 
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/util.h>
 
 /*
  * Structure of counters that can be queried with the

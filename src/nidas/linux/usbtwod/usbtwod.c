@@ -881,6 +881,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                                 retval = countreq;
                                 break;
                         }
+                        // At this point since count > 0, we know bytesLeft == 0
                 }
                 /* Finished writing previous sample, check for next. 
                  * dev->readstate.bytesLeft will be 0 here.

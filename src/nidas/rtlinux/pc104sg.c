@@ -1433,7 +1433,9 @@ static void portCallback(void* privateData)
                          tv.tv_sec,tv.tv_usec,tt,td,extendedStatus);
 #endif
       }
-      DSMLOG_INFO("tt=%d, td=%d\n",tt,td);
+#ifdef DEBUG
+      DSMLOG_DEBUG("tt=%d, td=%d\n",tt,td);
+#endif
    }
 
    if (dev->inFifoFd >= 0) {

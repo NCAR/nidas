@@ -17,7 +17,8 @@
 
 #include <nidas/core/DSMSensor.h>
 
-#include <nidas/linux/filters/short_filters.h>
+#include <nidas/linux/a2d.h>
+// #include <nidas/linux/filters/short_filters.h>
 
 #include <vector>
 #include <map>
@@ -76,14 +77,6 @@ protected:
      */
     int scanRate;
 
-    /* What we need to know about a channel */
-    struct chan_info {
-	int gain;   // 0 means this channel is not sampled
-	bool bipolar;
-        int index;     // index of sample for this channel
-    };
-    std::vector<struct chan_info> _channels;
-
     struct sample_info {
         /**
          * The tag of each requested sample.
@@ -101,6 +94,11 @@ protected:
         int rate;
 
         /**
+         * Number of variables in the sample.
+         */
+        unsigned int nvars;
+
+        /**
          * Which filter is being applied to these samples.
          */
         enum nidas_short_filter filterType;
@@ -109,11 +107,6 @@ protected:
          * Number of points in boxcar averages, if boxcar filter.
          */
         int boxcarNpts;
-
-        /** 
-         * Number of variables in the sample.
-         */
-        unsigned int nvars;
 
         /**
          * Conversion factor when converting from A2D counts to 
@@ -130,7 +123,11 @@ protected:
          * the resultant voltage value should be the actual input voltage.
          */
         float* convIntercepts;
+
+        int* channels;
+
     };
+
     std::vector<struct sample_info> _samples;
       
     /**
@@ -138,7 +135,6 @@ protected:
      */
     size_t badRawSamples;
 
-    mutable int rtlinux;
 };
 
 }}	// namespace nidas namespace dynld

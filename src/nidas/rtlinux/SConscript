@@ -13,6 +13,7 @@ import kmake    # get_svnversion
 Import('env')
 # Import('build_rtlinux_modules')
 myenv = env.Copy()
+arch = myenv['ARCH']
 
 rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
 
@@ -92,6 +93,8 @@ headers = Split("""
     win_com8.h
 """)
 
+myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
+
 ## 
 ## Build the modules and install headers only if the RTLinux Development
 ## kit can be found.
@@ -100,6 +103,30 @@ if os.path.exists(rtlgcc):
     objs = [ myenv.Object(i) for i in modules ]
     # print(["objs="] + [str(h) for h in objs])
     myenv.Install('$PREFIX/rtlinux',objs)
-    myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
 else:
     print "Skipping RTLinux builds: %s not found." % rtlgcc
+
+
+subdirs=Split("""
+    filters
+""")
+
+# if arch == 'arm' or arch == 'x86':
+#     subdirs += Split("""filters""")
+
+##
+## ARCH target for creating modules, library, and executables
+##
+myenv.Alias(arch, ['build_%s' % dir for dir in subdirs])
+
+# Provide an arch-specific install alias.  Basically, install everything
+# that goes under the arch-specific install prefix.
+archinstall= myenv.Alias(arch+'_install', [ '$PREFIX' ])
+
+for dir in subdirs:
+    SConscript('%s/SConscript' % dir,
+               build_dir='build_%s' % dir,
+               duplicate=0,exports={'env':myenv})
+
+Default([ "build_%s" % dir for dir in subdirs ])
+

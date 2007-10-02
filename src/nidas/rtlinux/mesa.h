@@ -18,7 +18,6 @@
 #ifndef _mesa_driver_h_
 #define _mesa_driver_h_
 
-#include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
 #include <nidas/rtlinux/irigclock.h>
 
 #define MAX_BUFFER	1024

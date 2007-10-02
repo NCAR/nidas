@@ -52,7 +52,8 @@ if arch != 'arm':
 subdirs=Split("""util core dynld apps linux""")
 
 # No point in building or installing rtlinux except for arm builds.
-if arch == 'arm' or arch == 'x86':
+# if arch == 'arm' or arch == 'x86':
+if arch == 'arm':
     subdirs += Split("""rtlinux""")
 
 defaultdirs=subdirs[1:]     # skip util, its code is built with core/SConscript

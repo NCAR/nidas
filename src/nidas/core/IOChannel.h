@@ -18,7 +18,7 @@
 
 #include <nidas/core/ConnectionRequester.h>
 
-#include <nidas/core/dsm_sample.h>
+// #include <nidas/linux/types.h>
 #include <nidas/core/DOMable.h>
 
 #include <nidas/util/IOException.h>

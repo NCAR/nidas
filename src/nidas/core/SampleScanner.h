@@ -17,7 +17,7 @@
 
 #include <nidas/core/SampleClock.h>
 
-#include <nidas/core/dsm_sample.h>
+// #include <nidas/linux/types.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
 

@@ -20,7 +20,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/NidsIterators.h>
 
-#include <nidas/core/dsm_sample.h>
+// #include <nidas/linux/types.h>
 #include <nidas/core/SamplePool.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>

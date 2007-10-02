@@ -33,7 +33,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor()
+    A2DSensor(),rtlinux(-1)
 {
     setLatency(0.1);
 }
@@ -69,7 +69,57 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
 void DSC_A2DSensor::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-    A2DSensor::open(flags);
+    DSMSensor::open(flags);
+    init();
+
+    int nchans = 0;
+
+    ioctl(NIDAS_A2D_GET_NCHAN,&nchans,sizeof(nchans));
+
+    if (_channels.size() > (unsigned)nchans) {
+        ostringstream ost;
+        ost << "max channel number is " << nchans;
+        throw n_u::InvalidParameterException(getName(),"open",ost.str());
+    }
+
+    struct nidas_a2d_config cfg;
+    unsigned int chan;
+    for(chan = 0; chan < _channels.size(); chan++)
+    {
+	cfg.gain[chan] = _channels[chan].gain;
+	cfg.bipolar[chan] = _channels[chan].bipolar;
+	cfg.sampleIndex[chan] = _channels[chan].index;
+
+#ifdef DEBUG
+	cerr << "chan=" << chan << " rate=" << cfg.rate[chan] <<
+		" gain=" << cfg.gain[chan] << 
+		" bipolar=" << cfg.bipolar[chan] << endl;
+#endif
+    }
+    for( ; chan < MAX_A2D_CHANNELS; chan++) {
+	cfg.gain[chan] = 0;
+	cfg.bipolar[chan] = false;
+    }
+
+    cfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
+    if (cfg.latencyUsecs == 0) cfg.latencyUsecs = USECS_PER_SEC / 10;
+
+    cfg.scanRate = getScanRate();
+
+    // cerr << "doing NIDAS_A2D_SET_CONFIG" << endl;
+    ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(struct nidas_a2d_config));
+
+    for(unsigned int i = 0; i < _samples.size(); i++) {
+        struct nidas_a2d_filter_config fcfg;
+
+        fcfg.index = _samples[i].index;
+	fcfg.rate = _samples[i].rate;
+	fcfg.filterType = _samples[i].filterType;
+	fcfg.boxcarNpts = _samples[i].boxcarNpts;
+
+        ioctl(NIDAS_A2D_ADD_FILTER, &fcfg,
+            sizeof(struct nidas_a2d_filter_config));
+    }
     // cerr << "doing DMMAT_A2D_START" << endl;
     ioctl(DMMAT_A2D_START,0,0);
 }
@@ -179,6 +229,7 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 		corIntercept = param->getNumericValue(0);
 	    }
 	}
+        assert(MAX_DMMAT_A2D_CHANNELS <= MAX_A2D_CHANNELS);
 	if (ichan >= MAX_DMMAT_A2D_CHANNELS) {
 	    ostringstream ost;
 	    ost << MAX_DMMAT_A2D_CHANNELS;
@@ -205,6 +256,7 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 
 	struct chan_info ci;
 	memset(&ci,0,sizeof(ci));
+        ci.index = -1;
 	for (int i = _channels.size(); i <= ichan; i++)
             _channels.push_back(ci);
 
@@ -254,13 +306,12 @@ void DSC_A2DSensor::addSampleTag(SampleTag* tag)
 	 *		offset * corSlope + corIntercept
 	 */
 
-	sinfo->convSlopes[ivar] = 20.0 / 65535 /
-            _channels[ichan].gain * corSlope;
-	if (_channels[ichan].bipolar) 
+	sinfo->convSlopes[ivar] = 20.0 / 65535 / fgain * corSlope;
+	if (bipolar) 
 	    sinfo->convIntercepts[ivar] = corIntercept;
         else 
 	    sinfo->convIntercepts[ivar] = corIntercept +
-	    	10.0 / _channels[ichan].gain * corSlope;
+	    	10.0 / fgain * corSlope;
     }
 }
 
@@ -270,19 +321,5 @@ void DSC_A2DSensor::fromDOMElement(
 {
 
     DSMSensor::fromDOMElement(node);
-
-    const std::list<const Parameter*>& params = getParameters();
-    list<const Parameter*>::const_iterator pi;
-    for (pi = params.begin(); pi != params.end(); ++pi) {
-        const Parameter* param = *pi;
-        const string& pname = param->getName();
-        // A sensor "rate" parameter is the A2D scan rate, before decimation
-        if (pname == "rate") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"parameter",
-                        "bad rate parameter");
-                setScanRate((int)param->getNumericValue(0));
-        }
-    }
 }
 

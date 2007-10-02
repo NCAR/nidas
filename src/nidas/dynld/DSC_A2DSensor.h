@@ -67,6 +67,16 @@ public:
 
 private:
 
+    /* What we need to know about a channel */
+    struct chan_info {
+	int gain;   // 0 means this channel is not sampled
+	bool bipolar;
+        int index;     // index of sample for this channel
+    };
+    std::vector<struct chan_info> _channels;
+
+    mutable int rtlinux;
+
 };
 
 }}	// namespace nidas namespace dynld

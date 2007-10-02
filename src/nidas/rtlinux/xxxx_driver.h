@@ -20,7 +20,7 @@
 #ifndef XXXX_DRIVER_H
 #define XXXX_DRIVER_H
 
-#include <nidas/core/dsm_sample.h>              // get dsm_sample typedefs
+#include <nidas/linux/types.h>              // get nidas typedefs
 
 #ifndef __RTCORE_KERNEL__
 /* User programs need this for the _IO macros, but kernel

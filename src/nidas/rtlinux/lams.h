@@ -15,8 +15,7 @@
 #define LAMS_DRIVER_H
 
 #include <nidas/rtlinux/ioctl_fifo.h>
-#include <nidas/core/dsm_sample.h>
-typedef unsigned long dsm_sample_id_t;  // stolen from #include <nidas/core/Sample.h>
+#include <nidas/linux/types.h>
 
 /* This header is also included from user-side code that
  * wants to get the values of the ioctl commands, and
@@ -28,7 +27,7 @@ typedef unsigned long dsm_sample_id_t;  // stolen from #include <nidas/core/Samp
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
 #define N_AVG       80 
-#define N_PEAK      50 
+#define N_PEAK      780 
 #define MAX_BUFFER  512
 
 /* Pick a character as the magic number of your driver.
@@ -41,10 +40,6 @@ typedef unsigned long dsm_sample_id_t;  // stolen from #include <nidas/core/Samp
 
 #define FLAGS_OFFSET             0x00
 #define DATA_OFFSET              0x02
-#define RAM_CLEAR_OFFSET         0x00
-#define AVG_DATA_OFFSET          0x02
-#define PEAK_CLEAR_OFFSET        0x04
-#define PEAK_DATA_OFFSET         0x06
 #define DEBUG_OFFSET             0x04
 #define AIR_SPEED_OFFSET         0x06
 

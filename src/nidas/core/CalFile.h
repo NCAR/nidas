@@ -13,8 +13,8 @@
 
 */
 
-#ifndef NIDAS_DYNLD_CALFILE_H
-#define NIDAS_DYNLD_CALFILE_H
+#ifndef NIDAS_CORE_CALFILE_H
+#define NIDAS_CORE_CALFILE_H
 
 #include <nidas/core/DOMable.h>
 #include <nidas/core/DSMConfig.h>

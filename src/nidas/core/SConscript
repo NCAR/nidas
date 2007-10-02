@@ -69,7 +69,6 @@ headers = [ Split("""
     DSMConfig.h
     DSMEngine.h
     DSMEngineIntf.h
-    dsm_sample.h
     DSMSensor.h
     DSMServer.h
     DSMServerIntf.h

@@ -10,10 +10,11 @@ $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/ncar_a2d.h $
 Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 */
+
 #ifndef NCAR_A2D_PRIV_H
 #define NCAR_A2D_PRIV_H
 
-#include <nidas/linux/ncar_a2d.h>	// shared stuff
+#include <nidas/linux/ncar_a2d.h>       // shared stuff
 
 #include <linux/autoconf.h>
 #include <linux/completion.h>
@@ -23,8 +24,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #include <linux/wait.h>
 
 #define A2D_MAX_RATE    5000
-#define RATERATIO       (A2D_MAX_RATE / A2D_INTERRUPT_RATE)
-
 
 //AD7725 Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
@@ -72,18 +71,12 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
-#define HWFIFODEPTH             1024	// # of words in card's hardware FIFO
+#define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
+#define FIFO_SAMPLE_QUEUE_SIZE 16        // must be power of 2
+#define A2D_SAMPLE_QUEUE_SIZE 128       // must be power of 2
 
-/*
- * Size of the circular buffer of samples waiting for processing by
- * taskReadA2DSamples.  This should be one larger than the max number
- * of samples to be buffered, since one element of the circular buffer
- * is always available for the next write.
- */
-#define DSMSAMPLE_CBUF_SIZE	5
-
-#define A2DMASTER	0	// A/D chip designated to produce interrupts
-#define A2DIOWIDTH	0x10	// Width of I/O space
+#define A2DMASTER	0       // A/D chip designated to produce interrupts
+#define A2DIOWIDTH	0x10    // Width of I/O space
 
 /*
  * address offset for commands to the card itself
@@ -94,12 +87,13 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
  * effect of this change limits us to using A/D channels 0-6, i.e.,
  * we have 7 rather than 8 channels available.)
  */
+
 #if defined(CONFIG_MACH_ARCOM_MERCURY)
 #  define A2DCMDADDR	0xE
-   static const int NO_CHANNEL_7 = 1;	// can't address channel 7
+static const int NO_CHANNEL_7 = 1;      // can't address channel 7
 #else
 #  define A2DCMDADDR	0xF
-   static const int NO_CHANNEL_7 = 0;	// channel 7 is available
+static const int NO_CHANNEL_7 = 0;      // channel 7 is available
 #endif
 
 /*
@@ -115,103 +109,108 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 //   will point the enable latch at the FIFO output.
 
 //FIFO Control Word bit definitions
-#define A2DIO_FIFO         0x0     // FIFO data (read), FIFO Control (write)
-#define A2DIO_WRCMD        0x1     // write a command
-#define A2DIO_WRCOEF       0x2     // write a coefficient to one of the 7725s
+#define A2DIO_FIFO         0x0  // FIFO data (read), FIFO Control (write)
+#define A2DIO_WRCMD        0x1  // write a command
+#define A2DIO_WRCOEF       0x2  // write a coefficient to one of the 7725s
 #define A2DIO_D2A0         0x3
 #define A2DIO_D2A1         0x4
 #define A2DIO_D2A2         0x5
-#define A2DIO_RDINTR       0x6     // read A/D INT lines
-#define A2DIO_WRCALOFF     0x6     // write cal/offset
-#define A2DIO_RDBOARDSTAT  0x7     // read board status
-#define A2DIO_WRMASTER     0x7     // set master A/D
-#define A2DIO_RDCHANSTAT   0x9     // read status from a specific A/D channel
-#define A2DIO_RDDATA       0xa     // read data
+#define A2DIO_RDINTR       0x6  // read A/D INT lines
+#define A2DIO_WRCALOFF     0x6  // write cal/offset
+#define A2DIO_RDBOARDSTAT  0x7  // read board status
+#define A2DIO_WRMASTER     0x7  // set master A/D
+#define A2DIO_RDCHANSTAT   0x9  // read status from a specific A/D channel
+#define A2DIO_RDDATA       0xa  // read data
 
 // AD7725 chip command words (See A2DIO_WR7725CMD above)
-#define AD7725_READID      0x8802  // Read device ID (NOT USED)
-#define AD7725_READDATA    0x8d21  // Read converted data
-#define AD7725_WRCONFIG    0x1800  // Write configuration data
-#define AD7725_WRCONFEM    0x1A00  // Write configuration, mask data (NOT USED)
-#define AD7725_ABORT       0x0000  // Soft reset; still configured
-#define AD7725_BFIR        0x2000  // Boot from internal ROM (NOT USED)
+#define AD7725_READID      0x8802       // Read device ID (NOT USED)
+#define AD7725_READDATA    0x8d21       // Read converted data
+#define AD7725_WRCONFIG    0x1800       // Write configuration data
+#define AD7725_WRCONFEM    0x1A00       // Write configuration, mask data (NOT USED)
+#define AD7725_ABORT       0x0000       // Soft reset; still configured
+#define AD7725_BFIR        0x2000       // Boot from internal ROM (NOT USED)
 
 // A/D Control bits
-#define FIFOCLR        0x01    // Cycle this bit 0-1-0 to clear FIFO
-#define A2DAUTO        0x02    // Set = allow A/D's to run automatically
-#define A2DSYNC        0x04    // Set then cycle A2DSYNCCK to stop A/D's
-#define A2DSYNCCK      0x08    // Cycle to latch A2DSYNC bit value
-#define A2D1PPSEBL     0x10    // Set to allow GPS 1PPS to clear SYNC
-#define FIFODAFAE      0x20    // Set to clamp value of AFAE in FIFO     // NOT USED
-#define A2DSTATEBL     0x40    // Enable A2D status
-#define FIFOWREBL      0x80    // Enable writing to FIFO. (not used)     // NOT USED
+#define FIFOCLR        0x01     // Cycle this bit 0-1-0 to clear FIFO
+#define A2DAUTO        0x02     // Set = allow A/D's to run automatically
+#define A2DSYNC        0x04     // Set then cycle A2DSYNCCK to stop A/D's
+#define A2DSYNCCK      0x08     // Cycle to latch A2DSYNC bit value
+#define A2D1PPSEBL     0x10     // Set to allow GPS 1PPS to clear SYNC
+#define FIFODAFAE      0x20     // Set to clamp value of AFAE in FIFO     // NOT USED
+#define A2DSTATEBL     0x40     // Enable A2D status
+#define FIFOWREBL      0x80     // Enable writing to FIFO. (not used)     // NOT USED
 
 // FIFO Status bits
-#define FIFOHF         0x01    // FIFO half full
-#define FIFOAFAE       0x02    // FIFO almost full/almost empty
-#define FIFONOTEMPTY   0x04    // FIFO not empty
-#define FIFONOTFULL    0x08    // FIFO not full
-#define INV1PPS        0x10    // Inverted 1 PPS pulse
-#define PRESYNC        0x20    // Presync bit			// NOT USED
+#define FIFOHF         0x01     // FIFO half full
+#define FIFOAFAE       0x02     // FIFO almost full/almost empty
+#define FIFONOTEMPTY   0x04     // FIFO not empty
+#define FIFONOTFULL    0x08     // FIFO not full
+#define INV1PPS        0x10     // Inverted 1 PPS pulse
+#define PRESYNC        0x20     // Presync bit                   // NOT USED
 
-typedef struct
+struct a2d_sample
 {
-    dsm_sample_time_t timetag; // timetag of sample
-    dsm_sample_length_t length;    // number of bytes in data
-    short data[RATERATIO*MAXA2DS];
-} A2DSAMPLE;
-
-typedef struct
-{
-    dsm_sample_time_t timetag;	// timetag of sample
-    dsm_sample_length_t length;	// number of bytes in data
-    short data;			// (deg. C / 0.0625)
-} A2DTEMPSAMPLE;
-
-struct A2DBoard {
-    unsigned int base_addr;           // Base address of board
-    unsigned int cmd_addr;            // Address for commands to the board
-
-    struct tasklet_struct setupTasklet;
-    struct completion setupCompletion;
-    int setupStatus;             // non-zero if not set up
-
-    struct tasklet_struct resetTasklet;
-    int resetStatus;             // non-zero if not set up
-    
-    int tempRate;                // rate to query I2C temperature sensor
-    A2D_SET config;              // board configuration
-    A2D_CAL cal;                 // calibration configuration
-    A2D_STATUS cur_status;       // status info maintained by driver
-    A2D_STATUS prev_status;      // status info maintained by driver
-    unsigned char requested[MAXA2DS]; // 1=channel requested, 0=isn't
-    int nRequestedChannels;      // # of requested channels
-    int MaxHz;                   // Maximum requested A/D sample rate
-    int ttMsecAdj;               // how much to adjust sample time-tags backwds
-    int busy;
-    int interrupted;
-    size_t readCtr;
-    int nbadScans;
-    int master;
-    int sampsPerCallback;     // data values per IRIG callback per channel
-
-    size_t nbadFifoLevel;
-    size_t fifoNotEmpty;
-    size_t skippedSamples;    // how many samples have we missed?
-    int resets;               // number of board resets since last open
-
-    spinlock_t bufLock;       // lock for buffer and tempSamp below
-    struct kfifo* buffer;     // holds data for transfer to user space
-    wait_queue_head_t rwaitq; // wait queue for user reads
-    A2DTEMPSAMPLE tempSamp;   // last measured temp
-    int tempReady;            // do we have a new temperature sample?
-
-    unsigned short OffCal;    // offset and cal bits
-    unsigned char FIFOCtl;    // hardware FIFO control word storage
-    unsigned char i2c;        // data byte written to I2C
-    char invertCounts;        // whether to invert counts from this A2D
-    char discardNextScan;     // should we discard the next scan
-    int enableReads;
+        dsm_sample_time_t timetag;      // timetag of sample
+        dsm_sample_length_t length;     // number of bytes in data
+        short data[NUM_NCAR_A2D_CHANNELS];
 };
 
+struct A2DBoard
+{
+        unsigned int base_addr; // Base address of board
+        unsigned int cmd_addr;  // Address for commands to the board
+
+        char deviceName[32];
+
+        A2D_SET config;         // board configuration
+        A2D_CAL cal;            // calibration configuration
+        A2D_STATUS cur_status;  // status info maintained by driver
+        A2D_STATUS prev_status; // status info maintained by driver
+        unsigned char requested[NUM_NCAR_A2D_CHANNELS]; // 1=channel requested, 0=isn't
+
+        int scanRate;           // how fast to scan the channels
+        int scanDeltatMsec;     // dT between A2D scans
+        int skipFactor;         // set to 2 to skip over interleaving status
+        int busy;
+        int interrupted;
+        size_t readCtr;
+        int nbadScans;
+        int master;
+        int nFifoValues;        // How many FIFO values to read every poll
+
+        struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
+        struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
+        short *discardBuffer;   // used for discarding data from the fifo
+        wait_queue_head_t rwaitq_a2d;   // wait queue for user reads of a2d
+        struct sample_read_state a2d_read_state;
+
+        int nfilters;           // how many different output filters
+        struct a2d_filter_info *filters;
+
+        int tempRate;           // rate to query I2C temperature sensor
+        short currentTemp;
+
+        size_t nbadFifoLevel;
+        size_t fifoNotEmpty;
+        size_t skippedSamples;  // how many samples have we missed?
+
+        struct work_struct resetWorker;
+        int errorState;
+        int resets;             // number of board resets since last open
+
+        unsigned short OffCal;  // offset and cal bits
+        unsigned char FIFOCtl;  // hardware FIFO control word storage
+        unsigned char i2c;      // data byte written to I2C
+        char invertCounts;      // whether to invert counts from this A2D
+        char discardNextScan;   // should we discard the next scan
+
+        struct work_struct sampleWorker;
+
+        long latencyMsecs;      // buffer latency in milli-seconds
+        long latencyJiffies;    // buffer latency in jiffies
+        unsigned long lastWakeup;       // when were read & poll methods last woken
+        size_t delayedWork;     // counter
+
+        int consecutiveNonEmpty;
+};
 #endif

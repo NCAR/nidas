@@ -32,7 +32,7 @@
 #endif 
 
 #include <nidas/rtlinux/irigclock.h>		/* for irigClockRates */
-#include <nidas/core/dsm_sample.h>
+#include <nidas/linux/util.h>
 
 #define DSM_SERIAL_MAGIC 'S'
 

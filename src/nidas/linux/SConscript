@@ -15,6 +15,7 @@ subdirs=Split("""
     ncar_a2d
     serial
     usbtwod
+    util
 """)
 
 if arch == 'arm':
@@ -48,6 +49,8 @@ headers = Split("""
     irigclock.h
     ncar_a2d.h
     a2d.h
+    types.h
+    util.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux', headers)

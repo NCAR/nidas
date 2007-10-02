@@ -20,8 +20,9 @@
 #include <nidas/core/IODevice.h>
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/SampleTag.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/core/dsm_sample.h>
+// #include <nidas/linux/types.h>
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>

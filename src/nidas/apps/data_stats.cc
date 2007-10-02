@@ -20,7 +20,6 @@
 #include <nidas/dynld/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
-#include <nidas/core/dsm_sample.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/EOFException.h>
 

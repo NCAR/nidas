@@ -10,6 +10,13 @@ Revisions:
 
 */
 
+#ifdef __RTCORE_KERNEL__
+#define __RTCORE_POLLUTED_APP__
+#include <gpos_bridge/sys/gpos.h>
+#include <rtl.h>
+#include <rtl_stdlib.h>
+#endif
+
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
@@ -21,6 +28,12 @@ Revisions:
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+
+#ifdef __RTCORE_KERNEL__
+#define F_MALLOC(x) rtl_gpos_malloc(x)
+#else
+#define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
+#endif
 
 /**
  * Data object for the implementation of a pickoff filter.
@@ -47,7 +60,7 @@ struct pickoff_filter_config
 static void* pickoff_init(void)
 {
         struct pickoff_filter* this =
-            kmalloc(sizeof(struct pickoff_filter),GFP_KERNEL);
+            (struct pickoff_filter*) F_MALLOC(sizeof(struct pickoff_filter));
         if (!this) return this;
         memset(this,0,sizeof(struct pickoff_filter));
         return this;
@@ -63,7 +76,7 @@ static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int
         this->nvars = nvars;
         this->decimate = decimate;
         this->count = 0;
-        this->vindices = (int*) kmalloc(nvars * sizeof(int),GFP_KERNEL);
+        this->vindices = (int*) F_MALLOC(nvars * sizeof(int));
         if (!this->vindices) return -ENOMEM;
         memcpy(this->vindices,vindices,nvars*sizeof(int));
         return 0;
@@ -73,7 +86,7 @@ static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int
  * Pickoff filter method. Advanced math!
  */
 static int pickoff_filter(void* obj,dsm_sample_time_t tt, const short* in,
-    short_sample_t* out)
+    int skip_factor,short_sample_t* out)
 {
         struct pickoff_filter* this = (struct pickoff_filter*) obj;
         short* op = out->data;
@@ -83,7 +96,7 @@ static int pickoff_filter(void* obj,dsm_sample_time_t tt, const short* in,
         out->timetag = tt;
         *op++ = this->id;
         for (i = 0; i < this->nvars; i++)
-            *op++ = in[this->vindices[i]];
+            *op++ = in[this->vindices[i] * skip_factor];
         out->length = (op - out->data) * sizeof(short);
         return 1;
 }
@@ -118,7 +131,9 @@ struct boxcar_filter
  */
 static void* boxcar_init(void)
 {
-        struct boxcar_filter* this = kmalloc(sizeof(struct boxcar_filter),GFP_KERNEL);
+
+        struct boxcar_filter* this =
+            (struct boxcar_filter*) F_MALLOC(sizeof(struct boxcar_filter));
         if (!this) return this;
         memset(this,0,sizeof(struct boxcar_filter));
         return this;
@@ -137,10 +152,10 @@ static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int 
         this->decimate = decimate;
         this->count = 0;
         this->npts = cfg->npts;
-        this->vindices = (int*) kmalloc(nvars * sizeof(int),GFP_KERNEL);
+        this->vindices = (int*) F_MALLOC(nvars * sizeof(int));
         if (!this->vindices) return -ENOMEM;
         memcpy(this->vindices,vindices,nvars*sizeof(int));
-        this->sums = (long*) kmalloc(nvars * sizeof(long),GFP_KERNEL);
+        this->sums = (long*) F_MALLOC(nvars * sizeof(long));
         if (!this->sums) return -ENOMEM;
         memset(this->sums,0,nvars*sizeof(long));
         KLOG_DEBUG("boxcar filter, decimate=%d, npts=%d\n",
@@ -160,7 +175,7 @@ static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int 
  *  
  */
 static int boxcar_filter(void* obj, dsm_sample_time_t tt,
-    const short* in, short_sample_t* out)
+    const short* in, int skip_factor, short_sample_t* out)
 {
         struct boxcar_filter* this = (struct boxcar_filter*) obj;
         int i;
@@ -170,7 +185,7 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
 
         if (this->count <= this->npts) {
                 for (i = 0; i < this->nvars; i++)
-                    this->sums[i] += in[this->vindices[i]];
+                    this->sums[i] += in[this->vindices[i] * skip_factor];
                 if (this->count == 1) this->tsave = tt;
                 if (this->count == this->npts) {
                         short* op = out->data;
@@ -239,7 +254,9 @@ struct short_filter_methods get_short_filter_methods(enum nidas_short_filter whi
         return meths;
 }
 
+#ifndef __RTCORE_KERNEL__
 EXPORT_SYMBOL(get_short_filter_methods);
+#endif
 
 int short_filters_init(void)
 {	

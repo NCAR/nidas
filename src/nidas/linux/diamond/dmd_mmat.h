@@ -15,7 +15,8 @@
 #ifndef NIDAS_DIAMOND_DMD_MMAT_H
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
-#include <nidas/linux/filters/short_filters.h>
+/// #include <nidas/linux/filters/short_filters.h>
+#include <nidas/linux/util.h>
 #include <nidas/linux/a2d.h>
 
 #ifndef __KERNEL__
@@ -226,6 +227,13 @@ struct DMMAT_D2A_Outputs
 #define DMMAT_8254_MODE_4	0x08
 #define DMMAT_8254_MODE_5	0x0a
 
+struct a2d_sample
+{
+        dsm_sample_time_t timetag;    // timetag of sample
+        dsm_sample_length_t length;       // number of bytes in data
+        short data[MAX_DMMAT_A2D_CHANNELS];
+};
+
 /**
  * Structure allocated for every DMMAT board in the system.
  */
@@ -312,7 +320,6 @@ struct DMMAT_A2D
 
         struct a2d_filter_info* filters;
 
-        unsigned char requested[MAX_DMMAT_A2D_CHANNELS];// 1=channel requested, 0=isn't
         int lowChan;		// lowest channel scanned
         int highChan;		// highest channel scanned
         int nchans;
@@ -345,6 +352,7 @@ struct cntr_sample_circ_buf {
     struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
     volatile int head;
     volatile int tail;
+    int size;
 };
 
 
@@ -379,7 +387,7 @@ struct DMMAT_CNTR {
         int lastVal;                            // previous value in the
                                                 // counter register
 
-        struct cntr_sample_circ_buf samples;    // samples for read method
+        struct dsm_sample_circ_buf samples;    // samples for read method
 
         wait_queue_head_t read_queue;           // user read & poll methods
                                                 // wait on this queue

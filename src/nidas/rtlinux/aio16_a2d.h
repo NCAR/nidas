@@ -15,7 +15,7 @@
 #ifndef AIO16_A2D_H
 #define AIO16_A2D_H
 
-#include <nidas/core/dsm_sample.h>		// get dsm_sample typedefs
+#include <nidas/linux/util.h>		// get nidas typedefs
 
 #ifndef __RTCORE_KERNEL__
 /* User programs need this for the _IO macros, but kernel
