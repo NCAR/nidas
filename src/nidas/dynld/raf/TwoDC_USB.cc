@@ -250,8 +250,9 @@ void TwoDC_USB::printStatus(std::ostream& ostr) throw()
 
 	ostr << "<td align=left>" << "imgBlks/sec=" <<
 		fixed << setprecision(1) << imagePerSec <<
-		",lost=" << status.lostImages << ",lostSOR=" << status.lostSORs <<
-		",lostTAS=" << status.lostTASs << ", urbErrs=" << status.urbErrors <<
+		",lostImg=" << status.lostImages << ",lostSOR=" << status.lostSORs <<
+		",lostTAS=" << status.lostTASs << ",urbErrs=" << status.urbErrors <<
+		",timeouts=" << status.urbTimeouts <<
 		"</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {

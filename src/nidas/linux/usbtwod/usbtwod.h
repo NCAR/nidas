@@ -21,12 +21,13 @@
  */
 struct usb_twod_stats
 {
-        size_t numImages;
-        size_t lostImages;
-        size_t numSORs;
-        size_t lostSORs;
-        size_t lostTASs;
-        size_t urbErrors;
+        unsigned int numImages;
+        unsigned int lostImages;
+        unsigned int numSORs;
+        unsigned int lostSORs;
+        unsigned int lostTASs;
+        unsigned int urbErrors;
+        unsigned int urbTimeouts;
 };
 
 /*

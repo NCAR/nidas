@@ -327,7 +327,13 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 		KLOG_WARNING("urb->status=-ESHUTDOWN\n");
                 dev->stats.urbErrors++;
                 return;
+        case -ETIMEDOUT:
+                if (!(dev->stats.urbTimeouts++ % 1000))
+                    KLOG_WARNING("urb->status=-ETIMEDOUT %d times\n",
+                        dev->stats.urbTimeouts);
+                goto resubmit;
         default:
+
 		KLOG_WARNING("urb->status=%d\n",urb->status);
                 dev->stats.urbErrors++;
                 goto resubmit;  /* maybe we can recover */
@@ -798,16 +804,16 @@ static unsigned int twod_poll(struct file *file, poll_table * wait)
 static ssize_t twod_read(struct file *file, char __user * buffer,
                          size_t count, loff_t * ppos)
 {
-        struct usb_twod *dev;
+        struct usb_twod *dev = (struct usb_twod *) file->private_data;
         ssize_t retval = 0;
         ssize_t countreq = count;       // original request
         size_t n;
-        struct twod_urb_sample *sample;
+        struct twod_urb_sample *sample = dev->readstate.pendingSample;
+        size_t bytesLeft = dev->readstate.bytesLeft;
+        char* dataPtr = dev->readstate.dataPtr;
 
         if (count == 0)
                 return count;
-
-        dev = (struct usb_twod *) file->private_data;
 
         /* lock this object */
         if (down_interruptible(&dev->sem))
@@ -819,72 +825,50 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                 err("No device or device unplugged %d", retval);
                 goto unlock_exit;
         }
-        if (dev->readstate.bytesLeft == 0
+        if (bytesLeft == 0
             && dev->sampleq.tail == dev->sampleq.head) {
                 if (file->f_flags & O_NONBLOCK) {
                         retval = -EAGAIN;
                         goto unlock_exit;
                 }
-                retval = wait_event_interruptible(dev->read_wait,
+                if (wait_event_interruptible(dev->read_wait,
                                                   dev->sampleq.tail !=
-                                                  dev->sampleq.head);
-                if (retval < 0)
+                                                  dev->sampleq.head)) {
+                        retval = -ERESTARTSYS;
                         goto unlock_exit;
+                }
         }
         // loop until user buffer is full (or no more samples)
-        for (;;) {
-                if (count == 0) {
-                        retval = countreq;
-                        break;
-                }
-// #define DEBUG
-
-#ifdef DEBUG
-                if (!(dev->debug_cntr % 100))
-                        KLOG_DEBUG("head=%d,tail=%d,urbs=%d,count=%d,bytesLeft=%d",
-                        dev->sampleq.head, dev->sampleq.tail,
-                        CIRC_CNT(dev->sampleq.head, dev->sampleq.tail,
-                            SAMPLE_QUEUE_SIZE),
-                        count, dev->readstate.bytesLeft);
-#endif
-
+        for ( ; count; ) {
                 // Check if there is data from previous urb to copy
-                if (dev->readstate.bytesLeft > 0) {
-                        n = min(count, dev->readstate.bytesLeft);
-                        if (copy_to_user
-                            (buffer, dev->readstate.dataPtr, n)) {
-                                err("%s - copy_to_user failed - %d",
-                                    __FUNCTION__, retval);
+                if ((n = min(count,bytesLeft)) > 0) {
+                        if (copy_to_user(buffer,dataPtr, n)) {
                                 retval = -EFAULT;
                                 break;
                         }
                         count -= n;
-                        dev->readstate.bytesLeft -= n;
+                        bytesLeft -= n;
                         buffer += n;
-                        dev->readstate.dataPtr += n;
-			if (dev->readstate.bytesLeft == 0) {
-				// we're finished with this sample
-				switch (be32_to_cpu(dev->readstate.pendingSample->stype)) {
-				case TWOD_IMG_TYPE:
-					usb_twod_submit_img_urb(dev,
-						dev->readstate.pendingSample->urb,GFP_KERNEL);
-					break;
-				case TWOD_SOR_TYPE:
-					usb_twod_submit_sor_urb(dev,
-						dev->readstate.pendingSample->urb,GFP_KERNEL);
-					break;
-				}
-				INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
-			}
-                        if (count == 0) {
-                                // if count is 0, we're done.
+                        dataPtr += n;
+			if (bytesLeft > 0) { // user buffer filled, count==0
                                 retval = countreq;
                                 break;
                         }
-                        // At this point since count > 0, we know bytesLeft == 0
+                        // we're finished with this sample, resubmit urb
+                        switch (be32_to_cpu(sample->stype)) {
+                        case TWOD_IMG_TYPE:
+                                usb_twod_submit_img_urb(dev,
+                                        sample->urb,GFP_KERNEL);
+                                break;
+                        case TWOD_SOR_TYPE:
+                                usb_twod_submit_sor_urb(dev,
+                                        sample->urb,GFP_KERNEL);
+                                break;
+                        }
+                        INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 }
                 /* Finished writing previous sample, check for next. 
-                 * dev->readstate.bytesLeft will be 0 here.
+                 * bytesLeft will be 0 here.
                  * If no more samples, then we're done
                  */
                 if (dev->sampleq.tail == dev->sampleq.head) {
@@ -906,33 +890,20 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
 
                 /* copy initial portion to user space. */
                 if (copy_to_user(buffer, sample, n)) {
-                        err("%s - copy_to_user failed - %d", __FUNCTION__,
-                            retval);
                         retval = -EFAULT;
                         break;
                 }
                 count -= n;
                 buffer += n;
-                dev->readstate.pendingSample = sample;
-                dev->readstate.bytesLeft = sample->urb->actual_length;
-                dev->readstate.dataPtr = sample->urb->transfer_buffer;
-
-#ifdef DEBUG
-                if (!(dev->debug_cntr % 100))
-                        KLOG_DEBUG("bottom count=%d,bytesLeft=%d",
-                                   count, dev->readstate.bytesLeft);
-#endif
+                bytesLeft = sample->urb->actual_length;
+                dataPtr = sample->urb->transfer_buffer;
         }
+        dev->readstate.pendingSample = sample;
+        dev->readstate.bytesLeft = bytesLeft;
+        dev->readstate.dataPtr = dataPtr;
 
 unlock_exit:
         up(&dev->sem);
-
-#ifdef DEBUG
-        if (!(dev->debug_cntr++ % 100))
-                KLOG_DEBUG("retval=%d\n", retval);
-#endif
-
-#undef DEBUG
         return retval;
 }
 
