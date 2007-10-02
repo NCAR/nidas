@@ -101,7 +101,7 @@ typedef struct _Tap2D
 #define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
 #define SOR_URBS_IN_FLIGHT   4
 
-#define TAS_URB_QUEUE_SIZE   2   /* power of two */
+#define TAS_URB_QUEUE_SIZE   4   /* power of two */
 
 #if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY)
 #define DO_IRIG_TIMING
@@ -144,7 +144,8 @@ enum probe_type { TWOD_64, TWOD_32 };
 
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
-{
+{       
+        char   dev_name[40];               /* the device-idProd + (minor-minorbase)*/
         struct usb_device *udev;        /* the usb device for this device */
         struct usb_interface *interface;        /* the interface for this device */
         struct semaphore sem;   /* lock this structure */
