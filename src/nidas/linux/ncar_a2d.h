@@ -33,7 +33,7 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 /*
  * Board temperature samples will have this index value.
  */
-#define NCAR_A2D_TEMPERATURE_INDEX 999
+#define NCAR_A2D_TEMPERATURE_INDEX 255
 
 #define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
 #define A2DGAIN_MUL     9       // multiplies GainCode
