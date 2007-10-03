@@ -839,7 +839,11 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                 }
         }
         // loop until user buffer is full (or no more samples)
-        for ( ; count; ) {
+        for ( ;; ) {
+                if (count == 0) {
+                    retval = countreq;
+                    break;
+                }
                 // Check if there is data from previous urb to copy
                 if ((n = min(count,bytesLeft)) > 0) {
                         if (copy_to_user(buffer,dataPtr, n)) {
