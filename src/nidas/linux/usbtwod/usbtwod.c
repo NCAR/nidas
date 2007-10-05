@@ -88,6 +88,10 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
                 break;
+        case -ETIMEDOUT:
+                KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
+                dev->stats.urbTimeouts++;
+                return;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
                 dev->stats.urbErrors++;
@@ -111,7 +115,7 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 
         buf = kmalloc(TWOD_TAS_BUFF_SIZE, GFP_KERNEL);
         if (!buf) {
-                KLOG_ERR("%s: out of memory for TAS output buf", dev->dev_name);
+                KLOG_ERR("%s: out of memory for TAS output buf\n", dev->dev_name);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -433,7 +437,6 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                                       struct pt_regs *regs)
 #endif
 {
-
 	/* Note that these urb callbacks are called in 
          * software interrupt context. 
          */
@@ -459,6 +462,12 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
 		twod_set_sor_rate(dev, 0);
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                return;
+        case -ETIMEDOUT:
+		twod_set_sor_rate(dev, 0);
+                dev->stats.urbTimeouts++;
+                KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
+                dev->errorStatus = -ETIMEDOUT;
                 return;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
@@ -1157,11 +1166,10 @@ static void twod_disconnect(struct usb_interface *interface)
 
         wake_up_interruptible(&dev->read_wait);
 
+        KLOG_INFO("%s: disconnecting\n", dev->dev_name);
         twod_delete(dev);
 
         up(&disconnect_sem);
-
-        KLOG_INFO("%s: now disconnected\n", dev->dev_name);
 }
 
 /* -------------------------------------------------------------------- */
