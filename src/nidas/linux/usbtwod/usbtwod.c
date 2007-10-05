@@ -1094,19 +1094,22 @@ static int twod_probe(struct usb_interface *interface,
         if (!dev->sor_in_endpointAddr)
                 KLOG_WARNING("Could not find sor-in endpoint. Will not read SOR samples");
 
-        sprintf(dev->dev_name, "%x_TWOD64_%d", id->idProduct, interface->minor-USB_TWOD_64_MINOR_BASE);
-        if (dev->ptype==TWOD_32)
-        	sprintf(dev->dev_name, "%x_TWOD32_%d", id->idProduct, interface->minor-USB_TWOD_32_MINOR_BASE);
-
         /* save our data pointer in this interface device */
         usb_set_intfdata(interface, dev);
 
         /* we can register the device now, as it is ready */
         switch(dev->ptype) {
        	  	case TWOD_64:
+                        // device name for informational messages
+                        sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
+                                interface->minor - USB_TWOD_64_MINOR_BASE,
+                                id->idVendor, id->idProduct);
             		retval = usb_register_dev(interface, &usbtwod_64);
  	    		break;
           	case TWOD_32:
+                        sprintf(dev->dev_name, "/dev/usbtwod_32_%d (%x/%x)",
+                                interface->minor - USB_TWOD_32_MINOR_BASE,
+                                id->idVendor, id->idProduct);
  	    		retval = usb_register_dev(interface, &usbtwod_32);
         }
 
@@ -1117,7 +1120,6 @@ static int twod_probe(struct usb_interface *interface,
                 usb_set_intfdata(interface, NULL);
                 goto error;
         }
-        /* let the user know what node this device is now attached to */
         KLOG_INFO("%s: connected\n", dev->dev_name);
         return 0;
 
@@ -1130,7 +1132,6 @@ static int twod_probe(struct usb_interface *interface,
 static void twod_disconnect(struct usb_interface *interface)
 {
         struct usb_twod *dev;
-        int minor = interface->minor;
 
         down(&disconnect_sem);
 

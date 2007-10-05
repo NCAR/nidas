@@ -145,7 +145,7 @@ enum probe_type { TWOD_64, TWOD_32 };
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
 {       
-        char   dev_name[40];               /* the device-idProd + (minor-minorbase)*/
+        char   dev_name[64];               /* the device-idProd + (minor-minorbase)*/
         struct usb_device *udev;        /* the usb device for this device */
         struct usb_interface *interface;        /* the interface for this device */
         struct semaphore sem;   /* lock this structure */
