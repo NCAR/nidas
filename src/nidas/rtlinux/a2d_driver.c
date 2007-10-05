@@ -1310,7 +1310,7 @@ static inline void getA2DSample(struct A2DBoard *brd)
                              flevel, brd->fifoNotEmpty);
 
                 if (flevel > brd->expectedFifoLevel
-                    || brd->fifoNotEmpty > 1) {
+                    || brd->fifoNotEmpty > 10) {
                         startA2DResetThread(brd);
                         return;
                 }
@@ -1582,12 +1582,12 @@ static void *a2d_bh_thread(void *thread_arg)
                             insamp->length / sizeof (short) /
                             brd->skipFactor;
 
-                        short *dp = (short *) insamp->data;
-                        short *ep;
+                        const short *dp = (const short *) insamp->data;
+                        const short *ep;
                         int ndt;
                         dsm_sample_time_t tt0;
 
-#ifdef DO_STAT_RD
+#ifdef DO_A2D_STATRD
                         dp++;   // skip over first status word
 #endif
 
@@ -2202,7 +2202,8 @@ int init_module()
         for (ib = 0; ib < numboards; ib++) {
                 struct A2DBoard *brd = boardInfo + ib;
 
-                DSMLOG_DEBUG("initializing board[%d] at 0x%x\n", ib, brd);
+                DSMLOG_DEBUG("initializing board[%d] at ioport 0x%x\n",
+                        ib, ioport[ib]);
                 // initialize structure to zero, then initialize things
                 // that are non-zero
                 memset(brd, 0, sizeof (struct A2DBoard));
