@@ -86,14 +86,15 @@ void DSMAnalogSensor::open(int flags)
 	a2d.gainMul[chan] = _channels[chan].gainMul;
 	a2d.gainDiv[chan] = _channels[chan].gainDiv;
 	a2d.offset[chan] = !_channels[chan].bipolar;	// flip logic
-        // for old driver
 	a2d.sampleIndex[chan] = _channels[chan].index;
+        // for old driver
 	a2d.Hz[chan] = 
             (_channels[chan].gainSetting == 0) ? 0 : getScanRate();
     }
     for( ; chan < NUM_NCAR_A2D_CHANNELS; chan++) {
 	a2d.gain[chan] = 0;
 	a2d.offset[chan] = 0;
+	a2d.sampleIndex[chan] = -1;
 	a2d.Hz[chan] = 0;
     }
 
