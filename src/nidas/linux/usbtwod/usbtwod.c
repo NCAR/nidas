@@ -316,23 +316,27 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 // result of usb_kill_urb, don't resubmit
 		// KLOG_WARNING("urb->status=-ENOENT\n");
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ENOENT;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ECONNRESET;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ESHUTDOWN;
                 return;
         case -ETIMEDOUT:
                 if (!(dev->stats.urbTimeouts++ % 1000))
                     KLOG_WARNING("%s: urb->status=-ETIMEDOUT %d times\n", dev->dev_name,
                         dev->stats.urbTimeouts);
-                goto resubmit;
+                dev->errorStatus = -ETIMEDOUT;
+                return;
         default:
 
 		KLOG_WARNING("%s: urb->status=%d\n", dev->dev_name, urb->status);
@@ -585,8 +589,11 @@ static int twod_open(struct inode *inode, struct file *file)
         }
         dev->is_open = 1;
 
+        dev->sorRate = IRIG_NUM_RATES;
+
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
+        dev->errorStatus = 0;
         dev->debug_cntr = 0;
 
 	dev->latencyJiffies = 250 * HZ / MSECS_PER_SEC;
@@ -597,6 +604,10 @@ static int twod_open(struct inode *inode, struct file *file)
 
         /* allocate the sample circular buffer */
         dev->sampleq.head = dev->sampleq.tail = 0;
+        if (dev->sampleq.buf) {
+                if (dev->sampleq.buf[0]) kfree(dev->sampleq.buf[0]);
+                kfree(dev->sampleq.buf);
+        }
         dev->sampleq.buf =
             kmalloc(sizeof (struct twod_urb_sample *) * SAMPLE_QUEUE_SIZE,
                     GFP_KERNEL);
@@ -620,6 +631,7 @@ static int twod_open(struct inode *inode, struct file *file)
         /* In order to support throttling of the image urbs, we create
          * a circular buffer of the image urbs.
          */
+        if (dev->img_urb_q.buf) kfree(dev->img_urb_q.buf);
         dev->img_urb_q.buf = 0;
         if (throttleRate > 0) {
                 dev->img_urb_q.head = dev->img_urb_q.tail = 0;
@@ -669,6 +681,7 @@ static int twod_open(struct inode *inode, struct file *file)
         /* Create a circular buffer of the true airspeed urbs for
          * periodic writing.
          */
+        if (dev->tas_urb_q.buf) kfree(dev->tas_urb_q.buf);
         dev->tas_urb_q.head = dev->tas_urb_q.tail = 0;
         dev->tas_urb_q.buf =
             kmalloc(sizeof (struct urb *) * TAS_URB_QUEUE_SIZE,
@@ -795,6 +808,8 @@ static unsigned int twod_poll(struct file *file, poll_table * wait)
         struct usb_twod *dev = file->private_data;
         unsigned int mask = 0;
         poll_wait(file, &dev->read_wait, wait);
+        if (dev->errorStatus != 0)
+                mask |= POLLERR;
         if (dev->readstate.bytesLeft > 0
             || dev->sampleq.head != dev->sampleq.tail)
                 mask |= POLLIN | POLLRDNORM;
@@ -819,6 +834,11 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         /* lock this object */
         if (down_interruptible(&dev->sem))
                 return -ERESTARTSYS;
+
+        if (dev->errorStatus != 0) {
+            retval = dev->errorStatus;
+            goto unlock_exit;
+        }
 
         /* verify that the device wasn't unplugged */
         if (dev->interface == NULL) {
@@ -1074,6 +1094,10 @@ static int twod_probe(struct usb_interface *interface,
         if (!dev->sor_in_endpointAddr)
                 KLOG_WARNING("Could not find sor-in endpoint. Will not read SOR samples");
 
+        sprintf(dev->dev_name, "%x_TWOD64_%d", id->idProduct, interface->minor-USB_TWOD_64_MINOR_BASE);
+        if (dev->ptype==TWOD_32)
+        	sprintf(dev->dev_name, "%x_TWOD32_%d", id->idProduct, interface->minor-USB_TWOD_32_MINOR_BASE);
+
         /* save our data pointer in this interface device */
         usb_set_intfdata(interface, dev);
 
@@ -1093,9 +1117,6 @@ static int twod_probe(struct usb_interface *interface,
                 usb_set_intfdata(interface, NULL);
                 goto error;
         }
-        sprintf(dev->dev_name, "%x_TWOD64_%d", id->idProduct, interface->minor-USB_TWOD_64_MINOR_BASE);
-        if (dev->ptype==TWOD_32)
-        	sprintf(dev->dev_name, "%x_TWOD32_%d", id->idProduct, interface->minor-USB_TWOD_32_MINOR_BASE);
         /* let the user know what node this device is now attached to */
         KLOG_INFO("%s: connected\n", dev->dev_name);
         return 0;

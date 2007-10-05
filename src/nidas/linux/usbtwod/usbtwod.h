@@ -175,6 +175,8 @@ struct usb_twod
         struct read_state readstate;
         size_t debug_cntr;
 
+        int errorStatus;
+
         struct timer_list urbThrottle;
 
 #ifndef DO_IRIG_TIMING
