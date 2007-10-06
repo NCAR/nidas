@@ -64,6 +64,8 @@ typedef struct _Tap2D
 
 #ifdef __KERNEL__
 #include <linux/module.h>
+#include <linux/spinlock.h>
+#include <linux/kref.h>
 
 #include <nidas/linux/irigclock.h>
 
@@ -145,15 +147,17 @@ enum probe_type { TWOD_64, TWOD_32 };
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
 {       
-        char   dev_name[64];               /* the device-idProd + (minor-minorbase)*/
         struct usb_device *udev;        /* the usb device for this device */
         struct usb_interface *interface;        /* the interface for this device */
-        struct semaphore sem;   /* lock this structure */
+        struct kref kref;               /* reference counter for this structure */
+        rwlock_t usb_iface_lock;        /* for detection of whether disconnect has been called */
 
-        int is_open;            /* don't allow multiple opens. */
+        char   dev_name[64];           /* device name for driver messages */
+
+        int is_open;                   /* don't allow multiple opens. */
 	enum probe_type ptype;
 
-        Tap2D tasValue;         /* TAS value to send to probe (from user ioctl) */
+        Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */
         enum irigClockRates sorRate;
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;
@@ -173,7 +177,6 @@ struct usb_twod
         struct usb_twod_stats stats;
 
         struct read_state readstate;
-        size_t debug_cntr;
 
         int errorStatus;
 

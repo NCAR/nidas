@@ -2,6 +2,11 @@
  * USB PMS-2D driver - 2.0
  *
  * Copyright (C) 2007 University Corporation for Atmospheric Research
+ *
+ * This driver uses kernel reference counting (kref_get/put) and a rwlock
+ * in order to avoid problems if user code is accessing the device
+ * while it is disconnected (hot-unplugged).  These ideas were taken
+ * from the 2.6.22.9 version of drivers/usb/usb-skeleton.c.
  */
 
 // #define DEBUG
@@ -22,24 +27,49 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/irigclock.h>
 
+/* This driver will be invoked when devices with the
+ * NCAR_VENDOR_ID and either of the PRODUCT_IDs are
+ * plugged in.  Currently it isn't strictly necessary
+ * for 64 and 32 bit probes to have a different product
+ * id, since we can differentiate between them by the
+ * number of endpoints and the speed:
+ * 64 bit probes have 3 endpoints and are high speed
+ * 32 bit probes have 2 endpoints and are full speed
+ */
 /* Define these values to match your devices */
 #define NCAR_VENDOR_ID         0x2D2D
-#define USB2D_N0_PRODUCT_ID    0x2D00
-#define USB2D_N1_PRODUCT_ID    0x2D01
+#define USB2D_64_PRODUCT_ID    0x2D00
+#define USB2D_32_PRODUCT_ID    0x2D01
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
 //#define NCAR_VENDOR_ID         0x0547
-//#define USB2D_N0_PRODUCT_ID  0x1003
-//#define USB2D_N1_PRODUCT_ID  0x1002
+//#define USB2D_64_PRODUCT_ID  0x1003
+//#define USB2D_32_PRODUCT_ID  0x1002
 
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
-        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_N0_PRODUCT_ID)},
-        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_N1_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_64_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_32_PRODUCT_ID)},
         {}                      /* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, twod_table);
+
+/* use twod_open_lock to prevent a race between open and disconnect */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+
+static DEFINE_MUTEX(twod_open_lock);
+#define TWOD_MUTEX_LOCK(d) mutex_lock(d);
+#define TWOD_MUTEX_UNLOCK(d) mutex_unlock(d);
+
+#else
+
+static DECLARE_MUTEX(twod_open_lock);
+#define TWOD_MUTEX_LOCK(d) down(d)
+#define TWOD_MUTEX_UNLOCK(d) up(d)
+
+#endif
 
 static int throttleRate = 0;
 static int throttleJiffies = 0;
@@ -47,7 +77,29 @@ static int throttleJiffies = 0;
 module_param(throttleRate, int, 0);
 
 static struct usb_driver twod_driver;
-static DECLARE_MUTEX(disconnect_sem);
+
+static void twod_dev_free(struct usb_twod *dev)
+{
+        if (dev->sampleq.buf) {
+                if (dev->sampleq.buf[0]) kfree(dev->sampleq.buf[0]);
+                kfree(dev->sampleq.buf);
+                dev->sampleq.buf = 0;
+        }
+        if (dev->img_urb_q.buf) kfree(dev->img_urb_q.buf);
+        dev->img_urb_q.buf = 0;
+
+        if (dev->tas_urb_q.buf) kfree(dev->tas_urb_q.buf);
+        dev->tas_urb_q.buf = 0;
+}
+
+static void twod_dev_delete(struct kref *kref)
+{
+        struct usb_twod *dev = 
+            container_of(kref, struct usb_twod, kref);
+        usb_put_dev(dev->udev);
+        twod_dev_free(dev);
+        kfree (dev);
+}
 
 /* -------------------------------------------------------------------- */
 
@@ -132,10 +184,12 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 }
 
 /* Used by both irig callback or timer function to send the tas value via
- * the bulk write end-point
+ * the bulk write end-point. Therefore it can be called 
+ * in interrupt or non-interrupt mode.
  */
-static void write_tas(struct usb_twod *dev, int kmalloc_flags)
+static int write_tas(struct usb_twod *dev, int kmalloc_flags)
 {
+        int retval = 0;
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
 		dev->tasValue.cntr %= 10;
@@ -145,8 +199,13 @@ static void write_tas(struct usb_twod *dev, int kmalloc_flags)
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
-                if (usb_submit_urb(urb, kmalloc_flags) < 0 &&
-                    !(dev->stats.urbErrors++ % 100))
+                read_lock(&dev->usb_iface_lock);
+                if (dev->interface)         /* check if disconnect() was called */
+                        retval = usb_submit_urb(urb, GFP_ATOMIC);
+                else
+                        retval = -ENODEV;
+                read_unlock(&dev->usb_iface_lock);
+                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
                         KLOG_ERR("stats.urbErrors=%d",
                                  dev->stats.urbErrors);
         } else {
@@ -154,6 +213,7 @@ static void write_tas(struct usb_twod *dev, int kmalloc_flags)
                         KLOG_WARNING("%s: no urbs available for TAS write, lostTASs=%d\n",
                              dev->dev_name, dev->stats.lostTASs);
         }
+        return retval;
 }
 
 #ifdef DO_IRIG_TIMING
@@ -225,12 +285,10 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
  *  GFP_NOIO: block drivers.
  *  GFP_KERNEL: all other circumstances.
  */
-
-
-/* -------------------------------------------------------------------- */
-static void usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
+static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
                                     int mem_flags)
 {
+        int retval;
         if (throttleRate > 0) {
                 if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
                                IMG_URB_QUEUE_SIZE) == 0)
@@ -239,24 +297,35 @@ static void usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
                         dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
                         INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
-        } else {
-                int retval;
-                retval = usb_submit_urb(urb, mem_flags);
-                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
-                        err("%s: %s stats.urbErrors=%d",
-                            dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+                return 0;
         }
+
+        read_lock(&dev->usb_iface_lock);
+        if (dev->interface)         /* disconnect() was called */
+                retval = usb_submit_urb(urb, GFP_ATOMIC);
+        else retval = -ENODEV;
+        read_unlock(&dev->usb_iface_lock);
+        if (retval < 0 && !(dev->stats.urbErrors++ % 100))
+                err("%s: %s stats.urbErrors=%d",
+                    dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+        return retval;
 }
 
 
 /* -------------------------------------------------------------------- */
-static void usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb,
+static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb,
                                     int mem_flags)
 {
-        int retval = usb_submit_urb(urb, mem_flags);
+        int retval;
+        read_lock(&dev->usb_iface_lock);
+        if (dev->interface)         /* disconnect() was called */
+                retval = usb_submit_urb(urb, GFP_ATOMIC);
+        else retval = -ENODEV;
+        read_unlock(&dev->usb_iface_lock);
         if (retval < 0 && !(dev->stats.urbErrors++ % 100))
                 err("%s: %s stats.urbErrors=%d",
                     dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+        return retval;
 }
 
 
@@ -283,10 +352,18 @@ static void urb_throttle_func(unsigned long arg)
 
                 // This is a timer function, running in software
                 // interrupt context, so use GFP_ATOMIC.
-                retval = usb_submit_urb(urb, GFP_ATOMIC);
-                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
-                        err("%s: %s stats.urbErrors=%d",
-                            dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+                read_lock(&dev->usb_iface_lock);
+                if (dev->interface)         /* check if disconnect() was called */
+                        retval = usb_submit_urb(urb, GFP_ATOMIC);
+                else
+                        retval = -ENODEV;
+                read_unlock(&dev->usb_iface_lock);
+                if (retval < 0) {
+                        if(!(dev->stats.urbErrors++ % 100))
+                            err("%s: %s stats.urbErrors=%d",
+                                dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+                        dev->errorStatus = retval;
+                }
                 INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
         } else {
                 if (!(dev->stats.lostImages++ % 100))
@@ -459,12 +536,10 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
-		twod_set_sor_rate(dev, 0);
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
                 return;
         case -ETIMEDOUT:
-		twod_set_sor_rate(dev, 0);
                 dev->stats.urbTimeouts++;
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
                 dev->errorStatus = -ETIMEDOUT;
@@ -552,13 +627,6 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
 }
 
 /* -------------------------------------------------------------------- */
-static void twod_delete(struct usb_twod *dev)
-{
-        usb_put_dev(dev->udev);
-        kfree(dev);
-}
-
-/* -------------------------------------------------------------------- */
 static int twod_open(struct inode *inode, struct file *file)
 {
         struct usb_twod *dev;
@@ -570,59 +638,56 @@ static int twod_open(struct inode *inode, struct file *file)
         nonseekable_open(inode, file);
         subminor = iminor(inode);
 
-        down(&disconnect_sem);
-
+        TWOD_MUTEX_LOCK(&twod_open_lock);
         interface = usb_find_interface(&twod_driver, subminor);
         if (!interface) {
                 err("%s - error, can't find device for minor %d",
                      __FUNCTION__, subminor);
-                retval = -ENODEV;
-                goto unlock_disconnect_exit;
+                TWOD_MUTEX_UNLOCK(&twod_open_lock);
+                return -ENODEV;
         }
 
         dev = usb_get_intfdata(interface);
         if (!dev) {
-                retval = -ENODEV;
-                goto unlock_disconnect_exit;
+                TWOD_MUTEX_UNLOCK(&twod_open_lock);
+                return -ENODEV;
         }
 
-        /* lock this device */
-        if (down_interruptible(&dev->sem)) {
-                retval = -ERESTARTSYS;
-                goto unlock_disconnect_exit;
-        }
-
+        /* prevent two opens */
         if (dev->is_open) {
-                retval = -EBUSY;
-                goto exit;
+                TWOD_MUTEX_UNLOCK(&twod_open_lock);
+                return -EBUSY;
         }
         dev->is_open = 1;
+        /* increment our usage count for this device */
+        kref_get(&dev->kref);
+        /* now we can drop the lock */
+        TWOD_MUTEX_UNLOCK(&twod_open_lock);
 
         dev->sorRate = IRIG_NUM_RATES;
 
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
         dev->errorStatus = 0;
-        dev->debug_cntr = 0;
 
 	dev->latencyJiffies = 250 * HZ / MSECS_PER_SEC;
 	dev->lastWakeup = jiffies;
 
-        /* save our object in the file's private structure */
-        file->private_data = dev;
+        /*
+         * Since we are preventing simultaneous opens,
+         * then either this is the first open of this
+         * device, or there was a previous close. Check it.
+         */
+        BUG_ON(dev->sampleq.head);
 
         /* allocate the sample circular buffer */
         dev->sampleq.head = dev->sampleq.tail = 0;
-        if (dev->sampleq.buf) {
-                if (dev->sampleq.buf[0]) kfree(dev->sampleq.buf[0]);
-                kfree(dev->sampleq.buf);
-        }
         dev->sampleq.buf =
             kmalloc(sizeof (struct twod_urb_sample *) * SAMPLE_QUEUE_SIZE,
                     GFP_KERNEL);
         if (!dev->sampleq.buf) {
                 retval = -ENOMEM;
-                goto exit;
+                goto error;
         }
         memset(dev->sampleq.buf, 0,
                sizeof (struct twod_urb_sample *) * SAMPLE_QUEUE_SIZE);
@@ -631,7 +696,7 @@ static int twod_open(struct inode *inode, struct file *file)
                     GFP_KERNEL);
         if (!samp) {
                 retval = -ENOMEM;
-                goto exit;
+                goto error;
         }
         /* initialize the pointers to the samples */
         for (i = 0; i < SAMPLE_QUEUE_SIZE; ++i)
@@ -640,7 +705,6 @@ static int twod_open(struct inode *inode, struct file *file)
         /* In order to support throttling of the image urbs, we create
          * a circular buffer of the image urbs.
          */
-        if (dev->img_urb_q.buf) kfree(dev->img_urb_q.buf);
         dev->img_urb_q.buf = 0;
         if (throttleRate > 0) {
                 dev->img_urb_q.head = dev->img_urb_q.tail = 0;
@@ -649,7 +713,7 @@ static int twod_open(struct inode *inode, struct file *file)
                             GFP_KERNEL);
                 if (!dev->img_urb_q.buf) {
                         retval = -ENOMEM;
-                        goto exit;
+                        goto error;
                 }
                 memset(dev->img_urb_q.buf, 0,
                        sizeof (struct urb *) * IMG_URB_QUEUE_SIZE);
@@ -658,9 +722,12 @@ static int twod_open(struct inode *inode, struct file *file)
         /* Allocate the image urbs and submit them */
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 dev->img_urbs[i] = twod_make_img_urb(dev);
-                if (!dev->img_urbs[i])
-                        return -ENOMEM;
-                usb_twod_submit_img_urb(dev, dev->img_urbs[i], GFP_KERNEL);
+                if (!dev->img_urbs[i]) {
+                        retval = -ENOMEM;
+                        goto error;
+                }
+                if ((retval = usb_twod_submit_img_urb(dev, dev->img_urbs[i], GFP_KERNEL)) < 0)
+                    goto error;
         }
 
         /* Allocate the shadow OR urbs and submit them */
@@ -668,9 +735,12 @@ static int twod_open(struct inode *inode, struct file *file)
             /* Only submit sor in urbs if we have an SOR endpoint */
             if (dev->sor_in_endpointAddr) {
                     dev->sor_urbs[i] = twod_make_sor_urb(dev);
-                    if (!dev->sor_urbs[i])
-                            return -ENOMEM;
-                    usb_twod_submit_sor_urb(dev, dev->sor_urbs[i], GFP_KERNEL);
+                    if (!dev->sor_urbs[i]) {
+                            retval = -ENOMEM;
+                            goto error;
+                    }
+                    if ((retval = usb_twod_submit_sor_urb(dev, dev->sor_urbs[i], GFP_KERNEL)) < 0)
+                            goto error;
             }
             else dev->sor_urbs[i] = 0;
         }
@@ -690,14 +760,13 @@ static int twod_open(struct inode *inode, struct file *file)
         /* Create a circular buffer of the true airspeed urbs for
          * periodic writing.
          */
-        if (dev->tas_urb_q.buf) kfree(dev->tas_urb_q.buf);
         dev->tas_urb_q.head = dev->tas_urb_q.tail = 0;
         dev->tas_urb_q.buf =
             kmalloc(sizeof (struct urb *) * TAS_URB_QUEUE_SIZE,
                     GFP_KERNEL);
         if (!dev->tas_urb_q.buf) {
                 retval = -ENOMEM;
-                goto exit;
+                goto error;
         }
         memset(dev->tas_urb_q.buf, 0,
                sizeof (struct urb *) * TAS_URB_QUEUE_SIZE);
@@ -705,8 +774,10 @@ static int twod_open(struct inode *inode, struct file *file)
         /* Allocate urbs for queue */
         for (i = 0; i < TAS_URB_QUEUE_SIZE; ++i) {
                 dev->tas_urb_q.buf[i] = twod_make_tas_urb(dev);
-                if (!dev->tas_urb_q.buf[i])
-                        return -ENOMEM;
+                if (!dev->tas_urb_q.buf[i]) {
+                        retval = -ENOMEM;
+                        goto error;
+                }
         }
         for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
                 INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -715,14 +786,16 @@ static int twod_open(struct inode *inode, struct file *file)
         init_timer(&dev->sendTASTimer);
 #endif
 
+        /* save our object in the file's private structure */
+        file->private_data = dev;
+
         KLOG_INFO("%s: now opened, throttleRate=%d\n", dev->dev_name,
              throttleRate);
 
-exit:
-        up(&dev->sem);
-
-unlock_disconnect_exit:
-        up(&disconnect_sem);
+        return 0;
+error:
+        /* unsuccessful open, give reference back */
+        kref_put(&dev->kref, twod_dev_delete);
         return retval;
 }
 
@@ -730,12 +803,9 @@ unlock_disconnect_exit:
 static int twod_release(struct inode *inode, struct file *file)
 {
         struct usb_twod *dev = (struct usb_twod *) file->private_data;
-        int i, retval = 0;
+        int i;
 
-        if (dev == NULL) {
-                return -ENODEV;
-                goto exit;
-        }
+        if (dev == NULL) return -ENODEV;
 
         KLOG_INFO("%s: Total images = %d\n",dev->dev_name, dev->stats.numImages);
         KLOG_INFO("%s: Lost images = %d\n",dev->dev_name, dev->stats.lostImages);
@@ -750,6 +820,7 @@ static int twod_release(struct inode *inode, struct file *file)
 
         twod_set_sor_rate(dev, 0);
 
+        read_lock(&dev->usb_iface_lock);
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
@@ -758,11 +829,6 @@ static int twod_release(struct inode *inode, struct file *file)
                                         urb->transfer_buffer, urb->transfer_dma);
                         usb_free_urb(urb);
                 }
-        }
-
-        if (dev->img_urb_q.buf) {
-                kfree(dev->img_urb_q.buf[0]);
-                kfree(dev->img_urb_q.buf);
         }
 
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
@@ -783,32 +849,16 @@ static int twod_release(struct inode *inode, struct file *file)
                                 usb_free_urb(urb);
                         }
                 }
-                kfree(dev->tas_urb_q.buf);
-                dev->tas_urb_q.buf = 0;
         }
+        read_unlock(&dev->usb_iface_lock);
 
-        if (dev->sampleq.buf)
-                kfree(dev->sampleq.buf[0]);
-        kfree(dev->sampleq.buf);
-        dev->sampleq.buf = 0;
-
-        if (down_interruptible(&dev->sem)) {
-                retval = -ERESTARTSYS;
-                goto exit;
-        }
-
-        if (dev->is_open == 0) {
-                retval = -ENODEV;
-                goto unlock_exit;
-        }
+        twod_dev_free(dev);
 
         dev->is_open = 0;
 
-unlock_exit:
-        up(&dev->sem);
+        kref_put(&dev->kref,twod_dev_delete);
 
-exit:
-        return retval;
+        return 0;
 }
 
 /* -------------------------------------------------------------------- */
@@ -830,103 +880,79 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                          size_t count, loff_t * ppos)
 {
         struct usb_twod *dev = (struct usb_twod *) file->private_data;
-        ssize_t retval = 0;
         ssize_t countreq = count;       // original request
         size_t n;
-        struct twod_urb_sample *sample = dev->readstate.pendingSample;
-        size_t bytesLeft = dev->readstate.bytesLeft;
-        char* dataPtr = dev->readstate.dataPtr;
+        struct twod_urb_sample *sample;
+        size_t bytesLeft;
+        char* dataPtr;
 
-        if (count == 0)
-                return count;
+        /*
+         * We're not locking anything here to make sure dev still exists.
+         * We assume that the system wouldn't allow a read on a closed
+         * device, and since we're doing reference counting on
+         * dev, it should be OK.
+         */
 
-        /* lock this object */
-        if (down_interruptible(&dev->sem))
-                return -ERESTARTSYS;
+        if (dev->errorStatus != 0) return dev->errorStatus;
 
-        if (dev->errorStatus != 0) {
-            retval = dev->errorStatus;
-            goto unlock_exit;
-        }
+        sample = dev->readstate.pendingSample;
+        bytesLeft = dev->readstate.bytesLeft;
+        dataPtr = dev->readstate.dataPtr;
 
-        /* verify that the device wasn't unplugged */
-        if (dev->interface == NULL) {
-                retval = -ENODEV;
-                err("%s: No device or device unplugged %d", dev->dev_name, retval);
-                goto unlock_exit;
-        }
         if (bytesLeft == 0
             && dev->sampleq.tail == dev->sampleq.head) {
-                if (file->f_flags & O_NONBLOCK) {
-                        retval = -EAGAIN;
-                        goto unlock_exit;
-                }
+                if (file->f_flags & O_NONBLOCK) return -EAGAIN;
                 if (wait_event_interruptible(dev->read_wait,
                                                   dev->sampleq.tail !=
                                                   dev->sampleq.head)) {
-                        retval = -ERESTARTSYS;
-                        goto unlock_exit;
+                        return -ERESTARTSYS;
                 }
         }
         // loop until user buffer is full (or no more samples)
         for ( ;; ) {
-                if (count == 0) {
-                    retval = countreq;
-                    break;
-                }
                 // Check if there is data from previous urb to copy
                 if ((n = min(count,bytesLeft)) > 0) {
-                        if (copy_to_user(buffer,dataPtr, n)) {
-                                retval = -EFAULT;
-                                break;
-                        }
+                        int retval = 0;
+                        if (copy_to_user(buffer,dataPtr, n)) return -EFAULT;
                         count -= n;
                         bytesLeft -= n;
                         buffer += n;
                         dataPtr += n;
-			if (bytesLeft > 0) { // user buffer filled, count==0
-                                retval = countreq;
-                                break;
-                        }
+                        /* user buffer filled, count==0 */
+			if (bytesLeft > 0) break;
+
                         // we're finished with this sample, resubmit urb
                         switch (be32_to_cpu(sample->stype)) {
                         case TWOD_IMG_TYPE:
-                                usb_twod_submit_img_urb(dev,
+                                retval = usb_twod_submit_img_urb(dev,
                                         sample->urb,GFP_KERNEL);
                                 break;
                         case TWOD_SOR_TYPE:
-                                usb_twod_submit_sor_urb(dev,
+                                retval = usb_twod_submit_sor_urb(dev,
                                         sample->urb,GFP_KERNEL);
                                 break;
                         }
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
+                        if (retval) return retval;
                 }
                 /* Finished writing previous sample, check for next. 
                  * bytesLeft will be 0 here.
                  * If no more samples, then we're done
                  */
-                if (dev->sampleq.tail == dev->sampleq.head) {
-                        retval = countreq - count;
-                        break;
-                }
+                if (dev->sampleq.tail == dev->sampleq.head) break;
                 sample = dev->sampleq.buf[dev->sampleq.tail];
 
                 /* length of initial, non-urb portion of
                  * image or SOR samples.
                  */
                 n = sample->pre_urb_len;
+
                 /* if not enough room to copy initial portion,
 		 * then we're done */
-                if (count < n) {
-                        retval = countreq - count;
-                        break;
-                }
+                if (count < n) break;
 
                 /* copy initial portion to user space. */
-                if (copy_to_user(buffer, sample, n)) {
-                        retval = -EFAULT;
-                        break;
-                }
+                if (copy_to_user(buffer, sample, n)) return -EFAULT;
                 count -= n;
                 buffer += n;
                 bytesLeft = sample->urb->actual_length;
@@ -935,10 +961,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         dev->readstate.pendingSample = sample;
         dev->readstate.bytesLeft = bytesLeft;
         dev->readstate.dataPtr = dataPtr;
-
-unlock_exit:
-        up(&dev->sem);
-        return retval;
+        return countreq - count;
 }
 
 static int twod_ioctl(struct inode *inode, struct file *file,
@@ -1006,7 +1029,10 @@ static struct usb_class_driver usbtwod_32 = {
         .minor_base = USB_TWOD_32_MINOR_BASE,
 };
 
-
+/*
+ * This is called in the context of the USB hub kernel thread
+ * so it is legal to sleep and do GFP_KERNEL kmallocs.
+ */
 static int twod_probe(struct usb_interface *interface,
                       const struct usb_device_id *id)
 {
@@ -1017,21 +1043,21 @@ static int twod_probe(struct usb_interface *interface,
         int retval = -ENOMEM;
 
         /* allocate memory for our device state and initialize it */
-        dev = kmalloc(sizeof (*dev), GFP_KERNEL);
-        if (dev == NULL) {
-                err("Out of memory");
-                goto error;
-        }
-        memset(dev, 0x00, sizeof (*dev));
+        /* note: no kzalloc in 2.6.11 */
+        dev = (struct usb_twod*) kmalloc(sizeof (*dev), GFP_KERNEL);
+        if (dev == NULL) return -ENOMEM;
+        memset(dev,0,sizeof(*dev));
 
+        kref_init(&dev->kref);
+        rwlock_init(&dev->usb_iface_lock);
+
+        dev->udev = usb_get_dev(interface_to_usbdev(interface));
         dev->interface = interface;
+
         init_waitqueue_head(&dev->read_wait);
-        init_MUTEX(&dev->sem);
         spin_lock_init(&dev->sampqlock);
 
         dev->sorRate = IRIG_NUM_RATES;
-
-        dev->udev = usb_get_dev(interface_to_usbdev(interface));
 
         /* set up the endpoint information */
         KLOG_INFO("idVendor: %x idProduct: %x, speed: %s\n",
@@ -1097,6 +1123,7 @@ static int twod_probe(struct usb_interface *interface,
 
         if (!dev->img_in_endpointAddr || !dev->tas_out_endpointAddr) {
                 KLOG_ERR("Could not find both img-in and tas-out endpoints");
+                retval = -ENOENT;
                 goto error;
         }
 
@@ -1132,9 +1159,9 @@ static int twod_probe(struct usb_interface *interface,
         KLOG_INFO("%s: connected\n", dev->dev_name);
         return 0;
 
-      error:
-        if (dev)
-                twod_delete(dev);
+error:
+        /* this frees dev */
+        kref_put(&dev->kref,twod_dev_delete);
         return retval;
 }
 
@@ -1142,15 +1169,11 @@ static void twod_disconnect(struct usb_interface *interface)
 {
         struct usb_twod *dev;
 
-        down(&disconnect_sem);
+        /* prevent twod_open() from racing twod_disconnect() */
+        TWOD_MUTEX_LOCK(&twod_open_lock);
 
         dev = usb_get_intfdata(interface);
-
-	twod_set_sor_rate(dev,0);
-	
         usb_set_intfdata(interface, NULL);
-
-        down(&dev->sem);
 
         /* give back our minor */
 	switch(dev->ptype) {
@@ -1161,16 +1184,17 @@ static void twod_disconnect(struct usb_interface *interface)
 		usb_deregister_dev(interface, &usbtwod_32);
 		break;
         }
+        TWOD_MUTEX_UNLOCK(&twod_open_lock);
 
-        up(&dev->sem);
+        /* prevent more I/O from starting */
+        write_lock_bh(&dev->usb_iface_lock);
+        dev->interface = NULL;
+        write_unlock_bh(&dev->usb_iface_lock);
 
-        wake_up_interruptible(&dev->read_wait);
-
-        KLOG_INFO("%s: disconnecting\n", dev->dev_name);
-        twod_delete(dev);
-
-        up(&disconnect_sem);
+        KLOG_INFO("%s: disconnected\n", dev->dev_name);
+        kref_put(&dev->kref, twod_dev_delete);
 }
+
 
 /* -------------------------------------------------------------------- */
 static struct usb_driver twod_driver = {
