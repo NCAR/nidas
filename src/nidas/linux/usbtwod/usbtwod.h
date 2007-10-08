@@ -152,13 +152,17 @@ struct usb_twod
         struct kref kref;               /* reference counter for this structure */
         rwlock_t usb_iface_lock;        /* for detection of whether disconnect has been called */
 
-        char   dev_name[64];           /* device name for driver messages */
+        char   dev_name[64];           /* device name for log messages */
 
+        __u8 img_in_endpointAddr;       /* the address of the image in endpoint */
+        __u8 tas_out_endpointAddr;      /* the address of the tas out endpoint */
+        __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */
         int is_open;                   /* don't allow multiple opens. */
+
 	enum probe_type ptype;
 
-        Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */
-        enum irigClockRates sorRate;
+        enum irigClockRates sorRate;    /* rate of shadow ORs */
+
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;
 
@@ -171,23 +175,27 @@ struct usb_twod
 
         wait_queue_head_t read_wait;    /* Zzzzz ... */
 
-        __u8 img_in_endpointAddr;       /* the address of the image in endpoint */
-        __u8 tas_out_endpointAddr;      /* the address of the tas out endpoint */
-        __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */
-        struct usb_twod_stats stats;
+        struct usb_twod_stats stats;    /* various I/O counter for info */
 
-        struct read_state readstate;
+        struct read_state readstate;    /* leftovers from past read */
 
-        int errorStatus;
+        int errorStatus;                /* current error value */
 
         struct timer_list urbThrottle;
 
+        int latencyJiffies;             /* maximum time user wants to wait
+                                         * between reads */
+
+	unsigned long lastWakeup;       /* time of last read queue wakeup */
+
 #ifndef DO_IRIG_TIMING
-        struct timer_list sendTASTimer;
-        int sendTASJiffies;
+        struct timer_list sendTASTimer; /* kernel timer for sending true airspeed */
+        int sendTASJiffies;             /* when to send the next TAS */
 #endif
-        int latencyJiffies;
-	unsigned long lastWakeup;
+
+        Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */
+
+        int consecTimeouts;
 };
 #endif                          // ifdef __KERNEL__
 #endif

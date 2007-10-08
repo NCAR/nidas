@@ -123,26 +123,31 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
 
         switch (urb->status) {
         case 0:
+                dev->consecTimeouts = 0;
                 break;
         case -ENOENT:
                 // result of usb_kill_urb
-		// KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("urb->status=-ENOENT\n");
                 dev->stats.urbErrors++;
                 break;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ECONNRESET;
                 break;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ESHUTDOWN;
                 break;
         case -ETIMEDOUT:
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
                 dev->stats.urbTimeouts++;
+                if (dev->consecTimeouts++ >= 10)
+                    dev->errorStatus = -ETIMEDOUT;
                 return;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
@@ -392,12 +397,13 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 
         switch (urb->status) {
         case 0:
+                dev->consecTimeouts = 0;
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-		// KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("urb->status=-ENOENT\n");
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ENOENT;
+                // dev->errorStatus = -ENOENT;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
@@ -413,10 +419,10 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 dev->errorStatus = -ESHUTDOWN;
                 return;
         case -ETIMEDOUT:
-                if (!(dev->stats.urbTimeouts++ % 1000))
-                    KLOG_WARNING("%s: urb->status=-ETIMEDOUT %d times\n", dev->dev_name,
-                        dev->stats.urbTimeouts);
-                dev->errorStatus = -ETIMEDOUT;
+                KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
+                dev->stats.urbTimeouts++;
+                if (dev->consecTimeouts++ >= 10)
+                    dev->errorStatus = -ETIMEDOUT;
                 return;
         default:
 
@@ -522,27 +528,31 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
 
         switch (urb->status) {
         case 0:
+                dev->consecTimeouts = 0;
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-		// KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("urb->status=-ENOENT\n");
                 dev->stats.urbErrors++;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ECONNRESET;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = -ESHUTDOWN;
                 return;
         case -ETIMEDOUT:
                 dev->stats.urbTimeouts++;
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
-                dev->errorStatus = -ETIMEDOUT;
+                if (dev->consecTimeouts++ >= 10)
+                    dev->errorStatus = -ETIMEDOUT;
                 return;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
@@ -669,6 +679,7 @@ static int twod_open(struct inode *inode, struct file *file)
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
         dev->errorStatus = 0;
+        dev->consecTimeouts = 0;
 
 	dev->latencyJiffies = 250 * HZ / MSECS_PER_SEC;
 	dev->lastWakeup = jiffies;
@@ -678,7 +689,7 @@ static int twod_open(struct inode *inode, struct file *file)
          * then either this is the first open of this
          * device, or there was a previous close. Check it.
          */
-        BUG_ON(dev->sampleq.head);
+        BUG_ON(dev->sampleq.buf);
 
         /* allocate the sample circular buffer */
         dev->sampleq.head = dev->sampleq.tail = 0;
@@ -1133,10 +1144,11 @@ static int twod_probe(struct usb_interface *interface,
         /* save our data pointer in this interface device */
         usb_set_intfdata(interface, dev);
 
-        /* we can register the device now, as it is ready */
+        /* We can register the device now, as it is ready.
+         * Then create device name for log messages.
+         */
         switch(dev->ptype) {
        	  	case TWOD_64:
-                        // device name for informational messages
             		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
                                 interface->minor - USB_TWOD_64_MINOR_BASE,
