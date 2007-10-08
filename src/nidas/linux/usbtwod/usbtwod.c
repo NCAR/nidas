@@ -824,10 +824,9 @@ static int twod_release(struct inode *inode, struct file *file)
         KLOG_INFO("%s: Lost SORs = %d\n",dev->dev_name, dev->stats.lostSORs);
         KLOG_INFO("%s: Lost TASs = %d\n",dev->dev_name, dev->stats.lostTASs);
         KLOG_INFO("%s: urb errors = %d\n",dev->dev_name, dev->stats.urbErrors);
+        KLOG_INFO("%s: urb timeouts = %d\n",dev->dev_name, dev->stats.urbTimeouts);
 
         del_timer_sync(&dev->urbThrottle);
-
-        wake_up_interruptible(&dev->read_wait);
 
         twod_set_sor_rate(dev, 0);
 
@@ -1197,6 +1196,9 @@ static void twod_disconnect(struct usb_interface *interface)
 		break;
         }
         TWOD_MUTEX_UNLOCK(&twod_open_lock);
+
+        dev->errorStatus = -ENOENT;
+        wake_up_interruptible(&dev->read_wait);
 
         /* prevent more I/O from starting */
         write_lock_bh(&dev->usb_iface_lock);
