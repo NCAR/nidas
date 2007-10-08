@@ -127,7 +127,7 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                 break;
         case -ENOENT:
                 // result of usb_kill_urb
-		KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
                 break;
         case -ECONNRESET:
@@ -210,9 +210,11 @@ static int write_tas(struct usb_twod *dev, int kmalloc_flags)
                 else
                         retval = -ENODEV;
                 read_unlock(&dev->usb_iface_lock);
-                if (retval < 0 && !(dev->stats.urbErrors++ % 100))
-                        KLOG_ERR("stats.urbErrors=%d",
-                                 dev->stats.urbErrors);
+                if (retval < 0) {
+                        dev->stats.urbErrors++;
+                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d",
+                                dev->dev_name,retval,dev->stats.urbErrors);
+                }
         } else {
                 if (!(dev->stats.lostTASs++ % 100))
                         KLOG_WARNING("%s: no urbs available for TAS write, lostTASs=%d\n",
@@ -297,7 +299,7 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
         if (throttleRate > 0) {
                 if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
                                IMG_URB_QUEUE_SIZE) == 0)
-                        err("%s: programming error: no space in queue for resubmitting urbs", dev->dev_name);
+                        KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
                 else {
                         dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
                         INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
@@ -310,9 +312,11 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
                 retval = usb_submit_urb(urb, GFP_ATOMIC);
         else retval = -ENODEV;
         read_unlock(&dev->usb_iface_lock);
-        if (retval < 0 && !(dev->stats.urbErrors++ % 100))
-                err("%s: %s stats.urbErrors=%d",
-                    dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+        if (retval < 0) {
+                dev->stats.urbErrors++;
+                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
+                    dev->dev_name,retval,dev->stats.urbErrors);
+        }
         return retval;
 }
 
@@ -327,9 +331,11 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb,
                 retval = usb_submit_urb(urb, GFP_ATOMIC);
         else retval = -ENODEV;
         read_unlock(&dev->usb_iface_lock);
-        if (retval < 0 && !(dev->stats.urbErrors++ % 100))
-                err("%s: %s stats.urbErrors=%d",
-                    dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+        if (retval < 0) {
+                dev->stats.urbErrors++;
+                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
+                    dev->dev_name,retval,dev->stats.urbErrors);
+        }
         return retval;
 }
 
@@ -364,9 +370,9 @@ static void urb_throttle_func(unsigned long arg)
                         retval = -ENODEV;
                 read_unlock(&dev->usb_iface_lock);
                 if (retval < 0) {
-                        if(!(dev->stats.urbErrors++ % 100))
-                            err("%s: %s stats.urbErrors=%d",
-                                dev->dev_name, __FUNCTION__, dev->stats.urbErrors);
+                        dev->stats.urbErrors++;
+                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
+                                dev->dev_name,retval,dev->stats.urbErrors);
                         dev->errorStatus = retval;
                 }
                 INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
@@ -401,7 +407,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-		KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
                 // dev->errorStatus = -ENOENT;
                 return;
@@ -495,7 +501,8 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
             (urb->transfer_buffer =
              usb_buffer_alloc(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
                               &urb->transfer_dma))) {
-                err("%s: %s - out of memory for read buf", dev->dev_name, __FUNCTION__);
+                KLOG_ERR("%s: out of memory for read buf\n",
+                        dev->dev_name);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -532,7 +539,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 break;
         case -ENOENT:
                 // result of usb_kill_urb, don't resubmit
-		KLOG_WARNING("urb->status=-ENOENT\n");
+		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
                 return;
         case -ECONNRESET:
@@ -575,8 +582,8 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 spin_unlock(&dev->sampqlock);
                 // overflow, no sample available for output.
                 if (!(dev->stats.lostSORs++ % 1000))
-                        KLOG_WARNING("%s: overflow: lost SOR urbs = %d\n",dev->dev_name,
-				dev->stats.lostSORs);
+                        KLOG_WARNING("%s: overflow: lost SOR urbs = %d\n",
+                                dev->dev_name,dev->stats.lostSORs);
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
@@ -620,7 +627,7 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
 
         buf = kmalloc(TWOD_SOR_BUFF_SIZE, GFP_KERNEL);
         if (!buf) {
-                err("%s: %s - out of memory for read buf",dev->dev_name, __FUNCTION__);
+                KLOG_ERR("%s: out of memory for read buf\n",dev->dev_name);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -651,8 +658,8 @@ static int twod_open(struct inode *inode, struct file *file)
         TWOD_MUTEX_LOCK(&twod_open_lock);
         interface = usb_find_interface(&twod_driver, subminor);
         if (!interface) {
-                err("%s - error, can't find device for minor %d",
-                     __FUNCTION__, subminor);
+                KLOG_ERR("error, can't find device for minor %d\n",
+                     subminor);
                 TWOD_MUTEX_UNLOCK(&twod_open_lock);
                 return -ENODEV;
         }
@@ -1009,7 +1016,7 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                 retval = -ENOTTY;       // inappropriate ioctl for device
                 break;
         }
-	KLOG_DEBUG("%s: ioctl, retval=%d\n",dev->dev_name, retval);
+	KLOG_DEBUG("%s: ioctl, retval=%d\n",dev->dev_name,retval);
         return retval;
 }
 
@@ -1070,15 +1077,13 @@ static int twod_probe(struct usb_interface *interface,
         dev->sorRate = IRIG_NUM_RATES;
 
         /* set up the endpoint information */
-        KLOG_INFO("idVendor: %x idProduct: %x, speed: %s\n",
+        KLOG_INFO("idVendor: %x idProduct: %x, speed: %s, #alt_ifaces=%d\n",
                   id->idVendor, id->idProduct,
 		((dev->udev->speed == USB_SPEED_LOW) ? "low (1.1 mbps)" :
 		((dev->udev->speed == USB_SPEED_FULL) ? "full (12 mbps)" :
-		((dev->udev->speed == USB_SPEED_HIGH) ? "high (480 mbps)" : "unknown"))));
-	
-        KLOG_INFO("number of alternate interfaces: %d\n",
+		((dev->udev->speed == USB_SPEED_HIGH) ? "high (480 mbps)" : "unknown"))),
                   interface->num_altsetting);
-
+	
         /* use the first sor-in and tas-out endpoints */
         /* use the second ing_in endpoint */
         iface_desc = interface->cur_altsetting;
@@ -1086,8 +1091,6 @@ static int twod_probe(struct usb_interface *interface,
         if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
         	dev->ptype = TWOD_32;
         }
-        // KLOG_INFO("%d endpoints in probe\n", iface_desc->desc.bNumEndpoints);
-       
       
         for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
 		int psize,dir,type;
@@ -1132,13 +1135,16 @@ static int twod_probe(struct usb_interface *interface,
         }
 
         if (!dev->img_in_endpointAddr || !dev->tas_out_endpointAddr) {
-                KLOG_ERR("Could not find both img-in and tas-out endpoints");
+                KLOG_ERR("Could not find img-in or tas-out endpoints\n");
                 retval = -ENOENT;
                 goto error;
         }
 
-        if (!dev->sor_in_endpointAddr)
-                KLOG_WARNING("Could not find sor-in endpoint. Will not read SOR samples");
+        if (dev->ptype == TWOD_64 && !dev->sor_in_endpointAddr) {
+                KLOG_ERR("Could not find sor-in endpoint for 64 bit probe\n");
+                retval = -ENOENT;
+                goto error;
+        }
 
         /* save our data pointer in this interface device */
         usb_set_intfdata(interface, dev);
@@ -1162,8 +1168,7 @@ static int twod_probe(struct usb_interface *interface,
 
         if (retval) {
                 /* something prevented us from registering this driver */
-                err("%s - Not able to get a minor for this device.",
-                    __FUNCTION__);
+                KLOG_ERR("Not able to get a minor for this device.\n");
                 usb_set_intfdata(interface, NULL);
                 goto error;
         }
@@ -1251,7 +1256,7 @@ static int __init usb_twod_init(void)
         /* register this driver with the USB subsystem */
         result = usb_register(&twod_driver);
         if (result)
-                err("usbtwod_register failed. Error number %d", result);
+                KLOG_ERR("usbtwod_register failed. Error number %d\n", result);
 
         return result;
 }

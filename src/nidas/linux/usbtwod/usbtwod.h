@@ -69,11 +69,24 @@ typedef struct _Tap2D
 
 #include <nidas/linux/irigclock.h>
 
-/* Get a minor range for your devices from the usb maintainer */
+/* 64 bit probes will have minor numbers starting at 192,
+ * 32 bit probes will have minor numbers starting at 196.
+ * On the vulcan, running 2.6.11 kernel without a udev daemon,
+ * you have to mknod the devices by hand:
+ * mknod /dev/usbtwod_64_0 c 180 192
+ * mknod /dev/usbtwod_64_1 c 180 193
+ * mknod /dev/usbtwod_64_2 c 180 194
+ * mknod /dev/usbtwod_64_3 c 180 195
+ * mknod /dev/usbtwod_32_0 c 180 196
+ * etc...
+ * On systems with a udev daemon, these device files are created
+ * automatically when the device is connected, using the
+ * name member of the struct usb_class_driver, which
+ * is passed to usb_register_dev() in the probe method.
+ */
 #define USB_TWOD_64_MINOR_BASE     192
 #define USB_TWOD_32_MINOR_BASE     196
 
-/* our private defines. if this grows any larger, use your own .h file */
 #define MAX_TRANSFER            ( PAGE_SIZE - 512 )
 
 #define TWOD_IMG_BUFF_SIZE          4096
