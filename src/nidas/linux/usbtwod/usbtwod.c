@@ -1137,16 +1137,16 @@ static int twod_probe(struct usb_interface *interface,
         switch(dev->ptype) {
        	  	case TWOD_64:
                         // device name for informational messages
+            		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
                                 interface->minor - USB_TWOD_64_MINOR_BASE,
                                 id->idVendor, id->idProduct);
-            		retval = usb_register_dev(interface, &usbtwod_64);
  	    		break;
           	case TWOD_32:
+ 	    		retval = usb_register_dev(interface, &usbtwod_32);
                         sprintf(dev->dev_name, "/dev/usbtwod_32_%d (%x/%x)",
                                 interface->minor - USB_TWOD_32_MINOR_BASE,
                                 id->idVendor, id->idProduct);
- 	    		retval = usb_register_dev(interface, &usbtwod_32);
         }
 
         if (retval) {
