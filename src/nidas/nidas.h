@@ -30,7 +30,7 @@
 
   The default value of OTHER_X86 is $PREFIX/x86, where PREFIX can
   be set as the destination the installation.  The default value
-  of PREFIX is /opt/nidas.
+  of PREFIX is /opt/local/nidas.
 
   The path the installation of the ARM version of these packages can
   be specified with the OTHER_ARM option to scons. 
@@ -52,7 +52,7 @@
   - scons PREFIX=/install_path OTHER_X86=/usr/local OTHER_ARM=/usr/local_arm
   - scons install
 
-  /install_path is where you want to install NIDAS. The default value for PREFIX is /opt/nidas.
+  /install_path is where you want to install NIDAS. The default value for PREFIX is /opt/local/nidas.
   Executables, libraries and header files will be installed as follows:
 
   <dl>

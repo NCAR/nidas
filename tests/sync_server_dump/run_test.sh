@@ -5,13 +5,13 @@
 export PROJ_DIR=$PWD/config
  
 echo "running sync_server in the background"
-valgrind /opt/nidas/x86/bin/sync_server data/dsm_20060908_200303.ads \
+valgrind /opt/local/nidas/x86/bin/sync_server data/dsm_20060908_200303.ads \
     > sync_server.log 2>&1 &
 
 echo "sleeping, then run sync_dump"
 sleep 10
 
-valgrind /opt/nidas/x86/bin/sync_dump LAT_G sock:localhost:30001 2>&1 | \
+valgrind /opt/local/nidas/x86/bin/sync_dump LAT_G sock:localhost:30001 2>&1 | \
     tee sync_dump.log
 
 tmp1=/tmp/$0.$$.expect

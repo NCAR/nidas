@@ -20,7 +20,7 @@ opts = Options('nidas.conf')
 opts.AddOptions(
     PathOption('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
-               '/opt/nidas'))
+               '/opt/local/nidas'))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':

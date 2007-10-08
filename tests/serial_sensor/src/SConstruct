@@ -1,6 +1,6 @@
 # env = Environment(CCFLAGS='-Wall')
 
 Program('sensor_sim.cc',
-    LIBS=['nidas_dynld','nidas','xerces-c','XmlRpc','dl'],LIBPATH='/opt/nidas/x86/lib',
-    CCFLAGS='-Wall',CPPPATH='/opt/nidas/x86/include',RPATH='/opt/nidas/x86/lib'
+    LIBS=['nidas_dynld','nidas','xerces-c','XmlRpc','dl'],LIBPATH='/opt/local/nidas/x86/lib',
+    CCFLAGS='-Wall',CPPPATH='/opt/local/nidas/x86/include',RPATH='/opt/local/nidas/x86/lib'
 )

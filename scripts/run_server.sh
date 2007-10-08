@@ -4,7 +4,7 @@
 #     export FLIGHT=$1
 # fi
 
-PATH=/opt/nidas/x86/bin:$PATH
+PATH=/opt/local/nidas/x86/bin:$PATH
 
 echo "NIDAS_CONFIG=$NIDAS_CONFIG"
 echo "FLIGHT=$FLIGHT"

@@ -13,7 +13,7 @@ DESC="dsm"
 
 ruser=ads
 server=server		# found in /etc/hosts
-adspath=/opt/nidas/arm
+adspath=/opt/local/nidas/arm
 
 dsmpath=/var/tmp/code
 fmwpath=$dsmpath/firmware
