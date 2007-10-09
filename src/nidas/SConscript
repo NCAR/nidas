@@ -56,22 +56,18 @@ subdirs=Split("""util core dynld apps linux""")
 if arch == 'arm':
     subdirs += Split("""rtlinux""")
 
-defaultdirs=subdirs[1:]     # skip util, its code is built with core/SConscript
-libdirs=subdirs[1:3]
-
-##
-## ARCH target for creating modules, library, and executables
-##
-env.Alias(arch, ['build_%s' % dir for dir in defaultdirs])
-Alias('lib', ['build_%s' % d for d in libdirs])
-
-# Provide an arch-specific install alias.  Basically, install everything
-# that goes under the arch-specific install prefix.
-archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
-
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=0,exports={'env':env})
 
-Default([ "build_%s" % dir for dir in defaultdirs ])
+##
+## ARCH target for creating modules, library, and executables
+##
+Default(env.Alias(arch, ['build_%s' % dir for dir in subdirs]))
+Alias('lib', ['build_%s' % d for d in subdirs[0:3]])
+
+# Provide an arch-specific install alias.  Basically, install everything
+# that goes under the arch-specific install prefix.
+archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
+

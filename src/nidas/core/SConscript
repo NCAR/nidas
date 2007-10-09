@@ -54,7 +54,7 @@ myenv.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
 ##
 # headers = glob.glob("../../util/*.h")
 # print(["glob headers="] + [str(h) for h in headers])
-headers = [ Split("""
+headers = Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
     CalFile.h
@@ -141,11 +141,11 @@ headers = [ Split("""
     XMLWriter.h
     XmlRpcThread.h
     XMLStringConverter.h
-    """)
-]
+""")
+
 # print(["headers="] + [str(h) for h in headers])
 
-sources = [ Split("""
+sources = Split("""
     AdaptiveDespiker.cc
     AsciiSscanf.cc
     CalFile.cc
@@ -213,40 +213,17 @@ sources = [ Split("""
     XMLParser.cc
     XMLWriter.cc
     XmlRpcThread.cc
+""")
 
-    ../util/BitArray.cc
-    ../util/EndianConverter.cc
-    ../util/Exception.cc
-    ../util/FileSet.cc
-    ../util/Inet4Address.cc
-    ../util/Inet4SocketAddress.cc
-    ../util/Logger.cc
-    ../util/McSocket.cc
-    ../util/Process.cc
-    ../util/SerialOptions.cc
-    ../util/SerialPort.cc
-    ../util/Socket.cc
-    ../util/Termios.cc
-    ../util/Thread.cc
-    ../util/ThreadSupport.cc
-    ../util/UnixSocketAddress.cc
-    ../util/UTime.cc
-    """)
-]
 
 dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
 sources += [ myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
 
-
-# kludge
-# utilobjs = glob.glob("../util/*.cc")
-# print(["utilobjs="] + [str(h) for h in utilobjs])
-
 ##
-##  Build the libnidas library.
+##  Build the libnidas library.  Include the util objects directly.
 ##
 # lib = myenv.SharedLibrary('nidas' , [ sources, utilobjs] )
-lib = myenv.SharedLibrary('nidas' , [ sources ] )
+lib = myenv.SharedLibrary('nidas' , [ sources ] + env['NIDAS_UTIL_OBJECTS'] )
 
 ##
 ## Install target for library.

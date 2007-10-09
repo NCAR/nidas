@@ -71,10 +71,13 @@ sources = [ Split("""
 ]
 # print(["sources="] + [str(h) for h in sources])
 
+objects = myenv.SharedObject(sources)
+env['NIDAS_UTIL_OBJECTS'] = objects
+
 ##
 ##  Build the libnidas_util library.
 ##
-lib = myenv.SharedLibrary('nidas_util' , sources, LIBS = ['pthread'])
+lib = myenv.SharedLibrary('nidas_util' , objects, LIBS = ['pthread'])
 
 ##
 ## Install target for library.
