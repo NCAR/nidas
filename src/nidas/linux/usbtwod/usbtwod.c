@@ -438,9 +438,15 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 dev->errorStatus = urb->status;
                 return;
         case -ETIMEDOUT:
-                KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
+		// Sometimes we see one urb ETIMEDOUT and things continue working.
+		// Other times the probe (or usb controller, not sure which)
+		// never recovers and returns ETIMEDOUT for every returned urb.
+		// We'll give up resubmitting after 10 in a row.
+                dev->consecTimeouts++;
+                KLOG_WARNING("%s: urb->status=-ETIMEDOUT, consecutive=%d\n",
+			dev->dev_name,dev->consecTimeouts);
                 dev->stats.urbTimeouts++;
-                if (dev->consecTimeouts++ >= 10) {
+                if (dev->consecTimeouts >= 10) {
                     dev->errorStatus = urb->status;
 		    return;
 		}
@@ -582,9 +588,11 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 dev->errorStatus = urb->status;
                 return;
         case -ETIMEDOUT:
+                dev->consecTimeouts++;
+                KLOG_WARNING("%s: urb->status=-ETIMEDOUT, consecutive=%d\n",
+			dev->dev_name,dev->consecTimeouts);
                 dev->stats.urbTimeouts++;
-                KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
-                if (dev->consecTimeouts++ >= 10) {
+                if (dev->consecTimeouts >= 10) {
                     dev->errorStatus = urb->status;
 		    return;
 		}
