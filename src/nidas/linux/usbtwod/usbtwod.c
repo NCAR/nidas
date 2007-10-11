@@ -129,30 +129,32 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                 // result of usb_kill_urb
 		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = urb->status;
                 break;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ECONNRESET;
+                dev->errorStatus = urb->status;
                 break;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ESHUTDOWN;
+                dev->errorStatus = urb->status;
                 break;
         case -ETIMEDOUT:
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
                 dev->stats.urbTimeouts++;
                 if (dev->consecTimeouts++ >= 10)
-                    dev->errorStatus = -ETIMEDOUT;
-                return;
+                    dev->errorStatus = urb->status;
+		break;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
                 dev->stats.urbErrors++;
-                break;
+		dev->errorStatus = urb->status;
+		return;
         }
 }
 
@@ -212,8 +214,9 @@ static int write_tas(struct usb_twod *dev, int kmalloc_flags)
                 read_unlock(&dev->usb_iface_lock);
                 if (retval < 0) {
                         dev->stats.urbErrors++;
-                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d",
+                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
                                 dev->dev_name,retval,dev->stats.urbErrors);
+			dev->errorStatus = retval;
                 }
         } else {
                 if (!(dev->stats.lostTASs++ % 100))
@@ -401,6 +404,16 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
+	/*
+	 * One should do one of the following here:
+	 * 1. urb OK: check if an empty sample is available at head of dev->sampleq
+	 *	a. sample available, fill it in, add to tail of dev->sampleq
+	 *	b. no sample available, resubmit urb
+         * 2. urb status bad, and situation probably not repairable: set dev->errorStatus = urb->status, return
+	 *	In this case the user select() or read() will return an error, and the user can
+	 *      try to re-open().
+         * 3. urb bad, but if the situation might possibly improve on its own: resubmit urb
+         */
         switch (urb->status) {
         case 0:
                 dev->consecTimeouts = 0;
@@ -409,32 +422,34 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 // result of usb_kill_urb, don't resubmit
 		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
-                // dev->errorStatus = -ENOENT;
+                dev->errorStatus = urb->status;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ECONNRESET;
+                dev->errorStatus = urb->status;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ESHUTDOWN;
+                dev->errorStatus = urb->status;
                 return;
         case -ETIMEDOUT:
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
                 dev->stats.urbTimeouts++;
-                if (dev->consecTimeouts++ >= 10)
-                    dev->errorStatus = -ETIMEDOUT;
-                return;
+                if (dev->consecTimeouts++ >= 10) {
+                    dev->errorStatus = urb->status;
+		    return;
+		}
+		else goto resubmit;
         default:
-
 		KLOG_WARNING("%s: urb->status=%d\n", dev->dev_name, urb->status);
                 dev->stats.urbErrors++;
-                goto resubmit;  /* maybe we can recover */
+                dev->errorStatus = urb->status;
+                return;
         }
         dev->stats.numImages++;
 
@@ -533,6 +548,16 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
 
+	/*
+	 * One should do one of the following here:
+	 * 1. urb OK: check if an empty sample is available at head of dev->sampleq
+	 *	a. sample available, fill it in, add to tail of dev->sampleq
+	 *	b. no sample available, resubmit urb
+         * 2. urb status bad, and situation probably not repairable: set dev->errorStatus = urb->status, return
+	 *	In this case the user select() or read() will return an error, and the user can
+	 *      try to re-open().
+         * 3. urb bad, but if the situation might possibly improve on its own: resubmit urb
+         */
         switch (urb->status) {
         case 0:
                 dev->consecTimeouts = 0;
@@ -541,29 +566,33 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 // result of usb_kill_urb, don't resubmit
 		KLOG_WARNING("%s: urb->status=-ENOENT\n",dev->dev_name);
                 dev->stats.urbErrors++;
+                dev->errorStatus = urb->status;
                 return;
         case -ECONNRESET:
                 // urb has been unlinked (usb_unlink_urb) out from under us.
 		KLOG_WARNING("%s: urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ECONNRESET;
+                dev->errorStatus = urb->status;
                 return;
         case -ESHUTDOWN:
                 // Severe error in host controller, or the urb was submitted
                 // after the device was disconnected
 		KLOG_WARNING("%s: urb->status=-ESHUTDOWN\n", dev->dev_name);
                 dev->stats.urbErrors++;
-                dev->errorStatus = -ESHUTDOWN;
+                dev->errorStatus = urb->status;
                 return;
         case -ETIMEDOUT:
                 dev->stats.urbTimeouts++;
                 KLOG_WARNING("%s: urb->status=-ETIMEDOUT\n", dev->dev_name);
-                if (dev->consecTimeouts++ >= 10)
-                    dev->errorStatus = -ETIMEDOUT;
-                return;
+                if (dev->consecTimeouts++ >= 10) {
+                    dev->errorStatus = urb->status;
+		    return;
+		}
+		else goto resubmit;
         default:
 		KLOG_WARNING("%s: urb->status=%d\n",dev->dev_name, urb->status);
                 dev->stats.urbErrors++;
+                dev->errorStatus = urb->status;
                 return;
         }
 
