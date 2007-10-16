@@ -152,7 +152,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     }
 
     // Check for the header byte.
-    if (dinptr[0] != '\xff') 
+    if (ud[0] != 0xff) 
     {
 	PLOG(("unexpected header byte, skipping bad sample"));
 	return false;
