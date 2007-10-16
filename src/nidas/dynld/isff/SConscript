@@ -11,7 +11,6 @@ sources = Split("""
     GOESXmtr.cc
     GroundStation.cc
     MOSMote.cc
-    nc_server_rpc_xdr.c
     NetcdfRPCChannel.cc
     NetcdfRPCOutput.cc
     Packets.cc
@@ -22,6 +21,11 @@ sources = Split("""
     SimGOESXmtr.cc
     SonicAnemometer.cc
 """)
+
+nowarns = ['-Wno-unused', '-Wno-strict-aliasing']
+sources.append(env.SharedObject("nc_server_rpc_xdr.c",
+                                CFLAGS = env['CFLAGS'] + nowarns,
+                                CCFLAGS = env['CCFLAGS'] + nowarns))
 
 headers = Split("""
     CSAT3_Sonic.h

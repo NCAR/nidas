@@ -376,7 +376,7 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
         while(tt >= _calTime) {
             float d[6];
             try {
-                int n = cf->readData(d,sizeof d/sizeof(d[0]));
+	        cf->readData(d,sizeof d/sizeof(d[0]));
                 _calTime = cf->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)

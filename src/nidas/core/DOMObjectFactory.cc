@@ -46,8 +46,6 @@ DOMable*
 DOMObjectFactory::
 createObject(const string& classname) throw(n_u::Exception)
 {
-    n_u::Logger* logger = n_u::Logger::getInstance();
-    // dom_object_ctor_t* ctor = NULL;
     nidas::core::DOMable* (*ctor)() = 0;
     // Replace both :: and . with _, just in case either is used.
     string qclassname = "nidas_dynld_" + classname;
@@ -68,10 +66,7 @@ createObject(const string& classname) throw(n_u::Exception)
     for (it = libs.begin(); !ctor && it != libs.end(); ++it)
     {
 	try {
-#ifdef DEBUG
-	    logger->log(LOG_INFO, "looking for %s in '%s'", 
-			entryname.c_str(), it->c_str());
-#endif
+	    DLOG(("looking for %s in '%s'", entryname.c_str(), it->c_str()));
 	    ctor = (dom_object_ctor_t*) 
 		DynamicLoader::getInstance()->lookup(*it, entryname);
 	}
@@ -84,9 +79,7 @@ createObject(const string& classname) throw(n_u::Exception)
     {
 	throw n_u::Exception(errors.str());
     }
-#ifdef DEBUG
-    logger->log(LOG_INFO, "creating: %s", classname.c_str());
-#endif
+    DLOG(("creating: %s", classname.c_str()));
     return ctor();
 }
 

@@ -85,7 +85,7 @@ bool TwoD64_USB::processSOR(const Sample * samp,
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->longValue(*lptr++);
+    /*int stype =*/ bigEndian->longValue(*lptr++);
     long sor = bigEndian->longValue(*lptr++);
 
     size_t nvalues = 1;
@@ -107,7 +107,7 @@ bool TwoD64_USB::processImage(const Sample * samp,
         return false;
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->longValue(*lptr++);
+    /*int stype =*/ bigEndian->longValue(*lptr++);
     *lptr++;		// skip 4 byte TAS structure
     const long long *llptr = (const long long *) lptr;
 
