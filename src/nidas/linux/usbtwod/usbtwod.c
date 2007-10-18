@@ -199,8 +199,8 @@ static int write_tas(struct usb_twod *dev)
         int retval = 0;
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
-		dev->tasValue.cntr %= 10;
 		dev->tasValue.cntr++;
+		dev->tasValue.cntr %= 10;
 		
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
