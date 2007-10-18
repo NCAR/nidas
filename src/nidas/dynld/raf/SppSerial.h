@@ -29,91 +29,58 @@
 namespace nidas { namespace dynld { namespace raf {
 
 /**
- * Class for unsigned 2-byte data from Droplet Measurement Technologies
- * probes.  The DMT byte order is 01, where byte 0 is the low-order byte.
+ * DMT 2-byte ints are packed with byte order 01, where byte 0 is the
+ * low-order byte.
  *
- * Data are stored within the class in the order sent by the DMT probe, so
- * data from the DMT can be memcpy-ed into this class and used directly.
- * This class contains only byte storage, so alignment should not be an
- * issue if this is part of a struct (i.e., a DMT data packet can be
- * memcpy-ed directly into a struct built of appropriate DMT_* elements,
- * and each element should work properly regardless of its specific byte
- * alignment within the struct).
+ * DMT_UShort is an opaque 2-byte value (just a 2-byte unsigned char array)
+ * in DMT order.
+ *
+ * UnpackDMT_UShort unpacks a DMT_UShort as a local unsigned short.
+ *
+ * PackDMT_UShort packs a local unsigned short into a DMT_UShort.
  */
-class DMT_UShort
+typedef unsigned char DMT_UShort[2];
+
+inline unsigned short UnpackDMT_UShort(DMT_UShort dmtval)
 {
-public:
-  DMT_UShort() {
-    putValue(0);
-  }
+  unsigned short val = (dmtval[1] << 8) | dmtval[0];
+  return val;
+}
 
-  DMT_UShort(unsigned short val) {
-    putValue(val);
-  }
+inline void PackDMT_UShort(DMT_UShort dmtval, unsigned short val) 
+{
+  dmtval[0] = val & 0xff;
+  dmtval[1] = (val >> 8) & 0xff;
+}
 
-  /**
-   * Return the DMT value as a local unsigned short
-   */
-  inline unsigned short value() const { 
-    unsigned short val = bytes[1] << 8 | bytes[0];
-    return val;
-  }
-
-  /**
-   * Pack a local unsigned short into DMT order
-   */
-  inline void putValue(unsigned short val) {
-    bytes[0] = val & 0xff;        // 0
-    bytes[1] = (val >> 8) & 0xff; // 1
-  }
-  
-  unsigned char bytes[2];
-};
 
 /**
- * Class for unsigned 4-byte data from Droplet Measurement Technologies
- * probes.  The DMT byte order is 2301, where byte 0 is the low-order byte.
+ * DMT 4-byte ints are packed with byte order 2301, where byte 0 is the
+ * low-order byte.
  *
- * Data are stored within the class in the order sent by the DMT probe, so
- * data from the DMT can be memcpy-ed into this class and used directly.
- * This class contains only byte storage, so alignment should not be an
- * issue if this is part of a struct (i.e., a DMT data packet can be
- * memcpy-ed directly into a struct built of appropriate DMT_* elements,
- * and each element should work properly regardless of its specific byte
- * alignment within the struct).
+ * DMT_ULong is an opaque 4-byte value (just a 4-byte unsigned char array)
+ * in DMT order.
+ *
+ * UnpackDMT_ULong unpacks a DMT_ULong as a local unsigned long.
+ *
+ * PackDMT_ULong packs a local unsigned long into a DMT_ULong.
  */
-class DMT_ULong
-{
-public:
-  DMT_ULong() {
-    putValue(0);
-  }
+typedef unsigned char DMT_ULong[4];
 
-  DMT_ULong(unsigned long val) {
-    putValue(val);
-  }
-  
-  /**
-   * Return the DMT value as a local unsigned long
-   */
-  inline unsigned long value() const { 
-    unsigned long val = bytes[1] << 24 | bytes[0] << 16 | 
-      bytes[3] << 8 | bytes[2];
-    return val;
-  }
-  
-  /**
-   * Pack a local unsigned long into DMT order
-   */
-  inline void putValue(unsigned long val) {
-    bytes[0] = (val >> 16) & 0xff; // 2
-    bytes[1] = (val >> 24) & 0xff; // 3
-    bytes[2] = val & 0xff;         // 0
-    bytes[3] = (val >> 8) & 0xff;  // 1
-  }
-  
-  unsigned char bytes[4];
-};
+inline unsigned long UnpackDMT_ULong(DMT_ULong dmtval)
+{
+  unsigned long val = dmtval[1] << 24 | dmtval[0] << 16 | 
+    dmtval[3] << 8 | dmtval[2]; // DMT byte order is 2301
+  return val;
+}
+      
+inline void PackDMT_ULong(DMT_ULong dmtval, unsigned long val) 
+{
+  dmtval[0] = (val >> 16) & 0xff; // 2
+  dmtval[1] = (val >> 24) & 0xff; // 3
+  dmtval[2] = val & 0xff;         // 0
+  dmtval[3] = (val >> 8) & 0xff;  // 1
+}
 
 
 /**
@@ -143,16 +110,23 @@ public:
 
 protected:
   /**
-   * Return the expected packet length in bytes given the number of channels
-   * being used.
+   * Return the expected data packet length in bytes based on the number of
+   * channels being used.
    */
-  virtual int calculatePacketLen(int nchannels) const = 0;
+  virtual int packetLen() const = 0;
+
+  /**
+   * Send pre-packaged initialization packet to SPP probe and what for
+   * Acknowledge packet.
+   */
+  virtual void
+  sendInitPacketAndCheckAck(void * packet, int len);
 
   /**
    * Append _packetLen bytes of data to _waitingData, and find the earliest
    * "good" record possible, where a good record:
    * 
-   *  1) is _packetLen bytes long
+   *  1) is packetLen() bytes long
    *  2) the last two bytes of the record are a valid 16-bit checksum 
    *     for the rest of the record (_dataType == FixedLength), or the 
    *	 last two bytes match the expected record terminator 
@@ -161,10 +135,11 @@ protected:
    * If a good record is found, the function returns true, data before the 
    * good record are dropped, leaving the good record will be at the head of 
    * _waitingData.  If no good record is found, the function returns false,
-   * and the last (_packetLen-1) bytes of _waitingData are retained.
+   * and the last (packetLen()-1) bytes of _waitingData are retained.
    */
   int appendDataAndFindGood(const Sample* sample);
 
+  /// Possibly not needed...
   unsigned short _model;
 
   /**
@@ -191,11 +166,6 @@ protected:
   unsigned short _opcThreshold[MAX_CHANNELS];
 
   /**
-   * Expected length of return data packet.
-   */
-  int _packetLen;
-
-  /**
    * Total number of floats in the processed output sample.
    */
   int _noutValues;
@@ -213,11 +183,11 @@ protected:
   /**
    * Buffer to hold incoming data until we find a chunk that looks like a
    * valid DMT100 data packet.  The buffer size is 2 * the expected packet
-   * length (_packetLen) so that we can hold the current incoming chunk
+   * length (packetLen()) so that we can hold the current incoming chunk
    * plus anything remaining from the previous chunk.  _nWaitingData keeps
    * track of how much of the buffer is actually in use.
    */
-  unsigned char* _waitingData;  // size will be 2 * _packetLen
+  unsigned char* _waitingData;  // size will be 2 * packetLen()
   unsigned short _nWaitingData;
   int _skippedBytes;		// how much skipped looking for a good record?
 

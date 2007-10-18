@@ -46,39 +46,18 @@ public:
   {
     char    esc;				// ESC 0x1b
     char    id;					// cmd id
-    DMT_UShort  model;				// model
     DMT_UShort  trig_thresh;			// trigger threshold
     DMT_UShort  chanCnt;			// chanCnt
     DMT_UShort  dofRej;
     DMT_UShort  range;				// range
     DMT_UShort  avTranWe;			// avgTransWeight
     DMT_UShort  divFlag;			// divisorflag 0=/2, 1=/4
-    DMT_UShort  max_width;			// max_width threshold
     DMT_UShort  OPCthreshold[MAX_CHANNELS];	// OPCthreshold[MAX_CHANNELS]
     DMT_UShort  spares[3];
     DMT_UShort  chksum;				// cksum
   };
 
-  /**
-   * SP300 response adds a firmware field in the middle
-   */
-  struct Response300_blk
-  {
-    char    esc;				// ESC 0x1b
-    char    id;					// cmd id
-    DMT_UShort  model;				// model
-    DMT_UShort  firmware;			// firmware
-    DMT_UShort  trig_thresh;			// trigger threshold
-    DMT_UShort  chanCnt;			// chanCnt
-    DMT_UShort  dofRej;
-    DMT_UShort  range;				// range
-    DMT_UShort  avTranWe;			// avgTransWeight
-    DMT_UShort  divFlag;			// divisorflag 0=/2, 1=/4
-    DMT_UShort  max_width;			// max_width threshold
-    DMT_UShort  OPCthreshold[MAX_CHANNELS];	// OPCthreshold[MAX_CHANNELS]
-    DMT_UShort  spares[3];
-    DMT_UShort  chksum;				// cksum
-  };
+  static const int _InitPacketSize = 102;
 
   /**
    * Data packet back from probe.  This is max size with 40 channels.
@@ -100,8 +79,8 @@ public:
   };
 
 protected:
-  int calculatePacketLen(int nchannels) const {
-    return (36 + 4 * nchannels);
+  inline int packetLen() const {
+    return (36 + 4 * _nChannels);
   }
 
   static const size_t FREF_INDX, FTMP_INDX;

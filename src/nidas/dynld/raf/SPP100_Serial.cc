@@ -16,9 +16,6 @@
 #include <nidas/dynld/raf/SPP100_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/IOTimeoutException.h>
-
-#include <sstream>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
@@ -34,10 +31,37 @@ const size_t SPP100_Serial::FTMP_INDX = 7;
 
 SPP100_Serial::SPP100_Serial(): SppSerial()
 {
-  _model = 100;
-  // This number should match the housekeeping added in ::process, so that
-  // an output sample of the correct size is created.
-  _nHskp = 6;
+    //
+    // Make sure we got compiled with the packet structs packed appropriately.
+    // If any of these assertions fails, then we can't just memcpy() between
+    // the actual DMT packets and these structs, and we count on being able to
+    // do that...
+    //
+    char* headPtr;
+    char* chksumPtr;
+    
+    Init100_blk init;
+    headPtr = (char*)&init;
+    chksumPtr = (char*)&(init.chksum);
+    assert((chksumPtr - headPtr) == (_InitPacketSize - 2));
+    
+    _nChannels = MAX_CHANNELS; // use a packet length containing all channels
+    DMT100_blk data;
+    headPtr = (char*)&data;
+    chksumPtr = (char*)&(data.chksum);
+    assert((chksumPtr - headPtr) == (packetLen() - 2));
+    _nChannels = 0; // back to zero until it gets set via configuration
+    
+    //
+    // Model number is fixed
+    //
+    _model = 100;
+
+    //
+    // This number should match the housekeeping added in ::process, so that
+    // an output sample of the correct size is created.
+    //
+    _nHskp = 6;
 }
 
 
@@ -90,104 +114,26 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
-    setup_pkt.model.putValue(_model);
-    setup_pkt.trig_thresh.putValue(_triggerThreshold);
-    setup_pkt.transRej.putValue(_transitReject);
-    setup_pkt.chanCnt.putValue(_nChannels);
-    setup_pkt.dofRej.putValue(_dofReject);
-    setup_pkt.range.putValue(_range);
-    setup_pkt.avTranWe.putValue(_avgTransitWeight);
-    setup_pkt.attAccept.putValue(_attAccept);
-    setup_pkt.divFlag.putValue(_divFlag);
-    setup_pkt.ct_method.putValue(_ctMethod);
-    setup_pkt.max_width.putValue(_maxWidth);
+    PackDMT_UShort(setup_pkt.trig_thresh, _triggerThreshold);
+    PackDMT_UShort(setup_pkt.transRej, _transitReject);
+    PackDMT_UShort(setup_pkt.chanCnt, _nChannels);
+    PackDMT_UShort(setup_pkt.dofRej, _dofReject);
+    PackDMT_UShort(setup_pkt.range, _range);
+    PackDMT_UShort(setup_pkt.avTranWe, _avgTransitWeight);
+    PackDMT_UShort(setup_pkt.attAccept, _attAccept);
+    PackDMT_UShort(setup_pkt.divFlag, _divFlag);
+    PackDMT_UShort(setup_pkt.ct_method, _ctMethod);
 
     for (int i = 0; i < _nChannels; i++)
-        setup_pkt.OPCthreshold[i].putValue(_opcThreshold[i]);
+      PackDMT_UShort(setup_pkt.OPCthreshold[i], _opcThreshold[i]);
 
-    // exclude chksum from the computation (but since it is zero
-    // at this point, it doesn't really matter).
-    setup_pkt.chksum.putValue(computeCheckSum((unsigned char*)&setup_pkt, 
-					      sizeof(setup_pkt) - 2));
+    // exclude chksum from the computation
+    PackDMT_UShort(setup_pkt.chksum, 
+		   computeCheckSum((unsigned char*)&setup_pkt, 
+				   _InitPacketSize - 2));
+    sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
 
-    setMessageLength(1);
-    setMessageSeparator("");
-    setMessageParameters();
-
-    // clear whatever junk may be in the buffer til a timeout
-    try {
-        for (;;) {
-            readBuffer(MSECS_PER_SEC / 100);
-            clearBuffer();
-        }
-    }
-    catch (const n_u::IOTimeoutException& e) {}
-
-    setMessageLength(sizeof(Response100_blk));
-    setMessageParameters();
-
-    write(&setup_pkt, sizeof(setup_pkt));
-
-    // Build the expected response, which looks a lot like the init 
-    // packet.  Because of their similarity, we memcpy large chunks between 
-    // them for simplicity.
-    Response100_blk expected_return;
-
-    // directly copy all fields from "esc" to "model" (4 bytes), stuff
-    // in the expected firmware value, then directly copy the fields from
-    // "trig_thresh" to "OPCthreshold" (100 bytes)
-    ::memcpy(&expected_return.esc, &setup_pkt.esc, 4);
-    expected_return.firmware.putValue(0x105);
-    ::memcpy(&expected_return.trig_thresh, &setup_pkt.trig_thresh, 100);
-
-    // calculate the expected checksum and stuff that in, too
-    unsigned short checkSum = computeCheckSum((unsigned char*)&expected_return,
-					      sizeof(expected_return) - 2);
-    expected_return.chksum.putValue(checkSum);
-
-
-    //
-    // Get the response
-    //
-
-    // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
-    readBuffer(MSECS_PER_SEC * 3);
-
-    Sample* samp = nextSample();
-    if (!samp) 
-        throw n_u::IOException(getName(), 
-            "S100 init return packet", "not read");
-
-
-    if (samp->getDataByteLength() != sizeof(Response100_blk)) {
-        ostringstream ost;
-        ost << "S100 init return packet, wrong size=" <<
-            samp->getDataByteLength() <<
-            " expected=" << sizeof(Response100_blk) << endl;
-        samp->freeReference();
-        throw n_u::IOException(getName(), "sendInitString", ost.str());
-    }
-
-    // pointer to the returned data
-    Response100_blk* init_return = (Response100_blk*) samp->getVoidDataPtr();
-
-    //
-    // See if the response matches what we expect
-    //
-    if (::memcmp(init_return, &expected_return, sizeof(init_return)) != 0)
-    {
-        samp->freeReference();
-        throw n_u::IOException(getName(), "S100 init return packet", 
-			       "doesn't match");
-    }
-    if (init_return->chksum.value() != expected_return.chksum.value()) {
-        samp->freeReference();
-        throw n_u::IOException(getName(), "S100 init return packet", 
-			       "checksum doesn't match");
-    }
-    samp->freeReference();
-
-    setMessageLength(_packetLen);
+    setMessageLength(packetLen());
     setMessageParameters();
 }
 
@@ -202,14 +148,14 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
      */
     DMT100_blk inRec;
 
-    ::memcpy(&inRec, _waitingData, _packetLen - 2);
-    ::memcpy(&inRec.chksum, _waitingData + _packetLen - 2, 2);
+    ::memcpy(&inRec, _waitingData, packetLen() - 2);
+    ::memcpy(&inRec.chksum, _waitingData + packetLen() - 2, 2);
 
     /*
      * Shift the remaining data in _waitingData to the head of the line
      */
-    _nWaitingData -= _packetLen;
-    ::memmove(_waitingData, _waitingData + _packetLen, _nWaitingData);
+    _nWaitingData -= packetLen();
+    ::memmove(_waitingData, _waitingData + packetLen(), _nWaitingData);
 
     /*
      * Create the output stuff
@@ -224,19 +170,21 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = (inRec.cabinChan[FREF_INDX].value() - 2048) * 4.882812e-3;
-    *dout++ = (inRec.cabinChan[FTMP_INDX].value() - 2328) * 0.9765625;
+    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) * 
+	4.882812e-3;
+    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) * 
+	0.9765625;
     *dout++ = _range;
-    *dout++ = inRec.rejDOF.value();
-    *dout++ = inRec.rejAvgTrans.value();
-    *dout++ = inRec.ADCoverflow.value();
+    *dout++ = UnpackDMT_ULong(inRec.rejDOF);
+    *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
+    *dout++ = UnpackDMT_ULong(inRec.ADCoverflow);
 
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
     *dout++ = 0.0;
 #endif    
     for (int iout = 0; iout < _nChannels; ++iout)
-      *dout++ = inRec.OPCchan[iout].value();
+	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.

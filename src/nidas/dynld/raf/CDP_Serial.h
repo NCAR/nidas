@@ -62,6 +62,8 @@ public:
     DMT_UShort  chksum;                         // cksum
   };
 
+  static const int _InitPacketSize = 102;
+
   /**
    * Data packet back from probe.  This is max size with 40 channels.
    * e.g. if 30 channels are requested, then this packet will be 40 bytes
@@ -82,8 +84,8 @@ public:
 
 protected:
 
-  int calculatePacketLen(int nchannels) const {
-    return (36 + 4 * nchannels);
+  inline int packetLen() const {
+    return (36 + 4 * _nChannels);
   }
 
   static const size_t FREF_INDX, FTMP_INDX;
