@@ -284,19 +284,7 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
         return 0;
 }
 
-/*
- * int mem_flags:
- *  GFP_ATOMIC:
- *      1. when called from urb callback handler,
- *          interrupt service routine, tasklet or a kernel timer callback.
- *      2. If you're holding a spinlock or rwlock (but not a semaphore).
- *      3. Current state is not TASK_RUNNING (i.e. current is non-null
- *         and driver has not changed the state).
- *  GFP_NOIO: block drivers.
- *  GFP_KERNEL: all other circumstances.
- */
-static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
-                                    int mem_flags)
+static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
 {
         int retval;
         if (throttleRate > 0) {
@@ -310,6 +298,21 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
                 return 0;
         }
 
+        /*
+         * usb_submit_urb, memory flag argument:
+         *  GFP_ATOMIC:
+         *      1. when called from urb callback handler,
+         *          interrupt service routine, tasklet or a kernel timer
+         *          callback.
+         *      2. If you're holding a spinlock or rwlock
+         *          (but not a semaphore).
+         *      3. Current state is not TASK_RUNNING (i.e. current is
+         *          non-null and driver has not changed the state).
+         *  GFP_NOIO: block drivers.
+         *  GFP_KERNEL: all other circumstances.
+         *
+         *  Since we're holding a rwlock, we must use GFP_ATOMIC.
+         */
         read_lock(&dev->usb_iface_lock);
         if (dev->interface)         /* disconnect() was called */
                 retval = usb_submit_urb(urb, GFP_ATOMIC);
@@ -325,8 +328,7 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb,
 
 
 /* -------------------------------------------------------------------- */
-static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb,
-                                    int mem_flags)
+static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 {
         int retval;
         read_lock(&dev->usb_iface_lock);
@@ -501,8 +503,8 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
         }
         return;
 resubmit:
-        // called from a urb completion handler, so use GFP_ATOMIC
-        usb_twod_submit_img_urb(dev, urb, GFP_ATOMIC);
+        // called from a urb completion handler, so this must use GFP_ATOMIC
+        usb_twod_submit_img_urb(dev, urb);
 }
 
 /* -------------------------------------------------------------------- */
@@ -643,8 +645,8 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         }
         return;
 resubmit:
-	// called from a urb completion handler, so use GFP_ATOMIC
-	usb_twod_submit_sor_urb(dev, urb, GFP_ATOMIC);
+        // called from a urb completion handler, so this must use GFP_ATOMIC
+	usb_twod_submit_sor_urb(dev, urb);
         return;
 }
 
@@ -781,7 +783,7 @@ static int twod_open(struct inode *inode, struct file *file)
                         retval = -ENOMEM;
                         goto error;
                 }
-                if ((retval = usb_twod_submit_img_urb(dev, dev->img_urbs[i], GFP_KERNEL)) < 0)
+                if ((retval = usb_twod_submit_img_urb(dev, dev->img_urbs[i])) < 0)
                     goto error;
         }
 
@@ -794,7 +796,7 @@ static int twod_open(struct inode *inode, struct file *file)
                             retval = -ENOMEM;
                             goto error;
                     }
-                    if ((retval = usb_twod_submit_sor_urb(dev, dev->sor_urbs[i], GFP_KERNEL)) < 0)
+                    if ((retval = usb_twod_submit_sor_urb(dev, dev->sor_urbs[i])) < 0)
                             goto error;
             }
             else dev->sor_urbs[i] = 0;
@@ -979,11 +981,11 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         switch (be32_to_cpu(sample->stype)) {
                         case TWOD_IMG_TYPE:
                                 retval = usb_twod_submit_img_urb(dev,
-                                        sample->urb,GFP_KERNEL);
+                                        sample->urb);
                                 break;
                         case TWOD_SOR_TYPE:
                                 retval = usb_twod_submit_sor_urb(dev,
-                                        sample->urb,GFP_KERNEL);
+                                        sample->urb);
                                 break;
                         }
                         INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
