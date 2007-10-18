@@ -14,6 +14,7 @@
 */
 
 #include <nidas/dynld/raf/SppSerial.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <sstream>
 
@@ -33,6 +34,9 @@ SppSerial::SppSerial() : DSMSerialSensor(),
   _nWaitingData(0),
   _skippedBytes(0)
 {
+  // If these aren't true, we're screwed!
+  assert(sizeof(DMT_UShort) == 2);
+  assert(sizeof(DMT_ULong) == 4);
 }
 
 unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
@@ -56,7 +60,6 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) 
       throw n_u::InvalidParameterException(getName(), "NCHANNELS", "not found");
     _nChannels = (int)p->getNumericValue(0);
-    _packetLen = calculatePacketLen(_nChannels);
 
     p = getParameter("RANGE");
     if (!p) 
@@ -125,43 +128,105 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
     if (_waitingData)
       delete[] _waitingData;
     
-    _waitingData = new unsigned char[2 * _packetLen];
+    _waitingData = new unsigned char[2 * packetLen()];
     _nWaitingData = 0;
 
 }
 
 
+void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
+{   
+    std::string eType("SppSerial init-ack");
+
+    // The initialization response is two bytes 0x0606 with
+    // no separator.
+    setMessageLength(1);
+    setMessageSeparator("");
+    setMessageParameters(); // does the ioctl
+    
+    // clear whatever junk may be in the buffer til a timeout
+    try {
+        for (;;) {
+            readBuffer(MSECS_PER_SEC / 100);
+            clearBuffer();
+        }
+    }
+    catch (const n_u::IOTimeoutException& e) {}
+
+    setMessageLength(2);
+    setMessageParameters(); // does the ioctl
+
+    n_u::UTime twrite;
+    write(setup_pkt, len);
+
+    //
+    // Get the response
+    //
+
+    // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
+    readBuffer(MSECS_PER_SEC * 5);
+
+    Sample* samp = nextSample();
+    if (!samp)
+        throw n_u::IOException(getName(), eType, "not read.");
+
+    n_u::UTime tread;
+    cerr << "Received init Ack after " <<
+        (tread.toUsecs() - twrite.toUsecs()) << " usecs" << endl;
+
+    if (samp->getDataByteLength() != 2) {
+        ostringstream ost;
+        ost << "wrong size=" << samp->getDataByteLength() << " expected=2" << endl;
+        samp->freeReference();
+        throw n_u::IOException(getName(), eType, ost.str());
+    }
+
+    // pointer to the returned data
+    short * init_return = (short *) samp->getVoidDataPtr();
+
+    // 
+    // see if we got the expected response
+    //
+    if (*init_return != 0x0606)
+    {
+        samp->freeReference();
+        throw n_u::IOException(getName(), eType, "not expected return of 0x0606.");
+    }
+    samp->freeReference();
+}
+
+
 int SppSerial::appendDataAndFindGood(const Sample* samp) {
-    if ((signed)samp->getDataByteLength() != _packetLen) 
+    if ((signed)samp->getDataByteLength() != packetLen()) 
       return false;
     
     /*
      * Add the sample to our waiting data buffer
      */
-    assert(_nWaitingData <= _packetLen);
+    assert(_nWaitingData <= packetLen());
     ::memcpy(_waitingData + _nWaitingData, samp->getConstVoidDataPtr(), 
-	     _packetLen);
-    _nWaitingData += _packetLen;
+	     packetLen());
+    _nWaitingData += packetLen();
 
     /*
-     * Hunt in the waiting data until we find a _packetLen sized stretch
+     * Hunt in the waiting data until we find a packetLen() sized stretch
      * where the last two bytes are a good checksum for the rest or match
      * the expected record delimiter.  Most of the time, we should find it 
      * on the first pass through the loop.
      */
     bool foundRecord = 0;
-    for (int offset = 0; offset <= (_nWaitingData - _packetLen); offset++) {
+    for (int offset = 0; offset <= (_nWaitingData - packetLen()); offset++) {
       unsigned char *input = _waitingData + offset;
       DMT_UShort packetCheckSum;
-      ::memcpy(&packetCheckSum, input + _packetLen - 2, 2);
+      ::memcpy(&packetCheckSum, input + packetLen() - 2, 2);
       switch (_dataType) 
       {
        case Delimited:
-	foundRecord = (packetCheckSum.value() == _recDelimiter);
+	foundRecord = (UnpackDMT_UShort(packetCheckSum) == _recDelimiter);
 	break;
        case FixedLength:
-	foundRecord = 
-	  (computeCheckSum(input, _packetLen - 2) == packetCheckSum.value());
+	foundRecord = (computeCheckSum(input, packetLen() - 2) == 
+		       UnpackDMT_UShort(packetCheckSum));
 	break;
       }
       
@@ -180,7 +245,7 @@ int SppSerial::appendDataAndFindGood(const Sample* samp) {
 
 	if (_skippedBytes) {
 	  cerr << "SppSerial::appendDataAndFind skipped " << _skippedBytes << 
-	    " bytes to find a good " << _packetLen << "-byte record.\n";
+	    " bytes to find a good " << packetLen() << "-byte record.\n";
 	  _skippedBytes = 0;
 	}
 
@@ -189,10 +254,10 @@ int SppSerial::appendDataAndFindGood(const Sample* samp) {
     }
 
     /*
-     * If we didn't find a good record, keep the last _packetLen-1 bytes of
+     * If we didn't find a good record, keep the last packetLen()-1 bytes of
      * the waiting data and wait for the next blob of input.
      */
-    int nDrop = _nWaitingData - (_packetLen - 1);
+    int nDrop = _nWaitingData - (packetLen() - 1);
     _nWaitingData -= nDrop;
     ::memmove(_waitingData, _waitingData + nDrop, _nWaitingData);
 
