@@ -194,7 +194,7 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
  * the bulk write end-point. Therefore it can be called 
  * in interrupt or non-interrupt mode.
  */
-static int write_tas(struct usb_twod *dev, int kmalloc_flags)
+static int write_tas(struct usb_twod *dev)
 {
         int retval = 0;
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
@@ -206,11 +206,26 @@ static int write_tas(struct usb_twod *dev, int kmalloc_flags)
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
+                /*
+                 * usb_submit_urb, memory flag argument:
+                 *  GFP_ATOMIC:
+                 *      1. when called from urb callback handler,
+                 *          interrupt service routine, tasklet or a kernel timer
+                 *          callback.
+                 *      2. If you're holding a spinlock or rwlock
+                 *          (but not a semaphore).
+                 *      3. Current state is not TASK_RUNNING (i.e. current is
+                 *          non-null and driver has not changed the state).
+                 *  GFP_NOIO: block drivers.
+                 *  GFP_KERNEL: all other circumstances.
+                 */
+
                 read_lock(&dev->usb_iface_lock);
-                if (dev->interface)         /* check if disconnect() was called */
-                        retval = usb_submit_urb(urb, GFP_ATOMIC);
-                else
-                        retval = -ENODEV;
+
+                /* must use GFP_ATOMIC since we hold a rwlock */
+                if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
+                else retval = -ENODEV;         /* disconnect() was called */
+
                 read_unlock(&dev->usb_iface_lock);
                 if (retval < 0) {
                         dev->stats.urbErrors++;
@@ -231,14 +246,14 @@ static void send_tas_callback(void *ptr)
 {
         // This is an irig callback, which called from a work queue.
         struct usb_twod *dev = (struct usb_twod *) ptr;
-        write_tas(dev, GFP_KERNEL);
+        write_tas(dev);
 }
 #else
 static void send_tas_timer_func(unsigned long arg)
 {
         // Note that this runs in software interrupt context.
         struct usb_twod *dev = (struct usb_twod *) arg;
-        write_tas(dev, GFP_ATOMIC);
+        write_tas(dev);
         dev->sendTASTimer.expires += dev->sendTASJiffies;
         add_timer(&dev->sendTASTimer);  // reschedule
 }
@@ -314,9 +329,11 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
          *  Since we're holding a rwlock, we must use GFP_ATOMIC.
          */
         read_lock(&dev->usb_iface_lock);
-        if (dev->interface)         /* disconnect() was called */
-                retval = usb_submit_urb(urb, GFP_ATOMIC);
-        else retval = -ENODEV;
+
+        /* must use GFP_ATOMIC since we hold a rwlock */
+        if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
+        else retval = -ENODEV;         /* disconnect() was called */
+
         read_unlock(&dev->usb_iface_lock);
         if (retval < 0) {
                 dev->stats.urbErrors++;
@@ -332,9 +349,11 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 {
         int retval;
         read_lock(&dev->usb_iface_lock);
-        if (dev->interface)         /* disconnect() was called */
-                retval = usb_submit_urb(urb, GFP_ATOMIC);
-        else retval = -ENODEV;
+
+        /* must use GFP_ATOMIC since we hold a rwlock */
+        if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
+        else retval = -ENODEV;         /* disconnect() was called */
+
         read_unlock(&dev->usb_iface_lock);
         if (retval < 0) {
                 dev->stats.urbErrors++;
@@ -366,13 +385,15 @@ static void urb_throttle_func(unsigned long arg)
                                         IMG_URB_QUEUE_SIZE), jiffies);
 #endif
 
-                // This is a timer function, running in software
-                // interrupt context, so use GFP_ATOMIC.
                 read_lock(&dev->usb_iface_lock);
-                if (dev->interface)         /* check if disconnect() was called */
-                        retval = usb_submit_urb(urb, GFP_ATOMIC);
-                else
-                        retval = -ENODEV;
+
+                /* This is a timer function, running in software
+                 * interrupt context, and we hold a rwlock,
+                 * so use GFP_ATOMIC.
+                 */
+                if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
+                else retval = -ENODEV;         /* disconnect() was called */
+
                 read_unlock(&dev->usb_iface_lock);
                 if (retval < 0) {
                         dev->stats.urbErrors++;
@@ -503,7 +524,6 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
         }
         return;
 resubmit:
-        // called from a urb completion handler, so this must use GFP_ATOMIC
         usb_twod_submit_img_urb(dev, urb);
 }
 
@@ -645,7 +665,6 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         }
         return;
 resubmit:
-        // called from a urb completion handler, so this must use GFP_ATOMIC
 	usb_twod_submit_sor_urb(dev, urb);
         return;
 }
