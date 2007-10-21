@@ -13,6 +13,8 @@
 
 */
 
+#define ZERO_BIN_HACK
+
 #include <nidas/dynld/raf/UHSAS_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
@@ -194,6 +196,17 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         }
     }
 
+#ifdef ZERO_BIN_HACK
+    /*    
+     * We'll be adding a bogus zeroth bin to the data to match historical 
+     * behavior. Remove all traces of this after the netCDF file refactor.
+     */
+    if (_noutValues != _nChannels + _nHousekeep + 1) {
+        ostringstream ost;
+        ost << "total length of variables should be " << (_nChannels + _nHousekeep + 1);
+          throw n_u::InvalidParameterException(getName(),"sample",ost.str());
+    }
+#else
     // This logic should match what is in ::process, so that
     // an output sample of the correct size is created.
     if (_noutValues != _nChannels + _nHousekeep) {
@@ -201,6 +214,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         ost << "total length of variables should be " << (_nChannels + _nHousekeep);
           throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
+#endif
 }
 
 void UHSAS_Serial::sendInitString() throw(n_u::IOException)
