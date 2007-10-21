@@ -89,11 +89,6 @@ void SPP300_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(),
           "DIVISOR_FLAG","not found");
     _divFlag = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("MAX_WIDTH");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "MAX_WIDTH","not found");
-    _maxWidth = (unsigned short)p->getNumericValue(0);
 }
 
 void SPP300_Serial::sendInitString() throw(n_u::IOException)

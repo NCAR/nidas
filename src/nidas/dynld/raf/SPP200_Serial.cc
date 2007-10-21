@@ -77,7 +77,6 @@ void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     _triggerThreshold = 80;
     _divFlag = 0x02;
-    _maxWidth = 0xFFFF;
 }
 
 void SPP200_Serial::sendInitString() throw(n_u::IOException)

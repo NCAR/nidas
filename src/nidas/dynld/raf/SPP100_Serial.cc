@@ -101,11 +101,6 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(), 
           "CT_METHOD", "not found");
     _ctMethod = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("MAX_WIDTH");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
-          "MAX_WIDTH", "not found");
-    _maxWidth = (unsigned short)p->getNumericValue(0);
 }
 
 void SPP100_Serial::sendInitString() throw(n_u::IOException)

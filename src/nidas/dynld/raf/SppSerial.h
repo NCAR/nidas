@@ -161,8 +161,6 @@ protected:
 
   unsigned short _divFlag;
 
-  unsigned short _maxWidth;
-
   unsigned short _opcThreshold[MAX_CHANNELS];
 
   /**
