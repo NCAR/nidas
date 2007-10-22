@@ -268,6 +268,10 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(getId() + 1);
 
     // Pull out histogram data.
+#ifdef ZERO_BIN_HACK
+    // add a bogus zeroth bin for historical reasons
+    *dout++ = 0.0;
+#endif    
     unsigned short * histogram = (unsigned short *)&input[6];
     for (int iout = _nChannels-1; iout >= 0; --iout)
       *dout++ = (float)toLittle->ushortValue(histogram[iout]) * _sampleRate;
