@@ -75,7 +75,8 @@ void TwoD_USB::open(int flags) throw(n_u::IOException)
 
 void TwoD_USB::close() throw(n_u::IOException)
 {
-    DerivedDataReader::getInstance()->removeClient(this);
+    if (DerivedDataReader::getInstance())
+	    DerivedDataReader::getInstance()->removeClient(this);
     DSMSensor::close();
 }
 
