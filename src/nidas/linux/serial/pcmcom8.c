@@ -49,7 +49,12 @@ static pcmcom8_board* pcmcom8_boards = 0;
 
 static dev_t pcmcom8_device = MKDEV(0,0);
 
+#if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports,ulong,&pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
+#else
+module_param_array(ioports,ulong,pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module to initialize pcmcom8 serial port card");
 MODULE_LICENSE("Dual BSD/GPL");

@@ -72,9 +72,16 @@ static int Master[MAX_A2D_BOARDS] = { -1, -1, -1, -1 };
  */
 static int Invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1 };
 
-module_param_array(IoPort, int, NULL, S_IRUGO);
-module_param_array(Invert, bool, NULL, S_IRUGO);
-module_param_array(Master, int, NULL, S_IRUGO);
+static int nIoPort,nInvert,nMaster;
+#if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
+module_param_array(IoPort, int, &nIoPort, S_IRUGO);
+module_param_array(Invert, bool, &nInvert, S_IRUGO);
+module_param_array(Master, int, &nMaster, S_IRUGO);
+#else
+module_param_array(IoPort, int, nIoPort, S_IRUGO);
+module_param_array(Invert, bool, nInvert, S_IRUGO);
+module_param_array(Master, int, nMaster, S_IRUGO);
+#endif
 
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Invert, "Whether to invert counts, default=1(true)");
