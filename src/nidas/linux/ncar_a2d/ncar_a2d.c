@@ -14,7 +14,6 @@
 #include <linux/fs.h>           /* has to be before <linux/cdev.h>! GRRR! */
 #include <linux/cdev.h>
 #include <linux/ioport.h>
-#include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/unistd.h>

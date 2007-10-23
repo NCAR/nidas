@@ -19,7 +19,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #include <linux/autoconf.h>
 #include <linux/completion.h>
 #include <linux/interrupt.h>
-#include <linux/kfifo.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 
