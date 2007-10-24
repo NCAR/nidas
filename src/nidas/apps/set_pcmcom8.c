@@ -60,8 +60,10 @@ int setConfig(int fd,const char* devname,int port0Addr,const int* irqs)
     for (i = 0; i < 8; i++) {
       config.ports[i].ioport = port0Addr + i * 8;
       config.ports[i].irq = irqs[i];
-      printf("port %#x irq %d\n",
-        config.ports[i].ioport,config.ports[i].irq);
+      config.ports[i].enable = 1;
+      printf("port %#x irq %d enable %d\n",
+        config.ports[i].ioport,config.ports[i].irq,
+            config.ports[i].enable);
     }
 
     /* We shouldn't need to set the RAM config. The last step of
