@@ -65,7 +65,6 @@ apps = Split("""
     garmin.cc
     ck_xml.cc
     tee_tty.cc
-    set_pcmcom8.c
     isff/pdecode.cc
     isff/prep.cc
     raf/cvi_lv_test_in.cc
@@ -76,11 +75,20 @@ apps = Split("""
     sensor_extract.cc
 """)
 
+# apps which don't need, or want, the nidas libraries
+nlapps = Split("""
+    set_pcmcom8.c
+    isff/set_emerald.c
+""")
+
 nodes = []
 for i in apps + archapps:
     nodes += myenv.Program( i )
 
 # suppress linking against nidas libraries
-nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
+for i in nlapps:
+    nodes += myenv.Program(source=i,LIBS=[])
+
+# nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
 
 myenv.Install('$PREFIX/bin',nodes)
