@@ -698,7 +698,7 @@ static void port_prompter(void* privateData)
 static int start_prompter(struct serialPort* port)
 {
     int ret;
-    if (port->promptCallback) port->promptCallback =
+    if (!port->promptCallback) port->promptCallback =
 	register_irig_callback(port_prompter,port->prompt.rate,port,&ret);
     if (!port->promptCallback) return convert_to_rtl_errno(ret);
     return 0;

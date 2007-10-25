@@ -95,6 +95,7 @@ void cleanup_module(void);
 
 static struct ioctlCmd ioctlcmds[] = {
         {GET_NUM_PORTS, _IOC_SIZE(GET_NUM_PORTS)},
+        {NIDAS_A2D_GET_NCHAN, _IOC_SIZE(NIDAS_A2D_GET_NCHAN)},
         {NIDAS_A2D_SET_CONFIG, sizeof (struct nidas_a2d_config)},
         {NIDAS_A2D_CONFIG_SAMPLE,
          sizeof (struct nidas_a2d_sample_config) + 4},

@@ -66,11 +66,15 @@ void TwoD_USB::open(int flags) throw(n_u::IOException)
     // Shut the probe down until a valid TAS comes along.
     sendTrueAirspeed(33.0);
 
-    cerr << "SET_SOR_RATE, rate="<<_tasRate<<endl;
+    // cerr << "SET_SOR_RATE, rate="<<_tasRate<<endl;
     ioctl(USB2D_SET_SOR_RATE, (void *) &_tasRate, sizeof (int));
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
+    else
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+		getName().c_str(),
+		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 }
 
 void TwoD_USB::close() throw(n_u::IOException)
