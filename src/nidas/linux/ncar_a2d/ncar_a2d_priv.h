@@ -16,10 +16,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 #include <nidas/linux/ncar_a2d.h>       // shared stuff
 
-#include <linux/autoconf.h>
-#include <linux/completion.h>
-#include <linux/interrupt.h>
-#include <linux/spinlock.h>
 #include <linux/wait.h>
 
 #define A2D_MAX_RATE    5000
@@ -86,13 +82,12 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
  * effect of this change limits us to using A/D channels 0-6, i.e.,
  * we have 7 rather than 8 channels available.)
  */
-
 #if defined(CONFIG_MACH_ARCOM_MERCURY)
 #  define A2DCMDADDR	0xE
-static const int NO_CHANNEL_7 = 1;      // can't address channel 7
+#define NUM_USABLE_NCAR_A2D_CHANNELS 7
 #else
 #  define A2DCMDADDR	0xF
-static const int NO_CHANNEL_7 = 0;      // channel 7 is available
+#define NUM_USABLE_NCAR_A2D_CHANNELS NUM_NCAR_A2D_CHANNELS
 #endif
 
 /*
@@ -161,21 +156,19 @@ struct A2DBoard
 
         char deviceName[32];
 
-        A2D_SET config;         // board configuration
-        A2D_CAL cal;            // calibration configuration
-        A2D_STATUS cur_status;  // status info maintained by driver
-        A2D_STATUS prev_status; // status info maintained by driver
-        unsigned char requested[NUM_NCAR_A2D_CHANNELS]; // 1=channel requested, 0=isn't
+        int gain[NUM_NCAR_A2D_CHANNELS];    // Gain settings
+        int offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
+        unsigned short ocfilter[CONFBLOCKS*CONFBLLEN+1]; // on-chip filter data
 
         int scanRate;           // how fast to scan the channels
         int scanDeltatMsec;     // dT between A2D scans
+        int nFifoValues;        // How many FIFO values to read every poll
         int skipFactor;         // set to 2 to skip over interleaving status
         int busy;
         int interrupted;
         size_t readCtr;
         int nbadScans;
         int master;
-        int nFifoValues;        // How many FIFO values to read every poll
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
         struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
@@ -185,6 +178,10 @@ struct A2DBoard
 
         int nfilters;           // how many different output filters
         struct a2d_filter_info *filters;
+
+        struct irig_callback* a2dCallback;
+
+        struct irig_callback* tempCallback;
 
         int tempRate;           // rate to query I2C temperature sensor
         short currentTemp;
@@ -200,6 +197,7 @@ struct A2DBoard
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage
         unsigned char i2c;      // data byte written to I2C
+
         char invertCounts;      // whether to invert counts from this A2D
         char discardNextScan;   // should we discard the next scan
 
@@ -211,5 +209,10 @@ struct A2DBoard
         size_t delayedWork;     // counter
 
         int consecutiveNonEmpty;
+
+        struct ncar_a2d_cal_config cal;            // calibration configuration
+        struct ncar_a2d_status cur_status;  // status info maintained by driver
+        struct ncar_a2d_status prev_status; // status info maintained by driver
+
 };
 #endif

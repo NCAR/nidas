@@ -204,6 +204,8 @@ struct usb_twod
 #ifndef DO_IRIG_TIMING
         struct timer_list sendTASTimer; /* kernel timer for sending true airspeed */
         int sendTASJiffies;             /* when to send the next TAS */
+#else
+        struct irig_callback* tasCallback;
 #endif
 
         Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */

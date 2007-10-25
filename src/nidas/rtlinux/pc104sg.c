@@ -65,7 +65,7 @@ static unsigned char intmask = 0x1f;
  * Symbols with external scope, referenced via GET_MSEC_CLOCK
  * macro by other modules.
  */
-unsigned long volatile msecClock[2] = { 0, 0};
+unsigned long volatile msecClock[2] = { 0, 0 };
 unsigned char volatile readClock = 0;
 
 /**
@@ -103,19 +103,20 @@ static struct rtl_timeval userClock;
 /**
  * Enumeration of the state of the clock.
  */
-enum clock {
-   CODED,                   // normal state, clock set from time code inputs
-   RESET_COUNTERS,          // need to reset our counters from the clock
-   USER_SET_REQUESTED,      // user has requested to set the clock via ioctl
-   USER_SET,                // clock has been set from user IRIG_SET_CLOCK ioctl
-   USER_OVERRIDE_REQUESTED, // user has requested override of clock
-   USER_OVERRIDE,           // clock has been overridden
+enum clock
+{
+        CODED,                  // normal state, clock set from time code inputs
+        RESET_COUNTERS,         // need to reset our counters from the clock
+        USER_SET_REQUESTED,     // user has requested to set the clock via ioctl
+        USER_SET,               // clock has been set from user IRIG_SET_CLOCK ioctl
+        USER_OVERRIDE_REQUESTED,        // user has requested override of clock
+        USER_OVERRIDE,          // clock has been overridden
 };
 
 /**
  * Current clock state.
  */
-static unsigned char volatile clockState=CODED;
+static unsigned char volatile clockState = CODED;
 
 /**
  * Value of extended status from dual port RAM.
@@ -128,14 +129,12 @@ static unsigned char volatile clockState=CODED;
  * 4: 1=Year not set
  */
 static unsigned char extendedStatus =
-   DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
-   DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT |
-   DP_Extd_Sts_NoYear;
+    DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
+    DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
 
 static unsigned char lastStatus =
-   DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
-   DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT |
-   DP_Extd_Sts_NoYear;
+    DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
+    DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
 
 static unsigned char syncOK = 0;
 
@@ -148,30 +147,30 @@ static int staticYear;
 /**
  * structure setup by ioctl FIFO registration.
  */
-static struct ioctlHandle* ioctlhandle = 0;
+static struct ioctlHandle *ioctlhandle = 0;
 
 /**
  * User ioctls that we support.
  */
 static struct ioctlCmd ioctlcmds[] = {
-   { GET_NUM_PORTS,_IOC_SIZE(GET_NUM_PORTS) },
-   { IRIG_OPEN, _IOC_SIZE(IRIG_OPEN) },
-   { IRIG_CLOSE, _IOC_SIZE(IRIG_CLOSE) },
-   { IRIG_GET_STATUS, _IOC_SIZE(IRIG_GET_STATUS) },
-   { IRIG_GET_CLOCK, _IOC_SIZE(IRIG_GET_CLOCK) },
-   { IRIG_SET_CLOCK, _IOC_SIZE(IRIG_SET_CLOCK) },
-   { IRIG_SET_CLOCK, _IOC_SIZE(IRIG_SET_CLOCK) },
-   { IRIG_OVERRIDE_CLOCK, _IOC_SIZE(IRIG_OVERRIDE_CLOCK) },
+        {GET_NUM_PORTS, _IOC_SIZE(GET_NUM_PORTS)},
+        {IRIG_OPEN, _IOC_SIZE(IRIG_OPEN)},
+        {IRIG_CLOSE, _IOC_SIZE(IRIG_CLOSE)},
+        {IRIG_GET_STATUS, _IOC_SIZE(IRIG_GET_STATUS)},
+        {IRIG_GET_CLOCK, _IOC_SIZE(IRIG_GET_CLOCK)},
+        {IRIG_SET_CLOCK, _IOC_SIZE(IRIG_SET_CLOCK)},
+        {IRIG_SET_CLOCK, _IOC_SIZE(IRIG_SET_CLOCK)},
+        {IRIG_OVERRIDE_CLOCK, _IOC_SIZE(IRIG_OVERRIDE_CLOCK)},
 };
 
-static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
+static int nioctlcmds = sizeof (ioctlcmds) / sizeof (struct ioctlCmd);
 
-static char* devprefix = "irig";
+static char *devprefix = "irig";
 
 /**
  * Structure of device information used when device is opened.
  */
-static struct irig_port* portDev = 0;
+static struct irig_port *portDev = 0;
 
 static spinlock_t dp_ram_lock = SPIN_LOCK_UNLOCKED;
 static int dp_ram_ext_status_enabled = 1;
@@ -180,15 +179,13 @@ static int dp_ram_ext_status_requested = 0;
 /**
  * The 100 hz thread
  */
-static rtl_pthread_t     pc104sgThread = 0;
+static rtl_pthread_t pc104sgThread = 0;
 
 /**
  * Semaphore that the interrupt service routine uses to wake up
  * the thread.
  */
-static rtl_sem_t         threadsem;
-
-#define CALL_BACK_POOL_SIZE 32  /* number of callbacks we can support */
+static rtl_sem_t threadsem;
 
 /** macros borrowed from glibc/time functions */
 #define SECS_PER_HOUR   (60 * 60)
@@ -205,93 +202,141 @@ static rtl_sem_t         threadsem;
 #define DIV(a, b) ((a) / (b) - ((a) % (b) < 0))
 #define LEAPS_THRU_END_OF(y) (DIV (y, 4) - DIV (y, 100) + DIV (y, 400))
 
+#define CALLBACK_POOL_SIZE 64   /* number of callbacks we can support */
 
-/**
- * Entry in a callback list.
- */
-struct irigCallback {
-      struct list_head list;
-      irig_callback_t* callback;
-      void* privateData;
-};
+/* Active callback entries for each rate */
+static struct list_head callbackLists[IRIG_NUM_RATES];
 
-static struct list_head callbacklists[IRIG_NUM_RATES];
+/* Pool of allocated callback entries */
+static struct list_head callbackPool;
 
-static struct list_head callbackpool;
+/* Callback entries that are to be added to the active list
+ * on next pass though loop */
+static struct list_head pendingAdds;
+
+/* Callback entries that are to be removed on next pass though loop */
+static struct irig_callback *pendingRemoves[CALLBACK_POOL_SIZE];
+static int nPendingRemoves = 0;
+
+static atomic_t callbackRateRunning[IRIG_NUM_RATES];
+
+static atomic_t callbacksActive;
 
 static rtl_pthread_mutex_t cblistmutex = RTL_PTHREAD_MUTEX_INITIALIZER;
+
+static DECLARE_WAIT_QUEUE_HEAD(callbackWaitQ);
 
 /**
  * Module function that allows other modules to register their callback
  * function to be called at the given rate.  register_irig_callback
- * can be called at (almost) anytime, not just at module init time.
- * The only time that register/unregister_irig_callback cannot be
- * called is from within a callback function itself.
- * A callback function cannot do either register_irig_callback
- * or unregister_irig_callback, otherwise you'll get a deadlock on
- * cblistmutex.
- *
+ * can be called at anytime.
+ * register_irig_callback and unregister_irig_callback can be
+ * called within a callback function itself.
  */
-int register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
-                           void* privateData)
+struct irig_callback *register_irig_callback(irig_callback_func * callback,
+                                             enum irigClockRates rate,
+                                             void *privateData, int *errp)
 {
-   struct list_head *ptr;
-   struct irigCallback* cbentry;
+        struct list_head *ptr;
+        struct irig_callback *cbentry;
+        *errp = 0;
 
-   /* We could do a rtl_gpos_malloc of the entry, but that would require
-    * that this function be called at module init time.
-    * We want it to be call-able at any time, so we
-    * rtl_gpos_malloc a pool of entries at this module's init time,
-    * and grab an entry here.
-    */
+        if (rate >= IRIG_NUM_RATES) {
+                *errp = -EINVAL;
+                return 0;
+        }
 
-   rtl_pthread_mutex_lock(&cblistmutex);
+        /* We could do a rtl_gpos_malloc of the entry, but that would require
+         * that this function be called at module init time.
+         * We want it to be call-able at any time, so we
+         * rtl_gpos_malloc a pool of entries at this module's init time,
+         * and grab an entry here.
+         */
+        rtl_pthread_mutex_lock(&cblistmutex);
 
-   ptr = callbackpool.next;
-   if (ptr == &callbackpool) {          /* none left */
-      rtl_pthread_mutex_unlock(&cblistmutex);
-      return -ENOMEM;
-   }
+        ptr = callbackPool.next;
+        if (ptr == &callbackPool) {     /* none left */
+                rtl_pthread_mutex_unlock(&cblistmutex);
+                *errp = -ENOMEM;
+                return 0;
+        }
 
-   cbentry = list_entry(ptr,struct irigCallback, list);
-   list_del(&cbentry->list);
+        cbentry = list_entry(ptr, struct irig_callback, list);
+        list_del(&cbentry->list);
 
-   cbentry->callback = callback;
-   cbentry->privateData = privateData;
+        cbentry->callback = callback;
+        cbentry->privateData = privateData;
+        cbentry->rate = rate;
+        cbentry->enabled = 1;
 
-   list_add(&cbentry->list,callbacklists + rate);
-   rtl_pthread_mutex_unlock(&cblistmutex);
+        list_add(&cbentry->list, &pendingAdds);
 
-   return 0;
+        rtl_pthread_mutex_unlock(&cblistmutex);
+
+        return cbentry;
 }
 
 /**
  * Modules call this function to un-register their callbacks.
- * Note: this cannot be called from within a callback function
- * itself - a callback function cannot register/unregister itself, or
- * any other callback function.  If you try it you will get
- * a deadlock on the cblistmutex.
+ * A callback function can unregister itself, or
+ * any other callback function.
  */
-void unregister_irig_callback(irig_callback_t* callback,
-                              enum irigClockRates rate, void* privateData)
+int unregister_irig_callback(struct irig_callback *cb)
 {
-   rtl_pthread_mutex_lock(&cblistmutex);
+        int ret = 1;
 
-   struct list_head *ptr;
-   struct irigCallback *cbentry;
-   for (ptr = callbacklists[rate].next; ptr != callbacklists+rate;
-        ptr = ptr->next) {
-      cbentry = list_entry(ptr,struct irigCallback, list);
-      if (cbentry->callback == callback &&
-          (cbentry->privateData == privateData || privateData == 0)) {
-         /* remove it from the list for the rate, and add to the pool. */
-         list_del(&cbentry->list);
-         list_add(&cbentry->list,&callbackpool);
-         break;
-      }
-   }
+        cb->enabled = 0;
 
-   rtl_pthread_mutex_unlock(&cblistmutex);
+        rtl_pthread_mutex_lock(&cblistmutex);
+
+        if (cb->rate < 0 || cb->rate >= IRIG_NUM_RATES)
+                ret = -EINVAL;
+        else if (atomic_read(callbackRateRunning + cb->rate))
+                ret = 0;
+
+        pendingRemoves[nPendingRemoves++] = cb;
+
+        rtl_pthread_mutex_unlock(&cblistmutex);
+        return ret;
+}
+
+int flush_irig_callbacks(void)
+{
+        return wait_event_interruptible(callbackWaitQ,
+                                        atomic_read(&callbacksActive) ==
+                                        0);
+}
+
+/**
+ * Handle pending adds and removes of callbacks from the active list
+ * for the appropriate rate.
+ */
+static void handlePendingCallbacks()
+{
+        struct list_head *ptr;
+        struct irig_callback *cbentry;
+        int i;
+        // DSMLOG_INFO("handlePendingCallbacks\n");
+
+        /* Remove pending callbacks from the active lists. */
+        for (i = 0; i < nPendingRemoves; i++) {
+                cbentry = pendingRemoves[i];
+                /* remove entry from the active list for the rate */
+                list_del(&cbentry->list);
+                /* and add back to the pool. */
+                list_add(&cbentry->list, &callbackPool);
+        }
+        nPendingRemoves = 0;
+
+        /* Adding pending callbacks to the active list for the appropriate rate. */
+        for (ptr = pendingAdds.next; ptr != &pendingAdds;) {
+                cbentry = list_entry(ptr, struct irig_callback, list);
+                ptr = ptr->next;
+                /* remove entry from pendingAdds list */
+                list_del(&cbentry->list);
+                /* add to active list for rate */
+                list_add(&cbentry->list, callbackLists + cbentry->rate);
+        }
 }
 
 /**
@@ -299,72 +344,77 @@ void unregister_irig_callback(irig_callback_t* callback,
  */
 static void free_callbacks()
 {
-   int i;
+        int i;
 
-   struct list_head *ptr;
-   struct irigCallback *cbentry;
+        struct list_head *ptr;
+        struct irig_callback *cbentry;
 
-   rtl_pthread_mutex_lock(&cblistmutex);
+        rtl_pthread_mutex_lock(&cblistmutex);
+        handlePendingCallbacks();
 
-   for (i = 0; i < IRIG_NUM_RATES; i++) {
-      for (ptr = callbacklists[i].next;
-           ptr != callbacklists+i; ptr = callbacklists[i].next) {
-         cbentry = list_entry(ptr,struct irigCallback, list);
-         /* remove it from the list for the rate, and add to the pool. */
-         list_del(&cbentry->list);
-         list_add(&cbentry->list,&callbackpool);
-      }
-   }
+        for (i = 0; i < IRIG_NUM_RATES; i++) {
+                for (ptr = callbackLists[i].next;
+                     ptr != callbackLists + i;
+                     ptr = callbackLists[i].next) {
+                        cbentry =
+                            list_entry(ptr, struct irig_callback, list);
+                        /* remove it from the list for the rate, and add to the pool. */
+                        list_del(&cbentry->list);
+                        list_add(&cbentry->list, &callbackPool);
+                }
+        }
 
-   for (ptr = callbackpool.next; ptr != &callbackpool;
-        ptr = callbackpool.next) {
-      cbentry = list_entry(ptr,struct irigCallback, list);
-      list_del(&cbentry->list);
-      rtl_gpos_free(cbentry);
-   }
+        for (ptr = callbackPool.next; ptr != &callbackPool;
+             ptr = callbackPool.next) {
+                cbentry = list_entry(ptr, struct irig_callback, list);
+                list_del(&cbentry->list);
+                rtl_gpos_free(cbentry);
+        }
 
-   rtl_pthread_mutex_unlock(&cblistmutex);
+        rtl_pthread_mutex_unlock(&cblistmutex);
 }
 
 /**
  * After receiving a heartbeat interrupt, one must reset
  * the heart beat flag in order to receive further interrupts.
  */
-static void inline ackHeartBeatInt (void)
+static void inline ackHeartBeatInt(void)
 {
-   /* reset heart beat flag, write a 0 to bit 4, leave others alone */
-   outb(intmask & ~Heartbeat, isa_address+Status_Port);
+        /* reset heart beat flag, write a 0 to bit 4, leave others alone */
+        outb(intmask & ~Heartbeat, isa_address + Status_Port);
 }
 
 /**
  * Enable heart beat interrupts
  */
-static void enableHeartBeatInt (void)
+static void enableHeartBeatInt(void)
 {
-   intmask |= Heartbeat_Int_Enb;
+        intmask |= Heartbeat_Int_Enb;
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("intmask=0x%x\n",intmask);
+        DSMLOG_DEBUG("intmask=0x%x\n", intmask);
 #endif
-   ackHeartBeatInt();   // reset flag too to avoid immediate interrupt
+
+        ackHeartBeatInt();      // reset flag too to avoid immediate interrupt
 }
 
 /**
  * Disable heart beat interrupts
  */
-static void disableHeartBeatInt (void)
+static void disableHeartBeatInt(void)
 {
-   intmask &= ~Heartbeat_Int_Enb;
-   outb(intmask, isa_address+Status_Port);
+        intmask &= ~Heartbeat_Int_Enb;
+        outb(intmask, isa_address + Status_Port);
 }
 
 /**
  * After receiving a match interrupt, one must reset
  * the match flag in order to receive further interrupts.
  */
-static void inline ackMatchInt (void)
+static void inline ackMatchInt(void)
 {
-   /* reset match flag, write a 0 to bit 3, leave others alone */
-   outb(intmask & 0xf7, isa_address+Status_Port);
+        /* reset match flag, write a 0 to bit 3, leave others alone */
+        outb(intmask & 0xf7, isa_address + Status_Port);
 }
 
 /**
@@ -372,29 +422,31 @@ static void inline ackMatchInt (void)
  * a TTL input on a pin, and allows one to tag external
  * events.  This may be useful for synchronization tests of DSMs.
  */
-static void enableExternEventInt (void)
+static void enableExternEventInt(void)
 {
-   intmask |= Ext_Ready_Int_Enb;
-   outb(intmask, isa_address+Status_Port);
+        intmask |= Ext_Ready_Int_Enb;
+        outb(intmask, isa_address + Status_Port);
 }
 
 /**
  * Disable external time tag interrupt.
  */
-static void disableExternEventInt (void)
+static void disableExternEventInt(void)
 {
-   intmask &= ~Ext_Ready_Int_Enb;
-   outb(intmask, isa_address+Status_Port);
+        intmask &= ~Ext_Ready_Int_Enb;
+        outb(intmask, isa_address + Status_Port);
 }
 
-static void disableAllInts (void)
+static void disableAllInts(void)
 {
-   /* disable all interrupts */
-   intmask = 0x1f;
+        /* disable all interrupts */
+        intmask = 0x1f;
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("intmask=0x%x\n",intmask);
+        DSMLOG_DEBUG("intmask=0x%x\n", intmask);
 #endif
-   outb(intmask,isa_address+Status_Port);
+
+        outb(intmask, isa_address + Status_Port);
 }
 
 /**
@@ -407,52 +459,58 @@ static void disableAllInts (void)
  * real-time thread). In this case this function uses
  * a jiffy schedule method to delay.
  */
-static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
+static int Read_Dual_Port_RAM(unsigned char addr, unsigned char *val,
+                              int isRT)
 {
-   int i;
-   unsigned char status;
-   struct rtl_timespec tspec;
-   tspec.tv_sec = 0;
-   tspec.tv_nsec = 20000;
+        int i;
+        unsigned char status;
+        struct rtl_timespec tspec;
+        tspec.tv_sec = 0;
+        tspec.tv_nsec = 20000;
 
-   /* clear the response */
-   inb(isa_address+Dual_Port_Data_Port);
+        /* clear the response */
+        inb(isa_address + Dual_Port_Data_Port);
 
-   /* specify dual port address */
-   outb(addr, isa_address+Dual_Port_Address_Port);
+        /* specify dual port address */
+        outb(addr, isa_address + Dual_Port_Address_Port);
 
-   wmb();
+        wmb();
 
-   /* wait for PC104 to acknowledge.
-    * On a viper @ 200MHz, without a nanosleep or jiffy wait,
-    * this took about 32 loops to see the expected status.
-    * With a 1 usec sleep, it loops about 4 or 6 times.
-    * Changing it to 4 usec didn't change anything - must
-    * be below the resolution of the clock. Changing it
-    * to 10 usec resulted in a loop count of 1.
-    */
-   i = 0;
-   do {
-      if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
-      else {
-         unsigned long j = jiffies + 1;
-         while (jiffies < j) schedule();
-      }
-      status = inb(isa_address+Extended_Status_Port);
-   } while(i++ < 10 && !(status &  Response_Ready));
+        /* wait for PC104 to acknowledge.
+         * On a viper @ 200MHz, without a nanosleep or jiffy wait,
+         * this took about 32 loops to see the expected status.
+         * With a 1 usec sleep, it loops about 4 or 6 times.
+         * Changing it to 4 usec didn't change anything - must
+         * be below the resolution of the clock. Changing it
+         * to 10 usec resulted in a loop count of 1.
+         */
+        i = 0;
+        do {
+                if (isRT)
+                        rtl_clock_nanosleep(RTL_CLOCK_REALTIME, 0, &tspec,
+                                            0);
+                else {
+                        unsigned long j = jiffies + 1;
+                        while (jiffies < j)
+                                schedule();
+                }
+                status = inb(isa_address + Extended_Status_Port);
+        } while (i++ < 10 && !(status & Response_Ready));
+
 #ifdef DEBUG
-   if (i > 1) DSMLOG_DEBUG("Read_Dual_Port_RAM, i=%d\n",i);
+        if (i > 1)
+                DSMLOG_DEBUG("Read_Dual_Port_RAM, i=%d\n", i);
 #endif
 
-   /* check for a time out on the response... */
-   if (!(status &  Response_Ready)) {
-      DSMLOG_WARNING("timed out...\n");
-      return -1;
-   }
+        /* check for a time out on the response... */
+        if (!(status & Response_Ready)) {
+                DSMLOG_WARNING("timed out...\n");
+                return -1;
+        }
 
-   /* return read DP_Control value */
-   *val = inb(isa_address+Dual_Port_Data_Port);
-   return 0;
+        /* return read DP_Control value */
+        *val = inb(isa_address + Dual_Port_Data_Port);
+        return 0;
 }
 
 /**
@@ -460,31 +518,31 @@ static int Read_Dual_Port_RAM (unsigned char addr,unsigned char* val,int isRT)
  */
 static inline void Req_Dual_Port_RAM(unsigned char addr)
 {
-   /* clear the response */
-   inb(isa_address+Dual_Port_Data_Port);
+        /* clear the response */
+        inb(isa_address + Dual_Port_Data_Port);
 
-   /* specify dual port address */
-   outb(addr, isa_address+Dual_Port_Address_Port);
+        /* specify dual port address */
+        outb(addr, isa_address + Dual_Port_Address_Port);
 }
 
 /**
  * Get requested value from DP ram. It must be ready.
  */
-static inline void Get_Dual_Port_RAM(unsigned char* val)
+static inline void Get_Dual_Port_RAM(unsigned char *val)
 {
-   static int ntimeouts = 0;
-   unsigned char status;
-   status = inb(isa_address+Extended_Status_Port);
+        static int ntimeouts = 0;
+        unsigned char status;
+        status = inb(isa_address + Extended_Status_Port);
 
-   /* check for a time out on the response... */
-   if (!(status & Response_Ready)) {
-      if (!(ntimeouts++ % 100))
-         DSMLOG_WARNING("timed out\n");
-      return;
-   }
+        /* check for a time out on the response... */
+        if (!(status & Response_Ready)) {
+                if (!(ntimeouts++ % 100))
+                        DSMLOG_WARNING("timed out\n");
+                return;
+        }
 
-   /* return read DP_Control value */
-   *val = inb(isa_address+Dual_Port_Data_Port);
+        /* return read DP_Control value */
+        *val = inb(isa_address + Dual_Port_Data_Port);
 }
 
 /**
@@ -494,80 +552,91 @@ static inline void Get_Dual_Port_RAM(unsigned char* val)
  * rtl_clock_nanosleep should only be called from a real-time thread, not at
  * init time and not at interrupt time.
  */
-static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
+static int Set_Dual_Port_RAM(unsigned char addr, unsigned char value,
+                             int isRT)
 {
-   int i;
-   unsigned char status;
-   struct rtl_timespec tspec;
-   tspec.tv_sec = 0;
-   tspec.tv_nsec = 20000;       // 20 microsecond wait
+        int i;
+        unsigned char status;
+        struct rtl_timespec tspec;
+        tspec.tv_sec = 0;
+        tspec.tv_nsec = 20000;  // 20 microsecond wait
 
-   /* clear the response */
-   inb(isa_address+Dual_Port_Data_Port);
+        /* clear the response */
+        inb(isa_address + Dual_Port_Data_Port);
 
-   /* specify dual port address */
-   outb(addr, isa_address+Dual_Port_Address_Port);
+        /* specify dual port address */
+        outb(addr, isa_address + Dual_Port_Address_Port);
 
-   wmb();
+        wmb();
 
-   /* wait for PC104 to acknowledge */
-   /* On a 200Mhz viper, this took about 32 loops to
-    * see the expected status.
-    */
-   i = 0;
-   do {
-      if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
-      else {
-         unsigned long j = jiffies + 1;
-         while (jiffies < j) schedule();
-      }
-      status = inb(isa_address+Extended_Status_Port);
-   } while(i++ < 10 && !(status &  Response_Ready));
+        /* wait for PC104 to acknowledge */
+        /* On a 200Mhz viper, this took about 32 loops to
+         * see the expected status.
+         */
+        i = 0;
+        do {
+                if (isRT)
+                        rtl_clock_nanosleep(RTL_CLOCK_REALTIME, 0, &tspec,
+                                            0);
+                else {
+                        unsigned long j = jiffies + 1;
+                        while (jiffies < j)
+                                schedule();
+                }
+                status = inb(isa_address + Extended_Status_Port);
+        } while (i++ < 10 && !(status & Response_Ready));
+
 #ifdef DEBUG
-   if (i > 3) DSMLOG_DEBUG("Set_Dual_Port_RAM 1, i=%d\n",i);
+        if (i > 3)
+                DSMLOG_DEBUG("Set_Dual_Port_RAM 1, i=%d\n", i);
 #endif
 
-   /* check for a time out on the response... */
-   if (!(status &  Response_Ready)) {
-      DSMLOG_WARNING("timed out...\n");
-      return -1;
-   }
+        /* check for a time out on the response... */
+        if (!(status & Response_Ready)) {
+                DSMLOG_WARNING("timed out...\n");
+                return -1;
+        }
 
-   /* clear the response */
-   inb(isa_address+Dual_Port_Data_Port);
+        /* clear the response */
+        inb(isa_address + Dual_Port_Data_Port);
 
-   /* write new value to DP RAM */
-   outb(value, isa_address+Dual_Port_Data_Port);
+        /* write new value to DP RAM */
+        outb(value, isa_address + Dual_Port_Data_Port);
 
-   wmb();
+        wmb();
 
-   i = 0;
-   do {
-      if (isRT) rtl_clock_nanosleep(RTL_CLOCK_REALTIME,0,&tspec,0);
-      else {
-         unsigned long j = jiffies + 1;
-         while (jiffies < j) schedule();
-      }
-      status = inb(isa_address+Extended_Status_Port);
-   } while(i++ < 10 && !(status &  Response_Ready));
+        i = 0;
+        do {
+                if (isRT)
+                        rtl_clock_nanosleep(RTL_CLOCK_REALTIME, 0, &tspec,
+                                            0);
+                else {
+                        unsigned long j = jiffies + 1;
+                        while (jiffies < j)
+                                schedule();
+                }
+                status = inb(isa_address + Extended_Status_Port);
+        } while (i++ < 10 && !(status & Response_Ready));
+
 #ifdef DEBUG
-   if (i > 3) DSMLOG_DEBUG("Set_Dual_Port_RAM 2, i=%d\n",i);
+        if (i > 3)
+                DSMLOG_DEBUG("Set_Dual_Port_RAM 2, i=%d\n", i);
 #endif
 
-   /* check for a time out on the response... */
-   if (!(status &  Response_Ready)) {
-      DSMLOG_WARNING("timed out...\n");
-      return -1;
-   }
+        /* check for a time out on the response... */
+        if (!(status & Response_Ready)) {
+                DSMLOG_WARNING("timed out...\n");
+                return -1;
+        }
 
-   /* check that the written value matches */
-   if (inb(isa_address+Dual_Port_Data_Port) != value) {
-      DSMLOG_WARNING("no match on read-back\n");
-      return -1;
-   }
+        /* check that the written value matches */
+        if (inb(isa_address + Dual_Port_Data_Port) != value) {
+                DSMLOG_WARNING("no match on read-back\n");
+                return -1;
+        }
 
-   /* success */
-   return 0;
+        /* success */
+        return 0;
 }
 
 
@@ -575,23 +644,24 @@ static int Set_Dual_Port_RAM (unsigned char addr, unsigned char value,int isRT)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
  */
-static void setHeartBeatOutput (int rate,int isRT)
+static void setHeartBeatOutput(int rate, int isRT)
 {
-   int divide;
-   unsigned char lsb, msb;
+        int divide;
+        unsigned char lsb, msb;
 
-   divide = 3000000 / rate;
+        divide = 3000000 / rate;
 
-   lsb = (char)(divide & 0xff);
-   msb = (char)((divide & 0xff00)>>8);
+        lsb = (char) (divide & 0xff);
+        msb = (char) ((divide & 0xff00) >> 8);
 
-   Set_Dual_Port_RAM (DP_Ctr1_ctl,
-                      DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin,isRT);
-   Set_Dual_Port_RAM (DP_Ctr1_lsb, lsb,isRT);
-   Set_Dual_Port_RAM (DP_Ctr1_msb, msb,isRT);
+        Set_Dual_Port_RAM(DP_Ctr1_ctl,
+                          DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3 |
+                          DP_ctl_bin, isRT);
+        Set_Dual_Port_RAM(DP_Ctr1_lsb, lsb, isRT);
+        Set_Dual_Port_RAM(DP_Ctr1_msb, msb, isRT);
 
-   /* We'll wait until rate2 is set and then do a rejam. */
-   // Set_Dual_Port_RAM (DP_Command, Command_Set_Ctr1,isRT);
+        /* We'll wait until rate2 is set and then do a rejam. */
+        // Set_Dual_Port_RAM (DP_Command, Command_Set_Ctr1,isRT);
 }
 
 /**
@@ -600,28 +670,31 @@ static void setHeartBeatOutput (int rate,int isRT)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
  */
-static void setPrimarySyncReference(unsigned char val,int isRT)
+static void setPrimarySyncReference(unsigned char val, int isRT)
 {
-   unsigned char control0;
-   Read_Dual_Port_RAM (DP_Control0, &control0,isRT);
+        unsigned char control0;
+        Read_Dual_Port_RAM(DP_Control0, &control0, isRT);
 
-   if (val) control0 |= DP_Control0_CodePriority;
-   else control0 &= ~DP_Control0_CodePriority;
+        if (val)
+                control0 |= DP_Control0_CodePriority;
+        else
+                control0 &= ~DP_Control0_CodePriority;
 
 #ifdef DEBUG
-   DSMLOG_DEBUG("setting DP_Control0 to 0x%x\n",control0);
+        DSMLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
 #endif
-   Set_Dual_Port_RAM (DP_Control0, control0,isRT);
+
+        Set_Dual_Port_RAM(DP_Control0, control0, isRT);
 }
 
-static void setTimeCodeInputSelect(unsigned char val,int isRT)
+static void setTimeCodeInputSelect(unsigned char val, int isRT)
 {
-   Set_Dual_Port_RAM(DP_CodeSelect,val,isRT);
+        Set_Dual_Port_RAM(DP_CodeSelect, val, isRT);
 }
 
-static void getTimeCodeInputSelect(unsigned char *val,int isRT)
+static void getTimeCodeInputSelect(unsigned char *val, int isRT)
 {
-   Read_Dual_Port_RAM(DP_CodeSelect,val,isRT);
+        Read_Dual_Port_RAM(DP_CodeSelect, val, isRT);
 }
 
 /* -- Utility --------------------------------------------------------- */
@@ -630,93 +703,97 @@ static void getTimeCodeInputSelect(unsigned char *val,int isRT)
  * Since it calls Set_Dual_Port_RAM it may only be called from
  * a real-time thread.
  */
-void setRate2Output (int rate,int isRT)
+void setRate2Output(int rate, int isRT)
 {
-   int divide;
-   unsigned char lsb, msb;
+        int divide;
+        unsigned char lsb, msb;
 
-   divide = 3000000 / rate;
+        divide = 3000000 / rate;
 
-   lsb = (char)(divide & 0xff);
-   msb = (char)((divide & 0xff00)>>8);
-   Set_Dual_Port_RAM (DP_Ctr0_ctl,
-                      DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 | DP_ctl_bin,isRT);
-   Set_Dual_Port_RAM (DP_Ctr0_lsb, lsb,isRT);
-   Set_Dual_Port_RAM (DP_Ctr0_msb, msb,isRT);
+        lsb = (char) (divide & 0xff);
+        msb = (char) ((divide & 0xff00) >> 8);
+        Set_Dual_Port_RAM(DP_Ctr0_ctl,
+                          DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3 |
+                          DP_ctl_bin, isRT);
+        Set_Dual_Port_RAM(DP_Ctr0_lsb, lsb, isRT);
+        Set_Dual_Port_RAM(DP_Ctr0_msb, msb, isRT);
 }
 
 static void counterRejam(int isRT)
 {
-   Set_Dual_Port_RAM(DP_Command, Command_Rejam,isRT);
+        Set_Dual_Port_RAM(DP_Command, Command_Rejam, isRT);
 }
 
 /**
  * Break a struct rtl_timeval into the fields of a struct irigTime.
  * This uses some code from glibc/time routines.
  */
-static void timespec2irig (const struct rtl_timespec* ts, struct irigTime* ti)
+static void timespec2irig(const struct rtl_timespec *ts,
+                          struct irigTime *ti)
 {
-   long int days, rem, y;
-   unsigned long int t = ts->tv_sec;
+        long int days, rem, y;
+        unsigned long int t = ts->tv_sec;
 
-   days = t / SECS_PER_DAY;
-   rem = t % SECS_PER_DAY;
-   ti->hour = rem / SECS_PER_HOUR;
-   rem %= SECS_PER_HOUR;
-   ti->min = rem / 60;
-   ti->sec = rem % 60;
-   y = 1970;
+        days = t / SECS_PER_DAY;
+        rem = t % SECS_PER_DAY;
+        ti->hour = rem / SECS_PER_HOUR;
+        rem %= SECS_PER_HOUR;
+        ti->min = rem / 60;
+        ti->sec = rem % 60;
+        y = 1970;
 
-   while (days < 0 || days >= (my_isleap (y) ? 366 : 365))
-   {
-      /* Guess a corrected year, assuming 365 days per year.  */
-      long int yg = y + days / 365 - (days % 365 < 0);
+        while (days < 0 || days >= (my_isleap(y) ? 366 : 365)) {
+                /* Guess a corrected year, assuming 365 days per year.  */
+                long int yg = y + days / 365 - (days % 365 < 0);
 
-      /* Adjust DAYS and Y to match the guessed year.  */
-      days -= ((yg - y) * 365
-               + LEAPS_THRU_END_OF (yg - 1)
-               - LEAPS_THRU_END_OF (y - 1));
-      y = yg;
-   }
-   ti->year = y;
-   ti->yday = days + 1; // irig uses 1-366, unix 0-365
+                /* Adjust DAYS and Y to match the guessed year.  */
+                days -= ((yg - y) * 365 + LEAPS_THRU_END_OF(yg - 1)
+                         - LEAPS_THRU_END_OF(y - 1));
+                y = yg;
+        }
+        ti->year = y;
+        ti->yday = days + 1;    // irig uses 1-366, unix 0-365
 
-   rem = ts->tv_nsec;
-   ti->msec = rem / NSECS_PER_MSEC;
-   rem %= NSECS_PER_MSEC;
-   ti->usec = rem / NSECS_PER_USEC;
-   rem %= NSECS_PER_USEC;
-   ti->nsec = rem;
+        rem = ts->tv_nsec;
+        ti->msec = rem / NSECS_PER_MSEC;
+        rem %= NSECS_PER_MSEC;
+        ti->usec = rem / NSECS_PER_USEC;
+        rem %= NSECS_PER_USEC;
+        ti->nsec = rem;
 }
 
-static void timeval2irig (const struct rtl_timeval* tv, struct irigTime* ti)
+static void timeval2irig(const struct rtl_timeval *tv, struct irigTime *ti)
 {
-   struct rtl_timespec ts;
-   ts.tv_sec = tv->tv_sec;
-   ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
-   timespec2irig(&ts,ti);
+        struct rtl_timespec ts;
+        ts.tv_sec = tv->tv_sec;
+        ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
+        timespec2irig(&ts, ti);
 }
+
 /**
  * Convert a struct irigTime into a struct rtl_timeval.
  */
-static void irig2timespec(const struct irigTime* ti,struct rtl_timespec* ts)
+static void irig2timespec(const struct irigTime *ti,
+                          struct rtl_timespec *ts)
 {
-   ts->tv_nsec = ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC + ti->nsec;
+        ts->tv_nsec =
+            ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC +
+            ti->nsec;
 
-   int y = ti->year;
-   int nleap =  LEAPS_THRU_END_OF(y-1) - LEAPS_THRU_END_OF(1969);
+        int y = ti->year;
+        int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
 
-   ts->tv_sec = (y - 1970) * 365 * SECS_PER_DAY +
-      (nleap + ti->yday - 1) * SECS_PER_DAY +
-      ti->hour * 3600 + ti->min * 60 + ti->sec;
+        ts->tv_sec = (y - 1970) * 365 * SECS_PER_DAY +
+            (nleap + ti->yday - 1) * SECS_PER_DAY +
+            ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
-static void irig2timeval(const struct irigTime* ti,struct rtl_timeval* tv)
+static void irig2timeval(const struct irigTime *ti, struct rtl_timeval *tv)
 {
-   struct rtl_timespec ts;
-   irig2timespec(ti,&ts);
-   tv->tv_sec = ts.tv_sec;
-   tv->tv_usec = (ts.tv_nsec + NSECS_PER_USEC/2) / NSECS_PER_USEC;
+        struct rtl_timespec ts;
+        irig2timespec(ti, &ts);
+        tv->tv_sec = ts.tv_sec;
+        tv->tv_usec = (ts.tv_nsec + NSECS_PER_USEC / 2) / NSECS_PER_USEC;
 }
 
 /**
@@ -728,63 +805,65 @@ static void irig2timeval(const struct irigTime* ti,struct rtl_timeval* tv)
  * containing a 1x,10x or 100x value for the respective
  * time fields.
  */
-static void getTimeFields(struct irigTime* ti,int offset)
+static void getTimeFields(struct irigTime *ti, int offset)
 {
-   unsigned char us0ns2,us2us1,ms1ms0,sec0ms2,min0sec1,hour0min1,day0hour1,
-      day2day1,year10year1;
+        unsigned char us0ns2, us2us1, ms1ms0, sec0ms2, min0sec1, hour0min1,
+            day0hour1, day2day1, year10year1;
 
-   /* reading the Usec1_Nsec100 value latches all other digits */
-   us0ns2    = inb(isa_address+offset+Usec1_Nsec100_Port);   //0x0f
-   us2us1    = inb(isa_address+offset+Usec100_Usec10_Port);  //0x0e
-   ms1ms0    = inb(isa_address+offset+Msec10_Msec1_Port);    //0x0d
-   sec0ms2   = inb(isa_address+offset+Sec1_Msec100_Port);    //0x0c
-   min0sec1  = inb(isa_address+offset+Min1_Sec10_Port);      //0x0b
-   hour0min1 = inb(isa_address+offset+Hr1_Min10_Port);       //0x0a
-   day0hour1 = inb(isa_address+offset+Day1_Hr10_Port);       //0x09
-   day2day1  = inb(isa_address+offset+Day100_Day10_Port);    //0x08
-   year10year1  = inb(isa_address+offset+Year10_Year1_Port); //0x07
+        /* reading the Usec1_Nsec100 value latches all other digits */
+        us0ns2 = inb(isa_address + offset + Usec1_Nsec100_Port);        //0x0f
+        us2us1 = inb(isa_address + offset + Usec100_Usec10_Port);       //0x0e
+        ms1ms0 = inb(isa_address + offset + Msec10_Msec1_Port); //0x0d
+        sec0ms2 = inb(isa_address + offset + Sec1_Msec100_Port);        //0x0c
+        min0sec1 = inb(isa_address + offset + Min1_Sec10_Port); //0x0b
+        hour0min1 = inb(isa_address + offset + Hr1_Min10_Port); //0x0a
+        day0hour1 = inb(isa_address + offset + Day1_Hr10_Port); //0x09
+        day2day1 = inb(isa_address + offset + Day100_Day10_Port);       //0x08
+        year10year1 = inb(isa_address + offset + Year10_Year1_Port);    //0x07
 
-   /*
-    * Time code inputs do not contain year information.
-    * The 10s and 1s digits of year must be initialized by setting
-    * DP_Year10_Year (as done in setYear). Otherwise the year defaults to 0.
-    *
-    * The year field does rollover correctly at the end of the year.
-    * Test1:
-    * Set major to 1999 Dec 31 23:59 (yday=365, non-leap year)
-    * rolled over from year=99, yday=365, to year=0, yday=1
-    * Test2:
-    * Set major to 2004 Dec 31 23:59 (yday=366, leap)
-    * rolled over from year=4, yday=366, to year=5, yday=1
-    */
+        /*
+         * Time code inputs do not contain year information.
+         * The 10s and 1s digits of year must be initialized by setting
+         * DP_Year10_Year (as done in setYear). Otherwise the year defaults to 0.
+         *
+         * The year field does rollover correctly at the end of the year.
+         * Test1:
+         * Set major to 1999 Dec 31 23:59 (yday=365, non-leap year)
+         * rolled over from year=99, yday=365, to year=0, yday=1
+         * Test2:
+         * Set major to 2004 Dec 31 23:59 (yday=366, leap)
+         * rolled over from year=4, yday=366, to year=5, yday=1
+         */
 
-   ti->year = (year10year1 / 16) * 10 + (year10year1 & 0x0f);
-   /*
-     DSMLOG_DEBUG("getTimeFields, year=%d, century=%d\n",
-     ti->year,(staticYear/100)*100);
-   */
+        ti->year = (year10year1 / 16) * 10 + (year10year1 & 0x0f);
+        /*
+         * DSMLOG_DEBUG("getTimeFields, year=%d, century=%d\n",
+         * ti->year,(staticYear/100)*100);
+         */
 
-   /* After cold start the year field is not set, and it
-    * takes some time before the setYear to DPR takes effect.
-    * I saw values of 165 for the year during this time.
-    */
-   if (extendedStatus & DP_Extd_Sts_NoYear) {
-      // DSMLOG_DEBUG("fixing year=%d to %d\n",ti->year,staticYear);
-      ti->year = staticYear;
-   }
-   // This has a Y2K problem, but who cares - it was written in 2004 and
-   // it's for a real-time data system!
-   else ti->year += (staticYear/100) * 100;
+        /* After cold start the year field is not set, and it
+         * takes some time before the setYear to DPR takes effect.
+         * I saw values of 165 for the year during this time.
+         */
+        if (extendedStatus & DP_Extd_Sts_NoYear) {
+                // DSMLOG_DEBUG("fixing year=%d to %d\n",ti->year,staticYear);
+                ti->year = staticYear;
+        }
+        // This has a Y2K problem, but who cares - it was written in 2004 and
+        // it's for a real-time data system!
+        else
+                ti->year += (staticYear / 100) * 100;
 
-   ti->yday = ((day2day1 / 16) * 100) + ( (day2day1 & 0x0f) * 10) +
-      day0hour1 / 16;
-   ti->hour = (day0hour1 & 0x0f) * 10 + (hour0min1) / 16;
-   ti->min = (hour0min1 & 0x0f) * 10 + min0sec1 / 16;
-   ti->sec = (min0sec1 & 0x0f) * 10 + sec0ms2 / 16;
-   ti->msec = ((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
-      (ms1ms0 & 0x0f);
-   ti->usec = ((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
-   ti->nsec = (us0ns2 & 0x0f) * 100;
+        ti->yday = ((day2day1 / 16) * 100) + ((day2day1 & 0x0f) * 10) +
+            day0hour1 / 16;
+        ti->hour = (day0hour1 & 0x0f) * 10 + (hour0min1) / 16;
+        ti->min = (hour0min1 & 0x0f) * 10 + min0sec1 / 16;
+        ti->sec = (min0sec1 & 0x0f) * 10 + sec0ms2 / 16;
+        ti->msec = ((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
+            (ms1ms0 & 0x0f);
+        ti->usec =
+            ((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
+        ti->nsec = (us0ns2 & 0x0f) * 100;
 }
 
 /**
@@ -793,83 +872,91 @@ static void getTimeFields(struct irigTime* ti,int offset)
  */
 long getTimeUsec()
 {
-   unsigned char us0ns2,us2us1,ms1ms0,sec0ms2;
+        unsigned char us0ns2, us2us1, ms1ms0, sec0ms2;
 
-   /* reading the Usec1_Nsec100 value latches all other digits */
-   us0ns2    = inb(isa_address+Usec1_Nsec100_Port);
-   us2us1    = inb(isa_address+Usec100_Usec10_Port);
-   ms1ms0    = inb(isa_address+Msec10_Msec1_Port);
-   sec0ms2   = inb(isa_address+Sec1_Msec100_Port);
+        /* reading the Usec1_Nsec100 value latches all other digits */
+        us0ns2 = inb(isa_address + Usec1_Nsec100_Port);
+        us2us1 = inb(isa_address + Usec100_Usec10_Port);
+        ms1ms0 = inb(isa_address + Msec10_Msec1_Port);
+        sec0ms2 = inb(isa_address + Sec1_Msec100_Port);
 
-   long usec = (((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
-                (ms1ms0 & 0x0f)) * USECS_PER_MSEC +
-      ((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
-   return usec;
+        long usec = (((sec0ms2 & 0x0f) * 100) + ((ms1ms0 / 16) * 10) +
+                     (ms1ms0 & 0x0f)) * USECS_PER_MSEC +
+            ((us2us1 / 16) * 100) + ((us2us1 & 0x0f) * 10) + us0ns2 / 16;
+        return usec;
 }
 
 /**
  * Get main clock.
  */
-static void getCurrentTime(struct irigTime* ti)
+static void getCurrentTime(struct irigTime *ti)
 {
-   getTimeFields(ti,0);
+        getTimeFields(ti, 0);
+
 #ifdef DEBUG
-   // unsigned char status = inb(isa_address+Status_Port);
-   dsm_sample_time_t tt = GET_MSEC_CLOCK;
-   struct rtl_timespec ts;
-   irig2timespec(ti,&ts);
-   // clock difference
-   int td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-      ts.tv_nsec / NSECS_PER_MSEC - tt;
-   int hr = (tt / 3600 / MSECS_PER_SEC);
-   tt %= (3600 * MSECS_PER_SEC);
-   int mn = (tt / 60 / MSECS_PER_SEC);
-   tt %= (60 * MSECS_PER_SEC);
-   int sc = tt / MSECS_PER_SEC;
-   tt %= MSECS_PER_SEC;
-   DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d,clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
-                ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
-                hr,mn,sc,tt,td,extendedStatus,clockState);
+        // unsigned char status = inb(isa_address+Status_Port);
+        dsm_sample_time_t tt = GET_MSEC_CLOCK;
+        struct rtl_timespec ts;
+        irig2timespec(ti, &ts);
+        // clock difference
+        int td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+            ts.tv_nsec / NSECS_PER_MSEC - tt;
+        int hr = (tt / 3600 / MSECS_PER_SEC);
+        tt %= (3600 * MSECS_PER_SEC);
+        int mn = (tt / 60 / MSECS_PER_SEC);
+        tt %= (60 * MSECS_PER_SEC);
+        int sc = tt / MSECS_PER_SEC;
+        tt %= MSECS_PER_SEC;
+        DSMLOG_DEBUG
+            ("%04d %03d %02d:%02d:%02d.%03d %03d %03d,clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
+             ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec,
+             ti->usec, ti->nsec, hr, mn, sc, tt, td, extendedStatus,
+             clockState);
 #endif
 }
 
 /* this function is available for external use */
-void irig_clock_gettime(struct rtl_timespec* tp)
+void irig_clock_gettime(struct rtl_timespec *tp)
 {
-   struct irigTime it;
-   getTimeFields(&it,0);
-   irig2timespec(&it,tp);
+        struct irigTime it;
+        getTimeFields(&it, 0);
+        irig2timespec(&it, tp);
 }
 
 /* this function is available for external use */
 int get_msec_clock_resolution()
 {
-   return MSEC_PER_INTRPT;
+        return MSEC_PER_INTRPT;
 }
 
 /**
  * Get external event time.
  */
-static void getExtEventTime(struct irigTime* ti) {
-   return getTimeFields(ti,0x10);
+static void getExtEventTime(struct irigTime *ti)
+{
+        return getTimeFields(ti, 0x10);
 }
 
 /**
  * set the year fields in Dual Port RAM.
  * May only be called from a real-time thread.
  */
-static void setYear(int val,int isRT)
+static void setYear(int val, int isRT)
 {
-   staticYear = val;
-#ifdef DEBUG
-   DSMLOG_DEBUG("setYear=%d\n",val);
-#endif
-   Set_Dual_Port_RAM(DP_Year1000_Year100,
-                     ((val / 1000) << 4) + ((val % 1000) / 100),isRT);
-   val %= 100;
-   Set_Dual_Port_RAM(DP_Year10_Year1,((val / 10) << 4) + (val % 10),isRT);
+        staticYear = val;
 
-   Set_Dual_Port_RAM (DP_Command, Command_Set_Years,isRT);
+#ifdef DEBUG
+        DSMLOG_DEBUG("setYear=%d\n", val);
+#endif
+
+        Set_Dual_Port_RAM(DP_Year1000_Year100,
+                          ((val / 1000) << 4) + ((val % 1000) / 100),
+                          isRT);
+        val %= 100;
+        Set_Dual_Port_RAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10),
+                          isRT);
+
+        Set_Dual_Port_RAM(DP_Command, Command_Set_Years, isRT);
 }
 
 /**
@@ -881,38 +968,44 @@ static void setYear(int val,int isRT)
  * and I see no ways to change them if there is no PPS or time-code.
  * This may only be called from a real-time thread.
  */
-static int setMajorTime(struct irigTime* ti,int isRT)
+static int setMajorTime(struct irigTime *ti, int isRT)
 {
 
 #ifdef DEBUG
-   // unsigned char status = inb(isa_address+Status_Port);
-   DSMLOG_DEBUG("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x,state=%d\n",
-                ti->year,ti->yday,ti->hour,ti->min,ti->sec,ti->msec,ti->usec,ti->nsec,
-                extendedStatus,clockState);
+        // unsigned char status = inb(isa_address+Status_Port);
+        DSMLOG_DEBUG
+            ("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x,state=%d\n",
+             ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec,
+             ti->usec, ti->nsec, extendedStatus, clockState);
 #endif
-   /* The year fields in Dual Port RAM are not technically
-    * part of the major time, but we'll set them too.  */
-   setYear(ti->year,isRT);
 
-   int val;
-   val = ti->yday;
+        /* The year fields in Dual Port RAM are not technically
+         * part of the major time, but we'll set them too.  */
+        setYear(ti->year, isRT);
 
-   Set_Dual_Port_RAM(DP_Major_Time_d100, val / 100,isRT);
-   val %= 100;
-   Set_Dual_Port_RAM(DP_Major_Time_d10d1, ((val / 10) << 4) + (val % 10),isRT);
+        int val;
+        val = ti->yday;
 
-   val = ti->hour;
-   Set_Dual_Port_RAM(DP_Major_Time_h10h1, ((val / 10) << 4) + (val % 10),isRT);
+        Set_Dual_Port_RAM(DP_Major_Time_d100, val / 100, isRT);
+        val %= 100;
+        Set_Dual_Port_RAM(DP_Major_Time_d10d1,
+                          ((val / 10) << 4) + (val % 10), isRT);
 
-   val = ti->min;
-   Set_Dual_Port_RAM(DP_Major_Time_m10m1, ((val / 10) << 4)+ (val % 10),isRT);
+        val = ti->hour;
+        Set_Dual_Port_RAM(DP_Major_Time_h10h1,
+                          ((val / 10) << 4) + (val % 10), isRT);
 
-   val = ti->sec;
-   Set_Dual_Port_RAM(DP_Major_Time_s10s1, ((val / 10) << 4) + (val % 10),isRT);
+        val = ti->min;
+        Set_Dual_Port_RAM(DP_Major_Time_m10m1,
+                          ((val / 10) << 4) + (val % 10), isRT);
 
-   Set_Dual_Port_RAM (DP_Command, Command_Set_Major,isRT);
+        val = ti->sec;
+        Set_Dual_Port_RAM(DP_Major_Time_s10s1,
+                          ((val / 10) << 4) + (val % 10), isRT);
 
-   return 0;
+        Set_Dual_Port_RAM(DP_Command, Command_Set_Major, isRT);
+
+        return 0;
 }
 
 /**
@@ -920,62 +1013,66 @@ static int setMajorTime(struct irigTime* ti,int isRT)
  */
 static void inline increment_clock(int tick)
 {
-   msecClockTicker += tick;
-   msecClockTicker %= MSECS_PER_DAY;
+        msecClockTicker += tick;
+        msecClockTicker %= MSECS_PER_DAY;
 
-   /*
-    * This little double clock provides a clock that can be
-    * read by external modules without needing a mutex.
-    * It ensures that msecClock[readClock]
-    * is valid for at least an interrupt period after reading the
-    * value of readClock, even if this code is pre-emptive.
-    *
-    * This clock is incremented at the interrupt rate.
-    * If somehow a bogged down piece of code reads the value of
-    * readClock, and then didn't get around to reading
-    * msecClock[readClock] until more than an interrupt period
-    * later then it could read a half-written value, but that
-    * ain't gunna happen.
-    */
-   msecClock[writeClock] = msecClockTicker;
-   unsigned char c = readClock;
-   /* prior to this line msecClock[readClock=0] is  OK to read */
-   readClock = writeClock;
-   /* now msecClock[readClock=1] is still OK to read. We're assuming
-    * that the byte write of readClock is atomic.
-    */
-   writeClock = c;
+        /*
+         * This little double clock provides a clock that can be
+         * read by external modules without needing a mutex.
+         * It ensures that msecClock[readClock]
+         * is valid for at least an interrupt period after reading the
+         * value of readClock, even if this code is pre-emptive.
+         *
+         * This clock is incremented at the interrupt rate.
+         * If somehow a bogged down piece of code reads the value of
+         * readClock, and then didn't get around to reading
+         * msecClock[readClock] until more than an interrupt period
+         * later then it could read a half-written value, but that
+         * ain't gunna happen.
+         */
+        msecClock[writeClock] = msecClockTicker;
+        unsigned char c = readClock;
+        /* prior to this line msecClock[readClock=0] is  OK to read */
+        readClock = writeClock;
+        /* now msecClock[readClock=1] is still OK to read. We're assuming
+         * that the byte write of readClock is atomic.
+         */
+        writeClock = c;
 }
 
 static inline void increment_hz100_cnt()
 {
-   if (++hz100_cnt == MAX_THREAD_COUNTER) hz100_cnt = 0;
+        if (++hz100_cnt == MAX_THREAD_COUNTER)
+                hz100_cnt = 0;
 }
 
 /**
  * Set the clock and 100 hz counter based on the time in a time val struct.
  */
-static void setCounters(struct rtl_timeval* tv)
+static void setCounters(struct rtl_timeval *tv)
 {
+
 #ifdef DEBUG
-   int td = (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-      tv->tv_usec / USECS_PER_MSEC - msecClockTicker;
+        int td = (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+            tv->tv_usec / USECS_PER_MSEC - msecClockTicker;
 #endif
 
-   msecClockTicker =
-      (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-      (tv->tv_usec + USECS_PER_MSEC/2) / USECS_PER_MSEC;
-   msecClockTicker -= msecClockTicker % MSEC_PER_INTRPT;
-   msecClockTicker %= MSECS_PER_DAY;
+        msecClockTicker =
+            (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+            (tv->tv_usec + USECS_PER_MSEC / 2) / USECS_PER_MSEC;
+        msecClockTicker -= msecClockTicker % MSEC_PER_INTRPT;
+        msecClockTicker %= MSECS_PER_DAY;
 
-   hz100_cnt = msecClockTicker / MSEC_PER_THREAD_SIGNAL;
-   if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)
-       && (hz100_cnt-- == 0)) hz100_cnt = MAX_THREAD_COUNTER - 1;
-   hz100_cnt %= MAX_THREAD_COUNTER;
+        hz100_cnt = msecClockTicker / MSEC_PER_THREAD_SIGNAL;
+        if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)
+            && (hz100_cnt-- == 0))
+                hz100_cnt = MAX_THREAD_COUNTER - 1;
+        hz100_cnt %= MAX_THREAD_COUNTER;
 
 #ifdef DEBUG
-   DSMLOG_DEBUG("tv=%d.%06d, msecClockTicker=%d, td=%d, hz100_cnt=%d\n",
-                tv->tv_sec,tv->tv_usec,msecClockTicker,td,hz100_cnt);
+        DSMLOG_DEBUG
+            ("tv=%d.%06d, msecClockTicker=%d, td=%d, hz100_cnt=%d\n",
+             tv->tv_sec, tv->tv_usec, msecClockTicker, td, hz100_cnt);
 #endif
 
 }
@@ -985,213 +1082,238 @@ static void setCounters(struct rtl_timeval* tv)
  */
 static inline void setCountersToClock()
 {
-   // reset counters to clock
-   struct irigTime ti;
-   struct rtl_timeval tv;
-   getCurrentTime(&ti);
-   irig2timeval(&ti,&tv);
-   setCounters(&tv);
+        // reset counters to clock
+        struct irigTime ti;
+        struct rtl_timeval tv;
+        getCurrentTime(&ti);
+        irig2timeval(&ti, &tv);
+        setCounters(&tv);
 }
 
 /**
  * Invoke the callback functions for a given rate.
  */
-static inline void doCallbacklist(struct list_head* list)
+static inline void doCallbacklist(int rate)
 {
-   struct list_head *ptr;
-   struct irigCallback *cbentry;
+        struct list_head *list = callbackLists + rate;
+        struct list_head *ptr;
+        struct irig_callback *cbentry;
 
-   for (ptr = list->next; ptr != list; ptr = ptr->next) {
-      cbentry = list_entry(ptr,struct irigCallback, list);
-      cbentry->callback(cbentry->privateData);
-   }
+        atomic_set(callbackRateRunning + rate, 1);
+        for (ptr = list->next; ptr != list; ptr = ptr->next) {
+                cbentry = list_entry(ptr, struct irig_callback, list);
+                if (cbentry->enabled)
+                        cbentry->callback(cbentry->privateData);
+        }
+        atomic_set(callbackRateRunning + rate, 0);
 }
 
 /**
  * This is the thread function that loops forever, waiting
  * on a semaphore from the interrupt service routine.
  */
-static void *pc104sg_100hz_thread (void *param)
+static void *pc104sg_100hz_thread(void *param)
 {
-   int isRT = 1;
-   /*
-    * Interrupts are not enabled at this point
-    * until the call to enableHeartBeatInt() below.
-    */
-   /*
-    * First initialize some dual port ram settings that
-    * can't be done at init time.
-    */
-   /* IRIG-B is the default, but we'll set it anyway */
-   setTimeCodeInputSelect(DP_CodeSelect_IRIGB,isRT);
+        int isRT = 1;
+        /*
+         * Interrupts are not enabled at this point
+         * until the call to enableHeartBeatInt() below.
+         */
+        /*
+         * First initialize some dual port ram settings that
+         * can't be done at init time.
+         */
+        /* IRIG-B is the default, but we'll set it anyway */
+        setTimeCodeInputSelect(DP_CodeSelect_IRIGB, isRT);
 
 #ifdef DEBUG
-   {
-      unsigned char timecode;
-      getTimeCodeInputSelect(&timecode,isRT);
-      DSMLOG_DEBUG("timecode=0x%x\n",timecode);
-   }
+        {
+                unsigned char timecode;
+                getTimeCodeInputSelect(&timecode, isRT);
+                DSMLOG_DEBUG("timecode=0x%x\n", timecode);
+        }
 #endif
-   setPrimarySyncReference(0,isRT);     // 0=PPS, 1=timecode
 
-   setHeartBeatOutput(INTERRUPT_RATE,isRT);
+        setPrimarySyncReference(0, isRT);       // 0=PPS, 1=timecode
+
+        setHeartBeatOutput(INTERRUPT_RATE, isRT);
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("setHeartBeatOutput(%d) done\n",INTERRUPT_RATE);
+        DSMLOG_DEBUG("setHeartBeatOutput(%d) done\n", INTERRUPT_RATE);
 #endif
 
-   setRate2Output(A2DREF_RATE,isRT);
+        setRate2Output(A2DREF_RATE, isRT);
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("setRate2Output(%d) done\n",A2DREF_RATE);
+        DSMLOG_DEBUG("setRate2Output(%d) done\n", A2DREF_RATE);
 #endif
 
-   /*
-    * Set the internal heart-beat and rate2 to be in phase with
-    * the PPS/time_code reference
-    */
-   counterRejam(isRT);
+        /*
+         * Set the internal heart-beat and rate2 to be in phase with
+         * the PPS/time_code reference
+         */
+        counterRejam(isRT);
 
-   clockState = RESET_COUNTERS;
+        clockState = RESET_COUNTERS;
 
-   /* initial request of extended status from DPR */
-   Req_Dual_Port_RAM(DP_Extd_Sts);
+        /* initial request of extended status from DPR */
+        Req_Dual_Port_RAM(DP_Extd_Sts);
 
-   /* start interrupts */
-   enableHeartBeatInt();
+        /* start interrupts */
+        enableHeartBeatInt();
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("enableHeartBeatInt  done\n");
+        DSMLOG_DEBUG("enableHeartBeatInt  done\n");
 #endif
 
-   /* semaphore timeout in nanoseconds */
-   unsigned long nsec_deltat = MSEC_PER_THREAD_SIGNAL * NSECS_PER_MSEC;
-   struct rtl_timespec timeout;
-   int ntimeouts = 0;
-   int status = 0;
-   int msecs_since_last_timeout = 0;
+        /* semaphore timeout in nanoseconds */
+        unsigned long nsec_deltat =
+            MSEC_PER_THREAD_SIGNAL * NSECS_PER_MSEC;
+        struct rtl_timespec timeout;
+        int ntimeouts = 0;
+        int status = 0;
+        int msecs_since_last_timeout = 0;
 
-   nsec_deltat += (nsec_deltat * 3) / 8;        /* add 3/8ths more */
-   // DSMLOG_DEBUG("nsec_deltat = %d\n",nsec_deltat);
+        nsec_deltat += (nsec_deltat * 3) / 8;   /* add 3/8ths more */
+        // DSMLOG_DEBUG("nsec_deltat = %d\n",nsec_deltat);
 
-   rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
+        rtl_clock_gettime(RTL_CLOCK_REALTIME, &timeout);
 
 //    struct rtl_timespec irigts;
 //    dsm_sample_time_t   tstart = 0, tend = 0, tduty, tduty_max=0;
 
-   for (;;) {
+        for (;;) {
 
-      /* wait for the pc104sg_isr to signal us */
-      // rtl_timespec_add_ns(&timeout, nsec_deltat);
-      timeout.tv_nsec += nsec_deltat;
-      if (timeout.tv_nsec >= NSECS_PER_SEC) {
-         timeout.tv_sec++;
-         timeout.tv_nsec -= NSECS_PER_SEC;
-      }
+                atomic_set(&callbacksActive, 0);
+                wake_up_interruptible(&callbackWaitQ);
 
-      /* If we get a timeout on the semaphore, then we've missed
-       * an irig interrupt.  Report the status and re-enable.
-       */
-      if (rtl_sem_timedwait(&threadsem,&timeout) < 0) {
-         if (rtl_errno == RTL_ETIMEDOUT) {
-            // If clock is not overidden and we have time
-            // codes, then set counters to the clock
-            if (clockState == CODED) clockState = RESET_COUNTERS;
-            else {
-               // increment the clock and counter ourselves.
-               // it is presumably safe to increment since
-               // interrupts aren't happening!
-               // This shouldn't violate the policy of
-               // msecClock[readClock], which is that it
-               // isn't updated more often than once an interrupt.
-               // See the comments in increment_clock.
-               increment_clock(MSEC_PER_THREAD_SIGNAL);
-               increment_hz100_cnt();
-            }
-            if (!(ntimeouts++ % 500)) {
-               DSMLOG_NOTICE("thread semaphore timeout #%d, msecs since last timeout=%d\n",
-                             ntimeouts, msecs_since_last_timeout);
-               DSMLOG_NOTICE("doing ackHeartBeatInt\n");
-               rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
-            }
-            ackHeartBeatInt();
-            msecs_since_last_timeout = 0;
-         }
-         else if (rtl_errno == RTL_EINTR) {
-            DSMLOG_NOTICE("thread interrupted\n");
-            status = convert_rtl_errno(rtl_errno);
-            break;
-         }
-         else {
-            DSMLOG_WARNING("thread error, error=%d\n",
-                           rtl_errno);
-            status = convert_rtl_errno(rtl_errno);
-            break;
-         }
-      }
-      else msecs_since_last_timeout += MSEC_PER_THREAD_SIGNAL;
+                /* wait for the pc104sg_isr to signal us */
+                // rtl_timespec_add_ns(&timeout, nsec_deltat);
+                timeout.tv_nsec += nsec_deltat;
+                if (timeout.tv_nsec >= NSECS_PER_SEC) {
+                        timeout.tv_sec++;
+                        timeout.tv_nsec -= NSECS_PER_SEC;
+                }
+
+                /* If we get a timeout on the semaphore, then we've missed
+                 * an irig interrupt.  Report the status and re-enable.
+                 */
+                if (rtl_sem_timedwait(&threadsem, &timeout) < 0) {
+                        if (rtl_errno == RTL_ETIMEDOUT) {
+                                // If clock is not overidden and we have time
+                                // codes, then set counters to the clock
+                                if (clockState == CODED)
+                                        clockState = RESET_COUNTERS;
+                                else {
+                                        // increment the clock and counter ourselves.
+                                        // it is presumably safe to increment since
+                                        // interrupts aren't happening!
+                                        // This shouldn't violate the policy of
+                                        // msecClock[readClock], which is that it
+                                        // isn't updated more often than once an interrupt.
+                                        // See the comments in increment_clock.
+                                        increment_clock
+                                            (MSEC_PER_THREAD_SIGNAL);
+                                        increment_hz100_cnt();
+                                }
+                                if (!(ntimeouts++ % 500)) {
+                                        DSMLOG_NOTICE
+                                            ("thread semaphore timeout #%d, msecs since last timeout=%d\n",
+                                             ntimeouts,
+                                             msecs_since_last_timeout);
+                                        DSMLOG_NOTICE
+                                            ("doing ackHeartBeatInt\n");
+                                        rtl_clock_gettime
+                                            (RTL_CLOCK_REALTIME, &timeout);
+                                }
+                                ackHeartBeatInt();
+                                msecs_since_last_timeout = 0;
+                        } else if (rtl_errno == RTL_EINTR) {
+                                DSMLOG_NOTICE("thread interrupted\n");
+                                status = convert_rtl_errno(rtl_errno);
+                                break;
+                        } else {
+                                DSMLOG_WARNING("thread error, error=%d\n",
+                                               rtl_errno);
+                                status = convert_rtl_errno(rtl_errno);
+                                break;
+                        }
+                } else
+                        msecs_since_last_timeout += MSEC_PER_THREAD_SIGNAL;
 
 //    if ((hz100_cnt % 1000) == 0) {
 //       irig_clock_gettime(&irigts);
 //       tstart = (irigts.tv_sec % SECS_PER_DAY) * NSECS_PER_SEC + irigts.tv_nsec;
 //    }
-      rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
+                rtl_clock_gettime(RTL_CLOCK_REALTIME, &timeout);
 
-      /* this macro creates a code block enclosed in {} brackets,
-       * which is terminated by rtl_pthread_cleanup_pop */
-      rtl_pthread_cleanup_push((void(*)(void*))rtl_pthread_mutex_unlock,
-                               (void*)&cblistmutex);
+                rtl_pthread_mutex_lock(&cblistmutex);
+                handlePendingCallbacks();
+                rtl_pthread_mutex_unlock(&cblistmutex);
 
-      rtl_pthread_mutex_lock(&cblistmutex);
+                atomic_set(&callbacksActive, 1);
 
-      /* perform 100Hz processing... */
-      doCallbacklist(callbacklists + IRIG_100_HZ);
+                /* perform 100Hz processing... */
+                doCallbacklist(IRIG_100_HZ);
 
-      if ((hz100_cnt %   2)) goto _5;
+                if ((hz100_cnt % 2))
+                        goto _5;
 
-      /* perform 50Hz processing... */
-      doCallbacklist(callbacklists + IRIG_50_HZ);
+                /* perform 50Hz processing... */
+                doCallbacklist(IRIG_50_HZ);
 
-      if ((hz100_cnt %   4)) goto _5;
+                if ((hz100_cnt % 4))
+                        goto _5;
 
-      /* perform 25Hz processing... */
-      doCallbacklist(callbacklists + IRIG_25_HZ);
+                /* perform 25Hz processing... */
+                doCallbacklist(IRIG_25_HZ);
 
-_5:   if ((hz100_cnt %   5)) goto cleanup_pop;
+              _5:if ((hz100_cnt % 5))
+                        continue;
 
-      /* perform 20Hz processing... */
-      doCallbacklist(callbacklists + IRIG_20_HZ);
+                /* perform 20Hz processing... */
+                doCallbacklist(IRIG_20_HZ);
 
-      if ((hz100_cnt %  10)) goto _25;
+                if ((hz100_cnt % 10))
+                        goto _25;
 
-      /* perform 10Hz processing... */
-      doCallbacklist(callbacklists + IRIG_10_HZ);
+                /* perform 10Hz processing... */
+                doCallbacklist(IRIG_10_HZ);
 
-      if ((hz100_cnt %  20)) goto _25;
+                if ((hz100_cnt % 20))
+                        goto _25;
 
-      /* perform  5Hz processing... */
-      doCallbacklist(callbacklists + IRIG_5_HZ);
+                /* perform  5Hz processing... */
+                doCallbacklist(IRIG_5_HZ);
 
-_25:  if ((hz100_cnt %  25)) goto cleanup_pop;
+              _25:if ((hz100_cnt % 25))
+                        continue;
 
-      /* perform  4Hz processing... */
-      doCallbacklist(callbacklists + IRIG_4_HZ);
+                /* perform  4Hz processing... */
+                doCallbacklist(IRIG_4_HZ);
 
-      if ((hz100_cnt %  50)) goto cleanup_pop;
+                if ((hz100_cnt % 50))
+                        continue;
 
-      /* perform  2Hz processing... */
-      doCallbacklist(callbacklists + IRIG_2_HZ);
+                /* perform  2Hz processing... */
+                doCallbacklist(IRIG_2_HZ);
 
-      if ((hz100_cnt % 100)) goto cleanup_pop;
+                if ((hz100_cnt % 100))
+                        continue;
 
 #ifdef DEBUG
-      DSMLOG_DEBUG("hz100_cnt=%d, GET_MSEC_CLOCK=%d\n",
-                   hz100_cnt,GET_MSEC_CLOCK);
+                DSMLOG_DEBUG("hz100_cnt=%d, GET_MSEC_CLOCK=%d\n",
+                             hz100_cnt, GET_MSEC_CLOCK);
 #endif
-      /* perform  1Hz processing... */
-      doCallbacklist(callbacklists + IRIG_1_HZ);
 
-      if ((hz100_cnt % 1000)) goto cleanup_pop;
+                /* perform  1Hz processing... */
+                doCallbacklist(IRIG_1_HZ);
 
-      /* perform  0.1 Hz processing... */
-      doCallbacklist(callbacklists + IRIG_0_1_HZ);
+                if ((hz100_cnt % 1000))
+                        continue;
+
+                /* perform  0.1 Hz processing... */
+                doCallbacklist(IRIG_0_1_HZ);
 
 //    irig_clock_gettime(&irigts);
 //    tend = (irigts.tv_sec % SECS_PER_DAY) * NSECS_PER_SEC + irigts.tv_nsec;
@@ -1201,13 +1323,13 @@ _25:  if ((hz100_cnt %  25)) goto cleanup_pop;
 //    DSMLOG_DEBUG("JDW tstart: %12u ns\n", tstart);
 //    DSMLOG_DEBUG("JDW  tduty: %12u ns    tduty_max: %u ns\n", tduty, tduty_max);
 
-cleanup_pop:
-      rtl_pthread_cleanup_pop(1);
-   }
+        }
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("run method exiting!\n");
+        DSMLOG_DEBUG("run method exiting!\n");
 #endif
-   return (void*) status;
+
+        return (void *) status;
 }
 
 /*
@@ -1220,173 +1342,185 @@ cleanup_pop:
 static inline void checkExtStatus()
 {
 
-   spin_lock(&dp_ram_lock);
+        spin_lock(&dp_ram_lock);
 
-   /* finish read of extended status from DPR.
-    * We split the read of DP_Extd_Sts into two parts.
-    * Send the request, and then at the next
-    * interrupt get the value. This avoids having
-    * to do sleeps or busy waits for it to be ready.
-    * The only gotcha is that other requests
-    * can't be sent in the meantime.
-    *
-    * Infrequently the user sends ioctl's which also access
-    * DP RAM. The spin_locks are used to avoid simultaneous access.
-    */
+        /* finish read of extended status from DPR.
+         * We split the read of DP_Extd_Sts into two parts.
+         * Send the request, and then at the next
+         * interrupt get the value. This avoids having
+         * to do sleeps or busy waits for it to be ready.
+         * The only gotcha is that other requests
+         * can't be sent in the meantime.
+         *
+         * Infrequently the user sends ioctl's which also access
+         * DP RAM. The spin_locks are used to avoid simultaneous access.
+         */
 
-   if (dp_ram_ext_status_requested) {
-      Get_Dual_Port_RAM(&extendedStatus);
-      dp_ram_ext_status_requested = 0;
-   }
+        if (dp_ram_ext_status_requested) {
+                Get_Dual_Port_RAM(&extendedStatus);
+                dp_ram_ext_status_requested = 0;
+        }
 
-   /* send next request */
-   if (dp_ram_ext_status_enabled) {
-      Req_Dual_Port_RAM(DP_Extd_Sts);
-      dp_ram_ext_status_requested = 1;
-   }
-   spin_unlock(&dp_ram_lock);
+        /* send next request */
+        if (dp_ram_ext_status_enabled) {
+                Req_Dual_Port_RAM(DP_Extd_Sts);
+                dp_ram_ext_status_requested = 1;
+        }
+        spin_unlock(&dp_ram_lock);
 
-   switch (clockState) {
-      case USER_OVERRIDE_REQUESTED:
-         setCounters(&userClock);
-         clockState = USER_OVERRIDE;
-         break;
-      case USER_SET_REQUESTED:
-         // has requested to set the clock, and we
-         // have no time code: then set the clock counters
-         // by the user clock
-         if ((lastStatus & DP_Extd_Sts_Nocode) &&
-             (extendedStatus & DP_Extd_Sts_Nocode)) {
-            setCounters(&userClock);
-            clockState = USER_SET;
-         }
-         // ignore request since we have time code
-         else clockState = CODED;
-         break;
-      case USER_SET:
-         if (!(lastStatus & DP_Extd_Sts_Nocode) &&
-             !(extendedStatus & DP_Extd_Sts_Nocode)) {
-            // have good clock again, set counters back to coded clock
-            clockState = RESET_COUNTERS;
-         }
-         break;
-      case RESET_COUNTERS:
-      case USER_OVERRIDE:
-      case CODED:
-         break;
-   }
-   /* At this point clockState is either
-    * CODED: we're going with whatever the hardware clock says
-    * RESET_COUNTERS: need to reset our counters to hardware clock
-    * USER_OVERRIDE: user has overridden the clock
-    *           In this case the hardware clock doesn't
-    *           match our own counters.
-    * USER_SET: the clock has been set from an ioctl with setMajorTime(),
-    *          and time code input is missing.  Since the
-    *           timecode is missing, the counters will be within
-    *          a second of the hardware clock.
-    */
+        switch (clockState) {
+        case USER_OVERRIDE_REQUESTED:
+                setCounters(&userClock);
+                clockState = USER_OVERRIDE;
+                break;
+        case USER_SET_REQUESTED:
+                // has requested to set the clock, and we
+                // have no time code: then set the clock counters
+                // by the user clock
+                if ((lastStatus & DP_Extd_Sts_Nocode) &&
+                    (extendedStatus & DP_Extd_Sts_Nocode)) {
+                        setCounters(&userClock);
+                        clockState = USER_SET;
+                }
+                // ignore request since we have time code
+                else
+                        clockState = CODED;
+                break;
+        case USER_SET:
+                if (!(lastStatus & DP_Extd_Sts_Nocode) &&
+                    !(extendedStatus & DP_Extd_Sts_Nocode)) {
+                        // have good clock again, set counters back to coded clock
+                        clockState = RESET_COUNTERS;
+                }
+                break;
+        case RESET_COUNTERS:
+        case USER_OVERRIDE:
+        case CODED:
+                break;
+        }
+        /* At this point clockState is either
+         * CODED: we're going with whatever the hardware clock says
+         * RESET_COUNTERS: need to reset our counters to hardware clock
+         * USER_OVERRIDE: user has overridden the clock
+         *           In this case the hardware clock doesn't
+         *           match our own counters.
+         * USER_SET: the clock has been set from an ioctl with setMajorTime(),
+         *          and time code input is missing.  Since the
+         *           timecode is missing, the counters will be within
+         *          a second of the hardware clock.
+         */
 
-   /* Bits in extended status:
-    * bit 0:  0=clock sync'd to PPS or time code. This means
-    *           the sub-second fields are OK.
-    *         1=clock not sync'd.
-    * bit 1:  0=time code inputs OK (day,hr,min,sec fields OK)
-    *         1=time code inputs not readable. In this case
-    *           the pc104sg keeps incrementing its own clock
-    *           starting from whatever was set in the major time fields.
-    * bit 2:  0=PPS inputs OK
-    *         1=PPS inputs not readable
-    */
-   // transition from no sync to sync, reset the counters
-   if (clockState == CODED &&
-       (lastStatus & DP_Extd_Sts_Nosync) &&
-       !(extendedStatus & DP_Extd_Sts_Nosync))
-      clockState = RESET_COUNTERS;
+        /* Bits in extended status:
+         * bit 0:  0=clock sync'd to PPS or time code. This means
+         *           the sub-second fields are OK.
+         *         1=clock not sync'd.
+         * bit 1:  0=time code inputs OK (day,hr,min,sec fields OK)
+         *         1=time code inputs not readable. In this case
+         *           the pc104sg keeps incrementing its own clock
+         *           starting from whatever was set in the major time fields.
+         * bit 2:  0=PPS inputs OK
+         *         1=PPS inputs not readable
+         */
+        // transition from no sync to sync, reset the counters
+        if (clockState == CODED &&
+            (lastStatus & DP_Extd_Sts_Nosync) &&
+            !(extendedStatus & DP_Extd_Sts_Nosync))
+                clockState = RESET_COUNTERS;
 
-   if (clockState == RESET_COUNTERS) {
-      setCountersToClock();
-      clockState = CODED;
-   }
-   lastStatus = extendedStatus;
+        if (clockState == RESET_COUNTERS) {
+                setCountersToClock();
+                clockState = CODED;
+        }
+        lastStatus = extendedStatus;
 }
 
 /*
  * pc104sg interrupt function.
  */
-static unsigned int pc104sg_isr (unsigned int irq, void* callbackPtr, struct rtl_frame *regs)
+static unsigned int pc104sg_isr(unsigned int irq, void *callbackPtr,
+                                struct rtl_frame *regs)
 {
-   unsigned char status = inb(isa_address+Status_Port);
-   syncOK = status & Sync_OK;
+        unsigned char status = inb(isa_address + Status_Port);
+        syncOK = status & Sync_OK;
 
-   if ((status & Heartbeat) && (intmask & Heartbeat_Int_Enb)) {
+        if ((status & Heartbeat) && (intmask & Heartbeat_Int_Enb)) {
 
-      /* acknowledge interrupt (essential!) */
-      ackHeartBeatInt();
+                /* acknowledge interrupt (essential!) */
+                ackHeartBeatInt();
 
-      increment_clock(MSEC_PER_INTRPT);
+                increment_clock(MSEC_PER_INTRPT);
 
-      checkExtStatus();
+                checkExtStatus();
 
-      /*
-       * On 10 millisecond intervals wake up the thread so
-       * it can perform the callbacks at the various rates.
-       */
-      if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)) {
-         increment_hz100_cnt();
-         rtl_sem_post( &threadsem );
-      }
+                /*
+                 * On 10 millisecond intervals wake up the thread so
+                 * it can perform the callbacks at the various rates.
+                 */
+                if (!(msecClockTicker % MSEC_PER_THREAD_SIGNAL)) {
+                        increment_hz100_cnt();
+                        rtl_sem_post(&threadsem);
+                }
 
-   }
+        }
+
 #ifdef CHECK_EXT_EVENT
-   if ((status & Ext_Ready) && (intmask & Ext_Ready_Int_Enb)) {
-      struct irigTime ti;
-      getExtEventTime(&ti);
-      DSMLOG_DEBUG("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, stat=0x%x, state=%d\n",
-                   ti.year, ti.yday, ti.hour, ti.min, ti.sec,ti.msec, ti.usec, ti.nsec,
-                   extendedStatus,clockState);
-   }
+        if ((status & Ext_Ready) && (intmask & Ext_Ready_Int_Enb)) {
+                struct irigTime ti;
+                getExtEventTime(&ti);
+                DSMLOG_DEBUG
+                    ("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, stat=0x%x, state=%d\n",
+                     ti.year, ti.yday, ti.hour, ti.min, ti.sec, ti.msec,
+                     ti.usec, ti.nsec, extendedStatus, clockState);
+        }
 #endif
-   return 0;
+
+        return 0;
 }
 
-static int close_port(struct irig_port* port)
+static int close_port(struct irig_port *port)
 {
-   if (port->inFifoFd >= 0) {
-      int fd = port->inFifoFd;
-      port->inFifoFd = -1;
+        if (port->inFifoFd >= 0) {
+                int fd = port->inFifoFd;
+                port->inFifoFd = -1;
+
 #ifdef DEBUG
-      DSMLOG_DEBUG("closing %s\n",port->inFifoName);
+                DSMLOG_DEBUG("closing %s\n", port->inFifoName);
 #endif
-      rtl_close(fd);
-   }
-   return 0;
+
+                rtl_close(fd);
+        }
+        return 0;
 }
-static int open_port(struct irig_port* port)
+static int open_port(struct irig_port *port)
 {
-   int retval;
-   if ((retval = close_port(port))) return retval;
+        int retval;
+        if ((retval = close_port(port)))
+                return retval;
 
-   /* user opens port for read, so we open it for writing. */
+        /* user opens port for read, so we open it for writing. */
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("opening %s\n",port->inFifoName);
+        DSMLOG_DEBUG("opening %s\n", port->inFifoName);
 #endif
-   if ((port->inFifoFd = rtl_open(port->inFifoName, RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0) {
-      DSMLOG_ERR("error: opening %s: %s\n",
-                 port->inFifoName,rtl_strerror(rtl_errno));
-      return -convert_rtl_errno(rtl_errno);
-   }
 
+        if ((port->inFifoFd =
+             rtl_open(port->inFifoName,
+                      RTL_O_NONBLOCK | RTL_O_WRONLY)) < 0) {
+                DSMLOG_ERR("error: opening %s: %s\n", port->inFifoName,
+                           rtl_strerror(rtl_errno));
+                return -convert_rtl_errno(rtl_errno);
+        }
 // #define DO_FTRUNCATE
+
 #ifdef DO_FTRUNCATE
-   if (rtl_ftruncate(port->inFifoFd,4096) < 0) {
-      DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
-                 port->inFifoName,256,rtl_strerror(rtl_errno));
-      return -convert_rtl_errno(rtl_errno);
-   }
+        if (rtl_ftruncate(port->inFifoFd, 4096) < 0) {
+                DSMLOG_ERR("error: ftruncate %s: size=%d: %s\n",
+                           port->inFifoName, 256, rtl_strerror(rtl_errno));
+                return -convert_rtl_errno(rtl_errno);
+        }
 #endif
 
-   return retval;
+        return retval;
 }
 
 /*
@@ -1395,85 +1529,96 @@ static int open_port(struct irig_port* port)
  * it gets the current clock value and writes it,
  * along with the extended status as a sample to the FIFO.
  */
-static void portCallback(void* privateData)
+static void portCallback(void *privateData)
 {
-   struct irig_port* dev = (struct irig_port*) privateData;
-   struct irigTime ti;
+        struct irig_port *dev = (struct irig_port *) privateData;
+        struct irigTime ti;
 
-   dsm_sample_time_t tt = GET_MSEC_CLOCK;
-   getCurrentTime(&ti);
+        dsm_sample_time_t tt = GET_MSEC_CLOCK;
+        getCurrentTime(&ti);
 
 // #define DEBUG_MIDNIGHT
+
 #ifdef DEBUG_MIDNIGHT
-   /* 6 minutes either side of midnight print out some time info */
-   if (tt > MSECS_PER_DAY - 360 * MSECS_PER_SEC ||
-        tt < 360 * MSECS_PER_SEC) {
-      DSMLOG_INFO("tt=%d, irig=%d j%d %2d:%2d:%2d.%03d%03d%03d\n",
-            tt,ti.year,ti.yday,ti.hour,ti.min,ti.sec,
-            ti.msec,ti.usec,ti.nsec);
-    }
+        /* 6 minutes either side of midnight print out some time info */
+        if (tt > MSECS_PER_DAY - 360 * MSECS_PER_SEC ||
+            tt < 360 * MSECS_PER_SEC) {
+                DSMLOG_INFO
+                    ("tt=%d, irig=%d j%d %2d:%2d:%2d.%03d%03d%03d\n", tt,
+                     ti.year, ti.yday, ti.hour, ti.min, ti.sec, ti.msec,
+                     ti.usec, ti.nsec);
+        }
 #endif
 
-   // check clock sanity
-   if (clockState == CODED || clockState == USER_SET) {
-      struct rtl_timeval tv;
-      irig2timeval(&ti,&tv);
-      // clock difference
-      int td = (tv.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-         tv.tv_usec / USECS_PER_MSEC - tt;
-      /* If not within 3 milliseconds, ask to reset counters.
-       * Since this is being called as a 1 Hz callback some
-       * time may have elapsed since the 100 Hz interrupt.
-       */
-      if (abs(td) > 3) {
-         clockState = RESET_COUNTERS;
-#ifdef DEBUG
-         if (dev->inFifoFd >= 0)
-            DSMLOG_DEBUG("tv=%d.%06d, tt=%d, td=%d, status=0x%x\n",
-                         tv.tv_sec,tv.tv_usec,tt,td,extendedStatus);
-#endif
-      }
-#ifdef DEBUG
-      DSMLOG_DEBUG("tt=%d, td=%d\n",tt,td);
-#endif
-   }
-
-   if (dev->inFifoFd >= 0) {
-      dev->samp.timetag = tt;
-      dev->samp.length = sizeof(dev->samp.data.tval) +
-         sizeof(dev->samp.data.status);
-
-      irig2timeval(&ti,&dev->samp.data.tval);
-      dev->samp.data.status = extendedStatus;
-      if (!syncOK) dev->samp.data.status |= CLOCK_SYNC_NOT_OK;
+        // check clock sanity
+        if (clockState == CODED || clockState == USER_SET) {
+                struct rtl_timeval tv;
+                irig2timeval(&ti, &tv);
+                // clock difference
+                int td = (tv.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+                    tv.tv_usec / USECS_PER_MSEC - tt;
+                /* If not within 3 milliseconds, ask to reset counters.
+                 * Since this is being called as a 1 Hz callback some
+                 * time may have elapsed since the 100 Hz interrupt.
+                 */
+                if (abs(td) > 3) {
+                        clockState = RESET_COUNTERS;
 
 #ifdef DEBUG
-      DSMLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
-                   dev->samp.data.tval.tv_sec,dev->samp.data.tval.tv_usec,
-                   dev->samp.data.status);
+                        if (dev->inFifoFd >= 0)
+                                DSMLOG_DEBUG
+                                    ("tv=%d.%06d, tt=%d, td=%d, status=0x%x\n",
+                                     tv.tv_sec, tv.tv_usec, tt, td,
+                                     extendedStatus);
+#endif
+                }
+
+#ifdef DEBUG
+                DSMLOG_DEBUG("tt=%d, td=%d\n", tt, td);
+#endif
+        }
+
+        if (dev->inFifoFd >= 0) {
+                dev->samp.timetag = tt;
+                dev->samp.length = sizeof (dev->samp.data.tval) +
+                    sizeof (dev->samp.data.status);
+
+                irig2timeval(&ti, &dev->samp.data.tval);
+                dev->samp.data.status = extendedStatus;
+                if (!syncOK)
+                        dev->samp.data.status |= CLOCK_SYNC_NOT_OK;
+
+#ifdef DEBUG
+                DSMLOG_DEBUG("tv_secs=%d, tv_usecs=%d status=0x%x\n",
+                             dev->samp.data.tval.tv_sec,
+                             dev->samp.data.tval.tv_usec,
+                             dev->samp.data.status);
 #endif
 
-      ssize_t wlen;
-      if ((wlen = rtl_write(dev->inFifoFd,&dev->samp,
-                            SIZEOF_DSM_SAMPLE_HEADER + dev->samp.length)) < 0) {
-         DSMLOG_ERR("error: write %s: %s. Closing\n",
-                    dev->inFifoName,rtl_strerror(rtl_errno));
-         close_port(dev);
-      }
-   }
+                ssize_t wlen;
+                if ((wlen = rtl_write(dev->inFifoFd, &dev->samp,
+                                      SIZEOF_DSM_SAMPLE_HEADER +
+                                      dev->samp.length)) < 0) {
+                        DSMLOG_ERR("error: write %s: %s. Closing\n",
+                                   dev->inFifoName,
+                                   rtl_strerror(rtl_errno));
+                        close_port(dev);
+                }
+        }
 
 #ifdef DEBUG_XXX
-   // unsigned char status = inb(isa_address+Status_Port);
-   dsm_sample_time_t tt = GET_MSEC_CLOCK;
-   int hr = (tt / 3600 / MSECS_PER_SEC);
-   tt %= (3600 * MSECS_PER_SEC);
-   int mn = (tt / 60 / MSECS_PER_SEC);
-   tt %= (60 * MSECS_PER_SEC);
-   int sc = tt / MSECS_PER_SEC;
-   tt %= MSECS_PER_SEC;
-   DSMLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
-                ti.year,ti.yday,ti.hour,ti.min,ti.sec,ti.msec,ti.usec,ti.nsec,
-                hr,mn,sc,tt,extendedStatus,clockState);
+        // unsigned char status = inb(isa_address+Status_Port);
+        dsm_sample_time_t tt = GET_MSEC_CLOCK;
+        int hr = (tt / 3600 / MSECS_PER_SEC);
+        tt %= (3600 * MSECS_PER_SEC);
+        int mn = (tt / 60 / MSECS_PER_SEC);
+        tt %= (60 * MSECS_PER_SEC);
+        int sc = tt / MSECS_PER_SEC;
+        tt %= MSECS_PER_SEC;
+        DSMLOG_DEBUG
+            ("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
+             ti.year, ti.yday, ti.hour, ti.min, ti.sec, ti.msec, ti.usec,
+             ti.nsec, hr, mn, sc, tt, extendedStatus, clockState);
 #endif
 
 }
@@ -1485,295 +1630,339 @@ static void portCallback(void* privateData)
 static int ioctlCallback(int cmd, int board, int portNum,
                          void *buf, rtl_size_t len)
 {
-   int retval = -EINVAL;
-   int isRT = 0;
+        int retval = -EINVAL;
+        int isRT = 0;
+
 #ifdef DEBUG
-   DSMLOG_DEBUG("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
-                cmd,board,portNum);
+        DSMLOG_DEBUG("ioctlCallback, cmd=0x%x board=%d, portNum=%d\n",
+                     cmd, board, portNum);
 #endif
 
-   /* only one board and one port supported by this module */
-   if (board != 0) return retval;
-   if (portNum != 0) return retval;
+        /* only one board and one port supported by this module */
+        if (board != 0)
+                return retval;
+        if (portNum != 0)
+                return retval;
 
-   switch (cmd) {
-      case GET_NUM_PORTS:         /* user get */
-         *(int *) buf = 1;
-         retval = sizeof(int);
-         break;
-      case IRIG_OPEN:           /* open port */
+        switch (cmd) {
+        case GET_NUM_PORTS:    /* user get */
+                *(int *) buf = 1;
+                retval = sizeof (int);
+                break;
+        case IRIG_OPEN:        /* open port */
+
 #ifdef DEBUG
-         DSMLOG_DEBUG("IRIG_OPEN\n");
+                DSMLOG_DEBUG("IRIG_OPEN\n");
 #endif
-         retval = open_port(portDev);
-         break;
-      case IRIG_CLOSE:          /* close port */
+
+                retval = open_port(portDev);
+                break;
+        case IRIG_CLOSE:       /* close port */
+
 #ifdef DEBUG
-         DSMLOG_DEBUG("IRIG_CLOSE\n");
+                DSMLOG_DEBUG("IRIG_CLOSE\n");
 #endif
-         retval = close_port(portDev);
-         break;
-      case IRIG_GET_STATUS:
-         *((unsigned char*)buf) = extendedStatus;
-         retval = 1;
-         break;
-      case IRIG_GET_CLOCK:
-      {
-         struct irigTime ti;
-         struct rtl_timeval tv;
-         if (len != sizeof(tv)) break;
-         getCurrentTime(&ti);
-         irig2timeval(&ti,&tv);
-         memcpy(buf,&tv,sizeof(tv));
-         retval = len;
-      }
-      break;
-      case IRIG_SET_CLOCK:
-      {
-         struct irigTime ti;
-         unsigned long flags;
-         if (len != sizeof(userClock)) break;
-         memcpy(&userClock,buf,sizeof(userClock));
 
-         timeval2irig(&userClock,&ti);
+                retval = close_port(portDev);
+                break;
+        case IRIG_GET_STATUS:
+                *((unsigned char *) buf) = extendedStatus;
+                retval = 1;
+                break;
+        case IRIG_GET_CLOCK:
+                {
+                        struct irigTime ti;
+                        struct rtl_timeval tv;
+                        if (len != sizeof (tv))
+                                break;
+                        getCurrentTime(&ti);
+                        irig2timeval(&ti, &tv);
+                        memcpy(buf, &tv, sizeof (tv));
+                        retval = len;
+                }
+                break;
+        case IRIG_SET_CLOCK:
+                {
+                        struct irigTime ti;
+                        unsigned long flags;
+                        if (len != sizeof (userClock))
+                                break;
+                        memcpy(&userClock, buf, sizeof (userClock));
 
-         spin_lock_irqsave(&dp_ram_lock,flags);
-         dp_ram_ext_status_enabled = 0;
-         dp_ram_ext_status_requested = 0;
-         spin_unlock_irqrestore(&dp_ram_lock,flags);
+                        timeval2irig(&userClock, &ti);
 
-         if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti,isRT);
-         else setYear(ti.year,isRT);
+                        spin_lock_irqsave(&dp_ram_lock, flags);
+                        dp_ram_ext_status_enabled = 0;
+                        dp_ram_ext_status_requested = 0;
+                        spin_unlock_irqrestore(&dp_ram_lock, flags);
 
-         spin_lock_irqsave(&dp_ram_lock,flags);
-         dp_ram_ext_status_enabled = 1;
-         spin_unlock_irqrestore(&dp_ram_lock,flags);
+                        if (extendedStatus & DP_Extd_Sts_Nocode)
+                                setMajorTime(&ti, isRT);
+                        else
+                                setYear(ti.year, isRT);
 
-         clockState = USER_SET_REQUESTED;
-         retval = len;
-      }
-      break;
-      case IRIG_OVERRIDE_CLOCK:
-      {
-         struct irigTime ti;
-         unsigned long flags;
-         if (len != sizeof(userClock)) break;
-         memcpy(&userClock,buf,sizeof(userClock));
-         timeval2irig(&userClock,&ti);
+                        spin_lock_irqsave(&dp_ram_lock, flags);
+                        dp_ram_ext_status_enabled = 1;
+                        spin_unlock_irqrestore(&dp_ram_lock, flags);
 
-         spin_lock_irqsave(&dp_ram_lock,flags);
-         dp_ram_ext_status_enabled = 0;
-         dp_ram_ext_status_requested = 0;
-         spin_unlock_irqrestore(&dp_ram_lock,flags);
+                        clockState = USER_SET_REQUESTED;
+                        retval = len;
+                }
+                break;
+        case IRIG_OVERRIDE_CLOCK:
+                {
+                        struct irigTime ti;
+                        unsigned long flags;
+                        if (len != sizeof (userClock))
+                                break;
+                        memcpy(&userClock, buf, sizeof (userClock));
+                        timeval2irig(&userClock, &ti);
 
-         if (extendedStatus & DP_Extd_Sts_Nocode) setMajorTime(&ti,isRT);
-         else setYear(ti.year,isRT);
+                        spin_lock_irqsave(&dp_ram_lock, flags);
+                        dp_ram_ext_status_enabled = 0;
+                        dp_ram_ext_status_requested = 0;
+                        spin_unlock_irqrestore(&dp_ram_lock, flags);
 
-         spin_lock_irqsave(&dp_ram_lock,flags);
-         dp_ram_ext_status_enabled = 1;
-         spin_unlock_irqrestore(&dp_ram_lock,flags);
+                        if (extendedStatus & DP_Extd_Sts_Nocode)
+                                setMajorTime(&ti, isRT);
+                        else
+                                setYear(ti.year, isRT);
 
-         clockState = USER_OVERRIDE_REQUESTED;
-         retval = len;
-      }
-      break;
-      default:
-         break;
-   }
-   return retval;
+                        spin_lock_irqsave(&dp_ram_lock, flags);
+                        dp_ram_ext_status_enabled = 1;
+                        spin_unlock_irqrestore(&dp_ram_lock, flags);
+
+                        clockState = USER_OVERRIDE_REQUESTED;
+                        retval = len;
+                }
+                break;
+        default:
+                break;
+        }
+        return retval;
 }
+
 /* -- MODULE ---------------------------------------------------------- */
-void cleanup_module (void)
+void cleanup_module(void)
 {
-   /* cancel the thread. Because this thread does a time-out wait
-    * on a semaphore from the interrupt service routine,
-    * we cancel it before disabling interrupts.
-    */
-#ifdef DEBUG
-   DSMLOG_DEBUG("starting\n");
-#endif
-   if (pc104sgThread) {
-      if (rtl_pthread_kill( pc104sgThread,SIGTERM ) < 0)
-         DSMLOG_WARNING("rtl_pthread_kill failure\n");
-      rtl_pthread_join( pc104sgThread, NULL );
-   }
+        /* cancel the thread. Because this thread does a time-out wait
+         * on a semaphore from the interrupt service routine,
+         * we cancel it before disabling interrupts.
+         */
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("free_callbacks\n");
+        DSMLOG_DEBUG("starting\n");
 #endif
-   /* free up our pool of callbacks */
-   free_callbacks();
+
+        if (pc104sgThread) {
+                if (rtl_pthread_kill(pc104sgThread, SIGTERM) < 0)
+                        DSMLOG_WARNING("rtl_pthread_kill failure\n");
+                rtl_pthread_join(pc104sgThread, NULL);
+        }
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("disableAllInts\n");
+        DSMLOG_NOTICE("free_callbacks\n");
 #endif
-   disableAllInts();
+
+        /* free up our pool of callbacks */
+        free_callbacks();
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("free_isa_irq\n");
+        DSMLOG_NOTICE("disableAllInts\n");
 #endif
-   rtl_free_isa_irq(irq);
 
-   if (portDev) {
-#ifdef DEBUG
-      DSMLOG_NOTICE("close_port\n");
-#endif
-      close_port(portDev);
-      if (portDev->inFifoName) {
-         rtl_unlink(portDev->inFifoName);
-         rtl_gpos_free(portDev->inFifoName);
-      }
-      rtl_gpos_free(portDev);
-   }
-#ifdef DEBUG
-   DSMLOG_NOTICE("closeIoctlFIFO\n");
-#endif
-   if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
-
-   /* free up the I/O region and remove /proc entry */
-#ifdef DEBUG
-   DSMLOG_NOTICE("release_region\n");
-#endif
-   if (isa_address)
-      release_region(isa_address, PC104SG_IOPORT_WIDTH);
+        disableAllInts();
 
 #ifdef DEBUG
-   DSMLOG_NOTICE("sem_destroy\n");
+        DSMLOG_NOTICE("free_isa_irq\n");
 #endif
-   rtl_sem_destroy(&threadsem);
 
-   DSMLOG_NOTICE("done\n");
+        rtl_free_isa_irq(irq);
+
+        if (portDev) {
+
+#ifdef DEBUG
+                DSMLOG_NOTICE("close_port\n");
+#endif
+
+                close_port(portDev);
+                if (portDev->inFifoName) {
+                        rtl_unlink(portDev->inFifoName);
+                        rtl_gpos_free(portDev->inFifoName);
+                }
+                rtl_gpos_free(portDev);
+        }
+
+#ifdef DEBUG
+        DSMLOG_NOTICE("closeIoctlFIFO\n");
+#endif
+
+        if (ioctlhandle)
+                closeIoctlFIFO(ioctlhandle);
+
+        /* free up the I/O region and remove /proc entry */
+
+#ifdef DEBUG
+        DSMLOG_NOTICE("release_region\n");
+#endif
+
+        if (isa_address)
+                release_region(isa_address, PC104SG_IOPORT_WIDTH);
+
+#ifdef DEBUG
+        DSMLOG_NOTICE("sem_destroy\n");
+#endif
+
+        rtl_sem_destroy(&threadsem);
+
+        DSMLOG_NOTICE("done\n");
 
 }
 
 /* -- MODULE ---------------------------------------------------------- */
 /* activate the pc104sg-B board */
-int init_module (void)
+int init_module(void)
 {
-   int i;
-   int errval = 0;
-   unsigned int addr;
-   int irq_requested = 0;
+        int i;
+        int errval = 0;
+        unsigned int addr;
+        int irq_requested = 0;
 
-   // DSM_VERSION_STRING is found in dsm_version.h
-   DSMLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
+        // DSM_VERSION_STRING is found in dsm_version.h
+        DSMLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
 
-   INIT_LIST_HEAD(&callbackpool);
-   for (i = 0; i < IRIG_NUM_RATES; i++)
-      INIT_LIST_HEAD(callbacklists+i);
+        atomic_set(&callbacksActive, 0);
+        INIT_LIST_HEAD(&callbackPool);
+        INIT_LIST_HEAD(&pendingAdds);
+        for (i = 0; i < IRIG_NUM_RATES; i++) {
+                INIT_LIST_HEAD(callbackLists + i);
+                atomic_set(callbackRateRunning + i, 0);
+        }
 
-   /* initialize the semaphore to the 100 hz thread */
-   rtl_sem_init (&threadsem, /* which semaphore */
-                 1,          /* usable between processes? Usu. 1 */
-                 0);         /* initial value */
+        /* initialize the semaphore to the 100 hz thread */
+        rtl_sem_init(&threadsem,        /* which semaphore */
+                     1,         /* usable between processes? Usu. 1 */
+                     0);        /* initial value */
 
 
-   /* check for module parameters */
-   addr = (unsigned int)ioport + SYSTEM_ISA_IOPORT_BASE;
+        /* check for module parameters */
+        addr = (unsigned int) ioport + SYSTEM_ISA_IOPORT_BASE;
 
-   errval = -EBUSY;
-   /* Grab the region so that no one else tries to probe our ioports. */
-   if (check_region(addr, PC104SG_IOPORT_WIDTH)) goto err0;
-   request_region(addr, PC104SG_IOPORT_WIDTH, "pc104sg");
-   isa_address = addr;
+        errval = -EBUSY;
+        /* Grab the region so that no one else tries to probe our ioports. */
+        if (check_region(addr, PC104SG_IOPORT_WIDTH))
+                goto err0;
+        request_region(addr, PC104SG_IOPORT_WIDTH, "pc104sg");
+        isa_address = addr;
 
-   /* initialize clock counters that external modules grab */
-   readClock = 0;
-   writeClock = 0;
-   msecClock[readClock] = 0;
-   msecClock[writeClock] = 0;
+        /* initialize clock counters that external modules grab */
+        readClock = 0;
+        writeClock = 0;
+        msecClock[readClock] = 0;
+        msecClock[writeClock] = 0;
 
-   /* shutoff pc104sg interrupts just in case */
-   disableAllInts();
+        /* shutoff pc104sg interrupts just in case */
+        disableAllInts();
 
-   portDev = rtl_gpos_malloc( sizeof(struct irig_port) );
-   if (!portDev) goto err0;
-   portDev->inFifoFd = -1;
-   portDev->inFifoName = makeDevName(devprefix,"_in_",0);
-   if (!portDev->inFifoName) goto err0;
+        portDev = rtl_gpos_malloc(sizeof (struct irig_port));
+        if (!portDev)
+                goto err0;
+        portDev->inFifoFd = -1;
+        portDev->inFifoName = makeDevName(devprefix, "_in_", 0);
+        if (!portDev->inFifoName)
+                goto err0;
 
 #ifdef DEBUG
-   DSMLOG_DEBUG("creating %s\n",portDev->inFifoName);
+        DSMLOG_DEBUG("creating %s\n", portDev->inFifoName);
 #endif
 
-   // remove broken device file before making a new one
-   if (rtl_unlink(portDev->inFifoName) < 0)
-      if (rtl_errno != RTL_ENOENT) {
-         errval = -convert_rtl_errno(rtl_errno);
-         goto err0;
-      }
+        // remove broken device file before making a new one
+        if (rtl_unlink(portDev->inFifoName) < 0)
+                if (rtl_errno != RTL_ENOENT) {
+                        errval = -convert_rtl_errno(rtl_errno);
+                        goto err0;
+                }
 
-   if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
-      errval = -convert_rtl_errno(rtl_errno);
-      DSMLOG_WARNING("rtl_mkfifo %s failed, errval=%d\n",
-                     portDev->inFifoName,errval);
-      goto err0;
-   }
+        if (rtl_mkfifo(portDev->inFifoName, 0666) < 0) {
+                errval = -convert_rtl_errno(rtl_errno);
+                DSMLOG_WARNING("rtl_mkfifo %s failed, errval=%d\n",
+                               portDev->inFifoName, errval);
+                goto err0;
+        }
 
-   /* setup our device */
-   if (!(ioctlhandle = openIoctlFIFO(devprefix,
-                                     0,ioctlCallback,nioctlcmds,ioctlcmds))) {
-      errval = -EINVAL;
-      goto err0;
-   }
+        /* setup our device */
+        if (!(ioctlhandle = openIoctlFIFO(devprefix,
+                                          0, ioctlCallback, nioctlcmds,
+                                          ioctlcmds))) {
+                errval = -EINVAL;
+                goto err0;
+        }
 
-   /* create our pool of callback entries */
-   errval = -ENOMEM;
-   for (i = 0; i < CALL_BACK_POOL_SIZE; i++) {
-      struct irigCallback* cbentry =
-         (struct irigCallback*) rtl_gpos_malloc( sizeof(struct irigCallback) );
-      if (!cbentry) goto err0;
-      list_add(&cbentry->list,&callbackpool);
-   }
+        /* create our pool of callback entries */
+        errval = -ENOMEM;
+        for (i = 0; i < CALLBACK_POOL_SIZE; i++) {
+                struct irig_callback *cbentry =
+                    (struct irig_callback *)
+                    rtl_gpos_malloc(sizeof (struct irig_callback));
+                if (!cbentry)
+                        goto err0;
+                list_add(&cbentry->list, &callbackPool);
+        }
 
-   if ((errval = rtl_request_isa_irq(irq, pc104sg_isr,0 )) < 0 ) {
-      /* failed... */
-      DSMLOG_WARNING("could not allocate IRQ %d\n",irq);
-      goto err0;
-   }
-   irq_requested = 1;
+        if ((errval = rtl_request_isa_irq(irq, pc104sg_isr, 0)) < 0) {
+                /* failed... */
+                DSMLOG_WARNING("could not allocate IRQ %d\n", irq);
+                goto err0;
+        }
+        irq_requested = 1;
 
-   /* start the 100 Hz thread */
-   if (rtl_pthread_create(
-          &pc104sgThread, NULL, pc104sg_100hz_thread, (void *)0)) {
-      errval = -convert_rtl_errno(rtl_errno);
-      goto err0;
-   }
+        /* start the 100 Hz thread */
+        if (rtl_pthread_create
+            (&pc104sgThread, NULL, pc104sg_100hz_thread, (void *) 0)) {
+                errval = -convert_rtl_errno(rtl_errno);
+                goto err0;
+        }
 
-   if ((errval = register_irig_callback(portCallback, IRIG_1_HZ,portDev))
-       < 0) goto err0;
+        portDev->writeCallback =
+            register_irig_callback(portCallback, IRIG_1_HZ, portDev,
+                                   &errval);
+        if (!portDev->writeCallback)
+                goto err0;
 
-   return 0;
+        return 0;
 
-  err0:
+      err0:
 
-   /* kill the thread */
-   if (pc104sgThread) {
-      rtl_pthread_kill( pc104sgThread,SIGTERM );
-      rtl_pthread_join( pc104sgThread, NULL );
-   }
+        /* kill the thread */
+        if (pc104sgThread) {
+                rtl_pthread_kill(pc104sgThread, SIGTERM);
+                rtl_pthread_join(pc104sgThread, NULL);
+        }
 
-   /* free up our pool of callbacks */
-   free_callbacks();
+        /* free up our pool of callbacks */
+        free_callbacks();
 
-   disableAllInts();
+        disableAllInts();
 
-   if (irq_requested) rtl_free_isa_irq(irq);
+        if (irq_requested)
+                rtl_free_isa_irq(irq);
 
-   if (ioctlhandle) closeIoctlFIFO(ioctlhandle);
+        if (ioctlhandle)
+                closeIoctlFIFO(ioctlhandle);
 
-   if (portDev) {
-      if (portDev->inFifoName) {
-         rtl_unlink(portDev->inFifoName);
-         rtl_gpos_free(portDev->inFifoName);
-      }
-      rtl_gpos_free(portDev);
-   }
+        if (portDev) {
+                if (portDev->inFifoName) {
+                        rtl_unlink(portDev->inFifoName);
+                        rtl_gpos_free(portDev->inFifoName);
+                }
+                rtl_gpos_free(portDev);
+                portDev = 0;
+        }
 
-   /* free up the I/O region and remove /proc entry */
-   if (isa_address)
-      release_region(isa_address, PC104SG_IOPORT_WIDTH);
+        /* free up the I/O region and remove /proc entry */
+        if (isa_address)
+                release_region(isa_address, PC104SG_IOPORT_WIDTH);
 
-   rtl_sem_destroy(&threadsem);
-   return errval;
+        rtl_sem_destroy(&threadsem);
+        return errval;
 }

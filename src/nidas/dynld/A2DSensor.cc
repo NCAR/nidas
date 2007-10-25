@@ -31,33 +31,34 @@ using namespace std;
 namespace n_u = nidas::util;
 
 A2DSensor::A2DSensor() :
-    DSMSensor(),initialized(false),
-    scanRate(0),badRawSamples(0)
+    DSMSensor(),
+    _badRawSamples(0),_scanRate(0),
+    _maxNChannels(0),_prevChan(-1),
+    _gains(0),_bipolars(0),
+    _convSlopes(0),_convIntercepts(0)
 {
     setLatency(0.1);
 }
 
 A2DSensor::~A2DSensor()
 {
-    for (unsigned int i = 0; i < _samples.size(); i++) {
-        delete [] _samples[i].convSlopes;
-        delete [] _samples[i].convIntercepts;
-    }
+    delete [] _gains;
+    delete [] _bipolars;
+    delete [] _convSlopes;
+    delete [] _convIntercepts;
+
+    for (size_t i = 0; i < _sampleCfgs.size(); i++)
+        delete _sampleCfgs[i];
+    for (size_t i = 0; i < _sampleInfos.size(); i++)
+        delete _sampleInfos[i];
 }
 
 void A2DSensor::open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
+    	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
     init();
-    config();
 }
-
-void A2DSensor::config()
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
-{
-}
-
 
 void A2DSensor::close() throw(n_u::IOException)
 {
@@ -66,9 +67,122 @@ void A2DSensor::close() throw(n_u::IOException)
 
 void A2DSensor::init() throw(n_u::InvalidParameterException)
 {
-    if (initialized) return;
-    initialized = true;
+    initParameters();
 }
+
+int A2DSensor::getGain(int ichan) const
+{
+    if (ichan < 0 || ichan >= _maxNChannels) return 0;
+    return _gains[ichan];
+}
+
+int A2DSensor::getBipolar(int ichan) const
+{
+    if (ichan < 0 || ichan >= _maxNChannels) return -1;
+    return _bipolars[ichan];
+}
+
+void A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
+    throw(n_u::InvalidParameterException)
+{
+    initParameters();
+    if (ichan < 0 || ichan >= _maxNChannels) {
+        ostringstream ost;
+        ost << "value=" << ichan << " is out of range of A2D";
+        throw n_u::InvalidParameterException(getName(),
+            "channel",ost.str());
+    }
+    _gains[ichan] = gain;
+    _bipolars[ichan] = bipolar;
+    getBasicConversion(ichan,_convIntercepts[ichan],_convSlopes[ichan]);
+}
+
+void A2DSensor::getA2DParameters(int ichan, int& gain, int& bipolar) const
+{
+    if (ichan < 0 || ichan >= _maxNChannels) {
+        gain = 0;
+        bipolar = -1;
+        return;
+    }
+    gain = _gains[ichan];
+    bipolar = _bipolars[ichan];
+}
+
+void A2DSensor::setConversionCorrection(int ichan, float corIntercept,
+    float corSlope) throw(n_u::InvalidParameterException)
+{
+    initParameters();
+    if (ichan < 0 || ichan >= _maxNChannels) {
+        ostringstream ost;
+        ost << "value=" << ichan << " is out of range of A2D";
+        throw n_u::InvalidParameterException(getName(),
+            "channel",ost.str());
+    }
+
+    float basIntercept,basSlope;
+    getBasicConversion(ichan,basIntercept,basSlope);
+     /*
+     * corSlope and corIntercept are the slope and intercept
+     * of an A2D calibration, where
+     *    Vcorr = Vuncorr * corSlope + corIntercept
+     *
+     * Note that Vcorr is the Y (independent) variable. This is
+     * because the A2D calibration is done in a similar
+     * way to normal sensor calibration, where Y are the
+     * set points from an input standard, and X is the measured
+     * voltage value.
+     *
+     *    Vcorr = Vuncorr * corSlope + corIntercept
+     *	    = (cnts * 20 / 65535 / gain + offset) * corSlope +
+     *			corIntercept
+     *	    = cnts * 20 / 65535 / gain * corSlope +
+     *		offset * corSlope + corIntercept
+     */
+    _convSlopes[ichan] = basSlope * corSlope;
+    _convIntercepts[ichan] = basIntercept * corSlope + corIntercept;
+}
+
+void A2DSensor::getConversion(int ichan,float& intercept, float& slope) const
+{
+    intercept = getIntercept(ichan);
+    slope = getSlope(ichan);
+}
+
+
+void A2DSensor::initParameters()
+{
+    int n = getMaxNumChannels();
+    if (n != _maxNChannels) {
+        int* g = new int[n];
+        int* b = new int[n];
+        float* ci = new float[n];
+        float* cs = new float[n];
+
+        int i;
+        for (i = 0; i < std::min(_maxNChannels,n); i++) {
+            g[i] = _gains[i];
+            b[i] = _bipolars[i];
+            ci[i] = _convIntercepts[i];
+            cs[i] = _convSlopes[i];
+        }
+        for ( ; i < n; i++) {
+            g[i] = 0;
+            b[i] = -1;
+            ci[i] = 0.0;
+            cs[i] = 1.0;
+        }
+        delete [] _gains;
+        delete [] _bipolars;
+        delete [] _convIntercepts;
+        delete [] _convSlopes;
+        _gains = g;
+        _bipolars = b;
+        _convIntercepts = ci;
+        _convSlopes = cs;
+        _maxNChannels = n;
+    }
+}
+
 
 bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw()
 {
@@ -77,31 +191,30 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
 
     // raw data are shorts
     if (insamp->getDataByteLength() % sizeof(short)) {
-        badRawSamples++;
+        _badRawSamples++;
         return false;
     }
 
     // number of short values in this raw sample.
-    unsigned int nvalues = insamp->getDataByteLength() / sizeof(short);
+    int nvalues = insamp->getDataByteLength() / sizeof(short);
     if (nvalues < 1) {
-        badRawSamples++;
+        _badRawSamples++;
         return false;      // nothin
     }
 
     unsigned int sindex = 0;
     // if more than one sample, the first value is an index
-    if (_samples.size() != 1 || nvalues == _samples[0].nvars + 1) {
-        int index = *sp++;
-        if (index < 0 || index >= (signed) _samples.size()) {
-            badRawSamples++;
+    if (_sampleInfos.size() != 1 || nvalues == _sampleInfos[0]->nvars + 1) {
+        sindex = *sp++;
+        if (sindex >=  _sampleInfos.size()) {
+            _badRawSamples++;
             return false;
         }
-        sindex = index;
         nvalues--;
     }
 
-    struct sample_info* sinfo = &_samples[sindex];
-    SampleTag* stag = sinfo->stag;
+    A2DSampleInfo* sinfo = _sampleInfos[sindex];
+    const SampleTag* stag = sinfo->stag;
     const vector<const Variable*>& vars = stag->getVariables();
 
     SampleT<float>* osamp = getSample<float>(sinfo->nvars);
@@ -109,16 +222,17 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
     osamp->setId(stag->getId());
     float *fp = osamp->getDataPtr();
 
-    unsigned int ival;
+    int ival;
     for (ival = 0; ival < std::min(nvalues,sinfo->nvars); ival++,fp++) {
+        int ichan = sinfo->channels[ival];
 	short sval = *sp++;
 	if (sval == -32768 || sval == 32767) {
             *fp = floatNAN;
             continue;
         }
 
-	float volts = sinfo->convIntercepts[ival] +
-            sinfo->convSlopes[ival] * sval;
+	float volts = _convIntercepts[ichan] +
+            _convSlopes[ichan] * sval;
         const Variable* var = vars[ival];
         if (volts < var->getMinValue() || volts > var->getMaxValue()) 
             *fp = floatNAN;
@@ -146,20 +260,20 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         <sensor>
             <parameter name="rate" value="1000"/>   // sample rate 1KHz
             <sample id="1" rate="10">               // output rate 10Hz
-                <parameter name="filter" value="boxcar"/>
-                <parameter name="numpoints" value="4"/>
+                <parameter name="filter" value="boxcar" type="string"/>
+                <parameter name="numpoints" value="4" type="int"/>
                 <variable name="IN0"/>  // default channel 0
                 <variable name="IN4">
-                   <parameter name="channel" value="4"/>
+                   <parameter name="channel" value="4" type="int"/>
                 </variable>
                 <variable name="IN5"/>  // channel=5 is 1 plus previous
                 </variable>
             </sample>
             <sample id="2" rate="100">              // output rate 100Hz
-                <parameter name="filter" value="boxcar"/>
-                <parameter name="numpoints" value="4"/>
+                <parameter name="filter" value="boxcar" type="string"/>
+                <parameter name="numpoints" value="4" type="int"/>
                 <variable name="IN1">
-                   <parameter name="channel" value="1"/>
+                   <parameter name="channel" value="1" type="int"/>
                 </variable>
                 <variable name="IN2"/>      // channel=2 is 1 plus previous
             </sample>
@@ -199,6 +313,8 @@ void A2DSensor::addSampleTag(SampleTag* tag)
      an id to the samples (backward compatibility)
      */
     DSMSensor::addSampleTag(tag);
+
+    initParameters();
 
     float frate = tag->getRate();
     if (fmodf(frate,1.0) != 0.0) {
@@ -242,31 +358,138 @@ void A2DSensor::addSampleTag(SampleTag* tag)
                     throw n_u::InvalidParameterException(getName(),"sample",
                         "bad temperature parameter");
                 temperature = (int)param->getNumericValue(0);
-                cerr << "temperature=" << temperature << endl;
         }
     }
     if (temperature) return;
 
-    int sindex = _samples.size();       // sample index, 0,1,...
+    if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0)
+        throw n_u::InvalidParameterException(getName(),"numpoints",
+            "numpoints parameter must be > 0 with boxcar filter");
+
+    int sindex = _sampleInfos.size();       // sample index, 0,1,...
 
     const vector<const Variable*>& vars = tag->getVariables();
+    int nvars = vars.size();
 
-    sample_info sinfo;
-    memset(&sinfo,0,sizeof(sinfo));
-    sinfo.stag = tag;
-    sinfo.index = sindex;
-    sinfo.rate = rate;
-    sinfo.filterType = filterType;
-    sinfo.boxcarNpts = boxcarNpts;
-    sinfo.nvars = vars.size();
-    sinfo.convSlopes = new float[sinfo.nvars];
-    sinfo.convIntercepts = new float[sinfo.nvars];
-    for (unsigned int i = 0; i < sinfo.nvars; i++) {
-        sinfo.convSlopes[i] = 1.0;
-        sinfo.convIntercepts[i] = 0.0;
+    auto_ptr<A2DSampleInfo> sinfo(new A2DSampleInfo(nvars));
+    sinfo->stag = tag;
+
+    auto_ptr<A2DSampleConfig> scfg(0);
+
+    switch (filterType) {
+    case NIDAS_FILTER_BOXCAR:
+        scfg.reset(new A2DBoxcarConfig(boxcarNpts));
+        scfg->nFilterData = sizeof(int);
+        break;
+    default:
+        scfg.reset(new A2DSampleConfig());
+        scfg->nFilterData = 0;
+        break;
     }
 
-    _samples.push_back(sinfo);
+    scfg->sindex = sindex;
+    scfg->nvars = nvars;
+    scfg->rate = rate;
+    scfg->filterType = filterType;
+
+
+    for (int iv = 0; iv < nvars; iv++) {
+        const Variable* var = vars[iv];
+
+        float fgain = 0.0;
+        int bipolar = -1;   // unknown
+
+        int ichan = _prevChan + 1;
+        float corSlope = 1.0;
+        float corIntercept = 0.0;
+        bool rawCounts = false;
+
+        const std::list<const Parameter*>& vparams = var->getParameters();
+        list<const Parameter*>::const_iterator pi;
+        for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
+            const Parameter* param = *pi;
+            const string& pname = param->getName();
+            if (pname == "gain") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        pname,"no value");
+
+                fgain = param->getNumericValue(0);
+            }
+            else if (pname == "bipolar") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        pname,"no value");
+                bipolar = param->getNumericValue(0) != 0;
+            }
+            else if (pname == "channel") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),pname,"no value");
+                ichan = (int)param->getNumericValue(0);
+            }
+            else if (pname == "corSlope") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        pname,"no value");
+                corSlope = param->getNumericValue(0);
+            }
+            else if (pname == "corIntercept") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        pname,"no value");
+                corIntercept = param->getNumericValue(0);
+            }
+            else if (pname == "rawCounts") {
+                if (param->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        pname,"no value");
+                rawCounts = param->getNumericValue(0);
+            }
+        }
+        if (ichan < 0 || ichan >= getMaxNumChannels()) {
+            ostringstream ost;
+            ost << "value=" << ichan << " is outside the range 0:" <<
+                (getMaxNumChannels() - 1);
+            throw n_u::InvalidParameterException(getName(),
+                    "channel",ost.str());
+        }
+
+        if (fgain == 0.0) fgain = getGain(ichan);
+        if (fmodf(fgain,1.0) != 0.0) {
+            ostringstream ost;
+            ost << "channel " << ichan << " gain=" << fgain << " but must be an integer";
+            throw n_u::InvalidParameterException(getName(),
+                    "gain",ost.str());
+        }
+        int gain = (int)fgain;
+        if (gain == 0) {
+            ostringstream ost;
+            ost << "channel " << ichan << " gain not specified";
+            throw n_u::InvalidParameterException(getName(),
+                    "gain",ost.str());
+        }
+        if (bipolar < 0) bipolar = getBipolar(ichan);
+        if (bipolar < 0) {
+            ostringstream ost;
+            ost << "channel " << ichan << " polarity not specified";
+            throw n_u::InvalidParameterException(getName(),
+                    "bipolar",ost.str());
+        }
+
+        cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
+        setA2DParameters(ichan,gain,bipolar);
+        setConversionCorrection(ichan,corIntercept,corSlope);
+
+        sinfo->channels[iv] = ichan;
+
+        scfg->channels[iv] = ichan;
+        scfg->gain[iv] = gain;
+        scfg->bipolar[iv] = bipolar;
+        _prevChan = ichan;
+    }
+
+    _sampleInfos.push_back(sinfo.release());
+    _sampleCfgs.push_back(scfg.release());
 }
 
 void A2DSensor::fromDOMElement(

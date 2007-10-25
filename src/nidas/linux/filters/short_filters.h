@@ -69,7 +69,7 @@ typedef void* (*shortfilt_init_method)(void);
  * @cfg Pointer to configuration struct for the given filter.
  */
 typedef int (*shortfilt_config_method)(void* obj, short id, int nvars,
-    const int* vindices, int decimate,const void* cfg);
+    const int* vindices, int decimate,const void* cfg,int nbcfg);
 
 /**
  * Actual filter method.

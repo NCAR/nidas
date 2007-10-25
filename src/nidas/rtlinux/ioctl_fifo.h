@@ -91,6 +91,11 @@ char* makeDevName(const char* prefix, const char* suffix, int num);
  */
 int convert_rtl_errno(int rtlerr);
 
+/**
+ * Convert EXXXX to RTL_EXXXX errnos.
+ */
+int convert_to_rtl_errno(int err);
+
 #endif	/* __RTCORE_KERNEL__ */
 
 #endif	/* IOCTL_FIFO_H */

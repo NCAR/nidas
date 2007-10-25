@@ -255,7 +255,7 @@ string StatisticsCruncher::makeName(int i, int j, int k, int l)
 	name += string(".(");
 	for (n = 0; n < middles.size(); n++) {
 	    if (n > 0) name += string(",");
-	    name += middles[0];
+	    name += middles[n];
 	}
 	name += string(")");
     }

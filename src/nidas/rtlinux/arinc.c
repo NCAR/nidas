@@ -75,6 +75,8 @@ static unsigned long iomem = 0xd0000;
 
 static enum irigClockRates sync_rate = IRIG_1_HZ;
 
+static struct irig_callback* timeSyncCallback = 0;
+
 /* module prameters (can be passed in via command line) */
 MODULE_PARM(iomem,   "1l");
 MODULE_PARM_DESC(iomem,   "ISA memory base (default 0xd0000)");
@@ -91,6 +93,7 @@ struct recvHandle
   int                 fd;
   unsigned int        lps;   // Labels Per Second
   enum irigClockRates poll;
+  struct irig_callback* pollCallback;
   unsigned int        speed;
   unsigned int        parity;
   char                sim_xmit;
@@ -275,7 +278,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
   struct recvHandle *hdl = &chn_info[chn];
 
   int lbl;
-  short status;
+  int status;
   int pollRate;
 
   switch (cmd) {
@@ -373,7 +376,10 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
 /*    if (status) return status; */
 
       /* register a polling routine */
-      register_irig_callback( &arinc_sweep, hdl->poll, (void *)chn );
+      if (!hdl->pollCallback)
+          hdl->pollCallback =
+            register_irig_callback( &arinc_sweep, hdl->poll,(void *)chn,&status);
+      if (!hdl->pollCallback) return -ENOMEM;
 
       err("ARINC_GO: opened '%s' poll[%d] = %d Hz)", hdl->fname, chn, irigClockEnumToRate(hdl->poll));
     }
@@ -406,7 +412,9 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     /* unregister poll recv routine with the IRIG driver */
     err("ARINC_RESET: unregister_irig_callback(&arinc_sweep, poll[%d] = %d Hz)",
         chn, irigClockEnumToRate(hdl->poll));
-    unregister_irig_callback( &arinc_sweep, hdl->poll, (void*)chn );
+    if (hdl->pollCallback)
+        unregister_irig_callback(hdl->pollCallback);
+    hdl->pollCallback = 0;
 
     /* close its output FIFO */
     if (hdl->fd > -1) {
@@ -585,7 +593,8 @@ static void __exit arinc_cleanup(void)
   int chn;
 
   /* unregister a timesync routine */
-  unregister_irig_callback( &arinc_timesync, sync_rate,0 );
+  if (timeSyncCallback)
+          unregister_irig_callback(timeSyncCallback);
 
   /* for each ARINC receive port... */
   for (chn=0; chn<N_ARINC_RX; chn++) {
@@ -686,6 +695,7 @@ static int __init arinc_init(void)
 {
   err("compiled on %s at %s", __DATE__, __TIME__);
   int chn;
+  int status;
 
   /* map ISA card memory into kernel memory */
   basemem = SYSTEM_ISA_IOMEM_BASE + iomem;
@@ -695,7 +705,7 @@ static int __init arinc_init(void)
     return -EIO;
   }
   /* scan the ISA bus for the device */
-  short status = scan_ceiisa();
+  status = scan_ceiisa();
   if (status) goto fail;
 
   // obtain the API version string
@@ -748,7 +758,9 @@ static int __init arinc_init(void)
   ar_set_timercnt(BOARD_NUM, GET_MSEC_CLOCK);
 
   /* register a timesync routine */
-  register_irig_callback( &arinc_timesync, sync_rate, (void *)0 );
+  timeSyncCallback = 
+          register_irig_callback(&arinc_timesync, sync_rate, (void *)0,&status );
+  if (!timeSyncCallback) goto fail;
 
   /* for each ARINC receive port... */
   for (chn=0; chn<N_ARINC_RX; chn++)

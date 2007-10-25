@@ -165,6 +165,10 @@ struct MESA_Board
   enum irigClockRates radar_rate;
   enum irigClockRates twoSixty_rate;
 
+  struct irig_callback* cntrCallback;
+  struct irig_callback* radarCallback;
+  struct irig_callback* twoSixtyCallback;
+
   int	nCounters;
   int	nRadars;
   int	n260X;

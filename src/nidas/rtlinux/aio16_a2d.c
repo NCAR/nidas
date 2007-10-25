@@ -747,12 +747,9 @@ static int stopA2D(struct AIO16_Board* brd)
     int ret = 0;
 
     DSMLOG_DEBUG("stopA2D entered\n");
-#ifdef USE_AIO16_TIMED_MODE
-    if (!brd->irq)
-    	unregister_irig_callback(&timedPollAIOFifoCallback,IRIG_100_HZ,brd);
-#else
-    unregister_irig_callback(&softwarePollAIOFifoCallback,IRIG_100_HZ,brd);
-#endif
+    if (brd->pollCallback)
+                unregister_irig_callback(brd->pollCallback);
+    brd->pollCallback = 0;
     DSMLOG_DEBUG("unregister_irig_callback done\n");
 
     // rtl_usleep(20000);
@@ -904,8 +901,11 @@ static int startA2D(struct AIO16_Board* brd)
 
     if (brd->irq)
 	outb(AIO16_ENABLE_IRQ,brd->addr + AIO16_W_ENABLE_IRQ);
-    else
-	register_irig_callback(&timedPollAIOFifoCallback,IRIG_100_HZ,brd);
+    else {
+        brd->pollCallback = 
+                register_irig_callback(&timedPollAIOFifoCallback,IRIG_100_HZ,brd,&ret);
+        if (!brd->pollCallback) return ret;
+    }
 
     brd->status.reg = inb(brd->addr + AIO16_R_CONFIG_STATUS);
     DSMLOG_INFO("status=0x%x, overval=0x%x\n",
@@ -913,7 +913,9 @@ static int startA2D(struct AIO16_Board* brd)
 
     outb(overval, brd->addr + AIO16_W_OVERSAMPLE);
 #else
-    register_irig_callback(&softwarePollAIOFifoCallback,IRIG_100_HZ,brd);
+    brd->pollCallback = 
+        register_irig_callback(&softwarePollAIOFifoCallback,IRIG_100_HZ,brd,&ret);
+    if (!brd->pollCallback) return ret;
 #endif
 
     return ret;
@@ -1170,11 +1172,9 @@ void cleanup_module(void)
 
 #ifdef USE_AIO16_TIMED_MODE
 	if (brd->irq) rtl_free_isa_irq(brd->irq);
-	// doesn't hurt to unregister if isn't registered.
-	else unregister_irig_callback(&timedPollAIOFifoCallback,IRIG_100_HZ,brd);
-#else
-	unregister_irig_callback(&softwarePollAIOFifoCallback,IRIG_100_HZ,brd);
 #endif
+        if (brd->pollCallback)
+                unregister_irig_callback(brd->pollCallback);
 
 	// Shut down the sample thread
 	if (brd->sampleThread) {

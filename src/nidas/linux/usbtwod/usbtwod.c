@@ -265,19 +265,20 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 #ifdef DO_IRIG_TIMING
         // If rate enumeration is IRIG_NUM_RATES, then rate is 0.
         enum irigClockRates irigRate = IRIG_NUM_RATES;
+        int ret;
         if (rate > 0) {
                 irigRate = irigClockRateToEnum(rate);
                 if (irigRate == IRIG_NUM_RATES)
                         return -EINVAL;
         }
 
-        if (dev->sorRate != IRIG_NUM_RATES && irigRate != dev->sorRate)
-                unregister_irig_callback(send_tas_callback, dev->sorRate,
-                                         dev);
-
+        if (dev->tasCallback)
+                unregister_irig_callback(dev->tasCallback);
+        dev->tasCallback = 0;
         if (irigRate != IRIG_NUM_RATES && irigRate != dev->sorRate) {
                 dev->sorRate = irigRate;
-                register_irig_callback(send_tas_callback, irigRate, dev);
+                dev->tasCallback = register_irig_callback(send_tas_callback, irigRate, dev,&ret);
+                if (!dev->tasCallback) return ret;
         }
 #else
         if (rate > 0) {

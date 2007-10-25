@@ -320,10 +320,12 @@ struct DMMAT_A2D
 
         struct a2d_filter_info* filters;
 
+        int gain;               // all channels have same gain
+        int bipolar;            // all channels have same polarity
         int lowChan;		// lowest channel scanned
         int highChan;		// highest channel scanned
         int nchans;
-        unsigned char gainSetting;	// 
+        unsigned char gainConvSetting;	// gain and conversion rate setting
         int scanRate;		// A/D scan sample rate
         long scanDeltaT;
 

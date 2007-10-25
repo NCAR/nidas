@@ -37,40 +37,29 @@
  */
 #define	MAX_A2D_CHANNELS 32	// max num A/D channels per card
 
+/**
+ * Fields common to all A2D configurations.
+ */
 struct nidas_a2d_config
 {
-        int gain[MAX_A2D_CHANNELS];     // gain setting for the channel
-        int bipolar[MAX_A2D_CHANNELS];// 1=bipolar,0=unipolar
-        // sample index, 0,1, etc of each channel variable, -1 if not used
-        int sampleIndex[MAX_A2D_CHANNELS];
-        long latencyUsecs;                  // buffer latency in micro-sec
         int scanRate;                       // how fast to sample
-};
-
-struct nidas_a2d_filter_config
-{
-        int filterType;     // one of nidas_short_filter enum
-        int rate;           // output rate
-        int boxcarNpts;     // number of pts in boxcar avg
-        short index;        // sample index, 0,1,...
-};
-
-struct nidas_a2dx_config
-{
         long latencyUsecs;                  // buffer latency in micro-sec
-        int scanRate;                       // how fast to sample
 };
 
+/**
+ * Information for configuring a sample from an A2D.
+ */
 struct nidas_a2d_sample_config
 {
         int sindex;         // sample index, 0,1,etc
         int nvars;          // number of variables in sample
         int rate;           // sample rate
         int filterType;     // one of nidas_short_filter enum
-        int boxcarNpts;     // number of pts in boxcar avg
         int channels[MAX_A2D_CHANNELS];  // which channel for each variable
         int gain[MAX_A2D_CHANNELS];     // gain setting for the channel
         int bipolar[MAX_A2D_CHANNELS];// 1=bipolar,0=unipolar
+        int nFilterData;        // number of bytes in filterData;
+        char filterData[0];     // data for filter
 };
 
 /* Pick a character as the magic number of your driver.
@@ -82,18 +71,13 @@ struct nidas_a2d_sample_config
 #define NIDAS_A2D_IOC_MAGIC 'n'
 
 /*
- * The enumeration of IOCTLs that this driver supports.
- * See pages 130-132 of Linux Device Driver's Manual 
+ * IOCTLS that are supported on all A2D cards.
  */
-
-/** A2D Ioctls */
 #define NIDAS_A2D_GET_NCHAN  _IOR(NIDAS_A2D_IOC_MAGIC,0,int)
 #define NIDAS_A2D_SET_CONFIG \
     _IOW(NIDAS_A2D_IOC_MAGIC,1,struct nidas_a2d_config)
-#define NIDAS_A2D_ADD_FILTER \
-    _IOW(NIDAS_A2D_IOC_MAGIC,2,struct nidas_a2d_filter_config)
 #define NIDAS_A2D_CONFIG_SAMPLE \
-    _IOW(NIDAS_A2D_IOC_MAGIC,3,struct nidas_a2d_sample_config)
+    _IOW(NIDAS_A2D_IOC_MAGIC,2,struct nidas_a2d_sample_config)
 
 #ifdef __KERNEL__
 
@@ -110,7 +94,7 @@ struct a2d_filter_info {
         shortfilt_config_method fconfig;
         shortfilt_filter_method filter;
         shortfilt_cleanup_method fcleanup;
-        void* filterObj;                    // pointer to filter's private data
+        void* filterObj;       // pointer to filter's private data
         short index;           // sample index to put as first 16 bit word of data
 };
 

@@ -16,6 +16,7 @@
 #define NIDAS_DYNLD_RAF_DSMANALOGSENSOR_H
 
 #include <nidas/dynld/A2DSensor.h>
+#include <nidas/linux/ncar_a2d.h>
 #include <nidas/linux/irigclock.h>
 
 #include <vector>
@@ -49,13 +50,21 @@ public:
         nidas::util::InvalidParameterException);
 
     void init() throw(nidas::util::InvalidParameterException);
-                                                                                
+
     /*
      * Close the device connected to the sensor.
      */
     void close() throw(nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
+
+    int getMaxNumChannels() const { return NUM_NCAR_A2D_CHANNELS; }
+
+    void setA2DParameters(int ichan,int gain,int bipolar)
+               throw(nidas::util::InvalidParameterException);
+
+    void getBasicConversion(int ichan,float& intercept, float& slope) const;
+
 
     /**
      * Process a raw sample, which in this case means unpack the
@@ -67,9 +76,6 @@ public:
 
     void addSampleTag(SampleTag* tag)
             throw(nidas::util::InvalidParameterException);
-
-    int gainSetting(float gain)
-	    throw(nidas::util::InvalidParameterException);
 
     /**
      * Get the current temperature. Sends a ioctl to the driver module.
@@ -93,18 +99,6 @@ protected:
      */
     int readFilterFile(const std::string& name,unsigned short* coefs,
     	int nexpect);
-    bool initialized;
-
-    /* What we need to know about a channel */
-    struct chan_info {
-	int gainSetting;
-	int gainMul;
-	int gainDiv;
-        int index;      // which sample does this channel go to
-	bool bipolar;
-        bool rawCounts;
-    };
-    std::vector<struct chan_info> _channels;
 
     /**
      * The output delta t, 1/rate, in microseconds.

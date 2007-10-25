@@ -237,22 +237,29 @@ static struct workqueue_struct *WorkQueue100Hz = 0;
 #define DIV(a, b) ((a) / (b) - ((a) % (b) < 0))
 #define LEAPS_THRU_END_OF(y) (DIV (y, 4) - DIV (y, 100) + DIV (y, 400))
 
+#define CALLBACK_POOL_SIZE 64  /* number of callbacks we can support */
 
-/**
- * Entry in a callback list.
- */
-struct irigCallback {
-    struct list_head list;
-    irig_callback_t* callback;
-    void* privateData;
-};
-
+/* Active callback entries for each rate */
 static struct list_head CallbackLists[IRIG_NUM_RATES];
 
-#define CALLBACK_POOL_SIZE 32  /* number of callbacks we can support */
+/* Pool of allocated callback entries */
 static struct list_head CallbackPool;
 
+/* Callback entries that are to be added to the active list
+ * on next pass though loop */
+static struct list_head pendingAdds;
+
+/* Callback entries that are to be removed on next pass though loop */
+static struct irig_callback* pendingRemoves[CALLBACK_POOL_SIZE];
+static int nPendingRemoves = 0;
+
+static atomic_t callbackRateRunning[IRIG_NUM_RATES];
+
+static atomic_t callbacksActive;
+
 static DECLARE_MUTEX(CbListMutex);
+
+static DECLARE_WAIT_QUEUE_HEAD(callbackWaitQ);
 
 /*
  * Operations supported as a character device
@@ -274,86 +281,128 @@ static struct file_operations pc104sg_fops = {
     .release = pc104sg_release,
 };
 
-
 /**
  * Module function that allows other modules to register their callback
  * function to be called at the given rate.  register_irig_callback
- * can be called at (almost) anytime, not just at module init time.
- * The only time that register/unregister_irig_callback cannot be
- * called is from within a callback function itself.
- * A callback function cannot do either register_irig_callback
- * or unregister_irig_callback, otherwise you'll get a deadlock on
- * CbListMutex.
- *
+ * can be called at anytime.
+ * Note that register_irig_callback and unregister_irig_callback do not
+ * alter the active callback lists but instead add requests
+ * to a group of pending requests.  The loop function, pc104sg_work_100Hz,
+ * does not do any locking on the active list.  Once on each pass
+ * through the loop it acts on the pending requests.
  */
-int 
-register_irig_callback(irig_callback_t* callback, enum irigClockRates rate,
-		       void* privateData)
+struct irig_callback* 
+register_irig_callback(irig_callback_func* callback, enum irigClockRates rate,
+		       void* privateData,int *errp)
 {
     struct list_head *ptr;
-    struct irigCallback* cbentry;
+    struct irig_callback* cbentry;
+    *errp = 0;
 
-    /* We could do a gpos_malloc of the entry, but that would require
-     * that this function be called at module init time.
-     * We want it to be call-able at any time, so we
-     * gpos_malloc a pool of entries at this module's init time,
-     * and grab an entry here.
+    if (rate >= IRIG_NUM_RATES) {
+            *errp = -EINVAL;
+            return 0;
+    }
+
+    /* We could do a kmalloc of the entry here, but so that
+     * we don't have to worry about whether to
+     * use GFP_KERNEL or GFP_ATOMIC, we instead allocate
+     * a pool of entries in the module init function.
      */
     down(&CbListMutex);
 
     ptr = CallbackPool.next;
     if (ptr == &CallbackPool) {          /* none left */
-	up(&CbListMutex);
-	return -ENOMEM;
+            up(&CbListMutex);
+            *errp = -ENOMEM;
+            return 0;
     }
 
-    cbentry = list_entry(ptr, struct irigCallback, list);
+    cbentry = list_entry(ptr, struct irig_callback, list);
     list_del(&cbentry->list);
 
     cbentry->callback = callback;
     cbentry->privateData = privateData;
+    cbentry->rate = rate;
+    cbentry->enabled = 1;
 
-    list_add(&cbentry->list, CallbackLists + rate);
+    list_add(&cbentry->list, &pendingAdds);
 
     up(&CbListMutex);
 
-    return 0;
+    return cbentry;
 }
 
 EXPORT_SYMBOL(register_irig_callback);
 
 /**
- * Modules call this function to un-register their callbacks.
- * Note: this cannot be called from within a callback function
- * itself - a callback function cannot register/unregister itself, or
- * any other callback function.  If you try it you will get
- * a deadlock on the CbListMutex.
+ * Modules call this function to dequeue their callbacks.
+ * A callback function can cancel itself, or any other
+ * callback function.
+ * @return 1: OK, callback will never be called again
+ *      0: callback might be called once more. Do flush_irig_callback
+ *         to wait until it is definately finished.
+ *      <0: errno
  */
-void 
-unregister_irig_callback(irig_callback_t* callback,
-			 enum irigClockRates rate, void* privateData)
+int 
+unregister_irig_callback(struct irig_callback* cb)
 {
-    struct list_head *ptr;
-    struct irigCallback *cbentry;
+    int ret = 1;
+
+    cb->enabled = 0;
 
     down(&CbListMutex);
 
-    for (ptr = CallbackLists[rate].next; ptr != CallbackLists + rate;
-	 ptr = ptr->next) {
-	cbentry = list_entry(ptr, struct irigCallback, list);
-	if (cbentry->callback == callback &&
-	    (cbentry->privateData == privateData || privateData == 0)) {
-	    /* remove it from the list for the rate, and add to the pool. */
-	    list_del(&cbentry->list);
-	    list_add(&cbentry->list, &CallbackPool);
-	    break;
-	}
-    }
+    if (cb->rate < 0 || cb->rate >= IRIG_NUM_RATES) ret = -EINVAL;
+    else if (atomic_read(callbackRateRunning + cb->rate)) ret = 0;
+
+    pendingRemoves[nPendingRemoves++] = cb;
 
     up(&CbListMutex);
+    return ret;
 }
 
 EXPORT_SYMBOL(unregister_irig_callback);
+
+int flush_irig_callbacks(void)
+{
+    return wait_event_interruptible(callbackWaitQ,
+        atomic_read(&callbacksActive) == 0);
+}
+
+EXPORT_SYMBOL(flush_irig_callbacks);
+
+/**
+ * Handle pending adds and removes of callbacks from the active list
+ * for the appropriate rate.
+ */
+static void handlePendingCallbacks(void)
+{
+   struct list_head *ptr;
+   struct irig_callback *cbentry;
+   int i;
+
+    /* Remove pending callbacks from the active lists. */
+   for (i = 0; i < nPendingRemoves; i++) {
+      cbentry = pendingRemoves[i];
+     /* remove entry from the active list for the rate */
+     list_del(&cbentry->list);
+     /* and add back to the pool. */
+     list_add(&cbentry->list,&CallbackPool);
+   }
+   nPendingRemoves = 0;
+
+   /* Adding pending callbacks to the active list for the appropriate rate. */
+   for (ptr = pendingAdds.next; ptr != &pendingAdds; ) {
+      cbentry = list_entry(ptr,struct irig_callback,list);
+      ptr = ptr->next;
+      /* remove entry from pendingAdds list */
+      list_del(&cbentry->list);
+      /* add to active list for rate */
+      list_add(&cbentry->list,CallbackLists + cbentry->rate);
+   }
+}
+
 
 /**
  * Cleanup function that un-registers all callbacks.
@@ -364,14 +413,15 @@ free_callbacks(void)
     int i;
 
     struct list_head *ptr;
-    struct irigCallback *cbentry;
+    struct irig_callback *cbentry;
 
     down(&CbListMutex);
+    handlePendingCallbacks();
 
     for (i = 0; i < IRIG_NUM_RATES; i++) {
 	for (ptr = CallbackLists[i].next;
 	     ptr != CallbackLists + i; ptr = CallbackLists[i].next) {
-	    cbentry = list_entry(ptr, struct irigCallback, list);
+	    cbentry = list_entry(ptr, struct irig_callback, list);
 	    /* remove it from the list for the rate, and add to the pool. */
 	    list_del(&cbentry->list);
 	    list_add(&cbentry->list, &CallbackPool);
@@ -380,7 +430,7 @@ free_callbacks(void)
 
     for (ptr = CallbackPool.next; ptr != &CallbackPool;
 	 ptr = CallbackPool.next) {
-	cbentry = list_entry(ptr, struct irigCallback, list);
+	cbentry = list_entry(ptr, struct irig_callback, list);
 	list_del(&cbentry->list);
 	kfree(cbentry);
     }
@@ -1198,15 +1248,19 @@ setCountersToClock(void)
  * Invoke the callback functions for a given rate.
  */
 static inline void 
-doCallbacklist(struct list_head* list)
+doCallbacklist(int rate)
 {
+    struct list_head *list = CallbackLists + rate;
     struct list_head *ptr;
-    struct irigCallback *cbentry;
+    struct irig_callback *cbentry;
 
+    atomic_set(callbackRateRunning + rate,1);
     for (ptr = list->next; ptr != list; ptr = ptr->next) {
-	cbentry = list_entry(ptr, struct irigCallback, list);
-	cbentry->callback(cbentry->privateData);
+	cbentry = list_entry(ptr, struct irig_callback, list);
+        if (cbentry->enabled)
+            cbentry->callback(cbentry->privateData);
     }
+    atomic_set(callbackRateRunning + rate,0);
 }
 
 /**
@@ -1234,68 +1288,72 @@ pc104sg_work_100Hz(void* unused)
     }
 #endif
 
+    atomic_set(&callbacksActive,1);
+
     /*
      * Now handle all the unhandled 100Hz actions
      */
     for (nhandled = 0; atomic_read(&Unhandled100Hz) > 0; 
 	 nhandled++, atomic_dec(&Unhandled100Hz))
     {
-	// lock the callback list
-	down(&CbListMutex);
+
+        down(&CbListMutex);
+        handlePendingCallbacks();
+        up(&CbListMutex);
 
 	/* perform 100Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_100_HZ);
+	doCallbacklist( IRIG_100_HZ);
 
 	if ((Count100Hz % 2)) goto _5;
 
 	/* perform 50Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_50_HZ);
+	doCallbacklist( IRIG_50_HZ);
 
 	if ((Count100Hz % 4)) goto _5;
 
 	/* perform 25Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_25_HZ);
+	doCallbacklist( IRIG_25_HZ);
 
       _5:
-	if ((Count100Hz % 5)) goto cleanup;
+	if ((Count100Hz % 5)) continue;
 
 	/* perform 20Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_20_HZ);
+	doCallbacklist( IRIG_20_HZ);
 
 	if ((Count100Hz % 10)) goto _25;
 
 	/* perform 10Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_10_HZ);
+	doCallbacklist( IRIG_10_HZ);
 
 	if ((Count100Hz % 20)) goto _25;
 
 	/* perform  5Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_5_HZ);
+	doCallbacklist( IRIG_5_HZ);
 
       _25:
-	if ((Count100Hz % 25)) goto cleanup;
+	if ((Count100Hz % 25)) continue;
 
 	/* perform  4Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_4_HZ);
+	doCallbacklist( IRIG_4_HZ);
 
-	if ((Count100Hz % 50)) goto cleanup;
+	if ((Count100Hz % 50)) continue;
 
 	/* perform  2Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_2_HZ);
+	doCallbacklist( IRIG_2_HZ);
 
-	if ((Count100Hz % 100)) goto cleanup;
+	if ((Count100Hz % 100)) continue;
 
 	/* perform  1Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_1_HZ);
+	doCallbacklist( IRIG_1_HZ);
 
-	if ((Count100Hz % 1000)) goto cleanup;
+	if ((Count100Hz % 1000)) continue;
 
 	/* perform  0.1 Hz processing... */
-	doCallbacklist(CallbackLists + IRIG_0_1_HZ);
+	doCallbacklist( IRIG_0_1_HZ);
 
-      cleanup:
-	up(&CbListMutex);
     }
+    atomic_set(&callbacksActive,0);
+    wake_up_interruptible(&callbackWaitQ);
 
     if (nhandled >= 20)
 	KLOG_NOTICE("%d 100Hz ticks handled at once @ %ld\n", nhandled,
@@ -1615,9 +1673,13 @@ pc104sg_init(void)
 	UseInterruptTimeouts = 0;
     }
 
+    atomic_set(&callbacksActive,0);
     INIT_LIST_HEAD(&CallbackPool);
-    for (i = 0; i < IRIG_NUM_RATES; i++)
+    INIT_LIST_HEAD(&pendingAdds);
+    for (i = 0; i < IRIG_NUM_RATES; i++) {
 	INIT_LIST_HEAD(CallbackLists + i);
+        atomic_set(callbackRateRunning + i,0);
+    }
 
     /* check for module parameters */
     ISA_Address = (unsigned int)IoPort + SYSTEM_ISA_IOPORT_BASE;
@@ -1639,8 +1701,8 @@ pc104sg_init(void)
     /* create our pool of callback entries */
     errval = -ENOMEM;
     for (i = 0; i < CALLBACK_POOL_SIZE; i++) {
-	struct irigCallback* cbentry =
-	    (struct irigCallback*) kmalloc(sizeof(struct irigCallback),
+	struct irig_callback* cbentry =
+	    (struct irig_callback*) kmalloc(sizeof(struct irig_callback),
 					   GFP_KERNEL);
 	if (!cbentry) goto err0;
 	list_add(&cbentry->list, &CallbackPool);
@@ -1838,7 +1900,7 @@ pc104sg_open(struct inode *inode, struct file *filp)
 {
     struct irig_port *p = 
 	(struct irig_port*) kmalloc(sizeof(struct irig_port), GFP_KERNEL);
-    int errval;
+    int ret;
 
     p->readyForRead = 0;
     init_waitqueue_head(&p->rwaitq);
@@ -1847,12 +1909,13 @@ pc104sg_open(struct inode *inode, struct file *filp)
     /*
      * Register the 1 Hz callback to write times to user-opened device(s)
      */
-    errval = register_irig_callback(writeTimeCallback, IRIG_1_HZ, p);
-    if (errval < 0) 
+    p->writeCallback =
+        register_irig_callback(writeTimeCallback, IRIG_1_HZ, p,&ret);
+    if (!p->writeCallback) 
     {
-	KLOG_ERR("Error %d registering callback\n", -errval);
+	KLOG_ERR("Error registering callback\n");
 	kfree(p);
-	return errval;
+	return ret;
     }
 
     filp->private_data = p;
@@ -1863,7 +1926,8 @@ static int
 pc104sg_release(struct inode *inode, struct file *filp)
 {
     struct irig_port *p = (struct irig_port*)filp->private_data;
-    unregister_irig_callback(writeTimeCallback, IRIG_1_HZ, p);
+    if (p->writeCallback && !unregister_irig_callback(p->writeCallback))
+        flush_irig_callbacks();
 
     kfree(p);
     return 0;

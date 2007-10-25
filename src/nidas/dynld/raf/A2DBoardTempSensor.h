@@ -49,19 +49,12 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
-    void printStatus(std::ostream& ostr) throw();
-
     /**
      * Process a raw sample, which in this case means convert
      * the 16 bit signed value to degC.
      */
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
-
-    /**
-     * Get the current temperature. Sends a ioctl to the driver module.
-     */
-    float getTemp() throw(nidas::util::IOException);
 
 private:
 

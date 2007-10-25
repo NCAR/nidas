@@ -544,7 +544,6 @@ static void flush_port_nolock(struct serialPort* port)
     port->cosamp = 0;
     port->max_fifo_usage = 0;
     port->min_fifo_usage = UART_SAMPLE_SIZE;
-    port->promptOn = 0;
 }
 
 /*
@@ -621,6 +620,100 @@ static int unset_interrupt_char(struct serialPort* port)
     }
     return 0;
 }
+
+/*
+ * copy characters into the transmit circular buffer for transmission
+ * out of the uart.
+ */
+static rtl_ssize_t queue_transmit_chars(struct serialPort* port,
+	const char* buf, rtl_size_t count)
+{
+    unsigned long flags;
+    int left = count;
+    int n;
+
+    if (!count) return 0;
+
+    rtl_spin_lock_irqsave(&port->lock,flags);
+
+    n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
+    if (!n) goto done;
+    if (n > left) n = left;
+
+    memcpy(port->xmit.buf + port->xmit.head,buf,n);
+    port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
+
+    left -= n;
+
+    if (!left) goto done;
+
+    buf += n;
+    n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
+    if (!n) goto done;
+    if (n > left) n = left;
+
+    memcpy(port->xmit.buf + port->xmit.head,buf,n);
+    port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
+
+    left -= n;
+
+done:
+
+    rtl_spin_unlock_irqrestore(&port->lock,flags);
+
+    // enable transmit interrupts
+    if (!(port->IER & UART_IER_THRI)) {
+	 port->IER |= UART_IER_THRI;
+	 serial_out(port, UART_IER, port->IER);
+    }
+
+    return count - left;		// characters copied
+}
+
+/*
+ * function that is registered as an IRIG callback to
+ * be executed at a given rate.
+ * Prompts the serial port with a string.
+ */
+static void port_prompter(void* privateData)
+{
+    struct serialPort* port = (struct serialPort*) privateData;
+    int res;
+    if ((res =
+    	queue_transmit_chars(port,port->prompt.str,port->prompt.len)) !=
+    		port->prompt.len) {
+	port->output_chars_lost += (port->prompt.len - res);
+    }
+#ifdef DEBUG
+    DSMLOG_DEBUG("queue_transmit_chars, len=%d, res=%d\n",
+		    port->prompt.len,res);
+#endif
+}
+
+
+/*
+ * Start the port_prompter
+ * Return: negative RTL errno
+ */
+static int start_prompter(struct serialPort* port)
+{
+    int ret;
+    if (port->promptCallback) port->promptCallback =
+	register_irig_callback(port_prompter,port->prompt.rate,port,&ret);
+    if (!port->promptCallback) return convert_to_rtl_errno(ret);
+    return 0;
+}
+
+/*
+ * Return: negative RTL errno
+ */
+static int stop_prompter(struct serialPort* port)
+{
+    if (port->promptCallback)
+        unregister_irig_callback(port->promptCallback);
+    port->promptCallback = 0;
+    return 0;
+}
 /*
  * Taken from linux drivers/char/serial.c change_speed
  * Does not do a spin_lock on port->lock.
@@ -631,6 +724,8 @@ static int change_speed(struct serialPort* port, struct termios* termios)
     int quot = 0, baud_base, baud;
     unsigned cflag,cval,fcr=0;
     int bits;
+
+    stop_prompter(port);
 
     cflag = termios->c_cflag;
 
@@ -948,55 +1043,6 @@ static int uart_shutdown(struct serialPort* port)
 }
 
 /*
- * copy characters into the transmit circular buffer for transmission
- * out of the uart.
- */
-static rtl_ssize_t queue_transmit_chars(struct serialPort* port,
-	const char* buf, rtl_size_t count)
-{
-    unsigned long flags;
-    int left = count;
-    int n;
-
-    if (!count) return 0;
-
-    rtl_spin_lock_irqsave(&port->lock,flags);
-
-    n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
-    if (!n) goto done;
-    if (n > left) n = left;
-
-    memcpy(port->xmit.buf + port->xmit.head,buf,n);
-    port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
-
-    left -= n;
-
-    if (!left) goto done;
-
-    buf += n;
-    n = CIRC_SPACE_TO_END(port->xmit.head,port->xmit.tail,SERIAL_XMIT_SIZE);
-    if (!n) goto done;
-    if (n > left) n = left;
-
-    memcpy(port->xmit.buf + port->xmit.head,buf,n);
-    port->xmit.head = (port->xmit.head + n) & (SERIAL_XMIT_SIZE-1);
-
-    left -= n;
-
-done:
-
-    rtl_spin_unlock_irqrestore(&port->lock,flags);
-
-    // enable transmit interrupts
-    if (!(port->IER & UART_IER_THRI)) {
-	 port->IER |= UART_IER_THRI;
-	 serial_out(port, UART_IER, port->IER);
-    }
-
-    return count - left;		// characters copied
-}
-
-/*
  * Return: negative RTL errno
  */
 static int set_prompt(struct serialPort* port,
@@ -1020,48 +1066,6 @@ static int get_prompt(struct serialPort* port,
     rtl_spin_lock_irqsave (&port->lock,flags);
     memcpy(prompt,&port->prompt,sizeof(struct dsm_serial_prompt));
     rtl_spin_unlock_irqrestore(&port->lock,flags);
-    return 0;
-}
-
-/*
- * function that is registered as an IRIG callback to
- * be executed at a given rate.
- * Prompts the serial port with a string.
- */
-static void port_prompter(void* privateData)
-{
-    struct serialPort* port = (struct serialPort*) privateData;
-    int res;
-    if ((res =
-    	queue_transmit_chars(port,port->prompt.str,port->prompt.len)) !=
-    		port->prompt.len) {
-	port->output_chars_lost += (port->prompt.len - res);
-    }
-#ifdef DEBUG
-    DSMLOG_DEBUG("queue_transmit_chars, len=%d, res=%d\n",
-		    port->prompt.len,res);
-#endif
-}
-
-/*
- * Start the port_prompter
- * Return: negative RTL errno
- */
-static int start_prompter(struct serialPort* port)
-{
-    if (!port->promptOn)
-	register_irig_callback(port_prompter,port->prompt.rate,port);
-    port->promptOn = 1;
-    return 0;
-}
-
-/*
- * Return: negative RTL errno
- */
-static int stop_prompter(struct serialPort* port)
-{
-    unregister_irig_callback(port_prompter,port->prompt.rate,port);
-    port->promptOn = 0;
     return 0;
 }
 
@@ -1560,7 +1564,7 @@ static int close_port(struct serialPort* port)
 {
     unsigned long flags;
 
-    if (port->promptOn) stop_prompter(port);
+    stop_prompter(port);
     uart_shutdown(port);
 
     rtl_spin_lock_irqsave(&port->board->lock,flags);
@@ -1660,6 +1664,7 @@ static void init_serialPort_struct(struct serialPort* port)
 
     rtl_memset(&port->termios, 0, sizeof(struct termios));
     port->termios.c_cflag = B38400 | CS8 | HUPCL;
+    port->promptCallback = 0;
 }
 
 /*

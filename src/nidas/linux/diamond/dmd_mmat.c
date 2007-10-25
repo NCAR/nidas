@@ -480,116 +480,46 @@ static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
         } while(inb(a2d->brd->addr + 11) & 0x80);
 }
 
-/*
- * Configure A2D board.  Board should not be busy.
- */
-static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
+static void freeA2DFilters(struct DMMAT_A2D *a2d)
 {
+        int i;
+        for (i = 0; i < a2d->nfilters; i++) {
+            struct a2d_filter_info* finfo = a2d->filters + i;
+            /* cleanup filter */
+            if (finfo->filterObj && finfo->fcleanup)
+                finfo->fcleanup(finfo->filterObj);
+            finfo->filterObj = 0;
+            finfo->fcleanup = 0;
+            kfree(finfo->channels);
+        }
+        kfree(a2d->filters);
+        a2d->filters = 0;
+        a2d->nfilters = 0;
+}
 
-        int result = 0;
-        int i,j;
-
-        int gain = 0;
-        int bipolar = 0;
-        int uniqueSampleIndx[MAX_DMMAT_A2D_CHANNELS];
+/*
+ * Initial configuration of an A2D.
+ */
+static int configA2D(struct DMMAT_A2D* a2d,
+        struct nidas_a2d_config* cfg)
+{
 
         if(a2d->running) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
 
-        if (a2d->filters) {
-                for (j = 0; j < a2d->nfilters; j++) {
-                        if (a2d->filters[j].channels)
-                                kfree(a2d->filters[j].channels);
-                        a2d->filters[j].channels = 0;
-                }
-                kfree(a2d->filters);
-                a2d->filters = 0;
-        }
-
-        a2d->nfilters = 0;
-        a2d->lowChan = -1;
+        freeA2DFilters(a2d);
+        a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
         a2d->highChan = 0;
 
         a2d->scanRate = cfg->scanRate;
-
-        /* count number of unique samples requested.
-         * A filter will be created for each sample */
-        for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                // index = -1 means the channel is to be skipped
-                if (index < 0) continue;
-                for (j = 0; j < a2d->nfilters; j++)
-                    if (index == uniqueSampleIndx[j]) break;
-                if (j == a2d->nfilters) uniqueSampleIndx[a2d->nfilters++] = index;
-        }
-
-        if (a2d->nfilters == 0) {
-                KLOG_ERR("%s: no channels requested, all gains==0\n",
-                    a2d->deviceName);
-                return -EINVAL;
-        }
-
-        a2d->filters = kmalloc(a2d->nfilters *
-            sizeof(struct a2d_filter_info),GFP_KERNEL);
-        if (!a2d->filters) return -EINVAL;
-        memset(a2d->filters,0,
-                a2d->nfilters * sizeof(struct a2d_filter_info));
-
-        /* Count number of channels for each sample */
-        for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                if (index < 0) continue;
-                if (index >= a2d->nfilters) {
-                        KLOG_ERR("%s: invalid sample index=%d, max=%d\n",
-                             a2d->deviceName,index,a2d->nfilters-1);
-                        return -EINVAL;
-                }
-                a2d->filters[index].nchans++;
-        }
-
-        /* Allocate array of indicies into scanned channel sequence */
-        for (j = 0; j < a2d->nfilters; j++) {
-                a2d->filters[j].channels =
-                    kmalloc(a2d->filters[j].nchans * sizeof(int),GFP_KERNEL);
-                a2d->filters[j].nchans = 0;
-        }
-
-        for (i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                if (index < 0) continue;
-                a2d->filters[index].channels[a2d->filters[index].nchans++] = i;
-
-                if (a2d->lowChan < 0) {
-                    a2d->lowChan = i;
-                    gain = cfg->gain[i];
-                    bipolar = cfg->bipolar[i];
-                }
-                a2d->highChan = i;
-
-                // gains must all be the same and positive.
-                if (cfg->gain[i] != gain) return -EINVAL;
-
-                // Must have same polarity.
-                if (cfg->bipolar[i] != bipolar) return -EINVAL;
-        }
-        // subtract low channel
-        for (j = 0; j < a2d->nfilters; j++) {
-                for (i = 0; i < a2d->filters[j].nchans; i++)
-                        a2d->filters[j].channels[i] -= a2d->lowChan;
-        }
-        a2d->nchans = a2d->highChan - a2d->lowChan + 1;
 
         if ((USECS_PER_SEC * 10) % a2d->scanRate)
                 KLOG_WARNING("%s: max sampling rate=%d is not a factor of 10 MHz\n",
                     a2d->deviceName,a2d->scanRate);
 
-        result = a2d->getGainSetting(a2d,gain,bipolar,&a2d->gainSetting);
-        if (result != 0) return result;
-
-        result = a2d->getConvRateSetting(a2d,&a2d->gainSetting);
-        if (result != 0) return result;
+        a2d->scanRate = cfg->scanRate;
 
         a2d->latencyMsecs = cfg->latencyUsecs / USECS_PER_MSEC;
         if (a2d->latencyMsecs == 0) a2d->latencyMsecs = 500;
@@ -600,98 +530,122 @@ static int configA2D(struct DMMAT_A2D* a2d,struct nidas_a2d_config* cfg)
                     a2d->deviceName,a2d->latencyJiffies,HZ);
 
         a2d->scanDeltaT =  TMSECS_PER_SEC / a2d->scanRate;
-
-        KLOG_DEBUG("%s:, scanRate=%d,scanDeltaT=%ld tmsec\n",
-            a2d->deviceName,a2d->scanRate,a2d->scanDeltaT);
-
-        KLOG_DEBUG("%s: complete\n", a2d->deviceName);
-
         return 0;
 }
 
 /*
- * Configure a filter.  A2D should not be running.
+ * Add a sample to the A2D configuration.  Board should not be busy.
  */
-static int configA2DFilter(struct DMMAT_A2D* a2d,
-        struct nidas_a2d_filter_config* cfg)
+static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_config* cfg)
 {
-        struct a2d_filter_info* fcfg;
+
+        int result = 0;
+        int i;
+        int nfilters;
+        struct a2d_filter_info* filters;
+        struct a2d_filter_info* finfo;
         struct short_filter_methods methods;
-        int result;
 
         if(a2d->running) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
+        // grow filter info array by one
+        nfilters = a2d->nfilters + 1;
+        filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+                               GFP_KERNEL);
+        if (!filters) return -ENOMEM;
+        // copy previous filter infos, and free the space
+        memcpy(filters,a2d->filters,
+            a2d->nfilters * sizeof(struct a2d_filter_info));
+        kfree(a2d->filters);
 
-        KLOG_DEBUG("%s: index=%d,nfilters=%d\n",
-            a2d->deviceName,cfg->index,a2d->nfilters);
+        finfo = filters + a2d->nfilters;
+        a2d->filters = filters;
+        a2d->nfilters = nfilters;
 
-        if (cfg->index < 0 || cfg->index >= a2d->nfilters) return -EINVAL;
+        memset(finfo, 0, sizeof(struct a2d_filter_info));
 
-        fcfg = &a2d->filters[cfg->index];
+        if (!(finfo->channels =
+                kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
+                return -ENOMEM;
+
+        memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
+        finfo->nchans = cfg->nvars;
+
+        KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
+                   a2d->deviceName, cfg->sindex, a2d->nfilters);
+
+        if (cfg->sindex < 0 || cfg->sindex >= a2d->nfilters)
+                return -EINVAL;
 
         KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
-            a2d->deviceName,a2d->scanRate,cfg->rate);
+                   a2d->deviceName, a2d->scanRate, cfg->rate);
 
-        if (a2d->scanRate % cfg->rate) {
-                KLOG_ERR("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
-                    a2d->deviceName,a2d->scanRate,cfg->rate,cfg->index);
+       if (a2d->scanRate % cfg->rate) {
+                KLOG_ERR
+                    ("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
+                     a2d->deviceName, a2d->scanRate, cfg->rate,
+                     cfg->sindex);
                 return -EINVAL;
         }
 
-        /* cleanup a previous filter if one exists */
-        if (fcfg->filterObj && fcfg->fcleanup) 
-            fcfg->fcleanup(fcfg->filterObj);
-        fcfg->filterObj = 0;
-        fcfg->fcleanup = 0;
-
-        fcfg->decimate = a2d->scanRate / cfg->rate;
-        fcfg->filterType = cfg->filterType;
-        fcfg->index = cfg->index;
+        finfo->decimate = a2d->scanRate / cfg->rate;
+        finfo->filterType = cfg->filterType;
+        finfo->index = cfg->sindex;
 
         KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-            a2d->deviceName,fcfg->decimate,fcfg->filterType,fcfg->index);
-        
+                   a2d->deviceName, finfo->decimate, finfo->filterType,
+                   finfo->index);
+
         methods = get_short_filter_methods(cfg->filterType);
         if (!methods.init) {
                 KLOG_ERR("%s: filter type %d unsupported\n",
-                    a2d->deviceName,cfg->filterType);
+                         a2d->deviceName, cfg->filterType);
                 return -EINVAL;
         }
-        fcfg->finit = methods.init;
-        fcfg->fconfig = methods.config;
-        fcfg->filter = methods.filter;
-        fcfg->fcleanup = methods.cleanup;
+        finfo->finit = methods.init;
+        finfo->fconfig = methods.config;
+        finfo->filter = methods.filter;
+        finfo->fcleanup = methods.cleanup;
 
         /* Create the filter object */
-        fcfg->filterObj = fcfg->finit();
-        if (!fcfg->filterObj) return -ENOMEM;
+        finfo->filterObj = finfo->finit();
+        if (!finfo->filterObj)
+                return -ENOMEM;
+
+        for (i = 0; i < cfg->nvars; i++) {
+                int ichan = cfg->channels[i];
+                if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS)
+                        return -EINVAL;
+                if (a2d->highChan < 0) {
+                        a2d->gain = cfg->gain[i];
+                        a2d->bipolar = cfg->bipolar[i];
+                        result = a2d->getGainSetting(a2d,a2d->gain,a2d->bipolar,&a2d->gainConvSetting);
+                        if (result != 0) return result;
+                }
+                if (ichan < a2d->lowChan) a2d->lowChan = ichan;
+                if (ichan > a2d->highChan) a2d->highChan = ichan;
+
+                // gains must all be the same
+                if (cfg->gain[i] != a2d->gain) return -EINVAL;
+                // Must have same polarity.
+                if (cfg->bipolar[i] != a2d->bipolar) return -EINVAL;
+        }
+
+        // subtract low channel from the filter channel numbers
+        // since we don't scan the channels below lowChan
+        for (i = 0; i < cfg->nvars; i++)
+                finfo->channels[i] -= a2d->lowChan;
+        a2d->nchans = a2d->highChan - a2d->lowChan + 1;
 
         /* Configure the filter */
-        switch(fcfg->filterType) {
-        case NIDAS_FILTER_BOXCAR:
-        {
-                struct boxcar_filter_config bcfg;
-                KLOG_DEBUG("%s: BOXCAR\n",a2d->deviceName);
-                bcfg.npts = cfg->boxcarNpts;
-                result = fcfg->fconfig(fcfg->filterObj,fcfg->index,
-                    fcfg->nchans,fcfg->channels,
-                    fcfg->decimate,&bcfg);
-        }
-                break;
-        case NIDAS_FILTER_PICKOFF:
-                KLOG_DEBUG("%s: PICKOFF\n",a2d->deviceName);
-                result = fcfg->fconfig(fcfg->filterObj,fcfg->index,
-                    fcfg->nchans,fcfg->channels,
-                    fcfg->decimate,0);
-                break;
-        default:
-                result = -EINVAL;
-                break;
-        }
-
-        KLOG_DEBUG("%s: result=%d\n",a2d->deviceName,result);
+        result = finfo->fconfig(finfo->filterObj, finfo->index,
+                               finfo->nchans,
+                               finfo->channels,
+                               finfo->decimate,
+                               cfg->filterData,
+                               cfg->nFilterData);
         return result;
 }
 
@@ -939,8 +893,12 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
         a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
         a2d->samples.head = a2d->samples.tail = 0;
 
+        // needs scanRate and high/low channels defined
+        result = a2d->getConvRateSetting(a2d,&a2d->gainConvSetting);
+        if (result != 0) return result;
+
         // same addr on MM16AT and MM32XAT
-        outb(a2d->gainSetting,a2d->brd->addr + 11);
+        outb(a2d->gainConvSetting,a2d->brd->addr + 11);
         if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
 
         a2d->waitForA2DSettle(a2d);
@@ -1904,6 +1862,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         // int ia2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
+        void __user *userptr = (void __user *) arg;
+        int len;
 
         KLOG_DEBUG("ioctl_a2d, iminor=%d,ibrd=%d,numboards=%d\n",
             i,ibrd,numboards);
@@ -1920,11 +1880,9 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
-                    _IOC_SIZE(cmd));
+                err = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void __user *)arg,
-                    _IOC_SIZE(cmd));
+                err =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numboards) return -ENXIO;
@@ -1939,7 +1897,7 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         case NIDAS_A2D_GET_NCHAN:
             {
                 u32 nchan = a2d->getNumChannels(a2d);
-                if (copy_to_user((void __user *)arg,&nchan,sizeof(nchan)))
+                if (copy_to_user(userptr,&nchan,sizeof(nchan)))
                     return -EFAULT;
                 result = 0;
                 break;
@@ -1950,24 +1908,47 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
                         KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
                         MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
-                        result = -EINVAL;
+                        return -EINVAL;
                 }
-                if (copy_from_user(&cfg,(void __user *)arg,
+                if (copy_from_user(&cfg,userptr,
                         sizeof(struct nidas_a2d_config))) return -EFAULT;
                 result = configA2D(a2d,&cfg);
             }
 	    break;
-        case NIDAS_A2D_ADD_FILTER:      /* user set */
+        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
             {
-                struct nidas_a2d_filter_config cfg;
-                if (copy_from_user(&cfg,(void __user *)arg,
-                        sizeof(struct nidas_a2d_filter_config)))
+                /*
+                 * copy structure without the contents
+                 * of cfg.filterData, which has variable length
+                 * depending on the filter. Then allocate another
+                 * struct with an additional cfg.nFilterData bytes
+                 * and copy into it.
+                 */
+                struct nidas_a2d_sample_config cfg;
+                struct nidas_a2d_sample_config* cfgp;
+                if (copy_from_user(&cfg,userptr,
+                        sizeof(struct nidas_a2d_sample_config)))
                             return -EFAULT;
-                result = configA2DFilter(a2d,&cfg);
+
+                // kmalloc enough structure for additional filter data
+                len = sizeof(struct nidas_a2d_sample_config) +
+                            cfg.nFilterData;
+                cfgp = kmalloc(len,GFP_KERNEL);
+                if (!cfgp) {
+                        result = -ENOMEM;
+                        break;
+                }
+                if (copy_from_user(cfgp, userptr, len) != 0) {
+                        kfree(cfgp);
+                        result = -EFAULT;
+                        break;
+                }
+                result = addA2DSampleConfig(a2d,cfgp);
+                kfree(cfgp);
             }
 	    break;
         case DMMAT_A2D_GET_STATUS:	/* user get of status struct */
-                if (copy_to_user((void __user *)arg,&a2d->status,
+                if (copy_to_user(userptr,&a2d->status,
                     sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
                 result = 0;
                 break;
@@ -2097,6 +2078,7 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         // int icntr = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
+        void __user *userptr = (void __user *) arg;
 
          /* don't even decode wrong cmds: better returning
           * ENOTTY than EFAULT */
@@ -2110,10 +2092,10 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
+                err = !access_ok(VERIFY_WRITE, userptr,
                     _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void __user *)arg,
+                err =  !access_ok(VERIFY_READ, userptr,
                     _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
@@ -2128,7 +2110,7 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
         case DMMAT_CNTR_START:
                 {
                 struct DMMAT_CNTR_Config cfg;
-                if (copy_from_user(&cfg,(void __user *)arg,
+                if (copy_from_user(&cfg,userptr,
                         sizeof(struct DMMAT_CNTR_Config))) return -EFAULT;
                 result = startCNTR(cntr,&cfg);
                 }
@@ -2137,7 +2119,7 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
                 result = stopCNTR(cntr);
                 break;
         case DMMAT_CNTR_GET_STATUS:	/* user get of status struct */
-                if (copy_to_user((void __user *)arg,&cntr->status,
+                if (copy_to_user(userptr,&cntr->status,
                     sizeof(struct DMMAT_CNTR_Status))) return -EFAULT;
                 result = 0;
                 break;
@@ -2226,6 +2208,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
+        void __user *userptr = (void __user *) arg;
 
         if (ibrd >= numboards) return -ENXIO;
         if (id2a != 2) return -ENXIO;
@@ -2242,10 +2225,10 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
+                err = !access_ok(VERIFY_WRITE, userptr,
                     _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void __user *)arg,
+                err =  !access_ok(VERIFY_READ, userptr,
                     _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
@@ -2263,7 +2246,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                 {
                 struct DMMAT_D2A_Conversion conv;
                 getD2A_conv(d2a,&conv);
-                if (copy_to_user((void __user *)arg,&conv,
+                if (copy_to_user(userptr,&conv,
                     sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
                 result = 0;
                 }
@@ -2271,7 +2254,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         case DMMAT_D2A_SET:      /* user set */
                 {
                 struct DMMAT_D2A_Outputs outputs;
-                if (copy_from_user(&outputs,(void __user *)arg,
+                if (copy_from_user(&outputs,userptr,
                         sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
                 result = setD2A_mult(d2a,&outputs);
                 }
@@ -2280,7 +2263,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                 {
                 struct DMMAT_D2A_Outputs outputs;
                 getD2A_mult(d2a,&outputs);
-                if (copy_to_user((void __user *)arg,&outputs,
+                if (copy_to_user(userptr,&outputs,
                     sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
                 result = 0;
                 }
@@ -2441,7 +2424,7 @@ static int init_a2d(struct DMMAT* brd,int type)
             DMMAT_A2D_SAMPLE_QUEUE_SIZE);
         if (result) return result;
 
-        a2d->gainSetting = 0;	// default value
+        a2d->gainConvSetting = 0;	// default value
 
         init_waitqueue_head(&a2d->read_queue);
 

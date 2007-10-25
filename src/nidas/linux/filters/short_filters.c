@@ -69,7 +69,7 @@ static void* pickoff_init(void)
 /**
  * Configure a pickoff filter. Pointer to config structure is not used.
  */
-static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg)
+static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg, int nbcfg)
 {
         struct pickoff_filter* this = (struct pickoff_filter*) obj;
         this->id = id;
@@ -142,24 +142,25 @@ static void* boxcar_init(void)
 /**
  * Configure a boxcar filter.
  */
-static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cptr)
+static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg,int nbcfg)
 {
         struct boxcar_filter* this = (struct boxcar_filter*) obj;
-        const struct boxcar_filter_config* cfg =
-            (const struct boxcar_filter_config*) cptr;
+        const struct boxcar_filter_config* bcfg =
+            (const struct boxcar_filter_config*) cfg;
         this->id = id;
         this->nvars = nvars;
         this->decimate = decimate;
         this->count = 0;
-        this->npts = cfg->npts;
+        if (nbcfg != sizeof(int)) return -EINVAL;
+        this->npts = bcfg->npts;
         this->vindices = (int*) F_MALLOC(nvars * sizeof(int));
         if (!this->vindices) return -ENOMEM;
         memcpy(this->vindices,vindices,nvars*sizeof(int));
         this->sums = (long*) F_MALLOC(nvars * sizeof(long));
         if (!this->sums) return -ENOMEM;
         memset(this->sums,0,nvars*sizeof(long));
-        KLOG_DEBUG("boxcar filter, decimate=%d, npts=%d\n",
-            this->decimate,this->npts);
+        KLOG_INFO("boxcar filter, id=%d, decimate=%d, npts=%d\n",
+            id,this->decimate,this->npts);
         return 0;
 }
 

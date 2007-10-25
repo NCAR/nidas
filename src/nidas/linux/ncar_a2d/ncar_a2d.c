@@ -28,7 +28,7 @@
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
 
-// #define DEBUG
+#define DEBUG
 #include <nidas/linux/klog.h>
 
 #include "ncar_a2d_priv.h"
@@ -205,7 +205,7 @@ static inline void i2c_stop_sequence(struct A2DBoard *brd)
         i2c_data_lo(brd);
         i2c_clock_hi(brd);
         i2c_data_hi(brd);
-        i2c_clock_lo(brd);
+        // i2c_clock_lo(brd);
 }
 
 /*
@@ -229,7 +229,7 @@ static inline void i2c_putAck(struct A2DBoard *brd)
 {
         i2c_data_lo(brd);
         i2c_clock_hi(brd);
-        i2c_clock_lo(brd);
+        i2c_clock_lo(brd);  // 
 }
 
 static inline unsigned char i2c_get_byte(struct A2DBoard *brd)
@@ -376,9 +376,12 @@ static unsigned short AD7725Status(struct A2DBoard *brd, int channel)
 static void AD7725StatusAll(struct A2DBoard *brd)
 {
         int i;
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-                if (brd->requested[i])
+        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
+                if (brd->gain[i] > 0)
                         brd->cur_status.goodval[i] = AD7725Status(brd, i);
+                else brd->cur_status.goodval[i] = 0;
+        for ( ; i < NUM_NCAR_A2D_CHANNELS; i++)
+                        brd->cur_status.goodval[i] = 0;
         return;
 }
 
@@ -456,26 +459,10 @@ A2DConfirmInstruction(struct A2DBoard *brd, int channel,
 
 static int A2DSetGain(struct A2DBoard *brd, int channel)
 {
-        A2D_SET *a2d;
-        int a2dGain;
-        int a2dGainMul;
-        int a2dGainDiv;
-        unsigned short gainCode;
+        unsigned short gainCode = 0;
 
-        // If no A/D selected return error -1
-        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
                 return -EINVAL;
-
-        a2d = &brd->config;
-        a2dGain = a2d->gain[channel];
-        a2dGainMul = a2d->gainMul[channel];
-        a2dGainDiv = a2d->gainDiv[channel];
-        gainCode = 0;
-
-        // unused channel gains are set to zero in the configuration
-        if (a2dGain != 0)
-                gainCode =
-                    (unsigned short) (a2dGainMul * a2dGain / a2dGainDiv);
 
         // The new 12-bit DAC has lower input resistance (7K ohms as opposed
         // to 10K ohms for the 8-bit DAC). The gain is the ratio of the amplifier
@@ -486,20 +473,34 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
         // 0 - 4095. So, after you divide the old gain code by 1.43 you
         // will want to multiply by 16. This is the same as multiplying
         // by 16/1.43 = 11.2.
-        if (a2d->offset[channel]) {
-                if (a2d->gain[channel] == 10)
-                        gainCode = 0x1000 + channel;    //   0 to +20  ???
-                else if (a2d->gain[channel] == 20)
-                        gainCode = 0x4000 + channel;    //   0 to +10
-                else if (a2d->gain[channel] == 40)
-                        gainCode = 0x8000 + channel;    //   0 to +5
-                else
-                        gainCode = 0x0000 + channel;
+        if (brd->offset[channel]) {         // unipolar
+                switch(brd->gain[channel]) {
+                case 1:
+                        gainCode = 0x1100 + channel;    //   0 to +20  ???
+                        break;
+                case 2:
+                        gainCode = 0x4400 + channel;    //   0 to +10
+                        break;
+                case 4:
+                        gainCode = 0x8800 + channel;    //   0 to +5
+                        break;
+                default:
+                        return -EINVAL;
+                }
         } else {
-                if (a2d->gain[channel] == 10)
-                        gainCode = 0x1900 + channel;    // -10 to +10
-                else
-                        gainCode = 0x0000 + channel;
+                switch(brd->gain[channel]) {
+                case 1:
+                        gainCode = 0x2200 + channel;    // -10 to +10
+                        break;
+                case 2:
+                        gainCode = 0x4400 + channel;
+                        break;
+                case 4:
+                        gainCode = 0x8800 + channel;
+                        break;
+                default:
+                        return -EINVAL;
+                }
         }
         // 1.  Write (or set) D2A0. This is accomplished by writing to the A/D
         // with the lower four address bits (SA0-SA3) set to all "ones" and the
@@ -514,7 +515,7 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
         // 0 write: (xxxxxxxxxxxx0000) where the x's are the gain code.
         KLOG_DEBUG
             ("chn: %d   offset: %d   gain: %2d   outb( 0x%x, 0x%x)\n",
-             channel, a2d->offset[channel], a2d->gain[channel], gainCode,
+             channel, brd->offset[channel], brd->gain[channel], gainCode,
              brd->base_addr);
         // KLOG_DEBUG("outb( 0x%x, 0x%x);\n", gainCode, brd->base_addr);
         outw(gainCode, brd->base_addr);
@@ -528,14 +529,8 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
 
 static int A2DSetMaster(struct A2DBoard *brd, int channel)
 {
-        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS) {
+        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS) {
                 KLOG_ERR("bad master chip number: %d\n", channel);
-                return -EINVAL;
-        }
-
-        if (NO_CHANNEL_7 && channel == 7) {
-                KLOG_ERR
-                    ("Channel 7 is not available on 'Vulcan-ized' cards!\n");
                 return -EINVAL;
         }
 
@@ -597,7 +592,7 @@ static void A2DSetCal(struct A2DBoard *brd)
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                 OffChans >>= 1;
                 CalChans >>= 1;
-                if (brd->config.offset[i] != 0)
+                if (brd->offset[i] != 0)
                         OffChans += 0x80;
                 if (brd->cal.calset[i] != 0)
                         CalChans += 0x80;
@@ -632,7 +627,7 @@ static void A2DSetOffset(struct A2DBoard *brd)
         // Change the offset array of bools into a byte
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                 OffChans >>= 1;
-                if (brd->config.offset[i] != 0)
+                if (brd->offset[i] != 0)
                         OffChans += 0x80;
         }
         // Point at the system control input channel
@@ -794,7 +789,7 @@ static void A2DStopReadAll(struct A2DBoard *brd)
 {
         int i;
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-                if (brd->requested[i])
+                if (brd->gain[i] > 0)
                         A2DStopRead(brd, i);
 }
 
@@ -829,22 +824,28 @@ static void A2DNotAuto(struct A2DBoard *brd)
 /*-----------------------Utility------------------------------*/
 // Start the selected A/D in acquisition mode
 
-static void A2DStart(struct A2DBoard *brd, int channel)
+static int A2DStart(struct A2DBoard *brd, int channel)
 {
+        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS) {
+
+                return -EINVAL;
+        }
         // Point at the A/D command channel
         outb(A2DIO_WRCMD, brd->cmd_addr);
 
         // Start the selected A/D
         outw(AD7725_READDATA, CHAN_ADDR(brd, channel));
-        return;
+        return 0;
 }
 
-static void A2DStartAll(struct A2DBoard *brd)
+static int A2DStartAll(struct A2DBoard *brd)
 {
         int i;
+        int ret = 0;
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-                if (brd->requested[i])
-                        A2DStart(brd, i);
+                if (brd->gain[i] > 0 && (ret = A2DStart(brd, i) != 0))
+                    return ret;
+        return ret;
 }
 
 /*-----------------------Utility------------------------------*/
@@ -854,11 +855,11 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         int coef;
         unsigned short stat;
         int nCoefs =
-            sizeof (brd->config.filter) / sizeof (brd->config.filter[0]);
+            sizeof (brd->ocfilter) / sizeof (brd->ocfilter[0]);
 
         KLOG_INFO("Configuring board %d/channel %d\n", BOARD_INDEX(brd),
                     channel);
-        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
                 return -EINVAL;
 
         // Set up to write a command to a channel
@@ -888,7 +889,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         for (coef = 0; coef < nCoefs; coef++) {
                 // Set up for config write and write out coefficient
                 outb(A2DIO_WRCOEF, brd->cmd_addr);
-                outw(brd->config.filter[coef], CHAN_ADDR(brd, channel));
+                outw(brd->ocfilter[coef], CHAN_ADDR(brd, channel));
 
                 if (waitForChannelInterrupt(brd, channel, 10) != 0) {
                         KLOG_ERR
@@ -902,12 +903,12 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 stat = AD7725Status(brd, channel);
 
                 if (stat & A2DIDERR) {
-                        KLOG_ERR("Bad ID value on coefficient %d\n", coef);
+                        KLOG_ERR("Bad ID value on coefficient %d, channel %d\n", coef,channel);
                         return -EIO;
                 }
 
                 if (stat & A2DCRCERR) {
-                        KLOG_ERR("BAD CRC @ coefficient %d", coef);
+                        KLOG_ERR("BAD CRC @ coefficient %d, channel %d", coef,channel);
                         return -EIO;
                 }
         }
@@ -933,8 +934,8 @@ static int A2DConfigAll(struct A2DBoard *brd)
 {
         int ret = 0;
         int i;
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-                if (brd->requested[i] && (ret = A2DConfig(brd, i)) < 0)
+        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
+                if ((ret = A2DConfig(brd, i)) < 0)
                         return ret;
         }
         return 0;
@@ -1019,7 +1020,6 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
         int i;
         int ret = 0;
         int repeat;
-        A2D_SET *cfg = &brd->config;
 
 #ifdef DO_A2D_STATRD
         brd->FIFOCtl = A2DSTATEBL;      // Clear most of FIFO Control Word
@@ -1035,7 +1035,7 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
                         /*
                          * Set gain for requested channels
                          */
-                        if (cfg->gain[i] > 0
+                        if (brd->gain[i] > 0
                             && (ret = A2DSetGain(brd, i)) != 0)
                                 return ret;
                 }
@@ -1058,40 +1058,129 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
         return 0;
 }
 
-/*
- * Perform board setup.
- */
-static int setupBoard(struct A2DBoard *brd)
+static int addSampleConfig(struct A2DBoard *brd,
+    struct nidas_a2d_sample_config* cfg)
 {
-        A2D_SET *cfg = &brd->config;
         int ret = 0;
-        int haveMaster = 0;
-        int i, j;
-        int uniqueSampleIndx[NUM_NCAR_A2D_CHANNELS];
+        struct a2d_filter_info* filters;
+        struct a2d_filter_info* finfo;
+        int nfilters;
+        struct short_filter_methods methods;
+        int i;
 
-        KLOG_DEBUG("In setupBoard\n");
-
-        /*
-         * Set the master now if we were given an explicit one
-         */
-        if (Master[BOARD_INDEX(brd)] >= 0) {
-                if ((ret =
-                     A2DSetMaster(brd, Master[BOARD_INDEX(brd)])) < 0)
-                        return ret;
-                haveMaster = 1;
+        if (brd->busy) {
+                KLOG_ERR("A2D's running. Can't configure\n");
+                return -EBUSY;
         }
 
-        if (brd->filters) {
-                for (j = 0; j < brd->nfilters; j++) {
-                        if (brd->filters[j].channels)
-                                kfree(brd->filters[j].channels);
-                        brd->filters[j].channels = 0;
-                }
-                kfree(brd->filters);
-                brd->filters = 0;
+        // grow the filter info array with one more element
+        nfilters = brd->nfilters + 1;
+        filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+                               GFP_KERNEL);
+        if (!filters) return -ENOMEM;
+
+        // copy previous filter infos, and free the old space
+        memcpy(filters,brd->filters,
+            brd->nfilters * sizeof(struct a2d_filter_info));
+        kfree(brd->filters);
+
+        finfo = filters + brd->nfilters;
+        brd->filters = filters;
+        brd->nfilters = nfilters;
+
+        memset(finfo, 0, sizeof(struct a2d_filter_info));
+
+        if (!(finfo->channels =
+                kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
+                return -ENOMEM;
+
+        memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
+        finfo->nchans = cfg->nvars;
+
+        KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
+                   brd->deviceName, cfg->sindex, brd->nfilters);
+
+        if (cfg->sindex < 0 || cfg->sindex >= brd->nfilters)
+                return -EINVAL;
+
+        KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
+                   brd->deviceName, brd->scanRate, cfg->rate);
+
+        if (brd->scanRate % cfg->rate) {
+                KLOG_ERR
+                    ("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
+                     brd->deviceName, brd->scanRate, cfg->rate,
+                     cfg->sindex);
+                return -EINVAL;
         }
 
+        finfo->decimate = brd->scanRate / cfg->rate;
+        finfo->filterType = cfg->filterType;
+        finfo->index = cfg->sindex;
+
+        KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
+                   brd->deviceName, finfo->decimate, finfo->filterType,
+                   finfo->index);
+
+        methods = get_short_filter_methods(cfg->filterType);
+        if (!methods.init) {
+                KLOG_ERR("%s: filter type %d unsupported\n",
+                         brd->deviceName, cfg->filterType);
+                return -EINVAL;
+        }
+        finfo->finit = methods.init;
+        finfo->fconfig = methods.config;
+        finfo->filter = methods.filter;
+        finfo->fcleanup = methods.cleanup;
+
+        /* Create the filter object */
+        finfo->filterObj = finfo->finit();
+        if (!finfo->filterObj)
+                return -ENOMEM;
+
+        /* Configure the filter */
+        ret = finfo->fconfig(finfo->filterObj, finfo->index,
+                               finfo->nchans,
+                               finfo->channels,
+                               finfo->decimate,
+                               cfg->filterData,
+                               cfg->nFilterData);
+
+        for (i = 0; i < cfg->nvars; i++) {
+                int ichan = cfg->channels[i];
+                if (ichan < 0 || ichan >= NUM_NCAR_A2D_CHANNELS)
+                        return -EINVAL;
+                brd->gain[ichan] = cfg->gain[i];
+                brd->offset[ichan] = !cfg->bipolar[i];
+        }
+        KLOG_DEBUG("%s: ret=%d\n", brd->deviceName, ret);
+
+        return ret;
+}
+        
+static void freeFilters(struct A2DBoard *brd)
+{
+        int i;
+        for (i = 0; i < brd->nfilters; i++) {
+            struct a2d_filter_info* finfo = brd->filters + i;
+            /* cleanup filter */
+            if (finfo->filterObj && finfo->fcleanup)
+                finfo->fcleanup(finfo->filterObj);
+            finfo->filterObj = 0;
+            finfo->fcleanup = 0;
+            kfree(finfo->channels);
+        }
+        kfree(brd->filters);
+        brd->filters = 0;
         brd->nfilters = 0;
+}
+
+/*
+ * Perform initial board setup.
+ */
+static int configBoard(struct A2DBoard *brd, struct nidas_a2d_config* cfg)
+{
+        int ret = 0;
 
         brd->scanRate = cfg->scanRate;
 
@@ -1105,115 +1194,6 @@ static int setupBoard(struct A2DBoard *brd)
         brd->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
         if (brd->latencyJiffies == 0)
                 brd->latencyJiffies = HZ / 10;
-
-        /* count number of unique samples requested.
-         * A filter will be created for each sample */
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                // index of -1 means channel is not requested
-                brd->requested[i] = index >= 0;
-                if (index < 0) continue;
-
-                /*
-                 * Make sure nobody requests channel 7 on 'Vulcan'-ized cards.
-                 */
-                if (i == 7 && NO_CHANNEL_7) {
-                        KLOG_ERR
-                            ("Channel 7 is not available on 'Vulcan'-ized cards!\n");
-                        return -EINVAL;
-                }
-
-                if (!haveMaster) {
-                        if ((ret = A2DSetMaster(brd, i)) < 0)
-                                return ret;
-                        haveMaster = 1;
-                }
-                for (j = 0; j < brd->nfilters; j++)
-                        if (index == uniqueSampleIndx[j])
-                                break;
-                if (j == brd->nfilters)
-                        uniqueSampleIndx[brd->nfilters++] = index;
-        }
-
-        if (brd->nfilters == 0) {
-                KLOG_ERR("%s: no channels requested, all indices<0\n",
-                         brd->deviceName);
-                return -EINVAL;
-        }
-
-        brd->filters = kmalloc(brd->nfilters *
-                               sizeof (struct a2d_filter_info),
-                               GFP_KERNEL);
-        if (!brd->filters) return -ENOMEM;
-        memset(brd->filters, 0,
-               brd->nfilters * sizeof (struct a2d_filter_info));
-        KLOG_DEBUG("nfilters=%d\n", brd->nfilters);
-
-        /* Count number of channels for each sample */
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                if (index < 0) continue;
-                KLOG_DEBUG("channel=%d,requested=%d,index=%d\n",
-                           i, brd->requested[i], index);
-                if (index >= brd->nfilters) {
-                        KLOG_ERR("%s: invalid sample index=%d, max=%d\n",
-                             brd->deviceName,index,brd->nfilters-1);
-                        return -EINVAL;
-                }
-                brd->filters[index].nchans++;
-        }
-
-        /* Allocate array of indicies into scanned channel sequence */
-        for (i = 0; i < brd->nfilters; i++) {
-                brd->filters[i].channels =
-                    kmalloc(brd->filters[i].nchans * sizeof (int),
-                            GFP_KERNEL);
-                if (!brd->filters[i].channels) return -ENOMEM;
-                KLOG_DEBUG("filter=%d,nchans=%d\n", i,
-                           brd->filters[i].nchans);
-                brd->filters[i].nchans = 0;
-        }
-
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-                int index = cfg->sampleIndex[i];
-                if (index < 0) continue;
-                brd->filters[index].channels[brd->filters[index].nchans++] = i;
-        }
-
-        // Configure DAC gain codes
-        if ((ret = A2DSetGainAndOffset(brd)) != 0)
-                return ret;
-
-        // Make sure SYNC is cleared so clocks are running
-        KLOG_DEBUG("Clearing SYNC\n");
-        A2DClearSYNC(brd);
-
-        // Start then reset the A/D's
-        // Start conversions
-        KLOG_DEBUG("Starting A/D's\n");
-        A2DStartAll(brd);
-
-        // If starting from a cold boot, one needs to
-        // let the A2Ds run for a bit before downloading
-        // the filter data.
-        msleep(20);
-
-        // Then do a soft reset
-        KLOG_DEBUG("Soft resetting A/D's\n");
-        A2DStopReadAll(brd);
-
-        // Configure the A/D's
-        KLOG_DEBUG("Sending filter config data to A/Ds\n");
-        if ((ret = A2DConfigAll(brd)) != 0)
-                return ret;
-
-        // Reset the A/D's
-        KLOG_DEBUG("Resetting A/Ds\n");
-        A2DStopReadAll(brd);
-
-        msleep(1);              // Give A/D's a chance to load
-        KLOG_DEBUG("A/Ds ready for synchronous start\n");
-
         return ret;
 }
 
@@ -1263,30 +1243,13 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
                 } else if (brd->filters[i].
                            filter(brd->filters[i].filterObj, tt, dp,
                                   brd->skipFactor, osamp)) {
-                        // invert and convert to little endian
-                        int j;
 
 #ifdef __BIG_ENDIAN
-                        // sample type field (don't invert)
-                        osamp->data[0] = cpu_to_le16(osamp->data[0]);
-                        if (brd->invertCounts)
-                                for (j = 1;
-                                     j < osamp->length / sizeof (short);
-                                     j++)
-                                        osamp->data[j] =
-                                            cpu_to_le16(-osamp->data[j]);
-                        else
-                                for (j = 1;
-                                     j < osamp->length / sizeof (short);
-                                     j++)
-                                        osamp->data[j] =
-                                            cpu_to_le16(osamp->data[j]);
+                        // convert to little endian
+                        int j;
+                        for (j = 0; j < osamp->length / sizeof (short); j++)
+                                osamp->data[j] = cpu_to_le16(osamp->data[j]);
 #elif defined __LITTLE_ENDIAN
-                        if (brd->invertCounts)
-                                for (j = 1;
-                                     j < osamp->length / sizeof (short);
-                                     j++)
-                                        osamp->data[j] = -osamp->data[j];
 #else
 #error "UNSUPPORTED ENDIAN-NESS"
 #endif
@@ -1375,8 +1338,8 @@ static void readA2DFifo(struct A2DBoard *brd)
 {
 
         struct dsm_sample *samp;
-        // int i;
-        // short* dp;
+        int i;
+        short* dp;
         /*
          * Read the data for the DSM sample from the card.  Note that a DSM
          * sample will contain brd->sampsPerCallback individual samples for
@@ -1403,14 +1366,35 @@ static void readA2DFifo(struct A2DBoard *brd)
          * to little-endian, which is the convention for A2D data.
          */
         // KLOG_DEBUG("reading fifo, nvalues=%d\n",brd->nFifoValues);
-#define USE_INSW_FOR_FIFO_READ
 
-#ifdef USE_INSW_FOR_FIFO_READ
+        /* Note that inw converts data to host endian,
+         * whereas insw does not */
         insw(brd->base_addr, (short *) samp->data, brd->nFifoValues);
+        if (brd->invertCounts) {
+                dp = (short *) samp->data;
+                for (i = 0; i < brd->nFifoValues/brd->skipFactor; i++) {
+#ifdef DO_A2D_STATRD
+                        dp++;           // skip over status word
+#endif
+#ifdef __BIG_ENDIAN
+                        *dp = -le16_to_cpu(*dp);
 #else
-        dp = (short *) samp->data;
-        for (i = 0; i < brd->nFifoValues; i++)
-                *dp++ = inw(brd->base_addr);
+                        *dp = -*dp;
+#endif
+                        dp++;
+                }
+        }
+#ifdef __BIG_ENDIAN
+        else {
+                dp = (short *) samp->data;
+                for (i = 0; i < brd->nFifoValues/brd->skipFactor; i++) {
+#ifdef DO_A2D_STATRD
+                        dp++;           // skip over status word
+#endif
+                        *dp = -le16_to_cpu(*dp);
+                        dp++;
+                }
+        }
 #endif
 
         samp->length = brd->nFifoValues * sizeof (short);
@@ -1541,8 +1525,8 @@ static void ReadSampleCallback(void *ptr)
                 brd->cur_status.skippedSamples = brd->skippedSamples;
                 brd->cur_status.resets = brd->resets;
                 memcpy(&brd->prev_status, &brd->cur_status,
-                       sizeof (A2D_STATUS));
-                memset(&brd->cur_status, 0, sizeof (A2D_STATUS));
+                       sizeof (struct ncar_a2d_status));
+                memset(&brd->cur_status, 0, sizeof (struct ncar_a2d_status));
         }
 
 }
@@ -1568,113 +1552,24 @@ static void TemperatureCallback(void *ptr)
         wake_up_interruptible(&brd->rwaitq_a2d);
 }
 
-/*
- * Configure a filter.  A2D should not be running.
- */
-static int configA2DFilter(struct A2DBoard *brd,
-                           struct nidas_a2d_filter_config *cfg)
-{
-        struct a2d_filter_info *fcfg;
-        struct short_filter_methods methods;
-        int result;
-
-        if (brd->busy) {
-                KLOG_ERR("A2D's running. Can't configure\n");
-                return -EBUSY;
-        }
-
-        KLOG_DEBUG("%s: index=%d,nfilters=%d\n",
-                   brd->deviceName, cfg->index, brd->nfilters);
-
-        if (cfg->index < 0 || cfg->index >= brd->nfilters)
-                return -EINVAL;
-
-        fcfg = &brd->filters[cfg->index];
-
-        KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
-                   brd->deviceName, brd->scanRate, cfg->rate);
-
-        if (brd->scanRate % cfg->rate) {
-                KLOG_ERR
-                    ("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
-                     brd->deviceName, brd->scanRate, cfg->rate,
-                     cfg->index);
-                return -EINVAL;
-        }
-
-        /* cleanup a previous filter if one exists */
-        if (fcfg->filterObj && fcfg->fcleanup)
-                fcfg->fcleanup(fcfg->filterObj);
-        fcfg->filterObj = 0;
-        fcfg->fcleanup = 0;
-
-        fcfg->decimate = brd->scanRate / cfg->rate;
-        fcfg->filterType = cfg->filterType;
-        fcfg->index = cfg->index;
-
-        KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-                   brd->deviceName, fcfg->decimate, fcfg->filterType,
-                   fcfg->index);
-
-        methods = get_short_filter_methods(cfg->filterType);
-        if (!methods.init) {
-                KLOG_ERR("%s: filter type %d unsupported\n",
-                         brd->deviceName, cfg->filterType);
-                return -EINVAL;
-        }
-        fcfg->finit = methods.init;
-        fcfg->fconfig = methods.config;
-        fcfg->filter = methods.filter;
-        fcfg->fcleanup = methods.cleanup;
-
-        /* Create the filter object */
-        fcfg->filterObj = fcfg->finit();
-        if (!fcfg->filterObj)
-                return -ENOMEM;
-
-        /* Configure the filter */
-        switch (fcfg->filterType) {
-        case NIDAS_FILTER_BOXCAR:
-                {
-                        struct boxcar_filter_config bcfg;
-                        KLOG_DEBUG("%s: BOXCAR\n", brd->deviceName);
-                        bcfg.npts = cfg->boxcarNpts;
-                        result = fcfg->fconfig(fcfg->filterObj, fcfg->index,
-                                               fcfg->nchans,
-                                               fcfg->channels,
-                                               fcfg->decimate, &bcfg);
-                }
-                break;
-        case NIDAS_FILTER_PICKOFF:
-                KLOG_DEBUG("%s: PICKOFF\n", brd->deviceName);
-                result = fcfg->fconfig(fcfg->filterObj, fcfg->index,
-                                       fcfg->nchans, fcfg->channels,
-                                       fcfg->decimate, 0);
-                break;
-        default:
-                result = -EINVAL;
-                break;
-        }
-
-        KLOG_DEBUG("%s: result=%d\n", brd->deviceName, result);
-        return result;
-}
-
-
 /**
  * Stop data collection on the selected board.
  */
 static int stopBoard(struct A2DBoard *brd)
 {
         int ret = 0;
+        int i;
 
         // interrupt the 1PPS or acquisition
         brd->interrupted = 1;
 
         // Turn off the callback routines
-        unregister_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
-        if (brd->tempRate != IRIG_NUM_RATES)
-                unregister_irig_callback(TemperatureCallback, brd->tempRate, brd);
+        if (brd->a2dCallback)
+            unregister_irig_callback(brd->a2dCallback);
+        brd->a2dCallback = 0;
+        if (brd->tempCallback)
+                unregister_irig_callback(brd->tempCallback);
+        brd->tempCallback = 0;
 
         // wake any waiting reads
         wake_up_interruptible(&brd->rwaitq_a2d);
@@ -1686,15 +1581,18 @@ static int stopBoard(struct A2DBoard *brd)
         // Abort all the A/D's
         A2DStopReadAll(brd);
 
+        freeFilters(brd);
+
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+            brd->gain[i] = 0;
+
         brd->busy = 0;          // Reset the busy flag
 
         return ret;
 }
 
 /* 
- * Reset the A2D.  This does an unregister_irig_callback, so it can't be
- * called from the irig callback function itself.
- * In that case, schedule the reset work queue in that case.
+ * Reset the A2D.
  */
 static int resetBoard(struct A2DBoard *brd)
 {
@@ -1702,9 +1600,13 @@ static int resetBoard(struct A2DBoard *brd)
         brd->errorState = WAITING_FOR_RESET;
         brd->resets++;
 
-        unregister_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
-        if (brd->tempRate != IRIG_NUM_RATES)
-                unregister_irig_callback(TemperatureCallback, brd->tempRate, brd);
+        if (brd->a2dCallback)
+                unregister_irig_callback(brd->a2dCallback);
+        brd->a2dCallback = 0;
+
+        if (brd->tempCallback)
+                unregister_irig_callback(brd->tempCallback);
+        brd->tempCallback = 0;
 
         // Sync with 1PPS
         KLOG_DEBUG("doing waitFor1PPS, GET_MSEC_CLOCK=%ld\n",
@@ -1718,7 +1620,7 @@ static int resetBoard(struct A2DBoard *brd)
         A2DStopReadAll(brd);    // Send Abort command to all A/Ds
         AD7725StatusAll(brd);   // Read status from all A/Ds
 
-        A2DStartAll(brd);       // Start all the A/Ds
+        if ((ret = A2DStartAll(brd)) != 0) return ret;  // Start all the A/Ds
         AD7725StatusAll(brd);   // Read status again from all A/Ds
 
         A2DSetSYNC(brd);        // Stop A/D clocks
@@ -1749,19 +1651,20 @@ static int resetBoard(struct A2DBoard *brd)
         brd->consecutiveNonEmpty = 0;
 
         // start the IRIG callback routine at 100 Hz
-        ret = register_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd);
-        if (ret != 0) {
-                KLOG_ERR("Error %d registering ReadSampleCallback\n", ret);
+        //
+        brd->a2dCallback =
+            register_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd,&ret);
+        if (!brd->a2dCallback) {
+                KLOG_ERR("Error: register_irig_callback failed\n");
                 return ret;
         }
 
         if (brd->tempRate != IRIG_NUM_RATES) {
-            ret =
+            brd->tempCallback =
                 register_irig_callback(TemperatureCallback, brd->tempRate,
-                                       brd);
-            if (ret != 0) {
-                    KLOG_ERR("Error %d registering TemperatureCallback\n",
-                             ret);
+                                       brd,&ret);
+            if (!brd->tempCallback) {
+                    KLOG_ERR("Error: register_irig_callback failed\n");
                     return ret;
             }
         }
@@ -1789,18 +1692,69 @@ static void resetBoardWorkFunc(void *work)
 
 /**
  * Start data collection on the selected board.  This is only called
- * via user space initiation (i.e., through the A2D_RUN ioctl).
+ * via user space initiation (i.e., through the NCAR_A2D_RUN ioctl).
  */
 static int startBoard(struct A2DBoard *brd)
 {
         int ret;
         int nFifoValues;
+        int haveMaster = 0;
+        int i;
+        /*
+         * Set the master now if we were given an explicit one
+         */
+        if (Master[BOARD_INDEX(brd)] >= 0) {
+                if ((ret =
+                     A2DSetMaster(brd, Master[BOARD_INDEX(brd)])) < 0)
+                        return ret;
+                haveMaster = 1;
+        }
+
+        for (i = 0; !haveMaster && i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
+                if ((ret = A2DSetMaster(brd, i)) < 0) return ret;
+                haveMaster = 1;
+        }
+        if (!haveMaster) return -EIO;
+
+        // Configure DAC gain codes
+        if ((ret = A2DSetGainAndOffset(brd)) != 0)
+                return ret;
+
+        // Make sure SYNC is cleared so clocks are running
+        KLOG_DEBUG("Clearing SYNC\n");
+        A2DClearSYNC(brd);
+
+        // Start then reset the A/D's
+        // Start conversions
+        KLOG_DEBUG("Starting A/D's\n");
+        A2DStartAll(brd);
+
+        // If starting from a cold boot, one needs to
+        // let the A2Ds run for a bit before downloading
+        // the filter data.
+        msleep(20);
+
+        // Then do a soft reset
+        KLOG_DEBUG("Soft resetting A/D's\n");
+        A2DStopReadAll(brd);
+
+        // Configure the A/D's
+        KLOG_DEBUG("Sending filter config data to A/Ds\n");
+        if ((ret = A2DConfigAll(brd)) != 0)
+                return ret;
+
+        // Reset the A/D's
+        KLOG_DEBUG("Resetting A/Ds\n");
+        A2DStopReadAll(brd);
+
+        msleep(1);              // Give A/D's a chance to load
+        KLOG_DEBUG("A/Ds ready for synchronous start\n");
 
         /*
          * Zero out status
          */
-        memset(&brd->cur_status, 0, sizeof (A2D_STATUS));
-        memset(&brd->prev_status, 0, sizeof (A2D_STATUS));
+        memset(&brd->cur_status, 0, sizeof (struct ncar_a2d_status));
+        memset(&brd->prev_status, 0, sizeof (struct ncar_a2d_status));
 
         brd->a2d_samples.head = brd->a2d_samples.tail = 0;
         memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
@@ -1866,6 +1820,7 @@ static int startBoard(struct A2DBoard *brd)
 static int ncar_a2d_open(struct inode *inode, struct file *filp)
 {
         struct A2DBoard *brd = BoardInfo + iminor(inode);
+        int i;
 
         /* before changing head & tails here one should
          * make sure the sample producer and consumer threads
@@ -1879,6 +1834,9 @@ static int ncar_a2d_open(struct inode *inode, struct file *filp)
 
         brd->i2c = I2CSCL | I2CSDA;
         brd->tempRate = IRIG_NUM_RATES;
+
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+                brd->gain[i] = 0;
 
         filp->private_data = brd;
         return 0;
@@ -1898,6 +1856,8 @@ static int ncar_a2d_release(struct inode *inode, struct file *filp)
          * Turn off the callback routine
          */
         stopBoard(brd);
+
+        freeFilters(brd);
 
         return ret;
 }
@@ -1962,23 +1922,29 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
           //          BOARD_INDEX(brd), cmd, len);
 
         switch (cmd) {
-        case A2D_GET_STATUS:   /* user get of status */
-                if (len != sizeof (A2D_STATUS)) {
+        case NIDAS_A2D_GET_NCHAN:
+                {
+                        int nchan = NUM_USABLE_NCAR_A2D_CHANNELS;
+                        if (copy_to_user(userptr, &nchan, sizeof(nchan)))
+                                return -EFAULT;
+                        ret = sizeof(int);
+                }
+                break;
+        case NCAR_A2D_GET_STATUS:   /* user get of status */
+                if (len != sizeof (struct ncar_a2d_status)) {
                         KLOG_ERR
-                            ("A2D_GET_STATUS len %d != sizeof(A2D_STATUS)\n",
+                            ("NCAR_A2D_GET_STATUS len %d != sizeof(struct ncar_a2d_status)\n",
                              len);
                         break;
                 }
-                ret = copy_to_user(userptr, &brd->prev_status, len);
-                if (ret < 0)
-                        break;
+                if (copy_to_user(userptr, &brd->prev_status, len))
+                        return -EFAULT;
                 ret = len;
                 break;
-
-        case A2D_SET_CONFIG:
-                if (len != sizeof (A2D_SET)) {
+        case NIDAS_A2D_SET_CONFIG:
+                if (len != sizeof (struct nidas_a2d_config)) {
                         KLOG_ERR
-                            ("A2D_SET_CONFIG len %d != sizeof(A2D_SET)\n",
+                            ("NIDAS_A2D_SET_CONFIG len %d != sizeof(struct nidas_a2d_config)\n",
                              len);
                         break;  // invalid length
                 }
@@ -1990,11 +1956,53 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         ret = -EBUSY;
                         break;
                 }
-                if (copy_from_user(&brd->config, userptr, len) != 0) {
-                        ret = -EFAULT;
+                {
+                        struct nidas_a2d_config cfg;
+                        if (copy_from_user(&cfg, userptr, len) != 0) {
+                                ret = -EFAULT;
+                                break;
+                        }
+                        ret = configBoard(brd,&cfg);
+                }
+                break;
+        case NIDAS_A2D_CONFIG_SAMPLE:
+                if (brd->busy) {
+                        KLOG_WARNING
+                            ("A/D card %d is running. Can't configure.\n",
+                             BOARD_INDEX(brd));
+                        ret = -EBUSY;
                         break;
                 }
-                ret = setupBoard(brd);
+                {
+                        /*
+                         * copy structure without the contents
+                         * of cfg.filterData, which has variable length
+                         * depending on the filter. Then allocate another
+                         * struct with an additional cfg.nFilterData bytes
+                         * and copy into it.
+                         */
+                        struct nidas_a2d_sample_config cfg;
+                        struct nidas_a2d_sample_config* cfgp;
+                        if (copy_from_user(&cfg, userptr, len) != 0) {
+                            ret = -EFAULT;
+                            break;
+                        }
+                        // allocate large enough structure for filter data
+                        len = sizeof(struct nidas_a2d_sample_config) + 
+                            cfg.nFilterData;
+                        cfgp = kmalloc(len,GFP_KERNEL);
+                        if (!cfgp) {
+                                ret = -ENOMEM;
+                                break;
+                        }
+                        if (copy_from_user(cfgp, userptr, len) != 0) {
+                                kfree(cfgp);
+                                ret = -EFAULT;
+                                break;
+                        }
+                        ret = addSampleConfig(brd,cfgp);
+                        kfree(cfgp);
+                }
                 if (ret != 0)
                         KLOG_ERR
                             ("setup for board %d failed with state %d\n",
@@ -2003,11 +2011,35 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         KLOG_DEBUG("setup for board %d succeeded\n",
                                    BOARD_INDEX(brd));
                 break;
-        case A2D_SET_CAL:
-                if (len != sizeof (A2D_CAL))
+        case NCAR_A2D_SET_OCFILTER:
+                if (len != sizeof (struct ncar_a2d_ocfilter_config)) {
+                        KLOG_ERR
+                            ("NCAR_A2D_SET_OCFILTER len %d != sizeof(struct ncar_a2d_ocfilter_config)\n",
+                             len);
                         break;  // invalid length
-                if (copy_from_user(&brd->cal, (A2D_CAL *) userptr, len) !=
-                    0) {
+                }
+
+                if (brd->busy) {
+                        KLOG_WARNING
+                            ("A/D card %d is running. Can't configure.\n",
+                             BOARD_INDEX(brd));
+                        ret = -EBUSY;
+                        break;
+                }
+                {
+                        struct ncar_a2d_ocfilter_config cfg;
+                        if (copy_from_user(&cfg, userptr, len) != 0) {
+                                ret = -EFAULT;
+                                break;
+                        }
+                        memcpy(brd->ocfilter,cfg.filter,sizeof(cfg.filter));
+                        ret = 0;
+                }
+                break;
+        case NCAR_A2D_SET_CAL:
+                if (len != sizeof (struct ncar_a2d_cal_config))
+                        break;  // invalid length
+                if (copy_from_user(&brd->cal,userptr, len) != 0) {
                         ret = -EFAULT;
                         break;
                 }
@@ -2015,26 +2047,14 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 A2DSetCal(brd);
                 ret = 0;
                 break;
-
-        case NIDAS_A2D_ADD_FILTER:     /* user set */
-                {
-                        struct nidas_a2d_filter_config cfg;
-                        if (copy_from_user(&cfg, (void __user *) arg,
-                                           sizeof (struct
-                                                   nidas_a2d_filter_config)))
-                                return -EFAULT;
-                        ret = configA2DFilter(brd, &cfg);
-                }
-                break;
-        case A2D_RUN:
+        case NCAR_A2D_RUN:
                 ret = startBoard(brd);
                 break;
-
-        case A2D_STOP:
+        case NCAR_A2D_STOP:
                 ret = stopBoard(brd);
                 break;
 
-        case A2DTEMP_GET_TEMP:
+        case NCAR_A2D_GET_TEMP:
                 if (len != sizeof (short))
                         break;
                 ret = copy_to_user(userptr, &brd->currentTemp, len);
@@ -2043,7 +2063,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 ret = sizeof (short);
                 break;
 
-        case A2DTEMP_SET_RATE:
+        case NCAR_A2D_SET_TEMPRATE:
                 /*
                  * Set temperature query rate (using enum irigClockRates)
                  */

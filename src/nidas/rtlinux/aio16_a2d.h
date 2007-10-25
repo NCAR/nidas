@@ -175,6 +175,8 @@ struct AIO16_Board {
     int maxRate;		// Maximum requested A/D sample rate
     int overSample;		// number of oversamples (1,2,8,16)
 
+    struct irig_callback* pollCallback;
+
     rtl_spinlock_t queuelock;
     rtl_sem_t fifoSem;		//
     struct dsm_sample_circ_buf fifoSamples;

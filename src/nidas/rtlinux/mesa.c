@@ -360,23 +360,26 @@ static void close_ports( struct MESA_Board * brd )
   }
 
   // unregister poll function from IRIG module
-  if (brd->counter_rate != IRIG_NUM_RATES)
+  if (brd->cntrCallback)
   {
-    unregister_irig_callback(&read_counter, brd->counter_rate, 0);
+    unregister_irig_callback(brd->cntrCallback);
+    brd->cntrCallback = 0;
     DSMLOG_DEBUG("unregistered read_counter() from IRIG.\n");
   }
 
   // unregister poll function from IRIG module
-  if (brd->radar_rate != IRIG_NUM_RATES)
+  if (brd->radarCallback)
   {
-    unregister_irig_callback(&read_radar, IRIG_100_HZ, 0);
+    unregister_irig_callback(brd->radarCallback);
+    brd->radarCallback = 0;
     DSMLOG_DEBUG("unregistered read_radar() from IRIG.\n");
   }
 
   // unregister poll function from IRIG module
-  if (brd->twoSixty_rate != IRIG_NUM_RATES)
+  if (brd->twoSixtyCallback)
   {
-    unregister_irig_callback(&read_260x, brd->twoSixty_rate, 0);
+    unregister_irig_callback(brd->twoSixtyCallback);
+    brd->twoSixtyCallback = 0;
     DSMLOG_DEBUG("unregistered read_260x() from IRIG.\n");
   }
 }
@@ -450,7 +453,9 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
       DSMLOG_DEBUG("COUNTERS_SET rate=%d\n", counter_ptr->rate);
       // register poll routine with the IRIG driver
       brd->counter_rate = irigClockRateToEnum(counter_ptr->rate);
-      register_irig_callback(&read_counter, brd->counter_rate, 0);
+      brd->cntrCallback =
+        register_irig_callback(&read_counter, brd->counter_rate, 0,&ret);
+      if (!brd->cntrCallback) break;
       brd->nCounters = counter_ptr->nChannels;
       ret = len;
       break;
@@ -481,7 +486,9 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
        * Then every NPOLL times that the read_radar function is
        * called, we output a sample.
        */
-      register_irig_callback(&read_radar, IRIG_100_HZ, 0);
+      brd->radarCallback =
+          register_irig_callback(&read_radar, IRIG_100_HZ, 0,&ret);
+      if (!brd->radarCallback) break;
 
       brd->nRadars = radar_ptr->nChannels;
       ret = len;
@@ -493,7 +500,9 @@ static int ioctlCallback(int cmd, int board, int port, void *buf, rtl_size_t len
       DSMLOG_DEBUG("260X_SET rate=%d\n", twoSixty_ptr->rate);
       // register poll routine with the IRIG driver
       brd->twoSixty_rate = irigClockRateToEnum(twoSixty_ptr->rate);
-      register_irig_callback(&read_260x, brd->twoSixty_rate, 0);
+      brd->twoSixtyCallback =
+              register_irig_callback(&read_260x, brd->twoSixty_rate, 0,&ret);
+      if (!brd->twoSixtyCallback) break;
       brd->n260X = twoSixty_ptr->nChannels;
       ret = len;
       break;
@@ -572,7 +581,6 @@ int init_module (void)
   // DSM_VERSION_STRING is found in dsm_version.h
   DSMLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
   DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
-
 
   numboards = 1;
   error = -ENOMEM;

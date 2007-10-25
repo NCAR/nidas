@@ -153,20 +153,37 @@ void irig_clock_gettime(struct rtl_timespec* tp);
  */
 int get_msec_clock_resolution();
 
-typedef void irig_callback_t(void* privateData);
+typedef void irig_callback_func(void* privateData);
 
 void setRate2Output (int rate, int isRT);
 
-int register_irig_callback(irig_callback_t* func, enum irigClockRates rate,
-	void* privateData);
+/**
+ *  * Entry in a callback list.
+ *   */
+struct irig_callback {
+        struct list_head list;
+        irig_callback_func* callback;
+        void* privateData;
+        enum irigClockRates rate;
+        int enabled;
+};
 
-void unregister_irig_callback(irig_callback_t* func, enum irigClockRates rate,
-	void* privateData);
+/*
+ *  * Schedule timed regular callbacks of a particular function
+ *   */
+extern struct irig_callback* register_irig_callback(
+    irig_callback_func* func, enum irigClockRates rate,
+    void* privateData,int* errp);
+
+extern int unregister_irig_callback(struct irig_callback*);
+
+extern int flush_irig_callbacks(void);
 
 struct irig_port {
     char* inFifoName;
     int inFifoFd;
     struct dsm_clock_sample samp;
+    struct irig_callback* writeCallback;
 };
 
 

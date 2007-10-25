@@ -18,7 +18,8 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/dynld/A2DSensor.h>
 
-#include <nidas/linux/filters/short_filters.h>
+#include <nidas/linux/diamond/dmd_mmat.h>
+// #include <nidas/linux/filters/short_filters.h>
 
 #include <vector>
 #include <map>
@@ -50,8 +51,6 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    void init() throw(nidas::util::InvalidParameterException);
-                                                                                
     /*
      * Close the device connected to the sensor.
      */
@@ -65,15 +64,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
             throw(nidas::util::InvalidParameterException);
 
-private:
+    int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
 
-    /* What we need to know about a channel */
-    struct chan_info {
-	int gain;   // 0 means this channel is not sampled
-	bool bipolar;
-        int index;     // index of sample for this channel
-    };
-    std::vector<struct chan_info> _channels;
+    void setA2DParameters(int ichan,int gain,int bipolar)
+               throw(nidas::util::InvalidParameterException);
+
+    void getBasicConversion(int ichan,float& intercept, float& slope) const;
+
+private:
 
     mutable int rtlinux;
 

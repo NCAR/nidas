@@ -155,9 +155,42 @@ struct temp_sample
 struct A2DBoard
 {
         unsigned int addr;      // Base address of board
-        unsigned int chan_addr;
+        unsigned int cmd_addr;
 
-        rtl_pthread_t setup_thread;
+        int gain[NUM_NCAR_A2D_CHANNELS];        // Gain settings
+        int offset[NUM_NCAR_A2D_CHANNELS];      // Offset flags
+        unsigned short ocfilter[CONFBLOCKS * CONFBLLEN + 1];    // on-chip filter data
+
+        int scanRate;
+        int scanDeltatMsec;
+        int nFifoValues;        // how many values to read from FIFO per poll
+        int skipFactor;         // set to 2 to skip over interleaving status
+        int busy;
+        size_t readCtr;
+        int nbadScans;
+        int master;
+
+        struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
+        struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
+        struct short_sample *discardSample;
+
+        struct dsm_sample_circ_buf temp_samples;        // temperature samples
+
+        int nfilters;           // how many different output filters
+        struct a2d_filter_info *filters;
+
+        struct irig_callback *a2dCallback;
+
+        struct irig_callback *tempCallback;
+
+        int tempRate;           // rate to query I2C temperature sensor
+
+        size_t nbadFifoLevel;
+        size_t fifoNotEmpty;
+        size_t skippedSamples;  // discarded samples because of
+        short *discardBuffer;   // used for discarding data from the fifo
+
+        rtl_pthread_t startBoardThread;
 
         rtl_pthread_t reset_thread;
         void *reset_thread_stack;
@@ -169,52 +202,29 @@ struct A2DBoard
 
         int a2dfd;              // File descriptor of RTL FIFO for A2D data
         char *a2dFifoName;
-        int tempRate;        // rate to query I2C temperature sensor
         struct ioctlHandle *ioctlhandle;
-        A2D_SET config;         // board configuration
-        A2D_CAL cal;            // calibration configuration
-        A2D_STATUS cur_status;  // status info maintained by driver
-        A2D_STATUS prev_status; // status info maintained by driver
-        unsigned char requested[NUM_NCAR_A2D_CHANNELS]; // 1=channel requested, 0=isn't
-        int busy;
-        size_t readCtr;
-        int nbadScans;
+
+        struct ncar_a2d_cal_config cal; // calibration configuration
+        struct ncar_a2d_status cur_status;      // status info maintained by driver
+        struct ncar_a2d_status prev_status;     // status info maintained by driver
+
         int expectedFifoLevel;
-        int master;
 
-        struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
-        struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
-        struct dsm_sample_circ_buf temp_samples;        // temperature samples
-        struct short_sample*    discardSample;
-        short *discardBuffer;   // used for discarding data from the fifo
-
-        unsigned char obuffer[A2D_OUTPUT_BUFFER_SIZE];  // data buffer
+        unsigned char obuffer[A2D_OUTPUT_BUFFER_SIZE];  // output data buffer
         int ohead;              // head of obuffer
         int otail;              // tail of obuffer
         long latencyJiffies;    // minimum interval between output writes
-        unsigned long lastWrite;        // last write to output RTL fifo
+        unsigned long lastWrite;        // jiffie of last write to output
 
-        int scanRate;
-        int scanDeltatMsec;
-
-        int nfilters;           // how many different output filters
-        struct a2d_filter_info *filters;
-
-        int nFifoValues;        // how many values to read from FIFO per poll
-        int skipFactor;         // set to 2 to skip over interleaving status
-
-        size_t nbadFifoLevel;
-        size_t fifoNotEmpty;
-        size_t skippedSamples;  // discarded samples because of
-        // RTL FIFO sluggishness.
         int resets;             // number of board resets since last open
+        int invertCounts;       // whether to invert counts from this A2D
+        int discardNextScan;    // should we discard the next scan
+        int enableReads;        // reset not in progress
 
+        short i2cTempData;      // last measured temperature
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage
-        short i2cTempData;      // last measured temperature
         unsigned char i2c;      // data byte written to I2C
-        char invertCounts;      // whether to invert counts from this A2D
-        char discardNextScan;   // should we discard the next scan
-        int enableReads;        // reset not in progress
+
 };
 #endif

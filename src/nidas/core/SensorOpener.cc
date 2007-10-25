@@ -130,7 +130,7 @@ int SensorOpener::run() throw(n_u::Exception)
 		  sensor->getName().c_str(),e.what());
 
             // file descriptor may still be open if the
-            // error happened in the after the libc ::open
+            // error happened after the libc ::open
             // during some initialization.
             try {
                 sensor->close();

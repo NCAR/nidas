@@ -47,10 +47,7 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 
 IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (DSMEngine::isRTLinux())
-	return new RTL_IODevice();
-    else
-	return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
@@ -61,25 +58,12 @@ SampleScanner* A2DBoardTempSensor::buildSampleScanner()
 void A2DBoardTempSensor::open(int flags)
 	throw(n_u::IOException, n_u::InvalidParameterException)
 {
-    DSMSensor::open(flags);
-    if (DSMEngine::isRTLinux())
-	ioctl(A2DTEMP_OPEN, &rate, sizeof(rate));
-    else
-	ioctl(A2DTEMP_SET_RATE, &rate, sizeof(rate));
+    throw n_u::IOException(getName(),"open","obsolete");
 }
 
 void A2DBoardTempSensor::close() throw(n_u::IOException)
 {
-    if (DSMEngine::isRTLinux())
-	ioctl(A2DTEMP_CLOSE, 0, 0);
-    DSMSensor::close();
-}
-
-float A2DBoardTempSensor::getTemp() throw(n_u::IOException)
-{
-    short tval;
-    ioctl(A2DTEMP_GET_TEMP, &tval, sizeof(tval));
-    return tval * DEGC_PER_CNT;
+    throw n_u::IOException(getName(),"close","obsolete");
 }
 
 void A2DBoardTempSensor::init() throw(n_u::InvalidParameterException)
@@ -89,22 +73,6 @@ void A2DBoardTempSensor::init() throw(n_u::InvalidParameterException)
 	rate = irigClockRateToEnum((int)tag->getRate());
 	sampleId = tag->getId();
 	break;
-    }
-}
-
-void A2DBoardTempSensor::printStatus(std::ostream& ostr) throw()
-{
-    DSMSensor::printStatus(ostr);
-    try {
-        float tdeg = getTemp();
-	ostr << "<td align=left>" << fixed << setprecision(1) <<
-	    tdeg << " degC</td>" << endl;
-    }
-    catch (const n_u::IOException& e) {
-        n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: printStatus: %s", getName().c_str(),
-	    e.what());
-	ostr << "<td>" << e.what() << "</td>" << endl;
     }
 }
 

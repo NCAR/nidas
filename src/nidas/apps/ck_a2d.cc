@@ -42,9 +42,6 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-void A2D_SETDump(A2D_SET *a);
-
-
 int main(int argc, char** argv)
 {
   int ii, jj, i;

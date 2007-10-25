@@ -187,7 +187,7 @@ struct serialPort {
     struct termios termios;
 
     struct dsm_serial_prompt prompt;	/* prompt sent to sensor */
-    unsigned char promptOn;		/* are we sending prompts? */
+    struct irig_callback* promptCallback;
 
 			/* information about how records are separated
 			 * in the stream of data from the sensor */

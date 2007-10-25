@@ -642,6 +642,97 @@ int convert_rtl_errno(int rtlerr)
     }
 }
 
+int convert_to_rtl_errno(int err)
+{
+    switch (err) {
+    case E2BIG: 		return RTL_E2BIG;
+    case EACCES: 		return RTL_EACCES;
+    case EADDRINUSE:        	return RTL_EADDRINUSE;
+    case EADDRNOTAVAIL: 	return RTL_EADDRNOTAVAIL;
+    case EAFNOSUPPORT:      	return RTL_EAFNOSUPPORT;
+    case EAGAIN: 		return RTL_EAGAIN;
+    case EALREADY: 		return RTL_EALREADY;
+    case EBADF: 		return RTL_EBADF;
+    case EBADMSG: 		return RTL_EBADMSG;
+    case EBUSY: 		return RTL_EBUSY;
+    // case ECANCELED:		return RTL_EINTR;// no ECANCELED, use EINTR
+    case ECHILD: 		return RTL_ECHILD;
+    case ECONNABORTED: 		return RTL_ECONNABORTED;
+    case ECONNREFUSED:      	return RTL_ECONNREFUSED;
+    case ECONNRESET:        	return RTL_ECONNRESET;
+    case EDEADLK: 		return RTL_EDEADLK;
+    case EDESTADDRREQ:       	return RTL_EDESTADDRREQ;
+    case EDOM: 	        	return RTL_EDOM;
+    case EDQUOT: 		return RTL_EDQUOT;
+    case EEXIST: 		return RTL_EEXIST;
+    case EFAULT: 		return RTL_EFAULT;
+    case EFBIG: 		return RTL_EFBIG;
+    case EHOSTUNREACH:      	return RTL_EHOSTUNREACH;
+    case EIDRM: 		return RTL_EIDRM;
+    case EILSEQ: 		return RTL_EILSEQ;
+#ifdef RTL_EINPROGRESS
+    case EINPROGRESS:   	return RTL_EINPROGRESS;
+#else							// rtl typo
+    case EINPROGRESS:           return RTL_EINPROGESS;
+#endif
+    case EINTR: 		return RTL_EINTR;
+    case EINVAL: 		return RTL_EINVAL;
+    case EIO: 	        	return RTL_EIO;
+    case EISCONN: 		return RTL_EISCONN;
+    case EISDIR: 		return RTL_EISDIR;
+    case ELOOP: 		return RTL_ELOOP;
+    case EMFILE: 		return RTL_EMFILE;
+    case EMLINK: 		return RTL_EMLINK;
+    case EMSGSIZE: 		return RTL_EMSGSIZE;
+    case EMULTIHOP:         	return RTL_EMULTIHOP;
+    case ENAMETOOLONG:       	return RTL_ENAMETOOLONG;
+    case ENETDOWN: 		return RTL_ENETDOWN;
+    case ENETRESET:      	return RTL_ENETRESET;
+    case ENETUNREACH:        	return RTL_ENETUNREACH;
+    case ENFILE: 		return RTL_ENFILE;
+    case ENOBUFS: 		return RTL_ENOBUFS;
+    case ENODATA: 		return RTL_ENODATA;
+    case ENODEV: 		return RTL_ENODEV;
+    case ENOENT: 		return RTL_ENOENT;
+    case ENOEXEC: 		return RTL_ENOEXEC;
+    case ENOLCK: 		return RTL_ENLOCK;	// no ENLOCK, use ENOLCK
+    case ENOLINK: 		return RTL_ENOLINK;
+    case ENOMEM: 		return RTL_ENOMEM;
+    case ENOMSG: 		return RTL_ENOMSG;
+    case ENOPROTOOPT:       	return RTL_ENOPROTOOPT;
+    case ENOSPC: 		return RTL_ENOSPC;
+    case ENOSR: 		return RTL_ENOSR;
+    case ENOSTR: 		return RTL_ENOSTR;
+    case ENOSYS: 		return RTL_ENOSYS;
+    case ENOTCONN: 		return RTL_ENOTCONN;
+    case ENOTDIR: 		return RTL_ENOTDIR;
+    case ENOTEMPTY:      	return RTL_ENOTEMPTY;
+    case ENOTSOCK: 		return RTL_ENOTSOCK;
+    // case ENOTSUP: 		return RTL_NOTSUP;	// no ENOTSUP, use EINVAL
+    case ENOTTY: 		return RTL_ENOTTY;
+    case ENXIO: 		return RTL_ENXIO;
+    case EOPNOTSUPP:        	return RTL_EOPNOTSUPP;
+    case EOVERFLOW:         	return RTL_EOVERFLOW;
+    case EPERM: 		return RTL_EPERM;
+    case EPIPE: 		return RTL_EPIPE;
+    case EPROTO: 		return RTL_EPROTO;
+    case EPROTONOSUPPORT: 	return RTL_EPROTONOSUPPORT;
+    case EPROTOTYPE:         	return RTL_EPROTOTYPE;
+    case ERANGE: 		return RTL_ERANGE;
+    case EROFS: 		return RTL_EROFS;
+    case ESPIPE: 		return RTL_ESPIPE;
+    case ESRCH: 		return RTL_ESRCH;
+    case ESTALE: 		return RTL_ESTALE;
+    case ETIME: 		return RTL_ETIME;
+    case ETIMEDOUT: 	        return RTL_ETIMEDOUT;
+    case ETXTBSY: 		return RTL_ETXTBSY;
+    // case EWOULDBLOCK:       	return RTL_EWOULDBLOCK; // same as EAGAIN
+    case EXDEV: 		return RTL_EXDEV;
+    default: DSMLOG_WARNING("unknown errno=%d\n",err);
+				return RTL_EINVAL;
+    }
+}
+
 int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 {
     char* sp;
