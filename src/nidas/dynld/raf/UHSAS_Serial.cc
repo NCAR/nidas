@@ -232,6 +232,17 @@ void UHSAS_Serial::sendInitString() throw(n_u::IOException)
 
     n_u::UTime twrite;
     write(setup_pkt, sizeof(setup_pkt));
+
+    // UHSAS starts sending data.  So read first sample
+    // to see that things are OK
+
+    // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
+    readBuffer(MSECS_PER_SEC * 1);
+
+    Sample* samp = nextSample();
+    if (!samp)
+        throw n_u::IOException(getName(),"first sample", "not read.");
+    samp->freeReference();
 }
 
 bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)

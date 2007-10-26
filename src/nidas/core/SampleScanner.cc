@@ -159,6 +159,7 @@ void SampleScanner::calcStatistics(unsigned long periodUsec)
     reportIndex = currentIndex;
     currentIndex = (currentIndex + 1) % 2;
     maxSampleLength[currentIndex] = 0;
+    minSampleLength[currentIndex] = ULONG_MAX;
 
     sampleRateObs = ((float)nsamples / periodUsec) * USECS_PER_SEC;
 
@@ -593,6 +594,7 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
         buftail += nc;
     }
     if (outSampRead == (unsigned)getMessageLength()) {
+        addSampleToStats(outSampRead);
         result = osamp;
         osamp = 0;
     }

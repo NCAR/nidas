@@ -198,7 +198,11 @@ public:
     	{ return maxSampleLength[reportIndex]; }
 
     size_t getMinSampleLength() const
-    	{ return minSampleLength[reportIndex]; }
+	{ 
+		// if max is 0 then we haven't gotten any data
+		if (maxSampleLength[reportIndex] == 0) return 0;
+		return minSampleLength[reportIndex];
+        }
 
     size_t getBadTimeTagCount() const
     {
