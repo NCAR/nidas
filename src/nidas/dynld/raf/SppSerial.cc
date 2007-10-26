@@ -32,7 +32,8 @@ SppSerial::SppSerial() : DSMSerialSensor(),
   _checkSumErrorCnt(0),
   _waitingData(0),
   _nWaitingData(0),
-  _skippedBytes(0)
+  _skippedBytes(0),
+  _sampleRate(1)
 {
   // If these aren't true, we're screwed!
   assert(sizeof(DMT_UShort) == 2);
@@ -53,6 +54,8 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     DSMSerialSensor::fromDOMElement(node);
+
+    _sampleRate = (int)rint(getPromptRate());
 
     const Parameter *p;
 
@@ -264,5 +267,11 @@ int SppSerial::appendDataAndFindGood(const Sample* samp) {
     _skippedBytes += nDrop;
 
     return false;
+}
+
+void SppSerial::addSampleTag(SampleTag * tag)
+        throw(n_u::InvalidParameterException)
+{
+    DSMSensor::addSampleTag(tag);
 }
 

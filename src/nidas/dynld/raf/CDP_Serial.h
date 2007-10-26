@@ -40,9 +40,6 @@ public:
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
-  void addSampleTag(SampleTag* tag)
-        throw(nidas::util::InvalidParameterException);
-
 
   // Packet to initialize probe with.
   struct InitCDP_blk
@@ -94,12 +91,6 @@ protected:
   unsigned short _dofReject;
   unsigned short _attAccept;
   unsigned short _ctMethod;
-
-  /**
-   * Stash sample-rate.  The rw histogram counts we want to convert to
-   * a counts per second by multiplying by sample rate.
-   */
-  unsigned int _sampleRate;
 };
 
 }}}	// namespace nidas namespace dynld raf

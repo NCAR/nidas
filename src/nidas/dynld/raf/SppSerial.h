@@ -110,6 +110,12 @@ public:
 
 protected:
   /**
+   * Used to acquire sample rate to convert data to counts per second.
+   */
+  void addSampleTag(SampleTag* tag)
+        throw(nidas::util::InvalidParameterException);
+
+  /**
    * Return the expected data packet length in bytes based on the number of
    * channels being used.
    */
@@ -199,6 +205,11 @@ protected:
     DMT_UShort cksum;	// 0x001d
   };
 
+  /**
+   * Stash sample-rate.  The rw histogram counts we want to convert to
+   * a counts per second by multiplying by sample rate.
+   */
+  unsigned int _sampleRate;
 };
 
 }}}	// namespace nidas namespace dynld raf

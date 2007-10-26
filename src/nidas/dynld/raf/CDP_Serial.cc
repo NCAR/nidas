@@ -16,9 +16,6 @@
 #include <nidas/dynld/raf/CDP_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>
-
-#include <cmath>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
@@ -32,7 +29,7 @@ const size_t CDP_Serial::FREF_INDX = 4;
 const size_t CDP_Serial::FTMP_INDX = 7;
 
 
-CDP_Serial::CDP_Serial(): SppSerial(), _sampleRate(1)
+CDP_Serial::CDP_Serial(): SppSerial()
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.
@@ -73,11 +70,12 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
 {
     SppSerial::fromDOMElement(node);
 
+    // If fixed record delimiter.
     //
-    // Fixed record delimiter (for now?)
-    //
-    _dataType = Delimited;
-    _recDelimiter = 0xffff;
+    if (getMessageSeparator().length() > 0) {	// PACDEX
+        _dataType = Delimited;
+        _recDelimiter = 0xffff;
+    }
 
     const Parameter *p;
 
@@ -137,19 +135,15 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
 				   _InitPacketSize - 2));
     sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
 
-    // normal operation.
-    setMessageSeparator("\xff\xff");
-    setMessageSeparatorAtEOM(true);
-    setMessageLength(packetLen() - 2);       // subtract off length of separator
-    setMessageParameters(); // does the ioctl
+    setMessageLength(packetLen());
+    setMessageParameters();
 }
-
 
 bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
     if (! appendDataAndFindGood(samp))
-      return false;
+        return false;
 
     /*
      * Copy the good record into our CDP_blk struct.
@@ -190,7 +184,7 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
     *dout++ = 0.0;
-#endif    
+#endif
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]) * _sampleRate;
 
@@ -200,11 +194,4 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     results.push_back(outs);
     return true;
-}
-
-void CDP_Serial::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
-{
-  DSMSensor::addSampleTag(tag);
-  _sampleRate = (int)rint(tag->getRate());
 }

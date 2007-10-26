@@ -136,7 +136,7 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
 	throw()
 {
     if (! appendDataAndFindGood(samp))
-      return false;
+        return false;
 
     /*
      * Copy the good record into our DMT100_blk struct.
@@ -179,7 +179,7 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
     *dout++ = 0.0;
 #endif    
     for (int iout = 0; iout < _nChannels; ++iout)
-	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
+	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]) * _sampleRate;
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.
