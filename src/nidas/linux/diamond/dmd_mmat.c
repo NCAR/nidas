@@ -1314,7 +1314,6 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         int flevel = a2d->getFifoLevel(a2d);
         int i;
         struct dsm_sample* samp;
-        char* dp;
 
         if (!(a2d->status.irqsReceived++ % 100)) KLOG_DEBUG("%s: %d irqs received\n",
             a2d->deviceName,a2d->status.irqsReceived);
@@ -1355,11 +1354,10 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         }
 
         samp->timetag = getSystemTimeTMsecs();
-        dp = samp->data;
 
         // Finally!!!! the actual read from the hardware fifo.
         // All this overhead just to do this...
-        insw(brd->addr,dp,a2d->fifoThreshold);
+        insw(brd->addr,(short*)samp->data,a2d->fifoThreshold);
         samp->length = a2d->fifoThreshold * sizeof(short);
 
         /* On the MM16AT the fifo empty bit isn't set after reading
