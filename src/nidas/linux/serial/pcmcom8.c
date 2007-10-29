@@ -78,12 +78,12 @@ static int pcmcom8_check_config(struct pcmcom8_config* config)
         int sysirq;
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
                 if (config->ports[i].ioport > 0x3f8) {
-                    KLOG_WARNING("bad ioport=%d",config->ports[i].ioport);
+                    KLOG_WARNING("bad ioport=%d\n",config->ports[i].ioport);
                     return 0;
                 }
                 sysirq = GET_SYSTEM_ISA_IRQ(config->ports[i].irq);
                 if (sysirq <= 0) {
-                    KLOG_WARNING("bad irq=%d, system irq=%d",
+                    KLOG_WARNING("bad irq=%d, system irq=%d\n",
                         config->ports[i].irq,sysirq);
                     return 0;
                 }
