@@ -85,7 +85,7 @@ protected:
     return (36 + 4 * _nChannels);
   }
 
-  static const size_t FREF_INDX, FTMP_INDX;
+  static const size_t FLSR_CUR_INDX, FLSR_PWR_INDX;
 
   unsigned short _transitReject;
   unsigned short _dofReject;

@@ -25,8 +25,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,CDP_Serial)
 
-const size_t CDP_Serial::FREF_INDX = 4;
-const size_t CDP_Serial::FTMP_INDX = 7;
+const size_t CDP_Serial::FLSR_CUR_INDX = 0;
+const size_t CDP_Serial::FLSR_PWR_INDX = 1;
 
 
 CDP_Serial::CDP_Serial(): SppSerial()
@@ -61,7 +61,7 @@ CDP_Serial::CDP_Serial(): SppSerial()
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //
-    _nHskp = 6;
+    _nHskp = 8;
 }
 
 
@@ -172,13 +172,13 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) * 
-	4.882812e-3;
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) * 
-	0.9765625;
-    *dout++ = _range;
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * 0.061;
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * 0.00122;
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[2]);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[3]);
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
     *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
+    *dout++ = UnpackDMT_ULong(inRec.AvgTransit);
     *dout++ = UnpackDMT_ULong(inRec.ADCoverflow);
 
 #ifdef ZERO_BIN_HACK
