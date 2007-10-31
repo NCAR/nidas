@@ -36,7 +36,7 @@ struct usb_twod_stats
 typedef struct _Tap2D
 {
         unsigned char ntap;     /* which tap in the variable resistor (0-255) */
-        unsigned char vdiv;     /* boolean toggle for voltage divide by 10 */
+        unsigned char div10;    /* boolean toggle for frequency divide by 10 */
         unsigned char cntr;     /* counter from 1 to 10 */
         unsigned char dummy;
 } Tap2D;
