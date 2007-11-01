@@ -27,6 +27,10 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,TwoD_House)
 
 
+TwoD_House::~TwoD_House()
+{
+}
+
 TwoD_House::TwoD_House() : DSMSerialSensor(), _noutValues(7)
 {
   ::memset(_houseKeeping, 0, sizeof(_houseKeeping));

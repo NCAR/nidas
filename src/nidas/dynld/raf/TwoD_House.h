@@ -29,11 +29,8 @@ namespace nidas { namespace dynld { namespace raf {
 class TwoD_House : public DSMSerialSensor
 {
 public:
-
   TwoD_House();
-
-  void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
+  ~TwoD_House();
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
