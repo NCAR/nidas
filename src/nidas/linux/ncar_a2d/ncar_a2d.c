@@ -1547,7 +1547,7 @@ static void TemperatureCallback(void *ptr)
         osamp->timetag = GET_MSEC_CLOCK;
         osamp->length = 2 * sizeof (short);
         osamp->data[0] = cpu_to_le16(NCAR_A2D_TEMPERATURE_INDEX);
-        brd->currentTemp = osamp->data[1] = A2DTemp(brd);
+        brd->currentTemp = osamp->data[1] = cpu_to_le16(A2DTemp(brd));
         INCREMENT_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&brd->rwaitq_a2d);
 }
@@ -2348,9 +2348,9 @@ int init_module()
                                 release_region(brd->base_addr, A2DIOWIDTH);
                         brd->base_addr = 0;
                 }
+                kfree(BoardInfo);
+                BoardInfo = 0;
         }
-        kfree(BoardInfo);
-        BoardInfo = 0;
 
         if (work_queue)
                 destroy_workqueue(work_queue);

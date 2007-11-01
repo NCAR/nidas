@@ -2718,7 +2718,6 @@ void dmd_mmat_cleanup(void)
 
     KLOG_DEBUG("complete\n");
 
-
     return;
 }
 

@@ -12,6 +12,7 @@ subdirs=Split("""
     diamond
     filters
     irig
+    mesa
     ncar_a2d
     serial
     usbtwod
@@ -44,11 +45,12 @@ for dir in subdirs + archdirs:
 Default(build_dirs)
 
 headers = Split("""
-    klog.h
+    a2d.h
     isa_bus.h
     irigclock.h
+    klog.h
+    mesa.h
     ncar_a2d.h
-    a2d.h
     types.h
     util.h
 """)
