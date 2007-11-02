@@ -49,26 +49,32 @@ bool TwoD_House::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
     const char * input = (char *) samp->getConstVoidDataPtr();
+    const char * eoinput = input + samp->getDataByteLength();
+
+    unsigned int shado[5];
+    unsigned int tag;
+    unsigned int hkp;
+
+    // skip over leading NULs
+    for (; input < eoinput && *input == '\0'; input++);
+    if (input == eoinput) return false;
+
+    int nf = sscanf(input, "%x %x %x %x %x %x %x",
+	&shado[0], &shado[1], &shado[2], &shado[3], &shado[4], &tag, &hkp);
+
+    float shadow_or = 0.0;
+    for (int iout = 0; iout < 5 && iout < nf; ++iout)
+        shadow_or += shado[iout];
+
+    // Push the housekeeping.  They are not all decoded/available every sample,
+    // they come round robin.
+    if (nf > 6 && tag < 8)
+       _houseKeeping[tag] = hkp;
 
     SampleT<float> * outs = getSample<float>(_noutValues);
     float * dout = outs->getDataPtr();
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);
-
-    unsigned int shado[5];
-    unsigned int tag;
-    unsigned int hkp;
-    sscanf(input, "%x %x %x %x %x %x %x",
-	&shado[0], &shado[1], &shado[2], &shado[3], &shado[4], &tag, &hkp);
-
-    float shadow_or = 0.0;
-    for (int iout = 0; iout < 5; ++iout)
-        shadow_or += shado[iout];
-
-    // Push the housekeeping.  They are not all decoded/available every sample,
-    // they come round robin.
-    if (tag < 8)
-       _houseKeeping[tag] = hkp;
 
     *dout++ = _houseKeeping[V15_INDX];
     *dout++ = _houseKeeping[TMP_INDX];
