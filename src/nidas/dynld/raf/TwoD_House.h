@@ -25,6 +25,15 @@ namespace nidas { namespace dynld { namespace raf {
 /**
  * A class for reading and parsing the PMS2D Housekeeping (from the old
  * interface, not the new Fast 2DC).  RS-232 @ 9600 baud.  1Hz.
+ *
+ * Sample looks like (values in hex):
+ *	0000 0000 0000 0000 0000 05 00e4
+ *
+ * First 5 are shadow-or counts and should be summed to produce 1 value.
+ * The sixth value is the housekeeping index number and the seventh is
+ * the housekeeping value.  There are 8 housekeeping values, you get one
+ * each sample.  So we will collect them and report the same value for
+ * 8 seconds.
  */
 class TwoD_House : public DSMSerialSensor
 {
@@ -46,8 +55,10 @@ protected:
   /**
    * Housekeeping.
    */
-  float _houseKeeping[10];
+  float _houseKeeping[8];
 
+  static const size_t V15_INDX, TMP_INDX, EE1_INDX, EE32_INDX,
+	VN15_INDX, V5_INDX;
 };
 
 }}}	// namespace nidas namespace dynld raf

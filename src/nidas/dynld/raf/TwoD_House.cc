@@ -26,6 +26,14 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,TwoD_House)
 
+// More for documentation than anything.
+const size_t TwoD_House::V15_INDX = 0;
+const size_t TwoD_House::TMP_INDX = 1;
+const size_t TwoD_House::EE1_INDX = 4;
+const size_t TwoD_House::EE32_INDX = 5;
+const size_t TwoD_House::VN15_INDX = 6;
+const size_t TwoD_House::V5_INDX = 7;
+
 
 TwoD_House::~TwoD_House()
 {
@@ -47,20 +55,27 @@ bool TwoD_House::process(const Sample* samp,list<const Sample*>& results)
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);
 
-    unsigned int value[8];
-    sscanf(input, "%x %x %x %x %x %x %x %x",
-	&value[0], &value[1], &value[2], &value[3], &value[4], &value[5], &value[6], &value[7]);
+    unsigned int shado[5];
+    unsigned int tag;
+    unsigned int hkp;
+    sscanf(input, "%x %x %x %x %x %x %x",
+	&shado[0], &shado[1], &shado[2], &shado[3], &shado[4], &tag, &hkp);
 
     float shadow_or = 0.0;
     for (int iout = 0; iout < 5; ++iout)
-        shadow_or += value[iout];
+        shadow_or += shado[iout];
 
-// Get mapping from Spowart for each housekeeping that comes and stash into _houseKeep array.
-
-    // Push the housekeeping.  There are not all decoded/available every sample,
+    // Push the housekeeping.  They are not all decoded/available every sample,
     // they come round robin.
-    for (int iout = 0; iout < 6; ++iout)
-        *dout++ = _houseKeeping[iout];
+    if (tag < 8)
+       _houseKeeping[tag] = hkp;
+
+    *dout++ = _houseKeeping[V15_INDX];
+    *dout++ = _houseKeeping[TMP_INDX];
+    *dout++ = _houseKeeping[EE1_INDX] * 0.001;
+    *dout++ = _houseKeeping[EE32_INDX] * 0.001;
+    *dout++ = _houseKeeping[VN15_INDX];
+    *dout++ = _houseKeeping[V5_INDX];
 
     *dout++ = shadow_or;
 
