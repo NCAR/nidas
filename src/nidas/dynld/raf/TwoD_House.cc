@@ -48,7 +48,7 @@ TwoD_House::TwoD_House() : DSMSerialSensor(), _noutValues(7)
 bool TwoD_House::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
-    const char * input = (char *) samp->getConstVoidDataPtr();
+    const char * input = (const char *) samp->getConstVoidDataPtr();
     const char * eoinput = input + samp->getDataByteLength();
 
     unsigned int shado[5];
@@ -68,7 +68,7 @@ bool TwoD_House::process(const Sample* samp,list<const Sample*>& results)
 
     // Push the housekeeping.  They are not all decoded/available every sample,
     // they come round robin.
-    if (nf > 6 && tag < 8)
+    if (nf > 6 && tag < sizeof(_houseKeeping)/sizeof(_houseKeeping[0]))
        _houseKeeping[tag] = hkp;
 
     SampleT<float> * outs = getSample<float>(_noutValues);
@@ -84,6 +84,9 @@ bool TwoD_House::process(const Sample* samp,list<const Sample*>& results)
     *dout++ = _houseKeeping[V5_INDX];
 
     *dout++ = shadow_or;
+
+    // check for overflow
+    assert((dout - outs->getDataPtr()) == _noutValues);
 
     results.push_back(outs);
     return true;
