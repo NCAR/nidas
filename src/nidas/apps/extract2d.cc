@@ -311,26 +311,32 @@ int Extract2D::run() throw()
 
 		if (includeIds.size() > 0) {
 		    if (includeIds.find(id) != includeIds.end()) {
-                        P2d_rec record;
-                        struct tm t;
-                        int msecs;
+                        if (samp->getDataByteLength() == 4104) {
+                            const int* dp = (const int*) samp->getConstVoidDataPtr();
+                            int stype = *dp++;
+                            // stype=0 is a image, stype=1 is SOR
+                            if (stype == 0) {  
+                                dp++;      // skip over tas field
+                                P2d_rec record;
+                                struct tm t;
+                                int msecs;
 
-                        dsm_time_t tt = samp->getTimeTag();
-                        n_u::UTime samp_time(tt);
-                        samp_time.toTm(true, &t, &msecs);
+                                dsm_time_t tt = samp->getTimeTag();
+                                n_u::UTime samp_time(tt);
+                                samp_time.toTm(true, &t, &msecs);
 
-                        record.id = htons(0x4334);
-                        record.hour = htons(t.tm_hour);
-                        record.minute = htons(t.tm_min);
-                        record.second = htons(t.tm_sec);
-                        record.msec = htons(msecs);
-                        record.overld = htons(0);
-                        ::memcpy(record.data, samp->getConstVoidDataPtr(), P2D_DATA);
-                        outFile.write((char *)&record, sizeof(record));
+                                record.id = htons(0x4334);
+                                record.hour = htons(t.tm_hour);
+                                record.minute = htons(t.tm_min);
+                                record.second = htons(t.tm_sec);
+                                record.msec = htons(msecs);
+                                record.overld = htons(0);
+                                ::memcpy(record.data,dp, P2D_DATA);
+                                outFile.write((char *)&record, sizeof(record));
+                            }
+                        }
 		    }
 		}
-		else if (excludeIds.find(id) == excludeIds.end())
-;//			outStream.receive(samp);
                 samp->freeReference();
             }
         }
