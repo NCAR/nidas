@@ -353,7 +353,6 @@ void A2DSensor::addSampleTag(SampleTag* tag)
                 boxcarNpts = (int)param->getNumericValue(0);
         }
         else if (pname == "temperature") {
-                cerr << "temperature parameter" << endl;
                 if (param->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),"sample",
                         "bad temperature parameter");
@@ -476,7 +475,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
                     "bipolar",ost.str());
         }
 
-        cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
+        // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
         setA2DParameters(ichan,gain,bipolar);
         setConversionCorrection(ichan,corIntercept,corSlope);
 
