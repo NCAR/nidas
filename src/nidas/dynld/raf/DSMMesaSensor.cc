@@ -35,7 +35,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMMesaSensor)
 
 DSMMesaSensor::DSMMesaSensor()
 {
-  cerr << __PRETTY_FUNCTION__ << endl;
+  ILOG(("constructor"));
 
   memset(&radar_info, 0, sizeof(radar_info));
   memset(&counter_info, 0, sizeof(counter_info));
@@ -63,7 +63,7 @@ void DSMMesaSensor::open(int flags) throw(n_u::IOException,
 {
   DSMSensor::open(flags);
 
-  cerr << __PRETTY_FUNCTION__ << "open-begin" << endl;
+  ILOG(("open-begin"));
 
   if (sendFPGACodeToDriver() == false)
   {
@@ -71,7 +71,7 @@ void DSMMesaSensor::open(int flags) throw(n_u::IOException,
     return;
   }
 
-  // Send down rates.  They are initialized in init()
+  // Send down rates.
   if (counter_info.rate > 0)
     ioctl(COUNTERS_SET, &counter_info, sizeof(counter_info));
 
@@ -81,7 +81,7 @@ void DSMMesaSensor::open(int flags) throw(n_u::IOException,
   if (radar_info.rate > 0)
     ioctl(RADAR_SET, &radar_info, sizeof(radar_info));
 
-  cerr << __PRETTY_FUNCTION__ << "open-end" << endl;
+  ILOG(("open-end"));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -171,11 +171,12 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
     rate = irigClockRateToEnum((int)tag->getRate());
     sampleId = tag->getId();
 
-// cerr << "init, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate() << endl;
+// ILOG(("init, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate()));
 
     switch (tag->getSampleId())
     {
       case ID_COUNTERS:
+        ILOG(("DSMMesaSensor::fromDOMElement() ID_COUNTERS selected."));
         i = 0;
         for (	VariableIterator vi = tag->getVariableIterator();
 		i < N_COUNTERS && vi.hasNext();
@@ -186,33 +187,35 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
         }
         break;
       case ID_DIG_IN:
-        cerr << "DSMMesaSensor::init() DIG_IN not implemented yet." << endl;
+        ILOG(("DSMMesaSensor::fromDOMElement() DIG_IN not implemented yet."));
         break;
       case ID_DIG_OUT:
-        cerr << "DSMMesaSensor::init() DIG_OUT not implemented yet." << endl;
+        ILOG(("DSMMesaSensor::fromDOMElement() DIG_OUT not implemented yet."));
         break;
       case ID_260X:
+        ILOG(("DSMMesaSensor::fromDOMElement() ID_260X selected."));
         p260x_info.nChannels = 1;
         p260x_info.rate = (int)tag->getRate();
         break;
       case ID_RADAR:
+        ILOG(("DSMMesaSensor::fromDOMElement() ID_RADAR selected."));
         radar_info.nChannels = 1;
         radar_info.rate = (int)tag->getRate();
         break;
       default:
-        cerr << "DSMMesaSensor::init() Unknown sampleID " << tag->getSampleId() << endl;
+        ELOG(("DSMMesaSensor::init() Unknown sampleID ") << tag->getSampleId() );
     }
 
 /*
     for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); )
     {
       const Variable* var = vi.next();
- cerr << "  var=" << var->getName() << endl;
+      ILOG(("var=") << var->getName() );
     }
 */
   }
 
-  cerr << __PRETTY_FUNCTION__ << "fromDOMElement-end" << endl;
+  ILOG(("fromDOMElement-end"));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -223,20 +226,20 @@ bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 
   // Open up the FPGA program from disk...
   strcpy(devstr, "/tmp/code/firmware/mesa_fpga_file.bit");
-  cerr << "opening " << devstr << endl;
+  ILOG(("opening ") << devstr);
   if ((fdMesaFPGAfile = fopen(devstr, "rb")) == NULL)
   {
-    cerr << "Failed to open FPGA program file " << devstr << endl;
+    ILOG(("Failed to open FPGA program file ") << devstr);
     return false;
   }
 
   size_t filesize = filelengthq(fdMesaFPGAfile);
-  cerr << "FPGA file size: " << filesize << endl;
+  ILOG(("FPGA file size: ") << filesize);
 
   // Send the Load FPGA Program ioctl
-  cerr << "go select file type" << endl;
+  ILOG(("go select file type"));
   selectfiletype(fdMesaFPGAfile);
-  cerr << "file type selected" << endl;
+  ILOG(("file type selected"));
 
   ioctl(MESA_LOAD_START,0,0);
 
@@ -251,7 +254,7 @@ bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 
   ioctl(MESA_LOAD_DONE, 0, 0);
 
-  cerr << "Done sending bit file down." << endl;
+  ILOG(("Done sending bit file down."));
   fclose(fdMesaFPGAfile);
   return true;
 }
@@ -298,7 +301,7 @@ void DSMMesaSensor::selectfiletype(FILE * fp)
   /* Read in the interesting parts of the file header. */
   if (readbytesfromfile(fp, 0, sizeof(b), b) != sizeof(b))
   {
-    cerr << "Unexpected end of file." << endl;
+    ELOG(("Unexpected end of file."));
   }
 
   /* Figure out what kind of file we have. */
@@ -306,7 +309,7 @@ void DSMMesaSensor::selectfiletype(FILE * fp)
      (b[13] == 'a'))
   {       /* Looks like a .BIT file. */
     signed long base ;
-    cerr << "Looks like a .BIT file:" << endl ;
+    ILOG(("Looks like a .BIT file.")) ;
     base = 14 ; /* Offset of design name length field. */
 
     /* Display file particulars. */
@@ -318,13 +321,13 @@ void DSMMesaSensor::selectfiletype(FILE * fp)
 */
     if (readbytesfromfile(fp, base, 4, b) != 4)
     {
-      cerr << "Base address error" << endl;
+      ELOG(("Base address error"));
     }
     ImageLen = (((unsigned long)b[0] << 24) |
                 ((unsigned long)b[1] << 16) |
                 ((unsigned long)b[2] << 8) |
                 (unsigned long)b[3]) ;
-    cerr << "Configuration length: " << ImageLen << " bytes" << endl;
+    ILOG( ("Configuration length: ") << ImageLen << (" bytes") );
 
     /* We leave the file position set to the next byte in the file,
        which should be the first byte of the body of the data image. */
@@ -332,10 +335,10 @@ void DSMMesaSensor::selectfiletype(FILE * fp)
   else if ((b[0] == 0xFF) && (b[4] == 0x55) && (b[5] == 0x99) &&
           (b[6] == 0xAA) && (b[7] == 0x66))
   {       /* Looks like a PROM file. */
-    cerr << "Looks like a PROM file." << endl;
+    ILOG(("Looks like a PROM file."));
   }
   else
   {       /* It isn't something we know about. */
-    cerr <<  "Unknown file type." << endl ;
+    ILOG(("Unknown file type."));
   }
 }
