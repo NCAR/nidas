@@ -324,6 +324,7 @@ int Extract2D::run() throw()
                                 dsm_time_t tt = samp->getTimeTag();
                                 n_u::UTime samp_time(tt);
                                 samp_time.toTm(true, &t, &msecs);
+                                msecs /= 1000;
 
                                 record.id = htons(0x4334);
                                 record.hour = htons(t.tm_hour);
