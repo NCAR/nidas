@@ -27,6 +27,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf,CDP_Serial)
 
 const size_t CDP_Serial::FLSR_CUR_INDX = 0;
 const size_t CDP_Serial::FLSR_PWR_INDX = 1;
+const size_t CDP_Serial::FWB_TMP_INDX = 2;
+const size_t CDP_Serial::FLSR_TMP_INDX = 3;
 
 
 CDP_Serial::CDP_Serial(): SppSerial()
@@ -172,10 +174,10 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * 0.061;
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * 0.00122;
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[2]);
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[3]);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * (76.3 / 1250);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (0.5 / 408);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]) * (-3.7 / 850);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]) * (21.4 / 1886);
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
     *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
     *dout++ = UnpackDMT_ULong(inRec.AvgTransit);
