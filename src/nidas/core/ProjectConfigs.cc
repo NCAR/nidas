@@ -137,7 +137,7 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
         cerr << "end=" << cfg->getEndTime().format(true,"%c") << endl;
 #endif
 	if (cfg->getBeginTime() <= ut &&
-		cfg->getEndTime() >= ut) return cfg;
+		cfg->getEndTime() > ut) return cfg;
     }
     throw n_u::InvalidParameterException(_xmlName,
               "no config for time",ut.format(true,"%c"));

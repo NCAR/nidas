@@ -151,6 +151,8 @@ private:
 
     bool dosOut;
 
+    bool doHeader;
+
 };
 
 DumpClient::DumpClient(format_t fmt,ostream &outstr):
@@ -199,11 +201,11 @@ bool DumpClient::receive(const Sample* samp) throw()
     case ASCII:
 	{
 	n_u::UTime ut(tt);
-	ostr << ut.format(true,"%Y %m %d %H:%M:%S.%3f");
+	ostr << ut.format(true,"%Y %m %d %H:%M:%S.%4f");
 
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(4) << setfill(' ');
+	ostr << setprecision(5) << setfill(' ');
         // last value is number of non-NAs
 	for (unsigned int i = 0;
 		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
@@ -246,7 +248,7 @@ DataPrep::DataPrep():
 	sorterLength(250),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
-        rate(0.0),dosOut(false)
+        rate(0.0),dosOut(false),doHeader(true)
 {
 }
 
@@ -259,7 +261,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hr:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHr:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -332,6 +334,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	    break;
       case 'h':
             return usage(argv[0]);
+            break;
+      case 'H':
+            doHeader = false;
             break;
       case 'r':
             {
@@ -429,6 +434,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
+    -H : don't print out initial two line ASCII header of variable names and units\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in milliseconds (optional)\n\
     -v : show version\n\
@@ -691,7 +697,7 @@ int DataPrep::run() throw()
 	    SampleInputHeader header = sis->getHeader();
 
 	    if (xmlFileName.length() == 0)
-                xmlFileName = header.getConfigName();
+                xmlFileName = Project::expandEnvVars(header.getConfigName());
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
@@ -757,12 +763,14 @@ int DataPrep::run() throw()
         }
         if (endTime.toUsecs() != 0) dumper->setEndTime(endTime);
 
-	dumper->printHeader(variables);
+	if (doHeader) dumper->printHeader(variables);
 
 	for (;;) {
 	    sis->readSamples();
 	    if (interrupted) break;
 	}
+	resampler->removeSampleClient(dumper.get());
+        resampler->disconnect(sis.get());
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;
