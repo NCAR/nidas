@@ -1108,8 +1108,9 @@ static inline void getA2DSample(struct A2DBoard *brd)
                 brd->skippedSamples +=
                     brd->nFifoValues / NUM_NCAR_A2D_CHANNELS /
                     brd->skipFactor;
-                KLOG_WARNING("%s: skippedSamples=%d\n", brd->a2dFifoName,
-                             brd->skippedSamples);
+		if (!(brd->skippedSamples % 1000))
+			KLOG_WARNING("%s: skippedSamples=%d\n", brd->a2dFifoName,
+				     brd->skippedSamples);
                 insw(brd->addr, brd->discardBuffer, brd->nFifoValues);
                 return;
         }
