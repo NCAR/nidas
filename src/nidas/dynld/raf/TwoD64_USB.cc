@@ -39,10 +39,12 @@ const long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
 const long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
 
 
+
 TwoD64_USB::TwoD64_USB()
 {
     _syncWordBE = bigEndian->longlongValue(&_syncWord);
     _syncMaskBE = bigEndian->longlongValue(&_syncMask);
+    _bitn = 64;
 }
 
 TwoD64_USB::~TwoD64_USB()

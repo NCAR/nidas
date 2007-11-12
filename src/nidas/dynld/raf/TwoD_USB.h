@@ -80,6 +80,13 @@ public:
      */
     int TASToTap2D(Tap2D * t2d, float tas, float resolution);
 
+    /**
+     *
+     * the real implementation is on TwoD64 and TwoD32 sub classes
+     *
+     **/
+    virtual int getBitn() {return _bitn;}
+
 protected:
 
     // Probe produces Big Endian.
@@ -117,7 +124,7 @@ protected:
      * Time of last printStatus.
      */
     long long _lastStatusTime;
-    
+    int _bitn;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

@@ -40,6 +40,14 @@ public:
     process(const Sample * samp,
                 std::list < const Sample * >&results)
      throw();
+
+    /**
+     *
+     * It is 64 bit images
+     *
+     **/
+    virtual int getBitn() {return 64;}
+
   
 private:
 
@@ -47,7 +55,7 @@ private:
                      std::list < const Sample * >&results)
      throw();
     bool processImage(const Sample * samp,
-                      std::list < const Sample * >&results)
+                     std::list < const Sample * >&results)
      throw();
 
     static const long long _syncMask, _syncWord;

@@ -42,7 +42,9 @@ TwoD32_USB::TwoD32_USB()
 {
     _syncWordBE = bigEndian->ulongValue(&_syncWord);
     _syncMaskBE = bigEndian->ulongValue(&_syncMask);
+    _bitn = 32;
 }
+
 
 TwoD32_USB::~TwoD32_USB()
 {

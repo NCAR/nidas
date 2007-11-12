@@ -38,6 +38,13 @@ public:
                 std::list < const Sample * >&results)
      throw();
 
+    /**
+     *
+     * It is 32 bit images
+     *
+     **/
+    virtual int getBitn() {return 32;}
+
 
 
 private:

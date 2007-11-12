@@ -16,6 +16,7 @@
 */
 
 
+
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/dynld/raf/TwoD_USB.h>
 #include <nidas/core/UnixIODevice.h>
@@ -41,6 +42,7 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
 
 TwoD_USB::TwoD_USB():_tasRate(1)
 {
+  _bitn=0;
 }
 
 TwoD_USB::~TwoD_USB()
