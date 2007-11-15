@@ -15,9 +15,6 @@
  ******************************************************************
 */
 
-
-
-#include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/dynld/raf/TwoD_USB.h>
 #include <nidas/core/UnixIODevice.h>
 

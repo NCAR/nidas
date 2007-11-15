@@ -21,9 +21,10 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DerivedDataClient.h>
 
-
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
+
+#include <nidas/linux/usbtwod/usbtwod.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
