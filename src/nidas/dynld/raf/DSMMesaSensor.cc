@@ -149,8 +149,19 @@ bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
       return false;
     }
 
-    for (size_t i = 0; i < nvalues; ++i)
-      *dptr++ = *sp++;
+
+    if (sampleID == ID_RADAR)
+    {
+      // Radar altimeter driver puts out zero when no data.  Convert to nan.
+      for (size_t i = 0; i < nvalues; ++i)
+        if (*sp == 0)
+          *dptr++ = nanf("");
+        else
+          *dptr++ = *sp++;
+    }
+    else
+      for (size_t i = 0; i < nvalues; ++i)
+        *dptr++ = *sp++;
   }
   results.push_back(osamp);
   return true;
