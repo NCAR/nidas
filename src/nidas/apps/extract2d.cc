@@ -284,8 +284,8 @@ int Extract2D::run() throw()
         }
 
         // Write a header, this should get it from the XML.
-        char * tmpStr = "PMS2D\nprobe=C4\nend header\n";
-        outFile.write(tmpStr, strlen(tmpStr));
+//        char * tmpStr = "PMS2D\nprobe=C4\nend header\n";
+//        outFile.write(tmpStr, strlen(tmpStr));
 
 
         FileSet* fset = new nidas::dynld::FileSet();
@@ -327,6 +327,7 @@ int Extract2D::run() throw()
                                 msecs /= 1000;
 
                                 record.id = htons(0x4334);
+                                record.id = htons(0x5031);
                                 record.hour = htons(t.tm_hour);
                                 record.minute = htons(t.tm_min);
                                 record.second = htons(t.tm_sec);
