@@ -181,7 +181,9 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     value = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]);
     *dout++ = (1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
 
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]) * (21.4 / 1886);
+    value = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]);
+    *dout++ = (1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
+
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
     *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
     *dout++ = UnpackDMT_ULong(inRec.AvgTransit);
