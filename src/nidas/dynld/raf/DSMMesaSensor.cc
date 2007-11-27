@@ -185,6 +185,9 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
         {
           ++counter_info.nChannels;
           counter_info.rate = (int)tag->getRate();
+          if (counter_info.rate != 100)
+            throw n_u::InvalidParameterException(getName(), "Counter",
+		"Sample rate must be 100.");
         }
         break;
       case ID_DIG_IN:
