@@ -169,14 +169,18 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);
 
-    float* dout = outs->getDataPtr();
-    const float* dend = dout + _noutValues;
+    float * dout = outs->getDataPtr();
+    float value;
+    const float * dend = dout + _noutValues;
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
     *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * (76.3 / 1250);
     *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (0.5 / 408);
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]) * (-3.7 / 850);
+
+    value = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]);
+    *dout++ = (1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
+
     *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]) * (21.4 / 1886);
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
     *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
