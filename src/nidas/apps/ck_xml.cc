@@ -79,6 +79,7 @@ int main(int argc, char** argv)
                     for (SampleTagIterator ti = sensor->getSampleTagIterator();
                         ti.hasNext(); ) {
                         const SampleTag* tag = ti.next();
+                        if (!tag->isProcessed()) continue;
                         cout << "  samp#" << tag->getSampleId() << ": ";
                         int iv = 0;
                         for (VariableIterator vi = tag->getVariableIterator();
