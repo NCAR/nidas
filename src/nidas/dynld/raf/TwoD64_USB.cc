@@ -44,7 +44,6 @@ TwoD64_USB::TwoD64_USB()
 {
     _syncWordBE = bigEndian->longlongValue(&_syncWord);
     _syncMaskBE = bigEndian->longlongValue(&_syncMask);
-    _bitn = 64;
 }
 
 TwoD64_USB::~TwoD64_USB()

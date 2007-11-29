@@ -41,13 +41,6 @@ public:
                 std::list < const Sample * >&results)
      throw();
 
-    /**
-     *
-     * It is 64 bit images
-     *
-     **/
-    virtual int getBitn() {return 64;}
-
   
 private:
 

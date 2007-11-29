@@ -37,9 +37,8 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
                                        EC_BIG_ENDIAN);
 
 
-TwoD_USB::TwoD_USB():_tasRate(1)
+TwoD_USB::TwoD_USB() : _tasRate(1)
 {
-  _bitn=0;
 }
 
 TwoD_USB::~TwoD_USB()
