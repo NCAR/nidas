@@ -74,13 +74,13 @@ LETTER	[a-zA-Z]
 \%{DIGIT}*g	{ return(FLOAT); }
 \%\*{DIGIT}*g	;	/* %*g means skip field */
 
-\%{DIGIT}*d	{ return(LONG); }
-\%{DIGIT}*o	{ return(LONG); }
-\%{DIGIT}*x	{ return(LONG); }
+\%{DIGIT}*d	{ return(INT); }
+\%{DIGIT}*o	{ return(INT); }
+\%{DIGIT}*x	{ return(INT); }
 \%{DIGIT}*ld	{ return(LONG); }
 \%{DIGIT}*lo	{ return(LONG); }
 \%{DIGIT}*lx	{ return(LONG); }
-\%{DIGIT}*u	{ return(ULONG); }
+\%{DIGIT}*u	{ return(UINT); }
 \%{DIGIT}*lu	{ return(ULONG); }
 \%\*{DIGIT}*d	;	/* %*d means skip field */
 \%\*{DIGIT}*o	;
@@ -200,6 +200,11 @@ void AsciiSscanf::setFormat(const std::string& val)
 	case FLOAT:
 	  currentField->size = sizeof(float);
 	  break;
+	case INT:
+	case UINT:
+	  currentField->size = sizeof(int);
+	  allFloats = false;
+	  break;
 	case LONG:
 	case ULONG:
 	  currentField->size = sizeof(long);
@@ -311,6 +316,12 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 		break;
 	    case FLOAT:
 		output[i] = *(float*)bufptrs[i];
+		break;
+	    case INT:
+		output[i] = (float)*(int*)bufptrs[i];
+		break;
+	    case UINT:
+		output[i] = (float)*(unsigned int*)bufptrs[i];
 		break;
 	    case LONG:
 		output[i] = (float)*(long*)bufptrs[i];

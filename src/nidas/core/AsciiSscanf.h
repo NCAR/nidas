@@ -53,7 +53,7 @@ public:
     AsciiSscanf();
     virtual ~AsciiSscanf();
 
-    enum fieldtype { DOUBLE=258, FLOAT, LONG, SHORT, CHAR, ULONG, USHORT, UNKNOWN };
+    enum fieldtype { DOUBLE=258, FLOAT, INT, SHORT, CHAR, UINT, USHORT, LONG, ULONG, UNKNOWN };
 
     /**
      * Set the format to be used to sscanf samples.
