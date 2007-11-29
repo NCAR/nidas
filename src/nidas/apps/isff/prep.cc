@@ -209,7 +209,7 @@ bool DumpClient::receive(const Sample* samp) throw()
         // last value is number of non-NAs
 	for (unsigned int i = 0;
 		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
-	    ostr << setw(10) << fp[i] << ' ';
+	    ostr << ' ' << setw(10) << fp[i];
         if (dosOut) cout << '\r';
 	ostr << endl;
 	}

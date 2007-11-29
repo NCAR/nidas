@@ -33,6 +33,12 @@ CSAT3_Sonic::CSAT3_Sonic():
 	nttsave(-2),
 	counter(0)
 {
+    /* index and sign transform for usual sonic orientation:
+     * no change 0 to 0, 1 to 1 and 2 to 2, with no sign change. */
+    for (int i = 0; i < 3; i++) {
+        _tx[i] = i;
+        _sx[i] = 1;
+    }
 }
 
 CSAT3_Sonic::~CSAT3_Sonic()
@@ -159,11 +165,12 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	int j;
 	int nmissing = 0;
 	for (int i = 0; i < 3; i++) {
-	    uvwtd[i] = win[i] * scale[j = range[i]];
+            int ix = _tx[i];
+	    uvwtd[i] = _sx[i] * win[ix] * scale[j = range[ix]];
 
 	    /* Screen NaN encodings of wind components */
 	    if (j == 0)
-	      switch (win[i]) {
+	      switch (win[ix]) {
 	      case -32768:
 	      case 0:
 		uvwtd[i] = floatNAN;
@@ -231,5 +238,41 @@ bool CSAT3_Sonic::process(const Sample* samp,
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    SonicAnemometer::fromDOMElement(node);
+
+    const list<const Parameter*>& params = getParameters();
+    list<const Parameter*>::const_iterator pi = params.begin();
+
+    for ( ; pi != params.end(); ++pi) {
+        const Parameter* parameter = *pi;
+
+        if (parameter->getName() == "orientation") {
+            if (parameter->getType() != Parameter::STRING_PARAM ||
+                parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),"orientation parameter",
+                    "must be one string: \"normal\" (default) or \"down\"");
+
+            if (parameter->getStringValue(0) == "down") {
+                 /* When the sonic is hanging down, the usual sonic w axis
+                  * becomes the new u axis, u becomes w, and v becomes -v. */
+                _tx[0] = 2;     // new u is normal w
+                _tx[1] = 1;     // v is -v
+                _tx[2] = 0;     // new w is normal u
+                _sx[0] = 1;
+                _sx[1] = -1;    // v is -v
+                _sx[2] = 1;
+            }
+            else if (parameter->getStringValue(0) == "normal") {
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = 1;
+                _sx[2] = 1;
+            }
+            else
+                throw n_u::InvalidParameterException(getName(),"orientation parameter",
+                    "must be one string: \"normal\" (default) or \"down\"");
+        }
+    }
 }

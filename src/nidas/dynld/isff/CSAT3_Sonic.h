@@ -25,8 +25,7 @@ namespace nidas { namespace dynld { namespace isff {
  * This also supports records which have been altered by an NCAR/EOL
  * "serializer" A2D, which digitizes voltages at the reporting rate
  * of the sonic and inserts additional 2-byte A2D counts in the
- * CSAT3 sample. Right now these extra values are assumed to be
- * conversions of the voltage from a Campbell krypton hygrometer.
+ * CSAT3 sample.
  */
 class CSAT3_Sonic: public SonicAnemometer
 {
@@ -98,6 +97,21 @@ protected:
 #if __BYTE_ORDER == __BIG_ENDIAN
     std::auto_ptr<short> swapBuf;
 #endif
+
+    /**
+     * Index transform vector for wind components.
+     * Used for unusual sonic orientations, as when the sonic
+     * is hanging down, when the usual sonic w axis becomes the
+     * new u axis, u becomes w and v becomes -v.
+     */
+    int _tx[3];
+
+    /**
+     * Wind component sign conversion. Also used for unusual sonic
+     * orientations, as when the sonic is hanging down, and the sign
+     * of v is flipped.
+     */
+    int _sx[3];
 
 };
 

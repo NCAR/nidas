@@ -252,43 +252,36 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
 
     DSMSerialSensor::fromDOMElement(node);
 
-    xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+    const list<const Parameter*>& params = getParameters();
+    list<const Parameter*>::const_iterator pi = params.begin();
 
-        XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-	if (elname == "parameter")  {
-	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child);
+    for ( ; pi != params.end(); ++pi) {
+        const Parameter* parameter = *pi;
 
-	    if (parameter->getName() == "biases") {
-		for (int i = 0; i < 3 && i < parameter->getLength(); i++)
-			setBias(i,parameter->getNumericValue(i));
-	    }
-	    else if (parameter->getName() == "Vazimuth") {
-	        setVazimuth(parameter->getNumericValue(0));
-	    }
-	    else if (parameter->getName() == "despike") {
-	        setDespike(parameter->getNumericValue(0) != 0.0);
-	    }
-	    else if (parameter->getName() == "outlierProbability") {
-	        setOutlierProbability(parameter->getNumericValue(0));
-	    }
-	    else if (parameter->getName() == "discLevelMultiplier") {
-	        setDiscLevelMultiplier(parameter->getNumericValue(0));
-	    }
-	    else if (parameter->getName() == "lean") {
-	        setLeanDegrees(parameter->getNumericValue(0));
-	    }
-	    else if (parameter->getName() == "leanAzimuth") {
-	        setLeanAzimuthDegrees(parameter->getNumericValue(0));
-	    }
-	    else throw n_u::InvalidParameterException(
-		 getName(),"parameter",parameter->getName());
-	    delete parameter;
-	}
+        if (parameter->getName() == "biases") {
+            for (int i = 0; i < 3 && i < parameter->getLength(); i++)
+                    setBias(i,parameter->getNumericValue(i));
+        }
+        else if (parameter->getName() == "Vazimuth") {
+            setVazimuth(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "despike") {
+            setDespike(parameter->getNumericValue(0) != 0.0);
+        }
+        else if (parameter->getName() == "outlierProbability") {
+            setOutlierProbability(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "discLevelMultiplier") {
+            setDiscLevelMultiplier(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "lean") {
+            setLeanDegrees(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "leanAzimuth") {
+            setLeanAzimuthDegrees(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "orientation");
+        else throw n_u::InvalidParameterException(
+             getName(),"parameter",parameter->getName());
     }
 }
