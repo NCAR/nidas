@@ -201,10 +201,19 @@ public:
 	constParameters.push_back(val);
     }
 
+    /**
+     * Get full list of parameters.
+     */
     const std::list<const Parameter*>& getParameters() const
     {
         return constParameters;
     }
+
+    /**
+     * Fetch a parameter by name. Returns a NULL pointer if
+     * no such parameter exists.
+     */
+    const Parameter* getParameter(const std::string& name) const;
 
     void setMissingValue(float val)
     {

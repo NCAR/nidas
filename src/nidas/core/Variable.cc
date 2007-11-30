@@ -181,6 +181,15 @@ float Variable::getSampleRate() const {
     else return sampleTag->getRate();
 }
 
+const Parameter* Variable::getParameter(const std::string& name) const
+{
+    std::list<const Parameter*>::const_iterator pi;
+    for (pi = constParameters.begin(); pi != constParameters.end(); ++pi)
+      if ((*pi)->getName().compare(name) == 0)
+        return *pi;
+    return 0;
+}
+
 void Variable::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
