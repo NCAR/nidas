@@ -37,7 +37,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
     samp(0),leftToRead(0),dptr(0),
     badInputSamples(0),
     filterBadSamples(false),maxDsmId(1024),
-    maxSampleLength(ULONG_MAX),
+    maxSampleLength(UINT_MAX),
     minSampleTime(LONG_LONG_MIN),
     maxSampleTime(LONG_LONG_MAX)
 {
@@ -259,7 +259,7 @@ void SampleInputStream::distribute(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
     sensorMapMutex.lock();
     if (sensorMap.size() > 0) {
-	map<unsigned long,DSMSensor*>::const_iterator sensori;
+	map<unsigned int,DSMSensor*>::const_iterator sensori;
 	sensori = sensorMap.find(sampid);
 	if (sensori != sensorMap.end()) sensori->second->receive(samp);
     }

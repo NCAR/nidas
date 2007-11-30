@@ -230,7 +230,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
                // If you unset the dec flag, then a leading '0' means
                // octal, and 0x means hex.
                ist.unsetf(ios::dec);
-               unsigned long val;
+               unsigned int val;
                ist >> val;
                if (ist.fail())
                    throw n_u::InvalidParameterException("sensor",

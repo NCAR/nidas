@@ -47,6 +47,19 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="loglevel">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="emergency"/>
+	<xsd:enumeration value="alert"/>
+	<xsd:enumeration value="critical"/>
+	<xsd:enumeration value="error"/>
+	<xsd:enumeration value="warning"/>
+	<xsd:enumeration value="notice"/>
+	<xsd:enumeration value="info"/>
+	<xsd:enumeration value="debug"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="speedtype">
     <xsd:restriction base="xsd:token">
 	<xsd:enumeration value="high"/>
@@ -69,8 +82,8 @@
 </xsd:simpleType>
 
 <xsd:complexType name="messageDesc">
-    <xsd:attribute name="separator" type="xsd:normalizedString" use="required"/>
-    <xsd:attribute name="position" use="required">
+    <xsd:attribute name="separator" type="xsd:normalizedString"/>
+    <xsd:attribute name="position" use="optional">
 	<xsd:simpleType>
 	    <xsd:restriction base="xsd:token">
 		<xsd:enumeration value="beg"/>
@@ -86,10 +99,18 @@
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
 </xsd:complexType>
 
+<xsd:complexType name="calfile">
+    <xsd:attribute name="path" type="xsd:normalizedString"/>
+    <xsd:attribute name="file" type="xsd:normalizedString"/>
+</xsd:complexType>
+
 <xsd:complexType name="linear">
+    <xsd:choice minOccurs="0" maxOccurs="1">
+        <xsd:element name="calfile" type="calfile"/>
+    </xsd:choice>
     <xsd:attribute name="slope" type="xsd:float"/>
     <xsd:attribute name="intercept" type="xsd:float"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:simpleType name="floatList">
@@ -97,8 +118,20 @@
 </xsd:simpleType>
 
 <xsd:complexType name="poly">
+    <xsd:choice minOccurs="0" maxOccurs="1">
+        <xsd:element name="calfile" type="calfile"/>
+    </xsd:choice>
     <xsd:attribute name="coefs" type="floatList"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
+</xsd:complexType>
+
+<xsd:complexType name="converter">
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+        <xsd:element name="calfile" type="calfile" maxOccurs="1"/>
+	<xsd:element name="parameter" type="parameter"/>
+    </xsd:choice>
+    <xsd:attribute name="class" type="xsd:normalizedString"/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:simpleType name="parameterType">
@@ -122,13 +155,15 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
         <xsd:element name="poly" type="poly"/>
         <xsd:element name="linear" type="linear"/>
+        <xsd:element name="converter" type="converter"/>
 	<xsd:element name="parameter" type="parameter"/>
     </xsd:choice>
     <xsd:attribute name="name" type="xsd:token" use="required"/>
     <xsd:attribute name="longname" type="xsd:normalizedString"/>
-    <xsd:attribute name="units" type="xsd:normalizedString" default=""/>
-    <xsd:attribute name="count" type="xsd:boolean" default="0"/>
-    <xsd:attribute name="length" type="xsd:positiveInteger" default="1"/>
+    <xsd:attribute name="units" type="xsd:normalizedString"/>
+    <xsd:attribute name="count" type="xsd:boolean"/>
+    <xsd:attribute name="length" type="xsd:positiveInteger"/>
+    <xsd:attribute name="missingValue" type="xsd:float"/>
 </xsd:complexType>
 
 <xsd:complexType name="variables">
@@ -183,6 +218,7 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="sample" type="sample"/>
 	<xsd:element name="parameter" type="parameter"/>
+        <xsd:element name="calfile" type="calfile" maxOccurs="1"/>
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>
@@ -194,6 +230,7 @@
     <xsd:attribute name="latency" type="xsd:float"/>
     <xsd:attribute name="height" type="xsd:token"/>
     <xsd:attribute name="depth" type="xsd:token"/>
+    <xsd:attribute name="type" type="xsd:string"/>
 </xsd:complexType>
 
 <xsd:complexType name="messageSensorT">
@@ -309,6 +346,7 @@
 	<xsd:attribute name="location" type="xsd:token" use="optional"/>
 	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
 	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger"/>
+	<xsd:attribute name="derivedData" type="xsd:token"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
 	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor"/>
@@ -346,11 +384,12 @@
 <xsd:element name="socket">
    <xsd:complexType>
 	<xsd:attribute name="type" type="sockettype" default="mcrequest"/>
-        <xsd:attribute name="port" type="xsd:nonNegativeInteger"
-		default="30000"/>
+        <xsd:attribute name="port" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="address" type="xsd:token"/>
+        <xsd:attribute name="path" type="xsd:token"/>
         <xsd:attribute name="requestNumber" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="maxIdle" type="xsd:positiveInteger"/>
+        <xsd:attribute name="block" type="xsd:boolean"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -379,7 +418,7 @@
         <xsd:attribute name="server" type="xsd:token" default="localhost"/>
         <xsd:attribute name="dir" type="xsd:token" use="required"/>
         <xsd:attribute name="file" type="xsd:token" use="required"/>
-        <xsd:attribute name="cdl" type="xsd:token" use="optional"/>
+        <xsd:attribute name="cdl" type="xsd:token"/>
         <xsd:attribute name="length" type="xsd:nonNegativeInteger"
 		default="86400"/>
         <xsd:attribute name="floatFill" type="xsd:float" use="required"/>
@@ -387,6 +426,7 @@
 		default="60"/>
         <xsd:attribute name="batchPeriod" type="xsd:positiveInteger"
 		default="60"/>
+        <xsd:attribute name="interval" type="xsd:positiveInteger"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -403,6 +443,7 @@
 	<xsd:attribute name="xmitInterval" type="xsd:positiveInteger"/>
 	<xsd:attribute name="xmitOffset" type="xsd:nonNegativeInteger"/>
 	<xsd:attribute name="statusFile" type="xsd:token"/>
+        <xsd:attribute name="class" type="xsd:token" use="optional"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -421,6 +462,8 @@
             <xsd:element ref="fileset"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
+        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -435,7 +478,8 @@
             <xsd:element ref="goes" maxOccurs="1"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
-        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger" default="250"/>
+        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -474,6 +518,52 @@
     </xsd:complexType>
 </xsd:element>
 
+<xsd:complexType name="loggerType">
+  <xsd:attribute name="scheme" type="xsd:token" use="required"/>
+</xsd:complexType>
+
+<xsd:complexType name="logconfigType">
+    <xsd:annotation>
+	<xsd:documentation>
+	A configuration for a LogConfig.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:attribute name="filematch" type="xsd:token" use="optional"/>
+    <xsd:attribute name="functionmatch" type="xsd:token" use="optional"/>
+    <xsd:attribute name="level" type="loglevel" use="optional"/>
+    <xsd:attribute name="line" type="xsd:nonNegativeInteger" use="optional"/>
+    <xsd:attribute name="activate" type="xsd:boolean" use="optional"/>
+</xsd:complexType>
+
+<xsd:simpleType name="logfieldsType">
+    <xsd:restriction base="xsd:token">
+	<xsd:enumeration value="level"/>
+	<xsd:enumeration value="time"/>
+	<xsd:enumeration value="message"/>
+	<xsd:enumeration value="function"/>
+	<xsd:enumeration value="file"/>
+	<xsd:enumeration value="thread"/>
+	<xsd:enumeration value="all"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="showfields" type='xsd:string'/> 
+
+<xsd:complexType name="logschemeType">
+    <xsd:annotation>
+	<xsd:documentation>
+	  A collection of logconfig elements which together constitute
+	  a logging configuration.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element ref="showfields" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="logconfig" type="logconfigType"
+		   minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute name="name"   type="xsd:token" use="required"/>
+</xsd:complexType>
+
 <xsd:complexType name="siteType">
     <xsd:annotation>
 	<xsd:documentation>
@@ -499,6 +589,9 @@
             <xsd:element ref="dsmcatalog" minOccurs="0" maxOccurs="1"/>
             <xsd:element ref="servicecatalog" minOccurs="0" maxOccurs="1"/>
 	    <xsd:element ref="server" minOccurs="0"/>
+	    <xsd:element name="logscheme" type="logschemeType" 
+			 minOccurs="0" maxOccurs="unbounded"/>
+	    <xsd:element name="logger" type="loggerType"/>
 	    <xsd:element name="site" type="siteType" maxOccurs="unbounded"/>
 	    <xsd:element name="aircraft" type="siteType" maxOccurs="unbounded"/>
 	    <xsd:element name="parameter" type="parameter" minOccurs="0"
@@ -506,8 +599,7 @@
         </xsd:choice>
         <xsd:attribute name="name"   type="xsd:token" use="required"/>
         <xsd:attribute name="system"   type="xsd:token" use="required"/>
-        <xsd:attribute name="config" type="xsd:normalizedString"
-		use="required"/>
+        <xsd:attribute name="config" type="xsd:normalizedString"/>
         <xsd:attribute name="version" type="xsd:normalizedString"
 		use="required"/>
     </xsd:complexType>

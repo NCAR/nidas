@@ -95,12 +95,12 @@ inline size_t maxValue(long arg)
 {
     return LONG_MAX;
 }
-*/
 
 inline size_t maxValue(unsigned long arg)
 {
     return ULONG_MAX;
 }
+*/
 
 typedef enum sampleType {
 	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,

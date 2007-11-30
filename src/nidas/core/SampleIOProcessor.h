@@ -149,8 +149,8 @@ public:
      * 6-bit not used, 10-bit DSM id, and a 16-bit processor id.
      */
     void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
-    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
-    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
+    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
+    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the various levels of the processor's identification.
@@ -158,8 +158,8 @@ public:
      * 6-bit type_id  10-bit DSM_id, and a 16-bit processor id.
      */
     dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
-    unsigned long getDSMId()   const { return GET_DSM_ID(id); }
-    unsigned long getShortId() const { return GET_SHORT_ID(id); }
+    unsigned int getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned int getShortId() const { return GET_SHORT_ID(id); }
 
     SampleTagIterator getSampleTagIterator() const;
 

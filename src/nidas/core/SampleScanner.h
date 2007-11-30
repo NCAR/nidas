@@ -192,7 +192,7 @@ public:
      * Should be called every periodUsec by a user of this sensor.
      * @param periodUsec Statistics period.
      */
-    virtual void calcStatistics(unsigned long periodUsec);
+    virtual void calcStatistics(unsigned int periodUsec);
 
     size_t getMaxSampleLength() const
     	{ return maxSampleLength[reportIndex]; }

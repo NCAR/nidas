@@ -226,7 +226,6 @@ void AsciiSscanf::setFormat(const std::string& val)
 	}
 
 	size = currentField->size;
-	length = currentField->length;
 
 	/* Alignment */
 	if ((align_adj = (((unsigned long)bufptr) % size))) {

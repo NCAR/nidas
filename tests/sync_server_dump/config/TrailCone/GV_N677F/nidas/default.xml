@@ -544,7 +544,7 @@
                     <linear slope="108.09" intercept="-1.3596" units="mb"/>
                 </variable>
                 <variable name="TCAB1" units="V">
-                    <parameter name="gain" value="20" type="float"/>
+                    <parameter name="gain" value="4" type="float"/>
                     <parameter name="bipolar" value="false" type="bool"/>
                     <parameter name="corSlope"     value="1.0"	type="float"/>
                     <parameter name="corIntercept" value="0.0"	type="float"/>

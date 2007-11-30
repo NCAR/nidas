@@ -43,7 +43,7 @@ class DSMConfig;
  *
  * Much of the implementation of a DSMSensor is delegated
  * to an IODevice and a SampleScanner, which are
- * passed in the constructor.
+ * built with virtual methods.
  * DSMSensor can fill in its attributes
  * from an XML DOM element with fromDOMElement().
  * One attribute of a DSMSensor is the system device
@@ -76,11 +76,6 @@ public:
 
     /**
      * Constructor.
-     * @param scanner Pointer to a SampleScanner to be used
-     *        for scanning raw data from the sensor into Samples.
-     * If this DSMSensor is being used in post-processing,
-     * then the scanner can be a null pointer(0).
-     * After construction, DSMSensor owns the SampleScanner.
      */
 
     DSMSensor();
@@ -311,8 +306,8 @@ public:
      * and 16-bit sensor+sample ids.
      */
     void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
-    void setShortId(unsigned long val) { id = SET_SHORT_ID(id,val); }
-    void setDSMId(unsigned long val) { id = SET_DSM_ID(id,val); }
+    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
+    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
 
     /**
      * Get the various levels of the samples identification.
@@ -321,8 +316,8 @@ public:
      * 16-bit sensor+sample ids.
      */
     dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
-    unsigned long getDSMId()   const { return GET_DSM_ID(id); }
-    unsigned long getShortId() const { return GET_SHORT_ID(id); }
+    unsigned int getDSMId()   const { return GET_DSM_ID(id); }
+    unsigned int getShortId() const { return GET_SHORT_ID(id); }
 
     /**
      * Set desired latency, providing some control
@@ -534,7 +529,7 @@ public:
      * every periodUsec by a user of this sensor.
      * @param periodUsec Statistics period.
      */
-    void calcStatistics(unsigned long periodUsec)
+    void calcStatistics(unsigned int periodUsec)
     {
         if (scanner) scanner->calcStatistics(periodUsec);
     }
@@ -602,6 +597,25 @@ public:
      * into a string.
      */
     static std::string addBackslashSequences(const std::string& str);
+
+    /**
+     * Set the type name of this sensor, e.g.:
+     * "ACME Model 99 Mach7 Particle Disambiguator".
+     * This is meant for descriptive purposes only,
+     * and is not meant to change the behavior of a sensor object.
+     */
+    virtual void setTypeName(const std::string& val)
+    {
+        _typeName = val;
+    }
+
+    /**
+     * Get the type name of this sensor.
+     */
+    virtual const std::string& getTypeName(void) const
+    {
+        return _typeName;
+    }
 
 protected:
 
@@ -734,6 +748,8 @@ private:
     std::list<const Parameter*> constParameters;
 
     CalFile* calFile;
+
+    std::string _typeName;
 
 private:
     // no copying

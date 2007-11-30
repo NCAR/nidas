@@ -482,12 +482,15 @@
 		 -->
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1390 -->
+                            <parameter name="Kw" type="float" value="-0.151"/>
+                            <parameter name="V0" type="float" value="968.0"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1390 -->
-		<parameter name="kryptonKw" type="float" value="-0.151"/>
-		<parameter name="kryptonV0" type="float" value="968.0"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"
@@ -543,12 +546,15 @@
 		    devicename="/dev/ttyS11" id="300" height="30m">
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1394 -->
+                            <parameter name="Kw" type="float" value="-0.166"/>
+                            <parameter name="V0" type="float" value="2601.6"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1394 -->
-		<parameter name="kryptonKw" type="float" value="-0.166"/>
-		<parameter name="kryptonV0" type="float" value="2601.6"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"
@@ -738,12 +744,15 @@
 		    devicename="/dev/ttyS3" id="50" height="5m">
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1391 -->
+                            <parameter name="Kw" type="float" value="-0.151"/>
+                            <parameter name="V0" type="float" value="3961.4"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1391 -->
-		<parameter name="kryptonKw" type="float" value="-0.151"/>
-		<parameter name="kryptonV0" type="float" value="3961.4"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"
@@ -779,12 +788,15 @@
 		    devicename="/dev/ttyS11" id="300" height="30m">
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1393 -->
+                            <parameter name="Kw" type="float" value="-0.158"/>
+                            <parameter name="V0" type="float" value="2988.3"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1393 -->
-		<parameter name="kryptonKw" type="float" value="-0.158"/>
-		<parameter name="kryptonV0" type="float" value="2988.3"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"
@@ -862,12 +874,15 @@
 		    devicename="/dev/ttyS3" id="50" height="5m">
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1395 -->
+                            <parameter name="Kw" type="float" value="-0.155"/>
+                            <parameter name="V0" type="float" value="4295.0"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1395 -->
-		<parameter name="kryptonKw" type="float" value="-0.155"/>
-		<parameter name="kryptonV0" type="float" value="4295.0"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"
@@ -922,12 +937,15 @@
 		    devicename="/dev/ttyS11" id="300" height="30m">
 		<sample id="6">
 		    <variable name="kh2oV" units="V"/>
-		    <variable name="kh2o" units="g/m^3"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <!-- Krypton SN 1258 -->
+                            <parameter name="Kw" type="float" value="-0.158"/>
+                            <parameter name="V0" type="float" value="4307.0"/>
+                            <parameter name="PathLength" type="float" value="1.3"/>
+                        </converter>
+                    </variable>
 		</sample>
-		<!-- Krypton SN 1258 -->
-		<parameter name="kryptonKw" type="float" value="-0.158"/>
-		<parameter name="kryptonV0" type="float" value="4307.0"/>
-		<parameter name="kryptonPathLength" type="float" value="1.3"/>
 	    </serialSensor>
 
 	    <serialSensor IDREF="NCAR_TRH"

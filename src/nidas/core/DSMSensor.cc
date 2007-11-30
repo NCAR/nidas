@@ -413,7 +413,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	// If you unset the dec flag, then a leading '0' means
 	// octal, and 0x means hex.
 	ist.unsetf(ios::dec);
-	unsigned long val;
+	unsigned int val;
 	ist >> val;
 	if (ist.fail())
 	    throw n_u::InvalidParameterException(
@@ -482,6 +482,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    	setDepth(aval);
 	    else if (aname == "suffix")
 	    	setSuffix(aval);
+	    else if (aname == "type") setTypeName(aval);
 	}
     }
     
@@ -562,7 +563,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // Estimate the rate of the raw sample as the max of
     // the rates of the processed samples.
     float rawRate = 0.0;
-    set<unsigned long> ids;
+    set<unsigned int> ids;
     set<SampleTag*>& stags = getncSampleTags();
     set<SampleTag*>::const_iterator si = stags.begin();
     for ( ; si != stags.end(); ++si) {
@@ -576,7 +577,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	if (getShortId() == 0) throw n_u::InvalidParameterException(
 	    	getName(),"id","zero or missing");
 
-	pair<set<unsigned long>::const_iterator,bool> ins =
+	pair<set<unsigned int>::const_iterator,bool> ins =
 		ids.insert(stag->getId());
 	if (!ins.second) {
 	    ostringstream ost;

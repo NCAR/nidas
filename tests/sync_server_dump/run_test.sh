@@ -28,11 +28,11 @@ egrep "^2006 09" sync_dump.log > $tmp2
 
 if ! diff $tmp1 $tmp2; then
     echo "sync_dump data not as expected"
+    rm -f $tmp1 $tmp2
 else
     echo "sync_dump data looks good"
 fi
 
-rm -f $tmp1 $tmp2
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1

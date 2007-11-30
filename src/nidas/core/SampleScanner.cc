@@ -147,19 +147,19 @@ void SampleScanner::resetStatistics()
     sampleRateObs = 0.0;
     dataRateObs = 0.0;
     maxSampleLength[0] = maxSampleLength[1] = 0;
-    minSampleLength[0] = minSampleLength[1] = ULONG_MAX;
+    minSampleLength[0] = minSampleLength[1] = UINT_MAX;
     nsamples = 0;
     nbytes = 0;
     badTimeTags = 0;
     initialTimeSecs = time(0);
 }
 
-void SampleScanner::calcStatistics(unsigned long periodUsec)
+void SampleScanner::calcStatistics(unsigned int periodUsec)
 {
     reportIndex = currentIndex;
     currentIndex = (currentIndex + 1) % 2;
     maxSampleLength[currentIndex] = 0;
-    minSampleLength[currentIndex] = ULONG_MAX;
+    minSampleLength[currentIndex] = UINT_MAX;
 
     sampleRateObs = ((float)nsamples / periodUsec) * USECS_PER_SEC;
 
@@ -173,14 +173,14 @@ float SampleScanner::getObservedSamplingRate() const {
   
     if (reportIndex == currentIndex)
 	return (float)nsamples/
-	    std::max((long)1,(time(0) - initialTimeSecs));
+	    std::max((time_t)1,(time(0) - initialTimeSecs));
     else return sampleRateObs;
 }
 
 float SampleScanner::getObservedDataRate() const {
     if (reportIndex == currentIndex)
 	return (float)nbytes /
-	    std::max((long)1,(time(0) - initialTimeSecs));
+	    std::max((time_t)1,(time(0) - initialTimeSecs));
     else return dataRateObs;
 }
 

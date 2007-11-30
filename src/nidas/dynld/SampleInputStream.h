@@ -137,10 +137,10 @@ public:
         setFilterBadSamples(val < 1024);
     }
 
-    void setMaxSampleLength(size_t val)
+    void setMaxSampleLength(unsigned int val)
     {
         maxSampleLength = val;
-        setFilterBadSamples(val < ULONG_MAX);
+        setFilterBadSamples(val < UINT_MAX);
     }
 
     void setMinSampleTime(nidas::util::UTime& val)
@@ -169,7 +169,7 @@ protected:
 
     IOStream* iostream;
 
-    std::map<unsigned long int, DSMSensor*> sensorMap;
+    std::map<unsigned int, DSMSensor*> sensorMap;
 
     std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
 
