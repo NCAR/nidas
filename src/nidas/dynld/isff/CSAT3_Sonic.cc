@@ -33,8 +33,9 @@ CSAT3_Sonic::CSAT3_Sonic():
 	nttsave(-2),
 	counter(0)
 {
-    /* index and sign transform for usual sonic orientation:
-     * no change 0 to 0, 1 to 1 and 2 to 2, with no sign change. */
+    /* index and sign transform for usual sonic orientation.
+     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
+     * with no sign change. */
     for (int i = 0; i < 3; i++) {
         _tx[i] = i;
         _sx[i] = 1;
@@ -252,7 +253,15 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException(getName(),"orientation parameter",
                     "must be one string: \"normal\" (default) or \"down\"");
 
-            if (parameter->getStringValue(0) == "down") {
+            if (parameter->getStringValue(0) == "normal") {
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = 1;
+                _sx[2] = 1;
+            }
+            else if (parameter->getStringValue(0) == "down") {
                  /* When the sonic is hanging down, the usual sonic w axis
                   * becomes the new u axis, u becomes w, and v becomes -v. */
                 _tx[0] = 2;     // new u is normal w
@@ -262,13 +271,14 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = -1;    // v is -v
                 _sx[2] = 1;
             }
-            else if (parameter->getStringValue(0) == "normal") {
+            else if (parameter->getStringValue(0) == "flipped") {
+                 /* Sonic flipped over, w becomes -w, v to -v. */
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
                 _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = 1;
+                _sx[1] = -1;
+                _sx[2] = -1;
             }
             else
                 throw n_u::InvalidParameterException(getName(),"orientation parameter",
