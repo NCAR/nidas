@@ -23,12 +23,13 @@
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
+
 /**
- * Two-d particle probe on a USB interface.
+ * Class for the USB Fast-2DC.  This probe has a USB 2.0 interface
+ * built in.  This probe has 64 diodes instead of the standard 32.
  */
 class TwoD64_USB:public TwoD_USB
 {
-
 public:
     TwoD64_USB();
     ~TwoD64_USB();   

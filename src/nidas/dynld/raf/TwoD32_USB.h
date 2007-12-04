@@ -23,12 +23,14 @@
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
+
 /**
- * Two-d particle probe on a USB interface.
+ * Sensor class for the standard PMS2D probes where the data signals
+ * are converted to USB by a converter box.  These probes have the
+ * standard 32 diodes.
  */
 class TwoD32_USB:public TwoD_USB 
 {
-
 public:
     TwoD32_USB();
     ~TwoD32_USB();
