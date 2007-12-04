@@ -41,6 +41,8 @@ public:
                 std::list < const Sample * >&results)
      throw();
 
+    virtual int numberBitsPerSlice() const { return 64; }
+
   
 private:
 
@@ -51,13 +53,13 @@ private:
                      std::list < const Sample * >&results)
      throw();
 
-    static const long long _syncMask, _syncWord;
     /**
      * Pixel words from probe are big-endian long longs.
      * Convert the expected syncWord to big-endian for comparison.
      */
     long long _syncMaskBE, _syncWordBE;
 
+    static const long long _syncMask, _syncWord;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

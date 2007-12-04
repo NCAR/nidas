@@ -34,10 +34,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB)
 
-
 const long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
 const long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
-
 
 
 TwoD64_USB::TwoD64_USB()
@@ -49,7 +47,7 @@ TwoD64_USB::TwoD64_USB()
 TwoD64_USB::~TwoD64_USB()
 {
 }
-/*---------------------------------------------------------------------------*/
+
 void TwoD64_USB::fromDOMElement(const xercesc::DOMElement * node)
 throw(n_u::InvalidParameterException)
 {

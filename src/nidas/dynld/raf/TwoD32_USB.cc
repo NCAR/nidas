@@ -44,7 +44,6 @@ TwoD32_USB::TwoD32_USB()
     _syncMaskBE = bigEndian->ulongValue(&_syncMask);
 }
 
-
 TwoD32_USB::~TwoD32_USB()
 {
 }

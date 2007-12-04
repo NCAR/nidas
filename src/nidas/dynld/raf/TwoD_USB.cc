@@ -30,8 +30,6 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION_NS(raf, TwoD_USB)
-
 const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);

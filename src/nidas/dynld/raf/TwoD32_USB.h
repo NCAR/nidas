@@ -34,9 +34,10 @@ public:
     ~TwoD32_USB();
 
     bool
-        process(const Sample * samp,
-                std::list < const Sample * >&results)
+        process(const Sample * samp, std::list < const Sample * >&results)
      throw();
+
+    virtual int numberBitsPerSlice() const { return 32; }
 
 
 private:
@@ -52,7 +53,6 @@ private:
     static const unsigned long _syncMask, _syncWord;
     unsigned long _syncWordBE, _syncMaskBE;
 
-    
 };  //endof_class
 
 }}}                     // namespace nidas namespace dynld namespace raf

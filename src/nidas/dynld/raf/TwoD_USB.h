@@ -30,9 +30,10 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 /**
- * Two-d particle probe on a USB interface.
+ * Base class for PMS 2D particle probes on a USB interface.  Covers
+ * both the Fast2DC and the white converter box for older 2D probes.
  */
-class TwoD_USB:public DSMSensor, public DerivedDataClient
+class TwoD_USB : public DSMSensor, public DerivedDataClient
 {
 
 public:
@@ -49,8 +50,8 @@ public:
     }
 
     /**
-    * open the sensor and perform any intialization to the driver.
-    */
+     * open the sensor and perform any intialization to the driver.
+     */
     void open(int flags) throw(nidas::util::IOException);
 
     void close() throw(nidas::util::IOException);
@@ -58,6 +59,12 @@ public:
     int getTASRate() const { return _tasRate; }
 
     void setTASRate(int val) { _tasRate = val; }
+
+    /**
+     * This the same as number of diodes in the probe.
+     * @returns the number of bits per data slice.
+     */
+    virtual int numberBitsPerSlice() const = 0;
 
     void fromDOMElement(const xercesc::DOMElement *)
      throw(nidas::util::InvalidParameterException);
