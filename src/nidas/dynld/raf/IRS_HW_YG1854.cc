@@ -141,13 +141,11 @@ float IRS_HW_YG1854::processLabel(const long data)
   case 0363:  // BNR - cross trk accel      (G)
   case 0370:  // BNR - norm_accel           (G)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>16) * 1.0/(1<<13);  // nimbus did this...
-//  return (data<<3>>11) * 1.0/(1<<19);
+    return (data<<3>>19) * 1.0/(1<<13);
 
   case 0364:  // BNR - vertical_accel       (G)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>16) * 1.0/(1<<13) * G_MPS2;  // nimbus did this...
-//  return (data<<3>>11) * 1.0/(1<<19) * G_MPS2;
+    return (data<<3>>19) * 1.0/(1<<13) * G_MPS2;
 
   case 0326:  // BNR - pitch_rate           (deg/s)
   case 0327:  // BNR - roll_rate            (deg/s)
