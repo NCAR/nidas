@@ -290,6 +290,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 {
     struct tm tm;
     memset(&tm,0,sizeof(tm));
+    tm.tm_isdst = (utc ? 0 : -1);
 
     const char* cstr = str.c_str();
     const char* cptr = cstr;
