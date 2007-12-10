@@ -210,28 +210,29 @@ bool CSAT3_Sonic::process(const Sample* samp,
     bool goodterm = dinptr[inlen-2] == '\x55' && dinptr[inlen-1] == '\xaa';
 
     for (unsigned int i = 0; i < extraSampleTags.size(); i++) {
-        if (inlen >= windInLen + (i+1) * 2) {
-            SampleTag* stag = extraSampleTags[i];
-            const vector<const Variable*>& vars = stag->getVariables();
-            size_t nvars = vars.size();
-            SampleT<float>* hsamp = getSample<float>(nvars);
-            hsamp->setTimeTag(samp->getTimeTag());
-            hsamp->setId(stag->getId());
 
-            unsigned short counts = ((const unsigned short*) win)[i+5];
-            float volts;
-            if (counts < 65500 && goodterm) volts = counts * 0.0001;
-            else volts = floatNAN;
+        if (inlen < windInLen + (i+1) * 2) break;
 
-            for (unsigned int j = 0; j < nvars; j++) {
-                const Variable* var = vars[j];
-                VariableConverter* conv = var->getConverter();
-                if (!conv) hsamp->getDataPtr()[j] = volts;
-                else hsamp->getDataPtr()[j] =
-                    conv->convert(hsamp->getTimeTag(),volts);
-            }
-            results.push_back(hsamp);
+        SampleTag* stag = extraSampleTags[i];
+        const vector<const Variable*>& vars = stag->getVariables();
+        size_t nvars = vars.size();
+        SampleT<float>* hsamp = getSample<float>(nvars);
+        hsamp->setTimeTag(samp->getTimeTag());
+        hsamp->setId(stag->getId());
+
+        unsigned short counts = ((const unsigned short*) win)[i+5];
+        float volts;
+        if (counts < 65500 && goodterm) volts = counts * 0.0001;
+        else volts = floatNAN;
+
+        for (unsigned int j = 0; j < nvars; j++) {
+            const Variable* var = vars[j];
+            VariableConverter* conv = var->getConverter();
+            if (!conv) hsamp->getDataPtr()[j] = volts;
+            else hsamp->getDataPtr()[j] =
+                conv->convert(hsamp->getTimeTag(),volts);
         }
+        results.push_back(hsamp);
     }
     return true;
 }
@@ -248,12 +249,9 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
         const Parameter* parameter = *pi;
 
         if (parameter->getName() == "orientation") {
-            if (parameter->getType() != Parameter::STRING_PARAM ||
-                parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),"orientation parameter",
-                    "must be one string: \"normal\" (default) or \"down\"");
-
-            if (parameter->getStringValue(0) == "normal") {
+            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
+                parameter->getLength() == 1;
+            if (pok && parameter->getStringValue(0) == "normal") {
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
@@ -261,7 +259,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = 1;
                 _sx[2] = 1;
             }
-            else if (parameter->getStringValue(0) == "down") {
+            else if (pok && parameter->getStringValue(0) == "down") {
                  /* When the sonic is hanging down, the usual sonic w axis
                   * becomes the new u axis, u becomes w, and v becomes -v. */
                 _tx[0] = 2;     // new u is normal w
@@ -271,8 +269,8 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = -1;    // v is -v
                 _sx[2] = 1;
             }
-            else if (parameter->getStringValue(0) == "flipped") {
-                 /* Sonic flipped over, w becomes -w, v to -v. */
+            else if (pok && parameter->getStringValue(0) == "flipped") {
+                 /* Sonic flipped over, w becomes -w, v becomes -v. */
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
@@ -281,8 +279,9 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = -1;
             }
             else
-                throw n_u::InvalidParameterException(getName(),"orientation parameter",
-                    "must be one string: \"normal\" (default) or \"down\"");
+                throw n_u::InvalidParameterException(getName(),
+                    "orientation parameter",
+                    "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
         }
     }
 }

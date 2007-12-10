@@ -106,7 +106,7 @@ GOESProject::GOESProject(Project* p)
 			SampleTag* tag = *ti;
 			tag->setSiteAttributes(site);
 			tag->setDSMId(stationNumber);
-			sampleTags.insert(tag);
+			sampleTags.push_back(tag);
 			sampleTagsById[tag->getId()] = tag;
 			maxSampleId = std::max(maxSampleId,tag->getShortId());
 			// Copy units and long name attributes
@@ -148,7 +148,7 @@ GOESProject::GOESProject(Project* p)
 			gtag->setDSMId(stationNumber);
 			gtag->setPeriod(xmitInterval);
 			goesTags[stationNumber] = gtag;
-			sampleTags.insert(gtag);
+			sampleTags.push_back(gtag);
 		    }
 		}
 	    }
@@ -231,7 +231,7 @@ const SampleTag* GOESProject::getGOESSampleTag(
     return goesTags[stationNumber];
 }
 
-const set<const SampleTag*>& GOESProject::getSampleTags()
+const list<const SampleTag*>& GOESProject::getSampleTags()
 	const
 {
     return sampleTags;

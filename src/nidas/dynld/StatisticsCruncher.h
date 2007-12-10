@@ -67,7 +67,7 @@ public:
     /**
      * Get the SampleTag of my merged output sample.
      */
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -181,7 +181,7 @@ private:
 
     int nwordsSuffix;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     SampleTag outSample;
 

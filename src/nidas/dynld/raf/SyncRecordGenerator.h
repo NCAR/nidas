@@ -61,7 +61,7 @@ public:
     void sendHeader(dsm_time_t thead,SampleOutput* output)
         throw(nidas::util::IOException);
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return syncRecSource.getSampleTags();
     }

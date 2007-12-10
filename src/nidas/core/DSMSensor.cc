@@ -20,7 +20,6 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/NidsIterators.h>
 
-// #include <nidas/linux/types.h>
 #include <nidas/core/SamplePool.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>
@@ -29,7 +28,6 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-#include <set>
 
 using namespace std;
 using namespace nidas::core;
@@ -52,7 +50,7 @@ DSMSensor::DSMSensor() :
 DSMSensor::~DSMSensor()
 {
 
-    for (set<SampleTag*>::const_iterator si = sampleTags.begin();
+    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
     	si != sampleTags.end(); ++si) {
 	delete *si;
     }
@@ -71,8 +69,16 @@ DSMSensor::~DSMSensor()
 void DSMSensor::addSampleTag(SampleTag* val)
     throw(n_u::InvalidParameterException)
 {
-    sampleTags.insert(val);
-    constSampleTags.insert(val);
+    if (find(sampleTags.begin(),sampleTags.end(),val) == sampleTags.end()) {
+        sampleTags.push_back(val);
+        constSampleTags.push_back(val);
+    }
+    else {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+            "%s: duplicate sample tag pointer: %d,%d (added twice?)",
+            getName().c_str(),GET_DSM_ID(val->getId()),GET_SHORT_ID(val->getId()));
+    }
+
 }
 
 SampleTagIterator DSMSensor::getSampleTagIterator() const
@@ -508,8 +514,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    if (newtag->getSampleId() == 0)
 	        newtag->setSampleId(getSampleTags().size()+1);
 
-	    set<SampleTag*>& stags = getncSampleTags();
-	    set<SampleTag*>::const_iterator si = stags.begin();
+	    const list<SampleTag*>& stags = getncSampleTags();
+	    list<SampleTag*>::const_iterator si = stags.begin();
 	    for ( ; si != stags.end(); ++si) {
 		SampleTag* stag = *si;
 		// If a sample id matches a previous one (most likely
@@ -564,8 +570,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // the rates of the processed samples.
     float rawRate = 0.0;
     set<unsigned int> ids;
-    set<SampleTag*>& stags = getncSampleTags();
-    set<SampleTag*>::const_iterator si = stags.begin();
+    const list<SampleTag*>& stags = getncSampleTags();
+    list<SampleTag*>::const_iterator si = stags.begin();
     for ( ; si != stags.end(); ++si) {
 	SampleTag* stag = *si;
 

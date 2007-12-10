@@ -140,7 +140,7 @@ public:
     virtual void addSampleTag(SampleTag* var)
     	throw(nidas::util::InvalidParameterException);
 
-    virtual const std::set<const SampleTag*>& getSampleTags() const
+    virtual const std::list<const SampleTag*>& getSampleTags() const
     	{ return constSampleTags; }
 
     /**
@@ -197,9 +197,9 @@ private:
     dsm_sample_id_t id;
 
 
-    std::set<SampleTag*> sampleTags;
+    std::list<SampleTag*> sampleTags;
 
-    std::set<const SampleTag*> constSampleTags;
+    std::list<const SampleTag*> constSampleTags;
 
     bool optional;
 

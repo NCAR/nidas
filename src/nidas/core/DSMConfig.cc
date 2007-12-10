@@ -381,7 +381,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	}
 
 	// check that sample ids are unique
-	for (set<const SampleTag*>::const_iterator ti =
+	for (list<const SampleTag*>::const_iterator ti =
 		sensor->getSampleTags().begin();
 			ti != sensor->getSampleTags().end(); ++ti) {
 	    const SampleTag* stag = *ti;

@@ -47,9 +47,12 @@ public:
 
     virtual bool isRaw() const = 0;
 
+    /**
+     * SampleOutput does not own the pointer.
+     */
     virtual void addSampleTag(const SampleTag*) = 0;
 
-    virtual const std::set<const SampleTag*>& getSampleTags() const = 0;
+    virtual const std::list<const SampleTag*>& getSampleTags() const = 0;
 
     /**
      * Request a connection, of this SampleOutput, but don't wait for it.
@@ -127,7 +130,7 @@ public:
 
     void addSampleTag(const SampleTag*);
 
-    const std::set<const SampleTag*>& getSampleTags() const;
+    const std::list<const SampleTag*>& getSampleTags() const;
 
     /**
      * Request a connection, but don't wait for it.  Requester will be
@@ -201,7 +204,7 @@ private:
 
     IOChannel* iochan;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     SampleConnectionRequester* connectionRequester;
 

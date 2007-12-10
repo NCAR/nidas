@@ -217,6 +217,8 @@ public:
 
     static void setupSignals();
 
+    int logLevel;
+
 private:
     static bool interrupted;
 
@@ -269,7 +271,8 @@ void DataStats::setupSignals()
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-DataStats::DataStats(): processData(false)
+DataStats::DataStats(): logLevel(n_u::LOGGER_NOTICE),
+    processData(false)
 {
 }
 
@@ -279,8 +282,11 @@ int DataStats::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 										
-    while ((opt_char = getopt(argc, argv, "px:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "l:px:")) != -1) {
 	switch (opt_char) {
+	case 'l':
+            logLevel = atoi(optarg);
+	    break;
 	case 'p':
 	    processData = true;
 	    break;
@@ -340,7 +346,8 @@ int DataStats::parseRunstring(int argc, char** argv)
 int DataStats::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p] [-x xml_file] [inputURL] ...\n\
+Usage: " << argv0 << "[-l log_level] [-p] [-x xml_file] [inputURL] ...\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
@@ -360,14 +367,14 @@ Examples:\n" <<
 int DataStats::main(int argc, char** argv)
 {
 
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_DEBUG;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
-
     DataStats stats;
     int result;
     if ((result = stats.parseRunstring(argc,argv))) return result;
+
+    n_u::LogConfig lc;
+    lc.level = stats.logLevel;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
 
     setupSignals();
 

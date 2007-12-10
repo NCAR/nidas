@@ -16,7 +16,7 @@
 #define NIDAS_CORE_NIDSITERATORS_H
 
 #include <list>
-#include <set>
+// #include <set>
 #include <vector>
 
 namespace nidas { namespace core {
@@ -232,9 +232,9 @@ private:
 
     SensorIterator itr1;
 
-    const std::set<const SampleTag*>* stags;
+    const std::list<const SampleTag*>* stags;
 
-    std::set<const SampleTag*>::const_iterator itr2;
+    std::list<const SampleTag*>::const_iterator itr2;
 };
 
 class Variable;

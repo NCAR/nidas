@@ -62,7 +62,8 @@ NetcdfRPCChannel::~NetcdfRPCChannel()
 
 void NetcdfRPCChannel::addSampleTag(const SampleTag* val)
 {
-    sampleTags.insert(val);
+    if (find(sampleTags.begin(),sampleTags.end(),val) == sampleTags.end())
+        sampleTags.push_back(val);
 }
 
 void NetcdfRPCChannel::setName(const std::string& val)
@@ -194,7 +195,7 @@ IOChannel* NetcdfRPCChannel::connect()
     	project->getMinSiteNumber() + 1;
     set<int> stns;
     
-    set<const SampleTag*>::const_iterator si = getSampleTags().begin();
+    list<const SampleTag*>::const_iterator si = getSampleTags().begin();
     for ( ; si != getSampleTags().end(); ++si) {
         const SampleTag* stag = *si;
 

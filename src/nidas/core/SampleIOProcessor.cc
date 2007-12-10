@@ -89,7 +89,7 @@ SampleIOProcessor::~SampleIOProcessor()
 	delete output;
     }
 
-    set<SampleTag*>::const_iterator ti = sampleTags.begin();
+    list<SampleTag*>::const_iterator ti = sampleTags.begin();
     for ( ; ti != sampleTags.end(); ++ti)
 	delete *ti;
 }
@@ -97,8 +97,10 @@ SampleIOProcessor::~SampleIOProcessor()
 void SampleIOProcessor::addSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
-    sampleTags.insert(tag);
-    constSampleTags.insert(tag);
+    if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end()) {
+        sampleTags.push_back(tag);
+        constSampleTags.push_back(tag);
+    }
 }
 
 

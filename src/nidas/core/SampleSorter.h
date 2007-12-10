@@ -109,7 +109,7 @@ public:
      */
     void finish() throw();
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -117,7 +117,8 @@ public:
     void addSampleTag(const SampleTag* tag)
     	throw(nidas::util::InvalidParameterException)
     {
-        sampleTags.insert(tag);
+        if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end())
+            sampleTags.push_back(tag);
     }
 
     /**
@@ -189,7 +190,7 @@ private:
 
     bool flushed;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     std::map<dsm_sample_id_t,SampleClientList> clientsBySampleId;
 

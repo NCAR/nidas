@@ -414,9 +414,10 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 		"input", "must have one child element");
 }
                                                            
-void SampleInputStream::addSampleTag(const SampleTag* stag)
+void SampleInputStream::addSampleTag(const SampleTag* tag)
 {
-    sampleTags.insert(stag);
+    if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end())
+        sampleTags.push_back(tag);
 }
 
 /*

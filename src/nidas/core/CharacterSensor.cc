@@ -241,7 +241,7 @@ void CharacterSensor::fromDOMElement(
     /* a prompt rate of 0 means no prompting */
     prompted = getPromptRate() > 0.0 && getPromptString().size();
     // If sensor is prompted, set sampling rates for variables if unknown
-    set<SampleTag*>::const_iterator si;
+    list<SampleTag*>::const_iterator si;
     if (getPromptRate() > 0.0) {
         for (si = getncSampleTags().begin();
 		si != getncSampleTags().end(); ++si) {

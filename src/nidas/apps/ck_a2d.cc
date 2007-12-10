@@ -156,7 +156,7 @@ int main(int argc, char** argv)
 	if(i%printmodulus == 0)
 	{	
 		printf("\n\nindex = %6d\n", i);
-		printf("time(msec)=%8ld, dt=%d\n",
+		printf("time(msec)=%8d, dt=%d\n",
 		    buf->timetag, 
 		    (i > 0 ?
 		    	(signed)(buf->timetag) - (signed)timetagLast : 0));

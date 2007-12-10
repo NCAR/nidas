@@ -98,10 +98,10 @@ public:
         stag.setDSMId(0);
         stag.setSensorId(10);
         stag.setSampleId(0x0010);
-	sampleTags.insert(&stag);
+	sampleTags.push_back(&stag);
     }
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -113,7 +113,7 @@ public:
 private:
     SampleTag stag;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
 };
 

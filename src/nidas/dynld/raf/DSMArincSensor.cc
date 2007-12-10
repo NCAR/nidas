@@ -118,7 +118,7 @@ void DSMArincSensor::close() throw(n_u::IOException)
  */
 void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
-    set<const SampleTag*>::const_iterator si;
+    list<const SampleTag*>::const_iterator si;
     for (si = getSampleTags().begin(); si != getSampleTags().end(); ++si) {
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.

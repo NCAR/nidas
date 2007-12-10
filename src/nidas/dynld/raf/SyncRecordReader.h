@@ -114,7 +114,7 @@ private:
 
     SyncRecHeaderException* headException;
 
-    std::set<SampleTag*> sampleTags;
+    std::list<SampleTag*> sampleTags;
 
     std::list<const SyncRecordVariable*> variables;
 

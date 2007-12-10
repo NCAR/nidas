@@ -177,7 +177,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
 
     // Determine number of floats we will recieve (_noutValues)
-    const set<const SampleTag*> tags = getSampleTags();
+    const list<const SampleTag*>& tags = getSampleTags();
     if (tags.size() != 1)
           throw n_u::InvalidParameterException(getName(),"sample",
               "must be one <sample> tag for this sensor");

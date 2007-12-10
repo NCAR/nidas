@@ -152,9 +152,10 @@ void SampleInputMerger::removeSampleClient(SampleClient* client) throw()
 }
 
 
-void SampleInputMerger::addSampleTag(const SampleTag* stag)
+void SampleInputMerger::addSampleTag(const SampleTag* tag)
 {
-    sampleTags.insert(stag);
+    if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end())
+        sampleTags.push_back(tag);
 }
 
 bool SampleInputMerger::receive(const Sample* samp) throw()

@@ -57,8 +57,8 @@ throw(n_u::InvalidParameterException)
      * the shadowOR sample.  Check its rate.
      */
     float sorRate = 0.0;
-    set<const SampleTag*> tags = getSampleTags();
-    set<const SampleTag*>::const_iterator si = tags.begin();
+    const list<const SampleTag*>& tags = getSampleTags();
+    list<const SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag* tag = *si;
         if (tag->getId() - getId() == 2) 

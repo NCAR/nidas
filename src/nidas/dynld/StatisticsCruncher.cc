@@ -107,7 +107,7 @@ StatisticsCruncher::StatisticsCruncher(const StatisticsCruncher& x):
 
     outSample.setSampleId(x.outSample.getSampleId());
     if (x.sampleTags.size() > 0)
-    	sampleTags.insert(&outSample);
+    	sampleTags.push_back(&outSample);
 
     createCombinations();
 }
@@ -888,8 +888,10 @@ void StatisticsCruncher::attach(SampleSource* src)
 		input->addProcessedSampleClient(this,sensor);
 	    }
 	    else {
-		cerr << "no sensor match, id=" << id <<
-		    " (" << GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) <<
+		cerr << "StatisticsCruncher::attach: no sensor match, var 0=" <<
+                    inVariables[0]->getName() <<
+                    " no sensor match, input id=(" <<
+		    GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) <<
 		    "), sampleMap.size=" << sampleMap.size() << endl;
 	        src->addSampleClient(this);
 	    }
@@ -898,7 +900,7 @@ void StatisticsCruncher::attach(SampleSource* src)
     if (oneDSM) outSample.setDSMId(dsmid);
     else outSample.setDSMId(0);
 
-    sampleTags.insert(&outSample);
+    sampleTags.push_back(&outSample);
 }
 
 void StatisticsCruncher::connect(SampleInput* input)
@@ -919,11 +921,14 @@ void StatisticsCruncher::connect(SampleInput* input)
                 VariableIterator vi = intag->getVariableIterator();
                 for ( ; vi.hasNext(); ) {
                     const Variable* var = vi.next();
-		    if (*var == *inVariables[i]) {
+                    if (inVariables[i]->getName() == "p.ncar.11m.vt") {
+                        cerr << "StatisticsCruncher::connect, var=" << var->getName() << 
+                            ", inVar=" << inVariables[i]->getName() <<
+                            ", match=" << (*var == *inVariables[i]) << endl;
+                    }
 #ifdef DEBUG
-                        cerr << "match, var=" << var->getName() << 
-                            ", inVar=" << inVariables[i]->getName() << endl;
 #endif
+		    if (*var == *inVariables[i]) {
                         nTagVarMatch++;
                         break;
                     }

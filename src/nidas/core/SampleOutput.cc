@@ -93,14 +93,15 @@ int SampleOutputBase::getFd() const
     else return -1;
 }
 
-const set<const SampleTag*>& SampleOutputBase::getSampleTags() const
+const list<const SampleTag*>& SampleOutputBase::getSampleTags() const
 {
     return sampleTags;
 }
 
 void SampleOutputBase::addSampleTag(const SampleTag* val)
 {
-    sampleTags.insert(val);
+    if (find(sampleTags.begin(),sampleTags.end(),val) == sampleTags.end())
+        sampleTags.push_back(val);
 }
 
 void SampleOutputBase::setIOChannel(IOChannel* val)
@@ -118,7 +119,6 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
 	throw(n_u::IOException)
 {
-    set<const SampleTag*>::const_iterator si = getSampleTags().begin();
     connectionRequester = requester;
     iochan->requestConnection(this);
 }

@@ -30,7 +30,7 @@ SampleAverager::SampleAverager():
 	nvariables(0),sums(0),cnts(0)
 {
     sampleTag.setSampleId(outSampleId);
-    _tags.insert(&sampleTag);
+    _tags.push_back(&sampleTag);
     setAveragePeriod(USECS_PER_SEC * 1);
 
 }

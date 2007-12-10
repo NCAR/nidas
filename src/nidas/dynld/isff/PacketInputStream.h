@@ -54,7 +54,7 @@ public:
 
     std::string getName() const;
 
-    const std::set<const SampleTag*>& getSampleTags() const;
+    const std::list<const SampleTag*>& getSampleTags() const;
 
     void init() throw();
 

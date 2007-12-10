@@ -105,7 +105,7 @@ public:
      */
     virtual void flush() throw();
 
-    virtual const std::set<const SampleTag*>& getSampleTags() const = 0;
+    virtual const std::list<const SampleTag*>& getSampleTags() const = 0;
 
     virtual SampleTagIterator getSampleTagIterator() const;
 

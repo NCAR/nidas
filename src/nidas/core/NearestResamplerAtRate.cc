@@ -165,7 +165,7 @@ void NearestResamplerAtRate::connect(SampleInput* input)
     dsm_sample_id_t id;
     id  = Project::getInstance()->getUniqueSampleId(dsmid);
     outSampleTag.setSampleId(id);
-    sampleTags.insert(&outSampleTag);
+    sampleTags.push_back(&outSampleTag);
 }
 
 void NearestResamplerAtRate::disconnect(SampleInput* input)

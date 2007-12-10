@@ -72,7 +72,7 @@ string PacketInputStream::getName() const
     return string("PacketInputStream");
 }
 
-const set<const SampleTag*>& PacketInputStream::getSampleTags() const
+const list<const SampleTag*>& PacketInputStream::getSampleTags() const
 {
     const GOESProject* gp = getGOESProject(0);
     return gp->getSampleTags();

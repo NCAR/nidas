@@ -56,7 +56,7 @@ public:
     
     void init() throw();
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -141,7 +141,7 @@ protected:
 
     SampleTag syncRecordDataSampleTag;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     int recSize;
 

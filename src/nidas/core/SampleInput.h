@@ -129,9 +129,13 @@ public:
 
     bool receive(const Sample*) throw();
 
+    /**
+     * Add a SampleTag to this merger. SampleInputMerger does not
+     * own the pointer.
+     */
     void addSampleTag(const SampleTag* stag);
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -160,7 +164,7 @@ protected:
 
     size_t unrecognizedSamples;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     std::list<const DSMConfig*> dsmConfigs;
 

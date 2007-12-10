@@ -183,11 +183,13 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
 #ifdef DEBUG
-		bool match = *invar == *myvar;
-		cerr << invar->getName() << '(' << invar->getStation() <<
-			") == " <<
-			myvar->getName() << '(' << myvar->getStation() <<
-			") = " << match << endl;
+                // if (myvar->getName() == "p.ncar.11m.vt") {
+                    bool match = *invar == *myvar;
+                    cerr << invar->getName() << '(' << invar->getStation() <<
+                            ") == " <<
+                            myvar->getName() << '(' << myvar->getStation() <<
+                            ") = " << match << endl;
+                // }
 #endif
 		
 		// first variable match

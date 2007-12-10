@@ -168,9 +168,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Add a sample tag. This NetcdfRPCChannel will send samples
+     * of this type to the netcdf server.  NetcdfRPCChannel does not
+     * own the SampleTag.
+     */
     void addSampleTag(const SampleTag*);
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -240,7 +245,7 @@ private:
 
     std::list<NcVarGroupFloat*> groups;
     
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     /**
      * Deltat in seconds of the time variable in the NetCDF file.

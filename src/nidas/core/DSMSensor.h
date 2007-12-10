@@ -275,7 +275,7 @@ public:
     /**
      * Implementation of SampleSource::getSampleTags().
      */
-    virtual const std::set<const SampleTag*>& getSampleTags() const
+    virtual const std::list<const SampleTag*>& getSampleTags() const
     {
         return constSampleTags;
     }
@@ -635,7 +635,7 @@ protected:
     /**
      * Get non-const SampleTag pointers.
      */
-    virtual std::set<SampleTag*>& getncSampleTags() 
+    virtual const std::list<SampleTag*>& getncSampleTags() 
     {
         return sampleTags;
     }
@@ -707,9 +707,9 @@ private:
      */
     dsm_sample_id_t id;
 
-    std::set<SampleTag*> sampleTags;
+    std::list<SampleTag*> sampleTags;
 
-    std::set<const SampleTag*> constSampleTags;
+    std::list<const SampleTag*> constSampleTags;
 
     SampleTag* rawSampleTag;
 
@@ -723,12 +723,12 @@ private:
 	/**
 	 * Must implement this.
 	 */
-	const std::set<const SampleTag*>& getSampleTags() const
+	const std::list<const SampleTag*>& getSampleTags() const
 	{
 	    return tags;
 	}
     private:
-        std::set<const SampleTag*> tags;
+        std::list<const SampleTag*> tags;
     } rawSource;
 
     // toggle flag for zebra striping printStatus

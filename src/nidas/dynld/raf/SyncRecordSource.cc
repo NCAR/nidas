@@ -38,13 +38,13 @@ SyncRecordSource::SyncRecordSource():
     syncRecordHeaderSampleTag.setSensorId(0);
     syncRecordHeaderSampleTag.setSampleId(SYNC_RECORD_HEADER_ID);
     syncRecordHeaderSampleTag.setRate(0.0);
-    sampleTags.insert(&syncRecordHeaderSampleTag);
+    sampleTags.push_back(&syncRecordHeaderSampleTag);
 
     syncRecordDataSampleTag.setDSMId(0);
     syncRecordDataSampleTag.setSensorId(0);
     syncRecordDataSampleTag.setSampleId(SYNC_RECORD_ID);
     syncRecordDataSampleTag.setRate(1.0);
-    sampleTags.insert(&syncRecordDataSampleTag);
+    sampleTags.push_back(&syncRecordDataSampleTag);
 }
 
 SyncRecordSource::~SyncRecordSource()
@@ -111,9 +111,9 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 {
     sensors.insert(sensor);
 
-    const set<const SampleTag*>& tags = sensor->getSampleTags();
+    const list<const SampleTag*>& tags = sensor->getSampleTags();
 
-    set<const SampleTag*>::const_iterator ti;
+    list<const SampleTag*>::const_iterator ti;
     for (ti = tags.begin(); ti != tags.end(); ++ti) {
 	const SampleTag* tag = *ti;
 

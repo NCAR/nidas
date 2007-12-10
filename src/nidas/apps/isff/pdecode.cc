@@ -173,8 +173,8 @@ int PacketDecode::run() throw()
 	    netcdfChannel->setDirectory("${ISFF}/projects/${PROJECT}/netcdf");
 	    netcdfChannel->setFileNameFormat("isff_%Y%m%d.nc");
 	    netcdfChannel->setCDLFileName("${ISFF}/projects/${PROJECT}/ISFF/config/isff.cdl");
-	    const set<const SampleTag*>& tags = input.getSampleTags();
-	    set<const SampleTag*>::const_iterator si = tags.begin();
+	    const list<const SampleTag*>& tags = input.getSampleTags();
+	    list<const SampleTag*>::const_iterator si = tags.begin();
 	    for ( ; si != tags.end(); ++si)
 		netcdfChannel->addSampleTag(*si);
 

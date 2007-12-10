@@ -223,6 +223,8 @@ public:
 
     static void setupSignals();
 
+    int logLevel;
+
 private:
 
     static const int DEFAULT_PORT = 30000;
@@ -244,7 +246,9 @@ private:
 
 };
 
-DataDump::DataDump(): processData(false),
+DataDump::DataDump():
+        logLevel(n_u::LOGGER_INFO),
+        processData(false),
 	sampleId(0),
 	format(DumpClient::DEFAULT)
 {
@@ -256,7 +260,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHILps:SUx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHIl:Lps:SUx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -278,6 +282,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'I':
 	    format = DumpClient::IRIG;
+	    break;
+	case 'l':
+	    logLevel = atoi(optarg);
 	    break;
 	case 'L':
 	    format = DumpClient::LONG;
@@ -349,7 +356,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " -d dsmid -s sampleId [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
+Usage: " << argv0 << " -d dsmid -s sampleId [-l log_level] [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
     -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
     -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
@@ -362,6 +369,7 @@ Usage: " << argv0 << " -d dsmid -s sampleId [-p] [-x xml_file] [-A | -H | -S] in
     -H: hex output (default for raw output)\n\
     -I: output of IRIG clock samples\n\
     -L: signed long output\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: signed short output (useful for samples from an A2D)\n\
     inputURL: data input (required). One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
@@ -420,16 +428,16 @@ int DataDump::main(int argc, char** argv)
 {
     setupSignals();
 
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_INFO;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
-
     DataDump dump;
 
     int res;
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
+
+    n_u::LogConfig lc;
+    lc.level = dump.logLevel;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme().addConfig (lc));
 
     return dump.run();
 }

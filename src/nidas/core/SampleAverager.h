@@ -63,7 +63,7 @@ public:
     /**
      * Get the output SampleTag.
      */
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return _tags;
     }
@@ -95,7 +95,7 @@ protected:
 
     SampleTag sampleTag;
 
-    std::set<const SampleTag*> _tags;
+    std::list<const SampleTag*> _tags;
 
 private:
 

@@ -72,7 +72,7 @@ public:
 
     std::string getName() const;
 
-    const std::set<const SampleTag*>& getSampleTags() const
+    const std::list<const SampleTag*>& getSampleTags() const
     {
         return sampleTags;
     }
@@ -175,7 +175,7 @@ protected:
 
     nidas::util::Mutex sensorMapMutex;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
 private:
 

@@ -56,7 +56,7 @@ public:
      */
     const SampleTag* getSampleTag(int stationNumber, int sampleId) const;
 
-    const std::set<const SampleTag*>& getSampleTags() const;
+    const std::list<const SampleTag*>& getSampleTags() const;
 
     unsigned long getGOESId(int stationNum) const
 	throw(nidas::util::InvalidParameterException);
@@ -81,7 +81,7 @@ private:
 
     std::vector<int> xmitIntervals;
 
-    std::set<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> sampleTags;
 
     std::vector<SampleTag*> goesTags;
 
