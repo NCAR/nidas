@@ -153,7 +153,7 @@ float IRS_HW_YG1854::processLabel(const long data)
   case 0336:  // BNR - pitch_att_rate       (deg/s)
   case 0337:  // BNR - roll_att_rate        (deg/s)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>11) * 1.0/(1<<8);
+    return (data<<3>>19) * 1.0/(1<<8);
 
   case 0335:  // BNR - track_ang_rate       (deg/s)
     if ((data & SSM) != SSM) break;
