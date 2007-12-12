@@ -40,6 +40,7 @@
 #include <linux/proc_fs.h>
 #include <linux/fcntl.h>    /* O_ACCMODE */
 #include <linux/ioport.h>
+#include <linux/sched.h>    /* schedule() */
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
 #include <asm/system.h>     /* cli(), *_flags */
