@@ -108,7 +108,8 @@ throw(n_u::InvalidParameterException)
     if (!p)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolution = p->getNumericValue(0) * 1.0e-6;
-
+    _resInt =  p->getNumericValue(0);
+   
     p = getParameter("TAS_RATE");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
@@ -166,7 +167,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas, float resolution)
 	}
 	  
         t2d->ntap = (unsigned char) ((1 - (minfreq / freq)) * 255);
-
+        t2d->dummy = (unsigned char )tas;
         return 0;               /* Return success */
 }
 

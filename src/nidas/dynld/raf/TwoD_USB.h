@@ -59,7 +59,9 @@ public:
     int getTASRate() const { return _tasRate; }
 
     void setTASRate(int val) { _tasRate = val; }
-
+    
+    int getResolution(){return _resInt ;}
+     
     /**
      * This the same as number of diodes in the probe.
      * @returns the number of bits per data slice.
@@ -105,6 +107,10 @@ protected:
      */
     double _resolution;
 
+    /**
+     * resolution read from the xml file, saved for payload to pass to TAS recovery in Aeros
+     */
+    int    _resInt;
     void addSampleTag(SampleTag * tag)
      throw(nidas::util::InvalidParameterException);
 
