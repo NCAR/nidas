@@ -795,7 +795,7 @@ int mesa_init(void)
 
                 sprintf(brd->devName, "/dev/%s%d", DEVNAME_MESA, ib);
 
-                addr = SYSTEM_ISA_IOPORT_BASE + ioport;
+                addr = SYSTEM_ISA_IOPORT_BASE + ioport[ib];
 
                 // reserve the ISA memory region
                 if (!request_region(addr, MESA_REGION_SIZE,DEVNAME_MESA)) {

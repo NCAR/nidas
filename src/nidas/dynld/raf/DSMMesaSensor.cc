@@ -16,7 +16,6 @@
 */
 
 
-#include <nidas/rtlinux/mesa.h>
 #include <nidas/dynld/raf/DSMMesaSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 
@@ -247,12 +246,12 @@ bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 
   ioctl(MESA_LOAD_START,0,0);
 
-  struct _prog prog;
+  struct mesa_prog prog;
   do
   {
-    prog.len = fread(prog.buffer, 1, MAX_BUFFER, fdMesaFPGAfile);
+    prog.len = fread(prog.buffer, 1, MESA_MAX_FPGA_BUFFER, fdMesaFPGAfile);
     if (ferror(fdMesaFPGAfile)) throw n_u::IOException(devstr,"read",errno);
-    if (prog.len > 0) ioctl(MESA_LOAD_BLOCK, &prog, sizeof(struct _prog));
+    if (prog.len > 0) ioctl(MESA_LOAD_BLOCK, &prog, sizeof(struct mesa_prog));
   }
   while( !feof(fdMesaFPGAfile) );
 

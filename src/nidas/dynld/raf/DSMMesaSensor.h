@@ -18,6 +18,7 @@
 #ifndef NIDAS_DYNLD_RAF_DSMMESASENSOR_H
 #define NIDAS_DYNLD_RAF_DSMMESASENSOR_H
 
+#include <nidas/linux/mesa.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
 

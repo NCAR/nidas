@@ -20,6 +20,13 @@
 #ifndef NIDAS_LINUX_TYPES_H
 #define NIDAS_LINUX_TYPES_H
 
+/* get other types while we're at it. */
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <sys/types.h>
+#endif
+
 /** tenths of milliseconds since 00:00 UTC today */
 typedef int dsm_sample_time_t;
 
