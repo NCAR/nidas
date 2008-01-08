@@ -24,27 +24,55 @@
 #include <nidas/dynld/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
+#include <nidas/core/DSMEngine.h>
+#include <nidas/core/SampleInputHeader.h>
 #include <nidas/core/HeaderSource.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
+#include <nidas/dynld/raf/TwoD64_USB.h>
+#include <nidas/dynld/raf/TwoD32_USB.h>
+
 #include <fstream>
 
+using namespace nidas::core;
+using namespace nidas::dynld;
+using namespace std;
 
-#define P2D_DATA	4096
+class Probe
+{
+public:
+  Probe() : resolution(0), hasOverloadCount(0), recordCount(0) { }
 
-struct P2d_rec {
-  short id;                             /* 'P1','C1','P2','C2', H1, H2 */
+  // Input info.
+  DSMSensor * sensor;
+
+  // Output info.
+  size_t resolution;
+  float frequency;
+  short id;
+
+  // File info.
+  size_t hasOverloadCount;
+  size_t recordCount;
+};
+
+
+static const int P2D_DATA = 4096;	// TwoD image buffer size.
+
+struct P2d_rec
+{
+  short id;                             // 'P1','C1','P2','C2', H1, H2
   short hour;
   short minute;
   short second;
   short spare1;
   short spare2;
   short spare3;
-  short tas;                            /* true air speed */
-  short msec;                           /* msec of this record */
-  short overld;                         /* overload time, msec */
-  unsigned char data[P2D_DATA];         /* image buffer */
+  short tas;                            // true air speed
+  short msec;                           // msec of this record
+  short overld;                         // overload time, msec
+  unsigned char data[P2D_DATA];         // image buffer
 };
 typedef struct P2d_rec P2d_rec;
 
@@ -59,10 +87,6 @@ typedef struct P2d_rec P2d_rec;
 // #   define LLONG_MAX    9223372036854775807LL
 // #   define LLONG_MIN    (-LLONG_MAX - 1LL)
 // #endif
-
-using namespace nidas::core;
-using namespace nidas::dynld;
-using namespace std;
 
 namespace n_u = nidas::util;
 
@@ -96,6 +120,8 @@ public:
 private:
 
     static bool interrupted;
+
+    string xmlFileName;
 
     list<string> inputFileNames;
 
@@ -203,7 +229,7 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
-
+/*
     while ((opt_char = getopt(argc, argv, "l:s:x:")) != -1) {
 	switch (opt_char) {
 	case 'l':
@@ -248,12 +274,13 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
 	    return usage(argv[0]);
 	}
     }
+    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
+    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
+*/
     if (optind < argc) outputFileName = argv[optind++];
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
     if (inputFileNames.size() == 0) return usage(argv[0]);
-    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
-    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
     return 0;
 }
 
@@ -276,19 +303,16 @@ void Extract2D::printHeader()
 
 int Extract2D::run() throw()
 {
-
-    try {
+    try
+    {
         ofstream outFile(outputFileName.c_str(), ofstream::binary | ofstream::trunc);
         if (!outFile.is_open()) {
             throw n_u::IOException("extract2d","can't open output file ",errno);
         }
 
-        // Write a header, this should get it from the XML.
-//        char * tmpStr = "PMS2D\nprobe=C4\nend header\n";
-//        outFile.write(tmpStr, strlen(tmpStr));
 
-
-        FileSet* fset = new nidas::dynld::FileSet();
+        FileSet * fset = new nidas::dynld::FileSet();
+        int recordCnt, hasOverld;
 
         list<string>::const_iterator fi = inputFileNames.begin();
         for (; fi != inputFileNames.end(); ++fi)
@@ -302,22 +326,103 @@ int Extract2D::run() throw()
         // save header for later writing to output
         header = input.getHeader();
 
+        auto_ptr<Project> project;
+        map<dsm_sample_id_t, Probe *> probeList;
+
+        if (xmlFileName.length() == 0)
+            xmlFileName = header.getConfigName();
+        xmlFileName = Project::expandEnvVars(xmlFileName);
+
+
+        // Scan header for 2D probes.
+        struct stat statbuf;
+        if (::stat(xmlFileName.c_str(), &statbuf) == 0)
+        {
+            auto_ptr<xercesc::DOMDocument> doc(DSMEngine::parseXMLConfigFile(xmlFileName));
+
+            project = auto_ptr<Project>(Project::getInstance());
+            project->fromDOMElement(doc->getDocumentElement());
+
+            DSMConfigIterator di = project->getDSMConfigIterator();
+
+//            outFile << "PMS2D (ncar.ucar.edu)\n";
+
+            for ( ; di.hasNext(); )
+            {
+                const DSMConfig * dsm = di.next();
+                const list<DSMSensor *>& sensors = dsm->getSensors();
+
+                size_t Pcnt = 0, Ccnt = 0;
+
+                list<DSMSensor *>::const_iterator dsm_it;
+                for (dsm_it = sensors.begin(); dsm_it != sensors.end(); ++dsm_it)
+                {
+                    if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
+                        continue;
+
+                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName() << std::endl;
+
+                    if ((*dsm_it)->getCatalogName().size() == 0)
+                    {
+                        cout << " Sensor " << (*dsm_it)->getName() << 
+                           " is not in catalog, unable to recognize 2DC vs. 2DP, ignoring.\n" <<
+                           " Fix by moving this entry from the DSM area up to the sensor catalog.\n";
+                        continue;
+                    }
+
+                    includeIds.insert((*dsm_it)->getId());
+
+                    Probe * p = new Probe;
+                    p->sensor = (*dsm_it);
+                    probeList[(*dsm_it)->getId()] = p;
+
+                    const Parameter * parm = p->sensor->getParameter("RESOLUTION");
+                    p->resolution = (size_t)parm->getNumericValue(0);
+                    p->frequency = p->resolution * 1.0e-6;
+
+                    if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
+                        p->id = htons(0x4334);	// C4
+
+                    if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
+                        p->id = htons(0x4331 + Ccnt++);
+
+                    if ((*dsm_it)->getCatalogName().compare("TwoDP") == 0)
+                        p->id = htons(0x5031 + Pcnt++);
+                }
+            }
+//            outFile << "end header\n";
+        }
+
+        if (includeIds.size() == 0)
+        {
+            std::cerr << "extract2d, no PMS2D probes found in the header.\n";
+            return 0;
+        }
+
+        // Write a header, this should get it from the XML.
+//        char * tmpStr = "PMS2D\nprobe=C4\nend header\n";
+//        outFile.write(tmpStr, strlen(tmpStr));
+
+
+        recordCnt = hasOverld = 0;
         try {
             for (;;) {
 
-                Sample* samp = input.readSample();
+                Sample * samp = input.readSample();
                 if (interrupted) break;
                 dsm_sample_id_t id = samp->getId();
 
 		if (includeIds.size() > 0) {
 		    if (includeIds.find(id) != includeIds.end()) {
                         if (samp->getDataByteLength() == 4104) {
-                            const int* dp = (const int*) samp->getConstVoidDataPtr();
+                            const int * dp = (const int *) samp->getConstVoidDataPtr();
                             int stype = *dp++;
+
                             // stype=0 is a image, stype=1 is SOR
                             if (stype == 0) {  
+                                unsigned char * cp = (unsigned char *)dp;
+
                                 dp++;      // skip over tas field
-                                P2d_rec record;
                                 struct tm t;
                                 int msecs;
 
@@ -326,14 +431,28 @@ int Extract2D::run() throw()
                                 samp_time.toTm(true, &t, &msecs);
                                 msecs /= 1000;
 
-                                record.id = htons(0x4334);
-                                record.id = htons(0x5031);
+                                P2d_rec record;
+                                Probe * probe = probeList[id];
+                                record.id = probe->id;
                                 record.hour = htons(t.tm_hour);
                                 record.minute = htons(t.tm_min);
                                 record.second = htons(t.tm_sec);
                                 record.msec = htons(msecs);
+
+                                float tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
+                                record.tas = htons( ((short)tas * (255 / 125) + 1) );
+
                                 record.overld = htons(0);
-                                ::memcpy(record.data,dp, P2D_DATA);
+                                ::memcpy(record.data, dp, P2D_DATA);
+
+                                // For old 2D probes, not Fast 2DC.
+                                if (record.data[0] & 0x55aa0000 == 0x55aa0000)
+                                {
+                                    record.overld = htons((record.data[0] & 0x0000ffff) / 2000);
+                                    ++hasOverld;
+                                }
+
+                                ++recordCnt;
                                 outFile.write((char *)&record, sizeof(record));
                             }
                         }
@@ -347,8 +466,12 @@ int Extract2D::run() throw()
         }
 
         outFile.close();
+        cout << recordCnt << " 2D records.  " << hasOverld <<
+		" records had an overload word @ spot zero, or " <<
+		hasOverld * 100 / recordCnt << "%." <<endl;
     }
-    catch (n_u::IOException& ioe) {
+    catch (n_u::IOException& ioe)
+    {
         cerr << ioe.what() << endl;
 	return 1;
     }
