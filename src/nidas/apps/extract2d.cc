@@ -111,15 +111,12 @@ public:
 
     void sendHeader(dsm_time_t thead,SampleOutput* out)
         throw(n_u::IOException);
-    
-    /**
-     * for debugging.
-     */
-    void printHeader();
 
 private:
 
     static bool interrupted;
+
+    bool outputHeader;
 
     string xmlFileName;
 
@@ -220,7 +217,7 @@ int Extract2D::main(int argc, char** argv) throw()
 
 
 Extract2D::Extract2D():
-	outputFileLength(0)
+	outputHeader(true), outputFileLength(0)
 {
 }
 
@@ -284,21 +281,11 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
+
 void Extract2D::sendHeader(dsm_time_t thead,SampleOutput* out)
     throw(n_u::IOException)
 {
-    printHeader();
     header.write(out);
-}
-
-void Extract2D::printHeader()
-{
-    cerr << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cerr << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cerr << "ProjectName:" << header.getProjectName() << endl;
-    cerr << "SystemName:" << header.getSystemName() << endl;
-    cerr << "ConfigName:" << header.getConfigName() << endl;
-    cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
 }
 
 int Extract2D::run() throw()
@@ -323,7 +310,6 @@ int Extract2D::run() throw()
         input.init();
 
         input.readHeader();
-        // save header for later writing to output
         header = input.getHeader();
 
         auto_ptr<Project> project;
@@ -345,7 +331,12 @@ int Extract2D::run() throw()
 
             DSMConfigIterator di = project->getDSMConfigIterator();
 
-//            outFile << "PMS2D (ncar.ucar.edu)\n";
+            if (outputHeader)
+            {
+                outFile << "PMS2D (ncar.ucar.edu)\n"
+			<< "Project: " << header.getProjectName() << endl
+			<< "Platform: " << header.getSystemName() << endl;
+            }
 
             for ( ; di.hasNext(); )
             {
@@ -387,10 +378,21 @@ int Extract2D::run() throw()
                         p->id = htons(0x4331 + Ccnt++);
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDP") == 0)
+                    {
                         p->id = htons(0x5031 + Pcnt++);
+                        // Undo hard fixed divide by 10 in USB white box for 2DP only
+                        p->frequency /= 10;
+                    }
+
+                    if (outputHeader)
+                    {
+                        outFile << "probe=" << ((char *)&p->id)[0] << ((char *)&p->id)[1]
+                                << ", resolution=" << p->resolution << endl;
+                    }
                 }
             }
-//            outFile << "end header\n";
+            if (outputHeader)
+                outFile << "end header\n";
         }
 
         if (includeIds.size() == 0)
@@ -398,11 +400,6 @@ int Extract2D::run() throw()
             std::cerr << "extract2d, no PMS2D probes found in the header.\n";
             return 0;
         }
-
-        // Write a header, this should get it from the XML.
-//        char * tmpStr = "PMS2D\nprobe=C4\nend header\n";
-//        outFile.write(tmpStr, strlen(tmpStr));
-
 
         recordCnt = hasOverld = 0;
         try {
