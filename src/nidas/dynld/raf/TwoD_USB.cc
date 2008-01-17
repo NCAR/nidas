@@ -34,7 +34,6 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-
 TwoD_USB::TwoD_USB() : _tasRate(1)
 {
 }
@@ -82,7 +81,6 @@ void TwoD_USB::close() throw(n_u::IOException)
 
 
 /*---------------------------------------------------------------------------*/
-#include <cstdio>
 bool TwoD_USB::process(const Sample * samp,
                         list < const Sample * >&results) throw()
 {
@@ -108,7 +106,6 @@ throw(n_u::InvalidParameterException)
     if (!p)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolution = p->getNumericValue(0) * 1.0e-6;
-    _resInt =  p->getNumericValue(0);
    
     p = getParameter("TAS_RATE");
     if (!p)
@@ -117,8 +114,7 @@ throw(n_u::InvalidParameterException)
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader *
-                                  s) throw()
+void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
 {
     // std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
     if (!::isnan(s->getTrueAirspeed())) {
@@ -133,9 +129,9 @@ void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader *
 }
 
 /*---------------------------------------------------------------------------*/
-int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas, float resolution)
+int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
 {
-        double freq = tas / resolution;
+        double freq = tas / _resolution;
 	double minfreq;
 
 	memset(t2d, 0, sizeof(*t2d));
@@ -175,16 +171,17 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas, float resolution)
 void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 {
     Tap2D tx_tas;
-    if (TASToTap2D(&tx_tas, tas, _resolution)) 
+    if (TASToTap2D(&tx_tas, tas)) 
 	n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: TASToTap2D reports bad airspeed=%f m/s\n",
 		getName().c_str(),tas);
 	
     ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
 }
+
+/*---------------------------------------------------------------------------*/
 void TwoD_USB::printStatus(std::ostream& ostr) throw()
 {
-
     DSMSensor::printStatus(ostr);
     struct usb_twod_stats status;
 
@@ -208,4 +205,55 @@ void TwoD_USB::printStatus(std::ostream& ostr) throw()
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());
     }
+}
+
+/*---------------------------------------------------------------------------*/
+void TwoD_USB::sendData(dsm_time_t timeTag,
+                        list < const Sample * >&results) throw()
+{
+    size_t nvalues;
+    SampleT < float >*outs;
+    float * dout;
+
+    // Sample 2 is the 1DC enter-in data.
+    nvalues = nDiodes + 1;
+    outs = getSample < float >(nvalues);
+
+    outs->setTimeTag(timeTag);
+    outs->setId(getId() + 2);
+
+    dout = outs->getDataPtr();
+    for (size_t i = 0; i < nDiodes; ++i)
+        *dout++ = size_dist_1DC[i];
+
+    *dout++ = dead_time_1DC;      // Dead Time.
+    results.push_back(outs);
+
+
+    // Sample 3 is the 2DC center-in or reconstruction data.
+    nvalues = (nDiodes<<1) + 1;
+    outs = getSample < float >(nvalues);
+
+    outs->setTimeTag(timeTag);
+    outs->setId(getId() + 3);
+
+    dout = outs->getDataPtr();
+    for (size_t i = 0; i < (nDiodes<<1); ++i)
+        *dout++ = size_dist_2DC[i];
+
+    *dout++ = dead_time_2DC;      // Dead Time.
+    results.push_back(outs);
+
+    clearData();
+}
+
+void TwoD_USB::clearData()
+{
+    for (size_t i = 0; i < nDiodes; ++i)
+        size_dist_1DC[i] = 0.0;
+
+    for (size_t i = 0; i < nDiodes<<1; ++i)
+        size_dist_2DC[i] = 0.0;
+
+    dead_time_1DC = dead_time_2DC = 0.0;
 }

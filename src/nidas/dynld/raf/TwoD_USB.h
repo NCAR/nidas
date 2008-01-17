@@ -29,6 +29,7 @@
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
+
 /**
  * Base class for PMS 2D particle probes on a USB interface.  Covers
  * both the Fast2DC and the white converter box for older 2D probes.
@@ -60,7 +61,13 @@ public:
 
     void setTASRate(int val) { _tasRate = val; }
     
-    int getResolution(){return _resInt ;}
+    /**
+     * The probe resolution in meters.  Probe resolution is also the diameter
+     * of the each diode.  Typical values are 25 for the 2DC and 200
+     * micrometers for the 2DP.
+     * @returns The probe resolution in meters.
+     */
+    float getResolution() const { return _resolution; }
      
     /**
      * This the same as number of diodes in the probe.
@@ -69,26 +76,35 @@ public:
     virtual int numberBitsPerSlice() const = 0;
 
     void fromDOMElement(const xercesc::DOMElement *)
-     throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
-     bool
-        process(const Sample * samp,
-                std::list < const Sample * >&results)
-     throw();
+    bool
+    process(const Sample * samp, std::list < const Sample * >&results)
+        throw();
 
     virtual void
-        derivedDataNotify(const nidas::core::
-                          DerivedDataReader * s) throw();
+    derivedDataNotify(const nidas::core:: DerivedDataReader * s)
+        throw();
 
     void printStatus(std::ostream& ostr) throw();
 
-    /*
+    /**
      * Build the struct above from the true airspeed (in m/s)
      * @param t2d the Tap2D to be filled
      * @param tas the true airspeed in m/s
-     * @param resolution the resolution or diode size, in meters.
      */
-    int TASToTap2D(Tap2D * t2d, float tas, float resolution);
+    int TASToTap2D(Tap2D * t2d, float tas);
+
+    /**
+     * Reverse the true airspeed encoding.  Used to extract TAS from
+     * recorded records.
+     * @param t2d the Tap2D to extract from.
+     * @param the probe frequency.
+     * @returns true airspeed in m/s.
+     */
+    virtual float
+    Tap2DToTAS(const Tap2D * t2d, float frequency) const
+    { return (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * frequency; }
 
 
 protected:
@@ -105,12 +121,8 @@ protected:
     /**
      * Probe resolution in meters.  Acquired from XML config file.
      */
-    double _resolution;
+    float _resolution;
 
-    /**
-     * resolution read from the xml file, saved for payload to pass to TAS recovery in Aeros
-     */
-    int    _resInt;
     void addSampleTag(SampleTag * tag)
      throw(nidas::util::InvalidParameterException);
 
@@ -132,6 +144,52 @@ protected:
      * Time of last printStatus.
      */
     long long _lastStatusTime;
+
+    /**
+     * Number of diodes in this probe, same as number of bits per slice.
+     */
+    size_t nDiodes;
+
+    /**
+     * Clear size_dist arrays.
+     */
+    void clearData();
+
+    /**
+     * Arrays for size-distribution histograms.
+     */
+    float * size_dist_1DC;
+    float * size_dist_2DC;
+
+    /**
+     * Amount of time probe was inactive or amount of time consumed by rejected
+     * particles.  nimbus will then subtract this deadtime out of the sample
+     * volume.
+     */
+    float dead_time_1DC;
+    float dead_time_2DC;
+
+    /* Time from previous record.  Time belongs to end of record it came with,
+     * or start of the next record.  Save it so we can use it as a start.
+     * Units are milliseconds.
+     */
+    unsigned long long prevTime;
+
+    /* The second for which we are accumulating the histograms.  Assuming we
+     * are producing 1 sample per second histograms.
+     */
+    unsigned long long nowTime;
+
+    /**
+     * Send derived data and reset.  The process() method for image data is
+     * to build size-distribution histograms for 1 second of data and then
+     * send that.
+     * @param timeTag is the timeTag for this sample.
+     * @param results is the output results.
+     */
+    void sendData(dsm_time_t timeTag,
+                        std::list < const Sample * >&results) throw();
+
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
