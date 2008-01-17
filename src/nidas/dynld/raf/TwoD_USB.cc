@@ -36,6 +36,9 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
 
 TwoD_USB::TwoD_USB() : _tasRate(1)
 {
+  dead_time_1DC = dead_time_2DC = 0.0;
+  prevTime = 0;
+  nowTime = 0;
 }
 
 TwoD_USB::~TwoD_USB()
