@@ -11,15 +11,20 @@ def generate(env):
     Add Builders and construction variables for C compilers to an Environment.
     """
 
-    # Just put the common locations of arm tools on the path too, in case
-    # they are not already there.
-    env.PrependENVPath('PATH', '/opt/arcom/bin')
+    # Append /opt/arcom/bin to env['ENV']['PATH'],
+    # so that it is fallback if armbe-linux-gcc is
+    # not otherwise found in the path.
+    # But scons is too smart. If you append /opt/arcom/bin
+    # to env['ENV']['PATH'], scons will remove any earlier
+    # occurances of /opt/arcom/bin in the PATH, and you may
+    # get your second choice for armbe-linux-gcc.
+    # So, we only append /opt/arcom/bin if "which armbe-linux-gcc"
+    # fails.
 
-    env.Execute("which arm-linux-gcc")
-    env.Execute("which arm-linux-g++")
-    env.Execute("which armbe-linux-gcc")
-    env.Execute("which armbe-linux-g++")
-    
+    if env.Execute("which armbe-linux-gcc") or env.Execute("which armbe-linux-g++"):
+        env.AppendENVPath('PATH', '/opt/arcom/bin')
+        print "PATH=" + env['ENV']['PATH'];
+
     env.Replace(AR	= 'armbe-linux-ar')
     env.Replace(AS	= 'armbe-linux-as')
     env.Replace(CC	= 'armbe-linux-gcc')

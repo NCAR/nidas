@@ -11,18 +11,20 @@ def generate(env):
     Add Builders and construction variables for C compilers to an Environment.
     """
 
-    # Just put the common locations of arm tools on the path too, in case
-    # they are not already there.
-    env.PrependENVPath('PATH', '/opt/arm_tools/bin')
-#   env.AppendENVPath('PATH', '/net/opt_lnx/arm_tools/bin')
-    
-    env.Execute("which arm-linux-gcc")
-    env.Execute("which arm-linux-g++")
+    # Append /opt/arcom/bin to env['ENV']['PATH'],
+    # so that it is fallback if arm-linux-gcc is
+    # not otherwise found in the path.
+    # But scons is too smart. If you append /opt/arcom/bin
+    # to env['ENV']['PATH'], scons will remove any earlier
+    # occurances of /opt/arcom/bin in the PATH, and you may
+    # get your second choice for arm-linux-gcc.
+    # So, we only append /opt/arcom/bin if "which arm-linux-gcc"
+    # fails.
 
-#     # Look for the compiler to get the path.
-#     gcc = env.WhereIs('arm-linux-gcc')
-#     if (gcc):
-#         env['ARM_CROSS_BINDIR'] = os.path.dirname(gcc)
+    if env.Execute("which arm-linux-gcc") or env.Execute("which arm-linux-g++"):
+        env.AppendENVPath('PATH', '/opt/arcom/bin')
+        print "PATH=" + env['ENV']['PATH'];
+
     env.Replace(AR	= 'arm-linux-ar')
     env.Replace(AS	= 'arm-linux-as')
     env.Replace(CC	= 'arm-linux-gcc')
