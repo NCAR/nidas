@@ -333,9 +333,11 @@ int Extract2D::run() throw()
 
             if (outputHeader)
             {
-                outFile << "PMS2D (ncar.ucar.edu)\n"
-			<< "Project: " << header.getProjectName() << endl
-			<< "Platform: " << header.getSystemName() << endl;
+                outFile << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
+			<< "<PMS2D>\n"
+                        << " <Source>ncar.ucar.edu</Source>\n"
+			<< " <Project>" << header.getProjectName() << "</Project>\n"
+			<< " <Platform>" << header.getSystemName() << "</Platform>\n";
             }
 
             for ( ; di.hasNext(); )
@@ -386,13 +388,14 @@ int Extract2D::run() throw()
 
                     if (outputHeader)
                     {
-                        outFile << "probe=" << ((char *)&p->id)[0] << ((char *)&p->id)[1]
-                                << ", resolution=" << p->resolution << endl;
+                        outFile << "  <probe id=\"" << ((char *)&p->id)[0]
+				<< ((char *)&p->id)[1] << "\""
+                                << " resolution=\"" << p->resolution << "\"/>\n";
                     }
                 }
             }
             if (outputHeader)
-                outFile << "end header\n";
+                outFile << "</PMS2D>\n";
         }
 
         if (includeIds.size() == 0)
