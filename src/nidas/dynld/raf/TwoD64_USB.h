@@ -28,7 +28,7 @@ using namespace nidas::core;
  * Class for the USB Fast-2DC.  This probe has a USB 2.0 interface
  * built in.  This probe has 64 diodes instead of the standard 32.
  */
-class TwoD64_USB:public TwoD_USB
+class TwoD64_USB : public TwoD_USB
 {
 public:
     TwoD64_USB();
@@ -38,30 +38,48 @@ public:
         throw(nidas::util::InvalidParameterException);
 
     bool
-    process(const Sample * samp,
-                std::list < const Sample * >&results)
-     throw();
+    process(const Sample * samp, std::list < const Sample * >&results) throw();
 
-    virtual int numberBitsPerSlice() const { return 64; }
+    /**
+     * Return bits-per-slice; same as the number of diodes in the probe.
+     */
+    virtual size_t NumberOfDiodes() const { return 64; }
 
   
 private:
-
-    bool processSOR(const Sample * samp,
-                     std::list < const Sample * >&results)
-     throw();
-    bool processImage(const Sample * samp,
-                     std::list < const Sample * >&results)
-     throw();
+    /**
+     * Process the Shadow-OR sample from the probe.
+     */
+    bool processSOR(const Sample * samp, std::list < const Sample * >&results)
+        throw();
 
     /**
-     * Pixel words from probe are big-endian long longs.
-     * Convert the expected syncWord to big-endian for comparison.
+     * Process a single 2D record generating size-distribution data.  Two
+     * size-distribution data are generated: a) the 1DC array emulates a 260X,
+     * height only and any particle touching the edge is rejected. b) 2DC
+     * array uses max(widht, height) of particle for particles which do not
+     * touch the edge and the center-in method for reconstructing particles
+     * which do touch an edge diode.
+     *
+     * @param samp is the sample data.
+     * @param results is the output result array.
+     * @see _size_dist_1DC
+     * @see _size_dist_2DC
+     * @returns whether samples were output.
      */
-    long long _syncMaskBE, _syncWordBE;
+    bool processImageRecord(const Sample * samp,
+	std::list < const Sample * >&results) throw();
 
-    static const long long _syncMask, _syncWord;
+//@{
+    /**
+     * Sync and overload words/masks.
+     */
+#ifdef THE_KNIGHTS_WHO_SAY_NI
+    static const unsigned long long _syncMask, _syncWord, _overldWord;
+#endif
+    static const unsigned char _syncString[3], _overldString[3];
+//@}
 };
 
-}}}                     // namespace nidas namespace dynld namespace raf
+}}}       // namespace nidas namespace dynld namespace raf
 #endif

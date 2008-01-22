@@ -34,18 +34,27 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB)
 
-const long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
-const long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
+#ifdef THE_KNIGHTS_WHO_SAY_NI
+//  I'm leaving these three in for documentation.
+const unsigned long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
+const unsigned long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
+const unsigned long long TwoD64_USB::_overldWord = 0xAAAA550000000000LL;
+#endif
 
+const unsigned char TwoD64_USB::_syncString[3] = { 0xAA, 0xAA, 0xAA };
+const unsigned char TwoD64_USB::_overldString[3] = { 0xAA, 0xAA, 0x55 };
 
 TwoD64_USB::TwoD64_USB()
 {
-    _syncWordBE = bigEndian->longlongValue(&_syncWord);
-    _syncMaskBE = bigEndian->longlongValue(&_syncMask);
+    _size_dist_1DC = new size_t[NumberOfDiodes()];
+    _size_dist_2DC = new size_t[NumberOfDiodes()<<1];
+    clearData();
 }
 
 TwoD64_USB::~TwoD64_USB()
 {
+    delete [] _size_dist_1DC;
+    delete [] _size_dist_2DC;
 }
 
 void TwoD64_USB::fromDOMElement(const xercesc::DOMElement * node)
@@ -57,12 +66,16 @@ throw(n_u::InvalidParameterException)
      * the shadowOR sample.  Check its rate.
      */
     float sorRate = 0.0;
-    const list<const SampleTag*>& tags = getSampleTags();
-    list<const SampleTag*>::const_iterator si = tags.begin();
+    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
-        const SampleTag* tag = *si;
-        if (tag->getId() - getId() == 2) 
-		sorRate = tag->getRate();
+        const SampleTag * tag = *si;
+        Variable & var = ((SampleTag *)tag)->getVariable(0);
+
+        if (var.getName().compare(0, 6, "SHDORC") == 0) {
+            sorRate = tag->getRate();
+            _sorID = tag->getId();
+        }
     }
     if (sorRate <= 0.0) throw n_u::InvalidParameterException(getName(),
 	"sample","shadow OR sample rate not found");
@@ -76,63 +89,156 @@ throw(n_u::InvalidParameterException)
 bool TwoD64_USB::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    
-    unsigned long lin = samp->getDataByteLength();
-
-    if (lin < 2 * sizeof (long))
+    unsigned long len = samp->getDataByteLength();
+    if (len < 2 * sizeof (long))
         return false;
 
     const unsigned long *lptr =
         (const unsigned long *) samp->getConstVoidDataPtr();
+
     /*int stype =*/ bigEndian->longValue(*lptr++);
     long sor = bigEndian->longValue(*lptr++);
 
     size_t nvalues = 1;
     SampleT < float >*outs = getSample < float >(nvalues);
     outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId() + 2);   //
+    outs->setId(_sorID);
     float *dout = outs->getDataPtr();
     *dout = sor;
+
     results.push_back(outs);
     return true;
 }
 
-bool TwoD64_USB::processImage(const Sample * samp,
+bool TwoD64_USB::processImageRecord(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
+    static Particle * cp = 0;
 
-    unsigned long lin = samp->getDataByteLength();
-    if (lin < 2 * sizeof (long) + 512 * sizeof (long long))
-        return false;
-    const unsigned long *lptr =
-        (const unsigned long *) samp->getConstVoidDataPtr();
-    /*int stype =*/ bigEndian->longValue(*lptr++);
-    *lptr++;		// skip 4 byte TAS structure
-    const long long *llptr = (const long long *) lptr;
+    bool rc = false;	// return code.
 
-    // We will compute 1 value, a count of particles.
-    size_t nvalues = 1;
-    SampleT < float >*outs = getSample < float >(nvalues);
+    unsigned long len = samp->getDataByteLength();
 
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId() + 1);   //
+    if (len < 2 * sizeof (long) + 512 * sizeof (long long))
+        return rc;
 
-    float *dout = outs->getDataPtr();
+    unsigned long long startTime = _prevTime;
+    unsigned long long endTime = samp->getTimeTag();
+    _prevTime = endTime;
+    _totalRecords++;
 
-    // Count number of particles (sync words) in the record and return.
-    int cnt = 0;
-    for (int i = 0; i < 512; ++i, llptr++) {
-        if ((*llptr & _syncMaskBE) == _syncWordBE) cnt++;
+    if (_nowTime == 0)
+    {
+        _nowTime = samp->getTimeTag();
+        _nowTime -= (_nowTime % USECS_PER_SEC);	// nowTime should have no fractional component.
+        return rc;	// Chuck first record as we don't know start time.
     }
 
-    *dout = cnt;
-    results.push_back(outs);
+    const int * dp = (const int *) samp->getConstVoidDataPtr();
+    dp++; // Move past sample type.
 
-    return true;
+    float tas = Tap2DToTAS((Tap2D *)dp++);
+    if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
+        "TAS","out of range");
+
+    float frequency = getResolutionMicron() / tas;
+
+
+    // Loop through all slices in record.
+    unsigned long long * p = (unsigned long long *)dp;
+    unsigned long long	firstTimeWord = 0;	// First timing word in this record.
+    for (size_t i = 0; i < 512; )
+    {
+        if (::memcmp(p, _overldString, 3) == 0) {
+            _overLoadSliceCount++;
+        }
+
+        /* Have particle, will travel.
+         */
+        if (::memcmp(p, _syncString, 3) == 0)
+        {
+            {
+                _totalParticles++;
+
+                // time words are from a 12MHz clock
+                unsigned long long slice = bigEndian->longlongValue(*p);
+                unsigned long long thisTimeWord = (slice & 0x000000ffffffffffLL) / 12;
+
+                if (firstTimeWord == 0)
+                    firstTimeWord = thisTimeWord;
+
+                // Approx millisecondes since start of record.
+                unsigned long long tBarElapsedtime = thisTimeWord - firstTimeWord;
+                unsigned long long thisParticleSecond = startTime - tBarElapsedtime;
+                thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
+
+                // If we have crossed the 1 second boundary, send existing data and reset.
+                if (thisParticleSecond != _nowTime)
+                {
+                    sendData(_nowTime, results);
+                    _nowTime = thisParticleSecond;
+                    rc = true;
+                }
+
+            if (cp == 0)
+                cp = new Particle;
+            }
+
+            /* Determine height and width of particle.
+             */
+            ++p; ++i;
+            for (; i < 512 && ::memcmp(p, _syncString, 3); ++p, ++i)
+            {
+                if (*p == 0xffffffffffffffffLL && cp->width > 0)
+                  break;
+
+                processParticleSlice(cp, (const unsigned char *)p);
+            }
+
+            if (i == 512) {	// Particle wraps to next record.
+//                break;
+            }
+            else
+;
+//            while (i < 512 && ::memcmp(p, _syncString, 3))
+//                ++junk; // add livetime of rest of particle to dead_time
+
+            float liveTime = frequency * cp->width;
+
+            // 1DC
+            if (acceptThisParticle1DC(cp))
+                _size_dist_1DC[cp->height]++;
+            else {
+                _dead_time_1DC += liveTime;
+                _rejected1DC_Cntr++;
+            }
+
+            // 2DC - Center-in algo
+            if (acceptThisParticle2DC(cp)) {
+                size_t n = std::max(cp->height, cp->width);
+
+                if (n < (NumberOfDiodes()<<1))
+                    _size_dist_2DC[n]++;
+                else
+                    ; // ++overFlowCnt[probeCount];
+            }
+            else {
+                _dead_time_2DC += liveTime;
+                _rejected2DC_Cntr++;
+            }
+
+            delete cp; cp = 0;
+        }
+        else {
+            ++i; ++p;
+        }
+    }
+
+    _nowTime = samp->getTimeTag();
+    _nowTime -= (_nowTime % USECS_PER_SEC);	// to seconds
+    return rc;
 }
 
-/*---------------------------------------------------------------------------*/
-#include <cstdio>
 bool TwoD64_USB::process(const Sample * samp,
                         list < const Sample * >&results) throw()
 {
@@ -148,12 +254,9 @@ bool TwoD64_USB::process(const Sample * samp,
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
     switch (stype) {
     case 0:                    // image data
-        return processImage(samp, results);
+        return processImageRecord(samp, results);
     case 1:
         return processSOR(samp, results);
     }
     return false;
 }
-
-
-

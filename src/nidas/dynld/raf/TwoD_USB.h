@@ -67,13 +67,23 @@ public:
      * micrometers for the 2DP.
      * @returns The probe resolution in meters.
      */
-    float getResolution() const { return _resolution; }
+    float getResolution() const { return _resolutionMeters; }
      
     /**
-     * This the same as number of diodes in the probe.
+     * The probe resolution in micrometers.  Probe resolution is also the diameter
+     * of the each diode.  Typical values are 25 for the 2DC and 200
+     * micrometers for the 2DP.
+     * @returns The probe resolution in micrometers.
+     */
+    size_t getResolutionMicron() const { return _resolutionMicron; }
+     
+    /**
+     * Number of diodes in the probe array.  This is also the bits-per-slice
+     * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
+     * the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual int numberBitsPerSlice() const = 0;
+    virtual size_t NumberOfDiodes() const = 0;
 
     void fromDOMElement(const xercesc::DOMElement *)
         throw(nidas::util::InvalidParameterException);
@@ -101,13 +111,23 @@ public:
      * @param t2d the Tap2D to extract from.
      * @param the probe frequency.
      * @returns true airspeed in m/s.
+     * @todo 2DP is going to need an extra divide by 10 at the end.
      */
     virtual float
-    Tap2DToTAS(const Tap2D * t2d, float frequency) const
-    { return (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * frequency; }
+    Tap2DToTAS(const Tap2D * t2d) const
+    { return (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * getResolution(); }
 
 
 protected:
+    class Particle
+    {
+    public:
+        Particle() : height(0), width(0), area(0), edgeTouch(0) { } ;
+
+        size_t height, width, area;
+        unsigned char edgeTouch;
+        unsigned long liveTime;
+    } ;
 
     // Probe produces Big Endian.
     static const nidas::util::EndianConverter * bigEndian;
@@ -116,17 +136,47 @@ protected:
      * Encode and send the true airspeed to the USB driver, which will
      * in turn send it to the probe.
      */
-    void sendTrueAirspeed(float tas) throw(nidas::util::IOException);
-
-    /**
-     * Probe resolution in meters.  Acquired from XML config file.
-     */
-    float _resolution;
+    virtual void sendTrueAirspeed(float tas) throw(nidas::util::IOException);
 
     void addSampleTag(SampleTag * tag)
      throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Process a slice and update the Particle struct area, edgeTouch, width
+     * and height.
+     * @param p is particle info class.
+     * @param slice is a pointer to the start of the slice, in big-endian and
+     * uncomplemented.
+     */
+    virtual void processParticleSlice(Particle * p, const unsigned char * slice);
+
+//@{
+    /**
+     * Accept/reject criteria are in these functions.
+     * @param p is particle info class.
+     * @returns boolean whether the particle should be rejected.
+     */
+    virtual bool acceptThisParticle1DC(const Particle * p) const;
+    virtual bool acceptThisParticle2DC(const Particle * p) const;
+//@}
     
+//@{
+    /**
+     * Send derived data and reset.  The process() method for image data is
+     * to build size-distribution histograms for 1 second of data and then
+     * send that.
+     * @param timeTag is the timeTag for this sample.
+     * @param results is the output results.
+     */
+    virtual void sendData(dsm_time_t timeTag,
+                        std::list < const Sample * >&results) throw();
+
+    /**
+     * Clear size_dist arrays.
+     */
+    virtual void clearData();
+//@}
+
     /**
      * How often to send the true air speed. 
      * Probes also send back the shadowOR when they receive
@@ -145,51 +195,79 @@ protected:
      */
     long long _lastStatusTime;
 
+//@{
     /**
-     * Number of diodes in this probe, same as number of bits per slice.
+     * Probe resolution in meters.  Acquired from XML config file.
      */
-    size_t nDiodes;
+    float _resolutionMeters;
 
     /**
-     * Clear size_dist arrays.
+     * Probe resolution in micrometers.  Acquired from XML config file.
      */
-    void clearData();
+    size_t _resolutionMicron;
+//@}
 
+//@{
+    /**
+     * Shadow OR sample ID.  Shadow-OR is the total number of particle triggers
+     * the probes saw, regardless of how many images were downloaded.  The 32 bit
+     * 2D probes which use the white USB box, don't send shadow-OR via USB.  So
+     * this sample ID is only used by the Fast2DC.  We need to stash sample ID's
+     * since the XML will not quite look the same between Fast2DC and 2Ds using
+     * the white USB box.  The sample IDs will be acquired in the formDOM looking
+     * for specific (read hard-coded) string names.  Not sure what the best approach
+     * is....
+     */
+    dsm_sample_id_t _sorID;
+
+    dsm_sample_id_t _1dcID, _2dcID;
+//@}
+
+//@{
     /**
      * Arrays for size-distribution histograms.
      */
-    float * size_dist_1DC;
-    float * size_dist_2DC;
+    size_t * _size_dist_1DC;
+    size_t * _size_dist_2DC;
 
     /**
      * Amount of time probe was inactive or amount of time consumed by rejected
      * particles.  nimbus will then subtract this deadtime out of the sample
      * volume.
      */
-    float dead_time_1DC;
-    float dead_time_2DC;
+    float _dead_time_1DC;
+    float _dead_time_2DC;
+//@}
 
+//@{
+    /**
+     * Statistics variables for processRecord().
+     */
+    size_t _totalRecords;
+    size_t _totalParticles;
+    size_t _rejected1DC_Cntr, _rejected2DC_Cntr;
+    size_t _overLoadSliceCount;
+//@}
+
+//@{
     /* Time from previous record.  Time belongs to end of record it came with,
      * or start of the next record.  Save it so we can use it as a start.
      * Units are milliseconds.
      */
-    unsigned long long prevTime;
+    unsigned long long _prevTime;
 
     /* The second for which we are accumulating the histograms.  Assuming we
      * are producing 1 sample per second histograms.
      */
-    unsigned long long nowTime;
+    unsigned long long _nowTime;
+//@}
 
     /**
-     * Send derived data and reset.  The process() method for image data is
-     * to build size-distribution histograms for 1 second of data and then
-     * send that.
-     * @param timeTag is the timeTag for this sample.
-     * @param results is the output results.
+     * Area of particle rejection ratio.  Actual area of particle divided
+     * area of bounding box must be greater than this.
+     * @see acceptThisParticle1DC()
      */
-    void sendData(dsm_time_t timeTag,
-                        std::list < const Sample * >&results) throw();
-
+    float _twoDAreaRejectRatio;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

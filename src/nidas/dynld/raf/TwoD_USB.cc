@@ -34,15 +34,21 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1)
+TwoD_USB::TwoD_USB() : _tasRate(1), _prevTime(0), _nowTime(0), _twoDAreaRejectRatio(0.5)
 {
-  dead_time_1DC = dead_time_2DC = 0.0;
-  prevTime = 0;
-  nowTime = 0;
+    _dead_time_1DC = _dead_time_2DC = 0.0;
+
+    _totalRecords = _totalParticles = 0;
+    _overLoadSliceCount = _rejected1DC_Cntr = _rejected2DC_Cntr = 0;
 }
 
 TwoD_USB::~TwoD_USB()
 {
+    std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
+    std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
+    std::cerr << "Number of rejected particles for 1DC = " << _rejected1DC_Cntr << std::endl;
+    std::cerr << "Number of rejected particles for 2DC = " << _rejected2DC_Cntr << std::endl;
+    std::cerr << "Overload count = " << _overLoadSliceCount << std::endl;
 }
 
 IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
@@ -108,12 +114,26 @@ throw(n_u::InvalidParameterException)
     p = getParameter("RESOLUTION");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
-    _resolution = p->getNumericValue(0) * 1.0e-6;
+    _resolutionMicron = (int)p->getNumericValue(0);
+    _resolutionMeters = (float)_resolutionMicron * 1.0e-6;
    
     p = getParameter("TAS_RATE");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
     setTASRate((int)(rint(p->getNumericValue(0)))); //tas_rate is the same rate used as sor_rate
+
+    // Find SampleID for 1DC & 2DC arrays.
+    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *>::const_iterator si = tags.begin();
+    for ( ; si != tags.end(); ++si) {
+        const SampleTag * tag = *si;
+        Variable & var = ((SampleTag *)tag)->getVariable(0);
+
+        if (var.getName().compare(0, 4, "A1DC") == 0)
+            _1dcID = tag->getId();
+        if (var.getName().compare(0, 4, "A2DC") == 0)
+            _2dcID = tag->getId();
+    }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -134,7 +154,7 @@ void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw
 /*---------------------------------------------------------------------------*/
 int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
 {
-        double freq = tas / _resolution;
+        double freq = tas / getResolution();
 	double minfreq;
 
 	memset(t2d, 0, sizeof(*t2d));
@@ -219,44 +239,132 @@ void TwoD_USB::sendData(dsm_time_t timeTag,
     float * dout;
 
     // Sample 2 is the 1DC enter-in data.
-    nvalues = nDiodes + 1;
+    nvalues = NumberOfDiodes() + 1;
     outs = getSample < float >(nvalues);
 
     outs->setTimeTag(timeTag);
-    outs->setId(getId() + 2);
+    outs->setId(_1dcID);
 
     dout = outs->getDataPtr();
-    for (size_t i = 0; i < nDiodes; ++i)
-        *dout++ = size_dist_1DC[i];
+    for (size_t i = 0; i < NumberOfDiodes(); ++i)
+        *dout++ = (float)_size_dist_1DC[i];
 
-    *dout++ = dead_time_1DC;      // Dead Time.
+    *dout++ = _dead_time_1DC / 1000;      // Dead Time, return milliseconds.
     results.push_back(outs);
 
 
     // Sample 3 is the 2DC center-in or reconstruction data.
-    nvalues = (nDiodes<<1) + 1;
+    nvalues = (NumberOfDiodes()<<1) + 1;
     outs = getSample < float >(nvalues);
 
     outs->setTimeTag(timeTag);
-    outs->setId(getId() + 3);
+    outs->setId(_2dcID);
 
     dout = outs->getDataPtr();
-    for (size_t i = 0; i < (nDiodes<<1); ++i)
-        *dout++ = size_dist_2DC[i];
+    for (size_t i = 0; i < (NumberOfDiodes()<<1); ++i)
+        *dout++ = (float)_size_dist_2DC[i];
 
-    *dout++ = dead_time_2DC;      // Dead Time.
+    *dout++ = _dead_time_2DC / 1000;      // Dead Time, return milliseconds.
     results.push_back(outs);
 
     clearData();
 }
 
+/*---------------------------------------------------------------------------*/
+void TwoD_USB::processParticleSlice(Particle * p, const unsigned char * data)
+{
+    size_t nBytes = NumberOfDiodes() / 8;
+
+    /* Note that 2D data is inverted.  So a '1' means no shadowing of the diode.
+     * '0' means shadowing and a particle.  Perform complement here.
+     */
+    unsigned char slice[nBytes];
+    for (size_t i = 0; i < nBytes; ++i)
+        slice[i] = ~(data[i]);
+
+    p->width++;
+
+    if ((slice[0] & 0x80)) { // touched edge
+        p->edgeTouch |= 0x0F;
+    }
+
+    if ((slice[nBytes-1] & 0x01)) { // touched edge
+        p->edgeTouch |= 0xF0;
+    }
+
+    // Compute area.
+    for (size_t i = 0; i < nBytes; ++i)
+    {
+        unsigned char c = slice[i];
+        for (; c; p->area++)
+            c &= c - 1; // clear the least significant bit set
+    }
+
+    int h = NumberOfDiodes();
+    for (size_t i = 0; i < nBytes; ++i)
+    {
+        if (slice[i] == 0)
+        {
+            h -= 8;
+            continue;
+        }
+        int r = 7;
+        unsigned char v = slice[i];
+        while (v >>= 1)
+            r--;
+        h -= r;
+        break;
+    }
+    for (size_t i = nBytes-1; i >= 0; --i)
+    {
+        if (slice[i] == 0)
+        {
+            h -= 8;
+            continue;
+        }
+        int r = 0;
+        unsigned char v = slice[i];
+        while (v >>= 1)
+            r++;
+        h -= r;
+        break;
+    }
+
+    if (h > 0)
+        p->height = std::max((size_t)h, p->height);
+}
+
+/*---------------------------------------------------------------------------*/
+bool TwoD_USB::acceptThisParticle1DC(const Particle * p) const
+{
+    if (!p->edgeTouch && p->height > 0 && p->height < 4 * p->width)
+        return true;
+
+    return false;
+}
+
+bool TwoD_USB::acceptThisParticle2DC(const Particle * p) const
+{
+    if (p->width > 121 ||
+       (p->height < 24 && p->width > 6 * p->height) ||
+       (p->height < 6 && p->width > 3 * p->height) ||
+       (p->edgeTouch && (float)p->height / p->width < 0.2))
+        return false;
+
+    if ((float)p->area / (p->width * p->height) <= _twoDAreaRejectRatio)
+        return false;
+
+    if (p->edgeTouch && p->width > p->height * 2)	// Center-in
+        return false;
+
+    return true;
+}
+
+/*---------------------------------------------------------------------------*/
 void TwoD_USB::clearData()
 {
-    for (size_t i = 0; i < nDiodes; ++i)
-        size_dist_1DC[i] = 0.0;
+    ::memset(_size_dist_1DC, 0, NumberOfDiodes()*sizeof(size_t));
+    ::memset(_size_dist_2DC, 0, NumberOfDiodes()*sizeof(size_t)*2);
 
-    for (size_t i = 0; i < nDiodes<<1; ++i)
-        size_dist_2DC[i] = 0.0;
-
-    dead_time_1DC = dead_time_2DC = 0.0;
+    _dead_time_1DC = _dead_time_2DC = 0.0;
 }

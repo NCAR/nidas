@@ -39,7 +39,7 @@ public:
         process(const Sample * samp, std::list < const Sample * >&results)
      throw();
 
-    virtual int numberBitsPerSlice() const { return 32; }
+    virtual size_t NumberOfDiodes() const { return 32; }
 
 
 private:
