@@ -38,11 +38,11 @@ NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB)
 //  I'm leaving these three in for documentation.
 const unsigned long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
 const unsigned long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
-const unsigned long long TwoD64_USB::_overldWord = 0xAAAA550000000000LL;
+const unsigned long long TwoD64_USB::_overldWord = 0x5555AA0000000000LL;
 #endif
 
 const unsigned char TwoD64_USB::_syncString[3] = { 0xAA, 0xAA, 0xAA };
-const unsigned char TwoD64_USB::_overldString[3] = { 0xAA, 0xAA, 0x55 };
+const unsigned char TwoD64_USB::_overldString[3] = { 0x55, 0x55, 0xAA };
 
 TwoD64_USB::TwoD64_USB()
 {
