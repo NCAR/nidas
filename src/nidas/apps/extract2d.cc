@@ -390,7 +390,8 @@ int Extract2D::run() throw()
                     {
                         outFile << "  <probe id=\"" << ((char *)&p->id)[0]
 				<< ((char *)&p->id)[1] << "\""
-                                << " resolution=\"" << p->resolution << "\"/>\n";
+                                << " resolution=\"" << p->resolution << "\""
+                                << " suffix=\"" << (*dsm_it)->getSuffix() << "\"/>\n";
                     }
                 }
             }
