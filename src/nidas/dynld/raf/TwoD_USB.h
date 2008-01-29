@@ -150,6 +150,13 @@ protected:
      */
     virtual void processParticleSlice(Particle * p, const unsigned char * slice);
 
+    /**
+     * Look at particle stats/info and decide whether to accept or reject.
+     * @param p is the particle information.
+     * @param frequency is the current probe clocking rate.
+     */
+    virtual void countParticle(Particle * p, float frequency);
+
 //@{
     /**
      * Accept/reject criteria are in these functions.

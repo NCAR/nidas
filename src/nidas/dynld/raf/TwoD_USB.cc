@@ -273,6 +273,9 @@ void TwoD_USB::sendData(dsm_time_t timeTag,
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::processParticleSlice(Particle * p, const unsigned char * data)
 {
+    if (p == 0 || data == 0)
+        return;
+
     size_t nBytes = NumberOfDiodes() / 8;
 
     /* Note that 2D data is inverted.  So a '1' means no shadowing of the diode.
@@ -358,6 +361,35 @@ bool TwoD_USB::acceptThisParticle2DC(const Particle * p) const
         return false;
 
     return true;
+}
+
+/*---------------------------------------------------------------------------*/
+void TwoD_USB::countParticle(Particle * p, float frequency)
+{
+
+    // 1DC
+    if (acceptThisParticle1DC(p))
+        _size_dist_1DC[p->height]++;
+    else {
+        float liveTime = frequency * p->width;
+        _dead_time_1DC += liveTime;
+        _rejected1DC_Cntr++;
+    }
+
+    // 2DC - Center-in algo
+    if (acceptThisParticle2DC(p)) {
+        size_t n = std::max(p->height, p->width);
+
+    if (n < (NumberOfDiodes()<<1))
+        _size_dist_2DC[n]++;
+    else
+        ; // ++overFlowCnt[probeCount];
+    }
+    else {
+        float liveTime = frequency * p->width;
+        _dead_time_2DC += liveTime;
+        _rejected2DC_Cntr++;
+    }
 }
 
 /*---------------------------------------------------------------------------*/

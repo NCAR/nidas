@@ -147,92 +147,58 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     // Loop through all slices in record.
     unsigned long long * p = (unsigned long long *)dp;
     unsigned long long	firstTimeWord = 0;	// First timing word in this record.
-    for (size_t i = 0; i < 512; )
+    for (size_t i = 0; i < 512; ++i, ++p)
     {
-        if (::memcmp(p, _overldString, 3) == 0) {
-            _overLoadSliceCount++;
-        }
+        if (cp == 0)
+            cp = new Particle;
 
-        /* Have particle, will travel.
+        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
+         * sync & overload words come at the end of the particle.
          */
-        if (::memcmp(p, _syncString, 3) == 0)
-        {
+
+        // Typical time/sync word, terminates particle.
+        if (::memcmp(p, _syncString, 3) == 0) {
+            _totalParticles++;
+
+            // time words are from a 12MHz clock
+            unsigned long long slice = bigEndian->longlongValue(*p);
+            unsigned long long thisTimeWord = (slice & 0x000000ffffffffffLL) / 12;
+
+            if (firstTimeWord == 0)
+                firstTimeWord = thisTimeWord;
+
+            // Approx millisecondes since start of record.
+            unsigned long long tBarElapsedtime = thisTimeWord - firstTimeWord;
+            unsigned long long thisParticleSecond = startTime - tBarElapsedtime;
+            thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
+
+            // If we have crossed the 1 second boundary, send existing data and reset.
+            if (thisParticleSecond != _nowTime)
             {
-                _totalParticles++;
-
-                // time words are from a 12MHz clock
-                unsigned long long slice = bigEndian->longlongValue(*p);
-                unsigned long long thisTimeWord = (slice & 0x000000ffffffffffLL) / 12;
-
-                if (firstTimeWord == 0)
-                    firstTimeWord = thisTimeWord;
-
-                // Approx millisecondes since start of record.
-                unsigned long long tBarElapsedtime = thisTimeWord - firstTimeWord;
-                unsigned long long thisParticleSecond = startTime - tBarElapsedtime;
-                thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
-
-                // If we have crossed the 1 second boundary, send existing data and reset.
-                if (thisParticleSecond != _nowTime)
-                {
-                    sendData(_nowTime, results);
-                    _nowTime = thisParticleSecond;
-                    rc = true;
-                }
-
-            if (cp == 0)
-                cp = new Particle;
+                sendData(_nowTime, results);
+                _nowTime = thisParticleSecond;
+                rc = true;
             }
 
-            /* Determine height and width of particle.
-             */
-            ++p; ++i;
-            for (; i < 512 && ::memcmp(p, _syncString, 3); ++p, ++i)
-            {
-                if (*p == 0xffffffffffffffffLL && cp->width > 0)
-                  break;
-
-                processParticleSlice(cp, (const unsigned char *)p);
-            }
-
-            if (i == 512) {	// Particle wraps to next record.
-//                break;
-            }
-            else
-;
-//            while (i < 512 && ::memcmp(p, _syncString, 3))
-//                ++junk; // add livetime of rest of particle to dead_time
-
-            float liveTime = frequency * cp->width;
-
-            // 1DC
-            if (acceptThisParticle1DC(cp))
-                _size_dist_1DC[cp->height]++;
-            else {
-                _dead_time_1DC += liveTime;
-                _rejected1DC_Cntr++;
-            }
-
-            // 2DC - Center-in algo
-            if (acceptThisParticle2DC(cp)) {
-                size_t n = std::max(cp->height, cp->width);
-
-                if (n < (NumberOfDiodes()<<1))
-                    _size_dist_2DC[n]++;
-                else
-                    ; // ++overFlowCnt[probeCount];
-            }
-            else {
-                _dead_time_2DC += liveTime;
-                _rejected2DC_Cntr++;
-            }
-
+            countParticle(cp, frequency);
             delete cp; cp = 0;
         }
+        else
+        // overload word, reject this particle.
+        if (::memcmp(p, _overldString, 3) == 0) {
+            _overLoadSliceCount++;
+            delete cp; cp = 0;
+        }
+        // Blank slice.  If blank is mid particle, then reject.
+        if (*p == 0xffffffffffffffffLL) {
+            if (i == 511 || ::memcmp(&p[1], _syncString, 3))
+                delete cp; cp = 0;
+        }
         else {
-            ++i; ++p;
+            processParticleSlice(cp, (const unsigned char *)p);
         }
     }
+
 
     _nowTime = samp->getTimeTag();
     _nowTime -= (_nowTime % USECS_PER_SEC);	// to seconds
