@@ -92,7 +92,7 @@ float IRS_HW_YG1854::processLabel(const long data)
 
   case 0265:  // BNR - integ_vert_acc       (ft/s)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>11) * 1.0/(1<<12) * FT_MTR;
+    return (data<<3>>11) * 1.0/(1<<13) * FT_MTR;
 
   case 0314:  // BNR - true_heading         (rad)
     carry = _irs_thdg_corr;
@@ -132,7 +132,7 @@ float IRS_HW_YG1854::processLabel(const long data)
 
   case 0315:  // BNR - wind_speed           (knot)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>11) * 1.0/(1<<12) * KTS_MS;
+    return (data<<3>>11) * 1.0/(1<<13) * KTS_MS;
 
   case 0323:  // BNR - flight_path_accel    (G)
   case 0331:  // BNR - long_accel           (G)
@@ -169,11 +169,11 @@ float IRS_HW_YG1854::processLabel(const long data)
 
   case 0354:  // BNR - total time           (count)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>11) * 1.0; // no sign
+    return (data<<3>>10) * 1.0; // no sign
 
   case 0360:  // BNR - pot_vert_speed       (ft/min)
     if ((data & SSM) != SSM) break;
-    return (data<<3>>11) * 1.0 * FPM_MPS;
+    return (data<<3>>16) * 1.0 * FPM_MPS;
 
   case 0361:  // BNR - inertial_alt         (f)
      return (data<<3>>11) * 1.0/(1<<3) * FT_MTR;
