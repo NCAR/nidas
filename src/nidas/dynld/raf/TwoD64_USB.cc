@@ -113,8 +113,6 @@ bool TwoD64_USB::processSOR(const Sample * samp,
 bool TwoD64_USB::processImageRecord(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
-    static Particle * cp = 0;
-
     bool rc = false;	// return code.
 
     unsigned long len = samp->getDataByteLength();
@@ -149,8 +147,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     unsigned long long	firstTimeWord = 0;	// First timing word in this record.
     for (size_t i = 0; i < 512; ++i, ++p)
     {
-        if (cp == 0)
-            cp = new Particle;
+        if (_cp == 0)
+            _cp = new Particle;
 
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
          * sync & overload words come at the end of the particle.
@@ -180,22 +178,22 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 rc = true;
             }
 
-            countParticle(cp, frequency);
-            delete cp; cp = 0;
+            countParticle(_cp, frequency);
+            delete _cp; _cp = 0;
         }
         else
         // overload word, reject this particle.
         if (::memcmp(p, _overldString, 3) == 0) {
             _overLoadSliceCount++;
-            delete cp; cp = 0;
+            delete _cp; _cp = 0;
         }
         // Blank slice.  If blank is mid particle, then reject.
         if (*p == 0xffffffffffffffffLL) {
             if (i == 511 || ::memcmp(&p[1], _syncString, 3))
-                delete cp; cp = 0;
+                delete _cp; _cp = 0;
         }
         else {
-            processParticleSlice(cp, (const unsigned char *)p);
+            processParticleSlice(_cp, (const unsigned char *)p);
         }
     }
 

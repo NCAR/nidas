@@ -34,7 +34,7 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1), _prevTime(0), _nowTime(0), _twoDAreaRejectRatio(0.5)
+TwoD_USB::TwoD_USB() : _tasRate(1), _prevTime(0), _nowTime(0), _twoDAreaRejectRatio(0.5), _cp(0)
 {
     _dead_time_1DC = _dead_time_2DC = 0.0;
 

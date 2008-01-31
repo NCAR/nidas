@@ -275,6 +275,12 @@ protected:
      * @see acceptThisParticle1DC()
      */
     float _twoDAreaRejectRatio;
+
+    /**
+     * Current particle information.  This is in here, since a particle can cross
+     * samples/records.
+     */
+    Particle * _cp;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
