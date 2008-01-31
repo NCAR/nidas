@@ -114,12 +114,13 @@ static void *lams_thread (void * chan)
       } else {
 
          // TODO this is constant... set its value in ...::init()
-         lams.size = sizeof(lams);
+	 // is it the size of the data portion only, NOT the timetag and size fields!
+         lams.size = sizeof(lams.data);
 
          if (fd_lams_data) {
            DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
            lams.timetag = GET_MSEC_CLOCK;
-           if (rtl_write(fd_lams_data,&lams, lams.size) < 0) {
+           if (rtl_write(fd_lams_data,&lams, SIZEOF_DSM_SAMPLE_HEADER + lams.size) < 0) {
               DSMLOG_ERR("error: write: %s. Closing\n",
                          rtl_strerror(rtl_errno));
               rtl_close(fd_lams_data);
