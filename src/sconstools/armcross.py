@@ -5,6 +5,7 @@ Customize an environment to use the GCC ARM cross-compiler tools.
 
 import os
 import kmake
+import SCons.Tool
 
 def generate(env):
     """
@@ -34,7 +35,8 @@ def generate(env):
     env.Replace(RANLIB	= 'arm-linux-ranlib')
     env.Replace(LEX	= 'arm-linux-flex')
 
-    k = env.Builder(action=kmake.Kmake)
+    k = env.Builder(action=kmake.Kmake,
+        source_scanner=SCons.Tool.SourceFileScanner)
     env.Append(BUILDERS = {'Kmake':k})
 
 
