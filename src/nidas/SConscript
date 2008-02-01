@@ -45,7 +45,7 @@ env.AppendUnique(LINKFLAGS = ['-rdynamic'])
 #
 env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
 env.PrependUnique(LIBPATH = [env.Dir("build_core")])
-if arch != 'arm':
+if arch == 'x86':
     env.PrependUnique(RPATH = [env.Dir("build_dynld").get_abspath()])
     env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
 
