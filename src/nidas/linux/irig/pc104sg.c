@@ -1528,7 +1528,7 @@ pc104sg_isr(int irq, void* callbackPtr, struct pt_regs *regs)
     }
 #endif
     entrycount++;
-    return 0;
+    return IRQ_HANDLED;
 }
 
 static void
@@ -1592,6 +1592,10 @@ writeTimeCallback(void* irigPortPtr)
 	       (int)p->samp.data.tval.tv_usec,
 	       p->samp.data.status);
 #endif
+
+    // convert to little endian
+    p->samp.data.tval.tv_sec = cpu_to_le32(p->samp.data.tval.tv_sec);
+    p->samp.data.tval.tv_usec = cpu_to_le32(p->samp.data.tval.tv_usec);
 
     p->readyForRead = 1;
     up(&p->lock);

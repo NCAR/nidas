@@ -118,7 +118,7 @@ typedef struct _Tap2D
 
 #define TAS_URB_QUEUE_SIZE   4   /* power of two */
 
-#if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY)
+#if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
 #define DO_IRIG_TIMING
 #endif
 

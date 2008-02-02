@@ -40,7 +40,7 @@
     n;                                                                  \
 })
 
-#elif defined(CONFIG_MACH_ARCOM_MERCURY) /* Arcom Mercury (or Vulcan) */
+#elif defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN) /* Arcom Mercury (or Vulcan) */
 
 #include <asm/irq.h>
 #define SYSTEM_ISA_IOPORT_BASE 0x0

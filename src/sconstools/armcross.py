@@ -12,6 +12,11 @@ def generate(env):
     Add Builders and construction variables for C compilers to an Environment.
     """
 
+    # temporary hack.  RTLinux vipers have GLIBC_2.3.1
+    # and something in nibnidas needs GLIBC_2.3.2
+    # so build with old tools
+    env.PrependENVPath('PATH', '/opt/arm_tools/bin')
+
     # Append /opt/arcom/bin to env['ENV']['PATH'],
     # so that it is fallback if arm-linux-gcc is
     # not otherwise found in the path.
