@@ -153,7 +153,6 @@ static const unsigned long I2CSDA = 0x1;
 static inline void i2c_clock_hi(struct A2DBoard *brd)
 {
         brd->i2c |= I2CSCL;     // Set clock bit hi
-        outb(A2DIO_WRCMD, brd->cmd_addr);       // Clock high
         outb(brd->i2c, brd->base_addr);
         udelay(1);
         return;
@@ -162,7 +161,6 @@ static inline void i2c_clock_hi(struct A2DBoard *brd)
 static inline void i2c_clock_lo(struct A2DBoard *brd)
 {
         brd->i2c &= ~I2CSCL;    // Set clock bit low
-        outb(A2DIO_WRCMD, brd->cmd_addr);       // Clock low
         outb(brd->i2c, brd->base_addr);
         udelay(1);
         return;
@@ -171,7 +169,6 @@ static inline void i2c_clock_lo(struct A2DBoard *brd)
 static inline void i2c_data_hi(struct A2DBoard *brd)
 {
         brd->i2c |= I2CSDA;     // Set data bit hi
-        outb(A2DIO_WRCMD, brd->cmd_addr);       // Data high
         outb(brd->i2c, brd->base_addr);
         udelay(1);
         return;
@@ -180,7 +177,6 @@ static inline void i2c_data_hi(struct A2DBoard *brd)
 static inline void i2c_data_lo(struct A2DBoard *brd)
 {
         brd->i2c &= ~I2CSDA;    // Set data bit lo
-        outb(A2DIO_WRCMD, brd->cmd_addr);       // Data high
         outb(brd->i2c, brd->base_addr);
         udelay(1);
         return;
@@ -302,6 +298,13 @@ static short A2DTemp(struct A2DBoard *brd)
                 return -32768;
 
         /*
+         * Enable access to the i2c chip
+         */
+        outb(A2DIO_FIFO, brd->cmd_addr);
+        brd->FIFOCtl |= FIFOWREBL;
+        outb(brd->FIFOCtl, brd->base_addr);
+        outb(A2DIO_D2A2, brd->cmd_addr);
+        /*
          * Send I2C start sequence
          */
         i2c_start_sequence(brd);        // 4 operations
@@ -323,6 +326,13 @@ static short A2DTemp(struct A2DBoard *brd)
          * Send I2C stop sequence
          */
         i2c_stop_sequence(brd); // 4 operations
+
+        /*
+         * Disable access to the i2c chip
+         */
+        outb(A2DIO_FIFO, brd->cmd_addr);
+        brd->FIFOCtl &= ~FIFOWREBL;
+        outb(brd->FIFOCtl, brd->base_addr);
 
         return (short) ((b0 << 8 | b1) >> 3);
 }
@@ -640,7 +650,7 @@ static void A2DSetOffset(struct A2DBoard *brd)
 
         // Send OffCal word to system control word
         outw(brd->OffCal, brd->base_addr);
-        KLOG_DEBUG("JDW brd->OffCal:  0x%04x\n", brd->OffCal);
+        KLOG_DEBUG("brd->OffCal:  0x%04x\n", brd->OffCal);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -2043,6 +2053,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         ret = -EFAULT;
                         break;
                 }
+                ret = 0; break; //DISABLED!  Spowart stole the A2DIO_D2A2 line for A2DTemp!
                 A2DSetVcal(brd);
                 A2DSetCal(brd);
                 ret = 0;
@@ -2164,7 +2175,7 @@ int init_module()
                 if (IoPort[ib] == 0)
                         break;
 
-#if defined(CONFIG_MACH_ARCOM_MERCURY)
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
                 /* 
                  * Try to warn about 8-bit-only ioport values on the Vulcan.
                  * Since we can't query the settings for I/O window 1 for the

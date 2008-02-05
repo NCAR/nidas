@@ -107,7 +107,6 @@ static struct ioctlCmd ioctlcmds[] = {
         {NCAR_A2D_SET_TEMPRATE, _IOC_SIZE(NCAR_A2D_SET_TEMPRATE)},
         {NCAR_A2D_GET_STATUS, _IOC_SIZE(NCAR_A2D_GET_STATUS)}
 };
-
 static int nioctlcmds = sizeof (ioctlcmds) / sizeof (struct ioctlCmd);
 
 /****************  End of IOCTL Section ******************/
@@ -127,7 +126,6 @@ static int startA2DResetThread(struct A2DBoard *brd);
 static inline void i2c_clock_hi(struct A2DBoard *brd)
 {
         brd->i2c |= I2CSCL;     // Set clock bit hi
-        outb(A2DIO_STAT, brd->cmd_addr);        // Clock high
         outb(brd->i2c, brd->addr);
         rtl_nanosleep(&usec2, 0);
         return;
@@ -136,7 +134,6 @@ static inline void i2c_clock_hi(struct A2DBoard *brd)
 static inline void i2c_clock_lo(struct A2DBoard *brd)
 {
         brd->i2c &= ~I2CSCL;    // Set clock bit low
-        outb(A2DIO_STAT, brd->cmd_addr);        // Clock low
         outb(brd->i2c, brd->addr);
         rtl_nanosleep(&usec2, 0);
         return;
@@ -145,7 +142,6 @@ static inline void i2c_clock_lo(struct A2DBoard *brd)
 static inline void i2c_data_hi(struct A2DBoard *brd)
 {
         brd->i2c |= I2CSDA;     // Set data bit hi
-        outb(A2DIO_STAT, brd->cmd_addr);        // Data high
         outb(brd->i2c, brd->addr);
         rtl_nanosleep(&usec2, 0);
         return;
@@ -154,7 +150,6 @@ static inline void i2c_data_hi(struct A2DBoard *brd)
 static inline void i2c_data_lo(struct A2DBoard *brd)
 {
         brd->i2c &= ~I2CSDA;    // Set data bit lo
-        outb(A2DIO_STAT, brd->cmd_addr);        // Data high
         outb(brd->i2c, brd->addr);
         rtl_nanosleep(&usec2, 0);
         return;
@@ -182,6 +177,13 @@ static short A2DTemp(struct A2DBoard *brd)
         // shift the address over one, and set the READ indicator
         b1 = (address << 1) | 1;
 
+
+        // Enable access to the i2c chip
+        outb(A2DIO_FIFO, brd->cmd_addr);
+        brd->FIFOCtl |= FIFOWREBL;
+        outb(brd->FIFOCtl, brd->addr);
+        outb(A2DIO_D2A2, brd->cmd_addr);
+
         // a start state is indicated by data going from hi to lo,
         // when clock is high.
         i2c_data_hi(brd);
@@ -208,7 +210,7 @@ static short A2DTemp(struct A2DBoard *brd)
         i2c_clock_hi(brd);
         b1 = inb(brd->addr) & 0x1;
         if (b1 != 0)
-                DSMLOG_WARNING("i2c ack bit non-zero\n");
+                DSMLOG_WARNING("i2c ack bit non-zero (0x%x)\n", b1);
         i2c_clock_lo(brd);
 
         // shift in the first data byte
@@ -251,6 +253,10 @@ static short A2DTemp(struct A2DBoard *brd)
              b2, x, x / 16, (10 * (x % 16)) / 16);
 #endif
 
+        // Disable access to the i2c chip
+        outb(A2DIO_FIFO, brd->cmd_addr);
+        brd->FIFOCtl &= ~FIFOWREBL;
+        outb(brd->FIFOCtl, brd->addr);
         return x;
 }
 
@@ -1884,6 +1890,7 @@ static int ioctlCallback(int cmd, int board, int port,
 
         case NCAR_A2D_SET_CAL: /* user set */
                 DSMLOG_DEBUG("NCAR_A2D_CAL ioctl\n");
+                ret = 0; break; //DISABLED!  Spowart stole the A2DIO_D2A2 line for A2DTemp!
                 if (port != 0)
                         break;
                 if (len != sizeof (struct ncar_a2d_cal_config))

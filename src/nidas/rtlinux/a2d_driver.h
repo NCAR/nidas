@@ -121,14 +121,14 @@
 #define A2DBFIR        0x2000   // Boot from internal ROM                 // NOT USED
 
 // A/D Control bits
-#define FIFOCLR        0x01     // Cycle this bit 0-1-0 to clear FIFO
-#define A2DAUTO        0x02     // Set = allow A/D's to run automatically
-#define A2DSYNC        0x04     // Set then cycle A2DSYNCCK to stop A/D's
-#define A2DSYNCCK      0x08     // Cycle to latch A2DSYNC bit value
-#define A2D1PPSEBL     0x10     // Set to allow GPS 1PPS to clear SYNC
-#define FIFODAFAE      0x20     // Set to clamp value of AFAE in FIFO     // NOT USED
-#define A2DSTATEBL     0x40     // Enable A2D status
-#define FIFOWREBL      0x80     // Enable writing to FIFO. (not used)     // NOT USED
+#define FIFOCLR        0x01     // FIFOCTL(0) Cycle this bit 0-1-0 to clear FIFO
+#define A2DAUTO        0x02     // FIFOCTL(1) Set = allow A/D's to run automatically
+#define A2DSYNC        0x04     // FIFOCTL(2) Set then cycle A2DSYNCCK to stop A/D's
+#define A2DSYNCCK      0x08     // FIFOCTL(3) Cycle to latch A2DSYNC bit value
+#define A2D1PPSEBL     0x10     // FIFOCTL(4) Set to allow GPS 1PPS to clear SYNC
+#define FIFODAFAE      0x20     // FIFOCTL(5) Set to clamp value of AFAE in FIFO     // NOT USED
+#define A2DSTATEBL     0x40     // FIFOCTL(6) Enable A2D status
+#define FIFOWREBL      0x80     // FIFOCTL(7) Enable writing to FIFO. (not used)     // NOT USED
 
 // FIFO Status bits
 #define FIFOHF         0x01     // FIFO half full                         // NOT USED
