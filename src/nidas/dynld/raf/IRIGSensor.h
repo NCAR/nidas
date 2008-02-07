@@ -19,6 +19,7 @@
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
+#include <asm/byteorder.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -88,11 +89,12 @@ public:
 protected:
     /**
      * compute the dsm_time_t from an IRIG sample.
+     * Values from device are little-endian.
      */
     dsm_time_t getTime(const Sample* samp) const {
 	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-	return (dsm_time_t)(dp->tval.tv_sec) * USECS_PER_SEC +
-		dp->tval.tv_usec;
+	return (dsm_time_t)__le32_to_cpu(dp->tval.tv_sec) * USECS_PER_SEC +
+		__le32_to_cpu(dp->tval.tv_usec);
     }
 
     /**
