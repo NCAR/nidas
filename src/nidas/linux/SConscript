@@ -9,7 +9,7 @@ Import('env')
 
 # Make a copy of the environment so that we can add $KERNELDIR/include
 # to CPPPATH without effecting builds in other directories.
-myenv = myenv.Copy()
+myenv = env.Copy()
 
 arch = myenv['ARCH']
 
