@@ -7,6 +7,9 @@
 ##
 Import('env')
 arch = env['ARCH']
+myenv = env.Copy()
+
+myenv.AppendUnique(CPPPATH = [myenv.subst("$KERNELDIR/include")] )
 
 subdirs=Split("""
     diamond
@@ -31,16 +34,16 @@ else:
 ## ARCH target for creating modules, library, and executables
 ##
 build_dirs = ['build_%s' % dir for dir in subdirs + archdirs]
-env.Alias(arch, build_dirs)
+myenv.Alias(arch, build_dirs)
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
-archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
+archinstall= myenv.Alias(arch+'_install', [ '$PREFIX' ])
 
 for dir in subdirs + archdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
-               duplicate=1,exports={'env':env})
+               duplicate=1,exports={'env':myenv})
 
 Default(build_dirs)
 
@@ -55,4 +58,4 @@ headers = Split("""
     util.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux', headers)
+myenv.Install('$PREFIX/include/nidas/linux', headers)

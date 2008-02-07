@@ -1,5 +1,6 @@
 
 import os
+import SCons.Errors
 # import re
 
 def run(cmd):
@@ -23,7 +24,7 @@ def Kmake(env,target,source):
 
     if not env.has_key('KERNELDIR') or env['KERNELDIR'] == '':
 	    print "KERNELDIR not specified, " + target[0].abspath + " will not be built"
-	    return
+            return None
 
     # print (["sources="] + [s.path for s in source])
     # print (["targets="] + [s.path for s in target])
@@ -52,9 +53,10 @@ def Kmake(env,target,source):
       run(env['KMAKE'])
     except:
       os.chdir(cwd)
-      return -1
+      raise SCons.Errors.UserError, 'error in ' + env['KMAKE']
       
     os.chdir(cwd)
+    return None
 
 def get_svnversion(env):
     """

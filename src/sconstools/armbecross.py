@@ -13,7 +13,7 @@ def generate(env):
     """
 
     # Append /opt/arcom/bin to env['ENV']['PATH'],
-    # so that it is fallback if armbe-linux-gcc is
+    # so that it is the fallback if armbe-linux-gcc is
     # not otherwise found in the path.
     # But scons is too smart. If you append /opt/arcom/bin
     # to env['ENV']['PATH'], scons will remove any earlier
