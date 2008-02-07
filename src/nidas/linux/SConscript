@@ -6,8 +6,12 @@
 ##  Import the build environment.
 ##
 Import('env')
-arch = env['ARCH']
-myenv = env.Copy()
+
+# Make a copy of the environment so that we can add $KERNELDIR/include
+# to CPPPATH without effecting builds in other directories.
+myenv = myenv.Copy()
+
+arch = myenv['ARCH']
 
 myenv.AppendUnique(CPPPATH = [myenv.subst("$KERNELDIR/include")] )
 
