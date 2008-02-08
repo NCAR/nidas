@@ -49,8 +49,9 @@ def Kmake(env,target,source):
     # print "os.getcwd()=" + os.getcwd()
 
     print 'KMAKE=' + env['KMAKE']
+    print "KMAKE PATH=" + env['ENV']['PATH']
     try:
-      run(env['KMAKE'])
+      env.Execute(env['KMAKE'])
     except:
       os.chdir(cwd)
       raise SCons.Errors.UserError, 'error in ' + env['KMAKE']
