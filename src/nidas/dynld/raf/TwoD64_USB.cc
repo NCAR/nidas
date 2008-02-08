@@ -167,7 +167,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
             // Approx millisecondes since start of record.
             unsigned long long tBarElapsedtime = thisTimeWord - firstTimeWord;
-            unsigned long long thisParticleSecond = startTime - tBarElapsedtime;
+            unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
             thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
 
             // If we have crossed the 1 second boundary, send existing data and reset.
