@@ -2,10 +2,10 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os,sys
+from subprocess import Popen,PIPE
 
 sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
 
-# import kmake
 
 ##
 ##  Create a new construction environment variable and
@@ -47,7 +47,7 @@ if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
              'Optional path to xerces-c and xmlrpc++ for X86:',
              '$PREFIX/x86')
-    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86:','')
+    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`-`uname -m`:','')
 
 if 'arm' in BUILDS:
     opts.Add('OTHER_ARM',
@@ -62,7 +62,8 @@ if 'armbe' in BUILDS:
     opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:','')
 
 opts.Update(env)
-opts.Save('nidas.conf',env)
+# Don't overwrite users config
+# opts.Save('nidas.conf',env)
 
 Help(opts.GenerateHelpText(env) + """
 targets
@@ -156,6 +157,16 @@ if 'armbe' in env['ARCHITECTURES']:
 ##
 if 'x86' in env['ARCHITECTURES']:
     print "Setting up for x86 builds..."
+    if env['KERNELDIR_X86'] == '*':
+        kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
+        kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
+        env['KERNELDIR_X86'] = '/usr/src/kernels/' + kver + '-' + kmach
+        # If the user specified '*' and kdir doesn't exist issue a warning
+        # here and let it fail later
+        if os.path.exists(env['KERNELDIR_X86']):
+            print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
+        else:
+            print 'Warning: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' does not exist. You probably need to install the kernel-devel package'
     x86_env = env.Copy(tools = ['x86tools'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
