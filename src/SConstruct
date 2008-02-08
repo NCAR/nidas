@@ -161,12 +161,13 @@ if 'x86' in env['ARCHITECTURES']:
         kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
         kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
         env['KERNELDIR_X86'] = '/usr/src/kernels/' + kver + '-' + kmach
-        # If the user specified '*' and kdir doesn't exist issue a warning
-        # here and let it fail later
+    # If KERNELDIR_X86 doesn't exist, issue a warning here and
+    # let it fail later
+    if env['KERNELDIR_X86'] != '':
         if os.path.exists(env['KERNELDIR_X86']):
             print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
         else:
-            print 'Warning: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' does not exist. You probably need to install the kernel-devel package'
+            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel package, and use KERNELDIR_X86=\'*\'.'
     x86_env = env.Copy(tools = ['x86tools'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
