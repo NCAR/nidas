@@ -40,7 +40,7 @@ def generate(env):
     env.Replace(RANLIB	= 'arm-linux-ranlib')
     env.Replace(LEX	= 'arm-linux-flex')
 
-    k = env.Builder(action=kmake.Kmake,chdir=1,
+    k = env.Builder(action=kmake.Kmake,
         source_scanner=SCons.Tool.SourceFileScanner)
     env.Append(BUILDERS = {'Kmake':k})
 
