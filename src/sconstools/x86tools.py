@@ -12,7 +12,7 @@ def generate(env):
     Add Builders and construction variables for C compilers to an Environment.
     """
 
-    k = env.Builder(action=kmake.Kmake,
+    k = env.Builder(action=kmake.Kmake,chdir=1,
         source_scanner=SCons.Tool.SourceFileScanner)
     env.Append(BUILDERS = {'Kmake':k})
 

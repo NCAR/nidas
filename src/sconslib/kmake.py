@@ -26,37 +26,13 @@ def Kmake(env,target,source):
 	    print "KERNELDIR not specified, " + target[0].abspath + " will not be built"
             return None
 
-    # print (["sources="] + [s.path for s in source])
-    # print (["targets="] + [s.path for s in target])
-
-    cwd = os.getcwd()
-    # print "os.getcwd()=" + os.getcwd()
-
-    # get absolute path to source on the build_dir
-    srcdir = os.path.dirname(source[0].abspath)
-    # print "srcdir=" + srcdir
-
-    # convert build_arm to nidas
-    # srcdir = re.compile('build_' + env['ARCH']).sub('nidas',srcdir)
-    # convert build_xxx to xxx
-    # srcdir = re.compile('build_').sub('',srcdir)
-
-    # print "srcdir=" + srcdir
-    # if not os.path.exists(srcdir):
-    #   os.makedirs(srcdir)
-    os.chdir(srcdir)
-
-    # print "os.getcwd()=" + os.getcwd()
-
     print 'KMAKE=' + env['KMAKE']
     print "KMAKE PATH=" + env['ENV']['PATH']
     try:
       env.Execute(env['KMAKE'])
     except:
-      os.chdir(cwd)
       raise SCons.Errors.UserError, 'error in ' + env['KMAKE']
       
-    os.chdir(cwd)
     return None
 
 def get_svnversion(env):
