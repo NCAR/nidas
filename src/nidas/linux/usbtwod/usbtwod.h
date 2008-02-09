@@ -15,9 +15,9 @@
 
 #include <nidas/linux/util.h>
 
-/*
- * Structure of counters that can be queried with the
- * USB2D_GET_STATUS ioctl.
+/**
+ * Satitistics gathered by the PMS2D USB driver.  Structure of
+ * counters that can be queried with the USB2D_GET_STATUS ioctl.
  */
 struct usb_twod_stats
 {
@@ -30,8 +30,12 @@ struct usb_twod_stats
         unsigned int urbTimeouts;
 };
 
-/*
- * Struct to adjust probe slice rate for true airspeed
+/**
+ * Struct to adjust probe slice rate for true airspeed.  True airspeed
+ * arrives at the sensor class which then converts it into this struct.
+ * It is then passed tot he PMS2D USB driver and then on to the probe
+ * itself.  This struct is also then recorded with each buffer that
+ * comes back from the probe.
  */
 typedef struct _Tap2D
 {
