@@ -21,8 +21,10 @@
  */
 struct usb_twod_stats
 {
+        /** Number of 4K buffers transfered from probe */
         unsigned int numImages;
         unsigned int lostImages;
+        /** Number of Shadow-ORs transfered from probe */
         unsigned int numSORs;
         unsigned int lostSORs;
         unsigned int lostTASs;
@@ -33,15 +35,18 @@ struct usb_twod_stats
 /**
  * Struct to adjust probe slice rate for true airspeed.  True airspeed
  * arrives at the sensor class which then converts it into this struct.
- * It is then passed tot he PMS2D USB driver and then on to the probe
+ * It is then passed to the PMS2D USB driver and then on to the probe
  * itself.  This struct is also then recorded with each buffer that
  * comes back from the probe.
  */
 typedef struct _Tap2D
 {
-        unsigned char ntap;     /* which tap in the variable resistor (0-255) */
-        unsigned char div10;    /* boolean toggle for frequency divide by 10 */
-        unsigned char cntr;     /* counter from 1 to 10 */
+        /** which tap in the variable resistor (0-255) */
+        unsigned char ntap;
+        /** boolean toggle for frequency divide by 10 */
+        unsigned char div10;
+        /** counter from 1 to 10 */
+        unsigned char cntr;
         unsigned char dummy;
 } Tap2D;
 
