@@ -198,8 +198,20 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     }
 
 
-    _nowTime = samp->getTimeTag();
-    _nowTime -= (_nowTime % USECS_PER_SEC);	// to seconds
+    unsigned long long nt;
+    nt = samp->getTimeTag();
+    nt -= (nt % USECS_PER_SEC);	// to seconds
+
+    // If we have crossed the 1 second boundary, send existing data and reset.
+    if (nt != _nowTime) {
+        sendData(_nowTime, results);
+        rc = true;
+    }
+
+    /* Force _nowTime to the TimeTag for this record, which will be the start time
+     * for the next record.
+     */
+    _nowTime = nt;
     return rc;
 }
 
