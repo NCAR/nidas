@@ -45,10 +45,12 @@ TwoD_USB::TwoD_USB() : _tasRate(1), _prevTime(0), _nowTime(0), _twoDAreaRejectRa
 TwoD_USB::~TwoD_USB()
 {
     std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
-    std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
-    std::cerr << "Number of rejected particles for 1DC = " << _rejected1DC_Cntr << std::endl;
-    std::cerr << "Number of rejected particles for 2DC = " << _rejected2DC_Cntr << std::endl;
-    std::cerr << "Overload count = " << _overLoadSliceCount << std::endl;
+    if (_totalRecords > 0) {
+        std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
+        std::cerr << "Number of rejected particles for 1DC = " << _rejected1DC_Cntr << std::endl;
+        std::cerr << "Number of rejected particles for 2DC = " << _rejected2DC_Cntr << std::endl;
+        std::cerr << "Overload count = " << _overLoadSliceCount << std::endl;
+    }
 }
 
 IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
