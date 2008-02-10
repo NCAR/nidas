@@ -44,17 +44,13 @@ const unsigned long long TwoD64_USB::_overldWord = 0x5555AA0000000000LL;
 const unsigned char TwoD64_USB::_syncString[3] = { 0xAA, 0xAA, 0xAA };
 const unsigned char TwoD64_USB::_overldString[3] = { 0x55, 0x55, 0xAA };
 
+
 TwoD64_USB::TwoD64_USB()
 {
-    _size_dist_1DC = new size_t[NumberOfDiodes()];
-    _size_dist_2DC = new size_t[NumberOfDiodes()<<1];
-    clearData();
 }
 
 TwoD64_USB::~TwoD64_USB()
 {
-    delete [] _size_dist_1DC;
-    delete [] _size_dist_2DC;
 }
 
 void TwoD64_USB::fromDOMElement(const xercesc::DOMElement * node)
@@ -89,8 +85,7 @@ throw(n_u::InvalidParameterException)
 bool TwoD64_USB::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    unsigned long len = samp->getDataByteLength();
-    if (len < 2 * sizeof (long))
+    if (samp->getDataByteLength() < 2 * sizeof (long))
         return false;
 
     const unsigned long *lptr =
@@ -115,14 +110,11 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 {
     bool rc = false;	// return code.
 
-    unsigned long len = samp->getDataByteLength();
-
-    if (len < 2 * sizeof (long) + 512 * sizeof (long long))
+    if (samp->getDataByteLength() < 2 * sizeof (long) + 512 * sizeof (long long))
         return rc;
 
     unsigned long long startTime = _prevTime;
-    unsigned long long endTime = samp->getTimeTag();
-    _prevTime = endTime;
+    _prevTime = samp->getTimeTag();
     _totalRecords++;
 
     if (_nowTime == 0)
@@ -151,7 +143,9 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
             _cp = new Particle;
 
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
-         * sync & overload words come at the end of the particle.
+         * sync & overload words come at the end of the particle.  In the
+         * case of the this probe, the time word is embedded in the sync
+         * and overload word.
          */
 
         // Typical time/sync word, terminates particle.

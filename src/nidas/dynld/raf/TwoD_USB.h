@@ -133,6 +133,12 @@ protected:
     static const nidas::util::EndianConverter * bigEndian;
 
     /**
+     * Initialize processing variables.  Was unable to put this in the
+     * c-tor due to call of a pure virtual method.
+     */
+    virtual void init_processing();
+
+    /**
      * Encode and send the true airspeed to the USB driver, which will
      * in turn send it to the probe.
      */

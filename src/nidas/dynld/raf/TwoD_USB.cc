@@ -34,16 +34,31 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1), _prevTime(0), _nowTime(0), _twoDAreaRejectRatio(0.5), _cp(0)
+TwoD_USB::TwoD_USB() : _tasRate(1)
 {
-    _dead_time_1DC = _dead_time_2DC = 0.0;
+    init_processing();
+}
 
+void TwoD_USB::init_processing()
+{
+    _prevTime = _nowTime = 0;
+    _twoDAreaRejectRatio = 0.5;
+    _cp = 0;
+
+    // Stats.
     _totalRecords = _totalParticles = 0;
     _overLoadSliceCount = _rejected1DC_Cntr = _rejected2DC_Cntr = 0;
+
+    _size_dist_1DC = new size_t[NumberOfDiodes()];
+    _size_dist_2DC = new size_t[NumberOfDiodes()<<1];
+    clearData();
 }
 
 TwoD_USB::~TwoD_USB()
 {
+    delete [] _size_dist_1DC;
+    delete [] _size_dist_2DC;
+
     std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
     if (_totalRecords > 0) {
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;

@@ -32,13 +32,13 @@ class TwoD64_USB : public TwoD_USB
 {
 public:
     TwoD64_USB();
-    ~TwoD64_USB();   
+    ~TwoD64_USB();
 
     void fromDOMElement(const xercesc::DOMElement *)
         throw(nidas::util::InvalidParameterException);
 
-    bool
-    process(const Sample * samp, std::list < const Sample * >&results) throw();
+    bool process(const Sample * samp, std::list < const Sample * >&results)
+        throw();
 
     /**
      * Return bits-per-slice; same as the number of diodes in the probe.
@@ -46,7 +46,7 @@ public:
     virtual size_t NumberOfDiodes() const { return 64; }
 
   
-private:
+protected:
     /**
      * Process the Shadow-OR sample from the probe.
      */
