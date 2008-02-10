@@ -124,8 +124,24 @@ protected:
     public:
         Particle() : height(0), width(0), area(0), edgeTouch(0) { } ;
 
-        size_t height, width, area;
+        /// Max particle height, along diode array.
+        size_t height;
+        /// Max particle length, along flight path.
+        size_t width;
+	/**
+         * Actual number of shadowed diodes.  This can be misleading if there
+         * are holes in the particle, poisson spot, etc.
+         */
+        size_t area;
+        /**
+         * Was an edge diode triggered.  0=no, 0x0f=bottom edge, 0xf0=top edge,
+         * 0xff=both edge diodes.
+         */
         unsigned char edgeTouch;
+        /**
+	 * Amount of time consumed by the particle as it passed through the
+	 * array.  Basically width * tas-clock-pulses.
+	 */
         unsigned long liveTime;
     } ;
 
