@@ -48,7 +48,7 @@ void TwoD_USB::init_processing()
 
     // Stats.
     _totalRecords = _totalParticles = 0;
-    _overLoadSliceCount = _rejected1DC_Cntr = _rejected2DC_Cntr = 0;
+    _overLoadSliceCount = _rejected1DC_Cntr = _rejected2DC_Cntr = _overSizeCount_2DC = 0;
 
     _size_dist_1DC = new size_t[NumberOfDiodes()];
     _size_dist_2DC = new size_t[NumberOfDiodes()<<1];
@@ -65,7 +65,8 @@ TwoD_USB::~TwoD_USB()
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
         std::cerr << "Number of rejected particles for 1DC = " << _rejected1DC_Cntr << std::endl;
         std::cerr << "Number of rejected particles for 2DC = " << _rejected2DC_Cntr << std::endl;
-        std::cerr << "Overload count = " << _overLoadSliceCount << std::endl;
+        std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
+        std::cerr << "2DC over-sized particle count = " << _overSizeCount_2DC << std::endl;
     }
 }
 
@@ -384,7 +385,6 @@ bool TwoD_USB::acceptThisParticle2DC(const Particle * p) const
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::countParticle(Particle * p, float frequency)
 {
-
     // 1DC
     if (acceptThisParticle1DC(p))
         _size_dist_1DC[p->height]++;
@@ -401,7 +401,7 @@ void TwoD_USB::countParticle(Particle * p, float frequency)
     if (n < (NumberOfDiodes()<<1))
         _size_dist_2DC[n]++;
     else
-        ; // ++overFlowCnt[probeCount];
+        _overSizeCount_2DC++;
     }
     else {
         float liveTime = frequency * p->width;

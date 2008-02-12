@@ -276,6 +276,7 @@ protected:
     size_t _totalParticles;
     size_t _rejected1DC_Cntr, _rejected2DC_Cntr;
     size_t _overLoadSliceCount;
+    size_t _overSizeCount_2DC;
 //@}
 
 //@{
