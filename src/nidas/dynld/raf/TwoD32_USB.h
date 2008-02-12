@@ -29,31 +29,30 @@ using namespace nidas::core;
  * are converted to USB by a converter box.  These probes have the
  * standard 32 diodes.
  */
-class TwoD32_USB:public TwoD_USB 
+class TwoD32_USB : public TwoD_USB 
 {
 public:
     TwoD32_USB();
     ~TwoD32_USB();
 
-    bool
-        process(const Sample * samp, std::list < const Sample * >&results)
-     throw();
+    bool process(const Sample * samp, std::list < const Sample * >&results)
+        throw();
 
     virtual size_t NumberOfDiodes() const { return 32; }
 
 
-private:
+protected:
+    bool processImage(const Sample * samp, std::list < const Sample * >&results)
+        throw();
 
-    bool processImage(const Sample * samp,
-                      std::list < const Sample * >&results)
-     throw();
-
-     /*
+//@{
+    /*
      * Synchword mask.  This slice/word is written at the end of each particle.
      * ?? bits of synchronization and ?? bits of timing information.
      */
     static const unsigned long _syncMask, _syncWord;
-    unsigned long _syncWordBE, _syncMaskBE;
+    static const unsigned char _syncChar;
+//@}
 
 };  //endof_class
 

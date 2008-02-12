@@ -36,12 +36,12 @@ NIDAS_CREATOR_FUNCTION_NS(raf, TwoD32_USB)
 
 const unsigned long TwoD32_USB::_syncWord = 0x55000000L;
 const unsigned long TwoD32_USB::_syncMask = 0xff000000L; 
+const unsigned char TwoD32_USB::_syncChar = 0x55;
 
 
 TwoD32_USB::TwoD32_USB()
 {
-    _syncWordBE = bigEndian->ulongValue(&_syncWord);
-    _syncMaskBE = bigEndian->ulongValue(&_syncMask);
+    init_processing();
 }
 
 TwoD32_USB::~TwoD32_USB()
@@ -51,44 +51,105 @@ TwoD32_USB::~TwoD32_USB()
 bool TwoD32_USB::processImage(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
+    bool rc = false;    // return code.
 
-    unsigned long lin = samp->getDataByteLength();
-    // first 2 longs are the stype and the TAS structure,
-    // then expect 1024 longs.
-    if (lin < 2 * sizeof (long) + 1024 * sizeof (long))
-        return false;
-    const unsigned long *lptr =
-        (const unsigned long *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->longValue(*lptr++);
-    *lptr++;		// skip 4 byte TAS structure
+    if (samp->getDataByteLength() < 2 * sizeof (long) + 1024 * sizeof (long))
+        return rc;
 
-    // We will compute 1 value, a count of particles.
-    size_t nvalues = 1;
-    SampleT < float >*outs = getSample < float >(nvalues);
+    unsigned long long startTime = _prevTime;
+    _prevTime = samp->getTimeTag();
+    _totalRecords++;
 
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId() + 1);   //
-
-    float *dout = outs->getDataPtr();
-
-    // Count number of particles (sync words) in the record and return.
-    int cnt = 0;
-    for (int i = 0; i < 1024; ++i, lptr++) {
-        if ((*lptr & _syncMaskBE) == _syncWordBE) cnt++;
+    if (_nowTime == 0)
+    {
+        _nowTime = samp->getTimeTag();
+        _nowTime -= (_nowTime % USECS_PER_SEC); // nowTime should have no fractional component.
+        return rc;      // Chuck first record as we don't know start time.
     }
 
-    *dout = cnt;
-    results.push_back(outs);
+    const int * dp = (const int *) samp->getConstVoidDataPtr();
+    dp++; // Move past sample type.
 
-    return true;
+    float tas = Tap2DToTAS((Tap2D *)dp++);
+    if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
+        "TAS","out of range");
+
+    float frequency = getResolutionMicron() / tas;
+
+
+    // Loop through all slices in record.
+    unsigned long * p = (unsigned long *)dp;
+    unsigned long  firstTimeWord = 0;      // First timing word in this record.
+    for (size_t i = 0; i < 1024; ++i, ++p)
+    {
+        if (_cp == 0) {
+            _cp = new Particle;
+            _cp->width++;  // First slice is embedded in sync-word.
+        }
+
+        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
+         * sync & overload words come at the end of the particle.  In the
+         * case of the this probe, the time word is embedded in the sync
+         * and overload word.
+         */
+
+        // Typical time & sync word, terminates particle.  Check for both slices
+        // back-to-back.
+        char * cdp = (char *)&p[1];
+        if (p[0] == 0xffffffffL && cdp[0] == _syncChar && p[2] == _syncWord) {
+            _totalParticles++;
+
+
+            // If we have crossed the 1 second boundary, send existing data and reset.
+/*
+            if (thisParticleSecond != _nowTime)
+            {
+                sendData(_nowTime, results);
+                _nowTime = thisParticleSecond;
+                rc = true;
+            }
+*/
+            countParticle(_cp, frequency);
+            delete _cp; _cp = 0;
+        }
+        else
+        // Blank slice.
+        if (*p == 0xffffffffL) {
+            // There are 1-3 blank slices after each particle.  Advance to last one.
+            while (i < 1024 && p[0] == 0xffffffffL && p[1] == 0xffffffffL)
+                ++i, ++p;
+            
+            char * cdp = (char *)&p[1];
+            // If mid-particle blank slice (streaker, etc), then reject.
+            if (i == 1023 || cdp[0] != _syncChar)
+                delete _cp; _cp = 0;
+        }
+        else {
+            processParticleSlice(_cp, (const unsigned char *)p);
+        }
+    }
+
+
+    unsigned long long nt;
+    nt = samp->getTimeTag();
+    nt -= (nt % USECS_PER_SEC); // to seconds
+
+    // If we have crossed the 1 second boundary, send existing data and reset.
+    if (nt != _nowTime) {
+        sendData(_nowTime, results);
+        rc = true;
+    }
+
+    /* Force _nowTime to the TimeTag for this record, which will be the start time
+     * for the next record.
+     */
+    _nowTime = nt;
+    return rc;
 }
-
-/*---------------------------------------------------------------------------*/
 
 bool TwoD32_USB::process(const Sample * samp,
                         list < const Sample * >&results) throw()
 {
-    
     if (samp->getDataByteLength() < sizeof (long))
         return false;
 
@@ -97,9 +158,8 @@ bool TwoD32_USB::process(const Sample * samp,
     int stype = bigEndian->longValue(*lptr++);
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is not used in 32 probe.  */
-    if (stype ==0) {
+    if (stype == 0) {
         return processImage(samp, results);
     }
     return false;
 }
-
