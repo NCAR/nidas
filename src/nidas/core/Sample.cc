@@ -15,6 +15,8 @@
 
 #include <nidas/core/Sample.h>
 
+const float nidas::core::floatNAN = nanf("");
+
 using namespace nidas::core;
 
 namespace n_u = nidas::util;

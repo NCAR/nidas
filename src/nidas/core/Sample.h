@@ -32,7 +32,7 @@ namespace nidas { namespace core {
 /**
  * Value of a float NAN for general use.
  */
-const float floatNAN = nanf("");
+extern const float floatNAN;
 
 /** Microseconds since Jan 1 1970, 00:00 UTC */
 typedef long long dsm_time_t;
