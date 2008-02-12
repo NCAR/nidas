@@ -36,7 +36,8 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
 
 TwoD_USB::TwoD_USB() : _tasRate(1)
 {
-    init_processing();
+    _size_dist_1DC = 0;
+    _size_dist_2DC = 0;
 }
 
 void TwoD_USB::init_processing()

@@ -47,6 +47,7 @@ const unsigned char TwoD64_USB::_overldString[3] = { 0x55, 0x55, 0xAA };
 
 TwoD64_USB::TwoD64_USB()
 {
+    init_processing();
 }
 
 TwoD64_USB::~TwoD64_USB()
