@@ -56,7 +56,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
     if (samp->getDataByteLength() < 2 * sizeof (long) + 1024 * sizeof (long))
         return rc;
 
-    unsigned long long startTime = _prevTime;
+    //    unsigned long long startTime = _prevTime;
     _prevTime = samp->getTimeTag();
     _totalRecords++;
 
@@ -79,7 +79,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
 
     // Loop through all slices in record.
     unsigned long * p = (unsigned long *)dp;
-    unsigned long  firstTimeWord = 0;      // First timing word in this record.
+    // unsigned long  firstTimeWord = 0;  // First timing word in this record.
     for (size_t i = 0; i < 1024; ++i, ++p)
     {
         if (_cp == 0) {
