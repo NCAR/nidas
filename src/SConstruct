@@ -11,7 +11,11 @@ sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
 ##
-env = Environment(platform = 'posix', ENV = {'PATH' : os.environ['PATH']})
+# When ccache is installed on fedora, it breaks nidas builds, so just make
+# sure it gets left out of the path.
+paths = os.environ['PATH'].split(':')
+paths = filter(lambda p: 'ccache' not in p, paths)
+env = Environment(platform = 'posix', ENV = {'PATH' : ':'.join(paths)})
 
 ##
 ## command line options
@@ -47,19 +51,21 @@ if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
              'Optional path to xerces-c and xmlrpc++ for X86:',
              '$PREFIX/x86')
-    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`-`uname -m`:','')
+    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`-`uname -m`:','*')
 
 if 'arm' in BUILDS:
     opts.Add('OTHER_ARM',
              'Optional path to xerces-c and xmlrpc++ for ARM:',
              '$PREFIX/arm')
-    opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:','')
+    opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:',
+             '/opt/arcom/src/linux-source-2.6.16.28-arcom1')
 
 if 'armbe' in BUILDS:
     opts.Add('OTHER_ARMBE',
              'Optional path to xerces-c and xmlrpc++ for ARMBE:',
              '$PREFIX/armbe')
-    opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:','')
+    opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:',
+             '/opt/arcom/src/linux-source-2.6.21.7-ael1')
 
 opts.Update(env)
 # Don't overwrite users config
