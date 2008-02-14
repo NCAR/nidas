@@ -23,6 +23,34 @@
 using namespace nidas::util;
 using namespace std;
 
+typedef map<Inet4SocketAddress,McSocketListener*> listener_map_t;
+
+struct ListenerMap : public listener_map_t
+{
+  ListenerMap()
+  {
+#ifdef DEBUG
+    std::cerr << "construct ListenerMap\n";
+#endif
+  }
+
+  ~ListenerMap()
+  {
+#ifdef DEBUG
+    std::cerr << "destroy ListenerMap\n";
+#endif
+  }
+};
+
+
+namespace 
+{
+  Mutex listener_mutex;
+
+  ListenerMap listener_map;
+}
+
+
 /* static */
 const int McSocketDatagram::magicVal = 0x01234567;
 
@@ -282,12 +310,6 @@ void McSocket::close() throw(IOException)
 }
 
 // #undef DEBUG
-
-/* static */
-Mutex McSocketListener::listener_mutex;
-
-/* static */
-map<Inet4SocketAddress,McSocketListener*> McSocketListener::listener_map;
 
 /* static */
 void McSocketListener::accept(McSocket* mcsocket)

@@ -26,14 +26,41 @@ using namespace std;
 using namespace nidas::util;
 
 
-Mutex Thread::_threadsMutex;
-map<pthread_t,Thread*,less<pthread_t> > Thread::_threads;
+typedef std::map<pthread_t, Thread *, std::less<pthread_t> > threadmap_t;
 
-/**
- * the signals that we handle because the user has called unblockSignal()
- * on a thread.
- */
-set<int> Thread::_handledSignals;
+
+class ThreadMap : public threadmap_t
+{
+public:
+  ThreadMap()
+  {
+#ifdef DEBUG
+    std::cerr << "constructing ThreadMap\n";
+#endif
+  }
+
+  ~ThreadMap()
+  {
+#ifdef DEBUG
+    std::cerr << "destroying ThreadMap\n";
+#endif
+  }
+};
+
+
+namespace 
+{
+  ThreadMap _threads;
+
+  Mutex _threadsMutex;
+
+  /**
+   * the signals that we handle because the user has called unblockSignal()
+   * on a thread.
+   */
+  set<int> _handledSignals;
+}
+
 
 void
 Thread::sigAction(int sig,siginfo_t* siginfo,void* ptr)

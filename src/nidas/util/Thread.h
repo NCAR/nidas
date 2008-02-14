@@ -81,12 +81,6 @@ public:
     return unknownName;
   }
 
-  typedef std::map<pthread_t, Thread *, std::less<pthread_t> > threadmap_t;
-
-  static Mutex _threadsMutex;
-  static threadmap_t _threads;
-  static std::set<int> _handledSignals;
-
   /**
    * Values that can be returned by run method. User can define other
    * values greater than RUN_EXCEPTION. These values are then returned by

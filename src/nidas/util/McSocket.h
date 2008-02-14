@@ -347,11 +347,6 @@ private:
 
 private:
 
-    static Mutex listener_mutex;
-
-    static std::map<Inet4SocketAddress,McSocketListener*>
-            listener_map;
-
     Inet4SocketAddress mcastAddr;
 
     Mutex mcsocket_mutex;
