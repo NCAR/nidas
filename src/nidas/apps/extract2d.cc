@@ -223,9 +223,9 @@ Extract2D::Extract2D():
 
 int Extract2D::parseRunstring(int argc, char** argv) throw()
 {
-    extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
+    //    extern char *optarg;       /* set by getopt() */
+    //    int opt_char;     /* option character */
 /*
     while ((opt_char = getopt(argc, argv, "l:s:x:")) != -1) {
 	switch (opt_char) {
