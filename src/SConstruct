@@ -132,6 +132,11 @@ SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 ##
 if 'arm' in env['ARCHITECTURES']:
     print "Setting up for ARM builds..."
+    if env['KERNELDIR_ARM'] != '':
+        if os.path.exists(env['KERNELDIR_ARM']):
+            print 'KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' found'
+        else:
+            print 'Error: KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' not found.'
     arm_env = env.Copy(tools = ['armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
@@ -151,6 +156,11 @@ if 'arm' in env['ARCHITECTURES']:
 ##
 if 'armbe' in env['ARCHITECTURES']:
     print "Setting up for ARMBE builds..."
+    if env['KERNELDIR_ARMBE'] != '':
+        if os.path.exists(env['KERNELDIR_ARMBE']):
+            print 'KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' found'
+        else:
+            print 'Error: KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' not found.'
     armbe_env = env.Copy(tools = ['armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
