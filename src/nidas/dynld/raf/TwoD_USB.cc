@@ -173,40 +173,49 @@ void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw
 /*---------------------------------------------------------------------------*/
 int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
 {
-        double freq = tas / getResolution();
-	double minfreq;
+    /* Default tas to spinning disk speed if we are not moving.  This
+     * will probably bite us some day when they try to use a 2D probe on
+     * ISF or ISFF....
+     */
+    if (tas < 25.0)
+        tas = 33.0;
 
-	memset(t2d, 0, sizeof(*t2d));
+    double freq = tas / getResolution();
+    double minfreq;
 
-	/*
-	 * Minimum frequency we can generate is either:
-	 *
-	 *   1 MHz (with no frequency divider)
-	 *      OR
-	 *   100 kHz (using frequency divider factor 10)
-	 */
-	if (freq >= 1.0e6) {
-	  t2d->div10 = 0;
-	  minfreq = 1.0e6;
-	}
-	else if (freq >= 1.0e5) {
-	  t2d->div10 = 1;  // set the divide-by-ten flag
-	  minfreq = 1.0e5;
-	}
-	else {
-	  /*
-	   * Desired frequency is too low.  Fill the struct to generate 
-	   * the lowest possible frequency and return -EINVAL to let the 
-	   * caller know that the TAS is too low.
-	   */
-	  t2d->ntap = 0;
-	  t2d->div10 = 1;
-	  return -EINVAL;
-	}
+    memset(t2d, 0, sizeof(*t2d));
+
+    /*
+     * Minimum frequency we can generate is either:
+     *
+     *   1 MHz (with no frequency divider)
+     *      OR
+     *   100 kHz (using frequency divider factor 10)
+     *
+     *   _resolution test forces 2DC to that freq.
+     */
+    if (_resolution == 0.000025 || freq >= 1.0e6) {
+        t2d->div10 = 0;
+        minfreq = 1.0e6;
+    }
+    else if (freq >= 1.0e5) {
+        t2d->div10 = 1;  // set the divide-by-ten flag
+        minfreq = 1.0e5;
+    }
+    else {
+    /*
+     * Desired frequency is too low.  Fill the struct to generate 
+     * the lowest possible frequency and return -EINVAL to let the 
+     * caller know that the TAS is too low.
+     */
+        t2d->ntap = 0;
+        t2d->div10 = 1;
+        return -EINVAL;
+    }
 	  
-        t2d->ntap = (unsigned char) ((1 - (minfreq / freq)) * 255);
-        t2d->dummy = (unsigned char )tas;
-        return 0;               /* Return success */
+    t2d->ntap = (unsigned char) ((1 - (minfreq / freq)) * 255);
+    t2d->dummy = (unsigned char )tas;
+    return 0;               /* Return success */
 }
 
 /*---------------------------------------------------------------------------*/
