@@ -114,8 +114,7 @@ public:
      * @todo 2DP is going to need an extra divide by 10 at the end.
      */
     virtual float
-    Tap2DToTAS(const Tap2D * t2d) const
-    { return (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * getResolution(); }
+    Tap2DToTAS(const Tap2D * t2d) const;
 
 
 protected:
