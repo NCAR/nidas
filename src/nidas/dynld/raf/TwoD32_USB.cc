@@ -56,7 +56,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
     if (samp->getDataByteLength() < 2 * sizeof (long) + 1024 * sizeof (long))
         return rc;
 
-    //    unsigned long long startTime = _prevTime;
+    unsigned long long startTime = _prevTime;
     _prevTime = samp->getTimeTag();
     _totalRecords++;
 
@@ -71,44 +71,58 @@ bool TwoD32_USB::processImage(const Sample * samp,
     dp++; // Move past sample type.
 
     float tas = Tap2DToTAS((Tap2D *)dp++);
-    if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
-        "TAS","out of range");
+    if (tas < 0.0 || tas > 300.0) {
+        std::stringstream msg("out of range, ");
+        msg << tas;
+        throw n_u::InvalidParameterException(getName(), "TAS", msg.str());
+    }
 
     float frequency = getResolutionMicron() / tas;
 
-
-    // Loop through all slices in record.
+    // Byte-swap the whole record up front.
     unsigned long * p = (unsigned long *)dp;
-    // unsigned long  firstTimeWord = 0;  // First timing word in this record.
     for (size_t i = 0; i < 1024; ++i, ++p)
+        *p = bigEndian->longValue(*p);
+
+
+    /* Loop through all slices in record.  Start at slice 1 since Spowart
+     * decided to overwrite the first slice with the overload word...
+     */
+    p = (unsigned long *)dp;
+    unsigned long overld = *p++;
+    unsigned long long tBarElapsedtime = 0;  // Running accumulation of time-bars
+    for (size_t i = 1; i < 1024; ++i, ++p)
     {
         if (_cp == 0) {
             _cp = new Particle;
             _cp->width++;  // First slice is embedded in sync-word.
         }
 
-        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
-         * sync & overload words come at the end of the particle.  In the
-         * case of the this probe, the time word is embedded in the sync
-         * and overload word.
+        /* Three cases, syncWord, blank or legitimate slice.  sync & overload words
+         * come at the end of the particle.
          */
 
         // Typical time & sync word, terminates particle.  Check for both slices
         // back-to-back.
         char * cdp = (char *)&p[1];
-        if (p[0] == 0xffffffffL && cdp[0] == _syncChar && p[2] == _syncWord) {
+        if (p[0] == 0xffffffffL && cdp[3] == _syncChar && p[2] == _syncWord) {
             _totalParticles++;
 
+            unsigned long timeWord = (p[1] & 0x00ffffff) * frequency;
+            unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
+            thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
 
             // If we have crossed the 1 second boundary, send existing data and reset.
-/*
+
             if (thisParticleSecond != _nowTime)
             {
                 sendData(_nowTime, results);
                 _nowTime = thisParticleSecond;
                 rc = true;
             }
-*/
+
+            i += 2; p += 2;	// Advance to sync word.
+
             countParticle(_cp, frequency);
             delete _cp; _cp = 0;
         }
@@ -121,7 +135,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
             
             char * cdp = (char *)&p[1];
             // If mid-particle blank slice (streaker, etc), then reject.
-            if (i == 1023 || cdp[0] != _syncChar)
+            if (i == 1023 || cdp[3] != _syncChar)
                 delete _cp; _cp = 0;
         }
         else {

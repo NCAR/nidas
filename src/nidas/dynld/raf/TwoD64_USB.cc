@@ -203,8 +203,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
         rc = true;
     }
 
-    /* Force _nowTime to the TimeTag for this record, which will be the start time
-     * for the next record.
+    /* Force _nowTime to the TimeTag for this record, which will be the start
+     * time for the next record.
      */
     _nowTime = nt;
     return rc;
