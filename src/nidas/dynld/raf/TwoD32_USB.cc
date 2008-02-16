@@ -89,15 +89,28 @@ bool TwoD32_USB::processImage(const Sample * samp,
      * decided to overwrite the first slice with the overload word...
      */
     p = (unsigned long *)dp;
-    unsigned long overld = *p++;
+    unsigned long overld = 0;
+    if ((*p & 0xffff0000) == 0x55aa0000)
+    {
+      overld = (*p & 0x0000ffff) * frequency;
+      _overLoadSliceCount++;
+    }
+
+    ++p;
+
     unsigned long long tBarElapsedtime = 0;  // Running accumulation of time-bars
     for (size_t i = 1; i < 1024; ++i, ++p)
     {
 
-        /* Three cases, syncWord, blank or legitimate slice.  sync & overload words
-         * come at the end of the particle.
+        /* Four cases; syncWord, timeWord, blank slice and legitimate slice.  syncWord
+         * starts a particle.  Blank terminates a particle.
          */
 
+        /* Overload occurs at record mid-point.  Add it in.
+         */
+        if (i == 512 && overld > 0)
+            tBarElapsedtime += overld;
+        else
         if (*p == _syncWord) {
             _totalParticles++;
             if (_cp)
