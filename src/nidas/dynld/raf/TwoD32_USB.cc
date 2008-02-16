@@ -95,7 +95,8 @@ bool TwoD32_USB::processImage(const Sample * samp,
     {
         if (_cp == 0) {
             _cp = new Particle;
-            _cp->width++;  // First slice is embedded in sync-word.
+            _cp->width = 1;  // First slice is embedded in sync-word.
+            _cp->height = 1;  // First slice is embedded in sync-word.
         }
 
         /* Three cases, syncWord, blank or legitimate slice.  sync & overload words

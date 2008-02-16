@@ -184,8 +184,8 @@ protected:
      * @param p is particle info class.
      * @returns boolean whether the particle should be rejected.
      */
-    virtual bool acceptThisParticle1DC(const Particle * p) const;
-    virtual bool acceptThisParticle2DC(const Particle * p) const;
+    virtual bool acceptThisParticle1D(const Particle * p) const;
+    virtual bool acceptThisParticle2D(const Particle * p) const;
 //@}
     
 //@{
@@ -255,16 +255,16 @@ protected:
     /**
      * Arrays for size-distribution histograms.
      */
-    size_t * _size_dist_1DC;
-    size_t * _size_dist_2DC;
+    size_t * _size_dist_1D;
+    size_t * _size_dist_2D;
 
     /**
      * Amount of time probe was inactive or amount of time consumed by rejected
      * particles.  nimbus will then subtract this deadtime out of the sample
      * volume.
      */
-    float _dead_time_1DC;
-    float _dead_time_2DC;
+    float _dead_time_1D;
+    float _dead_time_2D;
 //@}
 
 //@{
@@ -273,9 +273,9 @@ protected:
      */
     size_t _totalRecords;
     size_t _totalParticles;
-    size_t _rejected1DC_Cntr, _rejected2DC_Cntr;
+    size_t _rejected1D_Cntr, _rejected2D_Cntr;
     size_t _overLoadSliceCount;
-    size_t _overSizeCount_2DC;
+    size_t _overSizeCount_2D;
 //@}
 
 //@{
@@ -294,7 +294,7 @@ protected:
     /**
      * Area of particle rejection ratio.  Actual area of particle divided
      * area of bounding box must be greater than this.
-     * @see acceptThisParticle1DC()
+     * @see acceptThisParticle1D()
      */
     float _twoDAreaRejectRatio;
 

@@ -106,6 +106,16 @@ bool TwoD64_USB::processSOR(const Sample * samp,
     return true;
 }
 
+void TwoD64_USB::scanForMissalignedSyncWords(unsigned char * sp) const
+{
+  unsigned char * p = sp;
+  for (size_t i = 0; i < 512; ++i, ++p)
+  {
+    if (memcmp((char *)p, _syncString, 3) == 0 && ((p - sp) % 8) != 0)
+      printf("Miss-aligned data\n");
+  }
+}
+
 bool TwoD64_USB::processImageRecord(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
@@ -131,6 +141,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     float tas = Tap2DToTAS((Tap2D *)dp++);
     if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
         "TAS","out of range");
+
+    scanForMissalignedSyncWords((unsigned char *)dp);
 
     float frequency = getResolutionMicron() / tas;
 

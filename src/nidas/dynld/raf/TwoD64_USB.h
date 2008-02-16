@@ -53,18 +53,20 @@ protected:
     bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
+    void scanForMissalignedSyncWords(unsigned char * sp) const;
+
     /**
      * Process a single 2D record generating size-distribution data.  Two
-     * size-distribution data are generated: a) the 1DC array emulates a 260X,
-     * height only and any particle touching the edge is rejected. b) 2DC
+     * size-distribution data are generated: a) the 1D array emulates a 260X,
+     * height only and any particle touching the edge is rejected. b) 2D
      * array uses max(widht, height) of particle for particles which do not
      * touch the edge and the center-in method for reconstructing particles
      * which do touch an edge diode.
      *
      * @param samp is the sample data.
      * @param results is the output result array.
-     * @see _size_dist_1DC
-     * @see _size_dist_2DC
+     * @see _size_dist_1D
+     * @see _size_dist_2D
      * @returns whether samples were output.
      */
     bool processImageRecord(const Sample * samp,
