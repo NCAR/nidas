@@ -93,52 +93,41 @@ bool TwoD32_USB::processImage(const Sample * samp,
     unsigned long long tBarElapsedtime = 0;  // Running accumulation of time-bars
     for (size_t i = 1; i < 1024; ++i, ++p)
     {
-        if (_cp == 0) {
-            _cp = new Particle;
-            _cp->width = 1;  // First slice is embedded in sync-word.
-            _cp->height = 1;  // First slice is embedded in sync-word.
-        }
 
         /* Three cases, syncWord, blank or legitimate slice.  sync & overload words
          * come at the end of the particle.
          */
 
-        // Typical time & sync word, terminates particle.  Check for both slices
-        // back-to-back.
-        char * cdp = (char *)&p[1];
-        if (p[0] == 0xffffffffL && cdp[3] == _syncChar && p[2] == _syncWord) {
+        if (*p == _syncWord) {
             _totalParticles++;
-
+            if (_cp)
+                delete _cp;
+            _cp = new Particle;
+            _cp->width = 1;  // First slice is embedded in sync-word.
+            _cp->height = 1;  // First slice is embedded in sync-word.
+            }
+        else
+        if (*(unsigned char *)p == _syncChar) {
             unsigned long timeWord = (p[1] & 0x00ffffff) * frequency;
             tBarElapsedtime += timeWord;
             unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
             thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
 
             // If we have crossed the 1 second boundary, send existing data and reset.
-
             if (thisParticleSecond != _nowTime)
             {
                 sendData(_nowTime, results);
                 _nowTime = thisParticleSecond;
                 rc = true;
             }
-
-            i += 2; p += 2;	// Advance to sync word.
-
-            countParticle(_cp, frequency);
-            delete _cp; _cp = 0;
         }
         else
         // Blank slice.
         if (*p == 0xffffffffL) {
-            // There are 1-3 blank slices after each particle.  Advance to last one.
-            while (i < 1024 && p[0] == 0xffffffffL && p[1] == 0xffffffffL)
-                ++i, ++p;
-            
-            char * cdp = (char *)&p[1];
-            // If mid-particle blank slice (streaker, etc), then reject.
-            if (i == 1023 || cdp[3] != _syncChar)
+            if (_cp) {
+                countParticle(_cp, frequency);
                 delete _cp; _cp = 0;
+            }
         }
         else {
             processParticleSlice(_cp, (const unsigned char *)p);
