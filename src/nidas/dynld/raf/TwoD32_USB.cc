@@ -110,6 +110,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
             _totalParticles++;
 
             unsigned long timeWord = (p[1] & 0x00ffffff) * frequency;
+            tBarElapsedtime += timeWord;
             unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
             thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
 
