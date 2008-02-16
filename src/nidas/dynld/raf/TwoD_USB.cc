@@ -47,6 +47,7 @@ void TwoD_USB::init_processing()
     _cp = 0;
 
     // Stats.
+    _edgeCount = 0;
     _totalRecords = _totalParticles = 0;
     _overLoadSliceCount = _rejected1D_Cntr = _rejected2D_Cntr = _overSizeCount_2D = 0;
 
@@ -65,6 +66,7 @@ TwoD_USB::~TwoD_USB()
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
         std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
         std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
+        std::cerr << "Number of paricles touched edge = " << _edgeCount << std::endl;
         std::cerr << "Number of overload words = " << _overLoadSliceCount << std::endl;
         std::cerr << "2D over-sized particle count = " << _overSizeCount_2D << std::endl;
     }
@@ -377,8 +379,9 @@ void TwoD_USB::processParticleSlice(Particle * p, const unsigned char * data)
 }
 
 /*---------------------------------------------------------------------------*/
-bool TwoD_USB::acceptThisParticle1D(const Particle * p) const
+bool TwoD_USB::acceptThisParticle1D(const Particle * p)
 {
+if(p->edgeTouch) ++_edgeCount;
     if (!p->edgeTouch && p->height > 0 && p->height < 4 * p->width)
         return true;
 
