@@ -92,7 +92,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
     unsigned long overld = 0;
     if ((*p & 0xffff0000) == 0x55aa0000)
     {
-      overld = (*p & 0x0000ffff) * frequency;
+      overld = (*p & 0x0000ffff) / 2000;
       _overLoadSliceCount++;
     }
 
