@@ -39,6 +39,8 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
+static const char overLoadSync[2] = { 0x55, 0xaa };
+
 class Probe
 {
 public:
@@ -66,9 +68,9 @@ struct P2d_rec
   short hour;
   short minute;
   short second;
-  short spare1;
-  short spare2;
-  short spare3;
+  short year;
+  short month;
+  short day;
   short tas;                            // true air speed
   short msec;                           // msec of this record
   short overld;                         // overload time, msec
@@ -299,7 +301,6 @@ int Extract2D::run() throw()
 
 
         FileSet * fset = new nidas::dynld::FileSet();
-        int recordCnt, hasOverld;
 
         list<string>::const_iterator fi = inputFileNames.begin();
         for (; fi != inputFileNames.end(); ++fi)
@@ -390,6 +391,7 @@ int Extract2D::run() throw()
                     {
                         outFile << "  <probe id=\"" << ((char *)&p->id)[0]
 				<< ((char *)&p->id)[1] << "\""
+                                << " type=\"" << (*dsm_it)->getCatalogName() << "\""
                                 << " resolution=\"" << p->resolution << "\""
                                 << " suffix=\"" << (*dsm_it)->getSuffix() << "\"/>\n";
                     }
@@ -405,7 +407,6 @@ int Extract2D::run() throw()
             return 0;
         }
 
-        recordCnt = hasOverld = 0;
         try {
             for (;;) {
 
@@ -438,6 +439,9 @@ int Extract2D::run() throw()
                                 record.hour = htons(t.tm_hour);
                                 record.minute = htons(t.tm_min);
                                 record.second = htons(t.tm_sec);
+                                record.year = htons(t.tm_year) + 1900;
+                                record.month = htons(t.tm_mon) + 1;
+                                record.day = htons(t.tm_mday);
                                 record.msec = htons(msecs);
 
                                 float tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
@@ -447,13 +451,14 @@ int Extract2D::run() throw()
                                 ::memcpy(record.data, dp, P2D_DATA);
 
                                 // For old 2D probes, not Fast 2DC.
-                                if (record.data[0] & 0x55aa0000 == 0x55aa0000)
+                                if (::memcmp(record.data, overLoadSync, 2) == 0)
                                 {
-                                    record.overld = htons((record.data[0] & 0x0000ffff) / 2000);
-                                    ++hasOverld;
+                                    unsigned long * lp = (unsigned long *)record.data;
+                                    record.overld = htons((*lp & 0x0000ffff) / 2000);
+                                    probe->hasOverloadCount++;
                                 }
 
-                                ++recordCnt;
+                                ++probe->recordCount;
                                 outFile.write((char *)&record, sizeof(record));
                             }
                         }
@@ -467,9 +472,22 @@ int Extract2D::run() throw()
         }
 
         outFile.close();
-        cout << recordCnt << " 2D records.  " << hasOverld <<
-		" records had an overload word @ spot zero, or " <<
-		hasOverld * 100 / recordCnt << "%." <<endl;
+
+        // Output some statistics.
+        map<dsm_sample_id_t, Probe *>::iterator mit;
+        for (mit = probeList.begin(); mit != probeList.end(); ++mit)
+        {
+            Probe * probe = (*mit).second;
+            cout << probe->recordCount << " "
+                 << probe->sensor->getCatalogName()
+                 << " records.  ";
+            if (probe->sensor->getCatalogName().compare("Fast2DC"))
+                 cout << probe->hasOverloadCount
+                 << " records had an overload word @ spot zero, or "
+                 << probe->hasOverloadCount * 100 / probe->recordCount
+                 << "%.";
+            cout << endl;
+        }
     }
     catch (n_u::IOException& ioe)
     {
