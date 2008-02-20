@@ -1346,6 +1346,11 @@ static void a2d_bottom_half(void *work)
  */
 static void readA2DFifo(struct A2DBoard *brd)
 {
+//#define DETECT_SPIKE 30000 // undefine to disable
+#ifdef DETECT_SPIKE
+        static int last[8];
+        int chan, diff;
+#endif
 
         struct dsm_sample *samp;
         int i;
@@ -1391,6 +1396,14 @@ static void readA2DFifo(struct A2DBoard *brd)
 #else
                         *dp = -*dp;
 #endif
+#ifdef DETECT_SPIKE
+                        chan = i % (brd->nFifoValues / NUM_NCAR_A2D_CHANNELS / brd->skipFactor);
+                        diff = last[chan] - *dp;
+                        if (diff < 0) diff *= -1;
+                        if (diff > DETECT_SPIKE) KLOG_DEBUG("** A2D SPIKE of %d on channel %d at %ld **\n",
+                                                    diff, chan, GET_MSEC_CLOCK);
+                        last[chan] = *dp;
+#endif
                         dp++;
                 }
         }
@@ -1402,6 +1415,14 @@ static void readA2DFifo(struct A2DBoard *brd)
                         dp++;           // skip over status word
 #endif
                         *dp = -le16_to_cpu(*dp);
+#ifdef DETECT_SPIKE
+                        chan = i % (brd->nFifoValues / NUM_NCAR_A2D_CHANNELS / brd->skipFactor);
+                        diff = last[chan] - *dp;
+                        if (diff < 0) diff *= -1;
+                        if (diff > DETECT_SPIKE) KLOG_DEBUG("** A2D SPIKE of %d on channel %d at %ld **\n",
+                                                    diff, chan, GET_MSEC_CLOCK);
+                        last[chan] = *dp;
+#endif
                         dp++;
                 }
         }
@@ -2166,6 +2187,9 @@ int init_module()
         int error = -EINVAL;
         int ib, i;
 
+#ifdef DETECT_SPIKE
+        KLOG_DEBUG("** SPIKE detection enabled.  Sensitivity set to: %d **\n", DETECT_SPIKE); 
+#endif
         BoardInfo = 0;
 
         work_queue = create_singlethread_workqueue("ncar_a2d");
