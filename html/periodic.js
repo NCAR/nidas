@@ -9,7 +9,7 @@ var pU = {
         document.getElementById(name).innerHTML =
           document.getElementById(name).label+' ('+resp[name]+')';
       }
-    if (++pU.cnt > 10) {
+    if (++pU.cnt > 3) {
       pU.cnt=1;
       if (selectedDsm)
         recvResp( GetStatus[selectedDsm]() );

@@ -83,8 +83,8 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	               << "<name>" << dsm_name << "</name>"
                        << "<clock>" << cstr << "</clock>";
 
-	    // Send status at 00:00, 00:10, etc.
-            if ( ((ut % 10) == 0) && sensors.size() > 0) {
+	    // Send status at 00:00, 00:03, etc.
+            if ( ((ut % 3) == 0) && sensors.size() > 0) {
 
               statStream << "<status><![CDATA[";
 
@@ -243,8 +243,8 @@ int DSMServerStat::run() throw(n_u::Exception)
 	                 << "<name>dsm_server</name>"
                          << "<clock>no DSMs active...."+string(glyph[anim])+"</clock>";
 
-//            // Send status at 00:00, 00:10, etc.
-//            if ( ((ut % 10) == 0) && _sometime) {
+//            // Send status at 00:00, 00:03, etc.
+//            if ( ((ut % 3) == 0) && _sometime) {
 //                statStream << "<status><![CDATA[";
 //                statStream << "]]></status>";
 //            }
