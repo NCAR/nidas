@@ -188,11 +188,7 @@ void Extract2D::setupSignals()
 int Extract2D::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-s dsmid,sensorid[,newdsmid,newsensorid]] [-s dsmid,sensorid ...]\n\
-	[-x dsmid,sensorid] [-l output_file_length] output input ... \n\n\
-    -s dsmid,sensorid: the dsm id and sensor id of samples to extract\n\
-            more than one -s option can be specified\n\
-	    newdsm,newsensor: change id to newdsmid,newsensorid\n\
+Usage: " << argv0 << " [-x dsmid,sensorid] [-l output_file_length] output input ... \n\n\
     -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
             more than one -x option can be specified\n\
 	    either -s or -x options can be specified, but not both\n\
@@ -234,27 +230,6 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
 	case 'l':
 	    outputFileLength = atoi(optarg);
 	    break;
-        case 's':
-            {
-                unsigned long dsmid;
-                unsigned long sensorid;
-                unsigned long newdsmid;
-                unsigned long newsensorid;
-                int i;
-                i = sscanf(optarg,"%ld,%ld,%ld,%ld",
-                    &dsmid,&sensorid,&newdsmid,&newsensorid);
-                if (i < 2) return usage(argv[0]);
-                dsm_sample_id_t id = 0;
-                id = SET_DSM_ID(id,dsmid);
-                id = SET_SHORT_ID(id,sensorid);
-                includeIds.insert(id);
-                if (i < 3) newdsmid = dsmid;
-                if (i < 4) newsensorid = sensorid;
-                dsm_sample_id_t newid = 0;
-                newid = SET_DSM_ID(newid,newdsmid);
-                newid = SET_SHORT_ID(newid,newsensorid);
-                newids[id] = newid;
-            }
             break;
         case 'x':
             {
@@ -454,7 +429,7 @@ int Extract2D::run() throw()
                                 if (::memcmp(record.data, overLoadSync, 2) == 0)
                                 {
                                     unsigned long * lp = (unsigned long *)record.data;
-                                    record.overld = htons((*lp & 0x0000ffff) / 2000);
+                                    record.overld = htons((ntohl(*lp) & 0x0000ffff) / 2000);
                                     probe->hasOverloadCount++;
                                 }
 
