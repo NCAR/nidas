@@ -116,6 +116,8 @@ public:
 
 private:
 
+    void scanForMissalignedData(Probe * probe, P2d_rec & record) throw();
+
     static bool interrupted;
 
     bool outputHeader;
@@ -275,6 +277,7 @@ int Extract2D::run() throw()
         }
 
 
+        dsm_sample_id_t fast2dc_id;
         FileSet * fset = new nidas::dynld::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();
@@ -350,7 +353,10 @@ int Extract2D::run() throw()
                     p->frequency = p->resolution * 1.0e-6;
 
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
+                    {
+                        fast2dc_id = (*dsm_it)->getId();
                         p->id = htons(0x4334);	// C4
+                    }
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
                         p->id = htons(0x4331 + Ccnt++);
@@ -425,6 +431,9 @@ int Extract2D::run() throw()
                                 record.overld = htons(0);
                                 ::memcpy(record.data, dp, P2D_DATA);
 
+                                if (id == fast2dc_id)
+                                    scanForMissalignedData(probe, record);
+
                                 // For old 2D probes, not Fast 2DC.
                                 if (::memcmp(record.data, overLoadSync, 2) == 0)
                                 {
@@ -470,4 +479,25 @@ int Extract2D::run() throw()
 	return 1;
     }
     return 0;
+}
+
+void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
+{
+    static const unsigned char syncStr[] = { 0xAA, 0xAA, 0xAA };
+
+    int totalCnt = 0, missCnt = 0;
+
+    unsigned char * p = record.data;
+    for (size_t i = 0; i < 4096; ++i, ++p) {
+        if (::memcmp(p, syncStr, 3) == 0) {
+            ++totalCnt;
+            if ((i % 8) != 0)
+                ++missCnt;
+        }
+    }
+
+    if (missCnt > 0)
+        cout << "Miss-aligned data, rec #" << probe->recordCount << 
+		", total sync=" << totalCnt << ", missAligned count=" << missCnt << endl;
+
 }
