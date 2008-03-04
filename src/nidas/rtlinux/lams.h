@@ -27,8 +27,8 @@
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
 #define N_AVG       80 
-#define N_PEAK      780 
-#define MAX_BUFFER  512
+#define N_PEAK      50
+#define MAX_BUFFER  1024 
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
@@ -39,8 +39,12 @@
 #define LAMS_MAGIC              'L'
 
 #define FLAGS_OFFSET             0x00
+#define RAM_CLEAR_OFFSET         0x00
+#define AVG_DATA_OFFSET          0x02
 #define DATA_OFFSET              0x02
+#define PEAK_CLEAR_OFFSET        0x04
 #define DEBUG_OFFSET             0x04
+#define PEAK_DATA_OFFSET         0x06
 #define AIR_SPEED_OFFSET         0x06
 
 #define FIFO_EMPTY               0x1

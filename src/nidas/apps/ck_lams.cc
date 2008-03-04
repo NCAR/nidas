@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 
   string ofName;
   if (argc < 2)
-    ofName = string("/tmp/lams.bin");
+    ofName = string("/mnt/lams/lams.bin");
   else
     ofName = string(argv[1]);
 
@@ -228,17 +228,19 @@ failed:
 int main(int argc, char** argv)
 {
   char readbuf[sizeof(lamsPort)];
-  char linebuf[11+MAX_BUFFER*5];
+  char linebuf[11+MAX_BUFFER*6];
   unsigned int n, nRead, nHead;
 
   struct lamsPort* data = (lamsPort*) &readbuf;
 
   err("X86 version - compiled on %s at %s", __DATE__, __TIME__);
 
+  const char* home = getenv("HOME");
+
   string ifName, ofName;
   if (argc < 2) {
-    ifName = string("/tmp/lams.dat");
-    ofName = string("/tmp/lams.hex");
+    ifName = string("/tmp/lams/lams.bin");
+    ofName = string(home)+string("/lams/lams.dat");
   } else {
     ifName = string(argv[1]);
     ofName = string(argv[2]);
@@ -255,21 +257,20 @@ int main(int argc, char** argv)
     err("failed to create '%s' (%s)", ofName.c_str(), strerror(errno));
     goto failed;
   }
-
   do {
     nRead = read(ifPtr, &readbuf, sizeof(lamsPort));
 
     if ( nRead > 0 ) {
 
       nHead = 0;
-      sprintf(&linebuf[nHead], "%08lx -", data->timetag); nHead+=10;
+//      sprintf(&linebuf[nHead], "%08lx", data->timetag); nHead+=8;
       for (n=0; n<MAX_BUFFER; n++)
-        sprintf(&linebuf[nHead+n*5], " %04x", data->data[n]);
-      sprintf(&linebuf[nHead+n*5], "\n");
+        sprintf(&linebuf[nHead+n*6], " %5d", data->data[n]);
+      sprintf(&linebuf[nHead+n*6], "\n");
 
       int status = write(ofPtr, &linebuf, strlen(linebuf)); 
       if (status < 0) {
-        err("failed to write... errno: %d", errno);
+        err("failed to write (%s)", strerror(errno));
         goto failed;
       }
     }

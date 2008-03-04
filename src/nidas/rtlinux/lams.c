@@ -92,15 +92,16 @@ static char * createFifo(char inName[], int chan)
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
 {
-   int n;
    struct rtl_timespec timeout; // semaphore timeout in nanoseconds
 
    rtl_clock_gettime(RTL_CLOCK_REALTIME,&timeout);
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
+int n;
+// int fp=0;
    for (;;) {
-      timeout.tv_nsec += 300 * NSECS_PER_MSEC;
+      timeout.tv_nsec += 600 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
          timeout.tv_sec++;
          timeout.tv_nsec -= NSECS_PER_SEC;
@@ -113,12 +114,13 @@ static void *lams_thread (void * chan)
             readw(baseAddr + DATA_OFFSET);
       } else {
 
+//       if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>>>>>>>>>>>> first post: %d\n", fp++);
          // TODO this is constant... set its value in ...::init()
 	 // is it the size of the data portion only, NOT the timetag and size fields!
          lams.size = sizeof(lams.data);
 
          if (fd_lams_data) {
-           DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
+//         DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
            lams.timetag = GET_MSEC_CLOCK;
            if (rtl_write(fd_lams_data,&lams, SIZEOF_DSM_SAMPLE_HEADER + lams.size) < 0) {
               DSMLOG_ERR("error: write: %s. Closing\n",
@@ -131,43 +133,111 @@ static void *lams_thread (void * chan)
       if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
 }
+unsigned short temp0[MAX_BUFFER], temp1[MAX_BUFFER], peak[MAX_BUFFER];
+unsigned short save1[MAX_BUFFER],save2[MAX_BUFFER];
+unsigned int sum[MAX_BUFFER];
+
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   static int nTattle, nGlyph;
-   static unsigned long sum[MAX_BUFFER], max;
-   static int m, n, nAvg = 0;
+// DSMLOG_ERR("lams_isr called\n");
+   int j;
 
-   readw(baseAddr + FLAGS_OFFSET); //Clear Dual Port memory address counter
-   for (n=0; n<MAX_BUFFER; n++) {
-     sum[n] += readw(baseAddr + DATA_OFFSET);
-     if(sum[n] > max){
-       max = sum[n];
-       nGlyph = n;
+   static unsigned long sum[MAX_BUFFER], max;
+   static int n;
+
+   static int nGlyph=0; 
+   static int nPeak=0;
+   static int nAvg=0;
+   static int nStart=0;
+   static int nTattle=0;
+/*
+   if (nAvg++ >= N_AVG) {
+     nAvg = 0;
+     rtl_sem_post( &threadSem );
+   }
+   return 0;
+  } 
+      
+*/
+   if(nStart < 10) {
+     ++nStart;
+     for (n=0; n < MAX_BUFFER; n++){
+       save1[n] = 0;
+       save2[n] = 0;
      }
    }
-  // average N spectrum data
-   if (n == MAX_BUFFER) {
-      if (nAvg++ >= N_AVG) {
-         nAvg = 0;
-         for (n=0; n<MAX_BUFFER; n++) {
-            m = n;
-            if(n >= 510) m = n - 512;
-            lams.data[n] = sum[m+2] / N_AVG;
-            sum[n] = 0;
-         }
+   if(nAvg == 0) {
+     if(++nPeak == N_PEAK) {
+       readw(baseAddr + PEAK_CLEAR_OFFSET); 
+       nPeak = 0;
+       for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
+     }
+   } 
+   readw(baseAddr + RAM_CLEAR_OFFSET); //Clear Dual Port memory address counter
 
-         rtl_sem_post( &threadSem );
-        if (++nTattle == 13) {
-          nTattle = 0;
-          DSMLOG_DEBUG("(%d) lams.data: 0x%04x\n",
-                       nGlyph, max/N_AVG);
-        }
+   for (n=3; n < MAX_BUFFER; n++) {
+      temp0[n] = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      temp1[n] = (short)readw(baseAddr + AVG_DATA_OFFSET);
+   }
+   for (n=0; n < 3; n++) {
+      temp0[n] = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      temp1[n] = (short)readw(baseAddr + AVG_DATA_OFFSET);
+   }
+   j = MAX_BUFFER-1;
+   for (n=MAX_BUFFER/2; n < MAX_BUFFER; n++) {
+     sum[j--] += temp1[n];
+     if(temp0[n] > peak[n-MAX_BUFFER/2])
+//       peak[n-MAX_BUFFER/2+3] = temp0[n];
+       peak[n-MAX_BUFFER/2] = temp0[n];
+     if(temp0[n] > max) {
+       max = temp0[n];
+     }
+   }
+
+   if (++nTattle == 1024) {
+     nTattle = 0;
+     if (++nGlyph == 256) nGlyph = 0;
+     DSMLOG_DEBUG("(%d) lams.data: 0x%04x, max: 0x%04x\n",
+                 nGlyph,lams.data[nGlyph], max);
+   }
+
+   if (nAvg++ >= N_AVG) {
+      nAvg = 0;
+      for (n=0; n < MAX_BUFFER; n++) {
+         if (n < MAX_BUFFER/2) {
+//           lams.data[n] = peak[MAX_BUFFER/2-1-n];
+           if(peak[MAX_BUFFER/2-1-n] > save1[n])
+             lams.data[n] = peak[MAX_BUFFER/2-1-n] - save1[n];
+           else
+             lams.data[n] = 0;
+           if(nStart == 10) {
+             save1[n] = peak[MAX_BUFFER/2-1-n];
+           }
+         }
+         else {
+
+           if (sum[n]/N_AVG > save2[n])
+             lams.data[n] = (sum[n]/N_AVG) - save2[n];
+           else {
+             lams.data[n] = 0;
+           }
+
+           if(nStart == 10) {
+             save2[n] = sum[n]/N_AVG;
+           }
+//         lams.data[n] = 1024; // DEBUG - set a constant value
+         }
+         sum[n] = 0;
       }
+      if(nStart == 10) nStart = 11;
+//    DSMLOG_DEBUG("rtl_sem_post( &threadSem );\n");
+      rtl_sem_post( &threadSem );
    }
    return 0;
 }
+
 // -- IOCTL --------------------------------------------------------------------
 static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
@@ -246,7 +316,14 @@ void cleanup_module (void)
 int init_module (void)
 {
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
-   DSMLOG_NOTICE("compiled on %s at %s by Ling\n", __DATE__, __TIME__);
+   DSMLOG_NOTICE("--------------------------------------------------\n");
+   DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+   DSMLOG_NOTICE("MAX_BUFFER: %d\n", MAX_BUFFER);
+   DSMLOG_NOTICE("sizeof(long):  %d\n", sizeof(long));
+   DSMLOG_NOTICE("sizeof(short): %d\n", sizeof(short));
+   DSMLOG_NOTICE("sizeof(int):   %d\n", sizeof(int));
+   DSMLOG_NOTICE("sizeof(char):  %d\n", sizeof(char));
+   DSMLOG_NOTICE("--------------------------------------------------\n");
 
    // open up ioctl FIFO, register ioctl function
    createFifo("_in_", BOARD_NUM);
@@ -259,17 +336,20 @@ int init_module (void)
    lams.timetag = 0;
    for (n=0; n<MAX_BUFFER; n++) lams.data[n] = 0;
 
+   DSMLOG_DEBUG("// initialize the semaphore to the thread\n");
    // initialize the semaphore to the thread
    if ( rtl_sem_init( &threadSem, 1, 0) < 0) {
       DSMLOG_ERR("rtl_sem_init failure: %s\n", rtl_strerror(rtl_errno));
       goto rtl_sem_init_err;
    }
+   DSMLOG_DEBUG("// create the thread to write data to the FIFO\n");
    // create the thread to write data to the FIFO
    if (rtl_pthread_create( &lamsThread, NULL,
                            lams_thread, (void *)0)) {
       DSMLOG_ERR("rtl_pthread_create failure: %s\n", rtl_strerror(rtl_errno));
       goto rtl_pthread_create_err;
    }
+   DSMLOG_DEBUG("// activate interupt service routine\n");
    // activate interupt service routine
    if (rtl_request_isa_irq(irq, lams_isr, 0) < 0) {
       DSMLOG_ERR("rtl_request_isa_irq failure: %s\n", rtl_strerror(rtl_errno));
