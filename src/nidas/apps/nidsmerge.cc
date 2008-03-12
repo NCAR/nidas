@@ -343,8 +343,9 @@ int NidsMerge::run() throw()
 		    dsm_time_t lastTime = lastTimes[ii];
 		    while (!interrupted && lastTime < tcur + readAheadUsecs) {
 			Sample* samp = input->readSample();
-			lastTime = samp->getTimeTag();
-			if (!sorter.insert(samp).second) samp->freeReference();
+                        lastTime = samp->getTimeTag();
+			if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
+                            samp->freeReference();
                         else nunique++;
 			nread++;
 		    }
