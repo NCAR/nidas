@@ -194,7 +194,7 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     *dout++ = 0.0;
 #endif
     for (int iout = 0; iout < _nChannels; ++iout)
-	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]) * _sampleRate;
+	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.

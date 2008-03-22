@@ -285,7 +285,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 #endif    
     unsigned short * histogram = (unsigned short *)&input[6];
     for (int iout = _nChannels-1; iout >= 0; --iout)
-      *dout++ = (float)toLittle->ushortValue(histogram[iout]) * _sampleRate;
+      *dout++ = (float)toLittle->ushortValue(histogram[iout]);
 
     // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
