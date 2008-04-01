@@ -300,7 +300,7 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 			",stat=" << hex << stat.badval[ichan] << dec;
 	    }
 	}
-	ostr << "temp" << fixed << setprecision(1) <<
+	ostr << ", temp=" << fixed << setprecision(1) <<
 	    tdeg << " degC</td>" << endl;
 
         ostr << "</td>";
