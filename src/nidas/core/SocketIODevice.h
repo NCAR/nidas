@@ -20,7 +20,7 @@
 namespace nidas { namespace core {
 
 /**
- * A sensor connected through a socket.
+ * A base class for device IO using UDP and TCP socket 
  */
 class SocketIODevice : public IODevice {
 
@@ -37,41 +37,28 @@ public:
     /**
      * The file descriptor used when reading from this SocketIODevice.
      */
-    int getReadFd() const
-    {
-	if (socket) return socket->getFd();
-	return -1;
-    }
+    virtual int getReadFd() const = 0;
 
     /**
      * The file descriptor used when writing to this sensor.
      */
-    int getWriteFd() const {
-	if (socket) return socket->getFd();
-    	return -1;
-    }
+    virtual int getWriteFd() const = 0;
 
     /**
     * open the socket.
     */
-    void open(int flags)
+    virtual void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
     * Read from the sensor.
     */
-    size_t read(void *buf, size_t len) throw(nidas::util::IOException)
-    {
-        return socket->recv(buf,len);
-    }
+    virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;
 
     /**
     * Write to the sensor.
     */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
-    {
-        return socket->send(buf,len);
-    }
+    virtual size_t write(const void *buf, size_t len) throw(nidas::util::IOException) = 0; 
 
     /*
     * Perform an ioctl on the device. Not necessary for a socket,
@@ -81,21 +68,6 @@ public:
     {
         throw nidas::util::IOException(getName(),
 		"ioctl","not supported on SocketIODevice");
-    }
-
-    /**
-    * close the sensor (and any associated FIFOs).
-    */
-    void close() throw(nidas::util::IOException);
-
-    void setTcpNoDelay(bool val) throw(nidas::util::IOException)
-    {
-        tcpNoDelay = val;
-    }
-
-    bool getTcpNoDelay() throw(nidas::util::IOException)
-    {
-	return tcpNoDelay;
     }
 
     void parseAddress(const std::string& name) throw(nidas::util::ParseException);
@@ -121,16 +93,6 @@ protected:
      * The destination socket address.
      */
     std::auto_ptr<nidas::util::SocketAddress> sockAddr;
-
-    /**
-     * The socket.  This isn't in an auto_ptr because
-     * one must close the socket prior to deleting it.
-     * The nidas::util::Socket destructor does not close
-     * the file descriptor.
-     */
-    nidas::util::Socket* socket;
-
-    bool tcpNoDelay;
 
 };
 

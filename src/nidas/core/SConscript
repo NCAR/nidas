@@ -119,6 +119,7 @@ headers = Split("""
     Site.h
     Socket.h
     SocketIODevice.h
+    TCPSocketIODevice.h
     ServerSocketIODevice.h
     SortedSampleSet.h
     StatusHandler.h
@@ -199,6 +200,7 @@ sources = Split("""
     Site.cc
     Socket.cc
     SocketIODevice.cc
+    TCPSocketIODevice.cc
     ServerSocketIODevice.cc
     StatusHandler.cc
     StatusListener.cc

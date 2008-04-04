@@ -23,25 +23,14 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SocketIODevice::SocketIODevice():
-    addrtype(-1),destport(-1),socket(0)
+    addrtype(-1),destport(-1)
 {
 }
 
 SocketIODevice::~SocketIODevice()
 {
-    close();
 }
 
-void SocketIODevice::close() throw(n_u::IOException)
-{
-    if (socket && socket->getFd() >= 0) {
-	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "closing: %s",getName().c_str());
-	socket->close();
-    }
-    delete socket;
-    socket = 0;
-}
 
 void SocketIODevice::parseAddress(const string& name)
 	throw(n_u::ParseException)
@@ -104,9 +93,5 @@ void SocketIODevice::open(int flags)
     }
     else sockAddr.reset(new n_u::UnixSocketAddress(desthost));
 
-    if (!socket) socket = new n_u::Socket();
-
-    socket->connect(*sockAddr.get());
-    socket->setTcpNoDelay(getTcpNoDelay());
 }
 

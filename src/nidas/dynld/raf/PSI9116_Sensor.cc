@@ -12,7 +12,7 @@
 */
 
 #include <nidas/dynld/raf/PSI9116_Sensor.h>
-#include <nidas/core/SocketIODevice.h>
+#include <nidas/core/TCPSocketIODevice.h>
 #include <nidas/core/DSMTime.h>
 
 #include <nidas/util/Logger.h>
@@ -36,7 +36,7 @@ PSI9116_Sensor::PSI9116_Sensor():
 
 IODevice* PSI9116_Sensor::buildIODevice() throw(n_u::IOException)
 {
-    SocketIODevice* dev = new SocketIODevice();
+    TCPSocketIODevice* dev = new TCPSocketIODevice();
     dev->setTcpNoDelay(true);
     return dev;
 }
