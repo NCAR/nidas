@@ -293,12 +293,15 @@ const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
 #ifdef DEBUG
 	cerr << "Checking dsm " << dsm->getName() << endl;
 #endif
-	list<n_u::Inet4Address> addrs =
+        try {
+	    list<n_u::Inet4Address> addrs =
 		n_u::Inet4Address::getAllByName(dsm->getName());
-	for (list<n_u::Inet4Address>::const_iterator ai=addrs.begin();
-	    ai != addrs.end(); ++ai) {
-	    if (*ai == addr) return dsm;
-	}
+	    for (list<n_u::Inet4Address>::const_iterator ai=addrs.begin();
+		ai != addrs.end(); ++ai) {
+		if (*ai == addr) return dsm;
+	    }
+        }
+	catch(n_u::UnknownHostException &e) {}
     }
     return 0;
 }

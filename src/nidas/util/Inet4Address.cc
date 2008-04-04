@@ -16,6 +16,7 @@
 using namespace nidas::util;
 using namespace std;
 
+#ifdef CACHE_DNS_LOOKUPS
 /* static */
 std::map<Inet4Address,std::string> Inet4Address::addrToName;
 
@@ -27,6 +28,7 @@ std::map<std::string,std::list<Inet4Address> > Inet4Address::nameToAddrs;
 
 /* static */
 Mutex Inet4Address::nameToAddrsLock;
+#endif
 
 Inet4Address::Inet4Address()
 {
@@ -57,6 +59,7 @@ string Inet4Address::getHostName() const throw() {
 /* static */
 string Inet4Address::getHostName(const Inet4Address& addr) throw()
 {
+#ifdef CACHE_DNS_LOOKUPS
     {
 	Synchronized sync(addrToNameLock);
 	map<Inet4Address,string>::iterator ai =
@@ -69,8 +72,10 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 	    return ai->second;
 	}
     }
+#endif
 
     if (addr.inaddr.s_addr == INADDR_ANY) {
+#ifdef CACHE_DNS_LOOKUPS
 	pair<Inet4Address,string> p1;
 	p1.first = addr;
 	p1.second = addr.getHostAddress();
@@ -78,6 +83,9 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 	Synchronized sync(addrToNameLock);
 	addrToName.insert(p1);
 	return p1.second;
+#else
+	return addr.getHostAddress();
+#endif
     }
 
 #ifdef DEBUG
@@ -150,9 +158,11 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
     	p1.second = string(hent.h_name);
     else p1.second = addr.getHostAddress();
 
+#ifdef CACHE_DNS_LOOKUPS
     addrToNameLock.lock();
     addrToName.insert(p1);
     addrToNameLock.unlock();
+#endif
 
 #ifdef DEBUG
     cerr << "static Inet4Address::getHostName()=" << p1.second << endl;
@@ -165,6 +175,7 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
   	throw(UnknownHostException)
 {
+#ifdef CACHE_DNS_LOOKUPS
     {
 	Synchronized sync(nameToAddrsLock);
 	map<string,list<Inet4Address> >::iterator ai =
@@ -177,6 +188,7 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 	    return ai->second;
 	}
     }
+#endif
 #ifdef DEBUG
     cerr << "getAllByName: " << hostname << " is not in cache" << endl;
 #endif
@@ -222,6 +234,7 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 	addrlist.push_back(iaddr);
     }
 
+#ifdef CACHE_DNS_LOOKUPS
     {
 	pair<string,list<Inet4Address> > p1;
 	Synchronized autolock(nameToAddrsLock);
@@ -235,6 +248,7 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 	p1.second = addrlist;
 	nameToAddrs.insert(p1);
     }
+#endif
 
     return addrlist;
 }

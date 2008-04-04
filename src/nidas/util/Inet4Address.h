@@ -31,8 +31,6 @@ public:
      * @param hostname: either a local hostname, like "linus",
      *        or a fully qualified name, "linus.atd.ucar.edu",
      *		or an address in dot notation: "128.117.80.208".
-     * The name and addresses are cached in a static map for subsequent
-     * lookups by a process.
      */
     static std::list<Inet4Address> getAllByName(const std::string& hostname)
   	throw(UnknownHostException);
@@ -121,6 +119,7 @@ protected:
      */
     struct in_addr inaddr;
 
+#ifdef CACHE_DNS_LOOKUPS
     /**
      * Static cache of reverse name lookups.
      */
@@ -142,6 +141,7 @@ protected:
      * nameToAddrs map.
      */
     static Mutex nameToAddrsLock;
+#endif
 
 };
 
