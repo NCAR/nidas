@@ -120,6 +120,7 @@ headers = Split("""
     Socket.h
     SocketIODevice.h
     TCPSocketIODevice.h
+    UDPSocketIODevice.h
     ServerSocketIODevice.h
     SortedSampleSet.h
     StatusHandler.h
@@ -201,6 +202,7 @@ sources = Split("""
     Socket.cc
     SocketIODevice.cc
     TCPSocketIODevice.cc
+    UDPSocketIODevice.cc
     ServerSocketIODevice.cc
     StatusHandler.cc
     StatusListener.cc
