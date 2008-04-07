@@ -799,8 +799,12 @@ static void A2DStopReadAll(struct A2DBoard *brd)
 {
         int i;
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+#ifdef CHECK_ACTIVE_CHANNELS_ON_CONFIG
                 if (brd->gain[i] > 0)
                         A2DStopRead(brd, i);
+#else
+                        A2DStopRead(brd, i);
+#endif
 }
 
 /*-----------------------Utility------------------------------*/
@@ -852,9 +856,13 @@ static int A2DStartAll(struct A2DBoard *brd)
 {
         int i;
         int ret = 0;
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
+#ifdef CHECK_ACTIVE_CHANNELS_ON_CONFIG
                 if (brd->gain[i] > 0 && (ret = A2DStart(brd, i) != 0))
                     return ret;
+#else
+                if ((ret = A2DStart(brd, i) != 0)) return ret;
+#endif
         return ret;
 }
 
@@ -945,8 +953,12 @@ static int A2DConfigAll(struct A2DBoard *brd)
         int ret = 0;
         int i;
         for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
-                if ((ret = A2DConfig(brd, i)) < 0)
+#ifdef CHECK_ACTIVE_CHANNELS_ON_CONFIG
+                if (brd->gain[i] > 0 && (ret = A2DConfig(brd, i)) < 0)
                         return ret;
+#else
+                if ((ret = A2DConfig(brd, i)) < 0) return ret;
+#endif
         }
         return 0;
 }

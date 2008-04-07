@@ -407,8 +407,10 @@ int rtl_request_isa_irq(unsigned int irq, isa_irq_handler_t handler, void* callb
 	    DSMLOG_DEBUG("requesting isa irq=%d, index=%d\n",irq,i);
 
 	    ret = -EBUSY;
-	    if (isa_isrs[i]) break;	// already requested (no sharing!)
-
+	    if (isa_isrs[i]) {
+		DSMLOG_DEBUG("irp %d already requested (no sharing!)\n", irq);
+		break;	// already requested (no sharing!)
+            }
 	    ret = -ENOMEM;
 	    isa_isrs[i] = rtl_gpos_malloc( sizeof(struct isrData) );
 	    if (!isa_isrs[i]) break;
