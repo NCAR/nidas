@@ -23,7 +23,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 TCPSocketIODevice::TCPSocketIODevice():
-    socket(0)
+    socket(0), tcpNoDelay(false)
 {
 }
 
