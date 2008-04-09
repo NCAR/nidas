@@ -30,6 +30,7 @@ sources = Split("""
     TwoD64_USB.cc
     TwoD32_USB.cc
     UHSAS_Serial.cc
+    UDPSocketSensor.cc
 """)
 
 
@@ -62,6 +63,7 @@ headers = Split("""
     TwoD64_USB.h
     TwoD32_USB.h
     UHSAS_Serial.h
+    UDPSocketSensor.h
 """)
 
 

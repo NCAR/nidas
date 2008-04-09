@@ -43,6 +43,15 @@ public:
     }
 
     /**
+     * The file descriptor used when writing to this sensor.
+     */
+    int getWriteFd() const {
+        if (socket) return socket->getFd();
+        return -1;
+    }
+
+    
+    /**
     * open the socket.
     */
     void open(int flags)
