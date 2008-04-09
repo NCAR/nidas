@@ -40,14 +40,5 @@ IODevice* UDPSocketSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* UDPSocketSensor::buildSampleScanner()
 {
-    SampleScanner* scanr;
-    scanr = new DatagramSampleScanner();
-
-    scanr->setMessageSeparator(getMessageSeparator());
-    scanr->setMessageSeparatorAtEOM(getMessageSeparatorAtEOM());
-    scanr->setMessageLength(getMessageLength());
-    return scanr;
-
-} 
-
-
+    return new DatagramSampleScanner();
+}
