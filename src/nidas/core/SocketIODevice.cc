@@ -61,10 +61,11 @@ void SocketIODevice::parseAddress(const string& name)
 	}
     }
     if (addrtype == AF_UNIX && desthost.length() == 0)
-	throw n_u::ParseException(getName() + ":" + name,
-	    "cannot parse path part of UNIX socket address");
+	throw n_u::ParseException(getName(),
+	    string("cannot parse path in UNIX socket address: ") + name);
     if (addrtype == AF_INET && destport < 0)
-	throw n_u::ParseException(getName() + ":" + name,"cannot parse port");
+	throw n_u::ParseException(getName(),
+            string("cannot parse port number in address: ") + name);
 
 }
 
@@ -88,7 +89,7 @@ void SocketIODevice::open(int flags)
 		n_u::Inet4Address::getByName(desthost),destport));
 	}
 	catch(const n_u::UnknownHostException &e) {
-	    throw n_u::InvalidParameterException(e.what());
+	    throw n_u::IOException(getName(),"open",e.what());
 	}
     }
     else sockAddr.reset(new n_u::UnixSocketAddress(desthost));
