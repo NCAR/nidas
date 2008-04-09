@@ -193,45 +193,52 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
     cerr << "getAllByName: " << hostname << " is not in cache" << endl;
 #endif
 
-    struct hostent hent;
-    struct hostent *result;
-    int h_error;
-    const int numtries = 5;
-    char auxbuf[1024];	// haven't found any doc about how big this should be
-
-    for (int ntry=0; ; ntry++) {
-	if (!gethostbyname_r(hostname.c_str(),&hent,
-		auxbuf,sizeof(auxbuf),&result,&h_error)) break;	// success
-        switch(h_error) {
-	case HOST_NOT_FOUND:
-	case NO_ADDRESS:		// same as NO_DATA
-	    throw UnknownHostException(hostname);
-	case NO_RECOVERY:
-	    throw UnknownHostException(hostname + ": nameserver error");
-	case TRY_AGAIN:
-#ifdef DEBUG
-	    cerr << "gethostbyaddr_r TRY_AGAIN, ntry=" << ntry << endl;
-#endif
-	    if (ntry == numtries)
-		throw UnknownHostException(hostname +
-			": numerous temporary name server errors");
-	    break;
-	default:
-#ifdef DEBUG
-#endif
-	    cerr << "gethostbyname_r unknown error=" << h_error  << endl;
-	    assert(0);
-	}
-    }
-    if (!result) throw UnknownHostException(hostname);
-
-    assert(result == &hent);
-    assert(hent.h_length == sizeof(struct in_addr));
-
     list<Inet4Address> addrlist;
-    for (int i = 0; hent.h_addr_list[i]; i++) {
-        Inet4Address iaddr((struct in_addr*)hent.h_addr_list[i]);
-	addrlist.push_back(iaddr);
+    // Treat a zero-length hostname as 0.0.0.0, INADDR_ANY
+    if (hostname.length() == 0) {
+        Inet4Address iaddr(INADDR_ANY);
+        addrlist.push_back(iaddr);
+    }
+    else {
+        struct hostent hent;
+        struct hostent *result;
+        int h_error;
+        const int numtries = 5;
+        char auxbuf[1024];	// haven't found any doc about how big this should be
+
+        for (int ntry=0; ; ntry++) {
+            if (!gethostbyname_r(hostname.c_str(),&hent,
+                    auxbuf,sizeof(auxbuf),&result,&h_error)) break;	// success
+            switch(h_error) {
+            case HOST_NOT_FOUND:
+            case NO_ADDRESS:		// same as NO_DATA
+                throw UnknownHostException(hostname);
+            case NO_RECOVERY:
+                throw UnknownHostException(hostname + ": nameserver error");
+            case TRY_AGAIN:
+    #ifdef DEBUG
+                cerr << "gethostbyaddr_r TRY_AGAIN, ntry=" << ntry << endl;
+    #endif
+                if (ntry == numtries)
+                    throw UnknownHostException(hostname +
+                            ": numerous temporary name server errors");
+                break;
+            default:
+    #ifdef DEBUG
+    #endif
+                cerr << "gethostbyname_r unknown error=" << h_error  << endl;
+                assert(0);
+            }
+        }
+        if (!result) throw UnknownHostException(hostname);
+
+        assert(result == &hent);
+        assert(hent.h_length == sizeof(struct in_addr));
+
+        for (int i = 0; hent.h_addr_list[i]; i++) {
+            Inet4Address iaddr((struct in_addr*)hent.h_addr_list[i]);
+            addrlist.push_back(iaddr);
+        }
     }
 
 #ifdef CACHE_DNS_LOOKUPS

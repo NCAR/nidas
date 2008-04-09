@@ -41,13 +41,13 @@ void SocketIODevice::parseAddress(const string& name)
     destport = -1;
     if (idx != string::npos) {
 	string field = name.substr(0,idx);
-	if (!field.compare("inet")) addrtype = AF_INET;
-	else if (!field.compare("unix")) addrtype = AF_UNIX;
+	if (field == "inet" || field == "sock") addrtype = AF_INET;
+	else if (field == "unix") addrtype = AF_UNIX;
 	idx++;
     }
     if (addrtype < 0)
 	throw n_u::ParseException(name,
-		"address type prefix should be \"inet:\" or \"unix:\"");
+		"address type prefix should be \"inet:\", \"sock:\", or \"unix:\"");
 
     if (addrtype == AF_UNIX) desthost = name.substr(idx);
     else {
@@ -60,11 +60,11 @@ void SocketIODevice::parseAddress(const string& name)
 	    if (ist.fail()) destport = -1;
 	}
     }
-    if (desthost.length() == 0)
-	throw n_u::ParseException(name,
-	    "cannot parse host name");
+    if (addrtype == AF_UNIX && desthost.length() == 0)
+	throw n_u::ParseException(getName() + ":" + name,
+	    "cannot parse path part of UNIX socket address");
     if (addrtype == AF_INET && destport < 0)
-	throw n_u::ParseException(name,"cannot parse port");
+	throw n_u::ParseException(getName() + ":" + name,"cannot parse port");
 
 }
 
