@@ -336,6 +336,21 @@ public:
 
     virtual float getLatency() const { return latency; }
 
+    virtual void setTimeoutMsecs(int val)
+    {
+        _timeoutUsecs = val * USECS_PER_MSEC;
+    }
+
+    virtual int getTimeoutMsecs() const
+    {
+        return _timeoutUsecs / USECS_PER_MSEC;
+    }
+
+    virtual int getTimeoutUsecs() const
+    {
+        return _timeoutUsecs;
+    }
+
     /**
      * DSMSensor provides a SampleSource interface for its raw samples.
      */
@@ -422,6 +437,16 @@ public:
      * @return One of O_RDONLY, O_WRONLY or O_RDWR.
      */
     virtual int getDefaultMode() const { return O_RDONLY; }
+
+    /**
+     * How many bytes are available to read on this sensor.
+     * @see IODevice::getBytesAvailable().
+     */
+    virtual int getBytesAvailable() const
+        throw(nidas::util::IOException)
+    {
+        return iodev->getBytesAvailable();
+    }
 
     /**
      * Read from the device (duh). Behaves like the read(2) system call,
@@ -750,6 +775,8 @@ private:
     CalFile* calFile;
 
     std::string _typeName;
+
+    int _timeoutUsecs;
 
 private:
     // no copying

@@ -67,7 +67,7 @@ IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void DSMAnalogSensor::open(int flags)

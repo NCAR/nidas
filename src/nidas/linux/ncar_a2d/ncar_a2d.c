@@ -1771,7 +1771,7 @@ static int startBoard(struct A2DBoard *brd)
         // Start then reset the A/D's
         // Start conversions
         KLOG_DEBUG("Starting A/D's\n");
-        A2DStartAll(brd);
+        if ((ret = A2DStartAll(brd)) != 0) return ret;  // Start all the A/Ds
 
         // If starting from a cold boot, one needs to
         // let the A2Ds run for a bit before downloading

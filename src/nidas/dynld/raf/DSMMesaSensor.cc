@@ -52,7 +52,7 @@ IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()
 {
-  return new SampleScanner();
+  return new DriverSampleScanner();
 }
 
 

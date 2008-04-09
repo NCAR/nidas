@@ -63,7 +63,7 @@ IODevice* DSC_A2DSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSC_A2DSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void DSC_A2DSensor::open(int flags)

@@ -34,32 +34,31 @@ class DSMSensor;
  * Currently there are three implementations of SampleScanner, which
  * differ in how they extract samples from the internal buffer:
  *
- * SampleScanner:
- *    Base class implementation can be used when a DSMSensor has no
- *    notion of message separators in its output.
- *    An A/D converter is an example of such a sensor, for which a kernel
- *    module provides pre-formatted dsm_samples to user code.
- *    A basic SampleScanner does not need to scan input for
- *    message separators, and so it throws 
- *    nidas::util::InvalidParameterExceptions in the default implementation
- *    of these methods for setting message separation parameters.
- *    Default implementation of the readSamples() method reads
- *    pre-formatted dsm_samples from the internal buffer.
+ * DriverSampleScanner:
+ *    A SampleScanner for reading samples that have been
+ *    pre-formatted by a device driver - they already have a header
+ *    consisting of a timetag, and a data length.
+ *    This can be used, for example, to read samples from a driver
+ *    supporting an A/D converter.
  *
  * MessageSampleScanner:
- *    Supports the set/get of the message separation parameters.
- *    but does not itself scan the input for messages.
- *    This implementation is used when a kernel module has 
- *    scanned the imput into samples. The MessageSampleScanner
- *    uses the base class SampleScanner::nextSample() method to
- *    extracts pre-formatted dsm_samples from the buffer.
+ *    Subclass of DriverSampleScanner, supporting the set/get
+ *    of the message separation parameters.  This scanner does
+ *    not itself break the input into samples, since this
+ *    has been done by the driver module.
  *
  * MessageStreamScanner:
  *    Provides sets and gets of message separation parameters used in
- *    parsing input messages from a sensor.  Extracts samples from
- *    the buffer, separating the data into samples by recognizing
+ *    parsing input messages from a sensor. Parses the stream
+ *    input, breaking it into samples, by recognizing
  *    separators in the message stream.
  *
+ * DatagramSampleScanner:
+ *    Creates samples from input datagrams, a simple task since the
+ *    OS maintains the separation of the input datagrams. Each
+ *    datagram becomes a separate sample, with a timetag taken from
+ *    the system clock at the time the scanner has determined that
+ *    there is data available.
  */
 class SampleScanner
 {
@@ -81,18 +80,14 @@ public:
      * Throws nidas::util::InvalidParameterException.
      */
     virtual void setMessageSeparator(const std::string& val)
-    	throw(nidas::util::InvalidParameterException)
-    {
-    	throw nidas::util::InvalidParameterException(
-		"setMessageSeparator not supported");
-    }
+    	throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * Returns an empty string.
      */
     virtual const std::string& getMessageSeparator() const 
     {
-        return emptyString;
+        return _emptyString;
     }
 
     /**
@@ -100,7 +95,7 @@ public:
      */
     virtual const std::string getBackslashedMessageSeparator() const
     {
-	return emptyString; 
+	return _emptyString; 
     }
 
     /**
@@ -108,11 +103,7 @@ public:
      * Throws nidas::util::InvalidParameterException.
      */
     virtual void setMessageSeparatorAtEOM(bool val)
-    	throw(nidas::util::InvalidParameterException)
-    {
-    	throw nidas::util::InvalidParameterException(
-		"setMessageSeparatorAtEOM not supported");
-    }
+    	throw(nidas::util::InvalidParameterException) = 0;
     
     virtual bool getMessageSeparatorAtEOM() const
     {
@@ -124,11 +115,7 @@ public:
      * Throws nidas::util::InvalidParameterException.
      */
     virtual void setMessageLength(unsigned int val)
-    	throw(nidas::util::InvalidParameterException) 
-    {
-    	throw nidas::util::InvalidParameterException(
-		"setMessageLength not supported");
-    }
+    	throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * Returns 0.
@@ -149,12 +136,12 @@ public:
 
     void setUsecsPerByte(int val)
     {
-        usecsPerByte = val;
+        _usecsPerByte = val;
     }
 
     int getUsecsPerByte() const
     {
-        return usecsPerByte;
+        return _usecsPerByte;
     }
 
     /**
@@ -179,9 +166,9 @@ public:
      * Extract the next sample from the buffer. Returns
      * NULL if there are no more samples in the buffer.
      */
-    virtual Sample* nextSample(DSMSensor* sensor);
+    virtual Sample* nextSample(DSMSensor* sensor) = 0;
 
-    size_t getBytesInBuffer() const { return bufhead - buftail; }
+    size_t getBytesInBuffer() const { return _bufhead - _buftail; }
 
     virtual void resetStatistics();
 
@@ -195,107 +182,183 @@ public:
     virtual void calcStatistics(unsigned int periodUsec);
 
     size_t getMaxSampleLength() const
-    	{ return maxSampleLength[reportIndex]; }
+    	{ return _maxSampleLength[_reportIndex]; }
 
     size_t getMinSampleLength() const
-	{ 
-		// if max is 0 then we haven't gotten any data
-		if (maxSampleLength[reportIndex] == 0) return 0;
-		return minSampleLength[reportIndex];
-        }
+    { 
+        // if max is 0 then we haven't gotten any data
+        if (_maxSampleLength[_reportIndex] == 0) return 0;
+        return _minSampleLength[_reportIndex];
+    }
 
     size_t getBadTimeTagCount() const
     {
-	return badTimeTags;
+	return _badTimeTags;
     }
 
     float getObservedSamplingRate() const;
 
     float getObservedDataRate() const;
 
-    void addNumBytesToStats(size_t val) { nbytes += val; }
+    void addNumBytesToStats(size_t val) { _nbytes += val; }
 
     void addSampleToStats(size_t val)
     {
-	nsamples++;
-        minSampleLength[currentIndex] =
-		std::min(minSampleLength[currentIndex],val);
-        maxSampleLength[currentIndex] =
-		std::max(maxSampleLength[currentIndex],val);
+	_nsamples++;
+        _minSampleLength[_currentIndex] =
+		std::min(_minSampleLength[_currentIndex],val);
+        _maxSampleLength[_currentIndex] =
+		std::max(_maxSampleLength[_currentIndex],val);
     }
 
     void incrementBadTimeTags()
     {
-        badTimeTags++;
+        _badTimeTags++;
     }
 
 protected:
+
+    /**
+     * Implementation of setMessageSeparator for derived classes
+     * that need it.
+     */
+    void setMessageSeparatorProtected(const std::string& val)
+    	throw(nidas::util::InvalidParameterException);
 
     /**
      * Buffer size for reading from sensor.
      */
     const int BUFSIZE;
 
-    char* buffer;
+    char* _buffer;
 
-    int bufhead;
+    int _bufhead;
 
-    int buftail;
+    int _buftail;
 
-    Sample* osamp;
+    Sample* _osamp;
 
-    struct dsm_sample header;
+    struct dsm_sample _header;
 
-    size_t outSampRead;
+    size_t _outSampRead;
  
-    size_t outSampToRead;
+    size_t _outSampToRead;
 
-    char* outSampDataPtr;
+    char* _outSampDataPtr;
+
+    std::string _messageSeparator;
+
+    int _messageLength;
+
+    bool _separatorAtEOM;
+
+    /**
+     * messageSeparator in a C string.
+     */
+    char* _separator;
+
+    /**
+     * Length of messageSeparator.
+     */
+    int _separatorLen;
 
 private:
 
-    std::string emptyString;
+    std::string _emptyString;
 
-    time_t initialTimeSecs;
+    time_t _initialTimeSecs;
 
-    size_t minSampleLength[2];
+    size_t _minSampleLength[2];
 
-    size_t maxSampleLength[2];
+    size_t _maxSampleLength[2];
 
-    int currentIndex;
+    int _currentIndex;
 
-    int reportIndex;
+    int _reportIndex;
 
-    size_t nsamples;
+    size_t _nsamples;
 
-    size_t nbytes;
+    size_t _nbytes;
 
-    size_t badTimeTags;
+    size_t _badTimeTags;
 
     /**
     * Observed number of samples per second.
     */
-    float sampleRateObs;
+    float _sampleRateObs;
 
-    float dataRateObs;
+    float _dataRateObs;
 
-    int usecsPerByte;
+    int _usecsPerByte;
 
 };
 
 /**
- * A SampleScanner which supports the set/get of message
- * separation parameters. Typically these parameters are
- * sent down by an implementation of DSMSensor to a kernel
- * module.
+ * A SampleScanner for reading samples that have been
+ * pre-formatted by a device driver - they already have a header
+ * consisting of a timetag, and a data length.
+ * This can be used, for example, to read samples from a driver
+ * supporting an A/D converter.
  */
-class MessageSampleScanner: public SampleScanner
+class DriverSampleScanner: public SampleScanner
+{
+public:
+
+    DriverSampleScanner(int bufsize=8192);
+
+    /**
+     * setMessageSeparator is not implemented in DriverSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageSeparator(const std::string& val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageSeparator not supported");
+    }
+
+    /**
+     * setMessageSeparatorAtEOM is not implemented in DriverSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageSeparatorAtEOM(bool val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageSeparatorAtEOM not supported");
+    }
+    
+    /**
+     * setMessageLength is not implemented in DriverSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageLength(unsigned int val)
+    	throw(nidas::util::InvalidParameterException) 
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageLength not supported");
+    }
+
+    /**
+     * Extract the next sample from the buffer. Returns
+     * NULL if there are no more samples in the buffer.
+     */
+    Sample* nextSample(DSMSensor* sensor);
+
+private:
+
+};
+
+/**
+ * A DriverSampleScanner which supports the set/get of message
+ * separation parameters. Typically these parameters are
+ * sent down to a driver module by an implementation of DSMSensor.
+ */
+class MessageSampleScanner: public DriverSampleScanner
 {
 public:
     
     MessageSampleScanner(int bufsize=8192);
-
-    ~MessageSampleScanner();
 
     /**
      * The messageSeparator is the string of bytes that a sensor
@@ -304,7 +367,10 @@ public:
      * @see * DSMSensor::replaceBackslashSequences()
      */
     void setMessageSeparator(const std::string& val)
-    	throw(nidas::util::InvalidParameterException);
+    	throw(nidas::util::InvalidParameterException)
+    {
+        setMessageSeparatorProtected(val);
+    }
 
     /**
      * Get message separator string. Any backslash sequences will have
@@ -312,7 +378,7 @@ public:
      */
     const std::string& getMessageSeparator() const
     {
-        return messageSeparator;
+        return _messageSeparator;
     }
 
     /**
@@ -337,10 +403,13 @@ public:
     void setMessageSeparatorAtEOM(bool val)
     	throw(nidas::util::InvalidParameterException)
     {
-	separatorAtEOM = val;
+	_separatorAtEOM = val;
     }
 
-    bool getMessageSeparatorAtEOM() const { return separatorAtEOM; }
+    bool getMessageSeparatorAtEOM() const
+    {
+        return _separatorAtEOM; 
+    }
 
     /**
      * Set the message length for this sensor, a zero or positive value.
@@ -371,31 +440,15 @@ public:
     void setMessageLength(unsigned int val)
     	throw(nidas::util::InvalidParameterException) 
     {
-	messageLength = val;
+	_messageLength = val;
     }
 
     unsigned int getMessageLength() const
     {
-        return messageLength;
+        return _messageLength;
     }
 
-protected:
-
-    std::string messageSeparator;
-
-    int messageLength;
-
-    bool separatorAtEOM;
-
-    /**
-     * messageSeparator in a C string.
-     */
-    char* separator;
-
-    /**
-     * Length of messageSeparator.
-     */
-    int separatorLen;
+private:
 
 };
 
@@ -408,13 +461,11 @@ protected:
  * tranmission time of each byte in the chunk.
  * @see setUsecsPerByte().
  */
-class MessageStreamScanner: public MessageSampleScanner
+class MessageStreamScanner: public SampleScanner
 {
 public:
     
     MessageStreamScanner(int bufsize=1024);
-
-    ~MessageStreamScanner();
 
     void setMessageSeparatorAtEOM(bool val)
     	throw(nidas::util::InvalidParameterException);
@@ -422,22 +473,27 @@ public:
     void setMessageSeparator(const std::string& val)
     	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Get message separator with backslash sequences added back.
+     */
+    const std::string getBackslashedMessageSeparator() const;
+
     void setMessageLength(unsigned int val)
     	throw(nidas::util::InvalidParameterException);
 
     void setNullTerminate(bool val) 
     {
-        nullTerminate = val;
+        _nullTerminate = val;
     }
 
     bool getNullTerminate()  const
     {
-        return nullTerminate;
+        return _nullTerminate;
     }
 
     Sample* nextSample(DSMSensor* sensor)
     {
-        return (this->*nextSampleFunc)(sensor);
+        return (this->*_nextSampleFunc)(sensor);
     }
 
     size_t readBuffer(DSMSensor* sensor)
@@ -477,7 +533,7 @@ protected:
     /* ptr to setXXX member function for setting an attribute of this
      * class, based on the value of the tag from the IOStream.
      */
-    Sample* (MessageStreamScanner::* nextSampleFunc)(DSMSensor*);
+    Sample* (MessageStreamScanner::* _nextSampleFunc)(DSMSensor*);
 
     /**
      * Check that there is room to add nc number of characters to
@@ -491,20 +547,77 @@ protected:
 
 private:
 
-    dsm_time_t tfirstchar;
+    dsm_time_t _tfirstchar;
 
     const size_t MAX_MESSAGE_STREAM_SAMPLE_SIZE;
 
-    int separatorCnt;
+    int _separatorCnt;
 
-    dsm_time_t bomtt;
+    dsm_time_t _bomtt;
 
-    int sampleOverflows;
+    int _sampleOverflows;
 
-    size_t sampleLengthAlloc;
+    size_t _sampleLengthAlloc;
 
-    bool nullTerminate;
+    bool _nullTerminate;
 
+};
+
+class DatagramSampleScanner: public SampleScanner
+{
+public:
+    
+    DatagramSampleScanner(int bufsize=8192);
+
+    /**
+     * setMessageSeparator is not implemented in DatagramSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageSeparator(const std::string& val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageSeparator not supported");
+    }
+
+    /**
+     * setMessageSeparatorAtEOM is not implemented in DatagramSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageSeparatorAtEOM(bool val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageSeparatorAtEOM not supported");
+    }
+    
+    /**
+     * setMessageLength is not implemented in DatagramSampleScanner.
+     * Throws nidas::util::InvalidParameterException.
+     */
+    void setMessageLength(unsigned int val)
+    	throw(nidas::util::InvalidParameterException) 
+    {
+    	throw nidas::util::InvalidParameterException(
+		"setMessageLength not supported");
+    }
+
+    /**
+     * Read from the sensor into the internal buffer of this
+     * SampleScanner.
+     */
+    size_t readBuffer(DSMSensor* sensor)
+        throw(nidas::util::IOException);
+
+    /**
+     * Extract the next sample from the buffer. Returns
+     * NULL if there are no more samples in the buffer.
+     */
+    Sample* nextSample(DSMSensor* sensor);
+
+private:
+    std::list<int> _packetLengths;
+    std::list<dsm_time_t> _packetTimes;
 };
 
 }}	// namespace nidas namespace core

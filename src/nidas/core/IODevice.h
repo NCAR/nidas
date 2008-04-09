@@ -16,6 +16,8 @@
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/IOException.h>
 
+#include <sys/ioctl.h>
+
 namespace nidas { namespace core {
 
 /**
@@ -60,6 +62,31 @@ public:
     * Read from the sensor.
     */
     virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;	
+
+    /**
+     * Return how many bytes are available to read on this IODevice.
+     * This method is only useful when ioctl FIONREAD is supported
+     * on this this IODevice, as for example with a UDP socket.
+     * It is not available, and not necessary, on most other devices,
+     * like serial ports TCP sockets, or devices with nidas driver
+     * module support, in which case it will return an
+     * nidas::util::IOException.
+     * It is an optimization for use with UDP sockets, where after
+     * select determines that data is available on the socket file
+     * descriptor, a read will only read one datagram, even if there are 
+     * more than one available. Rather than returning back to select,
+     * we check if there are more datagrams to read. This is not
+     * necessary on other types of IODevices, where it is just a matter
+     * of using a big enough buffer to get all available data after a select.
+     */
+    virtual size_t getBytesAvailable() const throw(nidas::util::IOException)
+    {
+        int nbytes;
+        int err = ::ioctl(getReadFd(),FIONREAD,&nbytes);
+        if (err < 0)
+            throw nidas::util::IOException(getName(),"ioctl FIONREAD",errno);
+        return nbytes;
+    }
 
     /**
     * Write to the sensor.

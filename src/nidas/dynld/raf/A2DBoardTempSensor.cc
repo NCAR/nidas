@@ -52,7 +52,7 @@ IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void A2DBoardTempSensor::open(int flags)

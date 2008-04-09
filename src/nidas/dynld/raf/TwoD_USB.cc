@@ -77,7 +77,7 @@ IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
 
 SampleScanner *TwoD_USB::buildSampleScanner()
 {   
-    return new SampleScanner((4104 + 8) * 4);
+    return new DriverSampleScanner((4104 + 8) * 4);
 }
 
 

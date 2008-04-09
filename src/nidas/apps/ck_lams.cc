@@ -57,7 +57,7 @@ public:
   }
   SampleScanner* buildSampleScanner()
   {
-    return new SampleScanner();
+    return new DriverSampleScanner();
   }
 };
 /* -------------------------------------------------------------------- */

@@ -29,14 +29,28 @@
 
 /* The viper maps ISA irq 3,4,5,... to viper interrupts 104,105,106,etc.
  * See <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
+ * Return -1 if interrupt is not available.
  */
 #define GET_SYSTEM_ISA_IRQ(x) \
-({                                                                      \
-    const int isa_irqs[] = { 3, 4, 5, 6, 7, 10, 11, 12, 9, 14, 15 };    \
-    int i;                                                              \
+({                                          \
+    const int irq_map[] = { -1, -1, -1,     \
+                    VIPER_IRQ(0)+0,  \
+                    VIPER_IRQ(0)+1,  \
+                    VIPER_IRQ(0)+2,  \
+                    VIPER_IRQ(0)+3,  \
+                    VIPER_IRQ(0)+4,  \
+                    -1,             \
+                    VIPER_IRQ(0)+8,  \
+                    VIPER_IRQ(0)+5,  \
+                    VIPER_IRQ(0)+6,  \
+                    VIPER_IRQ(0)+7,  \
+                    -1,             \
+                    VIPER_IRQ(0)+9,  \
+                    VIPER_IRQ(0)+10, \
+                    };  \
     int n = -1;                                                         \
-    for (i = 0; i < sizeof(isa_irqs)/sizeof(isa_irqs[0]); i++)          \
-        if (isa_irqs[i] == (x)) { n = VIPER_IRQ(0) + i; break; }        \
+    if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
+	n = irq_map[(x)];						\
     n;                                                                  \
 })
 
@@ -48,19 +62,17 @@
 /* 
  * On the Mercury/Vulcan, most of the ISA interrupts are routed to GPIO
  * pins on the processor.  Handle those mappings here.
+ * Return -1 if interrupt is not available.
  */
 #define GET_SYSTEM_ISA_IRQ(x) \
 ({					  \
-    const int irq_map[] = { 0, 1, 2, IRQ_IXP4XX_GPIO5, IRQ_IXP4XX_GPIO6,\
+    const int irq_map[] = { -1, -1, -1, IRQ_IXP4XX_GPIO5, IRQ_IXP4XX_GPIO6,\
                             IRQ_IXP4XX_GPIO7, IRQ_IXP4XX_GPIO8,         \
-                            IRQ_IXP4XX_GPIO9, 8, 9, IRQ_IXP4XX_GPIO10,  \
-                            IRQ_IXP4XX_GPIO11, IRQ_IXP4XX_GPIO12, 13,   \
-                            14, 15 };                                   \
-    int n;                                                              \
+                            IRQ_IXP4XX_GPIO9, -1, -1, IRQ_IXP4XX_GPIO10,\
+                            IRQ_IXP4XX_GPIO11, IRQ_IXP4XX_GPIO12};      \
+    int n = -1;                                                         \
     if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
 	n = irq_map[(x)];						\
-    else                                                                \
-	n = (x);							\
     n;									\
 })
 

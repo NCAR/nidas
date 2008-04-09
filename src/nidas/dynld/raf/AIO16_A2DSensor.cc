@@ -78,7 +78,7 @@ IODevice* AIO16_A2DSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* AIO16_A2DSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 

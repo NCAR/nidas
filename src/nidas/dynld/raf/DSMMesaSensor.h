@@ -40,8 +40,7 @@ public:
   IODevice *
   buildIODevice() throw(nidas::util::IOException);
 
-  SampleScanner *
-  buildSampleScanner();
+  SampleScanner* buildSampleScanner();
 
   /**
    * open the sensor and perform any intialization to the driver.

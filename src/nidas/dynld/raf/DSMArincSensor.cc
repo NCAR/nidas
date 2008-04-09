@@ -48,7 +48,7 @@ IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void DSMArincSensor::open(int flags) throw(n_u::IOException,

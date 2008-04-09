@@ -43,7 +43,8 @@ DSMSensor::DSMSensor() :
     scanner(0),dsm(0),id(0),
     rawSampleTag(0),
     latency(0.1),	// default sensor latency, 0.1 secs
-    calFile(0)
+    calFile(0),
+    _timeoutUsecs(0)
 {
 }
 

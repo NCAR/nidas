@@ -54,7 +54,7 @@ IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* IRIGSensor::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void IRIGSensor::open(int flags) throw(n_u::IOException,

@@ -54,7 +54,7 @@ IODevice* DSC_PulseCounter::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSC_PulseCounter::buildSampleScanner()
 {
-    return new SampleScanner();
+    return new DriverSampleScanner();
 }
 
 void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
