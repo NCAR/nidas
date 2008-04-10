@@ -58,6 +58,7 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     // shift data down. If the user has read all samples in the
     // previous buffer, there shouldn't be anything to move.
     size_t len = _bufhead - _buftail;
+    // cerr << "SampleScanner::readBuffer, len=" << len << endl;
     if (len > 0 && _buftail > 0) ::memmove(_buffer,_buffer+_buftail,len);
     _bufhead = len;
     _buftail = 0;
@@ -65,6 +66,7 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     len = BUFSIZE - _bufhead;	// length to read
     if (len == 0) return len;
     size_t rlen = sensor->read(_buffer+_bufhead,len);
+    // cerr << "SampleScanner::readBuffer, len=" << len << " rlen=" << rlen << endl;
     addNumBytesToStats(rlen);
     _bufhead += rlen;
     return rlen;
@@ -86,7 +88,7 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
         else if (res == 0)
             throw n_u::IOTimeoutException(sensor->getName(),"read");
     }
-    return readBuffer(sensor);
+    return SampleScanner::readBuffer(sensor);
 }
 
 void SampleScanner::clearBuffer()
@@ -582,6 +584,7 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
 
     int nc = getMessageLength() - _outSampRead;
     nc = std::min(_bufhead-_buftail,nc);
+    // cerr << "MessageStreamScanner::nextSampleByLength , nc=" << nc << endl;
     if (nc > 0) {
         // actually don't need to checkSampleAlloc() here
         // because if getMessageLength() is > 0, then

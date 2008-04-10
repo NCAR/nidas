@@ -100,7 +100,6 @@ public:
 
     /**
      * setMessageSeparatorAtEOM is not implemented in SampleScanner.
-     * Throws nidas::util::InvalidParameterException.
      */
     virtual void setMessageSeparatorAtEOM(bool val)
     	throw(nidas::util::InvalidParameterException) = 0;
@@ -111,8 +110,7 @@ public:
     }
 
     /**
-     * setMessageLength is not implemented in SampleScanner.
-     * Throws nidas::util::InvalidParameterException.
+     * Set the expected message length for data from this sensor.
      */
     virtual void setMessageLength(unsigned int val)
     	throw(nidas::util::InvalidParameterException) = 0;
@@ -467,19 +465,38 @@ public:
     
     MessageStreamScanner(int bufsize=1024);
 
-    void setMessageSeparatorAtEOM(bool val)
-    	throw(nidas::util::InvalidParameterException);
-
     void setMessageSeparator(const std::string& val)
     	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Get message separator string. Any backslash sequences will have
+     * been replaced by their intended value.
+     */
+    const std::string& getMessageSeparator() const
+    {
+        return _messageSeparator;
+    }
 
     /**
      * Get message separator with backslash sequences added back.
      */
     const std::string getBackslashedMessageSeparator() const;
 
+    void setMessageSeparatorAtEOM(bool val)
+    	throw(nidas::util::InvalidParameterException);
+
+    bool getMessageSeparatorAtEOM() const
+    {
+        return _separatorAtEOM; 
+    }
+
     void setMessageLength(unsigned int val)
     	throw(nidas::util::InvalidParameterException);
+
+    unsigned int getMessageLength() const
+    {
+        return _messageLength;
+    }
 
     void setNullTerminate(bool val) 
     {
