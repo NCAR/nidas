@@ -820,12 +820,17 @@ class DatagramSocket {
 public:
 
     /**
+     * Create a DatagramSocket not bound to a port.
+     */
+    DatagramSocket() throw(IOException);
+
+    /**
      * Create a DatagramSocket bound to a port on all local interfaces.
      * @param port Port number, 0<=port<=65535.  If zero, the system
      *        will select an available port number. To find out
      *        which port number was selected, use getLocalPort().
      */
-    DatagramSocket(int port = 0) throw(IOException);
+    DatagramSocket(int port) throw(IOException);
 
     /**
      * Creates a datagram socket and binds it to a port on
@@ -881,6 +886,24 @@ public:
 	throw(IOException)
     {
 	impl.connect(addr);
+    }
+
+    /**
+     * Datagrams are connectionless, so this doesn't establish
+     * a true connection, it just sets the default destination
+     * address for the recv() calls.
+     */
+
+    void bind(const Inet4Address& addr, int port)
+	throw(IOException)
+    {
+	impl.bind(addr,port);
+    }
+
+    void bind(const SocketAddress& addr)
+	throw(IOException)
+    {
+	impl.bind(addr);
     }
 
     int getFd() const { return impl.getFd(); }

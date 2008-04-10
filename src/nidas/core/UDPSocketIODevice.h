@@ -16,6 +16,8 @@
 #include <nidas/util/Socket.h>
 #include <nidas/core/SocketIODevice.h>
 
+#include <iostream>
+
 namespace nidas { namespace core {
 
 /**
@@ -62,7 +64,7 @@ public:
     */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
-        return socket->recv(buf,len);
+	return socket->recv(buf,len);
     }
 
     /**

@@ -874,6 +874,11 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
     impl.bind(addr);
 }
 
+DatagramSocket::DatagramSocket() throw(IOException) :
+	impl(PF_INET,SOCK_DGRAM)
+{
+}
+
 DatagramSocket::DatagramSocket(int port) throw(IOException) :
 	impl(PF_INET,SOCK_DGRAM)
 {

@@ -47,10 +47,9 @@ void UDPSocketIODevice::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SocketIODevice::open(flags);
-
+    // if (!socket) socket = new n_u::DatagramSocket(*sockAddr.get());
     if (!socket) socket = new n_u::DatagramSocket();
     socket->setBroadcastEnable(true);
-    socket->connect(*sockAddr.get());
-   
+    cerr << "connecting to address: " << sockAddr.get()->toString() << endl;
+    socket->bind(*sockAddr.get());
 }
-
