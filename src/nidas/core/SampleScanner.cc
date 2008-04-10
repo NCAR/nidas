@@ -652,6 +652,7 @@ Sample* DatagramSampleScanner::nextSample(DSMSensor* sensor)
     samp->setTimeTag(_packetTimes.front());
     samp->setId(sensor->getId());
     ::memcpy(samp->getVoidDataPtr(),_buffer+_buftail,plen);
+    addSampleToStats(samp->getDataByteLength());
 
     _buftail += plen;
 
