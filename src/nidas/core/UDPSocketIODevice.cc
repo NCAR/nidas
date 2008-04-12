@@ -50,6 +50,6 @@ void UDPSocketIODevice::open(int flags)
     // if (!socket) socket = new n_u::DatagramSocket(*sockAddr.get());
     if (!socket) socket = new n_u::DatagramSocket();
     socket->setBroadcastEnable(true);
-    cerr << "connecting to address: " << sockAddr.get()->toString() << endl;
+    cerr << "binding to address: " << sockAddr.get()->toString() << endl;
     socket->bind(*sockAddr.get());
 }

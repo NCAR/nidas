@@ -30,6 +30,11 @@ Revisions:
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
+/* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
+#ifndef IRQF_SHARED
+# define IRQF_SHARED SA_SHIRQ
+#endif
+
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned long ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 /* number of DMMAT boards in system (number of non-zero ioport values) */
@@ -1632,7 +1637,7 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                 irq = irqs[brd->num];
 #endif
                 KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
-                result = request_irq(irq,dmmat_irq_handler,SA_SHIRQ,"dmd_mmat",brd);
+                result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
                 if (result) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                         mutex_unlock(&brd->irqreq_mutex);

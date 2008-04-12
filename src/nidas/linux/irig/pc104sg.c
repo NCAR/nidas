@@ -45,6 +45,11 @@ MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
 MODULE_LICENSE("GPL");
 
+/* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
+#ifndef IRQF_SHARED
+# define IRQF_SHARED SA_SHIRQ
+#endif
+
 //#define DEBUG
 
 /* desired IRIG interrupt rate, in Hz */
@@ -1723,7 +1728,7 @@ pc104sg_init(void)
 	Irq = newIrq;
     }
 
-    errval = request_irq(Irq, pc104sg_isr, SA_SHIRQ, "PC104-SG IRIG", 
+    errval = request_irq(Irq, pc104sg_isr, IRQF_SHARED, "PC104-SG IRIG", 
 			 (void*)IRQ_DEVID);
     if (errval < 0) {
 	/* failed... */
