@@ -11,7 +11,7 @@ import os
 ##  Import the cross-build environment.
 ##
 Import('env')
-myenv = env.Copy()
+myenv = env.Clone()
 
 conf = Configure(myenv)
 

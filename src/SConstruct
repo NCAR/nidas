@@ -137,7 +137,7 @@ if 'arm' in env['ARCHITECTURES']:
             print 'KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' found'
         else:
             print 'Error: KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' not found.'
-    arm_env = env.Copy(tools = ['armcross'], toolpath=['sconstools'],
+    arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'],
@@ -161,7 +161,7 @@ if 'armbe' in env['ARCHITECTURES']:
             print 'KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' found'
         else:
             print 'Error: KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' not found.'
-    armbe_env = env.Copy(tools = ['armbecross'], toolpath=['sconstools'],
+    armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'],
@@ -190,7 +190,7 @@ if 'x86' in env['ARCHITECTURES']:
             print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
         else:
             print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel package, and use KERNELDIR_X86=\'*\'.'
-    x86_env = env.Copy(tools = ['x86tools'], toolpath=['sconstools'],
+    x86_env = env.Clone(tools = ['x86tools'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'],

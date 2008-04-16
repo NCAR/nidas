@@ -6,7 +6,7 @@
 ##  Import the cross-build environment.
 ##
 Import('env')
-myenv = env.Copy()
+myenv = env.Clone()
 arch = myenv['ARCH']
 
 # -D__cpluscplus   -fno-common  -fno-builtin

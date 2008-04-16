@@ -12,7 +12,7 @@ import kmake    # get_svnversion
 
 Import('env')
 # Import('build_rtlinux_modules')
-myenv = env.Copy()
+myenv = env.Clone()
 arch = myenv['ARCH']
 
 rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
