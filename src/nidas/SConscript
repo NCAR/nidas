@@ -10,6 +10,8 @@ arch = env['ARCH']
 
 env.AppendUnique(CPPPATH = [env.subst("$PREFIX/include")] )
 env.AppendUnique(LIBPATH = [env.subst("$PREFIX/lib")] )
+if arch == 'x86':
+    env.AppendUnique(RPATH = [env.subst('$PREFIX/lib')] )
 
 # Use the OTHER_ prefix only if it exists and is different than PREFIX
 if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
@@ -20,6 +22,8 @@ if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
         env.AppendUnique(CPPPATH = [ other_include ])
     if os.path.exists(other_lib):
         env.AppendUnique(LIBPATH = [ other_lib ])
+        if arch == 'x86':
+            env.AppendUnique(RPATH = [other_lib] )
 
 # Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.

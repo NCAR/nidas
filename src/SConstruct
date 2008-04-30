@@ -28,7 +28,7 @@ opts.AddOptions(
 opts.AddOptions(
     PathOption('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
-               '$PREFIX'))
+               '$PREFIX', PathOption.PathAccept))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':
@@ -204,8 +204,6 @@ if 'x86' in env['ARCHITECTURES']:
 
     x86_env.Append(CCFLAGS = ["-g"])
     x86_env.Append(CXXFLAGS = ["-g"])
-    x86_env.AppendUnique(RPATH = [x86_env.subst('$PREFIX/lib')] )
-    x86_env.AppendUnique(RPATH = [x86_env.subst('$OTHER_PREFIX/lib')] )
     SConscript('nidas/SConscript',
                build_dir='build_x86',
                duplicate=0, exports={'env':x86_env})
