@@ -182,7 +182,12 @@ if 'x86' in env['ARCHITECTURES']:
     if env['KERNELDIR_X86'] == '*':
         kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
         kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
-        env['KERNELDIR_X86'] = '/usr/src/kernels/' + kver + '-' + kmach
+        kdir = '/usr/src/kernels/' + kver + '-' + kmach
+        # Fallback for Fedora 9 using a different directory name.
+        if not os.path.exists(kdir):
+            if os.path.exists('/usr/src/kernels/' + kver):
+                kdir = '/usr/src/kernels/' + kver
+        env['KERNELDIR_X86'] = kdir
     # If KERNELDIR_X86 doesn't exist, issue a warning here and
     # let it fail later
     if env['KERNELDIR_X86'] != '':
