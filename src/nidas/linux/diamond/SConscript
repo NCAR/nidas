@@ -17,10 +17,12 @@ Import('env')
 # so that make can find them and do its work outside of the
 # source tree.
 
-# emerald=env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
-# Alias('install',emerald)
-env.Kmake('emerald.ko',['emerald.c','emerald.h','Makefile'])
-env.Kmake('dmd_mmat.ko',['dmd_mmat.c','dmd_mmat.h','Makefile'])
+# Both modules must be built by the same kmake builder so SCons will setup
+# all the builddir copies/links exist before running make.  Otherwise make
+# fails because not all the dependencies exist yet.
+env.Kmake(['emerald.ko', 'dmd_mmat.ko'],
+          ['emerald.c','emerald.h','dmd_mmat.c','dmd_mmat.h',
+           'Makefile'])
 
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
     env.Install('$PREFIX/linux','emerald.ko')
