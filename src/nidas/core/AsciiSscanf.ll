@@ -342,7 +342,7 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 		// convert binary value of first two characters to float,
 		// in little-endian style (first char is least-significant)
 		    unsigned char* cp = (unsigned char*)bufptrs[i];
-		    output[i] = (float)((int)*cp + ((int)*(cp+1)) << 8);
+		    output[i] = (float)((int)*cp + (((int)*(cp+1)) << 8));
 		}
 		break;
 	    case UNKNOWN:
