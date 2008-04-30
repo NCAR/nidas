@@ -120,7 +120,8 @@ bool TwoD32_USB::processImage(const Sample * samp,
             }
         else
         if (*(unsigned char *)p == _syncChar) {
-            unsigned long timeWord = (p[1] & 0x00ffffff) * frequency;
+	    unsigned long timeWord = 
+	      (unsigned long)((p[1] & 0x00ffffff) * frequency);
             tBarElapsedtime += timeWord;
             unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
             thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);

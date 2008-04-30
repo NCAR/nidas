@@ -215,7 +215,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 
     dsm_time_t lasttime = 0;
     int sametime = 1;
-    char *glyph[] = {"\\","|","/","-"};
+    const char *glyph[] = {"\\","|","/","-"};
     int anim=0;
 
     try {
