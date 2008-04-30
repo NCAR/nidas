@@ -32,8 +32,6 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 
-class nidas::core::DSMSensor;
-
 class SyncRecordSource: public SampleClient, public SampleSource
 {
 public:

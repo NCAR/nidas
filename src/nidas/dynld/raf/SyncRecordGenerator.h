@@ -28,8 +28,6 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 
-class nidas::core::DSMSensor;
-
 class SyncRecordGenerator: public SampleIOProcessor, public HeaderSource
 {
 public:
