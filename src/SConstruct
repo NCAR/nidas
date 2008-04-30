@@ -108,8 +108,8 @@ SConsignFile()
 ##
 ##  Define compiler flags and paths for all builds.
 ##
-env['CCFLAGS'] = Split("""-Wall -O2""")
-env['CXXFLAGS'] = Split("""-Wall -O2""")
+env['CCFLAGS'] = [ '-Wall', '-Wno-uninitialized', '-O2' ]
+env['CXXFLAGS'] = env['CFLAGS']
 env['CPPPATH'] = Split("#")
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
@@ -202,8 +202,8 @@ if 'x86' in env['ARCHITECTURES']:
 	    KERNELDIR=env['KERNELDIR_X86'],
 	    KMAKE='make KERNELDIR=' + env['KERNELDIR_X86'] +' KINCLUDE=' + env.Dir("#").get_abspath())
 
-    x86_env.Replace(CCFLAGS = Split("-Wall -O2 -g"))
-    x86_env.Replace(CXXFLAGS = Split("-Wall -O2 -g"))
+    x86_env.Append(CCFLAGS = ["-g"])
+    x86_env.Append(CXXFLAGS = ["-g"])
     x86_env.AppendUnique(RPATH = [x86_env.subst('$PREFIX/lib')] )
     x86_env.AppendUnique(RPATH = [x86_env.subst('$OTHER_PREFIX/lib')] )
     SConscript('nidas/SConscript',
