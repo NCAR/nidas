@@ -20,6 +20,7 @@
 #include <nidas/core/DSMEngine.h>
 
 #include <iostream>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace std;

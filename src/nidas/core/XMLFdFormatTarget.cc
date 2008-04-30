@@ -18,6 +18,7 @@
 #include <iostream>
 
 #include <unistd.h>
+#include <cstring> // memcpy()
 
 using namespace nidas::core;
 

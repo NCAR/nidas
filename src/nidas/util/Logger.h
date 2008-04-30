@@ -12,6 +12,7 @@
 #include <string>
 #include <sstream>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 #if !defined(SVR4) && ( defined(__GNUC__) && __GNUC__ < 2)
@@ -381,9 +382,9 @@ public:
   {
     return
       (filename_match.length() == 0 || 
-	    strstr(lc.filename(), filename_match.c_str())) &&
+       std::strstr(lc.filename(), filename_match.c_str())) &&
       (function_match.length() == 0 || 
-	    strstr(lc.function(), function_match.c_str())) &&
+       std::strstr(lc.function(), function_match.c_str())) &&
       (line == 0 || line == lc.line()) &&
       (lc.level() <= level);
   }

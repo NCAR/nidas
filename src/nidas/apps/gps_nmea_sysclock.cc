@@ -30,6 +30,7 @@
 #include <iostream>
 #include <cstring>
 #include <sys/time.h>
+#include <cstdlib> // atoi()
 
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/UTime.h>

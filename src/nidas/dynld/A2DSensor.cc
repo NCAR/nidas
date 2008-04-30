@@ -23,6 +23,7 @@
 #include <cmath>
 
 #include <iostream>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::dynld;
 using namespace nidas::core;

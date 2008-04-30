@@ -31,6 +31,7 @@
 #include <map>
 #include <iostream>
 #include <iomanip>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace nidas::dynld;

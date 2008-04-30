@@ -17,6 +17,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <memory> // auto_ptr<>
 
 #include <nidas/core/Looper.h>
 

@@ -15,6 +15,8 @@
 
 #include <nidas/core/SamplePool.h>
 
+#include <algorithm>
+
 using namespace nidas::core;
 using namespace std;
 

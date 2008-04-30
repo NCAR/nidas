@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <string.h>
 
 using namespace std;
 using namespace nidas::util;

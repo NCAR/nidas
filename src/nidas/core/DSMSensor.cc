@@ -320,7 +320,7 @@ bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
 
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 {
-  static char *glyph[] = {"\\","|","/","-"};
+  static const char *glyph[] = {"\\","|","/","-"};
   static int anim=0;
   if (++anim == 4) anim=0;
   zebra = false;

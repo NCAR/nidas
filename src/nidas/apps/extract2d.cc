@@ -34,6 +34,7 @@
 #include <nidas/dynld/raf/TwoD32_USB.h>
 
 #include <fstream>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -277,7 +278,7 @@ int Extract2D::run() throw()
         }
 
 
-        dsm_sample_id_t fast2dc_id;
+        dsm_sample_id_t fast2dc_id = -1;
         FileSet * fset = new nidas::dynld::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();

@@ -18,6 +18,7 @@
 
 #include <sstream>
 #include <iostream>
+#include <cstdlib> // atof()
 
 using namespace nidas::core;
 using namespace std;

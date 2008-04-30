@@ -19,6 +19,7 @@
 
 #include <nidas/util/UTime.h>
 #include <iostream>
+#include <cstring>
 
 using namespace std;
 // using namespace nidas::util;

@@ -19,6 +19,7 @@
 #include <nidas/util/IOTimeoutException.h>
 
 #include <iostream>
+#include <memory>  // auto_ptr
 
 using namespace nidas::util;
 using namespace std;

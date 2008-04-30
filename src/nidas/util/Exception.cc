@@ -6,6 +6,7 @@
 #include <nidas/util/Exception.h>
 // #include <cerrno>
 // #include <iostream>
+#include <cstring>
 
 using std::string;
 

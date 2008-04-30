@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <ctime>
 #include <cassert>
+#include <memory> // auto_ptr<>
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/UnixSocketAddress.h>

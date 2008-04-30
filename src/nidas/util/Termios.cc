@@ -13,6 +13,7 @@
 #include <nidas/util/SerialOptions.h>
 #include <sys/ioctl.h>
 #include <cerrno>
+#include <cstring>
 
 using namespace std;
 using namespace nidas::util;

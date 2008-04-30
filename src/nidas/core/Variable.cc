@@ -18,6 +18,7 @@
 #include <nidas/core/Project.h>
 
 #include <sstream>
+#include <limits>
 #include <algorithm>
 
 using namespace nidas::core;

@@ -19,10 +19,12 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <cstring> // memcpy()
 #include <cerrno>
 #include <sys/uio.h>
 
 #include <iostream>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace std;

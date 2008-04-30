@@ -20,6 +20,7 @@
 #include <nidas/core/SampleLengthException.h>
 
 #include <cassert>
+#include <cstring> // memcpy()
 #include <vector>
 #include <list>
 #include <iostream>

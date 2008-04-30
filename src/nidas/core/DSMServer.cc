@@ -27,6 +27,7 @@
 #include <nidas/util/Process.h>
 
 #include <unistd.h>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace std;

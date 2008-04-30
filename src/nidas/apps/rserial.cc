@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <memory> // auto_ptr<>
 
 #include <poll.h>
 #include <termios.h>

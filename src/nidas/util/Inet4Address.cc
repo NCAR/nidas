@@ -8,6 +8,7 @@
 
 #include <netdb.h>
 #include <cctype>	// isdigit
+#include <cstring>      // memset
 
 // #define DEBUG
 #include <iostream>
@@ -32,7 +33,7 @@ Mutex Inet4Address::nameToAddrsLock;
 
 Inet4Address::Inet4Address()
 {
-    memset(&inaddr,0,sizeof(inaddr));
+  std::memset(&inaddr,0,sizeof(inaddr));
 }
 
 Inet4Address::Inet4Address(const struct in_addr* a):

@@ -12,7 +12,8 @@
 #include <nidas/util/UTime.h>
 
 #include <sys/time.h>
-
+#include <cstring>
+#include <cstdlib>
 #include <iomanip>
 
 using namespace std;
@@ -488,7 +489,7 @@ void UTime::setTZ(const string& val)
 	_TZ = new char[4 + val.length()];	// previous _TZ is deleted below
 	sprintf(_TZ,"TZ=%s",val.c_str());
     }
-    ::putenv(_TZ);			// change environment!
+    putenv(_TZ);			// change environment!
     ::tzset();
     delete [] oldtz;
 }

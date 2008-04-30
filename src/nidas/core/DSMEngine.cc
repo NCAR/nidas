@@ -25,6 +25,7 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
+#include <memory>  // auto_ptr<>
 
 using namespace nidas::core;
 using namespace std;

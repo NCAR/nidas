@@ -25,6 +25,7 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
+#include <memory> // auto_ptr<>
 
 using namespace std;
 using namespace nidas::core;

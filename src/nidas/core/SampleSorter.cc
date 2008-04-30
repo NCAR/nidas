@@ -21,6 +21,7 @@
 #include <nidas/util/UTime.h>
 
 #include <vector>
+#include <limits> // numeric_limits<>
 
 // #include <unistd.h>	// for sleep
 #include <iostream>

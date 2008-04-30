@@ -19,6 +19,8 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
+#include <cstdlib>
+
 using namespace nidas::core;
 using namespace std;
 

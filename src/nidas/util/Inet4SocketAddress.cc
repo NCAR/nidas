@@ -7,6 +7,7 @@
 #include <nidas/util/Inet4SocketAddress.h>
 
 #include <sstream>
+#include <cstring>
 
 using namespace nidas::util;
 using namespace std;

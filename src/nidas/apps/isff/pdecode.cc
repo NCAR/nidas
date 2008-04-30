@@ -23,6 +23,8 @@
 #include <nidas/dynld/isff/GOESOutput.h>
 #include <nidas/dynld/isff/PacketInputStream.h>
 
+#include <memory>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;

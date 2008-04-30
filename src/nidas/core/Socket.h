@@ -23,6 +23,7 @@
 
 #include <string>
 #include <iostream>
+#include <memory>  // auto_ptr<>
 
 namespace nidas { namespace core {
 

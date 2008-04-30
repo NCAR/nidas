@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
+#include <cstdlib> // atoi()
 #include <bits/pthreadtypes.h>
 
 #include <iostream>

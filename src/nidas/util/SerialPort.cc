@@ -8,6 +8,8 @@
 #include <sys/ioctl.h>
 #include <sys/param.h>	// MAXPATHLEN
 #include <cerrno>
+#include <cstring>
+#include <stdlib.h>
 
 #include <sstream>
 
@@ -154,11 +156,12 @@ SerialPort::modemFlagsToString(int modem)
 {
   string res;
 
-  static char *offon[]={"OFF","ON"};
+  static const char *offon[]={"OFF","ON"};
   static int status[] = {
     TIOCM_LE, TIOCM_DTR, TIOCM_RTS, TIOCM_ST, TIOCM_SR,
     TIOCM_CTS, TIOCM_CAR, TIOCM_RNG, TIOCM_DSR};
-  static char *lines[] = {"LE","DTR","RTS","ST","SR","CTS","CD","RNG","DSR"};
+  static const char *lines[] =
+    {"LE","DTR","RTS","ST","SR","CTS","CD","RNG","DSR"};
 
   for (unsigned int i = 0; i < sizeof status / sizeof(int); i++) {
     res += lines[i];

@@ -18,8 +18,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <cassert>
+#include <cstring>
 
 #include <iostream>
+#include <stdlib.h>  // atexit()
 
 using namespace std;
 using namespace nidas::util;
