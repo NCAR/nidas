@@ -976,7 +976,7 @@ static int getSerialNumber(struct A2DBoard *brd)
 // Utility function to wait for INV1PPS to be zero.
 // Return: negative errno, or 0=OK.
 
-static int waitFor1PPS_test(struct A2DBoard *brd)
+static int __attribute__((__unused__)) waitFor1PPS_test (struct A2DBoard *brd)
 {
         unsigned short stat;
         int msecs;
