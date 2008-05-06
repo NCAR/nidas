@@ -33,7 +33,7 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::Inet4SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
-    _usock(addr),_tas(0), _alt(0), _radarAlt(0)
+    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0)
 {
 }
 
@@ -109,7 +109,14 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
 
   if (p)
     _tas = atof(p);
-  // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f, ",_alt,_radarAlt,_tas));
+
+  // True airspeed is the 19th parameter.
+  for (int i = 0; p && i < 11; ++i)	// Move forward 11 places.
+    p = strchr(p, ',')+1;
+
+  if (p)
+    _at = atof(p);
+  // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
 
   return true;
 }

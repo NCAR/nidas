@@ -43,6 +43,7 @@ public:
   ~DerivedDataReader();
 
   float getTrueAirspeed() const		{ return _tas; }
+  float getAmbientTemperature() const	{ return _at; }
   float getAltitude() const		{ return _alt; }
   float getRadarAltitude() const	{ return _alt; }
 
@@ -107,6 +108,7 @@ private:
   time_t _lastUpdate;	// Store last time we received a broadcast.
 
   float _tas;		// True Airspeed.  Meters per second
+  float _at;		// Ambient Temperature.  deg_C
   float _alt;		// Altitude (probably GPS).  Meters
   float _radarAlt;	// Distance above surface/ground.  Meters
 
