@@ -177,8 +177,6 @@ struct DMMAT_D2A_Outputs
 /* Size of ISA I/O space (both MM16AT and MM32XAT) */
 #define	DMMAT_IOPORT_WIDTH	16
 
-#define MAX_DMMAT_BOARDS	4	// number of boards supported by driver
-
 /*
  * Board #0
  * A2D: 1 device, minor number 0, /dev/dmmat_a2d0

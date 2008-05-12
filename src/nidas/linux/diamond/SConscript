@@ -20,19 +20,22 @@ Import('env')
 # Both modules must be built by the same kmake builder so SCons will setup
 # all the builddir copies/links exist before running make.  Otherwise make
 # fails because not all the dependencies exist yet.
-env.Kmake(['emerald.ko', 'dmd_mmat.ko'],
+env.Kmake(['emerald.ko', 'dmd_mmat.ko','gpio_mm.ko'],
           ['emerald.c','emerald.h','dmd_mmat.c','dmd_mmat.h',
+           'gpio_mm.c','gpio_mm.h','gpio_mm_regs.h',
            'Makefile'])
 
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
     env.Install('$PREFIX/linux','emerald.ko')
     env.Install('$PREFIX/linux','dmd_mmat.ko')
+    env.Install('$PREFIX/linux','gpio_mm.ko')
 
 # Some kernel module header files define symbols that are needed
 # by user code. These must also be installed in $PREFIX/include
 headers = Split("""
     emerald.h
     dmd_mmat.h
+    gpio_mm.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux/diamond',headers)

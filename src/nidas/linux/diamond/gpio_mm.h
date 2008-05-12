@@ -2,7 +2,7 @@
    Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
    Driver for Diamond Systems Corp GPIO-MM series of Counter/Timer
-    Digital I/O Cards
+    Digital I/O Cards.
 
    Original Author: Gordon Maclean
 
@@ -12,10 +12,64 @@
 
 */
 
+/*
+ * Each board has 10 16-bit counters and gobs of digital I/O pins.
+ *
+ * The implementation of a frequency counter uses 3 counters.
+ * One counter on a board is used as a general timer clock.
+ * Other driver modules can register with this clock to be
+ * called back at periodic times.
+ *
+ * Therefore each board supports up to 3 frequency input
+ * devices, or 9 pulse counters.
+ *
+ * Eventually the driver could also support a digital device,
+ * for controlling all the I/O pins. Dig I/O interrupt
+ * support is also available.
+ *
+ * So the following devices can be opened concurrently on a board:
+ * 3 frequency counters, 1 dio
+ * 2 frequency counters, 3 pulse counters, 1 dio
+ * 1 frequency counters, 6 pulse counters, 1 dio
+ * 0 frequency counters, 9 pulse counters, 1 dio
+ *
+ * Support for the pulse counters and dio has not been added yet....
+ *      
+ * Board #0: Device table:
+ * device        devname                minor number
+ * freq cntr 0:  /dev/gpiomm_fcntr0     0
+ * freq cntr 1:  /dev/gpiomm_fcntr1     1
+ * freq cntr 2:  /dev/gpiomm_fcntr2     2
+ * digital i/O:  /dev/gpiomm_dio0       3
+ * pulse cntr 0: /dev/gpiomm_cntr0      4
+ * pulse cntr 1: /dev/gpiomm_cntr1      5
+ * pulse cntr 2: /dev/gpiomm_cntr2      6
+ * pulse cntr 3: /dev/gpiomm_cntr3      7
+ * pulse cntr 4: /dev/gpiomm_cntr4      8
+ * pulse cntr 5: /dev/gpiomm_cntr5      9
+ * pulse cntr 6: /dev/gpiomm_cntr6     10
+ * pulse cntr 7: /dev/gpiomm_cntr7     11
+ * pulse cntr 8: /dev/gpiomm_cntr8     12
+ *
+ * Board #1: Device table:
+ * device        devname                minor number (board0 + 20)
+ * freq cntr 0:  /dev/gpiomm_fcntr3    20
+ * freq cntr 1:  /dev/gpiomm_fcntr4    21
+ * freq cntr 2:  /dev/gpiomm_fcntr5    22
+ * digital i/O:  /dev/gpiomm_dio1      23
+ * pulse cntr 0: /dev/gpiomm_cntr9     24
+ * pulse cntr 1: /dev/gpiomm_cntr10    25
+ * pulse cntr 2: /dev/gpiomm_cntr11    26
+ * pulse cntr 3: /dev/gpiomm_cntr12    27
+ * pulse cntr 4: /dev/gpiomm_cntr13    28
+ * pulse cntr 5: /dev/gpiomm_cntr14    29
+ * pulse cntr 6: /dev/gpiomm_cntr15    30
+ * pulse cntr 7: /dev/gpiomm_cntr16    31
+ * pulse cntr 8: /dev/gpiomm_cntr17    32
+ */
+
 #ifndef NIDAS_DIAMOND_GPIO_MM_H
 #define NIDAS_DIAMOND_GPIO_MM_H
-
-#include <nidas/linux/util.h>
 
 #ifndef __KERNEL__
 /* User programs need this for the _IO macros, but kernel
@@ -59,20 +113,28 @@ struct GPIO_MM_fcntr_status
 /** Counter Ioctls */
 #define GPIO_MM_FCNTR_START \
     _IOW(GPIO_MM_IOC_MAGIC,0,struct GPIO_MM_fcntr_config)
-#define GPIO_MM_FCNTR_STOP       _IO(GPIO_MM_IOC_MAGIC,1)
 #define GPIO_MM_FCNTR_GET_STATUS \
-    _IOR(GPIO_MM_IOC_MAGIC,2,struct GPIO_MM_fcntr_status)
+    _IOR(GPIO_MM_IOC_MAGIC,1,struct GPIO_MM_fcntr_status)
 
-#define GPIO_MM_IOC_MAXNR 2
+/* Maximum IOCTL number in above values */
+#define GPIO_MM_IOC_MAXNR 1
+
+#define GPIO_MM_CT_CLOCK_HZ 40000000
 
 #ifdef __KERNEL__
-/********  Start of definitions used by the driver module only **********/
+/********  Start of definitions used by driver modules only **********/
 
 #include <linux/cdev.h>
+#include <nidas/linux/util.h>
 #include <nidas/linux/diamond/gpio_mm_regs.h>
 
 typedef void (*gpio_timer_callback_func_t) (void* privateData);
 
+/**
+ * Structure returned by register_gpio_timer_callback, and
+ * passed to unregister_gpio_timer_callback. These fields
+ * should be regarded as private, only changed by the gpio driver.
+ */
 struct gpio_timer_callback
 {
         struct list_head list;
@@ -82,10 +144,50 @@ struct gpio_timer_callback
         unsigned int tickModulus;
 };
 
+/**
+ * Exposed function that allows other modules to register their callback
+ * function to be called at the given interval. This capability is
+ * implemented with a counter on the first GPIO-MM board in the system.
+ *
+ * register_gpio_timer_callback can be called at anytime, even from 
+ * interrupt context.
+ * The user's callback function is invoked from a tasklet in software
+ * interrupt context.
+ * register_gpio_timer_callback and unregister_gpio_timer_callback can be
+ * called within a callback function itself.
+ * @param usecs: callback interval, in micro-seconds.  A usecs value
+ *          less than 1000 is not advised.
+ */
 extern struct gpio_timer_callback *register_gpio_timer_callback(
         gpio_timer_callback_func_t callback,unsigned int usecs,
         void *privateData, int *errp);
     
+/**
+ * Exposed function to un-register a callback.
+ * A callback function can unregister itself, or other callback functions.
+ * wait=1: do a wait_event_interruptible_timeout until it is certain
+ *          that the callback will not be called again by the timer.
+ *          The timeout is one second and cannot be changed.
+ *          Do not using wait=1 when calling from interrupt context.
+ * wait=0: don't wait. The callback might be called once more
+ *          after this call to unregister_gpio_timer_callback.
+ *          Set wait=0 if calling from interrupt context or software
+ *          interrupt context where you must not sleep. 
+ *          If a callback function is unregistering itself (in which
+ *          case it is being called from software interrupt context)
+ *          then it is guaranteed that it will not be called again,
+ *          and so wait=1 is unnecessary (and wrong).
+ * return:
+ *   if wait==0, return will be 0.
+ *   if wait != 0, the return will be value of
+ *     wait_event_interruptible_timeout(). The return will be 0
+ *     if the callback function was never deactivated,
+ *     meaning the 1 second timeout occured while waiting
+ *     for the callback to be deactivated
+ *     Or, if the callback was deactivated, the return is the
+ *     positive number of jiffies (1/HZ seconds) that remained
+ *     in the timeout.
+ */
 extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
     int wait);
 
@@ -95,45 +197,13 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 
 #define MAX_GPIO_MM_BOARDS	5	// number of boards supported by driver
 
-/*
- * Board #0
- * FREQ0: 1 device, minor number 0, /dev/gpiomm_fcntr0
- * FREQ1: 1 device, minor number 1, /dev/gpiomm_fcntr1
- * FREQ2: 1 device, minor number 2, /dev/gpiomm_fcntr2
- * DIO:   1 device, minor number 3, /dev/gpiomm_dio0
- * CNTR0: 1 device, minor number 4, /dev/gpiomm_cntr0
- * CNTR1: 1 device, minor number 5, /dev/gpiomm_cntr1
- * CNTR2: 1 device, minor number 6, /dev/gpiomm_cntr2
- * CNTR3: 1 device, minor number 7, /dev/gpiomm_cntr3
- * CNTR4: 1 device, minor number 8, /dev/gpiomm_cntr4
- * CNTR5: 1 device, minor number 9, /dev/gpiomm_cntr5
- * CNTR6: 1 device, minor number 10, /dev/gpiomm_cntr6
- * CNTR7: 1 device, minor number 11, /dev/gpiomm_cntr7
- * CNTR8: 1 device, minor number 12, /dev/gpiomm_cntr8
- * CNTR9: 1 device, minor number 13, /dev/gpiomm_cntr9
- *
- * Board #1
- * FREQ0: 1 device, minor number 20, /dev/gpiomm_fcntr3
- * FREQ0: 1 device, minor number 21, /dev/gpiomm_fcntr4
- * FREQ0: 1 device, minor number 22, /dev/gpiomm_fcntr5
- * DIO: 1 device, minor number 23,   /dev/gpiomm_dio1
- * CNTR0: 1 device, minor number 24, /dev/gpiomm_cntr10
- * CNTR1: 1 device, minor number 25, /dev/gpiomm_cntr11
- * CNTR2: 1 device, minor number 26, /dev/gpiomm_cntr12
- * CNTR3: 1 device, minor number 27, /dev/gpiomm_cntr13
- * CNTR4: 1 device, minor number 28, /dev/gpiomm_cntr14
- * CNTR5: 1 device, minor number 29, /dev/gpiomm_cntr15
- * CNTR6: 1 device, minor number 30, /dev/gpiomm_cntr16
- * CNTR7: 1 device, minor number 31, /dev/gpiomm_cntr17
- * CNTR8: 1 device, minor number 32, /dev/gpiomm_cntr18
- * CNTR9: 1 device, minor number 33, /dev/gpiomm_cntr19
- */
+/* See device table in above comments */
 #define GPIO_MM_MINORS_PER_BOARD 20
 
 /* Use 3 counter timers to implement one frequency counter */
 #define GPIO_MM_CNTR_PER_FCNTR 3
 
-/* This will be 3 for GPIO-MM */
+/* This will be 10/3=3 for GPIO-MM */
 #define GPIO_MM_FCNTR_PER_BOARD (GPIO_MM_CNTR_PER_BOARD/GPIO_MM_CNTR_PER_FCNTR)
 
 #define GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE 8
@@ -142,14 +212,14 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 
 /**
  * Sample from a frequency counter contains an unsigned 4 byte integer
- * counts and an unsigned 4 byte integer number of 40Mh clock ticks.
+ * counts and an unsigned 4 byte integer number of clock ticks.
  */
 struct freq_sample
 {
         dsm_sample_time_t timetag;    // timetag of sample
-        dsm_sample_length_t length;       // number of bytes in data
+        dsm_sample_length_t length;       // number of bytes in data (8)
         int pulses;
-        int ticks40Mhz;
+        int ticks;
 };
 
 struct GPIO_MM;
@@ -166,6 +236,7 @@ struct GPIO_MM_fcntr
         struct GPIO_MM_fcntr_status status;
 
         char deviceName[32];
+
         struct cdev cdev;
 
         /**
@@ -174,11 +245,9 @@ struct GPIO_MM_fcntr
         int numPulses;
 
         /**
-         * how often to report frequency
+         * how often to report frequency samples
          */
         int outputPeriodUsec;
-
-        int running;
 
         atomic_t num_opened;                     // number of times opened
 
@@ -186,16 +255,22 @@ struct GPIO_MM_fcntr
 
         struct dsm_sample_circ_buf samples;         // samples out of b.h.
 
-        // user read & poll methods wait on this
+        /**
+         * User read & poll methods wait on this queue.
+         */
         wait_queue_head_t rwaitq;
 
         struct sample_read_state read_state;
 
-        long latencyMsecs;	        // buffer latency in milli-seconds
-        long latencyJiffies;	// buffer latency in jiffies
-        unsigned int lastWakeup;   // when were read & poll methods last woken
+        /**
+         * read latency in jiffies.
+         */
+        long latencyJiffies;
 
-        unsigned int irqsReceived;
+        /**
+         * When were read & poll methods last woken.
+         */
+        unsigned long lastWakeup;
 };
 
 /*
@@ -234,7 +309,9 @@ struct GPIO_MM_timer
         spinlock_t callbackLock;
 
         /**
+         * Timer sleep interval, in microseconds.
          * Greatest common divisor of requested timer intervals.
+         * This will be non-zero if the timer is running.
          */
         unsigned int usecs;
 
@@ -259,7 +336,7 @@ struct GPIO_MM_timer
          * Has a new callback been added or removed but has not yet
          * activated by the timer tasklet?
          */
-        atomic_t callbacksChanged;
+        volatile int callbacksChanged;
 
         /**
          * When unregistering a callback one can wait on this queue
@@ -267,8 +344,6 @@ struct GPIO_MM_timer
          */
         wait_queue_head_t callbackWaitQ;
 
-        /** is this timer running? */
-        atomic_t running;
 };
 
 /**
@@ -279,7 +354,7 @@ struct GPIO_MM
         int num;                        // which board in system, from 0
         unsigned long dio_addr;         // Base address of 8255 DIO regs
         unsigned long ct_addr;        // Base address of 9513 cntr/timer regs
-        int irqs[2];		        // ISA irq A and B
+        int irqs[2];		        // values of ISA irq A and B
         int reqirqs[2];		        // requested system irqs A and B
         int irq_users[2];               // number of irq users, 0=A,1=B
         int cntr_used[GPIO_MM_CNTR_PER_BOARD];             // 0=unused, 1=used

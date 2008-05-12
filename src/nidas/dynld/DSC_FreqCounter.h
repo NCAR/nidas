@@ -12,10 +12,11 @@
 
  ******************************************************************
 */
-#ifndef NIDAS_DYNLD_DSC_PULSECOUNTER_H
-#define NIDAS_DYNLD_DSC_PULSECOUNTER_H
+#ifndef NIDAS_DYNLD_DSC_FREQCOUNTER_H
+#define NIDAS_DYNLD_DSC_FREQCOUNTER_H
 
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/Parameter.h>
 #include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld {
@@ -23,21 +24,21 @@ namespace nidas { namespace dynld {
 using namespace nidas::core;
 
 /**
- * Sensor support for a simple pulse counter device.
+ * Sensor support for a frequency counter device.
  * This implementation supports a device that can
  * configured with a reporting period value ( e.g. 1 sec, 
- * or 1/10 sec).  Samples from the device are little-endian
- * 4 byte unsigned integer counts at the reporting period.
- * This class currently has hard-coded ioctl commands to
- * the dmd_mmat device driver which supports a counter on a
- * Diamond DMMAT card.
+ * or 1/10 sec), and a number of pulses to count over that time.
+ * Samples from the device are two little-endian
+ * 4 byte unsigned integers, containing the number of pulses
+ * counted along with a number of clock ticks elapsed while
+ * counting those pulses.
  */
-class DSC_PulseCounter : public DSMSensor {
+class DSC_FreqCounter : public DSMSensor {
 
 public:
 
-    DSC_PulseCounter();
-    ~DSC_PulseCounter();
+    DSC_FreqCounter();
+    ~DSC_FreqCounter();
 
     bool isRTLinux() const;
 
@@ -46,34 +47,34 @@ public:
     SampleScanner* buildSampleScanner();
 
     /**
-     * Open the device connected to the sensor.
+     * Open a GPIO-MM frequency counter.
      */
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
     void init() throw(nidas::util::InvalidParameterException);
-                                                                                
-    /*
-     * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
 
     /**
-     * Process a raw sample, which in this case means 
-     * convert the input counts to a float.
+     * Process a raw sample, which in this case means convert the
+     * counts and elapsed ticks into a frequency.
      */
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
 private:
 
-    dsm_sample_id_t sampleId;
+    void readParams(const std::list<const Parameter*>& params)
+        throw(nidas::util::InvalidParameterException);
 
-    int msecPeriod;
+    dsm_sample_id_t _sampleId;
 
-    const nidas::util::EndianConverter* cvtr;
+    int _msecPeriod;
+
+    int _numPulses;
+
+    const nidas::util::EndianConverter* _cvtr;
 
 };
 

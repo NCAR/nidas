@@ -87,7 +87,7 @@ static dev_t gpio_mm_device = MKDEV(0,0);
  */
 static struct GPIO_MM* board = 0;
 
-/* Greatest common divisor. Use euclidian algorimthm, thanks to Wikipedia */
+/* Greatest common divisor. Use Euclidian algorimthm, thanks to Wikipedia */
 static int gcd(unsigned int a, unsigned int b)
 {
         if (b == 0) return a;
@@ -122,7 +122,7 @@ static void gpio_mm_setup_counter(struct GPIO_MM* brd,
         int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
         /* which of the 5 counters on the 9513 */
         int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        BUG_ON(chip > 2);
+        BUG_ON(icntr < 0 || icntr >= GPIO_MM_CNTR_PER_BOARD);
 
         /* point to counter mode */
         outb(CTS9513_DPTR_CNTR1_MODE+ic,
@@ -340,6 +340,13 @@ static int check_timer_interval(struct GPIO_MM*brd, unsigned int usecs)
 {
         unsigned int tics;
         int scaler;
+
+        /* arbitrary lower limit - actually should be tested. */
+        if (usecs < USECS_PER_SEC / 1000) {
+                KLOG_ERR("GPIO-MM board %d, usecs=%d is too small\n",
+                    brd->num,usecs);
+                return -EINVAL;
+        }
         /* overflows at usecs >= 107,374,182 or 107 seconds */
         if (2 * usecs > UINT_MAX / GPIO_MM_CT_CLOCK_HZ * USECS_PER_SEC) {
                 KLOG_ERR("GPIO-MM board %d, usecs=%d is too large\n",
@@ -439,7 +446,6 @@ static void start_gpio_timer(struct GPIO_MM_timer* timer,
         spin_unlock_irqrestore(&brd->reglock,flags);
 
         timer->usecs = usecs;
-        atomic_set(&timer->running,1);
 }
 
 /*
@@ -457,7 +463,6 @@ static void stop_gpio_timer(struct GPIO_MM_timer* timer)
         outb(0x02,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
         spin_unlock_irqrestore(&brd->reglock,flags);
 
-        atomic_set(&timer->running,0);
         timer->usecs = 0;
 }
 
@@ -470,7 +475,7 @@ static void handlePendingCallbacks(struct GPIO_MM_timer* timer)
         struct list_head *ptr,*ptr2;
         struct gpio_timer_callback *cbentry,*cbentry2;
         int i;
-        unsigned int usecs = 0,maxUsecs;
+        unsigned int usecs,maxUsecs;
 
         spin_lock(&timer->callbackLock);
 
@@ -503,7 +508,7 @@ static void handlePendingCallbacks(struct GPIO_MM_timer* timer)
                         list_add(&cbentry->list, ptr2);
         }
         /*
-         * determine sleep period, the greatest common divisor.
+         * determine timer sleep period, the greatest common divisor.
          * If it is a different sleep period than the existing:
          *   if timer is running, stop_gpio_timer
          *   if new sleep period is != 0, start_gpio_timer
@@ -513,7 +518,7 @@ static void handlePendingCallbacks(struct GPIO_MM_timer* timer)
                 if (timer->usecs != 0) stop_gpio_timer(timer);
                 if (usecs != 0) start_gpio_timer(timer,usecs,maxUsecs);
         }
-        atomic_set(&timer->callbacksChanged,0);
+        timer->callbacksChanged = 0;
         wake_up_interruptible(&timer->callbackWaitQ);
         spin_unlock(&timer->callbackLock);
 }
@@ -540,7 +545,7 @@ static void free_timer_callbacks(struct GPIO_MM_timer* timer)
                 list_del(&cbentry->list);
                 kfree(cbentry);
         }
-        atomic_set(&timer->callbacksChanged,0);
+        timer->callbacksChanged = 0;
         wake_up_interruptible(&timer->callbackWaitQ);
         spin_unlock_bh(&timer->callbackLock);
 }
@@ -548,16 +553,15 @@ static void free_timer_callbacks(struct GPIO_MM_timer* timer)
 /*
  * Timer bottom half tasklet function that is invoked after receipt
  * of a timer interrupt.  Invokes callbacks that have been registered.
- * Note that this does not hold locks when the
- * callbacks are being called, because we want to allow
- * callbacks to unregister themselves.
+ * Note that this does not hold locks when the callbacks are being called,
+ * because we want to allow callbacks to unregister themselves.
  */
 static void gpio_mm_timer_bottom_half(unsigned long dev)
 {
         struct GPIO_MM_timer* timer = (struct GPIO_MM_timer*) dev;
         struct gpio_timer_callback *cbentry;
 
-        if (atomic_read(&timer->callbacksChanged))
+        if (timer->callbacksChanged)
                 handlePendingCallbacks(timer);
 
         list_for_each_entry(cbentry,&timer->callbackList,list) {
@@ -592,13 +596,12 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
         // acknowledge interrupt
         outb(0x1,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
 
-        spin_unlock(&brd->reglock);
-
         timer->irqsReceived++;
 
         tick = (timer->tick + 1) % timer->tickLimit;
-        barrier();
         timer->tick = tick;
+
+        spin_unlock(&brd->reglock);
 
         /* nudge bottom half */
         tasklet_schedule(&timer->tasklet);
@@ -636,7 +639,7 @@ static int gpio_mm_add_irq_user(struct GPIO_MM* brd,int irq_ab,
 #ifdef GET_SYSTEM_ISA_IRQ
                 irq = GET_SYSTEM_ISA_IRQ(irq);
 #endif
-                KLOG_INFO("board %d: requesting irq: %d,%d\n",
+                KLOG_INFO("board %d: requesting irq: %d, system irq: %d\n",
                     brd->num,brd->irqs[irq_ab],irq);
                 result = request_irq(irq,handler,IRQF_SHARED,driver_name,brd);
                 if (result) {
@@ -671,12 +674,12 @@ static int gpio_mm_remove_irq_user(struct GPIO_MM* brd,int irq_ab)
 
 static int gpio_mm_add_timer_irq_user(struct GPIO_MM* brd)
 {
-    return gpio_mm_add_irq_user(brd,0,gpio_mm_timer_irq_handler);
+        return gpio_mm_add_irq_user(brd,0,gpio_mm_timer_irq_handler);
 }
 
 static int gpio_mm_remove_timer_irq_user(struct GPIO_MM* brd)
 {
-    return gpio_mm_remove_irq_user(brd,0);
+        return gpio_mm_remove_irq_user(brd,0);
 }
 
 /*
@@ -721,7 +724,8 @@ static int gpio_mm_free_cntrs(struct GPIO_MM* brd,int ic0,int icn)
 
 /*
  * Get the counter number (0-9) of the pulse counter for the frequency
- * counter.
+ * counter. This is the first of 3 counters used to implement
+ * a frequency counter.
  */
 static int get_pulse_counter(struct GPIO_MM_fcntr* fcntr) 
 {
@@ -788,7 +792,8 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
                 CTS9513_CML_RELOAD_LOAD |
                 CTS9513_CML_GATE_NORETRIG;
         /* source F1 is the 40 MHz clock.
-         * Gate with terminal count of previous counter, the pulse counter.
+         * Gate with terminal count output of previous counter,
+         * the pulse counter.
          */
         hmode = CTS9513_CMH_SRC_F1 |
                 CTS9513_CMH_EDGE_RISING |
@@ -853,11 +858,16 @@ static int gpio_mm_stop_fcntr(struct GPIO_MM_fcntr* fcntr)
  * 1. Disarm and save the values of the three counters to their hold
  *    registers.
  * 2. Get the values of the hold registers.
- * 3. Look at the value of the pulse counter. If it finished counting
- *    numPulses, then it will have reloaded itself from the
- *    load register value, which is 1.  Otherwise it
- *    will be the number of pulses left to count. One can check
- *    its output state to see if it is finished.
+ * 3. Look at the status of the pulse counter output. 
+ *    If it is low, then either it didn't get one count or
+ *    it is finished counting. In either case the value of the
+ *    pulse counter will be one. (When it finishes counting numPulses
+ *    it reloads itself from the load register, which has value 1).
+ *    To differentiate between these cases we look at the number of
+ *    tics counted.
+ *    If the output is high, then it hasn't finished counting numPulses,
+ *    and the value of the counter will be the number of pulses left
+ *    to count.
  * 4. Determine the total number of 40 MHz tics from the other 2 counter
  *    values.
  * 5. Create a data sample, put it in the circular buffer, notify the
@@ -904,24 +914,33 @@ static void fcntr_timer_callback_func(void *privateData)
         else {
                 samp->timetag = getSystemTimeTMsecs();
                 samp->length = 2 * sizeof(int);
-                samp->ticks40Mhz = tcn;
+                // Data is little endian
+                samp->ticks = cpu_to_le32(tcn);
                  
-                if (!pcstatus)  {   // all pulses counted
+                if (!pcstatus)  {   // all pulses counted (or none)
                         if (pcn != 1) {
                                 KLOG_WARNING(
                             "%s: pcn should be 1, instead it is %d\n",
                                 fcntr->deviceName,pcn);
-                                samp->pulses = fcntr->numPulses - pcn;
+                                samp->pulses =
+                                    cpu_to_le32(fcntr->numPulses - pcn);
                         }
-                        else samp->pulses = fcntr->numPulses;
+                        else samp->pulses = cpu_to_le32(fcntr->numPulses);
                 }
                 else {
                         fcntr->status.pulseUnderflow++;
-                        samp->pulses = fcntr->numPulses - pcn;
+                        samp->pulses = cpu_to_le32(fcntr->numPulses - pcn);
                 }
-                // todo: implement buffering and latency
+                // Wake up the read queue if latencyJiffies have elapsed
+                // or if the queue is half or more full.
                 INCREMENT_HEAD(fcntr->samples,GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE);
-                wake_up_interruptible(&fcntr->rwaitq);
+                if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
+                        CIRC_SPACE(fcntr->samples.head,fcntr->samples.tail,
+                        GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
+                            GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
+                        wake_up_interruptible(&fcntr->rwaitq);
+                        fcntr->lastWakeup = jiffies;
+                }
         }
 
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
@@ -948,7 +967,12 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
         struct GPIO_MM* brd = fcntr->brd;
 #endif
 
-        fcntr->latencyMsecs = cfg->latencyUsecs / USECS_PER_MSEC;
+        fcntr->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        if (fcntr->latencyJiffies == 0) fcntr->latencyJiffies = HZ / 4;
+        fcntr->lastWakeup = jiffies;
+        KLOG_DEBUG("%s: latencyJiffies=%ld, HZ=%d\n",
+               fcntr->deviceName,fcntr->latencyJiffies,HZ);
+
         fcntr->outputPeriodUsec = cfg->outputPeriodUsec;
         fcntr->numPulses = cfg->numPulses;
 
@@ -1037,6 +1061,7 @@ static int gpio_mm_release_fcntr(struct inode *inode, struct file *filp)
 {
         struct GPIO_MM_fcntr* fcntr = (struct GPIO_MM_fcntr*)
             filp->private_data;
+        int result = 0;
 
         int i = iminor(inode);
         int ibrd = i / GPIO_MM_MINORS_PER_BOARD;
@@ -1050,8 +1075,9 @@ static int gpio_mm_release_fcntr(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(fcntr != brd->fcntrs + ifcntr);
 
-        atomic_dec(&fcntr->num_opened);
-        return 0;
+        if (atomic_dec_and_test(&fcntr->num_opened))
+            result = stop_fcntr(fcntr);
+        return result;
 }
 
 static ssize_t gpio_mm_read_fcntr(struct file *filp, char __user *buf,
@@ -1102,9 +1128,6 @@ static int gpio_mm_ioctl_fcntr(struct inode *inode, struct file *filp,
                         sizeof(struct GPIO_MM_fcntr_config))) return -EFAULT;
                 result = start_fcntr(fcntr,&cfg);
                 }
-                break;
-        case GPIO_MM_FCNTR_STOP:      /* user set */
-                result = stop_fcntr(fcntr);
                 break;
         case GPIO_MM_FCNTR_GET_STATUS:	/* user get of status struct */
                 if (copy_to_user(userptr,&fcntr->status,
@@ -1212,6 +1235,7 @@ static int init_fcntrs(struct GPIO_MM* brd)
         return result;
 }
 
+/* register a callback on the given timer */
 static struct gpio_timer_callback *register_gpio_timer_callback_priv(
     struct GPIO_MM_timer* timer,gpio_timer_callback_func_t callback,
         unsigned int usecs, void *privateData, int *errp)
@@ -1248,36 +1272,17 @@ static struct gpio_timer_callback *register_gpio_timer_callback_priv(
         cbentry->usecs = usecs;
         list_add(&cbentry->list, &timer->pendingAdds);
 
-        if (!atomic_read(&timer->running)) {
+        if (timer->usecs == 0) {
                 /* First callback registered, start timer */
                 cbentry->tickModulus = 1;
                 start_gpio_timer(timer,usecs,usecs);
         }
 
-        atomic_set(&timer->callbacksChanged,1);
+        timer->callbacksChanged = 1;
         spin_unlock_bh(&timer->callbackLock);
         return cbentry;
 }
 
-/*
- * Call this function to un-register a callback.
- * A callback function can unregister itself, or other callback functions.
- * wait=1: do a wait_event_interruptible_timeout until it is certain
- *          that the callback will not be called again by the timer.
- *          The timeout is one second.
- * wait=0: don't wait. The callback may be called once more
- *          after this call to unregister_gpio_timer_callback
- * return:
- *   if wait==0, return will be 0.
- *   if wait != 0, the return will be value of
- *     wait_event_interruptible_timeout(). The return will be 0
- *     if the callback function was never deactivated,
- *     meaning the 1 second timeout occured while waiting
- *     for the callback to be deactivated
- *     Or, if the callback was deactivated, the return is the
- *     positive number of jiffies (1/HZ seconds) that remained
- *     in the timeout.
- */
 static long unregister_gpio_timer_callback_priv(struct GPIO_MM_timer* timer,
     struct gpio_timer_callback *cb,int wait)
 {
@@ -1285,26 +1290,18 @@ static long unregister_gpio_timer_callback_priv(struct GPIO_MM_timer* timer,
 
         spin_lock_bh(&timer->callbackLock);
         timer->pendingRemoves[timer->nPendingRemoves++] = cb;
-        atomic_set(&timer->callbacksChanged,1);
+        timer->callbacksChanged = 1;
         spin_unlock_bh(&timer->callbackLock);
 
         if (wait)
             // check the return of this. Is it negative if interrupted?
             ret = wait_event_interruptible_timeout(timer->callbackWaitQ,
-                    atomic_read(&timer->callbacksChanged) == 0,HZ);
+                    timer->callbacksChanged == 0,HZ);
 
         return ret;
 }
 
-/*
- * Module function that allows other modules to register their callback
- * function to be called at the given rate. This registers with the
- * timer on the first GPIO-MM board in the system.
- * register_gpio_timer_callback can be called at anytime, even from 
- * interrupt context.
- * register_gpio_timer_callback and unregister_gpio_timer_callback can be
- * called within a callback function itself.
- */
+/* register a callback on the timer of board 0 */
 struct gpio_timer_callback *register_gpio_timer_callback(
     gpio_timer_callback_func_t callback,unsigned int usecs,
                      void *privateData, int *errp)
@@ -1315,17 +1312,6 @@ struct gpio_timer_callback *register_gpio_timer_callback(
 }
 EXPORT_SYMBOL(register_gpio_timer_callback);
 
-/*
- * External modules call this function to un-register their callbacks.
- * A callback function can unregister itself, or any other
- * callback function.  This unregisters with the
- * timer on the first GPIO-MM board in the system.
- * wait=1: do a wait_event_interruptible_timeout until it is certain
- *          that the callback will not be called again by the timer.
- *          The timeout is one second.
- * wait=0: don't wait to be sure. The callback may be called once more
- *          after this call to unregister_gpio_timer_callback
- */
 long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,int wait)
 {
         struct GPIO_MM_timer* timer = board->timer;
@@ -1370,10 +1356,9 @@ static struct GPIO_MM_timer* init_gpio_timer(struct GPIO_MM* brd)
         INIT_LIST_HEAD(&timer->pendingAdds);
         INIT_LIST_HEAD(&timer->callbackList);
 
-        atomic_set(&timer->callbacksChanged,0);
+        timer->callbacksChanged = 0;
         init_waitqueue_head(&timer->callbackWaitQ);
 
-        atomic_set(&timer->running,0);
         timer->usecs = 0;
         gpio_mm_add_timer_irq_user(brd);
         return timer;
