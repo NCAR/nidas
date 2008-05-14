@@ -27,7 +27,7 @@ Revisions:
 #include <nidas/linux/diamond/gpio_mm.h>
 #include <nidas/rtlinux/dsm_version.h>
 
-#define DEBUG
+// #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -143,7 +143,7 @@ static void gpio_mm_set_master_mode(struct GPIO_MM* brd,int chip)
             brd->ct_addr + GPIO_MM_9513_DATA(chip));
 }
 
-#ifdef DEBUG
+#ifdef DEBUG2
 static unsigned short gpio_mm_get_master_mode(struct GPIO_MM* brd,int chip)
 {
         unsigned char b1,b2;
@@ -186,7 +186,7 @@ static void gpio_mm_setup_counter(struct GPIO_MM* brd,
         /* most significant byte of counter mode value */
         outb(hmode,brd->ct_addr + GPIO_MM_9513_DATA(chip));
 
-#ifdef DEBUGXX
+#ifdef DEBUG2
         KLOG_DEBUG("setup counter #%d,chip=%d,lmode=%#02x,hmode=%#02x\n",
             icntr,chip,lmode,hmode);
 
@@ -200,38 +200,19 @@ static void gpio_mm_setup_counter(struct GPIO_MM* brd,
 #endif
 }
 
-static void gpio_mm_arm_counter(struct GPIO_MM* brd,int icntr)
+static void gpio_mm_cmd_counter(struct GPIO_MM* brd,int icntr,
+    unsigned char cmd)
 {
         /* which 9513 chip */
         int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
         /* which of the 5 counters on the 9513 */
         int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        outb(CTS9513_ARM + (1 << ic),
+        outb(cmd + (1 << ic),
             brd->ct_addr + GPIO_MM_9513_PTR(chip));
 }
 
-static void gpio_mm_load_counter(struct GPIO_MM* brd, int icntr)
-{
-        /* which 9513 chip */
-        int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
-        /* which of the 5 counters on the 9513 */
-        int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        outb(CTS9513_LOAD + (1 << ic),
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
-}
-
-static void gpio_mm_load_arm_counter(struct GPIO_MM* brd, int icntr)
-{
-        /* which 9513 chip */
-        int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
-        /* which of the 5 counters on the 9513 */
-        int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        outb(CTS9513_LOAD_ARM + (1 << ic),
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
-}
-
-static void gpio_mm_load_arm_counters(struct GPIO_MM* brd,
-    int icntr1,int icntr2)
+static void gpio_mm_cmd_counters(struct GPIO_MM* brd,
+    int icntr1,int icntr2,unsigned char cmd)
 {
         /* load and arm counter icntr1 and icntr2 */
         int chip1 = icntr1 / GPIO_MM_CNTR_PER_CHIP;
@@ -239,108 +220,83 @@ static void gpio_mm_load_arm_counters(struct GPIO_MM* brd,
         int ic1 = icntr1 % GPIO_MM_CNTR_PER_CHIP;
         int ic2 = icntr2 % GPIO_MM_CNTR_PER_CHIP;
         if (chip1 == chip2)
-            outb(CTS9513_LOAD_ARM + (1 << ic1) + (1 << ic2),
+            outb(cmd + (1 << ic1) + (1 << ic2),
                 brd->ct_addr + GPIO_MM_9513_PTR(chip1));
         else {
-            outb(CTS9513_LOAD_ARM + (1 << ic1),
+            outb(cmd + (1 << ic1),
                 brd->ct_addr + GPIO_MM_9513_PTR(chip1));
-            outb(CTS9513_LOAD_ARM + (1 << ic2),
+            outb(cmd + (1 << ic2),
                 brd->ct_addr + GPIO_MM_9513_PTR(chip2));
         }
 }
-
-static void gpio_mm_disarm_counter(struct GPIO_MM* brd, int icntr)
+static inline void gpio_mm_arm_counter(struct GPIO_MM* brd,int icntr)
 {
-        /* which 9513 chip */
-        int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
-        /* which of the 5 counters on the 9513 */
-        int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        outb(CTS9513_DISARM + (1 << ic),
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
+        gpio_mm_cmd_counter(brd,icntr,CTS9513_ARM);
 }
 
-static void gpio_mm_disarm_counters(struct GPIO_MM* brd,
+static inline void gpio_mm_arm_counters(struct GPIO_MM* brd,
     int icntr1,int icntr2)
 {
-        /* load and arm counter 2 and 3 */
-        int chip1 = icntr1 / GPIO_MM_CNTR_PER_CHIP;
-        int chip2 = icntr2 / GPIO_MM_CNTR_PER_CHIP;
-        int ic1 = icntr1 % GPIO_MM_CNTR_PER_CHIP;
-        int ic2 = icntr2 % GPIO_MM_CNTR_PER_CHIP;
-        if (chip1 == chip2)
-            outb(CTS9513_DISARM + (1 << ic1) + (1 << ic2),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip1));
-        else {
-            outb(CTS9513_DISARM + (1 << ic1),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip1));
-            outb(CTS9513_DISARM + (1 << ic2),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip2));
-        }
+        gpio_mm_cmd_counters(brd,icntr1,icntr2,CTS9513_ARM);
+}
+
+static void gpio_mm_load_counter(struct GPIO_MM* brd, int icntr)
+{
+        gpio_mm_cmd_counter(brd,icntr,CTS9513_LOAD);
+}
+
+static inline void gpio_mm_load_arm_counter(struct GPIO_MM* brd, int icntr)
+{
+        gpio_mm_cmd_counter(brd,icntr,CTS9513_LOAD_ARM);
+}
+
+static inline void gpio_mm_load_arm_counters(struct GPIO_MM* brd,
+    int icntr1,int icntr2)
+{
+        gpio_mm_cmd_counters(brd,icntr1,icntr2,CTS9513_LOAD_ARM);
+}
+
+static inline void gpio_mm_disarm_counter(struct GPIO_MM* brd, int icntr)
+{
+        gpio_mm_cmd_counter(brd,icntr,CTS9513_DISARM);
+}
+
+static inline void gpio_mm_disarm_counters(struct GPIO_MM* brd,
+    int icntr1,int icntr2)
+{
+        gpio_mm_cmd_counters(brd,icntr1,icntr2,CTS9513_DISARM);
 }
 
 static void gpio_mm_disarm_save_counter(struct GPIO_MM* brd, int icntr)
 {
-        /* which 9513 chip */
-        int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
-        /* which of the 5 counters on the 9513 */
-        int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-        outb(CTS9513_DISARM_SAVE + (1 << ic),
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
+        gpio_mm_cmd_counter(brd,icntr,CTS9513_DISARM_SAVE);
 }
 
-static void gpio_mm_disarm_save_counters(struct GPIO_MM* brd,
+static inline void gpio_mm_disarm_save_counters(struct GPIO_MM* brd,
     int icntr1,int icntr2)
 {
-        /* load and arm counter 2 and 3 */
-        int chip1 = icntr1 / GPIO_MM_CNTR_PER_CHIP;
-        int chip2 = icntr2 / GPIO_MM_CNTR_PER_CHIP;
-        int ic1 = icntr1 % GPIO_MM_CNTR_PER_CHIP;
-        int ic2 = icntr2 % GPIO_MM_CNTR_PER_CHIP;
-        if (chip1 == chip2)
-            outb(CTS9513_DISARM_SAVE + (1 << ic1) + (1 << ic2),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip1));
-        else {
-            outb(CTS9513_DISARM_SAVE + (1 << ic1),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip1));
-            outb(CTS9513_DISARM_SAVE + (1 << ic2),
-                brd->ct_addr + GPIO_MM_9513_PTR(chip2));
-        }
+        gpio_mm_cmd_counters(brd,icntr1,icntr2,CTS9513_DISARM_SAVE);
 }
 
-static void gpio_mm_set_load_reg(struct GPIO_MM* brd,
-    int icntr,unsigned short load)
+static void gpio_mm_set_reg(struct GPIO_MM* brd,
+    int icntr,unsigned short val,unsigned char reg)
 {
         /* which 9513 chip */
         int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
         /* which of the 5 counters on the 9513 */
         int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
 
-        outb(CTS9513_DPTR_CNTR1_LOAD+ic,
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
-        outb(load & 0xff,brd->ct_addr + GPIO_MM_9513_DATA(chip));
-        outb(load >> 8,brd->ct_addr + GPIO_MM_9513_DATA(chip));
-#ifdef DEBUGXX
-        KLOG_DEBUG("set load #%d,ic=%d,chip=%d,lmode=%#02x,hmode=%#02x\n",
-            icntr,ic,chip,load & 0xff,load >> 8);
+        outb(reg+ic,brd->ct_addr + GPIO_MM_9513_PTR(chip));
+        outb(val & 0xff,brd->ct_addr + GPIO_MM_9513_DATA(chip));
+        outb(val >> 8,brd->ct_addr + GPIO_MM_9513_DATA(chip));
+#ifdef DEBUG
+        KLOG_DEBUG("set reg, icntr=%d, cmd=%#02x, ic=%d,chip=%d,lmode=%#02x,hmode=%#02x\n",
+            icntr,ic,chip,val & 0xff,val >> 8);
 #endif
 }
 
-static void gpio_mm_set_hold_reg(struct GPIO_MM* brd,
-    int icntr,unsigned short hold)
-{
-        /* which 9513 chip */
-        int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
-        /* which of the 5 counters on the 9513 */
-        int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
-
-        outb(CTS9513_DPTR_CNTR1_HOLD+ic,
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
-        outb(hold & 0xff,brd->ct_addr + GPIO_MM_9513_DATA(chip));
-        outb(hold >> 8,brd->ct_addr + GPIO_MM_9513_DATA(chip));
-}
-
-static unsigned short gpio_mm_get_hold_reg(struct GPIO_MM* brd,
-    int icntr)
+static unsigned short gpio_mm_get_reg(struct GPIO_MM* brd,
+    int icntr,unsigned char reg)
 {
         /* which 9513 chip */
         int chip = icntr / GPIO_MM_CNTR_PER_CHIP;
@@ -348,11 +304,28 @@ static unsigned short gpio_mm_get_hold_reg(struct GPIO_MM* brd,
         int ic = icntr % GPIO_MM_CNTR_PER_CHIP;
         unsigned short hl,hh;
 
-        outb(CTS9513_DPTR_CNTR1_HOLD+ic,
-            brd->ct_addr + GPIO_MM_9513_PTR(chip));
+        outb(reg+ic,brd->ct_addr + GPIO_MM_9513_PTR(chip));
         hl = inb(brd->ct_addr + GPIO_MM_9513_DATA(chip));
         hh = inb(brd->ct_addr + GPIO_MM_9513_DATA(chip));
         return (hh << 8) + hl;
+}
+
+static inline void gpio_mm_set_load_reg(struct GPIO_MM* brd,
+    int icntr,unsigned short val)
+{
+        gpio_mm_set_reg(brd,icntr,val,CTS9513_DPTR_CNTR1_LOAD);
+}
+
+static inline void gpio_mm_set_hold_reg(struct GPIO_MM* brd,
+    int icntr,unsigned short val)
+{
+        gpio_mm_set_reg(brd,icntr,val,CTS9513_DPTR_CNTR1_HOLD);
+}
+
+static inline unsigned short gpio_mm_get_hold_reg(struct GPIO_MM* brd,
+    int icntr)
+{
+        return gpio_mm_get_reg(brd,icntr,CTS9513_DPTR_CNTR1_HOLD);
 }
 
 static void gpio_mm_set_toggle_out(struct GPIO_MM* brd, int icntr)
@@ -468,7 +441,7 @@ static void set_ticks(struct GPIO_MM_timer* timer,unsigned int usecs,
                 timer->tick =
                     ((tv.tv_usec + initial_usecs - usecs) / usecs) % timer->tickLimit;
                 *initial_ticsp = initial_tics;
-                KLOG_INFO("usecs=%d,maxUsecs=%d,tv_usec=%ld,initial_usecs=%d,initial_tics=%d,tick=%u,tickLimit=%u\n",
+                KLOG_DEBUG("usecs=%d,maxUsecs=%d,tv_usec=%ld,initial_usecs=%d,initial_tics=%d,tick=%u,tickLimit=%u\n",
                            usecs,maxUsecs,tv.tv_usec,initial_usecs,initial_tics,
                            timer->tick,timer->tickLimit);
         }
@@ -539,7 +512,9 @@ static void start_gpio_timer(struct GPIO_MM_timer* timer,
         gpio_mm_load_counter(brd,tc);
 
         gpio_mm_set_load_reg(brd,tc,tics);
+#ifdef DEBUG
         print_time_of_day("arming counter");
+#endif
         gpio_mm_arm_counter(brd,tc);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
@@ -675,10 +650,8 @@ static void gpio_mm_timer_bottom_half(unsigned long dev)
                 handlePendingCallbacks(timer);
 
         list_for_each_entry(cbentry,&timer->callbackList,list) {
-#ifdef DEBUGX
                 KLOG_DEBUG("tick=%d,tickModulus=%d\n",
                     timer->tick,cbentry->tickModulus);
-#endif
                 if (!(timer->tick % cbentry->tickModulus))
                     cbentry->callbackFunc(cbentry->privateData);
         }
@@ -709,7 +682,7 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
                 return IRQ_NONE;
         }
 
-#ifdef DEBUGX
+#ifdef DEBUG2
         print_time_of_day("irq_handler");
 #endif
 
@@ -720,7 +693,7 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
 
         tick = (timer->tick + 1) % timer->tickLimit;
         timer->tick = tick;
-#ifdef DEBUGX
+#ifdef DEBUG2
         KLOG_DEBUG("board %d: irq %d, tick=%d,limit=%u,rcvd=%d\n",
                brd->num,irq,timer->tick,timer->tickLimit,
                 timer->irqsReceived);
@@ -764,7 +737,7 @@ static int gpio_mm_add_irq_user(struct GPIO_MM* brd,int irq_ab,
 #ifdef GET_SYSTEM_ISA_IRQ
                 irq = GET_SYSTEM_ISA_IRQ(irq);
 #endif
-                KLOG_INFO("board %d: requesting irq: %d, system irq: %d\n",
+                KLOG_DEBUG("board %d: requesting irq: %d, system irq: %d\n",
                     brd->num,brd->irqs[irq_ab],irq);
                 result = request_irq(irq,handler,IRQF_SHARED,driver_name,brd);
                 if (result) {
@@ -879,6 +852,7 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
         int tc1 = pc + 1;
         int tc2 = tc1 + 1;
         unsigned long flags;
+        int chip1, chip2;
         int result;
 #ifdef DEBUG
         unsigned char pcstatus;
@@ -907,6 +881,14 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
 
         /* count one initial pulse, then raise output toggle,
          * lower output toggle after numPulses.
+         * Actually one must count at least 3 pulses.
+         * Setting the load register value to 1 or 2
+         * doesn't seem to work, the output
+         * toggle level is always high.
+         * CTS9513 specs mention a bug in Mode J, which is the
+         * same as G except that J automatically repeats, that
+         * a load or hold value of 1 doesn't work.  Seems that
+         * 2 doesn't either.
          */
         gpio_mm_set_load_reg(brd,pc,3);
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
@@ -914,7 +896,7 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
         /* clear output toggle, which is the gate for the next counter */
         gpio_mm_clear_toggle_out(brd,pc);
 
-#ifdef DEBUG
+#ifdef DEBUG2
         pcstatus = gpio_mm_get_output_status(brd,pc);
         KLOG_DEBUG("after toggle clear, pcstatus=%#02x\n",pcstatus);
         gpio_mm_set_toggle_out(brd,pc);
@@ -935,14 +917,18 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
                 CTS9513_CML_RELOAD_LOAD |
                 CTS9513_CML_GATE_NORETRIG;
         /* source F1 is the 20 MHz clock.
-         * Gate with terminal count output of previous counter,
-         * the pulse counter.
+         * Cannot gate this counter with the terminal count output
+         * of the pulse counter, with option CTS9513_CMH_GATE_HI_TCNM1,
+         * because that output is just one pulse wide. See the
+         * diagram for Mode=E in the CTS9513 spec.
+         * One has to hardwire the output of the pulse counter,
+         * which is shown as "toggle output" in the diagram,
+         * into the gate of tc1, and use the CTS9513_CMH_GATE_HI_GN mode
+         * on this counter.
          */
         hmode = CTS9513_CMH_SRC_F1 |
                 CTS9513_CMH_EDGE_RISING |
                 CTS9513_CMH_GATE_HI_GN;
-                // CTS9513_CMH_GATE_HI_TCNM1;
-                // CTS9513_CMH_NO_GATE;        // test value to always cnt
         gpio_mm_setup_counter(brd,tc1,lmode,hmode);
         gpio_mm_set_load_reg(brd,tc1,0);
 
@@ -956,10 +942,29 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
                 CTS9513_CML_ONCE |
                 CTS9513_CML_RELOAD_LOAD |
                 CTS9513_CML_GATE_NORETRIG;
-        /* source is the output of the previous counter */
-        hmode = CTS9513_CMH_SRC_TCNM1 |
-                CTS9513_CMH_EDGE_RISING |
-                CTS9513_CMH_NO_GATE;
+        /* Source is the output of the previous counter,
+         * except when the counter is on another chip, 
+         * in which case the output of the previous counter must be
+         * hardwired to the input of the current counter on
+         * connector J3 of the GPIO-MM. For example, with the
+         * current numbering scheme of using counters 0-2 for fcntr0,
+         * counters 3-5 for fcntr1 and counters 6-8 for fnctr2,
+         * you must connect the output of counter 4 (J3:OUT5)
+         * to the input of counter 5 (J3:IN6).
+         *
+         */
+        chip1 = tc1 / GPIO_MM_CNTR_PER_CHIP;
+        chip2 = tc2 / GPIO_MM_CNTR_PER_CHIP;
+        if (chip1 == chip2) {
+                hmode = CTS9513_CMH_SRC_TCNM1 |
+                        CTS9513_CMH_EDGE_RISING |
+                        CTS9513_CMH_NO_GATE;
+        }
+        else {
+                hmode = (CTS9513_CMH_SRC_S1 + (tc2 % GPIO_MM_CNTR_PER_CHIP)) |
+                        CTS9513_CMH_EDGE_RISING |
+                        CTS9513_CMH_NO_GATE;
+        }
         gpio_mm_setup_counter(brd,tc2,lmode,hmode);
         gpio_mm_set_load_reg(brd,tc2,0);
 
@@ -1007,8 +1012,10 @@ static int gpio_mm_stop_fcntr(struct GPIO_MM_fcntr* fcntr)
  * 3. Look at the status of the pulse counter output. 
  *    If it is low, then either it didn't get one count or
  *    it is finished counting. In either case the value of the
- *    pulse counter will be one. (When it finishes counting numPulses
- *    it reloads itself from the load register, which has value 1).
+ *    pulse counter will be 3. According to the CTS9513 doc,
+ *    When it finishes counting it reloads itself from the load
+ *    register, which has value 3).  Actuall 
+ *    Actually it appears to be 2 in that case.
  *    To differentiate between these cases we look at the number of
  *    tics counted, which should be 0 if there were no pulses.
  *    If the output is high, then it hasn't finished counting numPulses,
@@ -1067,23 +1074,35 @@ static void fcntr_timer_callback_func(void *privateData)
                  
                 if (!pcstatus)  {   // all pulses counted (or none)
                         switch (pcn) {
+                        /* If there is no hardwire connection from the
+                         * output of pc and the gate of tc1, and
+                         * J8 is jumpered so that the counter/timer
+                         * pins are held high (J8:+5), then
+                         * the counters will run continously no
+                         * matter how many ticks are counted.
+                         */
                         case 3:
-                                if (tcn != 0) {
+                                if (tcn != 0 &&
+                                    !(fcntr->badGateWarning++ % 1000))
                                     KLOG_WARNING(
-                                    "%s: pcn=%d,tcn=%d. Expected tcn to be 0 (no pulses)\n",
-                                    fcntr->deviceName,pcn,tcn);
-                                    samp->pulses =
-                                        cpu_to_le32(fcntr->numPulses - pcn);
-                                }
-                                else samp->pulses = 0;
+                                    "%s: No pulses, expected ntics to be 0, but it is %d. Is J3:OUT%d wired to J3:GATE%d?\n",
+                                    fcntr->deviceName,tcn,pc+1,tc1+1);
+                                samp->pulses = 0;
+                                samp->ticks = 0;
                                 break;
+
                         case 2:
+                                /* if counter finishes, it is supposed to
+                                 * load itself again with the load register
+                                 * which has value 3, but for some reason
+                                 * it is 2, which is handy.
+                                 */
                                 samp->pulses = cpu_to_le32(fcntr->numPulses);
                                 break;
                         default:
                                 KLOG_WARNING(
-                            "%s: pcn should be 2 or 3, instead it is %d\n",
-                                fcntr->deviceName,pcn);
+                            "%s: pc output low, pcn should be 2 or 3, instead it is %d, tcn=%d\n",
+                                fcntr->deviceName,pcn,tcn);
                                 samp->pulses =
                                     cpu_to_le32(fcntr->numPulses - pcn);
                                 break;
@@ -1105,11 +1124,8 @@ static void fcntr_timer_callback_func(void *privateData)
                 }
         }
 
-        // gpio_mm_set_load_reg(brd,pc,3);
+        /* hold register was overwritten by save command */
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
-
-        // gpio_mm_set_load_reg(brd,tc1,0);
-        // gpio_mm_set_load_reg(brd,tc2,0);
 
         /* clear output toggle, which is the gate for the next counter */
         if (pcstatus) gpio_mm_clear_toggle_out(brd,pc);
@@ -1117,8 +1133,9 @@ static void fcntr_timer_callback_func(void *privateData)
         /* load and arm F1 tic counters */
         gpio_mm_load_arm_counters(brd,tc1,tc2);
 
-        /* load and arm pulse counter */
-        gpio_mm_arm_counter(brd,pc);
+        /* load and arm pulse counter. It is already loaded
+         * if it finished counting pulses, but we'll load it anyway */
+        gpio_mm_load_arm_counter(brd,pc);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
 }
@@ -1150,6 +1167,8 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
 
         fcntr->samples.head = fcntr->samples.tail = 0;
         memset(&fcntr->read_state, 0, sizeof (struct sample_read_state));
+
+        fcntr->badGateWarning = 0;
 
 #ifdef ENABLE_TIMER_ON_EACH_BOARD
         fcntr->timer_callback = register_gpio_timer_callback_priv(
@@ -1738,12 +1757,12 @@ int gpio_mm_init(void)
                             CTS9513_MMH_WIDTH_8 |
                             CTS9513_MMH_DP_ENABLE |
                             CTS9513_MMH_BCD;
-#ifdef DEBUGX
+#ifdef DEBUG2
                         KLOG_DEBUG("set master_mode, b1=%#02x,b2=%#02x\n",
                             brd->mmode_lsb[chip],brd->mmode_msb[chip]);
 #endif
                         gpio_mm_set_master_mode(brd,chip);
-#ifdef DEBUGX
+#ifdef DEBUG2
                         gpio_mm_get_master_mode(brd,chip);
 #endif
                 }
