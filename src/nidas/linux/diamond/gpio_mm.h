@@ -274,6 +274,8 @@ struct GPIO_MM_fcntr
          * When were read & poll methods last woken.
          */
         unsigned long lastWakeup;
+
+        unsigned int badGateWarning;
 };
 
 /*
