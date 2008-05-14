@@ -32,7 +32,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_FreqCounter)
 
 DSC_FreqCounter::DSC_FreqCounter() :
-    DSMSensor(),_sampleId(0),
+    DSMSensor(),_sampleId(0),_nvars(0),
     _msecPeriod(MSECS_PER_SEC),_numPulses(0),
     _cvtr(0)
 {
@@ -84,10 +84,17 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
             "must have exactly one sample");
     const SampleTag* stag = *getSampleTags().begin();
 
-    if (stag->getVariables().size() != 1)
+    _sampleId = stag->getId();
+    _nvars = stag->getVariables().size();
+    switch (_nvars) {
+    case 3:
+    case 1:
+        break;
+    default:
         throw n_u::InvalidParameterException(getName(),"variable",
             "sample must contain exactly one variable");
-    _sampleId = stag->getId();
+    }
+    cerr << "rate=" << stag->getRate() << endl;
 
     _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
@@ -139,7 +146,7 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     // data is two 4 byte integers.
     if (insamp->getDataByteLength() != 2 * sizeof(int)) return false;
 
-    SampleT<float>* osamp = getSample<float>(1);
+    SampleT<float>* osamp = getSample<float>(_nvars);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(_sampleId);
     float *fp = osamp->getDataPtr();
@@ -148,10 +155,20 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
             (const unsigned int*)insamp->getConstVoidDataPtr();
     unsigned int pulses = _cvtr->ulongValue(ip);
     unsigned int tics = _cvtr->ulongValue(ip+1);
-    if (tics == 0)
-        *fp = floatNAN;
-    else
-        *fp = ((float) pulses * GPIO_MM_CT_CLOCK_HZ ) / tics;
+    float freq;
+    if (tics == 0) freq = floatNAN;
+    else freq = ((float) pulses * GPIO_MM_CT_CLOCK_HZ ) / tics;
+
+    switch (_nvars) {
+    case 3:
+        *fp++ = pulses;
+        *fp++ = tics;
+        *fp++ = freq;
+        break;
+    case 1:
+        *fp++ = freq;
+        break;
+    }
 
     results.push_back(osamp);
 

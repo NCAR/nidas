@@ -52,20 +52,20 @@
  * pulse cntr 8: /dev/gpiomm_cntr8     12
  *
  * Board #1: Device table:
- * device        devname                minor number (board0 + 20)
- * freq cntr 0:  /dev/gpiomm_fcntr3    20
- * freq cntr 1:  /dev/gpiomm_fcntr4    21
- * freq cntr 2:  /dev/gpiomm_fcntr5    22
- * digital i/O:  /dev/gpiomm_dio1      23
- * pulse cntr 0: /dev/gpiomm_cntr9     24
- * pulse cntr 1: /dev/gpiomm_cntr10    25
- * pulse cntr 2: /dev/gpiomm_cntr11    26
- * pulse cntr 3: /dev/gpiomm_cntr12    27
- * pulse cntr 4: /dev/gpiomm_cntr13    28
- * pulse cntr 5: /dev/gpiomm_cntr14    29
- * pulse cntr 6: /dev/gpiomm_cntr15    30
- * pulse cntr 7: /dev/gpiomm_cntr16    31
- * pulse cntr 8: /dev/gpiomm_cntr17    32
+ * device        devname                minor number (board0 + 13)
+ * freq cntr 0:  /dev/gpiomm_fcntr3    13
+ * freq cntr 1:  /dev/gpiomm_fcntr4    14
+ * freq cntr 2:  /dev/gpiomm_fcntr5    15
+ * digital i/O:  /dev/gpiomm_dio1      16
+ * pulse cntr 0: /dev/gpiomm_cntr9     17
+ * pulse cntr 1: /dev/gpiomm_cntr10    18
+ * pulse cntr 2: /dev/gpiomm_cntr11    19
+ * pulse cntr 3: /dev/gpiomm_cntr12    20
+ * pulse cntr 4: /dev/gpiomm_cntr13    21
+ * pulse cntr 5: /dev/gpiomm_cntr14    22
+ * pulse cntr 6: /dev/gpiomm_cntr15    23
+ * pulse cntr 7: /dev/gpiomm_cntr16    24
+ * pulse cntr 8: /dev/gpiomm_cntr17    25
  */
 
 #ifndef NIDAS_DIAMOND_GPIO_MM_H
@@ -119,7 +119,7 @@ struct GPIO_MM_fcntr_status
 /* Maximum IOCTL number in above values */
 #define GPIO_MM_IOC_MAXNR 1
 
-#define GPIO_MM_CT_CLOCK_HZ 40000000
+#define GPIO_MM_CT_CLOCK_HZ 20000000
 
 #ifdef __KERNEL__
 /********  Start of definitions used by driver modules only **********/
@@ -198,7 +198,7 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 #define MAX_GPIO_MM_BOARDS	5	// number of boards supported by driver
 
 /* See device table in above comments */
-#define GPIO_MM_MINORS_PER_BOARD 20
+#define GPIO_MM_MINORS_PER_BOARD 13
 
 /* Use 3 counter timers to implement one frequency counter */
 #define GPIO_MM_CNTR_PER_FCNTR 3
@@ -207,6 +207,9 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 #define GPIO_MM_FCNTR_PER_BOARD (GPIO_MM_CNTR_PER_BOARD/GPIO_MM_CNTR_PER_FCNTR)
 
 #define GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE 8
+
+/* Which counter 0-9 to use for a general purpose timer */
+#define GPIO_MM_TIMER_COUNTER 9
 
 #define CALLBACK_POOL_SIZE 64  /* number of timer callbacks we can support */
 
@@ -326,6 +329,8 @@ struct GPIO_MM_timer
          * Timer tick rollover.
          */
         unsigned int tickLimit;
+
+        int scaler;
 
         /**
          * Bottom half of timer, calls client callback functions

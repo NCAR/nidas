@@ -70,6 +70,8 @@ private:
 
     dsm_sample_id_t _sampleId;
 
+    int _nvars;
+
     int _msecPeriod;
 
     int _numPulses;

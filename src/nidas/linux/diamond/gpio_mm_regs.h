@@ -90,8 +90,8 @@
 #define CTS9513_SAVE_TO_HOLD      0xA0
 #define CTS9513_DISARM            0xC0
 
-#define CTS9513_CLEAR_OUT         0xE0
-#define CTS9513_SET_OUT           0xE8
+#define CTS9513_CLEAR_TOGGLE_OUT  0xE0
+#define CTS9513_SET_TOGGLE_OUT    0xE8
 #define CTS9513_STEP              0xF0
 
 /* master mode register */
