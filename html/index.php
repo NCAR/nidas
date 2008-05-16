@@ -10,6 +10,19 @@
     <link href='index.css' rel='stylesheet' type='text/css'>
   </head>
 
+<!-- ----------------------------------------------------------------------- -->
+<!-- Detect if this page is loaded across a slow connection (i.e. satcom).   -->
+<!-- ----------------------------------------------------------------------- -->
+<script>
+var is_periodic=(document.location.hostname == "localhost" ||
+                 document.location.hostname == "acserver" ||
+                 document.location.hostname == "acserver.raf.ucar.edu" ||
+                 document.location.hostname == "hyper.guest.ucar.edu");
+
+if (is_periodic == false)
+  document.title = document.title + " (static page)";
+</script>
+
 <?php
 include_once('utils/utils.php');
 
@@ -52,6 +65,8 @@ function recvResp(content) {
   document.getElementById('stat').innerHTML = content;
 }
 function selectDsm(content) {
+  if (is_periodic == false)
+    periodic.UpdateClocks();
   selectedDsm = content;
   if (selectedDsm)
     recvResp( GetStatus[selectedDsm]() );
@@ -85,6 +100,19 @@ function clicker(that) {
 <center>flight number: rf02</center>
 <br>
 -->
+
+<!-- ----------------------------------------------------------------------- -->
+<!-- Procvide help for static pages.                                         -->
+<!-- ----------------------------------------------------------------------- -->
+<p id="paraID"> </p>
+<script>
+if (is_periodic == false) {
+  mypara = document.getElementById("paraID");
+  mytext = document.createTextNode("to refresh click on an item:");
+  mypara.appendChild(mytext); 
+}
+</script>
+
 <!-- ----------------------------------------------------------------------- -->
 <!-- This form provides a selection of DSMs to control.  There are two       -->
 <!-- steps in this form: the selection of the dsm and the choice of action.  -->

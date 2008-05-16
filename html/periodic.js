@@ -1,20 +1,25 @@
-var pU = {
+var periodic = {
 
   cnt: 1,
 
-  loop: function() {
+  UpdateClocks: function() {
     var resp = GetClocks();
     if (resp)
       for (name in resp) {
         document.getElementById(name).innerHTML =
           document.getElementById(name).label+' ('+resp[name]+')';
       }
-    if (++pU.cnt > 3) {
-      pU.cnt=1;
+  },
+
+  loop: function() {
+    periodic.UpdateClocks();
+    if (++periodic.cnt > 3) {
+      periodic.cnt=1;
       if (selectedDsm)
         recvResp( GetStatus[selectedDsm]() );
     }
-    setTimeout('pU.loop()',1000);
+    if (is_periodic)
+      setTimeout('periodic.loop()',1000);
   }
 }
-window.onload=pU.loop;
+window.onload=periodic.loop;
