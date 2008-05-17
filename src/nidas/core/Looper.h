@@ -55,6 +55,9 @@ public:
      * LooperClient::looperNotify() method should be
      * called every msec number of milliseconds.
      * @param msec Time period, in milliseconds.
+     * Since the system nanosleep function is only precise
+     * to about 10 milliseconds, and to reduce system load,
+     * this value is rounded to the nearest 10 milliseconds.
      */
     void addClient(LooperClient *clnt,int msecPeriod);
 
@@ -74,6 +77,11 @@ public:
     static bool sleepUntil(unsigned int periodUsec,unsigned int offsetUsec=0)
     	throw(nidas::util::IOException);
 
+    /**
+     * Utility function for finding greatest common divisor.
+     */
+    static int gcd(unsigned int a, unsigned int b);
+
 private:
 
     void setupClientMaps();
@@ -89,13 +97,13 @@ private:
 
     nidas::util::Mutex clientMutex;
 
-    std::map<unsigned long,std::set<LooperClient*> > clientsByPeriod;
+    std::map<unsigned int,std::set<LooperClient*> > clientsByPeriod;
 
     std::map<int,std::list<LooperClient*> > clientsByCntrMod;
 
     std::set<int> cntrMods;
 
-    unsigned long sleepUsec;
+    unsigned int sleepUsec;
 };
 
 }}	// namespace nidas namespace core

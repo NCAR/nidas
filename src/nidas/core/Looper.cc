@@ -50,11 +50,17 @@ Looper::Looper(): n_u::Thread("Looper"),sleepUsec(0)
 
 void Looper::addClient(LooperClient* clnt, int msecPeriod)
 {
+    if (msecPeriod <= 0) return;
     n_u::Synchronized autoLock(clientMutex);
 
-    unsigned long usecPeriod = msecPeriod * USECS_PER_MSEC;
+    // round to nearest 10 milliseconds, which should
+    // match the precision of the system nanosleep.
+    msecPeriod += 5;
+    msecPeriod = msecPeriod - msecPeriod % 10;
 
-    map<unsigned long,std::set<LooperClient*> >::iterator
+    unsigned int usecPeriod = msecPeriod * USECS_PER_MSEC;
+
+    map<unsigned int,std::set<LooperClient*> >::iterator
     	ci = clientsByPeriod.find(usecPeriod);
 
     if (ci != clientsByPeriod.end()) ci->second.insert(clnt);
@@ -71,7 +77,7 @@ void Looper::removeClient(LooperClient* clnt)
 {
     clientMutex.lock();
 
-    map<unsigned long,std::set<LooperClient*> >::iterator
+    map<unsigned int,std::set<LooperClient*> >::iterator
     	ci = clientsByPeriod.begin();
 
     bool haveClients = false;
@@ -100,42 +106,34 @@ void Looper::removeClient(LooperClient* clnt)
     clientMutex.unlock();
 }
 
+/* Use Euclidian resursive algorimthm to find greatest common divisor.
+ * Thanks to Wikipedia. */
+int Looper::gcd(unsigned int a, unsigned int b)
+{
+    if (b == 0) return a;
+    return gcd(b,a % b);
+}
+
 void Looper::setupClientMaps()
 {
-    unsigned long minperiod = 0;
-    map<unsigned long,std::set<LooperClient*> >::iterator
-    	ci = clientsByPeriod.begin();
-    for ( ; ci != clientsByPeriod.end(); ++ci) {
-	if (ci->second.size() == 0) continue;
-	minperiod = ci->first;
-	break;
-    }
-    if (minperiod == 0) return;
+    map<unsigned int,std::set<LooperClient*> >::iterator ci;
+    unsigned int sleepval = 0;
 
-    unsigned long sleepval = minperiod;
-    int n = 1;
-
-    for (;;) {
-	/* determine lowest common denominator of periods */
-	for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end();
-		++ci) {
-	    if (ci->second.size() == 0) continue;
-	    unsigned long per = ci->first;
-	    n_u::Logger::getInstance()->log(LOG_DEBUG,
-	    	"Looper client period=%d",per);
-	    if (per % sleepval) break;
-	}
-	if (ci == clientsByPeriod.end()) break;
-	n++;
-	sleepval = minperiod / n;
+    /* determine greatest common divisor of periods */
+    for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ++ci) {
+        if (ci->second.size() == 0) continue;
+        unsigned int per = ci->first;
+        if (sleepval == 0) sleepval = per;
+        else sleepval = gcd(sleepval,per);
     }
+    if (sleepval == 0) return;      // no clients
     n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"Looper client minperiod=%d, sleepval=%d",minperiod,sleepval);
+    	"Looper client sleepval=%d",sleepval);
 
     clientsByCntrMod.clear();
     for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ++ci) {
 	if (ci->second.size() == 0) continue;
-	unsigned long per = ci->first;
+	unsigned int per = ci->first;
 	assert((per % sleepval) == 0);
 	int cntrMod = per / sleepval;
 	list<LooperClient*> clnts(ci->second.begin(),ci->second.end());
@@ -157,8 +155,8 @@ bool Looper::sleepUntil(unsigned int periodUsec,unsigned int offsetUsec)
      * creation of the universe (Jan 1, 1970 0Z).
      */
     dsm_time_t tnow = getSystemTime();
-    unsigned long uSecVal =
-      periodUsec - (unsigned long)(tnow % periodUsec) + offsetUsec;
+    unsigned int uSecVal =
+      periodUsec - (unsigned int)(tnow % periodUsec) + offsetUsec;
 
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
     sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
@@ -182,7 +180,7 @@ int Looper::run() throw(n_u::Exception)
     while (!amInterrupted()) {
 
 	/*
-	 * maximum value of uSecSleep is 3600x10^6.
+	 * maximum value of sleepUsec is 3600x10^6.
 	 * minimum value is 10^4
 	 * So max value for cntr is  86400*10^6/10^4 = 9*10^6
 	 *    min value for cntr is  86400*10^6/3600*10^6 = 24
