@@ -126,10 +126,14 @@ void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
 
     struct GPIO_MM_fcntr_status stat;
     try {
+        unsigned int lostSamples;
+        unsigned int pulseUnderflow;
+        unsigned int badGateWarning;
 	ioctl(GPIO_MM_FCNTR_GET_STATUS,&stat,sizeof(stat));
 	ostr << "<td align=left>";
 	ostr << "lostSamples=" << stat.lostSamples <<
-		", pulse underflow=" << stat.pulseUnderflow;
+		", pulse underflow=" << stat.pulseUnderflow <<
+		", bad gate=" << stat.badGateWarning;
 	ostr << "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {

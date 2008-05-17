@@ -879,33 +879,24 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
                 CTS9513_CMH_NO_GATE;
         gpio_mm_setup_counter(brd,pc,lmode,hmode);
 
-        /* count one initial pulse, then raise output toggle,
-         * lower output toggle after numPulses.
-         * Actually one must count at least 3 pulses.
-         * Setting the load register value to 1 or 2
-         * doesn't seem to work, the output
-         * toggle level is always high.
-         * CTS9513 specs mention a bug in Mode J, which is the
-         * same as G except that J automatically repeats, that
-         * a load or hold value of 1 doesn't work.  Seems that
-         * 2 doesn't either.
+        /* Start with output high, count a few pulses,
+         * toggle output to low, count numPulses, toggle
+         * output back to high.
+         * The initial count must be at least 3 pulses.
+         * Setting the initial count in the load register
+         * to a value to 1 or 2 doesn't seem to work, the output
+         * toggle level is always low after counting pulses.
+         * CTS9513 specs mention a bug in Mode J, where a hold
+         * or load value of 1 doesn't work. Mode J is similar to
+         * G except that J automatically repeats.  Seems that
+         * npulse=2 doesn't work either. Perhaps it would work with
+         * lower input frequencies.
          */
         gpio_mm_set_load_reg(brd,pc,3);
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
 
-        /* clear output toggle, which is the gate for the next counter */
-        gpio_mm_clear_toggle_out(brd,pc);
-
-#ifdef DEBUG2
-        pcstatus = gpio_mm_get_output_status(brd,pc);
-        KLOG_DEBUG("after toggle clear, pcstatus=%#02x\n",pcstatus);
+        /* set output toggle high, which is the gate for the next counter */
         gpio_mm_set_toggle_out(brd,pc);
-        pcstatus = gpio_mm_get_output_status(brd,pc);
-        KLOG_DEBUG("after toggle set, pcstatus=%#02x\n",pcstatus);
-        gpio_mm_clear_toggle_out(brd,pc);
-        pcstatus = gpio_mm_get_output_status(brd,pc);
-        KLOG_DEBUG("after toggle clear, pcstatus=%#02x\n", pcstatus);
-#endif
 
         /* Low order 16 bits of the F1 clock counter.
          * mode=E, Rate Generator with Level Gating. */
@@ -928,7 +919,7 @@ static int gpio_mm_setup_fcntr(struct GPIO_MM_fcntr* fcntr)
          */
         hmode = CTS9513_CMH_SRC_F1 |
                 CTS9513_CMH_EDGE_RISING |
-                CTS9513_CMH_GATE_HI_GN;
+                CTS9513_CMH_GATE_LO_GN;
         gpio_mm_setup_counter(brd,tc1,lmode,hmode);
         gpio_mm_set_load_reg(brd,tc1,0);
 
@@ -1048,7 +1039,7 @@ static void fcntr_timer_callback_func(void *privateData)
         gpio_mm_disarm_save_counter(brd,pc);
 
         /* If pulse counter has finished counting numPulses, then
-         * its output should be low.
+         * its output should be high.
          */
         pcstatus = gpio_mm_get_output_status(brd,pc);
 
@@ -1056,8 +1047,8 @@ static void fcntr_timer_callback_func(void *privateData)
         tc1n = gpio_mm_get_hold_reg(brd,tc1);
         tc2n = gpio_mm_get_hold_reg(brd,tc2);
         tcn = ((unsigned int)tc2n << 16) + tc1n;
-        KLOG_DEBUG("pcn=%d,pulses=%d,tc1n=%d,tc2n=%d,tcn=%d,status=%#02x\n",
-            pcn,fcntr->numPulses-pcn,tc1n,tc2n,tcn,pcstatus);
+        KLOG_DEBUG("%s: pcn=%d,pulses=%d,tc1n=%d,tc2n=%d,tcn=%d,status=%#02x\n",
+            fcntr->deviceName,pcn,fcntr->numPulses-pcn,tc1n,tc2n,tcn,pcstatus);
 
         samp = (struct freq_sample*)
             GET_HEAD(fcntr->samples,GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE);
@@ -1072,36 +1063,55 @@ static void fcntr_timer_callback_func(void *privateData)
                 // Data is little endian
                 samp->ticks = cpu_to_le32(tcn);
                  
-                if (!pcstatus)  {   // all pulses counted (or none)
+                if (pcstatus)  {
+                        // pc output high, all pulses counted, or none
                         switch (pcn) {
-                        /* If there is no hardwire connection from the
-                         * output of pc and the gate of tc1, and
-                         * J8 is jumpered so that the counter/timer
-                         * pins are held high (J8:+5), then
-                         * the counters will run continously no
-                         * matter how many ticks are counted.
-                         */
                         case 3:
+                                /* If the output status is high and the
+                                 * counter has value 3, then no pulses
+                                 * were counted.
+                                 * If there is no hardwire connection from the
+                                 * output of pc and the gate of tc1, and
+                                 * J8 is jumpered so that the counter/timer
+                                 * pins are held low (J8:G), then
+                                 * the counters will run continously,
+                                 * their gate is always enabled.
+                                 */
                                 if (tcn != 0 &&
-                                    !(fcntr->badGateWarning++ % 1000))
+                                    !(fcntr->status.badGateWarning++ % 1000))
                                     KLOG_WARNING(
-                                    "%s: No pulses, expected ntics to be 0, but it is %d. Is J3:OUT%d wired to J3:GATE%d?\n",
-                                    fcntr->deviceName,tcn,pc+1,tc1+1);
+                                    "%s: warning #%d: No pulses, expected ntics to be 0, but it is %d. Is J3:OUT%d wired to J3:GATE%d?\n",
+                                    fcntr->deviceName,fcntr->status.badGateWarning,tcn,pc+1,tc1+1);
                                 samp->pulses = 0;
                                 samp->ticks = 0;
                                 break;
-
                         case 2:
-                                /* if counter finishes, it is supposed to
-                                 * load itself again with the load register
+                                /* When the counter finishes, it is supposed
+                                 * to load itself again from the load register
                                  * which has value 3, but for some reason
-                                 * it is 2, which is handy.
+                                 * the counter value saved to the hold
+                                 * register is 2, which is a nice feature/bug,
+                                 * because it allows us to differentiate
+                                 * between npulses and 0 pulses.
+                                 */
+                                /* If there is no hardwire connection from the
+                                 * output of pc to the gate of tc1, and
+                                 * J8 is jumpered so that the counter/timer
+                                 * pins are held high (J8:+5), then
+                                 * the counters will not run, since the
+                                 * gate is always high.
                                  */
                                 samp->pulses = cpu_to_le32(fcntr->numPulses);
+                                if (tcn == 0 &&
+                                    !(fcntr->status.badGateWarning++ % 1000))
+                                    KLOG_WARNING(
+                                    "%s: warning #%d: %d pulses, but tics is 0. Is J3:OUT%d wired to J3:GATE%d?\n",
+                                    fcntr->deviceName,fcntr->status.badGateWarning,fcntr->numPulses,
+                                        pc+1,tc1+1);
                                 break;
                         default:
                                 KLOG_WARNING(
-                            "%s: pc output low, pcn should be 2 or 3, instead it is %d, tcn=%d\n",
+                            "%s: pc output high, pcn should be 2 or 3, instead it is %d, tcn=%d\n",
                                 fcntr->deviceName,pcn,tcn);
                                 samp->pulses =
                                     cpu_to_le32(fcntr->numPulses - pcn);
@@ -1109,7 +1119,10 @@ static void fcntr_timer_callback_func(void *privateData)
                         }
                 }
                 else {
-                        fcntr->status.pulseUnderflow++;
+                        if (!(fcntr->status.pulseUnderflow++ % 1000))
+                                KLOG_WARNING(
+                                    "%s: warning #%d: pulse underflow, failed to count %d pulses. Is numPulses too high?\n",
+                                    fcntr->deviceName,fcntr->status.pulseUnderflow,fcntr->numPulses);
                         samp->pulses = cpu_to_le32(fcntr->numPulses - pcn);
                 }
                 // Wake up the read queue if latencyJiffies have elapsed
@@ -1127,8 +1140,8 @@ static void fcntr_timer_callback_func(void *privateData)
         /* hold register was overwritten by save command */
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
 
-        /* clear output toggle, which is the gate for the next counter */
-        if (pcstatus) gpio_mm_clear_toggle_out(brd,pc);
+        /* set output high, which is the gate for the next counter */
+        if (!pcstatus) gpio_mm_set_toggle_out(brd,pc);
 
         /* load and arm F1 tic counters */
         gpio_mm_load_arm_counters(brd,tc1,tc2);
@@ -1161,6 +1174,8 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
         fcntr->outputPeriodUsec = cfg->outputPeriodUsec;
         fcntr->numPulses = cfg->numPulses;
 
+        memset(&fcntr->status, 0, sizeof (struct GPIO_MM_fcntr_status));
+
         /* setup the counters */
         result = gpio_mm_setup_fcntr(fcntr);
         if (result) return result;
@@ -1168,7 +1183,6 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
         fcntr->samples.head = fcntr->samples.tail = 0;
         memset(&fcntr->read_state, 0, sizeof (struct sample_read_state));
 
-        fcntr->badGateWarning = 0;
 
 #ifdef ENABLE_TIMER_ON_EACH_BOARD
         fcntr->timer_callback = register_gpio_timer_callback_priv(
@@ -1737,6 +1751,10 @@ int gpio_mm_init(void)
 
                 // reset board
                 outb(0x01,brd->ct_addr + GPIO_MM_RESET_ID);
+
+                // wait a second for things to settle
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(HZ);
 
                 /* disable interrupts A and B */
                 outb(0x22,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);

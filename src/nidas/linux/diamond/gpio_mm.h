@@ -93,8 +93,9 @@ struct GPIO_MM_fcntr_config
 
 struct GPIO_MM_fcntr_status
 {
-        size_t lostSamples;
-        size_t pulseUnderflow;
+        unsigned int lostSamples;
+        unsigned int pulseUnderflow;
+        unsigned int badGateWarning;
 };
 
 /* Pick a character as the magic number of your driver.
@@ -275,7 +276,6 @@ struct GPIO_MM_fcntr
          */
         unsigned long lastWakeup;
 
-        unsigned int badGateWarning;
 };
 
 /*
