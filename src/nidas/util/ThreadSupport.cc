@@ -24,6 +24,9 @@ MutexAttributes::MutexAttributes(const MutexAttributes& x)
 {
     // could we do _attrs = x_attrs; ?
     ::pthread_mutexattr_init(&_attrs);
+
+    // In theory, these setXXX should not throw exceptions, since
+    // the attributes were OK in the original copy.
     try {
         setType(x.getType());
 #ifdef PTHREAD_PRIO_INHERIT
@@ -52,7 +55,7 @@ void MutexAttributes::setType(int val) throw(Exception)
             throw InvalidParameterException("MutexAttributes","setType",ost.str());
             }
         default:
-            throw Exception("Mutex prioceiling",errno);
+            throw Exception("MutexAttributes::setType",errno);
         }
     }
 }
@@ -72,11 +75,11 @@ void MutexAttributes::setPriorityCeiling(int val) throw(Exception)
         case EINVAL:
             {
             ostringstream ost;
-            ost << "invalid value of " << val;
+            ost << "invalid ceiling value of " << val;
             throw InvalidParameterException("MutexAttributes","setPriorityCeiling",ost.str());
             }
         default:
-            throw Exception("Mutex prioceiling",errno);
+            throw Exception("MutexAttributes::setPriorityCeiling",errno);
         }
     }
 }
@@ -97,11 +100,11 @@ void MutexAttributes::setProtocol(int val) throw(Exception)
         case ENOTSUP:
             {
             ostringstream ost;
-            ost << "invalid value of " << val;
+            ost << "invalid protocol value of " << val;
             throw InvalidParameterException("MutexAttributes","setProtocol",ost.str());
             }
         default:
-            throw Exception("Mutex prioceiling",errno);
+            throw Exception("MutexAttributes::setProtocol",errno);
         }
     }
 }
@@ -121,11 +124,11 @@ void MutexAttributes::setPShared(int val) throw(Exception)
         case ENOTSUP:
             {
             ostringstream ost;
-            ost << "invalid value of " << val;
+            ost << "invalid pshared value of " << val;
             throw InvalidParameterException("MutexAttributes","setPShared",ost.str());
             }
         default:
-            throw Exception("Mutex prioceiling",errno);
+            throw Exception("MutexAttributes::setPShared",errno);
         }
     }
 }
@@ -145,6 +148,9 @@ RWLockAttributes::RWLockAttributes(const RWLockAttributes& x)
 {
     // could we do _attrs = x_attrs; ?
     ::pthread_rwlockattr_init(&_attrs);
+
+    // In theory, these setXXX should not throw exceptions, since
+    // the attributes were OK in the original copy.
     try {
         setPShared(x.getPShared());
     }
@@ -164,11 +170,11 @@ void RWLockAttributes::setPShared(int val) throw(Exception)
         case ENOTSUP:
             {
             ostringstream ost;
-            ost << "invalid value of " << val;
+            ost << "invalid pshared value of " << val;
             throw InvalidParameterException("RWLockAttributes","setPShared",ost.str());
             }
         default:
-            throw Exception("RWLock prioceiling",errno);
+            throw Exception("RWLockAttributes::setPShared",errno);
         }
     }
 }
@@ -196,7 +202,7 @@ Mutex::Mutex(int type) throw()
 Mutex::Mutex(const MutexAttributes& attrs) throw(Exception) : _attrs(attrs)
 {
     if (::pthread_mutex_init (&p_mutex,_attrs.ptr()))
-        throw Exception("Mutex(attrs)",errno);
+        throw Exception("Mutex(attrs) constructor",errno);
 }
 
 /*
@@ -272,7 +278,7 @@ RWLock::RWLock() throw()
 RWLock::RWLock(const RWLockAttributes& attrs) throw(Exception) : _attrs(attrs)
 {
     if (::pthread_rwlock_init (&p_rwlock,_attrs.ptr()))
-        throw Exception("RWLock(attrs)",errno);
+        throw Exception("RWLock(attrs) constructor",errno);
 }
 
 /*
