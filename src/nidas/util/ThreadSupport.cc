@@ -6,63 +6,299 @@
 #include <unistd.h>
 #include <cerrno>
 #include <iostream>
+#include <sstream>
 
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
+#include <nidas/util/InvalidParameterException.h>
 
 using namespace std;
 using namespace nidas::util;
 
-Mutex::Mutex()
+MutexAttributes::MutexAttributes()
 {
-  ::pthread_mutex_init (&p_mutex, 0);		// always returns 0
+    ::pthread_mutexattr_init(&_attrs);
+}
+
+MutexAttributes::MutexAttributes(const MutexAttributes& x)
+{
+    // could we do _attrs = x_attrs; ?
+    ::pthread_mutexattr_init(&_attrs);
+    try {
+        setType(x.getType());
+#ifdef PTHREAD_PRIO_INHERIT
+        setPriorityCeiling(x.getPriorityCeiling());
+        setProtocol(x.getProtocol());
+#endif
+        setPShared(x.getPShared());
+    }
+    catch (const Exception& e) {}
+}
+
+MutexAttributes::~MutexAttributes()
+{
+    ::pthread_mutexattr_destroy(&_attrs);
+}
+
+void MutexAttributes::setType(int val) throw(Exception)
+{
+    if (::pthread_mutexattr_settype(&_attrs,val)) {
+        switch(errno) {
+        case EINVAL:
+        case ENOTSUP:
+            {
+            ostringstream ost;
+            ost << "invalid value of " << val;
+            throw InvalidParameterException("MutexAttributes","setType",ost.str());
+            }
+        default:
+            throw Exception("Mutex prioceiling",errno);
+        }
+    }
+}
+int MutexAttributes::getType() const
+{
+    int val;
+    ::pthread_mutexattr_gettype(&_attrs,&val);
+    return val;
+}
+
+#ifdef PTHREAD_PRIO_INHERIT
+void MutexAttributes::setPriorityCeiling(int val) throw(Exception)
+{
+    int oldval;
+    if (::pthread_mutexattr_setprioceiling(&_attrs,val)) {
+        switch(errno) {
+        case EINVAL:
+            {
+            ostringstream ost;
+            ost << "invalid value of " << val;
+            throw InvalidParameterException("MutexAttributes","setPriorityCeiling",ost.str());
+            }
+        default:
+            throw Exception("Mutex prioceiling",errno);
+        }
+    }
+}
+int MutexAttributes::getPriorityCeiling() const
+{
+    int val;
+    pthread_mutexattr_getprioceiling(&_attrs,&val);
+    return val;
+}
+#endif
+
+#ifdef PTHREAD_PRIO_INHERIT
+void MutexAttributes::setProtocol(int val) throw(Exception)
+{
+    if (::pthread_mutexattr_setprotocol(&_attrs,val)) {
+        switch(errno) {
+        case EINVAL:
+        case ENOTSUP:
+            {
+            ostringstream ost;
+            ost << "invalid value of " << val;
+            throw InvalidParameterException("MutexAttributes","setProtocol",ost.str());
+            }
+        default:
+            throw Exception("Mutex prioceiling",errno);
+        }
+    }
+}
+int MutexAttributes::getProtocol() const
+{
+    int val;
+    ::pthread_mutexattr_getprotocol(&_attrs,&val);
+    return val;
+}
+#endif
+
+void MutexAttributes::setPShared(int val) throw(Exception)
+{
+    if (::pthread_mutexattr_setpshared(&_attrs,val)) {
+        switch(errno) {
+        case EINVAL:
+        case ENOTSUP:
+            {
+            ostringstream ost;
+            ost << "invalid value of " << val;
+            throw InvalidParameterException("MutexAttributes","setPShared",ost.str());
+            }
+        default:
+            throw Exception("Mutex prioceiling",errno);
+        }
+    }
+}
+int MutexAttributes::getPShared() const
+{
+    int val;
+    ::pthread_mutexattr_getpshared(&_attrs,&val);
+    return val;
+}
+
+RWLockAttributes::RWLockAttributes()
+{
+    ::pthread_rwlockattr_init(&_attrs);
+}
+
+RWLockAttributes::RWLockAttributes(const RWLockAttributes& x)
+{
+    // could we do _attrs = x_attrs; ?
+    ::pthread_rwlockattr_init(&_attrs);
+    try {
+        setPShared(x.getPShared());
+    }
+    catch (const Exception& e) {}
+}
+
+RWLockAttributes::~RWLockAttributes()
+{
+    ::pthread_rwlockattr_destroy(&_attrs);
+}
+
+void RWLockAttributes::setPShared(int val) throw(Exception)
+{
+    if (::pthread_rwlockattr_setpshared(&_attrs,val)) {
+        switch(errno) {
+        case EINVAL:
+        case ENOTSUP:
+            {
+            ostringstream ost;
+            ost << "invalid value of " << val;
+            throw InvalidParameterException("RWLockAttributes","setPShared",ost.str());
+            }
+        default:
+            throw Exception("RWLock prioceiling",errno);
+        }
+    }
+}
+int RWLockAttributes::getPShared() const
+{
+    int val;
+    ::pthread_rwlockattr_getpshared(&_attrs,&val);
+    return val;
+}
+
+Mutex::Mutex(int type) throw()
+{
+    /* Can fail:
+     * EAGAIN: system lacked resources
+     * ENOMEM: system lacked memory
+     * EINVAL: invalid attributes
+     * EBUSY: reinitialize an object already initialized (shouldn't happen)
+     * We won't throw an exception here, and wait to throw it
+     * when one tries a lock.
+     */
+    _attrs.setType(type);
+    ::pthread_mutex_init (&p_mutex,_attrs.ptr());
+}
+
+Mutex::Mutex(const MutexAttributes& attrs) throw(Exception) : _attrs(attrs)
+{
+    if (::pthread_mutex_init (&p_mutex,_attrs.ptr()))
+        throw Exception("Mutex(attrs)",errno);
 }
 
 /*
  * Copy constructor. Creates a new, unlocked mutex.
  */
-Mutex::Mutex(const Mutex& x)
+Mutex::Mutex(const Mutex& x) throw() :_attrs(x._attrs)
 {
-  ::pthread_mutex_init (&p_mutex, 0);		// always returns 0
+    ::pthread_mutex_init (&p_mutex,_attrs.ptr());
 }
 
-Mutex::~Mutex() throw(Exception) {
-  /* In LinuxThreads no resources are associated with mutex objects.
-   * pthread_mutex_destroy only checks that the mutex is unlocked.
-   */
-  if (::pthread_mutex_destroy(&p_mutex) && errno != EINTR)
-    throw Exception(string("~Mutex") + ": " + Exception::errnoToString(errno));
+Mutex::~Mutex() throw(Exception)
+{
+    if (::pthread_mutex_destroy(&p_mutex)) {
+        switch(errno) {
+        case EBUSY:
+            throw Exception("~Mutex","Mutex is locked");
+        default:
+            throw Exception("~Mutex",errno);
+        }
+    }
 }
 
 pthread_mutex_t*
 Mutex::ptr() {
-   return &p_mutex;
+     return &p_mutex;
 }
 
 
-Cond::Cond() : mutex() 
+Cond::Cond() throw() : mutex() 
 {
-  // there are no attributes for the cond_init
-  ::pthread_cond_init (&p_cond, 0);	// never returns error code
+    /* Can fail:
+     * EAGAIN: system lacked resources
+     * ENOMEM: system lacked memory
+     * EINVAL: invalid attributes (we're  not passing attributer)
+     * EBUSY: reinitialize an object already initialized (shouldn't happen)
+     * We won't throw an exception here, and wait to throw it
+     * when one tries a lock.
+     */
+    ::pthread_cond_init (&p_cond, 0);       // default attributes
 }
 
-Cond::Cond(const Cond& x) : mutex(x.mutex)
+Cond::Cond(const Cond& x) throw() : mutex(x.mutex)
 {
-  // there are no attributes for the cond_init
-  ::pthread_cond_init (&p_cond, 0);	// never returns error code
+    ::pthread_cond_init (&p_cond, 0);
 }
 
 Cond::~Cond() throw(Exception)
 {
-  /* In LinuxThreads no resources are associated with condition variables.
-   * pthread_cond_destroy only checks that no threads are waiting
-   *  on the condition variable.
-   */
-
-  if (::pthread_cond_destroy (&p_cond) && errno != EINTR)
-    throw Exception(string("~Cond") + ": " + Exception::errnoToString(errno));
+    if (::pthread_cond_destroy (&p_cond) && errno != EINTR) {
+        switch(errno) {
+        case EBUSY:
+            throw Exception("~Cond",
+                "Cond is being waited on by another thread");
+        default:
+            throw Exception("~Cond",errno);
+        }
+    }
 }
 
+RWLock::RWLock() throw()
+{
+    /* Can fail:
+     * EAGAIN: system lacked resources
+     * ENOMEM: system lacked memory
+     * EPERM: insufficient privilege (not sure what this is about)
+     * EBUSY: reinitialize an object already initialized (shouldn't happen)
+     * We won't throw an exception here, and wait to throw it
+     * when one tries a lock.
+     */
+    ::pthread_rwlock_init (&p_rwlock, _attrs.ptr());
+}
+
+RWLock::RWLock(const RWLockAttributes& attrs) throw(Exception) : _attrs(attrs)
+{
+    if (::pthread_rwlock_init (&p_rwlock,_attrs.ptr()))
+        throw Exception("RWLock(attrs)",errno);
+}
+
+/*
+ * Copy constructor. Creates a new, unlocked rwlock.
+ */
+RWLock::RWLock(const RWLock& x) throw() : _attrs(x._attrs)
+{
+      ::pthread_rwlock_init (&p_rwlock, _attrs.ptr());
+}
+
+RWLock::~RWLock() throw(Exception)
+{
+    if (::pthread_rwlock_destroy(&p_rwlock)) {
+        switch(errno) {
+        case EBUSY:
+            throw Exception("~RWLock","RWLock is locked");
+        default:
+            throw Exception("~RWLock",errno);
+        }
+    }
+}
+
+pthread_rwlock_t*
+RWLock::ptr() {
+     return &p_rwlock;
+}
 
 Multisync::Multisync(int n):
  _co(), _n(n), _count(0), debug(0) {

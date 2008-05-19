@@ -8,6 +8,7 @@
 #define NIDAS_UTIL_EXCEPTION_H
 
 #include <string>
+#include <errno.h>
 
 namespace nidas { namespace util {
 
