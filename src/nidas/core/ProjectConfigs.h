@@ -53,6 +53,26 @@ public:
 
     void setEndTime(const nidas::util::UTime& val) { endTime = val; }
 
+    /**
+     * Add an environment variable to this ProjectConfig.  The
+     * actual process environment is not effected. After doing
+     * addEnvironmentVariable() one or more times, use ProjectConfig::putenv()
+     * to update the actual process environment. Set value to an
+     * empty string to remove a variable from the environment.
+     */
+    void addEnvironmentVariable(const std::string& name, const std::string& value);
+
+    std::map<std::string,std::string> getEnvironmentVariables() const
+    {
+        return _envVars;
+    }
+
+    /**
+     * Update the process environment with the current list of
+     * environment variables in the ProjectConfig.
+     */
+    void putenv() const;
+
     Project* getProject() const throw(nidas::core::XMLException,
 		nidas::util::InvalidParameterException);
 
@@ -77,6 +97,11 @@ private:
 
     nidas::util::UTime endTime;
 
+    std::map<std::string,std::string> _envVars;
+
+    mutable std::map<std::string,char*> _environment;
+
+    mutable nidas::util::Mutex _envLock;
 };
 
 /**

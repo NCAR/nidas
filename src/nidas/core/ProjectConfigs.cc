@@ -46,6 +46,7 @@ Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
         DSMEngine::parseXMLConfigFile(xmlFileName2));
 
     auto_ptr<Project> project(Project::getInstance());
+    putenv();
     project->fromDOMElement(doc->getDocumentElement());
     return project.release();
 }
@@ -249,7 +250,7 @@ xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) co
         parent->getOwnerDocument()->createElementNS(
             DOMable::getNamespaceURI(),
             (const XMLCh*)XMLStringConverter("configs"));
-    cerr << "configs, appendChild" << endl;
+    // cerr << "configs, appendChild" << endl;
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
@@ -264,6 +265,40 @@ xercesc::DOMElement* ProjectConfigs::toDOMElement(xercesc::DOMElement* elem) con
         cfg->toDOMParent(elem);
     }
     return elem;
+}
+
+void ProjectConfig::addEnvironmentVariable(const string& name, const string& value)
+{
+            _envVars.insert(make_pair(name,value));
+}
+
+void ProjectConfig::putenv() const
+{
+
+    n_u::Autolock autolock(_envLock);
+
+    map<string,string>::const_iterator vi = _envVars.begin();
+
+    for ( ; vi != _envVars.end(); ++vi) {
+
+        string name = vi->first;
+        string value = vi->second;
+
+        char* curval = 0;
+        char* newval = 0;
+        map<string,char*>::const_iterator ei = _environment.find(name);
+        if (ei != _environment.end()) curval = ei->second;
+
+        string newstr;
+        if (value.length() > 0) newstr = name + "=" + value;
+        else string newstr = name;
+
+        newval = new char[newstr.length() + 1];
+        strcpy(newval,newstr.c_str());
+        ::putenv(newval);
+        delete [] curval;
+        _environment.insert(make_pair(name,newval));
+    }
 }
 
 void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
@@ -309,6 +344,39 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 		    	atname,"unknown attribute");
 	}
     }
+
+    // check for envvar child elements
+    xercesc::DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+            child=child->getNextSibling())
+    {
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
+        if (elname == "envvar") {
+            string ename;
+            string evalue;
+            if(child->hasAttributes()) {
+                // get all the attributes of the node
+                xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+                int nSize = pAttributes->getLength();
+                for(int i=0;i<nSize;++i) {
+                    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+                    const string& atname = attr.getName();
+                    const string& atval = attr.getValue();
+                    if (atname == "name") ename = atval;
+                    else if (atname == "value") evalue = atval;
+                    else throw n_u::InvalidParameterException("envvar",
+                        atname,"unknown attribute");
+                }
+            }
+            if (ename.length() == 0 || evalue.length() == 0)
+                throw n_u::InvalidParameterException(
+                    string("config ") + getName(),
+                    "envvar element","must have a name and value attribute");
+            _envVars.insert(make_pair(ename,evalue));
+	}
+    }
 }
 
 xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) const
@@ -331,9 +399,18 @@ throw(xercesc::DOMException)
     xelem.setAttributeValue("xml",getXMLName());
     xelem.setAttributeValue("begin",getBeginTime().format(true,"%Y %b %d %H:%M:%S"));
     xelem.setAttributeValue("end",getEndTime().format(true,"%Y %b %d %H:%M:%S"));
+    map<string,string>::const_iterator vi = _envVars.begin();
+
+    for ( ; vi != _envVars.end(); ++vi) {
+        xercesc::DOMElement* envvarElement =
+            elem->getOwnerDocument()->createElementNS(
+                    DOMable::getNamespaceURI(),
+                    (const XMLCh*)XMLStringConverter("envvar"));
+        XDOMElement xenvvar(envvarElement);
+        elem->appendChild(envvarElement);
+        xenvvar.setAttributeValue("name",vi->first);
+        xenvvar.setAttributeValue("value",vi->second);
+    }
     return elem;
 }
 
-void writeXMLFile()
-{
-}

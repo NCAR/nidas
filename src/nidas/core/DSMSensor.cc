@@ -484,9 +484,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		setLatency(val);
 	    }
 	    else if (aname == "height")
-	    	setHeight(aval);
+	    	setHeight(Project::getInstance()->expandString(aval));
 	    else if (aname == "depth")
-	    	setDepth(aval);
+	    	setDepth(Project::getInstance()->expandString(aval));
 	    else if (aname == "suffix")
 	    	setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);

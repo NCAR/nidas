@@ -60,6 +60,10 @@ public:
     static Project* parseXMLConfigFile(const std::string& xmlFileName)
         throw(nidas::core::XMLException,nidas::util::InvalidParameterException);
 
+    static const char* rafXML;
+
+    static const char* isffXML;
+
 protected:
     static void setupSignals();
 
@@ -119,6 +123,11 @@ protected:
      * The xml file that is being used for configuration information.
      */
     static std::string xmlFileName;
+
+    /**
+     * The xml file that contains all the project configurations, by date.
+     */
+    static std::string configsXMLName;
 
     /**
      * Current running instance of DSMServer.

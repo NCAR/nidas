@@ -56,6 +56,15 @@ DSMServerStat* DSMServer::_statusThread = 0;
 DSMServerIntf* DSMServer::_xmlrpcThread = 0;
 
 /* static */
+const char *DSMServer::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+
+/* static */
+const char *DSMServer::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+
+/* static */
+string DSMServer::configsXMLName;
+
+/* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
 
@@ -588,12 +597,27 @@ int DSMServer::parseRunstring(int argc, char** argv)
 	    cout << Version::getSoftwareVersion() << endl;
 	    return 1;
 	    break;
+        case 'c':
+        {
+            const char* re = getenv("PROJ_DIR");
+            const char* pe = getenv("PROJECT");
+            const char* ae = getenv("AIRCRAFT");
+            const char* ie = getenv("ISFF");
+            if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
+            else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
+            if (configsXMLName.length() == 0) {
+                cerr <<
+                    "Environment variables not set correctly to find XML file of project configurations." << endl;
+                cerr << "Cannot find " << rafXML << endl << "or " << isffXML << endl;
+                return usage(argv[0]);
+            }
+        }
         case '?':
             return usage(argv[0]);
         }
     }
     if (optind == argc - 1) xmlFileName = string(argv[optind++]);
-    else {
+    else if (configsXMLName.length() == 0) {
 	const char* cfg = getenv("NIDAS_CONFIG");
 	if (!cfg) {
 	    cerr <<
@@ -614,6 +638,8 @@ int DSMServer::usage(const char* argv0)
 Usage: " << argv0 << "[-d] [-v] [config]\n\
   -d: debug. Run in foreground and send messages to stderr.\n\
       Otherwise it will run in the background and messages to syslog\n\
+  -c: read configurations XML file to find current project configuration, either\n\t" << 
+    rafXML << "\nor\n\t" << isffXML << "\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
           default: $NIDAS_CONFIG=\"" <<
