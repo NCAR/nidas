@@ -206,9 +206,9 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
             const string& aval = attr.getValue();
 	    // get attribute name
 	    if (aname == "name")
-		setPrefix(aval);
+	    	setPrefix(Project::getInstance()->expandString(aval));
 	    else if (aname == "longname")
-		setLongName(aval);
+	    	setLongName(Project::getInstance()->expandString(aval));
 	    else if (aname == "units")
 		setUnits(aval);
 	    else if (aname == "length") {

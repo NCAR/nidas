@@ -99,9 +99,9 @@ private:
 
     std::map<std::string,std::string> _envVars;
 
-    mutable std::map<std::string,char*> _environment;
+    static std::map<std::string,char*> _environment;
 
-    mutable nidas::util::Mutex _envLock;
+    static nidas::util::Mutex _envLock;
 };
 
 /**

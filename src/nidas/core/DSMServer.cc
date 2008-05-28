@@ -111,7 +111,14 @@ int DSMServer::main(int argc, char** argv) throw()
         auto_ptr<Project> project;
 
 	try {
-	    project.reset(parseXMLConfigFile(xmlFileName));
+	    if (configsXMLName.length() > 0) {
+		ProjectConfigs configs;
+		configs.parseXML(configsXMLName);
+		// throws InvalidParameterException if no config for time
+		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+		project.reset(cfg->getProject());
+	    }
+	    else project.reset(parseXMLConfigFile(xmlFileName));
 	}
 	catch (const nidas::core::XMLException& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -587,8 +594,7 @@ int DSMServer::parseRunstring(int argc, char** argv)
     // extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
-                                                                                
-    while ((opt_char = getopt(argc, argv, "dv")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdv")) != -1) {
         switch (opt_char) {
         case 'd':
             debug = true;
@@ -598,20 +604,21 @@ int DSMServer::parseRunstring(int argc, char** argv)
 	    return 1;
 	    break;
         case 'c':
-        {
-            const char* re = getenv("PROJ_DIR");
-            const char* pe = getenv("PROJECT");
-            const char* ae = getenv("AIRCRAFT");
-            const char* ie = getenv("ISFF");
-            if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
-            else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
-            if (configsXMLName.length() == 0) {
-                cerr <<
-                    "Environment variables not set correctly to find XML file of project configurations." << endl;
-                cerr << "Cannot find " << rafXML << endl << "or " << isffXML << endl;
-                return usage(argv[0]);
-            }
-        }
+	    {
+		const char* re = getenv("PROJ_DIR");
+		const char* pe = getenv("PROJECT");
+		const char* ae = getenv("AIRCRAFT");
+		const char* ie = getenv("ISFF");
+		if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
+		else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
+		if (configsXMLName.length() == 0) {
+		    cerr <<
+			"Environment variables not set correctly to find XML file of project configurations." << endl;
+		    cerr << "Cannot find " << rafXML << endl << "or " << isffXML << endl;
+		    return usage(argv[0]);
+		}
+	    }
+	    break;
         case '?':
             return usage(argv[0]);
         }
@@ -638,7 +645,7 @@ int DSMServer::usage(const char* argv0)
 Usage: " << argv0 << "[-d] [-v] [config]\n\
   -d: debug. Run in foreground and send messages to stderr.\n\
       Otherwise it will run in the background and messages to syslog\n\
-  -c: read configurations XML file to find current project configuration, either\n\t" << 
+  -c: read configs XML file to find current project configuration, either\n\t" << 
     rafXML << "\nor\n\t" << isffXML << "\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\

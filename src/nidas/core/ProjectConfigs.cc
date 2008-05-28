@@ -27,6 +27,12 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+/* static */
+std::map<std::string,char*> ProjectConfig::_environment;
+
+/* static */
+nidas::util::Mutex ProjectConfig::_envLock;
+
 ProjectConfig::ProjectConfig()
 {
     // default end of project is a year after the start
@@ -46,6 +52,9 @@ Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
         DSMEngine::parseXMLConfigFile(xmlFileName2));
 
     auto_ptr<Project> project(Project::getInstance());
+    // set the environment variables for this configuration.
+    // Note, there is no config state maintained, where
+    // the environment of a previous config is unset.
     putenv();
     project->fromDOMElement(doc->getDocumentElement());
     return project.release();
@@ -358,7 +367,7 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
             string evalue;
             if(child->hasAttributes()) {
                 // get all the attributes of the node
-                xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+                xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
                 int nSize = pAttributes->getLength();
                 for(int i=0;i<nSize;++i) {
                     XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));

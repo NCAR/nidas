@@ -20,6 +20,7 @@
 #include <nidas/core/DSMService.h>
 #include <nidas/core/DSMServerIntf.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/DOMable.h>
 #include <nidas/core/StatusThread.h>
 #include <nidas/core/XMLException.h>
