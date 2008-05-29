@@ -58,7 +58,7 @@ CharacterSensor::~CharacterSensor() {
 void CharacterSensor::setMessageSeparator(const std::string& val)
     throw(nidas::util::InvalidParameterException)
 {
-    messageSeparator = DSMSensor::replaceBackslashSequences(val);
+    messageSeparator = n_u::replaceBackslashSequences(val);
     if (getSampleScanner()) getSampleScanner()->setMessageSeparator(messageSeparator);
 }
 
@@ -91,7 +91,7 @@ void CharacterSensor::sendInitString() throw(n_u::IOException)
     if (getInitString().length() > 0) {
 	DLOG(("sending init string '") << getInitString()
 	     << "' to " << getDeviceName());
-        string newstr = replaceBackslashSequences(getInitString());
+        string newstr = n_u::replaceBackslashSequences(getInitString());
         write(newstr.c_str(),newstr.length());
     }
 }
@@ -138,7 +138,7 @@ void CharacterSensor::addSampleTag(SampleTag* tag)
     if (sfmt.length() > 0) {
         AsciiSscanf* sscanf = new AsciiSscanf();
         try {
-           sscanf->setFormat(replaceBackslashSequences(sfmt));
+           sscanf->setFormat(n_u::replaceBackslashSequences(sfmt));
         }
         catch (n_u::ParseException& pe) {
             throw n_u::InvalidParameterException(getName(),

@@ -19,6 +19,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/Sample.h>
+#include <nidas/util/util.h>
 
 namespace nidas { namespace core {
 
@@ -72,7 +73,7 @@ public:
      */
     const std::string getBackslashedMessageSeparator() const
     {
-        return DSMSensor::addBackslashSequences(messageSeparator);
+        return nidas::util::addBackslashSequences(messageSeparator);
     }
 
     /**

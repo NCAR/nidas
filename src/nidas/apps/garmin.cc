@@ -22,9 +22,9 @@
 #include <set>
 
 #include <nidas/util/SerialPort.h>
-#include <nidas/core/DSMSensor.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/util.h>
 
 using namespace std;
 
@@ -300,7 +300,7 @@ string Garmin::getStringField(const string& str, int nfield)
 /* static */
 string Garmin::substCRNL(const string& str)
 {
-    return nidas::core::DSMSensor::addBackslashSequences(str);
+    return nidas::util::addBackslashSequences(str);
 }
 
 bool Garmin::setBaudRateOption()  throw(n_u::IOException)

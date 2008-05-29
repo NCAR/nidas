@@ -18,6 +18,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 #include <iomanip>
 
@@ -144,12 +145,12 @@ float SampleScanner::getObservedDataRate() const {
  * The messageSeparator is the string of bytes that a sensor
  * outputs between messages.  The string may contain
  * baskslash sequences.
- * @see * DSMSensor::replaceBackslashSequences()
+ * @see * nidas::util::replaceBackslashSequences()
  */
 void SampleScanner::setMessageSeparatorProtected(const std::string& val)
     throw(n_u::InvalidParameterException)
 {
-    _messageSeparator = DSMSensor::replaceBackslashSequences(val);
+    _messageSeparator = n_u::replaceBackslashSequences(val);
 
     _separatorLen = _messageSeparator.length();
     delete [] _separator;
@@ -230,7 +231,7 @@ MessageSampleScanner::MessageSampleScanner(int bufsize):
 
 const string MessageSampleScanner::getBackslashedMessageSeparator() const
 {
-    return DSMSensor::addBackslashSequences(_messageSeparator);
+    return n_u::addBackslashSequences(_messageSeparator);
 }
 
 MessageStreamScanner::MessageStreamScanner(int bufsize):
@@ -244,7 +245,7 @@ MessageStreamScanner::MessageStreamScanner(int bufsize):
 
 const string MessageStreamScanner::getBackslashedMessageSeparator() const
 {
-    return DSMSensor::addBackslashSequences(_messageSeparator);
+    return n_u::addBackslashSequences(_messageSeparator);
 }
 
 void MessageStreamScanner::setMessageLength(unsigned int val)

@@ -605,25 +605,6 @@ public:
     	throw(nidas::util::InvalidParameterException);
 
     /**
-     * Utility function for replacing backslash sequences in a string.
-     *  \\n=newline, \\r=carriage-return, \\t=tab, \\\\=backslash
-     *  \\xhh=hex, where hh are (exactly) two hex digits and
-     *  \\000=octal, where 000 are exactly three octal digits.
-     */
-    static std::string replaceBackslashSequences(const std::string& str);
-
-    /* note that the above back slashes above are doubled so that
-     * doxygen displays them as one back slash.  One does
-     * not double them in the parameter string.
-     */
-
-    /**
-     * Utility function for substituting backslash sequences back
-     * into a string.
-     */
-    static std::string addBackslashSequences(const std::string& str);
-
-    /**
      * Set the type name of this sensor, e.g.:
      * "ACME Model 99 Mach7 Particle Disambiguator".
      * This is meant for descriptive purposes only,

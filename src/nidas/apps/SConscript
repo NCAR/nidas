@@ -20,10 +20,15 @@ myenv.AppendUnique(LIBS = Split("""
     nidas
     nidas_dynld
     xerces-c
+    XmlRpc
     pthread
     dl
-    XmlRpc
     """))
+
+libutil = Split("""
+    libnidas_util
+    pthread
+    """)
 
 if arch == 'arm':
     archapps=Split("""
@@ -68,10 +73,7 @@ apps = Split("""
     psi9116_sim.cc
     cat_nids.cc
     ck_a2d.cc
-    gps_nmea_sysclock.cc
-    garmin.cc
     ck_xml.cc
-    tee_tty.cc
     isff/pdecode.cc
     isff/prep.cc
     raf/cvi_lv_test_in.cc
@@ -89,6 +91,13 @@ nlapps = Split("""
     isff/set_emerald.c
 """)
 
+# apps which just need the nidas_util library
+nuapps = Split("""
+    gps_nmea_sysclock.cc
+    garmin.cc
+    tee_tty.cc
+""")
+
 nodes = []
 for i in apps + archapps:
     nodes += myenv.Program( i )
@@ -96,6 +105,10 @@ for i in apps + archapps:
 # suppress linking against nidas libraries
 for i in nlapps:
     nodes += myenv.Program(source=i,LIBS=[])
+
+# link against nidas_util
+for i in nuapps:
+    nodes += myenv.Program(source=i,LIBS=libutil)
 
 # nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
 

@@ -89,7 +89,8 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	}
 	else if (p->getType() == Parameter::STRING_PARAM &&
 		p->getName() == "counts" && p->getLength() == 1) {
-	    outputInfo.countsName = p->getStringValue(0);
+	    outputInfo.countsName = Project::getInstance()->expandString(p->getStringValue(0));
+	    
 	}
 	else if (p->getType() == Parameter::BOOL_PARAM &&
 		p->getName() == "highmoments" && p->getLength() == 1) {

@@ -289,7 +289,7 @@ void RemoteSerial::openConnection(n_u::Inet4SocketAddress saddr,
 	separatorAtEOM <<  ' ' << messageLength << ' '<<
 	prompted << endl;
     messageSeparator =
-    	nidas::core::DSMSensor::replaceBackslashSequences(messageSeparator);
+    	nidas::util::replaceBackslashSequences(messageSeparator);
 }
 
 string RemoteSerial::socketReadLine() throw(n_u::IOException)

@@ -17,7 +17,6 @@
 
 #include <nidas/core/SampleClock.h>
 
-// #include <nidas/linux/types.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -362,7 +361,7 @@ public:
      * The messageSeparator is the string of bytes that a sensor
      * outputs between messages.  The string may contain
      * baskslash sequences.
-     * @see * DSMSensor::replaceBackslashSequences()
+     * @see * nidas::util::replaceBackslashSequences()
      */
     void setMessageSeparator(const std::string& val)
     	throw(nidas::util::InvalidParameterException)

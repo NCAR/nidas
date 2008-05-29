@@ -118,7 +118,7 @@ void DSMSerialSensor::rtlDevInit(int flags)
     if (isPrompted()) {
 	struct dsm_serial_prompt prompt;
 
-	string nprompt = DSMSensor::replaceBackslashSequences(getPromptString());
+	string nprompt = n_u::replaceBackslashSequences(getPromptString());
 
 	strncpy(prompt.str,nprompt.c_str(),sizeof(prompt.str));
 	prompt.len = nprompt.length();
@@ -179,7 +179,7 @@ void DSMSerialSensor::unixDevInit(int flags)
 
     if (isPrompted()) {
 	string nprompt =
-		DSMSensor::replaceBackslashSequences(getPromptString());
+		n_u::replaceBackslashSequences(getPromptString());
 
 	cPromptStringLen = nprompt.length();
 	delete [] cPromptString;

@@ -101,7 +101,7 @@ class FixedSim: public LooperClient
 {
 public:
     FixedSim(n_u::SerialPort* p,const string& m):
-    	port(p),msg(CharacterSensor::replaceBackslashSequences(m)) {}
+    	port(p),msg(n_u::replaceBackslashSequences(m)) {}
     void looperNotify() throw();
 private:
     n_u::SerialPort* port;
@@ -230,7 +230,7 @@ void FileSim::looperNotify() throw()
     if (_in)
     {
 	msg += "\r\n";
-	CharacterSensor::replaceBackslashSequences(msg);
+	n_u::replaceBackslashSequences(msg);
 	_msg = msg;
     }
     if (_verbose) std::cout << _msg;

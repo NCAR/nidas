@@ -45,6 +45,7 @@ headers = [ Split("""
     UnixSocketAddress.h
     UnknownHostException.h
     UTime.h
+    util.h
     """)
 ]
 # print(["headers="] + [str(h) for h in headers])
@@ -67,6 +68,7 @@ sources = [ Split("""
     ThreadSupport.cc
     UnixSocketAddress.cc
     UTime.cc
+    util.cc
     """)
 ]
 # print(["sources="] + [str(h) for h in sources])
@@ -77,12 +79,14 @@ env['NIDAS_UTIL_OBJECTS'] = objects
 ##
 ##  Build the libnidas_util library.
 ##
-lib = myenv.SharedLibrary('nidas_util' , objects, LIBS = ['pthread'])
+lib = myenv.SharedLibrary('nidas_util' , objects)
+slib = myenv.StaticLibrary('nidas_util' , objects)
 
 ##
 ## Install target for library.
 ##
 myenv.Install('$PREFIX/lib',lib)
+myenv.Install('$PREFIX/lib',slib)
 
 myenv.Install('$PREFIX/include/nidas/util',headers)
 
