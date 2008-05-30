@@ -109,12 +109,14 @@ void GetClocks::execute(XmlRpc::XmlRpcValue& params,
   {
     // only mark stalled numeric time changes as '-- stopped --'
     if (mi->second[0] == '2') // as in 2006 ...
+    {
       if (mi->second.compare(_listener->_oldclk[mi->first]) == 0) {
         if (_listener->_nstale[mi->first]++ > 3)
           mi->second = "----- stopped -----";
       }
       else
         _listener->_nstale[mi->first] = 0;
+    }
 
     _listener->_oldclk[mi->first] = mi->second;
     result[mi->first] = mi->second;

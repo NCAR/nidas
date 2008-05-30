@@ -281,9 +281,11 @@ string StatisticsCruncher::makeUnits(int i, int j, int k, int l)
 		unitsVec.push_back(inVariables[k]->getConverter()->getUnits());
 	    else unitsVec.push_back(inVariables[k]->getUnits());
 	    if (l >= 0)
+	    {
 		if (inVariables[l]->getConverter())
 		    unitsVec.push_back(inVariables[l]->getConverter()->getUnits());
 		else unitsVec.push_back(inVariables[l]->getUnits());
+	    }
 	}
     }
     return makeUnits(unitsVec);

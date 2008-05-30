@@ -218,7 +218,7 @@ float GPS_HW_HG2021GB02::processLabel(const long data)
     // --+-----+--+--------------------------------+--+--+-----+--------+-----+-----------------------
     // P | SSM |0 |        integrity limit         |pr|sq| fms |  ISC   | SDI |      8-bit label      
     if ((data & SSM) != 0)      break; // Normal Operation
-    if (data & 0x00001c00 == 0) break; // Integrity Sequence Number
+    if ((data & 0x00001c00) == 0) break; // Integrity Sequence Number
     return (data<<4>>21) * 7.8125e-3; // no sign
 
   case 0354:  // BNR - Counter                     (sec)

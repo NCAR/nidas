@@ -26,6 +26,8 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 
+#include <stdlib.h>  // atoi()
+
 using namespace std;
 
 namespace n_u = nidas::util;

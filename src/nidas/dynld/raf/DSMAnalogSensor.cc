@@ -450,7 +450,7 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
                 i < std::min((n-2)/2,getMaxNumChannels()); i++) {
                     int gain = getGain(i);
                     int bipolar = getBipolar(i);
-                    if (cgain < 0 || gain == cgain &&
+                    if ((cgain < 0 || gain == cgain) &&
                         (cbipolar < 0 || bipolar == cbipolar))
                         setConversionCorrection(i,d[2+i*2],d[3+i*2]);
             }
