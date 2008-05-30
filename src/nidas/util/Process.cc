@@ -21,7 +21,7 @@
 #include <cstring>
 
 #include <iostream>
-#include <stdlib.h>  // atexit()
+#include <cstdlib>  // atexit()
 
 using namespace std;
 using namespace nidas::util;

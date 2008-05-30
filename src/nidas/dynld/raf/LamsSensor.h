@@ -18,9 +18,9 @@
 
 // Linux include files.
 #include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <sys/select.h>
 #include <unistd.h>

@@ -1,5 +1,5 @@
 #include <nidas/util/SerialOptions.h>
-#include <stdlib.h>  // atoi()
+#include <cstdlib>  // atoi()
 
 using namespace nidas::util;
 using namespace std;

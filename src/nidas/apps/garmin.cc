@@ -26,7 +26,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 
-#include <stdlib.h>  // atoi()
+#include <cstdlib>  // atoi()
 
 using namespace std;
 

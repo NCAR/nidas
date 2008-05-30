@@ -23,7 +23,7 @@ using namespace std;
 #include <unistd.h>
 #include <dirent.h>
 #include <regex.h>
-#include <stdlib.h>  // for llabs()
+#include <cstdlib>  // for llabs()
 
 // #define DEBUG
 

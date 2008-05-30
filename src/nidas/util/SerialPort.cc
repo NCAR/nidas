@@ -9,7 +9,7 @@
 #include <sys/param.h>	// MAXPATHLEN
 #include <cerrno>
 #include <cstring>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include <sstream>
 
