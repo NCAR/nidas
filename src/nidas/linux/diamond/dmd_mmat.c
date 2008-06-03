@@ -1726,7 +1726,7 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         if (atomic_inc_return(&a2d->num_opened) == 1) 
             result = dmd_mmat_add_irq_user(brd,0);
         KLOG_DEBUG("open_a2d, num_opened=%d\n",
-            a2d->atomic_read(&a2d->num_opened));
+            atomic_read(&a2d->num_opened));
 
         return result;
 }
@@ -1765,7 +1765,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
             }
         }
         KLOG_DEBUG("release_a2d, num_opened=%d\n",
-            a2d->atomic_read(&a2d->num_opened));
+            atomic_read(&a2d->num_opened));
 
         return result;
 }
@@ -1825,7 +1825,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
                             if (countreq - count > maxOcount) maxOcount = countreq - count;
                             if (countreq - count < minOcount) minOcount = countreq - count;
                             if (!(nreads++ % 100))  {
-                                KLOG_DEBUG("minOcount=%lu, maxOcount=%lu\n",
+                                KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
                                     minOcount,maxOcount);
                                 maxOcount = 0;
                                 minOcount = 9999999;
@@ -1844,7 +1844,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         if (countreq - count > maxOcount) maxOcount = countreq - count;
         if (countreq - count < minOcount) minOcount = countreq - count;
         if (!(nreads++ % 100))  {
-            KLOG_DEBUG("minOcount=%lu, maxOcount=%lu\n",
+            KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
                 minOcount,maxOcount);
             maxOcount = 0;
             minOcount = 9999999;
@@ -2431,7 +2431,7 @@ static int init_a2d(struct DMMAT* brd,int type)
 
         init_waitqueue_head(&a2d->read_queue);
 
-        /* After calling cdev_all the device is "live"
+        /* After calling cdev_add the device is "live"
          * and ready for user operation.
          */
         result = cdev_add(&a2d->cdev, devno, 1);

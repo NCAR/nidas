@@ -193,7 +193,7 @@ struct DMMAT_D2A_Outputs
 #define DMMAT_DEVICES_PER_BOARD 4
 
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
-#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 2048
+#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 1024
 #define DMMAT_CNTR_QUEUE_SIZE 16
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */

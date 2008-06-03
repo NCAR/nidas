@@ -18,14 +18,10 @@
 
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
-
-// #include <fcntl.h>
-// #include <iostream>
-// #include <cstring>
+#include <nidas/util/UTime.h>
 
 #include <vector>
 #include <list>
-
 
 using namespace std;
 
@@ -103,6 +99,9 @@ Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) | ptyname ] ... ]\n\
 
 int TeeTTy::run()
 {
+    int nloop = 0;
+    unsigned int maxread = 0;
+    unsigned int minread = 99999999;
     try {
 	if (asDaemon && daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
 
@@ -117,9 +116,11 @@ int TeeTTy::run()
 	tty.open(readonly ? O_RDONLY : O_RDWR);
 	FD_SET(tty.getFd(),&readfds);
 	int maxfd = tty.getFd() + 1;
+	int maxwfd = 0;
 
 	vector<int> ptyfds;
 	vector<string> ptynames;
+	struct timeval writeTimeout;
 
 	list<string>::const_iterator li = rwptys.begin();
 	for ( ; li != rwptys.end(); ++li) {
@@ -129,6 +130,7 @@ int TeeTTy::run()
 	    FD_SET(fd,&readfds);
 	    FD_SET(fd,&writefds);
 	    maxfd = std::max(maxfd,fd + 1);
+	    maxwfd = std::max(maxwfd,fd + 1);
 
 	    ptyfds.push_back(fd);
 	    ptynames.push_back(name);
@@ -140,7 +142,7 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 	    FD_SET(fd,&writefds);
-	    maxfd = std::max(maxfd,fd + 1);
+	    maxwfd = std::max(maxwfd,fd + 1);
 
 	    ptyfds.push_back(fd);
 	    ptynames.push_back(name);
@@ -151,15 +153,24 @@ int TeeTTy::run()
 
 	    int nfd;
 	    fd_set rfds = readfds;
-	    fd_set wfds = writefds;
-	    if ((nfd = ::select(maxfd,&rfds,&wfds,0,0)) < 0)
+	    if ((nfd = ::select(maxfd,&rfds,0,0,0)) < 0)
 	    	throw n_u::IOException(tty.getName(),"select",errno);
 
 	    if (FD_ISSET(tty.getFd(),&rfds)) {
+		nfd--;
 		size_t l = tty.read(buf,sizeof(buf));
+		if (l > maxread) maxread = l;
+		if (l < minread) minread = l;
 		if (l > 0) {
-		    for (unsigned int i = 0; i < ptyfds.size(); i++)  {
+		    int nwfd;
+		    fd_set wfds = writefds;
+		    writeTimeout.tv_sec = 0;
+		    writeTimeout.tv_usec = USECS_PER_SEC / 4;
+		    if ((nwfd = ::select(maxwfd,0,&wfds,0,&writeTimeout)) < 0)
+			throw n_u::IOException(tty.getName(),"select",errno);
+		    for (unsigned int i = 0; nwfd > 0 && i < ptyfds.size(); i++)  {
 			if (FD_ISSET(ptyfds[i],&wfds)) {
+			    nwfd--;
 			    int lw = ::write(ptyfds[i],buf,l);
 			    if (lw < 0) throw n_u::IOException(ptynames[i],"write",errno);
 			    if (lw != (signed)l) cerr << ptynames[i] <<
@@ -167,13 +178,12 @@ int TeeTTy::run()
 			}
 		    }
 		}
-		FD_CLR(tty.getFd(),&rfds);
-		nfd--;
 	    }
 
-	    for (unsigned int i = 0; i < ptyfds.size(); i++)  {
+	    for (unsigned int i = 0; nfd > 0 && i < ptyfds.size(); i++)  {
 		int fd = ptyfds[i];
 		if (FD_ISSET(fd,&rfds)) {
+		    nfd--;
 		    int l = ::read(fd,buf,sizeof(buf));
 		    if (l < 0) {
 		        n_u::IOException e(ptynames[i],"read",errno);
@@ -191,9 +201,10 @@ int TeeTTy::run()
 			ptyfds[i] = fd;
 		    }
 		    if (l > 0) tty.write(buf,l);
-		    nfd--;
 		}
 	    }
+	    if (!(nloop++  % 100))
+	    	cerr << "nloop=" << nloop << " maxread=" << maxread << " minread=" << minread << endl;
 	}
     }
     catch(n_u::IOException& ioe) {

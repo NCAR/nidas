@@ -36,11 +36,13 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
             return -EINVAL;
         }
 
+    KLOG_DEBUG("kmalloc %u bytes\n",blen * sizeof(void*));
     if (!(c->buf = kmalloc(blen * sizeof(void*),GFP_KERNEL))) return -ENOMEM;
     memset(c->buf,0,blen * sizeof(void*));
 
     dlen += SIZEOF_DSM_SAMPLE_HEADER;
     if (dlen % 4) dlen += 4 - dlen % 4;
+    KLOG_DEBUG("kmalloc %u bytes\n",blen * dlen);
     sp = kmalloc(blen * dlen,GFP_KERNEL);
     if (!sp) {
         kfree(c->buf);
@@ -113,7 +115,7 @@ nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
         }
         state->samplePtr = samplePtr;
         state->bytesLeft = bytesLeft;
-        KLOG_DEBUG("read return = %ld\n",countreq - count);
+        KLOG_DEBUG("read return = %u\n",countreq - count);
         return countreq - count;
 }
 
