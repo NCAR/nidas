@@ -86,7 +86,21 @@ private:
 
     int _period;
 
+    string configsXMLName;
+
+    static const char* rafXML;
+
+    static const char* isffXML;
+
+
 };
+
+/* static */
+const char* StatsProcess::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+
+/* static */
+const char* StatsProcess::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+
 
 int main(int argc, char** argv)
 {
@@ -365,6 +379,25 @@ int StatsProcess::run() throw()
         }
 
 	if (sockAddr.get()) {
+            if (!project.get()) {
+		const char* re = getenv("PROJ_DIR");
+		const char* pe = getenv("PROJECT");
+		const char* ae = getenv("AIRCRAFT");
+		const char* ie = getenv("ISFF");
+		if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
+		else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
+		if (configsXMLName.length() == 0)
+		    throw n_u::InvalidParameterException("environment variables",
+		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
+		ProjectConfigs configs;
+		configs.parseXML(configsXMLName);
+		cerr << "parsed:" <<  configsXMLName << endl;
+		// throws InvalidParameterException if no config for time
+		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+		project.reset(cfg->getProject());
+		cerr << "cfg=" <<  cfg->getName() << endl;
+		xmlFileName = cfg->getXMLName();
+            }
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !interrupted; i++) {
                 try {
@@ -380,7 +413,6 @@ int StatsProcess::run() throw()
 	    iochan = new nidas::core::Socket(sock);
         }
 	else {
-
 	    if (dataFileNames.size() == 0) {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
@@ -435,6 +467,12 @@ int StatsProcess::run() throw()
         if (!project.get()) {
             sis->readHeader();
             SampleInputHeader header = sis->getHeader();
+	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
+		    "software=" << header.getSoftwareVersion() << '\n' <<
+		    "project=" << header.getProjectName() << '\n' <<
+		    "system=" << header.getSystemName() << '\n' <<
+		    "config=" << header.getConfigName() << '\n' <<
+		    "configversion=" << header.getConfigVersion() << endl;
 
             // parse the config file.
             xmlFileName = header.getConfigName();

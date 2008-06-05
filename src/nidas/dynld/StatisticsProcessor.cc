@@ -142,7 +142,7 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
     vector<string> vnames;
     for (int i = 0; i < vparm->getLength(); i++) {
 	Variable* var = new Variable();
-	var->setName(vparm->getStringValue(i));
+	var->setName(Project::getInstance()->expandString(vparm->getStringValue(i)));
 	tag->addVariable(var);
     }
 

@@ -69,7 +69,7 @@ static int numboards_alloc = 0;
 static int numboards_dio = 0;
 
 /* ISA irqs, required for each board. Can be shared. */
-static int irqa[MAX_GPIO_MM_BOARDS] = { 3, 3, 3, 3, 3 };
+static int irqa[MAX_GPIO_MM_BOARDS] = { 3, 0, 0, 0, 0 };
 static int irqb[MAX_GPIO_MM_BOARDS] = { 0, 0, 0, 0, 0 };
 static int numirqa = 0;
 static int numirqb = 0;
@@ -1597,7 +1597,7 @@ void test_callback(void* ptr)
         sc -= hr * 3600;
         mn = sc / 60;
         sc -= mn * 60;
-        KLOG_DEBUG("callback %02d:%02d:%02d.%06ld, usecs=%d, diff=%6d\n",
+        KLOG_INFO("callback %02d:%02d:%02d.%06ld, usecs=%d, diff=%6d\n",
             hr,mn,sc,tv.tv_usec,cbd->cbh->usecs,diff);
         memcpy(&cbd->tv,&tv,sizeof(struct timeval));
 }
@@ -1658,7 +1658,7 @@ int gpio_mm_init(void)
         int ib;
         int chip;
         unsigned long addr;
-        unsigned char boardID;
+	unsigned char fpgaRev;
 
         board = 0;
 
@@ -1704,7 +1704,7 @@ int gpio_mm_init(void)
                 }
                 brd->ct_addr = addr;
                 result = -ENODEV;
-                boardID = inb(addr + GPIO_MM_RESET_ID);
+                brd->boardID = inb(addr + GPIO_MM_RESET_ID);
 
                 /* We'll try to be resilient here. If there does not seem
                  * to be a board at the given address, but one or more
@@ -1718,10 +1718,12 @@ int gpio_mm_init(void)
                  * will *mostly* work if the last configured board
                  * is removed. Better some data than none at all.
                  */
-                if (boardID != 0x11) {
-                    KLOG_ERR("Does not seem to be a GPIO-MM board present at ioport address %lx, ID read from %lx is %x (should be 0x11)\n",
+		// GPIO-MM boardID is 0x11, GPIO-MM-12 boardID is 0x12
+		// GPIO-MM-12 v1.00 manual is incorrect
+                if (brd->boardID != 0x11 && brd->boardID != 0x12) {
+                    KLOG_ERR("Does not seem to be a GPIO-MM board present at ioport address %lx, ID read from %lx is 0x%x (should be 0x11 or 0x12)\n",
                         ioports[ib],ioports[ib]+GPIO_MM_RESET_ID,
-                        boardID);
+                        brd->boardID);
                     if (ib == 0) goto err;      // nutt'in working
                     ioports[ib] = 0;
                     release_region(brd->ct_addr, GPIO_MM_CT_IOPORT_WIDTH);
@@ -1749,12 +1751,16 @@ int gpio_mm_init(void)
                 brd->irqs[0] = irqa[ib];
                 brd->irqs[1] = irqb[ib];
 
+		// read FPGA revision code
+                fpgaRev = inb(brd->ct_addr + GPIO_MM_FPGA_REV);
+		KLOG_INFO("GPIO-MM#%d, FPGA ID=%#x, FPGA rev=%#x\n",
+			ib,brd->boardID,fpgaRev);
                 // reset board
                 outb(0x01,brd->ct_addr + GPIO_MM_RESET_ID);
 
-                // wait a second for things to settle
+                // wait a 1/10 second for things to settle
                 set_current_state(TASK_INTERRUPTIBLE);
-                schedule_timeout(HZ);
+                schedule_timeout(HZ/10);
 
                 /* disable interrupts A and B */
                 outb(0x22,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
@@ -1785,7 +1791,19 @@ int gpio_mm_init(void)
 #endif
                 }
 
-                // choose high rate 20MHz clock
+                // Choose high rate 20MHz clock
+		// The GPIO-MM-12 manual makes one believe that
+		// the on-board input clock can tic at 40MHz,
+		// but it is a lie.  It is a 20MHz input, just
+		// like the GPIO-MM.
+		// This is with a GPIO-MM-12, FPGA ID=0x10, FPGA rev=0x10.
+		// The GPIO-MM-12 v1.00 manual also does not document
+		// writing to this register to select the clock rate,
+		// but it seems to be required. If one does not
+		// write a 0x1 to this register then one gets
+		// a 4MHz clock, just as with the GPIO-MM.
+		// As a hack, tried writing 0x2, resulted in a 4MHz clock.
+		// Writing 0x3, resulted in a 20MHz clock, as did 0xff.
                 outb(0x01,brd->ct_addr + GPIO_MM_FPGA_REV);
 
                 // todo: setup DIO
@@ -1810,10 +1828,10 @@ int gpio_mm_init(void)
 
 #ifdef DEBUG_CALLBACKS
         testcbd1.cbh = register_gpio_timer_callback(
-                test_callback,500000,&testcbd1,&result);
+                test_callback,USECS_PER_SEC/1,&testcbd1,&result);
         // testcbd2.cbh = register_gpio_timer_callback(
         //         test_callback,1000000,&testcbd2,&result);
-        KLOG_DEBUG("registered test callbacks, result=%d\n",
+        KLOG_INFO("registered test callbacks, result=%d\n",
             result);
 #endif
 

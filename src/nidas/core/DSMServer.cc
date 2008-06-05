@@ -117,6 +117,7 @@ int DSMServer::main(int argc, char** argv) throw()
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		project.reset(cfg->getProject());
+		xmlFileName = cfg->getXMLName();
 	    }
 	    else project.reset(parseXMLConfigFile(xmlFileName));
 	}

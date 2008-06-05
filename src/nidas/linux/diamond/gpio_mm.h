@@ -366,6 +366,8 @@ struct GPIO_MM
         int irq_users[2];               // number of irq users, 0=A,1=B
         int cntr_used[GPIO_MM_CNTR_PER_BOARD];             // 0=unused, 1=used
 
+	int boardID;
+
         /**
          * Settings of master mode registers for both 9513 chips
          */
