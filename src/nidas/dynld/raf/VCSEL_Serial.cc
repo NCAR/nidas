@@ -30,6 +30,8 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
+NIDAS_CREATOR_FUNCTION_NS(raf,VCSEL_Serial)
+
 VCSEL_Serial::VCSEL_Serial() : _atxRate(1)
 {
 }
