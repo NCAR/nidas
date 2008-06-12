@@ -327,7 +327,10 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(_temperatureTag->getId());
-    osamp->getDataPtr()[0] = *sp * DEGC_PER_CNT;
+
+    float value = *sp * DEGC_PER_CNT;
+    if (value > 256) value -= 512;
+    osamp->getDataPtr()[0] = value;
 
     result.push_back(osamp);
     return true;
