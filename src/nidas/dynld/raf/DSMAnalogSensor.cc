@@ -30,12 +30,37 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+const float DSMAnalogSensor::TemperatureChamberTemperatures[] = { 12, 22, 32, 42, 52, 62 };	// in Deg C.
+const float DSMAnalogSensor::TemperatureTableGain1[][N_DEG] =
+{
+  {-10.0,-10.0,-10.0,-10.0,-10.0,-10.0 },
+  { -9.0, -9.0, -9.0, -9.0, -9.0, -9.0 },
+  { -8.0, -8.0, -8.0, -8.0, -8.0, -8.0 },
+  { -7.0, -7.0, -7.0, -7.0, -7.0, -7.0 },
+  { -6.0, -6.0, -6.0, -6.0, -6.0, -6.0 },
+  { -5.0, -5.0, -5.0, -5.0, -5.0, -5.0 },
+  { -4.0, -4.0, -4.0, -4.0, -4.0, -4.0 },
+  { -3.0, -3.0, -3.0, -3.0, -3.0, -3.0 },
+  { -2.0, -2.0, -2.0, -2.0, -2.0, -2.0 },
+  { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 },
+  {  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
+  {  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 },
+  {  2.0,  2.0,  2.0,  2.0,  2.0,  2.0 },
+  {  3.0,  3.0,  3.0,  3.0,  3.0,  3.0 },
+  {  4.0,  4.0,  4.0,  4.0,  4.0,  4.0 },
+  {  5.0,  5.0,  5.0,  5.0,  5.0,  5.0 },
+  {  6.0,  6.0,  6.0,  6.0,  6.0,  6.0 },
+  {  7.0,  7.0,  7.0,  7.0,  7.0,  7.0 },
+  {  8.0,  8.0,  8.0,  8.0,  8.0,  8.0 },
+  {  9.0,  9.0,  9.0,  9.0,  9.0,  9.0 },
+  { 10.0, 10.0, 10.0, 10.0, 10.0, 10.0 },
+};
+
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),rtlinux(-1),
-    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    DEGC_PER_CNT(0.0625)
+    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -323,6 +348,7 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
     if (*sp++ != NCAR_A2D_TEMPERATURE_INDEX) return false;
 
     // cerr << "temperature=" << *sp << ", " << *sp * DEGC_PER_CNT << endl;
+//printf("%x %d %f\n", *sp, *sp, DEGC_PER_CNT * *sp);
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
@@ -330,7 +356,7 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
 
     float value = *sp * DEGC_PER_CNT;
     if (value > 256) value -= 512;
-    osamp->getDataPtr()[0] = value;
+    _currentTemperature = osamp->getDataPtr()[0] = value;
 
     result.push_back(osamp);
     return true;
@@ -413,6 +439,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             }
 
             float volts = getIntercept(ichan) + getSlope(ichan) * sval;
+//            float volts = voltageActual(getIntercept(ichan) + getSlope(ichan) * sval);
             const Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())
                 *fp = floatNAN;
@@ -477,10 +504,50 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
     }
 }
 
+
+float DSMAnalogSensor::voltageActual(float voltageMeasured)
+{
+    // Locate column
+    int col = 0;
+
+    if (_currentTemperature < TemperatureChamberTemperatures[0])
+    {
+        return voltageMeasured; // Can't extrapolate.  Probably should print warning.
+    }
+
+    for (col = 0; _currentTemperature >= TemperatureChamberTemperatures[col]; ++col)
+        ;
+
+    --col;
+
+    // Locate row
+    int row = 10 + (int)voltageMeasured;
+    if (voltageMeasured < 0.0)
+      --row;
+
+    float tempFract =
+        (_currentTemperature - TemperatureChamberTemperatures[col]) /
+        (TemperatureChamberTemperatures[col+1] - TemperatureChamberTemperatures[col]);
+
+    float voltFract = voltageMeasured - (int)voltageMeasured;
+
+    if (voltageMeasured < 0.0)
+        voltFract += 1.0;
+
+    // Interpolation in two dimensions.
+    float voltageActual =
+        (1.0 - voltFract) * (1.0 - tempFract) * TemperatureTableGain1[row][col] +
+        voltFract * (1.0 - tempFract) * TemperatureTableGain1[row+1][col] +
+        voltFract * tempFract * TemperatureTableGain1[row+1][col+1] +
+        (1.0 - voltFract) * tempFract * TemperatureTableGain1[row][col+1];
+
+    return voltageActual;
+}
+
+
 void DSMAnalogSensor::addSampleTag(SampleTag* tag)
         throw(n_u::InvalidParameterException)
 {
-
     A2DSensor::addSampleTag(tag);
 
     const Parameter* tparm = tag->getParameter("temperature");
