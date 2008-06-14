@@ -23,7 +23,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,MOSMote)
 
-MOSMote::MOSMote():_tsyncPeriodSecs(3600) 
+MOSMote::MOSMote():_tsyncPeriodSecs(3600),_ncallBack(0)
 {
 }
 
@@ -56,6 +56,9 @@ void MOSMote::looperNotify() throw()
     sprintf(outmsg,"%8d\n",msec);
 
     cerr << "MOSMote looper callback, msec=" << msec << endl;
+    if (!(_ncallBack++ %  30))
+	n_u::Logger::getInstance()->log(LOG_INFO,"%s: looperNotify, msec %d",
+	    getName().c_str(),msec);
 
     try {
 	if (getWriteFd() >= 0) write(outmsg,strlen(outmsg));

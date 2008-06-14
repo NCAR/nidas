@@ -219,7 +219,7 @@ void GOESOutput::init() throw()
     if (goesXmtr->getId() == 0) {
         const Parameter* ids = project->getParameter("goes_ids");
 	if (ids->getLength() > stationNumber)
-	    goesXmtr->setId((unsigned long)
+	    goesXmtr->setId((unsigned int)
 	    	ids->getNumericValue(stationNumber));
 	else
 	    n_u::Logger::getInstance()->log(LOG_ERR,
@@ -292,8 +292,8 @@ void GOESOutput::init() throw()
 	SampleTag* otag = *si;
 	SampleT<float>* osamp = getSample<float>(otag->getVariables().size());
 
-	long periodUsec =
-	    (long)rint(otag->getPeriod()) * USECS_PER_SEC;
+	unsigned int periodUsec =
+	    (unsigned int)rint(otag->getPeriod()) * USECS_PER_SEC;
 
 	// time of next sample
 	n_u::UTime tnext = tnow.toUsecs() -
@@ -377,13 +377,13 @@ void GOESOutput::interrupt()
 
 int GOESOutput::run() throw(n_u::Exception)
 {
-    unsigned int periodUsec = getXmitInterval() * USECS_PER_SEC;
-    unsigned int offsetUsec = getXmitOffset() * USECS_PER_SEC;
+    unsigned int periodMsec = getXmitInterval() * MSECS_PER_SEC;
+    unsigned int offsetMsec = getXmitOffset() * MSECS_PER_SEC;
 
 
-    // When this thread wakes up - number of usecs after the
+    // When this thread wakes up - number of msecs after the
     // time of the XmitInterval.
-    unsigned int wakeOffUsec = 10 * USECS_PER_SEC;
+    unsigned int wakeOffMsec = 10 * MSECS_PER_SEC;
 
     // The input samples to GOESOutput typically come
     // from the StatisticsProcessor.  The samples out of
@@ -396,10 +396,10 @@ int GOESOutput::run() throw(n_u::Exception)
     // If the max sampling rate for the variables in a statistics
     // group is low (e.g. radiation data with a deltaT of 5 sec)
     // this delay can be quite long.
-    // To minimize missing this data, wakeOffUsec is 10 secs.
+    // To minimize missing this data, wakeOffMsec is 10 secs.
     // We currently have plenty of time available to transmit
     // data over GOES.  If we put more stations and more data
-    // on one channel then this value for wakeOffUsec will have
+    // on one channel then this value for wakeOffMsec will have
     // to be reduced.
 
     try {
@@ -418,7 +418,7 @@ int GOESOutput::run() throw(n_u::Exception)
     goesXmtr->printStatus();	// no exception
 
     for (; !interrupted; ) {
-	if (Looper::sleepUntil(periodUsec,wakeOffUsec)) break;
+	if (Looper::sleepUntil(periodMsec,wakeOffMsec)) break;
 
 	n_u::UTime tnow;
 #ifdef DEBUG
@@ -438,8 +438,9 @@ int GOESOutput::run() throw(n_u::Exception)
 	    SampleTag* otag = *si;
 	    SampleT<float>* osamp =
 	    	getSample<float>(otag->getVariables().size());
-	    long periodUsec =
-	    	(long)rint(otag->getPeriod()) * USECS_PER_SEC;
+	    // overflows at something over an hour
+	    unsigned int periodUsec =
+	    	(unsigned int)rint(otag->getPeriod()) * USECS_PER_SEC;
 
 	    // time of next sample
 	    n_u::UTime tnext = tnow.toUsecs() -
@@ -467,8 +468,8 @@ int GOESOutput::run() throw(n_u::Exception)
 	    cerr << endl;
 #endif
 
-	    n_u::UTime tsend(osamp->getTimeTag() + periodUsec / 2 +
-		    offsetUsec);
+	    n_u::UTime tsend(osamp->getTimeTag() + (periodMsec * USECS_PER_MSEC) / 2 +
+		    offsetMsec * USECS_PER_MSEC);
 	    if (tsend < tnow) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "Bad time tag: %s, in tnow=%s,tsend=%s",

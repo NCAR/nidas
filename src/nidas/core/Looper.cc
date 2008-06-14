@@ -44,31 +44,32 @@ void Looper::removeInstance()
     instance = 0;
     instanceMutex.unlock();
 }
-Looper::Looper(): n_u::Thread("Looper"),sleepUsec(0)
+Looper::Looper(): n_u::Thread("Looper"),sleepMsec(0)
 {
 }
 
-void Looper::addClient(LooperClient* clnt, int msecPeriod)
+void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)
+	throw(n_u::InvalidParameterException)
 {
-    if (msecPeriod <= 0) return;
-    n_u::Synchronized autoLock(clientMutex);
 
-    // round to nearest 10 milliseconds, which should
-    // match the precision of the system nanosleep.
+    if (msecPeriod < 5) throw n_u::InvalidParameterException(
+    	"Looper","addClient","requested callback period is too small ");
+    // round to nearest 10 milliseconds, which better
+    // matches the precision of the system nanosleep.
     msecPeriod += 5;
     msecPeriod = msecPeriod - msecPeriod % 10;
 
-    unsigned int usecPeriod = msecPeriod * USECS_PER_MSEC;
+    n_u::Synchronized autoLock(clientMutex);
 
     map<unsigned int,std::set<LooperClient*> >::iterator
-    	ci = clientsByPeriod.find(usecPeriod);
+    	ci = clientsByPeriod.find(msecPeriod);
 
     if (ci != clientsByPeriod.end()) ci->second.insert(clnt);
     else {
 	/* new period value */
         set<LooperClient*> clnts;
 	clnts.insert(clnt);
-	clientsByPeriod[usecPeriod] = clnts;
+	clientsByPeriod[msecPeriod] = clnts;
     }
     setupClientMaps();
 }
@@ -140,28 +141,28 @@ void Looper::setupClientMaps()
 	clientsByCntrMod[cntrMod] = clnts;
 	cntrMods.insert(cntrMod);
     }
-    sleepUsec = sleepval;
+    sleepMsec = sleepval;
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"Looper, sleepUsec=%d",sleepUsec);
+	"Looper, sleepMsec=%d",sleepMsec);
 
     if (!isRunning()) start();
 }
 
 /* static */
-bool Looper::sleepUntil(unsigned int periodUsec,unsigned int offsetUsec)
+bool Looper::sleepUntil(unsigned int periodMsec,unsigned int offsetMsec)
 	throw(n_u::IOException)
 {
     struct timespec sleepTime;
     /*
-     * sleep until an even number of periodUsec since 
+     * sleep until an even number of periodMsec since 
      * creation of the universe (Jan 1, 1970 0Z).
      */
     dsm_time_t tnow = getSystemTime();
-    unsigned int uSecVal =
-      periodUsec - (unsigned int)(tnow % periodUsec) + offsetUsec;
+    unsigned int mSecVal =
+      periodMsec - (unsigned int)((tnow / USECS_PER_MSEC) % periodMsec) + offsetMsec;
 
-    sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
-    sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
+    sleepTime.tv_sec = mSecVal / MSECS_PER_SEC;
+    sleepTime.tv_nsec = (mSecVal % MSECS_PER_SEC) * NSECS_PER_MSEC;
     if (::nanosleep(&sleepTime,0) < 0) {
 	if (errno == EINTR) return true;
 	throw n_u::IOException("Looper","nanosleep",errno);
@@ -175,20 +176,13 @@ bool Looper::sleepUntil(unsigned int periodUsec,unsigned int offsetUsec)
 
 int Looper::run() throw(n_u::Exception)
 {
-    if (sleepUntil(sleepUsec)) return RUN_OK;
+    if (sleepUntil(sleepMsec)) return RUN_OK;
 
     n_u::Logger::getInstance()->log(LOG_INFO,
-    	"Looper starting, sleepUsec=%d", sleepUsec);
+    	"Looper starting, sleepMsec=%d", sleepMsec);
     while (!amInterrupted()) {
-
-	/*
-	 * maximum value of sleepUsec is 3600x10^6.
-	 * minimum value is 10^4
-	 * So max value for cntr is  86400*10^6/10^4 = 9*10^6
-	 *    min value for cntr is  86400*10^6/3600*10^6 = 24
-	 */
-	dsm_time_t tnow = getSystemTime();
-	int cntr = (tnow % USECS_PER_DAY) / sleepUsec;
+	dsm_time_t tnow = getSystemTime() / USECS_PER_MSEC;
+	unsigned int cntr = (unsigned int)(tnow % MSECS_PER_DAY) / sleepMsec;
 
 	clientMutex.lock();
 	// make a copy of the list
@@ -212,7 +206,7 @@ int Looper::run() throw(n_u::Exception)
 		}
 	    }
 	}
-	if (sleepUntil(sleepUsec)) return RUN_OK;
+	if (sleepUntil(sleepMsec)) return RUN_OK;
     }
     return RUN_OK;
 }

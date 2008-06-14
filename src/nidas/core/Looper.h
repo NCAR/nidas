@@ -24,6 +24,7 @@
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
+#include <nidas/util/InvalidParameterException.h>
 
 #include <sys/time.h>
 #include <sys/select.h>
@@ -54,12 +55,13 @@ public:
      * Add a client to the Looper whose
      * LooperClient::looperNotify() method should be
      * called every msec number of milliseconds.
-     * @param msec Time period, in milliseconds.
+     * @param msecPeriod Time period, in milliseconds.
      * Since the system nanosleep function is only precise
      * to about 10 milliseconds, and to reduce system load,
      * this value is rounded to the nearest 10 milliseconds.
      */
-    void addClient(LooperClient *clnt,int msecPeriod);
+    void addClient(LooperClient *clnt,unsigned int msecPeriod)
+    	throw(nidas::util::InvalidParameterException);
 
     /**
      * Remove a client from the Looper.
@@ -74,7 +76,7 @@ public:
     /**
      * Utility function, sleeps until the next even period + offset.
      */
-    static bool sleepUntil(unsigned int periodUsec,unsigned int offsetUsec=0)
+    static bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
     	throw(nidas::util::IOException);
 
     /**
@@ -103,7 +105,7 @@ private:
 
     std::set<int> cntrMods;
 
-    unsigned int sleepUsec;
+    unsigned int sleepMsec;
 };
 
 }}	// namespace nidas namespace core

@@ -48,6 +48,8 @@ public:
 private:
     unsigned int _tsyncPeriodSecs;
 
+    unsigned int _ncallBack;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
