@@ -15,6 +15,7 @@
 #define NIDAS_DYNLD_ISFF_MOSMOTE_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/LooperClient.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -29,8 +30,24 @@ class MOSMote: public nidas::dynld::DSMSerialSensor
 {
 public:
 
+    MOSMote();
+
+    void open(int flags)
+    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+
+    void close() throw(nidas::util::IOException);
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
+
+    /**
+     * LooperClient virtual method.
+     */
+    void looperNotify() throw();
+
+private:
+    unsigned int _tsyncPeriodSecs;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

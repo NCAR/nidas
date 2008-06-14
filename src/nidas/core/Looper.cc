@@ -80,30 +80,27 @@ void Looper::removeClient(LooperClient* clnt)
     map<unsigned int,std::set<LooperClient*> >::iterator
     	ci = clientsByPeriod.begin();
 
-    bool haveClients = false;
+    bool foundClient = false;
     for ( ; ci != clientsByPeriod.end(); ++ci) {
         set<LooperClient*>::iterator si = ci->second.find(clnt);
-	if (si != ci->second.end()) ci->second.erase(si);
-	if (ci->second.size() > 0) haveClients = true;
-    }
-    clientsByCntrMod.clear();
-
-    if (!haveClients) {
-	clientsByCntrMod.clear();
-	clientMutex.unlock();
-        if (isRunning()) {
-	    interrupt();
-            if (Thread::currentThreadId() != getId()) {
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "No clients for Looper, doing cancel, join");
-                cancel();
-                join();
-            }
+	if (si != ci->second.end()) {
+	    ci->second.erase(si);
+	    foundClient = true;
 	}
-	return;
     }
-    setupClientMaps();
+    if (foundClient) setupClientMaps();
+    bool haveClients = cntrMods.size() > 0;
     clientMutex.unlock();
+
+    if (!haveClients && isRunning()) {
+	interrupt();
+	if (Thread::currentThreadId() != getId()) {
+	    n_u::Logger::getInstance()->log(LOG_INFO,
+		"No clients for Looper, doing cancel, join");
+	    cancel();
+	    join();
+	}
+    }
 }
 
 /* Use Euclidian resursive algorimthm to find greatest common divisor.
@@ -120,19 +117,22 @@ void Looper::setupClientMaps()
     unsigned int sleepval = 0;
 
     /* determine greatest common divisor of periods */
-    for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ++ci) {
-        if (ci->second.size() == 0) continue;
-        unsigned int per = ci->first;
-        if (sleepval == 0) sleepval = per;
-        else sleepval = gcd(sleepval,per);
+    for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ) {
+        if (ci->second.size() == 0) clientsByPeriod.erase(ci++);
+	else {
+	    unsigned int per = ci->first;
+	    if (sleepval == 0) sleepval = per;
+	    else sleepval = gcd(sleepval,per);
+	    ++ci;
+	}
     }
-    if (sleepval == 0) return;      // no clients
-    n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"Looper client sleepval=%d",sleepval);
 
     clientsByCntrMod.clear();
+    cntrMods.clear();
+    if (sleepval == 0) return;      // no clients
+
     for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ++ci) {
-	if (ci->second.size() == 0) continue;
+	assert (ci->second.size() > 0);
 	unsigned int per = ci->first;
 	assert((per % sleepval) == 0);
 	int cntrMod = per / sleepval;
@@ -141,6 +141,8 @@ void Looper::setupClientMaps()
 	cntrMods.insert(cntrMod);
     }
     sleepUsec = sleepval;
+    n_u::Logger::getInstance()->log(LOG_INFO,
+	"Looper, sleepUsec=%d",sleepUsec);
 
     if (!isRunning()) start();
 }
@@ -175,7 +177,7 @@ int Looper::run() throw(n_u::Exception)
 {
     if (sleepUntil(sleepUsec)) return RUN_OK;
 
-    n_u::Logger::getInstance()->log(LOG_DEBUG,
+    n_u::Logger::getInstance()->log(LOG_INFO,
     	"Looper starting, sleepUsec=%d", sleepUsec);
     while (!amInterrupted()) {
 
