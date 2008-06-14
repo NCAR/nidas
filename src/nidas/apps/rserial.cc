@@ -659,7 +659,7 @@ void RemoteSerial::charout(char c)
 	if (isprint(c)) putc(c,stdout);
 	else if (c == '\r') printf("\\r");
 	else if (c == '\n') printf("\\n");
-	else printf("\\%#02x",(unsigned char)c);
+	else printf("\\%#04x",(unsigned char)c);
 	break;
     }
 }
