@@ -31,11 +31,11 @@ ParoSci_202BG_P::ParoSci_202BG_P() : DSC_FreqCounter(),
     _U0(floatNAN),_periodUsec(floatNAN),_lastSampleTime(0),
         _tempSensorId(0),_tempSensor(0)
 {
-    for (int i = 0; i < sizeof(_C)/sizeof(_C[0]); i++)
+    for (unsigned int i = 0; i < sizeof(_C)/sizeof(_C[0]); i++)
         _C[i] = floatNAN;
-    for (int i = 0; i < sizeof(_D)/sizeof(_D[0]); i++)
+    for (unsigned int i = 0; i < sizeof(_D)/sizeof(_D[0]); i++)
         _D[i] = floatNAN;
-    for (int i = 0; i < sizeof(_T)/sizeof(_T[0]); i++)
+    for (unsigned int i = 0; i < sizeof(_T)/sizeof(_T[0]); i++)
         _T[i] = floatNAN;
 }
 

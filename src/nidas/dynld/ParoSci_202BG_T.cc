@@ -30,7 +30,7 @@ ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
     _U0(floatNAN),_periodUsec(floatNAN),_lastSampleTime(0),
     _presSensorId(0),_presSensor(0)
 {
-    for (int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
+    for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
         _Y[i] = floatNAN;
 }
 
