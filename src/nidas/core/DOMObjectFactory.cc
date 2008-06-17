@@ -14,9 +14,9 @@
 */
 
 
+#include <nidas/util/Logger.h>
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/core/DynamicLoader.h>
-#include <nidas/util/Logger.h>
 
 #include <vector>
 #include <sstream>
