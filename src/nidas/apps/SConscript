@@ -110,6 +110,4 @@ for i in nlapps:
 for i in nuapps:
     nodes += myenv.Program(source=i,LIBS=libutil)
 
-# nodes += myenv.Program(target="isff/set_emerald",source="isff/set_emerald.c",LIBS=[])
-
 myenv.Install('$PREFIX/bin',nodes)

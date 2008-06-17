@@ -74,6 +74,8 @@ static int irqb[MAX_GPIO_MM_BOARDS] = { 0, 0, 0, 0, 0 };
 static int numirqa = 0;
 static int numirqb = 0;
 
+static int clockHZ = GPIO_MM_CT_CLOCK_HZ;
+
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports_dio,ulong,&numboards_dio,0);
 module_param_array(ioports,ulong,&numboards,0);
@@ -85,6 +87,8 @@ module_param_array(ioports,ulong,numboards,0);
 module_param_array(irqa,int,numirqa,0);
 module_param_array(irqb,int,numirqb,0);
 #endif
+
+module_param(clockHZ,int,0);
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -407,7 +411,7 @@ static int check_timer_interval(struct GPIO_MM*brd, unsigned int usecs)
                     brd->num,usecs);
                 return -EINVAL;
         }
-        tics = GPIO_MM_CT_CLOCK_HZ / USECS_PER_SEC * usecs;
+        tics = clockHZ / USECS_PER_SEC * usecs;
 
         /* Compute BCD scaler of F1 clock.
          * Initially we may wait as much as two periods.
@@ -436,7 +440,7 @@ static void set_ticks(struct GPIO_MM_timer* timer,unsigned int usecs,
                 unsigned short initial_tics;
                 unsigned int initial_usecs;
                 initial_usecs = 2 * usecs - (tv.tv_usec % usecs);
-                initial_tics = GPIO_MM_CT_CLOCK_HZ / USECS_PER_SEC * initial_usecs /
+                initial_tics = clockHZ / USECS_PER_SEC * initial_usecs /
                     timer->scaler;
                 timer->tick =
                     ((tv.tv_usec + initial_usecs - usecs) / usecs) % timer->tickLimit;
@@ -477,7 +481,12 @@ static void start_gpio_timer(struct GPIO_MM_timer* timer,
         /* overflow of this should have been checked already 
          * by check_timer_interval.
          */
-        tics = GPIO_MM_CT_CLOCK_HZ / USECS_PER_SEC * usecs;
+        /* clock on one card was actually 19,999,962 Hz
+         * After a time of X seconds, the GPIO clock 
+         * will be slow by X*(38/20000000) = X * 1.9E-6 seconds
+         * This is about 1 second in 6 days.
+         */
+        tics = clockHZ / USECS_PER_SEC * usecs;
 
         /* Compute BCD scaler of F1 clock.
          * Initially we may wait as much as two periods.
@@ -1001,15 +1010,15 @@ static int gpio_mm_stop_fcntr(struct GPIO_MM_fcntr* fcntr)
  *    registers.
  * 2. Get the values of the hold registers.
  * 3. Look at the status of the pulse counter output. 
- *    If it is low, then either it didn't get one count or
+ *    If it is high, then either it didn't get one count or
  *    it is finished counting. In either case the value of the
  *    pulse counter will be 3. According to the CTS9513 doc,
  *    When it finishes counting it reloads itself from the load
- *    register, which has value 3).  Actuall 
- *    Actually it appears to be 2 in that case.
- *    To differentiate between these cases we look at the number of
+ *    register, which has value 3, but actually it appears to be 2
+ *    in that case.
+ *    To differentiate between these cases we can also look at the number of
  *    tics counted, which should be 0 if there were no pulses.
- *    If the output is high, then it hasn't finished counting numPulses,
+ *    If the output is low, then it hasn't finished counting numPulses,
  *    and the value of the counter will be the number of pulses left
  *    to count.
  * 4. Determine the total number of F1 MHz tics from the other 2 counter
@@ -1664,6 +1673,14 @@ int gpio_mm_init(void)
 
         // DSM_VERSION_STRING is found in dsm_version.h
         KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
+
+        // check for reasonable clock rate. Don't expect an error > 1%
+        if (clockHZ < (GPIO_MM_CT_CLOCK_HZ * 99)/100 ||
+            clockHZ > (GPIO_MM_CT_CLOCK_HZ * 101)/100) {
+                KLOG_ERR("Bad clock rate module parameter: %d Hz. Is it really that different from %d?\n",
+                clockHZ,GPIO_MM_CT_CLOCK_HZ);
+            goto err;
+        }
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < numboards_dio; ib++)

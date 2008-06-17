@@ -190,6 +190,17 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    static float inline eval(float x,float *p, int np)
+    {
+        double y = 0.0;
+        for (int i = np - 1; i > 0; i--) {
+            y += p[i];
+            y *= x;
+        }
+        y += p[0];
+        return y;
+    }
+
 protected:
 
     dsm_time_t calTime;
