@@ -342,6 +342,10 @@ static void gpio_mm_set_toggle_out(struct GPIO_MM* brd, int icntr)
             brd->ct_addr + GPIO_MM_9513_PTR(chip));
 }
 
+#ifdef __GNUC__
+static void gpio_mm_clear_toggle_out(struct GPIO_MM* brd, int icntr)
+  __attribute__((__unused__));
+#endif
 static void gpio_mm_clear_toggle_out(struct GPIO_MM* brd, int icntr)
 {
         /* which 9513 chip */
