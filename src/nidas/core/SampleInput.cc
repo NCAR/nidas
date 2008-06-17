@@ -164,7 +164,7 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
 
     sensorMapMutex.lock();
-    map<unsigned long,DSMSensor*>::const_iterator sensori
+    map<unsigned int,DSMSensor*>::const_iterator sensori
 	    = sensorMap.find(sampid);
 
     if (sensori != sensorMap.end()) {

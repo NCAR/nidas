@@ -111,7 +111,7 @@ public:
     /**
      * Find a DSM by id.
      */
-    const DSMConfig* findDSM(unsigned long id) const;
+    const DSMConfig* findDSM(unsigned int id) const;
 
     /**
      * Find a DSM by name.
@@ -121,7 +121,7 @@ public:
     /**
      * Find a DSMSensor by the full id, both the DSM id and the sensor id.
      */
-    DSMSensor* findSensor(unsigned long id) const;
+    DSMSensor* findSensor(unsigned int id) const;
 
     /**
      * Initialize all sensors for a Site.

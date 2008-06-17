@@ -61,7 +61,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    dsm_time_t tnow = clock->getTime();
 
 	    // wakeup (approx) 100 usecs after exact period time
-	    long tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
+	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
 	    // cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
@@ -192,8 +192,8 @@ int DSMServerStat::run() throw(n_u::Exception)
 #endif
 
     /* sleep a bit so that we're on an even interval boundary */
-    unsigned long uSecVal =
-      uSecPeriod - (unsigned long)(getSystemTime() % uSecPeriod);
+    unsigned int uSecVal =
+      uSecPeriod - (unsigned int)(getSystemTime() % uSecPeriod);
 
 #ifdef USE_NANOSLEEP
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
@@ -255,7 +255,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 
             // sleep until the next interval...
             uSecVal =
-	      uSecPeriod - (unsigned long)(getSystemTime() % uSecPeriod);
+	      uSecPeriod - (unsigned int)(getSystemTime() % uSecPeriod);
 #ifdef USE_NANOSLEEP
             sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
             sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;

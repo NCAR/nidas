@@ -129,7 +129,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 
     const string& idstr = xnode.getAttributeValue("id");
     if (idstr.length() > 0) {
-	unsigned long id;
+	unsigned int id;
 	istringstream ist(idstr);
 	ist >> id;
 	if (ist.fail()) throw n_u::InvalidParameterException(
@@ -340,8 +340,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     }
 
     // check for sensor ids which have value less than 10, or are not unique.
-    typedef map<unsigned long,DSMSensor*> sens_map_t;
-    typedef map<unsigned long,DSMSensor*>::const_iterator sens_map_itr_t;
+    typedef map<unsigned int,DSMSensor*> sens_map_t;
+    typedef map<unsigned int,DSMSensor*>::const_iterator sens_map_itr_t;
     sens_map_t sensorIdCheck;
     sens_map_t sampleIdCheck;
 
@@ -354,7 +354,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		"id","must be non-zero");
 
 	pair<sens_map_itr_t,bool> ins = sensorIdCheck.insert(
-		make_pair<unsigned long,DSMSensor*>(sensor->getId(),sensor));
+		make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
 	if (!ins.second) {
 	    ostringstream ost;
 	    ost << sensor->getId() <<
@@ -369,7 +369,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	// check the sensor ids (which become the ids of the raw samples)
 	// against the sample ids of all other sensors.
 	ins = sampleIdCheck.insert(
-	    make_pair<unsigned long,DSMSensor*>(sensor->getId(),sensor));
+	    make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
 	if (!ins.second) {
 	    ostringstream ost;
 	    ost << sensor->getId();
@@ -390,7 +390,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 			"sample id","must be non-zero");
 
 	    ins = sampleIdCheck.insert(
-		make_pair<unsigned long,DSMSensor*>(stag->getId(),sensor));
+		make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
 	    if (!ins.second) {
 		ostringstream ost;
 		ost << stag->getId();

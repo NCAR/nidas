@@ -97,7 +97,7 @@ public:
     /**
      * Find a DSM matching id;
      */
-    const DSMConfig* findDSM(unsigned long id) const;
+    const DSMConfig* findDSM(unsigned int id) const;
 
     std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets(
 	const std::string& hostName) const;
@@ -127,7 +127,7 @@ public:
      * ids is not saved anywhere, and so they are meant to be
      * used for temporary connections, not for archived samples.
      */
-    dsm_sample_id_t getUniqueSampleId(unsigned long dsmid);
+    dsm_sample_id_t getUniqueSampleId(unsigned int dsmid);
 
     void setSensorCatalog(SensorCatalog* val) { sensorCatalog = val; }
     SensorCatalog* getSensorCatalog() const { return sensorCatalog; }

@@ -110,7 +110,7 @@ void DSMSerialSensor::rtlDevInit(int flags)
     // cerr << "DSMSER_TCSETS, SIZEOF=" << SIZEOF_TERMIOS << endl;
     ioctl(DSMSER_TCSETS,(void*)getTermios(),SIZEOF_TERMIOS);
 
-    long latencyUsecs = (long)(getLatency() * USECS_PER_SEC);
+    int latencyUsecs = (int)(getLatency() * USECS_PER_SEC);
     ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
     setMessageParameters();

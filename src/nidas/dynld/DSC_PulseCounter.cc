@@ -119,7 +119,7 @@ bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results
     throw()
 {
     // count is a four byte, little endian integer.
-    if (insamp->getDataByteLength() != sizeof(long)) return false;
+    if (insamp->getDataByteLength() != sizeof(int)) return false;
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
@@ -127,7 +127,7 @@ bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results
     float *fp = osamp->getDataPtr();
 
     // Note: we lose digits here when converting
-    // from unsigned long to floats.
+    // from unsigned int to floats.
     *fp = (float)cvtr->uint32Value(insamp->getConstVoidDataPtr());
 
     results.push_back(osamp);

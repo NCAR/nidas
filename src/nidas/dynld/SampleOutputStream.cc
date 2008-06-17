@@ -274,7 +274,7 @@ void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "heapMax") {
 	        istringstream ist(aval);
-		unsigned long len;
+		size_t len;
 		ist >> len;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(

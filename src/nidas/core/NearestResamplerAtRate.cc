@@ -91,7 +91,7 @@ void NearestResamplerAtRate::connect(SampleInput* input)
     	throw n_u::IOException(input->getName(),"NearestResamplerAtRate",
 		"cannot have more than one input");
 
-    long dsmid = -1;
+    int dsmid = -1;
 
     // make a copy of input's SampleTags collection.
     list<const SampleTag*> intags(input->getSampleTags().begin(),

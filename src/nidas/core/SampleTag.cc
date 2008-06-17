@@ -154,7 +154,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    istringstream ist(aval);
 
 	    if (aname == "id") {
-		unsigned long val;
+		unsigned int val;
 		// If you unset the dec flag, then a leading '0' means
 		// octal, and 0x means hex.
 		ist.unsetf(ios::dec);

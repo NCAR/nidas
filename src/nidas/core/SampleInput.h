@@ -152,7 +152,7 @@ protected:
 
     std::string name;
 
-    std::map<unsigned long int, DSMSensor*> sensorMap;
+    std::map<unsigned int, DSMSensor*> sensorMap;
 
     std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
 

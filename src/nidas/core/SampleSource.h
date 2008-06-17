@@ -70,11 +70,11 @@ public:
     /**
      * How many samples have been distributed by this SampleSource.
      */
-    unsigned long getNumSamplesSent() const throw() {
+    size_t getNumSamplesSent() const throw() {
         return numSamplesSent;
     }
 
-    virtual void setNumSamplesSent(unsigned long val) throw() {
+    virtual void setNumSamplesSent(size_t val) throw() {
         numSamplesSent = val;
     }
 
@@ -119,7 +119,7 @@ private:
     /**
      * Number of samples distributed.
      */
-    int numSamplesSent;
+    size_t numSamplesSent;
 
 };
 

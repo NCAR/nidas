@@ -785,7 +785,7 @@ void StatisticsCruncher::zeroStats()
 void StatisticsCruncher::attach(SampleSource* src)
 {
     int nvarMatch = 0;
-    long dsmid = -1;
+    int dsmid = -1;
     bool oneDSM = true;
 
     // make a copy of src's SampleTags collection.

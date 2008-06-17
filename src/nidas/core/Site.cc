@@ -306,7 +306,7 @@ const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
     return 0;
 }
 
-const DSMConfig* Site::findDSM(unsigned long id) const
+const DSMConfig* Site::findDSM(unsigned int id) const
 {
     for (list<const DSMConfig*>::const_iterator di=dsms.begin();
 	di != dsms.end(); ++di) {
@@ -333,7 +333,7 @@ const DSMConfig* Site::findDSM(const string& name) const
     return 0;
 }
 
-DSMSensor* Site::findSensor(unsigned long id) const
+DSMSensor* Site::findSensor(unsigned int id) const
 {
     SensorIterator si = getSensorIterator();
     for ( ; si.hasNext(); ) {

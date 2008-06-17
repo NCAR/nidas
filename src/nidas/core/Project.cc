@@ -275,7 +275,7 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
     return 0;
 }
 
-const DSMConfig* Project::findDSM(unsigned long id) const
+const DSMConfig* Project::findDSM(unsigned int id) const
 {
     {
 	n_u::Synchronized autolock(lookupLock);
@@ -466,7 +466,7 @@ string Project::getEnvVar(const string& token)
     else return string("${") + token + "}";      // unknown value, return original token
 }
 
-dsm_sample_id_t Project::getUniqueSampleId(unsigned long dsmid)
+dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 {
     n_u::Synchronized autolock(sensorMapLock);
     set<dsm_sample_id_t> ids;
