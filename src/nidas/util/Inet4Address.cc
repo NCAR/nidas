@@ -277,9 +277,9 @@ Inet4Address Inet4Address::getByName(const string& hostname)
  */
 int Inet4Address::bitsMatch(const Inet4Address& x) const throw()
 {
-    unsigned long addr1 = ntohl(inaddr.s_addr);
-    unsigned long addr2 = ntohl(x.inaddr.s_addr);
-    unsigned long match = addr1 ^ addr2;
+    unsigned int addr1 = ntohl(inaddr.s_addr);
+    unsigned int addr2 = ntohl(x.inaddr.s_addr);
+    unsigned int match = addr1 ^ addr2;
     int i;
     for (i = 32; match > 0 ; i--) match >>= 1;
     return i;

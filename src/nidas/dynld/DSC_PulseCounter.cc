@@ -128,7 +128,7 @@ bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results
 
     // Note: we lose digits here when converting
     // from unsigned long to floats.
-    *fp = (float)cvtr->ulongValue(insamp->getConstVoidDataPtr());
+    *fp = (float)cvtr->uint32Value(insamp->getConstVoidDataPtr());
 
     results.push_back(osamp);
 

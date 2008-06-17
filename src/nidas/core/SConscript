@@ -219,22 +219,22 @@ sources = Split("""
     XmlRpcThread.cc
 """)
 
-
+# r"xxx" is a raw string, escape sequences are left alone
 dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
 
 dyn_sources = [ sources, myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
-stc_sources = [ sources, myenv.StaticObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+# stc_sources = [ sources, myenv.StaticObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
 
 ##
 ##  Build the libnidas library.  Include the util objects directly.
 ##
 # lib = myenv.SharedLibrary('nidas' , [ sources, utilobjs] )
 lib = myenv.SharedLibrary('nidas' , [ dyn_sources ] + env['NIDAS_UTIL_OBJECTS'] )
-slib = myenv.StaticLibrary('nidas' , [ stc_sources ] + env['NIDAS_UTIL_OBJECTS'] )
+# slib = myenv.StaticLibrary('nidas' , [ stc_sources ] + env['NIDAS_UTIL_OBJECTS'] )
 
 ##
 ## Install target for library.
 ##
 myenv.Install('$PREFIX/lib',lib)
-myenv.Install('$PREFIX/lib',slib)
+# myenv.Install('$PREFIX/lib',slib)
 myenv.Install('$PREFIX/include/nidas/core',headers)

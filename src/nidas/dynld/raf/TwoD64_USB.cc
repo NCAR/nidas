@@ -86,14 +86,14 @@ throw(n_u::InvalidParameterException)
 bool TwoD64_USB::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    if (samp->getDataByteLength() < 2 * sizeof (long))
+    if (samp->getDataByteLength() < 2 * sizeof (int32_t))
         return false;
 
-    const unsigned long *lptr =
-        (const unsigned long *) samp->getConstVoidDataPtr();
+    const int32_t *lptr =
+        (const int32_t *) samp->getConstVoidDataPtr();
 
-    /*int stype =*/ bigEndian->longValue(*lptr++);
-    long sor = bigEndian->longValue(*lptr++);
+    /*int stype =*/ bigEndian->int32Value(*lptr++);
+    int sor = bigEndian->int32Value(*lptr++);
 
     size_t nvalues = 1;
     SampleT < float >*outs = getSample < float >(nvalues);
@@ -121,8 +121,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 {
     bool rc = false;	// return code.
 
-    if (samp->getDataByteLength() < 2 * sizeof (long) + 512 * sizeof (long long))
-        return rc;
+    if (samp->getDataByteLength() < 2 * sizeof (int32_t) +
+        512 * sizeof (long long)) return rc;
 
     unsigned long long startTime = _prevTime;
     _prevTime = samp->getTimeTag();
@@ -166,7 +166,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
             _totalParticles++;
 
             // time words are from a 12MHz clock
-            unsigned long long slice = bigEndian->longlongValue(*p);
+            unsigned long long slice = bigEndian->int64Value(p);
             unsigned long long thisTimeWord = (slice & 0x000000ffffffffffLL) / 12;
 
             if (firstTimeWord == 0)
@@ -227,12 +227,12 @@ bool TwoD64_USB::process(const Sample * samp,
 {
     assert(sizeof (long long) == 8);
 
-    if (samp->getDataByteLength() < sizeof (long))
+    if (samp->getDataByteLength() < sizeof (int32_t))
         return false;
 
-    const unsigned long *lptr =
-        (const unsigned long *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->longValue(*lptr++);
+    const int32_t *lptr =
+        (const int32_t *) samp->getConstVoidDataPtr();
+    int stype = bigEndian->int32Value(*lptr++);
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
     switch (stype) {

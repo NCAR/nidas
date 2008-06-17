@@ -34,6 +34,7 @@ NIDAS_CREATOR_FUNCTION(DSC_FreqCounter)
 DSC_FreqCounter::DSC_FreqCounter() :
     DSMSensor(),_sampleId(0),_nvars(0),
     _msecPeriod(MSECS_PER_SEC),_numPulses(0),
+    _clockRate(GPIO_MM_CT_CLOCK_HZ),
     _cvtr(0)
 {
     setLatency(0.1);
@@ -117,6 +118,12 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
                     "NumPulses","should be a integer of length 1");
              _numPulses = (int)rint(p->getNumericValue(0));
         }
+        else if (p->getName() == "ClockRate") {
+            if (p->getType() != Parameter::INT_PARAM || p->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
+                    "ClockRate","should be a integer of length 1");
+             _clockRate = (int)rint(p->getNumericValue(0));
+        }
     }
 }
 
@@ -141,6 +148,25 @@ void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
     }
 }
 
+float DSC_FreqCounter::calculatePeriodUsec(const Sample* insamp) const
+{
+    // data is two 4 byte integers.
+    if (insamp->getDataByteLength() != 2 * sizeof(int)) return floatNAN;
+    const unsigned int* ip =
+            (const unsigned int*)insamp->getConstVoidDataPtr();
+    unsigned int pulses = _cvtr->uint32Value(ip);
+    unsigned int tics = _cvtr->uint32Value(ip+1);
+
+    return calculatePeriodUsec(pulses,tics);
+}
+
+float DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int tics) const
+{
+    if (tics == 0) return 0.0;
+    if (pulses == 0) return floatNAN;
+    return (double) tics / pulses / _clockRate * USECS_PER_SEC;
+}
+
 bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     throw()
 {
@@ -154,20 +180,19 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
 
     const unsigned int* ip =
             (const unsigned int*)insamp->getConstVoidDataPtr();
-    unsigned int pulses = _cvtr->ulongValue(ip);
-    unsigned int tics = _cvtr->ulongValue(ip+1);
-    float freq;
-    if (tics == 0) freq = floatNAN;
-    else freq = ((float) pulses * GPIO_MM_CT_CLOCK_HZ ) / tics;
+    unsigned int pulses = _cvtr->uint32Value(ip);
+    unsigned int tics = _cvtr->uint32Value(ip+1);
+
+    float usec = calculatePeriodUsec(pulses,tics);
 
     switch (_nvars) {
     case 3:
         *fp++ = pulses;
         *fp++ = tics;
-        *fp++ = freq;
+        *fp++ = usec;
         break;
     case 1:
-        *fp++ = freq;
+        *fp++ = usec;
         break;
     }
 

@@ -34,8 +34,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD32_USB)
 
-const unsigned long TwoD32_USB::_syncWord = 0x55000000L;
-const unsigned long TwoD32_USB::_syncMask = 0xff000000L; 
+const unsigned int TwoD32_USB::_syncWord = 0x55000000;
+const unsigned int TwoD32_USB::_syncMask = 0xff000000; 
 const unsigned char TwoD32_USB::_syncChar = 0x55;
 
 
@@ -53,8 +53,8 @@ bool TwoD32_USB::processImage(const Sample * samp,
 {
     bool rc = false;    // return code.
 
-    if (samp->getDataByteLength() < 2 * sizeof (long) + 1024 * sizeof (long))
-        return rc;
+    if (samp->getDataByteLength() < 2 * sizeof (int32_t) +
+        1024 * sizeof (int32_t)) return rc;
 
     unsigned long long startTime = _prevTime;
     _prevTime = samp->getTimeTag();
@@ -80,16 +80,15 @@ bool TwoD32_USB::processImage(const Sample * samp,
     float frequency = getResolutionMicron() / tas;
 
     // Byte-swap the whole record up front.
-    unsigned long * p = (unsigned long *)dp;
+    uint32_t  * p = (uint32_t *)dp;
     for (size_t i = 0; i < 1024; ++i, ++p)
-        *p = bigEndian->longValue(*p);
-
+        *p = bigEndian->int32Value(p);
 
     /* Loop through all slices in record.  Start at slice 1 since Spowart
      * decided to overwrite the first slice with the overload word...
      */
-    p = (unsigned long *)dp;
-    unsigned long overld = 0;
+    p = (uint32_t *)dp;
+    unsigned int overld = 0;
     if ((*p & 0xffff0000) == 0x55aa0000)
     {
       overld = (*p & 0x0000ffff) / 2000;
@@ -120,8 +119,8 @@ bool TwoD32_USB::processImage(const Sample * samp,
             }
         else
         if (*(unsigned char *)p == _syncChar) {
-	    unsigned long timeWord = 
-	      (unsigned long)((p[1] & 0x00ffffff) * frequency);
+	    unsigned int timeWord = 
+	      (unsigned int)((p[1] & 0x00ffffff) * frequency);
             tBarElapsedtime += timeWord;
             unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
             thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
@@ -168,12 +167,12 @@ bool TwoD32_USB::processImage(const Sample * samp,
 bool TwoD32_USB::process(const Sample * samp,
                         list < const Sample * >&results) throw()
 {
-    if (samp->getDataByteLength() < sizeof (long))
+    if (samp->getDataByteLength() < sizeof (int32_t))
         return false;
 
-    const unsigned long *lptr =
-        (const unsigned long *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->longValue(*lptr++);
+    const int32_t *lptr =
+        (const int32_t *) samp->getConstVoidDataPtr();
+    int stype = bigEndian->int32Value(lptr++);
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is not used in 32 probe.  */
     if (stype == 0) {

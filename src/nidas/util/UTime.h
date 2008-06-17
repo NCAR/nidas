@@ -179,11 +179,11 @@ public:
     double toDoubleSecs() const
     {
 	// should work for positive and negative.
-	return (long)(_utime/USECS_PER_SEC) +
+	return (time_t)(_utime/USECS_PER_SEC) +
 		(double)(_utime % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
-    unsigned long toSecs() const
+    time_t toSecs() const
     {
 	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
@@ -238,7 +238,7 @@ protected:
     /**
      * Convert a unsigned value in seconds to a value in the units of UTime.
      */
-    static long long fromSecs(long x)
+    static long long fromSecs(time_t x)
     {
         return (long long)x * USECS_PER_SEC;
     } 
@@ -256,10 +256,10 @@ protected:
     static double toDoubleSecs(long long x)
     {
 	// should work for positive and negative.
-	return (long)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
+	return (time_t)(x/USECS_PER_SEC) + (double)(x % USECS_PER_SEC) / USECS_PER_SEC;
     } 
 
-    static unsigned long toSecs(long long x)
+    static time_t toSecs(long long x)
     {
 	return x / USECS_PER_SEC;
     } 

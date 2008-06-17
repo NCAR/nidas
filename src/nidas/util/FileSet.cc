@@ -262,7 +262,7 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOExceptio
 		"%b (alpha month) does not sort to time order");
     }
 
-    vector<size_t> dseq;
+    vector<string::size_type> dseq;
     string::size_type di;
     di = fullpath.find("%Y");
     if (di == string::npos) di = fullpath.find("%y");
@@ -289,7 +289,7 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOExceptio
     if (di == string::npos) di = dseq[4];
     dseq.push_back(di);
 
-    for (size_t i = 1; i < dseq.size(); i++)
+    for (unsigned int i = 1; i < dseq.size(); i++)
         if (dseq[i] < dseq[i-1]) throw IOException(
 		string("FileSet: ") + fullpath,"search",
 		"file names do not sort to time order");

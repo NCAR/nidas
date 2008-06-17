@@ -48,11 +48,11 @@ void BitArray::setBits(bool value)
     }
 }
 
-void BitArray::setBits(int begin,int end, unsigned long bitmask)
+void BitArray::setBits(int begin,int end, unsigned int bitmask)
 {
     end = std::min(std::min(end,
     	begin + (signed)sizeof(bitmask) * 8),getLength());
-    unsigned long mask = 1;
+    unsigned int mask = 1;
     for (int i = begin; i < end; i++) {
 	if (mask & bitmask) setBit(i,true);
 	else setBit(i,false);
@@ -60,21 +60,64 @@ void BitArray::setBits(int begin,int end, unsigned long bitmask)
     }
 }
 
-unsigned long BitArray::getBits(int begin, int end) 
+void BitArray::setBits64(int begin,int end, unsigned long long bitmask)
 {
-    unsigned long res = 0;
+    end = std::min(std::min(end,
+    	begin + (signed)sizeof(bitmask) * 8),getLength());
+    unsigned int mask = 1;
+    for (int i = begin; i < end; i++) {
+	if (mask & bitmask) setBit(i,true);
+	else setBit(i,false);
+	mask <<= 1;
+    }
+}
+
+unsigned int BitArray::getBits(int begin, int end) 
+{
+    unsigned int res = 0;
     end = std::min(std::min(end,begin + (signed)sizeof(res) * 8),
 	    getLength());
     if (begin >= end) return res;
 
     if ((begin % 8) == 0) {
 	int nb = (end - begin + 7) / 8;
-	::memcpy(&res,bits + begin/8,nb);
-	if (end % 8) {
-	}
+        unsigned char bmask = 0xff;
+        if (end % 8) bmask >>= 8 - (end % 8);
+        for (int i = nb = 1; i >= 0; i--) {
+            res << 8;
+            res |= (bits[i + begin/8] & bmask);
+            bmask = 0xff;
+        }
     }
     else {
-	unsigned long mask = 1;
+	unsigned int mask = 1;
+	for (int i = begin; i < end; i++) {
+	    if (getBit(i)) res |= mask;
+	    mask <<= 1;
+	}
+    }
+    return res;
+}
+
+long long BitArray::getBits64(int begin, int end) 
+{
+    long long res = 0;
+    end = std::min(std::min(end,begin + (signed)sizeof(res) * 8),
+	    getLength());
+    if (begin >= end) return res;
+
+    if ((begin % 8) == 0) {
+	int nb = (end - begin + 7) / 8;
+        unsigned char bmask = 0xff;
+        if (end % 8) bmask >>= 8 - (end % 8);
+        for (int i = nb = 1; i >= 0; i--) {
+            res << 8;
+            res |= (bits[i + begin/8] & bmask);
+            bmask = 0xff;
+        }
+    }
+    else {
+	long long mask = 1;
 	for (int i = begin; i < end; i++) {
 	    if (getBit(i)) res |= mask;
 	    mask <<= 1;

@@ -57,15 +57,36 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
     /**
+     * Calculate the input pulse period in microseconds.
+     */
+    float calculatePeriodUsec(const Sample*) const;
+
+    /**
+     * Calculate the input pulse period in microseconds,
+     * based on the number of pulses counted (npulses) and the number
+     * of clock tics counted while counting npulses.
+     */
+    float calculatePeriodUsec(unsigned int npulses, unsigned tics) const;
+
+    /**
      * Process a raw sample, which in this case means convert the
      * counts and elapsed ticks into a frequency.
      */
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
-private:
+    /**
+     * Return the frequency sample period.
+     */
+    int getSamplePeriodMsec() const
+    {
+        return _msecPeriod;
+    }
 
-    void readParams(const std::list<const Parameter*>& params)
+
+protected:
+
+    virtual void readParams(const std::list<const Parameter*>& params)
         throw(nidas::util::InvalidParameterException);
 
     dsm_sample_id_t _sampleId;
@@ -74,7 +95,16 @@ private:
 
     int _msecPeriod;
 
+    /**
+     * Number of input pulses to count.
+     */
     int _numPulses;
+
+    /**
+     * Rate of reference clock whose tics are counted while
+     * _numPulses are counted.
+     */
+    int _clockRate;
 
     const nidas::util::EndianConverter* _cvtr;
 

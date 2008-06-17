@@ -105,7 +105,7 @@ public:
   cc_t *cc() { return tio.c_cc; }
 
   static struct baudtable {
-    unsigned long cbaud;
+    unsigned int cbaud;
     int rate;
   } bauds[];
 

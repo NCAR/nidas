@@ -50,7 +50,7 @@ protected:
      * Synchword mask.  This slice/word is written at the end of each particle.
      * ?? bits of synchronization and ?? bits of timing information.
      */
-    static const unsigned long _syncMask, _syncWord;
+    static const uint32_t _syncMask, _syncWord;
     static const unsigned char _syncChar;
 //@}
 

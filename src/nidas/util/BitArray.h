@@ -74,12 +74,14 @@ public:
      * is copied to begin, bit 1 to begin+1, etc.
      * @param begin Index of first bit, from 0, up to getLength()-1.
      * @param end Index of last bit, from begin, up to getLength()-1.
-     * @param bitmask Long integer containing source bits
+     * @param bitmask integer containing source bits
      *     to be copied, with bit 0 in the least significant byte.
      * If (end - begin) is greater than 32, then end is silently
      * adjusted to begin+32.
      */
-    void setBits(int begin,int end, unsigned long bitmask);
+    void setBits(int begin,int end, unsigned int bitmask);
+
+    void setBits64(int begin,int end, unsigned long long bitmask);
 
     /**
      * Get value of a bit.
@@ -92,7 +94,17 @@ public:
 	return (bits[num/8] & (0x1 << (num%8))) != 0;
     }
 
-    unsigned long getBits(int begin, int end);
+    /**
+     * Return a integer of bits. Low order bits in the
+     * results will contain the low bits.
+     */
+    unsigned int getBits(int begin, int end);
+
+    /**
+     * Return a long long of bits. Low order bits in the
+     * results will contain the low bits.
+     */
+    long long getBits64(int begin, int end);
 
     /**
      * Return pointer to first byte of BitArray. This will

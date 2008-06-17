@@ -587,7 +587,7 @@ template<class charT, class Traits>
 	typename basic_ostream<charT, Traits>::sentry opfx(os);
 	if(opfx) {
 	    string patt = ut.getFormat();
-	    size_t pl = patt.length();
+	    string::size_type pl = patt.length();
 	    auto_ptr<charT> fmt(new charT[pl]);
 	    use_facet<ctype<charT> >(os.getloc())
 	    	.widen(patt.begin(),patt.end(),fmt);

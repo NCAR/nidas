@@ -22,6 +22,7 @@ namespace nidas { namespace util {
 /**
  * Function for reading 8 bytes from an address,
  * flipping the bytes, and returning the double value.
+ * Address does not need to be 8 byte aligned.
  */
 inline double flipDoubleIn(const void* p)
 {
@@ -42,6 +43,7 @@ inline double flipDouble(const double& p)
 /**
  * Function for reading 4 bytes from an address,
  * flipping the bytes, and returning the float value.
+ * Address does not need to be 4 byte aligned.
  */
 inline float flipFloatIn(const void* p)
 {
@@ -61,107 +63,113 @@ inline float flipFloat(const float& p)
 
 /**
  * Function for reading 8 bytes from an address,
- * flipping the bytes, and returning the long long value.
+ * flipping the bytes, and returning the int64_t value.
+ * Address does not need to be 8 or 4 byte aligned.
  */
-inline long long flipLonglongIn(const void* p)
+inline int64_t flipInt64In(const void* p)
 {
     union {
-      long long v;
+      int64_t v;
       char b[8];
     } u;
     const char* cp = (const char*)p;
     for (int i = 7; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
-inline long long flipLonglong(const long long& p)
+inline int64_t flipInt64(const int64_t& p)
 {
-    return flipLonglongIn(&p);
+    return flipInt64In(&p);
 }
 
 
 /**
  * Function for reading 4 bytes from an address,
- * flipping the bytes, and returning the long int value.
+ * flipping the bytes, and returning the 32 bit int value.
+ * Address does not need to be 4 byte aligned.
  */
-inline long flipLongIn(const void* p)
+inline int32_t flipInt32In(const void* p)
 {
     union {
-      long v;
+      int32_t v;
       char b[4];
     } u;
     const char* cp = (const char*)p;
     for (int i = 3; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
-inline long flipLong(const long& p)
+inline int32_t flipInt32(const int32_t& p)
 {
-    return flipLongIn(&p);
+    return flipInt32In(&p);
 }
 
 
 /**
  * Function for reading 4 bytes from an address,
- * flipping the bytes, and returning the unsigned long int value.
+ * flipping the bytes, and returning the unsigned 32 bit int value.
+ * Address does not need to be 4 byte aligned.
  */
-inline unsigned long flipUlongIn(const void* p)
+inline uint32_t flipUint32In(const void* p)
 {
     union {
-      unsigned long v;
+      uint32_t v;
       char b[4];
     } u;
     const char* cp = (const char*)p;
     for (int i = 3; i >= 0; i--) u.b[i] = *cp++;
     return u.v;
 }
-inline unsigned long flipUlong(const unsigned long& p)
+inline uint32_t flipUint32(const uint32_t& p)
 {
-    return flipUlongIn(&p);
+    return flipUint32In(&p);
 }
 
 
 /**
  * Function for reading 2 bytes from an address,
- * flipping the bytes, and returning the short int value.
+ * flipping the bytes, and returning the 16 bit int value.
+ * Address does not need to be 2 byte aligned.
  */
-inline short flipShortIn(const void* p)
+inline int16_t flipInt16In(const void* p)
 {
     union {
-      short v;
+      int16_t v;
       char b[2];
     } u;
     u.b[1] = ((const char*)p)[0];
     u.b[0] = ((const char*)p)[1];
     return u.v;
 }
-inline short flipShort(const short& p)
+inline int16_t flipInt16(const int16_t& p)
 {
-    return flipShortIn(&p);
+    return flipInt16In(&p);
 }
 
 
 /**
  * Function for reading 2 bytes from an address,
- * flipping the bytes, and returning the unsigned short int value.
+ * flipping the bytes, and returning the unsigned 16 bit int value.
+ * Address does not need to be 2 byte aligned.
  */
-inline unsigned short flipUshortIn(const void* p)
+inline uint16_t flipUint16In(const void* p)
 {
     union {
-      unsigned short v;
+      uint16_t v;
       char b[2];
     } u;
     u.b[1] = ((const char*)p)[0];
     u.b[0] = ((const char*)p)[1];
     return u.v;
 }
-inline unsigned short flipUshort(const unsigned short& p)
+inline uint16_t flipUint16(const uint16_t& p)
 {
-    return flipUshortIn(&p);
+    return flipUint16In(&p);
 }
 
 
 /**
  * Function for writing an 8 byte double value to
  * an address, flipping the bytes.
+ * Address does not need to be 8 byte aligned.
  */
 inline void flipDoubleOut(const double& v,void* p)
 {
@@ -177,6 +185,7 @@ inline void flipDoubleOut(const double& v,void* p)
 /**
  * Function for writing a 4 byte float value to
  * an address, flipping the bytes.
+ * Address does not need to be 4 byte aligned.
  */
 inline void flipFloatOut(const float& v,void* p)
 {
@@ -190,13 +199,14 @@ inline void flipFloatOut(const float& v,void* p)
 }
 
 /**
- * Function for writing an 8 byte long long value to
+ * Function for writing an 8 byte, 64 bit int value to
  * an address, flipping the bytes.
+ * Address does not need to be 8 or 4 byte aligned.
  */
-inline void flipLonglongOut(const long long& v,void* p)
+inline void flipInt64Out(const int64_t& v,void* p)
 {
     union {
-      long long v;
+      int64_t v;
       char b[8];
     } u;
     u.v = v;
@@ -205,13 +215,14 @@ inline void flipLonglongOut(const long long& v,void* p)
 }
 
 /**
- * Function for writing a 4 byte long value to
+ * Function for writing a 4 byte, 32 bit int value to
  * an address, flipping the bytes.
+ * Address does not need to be 4 byte aligned.
  */
-inline void flipLongOut(const long& v,void* p)
+inline void flipInt32Out(const int32_t& v,void* p)
 {
     union {
-      long v;
+      int32_t v;
       char b[4];
     } u;
     u.v = v;
@@ -220,13 +231,13 @@ inline void flipLongOut(const long& v,void* p)
 }
 
 /**
- * Function for writing a 4 byte unsigned long value to
+ * Function for writing a 4 byte unsigned 32 bit int value to
  * an address, flipping the bytes.
  */
-inline void flipUlongOut(const unsigned long& v,void* p)
+inline void flipUint32Out(const uint32_t& v,void* p)
 {
     union {
-      unsigned long v;
+      uint32_t v;
       char b[4];
     } u;
     u.v = v;
@@ -235,13 +246,13 @@ inline void flipUlongOut(const unsigned long& v,void* p)
 }
 
 /**
- * Function for writing a 2 byte short int value to
+ * Function for writing a 2 byte 16 bit int value to
  * an address, flipping the bytes.
  */
-inline void flipShortOut(const short &v,void* p)
+inline void flipInt16Out(const int16_t &v,void* p)
 {
     union {
-      short v;
+      int16_t v;
       char b[2];
     } u;
     u.v = v;
@@ -251,13 +262,13 @@ inline void flipShortOut(const short &v,void* p)
 }
 
 /**
- * Function for writing a 2 byte unsigned short int value to
+ * Function for writing a 2 byte unsigned 16 bit int value to
  * an address, flipping the bytes.
  */
-inline void flipUshortOut(const unsigned short& v,void *p)
+inline void flipUint16Out(const uint16_t& v,void *p)
 {
     union {
-      unsigned short v;
+      uint16_t v;
       char b[2];
     } u;
     u.v = v;
@@ -323,36 +334,36 @@ public:
     virtual float floatValue(const float& ) const = 0;
 
     /**
-     * Get 4 byte long at address, do endian conversion.
+     * Get 4 byte int32 at address, do endian conversion.
      * Pointer to address does not need to be 4-byte aligned.
      */
-    virtual long longValue(const void* ) const = 0;
+    virtual int32_t int32Value(const void* ) const = 0;
 
-    virtual long longValue(const long& ) const = 0;
+    virtual int32_t int32Value(const int32_t& ) const = 0;
 
     /**
-     * Get 8 byte long long at address, do endian conversion.
+     * Get 8 byte int64_t at address, do endian conversion.
      * Pointer to address does not need to be 8-byte aligned.
      */
-    virtual long long longlongValue(const void* ) const = 0;
+    virtual int64_t int64Value(const void* ) const = 0;
 
-    virtual long long longlongValue(const long long& ) const = 0;
+    virtual int64_t int64Value(const int64_t& ) const = 0;
 
     /**
-     * Get 4 byte unsigned long at address, do endian conversion.
+     * Get 4 byte unsigned int32_t at address, do endian conversion.
      * Pointer to address does not need to be 4-byte aligned.
      */
-    virtual unsigned long ulongValue(const void* ) const = 0;
+    virtual uint32_t uint32Value(const void* ) const = 0;
 
-    virtual unsigned long ulongValue(const unsigned long& ) const = 0;
+    virtual uint32_t uint32Value(const uint32_t& ) const = 0;
 
-    virtual short shortValue(const void* ) const = 0;
+    virtual int16_t int16Value(const void* ) const = 0;
 
-    virtual short shortValue(const short& ) const = 0;
+    virtual int16_t int16Value(const int16_t& ) const = 0;
 
-    virtual unsigned short ushortValue(const void* ) const = 0;
+    virtual uint16_t uint16Value(const void* ) const = 0;
 
-    virtual unsigned short ushortValue(const unsigned short& ) const = 0;
+    virtual uint16_t uint16Value(const uint16_t& ) const = 0;
 
     /**
      * Copy 8 byte double to the given address, doing endian conversion.
@@ -367,26 +378,26 @@ public:
     virtual void floatCopy(const float&,void* ) const = 0;
 
     /**
-     * Copy 4 byte long to the given address, doing endian conversion.
+     * Copy 4 byte int to the given address, doing endian conversion.
      * Pointer to address does not need to be 4-byte aligned.
      */
-    virtual void longCopy(const long&,void* ) const = 0;
+    virtual void int32Copy(const int32_t&,void* ) const = 0;
 
     /**
-     * Copy 8 byte long long to the given address, doing endian conversion.
+     * Copy 8 byte int64_t to the given address, doing endian conversion.
      * Pointer to address does not need to be 8-byte aligned.
      */
-    virtual void longlongCopy(const long long&,void* ) const = 0;
+    virtual void int64Copy(const int64_t&,void* ) const = 0;
 
     /**
-     * Copy 4 byte unsigned long to the given address, doing endian conversion.
+     * Copy 4 byte unsigned int to the given address, doing endian conversion.
      * Pointer to address does not need to be 4-byte aligned.
      */
-    virtual void ulongCopy(const unsigned long&, void* ) const = 0;
+    virtual void uint32Copy(const uint32_t&, void* ) const = 0;
 
-    virtual void shortCopy(const short&,void* ) const = 0;
+    virtual void int16Copy(const int16_t&,void* ) const = 0;
 
-    virtual void ushortCopy(const unsigned short&, void* ) const = 0;
+    virtual void uint16Copy(const uint16_t&, void* ) const = 0;
 
 private:
     static endianness privGetHostEndianness();
@@ -427,54 +438,54 @@ public:
         return flipFloat(p);
     }
 
-    long long longlongValue(const void* p) const
+    int64_t int64Value(const void* p) const
     {
-        return flipLonglongIn(p);
+        return flipInt64In(p);
     }
 
-    long long longlongValue(const long long& p) const
+    int64_t int64Value(const int64_t& p) const
     {
-        return flipLonglong(p);
+        return flipInt64(p);
     }
 
-    long longValue(const void* p) const
+    int32_t int32Value(const void* p) const
     {
-        return flipLongIn(p);
+        return flipInt32In(p);
     }
 
-    long longValue(const long& p) const
+    int32_t int32Value(const int32_t& p) const
     {
-        return flipLong(p);
+        return flipInt32(p);
     }
 
-    unsigned long ulongValue(const void* p) const
+    uint32_t uint32Value(const void* p) const
     {
-        return flipUlongIn(p);
+        return flipUint32In(p);
     }
 
-    unsigned long ulongValue(const unsigned long& p) const
+    uint32_t uint32Value(const uint32_t& p) const
     {
-        return flipUlong(p);
+        return flipUint32(p);
     }
 
-    short shortValue(const void* p) const
+    int16_t int16Value(const void* p) const
     {
-        return flipShortIn(p);
+        return flipInt16In(p);
     }
 
-    short shortValue(const short& p) const
+    int16_t int16Value(const int16_t& p) const
     {
-        return flipShort(p);
+        return flipInt16(p);
     }
 
-    unsigned short ushortValue(const void* p) const
+    uint16_t uint16Value(const void* p) const
     {
-        return flipUshortIn(p);
+        return flipUint16In(p);
     }
 
-    unsigned short ushortValue(const unsigned short& p) const
+    uint16_t uint16Value(const uint16_t& p) const
     {
-        return flipUshort(p);
+        return flipUint16(p);
     }
 
     void doubleCopy(const double& v,void* p) const
@@ -487,29 +498,29 @@ public:
         return flipFloatOut(v,p);
     }
 
-    void longlongCopy(const long long& v,void* p) const
+    void int64Copy(const int64_t& v,void* p) const
     {
-        return flipLonglongOut(v,p);
+        return flipInt64Out(v,p);
     }
 
-    void longCopy(const long& v,void* p) const
+    void int32Copy(const int32_t& v,void* p) const
     {
-        return flipLongOut(v,p);
+        return flipInt32Out(v,p);
     }
 
-    void ulongCopy(const unsigned long& v,void* p) const
+    void uint32Copy(const uint32_t& v,void* p) const
     {
-        return flipUlongOut(v,p);
+        return flipUint32Out(v,p);
     }
 
-    void shortCopy(const short &v,void* p) const
+    void int16Copy(const int16_t &v,void* p) const
     {
-        return flipShortOut(v,p);
+        return flipInt16Out(v,p);
     }
 
-    void ushortCopy(const unsigned short& v,void *p) const
+    void uint16Copy(const uint16_t& v,void *p) const
     {
-        return flipUshortOut(v,p);
+        return flipUint16Out(v,p);
     }
 };
 
@@ -544,46 +555,46 @@ public:
         return p;
     }
 
-    long long longlongValue(const void* p) const
+    int64_t int64Value(const void* p) const
     {
-        long long v;
-        memcpy(&v,p,sizeof(long long));
+        int64_t v;
+        memcpy(&v,p,sizeof(int64_t));
         return v;
     }
 
-    long long longlongValue(const long long& p) const
+    int64_t int64Value(const int64_t& p) const
     {
         return p;
     }
 
-    long longValue(const void* p) const
+    int32_t int32Value(const void* p) const
     {
-        long v;
-        memcpy(&v,p,sizeof(long));
+        int32_t v;
+        memcpy(&v,p,sizeof(int32_t));
         return v;
     }
 
-    long longValue(const long& p) const
+    int32_t int32Value(const int32_t& p) const
     {
         return p;
     }
 
-    unsigned long ulongValue(const void* p) const
+    uint32_t uint32Value(const void* p) const
     {
-        unsigned long v;
-        memcpy(&v,p,sizeof(long));
+        uint32_t v;
+        memcpy(&v,p,sizeof(uint32_t));
         return v;
     }
 
-    unsigned long ulongValue(const unsigned long& p) const
+    uint32_t uint32Value(const uint32_t& p) const
     {
         return p;
     }
 
-    short shortValue(const void* p) const
+    int16_t int16Value(const void* p) const
     {
         union {
-          short v;
+          int16_t v;
           char b[2];
         } u;
         u.b[0] = ((const char*)p)[0];
@@ -591,15 +602,15 @@ public:
         return u.v;
     }
 
-    short shortValue(const short& p) const
+    int16_t int16Value(const int16_t& p) const
     {
         return p;
     }
 
-    unsigned short ushortValue(const void* p) const
+    uint16_t uint16Value(const void* p) const
     {
         union {
-          unsigned short v;
+          uint16_t v;
           char b[2];
         } u;
         u.b[0] = ((const char*)p)[0];
@@ -607,7 +618,7 @@ public:
         return u.v;
     }
 
-    unsigned short ushortValue(const unsigned short& p) const
+    uint16_t uint16Value(const uint16_t& p) const
     {
         return p;
     }
@@ -622,27 +633,27 @@ public:
         memcpy(p,&v,sizeof(float));
     }
 
-    void longlongCopy(const long long& v,void* p) const
+    void int64Copy(const int64_t& v,void* p) const
     {
-        memcpy(p,&v,sizeof(long long));
+        memcpy(p,&v,sizeof(int64_t));
     }
 
-    void longCopy(const long& v,void* p) const
+    void int32Copy(const int& v,void* p) const
     {
-        memcpy(p,&v,sizeof(long));
+        memcpy(p,&v,sizeof(int32_t));
     }
 
-    void ulongCopy(const unsigned long& v,void* p) const
+    void uint32Copy(const uint32_t& v,void* p) const
     {
-        memcpy(p,&v,sizeof(unsigned long));
+        memcpy(p,&v,sizeof(uint32_t));
     }
 
-    void shortCopy(const short &v,void* p) const
+    void int16Copy(const int16_t &v,void* p) const
     {
-        memcpy(p,&v,sizeof(short));
+        memcpy(p,&v,sizeof(int16_t));
 #ifdef BOZO
         union {
-          short v;
+          int16_t v;
           char b[2];
         } u;
         u.v = v;
@@ -651,11 +662,11 @@ public:
 #endif
     }
 
-    void ushortCopy(const unsigned short& v,void* p) const {
-        memcpy(p,&v,sizeof(unsigned short));
+    void uint16Copy(const uint16_t& v,void* p) const {
+        memcpy(p,&v,sizeof(uint16_t));
 #ifdef BOZO
         union {
-          unsigned short v;
+          uint16_t v;
           char b[2];
         } u;
         u.v = v;
