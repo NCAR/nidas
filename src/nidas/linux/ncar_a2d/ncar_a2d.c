@@ -219,6 +219,16 @@ static inline void i2c_getAck(struct A2DBoard *brd)
 }
 
 /*
+ * Acknowledge with a one bit.
+ */
+static inline void i2c_putNoAck(struct A2DBoard *brd)
+{
+        i2c_data_hi(brd);
+        i2c_clock_hi(brd);
+        i2c_clock_lo(brd);  // 
+}
+
+/*
  * Acknowledge with a zero bit.
  */
 static inline void i2c_putAck(struct A2DBoard *brd)
@@ -244,8 +254,7 @@ static inline unsigned char i2c_get_byte(struct A2DBoard *brd)
                 i2c_clock_lo(brd);
         }
 
-        i2c_putAck(brd);        // 3 I2C operations
-        // total: 2 * 8 + 3 = 19 I2C ops
+        // total: 2 * 8 = 16 I2C ops
 
         return byte;
 }
@@ -319,8 +328,10 @@ static short A2DTemp(struct A2DBoard *brd)
         /*
          * Get the two data bytes
          */
-        b0 = i2c_get_byte(brd); // 19 operations
-        b1 = i2c_get_byte(brd); // 19 operations
+        b0 = i2c_get_byte(brd); // 16 operations
+        i2c_putAck(brd);        // 3 I2C operations
+        b1 = i2c_get_byte(brd); // 16 operations
+        i2c_putNoAck(brd);      // 3 I2C operations
 
         /*
          * Send I2C stop sequence
