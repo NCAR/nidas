@@ -1060,14 +1060,30 @@ static void fcntr_timer_callback_func(void *privateData)
         tc1n = gpio_mm_get_hold_reg(brd,tc1);
         tc2n = gpio_mm_get_hold_reg(brd,tc2);
         tcn = ((unsigned int)tc2n << 16) + tc1n;
+
+        /* hold register was overwritten by save command */
+        gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
+
+        /* set output high, which is the gate for the next counter */
+        if (!pcstatus) gpio_mm_set_toggle_out(brd,pc);
+
+        /* load and arm F1 tic counters */
+        gpio_mm_load_arm_counters(brd,tc1,tc2);
+
+        /* load and arm pulse counter. It is already loaded
+         * if it finished counting pulses, but we'll load it anyway */
+        gpio_mm_load_arm_counter(brd,pc);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
         KLOG_DEBUG("%s: pcn=%d,pulses=%d,tc1n=%d,tc2n=%d,tcn=%d,status=%#02x\n",
             fcntr->deviceName,pcn,fcntr->numPulses-pcn,tc1n,tc2n,tcn,pcstatus);
 
         samp = (struct freq_sample*)
             GET_HEAD(fcntr->samples,GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE);
         if (!samp) {                // no output sample available
-                fcntr->status.lostSamples++;
-                KLOG_WARNING("%s: lostSamples=%d\n",
+                if (!(fcntr->status.lostSamples++ % 1000))
+		    KLOG_WARNING("%s: lostSamples=%d\n",
                        fcntr->deviceName,fcntr->status.lostSamples);
         }
         else {
@@ -1141,29 +1157,14 @@ static void fcntr_timer_callback_func(void *privateData)
                 // Wake up the read queue if latencyJiffies have elapsed
                 // or if the queue is half or more full.
                 INCREMENT_HEAD(fcntr->samples,GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE);
-                if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
-                        CIRC_SPACE(fcntr->samples.head,fcntr->samples.tail,
-                        GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
-                            GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
-                        wake_up_interruptible(&fcntr->rwaitq);
-                        fcntr->lastWakeup = jiffies;
-                }
+		if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
+			CIRC_SPACE(fcntr->samples.head,fcntr->samples.tail,
+			GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
+			    GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
+			wake_up_interruptible(&fcntr->rwaitq);
+			fcntr->lastWakeup = jiffies;
+		}
         }
-
-        /* hold register was overwritten by save command */
-        gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
-
-        /* set output high, which is the gate for the next counter */
-        if (!pcstatus) gpio_mm_set_toggle_out(brd,pc);
-
-        /* load and arm F1 tic counters */
-        gpio_mm_load_arm_counters(brd,tc1,tc2);
-
-        /* load and arm pulse counter. It is already loaded
-         * if it finished counting pulses, but we'll load it anyway */
-        gpio_mm_load_arm_counter(brd,pc);
-
-        spin_unlock_irqrestore(&brd->reglock,flags);
 }
 
 /*
@@ -1291,6 +1292,8 @@ static int gpio_mm_release_fcntr(struct inode *inode, struct file *filp)
 
         if (atomic_dec_and_test(&fcntr->num_opened))
             result = stop_fcntr(fcntr);
+	KLOG_DEBUG("%s: num_opened=%d\n",
+	    fcntr->deviceName,atomic_read(&fcntr->num_opened));
         return result;
 }
 
@@ -1365,9 +1368,20 @@ unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
         unsigned int mask = 0;
 
         poll_wait(filp, &fcntr->rwaitq, wait);
+#define BUFFER_POLL
+#ifdef BUFFER_POLL
+	if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
+		CIRC_SPACE(fcntr->samples.head,fcntr->samples.tail,
+		GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
+		    GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+		fcntr->lastWakeup = jiffies;
+	}
+#else
         if (sample_remains(&fcntr->read_state) ||
             fcntr->samples.head != fcntr->samples.tail)
                 mask |= POLLIN | POLLRDNORM;    /* readable */
+#endif
         return mask;
 }
 

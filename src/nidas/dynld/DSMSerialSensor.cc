@@ -188,7 +188,7 @@ void DSMSerialSensor::unixDevInit(int flags)
 
 	promptPeriodMsec = (int) rint(1000.0 / getPromptRate());
 
-	cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
+	// cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
     }
 }
 

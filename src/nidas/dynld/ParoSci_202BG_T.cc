@@ -65,7 +65,7 @@ void ParoSci_202BG_T::init() throw(n_u::InvalidParameterException)
             GET_DSM_ID(_presSensorId) << ',' <<
             GET_SHORT_ID(_presSensorId);
         throw n_u::InvalidParameterException(getName(),
-                    "TempSensor sensor Id",ost.str());
+                    "PresSensor sensor Id",ost.str());
     }
 }
 
@@ -87,8 +87,8 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
             float d[4];
             try {
                 int n = cf->readData(d,sizeof d/sizeof(d[0]));
-                setU0(d[0]);
-                setYs(0.0,d[1],d[2],d[3]);
+                if (n > 0) setU0(d[0]);
+                if (n > 3) setYs(0.0,d[1],d[2],d[3]);
                 _calTime = cf->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)

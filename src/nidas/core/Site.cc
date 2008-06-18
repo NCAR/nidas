@@ -338,9 +338,9 @@ DSMSensor* Site::findSensor(unsigned int id) const
     SensorIterator si = getSensorIterator();
     for ( ; si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
-#ifdef DEBUG
 
-	cerr << "Site::findSensor, getId=" <<
+#ifdef DEBUG
+	cerr << "Site::findSensor, " << getName() << ", getId=" <<
 	    GET_DSM_ID(sensor->getId()) << ',' <<
 	    GET_SHORT_ID(sensor->getId()) <<
 	    " against id=" <<

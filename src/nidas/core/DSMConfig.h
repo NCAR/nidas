@@ -59,7 +59,7 @@ public:
 
     const std::list<DSMSensor*>& getSensors() const
     {
-	return sensors;
+	return allSensors;
     }
 
     void initSensors() throw(nidas::util::IOException);
@@ -128,13 +128,16 @@ private:
     unsigned char id;
 
     /**
-     * A list of the sensors on this DSM, containing
-     * the sensors that have not been passed to
+     * A list of the sensors on this DSM that have not been passed to
      * a SensorHandler, i.e. the sensors that DSMConfig still ownes.
-     * On a running DSM this list will be empty.  On a DSMServer
-     * it will contain all the sensors.
+     * On a running DSM this list will be empty.
      */
-    std::list<DSMSensor*> sensors;
+    std::list<DSMSensor*> ownedSensors;
+
+    /**
+     * A list of all sensors configured on this DSM.
+     */
+    std::list<DSMSensor*> allSensors;
 
     /**
      * SampleOutputs.

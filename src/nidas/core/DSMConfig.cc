@@ -37,9 +37,9 @@ DSMConfig::DSMConfig(): site(0),id(0),remoteSerialSocketPort(0)
 
 DSMConfig::~DSMConfig()
 {
-    // cerr << "deleting sensors" << endl;
-    for (list<DSMSensor*>::const_iterator si = sensors.begin();
-    	si != sensors.end(); ++si) delete *si;
+    // delete the sensors I own
+    for (list<DSMSensor*>::const_iterator si = ownedSensors.begin();
+    	si != ownedSensors.end(); ++si) delete *si;
 
     list<SampleOutput*>::const_iterator oi;
     for (oi = getOutputs().begin(); oi != getOutputs().end(); ++oi) {
@@ -64,14 +64,20 @@ VariableIterator DSMConfig::getVariableIterator() const
 
 void DSMConfig::addSensor(DSMSensor* sensor)
 {
-    sensors.push_back(sensor);
+    ownedSensors.push_back(sensor);
+    allSensors.push_back(sensor);
 }
 
 void DSMConfig::removeSensor(DSMSensor* sensor)
 {
-    for (list<DSMSensor*>::iterator si = sensors.begin();
-    	si != sensors.end(); ) {
-	if (sensor == *si) si = sensors.erase(si);
+    for (list<DSMSensor*>::iterator si = ownedSensors.begin();
+    	si != ownedSensors.end(); ) {
+	if (sensor == *si) si = ownedSensors.erase(si);
+	else ++si;
+    }
+    for (list<DSMSensor*>::iterator si = allSensors.begin();
+    	si != allSensors.end(); ) {
+	if (sensor == *si) si = allSensors.erase(si);
 	else ++si;
     }
 }
@@ -81,7 +87,7 @@ void DSMConfig::initSensors()
 	throw(n_u::IOException)
 {
     list<DSMSensor*>::iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
+    for (si = ownedSensors.begin(); si != ownedSensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	sensor->init();
     }
@@ -90,11 +96,11 @@ void DSMConfig::initSensors()
 void DSMConfig::openSensors(SensorHandler* selector)
 {
     list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
+    for (si = ownedSensors.begin(); si != ownedSensors.end(); ++si) {
         DSMSensor* sensor = *si;
         selector->addSensor(sensor);
     }
-    sensors.clear();
+    ownedSensors.clear();
 }
 
 list<nidas::dynld::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
@@ -251,8 +257,8 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    bool newsensor = false;
 	    const string& devname = xchild.getAttributeValue("devicename");
 	    if (devname.length() > 0) {
-		for (list<DSMSensor*>::iterator si = sensors.begin();
-			si != sensors.end(); ++si) {
+		for (list<DSMSensor*>::iterator si = ownedSensors.begin();
+			si != ownedSensors.end(); ++si) {
 		    DSMSensor* snsr = *si;
 		    if (snsr->getDeviceName() == devname) sensor = snsr;
 		}

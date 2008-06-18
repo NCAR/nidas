@@ -88,12 +88,12 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
     _sampleId = stag->getId();
     _nvars = stag->getVariables().size();
     switch (_nvars) {
-    case 3:
+    case 2:
     case 1:
         break;
     default:
         throw n_u::InvalidParameterException(getName(),"variable",
-            "sample must contain exactly one variable");
+            "sample must contain one or two variables");
     }
     cerr << "rate=" << stag->getRate() << endl;
 
@@ -171,7 +171,7 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     throw()
 {
     // data is two 4 byte integers.
-    if (insamp->getDataByteLength() != 2 * sizeof(int)) return false;
+    if (insamp->getDataByteLength() != 2 * sizeof(int32_t)) return false;
 
     SampleT<float>* osamp = getSample<float>(_nvars);
     osamp->setTimeTag(insamp->getTimeTag());
@@ -186,13 +186,11 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     float usec = calculatePeriodUsec(pulses,tics);
 
     switch (_nvars) {
-    case 3:
-        *fp++ = pulses;
-        *fp++ = tics;
-        *fp++ = usec;
+    case 2:
+        fp[1] = floatNAN;
         break;
     case 1:
-        *fp++ = usec;
+        fp[0] = usec;
         break;
     }
 

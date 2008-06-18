@@ -146,8 +146,9 @@ void RawSampleService::connected(SampleInput* newinput) throw()
 
     if (!dsm) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "RawSampleService: connection from %s does not match an address of any. Ignoring connection.",
+	    "RawSampleService: connection from %s does not match an address of any dsm. Ignoring connection.",
 		remoteAddr.getHostAddress().c_str());
+	newstream->close();
 	return;
     }
 

@@ -98,9 +98,9 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
             float d[10];
             try {
                 int n = cf->readData(d,sizeof d/sizeof(d[0]));
-                setCs(d[0]*MBAR_PER_PSI,d[1]*MBAR_PER_PSI,d[2]*MBAR_PER_PSI);
-                setDs(d[3],d[4]);
-                setTs(d[5],d[6],d[7],d[8],d[9]);
+                if (n > 2) setCs(d[0]*MBAR_PER_PSI,d[1]*MBAR_PER_PSI,d[2]*MBAR_PER_PSI);
+                if (n > 4) setDs(d[3],d[4]);
+                if (n > 9) setTs(d[5],d[6],d[7],d[8],d[9]);
                 _calTime = cf->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)

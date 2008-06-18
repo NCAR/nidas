@@ -207,7 +207,7 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 /* This will be 10/3=3 for GPIO-MM */
 #define GPIO_MM_FCNTR_PER_BOARD (GPIO_MM_CNTR_PER_BOARD/GPIO_MM_CNTR_PER_FCNTR)
 
-#define GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE 8
+#define GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE 16
 
 /* Which counter 0-9 to use for a general purpose timer */
 #define GPIO_MM_TIMER_COUNTER 9
