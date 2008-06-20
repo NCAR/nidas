@@ -358,6 +358,7 @@ void DSMSerialSensor::fromDOMElement(
 	    else if (aname == "suffix");
 	    else if (aname == "height");
 	    else if (aname == "depth");
+	    else if (aname == "duplicateIdOK");
 	    else throw n_u::InvalidParameterException(
 		string("DSMSerialSensor:") + getName(),
 		"unknown attribute",aname);

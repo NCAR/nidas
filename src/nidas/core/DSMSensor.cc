@@ -44,7 +44,8 @@ DSMSensor::DSMSensor() :
     rawSampleTag(0),
     latency(0.1),	// default sensor latency, 0.1 secs
     calFile(0),
-    _timeoutUsecs(0)
+    _timeoutUsecs(0),
+    _duplicateIdOK(false)
 {
 }
 
@@ -490,6 +491,19 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "suffix")
 	    	setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);
+            else if (aname == "duplicateIdOK") {
+               istringstream ist(aval);
+		bool val;
+		ist >> boolalpha >> val;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> val;
+		    if (ist.fail())
+			throw n_u::InvalidParameterException(
+				getName(),aname,aval);
+		}
+		setDuplicateIdOK(val);
+	    }
 	}
     }
     

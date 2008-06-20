@@ -36,9 +36,12 @@ void MOSMote::open(int flags)
     if (tsyncParam && tsyncParam->getType() == Parameter::INT_PARAM &&
     	tsyncParam->getLength() == 1) _tsyncPeriodSecs = (unsigned int)rint(tsyncParam->getNumericValue(0));
 
-    cerr << "tsyncSecs=" << _tsyncPeriodSecs << endl;
-    if (_tsyncPeriodSecs > 0)
+    // cerr << "tsyncSecs=" << _tsyncPeriodSecs << endl;
+    if (_tsyncPeriodSecs > 0) {
+	// send a time sync on open
+	looperNotify();
     	nidas::core::Looper::getInstance()->addClient(this,_tsyncPeriodSecs*MSECS_PER_SEC);
+    }
 
 }
 void MOSMote::close() throw(nidas::util::IOException)
@@ -53,15 +56,15 @@ void MOSMote::looperNotify() throw()
     unsigned int msec = (tnow / USECS_PER_MSEC) % (86400 * MSECS_PER_SEC);
 
     char outmsg[16];
-    sprintf(outmsg,"%8d\n",msec);
+    outmsg[0] = outmsg[1] = 'S';
+    outmsg[2] = sizeof(msec);
+    memcpy(outmsg+3,&msec,sizeof(msec));
 
-    cerr << "MOSMote looper callback, msec=" << msec << endl;
-    if (!(_ncallBack++ %  30))
-	n_u::Logger::getInstance()->log(LOG_INFO,"%s: looperNotify, msec %d",
+    n_u::Logger::getInstance()->log(LOG_INFO,"%s: looperNotify, msec %d",
 	    getName().c_str(),msec);
 
     try {
-	if (getWriteFd() >= 0) write(outmsg,strlen(outmsg));
+	if (getWriteFd() >= 0) write(outmsg,3 + sizeof(msec));
     }
     catch(n_u::IOException & e) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",

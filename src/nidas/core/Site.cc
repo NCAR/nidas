@@ -230,23 +230,44 @@ void Site::fromDOMElement(const DOMElement* node)
     // sensors so that you can report the dsm and sensor name
     // of duplicate variable.
     set<Variable> varset;
+    set<Variable> dupvarset;
+    pair<set<Variable>::const_iterator,bool> ins;
+    set<Variable>::const_iterator it;
+
     for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
         const DSMConfig* dsm = di.next();
         for (SensorIterator si = dsm->getSensorIterator(); si.hasNext(); ) {
             const DSMSensor* sensor = si.next();
-            for (VariableIterator vi = sensor->getVariableIterator();
-                vi.hasNext(); ) {
-                const Variable* var = vi.next();
-                if (!varset.insert(*var).second) {
-                    ostringstream ost;
-                    ost << var->getName() << " from sensor=" <<
-                        sensor->getName() << '(' <<
-                        sensor->getDSMId() << ',' <<
-                        sensor->getShortId() << ')';
-                    throw n_u::InvalidParameterException("variable",
-                        ost.str(),"is not unique");
-                }
-            }
+	    for (VariableIterator vi = sensor->getVariableIterator();
+		vi.hasNext(); ) {
+		const Variable* var = vi.next();
+		if (sensor->getDuplicateIdOK()) {
+		    set<Variable>::const_iterator vi = varset.find(*var);
+		    if (vi != varset.end()) {
+			ostringstream ost;
+			ost << var->getName() << " from sensor=" <<
+			    sensor->getName() << '(' <<
+			    sensor->getDSMId() << ',' <<
+			    sensor->getShortId() << ')';
+			throw n_u::InvalidParameterException("variable",
+			    ost.str(),"is not unique");
+		    }
+		    dupvarset.insert(*var);
+		}
+		else {
+		    ins = varset.insert(*var);
+		    it = dupvarset.find(*var);
+		    if (!ins.second || it != dupvarset.end()) {
+			ostringstream ost;
+			ost << var->getName() << " from sensor=" <<
+			    sensor->getName() << '(' <<
+			    sensor->getDSMId() << ',' <<
+			    sensor->getShortId() << ')';
+			throw n_u::InvalidParameterException("variable",
+			    ost.str(),"is not unique");
+		    }
+		}
+	    }
         }
     }
 }

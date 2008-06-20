@@ -349,7 +349,11 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
     typedef map<unsigned int,DSMSensor*> sens_map_t;
     typedef map<unsigned int,DSMSensor*>::const_iterator sens_map_itr_t;
     sens_map_t sensorIdCheck;
+    sens_map_t dupSensorIdCheck;
     sens_map_t sampleIdCheck;
+    sens_map_t dupSampleIdCheck;
+    pair<sens_map_itr_t,bool> ins;
+    sens_map_itr_t it;
 
     for (list<DSMSensor*>::const_iterator si = tmpSensorList.begin();
     	si != tmpSensorList.end(); ++si) {
@@ -359,32 +363,70 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    throw n_u::InvalidParameterException(sensor->getName(),
 		"id","must be non-zero");
 
-	pair<sens_map_itr_t,bool> ins = sensorIdCheck.insert(
-		make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
-	if (!ins.second) {
-	    ostringstream ost;
-	    ost << sensor->getId() <<
-	    	"(dsm id=" << sensor->getDSMId() <<
-		",sensor id=" << sensor->getShortId() << ')';
-	    DSMSensor* other = ins.first->second;
-	    throw n_u::InvalidParameterException(
-	    	sensor->getName() + " has same id=" + ost.str() + " as " +
-		    other->getName());
-	}
+        /* if it is OK for this sensor to have duplicate IDs with another
+         * then the other sensor must also agree.
+         */
+        if (sensor->getDuplicateIdOK()) {
+            it = sensorIdCheck.find(sensor->getId());
+            if (it != sensorIdCheck.end()) {
+                ostringstream ost;
+                ost << sensor->getId() <<
+                    "(dsm id=" << sensor->getDSMId() <<
+                    ",sensor id=" << sensor->getShortId() << ')';
+                DSMSensor* other = it->second;
+                throw n_u::InvalidParameterException(
+                    sensor->getName(),string(" has same id=") + ost.str() + " as " +
+                        other->getName()," (both must set duplicatID=true, if that is what you want)");
+            }
+            dupSensorIdCheck.insert(make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+        }
+        else {
+            ins = sensorIdCheck.insert(
+                    make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+            it = dupSensorIdCheck.find(sensor->getId());
+            if (!ins.second || it != dupSensorIdCheck.end()) {
+                ostringstream ost;
+                ost << sensor->getId() <<
+                    "(dsm id=" << sensor->getDSMId() <<
+                    ",sensor id=" << sensor->getShortId() << ')';
+                DSMSensor* other;
+                if (!ins.second) other = ins.first->second;
+                else other = it->second;
+                throw n_u::InvalidParameterException(
+                    sensor->getName() + " has same id=" + ost.str() + " as " +
+                        other->getName());
+            }
+        }
 
 	// check the sensor ids (which become the ids of the raw samples)
 	// against the sample ids of all other sensors.
-	ins = sampleIdCheck.insert(
-	    make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
-	if (!ins.second) {
-	    ostringstream ost;
-	    ost << sensor->getId();
-	    DSMSensor* other = ins.first->second;
-
-	    throw n_u::InvalidParameterException(
-		sensor->getName() + " id=" + ost.str() +
-		" is equal to a sensor or sample id belonging to " + other->getName());
-	}
+        if (sensor->getDuplicateIdOK()) {
+            it = sampleIdCheck.find(sensor->getId());
+            if (it != sampleIdCheck.end()) {
+                ostringstream ost;
+                ost << sensor->getId();
+                DSMSensor* other = it->second;
+                throw n_u::InvalidParameterException(
+                    sensor->getName() + " id=" + ost.str() +
+                    " is equal to a sensor or sample id belonging to " + other->getName());
+            }
+            dupSampleIdCheck.insert(make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+        }
+        else {
+            ins = sampleIdCheck.insert(
+                make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+            it = dupSampleIdCheck.find(sensor->getId());
+            if (!ins.second || it != dupSampleIdCheck.end()) {
+                ostringstream ost;
+                ost << sensor->getId();
+                DSMSensor* other;
+                if (!ins.second) other = ins.first->second;
+                else other = it->second;
+                throw n_u::InvalidParameterException(
+                    sensor->getName() + " id=" + ost.str() +
+                    " is equal to a sensor or sample id belonging to " + other->getName());
+            }
+        }
 
 	// check that sample ids are unique
 	for (list<const SampleTag*>::const_iterator ti =
@@ -395,22 +437,39 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		throw n_u::InvalidParameterException(sensor->getName(),
 			"sample id","must be non-zero");
 
-	    ins = sampleIdCheck.insert(
-		make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
-	    if (!ins.second) {
-		ostringstream ost;
-		ost << stag->getId();
-		DSMSensor* other = ins.first->second;
+            if (sensor->getDuplicateIdOK()) {
+                it = sampleIdCheck.find(stag->getId());
+                if (it != sampleIdCheck.end()) {
+                    DSMSensor* other = it->second;
+                    ostringstream ost;
+                    ost << stag->getId();
+                    throw n_u::InvalidParameterException(
+                        sensor->getName() + " & " + other->getName() +
+                        " have equivalent sample ids: " + ost.str());
+                }
+                dupSampleIdCheck.insert(make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
+            }
+            else {
+                ins = sampleIdCheck.insert(
+                    make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
+                it = dupSampleIdCheck.find(stag->getId());
+                if (!ins.second || it != dupSampleIdCheck.end()) {
+                    ostringstream ost;
+                    ost << stag->getId();
+                    DSMSensor* other;
+                    if (!ins.second) other = ins.first->second;
+                    else other = it->second;
 
-		if (other == sensor)
-		    throw n_u::InvalidParameterException(
-		    	sensor->getName() + " has duplicate sample ids: " +
-			ost.str());
-		else
-		    throw n_u::InvalidParameterException(
-		    	sensor->getName() + " & " + other->getName() +
-			" have equivalent sample ids: " + ost.str());
-	    }
+                    if (other == sensor)
+                        throw n_u::InvalidParameterException(
+                            sensor->getName() + " has duplicate sample ids: " +
+                            ost.str());
+                    else
+                        throw n_u::InvalidParameterException(
+                            sensor->getName() + " & " + other->getName() +
+                            " have equivalent sample ids: " + ost.str());
+                }
+            }
 	}
 	list<SampleOutput*>::const_iterator oi =  getOutputs().begin();
 	for ( ; oi != getOutputs().end(); ++oi) {

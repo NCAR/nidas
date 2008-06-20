@@ -623,6 +623,29 @@ public:
         return _typeName;
     }
 
+    /**
+     * getDuplicateIdOK will be true if it is OK for samples from this sensor
+     * to have identical IDs to samples from another sensor.  That other sensor
+     * must also agree that dupicateIdOK are OK.  This can be useful
+     * if one may not be certain of the device name, e.g. /dev/ttyUSB*, that
+     * the system will assign to a sensor may use, but there are
+     * identifiers in the data returned that allow one to sort things out.
+     * In general, getDuplicateID is false.
+     */
+    bool getDuplicateIdOK() const
+    {
+        return _duplicateIdOK;
+    }
+
+    /**
+     * Set the duplicate ID attribute of this DSMSensor.
+     */
+    void setDuplicateIdOK(bool val)
+    {
+        _duplicateIdOK = val;
+    }
+
+
 protected:
 
     IODevice* getIODevice() const { return iodev; }
@@ -758,6 +781,8 @@ private:
     std::string _typeName;
 
     int _timeoutUsecs;
+
+    bool _duplicateIdOK;
 
 private:
     // no copying
