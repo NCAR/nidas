@@ -211,7 +211,7 @@ static inline void i2c_getAck(struct A2DBoard *brd)
 {
         unsigned char ack = 0;
         i2c_clock_hi(brd);
-//    ack = inb(brd->base_addr) & 0x1;
+        ack = inb(brd->base_addr) & 0x1;
         i2c_clock_lo(brd);
         if (ack != 0)
                 KLOG_NOTICE("Oops on I2C ACK from board %d!\n",
@@ -236,6 +236,8 @@ static inline void i2c_putAck(struct A2DBoard *brd)
         i2c_data_lo(brd);
         i2c_clock_hi(brd);
         i2c_clock_lo(brd);  // 
+        i2c_data_hi(brd);   // Can we still drive the data line after the clock, or is the LM92 chip driving?
+                            // Spowart says that by setting the line high it effectively opens the circuit.
 }
 
 static inline unsigned char i2c_get_byte(struct A2DBoard *brd)
