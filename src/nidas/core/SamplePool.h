@@ -80,7 +80,7 @@ public:
     /**
      * Get a sample of at least len elements from the pool.
      */
-    SampleType *getSample(size_t len);
+    SampleType *getSample(size_t len) throw(SampleLengthException);
 
     /**
      * Return a sample to the pool.
@@ -172,7 +172,9 @@ SamplePool<SampleType>::~SamplePool() {
 }
 
 template<class SampleType>
-SampleType* SamplePool<SampleType>::getSample(size_t len) {
+SampleType* SamplePool<SampleType>::getSample(size_t len)
+    throw(SampleLengthException)
+{
 
     nidas::util::Synchronized pooler(poolLock);
 
@@ -198,7 +200,8 @@ SampleType* SamplePool<SampleType>::getSample(size_t len) {
 
 template<class SampleType>
 SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
-    	int *n, size_t len) throw(SampleLengthException) {
+    	int *n, size_t len) throw(SampleLengthException)
+{
 
     SampleType *sample;
 #ifdef DEBUG

@@ -95,7 +95,6 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName(),"variable",
             "sample must contain one or two variables");
     }
-    cerr << "rate=" << stag->getRate() << endl;
 
     _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 

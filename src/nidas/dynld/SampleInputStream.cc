@@ -213,6 +213,12 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                 header.getDataByteLength() > maxSampleLength ||
                 header.getTimeTag() < minSampleTime ||
                 header.getTimeTag() > maxSampleTime)) {
+                samp = 0;
+	    }
+	    else samp = nidas::core::getSample((sampleType)header.getType(),
+		    header.getDataByteLength());
+
+            if (!samp) {
 	        if (!(badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
@@ -223,10 +229,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                 }
                 iostream->backup(header.getSizeOf() - 1);
                 continue;
-	    }
-	    else samp = nidas::core::getSample((sampleType)header.getType(),
-		    header.getDataByteLength());
-
+            }
 	    samp->setTimeTag(header.getTimeTag());
 	    samp->setId(header.getId());
 	    leftToRead = samp->getDataByteLength();
@@ -297,6 +300,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                 (header.getType() >= UNKNOWN_ST ||
                 GET_DSM_ID(header.getId()) > maxDsmId ||
                 header.getDataByteLength() > maxSampleLength ||
+                header.getDataByteLength() == 0 ||
                 header.getTimeTag() < minSampleTime ||
                 header.getTimeTag() > maxSampleTime)) {
                 if (!(badInputSamples++ % 1000)) {

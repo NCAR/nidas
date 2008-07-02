@@ -419,6 +419,7 @@ int DataStats::run() throw()
 	    iochan = new nidas::core::Socket(sock);
 	}
 	RawSampleInputStream sis(iochan);
+        // sis.setMaxSampleLength(8192);
 	sis.init();
 	sis.readHeader();
 

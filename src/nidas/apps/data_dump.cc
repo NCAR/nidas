@@ -44,7 +44,7 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
     	FLOAT, IRIG, LONG } format_t;
 
-    DumpClient(dsm_sample_id_t,format_t,ostream&);
+    DumpClient(set<dsm_sample_id_t>,format_t,ostream&);
 
     virtual ~DumpClient() {}
 
@@ -54,9 +54,7 @@ public:
 
 private:
 
-    dsm_sample_id_t dsmId;
-
-    dsm_sample_id_t sensorId;
+    set<dsm_sample_id_t> sampleIds;
 
     bool allDSMs;
 
@@ -68,19 +66,22 @@ private:
 };
 
 
-DumpClient::DumpClient(dsm_sample_id_t id,format_t fmt,ostream &outstr):
-        dsmId(GET_DSM_ID(id)),sensorId(GET_SHORT_ID(id)),
-        allDSMs(false),allSensors(false),
+DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr):
+        sampleIds(ids),allDSMs(false),allSensors(false),
 	format(fmt),ostr(outstr)
 {
-    if (dsmId == 1023) allDSMs = true;
-    if (sensorId == 65535) allSensors = true;
+    if (sampleIds.size() == 1) {
+        dsm_sample_id_t sampleId = *sampleIds.begin();
+        if(GET_DSM_ID(sampleId) == 1023) allDSMs = true;
+        if(GET_SHORT_ID(sampleId) == 65535) allSensors = true;
+    }
 }
 
 void DumpClient::printHeader()
 {
     cout << "|--- date time --------|  deltaT";
-    if (allDSMs || allSensors) cout << "   id   ";
+    if (allDSMs || allSensors || sampleIds.size() > 1)
+        cout << "   id   ";
     cout << "     len bytes" << endl;
 }
 
@@ -96,8 +97,8 @@ bool DumpClient::receive(const Sample* samp) throw()
     	GET_SHORT_ID(sampid) << endl;
 #endif
 
-    if (!allDSMs && GET_DSM_ID(sampid) != dsmId) return false;
-    if (!allSensors && GET_SHORT_ID(sampid) != sensorId) return false;
+    if (!allDSMs && !allSensors && sampleIds.find(sampid) == sampleIds.end())
+        return false;
 
     struct tm tm;
     char cstr[64];
@@ -115,7 +116,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     }
     else ostr << setw(7) << 0 << ' ';
 
-    if (allDSMs || allSensors)
+    if (allDSMs || allSensors || sampleIds.size() > 1)
         ostr << setw(2) << setfill(' ') << GET_DSM_ID(sampid) <<
         ',' << setw(4) << GET_SHORT_ID(sampid) << ' ';
 
@@ -239,17 +240,15 @@ private:
 
     auto_ptr<n_u::SocketAddress> sockAddr;
 
-    dsm_sample_id_t sampleId;
+    set<dsm_sample_id_t> sampleIds;
 
     DumpClient::format_t format;
-
 
 };
 
 DataDump::DataDump():
         logLevel(n_u::LOGGER_INFO),
         processData(false),
-	sampleId(0),
 	format(DumpClient::DEFAULT)
 {
 }
@@ -259,8 +258,9 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
+    dsm_sample_id_t sampleId = 0;
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHIl:Lps:SUx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -279,6 +279,40 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'H':
 	    format = DumpClient::HEX;
+	    break;
+	case 'i':
+            {
+                int dsmid1,dsmid2;
+                int snsid1,snsid2;
+                string soptarg(optarg);
+                string::size_type ic = soptarg.find(',');
+                if (ic == string::npos) return usage(argv[0]);
+                string dsmstr = soptarg.substr(0,ic);
+                string snsstr = soptarg.substr(ic+1);
+                ic = dsmstr.find('-');
+                if (ic != string::npos) {
+                    dsmid1 = atoi(dsmstr.substr(0,ic).c_str());
+                    dsmid2 = atoi(dsmstr.substr(ic+1).c_str());
+                }
+                else {
+                    dsmid1 = dsmid2 = atoi(dsmstr.c_str());
+                }
+                ic = snsstr.find('-');
+                if (ic != string::npos) {
+                    snsid1 = atoi(snsstr.substr(0,ic).c_str());
+                    snsid2 = atoi(snsstr.substr(ic+1).c_str());
+                }
+                else {
+                    snsid1 = snsid2 = atoi(snsstr.c_str());
+                }
+                for (int did = dsmid1; did <= dsmid2; did++) {
+                    sampleId = SET_DSM_ID(sampleId,did);
+                    for (int sid = snsid1; sid <= snsid2; sid++) {
+                        sampleId = SET_SHORT_ID(sampleId,sid);
+                        sampleIds.insert(sampleId);
+                    }
+                }
+            }
 	    break;
 	case 'I':
 	    format = DumpClient::IRIG;
@@ -299,6 +333,7 @@ int DataDump::parseRunstring(int argc, char** argv)
                     sampleId = SET_SHORT_ID(sampleId,0xffffffff);
                 else
                     sampleId = SET_SHORT_ID(sampleId,sensorid);
+                sampleIds.insert(sampleId);
             }
 	    break;
 	case 'S':
@@ -356,10 +391,13 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " -d dsmid -s sampleId [-l log_level] [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
+Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
     -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
     -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
+        More than one -d and -s option can be specified. Place -s after the corresponding -d, or use -i\n\
+    -i d,s : d is a dsm id or range of dsm ids separated by '-'.\n\
+             s is a sample id or range of sample ids separated by '-'.\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
          $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
@@ -506,7 +544,7 @@ int DataDump::run() throw()
 	    }
 	}
 
-	DumpClient dumper(sampleId,format,cout);
+	DumpClient dumper(sampleIds,format,cout);
 
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;

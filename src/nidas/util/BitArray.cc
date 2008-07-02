@@ -84,7 +84,7 @@ unsigned int BitArray::getBits(int begin, int end)
         unsigned char bmask = 0xff;
         if (end % 8) bmask >>= 8 - (end % 8);
         for (int i = nb = 1; i >= 0; i--) {
-            res = res << 8;
+            res <<= 8;
             res |= (bits[i + begin/8] & bmask);
             bmask = 0xff;
         }
@@ -111,7 +111,7 @@ long long BitArray::getBits64(int begin, int end)
         unsigned char bmask = 0xff;
         if (end % 8) bmask >>= 8 - (end % 8);
         for (int i = nb = 1; i >= 0; i--) {
-            res = res << 8;
+            res <<= 8;
             res |= (bits[i + begin/8] & bmask);
             bmask = 0xff;
         }

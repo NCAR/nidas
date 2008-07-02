@@ -559,6 +559,7 @@ protected:
 /**
  * A convienence method for getting a sample of an
  * enumerated type from a pool.
+ * Returns NULL if type is unknown or len is out of range.
  */
 Sample* getSample(sampleType type, size_t len);
 
@@ -577,7 +578,7 @@ namespace nidas { namespace core {
  * A convenience function for getting a typed sample from a pool.
  */
 template <class T>
-SampleT<T>* getSample(size_t len)
+SampleT<T>* getSample(size_t len) throw(SampleLengthException)
 {
     SampleT<T>* samp =
     	SamplePool<SampleT<T> >::getInstance()->getSample(len);
