@@ -27,11 +27,9 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(ParoSci_202BG_T)
 
 ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
-    _U0(floatNAN),_periodUsec(floatNAN),_lastSampleTime(0),
+    _periodUsec(floatNAN),_lastSampleTime(0),
     _presSensorId(0),_presSensor(0)
 {
-    for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
-        _Y[i] = floatNAN;
 }
 
 void ParoSci_202BG_T::readParams(const list<const Parameter*>& params)
@@ -82,40 +80,17 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
     dsm_time_t tt = insamp->getTimeTag();
     // Read CalFile of calibration parameters.
     CalFile* cf = getCalFile();
-    if (cf) {
-        while(tt >= _calTime) {
-            float d[4];
-            try {
-                int n = cf->readData(d,sizeof d/sizeof(d[0]));
-                if (n > 0) setU0(d[0]);
-                if (n > 3) setYs(0.0,d[1],d[2],d[3]);
-                _calTime = cf->readTime().toUsecs();
-            }
-            catch(const n_u::EOFException& e)
-            {
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::Exception& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getCurrentFileName().c_str(),e.what());
-                setU0(floatNAN);
-                setYs(floatNAN,floatNAN,floatNAN,floatNAN);
-                _calTime = LONG_LONG_MAX;
-            }
-        }
-    }
+    if (cf) _calibrator.readCalFile(cf,tt);
 
     SampleT<float>* osamp = getSample<float>(2);
     osamp->setTimeTag(tt);
     osamp->setId(_sampleId);
     float *fp = osamp->getDataPtr();
 
-    _periodUsec = calculatePeriodUsec(insamp) - _U0;
+    _periodUsec = calculatePeriodUsec(insamp) - _calibrator.getU0();
     _lastSampleTime = tt;
 
-    float temp = Polynomial::eval(_periodUsec,_Y,
-        sizeof(_Y)/sizeof(_Y[0]));
+    float temp = _calibrator.computeTemperature(_periodUsec);
 
     *fp++ = _periodUsec;
     *fp++ = temp;

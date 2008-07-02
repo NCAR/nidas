@@ -16,6 +16,7 @@
 #define NIDAS_DYNLD_PAROSCI_202BG_P_h
 
 #include <nidas/dynld/DSC_FreqCounter.h>
+#include <nidas/dynld/ParoSci_202BG_Calibration.h>
 
 using namespace nidas::core;
 
@@ -36,20 +37,6 @@ public:
 
     void init() throw(nidas::util::InvalidParameterException);
 
-    void setCs(float v0, float v1, float v2)
-    {
-        _C[0] = v0; _C[1] = v1; _C[2] = v2;
-    }
-
-    void setDs(float v0, float v1)
-    {
-        _D[0] = v0; _D[1] = v1;
-    }
-
-    void setTs(float v0, float v1, float v2, float v3, float v4)
-    {
-        _T[0] = v0; _T[1] = v1; _T[2] = v2; _T[3] = v3; _T[4] = v4;
-    }
     /**
      * Process a raw sample, which in this case means convert the
      * counts and elapsed ticks into a signal period, then 
@@ -69,15 +56,6 @@ private:
     void readParams(const std::list<const Parameter*>& params)
         throw(nidas::util::InvalidParameterException);
 
-    float _U0;
-
-    float _C[3];
-
-    float _D[2];
-
-    float _T[5];
-
-    dsm_time_t _calTime;
 
     float _periodUsec;
 
@@ -87,7 +65,7 @@ private:
 
     ParoSci_202BG_T* _tempSensor;
 
-
+    ParoSci_202BG_Calibration _calibrator;
 
 };
 

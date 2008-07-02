@@ -28,15 +28,9 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(ParoSci_202BG_P)
 
 ParoSci_202BG_P::ParoSci_202BG_P() : DSC_FreqCounter(),
-    _U0(floatNAN),_periodUsec(floatNAN),_lastSampleTime(0),
-        _tempSensorId(0),_tempSensor(0)
+    _periodUsec(floatNAN),_lastSampleTime(0),
+    _tempSensorId(0),_tempSensor(0)
 {
-    for (unsigned int i = 0; i < sizeof(_C)/sizeof(_C[0]); i++)
-        _C[i] = floatNAN;
-    for (unsigned int i = 0; i < sizeof(_D)/sizeof(_D[0]); i++)
-        _D[i] = floatNAN;
-    for (unsigned int i = 0; i < sizeof(_T)/sizeof(_T[0]); i++)
-        _T[i] = floatNAN;
 }
 
 void ParoSci_202BG_P::readParams(const list<const Parameter*>& params)
@@ -93,38 +87,9 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
 
     // Read CalFile of calibration parameters.
     CalFile* cf = getCalFile();
-    if (cf) {
-        while(_lastSampleTime >= _calTime) {
-            float d[10];
-            try {
-                int n = cf->readData(d,sizeof d/sizeof(d[0]));
-                if (n > 2) setCs(d[0]*MBAR_PER_PSI,d[1]*MBAR_PER_PSI,d[2]*MBAR_PER_PSI);
-                if (n > 4) setDs(d[3],d[4]);
-                if (n > 9) setTs(d[5],d[6],d[7],d[8],d[9]);
-                _calTime = cf->readTime().toUsecs();
-            }
-            catch(const n_u::EOFException& e)
-            {
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::Exception& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getCurrentFileName().c_str(),e.what());
-                setCs(floatNAN,floatNAN,floatNAN);
-                setDs(floatNAN,floatNAN);
-                setTs(floatNAN,floatNAN,floatNAN,floatNAN,floatNAN);
-                _calTime = LONG_LONG_MAX;
-            }
-        }
-    }
+    if (cf) _calibrator.readCalFile(cf,_lastSampleTime);
 
-    double C = Polynomial::eval(tper,_C,sizeof(_C)/sizeof(_C[0]));
-    double D = Polynomial::eval(tper,_D,sizeof(_D)/sizeof(_D[0]));
-    double T0 = Polynomial::eval(tper,_T,sizeof(_T)/sizeof(_T[0]));
-
-    double Tfact = (1.0 - T0 * T0 / pper / pper);
-    float p = C * Tfact * (1.0 - D * Tfact);
+    float p = _calibrator.computePressure(tper,pper);
 
     SampleT<float>* osamp = getSample<float>(2);
     osamp->setTimeTag(_lastSampleTime);

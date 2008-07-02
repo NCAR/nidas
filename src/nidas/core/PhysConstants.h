@@ -25,6 +25,8 @@ const float MS_PER_KNOT = 0.514791;
  */
 const float MBAR_PER_PSI = 68.9476;
 
+const float MBAR_PER_KPA = 10.0;
+
 }}	// namespace nidas namespace core
 
 #endif
