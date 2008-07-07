@@ -82,17 +82,24 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
     CalFile* cf = getCalFile();
     if (cf) _calibrator.readCalFile(cf,tt);
 
-    SampleT<float>* osamp = getSample<float>(2);
+    SampleT<float>* osamp = getSample<float>(3);
     osamp->setTimeTag(tt);
     osamp->setId(_sampleId);
     float *fp = osamp->getDataPtr();
 
-    _periodUsec = calculatePeriodUsec(insamp) - _calibrator.getU0();
+    _periodUsec = calculatePeriodUsec(insamp);
+    float freq = USECS_PER_SEC / _periodUsec;
+    // cerr << "freq=" << USECS_PER_SEC / _periodUsec << " _periodUsec=" << _periodUsec << " U0=" << _calibrator.getU0() <<
+      //   " usec cor=" << _periodUsec - _calibrator.getU0() << endl;
+
+    _periodUsec -= _calibrator.getU0();
     _lastSampleTime = tt;
 
     float temp = _calibrator.computeTemperature(_periodUsec);
+    // cerr << "_periodUsec=" << _periodUsec << " temp=" << temp << endl;
 
     *fp++ = _periodUsec;
+    *fp++ = freq;
     *fp++ = temp;
     results.push_back(osamp);
 

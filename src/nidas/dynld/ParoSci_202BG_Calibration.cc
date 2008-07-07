@@ -73,6 +73,7 @@ void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
 
 double ParoSci_202BG_Calibration::computeTemperature(double usec)
 {
+    // cerr << "usec=" << usec << " _Y=" << _Y[0] << ' ' << _Y[1] << ' ' << _Y[2] << ' ' << _Y[3] << endl;
     return Polynomial::eval(usec,_Y,sizeof(_Y)/sizeof(_Y[0]));
 }
 

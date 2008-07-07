@@ -88,6 +88,7 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
     _sampleId = stag->getId();
     _nvars = stag->getVariables().size();
     switch (_nvars) {
+    case 3:
     case 2:
     case 1:
         break;
@@ -121,7 +122,8 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
             if (p->getType() != Parameter::INT_PARAM || p->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
                     "ClockRate","should be a integer of length 1");
-             _clockRate = (int)rint(p->getNumericValue(0));
+             _clockRate = p->getNumericValue(0);
+             cerr << "_clockRate=" << _clockRate << endl;
         }
     }
 }
@@ -147,7 +149,7 @@ void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
     }
 }
 
-float DSC_FreqCounter::calculatePeriodUsec(const Sample* insamp) const
+double DSC_FreqCounter::calculatePeriodUsec(const Sample* insamp) const
 {
     // data is two 4 byte integers.
     if (insamp->getDataByteLength() != 2 * sizeof(int)) return floatNAN;
@@ -159,7 +161,7 @@ float DSC_FreqCounter::calculatePeriodUsec(const Sample* insamp) const
     return calculatePeriodUsec(pulses,tics);
 }
 
-float DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int tics) const
+double DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int tics) const
 {
     if (tics == 0) return 0.0;
     if (pulses == 0) return floatNAN;
@@ -182,14 +184,15 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     unsigned int pulses = _cvtr->uint32Value(ip);
     unsigned int tics = _cvtr->uint32Value(ip+1);
 
-    float usec = calculatePeriodUsec(pulses,tics);
+    double usec = calculatePeriodUsec(pulses,tics);
 
     switch (_nvars) {
+    case 3:
+        fp[2] = floatNAN;
     case 2:
-        fp[1] = floatNAN;
-        break;
+        fp[1] = USECS_PER_SEC / usec;
     case 1:
-        fp[0] = usec;
+        fp[0] = (float) usec;
         break;
     }
 

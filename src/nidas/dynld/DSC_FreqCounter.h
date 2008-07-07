@@ -59,14 +59,14 @@ public:
     /**
      * Calculate the input pulse period in microseconds.
      */
-    float calculatePeriodUsec(const Sample*) const;
+    double calculatePeriodUsec(const Sample*) const;
 
     /**
      * Calculate the input pulse period in microseconds,
      * based on the number of pulses counted (npulses) and the number
      * of clock tics counted while counting npulses.
      */
-    float calculatePeriodUsec(unsigned int npulses, unsigned tics) const;
+    double calculatePeriodUsec(unsigned int npulses, unsigned tics) const;
 
     /**
      * Process a raw sample, which in this case means convert the
@@ -104,7 +104,7 @@ protected:
      * Rate of reference clock whose tics are counted while
      * _numPulses are counted.
      */
-    int _clockRate;
+    double _clockRate;
 
     const nidas::util::EndianConverter* _cvtr;
 

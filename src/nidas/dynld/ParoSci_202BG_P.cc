@@ -91,12 +91,13 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
 
     float p = _calibrator.computePressure(tper,pper);
 
-    SampleT<float>* osamp = getSample<float>(2);
+    SampleT<float>* osamp = getSample<float>(3);
     osamp->setTimeTag(_lastSampleTime);
     osamp->setId(_sampleId);
     float *fp = osamp->getDataPtr();
 
-    *fp++ = _periodUsec;
+    *fp++ = pper;
+    *fp++ = USECS_PER_SEC / pper;
     *fp++ = p;
     results.push_back(osamp);
 
