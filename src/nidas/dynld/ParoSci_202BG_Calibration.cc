@@ -84,10 +84,12 @@ double ParoSci_202BG_Calibration::computePressure(double tper, double pper)
     double T0 = Polynomial::eval(tper,_T,sizeof(_T)/sizeof(_T[0]));
     double Tfact = (1.0 - T0 * T0 / pper / pper);
     double p = C * Tfact * (1.0 - D * Tfact);
+    return p;
 }
 
 double ParoSci_202BG_Calibration::correctPressure(double pgauge, double pstatic)
 {
     double pd = pstatic - _P0;
     double pcorr = pgauge + _a[0] * pd + _a[1] * pd * pd + _b * pd * pgauge;
+    return pcorr;
 }
