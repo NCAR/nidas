@@ -15,6 +15,7 @@
 
 #include <nidas/core/McSocket.h>
 #include <nidas/core/Datagrams.h>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -246,8 +247,8 @@ void McSocket::fromDOMElement(const DOMElement* node)
 	iaddr = n_u::Inet4Address::getByName(saddr);
     }
     catch(const n_u::UnknownHostException& e) {
-	throw n_u::InvalidParameterException(
-	    "mcsocket: parsing XML","unknown IP address",saddr);
+        n_u::Logger::getInstance()->log(LOG_WARNING,"socket: unknown IP address: %s",
+            saddr.c_str());
     }
 
     int port = 0;
