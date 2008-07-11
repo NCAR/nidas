@@ -2,7 +2,6 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os,sys
-from subprocess import Popen,PIPE
 
 sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
 
@@ -42,6 +41,8 @@ opts.Add(BoolOption('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
 opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolOption('PSQL_ENABLE', 'Build PSQL modules when detected.', 'off'))
+opts.Add(BoolOption('LINUX_MODULES', 
+                    'Build linux and rtlinux modules when possible.', 'on'))
 
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
@@ -132,18 +133,10 @@ SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 ##
 if 'arm' in env['ARCHITECTURES']:
     print "Setting up for ARM builds..."
-    if env['KERNELDIR_ARM'] != '':
-        if os.path.exists(env['KERNELDIR_ARM']):
-            print 'KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' found'
-        else:
-            print 'Error: KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' not found.'
     arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
-	   OTHER_PREFIX = env['OTHER_ARM'],
-	   KERNELDIR=env['KERNELDIR_ARM'],
-	   KMAKE='make ARCH=arm CROSS_COMPILE=arm-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARM'] +' KINCLUDE=' + env.Dir("#").get_abspath())
-
+	   OTHER_PREFIX = env['OTHER_ARM'])
     arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
                build_dir='build_arm',
@@ -156,18 +149,10 @@ if 'arm' in env['ARCHITECTURES']:
 ##
 if 'armbe' in env['ARCHITECTURES']:
     print "Setting up for ARMBE builds..."
-    if env['KERNELDIR_ARMBE'] != '':
-        if os.path.exists(env['KERNELDIR_ARMBE']):
-            print 'KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' found'
-        else:
-            print 'Error: KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' not found.'
     armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
-	   OTHER_PREFIX = env['OTHER_ARMBE'],
-	   KERNELDIR=env['KERNELDIR_ARMBE'],
-	   KMAKE='make ARCH=arm CROSS_COMPILE=armbe-linux-' + ' KERNELDIR=' + env['KERNELDIR_ARMBE'] +' KINCLUDE=' + env.Dir("#").get_abspath())
-
+	   OTHER_PREFIX = env['OTHER_ARMBE'])
     armbe_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
                build_dir='build_armbe',
@@ -179,29 +164,10 @@ if 'armbe' in env['ARCHITECTURES']:
 ##
 if 'x86' in env['ARCHITECTURES']:
     print "Setting up for x86 builds..."
-    if env['KERNELDIR_X86'] == '*':
-        kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
-        kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
-        kdir = '/usr/src/kernels/' + kver + '-' + kmach
-        # Fallback for Fedora 9 using a different directory name.
-        if not os.path.exists(kdir):
-            if os.path.exists('/usr/src/kernels/' + kver):
-                kdir = '/usr/src/kernels/' + kver
-        env['KERNELDIR_X86'] = kdir
-    # If KERNELDIR_X86 doesn't exist, issue a warning here and
-    # let it fail later
-    if env['KERNELDIR_X86'] != '':
-        if os.path.exists(env['KERNELDIR_X86']):
-            print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
-        else:
-            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel package, and use KERNELDIR_X86=\'*\'.'
     x86_env = env.Clone(tools = ['x86tools'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
-	    OTHER_PREFIX = env['OTHER_X86'],
-	    KERNELDIR=env['KERNELDIR_X86'],
-	    KMAKE='make KERNELDIR=' + env['KERNELDIR_X86'] +' KINCLUDE=' + env.Dir("#").get_abspath())
-
+	    OTHER_PREFIX = env['OTHER_X86'])
     x86_env.Append(CCFLAGS = ["-g"])
     x86_env.Append(CXXFLAGS = ["-g"])
     SConscript('nidas/SConscript',

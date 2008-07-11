@@ -53,11 +53,10 @@ if arch == 'x86':
     env.PrependUnique(RPATH = [env.Dir("build_dynld").get_abspath()])
     env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
 
-subdirs=Split("""util core dynld apps linux""")
+subdirs=Split("""util core dynld apps""")
 
-# if arch == 'arm' or arch == 'x86':
-#    subdirs += Split("""rtlinux""")
-subdirs += Split("""rtlinux""")
+if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
+    subdirs += Split("""linux rtlinux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,

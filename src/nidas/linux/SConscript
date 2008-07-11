@@ -1,5 +1,8 @@
 # -*- python -*-
 
+import os,sys
+from subprocess import Popen,PIPE
+
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 ##
@@ -9,11 +12,55 @@ Import('env')
 
 # Make a copy of the environment so that we can add $KERNELDIR/include
 # to CPPPATH without effecting builds in other directories.
-myenv = env.Clone()
+env = env.Clone()
 
-arch = myenv['ARCH']
+arch = env['ARCH']
 
-myenv.AppendUnique(CPPPATH = [myenv.subst("$KERNELDIR/include")] )
+env['KINCLUDE'] = env.Dir("#").get_abspath()
+env['KARCH'] = ""
+env['KMAKE'] = 'make KERNELDIR=$KERNELDIR KINCLUDE=$KINCLUDE'
+
+
+if arch == 'x86':
+    if env['KERNELDIR_X86'] == '*':
+        kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
+        kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
+        kdir = '/usr/src/kernels/' + kver + '-' + kmach
+        # Fallback for Fedora 9 using a different directory name.
+        if not os.path.exists(kdir):
+            if os.path.exists('/usr/src/kernels/' + kver):
+                kdir = '/usr/src/kernels/' + kver
+        env['KERNELDIR_X86'] = kdir
+    # If KERNELDIR_X86 doesn't exist, issue a warning here and
+    # let it fail later.
+    if env['KERNELDIR_X86'] != '':
+        if os.path.exists(env['KERNELDIR_X86']):
+            print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
+        else:
+            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel package, and use KERNELDIR_X86=\'*\'.'
+    env['KERNELDIR'] = env['KERNELDIR_X86']
+
+if arch == 'arm':
+    if env['KERNELDIR_ARM'] != '':
+        if os.path.exists(env['KERNELDIR_ARM']):
+            print 'KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' found'
+        else:
+            print 'Error: KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' not found.'
+    env['KERNELDIR'] = env['KERNELDIR_ARM']
+    env['KMAKE'] += ' ARCH=arm CROSS_COMPILE=arm-linux-'
+
+
+if arch == 'armbe':
+    if env['KERNELDIR_ARMBE'] != '':
+        if os.path.exists(env['KERNELDIR_ARMBE']):
+            print 'KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' found'
+        else:
+            print 'Error: KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' not found.'
+    env['KERNELDIR'] = env['KERNELDIR_ARMBE']
+    env['KMAKE'] += ' ARCH=arm CROSS_COMPILE=armbe-linux-'
+
+
+env.AppendUnique(CPPPATH = [env.subst("$KERNELDIR/include")] )
 
 subdirs=Split("""
     diamond
@@ -38,16 +85,16 @@ else:
 ## ARCH target for creating modules, library, and executables
 ##
 build_dirs = ['build_%s' % dir for dir in subdirs + archdirs]
-myenv.Alias(arch, build_dirs)
+env.Alias(arch, build_dirs)
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
-archinstall= myenv.Alias(arch+'_install', [ '$PREFIX' ])
+archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
 
 for dir in subdirs + archdirs:
-    myenv.SConscript('%s/SConscript' % dir,
+    env.SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
-               duplicate=1,exports={'env':myenv})
+               duplicate=1,exports={'env':env})
 
 Default(build_dirs)
 
@@ -62,4 +109,4 @@ headers = Split("""
     util.h
 """)
 
-myenv.Install('$PREFIX/include/nidas/linux', headers)
+env.Install('$PREFIX/include/nidas/linux', headers)
