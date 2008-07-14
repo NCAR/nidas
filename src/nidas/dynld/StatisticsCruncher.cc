@@ -406,14 +406,14 @@ void StatisticsCruncher::setupTrivariances()
  *  x^3		N	3rd moment
  *  wss		N-3	w vs scalar-scalar (no scalar cross terms)
  *  [uv][uvw]w	5	(uvw, vuw are duplicates)
- *  [uvw]ws		3 * (N - 3)
+ *  [uv]ws	2 * (N - 3)
  *
- *  total:		5 * N - 7
+ *  total:	4 * N - 4
  */
 void StatisticsCruncher::setupPrunedTrivariances()
 {
 
-    ntri = 5 * nvars - 7;
+    ntri = 4 * nvars - 4;
 
     /*
      * Warning, the indices in triComb must be increasing.
@@ -434,6 +434,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
     for (int i = 0; i < nvars; i++,nt++)
 	triComb[nt][0] = triComb[nt][1] = triComb[nt][2] = i;
     setupMoments(nvars,3);
+    n3mom = 0;	// accounted for in ntri
 
     // ws^2 trivariances
     int i = 2;
@@ -471,7 +472,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    outSample.getVariable(nOutVar++).setUnits(units);
 	}
     }
-    // uws, vws, www trivariances
+    // uws, vws trivariances
     for (int i = 0; i < 2; i++) {
 	for (int k = 3; k < nvars; k++,nt++) {
 
@@ -490,6 +491,9 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    outSample.getVariable(nOutVar++).setUnits(units);
 	}
     }
+#ifdef DEBUG
+    cerr << "nt=" << nt << " ntri=" << ntri << endl;
+#endif
     assert(nt==ntri);
     for (nt=0; nt < ntri ; nt++)
 	assert(triComb[nt][0] <= triComb[nt][1] &&
@@ -671,6 +675,9 @@ void StatisticsCruncher::createCombinations()
 #ifdef DEBUG
     cerr << "ntot=" << ntot << " outsamp vars=" <<
     	outSample.getVariables().size() << endl;
+    cerr << "n1mom=" << n1mom << " n2mom=" << n2mom <<
+        " ncov=" << ncov << " ntri=" << ntri <<
+        " n3mom=" << n3mom << " n4mom=" << n4mom << endl;
 #endif
     assert(ntot == (signed)outSample.getVariables().size());
     assert((signed)nOutVar == ntot);
@@ -832,7 +839,7 @@ void StatisticsCruncher::attach(SampleSource* src)
 		// variable match
 		if (*var == *inVariables[i]) {
 		    const Site* vsite = var->getSite();
-		    if (site && vsite != site) continue;
+		    if (site && vsite && vsite != site) continue;
 		    // paranoid check that this variable hasn't been added
 		    // cerr << "match for " << var->getName() << endl;
 
