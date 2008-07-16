@@ -180,16 +180,17 @@ void WindTilter::rotate(float* up, float* vp, float* wp) const
 
     if (identity) return;
 
-    float* in[3] = {up,vp,wp};
+    float vin[3] = {*up,*vp,*wp};
     float out[3];
 
     for (int i = 0; i < 3; i++) {
 	out[i] = 0.0;
 	for (int j = 0; j < 3; j++)
-	    out[i] += (float)(mat[i][j] * *in[j]);
+	    out[i] += (float)(mat[i][j] * vin[j]);
     }
-    for (int i = 0; i < 3; i++)
-	*in[i] = out[i];
+    *up = out[0];
+    *vp = out[1];
+    *wp = out[2];
 }
 
 
