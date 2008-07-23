@@ -180,8 +180,8 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         setSendInitBlock((int)p->getNumericValue(0));
     }
 
-    _nChannels = 99;	// Fixed for this probe (at this time).
-    _nHousekeep = 9;	// 9 of the available 16 are used.
+    _nChannels = 99;	// 99 valid channels (100 total).
+    _nHousekeep = 9;	// 9 of the available 12 are used.
 
     // Determine number of floats we will recieve (_noutValues)
     const list<const SampleTag*>& tags = getSampleTags();
@@ -200,7 +200,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         for ( ; vi.hasNext(); )
         {
             const Variable* var = vi.next();
-            // first variable is the bin array
+            // first variable is the histogram array
             if (!_noutValues) _nOutBins = var->getLength();
             _noutValues += var->getLength();
         }
@@ -210,8 +210,10 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
      * We'll be adding a bogus zeroth bin to the data to match historical 
      * behavior. Remove all traces of this after the netCDF file refactor.
      */
-    // This logic should match what is in ::process, so that
-    // an output sample of the correct size is created.
+    /*
+     * This logic should match what is in ::process, so that
+     * an output sample of the correct size is created.
+     */
 
     int nextra = _nOutBins - _nChannels;
     if (nextra != 0 && nextra != 1) {
@@ -219,7 +221,10 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         ost << "length of first (bins) variable=" << _nOutBins << ". Should be " << _nChannels << " or " << _nChannels + 1;
         throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
-    // CVI processor wants to have a sum of the bins, and so will add a variable for that
+
+    // CVI processor wants to have a sum of the bins. If the user asks for
+    // one more variable, we'll assume it is the sum, which must be right
+    // after the histogram variable.
     _sumBins = false;
     if (_noutValues == _nOutBins + _nHousekeep + 1) _sumBins = true;
 
@@ -302,7 +307,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         return false;
     }
 
-    // There are actually 100 2-byte histogram values
+    // There are 100 2-byte histogram values (but apparently only 99 valid ones).
     int nbyteBins = (_nChannels + 1) * sizeof(short);
 
     if (eoi - ip < nbyteBins) {
@@ -321,6 +326,12 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     ip += sizeof(marker5);
 
     ip = findMarker(ip,eoi,marker6,sizeof(marker6));
+    if (!ip) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
+        return false;
+    }
+
     unsigned short* housePtr = (unsigned short*)ip;
 
     ip += 12 * sizeof(short);
@@ -348,16 +359,15 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
     // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
 
-    // 12 housekeeping values
-    // these values must correspond to the sequence of
+    // 12 housekeeping values, of which we unpack 9, skipping #8, #10 and #11.
+    // These values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
+
     // cerr << "house=";
-    for (int iout = 0; iout < 12; ++iout) {	// #8 is unused, as are last 2.
+    for (int iout = 0; iout < 12; ++iout) {
         int c = toLittle->uint16Value(housePtr[iout]);
         // cerr << setw(6) << c;
-        if (iout == 8)
-            ; 
-        else if (iout < 10)
+        if (iout != 8 && iout < 10)
             *dout++ = (float)c / _hkScale[iout];
     }
     // cerr << endl;

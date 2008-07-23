@@ -67,24 +67,26 @@ private:
   int _noutValues;
 
   /**
-   * Number of channels requested to be recorded.  Fixed at 101 for
-   * this probe.
+   * Number of histogram bins to be read. Probe puts out 100
+   * histogram values, but it appears that smallest bin is not to be used,
+   * so there are 99 usable bins on this probe.
+   * To be compatible with old datasets, the XML may specify 100 bins, and
+   * first bin will be zeroed.
    */
   int _nChannels;
 
   /**
-   * Number of housekeeping channels.  12 of 16 possible are used.
+   * Number of housekeeping channels.  9 of 12 possible are unpacked.
    */
   int _nHousekeep;
 
   /**
    * Housekeeping scale factors.
    */
-  float _hkScale[16];
+  float _hkScale[12];
 
   /**
-   * Stash sample-rate.  The rw histogram counts we want to convert to
-   * a counts per second by multiplying by sample rate.
+   * UHSAS sample-rate, currently used for scaling the sum of the bins.
    */
   float _sampleRate;
 
