@@ -264,14 +264,18 @@ public:
     const Parameter* getParameter(const std::string& name) const;
 
     /**
-     * What is the index of a Variable in this SampleTag.
+     * What is the index of a Variable into the data of a sample from this SampleTag.
      * @return -1: 'tain't here
      */
-    int getIndex(const Variable* var) const
+    int getDataIndex(const Variable* var) const
     {
-	std::vector<const Variable*>::const_iterator vi =
-	    std::find(constVariables.begin(),constVariables.end(),var);
-        return (vi == constVariables.end() ? -1 : vi - constVariables.begin());
+        int i = 0;
+	std::vector<const Variable*>::const_iterator vi = constVariables.begin();
+        for ( ; vi != constVariables.end(); ++vi) {
+            if (*vi == var) return i;
+            i += (*vi)->getLength();
+        }
+        return -1;
     }
 
     VariableIterator getVariableIterator() const;

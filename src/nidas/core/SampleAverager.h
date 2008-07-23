@@ -84,10 +84,11 @@ protected:
 
     dsm_time_t endTime;
 
-    std::map<dsm_sample_id_t,std::vector<int> > inmap;
-    std::map<dsm_sample_id_t,std::vector<int> > outmap;
+    std::map<dsm_sample_id_t,std::vector<int> > _inmap;
+    std::map<dsm_sample_id_t,std::vector<int> > _lenmap;
+    std::map<dsm_sample_id_t,std::vector<int> > _outmap;
 
-    int nvariables;
+    int _ndataValues;
 
     double *sums;
 

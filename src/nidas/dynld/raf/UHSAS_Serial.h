@@ -54,6 +54,9 @@ public:
         return _sendInitBlock;
     }
 
+    static unsigned const char* findMarker(unsigned const char* ip,unsigned const char* eoi,
+        unsigned char* marker, int len);
+
 private:
 
   static const nidas::util::EndianConverter * toLittle;
@@ -83,13 +86,15 @@ private:
    * Stash sample-rate.  The rw histogram counts we want to convert to
    * a counts per second by multiplying by sample rate.
    */
-  unsigned int _sampleRate;
+  float _sampleRate;
 
   bool _sendInitBlock;
 
   int _nOutBins;
 
   bool _sumBins;
+
+  unsigned int _nDataErrors;
 
 };
 

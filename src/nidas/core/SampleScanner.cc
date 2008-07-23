@@ -154,19 +154,16 @@ void SampleScanner::setMessageSeparatorProtected(const std::string& val)
 
     _separatorLen = _messageSeparator.length();
     delete [] _separator;
-    _separator = new char[_separatorLen+1];
-    strcpy(_separator,_messageSeparator.c_str());
+    _separator = new char[_separatorLen];
+    memcpy(_separator,_messageSeparator.c_str(),_separatorLen);
 
-    static n_u::LogContext log(LOG_DEBUG);
-    if (log.active())
-    {
-      n_u::LogMessage msg;
-      msg << "separator=" << std::ostringstream::hex;
-      for (int i = 0; i < _separatorLen; i++)
-        msg << (int)(unsigned char)_separator[i] << ' ';
-      msg << std::ostringstream::dec << ", getMessageLength=" << getMessageLength();
-      log.log (msg);
-    }
+#ifdef DEBUG
+    cerr << "separator val=" << val << endl;
+    cerr << "separator (len=" << _separatorLen << "): ";
+    for (int i = 0; i < _separatorLen; i++)
+        cerr << hex << setw(2) << (int) (unsigned char) _separator[i] << ' ';
+    cerr << endl;
+#endif
 }
 
 DriverSampleScanner::DriverSampleScanner(int bufsize):

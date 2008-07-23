@@ -13,8 +13,6 @@
 
 */
 
-#define ZERO_BIN_HACK
-
 #include <nidas/dynld/raf/UHSAS_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
@@ -22,6 +20,7 @@
 #include <nidas/util/IOTimeoutException.h>
 
 #include <sstream>
+#include <iomanip>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
@@ -154,7 +153,7 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
-UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false) {}
+UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false),_nDataErrors(0) {}
 
 void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -217,7 +216,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     int nextra = _nOutBins - _nChannels;
     if (nextra != 0 && nextra != 1) {
         ostringstream ost;
-        ost << "lenght of first variable=" << _nOutBins << ". Should be " << _nChannels << " or " << _nChannels + 1;
+        ost << "length of first (bins) variable=" << _nOutBins << ". Should be " << _nChannels << " or " << _nChannels + 1;
         throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
     // CVI processor wants to have a sum of the bins, and so will add a variable for that
@@ -235,6 +234,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 void UHSAS_Serial::sendInitString() throw(n_u::IOException)
 {
     if (!getSendInitBlock()) return;
+    ILOG(("sending Init block"));
     // clear whatever junk may be in the buffer til a timeout
     try {
         for (;;) {
@@ -259,31 +259,74 @@ void UHSAS_Serial::sendInitString() throw(n_u::IOException)
     samp->freeReference();
 }
 
+/* static */
+unsigned const char* UHSAS_Serial::findMarker(unsigned const char* ip,unsigned const char* eoi,
+    unsigned char* marker, int len)
+{
+    // scan for marker
+    for (; ; ip++) {
+        for ( ; ip < eoi && *ip != marker[0]; ip++);
+        if (ip + len > eoi) break;
+        if (!memcmp(ip, marker, len)) break;
+    }
+    if (ip + sizeof(marker) > eoi) return 0;
+    return ip + len;
+}
+
 bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
+    static unsigned char marker0[] = { 0xff, 0xff, 0x00 };
+    static unsigned char marker4[] = { 0xff, 0xff, 0x04 };  // start of  histogram
+    static unsigned char marker5[] = { 0xff, 0xff, 0x05 };  // end of  histogram
+    static unsigned char marker6[] = { 0xff, 0xff, 0x06 };  // start of housekeeping
+    static unsigned char marker7[] = { 0xff, 0xff, 0x07 };  // end of housekeeping
+
     const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
+    unsigned nbytes = samp->getDataByteLength();
 
-    if (samp->getDataByteLength() == 237)
-    {
-        static unsigned char start_marker[] = { 0xff, 0xff, 0x00, 0xff, 0xff, 0x04 };
-        static unsigned char mid_marker[] = { 0xff, 0xff, 0x05, 0xff, 0xff, 0x06 };
-        static unsigned char end_marker[] = { 0xff, 0xff, 0x07 };
+    const unsigned char* ip = input;
+    const unsigned char* eoi = input + nbytes;
 
-        if (memcmp(input, start_marker, sizeof(start_marker)))
-          cerr << "UHSAS::process, Incorrect start of data keyword.\n";
-
-        if (memcmp(&input[206], mid_marker, sizeof(mid_marker)))
-          cerr << "UHSAS::process, Incorrect mid marker.\n";
-
-        if (memcmp(&input[234], end_marker, sizeof(end_marker)))
-          cerr << "UHSAS::process, Incorrect end of data keyword.\n";
+    if (nbytes < sizeof(marker0) || memcmp(ip, marker0, sizeof(marker0))) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Start marker (ffff00) not found. #errors=" << _nDataErrors);
+        return false;
     }
-    else
-    {
-        cerr	<< "UHSAS::process, Unexpected packet length of "
-		<< samp->getDataByteLength() << std::endl;
+    ip += sizeof(marker0);
 
+    ip = findMarker(ip,eoi,marker4,sizeof(marker4));
+    if (!ip) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
+        return false;
+    }
+
+    // There are actually 100 2-byte histogram values
+    int nbyteBins = (_nChannels + 1) * sizeof(short);
+
+    if (eoi - ip < nbyteBins) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
+        return false;
+    }
+    unsigned short* histoPtr = (unsigned short*)ip;
+    ip += nbyteBins;
+
+    if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
+        return false;
+    }
+    ip += sizeof(marker5);
+
+    ip = findMarker(ip,eoi,marker6,sizeof(marker6));
+    unsigned short* housePtr = (unsigned short*)ip;
+
+    ip += 12 * sizeof(short);
+    if (ip >= eoi || memcmp(ip, marker7, sizeof(marker7))) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
         return false;
     }
 
@@ -293,29 +336,34 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(getId() + 1);
 
     // Pull out histogram data.
-    // add a bogus zeroth bin for historical reasons
+    // If user asked for 100 values, add a bogus zeroth bin for historical reasons
     if (_nOutBins == _nChannels + 1) *dout++ = 0.0;
 
-    unsigned short * histogram = (unsigned short *)&input[6];
-    float sum = 0.0;
+    int sum = 0;
     for (int iout = _nChannels-1; iout >= 0; --iout) {
-      float d = (float)toLittle->uint16Value(histogram[iout]);
-      sum += d;
-      *dout++ = d;
+       int c = toLittle->uint16Value(histoPtr[iout]);
+       sum += c;
+       *dout++ = (float)c;
     }
-    if (_sumBins) *dout++ = sum;
+    if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
+    // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
 
-    // Pull out housekeeping data.
-    unsigned short * housekeeping = (unsigned short *)&input[212];
-
+    // 12 housekeeping values
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    for (int iout = 0; iout < 10; ++iout)	// #8 is unused, as are last 6.
+    // cerr << "house=";
+    for (int iout = 0; iout < 12; ++iout) {	// #8 is unused, as are last 2.
+        int c = toLittle->uint16Value(housePtr[iout]);
+        // cerr << setw(6) << c;
         if (iout == 8)
             ; 
-        else
-            *dout++ = (float)toLittle->uint16Value(housekeeping[iout]) / _hkScale[iout];
+        else if (iout < 10)
+            *dout++ = (float)c / _hkScale[iout];
+    }
+    // cerr << endl;
 
+    // check for under/overflow.
+    assert(dout - outs->getDataPtr() == _noutValues);
     results.push_back(outs);
     return true;
 }
@@ -324,6 +372,6 @@ void UHSAS_Serial::addSampleTag(SampleTag* tag)
         throw(n_u::InvalidParameterException)
 {
   DSMSensor::addSampleTag(tag);
-  _sampleRate = (int)rint(tag->getRate());
+  _sampleRate = tag->getRate();
 }
 
