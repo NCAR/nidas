@@ -31,7 +31,7 @@ class UHSAS_Serial : public DSMSerialSensor
 {
 public:
 
-  UHSAS_Serial() : DSMSerialSensor() {}
+  UHSAS_Serial();
 
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
@@ -44,8 +44,17 @@ public:
   void addSampleTag(SampleTag* tag)
         throw(nidas::util::InvalidParameterException);
 
+    void setSendInitBlock(bool val)
+    {
+        _sendInitBlock = val;
+    }
 
-protected:
+    bool getSendInitBlock() const
+    {
+        return _sendInitBlock;
+    }
+
+private:
 
   static const nidas::util::EndianConverter * toLittle;
 
@@ -75,6 +84,12 @@ protected:
    * a counts per second by multiplying by sample rate.
    */
   unsigned int _sampleRate;
+
+  bool _sendInitBlock;
+
+  int _nOutBins;
+
+  bool _sumBins;
 
 };
 

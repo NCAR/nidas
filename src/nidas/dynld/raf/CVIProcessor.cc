@@ -160,8 +160,8 @@ void CVIProcessor::connect(SampleInput* input) throw(n_u::IOException)
 void CVIProcessor::attachLVInput(const SampleTag* tag)
     throw(n_u::IOException)
 {
-    cerr << "CVIProcessor::attachLVInput: sensor=" <<
-        _lvSensor->getName() << endl;
+    // cerr << "CVIProcessor::attachLVInput: sensor=" <<
+      //   _lvSensor->getName() << endl;
     if (getD2ADeviceName().length() > 0) {
         _aout.setDeviceName(getD2ADeviceName());
         _aout.open();

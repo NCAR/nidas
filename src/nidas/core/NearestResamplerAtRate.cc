@@ -182,8 +182,6 @@ bool NearestResamplerAtRate::receive(const Sample* s) throw()
 
     dsm_sample_id_t id = s->getId();
 
-    cerr << "NearestResamplerAtRate::receive id=" << GET_DSM_ID(id) << "," << GET_SHORT_ID(id) << endl;
-
     map<dsm_sample_id_t,vector<int*> >::const_iterator vmi =
     	sampleMap.find(id);
     if (vmi == sampleMap.end()) return false;	// unrecognized sample

@@ -154,6 +154,7 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
+UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false) {}
 
 void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -172,9 +173,16 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     for (int i = 0; i < p->getLength(); ++i)
         _hkScale[i] = p->getNumericValue(i);
 
+    p = getParameter("sendInit");
+    if (p) {
+        if (p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(),
+              "sendInit","should have length=1");
+        setSendInitBlock((int)p->getNumericValue(0));
+    }
+
     _nChannels = 99;	// Fixed for this probe (at this time).
     _nHousekeep = 9;	// 9 of the available 16 are used.
-
 
     // Determine number of floats we will recieve (_noutValues)
     const list<const SampleTag*>& tags = getSampleTags();
@@ -183,6 +191,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
               "must be one <sample> tag for this sensor");
 
     _noutValues = 0;
+    _nOutBins = 0;
     for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
     {
         const SampleTag* stag = ti.next();
@@ -192,35 +201,40 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         for ( ; vi.hasNext(); )
         {
             const Variable* var = vi.next();
+            // first variable is the bin array
+            if (!_noutValues) _nOutBins = var->getLength();
             _noutValues += var->getLength();
         }
     }
 
-#ifdef ZERO_BIN_HACK
     /*    
      * We'll be adding a bogus zeroth bin to the data to match historical 
      * behavior. Remove all traces of this after the netCDF file refactor.
      */
-    if (_noutValues != _nChannels + _nHousekeep + 1) {
-        ostringstream ost;
-        ost << "total length of variables should be " << (_nChannels + _nHousekeep + 1);
-          throw n_u::InvalidParameterException(getName(),"sample",ost.str());
-    }
-#else
     // This logic should match what is in ::process, so that
     // an output sample of the correct size is created.
-    if (_noutValues != _nChannels + _nHousekeep) {
+
+    int nextra = _nOutBins - _nChannels;
+    if (nextra != 0 && nextra != 1) {
         ostringstream ost;
-        ost << "total length of variables should be " << (_nChannels + _nHousekeep);
-          throw n_u::InvalidParameterException(getName(),"sample",ost.str());
+        ost << "lenght of first variable=" << _nOutBins << ". Should be " << _nChannels << " or " << _nChannels + 1;
+        throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
-#endif
+    // CVI processor wants to have a sum of the bins, and so will add a variable for that
+    _sumBins = false;
+    if (_noutValues == _nOutBins + _nHousekeep + 1) _sumBins = true;
+
+    int ncheck = _nOutBins + _nHousekeep + (int)_sumBins;
+    if (_noutValues != ncheck) {
+        ostringstream ost;
+        ost << "total length of variables should be " << ncheck;
+        throw n_u::InvalidParameterException(getName(),"sample",ost.str());
+    }
 }
 
 void UHSAS_Serial::sendInitString() throw(n_u::IOException)
 {
-    std::cerr << "UHSAS:: sendInitString\n";
-
+    if (!getSendInitBlock()) return;
     // clear whatever junk may be in the buffer til a timeout
     try {
         for (;;) {
@@ -279,13 +293,17 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     outs->setId(getId() + 1);
 
     // Pull out histogram data.
-#ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
-    *dout++ = 0.0;
-#endif    
+    if (_nOutBins == _nChannels + 1) *dout++ = 0.0;
+
     unsigned short * histogram = (unsigned short *)&input[6];
-    for (int iout = _nChannels-1; iout >= 0; --iout)
-      *dout++ = (float)toLittle->uint16Value(histogram[iout]);
+    float sum = 0.0;
+    for (int iout = _nChannels-1; iout >= 0; --iout) {
+      float d = (float)toLittle->uint16Value(histogram[iout]);
+      sum += d;
+      *dout++ = d;
+    }
+    if (_sumBins) *dout++ = sum;
 
     // Pull out housekeeping data.
     unsigned short * housekeeping = (unsigned short *)&input[212];
