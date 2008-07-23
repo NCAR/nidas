@@ -78,6 +78,9 @@ public:
      */
     void usage(const char* argv0);
 
+    /** Then main wait while the sensors are running */
+    void wait() throw(nidas::util::Exception);
+
     /** Starts the main loop (for the XMLRPC call). */
     void start();
 
@@ -134,6 +137,10 @@ private:
     void openSensors() throw(nidas::util::IOException);
 
     void connectOutputs() throw(nidas::util::IOException);
+
+    void connectProcessors() throw(nidas::util::IOException);
+
+    void disconnectProcessors() throw(nidas::util::IOException);
 
     void interrupt();
 
@@ -213,6 +220,8 @@ private:
      * Cached result for isRTLinux. -1 means it has not been determined yet.
      */
     static int rtlinux;
+
+    std::list<SampleInputWrapper*> _inputs;
 
 };
 

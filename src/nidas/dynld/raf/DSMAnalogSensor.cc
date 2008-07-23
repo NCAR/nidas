@@ -205,10 +205,6 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
     return ncoef;
 }
 
-void DSMAnalogSensor::init() throw(n_u::InvalidParameterException)
-{
-}
-
 void DSMAnalogSensor::setA2DParameters(int ichan,int gain,int bipolar)
             throw(n_u::InvalidParameterException)
 {

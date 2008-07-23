@@ -125,7 +125,7 @@ void DSMSensor::setSuffix(const std::string& val)
     if (heightString.length() > 0)
         setFullSuffix(suffix + string(".") + heightString);
     else if (depthString.length() > 0)
-        setFullSuffix(suffix + string(".") + heightString);
+        setFullSuffix(suffix + string(".") + depthString);
     else
         setFullSuffix(suffix);
 }

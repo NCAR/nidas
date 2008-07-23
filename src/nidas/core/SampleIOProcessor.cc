@@ -41,6 +41,12 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
         SampleOutput* output = *oi;
         addOutput(output->clone());
     }
+
+    list<const Parameter*>::const_iterator pi = x._constParameters.begin();
+    for ( ; pi != x._constParameters.end(); ++pi) {
+        const Parameter* param = *pi;
+        addParameter(param->clone());
+    }
 }
 
 // #define DEBUG
@@ -92,6 +98,10 @@ SampleIOProcessor::~SampleIOProcessor()
     list<SampleTag*>::const_iterator ti = sampleTags.begin();
     for ( ; ti != sampleTags.end(); ++ti)
 	delete *ti;
+
+    list<Parameter*>::const_iterator pi = _parameters.begin();
+    for ( ; pi != _parameters.end(); ++pi) delete *pi;
+
 }
 
 void SampleIOProcessor::addSampleTag(SampleTag* tag)
@@ -101,6 +111,13 @@ void SampleIOProcessor::addSampleTag(SampleTag* tag)
         sampleTags.push_back(tag);
         constSampleTags.push_back(tag);
     }
+}
+
+void SampleIOProcessor::addParameter(Parameter* val)
+	throw(n_u::InvalidParameterException)
+{
+    _parameters.push_back(val);
+    _constParameters.push_back(val);
 }
 
 
@@ -156,15 +173,13 @@ void SampleIOProcessor::connected(SampleOutput* orig,SampleOutput* output) throw
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s, #outputs=%d",
-	output->getName().c_str(),
-	getName().c_str(),
+	output->getName().c_str(),getName().c_str(),
 	outputMap.size());
     try {
 	output->init();
     }
     catch( const n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: error: %s",
+	n_u::Logger::getInstance()->log(LOG_ERR,"%s: error: %s",
 	    output->getName().c_str(),ioe.what());
 	disconnected(output);
 	return;
@@ -294,6 +309,11 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 	    if (stag->getSampleId() == 0)
 	        stag->setSampleId(getSampleTags().size());
 	    addSampleTag(stag);
+	}
+	else if (elname == "parameter")  {
+	    Parameter* parameter =
+	    	Parameter::createParameter((xercesc::DOMElement*)child);
+	    addParameter(parameter);
 	}
         else throw n_u::InvalidParameterException(
                 className + " SampleIOProcessor::fromDOMElement",

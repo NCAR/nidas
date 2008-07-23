@@ -170,6 +170,40 @@ protected:
 
 };
 
+/*
+ * Wrapper around a SampleSource, which provides the SampleInput interface.
+ */
+class SampleInputWrapper: public SampleInput
+{
+public:
+
+
+    SampleInputWrapper(SampleSource* src): _src(src)
+    {
+    }
+
+    std::string getName() const;
+
+    nidas::util::Inet4Address getRemoteInet4Address() const;
+
+    const std::list<const SampleTag*>& getSampleTags() const;
+
+    void addSampleClient(SampleClient* clnt) throw();
+
+    void removeSampleClient(SampleClient* clnt) throw();
+    /**
+     * Client wants samples from the process() method of the
+     * given DSMSensor.
+     */
+    void addProcessedSampleClient(SampleClient* clnt,DSMSensor* snsr);
+
+    void removeProcessedSampleClient(SampleClient* clnt, DSMSensor* snsr = 0);
+private:
+
+    SampleSource* _src;
+
+};
+
 
 /**
  * Extension of the interface to a SampleInput providing the

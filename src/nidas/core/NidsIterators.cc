@@ -82,6 +82,9 @@ ProcessorIterator::ProcessorIterator(const DSMServer* obj):
 ProcessorIterator::ProcessorIterator(const DSMService* obj):
 	processors(&obj->getProcessors()),itr2(processors->begin()) {}
 
+ProcessorIterator::ProcessorIterator(const DSMConfig* obj):
+	processors(&obj->getProcessors()),itr2(processors->begin()) {}
+
 ProcessorIterator::ProcessorIterator(): processors(0) {}
 
 bool ProcessorIterator::hasNext()

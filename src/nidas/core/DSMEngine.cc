@@ -20,6 +20,9 @@
 
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/XMLFdInputSource.h>
+
+#include <nidas/core/SampleIOProcessor.h>
+#include <nidas/core/NidsIterators.h>
 #include <nidas/util/Process.h>
 
 #include <iostream>
@@ -100,6 +103,12 @@ DSMEngine::~DSMEngine()
 	    }
 	}
     }
+    list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
+    for ( ; ii != _inputs.end(); ++ii) {
+        SampleInputWrapper* input = *ii;
+        delete input;
+    }
+
     delete _project;
 }
 
@@ -230,7 +239,6 @@ void DSMEngine::initLogger()
     {
 	_logger = n_u::Logger::createInstance(&std::cerr);
         lc.level = n_u::LOGGER_DEBUG;
-        cerr << "not syslog" << endl;
     }
 
     _logger->setScheme(n_u::LogScheme().addConfig (lc));
@@ -325,6 +333,7 @@ void DSMEngine::run() throw()
         try {
             openSensors();
             connectOutputs();
+            connectProcessors();
         }
         catch (const n_u::IOException& e) {
             _logger->log(LOG_ERR,e.what());
@@ -339,10 +348,11 @@ void DSMEngine::run() throw()
         _runState = RUNNING;
 
         try {
-            _selector->join();
+            wait();
         }
         catch (const n_u::Exception& e) {
             _logger->log(LOG_ERR,e.what());
+            _runState = ERROR;
         }
     }   // Run loop
 
@@ -394,10 +404,22 @@ void DSMEngine::interrupt()
     if (_selector) _selector->interrupt();
 }
 
+void DSMEngine::wait() throw(n_u::Exception)
+{
+    try {
+        _selector->join();
+    }
+    catch(const n_u::Exception& e) {
+        disconnectProcessors();
+        throw e;
+    }
+    disconnectProcessors();
+}
+
 void DSMEngine::deleteDataThreads()
 {
-    // stop/join the status Thread. The status thread also loops
-    // over sensors.
+    // stop/join the status thread before closing sensors.
+    // The status thread also loops over sensors.
     if (_statusThread) {
         try {
             if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
@@ -682,6 +704,11 @@ void DSMEngine::connected(SampleOutput* orig,SampleOutput* output) throw()
 
     for (si = sensors.begin(); si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
+#ifdef DEBUG
+        n_u::Logger::getInstance()->log(LOG_DEBUG,
+            "DSMEngine: adding %s as client of %s",
+            output->getName().c_str(),sensor->getName().c_str());
+#endif
 	if (output->isRaw()) sensor->addRawSampleClient(output);
 	else sensor->addSampleClient(output);
     }
@@ -704,7 +731,7 @@ void DSMEngine::connected(SampleOutput* orig,SampleOutput* output) throw()
  */
 void DSMEngine::disconnected(SampleOutput* output) throw()
 {
-    cerr << "DSMEngine::disconnected, output=" << output << endl;
+    // cerr << "DSMEngine::disconnected, output=" << output << endl;
     const list<DSMSensor*> sensors = _selector->getAllSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -752,5 +779,43 @@ bool DSMEngine::isRTLinux()
     }
     rtlinux = 0;
     return false;
+}
+
+void DSMEngine::connectProcessors() throw(n_u::IOException)
+{
+    // request connection for processors
+    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+
+    for ( ; pi.hasNext(); ) {
+        SampleIOProcessor* proc = pi.next();
+    
+        SensorIterator si = _dsmConfig->getSensorIterator();
+        for (; si.hasNext(); ) {
+            DSMSensor* sensor = si.next();
+            SampleInputWrapper* input = new SampleInputWrapper(sensor);
+            _inputs.push_back(input);
+            proc->connect(input);
+        }
+    }
+    // cerr << "DSMEngine connectProcessors done" << endl;
+}
+
+void DSMEngine::disconnectProcessors() throw(n_u::IOException)
+{
+    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+    list<SampleInputWrapper*>::const_iterator ii;
+
+    for ( ; pi.hasNext(); ) {
+        SampleIOProcessor* proc = pi.next();
+    
+        const list<DSMSensor*> sensors = _selector->getAllSensors();
+        list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
+        for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
+            SampleInputWrapper* input = *ii;
+            proc->disconnect(input);
+        }
+    }
+    for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) delete *ii;
+    _inputs.clear();
 }
 

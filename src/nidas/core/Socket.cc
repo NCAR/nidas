@@ -264,12 +264,13 @@ int ServerSocketConnectionThread::run() throw(n_u::IOException)
 
 int ClientSocketConnectionThread::run() throw(n_u::IOException)
 {
+    n_u::Socket* lowsock = new n_u::Socket();
     for (; !isInterrupted(); ) {
         try {
-            n_u::Socket* lowsock =
-                new n_u::Socket(socket.getRemoteSocketAddress());
+            lowsock->connect(socket.getRemoteSocketAddress());
             lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
             lowsock->setNonBlocking(socket.isNonBlocking());
+
             // cerr << "Socket::connected " << getName();
             nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
             newsock->setMinWriteInterval(socket.getMinWriteInterval());
@@ -282,10 +283,12 @@ int ClientSocketConnectionThread::run() throw(n_u::IOException)
         catch(const n_u::IOException& e) {
             n_u::Logger::getInstance()->log(LOG_ERR,
                     "%s: %s",getName().c_str(),e.what());
+#ifdef BREAK_OUT
             // keep trying in these case
             if (e.getErrno() != ECONNREFUSED &&
                 e.getErrno() != ENETUNREACH &&
                 e.getErrno() != ETIMEDOUT) break;
+#endif
             if (!isInterrupted()) sleep(10);
         }
     }

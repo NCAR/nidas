@@ -63,7 +63,7 @@ struct DMMAT_A2D_Status
  * See pages 130-132 of Linux Device Driver's Manual 
  */
 
-/** A2D Ioctls in addition to those in nidas_analog.h */
+/** A2D Ioctls in addition to those in nidas/linux/a2d.h */
 #define DMMAT_A2D_GET_STATUS \
     _IOR(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Status)
 #define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,1)
@@ -330,8 +330,6 @@ struct DMMAT_A2D
         long latencyMsecs;	        // buffer latency in milli-seconds
         long latencyJiffies;	// buffer latency in jiffies
         unsigned long lastWakeup;   // when were read & poll methods last woken
-
-        unsigned long delayedWork;
 
 };
 

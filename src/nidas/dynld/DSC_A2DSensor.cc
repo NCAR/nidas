@@ -69,18 +69,19 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
 void DSC_A2DSensor::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-    DSMSensor::open(flags);
-    init();
+    A2DSensor::open(flags);
 
     // Get the actual number of input channels on the card.
     // This depends on differential/single-ended jumpering
     int nchan;
+
     ioctl(NIDAS_A2D_GET_NCHAN,&nchan,sizeof(nchan));
 
     struct nidas_a2d_config cfg;
     cfg.scanRate = getScanRate();
     cfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
     if (cfg.latencyUsecs == 0) cfg.latencyUsecs = USECS_PER_SEC / 10;
+
     ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(cfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
@@ -95,19 +96,16 @@ void DSC_A2DSensor::open(int flags)
                     "channel",ost.str());
             }
         }
-        cerr << "doing NIDAS_A2D_ADD_SAMPLE" << endl;
         ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
             sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
     }
 
-    // cerr << "doing DMMAT_A2D_START" << endl;
     ioctl(DMMAT_A2D_START,0,0);
 }
 
 
 void DSC_A2DSensor::close() throw(n_u::IOException)
 {
-    cerr << "doing DMMAT_A2D_STOP" << endl;
     ioctl(DMMAT_A2D_STOP,0,0);
     A2DSensor::close();
 }

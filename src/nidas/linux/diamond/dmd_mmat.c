@@ -516,7 +516,7 @@ static int configA2D(struct DMMAT_A2D* a2d,
 
         freeA2DFilters(a2d);
         a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
-        a2d->highChan = 0;
+        a2d->highChan = -1;
 
         a2d->scanRate = cfg->scanRate;
 
@@ -621,8 +621,14 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
 
         for (i = 0; i < cfg->nvars; i++) {
                 int ichan = cfg->channels[i];
-                if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS)
+                if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
+                        KLOG_ERR("%s: channel number %d out of range\n",
+                                 a2d->deviceName, ichan);
                         return -EINVAL;
+                }
+                KLOG_DEBUG("%s: configuring channel %d,gain=%d,bipolar=%d\n",
+                     a2d->deviceName, ichan,cfg->gain[i],cfg->bipolar[i]);
+
                 if (a2d->highChan < 0) {
                         a2d->gain = cfg->gain[i];
                         a2d->bipolar = cfg->bipolar[i];
@@ -651,6 +657,8 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                                finfo->decimate,
                                cfg->filterData,
                                cfg->nFilterData);
+        if (result) KLOG_ERR("%s: error in filter config\n",a2d->deviceName);
+
         return result;
 }
 
@@ -885,7 +893,6 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
         a2d->status.irqsReceived = 0;
         a2d->sampBytesLeft = 0;
         a2d->sampPtr = 0;
-        a2d->delayedWork = 0;
         a2d->lastWakeup = jiffies;
 
         if ((result = a2d->selectChannels(a2d))) return result;
@@ -1138,12 +1145,9 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                             a2d->filters[i].filterObj,tt,dp,1,
                             (short_sample_t*)&toss);
                 }
-                else if (
-                        a2d->filters[i].filter(
+                else if (a2d->filters[i].filter(
                             a2d->filters[i].filterObj,tt,dp,1,osamp)) {
                         INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                        KLOG_DEBUG("do_filters: samples head=%d,tail=%d\n",
-                            a2d->samples.head,a2d->samples.tail);
                 }
         }
 }
@@ -1278,9 +1282,6 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                 // tt0 is conversion time of first compete scan in fifo
                 tt0 = insamp->timetag - dt;  // fifo interrupt time
 
-                KLOG_DEBUG("bottom half, nval=%d,ndt=%d, dt=%ld\n",
-                    nval,ndt,dt);
-
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
                     dp += a2d->nchans;
@@ -1389,10 +1390,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 #ifdef USE_TASKLET
         tasklet_schedule(&a2d->tasklet);
 #elif defined(USE_MY_WORK_QUEUE)
-        if (queue_work(work_queue,&a2d->worker) && !(a2d->delayedWork++ % 1000)) 
-                KLOG_INFO("%s: delayedWork=%ld,irqs=%d\n",
-                    a2d->deviceName,a2d->delayedWork,
-                    a2d->status.irqsReceived);
+        queue_work(work_queue,&a2d->worker);
 #else
         schedule_work(&a2d->worker);
 #endif
@@ -1536,9 +1534,13 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
                         d2a->outputs.counts[i] = outputs->counts[i+iout];
                 }
         }
-        nwait = 0;
-        while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
-        KLOG_DEBUG("nwait=%d\n",nwait);
+        // This check for nset>0 is unnecessary since this function shouldn't be
+        // called if no outputs were to be changed, but might as well check it.
+        if (nset > 0) {
+            nwait = 0;
+            while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
+            KLOG_DEBUG("nwait=%d\n",nwait);
+        }
 
         spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
@@ -1781,7 +1783,7 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
         size_t bytesLeft;
         char* sampPtr = a2d->sampPtr;
 
-#define OUT_DEBUG
+// #define OUT_DEBUG
 #if defined(DEBUG) & defined(OUT_DEBUG)
         static int nreads = 0;
         static size_t maxOcount = 0;
@@ -1839,7 +1841,6 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
                     bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
             }
         }
-        KLOG_DEBUG("copied=%d\n",countreq - count);
 #if defined(DEBUG) & defined(OUT_DEBUG)
         if (countreq - count > maxOcount) maxOcount = countreq - count;
         if (countreq - count < minOcount) minOcount = countreq - count;
@@ -1873,7 +1874,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
 
          /* don't even decode wrong cmds: better returning
           * ENOTTY than EFAULT */
-        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC &&
+            _IOC_TYPE(cmd) != NIDAS_A2D_IOC_MAGIC) return -ENOTTY;
         if (_IOC_NR(cmd) > DMMAT_IOC_MAXNR) return -ENOTTY;
 
         /*
@@ -1929,8 +1931,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                  */
                 struct nidas_a2d_sample_config cfg;
                 struct nidas_a2d_sample_config* cfgp;
-                if (copy_from_user(&cfg,userptr,
-                        sizeof(struct nidas_a2d_sample_config)))
+                len = _IOC_SIZE(cmd);
+                if (copy_from_user(&cfg,userptr,len) != 0)
                             return -EFAULT;
 
                 // kmalloc enough structure for additional filter data

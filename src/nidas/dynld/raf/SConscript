@@ -1,6 +1,7 @@
 
 
 Import('env')
+arch = env['ARCH']
 
 sources = Split("""
     A2DBoardTempSensor.cc
@@ -9,6 +10,7 @@ sources = Split("""
     Arinc_IRS.cc
     CDP_Serial.cc
     CVI_LV_Input.cc
+    CVIOutput.cc
     DSMAnalogSensor.cc
     DSMArincSensor.cc
     LamsSensor.cc
@@ -42,6 +44,7 @@ headers = Split("""
     Arinc_IRS.h
     CDP_Serial.h
     CVI_LV_Input.h
+    CVIOutput.h
     DSMAnalogSensor.h
     DSMArincSensor.h
     LamsSensor.h
@@ -68,7 +71,20 @@ headers = Split("""
     VCSEL_Serial.h
 """)
 
+if arch == 'arm':
+    archsources=Split("""
+        CVIProcessor.cc
+    """)
+    archheaders=Split("""
+        CVIProcessor.h
+    """)
+else:
+    archsources=Split("""
+    """)
+    archheaders=Split("""
+    """)
 
-env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
-env.Install('$PREFIX/include/nidas/dynld/raf', headers)
+env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
+
+env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)

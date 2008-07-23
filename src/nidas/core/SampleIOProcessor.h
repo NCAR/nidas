@@ -165,20 +165,38 @@ public:
 
     VariableIterator getVariableIterator() const;
 
+    /**
+     * Add a parameter to this SampleIOProcessor, which
+     * will then own the pointer and will delete it
+     * in its destructor. If a Parameter exists with the
+     * same name, it will be replaced with the new Parameter.
+     */
+    void addParameter(Parameter* val)
+	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Get list of parameters.
+     */
+    const std::list<const Parameter*>& getParameters() const
+    {
+	return _constParameters;
+    }
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
+
+protected:
+    /**
+     * Mapping between connected outputs and the original
+     * outputs.
+     */
+    std::map<SampleOutput*,SampleOutput*> outputMap;
 
 private:
 
     std::string name;
 
     std::list<SampleOutput*> origOutputs;
-
-    /**
-     * Mapping between connected outputs and the original
-     * outputs.
-     */
-    std::map<SampleOutput*,SampleOutput*> outputMap;
 
     /**
      * The connected outputs, kept in a set to
@@ -207,6 +225,10 @@ private:
      * What service am I a part of?
      */
     const DSMService* service;
+
+    std::list<Parameter*> _parameters;
+
+    std::list<const Parameter*> _constParameters;
 };
 
 }}	// namespace nidas namespace core

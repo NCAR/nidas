@@ -87,9 +87,9 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
 void NearestResamplerAtRate::connect(SampleInput* input)
 	throw(n_u::IOException)
 {
-    if (sampleTags.size() > 0)
+    if (sampleTags.size() > 1)
     	throw n_u::IOException(input->getName(),"NearestResamplerAtRate",
-		"cannot have more than one input");
+		"cannot have more than one output");
 
     int dsmid = -1;
 
@@ -160,12 +160,14 @@ void NearestResamplerAtRate::connect(SampleInput* input)
 		sampleMap[id] = indices;
     }
 
-    outSampleTag.setDSMId(dsmid);
-    outSampleTag.setSensorId(0);
-    dsm_sample_id_t id;
-    id  = Project::getInstance()->getUniqueSampleId(dsmid);
-    outSampleTag.setSampleId(id);
-    sampleTags.push_back(&outSampleTag);
+    if (sampleTags.size() == 0) {
+        outSampleTag.setDSMId(dsmid);
+        outSampleTag.setSensorId(0);
+        dsm_sample_id_t id;
+        id  = Project::getInstance()->getUniqueSampleId(dsmid);
+        outSampleTag.setSampleId(id);
+        sampleTags.push_back(&outSampleTag);
+    }
 }
 
 void NearestResamplerAtRate::disconnect(SampleInput* input)
@@ -179,6 +181,8 @@ bool NearestResamplerAtRate::receive(const Sample* s) throw()
 {
 
     dsm_sample_id_t id = s->getId();
+
+    cerr << "NearestResamplerAtRate::receive id=" << GET_DSM_ID(id) << "," << GET_SHORT_ID(id) << endl;
 
     map<dsm_sample_id_t,vector<int*> >::const_iterator vmi =
     	sampleMap.find(id);

@@ -111,6 +111,23 @@ public:
         return derivedDataSocketAddr;
     }
 
+    /**
+     * Add a processor to this DSM. This is done
+     * at configuration (XML) time.
+     */
+    virtual void addProcessor(SampleIOProcessor* proc)
+    {
+        processors.push_back(proc);
+    }
+
+    virtual const std::list<SampleIOProcessor*>& getProcessors() const
+    {
+        return processors;
+    }
+
+    ProcessorIterator getProcessorIterator() const;
+
+
 protected:
 
     void removeSensor(DSMSensor* sensor);
@@ -151,6 +168,8 @@ private:
     unsigned short remoteSerialSocketPort;	
 
     nidas::util::Inet4SocketAddress derivedDataSocketAddr;
+
+    std::list<SampleIOProcessor*> processors;
 
 };
 

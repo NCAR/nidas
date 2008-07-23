@@ -82,6 +82,8 @@ private:
 
 class SampleIOProcessor;
 
+class DSMConfig;
+
 /**
  * Class for iterating over the Processors of a DSMServer.
  */
@@ -95,6 +97,8 @@ public:
     ProcessorIterator(const DSMServer*);
 
     ProcessorIterator(const DSMService*);
+
+    ProcessorIterator(const DSMConfig*);
 
     ProcessorIterator();
 
@@ -135,7 +139,6 @@ private:
     std::list<Site*>::const_iterator itr2;
 };
 
-class DSMConfig;
 
 /**
  * Class for iterating over the DSMConfigs of a Project or

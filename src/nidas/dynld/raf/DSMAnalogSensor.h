@@ -49,8 +49,6 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    void init() throw(nidas::util::InvalidParameterException);
-
     /*
      * Close the device connected to the sensor.
      */

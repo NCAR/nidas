@@ -19,7 +19,6 @@
 
 using namespace std;
 
-/* static */
 string nidas::util::replaceBackslashSequences(const string& str)
 {
     string::size_type bs;

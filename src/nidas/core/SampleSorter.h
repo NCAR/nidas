@@ -32,7 +32,7 @@ namespace nidas { namespace core {
 
 /**
  * A SampleClient that sorts its received samples,
- * using an STL multimap, and then sends the
+ * using an STL multiset, and then sends the
  * sorted samples onto its SampleClients.
  * One specifies a sorter length in the constructor.
  * Samples whose time-tags are less than the time-tag

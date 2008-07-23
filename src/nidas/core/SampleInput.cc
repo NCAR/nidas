@@ -25,6 +25,60 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
+std::string SampleInputWrapper::getName() const
+{
+    return "SampleInputWrapper";
+}
+
+nidas::util::Inet4Address SampleInputWrapper::getRemoteInet4Address() const
+{
+    return nidas::util::Inet4Address();
+}
+
+const std::list<const SampleTag*>& SampleInputWrapper::getSampleTags() const
+{
+    return _src->getSampleTags();
+}
+
+/**
+ * Client wants samples from the process() method of the
+ * given DSMSensor.
+ */
+void SampleInputWrapper::addProcessedSampleClient(SampleClient* clnt,
+    DSMSensor* snsr)
+{
+    // if we're a wrapper around a DSMSensor
+    if (_src == (SampleSource*)snsr || !snsr) _src->addSampleClient(clnt);
+    else {
+        _src->addSampleClient(snsr);
+        snsr->addSampleClient(clnt);
+    }
+}
+
+void SampleInputWrapper::removeProcessedSampleClient(SampleClient* clnt,
+    DSMSensor* snsr)
+{
+        // if we're a wrapper around a DSMSensor
+    if (_src == (SampleSource*)snsr || !snsr) _src->removeSampleClient(clnt);
+    else {
+        _src->removeSampleClient(snsr);
+        snsr->removeSampleClient(clnt);
+    }
+}
+
+/**
+ * Client wants samples from the process() method of the
+ * given DSMSensor.
+ */
+void SampleInputWrapper::addSampleClient(SampleClient* clnt) throw()
+{
+    _src->addSampleClient(clnt);
+}
+
+void SampleInputWrapper::removeSampleClient(SampleClient* clnt) throw()
+{
+    _src->removeSampleClient(clnt);
+}
 SampleInputMerger::SampleInputMerger() :
 	name("SampleInputMerger"),
 	inputSorter(name + "InputSorter"),

@@ -52,8 +52,13 @@ void FsMount::mount()
     n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
         deviceMsg.c_str(),dirMsg.c_str());
 
+    unsigned long mountflags = MS_NOATIME;
+// MS_DIRSYNC is not defined for viper, gcc 3.4.4
+#ifdef MS_DIRSYNC
+    mountflags |= MS_DIRSYNC;
+#endif
     if (::mount(getDeviceExp().c_str(),getDirExp().c_str(),
-    	getType().c_str(),MS_NOATIME,getOptions().c_str()) < 0)
+    	getType().c_str(),mountflags,getOptions().c_str()) < 0)
 	    throw n_u::IOException(
                 string("mount ") + deviceMsg + " -t " + getType() +
                 (getOptions().length() > 0 ?

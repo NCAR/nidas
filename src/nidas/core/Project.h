@@ -101,16 +101,8 @@ public:
 
     std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets(
 	const std::string& hostName) const;
-    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
 
-#ifdef NEED_THESE
-    nidas::dynld::FileSet* findSampleOutputStreamFileSet(
-	const std::string& hostName,const nidas::util::UTime& t1,
-	const nidas::util::UTime& t2) const;
-    nidas::dynld::FileSet* findSampleOutputStreamFileSet(
-	const nidas::util::UTime& t1,
-	const nidas::util::UTime& t2) const;
-#endif
+    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
 

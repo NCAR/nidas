@@ -41,11 +41,18 @@ DSMConfig::~DSMConfig()
     for (list<DSMSensor*>::const_iterator si = ownedSensors.begin();
     	si != ownedSensors.end(); ++si) delete *si;
 
-    list<SampleOutput*>::const_iterator oi;
-    for (oi = getOutputs().begin(); oi != getOutputs().end(); ++oi) {
-    	delete *oi;
-    }
+    list<SampleOutput*>::const_iterator oi = getOutputs().begin();
+    for ( ; oi != getOutputs().end(); ++oi) delete *oi;
+
+    list<SampleIOProcessor*>::const_iterator pi = processors.begin();
+    for ( ; pi != processors.end(); ++pi) delete *pi;
 }
+
+ProcessorIterator DSMConfig::getProcessorIterator() const
+{
+    return ProcessorIterator(this);
+}
+
 
 SensorIterator DSMConfig::getSensorIterator() const
 {
@@ -332,6 +339,30 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		throw;
 	    }
 	    addOutput(output);
+        }
+        else if (elname == "processor") {
+	    const string& classattr = xchild.getAttributeValue("class");
+	    if (classattr.length() == 0)
+		throw n_u::InvalidParameterException(
+		    "DSMService::fromDOMElement",
+		    elname, "class not specified");
+            try {
+                domable = DOMObjectFactory::createObject(classattr);
+            }
+            catch (const n_u::Exception& e) {
+                n_u::InvalidParameterException ipe("dsm",classattr,e.what());
+		n_u::Logger::getInstance()->log(LOG_WARNING,"%s",ipe.what());
+		continue;
+            }
+	    SampleIOProcessor* processor = dynamic_cast<SampleIOProcessor*>(domable);
+            if (!processor) {
+		delete domable;
+                throw n_u::InvalidParameterException("dsm",
+                    classattr,"is not of type SampleIOProcessor");
+	    }
+            processor->setDSMId(this->getId());
+            processor->fromDOMElement((xercesc::DOMElement*)child);
+	    addProcessor(processor);
         }
 	else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),

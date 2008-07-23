@@ -47,7 +47,8 @@ namespace nidas { namespace core {
  * from the normal Sample data path.  It allows remote
  * direct control of serial sensors.
  */
-class SensorHandler : public nidas::util::Thread {
+class SensorHandler:public nidas::util::Thread
+{
 public:
 
     /**
@@ -62,23 +63,23 @@ public:
      * Add an unopened sensor to the SensorHandler. SensorHandler
      * will then own the DSMSensor.
      */
-    void addSensor(DSMSensor *sensor);
+    void addSensor(DSMSensor * sensor);
 
     /**
      * Request that SensorHandler close the sensor.
      */
-    void closeSensor(DSMSensor *sensor);
+    void closeSensor(DSMSensor * sensor);
 
     /**
      * After SensorOpener has opened the sensor, it will
      * notify SensorHandler via this method that the
      * sensor is open.
      */
-    void sensorOpen(DSMSensor *sensor);
+    void sensorOpen(DSMSensor * sensor);
 
-    void addRemoteSerialConnection(RemoteSerialConnection*)
-    	throw(nidas::util::IOException);
-    void removeRemoteSerialConnection(RemoteSerialConnection*);
+    void addRemoteSerialConnection(RemoteSerialConnection *)
+     throw(nidas::util::IOException);
+    void removeRemoteSerialConnection(RemoteSerialConnection *);
 
     /**
      * Set the length of time to wait in the select.
@@ -90,32 +91,51 @@ public:
 
     int getTimeout() const;
 
-    void calcStatistics(dsm_time_t);
+    /**
+     * Check on each sensor. Currently this means checking
+     * whether a timeout has occured and calculating
+     * statistics on the data received from the sensor.
+     */
+    void checkSensors(dsm_time_t);
 
     /**
-     * Set the statistics period.
+     * Set the sensor check period.
+     *
      * @param val Period, in milliseconds.
+     *
      */
-    void setStatisticsPeriod(int val) { statisticsPeriod = val * USECS_PER_MSEC; }
+    void setSensorCheckInterval(int val)
+    {
+        _sensorCheckInterval = val * USECS_PER_MSEC;
+    }
     /**
-     * Get the statistics period.
+     * Get the sensor check period.
      * @return Period, in milliseconds.
      */
-    int getStatisticsPeriod() const { return statisticsPeriod / USECS_PER_MSEC; }
+    int getSensorCheckInterval() const
+    {
+        return _sensorCheckInterval / USECS_PER_MSEC;
+    }
 
-    int getSelectErrors() const { return selectErrors; }
-    int getRemoteSerialListenErrors() const { return rserialListenErrors; }
+    int getSelectErrors() const
+    {
+        return _selectErrors;
+    }
+    int getRemoteSerialListenErrors() const
+    {
+        return _rserialListenErrors;
+    }
 
-      void handleRemoteSerial(int fd,DSMSensor* sensor)
-      	throw(nidas::util::IOException);
+    void handleRemoteSerial(int fd, DSMSensor * sensor)
+     throw(nidas::util::IOException);
     /**
      * Thread function.
      */
     virtual int run() throw(nidas::util::Exception);
-    
-    std::list<DSMSensor*> getAllSensors() const;
 
-    std::list<DSMSensor*> getOpenedSensors() const;
+     std::list<DSMSensor*> getAllSensors() const;
+
+     std::list<DSMSensor*> getOpenedSensors() const;
 
     /**
      * Cancel this SensorHandler. We catch this
@@ -123,8 +143,9 @@ public:
      */
     void cancel() throw(nidas::util::Exception)
     {
-        if (opener.isRunning()) opener.cancel();
-	Thread::cancel();
+        if (_opener.isRunning())
+            _opener.cancel();
+        Thread::cancel();
     }
 
     /**
@@ -138,13 +159,19 @@ public:
      */
     int join() throw(nidas::util::Exception)
     {
-	int res = Thread::join();
-        if (!opener.isJoined()) opener.join();
-	return res;
+        int res = Thread::join();
+        if (!_opener.isJoined())
+             _opener.join();
+         return res;
     }
 
 private:
 
+    /**
+     * Called when something has changed in our collection
+     * of sensors. Mainly this maintains the set of 
+     * file descriptors used by the select() system call.
+     */
     void handleChangedSensors();
 
     /**
@@ -152,63 +179,75 @@ private:
      * returns true if fstat succeeds, indicating that the file
      * descriptor is useable.
      */
-    static bool goodFd(int fd, const std::string& devname) throw();
+    static bool goodFd(int fd,
+                       const std::string & devname) throw();
 
     /**
-     * Pass this sensor to the SensorOpener to be reopened.
+     * Close, then pass this sensor to the SensorOpener to be reopened.
      */
-    void reopenSensor(DSMSensor *sensor);
+    void closeReopenSensor(DSMSensor * sensor);
 
-    mutable nidas::util::Mutex sensorsMutex;
+    void calcStatistics(dsm_time_t);
 
-    std::list<DSMSensor*> allSensors;
+    void checkTimeouts(dsm_time_t);
 
-    std::list<DSMSensor*> pendingSensors;
+    mutable nidas::util::Mutex _sensorsMutex;
 
-    std::list<DSMSensor*> pendingSensorClosures;
-
-    std::vector<int> activeSensorFds;
-
-    std::vector<DSMSensor*> activeSensors;
-
-    bool sensorsChanged;
-
-    unsigned short remoteSerialSocketPort;
-
-    RemoteSerialListener* rserial;
-
-    nidas::util::Mutex rserialConnsMutex;
-    std::list<RemoteSerialConnection*> pendingRserialConns;
-    std::list<RemoteSerialConnection*> pendingRserialClosures;
-    std::list<RemoteSerialConnection*> activeRserialConns;
-
-    bool rserialConnsChanged;
-
-    fd_set readfdset;
-    int selectn;
-
-    int selectErrors;
-    int rserialListenErrors;
-
-    size_t timeoutMsec;
-    struct timeval timeoutVal;
-    dsm_time_t statisticsTime;
+    std::list<DSMSensor*> _allSensors;
 
     /**
-     * Statistics period, in microseconds.
+     * Collection of DSMSensors which have been opened.
+     * After a call to handleChangedSensors, then activeSensors
+     * will contain the same sensors as openedSensors.
      */
-    unsigned long statisticsPeriod;
+    std::list<DSMSensor*> _openedSensors;
 
-    SensorOpener opener;
+    std::list<DSMSensor*> _closedSensors;
+
+    std::list<DSMSensor*> _pendingSensorClosures;
+
+    std::vector<int> _activeSensorFds;
+
+    std::vector<DSMSensor*> _activeSensors;
+
+    bool _sensorsChanged;
+
+    unsigned short _remoteSerialSocketPort;
+
+    RemoteSerialListener *_rserial;
+
+    nidas::util::Mutex _rserialConnsMutex;
+    std::list<RemoteSerialConnection*> _pendingRserialConns;
+    std::list<RemoteSerialConnection*> _pendingRserialClosures;
+    std::list<RemoteSerialConnection*> _activeRserialConns;
+
+    bool _rserialConnsChanged;
+
+    fd_set _readfdset;
+    int _selectn;
+
+    int _selectErrors;
+    int _rserialListenErrors;
+
+    unsigned int _timeoutMsec;
+    struct timeval _timeoutVal;
+    dsm_time_t _sensorCheckTime;
+
+    /**
+     * Interval for checking on each sensor, in microseconds.
+     */
+    unsigned int _sensorCheckInterval;
+
+    SensorOpener _opener;
 
     /*
      * Pipe read/write file descriptors used to notify the select() call
      * that action is needed.
      */
-    int notifyPipe[2];
+    int _notifyPipe[2];
 
 };
 
-}}	// namespace nidas namespace core
+}}                              // namespace nidas namespace core
 
 #endif
