@@ -164,6 +164,8 @@
     <xsd:attribute name="count" type="xsd:boolean"/>
     <xsd:attribute name="length" type="xsd:positiveInteger"/>
     <xsd:attribute name="missingValue" type="xsd:float"/>
+    <xsd:attribute name="minValue" type="xsd:float"/>
+    <xsd:attribute name="maxValue" type="xsd:float"/>
 </xsd:complexType>
 
 <xsd:complexType name="variables">
@@ -338,6 +340,7 @@
 	<xsd:choice minOccurs="0" maxOccurs="unbounded">
 	    <xsd:group ref="sensors"/>
 	    <xsd:element ref="output"/>
+            <xsd:element ref="processor"/>
 	</xsd:choice>
 	<xsd:attribute name="ID" type="xsd:ID"/>
 	<xsd:attribute name="IDREF" type="xsd:IDREF"/>
