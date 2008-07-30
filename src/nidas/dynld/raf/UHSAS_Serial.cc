@@ -274,7 +274,7 @@ unsigned const char* UHSAS_Serial::findMarker(unsigned const char* ip,unsigned c
         if (ip + len > eoi) break;
         if (!memcmp(ip, marker, len)) break;
     }
-    if (ip + sizeof(marker) > eoi) return 0;
+    if (ip + len > eoi) return 0;
     return ip + len;
 }
 
@@ -343,7 +343,6 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     }
 
     const unsigned short* housePtr = (const unsigned short*)ip;
-
     ip = findMarker(ip,eoi,marker7,sizeof(marker7));
     if (!ip) {
         if (!(_nDataErrors++ % 1))
