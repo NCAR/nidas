@@ -306,6 +306,11 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
         return false;
     }
+    if ((unsigned long)ip % sizeof(short)) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Histogram start not 2-byte aligned. #errors=" << _nDataErrors);
+        ip++;
+    }
 
     // There are 100 2-byte histogram values (but apparently only 99 valid ones).
     int nbyteBins = (_nChannels + 1) * sizeof(short);
@@ -315,7 +320,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
         return false;
     }
-    unsigned short* histoPtr = (unsigned short*)ip;
+    const unsigned short* histoPtr = (const unsigned short*)ip;
     ip += nbyteBins;
 
     if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
@@ -331,15 +336,22 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
         return false;
     }
+    if ((unsigned long)ip % sizeof(short)) {
+        if (!(_nDataErrors++ % 1))
+            WLOG((getName().c_str()) << ": Housekeeping start not 2-byte aligned. #errors=" << _nDataErrors);
+        ip++;
+    }
 
-    unsigned short* housePtr = (unsigned short*)ip;
+    const unsigned short* housePtr = (const unsigned short*)ip;
 
-    ip += 12 * sizeof(short);
-    if (ip >= eoi || memcmp(ip, marker7, sizeof(marker7))) {
+    ip = findMarker(ip,eoi,marker7,sizeof(marker7));
+    if (!ip) {
         if (!(_nDataErrors++ % 1))
             WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
         return false;
     }
+    if ((unsigned long)ip % sizeof(short)) ip++;
+    int nhouse = (const unsigned short*) ip - housePtr;
 
     SampleT<float> * outs = getSample<float>(_noutValues);
     float * dout = outs->getDataPtr();
@@ -364,12 +376,13 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // <variable> tags in the <sample> for this sensor.
 
     // cerr << "house=";
-    for (int iout = 0; iout < 12; ++iout) {
+    for (int iout = 0; iout < nhouse; ++iout) {
         int c = toLittle->uint16Value(housePtr[iout]);
         // cerr << setw(6) << c;
         if (iout != 8 && iout < 10)
             *dout++ = (float)c / _hkScale[iout];
     }
+    for (; dout < outs->getDataPtr() + _noutValues; ) *dout++ = floatNAN;
     // cerr << endl;
 
     // check for under/overflow.
