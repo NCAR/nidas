@@ -87,8 +87,20 @@ bool MOSMote::process(const Sample* samp,
     const char *ep = cp + nc;
     char *op = nsamp->getDataPtr();
 
+    // remove embedded nulls
     for ( ; cp < ep; cp++ ) if (*cp != '\0') *op++ = *cp;
-    *op = 0;
+    *op++ = 0;
+
+    // fixup, in place, incorrectly formatted negative numbers
+    // by skipping the spaces between the '-' and the digits.
+    cp = nsamp->getDataPtr();
+    op = nsamp->getDataPtr();
+    for ( ; *cp; op++ ) {
+        if (op != cp) *op = *cp;
+        if (*cp++ == '-') for ( ; *cp == ' '; cp++);
+    }
+    *op++ = 0;
+    // cerr << nsamp->getDataPtr() << endl;
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
     bool res = DSMSerialSensor::process(nsamp,results);

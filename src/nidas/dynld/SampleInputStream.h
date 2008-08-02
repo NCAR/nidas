@@ -143,13 +143,13 @@ public:
         setFilterBadSamples(val < UINT_MAX);
     }
 
-    void setMinSampleTime(nidas::util::UTime& val)
+    void setMinSampleTime(const nidas::util::UTime& val)
     {
         minSampleTime = val.toUsecs();
         setFilterBadSamples(val.toUsecs() > LONG_LONG_MIN);
     }
 
-    void setMaxSampleTime(nidas::util::UTime& val)
+    void setMaxSampleTime(const nidas::util::UTime& val)
     {
         maxSampleTime = val.toUsecs();
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);

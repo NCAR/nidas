@@ -621,6 +621,7 @@ static int __init emerald_init_module(void)
 	emerald_set_digio_out(ebrd,0);
 	emerald_read_digio(ebrd);
     }
+    printk(KERN_INFO "emerald: %d boards found\n",emerald_nr_ok);
 
     emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
     emerald_ports = kmalloc(emerald_nports * sizeof(emerald_port), GFP_KERNEL);

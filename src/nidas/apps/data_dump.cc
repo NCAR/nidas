@@ -129,7 +129,7 @@ bool DumpClient::receive(const Sample* samp) throw()
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
         if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-        ostr << string(cp,l) << endl;
+        ostr << n_u::addBackslashSequences(string(cp,l)) << endl;
         }
         break;
     case HEX:
@@ -514,6 +514,7 @@ int DataDump::run() throw()
 	}
 
 	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
+        sis.setMaxSampleLength(32768);
 	sis.init();
 	sis.readHeader();
 	SampleInputHeader header = sis.getHeader();

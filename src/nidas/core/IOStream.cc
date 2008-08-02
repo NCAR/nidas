@@ -88,6 +88,7 @@ size_t IOStream::read() throw(n_u::IOException)
 	if (iochannel.isNewFile()) {
 	    tail = head;	// discard last portion of previous file
 	    newFile = true;
+            nbytes = 0;
 	}
     }
     else l = 0;
