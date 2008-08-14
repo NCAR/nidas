@@ -25,6 +25,8 @@ namespace n_u = nidas::util;
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
 const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 
+int GPS_NMEA_Serial::ggacnt =0;
+int GPS_NMEA_Serial::rmccnt =0;
 
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
@@ -109,8 +111,10 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
     float lat=floatNAN, lon=floatNAN;
     float magvar=floatNAN,sog=floatNAN;
     int i1,i2,i3;
-    float f1,f2;
+    float f1,f2, tm;
     int iout = 0;
+    static float rmcPrevTm = -1;
+
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
 	const char* cp = ::strchr(input,sep);
@@ -118,9 +122,17 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 	cp++;
 	switch (ifield) {
 	case 0:	// HHMMSS, optional output variable seconds of day
-	    if (nvars < 12) break;
 	    if (sscanf(input,"%2d%2d%2d",&i1,&i2,&i3) != 3) break;
-	    dout[iout++] = i1 * 3600.0 + i2 * 60.0 + i3;
+            tm = i1 * 3600.0 + i2 * 60.0 + i3;
+            if (tm < rmcPrevTm && tm!=0 && rmcPrevTm != 86399) {
+                rmccnt++;
+                std::cerr <<"GPS NMEA RMC record time error: PrevTm(seconds):"<<rmcPrevTm<< " CurrentTm (seconds): "<<tm << " hh:mm:ss: "<<i1<<":"<<i2<<":"<<i3 <<"\n";
+            }
+            rmcPrevTm =tm;
+
+	    if (nvars < 12) break;
+	    dout[iout++] = tm;
+
 	    break;
 	case 1:	// Receiver status, A=OK, V= warning, output variable stat
 	    if (*input == 'A') dout[iout++] = 1.0;
@@ -208,12 +220,14 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 // $GPGGA,222504.0,3954.78106,N,10507.09950,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
 //        0        1          2 3           4 5 6  7   8      9 0     1   3
 //
+
 void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
     int i1,i2,i3;
-    float f1,f2;
+    float f1,f2, tm;
+    static float prevTm =-1;
     int iout = 0;
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -224,7 +238,13 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
 	case 0:		// HHMMSS
 	    if (sscanf(input,"%2d%2d%2d",&i1,&i2,&i3) != 3) break;
 	    dout[iout++] = i1 * 3600.0 + i2 * 60.0 + i3;// var 0 secs of day
-	    break;
+	    tm = i1 * 3600.0 + i2 * 60.0 + i3;
+            if (tm < prevTm  && tm!=0 && prevTm != 86399) {
+                ggacnt++;
+                std::cerr <<"GGA_GPS_TM_ERR: counts: "<<ggacnt<< " PrevTm(seconds):"<<prevTm<< " currentTm(seconds): "<<tm << " hh:mm:ss: "<<i1<<":"<<i2<<":"<<i3 <<"\n";
+            }
+            prevTm =tm;
+            break;
 	case 1:		// latitude
 	    if (sscanf(input,"%2f%f",&f1,&f2) != 2) break;
 	    lat = f1 + f2 / 60.;

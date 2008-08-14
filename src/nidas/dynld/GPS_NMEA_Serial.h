@@ -25,8 +25,16 @@ namespace nidas { namespace dynld {
 class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
+    
+    GPS_NMEA_Serial():DSMSerialSensor() {
+    }
 
-    GPS_NMEA_Serial():DSMSerialSensor() {}
+    ~GPS_NMEA_Serial() {
+       if (ggacnt > 0)
+           std::cerr<<"\nTotal GPS_NMEA GGA time stamp errors: "<<ggacnt<<std::endl;
+       if (rmccnt > 0)
+           std::cerr<<"\nTotal GPS_NMEA RMC time stamp errors: "<<rmccnt<< std::endl; 
+    }
 
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
@@ -70,6 +78,17 @@ private:
      * Id of sample from RMC NMEA record.  Fixed at 2.
      */
     static const int RMC_SAMPLE_ID;
+
+    /**
+     * gga time err count
+     */
+     static int ggacnt;
+
+     /**
+      * rmc time err count 
+      */
+     static int rmccnt; 
+     
 };
 
 }}	// namespace nidas namespace dynld
