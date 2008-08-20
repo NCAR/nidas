@@ -243,9 +243,14 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
         float f = fin[ii];
         if (fabs(f - _vouts[i]) > 1.e-3) {
             int ni = i;
-            // temporary flip of 3 and 4
+            /* Temporary flip of 3 and 4 to correct for cross-wired outputs on GV.
+             * This wiring issue does not exist on the C130.
+             * It is unknown at this point whether the GV rack still needs this switch.
+             */
+#ifdef FLIP_VOUT_3_4
             if (i == 3) ni = 4;
             else if (i == 4) ni = 3;
+#endif
             which.push_back(ni);
             volts.push_back(f);
             _vouts[i] = f;
