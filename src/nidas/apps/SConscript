@@ -83,6 +83,7 @@ apps = Split("""
     proj_configs.cc
     n_hdr_util.cc
     sensor_extract.cc
+    sing.cc
 """)
 
 # apps which don't need, or want, the nidas libraries
