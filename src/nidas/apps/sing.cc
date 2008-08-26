@@ -20,6 +20,8 @@
 #include <nidas/util/Thread.h>
 #include <nidas/core/Looper.h>
 #include <vector>
+#include <iostream>
+#include <iomanip>
 #include <limits.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -44,21 +46,26 @@ static n_u::SerialPort port;
 
 /**
  * Format of test packet:
- * NNNNNN SSSSSS UUUUUU cccccc<data>HHHHHHHH
+ * NNNNNN SSSSSS UUUUUU ccccc <data>HHHHHHHH\x04
  * NNNNNN: packet number starting at 0, 6 ASCII digits, followed by space.
  * SSSSSS UUUUUU: number of seconds and microseconds since program start:
  *      6 digits, space 6 digits.
- * cccccc: data portion size, in bytes, 0 or larger. No space after.
+ * ccccc: data portion size, in bytes, 0 or larger.
+ *      5 digits, followed by space.
  * <data>: data portion of packet, may be 0 bytes in length.
  * HHHHHHHH: CRC of packet contents, up to but not including CRC (duh),
  *      8 ASCII hex digits.
- * Length of packet is then (6 + 1) * 3 + 6 + dataSize + 8 = 35 + dataSize
+ * \x04: trailing ETX byte
+ * Length of packet is then (6 + 1) * 3 + 6 + dataSize + 8 + 1 = 36 + dataSize
  */
 
 const int START_OF_DATA = 27;   // data starts at byte 27
 const int LENGTH_OF_CRC = 8;
-int START_OF_CRC;
-int PACKET_LENGTH;
+const int MIN_PACKET_LENGTH = START_OF_DATA + LENGTH_OF_CRC + 1;
+int MAX_PACKET_LENGTH = 65535;
+int MAX_DATA_LENGTH = MAX_PACKET_LENGTH - MIN_PACKET_LENGTH;
+
+char ETX = '\x04';
 
 class Sender: public n_u::Thread
 {
@@ -72,22 +79,29 @@ public:
 
 private:
     bool _ascii;
-    int _size;
+    int _dsize;
     char* _buf;
     unsigned int _nout;
     time_t _sec0;
+    int _packetLength;
 };
 
 class Receiver
 {
 public:
-    Receiver(int size,int timeoutSecs,const Sender*);
+    Receiver(int timeoutSecs,const Sender*);
 
     void run() throw(n_u::IOException);
     void report();
 
 private:
-    int _size;
+
+    void reallocateBuffer(int len);
+
+    char* _buf;
+    char* _bufptr;
+    char* _eob;
+    int _buflen;
     int _timeoutSecs;
     vector<int> _last10;
     vector<int> _last100;
@@ -201,23 +215,27 @@ cksum (const unsigned char *input,size_t len)
   return crc;
 }
 
-Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_size(s),
+Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
     _buf(0),_nout(0)
 {
-    _buf = new char[PACKET_LENGTH + 1];     // provide space for trailing null
+    _packetLength = START_OF_DATA + _dsize + LENGTH_OF_CRC + 1;
+
+    // provide space for sprintf's trailing null (but null is not sent).
+    _buf = new char[_packetLength + 1];
+
     struct timeval tv;
     gettimeofday(&tv,0);
     _sec0 = tv.tv_sec;
 
     if (_ascii) {
-        for (int i = 0; i < _size; i++) {
+        for (int i = 0; i < _dsize; i++) {
             char c = ((i % 52) < 26) ? 'A' + (i % 26) : 'a' + (i % 26);
             _buf[START_OF_DATA + i] = c;
         }
     }
     else {
         unsigned char seq[] = {'\xaa','\x55','\xf0','\x0f','\x00','\xff'};
-        for (int i = 0; i < _size; i++) {
+        for (int i = 0; i < _dsize; i++) {
             char c = seq[i % sizeof(seq)];
             _buf[START_OF_DATA + i] = c;
         }
@@ -243,46 +261,62 @@ void Sender::send() throw(n_u::IOException)
 {
     struct timeval tv;
     gettimeofday(&tv,0);
+    int icrc = START_OF_DATA + _dsize;
 
     char csave = _buf[START_OF_DATA];
-    sprintf(_buf,"%6u %6d %6u %6u",_nout++,tv.tv_sec - _sec0,
-        tv.tv_usec,_size);
+    sprintf(_buf,"%6u %6d %6u %5u ",_nout++,tv.tv_sec - _sec0,
+        tv.tv_usec,_dsize);
     _buf[START_OF_DATA] = csave;
 
-    uint32_t crc = cksum((const unsigned char*)_buf,START_OF_CRC);
-    sprintf(_buf + START_OF_CRC,"%08x",crc);
+    uint32_t crc = cksum((const unsigned char*)_buf,icrc);
+    sprintf(_buf + icrc,"%08x%c",crc,ETX);
 
-    port.write(_buf,PACKET_LENGTH);
-    if (verbose) cout << "sent " << PACKET_LENGTH << ":" << _buf << endl;
+    port.write(_buf,_packetLength);
+    if (verbose) cerr << "sent " << _packetLength << ":" << _buf << endl;
 }
 
-Receiver::Receiver(int size, int timeoutSecs,const Sender*s):
-    _size(size),_timeoutSecs(timeoutSecs),_ngood10(0),_ngood100(0),
+Receiver::Receiver(int timeoutSecs,const Sender*s):
+    _buf(0),_bufptr(0),_buflen(0),
+    _timeoutSecs(timeoutSecs),_ngood10(0),_ngood100(0),
     _kbytePerSecSum(0.0),_Nlast(0),_sender(s)
 {
     _last10.resize(10);
     _last100.resize(100);
     _rateVec.resize(100);
+    reallocateBuffer(MIN_PACKET_LENGTH + 1);
+}
+void Receiver::reallocateBuffer(int len)
+{
+    if (len > _buflen) {
+        char* newbuf = new char[len];
+        if (_buf) memcpy(newbuf,_buf,_buflen);
+        delete [] _buf;
+        _bufptr = newbuf + (_bufptr - _buf);
+        _buf = newbuf;
+        _buflen = len;
+        _eob = _buf + len;
+    }
 }
 
 void Receiver::run() throw(n_u::IOException)
 {
     fd_set readfds;
     FD_SET(port.getFd(),&readfds);
+    int nfds = port.getFd() + 1;
     struct timeval timeout;
     struct timeval tnow;
 
-    int buflen = START_OF_CRC + LENGTH_OF_CRC + 2;
-    char buf[buflen];
-    char* eob = buf + buflen;
-    char* bufptr = buf;
+    unsigned int Npack = 0;
+    time_t sec = 0;
+    suseconds_t usec = 0;
+    int dsize = -1;
 
     for (; !interrupted; ) {
         timeout.tv_sec = timeoutSecs;
         timeout.tv_usec = 0;
         fd_set fds = readfds;
 
-        int nfd = select(1,&fds,0,0,(timeoutSecs > 0 ? &timeout : 0));
+        int nfd = select(nfds,&fds,0,0,(timeoutSecs > 0 ? &timeout : 0));
 
         if (nfd < 0) {
             if (errno == EINTR) return;
@@ -294,34 +328,53 @@ void Receiver::run() throw(n_u::IOException)
             report();
             return;
         }
-        int len = eob - bufptr;
-        int l = port.read(bufptr,len);
-        bufptr += l;
-        if (bufptr < eob) continue;
-        bufptr = buf;
+        int len = _eob - _bufptr;
+        int plen = MIN_PACKET_LENGTH + (dsize < 0 ? 0 : dsize);
+        if (plen > len) {
+            reallocateBuffer(_buflen + plen - len);
+            len = _eob - _bufptr;
+        }
+        int l = port.read(_bufptr,len);
+        if (verbose) cerr << "rcvd " << l << ":" << string(_bufptr,l) << endl;
+        _bufptr += l;
 
-        if (_sender) gettimeofday(&tnow,0);
         bool goodPacket = false;
-        unsigned int Npack;
-        time_t sec;
-        suseconds_t usec;
-        int dsize;
-        if (sscanf(buf,"%6u %6u %6u %6u",&Npack,&sec,&usec,&dsize) == 4) {
-            uint32_t crc = cksum((const unsigned char*)buf,START_OF_CRC);
-            uint32_t incrc;
-            for ( ; _Nlast < Npack; _Nlast++) {
-                if (_ngood10 > 0 && _last10[_Nlast % 10] == 1) _ngood10--;
-                _last10[_Nlast % 10] = 0;
-                if (_ngood100 > 0 && _last100[_Nlast % 100] == 1) _ngood100--;
-                _last100[_Nlast % 100] = 0;
-                if (_sender) {
-                    _kbytePerSecSum -= _rateVec[_Nlast % 100];
-                    _rateVec[_Nlast % 100] = 0.0;
+
+        if (dsize < 0) {        // read header
+            if (_bufptr - _buf < START_OF_DATA) continue;
+            if (sscanf(_buf,"%u %u %u %u",&Npack,&sec,&usec,&dsize) == 4) {
+
+                // if packet skipped
+                for (unsigned int n = _Nlast + 1; n < Npack; n++) {
+                    if (_ngood10 > 0 && _last10[n % 10] == 1) _ngood10--;
+                    _last10[n % 10] = 0;
+                    if (_ngood100 > 0 && _last100[n % 100] == 1) _ngood100--;
+                    _last100[n % 100] = 0;
+                    if (_sender) {
+                        _kbytePerSecSum -= _rateVec[n % 100];
+                        _rateVec[n % 100] = 0.0;
+                    }
                 }
+                _Nlast = Npack;
             }
-            if (sscanf(buf+START_OF_CRC,"%8x",incrc) == 1) {
-                if (incrc == crc) {
-                    goodPacket = true;  // success!
+        }
+        // At this point if dsize < 0 the header was not parseable.
+        if (dsize >= 0) {
+            if (dsize < MAX_DATA_LENGTH) {
+                plen = MIN_PACKET_LENGTH + dsize;
+                if (_bufptr - _buf < plen) continue;
+
+                if (_sender) gettimeofday(&tnow,0);
+                uint32_t crc = cksum((const unsigned char*)_buf,START_OF_DATA + dsize);
+                uint32_t incrc = 0;
+                if (_buf[START_OF_DATA + dsize + LENGTH_OF_CRC] == ETX &&
+                    sscanf(_buf+START_OF_DATA+dsize,"%8x",&incrc) == 1 &&
+                    incrc == crc) {
+                    // cerr << "good: Nlast=" << _Nlast << " dsize=" << dsize << endl;
+                    goodPacket = true;
+                    // cerr << "Nlast=" << _Nlast << " _last10[]=" <<
+                      //   _last10[_Nlast % 10] << " ngood10=" << _ngood10 << endl;
+                        
                     if (_last10[_Nlast % 10] == 0) _ngood10++;
                     _last10[_Nlast % 10] = 1;
                     if (_last100[_Nlast % 100] == 0) _ngood100++;
@@ -330,37 +383,51 @@ void Receiver::run() throw(n_u::IOException)
                         float dtsec =
                             (tnow.tv_sec - _sender->getSecOffset() - sec) +
                                 (float)(tnow.tv_usec - usec) / USECS_PER_SEC;
-                        float kbps = buflen / dtsec / 1000.0;
+                        float kbps = plen / dtsec / 1000.0;
                         _kbytePerSecSum -= _rateVec[_Nlast % 100];
                         _rateVec[_Nlast % 100] = kbps;
                         _kbytePerSecSum += kbps;
+                        // cerr << "kpbs=" << kbps << " sum=" << _kbytePerSecSum << endl;
                     }
+                    else port.write(_buf,plen);     // echo back
+                    _bufptr = _buf;
                 }
             }
+            else cerr << "Excessive data length: " << dsize <<
+                "bytes. Packet skipped." << endl;
+            dsize = -1;     // read header next
         }
-        if (!goodPacket) {  // bad packet, look for newline to try to
-                            // make some sense of the input.
-            char* cp = buf;
-            for ( ; cp < eob && *cp != '\n'; cp++);
-            if (cp < eob) {
-                cp++;
-                l = eob - cp;
-                memmove(buf,cp,l);
-                bufptr = buf + l;
-            }
+        if (!goodPacket) {  // bad packet, look for ETX to try to
+                            // make some sense of this junk
+            char* cp = _buf;
+            for ( ; cp < _bufptr && *cp++ != ETX; );
+            l = _bufptr - cp;
+            if (l >= MAX_PACKET_LENGTH) l = 0;   // hopeless
+            // move data after ETX to beg of buf
+            if (l > 0) memmove(_buf,cp,l);
+            _bufptr = _buf + l;
         }
         report();
+        // goodPacket: _bufptr will == _buf, buffer is empty
+        // badPacket:
+        //      data left in buffer will be that found after ETX.
+        //      Size of data in buffer is < MAX_PACKET_LENGTH.
+        // incomplete packet:
+        //      size of data in buffer is less than START_OF_DATA, or
+        //          MIN_PACKET_LENGTH + dsize.
     }
 }
 void Receiver::report()
 {
-    if (_sender) cout << "Nsent:" << _sender->getNout() << ' ';
-    cout << "Nrcvd:" << _Nlast << " last10:" << _ngood10 <<
-        " last100:" << _ngood100;
+    if (_sender) cout << "sent#:" << setw(5) << _sender->getNout() << ' ';
+    cout << "rcvd#:" << setw(5) << _Nlast <<
+        ", " << setw(2) << _ngood10 << '/' << std::min(_Nlast+1,(unsigned int)10) <<
+        ", " << setw(3) << _ngood100 << '/' << std::min(_Nlast+1,(unsigned int)100);
     if (_sender) {
         float kbps = _Nlast == 0 ? 0.0 :
             _kbytePerSecSum / (_Nlast > 100 ? 100 : _Nlast);
-        cout << " kB/sec:" << kbps;
+        cout << ", " << setprecision(2) << kbps << " kB/sec";
+        // cout << ", Nlast=" << _Nlast << " sum=" << _kbytePerSecSum;
         if (!(_Nlast % 100)) {
             _kbytePerSecSum = 0.0;
             for (unsigned int i = 0; i < 100; i++)
@@ -372,21 +439,38 @@ void Receiver::report()
 
 int usage(const char* argv0)
 {
+    const char* cp = argv0 + strlen(argv0) - 1;
+    for ( ; cp >= argv0 && *cp != '/'; cp--);
+    argv0 = ++cp;
     cerr << "\
-Usage: " << argv0 << "[-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
-  -e: echo packets back to sender\n\
+Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
+  -e: echo packets back to sender.\n\
   -h: display this help\n\
   -n N: send N number of packets. Default of 0 means send until killed\n\
   -o ttyopts: SerialOptions string, see below. Default: " << defaultTermioOpts << "\n\
+     Use raw tty mode because the exchanged packets don't contain CR or NL\n\
   -p: send printable ASCII characters in the data portion, else send non-printable hex AA 55 F0 0F 00 FF\n\
-  -r rate: send data at the given rate in Hz. Rate can be < 1. Default rate=1 Hz\n\
-  -s size: send extra data bytes in addition to normal 35 bytes. Default size=0\n\
+  -r rate: send data at the given rate in Hz. Rate can be < 1.\n\
+    This parameter is only needed on the sending side. Default rate=1 Hz\n\
+  -s size: send extra data bytes in addition to normal 36 bytes.\n\
+    This parameter is only needed on the sending side. Default size=0\n\
   -t timeout: receive timeout in seconds. Default=0 (forever)\n\
-  -v: verbose, display sent and received data packets\n\
+  -v: verbose, display sent and received data packets to stderr\n\
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
-  ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\n\
-  At one end of the serial connection run \"" << argv0 << "\" and at the other end\n\
-  either run \"" << argv0 << " -e\" or use a loopback device" << endl;
+ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\n\
+At one end of the serial connection run \"" << argv0 << "\" and at the\n\
+other end, either run \"" << argv0 << " -e\" or use a loopback device.\n\n\
+Example of testing a serial link at 115200 baud with modem control\n\
+    lines (carrier detect) and hardware flow control. The transmitted\n\
+    packets will be 2012+36=2048 bytes in length and will be\n\
+    sent as fast as possible. The send side is connected to the echo side\n\
+    with a null-modem cable:\n\
+Send side: " << argv0 << " -o 115200n81mhr -s 2012 /dev/ttyS5\n\
+Echo side: " << argv0 << " -e -o 115200n81mhr /dev/ttyS6\n\n\
+Example of testing a serial link at 9600 baud without modem control\n\
+    or hardware flow control. 36 byte packets be sent 10 times per second:\n\
+Send side: " << argv0 << " -o 9600n81lnr -r 10 /dev/ttyS5\n\
+Echo size: " << argv0 << " -e -o 9600n81lnr /dev/ttyS6" << endl;
     return 1;
 }
 
@@ -434,9 +518,6 @@ int parseRunstring(int argc, char** argv)
     if (device.length() == 0) return usage(argv[0]);
     if (optind != argc) return usage(argv[0]);
 
-    START_OF_CRC = START_OF_DATA + dataSize;
-    PACKET_LENGTH = START_OF_CRC + LENGTH_OF_CRC;
-
     return 0;
 }
 
@@ -479,7 +560,7 @@ void setupSignals()
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
+
     struct sigaction act;
     sigemptyset(&sigset);
     act.sa_mask = sigset;
@@ -489,7 +570,6 @@ void setupSignals()
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
-
 
 int main(int argc, char**argv)
 {
@@ -516,7 +596,7 @@ int main(int argc, char**argv)
         sender->start();
     }
 
-    Receiver rcvr(dataSize, timeoutSecs,sender.get());
+    Receiver rcvr(timeoutSecs,sender.get());
     try {
         rcvr.run();
     }
@@ -524,11 +604,14 @@ int main(int argc, char**argv)
         cerr << "Error: " << e.what() << endl;
     }
 
-    cerr << "receiver finished" << endl;
-
     if (sender.get()) {
         sender->interrupt();
-        sender->join();
+        try {
+            sender->join();
+        }
+        catch(const n_u::Exception &e) {
+            cerr << "Error: " << e.what() << endl;
+        }
     }
 }
 
