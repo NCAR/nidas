@@ -20,11 +20,13 @@
 #include <nidas/util/Thread.h>
 #include <nidas/core/Looper.h>
 #include <vector>
+#include <memory>
 #include <iostream>
 #include <iomanip>
 #include <limits.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <cstdlib>
 
 using namespace std;
 namespace n_u = nidas::util;
@@ -264,7 +266,7 @@ void Sender::send() throw(n_u::IOException)
     int icrc = START_OF_DATA + _dsize;
 
     char csave = _buf[START_OF_DATA];
-    sprintf(_buf,"%6u %6d %6u %5u ",_nout++,tv.tv_sec - _sec0,
+    sprintf(_buf,"%6u %6ld %6lu %5u ",_nout++,tv.tv_sec - _sec0,
         tv.tv_usec,_dsize);
     _buf[START_OF_DATA] = csave;
 
@@ -342,7 +344,10 @@ void Receiver::run() throw(n_u::IOException)
 
         if (dsize < 0) {        // read header
             if (_bufptr - _buf < START_OF_DATA) continue;
-            if (sscanf(_buf,"%u %u %u %u",&Npack,&sec,&usec,&dsize) == 4) {
+	    unsigned int isec, iusec;
+            if (sscanf(_buf,"%u %u %u %u",&Npack,&isec,&iusec,&dsize) == 4) {
+		sec = isec;
+		usec = iusec;
 
                 // if packet skipped
                 for (unsigned int n = _Nlast + 1; n < Npack; n++) {
@@ -589,7 +594,7 @@ int main(int argc, char**argv)
         return 1;
     }
 
-    auto_ptr<Sender> sender;
+    std::auto_ptr<Sender> sender;
 
     if (isSender) {
         sender.reset(new Sender(ascii,dataSize));
@@ -615,7 +620,7 @@ int main(int argc, char**argv)
     }
 }
 
-static int cksum_test(int argc, char** argv)
+static int __attribute__((__unused__)) cksum_test(int argc, char** argv)
 {
     unsigned char buf[65536];
 
