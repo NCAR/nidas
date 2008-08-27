@@ -557,7 +557,7 @@ int Receiver::scanBuffer()
     // Reset the buffer size to something reasonable if it
     // grew because of a bad dsize.
     if (_buflen > RBUFLEN) {
-        int blen = std::max(MIN_PACKET_LENGTH + _dsizeTrusted,_wptr - _rptr);
+        int blen = std::max(MIN_PACKET_LENGTH + _dsizeTrusted,(int)(_wptr - _rptr));
         blen = std::max(blen,RBUFLEN);
         if (blen != _buflen) reallocateBuffer(blen);
     }
