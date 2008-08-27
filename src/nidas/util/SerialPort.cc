@@ -18,20 +18,20 @@ using namespace nidas::util;
 
 SerialPort::SerialPort(const string& name) : Termios(),
 	_fd(-1),_name(name),_state(OK),_savebuf(0),_savelen(0),
-	_savealloc(0),blocking(true)
+	_savealloc(0),_blocking(true)
 {
 }
 
 SerialPort::SerialPort() : Termios(),
 	_fd(-1),_name("/dev/unknown"),
 	_state(OK),_savebuf(0),_savelen(0),
-	_savealloc(0),blocking(true)
+	_savealloc(0),_blocking(true)
 {
 }
 
 SerialPort::SerialPort(const string& name, int fd) throw(IOException) :
 	Termios(),_fd(-1),_name(name),_state(OK),_savebuf(0),_savelen(0),
-	_savealloc(0),blocking(true)
+	_savealloc(0),_blocking(true)
 {
     _fd = fd;
     getTermioConfig();
@@ -41,7 +41,7 @@ SerialPort::SerialPort(const string& name, int fd) throw(IOException) :
 SerialPort::SerialPort(const SerialPort& x) : Termios(x),
 	_fd(0),_name(x._name),
 	_state(OK),_savebuf(0),_savelen(0),
-	_savealloc(0),blocking(x.blocking)
+	_savealloc(0),_blocking(x._blocking)
 {
 }
 
@@ -68,7 +68,7 @@ SerialPort::open(int mode) throw(IOException)
   if ((_fd = ::open(_name.c_str(),mode)) < 0)
     throw IOException(_name,"open",errno);
   setTermioConfig();
-  setBlocking(blocking);
+  setBlocking(_blocking);
   return _fd;
 }
 
@@ -88,7 +88,7 @@ void
 SerialPort::setBlocking(bool val) throw(IOException)
 {
   if (_fd < 0) {
-    blocking = val;
+    _blocking = val;
     return;
   }
   int flags;
@@ -100,19 +100,19 @@ SerialPort::setBlocking(bool val) throw(IOException)
 
   if (fcntl(_fd,F_SETFL,flags) < 0)
     throw IOException(_name,"fcntl F_SETFL",errno);
-  blocking = val;
+  _blocking = val;
 }
 
 bool
 SerialPort::getBlocking() throw(IOException) {
-  if (_fd < 0) return blocking;
+  if (_fd < 0) return _blocking;
 
   int flags;
   if ((flags = fcntl(_fd,F_GETFL)) < 0)
     throw IOException(_name,"fcntl F_GETFL",errno);
 
-  blocking = (flags & O_NONBLOCK) == 0;
-  return blocking;
+  _blocking = (flags & O_NONBLOCK) == 0;
+  return _blocking;
 }
 
 int
@@ -156,7 +156,10 @@ SerialPort::modemFlagsToString(int modem)
 {
   string res;
 
+#ifdef SHOW_ALL_ON_OFF
   static const char *offon[]={"OFF","ON"};
+#endif
+
   static int status[] = {
     TIOCM_LE, TIOCM_DTR, TIOCM_RTS, TIOCM_ST, TIOCM_SR,
     TIOCM_CTS, TIOCM_CAR, TIOCM_RNG, TIOCM_DSR};
@@ -164,10 +167,14 @@ SerialPort::modemFlagsToString(int modem)
     {"LE","DTR","RTS","ST","SR","CTS","CD","RNG","DSR"};
 
   for (unsigned int i = 0; i < sizeof status / sizeof(int); i++) {
+#ifdef SHOW_ALL_ON_OFF
     res += lines[i];
     res += '=';
     res += offon[(modem & status[i]) != 0];
     res += ' ';
+#else
+    if (modem & status[i]) res += string(lines[i]) + ' ';
+#endif
   }
   return res;
 }
@@ -275,8 +282,10 @@ SerialPort::readLine(char *buf, int len) throw(IOException)
 int
 SerialPort::write(const void *buf, int len) throw(IOException)
 {
-    if ((len = ::write(_fd,buf,len)) < 0)
-      throw IOException(_name,"write",errno);
+    if ((len = ::write(_fd,buf,len)) < 0) {
+        if (!_blocking && errno == EAGAIN) return 0;
+        throw IOException(_name,"write",errno);
+    }
     return len;
 }
 

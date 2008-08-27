@@ -18,6 +18,7 @@
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/util.h>
 #include <nidas/core/Looper.h>
 #include <vector>
 #include <memory>
@@ -31,61 +32,96 @@
 using namespace std;
 namespace n_u = nidas::util;
 
-static float rate = 1.0;
+static float rate = 999999;
 static bool isSender = true;
 static bool ascii = false;
 static int dataSize = 0;
-static unsigned int nPacketsOut = UINT_MAX;
+static unsigned int nPacketsOut = 999998;
 static string defaultTermioOpts = "9600n81lnr";
 static string termioOpts = defaultTermioOpts;
 static string device;
 static bool verbose = false;
 static int timeoutSecs = 0;
-static bool interrupted = false;
+static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
 static n_u::SerialPort port;
 
 /**
  * Format of test packet:
- * NNNNNN SSSSSS UUUUUU ccccc <data>HHHHHHHH\x04
+ * NNNNNN MMMMMMMMM ccccc <data>HHHHHHHH\x04
  * NNNNNN: packet number starting at 0, 6 ASCII digits, followed by space.
- * SSSSSS UUUUUU: number of seconds and microseconds since program start:
- *      6 digits, space 6 digits.
+ * MMMMMMMM: number of milliseconds since program start:
+ *      9 digits followed by a space.
  * ccccc: data portion size, in bytes, 0 or larger.
  *      5 digits, followed by space.
  * <data>: data portion of packet, may be 0 bytes in length.
  * HHHHHHHH: CRC of packet contents, up to but not including CRC (duh),
  *      8 ASCII hex digits.
  * \x04: trailing ETX byte
- * Length of packet is then (6 + 1) * 3 + 6 + dataSize + 8 + 1 = 36 + dataSize
+ * Length of packet is then 7 + 10 + 6 + dataSize + 8 + 1 = 32 + dataSize
  */
 
-const int START_OF_DATA = 27;   // data starts at byte 27
+/*
+ * Tests:
+ *  sender: ttyS0
+ *  receiver ttyUSB0 (keyspan converter)
+ *      sender gets into state where it sends a bunch, then
+ *      receives a bunch, not interleaved.
+ *      sent# gets ahead of rcvd# by as much as 150
+ *      If one kills receiver first, cannot kill sender.
+ *      Sender seems to be stuck in a write.
+ *  sender: ttyUSB0 (keyspan converter)
+ *  receiver ttyS0
+ *      packets are much more interleaved
+ *      sent# only gets ahead of rcvd# by less than 10.
+ */
+const int START_OF_DATA = 23;   // data starts at byte 27
 const int LENGTH_OF_CRC = 8;
 const int MIN_PACKET_LENGTH = START_OF_DATA + LENGTH_OF_CRC + 1;
 int MAX_PACKET_LENGTH = 65535;
 int MAX_DATA_LENGTH = MAX_PACKET_LENGTH - MIN_PACKET_LENGTH;
 
 char ETX = '\x04';
+int EOF_NPACK = 999999;
 
 class Sender: public n_u::Thread
 {
 public:
-    Sender(bool ascii,int size);
+    Sender(bool ascii,int dsize);
     ~Sender();
     int run() throw(n_u::Exception);
     void send() throw(n_u::IOException);
+    void flush() throw(n_u::IOException);
     unsigned int getNout() const { return _nout; }
-    time_t getSecOffset() const { return _sec0; }
+
+    float getKbytePerSec() const
+    {
+        return (( _deltaT == 0) ? 0.0 : _byteSum / (float)_deltaT);
+    }
 
 private:
     bool _ascii;
     int _dsize;
+    char* _dbuf;
     char* _buf;
+    char* _eob;
+    char* _hptr;
+    char* _tptr;
     unsigned int _nout;
+
     time_t _sec0;
+    int _msec0;
+
     int _packetLength;
+    vector<int> _last100;
+    vector<int> _msec100;
+    int _msec100ago;
+
+    unsigned int _byteSum;
+    int _deltaT;
+
+    unsigned int _discarded;
 };
 
 class Receiver
@@ -96,22 +132,45 @@ public:
     void run() throw(n_u::IOException);
     void report();
 
+    float getKbytePerSec() const
+    {
+        return (( _deltaT == 0) ? 0.0 : _byteSum / (float)_deltaT);
+    }
+
 private:
 
     void reallocateBuffer(int len);
+    int scanBuffer();
+
+    const int RBUFLEN;
 
     char* _buf;
-    char* _bufptr;
+    char* _rptr;
+    char* _wptr;
     char* _eob;
     int _buflen;
     int _timeoutSecs;
     vector<int> _last10;
     vector<int> _last100;
-    vector<float> _rateVec;
+    vector<int> _msec100;
+    int _msec100ago;
     int _ngood10;
     int _ngood100;
-    double _kbytePerSecSum;
+    unsigned int _Npack;
     unsigned int _Nlast;
+    int _dsize;
+    int _dsizeTrusted;
+
+    int _msec;
+    bool _scanHeaderNext;
+
+    time_t _sec0;
+    int _msec0;
+
+    unsigned int _byteSum;
+    unsigned int _deltaT;
+
+    int _roundTripMsecs;
 
     const Sender* _sender;
 };
@@ -218,28 +277,42 @@ cksum (const unsigned char *input,size_t len)
 }
 
 Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
-    _buf(0),_nout(0)
+    _dbuf(0),_buf(0),_eob(0),_hptr(0),_tptr(0),_nout(0),
+    _sec0(0),_msec0(0),_msec100ago(0),_byteSum(0),_deltaT(0),_discarded(0)
 {
-    _packetLength = START_OF_DATA + _dsize + LENGTH_OF_CRC + 1;
+    _last100.resize(100);
+    _msec100.resize(100);
 
-    // provide space for sprintf's trailing null (but null is not sent).
-    _buf = new char[_packetLength + 1];
+    _packetLength = MIN_PACKET_LENGTH + _dsize;
+
+    int outBuflen = 0;
+    if (periodMsec == 0) outBuflen = 8192;
+    outBuflen = std::max(outBuflen,_packetLength + 1);
+
+    // cerr << "send buffer length=" << outBuflen << endl;
+
+    _hptr = _tptr = _buf = new char[outBuflen];
+    memset(_buf,0,outBuflen);   // avoids valgrind warnings
+    _eob = _buf + outBuflen;
+
+    if (_dsize > 0) _dbuf = new char[_dsize];
 
     struct timeval tv;
     gettimeofday(&tv,0);
     _sec0 = tv.tv_sec;
+    _msec0 = (tv.tv_usec / USECS_PER_MSEC);
 
     if (_ascii) {
         for (int i = 0; i < _dsize; i++) {
             char c = ((i % 52) < 26) ? 'A' + (i % 26) : 'a' + (i % 26);
-            _buf[START_OF_DATA + i] = c;
+            _dbuf[i] = c;
         }
     }
     else {
         unsigned char seq[] = {'\xaa','\x55','\xf0','\x0f','\x00','\xff'};
         for (int i = 0; i < _dsize; i++) {
             char c = seq[i % sizeof(seq)];
-            _buf[START_OF_DATA + i] = c;
+            _dbuf[i] = c;
         }
     }
 }
@@ -247,57 +320,114 @@ Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
 Sender::~Sender()
 {
     delete [] _buf;
+    delete [] _dbuf;
 }
 
 int Sender::run() throw(n_u::Exception)
 {
     for (;_nout < nPacketsOut;) {
-        if (isInterrupted()) break;
+        if (isInterrupted() || interrupted) break;
         send();
         if (periodMsec > 0) nidas::core::Looper::sleepUntil(periodMsec);
     }
+    _nout = EOF_NPACK;
+    send();
+    flush();
     return RUN_OK;
+}
+
+void Sender::flush() throw(n_u::IOException)
+{
+    static int wz = 0;
+    int len = _hptr - _tptr;
+    if (len == 0) return;
+    int l = port.write(_tptr,len);
+    _tptr += l;
+    if (_hptr == _tptr) 
+        _hptr = _tptr = _buf;
 }
 
 void Sender::send() throw(n_u::IOException)
 {
     struct timeval tv;
     gettimeofday(&tv,0);
+    int msec = (int)(tv.tv_sec - _sec0) * MSECS_PER_SEC +
+        (int)(tv.tv_usec / USECS_PER_MSEC - _msec0);
+
+    int iout = _nout % 100;
+
+    if (_hptr + _packetLength + 1 > _eob) flush();
+    if (_hptr + _packetLength + 1 > _eob) {
+        if (!(_discarded++ % 100))
+            cerr << "Discarded " << _discarded << " packets because Senders output buffer is full" << endl;
+        _byteSum -= _last100[iout];
+        if (_msec100[iout] > 0)
+            _msec100ago = _msec100[iout];
+        _deltaT = msec - _msec100ago;
+        _msec100[iout] = msec;
+        _last100[iout] = 0;
+        _nout++;
+        return;  // can't write
+    }
+        
     int icrc = START_OF_DATA + _dsize;
 
-    char csave = _buf[START_OF_DATA];
-    sprintf(_buf,"%6u %6ld %6lu %5u ",_nout++,tv.tv_sec - _sec0,
-        tv.tv_usec,_dsize);
-    _buf[START_OF_DATA] = csave;
+    sprintf(_hptr,"%6u %9d %5u ",_nout,msec,_dsize);
+    if (_dsize > 0) memcpy(_hptr + START_OF_DATA,_dbuf,_dsize);
 
-    uint32_t crc = cksum((const unsigned char*)_buf,icrc);
-    sprintf(_buf + icrc,"%08x%c",crc,ETX);
+    uint32_t crc = cksum((const unsigned char*)_hptr,icrc);
+    sprintf(_hptr + icrc,"%08x%c",crc,ETX);
+    if (verbose) cerr << "sent " << _packetLength << ":" << 
+            n_u::addBackslashSequences(string(_hptr,_packetLength)) << endl;
 
-    port.write(_buf,_packetLength);
-    if (verbose) cerr << "sent " << _packetLength << ":" << _buf << endl;
+    _byteSum -= _last100[iout];
+    if (_msec100[iout] > 0)
+        _msec100ago = _msec100[iout];
+    _deltaT = msec - _msec100ago;
+    _byteSum += _packetLength;
+    _msec100[iout] = msec;
+    _last100[iout] = _packetLength;
+
+    _hptr += _packetLength;
+    if (_hptr + 1 == _eob) flush();
+    _nout++;
+
 }
 
 Receiver::Receiver(int timeoutSecs,const Sender*s):
-    _buf(0),_bufptr(0),_buflen(0),
-    _timeoutSecs(timeoutSecs),_ngood10(0),_ngood100(0),
-    _kbytePerSecSum(0.0),_Nlast(0),_sender(s)
+    RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
+    _timeoutSecs(timeoutSecs),_msec100ago(0),_ngood10(0),_ngood100(0),
+    _Npack(0),_Nlast(0),_dsize(0),_dsizeTrusted(0),
+    _msec(0),_scanHeaderNext(true),_sec0(0),_msec0(0),
+    _byteSum(0),_deltaT(0),_roundTripMsecs(0),
+    _sender(s)
 {
     _last10.resize(10);
     _last100.resize(100);
-    _rateVec.resize(100);
-    reallocateBuffer(MIN_PACKET_LENGTH + 1);
+    _msec100.resize(100);
+    reallocateBuffer(RBUFLEN);
+
+    struct timeval tv;
+    gettimeofday(&tv,0);
+    _sec0 = tv.tv_sec;
+    _msec0 = (tv.tv_usec / USECS_PER_MSEC);
+
 }
+
 void Receiver::reallocateBuffer(int len)
 {
-    if (len > _buflen) {
-        char* newbuf = new char[len];
-        if (_buf) memcpy(newbuf,_buf,_buflen);
-        delete [] _buf;
-        _bufptr = newbuf + (_bufptr - _buf);
-        _buf = newbuf;
-        _buflen = len;
-        _eob = _buf + len;
-    }
+    // cerr << "reallocateBuffer, len=" << len << endl;
+    delete [] _buf;
+    char* newbuf = new char[len];
+    memset(newbuf,0,len);   // avoids valgrind warnings
+    int l = _wptr - _rptr;
+    assert(l < len);
+    if (l > 0) memcpy(newbuf,_rptr,l);
+    _rptr = newbuf;
+    _wptr = newbuf + l;
+    _buf = newbuf;
+    _eob = _buf + len;
+    _buflen = len;
 }
 
 void Receiver::run() throw(n_u::IOException)
@@ -306,12 +436,6 @@ void Receiver::run() throw(n_u::IOException)
     FD_SET(port.getFd(),&readfds);
     int nfds = port.getFd() + 1;
     struct timeval timeout;
-    struct timeval tnow;
-
-    unsigned int Npack = 0;
-    time_t sec = 0;
-    suseconds_t usec = 0;
-    int dsize = -1;
 
     for (; !interrupted; ) {
         timeout.tv_sec = timeoutSecs;
@@ -330,98 +454,117 @@ void Receiver::run() throw(n_u::IOException)
             report();
             return;
         }
-        int len = _eob - _bufptr;
-        int plen = MIN_PACKET_LENGTH + (dsize < 0 ? 0 : dsize);
-        if (plen > len) {
-            reallocateBuffer(_buflen + plen - len);
-            len = _eob - _bufptr;
-        }
-        int l = port.read(_bufptr,len);
-        if (verbose) cerr << "rcvd " << l << ":" << string(_bufptr,l) << endl;
-        _bufptr += l;
-
-        bool goodPacket = false;
-
-        if (dsize < 0) {        // read header
-            if (_bufptr - _buf < START_OF_DATA) continue;
-	    unsigned int isec, iusec;
-            if (sscanf(_buf,"%u %u %u %u",&Npack,&isec,&iusec,&dsize) == 4) {
-		sec = isec;
-		usec = iusec;
-
-                // if packet skipped
-                for (unsigned int n = _Nlast + 1; n < Npack; n++) {
-                    if (_ngood10 > 0 && _last10[n % 10] == 1) _ngood10--;
-                    _last10[n % 10] = 0;
-                    if (_ngood100 > 0 && _last100[n % 100] == 1) _ngood100--;
-                    _last100[n % 100] = 0;
-                    if (_sender) {
-                        _kbytePerSecSum -= _rateVec[n % 100];
-                        _rateVec[n % 100] = 0.0;
-                    }
-                }
-                _Nlast = Npack;
-            }
-        }
-        // At this point if dsize < 0 the header was not parseable.
-        if (dsize >= 0) {
-            if (dsize < MAX_DATA_LENGTH) {
-                plen = MIN_PACKET_LENGTH + dsize;
-                if (_bufptr - _buf < plen) continue;
-
-                if (_sender) gettimeofday(&tnow,0);
-                uint32_t crc = cksum((const unsigned char*)_buf,START_OF_DATA + dsize);
-                uint32_t incrc = 0;
-                if (_buf[START_OF_DATA + dsize + LENGTH_OF_CRC] == ETX &&
-                    sscanf(_buf+START_OF_DATA+dsize,"%8x",&incrc) == 1 &&
-                    incrc == crc) {
-                    // cerr << "good: Nlast=" << _Nlast << " dsize=" << dsize << endl;
-                    goodPacket = true;
-                    // cerr << "Nlast=" << _Nlast << " _last10[]=" <<
-                      //   _last10[_Nlast % 10] << " ngood10=" << _ngood10 << endl;
-                        
-                    if (_last10[_Nlast % 10] == 0) _ngood10++;
-                    _last10[_Nlast % 10] = 1;
-                    if (_last100[_Nlast % 100] == 0) _ngood100++;
-                    _last100[_Nlast % 100] = 1;
-                    if (_sender) {
-                        float dtsec =
-                            (tnow.tv_sec - _sender->getSecOffset() - sec) +
-                                (float)(tnow.tv_usec - usec) / USECS_PER_SEC;
-                        float kbps = plen / dtsec / 1000.0;
-                        _kbytePerSecSum -= _rateVec[_Nlast % 100];
-                        _rateVec[_Nlast % 100] = kbps;
-                        _kbytePerSecSum += kbps;
-                        // cerr << "kpbs=" << kbps << " sum=" << _kbytePerSecSum << endl;
-                    }
-                    else port.write(_buf,plen);     // echo back
-                    _bufptr = _buf;
-                }
-            }
-            else cerr << "Excessive data length: " << dsize <<
-                "bytes. Packet skipped." << endl;
-            dsize = -1;     // read header next
-        }
-        if (!goodPacket) {  // bad packet, look for ETX to try to
-                            // make some sense of this junk
-            char* cp = _buf;
-            for ( ; cp < _bufptr && *cp++ != ETX; );
-            l = _bufptr - cp;
-            if (l >= MAX_PACKET_LENGTH) l = 0;   // hopeless
-            // move data after ETX to beg of buf
-            if (l > 0) memmove(_buf,cp,l);
-            _bufptr = _buf + l;
-        }
-        report();
-        // goodPacket: _bufptr will == _buf, buffer is empty
-        // badPacket:
-        //      data left in buffer will be that found after ETX.
-        //      Size of data in buffer is < MAX_PACKET_LENGTH.
-        // incomplete packet:
-        //      size of data in buffer is less than START_OF_DATA, or
-        //          MIN_PACKET_LENGTH + dsize.
+        int len = _eob - _wptr;
+        assert(len > 0);
+        int l = port.read(_wptr,len);
+        if (l == 0) break;
+        if (verbose) cerr << "rcvd " << l << ":" <<
+            n_u::addBackslashSequences(string(_wptr,l)) << endl;
+        _wptr += l;
+        if (scanBuffer()) break;
     }
 }
+
+/**
+ * Return 0 on normal scan, 1 on receipt of EOF packet.
+ */
+int Receiver::scanBuffer()
+{
+    struct timeval tnow;
+
+    int plen;
+
+    for (;;) {
+        bool goodPacket = false;
+        if (_scanHeaderNext) {        // read header
+            if (_wptr - _rptr < START_OF_DATA) break;   // not enough data
+            if (sscanf(_rptr,"%u %u %u",&_Npack,&_msec,&_dsize) == 3 &&
+                _dsize < MAX_DATA_LENGTH) {
+#ifdef DEBUG
+                cerr << "Npack=" << _Npack << " _msec=" << _msec << " _dsize=" << _dsize << endl;
+#endif
+                // if missing packets
+                if (_Npack != EOF_NPACK) {
+                    for (unsigned int n = _Nlast + 1; n < _Npack; n++) {
+                        int iout = n % 10;
+                        if (_ngood10 > 0 && _last10[iout] > 0) _ngood10--;
+                        _last10[iout] = 0;
+                        iout = n % 100;
+                        if (_ngood100 > 0 && _last100[iout] > 0) _ngood100--;
+                        _byteSum -= _last100[iout];
+                        _last100[iout] = 0;
+                    }
+                    _Nlast = _Npack;
+                }
+                _scanHeaderNext = false;
+                plen = MIN_PACKET_LENGTH + _dsize;
+                if (plen > _buflen) reallocateBuffer(plen);
+            }
+            else _dsize = 0;
+        }
+        if (!_scanHeaderNext) {
+            plen = MIN_PACKET_LENGTH + _dsize;
+            if (_wptr - _rptr < plen) break;
+
+            gettimeofday(&tnow,0);
+            int msec =
+                (int)(tnow.tv_sec - _sec0) * MSECS_PER_SEC +
+                (int)(tnow.tv_usec / USECS_PER_MSEC - _msec0);
+            uint32_t crc = cksum((const unsigned char*)_rptr,START_OF_DATA + _dsize);
+            uint32_t incrc = 0;
+            if (_rptr[START_OF_DATA + _dsize + LENGTH_OF_CRC] == ETX &&
+                sscanf(_rptr+START_OF_DATA+_dsize,"%8x",&incrc) == 1 &&
+                incrc == crc) {
+                // cerr << "good: Nlast=" << _Nlast << " _dsize=" << _dsize << endl;
+                goodPacket = true;
+                // cerr << "Nlast=" << _Nlast << " _last10[]=" <<
+                  //   _last10[_Nlast % 10] << " ngood10=" << _ngood10 << endl;
+                    
+                int iout = _Nlast % 10;
+                if (_last10[iout] == 0) _ngood10++;
+                _last10[iout] = plen;
+
+                iout = _Nlast % 100;
+                if (_last100[iout] == 0) _ngood100++;
+                _byteSum -= _last100[iout];
+                _last100[iout] = plen;
+                _byteSum += plen;
+                if (_msec100[iout] > 0)
+                    _msec100ago = _msec100[iout];
+                _msec100[iout] = msec;
+                _deltaT = msec - _msec100ago;
+                _roundTripMsecs = msec - _msec;
+
+                // TODO: buffer this depending on output rate
+                if (!_sender) port.write(_rptr,plen);     // echo back
+                if (_Npack == EOF_NPACK) return 1;
+                _dsizeTrusted = _dsize;
+                _rptr += plen;
+
+            }
+            _scanHeaderNext = true;
+        }
+        if (!goodPacket) {
+            // bad packet, look for ETX to try to make some sense of this junk
+            for ( ; _rptr < _wptr && *_rptr++ != ETX; );
+        }
+        else report();
+    }
+    unsigned int l = _wptr - _rptr;  // unscanned characters in buffer
+    if (l > 0) memmove(_buf,_rptr,l);
+    _rptr = _buf;
+    _wptr = _buf + l;
+
+    // Reset the buffer size to something reasonable if it
+    // grew because of a bad dsize.
+    if (_buflen > RBUFLEN) {
+        int blen = std::max(MIN_PACKET_LENGTH + _dsizeTrusted,_wptr - _rptr);
+        blen = std::max(blen,RBUFLEN);
+        if (blen != _buflen) reallocateBuffer(blen);
+    }
+    return 0;
+}
+
 void Receiver::report()
 {
     if (_sender) cout << "sent#:" << setw(5) << _sender->getNout() << ' ';
@@ -429,16 +572,12 @@ void Receiver::report()
         ", " << setw(2) << _ngood10 << '/' << std::min(_Nlast+1,(unsigned int)10) <<
         ", " << setw(3) << _ngood100 << '/' << std::min(_Nlast+1,(unsigned int)100);
     if (_sender) {
-        float kbps = _Nlast == 0 ? 0.0 :
-            _kbytePerSecSum / (_Nlast > 100 ? 100 : _Nlast);
-        cout << ", " << setprecision(2) << kbps << " kB/sec";
-        // cout << ", Nlast=" << _Nlast << " sum=" << _kbytePerSecSum;
-        if (!(_Nlast % 100)) {
-            _kbytePerSecSum = 0.0;
-            for (unsigned int i = 0; i < 100; i++)
-                _kbytePerSecSum += _rateVec[i];
-        }
+        float kbps = _sender->getKbytePerSec();
+        cout << ", out:" << setw(4) << setprecision(4) << kbps << " kB/sec";
     }
+    float kbps = getKbytePerSec();
+    cout << ", in:" << setw(4) << setprecision(4) << kbps << " kB/sec";
+    if (_sender) cout << ", dT:" << setw(4) << _roundTripMsecs << " msec";
     cout << endl;
 }
 
@@ -475,7 +614,7 @@ Echo side: " << argv0 << " -e -o 115200n81mhr /dev/ttyS6\n\n\
 Example of testing a serial link at 9600 baud without modem control\n\
     or hardware flow control. 36 byte packets be sent 10 times per second:\n\
 Send side: " << argv0 << " -o 9600n81lnr -r 10 /dev/ttyS5\n\
-Echo size: " << argv0 << " -e -o 9600n81lnr /dev/ttyS6" << endl;
+Echo side: " << argv0 << " -e -o 9600n81lnr /dev/ttyS6" << endl;
     return 1;
 }
 
@@ -532,26 +671,34 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     options.parse(termioOpts);
 
     port.setName(device);
-    port.open(O_RDWR | O_NOCTTY);
     port.setOptions(options);
-    port.setTermioConfig();
+    port.setRaw(true);
+    port.setRawLength(1);
+    port.setRawTimeout(0);
+    port.setBlocking(true);
+    port.open(O_RDWR | O_NOCTTY | O_NONBLOCK);
+    // port.setTermioConfig();
+    // cerr << "port opened" << endl;
+    int modembits = port.getModemStatus();
+    cerr << "Modem flags: " << port.modemFlagsToString(modembits) << endl;
+    port.flushBoth();
 }
 
 static void sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
-#ifdef DEBUG
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
 	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+#ifdef DEBUG
 #endif
 
     switch(sig) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            interrupted = true;
+            if (interrupted++ > 0) exit(1);
     break;
     }
 }

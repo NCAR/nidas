@@ -54,9 +54,9 @@ baud parity data stop local_modem flow_control raw_cooked newline_opts\n\
     output option: n=convert output CR to NL\n\
 		   c=convert output NL to CR\n\
 		   x=no change to CR\n\
-example:\n\
-  9600n81lncnc : 9600 baud, no parity, local, no flow control\n\
-    cooked, convert input CR->NL, output NL->CR (unix terminal)\n";
+  example:\n\
+    9600n81lncnc : 9600 baud, no parity, local, no flow control\n\
+      cooked, convert input CR->NL, output NL->CR (unix terminal)\n";
 }
 
 void SerialOptions::parse(const string& input) throw(ParseException)

@@ -168,7 +168,7 @@ private:
   
   int _savealloc;
 
-  bool blocking;
+  bool _blocking;
 };
 
 }}	// namespace nidas namespace util
