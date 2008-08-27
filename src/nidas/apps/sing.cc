@@ -83,7 +83,7 @@ int MAX_PACKET_LENGTH = 65535;
 int MAX_DATA_LENGTH = MAX_PACKET_LENGTH - MIN_PACKET_LENGTH;
 
 char ETX = '\x04';
-int EOF_NPACK = 999999;
+unsigned int EOF_NPACK = 999999;
 
 class Sender: public n_u::Thread
 {
@@ -338,7 +338,6 @@ int Sender::run() throw(n_u::Exception)
 
 void Sender::flush() throw(n_u::IOException)
 {
-    static int wz = 0;
     int len = _hptr - _tptr;
     if (len == 0) return;
     int l = port.write(_tptr,len);
@@ -478,7 +477,7 @@ int Receiver::scanBuffer()
         bool goodPacket = false;
         if (_scanHeaderNext) {        // read header
             if (_wptr - _rptr < START_OF_DATA) break;   // not enough data
-            if (sscanf(_rptr,"%u %u %u",&_Npack,&_msec,&_dsize) == 3 &&
+            if (sscanf(_rptr,"%u %d %d",&_Npack,&_msec,&_dsize) == 3 &&
                 _dsize < MAX_DATA_LENGTH) {
 #ifdef DEBUG
                 cerr << "Npack=" << _Npack << " _msec=" << _msec << " _dsize=" << _dsize << endl;

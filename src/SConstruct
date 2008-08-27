@@ -110,7 +110,7 @@ SConsignFile()
 ##  Define compiler flags and paths for all builds.
 ##
 env['CCFLAGS'] = [ '-Wall', '-Wno-uninitialized', '-O2' ]
-env['CXXFLAGS'] = env['CFLAGS']
+env['CXXFLAGS'] = env['CCFLAGS']
 env['CPPPATH'] = Split("#")
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
