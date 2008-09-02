@@ -13,6 +13,8 @@
 
 #include <nidas/dynld/GPS_NMEA_Serial.h>
 #include <nidas/core/PhysConstants.h>
+#include <nidas/util/UTime.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 
@@ -25,10 +27,13 @@ namespace n_u = nidas::util;
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
 const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 
-int GPS_NMEA_Serial::ggacnt =0;
-int GPS_NMEA_Serial::rmccnt =0;
-
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
+
+GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
+    ggacnt(0),rmccnt(0),prevRMCTm(-1)
+{
+
+}
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 	throw(n_u::InvalidParameterException)
@@ -105,15 +110,17 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 //        0        1 2          3 4           5 6      7     8      9     0 1
 //
 
-void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
+void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
+    dsm_time_t tt) throw()
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN;
     float magvar=floatNAN,sog=floatNAN;
-    int i1,i2,i3;
-    float f1,f2, tm;
+    int tm,hour=0,minute=0,second=0,year=0,month=0,day=0;
+    float f1,f2;
     int iout = 0;
-    static float rmcPrevTm = -1;
+    bool timeerr = false;
+    char status = '?';
 
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -122,20 +129,21 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 	cp++;
 	switch (ifield) {
 	case 0:	// HHMMSS, optional output variable seconds of day
-	    if (sscanf(input,"%2d%2d%2d",&i1,&i2,&i3) != 3) break;
-            tm = i1 * 3600.0 + i2 * 60.0 + i3;
-            if (tm < rmcPrevTm && tm!=0 && rmcPrevTm != 86399) {
-                rmccnt++;
-                std::cerr <<"GPS NMEA RMC record time error: PrevTm(seconds):"<<rmcPrevTm<< " CurrentTm (seconds): "<<tm << " hh:mm:ss: "<<i1<<":"<<i2<<":"<<i3 <<"\n";
+	    if (sscanf(input,"%2d%2d%2d",&hour,&minute,&second) == 3) {
+                tm = hour * 3600 + minute * 60 + second;
+                // Wait till we have the year,mon,day to issue a warning
+                // about a time error
+                if (tm < prevRMCTm && tm!=0 && prevRMCTm != 86399) {
+                    timeerr = true;
+                    rmccnt++;
+                }
+                if (nvars >= 12) dout[iout++] = (float)tm;
             }
-            rmcPrevTm =tm;
-
-	    if (nvars < 12) break;
-	    dout[iout++] = tm;
-
+            else if (nvars >= 12) dout[iout++] = floatNAN;
 	    break;
 	case 1:	// Receiver status, A=OK, V= warning, output variable stat
-	    if (*input == 'A') dout[iout++] = 1.0;
+            status = *input;
+	    if (status == 'A') dout[iout++] = 1.0;
 	    else if (*input == 'V') dout[iout++] = 0.0;
 	    else dout[iout++] = floatNAN;	// var N status
 	    break;
@@ -176,10 +184,10 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 	    }
 	    break;
 	case 8:	// date DDMMYY
-	    if (sscanf(input,"%2d%2d%2d",&i1,&i2,&i3) == 3) {
-	        dout[iout++] = (float)i1;	// day
-	        dout[iout++] = (float)i2;	// month
-	        dout[iout++] = (float)i3;	// year
+	    if (sscanf(input,"%2d%2d%2d",&day,&month,&year) == 3) {
+	        dout[iout++] = (float)day;
+	        dout[iout++] = (float)month;
+	        dout[iout++] = (float)year;
 	    }
 	    else {
 	        dout[iout++] = floatNAN;	// day
@@ -203,6 +211,12 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 	}
 	input = cp;
     }
+    if (timeerr) {
+        WLOG(("GPS NMEA RMC time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%02d, status=%c",
+                    n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
+                    prevRMCTm,tm,year,month,day,hour,minute,second,status));
+    }
+    prevRMCTm =tm;
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
     assert(iout == nvars);
 }
@@ -221,14 +235,16 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars) throw()
 //        0        1          2 3           4 5 6  7   8      9 0     1   3
 //
 
-void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
+void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
+    dsm_time_t tt) throw()
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
-    int i1,i2,i3;
-    float f1,f2, tm;
-    static float prevTm =-1;
+    int i1,tm,hour=0,minute=0,second=0;
+    float f1,f2;
     int iout = 0;
+    bool timeerr = false;
+
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
 	const char* cp = ::strchr(input,sep);
@@ -236,14 +252,15 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
 	cp++;
 	switch (ifield) {
 	case 0:		// HHMMSS
-	    if (sscanf(input,"%2d%2d%2d",&i1,&i2,&i3) != 3) break;
-	    dout[iout++] = i1 * 3600.0 + i2 * 60.0 + i3;// var 0 secs of day
-	    tm = i1 * 3600.0 + i2 * 60.0 + i3;
-            if (tm < prevTm  && tm!=0 && prevTm != 86399) {
-                ggacnt++;
-                std::cerr <<"GGA_GPS_TM_ERR: counts: "<<ggacnt<< " PrevTm(seconds):"<<prevTm<< " currentTm(seconds): "<<tm << " hh:mm:ss: "<<i1<<":"<<i2<<":"<<i3 <<"\n";
+	    if (sscanf(input,"%2d%2d%2d",&hour,&minute,&second) == 3) {
+                tm = hour * 3600 + minute * 60 + second;
+                if (tm < prevGGATm  && tm!=0 && prevGGATm != 86399) {
+                    ggacnt++;
+                    timeerr = true;
+                }
+                dout[iout++] = (float) tm;  // var 0 secs of day
             }
-            prevTm =tm;
+            else dout[iout++] = floatNAN;
             break;
 	case 1:		// latitude
 	    if (sscanf(input,"%2f%f",&f1,&f2) != 2) break;
@@ -303,6 +320,12 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars) throw()
 	}
 	input = cp;
     }
+    if (timeerr) {
+        WLOG(("GPS NMEA GGA time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, hh:mm:ss: %02d:%02d:%02d",
+                    n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
+                    prevGGATm,tm,hour,minute,second));
+    }
+    prevGGATm = tm;
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
     assert(iout == nvars);
 }
@@ -323,7 +346,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 	SampleT<float>* outs = getSample<float>(ggaNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(ggaId);
-	parseGGA(input,outs->getDataPtr(),ggaNvars);
+	parseGGA(input,outs->getDataPtr(),ggaNvars,samp->getTimeTag());
 	results.push_back(outs);
 	return true;
     }
@@ -332,7 +355,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 	SampleT<float>* outs = getSample<float>(rmcNvars);
 	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(rmcId);
-	parseRMC(input,outs->getDataPtr(),rmcNvars);
+	parseRMC(input,outs->getDataPtr(),rmcNvars,samp->getTimeTag());
 	results.push_back(outs);
 	return true;
     }

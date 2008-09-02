@@ -26,8 +26,7 @@ class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
     
-    GPS_NMEA_Serial():DSMSerialSensor() {
-    }
+    GPS_NMEA_Serial();
 
     ~GPS_NMEA_Serial() {
        if (ggacnt > 0)
@@ -42,10 +41,10 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    static void parseGGA(const char* input,float *dout,int nvars) 
+    void parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
     	throw();
   
-    static void parseRMC(const char* input,float *dout,int nvars)
+    void parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
     	throw();
 
 private:
@@ -82,12 +81,22 @@ private:
     /**
      * gga time err count
      */
-     static int ggacnt;
+     int ggacnt;
 
      /**
       * rmc time err count 
       */
-     static int rmccnt; 
+     int rmccnt; 
+
+    /**
+     * Previous seconds of day from RMC record.
+     */
+    int prevRMCTm;
+
+    /**
+     * Previous seconds of day from GGA record.
+     */
+    int prevGGATm;
      
 };
 
