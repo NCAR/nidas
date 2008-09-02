@@ -212,8 +212,8 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	input = cp;
     }
     if (timeerr) {
-        WLOG(("GPS NMEA RMC time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%02d, status=%c",
-                    n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
+        WLOG(("%s: GPS NMEA RMC time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%02d, status=%c",
+                    getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
                     prevRMCTm,tm,year,month,day,hour,minute,second,status));
     }
     prevRMCTm =tm;
@@ -321,8 +321,8 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	input = cp;
     }
     if (timeerr) {
-        WLOG(("GPS NMEA GGA time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, hh:mm:ss: %02d:%02d:%02d",
-                    n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
+        WLOG(("%s: GPS NMEA GGA time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, hh:mm:ss: %02d:%02d:%02d",
+                    getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
                     prevGGATm,tm,hour,minute,second));
     }
     prevGGATm = tm;
