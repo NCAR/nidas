@@ -258,6 +258,26 @@ public:
         return despiker[0].getDiscLevel();
     }
 
+    void setTcOffset(float val) 
+    {
+        _tcOffset = val;
+    }
+
+    float getTcOffset() const
+    {
+        return _tcOffset;
+    }
+
+    void setTcSlope(float val) 
+    {
+        _tcSlope = val;
+    }
+
+    float getTcSlope() const
+    {
+        return _tcSlope;
+    }
+
     /**
      * Virtual method to correct sonic virtual temperature, tc,
      * for the lengthening of the pulse path due to
@@ -311,6 +331,9 @@ protected:
 
     dsm_time_t calTime;
 
+    float _tcOffset;
+
+    float _tcSlope;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

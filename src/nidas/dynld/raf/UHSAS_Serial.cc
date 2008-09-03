@@ -30,7 +30,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,UHSAS_Serial)
 
-const n_u::EndianConverter* UHSAS_Serial::toLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
+const n_u::EndianConverter* UHSAS_Serial::fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 static const unsigned char setup_pkt[] =
 	{
@@ -363,7 +363,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     int sum = 0;
     for (int iout = _nChannels-1; iout >= 0; --iout) {
-       int c = toLittle->uint16Value(histoPtr[iout]);
+       int c = fromLittle->uint16Value(histoPtr[iout]);
        sum += c;
        *dout++ = (float)c;
     }
@@ -376,7 +376,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // cerr << "house=";
     for (int iout = 0; iout < nhouse; ++iout) {
-        int c = toLittle->uint16Value(housePtr[iout]);
+        int c = fromLittle->uint16Value(housePtr[iout]);
         // cerr << setw(6) << c;
         if (iout != 8 && iout < 10)
             *dout++ = (float)c / _hkScale[iout];

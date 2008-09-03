@@ -24,7 +24,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SonicAnemometer::SonicAnemometer(): counter(-1),despike(false),calTime(0)
+SonicAnemometer::SonicAnemometer(): counter(-1),despike(false),calTime(0),
+    _tcOffset(0.0),_tcSlope(1.0)
 {
     for (int i = 0; i < 3; i++) {
 	bias[i] = 0.0;
@@ -91,13 +92,24 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
     CalFile* cf = getCalFile();
     if (cf) {
         while(tt >= calTime) {
-            float d[6];
+            float d[8];
             try {
                 int n = cf->readData(d,sizeof d/sizeof(d[0]));
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
                 if (n > 3) setLeanDegrees(d[3]);
                 if (n > 4) setLeanAzimuthDegrees(d[4]);
                 if (n > 5) setVazimuth(d[5]);
+                /* Old versions of CSAT calibration files contained
+                 * a byteShift value in column 7 - which this version
+                 * of the software does not support.  This software
+                 * instead will expect column 7 and 8 to contain
+                 * the offset and slope for the correction to virtual
+                 * temperature.
+                 */
+                if (n > 7) {
+                    setTcOffset(d[6]);
+                    setTcSlope(d[7]);
+                }
                 calTime = cf->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
@@ -129,7 +141,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
     for (int i=0; i<3; i++)
 	if (!isnan(uvwt[i])) uvwt[i] -= bias[i];
 
-    uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]);
+    uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]) * _tcSlope + _tcOffset;
 
     if (!tilter.isIdentity()) tilter.rotate(uvwt,uvwt+1,uvwt+2);
     rotator.rotate(uvwt,uvwt+1);

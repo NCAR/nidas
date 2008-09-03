@@ -59,7 +59,7 @@ public:
 
 private:
 
-  static const nidas::util::EndianConverter * toLittle;
+  static const nidas::util::EndianConverter * fromLittle;
 
   /**
    * Total number of floats in the processed output sample.
