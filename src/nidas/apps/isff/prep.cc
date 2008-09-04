@@ -772,6 +772,7 @@ int DataPrep::run() throw()
 	}
 	resampler->removeSampleClient(dumper.get());
         resampler->disconnect(sis.get());
+        return 1;       // interrupted
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;
@@ -788,7 +789,7 @@ int DataPrep::run() throw()
 	resampler->removeSampleClient(dumper.get());
         resampler->disconnect(sis.get());
 	cerr << e.what() << endl;
-	return 1;
+	return 0;
     }
     catch (n_u::IOException& e) {
 	cerr << e.what() << endl;
