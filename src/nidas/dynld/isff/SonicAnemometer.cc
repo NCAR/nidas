@@ -24,8 +24,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SonicAnemometer::SonicAnemometer(): counter(-1),despike(false),calTime(0),
-    _tcOffset(0.0),_tcSlope(1.0)
+SonicAnemometer::SonicAnemometer(): counter(-1),_allBiasesNaN(false),
+    despike(false),calTime(0),_tcOffset(0.0),_tcSlope(1.0)
 {
     for (int i = 0; i < 3; i++) {
 	bias[i] = 0.0;
@@ -88,7 +88,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
     }
 
     // Read CalFile of bias and rotation angles.
-    // u.off   v.off   w.off    theta  phi    Vazimuth  
+    // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     CalFile* cf = getCalFile();
     if (cf) {
         while(tt >= calTime) {
@@ -96,6 +96,10 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
             try {
                 int n = cf->readData(d,sizeof d/sizeof(d[0]));
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
+                int nnan = 0;
+                for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
+                if (nnan == 3) _allBiasesNaN = true;
+
                 if (n > 3) setLeanDegrees(d[3]);
                 if (n > 4) setLeanAzimuthDegrees(d[4]);
                 if (n > 5) setVazimuth(d[5]);
@@ -141,16 +145,21 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
     for (int i=0; i<3; i++)
 	if (!isnan(uvwt[i])) uvwt[i] -= bias[i];
 
-    uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]) * _tcSlope + _tcOffset;
-
-    if (!tilter.isIdentity()) tilter.rotate(uvwt,uvwt+1,uvwt+2);
-    rotator.rotate(uvwt,uvwt+1);
-
-    if (spd != 0) *spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
-    if (dir != 0) {
-	float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
-	if (dr < 0.0) dr += 360.;
-	*dir = dr;
+    if (!_allBiasesNaN) {
+        uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]) * _tcSlope + _tcOffset;
+        if (!tilter.isIdentity()) tilter.rotate(uvwt,uvwt+1,uvwt+2);
+        rotator.rotate(uvwt,uvwt+1);
+        if (spd != 0) *spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
+        if (dir != 0) {
+            float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
+            if (dr < 0.0) dr += 360.;
+            *dir = dr;
+        }
+    }
+    else {
+        uvwt[3] = floatNAN;
+        if (spd != 0) *spd = floatNAN;
+        if (dir != 0) *dir = floatNAN;
     }
 }
 
@@ -271,9 +280,14 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
+        _allBiasesNaN = false;
+        int nnan = 0;
         if (parameter->getName() == "biases") {
-            for (int i = 0; i < 3 && i < parameter->getLength(); i++)
-                    setBias(i,parameter->getNumericValue(i));
+            for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
+                setBias(i,parameter->getNumericValue(i));
+                if (isnan(getBias(i))) nnan++;
+            }
+            if (nnan == 3) _allBiasesNaN = true;
         }
         else if (parameter->getName() == "Vazimuth") {
             setVazimuth(parameter->getNumericValue(0));

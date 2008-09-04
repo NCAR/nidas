@@ -321,6 +321,8 @@ protected:
 
     float bias[3];
 
+    bool _allBiasesNaN;
+
     bool despike;
 
     AdaptiveDespiker despiker[4];
