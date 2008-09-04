@@ -10,7 +10,7 @@
 
     $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/apps/data_dump.cc $
 
-    sing: a serial ping for testing serial connections.
+    sing: a "ping" for testing serial connections.
  ********************************************************************
 
 */
@@ -32,7 +32,7 @@
 using namespace std;
 namespace n_u = nidas::util;
 
-static float rate = 999999;
+static float rate = -1.0;
 static bool isSender = true;
 static bool ascii = false;
 static int dataSize = 0;
@@ -53,7 +53,7 @@ static n_u::SerialPort port;
  * NNNNNN: packet number starting at 0, 6 ASCII digits, followed by space.
  * MMMMMMMM: number of milliseconds since program start:
  *      9 digits followed by a space.
- * ccccc: data portion size, in bytes, 0 or larger.
+ * ccccc: length of data portion, in bytes, 0 or larger.
  *      5 digits, followed by space.
  * <data>: data portion of packet, may be 0 bytes in length.
  * HHHHHHHH: CRC of packet contents, up to but not including CRC (duh),
@@ -62,21 +62,7 @@ static n_u::SerialPort port;
  * Length of packet is then 7 + 10 + 6 + dataSize + 8 + 1 = 32 + dataSize
  */
 
-/*
- * Tests:
- *  sender: ttyS0
- *  receiver ttyUSB0 (keyspan converter)
- *      sender gets into state where it sends a bunch, then
- *      receives a bunch, not interleaved.
- *      sent# gets ahead of rcvd# by as much as 150
- *      If one kills receiver first, cannot kill sender.
- *      Sender seems to be stuck in a write.
- *  sender: ttyUSB0 (keyspan converter)
- *  receiver ttyS0
- *      packets are much more interleaved
- *      sent# only gets ahead of rcvd# by less than 10.
- */
-const int START_OF_DATA = 23;   // data starts at byte 27
+const int START_OF_DATA = 23;   // data starts at byte 23
 const int LENGTH_OF_CRC = 8;
 const int MIN_PACKET_LENGTH = START_OF_DATA + LENGTH_OF_CRC + 1;
 int MAX_PACKET_LENGTH = 65535;
@@ -497,6 +483,12 @@ int Receiver::scanBuffer()
                 }
                 _scanHeaderNext = false;
                 plen = MIN_PACKET_LENGTH + _dsize;
+                // Note we haven't checked the CRC of this packet yet,
+                // so perhaps this _dsize is bogus. We've tested that
+                // it is less than MAX_DATA_LENGTH so it shouldn't cause
+                // a crash. Before exiting scanBuffer we will reset the
+                // buffer size if we've received a _dsize that passes
+                // the CRC test.
                 if (plen > _buflen) reallocateBuffer(plen);
             }
             else _dsize = 0;
@@ -557,7 +549,8 @@ int Receiver::scanBuffer()
     // Reset the buffer size to something reasonable if it
     // grew because of a bad dsize.
     if (_buflen > RBUFLEN) {
-        int blen = std::max(MIN_PACKET_LENGTH + _dsizeTrusted,(int)(_wptr - _rptr));
+        int blen = std::max(MIN_PACKET_LENGTH + _dsizeTrusted,
+            (int)(_wptr - _rptr));
         blen = std::max(blen,RBUFLEN);
         if (blen != _buflen) reallocateBuffer(blen);
     }
@@ -591,16 +584,21 @@ Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-
   -h: display this help\n\
   -n N: send N number of packets. Default of 0 means send until killed\n\
   -o ttyopts: SerialOptions string, see below. Default: " << defaultTermioOpts << "\n\
-     Use raw tty mode because the exchanged packets don't contain CR or NL\n\
+     Note that the port is always opened in raw mode, overriding whatever\n\
+     the user specifies in ttyopts.\n\
   -p: send printable ASCII characters in the data portion, else send non-printable hex AA 55 F0 0F 00 FF\n\
-  -r rate: send data at the given rate in Hz. Rate can be < 1.\n\
-    This parameter is only needed on the sending side. Default rate=1 Hz\n\
-  -s size: send extra data bytes in addition to normal 36 bytes.\n\
+  -r rate: send data packets at the given rate in Hz. Rate can be < 1.\n\
+    This parameter is only needed on the sending side. The default rate\n\
+    is calculated as 50% of the bandwidth, for the given the serial baud rate\n\
+    and the size of the packets.\n\
+  -s size: send extra data bytes in addition to normal 32 bytes.\n\
     This parameter is only needed on the sending side. Default size=0\n\
   -t timeout: receive timeout in seconds. Default=0 (forever)\n\
   -v: verbose, display sent and received data packets to stderr\n\
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
-ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\n\
+ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
+  Note that the port is always opened in raw mode, overriding what\n\
+  the user specifies in ttyopts\n\n\
 At one end of the serial connection run \"" << argv0 << "\" and at the\n\
 other end, either run \"" << argv0 << " -e\" or use a loopback device.\n\n\
 Example of testing a serial link at 115200 baud with modem control\n\
@@ -642,7 +640,8 @@ int parseRunstring(int argc, char** argv)
             break;
         case 'r':
             rate = atof(optarg);
-            periodMsec = (unsigned int) rint(MSECS_PER_SEC / rate);
+            if (rate > 0.0)
+                periodMsec = (unsigned int) rint(MSECS_PER_SEC / rate);
             break;
         case 's':
             dataSize = atoi(optarg);
@@ -680,6 +679,20 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     // cerr << "port opened" << endl;
     int modembits = port.getModemStatus();
     cerr << "Modem flags: " << port.modemFlagsToString(modembits) << endl;
+
+    if (isSender) {
+        int baud = port.getBaudRate();
+        int plen = MIN_PACKET_LENGTH + dataSize;
+        float fullRate = (float)baud /
+            (port.getDataBits() + port.getStopBits() + 1) / plen;
+        if (rate <= 0.0) rate = fullRate / 2.0;
+        cerr << "packet send rate = " << fixed << setprecision(1) << rate <<
+            " Hz, which is " << fixed << setprecision(1) <<
+                rate/fullRate * 100.0 <<
+                "% of the bandwidth at baud=" << baud <<  " bps" <<
+                " and a packet length=" << plen << " bytes" << endl;
+        periodMsec = (unsigned int) rint(MSECS_PER_SEC / rate);
+    }
     port.flushBoth();
 }
 
