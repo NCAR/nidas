@@ -98,7 +98,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
                 int nnan = 0;
                 for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
-                if (nnan == 3) _allBiasesNaN = true;
+                _allBiasesNaN = (nnan == 3);
 
                 if (n > 3) setLeanDegrees(d[3]);
                 if (n > 4) setLeanAzimuthDegrees(d[4]);
@@ -277,12 +277,13 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 
+    _allBiasesNaN = false;
+
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
-        _allBiasesNaN = false;
-        int nnan = 0;
         if (parameter->getName() == "biases") {
+            int nnan = 0;
             for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
                 setBias(i,parameter->getNumericValue(i));
                 if (isnan(getBias(i))) nnan++;
