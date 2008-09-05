@@ -115,7 +115,7 @@ void CVIProcessor::connect(SampleInput* input) throw(n_u::IOException)
             attachLVInput(intag);
             return;
         }
-        sensor->setApplyVariableConversions(true);
+        // sensor->setApplyVariableConversions(true);
 
         bool varMatch = false;
 
