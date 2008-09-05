@@ -15,6 +15,8 @@
 #ifndef __nidas_dynld_raf_CVIProcessor_h
 #define __nidas_dynld_raf_CVIProcessor_h
 
+#include <memory>
+
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/dynld/ViperDIO.h>
 #include <nidas/dynld/DSC_AnalogOut.h>
