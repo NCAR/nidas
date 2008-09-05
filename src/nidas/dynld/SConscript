@@ -43,6 +43,7 @@ headers = [ Split("""
     StatisticsCruncher.h
     StatisticsProcessor.h
     TSI_CPC3772.h
+    ViperDIO.h
     XMLConfigService.h
 """) ]
 
@@ -72,15 +73,14 @@ sources = [ Split("""
     StatisticsCruncher.cc
     StatisticsProcessor.cc
     TSI_CPC3772.cc
+    ViperDIO.cc
     XMLConfigService.cc
 """) ]
 
 if arch == 'arm':
     archsources=Split("""
-        ViperDIO.cc
     """)
     archheaders=Split("""
-        ViperDIO.h
     """)
 else:
     archsources=Split("""
