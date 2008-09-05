@@ -115,6 +115,7 @@ void CVIProcessor::connect(SampleInput* input) throw(n_u::IOException)
             attachLVInput(intag);
             return;
         }
+        sensor->setApplyVariableConversions(true);
 
         bool varMatch = false;
 
@@ -228,7 +229,7 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
     const float* fin = fsamp->getConstDataPtr();
 
     unsigned int ni = fsamp->getDataLength();
-    unsigned int nv = std::min(sizeof(_vouts)/sizeof(_vouts[0]),_numD2A);
+    unsigned int nv = std::min((unsigned int)(sizeof(_vouts)/sizeof(_vouts[0])),_numD2A);
     unsigned int ii = 0;
 
     vector<int> which;
@@ -267,7 +268,7 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
             _aout.getName().c_str(),e.what());
     }
 
-    unsigned int nd = std::min(sizeof(_douts)/sizeof(_douts[0]),_numDigout);
+    unsigned int nd = std::min((unsigned int)(sizeof(_douts)/sizeof(_douts[0])),_numDigout);
     n_u::BitArray dwhich(_numDigout);
     n_u::BitArray dvals(_numDigout);
     for (unsigned int i = 0; i < nd && ii < ni; i++,ii++) {
