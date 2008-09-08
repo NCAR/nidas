@@ -105,6 +105,14 @@ void CSAT3_Sonic::addSampleTag(SampleTag* stag)
 #endif
 }
 
+float CSAT3_Sonic::correctTcForPathCurvature(float tc,
+	float u, float v, float w)
+{
+    // no correction necessary. CSAT outputs speed of sound
+    // that is already corrected for path curvature.
+    return tc;
+}
+
 bool CSAT3_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {

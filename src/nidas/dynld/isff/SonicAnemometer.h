@@ -279,15 +279,14 @@ public:
     }
 
     /**
-     * Virtual method to correct sonic virtual temperature, tc,
+     * Abstract method to correct sonic virtual temperature, tc,
      * for the lengthening of the pulse path due to
-     * the wind.  Default method returns unchanged tc.
-     * Derived SonicAnemometer classes should over-ride
-     * this method in order to perform any correction
-     * based on their geometry.
+     * the wind. If a derived SonicAnemometer class doesn't
+     * need a curvature correction for tc it still must
+     * implement this method and just return tc.
      */
     virtual float correctTcForPathCurvature(float tc,
-    	float u, float v, float w);
+    	float u, float v, float w) = 0;
 
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);

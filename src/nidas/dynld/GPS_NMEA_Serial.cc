@@ -35,6 +35,14 @@ GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
 
 }
 
+GPS_NMEA_Serial::~GPS_NMEA_Serial()
+{
+   if (ggacnt > 0)
+        WLOG(("%s: Total GPS_NMEA GGA time stamp errors",getName().c_str(),ggacnt));
+   if (rmccnt > 0)
+        WLOG(("%s: Total GPS_NMEA RMC time stamp errors",getName().c_str(),ggacnt));
+}
+
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 	throw(n_u::InvalidParameterException)
 {

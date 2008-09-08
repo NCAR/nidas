@@ -75,7 +75,7 @@ private:
 
     vector<dsm_time_t> lastTimes;
 
-    long readAheadUsecs;
+    long long readAheadUsecs;
 
     n_u::UTime startTime;
  
@@ -211,7 +211,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 	    outputFileName = optarg;
 	    break;
 	case 'r':
-	    readAheadUsecs = atoi(optarg) * USECS_PER_SEC;
+	    readAheadUsecs = atoi(optarg) * (long long)USECS_PER_SEC;
 	    break;
 	case 's':
 	    try {
@@ -284,6 +284,11 @@ int NidsMerge::run() throw()
 	    // SampleInputStream owns the iochan ptr.
 	    SampleInputStream* input = new SampleInputStream(fset);
 	    inputs.push_back(input);
+            input->setMaxSampleLength(32768);
+            n_u::UTime filter1(startTime - USECS_PER_DAY);
+            n_u::UTime filter2(endTime + USECS_PER_DAY);
+            input->setMinSampleTime(filter1);
+            input->setMaxSampleTime(filter2);
 	    lastTimes.push_back(LLONG_MIN);
 
 	    input->init();

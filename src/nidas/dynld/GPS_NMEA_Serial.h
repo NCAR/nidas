@@ -28,12 +28,7 @@ public:
     
     GPS_NMEA_Serial();
 
-    ~GPS_NMEA_Serial() {
-       if (ggacnt > 0)
-           std::cerr<<"\nTotal GPS_NMEA GGA time stamp errors: "<<ggacnt<<std::endl;
-       if (rmccnt > 0)
-           std::cerr<<"\nTotal GPS_NMEA RMC time stamp errors: "<<rmccnt<< std::endl; 
-    }
+    ~GPS_NMEA_Serial();
 
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);

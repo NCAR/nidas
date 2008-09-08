@@ -41,12 +41,6 @@ void SonicAnemometer::addSampleTag(SampleTag* stag)
     DSMSerialSensor::addSampleTag(stag);
 }
 
-float SonicAnemometer::correctTcForPathCurvature(float tc,
-	float u, float v, float w)
-{
-    return tc;
-}
-
 void SonicAnemometer::processSonicData(dsm_time_t tt,
 	float* uvwt, float* spd, float* dir, float* flags) throw()
 {

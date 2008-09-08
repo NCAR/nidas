@@ -35,9 +35,15 @@ public:
 
     ~CSAT3_Sonic();
 
-
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
+
+    /**
+     * No correction for path curvature is needed on the CSAT,
+     * so this method just returns an unchanged tc.
+     */
+    float correctTcForPathCurvature(float tc,
+            float u, float v, float w);
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
