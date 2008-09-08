@@ -51,6 +51,8 @@ public:
     void normLoop(SampleInputStream& input,SampleOutputStream* output,
 	SyncRecordGenerator& syncGen) throw(n_u::IOException);
 
+    bool debug() const { return _debug; }
+
 
 // static functions
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
@@ -74,6 +76,8 @@ private:
     auto_ptr<n_u::SocketAddress> addr;
 
     bool simulationMode;
+
+    bool _debug;
 };
 
 int main(int argc, char** argv)
@@ -127,6 +131,7 @@ int SyncServer::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << " [-x xml_file] [-p port] raw_data_file ...\n\
+    -d: debug. Log messages to stderr instead of syslog\n\
     -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
     -s: simulation mode (pause a second before sending each sync record)\n\
     -x xml_file (optional), default: \n\
@@ -145,15 +150,32 @@ int SyncServer::main(int argc, char** argv) throw()
     SyncServer sync;
 
     int res;
+    n_u::LogConfig lc;
+    n_u::Logger* logger;
     
     if ((res = sync.parseRunstring(argc,argv)) != 0) return res;
+
+    // If user passed -d option, send all log messages to cerr,
+    // otherwise to syslog.
+    if (!sync.debug()) {
+	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+        // Configure default logging to log anything NOTICE and above.
+        lc.level = n_u::LOGGER_INFO;
+    }
+    else
+    {
+	logger = n_u::Logger::createInstance(&std::cerr);
+        lc.level = n_u::LOGGER_DEBUG;
+    }
+
+    logger->setScheme(n_u::LogScheme().addConfig (lc));
     return sync.run();
 }
 
 
 SyncServer::SyncServer():
     addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
-    simulationMode(false)
+    simulationMode(false),_debug(false)
 {
 }
 
@@ -163,8 +185,11 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "p:sx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dp:sx:")) != -1) {
 	switch (opt_char) {
+	case 'd':
+            _debug = true;
+            break;
 	case 'p':
 	    {
                 int port;
