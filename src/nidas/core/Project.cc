@@ -667,7 +667,15 @@ void Project::fromDOMElement(const DOMElement* node)
 	}
 	else if (elname == "logger") {
 	    const string& scheme = xchild.getAttributeValue("scheme");
-	    n_u::Logger::getInstance()->setScheme(scheme);
+	    n_u::Logger* logger = n_u::Logger::getInstance();
+	    // If the current scheme is not the default, then don't
+	    // override it.  This way the scheme can be set before an
+	    // XML file is parsed, such as from a command line option,
+	    // by giving that scheme a non-default name.
+	    if (logger->getScheme().getName() == n_u::LogScheme().getName())
+	    {
+		logger->setScheme(scheme);
+	    }
 	}
     }
 

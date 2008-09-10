@@ -96,7 +96,16 @@ struct LoggerPrivate
       for (ic = firstconfig ; ic != log_configs.end(); ++ic)
       {
 	if (ic->matches(*(*it)))
+	{
+	  if (DEBUG_LOGGER)
+	  {
+	    cerr << "reconfig: =="
+		 << (ic->activate ? " on" : "off") << "==> "
+		 << (*it)->_file << ":" << (*it)->_line
+		 << ":" << (*it)->_function << endl;
+	  }
 	  (*it)->_active = ic->activate;
+	}
       }
     }
   }
