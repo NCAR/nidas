@@ -278,11 +278,14 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     const SampleTag* stag = 0;
     int nparsed = 0;
-    for (unsigned int ntry = 0; ntry < sscanfers.size(); ntry++) {
-	AsciiSscanf* sscanf = *nextSscanfer;
+    unsigned int ntry = 0;
+    AsciiSscanf* sscanf = 0;
+    for ( ; ntry < sscanfers.size(); ntry++) {
+	sscanf = *nextSscanfer;
 	nparsed = sscanf->sscanf(inputstr,outs->getDataPtr(),
 		sscanf->getNumberOfFields());
-	if (++nextSscanfer == sscanfers.end()) nextSscanfer = sscanfers.begin();
+	if (++nextSscanfer == sscanfers.end()) 
+	    nextSscanfer = sscanfers.begin();
 	if (nparsed > 0) {
 	    stag = sscanf->getSampleTag();
 	    outs->setId(stag->getId());
@@ -290,6 +293,21 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	    break;
 	}
     }
+    static n_u::LogContext lp(LOG_DEBUG);
+    if (lp.active() && nparsed != sscanf->getNumberOfFields())
+    {
+	n_u::LogMessage msg;
+	msg << (nparsed > 0 ? "partial" : "failed")
+	    << " scanf; tried " << (ntry+(nparsed>0))
+	    << "/" << sscanfers.size() << " formats.\n";
+	msg << "input:'" << inputstr << "'\n"
+	    << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
+	    << "\n";
+	msg << "; nparsed=" << nparsed
+	    << "; scanfFailures=" << scanfFailures
+	    << "; scanfPartials=" << scanfPartials;
+	lp.log(msg);
+    }	
 
     if (!nparsed) {
 	scanfFailures++;
