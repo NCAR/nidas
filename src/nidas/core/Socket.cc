@@ -460,7 +460,19 @@ void Socket::fromDOMElement(const DOMElement* node)
             "unknown port number");
 
     if (unixPath.length() > 0) setRemoteUnixPath(unixPath);
-    else setRemoteHostPort(remoteHost,port);
+    else {
+        setRemoteHostPort(remoteHost,port);
+        // Warn, but don't throw exception if address
+        // for host cannot be found.
+        try {
+            n_u::Inet4Address haddr =
+                    n_u::Inet4Address::getByName(remoteHost);
+        }
+        catch(const n_u::UnknownHostException& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                getName(),e.what());
+        }
+    }
 }
 
 void ServerSocket::fromDOMElement(const DOMElement* node)
