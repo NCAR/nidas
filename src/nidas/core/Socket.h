@@ -69,7 +69,7 @@ public:
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
 	keepAliveIdleSecs = val;
-	if (socket) socket->setKeepAliveIdleSecs(val);
+	if (_socket) _socket->setKeepAliveIdleSecs(val);
     }
 
     /**
@@ -77,7 +77,7 @@ public:
      */
     int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
     {
-	if (socket) return socket->getKeepAliveIdleSecs();
+	if (_socket) return _socket->getKeepAliveIdleSecs();
 	return keepAliveIdleSecs;
     }
 
@@ -87,7 +87,7 @@ public:
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
 	nonBlocking = val;
-	if (socket) socket->setNonBlocking(val);
+	if (_socket) _socket->setNonBlocking(val);
     }
 
     /**
@@ -95,7 +95,7 @@ public:
      */
     bool isNonBlocking() const throw (nidas::util::IOException)
     {
-	if (socket) return socket->isNonBlocking();
+	if (_socket) return _socket->isNonBlocking();
 	return nonBlocking;
     }
 
@@ -116,18 +116,18 @@ public:
         if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
         if (tnow - lastWrite < minWriteInterval) return 0;
         lastWrite = tnow;
-	return socket->send(buf,len, MSG_NOSIGNAL);
+	return _socket->send(buf,len, MSG_NOSIGNAL);
 
     }
 
     void close() throw (nidas::util::IOException)
     {
-        if (socket) socket->close();
+        if (_socket) _socket->close();
     }
 
     int getFd() const
     {
-        if (socket) return socket->getFd();
+        if (_socket) return _socket->getFd();
 	return -1;
     }
 
@@ -135,9 +135,45 @@ public:
 
     void setName(const std::string& val) { name = val; }
 
-    nidas::util::Inet4Address getRemoteInet4Address() const throw();
+    nidas::util::Inet4Address getRemoteInet4Address();
 
-    const nidas::util::SocketAddress& getRemoteSocketAddress() const throw();
+    /**
+     * Set the hostname and port of the remote connection. This
+     * method does not try to do a DNS host lookup. This
+     * will be done at connect time.
+     */
+    void setRemoteHostPort(const std::string& host,unsigned short port);
+
+    /**
+     *  Get the name of the remote host.
+     */
+    const std::string& getRemoteHost() const
+    {
+        return _remoteHost;
+    }
+
+    unsigned short getRemotePort() const
+    {
+        return _remotePort;
+    }
+
+    /**
+     *  Get the name of the remote host.
+     */
+    const std::string& getRemoteUnixPath() const
+    {
+        return _unixPath;
+    }
+
+    /**
+     * Set the pathname for the unix socket connection.
+     */
+    void setRemoteUnixPath(const std::string& unixPath);
+
+    void setRemoteSocketAddress(const nidas::util::SocketAddress& val);
+
+    const nidas::util::SocketAddress& getRemoteSocketAddress()
+        throw(nidas::util::UnknownHostException);
 
     /**
      * Create either a Socket or a McSocket from a DOMElement.
@@ -169,9 +205,15 @@ private:
 
     void connectionThreadFinished();
 
-    std::auto_ptr<nidas::util::SocketAddress> remoteSockAddr;
+    std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
 
-    nidas::util::Socket* socket;
+    std::string _remoteHost;
+
+    unsigned short _remotePort;
+
+    std::string _unixPath;
+
+    nidas::util::Socket* _socket;
 
     std::string name;
 
@@ -198,7 +240,6 @@ private:
     dsm_time_t lastWrite;
 
     bool nonBlocking;
-
 
 };
 
@@ -359,24 +400,24 @@ class ServerSocketConnectionThread: public nidas::util::Thread
 {
 public:
     ServerSocketConnectionThread(ServerSocket& sock):
-    	Thread("ServerSocketConnectionThread"),socket(sock) {}
+    	Thread("ServerSocketConnectionThread"),_socket(sock) {}
 
     int run() throw(nidas::util::IOException);
 
 protected:
-    ServerSocket& socket;
+    ServerSocket& _socket;
 };
 
 class ClientSocketConnectionThread: public nidas::util::Thread
 {
 public:
     ClientSocketConnectionThread(Socket& sock):
-    	Thread("ClientSocketConnectionThread"),socket(sock) {}
+    	Thread("ClientSocketConnectionThread"),_socket(sock) {}
 
     int run() throw(nidas::util::IOException);
 
 protected:
-    Socket socket;  // copy of original
+    Socket _socket;  // copy of original
 };
 
 }}	// namespace nidas namespace core

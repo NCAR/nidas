@@ -87,7 +87,7 @@ public:
      * of an Inet4Address.  Socket subclasses should override
      * this.
      */
-    virtual nidas::util::Inet4Address getRemoteInet4Address() const {
+    virtual nidas::util::Inet4Address getRemoteInet4Address() {
         return nidas::util::Inet4Address();
     }
 

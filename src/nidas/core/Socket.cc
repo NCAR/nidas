@@ -24,21 +24,23 @@ using namespace xercesc;
 namespace n_u = nidas::util;
 
 Socket::Socket():
-	remoteSockAddr(new n_u::Inet4SocketAddress()),
-	socket(0),connectionRequester(0),connectionThread(0),
+        _remotePort(0),
+	_socket(0),connectionRequester(0),connectionThread(0),
         firstRead(true),newFile(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/2000),lastWrite(0),
         nonBlocking(false)
 {
-    setName("Socket " + remoteSockAddr->toString());
+    setName("Socket (unconnected)");
 }
 
 /*
  * Copy constructor.  Should only be called before connection.
  */
 Socket::Socket(const Socket& x):
-	remoteSockAddr(x.remoteSockAddr->clone()),
-	socket(0),name(x.name),
+	_remoteSockAddr(x._remoteSockAddr.get() ? x._remoteSockAddr->clone(): 0),
+        _remoteHost(x._remoteHost),_remotePort(x._remotePort),
+        _unixPath(x._unixPath),
+	_socket(0),name(x.name),
         connectionRequester(x.connectionRequester),
         connectionThread(0),
         firstRead(true),newFile(true),
@@ -46,21 +48,36 @@ Socket::Socket(const Socket& x):
         minWriteInterval(x.minWriteInterval),lastWrite(0),
         nonBlocking(x.nonBlocking)
 {
+    assert(x._socket == 0);
 }
 
 /*
  * Constructor with a connected n_u::Socket.
  */
 Socket::Socket(n_u::Socket* sock):
-	remoteSockAddr(sock->getRemoteSocketAddress().clone()),
-	socket(sock),connectionRequester(0),connectionThread(0),
+	_remoteSockAddr(sock->getRemoteSocketAddress().clone()),
+	_socket(sock),connectionRequester(0),connectionThread(0),
         firstRead(true),newFile(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/2000),lastWrite(0)
 {
-    setName(remoteSockAddr->toString());
+    setName(_remoteSockAddr->toString());
+    const n_u::Inet4SocketAddress* i4saddr =
+        dynamic_cast<const n_u::Inet4SocketAddress*>(_remoteSockAddr.get());
+    if (_remoteHost.length() == 0 && i4saddr) {
+        // getHostAddress returns the address as a string in dot notation,
+        // w.x.y.z, and does not do a reverse DNS lookup.
+        setRemoteHostPort(i4saddr->getInet4Address().getHostAddress(),
+            _remoteSockAddr->getPort());
+    }
+    else if (_unixPath.length() == 0) {
+        const n_u::UnixSocketAddress* usaddr =
+            dynamic_cast<const n_u::UnixSocketAddress*>(_remoteSockAddr.get());
+        if (usaddr) setRemoteUnixPath(usaddr->toString());
+    }
+
     try {
-	keepAliveIdleSecs = socket->getKeepAliveIdleSecs();
-        nonBlocking = sock->isNonBlocking();
+	keepAliveIdleSecs = _socket->getKeepAliveIdleSecs();
+        nonBlocking = _socket->isNonBlocking();
     }
     catch (const n_u::IOException& e) {
     }
@@ -75,7 +92,7 @@ Socket::~Socket()
     }
     connectionMutex.unlock();
     close();
-    delete socket;
+    delete _socket;
 }
 
 Socket* Socket::clone() const 
@@ -94,7 +111,7 @@ size_t Socket::getBufferSize() const throw()
 {
     size_t blen = 16384;
     try {
-	if (socket) blen = socket->getReceiveBufferSize();
+	if (_socket) blen = _socket->getReceiveBufferSize();
     }
     catch (const n_u::IOException& e) {}
 
@@ -105,27 +122,63 @@ size_t Socket::getBufferSize() const throw()
     return blen;
 }
 
-n_u::Inet4Address Socket::getRemoteInet4Address() const throw()
+void Socket::setRemoteSocketAddress(const n_u::SocketAddress& val)
 {
-    if (socket) {
-	const n_u::SocketAddress& addr = socket->getRemoteSocketAddress();
-	const n_u::Inet4SocketAddress* i4addr =
-		dynamic_cast<const n_u::Inet4SocketAddress*>(&addr);
-	if (i4addr) return i4addr->getInet4Address();
+    _remoteSockAddr.reset(val.clone());
+}
+
+void Socket::setRemoteHostPort(const string& hostname,
+    unsigned short port)
+{
+    _remoteHost = hostname;
+    _remotePort = port;
+}
+
+void Socket::setRemoteUnixPath(const string& unixpath)
+{
+    _unixPath = unixpath;
+}
+
+const n_u::SocketAddress& Socket::getRemoteSocketAddress()
+    throw(n_u::UnknownHostException)
+{
+    if (!_remoteSockAddr.get()) {
+        if (_remoteHost.length() > 0) {
+            // throws UnknownHostException
+            n_u::Inet4Address haddr =
+                n_u::Inet4Address::getByName(_remoteHost);
+            n_u::Inet4SocketAddress saddr(haddr,_remotePort);
+            setRemoteSocketAddress(saddr);
+        }
+        else {
+            n_u::UnixSocketAddress saddr(getRemoteUnixPath());
+            setRemoteSocketAddress(saddr);
+        }
+    }
+    return *_remoteSockAddr.get();
+}
+
+n_u::Inet4Address Socket::getRemoteInet4Address()
+{
+    try {
+        const n_u::SocketAddress& saddr = getRemoteSocketAddress();
+        const n_u::Inet4SocketAddress* i4saddr =
+            dynamic_cast<const n_u::Inet4SocketAddress*>(&saddr);
+        if (i4saddr) return i4saddr->getInet4Address();
+    }
+    catch(const n_u::UnknownHostException& e) {
+	n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
     }
     return n_u::Inet4Address();
 }
 
-const n_u::SocketAddress& Socket::getRemoteSocketAddress() const throw()
-{
-    if (socket) return socket->getRemoteSocketAddress();
-    else return *remoteSockAddr.get();
-}
-
 IOChannel* Socket::connect() throw(n_u::IOException)
 {
-    n_u::Socket* waitsock = new n_u::Socket(remoteSockAddr->getFamily());
-    waitsock->connect(*remoteSockAddr.get());
+    // getRemoteSocketAddress may throw UnknownHostException
+    const n_u::SocketAddress& saddr = getRemoteSocketAddress();
+
+    n_u::Socket* waitsock = new n_u::Socket(saddr.getFamily());
+    waitsock->connect(saddr);
     waitsock->setKeepAliveIdleSecs(keepAliveIdleSecs);
     waitsock->setNonBlocking(nonBlocking);
     return new nidas::core::Socket(waitsock);
@@ -151,7 +204,7 @@ size_t Socket::read(void* buf, size_t len) throw (n_u::IOException)
 {
     if (firstRead) firstRead = false;
     else newFile = false;
-    return socket->recv(buf,len);
+    return _socket->recv(buf,len);
 }
 
 ServerSocket::ServerSocket():
@@ -247,38 +300,50 @@ int ServerSocketConnectionThread::run() throw(n_u::IOException)
 {
     for (;;) {
 	// create nidas::core::Socket from n_u::Socket
-	n_u::Socket* lowsock = socket.servSock->accept();
-	lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
-        lowsock->setNonBlocking(socket.isNonBlocking());
+	n_u::Socket* lowsock = _socket.servSock->accept();
+	lowsock->setKeepAliveIdleSecs(_socket.getKeepAliveIdleSecs());
+        lowsock->setNonBlocking(_socket.isNonBlocking());
 
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
-        newsock->setMinWriteInterval(socket.getMinWriteInterval());
+        newsock->setMinWriteInterval(_socket.getMinWriteInterval());
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
 		newsock->getRemoteInet4Address().getHostAddress().c_str());
-	socket.connectionRequester->connected(newsock);
+	_socket.connectionRequester->connected(newsock);
     }
     return RUN_OK;
 }
 
 int ClientSocketConnectionThread::run() throw(n_u::IOException)
 {
-    n_u::Socket* lowsock = new n_u::Socket();
+    n_u::Socket* lowsock = 0;
+
     for (; !isInterrupted(); ) {
+
         try {
-            lowsock->connect(socket.getRemoteSocketAddress());
-            lowsock->setKeepAliveIdleSecs(socket.getKeepAliveIdleSecs());
-            lowsock->setNonBlocking(socket.isNonBlocking());
+            // getRemoteSocketAddress may throw UnknownHostException
+            const n_u::SocketAddress& saddr = _socket.getRemoteSocketAddress();
+            if (!lowsock) lowsock = new n_u::Socket(saddr.getFamily());
+            lowsock->connect(saddr);
+            lowsock->setKeepAliveIdleSecs(_socket.getKeepAliveIdleSecs());
+            lowsock->setNonBlocking(_socket.isNonBlocking());
 
             // cerr << "Socket::connected " << getName();
             nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
-            newsock->setMinWriteInterval(socket.getMinWriteInterval());
+            lowsock = 0;
+            newsock->setMinWriteInterval(_socket.getMinWriteInterval());
             n_u::Logger::getInstance()->log(LOG_DEBUG,
                     "connected to %s",
                     newsock->getRemoteInet4Address().getHostAddress().c_str());
-            socket.connectionRequester->connected(newsock);
+            _socket.connectionRequester->connected(newsock);
             break;
+        }
+        // Wait for dynamic dns to get new address
+        catch(const n_u::UnknownHostException& e) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                    "%s: %s",getName().c_str(),e.what());
+            if (!isInterrupted()) sleep(30);
         }
         catch(const n_u::IOException& e) {
             n_u::Logger::getInstance()->log(LOG_ERR,
@@ -292,7 +357,11 @@ int ClientSocketConnectionThread::run() throw(n_u::IOException)
             if (!isInterrupted()) sleep(10);
         }
     }
-    socket.connectionThreadFinished();
+    if (lowsock) {
+        lowsock->close();
+        delete lowsock;
+    }
+    _socket.connectionThreadFinished();
     n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
     joiner->start();
     return RUN_OK;
@@ -321,10 +390,9 @@ IOChannel* Socket::createSocket(const DOMElement* node)
 void Socket::fromDOMElement(const DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
-    n_u::Inet4Address addr;
-    bool inet4Addr = false;
-    int port = -1;
-    string path;
+    int port = 0;
+    string unixPath;
+    string remoteHost;
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -336,28 +404,14 @@ void Socket::fromDOMElement(const DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-            // Inet4 address
-	    if (aname == "address") {
-		try {
-		    addr = n_u::Inet4Address::getByName(aval);
-		}
-		catch(const n_u::UnknownHostException& e) {
-		    throw n_u::InvalidParameterException(
-			"socket","unknown host",aval);
-		}
-                inet4Addr = true;
-	    }
-            // Unix socket address
-	    else if (aname == "path") {
-                path = aval;
-	    }
+	    if (aname == "address") remoteHost = aval;
+	    else if (aname == "path") unixPath = aval; // Unix socket address
 	    else if (aname == "port") {
 		istringstream ist(aval);
 		ist >> port;
 		if (ist.fail())
 			throw n_u::InvalidParameterException(
 			    "socket","invalid port number",aval);
-                inet4Addr = true;
 	    }
 	    else if (aname == "type") {
 		if (aval != "client")
@@ -398,17 +452,15 @@ void Socket::fromDOMElement(const DOMElement* node)
 	    	string("unrecognized socket attribute: ") + aname);
 	}
     }
-    if (inet4Addr && path.length() > 0)
+    if (remoteHost.length() > 0 && unixPath.length() > 0)
         throw n_u::InvalidParameterException("socket","address",
             "cannot specify both an IP socket address and a unix socket path");
-    if (port >= 0 && path.length() > 0)
-        throw n_u::InvalidParameterException("socket","address",
-            "cannot specify both an IP socket port and a unix socket path");
+    if (remoteHost.length() > 0 && port <= 0)
+        throw n_u::InvalidParameterException("socket","port",
+            "unknown port number");
 
-    if (path.length() > 0) 
-        remoteSockAddr.reset(new n_u::UnixSocketAddress(path));
-    else
-        remoteSockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+    if (unixPath.length() > 0) setRemoteUnixPath(unixPath);
+    else setRemoteHostPort(remoteHost,port);
 }
 
 void ServerSocket::fromDOMElement(const DOMElement* node)
