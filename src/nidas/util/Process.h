@@ -26,6 +26,13 @@
 #include <ext/stdio_filebuf.h>
 
 namespace nidas { namespace util {
+
+/**
+ * Process provides an encapsulation of a spawned process, allowing the parent process
+ * to perform I/O with the spawned process, send it signals and wait for it to finish.
+ * Static methods are provided for spawning (forking and executing) a process.
+ * A static method also exists to atomically check and create a process id file.
+ */
 class Process {
 public:
 
@@ -34,7 +41,11 @@ public:
      * @ param pid: pid should be > 0 and be a valid process id.
      * Unix system calls support doing kills and waits on a pid
      * less than or equal to 0, but those capabilities are
-     * not supported in this class.
+     * not supported in this class.  I/O via the getXXFd() or xxStream()
+     * methods is not possible with a process created with this
+     * constructor.  kill() and wait() are supported.
+     * In order to use the Process methods to perform I/O with a process,
+     * it must be started with one of the spawn methods.
      */
     Process(int pid);
 
@@ -47,14 +58,14 @@ public:
      * Copy constructor.  The new process will inherit
      * the file descriptors and iostreams from x.
      * The file descriptors and iostreams of the copied
-     * Process (x) are no longer valid after this copy.
+     * Process, x, are no longer valid after this copy.
      */
     Process(const Process& x);
 
     /**
      * Assignment operator.  The assigned process (on LHS of =)
      * will inherit the file descriptors and iostreams from x.
-     * The file descriptors and iostreams of the RHS Process (x)
+     * The file descriptors and iostreams of the RHS Process, x,
      * are no longer valid after this assignment.
      */
     Process& operator=(const Process& x);
@@ -73,8 +84,8 @@ public:
      * @param niceval: The desired nice value, typically a positive
      *      value so that the spawned process has a higher nice
      *      value (lower priority).  If niceval is negative
-     *      the and the user does not have sufficient permisions
-     *      to lower the nice value, the error is ignored.
+     *      and the user does not have sufficient permisions
+     *      to lower the nice value, the error is silently ignored.
      */
     static Process spawn(const std::string& cmd,
         const std::vector<std::string>& args,
@@ -104,7 +115,7 @@ public:
     /**
      * Do a system wait on a process.
      * @return Process id of waited on process, or 0
-     *  if hang=false and process has not finished.
+     *  if hang=false and process has not finished,
      *  or -1 if process does not exist.
      *
      * @param hang: If true, wait for process state to change. If
@@ -134,8 +145,8 @@ public:
     /**
      * Close the file descriptor and ostream of the pipe
      * connected to the standard in of the Process.
-     * The Process will then receive an EOF if it
-     * reads from the other end of the pipe.
+     * The Process will then receive an EOF on a subsequent read
+     * from the other end of the pipe.
      */
     void closeIn();
 
@@ -156,7 +167,7 @@ public:
     std::istream& outStream() { return *_outstream_ap.get(); }
 
     /**
-     * Close the file descriptor and ostream of the pipe
+     * Close the file descriptor and istream of the pipe
      * connected to the standard out of the Process.
      */
     void closeOut();
@@ -178,7 +189,7 @@ public:
     std::istream& errStream() { return *_errstream_ap.get(); }
 
     /**
-     * Close the file descriptor and ostream of the pipe
+     * Close the file descriptor and istream of the pipe
      * connected to the standard error of the Process.
      */
     void closeErr();
@@ -233,7 +244,7 @@ private:
      * standard in file descriptor of a spawned process.
      * It is declared mutable to allow invalidating x._infd
      * in the copy constructor and assignment operators
-     * that take a const Process& argument.
+     * that take a reference to a const Process argument.
      */
     mutable int _infd;
 

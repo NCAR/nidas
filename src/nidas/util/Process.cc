@@ -154,7 +154,7 @@ Process Process::spawn(const string& cmd,
     if (pipe(errfd) < 0)
         throw IOException(cmd,"stderr pipe",errno);
 
-    switch (pid=vfork()) {
+    switch (pid=fork()) {
     case 0: // child
     {
         ::close(0);
@@ -199,11 +199,14 @@ Process Process::spawn(const string& cmd,
         nice(niceval);
 
         execvp(cmd.c_str(),(char *const *)newargs); // shouldn't return
+
+        // program not found. Send a message on stderr and exit(127).
+        // An Exception can't be caught here.
         perror(cmd.c_str());
-        _exit(1);
+        _exit(127);     // convention for command not found. Closes open fds.
     }
     case -1:
-        throw IOException(cmd,"vfork",errno);
+        throw IOException(cmd,"fork",errno);
     default:      // parent
         break;
 
@@ -243,7 +246,7 @@ Process Process::spawn(const string& cmd) throw(IOException)
     if (pipe(errfd) < 0)
         throw IOException(cmd,"stderr pipe",errno);
 
-    switch (pid=vfork()) {
+    switch (pid=fork()) {
     case 0: // child
     {
         ::close(0);
@@ -269,12 +272,15 @@ Process Process::spawn(const string& cmd) throw(IOException)
         newargs[2] = cmd.c_str();
         newargs[3] = 0;
 
-        execvp("sh",(char *const *)newargs); // shouldn't return
+        execvp("sh",(char *const *)newargs);
+
+        // program not found. Send a message on stderr and exit(127).
+        // An Exception can't be caught here.
         perror(cmd.c_str());
-        _exit(1);
+        _exit(127);     // convention for command not found. Closes open fds.
     }
     case -1:
-        throw IOException(cmd,"vfork",errno);
+        throw IOException(cmd,"fork",errno);
     default:      // parent
         break;
     }
