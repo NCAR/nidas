@@ -44,8 +44,6 @@ public:
     /**
      * Do reverse lookup of a name, given an address.
      * This is the address-to-name lookup method.
-     * The address and name are cached in a static map
-     * for subsequent lookups by a process.
      * If a host name is not found for the address, returns
      * a string in dot notation: "x.x.x.x" using getHostAddress().
      */

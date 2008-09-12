@@ -469,8 +469,7 @@ void Socket::fromDOMElement(const DOMElement* node)
                     n_u::Inet4Address::getByName(remoteHost);
         }
         catch(const n_u::UnknownHostException& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                getName(),e.what());
+            WLOG(("") << getName() << ": " << e.what());
         }
     }
 }
