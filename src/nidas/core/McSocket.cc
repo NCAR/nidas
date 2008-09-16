@@ -101,7 +101,7 @@ void McSocket::connected(n_u::Socket* sock)
     connectionRequester->connected(newsock);
 }
 
-n_u::Inet4Address McSocket::getRemoteInet4Address() const throw()
+n_u::Inet4Address McSocket::getRemoteInet4Address()
 {
     if (socket) {
 	const n_u::SocketAddress& addr = socket->getRemoteSocketAddress();

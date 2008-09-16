@@ -81,7 +81,7 @@ public:
 
     void connected(nidas::util::Socket* sock);
 
-    nidas::util::Inet4Address getRemoteInet4Address() const throw();
+    nidas::util::Inet4Address getRemoteInet4Address();
 
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
