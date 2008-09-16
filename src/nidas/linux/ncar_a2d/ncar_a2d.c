@@ -996,7 +996,7 @@ static int getSerialNumber(struct A2DBoard *brd)
 // Utility function to wait for INV1PPS to be zero.
 // Return: negative errno, or 0=OK.
 
-static int __attribute__((__unused__)) waitFor1PPS_test (struct A2DBoard *brd)
+static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
 {
         unsigned short stat;
         int msecs;
@@ -1004,15 +1004,17 @@ static int __attribute__((__unused__)) waitFor1PPS_test (struct A2DBoard *brd)
         int i, j;
         int utry;
 
-        for (i = 0; i < 50; i++) {
-
+        for (i = 0; i < 5; i++) {
                 msecs =
                     MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - 20;
-                KLOG_DEBUG("GET_MSEC_CLOCK=%ld, sleeping %d msecs\n",
+                if (msecs > 0) {
+                    KLOG_DEBUG("GET_MSEC_CLOCK=%ld, sleeping %d msecs\n",
                           GET_MSEC_CLOCK, msecs);
-                msleep(msecs);
+                    msleep(msecs);  // non-busy wait
+                }
+                else msecs = 0;
 
-                utry = (i + 1) * 40 * USECS_PER_MSEC / uwait;
+                utry = 25 * USECS_PER_MSEC / uwait;
 
                 for (j = 0; j < utry; j++) {
                         if (brd->interrupted)
@@ -1020,19 +1022,17 @@ static int __attribute__((__unused__)) waitFor1PPS_test (struct A2DBoard *brd)
                         // Read status, check INV1PPS bit
                         stat = A2DBoardStatus(brd);
                         if ((stat & INV1PPS) == 0) {
-                                KLOG_DEBUG("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%ld\n",
-                                           j * uwait,GET_MSEC_CLOCK);
+                                KLOG_INFO("Found 1PPS after %d sec, %d msec sleep, %d usec delay, GET_MSEC_CLOCK=%ld\n",
+                                   i+1,msecs,j * uwait,GET_MSEC_CLOCK);
                                 return 0;
                         }
-
-                        udelay(uwait);
-                        schedule();
+                        udelay(uwait);  // caution: this is a busy wait
                 }
         }
-        KLOG_ERR("1PPS not detected--no sync to GPS\n");
+        KLOG_ERR("1PPS not detected--no sync to PPS\n");
         return -ETIMEDOUT;
 }
-static int waitFor1PPS(struct A2DBoard *brd)
+static int __attribute__((__unused__)) waitFor1PPS_all_busy (struct A2DBoard *brd)
 {
         unsigned short stat;
         int uwait = 5;
@@ -1044,16 +1044,16 @@ static int waitFor1PPS(struct A2DBoard *brd)
                 // Read status, check INV1PPS bit
                 stat = A2DBoardStatus(brd);
                 if ((stat & INV1PPS) == 0) {
-                        KLOG_DEBUG("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%ld\n",
+                        KLOG_INFO("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%ld\n",
                                i * uwait,GET_MSEC_CLOCK);
                         return 0;
                 }
 
                 schedule();
-                udelay(uwait);
+                udelay(uwait);  // caution: this is a busy wait
                 schedule();
         }
-        KLOG_ERR("1PPS not detected--no sync to GPS\n");
+        KLOG_ERR("1PPS not detected--no sync to PPS\n");
         return -ETIMEDOUT;
 }
 
@@ -1463,17 +1463,8 @@ static void readA2DFifo(struct A2DBoard *brd)
         samp->length = brd->nFifoValues * sizeof (short);
         /* increment head, this sample is ready for consumption */
         INCREMENT_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
-
-#ifdef CHECK_FOR_DELAYED_WORK
-        if (queue_work(work_queue, &brd->sampleWorker) &&
-            !(brd->delayedWork++ % 1000))
-                KLOG_INFO("%s: delayedWork=%zu\n",
-                          brd->deviceName, brd->delayedWork);
-#else
         queue_work(work_queue, &brd->sampleWorker);
-#endif
 }
-
 
 /*
  * Function scheduled to be called from IRIG driver at 100Hz frequency.
@@ -1526,14 +1517,7 @@ static void ReadSampleCallback(void *ptr)
                 KLOG_ERR("%d Restarting card with full FIFO @ %ld\n",
                          entrycount, GET_MSEC_CLOCK);
                 brd->errorState = WAITING_FOR_RESET;
-#ifdef CHECK_FOR_DELAYED_WORK
-                if (queue_work(work_queue, &brd->resetWorker) &&
-                    !(brd->delayedWork++ % 1000))
-                        KLOG_INFO("%s: delayedWork=%zu\n",
-                                  brd->deviceName, brd->delayedWork);
-#else
                 queue_work(work_queue, &brd->resetWorker);
-#endif
                 return;
         }
 
@@ -1629,7 +1613,7 @@ static int stopBoard(struct A2DBoard *brd)
 
         // Turn off the callback routines
         if (brd->a2dCallback)
-            unregister_irig_callback(brd->a2dCallback);
+                unregister_irig_callback(brd->a2dCallback);
         brd->a2dCallback = 0;
         if (brd->tempCallback)
                 unregister_irig_callback(brd->tempCallback);
