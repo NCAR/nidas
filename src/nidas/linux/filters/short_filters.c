@@ -189,10 +189,10 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                     this->sums[i] += in[this->vindices[i] * skip_factor];
                 if (this->count == 1) this->tsave = tt;
                 if (this->count == this->npts) {
+                        short* op = out->data;
                         out->timetag = this->tsave +
                             (tt - this->tsave) / 2;     // middle time
                         out->id = this->id;
-                        short* op = out->data;
                         for (i = 0; i < this->nvars; i++) {
                             *op++ = this->sums[i] / this->npts;
                             this->sums[i] = 0;
