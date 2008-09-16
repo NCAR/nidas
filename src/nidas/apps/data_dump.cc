@@ -52,6 +52,9 @@ public:
 
     void printHeader();
 
+  DumpClient::format_t
+  typeToFormat(sampleType t);
+
 private:
 
     set<dsm_sample_id_t> sampleIds;
@@ -85,17 +88,36 @@ void DumpClient::printHeader()
     cout << "     len bytes" << endl;
 }
 
+
+DumpClient::format_t
+DumpClient::
+typeToFormat(sampleType t)
+{
+  static std::map<sampleType,DumpClient::format_t> themap;
+  if (themap.begin() == themap.end())
+  {
+    themap[CHAR_ST] = ASCII;
+    themap[UCHAR_ST] = HEX;
+    themap[SHORT_ST] = SIGNED_SHORT;
+    themap[USHORT_ST] = UNSIGNED_SHORT;
+    themap[INT32_ST] = LONG;
+    themap[UINT32_ST] = HEX;
+    themap[FLOAT_ST] = FLOAT;
+    themap[DOUBLE_ST] = HEX;
+    themap[INT64_ST] = HEX;
+    themap[UNKNOWN_ST] = HEX;
+  }
+  return themap[t];
+}
+
+
 bool DumpClient::receive(const Sample* samp) throw()
 {
     dsm_time_t tt = samp->getTimeTag();
     static dsm_time_t prev_tt = 0;
 
     dsm_sample_id_t sampid = samp->getId();
-
-#ifdef DEBUG
-    cerr << "sampid=" << GET_DSM_ID(sampid) << ',' <<
-    	GET_SHORT_ID(sampid) << endl;
-#endif
+    DLOG(("sampid=") << GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid));
 
     if (!allDSMs && !allSensors && sampleIds.find(sampid) == sampleIds.end())
         return false;
@@ -123,7 +145,13 @@ bool DumpClient::receive(const Sample* samp) throw()
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
     prev_tt = tt;
 
-    switch(format) {
+    format_t sample_format = format;
+    if (format == DEFAULT)
+    {
+      sample_format = typeToFormat(samp->getType());
+    }
+
+    switch(sample_format) {
     case ASCII:
 	{
         const char* cp = (const char*)samp->getConstVoidDataPtr();
@@ -224,8 +252,6 @@ public:
 
     static void setupSignals();
 
-    int logLevel;
-
 private:
 
     static const int DEFAULT_PORT = 30000;
@@ -247,7 +273,6 @@ private:
 };
 
 DataDump::DataDump():
-        logLevel(n_u::LOGGER_INFO),
         processData(false),
 	format(DumpClient::DEFAULT)
 {
@@ -259,6 +284,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
     dsm_sample_id_t sampleId = 0;
+    n_u::LogConfig lc;
 
     while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:")) != -1) {
 	switch (opt_char) {
@@ -318,7 +344,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::IRIG;
 	    break;
 	case 'l':
-	    logLevel = atoi(optarg);
+	    lc.level = atoi(optarg);
+	    n_u::Logger::getInstance()->setScheme
+	      (n_u::LogScheme("data_dump_command_line").addConfig (lc));
 	    break;
 	case 'L':
 	    format = DumpClient::LONG;
@@ -349,8 +377,8 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    return usage(argv[0]);
 	}
     }
-    if (format == DumpClient::DEFAULT)
-    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX);
+    //    if (format == DumpClient::DEFAULT)
+    //    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX);
 
     vector<string> inputs;
     for ( ; optind < argc; optind++) inputs.push_back(argv[optind]);
@@ -402,17 +430,21 @@ Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] 
         More than one -d and -s option can be specified. Place -s after the corresponding -d, or use -i\n\
     -i d,s : d is a dsm id or range of dsm ids separated by '-'.\n\
              s is a sample id or range of sample ids separated by '-'.\n\
-    -p: process (optional). Pass samples to sensor process method\n\
+    -p: process (optional). Also pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
          $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
          where <project>, <aircraft> and <flight> are read from the input data header\n\
     -A: ASCII output (for samples from a serial sensor)\n\
-    -F: floating point output (default for processed output)\n\
-    -H: hex output (default for raw output)\n\
+    -F: floating point output (typically for processed output)\n\
+    -H: hex output (typically for raw output)\n\
     -I: output of IRIG clock samples\n\
     -L: signed long output\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: signed short output (useful for samples from an A2D)\n\
+    If a format is specified, that format is used for all the samples.\n\
+    Otherwise the format is chosen according to the type in the sample, so\n\
+    it is possible to dump samples in different formats.  This is useful for\n\
+    dumping both raw and processed samples.  (See example below.)\n\
     inputURL: data input(s).  One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
         unix:sockpath             unix socket name\n\
@@ -431,7 +463,9 @@ Hex dump of sensor ids 200 through 210 using configuration in ads3.xml:\n\
 Display processed data of sample 1 of sensor 200:\n\
   " << argv0 << " -i 3,201 -p sock:hyper\n\
 Display processed data of sample 1, sensor 200, from unix socket:\n\
-  " << argv0 << " -i 3,201 -p unix:/tmp/dsm\n" << endl;
+  " << argv0 << " -i 3,201 -p unix:/tmp/dsm\n\
+Display both raw and processed samples in their default format:\n\
+  " << argv0 << " -d -1 -s -1 -p -x path/to/project.xml file.dat\n" << endl;
     return 1;
 }
 /* static */
@@ -485,11 +519,6 @@ int DataDump::main(int argc, char** argv)
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
 
-    n_u::LogConfig lc;
-    lc.level = dump.logLevel;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
-
     return dump.run();
 }
 
@@ -532,7 +561,6 @@ int DataDump::run() throw()
 	sis.readHeader();
 	SampleInputHeader header = sis.getHeader();
 
-
 	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;
 
@@ -560,15 +588,21 @@ int DataDump::run() throw()
 
 	DumpClient dumper(sampleIds,format,cout);
 
+	// Always add dumper as raw client, in case user wants to dump
+	// both raw and processed samples.
+	sis.addSampleClient(&dumper);
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->init();
 		sis.addProcessedSampleClient(&dumper,sensor);
+		DLOG(("addProcessedSampleClient(") << "dumper"
+		     << ", " << sensor->getName() 
+		     << "[" << sensor->getDSMId() << ","
+		     << sensor->getShortId() << "])");
 	    }
 	}
-	else sis.addSampleClient(&dumper);
 
 	dumper.printHeader();
 
