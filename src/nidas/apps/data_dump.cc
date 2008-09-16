@@ -352,9 +352,13 @@ int DataDump::parseRunstring(int argc, char** argv)
     if (format == DumpClient::DEFAULT)
     	format = (processData ? DumpClient::FLOAT : DumpClient::HEX);
 
-    for ( ; optind < argc; optind++) {
-	string url(argv[optind]);
-	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+    vector<string> inputs;
+    for ( ; optind < argc; optind++) inputs.push_back(argv[optind]);
+    if (inputs.size() == 0) inputs.push_back("sock:localhost");
+
+    for (unsigned int i = 0; i < inputs.size(); i++) {
+        string url = inputs[i];
+	if (url.length() > 5 && url.substr(0,5) == "sock:") {
 	    url = url.substr(5);
 	    size_t ic = url.find(':');
             int port = DEFAULT_PORT;
@@ -391,7 +395,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -H | -S] inputURL ...\n\
+Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -H | -S] [inputURL ...]\n\
     -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
     -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
@@ -409,16 +413,25 @@ Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] 
     -L: signed long output\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: signed short output (useful for samples from an A2D)\n\
-    inputURL: data input (required). One of the following:\n\
+    inputURL: data input(s).  One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
         unix:sockpath             unix socket name\n\
         path                      one or more file names\n\
-Examples:\n" <<
-    argv0 << " -d 0 -s 100 xxx.dat\n" <<
-    argv0 << " -d 0 -s 100 xxx.dat yyy.dat\n" <<
-    argv0 << " -d 0 -s 200 -x ads3.xml sock:hyper:30000\n" <<
-    argv0 << " -d 0 -s 201 -p sock:hyper:30000\n" <<
-    argv0 << " -d 0 -s 201 -p unix:/tmp/dsm\n" << endl;
+        Default inputURL is \"sock:localhost\"\n\
+\n\
+Examples:\n\
+Display IRIG data of sensor 100 on dsm 1 from sock:localhost:\n\
+  " << argv0 << " -i 1,100 -I\n\
+Display ASCII data of sensor 200, dsm 1 from sock:localhost:\n\
+  " << argv0 << " -i 1,200 -A\n\
+Display ASCII data from archive files:\n\
+  " << argv0 << " -i 1,200 -A xxx.dat yyy.dat\n\
+Hex dump of sensor ids 200 through 210 using configuration in ads3.xml:\n\
+  " << argv0 << " -i 3,200-210 -H -x ads3.xml xxx.dat\n\
+Display processed data of sample 1 of sensor 200:\n\
+  " << argv0 << " -i 3,201 -p sock:hyper\n\
+Display processed data of sample 1, sensor 200, from unix socket:\n\
+  " << argv0 << " -i 3,201 -p unix:/tmp/dsm\n" << endl;
     return 1;
 }
 /* static */
