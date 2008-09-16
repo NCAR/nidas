@@ -36,12 +36,14 @@ DSMService::DSMService(const std::string& name): n_u::Thread(name),
 }
 
 DSMService::DSMService(const DSMService& x):
-	n_u::Thread(x),server(x.server),input(x.input)
+	n_u::Thread(x),server(x.server),input(x.input),
+	_niceIncrement(x._niceIncrement)
 {
 }
 
 DSMService::DSMService(const DSMService& x,SampleInputStream* newinput):
-	n_u::Thread(x),server(x.server),input(newinput)
+	n_u::Thread(x),server(x.server),input(newinput),
+	_niceIncrement(x._niceIncrement)
 {
 }
 

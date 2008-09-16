@@ -904,15 +904,16 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 stat = AD7725Status(brd, channel);
                 KLOG_ERR
                     ("Failed confirmation for A/D instruction 0x%04x on "
-                     "channel %d, status=0x%04x\n", AD7725_WRCONFIG,
-                     channel, stat);
+                     "board %d, channel %d, status=0x%04x\n", AD7725_WRCONFIG,
+                     BOARD_INDEX(brd), channel, stat);
                 return -EIO;
         }
         // Wait for interrupt bit to set
         if (waitForChannelInterrupt(brd, channel, 10) != 0) {
                 KLOG_ERR
-                    ("Timeout waiting before sending coefficients on channel %d\n",
-                     channel);
+                    ("Timeout waiting before sending coefficients on "
+                     "board %d, channel %d\n",
+                     BOARD_INDEX(brd), channel);
                 return -ETIMEDOUT;
         }
         KLOG_DEBUG("downloading filter coefficients, nCoefs=%d\n", nCoefs);
@@ -924,8 +925,9 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
                 if (waitForChannelInterrupt(brd, channel, 10) != 0) {
                         KLOG_ERR
-                            ("Timeout waiting after coefficient %d on channel %d\n",
-                             coef, channel);
+                            ("Timeout waiting after on coefficient %d, "
+                             "board %d, channel %d\n", coef,
+                             BOARD_INDEX(brd), channel);
                         return -ETIMEDOUT;
                 }
                 outb(A2DIO_RDINTR, brd->cmd_addr);
@@ -934,12 +936,16 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 stat = AD7725Status(brd, channel);
 
                 if (stat & A2DIDERR) {
-                        KLOG_ERR("Bad ID value on coefficient %d, channel %d\n", coef,channel);
+                        KLOG_ERR("Bad ID value on coefficient %d, "
+                                 "board %d, channel %d\n", coef,
+                                 BOARD_INDEX(brd), channel);
                         return -EIO;
                 }
 
                 if (stat & A2DCRCERR) {
-                        KLOG_ERR("BAD CRC @ coefficient %d, channel %d", coef,channel);
+                        KLOG_ERR("BAD CRC on coefficient %d, "
+                                 "board %d, channel %d", coef,
+                                 BOARD_INDEX(brd), channel);
                         return -EIO;
                 }
         }
@@ -948,8 +954,9 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         stat = AD7725Status(brd, channel);
         if ((stat & A2DCONFIGEND) == 0) {
                 KLOG_ERR
-                    ("CFGEND bit not set in status after configuring channel %d\n",
-                     channel);
+                    ("CFGEND bit not set in status after configuring "
+                     "board %d, channel %d\n",
+                     BOARD_INDEX(brd), channel);
                 return -EIO;
         }
 
