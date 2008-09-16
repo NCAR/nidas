@@ -146,6 +146,7 @@ struct a2d_sample
 {
         dsm_sample_time_t timetag;      // timetag of sample
         dsm_sample_length_t length;     // number of bytes in data
+	unsigned short id;
         short data[NUM_NCAR_A2D_CHANNELS];
 };
 
@@ -191,7 +192,7 @@ struct A2DBoard
         size_t skippedSamples;  // how many samples have we missed?
 
         struct work_struct resetWorker;
-        int errorState;
+        volatile int errorState;
         int resets;             // number of board resets since last open
 
         unsigned short OffCal;  // offset and cal bits
@@ -206,7 +207,6 @@ struct A2DBoard
         long latencyMsecs;      // buffer latency in milli-seconds
         long latencyJiffies;    // buffer latency in jiffies
         unsigned long lastWakeup;       // when were read & poll methods last woken
-        size_t delayedWork;     // counter
 
         int consecutiveNonEmpty;
 

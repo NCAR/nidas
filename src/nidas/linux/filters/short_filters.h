@@ -46,6 +46,8 @@ typedef struct short_sample
      */
     dsm_sample_length_t length;
 
+    short id;
+
     short data[0];
 } short_sample_t;
 

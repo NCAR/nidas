@@ -94,10 +94,10 @@ static int pickoff_filter(void* obj,dsm_sample_time_t tt, const short* in,
         if (this->count++ % this->decimate) return 0;
         this->count = 1;
         out->timetag = tt;
-        *op++ = this->id;
+	out->id = this->id;
         for (i = 0; i < this->nvars; i++)
             *op++ = in[this->vindices[i] * skip_factor];
-        out->length = (op - out->data) * sizeof(short);
+        out->length = (op - &out->id) * sizeof(short);
         return 1;
 }
 
@@ -189,15 +189,15 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                     this->sums[i] += in[this->vindices[i] * skip_factor];
                 if (this->count == 1) this->tsave = tt;
                 if (this->count == this->npts) {
-                        short* op = out->data;
                         out->timetag = this->tsave +
                             (tt - this->tsave) / 2;     // middle time
-                        *op++ = this->id;
+                        out->id = this->id;
+                        short* op = out->data;
                         for (i = 0; i < this->nvars; i++) {
                             *op++ = this->sums[i] / this->npts;
                             this->sums[i] = 0;
                         }
-                        out->length = (op - out->data) * sizeof(short);
+                        out->length = (op - &out->id) * sizeof(short);
                         if (this->count == this->decimate) this->count = 0;
                         KLOG_DEBUG("boxcar filter return sample, count=%d, npts=%d,decimate=%d\n",
                             this->count,this->npts, this->decimate);
