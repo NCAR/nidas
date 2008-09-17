@@ -2111,6 +2111,7 @@ int init_module()
         boardInfo = rtl_gpos_malloc(numboards * sizeof (struct A2DBoard));
         if (!boardInfo)
                 goto err;
+	memset(boardInfo, 0, numboards * sizeof (struct A2DBoard));
 
         DSMLOG_DEBUG("sizeof(struct A2DBoard): 0x%x\n",
                      sizeof (struct A2DBoard));
@@ -2121,10 +2122,6 @@ int init_module()
 
                 DSMLOG_DEBUG("initializing board[%d] at ioport 0x%x\n",
                              ib, ioport[ib]);
-                // initialize structure to zero, then initialize things
-                // that are non-zero
-                memset(brd, 0, sizeof (struct A2DBoard));
-
                 rtl_sem_init(&brd->bh_sem, 0, 0);
                 brd->a2dfd = -1;
                 // default latency, 1/10 second.
