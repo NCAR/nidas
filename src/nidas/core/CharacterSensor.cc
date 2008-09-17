@@ -271,7 +271,14 @@ void CharacterSensor::fromDOMElement(
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
+    // Note: sscanfers can be empty here, if a CharacterSensor was configured
+    // with no samples, and hence no scanf strings.  For example,
+    // a differential GPS, where nidas is supposed to take the
+    // data for later use, but doesn't (currently) parse it.
+    if (sscanfers.size() == 0) return false;
+
     assert(samp->getType() == CHAR_ST);
+
     const char* inputstr = (const char*)samp->getConstVoidDataPtr();
 
     SampleT<float>* outs = getSample<float>(maxScanfFields);
@@ -294,7 +301,8 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	}
     }
     static n_u::LogContext lp(LOG_DEBUG);
-    if (lp.active() && sscanf && nparsed != sscanf->getNumberOfFields())
+
+    if (lp.active() && nparsed != sscanf->getNumberOfFields())
     {
 	n_u::LogMessage msg;
 	msg << (nparsed > 0 ? "partial" : "failed")
@@ -319,10 +327,10 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     const vector<const Variable*>& vars = stag->getVariables();
     int nv;
     for (nv = 0; nv < (signed)vars.size(); nv++,fp++) {
-// nimbus applies cals for Aircraft world.  Avoid applying twice.
-//	VariableConverter* conv = vars[nv]->getConverter();
+        // nimbus applies cals for Aircraft world.  Avoid applying twice.
+        // VariableConverter* conv = vars[nv]->getConverter();
         if (nv >= nparsed || *fp == vars[nv]->getMissingValue()) *fp = floatNAN;
-//	if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+        // else if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
     }
     outs->setTimeTag(samp->getTimeTag());
     outs->setDataLength(nv);
