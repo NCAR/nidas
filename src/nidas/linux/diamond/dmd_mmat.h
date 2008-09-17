@@ -229,7 +229,7 @@ struct a2d_sample
 {
         dsm_sample_time_t timetag;    // timetag of sample
         dsm_sample_length_t length;       // number of bytes in data
-        short data[MAX_DMMAT_A2D_CHANNELS];
+        short data[MAX_DMMAT_A2D_CHANNELS+1];	// room for id too
 };
 
 /**
