@@ -86,12 +86,12 @@ private:
     /**
      * Previous seconds of day from RMC record.
      */
-    int prevRMCTm;
+    float prevRMCTm;
 
     /**
      * Previous seconds of day from GGA record.
      */
-    int prevGGATm;
+    float prevGGATm;
      
 };
 

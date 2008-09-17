@@ -124,8 +124,8 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     char sep = ',';
     float lat=floatNAN, lon=floatNAN;
     float magvar=floatNAN,sog=floatNAN;
-    int tm,hour=0,minute=0,second=0,year=0,month=0,day=0;
-    float f1,f2;
+    int hour=0, minute=0, year=0, month=0, day=0;
+    float f1, f2, second=0.0, tm;
     int iout = 0;
     bool timeerr = false;
     char status = '?';
@@ -137,15 +137,15 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	cp++;
 	switch (ifield) {
 	case 0:	// HHMMSS, optional output variable seconds of day
-	    if (sscanf(input,"%2d%2d%2d",&hour,&minute,&second) == 3) {
+	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 tm = hour * 3600 + minute * 60 + second;
                 // Wait till we have the year,mon,day to issue a warning
                 // about a time error
-                if (tm < prevRMCTm && tm!=0 && prevRMCTm != 86399) {
+                if (tm < prevRMCTm && tm != 0 && prevRMCTm != 86399) {
                     timeerr = true;
                     rmccnt++;
                 }
-                if (nvars >= 12) dout[iout++] = (float)tm;
+                if (nvars >= 12) dout[iout++] = tm;
             }
             else if (nvars >= 12) dout[iout++] = floatNAN;
 	    break;
@@ -248,8 +248,8 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
-    int i1,tm,hour=0,minute=0,second=0;
-    float f1,f2;
+    int i1, hour=0, minute=0;
+    float f1, f2, second=0.0, tm;
     int iout = 0;
     bool timeerr = false;
 
@@ -260,13 +260,13 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	cp++;
 	switch (ifield) {
 	case 0:		// HHMMSS
-	    if (sscanf(input,"%2d%2d%2d",&hour,&minute,&second) == 3) {
+	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 tm = hour * 3600 + minute * 60 + second;
-                if (tm < prevGGATm  && tm!=0 && prevGGATm != 86399) {
+                if (tm < prevGGATm && tm != 0 && prevGGATm != 86399) {
                     ggacnt++;
                     timeerr = true;
                 }
-                dout[iout++] = (float) tm;  // var 0 secs of day
+                dout[iout++] = tm;  // var 0 secs of day
             }
             else dout[iout++] = floatNAN;
             break;
