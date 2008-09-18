@@ -84,7 +84,12 @@ namespace nidas { namespace util {
     <showfields>all</showfields>
     <logconfig level='debug'/>
     <logconfig filematch='nidas'/>
-    <logconfig/>
+  </logscheme>
+
+  <logscheme name='everything-but-utils'>
+    <showfields>all</showfields>
+    <logconfig level='debug'/>
+    <logconfig filematch='util' activate='false'/>
   </logscheme>
 
   <logscheme name='nothing'>
@@ -241,7 +246,7 @@ logLevelToString(int);
  *
  * The ultimate goal is to make all log messages always available in the
  * runtime while incurring as little performance overhead as possible when
- * they are not need, and without requiring alternate compile
+ * they are not needed, and without requiring alternate compile
  * configurations.  However, if it should ever be necessary, then the log
  * macros can still be defined as completely empty.
  *
@@ -390,7 +395,7 @@ public:
   }
 
   /**
-   * Construct a default LogConfig, which matches every log point.
+   * Construct a default LogConfig, which matches and enables every log point.
    **/
   LogConfig() :
     line(0),

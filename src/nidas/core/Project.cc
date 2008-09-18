@@ -540,6 +540,31 @@ LogSchemeFromDOMElement(const DOMElement* node)
 			lc.level = n_u::stringToLogLevel(attr.getValue());
 		    else if (attr.getName() == "line")
 			lc.line = atoi(attr.getValue().c_str());
+		    else if (attr.getName() == "activate")
+		    {
+			std::string value = attr.getValue();
+			for (unsigned int c = 0; c < value.length(); ++c)
+			    value[c] = std::tolower(value[c]);
+			if (value == "true" ||
+			    value == "1" ||
+			    value == "yes")
+			{
+			    lc.activate = true;
+			}
+			else if (value == "false" ||
+				 value == "0" ||
+				 value == "no")
+			{
+			    lc.activate = false;
+			}
+			else
+			{
+			    throw n_u::InvalidParameterException
+				("Project::LogSchemeFromDOMElement","activate",
+				 name);
+			}
+		    }
+		    
 		}
 	    }
 	    scheme.addConfig (lc);
