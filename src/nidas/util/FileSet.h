@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
@@ -94,8 +94,10 @@ public:
         return (int)(fileLength / USECS_PER_SEC);
     }
 
-    UTime getNextFileTime() const;
-
+    UTime getNextFileTime() const
+    {
+	return nextFileTime;
+    }
 
     /**
      * Create a new file, with a name formed from a time.
@@ -119,8 +121,25 @@ public:
      */
     const std::string& getCurrentName() const { return currname; }
 
-    void closeFile() throw(IOException);
+    /**
+     * Closes any file currently open.  The base implementation
+     * closes the file descriptor.  Subclasses override this method
+     * to close alternate resources.
+     **/
+    virtual void
+    closeFile() throw(IOException);
 
+    /**
+     * Open a new file for writing.  The @p filename is the path for the
+     * new file as generated from the filename template and a time.  The
+     * base implementation calls open64() and sets the file descriptor.
+     **/
+    virtual void
+    openFileForWriting(const std::string& filename) throw(IOException);
+
+    /**
+     * Open the next file to be read.
+     **/
     void openNextFile() throw(IOException);
 
     /**

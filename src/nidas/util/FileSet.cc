@@ -1,3 +1,4 @@
+// -*- mode: C++; c-basic-offset: 4; -*-
 
 #define _LARGEFILE64_SOURCE
 
@@ -24,8 +25,6 @@ using namespace std;
 #include <dirent.h>
 #include <regex.h>
 #include <cstdlib>  // for llabs()
-
-// #define DEBUG
 
 const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
@@ -80,9 +79,7 @@ void FileSet::closeFile() throw(IOException)
 /* static */
 void FileSet::createDirectory(const string& name) throw(IOException)
 {
-#ifdef DEBUG
-    cerr << "FileSet::createDirectory, name=" << name << endl;
-#endif
+    DLOG(("FileSet::createDirectory, name=") << name);
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
 
     struct stat64 statbuf;
@@ -93,12 +90,21 @@ void FileSet::createDirectory(const string& name) throw(IOException)
 	string tmpname = getDirPortion(name);
 	if (tmpname != ".") createDirectory(tmpname);  // recursive
 
-        Logger::getInstance()->log(LOG_INFO,"creating: %s",
-            name.c_str());
+        ILOG(("creating: ") << name);
         if (::mkdir(name.c_str(),0777) < 0)
             throw IOException(name,"mkdir",errno);
     }
 }
+
+
+void
+FileSet::
+openFileForWriting(const std::string& filename) throw(IOException)
+{
+    if ((fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0)
+        throw IOException(filename,"open",errno);
+}
+
 
 /**
  * Create a file using a time to create the name.
@@ -106,40 +112,32 @@ void FileSet::createDirectory(const string& name) throw(IOException)
  */
 UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
 {
-#ifdef DEBUG
-    cerr << "nidas::util::FileSet::createFile, ftime=" << ftime.format(true,"%c") << endl;
-#endif
-
+    DLOG(("nidas::util::FileSet::createFile, ftime=")
+	 << ftime.format(true,"%c"));
     closeFile();
 
     if (!exact && fileLength <= 366 * USECS_PER_DAY)
 	ftime -= ftime.toUsecs() % fileLength;
 
-
     // break input time into date/time fields using GMT timezone
     currname = ftime.format(true,fullpath);
 
-#ifdef DEBUG
-    cerr << "nidas::util::FileSet:: fullpath=" << fullpath << endl;
-    cerr << "nidas::util::FileSet:: currname=" << currname << endl;
-#endif
+    DLOG(("nidas::util::FileSet:: fullpath=") << fullpath);
+    DLOG(("nidas::util::FileSet:: currname=") << currname);
 
     // create the directory, and parent directories, if they don't exist
     string tmpname = getDirPortion(currname);
     if (tmpname != ".") createDirectory(tmpname);
 
-    Logger::getInstance()->log(LOG_INFO,"creating: %s",
-    	currname.c_str());
+    ILOG(("creating: ") << currname);
 
-    if ((fd = ::open64(currname.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0)
-        throw IOException(currname,"open",errno);
+    openFileForWriting(currname);
 
     nextFileTime = ftime + USECS_PER_SEC;	// add one sec
     nextFileTime += fileLength - (nextFileTime.toUsecs() % fileLength);
 
-#ifdef DEBUG
-    cerr << "nidas::util::FileSet:: nextFileTime=" << nextFileTime.format(true,"%c") << endl;
-#endif
+    DLOG(("nidas::util::FileSet:: nextFileTime=")
+	 << nextFileTime.format(true,"%c"));
     newFile = true;
 
     return nextFileTime;
@@ -171,9 +169,7 @@ void FileSet::openNextFile() throw(IOException)
 {
     if (!initialized) {
 
-#ifdef DEBUG
-	cerr << "openNextFile, fullpath=" << fullpath << endl;
-#endif
+	DLOG(("openNextFile, fullpath=") << fullpath);
 	if (fullpath.length() > 0) {
 
 	    fileset = matchFiles(startTime,endTime);
@@ -212,8 +208,7 @@ void FileSet::openNextFile() throw(IOException)
 
     if (fileiter == fileset.end()) throw EOFException(currname,"open");
     currname = *fileiter++;
-    Logger::getInstance()->log(LOG_INFO,"opening: %s",
-    	currname.c_str());
+    ILOG(("opening: ") << currname);
 
     if (currname == "-") fd = 0;	// read from stdin
     else if ((fd = ::open64(currname.c_str(),O_RDONLY)) < 0)
@@ -307,18 +302,13 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     checkPathFormat(t1,t2);
 #endif
 
-
-#ifdef DEBUG
-    cerr << "fullpath=" << fullpath << endl;
-#endif
+    DLOG(("fullpath=") << fullpath);
 
     string t1path = t1.format(true,fullpath);
     string t2path = t2.format(true,fullpath);
 
-#ifdef DEBUG
-    cerr << "t1path=" << t1path << endl;
-    cerr << "t2path=" << t2path << endl;
-#endif
+    DLOG(("t1path=") << t1path);
+    DLOG(("t2path=") << t2path);
 
     bool t1path_eq_t2path = t1path == t2path;
 
@@ -330,10 +320,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // use std::time_put to format path into a file name
     // this converts the strftime %Y,%m type format descriptors
     // into date/time fields.
-#ifdef DEBUG
-    cerr << "openedDir=" << openedDir << endl;
-#endif
-
+    DLOG(("openedDir=") << openedDir);
     string tmpPath = t1.format(true,openedDir);
 
     long long dirDeltat = 365 * USECS_PER_DAY;
@@ -353,10 +340,8 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     }
     openedDir.clear();
 
-#ifdef DEBUG
-    cerr << "dirDeltat=" << dirDeltat << endl;
-    cerr << "fullpath=" << fullpath << endl;
-#endif
+    DLOG(("dirDeltat=") << dirDeltat);
+    DLOG(("fullpath=") << fullpath);
 
     // must execute this loop at least once with time of t1.
     // If t2 > t1 then increment time by dirDeltat each iteration,
@@ -366,9 +351,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	// currpath is the full path name of a file with a name
 	// corresponding to time ftime
 	string currpath = ftime.format(true,fullpath);
-#ifdef DEBUG
-	cerr << "currpath=" << currpath << endl;
-#endif
+	DLOG(("currpath=") << currpath);
 
 	// currdir is the directory portion of currpath
 	string currdir = getDirPortion(currpath);
@@ -382,16 +365,12 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	}
 	else rewinddir(dirp);
 
-#ifdef DEBUG
-	cerr << "fullpath=" << fullpath << endl;
-#endif
+	DLOG(("fullpath=") << fullpath);
 	// now take file portion of input path, and create regular expression
 	string fileregex = 
 	    string("^") + getFilePortion(fullpath) + string("$");
 	    
-#ifdef DEBUG
-	cerr << "fileregex=" << fileregex << endl;
-#endif
+	DLOG(("fileregex=") << fileregex);
 
 	// replace time fields with corresponding regular expressions
 
@@ -408,14 +387,10 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	replaceChars(fileregex,"%H","[0-2][0-9]");
 	replaceChars(fileregex,"%M","[0-5][0-9]");
 	replaceChars(fileregex,"%S","[0-5][0-9]");
-#ifdef DEBUG
-	cerr << "fileregex=" << fileregex << endl;
-#endif
+	DLOG(("fileregex=") << fileregex);
 
 	fileregex = ftime.format(true,fileregex);
-#ifdef DEBUG
-	cerr << "fileregex=" << fileregex << endl;
-#endif
+	DLOG(("fileregex=") << fileregex);
 
 	// compile into regular expression
 	regex_t preg;
@@ -428,20 +403,14 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 
 	// search directory
 	while ((dp = readdir(dirp))) {
-#ifdef DEBUGX
-	    cerr << "dp->d_name=" << dp->d_name << endl;
-#endif
+	    DLOG(("dp->d_name=") << dp->d_name);
 	    if ((regstatus = regexec(&preg,dp->d_name,0,0,0)) == 0) {
 		string matchfile = makePath(currdir,dp->d_name);
-#ifdef DEBUG
-		cerr << "regexec matchfile=" << matchfile << endl;
-#endif
+		DLOG(("regexec matchfile=") << matchfile);
 	        if (t1path.compare(matchfile) <= 0) {
 		    if (t2path.compare(matchfile) > 0 ||
 		    	(t1path_eq_t2path && t2path.compare(matchfile) >= 0)) {
-#ifdef DEBUG
-			cerr << "regexec & time matchfile=" << matchfile << endl;
-#endif
+			DLOG(("regexec & time matchfile=") << matchfile);
 			matchedFiles.insert(matchfile);
 		    }
 		}
@@ -459,9 +428,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	if (ftime > t2) ftime = t2;
     }
     if (dirp) closedir(dirp);
-#ifdef DEBUG
-    cerr << "matchedFiles.size()=" << matchedFiles.size() << endl;
-#endif
+    DLOG(("matchedFiles.size()=") << matchedFiles.size());
     return list<string>(matchedFiles.begin(),matchedFiles.end());
 }
 
