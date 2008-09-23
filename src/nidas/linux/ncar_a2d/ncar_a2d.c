@@ -1006,14 +1006,17 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
         for (i = 0; i < 10; i++) {
                 msecs =
                     MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - 20;
-                if (msecs > 0) {
+                if (i < 5 && msecs > 0) {
                     KLOG_DEBUG("%s: GET_MSEC_CLOCK=%ld, sleeping %d msecs\n",
                            brd->deviceName,GET_MSEC_CLOCK, msecs);
                     msleep(msecs);  // non-busy wait
                 }
                 else msecs = 0;
 
-                utry = 25 * USECS_PER_MSEC / uwait;
+                if (i < 5)
+                    utry = 25 * USECS_PER_MSEC / uwait;
+                else
+                    utry = USECS_PER_SEC / uwait;
 
                 for (j = 0; j < utry; j++) {
                         if (brd->interrupted)
@@ -1028,7 +1031,7 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
                         udelay(uwait);  // caution: this is a busy wait
                 }
         }
-        KLOG_ERR("%s: 1PPS not detected--no sync to PPS\n",brd->deviceName);
+        KLOG_ERR("%s: PPS not detected--no sync to PPS\n",brd->deviceName);
         return -ETIMEDOUT;
 }
 static int __attribute__((__unused__)) waitFor1PPS_all_busy (struct A2DBoard *brd)
@@ -1595,9 +1598,9 @@ static void TemperatureCallback(void *ptr)
         }
         osamp->timetag = GET_MSEC_CLOCK;
         osamp->length = 2 * sizeof (short);
-        osamp->data[0] = cpu_to_le16(NCAR_A2D_TEMPERATURE_INDEX);
+        osamp->id = cpu_to_le16(NCAR_A2D_TEMPERATURE_INDEX);
         brd->currentTemp = A2DTemp(brd);
-        osamp->data[1]   = cpu_to_le16(brd->currentTemp);
+        osamp->data[0]   = cpu_to_le16(brd->currentTemp);
         INCREMENT_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&brd->rwaitq_a2d);
 }
