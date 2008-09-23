@@ -1147,6 +1147,16 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                 }
                 else if (a2d->filters[i].filter(
                             a2d->filters[i].filterObj,tt,dp,1,osamp)) {
+#ifdef __BIG_ENDIAN
+                        // convert to little endian
+                        int j;
+                        osamp->id = cpu_to_le16(osamp->id);
+                        for (j = 0; j < osamp->length / sizeof (short) - 1; j++)
+                                osamp->data[j] = cpu_to_le16(osamp->data[j]);
+#elif defined __LITTLE_ENDIAN
+#else
+#error "UNSUPPORTED ENDIAN-NESS"
+#endif
                         INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
                 }
         }
