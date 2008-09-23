@@ -533,6 +533,7 @@
     </xsd:annotation>
     <xsd:attribute name="filematch" type="xsd:token" use="optional"/>
     <xsd:attribute name="functionmatch" type="xsd:token" use="optional"/>
+    <xsd:attribute name="tagmatch" type="xsd:token" use="optional"/>
     <xsd:attribute name="level" type="loglevel" use="optional"/>
     <xsd:attribute name="line" type="xsd:nonNegativeInteger" use="optional"/>
     <xsd:attribute name="activate" type="xsd:boolean" use="optional"/>

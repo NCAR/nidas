@@ -99,6 +99,11 @@ namespace nidas { namespace util {
     <logconfig level='info'/>
   </logscheme>
 
+  <logscheme name='sampledebug'>
+    <logconfig level='debug'/>
+    <logconfig tagmatch='samples'/>
+  </logscheme>
+
   <logscheme name='iss-debug'>
     <showfields>level,time,function,message</showfields>
     <logconfig filematch='dynld/iss'/>
@@ -162,9 +167,9 @@ nidas::util::LEVEL, __FILE__, __PRETTY_FUNCTION__, __LINE__
 #define	LOG_INFO LOG_CONTEXT(LOGGER_INFO)
 #define	LOG_DEBUG LOG_CONTEXT(LOGGER_DEBUG)
 
-#define LOGGER_LOGPOINT(LEVEL,MSG) \
+#define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)		\
 do { static nidas::util::LogContext \
- nidas_util_log_context(nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,__LINE__); \
+    nidas_util_log_context(nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,__LINE__,TAGS); \
  if (nidas_util_log_context.active()) \
 nidas::util::Logger::getInstance()->msg (nidas_util_log_context, \
 nidas::util::LogMessage().format MSG); } \
@@ -177,9 +182,9 @@ while (0)
  * message can be logged with the given log level.  The macro generates
  * code which first tests whether the log point is active before generating
  * the message, thus minimizing the time overhead for logging.  The @p MSG
- * argument must be itself in parentheses, so that it can be a variable
- * argument list.  The whole argument list is passed to
- * LogMessage::format() to generate the message string.
+ * argument must be in parentheses, so that it can be a variable argument
+ * list.  The whole argument list is passed to LogMessage::format() to
+ * generate the message string.
  *
  * @code
  * DLOG(("the current value of pi is %f", pi));
@@ -191,16 +196,37 @@ while (0)
  * @code
  * DLOG(("pi = ") << pi);
  * @endcode
+ *
+ * The macro forms with the T suffix include a tags string which will be
+ * associated with the LogContext:
+ *
+ * @code
+ * DLOGT("samples,variable_conversion",
+ *       ("convert %s: calculating, ", vname) << nvar << " processed.");
+ * @endcode
+ *
+ * Tags just allow one more way to discriminate among log points.  Log
+ * points can be activated or deactivated according to their tags through a
+ * LogConfig.
  **/
 /**@{*/
-#define ELOG(MSG) LOGGER_LOGPOINT(LOGGER_EMERG,MSG)
-#define ALOG(MSG) LOGGER_LOGPOINT(LOGGER_ALERT,MSG)
-#define CLOG(MSG) LOGGER_LOGPOINT(LOGGER_CRITICAL,MSG)
-#define PLOG(MSG) LOGGER_LOGPOINT(LOGGER_ERR,MSG) // For Problem, as in Error
-#define WLOG(MSG) LOGGER_LOGPOINT(LOGGER_WARNING,MSG)
-#define NLOG(MSG) LOGGER_LOGPOINT(LOGGER_NOTICE,MSG)
-#define ILOG(MSG) LOGGER_LOGPOINT(LOGGER_INFO,MSG)
-#define DLOG(MSG) LOGGER_LOGPOINT(LOGGER_DEBUG,MSG)
+#define ELOG(MSG) LOGGER_LOGPOINT(LOGGER_EMERG,"",MSG)
+#define ALOG(MSG) LOGGER_LOGPOINT(LOGGER_ALERT,"",MSG)
+#define CLOG(MSG) LOGGER_LOGPOINT(LOGGER_CRITICAL,"",MSG)
+#define PLOG(MSG) LOGGER_LOGPOINT(LOGGER_ERR,"",MSG) // For Problem, as in Error
+#define WLOG(MSG) LOGGER_LOGPOINT(LOGGER_WARNING,"",MSG)
+#define NLOG(MSG) LOGGER_LOGPOINT(LOGGER_NOTICE,"",MSG)
+#define ILOG(MSG) LOGGER_LOGPOINT(LOGGER_INFO,"",MSG)
+#define DLOG(MSG) LOGGER_LOGPOINT(LOGGER_DEBUG,"",MSG)
+
+#define ELOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_EMERG,TAGS,MSG)
+#define ALOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_ALERT,TAGS,MSG)
+#define CLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_CRITICAL,TAGS,MSG)
+#define PLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_ERR,TAGS,MSG) // For Problem, as in Error
+#define WLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_WARNING,TAGS,MSG)
+#define NLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_NOTICE,TAGS,MSG)
+#define ILOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_INFO,TAGS,MSG)
+#define DLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_DEBUG,TAGS,MSG)
 /**@}*/
 
 class Logger;
@@ -225,12 +251,15 @@ logLevelToString(int);
  * in with details about that log point, such as the file and line number,
  * and the function name of the containing function, and the log level of
  * that log point, such as LOGGER_DEBUG or LOGGER_ERROR.  Except for the
- * log level, the rest of the LogContext can be filled in with CPP macros
- * and predefined compiler symbols like __PRETTY_FUNCTION__.  The
+ * log level and tags, the rest of the LogContext can be filled in with CPP
+ * macros and predefined compiler symbols like __PRETTY_FUNCTION__.  The
  * LogContext holds its own active state, so a simple, inline boolean test
  * determines whether a log point has been activated and thus needs to
  * generate and log its message.  Otherwise the log point can be skipped
- * with minimal time overhead.
+ * with minimal time overhead.  Where further discrimination of log points
+ * is needed, a log point can be associated with a string of tags, and a
+ * LogConfig can match the log point by one of its tags.  The tags string
+ * is empty unless specified at creation.
  *
  * The LogContext effectively stashes context info for a log point so that
  * info can be used in the log message output, and so that info can be used
@@ -260,7 +289,8 @@ public:
   /**
    * The full LogContext constructor.
    **/
-  LogContext (int level, const char* file, const char* function, int line);
+  LogContext (int level, const char* file, const char* function, int line,
+	      const char* tags = 0);
 
   ~LogContext();
 
@@ -294,6 +324,12 @@ public:
     return _level;
   }
 
+  inline const char*
+  tags() const
+  {
+    return _tags;
+  }
+
   inline std::string
   levelName() const
   {
@@ -322,6 +358,7 @@ private:
   const char* _file;
   const char* _function;
   int _line;
+  const char* _tags;
 
   bool _active;
 
@@ -360,6 +397,12 @@ public:
   std::string function_match;
 
   /**
+   * Apply this config to log points whose tags include this tag.  An empty
+   * string matches all tags.
+   **/
+  std::string tag_match;
+
+  /**
    * Apply this config to log points with the given line number.  Really
    * this only makes sense if filename_match is set also.  The default of
    * zero matches every line number.
@@ -386,10 +429,12 @@ public:
   matches(const LogContext& lc) const
   {
     return
-      (filename_match.length() == 0 || 
+      (filename_match.length() == 0 || lc.filename() == 0 ||
        std::strstr(lc.filename(), filename_match.c_str())) &&
-      (function_match.length() == 0 || 
+      (function_match.length() == 0 || lc.function() == 0 ||
        std::strstr(lc.function(), function_match.c_str())) &&
+      (tag_match.length() == 0 || lc.tags() == 0 ||
+       std::strstr(lc.tags(), tag_match.c_str())) &&
       (line == 0 || line == lc.line()) &&
       (lc.level() <= level);
   }

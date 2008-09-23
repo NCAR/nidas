@@ -536,6 +536,8 @@ LogSchemeFromDOMElement(const DOMElement* node)
 			lc.filename_match = attr.getValue();
 		    else if (attr.getName() == "functionmatch")
 			lc.function_match = attr.getValue();
+		    else if (attr.getName() == "tagmatch")
+			lc.tag_match = attr.getValue();
 		    else if (attr.getName() == "level")
 			lc.level = n_u::stringToLogLevel(attr.getValue());
 		    else if (attr.getName() == "line")

@@ -548,8 +548,10 @@ fieldToString(LogScheme::LogField lf)
 //================================================================
 
 LogContext::
-LogContext (int level, const char* file, const char* function, int line) :
-  _level(level), _file(file), _function(function), _line(line),
+LogContext (int level, const char* file, const char* function, int line,
+	    const char* tags) :
+  _level(level), _file(file), _function(function), _line(line), 
+  _tags(tags),
   _active(false)
 {
   Synchronized sync(logger_mutex);
