@@ -1297,7 +1297,8 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
 #ifdef __BIG_ENDIAN
                         // convert to little endian
                         int j;
-                        for (j = 0; j < osamp->length / sizeof (short); j++)
+                        osamp->id = cpu_to_le16(osamp->id);
+                        for (j = 0; j < osamp->length / sizeof (short) - 1; j++)
                                 osamp->data[j] = cpu_to_le16(osamp->data[j]);
 #elif defined __LITTLE_ENDIAN
 #else
