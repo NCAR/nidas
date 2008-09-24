@@ -770,7 +770,7 @@ int mesa_init(void)
         KLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
         KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
-        for (ib = 0; ib < numboards; ib++)
+        for (ib = 0; ib < MESA_4I34_MAX_NR_DEVS; ib++)
                 if (ioport[ib] == 0) break;
         numboards = ib;
 
