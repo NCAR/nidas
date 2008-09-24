@@ -137,7 +137,7 @@ int MergeVerifier::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << " -i input ...  [-i input ... ] ...\n\
 	[-s start_time] [-e end_time]\n\
-	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
+	-o output [-r read_ahead_secs]\n\n\
     -i input ...: one or more input file name or file name formats\n\
     -s start_time\n\
     -e end_time: time period to merge\n\
@@ -149,7 +149,7 @@ Example (from ISFF/TREX): \n" << argv0 << " \
 	-i /data2/central_%Y%m%d_%H%M%S.dat\n\
 	-i /data2/south_%Y%m%d_%H%M%S.dat\n\
 	-i /data2/west_%Y%m%d_%H%M%S.dat\n\
-	-m /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10\n\
+	-m /data3/isff_%Y%m%d_%H%M%S.dat -r 10\n\
 	-s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"\n\
 " << endl;
     return 1;
