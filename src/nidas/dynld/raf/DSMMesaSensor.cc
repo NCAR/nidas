@@ -17,7 +17,7 @@
 
 
 #include <nidas/dynld/raf/DSMMesaSensor.h>
-#include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -47,7 +47,7 @@ DSMMesaSensor::~DSMMesaSensor()
 
 IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 {
-  return new RTL_IODevice();
+  return new UnixIODevice();
 }
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()

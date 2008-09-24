@@ -344,7 +344,6 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
     if (*sp++ != NCAR_A2D_TEMPERATURE_INDEX) return false;
 
     // cerr << "temperature=" << *sp << ", " << *sp * DEGC_PER_CNT << endl;
-//printf("%x %d %f\n", *sp, *sp, DEGC_PER_CNT * *sp);
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
