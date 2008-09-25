@@ -572,6 +572,7 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                 ret = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
                 ret =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+        else ret = 0;
         if (ret) return -EFAULT;
 
         switch (cmd) {
