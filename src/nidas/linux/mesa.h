@@ -160,6 +160,8 @@ struct MESA_Board
 {
         unsigned long addr;     // Base address of board
         char devName[64];
+        long latencyJiffies;	// buffer latency in jiffies
+        unsigned long lastWakeup;   // when were read & poll methods last woken
 
         wait_queue_head_t rwaitq;       // wait queue for user reads
 

@@ -18,6 +18,7 @@
 
 #include <nidas/dynld/raf/DSMMesaSensor.h>
 #include <nidas/core/UnixIODevice.h>
+#include <nidas/core/RTL_IODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -32,7 +33,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMMesaSensor)
 
-DSMMesaSensor::DSMMesaSensor()
+DSMMesaSensor::DSMMesaSensor():
+    _rtlinux(-1)
 {
   ILOG(("constructor"));
 
@@ -45,9 +47,23 @@ DSMMesaSensor::~DSMMesaSensor()
 {
 }
 
+bool DSMMesaSensor::isRTLinux() const
+{
+    if (_rtlinux < 0)  {
+	const string& dname = getDeviceName();
+	string::size_type fs = dname.rfind('/');
+	if (fs != string::npos && (fs + 6) < dname.length() &&
+	    dname.substr(fs+1,8) == "mesa_rtl")
+		    _rtlinux = 1;
+	else _rtlinux = 0;
+    }
+    return _rtlinux == 1;
+}
+
 IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 {
-  return new UnixIODevice();
+    if (isRTLinux()) return new RTL_IODevice();
+    else return new UnixIODevice();
 }
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()

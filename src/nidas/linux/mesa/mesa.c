@@ -98,7 +98,12 @@ static void read_counter(void *ptr)
 
         /* increment head, this sample is ready for consumption */
         INCREMENT_HEAD(brd->cntr_samples,MESA_CNTR_SAMPLE_QUEUE_SIZE);
-        wake_up_interruptible(&brd->rwaitq);
+	if (((long)jiffies - (long)brd->lastWakeup) > brd->latencyJiffies ||
+		CIRC_SPACE(brd->cntr_samples.head,brd->cntr_samples.tail,
+		MESA_CNTR_SAMPLE_QUEUE_SIZE) < MESA_CNTR_SAMPLE_QUEUE_SIZE/2) {
+		wake_up_interruptible(&brd->rwaitq);
+		brd->lastWakeup = jiffies;
+	}
 }
 
 /* -- IRIG CALLBACK --------------------------------------------------- */
@@ -109,11 +114,6 @@ static void read_radar(void *ptr)
         unsigned short *dp;
         struct radar_state *rstate = &brd->rstate;
         unsigned short rdata;
-
-#ifdef DEBUG
-        KLOG_INFO("ngood=%d,npoll=%d,NPOLL=%d\n",
-                    rstate->ngood, rstate->npoll, rstate->NPOLL);
-#endif
 
         switch(rstate->ngood) {
         case 0:
@@ -159,7 +159,12 @@ static void read_radar(void *ptr)
                 /* increment head, this sample is ready for consumption */
                 INCREMENT_HEAD(brd->radar_samples,
                     MESA_RADAR_SAMPLE_QUEUE_SIZE);
-                wake_up_interruptible(&brd->rwaitq);
+                if (((long)jiffies - (long)brd->lastWakeup) > brd->latencyJiffies ||
+                        CIRC_SPACE(brd->radar_samples.head,brd->radar_samples.tail,
+                        MESA_RADAR_SAMPLE_QUEUE_SIZE) < MESA_RADAR_SAMPLE_QUEUE_SIZE/2) {
+                        wake_up_interruptible(&brd->rwaitq);
+                        brd->lastWakeup = jiffies;
+                }
 
                 rstate->ngood = 0;
                 rstate->npoll = 0;
@@ -229,7 +234,12 @@ static void read_260x(void *ptr)
 #endif
         /* increment head, this sample is ready for consumption */
         INCREMENT_HEAD(brd->p260x_samples,MESA_P260X_SAMPLE_QUEUE_SIZE);
-        wake_up_interruptible(&brd->rwaitq);
+	if (((long)jiffies - (long)brd->lastWakeup) > brd->latencyJiffies ||
+		CIRC_SPACE(brd->p260x_samples.head,brd->p260x_samples.tail,
+		MESA_P260X_SAMPLE_QUEUE_SIZE) < MESA_P260X_SAMPLE_QUEUE_SIZE/2) {
+		wake_up_interruptible(&brd->rwaitq);
+		brd->lastWakeup = jiffies;
+	}
 }
 
 /* -- UTILITY --------------------------------------------------------- */
@@ -459,6 +469,13 @@ static int mesa_open(struct inode *inode, struct file *filp)
         memset(&brd->p260x_read_state,0,
             sizeof(struct sample_read_state));
 
+	/* reads will be notified of new data every 250 milliseconds */
+        brd->latencyJiffies = (250 * HZ) / MSECS_PER_SEC;
+        if (brd->latencyJiffies == 0) brd->latencyJiffies = HZ / 4;
+        KLOG_INFO("%s: latencyJiffies=%ld, HZ=%d\n",
+                    brd->devName,brd->latencyJiffies,HZ);
+        brd->lastWakeup = jiffies;
+
         brd->progNbytes = 0;
         brd->nCounters = 0;
         brd->nRadars = 0;
@@ -500,6 +517,7 @@ static unsigned int mesa_poll(struct file *filp, poll_table *wait)
 {
         struct MESA_Board *brd = (struct MESA_Board*) filp->private_data;
         unsigned int mask = 0;
+
         poll_wait(filp, &brd->rwaitq, wait);
         if (data_ready(brd)) mask |= POLLIN | POLLRDNORM;    /* readable */
         return mask;
@@ -637,7 +655,13 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
 
                         if (rset.nChannels > N_RADARS) return -EINVAL;
 
+                        memset(&brd->rstate, 0, sizeof(struct radar_state));
                         // how many 100Hz callbacks in 1/rate seconds
+                        /*
+                         * We need to read the radar value 2 or 3 times so
+                         * NPOLL can't be less then 4, which is a sampling
+                         * rate of 25 Hz.
+                         */
                         brd->rstate.NPOLL = MSECS_PER_SEC / rset.rate / 10;
                         if (brd->rstate.NPOLL < 4) {
                                 KLOG_ERR
@@ -657,12 +681,6 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                         memset(&brd->radar_read_state,0,
                             sizeof(struct sample_read_state));
 
-                        memset(&brd->rstate, 0, sizeof(struct radar_state));
-                        /*
-                         * We need to read the radar value 2 or 3 times so
-                         * NPOLL can't be less then 4, which is a sampling
-                         * rate of 25 Hz.
-                         */
                         /*
                          * We schedule read_radar to be called every 100 Hz,
                          * since we have to read the data more than once to

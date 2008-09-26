@@ -169,10 +169,10 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
             n_u::UTime it(irigTime);
             n_u::UTime ut(unixTime);
 	    n_u::Logger::getInstance()->log(LOG_INFO,
-                "UNIX: %s, dt=%7d",
+                "UNIX: %s, dt=%7d usec",
                 ut.format(true,timeFormat).c_str(),dtunix);
             n_u::Logger::getInstance()->log(LOG_INFO,
-                "IRIG: %s, dt=%7d unix-irig=%10lld, rate ratio diff=%f",
+                "IRIG: %s, dt=%7d usec, unix-irig=%10lld usec, rate ratio diff=%f",
                 it.format(true,timeFormat).c_str(),dtirig,
                 unixTime - irigTime,fabs((float)(dtunix - dtirig)) / dtunix);
 
