@@ -17,6 +17,7 @@
 
 
 #include <nidas/dynld/raf/DSMMesaSensor.h>
+#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/RTL_IODevice.h>
 
@@ -51,9 +52,7 @@ bool DSMMesaSensor::isRTLinux() const
 {
     if (_rtlinux < 0)  {
 	const string& dname = getDeviceName();
-	string::size_type fs = dname.rfind('/');
-	if (fs != string::npos && (fs + 6) < dname.length() &&
-	    dname.substr(fs+1,8) == "mesa_rtl")
+	if (dname.find("rtl") != string::npos)
 		    _rtlinux = 1;
 	else _rtlinux = 0;
     }
