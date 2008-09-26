@@ -15,6 +15,7 @@
 
 #include <nidas/dynld/raf/SppSerial.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 
@@ -160,6 +161,8 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     setMessageParameters(); // does the ioctl
 
     n_u::UTime twrite;
+    
+    ILOG(("%s: sending packet, length=%d",getName().c_str(),len));
     write(setup_pkt, len);
 
     //
@@ -193,6 +196,7 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     if (*init_return != 0x0606)
     {
         samp->freeReference();
+	ILOG(("%s: received packet, data= %#04hx, expected 0x0606",getName().c_str(),*init_return));
         throw n_u::IOException(getName(), eType, "not expected return of 0x0606.");
     }
     samp->freeReference();
