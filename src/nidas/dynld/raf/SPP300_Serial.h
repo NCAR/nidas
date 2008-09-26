@@ -53,11 +53,10 @@ public:
     DMT_UShort  avTranWe;			// avgTransWeight
     DMT_UShort  divFlag;			// divisorflag 0=/2, 1=/4
     DMT_UShort  OPCthreshold[MAX_CHANNELS];	// OPCthreshold[MAX_CHANNELS]
-    DMT_UShort  spares[3];
     DMT_UShort  chksum;				// cksum
   };
 
-  static const int _InitPacketSize = 102;
+  static const int _InitPacketSize = 96;
 
   /**
    * Data packet back from probe.  This is max size with 40 channels.
