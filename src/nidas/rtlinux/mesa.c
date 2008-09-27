@@ -48,7 +48,7 @@ static int numboards = 0;
 
 static struct MESA_Board* boardInfo = 0;
 
-static const char* devprefix = "mesa";
+static const char* devprefix = "mesa_rtl";
 
 // Define IOCTLs
 static struct ioctlCmd ioctlcmds[] = {
