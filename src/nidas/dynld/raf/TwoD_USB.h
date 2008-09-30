@@ -53,7 +53,8 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags)
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     void close() throw(nidas::util::IOException);
 
@@ -85,12 +86,10 @@ public:
      */
     virtual size_t NumberOfDiodes() const = 0;
 
-    void fromDOMElement(const xercesc::DOMElement *)
-        throw(nidas::util::InvalidParameterException);
-
-    bool
-    process(const Sample * samp, std::list < const Sample * >&results)
-        throw();
+    /**
+     * Called by post-processing code 
+     */
+    void init() throw(nidas::util::InvalidParameterException);
 
     virtual void
     derivedDataNotify(const nidas::core:: DerivedDataReader * s)
@@ -148,19 +147,16 @@ protected:
     static const nidas::util::EndianConverter * bigEndian;
 
     /**
-     * Initialize processing variables.  Was unable to put this in the
-     * c-tor due to call of a pure virtual method.
+     * Initialize parameters for real-time and post-processing.
      */
-    virtual void init_processing();
+    virtual void init_parameters()
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Encode and send the true airspeed to the USB driver, which will
      * in turn send it to the probe.
      */
     virtual void sendTrueAirspeed(float tas) throw(nidas::util::IOException);
-
-    void addSampleTag(SampleTag * tag)
-     throw(nidas::util::InvalidParameterException);
 
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width

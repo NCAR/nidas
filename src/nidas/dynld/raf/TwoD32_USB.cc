@@ -41,7 +41,6 @@ const unsigned char TwoD32_USB::_syncChar = 0x55;
 
 TwoD32_USB::TwoD32_USB()
 {
-    init_processing();
 }
 
 TwoD32_USB::~TwoD32_USB()

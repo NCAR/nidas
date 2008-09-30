@@ -34,9 +34,6 @@ public:
     TwoD64_USB();
     ~TwoD64_USB();
 
-    void fromDOMElement(const xercesc::DOMElement *)
-        throw(nidas::util::InvalidParameterException);
-
     bool process(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
@@ -44,9 +41,12 @@ public:
      * Return bits-per-slice; same as the number of diodes in the probe.
      */
     virtual size_t NumberOfDiodes() const { return 64; }
-
   
 protected:
+
+    void init_parameters()
+        throw(nidas::util::InvalidParameterException);
+
     /**
      * Process the Shadow-OR sample from the probe.
      */

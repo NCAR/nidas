@@ -40,21 +40,6 @@ TwoD_USB::TwoD_USB() : _tasRate(1)
     _size_dist_2D = 0;
 }
 
-void TwoD_USB::init_processing()
-{
-    _prevTime = _nowTime = 0;
-    _twoDAreaRejectRatio = 0.5;
-    _cp = 0;
-
-    // Stats.
-    _totalRecords = _totalParticles = 0;
-    _overLoadSliceCount = _rejected1D_Cntr = _rejected2D_Cntr = _overSizeCount_2D = 0;
-
-    _size_dist_1D = new size_t[NumberOfDiodes()];
-    _size_dist_2D = new size_t[NumberOfDiodes()<<1];
-    clearData();
-}
-
 TwoD_USB::~TwoD_USB()
 {
     delete [] _size_dist_1D;
@@ -82,9 +67,11 @@ SampleScanner *TwoD_USB::buildSampleScanner()
 
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::open(int flags) throw(n_u::IOException)
+void TwoD_USB::open(int flags)
+    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
+    init_parameters();
 
     // Shut the probe down until a valid TAS comes along.
     sendTrueAirspeed(33.0);
@@ -107,26 +94,14 @@ void TwoD_USB::close() throw(n_u::IOException)
     DSMSensor::close();
 }
 
-
 /*---------------------------------------------------------------------------*/
-bool TwoD_USB::process(const Sample * samp,
-                        list < const Sample * >&results) throw()
+/* Initialization of things that are needed in real-time
+ * and when post-processing.  Don't put stuff here that
+ * is *only* needed during post-processing (the idea is to
+ * save memory on DSMs).
+ */
+void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
 {
-    return true;
-}
-
-void TwoD_USB::addSampleTag(SampleTag * tag)
-throw(n_u::InvalidParameterException)
-{
-    DSMSensor::addSampleTag(tag);
-}
-
-/*---------------------------------------------------------------------------*/
-void TwoD_USB::fromDOMElement(const xercesc::DOMElement * node)
-throw(n_u::InvalidParameterException)
-{
-    DSMSensor::fromDOMElement(node);
-
     const Parameter *p;
 
     // Acquire probe diode/pixel resolution (in micrometers) for tas encoding.
@@ -140,6 +115,14 @@ throw(n_u::InvalidParameterException)
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
     setTASRate((int)(rint(p->getNumericValue(0)))); //tas_rate is the same rate used as sor_rate
+}
+
+/*---------------------------------------------------------------------------*/
+/* Stuff that is necessary when post-processing.
+ */
+void TwoD_USB::init() throw(n_u::InvalidParameterException)
+{
+    init_parameters();
 
     // Find SampleID for 1D & 2D arrays.
     const list<const SampleTag *>& tags = getSampleTags();
@@ -153,6 +136,18 @@ throw(n_u::InvalidParameterException)
         if (var.getName().compare(0, 3, "A2D") == 0)
             _2dcID = tag->getId();
     }
+
+    _prevTime = _nowTime = 0;
+    _twoDAreaRejectRatio = 0.5;
+    _cp = 0;
+
+    // Stats.
+    _totalRecords = _totalParticles = 0;
+    _overLoadSliceCount = _rejected1D_Cntr = _rejected2D_Cntr = _overSizeCount_2D = 0;
+
+    _size_dist_1D = new size_t[NumberOfDiodes()];
+    _size_dist_2D = new size_t[NumberOfDiodes()<<1];
+    clearData();
 }
 
 /*---------------------------------------------------------------------------*/

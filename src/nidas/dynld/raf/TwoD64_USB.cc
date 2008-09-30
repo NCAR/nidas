@@ -47,17 +47,16 @@ const unsigned char TwoD64_USB::_overldString[3] = { 0x55, 0x55, 0xAA };
 
 TwoD64_USB::TwoD64_USB()
 {
-    init_processing();
 }
 
 TwoD64_USB::~TwoD64_USB()
 {
 }
 
-void TwoD64_USB::fromDOMElement(const xercesc::DOMElement * node)
-throw(n_u::InvalidParameterException)
+void TwoD64_USB::init_parameters()
+    throw(n_u::InvalidParameterException)
 {
-    TwoD_USB::fromDOMElement(node);
+    TwoD_USB::init_parameters();
 
     /* Look for a sample tag with id=2. This is assumed to be
      * the shadowOR sample.  Check its rate.
