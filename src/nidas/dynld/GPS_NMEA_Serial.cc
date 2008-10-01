@@ -118,7 +118,7 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 //        0        1 2          3 4           5 6      7     8      9     0 1
 //
 
-void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
+dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     dsm_time_t tt) throw()
 {
     char sep = ',';
@@ -129,6 +129,7 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     int iout = 0;
     bool timeerr = false;
     char status = '?';
+    dsm_time_t timeoffix;
 
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -139,6 +140,9 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	case 0:	// HHMMSS, optional output variable seconds of day
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 tm = hour * 3600 + minute * 60 + second;
+                int fracmicrosec = (second - (int) second) * USECS_PER_SEC;
+                timeoffix = tt/USECS_PER_SEC;
+                timeoffix = timeoffix*USECS_PER_SEC + fracmicrosec;
                 // Wait till we have the year,mon,day to issue a warning
                 // about a time error
                 if (tm < prevRMCTm && tm != 0 && prevRMCTm != 86399) {
@@ -218,6 +222,7 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	    break;
 	}
 	input = cp;
+        return timeoffix;
     }
     if (timeerr) {
         WLOG(("%s: GPS NMEA RMC time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%02d, status=%c",
@@ -243,7 +248,7 @@ void GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 //        0        1          2 3           4 5 6  7   8      9 0     1   3
 //
 
-void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
+dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     dsm_time_t tt) throw()
 {
     char sep = ',';
@@ -252,6 +257,7 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     float f1, f2, second=0.0, tm;
     int iout = 0;
     bool timeerr = false;
+    dsm_time_t timeoffix;
 
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -261,6 +267,9 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	switch (ifield) {
 	case 0:		// HHMMSS
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
+                int fracmicrosec = (second - (int) second) * USECS_PER_SEC;
+                timeoffix = tt/USECS_PER_SEC;
+                timeoffix = (timeoffix*USECS_PER_SEC) + fracmicrosec;
                 tm = hour * 3600 + minute * 60 + second;
                 if (tm < prevGGATm && tm != 0 && prevGGATm != 86399) {
                     ggacnt++;
@@ -327,6 +336,7 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	    break;
 	}
 	input = cp;
+        return timeoffix;
     }
     if (timeerr) {
         WLOG(("%s: GPS NMEA GGA time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, hh:mm:ss: %02d:%02d:%02d",
@@ -341,6 +351,7 @@ void GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
+    dsm_time_t timeoffix;
     assert(samp->getType() == CHAR_ST);
     int slen = samp->getDataLength();
     if (slen < 7) return false;
@@ -352,18 +363,18 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     if (!strncmp(input,"$GPGGA,",7)) {
 	input += 7;
 	SampleT<float>* outs = getSample<float>(ggaNvars);
-	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(ggaId);
-	parseGGA(input,outs->getDataPtr(),ggaNvars,samp->getTimeTag());
+	timeoffix = parseGGA(input,outs->getDataPtr(),ggaNvars,samp->getTimeTag());
+	outs->setTimeTag(timeoffix);
 	results.push_back(outs);
 	return true;
     }
     else if (!strncmp(input,"$GPRMC,",7)) {
 	input += 7;
 	SampleT<float>* outs = getSample<float>(rmcNvars);
-	outs->setTimeTag(samp->getTimeTag());
 	outs->setId(rmcId);
-	parseRMC(input,outs->getDataPtr(),rmcNvars,samp->getTimeTag());
+	timeoffix = parseRMC(input,outs->getDataPtr(),rmcNvars,samp->getTimeTag());
+	outs->setTimeTag(timeoffix);
 	results.push_back(outs);
 	return true;
     }

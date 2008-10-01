@@ -36,10 +36,10 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    void parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
+    dsm_time_t parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
     	throw();
   
-    void parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
+    dsm_time_t parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
     	throw();
 
 private:
