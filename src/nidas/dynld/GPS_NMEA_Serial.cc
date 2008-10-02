@@ -129,7 +129,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     int iout = 0;
     bool timeerr = false;
     char status = '?';
-    dsm_time_t timeoffix;
+    dsm_time_t timeoffix = 0;
 
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -141,8 +141,10 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 tm = hour * 3600 + minute * 60 + second;
                 long long fracmicrosec = (second - (long long) second) * USECS_PER_SEC;
-                timeoffix = tt/USECS_PER_SEC;
-                timeoffix = timeoffix*USECS_PER_SEC + fracmicrosec;
+                if (tm >= 0 && tm <= 86400) {
+                    timeoffix = tt/USECS_PER_SEC;
+                    timeoffix = timeoffix*USECS_PER_SEC + fracmicrosec;
+                }
                 // Wait till we have the year,mon,day to issue a warning
                 // about a time error
                 if (tm < prevRMCTm && tm != 0 && prevRMCTm != 86399) {
@@ -232,7 +234,10 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
     assert(iout == nvars);
 
-    return timeoffix;
+    if (timeoffix == 0)
+        return tt;
+    else
+        return timeoffix;
 }
 
 /**
@@ -258,7 +263,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     float f1, f2, second=0.0, tm;
     int iout = 0;
     bool timeerr = false;
-    dsm_time_t timeoffix;
+    dsm_time_t timeoffix = 0;
 
     // input is null terminated
     for (int ifield = 0; ; ifield++) {
@@ -269,9 +274,11 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	case 0:		// HHMMSS
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 long long fracmicrosec = (second - (long long) second) * USECS_PER_SEC;
-                timeoffix = tt/USECS_PER_SEC;
-                timeoffix = (timeoffix*USECS_PER_SEC) + fracmicrosec;
                 tm = hour * 3600 + minute * 60 + second;
+                if (tm >= 0 && tm <= 86400) {
+                    timeoffix = tt/USECS_PER_SEC;
+                    timeoffix = (timeoffix*USECS_PER_SEC) + fracmicrosec;
+                }
                 if (tm < prevGGATm && tm != 0 && prevGGATm != 86399) {
                     ggacnt++;
                     timeerr = true;
@@ -347,7 +354,10 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
     assert(iout == nvars);
 
-    return timeoffix;
+    if (timeoffix == 0)
+        return tt;
+    else
+        return timeoffix;
 }
 
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
