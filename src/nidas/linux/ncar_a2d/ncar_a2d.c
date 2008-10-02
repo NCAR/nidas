@@ -2300,14 +2300,14 @@ int init_module()
                 outw(AD7725_WRCONFIG, brd->base_addr);  // send WRCONFIG to channel 0
                 // Make sure channel 0 status confirms receipt of AD7725_WRCONFIG cmd
                 if (!A2DConfirmInstruction(brd, 0, AD7725_WRCONFIG)) {
-                        KLOG_ERR("Bad response on IoPort 0x%04x.  "
+                        KLOG_ERR("%s: Bad response on IoPort 0x%03x, address 0x%08x  "
                                  "Is there really an NCAR A/D card there?\n",
-                                 IoPort[ib]);
+                                 brd->deviceName,IoPort[ib],brd->base_addr);
                         error = -ENODEV;
                         goto err;
                 } else
-                        KLOG_INFO("NCAR A/D board confirmed at 0x%03x\n",
-                                    brd->base_addr);
+                        KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08x\n",
+                                    brd->deviceName,IoPort[ib],brd->base_addr);
                 /*
                  * Do we tell the board to interleave status with data?
                  */
