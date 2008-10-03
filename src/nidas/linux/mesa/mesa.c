@@ -84,7 +84,7 @@ static void read_counter(void *ptr)
                 return;
         }
 
-        samp->timetag = getSystemTimeMsecs();
+        samp->timetag = GET_MSEC_CLOCK;
         samp->length = (1 + brd->nCounters) * sizeof(short);
         dp = (unsigned short *)samp->data;
         *dp++ = cpu_to_le16(ID_COUNTERS);
@@ -117,7 +117,7 @@ static void read_radar(void *ptr)
 
         switch(rstate->ngood) {
         case 0:
-                rstate->timetag = getSystemTimeMsecs();
+                rstate->timetag = GET_MSEC_CLOCK;
                 rstate->prevData = inw(brd->addr + RADAR_READ_OFFSET);
                 rstate->ngood++;
                 break;
@@ -125,7 +125,7 @@ static void read_radar(void *ptr)
                 rdata = inw(brd->addr + RADAR_READ_OFFSET);
                 if (rdata == rstate->prevData) rstate->ngood++;
                 else {
-                        rstate->timetag = getSystemTimeMsecs();
+                        rstate->timetag = GET_MSEC_CLOCK;
                         rstate->prevData = rdata;       // leave ngood as 1
                 }
                 break;
@@ -208,7 +208,7 @@ static void read_260x(void *ptr)
                 return;
         }
 
-        samp->timetag = getSystemTimeMsecs();
+        samp->timetag = GET_MSEC_CLOCK;
         samp->length = nshort * sizeof(short);
         dp = (unsigned short *)samp->data;
         *dp++ = cpu_to_le16(ID_260X);
