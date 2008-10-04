@@ -1408,8 +1408,9 @@ static void readA2DFifo(struct A2DBoard *brd)
                 brd->skippedSamples +=
                     brd->nFifoValues / NUM_NCAR_A2D_CHANNELS /
                     brd->skipFactor;
-                KLOG_WARNING("%s: skippedSamples=%d\n", brd->deviceName,
-                             brd->skippedSamples);
+		if (!(brd->skippedSamples % 100))
+			KLOG_WARNING("%s: skippedSamples=%d\n", brd->deviceName,
+				     brd->skippedSamples);
                 insw(brd->base_addr, brd->discardBuffer, brd->nFifoValues);
                 return;
         }
@@ -1540,15 +1541,13 @@ static void ReadSampleCallback(void *ptr)
         postFlevel = getA2DFIFOLevel(brd);
         brd->cur_status.postFifoLevel[postFlevel]++;
 
-        /*
-         * If we have a bunch of consecutive reads that don't end with the
-         * card's FIFO empty, then a delay probably made us miss some samples 
-         * after we last cleared the FIFO, and hence we're time-tagging the data
-         * incorrectly.  Clear the FIFO again and we should get all synced
-         * up.  Note that we accept a few consecutive non-empty endings because
-         * this function gets called back at an *average* rate of 100Hz, but
-         * sometimes with gaps and then bursts of calls.
+	/*
+         * On a heavily loaded system, the FIFO is not empty after
+         * reading, especially if we have multiple A2D cards.  So we
+         * don't reset the FIFO if is isn't empty.  The thing to watch
+	 * is that it isn't full before the read, which we do above.
          */
+#ifdef REQUIRE_EMPTY_FIFO_AFTER_READING
         if (postFlevel > 0)
                 brd->consecutiveNonEmpty++;
         else
@@ -1561,7 +1560,7 @@ static void ReadSampleCallback(void *ptr)
                 brd->consecutiveNonEmpty = 0;
                 A2DClearFIFO(brd);
         }
-
+#endif
 
         /*
          * Update stats every 10 seconds
@@ -1592,8 +1591,8 @@ static void TemperatureCallback(void *ptr)
         short_sample_t *osamp = (short_sample_t *)
                     GET_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
         if (!osamp) {            // no output sample available
-                brd->skippedSamples++;
-                KLOG_WARNING("%s: skippedSamples=%d\n",
+                if (!(brd->skippedSamples++ % 1000))
+			KLOG_WARNING("%s: skippedSamples=%d\n",
                              brd->deviceName, brd->skippedSamples);
                 return;
         }

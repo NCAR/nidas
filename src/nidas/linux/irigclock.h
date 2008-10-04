@@ -18,6 +18,7 @@
 
 #if defined(__KERNEL__)
 #  include <linux/time.h>
+#include <nidas/linux/util.h>
 #else
 #  include <sys/time.h>
 #endif
@@ -123,9 +124,9 @@ int get_msec_clock_resolution(void);
 
 /**
  * Fetch the IRIG clock value directly.  This is meant to be used for
- * debugging, rather than real-time time tagging.  It directly performs ISA
- * bus transfers to/from the IRIG card, so the time is returned as quickly
- * as possible.  Precision is better than 1 microsecond; the accuracy is
+ * debugging, rather than real-time time tagging.  It disables interrupts
+ * and directly performs ISA bus transfers to/from the IRIG card.
+ * Precision is better than 1 microsecond; the accuracy is
  * unknown and is probably affected by ISA contention.
  */
 void irig_clock_gettime(struct timespec* tp);
@@ -145,26 +146,26 @@ struct irig_callback {
     int enabled;
 };
 
-/*
- * Schedule timed regular callbacks of a particular function
+/**
+ * Schedule timed regular callbacks of a particular function.
+ * These callbacks are executed from a software interrupt.
  */
 extern struct irig_callback* register_irig_callback(
     irig_callback_func* func, enum irigClockRates rate,
     void* privateData,int *errp);
 
+/**
+ * Remove a callback from the queue.
+ * A callback function can remove itself, or any other
+ * callback function.
+ * @return 1: OK, callback will never be called again
+ *      0: callback might be called once more. Do flush_irig_callback
+ *         to wait until it is definitely finished.
+ *      <0: errno
+ */
 extern int unregister_irig_callback(struct irig_callback*);
 
 extern int flush_irig_callbacks(void);
-
-
-struct irig_port {
-    struct dsm_clock_sample samp;
-    volatile int readyForRead;
-    struct semaphore lock;
-    wait_queue_head_t rwaitq;
-    struct irig_callback* writeCallback;
-};
-
 
 #endif	/* defined(__KERNEL__) */
 

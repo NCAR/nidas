@@ -80,7 +80,6 @@ static void read_counter(void *ptr)
                         inw(brd->addr + read_address_offset);
                         read_address_offset = COUNT1_READ_OFFSET;
                 }
-//KLOG_DEBUG("chn: %d  sample.data: %d\n", i, sample.data[i]);
                 return;
         }
 
@@ -92,7 +91,9 @@ static void read_counter(void *ptr)
         read_address_offset = COUNT0_READ_OFFSET;
         for (i = 0; i < brd->nCounters; i++) {
                 // read from the counter channel
-                *dp++ = cpu_to_le16(inw(brd->addr + read_address_offset));
+                *dp = cpu_to_le16(inw(brd->addr + read_address_offset));
+//KLOG_INFO("chn: %d  sample.data: %d\n", i, *dp);
+                dp++;
                 read_address_offset = COUNT1_READ_OFFSET;
         }
 
