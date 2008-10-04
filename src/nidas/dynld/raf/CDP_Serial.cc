@@ -31,7 +31,7 @@ const size_t CDP_Serial::FWB_TMP_INDX = 2;
 const size_t CDP_Serial::FLSR_TMP_INDX = 3;
 
 
-CDP_Serial::CDP_Serial(): SppSerial()
+CDP_Serial::CDP_Serial(): SppSerial("CDP")
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.

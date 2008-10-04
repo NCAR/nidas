@@ -27,13 +27,23 @@ namespace n_u = nidas::util;
 
 //NIDAS_CREATOR_FUNCTION_NS(raf,SppSerial)
 
-SppSerial::SppSerial() : DSMSerialSensor(),
+SppSerial::~SppSerial()
+{
+    cerr << "SppSerial::" << _probeName << ": " << _skippedRecordCount <<
+	" records skipped of " << _totalRecordCount << " records for " <<
+	((float)_skippedRecordCount/_totalRecordCount) * 100 << "% loss.\n";
+}
+
+SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
+  _probeName(probe),
   _range(0),
   _dataType(FixedLength),
   _checkSumErrorCnt(0),
   _waitingData(0),
   _nWaitingData(0),
   _skippedBytes(0),
+  _skippedRecordCount(0),
+  _totalRecordCount(0),
   _sampleRate(1)
 {
   // If these aren't true, we're screwed!
@@ -72,14 +82,12 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
 
     p = getParameter("AVG_TRANSIT_WGT");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", 
-					   "not found");
+      throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
     _avgTransitWeight = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("CHAN_THRESH");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
-					   "not found");
+      throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
     if (p->getLength() != _nChannels)
         throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
 					     "not NCHANNELS long ");
@@ -203,7 +211,8 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
 }
 
 
-int SppSerial::appendDataAndFindGood(const Sample* samp) {
+int SppSerial::appendDataAndFindGood(const Sample* samp)
+{
     if ((signed)samp->getDataByteLength() != packetLen()) 
       return false;
     
@@ -251,11 +260,13 @@ int SppSerial::appendDataAndFindGood(const Sample* samp) {
 	}
 
 	if (_skippedBytes) {
-	  cerr << "SppSerial::appendDataAndFind skipped " << _skippedBytes << 
-	    " bytes to find a good " << packetLen() << "-byte record.\n";
+//	  cerr << "SppSerial::appendDataAndFind(" << _probeName << ") skipped " <<
+//		_skippedBytes << " bytes to find a good " << packetLen() << "-byte record.\n";
 	  _skippedBytes = 0;
+          _skippedRecordCount++;
 	}
 
+        _totalRecordCount++;
 	return true;
       }
     }

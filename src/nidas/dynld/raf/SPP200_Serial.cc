@@ -34,7 +34,7 @@ const size_t SPP200_Serial::PFLWS_INDX = 6;
 const size_t SPP200_Serial::PTMP_INDX = 7;
 
 
-SPP200_Serial::SPP200_Serial() : SppSerial()
+SPP200_Serial::SPP200_Serial() : SppSerial("SPP200")
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.

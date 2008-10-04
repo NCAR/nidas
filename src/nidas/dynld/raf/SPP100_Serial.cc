@@ -29,7 +29,7 @@ const size_t SPP100_Serial::FREF_INDX = 4;
 const size_t SPP100_Serial::FTMP_INDX = 7;
 
 
-SPP100_Serial::SPP100_Serial(): SppSerial()
+SPP100_Serial::SPP100_Serial(): SppSerial("SPP100")
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.

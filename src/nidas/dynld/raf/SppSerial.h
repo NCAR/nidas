@@ -95,7 +95,8 @@ public:
     Delimited
   };
 
-  SppSerial();
+  SppSerial(const std::string & probe);
+  ~SppSerial();
 
   unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
@@ -158,6 +159,7 @@ protected:
    */
   int _nHskp;
   
+  std::string _probeName;
 
   unsigned short _range;
 
@@ -194,6 +196,8 @@ protected:
   unsigned char* _waitingData;  // size will be 2 * packetLen()
   unsigned short _nWaitingData;
   int _skippedBytes;		// how much skipped looking for a good record?
+  size_t _skippedRecordCount;
+  size_t _totalRecordCount;
 
   /**
    * Here more for documentation.  This is the data polling request packet.
