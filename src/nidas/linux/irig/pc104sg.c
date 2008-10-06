@@ -369,7 +369,6 @@ struct irig_callback *register_irig_callback(irig_callback_func * callback,
         cbentry->callback = callback;
         cbentry->privateData = privateData;
         cbentry->rate = rate;
-        cbentry->enabled = 1;
 
         list_add(&cbentry->list, &board.pendingAdds);
 
@@ -392,8 +391,6 @@ EXPORT_SYMBOL(register_irig_callback);
 int unregister_irig_callback(struct irig_callback *cb)
 {
         int ret = 1;
-
-        cb->enabled = 0;
 
         spin_lock_bh(&board.cblist_lock);
 
@@ -1345,8 +1342,7 @@ static inline void doCallbacklist(int rate)
 
         for (ptr = list->next; ptr != list; ptr = ptr->next) {
                 cbentry = list_entry(ptr, struct irig_callback, list);
-                if (cbentry->enabled)
-                        cbentry->callback(cbentry->privateData);
+                cbentry->callback(cbentry->privateData);
         }
 }
 
@@ -1374,11 +1370,11 @@ static void pc104sg_bh_100Hz(unsigned long dev)
         count = incrementCount100Hz();
         spin_unlock_irqrestore(&board.time_reg_lock, flags);
 
+        atomic_set(&board.callbacksActive, 1);
+
         spin_lock_irqsave(&board.cblist_lock, flags);
         handlePendingCallbacks();
         spin_unlock_irqrestore(&board.cblist_lock, flags);
-
-        atomic_set(&board.callbacksActive, 1);
 
         /* perform 100Hz processing... */
         doCallbacklist(IRIG_100_HZ);

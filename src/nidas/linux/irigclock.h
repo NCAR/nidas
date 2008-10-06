@@ -143,28 +143,49 @@ struct irig_callback {
     irig_callback_func* callback;
     void* privateData;
     enum irigClockRates rate;
-    int enabled;
 };
 
 /**
- * Schedule timed regular callbacks of a particular function.
- * These callbacks are executed from a software interrupt.
+ * Schedule regular callbacks of a particular function.
+ * These callbacks are executed by the pc104sg driver from
+ * a software interrupt, hence they cannot do anything
+ * that would sleep, like calling wait_event, or lock a
+ * semaphore, or allocate memory with anything other than
+ * GFP_ATOMIC, or call schedule.
  */
 extern struct irig_callback* register_irig_callback(
     irig_callback_func* func, enum irigClockRates rate,
     void* privateData,int *errp);
 
 /**
- * Remove a callback from the queue.
+ * Remove a callback from the list.
  * A callback function can remove itself, or any other
  * callback function.
  * @return 1: OK, callback will never be called again
- *      0: callback might be called once more. Do flush_irig_callback
- *         to wait until it is definitely finished.
+ *      0: callback might be called once more. If not in a callback,
+ *         do flush_irig_callback to wait until the irig driver is
+ *         finished  the current set of callbacks, to ensure
+ *         that the callback will not be called again.
  *      <0: errno
  */
 extern int unregister_irig_callback(struct irig_callback*);
 
+/**
+ * This function does a wait until the pc104sg module
+ * is not calling its callbacks.  Note: this function
+ * cannot be called from an irig callback, since
+ * 1. it would wait forever
+ * 2. waits are not allowed from software interrupt context.
+ *
+ * Since it does a wait, it should also not be called from a
+ * hardware  interrupt handler.
+ * It is useful to use, from a release fops, for example,
+ * which is in user context, to ensure that a certain
+ * callback will not be called again:
+ * int i = unregister_irig_callback(my_callback);
+ * if (i < 0) return i;
+ * else if (!i) flush_irig_callbacks();
+ */
 extern int flush_irig_callbacks(void);
 
 #endif	/* defined(__KERNEL__) */

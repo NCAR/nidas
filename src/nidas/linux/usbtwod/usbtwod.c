@@ -191,8 +191,7 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 }
 
 /* Used by both irig callback or timer function to send the tas value via
- * the bulk write end-point. Therefore it can be called 
- * in interrupt or non-interrupt mode.
+ * the bulk write end-point. Therefore, it is called from interrupt context.
  */
 static int write_tas(struct usb_twod *dev)
 {
@@ -244,7 +243,8 @@ static int write_tas(struct usb_twod *dev)
 #ifdef DO_IRIG_TIMING
 static void send_tas_callback(void *ptr)
 {
-        // This is an irig callback, which called from a work queue.
+        /* This is an irig callback, which is called from a
+         * software interrupt */
         struct usb_twod *dev = (struct usb_twod *) ptr;
         write_tas(dev);
 }
@@ -272,8 +272,9 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                         return -EINVAL;
         }
 
-        if (dev->tasCallback)
-                unregister_irig_callback(dev->tasCallback);
+        if (dev->tasCallback &&
+                unregister_irig_callback(dev->tasCallback) == 0)
+                    flush_irig_callbacks();
         dev->tasCallback = 0;
         if (irigRate != IRIG_NUM_RATES && irigRate != dev->sorRate) {
                 dev->sorRate = irigRate;
@@ -296,7 +297,6 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 dev->sendTASJiffies = 0;
         }
 #endif
-
         return 0;
 }
 
@@ -896,7 +896,7 @@ static int twod_release(struct inode *inode, struct file *file)
 
         twod_set_sor_rate(dev, 0);
 
-        read_lock(&dev->usb_iface_lock);
+        read_lock_bh(&dev->usb_iface_lock);
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
@@ -926,7 +926,7 @@ static int twod_release(struct inode *inode, struct file *file)
                         }
                 }
         }
-        read_unlock(&dev->usb_iface_lock);
+        read_unlock_bh(&dev->usb_iface_lock);
 
         twod_dev_free(dev);
 
