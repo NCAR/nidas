@@ -152,6 +152,20 @@ struct irig_callback {
  * that would sleep, like calling wait_event, or lock a
  * semaphore, or allocate memory with anything other than
  * GFP_ATOMIC, or call schedule.
+ *
+ * In general, an irig callback should act like a hardware
+ * interrupt handler, doing a minimum of essential operations,
+ * before scheduling a work_queue for further processing,
+ * or notifying the user side that data is available if further
+ * processing is not necessary.
+ *
+ * The callbacks are performed starting with the highest
+ * requested rate, typcally 100Hz, in the sequence that
+ * they were registered.  Therefore, the execution time
+ * of a callback delays the execution of other
+ * callbacks at the same rate that were registered later,
+ * and all callbacks that are registered at lower rates.
+ * So, keep then quick to reduce effects on other modules.
  */
 extern struct irig_callback* register_irig_callback(
     irig_callback_func* func, enum irigClockRates rate,
@@ -171,20 +185,32 @@ extern struct irig_callback* register_irig_callback(
 extern int unregister_irig_callback(struct irig_callback*);
 
 /**
- * This function does a wait until the pc104sg module
- * is not calling its callbacks.  Note: this function
- * cannot be called from an irig callback, since
+ * This function does a wait_event_interruptible() until the
+ * pc104sg module is not calling its callbacks.  Note:
+ * this function cannot be called from an irig callback, since
  * 1. it would wait forever
  * 2. waits are not allowed from software interrupt context.
  *
- * Since it does a wait, it should also not be called from a
- * hardware  interrupt handler.
- * It is useful to use, from a release fops, for example,
- * which is in user context, to ensure that a certain
+ * It is actually not necessary to call from an irig callback
+ * since if an irig callback unregisters itself, then
+ * it will not be called again after a return.
+ *
+ * Since flush_irig_callbacks does a wait, it should also not
+ * be called from a hardware interrupt handler.
+ *
+ * Calling this is not strictly necessary on a uni-processor
+ * system, but we should always expect that a driver may
+ * run on a multi-processor system.
+ *
+ * It is useful to use, from a device release fops (user close),
+ * for example, which is in user context, to ensure that a certain
  * callback will not be called again:
  * int i = unregister_irig_callback(my_callback);
  * if (i < 0) return i;
  * else if (!i) flush_irig_callbacks();
+ *
+ * @return  0: OK,
+ *      -ERESTARTSYS: wait was interrupted by a signal.
  */
 extern int flush_irig_callbacks(void);
 

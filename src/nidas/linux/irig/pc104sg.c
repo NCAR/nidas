@@ -409,9 +409,10 @@ EXPORT_SYMBOL(unregister_irig_callback);
 
 int flush_irig_callbacks(void)
 {
-        return wait_event_interruptible(board.callbackWaitQ,
-                                        atomic_read(&board.
-                                                    callbacksActive) == 0);
+        if (wait_event_interruptible(board.callbackWaitQ,
+                atomic_read(&board.callbacksActive) == 0))
+                return -ERESTARTSYS;
+        return 0;
 }
 
 EXPORT_SYMBOL(flush_irig_callbacks);
