@@ -356,7 +356,11 @@ int Extract2D::run() throw()
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
                     {
                         fast2dc_id = (*dsm_it)->getId();
-                        p->id = htons(0x4334);	// C4
+
+                        if (p->resolution == 10)	// 10um.
+                            p->id = htons(0x4336);	// C6, Fast 10um 64 diode probe.
+                        else
+                            p->id = htons(0x4334);	// C4, Fast 25um 64 diode probe.
                     }
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
