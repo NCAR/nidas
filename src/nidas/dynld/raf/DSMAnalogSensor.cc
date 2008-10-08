@@ -310,17 +310,9 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 		stat.preFifoLevel[3] << ',' <<
 		stat.preFifoLevel[4] << ',' <<
 		stat.preFifoLevel[5];
-	ostr << ", #badlev=" << stat.nbadFifoLevel + stat.fifoNotEmpty <<
-		", #resets=" << stat.resets <<
+	ostr << ", #resets=" << stat.resets <<
 		", #lost=" << stat.skippedSamples;
 
-        for (unsigned int ichan = 0; ichan < NUM_NCAR_A2D_CHANNELS; ichan++) {
-            if (stat.nbad[ichan] > 0) {
-		ostr << " ,c=" << ichan << 
-			",nbad=" << stat.nbad[ichan] <<
-			",stat=" << hex << stat.badval[ichan] << dec;
-	    }
-	}
 	ostr << ", temp=" << fixed << setprecision(1) <<
 	    tdeg << " degC</td>" << endl;
 

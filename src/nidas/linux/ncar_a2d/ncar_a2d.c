@@ -556,7 +556,7 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
                 return -EINVAL;
         }
 
-        KLOG_DEBUG("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
+        KLOG_INFO("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
         outb(A2DIO_WRMASTER, brd->cmd_addr);
         outb((char) channel, brd->base_addr);
         return 0;
@@ -810,7 +810,7 @@ static void A2DStopRead(struct A2DBoard *brd, int channel)
 static void A2DStopReadAll(struct A2DBoard *brd)
 {
         int i;
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
 #ifdef CHECK_ACTIVE_CHANNELS_ON_CONFIG
                 if (brd->gain[i] > 0)
                         A2DStopRead(brd, i);
@@ -870,7 +870,7 @@ static int A2DStartAll(struct A2DBoard *brd)
         int ret = 0;
         for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
 #ifdef CHECK_ACTIVE_CHANNELS_ON_CONFIG
-                if (brd->gain[i] > 0 && (ret = A2DStart(brd, i) != 0))
+                if (brd->gain[i] > 0 && (ret = A2DStart(brd, i)) != 0)
                     return ret;
 #else
                 if ((ret = A2DStart(brd, i) != 0)) return ret;
@@ -915,7 +915,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                      brd->deviceName, channel);
                 return -ETIMEDOUT;
         }
-        KLOG_DEBUG("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
+        KLOG_INFO("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
 
         for (coef = 0; coef < nCoefs; coef++) {
                 // Set up for config write and write out coefficient
@@ -1075,7 +1075,7 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
 
         // HACK! the CPLD logic needs to be fixed!  
         for (repeat = 0; repeat < 3; repeat++) {
-                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+                for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
                         /*
                          * Set gain for requested channels
                          */
@@ -1403,7 +1403,13 @@ static void readA2DFifo(struct A2DBoard *brd)
          */
         outb(A2DIO_FIFO, brd->cmd_addr);        // Set up to read data
 
-        samp = GET_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
+        if (brd->discardNextScan) {
+                insw(brd->base_addr, brd->discardBuffer, brd->nFifoValues);
+		brd->discardNextScan = 0;
+		return;
+        }
+		
+	samp = GET_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
         if (!samp) {            // no output sample available
                 brd->skippedSamples +=
                     brd->nFifoValues / NUM_NCAR_A2D_CHANNELS /
@@ -1484,22 +1490,13 @@ static void readA2DFifo(struct A2DBoard *brd)
 static void ReadSampleCallback(void *ptr)
 {
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
-        int preFlevel, postFlevel;
+        int preFlevel;
 
         /*
          * If board is not healty, we're out-a-here.
          */
         if (brd->errorState != 0)
                 return;
-
-        /*
-         * Clear the card's FIFO if we were asked to discard a scan
-         */
-        if (brd->discardNextScan) {
-                A2DClearFIFO(brd);
-                brd->discardNextScan = 0;
-                return;
-        }
 
         /*
          * How full is the card's FIFO?
@@ -1536,44 +1533,13 @@ static void ReadSampleCallback(void *ptr)
         brd->readCtr++;
 
         /*
-         * Keep track of the card's FIFO level when we're done reading
-         */
-        postFlevel = getA2DFIFOLevel(brd);
-        brd->cur_status.postFifoLevel[postFlevel]++;
-
-	/*
-         * On a heavily loaded system, the FIFO is not empty after
-         * reading, especially if we have multiple A2D cards.  So we
-         * don't reset the FIFO if is isn't empty.  The thing to watch
-	 * is that it isn't full before the read, which we do above.
-         */
-#ifdef REQUIRE_EMPTY_FIFO_AFTER_READING
-        if (postFlevel > 0)
-                brd->consecutiveNonEmpty++;
-        else
-                brd->consecutiveNonEmpty = 0;
-
-        if (brd->consecutiveNonEmpty == 100) {
-                KLOG_WARNING
-                    ("%s: Clearing card FIFO after %d consecutive non-empty ends\n",
-                     brd->deviceName,brd->consecutiveNonEmpty);
-                brd->consecutiveNonEmpty = 0;
-                A2DClearFIFO(brd);
-        }
-#endif
-
-        /*
          * Update stats every 10 seconds
          */
         if (!(brd->readCtr % (A2D_POLL_RATE * 10))) {
-                brd->nbadScans = 0;
-
                 /*
                  * copy current status to prev_status for access by ioctl
                  * A2D_GET_STATUS
                  */
-                brd->cur_status.nbadFifoLevel = brd->nbadFifoLevel;
-                brd->cur_status.fifoNotEmpty = brd->fifoNotEmpty;
                 brd->cur_status.skippedSamples = brd->skippedSamples;
                 brd->cur_status.resets = brd->resets;
                 memcpy(&brd->prev_status, &brd->cur_status,
@@ -1696,10 +1662,7 @@ static int resetBoard(struct A2DBoard *brd)
 
         brd->discardNextScan = 1;       // whether to discard the initial scan
         brd->interrupted = 0;
-        brd->nbadScans = 0;
         brd->readCtr = 0;
-        brd->nbadFifoLevel = 0;
-        brd->fifoNotEmpty = 0;
         brd->skippedSamples = 0;
         brd->fifo_samples.head = brd->fifo_samples.tail = 0;
         brd->consecutiveNonEmpty = 0;
@@ -1765,8 +1728,10 @@ static int startBoard(struct A2DBoard *brd)
         }
 
         for (i = 0; !haveMaster && i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
-                if ((ret = A2DSetMaster(brd, i)) < 0) return ret;
-                haveMaster = 1;
+		if (brd->gain[i] > 0) {
+			if ((ret = A2DSetMaster(brd, i)) < 0) return ret;
+			haveMaster = 1;
+                }
         }
         if (!haveMaster) return -EIO;
 
@@ -1864,7 +1829,7 @@ static int startBoard(struct A2DBoard *brd)
          * Finally reset, which will start collection.
          */
         ret = resetBoard(brd);
-
+        brd->resets = 0;	// first one doesn't count
         return ret;
 }
 

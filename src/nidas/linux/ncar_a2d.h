@@ -66,15 +66,21 @@ struct ncar_a2d_status
     //  4: < full
     //  5: full
     size_t preFifoLevel[6];   // counters for fifo level, pre-read
+
+    unsigned short goodval[NUM_NCAR_A2D_CHANNELS];  // value of last good status word
+
+    unsigned short    ser_num;        // A/D card serial number
+
+    size_t skippedSamples;    // discarded samples because of slow RTL fifo
+    int resets;               // number of board resets since last open
+
+    // following members are used only by RTLinux version
     size_t postFifoLevel[6];  // counters for fifo level, post-read
     size_t nbad[NUM_NCAR_A2D_CHANNELS];     // number of bad status words in last 100 scans
     unsigned short badval[NUM_NCAR_A2D_CHANNELS];   // value of last bad status word
-    unsigned short goodval[NUM_NCAR_A2D_CHANNELS];  // value of last good status word
-    unsigned short    ser_num;        // A/D card serial number
     size_t nbadFifoLevel;     // #times hw fifo not at expected level pre-read
     size_t fifoNotEmpty;      // #times hw fifo not empty post-read
-    size_t skippedSamples;    // discarded samples because of slow RTL fifo
-    int resets;               // number of board resets since last open
+
 };
 
 /*

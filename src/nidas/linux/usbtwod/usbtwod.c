@@ -896,7 +896,7 @@ static int twod_release(struct inode *inode, struct file *file)
 
         twod_set_sor_rate(dev, 0);
 
-        read_lock_bh(&dev->usb_iface_lock);
+        read_lock(&dev->usb_iface_lock);
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
@@ -926,7 +926,7 @@ static int twod_release(struct inode *inode, struct file *file)
                         }
                 }
         }
-        read_unlock_bh(&dev->usb_iface_lock);
+        read_unlock(&dev->usb_iface_lock);
 
         twod_dev_free(dev);
 

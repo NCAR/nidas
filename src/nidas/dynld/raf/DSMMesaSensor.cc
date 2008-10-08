@@ -166,15 +166,14 @@ bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
 
     if (sampleID == ID_RADAR)
     {
-      float value;
+      unsigned short value;
 
       for (size_t i = 0; i < nvalues; ++i)
       {
         value = *sp++;
         // Radar altimeter returns 65536 when sitting on ground, remove it.
-        if (value > 60000)
-          value = 0.0;
-        *dptr++ = value;
+        if (value > 60000 || value == 0) *dptr++ = floatNAN;
+        else *dptr++ = (float)value;
       }
     }
     else
