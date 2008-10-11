@@ -38,6 +38,10 @@ TwoD_USB::TwoD_USB() : _tasRate(1)
 {
     _size_dist_1D = 0;
     _size_dist_2D = 0;
+
+    // Stats.
+    _totalRecords = _totalParticles = 0;
+    _overLoadSliceCount = _rejected1D_Cntr = _rejected2D_Cntr = _overSizeCount_2D = 0;
 }
 
 TwoD_USB::~TwoD_USB()
@@ -140,10 +144,6 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
     _prevTime = _nowTime = 0;
     _twoDAreaRejectRatio = 0.5;
     _cp = 0;
-
-    // Stats.
-    _totalRecords = _totalParticles = 0;
-    _overLoadSliceCount = _rejected1D_Cntr = _rejected2D_Cntr = _overSizeCount_2D = 0;
 
     _size_dist_1D = new size_t[NumberOfDiodes()];
     _size_dist_2D = new size_t[NumberOfDiodes()<<1];
