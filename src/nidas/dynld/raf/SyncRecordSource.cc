@@ -325,6 +325,12 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 {
     headerStream.str("");	// initialize header to empty string
+
+    // reset output to the general type (not fixed, not scientific)
+    headerStream.setf(ios_base::fmtflags(0),ios_base::floatfield);
+    // 6 digits of precision.
+    headerStream.precision(6);
+
     createHeader(headerStream);
     string headstr = headerStream.str();
 
