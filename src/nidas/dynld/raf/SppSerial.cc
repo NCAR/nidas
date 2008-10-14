@@ -29,9 +29,11 @@ namespace n_u = nidas::util;
 
 SppSerial::~SppSerial()
 {
-    cerr << "SppSerial::" << _probeName << ": " << _skippedRecordCount <<
-	" records skipped of " << _totalRecordCount << " records for " <<
-	((float)_skippedRecordCount/_totalRecordCount) * 100 << "% loss.\n";
+    if (_totalRecordCount > 0) {
+        cerr << "SppSerial::" << _probeName << ": " << _skippedRecordCount <<
+		" records skipped of " << _totalRecordCount << " records for " <<
+		((float)_skippedRecordCount/_totalRecordCount) * 100 << "% loss.\n";
+    }
 }
 
 SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),

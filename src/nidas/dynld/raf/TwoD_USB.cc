@@ -49,8 +49,8 @@ TwoD_USB::~TwoD_USB()
     delete [] _size_dist_1D;
     delete [] _size_dist_2D;
 
-    std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
     if (_totalRecords > 0) {
+        std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
         std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
         std::cerr << "Number of rejected particles for 2D = " << _rejected2D_Cntr << std::endl;
@@ -172,7 +172,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
      * will probably bite us some day when they try to use a 2D probe on
      * ISF or ISFF....
      */
-    if (tas < 25.0)
+    if (tas < 33.0)
         tas = 33.0;
 
     double freq = tas / getResolution();
