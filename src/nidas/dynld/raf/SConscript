@@ -9,6 +9,7 @@ sources = Split("""
     Aircraft.cc
     Arinc_IRS.cc
     CDP_Serial.cc
+    CMIGITS3_Serial.cc
     CVI_LV_Input.cc
     CVIOutput.cc
     CVIProcessor.cc
@@ -44,6 +45,7 @@ headers = Split("""
     Aircraft.h
     Arinc_IRS.h
     CDP_Serial.h
+    CMIGITS3_Serial.h
     CVI_LV_Input.h
     CVIOutput.h
     CVIProcessor.h
