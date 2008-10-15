@@ -96,6 +96,7 @@ struct GPIO_MM_fcntr_status
         unsigned int lostSamples;
         unsigned int pulseUnderflow;
         unsigned int badGateWarning;
+        unsigned int badStatusWarning;
 };
 
 /* Pick a character as the magic number of your driver.

@@ -1014,12 +1014,11 @@ static int gpio_mm_stop_fcntr(struct GPIO_MM_fcntr* fcntr)
  *    registers.
  * 2. Get the values of the hold registers.
  * 3. Look at the status of the pulse counter output. 
- *    If it is high, then either it didn't get one count or
- *    it is finished counting. In either case the value of the
- *    pulse counter will be 3. According to the CTS9513 doc,
- *    When it finishes counting it reloads itself from the load
- *    register, which has value 3, but actually it appears to be 2
- *    in that case.
+ *    If it is high, then either it didn't finish counting the initial 
+ *    small number of pulses, or it is finished counting.
+ *    According to the CTS9513 doc, when it finishes counting it
+ *    reloads itself from the load register, which has value 3,
+ *    but actually it appears to be 2 in that case.
  *    To differentiate between these cases we can also look at the number of
  *    tics counted, which should be 0 if there were no pulses.
  *    If the output is low, then it hasn't finished counting numPulses,
@@ -1065,7 +1064,8 @@ static void fcntr_timer_callback_func(void *privateData)
         gpio_mm_set_hold_reg(brd,pc,fcntr->numPulses);
 
         /* set output high, which is the gate for the next counter */
-        if (!pcstatus) gpio_mm_set_toggle_out(brd,pc);
+        // if (!pcstatus) gpio_mm_set_toggle_out(brd,pc);
+        gpio_mm_set_toggle_out(brd,pc);
 
         /* load and arm F1 tic counters */
         gpio_mm_load_arm_counters(brd,tc1,tc2);
@@ -1093,11 +1093,11 @@ static void fcntr_timer_callback_func(void *privateData)
                 samp->ticks = cpu_to_le32(tcn);
                  
                 if (pcstatus)  {
-                        // pc output high, all pulses counted, or none
+                        // pc output high, all pulses counted, or not finished counting the initial few
                         switch (pcn) {
                         case 3:
-                                /* If the output status is high and the
-                                 * counter has value 3, then no pulses
+                                /* On a GPIO-MM, if the output status is high
+				 * and the counter has value 3, then no pulses
                                  * were counted.
                                  * If there is no hardwire connection from the
                                  * output of pc and the gate of tc1, and
@@ -1106,22 +1106,21 @@ static void fcntr_timer_callback_func(void *privateData)
                                  * the counters will run continously,
                                  * their gate is always enabled.
                                  */
-                                if (tcn != 0 &&
-                                    !(fcntr->status.badGateWarning++ % 1000))
-                                    KLOG_WARNING(
-                                    "%s: warning #%d: No pulses, expected ntics to be 0, but it is %d. Is J3:OUT%d wired to J3:GATE%d?\n",
-                                    fcntr->deviceName,fcntr->status.badGateWarning,tcn,pc+1,tc1+1);
-                                samp->pulses = 0;
-                                samp->ticks = 0;
+				if (tcn == 0) samp->pulses = 0;
+                                else {
+					samp->pulses = cpu_to_le32(fcntr->numPulses - pcn);
+					if (!(fcntr->status.badGateWarning++ % 1000))
+					    KLOG_WARNING(
+			    "%s: warning #%d: output status high, pcn=%d, expected ntics to be 0, but it is %d. Is J3:OUT%d wired to J3:GATE%d?\n",
+					    fcntr->deviceName,fcntr->status.badGateWarning,pcn,tcn,pc+1,tc1+1);
+				}
                                 break;
                         case 2:
-                                /* When the counter finishes, it is supposed
+				/* On a GPIO-MM, when the counter finishes, it is supposed
                                  * to load itself again from the load register
                                  * which has value 3, but for some reason
                                  * the counter value saved to the hold
-                                 * register is 2, which is a nice feature/bug,
-                                 * because it allows us to differentiate
-                                 * between npulses and 0 pulses.
+                                 * register is 2.
                                  */
                                 /* If there is no hardwire connection from the
                                  * output of pc to the gate of tc1, and
@@ -1130,20 +1129,26 @@ static void fcntr_timer_callback_func(void *privateData)
                                  * the counters will not run, since the
                                  * gate is always high.
                                  */
-                                samp->pulses = cpu_to_le32(fcntr->numPulses);
-                                if (tcn == 0 &&
-                                    !(fcntr->status.badGateWarning++ % 1000))
-                                    KLOG_WARNING(
-                                    "%s: warning #%d: %d pulses, but tics is 0. Is J3:OUT%d wired to J3:GATE%d?\n",
-                                    fcntr->deviceName,fcntr->status.badGateWarning,fcntr->numPulses,
-                                        pc+1,tc1+1);
+                                if (tcn == 0) {
+					samp->pulses = 0;
+					if (!(fcntr->status.badGateWarning++ % 1000))
+					    KLOG_WARNING(
+					    "%s: warning #%d: output status high, pcn=%d, but tics is 0. Is J3:OUT%d wired to J3:GATE%d?\n",
+					    fcntr->deviceName,fcntr->status.badGateWarning,pcn,pc+1,tc1+1);
+				}
+				else samp->pulses = cpu_to_le32(fcntr->numPulses);
                                 break;
+                        case 1:
+				if (tcn == 0) samp->pulses = 0;
+				else samp->pulses = cpu_to_le32(fcntr->numPulses - pcn);
+				break;
                         default:
-                                KLOG_WARNING(
-                            "%s: pc output high, pcn should be 2 or 3, instead it is %d, tcn=%d\n",
-                                fcntr->deviceName,pcn,tcn);
-                                samp->pulses =
-                                    cpu_to_le32(fcntr->numPulses - pcn);
+				if (tcn == 0) samp->pulses = 0;
+				else samp->pulses = cpu_to_le32(fcntr->numPulses - pcn);
+                                if (!(fcntr->status.badStatusWarning++ % 1000)) 
+					KLOG_WARNING(
+                            "%s: warning #%d: pc output high, pcn should be 1, 2 or 3, instead it is %d, tcn=%d\n",
+                                fcntr->deviceName,fcntr->status.badStatusWarning,pcn,tcn);
                                 break;
                         }
                 }

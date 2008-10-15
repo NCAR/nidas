@@ -97,7 +97,8 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
     float *fp = osamp->getDataPtr();
 
     *fp++ = pper;
-    *fp++ = USECS_PER_SEC / pper;
+    if (pper == 0.0) *fp++ = floatNAN;
+    else *fp++ = USECS_PER_SEC / pper;
     *fp++ = p;
     results.push_back(osamp);
 

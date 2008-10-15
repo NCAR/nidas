@@ -123,7 +123,7 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
                 throw n_u::InvalidParameterException(getName(),
                     "ClockRate","should be a integer of length 1");
              _clockRate = p->getNumericValue(0);
-             cerr << "_clockRate=" << _clockRate << endl;
+             // cerr << "_clockRate=" << _clockRate << endl;
         }
     }
 }
@@ -163,8 +163,8 @@ double DSC_FreqCounter::calculatePeriodUsec(const Sample* insamp) const
 
 double DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int tics) const
 {
+    if (pulses == 0) return floatNAN;	// actually infinity
     if (tics == 0) return 0.0;
-    if (pulses == 0) return floatNAN;
     return (double) tics / pulses / _clockRate * USECS_PER_SEC;
 }
 

@@ -88,7 +88,9 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
     float *fp = osamp->getDataPtr();
 
     _periodUsec = calculatePeriodUsec(insamp);
-    float freq = USECS_PER_SEC / _periodUsec;
+    float freq;
+    if (_periodUsec == 0.0) freq = floatNAN;
+    else freq = USECS_PER_SEC / _periodUsec;
     // cerr << "freq=" << USECS_PER_SEC / _periodUsec << " _periodUsec=" << _periodUsec << " U0=" << _calibrator.getU0() <<
       //   " usec cor=" << _periodUsec - _calibrator.getU0() << endl;
 
