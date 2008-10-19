@@ -3,6 +3,7 @@
 ##  Copyright 2006 UCAR, NCAR, All Rights Reserved
 
 Import('env')
+arch = env['ARCH']
 
 so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor.so",
                         source = "TiltSensor.cc",
@@ -12,5 +13,10 @@ so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor.so",
 headers = Split("""TiltSensor.h""")
 
 env.Install('$PREFIX/lib', so)
+
+env.Clean(arch + '_install',[
+    (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
+    ])
+
 env.Install('$PREFIX/include/nidas/dynld/iss', headers)
 

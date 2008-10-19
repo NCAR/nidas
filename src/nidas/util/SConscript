@@ -11,6 +11,7 @@ import os
 ##
 Import('env')
 myenv = env.Clone()
+arch = myenv['ARCH']
 
 myenv.AppendUnique(CXXFLAGS = Split("""
 """))
@@ -83,10 +84,13 @@ lib = myenv.SharedLibrary('nidas_util' , objects)
 slib = myenv.StaticLibrary('nidas_util' , objects)
 
 ##
-## Install target for library.
+## Install targets for libraries and headers.
 ##
-myenv.Install('$PREFIX/lib',lib)
-myenv.Install('$PREFIX/lib',slib)
+Alias(arch + '_install',myenv.Install('$PREFIX/lib',lib))
+Alias(arch + '_install',myenv.Install('$PREFIX/lib',slib))
+Alias(arch + '_install',myenv.Install('$PREFIX/include/nidas/util',headers))
 
-myenv.Install('$PREFIX/include/nidas/util',headers)
-
+myenv.Clean(arch + '_install', [
+    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib),
+    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in slib)
+    ])

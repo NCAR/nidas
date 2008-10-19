@@ -21,17 +21,23 @@ arch = env['ARCH']
 headers = Split("""
 pc104sg.h
 """)
-env.Kmake('pc104sg.ko', headers + ['pc104sg.c', 'Makefile'])
+
+modules = ['pc104sg.ko']
+env.Kmake(modules, headers + ['pc104sg.c', 'Makefile'])
 
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
-    env.Install('$PREFIX/linux','pc104sg.ko')
+    env.Install('$PREFIX/linux',modules)
+
+env.Clean(arch + '_install',[
+    '$PREFIX/linux/' + l for l in modules
+    ])
 
 # Some kernel module header files define symbols that are needed
 # by user code. These must also be installed in $PREFIX/include
 shared_headers = Split("""
 """)
 
-env.Install('$PREFIX/include/nidas/linux/irig', shared_headers)
+Alias(arch + '_install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
 
 apps = Split("""
 """)
@@ -49,3 +55,6 @@ for i in apps + archapps:
     nodes += env.Program( i )
 
 env.Install('$PREFIX/bin',nodes)
+env.Clean(arch + '_install', [
+    ('$PREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
+    ])

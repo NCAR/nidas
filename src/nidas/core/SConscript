@@ -12,6 +12,7 @@ import os
 ##
 Import('env')
 myenv = env.Clone()
+arch = myenv['ARCH']
 
 conf = Configure(myenv)
 
@@ -222,19 +223,22 @@ sources = Split("""
 # r"xxx" is a raw string, escape sequences are left alone
 dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
 
-dyn_sources = [ sources, myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
-# stc_sources = [ sources, myenv.StaticObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+# dyn_sources = [ sources, myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+dyn_objs = [ myenv.SharedObject(sources), myenv.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
 
 ##
 ##  Build the libnidas library.  Include the util objects directly.
 ##
-# lib = myenv.SharedLibrary('nidas' , [ sources, utilobjs] )
-lib = myenv.SharedLibrary('nidas' , [ dyn_sources ] + env['NIDAS_UTIL_OBJECTS'] )
-# slib = myenv.StaticLibrary('nidas' , [ stc_sources ] + env['NIDAS_UTIL_OBJECTS'] )
+lib = myenv.SharedLibrary('nidas' , [ dyn_objs ] + env['NIDAS_UTIL_OBJECTS'] )
 
 ##
-## Install target for library.
+## Install targets for libraries and headers.
 ##
 myenv.Install('$PREFIX/lib',lib)
-# myenv.Install('$PREFIX/lib',slib)
 myenv.Install('$PREFIX/include/nidas/core',headers)
+
+# print [ myenv.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
+
+myenv.Clean(arch + '_install', [
+    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
+    ])

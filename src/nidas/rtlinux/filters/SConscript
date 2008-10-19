@@ -25,6 +25,6 @@ if os.path.exists(rtlgcc):
     objs = [ env.Object(i) for i in modules ]
     # print(["objs="] + [str(h) for h in objs])
     env.Install('$PREFIX/rtlinux',objs)
+    env.Install('$PREFIX/include/nidas/rtlinux/filters',headers)
 
-env.Install('$PREFIX/include/nidas/rtlinux/filters',headers)
-
+# Parent SConscripts do Clean of $PREFIX/rtlinux and $PREFIX/include/nidas

@@ -50,7 +50,6 @@ opts.Add(BoolOption('LINUX_MODULES',
 # 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
-env['ARCHITECTURES'] = BUILDS
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
@@ -79,15 +78,17 @@ if env.has_key('PREFIX'):
 # opts.Save('nidas.conf',env)
 
 Help(opts.GenerateHelpText(env) + """
-targets
+targets (use -c to clean targets)
 (none) build linux modules for ARM, ARMBE, & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
 x86    build library and executable programs for X86.
 arm    build linux and rtlinux driver modules, library and executable programs for ARM.
 armbe  build linux driver modules, library and executable programs for ARMBE.
 lib    build library for X86, ARM, and ARMBE.
-x86_install  build and install X86 library and executables.
-arm_install  build and install ARM modules, library and executables.
-armbe_install  build and install ARMBE modules, library and executables.
+x86_install  build and install X86 library, headers and executables.
+arm_install  build and install ARM modules, library, headers and executables.
+armbe_install  build and install ARMBE modules, library, headers and executables.
+install build and install all modules, libraries, headers and executables.
+-c install  clean targets from $PREFIX
 """)
 
 ##
@@ -128,10 +129,15 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
 SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 
 ##
+##  Install a2d filters
+##
+SConscript("../filters/SConscript",exports={'env':env})
+
+##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian)...
 ##
-if 'arm' in env['ARCHITECTURES']:
+if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
     arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
@@ -142,12 +148,13 @@ if 'arm' in env['ARCHITECTURES']:
                build_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
     Alias('install','arm_install')
+    Clean('arm','build_arm')      # Clean(target,files_or_dirs)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian)...
 ##
-if 'armbe' in env['ARCHITECTURES']:
+if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
     armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
@@ -158,11 +165,12 @@ if 'armbe' in env['ARCHITECTURES']:
                build_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
     Alias('install','armbe_install')
+    Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
 
 ##
 ##  Create the env for building to the x86 processor...
 ##
-if 'x86' in env['ARCHITECTURES']:
+if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
     x86_env = env.Clone(tools = ['x86tools'], toolpath=['sconstools'],
 	    ARCH = 'x86',
@@ -174,13 +182,14 @@ if 'x86' in env['ARCHITECTURES']:
                build_dir='build_x86',
                duplicate=0, exports={'env':x86_env})
     Alias('install','x86_install')
+    Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
     if 'test' in COMMAND_LINE_TARGETS:
         SConscript("../tests/tlogger/SConscript",exports={'env':env})
 
 
-Default(env['ARCHITECTURES'])
+Default(BUILDS)
 
 # Install the schema where it can be referenced globally on the system.
 Alias('install',

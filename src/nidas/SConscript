@@ -8,8 +8,6 @@
 Import('env')
 arch = env['ARCH']
 
-env.AppendUnique(CPPPATH = [env.subst("$PREFIX/include")] )
-env.AppendUnique(LIBPATH = [env.subst("$PREFIX/lib")] )
 if arch == 'x86':
     env.AppendUnique(RPATH = [env.subst('$PREFIX/lib')] )
 
@@ -49,14 +47,14 @@ env.AppendUnique(LINKFLAGS = ['-rdynamic'])
 #
 env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
 env.PrependUnique(LIBPATH = [env.Dir("build_core")])
-if arch == 'x86':
-    env.PrependUnique(RPATH = [env.Dir("build_dynld").get_abspath()])
-    env.PrependUnique(RPATH = [env.Dir("build_core").get_abspath()])
+env.PrependUnique(LIBPATH = [env.Dir("build_util")])
 
 subdirs=Split("""util core dynld apps""")
 
 if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
-    subdirs += Split("""linux rtlinux""")
+    subdirs += ['linux']
+    if arch == 'arm':
+        subdirs += ['rtlinux']
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
@@ -66,10 +64,18 @@ for dir in subdirs:
 ##
 ## ARCH target for creating modules, library, and executables
 ##
-Default(env.Alias(arch, ['build_%s' % dir for dir in subdirs]))
+
+Alias(arch, ['build_%s' % dir for dir in subdirs])
 Alias('lib', ['build_%s' % d for d in subdirs[0:3]])
+Clean('lib', ['build_%s' % d for d in subdirs[0:3]])
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
-archinstall= env.Alias(arch+'_install', [ '$PREFIX' ])
+env.Alias(arch + '_install', [ '$PREFIX' ])
 
+# Don't want to do a Clean of $PREFIX here, in case there is
+# other stuff there from other packages: we won't own $PREFIX.
+# We can nuke $PREFIX/include/nidas, but don't do a global
+# Clean of $PREFIX/bin and lib.  Also we don't assume we
+# own $PREFIX/linux, but do own $PREFIX/rtlinux.
+env.Clean(arch + '_install','$PREFIX/include/nidas')

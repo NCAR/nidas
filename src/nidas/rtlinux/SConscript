@@ -96,16 +96,21 @@ headers = Split("""
 myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
 
 ## 
-## Build the modules and install headers only if the RTLinux Development
+## Build the modules only if the RTLinux Development
 ## kit can be found.
 ## 
 if os.path.exists(rtlgcc):
     objs = [ myenv.Object(i) for i in modules ]
     # print(["objs="] + [str(h) for h in objs])
     myenv.Install('$PREFIX/rtlinux',objs)
+    env.Clean(arch + '_install',[
+        ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs)
+    ])
 else:
     print "Skipping RTLinux builds: %s not found." % rtlgcc
 
+# We own $PREFIX/rtlinux, so nuke it all in a clean.
+myenv.Clean(arch + '_install',['$PREFIX/rtlinux'])
 
 subdirs=Split("""
     filters
@@ -115,18 +120,14 @@ subdirs=Split("""
 #     subdirs += Split("""filters""")
 
 ##
-## ARCH target for creating modules, library, and executables
+## ARCH target for descending into subdirs
 ##
-myenv.Alias(arch, ['build_%s' % dir for dir in subdirs])
-
-# Provide an arch-specific install alias.  Basically, install everything
-# that goes under the arch-specific install prefix.
-archinstall= myenv.Alias(arch+'_install', [ '$PREFIX' ])
+Alias(arch, ['build_%s' % dir for dir in subdirs])
 
 for dir in subdirs:
-    myenv.SConscript('%s/SConscript' % dir,
+    SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=0,exports={'env':myenv})
 
-myenv.Default([ "build_%s" % dir for dir in subdirs ])
+# Default([ "build_%s" % dir for dir in subdirs ])
 

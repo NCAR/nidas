@@ -88,6 +88,8 @@ else:
     archheaders=Split("""
     """)
 
+SConscript(dirs="psql", duplicate=0, exports={'env':env})
+
 ##
 ##  Build the nidas_dynld library.
 ##
@@ -95,13 +97,13 @@ myenv.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
 lib = myenv.SharedLibrary('nidas_dynld' , myenv['LIBNIDAS_DYNLD_SOURCES'] )
 
 ##
-## Install target for library.
+## Install targets for library and headers.
 ##
 myenv.Install('$PREFIX/lib',lib)
-
-##
-## Install target for headers.
-##
 myenv.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 
-SConscript(dirs="psql", duplicate=0, exports={'env':env})
+# print [ myenv.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
+
+myenv.Clean(arch + '_install', [
+    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
+    ])
