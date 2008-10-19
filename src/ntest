@@ -5,5 +5,8 @@ dir=${script%/*}
 
 export LD_LIBRARY_PATH=$dir/build_x86/build_core:$dir/build_x86/build_dynld
 
-$dir/build_x86/build_apps/$1 "$@"
+app=$1
+shift
+
+$dir/build_x86/build_apps/$app "$@"
 
