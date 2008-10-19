@@ -106,11 +106,11 @@ if os.path.exists(rtlgcc):
     env.Clean(arch + '_install',[
         ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs)
     ])
+    # We own $PREFIX/rtlinux, so nuke it all in a clean.
+    myenv.Clean(arch + '_install',['$PREFIX/rtlinux'])
 else:
     print "Skipping RTLinux builds: %s not found." % rtlgcc
 
-# We own $PREFIX/rtlinux, so nuke it all in a clean.
-myenv.Clean(arch + '_install',['$PREFIX/rtlinux'])
 
 subdirs=Split("""
     filters
