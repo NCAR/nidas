@@ -873,7 +873,7 @@ static int A2DStartAll(struct A2DBoard *brd)
                 if (brd->gain[i] > 0 && (ret = A2DStart(brd, i)) != 0)
                     return ret;
 #else
-                if ((ret = A2DStart(brd, i) != 0)) return ret;
+                if ((ret = A2DStart(brd, i)) != 0) return ret;
 #endif
         return ret;
 }
