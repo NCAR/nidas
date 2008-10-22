@@ -109,7 +109,7 @@ private:
 
     std::string getQuotedString(std::istringstream& str);
     
-    std::string getKeyedValue(std::istringstream& header,const std::string& key)
+    void readKeyedValues(std::istringstream& header)
     	throw(SyncRecHeaderException);
 
     SyncRecHeaderException* headException;

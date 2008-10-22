@@ -89,9 +89,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 		samp->getDataLength()) << endl;
 
     try {
-        projectName = getKeyedValue(header,"project");
-        aircraftName = getKeyedValue(header,"aircraft");
-        // flightName = getKeyedValue(header,"flight");
+        readKeyedValues(header);
     }
     catch (const SyncRecHeaderException& e) {
         headException = new SyncRecHeaderException(e);
@@ -371,24 +369,25 @@ string SyncRecordReader::getQuotedString(istringstream& istr)
     return val;
 }
 
-string SyncRecordReader::getKeyedValue(istringstream& header,const string& key)
+void SyncRecordReader::readKeyedValues(istringstream& header)
 	throw(SyncRecHeaderException)
 {
 
-    string tmpstr;
-    header >> tmpstr;
-    if (header.eof())
-    	throw SyncRecHeaderException(string("end of header when reading ") +
+    for (;;) {
+        string key,value;
+        header >> key;
+        if (header.eof())
+            throw SyncRecHeaderException("end of header when reading keyed values");
+        if (key.length() > 0 && key[0] == '#') break;
+        header >> value;
+        if (header.eof())
+            throw SyncRecHeaderException(string("end of header when reading value for ") +
 		key);
 
-    if (tmpstr.compare(key))
-    	throw SyncRecHeaderException(key,tmpstr);
-
-    header >> tmpstr;
-    if (header.eof())
-    	throw SyncRecHeaderException(string("end of header when reading value for ") +
-		key);
-    return tmpstr;
+        if (key == "project") projectName = value;
+        else if (key == "aircraft") aircraftName = value;
+        else if (key == "flight") flightName = value;
+    }
 }
 
 size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(n_u::IOException)
