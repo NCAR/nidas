@@ -146,11 +146,13 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
                     (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
                 timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
                 // Wait till we have the year,mon,day to issue a warning
-                // about a time error
-                if (tm < prevRMCTm) {
-                    // looks like a midnight rollover
-                    if (prevRMCTm - tm > 43200.0) tm += 86400.0;
-                    if (tm < prevRMCTm) {
+                // about a time error.
+                // Warn about backwards times and forward jumps over 2 seconds.
+                float tdiff = tm - prevRMCTm;
+                if (tm >= 0.0 && (tdiff < 0.0 || tdiff > 2.0)) {
+                    // possible midnight rollover
+                    if (tdiff < -43200.0) tdiff += 86400.0;
+                    if (tdiff < 0.0 || tdiff > 2.0) {
                         rmccnt++;
                         timeerr = true;
                     }
@@ -283,10 +285,12 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
                     (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
                 timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
                 tm = hour * 3600 + minute * 60 + second;
-                if (tm < prevGGATm) {
-                    // looks like a midnight rollover
-                    if (prevGGATm - tm > 43200.0) tm += 86400.0;
-                    if (tm < prevGGATm) {
+                // Warn about backwards times and forward jumps over 2 seconds.
+                float tdiff = tm - prevGGATm;
+                if (tm >= 0.0 && (tdiff < 0.0 || tdiff > 2.0)) {
+                    // possible midnight rollover
+                    if (tdiff < -43200.0) tdiff += 86400.0;
+                    if (tdiff < 0.0 || tdiff > 2.0) {
                         ggacnt++;
                         timeerr = true;
                     }
