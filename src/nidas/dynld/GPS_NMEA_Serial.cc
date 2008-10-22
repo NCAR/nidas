@@ -30,7 +30,7 @@ const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
-    ggacnt(0),rmccnt(0),prevRMCTm(-1)
+    ggacnt(0),rmccnt(0),prevRMCTm(-1.0),prevGGATm(-1.0)
 {
 
 }
@@ -140,16 +140,20 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	case 0:	// HHMMSS, optional output variable seconds of day
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 tm = hour * 3600 + minute * 60 + second;
-                long long fracmicrosec = (second - (long long) second) * USECS_PER_SEC;
-                if (tm >= 0 && tm <= 86400) {
-                    timeoffix = tt/USECS_PER_SEC;
-                    timeoffix = timeoffix*USECS_PER_SEC + fracmicrosec;
-                }
+                // use floating point math here, 6 signif digits is good
+                // enough to hold 999999 microseconds.
+                int fracmicrosec =
+                    (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
+                timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
                 // Wait till we have the year,mon,day to issue a warning
                 // about a time error
-                if (tm < prevRMCTm && tm != 0 && prevRMCTm != 86399) {
-                    timeerr = true;
-                    rmccnt++;
+                if (tm < prevRMCTm) {
+                    // looks like a midnight rollover
+                    if (prevRMCTm - tm > 43200.0) tm += 86400.0;
+                    if (tm < prevRMCTm) {
+                        rmccnt++;
+                        timeerr = true;
+                    }
                 }
                 if (nvars >= 12) dout[iout++] = tm;
             }
@@ -273,15 +277,19 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	switch (ifield) {
 	case 0:		// HHMMSS
 	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
-                long long fracmicrosec = (second - (long long) second) * USECS_PER_SEC;
+                // use floating point math here, 6 signif digits is good
+                // enough to hold 999999 microseconds.
+                int fracmicrosec =
+                    (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
+                timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
                 tm = hour * 3600 + minute * 60 + second;
-                if (tm >= 0 && tm <= 86400) {
-                    timeoffix = tt/USECS_PER_SEC;
-                    timeoffix = (timeoffix*USECS_PER_SEC) + fracmicrosec;
-                }
-                if (tm < prevGGATm && tm != 0 && prevGGATm != 86399) {
-                    ggacnt++;
-                    timeerr = true;
+                if (tm < prevGGATm) {
+                    // looks like a midnight rollover
+                    if (prevGGATm - tm > 43200.0) tm += 86400.0;
+                    if (tm < prevGGATm) {
+                        ggacnt++;
+                        timeerr = true;
+                    }
                 }
                 dout[iout++] = tm;  // var 0 secs of day
             }

@@ -238,7 +238,11 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
     ost << "project  " << aircraft->getProject()->getName() << endl;
     ost << "aircraft " << aircraft->getTailNumber() << endl;
-    ost << "flight " << aircraft->getProject()->getFlightName() << endl;
+
+    string fn = aircraft->getProject()->getFlightName();
+    if (fn.length() == 0) fn = "unknown_flight";
+    ost << "flight " << fn << endl;
+
     ost << '#' << endl;     // # indicates end of keyed value section
 
     // write variable fields.

@@ -209,6 +209,7 @@ int SyncDumper::run()
 
     cerr << "project=" << reader.getProjectName() << endl;
     cerr << "aircraft=" << reader.getTailNumber() << endl;
+    cerr << "flight=" << reader.getFlightName() << endl;
 
     size_t numFloats = reader.getNumFloats();
     cerr << "numFloats=" << reader.getNumFloats() << endl;

@@ -77,7 +77,7 @@ const string& Project::getFlightName() const
     n_u::Synchronized autolock(lookupLock);
     if (flightName.length() == 0) {
 	const char* flightEnv = ::getenv("FLIGHT");
-	if (flightEnv) flightName == string(flightEnv);
+	if (flightEnv) flightName = string(flightEnv);
     }
     return flightName;
 }
