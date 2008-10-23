@@ -36,13 +36,13 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+private:
     dsm_time_t parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
     	throw();
   
     dsm_time_t parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
     	throw();
 
-private:
     /**
      * Number of variables requested from GGA record (sample id == 1)
      */

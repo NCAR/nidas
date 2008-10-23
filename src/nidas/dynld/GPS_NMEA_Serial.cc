@@ -38,9 +38,9 @@ GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
 GPS_NMEA_Serial::~GPS_NMEA_Serial()
 {
    if (ggacnt > 0)
-        WLOG(("%s: Total GPS_NMEA GGA time stamp errors",getName().c_str(),ggacnt));
+        WLOG(("%s: Total GPS_NMEA GGA time stamp errors: %d",getName().c_str(),ggacnt));
    if (rmccnt > 0)
-        WLOG(("%s: Total GPS_NMEA RMC time stamp errors",getName().c_str(),ggacnt));
+        WLOG(("%s: Total GPS_NMEA RMC time stamp errors: %d",getName().c_str(),ggacnt));
 }
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
@@ -149,10 +149,10 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
                 // about a time error.
                 // Warn about backwards times and forward jumps over 2 seconds.
                 float tdiff = tm - prevRMCTm;
-                if (tm >= 0.0 && (tdiff < 0.0 || tdiff > 2.0)) {
+                if (prevRMCTm >= 0.0 && tdiff < 0.0) {
                     // possible midnight rollover
                     if (tdiff < -43200.0) tdiff += 86400.0;
-                    if (tdiff < 0.0 || tdiff > 2.0) {
+                    if (tdiff < 0.0) {
                         rmccnt++;
                         timeerr = true;
                     }
@@ -232,7 +232,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	input = cp;
     }
     if (timeerr) {
-        WLOG(("%s: GPS NMEA RMC time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%02d, status=%c",
+        WLOG(("%s: GPS NMEA RMC time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%04.1f, status=%c",
                     getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
                     prevRMCTm,tm,year,month,day,hour,minute,second,status));
     }
@@ -287,10 +287,10 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
                 tm = hour * 3600 + minute * 60 + second;
                 // Warn about backwards times and forward jumps over 2 seconds.
                 float tdiff = tm - prevGGATm;
-                if (tm >= 0.0 && (tdiff < 0.0 || tdiff > 2.0)) {
+                if (prevGGATm >= 0.0 && tdiff) {
                     // possible midnight rollover
                     if (tdiff < -43200.0) tdiff += 86400.0;
-                    if (tdiff < 0.0 || tdiff > 2.0) {
+                    if (tdiff < 0.0) {
                         ggacnt++;
                         timeerr = true;
                     }
@@ -358,7 +358,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	input = cp;
     }
     if (timeerr) {
-        WLOG(("%s: GPS NMEA GGA time error: sample time=%s, PrevTm=%d sec, CurrentTm=%d sec, hh:mm:ss: %02d:%02d:%02d",
+        WLOG(("%s: GPS NMEA GGA time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, hh:mm:ss: %02d:%02d:%04.1f",
                     getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
                     prevGGATm,tm,hour,minute,second));
     }
