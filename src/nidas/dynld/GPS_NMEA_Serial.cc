@@ -82,16 +82,15 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 bool GPS_NMEA_Serial::parseTime(const char* recType, const char* input, dsm_time_t tt, 
     dsm_time_t* timeoffix, float prevTime, float* tm, int *timeErrCnt) throw()
 {
-    int hour=0, minute=0, second=0, subsecond=0;
-    float fSubsecond=0.0;
+    int hour=0, minute=0; 
+    float second=0;
     bool timeErr=false;
 
     // sscanf mishandles floating point numbers, so take subseconds in as an int
-    if (sscanf(input,"%2d%2d%2d.%2d",&hour,&minute,&second,&subsecond) == 4) {
-        fSubsecond =  (float)subsecond/100.0;
-        *tm = hour * 3600 + minute * 60 + second + fSubsecond;
+    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
+        *tm = hour * 3600 + minute * 60 + second;
         int fracmicrosec =
-            (int)(fSubsecond * USECS_PER_SEC);
+            (int)rintf(fmodf(second,1.0) * MSECS_PER_SEC) * USECS_PER_MSEC; 
         *timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
         // Wait till we have the year,mon,day to issue a warning
         // about a time error.
@@ -106,10 +105,10 @@ bool GPS_NMEA_Serial::parseTime(const char* recType, const char* input, dsm_time
             }
         }
         if (timeErr) {
-            WLOG(("%s: GPS NMEA %s time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, hh:mm:ss: %02d:%02d:%04.1f", 
+            WLOG(("%s: GPS NMEA %s time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, hh:mm:ss: %02d:%02d:%04.2f", 
                         getName().c_str(), recType, 
                         n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
-                        prevTime,*tm,hour,minute,((float)second+fSubsecond)));
+                        prevTime,*tm,hour,minute,second));
         }
        return true; //succcessfully parsed the time element
     }
