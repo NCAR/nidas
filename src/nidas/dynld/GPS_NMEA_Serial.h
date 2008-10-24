@@ -43,6 +43,10 @@ private:
     dsm_time_t parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
     	throw();
 
+    bool parseTime(const char* recType, const char* input, dsm_time_t tt, 
+        dsm_time_t* timeoffix,  float prevTime, float* tm, int *timeErrCnt) throw();
+
+
     /**
      * Number of variables requested from GGA record (sample id == 1)
      */

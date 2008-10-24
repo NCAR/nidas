@@ -75,6 +75,49 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 	break;
     }
 }
+
+/**
+  * Parse the GPS_NMEA time element.  Warn if there is an oddity of time
+  */
+bool GPS_NMEA_Serial::parseTime(const char* recType, const char* input, dsm_time_t tt, 
+    dsm_time_t* timeoffix, float prevTime, float* tm, int *timeErrCnt) throw()
+{
+    int hour=0, minute=0;
+    float second=0.0;
+    bool timeErr=false;
+
+    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
+        *tm = hour * 3600 + minute * 60 + second;
+        // use floating point math here, 6 signif digits is good
+        // enough to hold 999999 microseconds.
+//printf("input = %c%c%c%c%c%c%c%c%c%c%c\n",input[0], input[1],input[2],input[3],input[4],input[5],input[6],input[7],input[8],input[9],input[10]);
+        int fracmicrosec =
+            (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
+//printf("second = %f  fracmicrosec = %d\n",second, fracmicrosec);
+        *timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
+        // Wait till we have the year,mon,day to issue a warning
+        // about a time error.
+        // Warn about backwards times and forward jumps over 2 seconds.
+        float tdiff = *tm - prevTime;
+        if (prevTime >= 0.0 && tdiff < 0.0) {
+            // possible midnight rollover
+            if (tdiff < -43200.0) tdiff += 86400.0;
+            if (tdiff < 0.0) {
+                *timeErrCnt++;
+                timeErr = true;
+            }
+        }
+        if (timeErr) {
+            WLOG(("%s: GPS NMEA %s time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, \
+                        hh:mm:ss: %02d:%02d:%04.1f", getName().c_str(), recType, 
+                        n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
+                        prevTime,*tm,hour,minute,second));
+        }
+       return true; //succcessfully parsed the time element
+    }
+    return false; //could not parse time element
+}
+
 /**
  * Parse RMC NMEA record.
  * If user asks for 12 variables this will parse the RMC and
@@ -124,10 +167,9 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     char sep = ',';
     float lat=floatNAN, lon=floatNAN;
     float magvar=floatNAN,sog=floatNAN;
-    int hour=0, minute=0, year=0, month=0, day=0;
-    float f1, f2, second=0.0, tm;
+    int year=0, month=0, day=0;
+    float f1, f2, tm;
     int iout = 0;
-    bool timeerr = false;
     char status = '?';
     dsm_time_t timeoffix = 0;
 
@@ -138,25 +180,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	cp++;
 	switch (ifield) {
 	case 0:	// HHMMSS, optional output variable seconds of day
-	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
-                tm = hour * 3600 + minute * 60 + second;
-                // use floating point math here, 6 signif digits is good
-                // enough to hold 999999 microseconds.
-                int fracmicrosec =
-                    (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
-                timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
-                // Wait till we have the year,mon,day to issue a warning
-                // about a time error.
-                // Warn about backwards times and forward jumps over 2 seconds.
-                float tdiff = tm - prevRMCTm;
-                if (prevRMCTm >= 0.0 && tdiff < 0.0) {
-                    // possible midnight rollover
-                    if (tdiff < -43200.0) tdiff += 86400.0;
-                    if (tdiff < 0.0) {
-                        rmccnt++;
-                        timeerr = true;
-                    }
-                }
+            if (parseTime("RMC", input, tt, &timeoffix, prevRMCTm, &tm, &rmccnt)) {
                 if (nvars >= 12) dout[iout++] = tm;
             }
             else if (nvars >= 12) dout[iout++] = floatNAN;
@@ -231,11 +255,6 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	}
 	input = cp;
     }
-    if (timeerr) {
-        WLOG(("%s: GPS NMEA RMC time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, Y/M/D hh:mm:ss: %d/%02d/%02d %02d:%02d:%04.1f, status=%c",
-                    getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
-                    prevRMCTm,tm,year,month,day,hour,minute,second,status));
-    }
     prevRMCTm =tm;
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
     assert(iout == nvars);
@@ -265,10 +284,9 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 {
     char sep = ',';
     float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
-    int i1, hour=0, minute=0;
-    float f1, f2, second=0.0, tm;
+    int i1;
+    float f1, f2, tm;
     int iout = 0;
-    bool timeerr = false;
     dsm_time_t timeoffix = 0;
 
     // input is null terminated
@@ -278,23 +296,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	cp++;
 	switch (ifield) {
 	case 0:		// HHMMSS
-	    if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
-                // use floating point math here, 6 signif digits is good
-                // enough to hold 999999 microseconds.
-                int fracmicrosec =
-                    (int)rintf(fmodf(second,1.0) * USECS_PER_SEC);
-                timeoffix = tt - (tt % USECS_PER_SEC) + fracmicrosec;
-                tm = hour * 3600 + minute * 60 + second;
-                // Warn about backwards times and forward jumps over 2 seconds.
-                float tdiff = tm - prevGGATm;
-                if (prevGGATm >= 0.0 && tdiff) {
-                    // possible midnight rollover
-                    if (tdiff < -43200.0) tdiff += 86400.0;
-                    if (tdiff < 0.0) {
-                        ggacnt++;
-                        timeerr = true;
-                    }
-                }
+            if (parseTime("GGA", input, tt, &timeoffix, prevGGATm, &tm, &ggacnt)) {
                 dout[iout++] = tm;  // var 0 secs of day
             }
             else dout[iout++] = floatNAN;
@@ -356,11 +358,6 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	    break;
 	}
 	input = cp;
-    }
-    if (timeerr) {
-        WLOG(("%s: GPS NMEA GGA time error: sample time=%s, PrevTm=%.1f sec, CurrentTm=%.1f sec, hh:mm:ss: %02d:%02d:%04.1f",
-                    getName().c_str(),n_u::UTime(tt).format(true,"%Y/%m/%d %H:%M:%S").c_str(),
-                    prevGGATm,tm,hour,minute,second));
     }
     prevGGATm = tm;
     for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
