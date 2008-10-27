@@ -277,8 +277,7 @@ int Extract2D::run() throw()
             throw n_u::IOException("extract2d","can't open output file ",errno);
         }
 
-
-        dsm_sample_id_t fast2dc_id;
+        dsm_sample_id_t fast2dc_id = 6;
         FileSet * fset = new nidas::dynld::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();

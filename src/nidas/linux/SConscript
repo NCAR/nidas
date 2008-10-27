@@ -69,26 +69,17 @@ subdirs=Split("""
     mesa
     ncar_a2d
     serial
+    viper
     usbtwod
     util
 """)
 
-if arch == 'arm':
-    archdirs=Split("""
-        viper
-    """)
-else:
-    archdirs=Split("""
-    """)
-
 ##
 ## ARCH target for creating modules, library, and executables
 ##
-build_dirs = ['build_%s' % dir for dir in subdirs + archdirs]
-Alias(arch, build_dirs)
-# env.Alias(arch + '_install', '$PREFIX/linux')
+Alias(arch,['build_%s' % dir for dir in subdirs])
 
-for dir in subdirs + archdirs:
+for dir in subdirs:
     env.SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=1,exports={'env':env})

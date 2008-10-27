@@ -96,28 +96,25 @@ headers = Split("""
 myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
 
 ## 
-## Build the modules only if the RTLinux Development
+## Build the modules only if ARCH is arm if the RTLinux Development
 ## kit can be found.
 ## 
-if os.path.exists(rtlgcc):
-    objs = [ myenv.Object(i) for i in modules ]
-    # print(["objs="] + [str(h) for h in objs])
-    myenv.Install('$PREFIX/rtlinux',objs)
-    env.Clean(arch + '_install',[
-        ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs)
-    ])
-    # We own $PREFIX/rtlinux, so nuke it all in a clean.
-    myenv.Clean(arch + '_install',['$PREFIX/rtlinux'])
-else:
-    print "Skipping RTLinux builds: %s not found." % rtlgcc
+if arch == 'arm' and (not myenv.has_key("LINUX_MODULES") or myenv['LINUX_MODULES']):
+    if os.path.exists(rtlgcc):
+        objs = [ myenv.Object(i) for i in modules ]
+        # print(["objs="] + [str(h) for h in objs])
+        myenv.Install('$PREFIX/rtlinux',objs)
+        env.Clean(arch + '_install',[
+            ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs),
+            '$PREFIX/rtlinux'
+        ])
+    else:
+        print "Skipping RTLinux builds: %s not found." % rtlgcc
 
 
 subdirs=Split("""
     filters
 """)
-
-# if arch == 'arm' or arch == 'x86':
-#     subdirs += Split("""filters""")
 
 ##
 ## ARCH target for descending into subdirs
@@ -128,6 +125,4 @@ for dir in subdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
                duplicate=0,exports={'env':myenv})
-
-# Default([ "build_%s" % dir for dir in subdirs ])
 

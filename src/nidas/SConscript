@@ -49,12 +49,7 @@ env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
 env.PrependUnique(LIBPATH = [env.Dir("build_core")])
 env.PrependUnique(LIBPATH = [env.Dir("build_util")])
 
-subdirs=Split("""util core dynld apps""")
-
-if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
-    subdirs += ['linux']
-    if arch == 'arm':
-        subdirs += ['rtlinux']
+subdirs=Split("""util core dynld apps linux rtlinux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,

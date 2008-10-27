@@ -15,6 +15,3 @@ env.Install('$PREFIX/arm/firmware', firmwares)
 Clean('install', [
     '$PREFIX/arm/firmware/' + l for l in firmwares
     ])
-
-
-                                                
