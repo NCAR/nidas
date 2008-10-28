@@ -9,15 +9,6 @@ Import('env')
 myenv = env.Clone()
 arch = myenv['ARCH']
 
-# -D__cpluscplus   -fno-common  -fno-builtin
-
-## myenv.AppendUnique(CPPPATH = Split("""
-##       #dsm/class
-##       #dsm/modules
-##     """))
-#
-#
-
 myenv.AppendUnique(LIBS = Split("""
     nidas
     nidas_dynld

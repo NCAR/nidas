@@ -1,5 +1,4 @@
 
-
 Import('env')
 
 sources = Split("""
@@ -22,10 +21,9 @@ sources = Split("""
     SonicAnemometer.cc
 """)
 
-nowarns = ['-Wno-unused', '-Wno-strict-aliasing']
+rpc_ccflags = env['CCFLAGS'] + ['-Wno-unused', '-Wno-strict-aliasing']
 sources.append(env.SharedObject("nc_server_rpc_xdr.c",
-                                CFLAGS = env['CFLAGS'] + nowarns,
-                                CCFLAGS = env['CCFLAGS'] + nowarns))
+                                CCFLAGS = rpc_ccflags))
 
 headers = Split("""
     CSAT3_Sonic.h

@@ -110,8 +110,20 @@ SConsignFile()
 ##
 ##  Define compiler flags and paths for all builds.
 ##
+# scons man page:
+# CFLAGS
+#   General  options  that  are  passed  to the C compiler
+#   (C only; not C++).
+# CCFLAGS
+#   General options that are passed to the C and C++  compilers.
+# CXXFLAGS
+#   General  options that are passed to the C++ compiler.  By
+#   default, this includes the value  of  $CCFLAGS,  so  that
+#   setting  $CCFLAGS affects both C and C++ compilation.  If
+#   you want to add C++-specific flags, you must set or over-
+#   ride the value of $CXXFLAGS.
 env['CCFLAGS'] = [ '-Wall', '-O2' ]
-env['CXXFLAGS'] = env['CCFLAGS']
+
 env['CPPPATH'] = Split("#")
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
@@ -121,7 +133,7 @@ if env.has_key('DEBUG') and env['DEBUG']:
     env.AppendUnique(CPPDEFINES = ['DEBUG'])
 
 if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
-    env.AppendUnique(CXXFLAGS = ['-ggdb'])
+    env.AppendUnique(CCFLAGS = ['-ggdb'])
 
 ##
 ##  Install firmware
@@ -142,8 +154,7 @@ if 'x86' in BUILDS:
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
-    x86_env.Append(CCFLAGS = ["-g"])
-    x86_env.Append(CXXFLAGS = ["-g"])
+    x86_env.AppendUnique(CCFLAGS = ["-g"])
     SConscript('nidas/SConscript',
                build_dir='build_x86',
                duplicate=0, exports={'env':x86_env})
@@ -154,10 +165,9 @@ if 'x86' in BUILDS:
     if 'test' in COMMAND_LINE_TARGETS:
         SConscript("../tests/tlogger/SConscript",exports={'env':env})
 
-
 ##
 ##  Create the env for cross-building to the xScale ARM processor
-##  (little-endian)...
+##  (little-endian) on the arcom Viper.
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
@@ -165,13 +175,12 @@ if 'arm' in BUILDS:
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'])
-    # g++ version 3.4.4 seems to give false positives when
-    # trying to detect uninitialized variables in template code
-    rev = os.popen('arm-linux-g++ --version').readline().strip()
-    if re.search("\s3\.",rev):
-        arm_env.Append(CXXFLAGS = ['-Wno-uninitialized'])
+    # g++ version 3.4.4 often gives false positives when
+    # trying to detect uninitialized variables.
+    if re.search("^3",arm_env['CXXVERSION']):
+        arm_env.AppendUnique(CXXFLAGS = ['-Wno-uninitialized'])
 
-    arm_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
+    arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
                build_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
@@ -180,7 +189,7 @@ if 'arm' in BUILDS:
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
-##  (little-endian)...
+##  (big-endian) on the arcom Vulcan.
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
@@ -188,11 +197,10 @@ if 'armbe' in BUILDS:
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'])
-    armbe_env.Append(CPPDEFINES = 'NIDAS_EMBEDDED')
+    armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
-    rev = os.popen('armbe-linux-g++ --version').readline().strip()
-    if re.search("\s3\.",rev):
-        armbe_env.Append(CXXFLAGS = ['-Wno-uninitialized'])
+    if re.search("^3",armbe_env['CXXVERSION']):
+        armbe_env.AppendUnique(CXXFLAGS = ['-Wno-uninitialized'])
 
     SConscript('nidas/SConscript',
                build_dir='build_armbe',
