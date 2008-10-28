@@ -122,7 +122,10 @@ SConsignFile()
 #   setting  $CCFLAGS affects both C and C++ compilation.  If
 #   you want to add C++-specific flags, you must set or over-
 #   ride the value of $CXXFLAGS.
-env['CCFLAGS'] = [ '-Wall', '-O2' ]
+# My advice: don't use CCFLAGS, since you then loose control
+# over the order of the options. Use CFLAGS and CXXFLAGS
+env['CFLAGS'] = [ '-Wall', '-O2' ]
+env['CXXFLAGS'] = [ '-Wall', '-O2' ]
 
 env['CPPPATH'] = Split("#")
 
@@ -178,7 +181,7 @@ if 'arm' in BUILDS:
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
-        arm_env.Replace(CXXFLAGS = arm_env['CXXFLAGS'] + ['-Wno-uninitialized'])
+        arm_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
@@ -200,7 +203,7 @@ if 'armbe' in BUILDS:
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
     if re.search("^3",armbe_env['CXXVERSION']):
-        armbe_env.Replace(CXXFLAGS = armbe_env['CXXFLAGS'] + ['-Wno-uninitialized'])
+        armbe_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
 
     SConscript('nidas/SConscript',
                build_dir='build_armbe',
