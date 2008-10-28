@@ -43,7 +43,7 @@ def generate(env):
     # So, we only append /opt/arcom/bin if "which arm-linux-gcc"
     # fails.
 
-    if env.Execute("which arm-linux-gcc") or env.Execute("which arm-linux-g++"):
+    if env.Execute('which ' + env['CC']) or env.Execute('which ' + env['CXX']):
         env.AppendENVPath('PATH', '/opt/arcom/bin')
         print "PATH=" + env['ENV']['PATH'];
 

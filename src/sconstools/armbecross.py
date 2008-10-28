@@ -4,8 +4,6 @@ Customize an environment to use the GCC ARM cross-compiler tools.
 """
 
 import os
-import re
-import subprocess
 import kmake
 import localutils
 import SCons.Tool
@@ -38,9 +36,7 @@ def generate(env):
     # So, we only append /opt/arcom/bin if "which armbe-linux-gcc"
     # fails.
 
-    # Note that adding to env PATH does not change the current process PATH,
-    # used by subprocess.Popen.
-    if env.Execute('which ' + env['CC']) or env.Execute('which ' + cppcmd):
+    if env.Execute('which ' + env['CC']) or env.Execute('which ' + env['CXX']):
         env.AppendENVPath('PATH', '/opt/arcom/bin')
         print "PATH=" + env['ENV']['PATH'];
 
