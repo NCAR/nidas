@@ -5,6 +5,7 @@
 import glob
 import fnmatch
 import os
+import localutils
 
 
 ##
@@ -18,19 +19,6 @@ conf = Configure(myenv)
 
 myenv = conf.Finish()
 
-def get_svnversion(env):
-    """
-    Return value reported by svnversion on top directory.
-    """
-    svn_path = env.WhereIs('svnversion', os.environ['PATH'])
-    revision = "Unknown"
-
-    if svn_path != None:
-	rev = os.popen('svnversion ' + env.Dir('#.').abspath).readline().strip()
-	if rev != "":
-		    revision = rev
-    return revision
-
 def write_version_cc(env,target,source):
     """
     Write Version.cc file containing the contents of source.
@@ -41,7 +29,7 @@ def write_version_cc(env,target,source):
     	source[0].get_contents() + '";\n')
     out.close()
 
-myenv.Command("Version.cc",[Value(get_svnversion(myenv))],write_version_cc)
+myenv.Command("Version.cc",[Value(localutils.get_svnversion(myenv))],write_version_cc)
 
 # -ggdb
 # -DXML_DEBUG

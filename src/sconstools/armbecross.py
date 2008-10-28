@@ -7,26 +7,13 @@ import os
 import re
 import subprocess
 import kmake
+import localutils
 import SCons.Tool
 
 def generate(env):
     """
     Add Builders and construction variables for C compilers to an Environment.
     """
-
-    # Append /opt/arcom/bin to env['ENV']['PATH'],
-    # so that it is the fallback if armbe-linux-gcc is
-    # not otherwise found in the path.
-    # But scons is too smart. If you append /opt/arcom/bin
-    # to env['ENV']['PATH'], scons will remove any earlier
-    # occurances of /opt/arcom/bin in the PATH, and you may
-    # get your second choice for armbe-linux-gcc.
-    # So, we only append /opt/arcom/bin if "which armbe-linux-gcc"
-    # fails.
-
-    if env.Execute("which armbe-linux-gcc") or env.Execute("which armbe-linux-g++"):
-        env.AppendENVPath('PATH', '/opt/arcom/bin')
-        print "PATH=" + env['ENV']['PATH'];
 
     env.Replace(AR	= 'armbe-linux-ar')
     env.Replace(AS	= 'armbe-linux-as')
@@ -41,14 +28,25 @@ def generate(env):
         source_scanner=SCons.Tool.SourceFileScanner)
     env.Append(BUILDERS = {'Kmake':k})
 
-    # do g++ --version, grab 3rd field for CXXVERSION
-    try:
-        # rev = re.split('\s+',os.popen(env['CXX'] + ' --version').readline())[2]
-        # env.Replace(CXXVERSION = rev)
-        revline = subprocess.Popen(env['CXX'] + ' --version').readline()
-        print "revline=" + revline
-    except OSError, (errno,strerror):
-        print "Error: %s: %s" %(env['CXX'],strerror)
+    # Append /opt/arcom/bin to env['ENV']['PATH'],
+    # so that it is the fallback if armbe-linux-gcc is
+    # not otherwise found in the path.
+    # But scons is too smart. If you append /opt/arcom/bin
+    # to env['ENV']['PATH'], scons will remove any earlier
+    # occurances of /opt/arcom/bin in the PATH, and you may
+    # get your second choice for armbe-linux-gcc.
+    # So, we only append /opt/arcom/bin if "which armbe-linux-gcc"
+    # fails.
+
+    # Note that adding to env PATH does not change the current process PATH,
+    # used by subprocess.Popen.
+    if env.Execute('which ' + env['CC']) or env.Execute('which ' + cppcmd):
+        env.AppendENVPath('PATH', '/opt/arcom/bin')
+        print "PATH=" + env['ENV']['PATH'];
+
+    cxxrev = localutils.get_cxxversion(env)
+    if cxxrev != None:
+        env.Replace(CXXVERSION = cxxrev)
 
 def exists(env):
     return env.Detect(['armbe-linux-gcc'])

@@ -4,7 +4,7 @@
 
 import os
 import glob
-import kmake    # get_svnversion
+import localutils    # get_svnversion
 
 ##
 ##  Import the cross-build environment.
@@ -27,7 +27,7 @@ myenv.AppendUnique(CCFLAGS=[Split("""
       -nostdinc
       -isystem /opt/rtldk-2.2/bin/../lib/gcc-lib/arm-linux/3.3.2/include/  
     """),
-    '-DDSM_VERSION=' + kmake.get_svnversion(myenv)]
+    '-DDSM_VERSION=' + localutils.get_svnversion(myenv)]
 )
 
 #    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog

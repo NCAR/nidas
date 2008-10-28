@@ -7,12 +7,26 @@ import os
 import re
 import subprocess
 import kmake
+import localutils
 import SCons.Tool
 
 def generate(env):
     """
     Add Builders and construction variables for C compilers to an Environment.
     """
+
+    env.Replace(AR	= 'arm-linux-ar')
+    env.Replace(AS	= 'arm-linux-as')
+    env.Replace(CC	= 'arm-linux-gcc')
+    env.Replace(LD	= 'arm-linux-ld')
+    env.Replace(CXX	= 'arm-linux-g++')
+    env.Replace(LINK	= 'arm-linux-g++')
+    env.Replace(RANLIB	= 'arm-linux-ranlib')
+    env.Replace(LEX	= 'arm-linux-flex')
+
+    k = env.Builder(action=kmake.Kmake,
+        source_scanner=SCons.Tool.SourceFileScanner)
+    env.Append(BUILDERS = {'Kmake':k})
 
     # temporary hack.  RTLinux vipers have GLIBC_2.3.1
     # and something in nibnidas needs GLIBC_2.3.2
@@ -33,28 +47,9 @@ def generate(env):
         env.AppendENVPath('PATH', '/opt/arcom/bin')
         print "PATH=" + env['ENV']['PATH'];
 
-    env.Replace(AR	= 'arm-linux-ar')
-    env.Replace(AS	= 'arm-linux-as')
-    env.Replace(CC	= 'arm-linux-gcc')
-    env.Replace(LD	= 'arm-linux-ld')
-    env.Replace(CXX	= 'arm-linux-g++')
-    env.Replace(LINK	= 'arm-linux-g++')
-    env.Replace(RANLIB	= 'arm-linux-ranlib')
-    env.Replace(LEX	= 'arm-linux-flex')
-
-    k = env.Builder(action=kmake.Kmake,
-        source_scanner=SCons.Tool.SourceFileScanner)
-    env.Append(BUILDERS = {'Kmake':k})
-
-    # do g++ --version, grab 3rd field for CXXVERSION
-    try:
-        # rev = re.split('\s+',os.popen(env['CXX'] + ' --version').readline())[2]
-        # env.Replace(CXXVERSION = rev)
-        revline = subprocess.Popen(env['CXX'] + ' --version').readline()
-        print "revline=" + revline
-    except OSError, (errno,strerror):
-        # print "Error(%s): %s" %(errno,strerror)
-        print "Error: %s: %s" %(env['CXX'],strerror)
+    cxxrev = localutils.get_cxxversion(env)
+    if cxxrev != None:
+        env.Replace(CXXVERSION = cxxrev)
 
 def exists(env):
     return env.Detect(['arm-linux-gcc'])

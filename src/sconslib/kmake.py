@@ -1,4 +1,6 @@
 import os
+import re
+import subprocess
 import SCons.Errors
 
 def Kmake(env,target,source):
@@ -13,17 +15,4 @@ def Kmake(env,target,source):
     if env.Execute('cd ' + srcdir + '; ' + env['KMAKE']) != 0:
           raise SCons.Errors.UserError, 'error in ' + env['KMAKE']
     return None
-
-def get_svnversion(env):
-    """
-    Return value reported by svnversion on top directory.
-    """
-    svn_path = env.WhereIs('svnversion', os.environ['PATH'])
-    revision = "Unknown"
-
-    if svn_path != None:
-	rev = os.popen('svnversion ' + env.Dir('#.').abspath).readline().strip()
-	if rev != "":
-		    revision = rev
-    return revision
 
