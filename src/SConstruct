@@ -122,8 +122,33 @@ SConsignFile()
 #   setting  $CCFLAGS affects both C and C++ compilation.  If
 #   you want to add C++-specific flags, you must set or over-
 #   ride the value of $CXXFLAGS.
-# My advice: don't use CCFLAGS, since you then loose control
-# over the order of the options. Use CFLAGS and CXXFLAGS
+#
+# Warning: CXXFLAGS is before CCFLAGS in the compiler arguments:
+# print 'CXXCOM=' + str(env['CXXCOM'])
+# CXXCOM=$CXX -o $TARGET -c $CXXFLAGS $CCFLAGS $_CCCOMCOM $SOURCES
+#
+# compiler string for building shareable code:
+# print 'SHCXXCOM=' + str(env['SHCXXCOM'])
+# SHCXXCOM=$SHCXX -o $TARGET -c $SHCXXFLAGS $SHCCFLAGS $_CCCOMCOM $SOURCES
+#
+# Because of the ordering, it isn't possible to add a CXX-only option
+# at the end of the flags. Hence, don't put options in CCFLAGS that
+# you may want to override for CXX.  For example:
+# CCFLAGS='-Wall',  CXXFLAGS='-Wno-uninitialized', will result in
+# -Wno-uninitialized -Wall, not the other way around.
+
+# print 'CFLAGS=' + str(env['CFLAGS'])
+# print 'CCFLAGS=' + str(env['CCFLAGS'])
+# print 'SHCCFLAGS=' + str(env['SHCCFLAGS'])
+# print 'CXXFLAGS=' + str(env['CXXFLAGS'])
+# print 'SHCXXFLAGS=' + str(env['SHCXXFLAGS'])
+
+# scons .98.1 (shipped with Fedora 8) doesn't propagate CXXFLAGS
+# to SHCXXFLAGS.  This has been fixed in .98.3. The following
+# lines can be removed after we have no more .98.1.
+if env['SHCXXFLAGS'] != '$CXXFLAGS':
+    env['SHCXXFLAGS'] = '$CXXFLAGS'
+
 env['CFLAGS'] = [ '-Wall', '-O2' ]
 env['CXXFLAGS'] = [ '-Wall', '-O2' ]
 
@@ -158,6 +183,7 @@ if 'x86' in BUILDS:
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
     x86_env.AppendUnique(CCFLAGS = ["-g"])
+
     SConscript('nidas/SConscript',
                build_dir='build_x86',
                duplicate=0, exports={'env':x86_env})
