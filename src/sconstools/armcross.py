@@ -5,6 +5,7 @@ Customize an environment to use the GCC ARM cross-compiler tools.
 
 import os
 import re
+import subprocess
 import kmake
 import SCons.Tool
 
@@ -47,10 +48,13 @@ def generate(env):
 
     # do g++ --version, grab 3rd field for CXXVERSION
     try:
-        rev = re.split('\s+',os.popen(env['CXX'] + ' --version').readline())[2]
-        env.Replace(CXXVERSION = rev)
+        # rev = re.split('\s+',os.popen(env['CXX'] + ' --version').readline())[2]
+        # env.Replace(CXXVERSION = rev)
+        revline = subprocess.Popen(env['CXX'] + ' --version').readline()
+        print "revline=" + revline
     except OSError, (errno,strerror):
-        print "Error(%s): %s" %(errno,strerror)
+        # print "Error(%s): %s" %(errno,strerror)
+        print "Error: %s: %s" %(env['CXX'],strerror)
 
 def exists(env):
     return env.Detect(['arm-linux-gcc'])
