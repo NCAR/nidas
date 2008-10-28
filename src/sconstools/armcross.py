@@ -46,9 +46,11 @@ def generate(env):
     env.Append(BUILDERS = {'Kmake':k})
 
     # do g++ --version, grab 3rd field for CXXVERSION
-    rev = re.split('\s+',os.popen(env['CC'] + ' --version').readline())[2]
-    env.Replace(CXXVERSION = rev)
-
+    try:
+        rev = re.split('\s+',os.popen(env['CXX'] + ' --version').readline())[2]
+        env.Replace(CXXVERSION = rev)
+    except OSError, (errno,strerror):
+        print "Error(%s): %s" %(errno,strerror)
 
 def exists(env):
     return env.Detect(['arm-linux-gcc'])
