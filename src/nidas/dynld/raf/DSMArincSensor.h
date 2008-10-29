@@ -30,8 +30,7 @@
 #define NCD 0x20000000
 #define TST 0x40000000
 
-#define err(format, arg...) \
-     printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
+#define NLABELS 256
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -121,7 +120,7 @@ namespace nidas { namespace dynld { namespace raf {
     const float _nanf;
 
     /// A list of which samples are processed.
-    int _processed[256];
+    int _processed[NLABELS];
 
   private:
 
