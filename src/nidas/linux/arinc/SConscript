@@ -6,10 +6,15 @@
 ##  Import the build environment.
 ##
 Import('env')
+arch = env['ARCH']
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the build_dir.
 # The Kmake builder runs the make command in build_dir.
+#
+# For some reason some versions of scons fail with an error:
+# scons: *** 'NoneType' object has no attribute 'select'
+# if the Makefile is the first source file.
 #
 # Also, the SConscript command that invokes this SConscript
 # file should set duplicate=1, so that all the linux module
@@ -18,7 +23,6 @@ Import('env')
 # source tree.
 
 arinc_files = Split("""
-    Makefile
     main.c
     arinc.h
     CEI420A/Source/api220.c
@@ -29,12 +33,19 @@ arinc_files = Split("""
     CEI420A/Source/fpga420a_16mhz_v100.h
     CEI420A/Source/i960_220.h
     CEI420A/Include/utildefs.h
+    Makefile
 """)
 
-env.Kmake('arinc.ko',arinc_files)
-
 if env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
-    env.Install('$PREFIX/linux','arinc.ko')
+    modules = ['arinc.ko']
+    env.Kmake(modules,arinc_files)
+
+    env.Install('$PREFIX/linux',modules)
+
+    # print [ env.subst('$PREFIX/linux/') + l for l in modules ]
+    env.Clean(arch + '_install',[
+        '$PREFIX/linux/' + l for l in modules
+        ])
 
 # Some kernel module header files define symbols that are needed
 # by user code. These must also be installed in $PREFIX/include
