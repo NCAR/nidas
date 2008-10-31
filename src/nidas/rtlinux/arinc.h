@@ -14,8 +14,8 @@
                  $HeadURL$
 */
 
-#ifndef ARINC_H
-#define ARINC_H
+#ifndef ARINC_DRIVER_H
+#define ARINC_DRIVER_H
 
 #include <nidas/linux/types.h>
 
@@ -23,6 +23,14 @@
  * wants to get the values of the ioctl commands, and
  * the definition of the structures.
  */
+
+/* Pick a character as the magic number of your driver.
+ * It isn't strictly necessary that it be distinct between
+ * all modules on the system, but is a good idea. With
+ * distinct magic numbers one can catch a user sending
+ * a ioctl to the wrong device.
+ */
+#define ARINC_MAGIC 'K'
 
 /**
  * The CEI420a supports up to 512 labels per buffer
@@ -72,25 +80,20 @@ typedef struct {
   unsigned int underflow;
 } dsm_arinc_status;
 
-/* Pick a character as the magic number of your driver.
- * It isn't strictly necessary that it be distinct between
- * all modules on the system, but is a good idea. With
- * distinct magic numbers one can catch a user sending
- * a ioctl to the wrong device.
- */
-#define ARINC_MAGIC 'K'
-
 /**
  * The enumeration of IOCTLs that this driver supports.
+ * See pages 130-132 of Linux Device Driver's Manual
  */
 #define ARINC_SET        _IOW(ARINC_MAGIC,0, arcfg_t)
-#define ARINC_OPEN       _IOW(ARINC_MAGIC,1, archn_t)
-#define ARINC_CLOSE       _IO(ARINC_MAGIC,2)
+#define ARINC_GO         _IOW(ARINC_MAGIC,1, archn_t)
+#define ARINC_RESET       _IO(ARINC_MAGIC,2)
 #define ARINC_SIM_XMIT    _IO(ARINC_MAGIC,3)
 #define ARINC_BIT        _IOW(ARINC_MAGIC,4, short)
 #define ARINC_STAT       _IOR(ARINC_MAGIC,5, dsm_arinc_status)
 #define ARINC_MEASURE     _IO(ARINC_MAGIC,6)
-#define ARINC_IOC_MAXNR 6
+
+
+#include <nidas/rtlinux/ioctl_fifo.h>
 
 // These are copied from dsm/modules/CEI420A/Include/utildefs.h
 #define AR_ODD                  0  /* Used to set ODD parity                  */
@@ -99,7 +102,7 @@ typedef struct {
 #define AR_LOW                  1  /* Used to set LOW speed (12.5 Kbaud)      */
 
 #ifdef __RTCORE_KERNEL__
-#include <nidas/rtlinux/ioctl_fifo.h>
+
 #endif
 
 #endif

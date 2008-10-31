@@ -146,7 +146,7 @@ int main(int argc, char** argv)
   sensor_in_0.ioctl(ARINC_STAT, (void *)NULL, 0);
 
   // Reset the driver.   
-  sensor_in_0.ioctl(ARINC_CLOSE, (void *)NULL, 0);
+  sensor_in_0.ioctl(ARINC_RESET, (void *)NULL, 0);
 
   // Print out the status of the driver.   
   sensor_in_0.ioctl(ARINC_STAT, (void *)NULL, 0);
