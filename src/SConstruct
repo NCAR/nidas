@@ -23,7 +23,7 @@ opts = Options('nidas.conf')
 opts.AddOptions(
     PathOption('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
-               '/opt/local/nidas', PathOption.PathIsDirCreate))
+               '/opt/local/nidas', PathOption.PathAccept))
 opts.AddOptions(
     PathOption('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
