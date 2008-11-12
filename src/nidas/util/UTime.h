@@ -131,6 +131,15 @@ public:
     static UTime parse(bool utc,const std::string& string,
     	const std::string& format,int* nparsed=0) throw(ParseException);
 
+    /**
+     * Format a UTime into a string.
+     * @param fmt: a time format in the form of strftime. All the % format
+     * descriptors of strftime are available. In addition one can
+     * use "%nf" to print fractional seconds, where n is the precision,
+     * a digit from 1 to 9. n defaults to 3, providing millisecond precision,
+     * if not specified.  For example:
+     * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
+     */
     std::string format(bool utc,const std::string& fmt) const;
 
     std::string format(bool utc) const;
