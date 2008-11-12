@@ -361,8 +361,11 @@ void TwoD_USB::processParticleSlice(Particle * p, const unsigned char * data)
         }
         int r = 0;
         unsigned char v = slice[i];
-        while (v >>= 1)
+        while ((v & 0x01) == 0)
+        {
             r++;
+            v >>= 1;
+        }
         h -= r;
         break;
     }
