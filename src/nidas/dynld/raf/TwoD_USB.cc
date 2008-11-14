@@ -142,8 +142,13 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
     }
 
     _prevTime = _nowTime = 0;
-    _twoDAreaRejectRatio = 0.5;
     _cp = 0;
+
+    _twoDAreaRejectRatio = 0.5;
+    const Parameter * p = getParameter("AREA_RATIO_REJECT");
+    if (p) {
+        _twoDAreaRejectRatio = p->getNumericValue(0);
+    }
 
     _size_dist_1D = new size_t[NumberOfDiodes()];
     _size_dist_2D = new size_t[NumberOfDiodes()<<1];
