@@ -32,7 +32,7 @@
  * Read sub-second time fields from the PC104SG card, return microseconds.
  * May be useful for watching-the-clock when debugging.
  */
-long getTimeUsec(void);
+extern long getTimeUsec(void);
 
 #define PC104SG_IOPORT_WIDTH  0x20
 

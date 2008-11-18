@@ -90,7 +90,6 @@ struct dsm_clock_sample {
 
 #if defined(__KERNEL__)
 
-#include <asm/semaphore.h>
 #include <linux/ioctl.h>
 #include <linux/wait.h>
 
@@ -120,7 +119,7 @@ struct irigTime {
 /**
  * For modules who want to know the resolution of the clock..
  */
-int get_msec_clock_resolution(void);
+extern int get_msec_clock_resolution(void);
 
 /**
  * Fetch the IRIG clock value directly.  This is meant to be used for
@@ -129,7 +128,7 @@ int get_msec_clock_resolution(void);
  * Precision is better than 1 microsecond; the accuracy is
  * unknown and is probably affected by ISA contention.
  */
-void irig_clock_gettime(struct timespec* tp);
+extern void irig_clock_gettime(struct timespec* tp);
 
 typedef void irig_callback_func(void* privateData);
 

@@ -1722,6 +1722,9 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         struct DMMAT_A2D* a2d;
         int result = 0;
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         KLOG_DEBUG("open_a2d, iminor=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
             i,ibrd,ia2d,numboards);
 
@@ -2017,6 +2020,9 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
         KLOG_DEBUG("open_cntr, i=%d,ibrd=%d,icntr=%d,numboards=%d\n",
             i,ibrd,icntr,numboards);
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         if (ibrd >= numboards) return -ENXIO;
         if (icntr != 1) return -ENXIO;
 
@@ -2180,6 +2186,9 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,id2a=%d,numboards=%d\n",
             i,ibrd,id2a,numboards);
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         if (ibrd >= numboards) return -ENXIO;
         if (id2a != 2) return -ENXIO;
 
@@ -2298,6 +2307,7 @@ static struct file_operations a2d_fops = {
         .open    = dmmat_open_a2d,
         .ioctl   = dmmat_ioctl_a2d,
         .release = dmmat_release_a2d,
+        .llseek  = no_llseek,
 };
 
 static struct file_operations cntr_fops = {
@@ -2307,6 +2317,7 @@ static struct file_operations cntr_fops = {
         .open    = dmmat_open_cntr,
         .ioctl   = dmmat_ioctl_cntr,
         .release = dmmat_release_cntr,
+        .llseek  = no_llseek,
 };
 
 static struct file_operations d2a_fops = {
@@ -2314,6 +2325,7 @@ static struct file_operations d2a_fops = {
         .open    = dmmat_open_d2a,
         .ioctl   = dmmat_ioctl_d2a,
         .release = dmmat_release_d2a,
+        .llseek  = no_llseek,
 };
 
 #ifdef OTHER_FUNCTIONALITY
@@ -2323,6 +2335,7 @@ static struct file_operations dio_fops = {
         .open    = dmmat_open_dio,
         .ioctl   = dmmat_ioctl_dio,
         .release = dmmat_release_dio,
+        .llseek  = no_llseek,
 };
 
 #endif

@@ -133,6 +133,7 @@ static struct file_operations ncar_a2d_fops = {
         .ioctl = ncar_a2d_ioctl,
         .release = ncar_a2d_release,
         .poll = ncar_a2d_poll,
+        .llseek  = no_llseek,
 };
 
 /**
@@ -1840,6 +1841,9 @@ static int ncar_a2d_open(struct inode *inode, struct file *filp)
 {
         struct A2DBoard *brd = BoardInfo + iminor(inode);
         int i;
+
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
 
         /* before changing head & tails here one should
          * make sure the sample producer and consumer threads

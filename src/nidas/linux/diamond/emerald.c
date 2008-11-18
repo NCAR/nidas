@@ -387,6 +387,9 @@ static int emerald_open (struct inode *inode, struct file *filp)
     int num = MINOR(inode->i_rdev);
     emerald_port *port; /* device information */
 
+    /* Inform kernel that this device is not seekable */
+    nonseekable_open(inode,filp);
+
     /*  check the device number */
     if (num >= emerald_nports) return -ENODEV;
     port = emerald_ports + num;
@@ -558,12 +561,11 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 }
 
 static struct file_operations emerald_fops = {
-    /* llseek:     emerald_llseek, */
-    /* read:       emerald_read, */
-    /* write:      emerald_write, */
-    ioctl:      emerald_ioctl,
-    open:       emerald_open,
-    release:    emerald_release,
+        .owner   = THIS_MODULE,
+        .ioctl   = emerald_ioctl,
+        .open    = emerald_open,
+        .release = emerald_release,
+        .llseek  = no_llseek,
 };
 						      
 static int __init emerald_init_module(void)
@@ -637,12 +639,7 @@ static int __init emerald_init_module(void)
 	eport->board = ebrd;
 	eport->portNum = i % EMERALD_NR_PORTS;	// 0-7
     }
-    /* ... */
-                                                                                
-#ifndef EMERALD_DEBUG
-    // EXPORT_NO_SYMBOLS; /* otherwise, leave global symbols visible */
-#endif
-                                                                                
+
 #ifdef EMERALD_DEBUG /* only when debugging */
     PDEBUGG("create_proc\n");
     emerald_create_proc();

@@ -81,24 +81,36 @@ struct dsm_sample_circ_buf {
  * kmalloc, with flags = GFP_KERNEL, the buffer within a
  * dsm_sample_circ_buf, containing blen number of dsm_samples,
  * with each dsm_sample having a data portion of size dlen.
+ * Since kmalloc is called with flags = GFP_KERNEL, this cannot be
+ * called from interrupt context.
+ * @param dlen: length of data portion of samples. The data portion
+ *      includes everything except the time tag and the length.
+ * @param blen: number of samples in the circular buffer.
+ * @return 0 is OK, or -errno if an error.
  */
-int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
+extern int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
 
 /**
  * kfree the buffer within a dsm_sample_circ_buf.
  */
-void free_dsm_circ_buf(struct dsm_sample_circ_buf* c);
+extern void free_dsm_circ_buf(struct dsm_sample_circ_buf* c);
     
 /**
  * Reallocate the buffer within a dsm_sample_circ_buf,
- * if slen or blen changed from the original allocation.
+ * if dlen or blen changed from the original allocation.
+ * Since kmalloc is called with flags = GFP_KERNEL, this cannot be
+ * called from interrupt context.
+ * @param dlen: length of data portion of samples. The data portion
+ *      includes everything except the time tag and the length.
+ * @param blen: number of samples in the circular buffer.
+ * @return 0 is OK, or -errno if an error.
  */
-int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t slen,int blen);
+extern int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
 
 /**
  * Initialize a dsm_sample_circ_buf. Basically sets head and tail to 0.
  */
-void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
+extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
 
 /*
  * Return time in milliseconds since 00:00 UTC.
@@ -157,7 +169,7 @@ inline int sample_remains(const struct sample_read_state* state)
  *
  * struct read_state should be zeroed out in the open method.
  */
-ssize_t
+extern ssize_t
 nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
     struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
         wait_queue_head_t* readq);

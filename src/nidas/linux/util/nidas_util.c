@@ -30,11 +30,14 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
     char* sp;
     int i;
 
-    for (i = blen; i != 1; i /= 2)
-        if (i % 2) {
-            KLOG_ERR("circular buffer size=%d is not a power of 2\n",blen);
-            return -EINVAL;
-        }
+    /* count number of bits set, which should be one for a
+     * power of 2.  Or check if first bit set
+     * is the same as the last bit set: ffs(blen) == fls(blen)
+     */
+    if (blen == 0 || ffs(blen) != fls(blen)) {
+        KLOG_ERR("circular buffer size=%d is not a power of 2\n",blen);
+        return -EINVAL;
+    }
 
     KLOG_DEBUG("kmalloc %u bytes\n",blen * sizeof(void*));
     if (!(c->buf = kmalloc(blen * sizeof(void*),GFP_KERNEL))) return -ENOMEM;

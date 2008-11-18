@@ -1262,6 +1262,9 @@ static int gpio_mm_open_fcntr(struct inode *inode, struct file *filp)
         KLOG_DEBUG("open_fcntr, minor=%d,ibrd=%d,ifcntr=%d,numboards=%d\n",
             i,ibrd,ifcntr,numboards);
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         if (ibrd >= numboards) return -ENXIO;
         if (ifcntr >= GPIO_MM_FCNTR_PER_BOARD) return -ENXIO;
 
@@ -1397,6 +1400,7 @@ static struct file_operations fcntr_fops = {
         .open    = gpio_mm_open_fcntr,
         .ioctl   = gpio_mm_ioctl_fcntr,
         .release = gpio_mm_release_fcntr,
+        .llseek  = no_llseek,
 };
 
 static int cleanup_fcntrs(struct GPIO_MM* brd)

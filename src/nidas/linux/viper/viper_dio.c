@@ -67,6 +67,10 @@ static unsigned char get_dins(void)
 static int viper_dio_open(struct inode *inode, struct file *filp)
 {
         int result = 0;
+
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         return result;
 }
 
@@ -162,6 +166,7 @@ static struct file_operations viper_dio_fops = {
         .open    = viper_dio_open,
         .ioctl   = viper_dio_ioctl,
         .release = viper_dio_release,
+        .llseek  = no_llseek,
 };
 
 /*-----------------------Module ------------------------------*/

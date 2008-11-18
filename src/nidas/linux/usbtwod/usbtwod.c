@@ -711,7 +711,9 @@ static int twod_open(struct inode *inode, struct file *file)
         int subminor;
         int i, retval = 0;
 
-        nonseekable_open(inode, file);
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,file);
+
         subminor = iminor(inode);
 
         TWOD_MUTEX_LOCK(&twod_open_lock);
@@ -1087,6 +1089,7 @@ static struct file_operations twod_fops = {
         .ioctl = twod_ioctl,
         .open = twod_open,
         .release = twod_release,
+        .llseek  = no_llseek,
 };
 
 /* 

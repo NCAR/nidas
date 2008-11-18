@@ -456,6 +456,9 @@ static int mesa_open(struct inode *inode, struct file *filp)
         int ib = iminor(inode);
         if (ib >= numboards) return -ENXIO;
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         brd = boards + ib;
 
         filp->private_data = brd;
@@ -752,6 +755,7 @@ static struct file_operations mesa_fops = {
         .open    = mesa_open,
         .ioctl   = mesa_ioctl,
         .release = mesa_release,
+        .llseek  = no_llseek,
 };
 
 /* -- MODULE ---------------------------------------------------------- */

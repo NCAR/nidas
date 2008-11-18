@@ -99,7 +99,7 @@ struct short_filter_methods {
  * Exposed module function which returns a structure of filter methods
  * for a supported type.
  */
-struct short_filter_methods get_short_filter_methods(enum nidas_short_filter type);
+extern struct short_filter_methods get_short_filter_methods(enum nidas_short_filter type);
 
 /**
  * Configuration data needed for boxcar filter. Not much.

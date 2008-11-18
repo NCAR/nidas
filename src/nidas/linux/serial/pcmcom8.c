@@ -288,6 +288,9 @@ static int pcmcom8_open (struct inode *inode, struct file *filp)
         int result = 0;
         pcmcom8_board *brd; /* device information */
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         /*  check the device number */
         if (num >= pcmcom8_numboards) return -ENODEV;
         brd = pcmcom8_boards + num;
@@ -312,7 +315,6 @@ static int pcmcom8_release (struct inode *inode, struct file *filp)
 /*
  * The ioctl() implementation
  */
-
 static int pcmcom8_ioctl (struct inode *inode, struct file *filp,
                  unsigned int cmd, unsigned long arg)
 {
@@ -412,9 +414,11 @@ static int pcmcom8_ioctl (struct inode *inode, struct file *filp,
 }
 
 static struct file_operations pcmcom8_fops = {
-        ioctl:      pcmcom8_ioctl,
-        open:       pcmcom8_open,
-        release:    pcmcom8_release,
+        .owner      = THIS_MODULE,
+        .ioctl      = pcmcom8_ioctl,
+        .open       = pcmcom8_open,
+        .release    = pcmcom8_release,
+        .llseek     = no_llseek,
 };
 						      
 /*
