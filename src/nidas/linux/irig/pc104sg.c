@@ -27,7 +27,6 @@
 
 #include <asm/atomic.h>
 #include <asm/io.h>
-#include <asm/semaphore.h>
 #include <asm/uaccess.h>
 
 #include <nidas/linux/irigclock.h>
@@ -1672,6 +1671,9 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
         int ret;
         struct dsm_clock_sample dummy;
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         dev =
             (struct irig_port *) kmalloc(sizeof(struct irig_port),
                                          GFP_KERNEL);
@@ -1879,6 +1881,7 @@ static struct file_operations pc104sg_fops = {
         .open = pc104sg_open,
         .ioctl = pc104sg_ioctl,
         .release = pc104sg_release,
+        .llseek  = no_llseek,
 };
 
 
