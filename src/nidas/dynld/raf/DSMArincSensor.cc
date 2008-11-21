@@ -13,9 +13,11 @@
  ******************************************************************
 */
 
-#include <nidas/rtlinux/arinc.h>
+#include <nidas/rtlinux/arinc.h>                // TODO there are two arinc.h files now!
 #include <nidas/dynld/raf/DSMArincSensor.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
+#include <nidas/core/DSMEngine.h>
 
 #include <nidas/util/Logger.h>
 
@@ -33,9 +35,8 @@ namespace n_u = nidas::util;
 DSMArincSensor::DSMArincSensor() :
   _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD), sim_xmit(false)
 {
-    for (unsigned int label = 0;
-        label < sizeof(_processed)/sizeof(_processed[0]); label++)
-            _processed[label] = false;
+    for (unsigned int label = 0; label < NLABELS; label++)
+        _processed[label] = false;
 }
 
 DSMArincSensor::~DSMArincSensor() {
@@ -43,7 +44,10 @@ DSMArincSensor::~DSMArincSensor() {
 
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 {
-    return new RTL_IODevice();
+    if (DSMEngine::isRTLinux())
+        return new RTL_IODevice();
+    else
+        return new UnixIODevice();
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
@@ -51,46 +55,45 @@ SampleScanner* DSMArincSensor::buildSampleScanner()
     return new DriverSampleScanner();
 }
 
-void DSMArincSensor::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void DSMArincSensor::open(int flags)
+    throw(n_u::IOException, n_u::InvalidParameterException)
 {
 
+    ILOG(("calling DSMSensor::open(%x);",flags));
     DSMSensor::open(flags);
-    // err("");
 
-    ioctl(ARINC_RESET, 0,0);
+    // Do other sensor initialization.
+    ILOG(("calling init();"));
+    init();
 
     // sort SampleTags by rate then by label
     set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
       ( getSampleTags().begin(), getSampleTags().end() );
 
     if (sim_xmit) {
-  #ifdef DEBUG
-      err(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting");
-  #endif
+      ILOG((">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting"));
       ioctl(ARINC_SIM_XMIT,0,0);
     }
 
-    // Do other sensor initialization.
-    init();
-
-    arcfg_t arcfg;
     for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
 	 si != sortedSampleTags.end(); ++si)
     {
+      arcfg_t arcfg;
+
       // remove the Sensor ID from the short ID to get the label
       arcfg.label = (*si)->getSampleId();
 
       // round down the floating point rates
       arcfg.rate  = (short) floor( (*si)->getRate() );
 
+//#define DEBUG
   #ifdef DEBUG
       // Note - ARINC samples have only one variable...
       const Variable* var = (*si)->getVariables().front();
 
-      err("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
-	  _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
-	  (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str());
+      ILOG(("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
+	    _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
+	    (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str()));
   #endif
 
       ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
@@ -101,15 +104,12 @@ void DSMArincSensor::open(int flags) throw(n_u::IOException,
     archn_t archn;
     archn.speed  = _speed;
     archn.parity = _parity;
-    ioctl(ARINC_GO, &archn, sizeof(archn_t));
+    ioctl(ARINC_OPEN, &archn, sizeof(archn_t));
 }
 
 void DSMArincSensor::close() throw(n_u::IOException)
 {
-#ifdef DEBUG
-  err("");
-#endif
-  ioctl(ARINC_RESET,0,0);
+  ioctl(ARINC_CLOSE,0,0);
   DSMSensor::close();
 }
 
@@ -123,6 +123,7 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.
 	_processed[label] = (*si)->isProcessed();
+        ILOG(("labl: %04o  processed: %d", label, _processed[label]));
     }
 }
 
@@ -145,11 +146,11 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   for (int i=0; i<nfields; i++) {
 
 //     if (i == nfields-1)
-//       err("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
-//           (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) );
+//       ILOG(("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
+//             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) ));
 
     unsigned short label = pSamp[i].data & 0xff;
-//     err("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label );
+//     ILOG(("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label ));
     if (!_processed[label]) continue;
 
     SampleT<float>* outs = getSample<float>(1);
@@ -189,9 +190,10 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
     ostr << "<td>" <<
       "lps="         << stat.lps_cnt <<
       "/"            << stat.lps <<
-      ", poll="      << stat.poll << "Hz" <<
+      ", poll="      << stat.pollRate << "Hz" <<
       ", overflow="  << stat.overflow <<
       ", underflow=" << stat.underflow <<
+      ", nosync=" << stat.nosync <<
       "</td>" << endl;
   }
   catch(const n_u::IOException& ioe) {
@@ -223,14 +225,14 @@ void DSMArincSensor::fromDOMElement(const xercesc::DOMElement* node)
       const string& aval = attr.getValue();
 
       if (!aname.compare("speed")) {
-        // err("%s = %s", aname.c_str(), aval.c_str());
+        ILOG(("%s = %s", aname.c_str(), aval.c_str()));
         if (!aval.compare("high"))     _speed = AR_HIGH;
         else if (!aval.compare("low")) _speed = AR_LOW;
         else throw n_u::InvalidParameterException
                (DSMSensor::getName(),aname,aval);
       }
       else if (!aname.compare("parity")) {
-        // err("%s = %s", aname.c_str(), aval.c_str());
+        ILOG(("%s = %s", aname.c_str(), aval.c_str()));
         if (!aval.compare("odd"))       _parity = AR_ODD;
         else if (!aval.compare("even")) _parity = AR_EVEN;
         else throw n_u::InvalidParameterException

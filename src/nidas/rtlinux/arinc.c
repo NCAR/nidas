@@ -56,8 +56,8 @@ RTLINUX_MODULE(arinc);
 static struct ioctlCmd ioctlcmds[] = {
   { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS ) },
   { ARINC_SET,      _IOC_SIZE(ARINC_SET     ) },
-  { ARINC_GO,       _IOC_SIZE(ARINC_GO      ) },
-  { ARINC_RESET,    _IOC_SIZE(ARINC_RESET   ) },
+  { ARINC_OPEN,     _IOC_SIZE(ARINC_OPEN    ) },
+  { ARINC_CLOSE,    _IOC_SIZE(ARINC_CLOSE   ) },
   { ARINC_SIM_XMIT, _IOC_SIZE(ARINC_SIM_XMIT) },
   { ARINC_BIT,      _IOC_SIZE(ARINC_BIT     ) },
   { ARINC_STAT,     _IOC_SIZE(ARINC_STAT    ) },
@@ -336,7 +336,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     if (status != ARS_NORMAL) goto ar_fail;
     break;
   }
-  case ARINC_GO:
+  case ARINC_OPEN:
   {
     /* store the speed and parity for this channel */
     archn_t val = *(archn_t*) buf;
@@ -381,7 +381,7 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
             register_irig_callback( &arinc_sweep, hdl->poll,(void *)chn,&status);
       if (!hdl->pollCallback) return -ENOMEM;
 
-      err("ARINC_GO: opened '%s' poll[%d] = %d Hz)", hdl->fname, chn, irigClockEnumToRate(hdl->poll));
+      err("ARINC_OPEN: opened '%s' poll[%d] = %d Hz)", hdl->fname, chn, irigClockEnumToRate(hdl->poll));
     }
     /* set channel speed */
     err("set channel %d speed  to %d", chn, hdl->speed);
@@ -402,15 +402,15 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     if (status != ARS_NORMAL) goto ar_fail;
 
     running = 1;
-    err("ARINC_GO: board launched");
+    err("ARINC_OPEN: board launched");
     break;
   }
-  case ARINC_RESET:
+  case ARINC_CLOSE:
 
     running = 0;
 
     /* unregister poll recv routine with the IRIG driver */
-    err("ARINC_RESET: unregister_irig_callback(&arinc_sweep, poll[%d] = %d Hz)",
+    err("ARINC_CLOSE: unregister_irig_callback(&arinc_sweep, poll[%d] = %d Hz)",
         chn, irigClockEnumToRate(hdl->poll));
     if (hdl->pollCallback)
         unregister_irig_callback(hdl->pollCallback);
@@ -419,12 +419,12 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
     /* close its output FIFO */
     if (hdl->fd > -1) {
       int temp_fd = hdl->fd;
-      err("ARINC_RESET: chn: %d rtl_close(hdl->fd);", chn);
+      err("ARINC_CLOSE: chn: %d rtl_close(hdl->fd);", chn);
       hdl->fd = -1;
       rtl_close(temp_fd);
     }
     else
-      err("ARINC_RESET: chn: %d skipping rtl_close(hdl->fd);", chn);
+      err("ARINC_CLOSE: chn: %d skipping rtl_close(hdl->fd);", chn);
 
     /* clear out the channel's info structure */
     hdl->fd            = -1;
@@ -490,9 +490,10 @@ static int arinc_ioctl(int cmd, int board, int chn, void *buf, rtl_size_t len)
       dsm_arinc_status arinc_status;
       arinc_status.lps_cnt   = hdl->lps_cnt;
       arinc_status.lps       = hdl->lps;
-      arinc_status.poll      = irigClockEnumToRate(hdl->poll);
+      arinc_status.pollRate  = irigClockEnumToRate(hdl->poll);
       arinc_status.overflow  = hdl->overflow;
       arinc_status.underflow = hdl->underflow;
+      arinc_status.nosync = 0;
       *(dsm_arinc_status *) buf = arinc_status;
 
 #ifdef DEBUG
@@ -599,7 +600,7 @@ static void __exit arinc_cleanup(void)
   /* for each ARINC receive port... */
   for (chn=0; chn<N_ARINC_RX; chn++) {
     struct recvHandle *hdl = &chn_info[chn];
-    arinc_ioctl(ARINC_RESET, BOARD_NUM, chn, NULL, 0);
+    arinc_ioctl(ARINC_CLOSE, BOARD_NUM, chn, NULL, 0);
     rtl_unlink( hdl->fname );
   }
 #ifdef ARINC_TRANSMIT

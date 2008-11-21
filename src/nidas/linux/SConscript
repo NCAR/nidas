@@ -63,6 +63,7 @@ if arch == 'armbe':
 env.AppendUnique(CPPPATH = [env.subst("$KERNELDIR/include")] )
 
 subdirs=Split("""
+    arinc
     diamond
     filters
     irig

@@ -8,10 +8,10 @@
 
    Revisions:
 
-     $LastChangedRevision$
-         $LastChangedDate$
-           $LastChangedBy$
-                 $HeadURL$
+     $LastChangedRevision: 3990 $
+         $LastChangedDate: 2007-10-01 23:10:50 -0600 (Mon, 01 Oct 2007) $
+           $LastChangedBy: maclean $
+                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/linux/arinc.h $
 */
 
 #ifndef ARINC_H
@@ -57,8 +57,8 @@ typedef struct {
  * ARINC time tagged sample structure
  */
 typedef struct {
-  unsigned long time;
-  long          data;
+  unsigned int time;
+  int          data;
 } tt_data_t;
 
 /**
@@ -67,7 +67,7 @@ typedef struct {
 typedef struct {
   unsigned int lps_cnt; // Labels Per Second
   unsigned int lps;     // Labels Per Second
-  unsigned int pollRate;
+  unsigned int pollRate;	// Hz
   unsigned int overflow;
   unsigned int underflow;
   unsigned int nosync;
@@ -98,9 +98,5 @@ typedef struct {
 #define AR_EVEN                 1  /* Used to set EVEN parity                 */
 #define AR_HIGH                 0  /* Used to set HIGH speed (100 Kbaud)      */
 #define AR_LOW                  1  /* Used to set LOW speed (12.5 Kbaud)      */
-
-#ifdef __RTCORE_KERNEL__
-#include <nidas/rtlinux/ioctl_fifo.h>
-#endif
 
 #endif
