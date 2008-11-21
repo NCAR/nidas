@@ -307,6 +307,9 @@ static int arinc_open(struct inode *inode, struct file *filp)
         int chn = iminor(inode);
         int err;
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         KLOG_INFO("called\n");
         if (chn >= N_ARINC_RX) return -ENXIO;
 
@@ -516,7 +519,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
                         KLOG_INFO("invalid poll rate: %d Hz\n", pollRate);
                         return -EINVAL;
                 }
-                dev->pollDtMsec = MSEC_PER_SEC / pollRate;
+                dev->pollDtMsec = MSECS_PER_SEC / pollRate;
 
                 // register a sweeping routine for this channel
                 dev->sweepCallback =
@@ -699,6 +702,7 @@ static struct file_operations arinc_fops = {
     .poll    = arinc_poll,
     .read    = arinc_read,
     .release = arinc_release,
+    .llseek  = no_llseek,
 };
 
 // -- MODULE ---------------------------------------------------------- 
