@@ -90,6 +90,7 @@ LETTER	[a-zA-Z]
 \%\*{DIGIT}*lo	;
 \%\*{DIGIT}*lx	;
 \%\*{DIGIT}*lu	;
+\%\*\[[^]]+\]	;       /* %*[xxx] or %*[^xxx] for skipping fields */
 
 \%{DIGIT}*hd	{ return(SHORT); }
 \%{DIGIT}*ho	{ return(SHORT); }

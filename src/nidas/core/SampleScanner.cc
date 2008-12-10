@@ -190,7 +190,7 @@ Sample* DriverSampleScanner::nextSample(DSMSensor* sensor)
         _outSampToRead = _header.length;
         _osamp = getSample<char>(_outSampToRead);
         // convert time tag to microseconds since 00:00 GMT
-        _osamp->setTimeTag((dsm_time_t)_header.timetag * USECS_PER_MSEC);
+        _osamp->setTimeTag((dsm_time_t)_header.timetag * sensor->getDriverTimeTagUsecs());
         _osamp->setId(sensor->getId());
         _osamp->setDataLength(_outSampToRead);
         _outSampDataPtr = (char*) _osamp->getVoidDataPtr();

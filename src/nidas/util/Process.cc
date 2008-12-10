@@ -174,12 +174,11 @@ Process Process::spawn(const string& cmd,
         for (i = 3; i < rl.rlim_max; i++) (void) ::close(i);
 
         // since we're overwriting this process we don't need to delete [] this.
-        const char **newargs = new const char*[args.size()+2];
+        const char **newargs = new const char*[args.size()+1];
 
-        newargs[0] = cmd.c_str();
         for (i = 0; i < args.size(); i++)
-          newargs[i+1] = args[i].c_str();
-        newargs[i+1] = 0;
+          newargs[i] = ::strdup(args[i].c_str());
+        newargs[i] = 0;
 
         /* There isn't an execvpe where one can pass env variables,
          * so we do a putenvs before the exec.
@@ -212,13 +211,14 @@ Process Process::spawn(const string& cmd,
 
     }
 
+    ::close(infd[0]);
+    ::close(outfd[1]);
+    ::close(errfd[1]);
+
     Process proc(pid);
     proc.setInFd(infd[1]);
-    ::close(infd[0]);
     proc.setOutFd(outfd[0]);
-    ::close(outfd[1]);
     proc.setErrFd(errfd[0]);
-    ::close(errfd[1]);
     return proc;
 }
 
@@ -284,14 +284,14 @@ Process Process::spawn(const string& cmd) throw(IOException)
     default:      // parent
         break;
     }
+    ::close(infd[0]);
+    ::close(outfd[1]);
+    ::close(errfd[1]);
 
     Process proc(pid);
     proc.setInFd(infd[1]);
-    ::close(infd[0]);
     proc.setOutFd(outfd[0]);
-    ::close(outfd[1]);
     proc.setErrFd(errfd[0]);
-    ::close(errfd[1]);
     return proc;
 }
 

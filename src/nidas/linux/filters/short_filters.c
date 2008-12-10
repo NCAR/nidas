@@ -259,13 +259,13 @@ struct short_filter_methods get_short_filter_methods(enum nidas_short_filter whi
 EXPORT_SYMBOL(get_short_filter_methods);
 #endif
 
-int short_filters_init(void)
+static int __init short_filters_init(void)
 {	
         // DSM_VERSION_STRING is found in dsm_version.h
         KLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
         return 0;
 }
-void short_filters_cleanup(void)
+static void __exit short_filters_cleanup(void)
 {
 }
 

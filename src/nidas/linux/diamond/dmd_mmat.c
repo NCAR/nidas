@@ -2712,7 +2712,7 @@ static void cleanup_d2a(struct DMMAT* brd)
 
 /*-----------------------Module ------------------------------*/
 
-void dmd_mmat_cleanup(void)
+static void __exit dmd_mmat_cleanup(void)
 {
 
     int ib;
@@ -2751,7 +2751,7 @@ void dmd_mmat_cleanup(void)
     return;
 }
 
-int dmd_mmat_init(void)
+static int __init dmd_mmat_init(void)
 {	
         int result = -EINVAL;
         int ib;

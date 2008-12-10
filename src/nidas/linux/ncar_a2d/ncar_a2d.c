@@ -55,7 +55,11 @@ MODULE_LICENSE("GPL");
  */
 
 /* I/O port addresses of installed boards, 0=no board installed */
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+static int IoPort[MAX_A2D_BOARDS] = { 0xBA0, 0, 0, 0 };
+#else
 static int IoPort[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
+#endif
 
 /* 
  * Which A2D chip is the master? (-1 causes the first requested channel to
@@ -63,28 +67,16 @@ static int IoPort[MAX_A2D_BOARDS] = { 0x3A0, 0, 0, 0 };
  */
 static int Master[MAX_A2D_BOARDS] = { -1, -1, -1, -1 };
 
-/*
- * Whether to invert counts.  This should be true for newer cards, but
- * early versions of the A2D cards did not invert signals.  This is
- * settable as a module parameter.  We could do it by checking the serial
- * number in firmware, but don't have faith that these serial numbers will
- * be set correctly in the firmware on the cards.
- */
-static int Invert[MAX_A2D_BOARDS] = { 1, 1, 1, 1 };
-
-static int nIoPort,nInvert,nMaster;
+static int nIoPort,nMaster;
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
-module_param_array(Invert, bool, &nInvert, S_IRUGO);
 module_param_array(Master, int, &nMaster, S_IRUGO);
 #else
 module_param_array(IoPort, int, nIoPort, S_IRUGO);
-module_param_array(Invert, bool, nInvert, S_IRUGO);
 module_param_array(Master, int, nMaster, S_IRUGO);
 #endif
 
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
-MODULE_PARM_DESC(Invert, "Whether to invert counts, default=1(true)");
 MODULE_PARM_DESC(Master,
                  "Master A/D for the board, default=first requested channel");
 
@@ -107,8 +99,6 @@ static inline int CHAN_ADDR(struct A2DBoard *brd, int channel)
 /*
  * prototypes
  */
-int init_module(void);
-void cleanup_module(void);
 static int stopBoard(struct A2DBoard *brd);
 static ssize_t ncar_a2d_read(struct file *filp, char __user * buf,
                              size_t count, loff_t * f_pos);
@@ -140,8 +130,8 @@ static struct file_operations ncar_a2d_fops = {
  * Info for A/D user devices
  */
 #define DEVNAME_A2D "ncar_a2d"
-static dev_t A2DDevStart = MKDEV(0, 0);
-static struct cdev A2DCdev;
+static dev_t ncar_a2d_device = MKDEV(0, 0);
+static struct cdev ncar_a2d_cdev;
 
 // Clock/data line bits for i2c interface
 static const unsigned long I2CSCL = 0x2;
@@ -368,9 +358,7 @@ waitForChannelInterrupt(struct A2DBoard *brd, int channel, int maxmsecs)
         unsigned char mask = (1 << channel);
         int mwait = 1;
 
-        schedule();
         udelay(10);
-        schedule();
 
         outb(A2DIO_RDINTR, brd->cmd_addr);
         for (cnt = 0; cnt <= (maxmsecs / mwait); cnt++) {
@@ -1008,7 +996,7 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
                 msecs =
                     MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - 20;
                 if (i < 5 && msecs > 0) {
-                    KLOG_DEBUG("%s: GET_MSEC_CLOCK=%ld, sleeping %d msecs\n",
+                    KLOG_DEBUG("%s: GET_MSEC_CLOCK=%d, sleeping %d msecs\n",
                            brd->deviceName,GET_MSEC_CLOCK, msecs);
                     msleep(msecs);  // non-busy wait
                 }
@@ -1025,7 +1013,7 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
                         // Read status, check INV1PPS bit
                         stat = A2DBoardStatus(brd);
                         if ((stat & INV1PPS) == 0) {
-                                KLOG_INFO("%s: found 1PPS after %d sec, %d msec sleep, %d usec delay, GET_MSEC_CLOCK=%ld\n",
+                                KLOG_INFO("%s: found 1PPS after %d sec, %d msec sleep, %d usec delay, GET_MSEC_CLOCK=%d\n",
                                    brd->deviceName,i,msecs,j * uwait,GET_MSEC_CLOCK);
                                 return 0;
                         }
@@ -1047,7 +1035,7 @@ static int __attribute__((__unused__)) waitFor1PPS_all_busy (struct A2DBoard *br
                 // Read status, check INV1PPS bit
                 stat = A2DBoardStatus(brd);
                 if ((stat & INV1PPS) == 0) {
-                        KLOG_INFO("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%ld\n",
+                        KLOG_INFO("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%d\n",
                                i * uwait,GET_MSEC_CLOCK);
                         return 0;
                 }
@@ -1289,11 +1277,11 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
                                              brd->deviceName,
                                              brd->skippedSamples);
                         brd->filters[i].filter(brd->filters[i].filterObj,
-                                               tt, dp, brd->skipFactor,
+                                               tt, dp, 1,
                                                (short_sample_t *) & toss);
                 } else if (brd->filters[i].
                            filter(brd->filters[i].filterObj, tt, dp,
-                                  brd->skipFactor, osamp)) {
+                                  1, osamp)) {
 
 #ifdef __BIG_ENDIAN
                         // convert to little endian
@@ -1324,19 +1312,14 @@ static void a2d_bottom_half(void *work)
                 struct dsm_sample *insamp =
                     brd->fifo_samples.buf[brd->fifo_samples.tail];
 
-                int nval =
-                    insamp->length / sizeof (short) / brd->skipFactor;
+                int nval = insamp->length / sizeof (short);
 
                 short *dp = (short *) insamp->data;
                 short *ep;
                 int ndt;
                 dsm_sample_time_t tt0;
 
-#ifdef DO_A2D_STATRD
-                dp++;           // skip over first status word
-#endif
-
-                ep = dp + nval * brd->skipFactor;
+                ep = dp + nval;
 
                 BUG_ON((nval % NUM_NCAR_A2D_CHANNELS) != 0);
 
@@ -1356,7 +1339,7 @@ static void a2d_bottom_half(void *work)
 
                 for (; dp < ep;) {
                         do_filters(brd, tt0, dp);
-                        dp += NUM_NCAR_A2D_CHANNELS * brd->skipFactor;
+                        dp += NUM_NCAR_A2D_CHANNELS;
                         tt0 += brd->scanDeltatMsec;
                 }
                 INCREMENT_TAIL(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
@@ -1382,30 +1365,47 @@ static void a2d_bottom_half(void *work)
 }
 
 /*
+ * Read and discard a scan of data from A2D FIFO.
+ */
+static void discardA2DFifo(struct A2DBoard *brd)
+{
+        int i;
+        for (i = 0; i < brd->nFifoValues; i++) {
+#ifdef DO_A2D_STATRD
+                inw(brd->base_addr);    // status word
+#endif
+                inw(brd->base_addr);
+        }
+}
+
+/*
  * Get a pointer to an empty fifo sample and
  * fill its data portion from the A2D fifo.  Queue
  * the sampleWorker thread to process the sample.
  */
 static void readA2DFifo(struct A2DBoard *brd)
 {
-//#define DETECT_SPIKE 30000 // undefine to disable
-#ifdef DETECT_SPIKE
-        static int last[8];
-        int chan, diff;
-#endif
-
         struct dsm_sample *samp;
         int i;
         short* dp;
         /*
-         * Read the data for the DSM sample from the card.  Note that a DSM
-         * sample will contain brd->sampsPerCallback individual samples for
-         * each requested channel.
+         * Read a sample from the hardware FIFO on the card.
+         * Note that a FIFO sample will contain multiple samples
+         * for each A2D channel:
+         *      nsamp = brd->scanRate / brd->pollRate
+         * The A2D scanRate is typically 500. For a brd->pollRate of
+         * 25, the FIFO sample will contain 500 / 25 = 20 samples from
+         * each of the 8 channels, giving 160 16-bit integers
+         * with the channel number varying most rapidly.
+         * These FIFO samples are then passed to the workqueue
+         * bottom half, where they are broken out into individual,
+         * timetagged samples for the requested channels, using the
+         * requested simple boxcar or pickoff filters.
          */
         outb(A2DIO_FIFO, brd->cmd_addr);        // Set up to read data
 
         if (brd->discardNextScan) {
-                insw(brd->base_addr, brd->discardBuffer, brd->nFifoValues);
+                discardA2DFifo(brd);
 		brd->discardNextScan = 0;
 		return;
         }
@@ -1413,69 +1413,33 @@ static void readA2DFifo(struct A2DBoard *brd)
 	samp = GET_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
         if (!samp) {            // no output sample available
                 brd->skippedSamples +=
-                    brd->nFifoValues / NUM_NCAR_A2D_CHANNELS /
-                    brd->skipFactor;
+                    brd->nFifoValues / NUM_NCAR_A2D_CHANNELS;
 		if (!(brd->skippedSamples % 100))
 			KLOG_WARNING("%s: skippedSamples=%d\n", brd->deviceName,
 				     brd->skippedSamples);
-                insw(brd->base_addr, brd->discardBuffer, brd->nFifoValues);
+                discardA2DFifo(brd);
                 return;
         }
         samp->timetag = GET_MSEC_CLOCK;
         /*
-         * Read the fifo.  Note that inw on the Vulcan munges things to 
-         * local CPU (i.e. big-endian) order, which is OK here,
-         * since we will be doing filtering on the data.
-         * Before sending it up the user space it is converted
-         * to little-endian, which is the convention for A2D data.
+         * Read the FIFO. FIFO values are little-endian.
+         * inw converts data to host endian, whereas insw does not.
+         * We want to convert to host endian in order to do
+         * filtering here in the driver.
+         * insw on the Vulcan just does a while loop in C, so it
+         * is probably more efficient to do our own loop
+         * with inw since we have to negate each value anyway, and
+         * skip the status data.
+         * Before sending the a2d values up to user space, they are
+         * converted to little-endian, which is the convention for A2D data.
          */
-        // KLOG_DEBUG("reading fifo, nvalues=%d\n",brd->nFifoValues);
-
-        /* Note that inw converts data to host endian,
-         * whereas insw does not */
-        insw(brd->base_addr, (short *) samp->data, brd->nFifoValues);
-        if (brd->invertCounts) {
-                dp = (short *) samp->data;
-                for (i = 0; i < brd->nFifoValues/brd->skipFactor; i++) {
+        dp = (short *) samp->data;
+        for (i = 0; i < brd->nFifoValues; i++) {
 #ifdef DO_A2D_STATRD
-                        dp++;           // skip over status word
+                inw(brd->base_addr);    // read, ignore status word
 #endif
-#ifdef __BIG_ENDIAN
-                        *dp = -le16_to_cpu(*dp);
-#else
-                        *dp = -*dp;
-#endif
-#ifdef DETECT_SPIKE
-                        chan = i % (brd->nFifoValues / NUM_NCAR_A2D_CHANNELS / brd->skipFactor);
-                        diff = last[chan] - *dp;
-                        if (diff < 0) diff *= -1;
-                        if (diff > DETECT_SPIKE) KLOG_DEBUG("%s: ** A2D SPIKE of %d on channel %d at %ld **\n",
-                                                    brd->deviceName,diff, chan, GET_MSEC_CLOCK);
-                        last[chan] = *dp;
-#endif
-                        dp++;
-                }
+                *dp++ = -inw(brd->base_addr);   // note: value is negated
         }
-#ifdef __BIG_ENDIAN
-        else {
-                dp = (short *) samp->data;
-                for (i = 0; i < brd->nFifoValues/brd->skipFactor; i++) {
-#ifdef DO_A2D_STATRD
-                        dp++;           // skip over status word
-#endif
-                        *dp = -le16_to_cpu(*dp);
-#ifdef DETECT_SPIKE
-                        chan = i % (brd->nFifoValues / NUM_NCAR_A2D_CHANNELS / brd->skipFactor);
-                        diff = last[chan] - *dp;
-                        if (diff < 0) diff *= -1;
-                        if (diff > DETECT_SPIKE) KLOG_DEBUG("%s: ** A2D SPIKE of %d on channel %d at %ld **\n",
-                                                    brd->deviceName,diff, chan, GET_MSEC_CLOCK);
-                        last[chan] = *dp;
-#endif
-                        dp++;
-                }
-        }
-#endif
 
         samp->length = brd->nFifoValues * sizeof (short);
         /* increment head, this sample is ready for consumption */
@@ -1484,7 +1448,7 @@ static void readA2DFifo(struct A2DBoard *brd)
 }
 
 /*
- * Function scheduled to be called from IRIG driver at 100Hz frequency.
+ * Function scheduled to be called from IRIG driver at the polling frequency.
  * Create a sample from the A2D FIFO, and pass it on to other
  * routines to break it up and filter the samples.
  */
@@ -1519,7 +1483,7 @@ static void ReadSampleCallback(void *ptr)
          * If FIFO is full, there's a problem
          */
         if (preFlevel == 5) {
-                KLOG_ERR("%s: Restarting card with full FIFO @ %ld\n",
+                KLOG_ERR("%s: Restarting card with full FIFO @ %d\n",
                          brd->deviceName,GET_MSEC_CLOCK);
                 brd->errorState = WAITING_FOR_RESET;
                 queue_work(work_queue, &brd->resetWorker);
@@ -1536,7 +1500,7 @@ static void ReadSampleCallback(void *ptr)
         /*
          * Update stats every 10 seconds
          */
-        if (!(brd->readCtr % (A2D_POLL_RATE * 10))) {
+        if (!(brd->readCtr % (brd->pollRate * 10))) {
                 /*
                  * copy current status to prev_status for access by ioctl
                  * A2D_GET_STATUS
@@ -1630,12 +1594,12 @@ static int resetBoard(struct A2DBoard *brd)
 	flush_irig_callbacks();
 
         // Sync with 1PPS
-        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%ld\n",
+        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%d\n",
                    brd->deviceName,GET_MSEC_CLOCK);
         if ((ret = waitFor1PPS(brd)) != 0)
                 return ret;
 
-        KLOG_DEBUG("%s: Found initial PPS, GET_MSEC_CLOCK=%ld\n",
+        KLOG_DEBUG("%s: Found initial PPS, GET_MSEC_CLOCK=%d\n",
                    brd->deviceName,GET_MSEC_CLOCK);
 
         A2DStopReadAll(brd);    // Send Abort command to all A/Ds
@@ -1652,12 +1616,12 @@ static int resetBoard(struct A2DBoard *brd)
         msleep(20);
         A2DEnable1PPS(brd);     // Enable sync with 1PPS
 
-        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%ld\n",
+        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%d\n",
                    brd->deviceName,GET_MSEC_CLOCK);
         if ((ret = waitFor1PPS(brd)) != 0)
                 return ret;
 
-        KLOG_DEBUG("%s: Found second PPS, GET_MSEC_CLOCK=%ld\n",
+        KLOG_DEBUG("%s: Found second PPS, GET_MSEC_CLOCK=%d\n",
                    brd->deviceName,GET_MSEC_CLOCK);
         A2DClearFIFO(brd);      // Clear the board's FIFO...
 
@@ -1666,12 +1630,10 @@ static int resetBoard(struct A2DBoard *brd)
         brd->readCtr = 0;
         brd->skippedSamples = 0;
         brd->fifo_samples.head = brd->fifo_samples.tail = 0;
-        brd->consecutiveNonEmpty = 0;
 
-        // start the IRIG callback routine at 100 Hz
-        //
+        // start the IRIG callback routine at the polling rate
         brd->a2dCallback =
-            register_irig_callback(ReadSampleCallback, IRIG_100_HZ, brd,&ret);
+            register_irig_callback(ReadSampleCallback, brd->irigRate, brd,&ret);
         if (!brd->a2dCallback) {
                 KLOG_ERR("%s: error: register_irig_callback failed\n",brd->deviceName);
                 return ret;
@@ -1688,7 +1650,7 @@ static int resetBoard(struct A2DBoard *brd)
         }
 
         brd->busy = 1;          // Set the busy flag
-        KLOG_DEBUG("%s: IRIG callbacks registered @ %ld\n", brd->deviceName,GET_MSEC_CLOCK);
+        KLOG_DEBUG("%s: IRIG callbacks registered @ %d\n", brd->deviceName,GET_MSEC_CLOCK);
 
         KLOG_INFO("%s: reset succeeded\n", brd->deviceName);
         brd->errorState = ret;
@@ -1718,6 +1680,7 @@ static int startBoard(struct A2DBoard *brd)
         int nFifoValues;
         int haveMaster = 0;
         int i;
+        int wordsPerSec, pollRate;
         /*
          * Set the master now if we were given an explicit one
          */
@@ -1780,20 +1743,31 @@ static int startBoard(struct A2DBoard *brd)
         memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
         brd->lastWakeup = jiffies;
 
+        wordsPerSec = brd->scanRate * NUM_NCAR_A2D_CHANNELS;
+#ifdef DO_A2D_STATRD
+        wordsPerSec *= 2;
+#endif
+        /* Poll FIFO so that it doesn't get more than 1/3 full */
+        pollRate = wordsPerSec / (HWFIFODEPTH / 3);
+        if (pollRate < 10) pollRate = 10;
+        else if (pollRate < 20) pollRate = 20;
+        else if (pollRate < 25) pollRate = 25;
+        else if (pollRate < 50) pollRate = 50;
+        else pollRate = 100;
+
+        brd->pollRate = pollRate;
+
+        brd->irigRate = irigClockRateToEnum(brd->pollRate);
+        BUG_ON(brd->irigRate == IRIG_NUM_RATES);
+
         /*
          * How many data values do we read per poll?
          */
         nFifoValues =
-            brd->scanRate / A2D_POLL_RATE * NUM_NCAR_A2D_CHANNELS;
-        brd->skipFactor = 1;
+            brd->scanRate / brd->pollRate * NUM_NCAR_A2D_CHANNELS;
 
-#ifdef DO_A2D_STATRD
-        nFifoValues *= 2;       // twice as many reads if status is being sent
-        brd->skipFactor = 2;
-#endif
-
-        KLOG_DEBUG("%s: nFifoValues=%d\n",
-                   brd->deviceName, brd->nFifoValues);
+        KLOG_DEBUG("%s: pollRate=%d, nFifoValues=%d\n",
+                   brd->deviceName, brd->pollRate,brd->nFifoValues);
 
         /*
          * If nFifoValues increases, re-allocate samples
@@ -1804,12 +1778,6 @@ static int startBoard(struct A2DBoard *brd)
                                            FIFO_SAMPLE_QUEUE_SIZE);
                 if (ret)
                         return ret;
-
-                kfree(brd->discardBuffer);
-                brd->discardBuffer = (short *)
-                    kmalloc(nFifoValues * sizeof (short), GFP_KERNEL);
-                if (!brd->discardBuffer)
-                        return -ENOMEM;
         }
         brd->nFifoValues = nFifoValues;
         brd->fifo_samples.head = brd->fifo_samples.tail = 0;
@@ -2122,15 +2090,15 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
 /*-----------------------Module------------------------------*/
 // Stops the A/D and releases reserved memory
-void cleanup_module(void)
+static void __exit ncar_a2d_cleanup(void)
 {
         int ib;
         int i;
 
 
-        if (MAJOR(A2DDevStart)) {
-                cdev_del(&A2DCdev);
-                unregister_chrdev_region(A2DDevStart, NumBoards);
+        if (MAJOR(ncar_a2d_device)) {
+                cdev_del(&ncar_a2d_cdev);
+                unregister_chrdev_region(ncar_a2d_device, NumBoards);
         }
 
         if (BoardInfo) {
@@ -2139,7 +2107,6 @@ void cleanup_module(void)
 
                         free_dsm_circ_buf(&brd->a2d_samples);
                         free_dsm_circ_buf(&brd->fifo_samples);
-                        kfree(brd->discardBuffer);
                         if (brd->filters) {
                                 for (i = 0; i < brd->nfilters; i++) {
                                         if (brd->filters[i].channels)
@@ -2175,14 +2142,11 @@ void cleanup_module(void)
 
 /*-----------------------Module------------------------------*/
 
-int init_module()
+static int __init ncar_a2d_init(void)
 {
         int error = -EINVAL;
         int ib, i;
 
-#ifdef DETECT_SPIKE
-        KLOG_DEBUG("** SPIKE detection enabled.  Sensitivity set to: %d **\n", DETECT_SPIKE); 
-#endif
         BoardInfo = 0;
 
         work_queue = create_singlethread_workqueue("ncar_a2d");
@@ -2268,18 +2232,21 @@ int init_module()
                 outw(AD7725_WRCONFIG, brd->base_addr);  // send WRCONFIG to channel 0
                 // Make sure channel 0 status confirms receipt of AD7725_WRCONFIG cmd
                 if (!A2DConfirmInstruction(brd, 0, AD7725_WRCONFIG)) {
-                        KLOG_ERR("%s: Bad response on IoPort 0x%03x, address 0x%08x  "
+                        KLOG_WARNING("%s: Bad response on IoPort 0x%03x, address 0x%08x  "
                                  "Is there really an NCAR A/D card there?\n",
                                  brd->deviceName,IoPort[ib],brd->base_addr);
                         error = -ENODEV;
-                        goto err;
+                        if (ib == 0) goto err;
+                        release_region(brd->base_addr, A2DIOWIDTH);
+                        brd->base_addr = 0;
+                        NumBoards = ib;
+                        break;
                 } else
                         KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08x\n",
                                     brd->deviceName,IoPort[ib],brd->base_addr);
                 /*
                  * Do we tell the board to interleave status with data?
                  */
-
 #ifdef DO_A2D_STATRD
                 brd->FIFOCtl = A2DSTATEBL;
 #else
@@ -2287,8 +2254,6 @@ int init_module()
 #endif
 
                 brd->tempRate = IRIG_NUM_RATES;
-
-                brd->invertCounts = Invert[ib];
 
                 /*
                  * Initialize the read wait queue
@@ -2327,25 +2292,22 @@ int init_module()
                                            A2D_SAMPLE_QUEUE_SIZE);
                 if (error)
                         return error;
-
-                brd->discardBuffer = 0;
         }
 
         /*
          * Initialize and add the user-visible devices for the A/D functions
          */
-        if ((error = alloc_chrdev_region(&A2DDevStart, 0, NumBoards,
+        if ((error = alloc_chrdev_region(&ncar_a2d_device, 0, NumBoards,
                                          DEVNAME_A2D)) < 0) {
                 KLOG_ERR
                     ("Error %d allocating device major number for '%s'\n",
                      -error, DEVNAME_A2D);
                 goto err;
-        } else
-                KLOG_DEBUG("Got major device number %d for '%s'\n",
-                            MAJOR(A2DDevStart), DEVNAME_A2D);
+        }
 
-        cdev_init(&A2DCdev, &ncar_a2d_fops);
-        if ((error = cdev_add(&A2DCdev, A2DDevStart, NumBoards)) < 0) {
+        cdev_init(&ncar_a2d_cdev, &ncar_a2d_fops);
+        ncar_a2d_cdev.owner = THIS_MODULE;
+        if ((error = cdev_add(&ncar_a2d_cdev, ncar_a2d_device, NumBoards)) < 0) {
                 KLOG_ERR("cdev_add() for NCAR A/D failed!\n");
                 goto err;
         }
@@ -2356,8 +2318,10 @@ int init_module()
 
       err:
 
-        unregister_chrdev_region(A2DDevStart, NumBoards);
-        cdev_del(&A2DCdev);
+        if (MAJOR(ncar_a2d_device) > 0) {
+            cdev_del(&ncar_a2d_cdev);
+            unregister_chrdev_region(ncar_a2d_device, NumBoards);
+        }
 
         if (BoardInfo) {
                 for (ib = 0; ib < NumBoards; ib++) {
@@ -2365,7 +2329,6 @@ int init_module()
 
                         free_dsm_circ_buf(&brd->fifo_samples);
                         free_dsm_circ_buf(&brd->a2d_samples);
-                        kfree(brd->discardBuffer);
                         if (brd->filters) {
                                 for (i = 0; i < brd->nfilters; i++) {
                                         if (brd->filters[i].channels)
@@ -2389,3 +2352,6 @@ int init_module()
 
         return error;
 }
+
+module_init(ncar_a2d_init);
+module_exit(ncar_a2d_cleanup);

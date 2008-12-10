@@ -126,6 +126,7 @@ void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
  */
 void TwoD_USB::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     init_parameters();
 
     // Find SampleID for 1D & 2D arrays.
@@ -245,6 +246,10 @@ void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 void TwoD_USB::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
     struct usb_twod_stats status;
 
     try {

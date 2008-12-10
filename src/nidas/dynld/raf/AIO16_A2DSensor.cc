@@ -128,6 +128,7 @@ void AIO16_A2DSensor::close() throw(n_u::IOException)
 
 void AIO16_A2DSensor::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     if (initialized) return;
     initialized = true;
 
@@ -217,6 +218,10 @@ void AIO16_A2DSensor::init() throw(n_u::InvalidParameterException)
 void AIO16_A2DSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
     struct AIO16_Status stat;
     try {

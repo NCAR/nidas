@@ -52,6 +52,7 @@ IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
 {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
 }
 
@@ -68,6 +69,7 @@ void A2DBoardTempSensor::close() throw(n_u::IOException)
 
 void A2DBoardTempSensor::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     for (SampleTagIterator ti = getSampleTagIterator(); ti.hasNext(); ) {
 	const SampleTag* tag = ti.next();
 	rate = irigClockRateToEnum((int)tag->getRate());

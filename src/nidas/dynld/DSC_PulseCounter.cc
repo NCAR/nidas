@@ -79,6 +79,7 @@ void DSC_PulseCounter::close() throw(n_u::IOException)
 
 void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     if (getSampleTags().size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");
@@ -98,6 +99,10 @@ void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
 void DSC_PulseCounter::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
     struct DMMAT_CNTR_Status stat;
     try {

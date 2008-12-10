@@ -81,6 +81,19 @@ public:
      * Fork and execute a command and associated arguments and
      * environment. Return the Process object that can be
      * used to communicate with or control the sub-process.
+     * @param cmd: The name of the command.  spawn uses the
+     *      execvp system call, which means that if
+     *      the command name does not contain a slash (/) character,
+     *      then a search is done for the command name using the
+     *      PATH environment variable.
+     * @param args: Arguments that are passed to the command.
+     *      The zero'th argument should be the short name of the
+     *      command, as is required by the exec system calls.
+     * @param env: Environment variables to be added or changed in the
+     *      subprocess.  The map keys are the names of the environment
+     *      variables.  Note that by default, the current environment
+     *      is copied to the subprocess, so you only need to specify
+     *      variables that you wish to be added or changed.
      * @param niceval: The desired nice value, typically a positive
      *      value so that the spawned process has a higher nice
      *      value (lower priority).  If niceval is negative
@@ -96,6 +109,10 @@ public:
      * Fork and execute a command and associated arguments.
      * Return the Process object that can be
      * used to communicate with or control the sub-process.
+     * spawn uses the execvp system call, which means that if
+     * the command name does not contain a slash (/) character,
+     * then a search is done for the command name using the
+     * PATH environment variable.
      */
     static Process spawn(const std::string& cmd,
         const std::vector<std::string>& args,

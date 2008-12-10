@@ -28,8 +28,8 @@ using namespace nidas::core;
 /**
  * A sensor connected to a serial port.
  */
-class DSMSerialSensor : public CharacterSensor, public nidas::util::Termios,
-	public LooperClient {
+class DSMSerialSensor : public CharacterSensor, public nidas::util::Termios 
+{
 
 public:
 
@@ -72,21 +72,15 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
-
     /**
      * Is prompting active, i.e. isPrompted() is true, and startPrompting
      * has been called?
      */
-    bool isPrompting() const { return prompting; }
+    bool isPrompting() const { return _prompting; }
 
     void startPrompting() throw(nidas::util::IOException);
 
     void stopPrompting() throw(nidas::util::IOException);
-
-    /**
-     * Method called by Looper in order to send a prompt.
-     */
-    void looperNotify() throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(nidas::util::InvalidParameterException);
@@ -101,13 +95,30 @@ protected:
 
 private:
 
-    bool prompting;
+    class Prompter: public nidas::core::LooperClient
+    {
+    public:
+        Prompter(DSMSerialSensor* sensor): _sensor(sensor),_prompt(0) {}
 
-    char* cPromptString;
+        ~Prompter();
 
-    int cPromptStringLen;
+        void setPrompt(const std::string& val);
 
-    int promptPeriodMsec;
+        /**
+         * Method called by Looper in order to send a prompt.
+         */
+        void looperNotify() throw();
+    private:
+        DSMSerialSensor* _sensor;
+        char* _prompt;
+        int _promptLen;
+    };
+
+    Prompter _prompter;
+
+    bool _prompting;
+
+    int _promptPeriodMsec;
 
 };
 

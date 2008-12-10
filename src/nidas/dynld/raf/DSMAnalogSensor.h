@@ -82,6 +82,11 @@ public:
 
     void readCalFile(dsm_time_t tt) throw(nidas::util::IOException);
 
+    int getInt32TimeTagUsecs() const 
+    {
+        return USECS_PER_MSEC;
+    }
+
 protected:
 
     bool processTemperature(const Sample*, std::list<const Sample*>& result) throw();

@@ -56,6 +56,7 @@ public:
   	
   SampleScanner* buildSampleScanner()
   {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
   }
  

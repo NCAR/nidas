@@ -303,6 +303,8 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "orientation");
+        else if (parameter->getName() == "oversample");
+        else if (parameter->getName() == "soniclog");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
     }

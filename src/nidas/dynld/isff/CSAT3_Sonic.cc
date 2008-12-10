@@ -12,6 +12,8 @@
 */
 
 #include <nidas/dynld/isff/CSAT3_Sonic.h>
+#include <nidas/util/Logger.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <sstream>
 
@@ -31,7 +33,9 @@ CSAT3_Sonic::CSAT3_Sonic():
 	spikeIndex(-1),
 	windSampleId(0),
 	nttsave(-2),
-	counter(0)
+	counter(0),
+        _rate(0),
+        _oversample(false)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -44,6 +48,258 @@ CSAT3_Sonic::CSAT3_Sonic():
 
 CSAT3_Sonic::~CSAT3_Sonic()
 {
+}
+
+void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
+{
+    setMessageLength(1);
+    setMessageSeparator("");
+    setMessageParameters(); // does the ioctl
+
+    clearBuffer();
+    for (int i = 0; i < 10; i++) {
+        DLOG(("sending &"));
+        write("&",1);
+        // clear whatever junk may be in the buffer til a timeout
+        try {
+            for (int i = 0; i < 10; i++) {
+                readBuffer(MSECS_PER_SEC + 10);
+                clearBuffer();
+            }
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            DLOG(("timeout"));
+            break;
+        }
+    }
+}
+
+void CSAT3_Sonic::startSonic() throw(n_u::IOException)
+{
+    DLOG(("sending D (nocr)"));
+    write("D",1);
+
+    for (int i = 0; i < 5; i++) {
+        DLOG(("sending &"));
+        write("&",1);
+        try {
+            readBuffer(MSECS_PER_SEC);
+            break;
+        }
+        catch (const n_u::IOTimeoutException& e) {
+        }
+        DLOG(("sending D"));
+        write("D",1);
+    }
+    clearBuffer();
+}
+
+string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision)
+    throw(n_u::IOException)
+{
+    string result;
+
+    acqrate = 0;
+    osc = ' ';
+    serialNumber = "unknown";
+
+    for (int j = 0; j < 5; j++) {
+        DLOG(("sending ?? CR"));
+        write("??\r",3);    // must send CR
+        int timeout = MSECS_PER_SEC * 2;
+        for (;;) {
+            try {
+                readBuffer(timeout);
+            }
+            catch (const n_u::IOTimeoutException& e) {
+                DLOG(("timeout"));
+                break;
+            }
+            for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                distributeRaw(samp);
+                int l = samp->getDataByteLength();
+                // strings will not be null terminated
+                const char * cp = (const char*)samp->getConstVoidDataPtr();
+                if (result.length() == 0)
+                    while (*cp && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
+                result += string(cp,l);
+            }
+            timeout = MSECS_PER_SEC;
+        }
+        if (result.length() > 100) break;
+    }
+    clearBuffer();
+
+    string::size_type fs = result.find("ET=");
+    if (fs != string::npos && fs > 0) result = result.substr(fs);
+    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+
+    unsigned int ql = result.length();
+    DLOG(("query=") << n_u::addBackslashSequences(result) << " result length=" << ql);
+
+    // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
+    fs = result.find("AQ=");
+    if (fs != string::npos && fs + 3 < ql)
+        acqrate = atoi(result.substr(fs+3).c_str());
+
+    // get os parameter, e.g. "os=g"
+    // g for 10Hz 6x oversampling, h for 20Hz 3x oversampling, ' ' otherwise
+    fs = result.find("os=");
+    if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
+            
+    // get serial number, e.g. "SN1124" (hopefully is the only string with "SN")
+    fs = result.find("SN");
+    string::size_type bl = result.find(' ',fs);
+    if (fs != string::npos && bl != string::npos)
+        serialNumber = result.substr(fs,bl-fs);
+
+    // get software revision, e.g. "rev 3.0f"
+    fs = result.find("rev");
+    if (fs != string::npos && fs + 4 < ql) {
+        bl = result.find(' ',fs+4);
+        revision = result.substr(fs+4,bl-fs-4);
+    }
+    return result;
+}
+
+string CSAT3_Sonic::sendRateCommand(const char* cmd)
+    throw(n_u::IOException)
+{
+    DLOG(("sending %s (nocr)",cmd));
+    write(cmd,2);
+    int timeout = MSECS_PER_SEC * 4;
+
+    string result;
+    for (int i = 0; ; i++) {
+        try {
+            readBuffer(timeout);
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            DLOG(("timeout"));
+            break;
+        }
+        for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+            distributeRaw(samp);
+            // strings will not be null terminated
+            const char * cp = (const char*)samp->getConstVoidDataPtr();
+            result += string(cp,samp->getDataByteLength());
+        }
+    }
+    clearBuffer();
+    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+    return result;
+}
+
+const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample)
+{
+    struct acqSigTable {
+        int rate;
+        bool oversample;
+        const char* cmd;
+    };
+    static const struct acqSigTable acqSigCmds[] = {
+        {1,false,"A2"},
+        {2,false,"A5"},
+        {3,false,"A6"},
+        {5,false,"A7"},
+        {6,false,"A8"},
+        {10,false,"A9"},
+        {12,false,"Aa"},
+        {15,false,"Ab"},
+        {20,false,"Ac"},
+        {30,false,"Ad"},
+        {60,false,"Ae"},
+        {10,true,"Ag"},
+        {20,true,"Ah"},
+    };
+
+    int nr =  (signed)(sizeof(acqSigCmds)/sizeof(acqSigCmds[0]));
+    for (int i = 0; i < nr; i++) {
+        if (acqSigCmds[i].rate == rate &&
+            (oversample == acqSigCmds[i].oversample)) {
+            return acqSigCmds[i].cmd;
+        }
+    }
+    return 0;
+}
+
+void CSAT3_Sonic::open(int flags)
+    throw(n_u::IOException,n_u::InvalidParameterException)
+{
+    const char* rateCmd = 0;
+    if (_rate > 0) {
+        rateCmd = getRateCommand(_rate,_oversample);
+        if (!rateCmd) {
+            ostringstream ost;
+            ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
+            throw n_u::InvalidParameterException(getName(),
+                "sample rate",ost.str());
+        }
+    }
+
+    DSMSerialSensor::open(flags);
+
+    int ml = getMessageLength();
+    string sep = getMessageSeparator();
+    bool eom = getMessageSeparatorAtEOM();
+
+    stopSonic();
+
+    setMessageLength(0);
+    setMessageSeparator(">");   // sonic prompt
+    setMessageSeparatorAtEOM(true);
+    setMessageParameters(); // does the ioctl
+
+    // put in "terminal" mode
+    DLOG(("sending T (nocr)"));
+    write("T",1);
+    usleep(USECS_PER_SEC);
+
+    int acqrate = 0;
+    string serialNumber = "unknown";
+    char osc = ' ';
+    string revision;
+
+    string query = querySonic(acqrate,osc,serialNumber,revision);
+    DLOG(("AQ=%d,os=%c,serial number=",acqrate,osc) << serialNumber << " rev=" << revision);
+
+    // Is current sonic rate OK?  If requested rate is 0, don't change.
+    bool rateOK = _rate == 0;
+    if (!_oversample && acqrate == _rate) rateOK = true;
+    if (_oversample && acqrate == 60) {
+        if (_rate == 10 && osc == 'g') rateOK = true;
+        if (_rate == 20 && osc == 'h') rateOK = true;
+    }
+
+    string rateResult;
+    if (!rateOK) {
+        assert(rateCmd != 0);
+        rateResult = sendRateCommand(rateCmd);
+        query = querySonic(acqrate,osc,serialNumber,revision);
+        DLOG(("AQ=%d,os=%c,serial number=",acqrate,osc) << serialNumber << " rev=" << revision);
+    }
+
+    if ((!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+        n_u::UTime now;
+        string fname = getDSMConfig()->expandString(_sonicLogFile);
+        ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
+        fst << "csat3: " << getName() << ' ' << serialNumber << ' ' << revision << endl;
+        fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
+        n_u::trimString(rateResult);
+        if (rateResult.length() > 0) fst << rateResult << endl;
+        n_u::trimString(query);
+        fst << query << endl;
+        fst << "##################" << endl;
+        if (fst.fail()) ELOG(("%s: write failed",_sonicLogFile.c_str()));
+        fst.close();
+        _serialNumber = serialNumber;
+    }
+
+    setMessageLength(ml);
+    setMessageSeparator(sep);
+    setMessageSeparatorAtEOM(eom);
+    setMessageParameters(); // does the ioctl
+    startSonic();
 }
 
 void CSAT3_Sonic::addSampleTag(SampleTag* stag)
@@ -99,6 +355,8 @@ void CSAT3_Sonic::addSampleTag(SampleTag* stag)
 	totalInLen += 2;	// 2 bytes for each additional input
     }
     SonicAnemometer::addSampleTag(stag);
+
+    _rate = (int)rint(stag->getRate());
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     swapBuf.reset(new short[totalInLen/2]);
@@ -290,6 +548,22 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException(getName(),
                     "orientation parameter",
                     "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
+        }
+        else if (parameter->getName() == "oversample") {
+            if (parameter->getType() != Parameter::BOOL_PARAM ||
+                parameter->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        "oversample parameter",
+                        "must be boolean true or false");
+            _oversample = (int)parameter->getNumericValue(0);
+        }
+        else if (parameter->getName() == "soniclog") {
+            if (parameter->getType() != Parameter::STRING_PARAM ||
+                parameter->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                        "soniclog parameter",
+                        "must be a string");
+            _sonicLogFile = parameter->getStringValue(0);
         }
     }
 }

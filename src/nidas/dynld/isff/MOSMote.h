@@ -40,16 +40,25 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    /**
-     * LooperClient virtual method.
-     */
-    void looperNotify() throw();
-
 private:
     unsigned int _tsyncPeriodSecs;
 
     unsigned int _ncallBack;
 
+    class MOS_TimeSyncer: public nidas::core::LooperClient
+    {
+    public:
+        MOS_TimeSyncer(MOSMote* mote): _mote(mote) {}
+
+        /**
+         * LooperClient virtual method.
+         */
+        void looperNotify() throw();
+    private:
+        MOSMote* _mote;
+    };
+
+    MOS_TimeSyncer _mosSyncher;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

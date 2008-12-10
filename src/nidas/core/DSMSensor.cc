@@ -44,8 +44,10 @@ DSMSensor::DSMSensor() :
     rawSampleTag(0),
     latency(0.1),	// default sensor latency, 0.1 secs
     calFile(0),
-    _timeoutUsecs(0),
-    _duplicateIdOK(false)
+    _timeoutMsecs(0),
+    _duplicateIdOK(false),
+    _driverTimeTagUsecs(USECS_PER_TMSEC),
+    _nTimeouts(0)
 {
 }
 
@@ -261,18 +263,21 @@ void DSMSensor::open(int flags)
     scanner->init();
 }
 
-/*
- * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
- */
 void DSMSensor::close() throw(n_u::IOException) 
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
-    	"closing: %s",getDeviceName().c_str());
+    	"closing: %s, #timeouts=%d",
+        getDeviceName().c_str(),getTimeoutCount());
     iodev->close();
 }
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
 {
+    // Currently, on the aircraft we don't want nidas to apply
+    // variable conversions.  Check the Site (if it exists)
+    // as to whether they should be applied.
+    if (getSite()) setApplyVariableConversions(
+        getSite()->getApplyVariableConversions());
 }
 
 dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
@@ -351,14 +356,18 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 {
     string oe(zebra?"odd":"even");
     zebra = !zebra;
+    bool warn = fabs(getObservedSamplingRate()) < 0.0001;
+    	
     ostr <<
         "<tr class=\"" << oe << "\"><td align=left>" <<
                 getDeviceName() << ',' <<
 		(getCatalogName().length() > 0 ?
 			getCatalogName() : getClassName()) <<
 		"</td>" << endl <<
-    	"<td>" << fixed << setprecision(2) <<
-		getObservedSamplingRate() << "</td>" << endl <<
+	(warn ? "<td><font color=red><b>" : "<td>") <<
+    	fixed << setprecision(2) <<
+		getObservedSamplingRate() <<
+	(warn ? "</b></font></td>" : "</td>") << endl <<
     	"<td>" << setprecision(0) <<
 		getObservedDataRate() << "</td>" << endl <<
 	"<td>" << getMinSampleLength() << "</td>" << endl <<
@@ -504,6 +513,13 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		setDuplicateIdOK(val);
 	    }
+            else if (aname == "timeout") {
+                istringstream ist(aval);
+		float val;
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
+                setTimeoutMsecs((int)rint(val * MSECS_PER_SEC));
+            }
 	}
     }
     

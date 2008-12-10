@@ -37,11 +37,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
 
 /*
- * Frequency for getting data from the card's FIFO (Hz)
- */
-#define A2D_POLL_RATE  100
-
-/*
  * A/D filter configuration
  */
 #define CONFBLOCKS      12  // 12 blocks as described below

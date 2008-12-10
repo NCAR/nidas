@@ -63,11 +63,10 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define A2DSTATMASK     0xbbfe  // mask for status bits to check
 #define A2DEXPSTATUS    0x8252  // expected value of unmasked bits
 
-
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
 #define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
-#define FIFO_SAMPLE_QUEUE_SIZE 256        // must be power of 2
+#define FIFO_SAMPLE_QUEUE_SIZE 64        // must be power of 2
 #define A2D_SAMPLE_QUEUE_SIZE 1024       // must be power of 2
 
 #define A2DMASTER	0       // A/D chip designated to produce interrupts
@@ -89,11 +88,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #  define A2DCMDADDR	0xF
 #define NUM_USABLE_NCAR_A2D_CHANNELS NUM_NCAR_A2D_CHANNELS
 #endif
-
-/*
- * 500 samples/sec * 8 channels * 2 bytes = 8000 bytes/sec
- */
-#define A2D_BUFFER_SIZE         16384
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
@@ -163,6 +157,8 @@ struct A2DBoard
 
         int scanRate;           // how fast to scan the channels
         int scanDeltatMsec;     // dT between A2D scans
+        int pollRate;           // how fast to poll the FIFO
+        int irigRate;           // poll irigClockRate (e.g.: IRIG_100_HZ)
         int nFifoValues;        // How many FIFO values to read every poll
         int skipFactor;         // set to 2 to skip over interleaving status
         int busy;
@@ -173,7 +169,6 @@ struct A2DBoard
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
         struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
-        short *discardBuffer;   // used for discarding data from the fifo
         wait_queue_head_t rwaitq_a2d;   // wait queue for user reads of a2d
         struct sample_read_state a2d_read_state;
 
@@ -199,7 +194,6 @@ struct A2DBoard
         unsigned char FIFOCtl;  // hardware FIFO control word storage
         unsigned char i2c;      // data byte written to I2C
 
-        char invertCounts;      // whether to invert counts from this A2D
         char discardNextScan;   // should we discard the next scan
 
         struct work_struct sampleWorker;
@@ -207,8 +201,6 @@ struct A2DBoard
         long latencyMsecs;      // buffer latency in milli-seconds
         long latencyJiffies;    // buffer latency in jiffies
         unsigned long lastWakeup;       // when were read & poll methods last woken
-
-        int consecutiveNonEmpty;
 
         struct ncar_a2d_cal_config cal;            // calibration configuration
         struct ncar_a2d_status cur_status;  // status info maintained by driver

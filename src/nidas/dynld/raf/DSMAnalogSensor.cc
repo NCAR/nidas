@@ -92,6 +92,7 @@ IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()
 {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
 }
 
@@ -105,7 +106,6 @@ void DSMAnalogSensor::open(int flags)
     int nchan;
 
     ioctl(NIDAS_A2D_GET_NCHAN, &nchan, sizeof(nchan));
-    cerr << "nchan=" << nchan << endl;
 
     nidas_a2d_config a2dcfg;
 
@@ -114,11 +114,18 @@ void DSMAnalogSensor::open(int flags)
     if (a2dcfg.latencyUsecs == 0) a2dcfg.latencyUsecs = USECS_PER_SEC / 10;
     ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
 
+    string filterPath("/usr/local/firmware");
+    const Parameter* pparm = getParameter("filterPath");
+    
+    if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
+        pparm->getLength() == 1)
+            filterPath = pparm->getStringValue(0);
+
     ostringstream ost;
     if (getScanRate() >= 1000)
-	ost << "/tmp/code/filters/fir" << getScanRate()/1000. << "KHz.cfg";
+	ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
     else
-	ost << "/tmp/code/filters/fir" << getScanRate() << "Hz.cfg";
+	ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
     string filtername = ost.str();
 
     ncar_a2d_ocfilter_config ocfcfg;
@@ -126,7 +133,6 @@ void DSMAnalogSensor::open(int flags)
     int nexpect = (signed)sizeof(ocfcfg.filter)/sizeof(ocfcfg.filter[0]);
     readFilterFile(filtername,ocfcfg.filter,nexpect);
 
-    cerr << "doing A2D_SET_OCFILTER" << endl;
     ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
@@ -142,19 +148,14 @@ void DSMAnalogSensor::open(int flags)
             }
         }
 
-        cerr << "doing NIDAS_A2D_ADD_SAMPLE, nFilterData=" <<
-                scfg->nFilterData << endl;
         ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
             sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
     }
 
     if (_temperatureRate != IRIG_NUM_RATES) {
-        cerr << "Doing NCAR_A2D_SET_TEMPRATE" << endl;
 	ioctl(NCAR_A2D_SET_TEMPRATE, &_temperatureRate, sizeof(_temperatureRate));
-        cerr << "Done NCAR_A2D_SET_TEMPRATE" << endl;
     }
 
-    cerr << "doing NCAR_A2D_RUN ioctl" << endl;
     ioctl(NCAR_A2D_RUN, 0, 0);
 }
 
@@ -297,6 +298,10 @@ float DSMAnalogSensor::getTemp() throw(n_u::IOException)
 void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
     ncar_a2d_status stat;
     try {
@@ -426,21 +431,17 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             }
 
             float volts = getIntercept(ichan) + getSlope(ichan) * sval;
-//            float volts = voltageActual(getIntercept(ichan) + getSlope(ichan) * sval);
+
             const Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())
                 *fp = floatNAN;
-#ifdef EVENTUALLY
-            else {
+	    else if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();
                 if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
                 else *fp = volts;
             }
-#else
             else *fp = volts;
-#endif
         }
-
         for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
         results.push_back(osamp);
     }

@@ -336,20 +336,35 @@ public:
 
     virtual float getLatency() const { return latency; }
 
+    /**
+     * Set the sensor timeout value in milliseconds.
+     * A value of 0 means no timeout (e.g. infinite).
+     * If no data is received for this period, then the sensor
+     * is closed, and re-opened.  For efficiency reasons, the system
+     * may not actually detect a sensor timeout of less than 1 second,
+     * so setting it to less than 1000 milliseconds will likely not
+     * reduce the time before a sensor timeout is detected.
+     */
     virtual void setTimeoutMsecs(int val)
     {
-        _timeoutUsecs = val * USECS_PER_MSEC;
+        _timeoutMsecs = val;
     }
 
     virtual int getTimeoutMsecs() const
     {
-        return _timeoutUsecs / USECS_PER_MSEC;
+        return _timeoutMsecs;
     }
 
-    virtual int getTimeoutUsecs() const
+    int getTimeoutCount() const
     {
-        return _timeoutUsecs;
+        return _nTimeouts;
     }
+
+    void incrementTimeoutCount()
+    {
+        _nTimeouts++;
+    }
+
 
     /**
      * DSMSensor provides a SampleSource interface for its raw samples.
@@ -645,6 +660,25 @@ public:
         _duplicateIdOK = val;
     }
 
+    virtual bool getApplyVariableConversions() const
+    {
+        return _applyVariableConversions;
+    }
+
+    virtual void setApplyVariableConversions(bool val)
+    {
+        _applyVariableConversions = val;
+    }
+
+    virtual int getDriverTimeTagUsecs() const 
+    {
+        return _driverTimeTagUsecs;
+    }
+
+    virtual void setDriverTimeTagUsecs(int val)
+    {
+        _driverTimeTagUsecs = val;
+    }
 
 protected:
 
@@ -780,9 +814,15 @@ private:
 
     std::string _typeName;
 
-    int _timeoutUsecs;
+    int _timeoutMsecs;
 
     bool _duplicateIdOK;
+
+    bool _applyVariableConversions;
+
+    int _driverTimeTagUsecs;
+
+    int _nTimeouts;
 
 private:
     // no copying

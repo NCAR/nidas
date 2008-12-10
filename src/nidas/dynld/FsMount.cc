@@ -16,6 +16,8 @@
 #include <nidas/dynld/FsMount.h>
 #include <nidas/dynld/FileSet.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/Process.h>
+#include <nidas/util/util.h>
 #include <nidas/core/Project.h>
 
 #include <fstream>
@@ -26,7 +28,10 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-FsMount::FsMount() : type("auto"),fileset(0),worker(0) {}
+FsMount::FsMount() : type("auto"),fileset(0),worker(0),
+    _mountProcess(-1),_umountProcess(-1)
+{
+}
 
 void FsMount::setDevice(const std::string& val)
 {
@@ -46,24 +51,46 @@ void FsMount::setDir(const std::string& val)
 }
 
 void FsMount::mount()
-       throw(n_u::IOException)
+       throw(n_u::Exception)
 {
     if (isMounted()) return;
     n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
         deviceMsg.c_str(),dirMsg.c_str());
 
-    unsigned long mountflags = MS_NOATIME;
-// MS_DIRSYNC is not defined for viper, gcc 3.4.4
-#ifdef MS_DIRSYNC
-    mountflags |= MS_DIRSYNC;
-#endif
-    if (::mount(getDeviceExp().c_str(),getDirExp().c_str(),
-    	getType().c_str(),mountflags,getOptions().c_str()) < 0)
-	    throw n_u::IOException(
-                string("mount ") + deviceMsg + " -t " + getType() +
-                (getOptions().length() > 0 ?
-                   string(" -o ") + getOptions() : "") + ' ' +
-                dirMsg,"failed",errno);
+    /* A mount can be done with either the libc mount() function
+     * or the mount command.
+     * advantages of mount command:
+     *  1. allows non-root users to mount/unmount a filesystem if the
+     *      "user" option is in the fstab.
+     *  2. sys admin can put the appropriate options in /etc/fstab.
+     *      Nidas config then only needs to know the mount point.
+     */
+
+    string cmd = string("mount");
+    if (getDeviceExpanded().length() > 0)
+        cmd += ' ' + getDeviceExpanded();
+    if (getType().length() > 0)
+        cmd += " -t " + getType();
+    if (getOptions().length() > 0) 
+        cmd += " -o " + getOptions();
+    cmd += ' ' + getDirExpanded() + " 2>&1";
+
+    _mountProcess = n_u::Process::spawn(cmd);
+    string cmdout;
+    istream& outst = _mountProcess.outStream();
+    for (; !outst.eof();) {
+        char cbuf[32];
+        outst.read(cbuf,sizeof(cbuf)-1);
+        cbuf[outst.gcount()] = 0;
+        cmdout += cbuf;
+    }
+
+    n_u::trimString(cmdout);
+
+    int status;
+    _mountProcess.wait(true,&status);
+    if (!WIFEXITED(status) || WEXITSTATUS(status))
+        throw n_u::IOException(cmd,"failed",cmdout);
 }
 
 void FsMount::mount(FileSet* fset)
@@ -87,14 +114,45 @@ void FsMount::cancel()
 	if (!worker->isJoined()) {
 	    if (worker->isRunning()) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
-		    "Cancelling previous mount of %s\n",
+		    "Cancelling previous mount of %s",
 			getDevice().c_str());
 		try {
 		    worker->cancel();
-		}
+                }
 		catch(const n_u::Exception& e) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
-			"cannot cancel mount of %s: %s\n",
+			"cannot cancel mount of %s: %s",
+			    getDevice().c_str(),e.what());
+		}
+                int status;
+                try {
+                    if (_mountProcess.getPid() > 0) {
+                        _mountProcess.kill(SIGKILL);
+                        pid_t pid = 0;
+                        for (int i = 0; pid == 0 && i < 5; i++) {
+                            usleep(USECS_PER_SEC / 10);
+                            pid = _mountProcess.wait(false,&status);
+                        }
+                    }
+                }
+		catch(const n_u::Exception& e) {
+		    n_u::Logger::getInstance()->log(LOG_ERR,
+			"cannot kill mount of %s: %s",
+			    getDevice().c_str(),e.what());
+		}
+                try {
+                    if (_umountProcess.getPid() > 0) {
+                        _umountProcess.kill(SIGKILL);
+                        pid_t pid = 0;
+                        for (int i = 0; pid == 0 && i < 5; i++) {
+                            usleep(USECS_PER_SEC / 10);
+                            pid = _umountProcess.wait(false,&status);
+                        }
+                    }
+                }
+		catch(const n_u::Exception& e) {
+		    n_u::Logger::getInstance()->log(LOG_ERR,
+			"cannot kill umount of %s: %s",
 			    getDevice().c_str(),e.what());
 		}
 	    }
@@ -105,12 +163,12 @@ void FsMount::cancel()
 
 void FsMount::finished()
 {
-    cerr << "FsMount::finished" << endl;
+    // cerr << "FsMount::finished" << endl;
     workerLock.lock();
     worker = 0;
     workerLock.unlock();
     fileset->mounted();
-    cerr << "FsMount::finished finished" << endl;
+    // cerr << "FsMount::finished finished" << endl;
 }
 
 void FsMount::unmount()
@@ -118,9 +176,24 @@ void FsMount::unmount()
 {
     if (!isMounted()) return;
 
-    if (::umount(getDirExp().c_str()) < 0)
-	throw n_u::IOException(string("umount ") + dirMsg,
+    if (::umount(getDirExpanded().c_str()) == 0)
+        if (errno != EPERM)
+            throw n_u::IOException(string("umount ") + dirMsg,
 		"failed",errno);
+    string cmd = string("umount") + ' ' + getDirExpanded() + " 2>&1";
+    _umountProcess = n_u::Process::spawn(cmd);
+    string cmdout;
+    istream& outst = _umountProcess.outStream();
+    for (; !outst.eof();) {
+        char cbuf[32];
+        outst.read(cbuf,sizeof(cbuf)-1);
+        cbuf[outst.gcount()] = 0;
+        cmdout += cbuf;
+    }
+    int status;
+    _umountProcess.wait(true,&status);
+    if (!WIFEXITED(status) || WEXITSTATUS(status))
+            throw n_u::IOException(dirMsg,"umount",cmdout);
 }
 
 bool FsMount::isMounted() {
@@ -133,7 +206,7 @@ bool FsMount::isMounted() {
 	mfile.ignore(1000,'\n');
 	if (mfile.fail()) return false;
 	if (mfile.eof()) return false;
-	if (mpt == getDirExp()) return true;
+	if (mpt == getDirExpanded()) return true;
     }
 }
 
@@ -174,7 +247,7 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
 	catch(const n_u::IOException& e) {
 	    if (e.getErrno() == EINTR) break;
 	    n_u::Logger::getInstance()->log(LOG_ERR,
-		    "%s mount failed: %s, waiting %d secs to try again.\n",
+		    "%s mount: %s, waiting %d secs to try again.",
 		getName().c_str(),e.what(),sleepsecs);
 	}
 	if (isInterrupted()) break;

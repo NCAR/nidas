@@ -17,6 +17,7 @@
 #define NIDAS_DYNLD_FSMOUNT_H
 
 #include <nidas/util/Thread.h>
+#include <nidas/util/Process.h>
 #include <nidas/util/IOException.h>
 
 #include <nidas/core/DOMable.h>
@@ -57,13 +58,13 @@ public:
     /**
      * Get the mount point directory, with environment variables expanded.
      */
-    const std::string& getDirExp() const { return dirExpanded; }
+    const std::string& getDirExpanded() const { return dirExpanded; }
 
     void setDevice(const std::string& val);
 
     const std::string& getDevice() const { return device; }
 
-    const std::string& getDeviceExp() const { return deviceExpanded; }
+    const std::string& getDeviceExpanded() const { return deviceExpanded; }
 
     void setType(const std::string& val)
     {
@@ -87,7 +88,7 @@ public:
     /**
      * Synchronous mount request (on return the file system is mounted).
      */
-    void mount() throw(nidas::util::IOException);
+    void mount() throw(nidas::util::Exception);
 
     /**
      * Asynchronous mount request. finished() method will
@@ -127,6 +128,10 @@ protected:
     FsMountWorkerThread* worker;
 
     nidas::util::Mutex workerLock;
+
+    nidas::util::Process _mountProcess;
+
+    nidas::util::Process _umountProcess;
 
 };
 

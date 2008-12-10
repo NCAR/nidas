@@ -18,7 +18,6 @@
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
-
 #include <nidas/util/Logger.h>
 
 #include <cmath>
@@ -44,6 +43,7 @@ DSMArincSensor::~DSMArincSensor() {
 
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     if (DSMEngine::isRTLinux())
         return new RTL_IODevice();
     else
@@ -59,11 +59,9 @@ void DSMArincSensor::open(int flags)
     throw(n_u::IOException, n_u::InvalidParameterException)
 {
 
-    ILOG(("calling DSMSensor::open(%x);",flags));
     DSMSensor::open(flags);
 
     // Do other sensor initialization.
-    ILOG(("calling init();"));
     init();
 
     // sort SampleTags by rate then by label
@@ -71,7 +69,6 @@ void DSMArincSensor::open(int flags)
       ( getSampleTags().begin(), getSampleTags().end() );
 
     if (sim_xmit) {
-      ILOG((">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> transmitting"));
       ioctl(ARINC_SIM_XMIT,0,0);
     }
 
@@ -118,12 +115,13 @@ void DSMArincSensor::close() throw(n_u::IOException)
  */
 void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     list<const SampleTag*>::const_iterator si;
     for (si = getSampleTags().begin(); si != getSampleTags().end(); ++si) {
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.
 	_processed[label] = (*si)->isProcessed();
-        ILOG(("labl: %04o  processed: %d", label, _processed[label]));
+        DLOG(("labl: %04o  processed: %d", label, _processed[label]));
     }
 }
 
@@ -182,6 +180,10 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 {
   DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
   dsm_arinc_status stat;
   try {
@@ -225,14 +227,14 @@ void DSMArincSensor::fromDOMElement(const xercesc::DOMElement* node)
       const string& aval = attr.getValue();
 
       if (!aname.compare("speed")) {
-        ILOG(("%s = %s", aname.c_str(), aval.c_str()));
+        DLOG(("%s = %s", aname.c_str(), aval.c_str()));
         if (!aval.compare("high"))     _speed = AR_HIGH;
         else if (!aval.compare("low")) _speed = AR_LOW;
         else throw n_u::InvalidParameterException
                (DSMSensor::getName(),aname,aval);
       }
       else if (!aname.compare("parity")) {
-        ILOG(("%s = %s", aname.c_str(), aval.c_str()));
+        DLOG(("%s = %s", aname.c_str(), aval.c_str()));
         if (!aval.compare("odd"))       _parity = AR_ODD;
         else if (!aval.compare("even")) _parity = AR_EVEN;
         else throw n_u::InvalidParameterException

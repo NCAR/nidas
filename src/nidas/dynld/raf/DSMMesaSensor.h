@@ -65,23 +65,8 @@ private:
    *
    * @returns whether file was succesfully transmitted.
    */
-  bool
+  void
   sendFPGACodeToDriver() throw(nidas::util::IOException);
-
-  /**
-   * Read the specified number of bytes from the specified offset in
-   * the specified open file.
-   *
-   * Note: The file position is not restored to its original value.
-   * Don't try to read 0 bytes.
-   *
-   * @returns The number of bytes read.
-   *
-   * @see sendFPGACodeToDriver()
-   */
-  size_t
-  readbytesfromfile(FILE * f, long fromoffset, size_t numbytes,
-		unsigned char * bufptr);
 
   /**
    * Set up for processing the input file.
@@ -89,10 +74,7 @@ private:
    * @see sendFPGACodeToDriver()
    */
   void
-  selectfiletype(FILE * fp);
-
-  long
-  filelengthq(FILE * f);
+  selectfiletype(FILE * fp,const std::string& fname) throw(nidas::util::IOException);
 
   struct radar_set radar_info;
   struct pms260x_set p260x_info;

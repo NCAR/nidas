@@ -70,7 +70,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    if (isInterrupted()) break;
 
 	    // Must make a copy of list of selector sensors
-	    std::list<DSMSensor*> sensors = selector->getOpenedSensors();
+	    std::list<DSMSensor*> sensors = selector->getAllSensors();
 	    std::list<DSMSensor*>::const_iterator si;
 
 	    dsm_time_t tt = clock->getTime();

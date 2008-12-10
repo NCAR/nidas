@@ -48,6 +48,11 @@ extern std::string replaceBackslashSequences(const std::string& str);
  */
 extern std::string addBackslashSequences(const std::string& str);
 
+/**
+ * Utility to remove white space characters (matching isspace()) from end of string.
+ */
+extern void trimString(std::string& str);
+
 }}	// namespace nidas namespace core
 
 #endif

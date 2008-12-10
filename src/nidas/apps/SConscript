@@ -86,6 +86,7 @@ apps = Split("""
 nlapps = Split("""
     set_pcmcom8.c
     isff/set_emerald.c
+    isff/emerald_dio.cc
 """)
 
 # apps which just need the nidas_util library

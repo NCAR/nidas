@@ -54,6 +54,7 @@ IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* IRIGSensor::buildSampleScanner()
 {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
 }
 
@@ -243,6 +244,10 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
 void IRIGSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
     dsm_time_t unixTime;
     dsm_time_t irigTime;
     unsigned char status;

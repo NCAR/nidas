@@ -127,4 +127,11 @@ string nidas::util::addBackslashSequences(const string& str)
     return res;
 }
 
-
+void nidas::util::trimString(std::string& str)
+{
+    for (string::iterator si = str.end(); si != str.begin(); ) {
+        --si;
+        if (!isspace(*si)) break;
+        si = str.erase(si);
+    }
+}

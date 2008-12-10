@@ -1642,7 +1642,7 @@ struct test_callback_data testcbd1;
 struct test_callback_data testcbd2;
 #endif
 
-void gpio_mm_cleanup(void)
+static void __exit gpio_mm_cleanup(void)
 {
 
         int ib;
@@ -1688,7 +1688,7 @@ void gpio_mm_cleanup(void)
         return;
 }
 
-int gpio_mm_init(void)
+static int __init gpio_mm_init(void)
 {	
         int result = -EINVAL;
         int ib;

@@ -68,6 +68,7 @@ void A2DSensor::close() throw(n_u::IOException)
 
 void A2DSensor::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     initParameters();
 }
 
@@ -237,11 +238,12 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         const Variable* var = vars[ival];
         if (volts < var->getMinValue() || volts > var->getMaxValue()) 
             *fp = floatNAN;
-        else {
+        else if (getApplyVariableConversions()) {
             VariableConverter* conv = var->getConverter();
             if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
             else *fp = volts;
         }
+        else *fp = volts;
     }
 
     for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;

@@ -44,7 +44,7 @@ namespace n_u = nidas::util;
 
 int main(int argc, char** argv)
 {
-  int ii, jj, i;
+  int ii, i;
   int sleepytime = 1;
   int printmodulus = 1;
   int sample_rate = 500;
@@ -88,8 +88,6 @@ int main(int argc, char** argv)
   sample->setDSMId(0);
   sample->setRate(sample_rate);
 
-  const int NVARIABLES = lastchan - firstchan + 1;
-
   for (int i = firstchan; i <= lastchan; i++) {
       Variable* var = new Variable();
       ostringstream ost;
@@ -128,8 +126,8 @@ int main(int argc, char** argv)
 
   cerr << __FILE__ << ": Up Fifo opened" << endl;
 
-  const size_t MAX_DATA_SIZE =
-  	NVARIABLES * sample_rate / A2D_POLL_RATE * sizeof(short);
+  // sample will contain an id and NUM_NCAR_A2D_CHANNELS values.
+  const size_t MAX_DATA_SIZE = (NUM_NCAR_A2D_CHANNELS + 1) * sizeof(short);
 
   dsm_sample* buf = (dsm_sample*) malloc(SIZEOF_DSM_SAMPLE_HEADER +
   	MAX_DATA_SIZE);
@@ -160,18 +158,13 @@ int main(int argc, char** argv)
 		    buf->timetag, 
 		    (i > 0 ?
 		    	(signed)(buf->timetag) - (signed)timetagLast : 0));
-//		printf("0x%08X\n", buf->length);
-
 
 		short* dp = (short*) buf->data;
-		for(ii = 0; ii < sample_rate / A2D_POLL_RATE ; ii++)
-		{
-			for(jj = 0; jj < NVARIABLES; jj++)
-			{
-				printf("%05d  ", *dp++);
-			}
-			printf("\n");	
-		}
+                for(ii = 0; ii < (signed)(buf->length / sizeof(short)); ii++)
+                {
+                        printf("%05d  ", *dp++);
+                }
+                printf("\n");	
 	}
 	timetagLast = buf->timetag;
   }

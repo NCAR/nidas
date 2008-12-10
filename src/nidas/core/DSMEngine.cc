@@ -53,7 +53,7 @@ DSMEngine::DSMEngine():
 {
     setupSignals();
     try {
-	_mcastSockAddr = n_u::Inet4SocketAddress(
+	_configSockAddr = n_u::Inet4SocketAddress(
 	    n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR),
 	    DSM_SVC_REQUEST_PORT);
     }
@@ -175,10 +175,12 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     }
     if (optind == argc - 1) {
         string url = string(argv[optind++]);
-	if(url.length() > 7 && !url.compare(0,7,"mcsock:")) {
-	    url = url.substr(7);
+	if((url.length() > 5 && !url.compare(0,5,"sock:")) ||
+	   (url.length() > 7 && !url.compare(0,7,"mcsock:"))) {
 	    string::size_type ic = url.find(':');
-	    string mcastAddr = url.substr(0,ic);
+	    url = url.substr(ic+1);
+	    ic = url.find(':');
+	    string addr = url.substr(0,ic);
 	    int port = DSM_SVC_REQUEST_PORT;
 	    if (ic != string::npos) {
 		istringstream ist(url.substr(ic+1));
@@ -190,8 +192,8 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 		}
 	    }
 	    try {
-		_mcastSockAddr = n_u::Inet4SocketAddress(
-		    n_u::Inet4Address::getByName(mcastAddr),port);
+		_configSockAddr = n_u::Inet4SocketAddress(
+		    n_u::Inet4Address::getByName(addr),port);
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
@@ -217,8 +219,8 @@ Usage: " << argv0 << " [-d ] [-v] [-w] [ config ]\n\n\
   -v:     display software version number and exit\n\
   -w:     wait  - wait for the XmlRpc 'start' cammand\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
-      or a multicast socket address in the form \"mcsock:addr:port\".\n\
-The default config is \"mcsock:" <<
+      or a socket address in the form \"sock:addr:port\".\n\
+The default config is \"sock:" <<
 	DSM_MULTICAST_ADDR << ":" << DSM_SVC_REQUEST_PORT << "\"" << endl;
 }
 
@@ -285,7 +287,7 @@ void DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0)
-                projectDoc = requestXMLConfig(_mcastSockAddr);
+                projectDoc = requestXMLConfig(_configSockAddr);
             else {
                 // expand environment variables in name
                 string expName = Project::expandEnvVars(_configFile);

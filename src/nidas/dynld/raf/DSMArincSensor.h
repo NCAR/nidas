@@ -116,6 +116,12 @@ namespace nidas { namespace dynld { namespace raf {
     void fromDOMElement(const xercesc::DOMElement*)
       throw(nidas::util::InvalidParameterException);
 
+    int getInt32TimeTagUsecs() const 
+    {
+        return USECS_PER_MSEC;
+    }
+
+
   protected:
     const float _nanf;
 

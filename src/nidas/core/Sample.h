@@ -44,9 +44,10 @@ typedef unsigned int dsm_sample_id_t;
  * The 32 bit unsigned int tid is made of two fields:
  *	26 least significant bits containing the FULL_ID
  *	6 most significant bits containing a SAMPLE_TYPE enumeration (0-63)
- * The FULL_ID field is further split into a DSM_ID and SHORT_ID portion:
- *	16 least significant bits containing the SHORT_ID (0-65535)
- *	10 most signmificant bits containing the DSM_ID (0-1023)
+ * The FULL_ID field is further split into a DSM id and
+ * sensor-plus-sample (SPS) id:
+ *	10 most significant bits containing the DSM_ID (0-1023)
+ *	16 least significant bits containing the SPS_ID (0-65535)
  */
 #define GET_SAMPLE_TYPE(tid) ((tid) >> 26)
 #define SET_SAMPLE_TYPE(tid,val) (((tid) & 0x03ffffff) | ((unsigned int)(val) << 26))
@@ -57,7 +58,10 @@ typedef unsigned int dsm_sample_id_t;
 #define GET_DSM_ID(tid) (((tid) & 0x03ff0000) >> 16)
 #define SET_DSM_ID(tid,val) (((tid) & 0xfc00ffff) | (((unsigned int)(val) & 0x3ff) << 16))
 
+#define GET_SPS_ID(tid) ((tid) & 0xffff)
 #define GET_SHORT_ID(tid) ((tid) & 0xffff)
+
+#define SET_SPS_ID(tid,val) (((tid) & 0xffff0000) | ((val) & 0xffff)) 
 #define SET_SHORT_ID(tid,val) (((tid) & 0xffff0000) | ((val) & 0xffff)) 
 
 /**
@@ -65,6 +69,12 @@ typedef unsigned int dsm_sample_id_t;
  * increments and decrement-and-test operations are atomic.
  */
 #define MUTEX_PROTECT_REF_COUNTS
+
+/**
+ * The gcc buildin atomic operations are not supported on arm, and
+ * one must use -march=i686 for them to work on 32 bit x86.
+ */
+// #define USE_ATOMIC_REF_COUNT
 
 /**
  * maxValue is an overloaded function returning the
@@ -192,6 +202,9 @@ public:
      */
     unsigned int getShortId() const { return GET_SHORT_ID(tid); }
     void setShortId(unsigned int val) { tid = SET_SHORT_ID(tid,val); }
+
+    unsigned int getSpSId() const { return GET_SPS_ID(tid); }
+    void setSpSId(unsigned int val) { tid = SET_SPS_ID(tid,val); }
 
     /**
      * Get the data type of this sample.
@@ -363,13 +376,16 @@ public:
      * supports Sample reference counting.
      */
     void holdReference() const {
+#ifdef USE_ATOMIC_REF_COUNT
+        __sync_add_and_fetch(&refCount,1);
+#else
 #ifdef MUTEX_PROTECT_REF_COUNTS
 	refLock.lock();
 #endif
         refCount++;
-        // __sync_add_and_fetch(&refCount,1);
 #ifdef MUTEX_PROTECT_REF_COUNTS
 	refLock.unlock();
+#endif
 #endif
     }
 
@@ -593,18 +609,24 @@ template <class DataT>
 void SampleT<DataT>::freeReference() const
 {
     // if refCount is 0, put it back in the Pool.
+#ifdef USE_ATOMIC_REF_COUNT
+    // GCC 4.X atomic operations
+    int rc = __sync_sub_and_fetch(&refCount,1);
+    assert(rc >= 0);
+    if (rc == 0)
+	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
+#else
 #ifdef MUTEX_PROTECT_REF_COUNTS
     refLock.lock();
 #endif
     bool ref0 = --refCount == 0;
-    // TODO: use GCC 4.X atomic operations instead of Mutex
-    // bool ref0 = __sync_sub_and_fetch(&refCount,1) == 0;
     assert(refCount >= 0);
 #ifdef MUTEX_PROTECT_REF_COUNTS
     refLock.unlock();
 #endif
     if (ref0)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
+#endif
 }
 
 }}	// namespace nidas namespace core

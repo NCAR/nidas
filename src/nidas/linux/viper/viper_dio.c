@@ -171,7 +171,7 @@ static struct file_operations viper_dio_fops = {
 
 /*-----------------------Module ------------------------------*/
 
-void viper_dio_cleanup(void)
+static void __exit viper_dio_cleanup(void)
 {
         cdev_del(&viper_dio.cdev);
         if (MAJOR(viper_dio.devno) != 0)
@@ -179,7 +179,7 @@ void viper_dio_cleanup(void)
         KLOG_DEBUG("complete\n");
 }
 
-int viper_dio_init(void)
+static int __init viper_dio_init(void)
 {	
         int result = -EINVAL;
 

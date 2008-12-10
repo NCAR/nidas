@@ -93,7 +93,7 @@ struct dsm_clock_sample {
 #include <linux/ioctl.h>
 #include <linux/wait.h>
 
-extern volatile unsigned long MsecClock[];
+extern volatile unsigned int TMsecClock[];
 extern volatile unsigned char ReadClock;
 
 struct irigTime {
@@ -114,7 +114,9 @@ struct irigTime {
  * clock for real-time use. Fetching the value is just a RAM
  * access - not an ISA bus access.
  */
-#define GET_MSEC_CLOCK (MsecClock[ReadClock])
+#define GET_MSEC_CLOCK (TMsecClock[ReadClock]/10)
+
+#define GET_TMSEC_CLOCK (TMsecClock[ReadClock])
 
 /**
  * For modules who want to know the resolution of the clock..

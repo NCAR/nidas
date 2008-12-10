@@ -75,6 +75,7 @@ void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
 
 void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     readParams(getParameters());
 
     /* The driver is designed such that each device,
@@ -131,6 +132,10 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
 void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
     struct GPIO_MM_fcntr_status stat;
     try {

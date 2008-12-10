@@ -139,7 +139,7 @@ static int pcmcom8_wait_eedone(pcmcom8_board* brd)
         unsigned char status;
 
         cnt = 10;
-        while (cnt--) {
+        while (--cnt) {
                 set_current_state(TASK_INTERRUPTIBLE);
                 schedule_timeout(1);
                 status = inb(brd->ioport + PCMCOM8_STA);

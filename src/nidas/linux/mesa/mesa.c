@@ -759,7 +759,7 @@ static struct file_operations mesa_fops = {
 };
 
 /* -- MODULE ---------------------------------------------------------- */
-void mesa_cleanup(void)
+static void __exit mesa_cleanup(void)
 {
         int ib;
 
@@ -780,9 +780,8 @@ void mesa_cleanup(void)
                 unregister_chrdev_region(mesa_device, numboards);
 }
 
-
 /* -- MODULE ---------------------------------------------------------- */
-int mesa_init(void)
+static int __init mesa_init(void)
 {
         int ib;
         int error = -EINVAL;

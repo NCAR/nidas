@@ -23,7 +23,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,MOSMote)
 
-MOSMote::MOSMote():_tsyncPeriodSecs(3600),_ncallBack(0)
+MOSMote::MOSMote():_tsyncPeriodSecs(3600),_ncallBack(0),_mosSyncher(this)
 {
 }
 
@@ -39,37 +39,15 @@ void MOSMote::open(int flags)
     // cerr << "tsyncSecs=" << _tsyncPeriodSecs << endl;
     if (_tsyncPeriodSecs > 0) {
 	// send a time sync on open
-	looperNotify();
-    	nidas::core::Looper::getInstance()->addClient(this,_tsyncPeriodSecs*MSECS_PER_SEC);
+	_mosSyncher.looperNotify();
+    	nidas::core::Looper::getInstance()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
     }
 
 }
 void MOSMote::close() throw(nidas::util::IOException)
 {
-    if (_tsyncPeriodSecs > 0) Looper::getInstance()->removeClient(this);
+    if (_tsyncPeriodSecs > 0) Looper::getInstance()->removeClient(&_mosSyncher);
     DSMSerialSensor::close();
-}
-
-void MOSMote::looperNotify() throw()
-{
-    dsm_time_t tnow = getSystemTime();
-    unsigned int msec = (tnow / USECS_PER_MSEC) % (86400 * MSECS_PER_SEC);
-
-    char outmsg[16];
-    outmsg[0] = outmsg[1] = 'S';
-    outmsg[2] = sizeof(msec);
-    memcpy(outmsg+3,&msec,sizeof(msec));
-
-    n_u::Logger::getInstance()->log(LOG_INFO,"%s: looperNotify, msec %d",
-	    getName().c_str(),msec);
-
-    try {
-	if (getWriteFd() >= 0) write(outmsg,3 + sizeof(msec));
-    }
-    catch(n_u::IOException & e) {
-	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-	    getName().c_str(),e.what());
-    }
 }
 
 bool MOSMote::process(const Sample* samp,
@@ -109,3 +87,27 @@ bool MOSMote::process(const Sample* samp,
     nsamp->freeReference();
     return res;
 }
+
+void MOSMote::MOS_TimeSyncer::looperNotify() throw()
+{
+
+    dsm_time_t tnow = getSystemTime();
+    unsigned int msec = (tnow / USECS_PER_MSEC) % (86400 * MSECS_PER_SEC);
+
+    char outmsg[16];
+    outmsg[0] = outmsg[1] = 'S';
+    outmsg[2] = sizeof(msec);
+    memcpy(outmsg+3,&msec,sizeof(msec));
+
+    n_u::Logger::getInstance()->log(LOG_INFO,"%s: looperNotify, msec %d",
+            _mote->getName().c_str(),msec);
+
+    try {
+        if (_mote->getWriteFd() >= 0) _mote->write(outmsg,3 + sizeof(msec));
+    }
+    catch(n_u::IOException & e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+            _mote->getName().c_str(),e.what());
+    }
+}
+

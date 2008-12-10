@@ -28,15 +28,21 @@ namespace n_u = nidas::util;
 
 SensorHandler::
 SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
-_sensorsChanged(false), _remoteSerialSocketPort(rserialPort), _rserial(0),
-_rserialConnsChanged(false), _selectn(0), _selectErrors(0),
-_rserialListenErrors(0), _opener(this)
-{
-    setSensorCheckInterval(10 * MSECS_PER_SEC);
+    _activeSensorFds(0),_activeSensors(0),
+    _nActiveSensors(0),_nActiveSensorsAlloc(0),
+    _sensorsChanged(false),
+    _remoteSerialSocketPort(rserialPort), _rserial(0),
+    _rserialConnsChanged(false), _selectn(0), _selectErrors(0),
+    _rserialListenErrors(0), _opener(this)
 
-    setTimeout(MSECS_PER_SEC * 60);     // one minute select timeout
+{
+    setSensorStatsInterval(10 * MSECS_PER_SEC);
+    setSensorCheckIntervalMsecs(10 * MSECS_PER_SEC);
+
     FD_ZERO(&_readfdset);
-    _sensorCheckTime = timeCeiling(getSystemTime(), _sensorCheckInterval);
+    FD_ZERO(&_rcvdData);
+    _sensorStatsTime = timeCeiling(getSystemTime(), _sensorStatsInterval);
+    _sensorCheckTime = timeCeiling(getSystemTime(), getSensorCheckIntervalUsecs());
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
@@ -58,7 +64,7 @@ _rserialListenErrors(0), _opener(this)
 SensorHandler::~SensorHandler()
 {
     delete _rserial;
-    for (unsigned int i = 0; i < _activeSensors.size(); i++)
+    for (unsigned int i = 0; i < _nActiveSensors; i++)
         _activeSensors[i]->close();
 
     list<DSMSensor*>::const_iterator si;
@@ -69,57 +75,68 @@ SensorHandler::~SensorHandler()
         ::close(_notifyPipe[0]);
     if (_notifyPipe[1] >= 0)
         ::close(_notifyPipe[1]);
+    delete [] _activeSensorFds;
+    delete [] _activeSensors;
 }
 
 
-void SensorHandler::setTimeout(int val)
+void SensorHandler::setSensorCheckIntervalMsecs(int val)
 {
-    _timeoutMsec = val;
-    _timeoutVal.tv_sec = val / MSECS_PER_SEC;
-    _timeoutVal.tv_usec = (val % MSECS_PER_SEC) * USECS_PER_MSEC;
+    _sensorCheckIntervalUsecs = val * USECS_PER_MSEC;
+    _selectTimeoutVal.tv_sec = val / MSECS_PER_SEC;
+    _selectTimeoutVal.tv_usec = (val % MSECS_PER_SEC) * USECS_PER_MSEC;
 }
 
-int SensorHandler::getTimeout() const
+int SensorHandler::getSensorCheckIntervalMsecs() const
 {
-    return _timeoutMsec;
+    return _sensorCheckIntervalUsecs / USECS_PER_MSEC;
 }
 
-void SensorHandler::checkSensors(dsm_time_t tnow)
+int SensorHandler::getSensorCheckIntervalUsecs() const
 {
-    _sensorCheckTime += _sensorCheckInterval;
-    if (_sensorCheckTime < tnow) {
-        // cerr << "tnow-_sensorCheckTime=" << (tnow - _sensorCheckTime) << endl;
-        _sensorCheckTime = timeCeiling(tnow, _sensorCheckInterval);
-    }
-    calcStatistics(tnow);
-    checkTimeouts(tnow);
+    return _sensorCheckIntervalUsecs;
 }
 
 void SensorHandler::calcStatistics(dsm_time_t tnow)
 {
+    _sensorStatsTime += _sensorStatsInterval;
+    if (_sensorStatsTime < tnow) {
+        // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
+        _sensorStatsTime = timeCeiling(tnow, _sensorStatsInterval);
+    }
     list<DSMSensor*> allCopy = getAllSensors();
     list<DSMSensor*>::const_iterator si;
 
     for (si = allCopy.begin(); si != allCopy.end(); ++si) {
         DSMSensor *sensor = *si;
-        sensor->calcStatistics(_sensorCheckInterval);
+        sensor->calcStatistics(_sensorStatsInterval);
     }
 }
 
 void SensorHandler::checkTimeouts(dsm_time_t tnow)
 {
-#ifdef IMPLEMENTED
-    for (unsigned int ifd = 0; ifd < _activeSensorFds.size(); ifd++) {
-        DSMSensor *sensor = _activeSensors[ifd];
-        if (sensor->getObservedSamplingRate() == 0.0 &&
-            sensor->getTimeoutUsecs() > 0 &&
-            _lastTimeRead[ifd] + sensor->getTimeoutUsecs() < tnow) {
-            // Try to reopen
-            if (sensor->reopenOnIOException())
-                closeReopenSensor(sensor);
-        }
+    _sensorCheckTime += getSensorCheckIntervalUsecs();
+    if (_sensorCheckTime < tnow) {
+        // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
+        _sensorCheckTime = timeCeiling(tnow, getSensorCheckIntervalUsecs());
     }
-#endif
+    for (unsigned int i = 0; i < _nActiveSensors; i++) {
+        int fd = _activeSensorFds[i];
+        if (!FD_ISSET(fd,&_rcvdData)) {
+            if (++_noDataCounts[i] >= _noDataCountsMax[i]) {
+                DSMSensor *sensor = _activeSensors[i];
+                sensor->incrementTimeoutCount();
+                if ((sensor->getTimeoutCount() % 10) == 0)
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "timeout #%d: %s (%.3f sec)",
+                        sensor->getTimeoutCount(),sensor->getName().c_str(),
+                        (float)sensor->getTimeoutMsecs()/ MSECS_PER_SEC);
+                closeReopenSensor(sensor);
+            }
+        }
+        else _noDataCounts[i] = 0;
+    }
+    FD_ZERO(&_rcvdData);
 }
 
 /* returns a copy of our sensor list. */
@@ -179,11 +196,12 @@ int SensorHandler::run() throw(n_u::Exception)
 
         fd_set rset = _readfdset;
         fd_set eset = _readfdset;
-        tout = _timeoutVal;
+        tout = _selectTimeoutVal;
         int nfdsel =::select(_selectn, &rset, 0, &eset, &tout);
         if (amInterrupted())
             break;
 
+        rtime = getSystemTime();
         if (nfdsel <= 0) {      // select error
             if (nfdsel < 0) {
                 // Create and report but don't throw IOException.
@@ -196,13 +214,9 @@ int SensorHandler::run() throw(n_u::Exception)
                 _sensorsChanged = _rserialConnsChanged = true;
                 if (errno != EINTR)
                     _selectErrors++;
-            } else
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                                                "SensorHandler select timeout %d msecs",
-                                                _timeoutMsec);
-            rtime = getSystemTime();
-            if (rtime > _sensorCheckTime)
-                checkSensors(rtime);
+            }
+            if (rtime > _sensorCheckTime) checkTimeouts(rtime);
+            if (rtime > _sensorStatsTime) calcStatistics(rtime);
             continue;
         }                       // end of select error section
 
@@ -210,16 +224,13 @@ int SensorHandler::run() throw(n_u::Exception)
         int fd = 0;
 
         // check sensor fds
-        for (unsigned int ifd = 0; ifd < _activeSensorFds.size(); ifd++) {
+        for (unsigned int ifd = 0; ifd < _nActiveSensors; ifd++) {
             fd = _activeSensorFds[ifd];
             if (FD_ISSET(fd, &rset)) {
+                FD_SET(fd,&_rcvdData);
                 DSMSensor *sensor = _activeSensors[ifd];
                 try {
-#ifdef IMPLEMENTED
-                    _lastTimeRead[ifd] = rtime = sensor->readSamples();
-#else
-                    rtime = sensor->readSamples();
-#endif
+                    sensor->readSamples();
                 }
                 catch(n_u::IOException & ioe) {
                     n_u::Logger::getInstance()->log(LOG_ERR, "%s: %s",
@@ -245,8 +256,10 @@ int SensorHandler::run() throw(n_u::Exception)
                     break;
             }
         }
-        if (rtime > _sensorCheckTime) {
-            checkSensors(rtime);
+        if (rtime > _sensorCheckTime) checkTimeouts(rtime);
+
+        if (rtime > _sensorStatsTime) {
+            calcStatistics(rtime);
 
             // watch for sample memory leaks
             unsigned int nsamp = 0;
@@ -354,8 +367,8 @@ int SensorHandler::run() throw(n_u::Exception)
         removeRemoteSerialConnection(*ci);
 
     n_u::Logger::getInstance()->log(LOG_INFO,
-                                    "SensorHandler finished, closing remaining %d sensors ",
-                                    _activeSensors.size());
+            "SensorHandler finished, closing remaining %d sensors ",
+            _nActiveSensors);
 
     list<DSMSensor*> tsensors = getOpenedSensors();
 
@@ -391,6 +404,7 @@ void SensorHandler::addSensor(DSMSensor * sensor)
     _allSensors.push_back(sensor);
     _sensorsMutex.unlock();
     _opener.openSensor(sensor);
+
 }
 
 /*
@@ -537,8 +551,17 @@ void SensorHandler::handleChangedSensors()
     if (_sensorsChanged) {
         n_u::Synchronized autosync(_sensorsMutex);
 
-        _activeSensors.clear();
-        _activeSensorFds.clear();
+        map<DSMSensor*,int> saveTimeoutCounts;
+        for (unsigned int i = 0; i < _nActiveSensors; i++)
+            saveTimeoutCounts[_activeSensors[i]] = _noDataCounts[i];
+
+        _noDataCountsMax.clear();
+        _noDataCounts.clear();
+
+        int minTimeoutMsecs = 10 * MSECS_PER_SEC;
+
+        vector<DSMSensor*> activeSensors;
+        vector<int> activeSensorFds;
 
         // cerr << "handleChangedSensors, _openedSensors.size()" <<
         //      _openedSensors.size() << endl;
@@ -546,14 +569,35 @@ void SensorHandler::handleChangedSensors()
         for (; si != _openedSensors.end();) {
             DSMSensor *sensor = *si;
             if (goodFd(sensor->getReadFd(), sensor->getName())) {
-                _activeSensors.push_back(sensor);
-                _activeSensorFds.push_back(sensor->getReadFd());
+                activeSensors.push_back(sensor);
+                activeSensorFds.push_back(sensor->getReadFd());
+                _noDataCountsMax.push_back(1);
+                // will return 0 if this sensor wasn't active before
+                _noDataCounts.push_back(saveTimeoutCounts[sensor]);
+                int sto = sensor->getTimeoutMsecs();
+                // For now, don't check more than once a second
+                if (sto > 0 && sto < minTimeoutMsecs)
+                    minTimeoutMsecs = std::max(sto,MSECS_PER_SEC);
                 ++si;
             } else {
                 si = _openedSensors.erase(si);
                 _opener.reopenSensor(sensor);
             }
         }
+        if (activeSensorFds.size() > _nActiveSensorsAlloc) {
+            delete [] _activeSensors;
+            delete [] _activeSensorFds;
+            _nActiveSensorsAlloc = activeSensorFds.size() + 5;
+            _activeSensors = new DSMSensor*[_nActiveSensorsAlloc];
+            _activeSensorFds = new int[_nActiveSensorsAlloc];
+        }
+        _nActiveSensors = activeSensorFds.size();
+        std::copy(activeSensors.begin(),activeSensors.end(),
+            _activeSensors);
+        std::copy(activeSensorFds.begin(),activeSensorFds.end(),
+            _activeSensorFds);
+
+        setSensorCheckIntervalMsecs(minTimeoutMsecs);
 
         // close any sensors
         for (si = _pendingSensorClosures.begin();
@@ -564,7 +608,7 @@ void SensorHandler::handleChangedSensors()
         _pendingSensorClosures.clear();
         _sensorsChanged = false;
         n_u::Logger::getInstance()->log(LOG_INFO, "%d active sensors",
-                                        _activeSensors.size());
+                            _nActiveSensors);
     }
 
     if (_rserialConnsChanged) {
@@ -588,9 +632,17 @@ void SensorHandler::handleChangedSensors()
         FD_SET(_notifyPipe[0], &_readfdset);
     _selectn = std::max(_notifyPipe[0] + 1, _selectn);
 
-    for (i = 0; i < _activeSensorFds.size(); i++) {
-        FD_SET(_activeSensorFds[i], &_readfdset);
-        _selectn = std::max(_activeSensorFds[i] + 1, _selectn);
+    for (i = 0; i < _nActiveSensors; i++) {
+        int fd = _activeSensorFds[i];
+        FD_SET(fd, &_readfdset);
+        _selectn = std::max(fd + 1, _selectn);
+        int sto = _activeSensors[i]->getTimeoutMsecs();
+        if (sto > 0) {
+            _noDataCountsMax[i] = (sto + (sto / 2)) / getSensorCheckIntervalMsecs();
+            if (_noDataCountsMax[i] < 1) _noDataCountsMax[i] = 1;
+        }
+        else
+            _noDataCountsMax[i] = INT_MAX;
     }
 
     list<RemoteSerialConnection*>::iterator ci =

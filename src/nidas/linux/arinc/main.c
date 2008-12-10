@@ -133,9 +133,9 @@ static void error_exit(short board, short err)
                 return;
 
         // display the error message
-        KLOG_INFO("\nError while on board %d\n", board);
-        KLOG_INFO("  Error reported:  \'%s\'\n", ar_get_error(err));
-        KLOG_INFO("  Additional info: \'%s\'\n", ar_get_error(ARS_LAST_ERROR));
+        KLOG_ERR("\nError while on board %d\n", board);
+        KLOG_ERR("  Error reported:  \'%s\'\n", ar_get_error(err));
+        KLOG_ERR("  Additional info: \'%s\'\n", ar_get_error(ARS_LAST_ERROR));
 }
 
 // -- UTILITY --------------------------------------------------------- 
@@ -310,14 +310,13 @@ static int arinc_open(struct inode *inode, struct file *filp)
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        KLOG_INFO("called\n");
         if (chn >= N_ARINC_RX) return -ENXIO;
 
         dev = &chn_info[chn];
 
         // channel can only be opened once
         if (atomic_inc_return (&dev->used) > 1) {
-                KLOG_INFO("chn: %d is already open!\n", chn);
+                KLOG_ERR("chn: %d is already open!\n", chn);
                 atomic_dec(&dev->used);
                 return -EBUSY; /* already open */
         }
@@ -327,7 +326,7 @@ static int arinc_open(struct inode *inode, struct file *filp)
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
         if (err) return err;
-        KLOG_INFO("realloc_dsm_circ_buf(%x,%d,%d)\n", (unsigned int) &dev->samples,
+        KLOG_DEBUG("realloc_dsm_circ_buf(%x,%d,%d)\n", (unsigned int) &dev->samples,
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
 
@@ -377,29 +376,19 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
         else ret = 0;
         if (ret) return -EFAULT;
 
-//      KLOG_INFO("%s: ", dev->deviceName);
-        switch (cmd) {
-//      case ARINC_SET:		KLOG_INFO("%s: ARINC_SET\n", dev->deviceName);		break;
-        case ARINC_OPEN:	KLOG_INFO("%s: ARINC_OPEN\n", dev->deviceName);		break;
-        case ARINC_CLOSE:	KLOG_INFO("%s: ARINC_CLOSE\n", dev->deviceName);	break;
-        case ARINC_SIM_XMIT:	KLOG_INFO("%s: ARINC_SIM_XMIT\n", dev->deviceName);	break;
-        case ARINC_BIT:		KLOG_INFO("%s: ARINC_BIT\n", dev->deviceName);		break;
-//      case ARINC_STAT:	KLOG_INFO("%s: ARINC_STAT\n", dev->deviceName);		break;
-        case ARINC_MEASURE:	KLOG_INFO("%s: ARINC_MEASURE\n", dev->deviceName);	break;
-        }
         switch (cmd) {
 
         case ARINC_SET:
 
                 // unfilter a label for this channel 
                 if (copy_from_user(&arcfg, userptr, sizeof(arcfg_t))) {
-                        KLOG_INFO("copy_from_user error!\n");
+                        KLOG_ERR("copy_from_user error!\n");
                         return -EFAULT;
                 }
 
                 // store the rate for this channel's label 
                 if (dev->rate[arcfg.label]) {
-                        KLOG_INFO("duplicate label: %04o\n", arcfg.label);
+                        KLOG_ERR("duplicate label: %04o\n", arcfg.label);
                         return -EINVAL;
                 }
                 dev->rate[arcfg.label] = arcfg.rate;
@@ -439,22 +428,22 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
 
                 spin_unlock_bh(&board.lock);
 
-                KLOG_INFO("recv: %04o  rate: %2d Hz\n", arcfg.label, roundUpRate(arcfg.rate));
+                KLOG_DEBUG("recv: %04o  rate: %2d Hz\n", arcfg.label, roundUpRate(arcfg.rate));
                 break;
 
         case ARINC_OPEN:
 
                 // store the speed and parity for this channel 
                 if (copy_from_user(&archn, userptr, sizeof(archn))) {
-                        KLOG_INFO("copy_from_user error!\n");
+                        KLOG_ERR("copy_from_user error!\n");
                         return -EFAULT;
                 }
                 if (archn.speed != AR_HIGH && archn.speed != AR_LOW) {
-                        KLOG_INFO("invalid speed!\n");
+                        KLOG_ERR("invalid speed!\n");
                         return -EINVAL;
                 }
                 if (archn.parity != AR_ODD && archn.parity != AR_EVEN) {
-                        KLOG_INFO("invalid parity!\n");
+                        KLOG_ERR("invalid parity!\n");
                         return -EINVAL;
                 }
                 dev->speed = archn.speed;
@@ -479,7 +468,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
                 if (ar_get_config (BOARD_NUM,
                      ARU_RX_CH01_BIT_RATE + chn) != dev->speed) {
                         spin_unlock_bh(&board.lock);
-                        KLOG_INFO("un-settable speed!\n");
+                        KLOG_ERR("un-settable speed!\n");
                         return -EINVAL;
                 }
                 // set channel parity 
@@ -492,11 +481,11 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
                 if (ar_get_config (BOARD_NUM,
                      ARU_RX_CH01_PARITY + chn) != dev->parity) {
                         spin_unlock_bh(&board.lock);
-                        KLOG_INFO("un-settable parity!\n");
+                        KLOG_ERR("un-settable parity!\n");
                         return -EINVAL;
                 }
                 if (dev->status.lps == 0) {
-                        KLOG_INFO("sequence out of order: use ARINC_SET first/n");
+                        KLOG_ERR("sequence out of order: use ARINC_SET first/n");
                         spin_unlock_bh(&board.lock);
                         return -EINVAL;
                 }
@@ -516,7 +505,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
 
                 if ( (dev->poll = irigClockRateToEnum(pollRate)) == IRIG_NUM_RATES) {
                         spin_unlock_bh(&board.lock);
-                        KLOG_INFO("invalid poll rate: %d Hz\n", pollRate);
+                        KLOG_ERR("invalid poll rate: %d Hz\n", pollRate);
                         return -EINVAL;
                 }
                 dev->pollDtMsec = MSECS_PER_SEC / pollRate;
@@ -538,7 +527,6 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
 
                 board.running = 1;
                 spin_unlock_bh(&board.lock);
-                KLOG_INFO("opened\n");
                 break;
 
         case ARINC_CLOSE:
@@ -547,7 +535,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
         case ARINC_SIM_XMIT:
                 // define a periodic messages for the i960 to generate 
                 if (chn > N_ARINC_TX - 1) {
-                        KLOG_INFO("there are only 2 xmit channels!/n");
+                        KLOG_ERR("there are only 2 xmit channels!/n");
                         return -EINVAL;
                 }
                 dev->sim_xmit = 1;
@@ -556,12 +544,12 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
         case ARINC_BIT:
 
                 if (dev->status.lps) {
-                        KLOG_INFO("cannot run buit in test, already configured!\n");
+                        KLOG_ERR("cannot run buit in test, already configured!\n");
                         return -EALREADY;
                 }
                 // perform a series of Built In Tests on the card
                 if (copy_from_user(&aBIT, userptr, sizeof(aBIT))) {
-                        KLOG_INFO("copy_from_user error!\n");
+                        KLOG_ERR("copy_from_user error!\n");
                         return -EFAULT;
                 }
 
@@ -575,16 +563,11 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
                 break;
 
         case ARINC_STAT:
-
-                if (!dev->status.lps) {
-                        KLOG_INFO("unused channel\n");
-                        return -EINVAL;
-                }
                 // stop displaying measurements 
                 board.display_chn = -1;
 
                 if (copy_to_user(userptr, &dev->status, sizeof (dsm_arinc_status))) {
-                        KLOG_INFO("copy_to_user error!\n");
+                        KLOG_ERR("copy_to_user error!\n");
                         return -EFAULT;
                 }
                 break;
@@ -602,7 +585,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
                 break;
 
         default:
-                KLOG_INFO("unrecognized ioctl %d (number %d, size %d)\n",
+                KLOG_ERR("unrecognized ioctl %d (number %d, size %d)\n",
                      cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
                 ret = -EINVAL;
                 break;
@@ -691,7 +674,6 @@ static int arinc_release(struct inode *inode, struct file *filp)
         dev->samples.buf = 0;
 
 	atomic_dec(&dev->used);
-        KLOG_INFO("closed\n");
         return 0;
 }
 
@@ -747,8 +729,6 @@ static void __exit arinc_cleanup(void)
         // unmap the DPRAM address 
         if (board.phys_membase)
                 iounmap(board.phys_membase);
-
-        KLOG_INFO("done.\n");
 }
 
 // -- UTILITY --------------------------------------------------------- 
@@ -766,6 +746,7 @@ static int scan_ceiisa(void)
         unsigned char value;
         unsigned int indx;
 
+#ifdef DEBUG
         char *boardID[] = { "Standard CEI-220",
                 "Standard CEI-420",
                 "Custom CEI-220 6-Wire",
@@ -775,6 +756,7 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
+#endif
 
         value = readb(board.phys_membase + 0x808);
         value >>= 4;
@@ -783,13 +765,13 @@ static int scan_ceiisa(void)
                 value = readb(board.phys_membase + 0x80A);
                 value >>= 4;
                 if (value == 0x5)
-                        KLOG_INFO("Obsolete CEI-420a\n");
+                        KLOG_ERR("Obsolete CEI-420a\n");
                 if (value == 0x0 || value == 0x1 || value == 0x2 ||
                     value == 0x3 || value == 0x4 || value == 0x6
                     || value == 0x7) {
                         // passed register 2 test... 
                         indx = value;
-                        KLOG_INFO("cei220/420 found.  Board = %s\n",
+                        KLOG_DEBUG("cei220/420 found.  Board = %s\n",
                                    boardID[indx]);
                         value = readb(board.phys_membase + 0x80C);
                         if (value == 0x0) {
@@ -798,7 +780,7 @@ static int scan_ceiisa(void)
                                 value >>= 4;
                                 if (value == 0) {
                                         // passed register 4 test... 
-                                        KLOG_INFO
+                                        KLOG_DEBUG
                                             ("found CEI-220/420 at 0x%lX\n",
                                              board.basemem);
                                         return 0;
@@ -830,18 +812,18 @@ static int __init arinc_init(void)
         board.basemem = SYSTEM_ISA_IOMEM_BASE + iomem;
         board.phys_membase = ioremap(board.basemem, PAGE_SIZE);
         if (!board.phys_membase) {
-                KLOG_INFO("ioremap failed.\n");
+                KLOG_ERR("ioremap failed.\n");
                 return -EIO;
         }
         // reserve the ISA memory region 
         if (!request_region(board.basemem, PAGE_SIZE, "arinc")) {
-                KLOG_INFO("couldn't allocate I/O range %lX - %lX\n",
+                KLOG_ERR("couldn't allocate I/O range %lX - %lX\n",
                            board.basemem, board.basemem + PAGE_SIZE - 1);
                 err = -EBUSY;
                 goto fail;
         }
-        KLOG_INFO("basemem:      %X\n", (unsigned int) board.basemem);
-        KLOG_INFO("phys_membase: %X\n", (unsigned int) board.phys_membase);
+        KLOG_DEBUG("basemem:      %X\n", (unsigned int) board.basemem);
+        KLOG_DEBUG("phys_membase: %X\n", (unsigned int) board.phys_membase);
 
         // scan the ISA bus for the device 
         err = scan_ceiisa();
@@ -849,7 +831,7 @@ static int __init arinc_init(void)
 
         // obtain the API version string
         ar_version(api_version);
-        KLOG_INFO("API Version %s\n", api_version);
+        KLOG_DEBUG("API Version %s\n", api_version);
 
         // load the board (the size and address are not used - must specify zero) 
         err = ar_loadslv(BOARD_NUM,(unsigned long)board.phys_membase, 0, 0);
@@ -860,8 +842,8 @@ static int __init arinc_init(void)
         if (err != ARS_NORMAL) goto fail;
 
         // Display the board type 
-        KLOG_INFO("Board %s detected\n", ar_get_boardname(BOARD_NUM, NULL));
-        KLOG_INFO("Supporting %d transmitters and %d receivers.\n",
+        KLOG_DEBUG("Board %s detected\n", ar_get_boardname(BOARD_NUM, NULL));
+        KLOG_DEBUG("Supporting %d transmitters and %d receivers.\n",
                    ar_num_xchans(BOARD_NUM), ar_num_rchans(BOARD_NUM));
 
         // select buffered mode 
@@ -902,7 +884,7 @@ static int __init arinc_init(void)
         // Initialize and add user-visible devices
         err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX, "arinc");
         if (err < 0) goto fail;
-        KLOG_INFO("major device number %d\n", MAJOR(arinc_device));
+        KLOG_DEBUG("major device number %d\n", MAJOR(arinc_device));
 
         // reserve and clear kernel memory for chn_info
         err = -ENOMEM;
@@ -924,7 +906,7 @@ static int __init arinc_init(void)
         err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX);
         if (err < 0) goto fail;
 
-        KLOG_INFO("ARINC init_module complete.\n");
+        KLOG_DEBUG("ARINC init_module complete.\n");
         return 0;               // success 
 
       fail:

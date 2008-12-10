@@ -269,7 +269,7 @@ static int emerald_load_config_from_eeprom(emerald_board* brd) {
 
 static int emerald_get_digio_port_out(emerald_board* brd,int port)
 {
-    return (brd->digioout & (1 << port)) != 1;
+    return (brd->digioout & (1 << port)) != 0;
 }
 
 static void emerald_set_digio_out(emerald_board* brd,int val)
@@ -294,7 +294,7 @@ static int emerald_read_digio(emerald_board* brd)
 static int emerald_read_digio_port(emerald_board* brd,int port)
 {
     int val = emerald_read_digio(brd);
-    return (val & (1 << port)) != 1;
+    return (val & (1 << port)) != 0;
 }
 
 static void emerald_write_digio_port(emerald_board* brd,int port,int val)
@@ -523,6 +523,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	{
 	    int iport = port->portNum;
 	    int val = (int) arg;
+        printk(KERN_INFO "setting digioout, val=%d\n",val);
 	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
 	    emerald_set_digio_port_out(brd,iport,val);
 	    up(&brd->sem);
@@ -548,6 +549,8 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	    int iport = port->portNum;
 	    int val = (int) arg;
 	    // digio line must be an output
+        printk(KERN_INFO "digioout=%#x, portout=%d\n",
+            brd->digioout,brd->digioout & (1 << iport));
 	    if (! (brd->digioout & (1 << iport))) return -EINVAL;
 	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
 	    emerald_write_digio_port(brd,iport,val);

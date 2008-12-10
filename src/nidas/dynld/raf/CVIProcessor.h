@@ -125,7 +125,7 @@ private:
 
     std::vector<bool> _varMatched;
 
-    SampleSorter _sorter1;
+    SampleSorter _sorter;
 
     SampleAverager _averager;
 

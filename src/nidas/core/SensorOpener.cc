@@ -16,6 +16,7 @@
 #include <nidas/core/SensorHandler.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <cerrno>
 #include <unistd.h>
@@ -128,6 +129,9 @@ int SensorOpener::run() throw(n_u::Exception)
 	catch(const n_u::IOException& e) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		  sensor->getName().c_str(),e.what());
+
+	    if (dynamic_cast<const n_u::IOTimeoutException*>(&e))
+		sensor->incrementTimeoutCount();
 
             // file descriptor may still be open if the
             // error happened after the libc ::open

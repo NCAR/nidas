@@ -35,6 +35,9 @@ public:
 
     ~CSAT3_Sonic();
 
+    void open(int flags) throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
+
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
 
@@ -50,7 +53,21 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
-protected:
+
+private:
+
+    void stopSonic() throw(nidas::util::IOException);
+
+    void startSonic() throw(nidas::util::IOException);
+
+    std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
+        std::string& revsion)
+        throw(nidas::util::IOException);
+
+    const char* getRateCommand(int rate,bool overSample);
+
+    std::string sendRateCommand(const char* cmd)
+        throw(nidas::util::IOException);
 
     /**
      * expected input sample length of basic CSAT3 record.
@@ -119,6 +136,13 @@ protected:
      */
     int _sx[3];
 
+    int _rate;
+
+    bool _oversample;
+
+    std::string _serialNumber;
+
+    std::string _sonicLogFile;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

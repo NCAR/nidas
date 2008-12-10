@@ -33,14 +33,12 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(DSMSerialSensor)
 
-DSMSerialSensor::DSMSerialSensor():prompting(false),cPromptString(0),
-	cPromptStringLen(0)
+DSMSerialSensor::DSMSerialSensor():_prompter(this),_prompting(false)
 {
 }
 
 DSMSerialSensor::~DSMSerialSensor()
 {
-    delete [] cPromptString;
 }
 
 SampleScanner* DSMSerialSensor::buildSampleScanner()
@@ -166,29 +164,23 @@ void DSMSerialSensor::unixDevInit(int flags)
 
     // no latency support
 
-    setTermios(getReadFd(),getName());
+    if (::isatty(getReadFd())) {
+        setTermios(getReadFd(),getName());
 
-    int accmode = flags & O_ACCMODE;
+        int accmode = flags & O_ACCMODE;
 
-    int fres;
+        int fres;
 
-    if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
-    else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
-    else fres = ::tcflush(getReadFd(),TCIOFLUSH);
-    if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
+        if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
+        else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
+        else fres = ::tcflush(getReadFd(),TCIOFLUSH);
+        if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
+    }
 
     if (isPrompted()) {
-	string nprompt =
-		n_u::replaceBackslashSequences(getPromptString());
-
-	cPromptStringLen = nprompt.length();
-	delete [] cPromptString;
-	cPromptString = new char[cPromptStringLen + 1];
-	strcpy(cPromptString,nprompt.c_str());
-
-	promptPeriodMsec = (int) rint(1000.0 / getPromptRate());
-
-	// cerr << "promptPeriodMsec=" << promptPeriodMsec << endl;
+        _prompter.setPrompt(n_u::replaceBackslashSequences(getPromptString()));
+	_promptPeriodMsec = (int) rint(1000.0 / getPromptRate());
+	// cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
     }
 }
 
@@ -218,18 +210,6 @@ void DSMSerialSensor::setMessageParameters()
     }
 }
 
-void DSMSerialSensor::looperNotify() throw()
-{
-    try {
-	write(cPromptString,cPromptStringLen);
-    }
-    catch(const n_u::IOException& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: write prompt: %s",getName().c_str(),
-	    e.what());
-    }
-}
-
 void DSMSerialSensor::close() throw(n_u::IOException)
 {
     stopPrompting();
@@ -243,8 +223,8 @@ void DSMSerialSensor::startPrompting() throw(n_u::IOException)
 {
     if (isPrompted()) {
 	if (isRTLinux()) ioctl(DSMSER_START_PROMPTER,0,0);
-	else Looper::getInstance()->addClient(this,promptPeriodMsec);
-	prompting = true;
+	else Looper::getInstance()->addClient(&_prompter,_promptPeriodMsec);
+	_prompting = true;
     }
 }
 
@@ -252,8 +232,8 @@ void DSMSerialSensor::stopPrompting() throw(n_u::IOException)
 {
     if (isPrompted()) {
 	if (isRTLinux()) ioctl(DSMSER_STOP_PROMPTER,0,0);
-	else Looper::getInstance()->removeClient(this);
-	prompting = false;
+	else Looper::getInstance()->removeClient(&_prompter);
+	_prompting = false;
     }
 }
 
@@ -267,6 +247,13 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left>" << getBaudRate() <<
 		getParityString().substr(0,1) <<
 		getDataBits() << getStopBits();
+	if (getReadFd() < 0) {
+	    ostr << ",<font color=red><b>not active</b></font>";
+	    if (getTimeoutMsecs() > 0)
+	    	ostr << ",timeouts=" << getTimeoutCount();
+	    ostr << "</td>" << endl;
+	    return;
+	}
 	if (isRTLinux()) {
 	    ioctl(DSMSER_GET_STATUS,&stat,sizeof(stat));
 	    ostr <<
@@ -282,6 +269,8 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 		",oqa=" << stat.output_queue_avail <<
 		",tqa=" << stat.char_xmit_queue_avail;
 	}
+	else if (getTimeoutMsecs() > 0)
+	    	ostr << ",timeouts=" << getTimeoutCount();
 	ostr << "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {
@@ -359,6 +348,7 @@ void DSMSerialSensor::fromDOMElement(
 	    else if (aname == "height");
 	    else if (aname == "depth");
 	    else if (aname == "duplicateIdOK");
+	    else if (aname == "timeout");
 	    else throw n_u::InvalidParameterException(
 		string("DSMSerialSensor:") + getName(),
 		"unknown attribute",aname);
@@ -382,6 +372,32 @@ void DSMSerialSensor::fromDOMElement(
 	else throw n_u::InvalidParameterException(
 	    string("DSMSerialSensor:") + getName(),
 	    "unknown element",elname);
+    }
+}
+
+DSMSerialSensor::Prompter::~Prompter()
+{
+    delete [] _prompt;
+}
+
+void DSMSerialSensor::Prompter::setPrompt(const string& val)
+{
+    delete [] _prompt;
+    _promptLen = val.length();
+    _prompt = new char[_promptLen+1];
+    strcpy(_prompt,val.c_str());
+}
+
+void DSMSerialSensor::Prompter::looperNotify() throw()
+{
+    if (!_prompt) return;
+    try {
+	_sensor->write(_prompt,_promptLen);
+    }
+    catch(const n_u::IOException& e) {
+	n_u::Logger::getInstance()->log(LOG_ERR,
+	    "%s: write prompt: %s",_sensor->getName().c_str(),
+	    e.what());
     }
 }
 

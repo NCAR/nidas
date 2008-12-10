@@ -177,9 +177,9 @@ private:
     std::string _configFile;
 
     /**
-     * Multicast address to use when fishing for the XML configuration.
+     * Address to use when fishing for the XML configuration.
      */
-    nidas::util::Inet4SocketAddress _mcastSockAddr;
+    nidas::util::Inet4SocketAddress _configSockAddr;
 
     /**
      * Condition variable to wait on for external command.

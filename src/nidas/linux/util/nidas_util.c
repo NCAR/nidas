@@ -122,12 +122,12 @@ nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
         return countreq - count;
 }
 
-void nidas_util_cleanup(void)
+static void __exit nidas_util_cleanup(void)
 {
     KLOG_DEBUG("nidas_util done\n");
     return;
 }
-int nidas_util_init(void)
+static int __init nidas_util_init(void)
 {	
         // DSM_VERSION_STRING is found in dsm_version.h
         KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);

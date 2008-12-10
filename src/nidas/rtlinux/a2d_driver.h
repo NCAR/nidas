@@ -24,6 +24,11 @@
  * the definition of the structures.
  */
 
+/*
+ * Frequency for getting data from the card's FIFO (Hz)
+ */
+#define A2D_POLL_RATE  100
+
 //A2D Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
 #define A2DDATARDY      0x4000  //Data ready to be read (Read cycle)
@@ -67,6 +72,7 @@
 #define A2DEXPSTATUS    0x8252  // expected value of unmasked bits
 
 /********  Start of definitions used by the driver module only **********/
+
 
 #include <rtl_semaphore.h>
 #include <nidas/rtlinux/dsm_viper.h>    // get SYSTEM_ISA_IOPORT_BASE

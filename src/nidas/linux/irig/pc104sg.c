@@ -73,12 +73,17 @@ MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
 /** number of milliseconds per interrupt */
 #define MSEC_PER_INTERRUPT (MSECS_PER_SEC / INTERRUPT_RATE)
 
+#define TMSEC_PER_INTERRUPT (TMSECS_PER_SEC / INTERRUPT_RATE)
+
 /*
  * We perform a callback check after every INTERRUPTS_PER_CALLBACK_CHECK
  * interrupts.
  */
 static const int INTERRUPTS_PER_CALLBACK_CHECK = 1;
 #define MSEC_PER_CALLBACK_CHECK (MSEC_PER_INTERRUPT *		\
+				 INTERRUPTS_PER_CALLBACK_CHECK)
+
+#define TMSEC_PER_CALLBACK_CHECK (TMSEC_PER_INTERRUPT *		\
 				 INTERRUPTS_PER_CALLBACK_CHECK)
 
 /*
@@ -95,16 +100,16 @@ static const int INTERRUPTS_PER_CALLBACK_CHECK = 1;
 
 /**
  * A toggle buffer containing the current clock value
- * in milliseconds since UTC midnight.
+ * in tenths of milliseconds since UTC midnight.
  */
-unsigned long volatile MsecClock[2] = { 0, 0 };
+unsigned int volatile TMsecClock[2] = { 0, 0 };
 
 /**
- * Index into MsecClock of the value to be read.
+ * Index into TMsecClock of the value to be read.
  */
 unsigned char volatile ReadClock = 0;
 
-EXPORT_SYMBOL(MsecClock);
+EXPORT_SYMBOL(TMsecClock);
 EXPORT_SYMBOL(ReadClock);
 
 /**
@@ -149,7 +154,7 @@ struct pc104sg_board
         /**
          * The millisecond clock counter.
          */
-        unsigned long volatile MsecClockTicker;
+        unsigned int volatile TMsecClockTicker;
 
         /*
          * The 100 Hz counter.
@@ -157,7 +162,7 @@ struct pc104sg_board
         int volatile Count100Hz;
 
         /**
-         * Index into MsecClock of the next clock value to be written.
+         * Index into TMsecClock of the next clock value to be written.
          */
         unsigned char volatile WriteClock;
 
@@ -574,7 +579,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
         int ret = -1;
         unsigned long flags;
         unsigned char status = 0;
-        unsigned long delay_usec = 10;  // wait time in microseconds
+        unsigned int delay_usec = 10;  // wait time in microseconds
 
         spin_lock_irqsave(&board.DP_RamLock, flags);
 
@@ -719,7 +724,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
         int ret = -1;
         unsigned char status = 0;
         unsigned long flags;
-        unsigned long delay_usec = 10;  // wait time in microseconds
+        unsigned int delay_usec = 10;  // wait time in microseconds
 
         spin_lock_irqsave(&board.DP_RamLock, flags);
 
@@ -949,8 +954,8 @@ static void counterRejam(void)
  */
 static void timespec2irig(const struct timespec *ts, struct irigTime *ti)
 {
-        long int days, rem, y;
-        unsigned long int t = ts->tv_sec;
+        int days, rem, y;
+        unsigned int t = ts->tv_sec;
 
         days = t / SECS_PER_DAY;
         rem = t % SECS_PER_DAY;
@@ -962,7 +967,7 @@ static void timespec2irig(const struct timespec *ts, struct irigTime *ti)
 
         while (days < 0 || days >= (my_isleap(y) ? 366 : 365)) {
                 /* Guess a corrected year, assuming 365 days per year.  */
-                long int yg = y + days / 365 - (days % 365 < 0);
+                int yg = y + days / 365 - (days % 365 < 0);
 
                 /* Adjust DAYS and Y to match the guessed year.  */
                 days -= ((yg - y) * 365 + LEAPS_THRU_END_OF(yg - 1)
@@ -1096,10 +1101,10 @@ static void getTimeFields(struct irigTime *ti, int offset)
  * Read sub-second time fields from the card, return microseconds.
  * May be useful for watching-the-clock when debugging.
  */
-long getTimeUsec()
+int getTimeUsec()
 {
         unsigned char us0ns2, us2us1, ms1ms0, sec0ms2;
-        long usec;
+        int usec;
 
         /* reading the Usec1_Nsec100 value latches all other digits */
         us0ns2 = inb(board.addr + Usec1_Nsec100_Port);
@@ -1123,20 +1128,20 @@ static void getCurrentTime(struct irigTime *ti)
         {
                 int td, hr, mn, sc;
                 // unsigned char status = inb(board.addr + Status_Port);
-                dsm_sample_time_t tt = GET_MSEC_CLOCK;
+                dsm_sample_time_t tt = GET_TMSEC_CLOCK;
                 struct timespec ts;
                 irig2timespec(ti, &ts);
                 // clock difference
-                td = (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-                    ts.tv_nsec / NSECS_PER_MSEC - tt;
-                hr = (tt / 3600 / MSECS_PER_SEC);
-                tt %= (3600 * MSECS_PER_SEC);
-                mn = (tt / 60 / MSECS_PER_SEC);
-                tt %= (60 * MSECS_PER_SEC);
-                sc = tt / MSECS_PER_SEC;
-                tt %= MSECS_PER_SEC;
+                td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                    ts.tv_nsec / NSECS_PER_TMSEC - tt;
+                hr = (tt / 3600 / TMSECS_PER_SEC);
+                tt %= (3600 * TMSECS_PER_SEC);
+                mn = (tt / 60 / TMSECS_PER_SEC);
+                tt %= (60 * TMSECS_PER_SEC);
+                sc = tt / TMSECS_PER_SEC;
+                tt %= TMSECS_PER_SEC;
                 KLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
-                           "clk=%02d:%02d:%02d.%03d, diff=%d, estat=0x%x, state=%d\n",
+                           "clk=%02d:%02d:%02d.%04d, diff=%d tmsec, estat=0x%x, state=%d\n",
                            ti->year, ti->yday, ti->hour, ti->min, ti->sec,
                            ti->msec, ti->usec, ti->nsec, hr, mn, sc,
                            (int) tt, td, board.ExtendedStatus,
@@ -1238,35 +1243,35 @@ static int setMajorTime(struct irigTime *ti)
 
 /**
  * Increment our clock by a number of ticks.
- * board.MsecClockTicker is only accessed by the ISR
+ * board.TMsecClockTicker is only accessed by the ISR
  * so we don't have to worry about concurrency issues.
  */
 static void inline increment_clock(int tick)
 {
         unsigned char c;
 
-        board.MsecClockTicker += tick;
-        board.MsecClockTicker %= MSECS_PER_DAY;
+        board.TMsecClockTicker += tick;
+        board.TMsecClockTicker %= TMSECS_PER_DAY;
 
         /*
          * This little double clock provides a clock that can be
          * read by external modules without needing a mutex.
-         * It ensures that MsecClock[ReadClock]
+         * It ensures that TMsecClock[ReadClock]
          * is valid for at least an interrupt period after reading the
          * value of ReadClock, even if this code is pre-emptive.
          *
          * This clock is incremented at the interrupt rate.
          * If somehow a bogged down piece of code reads the value of
          * ReadClock, and then didn't get around to reading
-         * MsecClock[ReadClock] until more than an interrupt period
+         * TMsecClock[ReadClock] until more than an interrupt period
          * later then it could read a half-written value, but that
          * ain't gunna happen.
          */
-        MsecClock[board.WriteClock] = board.MsecClockTicker;
+        TMsecClock[board.WriteClock] = board.TMsecClockTicker;
         c = ReadClock;
-        /* prior to this line MsecClock[ReadClock=0] is  OK to read */
+        /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
         ReadClock = board.WriteClock;
-        /* now MsecClock[ReadClock=1] is still OK to read. We're assuming
+        /* now TMsecClock[ReadClock=1] is still OK to read. We're assuming
          * that the byte write of ReadClock is atomic.
          */
         board.WriteClock = c;
@@ -1285,21 +1290,21 @@ static inline int incrementCount100Hz(void)
 static void setCounters(struct timeval *tv)
 {
 #ifdef DEBUG
-        int td = (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-            tv->tv_usec / USECS_PER_MSEC - board.MsecClockTicker;
+        int td = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+            tv->tv_usec / USECS_PER_TMSEC - board.TMsecClockTicker;
 #endif
 
-        board.MsecClockTicker =
-            (tv->tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-            (tv->tv_usec + USECS_PER_MSEC / 2) / USECS_PER_MSEC;
-        board.MsecClockTicker -=
-            board.MsecClockTicker % MSEC_PER_INTERRUPT;
-        board.MsecClockTicker %= MSECS_PER_DAY;
+        board.TMsecClockTicker =
+            (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+            (tv->tv_usec + USECS_PER_TMSEC / 2) / USECS_PER_TMSEC;
+        board.TMsecClockTicker -=
+            board.TMsecClockTicker % TMSEC_PER_INTERRUPT;
+        board.TMsecClockTicker %= TMSECS_PER_DAY;
 
         // board.count100Hz is used by bottom half, so we use a spinlock.
         spin_lock(&board.time_reg_lock);
-        board.Count100Hz = board.MsecClockTicker / MSEC_PER_CALLBACK_CHECK;
-        if (!(board.MsecClockTicker % MSEC_PER_CALLBACK_CHECK)
+        board.Count100Hz = board.TMsecClockTicker / TMSEC_PER_CALLBACK_CHECK;
+        if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK_CHECK)
             && (board.Count100Hz-- == 0))
                 board.Count100Hz = MAX_INTERRUPT_COUNTER - 1;
         board.Count100Hz %= MAX_INTERRUPT_COUNTER;
@@ -1307,8 +1312,8 @@ static void setCounters(struct timeval *tv)
 
 #ifdef DEBUG
         KLOG_DEBUG
-            ("tv=%ld.%06ld, MsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
-             tv->tv_sec, tv->tv_usec, board.MsecClockTicker, td,
+            ("tv=%ld.%06ld, TMsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
+             tv->tv_sec, tv->tv_usec, board.TMsecClockTicker, td,
              board.Count100Hz);
 #endif
 }
@@ -1579,14 +1584,14 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 /* acknowledge interrupt (essential!) */
                 ackHeartBeatInt();
 
-                increment_clock(MSEC_PER_INTERRUPT);
+                increment_clock(TMSEC_PER_INTERRUPT);
 
                 checkExtendedStatus();
 
                 /*
                  * On 10 millisecond intervals, schedule our 100Hz work.
                  */
-                if (!(board.MsecClockTicker % MSEC_PER_CALLBACK_CHECK)) {
+                if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK_CHECK)) {
                         atomic_inc(&board.pending100Hz);
                         tasklet_hi_schedule(&board.tasklet100Hz);
                 }
@@ -1618,7 +1623,7 @@ static void writeTimeCallback(void *ptr)
         struct irigTime ti;
         struct dsm_clock_sample *osamp;
         unsigned long flags;
-        dsm_sample_time_t tt = GET_MSEC_CLOCK;
+        dsm_sample_time_t tt = GET_TMSEC_CLOCK;
 
         spin_lock_irqsave(&board.time_reg_lock, flags);
         getCurrentTime(&ti);
@@ -1631,13 +1636,13 @@ static void writeTimeCallback(void *ptr)
 
                 irig2timeval(&ti, &tv);
                 // clock difference
-                td = (tv.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
-                    tv.tv_usec / USECS_PER_MSEC - tt;
+                td = (tv.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                    tv.tv_usec / USECS_PER_TMSEC - tt;
                 /* If not within 3 milliseconds, ask to reset counters.
                  * Since this is being called as a 1 Hz callback some
                  * time may have elapsed since the 100 Hz interrupt.
                  */
-                if (abs(td) > 3)
+                if (abs(td) > 3 * TMSECS_PER_MSEC)
                         board.ClockState = RESET_COUNTERS;
         }
 
@@ -1649,7 +1654,7 @@ static void writeTimeCallback(void *ptr)
                              dev->deviceName, dev->skippedSamples);
                 return;
         }
-        osamp->timetag = tt;
+        osamp->timetag = tt / TMSECS_PER_MSEC;  // timetags still in msecs
         osamp->length =
             sizeof(osamp->data.tval) + sizeof(osamp->data.status);
         irig2timeval(&ti, &osamp->data.tval);
@@ -1886,7 +1891,7 @@ static struct file_operations pc104sg_fops = {
 
 
 /* -- MODULE ---------------------------------------------------------- */
-void pc104sg_cleanup(void)
+static void __exit pc104sg_cleanup(void)
 {
         disableAllInts();
 
@@ -1911,7 +1916,7 @@ void pc104sg_cleanup(void)
 /* -- MODULE ---------------------------------------------------------- */
 
 /* module initialization */
-int pc104sg_init(void)
+static int __init pc104sg_init(void)
 {
         int i;
         int errval = 0;
@@ -1921,12 +1926,12 @@ int pc104sg_init(void)
         /* initialize clock counters that external modules grab */
         ReadClock = 0;
         board.WriteClock = 1;
-        MsecClock[ReadClock] = 0;
-        MsecClock[board.WriteClock] = 0;
+        TMsecClock[ReadClock] = 0;
+        TMsecClock[board.WriteClock] = 0;
 
 	board.addr = 0;
         board.IntMask = 0x1f;
-        board.MsecClockTicker = 0;
+        board.TMsecClockTicker = 0;
         board.Count100Hz = 0;
 
         board.ClockState = CODED;

@@ -30,7 +30,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIProcessor)
 
 CVIProcessor::CVIProcessor():
-    _sorter1("CVISorter"),
+    _sorter("CVISorter"),
     _avgWrapper(&_averager),
     _resampler(0),_rate(1.0),
     _lvSensor(0)
@@ -43,7 +43,7 @@ CVIProcessor::CVIProcessor():
  */
 CVIProcessor::CVIProcessor(const CVIProcessor& x):
 	SampleIOProcessor(x),
-        _sorter1("CVISorter"),
+        _sorter("CVISorter"),
         _avgWrapper(&_averager),
         _resampler(0),_rate(x._rate),
         _lvSensor(0)
@@ -71,7 +71,7 @@ void CVIProcessor::addSampleTag(SampleTag* tag)
     _rate = tag->getRate();
     if (_rate > 0.0) {
         _averager.setAveragePeriod((int)rint(MSECS_PER_SEC/_rate));
-        _sorter1.setLengthMsecs((int)rint(MSECS_PER_SEC/_rate));
+        _sorter.setLengthMsecs((int)rint(MSECS_PER_SEC/_rate/10.));
     }
 }
 
@@ -136,12 +136,25 @@ void CVIProcessor::connect(SampleInput* input) throw(n_u::IOException)
         }
 
         if (varMatch && sensor) {
-            sensor->addRawSampleClient(&_sorter1);
-            _sorter1.addSampleTag(sensor->getRawSampleTag(),sensor);
+            sensor->addSampleClient(&_sorter);
+            _sorter.addSampleTag(intag,sensor);
+            _sorter.addSampleClient(&_averager);
+            if (!_sorter.isRunning()) _sorter.start();
+
+            sensor->addRawSampleClient(&_sorter);
+            _sorter.addSampleTag(sensor->getRawSampleTag(),sensor);
             sensor->addSampleClient(&_averager);
-            if (!_sorter1.isRunning()) _sorter1.start();
+            if (!_sorter.isRunning()) _sorter.start();
         }
     }
+
+    /*
+     * After the last sensor is connected:
+     * 1. SampleIOProcessor::connect(&_avgWrapper);
+     * Problem is, how to detect the "last" sensor. Need an init virtual method.
+     * CVIOutput must do variable mapping so that the variables get put
+     * in right place.
+     */
 
     if (!_resampler) {
         // cerr << "creating resampler" << endl;

@@ -108,10 +108,12 @@ bool CharacterSensor::isRTLinux() const
     }
     return rtlinux == 1;
 }
-
 IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (isRTLinux()) return new RTL_IODevice();
+    if (isRTLinux()) {
+	setDriverTimeTagUsecs(USECS_PER_MSEC);
+	return new RTL_IODevice();
+    }
     else return new UnixIODevice();
 }
 
@@ -119,7 +121,10 @@ SampleScanner* CharacterSensor::buildSampleScanner()
 {
     SampleScanner* scanr;
 
-    if (isRTLinux()) scanr = new MessageSampleScanner();
+    if (isRTLinux()) {
+        setDriverTimeTagUsecs(USECS_PER_MSEC);
+        scanr = new MessageSampleScanner();
+    }
     else scanr = new MessageStreamScanner();
 
     scanr->setMessageSeparator(getMessageSeparator());
@@ -165,6 +170,7 @@ must have a scanfFormat or no samples");
 
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
+    DSMSensor::init();
     if (sscanfers.size() > 0) nextSscanfer = sscanfers.begin();
 
 }
@@ -327,10 +333,14 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     const vector<const Variable*>& vars = stag->getVariables();
     int nv;
     for (nv = 0; nv < (signed)vars.size(); nv++,fp++) {
-        // nimbus applies cals for Aircraft world.  Avoid applying twice.
-        // VariableConverter* conv = vars[nv]->getConverter();
-        if (nv >= nparsed || *fp == vars[nv]->getMissingValue()) *fp = floatNAN;
-        // else if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+        const Variable* var = vars[nv];
+        if (nv >= nparsed || *fp == var->getMissingValue()) *fp = floatNAN;
+        else if (*fp < var->getMinValue() || *fp > var->getMaxValue()) 
+            *fp = floatNAN;
+        else if (getApplyVariableConversions()) {
+            VariableConverter* conv = var->getConverter();
+            if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+        }
     }
     outs->setTimeTag(samp->getTimeTag());
     outs->setDataLength(nv);

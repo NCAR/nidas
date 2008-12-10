@@ -61,6 +61,7 @@ bool DSMMesaSensor::isRTLinux() const
 
 IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 {
+    setDriverTimeTagUsecs(USECS_PER_MSEC);
     if (isRTLinux()) return new RTL_IODevice();
     else return new UnixIODevice();
 }
@@ -79,11 +80,7 @@ void DSMMesaSensor::open(int flags) throw(n_u::IOException,
 
   ILOG(("open-begin"));
 
-  if (sendFPGACodeToDriver() == false)
-  {
-    close();
-    return;
-  }
+  sendFPGACodeToDriver();
 
   // Send down rates.
   if (counter_info.rate > 0)
@@ -201,7 +198,7 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
     rate = irigClockRateToEnum((int)tag->getRate());
     sampleId = tag->getId();
 
-// ILOG(("init, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate()));
+// ILOG(("fromDOMElement, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate()));
 
     switch (tag->getSampleId())
     {
@@ -236,7 +233,7 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
         radar_info.rate = (int)tag->getRate();
         break;
       default:
-        ELOG(("DSMMesaSensor::init() Unknown sampleID ") << tag->getSampleId() );
+        ELOG(("DSMMesaSensor::fromDOMElement() Unknown sampleID ") << tag->getSampleId() );
     }
 
 /*
@@ -252,126 +249,89 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
 }
 
 /*---------------------------------------------------------------------------*/
-bool DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
+void DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 {
-  char devstr[64];
-  FILE * fdMesaFPGAfile;
+    string fname("/usr/local/firmware/mesa_fpga_file.bit");
+    const Parameter* pparm = getParameter("firmware");
+    if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
+        pparm->getLength() == 1)
+            fname= pparm->getStringValue(0);
 
-  // Open up the FPGA program from disk...
-  strcpy(devstr, "/tmp/code/firmware/mesa_fpga_file.bit");
-  ILOG(("opening ") << devstr);
-  if ((fdMesaFPGAfile = fopen(devstr, "rb")) == NULL)
-  {
-    ILOG(("Failed to open FPGA program file ") << devstr);
-    return false;
-  }
+    FILE * fp;
+    int ilen = 0;
 
-  size_t filesize = filelengthq(fdMesaFPGAfile);
-  ILOG(("FPGA file size: ") << filesize);
+    // Open up the FPGA program from disk...
+    ILOG(("opening ") << fname);
+    if ((fp = fopen(fname.c_str(), "rb")) == NULL)
+        throw n_u::IOException(fname,"open",errno);
 
-  // Send the Load FPGA Program ioctl
-  ILOG(("go select file type"));
-  selectfiletype(fdMesaFPGAfile);
-  ILOG(("file type selected"));
+    try {
+        // Send the Load FPGA Program ioctl
+        DLOG(("go select file type"));
+        selectfiletype(fp,fname);
+        DLOG(("file type selected"));
 
-  ioctl(MESA_LOAD_START,0,0);
+        ioctl(MESA_LOAD_START,0,0);
 
-  struct mesa_prog prog;
-  do
-  {
-    prog.len = fread(prog.buffer, 1, MESA_MAX_FPGA_BUFFER, fdMesaFPGAfile);
-    if (ferror(fdMesaFPGAfile)) throw n_u::IOException(devstr,"read",errno);
-    if (prog.len > 0) ioctl(MESA_LOAD_BLOCK, &prog, sizeof(struct mesa_prog));
-  }
-  while( !feof(fdMesaFPGAfile) );
+        struct mesa_prog prog;
+        do
+        {
+            prog.len = fread(prog.buffer, 1, MESA_MAX_FPGA_BUFFER, fp);
+            if (ferror(fp)) throw n_u::IOException(fname,"read",errno);
+            if (prog.len > 0) ioctl(MESA_LOAD_BLOCK, &prog,
+                sizeof(struct mesa_prog));
+            ilen += prog.len;
+        }
+        while( !feof(fp) );
 
-  ioctl(MESA_LOAD_DONE, 0, 0);
-
-  ILOG(("Done sending bit file down."));
-  fclose(fdMesaFPGAfile);
-  return true;
-}
-
-/*---------------------------------------------------------------------------*/
-long DSMMesaSensor::filelengthq(FILE *f)
-{
-  long curpos = ftell(f);
-
-  if (curpos < 0)
-    return -1;
-
-  if (fseek(f, 0, SEEK_END) != 0)
-    return -1;
-
-  long len = ftell(f);
-
-  if (len < 0)
-    return -1;
-
-  if (fseek(f, curpos, SEEK_SET) != 0)
-    return -1;
-
-  return len;
-}
-
-/*---------------------------------------------------------------------------*/
-size_t DSMMesaSensor::readbytesfromfile(FILE *f, long fromoffset,
-		size_t numbytes, unsigned char *bufptr)
-{
-  if (fseek(f, fromoffset, SEEK_SET) != 0)
-  {
-    return 0 ;
-  }
-  return fread(bufptr, 1, numbytes, f) ;
-}
-
-/*---------------------------------------------------------------------------*/
-void DSMMesaSensor::selectfiletype(FILE * fp)
-{
-  unsigned char b[14];
-  long ImageLen;	// Number of bytes in device image portion of file.
-
-  /* Read in the interesting parts of the file header. */
-  if (readbytesfromfile(fp, 0, sizeof(b), b) != sizeof(b))
-  {
-    ELOG(("Unexpected end of file."));
-  }
-
-  /* Figure out what kind of file we have. */
-  if ((b[0] == 0x00) && (b[1] == 0x09) && (b[11] == 0x00) && (b[12] == 0x01) &&
-     (b[13] == 'a'))
-  {       /* Looks like a .BIT file. */
-    signed long base ;
-    ILOG(("Looks like a .BIT file.")) ;
-    base = 14 ; /* Offset of design name length field. */
-
-    /* Display file particulars. */
-/*
-    printf("\nDesign name:          ") ; sayfileinfo(&base) ;
-    printf("\nPart I.D.:            ") ; sayfileinfo(&base) ;
-    printf("\nDesign date:          ") ; sayfileinfo(&base) ;
-    printf("\nDesign time:          ") ; sayfileinfo(&base) ;
-*/
-    if (readbytesfromfile(fp, base, 4, b) != 4)
-    {
-      ELOG(("Base address error"));
+        ioctl(MESA_LOAD_DONE, 0, 0);
+        fclose(fp);
     }
-    ImageLen = (((unsigned long)b[0] << 24) |
+    catch (const n_u::IOException& e) {
+        fclose(fp);
+        throw e;
+    }
+    ILOG(("%s: Done sending %s file down, len=%d",
+        getName().c_str(),fname.c_str(),ilen));
+}
+
+/*---------------------------------------------------------------------------*/
+void DSMMesaSensor::selectfiletype(FILE * fp,const string& fname)
+    throw(n_u::IOException)
+{
+    unsigned char b[14];
+
+    /* Read in the interesting parts of the file header. */
+    if (fread(b, 1, sizeof(b), fp)  != sizeof(b)) {
+        if (ferror(fp)) throw n_u::IOException(fname,"read",errno);
+        throw n_u::EOFException(fname,"read");
+    }
+
+    /* Figure out what kind of file we have. */
+    if ((b[0] == 0x00) && (b[1] == 0x09) && (b[11] == 0x00) &&
+        (b[12] == 0x01) && (b[13] == 'a'))
+    {       /* Looks like a .BIT file. */
+
+        if (fread(b, 1, 4, fp)  != 4) {
+            if (ferror(fp)) throw n_u::IOException(fname,"read",errno);
+            throw n_u::EOFException(fname,"read");
+        }
+        // Number of bytes in device image portion of file.
+        long ImageLen = (((unsigned long)b[0] << 24) |
                 ((unsigned long)b[1] << 16) |
                 ((unsigned long)b[2] << 8) |
                 (unsigned long)b[3]) ;
-    ILOG( ("Configuration length: ") << ImageLen << (" bytes") );
-
-    /* We leave the file position set to the next byte in the file,
-       which should be the first byte of the body of the data image. */
-  }
-  else if ((b[0] == 0xFF) && (b[4] == 0x55) && (b[5] == 0x99) &&
-          (b[6] == 0xAA) && (b[7] == 0x66))
-  {       /* Looks like a PROM file. */
-    ILOG(("Looks like a PROM file."));
-  }
-  else
-  {       /* It isn't something we know about. */
-    ILOG(("Unknown file type."));
-  }
+        ILOG(("%s: is a .BIT file, configuration length = %d bytes",
+            fname.c_str(),ImageLen));
+        /* We leave the file position set to the next byte in the file,
+         which should be the first byte of the body of the data image. */
+    }
+    else if ((b[0] == 0xFF) && (b[4] == 0x55) && (b[5] == 0x99) &&
+          (b[6] == 0xAA) && (b[7] == 0x66)) {
+          /* Looks like a PROM file. */
+          ILOG(("%s: Looks like a PROM file.",fname.c_str()));
+    }
+    else {       /* It isn't something we know about. */
+        throw n_u::IOException(fname,"read","unknown file type");
+    }
 }

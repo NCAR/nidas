@@ -113,6 +113,10 @@ void DSC_A2DSensor::close() throw(n_u::IOException)
 void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	return;
+    }
 
     struct DMMAT_A2D_Status stat;
     try {
@@ -199,6 +203,6 @@ void DSC_A2DSensor::fromDOMElement(
     throw(n_u::InvalidParameterException)
 {
 
-    DSMSensor::fromDOMElement(node);
+    A2DSensor::fromDOMElement(node);
 }
 

@@ -81,15 +81,6 @@ public:
      throw(nidas::util::IOException);
     void removeRemoteSerialConnection(RemoteSerialConnection *);
 
-    /**
-     * Set the length of time to wait in the select.
-     * This shouldn't be set too long during the time
-     * one is opening and adding sensors to the SensorHandler.
-     * @param val length of time, in milliseconds.
-     */
-    void setTimeout(int val);
-
-    int getTimeout() const;
 
     /**
      * Check on each sensor. Currently this means checking
@@ -99,23 +90,38 @@ public:
     void checkSensors(dsm_time_t);
 
     /**
-     * Set the sensor check period.
+     * Set the sensor statistics calculation period.
      *
      * @param val Period, in milliseconds.
      *
      */
-    void setSensorCheckInterval(int val)
+    void setSensorStatsInterval(int val)
     {
-        _sensorCheckInterval = val * USECS_PER_MSEC;
+        _sensorStatsInterval = val * USECS_PER_MSEC;
     }
     /**
      * Get the sensor check period.
      * @return Period, in milliseconds.
      */
-    int getSensorCheckInterval() const
+    int getSensorStatsInterval() const
     {
-        return _sensorCheckInterval / USECS_PER_MSEC;
+        return _sensorStatsInterval / USECS_PER_MSEC;
     }
+
+    /**
+     * Set the sensor check period.
+     *
+     * @param val Period, in milliseconds.
+     *
+     */
+    void setSensorCheckIntervalMsecs(int val);
+    /**
+     * Get the sensor check period.
+     * @return Period, in milliseconds.
+     */
+    int getSensorCheckIntervalMsecs() const;
+
+    int getSensorCheckIntervalUsecs() const;
 
     int getSelectErrors() const
     {
@@ -206,9 +212,13 @@ private:
 
     std::list<DSMSensor*> _pendingSensorClosures;
 
-    std::vector<int> _activeSensorFds;
+    int* _activeSensorFds;
 
-    std::vector<DSMSensor*> _activeSensors;
+    DSMSensor** _activeSensors;
+
+    unsigned int _nActiveSensors;
+
+    unsigned int _nActiveSensorsAlloc;
 
     bool _sensorsChanged;
 
@@ -229,14 +239,20 @@ private:
     int _selectErrors;
     int _rserialListenErrors;
 
-    unsigned int _timeoutMsec;
-    struct timeval _timeoutVal;
+    struct timeval _selectTimeoutVal;
     dsm_time_t _sensorCheckTime;
+    dsm_time_t _sensorStatsTime;
 
     /**
      * Interval for checking on each sensor, in microseconds.
      */
-    unsigned int _sensorCheckInterval;
+    unsigned int _sensorCheckIntervalUsecs;
+
+    /**
+     * Interval for calculcating through-put statistics on each sensor,
+     * in microseconds.
+     */
+    unsigned int _sensorStatsInterval;
 
     SensorOpener _opener;
 
@@ -245,6 +261,25 @@ private:
      * that action is needed.
      */
     int _notifyPipe[2];
+
+    /**
+     * FD_SET used to indicate whether data has been received
+     * on each active file descriptor since the last
+     * _sensorCheckIntervalUsecs.
+     */
+    fd_set _rcvdData;
+
+    /**
+     * For each active sensor, how many successive time periods of
+     * length _sensorCheckIntervalUsecs have elapsed with no data.
+     */
+    std::vector<int> _noDataCounts;
+
+    /**
+     * Once _noDataCounts reaches _noDataCountsMax, then
+     * we have a data timeout on this sensor.
+     */
+    std::vector<int> _noDataCountsMax;
 
 };
 

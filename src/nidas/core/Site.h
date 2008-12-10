@@ -146,6 +146,16 @@ public:
 
     virtual const std::list<const Parameter*>& getParameters() const;
 
+    /**
+     * Do we want DSMSensor::process methods at this site to apply
+     * variable conversions?  Currently on raf.Aircraft we don't
+     * want process methods to apply the conversions.
+     */
+    virtual bool getApplyVariableConversions() const
+    {
+        return true;
+    }
+
     DSMServerIterator getDSMServerIterator() const;
 
     DSMServiceIterator getDSMServiceIterator() const;
