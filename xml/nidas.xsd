@@ -233,6 +233,7 @@
     <xsd:attribute name="height" type="xsd:token"/>
     <xsd:attribute name="depth" type="xsd:token"/>
     <xsd:attribute name="duplicateID" type="xsd:boolean"/>
+    <xsd:attribute name="timeout" type="xsd:float"/>
 </xsd:complexType>
 
 <xsd:complexType name="messageSensorT">
