@@ -501,7 +501,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
-                osamp->timetag = getSystemTimeMsecs();
+                osamp->timetag = getSystemTimeTMsecs();
                 osamp->length = sizeof(osamp->stype) +
 				sizeof(osamp->data) +
 				urb->actual_length;
@@ -647,7 +647,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
-                osamp->timetag = getSystemTimeMsecs();
+                osamp->timetag = getSystemTimeTMsecs();
                 osamp->length = sizeof(osamp->stype) +
 				urb->actual_length;
                 osamp->stype = cpu_to_be32(TWOD_SOR_TYPE);
