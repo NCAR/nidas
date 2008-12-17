@@ -991,21 +991,20 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
         int uwait = 10;
         int i, j;
         int utry;
+        int wakeupBeforeMsec = 20;
 
         for (i = 0; i < 10; i++) {
-                msecs =
-                    MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - 20;
-                if (i < 5 && msecs > 0) {
-                    KLOG_DEBUG("%s: GET_MSEC_CLOCK=%d, sleeping %d msecs\n",
-                           brd->deviceName,GET_MSEC_CLOCK, msecs);
+                if (i < 9) {
+                    msecs =
+                        MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - wakeupBeforeMsec;
+                    if (msecs < 0) msecs += MSECS_PER_SEC;
                     msleep(msecs);  // non-busy wait
+                    utry = (wakeupBeforeMsec+5) * USECS_PER_MSEC / uwait;
                 }
-                else msecs = 0;
-
-                if (i < 5)
-                    utry = 25 * USECS_PER_MSEC / uwait;
-                else
+                else {
+                    msecs = 0;
                     utry = USECS_PER_SEC / uwait;
+                }
 
                 for (j = 0; j < utry; j++) {
                         if (brd->interrupted)
@@ -1013,12 +1012,13 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
                         // Read status, check INV1PPS bit
                         stat = A2DBoardStatus(brd);
                         if ((stat & INV1PPS) == 0) {
-                                KLOG_INFO("%s: found 1PPS after %d sec, %d msec sleep, %d usec delay, GET_MSEC_CLOCK=%d\n",
-                                   brd->deviceName,i,msecs,j * uwait,GET_MSEC_CLOCK);
+                                KLOG_INFO("%s: GET_MSEC_CLOCK=%d, found PPS after %d sec, %d msec sleep, %d usec delay\n",
+                                   brd->deviceName,GET_MSEC_CLOCK,i,msecs,j * uwait);
                                 return 0;
                         }
                         udelay(uwait);  // caution: this is a busy wait
                 }
+                wakeupBeforeMsec += 10;
         }
         KLOG_ERR("%s: PPS not detected--no sync to PPS\n",brd->deviceName);
         return -ETIMEDOUT;
