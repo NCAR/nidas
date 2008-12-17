@@ -1201,7 +1201,7 @@ static void dmmat_a2d_bottom_half(void* work)
                 short *ep = dp + nval;
 
                 if (saveChan > 0) {     // leftover data
-                    int n = min(ep-dp,a2d->nchans - saveChan);
+                    int n = min(nval,a2d->nchans - saveChan);
                     memcpy(tld->saveSample.data+saveChan,dp,
                         n * sizeof(short));
                     dp += n;

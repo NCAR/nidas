@@ -103,7 +103,7 @@ static void twod_dev_delete(struct kref *kref)
 
 /* -------------------------------------------------------------------- */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 static void twod_tas_tx_bulk_callback(struct urb *urb)
 #else
 static void twod_tas_tx_bulk_callback(struct urb *urb,
@@ -415,7 +415,7 @@ static void urb_throttle_func(unsigned long arg)
 
 /* -------------------------------------------------------------------- */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 static void twod_img_rx_bulk_callback(struct urb *urb)
 #else
 static void twod_img_rx_bulk_callback(struct urb *urb,
@@ -558,13 +558,13 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
                           usb_rcvbulkpipe(dev->udev,
                                           dev->img_in_endpointAddr),
                           urb->transfer_buffer, TWOD_IMG_BUFF_SIZE,
-                          twod_img_rx_bulk_callback, dev);
+                          twod_img_rx_bulk_callback,dev);
         return urb;
 }
 
 /* -------------------------------------------------------------------- */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 static void twod_sor_rx_bulk_callback(struct urb *urb)
 #else
 static void twod_sor_rx_bulk_callback(struct urb *urb,

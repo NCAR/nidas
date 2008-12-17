@@ -39,12 +39,12 @@
 
 struct DMMAT_A2D_Status
 {
-        size_t missedSamples;
-        size_t fifoOverflows;	// A2D FIFO has overflowed (error)
-        size_t fifoUnderflows;	// A2D FIFO less than expected level (error)
-        size_t fifoEmpty;	// A2D FIFO empty (error)
-        size_t fifoNotEmpty;	// A2D FIFO not empty after reading
-        size_t irqsReceived;
+        unsigned int missedSamples;
+        unsigned int fifoOverflows;	// A2D FIFO has overflowed (error)
+        unsigned int fifoUnderflows;	// A2D FIFO less than expected level (error)
+        unsigned int fifoEmpty;	// A2D FIFO empty (error)
+        unsigned int fifoNotEmpty;	// A2D FIFO not empty after reading
+        unsigned int irqsReceived;
 };
 
 #define DMM16AT_BOARD	0
@@ -122,8 +122,8 @@ struct DMMAT_CNTR_Config
 
 struct DMMAT_CNTR_Status
 {
-        size_t lostSamples;
-        size_t irqsReceived;
+        unsigned int lostSamples;
+        unsigned int irqsReceived;
 };
 
 /**
@@ -308,7 +308,7 @@ struct DMMAT_A2D
         struct dsm_sample_circ_buf samples;         // samples out of b.h.
 
         wait_queue_head_t read_queue;   // user read & poll methods wait on this
-        size_t sampBytesLeft;       // bytes left to copy to user in last sample
+        unsigned int sampBytesLeft;       // bytes left to copy to user in last sample
         char* sampPtr;              // pointer into last sample for copy to user
 
         int maxFifoThreshold;       // maximum hardware fifo threshold

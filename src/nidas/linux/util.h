@@ -140,7 +140,7 @@ inline dsm_sample_time_t getSystemTimeTMsecs(void)
 struct sample_read_state
 {
     char* samplePtr;
-    size_t bytesLeft;
+    unsigned int bytesLeft;
 };
 
 /**
