@@ -979,36 +979,49 @@ static int getSerialNumber(struct A2DBoard *brd)
         return (stat >> 6);     // S/N is upper 10 bits
 }
 
-
-/*-----------------------Utility------------------------------*/
-// Utility function to wait for INV1PPS to be zero.
-// Return: negative errno, or 0=OK.
-
-static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
+/* Utility function to wait for INV1PPS to be zero.
+ * Return: negative errno, or 0=OK.
+ * Based on the current value of GET_MSEC_CLOCK, we do an msleep
+ * in order to wake up shortly before the expected next PPS.
+ * Then we do udelays until we see the PPS. udelay is a busy wait,
+ * which we want to minimize. Hence we use msleep to get close
+ * to the expected event.
+ */
+static int waitFor1PPS (struct A2DBoard *brd)
 {
         unsigned short stat;
         int msecs;
         int uwait = 10;
         int i, j;
         int utry;
+
+        /* Have to wake up a little earlier on the Vulcans to find the PPS
+         * on the first try.  They must have a snooze button :-)  */
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+        int wakeupBeforeMsec = 30;
+#else
         int wakeupBeforeMsec = 20;
+#endif
 
         for (i = 0; i < 10; i++) {
+                if (brd->interrupted) return -EINTR;
                 if (i < 9) {
-                    msecs =
-                        MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - wakeupBeforeMsec;
-                    if (msecs < 0) msecs += MSECS_PER_SEC;
-                    msleep(msecs);  // non-busy wait
-                    utry = (wakeupBeforeMsec+5) * USECS_PER_MSEC / uwait;
+                        msecs =
+                            MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - wakeupBeforeMsec;
+                        if (msecs < 0) msecs += MSECS_PER_SEC;
+                        msleep(msecs);  // non-busy sleep
+                        utry = (wakeupBeforeMsec+5) * USECS_PER_MSEC / uwait;
                 }
                 else {
-                    msecs = 0;
-                    utry = USECS_PER_SEC / uwait;
+                        // It's hopeless. Do a busy wait for the entire second.
+                        // This is not good, as other processes are frozen out.
+                        KLOG_ERR("%s: cannot find PPS, doing a full second busy wait.\n",
+                           brd->deviceName);
+                        msecs = 0;
+                        utry = USECS_PER_SEC / uwait;
                 }
 
                 for (j = 0; j < utry; j++) {
-                        if (brd->interrupted)
-                                return -EINTR;
                         // Read status, check INV1PPS bit
                         stat = A2DBoardStatus(brd);
                         if ((stat & INV1PPS) == 0) {
@@ -1018,33 +1031,9 @@ static int __attribute__((__unused__)) waitFor1PPS (struct A2DBoard *brd)
                         }
                         udelay(uwait);  // caution: this is a busy wait
                 }
-                wakeupBeforeMsec += 10;
+                wakeupBeforeMsec += 10;     // try waking up a little earlier next time, slacker...
         }
         KLOG_ERR("%s: PPS not detected--no sync to PPS\n",brd->deviceName);
-        return -ETIMEDOUT;
-}
-static int __attribute__((__unused__)) waitFor1PPS_all_busy (struct A2DBoard *brd)
-{
-        unsigned short stat;
-        int uwait = 5;
-        int i;
-
-        for (i = 0; i < 2 * USECS_PER_SEC / uwait; i++) {
-                if (brd->interrupted)
-                        return -EINTR;
-                // Read status, check INV1PPS bit
-                stat = A2DBoardStatus(brd);
-                if ((stat & INV1PPS) == 0) {
-                        KLOG_INFO("Found 1PPS after %d usecs, GET_MSEC_CLOCK=%d\n",
-                               i * uwait,GET_MSEC_CLOCK);
-                        return 0;
-                }
-
-                schedule();
-                udelay(uwait);  // caution: this is a busy wait
-                schedule();
-        }
-        KLOG_ERR("%s: 1PPS not detected--no sync to PPS\n",brd->deviceName);
         return -ETIMEDOUT;
 }
 
