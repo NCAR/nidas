@@ -74,7 +74,7 @@ struct mesa_prog
 
 struct mesa_status
 {
-        size_t missedSamples;
+        unsigned int missedSamples;
 };
 
 /* Pick a character as the magic number of your driver.
@@ -180,7 +180,7 @@ struct MESA_Board
         int nCounters;
         int nRadars;
         int n260X;
-        size_t progNbytes;
+        unsigned int progNbytes;
 
         struct radar_state rstate;
 

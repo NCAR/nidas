@@ -24,6 +24,7 @@
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/EndianConverter.h>
 
 #include <set>
 #include <map>
@@ -66,18 +67,22 @@ private:
     format_t format;
 
     ostream& ostr;
+
+    const n_u::EndianConverter* fromLittle;
 };
 
 
 DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr):
         sampleIds(ids),allDSMs(false),allSensors(false),
-	format(fmt),ostr(outstr)
+	format(fmt),ostr(outstr),
+        fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN))
 {
     if (sampleIds.size() == 1) {
         dsm_sample_id_t sampleId = *sampleIds.begin();
         if(GET_DSM_ID(sampleId) == 1023) allDSMs = true;
         if(GET_SHORT_ID(sampleId) == 65535) allSensors = true;
     }
+
 }
 
 void DumpClient::printHeader()
@@ -203,16 +208,20 @@ bool DumpClient::receive(const Sample* samp) throw()
     case IRIG:
 	{
 	const unsigned char* dp = (const unsigned char*) samp->getConstVoidDataPtr();
-	struct timeval tv;
+	struct timeval32 tv;
+
 	memcpy(&tv,dp,sizeof(tv));
+        time_t sec = fromLittle->int32Value(tv.tv_sec);
+        int usec = fromLittle->int32Value(tv.tv_usec);
+
 	dp += sizeof(tv);
 	unsigned char status = *dp;
 	char timestr[128];
 	struct tm tm;
-	gmtime_r(&tv.tv_sec,&tm);
+	gmtime_r(&sec,&tm);
 	strftime(timestr,sizeof(timestr)-1,"%Y %m %d %H:%M:%S",&tm);
 
-	ostr << timestr << '.' << setw(6) << setfill('0') << tv.tv_usec <<
+	ostr << timestr << '.' << setw(6) << setfill('0') << usec <<
 		' ' << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << IRIGSensor::statusString(status) << ')';
 	ostr << endl;

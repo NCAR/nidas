@@ -62,8 +62,17 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
     return rate[value];
 }
 
+/*
+ * fields in struct timeval on 64 bit machine are 64 bits,
+ * so declare our own 2x32 bit timeval struct.
+ */
+struct timeval32 {
+    int tv_sec;
+    int tv_usec;
+};
+
 struct dsm_clock_data {
-    struct timeval tval;
+    struct timeval32 tval;
     unsigned char status;
 };
 
@@ -79,12 +88,12 @@ struct dsm_clock_sample {
  */
 #define IRIG_IOC_MAGIC 'I'	/* Unique(ish) char for IRIG ioctls */
 
-#define IRIG_OPEN		_IO(IRIG_MAGIC, 0)
-#define IRIG_CLOSE		_IO(IRIG_MAGIC, 1)
+#define IRIG_OPEN		_IO(IRIG_IOC_MAGIC, 0)
+#define IRIG_CLOSE		_IO(IRIG_IOC_MAGIC, 1)
 #define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 2, unsigned char)
-#define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval)
-#define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval)
-#define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval)
+#define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval32)
+#define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval32)
+#define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval32)
 
 /**********  Start of symbols used by kernel modules **********/
 

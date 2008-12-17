@@ -28,6 +28,7 @@
  */
 #define CLOCK_SYNC_NOT_OK	  0x20 /* Set if Status_Port Sync_OK bit not set */
 
+#ifdef __KERNEL__
 /**
  * Read sub-second time fields from the PC104SG card, return microseconds.
  * May be useful for watching-the-clock when debugging.
@@ -205,4 +206,5 @@ extern int getTimeUsec(void);
 #define BCD_3_DIGIT_SHIFT       12              // bits to shift 3 bcd digits
 #define BCD_4_DIGIT_SHIFT       16              // bits to shift 4 bcd digits
 
+#endif
 #endif

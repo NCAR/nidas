@@ -237,7 +237,7 @@ static void arinc_timesync(void *junk)
 static void arinc_sweep(void* channel)
 {
         short err;
-        int chn = (int) channel;
+        int chn = (long) channel;
         struct arinc_dev *dev = &chn_info[chn];
         int nData;
         struct dsm_sample *sample;
@@ -512,7 +512,7 @@ static int arinc_ioctl(struct inode *inode, struct file *filp,
 
                 // register a sweeping routine for this channel
                 dev->sweepCallback =
-                    register_irig_callback(arinc_sweep, dev->poll, (void *)chn, &err);
+                    register_irig_callback(arinc_sweep, dev->poll, (void *)(long)chn, &err);
                 if (err) {
                         spin_unlock_bh(&board.lock);
                         KLOG_ERR("%s: Error registering callback\n",

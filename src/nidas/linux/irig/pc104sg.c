@@ -270,7 +270,7 @@ struct pc104sg_board
 
 static struct pc104sg_board board;
 
-static struct timeval UserClock;
+static struct timeval32 UserClock;
 
 /**
  * The year field in the pc104sg time registers
@@ -949,10 +949,10 @@ static void counterRejam(void)
 }
 
 /**
- * Break a struct timeval into the fields of a struct irigTime.
+ * Break a struct timeval32 into the fields of a struct irigTime.
  * This uses some code from glibc/time routines.
  */
-static void timespec2irig(const struct timespec *ts, struct irigTime *ti)
+static void timespecToirig(const struct timespec *ts, struct irigTime *ti)
 {
         int days, rem, y;
         unsigned int t = ts->tv_sec;
@@ -985,18 +985,18 @@ static void timespec2irig(const struct timespec *ts, struct irigTime *ti)
         ti->nsec = rem;
 }
 
-static void timeval2irig(const struct timeval *tv, struct irigTime *ti)
+static void timeval32Toirig(const struct timeval32 *tv, struct irigTime *ti)
 {
         struct timespec ts;
         ts.tv_sec = tv->tv_sec;
         ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
-        timespec2irig(&ts, ti);
+        timespecToirig(&ts, ti);
 }
 
 /**
- * Convert a struct irigTime into a struct timeval.
+ * Convert a struct irigTime into a struct timespec.
  */
-static void irig2timespec(const struct irigTime *ti, struct timespec *ts)
+static void irigTotimespec(const struct irigTime *ti, struct timespec *ts)
 {
         int y = ti->year;
         int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
@@ -1010,10 +1010,10 @@ static void irig2timespec(const struct irigTime *ti, struct timespec *ts)
             ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
-static void irig2timeval(const struct irigTime *ti, struct timeval *tv)
+static void irigTotimeval32(const struct irigTime *ti, struct timeval32 *tv)
 {
         struct timespec ts;
-        irig2timespec(ti, &ts);
+        irigTotimespec(ti, &ts);
         tv->tv_sec = ts.tv_sec;
         tv->tv_usec = (ts.tv_nsec + NSECS_PER_USEC / 2) / NSECS_PER_USEC;
 }
@@ -1130,7 +1130,7 @@ static void getCurrentTime(struct irigTime *ti)
                 // unsigned char status = inb(board.addr + Status_Port);
                 dsm_sample_time_t tt = GET_TMSEC_CLOCK;
                 struct timespec ts;
-                irig2timespec(ti, &ts);
+                irigTotimespec(ti, &ts);
                 // clock difference
                 td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                     ts.tv_nsec / NSECS_PER_TMSEC - tt;
@@ -1160,7 +1160,7 @@ void irig_clock_gettime(struct timespec *tp)
         getTimeFields(&it, 0);
         spin_unlock_irqrestore(&board.time_reg_lock, flags);
 
-        irig2timespec(&it, tp);
+        irigTotimespec(&it, tp);
 }
 
 /* this function is available for external use */
@@ -1287,7 +1287,7 @@ static inline int incrementCount100Hz(void)
 /**
  * Set the clock and 100 hz counter based on the time in a time val struct.
  */
-static void setCounters(struct timeval *tv)
+static void setCounters(struct timeval32 *tv)
 {
 #ifdef DEBUG
         int td = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1326,13 +1326,13 @@ static inline void setCountersToClock(void)
 {
         // reset counters to clock
         struct irigTime ti;
-        struct timeval tv;
+        struct timeval32 tv;
 
         spin_lock(&board.time_reg_lock);
         getCurrentTime(&ti);
         spin_unlock(&board.time_reg_lock);
 
-        irig2timeval(&ti, &tv);
+        irigTotimeval32(&ti, &tv);
         setCounters(&tv);
 }
 
@@ -1631,10 +1631,10 @@ static void writeTimeCallback(void *ptr)
 
         // check clock sanity
         if (board.ClockState == CODED || board.ClockState == USER_SET) {
-                struct timeval tv;
+                struct timeval32 tv;
                 int td;
 
-                irig2timeval(&ti, &tv);
+                irigTotimeval32(&ti, &tv);
                 // clock difference
                 td = (tv.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                     tv.tv_usec / USECS_PER_TMSEC - tt;
@@ -1657,7 +1657,7 @@ static void writeTimeCallback(void *ptr)
         osamp->timetag = tt / TMSECS_PER_MSEC;  // timetags still in msecs
         osamp->length =
             sizeof(osamp->data.tval) + sizeof(osamp->data.status);
-        irig2timeval(&ti, &osamp->data.tval);
+        irigTotimeval32(&ti, &osamp->data.tval);
 
         // convert to little endian
         osamp->data.tval.tv_sec = cpu_to_le32(osamp->data.tval.tv_sec);
@@ -1765,7 +1765,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         int len = _IOC_SIZE(cmd);
         int ret = -EINVAL;
         struct irigTime ti;
-        struct timeval tv;
+        struct timeval32 tv;
         unsigned long flags;
 
 #ifdef DEBUG
@@ -1806,7 +1806,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 spin_lock_irqsave(&board.time_reg_lock, flags);
                 getCurrentTime(&ti);
                 spin_unlock_irqrestore(&board.time_reg_lock, flags);
-                irig2timeval(&ti, &tv);
+                irigTotimeval32(&ti, &tv);
                 ret =
                     copy_to_user(userptr, &tv, sizeof(tv)) ? -EFAULT : len;
                 break;
@@ -1820,7 +1820,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 if (ret < 0)
                         break;
 
-                timeval2irig(&UserClock, &ti);
+                timeval32Toirig(&UserClock, &ti);
 
                 spin_lock_irqsave(&board.DP_RamLock, flags);
                 board.DP_RamExtStatusEnabled = 0;
@@ -1848,7 +1848,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 if (ret < 0)
                         break;
 
-                timeval2irig(&UserClock, &ti);
+                timeval32Toirig(&UserClock, &ti);
 
                 spin_lock_irqsave(&board.DP_RamLock, flags);
                 board.DP_RamExtStatusEnabled = 0;

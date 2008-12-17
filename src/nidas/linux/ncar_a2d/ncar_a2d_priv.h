@@ -163,7 +163,7 @@ struct A2DBoard
         int skipFactor;         // set to 2 to skip over interleaving status
         int busy;
         int interrupted;
-        size_t readCtr;
+        unsigned int readCtr;
         int nbadScans;
         int master;
 
@@ -182,9 +182,9 @@ struct A2DBoard
         int tempRate;           // rate to query I2C temperature sensor
         short currentTemp;
 
-        size_t nbadFifoLevel;
-        size_t fifoNotEmpty;
-        size_t skippedSamples;  // how many samples have we missed?
+        unsigned int nbadFifoLevel;
+        unsigned int fifoNotEmpty;
+        unsigned int skippedSamples;  // how many samples have we missed?
 
         struct work_struct resetWorker;
         volatile int errorState;

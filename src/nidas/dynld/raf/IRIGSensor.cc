@@ -13,7 +13,7 @@
  ******************************************************************
 */
 
-#include <nidas/rtlinux/pc104sg.h>
+#include <nidas/linux/irig/pc104sg.h>
 
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/core/DSMTime.h>
@@ -99,7 +99,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
     unsigned char status;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-    struct timeval tval;
+    struct timeval32 tval;
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 
 #ifdef DEBUG
@@ -111,7 +111,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 
 void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
 {
-    struct timeval tval;
+    struct timeval32 tval;
     tval.tv_sec = val / USECS_PER_SEC;
     tval.tv_usec = val % USECS_PER_SEC;
     ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
