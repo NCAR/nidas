@@ -18,7 +18,6 @@
 // #include <nidas/rtlinux/dsm_serial.h>
 //
 #include <nidas/linux/irigclock.h>
-// #include <nidas/linux/irig/pc104sg.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
 #include <asm/byteorder.h>
@@ -103,13 +102,16 @@ protected:
      * fetch the clock status from an IRIG sample.
      */
     unsigned char getStatus(const Sample* samp) const {
-	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
+	const dsm_clock_data* dp = (const dsm_clock_data*)samp->getConstVoidDataPtr();
+        // std::cerr << "status offset: " << int((const char*)&dp->status - (const char*)dp) << std::endl;
 	return dp->status;
     }
 
     void checkClock() throw(nidas::util::IOException);
 
-    dsm_sample_id_t sampleId;
+    dsm_sample_id_t _sampleId;
+
+    int _nvars;
 
     dsm_time_t lastTime;
 

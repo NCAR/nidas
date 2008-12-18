@@ -38,7 +38,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,IRIGSensor)
 
-IRIGSensor::IRIGSensor()
+IRIGSensor::IRIGSensor(): _nvars(0)
 {
 }
 
@@ -300,14 +300,15 @@ Sample* IRIGSensor::nextSample()
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	throw()
 {
-    dsm_time_t sampt = getTime(samp);
+    SampleT<float>* osamp = getSample<float>(_nvars);
+    osamp->setTimeTag(samp->getTimeTag());
+    osamp->setId(_sampleId);
+    // clock difference, IRIG-UNIX
+    osamp->getDataPtr()[0] = (float)(getTime(samp) - samp->getTimeTag()) / USECS_PER_SEC;
+    if (_nvars > 1)
+        osamp->getDataPtr()[1] = (float)getStatus(samp);     // status value
+    result.push_back(osamp);
 
-    SampleT<dsm_time_t>* clksamp = getSample<dsm_time_t>(1);
-    clksamp->setTimeTag(samp->getTimeTag());
-    clksamp->setId(sampleId);
-    clksamp->getDataPtr()[0] = sampt;
-
-    result.push_back(clksamp);
     return true;
 }
 
@@ -315,18 +316,21 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
+    int ntags = getSampleTags().size();
 
-    if (getncSampleTags().size() != 1) 
+    if (ntags == 0 || ntags > 1)
     	throw n_u::InvalidParameterException(getName(),"<sample>",
 		"should only be one <sample> tag");
 
-    SampleTag* samp = *getncSampleTags().begin();
-    samp->setRate(1.0);
-    getncRawSampleTag()->setRate(1.0);
+    const SampleTag* stag = *getSampleTags().begin();
+    // hack for old XML configs that don't set the rate of the IRIG data.
+    if (stag->getRate() == 0.0) {
+        ILOG(("%s: setting rate to 1.0",getName().c_str()));
+        SampleTag* nc_stag = *getncSampleTags().begin();
+        nc_stag->setRate(1.0);
+    }
 
-    sampleId = samp->getId();
-    assert(samp->getVariables().size() == 1);
-
-    samp->getVariable(0).setType(Variable::CLOCK);
+    _sampleId = stag->getId();
+    _nvars = stag->getVariables().size();
 }
 
