@@ -297,6 +297,30 @@ Sample* IRIGSensor::nextSample()
     return samp;
 }
 
+dsm_time_t IRIGSensor::getIRIGTime(const Sample* samp) const {
+    const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
+    return (dsm_time_t)__le32_to_cpu(dp->tval.tv_sec) * USECS_PER_SEC +
+            __le32_to_cpu(dp->tval.tv_usec);
+}
+
+dsm_time_t IRIGSensor::getUnixTime(const Sample* samp) const {
+    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) return 0LL;
+    const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+    return (dsm_time_t)__le32_to_cpu(dp->unixt.tv_sec) * USECS_PER_SEC +
+            __le32_to_cpu(dp->unixt.tv_usec);
+}
+
+unsigned char IRIGSensor::getStatus(const Sample* samp) const {
+    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) {
+        const dsm_clock_data* dp = (const dsm_clock_data*)samp->getConstVoidDataPtr();
+        return dp->status;
+    }
+    else {
+        const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+        return dp->status;
+    }
+}
+
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	throw()
 {
