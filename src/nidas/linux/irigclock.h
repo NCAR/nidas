@@ -76,10 +76,23 @@ struct dsm_clock_data {
     unsigned char status;
 };
 
+struct dsm_clock_data_2 {
+    struct timeval32 irigt;
+    struct timeval32 unixt;
+    unsigned char status;
+};
+
 struct dsm_clock_sample {
     dsm_sample_time_t timetag;		/* timetag of sample */
     dsm_sample_length_t length;		/* number of bytes in data */
     struct dsm_clock_data data;		/* must be no padding between
+    					 * length and data! */
+};
+
+struct dsm_clock_sample_2 {
+    dsm_sample_time_t timetag;		/* timetag of sample */
+    dsm_sample_length_t length;		/* number of bytes in data */
+    struct dsm_clock_data_2 data;	/* must be no padding between
     					 * length and data! */
 };
 

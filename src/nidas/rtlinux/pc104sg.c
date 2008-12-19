@@ -1580,10 +1580,11 @@ static void portCallback(void *privateData)
 
         if (dev->inFifoFd >= 0) {
                 dev->samp.timetag = tt;
-                dev->samp.length = sizeof (dev->samp.data.tval) +
+                dev->samp.length = 2 * sizeof (dev->samp.data.irigt) +
                     sizeof (dev->samp.data.status);
 
-                irig2timeval(&ti, &dev->samp.data.tval);
+                do_gettimeofday((struct timeval*)&dev->samp.data.unixt);
+                irig2timeval(&ti, &dev->samp.data.irigt);
                 dev->samp.data.status = extendedStatus;
                 if (!syncOK)
                         dev->samp.data.status |= CLOCK_SYNC_NOT_OK;

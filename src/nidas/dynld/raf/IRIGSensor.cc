@@ -279,7 +279,7 @@ Sample* IRIGSensor::nextSample()
     // since we're a clock sensor, we are responsible for setting
     // the absolute time in the SampleClock.
     if (samp) {
-        dsm_time_t clockt = getTime(samp);
+        dsm_time_t clockt = getIRIGTime(samp);
 
 // #define DEBUG_MIDNIGHT
 #ifdef DEBUG_MIDNIGHT
@@ -304,7 +304,10 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
     osamp->setTimeTag(samp->getTimeTag());
     osamp->setId(_sampleId);
     // clock difference, IRIG-UNIX
-    osamp->getDataPtr()[0] = (float)(getTime(samp) - samp->getTimeTag()) / USECS_PER_SEC;
+    if (samp->getDataByteLength() >= 2 * sizeof(struct timeval32) + 1)
+        osamp->getDataPtr()[0] = (float)(getIRIGTime(samp) - getUnixTime(samp)) / USECS_PER_SEC;
+    else
+        osamp->getDataPtr()[0] = floatNAN;
     if (_nvars > 1)
         osamp->getDataPtr()[1] = (float)getStatus(samp);     // status value
     result.push_back(osamp);

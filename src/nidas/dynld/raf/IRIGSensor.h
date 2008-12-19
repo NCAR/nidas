@@ -92,19 +92,35 @@ protected:
      * compute the dsm_time_t from an IRIG sample.
      * Values from device are little-endian.
      */
-    dsm_time_t getTime(const Sample* samp) const {
+    dsm_time_t getIRIGTime(const Sample* samp) const {
 	const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
 	return (dsm_time_t)__le32_to_cpu(dp->tval.tv_sec) * USECS_PER_SEC +
 		__le32_to_cpu(dp->tval.tv_usec);
     }
 
     /**
+     * compute the dsm_time_t from the Unix struct timeval32 in an IRIG sample.
+     * Values from device are little-endian.
+     */
+    dsm_time_t getUnixTime(const Sample* samp) const {
+        if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) return 0LL;
+	const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+	return (dsm_time_t)__le32_to_cpu(dp->unixt.tv_sec) * USECS_PER_SEC +
+		__le32_to_cpu(dp->unixt.tv_usec);
+    }
+
+    /**
      * fetch the clock status from an IRIG sample.
      */
     unsigned char getStatus(const Sample* samp) const {
-	const dsm_clock_data* dp = (const dsm_clock_data*)samp->getConstVoidDataPtr();
-        // std::cerr << "status offset: " << int((const char*)&dp->status - (const char*)dp) << std::endl;
-	return dp->status;
+        if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) {
+            const dsm_clock_data* dp = (const dsm_clock_data*)samp->getConstVoidDataPtr();
+            return dp->status;
+        }
+        else {
+            const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+            return dp->status;
+        }
     }
 
     void checkClock() throw(nidas::util::IOException);

@@ -171,6 +171,8 @@ struct pc104sg_board
          */
         unsigned char volatile ClockState;
 
+        unsigned int counterResets;
+
         /**
          * Value of extended status from dual port RAM.
          * Bits:
@@ -1559,6 +1561,9 @@ static inline void checkExtendedStatus(void)
 
         if (board.ClockState == RESET_COUNTERS) {
                 setCountersToClock();
+                if (!(board.counterResets++ % 100))
+                    KLOG_WARNING("resetting counters, # resets=%d\n",
+                                  board.counterResets);
                 board.ClockState = CODED;
         }
         board.LastStatus = board.ExtendedStatus;
@@ -1621,12 +1626,15 @@ static void writeTimeCallback(void *ptr)
 {
         struct irig_port *dev = (struct irig_port *) ptr;
         struct irigTime ti;
-        struct dsm_clock_sample *osamp;
+        struct dsm_clock_sample_2 *osamp;
         unsigned long flags;
         dsm_sample_time_t tt = GET_TMSEC_CLOCK;
 
+        struct timeval tu;
+        do_gettimeofday(&tu);           // unix system time
+
         spin_lock_irqsave(&board.time_reg_lock, flags);
-        getCurrentTime(&ti);
+        getCurrentTime(&ti);            // irig time
         spin_unlock_irqrestore(&board.time_reg_lock, flags);
 
         // check clock sanity
@@ -1642,11 +1650,15 @@ static void writeTimeCallback(void *ptr)
                  * Since this is being called as a 1 Hz callback some
                  * time may have elapsed since the 100 Hz interrupt.
                  */
-                if (abs(td) > 3 * TMSECS_PER_MSEC)
+                if (abs(td) > 3 * TMSECS_PER_MSEC) {
                         board.ClockState = RESET_COUNTERS;
+                        if (!(board.counterResets % 100))
+                            KLOG_WARNING("%s: resetting counters, time diff=%d tmsec\n",
+                                         dev->deviceName, td);
+                }
         }
 
-        osamp = (struct dsm_clock_sample *)
+        osamp = (struct dsm_clock_sample_2 *)
             GET_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         if (!osamp) {           // no output sample available
                 dev->skippedSamples++;
@@ -1656,12 +1668,16 @@ static void writeTimeCallback(void *ptr)
         }
         osamp->timetag = tt / TMSECS_PER_MSEC;  // timetags still in msecs
         osamp->length =
-            sizeof(osamp->data.tval) + sizeof(osamp->data.status);
-        irigTotimeval32(&ti, &osamp->data.tval);
+            2 * sizeof(osamp->data.irigt) + sizeof(osamp->data.status);
 
-        // convert to little endian
-        osamp->data.tval.tv_sec = cpu_to_le32(osamp->data.tval.tv_sec);
-        osamp->data.tval.tv_usec = cpu_to_le32(osamp->data.tval.tv_usec);
+        // unix system time. Convert to little endian
+        osamp->data.unixt.tv_sec = cpu_to_le32((unsigned int)tu.tv_sec);
+        osamp->data.unixt.tv_usec = cpu_to_le32((unsigned int)tu.tv_usec);
+
+        // irig time. Convert to little endian
+        irigTotimeval32(&ti, &osamp->data.irigt);
+        osamp->data.irigt.tv_sec = cpu_to_le32(osamp->data.irigt.tv_sec);
+        osamp->data.irigt.tv_usec = cpu_to_le32(osamp->data.irigt.tv_usec);
 
         osamp->data.status = board.ExtendedStatus;
         if (!board.SyncOK)
@@ -1674,7 +1690,7 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
 {
         struct irig_port *dev;
         int ret;
-        struct dsm_clock_sample dummy;
+        struct dsm_clock_sample_2 dummy;
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
@@ -1689,7 +1705,8 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
 
         init_waitqueue_head(&dev->rwaitq);
         ret = realloc_dsm_circ_buf(&dev->samples,
-                                   sizeof(dummy.data.tval) +
+                                   sizeof(dummy.data.irigt) +
+                                   sizeof(dummy.data.unixt) +
                                    sizeof(dummy.data.status),
                                    PC104SG_SAMPLE_QUEUE_SIZE);
         if (ret)
@@ -1935,6 +1952,8 @@ static int __init pc104sg_init(void)
         board.Count100Hz = 0;
 
         board.ClockState = CODED;
+
+        board.counterResets = 0;
 
         board.ExtendedStatus =
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
