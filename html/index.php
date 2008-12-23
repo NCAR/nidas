@@ -15,6 +15,7 @@
 <!-- ----------------------------------------------------------------------- -->
 <script>
 var is_periodic=(document.location.hostname == "localhost" ||
+                 document.location.hostname == "192.168.184.1" ||
                  document.location.hostname == "acserver" ||
                  document.location.hostname == "acserver.raf.ucar.edu" ||
                  document.location.hostname == "hyper.guest.ucar.edu");
@@ -40,6 +41,17 @@ $dsmList = xu_rpc_http_concise( array( 'method' => 'GetDsmList',
 // TODO - see if xu_rpc_http_concise provides any status variables to test here instead.
 if ($dsmList == "")
   exit("<h5>DSM server not responding!</h5>");
+
+// measure the size of the DSM list
+$nDSMs = 0;
+$maxLen = 0;
+foreach ($dsmList as $key => $val) {
+   $nDSMs++;
+   if ($maxLen < strlen($val))
+       $maxLen = strlen($val);
+}
+if ($maxLen < 10)
+    $maxLen = 10;
 ?>
 
 
@@ -124,16 +136,18 @@ if (is_periodic == false) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='dsm[]' size="12" multiple="multiple"
+  <select name='dsm[]' size="<?=$nDSMs+3?>" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
-    <option value='<?=$key?>' id='<?=$key?>' label='<?=str_pad($val,12, '_')?>'>
-       <?=str_pad($val,12, '_')?> (---- -- -- --:--:--)</option>
+    <option value='<?=$key?>' id='<?=$key?>' label='<?=$key?> <?=str_pad($val, $maxLen, '_')?>'>
+       <?=$key?> <?=str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--)</option>
     <?php } ?>
-    <option value='dsm_server' id='dsm_server' label='dsm_server__'>
-       dsm_server__ (---- -- -- --:--:--)</option>
-    <option value='nimbus'     id='nimbus'     label='nimbus______'>
-       nimbus______ (---- -- -- --:--:--)</option>
+    <option value='dsm_server' id='dsm_server' label='______ <?=str_pad("dsm_server", $maxLen, '_')?>'>
+       ______ <?=str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--)</option>
+    <option value='nimbus'     id='nimbus'     label='______ <?=str_pad("nimbus"    , $maxLen, '_')?>'>
+       ______ <?=str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--)</option>
+    <option value='mtp-pc'     id='mtp-pc'     label='______ <?=str_pad("mtp-pc"    , $maxLen, '_')?>'>
+       ______ <?=str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--)</option>
   </select><p>
 
   action:&nbsp
@@ -153,7 +167,7 @@ if (is_periodic == false) {
 </form>
 </td>
 <td>
-<img src='GV-top-228x201.jpg'>
+<img id='pic' src='GV-top-228x201.jpg'>
 </td>
 </tr>
 <tr>
