@@ -492,7 +492,7 @@ void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
     int totalCnt = 0, missCnt = 0;
 
     unsigned char * p = record.data;
-    for (size_t i = 0; i < 4096; ++i, ++p) {
+    for (size_t i = 0; i < 4093; ++i, ++p) {
         if (::memcmp(p, syncStr, 3) == 0) {
             ++totalCnt;
             if ((i % 8) != 0)
@@ -501,7 +501,12 @@ void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
     }
 
     if (missCnt > 0)
-        cout << "Miss-aligned data, rec #" << probe->recordCount << 
-		", total sync=" << totalCnt << ", missAligned count=" << missCnt << endl;
-
+    {
+        char msg[200];
+        sprintf(msg,
+		"Miss-aligned data, %02d:%02d:%02d.%03d, rec #%d, total sync=%d, missAligned count=%d",
+		ntohs(record.hour), ntohs(record.minute), ntohs(record.second),
+		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
+        cout << msg << endl;
+    }
 }
