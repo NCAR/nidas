@@ -53,7 +53,7 @@ protected:
     bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
-    void scanForMissalignedSyncWords(unsigned char * sp) const;
+    void scanForMissalignedSyncWords(const Sample * samp, unsigned char * sp) const;
 
     /**
      * Process a single 2D record generating size-distribution data.  Two

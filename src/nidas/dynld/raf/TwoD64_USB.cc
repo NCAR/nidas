@@ -105,13 +105,16 @@ bool TwoD64_USB::processSOR(const Sample * samp,
     return true;
 }
 
-void TwoD64_USB::scanForMissalignedSyncWords(unsigned char * sp) const
+void TwoD64_USB::scanForMissalignedSyncWords(const Sample * samp, unsigned char * sp) const
 {
   unsigned char * p = sp;
-  for (size_t i = 0; i < 512; ++i, ++p)
+  for (size_t i = 0; i < 4092; ++i, ++p)
   {
     if (memcmp((char *)p, _syncString, 3) == 0 && ((p - sp) % 8) != 0)
+    {
+      std::cerr << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
       printf("Miss-aligned data\n");
+    }
   }
 }
 
@@ -141,10 +144,12 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
         "TAS","out of range");
 
-    scanForMissalignedSyncWords((unsigned char *)dp);
+    /// @todo don't do this in real-time?
+    scanForMissalignedSyncWords(samp, (unsigned char *)dp);
 
     float frequency = getResolutionMicron() / tas;
 
+//std::cerr << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
 
     // Loop through all slices in record.
     unsigned long long * p = (unsigned long long *)dp;
