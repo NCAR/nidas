@@ -112,8 +112,7 @@ void TwoD64_USB::scanForMissalignedSyncWords(const Sample * samp, unsigned char 
   {
     if (memcmp((char *)p, _syncString, 3) == 0 && ((p - sp) % 8) != 0)
     {
-      std::cerr << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
-      printf("Miss-aligned data\n");
+      std::cerr << "Miss-aligned data at " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
     }
   }
 }
