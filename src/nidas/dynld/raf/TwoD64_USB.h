@@ -40,7 +40,7 @@ public:
     /**
      * Return bits-per-slice; same as the number of diodes in the probe.
      */
-    virtual size_t NumberOfDiodes() const { return 64; }
+    virtual int NumberOfDiodes() const { return 64; }
   
 protected:
 
@@ -53,7 +53,7 @@ protected:
     bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
-    void scanForMissalignedSyncWords(const Sample * samp, unsigned char * sp) const;
+    void scanForMissalignedSyncWords(const Sample * samp, const unsigned char * sp) const;
 
     /**
      * Process a single 2D record generating size-distribution data.  Two
@@ -79,8 +79,16 @@ protected:
 #ifdef THE_KNIGHTS_WHO_SAY_NI
     static const unsigned long long _syncMask, _syncWord, _overldWord;
 #endif
-    static const unsigned char _syncString[3], _overldString[3];
+    static const unsigned char _syncString[];
+    static const unsigned char _overldString[];
+    static const unsigned char _blankString[];
 //@}
+
+private:
+    /**
+     * Set to true if last slice was a blank line.
+     */
+    bool _blankLine;
 };
 
 }}}       // namespace nidas namespace dynld namespace raf

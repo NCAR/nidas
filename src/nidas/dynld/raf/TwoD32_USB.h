@@ -38,21 +38,15 @@ public:
     bool process(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
-    virtual size_t NumberOfDiodes() const { return 32; }
+    virtual int NumberOfDiodes() const { return 32; }
 
 
 protected:
     bool processImage(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
-//@{
-    /*
-     * Synchword mask.  This slice/word is written at the end of each particle.
-     * ?? bits of synchronization and ?? bits of timing information.
-     */
-    static const uint32_t _syncMask, _syncWord;
-    static const unsigned char _syncChar;
-//@}
+    static const unsigned char _overldString[];
+    static const unsigned char _blankString[];
 
 };  //endof_class
 

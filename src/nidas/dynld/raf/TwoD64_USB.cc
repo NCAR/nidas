@@ -15,6 +15,7 @@
  ******************************************************************
 */
 
+// #define SLICE_DEBUG
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/dynld/raf/TwoD64_USB.h>
@@ -34,18 +35,13 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB)
 
-#ifdef THE_KNIGHTS_WHO_SAY_NI
-//  I'm leaving these three in for documentation.
-const unsigned long long TwoD64_USB::_syncWord = 0xAAAAAA0000000000LL;
-const unsigned long long TwoD64_USB::_syncMask = 0xFFFFFF0000000000LL;
-const unsigned long long TwoD64_USB::_overldWord = 0x5555AA0000000000LL;
-#endif
-
-const unsigned char TwoD64_USB::_syncString[3] = { 0xAA, 0xAA, 0xAA };
-const unsigned char TwoD64_USB::_overldString[3] = { 0x55, 0x55, 0xAA };
+const unsigned char TwoD64_USB::_syncString[] = { 0xaa, 0xaa, 0xaa };
+const unsigned char TwoD64_USB::_overldString[] = { 0x55, 0x55, 0xaa };
+const unsigned char TwoD64_USB::_blankString[] =
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB()
+TwoD64_USB::TwoD64_USB(): _blankLine(false)
 {
 }
 
@@ -105,124 +101,241 @@ bool TwoD64_USB::processSOR(const Sample * samp,
     return true;
 }
 
-void TwoD64_USB::scanForMissalignedSyncWords(const Sample * samp, unsigned char * sp) const
-{
-  unsigned char * p = sp;
-  for (size_t i = 0; i < 4092; ++i, ++p)
-  {
-    if (memcmp((char *)p, _syncString, 3) == 0 && ((p - sp) % 8) != 0)
-    {
-      std::cerr << "Miss-aligned data at " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
-    }
-  }
-}
-
 bool TwoD64_USB::processImageRecord(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
-    bool rc = false;	// return code.
+    unsigned int slen = samp->getDataByteLength();
+    const int wordSize = 8;
 
-    if (samp->getDataByteLength() < 2 * sizeof (int32_t) +
-        512 * sizeof (long long)) return rc;
-
-    unsigned long long startTime = _prevTime;
-    _prevTime = samp->getTimeTag();
+    assert(sizeof(Tap2D) == 4);
+    if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
     _totalRecords++;
 
-    if (_nowTime == 0)
-    {
-        _nowTime = samp->getTimeTag();
-        _nowTime -= (_nowTime % USECS_PER_SEC);	// nowTime should have no fractional component.
-        return rc;	// Chuck first record as we don't know start time.
+#ifdef SLICE_DEBUG
+    unsigned int sampTdiff = samp->getTimeTag() - _prevTime;
+#endif
+
+    long long startTime = _prevTime;
+    _prevTime = samp->getTimeTag();
+
+    if (startTime == 0) return false;
+
+    const unsigned char * cp = (const unsigned char *) samp->getConstVoidDataPtr();
+    const unsigned char * eod = cp + slen;
+
+    cp += sizeof(int32_t); // Move past sample type.
+
+    float tas = Tap2DToTAS((Tap2D *)cp);
+    cp += sizeof(Tap2D);
+    if (tas < 0.0 || tas > 300.0) {
+        WLOG(("%s: TAS=%.1f is out of range\n",getName().c_str(),tas));
+        _tasOutOfRange++;
+        return false;
     }
 
-    const int * dp = (const int *) samp->getConstVoidDataPtr();
-    dp++; // Move past sample type.
+    float resolutionUsec = getResolutionMicron() / tas;
 
-    float tas = Tap2DToTAS((Tap2D *)dp++);
-    if (tas < 0.0 || tas > 300.0) throw n_u::InvalidParameterException(getName(),
-        "TAS","out of range");
+    setupBuffer(&cp,&eod);
 
-    /// @todo don't do this in real-time?
-    scanForMissalignedSyncWords(samp, (unsigned char *)dp);
-
-    float frequency = getResolutionMicron() / tas;
-
-//std::cerr << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << std::endl;
+#ifdef SLICE_DEBUG
+    const unsigned char* sod = cp;
+    cerr << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+        " image=" << (slen - 8) << " + " <<  ((eod-cp) - (slen - 8)) << " bytes"<< endl;
+#endif
 
     // Loop through all slices in record.
-    unsigned long long * p = (unsigned long long *)dp;
-    unsigned long long	firstTimeWord = 0;	// First timing word in this record.
-    for (size_t i = 0; i < 512; ++i, ++p)
+    long long firstTimeWord = 0;	// First timing word in this record.
+    for (; cp < eod - (wordSize - 1); )
     {
-        if (_cp == 0)
-            _cp = new Particle;
-
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
          * sync & overload words come at the end of the particle.  In the
          * case of the this probe, the time word is embedded in the sync
          * and overload word.
          */
 
-        // Typical time/sync word, terminates particle.
-        if (::memcmp(p, _syncString, 3) == 0) {
-            _totalParticles++;
+        // possible start of particle slice if it isn't a sync or overload word
+        const unsigned char* sos = cp;
 
-            // time words are from a 12MHz clock
-            unsigned long long slice = bigEndian->int64Value(p);
-            unsigned long long thisTimeWord = (slice & 0x000000ffffffffffLL) / 12;
+#ifdef SLICE_DEBUG
+        cerr << dec << _totalRecords << ' ' << setw(3) <<
+            (unsigned long)(cp - sod)/wordSize << ' ' << (unsigned long)cp % 8 << ' ';
+        cerr << hex;
+        bool suspect = false;
+#endif
 
-            if (firstTimeWord == 0)
-                firstTimeWord = thisTimeWord;
+        /* Scan next 8 bytes starting at current pointer, cp, for
+         * a possible syncWord or overloadWord */
+        const unsigned char* eow = cp + wordSize;
 
-            // Approx millisecondes since start of record.
-            unsigned long long tBarElapsedtime = thisTimeWord - firstTimeWord;
-            unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
-            thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
+        for (; cp < eow; ) {
+#ifdef SLICE_DEBUG
+            cerr << setw(2) << (int)*cp << ' ';
+#endif
+            switch (*cp) {
+            case 0x55:  // start of possible overload string
+                if (cp + wordSize > eod) {
+                    createSamples(samp->getTimeTag(), results);
+                    saveBuffer(cp,eod);
+                    return results.size() > 0;
+                }
+                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
+                    // match to overload string
+#ifdef SLICE_DEBUG
+                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        cerr << setw(2) << (int)*xp << ' ';
+#endif
+                    // overload word, reject particle.
+                    _overLoadSliceCount++;
+                    if (((unsigned long)cp - _savedBytes) % wordSize) {
+                        _misAligned++;
+#ifdef SLICE_DEBUG
+                        cerr << dec << " misaligned ovld" << endl;
+#endif
+                    }
+#ifdef SLICE_DEBUG
+                    else cerr << dec << " ovld" << endl;
+#endif
+                    _particle.zero();
+                    _blankLine = false;
+                    cp += wordSize;
+                    sos = 0;    // not a particle slice
+                }
+                else if (*(cp+1) == (unsigned char)'\x55') {
+                    // 0x5555 but not complete overload string
+#ifdef SLICE_DEBUG
+                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        cerr << setw(2) << (int)*xp << ' ';
+                    cerr << dec << " 5555 ovld" << endl;
+#endif
+                    cp += wordSize;     // skip
+                    sos = 0;    // not a particle slice
+                }
+                else {
+                    // 0x55 is not an expected particle shadow.
+                    _suspectSlices++;
+#ifdef SLICE_DEBUG
+                    suspect = true;
+#endif
+                    cp++;
+                }
+                break;
+            case 0xaa:  // possible syncword and time. Terminates particle
+                if (cp + wordSize > eod) {
+                    createSamples(samp->getTimeTag(), results);
+                    saveBuffer(cp,eod);
+                    return results.size() > 0;
+                }
+                if (::memcmp(cp+1,_syncString+1,sizeof(_syncString)-1) == 0) {
+                    // syncword
+                    _totalParticles++;
+#ifdef SLICE_DEBUG
+                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        cerr << setw(2) << (int)*xp << ' ';
+#endif
+                    if (((unsigned long)cp - _savedBytes) % wordSize) {
+#ifndef SLICE_DEBUG
+                          cerr << "Misaligned data at " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
+#endif
+                        _misAligned++;
+#ifdef SLICE_DEBUG
+                        cerr << dec << " misaligned sync" << endl;
+#endif
+                    }
+#ifdef SLICE_DEBUG
+                    else cerr << dec << " sync" << endl;
+#endif
 
-            // If we have crossed the 1 second boundary, send existing data and reset.
-            if (thisParticleSecond != _nowTime)
-            {
-                sendData(_nowTime, results);
-                _nowTime = thisParticleSecond;
-                rc = true;
+                    // time words are from a 12MHz clock
+                    long long thisTimeWord =
+                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+
+                    if (firstTimeWord == 0)
+                        firstTimeWord = thisTimeWord;
+
+                    // Approx microseconds since start of record.
+                    long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+
+#ifdef SLICE_DEBUG
+                    cerr << n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+                        " p.edgeTouch=" << hex << setw(2) << (int)_particle.edgeTouch << dec <<
+                        " height=" << setw(2) << _particle.height <<
+                        " width=" << setw(4) << _particle.width <<
+                        " syncTdiff=" << (thisTimeWord - firstTimeWord) << 
+                        " sampTdiff=" << sampTdiff << endl;
+#endif
+                    // If we have crossed the end of the histogram period,
+                    // send existing data and reset.
+                    createSamples(thisParticleTime,results);
+
+                    // If there are any extra bytes between last particle slice
+                    // and syncword then ignore last particle.
+                    if (cp == sos) countParticle(_particle, resolutionUsec);
+#ifdef SLICE_DEBUG
+                    else cerr << "discarded particle" << endl;
+#endif
+                    _particle.zero();
+                    _blankLine = false;
+                    cp += wordSize;
+                    sos = 0;    // not a particle slice
+                }
+                else if (*(cp+1) == (unsigned char)'\xaa') {
+                    // 0xaaaa but not complete syncword
+#ifdef SLICE_DEBUG
+                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        cerr << setw(2) << (int)*xp << ' ';
+                    cerr << dec << " aaaa word" << endl;
+#endif
+                    cp += wordSize;
+                    sos = 0;    // not a particle slice
+                }
+                else {
+                    // 0xaa is not an expected particle shadow.
+                    sos = 0;    // not a particle slice
+                    _suspectSlices++;
+#ifdef SLICE_DEBUG
+                    suspect = true;
+#endif
+                    cp++;
+                }
+                break;
+            default:
+                cp++;
+                break;
             }
-
-            countParticle(_cp, frequency);
-            delete _cp; _cp = 0;
         }
-        else
-        // overload word, reject this particle.
-        if (::memcmp(p, _overldString, 3) == 0) {
-            _overLoadSliceCount++;
-            delete _cp; _cp = 0;
-        }
-        // Blank slice.  If blank is mid particle, then reject.
-        if (*p == 0xffffffffffffffffLL) {
-            if (i == 511 || ::memcmp(&p[1], _syncString, 3))
-                delete _cp; _cp = 0;
-        }
-        else {
-            processParticleSlice(_cp, (const unsigned char *)p);
+        if (sos) {
+            // scan 8 bytes of particle
+            // If a blank string, then next word should be sync, otherwise discard it
+            if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
+#ifdef SLICE_DEBUG
+                cerr << dec << " blank" << endl;
+#endif
+                _blankLine = true;
+            }
+            else if (_blankLine) {
+                _particle.zero();
+#ifdef SLICE_DEBUG
+                if (suspect) cerr << dec << " suspect" << endl;
+                else cerr << dec << " slice after blank" << endl;
+#endif
+            }
+            else {
+                processParticleSlice(_particle, sos);
+#ifdef SLICE_DEBUG
+                if (suspect) cerr << dec << " suspect" << endl;
+                else cerr << dec << " slice" << endl;
+#endif
+            }
+            cp = sos + wordSize;
         }
     }
 
+    createSamples(samp->getTimeTag(), results);
 
-    unsigned long long nt;
-    nt = samp->getTimeTag();
-    nt -= (nt % USECS_PER_SEC);	// to seconds
+    /* Data left in image block, save it in order to pre-pend to next image block */
+    saveBuffer(cp,eod);
 
-    // If we have crossed the 1 second boundary, send existing data and reset.
-    if (nt != _nowTime) {
-        sendData(_nowTime, results);
-        rc = true;
-    }
-
-    /* Force _nowTime to the TimeTag for this record, which will be the start
-     * time for the next record.
-     */
-    _nowTime = nt;
-    return rc;
+    return results.size() > 0;
 }
 
 bool TwoD64_USB::process(const Sample * samp,
@@ -233,9 +346,7 @@ bool TwoD64_USB::process(const Sample * samp,
     if (samp->getDataByteLength() < sizeof (int32_t))
         return false;
 
-    const int32_t *lptr =
-        (const int32_t *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->int32Value(*lptr++);
+    int stype = bigEndian->int32Value(samp->getConstVoidDataPtr());
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
     switch (stype) {

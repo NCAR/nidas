@@ -34,9 +34,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD32_USB)
 
-const unsigned int TwoD32_USB::_syncWord = 0x55000000;
-const unsigned int TwoD32_USB::_syncMask = 0xff000000; 
-const unsigned char TwoD32_USB::_syncChar = 0x55;
+const unsigned char TwoD32_USB::_overldString[] = {0x55, 0xaa};
+const unsigned char TwoD32_USB::_blankString[] = {0xff, 0xff, 0xff, 0xff};
 
 
 TwoD32_USB::TwoD32_USB()
@@ -50,117 +49,107 @@ TwoD32_USB::~TwoD32_USB()
 bool TwoD32_USB::processImage(const Sample * samp,
                              list < const Sample * >&results) throw()
 {
-    bool rc = false;    // return code.
+    unsigned int slen = samp->getDataByteLength();
+    const int wordSize = 4;
 
-    if (samp->getDataByteLength() < 2 * sizeof (int32_t) +
-        1024 * sizeof (int32_t)) return rc;
+    assert(sizeof(Tap2D) == 4);
 
-    unsigned long long startTime = _prevTime;
-    _prevTime = samp->getTimeTag();
+    if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
     _totalRecords++;
 
-    if (_nowTime == 0)
-    {
-        _nowTime = samp->getTimeTag();
-        _nowTime -= (_nowTime % USECS_PER_SEC); // nowTime should have no fractional component.
-        return rc;      // Chuck first record as we don't know start time.
-    }
+    dsm_time_t startTime = _prevTime;
+    _prevTime = samp->getTimeTag();
 
-    const int * dp = (const int *) samp->getConstVoidDataPtr();
-    dp++; // Move past sample type.
+    if (startTime == 0) return false;
 
-    float tas = Tap2DToTAS((Tap2D *)dp++);
+    const unsigned char * cp = (const unsigned char*) samp->getConstVoidDataPtr();
+    const unsigned char * eod = cp + slen;
+    cp += sizeof(int32_t); // Move past sample type.
+
+    float tas = Tap2DToTAS((Tap2D *)cp);
+    cp += sizeof(Tap2D);
+
     if (tas < 0.0 || tas > 300.0) {
-        std::stringstream msg("out of range, ");
-        msg << tas;
-        throw n_u::InvalidParameterException(getName(), "TAS", msg.str());
+        WLOG(("%s: TAS=%.1f is out of range\n",getName().c_str(),tas));
+        _tasOutOfRange++;
+        return false;
     }
 
-    float frequency = getResolutionMicron() / tas;
+    setupBuffer(&cp,&eod);
+    const unsigned char * sod = cp;
 
-    // Byte-swap the whole record up front.
-    uint32_t  * p = (uint32_t *)dp;
-    for (size_t i = 0; i < 1024; ++i, ++p)
-        *p = bigEndian->int32Value(p);
+    float resolutionUsec = getResolutionMicron() / tas;
 
-    /* Loop through all slices in record.  Start at slice 1 since Spowart
-     * decided to overwrite the first slice with the overload word...
-     */
-    p = (uint32_t *)dp;
     unsigned int overld = 0;
-    if ((*p & 0xffff0000) == 0x55aa0000)
+    unsigned int tBarElapsedtime = 0;  // Running accumulation of time-bars
+
+    // Loop through all slices in record.
+    for (; cp < eod - (wordSize - 1); )
     {
-      overld = (*p & 0x0000ffff) / 2000;
-      _overLoadSliceCount++;
-    }
-
-    ++p;
-
-    unsigned long long tBarElapsedtime = 0;  // Running accumulation of time-bars
-    for (size_t i = 1; i < 1024; ++i, ++p)
-    {
-
-        /* Four cases; syncWord, timeWord, blank slice and legitimate slice.  syncWord
-         * starts a particle.  Blank terminates a particle.
+        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
+         * sync & overload words come at the end of the particle.  In the
+         * case of the this probe, the time word is embedded in the sync
+         * and overload word.
          */
 
-        /* Overload occurs at record mid-point.  Add it in.
-         */
-        if (i == 512 && overld > 0)
-            tBarElapsedtime += overld;
-        else
-        if (*p == _syncWord) {
-            _totalParticles++;
-            if (_cp)
-                delete _cp;
-            _cp = new Particle;
-            _cp->width = 1;  // First slice generally considered lost.
-            }
-        else
-        if (*(unsigned char *)p == _syncChar) {
-	    unsigned int timeWord = 
-	      (unsigned int)((p[1] & 0x00ffffff) * frequency);
-            tBarElapsedtime += timeWord;
-            unsigned long long thisParticleSecond = startTime + tBarElapsedtime;
-            thisParticleSecond -= (thisParticleSecond % USECS_PER_SEC);
+        /* Scan next 4 bytes starting at current pointer, cp, for
+         * a possible syncWord or overloadWord */
+        const unsigned char* eow = std::min(cp+wordSize,eod-(wordSize - 1));
 
-            // If we have crossed the 1 second boundary, send existing data and reset.
-            if (thisParticleSecond != _nowTime)
-            {
-                sendData(_nowTime, results);
-                _nowTime = thisParticleSecond;
-                rc = true;
+        const unsigned char* sos = cp;       // possible start of particle slice
+
+        for (; cp < eow; ) {
+            switch (*cp) {
+            case 0x55:  // overload (0x55aa) or sync (0x55*) string
+                if ((unsigned long)cp % wordSize) _misAligned++;
+                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
+                    // overload word, reject particle.
+                    _overLoadSliceCount++;
+                    overld = (bigEndian->int32Value(cp) & 0x0000ffff) / 2000;
+#ifdef DEBUG
+                    cerr << "overload value at word " << (cp - sod)/wordSize << 
+                        " is " << overld << endl;
+#endif
+                    tBarElapsedtime += overld;
+                    if (cp - sod != (eod - sod)/2) _particle.zero();
+                }
+                else {
+                    unsigned int timeWord = bigEndian->int32Value(cp) & 0x00ffffff;
+                    if (timeWord == 0) {    // start of particle
+                        _totalParticles++;
+                        _particle.zero();
+                        _particle.width = 1;  // First slice generally considered lost.
+                    }
+                    else {
+                        timeWord = (unsigned int)(timeWord * resolutionUsec);   // end of particle
+                        tBarElapsedtime += timeWord;
+                        dsm_time_t thisParticleTime = startTime + tBarElapsedtime;
+                        createSamples(thisParticleTime,results);
+                    }
+                }
+                cp += wordSize;
+                sos = 0;    // not a particle slice
+                break;
+            default:
+                break;
             }
         }
-        else
-        // Blank slice.
-        if (*p == 0xffffffffL) {
-            if (_cp) {
-                countParticle(_cp, frequency);
-                delete _cp; _cp = 0;
+        if (sos) {
+             if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
+                countParticle(_particle, resolutionUsec);
+                _particle.zero();
             }
-        }
-        else {
-            processParticleSlice(_cp, (const unsigned char *)p);
+            else processParticleSlice(_particle, sos);
+            cp = sos + wordSize;
         }
     }
 
+    createSamples(samp->getTimeTag(),results);
 
-    unsigned long long nt;
-    nt = samp->getTimeTag();
-    nt -= (nt % USECS_PER_SEC); // to seconds
+    /* Data left in image block, save it in order to pre-pend to next image block */
+    saveBuffer(cp,eod);
 
-    // If we have crossed the 1 second boundary, send existing data and reset.
-    if (nt != _nowTime) {
-        sendData(_nowTime, results);
-        rc = true;
-    }
-
-    /* Force _nowTime to the TimeTag for this record, which will be the start time
-     * for the next record.
-     */
-    _nowTime = nt;
-    return rc;
+    return results.size() > 0;
 }
 
 bool TwoD32_USB::process(const Sample * samp,
@@ -169,9 +158,7 @@ bool TwoD32_USB::process(const Sample * samp,
     if (samp->getDataByteLength() < sizeof (int32_t))
         return false;
 
-    const int32_t *lptr =
-        (const int32_t *) samp->getConstVoidDataPtr();
-    int stype = bigEndian->int32Value(lptr++);
+    int stype = bigEndian->int32Value(samp->getConstVoidDataPtr());
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is not used in 32 probe.  */
     if (stype == 0) {

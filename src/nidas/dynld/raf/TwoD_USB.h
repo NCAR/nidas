@@ -76,7 +76,7 @@ public:
      * micrometers for the 2DP.
      * @returns The probe resolution in micrometers.
      */
-    size_t getResolutionMicron() const { return _resolutionMicron; }
+    unsigned int getResolutionMicron() const { return _resolutionMicron; }
      
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
@@ -84,7 +84,7 @@ public:
      * the Fast2DC has 64.
      * @returns the number of bits per data slice.
      */
-    virtual size_t NumberOfDiodes() const = 0;
+    virtual int NumberOfDiodes() const = 0;
 
     /**
      * Called by post-processing code 
@@ -121,16 +121,17 @@ protected:
     {
     public:
         Particle() : height(0), width(0), area(0), edgeTouch(0) { } ;
+        void zero() { height = width = area = liveTime = 0; edgeTouch = 0; }
 
         /// Max particle height, along diode array.
-        size_t height;
+        unsigned int height;
         /// Max particle length, along flight path.
-        size_t width;
+        unsigned int width;
 	/**
          * Actual number of shadowed diodes.  This can be misleading if there
          * are holes in the particle, poisson spot, etc.
          */
-        size_t area;
+        unsigned int area;
         /**
          * Was an edge diode triggered.  0=no, 0x0f=bottom edge, 0xf0=top edge,
          * 0xff=both edge diodes.
@@ -140,7 +141,7 @@ protected:
 	 * Amount of time consumed by the particle as it passed through the
 	 * array.  Basically width * tas-clock-pulses.
 	 */
-        unsigned long liveTime;
+        unsigned int liveTime;
     } ;
 
     // Probe produces Big Endian.
@@ -165,14 +166,14 @@ protected:
      * @param slice is a pointer to the start of the slice, in big-endian and
      * uncomplemented.
      */
-    virtual void processParticleSlice(Particle * p, const unsigned char * slice);
+    virtual void processParticleSlice(Particle& p, const unsigned char * slice);
 
     /**
      * Look at particle stats/info and decide whether to accept or reject.
      * @param p is the particle information.
-     * @param frequency is the current probe clocking rate.
+     * @param resolutionUsec is the current probe clocking rate.
      */
-    virtual void countParticle(Particle * p, float frequency);
+    virtual void countParticle(const Particle& p, float resolutionUsec);
 
 //@{
     /**
@@ -180,8 +181,8 @@ protected:
      * @param p is particle info class.
      * @returns boolean whether the particle should be rejected.
      */
-    virtual bool acceptThisParticle1D(const Particle * p) const;
-    virtual bool acceptThisParticle2D(const Particle * p) const;
+    virtual bool acceptThisParticle1D(const Particle& p) const;
+    virtual bool acceptThisParticle2D(const Particle& p) const;
 //@}
     
 //@{
@@ -189,11 +190,11 @@ protected:
      * Send derived data and reset.  The process() method for image data is
      * to build size-distribution histograms for 1 second of data and then
      * send that.
-     * @param timeTag is the timeTag for this sample.
      * @param results is the output results.
+     * @param nextTimeTag is the timetag of a sample that is past
+     *  the end of the current histogram period.  The end
      */
-    virtual void sendData(dsm_time_t timeTag,
-                        std::list < const Sample * >&results) throw();
+    virtual void createSamples(dsm_time_t nextTimeTag,std::list<const Sample *>&results) throw();
 
     /**
      * Clear size_dist arrays.
@@ -212,7 +213,7 @@ protected:
     /**
      * Number of image blocks processed by driver at time of last printStatus.
      */
-    size_t _numImages;
+    unsigned int _numImages;
 
     /**
      * Time of last printStatus.
@@ -228,7 +229,7 @@ protected:
     /**
      * Probe resolution in micrometers.  Acquired from XML config file.
      */
-    size_t _resolutionMicron;
+    unsigned int _resolutionMicron;
 //@}
 
 //@{
@@ -251,8 +252,8 @@ protected:
     /**
      * Arrays for size-distribution histograms.
      */
-    size_t * _size_dist_1D;
-    size_t * _size_dist_2D;
+    unsigned int * _size_dist_1D;
+    unsigned int * _size_dist_2D;
 
     /**
      * Amount of time probe was inactive or amount of time consumed by rejected
@@ -267,25 +268,23 @@ protected:
     /**
      * Statistics variables for processRecord().
      */
-    size_t _totalRecords;
-    size_t _totalParticles;
-    size_t _rejected1D_Cntr, _rejected2D_Cntr;
-    size_t _overLoadSliceCount;
-    size_t _overSizeCount_2D;
+    unsigned int _totalRecords;
+    unsigned int _totalParticles;
+    unsigned int _rejected1D_Cntr, _rejected2D_Cntr;
+    unsigned int _overLoadSliceCount;
+    unsigned int _overSizeCount_2D;
+    unsigned int _tasOutOfRange;
+    unsigned int _misAligned;
+    unsigned int _suspectSlices;
 //@}
 
-//@{
-    /* Time from previous record.  Time belongs to end of record it came with,
+    /** Time from previous record.  Time belongs to end of record it came with,
      * or start of the next record.  Save it so we can use it as a start.
-     * Units are milliseconds.
      */
-    unsigned long long _prevTime;
+    long long _prevTime;
 
-    /* The second for which we are accumulating the histograms.  Assuming we
-     * are producing 1 sample per second histograms.
-     */
-    unsigned long long _nowTime;
-//@}
+    /** The end time of the current histogram. */
+    long long _histoEndTime;
 
     /**
      * Area of particle rejection ratio.  Actual area of particle divided
@@ -298,7 +297,49 @@ protected:
      * Current particle information.  This is in here, since a particle can cross
      * samples/records.
      */
-    Particle * _cp;
+    Particle _particle;
+
+    /**
+     * True air speed, received from IWGADTS feed.
+     */
+    float _trueAirSpeed;
+
+    /**
+     * In case of mis-aligned data, we may need to save some bytes
+     * at the end of an image block to pre-pend to the next block.
+     * @param cp: Pointer to next byte in the image block to be saved.
+     * @param eod: Pointer to one-past-the-end of the image block.
+     * If cp is equal to eod, then nothing is saved, and this
+     * function does not need to be called.
+     */
+    void saveBuffer(const unsigned char* cp, const unsigned char* eod);
+
+    /**
+     * Derived Classes should call this at the beginning of
+     * processing an image block.  If bytes were saved from the
+     * end of the last image block, then the pointers are
+     * adjusted to point to a new buffer that contains the saved and
+     * the new data.
+     * @param cp: Pointer to pointer of first slice in the new image block to be processed,
+     *      after the TAS word.
+     * @param eod: Pointer to pointer to one-past-the-end of the image block.
+     */
+    void setupBuffer(const unsigned char** cp,const unsigned char** eod);
+
+    /**
+     * The saved buffer.
+     */
+    unsigned char* _saveBuffer;
+
+    /**
+     * How many bytes were last saved.
+     */
+    int _savedBytes;
+
+    /**
+     * Size of the saved buffer.
+     */
+    int _savedAlloc;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
