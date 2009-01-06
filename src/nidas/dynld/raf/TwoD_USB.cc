@@ -304,7 +304,8 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         nvalues = NumberOfDiodes() + 1;
         outs = getSample < float >(nvalues);
 
-        outs->setTimeTag(_histoEndTime);
+        // time tag is the start of the histogram
+        outs->setTimeTag(_histoEndTime - USECS_PER_SEC);
         outs->setId(_1dcID);
 
         dout = outs->getDataPtr();
@@ -320,7 +321,8 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         nvalues = (NumberOfDiodes()<<1) + 1;
         outs = getSample < float >(nvalues);
 
-        outs->setTimeTag(_histoEndTime);
+        // time tag is the start of the histogram
+        outs->setTimeTag(_histoEndTime - USECS_PER_SEC);
         outs->setId(_2dcID);
 
         dout = outs->getDataPtr();
@@ -472,8 +474,8 @@ void TwoD_USB::clearData()
 
 void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)
 {
-    int lrec = *eod - *cp;
     if (_savedBytes > 0) {
+        int lrec = *eod - *cp;
         int l = _savedBytes + lrec;
         if (_savedAlloc < l) {
             unsigned char* newBuffer = new unsigned char[l];
@@ -486,7 +488,6 @@ void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)
         ::memcpy(_saveBuffer+_savedBytes,*cp,lrec);
         *cp = _saveBuffer;
         *eod = _saveBuffer + _savedBytes + lrec;
-        _savedBytes = 0;
     }
 }
 void TwoD_USB::saveBuffer(const unsigned char* cp, const unsigned char* eod)
