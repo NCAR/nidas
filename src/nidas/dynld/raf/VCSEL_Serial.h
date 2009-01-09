@@ -53,6 +53,9 @@ public:
     derivedDataNotify(const nidas::core:: DerivedDataReader * s)
         throw();
 
+    bool process(const Sample* samp,std::list<const Sample*>& results)
+        throw();
+
 
 protected:
     /**
@@ -66,6 +69,11 @@ protected:
      */
     int _atxRate;
 
+    /**
+     * 25Hz sample index counter.  We manufacture time for this instrument since we
+     * know that the data is actually exactly spaced by 40 milliseconds.
+     */
+    int _hz_counter;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
