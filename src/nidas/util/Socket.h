@@ -1116,9 +1116,14 @@ public:
      * Set the interface for a given multicast address.
      * If you are sending packets on this MulticastSocket, and do not
      * use setInterface() specific interface, the system will send packets
-     * out on the first non-loopback interface that it finds. This
-     * will also be the case if you do:
+     * out on the first interface that it finds that is capable of MULTICAST.
+     * This will also be the case if you do:
      * setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
+     * Do /sbin/ifconfig to see what interfaces do MULTICAST.
+     * Note that the loopback interface does not support MULTICAST, and
+     * interfaces that are not up will not do MULTICAST.
+     * So doing multicast on a DHCP laptop that isn't connected to the net
+     * will give problems.
      */
     void setInterface(Inet4Address maddr,Inet4Address iaddr) throw(IOException) {
         impl.setInterface(maddr,iaddr);

@@ -1,4 +1,0 @@
-#device                 mount point          type    flags           dump pass
-/dev/mtdblock1          /                    jffs2   defaults        0    0   
-tmpfs                   /var/tmp             tmpfs   defaults,size=4M 0    0   
-/dev/hda1               /var/tmp/code        ext3    defaults        0 0

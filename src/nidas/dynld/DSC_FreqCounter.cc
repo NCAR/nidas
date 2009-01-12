@@ -22,6 +22,7 @@
 #include <cmath>
 
 #include <iostream>
+#include <iomanip>
 
 using namespace nidas::dynld;
 using namespace nidas::core;
@@ -124,7 +125,7 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
                 throw n_u::InvalidParameterException(getName(),
                     "ClockRate","should be a integer of length 1");
              _clockRate = p->getNumericValue(0);
-             // cerr << "_clockRate=" << _clockRate << endl;
+             DLOG(("_clockRate=") << setprecision(6) << scientific << _clockRate);
         }
     }
 }

@@ -305,6 +305,11 @@ int MergeVerifier::run() throw()
 
 	    // SampleInputStream owns the iochan ptr.
 	    SampleInputStream* input = new SampleInputStream(fset);
+            input->setMaxSampleLength(32768);
+            n_u::UTime filter1(startTime - USECS_PER_DAY);
+            n_u::UTime filter2(endTime + USECS_PER_DAY);
+            input->setMinSampleTime(filter1);
+            input->setMaxSampleTime(filter2);
 	    inputs.push_back(input);
 
 	    input->init();
