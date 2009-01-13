@@ -33,7 +33,7 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::Inet4SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
-    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0)
+    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _parseErrors(0)
 {
 }
 
@@ -88,34 +88,44 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
   char *p = buffer;
 
   // Alt is the 3rd parameter.
-  for (int i = 0; p && i < 4; ++i)
-    p = strchr(p, ',')+1;
+  for (int i = 0; i < 4; ++i) {
+    if (!(p = strchr(p, ','))) break;
+    p++;
+  }
 
-  if (!p) throw n_u::ParseException("cannot parse altitude",buffer);
-
-  _alt = atof(p);
-
+  if (p) 
+      _alt = atof(p);
 
   // Radar Alt is the 6th parameter.
-  for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
-    p = strchr(p, ',')+1;
+  for (int i = 0; i < 3; ++i) {	// Move forward 3 places.
+    if (!(p = strchr(p, ','))) break;
+    p++;
+  }
 
   if (p)
     _radarAlt = atof(p);
 
   // True airspeed is the 8th parameter.
-  for (int i = 0; p && i < 2; ++i)	// Move forward 2 places.
-    p = strchr(p, ',')+1;
+  for (int i = 0; i < 2; ++i) {	// Move forward 2 places.
+    if (!(p = strchr(p, ','))) break;
+    p++;
+  }
 
   if (p)
     _tas = atof(p);
 
-  // True airspeed is the 19th parameter.
-  for (int i = 0; p && i < 11; ++i)	// Move forward 11 places.
-    p = strchr(p, ',')+1;
+  // ambient temp is the 19th parameter.
+  for (int i = 0; i < 11; ++i) {	// Move forward 11 places.
+    if (!(p = strchr(p, ','))) break;
+    p++;
+  }
 
   if (p)
     _at = atof(p);
+  else
+    if (!(_parseErrors++ % 100)) WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n",
+        buffer));
+
   // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
 
   return true;
