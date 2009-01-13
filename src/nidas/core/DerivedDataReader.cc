@@ -77,7 +77,7 @@ void DerivedDataReader::readData() throw(n_u::IOException,n_u::ParseException)
 
 }
 
-bool DerivedDataReader::parseIWGADTS(char buffer[])
+bool DerivedDataReader::parseIWGADTS(const char* buffer)
 	throw(n_u::ParseException)
 {
   if (memcmp(buffer, "IWG1", 4))
@@ -85,7 +85,7 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
 
   _lastUpdate = time(0);
 
-  char *p = buffer;
+  const char *p = buffer;
 
   // Alt is the 3rd parameter.
   for (int i = 0; i < 4; ++i) {
@@ -124,7 +124,7 @@ bool DerivedDataReader::parseIWGADTS(char buffer[])
     _at = atof(p);
   else
     if (!(_parseErrors++ % 100)) WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n",
-        buffer));
+        _parseErrors,buffer));
 
   // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
 
