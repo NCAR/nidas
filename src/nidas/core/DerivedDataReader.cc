@@ -33,7 +33,7 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::Inet4SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
-    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _parseErrors(0)
+    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _thdg(0), _parseErrors(0)
 {
 }
 
@@ -108,9 +108,16 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
   if (p)
     _tas = atof(p);
 
-  // ambient temp is the 19th parameter.
-  for (int i = 0; p && i < 11; ++i)	// Move forward 11 places.
+  // True Heading is the 12th parameter.
+  for (int i = 0; p && i < 4; ++i)      // Move forward 4 places.
     if ((p = strchr(p, ','))) p++;
+
+  if (p)
+    _thdg = atof(p);
+
+  // Ambient Temperature is the 19th parameter.
+  for (int i = 0; p && i < 7; ++i)	// Move forward 7 places.
+    p = strchr(p, ',')+1;
 
   if (p)
     _at = atof(p);

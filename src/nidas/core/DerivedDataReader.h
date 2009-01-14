@@ -46,6 +46,7 @@ public:
   float getAmbientTemperature() const	{ return _at; }
   float getAltitude() const		{ return _alt; }
   float getRadarAltitude() const	{ return _alt; }
+  float getTrueHeading() const		{ return _thdg; }
 
   int run() throw(nidas::util::Exception);
 
@@ -112,6 +113,7 @@ private:
   float _at;		// Ambient Temperature.  deg_C
   float _alt;		// Altitude (probably GPS).  Meters
   float _radarAlt;	// Distance above surface/ground.  Meters
+  float _thdg;		// True Heading. degrees_true
 
   int _parseErrors;
 
