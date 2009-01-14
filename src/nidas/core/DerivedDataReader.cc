@@ -117,7 +117,7 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
 
   // Ambient Temperature is the 19th parameter.
   for (int i = 0; p && i < 7; ++i)	// Move forward 7 places.
-    p = strchr(p, ',')+1;
+    if ((p = strchr(p, ','))) p++;
 
   if (p)
     _at = atof(p);
