@@ -103,7 +103,8 @@ private:
   /**
    * Parse the IWGADTS trivial broadcast.
    */
-  bool parseIWGADTS(const char s[]) throw(nidas::util::ParseException);
+
+  bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
 
   time_t _lastUpdate;	// Store last time we received a broadcast.
 
@@ -113,6 +114,7 @@ private:
   float _radarAlt;	// Distance above surface/ground.  Meters
 
   int _parseErrors;
+
 };
 
 }}      // namespace nidas namespace core

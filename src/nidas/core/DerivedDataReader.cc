@@ -88,37 +88,29 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
   const char *p = buffer;
 
   // Alt is the 3rd parameter.
-  for (int i = 0; i < 4; ++i) {
-    if (!(p = strchr(p, ','))) break;
-    p++;
-  }
+  for (int i = 0; p && i < 4; ++i)
+    if ((p = strchr(p, ','))) p++;
 
   if (p) 
       _alt = atof(p);
 
   // Radar Alt is the 6th parameter.
-  for (int i = 0; i < 3; ++i) {	// Move forward 3 places.
-    if (!(p = strchr(p, ','))) break;
-    p++;
-  }
+  for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
+    if ((p = strchr(p, ','))) p++;
 
   if (p)
     _radarAlt = atof(p);
 
   // True airspeed is the 8th parameter.
-  for (int i = 0; i < 2; ++i) {	// Move forward 2 places.
-    if (!(p = strchr(p, ','))) break;
-    p++;
-  }
+  for (int i = 0; p && i < 2; ++i) // Move forward 2 places.
+    if ((p = strchr(p, ','))) p++;
 
   if (p)
     _tas = atof(p);
 
   // ambient temp is the 19th parameter.
-  for (int i = 0; i < 11; ++i) {	// Move forward 11 places.
-    if (!(p = strchr(p, ','))) break;
-    p++;
-  }
+  for (int i = 0; p && i < 11; ++i)	// Move forward 11 places.
+    if ((p = strchr(p, ','))) p++;
 
   if (p)
     _at = atof(p);
