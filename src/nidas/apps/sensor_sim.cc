@@ -132,6 +132,8 @@ public:
     open()
     {
 	close();
+	if (_verbose)
+	    std::cerr << "opening " << _path << " ...\n";
 	if (_path.length() == 0)
 	{
 	    throw n_u::Exception("FileSim requires an input file.");
@@ -159,6 +161,8 @@ public:
 		throw n_u::Exception(failure.what());
 	    }
 	}
+	if (_verbose)
+	    std::cerr << _path << " opened.\n";
     }
 
     void
@@ -250,7 +254,7 @@ private:
     enum sens_type
     { 
       MENSOR_6100, PARO_1000, BUCK_DP, CSAT3, FIXED, 
-      ISS_CAMPBELL, UNKNOWN
+      ISS_CAMPBELL, GENERIC19200, UNKNOWN
     } type;
     bool openpty;
     bool verbose;
@@ -271,7 +275,7 @@ int SensorSim::parseRunstring(int argc, char** argv)
 
     openpty = false;
 
-    while ((opt_char = getopt(argc, argv, "cdmio:pr:tf:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdmigo:pr:tf:v")) != -1) {
 	switch (opt_char) {
 	case 'c':
 	    type = CSAT3;
@@ -284,6 +288,9 @@ int SensorSim::parseRunstring(int argc, char** argv)
 	    break;
 	case 'i':
 	    type = ISS_CAMPBELL;
+	    break;
+	case 'g':
+	    type = GENERIC19200;
 	    break;
 	case 'o':
 	    outputMessage = optarg;
@@ -323,6 +330,7 @@ Usage: " << argv0 << "[-p | -m]  device\n\
   -d: simulate Buck dewpointer (9600n81, unprompted)\n\
   -m: simulate Mensor 6100 (57600n81,prompted)\n\
   -i: simulate ISS Campbell (96008n1,unprompted)\n\
+  -g: generic sensor (also WXT) (19200n81,unprompted)\n\
   -o output_msg:  send a fixed output message at the specified rate\n\
   -p: simulate ParoScientific DigiQuartz 1000 (57600n81, unprompted)\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
@@ -352,7 +360,7 @@ int SensorSim::run()
 		(unsigned long)rint(MSECS_PER_SEC / rate);
 	// cerr << "msecPeriod=" << msecPeriod << endl;
 
-	string promptStrings[] = { "#1?\n","","","","","" };
+	string promptStrings[] = { "#1?\n","","","","","","" };
 
 	switch (type) {
 	case MENSOR_6100:
@@ -391,6 +399,16 @@ int SensorSim::run()
 	    break;
 	case ISS_CAMPBELL:
 	    port->setBaudRate(9600);
+	    port->iflag() = 0;
+	    port->oflag() = OPOST;
+	    port->lflag() = ICANON;
+	    sim.reset(new FileSim(port.get(), inputFile, verbose));
+	    break;
+	case GENERIC19200:
+	    if (verbose)
+		std::cerr << "Setting up for generic sensor: 19200,8,N,1\n";
+	    if (! port->setBaudRate(19200))
+		std::cerr << "Baud rate setting failed!";
 	    port->iflag() = 0;
 	    port->oflag() = OPOST;
 	    port->lflag() = ICANON;
