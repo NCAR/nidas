@@ -244,14 +244,15 @@ static void arinc_sweep(void* channel)
         tt_data_t *data;
 
         sample = GET_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
-        data = (tt_data_t*) sample->data;
-        KLOG_DEBUG("%d data:   %x\n", chn, (unsigned int) data);
         if (!sample) {           // no output sample available
                 dev->skippedSamples++;
                 KLOG_WARNING("%s: skippedSamples=%d\n",
                              dev->deviceName, dev->skippedSamples);
                 return;
         }               
+
+        data = (tt_data_t*) sample->data;
+        KLOG_DEBUG("%d data:   %x\n", chn, (unsigned int) data);
         // Set the sample block's time tag to an estimate of
         // the timetag of the earliest data in the sweep.
         // We'll use the computed time of the previous sweep.
