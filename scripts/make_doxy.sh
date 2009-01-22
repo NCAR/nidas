@@ -27,8 +27,9 @@ svn_co_nidas() {
 	cd $dir
 	svn update nidas
     else
-	mkdir -p $dir
-	svn co http://svn/svn/nids/trunk nidas
+	mkdir -p $dir || exit 1
+	cd $dir || exit 1
+	svn co http://svn/svn/nidas/trunk nidas
     fi
 }
 
@@ -37,7 +38,9 @@ if [ ! -d $codir ]; then
     svn_co_nidas
 else
     cd $codir || exit 1
-    svn update || svn_co_nidas
+    if  ! svn update; then
+        svn cleanup || { cd $HOME; rm -rf $codir; svn_co_nidas; }
+    fi
 fi
 
 cd $codir || exit 1
