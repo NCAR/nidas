@@ -125,6 +125,10 @@ enum clock
         USER_OVERRIDE,          // clock has been overridden
 };
 
+#ifdef INTERRUPT_WATCHDOG
+static struct workqueue_struct * work_queue = 0;
+#endif
+
 /**
  * Stuff needed to access the board.
  */
@@ -267,6 +271,16 @@ struct pc104sg_board
          * definitely not running.
          */
         wait_queue_head_t callbackWaitQ;
+
+#ifdef INTERRUPT_WATCHDOG
+        volatile int runWatchdog;
+
+        struct work_struct interruptWatchdog;   // worker for detecting stopped IRQs
+
+        wait_queue_head_t watchdog_waitq;       // wait queue for checking stopped IRQs
+
+        int interruptTimeouts;
+#endif
 
 };
 
@@ -1273,9 +1287,7 @@ static void inline increment_clock(int tick)
         c = ReadClock;
         /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
         ReadClock = board.WriteClock;
-        /* now TMsecClock[ReadClock=1] is still OK to read. We're assuming
-         * that the byte write of ReadClock is atomic.
-         */
+        /* now TMsecClock[ReadClock=1] is still OK to read. */
         board.WriteClock = c;
 }
 
@@ -1586,7 +1598,8 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 ret = IRQ_HANDLED;
                 board.SyncOK = status & Sync_OK;
 
-                /* acknowledge interrupt (essential!) */
+                /* acknowledge interrupt (essential!)  If you don't you'll get
+                 * interrupted again immediately */
                 ackHeartBeatInt();
 
                 increment_clock(TMSEC_PER_INTERRUPT);
@@ -1599,6 +1612,9 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK_CHECK)) {
                         atomic_inc(&board.pending100Hz);
                         tasklet_hi_schedule(&board.tasklet100Hz);
+#ifdef INTERRUPT_WATCHDOG
+                        wake_up_interruptible(&board.watchdog_waitq);
+#endif
                 }
         }
 #ifdef CHECK_EXT_EVENT
@@ -1616,6 +1632,40 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         return ret;
 }
 
+#ifdef INTERRUPT_WATCHDOG
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void interrupt_watchdog(struct work_struct *work)
+#else
+static void interrupt_watchdog(void *work)
+#endif
+{
+        /*
+        struct pc104sg_board *brd =
+            container_of(work, struct pc104sg_board, interruptWatchdog);
+        */
+
+        int delay = 2 * HZ / 100;
+        // KLOG_INFO("delay=%d\n",delay);
+
+        for (;board.runWatchdog;) {
+                long tick = board.TMsecClockTicker;
+                long ret = wait_event_interruptible_timeout(board.watchdog_waitq,
+                        board.TMsecClockTicker != tick, delay);
+                if (ret == 0 && board.TMsecClockTicker == tick) {      // timeout
+                        if (board.ClockState == CODED
+                            || board.ClockState == USER_SET)
+                                board.ClockState = RESET_COUNTERS;      // reset counter on next interrupt
+                        atomic_inc(&board.pending100Hz);
+                        ackHeartBeatInt();
+                        if (!(board.interruptTimeouts++ % 10))
+                                KLOG_WARNING("watchdog timeout #%d waiting for IRIG interrupt, delay=%d\n",
+                                  board.interruptTimeouts,delay);
+                }
+        }
+}
+
+#endif  // INTERRUPT_WATCHDOG
 /*
  * This function is registered to be called every second if
  * the irig device is open.  It gets the current clock value and
@@ -1895,7 +1945,6 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         return ret;
 }
 
-
 static struct file_operations pc104sg_fops = {
         .owner = THIS_MODULE,
         .read = pc104sg_read,
@@ -1910,6 +1959,14 @@ static struct file_operations pc104sg_fops = {
 /* -- MODULE ---------------------------------------------------------- */
 static void __exit pc104sg_cleanup(void)
 {
+#ifdef INTERRUPT_WATCHDOG
+        board.runWatchdog = 0;
+        if (work_queue) {
+                flush_workqueue(work_queue);
+                destroy_workqueue(work_queue);
+        }
+#endif
+
         disableAllInts();
 
         if (board.irq)
@@ -1939,6 +1996,10 @@ static int __init pc104sg_init(void)
         int errval = 0;
         unsigned int addr;
         int irq;
+
+#ifdef INTERRUPT_WATCHDOG
+        work_queue = create_singlethread_workqueue("pc104sg_watchdog");
+#endif
 
         /* initialize clock counters that external modules grab */
         ReadClock = 0;
@@ -2038,6 +2099,17 @@ static int __init pc104sg_init(void)
         }
         board.irq = irq;
 
+#ifdef INTERRUPT_WATCHDOG
+        init_waitqueue_head(&board.watchdog_waitq);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+        INIT_WORK(&board.interruptWatchdog, interrupt_watchdog);
+#else
+        INIT_WORK(&board.interruptWatchdog, interrupt_watchdog, &board.interruptWatchdog);
+#endif
+
+#endif
+
         /*
          * Initialize and add the user-visible device
          */
@@ -2088,9 +2160,23 @@ static int __init pc104sg_init(void)
         /* start interrupts */
         enableHeartBeatInt();
 
+#ifdef INTERRUPT_WATCHDOG
+        /* start watchdog */
+        board.runWatchdog = 1;
+        queue_work(work_queue,&board.interruptWatchdog);
+#endif
+
         return 0;
 
       err0:
+
+#ifdef INTERRUPT_WATCHDOG
+        board.runWatchdog = 0;
+        if (work_queue) {
+                flush_workqueue(work_queue);
+                destroy_workqueue(work_queue);
+        }
+#endif
 
         tasklet_disable(&board.tasklet100Hz);
 
