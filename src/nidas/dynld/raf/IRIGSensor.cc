@@ -38,6 +38,10 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,IRIGSensor)
 
+/* static */
+const n_u::EndianConverter* IRIGSensor::lecvtr = n_u::EndianConverter::getConverter(
+        n_u::EndianConverter::EC_LITTLE_ENDIAN);
+
 IRIGSensor::IRIGSensor(): _nvars(0)
 {
 }
@@ -299,15 +303,15 @@ Sample* IRIGSensor::nextSample()
 
 dsm_time_t IRIGSensor::getIRIGTime(const Sample* samp) const {
     const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-    return (dsm_time_t)__le32_to_cpu(dp->tval.tv_sec) * USECS_PER_SEC +
-            __le32_to_cpu(dp->tval.tv_usec);
+    return (dsm_time_t)lecvtr->int32Value(dp->tval.tv_sec) * USECS_PER_SEC +
+            lecvtr->int32Value(dp->tval.tv_usec);
 }
 
 dsm_time_t IRIGSensor::getUnixTime(const Sample* samp) const {
     if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) return 0LL;
     const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
-    return (dsm_time_t)__le32_to_cpu(dp->unixt.tv_sec) * USECS_PER_SEC +
-            __le32_to_cpu(dp->unixt.tv_usec);
+    return (dsm_time_t)lecvtr->int32Value(dp->unixt.tv_sec) * USECS_PER_SEC +
+            lecvtr->int32Value(dp->unixt.tv_usec);
 }
 
 unsigned char IRIGSensor::getStatus(const Sample* samp) const {

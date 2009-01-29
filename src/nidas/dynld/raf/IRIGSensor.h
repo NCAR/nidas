@@ -20,7 +20,9 @@
 #include <nidas/linux/irigclock.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
-#include <asm/byteorder.h>
+#include <nidas/util/EndianConverter.h>
+// #include <linux/tcp.h>
+// #include <asm/byteorder.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -104,6 +106,7 @@ public:
      */
     unsigned char getStatus(const Sample* samp) const;
 
+    static const nidas::util::EndianConverter* lecvtr;
 private:
 
     void checkClock() throw(nidas::util::IOException);
