@@ -494,6 +494,8 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 
 #endif
 
+#ifdef PR_GET_SECUREBITS
+
 /* These defs are missing on porter, fedora 10. Googling
  * found some example code to figure out what the values should be. */
 #ifndef SECURE_NO_SETUID_FIXUP
@@ -511,7 +513,7 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP) < 0)
         throw IOException("Process","prctl(PR_SET_SECUREBITS,1<<SECURE_NO_SETUID_FIXUP)",errno);
 
-#ifdef OLD_OBSOLETE_WAY
+#else
     // didn't work in fedora10
     cerr << "doing prctl PR_SET_KEEPCAPS" << endl;
     if (prctl(PR_SET_KEEPCAPS,1) < 0)
