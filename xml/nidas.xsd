@@ -510,6 +510,7 @@
 	<xsd:attribute name="class" type="xsd:token"/>
 	<xsd:attribute name="ID" type="xsd:ID"/>
 	<xsd:attribute name="IDREF" type="xsd:IDREF"/>
+	<xsd:attribute name="priority" type="xsd:token"/>
    </xsd:complexType>
 </xsd:element>
 

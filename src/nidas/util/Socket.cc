@@ -216,6 +216,22 @@ Socket* SocketImpl::accept() throw(IOException)
     switch (sockdomain) {
     case PF_INET:
 	{
+
+/* useful bit of wisdom from man 2 accept:
+ * There  may  not always be a connection waiting after a SIGIO is delivered or select(2)
+ * or poll(2) return a readability event because the connection might have  been  removed
+ * by an asynchronous network error or another thread before accept() is called.  If this
+ * happens then the call will block waiting for the next connection to arrive.  To ensure
+ * that accept() never blocks, the passed socket sockfd needs to have the O_NONBLOCK flag
+ * set (see socket(7)).
+ * Also:
+ * Linux  accept()  passes  already-pending  network errors on the new socket as an error
+ * code from accept().  This behaviour differs from other BSD socket implementations. For
+ * reliable  operation  the  application should detect the network errors defined for the
+ * protocol after accept() and treat them like EAGAIN by  retrying.  In  case  of  TCP/IP
+ * these  are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP,
+ * and ENETUNREACH.
+ */
 	    struct sockaddr_in tmpaddr;
 	    socklen_t slen = sizeof(tmpaddr);
 	    memset(&tmpaddr,0,slen);
