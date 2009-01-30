@@ -43,7 +43,7 @@ public:
 
     SyncRecordGenerator* clone() const;
 
-    virtual bool singleDSM() const { return false; }
+    virtual bool cloneOnConnection() const { return false; }
 
     void connect(SampleInput* input) throw(nidas::util::IOException);
     

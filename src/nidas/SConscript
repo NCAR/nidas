@@ -48,6 +48,15 @@ env.AppendUnique(LINKFLAGS = ['-rdynamic'])
 env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
 env.PrependUnique(LIBPATH = [env.Dir("build_core")])
 env.PrependUnique(LIBPATH = [env.Dir("build_util")])
+env.AppendUnique(LIBS = ['pthread'])
+
+# Check for headers and libraries
+conf = Configure(env)
+if conf.CheckCHeader('sys/capability.h'):
+    conf.env.Append(CPPDEFINES = 'HAS_CAPABILITY_H')
+if conf.CheckLib('cap'):
+    conf.env.AppendUnique(LIBS = 'cap')
+env = conf.Finish()
 
 subdirs=Split("""util core dynld apps linux rtlinux""")
 

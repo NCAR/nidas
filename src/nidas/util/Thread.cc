@@ -440,11 +440,11 @@ Thread::start() throw(Exception)
         int policy;
         ::pthread_attr_getschedpolicy( &thread_attr, &policy);
 
-        if (status != EPERM || (policy != SCHED_FIFO && policy != SCHED_RR))
+        if (status != EPERM || (policy != NU_THREAD_FIFO && policy != NU_THREAD_RR))
             break;
         cerr << getName() << ": start: " <<
-            Exception::errnoToString(errno) << ". Trying again with non-real-time priority." << endl;
-        setThreadScheduler(SCHED_OTHER,0);
+            Exception::errnoToString(status) << ". Trying again with non-real-time priority." << endl;
+        setThreadSchedulerNolock(NU_THREAD_OTHER,0);
     }
 
     if (status) 
@@ -570,9 +570,9 @@ void Thread::makeFullName() {
 
   if (::pthread_getschedparam(_id,&policy,&param) == 0) {
     switch (policy) {
-    case SCHED_OTHER: os << ",Non-RT"; break;
-    case SCHED_FIFO:  os << ",RT:FIFO"; break;
-    case SCHED_RR:  os << ",RT:RR"; break;
+    case NU_THREAD_OTHER: os << ",Non-RT"; break;
+    case NU_THREAD_FIFO:  os << ",RT:FIFO"; break;
+    case NU_THREAD_RR:  os << ",RT:RR"; break;
     default:  os << ",RT:Unk"; break;
     }
   }
@@ -635,29 +635,33 @@ Thread::interrupt()
 
 
 bool Thread::setRealTimeRoundRobinPriority(int val) throw(Exception) {
-  if (getuid() != 0) return false;
-  setThreadScheduler(SCHED_RR,val);
+  // if (getuid() != 0) != 0) return false;
+  setThreadScheduler(NU_THREAD_RR,val);
   return true;
 }
 
 bool Thread::setRealTimeFIFOPriority(int val) throw(Exception) {
-  if (getuid() != 0) return false;
-  setThreadScheduler(SCHED_FIFO,val);
+  // if (geteuid() != 0) != 0) return false;
+  setThreadScheduler(NU_THREAD_FIFO,val);
   return true;
 }
 
 bool Thread::setNonRealTimePriority() throw(Exception) {
-  setThreadScheduler(SCHED_OTHER,0);
+  setThreadScheduler(NU_THREAD_OTHER,0);
   return true;
 }
 
-void Thread::setThreadScheduler(int policy,int val) throw(Exception) {
+void Thread::setThreadScheduler(enum SchedPolicy policy,int val) throw(Exception) {
+  Synchronized autolock(_mutex);
+  setThreadSchedulerNolock(policy,val);
+}
+
+void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exception) {
   int status;
   sched_param param;
   memset(&param,0,sizeof(param));
   param.sched_priority = val;
 
-  Synchronized autolock(_mutex);
   if (_running) {
     status = ::pthread_setschedparam(_id,policy,&param);
     if (status)
@@ -681,6 +685,7 @@ void Thread::setThreadScheduler(int policy,int val) throw(Exception) {
       	string("pthread_setinheritsched:") + Exception::errnoToString(status));
   }
 }
+
 ThreadJoiner::ThreadJoiner(Thread* thrd):
 	DetachedThread("ThreadJoiner"),thread(thrd)
 {

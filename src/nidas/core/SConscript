@@ -15,9 +15,8 @@ Import('env')
 myenv = env.Clone()
 arch = myenv['ARCH']
 
-conf = Configure(myenv)
-
-myenv = conf.Finish()
+# conf = Configure(myenv)
+# myenv = conf.Finish()
 
 def write_version_cc(env,target,source):
     """
@@ -217,7 +216,7 @@ dyn_objs = [ myenv.SharedObject(sources), myenv.SharedObject("DynamicLoader.cc",
 ##
 ##  Build the libnidas library.  Include the util objects directly.
 ##
-lib = myenv.SharedLibrary('nidas' , [ dyn_objs ] + env['NIDAS_UTIL_OBJECTS'] )
+lib = myenv.SharedLibrary('nidas' , [ dyn_objs ] + env['NIDAS_UTIL_OBJECTS'],LIBS=[])
 
 ##
 ## Install targets for libraries and headers.

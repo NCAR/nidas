@@ -42,7 +42,7 @@ public:
 
     PSQLProcessor* clone() const;
 
-    bool singleDSM() const { return false; }
+    bool cloneOnConncetion() const { return false; }
 
     void connect(SampleInput*) throw(nidas::util::IOException);
 

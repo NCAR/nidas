@@ -225,7 +225,7 @@ public:
      * parsed.
      */
     xercesc::DOMDocument* parse(const std::string& xmlFile)
-    	throw(nidas::core::XMLException);
+    	throw(nidas::core::XMLException,nidas::util::IOException);
 
     /**
      * Parse from an InputSource. This is not cached.

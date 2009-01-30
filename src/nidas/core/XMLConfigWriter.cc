@@ -53,7 +53,7 @@ XMLConfigWriter::~XMLConfigWriter()
     //  Delete the writer.
     //
     delete filter;
-    cerr << "writer release" << endl;
+    // cerr << "writer release" << endl;
     writer->release();
 
 }
@@ -77,7 +77,7 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 {
     XDOMElement xnode((DOMElement*)node);
     if ((getWhatToShow() & (1 << (node->getNodeType() - 1))) == 0) {
-	cerr << "getWhatToShow() rejecting node " << xnode.getNodeName() <<endl;
+	// cerr << "getWhatToShow() rejecting node " << xnode.getNodeName() <<endl;
 	return DOMNodeFilter::FILTER_REJECT;
     }
 
@@ -97,8 +97,8 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 	    	return DOMNodeFilter::FILTER_ACCEPT;
 	}
 	// dsm not found for this aircraft/site
-	cerr << "rejecting " << nodename << " node, name=" <<
-		xnode.getAttributeValue("name") << endl;
+	// cerr << "rejecting " << nodename << " node, name=" <<
+	// 	xnode.getAttributeValue("name") << endl;
 	return DOMNodeFilter::FILTER_REJECT;
     }
     else if (xnode.getNodeName() == "dsm")
@@ -120,10 +120,10 @@ short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const
 
     const string& dsmName = xnode.getAttributeValue("name");
     if (!dsmName.compare(dsm->getName())) {
-	cerr << "accepting dsm node, name=" << dsmName << endl;
+	// cerr << "accepting dsm node, name=" << dsmName << endl;
 	return DOMNodeFilter::FILTER_ACCEPT;
     }
-    cerr << "rejecting dsm node, name=" << dsmName << endl;
+    // cerr << "rejecting dsm node, name=" << dsmName << endl;
     return DOMNodeFilter::FILTER_REJECT;	// no match
 }
 

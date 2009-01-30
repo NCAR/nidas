@@ -8,7 +8,7 @@ arch = env['ARCH']
 so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor.so",
                         source = "TiltSensor.cc",
                         CPPDEFINES = 'DEBUG',
-                        SHLIBPREFIX = '')
+                        SHLIBPREFIX = '',LIBS=[])
 
 headers = Split("""TiltSensor.h""")
 

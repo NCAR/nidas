@@ -30,7 +30,8 @@ namespace nidas { namespace core {
 
 typedef enum datagramTypes {
     XML_CONFIG,
-    RAW_SAMPLE
+    RAW_SAMPLE,
+    VARIABLE_LIST_XML,
 } datagramType_t;
 
 }}	// namespace nidas namespace core

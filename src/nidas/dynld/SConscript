@@ -94,7 +94,7 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 ##  Build the nidas_dynld library.
 ##
 myenv.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
-lib = myenv.SharedLibrary('nidas_dynld' , myenv['LIBNIDAS_DYNLD_SOURCES'] )
+lib = myenv.SharedLibrary('nidas_dynld' , myenv['LIBNIDAS_DYNLD_SOURCES'],LIBS=[] )
 
 ##
 ## Install targets for library and headers.

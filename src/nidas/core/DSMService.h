@@ -34,8 +34,7 @@ class Site;
 /**
  * Base class for a service, as built from a <service> XML tag.
  */
-class DSMService: public nidas::util::Thread, public SampleConnectionRequester,
-	public DOMable
+class DSMService: public SampleConnectionRequester, public DOMable
 {
 public:
     
@@ -44,21 +43,16 @@ public:
      */
     DSMService(const std::string& name);
 
-    /**
-     * Copy constuctor.
-     */
-    DSMService(const DSMService& x);
-
-    /**
-     * Copy constuctor with a new input.
-     */
-    DSMService(const DSMService& x,nidas::dynld::SampleInputStream*);
-
     virtual ~DSMService();
+
+    const std::string& getName() const
+    {
+        return _name;
+    }
 
     virtual void setDSMServer(DSMServer* val);
 
-    virtual DSMServer* getDSMServer() const { return server; }
+    virtual DSMServer* getDSMServer() const { return _server; }
 
     /**
      * Add a processor to this RawSampleService. This is done
@@ -66,12 +60,12 @@ public:
      */
     virtual void addProcessor(SampleIOProcessor* proc)
     {
-        processors.push_back(proc);
+        _processors.push_back(proc);
     }
 
     virtual const std::list<SampleIOProcessor*>& getProcessors() const
     {
-        return processors;
+        return _processors;
     }
 
     ProcessorIterator getProcessorIterator() const;
@@ -81,12 +75,10 @@ public:
      */
     virtual void schedule() throw(nidas::util::Exception) = 0;
 
-    virtual int checkSubServices() throw();
+    virtual int checkSubThreads() throw();
     virtual void cancel() throw();
     virtual void interrupt() throw();
     virtual int join() throw();
-
-    void start() throw(nidas::util::Exception);
 
     static const std::string getClassName(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
@@ -94,27 +86,48 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+    nidas::util::Thread::SchedPolicy getSchedPolicy() const
+    {
+        return _threadPolicy;
+    }
+
+    int getSchedPriority() const
+    {
+        return _threadPriority;
+    }
+
 protected:
 
-    void addSubService(DSMService*) throw();
+    void addSubThread(nidas::util::Thread*) throw();
 
-    DSMServer* server;
+    std::string _name;
 
-    std::set<DSMService*> subServices;
+    DSMServer* _server;
 
-    nidas::util::Mutex subServiceMutex;
+    std::set<nidas::util::Thread*> _subThreads;
 
-    nidas::dynld::SampleInputStream* input;
+    nidas::util::Mutex _subThreadMutex;
 
-    std::list<SampleIOProcessor*> processors;
+    std::list<nidas::dynld::SampleInputStream*> _inputs;
+
+    std::list<SampleIOProcessor*> _processors;
+
+    std::list<IOChannel*> _outputs;
+
+    nidas::util::Thread::SchedPolicy _threadPolicy;
+
+    int _threadPriority;
+
+private:
+    /**
+     * Copying not supported.
+     */
+    DSMService(const DSMService& x);
 
     /**
-     * Increment to be added to the nice value of the process.
-     * Positive values reduce the priority of the calling process.
-     * Negative values increase the priority.  Only the superuser
-     * may specifiy a negative increment.
+     * Assignment not supported.
      */
-    int _niceIncrement;
+    DSMService& operator = (const DSMService& x);
 
 };
 

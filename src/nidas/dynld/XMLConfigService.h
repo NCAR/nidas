@@ -26,11 +26,6 @@ class XMLConfigService: public DSMService, public ConnectionRequester
 public:
     XMLConfigService();
 
-    /**
-     * Copy constructor.
-     */
-    XMLConfigService(const XMLConfigService&,IOChannel *iochan);
-
     ~XMLConfigService();
 
     int run() throw(nidas::util::Exception);
@@ -44,26 +39,32 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
-protected:
-
-    /**
-     * After a DSM connects, and the XMLConfigService is cloned,
-     * then this method is called to set the DSMConfig,  so that
-     * the Thread::run() method delivers XML for a specific DSM.
-     */
-    void setDSMConfig(const DSMConfig* val) { dsm = val; }
-
-    const DSMConfig* getDSMConfig() const { return dsm; }
-
-    IOChannel* iochan;
-
-    const DSMConfig* dsm;
-
 private:
+
     /**
-     * Copy constructor.
+     * Worker thread that is run when a connection comes in.
+     */
+    class Worker: public nidas::util::Thread
+    {
+        public:
+            Worker(XMLConfigService* svc,IOChannel* output,const DSMConfig* dsm);
+            ~Worker();
+            int run() throw(nidas::util::Exception);
+        private:
+            XMLConfigService* _svc;
+            IOChannel* _output;
+            const DSMConfig* _dsm;
+    };
+
+    /**
+     * Copying not supported.
      */
     XMLConfigService(const XMLConfigService&);
+
+    /**
+     * Assignment not supported.
+     */
+    XMLConfigService& operator =(const XMLConfigService&);
 
 };
 

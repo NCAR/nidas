@@ -40,42 +40,38 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(XMLConfigService)
 
 XMLConfigService::XMLConfigService():
-	DSMService("XMLConfigService"),iochan(0),dsm(0)
-{
-}
-
-/*
- * Copy constructor.
- */
-XMLConfigService::XMLConfigService(const XMLConfigService& x,IOChannel* ioc):
-        DSMService((const DSMService&)x),iochan(ioc),dsm(x.dsm)
+	DSMService("XMLConfigService")
 {
 }
 
 XMLConfigService::~XMLConfigService()
 {
-    if (iochan) {
-        iochan->close();
-	delete iochan;
-    }
 }
 
 void XMLConfigService::schedule() throw(n_u::Exception)
 {
-    iochan->setRequestNumber(XML_CONFIG);
-    iochan->requestConnection(this);
+    list<IOChannel*>::iterator oi = _outputs.begin();
+    for ( ; oi != _outputs.end(); ++oi) {
+        IOChannel* output = *oi;
+        output->setRequestNumber(XML_CONFIG);
+        output->requestConnection(this);
+    }
 }
 
 void XMLConfigService::interrupt() throw()
 {
-    iochan->close();
+    list<IOChannel*>::iterator oi = _outputs.begin();
+    for ( ; oi != _outputs.end(); ++oi) {
+        IOChannel* output = *oi;
+        output->close();
+    }
     DSMService::interrupt();
 }
-void XMLConfigService::connected(IOChannel* iochan) throw()
+void XMLConfigService::connected(IOChannel* output) throw()
 {
     // Figure out what DSM it came from
-    n_u::Inet4Address remoteAddr = iochan->getRemoteInet4Address();
-    cerr << "findDSM, addr=" << remoteAddr.getHostAddress() << endl;
+    n_u::Inet4Address remoteAddr = output->getRemoteInet4Address();
+    DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
     if (!dsm) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -84,16 +80,35 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
 	return;
     }
 
-    cerr << "findDSM, dsm=" << dsm->getName() << endl;
-    // make a copy of myself, assign it to a specific dsm
-    XMLConfigService* newserv = new XMLConfigService(*this,iochan);
-    newserv->setDSMConfig(dsm);
-    newserv->start();
+    DLOG(("findDSM, dsm=") << dsm->getName());
 
-    addSubService(newserv);
+    // The output should be a new output, created from the configured
+    // outputs, since it should be a newly connected Socket.
+    // If it isn't then we have pointer ownership issues that must
+    // resolved.
+    list<IOChannel*>::iterator oi = std::find(_outputs.begin(),_outputs.end(),output);
+    assert(oi == _outputs.end());
+
+    // worker will own and delete the output.
+    Worker* worker = new Worker(this,output,dsm);
+    worker->start();
+    addSubThread(worker);
 }
 
-int XMLConfigService::run() throw(n_u::Exception)
+XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*output,
+    const DSMConfig*dsm):
+        Thread(svc->getName()), _svc(svc),_output(output),_dsm(dsm)
+{
+    blockSignal(SIGHUP);
+    blockSignal(SIGINT);
+    blockSignal(SIGTERM);
+}
+XMLConfigService::Worker::~Worker()
+{
+    _output->close();
+    delete _output;
+}
+int XMLConfigService::Worker::run() throw(n_u::Exception)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
@@ -116,52 +131,23 @@ int XMLConfigService::run() throw(n_u::Exception)
     }
     // delete projnodes;
 
-    XMLFdFormatTarget formatter(iochan->getName(),iochan->getFd());
+    XMLFdFormatTarget formatter(_output->getName(),_output->getFd());
 
-    XMLConfigWriter writer(getDSMConfig());
+    XMLConfigWriter writer(_dsm);
     writer.writeNode(&formatter,*doc);
 
-    iochan->close();
+    _output->close();
     return RUN_OK;
 }
 
 void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
-    int niochan = 0;
-    XDOMElement xnode(node);
-    xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
-    {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-        XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& elname = xchild.getNodeName();
+    DSMService::fromDOMElement(node);
 
-        if (!elname.compare("output")) {
-	    xercesc::DOMNode* gkid;
-	    for (gkid = child->getFirstChild(); gkid != 0;
-		    gkid=gkid->getNextSibling())
-	    {
-		if (gkid->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-
-		iochan = IOChannel::createIOChannel((xercesc::DOMElement*)gkid);
-		iochan->fromDOMElement((xercesc::DOMElement*)gkid);
-
-		if (++niochan > 1)
-		    throw n_u::InvalidParameterException(
-			"XMLConfigService::fromDOMElement",
-			"output", "must have one child element");
-	    }
-
-        }
-        else throw n_u::InvalidParameterException(
-                "XMLConfigService::fromDOMElement",
-                elname, "unsupported element");
-    }
-    if (iochan == 0)
+    if (_outputs.size() == 0)
 	throw n_u::InvalidParameterException(
 	    "XMLConfigService::fromDOMElement",
-	    "output", "one output required");
+	    "output", "one or more outputs required");
 }
 

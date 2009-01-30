@@ -44,10 +44,9 @@ public:
     StatisticsProcessor* clone() const;
 
     /**
-     * Does this StatisticsProcessor only expect input samples from
-     * one DSM?
+     * One processor for all inputs.
      */
-    bool singleDSM() const { return false; }
+    bool cloneOnConnection() const { return false; }
 
     void addSampleTag(SampleTag* tag)
 	    throw(nidas::util::InvalidParameterException);

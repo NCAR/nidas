@@ -44,6 +44,10 @@ public:
     {
     }
 
+    /**
+     * @return an empty string if attribute does not have a
+     *  specified or default value.
+     */
     const std::string& getAttributeValue(const std::string& aname) {
 	std::map<std::string,std::string>::const_iterator ai = attrs.find(aname);
 	if (ai == attrs.end()) {

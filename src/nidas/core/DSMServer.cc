@@ -28,6 +28,12 @@
 
 #include <unistd.h>
 #include <memory> // auto_ptr<>
+#include <pwd.h>
+
+#ifdef HAS_CAPABILITY_H 
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif
 
 using namespace nidas::core;
 using namespace std;
@@ -65,6 +71,15 @@ const char *DSMServer::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xm
 string DSMServer::configsXMLName;
 
 /* static */
+string DSMServer::_username;
+
+/* static */
+uid_t DSMServer::_userid = 0;
+
+/* static */
+gid_t DSMServer::_groupid = 0;
+
+/* static */
 int DSMServer::main(int argc, char** argv) throw()
 {
 
@@ -79,18 +94,57 @@ int DSMServer::main(int argc, char** argv) throw()
         lc.level = n_u::LOGGER_DEBUG;
     }
     else {
-	// fork to background, send stdout/stderr to /dev/null
+	// fork to background, chdir to /,
+        // send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
 	    n_u::IOException e("DSMServer","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
         logger = n_u::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
-        lc.level = n_u::LOGGER_INFO;
+        lc.level = n_u::LOGGER_DEBUG;
     }
     logger->setScheme(n_u::LogScheme().addConfig (lc));
 
-    // Open and check the pid file after the above daemon() call.
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
+#endif
+
+    gid_t gid = getGroupID();
+    if (gid != 0 && getegid() != gid) {
+        DLOG(("doing setgid(%d)",gid));
+        if (setgid(gid) < 0)
+            WLOG(("%s: cannot change group id to %d: %m","DSMServer",gid));
+    }
+
+    uid_t uid = getUserID();
+    if (uid != 0 && geteuid() != uid) {
+        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+        if (setuid(uid) < 0)
+            WLOG(("%s: cannot change userid to %d (%s): %m", "DSMServer",uid,getUserName().c_str()));
+    }
+
+#ifdef CAP_SYS_NICE
+    // Check that CAP_SYS_NICE is still in effect after setuid.
+    if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
+        WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv[0]));
+
+#ifdef DEBUG
+    DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+    DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+#endif
+
+    // Open and check the pid file after the above setuid() and daemon() calls.
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
         if (pid > 0) {
@@ -329,7 +383,7 @@ void DSMServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
 /* static */
 Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
-        throw(nidas::core::XMLException,n_u::InvalidParameterException)
+        throw(nidas::core::XMLException,n_u::InvalidParameterException,n_u::IOException)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
     // throws nidas::core::XMLException
@@ -543,7 +597,7 @@ void DSMServer::waitOnServices() throw()
 	list<DSMService*>::const_iterator si;
 	for (si=services.begin(); si != services.end(); ++si) {
 	    DSMService* svc = *si;
-	    nservices += svc->checkSubServices();
+	    nservices += svc->checkSubThreads();
 	}
 	
 #ifdef DEBUG
@@ -555,7 +609,6 @@ void DSMServer::waitOnServices() throw()
         nanosleep(&sleepTime,0);
 
 	if (quit || restart) break;
-                                                                                
     }
 
 #ifdef DEBUG
@@ -592,14 +645,32 @@ void DSMServer::waitOnServices() throw()
 int DSMServer::parseRunstring(int argc, char** argv)
 {
     debug = false;
-    // extern char *optarg;	/* set by getopt() */
+    extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdv")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdu:v")) != -1) {
         switch (opt_char) {
         case 'd':
             debug = true;
             break;
+	case 'u':
+            {
+                struct passwd pwdbuf;
+                struct passwd *result;
+                long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
+                if (nb < 0) nb = 4096;
+                char* strbuf = new char[nb];
+                if (getpwnam_r(optarg,&pwdbuf,strbuf,nb,&result) < 0) {
+                    cerr << "Unknown user: " << optarg << endl;
+                    delete [] strbuf;
+                    return usage(argv[0]);
+                }
+                _username = optarg;
+                _userid = pwdbuf.pw_uid;
+                _groupid = pwdbuf.pw_gid;
+                delete [] strbuf;
+            }
+	    break;
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;
 	    return 1;
@@ -643,15 +714,18 @@ int DSMServer::usage(const char* argv0)
 {
     const char* cfg;
     cerr << "\
-Usage: " << argv0 << "[-d] [-v] [config]\n\
-  -d: debug. Run in foreground and send messages to stderr.\n\
-      Otherwise it will run in the background and messages to syslog\n\
+Usage: " << argv0 << " [-c] [-d] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
     rafXML << "\nor\n\t" << isffXML << "\n\
+  -d: debug. Run in foreground and send messages to stderr with loglevel DEBUG.\n\
+      Otherwise run in the background, cd to /, and log messages to syslog\n\
+  -u username: after startup, switch userid to username from root\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
-          default: $NIDAS_CONFIG=\"" <<
-	  	((cfg = getenv("NIDAS_CONFIG")) ? cfg : "<not set>") << endl;
+    This parameter is not used if you specify the -c option\n\
+    default: $NIDAS_CONFIG=\"" <<
+	  	((cfg = getenv("NIDAS_CONFIG")) ? cfg : "<not set>") << "\"\n\
+    Note: use an absolute path to this file if you run in the background without -d." << endl;
     return 1;
 }
 

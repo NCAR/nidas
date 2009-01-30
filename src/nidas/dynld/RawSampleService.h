@@ -25,23 +25,14 @@ namespace nidas { namespace dynld {
 
 /**
  * A RawSampleService reads raw Samples from a socket connection
- * and sends the samples to one or more SampleClients.
+ * and sends the samples to one or more SampleIOProcessors.
  */
 class RawSampleService: public DSMService
 {
 public:
     RawSampleService();
 
-    /**
-     * Copy constructor, but with a new input.
-     */
-    RawSampleService(const RawSampleService&,SampleInputStream* newinput);
-
     ~RawSampleService();
-
-    int run() throw(nidas::util::Exception);
-
-    void interrupt() throw();
 
     void connected(SampleInput*) throw();
 
@@ -52,10 +43,41 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
-protected:
+private:
 
-    SampleInputMerger* merger;
+    SampleInputMerger* _merger;
 
+    /**
+     * Worker thread that is run when a SampleInputConnection is established.
+     */
+    class Worker: public nidas::util::Thread
+    {
+        public:
+            Worker(RawSampleService* svc,SampleInputStream *input);
+            ~Worker();
+            int run() throw(nidas::util::Exception);
+        private:
+            RawSampleService* _svc;
+            SampleInputStream* _input;
+            std::list<SampleIOProcessor*> _processors;
+    };
+
+    /**
+     * Keep track of the Worker for each SampleInput.
+     */
+    std::map<SampleInput*,Worker*> _workers;
+
+    nidas::util::Mutex _workerMutex;
+
+    /**
+     * Copying not supported.
+     */
+    RawSampleService(const RawSampleService&);
+
+    /**
+     * Assignment not supported.
+     */
+    RawSampleService& operator =(const RawSampleService&);
 };
 
 }}	// namespace nidas namespace core

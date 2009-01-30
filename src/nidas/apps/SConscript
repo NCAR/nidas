@@ -9,22 +9,24 @@ Import('env')
 myenv = env.Clone()
 arch = myenv['ARCH']
 
-myenv.AppendUnique(LIBS = Split("""
+# print 'LIBS=' + str(myenv['LIBS'])
+
+liball = Split("""
     nidas
     nidas_dynld
     xerces-c
     XmlRpc
-    pthread
     dl
-    """))
+    """) + myenv['LIBS']
+# liball += myenv['LIBS']
 
 # libutilpath = [
 #     '#/build_' + arch + '/build_util']
 
 libutil = Split("""
     libnidas_util
-    pthread
-    """)
+    """) + myenv['LIBS']
+# libutil += myenv['LIBS']
 
 if arch == 'arm':
     archapps=Split("""
@@ -42,12 +44,6 @@ apps = Split("""
     ck_arinc.cc
     ck_calfile.cc
     extract2d.cc
-    merge_verify.cc
-    nidsmerge.cc
-    dsm_server.cc
-    dsm.cc
-    statsproc.cc
-    serial_test.cc
     merge_verify.cc
     nidsmerge.cc
     dsm_server.cc
@@ -98,7 +94,7 @@ nuapps = Split("""
 
 nodes = []
 for i in apps + archapps:
-    nodes += myenv.Program( i )
+    nodes += myenv.Program( source=i, LIBS=liball)
 
 # suppress linking against nidas libraries
 for i in nlapps:

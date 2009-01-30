@@ -27,50 +27,30 @@ using nidas::dynld::SampleInputStream;
 
 namespace n_u = nidas::util;
 
-DSMService::DSMService(const std::string& name): n_u::Thread(name),
-	server(0),input(0),_niceIncrement(0)
-{
-    blockSignal(SIGHUP);
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
-}
-
-DSMService::DSMService(const DSMService& x):
-	n_u::Thread(x),server(x.server),input(x.input),
-	_niceIncrement(x._niceIncrement)
-{
-}
-
-DSMService::DSMService(const DSMService& x,SampleInputStream* newinput):
-	n_u::Thread(x),server(x.server),input(newinput),
-	_niceIncrement(x._niceIncrement)
+DSMService::DSMService(const std::string& name): _name(name),
+	_server(0),_threadPolicy(n_u::Thread::NU_THREAD_OTHER),_threadPriority(0)
 {
 }
 
 DSMService::~DSMService()
 {
-    if (input) {
-#ifdef DEBUG
-	cerr << "~DSMService, closing " << input->getName() << endl;
-#endif
+    list<SampleInputStream*>::iterator li = _inputs.begin();
+    for ( ; li != _inputs.end(); ++li) {
+        SampleInputStream* input = *li;
         input->close();
 	delete input;
     }
-#ifdef DEBUG
-    cerr << "~DSMService, deleting processors" << endl;
-#endif
     list<SampleIOProcessor*>::const_iterator pi;
-    for (pi = processors.begin(); pi != processors.end(); ++pi) {
+    for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
         SampleIOProcessor* processor = *pi;
-#ifdef DEBUG
-	cerr << "~DSMService, deleting " <<
-	    processor->getName() << endl;
-#endif
 	delete processor;
     }
-#ifdef DEBUG
-    cerr << "~DSMService" << endl;
-#endif
+    list<IOChannel*>::iterator oi = _outputs.begin();
+    for ( ; oi != _outputs.end(); ++oi) {
+        IOChannel* output = *oi;
+        output->close();
+        delete output;
+    }
 }
 
 ProcessorIterator DSMService::getProcessorIterator() const
@@ -80,124 +60,92 @@ ProcessorIterator DSMService::getProcessorIterator() const
 
 void DSMService::setDSMServer(DSMServer* val)
 {
-    server = val;
+    _server = val;
 }
 
-void DSMService::addSubService(DSMService* svc) throw()
+void DSMService::addSubThread(n_u::Thread* thd) throw()
 {
-    n_u::Synchronized autolock(subServiceMutex);
-    subServices.insert(svc);
-}
-
-void DSMService::start() throw(n_u::Exception)
-{
-    if (_niceIncrement != 0 && ::nice(_niceIncrement) < 0) {
-	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "service %s: cannot set nice value (but continuing anyway): %s",
-	    getName().c_str(),n_u::Exception::errnoToString(errno).c_str());
-    }
-    Thread::start();
+    n_u::Synchronized autolock(_subThreadMutex);
+    _subThreads.insert(thd);
 }
 
 void DSMService::interrupt() throw()
 {
-    n_u::Synchronized autolock(subServiceMutex);
+    n_u::Synchronized autolock(_subThreadMutex);
 
-    set<DSMService*>::iterator si;
-    for (si = subServices.begin(); si != subServices.end(); ++si) {
-        DSMService* svc = *si;
+    set<n_u::Thread*>::iterator si;
+    for (si = _subThreads.begin(); si != _subThreads.end(); ++si) {
+        n_u::Thread* thd = *si;
         try {
-            if (svc->isRunning()) svc->interrupt();
+            if (thd->isRunning()) thd->interrupt();
         }
         catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_ERR,
                     "service %s: %s",
-            svc->getName().c_str(),e.what());
+            thd->getName().c_str(),e.what());
         }
     }
-    Thread::interrupt();
 }
 
 void DSMService::cancel() throw()
 {
-    n_u::Synchronized autolock(subServiceMutex);
+    n_u::Synchronized autolock(_subThreadMutex);
 
-    set<DSMService*>::iterator si;
-    for (si = subServices.begin(); si != subServices.end(); ++si) {
-        DSMService* svc = *si;
+    set<n_u::Thread*>::iterator si;
+    for (si = _subThreads.begin(); si != _subThreads.end(); ++si) {
+        n_u::Thread* thd = *si;
         try {
-            if (svc->isRunning()) svc->cancel();
+            if (thd->isRunning()) thd->cancel();
         }
         catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_ERR,
                     "service %s: %s",
-            svc->getName().c_str(),e.what());
+            thd->getName().c_str(),e.what());
         }
-    }
-    try {
-	if (isRunning()) Thread::cancel();
-    }
-    catch(const n_u::Exception& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-		"service %s: %s",
-	getName().c_str(),e.what());
     }
 }
 
 int DSMService::join() throw()
 {
-    n_u::Synchronized autolock(subServiceMutex);
+    n_u::Synchronized autolock(_subThreadMutex);
 
-    set<DSMService*>::iterator si;
-    for (si = subServices.begin(); si != subServices.end(); ++si) {
-        DSMService* svc = *si;
+    set<n_u::Thread*>::iterator si;
+    for (si = _subThreads.begin(); si != _subThreads.end(); ++si) {
+        n_u::Thread* thd = *si;
         try {
-	    cerr << "joining " << svc->getName() << endl;
-            svc->join();
-	    cerr << svc->getName() << " joined" << endl;
+            thd->join();
         }
         catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_ERR,
                     "service %s: %s",
-            svc->getName().c_str(),e.what());
+            thd->getName().c_str(),e.what());
         }
-	delete svc;
+	delete thd;
     }
-    subServices.clear();
-    int ijoin = 0;
-    try {
-	if (!isJoined()) ijoin = Thread::join();
-    }
-    catch(const n_u::Exception& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-		"service %s: %s",
-	getName().c_str(),e.what());
-    }
-    return ijoin;
+    _subThreads.clear();
+    return n_u::Thread::RUN_OK;
 }
 
-int DSMService::checkSubServices() throw()
+int DSMService::checkSubThreads() throw()
 {
-    n_u::Synchronized autolock(subServiceMutex);
+    n_u::Synchronized autolock(_subThreadMutex);
 
     int nrunning = 0;
-    set<DSMService*>::iterator si;
-    for (si = subServices.begin(); si != subServices.end(); ) {
-        DSMService* svc = *si;
-        if (!svc->isRunning()) {
-            cerr << "DSMService::checkSubServices " <<
-                " joining " << svc->getName() << endl;
+    set<n_u::Thread*>::iterator si;
+    for (si = _subThreads.begin(); si != _subThreads.end(); ) {
+        n_u::Thread* thd = *si;
+        if (!thd->isRunning()) {
             try {
-                svc->join();
+                thd->join();
             }
             catch(const n_u::Exception& e) {
                 n_u::Logger::getInstance()->log(LOG_ERR,
                         "thread %s has quit, exception=%s",
-                svc->getName().c_str(),e.what());
+                thd->getName().c_str(),e.what());
             }
-            delete svc;
-            subServices.erase(si);
-            si = subServices.begin();
+            delete thd;
+            _subThreads.erase(si);
+            si = _subThreads.begin();
         }
         else {
             nrunning++;
@@ -278,12 +226,11 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 			throw n_u::InvalidParameterException(
 			    "DSMService::fromDOMElement, cannot read priority",
 			    aname, aval);
-		    if (policy == "RT_FIFO")
-		    	setRealTimeFIFOPriority(priority);
-		    else if (policy == "RT_RR")
-		    	setRealTimeRoundRobinPriority(priority);
-		    else if (policy == "NICE")
-		    	_niceIncrement = priority;
+                    _threadPriority = priority;
+		    if (policy == "RT_FIFO") _threadPolicy = n_u::Thread::NU_THREAD_FIFO;
+		    	// setRealTimeFIFOPriority(priority);
+		    else if (policy == "RT_RR") _threadPolicy = n_u::Thread::NU_THREAD_RR;
+		    	// setRealTimeRoundRobinPriority(priority);
 		    else
 			throw n_u::InvalidParameterException(
 			    "DSMService::fromDOMElement, invalid priority (should be RT_FIFO, RT_RR or NICE",
@@ -315,13 +262,15 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException("service",
                     classattr,e.what());
             }
-	    input = dynamic_cast<SampleInputStream*>(domable);
+	    SampleInputStream* input =
+                dynamic_cast<SampleInputStream*>(domable);
             if (!input) {
 		delete domable;
                 throw n_u::InvalidParameterException("service",
                     classattr,"is not a SampleInputStream");
 	    }
             input->fromDOMElement((xercesc::DOMElement*)child);
+            _inputs.push_back(input);
 	}
         else if (elname == "processor") {
 	    const string& classattr = xchild.getAttributeValue("class");
@@ -355,17 +304,36 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
             processor->fromDOMElement((xercesc::DOMElement*)child);
 	    addProcessor(processor);
         }
+        /* Processors often have their own <output>s,
+         * but a <service>, like XMLConfigService may also have its
+         * own <output>, which then typically doesn't have a <processor> */
+        else if (elname == "output") {
+            xercesc::DOMNode* gkid;
+            // parse all child elements of the output.
+            for (gkid = child->getFirstChild(); gkid != 0;
+                    gkid=gkid->getNextSibling())
+            {
+                if (gkid->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+
+                IOChannel* output;
+                output = IOChannel::createIOChannel((xercesc::DOMElement*)gkid);
+                output->fromDOMElement((xercesc::DOMElement*)gkid);
+                _outputs.push_back(output);
+            }
+        }
         else throw n_u::InvalidParameterException(
                 "DSMService::fromDOMElement",
                 elname, "unsupported element");
     }
-    if (!input)
+    /*
+    if (_inputs.size() == 0)
         throw n_u::InvalidParameterException(
                 "DSMService::fromDOMElement",
                 "input", "no inputs specified");
-    if (processors.size() == 0)
+    if (_processors.size() == 0)
         throw n_u::InvalidParameterException(
                 "DSMService::fromDOMElement",
                 "processor", "no processors specified");
+    */
 }
 

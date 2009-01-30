@@ -39,7 +39,7 @@ public:
 
     SampleArchiver* clone() const;
 
-    bool singleDSM() const { return false; }
+    bool cloneOnConnection() const { return false; }
 
     void connect(SampleInput*) throw(nidas::util::IOException);
 

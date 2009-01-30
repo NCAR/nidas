@@ -59,7 +59,7 @@ public:
      * Parse an XMLConfigFile.
      */
     static Project* parseXMLConfigFile(const std::string& xmlFileName)
-        throw(nidas::core::XMLException,nidas::util::InvalidParameterException);
+        throw(nidas::core::XMLException,nidas::util::InvalidParameterException,nidas::util::IOException);
 
     static const char* rafXML;
 
@@ -112,6 +112,21 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
+
+    static std::string getUserName()
+    { 
+        return _username;
+    }
+
+    static uid_t getUserID()
+    {
+        return _userid;
+    }
+
+    static uid_t getGroupID()
+    {
+        return _groupid;
+    }
 
 protected:
 
@@ -168,6 +183,12 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> services;
+
+    static std::string _username;
+
+    static uid_t _userid;
+
+    static gid_t _groupid;
 
 private:
     /**

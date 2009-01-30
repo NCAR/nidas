@@ -46,10 +46,9 @@ public:
     CVIProcessor* clone() const;
 
     /**
-     * Does this CVIProcessor only expect input samples from
-     * one DSM?
+     * No need to clone.
      */
-    bool singleDSM() const { return true; }
+    bool cloneOnConnection() const { return false; }
 
     void addSampleTag(SampleTag* tag)
 	    throw(nidas::util::InvalidParameterException);

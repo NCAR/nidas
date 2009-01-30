@@ -279,7 +279,7 @@ XMLCachingParser::~XMLCachingParser()
 }
 
 DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
-    throw (nidas::core::XMLException)
+    throw (nidas::core::XMLException,nidas::util::IOException)
 {
     // synchronize access to the cache
     n_u::Synchronized autosync(cacheLock);

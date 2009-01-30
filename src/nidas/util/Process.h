@@ -23,6 +23,10 @@
 #include <signal.h>
 #include <sys/types.h>
 
+#ifdef HAS_CAPABILITY_H 
+#include <sys/capability.h>
+#endif
+
 #include <ext/stdio_filebuf.h>
 
 namespace nidas { namespace util {
@@ -249,6 +253,20 @@ public:
      * function to be called when the process exits.
      */
     static void removePidFile();
+
+    /**
+     * Add an effective capability to this process. See man 7 capabilities.
+     * This also does a prctl(PR_SET_SECUREBITS,SECURE_NO_SETUID_FIXUP)
+     * so that the capability is not lost as a result of a setuid to
+     * other than the root user. The process must have root user
+     * privileges to add capabilities.
+     */
+    static void addEffectiveCapability(int cap) throw(Exception);
+
+    /**
+     * Check if this process has an effective capability. See man 7 capabilities.
+     */
+    static bool getEffectiveCapability(int cap) throw(Exception);
 
 private:
 

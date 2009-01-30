@@ -80,8 +80,8 @@ env['NIDAS_UTIL_OBJECTS'] = objects
 ##
 ##  Build the libnidas_util library.
 ##
-lib = myenv.SharedLibrary('nidas_util' , objects)
-slib = myenv.StaticLibrary('nidas_util' , objects)
+lib = myenv.SharedLibrary('nidas_util' , objects,LIBS=[])
+slib = myenv.StaticLibrary('nidas_util' , objects,LIBS=[])
 
 ##
 ## Install targets for libraries and headers.

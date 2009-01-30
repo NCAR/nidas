@@ -226,9 +226,14 @@ public:
    **/
   const std::string getFullName() throw();
 
+  enum SchedPolicy { NU_THREAD_OTHER=SCHED_OTHER,
+        NU_THREAD_FIFO=SCHED_FIFO, NU_THREAD_RR=SCHED_RR};
+
   bool setRealTimeRoundRobinPriority(int val) throw(Exception);
   bool setRealTimeFIFOPriority(int val) throw(Exception);
   bool setNonRealTimePriority() throw(Exception);
+
+  void setThreadScheduler(enum SchedPolicy policy, int priority) throw(Exception);
 
   /**
    * Block this signal.
@@ -302,13 +307,13 @@ protected:
   void registerThread();
   void unregisterThread();
 
-  void setThreadScheduler(int policy, int priority) throw(Exception);
-
   std::string fullName();
 
   void makeFullName();		// add thread id to name once we know it
 
   pthread_t getId() const { return _id; }
+
+  void setThreadSchedulerNolock(enum SchedPolicy policy, int priority) throw(Exception);
 
 protected:
 

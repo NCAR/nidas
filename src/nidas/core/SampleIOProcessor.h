@@ -74,10 +74,9 @@ public:
     }
 
     /**
-     * Does this SampleIOProcessor only expect input samples from
-     * one DSM?
+     * Should this Processor be cloned on each connection?
      */
-    virtual bool singleDSM() const = 0;
+    virtual bool cloneOnConnection() const = 0;
 
     /**
      * Do common operations necessary when a input has connected:
