@@ -118,6 +118,8 @@ public:
 
     static void interrupt() { interrupted = true; }
 
+    static void finishUp() { finished = true; }
+
 private:
 
     string progname;
@@ -127,6 +129,8 @@ private:
     IOChannel* iochan;
 
     static bool interrupted;
+
+    static bool finished;
 
     string xmlFileName;
 
@@ -189,7 +193,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     if (checkStart && tt < startTime.toUsecs()) return false;
     if (checkEnd && tt > endTime.toUsecs()) {
-        DataPrep::interrupt();
+        DataPrep::finishUp();
         return false;
     }
 
@@ -246,7 +250,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 }
 
 DataPrep::DataPrep(): 
-	sorterLength(250),
+        sorterLength(250),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
         rate(0.0),dosOut(false),doHeader(true)
@@ -466,6 +470,8 @@ Examples:\n" <<
 
 /* static */
 bool DataPrep::interrupted = false;
+
+bool DataPrep::finished = false;
 
 /* static */
 void DataPrep::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -768,11 +774,11 @@ int DataPrep::run() throw()
 
 	for (;;) {
 	    sis->readSamples();
-	    if (interrupted) break;
+	    if (finished || interrupted) break;
 	}
 	resampler->removeSampleClient(dumper.get());
         resampler->disconnect(sis.get());
-        return 1;       // interrupted
+        if (interrupted) return 1;       // interrupted
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;
