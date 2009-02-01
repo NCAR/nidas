@@ -212,7 +212,6 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = procs.begin(); pi != procs.end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-
 	// We don't clone non-single DSM processors.
 	if (!proc->isOptional() && proc->cloneOnConnection()) {
 	    // clone processor
@@ -234,56 +233,6 @@ RawSampleService::Worker::~Worker()
 
 int RawSampleService::Worker::run() throw(n_u::Exception)
 {
-
-#ifdef CHANGE_PRIOR_IN_THREAD
-    DSMServer* svr = _svc->getDSMServer();
-    uid_t ruid,euid,suid;
-    if (svr && _svc->getSchedPolicy() != n_u::Thread::NU_THREAD_OTHER) {
-// #define CHANGE_UID
-#ifdef CHANGE_UID
-        if (getresuid(&ruid,&euid,&suid) < 0)
-            cerr << "error in getresuid" << endl;
-        cerr << "getuid=" << getuid() << " ruid=" << ruid << " euid=" << euid << " suid=" << suid << endl;
-        if (seteuid(0) < 0) {
-            WLOG(("%s: cannot change userid to 0 (root)", getName().c_str()));
-        }
-        else {
-            if (getresuid(&ruid,&euid,&suid) < 0)
-                cerr << "error in getresuid" << endl;
-            cerr << "after seteuid(0), getuid=" << getuid() << " ruid=" << ruid << " euid=" << euid << " suid=" << suid << endl;
-#endif
-#define CHANGE_PRIOR
-#ifdef CHANGE_PRIOR
-#ifdef CAP_SYS_NICE
-    try {
-        cerr << "adding capability" << endl;
-        n_u::Process::addCapability(CAP_SYS_NICE);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s",argv[0],e.what()));
-    }
-#endif
-            try {
-                setThreadScheduler(_svc->getSchedPolicy(),_svc->getSchedPriority());
-            }
-            catch (const n_u::Exception& e) {
-                WLOG(("%s: %s", getName().c_str(),e.what()));
-            }
-#endif
-#ifdef CHANGE_UID
-            uid_t uid = svr->getUserID();
-            cerr << "Username:" << svr->getUserName() << " id=" << svr->getUserID() << endl;
-            if (geteuid() != uid && seteuid(uid) < 0)
-                WLOG(("%s: cannot change userid to %d (%s)", getName().c_str(),uid,svr->getUserName().c_str()));
-            if (getresuid(&ruid,&euid,&suid) < 0)
-                cerr << "error in getresuid" << endl;
-            cerr << "after seteuid(uid), getuid=" << getuid() << " ruid=" << ruid << " euid=" << euid << " suid=" << suid << endl;
-
-        }
-#endif
-    }
-#endif
-
     _input->init();		// throws n_u::IOException
 
     // connect workers processors to the input.
