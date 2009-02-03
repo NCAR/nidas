@@ -11,30 +11,30 @@ import localutils    # get_svnversion
 ##
 
 Import('env')
-# Import('build_rtlinux_modules')
-myenv = env.Clone()
-arch = myenv['ARCH']
+# Clone it since we alter CC, CCFLAGS
+env = env.Clone()
+arch = env['ARCH']
 
 rtlgcc = '/opt/rtldk-2.2/bin/arm-linux-gcc'
 
 ##
 ##  RTLinux specific settings
 ##
-myenv.Replace(CC = rtlgcc)
+env.Replace(CC = rtlgcc)
 
-myenv.AppendUnique(CCFLAGS=[Split("""
+env.AppendUnique(CCFLAGS=[Split("""
       -DMODULE -D__RTCORE_KERNEL__
       -nostdinc
       -isystem /opt/rtldk-2.2/bin/../lib/gcc-lib/arm-linux/3.3.2/include/  
     """),
-    '-DDSM_VERSION=' + localutils.get_svnversion(myenv)]
+    '-DDSM_VERSION=' + localutils.get_svnversion(env)]
 )
 
 #    -Wa,-mcpu=xscale -mapcs -mapcs-32 -march=armv4 -mno-sched-prolog
 #    -mshort-load-bytes -mtune=strongarm -Uarm -DDSM
 #    -fno-omit-frame-pointer -fno-strict-aliasing
 
-myenv.AppendUnique(CPPPATH=Split("""
+env.AppendUnique(CPPPATH=Split("""
   /opt/rtldk-2.2/rtlinuxpro/include/app/rtl
   /opt/rtldk-2.2/rtlinuxpro/linux/include
   /opt/rtldk-2.2/rtlinuxpro/include
@@ -93,17 +93,17 @@ headers = Split("""
     win_com8.h
 """)
 
-myenv.Install('$PREFIX/include/nidas/rtlinux',headers)
+env.Install('$PREFIX/include/nidas/rtlinux',headers)
 
 ## 
 ## Build the modules only if ARCH is arm if the RTLinux Development
 ## kit can be found.
 ## 
-if arch == 'arm' and (not myenv.has_key("LINUX_MODULES") or myenv['LINUX_MODULES']):
+if arch == 'arm' and (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']):
     if os.path.exists(rtlgcc):
-        objs = [ myenv.Object(i) for i in modules ]
+        objs = [ env.Object(i) for i in modules ]
         # print(["objs="] + [str(h) for h in objs])
-        myenv.Install('$PREFIX/rtlinux',objs)
+        env.Install('$PREFIX/rtlinux',objs)
         env.Clean(arch + '_install',[
             ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs),
             '$PREFIX/rtlinux'
@@ -124,5 +124,5 @@ Alias(arch, ['build_%s' % dir for dir in subdirs])
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
                build_dir='build_%s' % dir,
-               duplicate=0,exports={'env':myenv})
+               duplicate=0,exports={'env':env})
 

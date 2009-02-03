@@ -36,7 +36,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
     _rserialListenErrors(0), _opener(this)
 
 {
-    setSensorStatsInterval(10 * MSECS_PER_SEC);
+    setSensorStatsInterval(5 * MSECS_PER_SEC);
     setSensorCheckIntervalMsecs(10 * MSECS_PER_SEC);
 
     FD_ZERO(&_readfdset);

@@ -10,11 +10,11 @@ import os
 ##  Import the cross-build environment.
 ##
 Import('env')
-myenv = env.Clone()
-arch = myenv['ARCH']
+# env = env.Clone()
+arch = env['ARCH']
 
-myenv.AppendUnique(CXXFLAGS = Split("""
-"""))
+# env.AppendUnique(CXXFLAGS = Split("""
+# """))
 
 ##
 ##  List of headers files
@@ -74,23 +74,23 @@ sources = [ Split("""
 ]
 # print(["sources="] + [str(h) for h in sources])
 
-objects = myenv.SharedObject(sources)
-env['NIDAS_UTIL_OBJECTS'] = objects
+objects = env.SharedObject(sources)
+# env['NIDAS_UTIL_OBJECTS'] = objects
 
 ##
 ##  Build the libnidas_util library.
 ##
-lib = myenv.SharedLibrary('nidas_util' , objects,LIBS=[])
-slib = myenv.StaticLibrary('nidas_util' , objects,LIBS=[])
+lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
+slib = env.StaticLibrary('nidas_util' , objects)
 
 ##
 ## Install targets for libraries and headers.
 ##
-Alias(arch + '_install',myenv.Install('$PREFIX/lib',lib))
-Alias(arch + '_install',myenv.Install('$PREFIX/lib',slib))
-Alias(arch + '_install',myenv.Install('$PREFIX/include/nidas/util',headers))
+Alias(arch + '_install',env.Install('$PREFIX/lib',lib))
+Alias(arch + '_install',env.Install('$PREFIX/lib',slib))
+Alias(arch + '_install',env.Install('$PREFIX/include/nidas/util',headers))
 
-myenv.Clean(arch + '_install', [
+env.Clean(arch + '_install', [
     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib),
     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in slib)
     ])

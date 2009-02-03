@@ -6,27 +6,10 @@
 ##  Import the cross-build environment.
 ##
 Import('env')
-myenv = env.Clone()
-arch = myenv['ARCH']
+# env = env.Clone()
+arch = env['ARCH']
 
-# print 'LIBS=' + str(myenv['LIBS'])
-
-liball = Split("""
-    nidas
-    nidas_dynld
-    xerces-c
-    XmlRpc
-    dl
-    """) + myenv['LIBS']
-# liball += myenv['LIBS']
-
-# libutilpath = [
-#     '#/build_' + arch + '/build_util']
-
-libutil = Split("""
-    libnidas_util
-    """) + myenv['LIBS']
-# libutil += myenv['LIBS']
+# print 'LIBS=' + str(env['LIBS'])
 
 if arch == 'arm':
     archapps=Split("""
@@ -92,20 +75,26 @@ nuapps = Split("""
     tee_tty.cc
 """)
 
+# Note that we don't have to search the pthread, dl, xerces-c, cap, etc
+# libraries, since they were searched when libnidas_dynld was built.
 nodes = []
 for i in apps + archapps:
-    nodes += myenv.Program( source=i, LIBS=liball)
+    nodes += env.Program( source=i,
+        LIBS= ['nidas_dynld'],
+        LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
 
 # suppress linking against nidas libraries
 for i in nlapps:
-    nodes += myenv.Program(source=i,LIBS=[])
+    nodes += env.Program(source=i,LIBS=[])
 
 # link against nidas_util
 for i in nuapps:
-    nodes += myenv.Program(source=i,LIBS=libutil)
+    nodes += env.Program(source=i,
+        LIBS= ['nidas_util'],
+        LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 
-myenv.Install('$PREFIX/bin',nodes)
+env.Install('$PREFIX/bin',nodes)
 
-myenv.Clean(arch + '_install', [
+env.Clean(arch + '_install', [
     ('$PREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
     ])

@@ -8,6 +8,14 @@
 Import('env')
 arch = env['ARCH']
 
+##
+## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
+## TODO: remove this. Then install nidas from an RPM, which contains
+## /etc/ld.so.conf.d/nidas.conf, so that ld.so searches /opt/local/nidas/x86/lib.
+## RPATH(-rpath) is searched by the run-time linker before LD_LIBRARY_PATH
+## which means we can't use LD_LIBRARY_PATH to override RPATH to test
+## a library.
+##
 if arch == 'x86':
     env.AppendUnique(RPATH = [env.subst('$PREFIX/lib')] )
 
@@ -23,32 +31,34 @@ if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
         if arch == 'x86':
             env.AppendUnique(RPATH = [other_lib] )
 
-# Export all dynamic symbols in the executables, so that libraries
+# libnidas.so is built with -lnidas_util option, and so libnidas.so
+# has an internal dependency on libnidas_util.so.  Because of this,
+# when linking against libnidas.so, you don't have to specify -lnidas_util.
+#
+# However, when ld is resolving these internal dependencies between
+# shared libraries it does not search the -Ldir (LIBPATH) directories.
+# Instead it searches these paths: -rpath-link, -rpath, $LD_RUN_PATH,
+# $LD_LIBRARY_PATH, $DT_RUN_PATH,$DT_RPATH,/lib,/usr/lib and ld.so.conf.
+# See man ld, under -rpath-link.
+#
+# Hence these -rpath-link options to search the build directories
+# at link time.  Note that the run-time linker does not use
+# -rpath-link, it uses -rpath
+#
+# -rdynamic: Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.
-#
-env.AppendUnique(LINKFLAGS = ['-rdynamic'])
+env.AppendUnique(LINKFLAGS=['-rdynamic'] +
+    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_dynld")] +
+    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_core")] +
+    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_util")])
 
-##
-## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
-##
-# Note that the addition of "build_core" to LIBPATH actually causes the
-# addition of FOUR -L options to the linker commands.  It appears scons
-# parses the name in multiple places, recognizes it as a build directory,
-# then adds a -L argument for every combination of build and source
-# directories with build_core in it.  Maybe it's a bug in scons, or some
-# deep mystery.  Anyway, this is avoided by putting a directory node for
-# build_core in the path instead of a string.
-#
-# dynld is needed on the path to link to libnidas_dynld.so.  Without it,
-# scons will install dynld first so it can be linked into dependencies
-# through the install path, which also means scons will remove the
-# installed copy with the -c option, which is not usually what one wants
-# from a clean.
-#
-env.PrependUnique(LIBPATH = [env.Dir("build_dynld")])
-env.PrependUnique(LIBPATH = [env.Dir("build_core")])
-env.PrependUnique(LIBPATH = [env.Dir("build_util")])
-env.AppendUnique(LIBS = ['pthread'])
+# Initialize to empty list so that env['LIBPATH'] doesn't fail in SConscripts
+env.Append(LIBPATH = [])
+
+# To decipher the link statement:
+# print 'LINKCOM=' + str(env['LINKCOM'])
+# print '_LIBDIRFLAGS=' + str(env['_LIBDIRFLAGS'])
+# print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
 
 # Check for headers and libraries
 conf = Configure(env)
