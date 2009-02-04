@@ -52,10 +52,12 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'] +
     ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_core")] +
     ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_util")])
 
-env.Append(LIBS = ['XmlRpc'])
 # If LIBPATH is not needed, initialize to empty list so
 # that env['LIBPATH'] doesn't fail in SConscripts
-env.Append(LIBPATH = [env.subst('$PREFIX/lib')])
+env.Append(LIBPATH = []);
+
+# env.Append(LIBS = ['XmlRpc'])
+# env.Append(LIBPATH = [env.subst('$PREFIX/lib')])
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
