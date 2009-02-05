@@ -133,7 +133,7 @@ float IRS_HW_HG2001GD::processLabel(const long data)
 
   case 0315:  // BNR - wind_speed           (knot)
     if ((data & SSM) != SSM) break;
-    return (data<<4>>14) * 9.765625e-4 * KTS_MS; // no sign
+    return (data<<3>>13) * 9.765625e-4 * KTS_MS; // no sign
 
   case 0323:  // BNR - flt pth accel        (G)
   case 0331:  // BNR - long_accel           (G)
