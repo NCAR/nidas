@@ -208,21 +208,39 @@ bool DumpClient::receive(const Sample* samp) throw()
     case IRIG:
 	{
 	const unsigned char* dp = (const unsigned char*) samp->getConstVoidDataPtr();
+	unsigned int nbytes = samp->getDataByteLength();
 	struct timeval32 tv;
-
-	memcpy(&tv,dp,sizeof(tv));
-        time_t sec = fromLittle->int32Value(tv.tv_sec);
-        int usec = fromLittle->int32Value(tv.tv_usec);
-
-	dp += sizeof(tv);
-	unsigned char status = *dp;
 	char timestr[128];
 	struct tm tm;
-	gmtime_r(&sec,&tm);
-	strftime(timestr,sizeof(timestr)-1,"%Y %m %d %H:%M:%S",&tm);
 
-	ostr << timestr << '.' << setw(6) << setfill('0') << usec <<
-		' ' << setw(2) << setfill('0') << hex << (int)status << dec <<
+        // UNIX system time
+	memcpy(&tv,dp,sizeof(tv));
+	dp += sizeof(tv);
+
+        time_t unix_sec = fromLittle->int32Value(tv.tv_sec);
+        int unix_usec = fromLittle->int32Value(tv.tv_usec);
+	gmtime_r(&unix_sec,&tm);
+	strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
+	ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
+
+        if (nbytes >= 2 * sizeof(struct timeval32) + 1) {
+
+            // IRIG time
+            memcpy(&tv,dp,sizeof(tv));
+            dp += sizeof(tv);
+
+            time_t irig_sec = fromLittle->int32Value(tv.tv_sec);
+            int irig_usec = fromLittle->int32Value(tv.tv_usec);
+            gmtime_r(&irig_sec,&tm);
+            strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
+            ostr << "irig: " << timestr << '.' << setw(6) << setfill('0') << irig_usec << ", ";
+            ostr << "diff: " << setfill(' ') << setw(6) << ((unix_sec - irig_sec) * USECS_PER_SEC +
+                (unix_usec - irig_usec)) << " usec, ";
+        }
+
+	unsigned char status = *dp;
+
+        ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << IRIGSensor::statusString(status) << ')';
 	ostr << endl;
 	}
