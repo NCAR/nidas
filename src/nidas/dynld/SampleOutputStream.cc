@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -103,6 +103,7 @@ void SampleOutputStream::finish() throw()
 
 bool SampleOutputStream::receive(const Sample *samp) throw()
 {
+    bool first_sample = false;
     if (!iostream) return false;
 
     dsm_time_t tsamp = samp->getTimeTag();
@@ -113,6 +114,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (tsamp >= getNextFileTime()) {
 	    iostream->flush();
 	    createNextFile(tsamp);
+	    first_sample = true;
 	}
 	bool success = write(samp);
 	if (!success) {
@@ -120,6 +122,12 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 		n_u::Logger::getInstance()->log(LOG_WARNING,
 		    "%s: %d samples discarded due to output jambs\n",
 		    getName().c_str(),nsamplesDiscarded);
+	}
+	else if (first_sample) {
+	    // Force the first sample to get written out with the header,
+	    // so that initial samples from slower streams are not delayed
+	    // by the iostream buffering.
+	    iostream->flush();
 	}
     }
     catch(const n_u::IOException& ioe) {

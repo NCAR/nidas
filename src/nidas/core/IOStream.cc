@@ -1,4 +1,4 @@
-/*
+/* -*- mode: c++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -31,7 +31,7 @@ IOStream::IOStream(IOChannel& iochan,size_t blen):
         newFile(true),nbytes(0),nEAGAIN(0)
 {
     reallocateBuffer(blen * 2);
-    lastWrite = getSystemTime();
+    lastWrite = 0;
 }
 
 IOStream::~IOStream()
@@ -81,7 +81,8 @@ size_t IOStream::read() throw(n_u::IOException)
 	head = tail + l;
     }
 
-    if (head < eob) {
+    // Avoid blocking on more data if there's already some in the buffer.
+    if (l == 0) {
 	// l==0 means end of file, next read may throw EOFException
 	l = iochannel.read(head,eob-head);
 
@@ -95,7 +96,7 @@ size_t IOStream::read() throw(n_u::IOException)
 
     head += l;
 #ifdef DEBUG
-    cerr << "IOStream, read =" << l << ", avail=" << available() << endl;
+    DLOG(("IOStream, read =") << l << ", avail=" << available());
 #endif
     return l;
 }
@@ -200,65 +201,84 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
     if (tlen > buflen) reallocateBuffer(tlen);
 
     dsm_time_t tnow = getSystemTime();
-    int tdiff = tnow - lastWrite;	// microseconds
+    dsm_time_t tdiff = tnow - lastWrite;	// microseconds
 
-    /* space available for in buffer */
-    size_t space = eob - head;
+    // Only make two attempts at most.  Most likely the first attempt will
+    // be enough to copy in the user buffers and then potentially write it
+    // out.  The second attempt is in case the current buffer must first be
+    // written to make room for the user buffers.
+    for (int attempts = 0; attempts < 2; ++attempts)
+    {
+	/* number of bytes in buffer waiting to be written */
+	size_t wlen = head - tail;
 
-    /* number of bytes already in buffer */
-    size_t wlen = head - tail;
+	/* space available in buffer */
+	size_t space = eob - head;
 
-    // there is data in the buffer and the buffer is full enough,
-    // or maxUsecs has elapsed since the last write.
-    if (wlen >= halflen || (wlen > 0 && tdiff >= maxUsecs)) {
+	// If there's not space in the buffer, but we can make some, do it now.
+	if (tlen > space && wlen + tlen <= buflen && tail != buffer) {
+	    // shift data down. memmove supports overlapping memory areas
+	    memmove(buffer,tail,wlen);
+	    tail = buffer;
+	    head = tail + wlen;
+	    space = eob - head;
+	}
 
-        // if streaming small samples, don't write more than
-        // halflen number of bytes.  The idea is that <= halflen
-        // is a good size for the output device.
-        // if (tlen < halflen && wlen > halflen) wlen = halflen;
-        try {
-            l = iochannel.write(tail,wlen);
-        }
-        catch (const n_u::IOException& ioe) {
-            if (ioe.getError() == EAGAIN) l = 0;
-            else throw ioe;
-        }
+	// If there's space now for this write in the buffer, add it.
+	if (tlen <= space) {
+	    for (ibuf = 0; ibuf < nbufs; ibuf++) {
+		l = lens[ibuf];
+		memcpy(head,bufs[ibuf],l);
+		head += l;
+	    }
+	    // Indicate the user buffers have been added.
+	    nbufs = 0;
+	    wlen = head - tail;
+	    space = eob - head;
+	}
+
+	// There is data in the buffer and the buffer is full enough, or
+	// maxUsecs has elapsed since the last write, or else we need to
+	// write to make room for the user buffers.
+	if (nbufs > 0 || wlen >= halflen || (wlen > 0 && tdiff >= maxUsecs)) {
+
+	    // if streaming small samples, don't write more than
+	    // halflen number of bytes.  The idea is that <= halflen
+	    // is a good size for the output device.
+	    // if (tlen < halflen && wlen > halflen) wlen = halflen;
+	    try {
+		l = iochannel.write(tail,wlen);
+	    }
+	    catch (const n_u::IOException& ioe) {
+		if (ioe.getError() == EAGAIN) l = 0;
+		else throw ioe;
+	    }
 #ifdef REPORT_EAGAINS
-        if (l == 0 && (nEAGAIN++ % 100) == 0) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                    "%s: nEAGAIN=%d, wlen=%d, tlen=%d\n",
-                getName().c_str(),nEAGAIN,wlen,tlen);
-        }
+	    if (l == 0 && (nEAGAIN++ % 100) == 0) {
+		WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
+		      getName().c_str(),nEAGAIN,wlen,tlen));
+	    }
 #endif
-        tail += l;
-        if (tail == head) {
-            tail = head = buffer;	// empty buffer
-            space = eob - head;
-        }
-        lastWrite = tnow;
+	    tail += l;
+	    if (tail == head) {
+		tail = head = buffer;	// empty buffer
+		space = eob - head;
+	    }
+	    // Note this just updates lastWrite and does not change tdiff.
+	    // We want the second time around the loop to write the user
+	    // buffers if it's been too long.
+	    lastWrite = tnow;
+	}
+
+	// We're done when the user buffers have been copied into this buffer.
+	if (nbufs == 0) break;
     }
 
-    // not enough space for the entire request.
-    // See if we can make more space
-    if (space < tlen) {
-        if (tail == buffer) return 0;   // nope
-        // shift data down. memmove supports overlapping memory areas
-        wlen = head - tail;
-        memmove(buffer,tail,wlen);
-        tail = buffer;
-        head = tail + wlen;
-        space = eob - head;
-        if (space < tlen) return 0;	// gave it our best shot
-    }
-
-    // copy all user buffers. We know there is space
-    for (ibuf = 0; ibuf < nbufs; ibuf++) {
-        l = lens[ibuf];
-        memcpy(head,bufs[ibuf],l);
-        head += l;
-    }
-    return tlen;
+    // Return zero when the user buffers could not be copied, which happens
+    // when writes for the data currently in the buffer don't succeed.
+    return (nbufs > 0) ? 0 : tlen;
 }
+
 
 void IOStream::flush() throw (n_u::IOException)
 {

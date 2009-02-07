@@ -193,6 +193,7 @@ if 'x86' in BUILDS:
     # Testing targets, built and run only on x86
     if 'test' in COMMAND_LINE_TARGETS:
         SConscript("../tests/tlogger/SConscript",exports={'env':env})
+        SConscript("../tests/tiostream/SConscript",exports={'env':env})
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor

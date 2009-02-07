@@ -1,4 +1,6 @@
-#include <boost/test/unit_test.hpp>
+#define BOOST_TEST_DYN_LINK
+#define BOOST_AUTO_TEST_MAIN
+#include <boost/test/auto_unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
@@ -68,8 +70,7 @@ static std::ostringstream oss;
 using nidas::util::LogConfig;
 using nidas::util::Logger;
 
-void
-test_log_format()
+BOOST_AUTO_TEST_CASE(test_log_format)
 {
   errno = 1;
   BOOST_CHECK_EQUAL(LogMessage().format("%s: xx%m--",
@@ -91,8 +92,7 @@ test_log_format()
 }
 
 
-void
-logger_test()
+BOOST_AUTO_TEST_CASE(test_logger)
 {
   // Enable all messages by creating an all-inclusive LogConfig.
   LogConfig lc;
@@ -164,8 +164,7 @@ logger_test()
 }
 
 
-void
-test_object_logging()
+BOOST_AUTO_TEST_CASE(test_object_logging)
 {
   LogConfig lc;
   Logger* log = Logger::createInstance(&oss);
@@ -212,8 +211,7 @@ test_object_logging()
 }
 
 
-void
-test_level_strings()
+BOOST_AUTO_TEST_CASE(test_level_strings)
 {
   BOOST_CHECK_EQUAL(logLevelToString(LOGGER_EMERGENCY),"emergency");
   BOOST_CHECK_EQUAL(logLevelToString(LOGGER_DEBUG),"debug");
@@ -229,8 +227,7 @@ test_level_strings()
 }
 
 
-void
-test_log_fields()
+BOOST_AUTO_TEST_CASE(test_log_fields)
 {
   BOOST_CHECK_EQUAL(LogScheme::stringToField("thread"),LogScheme::ThreadField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("time"),LogScheme::TimeField);
@@ -282,8 +279,7 @@ test_log_fields()
 }
 
 
-void
-test_scheme_names()
+BOOST_AUTO_TEST_CASE(test_scheme_names)
 {
   LogScheme scheme("");
   BOOST_CHECK (scheme.getName().length() > 0);
@@ -302,16 +298,3 @@ test_scheme_names()
 }
 
 
-test_suite*
-init_unit_test_suite( int argc, char *argv [] ) 
-{
-  test_suite* test= BOOST_TEST_SUITE( "Logger test suite" );
-  test->add( BOOST_TEST_CASE( &test_level_strings ) );
-  test->add( BOOST_TEST_CASE( &test_log_format ) );
-  test->add( BOOST_TEST_CASE( &logger_test ) );
-  test->add( BOOST_TEST_CASE( &test_object_logging ) );
-  test->add( BOOST_TEST_CASE( &test_log_fields ) );
-  test->add( BOOST_TEST_CASE( &test_scheme_names ) );
-
-  return test;
-}

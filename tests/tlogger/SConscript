@@ -1,6 +1,6 @@
 
 Import('env')
-env = env.Copy()
+env = env.Clone()
 
 env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex', 'nidas_util'],
             CPPPATH = [ "#", "#/nidas/util" ],
