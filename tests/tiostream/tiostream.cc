@@ -196,3 +196,43 @@ BOOST_AUTO_TEST_CASE(test_partial_writes)
   channel.clear();
 }
 
+
+BOOST_AUTO_TEST_CASE(test_steady_writes)
+{
+  std::vector<float> numbers;
+  for (int i = 0; i < 25; ++i)
+    numbers.push_back((float)i);
+
+  DummyChannel channel("null");
+  IOStream iostream(channel, 4096);
+
+  // Write a continuous stream of smaller packets and check that writes get
+  // bufferred up.  The buffer size is 8192, so half is 4096, so writing 41
+  // blocks of 25 floats each will hit 4100 and drain the buffer.  The next
+  // write will start at the beginning of the buffer again.  41 more blocks
+  // will trigger another write.  So after 82 writes, there should have
+  // been two write calls to the channel, 0 bytes left in the iostream
+  // buffer, and 82*100 = 8200 bytes written to the channel.
+
+  int wlen = 4*numbers.size();
+
+  // The first block gets written right away, so write it and clear it out.
+  BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen), wlen);
+  channel.clear();
+
+  for (int i = 0; i < 41; ++i)
+  {
+    BOOST_CHECK_EQUAL(channel._nwrites, 0);
+    BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen), wlen);
+  }
+  BOOST_CHECK_EQUAL(channel._buflen, 4100);
+  BOOST_CHECK_EQUAL(channel._nwrites, 1);
+  for (int i = 0; i < 41; ++i)
+  {
+    BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen), wlen);
+  }
+  BOOST_CHECK_EQUAL(channel._buflen, 8200);
+  BOOST_CHECK_EQUAL(channel._nwrites, 2);
+  BOOST_CHECK_EQUAL(iostream.available(), 0);
+}
+
