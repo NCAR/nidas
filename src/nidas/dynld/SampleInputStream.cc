@@ -304,6 +304,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 		    _hptr = (char*)&_sheader;
                 }
             }
+	    _headerToRead = _sheader.getSizeOf();
 	    _hptr = (char*)&_sheader;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -381,6 +382,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
 		_hptr = (char*)&_sheader;
 	    }
 	}
+	_headerToRead = _sheader.getSizeOf();
 	_hptr = (char*)&_sheader;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
