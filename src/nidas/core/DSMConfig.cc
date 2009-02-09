@@ -376,7 +376,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		"dsm id %d has no configured outputs",getId());
     }
 
-    // check for sensor ids which have value less than 10, or are not unique.
+    // check for sensor ids which have value less than 0, or are not unique.
     typedef map<unsigned int,DSMSensor*> sens_map_t;
     typedef map<unsigned int,DSMSensor*>::const_iterator sens_map_itr_t;
     sens_map_t sensorIdCheck;
@@ -508,6 +508,10 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    SampleTagIterator sti = sensor->getSampleTagIterator();
 	    for ( ; sti.hasNext(); ) output->addSampleTag(sti.next());
 	}
+    }
+    for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
+	DSMSensor* sensor = si.next();
+        sensor->validate();
     }
 }
 

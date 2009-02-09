@@ -74,7 +74,7 @@ public:
 
     const std::list<const SampleTag*>& getSampleTags() const
     {
-        return sampleTags;
+        return _sampleTags;
     }
 
     void addSampleTag(const SampleTag* stag);
@@ -128,30 +128,30 @@ public:
 
     void setFilterBadSamples(bool val)
     {
-        filterBadSamples = val;
+        _filterBadSamples = val;
     }
 
     void setMaxDsmId(int val)
     {
-        maxDsmId = val;
+        _maxDsmId = val;
         setFilterBadSamples(val < 1024);
     }
 
     void setMaxSampleLength(unsigned int val)
     {
-        maxSampleLength = val;
+        _maxSampleLength = val;
         setFilterBadSamples(val < UINT_MAX);
     }
 
     void setMinSampleTime(const nidas::util::UTime& val)
     {
-        minSampleTime = val.toUsecs();
+        _minSampleTime = val.toUsecs();
         setFilterBadSamples(val.toUsecs() > LONG_LONG_MIN);
     }
 
     void setMaxSampleTime(const nidas::util::UTime& val)
     {
-        maxSampleTime = val.toUsecs();
+        _maxSampleTime = val.toUsecs();
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
     }
 
@@ -163,40 +163,46 @@ protected:
     /**
      * Service that has requested my input.
      */
-    DSMService* service;
+    DSMService* _service;
 
-    IOChannel* iochan;
+    IOChannel* _iochan;
 
-    IOStream* iostream;
+    IOStream* _iostream;
 
-    std::map<unsigned int, DSMSensor*> sensorMap;
+    std::map<unsigned int, DSMSensor*> _sensorMap;
 
-    std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
+    std::map<SampleClient*, std::list<DSMSensor*> > _sensorsByClient;
 
-    nidas::util::Mutex sensorMapMutex;
+    nidas::util::Mutex _sensorMapMutex;
 
-    std::list<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> _sampleTags;
 
 private:
+
+    SampleHeader _sheader;
+
+    size_t _headerToRead;
+
+    char* _hptr;
 
     /**
      * Will be non-null if we have previously read part of a sample
      * from the stream.
      */
-    Sample* samp;
+    Sample* _samp;
 
     /**
      * How many bytes left to read from the stream into the data
      * portion of samp.
      */
-    size_t leftToRead;
+    size_t _leftToRead;
 
     /**
      * Pointer into the data portion of samp where we will read next.
      */
-    char* dptr;
+    char* _dptr;
 
-    size_t badInputSamples;
+    size_t _badInputSamples;
 
     // size_t unrecognizedSamples;
 
@@ -207,15 +213,15 @@ private:
 
     SampleInputHeader inputHeader;
 
-    bool filterBadSamples;
+    bool _filterBadSamples;
 
-    unsigned int maxDsmId;
+    unsigned int _maxDsmId;
 
-    size_t maxSampleLength;
+    size_t _maxSampleLength;
 
-    dsm_time_t minSampleTime;
+    dsm_time_t _minSampleTime;
 
-    dsm_time_t maxSampleTime;
+    dsm_time_t _maxSampleTime;
 
 };
 

@@ -38,7 +38,7 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    void addSampleTag(SampleTag* stag)
+    void validate()
             throw(nidas::util::InvalidParameterException);
 
     /**
@@ -109,7 +109,7 @@ private:
     /**
      * Sample tags of extra "serializer" values.
      */
-    std::vector<SampleTag*> extraSampleTags;
+    std::vector<const SampleTag*> extraSampleTags;
 
     dsm_time_t timetags[2];
 

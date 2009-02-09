@@ -432,24 +432,33 @@ public:
     virtual SampleScanner* buildSampleScanner() = 0;
 
     /**
-    * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
-    */
+     * validate() is called once on a DSMSensor after it has been
+     * configured, but before open() or init() ar called.
+     * The default implemention does nothing.
+     */
+    virtual void validate() throw(nidas::util::InvalidParameterException) {}
+
+    /**
+     * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
+     */
     virtual void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
-     * Initialize the DSMSensor. If the DSMSensor is
-     * not being opened (as in post-realtime processing)
-     * then the init() method will be called before the
-     * first call to process. Either open() or init() will
-     * be called after setting the required properties,
-     * and before calling readSamples(), receive(), or process().
+     * Initialize the DSMSensor. This method is called on a
+     * DSMSensor after it is fully configured, and before the
+     * process method is called.  This is where a DSMSensor should
+     * do any required initialization of anything that is
+     * used by the process() method.  If processed samples
+     * are not requested from this DSMSensor, then init
+     * will not be called.
      */
     virtual void init() throw(nidas::util::InvalidParameterException);
 
+
     /**
      * How do I want to be opened.  The user can ignore it if they want to.
-     * @return One of O_RDONLY, O_WRONLY or O_RDWR.
+     * @return one of O_RDONLY, O_WRONLY or O_RDWR.
      */
     virtual int getDefaultMode() const { return O_RDONLY; }
 
@@ -691,6 +700,12 @@ protected:
      * Throw an exception the DSMSensor cannot support
      * the sample (bad rate, wrong number of variables, etc).
      * DSMSensor will own the pointer.
+     * Note that a SampleTag may be changed after it has
+     * been added. addSampleTag() is called when a sensor is initialized
+     * from the sensor catalog.  The SampleTag may be modified later
+     * if it is overridden in the actual sensor entry.
+     * For this reason, it is probably better to scan the SampleTags
+     * of a DSMSensor in the validate(), init() or open() methods.
      */
     virtual void addSampleTag(SampleTag* val)
     	throw(nidas::util::InvalidParameterException);

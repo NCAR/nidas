@@ -49,14 +49,6 @@ Project::Project(): currentSite(0),sensorCatalog(0),dsmCatalog(0),
 
 Project::~Project()
 {
-
-    delete sensorCatalog;
-    delete dsmCatalog;
-    delete serviceCatalog;
-    // cerr << "deleting sites" << endl;
-    for (list<Site*>::const_iterator it = sites.begin();
-    	it != sites.end(); ++it) delete *it;
-
 #ifdef DEBUG
     cerr << "~Project, deleting servers" << endl;
 #endif
@@ -65,6 +57,13 @@ Project::~Project()
 #ifdef DEBUG
     cerr << "~Project, deleted servers" << endl;
 #endif
+
+    delete sensorCatalog;
+    delete dsmCatalog;
+    delete serviceCatalog;
+    // cerr << "deleting sites" << endl;
+    for (list<Site*>::const_iterator it = sites.begin();
+    	it != sites.end(); ++it) delete *it;
 
     for (list<Parameter*>::const_iterator pi = parameters.begin();
     	pi != parameters.end(); ++pi) delete *pi;

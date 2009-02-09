@@ -74,9 +74,6 @@ void DSMSerialSensor::open(int flags)
     sendInitString();
 
     if (isPrompted()) startPrompting();
-
-    init();
-
 }
 
 void DSMSerialSensor::rtlDevInit(int flags)

@@ -133,46 +133,41 @@ SampleScanner* CharacterSensor::buildSampleScanner()
     return scanr;
 }
  
-void CharacterSensor::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
-{
-
-    DSMSensor::addSampleTag(tag);
-
-    const string& sfmt = tag->getScanfFormat();
-    if (sfmt.length() > 0) {
-        AsciiSscanf* sscanf = new AsciiSscanf();
-        try {
-           sscanf->setFormat(n_u::replaceBackslashSequences(sfmt));
-        }
-        catch (n_u::ParseException& pe) {
-            throw n_u::InvalidParameterException(getName(),
-                   "setScanfFormat",pe.what());
-        }
-        int nv = tag->getVariables().size();
-        sscanf->setSampleTag(tag);
-        sscanfers.push_back(sscanf);
-        if (sscanf->getNumberOfFields() < nv)
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: number of scanf fields (%d) is less than the number of variables (%d)",
-                getName().c_str(),sscanf->getNumberOfFields(),nv);
-        maxScanfFields = std::max(std::max(maxScanfFields,sscanf->getNumberOfFields()),nv);
-    }
-    else if (sscanfers.size() > 0) {
-        ostringstream ost;
-        ost << tag->getSampleId();
-        throw n_u::InvalidParameterException(getName(),
-           string("scanfFormat for sample id=") + ost.str(),
-           "Either all samples for a CharacterSensor \
-must have a scanfFormat or no samples");
-    }
-}
-
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
+    for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
+	const SampleTag* tag = si.next();
+	const string& sfmt = tag->getScanfFormat();
+	if (sfmt.length() > 0) {
+	    AsciiSscanf* sscanf = new AsciiSscanf();
+	    try {
+	       sscanf->setFormat(n_u::replaceBackslashSequences(sfmt));
+	    }
+	    catch (n_u::ParseException& pe) {
+		throw n_u::InvalidParameterException(getName(),
+		       "setScanfFormat",pe.what());
+	    }
+	    int nv = tag->getVariables().size();
+	    sscanf->setSampleTag(tag);
+	    sscanfers.push_back(sscanf);
+	    if (sscanf->getNumberOfFields() < nv)
+		n_u::Logger::getInstance()->log(LOG_WARNING,
+		    "%s: number of scanf fields (%d) is less than the number of variables (%d)",
+		    getName().c_str(),sscanf->getNumberOfFields(),nv);
+	    maxScanfFields = std::max(std::max(maxScanfFields,sscanf->getNumberOfFields()),nv);
+	}
+	else if (sscanfers.size() > 0) {
+	    ostringstream ost;
+	    ost << tag->getSampleId();
+	    throw n_u::InvalidParameterException(getName(),
+	       string("scanfFormat for sample id=") + ost.str(),
+	       "Either all samples for a CharacterSensor \
+    must have a scanfFormat or no samples");
+	}
+    }
+	
     if (sscanfers.size() > 0) nextSscanfer = sscanfers.begin();
-
 }
 
 void CharacterSensor::fromDOMElement(

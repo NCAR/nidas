@@ -95,7 +95,7 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 ##
 env.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
 lib = env.SharedLibrary('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
-    LIBS=['nidas','dl'] + env['LIBS'],
+    LIBS=['nidas'] + env['LIBS'],
     LIBPATH = [env.Dir('../build_core')] + env['LIBPATH'])
 
 ##

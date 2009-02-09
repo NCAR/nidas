@@ -73,7 +73,7 @@ void IOStream::reallocateBuffer(size_t len)
 size_t IOStream::read() throw(n_u::IOException)
 {
     newFile = false;
-    size_t l = available();
+    size_t l = available(); 	// head - tail;
     // shift data down. memmove supports overlapping memory areas
     if (tail > buffer) {
 	memmove(buffer,tail,l);
@@ -83,7 +83,7 @@ size_t IOStream::read() throw(n_u::IOException)
 
     // Avoid blocking on more data if there's already some in the buffer.
     if (l == 0) {
-	// l==0 means end of file, next read may throw EOFException
+	// read return of 0 means end of file, next read may throw EOFException
 	l = iochannel.read(head,eob-head);
 
 	if (iochannel.isNewFile()) {

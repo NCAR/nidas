@@ -58,7 +58,7 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
     clearBuffer();
     for (int i = 0; i < 10; i++) {
-        DLOG(("sending &"));
+        DLOG(("%s: sending &",getName().c_str()));
         write("&",1);
         // clear whatever junk may be in the buffer til a timeout
         try {
@@ -68,7 +68,7 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
             }
         }
         catch (const n_u::IOTimeoutException& e) {
-            DLOG(("timeout"));
+            DLOG(("%s: timeout",getName().c_str()));
             break;
         }
     }
@@ -76,11 +76,11 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
 void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 {
-    DLOG(("sending D (nocr)"));
+    DLOG(("%s: sending D (nocr)",getName().c_str()));
     write("D",1);
 
     for (int i = 0; i < 5; i++) {
-        DLOG(("sending &"));
+        DLOG(("%s: sending &",getName().c_str()));
         write("&",1);
         try {
             readBuffer(MSECS_PER_SEC);
@@ -88,7 +88,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
         }
         catch (const n_u::IOTimeoutException& e) {
         }
-        DLOG(("sending D"));
+        DLOG(("%s: sending D",getName().c_str()));
         write("D",1);
     }
     clearBuffer();
@@ -104,7 +104,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     serialNumber = "unknown";
 
     for (int j = 0; j < 5; j++) {
-        DLOG(("sending ?? CR"));
+        DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
         int timeout = MSECS_PER_SEC * 2;
         for (;;) {
@@ -112,7 +112,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
                 readBuffer(timeout);
             }
             catch (const n_u::IOTimeoutException& e) {
-                DLOG(("timeout"));
+                DLOG(("%s: timeout",getName().c_str()));
                 break;
             }
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -135,7 +135,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     while (result[result.length() - 1] == '>') result.resize(result.length()-1);
 
     unsigned int ql = result.length();
-    DLOG(("query=") << n_u::addBackslashSequences(result) << " result length=" << ql);
+    DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << ql);
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
     fs = result.find("AQ=");
@@ -165,7 +165,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
     throw(n_u::IOException)
 {
-    DLOG(("sending %s (nocr)",cmd));
+    DLOG(("%s: sending %s (nocr)",getName().c_str(),cmd));
     write(cmd,2);
     int timeout = MSECS_PER_SEC * 4;
 
@@ -175,7 +175,7 @@ string CSAT3_Sonic::sendRateCommand(const char* cmd)
             readBuffer(timeout);
         }
         catch (const n_u::IOTimeoutException& e) {
-            DLOG(("timeout"));
+            DLOG(("%s: timeout",getName().c_str()));
             break;
         }
         for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -226,7 +226,10 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample)
 void CSAT3_Sonic::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
+    DSMSerialSensor::open(flags);
+
     const char* rateCmd = 0;
+    DLOG(("%s: _rate=%d",getName().c_str(),_rate));
     if (_rate > 0) {
         rateCmd = getRateCommand(_rate,_oversample);
         if (!rateCmd) {
@@ -237,7 +240,6 @@ void CSAT3_Sonic::open(int flags)
         }
     }
 
-    DSMSerialSensor::open(flags);
 
     int ml = getMessageLength();
     string sep = getMessageSeparator();
@@ -251,7 +253,7 @@ void CSAT3_Sonic::open(int flags)
     setMessageParameters(); // does the ioctl
 
     // put in "terminal" mode
-    DLOG(("sending T (nocr)"));
+    DLOG(("%s: sending T (nocr)",getName().c_str()));
     write("T",1);
     usleep(USECS_PER_SEC);
 
@@ -261,7 +263,7 @@ void CSAT3_Sonic::open(int flags)
     string revision;
 
     string query = querySonic(acqrate,osc,serialNumber,revision);
-    DLOG(("AQ=%d,os=%c,serial number=",acqrate,osc) << serialNumber << " rev=" << revision);
+    DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
 
     // Is current sonic rate OK?  If requested rate is 0, don't change.
     bool rateOK = _rate == 0;
@@ -276,7 +278,7 @@ void CSAT3_Sonic::open(int flags)
         assert(rateCmd != 0);
         rateResult = sendRateCommand(rateCmd);
         query = querySonic(acqrate,osc,serialNumber,revision);
-        DLOG(("AQ=%d,os=%c,serial number=",acqrate,osc) << serialNumber << " rev=" << revision);
+        DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
     }
 
     if ((!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
@@ -302,62 +304,67 @@ void CSAT3_Sonic::open(int flags)
     startSonic();
 }
 
-void CSAT3_Sonic::addSampleTag(SampleTag* stag)
+void CSAT3_Sonic::validate()
     throw(n_u::InvalidParameterException)
 {
-    if (getSampleTags().size() > 1)
+    SonicAnemometer::validate();
+
+    const std::list<const SampleTag*> tags= getSampleTags();
+
+    if (tags.size() > 2 || tags.size() < 1)
         throw n_u::InvalidParameterException(getName() +
 		" can only create two samples (wind and extra)");
 
-    /*
-     * nvars
-     * 5	u,v,w,tc,diag
-     * 7	u,v,w,tc,diag,spd,dir
-     * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
-     * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
-     */
-    if (stag->getSampleId() == 1) {
-        size_t nvars = stag->getVariables().size();
-        switch(nvars) {
-        case 5:
-        case 9:
-            windSampleId = stag->getId();
-            windNumOut = nvars;
-            if (nvars == 9) spikeIndex = 5;
-            break;
-        case 11:
-        case 7:
-            windSampleId = stag->getId();
-            windNumOut = nvars;
-            if (nvars == 11) spikeIndex = 7;
-            {
-                VariableIterator vi = stag->getVariableIterator();
-                for (int i = 0; vi.hasNext(); i++) {
-                    const Variable* var = vi.next();
-                    const string& vname = var->getName();
-                    if (vname.length() > 2 && vname.substr(0,3) == "spd")
-                        spdIndex = i;
-                    else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-                        dirIndex = i;
-                }
-            }
-            if (spdIndex < 0 || dirIndex < 0)
-                throw n_u::InvalidParameterException(getName() +
-                  " CSAT3 cannot find speed or direction variables");
-            break;
-        default:
-            throw n_u::InvalidParameterException(getName() +
-          " unsupported number of variables. Must be: u,v,w,tc,diag,[spd,dir][4xflags]]");
-        }
+    std::list<const SampleTag*>::const_iterator si = tags.begin();
+    for ( ; si != tags.end(); ++si) {
+	const SampleTag* stag = *si;
+	/*
+	 * nvars
+	 * 5	u,v,w,tc,diag
+	 * 7	u,v,w,tc,diag,spd,dir
+	 * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
+	 * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
+	 */
+	if (stag->getSampleId() == 1) {
+	    _rate = (int)rint(stag->getRate());
+	    size_t nvars = stag->getVariables().size();
+	    switch(nvars) {
+	    case 5:
+	    case 9:
+		windSampleId = stag->getId();
+		windNumOut = nvars;
+		if (nvars == 9) spikeIndex = 5;
+		break;
+	    case 11:
+	    case 7:
+		windSampleId = stag->getId();
+		windNumOut = nvars;
+		if (nvars == 11) spikeIndex = 7;
+		{
+		    VariableIterator vi = stag->getVariableIterator();
+		    for (int i = 0; vi.hasNext(); i++) {
+			const Variable* var = vi.next();
+			const string& vname = var->getName();
+			if (vname.length() > 2 && vname.substr(0,3) == "spd")
+			    spdIndex = i;
+			else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+			    dirIndex = i;
+		    }
+		}
+		if (spdIndex < 0 || dirIndex < 0)
+		    throw n_u::InvalidParameterException(getName() +
+		      " CSAT3 cannot find speed or direction variables");
+		break;
+	    default:
+		throw n_u::InvalidParameterException(getName() +
+	      " unsupported number of variables. Must be: u,v,w,tc,diag,[spd,dir][4xflags]]");
+	    }
+	}
+	else {
+	    extraSampleTags.push_back(stag);
+	    totalInLen += 2;	// 2 bytes for each additional input
+	}
     }
-    else {
-	extraSampleTags.push_back(stag);
-	totalInLen += 2;	// 2 bytes for each additional input
-    }
-    SonicAnemometer::addSampleTag(stag);
-
-    _rate = (int)rint(stag->getRate());
-
 #if __BYTE_ORDER == __BIG_ENDIAN
     swapBuf.reset(new short[totalInLen/2]);
 #endif
@@ -479,7 +486,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
         if (inlen < windInLen + (i+1) * 2) break;
 
-        SampleTag* stag = extraSampleTags[i];
+        const SampleTag* stag = extraSampleTags[i];
         const vector<const Variable*>& vars = stag->getVariables();
         size_t nvars = vars.size();
         SampleT<float>* hsamp = getSample<float>(nvars);

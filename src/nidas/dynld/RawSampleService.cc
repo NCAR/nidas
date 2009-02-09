@@ -74,6 +74,11 @@ void RawSampleService::schedule() throw(n_u::Exception)
     for ( ; si.hasNext(); ) {
         DSMSensor* sensor = si.next();
 	_merger->addSampleTag(sensor->getRawSampleTag());
+	SampleTagIterator ti = sensor->getSampleTagIterator();
+	for ( ; ti.hasNext(); ) {
+	    const SampleTag* stag = ti.next();
+	    _merger->addSampleTag(stag);
+	}
     }
 
     // Connect non-cloned SampleIOProcessors to merger
@@ -101,9 +106,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
 
 /*
  * This method is called when a SampleInput is connected.
- * It will be called on only the original RawSampleService,
- * not on the clones. It may be called multiple times
- * as each DSM makes a connection.
+ * It may be called multiple times as each DSM makes a connection.
  */
 void RawSampleService::connected(SampleInput* input) throw()
 {
@@ -123,7 +126,6 @@ void RawSampleService::connected(SampleInput* input) throw()
         delete stream;
 	return;
     }
-
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s (%s) has connected to %s",
 	stream->getName().c_str(),dsm->getName().c_str(),
@@ -158,9 +160,8 @@ void RawSampleService::connected(SampleInput* input) throw()
 
 /*
  * This method is called when a SampleInput is disconnected
- * (likely a DSM went down).  It will be called on the original
- * RawSampleService (whoever did the requestConnection).
- * The run() method of the service should have received an exception,
+ * (likely a DSM went down).  The run() method of the service
+ * worker thread should have received an exception,
  * and so things may clean up by themselves, but we do a thread
  * cancel here to make sure.
  */
