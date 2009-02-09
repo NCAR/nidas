@@ -79,9 +79,9 @@ public:
 
     void addSampleTag(const SampleTag* stag);
 
-    void readHeader() throw(nidas::util::IOException);
+    void readInputHeader() throw(nidas::util::IOException);
 
-    const SampleInputHeader& getHeader() const { return inputHeader; }
+    const SampleInputHeader& getInputHeader() const { return inputHeader; }
 
     void addProcessedSampleClient(SampleClient*,DSMSensor*);
 

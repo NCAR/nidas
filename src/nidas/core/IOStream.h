@@ -81,7 +81,7 @@ public:
      *      less than the number requested if there are fewer
      *      than len number of bytes in the buffer.
      */
-    size_t backup(size_t len) throw();
+    size_t backup(size_t len) throw(nidas::util::IOException);
 
     /**
      * Read into the user buffer until a terminating character

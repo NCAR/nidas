@@ -700,8 +700,8 @@ int DataPrep::run() throw()
             sis->setSorterLengthMsecs(sorterLength);
             sis->setHeapBlock(true);
 	    sis->init();
-	    sis->readHeader();
-	    SampleInputHeader header = sis->getHeader();
+	    sis->readInputHeader();
+	    SampleInputHeader header = sis->getInputHeader();
 
 	    if (xmlFileName.length() == 0)
                 xmlFileName = Project::expandEnvVars(header.getConfigName());
@@ -728,6 +728,8 @@ int DataPrep::run() throw()
         if (!sis.get()) {
             sis.reset(new SortedSampleInputStream(iochan));
             sis->setHeapBlock(true);
+            sis->init();
+            sis->readInputHeader();
         }
 
         if (rate > 0.0) {
@@ -753,7 +755,6 @@ int DataPrep::run() throw()
 	    // sis->addProcessedSampleClient(resampler.get(),sensor);
 	}
 
-        sis->init();
         resampler->connect(sis.get());
 
 	dumper.reset(new DumpClient(format,cout));

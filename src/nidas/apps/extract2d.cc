@@ -288,8 +288,8 @@ int Extract2D::run() throw()
         SampleInputStream input(fset);
         input.init();
 
-        input.readHeader();
-        header = input.getHeader();
+        input.readInputHeader();
+        header = input.getInputHeader();
 
         auto_ptr<Project> project;
         map<dsm_sample_id_t, Probe *> probeList;

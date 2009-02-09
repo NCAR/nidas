@@ -271,9 +271,9 @@ int SensorExtract::run() throw()
         input.init();
         input.setMaxSampleLength(32768);
 
-        input.readHeader();
+        input.readInputHeader();
         // save header for later writing to output
-        header = input.getHeader();
+        header = input.getInputHeader();
 
         try {
             for (;;) {

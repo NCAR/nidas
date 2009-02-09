@@ -294,9 +294,9 @@ int NidsMerge::run() throw()
 	    input->init();
 
 	    try {
-		input->readHeader();
+		input->readInputHeader();
                 // save header for later writing to output
-		header = input->getHeader();
+		header = input->getInputHeader();
 	    }
 	    catch (const n_u::EOFException& e) {
 		cerr << e.what() << endl;

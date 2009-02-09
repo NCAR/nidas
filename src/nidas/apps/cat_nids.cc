@@ -131,9 +131,9 @@ int Concater::run() throw()
 
 	SampleInputStream sis(fset);
 	sis.init();
-	sis.readHeader();
+	sis.readInputHeader();
 
-	SampleInputHeader header = sis.getHeader();
+	SampleInputHeader header = sis.getInputHeader();
 	header.write(&outStream);
 
 	sis.addSampleClient(&outStream);

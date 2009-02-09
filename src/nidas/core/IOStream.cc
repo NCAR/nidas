@@ -83,9 +83,7 @@ size_t IOStream::read() throw(n_u::IOException)
 
     // Avoid blocking on more data if there's already some in the buffer.
     if (l == 0) {
-	// read return of 0 means end of file, next read may throw EOFException
 	l = iochannel.read(head,eob-head);
-
 	if (iochannel.isNewFile()) {
 	    tail = head;	// discard last portion of previous file
 	    newFile = true;
@@ -170,10 +168,15 @@ size_t IOStream::readUntil(void* buf, size_t len,char term)
 /*
  * Put data back in buffer.
  */
-size_t IOStream::backup(size_t len) throw()
+size_t IOStream::backup(size_t len) throw(n_u::IOException)
 {
-    size_t space = tail - buffer;
-    if (space < len) len = space;
+    size_t maxbackup = tail - buffer;
+    // cerr << "IOStream::backup, len=" << len << " maxbackup=" << maxbackup << endl;
+    if (maxbackup < len)  {
+        ostringstream ost;
+        ost << "Cannot backup " << len << " bytes. Only " << maxbackup << " bytes in buffer.";
+        throw n_u::IOException(getName(),"backup",ost.str());
+    }
     tail -= len;
     nbytes -= len;
     return len;

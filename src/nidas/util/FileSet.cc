@@ -150,7 +150,10 @@ ssize_t FileSet::read(void* buf, size_t count) throw(IOException)
     if (fd < 0) openNextFile();		// throws EOFException
     ssize_t res = ::read(fd,buf,count);
     if (res <= 0) {
-        if (!res) closeFile();	// next read will open next file
+        if (!res) {
+            closeFile();	// next read will open next file
+            return read(buf,count);
+        }
 	else throw IOException(currname,"read",errno);
     }
     return res;

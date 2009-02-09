@@ -465,8 +465,8 @@ int StatsProcess::run() throw()
 	sis->setSorterLengthMsecs(sorterLength);
 
         if (!project.get()) {
-            sis->readHeader();
-            SampleInputHeader header = sis->getHeader();
+            sis->readInputHeader();
+            SampleInputHeader header = sis->getInputHeader();
 	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
 		    "software=" << header.getSoftwareVersion() << '\n' <<
 		    "project=" << header.getProjectName() << '\n' <<

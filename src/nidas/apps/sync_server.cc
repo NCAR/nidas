@@ -236,8 +236,8 @@ int SyncServer::run() throw()
 	input.setHeapMax(10000000);
 	input.init();
 
-	input.readHeader();
-	SampleInputHeader header = input.getHeader();
+	input.readInputHeader();
+	SampleInputHeader header = input.getInputHeader();
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();

@@ -421,9 +421,9 @@ int DataStats::run() throw()
 	RawSampleInputStream sis(iochan);
         sis.setMaxSampleLength(32768);
 	sis.init();
-	sis.readHeader();
+	sis.readInputHeader();
 
-	SampleInputHeader header = sis.getHeader();
+	SampleInputHeader header = sis.getInputHeader();
 
 	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;

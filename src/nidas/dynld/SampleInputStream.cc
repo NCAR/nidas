@@ -21,6 +21,8 @@
 
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -97,8 +99,8 @@ void SampleInputStream::requestConnection(DSMService* requester)
 
 void SampleInputStream::connected(IOChannel* iochannel) throw()
 {
-    cerr << "SampleInputStream connected, iochannel=" <<
-    	iochannel->getRemoteInet4Address().getHostAddress() << endl;
+    // cerr << "SampleInputStream connected, iochannel=" <<
+    //	iochannel->getRemoteInet4Address().getHostAddress() << endl;
     // this create a clone of myself
     _service->connected(clone(iochannel));
 }
@@ -171,10 +173,11 @@ n_u::Inet4Address SampleInputStream::getRemoteInet4Address() const
     else return n_u::Inet4Address();
 }
 
-void SampleInputStream::readHeader() throw(n_u::IOException)
+void SampleInputStream::readInputHeader() throw(n_u::IOException)
 {
     inputHeader.check(_iostream);
 }
+
 /**
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
@@ -188,27 +191,24 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 {
     _iostream->read();		// read a buffer's worth
     if (_iostream->isNewFile()) {	// first read from a new file
-	readHeader();
+	readInputHeader();
 	if (_samp) _samp->freeReference();
+	_samp = 0;
 	_headerToRead = _sheader.getSizeOf();
 	_hptr = (char*)&_sheader;
-	_samp = 0;
     }
 
     // process all in buffer
     size_t len;
     for (;;) {
-	if (!_samp) {
-
+	if (_headerToRead > 0) {
 	    len = _iostream->read(_hptr,_headerToRead);
-
             _headerToRead -= len;
             if (_headerToRead > 0) {
+                // Don't do another _iostream->read as it will do a physical read
 		_hptr += len;
 		break;
             }
-	    _headerToRead = _sheader.getSizeOf();
-	    _hptr = (char*)&_sheader;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
             _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
@@ -218,18 +218,13 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 
             // screen bad headers.
 	    if (_filterBadSamples &&
-                (_sheader.getType() >= UNKNOWN_ST ||
-                    GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
-                _sheader.getDataByteLength() > _maxSampleLength ||
-                _sheader.getTimeTag() < _minSampleTime ||
-                _sheader.getTimeTag() > _maxSampleTime)) {
-                _samp = 0;
-	    }
-	    else _samp = nidas::core::getSample((sampleType)_sheader.getType(),
-		    _sheader.getDataByteLength());
+                    (_sheader.getType() >= UNKNOWN_ST ||
+                        GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
+                    _sheader.getDataByteLength() > _maxSampleLength ||
+                    _sheader.getTimeTag() < _minSampleTime ||
+                    _sheader.getTimeTag() > _maxSampleTime)) {
 
-            if (!_samp) {
-	        if (!(_badInputSamples++ % 1000)) {
+                if (!(_badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
                         getName().c_str(), _badInputSamples,
@@ -237,20 +232,30 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
-                _iostream->backup(_sheader.getSizeOf() - 1);
+                try {
+                    _iostream->backup(_sheader.getSizeOf() - 1);
+                }
+                catch(const n_u::IOException& e) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: %s", getName().c_str(),e.what());
+                }
+                _headerToRead = _sheader.getSizeOf();
+                _hptr = (char*)&_sheader;
                 continue;
             }
+
+            // cerr << "byte length=" << _sheader.getDataByteLength() << endl;
+            _samp = nidas::core::getSample((sampleType)_sheader.getType(),
+                _sheader.getDataByteLength());
+
+	    _leftToRead = _sheader.getDataByteLength();
+	    _dptr = (char*) _samp->getVoidDataPtr();
+
 	    _samp->setTimeTag(_sheader.getTimeTag());
 	    _samp->setId(_sheader.getId());
-	    _leftToRead = _samp->getDataByteLength();
-	    // cerr << "_leftToRead=" << _leftToRead << endl;
-	    _dptr = (char*) _samp->getVoidDataPtr();
 	}
-	len = _iostream->available();
-	if (len == 0) break;
-	// cerr << "_leftToRead=" << _leftToRead << " available=" << len << endl;
-	if (_leftToRead < len) len = _leftToRead;
-	len = _iostream->read(_dptr, len);
+
+	len = _iostream->read(_dptr, _leftToRead);
 	// cerr << "read len=" << len << endl;
 	_dptr += len;
 	_leftToRead -= len;
@@ -261,6 +266,9 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 #endif
 
 	distribute(_samp);
+        // next read is the header
+        _headerToRead = _sheader.getSizeOf();
+        _hptr = (char*)&_sheader;
 	_samp = 0;
     }
 }
@@ -290,22 +298,20 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
     // but if they do, checking for non-null samp here should make things work.
     size_t len;
     for (;;) {
-        if (!_samp) {
-
-            for (;;) {
+        if (_headerToRead > 0) {
+            while (_headerToRead > 0) {
 		len = _iostream->read(_hptr,_headerToRead);
-		_headerToRead -= len;
-		_hptr += len;
-                if (_headerToRead == 0) break;
-                _iostream->read();
                 if (_iostream->isNewFile()) {
-                    inputHeader.check(_iostream);
+                    _iostream->backup(len);
+                    readInputHeader();
 		    _headerToRead = _sheader.getSizeOf();
 		    _hptr = (char*)&_sheader;
                 }
+                else {
+                    _headerToRead -= len;
+                    _hptr += len;
+                }
             }
-	    _headerToRead = _sheader.getSizeOf();
-	    _hptr = (char*)&_sheader;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
             _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
@@ -329,25 +335,35 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
-                _iostream->backup(_sheader.getSizeOf() - 1);
+                try {
+                    _iostream->backup(_sheader.getSizeOf() - 1);
+                }
+                catch(const n_u::IOException& e) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: %s", getName().c_str(),e.what());
+                }
                 continue;
 	    }
-	    else _samp = nidas::core::getSample((sampleType)_sheader.getType(),
+
+	    _samp = nidas::core::getSample((sampleType)_sheader.getType(),
 		    _sheader.getDataByteLength());
+
+	    _leftToRead = _sheader.getDataByteLength();
+	    _dptr = (char*) _samp->getVoidDataPtr();
 
             _samp->setTimeTag(_sheader.getTimeTag());
             _samp->setId(_sheader.getId());
-            _leftToRead = _samp->getDataByteLength();
-            _dptr = (char*) _samp->getVoidDataPtr();
         }
         while (_leftToRead > 0) {
-            size_t len = _iostream->read(_dptr, _leftToRead);
+            len = _iostream->read(_dptr, _leftToRead);
             if (_iostream->isNewFile()) {
 		// if start of a new file, then we need to read the header.
                 _iostream->backup(len);
-                _samp->freeReference();
+                readInputHeader();
+                if (_samp) _samp->freeReference();
                 _samp = 0;
-                inputHeader.check(_iostream);
+                _headerToRead = _sheader.getSizeOf();
+                _hptr = (char*)&_sheader;
                 // go back and read the header
                 break;
             }
@@ -357,58 +373,91 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
         if (_leftToRead == 0) {
             Sample* tmp = _samp;
             _samp = 0;
+	    _headerToRead = _sheader.getSizeOf();
+	    _hptr = (char*)&_sheader;
             return tmp;
         }
     }
 }
 
 /*
- * Read the next sample. The caller must call freeReference on the
- * sample when they're done with it.
+ * Search for a sample with timetag >= tt.
  */
 void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
 {
     size_t len;
     for (;;) {
-	for (;;) {
-	    len = _iostream->read(_hptr,_headerToRead);
-	    _headerToRead -= len;
-	    _hptr += len;
-	    if (_headerToRead == 0) break;
-	    _iostream->read();
-	    if (_iostream->isNewFile()) {
-		inputHeader.check(_iostream);
-		_headerToRead = _sheader.getSizeOf();
-		_hptr = (char*)&_sheader;
-	    }
-	}
-	_headerToRead = _sheader.getSizeOf();
-	_hptr = (char*)&_sheader;
+        if (_headerToRead > 0) {
+            while (_headerToRead > 0) {
+                len = _iostream->read(_hptr,_headerToRead);
+                if (_iostream->isNewFile()) {
+                    _iostream->backup(len);
+                    readInputHeader();
+                    _headerToRead = _sheader.getSizeOf();
+                    _hptr = (char*)&_sheader;
+                }
+                else {
+                    _headerToRead -= len;
+                    _hptr += len;
+                }
+            }
 
 #if __BYTE_ORDER == __BIG_ENDIAN
             _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
             _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
             _sheader.setRawId(bswap_32(_sheader.getRawId()));
 #endif
+            if (_filterBadSamples &&
+                (_sheader.getType() >= UNKNOWN_ST ||
+                    GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
+                _sheader.getDataByteLength() > _maxSampleLength ||
+                _sheader.getTimeTag() < _minSampleTime ||
+                _sheader.getTimeTag() > _maxSampleTime)) {
+                if (!(_badInputSamples++ % 1000)) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        getName().c_str(), _badInputSamples,
+                        _iostream->getNBytes()-_sheader.getSizeOf(),
+                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
+                        _sheader.getType(),_sheader.getDataByteLength());
+                }
+                try {
+                    _iostream->backup(_sheader.getSizeOf() - 1);
+                }
+                catch(const n_u::IOException& e) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: %s", getName().c_str(),e.what());
+                }
+                _headerToRead = _sheader.getSizeOf();
+                _hptr = (char*)&_sheader;
+                continue;
+            }
 
-        if (_sheader.getType() >= UNKNOWN_ST) _badInputSamples++;
-        // cerr << _sheader.getTimeTag() << " " << tt.toUsecs() << endl;
-        if (_sheader.getTimeTag() >= tt.toUsecs()) {
-            _iostream->backup(_sheader.getSizeOf());
-            return;
+            _leftToRead = _sheader.getDataByteLength();
+
+            // cerr << "time=" << n_u::UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
+            if (_sheader.getTimeTag() >= tt.toUsecs()) {
+                _samp = nidas::core::getSample((sampleType)_sheader.getType(),
+                    _sheader.getDataByteLength());
+                _samp->setTimeTag(_sheader.getTimeTag());
+                _samp->setId(_sheader.getId());
+                _dptr = (char*) _samp->getVoidDataPtr();
+                return;
+            }
         }
-
-        _leftToRead = _sheader.getDataByteLength();
-
         while (_leftToRead > 0) {
-            size_t len = _iostream->skip(_leftToRead);
+            len = _iostream->skip(_leftToRead);
             if (_iostream->isNewFile()) {
                 _iostream->backup(len);
-                inputHeader.check(_iostream);
+                readInputHeader();
                 break;
             }
             _leftToRead -= len;
         }
+	_headerToRead = _sheader.getSizeOf();
+	_hptr = (char*)&_sheader;
+	if (_samp) _samp->freeReference();
+	_samp = 0;
     }
 }
 

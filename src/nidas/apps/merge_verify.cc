@@ -315,8 +315,8 @@ int MergeVerifier::run() throw()
 	    input->init();
 
 	    try {
-		input->readHeader();
-		// SampleInputHeader header = input->getHeader();
+		input->readInputHeader();
+		// SampleInputHeader header = input->getInputHeader();
 		// printHeader(header);
 	    }
 
@@ -356,8 +356,8 @@ int MergeVerifier::run() throw()
         merge->init();
 
         try {
-            merge->readHeader();
-	    SampleInputHeader header = merge->getHeader();
+            merge->readInputHeader();
+	    SampleInputHeader header = merge->getInputHeader();
 	    printHeader(header);
         }
         catch (const n_u::EOFException& e) {
