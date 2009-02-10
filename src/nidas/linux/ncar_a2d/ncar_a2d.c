@@ -1554,6 +1554,9 @@ static int stopBoard(struct A2DBoard *brd)
         // Abort all the A/D's
         A2DStopReadAll(brd);
 
+        // must flush the workqueue before freeing the filters
+        flush_workqueue(work_queue);
+
         freeFilters(brd);
 
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
@@ -1837,8 +1840,6 @@ static int ncar_a2d_release(struct inode *inode, struct file *filp)
          * Turn off the callback routine
          */
         stopBoard(brd);
-
-        freeFilters(brd);
 
         return ret;
 }

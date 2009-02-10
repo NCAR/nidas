@@ -1769,6 +1769,13 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         if (atomic_dec_and_test(&a2d->num_opened)) {
             if (a2d->running) stopA2D(a2d,1);
             result = dmd_mmat_remove_irq_user(brd,0);
+#ifdef USE_TASKLET
+            tasklet_kill(&a2d->tasklet);
+#elif defined(USE_MY_WORK_QUEUE)
+            flush_workqueue(work_queue);
+#else
+            flush_scheduled_work();
+#endif
             /* cleanup filters */
             for (i = 0; i < a2d->nfilters; i++) {
                 struct a2d_filter_info* fcfg;
@@ -1821,8 +1828,10 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
 
         for ( ; count; ) {
 
+#define DEBUG
             KLOG_DEBUG("count=%d,copied=%d,sampBytesLeft=%d\n",
                 count,countreq-count,bytesLeft);
+#undef DEBUG
             if ((n = min(bytesLeft,count)) > 0) {
                     if (copy_to_user(buf,sampPtr,n)) return -EFAULT;
                     count -= n;
