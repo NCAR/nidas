@@ -154,7 +154,7 @@ size_t FileSet::read(void* buf, size_t count) throw(IOException)
             closeFile();	// next read will open next file
             return read(buf,count);
         }
-	else throw IOException(currname,"read",errno);
+	throw IOException(currname,"read",errno);
     }
     return res;
 }

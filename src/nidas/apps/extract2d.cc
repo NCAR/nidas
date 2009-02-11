@@ -504,7 +504,7 @@ void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
     {
         char msg[200];
         sprintf(msg,
-		"Miss-aligned data, %02d:%02d:%02d.%03d, rec #%d, total sync=%d, missAligned count=%d",
+		"Miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%d, missAligned count=%d",
 		ntohs(record.hour), ntohs(record.minute), ntohs(record.second),
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
         cout << msg << endl;
