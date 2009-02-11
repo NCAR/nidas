@@ -189,7 +189,8 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
  */
 void SampleInputStream::readSamples() throw(n_u::IOException)
 {
-    _iostream->read();		// read a buffer's worth
+    size_t len;
+    len = _iostream->read();		// read a buffer's worth
     if (_iostream->isNewFile()) {	// first read from a new file
 	readInputHeader();
 	if (_samp) _samp->freeReference();
@@ -199,9 +200,9 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
     }
 
     // process all in buffer
-    size_t len;
     for (;;) {
 	if (_headerToRead > 0) {
+            if (_iostream->available() == 0) break;
 	    len = _iostream->read(_hptr,_headerToRead);
             _headerToRead -= len;
             if (_headerToRead > 0) {
@@ -221,9 +222,16 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                     (_sheader.getType() >= UNKNOWN_ST ||
                         GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
                     _sheader.getDataByteLength() > _maxSampleLength ||
+                    _sheader.getDataByteLength() == 0 ||
                     _sheader.getTimeTag() < _minSampleTime ||
                     _sheader.getTimeTag() > _maxSampleTime)) {
+                    _samp = 0;
+            }
+            // getSample can return NULL if type or length are bad
+            else _samp = nidas::core::getSample((sampleType)_sheader.getType(),
+                _sheader.getDataByteLength());
 
+            if (!_samp) {
                 if (!(_badInputSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
@@ -244,10 +252,6 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                 continue;
             }
 
-            // cerr << "byte length=" << _sheader.getDataByteLength() << endl;
-            _samp = nidas::core::getSample((sampleType)_sheader.getType(),
-                _sheader.getDataByteLength());
-
 	    _leftToRead = _sheader.getDataByteLength();
 	    _dptr = (char*) _samp->getVoidDataPtr();
 
@@ -255,6 +259,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	    _samp->setId(_sheader.getId());
 	}
 
+        if (_iostream->available() == 0) break;
 	len = _iostream->read(_dptr, _leftToRead);
 	// cerr << "read len=" << len << endl;
 	_dptr += len;
@@ -335,6 +340,21 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
+                _samp = 0;
+            }
+            // getSample can return NULL if type or length are bad
+            else _samp = nidas::core::getSample((sampleType)_sheader.getType(),
+		    _sheader.getDataByteLength());
+
+            if (!_samp) {
+                if (!(_badInputSamples++ % 1000)) {
+                    n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        getName().c_str(), _badInputSamples,
+                        _iostream->getNBytes()-_sheader.getSizeOf(),
+                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
+                        _sheader.getType(),_sheader.getDataByteLength());
+                }
                 try {
                     _iostream->backup(_sheader.getSizeOf() - 1);
                 }
@@ -342,11 +362,10 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: %s", getName().c_str(),e.what());
                 }
+                _headerToRead = _sheader.getSizeOf();
+                _hptr = (char*)&_sheader;
                 continue;
-	    }
-
-	    _samp = nidas::core::getSample((sampleType)_sheader.getType(),
-		    _sheader.getDataByteLength());
+            }
 
 	    _leftToRead = _sheader.getDataByteLength();
 	    _dptr = (char*) _samp->getVoidDataPtr();
@@ -411,6 +430,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 (_sheader.getType() >= UNKNOWN_ST ||
                     GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
                 _sheader.getDataByteLength() > _maxSampleLength ||
+                _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
                 _sheader.getTimeTag() > _maxSampleTime)) {
                 if (!(_badInputSamples++ % 1000)) {
@@ -433,18 +453,39 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 continue;
             }
 
-            _leftToRead = _sheader.getDataByteLength();
-
             // cerr << "time=" << n_u::UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
             if (_sheader.getTimeTag() >= tt.toUsecs()) {
+                // getSample can return NULL if type or length are bad
                 _samp = nidas::core::getSample((sampleType)_sheader.getType(),
                     _sheader.getDataByteLength());
+                if (!_samp) {
+                    if (!(_badInputSamples++ % 1000)) {
+                        n_u::Logger::getInstance()->log(LOG_WARNING,
+                            "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                            getName().c_str(), _badInputSamples,
+                            _iostream->getNBytes()-_sheader.getSizeOf(),
+                            GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
+                            _sheader.getType(),_sheader.getDataByteLength());
+                    }
+                    try {
+                        _iostream->backup(_sheader.getSizeOf() - 1);
+                    }
+                    catch(const n_u::IOException& e) {
+                        n_u::Logger::getInstance()->log(LOG_WARNING,
+                            "%s: %s", getName().c_str(),e.what());
+                    }
+                    _headerToRead = _sheader.getSizeOf();
+                    _hptr = (char*)&_sheader;
+                    continue;
+                }
                 _samp->setTimeTag(_sheader.getTimeTag());
                 _samp->setId(_sheader.getId());
                 _dptr = (char*) _samp->getVoidDataPtr();
+                _leftToRead = _sheader.getDataByteLength();
                 return;
             }
         }
+        _leftToRead = _sheader.getDataByteLength();
         while (_leftToRead > 0) {
             len = _iostream->skip(_leftToRead);
             if (_iostream->isNewFile()) {

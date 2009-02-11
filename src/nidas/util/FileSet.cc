@@ -144,7 +144,7 @@ UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
 }
 
 
-ssize_t FileSet::read(void* buf, size_t count) throw(IOException)
+size_t FileSet::read(void* buf, size_t count) throw(IOException)
 {
     newFile = false;
     if (fd < 0) openNextFile();		// throws EOFException
@@ -159,10 +159,10 @@ ssize_t FileSet::read(void* buf, size_t count) throw(IOException)
     return res;
 }
 
-ssize_t FileSet::write(const void* buf, size_t count) throw(IOException)
+size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 {
     newFile = false;
-    ssize_t res = ::write(fd,buf,count);
+    size_t res = ::write(fd,buf,count);
     if (res < 0) throw IOException(currname,"write",errno);
     return res;
 }

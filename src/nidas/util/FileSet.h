@@ -145,12 +145,12 @@ public:
     /**
      * Read from current file.
      */
-    ssize_t read(void* buf, size_t count) throw(IOException);
+    size_t read(void* buf, size_t count) throw(IOException);
 
     /**
      * Write to current file.
      */
-    ssize_t write(const void* buf, size_t count) throw(IOException);
+    size_t write(const void* buf, size_t count) throw(IOException);
 
     static const char pathSeparator;
 

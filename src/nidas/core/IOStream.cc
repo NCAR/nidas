@@ -81,18 +81,18 @@ size_t IOStream::read() throw(n_u::IOException)
 	head = tail + l;
     }
 
-    // Avoid blocking on more data if there's already some in the buffer.
+    // Only do iochannel physical read if there is no data in the buffer,
+    // so that we don't block if there is data available.
     if (l == 0) {
 	l = iochannel.read(head,eob-head);
+        head += l;
 	if (iochannel.isNewFile()) {
-	    tail = head;	// discard last portion of previous file
 	    newFile = true;
-            nbytes = 0;
+            nbytes = l;
 	}
     }
     else l = 0;
 
-    head += l;
 #ifdef DEBUG
     DLOG(("IOStream, read =") << l << ", avail=" << available());
 #endif
