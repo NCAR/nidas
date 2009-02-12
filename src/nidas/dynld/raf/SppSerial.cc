@@ -46,7 +46,9 @@ SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
   _skippedBytes(0),
   _skippedRecordCount(0),
   _totalRecordCount(0),
-  _sampleRate(1)
+  _sampleRate(1),
+  _outputDeltaT(false),
+  _prevTime(-1)
 {
   // If these aren't true, we're screwed!
   assert(sizeof(DMT_UShort) == 2);
@@ -61,6 +63,61 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     for (int j = 0; j < len; j++) 
       sum += (unsigned short)pkt[j];
     return sum;
+}
+
+void SppSerial::validate()
+    throw(n_u::InvalidParameterException)
+{
+    DSMSerialSensor::validate();
+
+    _noutValues = 0;
+    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
+    {
+        const SampleTag* stag = ti.next();
+
+        VariableIterator vi = stag->getVariableIterator();
+        for ( ; vi.hasNext(); )
+        {
+            const Variable* var = vi.next();
+            _noutValues += var->getLength();
+            if (var->getName().compare(0, 6, "DELTAT") == 0) {
+                _outputDeltaT = true;
+                ++_nHskp;
+            }
+        }
+    }
+
+#ifdef ZERO_BIN_HACK
+    /*
+     * We'll be adding a bogus zeroth bin to the data to match historical 
+     * behavior. Remove all traces of this after the netCDF file refactor.
+     */
+    if (_noutValues != _nChannels + _nHskp + 1) {
+        ostringstream ost;
+        ost << "total length of variables should be " << 
+	  (_nChannels + _nHskp + 1) << " rather than " << _noutValues << ".\n";
+          throw n_u::InvalidParameterException(getName(), "sample",
+					       ost.str());
+    }
+#else
+    if (_noutValues != _nChannels + _nHskp) {
+        ostringstream ost;
+        ost << "total length of variables should be " << 
+	  (_nChannels + _nHskp) << " rather than " << _noutValues << ".\n";
+          throw n_u::InvalidParameterException(getName(), "sample",
+					       ost.str());
+    }
+#endif
+
+    /*
+     * Allocate a new buffer for yet-to-be-handled data.  We get enough space
+     * to hold up to two full samples.
+     */
+    if (_waitingData)
+      delete[] _waitingData;
+    
+    _waitingData = new unsigned char[2 * packetLen()];
+    _nWaitingData = 0;
 }
 
 void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
@@ -100,50 +157,6 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
     if (tags.size() != 1)
           throw n_u::InvalidParameterException(getName(), "sample", 
               "must be one <sample> tag for this sensor");
-
-    _noutValues = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
-    {
-        const SampleTag* stag = ti.next();
-
-        VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); )
-        {
-            const Variable* var = vi.next();
-            _noutValues += var->getLength();
-        }
-    }
-#ifdef ZERO_BIN_HACK
-    /*
-     * We'll be adding a bogus zeroth bin to the data to match historical 
-     * behavior. Remove all traces of this after the netCDF file refactor.
-     */
-    if (_noutValues != _nChannels + _nHskp + 1) {
-        ostringstream ost;
-        ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp + 1) << " rather than " << _noutValues << ".\n";
-          throw n_u::InvalidParameterException(getName(), "sample",
-					       ost.str());
-    }
-#else
-    if (_noutValues != _nChannels + _nHskp) {
-        ostringstream ost;
-        ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp) << " rather than " << _noutValues << ".\n";
-          throw n_u::InvalidParameterException(getName(), "sample",
-					       ost.str());
-    }
-#endif
-
-    /*
-     * Allocate a new buffer for yet-to-be-handled data.  We get enough space
-     * to hold up to two full samples.
-     */
-    if (_waitingData)
-      delete[] _waitingData;
-    
-    _waitingData = new unsigned char[2 * packetLen()];
-    _nWaitingData = 0;
 
 }
 

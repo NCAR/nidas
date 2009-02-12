@@ -100,6 +100,9 @@ public:
 
   unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
+  void validate()
+    throw(nidas::util::InvalidParameterException);
+
   void fromDOMElement(const xercesc::DOMElement* node)
     throw(nidas::util::InvalidParameterException);
 
@@ -214,6 +217,20 @@ protected:
    * a counts per second by multiplying by sample rate.
    */
   unsigned int _sampleRate;
+
+//@{
+  /**
+   * Whether to output DELTAT variable.  validate() will detect if DELTAT
+   * variable is last variable in sample list of variables.  If so this is
+   * set to true.
+   */
+  unsigned int _outputDeltaT;
+  /**
+   * Store previous time tag.  We can then generate a delta T for statistics or output.
+   */
+  int _prevTime;
+//@}
+
 };
 
 }}}	// namespace nidas namespace dynld raf

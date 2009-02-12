@@ -160,6 +160,14 @@ bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
+    // Compute DELTAT.
+    int thisTime = samp->getTimeTag() / USECS_PER_MSEC;
+    if (_prevTime == -1)
+        _prevTime = thisTime;
+    if (_outputDeltaT)
+        *dout++ = thisTime - _prevTime;
+    _prevTime = thisTime;
+
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.
     assert(dout == dend);

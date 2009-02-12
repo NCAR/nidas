@@ -113,6 +113,7 @@ protected:
   unsigned short _attAccept;
   unsigned short _ctMethod;
 
+  unsigned long prevTime;
 };
 
 }}}	// namespace nidas namespace dynld raf
