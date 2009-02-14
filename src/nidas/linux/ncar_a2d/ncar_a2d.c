@@ -496,10 +496,14 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
                         gainCode = 0x8800 + channel;    //   0 to +5
                         break;
                 default:
+                        // No need to set a gainCode here because unused
+                        // channels are bipolar by default.
                         return -EINVAL;
                 }
-        } else {
+        } else {                            // bipolar
                 switch(brd->gain[channel]) {
+                default:
+                        // Use lowest gain setting for un-expected inputs.
                 case 1:
                         gainCode = 0x2200 + channel;    // -10 to +10
                         break;
@@ -509,8 +513,6 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
                 case 4:
                         gainCode = 0x8800 + channel;
                         break;
-                default:
-                        return -EINVAL;
                 }
         }
         // 1.  Write (or set) D2A0. This is accomplished by writing to the A/D
@@ -1055,10 +1057,9 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
         for (repeat = 0; repeat < 3; repeat++) {
                 for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
                         /*
-                         * Set gain for requested channels
+                         * Set gain for all channels
                          */
-                        if (brd->gain[i] > 0
-                            && (ret = A2DSetGain(brd, i)) != 0)
+                        if ((ret = A2DSetGain(brd, i)) != 0)
                                 return ret;
                 }
                 outb(A2DIO_D2A1, brd->cmd_addr);
