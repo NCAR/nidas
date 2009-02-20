@@ -33,6 +33,7 @@ using namespace nidas::core;
 class DSMAnalogSensor : public A2DSensor {
 
 public:
+    enum OutputMode { Counts, Volts, Engineering };
 
     DSMAnalogSensor();
     ~DSMAnalogSensor();
@@ -63,6 +64,13 @@ public:
 
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
+    void setConversionCorrection(int ichan, float corIntercept, float corSlope)
+	throw(nidas::util::InvalidParameterException);
+
+
+    void setOutputMode(OutputMode mode) { _outputMode = mode; }
+
+    OutputMode getOutputMode() const { return _outputMode; }
 
     /**
      * Process a raw sample, which in this case means unpack the
@@ -123,6 +131,13 @@ protected:
     enum irigClockRates _temperatureRate;
 
     dsm_time_t _calTime;
+
+    /**
+     * Whethere to output samples as counts, volts or engineering units.  Decides
+     * which calibrations to apply.
+     * @see enum OutputMode
+     */
+    OutputMode _outputMode;
 
     /**
      * Conversion factor from 16 bit raw temperature to degC

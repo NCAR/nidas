@@ -60,7 +60,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),rtlinux(-1),
-    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),_calTime(0)
+    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),_calTime(0),_outputMode(Volts)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -99,7 +99,6 @@ SampleScanner* DSMAnalogSensor::buildSampleScanner()
 void DSMAnalogSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
-
     DSMSensor::open(flags);
     init();
 
@@ -283,9 +282,25 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      *	    = cnts * 20 / 65536 / gain * corSlope +
      *		offset * corSlope + corIntercept
      */
-    slope = 20.0 / 65536 / getGain(ichan);
-    if (getBipolar(ichan)) intercept = 0.0;
-    else intercept = 10.0 / getGain(ichan);
+    if (getOutputMode() == Counts) {
+        slope = 1.0;
+        intercept = 0.0;
+    }
+    else {
+        slope = 20.0 / 65536 / getGain(ichan);
+        if (getBipolar(ichan)) intercept = 0.0;
+        else intercept = 10.0 / getGain(ichan);
+    }
+}
+
+void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
+    float corSlope) throw(n_u::InvalidParameterException)
+{
+    if (getOutputMode() == Counts) {
+        corSlope = 1.0;
+        corIntercept = 0.0;
+    }
+    A2DSensor::setConversionCorrection(ichan, corIntercept, corSlope);
 }
 
 float DSMAnalogSensor::getTemp() throw(n_u::IOException)
@@ -451,6 +466,9 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 void DSMAnalogSensor::readCalFile(dsm_time_t tt) 
     throw(n_u::IOException)
 {
+    if (getOutputMode() == Counts)
+        return;
+
     // Read CalFile  containing the following fields after the time
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
     CalFile* cf = getCalFile();
