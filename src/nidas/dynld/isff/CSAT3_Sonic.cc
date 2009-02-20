@@ -130,7 +130,8 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     }
     clearBuffer();
 
-    string::size_type fs = result.find("ET=");
+    // Version 3 output starts with "ET=", version 4 with "SNXXXX"
+    string::size_type fs = std::min(result.find("ET="),result.find("SN"));
     if (fs != string::npos && fs > 0) result = result.substr(fs);
     while (result[result.length() - 1] == '>') result.resize(result.length()-1);
 
@@ -144,6 +145,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
 
     // get os parameter, e.g. "os=g"
     // g for 10Hz 6x oversampling, h for 20Hz 3x oversampling, ' ' otherwise
+    // For version 4, os=0 means no oversampling
     fs = result.find("os=");
     if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
             
