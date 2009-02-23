@@ -27,7 +27,7 @@ namespace n_u = nidas::util;
  * ctor
  */
 McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
-    firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+    firstRead(true),newInput(true),keepAliveIdleSecs(7200),
     minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
     nonBlocking(false)
 {
@@ -40,7 +40,7 @@ McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
 McSocket::McSocket(const McSocket& x):
     n_u::McSocket(x),socket(0),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newFile(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
+    firstRead(true),newInput(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
     minWriteInterval(x.minWriteInterval),lastWrite(0),
     nonBlocking(x.nonBlocking)
 {
@@ -52,7 +52,7 @@ McSocket::McSocket(const McSocket& x):
 McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
     n_u::McSocket(x),socket(sock),name(x.name),
     connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newFile(true),
+    firstRead(true),newInput(true),
     keepAliveIdleSecs(x.keepAliveIdleSecs),
     minWriteInterval(x.minWriteInterval),lastWrite(0),
     nonBlocking(x.nonBlocking)
@@ -133,7 +133,7 @@ size_t McSocket::getBufferSize() const throw()
 size_t McSocket::read(void* buf, size_t len) throw (n_u::IOException)
 {
     if (firstRead) firstRead = false;
-    else newFile = false;
+    else newInput = false;
     size_t res = socket->recv(buf,len);
     return res;
 }

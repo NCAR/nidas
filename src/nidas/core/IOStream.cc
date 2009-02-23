@@ -26,17 +26,17 @@ using namespace std;
 namespace n_u = nidas::util;
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	iochannel(iochan),buffer(0),
-        maxUsecs(USECS_PER_SEC/4),
-        newFile(true),nbytes(0),nEAGAIN(0)
+	_iochannel(iochan),_buffer(0),
+        _maxUsecs(USECS_PER_SEC/4),
+        _newInput(true),_nbytes(0),_nEAGAIN(0)
 {
     reallocateBuffer(blen * 2);
-    lastWrite = 0;
+    _lastWrite = 0;
 }
 
 IOStream::~IOStream()
 {
-    delete [] buffer;
+    delete [] _buffer;
 }
 
 void IOStream::reallocateBuffer(size_t len)
@@ -44,55 +44,53 @@ void IOStream::reallocateBuffer(size_t len)
 #ifdef DEBUG
     cerr << "IOStream::reallocateBuffer, len=" << len << endl;
 #endif
-    if (buffer) {
+    if (_buffer) {
         char* newbuf = new char[len];
         // will silently lose data if len  is too small.
-        size_t wlen = head - tail;
+        size_t wlen = _head - _tail;
         if (wlen > len) wlen = len;
-        memcpy(newbuf,tail,wlen);
+        memcpy(newbuf,_tail,wlen);
 
-        delete [] buffer;
-        buffer = newbuf;
-        buflen = len;
-        tail = buffer;
-        head = tail + wlen;
+        delete [] _buffer;
+        _buffer = newbuf;
+        _buflen = len;
+        _tail = _buffer;
+        _head = _tail + wlen;
     }
     else {
-        buffer = new char[len];
-        buflen = len;
-        head = tail = buffer;
+        _buffer = new char[len];
+        _buflen = len;
+        _head = _tail = _buffer;
     }
-    eob = buffer + buflen;
-    halflen = buflen / 2;
+    _eob = _buffer + _buflen;
+    _halflen = _buflen / 2;
 }
 
 /*
- * Shift data in the IOStream buffer down, then do an iochannel.read()
- * to the head of the buffer.
+ * Will return length of 0 if there is already data in the buffer,
+ * or at end-of-file, or if the _iochannel is non-blocking.
  */
 size_t IOStream::read() throw(n_u::IOException)
 {
-    newFile = false;
+    _newInput = false;
     size_t l = available(); 	// head - tail;
+
+    // Avoid blocking on more data if there's already some in the buffer.
+    if (l > 0) return 0;
+
     // shift data down. memmove supports overlapping memory areas
-    if (tail > buffer) {
-	memmove(buffer,tail,l);
-	tail = buffer;
-	head = tail + l;
+    if (_tail > _buffer) {
+	memmove(_buffer,_tail,l);
+	_tail = _buffer;
+	_head = _tail + l;
     }
 
-    // Only do iochannel physical read if there is no data in the buffer,
-    // so that we don't block if there is data available.
-    if (l == 0) {
-	l = iochannel.read(head,eob-head);
-        head += l;
-	if (iochannel.isNewFile()) {
-	    newFile = true;
-            nbytes = l;
-	}
+    l = _iochannel.read(_head,_eob-_head);
+    _head += l;
+    if (_iochannel.isNewInput()) {
+        _newInput = true;
+        _nbytes = 0;
     }
-    else l = 0;
-
 #ifdef DEBUG
     DLOG(("IOStream, read =") << l << ", avail=" << available());
 #endif
@@ -100,22 +98,28 @@ size_t IOStream::read() throw(n_u::IOException)
 }
 
 /*
- * Read available data from tail of IOStream buffer into user buffer.
- * May return less than len.
+ * Read until len bytes have been transfered.
+ * May perform zero or more physical read()s.
+ * May return less than len bytes if read() encounters
+ * an end-of-file or if the _iochannel is non-blocking
+ * and no data is available.
  */
 size_t IOStream::read(void* buf, size_t len) throw(n_u::IOException)
 {
-    newFile = false;
-    size_t l = available();
-    if (l == 0) {
-        read();
-	l = available();
+    size_t req = len;
+    _newInput = false;
+    while (len > 0) {
+        if (available() == 0) {
+            // if read returns 0, we're at the end of file or
+            // EAGAIN on noblocking read.
+            if (read() == 0) return req - len;
+            if (!_newInput) _newInput = _iochannel.isNewInput();
+        }
+        size_t l = readBuf(buf,len);
+        len -= l;
+        buf = (char*) buf + l;
     }
-    if (len < l) l = len;
-    memcpy(buf,tail,l);
-    tail += l;
-    nbytes += l;
-    return l;
+    return req;
 }
 
 /*
@@ -124,21 +128,19 @@ size_t IOStream::read(void* buf, size_t len) throw(n_u::IOException)
  */
 size_t IOStream::skip(size_t len) throw(n_u::IOException)
 {
-    newFile = false;
+    if (available() == 0) read();
+    _newInput = false;
     size_t l = available();
-    if (l == 0) {
-        read();
-	l = available();
-    }
     if (len < l) l = len;
-    tail += l;
-    nbytes += l;
+    _tail += l;
+    _nbytes += l;
     return l;
 }
 
 /*
  * Read data until finding a terminator character or the user's
  * buffer is filled.  This may do more than one physical read.
+ * Will not work well with non-blocking reads.
  */
 size_t IOStream::readUntil(void* buf, size_t len,char term)
 	throw(n_u::IOException)
@@ -147,39 +149,39 @@ size_t IOStream::readUntil(void* buf, size_t len,char term)
     const char* eout = outp + len - 1;	// leave room for trailing '\0'
 
     bool done = false;
+    _newInput = false;
     for (;;) {
-	newFile = false;
-	size_t l = available();
-	if (l == 0) {
-	    read();
-	    l = available();
+	if (available() == 0) {
+            // If end of input, (or EAGAIN) discard previous data, keep reading
+	    if (read() == 0) outp = (char*) buf;
+            if (!_newInput) _newInput = _iochannel.isNewInput();
 	}
-	for ( ; tail < head && !done; )
-	    done = outp == eout || (*outp++ = *tail++) == term;
-
+	for ( ; _tail < _head && !done; )
+	    done = outp == eout || (*outp++ = *_tail++) == term;
 	if (done) break;
     }
     *outp = '\0';
     len = outp - (const char*)buf;
-    nbytes += len;
+    _nbytes += len;
     return len;
 }
 
 /*
  * Put data back in buffer.
  */
-size_t IOStream::backup(size_t len) throw(n_u::IOException)
+size_t IOStream::backup(size_t len) throw()
 {
-    size_t maxbackup = tail - buffer;
+    size_t maxbackup = _tail - _buffer;
     // cerr << "IOStream::backup, len=" << len << " maxbackup=" << maxbackup << endl;
-    if (maxbackup < len)  {
-        ostringstream ost;
-        ost << "Cannot backup " << len << " bytes. Only " << maxbackup << " bytes in buffer.";
-        throw n_u::IOException(getName(),"backup",ost.str());
-    }
-    tail -= len;
-    nbytes -= len;
+    if (len > maxbackup) len = maxbackup;
+    _tail -= len;
+    _nbytes -= len;
     return len;
+}
+
+size_t IOStream::backup() throw()
+{
+    return backup(_tail - _buffer);
 }
 
 size_t IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
@@ -201,10 +203,10 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
 
     // If we need to expand the buffer for a large sample.
     // This does not screen ridiculous sample sizes.
-    if (tlen > buflen) reallocateBuffer(tlen);
+    if (tlen > _buflen) reallocateBuffer(tlen);
 
     dsm_time_t tnow = getSystemTime();
-    dsm_time_t tdiff = tnow - lastWrite;	// microseconds
+    dsm_time_t tdiff = tnow - _lastWrite;	// microseconds
 
     // Only make two attempts at most.  Most likely the first attempt will
     // be enough to copy in the user buffers and then potentially write it
@@ -213,64 +215,64 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
     for (int attempts = 0; attempts < 2; ++attempts)
     {
 	/* number of bytes in buffer waiting to be written */
-	size_t wlen = head - tail;
+	size_t wlen = _head - _tail;
 
 	/* space available in buffer */
-	size_t space = eob - head;
+	size_t space = _eob - _head;
 
 	// If there's not space in the buffer, but we can make some, do it now.
-	if (tlen > space && wlen + tlen <= buflen && tail != buffer) {
+	if (tlen > space && wlen + tlen <= _buflen && _tail != _buffer) {
 	    // shift data down. memmove supports overlapping memory areas
-	    memmove(buffer,tail,wlen);
-	    tail = buffer;
-	    head = tail + wlen;
-	    space = eob - head;
+	    memmove(_buffer,_tail,wlen);
+	    _tail = _buffer;
+	    _head = _tail + wlen;
+	    space = _eob - _head;
 	}
 
 	// If there's space now for this write in the buffer, add it.
 	if (tlen <= space) {
 	    for (ibuf = 0; ibuf < nbufs; ibuf++) {
 		l = lens[ibuf];
-		memcpy(head,bufs[ibuf],l);
-		head += l;
+		memcpy(_head,bufs[ibuf],l);
+		_head += l;
 	    }
 	    // Indicate the user buffers have been added.
 	    nbufs = 0;
-	    wlen = head - tail;
-	    space = eob - head;
+	    wlen = _head - _tail;
+	    space = _eob - _head;
 	}
 
 	// There is data in the buffer and the buffer is full enough, or
 	// maxUsecs has elapsed since the last write, or else we need to
 	// write to make room for the user buffers.
-	if (nbufs > 0 || wlen >= halflen || (wlen > 0 && tdiff >= maxUsecs)) {
+	if (nbufs > 0 || wlen >= _halflen || (wlen > 0 && tdiff >= _maxUsecs)) {
 
 	    // if streaming small samples, don't write more than
-	    // halflen number of bytes.  The idea is that <= halflen
+	    // _halflen number of bytes.  The idea is that <= _halflen
 	    // is a good size for the output device.
-	    // if (tlen < halflen && wlen > halflen) wlen = halflen;
+	    // if (tlen < _halflen && wlen > _halflen) wlen = _halflen;
 	    try {
-		l = iochannel.write(tail,wlen);
+		l = _iochannel.write(_tail,wlen);
 	    }
 	    catch (const n_u::IOException& ioe) {
 		if (ioe.getError() == EAGAIN) l = 0;
 		else throw ioe;
 	    }
 #ifdef REPORT_EAGAINS
-	    if (l == 0 && (nEAGAIN++ % 100) == 0) {
+	    if (l == 0 && (_nEAGAIN++ % 100) == 0) {
 		WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
-		      getName().c_str(),nEAGAIN,wlen,tlen));
+		      getName().c_str(),_nEAGAIN,wlen,tlen));
 	    }
 #endif
-	    tail += l;
-	    if (tail == head) {
-		tail = head = buffer;	// empty buffer
-		space = eob - head;
+	    _tail += l;
+	    if (_tail == _head) {
+		_tail = _head = _buffer;	// empty buffer
+		space = _eob - _head;
 	    }
 	    // Note this just updates lastWrite and does not change tdiff.
 	    // We want the second time around the loop to write the user
 	    // buffers if it's been too long.
-	    lastWrite = tnow;
+	    _lastWrite = tnow;
 	}
 
 	// We're done when the user buffers have been copied into this buffer.
@@ -288,21 +290,21 @@ void IOStream::flush() throw (n_u::IOException)
     ssize_t l;
 
     /* number of bytes in buffer */
-    size_t wlen = head - tail;
+    size_t wlen = _head - _tail;
 
     for (int ntry = 0; wlen > 0 && ntry < 5; ntry++) {
 	try {
-	    l = iochannel.write(tail,wlen);
+	    l = _iochannel.write(_tail,wlen);
 	}
 	catch (const n_u::IOException& ioe) {
 	    if (ioe.getError() == EAGAIN) l = 0;
 	    else throw ioe;
 	}
-	tail += l;
+	_tail += l;
         wlen -= l;
-	if (tail == head) tail = head = buffer;
+	if (_tail == _head) _tail = _head = _buffer;
     }
-    iochannel.flush();
-    lastWrite = getSystemTime();
+    _iochannel.flush();
+    _lastWrite = getSystemTime();
 }
 

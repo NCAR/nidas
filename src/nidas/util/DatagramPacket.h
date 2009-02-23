@@ -60,10 +60,12 @@ public:
      */ 
     DatagramPacketBase& operator=(const DatagramPacketBase& rhs)
     {
-    	maxlength = rhs.maxlength;
-	length = rhs.length;
-	delete addr;
-	addr = rhs.addr->clone();
+        if (this != &rhs) {
+            maxlength = rhs.maxlength;
+            length = rhs.length;
+            delete addr;
+            addr = rhs.addr->clone();
+        }
 	return *this;
     }
 

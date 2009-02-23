@@ -28,14 +28,6 @@ using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-#ifdef NEEDED
-XMLConfigWriter::XMLConfigWriter() throw (nidas::core::XMLException): filter(0)
-{
-    impl = XMLImplementation::getImplementation();
-    writer = ((DOMImplementationLS*)impl)->createDOMWriter();
-}
-#endif
-
 XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm)
 	throw (nidas::core::XMLException)
 {
@@ -92,7 +84,7 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 	{
 	    if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 	    XDOMElement xchild((DOMElement*) child);
-	    if (!xchild.getNodeName().compare("dsm") &&
+	    if (xchild.getNodeName() == "dsm" &&
 	    	acceptDSMNode(child) == DOMNodeFilter::FILTER_ACCEPT)
 	    	return DOMNodeFilter::FILTER_ACCEPT;
 	}
@@ -113,13 +105,13 @@ short XMLConfigWriterFilter::acceptNode(const DOMNode* node) const
 short XMLConfigWriterFilter::acceptDSMNode(const DOMNode* node) const
 {
     XDOMElement xnode((DOMElement*) node);
-    if (xnode.getNodeName().compare("dsm"))
+    if (xnode.getNodeName() != "dsm")
 	return DOMNodeFilter::FILTER_REJECT;	// not a dsm node
     if(!node->hasAttributes()) 
 	return DOMNodeFilter::FILTER_REJECT;	// no attribute
 
     const string& dsmName = xnode.getAttributeValue("name");
-    if (!dsmName.compare(dsm->getName())) {
+    if (dsmName == dsm->getName()) {
 	// cerr << "accepting dsm node, name=" << dsmName << endl;
 	return DOMNodeFilter::FILTER_ACCEPT;
     }

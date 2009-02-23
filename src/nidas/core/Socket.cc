@@ -26,7 +26,7 @@ namespace n_u = nidas::util;
 Socket::Socket():
         _remotePort(0),
 	_socket(0),connectionRequester(0),connectionThread(0),
-        firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+        firstRead(true),newInput(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/2000),lastWrite(0),
         nonBlocking(false)
 {
@@ -43,7 +43,7 @@ Socket::Socket(const Socket& x):
 	_socket(0),name(x.name),
         connectionRequester(x.connectionRequester),
         connectionThread(0),
-        firstRead(true),newFile(true),
+        firstRead(true),newInput(true),
         keepAliveIdleSecs(x.keepAliveIdleSecs),
         minWriteInterval(x.minWriteInterval),lastWrite(0),
         nonBlocking(x.nonBlocking)
@@ -57,7 +57,7 @@ Socket::Socket(const Socket& x):
 Socket::Socket(n_u::Socket* sock):
 	_remoteSockAddr(sock->getRemoteSocketAddress().clone()),
 	_socket(sock),connectionRequester(0),connectionThread(0),
-        firstRead(true),newFile(true),keepAliveIdleSecs(7200),
+        firstRead(true),newInput(true),keepAliveIdleSecs(7200),
         minWriteInterval(USECS_PER_SEC/2000),lastWrite(0)
 {
     setName(_remoteSockAddr->toString());
@@ -203,7 +203,7 @@ void Socket::requestConnection(ConnectionRequester* requester)
 size_t Socket::read(void* buf, size_t len) throw (n_u::IOException)
 {
     if (firstRead) firstRead = false;
-    else newFile = false;
+    else newInput = false;
     return _socket->recv(buf,len);
 }
 

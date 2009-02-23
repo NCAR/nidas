@@ -48,17 +48,17 @@ public:
     /**
      * Get current running instance of DSMServer.
      */
-    static DSMServer* getInstance() { return serverInstance; }
+    static DSMServer* getInstance() { return _serverInstance; }
 
     /**
      * What is the XML configuration file name.
      */
-    static const std::string& getXMLFileName() { return xmlFileName; }
+    static const std::string& getXMLFileName() { return _xmlFileName; }
 
     /**
      * Parse an XMLConfigFile.
      */
-    static Project* parseXMLConfigFile(const std::string& xmlFileName)
+    static Project* parseXMLConfigFile(const std::string& _xmlFileName)
         throw(nidas::core::XMLException,nidas::util::InvalidParameterException,nidas::util::IOException);
 
     static const char* rafXML;
@@ -78,16 +78,16 @@ public:
 
     virtual ~DSMServer();
 
-    const std::string& getName() const { return name; }
-    void setName(const std::string& val) { name = val; }
+    const std::string& getName() const { return _name; }
+    void setName(const std::string& val) { _name = val; }
 
-    void addService(DSMService* service) { services.push_back(service); }
+    void addService(DSMService* service) { _services.push_back(service); }
 
-    const std::list<DSMService*>& getServices() const { return services; }
+    const std::list<DSMService*>& getServices() const { return _services; }
 
-    void addSite(Site* val) { sites.push_back(val); }
+    void addSite(Site* val) { _sites.push_back(val); }
 
-    const std::list<Site*>& getSites() const { return sites; }
+    const std::list<Site*>& getSites() const { return _sites; }
 
     DSMServiceIterator getDSMServiceIterator() const;
 
@@ -133,22 +133,22 @@ protected:
     /**
      * -d option. If user wants messages on stderr rather than syslog.
      */
-    static bool debug;
+    static bool _debug;
 
     /**
      * The xml file that is being used for configuration information.
      */
-    static std::string xmlFileName;
+    static std::string _xmlFileName;
 
     /**
      * The xml file that contains all the project configurations, by date.
      */
-    static std::string configsXMLName;
+    static std::string _configsXMLName;
 
     /**
      * Current running instance of DSMServer.
      */
-    static DSMServer* serverInstance;
+    static DSMServer* _serverInstance;
 
     static void startStatusThread() throw(nidas::util::Exception);
 
@@ -158,9 +158,9 @@ protected:
 
     static void killXmlRpcThread() throw(nidas::util::Exception);
 
-    static bool quit;
+    static bool _quit;
 
-    static bool restart;
+    static bool _restart;
 
     /** This thread that generates streaming XML time and status. */
     static DSMServerStat* _statusThread;
@@ -171,18 +171,18 @@ protected:
     /**
      * Sites that I serve.
      */
-    std::list<Site*> sites;
+    std::list<Site*> _sites;
 
     /**
      * Name of this server. This should correspond to a hostname
      * of a machine.
      */
-    std::string name;
+    std::string _name;
 
     /**
      * The DSMServices that we've been configured to start.
      */
-    std::list<DSMService*> services;
+    std::list<DSMService*> _services;
 
     static std::string _username;
 

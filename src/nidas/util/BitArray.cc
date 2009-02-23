@@ -24,16 +24,19 @@ BitArray::BitArray(const BitArray& ba) {
 /**
  * Assignment operator.
  */
-BitArray& BitArray::operator = (const BitArray& ba) {
-  // expand if necessary
-  if (lenBytes < ba.lenBytes) {
-    delete [] bits;
-    bits = new unsigned char[ba.lenBytes];
-    lenBytes = ba.lenBytes;
+BitArray& BitArray::operator = (const BitArray& ba)
+{
+  if (this != &ba) {
+      // expand if necessary
+      if (lenBytes < ba.lenBytes) {
+        delete [] bits;
+        bits = new unsigned char[ba.lenBytes];
+        lenBytes = ba.lenBytes;
+      }
+      lenBits = ba.lenBits;
+      ::memset(bits,0,lenBytes);
+      ::memcpy(bits,ba.bits,ba.lenBytes);
   }
-  lenBits = ba.lenBits;
-  ::memset(bits,0,lenBytes);
-  ::memcpy(bits,ba.bits,ba.lenBytes);
   return *this;
 }
 

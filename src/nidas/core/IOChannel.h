@@ -59,7 +59,13 @@ public:
 
     virtual int getRequestNumber() const { return -1; }
 
-    virtual bool isNewFile() const { return false; }
+    /**
+     * Some IOChannels, namely FileSet, which opens successive files,
+     * need to indicate when a read is from the start of a new file.
+     * This method is used by code which may need to do special things at the
+     * beginning of a file, like read a SampleInputHeader.
+     */
+    virtual bool isNewInput() const { return false; }
 
     /**
      * After the IOChannel is configured, a user of IOChannel calls

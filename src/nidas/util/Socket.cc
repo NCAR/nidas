@@ -72,17 +72,19 @@ SocketImpl::SocketImpl(const SocketImpl& x):
 /* assignment operator */
 SocketImpl& SocketImpl::operator =(const SocketImpl& rhs)
 {
-    sockdomain = rhs.sockdomain;
-    socktype = rhs.socktype;
-    delete localaddr;
-    localaddr = rhs.localaddr->clone();
-    delete remoteaddr;
-    remoteaddr = rhs.remoteaddr->clone();
-    fd = rhs.fd;
-    backlog = rhs.backlog;
-    reuseaddr = rhs.reuseaddr;
-    hasTimeout = rhs.hasTimeout;
-    timeout = rhs.timeout;
+    if (this != &rhs) {
+        sockdomain = rhs.sockdomain;
+        socktype = rhs.socktype;
+        delete localaddr;
+        localaddr = rhs.localaddr->clone();
+        delete remoteaddr;
+        remoteaddr = rhs.remoteaddr->clone();
+        fd = rhs.fd;
+        backlog = rhs.backlog;
+        reuseaddr = rhs.reuseaddr;
+        hasTimeout = rhs.hasTimeout;
+        timeout = rhs.timeout;
+    }
     return *this;
 }
 

@@ -48,7 +48,9 @@ Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
 /* assignment operator */
 Inet4SocketAddress& Inet4SocketAddress::operator=(const Inet4SocketAddress& x)
 {
-    sockaddr = x.sockaddr;
+    if (this != &x) {
+        sockaddr = x.sockaddr;
+    }
     return *this;
 }
 

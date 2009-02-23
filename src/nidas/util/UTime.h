@@ -146,8 +146,10 @@ public:
 
     UTime& operator=(const UTime& u)
     {
-        _utime = u._utime;
-        _fmt = u._fmt;
+        if (this != &u) {
+            _utime = u._utime;
+            _fmt = u._fmt;
+        }
 	return *this;
     }
 

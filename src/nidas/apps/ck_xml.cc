@@ -15,8 +15,6 @@
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
-// #include <DSMConfig.h>
-#include <nidas/core/PortSelectorTest.h>
 
 #include <iostream>
 

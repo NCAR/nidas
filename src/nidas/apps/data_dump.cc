@@ -587,7 +587,7 @@ int DataDump::run() throw()
         sis.setMaxSampleLength(32768);
 	sis.init();
 	sis.readInputHeader();
-	SampleInputHeader header = sis.getInputHeader();
+	const SampleInputHeader& header = sis.getInputHeader();
 
 	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;

@@ -79,7 +79,12 @@ public:
 
     void addSampleTag(const SampleTag* stag);
 
+    /**
+     * Read archive information at beginning of input stream or file.
+     */
     void readInputHeader() throw(nidas::util::IOException);
+
+    bool parseInputHeader() throw(nidas::util::IOException);
 
     const SampleInputHeader& getInputHeader() const { return inputHeader; }
 
@@ -105,16 +110,24 @@ public:
      * This will perform only one physical read of the underlying
      * IOChannel and so is appropriate to use when a select()
      * has determined that there is data available on our file
-     * descriptor.
+     * descriptor, or when the physical device is configured
+     * for non-blocking reads.
      */
     void readSamples() throw(nidas::util::IOException);
 
+    /**
+     * Search forward until a sample header is read whose time is 
+     * greater than or equal to tt.  Leaves the InputStream
+     * positioned so that the next call to readSample() or
+     * readSamples() will read the rest of the sample.
+     */
     void search(const nidas::util::UTime& tt) throw(nidas::util::IOException);
 
     /**
      * Read the next sample from the InputStream. The caller must
      * call freeReference on the sample when they're done with it.
      * This method may perform zero or more reads of the IOChannel.
+     * @return pointer to a sample, never NULL.
      */
     Sample* readSample() throw(nidas::util::IOException);
 
@@ -179,6 +192,8 @@ protected:
 
 private:
 
+    bool _inputHeaderParsed;
+
     SampleHeader _sheader;
 
     size_t _headerToRead;
@@ -195,7 +210,7 @@ private:
      * How many bytes left to read from the stream into the data
      * portion of samp.
      */
-    size_t _leftToRead;
+    size_t _dataToRead;
 
     /**
      * Pointer into the data portion of samp where we will read next.

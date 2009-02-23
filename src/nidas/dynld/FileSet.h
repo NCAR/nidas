@@ -53,7 +53,7 @@ public:
      */
     void setDSMConfig(const DSMConfig* val);
 
-    bool isNewFile() const { return nidas::util::FileSet::isNewFile(); }
+    bool isNewInput() const { return nidas::util::FileSet::isNewFile(); }
 
     const std::string& getName() const;
 

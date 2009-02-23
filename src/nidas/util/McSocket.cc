@@ -76,11 +76,13 @@ McSocketDatagram::McSocketDatagram(const McSocketDatagram& x):
  */
 McSocketDatagram& McSocketDatagram::operator=(const McSocketDatagram& rhs)
 {
-    // invoke subclass assignment.
-    (*(DatagramPacketT<McSocketData>*)this) =
-	    (DatagramPacketT<McSocketData>) rhs;
-    mcdata = rhs.mcdata;    // copy the data
-    data = &mcdata; // point to new mcdata
+    if (this != &rhs) {
+        // invoke subclass assignment.
+        (*(DatagramPacketT<McSocketData>*)this) =
+                (DatagramPacketT<McSocketData>) rhs;
+        mcdata = rhs.mcdata;    // copy the data
+        data = &mcdata; // point to new mcdata
+    }
     return *this;
 }
 

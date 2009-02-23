@@ -25,11 +25,13 @@ SampleClientList::SampleClientList(const SampleClientList& cl) {
 }
 
 SampleClientList& SampleClientList::operator=(const SampleClientList& cl) {
-    cl.lock();
-    lock();
-    clients = cl.clients;
-    unlock();
-    cl.unlock();
+    if (this != &cl) {
+        cl.lock();
+        lock();
+        clients = cl.clients;
+        unlock();
+        cl.unlock();
+    }
     return *this;
 }
 

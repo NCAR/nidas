@@ -96,8 +96,10 @@ UnixSocketAddress* UnixSocketAddress::clone() const
 /* assignment operator */
 UnixSocketAddress& UnixSocketAddress::operator=(const UnixSocketAddress& x)
 {
-    path = x.path;
-    sockaddr = x.sockaddr;
+    if (this != &x) {
+        path = x.path;
+        sockaddr = x.sockaddr;
+    }
     return *this;
 }
 

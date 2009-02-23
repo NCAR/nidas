@@ -42,18 +42,18 @@ using namespace xercesc;
 namespace n_u = nidas::util;
 
 /* static */
-DSMServer* DSMServer::serverInstance = 0;
+DSMServer* DSMServer::_serverInstance = 0;
 
 /* static */
-string DSMServer::xmlFileName;
+string DSMServer::_xmlFileName;
 
 /* static */
-bool DSMServer::quit = false;
+bool DSMServer::_quit = false;
 
 /* static */
-bool DSMServer::restart = false;
+bool DSMServer::_restart = false;
 
-bool DSMServer::debug = false;
+bool DSMServer::_debug = false;
 
 /* static */
 DSMServerStat* DSMServer::_statusThread = 0;
@@ -68,7 +68,7 @@ const char *DSMServer::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/fli
 const char *DSMServer::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
 /* static */
-string DSMServer::configsXMLName;
+string DSMServer::_configsXMLName;
 
 /* static */
 string DSMServer::_username;
@@ -89,7 +89,7 @@ int DSMServer::main(int argc, char** argv) throw()
     n_u::Logger* logger = 0;
     n_u::LogConfig lc;
 
-    if (debug) {
+    if (_debug) {
         logger = n_u::Logger::createInstance(&std::cerr);
         lc.level = n_u::LOGGER_DEBUG;
     }
@@ -160,20 +160,20 @@ int DSMServer::main(int argc, char** argv) throw()
 
     setupSignals();
 
-    while (!quit) {
+    while (!_quit) {
 
         auto_ptr<Project> project;
 
 	try {
-	    if (configsXMLName.length() > 0) {
+	    if (_configsXMLName.length() > 0) {
 		ProjectConfigs configs;
-		configs.parseXML(configsXMLName);
+		configs.parseXML(_configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		project.reset(cfg->getProject());
-		xmlFileName = cfg->getXMLName();
+		_xmlFileName = cfg->getXMLName();
 	    }
-	    else project.reset(parseXMLConfigFile(xmlFileName));
+	    else project.reset(parseXMLConfigFile(_xmlFileName));
 	}
 	catch (const nidas::core::XMLException& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -190,9 +190,9 @@ int DSMServer::main(int argc, char** argv) throw()
 	    result = 1;
 	    break;
 	}
-        project->setConfigName(xmlFileName);
+        project->setConfigName(_xmlFileName);
 
-	serverInstance = 0;
+	_serverInstance = 0;
 
 	try {
 	    char hostname[MAXHOSTNAMELEN];
@@ -207,7 +207,7 @@ int DSMServer::main(int argc, char** argv) throw()
 	    if (servers.size() > 1)
 	    	throw n_u::InvalidParameterException("project","server",
 			string("Multiple servers for ") + hostname);
-	    serverInstance = servers.front();
+	    _serverInstance = servers.front();
 	}
 	catch (const n_u::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -217,7 +217,7 @@ int DSMServer::main(int argc, char** argv) throw()
 
 
 	try {
-	    serverInstance->scheduleServices();
+	    _serverInstance->scheduleServices();
 	}
 	catch (const n_u::Exception& e) {
 	    logger->log(LOG_ERR,e.what());
@@ -226,7 +226,7 @@ int DSMServer::main(int argc, char** argv) throw()
         startStatusThread();
         startXmlRpcThread();
 
-	serverInstance->waitOnServices();
+	_serverInstance->waitOnServices();
 
         killStatusThread();
         killXmlRpcThread();
@@ -371,12 +371,12 @@ void DSMServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
                                                                                 
     switch(sig) {
     case SIGHUP:
-	DSMServer::restart = true;
+	DSMServer::_restart = true;
 	break;
     case SIGTERM:
     case SIGINT:
     case SIGUSR1:
-	DSMServer::quit = true;
+	DSMServer::_quit = true;
 	break;
     }
 }
@@ -418,14 +418,12 @@ DSMServer::DSMServer()
 
 DSMServer::~DSMServer()
 {
-
-    // delete services. These are the configured services,
-    // not the cloned copies.
+    // delete services.
     list<DSMService*>::const_iterator si;
 #ifdef DEBUG
-    cerr << "~DSMServer services.size=" << services.size() << endl;
+    cerr << "~DSMServer services.size=" << _services.size() << endl;
 #endif
-    for (si=services.begin(); si != services.end(); ++si) {
+    for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
 #ifdef DEBUG
 	cerr << "~DSMServer: deleting " << svc->getName() << endl;
@@ -523,7 +521,7 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 void DSMServer::scheduleServices() throw(n_u::Exception)
 {
     list<DSMService*>::const_iterator si;
-    for (si=services.begin(); si != services.end(); ++si) {
+    for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
 
 	SiteIterator si = getSiteIterator();
@@ -543,10 +541,10 @@ void DSMServer::scheduleServices() throw(n_u::Exception)
 void DSMServer::interruptServices() throw()
 {
 #ifdef DEBUG
-    cerr << "interrupting services, size=" << services.size() << endl;
+    cerr << "interrupting services, size=" << _services.size() << endl;
 #endif
     list<DSMService*>::const_iterator si;
-    for (si=services.begin(); si != services.end(); ++si) {
+    for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
 	// cerr << "doing interrupt on " << svc->getName() << endl;
 	svc->interrupt();
@@ -559,7 +557,7 @@ void DSMServer::interruptServices() throw()
 void DSMServer::cancelServices() throw()
 {
     list<DSMService*>::const_iterator si;
-    for (si=services.begin(); si != services.end(); ++si) {
+    for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
 	// cerr << "doing cancel on " << svc->getName() << endl;
 	svc->cancel();
@@ -570,7 +568,7 @@ void DSMServer::joinServices() throw()
 {
 
     list<DSMService*>::const_iterator si;
-    for (si=services.begin(); si != services.end(); ++si) {
+    for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
 	// cerr << "doing join on " << svc->getName() << endl;
 	svc->join();
@@ -595,7 +593,7 @@ void DSMServer::waitOnServices() throw()
 	int nservices = n_u::McSocketListener::check();
 
 	list<DSMService*>::const_iterator si;
-	for (si=services.begin(); si != services.end(); ++si) {
+	for (si=_services.begin(); si != _services.end(); ++si) {
 	    DSMService* svc = *si;
 	    nservices += svc->checkSubThreads();
 	}
@@ -604,11 +602,11 @@ void DSMServer::waitOnServices() throw()
 	cerr << "DSMServer::wait #services=" << nservices << endl;
 #endif
 
-	if (quit || restart) break;
+	if (_quit || _restart) break;
 
         nanosleep(&sleepTime,0);
 
-	if (quit || restart) break;
+	if (_quit || _restart) break;
     }
 
 #ifdef DEBUG
@@ -644,14 +642,13 @@ void DSMServer::waitOnServices() throw()
 /* static */
 int DSMServer::parseRunstring(int argc, char** argv)
 {
-    debug = false;
     extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
     while ((opt_char = getopt(argc, argv, "cdu:v")) != -1) {
         switch (opt_char) {
         case 'd':
-            debug = true;
+            _debug = true;
             break;
 	case 'u':
             {
@@ -677,26 +674,30 @@ int DSMServer::parseRunstring(int argc, char** argv)
 	    break;
         case 'c':
 	    {
-		const char* re = getenv("PROJ_DIR");
-		const char* pe = getenv("PROJECT");
-		const char* ae = getenv("AIRCRAFT");
-		const char* ie = getenv("ISFF");
-		if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
-		else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
-		if (configsXMLName.length() == 0) {
-		    cerr <<
-			"Environment variables not set correctly to find XML file of project configurations." << endl;
-		    cerr << "Cannot find " << rafXML << endl << "or " << isffXML << endl;
-		    return usage(argv[0]);
-		}
+                const char* cfg = getenv("NIDAS_CONFIGS");
+                if (cfg) _configsXMLName = cfg;
+                else {
+                    const char* re = getenv("PROJ_DIR");
+                    const char* pe = getenv("PROJECT");
+                    const char* ae = getenv("AIRCRAFT");
+                    const char* ie = getenv("ISFF");
+                    if (re && pe && ae) _configsXMLName = Project::expandEnvVars(rafXML);
+                    else if (ie && pe) _configsXMLName = Project::expandEnvVars(isffXML);
+                }
+                if (_configsXMLName.length() == 0) {
+                    cerr <<
+                        "Environment variables not set correctly to find XML file of project configurations." << endl;
+                    cerr << "Cannot find " << rafXML << endl << "or " << isffXML << endl;
+                    return usage(argv[0]);
+                }
 	    }
 	    break;
         case '?':
             return usage(argv[0]);
         }
     }
-    if (optind == argc - 1) xmlFileName = string(argv[optind++]);
-    else if (configsXMLName.length() == 0) {
+    if (optind == argc - 1) _xmlFileName = string(argv[optind++]);
+    else if (_configsXMLName.length() == 0) {
 	const char* cfg = getenv("NIDAS_CONFIG");
 	if (!cfg) {
 	    cerr <<
@@ -704,7 +705,7 @@ int DSMServer::parseRunstring(int argc, char** argv)
 	    endl;
             return usage(argv[0]);
         }
-    	xmlFileName = cfg;
+    	_xmlFileName = cfg;
     }
     return 0;
 }

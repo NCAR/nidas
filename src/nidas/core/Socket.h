@@ -61,7 +61,7 @@ public:
 
     IOChannel* connect() throw(nidas::util::IOException);
 
-    virtual bool isNewFile() const { return newFile; }
+    virtual bool isNewInput() const { return newInput; }
 
     /**
      * Do setKeepAliveIdleSecs(int secs) on underlying socket.
@@ -225,7 +225,7 @@ private:
 
     bool firstRead;
 
-    bool newFile;
+    bool newInput;
 
     int keepAliveIdleSecs;
 

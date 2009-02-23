@@ -466,7 +466,7 @@ int StatsProcess::run() throw()
 
         if (!project.get()) {
             sis->readInputHeader();
-            SampleInputHeader header = sis->getInputHeader();
+            const SampleInputHeader& header = sis->getInputHeader();
 	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
 		    "software=" << header.getSoftwareVersion() << '\n' <<
 		    "project=" << header.getProjectName() << '\n' <<

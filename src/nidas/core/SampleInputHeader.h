@@ -17,6 +17,7 @@
 #define NIDAS_CORE_SAMPLEFILEHEADER_H
 
 #include <nidas/core/IOStream.h>
+#include <nidas/util/ParseException.h>
 
 namespace nidas { namespace core {
 
@@ -24,41 +25,94 @@ class SampleInputHeader
 {
 public:
 
-    SampleInputHeader(): _size(0) {}
+    SampleInputHeader();
 
+    /**
+     * Copy constructor. Should not be used when a header
+     * is being parsed.
+     */
+    SampleInputHeader(const SampleInputHeader&);
+
+    /**
+     * Assignment operator. Should not be used when a header
+     * is being parsed.
+     */
+    SampleInputHeader& operator=(const SampleInputHeader&);
+
+    ~SampleInputHeader();
+
+    /**
+     * Read IOStream until the SampleInputHeader has been
+     * fully read.  This will perform one or more
+     * iostream->read()s.
+     */
+    void read(IOStream* iostream) throw(nidas::util::IOException);
+
+    /**
+     * Same as read(IOStream*). Provided for backward compatibility.
+     */
     void check(IOStream* iostream) throw(nidas::util::IOException);
 
-    size_t write(SampleOutput* output) throw(nidas::util::IOException);
+    /**
+     * Parse the current contents of the IOStream for the
+     * SampleInputHeader.
+     * @return true: SampleInputHeader has been fully parsed.
+     *      false: SampleInputHeader not completely parsed yet,
+     *          another iostream->read() is necessary.
+     */
+    bool parse(IOStream* iostream) throw(nidas::util::ParseException);
 
-    size_t write(IOStream* iostream) throw(nidas::util::IOException);
+    /**
+     * Get length in bytes of the header.
+     */
+    int getLength() const { return _size; }
 
-    void setArchiveVersion(const std::string& val) { archiveVersion = val; }
-    const std::string& getArchiveVersion() const { return archiveVersion; }
+    /**
+     * Render the header in string form.
+     */
+    std::string toString() const;
 
-    void setSoftwareVersion(const std::string& val) { softwareVersion = val; }
-    const std::string& getSoftwareVersion() const { return softwareVersion; }
+    size_t write(SampleOutput* output) const throw(nidas::util::IOException);
+
+    size_t write(IOStream* iostream) const throw(nidas::util::IOException);
+
+    void setArchiveVersion(const std::string& val) { _archiveVersion = val; }
+    const std::string& getArchiveVersion() const { return _archiveVersion; }
+
+    void setSoftwareVersion(const std::string& val) { _softwareVersion = val; }
+    const std::string& getSoftwareVersion() const { return _softwareVersion; }
                                                                                
-    void setProjectName(const std::string& val) { projectName = val; }
-    const std::string& getProjectName() const { return projectName; }
+    void setProjectName(const std::string& val) { _projectName = val; }
+    const std::string& getProjectName() const { return _projectName; }
 
-    void setSystemName(const std::string& val) { systemName = val; }
-    const std::string& getSystemName() const { return systemName; }
+    void setSystemName(const std::string& val) { _systemName = val; }
+    const std::string& getSystemName() const { return _systemName; }
 
-    void setConfigName(const std::string& val) { configName = val; }
-    const std::string& getConfigName() const { return configName; }
+    void setConfigName(const std::string& val) { _configName = val; }
+    const std::string& getConfigName() const { return _configName; }
 
-    void setConfigVersion(const std::string& val) { configVersion = val; }
-    const std::string& getConfigVersion() const { return configVersion; }
+    void setConfigVersion(const std::string& val) { _configVersion = val; }
+    const std::string& getConfigVersion() const { return _configVersion; }
+
+protected:
+
+    bool parseMagic(IOStream* iostream) throw(nidas::util::ParseException);
+
+    bool parseTag(IOStream* iostream) throw(nidas::util::ParseException);
+
+    bool parseValue(IOStream* iostream) throw(nidas::util::ParseException);
 
 private:
 
     void setDummyString(const std::string& val) { }
-    const std::string& getDummyString() const { return dummy; }
+    const std::string& getDummyString() const { return _dummy; }
 
     struct headerField {
 
 	/* a tag in the file header */
 	const char* tag;
+
+        int taglen;
 
 	/* ptr to setXXX member function for setting an attribute of this
 	 * class, based on the value of the tag from the IOStream.
@@ -74,21 +128,21 @@ private:
 
     };
 
-    static struct headerField headers[];
+    static const struct headerField headers[];
 
-    std::string archiveVersion;
+    std::string _archiveVersion;
 
-    std::string softwareVersion;
+    std::string _softwareVersion;
 
-    std::string projectName;
+    std::string _projectName;
 
-    std::string systemName;
+    std::string _systemName;
 
-    std::string configName;
+    std::string _configName;
 
-    std::string configVersion;
+    std::string _configVersion;
 
-    std::string dummy;
+    std::string _dummy;
 
     /**
      * Strings that can occur as the magic value at the beginning
@@ -99,12 +153,32 @@ private:
      */
     static const char* magicStrings[];
 
+    static const int _nmagic;
+
+    int _minMagicLen;
+
+    int _imagic;
+
+    static const int _ntags;
+
+    int _endTag;
+
+    int _tagMatch;
+
     /**
      * Size in bytes of the header. The value is saved, so that if we
      * update one or more values, then we might be able to re-write
      * the header without exceeding the original size.
      */
     int _size;
+
+    static const int HEADER_BUF_LEN;
+
+    char* _buf;
+
+    char* _headPtr;
+
+    enum parseStage {PARSE_START, PARSE_MAGIC, PARSE_TAG, PARSE_VALUE, PARSE_DONE} _stage;
 
 };
 

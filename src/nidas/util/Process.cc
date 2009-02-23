@@ -71,18 +71,20 @@ Process::Process(const Process& x):
 
 Process& Process::operator = (const Process& x)
 {
-    _pid = x._pid;
-    _infd = x._infd;
-    _inbuf_ap = x._inbuf_ap;
-    _instream_ap = x._instream_ap;
+    if (this != &x) {
+        _pid = x._pid;
+        _infd = x._infd;
+        _inbuf_ap = x._inbuf_ap;
+        _instream_ap = x._instream_ap;
 
-    _outfd = x._outfd;
-    _outbuf_ap = x._outbuf_ap;
-    _outstream_ap = x._outstream_ap;
+        _outfd = x._outfd;
+        _outbuf_ap = x._outbuf_ap;
+        _outstream_ap = x._outstream_ap;
 
-    _errfd = x._errfd;
-    _errbuf_ap = x._errbuf_ap;
-    _errstream_ap = x._errstream_ap;
+        _errfd = x._errfd;
+        _errbuf_ap = x._errbuf_ap;
+        _errstream_ap = x._errstream_ap;
+    }
     return *this;
 }
 

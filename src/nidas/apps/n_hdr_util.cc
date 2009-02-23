@@ -140,12 +140,7 @@ int HeaderUtil::main(int argc, char** argv) throw()
 
 void HeaderUtil::printHeader(const SampleInputHeader& header)
 {
-    cout << "ArchiveVersion:" << header.getArchiveVersion() << endl;
-    cout << "SoftwareVersion:" << header.getSoftwareVersion() << endl;
-    cout << "ProjectName:" << header.getProjectName() << endl;
-    cout << "SystemName:" << header.getSystemName() << endl;
-    cout << "ConfigName:" << header.getConfigName() << endl;
-    cout << "ConfigVersion:" << header.getConfigVersion() << endl;
+    cout << header.toString();
 }
 
 int HeaderUtil::run() throw()
@@ -165,6 +160,8 @@ int HeaderUtil::run() throw()
         header.check(&ios);
 
         if (update) {
+
+            cerr << "length of header=" << header.getLength() << endl;
 
             ios.skip(ios.available());
 
@@ -189,7 +186,16 @@ int HeaderUtil::run() throw()
             if (configVersion.length() > 0)
                 header.setConfigVersion(configVersion);
 
-            header.write(&ios);
+            string hdstr = header.toString();
+            if ((int)hdstr.length() != header.getLength()) {
+                cerr << "new input header length=" << hdstr.length() << 
+                    " is not equal to existing header length=" << header.getLength() << endl;
+                cerr << "header will not be over-written" << endl;
+                return 1;
+            }
+
+            int wlen = header.write(&ios);
+            cerr << "bytes written=" << wlen << endl;
 
             ios.flush();
         }

@@ -133,7 +133,7 @@ int Concater::run() throw()
 	sis.init();
 	sis.readInputHeader();
 
-	SampleInputHeader header = sis.getInputHeader();
+	const SampleInputHeader& header = sis.getInputHeader();
 	header.write(&outStream);
 
 	sis.addSampleClient(&outStream);

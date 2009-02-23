@@ -64,7 +64,7 @@ public:
 	return this;
     }
 
-    virtual bool isNewFile() const { return newFile; }
+    virtual bool isNewInput() const { return newInput; }
 
     /**
      * Do the actual hardware read.
@@ -73,7 +73,7 @@ public:
     {
         ssize_t res = ::read(fd,buf,len);
 	if (res < 0) throw nidas::util::IOException(getName(),"read",errno);
-	newFile = false;
+	newInput = false;
 	return res;
     }
 
@@ -84,7 +84,7 @@ public:
     {
         ssize_t res = ::write(fd,buf,len);
 	if (res < 0) throw nidas::util::IOException(getName(),"write",errno);
-	newFile = false;
+	newInput = false;
 	return res;
     }
 
@@ -118,7 +118,7 @@ protected:
 
     bool firstRead;
 
-    bool newFile;
+    bool newInput;
 };
 
 }}	// namespace nidas namespace core

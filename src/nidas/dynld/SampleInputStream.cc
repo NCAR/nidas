@@ -36,8 +36,9 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
  */
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
     _service(0),_iochan(iochannel),_iostream(0),
+    _inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_leftToRead(0),_dptr(0),
+    _samp(0),_dataToRead(0),_dptr(0),
     _badInputSamples(0),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
@@ -58,8 +59,9 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     _service(x._service),
     _iochan(iochannel),_iostream(0),
     _sampleTags(x._sampleTags),
+    _inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_leftToRead(0),_dptr(0),
+    _samp(0),_dataToRead(0),_dptr(0),
     _badInputSamples(0),
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
@@ -175,7 +177,29 @@ n_u::Inet4Address SampleInputStream::getRemoteInet4Address() const
 
 void SampleInputStream::readInputHeader() throw(n_u::IOException)
 {
-    inputHeader.check(_iostream);
+    if (_samp) _samp->freeReference();
+    _samp = 0;
+    _headerToRead = _sheader.getSizeOf();
+    _hptr = (char*)&_sheader;
+    _dataToRead = 0;
+    inputHeader.read(_iostream);
+    _inputHeaderParsed = true;
+}
+
+bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
+{
+    if (_samp) _samp->freeReference();
+    _samp = 0;
+    _headerToRead = _sheader.getSizeOf();
+    _hptr = (char*)&_sheader;
+    _dataToRead = 0;
+    try {
+        _inputHeaderParsed = inputHeader.parse(_iostream);
+    }
+    catch(const n_u::ParseException& e) {
+        throw n_u::IOException(getName(),"read header",e.what());
+    }
+    return _inputHeaderParsed;
 }
 
 /**
@@ -191,25 +215,22 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 {
     size_t len;
     len = _iostream->read();		// read a buffer's worth
-    if (_iostream->isNewFile()) {	// first read from a new file
-	readInputHeader();
-	if (_samp) _samp->freeReference();
-	_samp = 0;
-	_headerToRead = _sheader.getSizeOf();
-	_hptr = (char*)&_sheader;
-    }
+
+    // no data in buffer, and end of a file, or an EAGAIN on a non-blocking read
+    if (len == 0 && _iostream->available() == 0) return;
+
+    // first read from a new file
+    if (_iostream->isNewInput()) _inputHeaderParsed = false;
+    
+    if (!_inputHeaderParsed && !parseInputHeader()) return;
 
     // process all in buffer
     for (;;) {
 	if (_headerToRead > 0) {
-            if (_iostream->available() == 0) break;
-	    len = _iostream->read(_hptr,_headerToRead);
+	    len = _iostream->readBuf(_hptr,_headerToRead);
             _headerToRead -= len;
-            if (_headerToRead > 0) {
-                // Don't do another _iostream->read as it will do a physical read
-		_hptr += len;
-		break;
-            }
+            _hptr += len;
+            if (_headerToRead > 0) break;   // no more data
 
 #if __BYTE_ORDER == __BIG_ENDIAN
             _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
@@ -240,57 +261,32 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
-                try {
-                    _iostream->backup(_sheader.getSizeOf() - 1);
-                }
-                catch(const n_u::IOException& e) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: %s", getName().c_str(),e.what());
-                }
-                _headerToRead = _sheader.getSizeOf();
-                _hptr = (char*)&_sheader;
+                // bad header. Shift left by one byte, read next byte.
+                memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
+                _headerToRead = 1;
+                _hptr--;
                 continue;
             }
 
-	    _leftToRead = _sheader.getDataByteLength();
+	    _dataToRead = _sheader.getDataByteLength();
 	    _dptr = (char*) _samp->getVoidDataPtr();
 
 	    _samp->setTimeTag(_sheader.getTimeTag());
 	    _samp->setId(_sheader.getId());
 	}
 
-        if (_iostream->available() == 0) break;
-	len = _iostream->read(_dptr, _leftToRead);
+	len = _iostream->readBuf(_dptr, _dataToRead);
 	// cerr << "read len=" << len << endl;
 	_dptr += len;
-	_leftToRead -= len;
-	if (_leftToRead > 0) break;	// no more data in iostream buffer
-
-#ifdef DEBUG
-	//if (!(nsamps++ % 100)) cerr << "read " << nsamps << " samples" << endl;
-#endif
+	_dataToRead -= len;
+	if (_dataToRead > 0) break;	// no more data in iostream buffer
 
 	distribute(_samp);
+	_samp = 0;
         // next read is the header
         _headerToRead = _sheader.getSizeOf();
         _hptr = (char*)&_sheader;
-	_samp = 0;
     }
-}
-
-void SampleInputStream::distribute(const Sample* samp) throw()
-{
-    // pass samples to the appropriate sensor for processing
-    // and distribution to processed sample clients
-    dsm_sample_id_t sampid = samp->getId();
-    _sensorMapMutex.lock();
-    if (_sensorMap.size() > 0) {
-	map<unsigned int,DSMSensor*>::const_iterator sensori;
-	sensori = _sensorMap.find(sampid);
-	if (sensori != _sensorMap.end()) sensori->second->receive(samp);
-    }
-    _sensorMapMutex.unlock();
-    SampleSource::distribute(samp);
 }
 
 /*
@@ -299,22 +295,17 @@ void SampleInputStream::distribute(const Sample* samp) throw()
  */
 Sample* SampleInputStream::readSample() throw(n_u::IOException)
 {
-    // user probably won't mix the two readSample methods on one stream,
-    // but if they do, checking for non-null samp here should make things work.
     size_t len;
     for (;;) {
         if (_headerToRead > 0) {
             while (_headerToRead > 0) {
 		len = _iostream->read(_hptr,_headerToRead);
-                if (_iostream->isNewFile()) {
+                _headerToRead -= len;
+                _hptr += len;
+                // new file
+                if (_iostream->isNewInput()) {
                     _iostream->backup(len);
                     readInputHeader();
-		    _headerToRead = _sheader.getSizeOf();
-		    _hptr = (char*)&_sheader;
-                }
-                else {
-                    _headerToRead -= len;
-                    _hptr += len;
                 }
             }
 
@@ -332,14 +323,6 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                 _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
                 _sheader.getTimeTag() > _maxSampleTime)) {
-                if (!(_badInputSamples++ % 1000)) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
-                        getName().c_str(), _badInputSamples,
-                        _iostream->getNBytes()-_sheader.getSizeOf(),
-                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
-                        _sheader.getType(),_sheader.getDataByteLength());
-                }
                 _samp = 0;
             }
             // getSample can return NULL if type or length are bad
@@ -355,45 +338,36 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
-                try {
-                    _iostream->backup(_sheader.getSizeOf() - 1);
-                }
-                catch(const n_u::IOException& e) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: %s", getName().c_str(),e.what());
-                }
-                _headerToRead = _sheader.getSizeOf();
-                _hptr = (char*)&_sheader;
+                // bad header. Shift left by one byte, read next byte.
+                memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
+                _headerToRead = 1;
+                _hptr--;
                 continue;
             }
 
-	    _leftToRead = _sheader.getDataByteLength();
+	    _dataToRead = _sheader.getDataByteLength();
 	    _dptr = (char*) _samp->getVoidDataPtr();
 
             _samp->setTimeTag(_sheader.getTimeTag());
             _samp->setId(_sheader.getId());
         }
-        while (_leftToRead > 0) {
-            len = _iostream->read(_dptr, _leftToRead);
-            if (_iostream->isNewFile()) {
-		// if start of a new file, then we need to read the header.
+
+        while (_dataToRead > 0) {
+            len = _iostream->read(_dptr, _dataToRead);
+            // new file
+            if (_iostream->isNewInput()) {
                 _iostream->backup(len);
                 readInputHeader();
-                if (_samp) _samp->freeReference();
-                _samp = 0;
-                _headerToRead = _sheader.getSizeOf();
-                _hptr = (char*)&_sheader;
-                // go back and read the header
                 break;
             }
+            _dataToRead -= len;
             _dptr += len;
-            _leftToRead -= len;
         }
-        if (_leftToRead == 0) {
+        if (_dataToRead == 0) {
             Sample* tmp = _samp;
             _samp = 0;
-	    _headerToRead = _sheader.getSizeOf();
-	    _hptr = (char*)&_sheader;
+            _headerToRead = _sheader.getSizeOf();
+            _hptr = (char*)&_sheader;
             return tmp;
         }
     }
@@ -405,19 +379,18 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
 {
     size_t len;
+    if (_samp) _samp->freeReference();
+    _samp = 0;
     for (;;) {
         if (_headerToRead > 0) {
             while (_headerToRead > 0) {
-                len = _iostream->read(_hptr,_headerToRead);
-                if (_iostream->isNewFile()) {
+		len = _iostream->read(_hptr,_headerToRead);
+                _headerToRead -= len;
+                _hptr += len;
+                // new file
+                if (_iostream->isNewInput()) {
                     _iostream->backup(len);
                     readInputHeader();
-                    _headerToRead = _sheader.getSizeOf();
-                    _hptr = (char*)&_sheader;
-                }
-                else {
-                    _headerToRead -= len;
-                    _hptr += len;
                 }
             }
 
@@ -441,18 +414,14 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                         _sheader.getType(),_sheader.getDataByteLength());
                 }
-                try {
-                    _iostream->backup(_sheader.getSizeOf() - 1);
-                }
-                catch(const n_u::IOException& e) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: %s", getName().c_str(),e.what());
-                }
-                _headerToRead = _sheader.getSizeOf();
-                _hptr = (char*)&_sheader;
+                // bad header. Shift left by one byte, read next byte.
+                memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
+                _headerToRead = 1;
+                _hptr--;
                 continue;
             }
 
+            _dataToRead = _sheader.getDataByteLength();
             // cerr << "time=" << n_u::UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
             if (_sheader.getTimeTag() >= tt.toUsecs()) {
                 // getSample can return NULL if type or length are bad
@@ -467,39 +436,48 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                             GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
                             _sheader.getType(),_sheader.getDataByteLength());
                     }
-                    try {
-                        _iostream->backup(_sheader.getSizeOf() - 1);
-                    }
-                    catch(const n_u::IOException& e) {
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                            "%s: %s", getName().c_str(),e.what());
-                    }
-                    _headerToRead = _sheader.getSizeOf();
-                    _hptr = (char*)&_sheader;
+                    // bad header. Shift left by one byte, read next byte.
+                    memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
+                    _headerToRead = 1;
+                    _hptr--;
+                    _dataToRead = 0;
                     continue;
                 }
                 _samp->setTimeTag(_sheader.getTimeTag());
                 _samp->setId(_sheader.getId());
                 _dptr = (char*) _samp->getVoidDataPtr();
-                _leftToRead = _sheader.getDataByteLength();
                 return;
             }
         }
-        _leftToRead = _sheader.getDataByteLength();
-        while (_leftToRead > 0) {
-            len = _iostream->skip(_leftToRead);
-            if (_iostream->isNewFile()) {
+        while (_dataToRead > 0) {
+            len = _iostream->skip(_dataToRead);
+            // new file
+            if (_iostream->isNewInput()) {
                 _iostream->backup(len);
                 readInputHeader();
                 break;
             }
-            _leftToRead -= len;
+            _dataToRead -= len;
         }
+
 	_headerToRead = _sheader.getSizeOf();
 	_hptr = (char*)&_sheader;
-	if (_samp) _samp->freeReference();
-	_samp = 0;
     }
+}
+
+void SampleInputStream::distribute(const Sample* samp) throw()
+{
+    // pass samples to the appropriate sensor for processing
+    // and distribution to processed sample clients
+    dsm_sample_id_t sampid = samp->getId();
+    _sensorMapMutex.lock();
+    if (_sensorMap.size() > 0) {
+	map<unsigned int,DSMSensor*>::const_iterator sensori;
+	sensori = _sensorMap.find(sampid);
+	if (sensori != _sensorMap.end()) sensori->second->receive(samp);
+    }
+    _sensorMapMutex.unlock();
+    SampleSource::distribute(samp);
 }
 
 /*

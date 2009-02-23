@@ -69,41 +69,43 @@ Variable::Variable(const Variable& x):
 Variable& Variable::operator=(const Variable& x)
 {
     // do not assign sampleTag
-    name = x.name;
-    nameWithoutSite = x.nameWithoutSite;
-    prefix = x.prefix;
-    suffix  = x.suffix;
-    siteSuffix  = x.siteSuffix;
-    station = x.station;
-    longname = x.longname;
-    units = x.units;
-    type = x.type;
-    length = x.length;
-    missingValue = x.missingValue;
-    minValue = x.minValue;
-    maxValue = x.maxValue;
+    if (this != &x) {
+        name = x.name;
+        nameWithoutSite = x.nameWithoutSite;
+        prefix = x.prefix;
+        suffix  = x.suffix;
+        siteSuffix  = x.siteSuffix;
+        station = x.station;
+        longname = x.longname;
+        units = x.units;
+        type = x.type;
+        length = x.length;
+        missingValue = x.missingValue;
+        minValue = x.minValue;
+        maxValue = x.maxValue;
 
-    // this invalidates the previous pointer to the converter, hmm.
-    // don't want to create a virtual assignment op for converters.
-    if (x.converter) {
-	delete converter;
-        converter = x.converter->clone();
-    }
+        // this invalidates the previous pointer to the converter, hmm.
+        // don't want to create a virtual assignment op for converters.
+        if (x.converter) {
+            delete converter;
+            converter = x.converter->clone();
+        }
 
-    // If a Parameter from x matches in type and name,
-    // assign our Parameter to it, otherwise add it.
-    // We're trying to keep the pointers to Parameters valid
-    // (avoiding deleting and cloning), in case someone
-    // has done a getParameters() on this variable.
-    const list<const Parameter*>& xparams = x.getParameters();
-    list<const Parameter*>::const_iterator xpi;
-    for (xpi = xparams.begin(); xpi != xparams.end(); ++xpi) {
-        const Parameter* xparm = *xpi;
-	ParameterNameTypeComparator comp(xparm);
-	list<Parameter*>::iterator pi =
-		std::find_if(parameters.begin(),parameters.end(),comp);
-	if (pi != parameters.end()) (*pi)->assign(*xparm);
-	else addParameter(xparm->clone());
+        // If a Parameter from x matches in type and name,
+        // assign our Parameter to it, otherwise add it.
+        // We're trying to keep the pointers to Parameters valid
+        // (avoiding deleting and cloning), in case someone
+        // has done a getParameters() on this variable.
+        const list<const Parameter*>& xparams = x.getParameters();
+        list<const Parameter*>::const_iterator xpi;
+        for (xpi = xparams.begin(); xpi != xparams.end(); ++xpi) {
+            const Parameter* xparm = *xpi;
+            ParameterNameTypeComparator comp(xparm);
+            list<Parameter*>::iterator pi =
+                    std::find_if(parameters.begin(),parameters.end(),comp);
+            if (pi != parameters.end()) (*pi)->assign(*xparm);
+            else addParameter(xparm->clone());
+        }
     }
     return *this;
 }

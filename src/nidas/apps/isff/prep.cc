@@ -701,7 +701,7 @@ int DataPrep::run() throw()
             sis->setHeapBlock(true);
 	    sis->init();
 	    sis->readInputHeader();
-	    SampleInputHeader header = sis->getInputHeader();
+	    const SampleInputHeader& header = sis->getInputHeader();
 
 	    if (xmlFileName.length() == 0)
                 xmlFileName = Project::expandEnvVars(header.getConfigName());

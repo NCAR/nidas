@@ -423,7 +423,7 @@ int DataStats::run() throw()
 	sis.init();
 	sis.readInputHeader();
 
-	SampleInputHeader header = sis.getInputHeader();
+	const SampleInputHeader& header = sis.getInputHeader();
 
 	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;

@@ -45,50 +45,86 @@ public:
      */
     inline size_t available() const
     {
-        return head - tail;
+        return _head - _tail;
     }
 
-    bool isNewFile() const { return newFile; }
+    /**
+     * Did last read(), or read(buf,len) call result in a new
+     * file being opened?
+     */
+    bool isNewInput() const { return _newInput; }
 
     /**
-     * Do a IOChannel::read into the internal buffer of IOStream.
-     * @return number of bytes read. A return value of zero means an
-     *		end-of-file was encountered. If the IOChannel is
-     *		a FileSet, then a successive read will either
-     *		open and read the next file, or throw EOFException if
-     *		there is no next file.
+     * Do an IOChannel::read into the internal buffer of IOStream.
+     * @return number of bytes read.
+     * If there is still data in the IOStream buffer, then no physical
+     * read will be done, and a length of 0 is returned.
      */
     size_t read() throw(nidas::util::IOException);
 
     /**
-     * If the internal buffer is empty, then do an IOChannel::read
-     * into the buffer. Then copy data from the internal buffer
-     * to the user buffer.
-     * @return number of bytes copied. May be less than the user asked
-     *		for. A return value of 0 means the internal buffer
-     *		was empty, and an end-of-file was encountered.
+     * Copy available bytes from the internal buffer to buf, returning
+     * the number of bytes copied, which may be less then
+     * len.  An IOChannel::read() is not done, even if the
+     * internal buffer is empty.
+     */
+    inline size_t readBuf(void* buf, size_t len) throw()
+    {
+        size_t l = available();
+        if (len > l) len = l;
+        if (len == 0) return len;
+        memcpy(buf,_tail,len);
+        _tail += len;
+        _nbytes += len;
+        return len;
+    }
+
+    /**
+     * Read len bytes of data into buf.
+     * @return Number of bytes read. This will be less than len
+     *     if an end of file is encountered, or if the IOChannel
+     *     is configured for non-blocking reads and no data is available.
+     * This method may perform 0 or more physical reads of the IOChannel.
      */
     size_t read(void* buf, size_t len) throw(nidas::util::IOException);
 
+    /**
+     * If the internal buffer is empty, do an IOChannel::read
+     * into the buffer. Then skip over len bytes in the user buffer.
+     * @return number of bytes skipped. May be less than the user asked for.
+     */
     size_t skip(size_t len) throw(nidas::util::IOException);
 
     /**
      * Move the read buffer pointer backwards by len number of bytes,
-     * so that the next read will return data that was previously read.  
+     * so that the next readBuf will return data that was previously read.  
      * This just backs over bytes in the current buffer, and does
      * not reposition the physical device.
      * @return The number of bytes backed over, which may be
      *      less than the number requested if there are fewer
      *      than len number of bytes in the buffer.
      */
-    size_t backup(size_t len) throw(nidas::util::IOException);
+    size_t backup(size_t len) throw();
+
+    /**
+     * Move the read buffer pointer backwards to the beginning of the buffer.
+     */
+    size_t backup() throw();
 
     /**
      * Read into the user buffer until a terminating character
-     * is found.
-     * @return number of bytes read.
-     *		A return value of 0 means the internal buffer
-     *		was empty, and an end-of-file was encountered.
+     * is found or len-1 bytes have been read. The buffer is NULL
+     * terminated.
+     * @return number of bytes read, not including the NULL character.
+     *  Therefore the return value will not be more than len-1.
+     * This method will do an IOChannel::read() until the
+     * termination character is found of the buffer is full.
+     * Using this method on a non-blocking device may cause
+     * a system lockup.  If an IOChannel::isNewInput is 
+     * encountered before the readUntil() is satisfied,
+     * then any previous contents of the buffer are discarded
+     * and the reading proceeds with the new input.
+     * @todo throw an exception if used with a non-blocking physical device.
      */
     size_t readUntil(void* buf, size_t len,char term) throw(nidas::util::IOException);
 
@@ -100,7 +136,7 @@ public:
      * @param val Number of microseconds between physical writes.
      *        Default: 250000 microseconds (1/4 sec)
      */
-    void setMaxTimeBetweenWrites(int val) { maxUsecs = val; }
+    void setMaxTimeBetweenWrites(int val) { _maxUsecs = val; }
 
     /**
      * Write data.  This supports an atomic write of
@@ -141,59 +177,62 @@ public:
     {
 	// std::cerr << "IOStream::createFile, doing flush" << std::endl;
 	flush();
-	return iochannel.createFile(t,exact);
+	return _iochannel.createFile(t,exact);
     }
 
-    const std::string& getName() const { return iochannel.getName(); }
+    const std::string& getName() const { return _iochannel.getName(); }
 
-    size_t getNBytes() const { return nbytes; }
+    /**
+     * Number of bytes passed through this IOStream.
+     */
+    size_t getNBytes() const { return _nbytes; }
 
 protected:
 
-    IOChannel& iochannel;
+    IOChannel& _iochannel;
 
     void reallocateBuffer(size_t len);
 
 private:
     /** data buffer */
-    char *buffer;
+    char *_buffer;
 
     /** where we insert bytes into the buffer */
-    char* head;
+    char* _head;
 
     /** where we remove bytes from the buffer */
-    char* tail;
+    char* _tail;
 
     /**
      * The actual buffer size.
      */
-    size_t buflen;
+    size_t _buflen;
 
-    size_t halflen;
+    size_t _halflen;
 
     /**
      * One past end of buffer.
      */
-    char* eob;
+    char* _eob;
 
     /**
      * Maximum number of microseconds between physical writes.
      */
-    int maxUsecs;
+    int _maxUsecs;
 
     /**
      * Time of last physical write.
      */
-    dsm_time_t lastWrite;
+    dsm_time_t _lastWrite;
 
     /**
      * Was the previous read performed on a newly opened file?
      */
-    bool newFile;
+    bool _newInput;
 
-    size_t nbytes;
+    size_t _nbytes;
 
-    size_t nEAGAIN;
+    size_t _nEAGAIN;
 
     /** No copying */
     IOStream(const IOStream&);
