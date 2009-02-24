@@ -689,7 +689,9 @@ static struct file_operations arinc_fops = {
 };
 
 // -- MODULE ---------------------------------------------------------- 
-static void __exit arinc_cleanup(void)
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void arinc_cleanup(void)
 {
         short err;
         int chn;

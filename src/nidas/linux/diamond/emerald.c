@@ -358,7 +358,9 @@ static void emerald_remove_proc(void)
  * Thefore, it must be careful to work correctly even if some of the items
  * have not been initialized
  */
-static void __exit emerald_cleanup_module(void)
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void emerald_cleanup_module(void)
 {
     int i;
     /* cleanup_module is never called if registering failed */

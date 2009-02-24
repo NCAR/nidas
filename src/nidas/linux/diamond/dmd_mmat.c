@@ -2471,6 +2471,9 @@ static int init_a2d(struct DMMAT* brd,int type)
         result = cdev_add(&a2d->cdev, devno, 1);
         return result;
 }
+
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
 static void cleanup_a2d(struct DMMAT* brd)
 {
         struct DMMAT_A2D* a2d = brd->a2d;
@@ -2570,7 +2573,7 @@ static void cntr_timer_fn(unsigned long arg)
             mod_timer(&cntr->timer,jnext);  // re-schedule
 }
 
-static int init_cntr(struct DMMAT* brd,int type)
+static int __init init_cntr(struct DMMAT* brd,int type)
 {
         int result = -ENOMEM;
         struct DMMAT_CNTR* cntr;
@@ -2626,6 +2629,8 @@ static int init_cntr(struct DMMAT* brd,int type)
         return result;
 }
 
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
 static void cleanup_cntr(struct DMMAT* brd)
 {
         struct DMMAT_CNTR* cntr = brd->cntr;
@@ -2638,7 +2643,7 @@ static void cleanup_cntr(struct DMMAT* brd)
         brd->cntr = 0;
 }
 
-static int init_d2a(struct DMMAT* brd,int type)
+static int __init init_d2a(struct DMMAT* brd,int type)
 {
         int result = -ENOMEM;
         struct DMMAT_D2A* d2a;
@@ -2709,6 +2714,8 @@ static int init_d2a(struct DMMAT* brd,int type)
         return result;
 }
 
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
 static void cleanup_d2a(struct DMMAT* brd)
 {
         struct DMMAT_D2A* d2a = brd->d2a;
@@ -2721,7 +2728,9 @@ static void cleanup_d2a(struct DMMAT* brd)
 
 /*-----------------------Module ------------------------------*/
 
-static void __exit dmd_mmat_cleanup(void)
+/* Don't add __exit macro to the declaration of dmd_mmat_cleanup,
+ * since it is also called at init time, if init fails. */
+static void dmd_mmat_cleanup(void)
 {
 
     int ib;

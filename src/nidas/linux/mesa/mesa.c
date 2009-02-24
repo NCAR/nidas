@@ -759,7 +759,9 @@ static struct file_operations mesa_fops = {
 };
 
 /* -- MODULE ---------------------------------------------------------- */
-static void __exit mesa_cleanup(void)
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void mesa_cleanup(void)
 {
         int ib;
 

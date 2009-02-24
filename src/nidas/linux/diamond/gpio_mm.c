@@ -1403,6 +1403,8 @@ static struct file_operations fcntr_fops = {
         .llseek  = no_llseek,
 };
 
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
 static int cleanup_fcntrs(struct GPIO_MM* brd)
 {
         int result = 0;
@@ -1555,6 +1557,8 @@ long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,int wait)
 }
 EXPORT_SYMBOL(unregister_gpio_timer_callback);
 
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
 static void cleanup_gpio_timer(struct GPIO_MM_timer* timer)
 {
         stop_gpio_timer(timer);
@@ -1642,7 +1646,9 @@ struct test_callback_data testcbd1;
 struct test_callback_data testcbd2;
 #endif
 
-static void __exit gpio_mm_cleanup(void)
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void gpio_mm_cleanup(void)
 {
 
         int ib;

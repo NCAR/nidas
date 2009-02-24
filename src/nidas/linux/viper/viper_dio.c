@@ -171,7 +171,9 @@ static struct file_operations viper_dio_fops = {
 
 /*-----------------------Module ------------------------------*/
 
-static void __exit viper_dio_cleanup(void)
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void viper_dio_cleanup(void)
 {
         cdev_del(&viper_dio.cdev);
         if (MAJOR(viper_dio.devno) != 0)
