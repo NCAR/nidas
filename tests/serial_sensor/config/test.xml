@@ -35,10 +35,10 @@
 		<message separator="\e" position="beg" length="3"/>
 	    </serialSensor>
 
-            <serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+            <serialSensor class="isff.CSAT3_Sonic"
                 baud="9600" parity="none" databits="8" stopbits="1"
                 devicename="tmp/test2" id="30" suffix=".t3">
-                <sample id="1">
+                <sample id="1" rate="60">
                     <variable name="test1" units="m/s"/>
                     <variable name="v" units="m/s"/>
                     <variable name="w" units="m/s"/>
@@ -54,26 +54,7 @@
                 <message separator="\x55\xaa" position="end" length="10"/>
             </serialSensor>
 
-            <serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
-                baud="9600" parity="none" databits="8" stopbits="1"
-                devicename="tmp/test3" id="40" suffix=".t4">
-                <sample id="1">
-                    <variable name="test1" units="m/s"/>
-                    <variable name="v" units="m/s"/>
-                    <variable name="w" units="m/s"/>
-                    <variable name="tc" units="degC"/>
-                    <variable name="diag" units=""/>
-                    <variable name="spd" units="m/s"/>
-                    <variable name="dir" units="deg"/>
-                    <variable name="uflag" units=""/>
-                    <variable name="vflag" units=""/>
-                    <variable name="wflag" units=""/>
-                    <variable name="tcflag" units=""/>
-                </sample>
-                <message length="12"/>
-            </serialSensor>
-
-            <output class="RawSampleOutputStream">
+            <output class="RawSampleOutputStream" sorterLength="0">
                 <fileset dir="tmp"
                     file="${DSM}_%Y%m%d_%H%M%S.dat"
                     length="43200">

@@ -140,11 +140,13 @@ private:
 
     void connectProcessors() throw(nidas::util::IOException);
 
-    void disconnectProcessors() throw(nidas::util::IOException);
+    void disconnectProcessors() throw();
+
+    void closeOutputs() throw();
 
     void interrupt();
 
-    void deleteDataThreads();
+    void deleteDataThreads() throw();
 
     /**
      * Implementation of ConnectionRequester connected methods.

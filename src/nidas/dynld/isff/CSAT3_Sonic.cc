@@ -78,6 +78,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 {
     DLOG(("%s: sending D (nocr)",getName().c_str()));
     write("D",1);
+    clearBuffer();
 
     for (int i = 0; i < 5; i++) {
         DLOG(("%s: sending &",getName().c_str()));
@@ -91,7 +92,9 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
         DLOG(("%s: sending D",getName().c_str()));
         write("D",1);
     }
-    clearBuffer();
+    for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+        distributeRaw(samp);
+    }
 }
 
 string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision)

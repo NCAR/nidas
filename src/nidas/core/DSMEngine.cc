@@ -62,12 +62,8 @@ DSMEngine::DSMEngine():
    }
 }
 
-DSMEngine::~DSMEngine()
+void DSMEngine::closeOutputs() throw()
 {
-    delete _statusThread;
-    delete _xmlrpcThread;
-    delete _xmlRequestSocket;
-    delete _selector;	// this closes any still-open sensors
 
     _outputMutex.lock();
     map<SampleOutput*,SampleOutput*>::const_iterator oi = _outputMap.begin();
@@ -83,9 +79,10 @@ DSMEngine::~DSMEngine()
 	}
 	catch(const n_u::IOException& e) {
 	    n_u::Logger::getInstance()->log(LOG_INFO,
-		"~DSMEngine %s: %s",output->getName().c_str(),e.what());
+		"%s: %s",output->getName().c_str(),e.what());
 	}
     }
+    _outputMap.clear();
     _outputMutex.unlock();
 
     if (_dsmConfig) {
@@ -99,16 +96,18 @@ DSMEngine::~DSMEngine()
 	    }
 	    catch(const n_u::IOException& e) {
 		n_u::Logger::getInstance()->log(LOG_INFO,
-		    "~DSMEngine %s: %s",output->getName().c_str(),e.what());
+		    "%s: %s",output->getName().c_str(),e.what());
 	    }
 	}
     }
-    list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
-    for ( ; ii != _inputs.end(); ++ii) {
-        SampleInputWrapper* input = *ii;
-        delete input;
-    }
 
+}
+
+DSMEngine::~DSMEngine()
+{
+    delete _statusThread;
+    delete _xmlrpcThread;
+    delete _xmlRequestSocket;
     delete _project;
 }
 
@@ -263,10 +262,15 @@ void DSMEngine::run() throw()
         // cleanup before re-starting the loop
         deleteDataThreads();
 
+        disconnectProcessors();
+
+        closeOutputs();
+
         if (projectDoc) {
             projectDoc->release();
             projectDoc = 0;
         }
+
         if (_project) {
             delete _project;
             _project = 0;
@@ -359,18 +363,17 @@ void DSMEngine::run() throw()
     }   // Run loop
 
     interrupt();
+
     deleteDataThreads();
+
+    disconnectProcessors();
+
+    closeOutputs();
 
     if (projectDoc) {
         projectDoc->release();
         projectDoc = 0;
     }
-    if (_project) {
-        delete _project;
-        _project = 0;
-        _dsmConfig = 0;
-    }
-
     if (_xmlrpcThread) {
         try {
             if (_xmlrpcThread->isRunning()) {
@@ -408,17 +411,10 @@ void DSMEngine::interrupt()
 
 void DSMEngine::wait() throw(n_u::Exception)
 {
-    try {
-        _selector->join();
-    }
-    catch(const n_u::Exception& e) {
-        disconnectProcessors();
-        throw e;
-    }
-    disconnectProcessors();
+    _selector->join();
 }
 
-void DSMEngine::deleteDataThreads()
+void DSMEngine::deleteDataThreads() throw()
 {
     // stop/join the status thread before closing sensors.
     // The status thread also loops over sensors.
@@ -802,19 +798,24 @@ void DSMEngine::connectProcessors() throw(n_u::IOException)
     // cerr << "DSMEngine connectProcessors done" << endl;
 }
 
-void DSMEngine::disconnectProcessors() throw(n_u::IOException)
+void DSMEngine::disconnectProcessors() throw()
 {
-    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
     list<SampleInputWrapper*>::const_iterator ii;
-
-    for ( ; pi.hasNext(); ) {
-        SampleIOProcessor* proc = pi.next();
-    
-        const list<DSMSensor*> sensors = _selector->getAllSensors();
-        list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
-        for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
-            SampleInputWrapper* input = *ii;
-            proc->disconnect(input);
+    if (_dsmConfig) {
+        ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+        for ( ; pi.hasNext(); ) {
+            SampleIOProcessor* proc = pi.next();
+            list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
+            for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
+                SampleInputWrapper* input = *ii;
+                try {
+                    proc->disconnect(input);
+                }
+                catch(const n_u::IOException& e) {
+                    n_u::Logger::getInstance()->log(LOG_INFO,
+                        "%s: %s",proc->getName().c_str(),e.what());
+                }
+            }
         }
     }
     for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) delete *ii;

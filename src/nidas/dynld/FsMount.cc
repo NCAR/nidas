@@ -93,6 +93,38 @@ void FsMount::mount()
         throw n_u::IOException(cmd,"failed",cmdout);
 }
 
+/* Just issue a "mount /dir" command. If /dir is automounted
+ * then it may work, whereas  "mount /dev/sdXn -o blahblah /dir"
+ * may fail for the user on a server.
+ */
+void FsMount::autoMount()
+       throw(n_u::Exception)
+{
+    if (isMounted()) return;
+    n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
+        deviceMsg.c_str(),dirMsg.c_str());
+
+    string cmd = string("mount");
+    cmd += ' ' + getDirExpanded() + " 2>&1";
+
+    _mountProcess = n_u::Process::spawn(cmd);
+    string cmdout;
+    istream& outst = _mountProcess.outStream();
+    for (; !outst.eof();) {
+        char cbuf[32];
+        outst.read(cbuf,sizeof(cbuf)-1);
+        cbuf[outst.gcount()] = 0;
+        cmdout += cbuf;
+    }
+
+    n_u::trimString(cmdout);
+
+    int status;
+    _mountProcess.wait(true,&status);
+    if (!WIFEXITED(status) || WEXITSTATUS(status))
+        throw n_u::IOException(cmd,"failed",cmdout);
+}
+
 void FsMount::mount(FileSet* fset)
 {
     fileset = fset;
@@ -239,9 +271,10 @@ FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
 int FsMountWorkerThread::run() throw(n_u::Exception)
 {
     int sleepsecs = 30;
-    for (;;) {
+    for (int i = 0;; i++) {
 	try {
-	    fsmount->mount();
+            if (!(i % 2)) fsmount->mount();
+	    else fsmount->autoMount();
 	    break;
 	}
 	catch(const n_u::IOException& e) {
@@ -252,7 +285,7 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
 	}
 	if (isInterrupted()) break;
 	struct timespec slp = { sleepsecs, 0};
-	::nanosleep(&slp,0);
+        if ((i % 2 )) ::nanosleep(&slp,0);
 	if (isInterrupted()) break;
     }
     fsmount->finished();

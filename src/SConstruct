@@ -192,6 +192,7 @@ if 'x86' in BUILDS:
 
     # Testing targets, built and run only on x86
     if 'test' in COMMAND_LINE_TARGETS:
+        SConscript("../tests/serial_sensor/SConscript",exports={'env':env})
         SConscript("../tests/tlogger/SConscript",exports={'env':env})
         SConscript("../tests/tiostream/SConscript",exports={'env':env})
 

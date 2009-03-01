@@ -91,6 +91,13 @@ public:
     void mount() throw(nidas::util::Exception);
 
     /**
+     * Just issue a "mount /dir" command. If /dir is automounted
+     * then it may work, whereas  "mount /dev/sdXn -o blahblah /dir"
+     * may fail for the user on a server.
+     */
+    void autoMount() throw(nidas::util::Exception);
+
+    /**
      * Asynchronous mount request. finished() method will
      * be called when mount is done.
      */
