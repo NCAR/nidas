@@ -221,7 +221,6 @@ int SensorSim::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-
     while ((opt_char = getopt(argc, argv, "b:cf:r:")) != -1) {
 	switch (opt_char) {
 	    break;

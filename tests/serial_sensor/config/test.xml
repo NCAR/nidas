@@ -54,6 +54,28 @@
                 <message separator="\x55\xaa" position="end" length="10"/>
             </serialSensor>
 
+	    <serialSensor class="DSMSerialSensor"
+		baud="57600" parity="none" databits="8" stopbits="1"
+		devicename="tmp/test3" id="40" suffix=".t4">
+		<sample id="1"
+		    scanfFormat="%f %f">
+		    <variable name="test1" units="wacka-a-mole"/>
+		    <variable name="test2" units="wacka-a-mole"/>
+		</sample>
+		<message separator="xxy\r\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="57600" parity="none" databits="8" stopbits="1"
+		devicename="tmp/test4" id="50" suffix=".t5">
+		<sample id="1"
+		    scanfFormat=" z %f %f">
+		    <variable name="test1" units="wacka-a-mole"/>
+		    <variable name="test2" units="wacka-a-mole"/>
+		</sample>
+		<message separator="xxy" position="beg" length="0"/>
+	    </serialSensor>
+
             <output class="RawSampleOutputStream" sorterLength="0">
                 <fileset dir="tmp"
                     file="${DSM}_%Y%m%d_%H%M%S.dat"

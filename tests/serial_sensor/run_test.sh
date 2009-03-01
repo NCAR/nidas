@@ -31,7 +31,12 @@ src/sensor_sim -f data/test.dat -r 10 tmp/test0 &
 pids=(${pids[*]} $!)
 src/sensor_sim -f data/test.dat -b $'\e' -r 10 tmp/test1 &
 pids=(${pids[*]} $!)
+# simulate Campbell sonic
 src/sensor_sim -c -r 60 tmp/test2 &
+pids=(${pids[*]} $!)
+src/sensor_sim -f data/repeated_sep.dat -r 1 tmp/test3 &
+pids=(${pids[*]} $!)
+src/sensor_sim -f data/repeated_sep.dat -r 1 -b z tmp/test4 &
 pids=(${pids[*]} $!)
 
 # number of simulated sensors
@@ -113,7 +118,7 @@ if [ $ns -ne $nsensors ]; then
 fi
 
 # should see these numbers of raw samples
-nsamps=(51 50 257)
+nsamps=(51 50 257 4 5)
 rawok=true
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
@@ -153,7 +158,7 @@ fi
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
 
-nsamps=(50 49 254)
+nsamps=(50 49 254 4 1)
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
     nsamp=${nsamps[$i]}

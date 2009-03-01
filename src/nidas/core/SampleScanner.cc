@@ -425,8 +425,28 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
         else {
             // no match of current character to EOM string.
             // check for match at beginning of separator string
-            if (_separatorCnt > 0 &&
-                  c == _separator[_separatorCnt = 0]) _separatorCnt++;
+            //
+            // Also handle situation where there are repeated character
+            // sequences in the separator.  For example: a separator
+            // sequence of xxy, and the input is xxxy.  When you get
+            // a failure matching the third character, you shouldn't start
+            // completely over scanning for xxy starting at the third x,
+            // but should scan for xy starting at the third x.
+            // This also happens with a separator of xyxyz and an input of xyxyxyz.
+            // One can never tell what kind of separator sequence someone might think of...
+            if (_separatorCnt > 0) {
+                // initial character repeated
+                if (_separatorCnt > 1 && !memcmp(_separator,_separator+1,_separatorCnt-1) &&
+                    c == _separator[_separatorCnt-1]);  // leave _separatorCnt as is
+                else {
+                    // possible repeated sequence
+                    int nrep = _separatorCnt / 2;   // length of seq
+                    if (!(_separatorCnt % 2) && !memcmp(_separator,_separator+nrep,nrep) &&
+                        c == _separator[_separatorCnt = nrep]) _separatorCnt++;
+                    // start scan over
+                    else if (c == _separator[_separatorCnt = 0]) _separatorCnt++;
+                }
+            }
         }
     }
     return result;
@@ -547,12 +567,30 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
             // greater than getMessageLength() and this is good data.
 
             if (_separatorCnt > 0) {     // previous partial match
-                // We have a partial match to separator,
-                // copy chars to the sample data.
-                ::memcpy(_outSampDataPtr+_outSampRead,_separator,_separatorCnt);
-                _outSampRead += _separatorCnt;
-                _separatorCnt = 0;	// start scanning for BOM again
-                // this won't infinitely loop because now _separatorCnt=0
+                // check for repeated sequence
+                if (_separatorCnt > 1 && !memcmp(_separator,_separator+1,_separatorCnt-1)) {
+                    // initial repeated character
+                    ::memcpy(_outSampDataPtr+_outSampRead,_separator,1);
+                    _outSampRead++;
+                    _separatorCnt--;
+                }
+                else {
+                    int nrep = _separatorCnt / 2;   // length of sequence
+                    if (!(_separatorCnt % 2) && !memcmp(_separator,_separator+nrep,nrep)) {
+                        // initial repeated sequence
+                        ::memcpy(_outSampDataPtr+_outSampRead,_separator,nrep);
+                        _outSampRead += nrep;
+                        _separatorCnt -= nrep;
+                    }
+                    else {
+                        // We have a partial match to separator,
+                        // copy chars to the sample data, start scanning over
+                        ::memcpy(_outSampDataPtr+_outSampRead,_separator,_separatorCnt);
+                        _outSampRead += _separatorCnt;
+                        _separatorCnt = 0;	// start scanning for BOM again
+                    }
+                }
+                // this won't infinitely loop because we've reduced _separatorCnt
             }
             else {              // no match to first character in sep
                 if (_outSampRead == 0)
