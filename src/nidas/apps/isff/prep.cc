@@ -423,7 +423,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     if (dataFileNames.size() == 0 && !sockAddr.get() &&
     	startTime.toUsecs() == 0) return usage(argv[0]);
     if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
-        endTime = startTime + 31 * USECS_PER_DAY;
+        endTime = startTime + 90 * USECS_PER_DAY;
     return 0;
 }
 
