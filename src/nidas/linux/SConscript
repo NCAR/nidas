@@ -30,7 +30,11 @@ if arch == 'x86':
         if not os.path.exists(kdir):
             if os.path.exists('/usr/src/kernels/' + kver):
                 kdir = '/usr/src/kernels/' + kver
+        # Remove PAE or xen from uname -r output (merlot is a PAE system)
+        kdir = kdir.replace("xen","")
+        kdir = kdir.replace("PAE","")
         env['KERNELDIR_X86'] = kdir
+
     # If KERNELDIR_X86 doesn't exist, issue a warning here and
     # let it fail later.
     if env['KERNELDIR_X86'] != '':
