@@ -5,7 +5,6 @@ env = env.Clone()
 
 bdirs = [ 'dynld', 'core', 'util' ]
 
-#env.Append (LIBS = [env.File('/usr/lib/libboost_unit_test_framework.a'), 'boost_regex', 'nidas_dynld'])
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex', 'nidas_dynld'])
 env.Append(LIBPATH = [env.Dir('#/build_x86/build_dynld')],
            CPPPATH = [ "#", "#/nidas" ],
@@ -13,7 +12,6 @@ env.Append(LIBPATH = [env.Dir('#/build_x86/build_dynld')],
 
 ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
-print (env['ENV']['LD_LIBRARY_PATH'])
 
 tests = env.Program('tiostream', "tiostream.cc")
 
