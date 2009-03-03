@@ -11,10 +11,13 @@ if pgrep -f "valgrind dsm" > /dev/null; then
     pkill -9 -f "valgrind dsm"
 fi
 
+echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+echo PATH=$PATH
+
 # build the local sensor_sim program
-cd src || exit 1
-scons
-cd ..
+#cd src || exit 1
+#scons
+#cd ..
 
 [ -d tmp ] && rm -rf tmp
 [ -d tmp ] || mkdir tmp
@@ -113,7 +116,7 @@ data_stats $ofiles > $statsf
 
 ns=`egrep "^test:tmp/test" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $nsensors"
+    echo "Expected $nsensors sensors in $statsf, got $ns"
     exit 1
 fi
 
@@ -147,8 +150,7 @@ data_stats -p $ofiles > $statsf
 
 ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $nsensors"
-
+    echo "Expected $nsensors sensors in $statsf, got $ns"
     exit 1
 fi
 
