@@ -183,18 +183,19 @@ if 'x86' in BUILDS:
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
     x86_env.AppendUnique(CCFLAGS = ["-g"])
+    exports = {'env':x86_env}
 
     SConscript('nidas/SConscript',
                build_dir='build_x86',
-               duplicate=0, exports={'env':x86_env})
+               duplicate=0, exports=exports)
     Alias('install','x86_install')
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
     if 'test' in COMMAND_LINE_TARGETS:
-        SConscript("../tests/serial_sensor/SConscript",exports={'env':env})
-        SConscript("../tests/tlogger/SConscript",exports={'env':env})
-        SConscript("../tests/tiostream/SConscript",exports={'env':env})
+        SConscript("../tests/serial_sensor/SConscript",exports=exports)
+        SConscript("../tests/tlogger/SConscript",exports=exports)
+        SConscript("../tests/tiostream/SConscript",exports=exports)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor

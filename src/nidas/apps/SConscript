@@ -77,11 +77,15 @@ nuapps = Split("""
 
 # Note that we don't have to search the pthread, dl, xerces-c, cap, etc
 # libraries, since they were searched when libnidas_dynld was built.
+env['NIDAS_APPS'] = {}
 nodes = []
 for i in apps + archapps:
-    nodes += env.Program( source=i,
+    node = env.Program( source=i,
         LIBS= ['nidas_dynld'],
         LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
+    name = env.subst("${TARGET.filebase}", target=node)
+    env['NIDAS_APPS'][name] = node
+    nodes += node
 
 # suppress linking against nidas libraries
 for i in nlapps:
