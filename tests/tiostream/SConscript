@@ -15,7 +15,8 @@ env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 tests = env.Program('tiostream', "tiostream.cc")
 
-runtest = env.Command("xtest", tests, ["$SOURCE.abspath --log_level=all"])
+# Add --log_level=all to see all the log messages
+runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)

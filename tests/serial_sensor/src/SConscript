@@ -1,9 +1,11 @@
+# -*- python -*-
+#
 Import('env')
 env = env.Clone()
 
-env.Append(LIBS = ['nidas_dynld'])
-env.Append(LIBPATH = [env.Dir('#/build_x86/build_dynld')])
+libs = [ env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL'] ]
+env.Append(LIBS = libs[0])
 env.Append(CPPPATH = [ "#", "#/nidas" ])
 env.Append(CCFLAGS = ['-Wall'])
 
-env.Program('sensor_sim.cc')
+env.Depends(env.Program('sensor_sim.cc'), libs)

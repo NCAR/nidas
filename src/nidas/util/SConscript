@@ -86,11 +86,11 @@ slib = env.StaticLibrary('nidas_util' , objects)
 ##
 ## Install targets for libraries and headers.
 ##
-Alias(arch + '_install',env.Install('$PREFIX/lib',lib))
-Alias(arch + '_install',env.Install('$PREFIX/lib',slib))
-Alias(arch + '_install',env.Install('$PREFIX/include/nidas/util',headers))
+nodes = []
+nodes += env.Install('$PREFIX/lib',lib)
+env['LIBNIDAS_UTIL'] = nodes[0]
+nodes += env.Install('$PREFIX/lib',slib)
+nodes += env.Install('$PREFIX/include/nidas/util',headers)
+Alias(arch + '_install', nodes)
 
-env.Clean(arch + '_install', [
-    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib),
-    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in slib)
-    ])
+env.Clean(arch + '_install', nodes)

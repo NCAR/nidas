@@ -77,28 +77,34 @@ nuapps = Split("""
 
 # Note that we don't have to search the pthread, dl, xerces-c, cap, etc
 # libraries, since they were searched when libnidas_dynld was built.
-env['NIDAS_APPS'] = {}
 nodes = []
+libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
     node = env.Program( source=i,
         LIBS= ['nidas_dynld'],
         LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
-    name = env.subst("${TARGET.filebase}", target=node)
-    env['NIDAS_APPS'][name] = node
+    node = env.Install('$PREFIX/bin', node)
+    env.Depends(node, libs)
     nodes += node
 
 # suppress linking against nidas libraries
 for i in nlapps:
-    nodes += env.Program(source=i,LIBS=[])
+    node = env.Program(source=i,LIBS=[])
+    node = env.Install('$PREFIX/bin', node)
+    nodes += node
 
 # link against nidas_util
 for i in nuapps:
-    nodes += env.Program(source=i,
-        LIBS= ['nidas_util'],
-        LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+    node = env.Program(source=i,
+                       LIBS= ['nidas_util'],
+                       LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+    node = env.Install('$PREFIX/bin', node)
+    env.Depends(node, [env['LIBNIDAS_UTIL']])
+    nodes += node
 
-env.Install('$PREFIX/bin',nodes)
+env['NIDAS_APPS'] = {}
+for node in nodes:
+    name = env.subst("${TARGET.filebase}", target=node)
+    env['NIDAS_APPS'][name] = node
 
-env.Clean(arch + '_install', [
-    ('$PREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
-    ])
+env.Clean(arch + '_install', nodes)

@@ -192,10 +192,9 @@ if 'x86' in BUILDS:
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
-    if 'test' in COMMAND_LINE_TARGETS:
-        SConscript("../tests/serial_sensor/SConscript",exports=exports)
-        SConscript("../tests/tlogger/SConscript",exports=exports)
-        SConscript("../tests/tiostream/SConscript",exports=exports)
+    SConscript("../tests/serial_sensor/SConscript",exports=exports)
+    SConscript("../tests/tlogger/SConscript",exports=exports)
+    SConscript("../tests/tiostream/SConscript",exports=exports)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor

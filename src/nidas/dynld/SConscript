@@ -101,7 +101,7 @@ lib = env.SharedLibrary('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
 ##
 ## Install targets for library and headers.
 ##
-env.Install('$PREFIX/lib',lib)
+installed_lib = env.Install('$PREFIX/lib',lib)
 env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 
 # print [ env.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
@@ -109,3 +109,5 @@ env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 env.Clean(arch + '_install', [
     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
     ])
+
+env['LIBNIDAS_DYNLD'] = installed_lib
