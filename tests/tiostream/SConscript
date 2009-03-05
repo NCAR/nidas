@@ -3,17 +3,14 @@
 Import('env')
 env = env.Clone()
 
-bdirs = [ 'dynld', 'core', 'util' ]
-
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex', 'nidas_dynld'])
-env.Append(LIBPATH = [env.Dir('#/build_x86/build_dynld')],
-           CPPPATH = [ "#", "#/nidas" ],
-           RPATH = [ env.Dir("#/build_x86/build_dynld").abspath ])
-
-ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
-env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+libs = [ env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL'] ]
+env.Append(LIBS = libs[0])
+env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
+env.Append(CPPPATH = [ "#", "#/nidas" ])
+env.Append(CCFLAGS = ['-Wall'])
 
 tests = env.Program('tiostream', "tiostream.cc")
+env.Depends(tests, libs)
 
 # Add --log_level=all to see all the log messages
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])

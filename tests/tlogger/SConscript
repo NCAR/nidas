@@ -1,12 +1,14 @@
+# -*- python -*-
 
 Import('env')
 env = env.Clone()
 
-env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex', 'nidas_util'],
-            CPPPATH = [ "#", "#/nidas/util" ],
-            LIBPATH = [ "#/build_x86/build_util" ],
-            RPATH = [ env.Dir("#/build_x86/build_util").abspath ])
+libs = [ env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL'] ]
+env.Append(LIBS = libs[0])
+env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'],
+            CPPPATH = [ "#", "#/nidas/util" ])
 tests = env.Program('tlogger', "tlogger.cc")
+env.Depends(tests, libs)
 
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
