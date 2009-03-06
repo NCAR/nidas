@@ -32,7 +32,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,VCSEL_Serial)
 
-VCSEL_Serial::VCSEL_Serial() : _atxRate(1), _hz_counter(0)
+VCSEL_Serial::VCSEL_Serial() : _atxRate(1), _hz_counter(0),_lastUsec(0)
 {
 }
 
@@ -87,26 +87,32 @@ void VCSEL_Serial::sendAmbientTemperature(float atx) throw(n_u::IOException)
 bool VCSEL_Serial::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-  bool rc = DSMSerialSensor::process(samp, results);
+    bool rc = DSMSerialSensor::process(samp, results);
 
-  list<const Sample *>::const_iterator it = results.begin();
-  for (; it != results.end(); ++it)
-  {
-    Sample * nco_samp = const_cast<Sample *>(*it);
+    list<const Sample *>::const_iterator it = results.begin();
+    for (; it != results.end(); ++it)
+    {
+        Sample * nco_samp = const_cast<Sample *>(*it);
 
-    if ((nco_samp->getId() - getId()) == 1)	// Don't do housekeeping tag.
-      continue;
+        // housekeeping comes on-the-second but after the first 25Hz sample
+        if ((nco_samp->getId() - getId()) == 1) {
+              _hz_counter = 1;
+              continue;
+        }
 
-    int tt = nco_samp->getTimeTag() % USECS_PER_SEC;
+        int usec = nco_samp->getTimeTag() % USECS_PER_SEC;
 
-    if (tt < 40000)
-        _hz_counter = 0;
+        // late samples whose timetag is in next sec are actually from previous second
+        if (_hz_counter > 22 && usec < 2 * 40000) usec += USECS_PER_SEC;
 
-    dsm_time_t timeoffix = nco_samp->getTimeTag() - tt + (_hz_counter * 40000);
-    ++_hz_counter;
+        // Reverse sitution if DSM clock is a bit slow
+        if (_hz_counter < 2 && usec > 22 * 40000) usec -= USECS_PER_SEC;
 
-    nco_samp->setTimeTag(timeoffix);
-  }
+        dsm_time_t timeoffix = nco_samp->getTimeTag() - usec + (_hz_counter * 40000);
+        if (++_hz_counter == 25) _hz_counter = 0;
 
-  return rc;
+        nco_samp->setTimeTag(timeoffix);
+    }
+
+    return rc;
 }
