@@ -135,9 +135,9 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (!aname.compare("dir")) setDir(aval);
-	    else if (!aname.compare("file")) setFileName(aval);
-	    else if (!aname.compare("length")) {
+	    if (aname == "dir") setDir(aval);
+	    else if (aname == "file") setFileName(aval);
+	    else if (aname == "length") {
 		istringstream ist(aval);
 		int val;
 		ist >> val;
@@ -159,7 +159,7 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-	if (!elname.compare("mount")) {
+	if (elname == "mount") {
 	    mount = new FsMount();
 	    mount->fromDOMElement((const xercesc::DOMElement*) child);
 	}

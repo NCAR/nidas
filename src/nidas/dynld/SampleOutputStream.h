@@ -71,7 +71,7 @@ public:
 
 protected:
 
-    bool write(const Sample* samp) throw(nidas::util::IOException);
+    size_t write(const Sample* samp) throw(nidas::util::IOException);
 
     IOStream* iostream;
 

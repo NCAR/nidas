@@ -40,5 +40,7 @@ IODevice* UDPSocketSensor::buildIODevice() throw(n_u::IOException)
 
 SampleScanner* UDPSocketSensor::buildSampleScanner()
 {
-    return new DatagramSampleScanner();
+    DatagramSampleScanner* scanner = new DatagramSampleScanner();
+    scanner->setNullTerminate(doesAsciiSscanfs());
+    return scanner;
 }

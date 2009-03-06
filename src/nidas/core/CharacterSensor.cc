@@ -125,13 +125,28 @@ SampleScanner* CharacterSensor::buildSampleScanner()
         setDriverTimeTagUsecs(USECS_PER_MSEC);
         scanr = new MessageSampleScanner();
     }
-    else scanr = new MessageStreamScanner();
+    else {
+        MessageStreamScanner* mscanr;
+        scanr = mscanr = new MessageStreamScanner();
+        mscanr->setNullTerminate(doesAsciiSscanfs());
+    }
 
     scanr->setMessageSeparator(getMessageSeparator());
     scanr->setMessageSeparatorAtEOM(getMessageSeparatorAtEOM());
     scanr->setMessageLength(getMessageLength());
     return scanr;
 }
+
+bool CharacterSensor::doesAsciiSscanfs()
+{
+    for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
+	const SampleTag* tag = si.next();
+	const string& sfmt = tag->getScanfFormat();
+	if (sfmt.length() > 0) return true;
+    }
+    return false;
+}
+
  
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
@@ -281,6 +296,21 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     assert(samp->getType() == CHAR_ST);
 
     const char* inputstr = (const char*)samp->getConstVoidDataPtr();
+    int slen = samp->getDataByteLength();
+
+    // if sample is not null terminated, create a new null-terminated sample
+    if (inputstr[slen-1] != '\0') {
+        SampleT<char>* newsamp = getSample<char>(slen+1);
+        newsamp->setTimeTag(samp->getTimeTag());
+        newsamp->setId(samp->getId());
+        char* newstr = (char*)newsamp->getConstVoidDataPtr();
+        ::memcpy(newstr,inputstr,slen);
+        newstr[slen] = '\0';
+
+        bool res =  CharacterSensor::process(newsamp,results);
+        newsamp->freeReference();
+        return res;
+    }
 
     SampleT<float>* outs = getSample<float>(maxScanfFields);
 

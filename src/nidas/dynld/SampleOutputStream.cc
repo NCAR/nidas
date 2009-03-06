@@ -116,7 +116,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    createNextFile(tsamp);
 	    first_sample = true;
 	}
-	bool success = write(samp);
+	bool success = write(samp) > 0;
 	if (!success) {
 	    if (!(nsamplesDiscarded++ % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -145,7 +145,7 @@ size_t SampleOutputStream::write(const void* buf, size_t len)
     return iostream->write(buf,len);
 }
 
-bool SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
+size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 {
 #ifdef DEBUG
     static int nsamps = 0;

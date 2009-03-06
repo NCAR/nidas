@@ -392,8 +392,13 @@ void SyncRecordReader::readKeyedValues(istringstream& header)
 
 size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(n_u::IOException)
 {
+    static n_u::UTime t1 = n_u::UTime::parse(true,"2008 05 09 14:38:47.0");
+
     for (;;) {
 	const Sample* samp = inputStream.readSample();
+        if (samp->getTimeTag() > t1.toUsecs())
+            cerr << "samp=" << n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+                " len=" << samp->getDataLength() << " id=" << samp->getId() << endl;
 
 	if (samp->getId() == SYNC_RECORD_ID) {
 

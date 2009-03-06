@@ -631,9 +631,31 @@ public:
      */
     Sample* nextSample(DSMSensor* sensor);
 
+    /**
+     * User of DatagramSampleScanner should specify if they want
+     * the samples to be null terminated.  In general, if
+     * this SampleScanner is used by a CharacterSensor with a
+     * scanfFormat defined for one or more samples, then the
+     * samples should be null terminated.
+     */
+    void setNullTerminate(bool val) 
+    {
+        _nullTerminate = val;
+    }
+
+    bool getNullTerminate()  const
+    {
+        return _nullTerminate;
+    }
+
+
 private:
     std::list<int> _packetLengths;
+
     std::list<dsm_time_t> _packetTimes;
+
+    bool _nullTerminate;
+
 };
 
 }}	// namespace nidas namespace core

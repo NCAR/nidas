@@ -38,7 +38,7 @@ public:
 
     SampleScanner* buildSampleScanner(); 
 
-
+private:
 
 };
 

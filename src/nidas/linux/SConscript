@@ -24,15 +24,16 @@ env['KMAKE'] = 'make KERNELDIR=$KERNELDIR KINCLUDE=$KINCLUDE'
 if arch == 'x86':
     if env['KERNELDIR_X86'] == '*':
         kver = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
+        # Remove PAE or xen from uname -r output (merlot is a PAE system)
+        kver = kver.replace("xen","")
+        kver = kver.replace("PAE","")
+
         kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
         kdir = '/usr/src/kernels/' + kver + '-' + kmach
         # Fallback for Fedora 9 using a different directory name.
         if not os.path.exists(kdir):
             if os.path.exists('/usr/src/kernels/' + kver):
                 kdir = '/usr/src/kernels/' + kver
-        # Remove PAE or xen from uname -r output (merlot is a PAE system)
-        kdir = kdir.replace("xen","")
-        kdir = kdir.replace("PAE","")
         env['KERNELDIR_X86'] = kdir
 
     # If KERNELDIR_X86 doesn't exist, issue a warning here and

@@ -37,7 +37,7 @@ class FileSet: public IOChannel, public nidas::util::FileSet {
 public:
 
     FileSet():IOChannel(),nidas::util::FileSet(),
-        expandedFileName(false),expandedDir(0),requester(0),mount(0) {}
+        expandedFileName(false),expandedDir(0),name("FileSet"),requester(0),mount(0) {}
 
     /**
      * Copy constructor.

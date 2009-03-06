@@ -255,15 +255,17 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
 		l = _iochannel.write(_tail,wlen);
 	    }
 	    catch (const n_u::IOException& ioe) {
-		if (ioe.getError() == EAGAIN) l = 0;
+		if (ioe.getError() == EAGAIN) {
+                    l = 0;
+#ifdef REPORT_EAGAINS
+                    if ((_nEAGAIN++ % 100) == 0) {
+                        WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
+                              getName().c_str(),_nEAGAIN,wlen,tlen));
+                    }
+#endif
+                }
 		else throw ioe;
 	    }
-#ifdef REPORT_EAGAINS
-	    if (l == 0 && (_nEAGAIN++ % 100) == 0) {
-		WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
-		      getName().c_str(),_nEAGAIN,wlen,tlen));
-	    }
-#endif
 	    _tail += l;
 	    if (_tail == _head) {
 		_tail = _head = _buffer;	// empty buffer
@@ -287,7 +289,7 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
 
 void IOStream::flush() throw (n_u::IOException)
 {
-    ssize_t l;
+    size_t l;
 
     /* number of bytes in buffer */
     size_t wlen = _head - _tail;

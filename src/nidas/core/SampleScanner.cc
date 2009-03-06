@@ -280,7 +280,6 @@ void MessageStreamScanner::setupMessageScanning()
     /* if message termination character is CR or NL then enable
      * nullTermination.
      */
-    setNullTerminate(false);
     if (_separatorLen > 0) {
         if (getMessageSeparatorAtEOM()) _nextSampleFunc =
             &MessageStreamScanner::nextSampleSepEOM;
@@ -641,7 +640,7 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
 }
 
 DatagramSampleScanner::DatagramSampleScanner(int bufsize):
-	SampleScanner(bufsize)
+	SampleScanner(bufsize),_nullTerminate(false)
 {
 }
 
@@ -684,10 +683,19 @@ Sample* DatagramSampleScanner::nextSample(DSMSensor* sensor)
 
     int plen = _packetLengths.front();
 
-    Sample* samp = getSample<char>(plen);
+    Sample* samp;
+    if (getNullTerminate())
+        samp = getSample<char>(plen+1);  // pad with null
+    else
+        samp = getSample<char>(plen);
+        
     samp->setTimeTag(_packetTimes.front());
     samp->setId(sensor->getId());
     ::memcpy(samp->getVoidDataPtr(),_buffer+_buftail,plen);
+
+    if (getNullTerminate())
+        ((char*)samp->getVoidDataPtr())[plen] = '\0';
+
     addSampleToStats(samp->getDataByteLength());
 
     _buftail += plen;

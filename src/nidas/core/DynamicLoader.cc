@@ -13,6 +13,24 @@
 
 */
 
+/*
+possible updates:
+    use RTLD_GLOBAL | RTLD_NODELETE flags in dlopen
+    RTLD_NODELETE is not necessary if we keep the handles open
+
+    libraries: libnidas_dynld.so, libnidas_isff.so, libnidas_raf.so
+        shouldn't need NULL, don't link against libnidas_dynld
+        libnidas_dynld is hardcoded,
+            libnidas_isff, libnidas_raf are optional:
+                XML: <libraries> 
+                -l library in runstring (dsm, dsm_server, ck_xml, data_dump, etc), ugh
+                If we split out raf and isfs stuff, need to provide backward compat:
+                    
+                        
+    map<string,handle>
+*/
+
+
 #include <nidas/core/DynamicLoader.h>
 
 #include <dlfcn.h>

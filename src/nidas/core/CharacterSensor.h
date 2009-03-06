@@ -24,8 +24,10 @@
 namespace nidas { namespace core {
 
 /**
- * Implementation of support for a sensor which outputs
- * a message stream of data - for example a sensor
+ * Implementation of support for a sensor which generates 
+ * character output. Typically this character output is
+ * somewhat free-form and is then parsed in the process()
+ * method.
  */
 class CharacterSensor: public DSMSensor {
 
@@ -44,9 +46,19 @@ public:
 
     SampleScanner* buildSampleScanner();
 
+    /**
+     * Open the sensor device port for real-time sampling.
+     * This should only be done after the CharacterSensor
+     * has been initialized with fromDOMElement.
+     */
     void open(int flags) throw(nidas::util::IOException,
     	nidas::util::InvalidParameterException);
 
+    /**
+     * Initialize the CharacterSensor instance for post-processing.
+     * This should only be done after the CharacterSensor
+     * has been initialized with fromDOMElement.
+     */
     void init() throw(nidas::util::InvalidParameterException);
 
     /**
@@ -188,6 +200,10 @@ public:
      */
     int getNumScanfPartials() const { return scanfPartials; }
 
+    /**
+     * Return the list of AsciiSscanfs requested for this CharacterSensor.
+     * This list is only valid after the init() method has been called.
+     */
     const std::list<AsciiSscanf*>& getScanfers() const
     {
         return sscanfers;
@@ -205,6 +221,12 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * @return: true if this CharacterSensor as been configured to
+     *          use one or more  AsciiSscanf objects to parse its data.
+     */
+    bool doesAsciiSscanfs();
 
 private:
 
