@@ -32,7 +32,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,VCSEL_Serial)
 
-VCSEL_Serial::VCSEL_Serial() : _atxRate(1), _hz_counter(0),_lastUsec(0)
+VCSEL_Serial::VCSEL_Serial() : _atxRate(1), _hz_counter(0)
 {
 }
 

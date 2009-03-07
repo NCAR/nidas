@@ -65,6 +65,8 @@ public:
 
     static const int DEFAULT_PORT = 30001;
 
+    static const float SORTER_LENGTH_MSECS = 2000;
+
 private:
 
     static bool interrupted;
@@ -78,6 +80,8 @@ private:
     bool simulationMode;
 
     bool _debug;
+
+    int _sorterLengthMsecs;
 };
 
 int main(int argc, char** argv)
@@ -130,8 +134,10 @@ void SyncServer::setupSignals()
 int SyncServer::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-x xml_file] [-p port] raw_data_file ...\n\
+Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...\n\
     -d: debug. Log messages to stderr instead of syslog\n\
+    -l sorterSecs: length of sample sorter, in fractional seconds\n\
+        default=" << SORTER_LENGTH_MSECS / MSECS_PER_SEC << "\n\
     -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
     -s: simulation mode (pause a second before sending each sync record)\n\
     -x xml_file (optional), default: \n\
@@ -175,7 +181,8 @@ int SyncServer::main(int argc, char** argv) throw()
 
 SyncServer::SyncServer():
     addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
-    simulationMode(false),_debug(false)
+    simulationMode(false),_debug(false),
+    _sorterLengthMsecs(SORTER_LENGTH_MSECS)
 {
 }
 
@@ -185,10 +192,19 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dp:sx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dl:p:sx:")) != -1) {
 	switch (opt_char) {
 	case 'd':
             _debug = true;
+            break;
+        case 'l':
+            {
+                float secs;
+		istringstream ist(optarg);
+		ist >> secs;
+		if (ist.fail()) return usage(argv[0]);
+                _sorterLengthMsecs = (int)rint(secs * MSECS_PER_SEC);
+            }
             break;
 	case 'p':
 	    {
@@ -229,7 +245,7 @@ int SyncServer::run() throw()
 
 	// SortedSampleStream owns the iochan ptr.
 	SortedSampleInputStream input(iochan);
-	input.setSorterLengthMsecs(2000);
+	input.setSorterLengthMsecs(_sorterLengthMsecs);
 
 	// Block while waiting for heapSize to become less than heapMax.
 	input.setHeapBlock(true);

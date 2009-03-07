@@ -14,9 +14,15 @@
 
 #include <nidas/core/DSMEngine.h>
 
+#include <iostream>
+
+using namespace std;
+
 using namespace nidas::core;
 
 int main(int argc, char** argv)
 {
-    return DSMEngine::main(argc,argv);	// deceptively simple
+    int res = DSMEngine::main(argc,argv);	// deceptively simple
+    cerr << "dsm exiting, status=" << res << endl;
+    return res;
 }

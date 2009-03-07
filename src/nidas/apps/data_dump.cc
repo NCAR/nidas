@@ -43,7 +43,7 @@ class DumpClient: public SampleClient
 public:
 
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
-    	FLOAT, IRIG, LONG } format_t;
+    	FLOAT, IRIG, LONG, ASCII_7 } format_t;
 
     DumpClient(set<dsm_sample_id_t>,format_t,ostream&);
 
@@ -158,11 +158,20 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     switch(sample_format) {
     case ASCII:
+    case ASCII_7:
 	{
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
         if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-        ostr << n_u::addBackslashSequences(string(cp,l)) << endl;
+        if (sample_format ==  ASCII_7) {
+            char cp7[l];
+            char* xp;
+            for (xp=cp7; *cp; ) *xp++ = *cp++ & 0x7f;
+            ostr << n_u::addBackslashSequences(string(cp7,l)) << endl;
+        }
+        else {
+            ostr << n_u::addBackslashSequences(string(cp,l)) << endl;
+        }
         }
         break;
     case HEX:
@@ -314,10 +323,13 @@ int DataDump::parseRunstring(int argc, char** argv)
     dsm_sample_id_t sampleId = 0;
     n_u::LogConfig lc;
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:7")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
+	    break;
+	case '7':
+	    format = DumpClient::ASCII_7;
 	    break;
 	case 'd':
             {
@@ -451,7 +463,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -H | -S] [inputURL ...]\n\
+Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -H | -S ] [inputURL ...]\n\
     -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
     -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
@@ -463,6 +475,7 @@ Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] 
          $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
          where <project>, <aircraft> and <flight> are read from the input data header\n\
     -A: ASCII output (for samples from a serial sensor)\n\
+    -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
     -H: hex output (typically for raw output)\n\
     -I: output of IRIG clock samples\n\

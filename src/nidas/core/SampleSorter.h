@@ -127,10 +127,6 @@ public:
     void addSampleTag(const SampleTag* tag,SampleClient*)
     	throw(nidas::util::InvalidParameterException);
 
-#ifdef USE_LOOPER
-    void looperNotify() throw();
-#endif
-
 protected:
 
     /**

@@ -162,7 +162,7 @@ size_t FileSet::read(void* buf, size_t count) throw(IOException)
 size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 {
     newFile = false;
-    size_t res = ::write(fd,buf,count);
+    ssize_t res = ::write(fd,buf,count);
     if (res < 0) throw IOException(currname,"write",errno);
     return res;
 }

@@ -15,7 +15,6 @@
 
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/DSMTime.h>
-#include <nidas/core/Looper.h>
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
@@ -61,7 +60,6 @@ SampleSorter::~SampleSorter()
     SortedSampleSet tmpset = samples;
     samples.clear();
     sampleSetCond.unlock();
-    // Looper::getInstance()->removeClient(this);
 
 #ifdef DEBUG
     cerr << "freeing reference on samples" << endl;
@@ -93,9 +91,6 @@ void SampleSorter::addSampleTag(const SampleTag* tag,SampleClient* client)
  */
 int SampleSorter::run() throw(n_u::Exception)
 {
-
-    // Looper::getInstance()->addClient(this,sorterLengthUsec/2/USECS_PER_MSEC);
-
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s: sorterLengthUsec=%d",
 	getName().c_str(),sorterLengthUsec);
@@ -108,7 +103,14 @@ int SampleSorter::run() throw(n_u::Exception)
 
 	if (amInterrupted()) break;
 
-	if (doFlush && samples.size() == 1) {
+        size_t nsamp = samples.size();
+
+	if (nsamp == 0) {	// empty set
+	    sampleSetCond.wait();
+	    continue;
+	}
+
+	if (doFlush && nsamp == 1) {
 	    flush();
 	    flushed = true;
 	    doFlush = false;
@@ -116,11 +118,9 @@ int SampleSorter::run() throw(n_u::Exception)
 
 	SortedSampleSet::const_reverse_iterator latest = samples.rbegin();
 
-	if (latest == samples.rend()) {	// empty set
-	    sampleSetCond.wait();
-	    continue;
-	}
-	dsm_time_t tt = (*latest)->getTimeTag() - sorterLengthUsec;
+        // age-off samples with timetags before this
+        dsm_time_t tt = (*latest)->getTimeTag() - sorterLengthUsec;              
+
 	dummy.setTimeTag(tt);
 	// cerr << "tt=" << tt << endl;
 	/*
@@ -136,7 +136,13 @@ int SampleSorter::run() throw(n_u::Exception)
 
 	if (rsi == rsb) { // no aged samples
 	    // If no aged samples but we're at the heap limit,
-	    // then we need to extend the limit.
+	    // then we need to extend the limit, because it isn't
+            // big enough for the sample density (samples/second);
+            // The main reason for doing this heap checking
+            // is because this sample consumer thread may
+            // get behind the sample producer thread which
+            // is putting samples in the sorter.  If this thread has
+            // removed the aged samples then we're not behind.
 	    heapCond.lock();
 	    if (heapSize > heapMax) {
 	        heapMax = heapSize;
@@ -199,15 +205,13 @@ int SampleSorter::run() throw(n_u::Exception)
 	heapDecrement(ssum);
 
 	sampleSetCond.lock();
-
     }
     sampleSetCond.unlock();
-    // Looper::getInstance()->removeClient(this);
     return RUN_OK;
 }
 
-void SampleSorter::interrupt() {
-    // cerr << "SampleSorter::interrupt" << endl;
+void SampleSorter::interrupt()
+{
     sampleSetCond.lock();
 
     // After setting this lock, we know that the
@@ -223,7 +227,6 @@ void SampleSorter::interrupt() {
     Thread::interrupt();
     sampleSetCond.unlock();
     sampleSetCond.signal();
-    // cerr << "SampleSorter::interrupt done" << endl;
 }
 
 // We've removed some samples from the heap. Decrement heapSize
@@ -262,7 +265,6 @@ void SampleSorter::finish() throw()
     samples.insert(samples.end(),eofSample);
     sampleSetCond.unlock();
     sampleSetCond.signal();
-
 
     for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
@@ -313,20 +315,8 @@ bool SampleSorter::receive(const Sample *s) throw()
     samples.insert(samples.end(),s);
     sampleSetCond.unlock();
 
-#ifndef USE_LOOPER
     sampleSetCond.signal();
-#endif
 
     return true;
 }
 
-#ifdef USE_LOOPER
-void SampleSorter::looperNotify() throw()
-{
-#ifdef DEBUG
-    n_u::UTime now;
-    cerr << "looperNotify: " << now.format(true,"%H:%M:%S.%6f") << endl;
-#endif
-    sampleSetCond.signal();
-}
-#endif

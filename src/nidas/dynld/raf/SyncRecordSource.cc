@@ -375,6 +375,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (!(nsamps++ % 100)) cerr <<
     	"SyncRecordSource, nsamps=" << nsamps << endl;
 #endif
+
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampid = samp->getId();
 
@@ -390,6 +391,12 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		"SyncRecordSource: sample timetag < syncTime by %d usec, dsm=%d, id=%d\n",
 		(int)(syncTime-tt),GET_DSM_ID(sampid),GET_SHORT_ID(sampid));
 	return false;
+    }
+    if (tt >= syncTime + 2 * USECS_PER_SEC) {
+        if (!(badTimes++ % 100))
+	    n_u::Logger::getInstance()->log(LOG_WARNING,
+		"SyncRecordSource: sample timetag > syncTime by %d usec, dsm=%d, id=%d\n",
+		(int)(tt-syncTime),GET_DSM_ID(sampid),GET_SHORT_ID(sampid));
     }
     if (tt >= syncTime + USECS_PER_SEC) {
 #ifdef DEBUG
@@ -409,7 +416,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (gi == groupIds.end()) {
         unrecognizedSamples++;
 #ifdef DEBUG
-	cerr << "unrecognizedSample, id=" << sampid << endl;
+	cerr << "unrecognizedSample, id=" << GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << endl;
 #endif
 	return false;
     }
