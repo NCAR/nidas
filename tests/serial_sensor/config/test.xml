@@ -76,7 +76,7 @@
 		<message separator="xxy" position="beg" length="0"/>
 	    </serialSensor>
 
-            <output class="RawSampleOutputStream" sorterLength="0">
+            <output class="RawSampleOutputStream" sorterLength="10000">
                 <fileset dir="tmp"
                     file="${DSM}_%Y%m%d_%H%M%S.dat"
                     length="43200">
