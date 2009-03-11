@@ -65,7 +65,7 @@ public:
 
     static const int DEFAULT_PORT = 30001;
 
-    static const float SORTER_LENGTH_MSECS = 2000;
+    static const int SORTER_LENGTH_MSECS = 2000;
 
 private:
 
@@ -137,7 +137,7 @@ int SyncServer::usage(const char* argv0)
 Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...\n\
     -d: debug. Log messages to stderr instead of syslog\n\
     -l sorterSecs: length of sample sorter, in fractional seconds\n\
-        default=" << SORTER_LENGTH_MSECS / MSECS_PER_SEC << "\n\
+        default=" << (float)SORTER_LENGTH_MSECS / MSECS_PER_SEC << "\n\
     -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
     -s: simulation mode (pause a second before sending each sync record)\n\
     -x xml_file (optional), default: \n\

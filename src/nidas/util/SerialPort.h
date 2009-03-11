@@ -128,9 +128,20 @@ public:
 
   int timeoutOrEOF() const { return _state == TIMEOUT_OR_EOF; }
 
-  virtual int readLine(char *buf,int len) throw(IOException);
+  /**
+   * Read bytes until either the term character is read, or len-1 number
+   * of characters have been read. buf will be null terminated.
+   *
+   */
   virtual int readUntil(char *buf,int len,char term) throw(IOException);
+
+  /**
+   * Do a readUntil with a newline terminator.
+   */
+  virtual int readLine(char *buf,int len) throw(IOException);
+
   virtual int read(char *buf,int len) throw(IOException);
+
   virtual char readchar() throw(IOException);
 
   virtual int write(const void *buf,int len) throw(IOException);

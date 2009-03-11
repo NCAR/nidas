@@ -363,7 +363,7 @@ void Csat3Sim::run() throw(n_u::Exception)
     FD_ZERO(&rfds);
     FD_SET(_port->getFd(),&rfds);
     int nfds = _port->getFd() + 1;
-    struct timeval timeout = {0, rint(USECS_PER_SEC / _rate)};
+    struct timeval timeout = {0, (int)rint(USECS_PER_SEC / _rate)};
     bool running = false;
     bool datamode = false;
     int nquest = 0;
