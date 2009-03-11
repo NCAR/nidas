@@ -23,107 +23,179 @@
 
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/util/SerialPort.h>
+#include <nidas/util/SerialOptions.h>
 
 using namespace std;
 using namespace nidas::core;
+using std::cin;
 
 namespace n_u = nidas::util;
 
-class MensorSim: public LooperClient
-{
-public:
-    MensorSim(n_u::SerialPort* p):port(p) {}
-    void looperNotify() throw();
-private:
-    n_u::SerialPort* port;
+enum sens_type
+{ 
+    CSAT3,
+    FROM_FILE,
+    FIXED, 
+    ISS_CAMPBELL,
+    UNKNOWN
 };
 
-void MensorSim::looperNotify() throw()
+enum sep_type
 {
-    char outbuf[128];
-    sprintf(outbuf,"1%f\r\n",1000.0);
-    port->write(outbuf,strlen(outbuf));
-}
-
-class ParoSim: public LooperClient
-{
-public:
-    ParoSim(n_u::SerialPort* p):port(p) {}
-    void looperNotify() throw();
-private:
-    n_u::SerialPort* port;
+    EOM_SEPARATOR,
+    BOM_SEPARATOR,
 };
-
-void ParoSim::looperNotify() throw()
-{
-    char outbuf[128];
-    sprintf(outbuf,"*0001%f\r\n",1000.0);
-    port->write(outbuf,strlen(outbuf));
-}
-
-class BuckSim: public LooperClient
-{
-public:
-    BuckSim(n_u::SerialPort* p):port(p) {}
-    void looperNotify() throw();
-private:
-    n_u::SerialPort* port;
-};
-
-void BuckSim::looperNotify() throw()
-{
-    const char* outbuf =
-    	"14354,-14.23,0,0,-56,0, 33.00,05/08/2003, 17:47:08\r\n";
-    port->write(outbuf,strlen(outbuf));
-}
-
-class Csat3Sim: public LooperClient
-{
-public:
-    Csat3Sim(n_u::SerialPort* p):port(p),counter(0) {}
-    void looperNotify() throw();
-private:
-    n_u::SerialPort* port;
-    unsigned char counter;
-};
-
-void Csat3Sim::looperNotify() throw()
-{
-    unsigned char outbuf[] =
-    	{0,4,0,4,0,4,0,4,0x40,0x05,0x55,0xaa};
-
-    outbuf[8] = (outbuf[8] & 0xc0) + counter++;
-    counter &= 0x3f;
-    port->write((const char*)outbuf,12);
-}
-
-class FixedSim: public LooperClient
-{
-public:
-    FixedSim(n_u::SerialPort* p,const string& m):
-    	port(p),msg(n_u::replaceBackslashSequences(m)) {}
-    void looperNotify() throw();
-private:
-    n_u::SerialPort* port;
-    string msg;
-};
-
-void FixedSim::looperNotify() throw()
-{
-    port->write(msg.c_str(),msg.length());
-}
-
-
-using std::cin;
 
 /**
- * Read serial records from a file and feed them at a fixed rate.
- **/
-class FileSim: public LooperClient
+ * Base class for sensor simulators.
+ */
+class SensorSimulator: public LooperClient
 {
 public:
-    FileSim(n_u::SerialPort* p, const string& path, bool verbose = false):
-	_port(p),_path(path), _in(0), _reopen(false), _verbose(verbose)
+    SensorSimulator(n_u::SerialPort* p,
+        bool prompted, string prompt, float rate, int nmessages):
+        _port(p), _prompted(prompted),_prompt(prompt),
+        _rate(rate),_nmessages(nmessages),
+        _interrupted(false) {}
+
+    /**
+     * Implement this to send a message from the simulated sensor.
+     */
+    virtual void sendMessage() throw(n_u::IOException) = 0;
+
+    /**
+     * Default implementation of run will call the sendMessage() method
+     * either after receipt of a prompt or at the given rate if
+     * the sensor is not prompted.  run() will return when
+     * isInterrupted() is true.
+     */
+    virtual void run() throw(n_u::Exception);
+
+    /**
+     * Stop the simulation.
+     */
+    void interrupt() { _interrupted = true; }
+
+    bool isInterrupted() const { return _interrupted; }
+
+    n_u::SerialPort* port() { return _port; }
+
+protected:
+    void looperNotify() throw();
+    void readPrompts() throw(n_u::IOException);
+
+    n_u::SerialPort* _port;
+    bool _prompted;
+    string _prompt;
+    float _rate;
+    int _nmessages;
+    bool _interrupted;
+};
+
+void SensorSimulator::looperNotify() throw()
+{
+    if (_interrupted) {
+        Looper* looper = Looper::getInstance();
+        looper->removeClient(this);
+        looper->interrupt();
+        return;
+    }
+    try {
+        if (_nmessages >= 0 && _nmessages-- == 0) interrupt();
+        else sendMessage();
+    }
+    catch (n_u::IOException& e) {
+        cerr << e.what() << endl;
+    }
+}
+
+void SensorSimulator::readPrompts() throw(n_u::IOException)
+{
+    const char* sop = _prompt.c_str();
+    const char* eop = sop + _prompt.length();
+    const char* pp = sop;
+    for (;;) {
+        if (isInterrupted()) break;
+        char c = _port->readchar();
+        if (c == *pp) {
+            if (++pp == eop) {
+                if (_nmessages >= 0 && _nmessages-- == 0) interrupt();
+                else sendMessage();
+                pp = sop;
+            }
+        }
+        else if (c == *(pp = sop)) pp++;
+        else cerr << "unrecognized prompt char: \"" << c << "\"" << endl;
+    }
+}
+
+void SensorSimulator::run() throw(n_u::Exception)
+{
+    if (_prompted) {
+        readPrompts();
+    }
+    else {
+	unsigned long msecPeriod =
+		(unsigned long)rint(MSECS_PER_SEC / _rate);
+	// cerr << "msecPeriod=" << msecPeriod << endl;
+
+        Looper* looper = Looper::getInstance();
+        looper->addClient(this,msecPeriod);
+        looper->join();
+    }
+}
+
+/**
+ * Send a fixed message at a given rate or after a prompt.
+ */
+class FixedSim: public SensorSimulator
+{
+public:
+    FixedSim(n_u::SerialPort* p,const string& m,enum sep_type septype, string sep,
+        bool prompted, string prompt, float rate,int nmessages);
+    void sendMessage() throw(n_u::IOException);
+private:
+    string _msg;
+    enum sep_type _septype;
+    string _separator;
+};
+
+FixedSim::FixedSim(n_u::SerialPort* p,const string& msg,
+    enum sep_type septype, string sep,
+    bool prompted, string prompt, float rate,int nmessages):
+   SensorSimulator(p,prompted,prompt,rate,nmessages),
+   _septype(septype),_separator(sep)
+{
+    switch (_septype) {
+    case BOM_SEPARATOR:
+        _msg = _separator + msg;
+        break;
+    case EOM_SEPARATOR:
+        _msg = msg + _separator;
+        break;
+    }
+}
+
+void FixedSim::sendMessage() throw(n_u::IOException)
+{
+    _port->write(_msg.c_str(),_msg.length());
+}
+
+/**
+ * Read serial records from a file and send them at a
+ * given rate or after a prompt.
+ **/
+class FileSim: public SensorSimulator
+{
+public:
+    FileSim(n_u::SerialPort* p, const string& path,
+        enum sep_type septype,string separator,
+        bool prompted,string prompt,float rate, int nmessages,
+        bool once,bool verbose = false):
+        SensorSimulator(p,prompted,prompt,rate,nmessages),
+	_path(path), _in(0),
+        _septype(septype),_separator(separator),
+        _reopen(false),_onceThru(once),_verbose(verbose)
     {
 	open();
     }
@@ -199,21 +271,21 @@ public:
 	}
     }
 
-
-    void looperNotify() throw();
+    void sendMessage() throw(n_u::IOException);
 
 private:
-    n_u::SerialPort* _port;
     string _path;
     std::ifstream _infile;
     std::istream* _in;
     std::string _msg;
+    enum sep_type _septype;
+    string _separator;
     bool _reopen;
+    bool _onceThru;
     bool _verbose;
 };
 
-
-void FileSim::looperNotify() throw()
+void FileSim::sendMessage() throw(n_u::IOException)
 {
     // Grab the next line from input.  If the standard input has finished,
     // repeat the last message forever, otherwise loop over the file.
@@ -221,6 +293,10 @@ void FileSim::looperNotify() throw()
 
     if (_in && !std::getline(*_in, msg))
     {
+        if (_onceThru) {
+            interrupt();
+            return;
+        }
 	rewind();
 	if (_in && !std::getline(*_in, msg))
 	{
@@ -233,7 +309,14 @@ void FileSim::looperNotify() throw()
     // if file is still open, then we read a new message
     if (_in)
     {
-	msg += "\r\n";
+        switch (_septype) {
+        case BOM_SEPARATOR:
+            msg = _separator + msg;
+            break;
+        case EOM_SEPARATOR:
+            msg = msg + _separator;
+            break;
+        }
 	n_u::replaceBackslashSequences(msg);
 	_msg = msg;
     }
@@ -241,202 +324,287 @@ void FileSim::looperNotify() throw()
     _port->write(_msg.c_str(), _msg.length());
 }
 
-
-
-class SensorSim {
+/**
+ * Simulate a CSAT3 sonic.
+ */
+class Csat3Sim: public SensorSimulator
+{
 public:
-    SensorSim();
-    int parseRunstring(int argc, char** argv);
-    int run();
-    static int usage(const char* argv0);
+    Csat3Sim(n_u::SerialPort* p,float rate,int nmessages):
+       SensorSimulator(p,false,"",rate,nmessages)
+       {}
+    void run() throw(n_u::Exception);
+    void sendMessage() throw(n_u::IOException);
 private:
-    string device;
-    enum sens_type
-    { 
-      MENSOR_6100, PARO_1000, BUCK_DP, CSAT3, FIXED, 
-      ISS_CAMPBELL, GENERIC19200, UNKNOWN
-    } type;
-    bool openpty;
-    bool verbose;
-    float rate;
-    string outputMessage;
-    string inputFile;
+    int _cntr;
 };
 
-SensorSim::SensorSim(): type(UNKNOWN),openpty(false),verbose(false),rate(1.0)
+void Csat3Sim::sendMessage() throw(n_u::IOException)
+{
+    if (_cntr % 64 == 99) {
+        // every once in a while send a bunch of junk
+        unsigned char outbuf[8192];
+        unsigned int len = sizeof(outbuf)/sizeof(outbuf[0]);
+        for (unsigned int i = 0; i < len; i++) outbuf[i] = i % 0xff;
+        _port->write((const char*)outbuf,len);
+    }
+    else {
+        unsigned char outbuf[] =
+            {0,4,0,4,0,4,0,4,0x40,0x05,0x55,0xaa};
+        outbuf[8] = (outbuf[8] & 0xc0) + (_cntr & 0x3f);
+        _port->write((const char*)outbuf,12);
+    }
+    _cntr++;
+}
+
+void Csat3Sim::run() throw(n_u::Exception)
+{
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(_port->getFd(),&rfds);
+    int nfds = _port->getFd() + 1;
+    struct timeval timeout = {0, rint(USECS_PER_SEC / _rate)};
+    bool running = false;
+    bool datamode = false;
+    int nquest = 0;
+
+    _cntr = 0;
+
+    for (;;) {
+        fd_set rtfds = rfds;
+        struct timeval tval = timeout;
+
+        int res = ::select(nfds,&rtfds,0,0,&tval);
+        if (res < 0) throw n_u::IOException(_port->getName(),"select",errno);
+        if (res == 0 && running && datamode) {
+            if (_cntr == _nmessages) break;
+            sendMessage();
+        }
+        else if (FD_ISSET(_port->getFd(),&rtfds)) {
+            char buf[8];
+            int nc = _port->read(buf,sizeof(buf));
+            const char* eob = buf + nc;
+            for (const char* cp = buf; cp < eob; cp++) {
+                switch (*cp) {
+                case '&':
+                    running = !running;
+                    nquest = 0;
+                    break;
+                case 'D':
+                    datamode = true;
+                    nquest = 0;
+                    break;
+                case 'T':
+                    datamode = false;
+                    nquest = 0;
+                    break;
+                case '\r':
+                    if (nquest == 2 && !datamode) {
+                        const char* outmsg="\
+ET= 60 ts=i XD=d GN=434a TK=1 UP=5 FK=0 RN=1 IT=1 DR=102 rx=2 fx=038 BX=0 AH=1  AT=0 RS=1 BR=0 RI=1 GO=00000 HA=0 6X=3 3X=2 PD=2 SD=0 ?d sa=1\r\
+WM=o ar=0 ZZ=0 DC=1  ELo=010 010 010 ELb=010 010 010 TNo=99b d TNb=97a JD= 007\r\
+C0o=-2-2-2 C0b=-2-2-2 RC=0 tlo=8 8 8 tlb=8 8 8 DTR=01740 CA=1 TD=  duty=086     AQ= 60 AC=1 CD=0 SR=1 UX=0 MX=0 DTU=02320 DTC=01160 RD=o ss=1 XP=2 RF=018 DS=007 SN0367 28may04 HF=005 JC=3 CB=3 MD=5 DF=05000 RNA=1 rev 3.0a cs=29072 &=0 os= \r>";
+                        _port->write(outmsg,strlen(outmsg));
+                    }
+                    nquest = 0;
+                    break;
+                case '?':
+                    nquest++;
+                    break;
+                default:
+                    cerr << "Unknown character received: 0x" << hex << (int)(unsigned char)*cp << dec << endl;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+class SensorSimApp {
+public:
+    SensorSimApp();
+    int parseRunstring(int argc, char** argv);
+    static int usage(const char* argv0);
+    int main();
+private:
+    string _device;
+    enum sens_type _type;
+    enum sep_type _septype;
+    string _outputMessage;
+    string _separator;
+    bool _prompted;
+    string _prompt;
+    bool _openpty;
+    bool _verbose;
+    float _rate;
+    int _nmessages;
+    string _fixedMessage;
+    string _inputFile;
+    bool _onceThru;
+    static string defaultTermioOpts;
+    string _termioOpts;
+};
+
+/* static */
+string SensorSimApp::defaultTermioOpts = "9600n81lnr";
+
+SensorSimApp::SensorSimApp(): _type(UNKNOWN),_septype(EOM_SEPARATOR),_separator("\r\n"),
+    _prompted(false),_openpty(false),_verbose(false),
+    _rate(1.0),_nmessages(-1),_onceThru(false),
+    _termioOpts(defaultTermioOpts)
 {
 }
 
-int SensorSim::parseRunstring(int argc, char** argv)
+int SensorSimApp::parseRunstring(int argc, char** argv)
 {
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    openpty = false;
-
-    while ((opt_char = getopt(argc, argv, "cdmigo:pr:tf:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:ce:f:F:igm:n:o:p:r:tv")) != -1) {
 	switch (opt_char) {
+        case 'b':
+            _septype = BOM_SEPARATOR;
+            _separator = n_u::replaceBackslashSequences(optarg);
+            break;
 	case 'c':
-	    type = CSAT3;
+	    _type = CSAT3;
+            _termioOpts = "9600n81lnr";
 	    break;
-	case 'd':
-	    type = BUCK_DP;
-	    break;
-	case 'm':
-	    type = MENSOR_6100;
+        case 'e':
+            _septype = EOM_SEPARATOR;
+            _separator = n_u::replaceBackslashSequences(optarg);
+            break;
+        case 'f':
+            _type = FROM_FILE;
+            _inputFile = optarg;
+            _onceThru = true;
+            break;
+	case 'F':
+            _type = FROM_FILE;
+            _inputFile = optarg;
+            _onceThru = false;
 	    break;
 	case 'i':
-	    type = ISS_CAMPBELL;
+	    _type = ISS_CAMPBELL;
+            _termioOpts = "9600n81lnr";
 	    break;
-	case 'g':
-	    type = GENERIC19200;
+	case 'm':
+	    _type = FIXED;
+	    _outputMessage = optarg;
 	    break;
-	case 'o':
-	    outputMessage = optarg;
-	    type = FIXED;
+	case 'n':
+	    _nmessages = atoi(optarg);
 	    break;
+        case 'o':
+            _termioOpts = optarg;
+            break;
 	case 'p':
-	    type = PARO_1000;
+	    _prompted = true;
+            _prompt = n_u::replaceBackslashSequences(optarg);
 	    break;
 	case 'r':
-	    rate = atof(optarg);
+	    _rate = atof(optarg);
 	    break;
 	case 't':
-	    openpty = true;
-	    break;
-	case 'f':
-	    inputFile = optarg;
+	    _openpty = true;
 	    break;
 	case 'v':
-	    verbose = true;
+	    _verbose = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    if (optind == argc - 1) device = string(argv[optind++]);
-    if (device.length() == 0) return usage(argv[0]);
-    if (type == UNKNOWN) return usage(argv[0]);
+    if (optind == argc - 1) _device = string(argv[optind++]);
+    if (_device.length() == 0) return usage(argv[0]);
+    if (_type == UNKNOWN) return usage(argv[0]);
     if (optind != argc) return usage(argv[0]);
     return 0;
 }
 
-int SensorSim::usage(const char* argv0)
+int SensorSimApp::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-p | -m]  device\n\
-  -c: simulate CSAT3 sonic anemometer (9600n81, unprompted)\n\
-  -d: simulate Buck dewpointer (9600n81, unprompted)\n\
-  -m: simulate Mensor 6100 (57600n81,prompted)\n\
-  -i: simulate ISS Campbell (96008n1,unprompted)\n\
-  -g: generic sensor (also WXT) (19200n81,unprompted)\n\
-  -o output_msg:  send a fixed output message at the specified rate\n\
-  -p: simulate ParoScientific DigiQuartz 1000 (57600n81, unprompted)\n\
+Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
+    [-i] [-m msg] [-o termio_opts] [-p prompt] [-r rate] [-v] [-t] device\n\
+  -b sep: send separator at beginning of message\n\
+    separator can contain backslash sequences, like \\r, \\n or \\xhh,\n\
+    where hh are two hex digits\n\
+  -c: simulate CSAT3 sonic anemometer (9600n81lnr, unprompted)\n\
+  -e sep: send separator at end of message. Default record separator\n\
+    option is \"-e \\n\"\n\
+  -f file_input: input file of simulated sensor data.\n\
+     Read standard input if file_input is '-'. Read until EOF.\n\
+     Newlines in the file are replaced by the -b or -e option strings\n\
+     before being sent. After opening the device,\n" <<
+     argv0 << " will do a kill -STOP on itself before sending any\n\
+     messages.  Do \"kill -CONT %1\" from the shell to resume execution\n\
+  -F file_input: Like -f, but loop over the file until -n n messages\n\
+    have been sent.  If the file is the standard input,\n\
+    repeat the last message. Newlines in the file are replaced by the\n\
+    -b or -e option strings before being sent.\n\
+  -i: simulate ISS Campbell (9600n81lnr,unprompted)\n\
+  -m msg:  send a fixed output message at the specified rate\n\
+    Use -b or -e option to add a separator\n\
+  -n n: number of messages to output, default is send till ctrl-C\n\
+    If n is > 0, then " << argv0 << " will do a kill -STOP on itself\n\
+    after opening the device, before sending any messages.\n\
+    Do \"kill -CONT %1\" from the shell to resume execution\n\
+  -o termio_opts, see below. Default is " << defaultTermioOpts << "\n\
+  -p prompt: read given prompt string on serial port before sending data record\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
-  -f file_input: input file for simulated sensors which need it\n\
-     Use standard input if file_input is '-', and repeat the last message.\n\
-     Otherwise loop over the given file forever.\n\
   -v: Verbose mode.  Echo simulated output and other messages.\n\
-  -t: open pseudo-terminal device\n\
-  device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\
+  -t: create pseudo-terminal device instead of opening serial device\n\
+  device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\n\
+" << n_u::SerialOptions::usage() << "\n\
 " << endl;
     return 1;
 }
 
-int SensorSim::run()
+int SensorSimApp::main()
 {
     try {
 	auto_ptr<n_u::SerialPort> port;
-	auto_ptr<LooperClient> sim;
+	auto_ptr<SensorSimulator> sim;
 
-	if (openpty) {
-	    int fd = n_u::SerialPort::createPtyLink(device);
+	if (_openpty) {
+	    int fd = n_u::SerialPort::createPtyLink(_device);
 	    port.reset(new n_u::SerialPort("/dev/ptmx",fd));
 	}
-	else port.reset(new n_u::SerialPort(device));
+	else port.reset(new n_u::SerialPort(_device));
 
-	unsigned long msecPeriod =
-		(unsigned long)rint(MSECS_PER_SEC / rate);
-	// cerr << "msecPeriod=" << msecPeriod << endl;
+        n_u::SerialOptions options;
+        options.parse(_termioOpts);
 
-	string promptStrings[] = { "#1?\n","","","","","","" };
+        port->setOptions(options);
 
-	switch (type) {
-	case MENSOR_6100:
-	    port->setBaudRate(57600);
-	    port->iflag() = ICRNL;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new MensorSim(port.get()));
-	    break;
-	case PARO_1000:
-	    port->setBaudRate(57600);
-	    port->iflag() = 0;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new ParoSim(port.get()));
-	    break;
-	case BUCK_DP:
-	    port->setBaudRate(9600);
-	    port->iflag() = 0;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new BuckSim(port.get()));
-	    break;
+	switch (_type) {
 	case CSAT3:
-	    port->setBaudRate(9600);
-	    port->iflag() = 0;
-	    port->setRaw(true);
-	    sim.reset(new Csat3Sim(port.get()));
+	    sim.reset(new Csat3Sim(port.get(),_rate,_nmessages));
+	    break;
+	case FROM_FILE:
+	    sim.reset(new FileSim(port.get(),_inputFile,_septype,_separator,
+                _prompted,_prompt,_rate,_nmessages,_onceThru,_verbose));
 	    break;
 	case FIXED:
-	    port->setBaudRate(9600);
-	    port->iflag() = 0;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new FixedSim(port.get(),outputMessage));
+	    sim.reset(new FixedSim(port.get(),_outputMessage,_septype,_separator,
+                _prompted,_prompt,_rate,_nmessages));
 	    break;
 	case ISS_CAMPBELL:
-	    port->setBaudRate(9600);
-	    port->iflag() = 0;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new FileSim(port.get(), inputFile, verbose));
-	    break;
-	case GENERIC19200:
-	    if (verbose)
-		std::cerr << "Setting up for generic sensor: 19200,8,N,1\n";
-	    if (! port->setBaudRate(19200))
-		std::cerr << "Baud rate setting failed!";
-	    port->iflag() = 0;
-	    port->oflag() = OPOST;
-	    port->lflag() = ICANON;
-	    sim.reset(new FileSim(port.get(), inputFile, verbose));
+	    sim.reset(new FileSim(port.get(), _inputFile,_septype,_separator,
+                _prompted,_prompt,_rate,_nmessages,_onceThru,_verbose));
 	    break;
 	case UNKNOWN:
 	    return 1;
 	}
 
-	if (!openpty) port->open(O_RDWR);
+	if (!_openpty) port->open(O_RDWR);
 
-	Looper* looper = 0;
-	if (promptStrings[type].length() == 0) {
-	    looper = Looper::getInstance();
-	    looper->addClient(sim.get(),msecPeriod);
-	    looper->join();
-	}
-	else {
+        // After terminal is opened, STOP and wait for instructions...
+        if (_nmessages >= 0 || _onceThru) kill(getpid(),SIGSTOP);
 
-	    for (;;) {
-		char inbuf[128];
-		int l = port->readLine(inbuf,sizeof(inbuf));
-		inbuf[l] = '\0';
-		if (!strcmp(inbuf,promptStrings[type].c_str()))
-		    sim->looperNotify();
-		else cerr << "unrecognized prompt: \"" << inbuf << "\"" << endl;
-	    }
-	}
+        sim->run();
     }
     catch(n_u::Exception& ex) {
 	cerr << ex.what() << endl;
@@ -444,11 +612,12 @@ int SensorSim::run()
     }
     return 0;
 }
+
 int main(int argc, char** argv)
 {
-    SensorSim sim;
+    SensorSimApp sim;
     int res;
     if ((res = sim.parseRunstring(argc,argv)) != 0) return res;
-    sim.run();
+    sim.main();
 }
 

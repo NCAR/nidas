@@ -29,6 +29,9 @@
 #include <fstream>
 #include <limits>
 #include <memory>  // auto_ptr<>
+#include <pwd.h>
+#include <sys/resource.h>
+#include <sys/mman.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -41,6 +44,15 @@ DSMEngine* DSMEngine::_instance = 0;
 
 /* static */
 int DSMEngine::rtlinux = -1;	// unknown
+
+/* static */
+string DSMEngine::_username;
+
+/* static */
+uid_t DSMEngine::_userid = 0;
+
+/* static */
+gid_t DSMEngine::_groupid = 0;
 
 DSMEngine::DSMEngine():
     _externalControl(false),_runState(STOPPED),_nextState(START),
@@ -118,6 +130,25 @@ DSMEngine* DSMEngine::getInstance()
     return _instance;
 }
 
+namespace {
+    void getPageFaults(long& minor,long& major, long& nswap) 
+    {
+        struct rusage r;
+        getrusage(RUSAGE_SELF,&r);
+        minor = r.ru_minflt;
+        major = r.ru_majflt;
+        nswap = r.ru_nswap;
+    }
+    void logPageFaultDiffs(long minor,long major, long nswap)
+    {
+        long minflts,majflts,nswap2;
+        getPageFaults(minflts,majflts,nswap2);
+
+        n_u::Logger::getInstance()->log(LOG_INFO,"page faults: minor=%d, major=%d, swaps=%d",
+            minflts-minor,majflts-major,nswap2-nswap);
+    }
+}
+
 /* static */
 int DSMEngine::main(int argc, char** argv) throw()
 {
@@ -127,6 +158,35 @@ int DSMEngine::main(int argc, char** argv) throw()
     if ((res = engine->parseRunstring(argc,argv)) != 0) return res;
 
     engine->initLogger();
+
+
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
+#endif
+
+    gid_t gid = getGroupID();
+    if (gid != 0 && getegid() != gid) {
+        DLOG(("doing setgid(%d)",gid));
+        if (setgid(gid) < 0)
+            WLOG(("%s: cannot change group id to %d: %m","DSMServer",gid));
+    }
+
+    uid_t uid = getUserID();
+    if (uid != 0 && geteuid() != uid) {
+        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+        if (setuid(uid) < 0)
+            WLOG(("%s: cannot change userid to %d (%s): %m", "DSMServer",uid,getUserName().c_str()));
+    }
 
     // Open and check the pid file after the above daemon() call.
     try {
@@ -142,8 +202,16 @@ int DSMEngine::main(int argc, char** argv) throw()
         return 1;
     }
 
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+        n_u::IOException e("dsm","mlockall",errno);
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+    }
+    long minflts,majflts,nswap;
+    getPageFaults(minflts,majflts,nswap);
+
     engine->run();		// doesn't throw exceptions
 
+    logPageFaultDiffs(minflts,majflts,nswap);
     // auto_ptr will call DSMEngine destructor at this point.
     return 0;
 }
@@ -154,10 +222,27 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dvw")) != -1) {
+    while ((opt_char = getopt(argc, argv, "du:vw")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
+	    break;
+	case 'u':
+            {
+                struct passwd pwdbuf;
+                struct passwd *result;
+                long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
+                if (nb < 0) nb = 4096;
+                vector<char> strbuf(nb);
+                if (getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result) < 0) {
+                    cerr << "Unknown user: " << optarg << endl;
+                    usage(argv[0]);
+                    return 1;
+                }
+                _username = optarg;
+                _userid = pwdbuf.pw_uid;
+                _groupid = pwdbuf.pw_gid;
+            }
 	    break;
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;

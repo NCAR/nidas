@@ -30,16 +30,16 @@ echo PATH=$PATH
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
 pids=()
-src/sensor_sim -f data/test.dat -r 10 tmp/test0 &
+sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
 pids=(${pids[*]} $!)
-src/sensor_sim -f data/test.dat -b $'\e' -r 10 tmp/test1 &
+sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
 pids=(${pids[*]} $!)
 # simulate Campbell sonic
-src/sensor_sim -c -r 60 tmp/test2 &
+sensor_sim -c -r 60 -n 256 tmp/test2 -t &
 pids=(${pids[*]} $!)
-src/sensor_sim -f data/repeated_sep.dat -r 1 tmp/test3 &
+sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t tmp/test3 &
 pids=(${pids[*]} $!)
-src/sensor_sim -f data/repeated_sep.dat -r 1 -b z tmp/test4 &
+sensor_sim -f data/repeated_sep.dat -b xxy -r 1 -t tmp/test4 &
 pids=(${pids[*]} $!)
 
 # number of simulated sensors
@@ -121,7 +121,7 @@ if [ $ns -ne $nsensors ]; then
 fi
 
 # should see these numbers of raw samples
-nsamps=(51 50 257 4 5)
+nsamps=(51 50 257 6 5)
 rawok=true
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
@@ -160,7 +160,7 @@ fi
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
 
-nsamps=(50 49 254 4 1)
+nsamps=(50 49 254 5 4)
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
     nsamp=${nsamps[$i]}
@@ -180,7 +180,8 @@ cat tmp/data_stats.out
 dump_errs=`valgrind_errors tmp/dsm.log`
 echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
 
-[ $dump_errs -gt 0 ] && failed=true
+# ignore capget error in valgrind.
+fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
 
 if $rawok && $procok && [ $dump_errs -eq 0 ]; then
     echo "serial_sensor test OK"

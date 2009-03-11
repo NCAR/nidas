@@ -10,10 +10,11 @@ sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
 ##
-# When ccache is installed on fedora, it breaks nidas builds, so just make
-# sure it gets left out of the path.
 paths = os.environ['PATH'].split(':')
-paths = filter(lambda p: 'ccache' not in p, paths)
+# When ccache is installed on fedora, it breaks nidas builds,
+# so just make sure it gets left out of the path.
+# GM 3/11/2009: ccache seems to work - let's leave it in PATH and see.
+# paths = filter(lambda p: 'ccache' not in p, paths)
 env = Environment(platform = 'posix', ENV = {'PATH' : ':'.join(paths)})
 
 ##

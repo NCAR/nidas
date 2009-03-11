@@ -656,16 +656,14 @@ int DSMServer::parseRunstring(int argc, char** argv)
                 struct passwd *result;
                 long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
                 if (nb < 0) nb = 4096;
-                char* strbuf = new char[nb];
-                if (getpwnam_r(optarg,&pwdbuf,strbuf,nb,&result) < 0) {
+                vector<char> strbuf(nb);
+                if (getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result) < 0) {
                     cerr << "Unknown user: " << optarg << endl;
-                    delete [] strbuf;
                     return usage(argv[0]);
                 }
                 _username = optarg;
                 _userid = pwdbuf.pw_uid;
                 _groupid = pwdbuf.pw_gid;
-                delete [] strbuf;
             }
 	    break;
 	case 'v':

@@ -2,20 +2,19 @@
 
 Import('env')
 
-SConscript('src/SConscript', exports={'env':env})
-
 # No point setting LD_LIBRARY_PATH while the shared libraries and
 # executables still use rpath...
-# bdirs = [ 'dynld', 'core', 'util' ]
-# ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
-# env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+bdirs = [ 'dynld', 'core', 'util' ]
+ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
+env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 dsm = env['NIDAS_APPS']['dsm']
 data_stats = env['NIDAS_APPS']['data_stats']
+sensor_sim = env['NIDAS_APPS']['sensor_sim']
 path = env.subst("${TARGET.dir}", target=dsm)
 env.PrependENVPath('PATH', path)
 
-depends = ["run_test.sh", "src/sensor_sim", dsm, data_stats]
+depends = ["run_test.sh", dsm, data_stats, sensor_sim]
 runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

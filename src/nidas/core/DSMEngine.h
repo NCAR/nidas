@@ -113,11 +113,25 @@ public:
     static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
 	throw(nidas::core::XMLException);
 
-
     /**
      * Is system running RTLinux?  Checks if rtl module is loaded.
      */
     static bool isRTLinux();
+
+    static std::string getUserName()
+    { 
+        return _username;
+    }
+
+    static uid_t getUserID()
+    {
+        return _userid;
+    }
+
+    static uid_t getGroupID()
+    {
+        return _groupid;
+    }
 
 private:
 
@@ -224,6 +238,12 @@ private:
     static int rtlinux;
 
     std::list<SampleInputWrapper*> _inputs;
+
+    static std::string _username;
+
+    static uid_t _userid;
+
+    static gid_t _groupid;
 
 };
 
