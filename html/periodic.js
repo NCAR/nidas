@@ -6,8 +6,9 @@ var periodic = {
     var resp = GetClocks();
     if (resp)
       for (name in resp) {
-        document.getElementById(name).innerHTML =
-          document.getElementById(name).label+' ('+resp[name]+')';
+        if (document.getElementById(name))
+          document.getElementById(name).innerHTML =
+            document.getElementById(name).label+' ('+resp[name]+')';
       }
   },
 
