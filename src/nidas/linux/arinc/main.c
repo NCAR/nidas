@@ -698,7 +698,7 @@ static void arinc_cleanup(void)
         struct arinc_dev *dev;
 
         // unregister the channel sweeping routine(s)
-        for (chn = 0; chn < N_ARINC_RX; chn++) {
+        for (chn = 0; chn_info && (chn < N_ARINC_RX); chn++) {
                 dev = &chn_info[chn]; 
                 if (dev->sweepCallback)
                         unregister_irig_callback(dev->sweepCallback);
@@ -791,6 +791,7 @@ static int scan_ceiisa(void)
                         }
                 }
         }
+        KLOG_ERR("No CEI420 ARINC board found!\n");
         return -ENODEV;
 }
 
