@@ -52,20 +52,20 @@ public:
 
 private:
 	const n_u::EndianConverter* fromLittle;
-	map<string,int> nodeIds;
+	map<string,unsigned int> nodeIds;
 	int nodeNum;
 
 	/** push a pair of nodename and id to the map
 	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
 	 *  @param nm	--  nm=node name
 	 */
-	void pushNodeName(int id, string nm);
+	void pushNodeName(unsigned int id, string nm);
 
 	/**
 	 * cases of variable name and data
 	 *
 	 */
-	void readData(const unsigned char* cp, const unsigned char* eos, float* data); // std::out_of_range ;
+	void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data); // std::out_of_range ;
 
 };
 }}} // nidas::dynld::isff

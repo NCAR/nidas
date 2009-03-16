@@ -19,6 +19,7 @@ sources = Split("""
     SE_GOESXmtr.cc
     SimGOESXmtr.cc
     SonicAnemometer.cc
+    WisardMote.cc
 """)
 
 rpc_ccflags = env['CCFLAGS'] + ['-Wno-unused', '-Wno-strict-aliasing']
@@ -44,6 +45,7 @@ headers = Split("""
     SE_GOESXmtr.h
     SimGOESXmtr.h
     SonicAnemometer.h
+    WisardMote.h
 """)
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])

@@ -1,8 +1,14 @@
 /*
- * WisardMote.cpp
- *
- *  Created on: Mar 13, 2009
- *      Author: dongl
+    Copyright 2009 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate:  $
+
+    $LastChangedRevision:  $
+
+    $LastChangedBy: dongl $
+
+    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/WisardMote.h $
+
  */
 
 #include "WisardMote.h"
@@ -50,7 +56,6 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
 	int time;
 	int sId=-1;
-	float* data;
 
 	switch(mtype) {
 	case 0:
@@ -68,6 +73,11 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		if (cp + sizeof(uint16_t) > eos) return false;
 		time = fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t);
+		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %i MsgType= %i time= %i",
+						nname, seq, mtype, time);
+		printf("NodeName= %s Sequence= %i MsgType= %i time= %i",
+				nname, seq, mtype, time);
+		return false;
 		break;
 	case 2:
 		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName= %s Sequence= %d MsgType= %d ErrMsg= %s",
@@ -77,21 +87,21 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (cp == eos) return false;
 
 	/*  get data  */
+	vector<float> data;
 	readData(cp, eos, data );
-	int dsize= sizeof(data)/(sizeof(float)) ;
-	if (dsize<=0) return false;
+	if (data.size() == 0) return false;
 
 	/*  output    */
-	SampleT<float>* osamp = getSample<float>(dsize);
+	SampleT<float>* osamp = getSample<float>(data.size());
 	osamp->setTimeTag(samp->getTimeTag());
-	int id= nodeIds[nname];
-	nidas::core::dsm_sample_id_t tid= id;
-	osamp->setId(tid);
-	for (int i=0; i<dsize; i++) {
+	//int id= nodeIds[nname];
+	//nidas::core::dsm_sample_id_t tid= id;
+	osamp->setId((dsm_sample_id_t)nodeIds[nname]);
+	for (int i=0; i<data.size(); i++) {
+		cout << "float " << i << " is " << data[i] << endl;
 		osamp->getDataPtr()[i] = data[i];
 	}
 	results.push_back(osamp);
-
 	return true;
 }
 
@@ -116,8 +126,8 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::pushNodeName(int id, string nodeName) {
-	int sampleId = nodeIds[nodeName];
+void WisardMote::pushNodeName(unsigned int id, string nodeName) {
+	unsigned int sampleId = nodeIds[nodeName];
 	if (sampleId == 0) {
 		nodeNum++;
 		sampleId = id + nodeNum;
@@ -125,7 +135,7 @@ void WisardMote::pushNodeName(int id, string nodeName) {
 	}
 }
 
-void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, float* data)  {
+void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data)  {
 	/* get varId    */
 	int varId = *cp++;
 
@@ -133,7 +143,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, flo
 	case 0x01:
 		/*  16 bit time */
 		if (cp + sizeof(uint16_t) > eos) return;
-		data[0] = (fromLittle->uint16Value(cp))/10.0;
+		data.push_back( (fromLittle->uint16Value(cp))/10.0 );
 		cp += sizeof(uint16_t);
 		break;
 
@@ -141,61 +151,61 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, flo
 		/* unpack 16 bit time */
 		for (int i=0; i<4; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
-			data[i] = (fromLittle->int16Value(cp))/10.0;
+			data.push_back((fromLittle->int16Value(cp))/10.0);
 			cp += sizeof(int16_t);
 		}
 		break;
 
 	case 0x21:
 		if (cp + sizeof(int16_t) > eos) return;
-		data[0] = (fromLittle->int16Value(cp))/1.0;
+		data.push_back((fromLittle->int16Value(cp))/1.0);
 		cp += sizeof(int16_t);
 		break;
 
 	case 0x22:
 		if (cp + sizeof(uint16_t) > eos) return;
-		data[0] = (fromLittle->uint16Value(cp))/1.0;
+		data.push_back((fromLittle->uint16Value(cp))/1.0);
 		cp += sizeof(uint16_t);
 		break;
 	case 0x23:
 		//first 2 are singed, the 3rd unsigned
 		for (int i=0; i<2; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
-			data[i] = (fromLittle->int16Value(cp))/1.0;
+			data.push_back((fromLittle->int16Value(cp))/1.0);
 			cp += sizeof(int16_t);
 		}
 		if (cp + sizeof(uint16_t) > eos) return;
-		data[2] = (fromLittle->uint16Value(cp))/1.0;
+		data.push_back((fromLittle->uint16Value(cp))/1.0);
 		cp += sizeof(uint16_t);
 		break;
 
 	case 0x30:
 		if (cp + sizeof(int16_t) > eos) return;
-		data[0] = (fromLittle->int16Value(cp))/10.0;
+		data.push_back((fromLittle->int16Value(cp))/10.0);
 		cp += sizeof(int16_t);
 		break;
 
 	case 0x31:
 		if (cp + sizeof(uint16_t) > eos) return;
-		data[0] = (fromLittle->uint16Value(cp))/10.0;
+		data.push_back((fromLittle->uint16Value(cp))/10.0);
 		cp += sizeof(uint16_t);
 		break;
 	case 0x32:
 		if (cp + sizeof(uint16_t) > eos) return;
-		data[0] = (fromLittle->uint16Value(cp))/10.0;
+		data.push_back((fromLittle->uint16Value(cp))/10.0);
 		cp += sizeof(uint16_t);
 		break;
 	case 0x33:
 		for (int i=0; i<5; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
-			data[i] = (fromLittle->int16Value(cp))/10.0;
+			data.push_back((fromLittle->int16Value(cp))/10.0);
 			cp += sizeof(int16_t);
 		}
 		break;
 	case 0x34:
 		for (int i=0; i<5; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
-			data[i] = (fromLittle->int16Value(cp))/10.0;
+			data.push_back((fromLittle->int16Value(cp))/10.0);
 			cp += sizeof(int16_t);
 		}
 		break;
@@ -203,7 +213,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, flo
 	case 0x49:
 		for (int i=0; i<6; i++){
 			if (cp + sizeof(uint16_t) > eos) return;
-			data[i] = (fromLittle->uint16Value(cp))/10.0;
+			data.push_back((fromLittle->uint16Value(cp))/10.0);
 			cp += sizeof(uint16_t);
 		}
 		break;
