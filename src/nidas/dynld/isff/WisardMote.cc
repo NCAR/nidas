@@ -23,6 +23,7 @@ using namespace nidas::core;
 using namespace std;
 namespace n_u = nidas::util;
 
+NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
