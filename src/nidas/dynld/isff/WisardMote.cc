@@ -67,7 +67,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		sn = fromLittle->uint16Value(cp);
 		//cp += sizeof(uint16_t);
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %i MsgType= %i SN= %i",
-				nname, seq, mtype, sn);
+				nname.c_str(), seq, mtype, sn);
 		return false;
 	case 1:
 		/* unpack 16 bit time */
@@ -75,31 +75,28 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		time = fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t);
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %i MsgType= %i time= %i",
-						nname, seq, mtype, time);
-		printf("NodeName= %s Sequence= %i MsgType= %i time= %i",
-				nname, seq, mtype, time);
-		return false;
+				nname.c_str(), seq, mtype, time);
+		//printf("NodeName= %s Sequence= %i MsgType= %i time= %i \n",
+		//		nname.c_str(), seq, mtype, time);
 		break;
 	case 2:
 		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName= %s Sequence= %d MsgType= %d ErrMsg= %s",
-				nname, seq, mtype, cp);
+				nname.c_str(), seq, mtype, cp);
 		return false;//skip for now
 	}
+
 	if (cp == eos) return false;
 
 	/*  get data  */
 	vector<float> data;
 	readData(cp, eos, data );
-	if (data.size() == 0) return false;
+	if (data.size() == 0) 	return false;
 
 	/*  output    */
 	SampleT<float>* osamp = getSample<float>(data.size());
 	osamp->setTimeTag(samp->getTimeTag());
-	//int id= nodeIds[nname];
-	//nidas::core::dsm_sample_id_t tid= id;
 	osamp->setId((dsm_sample_id_t)nodeIds[nname]);
-	for (int i=0; i<data.size(); i++) {
-		cout << "float " << i << " is " << data[i] << endl;
+	for (unsigned int i=0; i<data.size(); i++) {
 		osamp->getDataPtr()[i] = data[i];
 	}
 	results.push_back(osamp);
@@ -219,5 +216,6 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 		}
 		break;
 	}
+
 }
 

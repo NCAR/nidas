@@ -40,8 +40,10 @@ namespace n_u=nidas::util;
 
 class WisardMote: public DSMSerialSensor {
 public:
-	WisardMote():fromLittle ( n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)), nodeNum(0)
-	{};
+	WisardMote(){
+		fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
+		nodeNum = 0;
+	};
 	virtual ~WisardMote() {};
 
 
