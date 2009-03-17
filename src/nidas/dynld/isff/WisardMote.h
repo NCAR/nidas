@@ -67,13 +67,13 @@ private:
 	 * cases of variable name and data
 	 *
 	 */
-	void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data); // std::out_of_range ;
+	void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen); // std::out_of_range ;
 
 	/**
 	 * find ID#, :, seq#, and msgType
 	 */
 
-	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname);
+	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname, int& msgLen);
 
 };
 }}} // nidas::dynld::isff
