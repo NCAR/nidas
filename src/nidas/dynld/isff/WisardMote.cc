@@ -32,59 +32,9 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
 
-	/* look for nodeName */
-	string nname;
-	for ( ; cp < eos; cp++) {
-		char c = *cp;
-		if (c!= ':') nname.push_back(c);
-		else break;
-	}
-	if (*cp != ':') return false;
-
-	//push nodename to list
-	pushNodeName(getId(), nname); //getId()--get dsm and sensor ids
-
-	cp++;  //skip ':'
-	if (cp == eos) return false;
-
-	// sequence number
-	int seq = *cp;
-	if (++cp == eos) return false;
-
-	// message type
-	int mtype = *cp;
-	if (++cp == eos) return false;
-
-	int time;
-	int sId=-1;
-
-	switch(mtype) {
-	case 0:
-		/* unpack 1bytesId + 16 bit s/n */
-		if (cp + 1 + sizeof(uint16_t) > eos) return false;
-		sId = *cp++;
-		int sn;
-		sn = fromLittle->uint16Value(cp);
-		//cp += sizeof(uint16_t);
-		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %i MsgType= %i SN= %i",
-				nname.c_str(), seq, mtype, sn);
-		return false;
-	case 1:
-		/* unpack 16 bit time */
-		if (cp + sizeof(uint16_t) > eos) return false;
-		time = fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %i MsgType= %i time= %i",
-				nname.c_str(), seq, mtype, time);
-		//printf("NodeName= %s Sequence= %i MsgType= %i time= %i \n",
-		//		nname.c_str(), seq, mtype, time);
-		break;
-	case 2:
-		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName= %s Sequence= %d MsgType= %d ErrMsg= %s",
-				nname.c_str(), seq, mtype, cp);
-		return false;//skip for now
-	}
-
+	string nname="";
+        bool ret=findHead(cp, eos, nname);
+	if (!ret) return false;
 	if (cp == eos) return false;
 
 	/*  get data  */
@@ -216,6 +166,65 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 		}
 		break;
 	}
-
 }
+bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, string& nname) {
+	/* look for nodeName */
+	nname="";
+	for ( ; cp < eos; cp++) {
+		char c = *cp;
+		if (c!= ':') nname.push_back(c);
+		else break;
+	}
+	if (*cp != ':') return false;
+
+	//push nodename to list
+	pushNodeName(getId(), nname); //getId()--get dsm and sensor ids
+
+	cp++;  //skip ':'
+	if (cp == eos) return false;
+
+	// sequence number
+	int seq = *cp;
+	if (++cp == eos) return false;
+
+	// message type
+	int mtype = *cp;
+	if (++cp == eos) return false;
+
+	int time;
+	int sId=-1;
+
+	switch(mtype) {
+	case 0:
+		/* unpack 1bytesId + 16 bit s/n */
+		if (cp + 1 + sizeof(uint16_t) > eos) return false;
+		sId = *cp++;
+		int sn;
+		sn = fromLittle->uint16Value(cp);
+		//cp += sizeof(uint16_t);
+		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %x MsgType= %x SN= %x",
+				nname.c_str(), seq, mtype, sn);
+		return false;
+	case 1:
+		/* unpack 16 bit time */
+		if (cp + sizeof(uint16_t) > eos) return false;
+		time = fromLittle->uint16Value(cp);
+		cp += sizeof(uint16_t);
+		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %x MsgType= %x time= %i",
+				nname.c_str(), seq, mtype, time);
+		//printf("NodeName= %s Sequence= %i MsgType= %i time= %i \n",
+		//		nname.c_str(), seq, mtype, time);
+		break;
+	case 2:
+		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName= %s Sequence= %x MsgType= %x ErrMsg= %s",
+				nname.c_str(), seq, mtype, cp);
+		return false;//skip for now
+	default:
+		n_u::Logger::getInstance()->log(LOG_ERR,"Unknown msgType --- NodeName= %s Sequence= %x MsgType= %x ",
+				nname.c_str(), seq, mtype);
+		return false;
+	}
+	return true;
+}
+
 

@@ -69,6 +69,12 @@ private:
 	 */
 	void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data); // std::out_of_range ;
 
+	/**
+	 * find ID#, :, seq#, and msgType
+	 */
+
+	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname);
+
 };
 }}} // nidas::dynld::isff
 #endif /* WISARDMOTE_H_ */
