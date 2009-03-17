@@ -27,11 +27,11 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
-	//if (results.size() == 0) return false;
+    /* sample input --- there are multiple data-msgs  */
+    const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
+    const unsigned char* eos = cp + samp->getDataByteLength();
 
-	const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
-	const unsigned char* eos = cp + samp->getDataByteLength();
-
+    while(cp < eos) {
 	string nname="";
         bool ret=findHead(cp, eos, nname);
 	if (!ret) return false;
@@ -43,14 +43,18 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (data.size() == 0) 	return false;
 
 	/*  output    */
-	SampleT<float>* osamp = getSample<float>(data.size());
-	osamp->setTimeTag(samp->getTimeTag());
+        SampleT<float>* osamp = getSample<float>(data.size());
+        osamp->setTimeTag(samp->getTimeTag());
 	osamp->setId((dsm_sample_id_t)nodeIds[nname]);
 	for (unsigned int i=0; i<data.size(); i++) {
 		osamp->getDataPtr()[i] = data[i];
 	}
+
+        /* push out   */
 	results.push_back(osamp);
-	return true;
+    }	
+    
+    return true;
 }
 
 void WisardMote::fromDOMElement(
