@@ -27,14 +27,18 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
-    /* sample input --- there are multiple data-msgs  */
-    const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
-    const unsigned char* eos = cp + samp->getDataByteLength();
+	/* sample input --- there are multiple data-msgs  */
+	const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
+	const unsigned char* eos = cp + samp->getDataByteLength();
 
-    while(cp < eos) {
-	string nname=""; int msgLen=0;
-        bool ret=findHead(cp, eos, nname, msgLen);
+	/*  find EOM and verify CRC  */
+	if (!findEOM(cp, samp->getDataByteLength())) return false;
+
+	string nname=""; int msgLen=0, msgLenKp=0;
+	bool ret=findHead(cp, eos, nname, msgLen);
 	if (!ret) return false;
+
+	cp +=msgLen; msgLenKp= msgLen;
 	if (cp == eos) return false;
 
 	/*  get data  */
@@ -43,18 +47,18 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (data.size() == 0) 	return false;
 
 	/*  output    */
-        SampleT<float>* osamp = getSample<float>(data.size());
-        osamp->setTimeTag(samp->getTimeTag());
+	SampleT<float>* osamp = getSample<float>(data.size());
+	osamp->setTimeTag(samp->getTimeTag());
 	osamp->setId((dsm_sample_id_t)nodeIds[nname]);
 	for (unsigned int i=0; i<data.size(); i++) {
 		osamp->getDataPtr()[i] = data[i];
+		printf("\ndata i %f %i", data[i], i);
 	}
 
-        /* push out   */
+	/* push out   */
 	results.push_back(osamp);
-    }	
-    
-    return true;
+
+	return true;
 }
 
 void WisardMote::fromDOMElement(
@@ -88,8 +92,10 @@ void WisardMote::pushNodeName(unsigned int id, string nodeName) {
 }
 
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
+
 	/* get varId    */
 	int varId = *cp++; msgLen++;
+	printf("\n SensorTypeId = %x",varId);
 
 	switch(varId) {
 	case 0x01:
@@ -169,37 +175,18 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 			cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		}
 		break;
-        default: 
-                n_u::Logger::getInstance()->log(LOG_INFO,"Unknown VarType = %x ",  varId);
-                data.clear();
-                return;
+	default:
+		n_u::Logger::getInstance()->log(LOG_INFO,"Unknown VarType = %x ",  varId);
+		data.clear();
 	}
 
-        /* calculate crc  */
-        n_u::Logger::getInstance()->log(LOG_INFO,"Tol-msgLen= %i",  msgLen);
-        unsigned char cksum = msgLen;
-        for (int i=msgLen; i<=1; i--) {
-            cksum ^= *(cp-i);
-        }
-
-        /* retrieve crc and EOM*/
-        unsigned char crc = *cp++; //keep crc  -- assume mshType=2 err msg is not here
-        if (cp+4 > eos ||(*cp++ !=0x03)||(*cp++ !=0x04 )||(*cp++ !=0x0d)||(*cp++ !=0x0a)) {
-              n_u::Logger::getInstance()->log(LOG_ERR,"Message is not ended with EOM ! ");
-        }
-        
-        //n_u::Logger::getInstance()->log(LOG_ERR,"expected crc = %x cal-crc= %x",  crc, cksum);
-        printf("\n\n\n expected crc = %x cal-crc= %x",  crc, cksum);
-        if (crc != cksum ) {
-            n_u::Logger::getInstance()->log(LOG_ERR," CRC Err --- expected = %x real= %x ",  crc, cksum);
-            data.clear();
-        }
 }
 
 bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, string& nname, int& msgLen) {
+	n_u::Logger::getInstance()->log(LOG_INFO, "findHead...");
 	/* look for nodeName */
 	for ( ; cp < eos; cp++, msgLen++) {
-		char c = *cp; 
+		char c = *cp;
 		if (c!= ':') nname.push_back(c);
 		else break;
 	}
@@ -225,11 +212,11 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, str
 	switch(mtype) {
 	case 0:
 		/* unpack 1bytesId + 16 bit s/n */
-		if (cp + 1 + sizeof(uint16_t) > eos) return false;
+		if (cp + 1 + 2 > eos) return false;
 		sId = *cp++; msgLen++;
 		int sn;
 		sn = fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
+		cp += sizeof(uint16_t); msgLen+= sizeof(uint16_t);
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %x MsgType= %x SN= %x hmsgLen= %i",
 				nname.c_str(), seq, mtype, sn, msgLen);
 		return false;
@@ -240,6 +227,9 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, str
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %x MsgType= %x time= %i hmsgLen= %i",
 				nname.c_str(), seq, mtype, time, msgLen);
+		printf("\n NodeName= %s Sequence= %x MsgType= %x time= %i hmsgLen= %i",
+						nname.c_str(), seq, mtype, time, msgLen);
+
 		break;
 	case 2:
 		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName= %s Sequence= %x MsgType= %x hmsgLen= %i ErrMsg= %s",
@@ -253,4 +243,36 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, str
 	return true;
 }
 
+
+bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
+	n_u::Logger::getInstance()->log(LOG_INFO, "findEOM len= %d ",len);
+
+	if (len< 6 ) {
+		n_u::Logger::getInstance()->log(LOG_ERR,"Message length is too short --- len= %d", len );
+		return false;
+	}
+
+	unsigned char lidx =len-1;
+	if (*(cp+lidx)!= 0x0 || *(cp+lidx-1)!= 0xa ||*(cp+lidx-2)!= 0xd ||*(cp+lidx-3)!= 0x4 ||*(cp+lidx-4)!= 0x3 ) {
+		n_u::Logger::getInstance()->log(LOG_ERR,"Bad EOM --- last 5 chars= %x %x %x %x %x",*(cp+lidx-4), *(cp+lidx-3), *(cp+lidx-2), *(cp+lidx-1), *(cp+lidx) );
+		return false;
+	}
+
+	// retrieve CRC-- 4byteEOM  + 1byte0x0
+	unsigned char crc= *(cp+lidx-5);
+
+	//calculate CRC
+	unsigned char cksum = len - 6;  //skip CRC+EOM+0x0
+	for(int i=0; i< (len-6); i++) {
+		unsigned char c =*cp++;
+		//printf("crc-cal-char= %x \n", c);
+		cksum ^= c ;
+	}
+
+	if (cksum != crc ) {
+		n_u::Logger::getInstance()->log(LOG_ERR,"Bad CKSUM --- %x vs  %x ", crc, cksum );
+		return false;
+	}
+	else return true;
+}
 

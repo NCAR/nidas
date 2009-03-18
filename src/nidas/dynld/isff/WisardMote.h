@@ -75,6 +75,12 @@ private:
 
 	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname, int& msgLen);
 
+	/**
+	 * check EOM and crc
+	 */
+	bool findEOM(const unsigned char* cp, unsigned char len);
+
+
 };
 }}} // nidas::dynld::isff
 #endif /* WISARDMOTE_H_ */
