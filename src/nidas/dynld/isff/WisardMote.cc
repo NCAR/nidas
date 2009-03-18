@@ -34,30 +34,35 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	/*  find EOM and verify CRC  */
 	if (!findEOM(cp, samp->getDataByteLength())) return false;
 
-	string nname=""; int msgLen=0, msgLenKp=0;
+	//get header
+	string nname=""; int msgLen=0;
 	bool ret=findHead(cp, eos, nname, msgLen);
 	if (!ret) return false;
+	cp +=msgLen;
 
-	cp +=msgLen; msgLenKp= msgLen;
-	if (cp == eos) return false;
+	// crc+eom+0x0 + 5 = 11
+	while (cp+11 < eos) {
+		msgLen=0;
+		/*  get data one set data */
+		vector<float> data;
+		readData(cp, eos, data, msgLen);
+		if (data.size() == 0) 	return false;
 
-	/*  get data  */
-	vector<float> data;
-	readData(cp, eos, data, msgLen);
-	if (data.size() == 0) 	return false;
+		/*  output    */
+		SampleT<float>* osamp = getSample<float>(data.size());
+		osamp->setTimeTag(samp->getTimeTag());
+		osamp->setId((dsm_sample_id_t)nodeIds[nname]);
+		for (unsigned int i=0; i<data.size(); i++) {
+			osamp->getDataPtr()[i] = data[i];
+			printf("\ndata i %f %i", data[i], i);
+		}
 
-	/*  output    */
-	SampleT<float>* osamp = getSample<float>(data.size());
-	osamp->setTimeTag(samp->getTimeTag());
-	osamp->setId((dsm_sample_id_t)nodeIds[nname]);
-	for (unsigned int i=0; i<data.size(); i++) {
-		osamp->getDataPtr()[i] = data[i];
-		printf("\ndata i %f %i", data[i], i);
+		/* push out   */
+		results.push_back(osamp);
+
+		/* move cp to right position */
+		cp += msgLen;
 	}
-
-	/* push out   */
-	results.push_back(osamp);
-
 	return true;
 }
 
@@ -228,7 +233,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, str
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName= %s Sequence= %x MsgType= %x time= %i hmsgLen= %i",
 				nname.c_str(), seq, mtype, time, msgLen);
 		printf("\n NodeName= %s Sequence= %x MsgType= %x time= %i hmsgLen= %i",
-						nname.c_str(), seq, mtype, time, msgLen);
+				nname.c_str(), seq, mtype, time, msgLen);
 
 		break;
 	case 2:
