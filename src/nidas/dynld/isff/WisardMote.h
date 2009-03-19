@@ -55,6 +55,7 @@ public:
 private:
 	const n_u::EndianConverter* fromLittle;
 	map<string,unsigned int> nodeIds;
+	string nname;
 	int nodeNum;
 
 	/** push a pair of nodename and id to the map
@@ -73,7 +74,7 @@ private:
 	 * find ID#, :, seq#, and msgType
 	 */
 
-	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname, int& msgLen);
+	bool findHead(const unsigned char* cp, const unsigned char* eos, int& msgLen);
 
 	/**
 	 * check EOM
