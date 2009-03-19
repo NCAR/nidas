@@ -76,9 +76,14 @@ private:
 	bool findHead(const unsigned char* cp, const unsigned char* eos, string& nname, int& msgLen);
 
 	/**
-	 * check EOM and crc
+	 * check EOM
 	 */
 	bool findEOM(const unsigned char* cp, unsigned char len);
+
+	/**
+	 * verify crc
+	 */
+	bool findCRC (const unsigned char* cp, unsigned char len);
 
 
 };

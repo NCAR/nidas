@@ -34,10 +34,14 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	/*  find EOM and verify CRC  */
 	if (!findEOM(cp, samp->getDataByteLength())) return false;
 
-	//get header
+	/*  get header  -- return data header, ignore other headers */
 	string nname=""; int msgLen=0;
-	bool ret=findHead(cp, eos, nname, msgLen);
-	if (!ret) return false;
+	if (!findHead(cp, eos, nname, msgLen)) return false;
+
+	/*  verify crc for data  */
+	if (!findCRC(cp, samp->getDataByteLength())) return false;
+
+	/*  move cp point to process data   */
 	cp +=msgLen;
 
 	// crc+eom+0x0 + 5 = 11
@@ -252,7 +256,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, str
 bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
 	n_u::Logger::getInstance()->log(LOG_INFO, "findEOM len= %d ",len);
 
-	if (len< 6 ) {
+	if (len< 5 ) {
 		n_u::Logger::getInstance()->log(LOG_ERR,"Message length is too short --- len= %d", len );
 		return false;
 	}
@@ -262,6 +266,13 @@ bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
 		n_u::Logger::getInstance()->log(LOG_ERR,"Bad EOM --- last 5 chars= %x %x %x %x %x",*(cp+lidx-4), *(cp+lidx-3), *(cp+lidx-2), *(cp+lidx-1), *(cp+lidx) );
 		return false;
 	}
+
+
+}
+
+
+bool WisardMote::findCRC (const unsigned char* cp, unsigned char len) {
+	unsigned char lidx =len-1;
 
 	// retrieve CRC-- 4byteEOM  + 1byte0x0
 	unsigned char crc= *(cp+lidx-5);
@@ -280,4 +291,5 @@ bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
 	}
 	else return true;
 }
+
 
