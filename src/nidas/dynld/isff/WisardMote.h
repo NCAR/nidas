@@ -55,14 +55,14 @@ public:
 private:
 	const n_u::EndianConverter* fromLittle;
 	map<string,unsigned int> nodeIds;
-	string nname;
+	string nname, lnname;
 	int nodeNum;
 
 	/** push a pair of nodename and id to the map
 	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
-	 *  @param nm	--  nm=node name
+	 *  @param sensorTypeId	-- sensorTypeId
 	 */
-	void pushNodeName(unsigned int id, string nm);
+	void pushNodeName(unsigned int id, int sensorTypeId );
 
 	/**
 	 * cases of variable name and data

@@ -27,7 +27,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
-	/*  sample input --- there are multiple data-msgs  */
+	/*  sample input --- there are multiple data-  */
 	const unsigned char* cp = (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
 
@@ -56,7 +56,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  output    */
 		SampleT<float>* osamp = getSample<float>(data.size());
 		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId((dsm_sample_id_t)nodeIds[nname]);
+		osamp->setId((dsm_sample_id_t)nodeIds[lnname]);
 		for (unsigned int i=0; i<data.size(); i++) {
 			osamp->getDataPtr()[i] = data[i];
 			printf("\ndata i %f %i", data[i], i);
@@ -92,12 +92,20 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::pushNodeName(unsigned int id, string nodeName) {
-	unsigned int sampleId = nodeIds[nodeName];
+void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
+	lnname = nname;
+	lnname.push_back(',');
+	char buffer [5];
+	sprintf (buffer, "%x",sTypeId);
+	lnname += buffer;
+	remove(lnname.begin(), lnname.end(), ' ');
+	printf("lnnmae= %s \n", lnname.c_str());
+
+	unsigned int sampleId = nodeIds[lnname];
 	if (sampleId == 0) {
 		nodeNum++;
 		sampleId = id + nodeNum;
-		nodeIds[nodeName] = sampleId;
+		nodeIds[lnname] = sampleId;
 	}
 }
 
@@ -105,40 +113,68 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
-	printf("\n SensorTypeId = %x",sTypeId);
+	printf("\n SensorTypeId = %x \n",sTypeId);
 
 	/* push nodename+sStypeId to list  */
-	string lnname = nname;
-	lnname.push_back(',');
-	lnname.push_back(sTypeId);
-	pushNodeName(getId(), lnname); //getId()--get dsm and sensor ids
+	pushNodeName(getId(), sTypeId); //getId()--get dsm and sensor ids
 
 	switch(sTypeId) {
 	case 0x01:
 		/*  16 bit time */
 		if (cp + sizeof(uint16_t) > eos) return;
-		data.push_back( (fromLittle->uint16Value(cp))/10.0 );
+		int	pict;
+		pict=  (fromLittle->uint16Value(cp));
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
+		n_u::Logger::getInstance()->log(LOG_INFO,"\nPic_time = %x ",  pict);
 		break;
-	case 0x20|0x21|0x22|0x23:
-		/* unpack 16 bit time */
+	case 0x0F:
+		/*  16 bit jday */
+		if (cp + sizeof(uint16_t) > eos) return;
+		int jday;
+		jday= (fromLittle->uint16Value(cp));
+		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
+		/*  8 bit hour+ 8 bit min+ 8 bit sec  */
+		if ((cp + 3* sizeof(uint8_t)) > eos) return;
+		int hh,mm,ss;
+		hh= *cp;
+		cp += sizeof(uint8_t); msgLen+=sizeof(uint8_t);
+		mm= *cp;
+		cp += sizeof(uint8_t); msgLen+=sizeof(uint8_t);
+		ss= *cp;
+		cp += sizeof(uint8_t); msgLen+=sizeof(uint8_t);
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n jday= %x hh=%x mm=%x ss=%x",  jday, hh, mm, ss);
+		break;
+	case 0x20:
+	case 0x21:
+	case 0x22:
+	case 0x23:
+		/* unpack 16 bit  */
 		for (int i=0; i<4; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
 			data.push_back((fromLittle->int16Value(cp))/10.0);
 			cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 		}
 		break;
-	case 0x24|0x25|0x26|0x27:
+	case 0x24:
+	case 0x25:
+	case 0x26:
+	case 0x27:
 		if (cp + sizeof(int16_t) > eos) return;
 		data.push_back((fromLittle->int16Value(cp))/1.0);
 		cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 		break;
-	case 0x28|0x29|0x2A|0x2B:
+	case 0x28:
+	case 0x29:
+	case 0x2A:
+	case 0x2B:
 		if (cp + sizeof(uint16_t) > eos) return;
 		data.push_back((fromLittle->uint16Value(cp))/1.0);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		break;
-	case 0x2C|0x2D|0x2E|0x2F:
+	case 0x2C:
+	case 0x2D:
+	case 0x2E:
+	case 0x2F:
 		//first 2 are singed, the 3rd unsigned
 		for (int i=0; i<2; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
@@ -149,29 +185,44 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 		data.push_back((fromLittle->uint16Value(cp))/1.0);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		break;
-	case 0x50|0x51|0x52|0x53:
+	case 0x50:
+	case 0x51:
+	case 0x52:
+	case 0x53:
 		if (cp + sizeof(int16_t) > eos) return;
 		data.push_back((fromLittle->int16Value(cp))/10.0);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 		break;
-	case 0x54|0x55|0x56|0x57:
+	case 0x54:
+	case 0x55:
+	case 0x56:
+	case 0x57:
 		if (cp + sizeof(uint16_t) > eos) return;
 		data.push_back((fromLittle->uint16Value(cp))/10.0);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		break;
-	case 0x58|0x59|0x5A|0x5B:
+	case 0x58:
+	case 0x59:
+	case 0x5A:
+	case 0x5B:
 		if (cp + sizeof(uint16_t) > eos) return;
 		data.push_back((fromLittle->uint16Value(cp))/10.0);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		break;
-	case 0x5C|0x5D|0x5E|0x5F:
+	case 0x5C:
+	case 0x5D:
+	case 0x5E:
+	case 0x5F:
 		for (int i=0; i<5; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
 			data.push_back((fromLittle->int16Value(cp))/10.0);
 			cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 		}
 		break;
-	case 0x60|0x61|0x62|0x63:
+	case 0x60:
+	case 0x61:
+	case 0x62:
+	case 0x63:
 		for (int i=0; i<5; i++) {
 			if (cp + sizeof(int16_t) > eos) return;
 			data.push_back((fromLittle->int16Value(cp))/10.0);
@@ -232,8 +283,8 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		if (cp + 1+ sizeof(uint16_t) > eos) return false;
 		unsigned char seq;
 		seq = *cp++;  msgLen++;
-	    int	time;
-	    time = fromLittle->uint16Value(cp);
+		int	time;
+		time = fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName=%s Ver=%x MsgType=%x seq=%x time=%i hmsgLen=%i",
 				nname.c_str(), ver, mtype, seq, time, msgLen);
