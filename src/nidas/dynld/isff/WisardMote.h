@@ -42,7 +42,7 @@ class WisardMote: public DSMSerialSensor {
 public:
 	WisardMote(){
 		fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
-		nodeNum = 0;
+		//nodeNum = 0;
 	};
 	virtual ~WisardMote() {};
 
@@ -54,9 +54,11 @@ public:
 
 private:
 	const n_u::EndianConverter* fromLittle;
+
+	/*  nodeName and Id pairs  */
 	map<string,unsigned int> nodeIds;
-	string nname, lnname;
-	int nodeNum;
+	string nname, lnname;   // nname keeps "height,location", lnname= nname+senosrtypeId
+	//int nodeNum;			//
 
 	/** push a pair of nodename and id to the map
 	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
@@ -86,6 +88,32 @@ private:
 	 */
 	bool findCRC (const unsigned char* cp, unsigned char len);
 
+
+	/* claim methods to retrieve sensorType data    */
+	void getPicTm(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getPicDT(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+
+	void getTsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getGsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getQsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getTP01Data(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+
+	void getRnetData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getRswData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void getRlwData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+
+	void getPwrData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+
+	/*  STRUCTURE sensorType to Func   */
+	struct sensorToFunc {
+		/* sensortypeid */
+		int sTypeId;
+
+		/* ptr to getXXXdata function for getting  sensor data	 */
+		void (WisardMote::* getFunc)(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	};
+
+	static struct sensorToFunc ssMap[];
 
 };
 }}} // nidas::dynld::isff
