@@ -25,12 +25,11 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
+
+
+
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
-	/*  data and len */
-	vector<float> data;
-	int msgLen;
-
 	/*  sample input --- there are multiple data-  */
 	const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
@@ -54,7 +53,18 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data */
 		msgLen=0;
 		data.clear();
-		readData(cp, eos, data, msgLen);
+		//readData(cp, eos, data, msgLen);
+
+		/* get sTypeId    */
+			int sTypeId = *cp++; msgLen++;
+			printf("\n SensorTypeId = %x \n",sTypeId);
+
+			/* push nodename+sStypeId to list  */
+			pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
+
+			/* getData  */
+			(this->*sMap[sTypeId].setFunc)(cp,eos);
+		//readData(cp, eos);
 		if (data.size() == 0) 	return false;
 
 		/*  output    */
@@ -112,7 +122,8 @@ void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
 	}
 }
 
-void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
+//void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
+void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
 
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
@@ -122,9 +133,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vec
 	pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
 	/* getData  */
-	//( this->*ssMap[sTypeId] == null || this->*ssMap[sTypeId].sTypeId <= 0) return;
-	(this->*ssMap[sTypeId].getFunc)(cp, eos, data, msgLen);
-	//(this->*headers[_tagMatch].setFunc)(value);
+	(this->*sMap[sTypeId].setFunc)(cp,eos);
 }
 
 /**
@@ -231,7 +240,7 @@ bool WisardMote::findCRC (const unsigned char* cp, unsigned char len) {
 }
 
 
-void WisardMote::getPicTm(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setPicTm(const unsigned char* cp, const unsigned char* eos){
 	/* unpack  16 bit pic-time */
 	if (cp + sizeof(uint16_t) > eos) return;
 	int	pict;
@@ -239,7 +248,7 @@ void WisardMote::getPicTm(const unsigned char* cp, const unsigned char* eos, vec
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 	n_u::Logger::getInstance()->log(LOG_INFO,"\nPic_time = %x ",  pict);
 }
-void WisardMote::getPicDT(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setPicDT(const unsigned char* cp, const unsigned char* eos){
 	/*  16 bit jday */
 	if (cp + sizeof(uint16_t) > eos) return;
 	int jday;
@@ -257,7 +266,7 @@ void WisardMote::getPicDT(const unsigned char* cp, const unsigned char* eos, vec
 	n_u::Logger::getInstance()->log(LOG_INFO,"\n jday= %x hh=%x mm=%x ss=%x",  jday, hh, mm, ss);
 }
 
-void WisardMote::getTsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setTsoilData(const unsigned char* cp, const unsigned char* eos){
 	/* unpack 16 bit  */
 	for (int i=0; i<4; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
@@ -265,17 +274,17 @@ void WisardMote::getTsoilData(const unsigned char* cp, const unsigned char* eos,
 		cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 	}
 }
-void WisardMote::getGsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setGsoilData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(int16_t) > eos) return;
 	data.push_back((fromLittle->int16Value(cp))/1.0);
 	cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 }
-void WisardMote::getQsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setQsoilData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(uint16_t) > eos) return;
 	data.push_back((fromLittle->uint16Value(cp))/1.0);
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 }
-void WisardMote::getTP01Data(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setTP01Data(const unsigned char* cp, const unsigned char* eos){
 	// 3 are singed
 	for (int i=0; i<3; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
@@ -284,17 +293,17 @@ void WisardMote::getTP01Data(const unsigned char* cp, const unsigned char* eos, 
 	}
 }
 
-void WisardMote::getRnetData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setRnetData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(int16_t) > eos) return;
 	data.push_back((fromLittle->int16Value(cp))/10.0);
 	cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 }
-void WisardMote::getRswData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setRswData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(uint16_t) > eos) return;
 	data.push_back((fromLittle->uint16Value(cp))/10.0);
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 }
-void WisardMote::getRlwData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 	for (int i=0; i<5; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
 		data.push_back((fromLittle->int16Value(cp))/10.0);
@@ -302,7 +311,7 @@ void WisardMote::getRlwData(const unsigned char* cp, const unsigned char* eos, v
 	}
 }
 
-void WisardMote::getPwrData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen){
+void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 	for (int i=0; i<6; i++){
 		if (cp + sizeof(uint16_t) > eos) return;
 		data.push_back((fromLittle->uint16Value(cp))/10.0);
@@ -310,58 +319,59 @@ void WisardMote::getPwrData(const unsigned char* cp, const unsigned char* eos, v
 	}
 }
 
-//const WisardMote::ssMap= new WisardMote::sensorToFunc[265];
-WisardMote::sensorToFunc WisardMote::ssMap[] = {
+//const WisardMote::sMap= new WisardMote::sensorToFunc[265];
+const WisardMote::sensorToFunc WisardMote::sMap[] = {
 		{ },
-		{ 0x01, &WisardMote::getPicTm},
+		{ 0x01, &WisardMote::setPicTm},
 		{ },{ },{ }, { },{ },{ },{ },{ }, { },{ },{ },{ },{ },
-		{ 0x0F, &WisardMote::getPicDT},
+		{ 0x0F, &WisardMote::setPicDT},
 
-		{ 0x20, &WisardMote::getTsoilData },
-		{ 0x21, &WisardMote::getTsoilData },
-		{ 0x22, &WisardMote::getTsoilData },
-		{ 0x23, &WisardMote::getTsoilData },
+		{ 0x20, &WisardMote::setTsoilData },
+		{ 0x21, &WisardMote::setTsoilData },
+		{ 0x22, &WisardMote::setTsoilData },
+		{ 0x23, &WisardMote::setTsoilData },
 
-		{ 0x24, &WisardMote::getGsoilData },
-		{ 0x25, &WisardMote::getGsoilData },
-		{ 0x26, &WisardMote::getGsoilData },
-		{ 0x27, &WisardMote::getGsoilData },
+		{ 0x24, &WisardMote::setGsoilData },
+		{ 0x25, &WisardMote::setGsoilData },
+		{ 0x26, &WisardMote::setGsoilData },
+		{ 0x27, &WisardMote::setGsoilData },
 
-		{ 0x28, &WisardMote::getQsoilData },
-		{ 0x29, &WisardMote::getQsoilData },
-		{ 0x2A, &WisardMote::getQsoilData },
-		{ 0x2B, &WisardMote::getQsoilData },
+		{ 0x28, &WisardMote::setQsoilData },
+		{ 0x29, &WisardMote::setQsoilData },
+		{ 0x2A, &WisardMote::setQsoilData },
+		{ 0x2B, &WisardMote::setQsoilData },
 
- 		{ 0x2C, &WisardMote::getTP01Data },
-		{ 0x2D, &WisardMote::getTP01Data },
-		{ 0x2E, &WisardMote::getTP01Data },
-		{ 0x2F, &WisardMote::getTP01Data },
+ 		{ 0x2C, &WisardMote::setTP01Data },
+		{ 0x2D, &WisardMote::setTP01Data },
+		{ 0x2E, &WisardMote::setTP01Data },
+		{ 0x2F, &WisardMote::setTP01Data },
 
 		{ },{ },{ },{ },{ }, { },{ },{ },{ },{ }, { },{ },{ },{ },{ }, 	{ },
-		{ },{ },{ },{ },{ }, { },{ },{ },{ }, { 0x49, &WisardMote::getPwrData }, { },{ },{ },{ },{ }, 	{ },
+		{ },{ },{ },{ },{ }, { },{ },{ },{ }, { 0x49, &WisardMote::setPwrData }, { },{ },{ },{ },{ }, 	{ },
 
-		{ 0x50, &WisardMote::getRnetData },
- 		{ 0x51, &WisardMote::getRnetData },
-		{ 0x52, &WisardMote::getRnetData },
-		{ 0x53, &WisardMote::getRnetData },
+		{ 0x50, &WisardMote::setRnetData },
+ 		{ 0x51, &WisardMote::setRnetData },
+		{ 0x52, &WisardMote::setRnetData },
+		{ 0x53, &WisardMote::setRnetData },
 
-		{ 0x54, &WisardMote::getRswData },
- 		{ 0x55, &WisardMote::getRswData },
-		{ 0x56, &WisardMote::getRswData },
-		{ 0x57, &WisardMote::getRswData },
+		{ 0x54, &WisardMote::setRswData },
+ 		{ 0x55, &WisardMote::setRswData },
+		{ 0x56, &WisardMote::setRswData },
+		{ 0x57, &WisardMote::setRswData },
 
- 		{ 0x58, &WisardMote::getRswData },
-		{ 0x59, &WisardMote::getRswData },
-		{ 0x5A, &WisardMote::getRswData },
-		{ 0x5B, &WisardMote::getRswData },
+ 		{ 0x58, &WisardMote::setRswData },
+		{ 0x59, &WisardMote::setRswData },
+		{ 0x5A, &WisardMote::setRswData },
+		{ 0x5B, &WisardMote::setRswData },
 
-		{ 0x5C, &WisardMote::getRlwData },
- 		{ 0x5D, &WisardMote::getRlwData },
-		{ 0x5E, &WisardMote::getRlwData },
-		{ 0x5F, &WisardMote::getRlwData },
+		{ 0x5C, &WisardMote::setRlwData },
+ 		{ 0x5D, &WisardMote::setRlwData },
+		{ 0x5E, &WisardMote::setRlwData },
+		{ 0x5F, &WisardMote::setRlwData },
 
-		{ 0x60, &WisardMote::getRlwData },
-		{ 0x61, &WisardMote::getRlwData },
-		{ 0x62, &WisardMote::getRlwData },
-		{ 0x63, &WisardMote::getRlwData },
+		{ 0x60, &WisardMote::setRlwData },
+		{ 0x61, &WisardMote::setRlwData },
+		{ 0x62, &WisardMote::setRlwData },
+		{ 0x63, &WisardMote::setRlwData },
 };
+

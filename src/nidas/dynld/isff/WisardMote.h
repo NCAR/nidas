@@ -55,10 +55,13 @@ public:
 private:
 	const n_u::EndianConverter* fromLittle;
 
+	/*  data and len */
+	vector<float> data;	int msgLen;
+
 	/*  nodeName and Id pairs  */
 	map<string,unsigned int> nodeIds;
 	string nname, lnname;   // nname keeps "height,location", lnname= nname+senosrtypeId
-	//int nodeNum;			//
+
 
 	/** push a pair of nodename and id to the map
 	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
@@ -70,7 +73,8 @@ private:
 	 * cases of variable name and data
 	 *
 	 */
-	void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen); // std::out_of_range ;
+	//void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen); // std::out_of_range ;
+	void readData(const unsigned char* cp, const unsigned char* eos); // std::out_of_range ;
 
 	/**
 	 * find ID#, :, seq#, and msgType
@@ -88,21 +92,20 @@ private:
 	 */
 	bool findCRC (const unsigned char* cp, unsigned char len);
 
-
 	/* claim methods to retrieve sensorType data    */
-	void getPicTm(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getPicDT(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void setPicTm(const unsigned char* cp, const unsigned char* eos);
+	void setPicDT(const unsigned char* cp, const unsigned char* eos);
 
-	void getTsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getGsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getQsoilData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getTP01Data(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void setTsoilData(const unsigned char* cp, const unsigned char* eos);
+	void setGsoilData(const unsigned char* cp, const unsigned char* eos);
+	void setQsoilData(const unsigned char* cp, const unsigned char* eos);
+	void setTP01Data(const unsigned char* cp, const unsigned char* eos);
 
-	void getRnetData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getRswData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
-	void getRlwData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void setRnetData(const unsigned char* cp, const unsigned char* eos);
+	void setRswData(const unsigned char* cp, const unsigned char* eos);
+	void setRlwData(const unsigned char* cp, const unsigned char* eos);
 
-	void getPwrData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+	void setPwrData(const unsigned char* cp, const unsigned char* eos);
 
 	/*  STRUCTURE sensorType to Func   */
 	struct sensorToFunc {
@@ -110,10 +113,10 @@ private:
 		int sTypeId;
 
 		/* ptr to getXXXdata function for getting  sensor data	 */
-		void (WisardMote::* getFunc)(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen);
+		void (WisardMote::* setFunc)(const unsigned char* cp, const unsigned char* eos);
 	};
 
-	static struct sensorToFunc ssMap[];
+	static const struct sensorToFunc sMap[];
 
 };
 }}} // nidas::dynld::isff
