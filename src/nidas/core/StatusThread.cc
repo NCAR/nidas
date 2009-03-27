@@ -235,8 +235,6 @@ int DSMServerStat::run() throw(n_u::Exception)
                 deltat = (float)(tt - lasttime) / USECS_PER_SEC;
                 lasttime = tt;
             }
-            cerr << "status thread, tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f") <<
-                " complete=" << completeStatus << endl;
 
             list<DSMService*>::const_iterator si = svcs.begin();
             for (int ni = 1; si != svcs.end(); ni++,++si) {
@@ -255,9 +253,11 @@ int DSMServerStat::run() throw(n_u::Exception)
                 // cerr << "pos1=" << pos1 << " pos2=" << pos2 << endl;
                 if (pos2 != pos1) {
                     string statstr = statStream.str();
+#ifdef DEBUB
                     cerr << "####################################" << endl;
                     cerr << statstr;
                     cerr << "####################################" << endl;
+#endif
                     msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
                 }
             }
