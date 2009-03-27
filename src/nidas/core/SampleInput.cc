@@ -80,115 +80,122 @@ void SampleInputWrapper::removeSampleClient(SampleClient* clnt) throw()
     _src->removeSampleClient(clnt);
 }
 SampleInputMerger::SampleInputMerger() :
-	name("SampleInputMerger"),
-	inputSorter(name + "InputSorter"),
-	procSampSorter(name + "ProcSampSorter"),
-	unrecognizedSamples(0)
+	_name("SampleInputMerger"),
+	_inputSorter(_name + "InputSorter"),
+	_procSampSorter(_name + "ProcSampSorter"),
+	_unrecognizedSamples(0)
 {
-    inputSorter.setLengthMsecs(1500);
-    procSampSorter.setLengthMsecs(100);
+    _inputSorter.setLengthMsecs(1500);
+    _procSampSorter.setLengthMsecs(100);
 }
 
 SampleInputMerger::~SampleInputMerger()
 {
-    if (inputSorter.isRunning()) {
-	inputSorter.interrupt();
-	inputSorter.join();
+    if (_inputSorter.isRunning()) {
+        _inputSorter.finish();
+	_inputSorter.interrupt();
+	_inputSorter.join();
     }
-    if (procSampSorter.isRunning()) {
-	procSampSorter.interrupt();
-	procSampSorter.join();
+    if (_procSampSorter.isRunning()) {
+	_procSampSorter.finish();
+	_procSampSorter.interrupt();
+	_procSampSorter.join();
     }
+}
+
+void SampleInputMerger::finish() throw()
+{
+#ifdef DEBUG
+    cerr << "SampleInputMerger::finish" << endl;
+#endif
+    if (_inputSorter.isRunning()) _inputSorter.finish();
+    if (_procSampSorter.isRunning()) _procSampSorter.finish();
 }
 
 void SampleInputMerger::addInput(SampleInput* input)
 {
-    if (!inputSorter.isRunning()) inputSorter.start();
-#ifdef DEBUG
-    cerr << "SampleInputMerger: " << input->getName() << 
-    	" addSampleClient, &inputSorter=" << &inputSorter << endl;
-#endif
-    input->addSampleClient(&inputSorter);
+    if (!_inputSorter.isRunning()) _inputSorter.start();
+    input->addSampleClient(&_inputSorter);
 
     SampleTagIterator si = input->getSampleTagIterator();
     for ( ; si.hasNext(); ) {
         addSampleTag(si.next());
-        inputSorter.addSampleTag(si.next());
+        _inputSorter.addSampleTag(si.next());
     }
 }
 
 void SampleInputMerger::removeInput(SampleInput* input)
 {
-    input->removeSampleClient(&inputSorter);
+    input->removeSampleClient(&_inputSorter);
 }
 
 void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
 	DSMSensor* sensor)
 {
-    sensorMapMutex.lock();
+    _sensorMapMutex.lock();
     // samples with an Id equal to the sensor Id get forwarded to
     // the sensor
-    sensorMap[sensor->getId()] = sensor;
+    _sensorMap[sensor->getId()] = sensor;
     map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-    	sensorsByClient.find(client);
-    if (sci != sensorsByClient.end()) sci->second.push_back(sensor);
+    	_sensorsByClient.find(client);
+    if (sci != _sensorsByClient.end()) sci->second.push_back(sensor);
     else {
         list<DSMSensor*> sensors;
 	sensors.push_back(sensor);
-	sensorsByClient[client] = sensors;
+	_sensorsByClient[client] = sensors;
     }
-    sensorMapMutex.unlock();
+    _sensorMapMutex.unlock();
 
     // add sensor processed sample tags
     SampleTagIterator si = sensor->getSampleTagIterator();
     for ( ; si.hasNext(); ) {
 	const SampleTag* stag = si.next();
         addSampleTag(stag);
-	procSampSorter.addSampleTag(stag);
+	_procSampSorter.addSampleTag(stag);
     }
 
-    procSampSorter.addSampleClient(client);
-    sensor->addSampleClient(&procSampSorter);
-    inputSorter.addSampleClient(this);
+    _procSampSorter.addSampleClient(client);
+    sensor->addSampleClient(&_procSampSorter);
+    _inputSorter.addSampleClient(this);
 
-    if (!procSampSorter.isRunning()) procSampSorter.start();
+    if (!_procSampSorter.isRunning()) _procSampSorter.start();
 }
 
 void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
 	DSMSensor* sensor)
 {
-    procSampSorter.removeSampleClient(client);
+    _procSampSorter.removeSampleClient(client);
 
     // check:
     //	are there still existing clients of procSampSorter for this sensor?
     //	simple way: remove procSampSorter as sampleClient of sensor
     //		if there are no more clients of procSampSorter
-    if (procSampSorter.getClientCount() == 0) {
+    if (_procSampSorter.getClientCount() == 0) {
 	if (!sensor) {		// remove client for all sensors
-	    sensorMapMutex.lock();
+	    _sensorMapMutex.lock();
 	    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-		sensorsByClient.find(client);
-	    if (sci != sensorsByClient.end()) {
+		_sensorsByClient.find(client);
+	    if (sci != _sensorsByClient.end()) {
 		list<DSMSensor*>& sensors = sci->second;
 		for (list<DSMSensor*>::iterator si = sensors.begin();
 		    si != sensors.end(); ++si) {
 		    sensor = *si;
 		    sensor->removeSampleClient(client);
 		    if (sensor->getClientCount() == 0)
-			sensorMap.erase(sensor->getId());
+			_sensorMap.erase(sensor->getId());
 		}
 	    }
-	    sensorMapMutex.unlock();
+	    _sensorMapMutex.unlock();
 	}
     	else {
-	    sensor->removeSampleClient(&procSampSorter);
+	    sensor->removeSampleClient(&_procSampSorter);
 	    if (sensor->getClientCount() == 0) {
-		sensorMapMutex.lock();
-		sensorMap.erase(sensor->getId());
-		sensorMapMutex.unlock();
+		_sensorMapMutex.lock();
+		_sensorMap.erase(sensor->getId());
+		_sensorMapMutex.unlock();
 	    }
 	}
-	inputSorter.removeSampleClient(this);
+	_inputSorter.removeSampleClient(this);
     }
 }
 
@@ -197,19 +204,19 @@ void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
  */
 void SampleInputMerger::addSampleClient(SampleClient* client) throw()
 {
-    inputSorter.addSampleClient(client);
+    _inputSorter.addSampleClient(client);
 }
 
 void SampleInputMerger::removeSampleClient(SampleClient* client) throw()
 {
-    inputSorter.removeSampleClient(client);
+    _inputSorter.removeSampleClient(client);
 }
 
 
 void SampleInputMerger::addSampleTag(const SampleTag* tag)
 {
-    if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end())
-        sampleTags.push_back(tag);
+    if (find(_sampleTags.begin(),_sampleTags.end(),tag) == _sampleTags.end())
+        _sampleTags.push_back(tag);
 }
 
 bool SampleInputMerger::receive(const Sample* samp) throw()
@@ -217,22 +224,22 @@ bool SampleInputMerger::receive(const Sample* samp) throw()
     // pass sample to the appropriate sensor for distribution.
     dsm_sample_id_t sampid = samp->getId();
 
-    sensorMapMutex.lock();
+    _sensorMapMutex.lock();
     map<unsigned int,DSMSensor*>::const_iterator sensori
-	    = sensorMap.find(sampid);
+	    = _sensorMap.find(sampid);
 
-    if (sensori != sensorMap.end()) {
+    if (sensori != _sensorMap.end()) {
 	DSMSensor* sensor = sensori->second;
-	sensorMapMutex.unlock();
+	_sensorMapMutex.unlock();
 	sensor->receive(samp);
 	return true;
     }
-    sensorMapMutex.unlock();
+    _sensorMapMutex.unlock();
 
-    if (!(unrecognizedSamples++ % 100)) {
+    if (!(_unrecognizedSamples++ % 100)) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "SampleInputStream unrecognizedSamples=%d, id=%d,%d",
-                unrecognizedSamples,
+	    "SampleInputMerger unrecognizedSamples=%d, id=%d,%d",
+                _unrecognizedSamples,
                 GET_DSM_ID(samp->getId()),GET_SHORT_ID(samp->getId()));
     }
 

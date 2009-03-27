@@ -19,6 +19,7 @@
 
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
 #include <cmath>
 
 using namespace nidas::core;
@@ -30,13 +31,17 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,SyncRecordGenerator);
 
 SyncRecordGenerator::SyncRecordGenerator():
-	SampleIOProcessor(),input(0)
+    SampleIOProcessor(),_input(0),_output(0),
+    _numInputSampsLast(0),_numOutputSampsLast(0),
+    _numInputBytesLast(0),_numOutputBytesLast(0)
 {
     setName("SyncRecordGenerator");
 }
 
 SyncRecordGenerator::SyncRecordGenerator(const SyncRecordGenerator& x):
-	SampleIOProcessor((const SampleIOProcessor&)x),input(0)
+    SampleIOProcessor((const SampleIOProcessor&)x),_input(0),_output(0),
+    _numInputSampsLast(0),_numOutputSampsLast(0),
+    _numInputBytesLast(0),_numOutputBytesLast(0)
 {
     setName("SyncRecordGenerator");
 }
@@ -56,42 +61,54 @@ SyncRecordGenerator* SyncRecordGenerator::clone() const
 void SyncRecordGenerator::connect(SampleInput* newinput)
 	throw(n_u::IOException)
 {
-    input = newinput;
-    syncRecSource.connect(input);
-    SampleIOProcessor::connect(input);
+    _statusMutex.lock();
+    _input = newinput;
+    _statusMutex.unlock();
+    _syncRecSource.connect(_input);
+    SampleIOProcessor::connect(_input);
 }
  
 void SyncRecordGenerator::disconnect(SampleInput* oldinput)
 	throw(n_u::IOException)
 {
-    if (!input) return;
-    assert(input == oldinput);
+    if (!_input) return;
+    assert(_input == oldinput);
 
-    syncRecSource.disconnect(input);
+    _syncRecSource.disconnect(_input);
 
     const set<SampleOutput*>& tmpputs = getConnectedOutputs();
     set<SampleOutput*>::const_iterator oi = tmpputs.begin();
     for ( ; oi != tmpputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	syncRecSource.removeSampleClient(output);
+	_syncRecSource.removeSampleClient(output);
     }
 
-    SampleIOProcessor::disconnect(input);
+    SampleIOProcessor::disconnect(_input);
+    _statusMutex.lock();
+    _input = 0;
+    _statusMutex.unlock();
 }
  
 void SyncRecordGenerator::connected(SampleOutput* orig,
 	SampleOutput* output) throw()
 {
     SampleIOProcessor::connected(orig,output);
-    syncRecSource.addSampleClient(output);
+    _syncRecSource.addSampleClient(output);
     output->setHeaderSource(this);
+
+    _statusMutex.lock();
+    _output = output;
+    _statusMutex.unlock();
 }
 
 void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
 {
-    syncRecSource.removeSampleClient(output);
+    _syncRecSource.removeSampleClient(output);
     SampleIOProcessor::disconnected(output);
     output->setHeaderSource(0);
+    _statusMutex.lock();
+    _output = 0;
+    _statusMutex.unlock();
 }
 
 void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
@@ -99,6 +116,67 @@ void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
 {
     HeaderSource::sendDefaultHeader(output);
     // syncRecSource sends a header sample to the stream
-    syncRecSource.sendHeader(thead);
+    _syncRecSource.sendHeader(thead);
 }
 
+void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* rowStripe)
+    throw()
+{
+    if (!rowStripe) rowStripe = "odd";
+
+    n_u::Autolock statusLock(_statusMutex);
+
+    ostr <<
+        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen input</td>\n";
+    dsm_time_t tt = 0LL;
+    if (_input) tt = _input->getLastInputTimeTag();
+    if (tt > 0LL)
+        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") <<
+            "</td>\n";
+    else
+        ostr << "<td><font color=red>>Not active</font></td>\n";
+    size_t nsamps = (_input ? _input->getNumInputSamples() : 0);
+    float samplesps = (float)(nsamps - _numOutputSampsLast) / deltat;
+
+    long long nbytes = (_input ? _input->getNumInputBytes() : 0);
+    float bytesps = (float)(nbytes - _numInputBytesLast) / deltat;
+
+    _numInputBytesLast = nbytes;
+
+    bool warn = fabs(bytesps) < 0.0001;
+    ostr <<
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        fixed << setprecision(0) << samplesps <<
+        (warn ? "</b></font></td>\n" : "</td>\n") <<
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        setprecision(2) << bytesps <<
+        (warn ? "</b></font></td>\n" : "</td>\n");
+    ostr << "<td></td></tr>\n";
+
+    ostr <<
+        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen output</td>\n";
+    tt = 0LL;
+    if (_output) tt = _output->getLastOutputTimeTag();
+    if (tt > 0LL)
+        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") <<
+            "</td>\n";
+    else
+        ostr << "<td><font color=red>>Not active</font></td>\n";
+    nsamps = (_input ? _output->getNumOutputSamples() : 0);
+    samplesps = (float)(nsamps - _numOutputSampsLast) / deltat;
+
+    nbytes = (_output ? _output->getNumOutputBytes() : 0);
+    bytesps = (float)(nbytes - _numOutputBytesLast) / deltat;
+
+    _numOutputBytesLast = nbytes;
+
+    warn = fabs(bytesps) < 0.0001;
+    ostr <<
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        fixed << setprecision(0) << samplesps <<
+        (warn ? "</b></font></td>\n" : "</td>\n") <<
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        setprecision(2) << bytesps <<
+        (warn ? "</b></font></td>\n" : "</td>\n");
+    ostr << "<td></td></tr>\n";
+}

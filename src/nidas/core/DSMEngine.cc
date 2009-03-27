@@ -209,11 +209,11 @@ int DSMEngine::main(int argc, char** argv) throw()
     long minflts,majflts,nswap;
     getPageFaults(minflts,majflts,nswap);
 
-    engine->run();		// doesn't throw exceptions
+    res = engine->run();		// doesn't throw exceptions
 
     logPageFaultDiffs(minflts,majflts,nswap);
     // auto_ptr will call DSMEngine destructor at this point.
-    return 0;
+    return res;
 }
 
 int DSMEngine::parseRunstring(int argc, char** argv) throw()
@@ -246,7 +246,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    break;
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;
-	    return 1;
+	    exit(1);
 	    break;
 	case 'w':
             _externalControl = true;
@@ -330,7 +330,7 @@ void DSMEngine::initLogger()
     _logger->setScheme(n_u::LogScheme().addConfig (lc));
 }
 
-void DSMEngine::run() throw()
+int DSMEngine::run() throw()
 {
     DOMDocument* projectDoc = 0;
 
@@ -480,6 +480,7 @@ void DSMEngine::run() throw()
     }
 
     _logger->log(LOG_NOTICE,"dsm shutting down");
+    return _runState == ERROR;
 }
 
 void DSMEngine::interrupt()
@@ -487,7 +488,9 @@ void DSMEngine::interrupt()
     // If DSMEngine is waiting for an XML connection, closing the
     // _xmlRequestSocket here will cause an IOException in
     // DSMEngine::requestXMLConfig().
+    _xmlRequestMutex.lock();
     if (_xmlRequestSocket) _xmlRequestSocket->close();
+    _xmlRequestMutex.unlock();
 
     if (_statusThread) _statusThread->interrupt();
     if (DerivedDataReader::getInstance()) DerivedDataReader::getInstance()->interrupt();
@@ -634,23 +637,39 @@ DOMDocument* DSMEngine::requestXMLConfig(
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
+    _xmlRequestMutex.lock();
     delete _xmlRequestSocket;
-    _xmlRequestSocket = 0;
     _xmlRequestSocket = new XMLConfigInput();
     _xmlRequestSocket->setInet4McastSocketAddress(mcastAddr);
+    _xmlRequestMutex.unlock();
 
-    auto_ptr<n_u::Socket> configSock(_xmlRequestSocket->connect());
-    	// throws IOException
+    auto_ptr<n_u::Socket> configSock;
+    try {
+        configSock.reset(_xmlRequestSocket->connect());
+    }
+    catch(...) {
+        _xmlRequestMutex.lock();
+        if (_xmlRequestSocket) {
+            _xmlRequestSocket->close();
+            delete _xmlRequestSocket;
+            _xmlRequestSocket = 0;
+        }
+        _xmlRequestMutex.unlock();
+        throw;
+    }
 
-    _xmlRequestSocket->close();
-    delete _xmlRequestSocket;
-    _xmlRequestSocket = 0;
-
-    std::string sockName = configSock->getRemoteSocketAddress().toString();
-    XMLFdInputSource sockSource(sockName,configSock->getFd());
+    _xmlRequestMutex.lock();
+    if (_xmlRequestSocket) {
+        _xmlRequestSocket->close();
+        delete _xmlRequestSocket;
+        _xmlRequestSocket = 0;
+    }
+    _xmlRequestMutex.unlock();
 
     DOMDocument* doc = 0;
     try {
+        std::string sockName = configSock->getRemoteSocketAddress().toString();
+        XMLFdInputSource sockSource(sockName,configSock->getFd());
 	doc = parser->parse(sockSource);
     }
     catch(...) {

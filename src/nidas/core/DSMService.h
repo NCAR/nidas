@@ -68,6 +68,11 @@ public:
         return _processors;
     }
 
+    const std::list<nidas::dynld::SampleInputStream*>& getInputs() const
+    {
+        return _inputs;
+    }
+
     ProcessorIterator getProcessorIterator() const;
 
     /**
@@ -95,6 +100,10 @@ public:
     {
         return _threadPriority;
     }
+
+    virtual void printClock(std::ostream& ostr) throw() {}
+
+    virtual void printStatus(std::ostream& ostr,float deltat) throw() {}
 
 protected:
 

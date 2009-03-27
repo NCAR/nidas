@@ -61,8 +61,10 @@ public:
 
     const std::list<const SampleTag*>& getSampleTags() const
     {
-        return syncRecSource.getSampleTags();
+        return _syncRecSource.getSampleTags();
     }
+
+    void printStatus(std::ostream&,float deltat,const char* rowStripe=0) throw();
 
 protected:
     void init() throw();
@@ -73,9 +75,21 @@ protected:
 
 protected:
 
-    SampleInput* input;
+    SampleInput* _input;
 
-    SyncRecordSource syncRecSource;
+    SampleOutput* _output;
+
+    SyncRecordSource _syncRecSource;
+
+    nidas::util::Mutex _statusMutex;
+
+    size_t _numInputSampsLast;
+
+    size_t _numOutputSampsLast;
+
+    long long _numInputBytesLast;
+
+    long long _numOutputBytesLast;
 
 };
 

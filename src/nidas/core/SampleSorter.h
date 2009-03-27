@@ -65,31 +65,30 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    size_t size() const { return samples.size(); }
+    size_t size() const { return _samples.size(); }
 
     void setLengthMsecs(int val)
     {
-        sorterLengthUsec = val * USECS_PER_MSEC;
+        _sorterLengthUsec = val * USECS_PER_MSEC;
     }
 
     int getLengthMsecs() const
     {
-        return sorterLengthUsec / USECS_PER_MSEC;
+        return _sorterLengthUsec / USECS_PER_MSEC;
     }
-
 
     /**
      * Set the maximum amount of heap memory to use for sorting samples.
      * @param val Maximum size of heap in bytes.
      */
-    void setHeapMax(size_t val) { heapMax = val; }
+    void setHeapMax(size_t val) { _heapMax = val; }
 
-    size_t getHeapMax() const { return heapMax; }
+    size_t getHeapMax() const { return _heapMax; }
 
     /**
      * Get the current amount of heap being used for sorting.
      */
-    size_t getHeapSize() const { return heapSize; }
+    size_t getHeapSize() const { return _heapSize; }
 
     /**
      * @param val If true, and heapSize exceeds heapMax,
@@ -98,9 +97,9 @@ public:
      *   samples into this sorter.  If false, then discard any
      *   samples that are received while heapSize exceeds heapMax.
      */
-    void setHeapBlock(bool val) { heapBlock = val; }
+    void setHeapBlock(bool val) { _heapBlock = val; }
 
-    bool getHeapBlock() const { return heapBlock; }
+    bool getHeapBlock() const { return _heapBlock; }
 
     // void setDebug(bool val) { debug = val; }
 
@@ -111,14 +110,14 @@ public:
 
     const std::list<const SampleTag*>& getSampleTags() const
     {
-        return sampleTags;
+        return _sampleTags;
     }
 
     void addSampleTag(const SampleTag* tag)
     	throw(nidas::util::InvalidParameterException)
     {
-        if (find(sampleTags.begin(),sampleTags.end(),tag) == sampleTags.end())
-            sampleTags.push_back(tag);
+        if (find(_sampleTags.begin(),_sampleTags.end(),tag) == _sampleTags.end())
+            _sampleTags.push_back(tag);
     }
 
     /**
@@ -126,6 +125,63 @@ public:
      */
     void addSampleTag(const SampleTag* tag,SampleClient*)
     	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Total number of input bytes.
+     */
+    long long getNumInputBytes() const
+    {
+        return _nInputBytes;
+    }
+
+    /**
+     * Number of input samples.
+     */
+    size_t getNumInputSamples() const { return _nInputSamples; }
+
+    /**
+     * Timetag of most recent sample inserted in the sorter.
+     */
+    dsm_time_t getLastInputTimeTag() const { return _lastInputTimeTag; }
+
+    /**
+     * Timetag of most recent sample output from the sorter.
+     */
+    dsm_time_t getLastOutputTimeTag() const { return _lastOutputTimeTag; }
+
+    /**
+     * Number of samples discarded because of _heapSize > _heapMax
+     * and heapBlock == true.
+     */
+    size_t getNumDiscardedSamples() const
+    {
+        return _discardedSamples;
+    }
+
+    /**
+     * Number of samples discarded because their timetags 
+     * were in the future.
+     */
+    size_t getNumFutureSamples() const
+    {
+        return _realTimeFutureSamples;
+    }
+
+    /**
+     * Is this sorter running in real-time?  If so then we can
+     * screen for bad time-tags by checking against the
+     * system clock, which is trusted.
+     */
+    void setRealTime(bool val) 
+    {
+        _realTime = val;
+    }
+
+    bool getRealTime() const
+    {
+        return _realTime;
+    }
+
 
 protected:
 
@@ -137,11 +193,9 @@ protected:
     /**
      * Length of SampleSorter, in micro-seconds.
      */
-    int sorterLengthUsec;
+    int _sorterLengthUsec;
 
-    SortedSampleSet samples;
-
-    SampleT<char> dummy;
+    SortedSampleSet _samples;
 
 private:
 
@@ -152,45 +206,79 @@ private:
      */
     void inline heapDecrement(size_t bytes);
 
-    nidas::util::Cond sampleSetCond;
+    dsm_time_t _lastInputTimeTag;
 
-    // bool debug;
+    dsm_time_t _lastOutputTimeTag;
+
+    long long _nInputBytes;
+
+    size_t _nInputSamples;
+
+    size_t _nOutputSamples;
+
+    nidas::util::Cond _sampleSetCond;
 
     /**
      * Limit on the maximum size of memory to use while buffering
      * samples.
      */
-    size_t heapMax;
+    size_t _heapMax;
 
     /**
      * Current heap size, in bytes.
      */
-    size_t heapSize;
+    size_t _heapSize;
 
     /**
-     * If heapSize exceeds heapMax, do we wait for heapSize to
-     * be less then heapMax, which will block any SampleSources
-     * that are inserting samples into this sorter, or if
-     * heapBlock is false, then discard any samples that
-     * are received while heapSize exceeds heapMax.
+     * _heapBlock controls what happens when the number of bytes
+     * in _samples exceeds _heapMax.
+     * If _heapBlock is true and _heapSize exceeds _heapMax,
+     * then any threads which are calling SampleSorter::receive
+     * to insert a sample to this sorter will block on _heapCond
+     * until sample consumers have reduced _heapSize to less than
+     * _heapMax.
+     * If _heapBlock is false and _heapSize exceeds _heapMax
+     * then samples are discarded until _heapSize is less than _heapMax.
      */
-    bool heapBlock;
+    bool _heapBlock;
 
-    nidas::util::Cond heapCond;
+    nidas::util::Cond _heapCond;
 
-    size_t discardedSamples;
+    /**
+     * Number of samples discarded because of _heapSize > _heapMax
+     * and heapBlock == true.
+     */
+    size_t _discardedSamples;
 
-    int discardWarningCount;
+    /**
+     * Number of samples discarded because getRealTime() is true
+     * and the samples have timetags later than the system clock.
+     */
+    size_t _realTimeFutureSamples;
 
-    bool doFlush;
+    /**
+     * How often to log warnings about discardedSamples.
+     */
+    int _discardWarningCount;
 
-    bool flushed;
+    bool _doFlush;
 
-    std::list<const SampleTag*> sampleTags;
+    bool _flushed;
 
-    std::map<dsm_sample_id_t,SampleClientList> clientsBySampleId;
+    std::list<const SampleTag*> _sampleTags;
 
-    nidas::util::Mutex clientMapLock;
+    std::map<dsm_sample_id_t,SampleClientList> _clientsBySampleId;
+
+    nidas::util::Mutex _clientMapLock;
+
+    SampleT<char> _dummy;
+
+    /**
+     * Is this sorter running in real-time?  If so then we can
+     * screen for bad time-tags by checking against the
+     * system clock, which is trusted.
+     */
+    bool _realTime;
 
     /**
      * No assignment.

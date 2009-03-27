@@ -644,20 +644,48 @@ int SocketImpl::getOutQueueSize() const throw(IOException)
     return val;
 }
 
+#define JOIN_ALL_INTERFACES
+#ifdef JOIN_ALL_INTERFACES
 void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
 {
-    list<Inet4Address> addrs = getInterfaceAddresses();
+    list<Inet4NetworkInterface> ifcs = getInterfaces();
     // join on all interfaces
-    for (list<Inet4Address>::const_iterator ai = addrs.begin(); ai != addrs.end(); ++ai)
-        joinGroup(groupAddr,*ai);
+    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
+        ii != ifcs.end(); ++ii) {
+        Inet4NetworkInterface ifc = *ii;
+        if (ifc.getFlags() & IFF_MULTICAST || ifc.getFlags() & IFF_LOOPBACK)
+            joinGroup(groupAddr,ifc);
+    }
 }
-
-void SocketImpl::joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOException)
+#else
+void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = groupAddr.getInAddr();
-    mreq.imr_address = iaddr.getInAddr();
+    mreq.imr_address.s_addr = INADDR_ANY;
     mreq.imr_ifindex = 0;
+
+    if (::setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP,
+    	(void *)&mreq, sizeof(mreq)) < 0) {
+	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+	throw IOException(groupAddr.getHostAddress(),
+	    "setsockopt IP_ADD_MEMBERSHIP",ierr);
+    }
+}
+
+#endif
+
+void SocketImpl::joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface & iface) throw(IOException)
+{
+    struct ip_mreqn mreq;
+    mreq.imr_multiaddr = groupAddr.getInAddr();
+    mreq.imr_address = iface.getAddress().getInAddr();
+    mreq.imr_ifindex = iface.getIndex();
+    cerr << "joining group, maddr=" << groupAddr.getHostAddress() <<
+        " iface=" << iface.getAddress().getHostAddress() << 
+        " index=" << iface.getIndex() << " iface name=" << iface.getName() << endl;
+#ifdef DEBUG
+#endif
 
     if (::setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP,
     	(void *)&mreq, sizeof(mreq)) < 0) {
@@ -669,19 +697,19 @@ void SocketImpl::joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOEx
 
 void SocketImpl::leaveGroup(Inet4Address groupAddr) throw(IOException)
 {
-    list<Inet4Address> addrs = getInterfaceAddresses();
-    // join on all interfaces
-    for (list<Inet4Address>::const_iterator ai = addrs.begin(); ai != addrs.end(); ++ai)
-        leaveGroup(groupAddr,*ai);
+    list<Inet4NetworkInterface> ifcs = getInterfaces();
+    // leave on all interfaces
+    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin(); ii != ifcs.end(); ++ii)
+        leaveGroup(groupAddr,*ii);
 }
 
-void SocketImpl::leaveGroup(Inet4Address groupAddr,Inet4Address iaddr)
+void SocketImpl::leaveGroup(Inet4Address groupAddr,const Inet4NetworkInterface& iface)
 	throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = groupAddr.getInAddr();
-    mreq.imr_address = iaddr.getInAddr();
-    mreq.imr_ifindex = 0;
+    mreq.imr_address = iface.getAddress().getInAddr();
+    mreq.imr_ifindex = iface.getIndex();
 
     if (::setsockopt(fd, SOL_IP, IP_DROP_MEMBERSHIP,
     	(void *)&mreq, sizeof(mreq)) < 0) {
@@ -691,11 +719,31 @@ void SocketImpl::leaveGroup(Inet4Address groupAddr,Inet4Address iaddr)
     }
 }
 
-void SocketImpl::setInterface(Inet4Address maddr,Inet4Address iaddr) throw(IOException)
+void SocketImpl::setInterface(Inet4Address maddr,const Inet4NetworkInterface& iface) throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = maddr.getInAddr();
-    mreq.imr_address = iaddr.getInAddr();
+    mreq.imr_address = iface.getAddress().getInAddr();
+    mreq.imr_ifindex = iface.getIndex();
+#ifdef DEBUG
+    cerr << "setInterface, maddr=" << maddr.getHostAddress() <<
+        " iface=" << iface.getAddress().getHostAddress() << 
+        " index=" << iface.getIndex() << " iface name=" << iface.getName() << endl;
+#endif
+
+    if (::setsockopt(fd, SOL_IP, IP_MULTICAST_IF,
+    	(void *)&mreq, sizeof(mreq)) < 0) {
+	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+	throw IOException(localaddr->toString(),
+		"setsockopt IP_MULTICAST_IF",ierr);
+    }
+}
+
+void SocketImpl::setInterface(Inet4Address maddr) throw(IOException)
+{
+    struct ip_mreqn mreq;
+    mreq.imr_multiaddr = maddr.getInAddr();
+    mreq.imr_address.s_addr = INADDR_ANY;
     mreq.imr_ifindex = 0;
 
     if (::setsockopt(fd, SOL_IP, IP_MULTICAST_IF,
@@ -706,38 +754,77 @@ void SocketImpl::setInterface(Inet4Address maddr,Inet4Address iaddr) throw(IOExc
     }
 }
 
-void SocketImpl::setInterface(Inet4Address iaddr) throw(IOException)
-{
-    setInterface(Inet4Address(INADDR_ANY),iaddr);
-}
-
-Inet4Address SocketImpl::findInterface(const Inet4Address& iaddr) const
+Inet4NetworkInterface SocketImpl::findInterface(const Inet4Address& iaddr) const
 	throw(IOException)
 {
-    if (iaddr == Inet4Address(INADDR_ANY)) return iaddr;
-    list<Inet4Address> addrs = getInterfaceAddresses();
-    Inet4Address mtch = iaddr;
+    list<Inet4NetworkInterface> ifcs = getInterfaces();
+    Inet4NetworkInterface mtch;
     int bits = 0;
-    for (list<Inet4Address>::const_iterator ai = addrs.begin(); ai != addrs.end(); ++ai) {
+    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin(); ii != ifcs.end(); ++ii) {
+        Inet4NetworkInterface iface = *ii;
+        if (iaddr == Inet4Address(INADDR_ANY)) return iface;
+        Inet4Address addr = ii->getAddress();
 	int ib;
-        if ((ib = iaddr.bitsMatch(*ai)) > bits) {
-	    mtch = *ai;
+        if ((ib = iaddr.bitsMatch(addr)) > bits) {
+	    mtch = *ii;
 	    bits = ib;
 	}
     }
     return mtch;
 }
 
-Inet4Address SocketImpl::getInterface() const throw(IOException)
+Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
 {
     struct ip_mreqn mreq;
     socklen_t reqsize = sizeof(mreq);
+    memset(&mreq,0,reqsize);
     if (::getsockopt(fd, SOL_IP, IP_MULTICAST_IF,(void *)&mreq, &reqsize) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(localaddr->toString(),
 	    "getsockopt IP_MULTICAST_IF",ierr);
     }
-    return Inet4Address(&mreq.imr_address);
+#ifdef DEBUG
+    cerr << "reqsize=" << reqsize << endl;
+#endif
+    // If the returned size is 4, then the contents of imr_multiaddr appears
+    // to be the local interface address.
+    if (reqsize == 4) {
+
+#ifdef DEBUG
+        cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface index=" <<
+            mreq.imr_ifindex << 
+        " mcastaddr = " << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress() << 
+        " address = " << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress() <<  endl;
+#endif
+        Inet4Address addr(ntohl(mreq.imr_multiaddr.s_addr));
+        list<Inet4NetworkInterface> ifaces = getInterfaces();
+        list<Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+        for ( ; ii != ifaces.end(); ++ii) {
+            Inet4NetworkInterface iface = *ii;
+            if (iface.getAddress() == addr) return iface;
+        }
+        return Inet4NetworkInterface("",addr,Inet4Address(INADDR_ANY),Inet4Address(INADDR_BROADCAST),0,0,0);
+    }
+#ifdef DEBUG
+    cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface index=" <<
+        mreq.imr_ifindex << 
+        " mcastaddr = " << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress() << 
+        " address = " << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress() <<  endl;
+#endif
+
+    if (mreq.imr_ifindex == 0)
+        return Inet4NetworkInterface();
+
+    struct ifreq ifreq;
+
+    ifreq.ifr_ifindex = mreq.imr_ifindex;
+    if (ioctl(getFd(),SIOCGIFNAME,&ifreq) < 0)
+		throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
+#ifdef DEBUG
+    cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface name=" << ifreq.ifr_name << endl;
+#endif
+
+    return getInterface(ifreq.ifr_name);
 }
 
 void SocketImpl::setTimeToLive(int val) throw(IOException)
@@ -763,15 +850,28 @@ int SocketImpl::getTimeToLive() const throw(IOException)
     return val;
 }
 
-void SocketImpl::setLoopbackEnable(bool val) throw(IOException)
+void SocketImpl::setMulticastLoop(bool val) throw(IOException)
 {
-    int loop = val ? 1 : 0;
-    if (::setsockopt(fd, SOL_IP, IP_MULTICAST_LOOP,
-    	(void *)&loop, sizeof(loop)) < 0) {
+    int loop = (val ? 1 : 0);
+    if (setsockopt(fd, SOL_IP, IP_MULTICAST_LOOP,
+        (void*)&loop,sizeof(loop)) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(localaddr->toString(),
 	    "setsockopt IP_MULTICAST_LOOP",ierr);
     }
+}
+
+bool SocketImpl::getMulticastLoop() const throw(IOException)
+{
+    int val;
+    socklen_t reqsize = sizeof(val);
+    if (::getsockopt(fd, SOL_IP, IP_MULTICAST_LOOP,
+    	(void *)&val, &reqsize) < 0) {
+	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+	throw IOException(localaddr->toString(),
+		"getsockopt IP_MULTICAST_LOOP",ierr);
+    }
+    return val != 0;
 }
 
 void SocketImpl::setBroadcastEnable(bool val) throw(IOException)
@@ -798,12 +898,53 @@ bool SocketImpl::getBroadcastEnable() const throw(IOException)
     return bcast != 0;
 }
 
-list<Inet4Address> SocketImpl::getInterfaceAddresses() const throw(IOException)
+Inet4NetworkInterface SocketImpl::getInterface(const string& name) const throw(IOException)
+{
+    struct ifreq ifreq;
+    strcpy(ifreq.ifr_name,name.c_str());
+
+    // ioctls in /usr/include/bits/ioctls.h
+    if (ioctl(getFd(),SIOCGIFADDR,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFADDR,)",errno);
+    Inet4SocketAddress saddr = Inet4SocketAddress((const sockaddr_in*)&ifreq.ifr_addr);
+    Inet4Address addr = saddr.getInet4Address();
+
+    if (ioctl(getFd(),SIOCGIFBRDADDR,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFBRDADDR,)",errno);
+    saddr = Inet4SocketAddress((const sockaddr_in*)&ifreq.ifr_broadaddr);
+    Inet4Address baddr = saddr.getInet4Address();
+
+    if (ioctl(getFd(),SIOCGIFNETMASK,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFNETMASK,)",errno);
+    saddr = Inet4SocketAddress((const sockaddr_in*)&ifreq.ifr_netmask);
+    Inet4Address maddr = saddr.getInet4Address();
+
+    if (ioctl(getFd(),SIOCGIFMTU,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFMTU,)",errno);
+    int mtu = ifreq.ifr_mtu;
+
+    if (ioctl(getFd(),SIOCGIFINDEX,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFINDEX,)",errno);
+    int index = ifreq.ifr_ifindex;
+
+    if (ioctl(getFd(),SIOCGIFFLAGS,&ifreq) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFFLAGS,)",errno);
+    short flags = ifreq.ifr_flags;
+
+#ifdef DEBUG
+    cerr << "addr="  << saddr.toString() << endl;
+#endif
+    return Inet4NetworkInterface(name,addr,baddr,maddr,mtu,index,flags);
+}
+
+list<Inet4NetworkInterface> SocketImpl::getInterfaces() const throw(IOException)
 {
     // do "man netdevice" from linux for info on the SIOCGIFCONF ioctl
     struct ifconf ifcs;
+    vector<char> ifcbuf;
     for (int bufsize=4096; ; bufsize += 1024) {
-	ifcs.ifc_buf = new char[bufsize];
+        ifcbuf.resize(bufsize);
+	ifcs.ifc_buf = &ifcbuf.front();
 	ifcs.ifc_len = bufsize;
 	if (ioctl(getFd(),SIOCGIFCONF,&ifcs) < 0)
 		throw IOException("Socket","ioctl(,SIOCGIFCONF,)",errno);
@@ -811,7 +952,6 @@ list<Inet4Address> SocketImpl::getInterfaceAddresses() const throw(IOException)
 #ifdef DEBUG
 	cerr << "bufsize=" << bufsize << " is not enough" << endl;
 #endif
-	delete [] ifcs.ifc_buf;
     }
     assert((ifcs.ifc_len % sizeof(struct ifreq)) == 0);
     int ninterfaces = ifcs.ifc_len / sizeof(struct ifreq);
@@ -819,22 +959,20 @@ list<Inet4Address> SocketImpl::getInterfaceAddresses() const throw(IOException)
     cerr << "ninterfaces=" << ninterfaces << endl;
 #endif
 
-    list<Inet4Address> addrs;
+    list<Inet4NetworkInterface> interfaces;
 									    
     for (int i = 0; i < ninterfaces; i++) {
 #ifdef DEBUG
 	cerr << "name="  << ifcs.ifc_req[i].ifr_name << endl;
 #endif
-	Inet4SocketAddress saddr =
-	    Inet4SocketAddress(
-		    (const sockaddr_in*)&ifcs.ifc_req[i].ifr_addr);
-        addrs.push_back(saddr.getInet4Address());
+        Inet4NetworkInterface ifc = getInterface(ifcs.ifc_req[i].ifr_name);
+        interfaces.push_back(ifc);
+
 #ifdef DEBUG
 	cerr << "addr="  << saddr.toString() << endl;
 #endif
     }
-    delete [] ifcs.ifc_buf;
-    return addrs;
+    return interfaces;
 }
 
 Socket::Socket(int domain) throw(IOException) :

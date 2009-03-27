@@ -16,6 +16,9 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+
+#include <net/if.h>   // IFF_* bits for network interface flags
+
 #include <netinet/in.h>
 #include <ctime>
 #include <cassert>
@@ -25,6 +28,61 @@
 namespace nidas { namespace util {
 
 class Socket;
+
+class Inet4NetworkInterface
+{
+public:
+    Inet4NetworkInterface():_index(0),_addr(INADDR_ANY),
+        _baddr(INADDR_BROADCAST),_netmask(INADDR_BROADCAST),_mtu(0),_flags(0) {}
+
+    Inet4NetworkInterface(const std::string& name,Inet4Address addr, Inet4Address brdcastAddr, Inet4Address netmask,int mtu,int index,short flags):
+        _name(name),_index(index),_addr(addr),_baddr(brdcastAddr),_netmask(netmask),_mtu(mtu),_flags(flags) {}
+
+    /**
+     * The name of the interface: like "lo", "eth0", etc.
+     */
+    const std::string& getName() const { return _name; }
+
+    /**
+     * The index of the interface.
+     */
+    int getIndex() const { return _index; }
+
+    /**
+     * The IPV4 address of the interface.
+     */
+    Inet4Address getAddress() const { return _addr; }
+
+    /**
+     * The IPV4 broadcast address of the interface.
+     */
+    Inet4Address getBroadcastAddress() const { return _baddr; }
+
+    /**
+     * The IPV4 network mask of the interface.
+     */
+    Inet4Address getNetMask() const { return _netmask; }
+
+    /**
+     * The mtu of the interface.
+     */
+    int getMTU() const { return _mtu; }
+
+    /**
+     * The interface flags. Use macros like IFF_UP, IFF_BROADCAST,
+     * IFF_MULTICAST from net/if.h to check for capabilities.
+     * See man netdevice.
+     */
+    short getFlags() const { return _flags; }
+private:
+    std::string _name;
+    int _index;
+    Inet4Address _addr;
+    Inet4Address _baddr;
+    Inet4Address _netmask;
+    int _mtu;
+    short _flags;
+};
 
 /**
  * Implementation of a socket, providing a C++ interface to
@@ -263,6 +321,10 @@ public:
      */
     void joinGroup(Inet4Address groupAddr) throw(IOException);
 
+    /*
+    void joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOException);
+    */
+
     /**
      * Join a multicast group on a specific interface.
      * According to "man 7 ip", if the interface adddress "is equal to
@@ -270,7 +332,7 @@ public:
      * which may not be what you want.
      * This was eth0 on a system with lo,eth0 and eth1.
      */
-    void joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOException);
+    void joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface&) throw(IOException);
     /**
      * Leave a multicast group on all interfaces.
      */
@@ -279,7 +341,7 @@ public:
     /**
      * Leave a multicast group on a given interface.
      */
-    void leaveGroup(Inet4Address groupAddr,Inet4Address iaddr)
+    void leaveGroup(Inet4Address groupAddr,const Inet4NetworkInterface& iaddr)
     	throw(IOException);
 
     void setReceiveBufferSize(int size) throw(IOException);
@@ -294,17 +356,33 @@ public:
 
     int getTimeToLive() const throw(IOException);
 
-    void setInterface(Inet4Address maddr,Inet4Address iaddr) throw(IOException);
+    /**
+     * Whether to set the IP_MULTICAST_LOOP socket option. According
+     * to "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
+     * packets should be looped back to the local sockets."
+     * This behaviour seems to be the default in Linux in that setting
+     * this does not seem to be necessary for a process on a host
+     * to receive multicast packets that are sent out on one of its
+     * interfaces, providing the multicast reader has joined that
+     * interface, and a firewall is not blocking them.
+     */
+    void setMulticastLoop(bool val) throw(IOException);
+
+    bool getMulticastLoop() const throw(IOException);
+
+    void setInterface(Inet4Address maddr,const Inet4NetworkInterface& iaddr) throw(IOException);
 
     void setInterface(Inet4Address iaddr) throw(IOException);
 
-    Inet4Address getInterface() const throw(IOException);
+    Inet4NetworkInterface getInterface() const throw(IOException);
 
-    Inet4Address findInterface(const Inet4Address&) const throw(IOException);
+    Inet4NetworkInterface getInterface(const std::string& name) const throw(IOException);
 
-    void setLoopbackEnable(bool val) throw(IOException);
+    Inet4NetworkInterface findInterface(const Inet4Address&) const throw(IOException);
 
     std::list<Inet4Address> getInterfaceAddresses() const throw(IOException);
+
+    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException);
 
     /**
      * Enable or disable SO_BROADCAST.  Note that broadcasting is generally
@@ -510,6 +588,13 @@ public:
         return impl.getOutQueueSize();
     }
 
+    /**
+     * Return the IP addresses of all my network interfaces.
+     */
+    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
+    {
+        return impl.getInterfaces();
+    }
 
     /**
      * Connect to a given remote host and port.
@@ -793,7 +878,7 @@ protected:
  * A unicast sender of datagrams on port 9000:
  * \code
  *	DatagramSocket sock;
- *      Inet4SocketAddress to(Inet4Address::getByName("128.117.80.99",9000));
+ *      Inet4SocketAddress to(Inet4Address::getByName("128.117.80.99"),9000);
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
@@ -801,16 +886,20 @@ protected:
  * A multicast sender of datagrams on port 9000:
  * \code
  *	DatagramSocket sock;
- *      Inet4SocketAddress to(Inet4Address::getByName("239.0.0.1",9000));
+ *      Inet4SocketAddress to(Inet4Address::getByName("239.0.0.1"),9000);
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
  * \endcode
- * A broadcast sender of datagrams on port 9000 (untested):
+ * A broadcast sender of datagrams on port 9000 to the limited
+ * broadcast address of 255.255.255.255. This will fail with a 
+ * "Network is unreachable" error if there are no external network
+ * interfaces UP with an assigned address. Use a broadcast address of
+ * 127.255.255.255 to "broadcast" on the loopback interface.
  * \code
  *	DatagramSocket sock;
  *	sock.setBroadcastEnable(true);
- *      Inet4SocketAddress to(Inet4Address::getByName("255.255.255.255",9000));
+ *      Inet4SocketAddress to(Inet4Address(INADDR_BROADCAST),9000);
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
@@ -975,8 +1064,14 @@ public:
     }
 
 
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException) {
+    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException)
+    {
         return impl.getInterfaceAddresses();
+    }
+
+    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
+    {
+        return impl.getInterfaces();
     }
 
     void setBroadcastEnable(bool val) throw(IOException)
@@ -1027,15 +1122,23 @@ protected:
  *    // methods to send packets out a specific interface, and
  *    // to set the time to live (TTL) parameter.
  *    MulticastSocket msock;
- *    msock.setInterface(Inet4Address::getByName("128.117.80.99"));
- *    msock.setTimeToLive(2);	// go through one router
  *    Inet4Address maddr = Inet4Address::getByName("239.0.0.1");
+ *    list<Inet4NetworkInterfaces> ifaces = msock.getInterfaces();
+ *    list<Inet4NetworkInterfaces>::const_iterator ii; 
+ *    for (ii = ifaces.begin(); ii != ifaces.end(); ++ii) {
+ *      Inet4NetworkInterface ni = *ii;
+ *      if (ni.getName() == "eth1")
+ *          msock.setInterface(maddr,ni);
+ *    }
+ *    msock.setTimeToLive(2);	// go through one router
  *    Inet4SocketAddress msaddr = Inet4SocketAddress(maddr,9000);
  *    for (;;) {
  *        msock.sendto("hello\n",6,0,msaddr);
  *        ...
  *    }
  * \endcode
+ * Note: if the above examples are not working for you, check your
+ * firewall settings. They might be blocking multicasts.
  */
 class MulticastSocket: public DatagramSocket {
 public:
@@ -1051,7 +1154,7 @@ public:
      */
     MulticastSocket() throw(IOException): DatagramSocket()
     {
-	setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
+	// setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
     }
 
     /**
@@ -1059,7 +1162,7 @@ public:
      */
     MulticastSocket(int port) throw(IOException) : DatagramSocket(port)
     {
-	setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
+	// setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
     }
 
     /**
@@ -1069,7 +1172,7 @@ public:
     MulticastSocket(const Inet4SocketAddress& addr)
     	throw(IOException) : DatagramSocket(addr)
     {
-	setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
+	// setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
     }
 
     /**
@@ -1082,8 +1185,14 @@ public:
     /**
      * Join a multicast group on a given interface.
      */
+    /*
     void joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOException) {
         impl.joinGroup(groupAddr,iaddr);
+    }
+    */
+
+    void joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface & iface) throw(IOException) {
+        impl.joinGroup(groupAddr,iface);
     }
 
     /**
@@ -1096,10 +1205,10 @@ public:
     /**
      * Leave a multicast group on a given interface.
      */
-    void leaveGroup(Inet4Address groupAddr, Inet4Address iaddr)
+    void leaveGroup(Inet4Address groupAddr, const Inet4NetworkInterface& iface)
     	throw(IOException)
     {
-        impl.leaveGroup(groupAddr,iaddr);
+        impl.leaveGroup(groupAddr,iface);
     }
 
     void setTimeToLive(int val) throw(IOException)
@@ -1113,45 +1222,79 @@ public:
     }
 
     /**
+     * Whether to set the IP_MULTICAST_LOOP socket option. According
+     * to "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
+     * packets should be looped back to the local sockets."
+     * This behaviour seems to be the default in Linux in that setting
+     * it does not seem to be necessary for a process on a host
+     * to receive multicast packets that are sent out on one of its
+     * interfaces, providing the multicast reader has joined that
+     * interface, and a firewall is not blocking them (a source of
+     * frustration!).
+     */
+    void setMulticastLoop(bool val) throw(IOException)
+    {
+        impl.setTimeToLive(val);
+    }
+
+    bool getMulticastLoop() const throw(IOException)
+    {
+        return impl.getTimeToLive();
+    }
+
+    /**
      * Set the interface for a given multicast address.
      * If you are sending packets on this MulticastSocket, and do not
      * use setInterface() specific interface, the system will send packets
      * out on the first interface that it finds that is capable of MULTICAST.
-     * This will also be the case if you do:
-     * setInterface(Inet4Address(INADDR_ANY),Inet4Address(INADDR_ANY));
-     * Do /sbin/ifconfig to see what interfaces do MULTICAST.
+     * See setInterface(Inet4Address maddr);
+     *  
      * Note that the loopback interface does not support MULTICAST, and
      * interfaces that are not up will not do MULTICAST.
      * So doing multicast on a DHCP laptop that isn't connected to the net
      * will give problems.
      */
-    void setInterface(Inet4Address maddr,Inet4Address iaddr) throw(IOException) {
-        impl.setInterface(maddr,iaddr);
+    void setInterface(Inet4Address maddr,const Inet4NetworkInterface& iface) throw(IOException) {
+        impl.setInterface(maddr,iface);
     }
 
+    /**
+     * Set the interface for a given multicast address. This uses the default
+     * value of INADDR_ANY for the specific interface, which causes
+     * the system to choose what it thinks is the most appropriate interface,
+     * typically the first ethernet interface on the system.
+     * If you have more than one candidate interface, you can add an entry
+     * in the routing table to indicate which you want to use:
+     * route add -host 239.0.0.10 dev eth1
+     */
     void setInterface(Inet4Address iaddr) throw(IOException) {
         impl.setInterface(iaddr);
     }
 
-    Inet4Address getInterface() const throw(IOException) {
+    Inet4NetworkInterface getInterface() const throw(IOException) {
         return impl.getInterface();
     }
 
-    Inet4Address findInterface(const Inet4Address& iaddr) const
+    Inet4NetworkInterface findInterface(const Inet4Address& iaddr) const
     	throw(IOException)
     {
         return impl.findInterface(iaddr);
     }
 
-    void setLoopbackEnable(bool val) throw(IOException) {
-        impl.setLoopbackEnable(val);
+    /**
+     * Return the IP addresses of all my network interfaces.
+     */
+    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException)
+    {
+        return impl.getInterfaceAddresses();
     }
 
     /**
      * Return the IP addresses of all my network interfaces.
      */
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException) {
-        return impl.getInterfaceAddresses();
+    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
+    {
+        return impl.getInterfaces();
     }
 
 protected:

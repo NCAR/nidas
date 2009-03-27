@@ -75,7 +75,7 @@ public:
         if (len == 0) return len;
         memcpy(buf,_tail,len);
         _tail += len;
-        _nbytes += len;
+        addNumInputBytes(len);
         return len;
     }
 
@@ -183,9 +183,18 @@ public:
     const std::string& getName() const { return _iochannel.getName(); }
 
     /**
-     * Number of bytes passed through this IOStream.
+     * Number of bytes read with this IOStream.
      */
-    size_t getNBytes() const { return _nbytes; }
+    long long getNumInputBytes() const { return _nbytesIn; }
+
+    void addNumInputBytes(int val) { _nbytesIn += val; }
+
+    /**
+     * Total number of bytes written to output.
+     */
+    long long getNumOutputBytes() const { return _nbytesOut; }
+
+    void addNumOutputBytes(int val) { _nbytesOut += val; }
 
 protected:
 
@@ -230,7 +239,9 @@ private:
      */
     bool _newInput;
 
-    size_t _nbytes;
+    long long _nbytesIn;
+
+    long long _nbytesOut;
 
     size_t _nEAGAIN;
 

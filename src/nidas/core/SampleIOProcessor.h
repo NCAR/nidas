@@ -52,12 +52,12 @@ public:
 
     virtual void setOptional(bool val) 
     {
-        optional = val;
+        _optional = val;
     }
 
     virtual bool isOptional() const
     {
-        return optional;
+        return _optional;
     }
 
     /**
@@ -65,12 +65,12 @@ public:
      */
     virtual const DSMService* getService() const
     {
-        return service;
+        return _service;
     }
 
     virtual void setService(const DSMService* val)
     {
-        service = val;
+        _service = val;
     }
 
     /**
@@ -118,17 +118,17 @@ public:
      */
     virtual void addOutput(SampleOutput* val)
     {
-	origOutputs.push_back(val);
+	_origOutputs.push_back(val);
     }
 
     const std::list<SampleOutput*>& getOutputs() const 
     {
-        return origOutputs;
+        return _origOutputs;
     }
 
     const std::set<SampleOutput*>& getConnectedOutputs() const 
     {
-        return outputSet;
+        return _outputSet;
     }
 
     /**
@@ -140,25 +140,25 @@ public:
     	throw(nidas::util::InvalidParameterException);
 
     virtual const std::list<const SampleTag*>& getSampleTags() const
-    	{ return constSampleTags; }
+    	{ return _constSampleTags; }
 
     /**
      * Set the various levels of the processor identification.
      * A sensor ID is a 32-bit value comprised of four parts:
      * 6-bit not used, 10-bit DSM id, and a 16-bit processor id.
      */
-    void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
-    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
-    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
+    void setId(dsm_sample_id_t val) { _id = SET_FULL_ID(_id,val); }
+    void setShortId(unsigned int val) { _id = SET_SHORT_ID(_id,val); }
+    void setDSMId(unsigned int val) { _id = SET_DSM_ID(_id,val); }
 
     /**
      * Get the various levels of the processor's identification.
      * A sample tag ID is a 32-bit value comprised of four parts:
      * 6-bit type_id  10-bit DSM_id, and a 16-bit processor id.
      */
-    dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
-    unsigned int getDSMId()   const { return GET_DSM_ID(id); }
-    unsigned int getShortId() const { return GET_SHORT_ID(id); }
+    dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
+    unsigned int getDSMId()   const { return GET_DSM_ID(_id); }
+    unsigned int getShortId() const { return GET_SHORT_ID(_id); }
 
     SampleTagIterator getSampleTagIterator() const;
 
@@ -184,46 +184,48 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+    virtual void printStatus(std::ostream&,float deltat,const char* rowStripe) throw() {}
+
 protected:
     /**
      * Mapping between connected outputs and the original
      * outputs.
      */
-    std::map<SampleOutput*,SampleOutput*> outputMap;
+    std::map<SampleOutput*,SampleOutput*> _outputMap;
 
 private:
 
-    std::string name;
+    std::string _name;
 
-    std::list<SampleOutput*> origOutputs;
+    std::list<SampleOutput*> _origOutputs;
 
     /**
      * The connected outputs, kept in a set to
      * avoid duplicates.
      */
-    std::set<SampleOutput*> outputSet;
+    std::set<SampleOutput*> _outputSet;
 
-    std::list<SampleOutput*> pendingOutputClosures;
+    std::list<SampleOutput*> _pendingOutputClosures;
 
-    nidas::util::Mutex outputMutex;
+    nidas::util::Mutex _outputMutex;
 
     /**
      * Id of this processor.  Samples from this processor will
      * have this id. It is analogous to a sensor id.
      */
-    dsm_sample_id_t id;
+    dsm_sample_id_t _id;
 
 
-    std::list<SampleTag*> sampleTags;
+    std::list<SampleTag*> _sampleTags;
 
-    std::list<const SampleTag*> constSampleTags;
+    std::list<const SampleTag*> _constSampleTags;
 
-    bool optional;
+    bool _optional;
 
     /**
      * What service am I a part of?
      */
-    const DSMService* service;
+    const DSMService* _service;
 
     std::list<Parameter*> _parameters;
 

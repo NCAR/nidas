@@ -36,24 +36,29 @@ struct McSocketData {
      * an accept for a McSocket with the same
      * requestNum value. Stored in "network", big-endian order.
      */
-    int requestNum;
+    int _requestNum;
 
     /**
      * TCP stream socket port that the remote host is listening on.
      * Stored in "network", big-endian order.
      */
-    unsigned short listenPort;
+    unsigned short _listenPort;
+
+    /**
+     * Either SOCK_STREAM or SOCK_DGRAM.
+     */
+    short _socketType;
 
     /**
      * How many multicasts has it sent.
      * Stored in "network", big-endian order.
      */
-    int numMulticasts;
+    int _numMulticasts;
 
     /**
      * Constructor.
      */
-    McSocketData() : requestNum(0),listenPort(0),numMulticasts(0) {}
+    McSocketData() : _requestNum(0),_listenPort(0),_socketType(htons(SOCK_STREAM)),_numMulticasts(0) {}
 };
 
 /**
@@ -78,21 +83,28 @@ public:
     void setMagic(int val) { mcdata.magic = htonl(val); }
 
 
-    int getRequestNumber() const { return ntohl(mcdata.requestNum); }
-    void setRequestNumber(int val) { mcdata.requestNum = htonl(val); }
+    int getRequestNumber() const { return ntohl(mcdata._requestNum); }
+    void setRequestNumber(int val) { mcdata._requestNum = htonl(val); }
 
     /**
      * What TCP port is the requester listening on for the connection back?
      */
-    int getRequesterListenPort() const { return ntohs(mcdata.listenPort); }
+    int getRequesterListenPort() const { return ntohs(mcdata._listenPort); }
 
-    void setRequesterListenPort(int val) { mcdata.listenPort = htons(val); }
+    void setRequesterListenPort(int val) { mcdata._listenPort = htons(val); }
+
+    /**
+     * What socket type does the requester want to establish?
+     * SOCK_STREAM or SOCK_DGRAM.
+     */
+    int getSocketType() const { return ntohs(mcdata._socketType); }
+    void setSocketType(int val) { mcdata._socketType = htons(val); }
 
     /**
      * How patiently has the client been waiting?
      */
-    int getNumMulticasts() const { return ntohl(mcdata.numMulticasts); }
-    void setNumMulticasts(int val) { mcdata.numMulticasts = htonl(val); }
+    int getNumMulticasts() const { return ntohl(mcdata._numMulticasts); }
+    void setNumMulticasts(int val) { mcdata._numMulticasts = htonl(val); }
     
     /**
      * Magic value that should be found at the beginning of
@@ -213,40 +225,40 @@ public:
      */
     McSocket(const McSocket&);
 
-    virtual ~McSocket() {}
+    virtual ~McSocket();
 
-    void setInterface(Inet4Address iaddr) {
-        ifaceAddr = iaddr;
+    void setInterface(Inet4NetworkInterface iaddr) {
+        _iface = iaddr;
     }
 
-    Inet4Address getInterface() const { return ifaceAddr; }
+    Inet4NetworkInterface getInterface() const { return _iface; }
 
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException);
+    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException);
 
     /**
      * Get the multicast address for listening to requests.
      */
     const Inet4SocketAddress& getInet4McastSocketAddress() const
     {
-        return mcastAddr;
+        return _mcastAddr;
     }
 
     /**
      * Set the multicast address for listening to requests.
      * @param val Multicast address to listen for McSocketDatagrams.
      */
-    void setInet4McastSocketAddress(const Inet4SocketAddress& val) { mcastAddr = val; }
+    void setInet4McastSocketAddress(const Inet4SocketAddress& val) { _mcastAddr = val; }
 
     /**
      * Get the pseudo port.
      */
-    int getRequestNumber() const { return requestNum; }
+    int getRequestNumber() const { return _requestNum; }
 
     /**
      * Set the pseudo port.
      * @param val Pseudo port number
      */
-    void setRequestNumber(int val) { requestNum = val; }
+    void setRequestNumber(int val) { _requestNum = val; }
 
     /**
      * Register with a McSocketListener which is listening on my multicast
@@ -295,26 +307,27 @@ private:
      */
     void offer(Socket* sock,int err);
 
-    Inet4SocketAddress mcastAddr;
+    Inet4SocketAddress _mcastAddr;
 
-    Inet4Address ifaceAddr;
+    Inet4NetworkInterface _iface;
 
-    int requestNum;
+    int _requestNum;
 
-    Cond connectCond;
+    Cond _connectCond;
 
-    Socket* newsocket;
+    Socket* _newsocket;
 
-    bool socketOffered;
+    bool _socketOffered;
 
-    int offerErrno;
+    int _offerErrno;
 
     /**
      * The thread we start which multicasts for connections.
      */
-    Thread* multicaster;
+    Thread* _multicaster;
 
-    Mutex multicaster_mutex;
+    Mutex _multicaster_mutex;
+
 };
 
 class McSocketListener: public Thread
@@ -347,11 +360,11 @@ private:
 
 private:
 
-    Inet4SocketAddress mcastAddr;
+    Inet4SocketAddress _mcastAddr;
 
-    Mutex mcsocket_mutex;
+    Mutex _mcsocket_mutex;
 
-    std::map<int,McSocket*> mcsockets;
+    std::map<int,McSocket*> _mcsockets;
 
 };
 
@@ -359,10 +372,16 @@ class McSocketMulticaster: public Thread
 {
 public:
     McSocketMulticaster(McSocket* mcsocket);
+
     virtual ~McSocketMulticaster();
+
     int run() throw(Exception);
+
+    void interrupt();
 private:
-    McSocket* mcsocket;
+    McSocket* _mcsocket;
+    ServerSocket _serverSocket;
+    Mutex _mcsocketMutex;
 };
 
 }}	// namespace nidas namespace util

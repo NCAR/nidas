@@ -26,10 +26,10 @@ namespace n_u = nidas::util;
 /*
  * ctor
  */
-McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
-    firstRead(true),newInput(true),keepAliveIdleSecs(7200),
-    minWriteInterval(USECS_PER_SEC/100),lastWrite(0),
-    nonBlocking(false)
+McSocket::McSocket(): _socket(0),_connectionRequester(0),_amRequester(true),
+    _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
+    _minWriteInterval(USECS_PER_SEC/100),_lastWrite(0),
+    _nonBlocking(false)
 {
     setName("McSocket");
 }
@@ -38,11 +38,11 @@ McSocket::McSocket(): socket(0),connectionRequester(0),amRequester(true),
  * Copy constructor. Should only be called before socket connection.
  */
 McSocket::McSocket(const McSocket& x):
-    n_u::McSocket(x),socket(0),name(x.name),
-    connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newInput(true),keepAliveIdleSecs(x.keepAliveIdleSecs),
-    minWriteInterval(x.minWriteInterval),lastWrite(0),
-    nonBlocking(x.nonBlocking)
+    n_u::McSocket(x),_socket(0),_name(x._name),
+    _connectionRequester(0),_amRequester(x._amRequester),
+    _firstRead(true),_newInput(true),_keepAliveIdleSecs(x._keepAliveIdleSecs),
+    _minWriteInterval(x._minWriteInterval),_lastWrite(0),
+    _nonBlocking(x._nonBlocking)
 {
 }
 
@@ -50,18 +50,18 @@ McSocket::McSocket(const McSocket& x):
  * Copy constructor, but with a new, connected n_u::Socket
  */
 McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
-    n_u::McSocket(x),socket(sock),name(x.name),
-    connectionRequester(0),amRequester(x.amRequester),
-    firstRead(true),newInput(true),
-    keepAliveIdleSecs(x.keepAliveIdleSecs),
-    minWriteInterval(x.minWriteInterval),lastWrite(0),
-    nonBlocking(x.nonBlocking)
+    n_u::McSocket(x),_socket(sock),_name(x._name),
+    _connectionRequester(0),_amRequester(x._amRequester),
+    _firstRead(true),_newInput(true),
+    _keepAliveIdleSecs(x._keepAliveIdleSecs),
+    _minWriteInterval(x._minWriteInterval),_lastWrite(0),
+    _nonBlocking(x._nonBlocking)
 
 {
     try {
-        if (socket->getKeepAliveIdleSecs() != keepAliveIdleSecs)
-	    socket->setKeepAliveIdleSecs(keepAliveIdleSecs);
-        socket->setNonBlocking(nonBlocking);
+        if (_socket->getKeepAliveIdleSecs() != _keepAliveIdleSecs)
+	    _socket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
+        _socket->setNonBlocking(_nonBlocking);
     }
     catch (const n_u::IOException& e) {
     }
@@ -78,8 +78,8 @@ IOChannel* McSocket::connect()
     n_u::Socket* sock;
     if (isRequester()) sock = n_u::McSocket::connect();
     else sock = accept();
-    sock->setKeepAliveIdleSecs(keepAliveIdleSecs);
-    sock->setNonBlocking(nonBlocking);
+    sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
+    sock->setNonBlocking(_nonBlocking);
     setName(sock->getRemoteSocketAddress().toString());
     return new McSocket(*this,sock);
 }
@@ -87,7 +87,7 @@ IOChannel* McSocket::connect()
 void McSocket::requestConnection(ConnectionRequester* requester)
     throw(n_u::IOException)
 {
-    connectionRequester = requester;
+    _connectionRequester = requester;
     if (isRequester()) request();	// starts requester thread
     else listen();			// starts listener thread
 }
@@ -97,14 +97,14 @@ void McSocket::connected(n_u::Socket* sock)
     // cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
     McSocket* newsock = new McSocket(*this,sock);
     newsock->setName(sock->getRemoteSocketAddress().toString());
-    assert(connectionRequester);
-    connectionRequester->connected(newsock);
+    assert(_connectionRequester);
+    _connectionRequester->connected(newsock);
 }
 
 n_u::Inet4Address McSocket::getRemoteInet4Address()
 {
-    if (socket) {
-	const n_u::SocketAddress& addr = socket->getRemoteSocketAddress();
+    if (_socket) {
+	const n_u::SocketAddress& addr = _socket->getRemoteSocketAddress();
 	const n_u::Inet4SocketAddress* i4addr =
 		dynamic_cast<const n_u::Inet4SocketAddress*>(&addr);
 	if (i4addr) return i4addr->getInet4Address();
@@ -116,7 +116,7 @@ size_t McSocket::getBufferSize() const throw()
 {
     size_t blen = 16384;
     try {
-	if (socket) blen = socket->getReceiveBufferSize();
+	if (_socket) blen = _socket->getReceiveBufferSize();
     }
     catch (const n_u::IOException& e) {}
 
@@ -132,9 +132,9 @@ size_t McSocket::getBufferSize() const throw()
  */
 size_t McSocket::read(void* buf, size_t len) throw (n_u::IOException)
 {
-    if (firstRead) firstRead = false;
-    else newInput = false;
-    size_t res = socket->recv(buf,len);
+    if (_firstRead) _firstRead = false;
+    else _newInput = false;
+    size_t res = _socket->recv(buf,len);
     return res;
 }
 
@@ -142,15 +142,15 @@ size_t McSocket::read(void* buf, size_t len) throw (n_u::IOException)
 void McSocket::close() throw (n_u::IOException)
 {
     // cerr << "McSocket::close" << endl;
-    if (socket && socket->getFd() >= 0) socket->close();
-    delete socket;
-    socket = 0;
+    if (_socket && _socket->getFd() >= 0) _socket->close();
+    delete _socket;
+    _socket = 0;
     n_u::McSocket::close();
 }
 
 int McSocket::getFd() const
 {
-    if (socket) return socket->getFd();
+    if (_socket) return _socket->getFd();
     else return -1;
 }
 
@@ -214,7 +214,7 @@ void McSocket::fromDOMElement(const DOMElement* node)
 	    }
 	    else if (aname == "maxIdle") {
 		istringstream ist(aval);
-		ist >> keepAliveIdleSecs;
+		ist >> _keepAliveIdleSecs;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
 	    }

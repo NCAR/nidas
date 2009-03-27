@@ -37,14 +37,14 @@ class FileSet: public IOChannel, public nidas::util::FileSet {
 public:
 
     FileSet():IOChannel(),nidas::util::FileSet(),
-        expandedFileName(false),expandedDir(0),name("FileSet"),requester(0),mount(0) {}
+        _name("FileSet"),_requester(0),_mount(0) {}
 
     /**
      * Copy constructor.
      */
     FileSet(const FileSet& x);
 
-    ~FileSet() { delete mount; }
+    ~FileSet() { delete _mount; }
 
     /**
      * Set the DSM associated with this FileSet.
@@ -79,7 +79,7 @@ public:
     /**
      * FileSet will own the FsMount.
      */
-    void setMount(FsMount* val) { mount = val; }
+    void setMount(FsMount* val) { _mount = val; }
 
     /**
      * This method is called by FsMount when it is done.
@@ -118,22 +118,17 @@ public:
 	throw(nidas::util::InvalidParameterException);
 
 protected:
-
-    bool expandedFileName;
-
-    bool expandedDir;
-
     /**
      * Recognizeable name of this IOChannel - used for informative
      * messages.
      */
     void setName(const std::string& val);
 
-    std::string name;
+    std::string _name;
 
-    ConnectionRequester* requester;
+    ConnectionRequester* _requester;
 
-    FsMount* mount;
+    FsMount* _mount;
 
 };
 

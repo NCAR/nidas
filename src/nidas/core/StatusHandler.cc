@@ -30,10 +30,10 @@ using namespace nidas::core;
 // ---------------------------------------------------------------------------
 void StatusHandler::warning(const xercesc::SAXParseException& e)
 {
-  cerr << "\nWarning at file " << XMLStringConverter(e.getSystemId())
+  cerr << "\nWarning at file " << (string)XMLStringConverter(e.getSystemId())
        << ", line " << e.getLineNumber()
        << ", char " << e.getColumnNumber()
-       << "\n  Message: " << XMLStringConverter(e.getMessage()) << endl;
+       << "\n  Message: " << (string)XMLStringConverter(e.getMessage()) << endl;
 }
 
 void StatusHandler::error(const xercesc::SAXParseException& e)
@@ -69,9 +69,9 @@ void StatusHandler::startElement(const XMLCh* const uri,
 //     cerr << "attributes.getValue(" << index << "): ";
 //     cerr << XMLStringConverter(attributes.getValue(index)) << endl;
 //   }
-  if (!strcmp(XMLStringConverter(qname),"name"))        _element = SOURCE;
-  else if (!strcmp(XMLStringConverter(qname),"clock"))  _element = TIME;
-  else if (!strcmp(XMLStringConverter(qname),"status")) _element = STATUS;
+  if ((string)XMLStringConverter(qname) == "name")        _element = SOURCE;
+  else if ((string)XMLStringConverter(qname) == "clock")  _element = TIME;
+  else if ((string)XMLStringConverter(qname) == "status") _element = STATUS;
 }
 
 void StatusHandler::characters(const   XMLCh* const    chars,

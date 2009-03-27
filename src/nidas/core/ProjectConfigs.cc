@@ -227,7 +227,7 @@ void ProjectConfigs::writeXML(const std::string& xmlFileName)
     }
     catch(const xercesc::DOMException& e) {
         XMLStringConverter excmsg(e.getMessage());
-        cerr << "DOMException: " << (const char *)excmsg << endl;
+        cerr << "DOMException: " << excmsg << endl;
         throw nidas::core::XMLException(e);
     }
 

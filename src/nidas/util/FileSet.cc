@@ -31,7 +31,8 @@ const char FileSet::pathSeparator = '/';	// this is unix, afterall
 FileSet::FileSet() :
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
 	fd(-1),fileiter(fileset.begin()),
-	initialized(false),fileLength(400*USECS_PER_DAY),newFile(false)
+	initialized(false),fileLength(400*USECS_PER_DAY),newFile(false),
+        _lastErrno(0)
 {
 }
 
@@ -42,7 +43,8 @@ FileSet::FileSet(const FileSet& x):
 	fd(-1),startTime(x.startTime),endTime(x.endTime),
 	fileset(x.fileset),fileiter(fileset.begin()),
 	initialized(x.initialized),
-	fileLength(x.fileLength),newFile(false)
+	fileLength(x.fileLength),newFile(false),
+        _lastErrno(0)
 {
 }
 
@@ -76,6 +78,17 @@ void FileSet::closeFile() throw(IOException)
     }
 }
 
+long long FileSet::getFileSize() const throw(IOException)
+{
+    if (fd >= 0) {
+        struct stat64 statbuf;
+        if (::fstat64(fd,&statbuf) < 0)
+	    IOException(currname,"fstat",errno);
+	return statbuf.st_size;
+    }
+    return 0;
+}
+
 /* static */
 void FileSet::createDirectory(const string& name) throw(IOException)
 {
@@ -91,8 +104,7 @@ void FileSet::createDirectory(const string& name) throw(IOException)
 	if (tmpname != ".") createDirectory(tmpname);  // recursive
 
         ILOG(("creating: ") << name);
-        if (::mkdir(name.c_str(),0777) < 0)
-            throw IOException(name,"mkdir",errno);
+        if (::mkdir(name.c_str(),0777) < 0) throw IOException(name,"mkdir",errno);
     }
 }
 
@@ -101,10 +113,11 @@ void
 FileSet::
 openFileForWriting(const std::string& filename) throw(IOException)
 {
-    if ((fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0)
+    if ((fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
+        _lastErrno = errno;
         throw IOException(filename,"open",errno);
+    }
 }
-
 
 /**
  * Create a file using a time to create the name.
@@ -127,7 +140,13 @@ UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
 
     // create the directory, and parent directories, if they don't exist
     string tmpname = getDirPortion(currname);
-    if (tmpname != ".") createDirectory(tmpname);
+    if (tmpname != ".") try {
+        createDirectory(tmpname);
+    }
+    catch (const IOException& e) {
+        _lastErrno = e.getErrno();
+        throw e;
+    }
 
     ILOG(("creating: ") << currname);
 
@@ -163,7 +182,10 @@ size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 {
     newFile = false;
     ssize_t res = ::write(fd,buf,count);
-    if (res < 0) throw IOException(currname,"write",errno);
+    if (res < 0) {
+        _lastErrno = errno;
+        throw IOException(currname,"write",errno);
+    }
     return res;
 }
 

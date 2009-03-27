@@ -19,6 +19,7 @@
 #include <nidas/core/DSMServer.h>
 
 #include <nidas/core/Datagrams.h>
+#include <nidas/core/McSocket.h>
 
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/XMLConfigWriter.h>
@@ -73,10 +74,30 @@ void XMLConfigService::connected(IOChannel* output) throw()
     n_u::Inet4Address remoteAddr = output->getRemoteInet4Address();
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
+
+    // perhaps the request came directly from one of my interfaces.
+    // If so, see if there is a "localhost" dsm.
+    if (!dsm) {
+        nidas::core::McSocket* sock = dynamic_cast<nidas::core::McSocket*>(output);
+        if (sock) {
+            list<n_u::Inet4NetworkInterface> ifaces = sock->getInterfaces();
+            list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+            for ( ; !dsm && ii != ifaces.end(); ++ii) {
+                n_u::Inet4NetworkInterface iface = *ii;
+                // cerr << "iface=" << iface.getAddress().getHostAddress() << endl;
+                if (iface.getAddress() == remoteAddr) {
+                    remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
+                    dsm = Project::getInstance()->findDSM(remoteAddr);
+                }
+            }
+        }
+    }
     if (!dsm) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "can't find DSM for address %s" ,
 	    remoteAddr.getHostAddress().c_str());
+        output->close();
+        delete output;
 	return;
     }
 

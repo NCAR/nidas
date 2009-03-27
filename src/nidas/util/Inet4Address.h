@@ -80,6 +80,13 @@ public:
      */
     const struct in_addr* getInAddrPtr() const { return &inaddr; }
 
+    /**
+     * Get the structure containing the 4 byte internet version 4 address.
+     * To get the actual 4 byte integer value:
+     * \code
+     *   uint32_t addr = getInAddr().s_addr;
+     * \endcode
+     */
     const struct in_addr getInAddr() const { return inaddr; }
 
     /**

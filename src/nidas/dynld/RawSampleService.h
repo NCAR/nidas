@@ -19,6 +19,7 @@
 
 #include <nidas/core/DSMService.h>
 #include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/dynld/SampleArchiver.h>
 #include <nidas/core/SampleIOProcessor.h>
 
 namespace nidas { namespace dynld {
@@ -42,6 +43,10 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
+
+    void printClock(std::ostream& ostr) throw();
+
+    void printStatus(std::ostream& ostr,float deltat) throw();
 
 private:
 
@@ -67,7 +72,17 @@ private:
      */
     std::map<SampleInput*,Worker*> _workers;
 
-    nidas::util::Mutex _workerMutex;
+    std::map<SampleInput*,const DSMConfig*> _dsms;
+
+    /**
+     * Saved between calls to printStatus in order to compute data rates.
+     */
+    std::map<void*,size_t> _nsampsLast;
+
+    /**
+     * Saved between calls to printStatus in order to compute sample rates.
+     */
+    std::map<void*,long long> _nbytesLast;
 
     /**
      * Copying not supported.
@@ -80,6 +95,6 @@ private:
     RawSampleService& operator =(const RawSampleService&);
 };
 
-}}	// namespace nidas namespace core
+}}	// namespace nidas namespace dynld
 
 #endif

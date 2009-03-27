@@ -19,6 +19,8 @@
 
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/core/SampleSorter.h>
+#include <nidas/dynld/FileSet.h>
+#include <nidas/util/ThreadSupport.h>
 
 namespace nidas { namespace dynld {
 
@@ -49,9 +51,34 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
+    void printStatus(std::ostream&,float deltat,const char* rowStripe=0) throw();
+
 protected:
 
-    SampleInput* input;
+    SampleInput* _input;
+
+    /**
+     * If my SampleOutput* is a nidas::dynld::FileSet then save the pointer
+     * for use in by printStatus(), so that the status output will contain
+     * things like the file size.
+     */
+    nidas::dynld::FileSet* _fileset;
+
+    /**
+     * Mutex for controlling access to _input and _fileset
+     * so that printStatus has valid pointers.
+     */
+    nidas::util::Mutex _statusMutex;
+
+    /**
+     * Saved between calls to printStatus in order to compute sample rates.
+     */
+    size_t _nsampsLast;
+
+    /**
+     * Saved between calls to printStatus in order to compute data rates.
+     */
+    long long _nbytesLast[2];
 
 };
 

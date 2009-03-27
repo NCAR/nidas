@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Test script for a dsm process, sampling 3 serial sensors, via pseudo-terminals
+# Test script for a dsm and dsm_server process, sampling 5 serial sensors, via pseudo-terminals
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
@@ -13,11 +13,6 @@ fi
 
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo PATH=$PATH
-
-# build the local sensor_sim program
-#cd src || exit 1
-#scons
-#cd ..
 
 [ -d tmp ] && rm -rf tmp
 [ -d tmp ] || mkdir tmp
@@ -47,10 +42,14 @@ pids=(${pids[*]} $!)
 # number of simulated sensors
 nsensors=${#pids[*]}
 
-rm -f tmp/dsm.log
+# ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
+valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
+
+sleep 10
 
 # start dsm data collection
-( valgrind dsm -d config/test.xml 2>&1 | tee tmp/dsm.log ) &
+# ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
+valgrind dsm -d > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -68,7 +67,7 @@ while [ $ndone -lt $nsensors ]; do
                 pids[$n]=-1
                 ndone=$(($ndone + 1))
             else
-                sleep 1
+                sleep 3
             fi
         fi
     done
@@ -86,7 +85,7 @@ while true; do
         if fgrep -q "closing: tmp/test$n" tmp/dsm.log; then
             ndone=$(($ndone + 1))
         else
-            sleep 1
+            sleep 3
         fi
     done
     [ $ndone -eq $nsensors ] && break
@@ -94,7 +93,7 @@ done
 
 # send a TERM signal to dsm process
 nkill=0
-dsmpid=`pgrep -f "valgrind dsm"`
+dsmpid=`pgrep -f "valgrind dsm -d"`
 while ps -p $dsmpid > /dev/null; do
     if [ $nkill -gt 5 ]; then
         echo "Doing kill -9 $dsmpid"
@@ -104,7 +103,22 @@ while ps -p $dsmpid > /dev/null; do
         kill -TERM $dsmpid
     fi
     nkill=$(($nkill + 1))
-    sleep 10
+    sleep 2
+done
+
+# send a TERM signal to dsm_server process
+nkill=0
+dsmpid=`pgrep -f "valgrind dsm_server"`
+while ps -p $dsmpid > /dev/null; do
+    if [ $nkill -gt 5 ]; then
+        echo "Doing kill -9 $dsmpid"
+        kill -9 $dsmpid
+    else
+        echo "Doing kill -TERM $dsmpid"
+        kill -TERM $dsmpid
+    fi
+    nkill=$(($nkill + 1))
+    sleep 2
 done
 
 # check output data file for the expected number of samples
@@ -131,7 +145,7 @@ for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
-/^localhost:tmp\/$sname/{
+/^test:tmp\/$sname/{
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         exit(1)
@@ -181,13 +195,20 @@ done
 cat tmp/data_stats.out
 
 # check for valgrind errors in dsm process
-dump_errs=`valgrind_errors tmp/dsm.log`
-echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
+dsm_errs=`valgrind_errors tmp/dsm.log`
+echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
-# ignore capget error in valgrind.
-fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
+# ignore capget errors in valgrind.
+ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log | wc | awk '{print $1}'`
+dsm_errs=$(($dsm_errs - $ncap))
 
-if $rawok && $procok && [ $dump_errs -eq 0 ]; then
+# check for valgrind errors in dsm_server
+svr_errs=`valgrind_errors tmp/dsm_server.log`
+echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
+ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm_server.log | wc | awk '{print $1}'`
+svr_errs=$(($svr_errs - $ncap))
+
+if $rawok && $procok && [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else

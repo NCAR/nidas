@@ -28,7 +28,8 @@ namespace n_u = nidas::util;
 IOStream::IOStream(IOChannel& iochan,size_t blen):
 	_iochannel(iochan),_buffer(0),
         _maxUsecs(USECS_PER_SEC/4),
-        _newInput(true),_nbytes(0),_nEAGAIN(0)
+        _newInput(true),_nbytesIn(0),_nbytesOut(0),
+        _nEAGAIN(0)
 {
     reallocateBuffer(blen * 2);
     _lastWrite = 0;
@@ -89,7 +90,7 @@ size_t IOStream::read() throw(n_u::IOException)
     _head += l;
     if (_iochannel.isNewInput()) {
         _newInput = true;
-        _nbytes = 0;
+        _nbytesIn = 0;
     }
 #ifdef DEBUG
     DLOG(("IOStream, read =") << l << ", avail=" << available());
@@ -133,7 +134,7 @@ size_t IOStream::skip(size_t len) throw(n_u::IOException)
     size_t l = available();
     if (len < l) l = len;
     _tail += l;
-    _nbytes += l;
+    _nbytesIn += l;
     return l;
 }
 
@@ -162,7 +163,7 @@ size_t IOStream::readUntil(void* buf, size_t len,char term)
     }
     *outp = '\0';
     len = outp - (const char*)buf;
-    _nbytes += len;
+    _nbytesIn += len;
     return len;
 }
 
@@ -175,7 +176,7 @@ size_t IOStream::backup(size_t len) throw()
     // cerr << "IOStream::backup, len=" << len << " maxbackup=" << maxbackup << endl;
     if (len > maxbackup) len = maxbackup;
     _tail -= len;
-    _nbytes -= len;
+    _nbytesIn -= len;
     return len;
 }
 
@@ -253,6 +254,7 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
 	    // if (tlen < _halflen && wlen > _halflen) wlen = _halflen;
 	    try {
 		l = _iochannel.write(_tail,wlen);
+                addNumOutputBytes(l);
 	    }
 	    catch (const n_u::IOException& ioe) {
 		if (ioe.getError() == EAGAIN) {

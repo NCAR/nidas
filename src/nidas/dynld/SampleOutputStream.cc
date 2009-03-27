@@ -30,8 +30,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
-	SampleOutputBase(i),iostream(0),
-	nsamplesDiscarded(0)
+	SampleOutputBase(i),
+        _iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
 {
 }
 
@@ -39,8 +39,8 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
  * Copy constructor.
  */
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
-	SampleOutputBase(x),iostream(0),
-	nsamplesDiscarded(0)
+	SampleOutputBase(x),
+        _iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
 {
 }
 
@@ -50,7 +50,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),
-	iostream(0),nsamplesDiscarded(0)
+	_iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
 {
 }
 
@@ -59,7 +59,7 @@ SampleOutputStream::~SampleOutputStream()
 #ifdef DEBUG
     cerr << "~SampleOutputStream(), this=" << this << endl;
 #endif
-    delete iostream;
+    delete _iostream;
 }
 
 SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc) const
@@ -72,12 +72,12 @@ SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc) const
 void SampleOutputStream::init() throw()
 {
     SampleOutputBase::init();
-    delete iostream;
+    delete _iostream;
 #ifdef DEBUG
     cerr << "SampleOutputStream::init, buffer size=" <<
     	getIOChannel()->getBufferSize() << " fd=" << getIOChannel()->getFd() << endl;
 #endif
-    iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
 void SampleOutputStream::close() throw(n_u::IOException)
@@ -85,15 +85,15 @@ void SampleOutputStream::close() throw(n_u::IOException)
 #ifdef DEBUG
     cerr << "SampleOutputStream::close" << endl;
 #endif
-    delete iostream;
-    iostream = 0;
+    delete _iostream;
+    _iostream = 0;
     SampleOutputBase::close();
 }
 
 void SampleOutputStream::finish() throw()
 {
     try {
-	if (iostream) iostream->flush();
+	if (_iostream) _iostream->flush();
     }
     catch (n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
@@ -104,30 +104,28 @@ void SampleOutputStream::finish() throw()
 bool SampleOutputStream::receive(const Sample *samp) throw()
 {
     bool first_sample = false;
-    if (!iostream) return false;
+    if (!_iostream) return false;
 
     dsm_time_t tsamp = samp->getTimeTag();
 
-    DSMServerStat::getInstance()->setSomeTime(tsamp);
-
     try {
 	if (tsamp >= getNextFileTime()) {
-	    iostream->flush();
+	    _iostream->flush();
 	    createNextFile(tsamp);
 	    first_sample = true;
 	}
 	bool success = write(samp) > 0;
 	if (!success) {
-	    if (!(nsamplesDiscarded++ % 1000)) 
+	    if (!(_nsamplesDiscarded++ % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
 		    "%s: %d samples discarded due to output jambs\n",
-		    getName().c_str(),nsamplesDiscarded);
+		    getName().c_str(),_nsamplesDiscarded);
 	}
 	else if (first_sample) {
 	    // Force the first sample to get written out with the header,
 	    // so that initial samples from slower streams are not delayed
 	    // by the iostream buffering.
-	    iostream->flush();
+	    _iostream->flush();
 	}
     }
     catch(const n_u::IOException& ioe) {
@@ -142,7 +140,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 size_t SampleOutputStream::write(const void* buf, size_t len)
 	throw(n_u::IOException)
 {
-    return iostream->write(buf,len);
+    return _iostream->write(buf,len);
 }
 
 size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
@@ -174,7 +172,12 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 #ifdef DEBUG
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
 #endif
-    return iostream->write(bufs,lens,2);
+    size_t l = _iostream->write(bufs,lens,2);
+    if (l > 0) {
+        setLastOutputTimeTag(samp->getTimeTag());
+        incrementNumOutputSamples();
+    }
+    return l;
 }
 
 SortedSampleOutputStream::SortedSampleOutputStream():

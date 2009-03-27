@@ -61,6 +61,21 @@ public:
     static Project* parseXMLConfigFile(const std::string& _xmlFileName)
         throw(nidas::core::XMLException,nidas::util::InvalidParameterException,nidas::util::IOException);
 
+    static std::string getUserName()
+    { 
+        return _username;
+    }
+
+    static uid_t getUserID()
+    {
+        return _userid;
+    }
+
+    static uid_t getGroupID()
+    {
+        return _groupid;
+    }
+
     static const char* rafXML;
 
     static const char* isffXML;
@@ -113,22 +128,11 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
-    static std::string getUserName()
-    { 
-        return _username;
-    }
-
-    static uid_t getUserID()
-    {
-        return _userid;
-    }
-
-    static uid_t getGroupID()
-    {
-        return _groupid;
-    }
-
 protected:
+
+    static void startXmlRpcThread() throw(nidas::util::Exception);
+
+    static void killXmlRpcThread() throw(nidas::util::Exception);
 
     /**
      * -d option. If user wants messages on stderr rather than syslog.
@@ -150,23 +154,25 @@ protected:
      */
     static DSMServer* _serverInstance;
 
-    static void startStatusThread() throw(nidas::util::Exception);
-
-    static void killStatusThread() throw(nidas::util::Exception);
-
-    static void startXmlRpcThread() throw(nidas::util::Exception);
-
-    static void killXmlRpcThread() throw(nidas::util::Exception);
-
     static bool _quit;
 
     static bool _restart;
 
-    /** This thread that generates streaming XML time and status. */
-    static DSMServerStat* _statusThread;
+    static std::string _username;
+
+    static uid_t _userid;
+
+    static gid_t _groupid;
 
     /** This thread provides XML-based Remote Procedure calls */
     static DSMServerIntf* _xmlrpcThread;
+
+    void startStatusThread() throw(nidas::util::Exception);
+
+    void killStatusThread() throw(nidas::util::Exception);
+
+    /** This thread that generates streaming XML time and status. */
+    DSMServerStat* _statusThread;
 
     /**
      * Sites that I serve.
@@ -183,12 +189,6 @@ protected:
      * The DSMServices that we've been configured to start.
      */
     std::list<DSMService*> _services;
-
-    static std::string _username;
-
-    static uid_t _userid;
-
-    static gid_t _groupid;
 
 private:
     /**

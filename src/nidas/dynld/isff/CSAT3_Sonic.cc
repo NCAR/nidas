@@ -85,15 +85,17 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
         write("&",1);
         try {
             readBuffer(MSECS_PER_SEC);
-            break;
+            int nsamp = 0;
+            for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                distributeRaw(samp);
+                nsamp++;
+            }
+            if (nsamp > 0) break;
         }
         catch (const n_u::IOTimeoutException& e) {
         }
         DLOG(("%s: sending D",getName().c_str()));
         write("D",1);
-    }
-    for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-        distributeRaw(samp);
     }
 }
 

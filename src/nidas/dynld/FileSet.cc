@@ -30,10 +30,9 @@ namespace n_u = nidas::util;
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
     	IOChannel(x),nidas::util::FileSet(x),
-        expandedFileName(false),expandedDir(false),
-        name(x.name),requester(0),mount(0)
+        _name(x._name),_requester(0),_mount(0)
 {
-    if (x.mount) mount = new FsMount(*x.mount);
+    if (x._mount) _mount = new FsMount(*x._mount);
 }
 
 void FileSet::setDSMConfig(const DSMConfig* val) 
@@ -51,12 +50,12 @@ void FileSet::setDSMConfig(const DSMConfig* val)
 const std::string& FileSet::getName() const
 {
     if (getCurrentName().length() > 0) return getCurrentName();
-    return name;
+    return _name;
 }
 
 void FileSet::setName(const std::string& val)
 {
-    name = val;
+    _name = val;
 }
 
 void FileSet::setFileName(const string& val)
@@ -83,16 +82,16 @@ IOChannel* FileSet::connect()
        throw(n_u::IOException)
 {
     // synchronous mount
-    if (mount) mount->mount();
+    if (_mount) _mount->mount();
     return clone();
 }
 
 void FileSet::requestConnection(ConnectionRequester* rqstr)
        throw(n_u::IOException)
 {
-    if (mount && !mount->isMounted()) {
-	requester = rqstr;
-	mount->mount(this);	// start mount request
+    if (_mount && !_mount->isMounted()) {
+	_requester = rqstr;
+	_mount->mount(this);	// start mount request
 	return;
     }
     rqstr->connected(this); 
@@ -101,14 +100,14 @@ void FileSet::requestConnection(ConnectionRequester* rqstr)
 
 void FileSet::mounted()
 {
-    if (mount && mount->isMounted()) requester->connected(this);
+    if (_mount && _mount->isMounted()) _requester->connected(this);
 }
 
 void FileSet::close() throw(n_u::IOException)
 {
-    if (mount) {
-        mount->cancel();
-	mount->unmount();
+    if (_mount) {
+        _mount->cancel();
+	_mount->unmount();
     }
     n_u::FileSet::closeFile();
 }
@@ -160,8 +159,8 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (elname == "mount") {
-	    mount = new FsMount();
-	    mount->fromDOMElement((const xercesc::DOMElement*) child);
+	    _mount = new FsMount();
+	    _mount->fromDOMElement((const xercesc::DOMElement*) child);
 	}
 	else throw n_u::InvalidParameterException("mount",
 		    "unrecognized child element", elname);

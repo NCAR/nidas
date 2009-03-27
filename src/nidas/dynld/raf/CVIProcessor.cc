@@ -224,7 +224,7 @@ void CVIProcessor::connected(SampleOutput* orig,
 void CVIProcessor::disconnected(SampleOutput* output) throw()
 {
     _resampler->removeSampleClient(output);
-    SampleOutput* orig = outputMap[output];
+    SampleOutput* orig = _outputMap[output];
     SampleIOProcessor::disconnected(output);
     if (orig) orig->requestConnection(this);
 }

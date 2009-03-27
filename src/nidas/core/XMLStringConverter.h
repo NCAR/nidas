@@ -21,57 +21,60 @@
 namespace nidas { namespace core {
 
 /**
- * Class providing conversions between char* and XMLCh*
+ * Class providing conversions between string and XMLCh*
  * using the Xerces-c transcode and release methods.
  */
 class XMLStringConverter {
 private:
-  char *str;
-  XMLCh *xstr;
-  bool releaseChar;
+    std::string _str;
+    const XMLCh *_cxstr;
+    XMLCh *_xstr;
 public:
 
     XMLStringConverter(const XMLCh* val) :
-    	str(xercesc::XMLString::transcode(val)),
-	xstr((XMLCh*)val),
-	releaseChar(true)
-    {}
+	_cxstr(val),_xstr(0)
+    {
+        char* cstr = xercesc::XMLString::transcode(val);
+        _str = std::string(cstr ? cstr : "");
+  	xercesc::XMLString::release(&cstr);
+    }
 
     XMLStringConverter(const char* val) :
-    	str(new char[strlen(val) + 1]),
-	xstr(xercesc::XMLString::transcode(val)),
-	releaseChar(false)
+    	_str(val),
+	_xstr(xercesc::XMLString::transcode(val))
     {
-        strcpy(str,val);
+        _cxstr = _xstr;
     }
 
     XMLStringConverter(const std::string& val) :
-    	str(new char[strlen(val.c_str()) + 1]),
-	xstr(xercesc::XMLString::transcode(val.c_str())),
-	releaseChar(false)
+    	_str(val),
+	_xstr(xercesc::XMLString::transcode(val.c_str()))
     {
-        strcpy(str,val.c_str());
+        _cxstr = _xstr;
     }
 
     ~XMLStringConverter() { 
-  	if (releaseChar) xercesc::XMLString::release(&str);
-	else {
-	    delete [] str;
-	    xercesc::XMLString::release(&xstr);
-	}
+  	if (_xstr) xercesc::XMLString::release(&_xstr);
     }
 
     /**
-     * Conversion to const char*
+     * Conversion to const XMLCh*
      */
-    operator const char*() const { return str; }
-    operator const XMLCh*() const { return xstr; }
+    operator const XMLCh*() const { return _cxstr; }
+
+    /**
+     * Conversion to string.
+     */
+    operator std::string() const
+    {
+        return _str;
+    }
 };
 
 inline std::ostream& operator<<(std::ostream& target,
 	const XMLStringConverter& toDump)
 {
-    target << (const char*)toDump;
+    target << (std::string)toDump;
     return target;
 }
 

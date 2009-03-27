@@ -34,13 +34,13 @@ class XDOMElement {
 public:
     XDOMElement(const xercesc::DOMElement*e) :
     	elemConst(e),elemNonConst(0),
-	nodename((const char*)XMLStringConverter(e->getNodeName()))
+	nodename(XMLStringConverter(e->getNodeName()))
     {
     }
 
     XDOMElement(xercesc::DOMElement*e) :
     	elemConst(e),elemNonConst(e),
-	nodename((const char*)XMLStringConverter(e->getNodeName()))
+	nodename(XMLStringConverter(e->getNodeName()))
     {
     }
 
@@ -58,7 +58,7 @@ public:
 	    XMLStringConverter aval(elemConst->getAttribute((const XMLCh*)cname));
 
 	    std::pair<const std::string,const std::string>
-		    p(aname,std::string((const char*)aval));
+		    p(aname,aval);
 	    attrs.insert(p);
 	    ai = attrs.find(aname);
 	}
@@ -91,8 +91,8 @@ class XDOMAttr {
 public:
     XDOMAttr(const xercesc::DOMAttr*a) :
     	attr(a),
-	name((const char*)XMLStringConverter(a->getName())),
-	value((const char*)XMLStringConverter(a->getValue()))
+	name(XMLStringConverter(a->getName())),
+	value(XMLStringConverter(a->getValue()))
     {
     }
     const std::string& getName() const { return name; }

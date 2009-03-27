@@ -62,7 +62,7 @@ public:
     void initLogger();
 
     /** main loop */
-    void run() throw();
+    int run() throw();
 
     /**
      * Parse the runstring parameters.
@@ -229,6 +229,8 @@ private:
     nidas::util::Mutex            _outputMutex;
 
     XMLConfigInput*           _xmlRequestSocket;
+
+    nidas::util::Mutex         _xmlRequestMutex;
 
     nidas::util::Logger*          _logger;
 

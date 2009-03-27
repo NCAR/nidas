@@ -12,7 +12,27 @@
     version="$LastChangedRevision$">
 
     <site name="test" class="isff.GroundStation" suffix=".test">
-	<dsm rserialPort="30002" name="test" id="1">
+       <server>
+            <service class="XMLConfigService">
+                <output>
+                    <socket type="mcaccept"/>
+                </output>
+            </service>
+            <service class="RawSampleService">
+                <input class="RawSampleInputStream">
+                    <socket type="mcaccept"/>
+                </input>
+                <processor class="SampleArchiver">
+                    <output class="SampleOutputStream">
+                        <fileset dir="tmp"
+                            file="server_%Y%m%d_%H%M%S.dat"
+                            length="0"/>
+                    </output>
+                </processor>
+            </service>
+        </server>
+
+	<dsm rserialPort="30002" name="localhost" id="1">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
 		devicename="tmp/test0" id="10" suffix=".t1">
@@ -37,7 +57,7 @@
 
             <serialSensor class="isff.CSAT3_Sonic"
                 baud="9600" parity="none" databits="8" stopbits="1"
-                devicename="tmp/test2" id="30" suffix=".t3">
+                devicename="tmp/test2" id="30" suffix=".t3" timeout="1">
                 <sample id="1" rate="60">
                     <variable name="test1" units="m/s"/>
                     <variable name="v" units="m/s"/>
@@ -82,7 +102,6 @@
 		<sample id="1"
 		    scanfFormat="%f">
 		    <variable name="test1" units="wacka-a-mole"/>
-		    <variable name="test2" units="wacka-a-mole"/>
 		</sample>
 		<message separator="\n" position="end" length="0"/>
                 <prompt string="hello\n" rate="1"/>
@@ -93,6 +112,9 @@
                     file="${DSM}_%Y%m%d_%H%M%S.dat"
                     length="0">
                 </fileset>
+            </output>
+            <output class="RawSampleOutputStream" sorterLength="0">
+                <socket type="mcrequest"/>
             </output>
 	</dsm>
     </site>

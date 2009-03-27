@@ -81,6 +81,13 @@ public:
 	return keepAliveIdleSecs;
     }
 
+    std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
+        throw(nidas::util::IOException)
+    {
+        if (_socket) return _socket->getInterfaces();
+        return std::list<nidas::util::Inet4NetworkInterface>();
+    }
+
     /**
      * Do setNonBlocking(val) on underlying socket.
      */

@@ -192,6 +192,17 @@ public:
     std::list<std::string> matchFiles(const UTime& t1, const UTime& t2)
     	throw(IOException);
 
+    long long getFileSize() const throw(IOException);
+
+    /**
+     * Get last error value. Should be 0. Currently only supported
+     * for an output file, to be queried by a system status thread.
+     */
+    int getLastErrno() const 
+    {
+        return _lastErrno;
+    }
+
 protected:
 
     std::string formatName(const UTime& t1);
@@ -228,6 +239,8 @@ private:
     UTime nextFileTime;
 
     bool newFile;
+
+    int _lastErrno;
 
 };
 

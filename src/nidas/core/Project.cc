@@ -518,7 +518,7 @@ LogSchemeFromDOMElement(const DOMElement* node)
 	    if (text->getNodeType() == DOMNode::TEXT_NODE)
 	    {
 		std::string showfields = 
-		    (const char *)XMLStringConverter(text->getNodeValue());
+		    XMLStringConverter(text->getNodeValue());
 		scheme.setShowFields(showfields);
 	    }
 	}

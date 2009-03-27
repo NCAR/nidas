@@ -52,7 +52,7 @@ public:
      * The IOStream is available after the
      * call to init() and before close() (or the destructor).
      */
-    IOStream* getIOStream() { return iostream; }
+    IOStream* getIOStream() { return _iostream; }
 
     /**
      * Call init() after the IOChannel is configured for a
@@ -69,15 +69,34 @@ public:
     size_t write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
+    long long getNumOutputBytes() const
+    {
+        if (_iostream) return _iostream->getNumOutputBytes();
+        return 0;
+    }
+
+    size_t getNumOutputSamples() const { return _nsamples; }
+
+    dsm_time_t getLastOutputTimeTag() const { return _lastTimeTag; }
+
+    void setLastOutputTimeTag(dsm_time_t val) { _lastTimeTag = val; }
+
 protected:
+
+    void incrementNumOutputSamples() { _nsamples++; }
 
     size_t write(const Sample* samp) throw(nidas::util::IOException);
 
-    IOStream* iostream;
+    IOStream* _iostream;
 
 private:
 
-    size_t nsamplesDiscarded;
+    size_t _nsamplesDiscarded;
+
+    long long _nsamples;
+
+    dsm_time_t _lastTimeTag;
+
 };
 
 /**

@@ -51,6 +51,12 @@ public:
 
     virtual void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0) = 0;
 
+    virtual size_t getNumInputSamples() const { return 0; }
+
+    virtual long long getNumInputBytes() const { return 0; }
+
+    virtual dsm_time_t getLastInputTimeTag() const { return 0LL; }
+
 };
 
 /**
@@ -58,31 +64,31 @@ public:
  * or more inputs.  Samples can then be passed onto sensors
  * for processing, and then sorted again.
  *
- * SampleInputMerger makes use of two SampleSorters, inputSorter
+ * SampleInputMerger makes use of two SampleSorters, _inputSorter
  * and procSampleSorter.
  *
- * inputSorter is a client of one or more inputs (the text arrows
+ * _inputSorter is a client of one or more inputs (the text arrows
  * show the sample flow):
  *
  * input ----v
- * input --> inputSorter
+ * input --> _inputSorter
  * input ----^
  *
- * After sorting the samples, inputSorter passes them onto the two
+ * After sorting the samples, _inputSorter passes them onto the two
  * types of SampleClients that have registered with SampleInputMerger.
  * SampleClients that have registered with
  * SampleInputMerger::addSampleClient will receive their raw samples
- * directly from inputSorter.
+ * directly from _inputSorter.
  *
- * inputSorter -> sampleClients
+ * _inputSorter -> sampleClients
  *
  * SampleClients that have registered with
  * SampleInputMerger::addProcessedSampleClient will receive their
  * samples indirectly:
  * 
- * inputSorter -> this -> sensor -> procSampSorter -> processedSampleClients
+ * _inputSorter -> this -> sensor -> procSampSorter -> processedSampleClients
  *
- * inputSorter provides sorting of the samples from the various inputs.
+ * _inputSorter provides sorting of the samples from the various inputs.
  *
  * procSampSorter provides sorting of the processed samples.
  * Sensors are apt to create processed samples with different
@@ -96,7 +102,7 @@ public:
 
     virtual ~SampleInputMerger();
 
-    std::string getName() const { return name; }
+    std::string getName() const { return _name; }
 
     nidas::util::Inet4Address getRemoteInet4Address() const
     {
@@ -129,6 +135,18 @@ public:
 
     bool receive(const Sample*) throw();
 
+    void finish() throw();
+
+    void setRealTime(bool val) 
+    {
+        _inputSorter.setRealTime(val);
+    }
+
+    bool getRealTime() const
+    {
+        return _inputSorter.getRealTime();
+    }
+
     /**
      * Add a SampleTag to this merger. SampleInputMerger does not
      * own the pointer.
@@ -137,7 +155,7 @@ public:
 
     const std::list<const SampleTag*>& getSampleTags() const
     {
-        return sampleTags;
+        return _sampleTags;
     }
 
     /**
@@ -145,28 +163,102 @@ public:
      */
     const std::list<const DSMConfig*>& getDSMConfigs() const
     {
-        return dsmConfigs;
+        return _dsmConfigs;
     }
+    /**
+     * Total number of input bytes into the merger.
+     */
+    long long getNumInputBytes() const
+    {
+        return _inputSorter.getNumInputBytes();
+    }
+
+    /**
+     * Number of input samples.
+     */
+    size_t getNumInputSamples() const
+    {
+        return _inputSorter.getNumInputSamples();
+    }
+
+    /**
+     * Timetag of most recent sample read into the merger.
+     */
+    dsm_time_t getLastInputTimeTag() const
+    {
+        return _inputSorter.getLastInputTimeTag();
+    }
+
+    /**
+     * Timetag of most recent sample inserted in the sorter.
+     */
+    dsm_time_t getLastOutputTimeTag() const
+    {
+        return _inputSorter.getLastOutputTimeTag();
+    }
+
+    /**
+     * Number of samples currently in the sorter.
+     */
+    size_t getSorterNumSamples() const
+    {
+        return _inputSorter.size();
+    }
+
+    /**
+     * Current size in bytes of the sorter.
+     */
+    size_t getSorterNumBytes() const
+    {
+        return _inputSorter.getHeapSize();
+    }
+
+    /**
+     * Current size in bytes of the sorter.
+     */
+    size_t getSorterNumBytesMax() const
+    {
+        return _inputSorter.getHeapMax();
+    }
+
+    /**
+     * Number of samples discarded because sorter was getting
+     * too big.
+     */
+    size_t getNumDiscardedSamples() const
+    {
+        return _inputSorter.getNumDiscardedSamples();
+    }
+
+    /**
+     * Number of samples discarded because their timetags 
+     * were in the future.
+     */
+    size_t getNumFutureSamples() const
+    {
+        return _inputSorter.getNumFutureSamples();
+    }
+
 
 protected:
 
-    std::string name;
+    std::string _name;
 
-    std::map<unsigned int, DSMSensor*> sensorMap;
+    std::map<unsigned int, DSMSensor*> _sensorMap;
 
-    std::map<SampleClient*, std::list<DSMSensor*> > sensorsByClient;
+    std::map<SampleClient*, std::list<DSMSensor*> > _sensorsByClient;
 
-    nidas::util::Mutex sensorMapMutex;
+    nidas::util::Mutex _sensorMapMutex;
 
-    SampleSorter inputSorter;
+    SampleSorter _inputSorter;
 
-    SampleSorter procSampSorter;
+    SampleSorter _procSampSorter;
 
-    size_t unrecognizedSamples;
+    size_t _unrecognizedSamples;
 
-    std::list<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> _sampleTags;
 
-    std::list<const DSMConfig*> dsmConfigs;
+    std::list<const DSMConfig*> _dsmConfigs;
 
 };
 
@@ -198,6 +290,7 @@ public:
     void addProcessedSampleClient(SampleClient* clnt,DSMSensor* snsr);
 
     void removeProcessedSampleClient(SampleClient* clnt, DSMSensor* snsr = 0);
+
 private:
 
     SampleSource* _src;

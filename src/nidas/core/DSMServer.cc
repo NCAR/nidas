@@ -56,7 +56,7 @@ bool DSMServer::_restart = false;
 bool DSMServer::_debug = false;
 
 /* static */
-DSMServerStat* DSMServer::_statusThread = 0;
+// DSMServerStat* DSMServer::_statusThread = 0;
 
 /* static */
 DSMServerIntf* DSMServer::_xmlrpcThread = 0;
@@ -223,17 +223,12 @@ int DSMServer::main(int argc, char** argv) throw()
 	    logger->log(LOG_ERR,e.what());
 	}
 
-        startStatusThread();
-        startXmlRpcThread();
-
 	_serverInstance->waitOnServices();
-
-        killStatusThread();
-        killXmlRpcThread();
 
         // Project gets deleted here, which includes serverInstance.
     }
 
+// #define DEBUG
 #ifdef DEBUG
     cerr << "XMLCachingParser::destroyInstance()" << endl;
 #endif
@@ -250,37 +245,18 @@ int DSMServer::main(int argc, char** argv) throw()
     return result;
 }
                                                                                 
-/* static */
 void DSMServer::startStatusThread() throw(n_u::Exception)
 {
-    _statusThread = DSMServerStat::getInstance();
+    if (_statusThread) return;
+    _statusThread = new DSMServerStat("DSMServerStat");
     _statusThread->start();
 }
 
-// #define DEBUG
-/* static */
 void DSMServer::killStatusThread() throw(n_u::Exception)
 {
+    if (!_statusThread) return;
 
     _statusThread->interrupt();
-    // canceling statusThread results in segmentation fault.
-    // There seems to be some incompatibility between
-    // nanosleep and pthread_cancel.  So we just interrupt
-    // it and have to wait up to a second for the join.
-#define STATUS_THREAD_CANCEL
-#ifdef STATUS_THREAD_CANCEL
-    try {
-#ifdef DEBUG
-        cerr << "statusthread cancel, running=" <<
-            _statusThread->isRunning() << endl;
-#endif
-        if (_statusThread->isRunning()) _statusThread->cancel();
-    }
-    catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "statusThread: %s",e.what());
-    }
-#endif
 
     try {
 #ifdef DEBUG
@@ -298,7 +274,6 @@ void DSMServer::killStatusThread() throw(n_u::Exception)
     delete _statusThread;
     _statusThread = 0;
 }
-// #undef DEBUG
 
 /* static */
 void DSMServer::startXmlRpcThread() throw(n_u::Exception)
@@ -412,7 +387,7 @@ Project* DSMServer::parseXMLConfigFile(const string& xmlFileName)
     return project;
 }
 
-DSMServer::DSMServer()
+DSMServer::DSMServer(): _statusThread(0)
 {
 }
 
@@ -540,18 +515,11 @@ void DSMServer::scheduleServices() throw(n_u::Exception)
 
 void DSMServer::interruptServices() throw()
 {
-#ifdef DEBUG
-    cerr << "interrupting services, size=" << _services.size() << endl;
-#endif
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
-	// cerr << "doing interrupt on " << svc->getName() << endl;
 	svc->interrupt();
     }
-#ifdef DEBUG
-    cerr << "interrupting services done" << endl;
-#endif
 }
 
 void DSMServer::cancelServices() throw()
@@ -585,8 +553,11 @@ void DSMServer::waitOnServices() throw()
     // cause nanosleep to return. sigAction sets quit or
     // restart, and then we break, and cancel our threads.
     struct timespec sleepTime;
-    sleepTime.tv_sec = 10;
+    sleepTime.tv_sec = 1;
     sleepTime.tv_nsec = 0;
+
+    startStatusThread();
+    startXmlRpcThread();
 
     for (;;) {
 
@@ -609,34 +580,12 @@ void DSMServer::waitOnServices() throw()
 	if (_quit || _restart) break;
     }
 
-#ifdef DEBUG
-    cerr << "Break out of wait loop, interrupting services" << endl;
-#endif
+    killStatusThread();
+    killXmlRpcThread();
 
     interruptServices();	
 
-#ifdef DEBUG
-    cerr << "services interrupted" << endl;
-#endif
-
-    // wait a bit, then cancel whatever is still running
-    sleepTime.tv_sec = 1;
-    sleepTime.tv_nsec = 0;
-    nanosleep(&sleepTime,0);
-
-#ifdef DEBUG
-    cerr << "cancelling services" << endl;
-#endif
-    cancelServices();	
-
-#ifdef DEBUG
-    cerr << "joining services" << endl;
-#endif
     joinServices();
-#ifdef DEBUG
-    cerr << "services joined" << endl;
-#endif
-
 }
 
 /* static */

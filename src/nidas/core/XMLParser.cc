@@ -206,8 +206,8 @@ XMLErrorHandler::~XMLErrorHandler()
 bool XMLErrorHandler::handleError(const DOMError& domError)
 {
 
-    string uri(XMLStringConverter(domError.getLocation()->getURI()));
-    string msg(XMLStringConverter(domError.getMessage()));
+    string uri = XMLStringConverter(domError.getLocation()->getURI());
+    string msg = XMLStringConverter(domError.getMessage());
 
     ostringstream ost;
     if (uri.length() > 0)

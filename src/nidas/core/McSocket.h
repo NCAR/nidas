@@ -48,7 +48,7 @@ public:
      */
     McSocket(const McSocket&,nidas::util::Socket*);
 
-    ~McSocket() { delete socket; }
+    ~McSocket() { delete _socket; }
 
     McSocket* clone() const;
 
@@ -64,20 +64,20 @@ public:
      * Does this McSocket request connections, or does it
      * listen for incoming connections.
      */
-    bool isRequester() const { return amRequester; }
+    bool isRequester() const { return _amRequester; }
 
-    void setRequester(bool val) { amRequester = val; }
+    void setRequester(bool val) { _amRequester = val; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
     void requestConnection(ConnectionRequester* service)
     	throw(nidas::util::IOException);
 
     IOChannel* connect() throw(nidas::util::IOException);
 
-    virtual bool isNewInput() const { return newInput; }
+    virtual bool isNewInput() const { return _newInput; }
 
     void connected(nidas::util::Socket* sock);
 
@@ -85,14 +85,21 @@ public:
 
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
-	if (socket) socket->setKeepAliveIdleSecs(val);
-        keepAliveIdleSecs = val;
+	if (_socket) _socket->setKeepAliveIdleSecs(val);
+        _keepAliveIdleSecs = val;
     }
 
     int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
     {
-	if (socket) return socket->getKeepAliveIdleSecs();
-        return keepAliveIdleSecs;
+	if (_socket) return _socket->getKeepAliveIdleSecs();
+        return _keepAliveIdleSecs;
+    }
+
+    std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
+        throw(nidas::util::IOException)
+    {
+        if (_socket) return _socket->getInterfaces();
+        return std::list<nidas::util::Inet4NetworkInterface>();
     }
 
     /**
@@ -100,8 +107,8 @@ public:
      */
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
-	nonBlocking = val;
-	if (socket) socket->setNonBlocking(val);
+	_nonBlocking = val;
+	if (_socket) _socket->setNonBlocking(val);
     }
 
     /**
@@ -109,8 +116,8 @@ public:
      */
     bool isNonBlocking() const throw (nidas::util::IOException)
     {
-	if (socket) return socket->isNonBlocking();
-	return nonBlocking;
+	if (_socket) return _socket->isNonBlocking();
+	return _nonBlocking;
     }
 
     size_t getBufferSize() const throw();
@@ -127,10 +134,10 @@ public:
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
         dsm_time_t tnow = getSystemTime();
-        if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
-        if (tnow - lastWrite < minWriteInterval) return 0;
-        lastWrite = tnow;
-	return socket->send(buf,len,MSG_NOSIGNAL);
+        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
+        if (tnow - _lastWrite < _minWriteInterval) return 0;
+        _lastWrite = tnow;
+	return _socket->send(buf,len,MSG_NOSIGNAL);
 
     }
 
@@ -141,11 +148,11 @@ public:
      *        Default: 10000 microseconds (1/100 sec).
      */
     void setMinWriteInterval(int val) {
-        minWriteInterval = val;
+        _minWriteInterval = val;
     }
 
     int getMinWriteInterval() const {
-        return minWriteInterval;
+        return _minWriteInterval;
     }
 
     void close() throw (nidas::util::IOException);
@@ -156,31 +163,31 @@ public:
         throw(nidas::util::InvalidParameterException);
 
 private:
-    nidas::util::Socket* socket;
+    nidas::util::Socket* _socket;
 
-    std::string name;
+    std::string _name;
 
-    ConnectionRequester* connectionRequester;
+    ConnectionRequester* _connectionRequester;
 
-    bool amRequester;
+    bool _amRequester;
 
-    bool firstRead;
+    bool _firstRead;
 
-    bool newInput;
+    bool _newInput;
 
-    int keepAliveIdleSecs;
+    int _keepAliveIdleSecs;
 
     /**
      * Minimum write interval in microseconds so we don't flood network.
      */
-    int minWriteInterval;
+    int _minWriteInterval;
 
     /**
      * Time of last physical write.
      */
-    dsm_time_t lastWrite;
+    dsm_time_t _lastWrite;
 
-    bool nonBlocking;
+    bool _nonBlocking;
 
 };
 

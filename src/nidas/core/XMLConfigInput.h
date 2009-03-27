@@ -27,15 +27,6 @@ class XMLConfigInput: public nidas::util::McSocket
 public:
     XMLConfigInput()
     {
-	try {
-            setInet4McastSocketAddress(
-                nidas::util::Inet4SocketAddress(
-                    nidas::util::Inet4Address::getByName(DSM_MULTICAST_ADDR),
-                    DSM_SVC_REQUEST_PORT));
-        }
-        catch(const nidas::util::UnknownHostException& e) {
-        }
-
         setRequestNumber(XML_CONFIG);
     }
 

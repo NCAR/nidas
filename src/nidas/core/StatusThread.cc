@@ -15,8 +15,7 @@
 
 #include <nidas/core/StatusThread.h>
 #include <nidas/core/DSMEngine.h>
-// #include <nidas/core/DSMConfig.h>
-#include <nidas/dynld/raf/IRIGSensor.h>
+#include <nidas/core/DSMServer.h>
 #include <nidas/core/Datagrams.h>
 
 #include <nidas/util/Socket.h>
@@ -113,23 +112,11 @@ int DSMEngineStat::run() throw(n_u::Exception)
     return 0;
 }
 
-/* static */
-DSMServerStat* DSMServerStat::_instance = 0;
-
-/* static */
-DSMServerStat* DSMServerStat::getInstance() 
-{
-    if (!_instance) _instance = new DSMServerStat("DSMServerStat");
-    return _instance;
-}
-
 DSMServerStat::DSMServerStat(const std::string& name):
-	StatusThread(name),_sometime(getSystemTime()),
-        uSecPeriod(USECS_PER_SEC)
+	StatusThread(name),_uSecPeriod(USECS_PER_SEC)
 {
 }
 
-/* static */
 int DSMServerStat::run() throw(n_u::Exception)
 {
     // TODO: multicast network should be configured in the XML
@@ -152,14 +139,15 @@ int DSMServerStat::run() throw(n_u::Exception)
     // Set to interface with closest address if this computer has more
     // than one.
     int matchbits = -1;
-    n_u::Inet4Address matchIface;
+    n_u::Inet4NetworkInterface matchIface;
 
-    std::list<n_u::Inet4Address> itf = msock.getInterfaceAddresses();
-    std::list<n_u::Inet4Address>::iterator itfi;
+    std::list<n_u::Inet4NetworkInterface> itf = msock.getInterfaces();
+    std::list<n_u::Inet4NetworkInterface>::iterator itfi;
     for (itfi = itf.begin(); itfi != itf.end(); ++itfi) {
-        int i = itfi->bitsMatch(dataAddr);
+        n_u::Inet4NetworkInterface iface = *itfi;
+        int i = iface.getAddress().bitsMatch(dataAddr);
         if (i > matchbits) {
-            matchIface = *itfi;
+            matchIface = iface;
             matchbits = i;
         }
     }
@@ -168,13 +156,8 @@ int DSMServerStat::run() throw(n_u::Exception)
         cerr << "setting interface for multicast socket to " <<
             matchIface.getHostAddress() << ", bits=" << matchbits << endl;
 #endif
-        msock.setInterface(matchIface);
+        msock.setInterface(maddr,matchIface);
     }
-
-    std::ostringstream statStream;
-
-    struct tm tm;
-    char cstr[24];
 
     // For some reason Thread::cancel() to a thread
     // waiting in nanosleep causes a seg fault.
@@ -193,7 +176,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 
     /* sleep a bit so that we're on an even interval boundary */
     unsigned int uSecVal =
-      uSecPeriod - (unsigned int)(getSystemTime() % uSecPeriod);
+      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
 
 #ifdef USE_NANOSLEEP
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
@@ -213,49 +196,20 @@ int DSMServerStat::run() throw(n_u::Exception)
     }
 #endif
 
-    dsm_time_t lasttime = 0;
-    int sametime = 1;
-    const char *glyph[] = {"\\","|","/","-"};
-    int anim=0;
+    dsm_time_t lasttime = getSystemTime();
+    // const char *glyph[] = {"\\","|","/","-"};
+    // int anim=0;
+    //
+
+    float deltat = _uSecPeriod / USECS_PER_SEC;
+    DSMServer* svr = DSMServer::getInstance();
+    const list<DSMService*>& svcs = svr->getServices();
 
     try {
         while (!amInterrupted()) {
-
-            if (++anim == 4) anim=0;
-
-	    dsm_time_t tt = _sometime;
-            time_t     ut = tt / USECS_PER_SEC;
-            gmtime_r(&ut,&tm);
-
-            strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
-
-            if ((lasttime != _sometime) || sametime)
-            {
-              if (lasttime != _sometime) sametime = 1;
-              else sametime = 0;
-              lasttime = _sometime;
-              statStream << "<?xml version=\"1.0\"?><group>"
-	                 << "<name>dsm_server</name>"
-                         << "<clock>" << cstr << "</clock>";
-            }
-            else
-              statStream << "<?xml version=\"1.0\"?><group>"
-	                 << "<name>dsm_server</name>"
-                         << "<clock>no DSMs active...."+string(glyph[anim])+"</clock>";
-
-//            // Send status at 00:00, 00:03, etc.
-//            if ( ((ut % 3) == 0) && _sometime) {
-//                statStream << "<status><![CDATA[";
-//                statStream << "]]></status>";
-//            }
-            statStream << "</group>" << endl;
-	    string statstr = statStream.str();
-	    statStream.str("");
-	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
-
             // sleep until the next interval...
             uSecVal =
-	      uSecPeriod - (unsigned int)(getSystemTime() % uSecPeriod);
+	      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
 #ifdef USE_NANOSLEEP
             sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
             sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
@@ -275,6 +229,38 @@ int DSMServerStat::run() throw(n_u::Exception)
                     n_u::Exception::errnoToString(errno));
             }
 #endif
+            dsm_time_t tt = getSystemTime();
+            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % 3) == 0;
+            if (completeStatus) {
+                deltat = (float)(tt - lasttime) / USECS_PER_SEC;
+                lasttime = tt;
+            }
+            cerr << "status thread, tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+                " complete=" << completeStatus << endl;
+
+            list<DSMService*>::const_iterator si = svcs.begin();
+            for (int ni = 1; si != svcs.end(); ni++,++si) {
+                DSMService* svc = *si;
+                std::ostringstream statStream;
+                statStream << "<?xml version=\"1.0\"?><group>"
+                       << "<name>dsm_server service#" << ni << "</name>";
+
+                ostream::pos_type pos1 = statStream.tellp();
+                if (completeStatus) svc->printStatus(statStream,deltat);
+                else svc->printClock(statStream);
+                ostream::pos_type pos2 = statStream.tellp();
+
+                statStream << "</group>" << endl;
+
+                // cerr << "pos1=" << pos1 << " pos2=" << pos2 << endl;
+                if (pos2 != pos1) {
+                    string statstr = statStream.str();
+                    cerr << "####################################" << endl;
+                    cerr << statstr;
+                    cerr << "####################################" << endl;
+                    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
+                }
+            }
 	}
     }
     catch(const n_u::IOException& e) {

@@ -133,7 +133,7 @@ public:
 
     void distribute(const Sample* s) throw();
 
-    // size_t getUnrecognizedSamples() const { return unrecognizedSamples; }
+    size_t getBadSamples() const { return _badSamples; }
 
     void close() throw(nidas::util::IOException);
 
@@ -168,10 +168,25 @@ public:
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
     }
 
+    long long getNumInputBytes() const
+    {
+        if (_iostream) return _iostream->getNumInputBytes();
+        return 0;
+    }
+
+    size_t getNumInputSamples() const { return _nsamples; }
+
+
+    dsm_time_t getLastInputTimeTag() const { return _lastTimeTag; }
+
+    void setLastInputTimeTag(dsm_time_t val) { _lastTimeTag = val; }
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
 protected:
+
+    void incrementNumInputSamples() { _nsamples++; }
 
     /**
      * Service that has requested my input.
@@ -217,9 +232,7 @@ private:
      */
     char* _dptr;
 
-    size_t _badInputSamples;
-
-    // size_t unrecognizedSamples;
+    size_t _badSamples;
 
     /**
      * Copy constructor.
@@ -237,6 +250,10 @@ private:
     dsm_time_t _minSampleTime;
 
     dsm_time_t _maxSampleTime;
+
+    long long _nsamples;
+
+    dsm_time_t _lastTimeTag;
 
 };
 

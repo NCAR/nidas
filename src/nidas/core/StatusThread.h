@@ -35,8 +35,6 @@ public:
      */
     StatusThread(const std::string& name);
 
-    // virtual int run() throw(nidas::util::Exception) = 0;
-
 protected:
 };
 
@@ -52,30 +50,20 @@ public:
 
 class DSMServerStat: public StatusThread
 {
-protected:
+public:
     /** The protected constructor, called from getInstance. */
     DSMServerStat(const std::string& name);
 
-public:
     int run() throw(nidas::util::Exception);
 
-    /**
-    * Get a pointer to the singleton instance of DSMServerStat.
-    * This will create the instance if it doesn't exist.
-    */
-    static DSMServerStat* getInstance();
-
-    void setSomeTime(dsm_time_t time) { _sometime = time; };
-
 private:
-    static DSMServerStat* _instance;
 
-    dsm_time_t _sometime;
+    void setup();
 
     /**
      * Wakeup period.
      */
-    int uSecPeriod;
+    int _uSecPeriod;
 };
 
 }}	// namespace nidas namespace core
