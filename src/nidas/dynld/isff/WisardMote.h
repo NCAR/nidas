@@ -37,13 +37,9 @@ using namespace nidas::dynld;
 using namespace std;
 namespace n_u=nidas::util;
 
-
 class WisardMote: public DSMSerialSensor {
 public:
-	WisardMote(){
-		fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
-		//nodeNum = 0;
-	};
+	WisardMote();
 	virtual ~WisardMote() {};
 
 
@@ -51,6 +47,9 @@ public:
 
 	void fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException);
+
+	typedef void(WisardMote::*setFunc)(const unsigned char* cp, const unsigned char* eos);
+
 
 private:
 	const n_u::EndianConverter* fromLittle;
@@ -107,16 +106,8 @@ private:
 
 	void setPwrData(const unsigned char* cp, const unsigned char* eos);
 
-	/*  STRUCTURE sensorType to Func   */
-	struct sensorToFunc {
-		/* sensortypeid */
-		int sTypeId;
-
-		/* ptr to getXXXdata function for getting  sensor data	 */
-		void (WisardMote::* setFunc)(const unsigned char* cp, const unsigned char* eos);
-	};
-
-	static const struct sensorToFunc sMap[];
+	/*  stypeId to func ptr */
+	public:	static std::map<unsigned char, setFunc> nnMap;
 
 };
 }}} // nidas::dynld::isff

@@ -23,16 +23,80 @@ using namespace nidas::core;
 using namespace std;
 namespace n_u = nidas::util;
 
+
+std::map<unsigned char, WisardMote::setFunc> WisardMote::nnMap;
+//public:	static std::map<int, setFunc> nnMap;
+static bool mapped = false;
+
 NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 
+WisardMote::WisardMote() {
+	//static bool mapped = false;
+	fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
+	if (! mapped) {
+		WisardMote::nnMap[0x01] = &WisardMote::setPicTm;
+		WisardMote::nnMap[0x0f] = &WisardMote::setPicDT;
+
+		WisardMote::nnMap[0x20] = &WisardMote::setTsoilData;
+		WisardMote::nnMap[0x21] = &WisardMote::setTsoilData;
+		WisardMote::nnMap[0x22] = &WisardMote::setTsoilData;
+		WisardMote::nnMap[0x23] = &WisardMote::setTsoilData;
+
+		WisardMote::nnMap[0x24] = &WisardMote::setGsoilData;
+		WisardMote::nnMap[0x25] = &WisardMote::setGsoilData;
+		WisardMote::nnMap[0x26] = &WisardMote::setGsoilData;
+		WisardMote::nnMap[0x27] = &WisardMote::setGsoilData;
+
+		WisardMote::nnMap[0x28] = &WisardMote::setQsoilData;
+		WisardMote::nnMap[0x29] = &WisardMote::setQsoilData;
+		WisardMote::nnMap[0x2A] = &WisardMote::setQsoilData;
+		WisardMote::nnMap[0x2B] = &WisardMote::setQsoilData;
+
+		WisardMote::nnMap[0x2C] = &WisardMote::setTP01Data;
+		WisardMote::nnMap[0x2D] = &WisardMote::setTP01Data;
+		WisardMote::nnMap[0x2E] = &WisardMote::setTP01Data;
+		WisardMote::nnMap[0x2F] = &WisardMote::setTP01Data;
+
+		WisardMote::nnMap[0x49] = &WisardMote::setPwrData;
+
+		WisardMote::nnMap[0x50] = &WisardMote::setRnetData;
+		WisardMote::nnMap[0x51] = &WisardMote::setRnetData;
+		WisardMote::nnMap[0x52] = &WisardMote::setRnetData;
+		WisardMote::nnMap[0x53] = &WisardMote::setRnetData;
+
+		WisardMote::nnMap[0x54] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x55] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x56] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x57] = &WisardMote::setRswData;
+
+		WisardMote::nnMap[0x58] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x59] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x5A] = &WisardMote::setRswData;
+		WisardMote::nnMap[0x5B] = &WisardMote::setRswData;
+
+		WisardMote::nnMap[0x5C] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x5D] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x5E] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x5F] = &WisardMote::setRlwData;
+
+		WisardMote::nnMap[0x60] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x61] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x62] = &WisardMote::setRlwData;
+		WisardMote::nnMap[0x63] = &WisardMote::setRlwData;
+		mapped = true;
+	}
+}
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
 	/*  sample input --- there are multiple data-  */
 	const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
+	int len = samp->getDataByteLength();
+	printf(" \n process -raw data = ");
+    for (int i= 0; i<len; i++) printf(" %x ", *(cp+i));
 
 	/*  find EOM  */
 	if (!findEOM(cp, samp->getDataByteLength())) return false;
@@ -53,17 +117,23 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data */
 		msgLen=0;
 		data.clear();
-		//readData(cp, eos, data, msgLen);
 
 		/* get sTypeId    */
-			int sTypeId = *cp++; msgLen++;
-			printf("\n SensorTypeId = %x \n",sTypeId);
+		unsigned char sTypeId = *cp++; msgLen++;
+		printf("\n\n\n SensorTypeId = %x \n",sTypeId);
 
-			/* push nodename+sStypeId to list  */
-			pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
+		/* push nodename+sStypeId to list  */
+		pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
-			/* getData  */
-			(this->*sMap[sTypeId].setFunc)(cp,eos);
+		/* getData  */
+		//printf("\n process-- check      sTypeId= %x          nnMap.[sTypeId] = %x   \n ", sTypeId, nnMap[sTypeId]);
+		if ( nnMap[sTypeId]==NULL  ) {
+			printf("\n process--getData--cannot find the setFunc.  sTypeId = %x ...   No data...\n ",sTypeId);
+			return false;
+		}
+	   // printf("Good,  retrieving data ...    sTypeId = %x", sTypeId);
+		(this->*nnMap[sTypeId])(cp,eos);
+
 		//readData(cp, eos);
 		if (data.size() == 0) 	return false;
 
@@ -133,7 +203,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
 	pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
 	/* getData  */
-	(this->*sMap[sTypeId].setFunc)(cp,eos);
+	(this->*nnMap[sTypeId])(cp,eos);
 }
 
 /**
@@ -320,7 +390,7 @@ void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 }
 
 //const WisardMote::sMap= new WisardMote::sensorToFunc[265];
-const WisardMote::sensorToFunc WisardMote::sMap[] = {
+/*const WisardMote::sensorToFunc WisardMote::sMap[] = {
 		{ },
 		{ 0x01, &WisardMote::setPicTm},
 		{ },{ },{ }, { },{ },{ },{ },{ }, { },{ },{ },{ },{ },
@@ -341,7 +411,7 @@ const WisardMote::sensorToFunc WisardMote::sMap[] = {
 		{ 0x2A, &WisardMote::setQsoilData },
 		{ 0x2B, &WisardMote::setQsoilData },
 
- 		{ 0x2C, &WisardMote::setTP01Data },
+		{ 0x2C, &WisardMote::setTP01Data },
 		{ 0x2D, &WisardMote::setTP01Data },
 		{ 0x2E, &WisardMote::setTP01Data },
 		{ 0x2F, &WisardMote::setTP01Data },
@@ -350,22 +420,22 @@ const WisardMote::sensorToFunc WisardMote::sMap[] = {
 		{ },{ },{ },{ },{ }, { },{ },{ },{ }, { 0x49, &WisardMote::setPwrData }, { },{ },{ },{ },{ }, 	{ },
 
 		{ 0x50, &WisardMote::setRnetData },
- 		{ 0x51, &WisardMote::setRnetData },
+		{ 0x51, &WisardMote::setRnetData },
 		{ 0x52, &WisardMote::setRnetData },
 		{ 0x53, &WisardMote::setRnetData },
 
 		{ 0x54, &WisardMote::setRswData },
- 		{ 0x55, &WisardMote::setRswData },
+		{ 0x55, &WisardMote::setRswData },
 		{ 0x56, &WisardMote::setRswData },
 		{ 0x57, &WisardMote::setRswData },
 
- 		{ 0x58, &WisardMote::setRswData },
+		{ 0x58, &WisardMote::setRswData },
 		{ 0x59, &WisardMote::setRswData },
 		{ 0x5A, &WisardMote::setRswData },
 		{ 0x5B, &WisardMote::setRswData },
 
 		{ 0x5C, &WisardMote::setRlwData },
- 		{ 0x5D, &WisardMote::setRlwData },
+		{ 0x5D, &WisardMote::setRlwData },
 		{ 0x5E, &WisardMote::setRlwData },
 		{ 0x5F, &WisardMote::setRlwData },
 
@@ -374,4 +444,5 @@ const WisardMote::sensorToFunc WisardMote::sMap[] = {
 		{ 0x62, &WisardMote::setRlwData },
 		{ 0x63, &WisardMote::setRlwData },
 };
+*/
 
