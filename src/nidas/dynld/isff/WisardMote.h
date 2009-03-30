@@ -107,7 +107,15 @@ private:
 	void setPwrData(const unsigned char* cp, const unsigned char* eos);
 
 	/*  stypeId to func ptr */
-	public:	static std::map<unsigned char, setFunc> nnMap;
+	/**
+	 *  setFun is a function pointer that points to one of the setTsoilData, setGsoilData, etc.
+	 *  I is mapped to its related function based on the sensor type id.
+	 *  For example, Tsiol data can be the sensor ids (0x20 -0x23), it is mapped to  WisardMote::nnMap[0x20] = &WisardMote::setTsoilData, etc.
+	 *  The initFuncMap is used to initialize the function with its sensor type id.
+	 */
+    public:	static std::map<unsigned char, setFunc> nnMap;
+    static void initFuncMap();
+
 
 };
 }}} // nidas::dynld::isff
