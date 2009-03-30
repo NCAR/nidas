@@ -197,9 +197,11 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		printf("\n NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, seq, msgLen);
 		break;
+	case 2:
 		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
 				nname.c_str(), ver, mtype, msgLen, cp);
 		return false;//skip for now
+
 	default:
 		n_u::Logger::getInstance()->log(LOG_ERR,"Unknown msgType --- NodeName=%s Ver=%x MsgType=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, msgLen);
