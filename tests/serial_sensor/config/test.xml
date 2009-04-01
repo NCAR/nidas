@@ -57,7 +57,7 @@
 
             <serialSensor class="isff.CSAT3_Sonic"
                 baud="9600" parity="none" databits="8" stopbits="1"
-                devicename="tmp/test2" id="30" suffix=".t3" timeout="1">
+                devicename="tmp/test2" id="30" suffix=".t3" timeout="5">
                 <sample id="1" rate="60">
                     <variable name="test1" units="m/s"/>
                     <variable name="v" units="m/s"/>

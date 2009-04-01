@@ -46,11 +46,11 @@ public:
 
     unsigned int curPos() const { return curpos; }
 
-    unsigned int readBytes(XMLByte* toFill,
-    	unsigned int maxToRead)
+    unsigned int readBytes(XMLByte* const toFill,
+    	const unsigned int maxToRead) throw(nidas::util::IOException)
     {
 	// std::cerr << "XMLFdBinInputStream reading " << maxToRead << std::endl;
-	unsigned int l = ::read(fd,toFill,maxToRead);
+	ssize_t l = ::read(fd,toFill,maxToRead);
 	if (l < 0) throw nidas::util::IOException(name,"read",errno);
 	curpos += l;
 	// std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l < 20 ? l : 20) << std::endl;
