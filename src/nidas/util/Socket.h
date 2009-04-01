@@ -380,8 +380,6 @@ public:
 
     Inet4NetworkInterface findInterface(const Inet4Address&) const throw(IOException);
 
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException);
-
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException);
 
     /**
@@ -589,7 +587,7 @@ public:
     }
 
     /**
-     * Return the IP addresses of all my network interfaces.
+     * Get a list of all my network interfaces.
      */
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
     {
@@ -1063,12 +1061,6 @@ public:
     	return impl.getSendBufferSize();
     }
 
-
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException)
-    {
-        return impl.getInterfaceAddresses();
-    }
-
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
     {
         return impl.getInterfaces();
@@ -1147,7 +1139,7 @@ public:
      * Create an unbound multicast socket.  You must bind it to
      * a port if you want to receive packets.
      * If you are sending packets on this MulticastSocket, and do not
-     * use getInterfaceAddresses() and setInterface() to choose a
+     * use getInterfaces() and setInterface() to choose a
      * specific interface, the system sends packets out on the first
      * non-loopback interface that it finds.  If a firewall is blocking
      * multicast packets on that interface the packets won't be sent.
@@ -1279,14 +1271,6 @@ public:
     	throw(IOException)
     {
         return impl.findInterface(iaddr);
-    }
-
-    /**
-     * Return the IP addresses of all my network interfaces.
-     */
-    std::list<Inet4Address> getInterfaceAddresses() const throw(IOException)
-    {
-        return impl.getInterfaceAddresses();
     }
 
     /**
