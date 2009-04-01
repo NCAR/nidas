@@ -38,7 +38,7 @@ McSocket::McSocket(): _socket(0),_connectionRequester(0),_amRequester(true),
  * Copy constructor. Should only be called before socket connection.
  */
 McSocket::McSocket(const McSocket& x):
-    n_u::McSocket(x),_socket(0),_name(x._name),
+    n_u::McSocket<n_u::Socket>(x),_socket(0),_name(x._name),
     _connectionRequester(0),_amRequester(x._amRequester),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(x._keepAliveIdleSecs),
     _minWriteInterval(x._minWriteInterval),_lastWrite(0),
@@ -50,7 +50,7 @@ McSocket::McSocket(const McSocket& x):
  * Copy constructor, but with a new, connected n_u::Socket
  */
 McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
-    n_u::McSocket(x),_socket(sock),_name(x._name),
+    n_u::McSocket<n_u::Socket>(x),_socket(sock),_name(x._name),
     _connectionRequester(0),_amRequester(x._amRequester),
     _firstRead(true),_newInput(true),
     _keepAliveIdleSecs(x._keepAliveIdleSecs),
@@ -76,7 +76,7 @@ IOChannel* McSocket::connect()
     throw(n_u::IOException)
 {
     n_u::Socket* sock;
-    if (isRequester()) sock = n_u::McSocket::connect();
+    if (isRequester()) sock = n_u::McSocket<n_u::Socket>::connect();
     else sock = accept();
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(_nonBlocking);
@@ -145,7 +145,7 @@ void McSocket::close() throw (n_u::IOException)
     if (_socket && _socket->getFd() >= 0) _socket->close();
     delete _socket;
     _socket = 0;
-    n_u::McSocket::close();
+    n_u::McSocket<n_u::Socket>::close();
 }
 
 int McSocket::getFd() const

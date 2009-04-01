@@ -22,7 +22,7 @@
 
 namespace nidas { namespace core {
 
-class XMLConfigInput: public nidas::util::McSocket
+class XMLConfigInput: public nidas::util::McSocket<nidas::util::Socket>
 {
 public:
     XMLConfigInput()

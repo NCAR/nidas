@@ -28,7 +28,7 @@ namespace nidas { namespace core {
 /**
  * Implementation of an IOChannel, using McSocket to establish connections
  */
-class McSocket: public IOChannel, public nidas::util::McSocket {
+class McSocket: public IOChannel, public nidas::util::McSocket<nidas::util::Socket> {
 
 public:
 
@@ -53,11 +53,11 @@ public:
     McSocket* clone() const;
 
     void setRequestNumber(int val) {
-    	nidas::util::McSocket::setRequestNumber(val);
+    	nidas::util::McSocket<nidas::util::Socket>::setRequestNumber(val);
     }
 
     int getRequestNumber() const {
-    	return nidas::util::McSocket::getRequestNumber();
+    	return nidas::util::McSocket<nidas::util::Socket>::getRequestNumber();
     }
 
     /**

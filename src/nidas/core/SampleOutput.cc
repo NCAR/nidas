@@ -145,13 +145,11 @@ void SampleOutputBase::connected(IOChannel* ioc) throw()
 	// Clone myself and report back to connectionRequester.
 	SampleOutput* newout = clone(ioc);
 	connectionRequester->connected(this,newout);
-	cerr << "SampleOutputBase::connected new channel" << endl;
     }
     else {
 	assert(connectionRequester);
 	setName(string("SampleOutputBase: ") + iochan->getName());
         connectionRequester->connected(this,this);
-	cerr << "SampleOutputBase::connected old channel" << endl;
     }
 #ifdef DEBUG
     cerr << "SampleOutputBase::connected, ioc" <<

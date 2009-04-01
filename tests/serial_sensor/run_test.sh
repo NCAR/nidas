@@ -59,7 +59,9 @@ done
 
 # look for "opened" messages in dsm output
 ndone=0
-while [ $ndone -lt $nsensors ]; do
+sleep=0
+sleepmax=20
+while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${pids[$n]} -gt 0 ]; then
             if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
@@ -69,10 +71,19 @@ while [ $ndone -lt $nsensors ]; do
                 ndone=$(($ndone + 1))
             else
                 sleep 1
+                sleep=$(($sleep + 1))
             fi
         fi
     done
 done
+
+if [ $sleep -ge $sleepmax ]; then
+    echo "Cannot find \"opened\" messages in dsm output."
+    echo "dsm process is apparently not running successfully."
+    echo "serial_sensor test failed"
+    exit 1
+fi
+
 
 # When a sensor_sim finishes and closes its pseudo-terminal
 # the dsm process gets an I/O error reading the pseudo-terminal device.

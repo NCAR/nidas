@@ -97,8 +97,7 @@ void Looper::removeClient(LooperClient* clnt)
 	interrupt();
 	if (Thread::currentThreadId() != getId()) {
 	    n_u::Logger::getInstance()->log(LOG_INFO,
-		"No clients for Looper, doing cancel, join");
-	    cancel();
+		"Interrupted Looper, doing join");
 	    join();
 	}
     }

@@ -13,16 +13,13 @@
 */
 
 #include <nidas/core/DSMEngine.h>
-
-#include <iostream>
-
-using namespace std;
+#include <nidas/util/Logger.h>
 
 using namespace nidas::core;
 
 int main(int argc, char** argv)
 {
     int res = DSMEngine::main(argc,argv);	// deceptively simple
-    cerr << "dsm exiting, status=" << res << endl;
+    ILOG(("dsm exiting, status=") << res);
     return res;
 }

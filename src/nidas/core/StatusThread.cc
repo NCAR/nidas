@@ -253,7 +253,7 @@ int DSMServerStat::run() throw(n_u::Exception)
                 // cerr << "pos1=" << pos1 << " pos2=" << pos2 << endl;
                 if (pos2 != pos1) {
                     string statstr = statStream.str();
-#ifdef DEBUB
+#ifdef DEBUG
                     cerr << "####################################" << endl;
                     cerr << statstr;
                     cerr << "####################################" << endl;

@@ -681,10 +681,10 @@ void SocketImpl::joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface & 
     mreq.imr_multiaddr = groupAddr.getInAddr();
     mreq.imr_address = iface.getAddress().getInAddr();
     mreq.imr_ifindex = iface.getIndex();
+#ifdef DEBUG
     cerr << "joining group, maddr=" << groupAddr.getHostAddress() <<
         " iface=" << iface.getAddress().getHostAddress() << 
         " index=" << iface.getIndex() << " iface name=" << iface.getName() << endl;
-#ifdef DEBUG
 #endif
 
     if (::setsockopt(fd, SOL_IP, IP_ADD_MEMBERSHIP,

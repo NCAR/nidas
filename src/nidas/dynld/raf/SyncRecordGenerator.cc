@@ -127,56 +127,58 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* row
     n_u::Autolock statusLock(_statusMutex);
 
     ostr <<
-        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen input</td>\n";
+        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen input</td>";
     dsm_time_t tt = 0LL;
     if (_input) tt = _input->getLastInputTimeTag();
     if (tt > 0LL)
-        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") <<
-            "</td>\n";
+        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") <<
+            "</td>";
     else
-        ostr << "<td><font color=red>>Not active</font></td>\n";
+        ostr << "<td><font color=red>>Not active</font></td>";
     size_t nsamps = (_input ? _input->getNumInputSamples() : 0);
-    float samplesps = (float)(nsamps - _numOutputSampsLast) / deltat;
+    float samplesps = (float)(nsamps - _numInputSampsLast) / deltat;
 
     long long nbytes = (_input ? _input->getNumInputBytes() : 0);
     float bytesps = (float)(nbytes - _numInputBytesLast) / deltat;
 
+    _numInputSampsLast = nsamps;
     _numInputBytesLast = nbytes;
 
     bool warn = fabs(bytesps) < 0.0001;
     ostr <<
         (warn ? "<td><font color=red><b>" : "<td>") <<
-        fixed << setprecision(0) << samplesps <<
-        (warn ? "</b></font></td>\n" : "</td>\n") <<
+        fixed << setprecision(1) << samplesps <<
+        (warn ? "</b></font></td>" : "</td>") <<
         (warn ? "<td><font color=red><b>" : "<td>") <<
-        setprecision(2) << bytesps <<
-        (warn ? "</b></font></td>\n" : "</td>\n");
-    ostr << "<td></td></tr>\n";
+        setprecision(0) << bytesps <<
+        (warn ? "</b></font></td>" : "</td>");
+    ostr << "<td></td><td></td></tr>\n";
 
     ostr <<
-        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen output</td>\n";
+        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen output</td>";
     tt = 0LL;
     if (_output) tt = _output->getLastOutputTimeTag();
     if (tt > 0LL)
-        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") <<
-            "</td>\n";
+        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") <<
+            "</td>";
     else
-        ostr << "<td><font color=red>>Not active</font></td>\n";
-    nsamps = (_input ? _output->getNumOutputSamples() : 0);
+        ostr << "<td><font color=red>>Not active</font></td>";
+    nsamps = (_output ? _output->getNumOutputSamples() : 0);
     samplesps = (float)(nsamps - _numOutputSampsLast) / deltat;
 
     nbytes = (_output ? _output->getNumOutputBytes() : 0);
     bytesps = (float)(nbytes - _numOutputBytesLast) / deltat;
 
+    _numOutputSampsLast = nsamps;
     _numOutputBytesLast = nbytes;
 
     warn = fabs(bytesps) < 0.0001;
     ostr <<
         (warn ? "<td><font color=red><b>" : "<td>") <<
-        fixed << setprecision(0) << samplesps <<
-        (warn ? "</b></font></td>\n" : "</td>\n") <<
+        fixed << setprecision(1) << samplesps <<
+        (warn ? "</b></font></td>" : "</td>") <<
         (warn ? "<td><font color=red><b>" : "<td>") <<
-        setprecision(2) << bytesps <<
-        (warn ? "</b></font></td>\n" : "</td>\n");
-    ostr << "<td></td></tr>\n";
+        setprecision(0) << bytesps <<
+        (warn ? "</b></font></td>" : "</td>");
+    ostr << "<td></td><td></td></tr>\n";
 }

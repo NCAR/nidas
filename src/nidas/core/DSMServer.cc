@@ -274,6 +274,7 @@ void DSMServer::killStatusThread() throw(n_u::Exception)
     delete _statusThread;
     _statusThread = 0;
 }
+#undef DEBUG
 
 /* static */
 void DSMServer::startXmlRpcThread() throw(n_u::Exception)
@@ -312,7 +313,11 @@ void DSMServer::killXmlRpcThread() throw(n_u::Exception)
     }
     delete _xmlrpcThread;
     _xmlrpcThread = 0;
+#ifdef DEBUG
+    cerr << "xmlrpcthread joined" << endl;
+#endif
 }
+#undef DEBUG
 
 /* static */
 void DSMServer::setupSignals()
@@ -391,6 +396,7 @@ DSMServer::DSMServer(): _statusThread(0)
 {
 }
 
+// #define DEBUG
 DSMServer::~DSMServer()
 {
     // delete services.
@@ -409,6 +415,7 @@ DSMServer::~DSMServer()
     cerr << "~DSMServer: deleted services " << endl;
 #endif
 }
+#undef DEBUG
 
 DSMServiceIterator DSMServer::getDSMServiceIterator() const
 {
@@ -538,9 +545,7 @@ void DSMServer::joinServices() throw()
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
-	// cerr << "doing join on " << svc->getName() << endl;
 	svc->join();
-	// cerr << svc->getName() << " joined" << endl;
     }
 
 }

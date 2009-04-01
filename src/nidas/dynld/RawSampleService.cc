@@ -49,7 +49,6 @@ RawSampleService::~RawSampleService()
 	    if (!proc->cloneOnConnection() && _merger) proc->disconnect(_merger);
 	}
     }
-
     delete _merger;
 }
 
@@ -143,10 +142,10 @@ void RawSampleService::connected(SampleInput* input) throw()
     // Create a Worker to handle the input.
     // Worker owns the SampleInputStream.
     Worker* worker = new Worker(this,stream);
-    _subThreadMutex.lock();
+    _workerMutex.lock();
     _workers[input] = worker;
     _dsms[input] = dsm;
-    _subThreadMutex.unlock();
+    _workerMutex.unlock();
 
     try {
         worker->setThreadScheduler(getSchedPolicy(),getSchedPriority());
@@ -196,7 +195,7 @@ void RawSampleService::disconnected(SampleInput* input) throw()
     _merger->flush();
 
     // figure out the Worker for the input.
-    n_u::Autolock tlock(_subThreadMutex);
+    n_u::Autolock tlock(_workerMutex);
 
     map<SampleInput*,Worker*>::iterator wi = _workers.find(input);
     if (wi == _workers.end()) {
@@ -332,7 +331,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
 </thead>\
 <tbody align=right>\n";  // default alignment in table body
 
-    _subThreadMutex.lock();
+    _workerMutex.lock();
     std::map<SampleInput*,const DSMConfig*>::const_iterator ii =  _dsms.begin();
     for ( ; ii != _dsms.end(); ++ii) {
         SampleInput* input =  ii->first;
@@ -364,7 +363,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
             (warn ? "</b></font></td>" : "</td>");
         ostr << "<td></td><td></td></tr>\n";
     }
-    _subThreadMutex.unlock();
+    _workerMutex.unlock();
 
     ostr << 
         "<tr class=\"" << oe[zebra++%2] << "\"><td align=left>" <<

@@ -74,6 +74,8 @@ private:
 
     std::map<SampleInput*,const DSMConfig*> _dsms;
 
+    nidas::util::Mutex _workerMutex;
+
     /**
      * Saved between calls to printStatus in order to compute data rates.
      */
