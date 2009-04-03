@@ -74,6 +74,13 @@ void StatusHandler::startElement(const XMLCh* const uri,
   else if ((string)XMLStringConverter(qname) == "status") _element = STATUS;
 }
 
+void StatusHandler::endElement(const XMLCh* const uri,
+                                 const XMLCh* const localname,
+                                 const XMLCh* const qname)
+{
+  _element = NONE;
+}
+
 void StatusHandler::characters(const   XMLCh* const    chars,
                                const   unsigned int    length)
 {
@@ -88,6 +95,8 @@ void StatusHandler::characters(const   XMLCh* const    chars,
 
   case STATUS:
     _listener->_status[_src] = XMLStringConverter(chars);
+    break;
+  case NONE:
     break;
   }
 }

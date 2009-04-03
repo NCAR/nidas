@@ -29,7 +29,7 @@ class StatusListener;
 class StatusHandler : public xercesc::DefaultHandler
 {
 public:
-  StatusHandler(StatusListener* lstn): _listener(lstn) {}
+  StatusHandler(StatusListener* lstn): _listener(lstn),_element(NONE) {}
 
     // -----------------------------------------------------------------------
     //  Implementations of the SAX ErrorHandler interface
@@ -47,13 +47,17 @@ public:
                       const XMLCh* const qname,
                       const xercesc::Attributes&  attributes);
 
+    void endElement(const XMLCh* const uri,
+                      const XMLCh* const localname,
+                      const XMLCh* const qname);
+
     void characters(const XMLCh* const chars, const unsigned int length);
 
     /// reference to listener thread
     StatusListener* _listener;
 
  protected:
-    enum { SOURCE, TIME, STATUS } _element;
+    enum { SOURCE, TIME, STATUS, NONE } _element;
 
     /// host name of socket source
     std::string _src;

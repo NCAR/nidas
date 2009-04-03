@@ -26,6 +26,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+namespace {
+	const int COMPLETE_STATUS_CNT = 3;
+}
+
 StatusThread::StatusThread(const std::string& name):Thread(name)
 {
     blockSignal(SIGINT);
@@ -51,8 +55,6 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     std::ostringstream statStream;
 
-    struct tm tm;
-    char cstr[24];
     struct timespec nsleep;
 
     try {
@@ -73,17 +75,15 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    std::list<DSMSensor*>::const_iterator si;
 
 	    dsm_time_t tt = clock->getTime();
-            time_t     ut = tt / USECS_PER_SEC;
-            gmtime_r(&ut,&tm);
-//          int msec = tt % MSECS_PER_SEC;
-            strftime(cstr,sizeof(cstr),"%Y-%m-%d %H:%M:%S",&tm);
+
+            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
 
             statStream << "<?xml version=\"1.0\"?><group>"
 	               << "<name>" << dsm_name << "</name>"
-                       << "<clock>" << cstr << "</clock>";
+                       << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>";
 
 	    // Send status at 00:00, 00:03, etc.
-            if ( ((ut % 3) == 0) && sensors.size() > 0) {
+            if ( completeStatus && sensors.size() > 0) {
 
               statStream << "<status><![CDATA[";
 
@@ -230,18 +230,22 @@ int DSMServerStat::run() throw(n_u::Exception)
             }
 #endif
             dsm_time_t tt = getSystemTime();
-            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % 3) == 0;
+            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
             if (completeStatus) {
                 deltat = (float)(tt - lasttime) / USECS_PER_SEC;
                 lasttime = tt;
             }
 
             list<DSMService*>::const_iterator si = svcs.begin();
-            for (int ni = 1; si != svcs.end(); ni++,++si) {
+            for (int ni = 0; si != svcs.end(); ++si) {
                 DSMService* svc = *si;
                 std::ostringstream statStream;
-                statStream << "<?xml version=\"1.0\"?><group>"
-                       << "<name>dsm_server service#" << ni << "</name>";
+		if (ni == 0)
+		    statStream << "<?xml version=\"1.0\"?><group>"
+			   << "<name>dsm_server" << "</name>";
+		else
+		    statStream << "<?xml version=\"1.0\"?><group>"
+			   << "<name>dsm_server_" << ni << "</name>";
 
                 ostream::pos_type pos1 = statStream.tellp();
                 if (completeStatus) svc->printStatus(statStream,deltat);
@@ -259,6 +263,7 @@ int DSMServerStat::run() throw(n_u::Exception)
                     cerr << "####################################" << endl;
 #endif
                     msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
+		    ni++;
                 }
             }
 	}

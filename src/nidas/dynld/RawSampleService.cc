@@ -303,7 +303,7 @@ void RawSampleService::printClock(ostream& ostr) throw()
     dsm_time_t tt = 0;
     if (_merger) tt = _merger->getLastInputTimeTag();
     if (tt > 0LL)
-        ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</clock>\n";
+        ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S") << "</clock>\n";
     else
         ostr << "<clock>Not active</clock>\n";
 }

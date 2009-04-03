@@ -125,6 +125,9 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
     cp += sizeof(int32_t); // Move past sample type.
 
+    /// @todo don't do this in real-time?
+    //scanForMissalignedSyncWords(samp, (unsigned char *)dp);
+
     float tas = Tap2DToTAS((Tap2D *)cp);
     cp += sizeof(Tap2D);
     if (tas < 0.0 || tas > 300.0) {

@@ -37,7 +37,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 
 {
     setSensorStatsInterval(5 * MSECS_PER_SEC);
-    setSensorCheckIntervalMsecs(10 * MSECS_PER_SEC);
+    setSensorCheckIntervalMsecs(5 * MSECS_PER_SEC);
 
     FD_ZERO(&_readfdset);
     FD_ZERO(&_rcvdData);

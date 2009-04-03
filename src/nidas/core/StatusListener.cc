@@ -60,7 +60,18 @@ int StatusListener::run() throw(n_u::Exception)
 {
   // create a socket to listen for the XML status messages
   n_u::MulticastSocket msock(DSM_MULTICAST_STATUS_PORT);
-  msock.joinGroup(n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR));
+  n_u::Inet4Address mcaddr = n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+  list<n_u::Inet4NetworkInterface> interfaces = msock.getInterfaces();
+  list<n_u::Inet4NetworkInterface>::const_iterator ii = interfaces.begin();
+  for ( ; ii != interfaces.end(); ++ii) {
+      n_u::Inet4NetworkInterface iface = *ii;
+      int iflags = iface.getFlags();
+      // join interfaces that support MULTICAST or LOOPBACK
+      if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
+	cerr << "joining interface " << iface.getName() << endl;
+      	msock.joinGroup(mcaddr,iface);
+    }
+  }
   n_u::Inet4SocketAddress from;
   char buf[8192];
 
