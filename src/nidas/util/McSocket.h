@@ -45,7 +45,7 @@ struct McSocketData {
     unsigned short _listenPort;
 
     /**
-     * Either SOCK_STREAM or SOCK_DGRAM.
+     * Either SOCK_STREAM=1, or SOCK_DGRAM=2
      */
     short _socketType;
 

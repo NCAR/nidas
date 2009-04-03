@@ -62,7 +62,7 @@ protected:
      * for use in by printStatus(), so that the status output will contain
      * things like the file size.
      */
-    nidas::dynld::FileSet* _fileset;
+    std::list<const nidas::dynld::FileSet*> _filesets;
 
     /**
      * Mutex for controlling access to _input and _fileset

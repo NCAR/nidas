@@ -29,7 +29,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(SampleArchiver)
 
-SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),_fileset(0),
+SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),
     _nsampsLast(0)
 {
     _nbytesLast[0] = _nbytesLast[1] = 0;
@@ -37,7 +37,7 @@ SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),_fileset(0),
 }
 
 SampleArchiver::SampleArchiver(const SampleArchiver& x):
-    SampleIOProcessor((const SampleIOProcessor&)x),_input(0),_fileset(0),
+    SampleIOProcessor((const SampleIOProcessor&)x),_input(0),
     _nsampsLast(0)
 {
     _nbytesLast[0] = _nbytesLast[1] = 0;
@@ -89,18 +89,26 @@ void SampleArchiver::connected(SampleOutput* orig,SampleOutput* output) throw()
     assert(_input);
     SampleIOProcessor::connected(orig,output);
     _input->addSampleClient(output);
-    _statusMutex.lock();
-    _fileset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
-    _statusMutex.unlock();
+    nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
+    if (fset) {
+        _statusMutex.lock();
+        _filesets.push_back(fset);
+        _statusMutex.unlock();
+    }
 }
  
 void SampleArchiver::disconnected(SampleOutput* output) throw()
 {
     if (_input) _input->removeSampleClient(output);
     SampleIOProcessor::disconnected(output);
-    _statusMutex.lock();
-    _fileset = 0;
-    _statusMutex.unlock();
+    nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
+    if (fset) {
+        _statusMutex.lock();
+        list<const FileSet*>::iterator fi =
+            std::find(_filesets.begin(),_filesets.end(),fset);
+        if (fi != _filesets.end()) _filesets.erase(fi);
+        _statusMutex.unlock();
+    }
 }
 
 void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStripe)
@@ -137,29 +145,33 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStrip
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
 
-    if (_fileset) {
-        ostr <<
-            "<tr class=\"" << rowStripe << "\"><td align=left colspan=3>" <<
-            _fileset->getCurrentName() << "</td>";
+    list<const nidas::dynld::FileSet*>::const_iterator fi = _filesets.begin();
+    for ( ; fi != _filesets.end(); ++fi) {
+        const nidas::dynld::FileSet* fset = *fi;
+        if (fset) {
+            ostr <<
+                "<tr class=\"" << rowStripe << "\"><td align=left colspan=3>" <<
+                fset->getCurrentName() << "</td>";
 
-        long long nbytes = _fileset->getFileSize();
-        float bytesps = (float)(nbytes - _nbytesLast[1]) / deltat;
+            long long nbytes = fset->getFileSize();
+            float bytesps = (float)(nbytes - _nbytesLast[1]) / deltat;
 
-        _nbytesLast[1] = nbytes;
+            _nbytesLast[1] = nbytes;
 
-        bool warn = fabs(bytesps) < 0.0001;
-        ostr <<
-            (warn ? "<td><font color=red><b>" : "<td>") <<
-            setprecision(0) << bytesps <<
-            (warn ? "</b></font></td>" : "</td>") <<
-            "<td>" << setprecision(2) << nbytes / 1000000.0 << "</td>";
-        int err = _fileset->getLastErrno();
-        warn = err != 0;
-        ostr <<
-            (warn ? "<td align=left>font color=red><b>" : "<td align=left>") <<
-            "status=" <<
-            (warn ? strerror(err) : "OK") <<
-            (warn ? "</b></font></td>" : "</td>");
-        ostr << "</tr>\n";
+            bool warn = fabs(bytesps) < 0.0001;
+            ostr <<
+                (warn ? "<td><font color=red><b>" : "<td>") <<
+                setprecision(0) << bytesps <<
+                (warn ? "</b></font></td>" : "</td>") <<
+                "<td>" << setprecision(2) << nbytes / 1000000.0 << "</td>";
+            int err = fset->getLastErrno();
+            warn = err != 0;
+            ostr <<
+                (warn ? "<td align=left>font color=red><b>" : "<td align=left>") <<
+                "status=" <<
+                (warn ? strerror(err) : "OK") <<
+                (warn ? "</b></font></td>" : "</td>");
+            ostr << "</tr>\n";
+        }
     }
 }

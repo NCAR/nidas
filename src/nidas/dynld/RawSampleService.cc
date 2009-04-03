@@ -208,7 +208,10 @@ void RawSampleService::disconnected(SampleInput* input) throw()
     Worker* worker = wi->second;
     worker->interrupt();
     _workers.erase(input);
+    size_t ds = _dsms.size();
     _dsms.erase(input);
+    if (_dsms.size() + 1 != ds)
+        WLOG(("RawSampleService: disconnected, input not found in _dsms map, size=%d",ds));
 }
 RawSampleService::Worker::Worker(RawSampleService* svc, 
     SampleInputStream* input): Thread(svc->getName()),_svc(svc),_input(input)
