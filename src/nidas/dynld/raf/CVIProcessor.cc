@@ -203,7 +203,7 @@ void CVIProcessor::attachLVInput(const SampleTag* tag)
 }
 
 
-void CVIProcessor::disconnect(SampleInput* input) throw(n_u::IOException)
+void CVIProcessor::disconnect(SampleInput* input) throw()
 {
     if (_resampler) _resampler->disconnect(&_avgWrapper);
     input->removeProcessedSampleClient(&_averager);

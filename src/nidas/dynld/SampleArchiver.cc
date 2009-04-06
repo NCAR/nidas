@@ -65,7 +65,7 @@ void SampleArchiver::connect(SampleInput* newinput) throw(n_u::IOException)
     SampleIOProcessor::connect(_input);
 }
  
-void SampleArchiver::disconnect(SampleInput* oldinput) throw(n_u::IOException)
+void SampleArchiver::disconnect(SampleInput* oldinput) throw()
 {
     if (!_input) return;
     assert(_input == oldinput);

@@ -18,6 +18,7 @@
 #include <iostream>
 
 #include <unistd.h>
+#include <sys/socket.h>
 #include <cstring> // memcpy()
 
 using namespace nidas::core;
@@ -41,11 +42,8 @@ void XMLFdFormatTarget:: flush() throw(n_u::IOException)
     XMLByte* eob = fDataBuf + fIndex;
     for (XMLByte* bp = fDataBuf; bp < eob; ) {
 	int l;
-	// std::cerr << "XMLFdFormatTarget writing: " <<
-	// 	std::string((char*)bp,0,(20 > fIndex ? fIndex : 20)) << std::endl;
-	if ((l = ::write(fd,bp,eob-bp)) < 0)
+	if ((l = ::send(fd,bp,eob-bp,MSG_NOSIGNAL)) < 0)
 	    throw n_u::IOException(name,"write",errno);
-	// std::cerr << "XMLFdFormatTarget wrote: " << l << std::endl;
 	bp += l;
     }
     fIndex = 0;

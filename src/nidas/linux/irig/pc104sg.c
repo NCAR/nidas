@@ -125,6 +125,7 @@ enum clock
         USER_OVERRIDE,          // clock has been overridden
 };
 
+#define INTERRUPT_WATCHDOG
 #ifdef INTERRUPT_WATCHDOG
 static struct workqueue_struct * work_queue = 0;
 #endif

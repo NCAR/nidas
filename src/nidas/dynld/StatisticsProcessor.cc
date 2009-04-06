@@ -231,7 +231,7 @@ void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
     SampleIOProcessor::connect(input);
 }
 
-void StatisticsProcessor::disconnect(SampleInput* input) throw(n_u::IOException)
+void StatisticsProcessor::disconnect(SampleInput* input) throw()
 {
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = crunchers.begin(); ci != crunchers.end(); ++ci) {

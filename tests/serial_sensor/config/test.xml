@@ -15,12 +15,12 @@
        <server>
             <service class="XMLConfigService">
                 <output>
-                    <socket type="mcaccept"/>
+                    <socket port="30010" type="mcaccept"/>
                 </output>
             </service>
             <service class="RawSampleService">
                 <input class="RawSampleInputStream">
-                    <socket type="mcaccept"/>
+                    <socket port="30010" type="mcaccept"/>
                 </input>
                 <processor class="SampleArchiver">
                     <output class="SampleOutputStream">
@@ -114,7 +114,7 @@
                 </fileset>
             </output>
             <output class="RawSampleOutputStream" sorterLength="0">
-                <socket type="mcrequest"/>
+                <socket port="30010" type="mcrequest"/>
             </output>
 	</dsm>
     </site>

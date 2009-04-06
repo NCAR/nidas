@@ -66,7 +66,7 @@ public:
      * Disconnect a SampleInput from this StatisticsProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    void disconnect(SampleInput*) throw(nidas::util::IOException);
+    void disconnect(SampleInput*) throw();
 
     /**
      * Do common operations necessary when a output has connected:

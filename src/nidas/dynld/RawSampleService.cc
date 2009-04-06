@@ -283,14 +283,15 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 	    "%s: %s: %s",
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
+
+    _input->flush();
+    _svc->disconnected(_input);
+    for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
+        SampleIOProcessor* processor = *pi;
+        processor->disconnect(_input);
+    }
+
     try {
-        _input->flush();
-        _svc->disconnected(_input);
-	list<SampleIOProcessor*>::const_iterator pi;
-	for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
-	    SampleIOProcessor* processor = *pi;
-	    processor->disconnect(_input);
-	}
 	_input->close();
     }
     catch(const n_u::IOException& e) {
@@ -306,7 +307,7 @@ void RawSampleService::printClock(ostream& ostr) throw()
     dsm_time_t tt = 0;
     if (_merger) tt = _merger->getLastInputTimeTag();
     if (tt > 0LL)
-        ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S") << "</clock>\n";
+        ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>\n";
     else
         ostr << "<clock>Not active</clock>\n";
 }

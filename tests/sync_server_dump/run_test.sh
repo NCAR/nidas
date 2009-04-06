@@ -3,6 +3,11 @@
 # Do a short test of sync_server, sync_dump.
 
 export PROJ_DIR=$PWD/config
+
+export FLIGHT=test123
+
+# To look at the latitude data
+# data_dump -i 4,4072 -p data/dsm_20060908_200303.ads
  
 echo "running sync_server in the background"
 valgrind /opt/local/nidas/x86/bin/sync_server data/dsm_20060908_200303.ads \

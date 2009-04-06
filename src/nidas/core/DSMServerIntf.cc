@@ -51,7 +51,8 @@ int DSMServerIntf::run() throw(n_u::Exception)
   XmlRpc::setVerbosity(1);
 
   // Create the server socket on the specified port
-  _xmlrpc_server->bindAndListen(ADS_XMLRPC_PORT);
+  if (!_xmlrpc_server->bindAndListen(ADS_XMLRPC_PORT))
+    throw n_u::IOException("XMLRpcPort","bind",errno);
 
   // Enable introspection
   _xmlrpc_server->enableIntrospection(true);

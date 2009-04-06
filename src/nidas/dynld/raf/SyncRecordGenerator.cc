@@ -68,8 +68,7 @@ void SyncRecordGenerator::connect(SampleInput* newinput)
     SampleIOProcessor::connect(_input);
 }
  
-void SyncRecordGenerator::disconnect(SampleInput* oldinput)
-	throw(n_u::IOException)
+void SyncRecordGenerator::disconnect(SampleInput* oldinput) throw()
 {
     if (!_input) return;
     assert(_input == oldinput);

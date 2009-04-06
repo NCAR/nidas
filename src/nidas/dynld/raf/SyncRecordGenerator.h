@@ -47,7 +47,7 @@ public:
 
     void connect(SampleInput* input) throw(nidas::util::IOException);
     
-    void disconnect(SampleInput* input) throw(nidas::util::IOException);
+    void disconnect(SampleInput* input) throw();
 
     void connected(SampleOutput*,SampleOutput* output) throw();
 

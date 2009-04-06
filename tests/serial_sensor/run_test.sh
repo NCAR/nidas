@@ -6,10 +6,26 @@ valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
 }
 
-# kill any existing dsm processes
-if pgrep -f "valgrind dsm" > /dev/null; then
-    pkill -9 -f "valgrind dsm"
+kill_dsm() {
+# send a TERM signal to dsm process
+nkill=0
+dsmpid=`pgrep -f "valgrind dsm -d"`
+if [ -n "$dsmpid" ]; then
+    while ps -p $dsmpid > /dev/null; do
+        if [ $nkill -gt 5 ]; then
+            echo "Doing kill -9 $dsmpid"
+            kill -9 $dsmpid
+        else
+            echo "Doing kill -TERM $dsmpid"
+            kill -TERM $dsmpid
+        fi
+        nkill=$(($nkill + 1))
+        sleep 5
+    done
 fi
+}
+
+kill_dsm
 
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo PATH=$PATH
@@ -25,7 +41,7 @@ echo PATH=$PATH
 # Start sensor simulations on pseudo-terminals.
 # Once sensor_sim opens the pseudo-terminal it does a kill -STOP on itself.
 # After starting the sensor_sims, this script then starts the dsm process.
-# This script scans the dsm process output for an "opened tmp/testN" message
+# This script scans the dsm process output for an "opening tmp/testN" message
 # indicating that the the dsm process has opened the device. At that point
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
@@ -57,10 +73,10 @@ while ! [ -f tmp/dsm.log ]; do
     sleep 1
 done
 
-# look for "opened" messages in dsm output
-ndone=0
+# look for "opening" messages in dsm output
 sleep=0
-sleepmax=20
+sleepmax=30
+ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${pids[$n]} -gt 0 ]; then
@@ -78,9 +94,10 @@ while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
 done
 
 if [ $sleep -ge $sleepmax ]; then
-    echo "Cannot find \"opened\" messages in dsm output."
+    echo "Cannot find \"opening\" messages in dsm output."
     echo "dsm process is apparently not running successfully."
     echo "serial_sensor test failed"
+    kill_dsm
     exit 1
 fi
 
@@ -103,20 +120,7 @@ while true; do
     [ $ndone -eq $nsensors ] && break
 done
 
-# send a TERM signal to dsm process
-nkill=0
-dsmpid=`pgrep -f "valgrind dsm"`
-while ps -p $dsmpid > /dev/null; do
-    if [ $nkill -gt 5 ]; then
-        echo "Doing kill -9 $dsmpid"
-        kill -9 $dsmpid
-    else
-        echo "Doing kill -TERM $dsmpid"
-        kill -TERM $dsmpid
-    fi
-    nkill=$(($nkill + 1))
-    sleep 10
-done
+kill_dsm
 
 # check output data file for the expected number of samples
 ofiles=(tmp/localhost_*)

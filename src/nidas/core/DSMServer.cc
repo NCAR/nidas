@@ -585,8 +585,8 @@ void DSMServer::waitOnServices() throw()
 	if (_quit || _restart) break;
     }
 
-    killStatusThread();
     killXmlRpcThread();
+    killStatusThread();
 
     interruptServices();	
 

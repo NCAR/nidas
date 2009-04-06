@@ -155,7 +155,7 @@ void SampleIOProcessor::connect(SampleInput* input) throw(n_u::IOException)
     }
 }
  
-void SampleIOProcessor::disconnect(SampleInput* input) throw(n_u::IOException)
+void SampleIOProcessor::disconnect(SampleInput* input) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s is disconnecting from %s",

@@ -6,10 +6,47 @@ valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
 }
 
-# kill any existing dsm processes
-if pgrep -f "valgrind dsm" > /dev/null; then
-    pkill -9 -f "valgrind dsm"
+kill_dsm() {
+# send a TERM signal to dsm process
+nkill=0
+dsmpid=`pgrep -f "valgrind dsm -d"`
+if [ -n "$dsmpid" ]; then
+    while ps -p $dsmpid > /dev/null; do
+        if [ $nkill -gt 5 ]; then
+            echo "Doing kill -9 $dsmpid"
+            kill -9 $dsmpid
+        else
+            echo "Doing kill -TERM $dsmpid"
+            kill -TERM $dsmpid
+        fi
+        nkill=$(($nkill + 1))
+        sleep 5
+    done
 fi
+}
+
+kill_dsm_server() {
+# send a TERM signal to dsm_server process
+nkill=0
+dsmpid=`pgrep -f "valgrind dsm_server"`
+if [ -n "$dsmpid" ]; then
+    while ps -p $dsmpid > /dev/null; do
+        if [ $nkill -gt 5 ]; then
+            echo "Doing kill -9 $dsmpid"
+            kill -9 $dsmpid
+        else
+            echo "Doing kill -TERM $dsmpid"
+            kill -TERM $dsmpid
+        fi
+        nkill=$(($nkill + 1))
+        sleep 5
+    done
+fi
+}
+
+# kill any existing dsm processes
+kill_dsm
+kill_dsm_server
 
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo PATH=$PATH
@@ -47,9 +84,9 @@ valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
-# start dsm data collection
+# start dsm data collection. Use port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind dsm -d > tmp/dsm.log 2>&1 &
+valgrind dsm -d mcsock::30010 > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -81,6 +118,8 @@ if [ $sleep -ge $sleepmax ]; then
     echo "dsm process is apparently not running successfully."
     echo "Perhaps a firewall is blocking the configuration multicast?"
     echo "serial_sensor test failed"
+    kill_dsm
+    kill_dsm_server
     exit 1
 fi
 
@@ -102,35 +141,8 @@ while true; do
     [ $ndone -eq $nsensors ] && break
 done
 
-# send a TERM signal to dsm process
-nkill=0
-dsmpid=`pgrep -f "valgrind dsm -d"`
-while ps -p $dsmpid > /dev/null; do
-    if [ $nkill -gt 5 ]; then
-        echo "Doing kill -9 $dsmpid"
-        kill -9 $dsmpid
-    else
-        echo "Doing kill -TERM $dsmpid"
-        kill -TERM $dsmpid
-    fi
-    nkill=$(($nkill + 1))
-    sleep 5
-done
-
-# send a TERM signal to dsm_server process
-nkill=0
-dsmpid=`pgrep -f "valgrind dsm_server"`
-while ps -p $dsmpid > /dev/null; do
-    if [ $nkill -gt 5 ]; then
-        echo "Doing kill -9 $dsmpid"
-        kill -9 $dsmpid
-    else
-        echo "Doing kill -TERM $dsmpid"
-        kill -TERM $dsmpid
-    fi
-    nkill=$(($nkill + 1))
-    sleep 5
-done
+kill_dsm
+kill_dsm_server
 
 # check output data file for the expected number of samples
 ofiles=(tmp/localhost_*)

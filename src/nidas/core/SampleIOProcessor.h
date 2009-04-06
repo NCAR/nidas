@@ -94,7 +94,7 @@ public:
      * Disconnect a SampleInput from this SampleIOProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    virtual void disconnect(SampleInput*) throw(nidas::util::IOException);
+    virtual void disconnect(SampleInput*) throw();
 
     /**
      * Do common operations necessary when a output has connected:

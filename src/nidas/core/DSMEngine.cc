@@ -671,12 +671,22 @@ DOMDocument* DSMEngine::requestXMLConfig(
         std::string sockName = configSock->getRemoteSocketAddress().toString();
         XMLFdInputSource sockSource(sockName,configSock->getFd());
 	doc = parser->parse(sockSource);
+        configSock->close();
+    }
+    catch(const n_u::IOException& e) {
+        ELOG(("DSMEngine::requestXMLConfig:") << e.what());
+        configSock->close();
+        throw e;
+    }
+    catch(const nidas::core::XMLException& xe) {
+        ELOG(("DSMEngine::requestXMLConfig:") << xe.what());
+        configSock->close();
+        throw xe;
     }
     catch(...) {
-	configSock->close();
+        configSock->close();
 	throw;
     }
-    configSock->close();
     return doc;
 }
 

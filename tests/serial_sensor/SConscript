@@ -9,14 +9,22 @@ ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 dsm = env['NIDAS_APPS']['dsm']
+dsm_server = env['NIDAS_APPS']['dsm_server']
 data_stats = env['NIDAS_APPS']['data_stats']
 sensor_sim = env['NIDAS_APPS']['sensor_sim']
 path = env.subst("${TARGET.dir}", target=dsm)
 env.PrependENVPath('PATH', path)
 
-depends = ["run_test.sh", dsm, data_stats, sensor_sim]
-runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
-env.Precious(runtest)
-env.AlwaysBuild(runtest)
-env.Alias('test', runtest)
-env.Alias('sstest', runtest)
+depends1 = ["run_test.sh",  dsm, data_stats, sensor_sim]
+runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])
+
+depends2 = ["run_test_2.sh", dsm_server, dsm, data_stats, sensor_sim]
+runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test.sh"])
+
+testlist = [runtest1]
+# testlist = [runtest1,runtest2]
+
+env.Precious(testlist)
+env.AlwaysBuild(testlist)
+env.Alias('test', testlist)
+env.Alias('sstest', testlist)
