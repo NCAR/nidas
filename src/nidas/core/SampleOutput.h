@@ -97,11 +97,11 @@ public:
 
     virtual const DSMConfig* getDSMConfig() const = 0;
 
-    virtual long long getNumOutputBytes() const { return 0; }
+    virtual long long getNumReceivedBytes() const { return 0; }
 
-    virtual size_t getNumOutputSamples() const { return 0; }
+    virtual size_t getNumReceivedSamples() const { return 0; }
 
-    virtual dsm_time_t getLastOutputTimeTag() const { return 0LL; }
+    virtual dsm_time_t getLastReceivedTimeTag() const { return 0LL; }
 
 protected:
 

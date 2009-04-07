@@ -25,6 +25,7 @@
 #include <linux/types.h>
 #else
 #include <sys/types.h>
+#include <stdint.h>
 #endif
 
 /** tenths of milliseconds since 00:00 UTC today */

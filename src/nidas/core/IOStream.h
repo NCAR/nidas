@@ -190,7 +190,7 @@ public:
     void addNumInputBytes(int val) { _nbytesIn += val; }
 
     /**
-     * Total number of bytes written to output.
+     * Total number of bytes written with this IOStream.
      */
     long long getNumOutputBytes() const { return _nbytesOut; }
 

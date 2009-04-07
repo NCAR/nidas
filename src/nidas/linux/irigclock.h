@@ -96,6 +96,11 @@ struct dsm_clock_sample_2 {
     					 * length and data! */
 };
 
+struct pc104sg_status {
+    uint32_t interruptTimeouts;
+    unsigned char extendedStatus;
+};
+
 /**
  * User IOCTLs that we support.
  */
@@ -103,7 +108,7 @@ struct dsm_clock_sample_2 {
 
 #define IRIG_OPEN		_IO(IRIG_IOC_MAGIC, 0)
 #define IRIG_CLOSE		_IO(IRIG_IOC_MAGIC, 1)
-#define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 2, unsigned char)
+#define IRIG_GET_STATUS		_IOR(IRIG_IOC_MAGIC, 2, struct pc104sg_status)
 #define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval32)
 #define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval32)
 #define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval32)

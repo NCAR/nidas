@@ -70,6 +70,8 @@ void SyncRecordSource::connect(SampleInput* input) throw()
 	input->getSampleTags().end());
     list<const SampleTag*>::const_iterator si = itags.begin();
 
+    size_t ns1 = sensors.size();
+
     for ( ; si != itags.end(); ++si) {
 	const SampleTag* stag = *si;
 
@@ -84,17 +86,22 @@ void SyncRecordSource::connect(SampleInput* input) throw()
 
 	DSMSensor* sensor =
 		Project::getInstance()->findSensor(stag->getId());
-	if (!sensor) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-               "sensor matching id=%d,%d, not found",
-               GET_DSM_ID(stag->getId()),GET_SHORT_ID(stag->getId()));
-	    continue;
-	}
+	if (!sensor) continue;
 	addSensor(sensor);
 	// This adds sample tags to input, hence the copy of the
 	// set above.
 	input->addProcessedSampleClient(this,sensor);
     }
+
+    size_t ns2 = sensors.size();
+    if (ns2 == ns1)
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+            "SyncRecordSource: No sensors found for input %s",
+            input->getName().c_str());
+    else
+        n_u::Logger::getInstance()->log(LOG_INFO,
+            "SyncRecordSource: %d sensors found for input %s",ns2-ns1,
+            input->getName().c_str());
     init();
 }
 

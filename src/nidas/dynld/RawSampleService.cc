@@ -305,7 +305,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 void RawSampleService::printClock(ostream& ostr) throw()
 {
     dsm_time_t tt = 0;
-    if (_merger) tt = _merger->getLastInputTimeTag();
+    if (_merger) tt = _merger->getLastReceivedTimeTag();
     if (tt > 0LL)
         ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>\n";
     else
@@ -343,15 +343,15 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         ostr << 
             "<tr class=\"" << oe[zebra++%2] << "\"><td align=left>" <<
             (dsm ? dsm->getName() : "unknown") << "</td>";
-        dsm_time_t tt = input->getLastInputTimeTag();
+        dsm_time_t tt = input->getLastDistributedTimeTag();
         if (tt > 0LL)
             ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
         else
             ostr << "<td><font color=red>Not active</font></td>";
-        size_t nsamps = input->getNumInputSamples();
+        size_t nsamps = input->getNumDistributedSamples();
         float samplesps = (float)(nsamps - _nsampsLast[input]) / deltat;
 
-        long long nbytes = input->getNumInputBytes();
+        long long nbytes = input->getNumDistributedBytes();
         float bytesps = (float)(nbytes - _nbytesLast[input]) / deltat;
 
         _nbytesLast[input] = nbytes;
@@ -374,15 +374,15 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         "merge/sort" << "</td>";
 
     dsm_time_t tt = 0;
-    if (_merger) tt = _merger->getLastInputTimeTag();
+    if (_merger) tt = _merger->getLastReceivedTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
     else
         ostr << "<td><font color=red>Not active</font></td>";
-    size_t nsamps = (_merger ? _merger->getNumInputSamples() : 0);
+    size_t nsamps = (_merger ? _merger->getNumReceivedSamples() : 0);
     float samplesps = (float)(nsamps - _nsampsLast[_merger]) / deltat;
 
-    long long nbytes = (_merger ? _merger->getNumInputBytes() : 0);
+    long long nbytes = (_merger ? _merger->getNumReceivedBytes() : 0);
     float bytesps = (float)(nbytes - _nbytesLast[_merger]) / deltat;
 
     _nbytesLast[_merger] = nbytes;

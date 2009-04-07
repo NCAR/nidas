@@ -174,7 +174,7 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 #endif
     size_t l = _iostream->write(bufs,lens,2);
     if (l > 0) {
-        setLastOutputTimeTag(samp->getTimeTag());
+        setLastReceivedTimeTag(samp->getTimeTag());
         incrementNumOutputSamples();
     }
     return l;

@@ -168,18 +168,18 @@ public:
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
     }
 
-    long long getNumInputBytes() const
+    long long getNumDistributedBytes() const
     {
         if (_iostream) return _iostream->getNumInputBytes();
         return 0;
     }
 
-    size_t getNumInputSamples() const { return _nsamples; }
+    size_t getNumDistributedSamples() const { return _nsamples; }
 
 
-    dsm_time_t getLastInputTimeTag() const { return _lastTimeTag; }
+    dsm_time_t getLastDistributedTimeTag() const { return _lastTimeTag; }
 
-    void setLastInputTimeTag(dsm_time_t val) { _lastTimeTag = val; }
+    void setLastDistributedTimeTag(dsm_time_t val) { _lastTimeTag = val; }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);

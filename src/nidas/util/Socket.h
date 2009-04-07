@@ -89,8 +89,7 @@ private:
  * system socket calls: socket,bind,listen,accept,setsockopt, etc.
  *
  * This is patterned after java.net.SocketImpl.
- * Because we're lazy, this class includes methods for
- * both stream (TCP) and datagram (UDP) sockets.
+ * This class includes methods for both stream (TCP) and datagram (UDP) sockets.
  * We also haven't implemented the socket implementation factory from
  * Java.
  *
@@ -854,8 +853,8 @@ protected:
 };
 
 /**
- * A socket for sending datagrams, either unicast, broadcast or multicast
- * (though the broadcast hasn't been tested).
+ * A socket for sending or receiving datagrams, either unicast,
+ * broadcast or multicast.
  *
  * This class provides the default public copy constructors and 
  * assignment operators.  Objects of this class can be copied and
@@ -872,6 +871,7 @@ protected:
  *	for (;;) {
  *	    sock.recvfrom(buf,sizeof(buf),0,from);
  *	}
+ *	sock.close();
  * \endcode
  * A unicast sender of datagrams on port 9000:
  * \code
@@ -880,6 +880,7 @@ protected:
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
+ *	sock.close();
  * \endcode
  * A multicast sender of datagrams on port 9000:
  * \code
@@ -888,6 +889,7 @@ protected:
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
+ *	sock.close();
  * \endcode
  * A broadcast sender of datagrams on port 9000 to the limited
  * broadcast address of 255.255.255.255. This will fail with a 
@@ -901,6 +903,7 @@ protected:
  *	for (;;) {
  *	    sock.sendto("hello\n",6,0,to);
  *      }
+ *	sock.close();
  * \endcode
  */
 class DatagramSocket {
@@ -912,7 +915,8 @@ public:
     DatagramSocket() throw(IOException);
 
     /**
-     * Create a DatagramSocket bound to a port on all local interfaces.
+     * Create a DatagramSocket bound to a port on all local interfaces
+     * (a local address of INADDR_ANY).
      * @param port Port number, 0<=port<=65535.  If zero, the system
      *        will select an available port number. To find out
      *        which port number was selected, use getLocalPort().
@@ -920,15 +924,21 @@ public:
     DatagramSocket(int port) throw(IOException);
 
     /**
-     * Creates a datagram socket and binds it to a port on
+     * Creates a datagram socket and binds it to a port
      * at the specified local address.
+     * The address should correspond to the address of a local
+     * interface.  Only packets sent the given port and interface,
+     * by unicast, broadcast or multicast will be received.
      */
     DatagramSocket(const Inet4Address& addr,int port)
     	throw(IOException);
 
     /**
-     * Creates a datagram socket and binds it to the specified
-     * local address.
+     * Creates a DatagramSocket and binds it to the specified
+     * local address.  The address should correspond to the
+     * address of a local interface.  Only packets sent
+     * the given port and interface, by unicast, broadcast
+     * or multicast will be received.
      */
     DatagramSocket(const SocketAddress& addr)
     	throw(IOException);
@@ -963,12 +973,22 @@ public:
 	impl.connect(host,port);
     }
 
+    /**
+     * Datagrams are connectionless, so this doesn't establish
+     * a true connection, it just sets the default destination
+     * address for the send() calls.
+     */
     void connect(const Inet4Address& addr, int port)
 	throw(IOException)
     {
 	impl.connect(addr,port);
     }
 
+    /**
+     * Datagrams are connectionless, so this doesn't establish
+     * a true connection, it just sets the default destination
+     * address for the send() calls.
+     */
     void connect(const SocketAddress& addr)
 	throw(IOException)
     {
@@ -976,17 +996,23 @@ public:
     }
 
     /**
-     * Datagrams are connectionless, so this doesn't establish
-     * a true connection, it just sets the default destination
-     * address for the recv() calls.
+     * Bind the DatagramSocket to the specified local address.
+     * The address should correspond to the address of a local
+     * interface.  Only packets sent the given port and interface,
+     * by unicast, broadcast or multicast will be received.
      */
-
     void bind(const Inet4Address& addr, int port)
 	throw(IOException)
     {
 	impl.bind(addr,port);
     }
 
+    /**
+     * Bind the DatagramSocket to the specified local address.
+     * The address should correspond to the address of a local
+     * interface.  Only packets sent the given port and interface,
+     * by unicast, broadcast or multicast will be received.
+     */
     void bind(const SocketAddress& addr)
 	throw(IOException)
     {

@@ -128,9 +128,11 @@ static unsigned char volatile clockState = CODED;
  * 3: 1=Major time has not been set since counter rejam
  * 4: 1=Year not set
  */
-static unsigned char extendedStatus =
+
+static struct pc104sg_status boardStatus = {
     DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
-    DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
+    DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear,
+    0};
 
 static unsigned char lastStatus =
     DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
@@ -845,7 +847,7 @@ static void getTimeFields(struct irigTime *ti, int offset)
          * takes some time before the setYear to DPR takes effect.
          * I saw values of 165 for the year during this time.
          */
-        if (extendedStatus & DP_Extd_Sts_NoYear) {
+        if (boardStatus.extendedStatus & DP_Extd_Sts_NoYear) {
                 // DSMLOG_DEBUG("fixing year=%d to %d\n",ti->year,staticYear);
                 ti->year = staticYear;
         }
@@ -910,7 +912,7 @@ static void getCurrentTime(struct irigTime *ti)
         DSMLOG_DEBUG
             ("%04d %03d %02d:%02d:%02d.%03d %03d %03d,clk=%02d:%02d:%02d.%03d,diff=%d,estat=0x%x,state=%d\n",
              ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec,
-             ti->usec, ti->nsec, hr, mn, sc, tt, td, extendedStatus,
+             ti->usec, ti->nsec, hr, mn, sc, tt, td, boardStatus.extendedStatus,
              clockState);
 #endif
 }
@@ -976,7 +978,7 @@ static int setMajorTime(struct irigTime *ti, int isRT)
         DSMLOG_DEBUG
             ("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, estat=0x%x,state=%d\n",
              ti->year, ti->yday, ti->hour, ti->min, ti->sec, ti->msec,
-             ti->usec, ti->nsec, extendedStatus, clockState);
+             ti->usec, ti->nsec, boardStatus.extendedStatus, clockState);
 #endif
 
         /* The year fields in Dual Port RAM are not technically
@@ -1170,7 +1172,7 @@ static void *pc104sg_100hz_thread(void *param)
         unsigned long nsec_deltat =
             MSEC_PER_THREAD_SIGNAL * NSECS_PER_MSEC;
         struct rtl_timespec timeout;
-        int ntimeouts = 0;
+        boardStatus.interruptTimeouts = 0;
         int status = 0;
         int msecs_since_last_timeout = 0;
 
@@ -1216,10 +1218,10 @@ static void *pc104sg_100hz_thread(void *param)
                                             (MSEC_PER_THREAD_SIGNAL);
                                         increment_hz100_cnt();
                                 }
-                                if (!(ntimeouts++ % 500)) {
+                                if (!(boardStatus.interruptTimeouts++ % 500)) {
                                         DSMLOG_NOTICE
                                             ("thread semaphore timeout #%d, msecs since last timeout=%d\n",
-                                             ntimeouts,
+                                             boardStatus.interruptTimeouts,
                                              msecs_since_last_timeout);
                                         DSMLOG_NOTICE
                                             ("doing ackHeartBeatInt\n");
@@ -1357,7 +1359,7 @@ static inline void checkExtStatus()
          */
 
         if (dp_ram_ext_status_requested) {
-                Get_Dual_Port_RAM(&extendedStatus);
+                Get_Dual_Port_RAM(&boardStatus.extendedStatus);
                 dp_ram_ext_status_requested = 0;
         }
 
@@ -1378,7 +1380,7 @@ static inline void checkExtStatus()
                 // have no time code: then set the clock counters
                 // by the user clock
                 if ((lastStatus & DP_Extd_Sts_Nocode) &&
-                    (extendedStatus & DP_Extd_Sts_Nocode)) {
+                    (boardStatus.extendedStatus & DP_Extd_Sts_Nocode)) {
                         setCounters(&userClock);
                         clockState = USER_SET;
                 }
@@ -1388,7 +1390,7 @@ static inline void checkExtStatus()
                 break;
         case USER_SET:
                 if (!(lastStatus & DP_Extd_Sts_Nocode) &&
-                    !(extendedStatus & DP_Extd_Sts_Nocode)) {
+                    !(boardStatus.extendedStatus & DP_Extd_Sts_Nocode)) {
                         // have good clock again, set counters back to coded clock
                         clockState = RESET_COUNTERS;
                 }
@@ -1424,14 +1426,14 @@ static inline void checkExtStatus()
         // transition from no sync to sync, reset the counters
         if (clockState == CODED &&
             (lastStatus & DP_Extd_Sts_Nosync) &&
-            !(extendedStatus & DP_Extd_Sts_Nosync))
+            !(boardStatus.extendedStatus & DP_Extd_Sts_Nosync))
                 clockState = RESET_COUNTERS;
 
         if (clockState == RESET_COUNTERS) {
                 setCountersToClock();
                 clockState = CODED;
         }
-        lastStatus = extendedStatus;
+        lastStatus = boardStatus.extendedStatus;
 }
 
 /*
@@ -1470,7 +1472,7 @@ static unsigned int pc104sg_isr(unsigned int irq, void *callbackPtr,
                 DSMLOG_DEBUG
                     ("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, stat=0x%x, state=%d\n",
                      ti.year, ti.yday, ti.hour, ti.min, ti.sec, ti.msec,
-                     ti.usec, ti.nsec, extendedStatus, clockState);
+                     ti.usec, ti.nsec, boardStatus.extendedStatus, clockState);
         }
 #endif
 
@@ -1569,7 +1571,7 @@ static void portCallback(void *privateData)
                                 DSMLOG_DEBUG
                                     ("tv=%d.%06d, tt=%d, td=%d, status=0x%x\n",
                                      tv.tv_sec, tv.tv_usec, tt, td,
-                                     extendedStatus);
+                                     boardStatus.extendedStatus);
 #endif
                 }
 
@@ -1585,7 +1587,7 @@ static void portCallback(void *privateData)
 
                 do_gettimeofday((struct timeval*)&dev->samp.data.unixt);
                 irig2timeval(&ti, &dev->samp.data.irigt);
-                dev->samp.data.status = extendedStatus;
+                dev->samp.data.status = boardStatus.extendedStatus;
                 if (!syncOK)
                         dev->samp.data.status |= CLOCK_SYNC_NOT_OK;
 
@@ -1619,7 +1621,7 @@ static void portCallback(void *privateData)
         DSMLOG_DEBUG
             ("%04d %03d %02d:%02d:%02d.%03d %03d %03d, clk=%02d:%02d:%02d.%03d, estat=0x%x,state=%d\n",
              ti.year, ti.yday, ti.hour, ti.min, ti.sec, ti.msec, ti.usec,
-             ti.nsec, hr, mn, sc, tt, extendedStatus, clockState);
+             ti.nsec, hr, mn, sc, tt, boardStatus.extendedStatus, clockState);
 #endif
 
 }
@@ -1667,7 +1669,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
                 retval = close_port(portDev);
                 break;
         case IRIG_GET_STATUS:
-                *((unsigned char *) buf) = extendedStatus;
+                *((unsigned char *) buf) = boardStatus.extendedStatus;
                 retval = 1;
                 break;
         case IRIG_GET_CLOCK:
@@ -1697,7 +1699,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
                         dp_ram_ext_status_requested = 0;
                         spin_unlock_irqrestore(&dp_ram_lock, flags);
 
-                        if (extendedStatus & DP_Extd_Sts_Nocode)
+                        if (boardStatus.extendedStatus & DP_Extd_Sts_Nocode)
                                 setMajorTime(&ti, isRT);
                         else
                                 setYear(ti.year, isRT);
@@ -1724,7 +1726,7 @@ static int ioctlCallback(int cmd, int board, int portNum,
                         dp_ram_ext_status_requested = 0;
                         spin_unlock_irqrestore(&dp_ram_lock, flags);
 
-                        if (extendedStatus & DP_Extd_Sts_Nocode)
+                        if (boardStatus.extendedStatus & DP_Extd_Sts_Nocode)
                                 setMajorTime(&ti, isRT);
                         else
                                 setYear(ti.year, isRT);

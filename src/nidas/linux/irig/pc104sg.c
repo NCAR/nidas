@@ -188,7 +188,7 @@ struct pc104sg_board
          * 3: 1=Major time has not been set since counter rejam
          * 4: 1=Year not set
          */
-        unsigned char ExtendedStatus;
+        struct pc104sg_status status;
 
         unsigned char LastStatus;
 
@@ -280,7 +280,6 @@ struct pc104sg_board
 
         wait_queue_head_t watchdog_waitq;       // wait queue for checking stopped IRQs
 
-        int interruptTimeouts;
 #endif
 
 };
@@ -1093,7 +1092,7 @@ static void getTimeFields(struct irigTime *ti, int offset)
          * takes some time before the setYear to DPR takes effect.
          * I saw values of 165 for the year during this time.
          */
-        if (board.ExtendedStatus & DP_Extd_Sts_NoYear) {
+        if (board.status.extendedStatus & DP_Extd_Sts_NoYear) {
                 // KLOG_DEBUG("fixing year=%d to %d\n", ti->year, StaticYear);
                 ti->year = StaticYear;
         }
@@ -1161,7 +1160,7 @@ static void getCurrentTime(struct irigTime *ti)
                            "clk=%02d:%02d:%02d.%04d, diff=%d tmsec, estat=0x%x, state=%d\n",
                            ti->year, ti->yday, ti->hour, ti->min, ti->sec,
                            ti->msec, ti->usec, ti->nsec, hr, mn, sc,
-                           (int) tt, td, board.ExtendedStatus,
+                           (int) tt, td, board.status.extendedStatus,
                            board.ClockState);
         }
 #endif
@@ -1228,7 +1227,7 @@ static int setMajorTime(struct irigTime *ti)
         KLOG_DEBUG("setMajor=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
                    "estat=0x%x, state=%d\n",
                    ti->year, ti->yday, ti->hour, ti->min, ti->sec,
-                   ti->msec, ti->usec, ti->nsec, board.ExtendedStatus,
+                   ti->msec, ti->usec, ti->nsec, board.status.extendedStatus,
                    board.ClockState);
 #endif
         /* The year fields in Dual Port RAM are not technically
@@ -1498,7 +1497,7 @@ static inline void checkExtendedStatus(void)
         spin_lock(&board.DP_RamLock);
 
         if (board.DP_RamExtStatusRequested) {
-                GetRequestedDualPortRAM(&board.ExtendedStatus);
+                GetRequestedDualPortRAM(&board.status.extendedStatus);
                 board.DP_RamExtStatusRequested = 0;
         }
 
@@ -1523,7 +1522,7 @@ static inline void checkExtendedStatus(void)
                 // have no time code: then set the clock counters
                 // by the user clock
                 if ((board.LastStatus & DP_Extd_Sts_Nocode) &&
-                    (board.ExtendedStatus & DP_Extd_Sts_Nocode)) {
+                    (board.status.extendedStatus & DP_Extd_Sts_Nocode)) {
                         setCounters(&UserClock);
                         board.ClockState = USER_SET;
                 }
@@ -1533,7 +1532,7 @@ static inline void checkExtendedStatus(void)
                 break;
         case USER_SET:
                 if ((board.LastStatus & DP_Extd_Sts_Nocode) == 0 &&
-                    (board.ExtendedStatus & DP_Extd_Sts_Nocode) == 0) {
+                    (board.status.extendedStatus & DP_Extd_Sts_Nocode) == 0) {
                         // have good clock again, set counters back to coded clock
                         board.ClockState = RESET_COUNTERS;
                 }
@@ -1569,7 +1568,7 @@ static inline void checkExtendedStatus(void)
         // transition from no sync to sync, reset the counters
         if (board.ClockState == CODED &&
             (board.LastStatus & DP_Extd_Sts_Nosync) &&
-            ((board.ExtendedStatus & DP_Extd_Sts_Nosync) == 0))
+            ((board.status.extendedStatus & DP_Extd_Sts_Nosync) == 0))
                 board.ClockState = RESET_COUNTERS;
 
         if (board.ClockState == RESET_COUNTERS) {
@@ -1579,7 +1578,7 @@ static inline void checkExtendedStatus(void)
                                   board.counterResets);
                 board.ClockState = CODED;
         }
-        board.LastStatus = board.ExtendedStatus;
+        board.LastStatus = board.status.extendedStatus;
 }
 
 /*
@@ -1627,7 +1626,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                     ("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
                      "stat=0x%x, state=%d\n", ti.year, ti.yday, ti.hour,
                      ti.min, ti.sec, ti.msec, ti.usec, ti.nsec,
-                     board.ExtendedStatus, board.ClockState);
+                     board.status.extendedStatus, board.ClockState);
         }
 #endif
         return ret;
@@ -1659,9 +1658,9 @@ static void interrupt_watchdog(void *work)
                                 board.ClockState = RESET_COUNTERS;      // reset counter on next interrupt
                         atomic_inc(&board.pending100Hz);
                         ackHeartBeatInt();
-                        if (!(board.interruptTimeouts++ % 10))
+                        if (!(board.status.interruptTimeouts++ % 10))
                                 KLOG_WARNING("watchdog timeout #%d waiting for IRIG interrupt, delay=%d\n",
-                                  board.interruptTimeouts,delay);
+                                  board.status.interruptTimeouts,delay);
                 }
         }
 }
@@ -1730,7 +1729,7 @@ static void writeTimeCallback(void *ptr)
         osamp->data.irigt.tv_sec = cpu_to_le32(osamp->data.irigt.tv_sec);
         osamp->data.irigt.tv_usec = cpu_to_le32(osamp->data.irigt.tv_usec);
 
-        osamp->data.status = board.ExtendedStatus;
+        osamp->data.status = board.status.extendedStatus;
         if (!board.SyncOK)
                 osamp->data.status |= CLOCK_SYNC_NOT_OK;
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
@@ -1862,11 +1861,10 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
         switch (cmd) {
         case IRIG_GET_STATUS:
-                if (len != sizeof(board.ExtendedStatus))
+                if (len != sizeof(board.status))
                         break;
                 ret =
-                    copy_to_user(userptr, &board.ExtendedStatus,
-                                 len) ? -EFAULT : len;
+                    copy_to_user(userptr, &board.status,len) ? -EFAULT : len;
                 break;
         case IRIG_GET_CLOCK:
                 if (len != sizeof(tv))
@@ -1895,7 +1893,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 board.DP_RamExtStatusRequested = 0;
                 spin_unlock_irqrestore(&board.DP_RamLock, flags);
 
-                if (board.ExtendedStatus & DP_Extd_Sts_Nocode)
+                if (board.status.extendedStatus & DP_Extd_Sts_Nocode)
                         setMajorTime(&ti);
                 else
                         setYear(ti.year);
@@ -1923,7 +1921,7 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 board.DP_RamExtStatusRequested = 0;
                 spin_unlock_irqrestore(&board.DP_RamLock, flags);
 
-                if (board.ExtendedStatus & DP_Extd_Sts_Nocode)
+                if (board.status.extendedStatus & DP_Extd_Sts_Nocode)
                         setMajorTime(&ti);
                 else
                         setYear(ti.year);
@@ -2017,9 +2015,10 @@ static int __init pc104sg_init(void)
 
         board.counterResets = 0;
 
-        board.ExtendedStatus =
+        board.status.extendedStatus =
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
             DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
+        board.status.interruptTimeouts = 0;
 
         board.LastStatus =
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |

@@ -284,7 +284,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	if (_dataToRead > 0) break;	// no more data in iostream buffer
 
         incrementNumInputSamples();
-        setLastInputTimeTag(_samp->getTimeTag());
+        setLastDistributedTimeTag(_samp->getTimeTag());
 	distribute(_samp);
 	_samp = 0;
         // next read is the header
@@ -373,7 +373,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             _headerToRead = _sheader.getSizeOf();
             _hptr = (char*)&_sheader;
             incrementNumInputSamples();
-            setLastInputTimeTag(tmp->getTimeTag());
+            setLastDistributedTimeTag(tmp->getTimeTag());
             return tmp;
         }
     }
@@ -466,7 +466,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
             _dataToRead -= len;
         }
         incrementNumInputSamples();
-        setLastInputTimeTag(_sheader.getTimeTag());
+        setLastDistributedTimeTag(_sheader.getTimeTag());
 
 	_headerToRead = _sheader.getSizeOf();
 	_hptr = (char*)&_sheader;

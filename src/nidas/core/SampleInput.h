@@ -30,7 +30,7 @@ class DSMSensor;
 /**
  * Interface of an input SampleSource. Typically a SampleInput is
  * reading serialized samples from a socket or file, and
- * the sending them on.
+ * then sending them on.
  *
  */
 class SampleInput: public SampleSource
@@ -51,11 +51,14 @@ public:
 
     virtual void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0) = 0;
 
-    virtual size_t getNumInputSamples() const { return 0; }
+    virtual size_t getNumDistributedSamples() const { return 0; }
 
-    virtual long long getNumInputBytes() const { return 0; }
+    virtual long long getNumDistributedBytes() const { return 0; }
 
-    virtual dsm_time_t getLastInputTimeTag() const { return 0LL; }
+    /**
+     * Timetag of last distributed time tag from this SampleInput.
+     */
+    virtual dsm_time_t getLastDistributedTimeTag() const { return 0LL; }
 
 };
 
@@ -165,36 +168,45 @@ public:
     {
         return _dsmConfigs;
     }
+
     /**
-     * Total number of input bytes into the merger.
+     * Total number of bytes received.
      */
-    long long getNumInputBytes() const
+    long long getNumReceivedBytes() const
     {
-        return _inputSorter.getNumInputBytes();
+        return _inputSorter.getNumReceivedBytes();
     }
 
     /**
-     * Number of input samples.
+     * Total number of samples received.
      */
-    size_t getNumInputSamples() const
+    long long getNumReceivedSamples() const
     {
-        return _inputSorter.getNumInputSamples();
+        return _inputSorter.getNumReceivedSamples();
     }
 
     /**
-     * Timetag of most recent sample read into the merger.
+     * Timetag of most recent sample inserted into the merger.
      */
-    dsm_time_t getLastInputTimeTag() const
+    dsm_time_t getLastReceivedTimeTag() const
     {
-        return _inputSorter.getLastInputTimeTag();
+        return _inputSorter.getLastReceivedTimeTag();
     }
 
     /**
-     * Timetag of most recent sample inserted in the sorter.
+     * Number of samples distributed to my clients.
      */
-    dsm_time_t getLastOutputTimeTag() const
+    size_t getNumDistributedSamples() const
     {
-        return _inputSorter.getLastOutputTimeTag();
+        return _inputSorter.getNumDistributedSamples();
+    }
+
+    /**
+     * Timetag of most recent sample distributed by the merger.
+     */
+    dsm_time_t getLastDistributedTimeTag() const
+    {
+        return _inputSorter.getLastDistributedTimeTag();
     }
 
     /**

@@ -33,8 +33,9 @@ namespace n_u = nidas::util;
 SampleSorter::SampleSorter(const string& name) :
     Thread(name),
     _sorterLengthUsec(250*USECS_PER_MSEC),
-    _lastInputTimeTag(0),_lastOutputTimeTag(0),
-    _nInputBytes(0),_nInputSamples(0),_nOutputSamples(0),
+    _lastDistributedTimeTag(0),_lastReceivedTimeTag(0),
+    _nReceivedBytes(0),_nReceivedSamples(0),
+    _nDistributedBytes(0),_nDistributedSamples(0),
     _heapMax(100000000),_heapSize(0),_heapBlock(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFlush(false),_flushed(false),
@@ -207,8 +208,9 @@ int SampleSorter::run() throw(n_u::Exception)
 	    else _clientMapLock.unlock();
 
 	    distribute(s);
-            _lastOutputTimeTag = s->getTimeTag();
-            _nOutputSamples++;
+            _lastDistributedTimeTag = s->getTimeTag();
+            _nDistributedSamples++;
+            _nDistributedBytes += s->getHeaderLength() + s->getDataByteLength();
 	}
 	heapDecrement(ssum);
 
@@ -294,20 +296,20 @@ void SampleSorter::finish() throw()
 bool SampleSorter::receive(const Sample *s) throw()
 {
 
-    _nInputSamples++;
+    _nReceivedSamples++;
 
     size_t slen = s->getDataByteLength() + s->getHeaderLength();
-    _nInputBytes += slen;
+    _nReceivedBytes += slen;
 
-    _lastInputTimeTag = s->getTimeTag();
+    _lastReceivedTimeTag = s->getTimeTag();
 
     if (_realTime) {
         dsm_time_t systt = getSystemTime();
-        if (_lastInputTimeTag > systt + USECS_PER_SEC / 4) {
+        if (_lastReceivedTimeTag > systt + USECS_PER_SEC / 4) {
 	    if (!(_realTimeFutureSamples++ % _discardWarningCount))
 	    	WLOG(("discarded sample with timetag in future by %f secs. time: ",
-                    (float)(_lastInputTimeTag - systt) / USECS_PER_SEC) <<
-                    n_u::UTime(_lastInputTimeTag).format(true,"%Y %b %d %H:%M:%S.%3f") <<
+                    (float)(_lastReceivedTimeTag - systt) / USECS_PER_SEC) <<
+                    n_u::UTime(_lastReceivedTimeTag).format(true,"%Y %b %d %H:%M:%S.%3f") <<
                     " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SPS_ID(s->getId()) <<
                     " total future discards=" << _realTimeFutureSamples);
 	    return false;

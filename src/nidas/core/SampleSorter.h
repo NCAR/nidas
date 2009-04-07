@@ -126,28 +126,38 @@ public:
     void addSampleTag(const SampleTag* tag,SampleClient*)
     	throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Total number of input bytes.
-     */
-    long long getNumInputBytes() const
+    long long getNumReceivedBytes() const
     {
-        return _nInputBytes;
+        return _nReceivedBytes;
     }
 
     /**
-     * Number of input samples.
+     * Total number of samples received.
      */
-    size_t getNumInputSamples() const { return _nInputSamples; }
+    long long getNumReceivedSamples() const
+    {
+        return _nReceivedSamples;
+    }
 
     /**
      * Timetag of most recent sample inserted in the sorter.
      */
-    dsm_time_t getLastInputTimeTag() const { return _lastInputTimeTag; }
+    dsm_time_t getLastReceivedTimeTag() const { return _lastReceivedTimeTag; }
+
+    long long getNumDistributedBytes() const
+    {
+        return _nDistributedBytes;
+    }
 
     /**
-     * Timetag of most recent sample output from the sorter.
+     * Number of samples distributed to my clients.
      */
-    dsm_time_t getLastOutputTimeTag() const { return _lastOutputTimeTag; }
+    size_t getNumDistributedSamples() const { return _nDistributedSamples; }
+
+    /**
+     * Timetag of most recent sample distributed to my clients.
+     */
+    dsm_time_t getLastDistributedTimeTag() const { return _lastDistributedTimeTag; }
 
     /**
      * Number of samples discarded because of _heapSize > _heapMax
@@ -206,15 +216,17 @@ private:
      */
     void inline heapDecrement(size_t bytes);
 
-    dsm_time_t _lastInputTimeTag;
+    dsm_time_t _lastDistributedTimeTag;
 
-    dsm_time_t _lastOutputTimeTag;
+    dsm_time_t _lastReceivedTimeTag;
 
-    long long _nInputBytes;
+    long long _nReceivedBytes;
 
-    size_t _nInputSamples;
+    size_t _nReceivedSamples;
 
-    size_t _nOutputSamples;
+    long long _nDistributedBytes;
+
+    size_t _nDistributedSamples;
 
     nidas::util::Cond _sampleSetCond;
 

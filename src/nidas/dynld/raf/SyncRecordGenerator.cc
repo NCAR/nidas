@@ -128,16 +128,16 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* row
     ostr <<
         "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen input</td>";
     dsm_time_t tt = 0LL;
-    if (_input) tt = _input->getLastInputTimeTag();
+    if (_input) tt = _input->getLastDistributedTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") <<
             "</td>";
     else
         ostr << "<td><font color=red>>Not active</font></td>";
-    size_t nsamps = (_input ? _input->getNumInputSamples() : 0);
+    size_t nsamps = (_input ? _input->getNumDistributedSamples() : 0);
     float samplesps = (float)(nsamps - _numInputSampsLast) / deltat;
 
-    long long nbytes = (_input ? _input->getNumInputBytes() : 0);
+    long long nbytes = (_input ? _input->getNumDistributedBytes() : 0);
     float bytesps = (float)(nbytes - _numInputBytesLast) / deltat;
 
     _numInputSampsLast = nsamps;
@@ -156,16 +156,16 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* row
     ostr <<
         "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen output</td>";
     tt = 0LL;
-    if (_output) tt = _output->getLastOutputTimeTag();
+    if (_output) tt = _output->getLastReceivedTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") <<
             "</td>";
     else
         ostr << "<td><font color=red>>Not active</font></td>";
-    nsamps = (_output ? _output->getNumOutputSamples() : 0);
+    nsamps = (_output ? _output->getNumReceivedSamples() : 0);
     samplesps = (float)(nsamps - _numOutputSampsLast) / deltat;
 
-    nbytes = (_output ? _output->getNumOutputBytes() : 0);
+    nbytes = (_output ? _output->getNumReceivedBytes() : 0);
     bytesps = (float)(nbytes - _numOutputBytesLast) / deltat;
 
     _numOutputSampsLast = nsamps;

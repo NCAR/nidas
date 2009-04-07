@@ -69,17 +69,17 @@ public:
     size_t write(const void* buf, size_t len)
     	throw(nidas::util::IOException);
 
-    long long getNumOutputBytes() const
+    long long getNumReceivedBytes() const
     {
         if (_iostream) return _iostream->getNumOutputBytes();
         return 0;
     }
 
-    size_t getNumOutputSamples() const { return _nsamples; }
+    size_t getNumReceivedSamples() const { return _nsamples; }
 
-    dsm_time_t getLastOutputTimeTag() const { return _lastTimeTag; }
+    dsm_time_t getLastReceivedTimeTag() const { return _lastTimeTag; }
 
-    void setLastOutputTimeTag(dsm_time_t val) { _lastTimeTag = val; }
+    void setLastReceivedTimeTag(dsm_time_t val) { _lastTimeTag = val; }
 
 protected:
 

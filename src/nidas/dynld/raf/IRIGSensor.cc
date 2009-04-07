@@ -100,7 +100,7 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
  */
 dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 {
-    unsigned char status;
+    struct pc104sg_status status;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
     struct timeval32 tval;
@@ -108,7 +108,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 
 #ifdef DEBUG
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	tval.tv_usec << ", status=0x" << hex << (int)status << dec << endl;
+	tval.tv_usec << ", status=0x" << hex << (int)status.extendedStatus << dec << endl;
 #endif
     return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
@@ -125,22 +125,26 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 {
     dsm_time_t unixTime,unixTimeLast=0;
     dsm_time_t irigTime,irigTimeLast=0;
-    unsigned char status;
 
+    struct pc104sg_status status;
+    unsigned char estatus;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-    n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)status,
-    	statusString(status,false).c_str());
+    estatus = status.extendedStatus;
 
-    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)status << dec << 
-    // 	" (" << statusString(status,false) << ')' << endl;
+
+    n_u::Logger::getInstance()->log(LOG_DEBUG,
+    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)estatus,
+    	statusString(estatus,false).c_str());
+
+    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)estatus << dec << 
+    // 	" (" << statusString(estatus,false) << ')' << endl;
 
     irigTime = getIRIGTime();
     unixTime = getSystemTime();
 
-    if ((status & CLOCK_STATUS_NOCODE) || (status & CLOCK_STATUS_NOYEAR) ||
-	(status & CLOCK_STATUS_NOMAJT)) {
+    if ((estatus & CLOCK_STATUS_NOCODE) || (estatus & CLOCK_STATUS_NOYEAR) ||
+	(estatus & CLOCK_STATUS_NOMAJT)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
@@ -164,6 +168,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	::nanosleep(&nsleep,0);
 
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+        estatus = status.extendedStatus;
 
 	irigTime = getIRIGTime();
 	unixTime = nidas::core::getSystemTime();
@@ -254,17 +259,24 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     }
     dsm_time_t unixTime;
     dsm_time_t irigTime;
-    unsigned char status;
+    struct pc104sg_status status;
+    unsigned char estatus;
 
     try {
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+        estatus = status.extendedStatus;
 
-	ostr << "<td align=left>" << statusString(status,true) <<
-		" (status=0x" << hex << (int)status << dec << ')';
+        bool iwarn = status.interruptTimeouts > 5;
+
+	ostr << "<td align=left>" << statusString(estatus,true) <<
+		" (status=0x" << hex << (int)estatus << dec << ')';
 	irigTime = getIRIGTime();
 	unixTime = getSystemTime();
 	ostr << ", IRIG-UNIX=" << fixed << setprecision(3) <<
-		(float)(irigTime - unixTime)/USECS_PER_SEC << " sec</td>" << endl;
+		(float)(irigTime - unixTime)/USECS_PER_SEC << " sec, " <<
+	(iwarn ? "<font color=red><b>timeouts=" : "timeouts=") <<
+            status.interruptTimeouts <<
+	(iwarn ? "</b></font></td>" : "</td>") << endl;
     }
     catch(const n_u::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;
