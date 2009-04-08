@@ -202,6 +202,14 @@ public:
     }
 
     /**
+     * Number of bytes distributed to my clients.
+     */
+    long long getNumDistributedBytes() const
+    {
+        return _inputSorter.getNumDistributedBytes();
+    }
+
+    /**
      * Timetag of most recent sample distributed by the merger.
      */
     dsm_time_t getLastDistributedTimeTag() const

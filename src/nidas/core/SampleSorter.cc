@@ -207,10 +207,10 @@ int SampleSorter::run() throw(n_u::Exception)
 	    }
 	    else _clientMapLock.unlock();
 
-	    distribute(s);
             _lastDistributedTimeTag = s->getTimeTag();
             _nDistributedSamples++;
             _nDistributedBytes += s->getHeaderLength() + s->getDataByteLength();
+	    distribute(s);
 	}
 	heapDecrement(ssum);
 
