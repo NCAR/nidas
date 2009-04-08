@@ -1997,7 +1997,10 @@ static int __init pc104sg_init(void)
         int irq;
 
 #ifdef INTERRUPT_WATCHDOG
-        work_queue = create_singlethread_workqueue("pc104sg_watchdog");
+	// Note: in 2.6.11/linux-source-2.6.11.11-arcom1/kernel/workqueue.c, there
+	// is a statement: BUG_ON(strlen(name) > 10);
+	// So keep this name under 10 characters. This is not an issue in 2.6.16 and forward.
+        work_queue = create_singlethread_workqueue("pc104sg_wd");
 #endif
 
         /* initialize clock counters that external modules grab */

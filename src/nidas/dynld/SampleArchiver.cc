@@ -30,17 +30,15 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleArchiver)
 
 SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),
-    _nsampsLast(0)
+    _nsampsLast(0),_nbytesLast(0)
 {
-    _nbytesLast[0] = _nbytesLast[1] = 0;
     setName("SampleArchiver");
 }
 
 SampleArchiver::SampleArchiver(const SampleArchiver& x):
     SampleIOProcessor((const SampleIOProcessor&)x),_input(0),
-    _nsampsLast(0)
+    _nsampsLast(0),_nbytesLast(0)
 {
-    _nbytesLast[0] = _nbytesLast[1] = 0;
     setName("SampleArchiver");
 }
 
@@ -130,10 +128,10 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStrip
     float samplesps = (float)(nsamps - _nsampsLast) / deltat;
 
     long long nbytes = (_input ? _input->getNumDistributedBytes() : 0);
-    float bytesps = (float)(nbytes - _nbytesLast[0]) / deltat;
+    float bytesps = (float)(nbytes - _nbytesLast) / deltat;
 
     _nsampsLast = nsamps;
-    _nbytesLast[0] = nbytes;
+    _nbytesLast = nbytes;
 
     bool warn = fabs(bytesps) < 0.0001;
     ostr <<
@@ -154,9 +152,9 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStrip
                 fset->getCurrentName() << "</td>";
 
             long long nbytes = fset->getFileSize();
-            float bytesps = (float)(nbytes - _nbytesLast[1]) / deltat;
+            float bytesps = (float)(nbytes - _nbytesLastByFileSet[fset]) / deltat;
 
-            _nbytesLast[1] = nbytes;
+            _nbytesLastByFileSet[fset] = nbytes;
 
             bool warn = fabs(bytesps) < 0.0001;
             ostr <<

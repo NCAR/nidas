@@ -78,7 +78,9 @@ protected:
     /**
      * Saved between calls to printStatus in order to compute data rates.
      */
-    long long _nbytesLast[2];
+    long long _nbytesLast;
+
+    std::map<const nidas::dynld::FileSet*,long long> _nbytesLastByFileSet;
 
 };
 
