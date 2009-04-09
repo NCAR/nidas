@@ -466,7 +466,7 @@
             <xsd:element ref="fileset"/>
         </xsd:choice>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
-        <xsd:attribute name="sorterLength" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="sorterLength" type="xsd:float"/>
         <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
    </xsd:complexType>
 </xsd:element>

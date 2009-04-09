@@ -19,7 +19,7 @@
                 </output>
             </service>
             <service class="RawSampleService">
-                <input class="RawSampleInputStream" sorterLength="251" heapMax="1000000">
+                <input class="RawSampleInputStream" sorterLength=".251" heapMax="1000000">
                     <socket port="30010" type="mcaccept"/>
                 </input>
                 <processor class="SampleArchiver">
