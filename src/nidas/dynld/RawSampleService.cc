@@ -61,6 +61,15 @@ void RawSampleService::schedule() throw(n_u::Exception)
     _merger = new SampleInputMerger;
     _merger->setRealTime(true);
 
+    list<SampleInputStream*>::iterator li = _inputs.begin();
+    for ( ; li != _inputs.end(); ++li) {
+        SampleInputStream* input = *li;
+        _merger->setSorterLengthMsecs(input->getSorterLengthMsecs());
+        _merger->setHeapBlock(false);
+        _merger->setHeapMax(input->getHeapMax());
+        break;
+    }
+
     SensorIterator si = server->getSensorIterator();
     for ( ; si.hasNext(); ) {
         DSMSensor* sensor = si.next();
@@ -88,8 +97,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
 	    }
 	}
     }
-    list<SampleInputStream*>::iterator li = _inputs.begin();
-    for ( ; li != _inputs.end(); ++li) {
+    for (li = _inputs.begin(); li != _inputs.end(); ++li) {
         SampleInputStream* input = *li;
         input->requestConnection(this);
     }
@@ -164,6 +172,7 @@ void RawSampleService::connected(SampleInput* input) throw()
     addSubThread(worker);
 
     // merger does not own stream. It just adds sample clients to it.
+
     _merger->addInput(stream);
 }
 
@@ -325,8 +334,8 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
 <caption>dsm_server</caption>\
 <thead>\
 <tr>\
-<th>input/output</th>\
-<th>sample time</th>\
+<th align=left>input/output</th>\
+<th>latest timetag</th>\
 <th>samp/sec</th>\
 <th>byte/sec</th>\
 <th>size<br>(MB)</th>\

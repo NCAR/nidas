@@ -182,10 +182,13 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 
 SortedSampleOutputStream::SortedSampleOutputStream():
 	SampleOutputStream(),
-	sorter(0),
-	proxy(*this),
-	sorterLengthMsecs(250),
-	heapMax(10000000)
+    _sorter(0),_proxy(*this),
+    _sorterLengthMsecs(250),
+#ifdef NIDAS_EMBEDDED
+    _heapMax(5000000)
+#else
+    _heapMax(50000000)
+#endif
 {
 }
 /*
@@ -194,10 +197,10 @@ SortedSampleOutputStream::SortedSampleOutputStream():
 SortedSampleOutputStream::SortedSampleOutputStream(
 	const SortedSampleOutputStream& x)
 	: SampleOutputStream(x),
-	sorter(0),
-	proxy(*this),
-	sorterLengthMsecs(x.sorterLengthMsecs),
-	heapMax(x.heapMax)
+    _sorter(0),
+    _proxy(*this),
+    _sorterLengthMsecs(x._sorterLengthMsecs),
+    _heapMax(x._heapMax)
 {
 }
 
@@ -207,10 +210,10 @@ SortedSampleOutputStream::SortedSampleOutputStream(
 SortedSampleOutputStream::SortedSampleOutputStream(
 	const SortedSampleOutputStream& x,IOChannel* ioc)
 	: SampleOutputStream(x,ioc),
-	sorter(0),
-	proxy(*this),
-	sorterLengthMsecs(x.sorterLengthMsecs),
-	heapMax(x.heapMax)
+	_sorter(0),
+	_proxy(*this),
+	_sorterLengthMsecs(x._sorterLengthMsecs),
+	_heapMax(x._heapMax)
 {
 }
 
@@ -219,10 +222,10 @@ SortedSampleOutputStream::~SortedSampleOutputStream()
 #ifdef DEBUG
     cerr << "~SortedSampleOutputStream(), this=" << this << endl;
 #endif
-    if (sorter) {
-	sorter->interrupt();
-	n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(sorter);
-	joiner->start();	// joiner deletes sorter and itself
+    if (_sorter) {
+	_sorter->interrupt();
+	n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(_sorter);
+	joiner->start();	// joiner deletes _sorter and itself
     }
 }
 
@@ -236,26 +239,26 @@ void SortedSampleOutputStream::init() throw()
 {
     SampleOutputStream::init();
     if (getSorterLengthMsecs() > 0) {
-	if (!sorter) sorter = new SampleSorter("SortedSampleOutputStream");
-	sorter->setLengthMsecs(getSorterLengthMsecs());
-	sorter->setHeapMax(getHeapMax());
+	if (!_sorter) _sorter = new SampleSorter("SortedSampleOutputStream");
+	_sorter->setLengthMsecs(getSorterLengthMsecs());
+	_sorter->setHeapMax(getHeapMax());
 	try {
-	    sorter->start();
+	    _sorter->start();
 	}
 	catch(const n_u::Exception& e) {
 	}
-	sorter->addSampleClient(&proxy);
+	_sorter->addSampleClient(&_proxy);
     }
 }
 bool SortedSampleOutputStream::receive(const Sample *s) throw()
 {
-    if (sorter) return sorter->receive(s);
+    if (_sorter) return _sorter->receive(s);
     return SampleOutputStream::receive(s);
 }
 
 void SortedSampleOutputStream::finish() throw()
 {
-    if (sorter) sorter->finish();
+    if (_sorter) _sorter->finish();
     SampleOutputStream::finish();
 }
 

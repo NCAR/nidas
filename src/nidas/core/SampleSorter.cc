@@ -36,7 +36,12 @@ SampleSorter::SampleSorter(const string& name) :
     _lastDistributedTimeTag(0),_lastReceivedTimeTag(0),
     _nReceivedBytes(0),_nReceivedSamples(0),
     _nDistributedBytes(0),_nDistributedSamples(0),
-    _heapMax(100000000),_heapSize(0),_heapBlock(false),
+#ifdef NIDAS_EMBEDDED
+    _heapMax(5000000),
+#else
+    _heapMax(50000000),
+#endif
+    _heapSize(0),_heapBlock(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFlush(false),_flushed(false),
     _realTime(false)
@@ -98,8 +103,8 @@ void SampleSorter::addSampleTag(const SampleTag* tag,SampleClient* client)
 int SampleSorter::run() throw(n_u::Exception)
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"%s: sorterLengthUsec=%d",
-	getName().c_str(),_sorterLengthUsec);
+	"%s: sorterLengthUsec=%d, heapMax=%d, heapBlock=%d",
+	getName().c_str(),_sorterLengthUsec,_heapMax,_heapBlock);
 
     _sampleSetCond.lock();
 #ifdef DEBUG

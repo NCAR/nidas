@@ -43,7 +43,7 @@ using namespace nidas::core;	// put this within namespace block
  * iochannel -> readSamples method -> SampleClient
  *
  */
-class SampleInputStream: public nidas::core::SampleInputReader
+class SampleInputStream: public nidas::core::SampleInputReader, public DOMable
 {
 
 public:
@@ -184,6 +184,40 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Set length of SampleSorter, in milliseconds.
+     */
+    void setSorterLengthMsecs(int val)
+    {
+        _sorterLengthMsecs = val;
+    }
+
+    int getSorterLengthMsecs() const
+    {
+        return _sorterLengthMsecs;
+    }
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val) { _heapMax = val; }
+
+    size_t getHeapMax() const { return _heapMax; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    void setHeapBlock(bool val) { _heapBlock = val; }
+
+    bool getHeapBlock() const { return _heapBlock; }
+
 protected:
 
     void incrementNumInputSamples() { _nsamples++; }
@@ -255,6 +289,14 @@ private:
 
     dsm_time_t _lastTimeTag;
 
+    /**
+     * Length of SampleSorter, in milli-seconds.
+     */
+    int _sorterLengthMsecs;
+
+    size_t _heapMax;
+
+    bool _heapBlock;
 };
 
 class SortedSampleInputStream: public SampleInputStream
@@ -285,53 +327,12 @@ public:
 
     void flush() throw();
 
-    /**
-     * Set the maximum amount of heap memory to use for sorting samples.
-     * @param val Maximum size of heap in bytes.
-     * @see SampleSorter::setHeapMax().
-     */
-    void setHeapMax(size_t val) { heapMax = val; }
-
-    size_t getHeapMax() const { return heapMax; }
-
-    /**
-     * @param val If true, and heapSize exceeds heapMax,
-     *   then wait for heapSize to be less then heapMax,
-     *   which will block any SampleSources that are inserting
-     *   samples into this sorter.  If false, then discard any
-     *   samples that are received while heapSize exceeds heapMax.
-     * @see SampleSorter::setHeapBlock().
-     */
-    void setHeapBlock(bool val) { heapBlock = val; }
-
-    bool getHeapBlock() const { return heapBlock; }
-
-    /**
-     * Set length of SampleSorter, in milliseconds.
-     */
-    void setSorterLengthMsecs(int val)
-    {
-        sorterLengthMsecs = val;
-    }
-
-    int getSorterLengthMsecs() const
-    {
-        return sorterLengthMsecs;
-    }
-
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
-
 
 private:
 
     SampleSorter *sorter1;
 
     SampleSorter *sorter2;
-
-    size_t heapMax;
-
-    bool heapBlock;
 
     /**
      * No copying.
@@ -342,11 +343,6 @@ private:
      * No assignment.
      */
     SortedSampleInputStream& operator=(const SortedSampleInputStream&);
-
-    /**
-     * Length of SampleSorter, in milli-seconds.
-     */
-    int sorterLengthMsecs;
 
 };
 

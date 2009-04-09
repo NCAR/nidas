@@ -44,7 +44,14 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
-    _nsamples(0),_lastTimeTag(0LL)
+    _nsamples(0),_lastTimeTag(0LL),
+    _sorterLengthMsecs(250),
+#ifdef NIDAS_EMBEDDED
+    _heapMax(5000000),
+#else
+    _heapMax(50000000),
+#endif
+    _heapBlock(false)
 {
     if (_iochan)
         _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -67,7 +74,9 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
-    _nsamples(0),_lastTimeTag(0LL)
+    _nsamples(0),_lastTimeTag(0LL),
+    _sorterLengthMsecs(x._sorterLengthMsecs),
+    _heapMax(x._heapMax),_heapBlock(x._heapBlock)
 {
     if (_iochan)
         _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -496,6 +505,38 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 {
     XDOMElement xnode(node);
 
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            const std::string& aval = attr.getValue();
+	    if (aname == "sorterLength") {
+	        istringstream ist(aval);
+		int len;
+		ist >> len;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+		    	"SortedSampleInputStream",
+			attr.getName(),attr.getValue());
+		setSorterLengthMsecs(len);
+	    }
+	    else if (aname == "heapMax") {
+	        istringstream ist(aval);
+		int len;
+		ist >> len;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+		    	"SortedSampleInputStream",
+			attr.getName(),attr.getValue());
+		setHeapMax(len);
+	    }
+	}
+    }
+
     // process <socket>, <fileset> child elements (should only be one)
 
     int niochan = 0;
@@ -531,9 +572,7 @@ void SampleInputStream::addSampleTag(const SampleTag* tag)
  */
 SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel):
     SampleInputStream(iochannel),
-    sorter1(0),sorter2(0),
-    heapMax(10000000),heapBlock(false),
-    sorterLengthMsecs(250)
+    sorter1(0),sorter2(0)
 {
 }
 
@@ -542,9 +581,7 @@ SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel):
  */
 SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel):
 	SampleInputStream(x,iochannel),
-	sorter1(0),sorter2(0),
-	heapMax(x.heapMax),heapBlock(x.heapBlock),
-	sorterLengthMsecs(x.sorterLengthMsecs)
+	sorter1(0),sorter2(0)
 {
 }
 
@@ -661,41 +698,3 @@ void SortedSampleInputStream::close() throw(n_u::IOException)
 	sorter2->join();
     }
 }
-void SortedSampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
-{
-    SampleInputStream::fromDOMElement(node);
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
-	    if (aname == "sorterLength") {
-	        istringstream ist(aval);
-		int len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SortedSampleInputStream",
-			attr.getName(),attr.getValue());
-		setSorterLengthMsecs(len);
-	    }
-	    else if (aname == "heapMax") {
-	        istringstream ist(aval);
-		int len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SortedSampleInputStream",
-			attr.getName(),attr.getValue());
-		setHeapMax(len);
-	    }
-	}
-    }
-}
-

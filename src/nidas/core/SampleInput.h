@@ -60,6 +60,34 @@ public:
      */
     virtual dsm_time_t getLastDistributedTimeTag() const { return 0LL; }
 
+    /**
+     * Set length of SampleSorter, in milliseconds.
+     */
+    virtual void setSorterLengthMsecs(int val) = 0;
+
+    virtual int getSorterLengthMsecs() const = 0;
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    virtual void setHeapMax(size_t val) = 0;
+
+    virtual size_t getHeapMax() const = 0;
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    virtual void setHeapBlock(bool val) = 0;
+
+    virtual bool getHeapBlock() const = 0;
+
 };
 
 /**
@@ -259,6 +287,39 @@ public:
         return _inputSorter.getNumFutureSamples();
     }
 
+    /**
+     * Set length of SampleSorter, in milliseconds.
+     */
+    void setSorterLengthMsecs(int val)
+    {
+        _sorterLengthMsecs = val;
+    }
+
+    int getSorterLengthMsecs() const
+    {
+        return _sorterLengthMsecs;
+    }
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val) { _heapMax = val; }
+
+    size_t getHeapMax() const { return _heapMax; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    void setHeapBlock(bool val) { _heapBlock = val; }
+
+    bool getHeapBlock() const { return _heapBlock; }
 
 protected:
 
@@ -279,6 +340,12 @@ protected:
     std::list<const SampleTag*> _sampleTags;
 
     std::list<const DSMConfig*> _dsmConfigs;
+
+    int _sorterLengthMsecs;
+
+    size_t _heapMax;
+
+    bool _heapBlock;
 
 };
 
@@ -311,6 +378,31 @@ public:
 
     void removeProcessedSampleClient(SampleClient* clnt, DSMSensor* snsr = 0);
 
+    void setSorterLengthMsecs(int val) {}
+
+    int getSorterLengthMsecs() const { return 0; }
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val) {}
+
+    size_t getHeapMax() const { return 0; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    void setHeapBlock(bool val) {}
+
+    bool getHeapBlock() const { return 0; }
+
 private:
 
     SampleSource* _src;
@@ -324,7 +416,7 @@ private:
  * of samples (socket or files) and actually read samples
  * from the connection.
  */
-class SampleInputReader: public SampleInput, public ConnectionRequester, public DOMable
+class SampleInputReader: public SampleInput, public ConnectionRequester
 {
 public:
 

@@ -154,12 +154,12 @@ public:
      */
     void setSorterLengthMsecs(int val)
     {
-        sorterLengthMsecs = val;
+        _sorterLengthMsecs = val;
     }
 
     int getSorterLengthMsecs() const
     {
-        return sorterLengthMsecs;
+        return _sorterLengthMsecs;
     }
 
     /**
@@ -169,12 +169,12 @@ public:
      */
     void setHeapMax(size_t val)
     {
-        heapMax = val;
+        _heapMax = val;
     }
 
     size_t getHeapMax() const
     {
-        return heapMax;
+        return _heapMax;
     }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -183,16 +183,16 @@ public:
 
 private:
 
-    SampleSorter* sorter;
+    SampleSorter* _sorter;
 
-    SampleOutputStreamProxy proxy;
+    SampleOutputStreamProxy _proxy;
 
     /**
      * Length of SampleSorter, in milli-seconds.
      */
-    int sorterLengthMsecs;
+    int _sorterLengthMsecs;
 
-    size_t heapMax;
+    size_t _heapMax;
 
 };
 

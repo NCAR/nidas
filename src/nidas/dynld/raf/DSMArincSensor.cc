@@ -189,7 +189,7 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
   try {
     ioctl(ARINC_STAT,&stat,sizeof(stat));
 
-    ostr << "<td>" <<
+    ostr << "<td align=left>" <<
       "lps="         << stat.lps_cnt <<
       "/"            << stat.lps <<
       ", poll="      << stat.pollRate << "Hz" <<

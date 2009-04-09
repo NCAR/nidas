@@ -83,10 +83,10 @@ SampleInputMerger::SampleInputMerger() :
 	_name("SampleInputMerger"),
 	_inputSorter(_name + "InputSorter"),
 	_procSampSorter(_name + "ProcSampSorter"),
-	_unrecognizedSamples(0)
+	_unrecognizedSamples(0),
+        _sorterLengthMsecs(250),
+        _heapMax(100000000),_heapBlock(false)
 {
-    _inputSorter.setLengthMsecs(1500);
-    _procSampSorter.setLengthMsecs(100);
 }
 
 SampleInputMerger::~SampleInputMerger()
@@ -114,7 +114,12 @@ void SampleInputMerger::finish() throw()
 
 void SampleInputMerger::addInput(SampleInput* input)
 {
-    if (!_inputSorter.isRunning()) _inputSorter.start();
+    if (!_inputSorter.isRunning()) {
+        _inputSorter.setLengthMsecs(getSorterLengthMsecs());
+        _inputSorter.setHeapMax(getHeapMax());
+        _inputSorter.setHeapBlock(getHeapBlock());
+        _inputSorter.start();
+    }
     input->addSampleClient(&_inputSorter);
 
     SampleTagIterator si = input->getSampleTagIterator();
@@ -158,7 +163,12 @@ void SampleInputMerger::addProcessedSampleClient(SampleClient* client,
     sensor->addSampleClient(&_procSampSorter);
     _inputSorter.addSampleClient(this);
 
-    if (!_procSampSorter.isRunning()) _procSampSorter.start();
+    if (!_procSampSorter.isRunning()) {
+        _procSampSorter.setLengthMsecs(getSorterLengthMsecs());
+        _procSampSorter.setHeapMax(getHeapMax());
+        _procSampSorter.setHeapBlock(getHeapBlock());
+        _procSampSorter.start();
+    }
 }
 
 void SampleInputMerger::removeProcessedSampleClient(SampleClient* client,
