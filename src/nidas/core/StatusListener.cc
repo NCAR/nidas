@@ -59,8 +59,8 @@ StatusListener::~StatusListener()
 int StatusListener::run() throw(n_u::Exception)
 {
   // create a socket to listen for the XML status messages
-  n_u::MulticastSocket msock(DSM_MULTICAST_STATUS_PORT);
-  n_u::Inet4Address mcaddr = n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+  n_u::MulticastSocket msock(DSM_STATUS_PORT_UDP);
+  n_u::Inet4Address mcaddr = n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
   list<n_u::Inet4NetworkInterface> interfaces = msock.getInterfaces();
   list<n_u::Inet4NetworkInterface>::const_iterator ii = interfaces.begin();
   for ( ; ii != interfaces.end(); ++ii) {

@@ -66,8 +66,8 @@ DSMEngine::DSMEngine():
     setupSignals();
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
-	    n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR),
-	    DSM_SVC_REQUEST_PORT);
+	    n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR),
+	    NIDAS_SVC_REQUEST_PORT_UDP);
     }
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
         cerr << e.what();
@@ -259,13 +259,15 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     }
     if (optind == argc - 1) {
         string url = string(argv[optind++]);
-	if((url.length() > 5 && !url.compare(0,5,"sock:")) ||
-	   (url.length() > 7 && !url.compare(0,7,"mcsock:"))) {
-	    string::size_type ic = url.find(':');
+        string type = "file";
+        string::size_type ic = url.find(':');
+        if (ic != string::npos) type = url.substr(0,ic);
+        if (type == "sock" || type == "inet" || type == "mcsock") {
 	    url = url.substr(ic+1);
 	    ic = url.find(':');
 	    string addr = url.substr(0,ic);
-	    int port = DSM_SVC_REQUEST_PORT;
+            if (addr.length() == 0 && type == "mcsock") addr = NIDAS_MULTICAST_ADDR;
+	    int port = NIDAS_SVC_REQUEST_PORT_UDP;
 	    if (ic != string::npos) {
 		istringstream ist(url.substr(ic+1));
 		ist >> port;
@@ -278,6 +280,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    try {
 		_configSockAddr = n_u::Inet4SocketAddress(
 		    n_u::Inet4Address::getByName(addr),port);
+                cerr << "sock addr=" << _configSockAddr.toString() << endl;
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
@@ -285,7 +288,12 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 		return 1;
 	    }	
 	}
-	else _configFile = url;
+        else if (type == "file") _configFile = url;
+        else {
+            cerr << "unknown url: " << url << endl;
+            usage(argv[0]);
+            return 1;
+        }
     }
 
     if (optind != argc) {
@@ -305,7 +313,7 @@ Usage: " << argv0 << " [-d ] [-v] [-w] [ config ]\n\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
 The default config is \"sock:" <<
-	DSM_MULTICAST_ADDR << ":" << DSM_SVC_REQUEST_PORT << "\"" << endl;
+	NIDAS_MULTICAST_ADDR << ":" << NIDAS_SVC_REQUEST_PORT_UDP << "\"" << endl;
 }
 
 void DSMEngine::initLogger()

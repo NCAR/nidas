@@ -13,6 +13,7 @@
 */
 #include <nidas/core/StatusListener.h>
 #include <nidas/core/Datagrams.h>
+#include <nidas/util/IOException.h>
 
 #include <iostream>
 #include <string>
@@ -31,11 +32,7 @@ int main(int argc, char** argv)
     lstn.start();
   } catch (n_u::Exception& e) {
     cerr << "n_u::Exception: " << e.toString() << endl;
-
-    // stop the socket listener thread
-    lstn.cancel();
-    lstn.join();
-    return 0;
+    return 1;
   }
   // Create an XMLRPC web service
   XmlRpc::XmlRpcServer* xmlrpc_server = new XmlRpc::XmlRpcServer;
@@ -48,7 +45,11 @@ int main(int argc, char** argv)
 //   XmlRpc::setVerbosity(5);
 
   // Create the server socket on the specified port
-  xmlrpc_server->bindAndListen(ADS_XMLRPC_STATUS_PORT);
+  if (!xmlrpc_server->bindAndListen(NIDAS_XMLRPC_STATUS_PORT_TCP)) {
+        n_u::IOException e("XMLRPC status port","bind",errno);
+        cerr << e.what() << endl;
+        return 1;
+  }
 
   // Enable introspection
   xmlrpc_server->enableIntrospection(true);

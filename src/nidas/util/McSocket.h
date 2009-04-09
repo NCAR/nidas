@@ -19,6 +19,7 @@
 #include <nidas/util/Socket.h>
 #include <nidas/util/DatagramPacket.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/UTime.h>
 
 #include <list>
 
@@ -430,8 +431,24 @@ public:
     void interrupt();
 private:
     McSocket<SocketTT>* _mcsocket;
+
+    /**
+     * If multicasting for a TCP connection, then _serverSocket will
+     * point to the TCP socket that listening for a connection.
+     */
     ServerSocket* _serverSocket;
+
+    /**
+     * If multicasting for a UDP connection, then _datagramSocket will
+     * point to the UDP that is waiting for incoming responses.
+     */
     SocketTT* _datagramSocket;
+
+    /**
+     * The DatagramSocket that requests are sent on.
+     */
+    DatagramSocket* _requestSocket;
+
     Mutex _mcsocketMutex;
 };
 
@@ -653,7 +670,7 @@ void McSocket<SocketT>::close() throw(IOException)
 template<class SocketT>
 McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
         Thread("McSocketMulticaster"),
-	_mcsocket(mcsock)
+	_mcsocket(mcsock),_requestSocket(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
@@ -681,6 +698,10 @@ McSocketMulticaster<SocketT>::~McSocketMulticaster()
         _datagramSocket->close();
         delete _datagramSocket;
     }
+    if (_requestSocket) {
+        _requestSocket->close();
+        delete _requestSocket;
+    }
 }
 
 template<class SocketT>
@@ -697,6 +718,8 @@ void McSocketMulticaster<SocketT>::interrupt()
 template<class SocketT>
 int McSocketMulticaster<SocketT>::run() throw(Exception)
 {
+    MulticastSocket* requestmsock = 0;
+
     int sockfd = (_serverSocket ? _serverSocket->getFd() :
         _datagramSocket->getFd());
     fd_set fdset;
@@ -704,11 +727,29 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     FD_SET(sockfd, &fdset);
     struct timeval waitPeriod,tmpto;
     waitPeriod.tv_sec = 0;
-    waitPeriod.tv_usec = 500000;             // 1/2 a second
+    waitPeriod.tv_usec = USECS_PER_SEC / 4;             // portion of a second
 
     Inet4SocketAddress mcsockaddr =
     	_mcsocket->getInet4McastSocketAddress();
     Inet4Address mcaddr = mcsockaddr.getInet4Address();
+
+    std::list<Inet4NetworkInterface> ifaces;
+
+    if (mcaddr.isMultiCastAddress()) {
+	_requestSocket = requestmsock = new MulticastSocket();
+        if (_mcsocket->getInterface().getAddress() == Inet4Address(INADDR_ANY)) {
+            std::list<Inet4NetworkInterface> tmpifaces = requestmsock->getInterfaces();
+            std::list<Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
+            for ( ; ifacei != tmpifaces.end(); ++ifacei) {
+                Inet4NetworkInterface iface = *ifacei;
+                int flags = iface.getFlags();
+                if (flags & IFF_UP && flags | (IFF_MULTICAST | IFF_LOOPBACK))
+                    ifaces.push_back(iface);
+            }
+        }
+    }
+    else
+	_requestSocket = new DatagramSocket();
 
     McSocketDatagram dgram;
     dgram.setMagic(dgram.magicVal);
@@ -719,34 +760,22 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     else
         dgram.setRequesterListenPort(_datagramSocket->getLocalPort());
 
-    std::auto_ptr<DatagramSocket> writesock;
-    if (mcaddr.isMultiCastAddress()) {
-	MulticastSocket* msock = new MulticastSocket();
-	writesock.reset(msock);
-#ifdef SET_INTERFACE
-	msock->setInterface(mcaddr,_mcsocket->getInterface());
-	std::list<Inet4NetworkInterface> addrs = msock->getInterfaces();
-	int i = 0;
-	for (std::list<Inet4NetworkInterface>::const_iterator ii = addrs.begin(); ii != addrs.end(); ++ii) {
-	    if (i++ != 2) {
-                Inet4NetworkInterface iface = *ii;
-		cerr << "msock setting interface: " << iface.getAddress() << ' ' <<
-                    ii->getHostAddress() << endl;
-		msock->setInterface(mcaddr,iface);
-	    }
-	}
-#endif
-    }
-    else
-	writesock.reset(new DatagramSocket());
-
     for (int numCasts=0; ; numCasts++) {
-	dgram.setNumMulticasts(numCasts);
+        // If multicast, send on all interfaces
+        if (requestmsock && ifaces.size() > 0) {
+            std::list<Inet4NetworkInterface>::const_iterator ifacei = ifaces.begin();
+            for ( ; ifacei != ifaces.end(); ++ifacei) {
+                requestmsock->setInterface(mcaddr,*ifacei);
+                _requestSocket->send(dgram);
+            }
+        }
+        else _requestSocket->send(dgram);
+
 	if (!(numCasts % 10))
 	    std::cerr << "sent " << numCasts << " dgrams, length=" << dgram.getLength() <<
 		", requestNum=" << dgram.getRequestNumber() <<
-		", port=" << dgram.getRequesterListenPort() << std::endl;
-	writesock->send(dgram);
+		", port=" << dgram.getRequesterListenPort() <<
+                ", #mcifaces=" << ifaces.size() << std::endl;
 
 	tmpto = waitPeriod;
 	int res;
@@ -762,11 +791,10 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             _mcsocketMutex.unlock();
             if (_serverSocket) _serverSocket->close(); // OK to close twice
             if (_datagramSocket) _datagramSocket->close();
-	    writesock->close();
+	    _requestSocket->close();
 	    throw IOException("McSocket","select",errno);
 	}
 	if (res > 0 && FD_ISSET(sockfd,&tmpset)) {
-            writesock->close();
             if (_serverSocket) {
                 SocketT* socket = _serverSocket->accept();
                 _serverSocket->close();
@@ -775,11 +803,15 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
                 _mcsocketMutex.unlock();
             }
             else {
+                // If fishing for UDP responses, send out at least 3 multicasts
+                // to see if we get more than one response.
+                if (numCasts < 3) continue;
                 _mcsocketMutex.lock();
                 if (_mcsocket) _mcsocket->offer(_datagramSocket,0);
                 _datagramSocket = 0;
                 _mcsocketMutex.unlock();
             }
+            _requestSocket->close();
 	    return RUN_OK;
 	}
 	if (amInterrupted()) break;
@@ -792,14 +824,12 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     _mcsocketMutex.unlock();
     if (_serverSocket) _serverSocket->close();
     if (_datagramSocket) _datagramSocket->close();
-    writesock->close();
+    _requestSocket->close();
 #ifdef DEBUG
     Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster run method exiting");
 #endif
     return RUN_OK;
 }
-#undef DEBUG
-
 
 }}	// namespace nidas namespace util
 #endif

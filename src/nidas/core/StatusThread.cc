@@ -49,9 +49,9 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     n_u::MulticastSocket msock;
     n_u::Inet4Address maddr =
-    	n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+    	n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
     n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,DSM_MULTICAST_STATUS_PORT);
+	n_u::Inet4SocketAddress(maddr,DSM_STATUS_PORT_UDP);
 
     std::ostringstream statStream;
 
@@ -126,13 +126,13 @@ int DSMServerStat::run() throw(n_u::Exception)
     n_u::Inet4Address maddr;
     try {
         dataAddr = n_u::Inet4Address::getByName(DATA_NETWORK);
-        maddr = n_u::Inet4Address::getByName(DSM_MULTICAST_ADDR);
+        maddr = n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
     }
     catch(const n_u::UnknownHostException& e) {
     }
 
     n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,DSM_MULTICAST_STATUS_PORT);
+	n_u::Inet4SocketAddress(maddr,DSM_STATUS_PORT_UDP);
 
     n_u::MulticastSocket msock;
 

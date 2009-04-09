@@ -15,7 +15,7 @@
 #include <nidas/core/DSMServerIntf.h>
 
 #include <nidas/core/Project.h>
-#include <nidas/core/Datagrams.h> // defines ADS_XMLRPC_PORT
+#include <nidas/core/Datagrams.h> // defines DSM_SERVER_XMLRPC_PORT_TCP
 
 // #include <nidas/util/Logger.h>
 
@@ -51,7 +51,7 @@ int DSMServerIntf::run() throw(n_u::Exception)
   XmlRpc::setVerbosity(1);
 
   // Create the server socket on the specified port
-  if (!_xmlrpc_server->bindAndListen(ADS_XMLRPC_PORT))
+  if (!_xmlrpc_server->bindAndListen(DSM_SERVER_XMLRPC_PORT_TCP))
     throw n_u::IOException("XMLRpcPort","bind",errno);
 
   // Enable introspection

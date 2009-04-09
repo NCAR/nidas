@@ -28,8 +28,6 @@ public:
 
     ~XMLConfigService();
 
-    int run() throw(nidas::util::Exception);
-
     void interrupt() throw();
 
     void connected(IOChannel*) throw();

@@ -16,6 +16,9 @@
 #ifndef NIDAS_CORE_DATAGRAMS_H
 #define NIDAS_CORE_DATAGRAMS_H
 
+#include <nidas/core/SocketAddrs.h>
+
+// TODO: phase these macros out, replaced by those in SocketAddrs.h
 #define DSM_SVC_REQUEST_PORT	  30000
 #define DSM_MULTICAST_STATUS_PORT 30001
 #define RSERIAL_PORT    	  30002 // DSMServerIntf.cc

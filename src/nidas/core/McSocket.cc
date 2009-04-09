@@ -15,6 +15,7 @@
 
 #include <nidas/core/McSocket.h>
 #include <nidas/core/Datagrams.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -171,8 +172,8 @@ void McSocket::fromDOMElement(const DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "address") saddr = aval;
-	    else if (aname == "port") sport = aval;
+	    if (aname == "address") saddr = Project::expandEnvVars(aval);
+	    else if (aname == "port") sport = Project::expandEnvVars(aval);
 	    else if (aname == "requestNumber") {
 		int i;
 	        istringstream ist(aval);
@@ -232,12 +233,12 @@ void McSocket::fromDOMElement(const DOMElement* node)
     }
 
     // Default address for multicast requesters and accepters
-    // is DSM_MULTICAST_ADDR.
+    // is NIDAS_MULTICAST_ADDR.
     // Default address for unicast accepters is INADDR_ANY.
     // Unicast requesters must know who they are requesting
     // from
     if (saddr.length() == 0) {
-        if (multicast) saddr = DSM_MULTICAST_ADDR;
+        if (multicast) saddr = NIDAS_MULTICAST_ADDR;
 	else if (!isRequester()) saddr = "0.0.0.0";	// any
 	else throw n_u::InvalidParameterException(
 	    	getName(),"address","unknown address for dgrequest socket");
@@ -253,7 +254,7 @@ void McSocket::fromDOMElement(const DOMElement* node)
 
     int port = 0;
     if (sport.length() > 0) port = atoi(sport.c_str());
-    else port = DSM_SVC_REQUEST_PORT;
+    else port = NIDAS_SVC_REQUEST_PORT_UDP;
 
     setInet4McastSocketAddress(n_u::Inet4SocketAddress(iaddr,port));
 }

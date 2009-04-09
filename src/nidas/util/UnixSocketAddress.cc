@@ -25,17 +25,18 @@ UnixSocketAddress::UnixSocketAddress(const string& patharg):
     if (path.length() > 5 && !path.compare(0,5,"unix:"))
     	tmppath = path.substr(5);
 
-    if (tmppath.length() == 0 || tmppath[0] != '/') {
-        sockaddr.sun_path[0] = 0;
-	unsigned int l = tmppath.length();
-	if (l > sizeof(sockaddr.sun_path) - 1) l = 
-	    sizeof(sockaddr.sun_path) - 1;
+    unsigned int l = tmppath.length();
+    unsigned int lpath = sizeof(sockaddr.sun_path);
+    if (l == 0 || tmppath[0] != '/') {
+        memset(sockaddr.sun_path,0,lpath);
+        lpath--;        // sun_path will have leading null
+	if (l > lpath) l = lpath;
 	memcpy(sockaddr.sun_path+1,tmppath.c_str(),l);
     }
     else {
-	unsigned int l = tmppath.length();
-	if (l > sizeof(sockaddr.sun_path)) l = sizeof(sockaddr.sun_path);
-	memcpy(sockaddr.sun_path,tmppath.c_str(),l);
+        // copy trailing null
+	if (++l > lpath) l = lpath;
+	strncpy(sockaddr.sun_path,tmppath.c_str(),l);
     }
 }
 
