@@ -276,15 +276,16 @@ void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
+            // Sample sorter length in seconds
 	    if (aname == "sorterLength") {
 	        istringstream ist(aval);
-		int len;
+		float len;  
 		ist >> len;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
 		    	"SortedSampleOutputStream",
 			attr.getName(),attr.getValue());
-		setSorterLengthMsecs(len);
+		setSorterLengthMsecs((int)rint(len * MSECS_PER_SEC));
 	    }
 	    else if (aname == "heapMax") {
 	        istringstream ist(aval);
