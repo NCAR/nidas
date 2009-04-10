@@ -694,8 +694,6 @@ ThreadJoiner::~ThreadJoiner()
 {
 }
 int ThreadJoiner::run() throw() {
-    struct timespec slp = { 2 , 0 };
-    ::nanosleep(&slp,0);
     try {
 	thread->join();
     }
