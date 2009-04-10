@@ -103,6 +103,7 @@ headers = Split("""
     ServiceCatalog.h
     Site.h
     Socket.h
+    SocketAddrs.h
     SocketIODevice.h
     TCPSocketIODevice.h
     UDPSocketIODevice.h
