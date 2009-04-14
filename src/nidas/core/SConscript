@@ -222,7 +222,7 @@ dyn_objs = [ env.SharedObject(sources), env.SharedObject("DynamicLoader.cc", CPP
 # deep mystery.  Anyway, this is avoided by putting a directory node for
 # build_core in the path instead of a string.
 lib = env.SharedLibrary('nidas' , dyn_objs,
-    LIBS= ['nidas_util','dl','xerces-c','xmlrpc++'] + env['LIBS'],
+    LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'] + env['LIBS'],
     LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 
 ##

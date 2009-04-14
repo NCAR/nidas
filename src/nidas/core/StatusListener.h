@@ -15,7 +15,7 @@
 #define NIDAS_CORE_STATUSLISTENER_H
 
 #include <xercesc/sax2/XMLReaderFactory.hpp> // provides SAX2XMLReader
-#include <xmlrpc++/XmlRpc.h>
+#include <xmlrpcpp/XmlRpc.h>
 
 #include <nidas/util/Thread.h>
 

@@ -16,7 +16,7 @@
 #define NIDAS_CORE_XMLRPCTHREAD_H
 
 #include <nidas/util/Thread.h>
-#include <xmlrpc++/XmlRpc.h>
+#include <xmlrpcpp/XmlRpc.h>
 
 namespace nidas { namespace core {
 
