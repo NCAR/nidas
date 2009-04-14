@@ -31,7 +31,7 @@ def generate(env):
     # temporary hack.  RTLinux vipers have GLIBC_2.3.1
     # and something in nibnidas needs GLIBC_2.3.2
     # so build with old tools as long as we have RTLinux vipers
-    env.PrependENVPath('PATH', '/opt/arm_tools/bin')
+    # env.PrependENVPath('PATH', '/opt/arm_tools/bin')
 
     # Append /opt/arcom/bin to env['ENV']['PATH'],
     # so that it is the fallback if arm-linux-gcc is
