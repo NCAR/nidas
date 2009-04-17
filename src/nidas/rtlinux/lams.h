@@ -24,10 +24,6 @@
 //#define LAMS_NUM_MAX_NR_DEVS 3 // maximum number of LAMS cards in sys
 //#define N_PORTS    3
 //#define READ_SIZE  1024
-#define REGION_SIZE 0x10  // number of 1-byte registers
-#define BOARD_NUM   0
-#define N_AVG       80 
-#define N_PEAK      50
 #define MAX_BUFFER  1024 
 
 /* Pick a character as the magic number of your driver.
@@ -60,8 +56,8 @@
 
 struct lamsPort {
   dsm_sample_time_t timetag;     // timetag of sample
-  dsm_sample_length_t size;     // number of bytes in data
-  unsigned short data[MAX_BUFFER]; // the data
+  dsm_sample_length_t size;      // number of bytes in data
+  unsigned int data[MAX_BUFFER]; // the data
 };
 #ifdef __RTCORE_KERNEL__
 
@@ -85,14 +81,10 @@ struct lamsBoard {
 struct lams_set {
   int channel;
 };
-/*
-struct LamsData {
-  unsigned short data[MAX_BUFFER];
-  int msec;
-};
-*/
 // The enumeration of IOCTLs that this driver supports.
 #define LAMS_SET_CHN     _IOW(LAMS_MAGIC,0, struct lams_set)
 #define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
+#define N_AVG            _IOW(LAMS_MAGIC,2, unsigned int)
+#define N_SKIP           _IOW(LAMS_MAGIC,3, unsigned int)
 
 #endif // LAMS_DRIVER_H

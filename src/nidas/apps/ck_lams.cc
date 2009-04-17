@@ -36,8 +36,6 @@ using namespace std;
 using namespace nidas::core;
 namespace n_u = nidas::util;
 
-#define DATA_ONLY
-
 #define err(format, arg...) \
      printf("%s: %s: " format "\n",__FILE__, __FUNCTION__ , ## arg)
 
@@ -85,11 +83,20 @@ int main(int argc, char** argv)
   err("ARM version - compiled on %s at %s", __DATE__, __TIME__);
   err("sizeof(lamsPort): %d\n", sizeof(lamsPort));
 
-  string ofName;
-  if (argc < 2)
-    ofName = string("/mnt/lams/lams.bin");
-  else
-    ofName = string(argv[1]);
+  string ofName("/mnt/lams/lams.bin");
+  unsigned int air_speed = 0;
+  unsigned int nAVG  = 20;
+  unsigned int nSKIP = 100;
+  if (argc == 1) {
+    err("using defaults...");
+  } else if (argc == 3) {
+    nAVG  = atoi(argv[1]);
+    nSKIP = atoi(argv[2]);
+  } else {
+    err("Usage: %s nAVG nSKIP", argv[0]);
+    return -1;
+  }
+  err("nAVG: %d   nSKIP: %d", nAVG, nSKIP);
 
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
@@ -114,7 +121,7 @@ int main(int argc, char** argv)
 
   // Open up the disk for writing lams data
   err("creating: %s", ofName.c_str());
-  int ofPtr = creat(ofName.c_str(), 0666);
+  int ofPtr = 0;
   if (ofPtr < 0) {
     err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
     goto failed;
@@ -134,17 +141,16 @@ int main(int argc, char** argv)
   err("sensor_in_0.getReadFd() = 0x%x", fd_lams_data);
 
   //Send the Air Speed
-  unsigned int air_speed;
-  air_speed = 0;
-  err("send AIR_SPEED");
-  err("AIR_SPEED: 0x%x", AIR_SPEED);
   err("air_speed: %d",   air_speed);
+  err("nAVG:      %d",   nAVG);
+  err("nSKIP:     %d",   nSKIP);
   sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
+  sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
+  sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
 
-  // Set the lams.   
+  // Set the lams channel (this starts the data xmit from the driver)
   struct lams_set set_lams;
   set_lams.channel = 1;
-  err("send LAMS_SET_CHN");
   sensor_in_0.ioctl(LAMS_SET_CHN, &set_lams, sizeof(set_lams));
 
   // Note: fd_set is a 1024 bit mask.
@@ -193,17 +199,19 @@ int main(int argc, char** argv)
       if (len == sizeof(lamsPort)) {
         len = 0;
         errno = 0;
+        ofPtr = creat(ofName.c_str(), 0666);
+#define DATA_ONLY
 #ifdef DATA_ONLY
-        status = write(ofPtr, &(data->data), sizeof(data->data)); 
+        status = pwrite(ofPtr, &(data->data), sizeof(data->data), 0); 
+//      status = write(ofPtr, &(data->data), sizeof(data->data)); 
 #else
         status = write(ofPtr, &databuf, sizeof(lamsPort)); 
 #endif
+        close(ofPtr);
         if (status < 0) {
           err("failed to write (%s)", strerror(errno));
           goto failed;
         }
-//      fsync(fd_lams_data);
-        sync();
       }
     }
   }
@@ -211,14 +219,10 @@ failed:
   err("closing sensors...");
 
   if (ofPtr != -1) close(ofPtr);
+
+  set_lams.channel = 0;
+  sensor_in_0.ioctl(LAMS_SET_CHN, &set_lams, sizeof(set_lams));
   sensor_in_0.close();
-//try {
-//  sensor_in_0.ioctl(LAMS_STOP, (void *)NULL, 0);
-//  sensor_in_0.close();
-//}
-//catch (n_u::IOException& ioe) {
-//  err("%s",ioe.what());
-//}
   err("sensors closed.");
   return 1;
 }

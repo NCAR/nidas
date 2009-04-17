@@ -59,12 +59,14 @@ static struct ioctlHandle* ioctlHandle = 0;
 static rtl_sem_t threadSem;
 static rtl_pthread_t lamsThread = 0;
 static int fd_lams_data = 0;
-static struct lamsPort lams;
+static struct lamsPort _lamsPort;
 
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
    { LAMS_SET_CHN,   _IOC_SIZE(LAMS_SET_CHN)  },
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
+   { N_AVG,          _IOC_SIZE(N_AVG)         },
+   { N_SKIP,         _IOC_SIZE(N_SKIP)        },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -89,6 +91,13 @@ static char * createFifo(char inName[], int chan)
    return devName;
 }
 
+#define REGION_SIZE 0x10  // number of 1-byte registers
+#define BOARD_NUM   0
+
+unsigned int channel = 0;
+unsigned int nAVG  = 8;
+unsigned int nSKIP = 50;
+
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
 {
@@ -98,31 +107,27 @@ static void *lams_thread (void * chan)
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-int n;
-// int fp=0;
+   int fp=0;
    for (;;) {
       timeout.tv_nsec += 600 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
          timeout.tv_sec++;
          timeout.tv_nsec -= NSECS_PER_SEC;
       }
-      if (rtl_sem_timedwait(&threadSem, &timeout) < 0) {
+//    if (rtl_sem_timedwait(&threadSem, &timeout) < 0) {
+      if (rtl_sem_wait(&threadSem) < 0) {
          DSMLOG_DEBUG("thread timed out!\n");
-         readw(baseAddr + FLAGS_OFFSET);
          // timed out!  flush the hardware FIFO
-         for (n=0; n<MAX_BUFFER; n++)
-            readw(baseAddr + DATA_OFFSET);
       } else {
 
-//       if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>>>>>>>>>>>> first post: %d\n", fp++);
+         if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>>>>>>>>>>>> first post: %d\n", fp++);
          // TODO this is constant... set its value in ...::init()
 	 // is it the size of the data portion only, NOT the timetag and size fields!
-         lams.size = sizeof(lams.data);
+         _lamsPort.size = sizeof(_lamsPort.data);
 
          if (fd_lams_data) {
-//         DSMLOG_DEBUG("lams.size:    %d\n", lams.size);
-           lams.timetag = GET_MSEC_CLOCK;
-           if (rtl_write(fd_lams_data,&lams, SIZEOF_DSM_SAMPLE_HEADER + lams.size) < 0) {
+           _lamsPort.timetag = GET_MSEC_CLOCK;
+           if (rtl_write(fd_lams_data,&_lamsPort, SIZEOF_DSM_SAMPLE_HEADER + _lamsPort.size) < 0) {
               DSMLOG_ERR("error: write: %s. Closing\n",
                          rtl_strerror(rtl_errno));
               rtl_close(fd_lams_data);
@@ -133,107 +138,60 @@ int n;
       if (rtl_errno == RTL_EINTR) return 0; // thread interrupted
    }
 }
-unsigned short temp0[MAX_BUFFER], temp1[MAX_BUFFER], peak[MAX_BUFFER];
-unsigned short save1[MAX_BUFFER],save2[MAX_BUFFER];
-unsigned int sum[MAX_BUFFER];
+
+static unsigned long long sum[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-// DSMLOG_ERR("lams_isr called\n");
-   int j;
+// static int fp=0;
+// if (fp<10) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", fp++);
 
-   static unsigned long sum[MAX_BUFFER], max;
-   static int n;
-
-   static int nGlyph=0; 
-   static int nPeak=0;
-   static int nAvg=0;
-   static int nStart=0;
+   unsigned int msw, lsw;
    static int nTattle=0;
-/*
-   if (nAvg++ >= N_AVG) {
-     nAvg = 0;
-     rtl_sem_post( &threadSem );
-   }
-   return 0;
-  } 
-      
-*/
-   if(nStart < 10) {
-     ++nStart;
-     for (n=0; n < MAX_BUFFER; n++){
-       save1[n] = 0;
-       save2[n] = 0;
-     }
-   }
-   if(nAvg == 0) {
-     if(++nPeak == N_PEAK) {
-       readw(baseAddr + PEAK_CLEAR_OFFSET); 
-       nPeak = 0;
-       for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
-     }
-   } 
-   readw(baseAddr + RAM_CLEAR_OFFSET); //Clear Dual Port memory address counter
+   static int nGlyph=0; 
+   static int nAvg=0;
+   static int nSkip=0;
+
+   int n;
+   int s=0;
+
+   //Clear Dual Port memory address counter
+   readw(baseAddr + RAM_CLEAR_OFFSET);
 
    for (n=3; n < MAX_BUFFER; n++) {
-      temp0[n] = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      temp1[n] = (short)readw(baseAddr + AVG_DATA_OFFSET);
+      msw = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      lsw = (short)readw(baseAddr + AVG_DATA_OFFSET);
+      if (channel)
+         sum[s++] += (msw << 16) + lsw;
    }
    for (n=0; n < 3; n++) {
-      temp0[n] = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      temp1[n] = (short)readw(baseAddr + AVG_DATA_OFFSET);
+      msw = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      lsw = (short)readw(baseAddr + AVG_DATA_OFFSET);
+      if (channel)
+         sum[s++] += (msw << 16) + lsw;
    }
-   j = MAX_BUFFER-1;
-   for (n=MAX_BUFFER/2; n < MAX_BUFFER; n++) {
-     sum[j--] += temp1[n];
-     if(temp0[n] > peak[n-MAX_BUFFER/2])
-//       peak[n-MAX_BUFFER/2+3] = temp0[n];
-       peak[n-MAX_BUFFER/2] = temp0[n];
-     if(temp0[n] > max) {
-       max = temp0[n];
-     }
-   }
-
    if (++nTattle == 1024) {
-     nTattle = 0;
-     if (++nGlyph == 256) nGlyph = 0;
-     DSMLOG_DEBUG("(%d) lams.data: 0x%04x, max: 0x%04x\n",
-                 nGlyph,lams.data[nGlyph], max);
+      nTattle = 0;
+      if (++nGlyph == 256) nGlyph = 0;
+         DSMLOG_DEBUG("(%03d) _lamsPort.data: 0x%04x\n",
+                      nGlyph,_lamsPort.data[nGlyph]);
    }
-
-   if (nAvg++ >= N_AVG) {
-      nAvg = 0;
-      for (n=0; n < MAX_BUFFER; n++) {
-         if (n < MAX_BUFFER/2) {
-//           lams.data[n] = peak[MAX_BUFFER/2-1-n];
-           if(peak[MAX_BUFFER/2-1-n] > save1[n])
-             lams.data[n] = peak[MAX_BUFFER/2-1-n] - save1[n];
-           else
-             lams.data[n] = 0;
-           if(nStart == 10) {
-             save1[n] = peak[MAX_BUFFER/2-1-n];
-           }
+   if (channel) {
+      if (nAvg++ >= nAVG) {
+         for (n=0; n < MAX_BUFFER; n++) {
+            _lamsPort.data[n] = sum[n] / nAvg;
+            sum[n] = 0;
          }
-         else {
-
-           if (sum[n]/N_AVG > save2[n])
-             lams.data[n] = (sum[n]/N_AVG) - save2[n];
-           else {
-             lams.data[n] = 0;
-           }
-
-           if(nStart == 10) {
-             save2[n] = sum[n]/N_AVG;
-           }
-//         lams.data[n] = 1024; // DEBUG - set a constant value
-         }
-         sum[n] = 0;
+         nAvg = 0;
       }
-      if(nStart == 10) nStart = 11;
-//    DSMLOG_DEBUG("rtl_sem_post( &threadSem );\n");
-      rtl_sem_post( &threadSem );
+      if (nAvg == 0) {
+         if (nSkip++ >= nSKIP) {
+            rtl_sem_post( &threadSem );
+            nSkip = 0;
+         }
+      }
    }
    return 0;
 }
@@ -243,7 +201,7 @@ static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
 {
    int ret = len;
-   unsigned int airspeed, lams_channels;
+   unsigned int airspeed = 0;
    struct lams_set* lams_ptr;
    char devstr[30];
 
@@ -257,9 +215,14 @@ static int ioctlCallback(int cmd, int board, int chn,
       case LAMS_SET_CHN:
          DSMLOG_DEBUG("LAMS_SET_CHN\n");
          lams_ptr = (struct lams_set*) buf;
-         lams_channels = lams_ptr->channel;
-         DSMLOG_DEBUG("LAMS_SET_CHN lams_channels=%d\n", lams_channels);
+         channel = lams_ptr->channel;
+         DSMLOG_DEBUG("channel:       %d\n", channel);
 
+         if (channel == 0) {
+            if (fd_lams_data)
+               rtl_close( fd_lams_data );
+            break;
+         }
          // open the channel's data FIFO
          sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
          DSMLOG_DEBUG("opening %s\n",devstr);
@@ -274,11 +237,21 @@ static int ioctlCallback(int cmd, int board, int chn,
          break;
       
       case AIR_SPEED:
-         DSMLOG_DEBUG("AIR_SPEED\n");
          airspeed = *(unsigned int*) buf;
 //       writew(airspeed, baseAddr + AIR_SPEED_OFFSET);
+         DSMLOG_DEBUG("airspeed:      %d\n", airspeed);
          break;
-	 	
+
+      case N_AVG:
+         nAVG = *(unsigned int*) buf;
+         DSMLOG_DEBUG("nAVG:          %d\n", nAVG);
+         break;
+
+      case N_SKIP:
+         nSKIP = *(unsigned int*) buf;
+         DSMLOG_DEBUG("nSKIP:         %d\n", nSKIP);
+         break;
+
       default:
          ret = -RTL_EIO;
          break;
@@ -319,10 +292,13 @@ int init_module (void)
    DSMLOG_NOTICE("--------------------------------------------------\n");
    DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
    DSMLOG_NOTICE("MAX_BUFFER: %d\n", MAX_BUFFER);
-   DSMLOG_NOTICE("sizeof(long):  %d\n", sizeof(long));
-   DSMLOG_NOTICE("sizeof(short): %d\n", sizeof(short));
-   DSMLOG_NOTICE("sizeof(int):   %d\n", sizeof(int));
-   DSMLOG_NOTICE("sizeof(char):  %d\n", sizeof(char));
+   DSMLOG_NOTICE("sizeof(long long):  %d\n", sizeof(long long)); // 8
+   DSMLOG_NOTICE("sizeof(long):       %d\n", sizeof(long));      // 4
+   DSMLOG_NOTICE("sizeof(int):        %d\n", sizeof(int));       // 4
+   DSMLOG_NOTICE("sizeof(short):      %d\n", sizeof(short));     // 2
+   DSMLOG_NOTICE("sizeof(char):       %d\n", sizeof(char));      // 1
+   DSMLOG_NOTICE("nAVG:               %d\n", nAVG);
+   DSMLOG_NOTICE("nSKIP:              %d\n", nSKIP);
    DSMLOG_NOTICE("--------------------------------------------------\n");
 
    // open up ioctl FIFO, register ioctl function
@@ -333,8 +309,8 @@ int init_module (void)
 
    request_region(baseAddr, REGION_SIZE, "lams");
    int n;
-   lams.timetag = 0;
-   for (n=0; n<MAX_BUFFER; n++) lams.data[n] = 0;
+   _lamsPort.timetag = 0;
+   for (n=0; n<MAX_BUFFER; n++) _lamsPort.data[n] = 0;
 
    DSMLOG_DEBUG("// initialize the semaphore to the thread\n");
    // initialize the semaphore to the thread
