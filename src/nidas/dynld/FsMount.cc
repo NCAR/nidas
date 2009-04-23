@@ -93,19 +93,20 @@ void FsMount::mount()
         throw n_u::IOException(cmd,"failed",cmdout);
 }
 
-/* Just issue a "mount /dir" command. If /dir is automounted
- * then it may work, whereas  "mount /dev/sdXn -o blahblah /dir"
- * may fail for the user on a server.
+/* Just issue a "cd /dir || mount /dir" command.
+ * If /dir is automounted then it may work, whereas
+ * "mount /dev/sdXn -o blahblah /dir"
+ * will likely fail for a normal user on a server.
  */
 void FsMount::autoMount()
        throw(n_u::Exception)
 {
     if (isMounted()) return;
-    n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
-        deviceMsg.c_str(),dirMsg.c_str());
+    n_u::Logger::getInstance()->log(LOG_INFO,"Automounting: %s",
+        dirMsg.c_str());
 
-    string cmd = string("mount");
-    cmd += ' ' + getDirExpanded() + " 2>&1";
+    const string& dir = getDirExpanded();
+    string cmd = string("{ cd ") + dir + " || mount " + dir + "; } 2>&1";
 
     _mountProcess = n_u::Process::spawn(cmd);
     string cmdout;
@@ -121,8 +122,16 @@ void FsMount::autoMount()
 
     int status;
     _mountProcess.wait(true,&status);
+
+    // check if automount worked
+    if (isMounted()) {
+        n_u::Logger::getInstance()->log(LOG_INFO,"%s is mounted",
+            dirMsg.c_str());
+        return;
+    }
     if (!WIFEXITED(status) || WEXITSTATUS(status))
         throw n_u::IOException(cmd,"failed",cmdout);
+    throw n_u::IOException(cmd,"automount","failed");
 }
 
 void FsMount::mount(FileSet* fset)
@@ -272,21 +281,27 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
 {
     int sleepsecs = 30;
     for (int i = 0;; i++) {
+        if (isInterrupted()) break;
 	try {
-            if (!(i % 2)) fsmount->mount();
-	    else fsmount->autoMount();
+            // try "real" mount first, then autoMount
+	    if (!(i % 2)) fsmount->mount();
+            else fsmount->autoMount();
 	    break;
 	}
 	catch(const n_u::IOException& e) {
 	    if (e.getErrno() == EINTR) break;
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-		    "%s mount: %s, waiting %d secs to try again.",
-		getName().c_str(),e.what(),sleepsecs);
+            if (isInterrupted()) break;
+            if ((i % 2)) {
+                n_u::Logger::getInstance()->log(LOG_ERR,
+                        "%s mount: %s, waiting %d secs to try again.",
+                    getName().c_str(),e.what(),sleepsecs);
+                struct timespec slp = { sleepsecs, 0};
+                ::nanosleep(&slp,0);
+            }
+            else n_u::Logger::getInstance()->log(LOG_ERR,
+                        "%s mount: %s",
+                    getName().c_str(),e.what(),sleepsecs);
 	}
-	if (isInterrupted()) break;
-	struct timespec slp = { sleepsecs, 0};
-        if ((i % 2 )) ::nanosleep(&slp,0);
-	if (isInterrupted()) break;
     }
     fsmount->finished();
     n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
