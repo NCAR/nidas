@@ -190,6 +190,7 @@
 	<xsd:element name="variable" type="variable"/>
 	<xsd:element name="variables" type="variable"/>
 	<xsd:element name="parameter" type="parameter"/>
+        <xsd:element name="prompt" type="promptType"/>
     </xsd:choice>
     <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
     <xsd:attribute name="rate" type="xsd:float"/>

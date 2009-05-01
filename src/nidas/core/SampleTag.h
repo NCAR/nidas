@@ -230,6 +230,13 @@ public:
 
     const std::string& getScanfFormat() const { return scanfFormat; }
 
+    void setPromptString(const std::string& val)
+    {
+        _promptString = val;
+    }
+
+    const std::string& getPromptString() const { return _promptString; }
+
     /**
      * Add a variable to this SampleTag.  SampleTag
      * will own the Variable, and will delete
@@ -325,6 +332,8 @@ private:
     std::vector<std::string> variableNames;
 
     std::string scanfFormat;
+
+    std::string _promptString;
 
     /**
      * List of pointers to Parameters.

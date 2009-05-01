@@ -37,7 +37,8 @@ SampleTag::SampleTag(const SampleTag& x):
 	station(x.station),
 	rate(x.rate),processed(x.processed),
 	dsm(x.dsm),
-	scanfFormat(x.scanfFormat)
+	scanfFormat(x.scanfFormat),
+        _promptString(x._promptString)
 {
     const vector<const Variable*>& vars = x.getVariables();
     vector<const Variable*>::const_iterator vi;
@@ -168,9 +169,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "rate") {
 		float rate;
 		ist >> rate;
-		if (ist.fail() || rate < 0.0)
+		if (ist.fail() || rate < 0.0 || (getRate() != 0 && getRate() != rate))
+                {
+                    cerr << "getRate = " << getRate() << "  rate = " << rate;
 		    throw n_u::InvalidParameterException("sample",
 		    	aname,aval);
+                }
 		setRate(rate);
 	    }
 	    else if (aname == "period") {
@@ -183,7 +187,6 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "scanfFormat")
 		setScanfFormat(aval);
-
 	    else if (aname == "process") {
 		bool process;
 		ist >> boolalpha >> process;
@@ -227,6 +230,17 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    	Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
 	}
+        else if (elname == "prompt") {
+            std::string prompt = xchild.getAttributeValue("string");
+            setPromptString(prompt);
+            istringstream ist(xchild.getAttributeValue("rate"));
+            float promptrate;
+            ist >> promptrate;
+	    if (ist.fail() || promptrate < 0.0 || (getRate() != 0 && getRate() != promptrate))
+                    throw n_u::InvalidParameterException("sample",
+                        "prompt rate", xchild.getAttributeValue("rate"));
+            setRate(promptrate);
+        }
 	else throw n_u::InvalidParameterException("sample",
 		"unknown child element of sample",elname);
     }

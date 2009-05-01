@@ -19,6 +19,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/Sample.h>
+#include <nidas/core/Prompt.h>
 #include <nidas/util/util.h>
 
 namespace nidas { namespace core {
@@ -109,41 +110,32 @@ public:
     }
 
     /**
-     * Set the prompt string for this sensor.
-     * The prompt string may contain backslash escape sequences.
+     * Prompting Sensors can have multiple prompts and rates.
+     * Add another prompt and rate to this sensor.
+     * The prompt string may contain backslash excape sequences.
+     * @param promptRate An enumerated value, indicating the prompt rate.
+     * Use the function irigClockRateToEnum(int rate) in irigclock.h
+     * to convert a rate in Hertz to an enumerated value.
      */
-    virtual void setPromptString(const std::string& val)
+    virtual void addPrompt(const std::string& promptString, const float promptRate)
     {
-        prompt = val;
-	if (prompt.length() > 0 && promptRate > 0.0)
-		prompted = true;
+        Prompt prompt;
+        prompt.setString(promptString);
+        prompt.setRate(promptRate);
+
+        _prompts.push_back(prompt);
+        _prompted = true;
+//cerr<< "pushed back prompt.  String = "<<promptString<<" rate= "<<promptRate;
     }
+
+    const std::list<Prompt>& getPrompts() const { return _prompts;}
 
     /**
      * Is this a prompted sensor.  Will be true if setPromptString()
      * has been called with a non-empty string, and setPromptRate()
      * has been called with a rate other than IRIG_ZERO_HZ.
      */
-    virtual bool isPrompted() const { return prompted; }
-
-    virtual const std::string& getPromptString() const {
-        return prompt;
-    }
-
-    /**
-     * Set the rate at which prompts are sent to this sensor.
-     * @param val An enumerated value, indicating the prompt rate.
-     * Use the function irigClockRateToEnum(int rate) in irigclock.h
-     * to convert a rate in Hertz to an enumerated value.
-     */
-    virtual void setPromptRate(float val) throw(nidas::util::InvalidParameterException)
-    {
-        promptRate = val;
-	if (prompt.length() > 0 && promptRate > 0.0)
-		prompted = true;
-    }
-
-    virtual float getPromptRate() const { return promptRate; }
+    virtual bool isPrompted() const { return _prompted; }
 
     /**
      * Is prompting active, i.e. isPrompted() is true, and startPrompting
@@ -228,7 +220,30 @@ public:
      */
     bool doesAsciiSscanfs();
 
+protected:
+
+    /**
+     * Set the rate at which prompts are sent to this sensor.
+     * This will be set on a CharacterSensor if a <prompt> element
+     * is found for <sensor>, not as a sub-element of <sample>.
+     */
+    void setPromptRate(const float val) {_promptRate = val;}
+
+    const float getPromptRate() { return (_promptRate);}
+
 private:
+
+    /**
+     * Set the prompt string for this sensor.
+     * The prompt string may contain backslash escape sequences.
+     */
+//    virtual void setPromptString(const std::string& val)
+//    {
+//        prompt = val;
+//	if (prompt.length() > 0 && promptRate > 0.0)
+//		_prompted = true;
+//    }
+
 
     mutable int rtlinux;
 
@@ -238,9 +253,10 @@ private:
 
     int messageLength;
 
-    std::string prompt;
+    std::list<Prompt> _prompts;
+    //std::string prompt;
 
-    float promptRate;
+    float _promptRate;
    
     std::list<AsciiSscanf*> sscanfers;
 
@@ -252,7 +268,7 @@ private:
 
     int scanfPartials;
 
-    bool prompted;
+    bool _prompted;
 
     /**
      * String that is sent once after sensor is opened.

@@ -102,9 +102,10 @@
 		<sample id="1"
 		    scanfFormat="%f">
 		    <variable name="test1" units="wacka-a-mole"/>
+		    <prompt string="hello\n" rate="1"/>
 		</sample>
+	        <!-- <prompt string="hello\n" rate="1"/> -->
 		<message separator="\n" position="end" length="0"/>
-                <prompt string="hello\n" rate="1"/>
 	    </serialSensor>
 
             <output class="RawSampleOutputStream" sorterLength="10000">

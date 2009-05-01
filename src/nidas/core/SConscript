@@ -75,6 +75,7 @@ headers = Split("""
     PortSelectorTest.h
     Project.h
     ProjectConfigs.h
+    Prompt.h
     RemoteSerialConnection.h
     RemoteSerialListener.h
     Resampler.h

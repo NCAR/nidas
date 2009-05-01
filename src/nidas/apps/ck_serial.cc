@@ -82,8 +82,9 @@ int main(int argc, char** argv)
 	    sens->setMessageSeparatorAtEOM(true);
 	    sens->setMessageLength(0);
 
-	    sens->setPromptRate(IRIG_1_HZ);
-	    sens->setPromptString("hitme\n");
+            sens->addPrompt("hitme", IRIG_1_HZ);
+	    //sens->setPromptRate(IRIG_1_HZ);
+	    //sens->setPromptString("hitme\n");
 	    // sens->setScanfFormat("%*s%f%x");
 
 	    std::cerr << "doing sens->open" << std::endl;

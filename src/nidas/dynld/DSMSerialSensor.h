@@ -98,11 +98,16 @@ private:
     class Prompter: public nidas::core::LooperClient
     {
     public:
-        Prompter(DSMSerialSensor* sensor): _sensor(sensor),_prompt(0) {}
+        Prompter(DSMSerialSensor* sensor): _sensor(sensor),
+		_prompt(0),_promptLen(0), _promptPeriodMsec(0) {}
 
         ~Prompter();
 
         void setPrompt(const std::string& val);
+        const std::string getPrompt() const { return _prompt; }
+
+        void setPromptPeriodMsec(const int);
+        const int getPromptPeriodMsec() const { return _promptPeriodMsec; }
 
         /**
          * Method called by Looper in order to send a prompt.
@@ -111,14 +116,13 @@ private:
     private:
         DSMSerialSensor* _sensor;
         char* _prompt;
-        int _promptLen;
+	int _promptLen;
+        int _promptPeriodMsec;
     };
 
-    Prompter _prompter;
+    std::list<Prompter*> _prompters;
 
     bool _prompting;
-
-    int _promptPeriodMsec;
 
 };
 
