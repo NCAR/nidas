@@ -65,22 +65,12 @@ bool MOSMote::process(const Sample* samp,
     const char *ep = cp + nc;
     char *op = nsamp->getDataPtr();
 
-    // remove embedded nulls, strip 7th bit.  Saw some data
-    // which looked like good ascii but the 7th bit was set.
-    // This must be happening on the mote.
-    for ( ; cp < ep; cp++ ) if (*cp != '\0') *op++ = (*cp & 0x7f);;
-    *op++ = 0;
-
-    // fixup, in place, incorrectly formatted negative numbers
+    // Fixup incorrectly formatted negative numbers
     // by skipping the spaces between the '-' and the digits.
-    cp = nsamp->getDataPtr();
-    op = nsamp->getDataPtr();
-    for ( ; *cp; op++ ) {
-        if (op != cp) *op = *cp;
-        if (*cp++ == '-') for ( ; *cp == ' '; cp++);
+    for ( ; cp < ep; ) {
+        *op++ = *cp;
+        if (*cp++ == '-') for ( ; cp < ep && *cp == ' '; cp++);
     }
-    *op++ = 0;
-    // cerr << nsamp->getDataPtr() << endl;
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
     bool res = DSMSerialSensor::process(nsamp,results);

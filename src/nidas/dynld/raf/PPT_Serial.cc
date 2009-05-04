@@ -64,22 +64,15 @@ bool PPT_Serial::process(const Sample * samp,
     nsamp->setTimeTag(samp->getTimeTag());
     nsamp->setId(samp->getId());
 
+    // Fix incorrectly formated negative numbers
+    // by skipping the spaces between the '-' and the digits.
     const char *cp = (const char*) samp->getConstVoidDataPtr();
     const char *ep = cp + nc;
     char *op = nsamp->getDataPtr();
-    for ( ; cp < ep; cp++) *op++ = *cp;
-    *op++ = 0;
-
-    // Fix in place, incorrectly formated negative numbers
-    // by skipping the spaces between the '-' and the digits.
-    cp = nsamp->getDataPtr();
-    op = nsamp->getDataPtr();
-    for ( ; *cp; op++ ) {
-        if (op != cp) *op = *cp;
-        if (*cp++ == '-') for ( ; *cp == ' '; cp++);
+    for ( ; cp < ep; ) {
+        *op++ = *cp;
+        if (*cp++ == '-') for ( ; cp < ep && *cp == ' '; cp++);
     }
-    *op++ = 0;
-    // cerr << nsamp->getDataPtr() << endl;
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
     bool rc = DSMSerialSensor::process(nsamp, results);
