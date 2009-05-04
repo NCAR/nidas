@@ -169,10 +169,11 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "rate") {
 		float rate;
 		ist >> rate;
-		if (ist.fail() || rate < 0.0 || (getRate() != 0 && getRate() != rate))
+		if (ist.fail() || rate < 0.0)            
                 {
-                    cerr << "getRate = " << getRate() << "  rate = " << rate;
-		    throw n_u::InvalidParameterException("sample",
+                    ostringstream ost;
+                    ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+		    throw n_u::InvalidParameterException(ost.str(),
 		    	aname,aval);
                 }
 		setRate(rate);
@@ -180,9 +181,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "period") {
 		float period;
 		ist >> period;
-		if (ist.fail() || period < 0.0)
-		    throw n_u::InvalidParameterException("sample",
+		if (ist.fail() || period < 0.0) {
+                    ostringstream ost;
+                    ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+		    throw n_u::InvalidParameterException(ost.str(),
 		    	aname,aval);
+                }
 		setPeriod(period);
 	    }
 	    else if (aname == "scanfFormat")
@@ -193,9 +197,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) {
 		    ist.clear();
 		    ist >> noboolalpha >> process;
-		    if (ist.fail())
-			throw n_u::InvalidParameterException("sample",
+		    if (ist.fail()) {
+                        ostringstream ost;
+                        ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+			throw n_u::InvalidParameterException(ost.str(),
 			    aname,aval);
+                    }
 		}
 		setProcessed(process);
 		// cerr << "processed=" << process << endl;
@@ -236,12 +243,19 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
             istringstream ist(xchild.getAttributeValue("rate"));
             float promptrate;
             ist >> promptrate;
-	    if (ist.fail() || promptrate < 0.0 || (getRate() != 0 && getRate() != promptrate))
-                    throw n_u::InvalidParameterException("sample",
-                        "prompt rate", xchild.getAttributeValue("rate"));
+	    if (ist.fail() || promptrate < 0.0 || (getRate() != 0 && getRate() != promptrate)) {
+                ostringstream ost;
+                ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+                throw n_u::InvalidParameterException(ost.str(),
+                    "prompt rate", xchild.getAttributeValue("rate"));
+            }
             setRate(promptrate);
         }
-	else throw n_u::InvalidParameterException("sample",
+	else {
+            ostringstream ost;
+            ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+            throw n_u::InvalidParameterException(ost.str(),
 		"unknown child element of sample",elname);
+        }
     }
 }

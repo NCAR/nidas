@@ -541,7 +541,13 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    newtag->setDSM(getDSMConfig());
 	    newtag->setDSMId(getDSMConfig()->getId());
 	    newtag->setSensorId(getShortId());
-	    newtag->fromDOMElement((xercesc::DOMElement*)child);
+            // add sensor name to any InvalidParameterException thrown by sample.
+            try {
+                newtag->fromDOMElement((xercesc::DOMElement*)child);
+            }
+            catch (const n_u::InvalidParameterException& e) {
+                throw n_u::InvalidParameterException(getName() + ": " + e.what());
+            }
 	    if (newtag->getSampleId() == 0)
 	        newtag->setSampleId(getSampleTags().size()+1);
 
@@ -556,7 +562,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		    stag->setDSMId(getDSMConfig()->getId());
 		    stag->setSensorId(getShortId());
 
-		    stag->fromDOMElement((xercesc::DOMElement*)child);
+                    try {
+                        stag->fromDOMElement((xercesc::DOMElement*)child);
+                    }
+                    catch (const n_u::InvalidParameterException& e) {
+                        throw n_u::InvalidParameterException(getName() + ": " + e.what());
+                    }
 		    
 		    delete newtag;
 		    newtag = 0;
