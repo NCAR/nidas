@@ -435,6 +435,14 @@
    </xsd:complexType>
 </xsd:element>
 
+<xsd:simpleType name="goesRFbaudtype">
+    <xsd:restriction base="xsd:positiveInteger">
+	<xsd:enumeration value="100"/>
+	<xsd:enumeration value="300"/>
+	<xsd:enumeration value="1200"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name="goes">
    <xsd:complexType>
 	<xsd:attribute name="baud" type="baudtype"/>
@@ -447,6 +455,7 @@
 	<xsd:attribute name="channel" type="xsd:positiveInteger"/>
 	<xsd:attribute name="xmitInterval" type="xsd:positiveInteger"/>
 	<xsd:attribute name="xmitOffset" type="xsd:nonNegativeInteger"/>
+	<xsd:attribute name="rfbaud" type="goesRFbaudtype"/>
 	<xsd:attribute name="statusFile" type="xsd:token"/>
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
    </xsd:complexType>
