@@ -738,6 +738,8 @@ protected:
         calFile = val;
     }
 
+public:
+
     CalFile* getCalFile()
     {
         return calFile;

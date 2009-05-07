@@ -109,6 +109,12 @@ void sensorTitle(DSMSensor * sensor)
     if (parm)
         cout << ", SerialNumber " << parm->getStringValue(0);
 
+    CalFile *cf = sensor->getCalFile();
+    if (cf) {
+        string A2D_SN(cf->getFile());
+        A2D_SN = A2D_SN.substr(0,A2D_SN.find(".dat"));
+        cout << ", SerialNumber " << A2D_SN;
+    }
     cout << ", (" << sensor->getDSMId() << ',' << sensor->getShortId() << ')';
 
     cout << endl;
