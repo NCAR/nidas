@@ -238,7 +238,7 @@ void CharacterSensor::fromDOMElement(
 	else if (elname == "prompt") {
 	    std::string prompt = xchild.getAttributeValue("string");
 
-	    //setPromptString(prompt);
+	    setPromptString(prompt);
 
 	    istringstream ist(xchild.getAttributeValue("rate"));
 	    float rate;
@@ -252,29 +252,55 @@ void CharacterSensor::fromDOMElement(
 			(getName(),"prompt rate",
 			    xchild.getAttributeValue("rate"));
             setPromptRate(rate);
-            addPrompt(prompt, rate);
+            //addPrompt(prompt, rate);
 	}
     }
 
 
     /* determine if any of the samples have associated prompts */
+    //list<SampleTag*>::const_iterator si;
+    //for (si = getncSampleTags().begin();
+             //si != getncSampleTags().end(); ++si) {
+        //SampleTag* samp = *si;
+        //if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
+		//samp->setRate(getPromptRate());
+        //if (!samp->getPromptString().empty()) {
+		//addPrompt(samp->getPromptString(), samp->getRate());
+		//if (samp->getRate() <= 0.0)
+		    //throw n_u::InvalidParameterException(
+			//getName() + " prompted sensor has sample rate <= 0.0");
+        //}
+    //}
+
+    //_prompted = !getPrompts().empty();
+    
+}
+
+void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
+{
+    DSMSensor::validate();
+
+    if (!getPromptString().empty()) addPrompt(getPromptString(), getPromptRate());
+
+    /* determine if any of the samples have associated prompts */
     list<SampleTag*>::const_iterator si;
     for (si = getncSampleTags().begin();
-             si != getncSampleTags().end(); ++si) {
-        SampleTag* samp = *si;
-        if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
-		samp->setRate(getPromptRate());
-        if (!samp->getPromptString().empty()) {
-		addPrompt(samp->getPromptString(), samp->getRate());
-		if (samp->getRate() <= 0.0)
-		    throw n_u::InvalidParameterException(
-			getName() + " prompted sensor has sample rate <= 0.0");
+            si != getncSampleTags().end(); ++si) {
+	SampleTag* samp = *si;
+	if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
+	    samp->setRate(getPromptRate());
+	if (!samp->getPromptString().empty()) {
+	    addPrompt(samp->getPromptString(), samp->getRate());
+	    if (samp->getRate() <= 0.0)
+	        throw n_u::InvalidParameterException(
+		    getName() + " prompted sensor has sample rate <= 0.0");
         }
     }
 
     _prompted = !getPrompts().empty();
-    
+
 }
+
 
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()

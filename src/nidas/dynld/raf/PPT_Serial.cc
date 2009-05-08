@@ -34,6 +34,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,PPT_Serial)
 
 PPT_Serial::PPT_Serial()
 {
+    _numPromptsBack = 0;
 }
 
 PPT_Serial::~PPT_Serial()
@@ -49,6 +50,12 @@ void PPT_Serial::open(int flags) throw(n_u::IOException)
 
 void PPT_Serial::close() throw(n_u::IOException)
 {
+    if (_numPromptsBack > 0)  {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+	      "%s: Number of Prompts recieved from PPT: %d",getName().c_str(),
+			                _numPromptsBack);
+
+    }
     DSMSerialSensor::close();
 }
 
@@ -60,6 +67,17 @@ bool PPT_Serial::process(const Sample * samp,
     if (nc == 0) return false;
 
     SampleT<char>* nsamp = getSample<char>(nc);
+
+/**  Sometimes we see the prompt returned to the process method.  IF so 
+     just track it rather than letting it pass along.
+  */
+  /*
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), "*00", 3) == 0) {
+        _numPromptsBack++;
+        nsamp->freeReference();
+	return false;
+    }
+    */
 
     nsamp->setTimeTag(samp->getTimeTag());
     nsamp->setId(samp->getId());

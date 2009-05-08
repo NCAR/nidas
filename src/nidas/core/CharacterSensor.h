@@ -56,6 +56,12 @@ public:
     	nidas::util::InvalidParameterException);
 
     /**
+     * Validate this Character Sensor - basically used to initialize all
+     * the prompts for this sensor
+     */
+    void validate() throw(nidas::util::InvalidParameterException);
+
+    /**
      * Initialize the CharacterSensor instance for post-processing.
      * This should only be done after the CharacterSensor
      * has been initialized with fromDOMElement.
@@ -223,7 +229,7 @@ public:
 protected:
 
     /**
-     * Set the rate at which prompts are sent to this sensor.
+     * Set the rate at which <sensor> prompts are sent to this sensor.
      * This will be set on a CharacterSensor if a <prompt> element
      * is found for <sensor>, not as a sub-element of <sample>.
      */
@@ -231,18 +237,16 @@ protected:
 
     const float getPromptRate() { return (_promptRate);}
 
-private:
-
     /**
-     * Set the prompt string for this sensor.
+     * Set the <sensor> prompt string for this sensor.
      * The prompt string may contain backslash escape sequences.
      */
-//    virtual void setPromptString(const std::string& val)
-//    {
-//        prompt = val;
-//	if (prompt.length() > 0 && promptRate > 0.0)
-//		_prompted = true;
-//    }
+    void setPromptString(const std::string& val) { _promptString = val; }
+
+    const std::string& getPromptString() { return (_promptString);}
+
+private:
+
 
 
     mutable int rtlinux;
@@ -254,8 +258,8 @@ private:
     int messageLength;
 
     std::list<Prompt> _prompts;
-    //std::string prompt;
 
+    std::string _promptString;
     float _promptRate;
    
     std::list<AsciiSscanf*> sscanfers;

@@ -54,6 +54,8 @@ public:
 
 protected:
 
+private:
+    int _numPromptsBack;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
