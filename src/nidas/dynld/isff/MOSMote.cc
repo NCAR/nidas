@@ -40,13 +40,13 @@ void MOSMote::open(int flags)
     if (_tsyncPeriodSecs > 0) {
 	// send a time sync on open
 	_mosSyncher.looperNotify();
-    	nidas::core::Looper::getInstance()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
+    	getLooper()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
     }
 
 }
 void MOSMote::close() throw(nidas::util::IOException)
 {
-    if (_tsyncPeriodSecs > 0) Looper::getInstance()->removeClient(&_mosSyncher);
+    if (_tsyncPeriodSecs > 0) getLooper()->removeClient(&_mosSyncher);
     DSMSerialSensor::close();
 }
 
@@ -65,12 +65,14 @@ bool MOSMote::process(const Sample* samp,
     const char *ep = cp + nc;
     char *op = nsamp->getDataPtr();
 
-    // Fixup incorrectly formatted negative numbers
-    // by skipping the spaces between the '-' and the digits.
+    // Remove embedded nulls, and fixup incorrectly formatted
+    // negative numbers by skipping the spaces between the '-'
+    // and the digits.
     for ( ; cp < ep; ) {
-        *op++ = *cp;
+        if (*cp != '\0') *op++ = *cp;
         if (*cp++ == '-') for ( ; cp < ep && *cp == ' '; cp++);
     }
+    *op++ = '\0';   // trailing null
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
     bool res = DSMSerialSensor::process(nsamp,results);
