@@ -17,7 +17,6 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-
 # source repo_scripts/repo_funcs.sh
 # source repo_scripts/repo_funcs.sh
 source /home/maclean/svn/eol/imports/ael/repo_scripts/repo_funcs.sh
@@ -37,8 +36,9 @@ get_version()
 
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ];then
-    # version=`get_version ${pkg}.spec`
-    rpmbuild -ba --clean ${pkg}.spec | tee -a $log  || exit $?
+    version=`get_version ${pkg}.spec`
+    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn ${pkg}-${version}
+    rpmbuild -v -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
 pkg=isff-named
@@ -56,7 +56,7 @@ echo "RPMS:"
 egrep "^Wrote:" $log
 
 if $install && [ -d $rroot ]; then
-    rpms="$topdir/RPMS/noarch/isff-*.noarch.rpm"
+    rpms="$topdir/RPMS/noarch/nidas-*.noarch.rpm"
     echo "rpms=$rpms"
     for r in $rpms; do
         echo $r
