@@ -23,7 +23,7 @@ using namespace std;
 void SampleSource::distribute(const Sample* sample) throw()
 {
     // copy constructor does a lock
-    SampleClientList tmp(clients);
+    SampleClientList tmp(_clients);
 
     /* There is a multithreading issue at this point.
      * If a SampleClient removes themselves from the list
@@ -47,8 +47,10 @@ void SampleSource::distribute(const Sample* sample) throw()
     list<SampleClient*>::const_iterator li = tmp.begin();
     for ( ; li != tmp.end(); ++li)
 	(*li)->receive(sample);
+    _numDistributedSamples++;
+    _numDistributedBytes += sample->getHeaderLength() + sample->getDataByteLength();
+    _lastDistributedTimeTag = sample->getTimeTag();
     sample->freeReference();
-    numSamplesSent++;
 }
 
 void SampleSource::distribute(const list<const Sample*>& samples)
@@ -64,7 +66,7 @@ void SampleSource::distribute(const list<const Sample*>& samples)
 void SampleSource::flush() throw()
 {
     // copy constructor does a lock
-    SampleClientList tmp(clients);
+    SampleClientList tmp(_clients);
     list<SampleClient*>::const_iterator li;
     for (li = tmp.begin(); li != tmp.end(); ++li)
 	(*li)->finish();

@@ -328,7 +328,7 @@ protected:
   bool _cancel_deferred;
   bool _running;
   bool _needsjoining;
-  pthread_attr_t thread_attr;
+  pthread_attr_t _thread_attr;
   /**
    * Exception thrown by run method.
    */
@@ -403,7 +403,7 @@ public:
     ~ThreadJoiner();
     int run() throw();
 private:
-    Thread* thread;
+    Thread* _thread;
 };
 
 typedef ThreadRunnable DefaultThread;

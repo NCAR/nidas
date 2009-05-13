@@ -14,7 +14,10 @@ headers = Split("""TiltSensor.h""")
 
 env.Install('$PREFIX/lib', so)
 
-env.Clean(arch + '_install',[
+# env.Clean(arch + '_install',[
+#     (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
+#     ])
+env.Clean('install',[
     (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
     ])
 

@@ -32,12 +32,12 @@ struct McSocketData {
      */
     int magic;
     /**
-     * Pseudo port number of request which identifies the request.
+     * An integer which identifies the type of the request.
      * A McSocketListener on the server side must be doing
      * an accept for a McSocket with the same
-     * requestNum value. Stored in "network", big-endian order.
+     * requestType value. Stored in "network", big-endian order.
      */
-    int _requestNum;
+    int _requestType;
 
     /**
      * TCP stream socket port that the remote host is listening on.
@@ -51,24 +51,22 @@ struct McSocketData {
     short _socketType;
 
     /**
-     * How many multicasts has it sent.
-     * Stored in "network", big-endian order.
-     */
-    int _numMulticasts;
-
-    /**
      * Constructor.
      */
-    McSocketData() : _requestNum(0),_listenPort(0),_socketType(htons(SOCK_STREAM)),_numMulticasts(0) {}
+    McSocketData() : _requestType(htonl((unsigned)-1)),_listenPort(0),_socketType(htons(SOCK_STREAM)) {}
 };
 
 /**
  * Datagram that is multicast by a host when it wants a service.
+ * A McSocketDatagram contains the address of the sending host,
+ * a port number that the sending host is listening on, the type
+ * of connection required (SOCK_STREAM or SOCK_DGRAM), and the
+ * type of the service requested.
  */
 class McSocketDatagram: public DatagramPacketT<McSocketData>
 {
 public:
-    McSocketDatagram(int requestNum=0);
+    McSocketDatagram(int requestType=-1);
 
     /**
      * Copy constructor.
@@ -81,11 +79,12 @@ public:
     McSocketDatagram& operator=(const McSocketDatagram& rhs);
 
     int getMagic() const { return ntohl(mcdata.magic); }
+
     void setMagic(int val) { mcdata.magic = htonl(val); }
 
+    int getRequestType() const { return ntohl(mcdata._requestType); }
 
-    int getRequestNumber() const { return ntohl(mcdata._requestNum); }
-    void setRequestNumber(int val) { mcdata._requestNum = htonl(val); }
+    void setRequestType(int val) { mcdata._requestType = htonl(val); }
 
     /**
      * What TCP port is the requester listening on for the connection back?
@@ -102,12 +101,6 @@ public:
 
     void setSocketType(int val) { mcdata._socketType = htons(val); }
 
-    /**
-     * How patiently has the client been waiting?
-     */
-    int getNumMulticasts() const { return ntohl(mcdata._numMulticasts); }
-    void setNumMulticasts(int val) { mcdata._numMulticasts = htonl(val); }
-    
     /**
      * Magic value that should be found at the beginning of
      * all received McSocketDatagrams.
@@ -135,46 +128,49 @@ inline int getMcSocketType(McSocket<DatagramSocket>* ptr)
  * A McSocket provides a way to establish a TCP stream socket
  * connection, or a pair of UDP datagram sockets using a common
  * port number.  The communication is esablished by multicasting a
- * request for the service.
+ * request for the service. Contained in the multicast datagram
+ * is an integer value for the type of service requested, allowing
+ * this protocol to be used for any type of service that can
+ * be provided over TCP or UDP sockets.
  *
- * Use McSocket<Socket> to establish a TCP SOCK_STREAM connection,
- * and McSocket<DatagramSocket> to establish a pair of UDP SOCK_DGRAM
+ * Use a McSocket<Socket> to establish a TCP SOCK_STREAM connection.
+ * Use a McSocket<DatagramSocket> to establish a pair of UDP SOCK_DGRAM
  * sockets.
  *
  * McSocket is used to establish the connection at either end.
  * A McSocket can either listen for a connection (like a ServerSocket)
  * or connect to a remote McSocket.
  *
+ * When McSocket does a connect(), it starts a McSocketMulticaster
+ * thread. This thread creates either a ServerSocket (for McSocket<Socket>)
+ * or a DatagramSocket (for McSocket<DatagramSocket>), using any available
+ * port number. Then it multicasts McSocketDatagrams containing
+ * the request type of the McSocket, the socket type (SOCK_STREAM or SOCK_DGRAM),
+ * and the port number of the ServerSocket or DatagramSocket. When a select
+ * indicates that data is readable on the created socket, then the
+ * McSocketMulticaster passes the accepted socket back to the McSocket
+ * as the return value of the connect() method. The McSocketMulticaster thread
+ * then quits. This connection can also be established asynchronously
+ * in a two-step sequence using request() and connected() instead of connect().
+ *
  * When a McSocket does an accept(), it registers itself with
  * a McSocketListener, a thread which is listening for
  * McSocketDatagrams on a multicast address.
- *
- * A McSocketDatagram contains the address of the sending host,
- * a port number that the sending host is listening on, the type
- * of connection required (SOCK_STREAM or SOCK_DGRAM), and a
- * request number.
- * The McSocketListener checks if a McSocket has requested
- * a connection with the given request number and socket type.
+ * When the McSocketListener receives a McSocketDatagram, it
+ * checks if a McSocket has requested a connection for the
+ * given request type and socket type.
  * If so, then it creates a Socket or DatagramSocket and connects it
  * to the socket port on the requesting host. This Socket
  * is returned as the value of the accept() method.
- *
- * When McSocket does a connect(), it starts a McSocketMulticaster
- * thread. This thread creates either a ServerSocket (for McSocket<Socket>)
- * or a DatagramSocket  (for McSocket<DatagramSocket>), using any available
- * port number. Then it multicasts McSocketDatagrams containing
- * the request number of the McSocket, the connection type, and the
- * port number of the ServerSocket or DatagramSocket. When a select
- * indicates that data is readable on the created socket, then the multicaster
- * thread quits, passing the accepted socket back to the McSocket via the offer() method.
+ * This connection can also be established asynchronously
+ * in a two-step sequence using listen() and connected() instead of accept().
  */
-
 template <class SocketT>
 class McSocket
 {
     /**
      * McSocketListener and McSocketMulticaster are friends that setup
-     * the socket connection and call the non-public offer() method.
+     * the socket connection and call the private offer() method.
      */
     friend class McSocketListener;
 
@@ -182,7 +178,7 @@ class McSocket
     friend class McSocketMulticaster;
 public:
     /**
-     * Create a McSocket, accepting multicast
+     * Create a McSocket for requesting or accepting multicast
      * requests for a socket connection.
      * Typical usage:
      *
@@ -191,15 +187,15 @@ public:
 *      int mport = 10000;
 *      Inet4SocketAddress mcastSockAddr(mcastAddr,mport);
 *      
-*      int pport = 99;
+*      int rtype = 99;
 *      
 *      McSocket<Socket> server;
 *      server.setInet4McastSocketAddress(mcastSockAddr);
-*      server.setRequestNumber(pport);
+*      server.setRequestType(rtype);
 *      
 *      McSocket<Socket> client;
 *      client.setInet4McastSocketAddress(mcastSockAddr);
-*      client.setRequestNumber(pport);
+*      client.setRequestType(rtype);
 *      
 *      class McThread: public Thread {
 *      public:
@@ -214,14 +210,18 @@ public:
 *	    cerr << "requester read, l=" << l << endl;
 *	    if (strcmp(buf,"hello\n"))
 *	        throw Exception("McThread socket read not as expected");
+*           // for this test, expect EOF on second recv.
 *	    try {
 *		l = socket->recv(buf,sizeof(buf));
 *	    }
 *	    catch(const EOFException& e) {
 *		cerr << "requester EOF, closing socket" << endl;
 *		socket->close();
+*		delete socket;
 *		return RUN_OK;
 *	    }
+*	    socket.close();
+*	    delete socket;
 *	    cerr << "requester no EOF, closing socket" << endl;
 *	    throw Exception("McThread socket read not as expected");
 *	}
@@ -236,8 +236,9 @@ public:
 *       socket->send("hello\n",7);
 *       cerr << "server closing socket" << endl;
 *       socket->close();
+*       delete socket;
 *
-*       cerr << "joining cthread" << endl;
+*       cerr << "joining client cthread" << endl;
 *       cthread.join();
 *
 *       server.close();
@@ -254,12 +255,25 @@ public:
 
     virtual ~McSocket();
 
+    /**
+     * Set a specific interface for the multicasts.
+     * If a request() or connect() is done, then requests 
+     * will be sent on this interface. If an listen() or accept()
+     * is done, then an MulticastSocket::joinInterface() will
+     * be done on this interface to listen for incoming datagrams.
+     * If the interface is not set, or is left at the default of
+     * INADDR_ANY, then McSocket will send on or join all available
+     * interfaces capable of multicast, including the loopback interface.  
+     */
     void setInterface(Inet4NetworkInterface iaddr) {
         _iface = iaddr;
     }
 
     Inet4NetworkInterface getInterface() const { return _iface; }
 
+    /**
+     * Return all network interfaces on this system.
+     */
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException);
 
     /**
@@ -277,66 +291,89 @@ public:
     void setInet4McastSocketAddress(const Inet4SocketAddress& val) { _mcastAddr = val; }
 
     /**
-     * Get the request number.
-     */
-    int getRequestNumber() const { return _requestNum; }
-
-    /**
-     * Set the request number.
+     * Set the request type value.  This can be any number, agreed
+     * upon by the McSocket sending requests and the McSocket listening
+     * for requests.
      * @param val Request number
      */
-    void setRequestNumber(int val) { _requestNum = val; }
+    void setRequestType(int val) { _requestType = val; }
 
     /**
-     * Register with a McSocketListener which is listening on my multicast
-     * address. When a request is received on the address for my pseudoport
-     * McSocketListener will call my offer() method when a socket has been
-     * connected.  One either uses either form of listen() or accept()
-     * to request a connection.
+     * Get the request type number.
+     */
+    int getRequestType() const { return _requestType; }
+
+    /**
+     * Register with a McSocketListener to listen on the multicast
+     * address. When a request is received on the socket port, with a
+     * matching request type and socket type, McSocketListener will either
+     * do a Socket::connect() to establish a TCP connection back to
+     * the requesting host and port if the socket type is SOCK_STREAM,
+     * or if the socket type is SOCK_DGRAM, will create a DatagramSocket
+     * with a default destination address of the requesting host and port.
+     * Once this has been done, McSocketListener will call the offer()
+     * method of this McSocket. offer() then calls the virtual connected()
+     * method, passing a pointer to the connected socket.
+     * Use either listen() or accept() to wait for a connection.
      */
     void listen() throw(IOException);
 
     /**
      * Like ServerSocket::accept(), this method will return a connected socket.
-     * Register with a McSocketListener which is listening on my multicast
-     * address. Then wait on a condition variable until a request is received
-     * on the address for my pseudoport.  McSocketListener will call the offer()
-     * method when a socket has been connected. offer() will signal the
-     * condition variable, and then accept() will return with the given socket.
+     * As with listen(), it registers with a McSocketListener to listen
+     * on the multicast address, then waits until a request is received with
+     * a matching request type and socket type.  accept() will return with
+     * a pointer to a connected TCP Socket for a McSocket<Socket>,
+     * or to a DatagramSocket for a McSocket<DatagramSocket>,
+     * with a default destination address of the requesting host and port.
+     * The caller owns the pointer to the socket and is responsible for
+     * closing and deleting it when done.
      */
     SocketT* accept() throw(IOException);
 
     /**
-     * Start issuing requests for a connection by mulitcasting datagrams.
-     * When a response arrives back, then the connected() method is called.
-     */
-    void request() throw(IOException);
-
-    /**
-     * Method that is called when a socket connection is established.
-     * Must be implemented in derived classes if the user wants
-     * to use request() and connected() instead of connect().
+     * Virtual method that is called when a socket connection is established.
+     * This must be implemented in derived classes if the user wants
+     * to implement an asynchronous, two-step connection using
+     * listen() instead of accept() for incoming requests or
+     * request() instead of connect() for outgoing requests.
+     * @param sock The socket which is ready for I/O.
+     * McSocket then owns the pointer to the socket and is responsible
+     * for closing and deleting it when done.
      */
     virtual void connected(SocketT* sock) {}
 
     /**
-     * Do a request(), and then wait until a connection is established.
-     * Returns the pointer to the connected socket.
+     * Start issuing requests for a connection by multicasting McSocketDatagrams.
+     * When a response is received, either in the form of a TCP socket
+     * connection in the case of a socket type of SOCK_STREAM, or a datagram
+     * is received in the case of a socket type of SOCK_DGRAM, then the
+     * connected() method is called.
+     */
+    void request() throw(IOException);
+
+    /**
+     * Do a request(), and then wait until a TCP connection is established,
+     * or a UDP datagram is received back.  Returns the pointer to the connected
+     * TCP Socket or the DatagramSocket.
+     * McSocket then owns the pointer to the socket and is responsible
+     * for closing and deleting it when done.
      */
     SocketT* connect() throw(IOException);
 
     /**
-     * Shutdown the multicasting and listening threads for this McSocket.
+     * Unregister this McSocket from the multicasting and listening threads.
      */
     virtual void close() throw(IOException);
 
 private:
     /**
-     * How a McSocketListener hands me a connected TCP socket.
+     * How a McSocketListener passes back a connected TCP socket or
+     * DatagramSocket. offer() calls the connected() virtual method.
      * McSocket will own the pointer to the socket and is responsible
      * for closing and deleting it when done.
      * @param sock A pointer to a Socket. May be null, in which case err
-     *       will be a non-zero errno to be reported.
+     *       will be a non-zero errno that occured.
      * @param err If sock is null, an errno.
      */
     void offer(SocketT* sock,int err);
@@ -345,7 +382,7 @@ private:
 
     Inet4NetworkInterface _iface;
 
-    int _requestNum;
+    int _requestType;
 
     Cond _connectCond;
 
@@ -364,28 +401,61 @@ private:
 
 };
 
-class McSocketListener: public Thread
+/**
+ * Class for listening on McSocket requests on a specific multicast address
+ * and UDP port number.  Instances of this class are started as needed
+ * as a result of McSocket::listen() or McSocket::accept(),
+ * and shutdown as needed when a McSocket is closed. Methods of this
+ * class are private and only accessed by McSocket.
+ */
+class McSocketListener: private Thread
 {
+    template<class SocketT>
+    friend class McSocket;
+
 public:
 
     /**
-     * How a McSocket registers with a McSocketListener. If
+     * Public method to return the number of McSocketListeners that are active.
+     */
+    static int check() throw();
+
+private:
+    /**
+     * How a McSocket<Socket> registers with a McSocketListener. If
      * a McSocketListener is not running on the multicast address
-     * of the McSocket, then one is created and stared.
-     * When a McSocketDatagram arrives for the McSocket, then
-     * a TCP socket connection is made back to the requesting host,
-     * and the connected socket passed back to the McSocket via
-     * McSocket::offer();
+     * of the McSocket, then one is created and started.
+     * When a McSocketDatagram arrives for the McSocket, matching the request type
+     * and a socket type of SOCK_STREAM, then a TCP socket connection is made back
+     * to the requesting host, and the connected socket is passed back to the
+     * McSocket via McSocket::offer();
      */
     static void accept(McSocket<Socket>* sock) throw(Exception);
 
+    /**
+     * How a McSocket<DatagramSocket> registers with a McSocketListener. If
+     * a McSocketListener is not running on the multicast address
+     * of the McSocket, then one is created and started.
+     * When a McSocketDatagram arrives for the McSocket, matching the request type
+     * and a socket type of SOCK_DGRAM, then a DatagramSocket is created, with a default
+     * destination address of the requesting host and port.
+     * This DatagramSocket is passed back to the McSocket via McSocket::offer();
+     */
     static void accept(McSocket<DatagramSocket>* sock) throw(Exception);
 
+    /**
+     * Remove the given McSocket from the list being served by this listener.
+     * If there are no more McSockets that are listening on a given
+     * multicast address and port, then the listener is shut down.
+     */
     static void close(McSocket<Socket>* sock) throw(Exception);
 
+    /**
+     * Remove the given McSocket from the list being served by this listener.
+     * If there are no more McSockets which are listening on a given
+     * multicast address and port, then the listener is shut down.
+     */
     static void close(McSocket<DatagramSocket>* sock) throw(Exception);
-
-    static int check() throw();
 
     int run() throw(Exception);
 
@@ -418,10 +488,20 @@ private:
 
 };
 
+/**
+ * Thread which is started by McSocket to multicast requests
+ * for connections.  An instance of this class is
+ * started as a result of McSocket::request() or McSocket::connect(),
+ * and shutdown when the McSocket is closed.  Methods of this
+ * class are private and only accessed by McSocket.
+ */
 template<class SocketTT>
-class McSocketMulticaster: public Thread
+class McSocketMulticaster: private Thread
 {
-public:
+    template<class SocketT>
+    friend class McSocket;
+
+private:
     McSocketMulticaster(McSocket<SocketTT>* mcsocket);
 
     virtual ~McSocketMulticaster();
@@ -429,7 +509,6 @@ public:
     int run() throw(Exception);
 
     void interrupt();
-private:
     McSocket<SocketTT>* _mcsocket;
 
     /**
@@ -460,7 +539,7 @@ private:
 namespace nidas { namespace util {
 
 template<class SocketT>
-McSocket<SocketT>::McSocket(): _mcastAddr(),_iface(),_requestNum(-1),
+McSocket<SocketT>::McSocket(): _mcastAddr(),_iface(),_requestType(-1),
 	_newsocket(0),_socketOffered(false),_multicaster(0)
 {
 }
@@ -471,7 +550,7 @@ McSocket<SocketT>::McSocket(): _mcastAddr(),_iface(),_requestNum(-1),
 template<class SocketT>
 McSocket<SocketT>::McSocket(const McSocket<SocketT>& x) :
     _mcastAddr(x._mcastAddr),_iface(x._iface),
-    _requestNum(x._requestNum),_newsocket(0),_socketOffered(false),_multicaster(0)
+    _requestType(x._requestType),_newsocket(0),_socketOffered(false),_multicaster(0)
 {
 }
 
@@ -491,7 +570,7 @@ std::list<Inet4NetworkInterface> McSocket<SocketT>::getInterfaces() const throw(
 template<class SocketT>
 void McSocket<SocketT>::listen() throw(IOException)
 {
-    if (getRequestNumber() < 0)
+    if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
 		"request number has not been set");
     _newsocket = 0;
@@ -526,7 +605,7 @@ SocketT* McSocket<SocketT>::accept() throw(IOException)
 template<class SocketT>
 void McSocket<SocketT>::request() throw(IOException)
 {
-    if (getRequestNumber() < 0)
+    if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
 		"request number has not been set");
     _newsocket = 0;
@@ -754,7 +833,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     McSocketDatagram dgram;
     dgram.setMagic(dgram.magicVal);
     dgram.setSocketAddress(mcsockaddr);
-    dgram.setRequestNumber(_mcsocket->getRequestNumber());
+    dgram.setRequestType(_mcsocket->getRequestType());
     if (_serverSocket)
         dgram.setRequesterListenPort(_serverSocket->getLocalPort());
     else
@@ -772,9 +851,11 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
         else _requestSocket->send(dgram);
 
 	if (!(numCasts % 10))
-	    std::cerr << "sent " << numCasts << " dgrams, length=" << dgram.getLength() <<
-		", requestNum=" << dgram.getRequestNumber() <<
+	    std::cerr << "sent " << numCasts << " dgrams" <<
+		", requestType=" << dgram.getRequestType() <<
 		", port=" << dgram.getRequesterListenPort() <<
+		", socketType=" << dgram.getSocketType() <<
+		", len=" << dgram.getLength() <<
                 ", #mcifaces=" << ifaces.size() << std::endl;
 
 	tmpto = waitPeriod;

@@ -106,8 +106,11 @@ env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 
 # print [ env.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
 
-env.Clean(arch + '_install', [
+# env.Clean(arch + '_install', [
+#     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
+#     ])
+env.Clean('install', [
     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
     ])
 
-env['LIBNIDAS_DYNLD'] = installed_lib
+env['LIBNIDAS_DYNLD'] = lib

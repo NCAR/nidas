@@ -381,6 +381,7 @@ void Csat3Sim::run() throw(n_u::Exception)
             sendMessage();
         }
         else if (FD_ISSET(_port->getFd(),&rtfds)) {
+            res--;
             char buf[8];
             int nc = _port->read(buf,sizeof(buf));
             const char* eob = buf + nc;
@@ -388,6 +389,7 @@ void Csat3Sim::run() throw(n_u::Exception)
                 switch (*cp) {
                 case '&':
                     running = !running;
+                    // cerr << "running=" << running << endl;
                     nquest = 0;
                     break;
                 case 'D':

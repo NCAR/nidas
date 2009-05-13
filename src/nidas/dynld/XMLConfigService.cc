@@ -54,7 +54,7 @@ void XMLConfigService::schedule() throw(n_u::Exception)
     list<IOChannel*>::iterator oi = _outputs.begin();
     for ( ; oi != _outputs.end(); ++oi) {
         IOChannel* output = *oi;
-        output->setRequestNumber(XML_CONFIG);
+        output->setRequestType(XML_CONFIG);
         output->requestConnection(this);
     }
 }
@@ -134,7 +134,7 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
     xercesc::DOMDocument* doc = parser->parse(
-        Project::expandEnvVars(DSMServer::getInstance()->getXMLFileName()));
+        Project::expandEnvVars(_svc->getDSMServer()->getXMLConfigFileName()));
 
     xercesc::DOMNodeList* projnodes =
         doc->getElementsByTagName((const XMLCh*)XMLStringConverter("project"));
@@ -142,7 +142,7 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     /**
      * Overwrite project config attribute with its value
      * from the Project.  The actual configuration name
-     * typically comes from a runstring argument to DSMServer or DSMEngine.
+     * typically comes from a runstring argument to DSMServerApp or DSMEngine.
      */
     for (unsigned int i = 0; i < projnodes->getLength(); i++) {
         xercesc::DOMNode* proj = projnodes->item(i);

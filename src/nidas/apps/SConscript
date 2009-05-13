@@ -19,7 +19,6 @@ else:
     archapps=Split("""
     """)
 
-
 # ck_lams.cc
 apps = Split("""
     ck_lams.cc
@@ -34,6 +33,7 @@ apps = Split("""
     statsproc.cc
     serial_test.cc
     sensor_sim.cc
+    sing.cc
     ck_serial.cc
     ck_config.cc
     ck_goes.cc
@@ -53,12 +53,10 @@ apps = Split("""
     isff/prep.cc
     raf/cvi_lv_test_in.cc
     raf/cvi_lv_test_out.cc
-    utime.cc
     xml_dump.cc
     proj_configs.cc
     n_hdr_util.cc
     sensor_extract.cc
-    sing.cc
 """)
 
 # apps which don't need, or want, the nidas libraries
@@ -73,38 +71,41 @@ nuapps = Split("""
     gps_nmea_sysclock.cc
     garmin.cc
     tee_tty.cc
+    utime.cc
 """)
 
 # Note that we don't have to search the pthread, dl, xerces-c, cap, etc
 # libraries, since they were searched when libnidas_dynld was built.
 nodes = []
-libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
+# libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
     node = env.Program( source=i,
-        LIBS= ['nidas_dynld'],
-        LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
-    node = env.Install('$PREFIX/bin', node)
-    env.Depends(node, libs)
+                        LIBS= ['nidas_dynld'],
+                        LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
     nodes += node
+    node = env.Install('$PREFIX/bin', node)
+    # env.Depends(node, libs)
 
 # suppress linking against nidas libraries
 for i in nlapps:
     node = env.Program(source=i,LIBS=[])
-    node = env.Install('$PREFIX/bin', node)
     nodes += node
+    node = env.Install('$PREFIX/bin', node)
 
 # link against nidas_util
 for i in nuapps:
     node = env.Program(source=i,
                        LIBS= ['nidas_util'],
                        LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
-    node = env.Install('$PREFIX/bin', node)
-    env.Depends(node, [env['LIBNIDAS_UTIL']])
     nodes += node
+    node = env.Install('$PREFIX/bin', node)
+    # env.Depends(node, [env['LIBNIDAS_UTIL']])
 
 env['NIDAS_APPS'] = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)
     env['NIDAS_APPS'][name] = node
+    # print 'name=' + name + ' node=' + env.subst("${TARGET.abspath}", target=node)
 
-env.Clean(arch + '_install', nodes)
+# env.Clean(arch + '_install', nodes)
+env.Clean('install', nodes)

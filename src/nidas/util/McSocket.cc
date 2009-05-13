@@ -54,10 +54,10 @@ namespace
 /* static */
 const int McSocketDatagram::magicVal = 0x01234567;
 
-McSocketDatagram::McSocketDatagram(int requestNum) :
+McSocketDatagram::McSocketDatagram(int requestType) :
     DatagramPacketT<McSocketData>(&mcdata,1)
 {
-    setRequestNumber(requestNum);
+    setRequestType(requestType);
 }
 
 /*
@@ -247,22 +247,22 @@ McSocketListener::~McSocketListener()
 void McSocketListener::add(McSocket<Socket>* mcsocket)
 {
 #ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"McSocketListener add mcsocket=%p,requestNum=%d",
-    	mcsocket,mcsocket->getRequestNumber());
+    Logger::getInstance()->log(LOG_DEBUG,"McSocketListener add mcsocket=%p,requestType=%d",
+    	mcsocket,mcsocket->getRequestType());
 #endif
     _mcsocket_mutex.lock();
-    _tcpMcSockets[mcsocket->getRequestNumber()] = mcsocket;
+    _tcpMcSockets[mcsocket->getRequestType()] = mcsocket;
     _mcsocket_mutex.unlock();
 }
 
 void McSocketListener::add(McSocket<DatagramSocket>* mcsocket)
 {
 #ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"McSocketListener add requestNum=%d",
-    	mcsocket->getRequestNumber());
+    Logger::getInstance()->log(LOG_DEBUG,"McSocketListener add requestType=%d",
+    	mcsocket->getRequestType());
 #endif
     _mcsocket_mutex.lock();
-    _udpMcSockets[mcsocket->getRequestNumber()] = mcsocket;
+    _udpMcSockets[mcsocket->getRequestType()] = mcsocket;
     _mcsocket_mutex.unlock();
 }
 
@@ -270,13 +270,13 @@ int McSocketListener::remove(McSocket<Socket>* mcsocket)
 {
 #ifdef DEBUG
     Logger::getInstance()->log(LOG_DEBUG,
-    	"McSocketListener remove mcsocket=%p, requestNum=%d, size=%d",
-	    mcsocket,mcsocket->getRequestNumber(),_tcpMcSockets.size());
+    	"McSocketListener remove mcsocket=%p, requestType=%d, size=%d",
+	    mcsocket,mcsocket->getRequestType(),_tcpMcSockets.size());
 #endif
     Synchronized autolock(_mcsocket_mutex);
 
     map<int,McSocket<Socket>*>::iterator mapi =
-    	_tcpMcSockets.find(mcsocket->getRequestNumber());
+    	_tcpMcSockets.find(mcsocket->getRequestType());
 
     // When a McSocket has established a socket connection
     // a copy of the original is usually made, and then eventually
@@ -298,13 +298,13 @@ int McSocketListener::remove(McSocket<DatagramSocket>* mcsocket)
 {
 #ifdef DEBUG
     Logger::getInstance()->log(LOG_DEBUG,
-    	"McSocketListener remove requestNum=%d",
-	    mcsocket->getRequestNumber());
+    	"McSocketListener remove requestType=%d",
+	    mcsocket->getRequestType());
 #endif
     Synchronized autolock(_mcsocket_mutex);
 
     map<int,McSocket<DatagramSocket>*>::iterator mapi =
-    	_udpMcSockets.find(mcsocket->getRequestNumber());
+    	_udpMcSockets.find(mcsocket->getRequestType());
 
     if (mapi != _udpMcSockets.end() && mapi->second == mcsocket)
 	_udpMcSockets.erase(mapi);
@@ -366,12 +366,13 @@ int McSocketListener::run() throw(Exception)
 	}
 
 	Logger::getInstance()->log(LOG_DEBUG,
-	"received dgram, magic=0x%x, requestNum=%d, len=%d, port=%d, sizeof=%d\n",
-		dgram.getMagic(),dgram.getRequestNumber(),
-		dgram.getLength(),dgram.getRequesterListenPort(),
-	    	sizeof(McSocketDatagram));
+	"received dgram, magic=0x%x, requestType=%d, port=%d, socketType=%d, len=%d\n",
+		dgram.getMagic(),dgram.getRequestType(),
+		dgram.getRequesterListenPort(),dgram.getSocketType(),
+		dgram.getLength());
 
 	if (dgram.getMagic() != dgram.magicVal) continue;
+	if (dgram.getLength() != sizeof(struct McSocketData)) continue;
 
 	unsigned short port = dgram.getRequesterListenPort();
 	Inet4SocketAddress& daddr =
@@ -385,13 +386,13 @@ int McSocketListener::run() throw(Exception)
                 _mcsocket_mutex.lock();
                 McSocket<Socket>* mcsocket = 0;
                 map<int,McSocket<Socket>*>::iterator mapi =
-                    _tcpMcSockets.find(dgram.getRequestNumber());
+                    _tcpMcSockets.find(dgram.getRequestType());
                 if (mapi != _tcpMcSockets.end()) mcsocket = mapi->second;
                 _mcsocket_mutex.unlock();
 
                 if (!mcsocket) {
-                    Logger::getInstance()->log(LOG_WARNING,"No TCP McSocket for pseudoport:%d from host %s\n",
-                        dgram.getRequestNumber(),
+                    Logger::getInstance()->log(LOG_WARNING,"No TCP McSocket for request type %d from host %s\n",
+                        dgram.getRequestType(),
                         dgram.getSocketAddress().toString().c_str());
                     continue;
                 }
@@ -419,13 +420,13 @@ int McSocketListener::run() throw(Exception)
                 _mcsocket_mutex.lock();
                 McSocket<DatagramSocket>* mcsocket = 0;
                 map<int,McSocket<DatagramSocket>*>::iterator mapi =
-                    _udpMcSockets.find(dgram.getRequestNumber());
+                    _udpMcSockets.find(dgram.getRequestType());
                 if (mapi != _udpMcSockets.end()) mcsocket = mapi->second;
                 _mcsocket_mutex.unlock();
 
                 if (!mcsocket) {
-                    Logger::getInstance()->log(LOG_WARNING,"No UDP McSocket for pseudoport:%d from host %s\n",
-                        dgram.getRequestNumber(),
+                    Logger::getInstance()->log(LOG_WARNING,"No UDP McSocket for request type %d from host %s\n",
+                        dgram.getRequestType(),
                         dgram.getSocketAddress().toString().c_str());
                     continue;
                 }

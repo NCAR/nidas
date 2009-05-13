@@ -34,6 +34,10 @@ namespace nidas { namespace core {
 class SampleSource {
 public:
 
+    SampleSource(): _numDistributedSamples(0),_numDistributedBytes(0),
+        _lastDistributedTimeTag(0L)
+    {
+    }
 
     virtual ~SampleSource() {}
 
@@ -43,39 +47,28 @@ public:
      * it is removed.
      */
     virtual void addSampleClient(SampleClient* c) throw() {
-        clients.add(c);
+        _clients.add(c);
     }
 
     /**
      * Remove a SampleClient from this SampleSource
      */
     virtual void removeSampleClient(SampleClient* c) throw() {
-        clients.remove(c);
+        _clients.remove(c);
     }
 
     /**
      * How many SampleClients are currently in my list.
      */
     virtual int getClientCount() const throw() {
-        return clients.size();
+        return _clients.size();
     }
 
     /**
      * Big cleanup.
      */
     virtual void removeAllSampleClients() throw() {
-        clients.removeAll();
-    }
-
-    /**
-     * How many samples have been distributed by this SampleSource.
-     */
-    size_t getNumSamplesSent() const throw() {
-        return numSamplesSent;
-    }
-
-    virtual void setNumSamplesSent(size_t val) throw() {
-        numSamplesSent = val;
+        _clients.removeAll();
     }
 
     /**
@@ -109,17 +102,43 @@ public:
 
     virtual SampleTagIterator getSampleTagIterator() const;
 
+    /**
+     * How many samples have been distributed by this SampleSource.
+     */
+    size_t getNumDistributedSamples() const {
+        return _numDistributedSamples;
+    }
+
+    /**
+     * How many bytes have been distributed by this SampleSource.
+     */
+    long long getNumDistributedBytes() const {
+        return _numDistributedBytes;
+    }
+
+    /**
+     * Timetag of most recent sample distributed by the merger.
+     */
+    dsm_time_t getLastDistributedTimeTag() const
+    {
+        return _lastDistributedTimeTag;
+    }
+
 private:
 
     /**
      * My current clients.
      */
-    SampleClientList clients;
+    SampleClientList _clients;
 
     /**
      * Number of samples distributed.
      */
-    size_t numSamplesSent;
+    size_t _numDistributedSamples;
+
+    long long _numDistributedBytes;
+
+    dsm_time_t _lastDistributedTimeTag;
 
 };
 

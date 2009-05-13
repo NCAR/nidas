@@ -57,6 +57,6 @@ void RawSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
         throw(n_u::InvalidParameterException)
 {
     SortedSampleOutputStream::fromDOMElement(node);
-    if (getIOChannel()->getRequestNumber() < 0)
-    	getIOChannel()->setRequestNumber(RAW_SAMPLE);
+    if (getIOChannel()->getRequestType() < 0)
+    	getIOChannel()->setRequestType(RAW_SAMPLE);
 }

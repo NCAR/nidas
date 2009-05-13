@@ -8,17 +8,6 @@
 Import('env')
 arch = env['ARCH']
 
-##
-## Specify RPATH to avoid the need for LD_LIBRARY_PATH later 
-## TODO: remove this. Then install nidas from an RPM, which contains
-## /etc/ld.so.conf.d/nidas.conf, so that ld.so searches /opt/local/nidas/x86/lib.
-## RPATH(-rpath) is searched by the run-time linker before LD_LIBRARY_PATH
-## which means we can't use LD_LIBRARY_PATH to override RPATH to test
-## a library.
-##
-if arch == 'x86':
-    env.AppendUnique(RPATH = [env.subst('$PREFIX/lib')] )
-
 # Use the OTHER_ prefix only if it exists and is different than PREFIX
 if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
     import os
@@ -28,8 +17,6 @@ if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
         env.AppendUnique(CPPPATH = [ other_include ])
     if os.path.exists(other_lib):
         env.AppendUnique(LIBPATH = [ other_lib ])
-        if arch == 'x86':
-            env.AppendUnique(RPATH = [other_lib] )
 
 # libnidas.so is built with -lnidas_util option, and so libnidas.so
 # has an internal dependency on libnidas_util.so.  Because of this,
@@ -89,11 +76,13 @@ Clean('lib', ['build_%s' % d for d in subdirs[0:3]])
 
 # Provide an arch-specific install alias.  Basically, install everything
 # that goes under the arch-specific install prefix.
-env.Alias(arch + '_install', [ '$PREFIX' ])
+# env.Alias(arch + '_install', [ '$PREFIX' ])
+env.Alias('install', [ '$PREFIX' ])
 
 # Don't want to do a Clean of $PREFIX here, in case there is
 # other stuff there from other packages: we won't own $PREFIX.
 # We can nuke $PREFIX/include/nidas, but don't do a global
 # Clean of $PREFIX/bin and lib.  Also we don't assume we
 # own $PREFIX/linux, but do own $PREFIX/rtlinux.
-env.Clean(arch + '_install','$PREFIX/include/nidas')
+# env.Clean(arch + '_install','$PREFIX/include/nidas')
+env.Clean('install','$PREFIX/include/nidas')

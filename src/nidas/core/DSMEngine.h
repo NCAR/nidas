@@ -16,27 +16,25 @@
 #define NIDAS_CORE_DSMENGINE_H
 
 #include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/StatusThread.h>
+#include <nidas/core/DerivedDataReader.h>
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/DSMEngineIntf.h>
-#include <nidas/core/XMLException.h>
-#include <nidas/core/DerivedDataReader.h>
-
-#include <nidas/util/Socket.h>
-#include <nidas/util/Logger.h>
-
-#include <xercesc/dom/DOMDocument.hpp>
+#include <nidas/core/SensorHandler.h>
 
 namespace nidas { namespace core {
 
 /**
- * A singleton class that drives an ADS3 data collection box.
+ * Application for running the NIDAS data acquistion process.
  */
 class DSMEngine : public SampleConnectionRequester {
 public:
+
+    DSMEngine();
+
+    /**
+     * Nuke it.
+     */
+    ~DSMEngine();
 
     /**
      * Entry point to run a DSMEngine process from a command line.
@@ -46,15 +44,14 @@ public:
     static int main(int argc, char** argv) throw();
 
     /**
-     * Get a pointer to the singleton instance of DSMEngine.
-     * This will create the instance if it doesn't exist.
+     * Get a pointer to the singleton instance of DSMEngine created
+     * by main().
      */
-    static DSMEngine* getInstance();
+    static DSMEngine* getInstance() { return _instance; }
 
-    /**
-     * Nuke it.
-     */
-    virtual ~DSMEngine();
+    static void setupSignals();
+
+    static void unsetupSignals();
 
     /**
      * Initialize the Logger.
@@ -116,29 +113,29 @@ public:
     /**
      * Is system running RTLinux?  Checks if rtl module is loaded.
      */
-    static bool isRTLinux();
+    bool isRTLinux();
 
-    static std::string getUserName()
+    std::string getUserName()
     { 
         return _username;
     }
 
-    static uid_t getUserID()
+    uid_t getUserID()
     {
         return _userid;
     }
 
-    static uid_t getGroupID()
+    uid_t getGroupID()
     {
         return _groupid;
     }
 
 private:
 
-    /**
-     * The protected constructor, called from getInstance.
-     */
-    DSMEngine();
+    /** Signal handler */
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+    static DSMEngine* _instance;
 
     /**
      * Initialize the DSMEngine based on the parameters in the
@@ -147,6 +144,10 @@ private:
      */
     void initialize(xercesc::DOMDocument* projectDoc)
             throw(nidas::util::InvalidParameterException);
+
+    void startXmlRpcThread() throw(nidas::util::Exception);
+
+    void killXmlRpcThread() throw();
 
     void openSensors() throw(nidas::util::IOException);
 
@@ -170,18 +171,11 @@ private:
 
     void disconnected(SampleOutput*) throw();
 
-    static void setupSignals();
-
-    /** Signal handler */
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-
-    static DSMEngine* _instance;
-
     bool _externalControl;
 
-    enum run_states { CONFIG, INIT, RUNNING, STOPPED, ERROR } _runState;
+    enum run_states { RUNNING, ERROR, STOPPED } _runState;
 
-    enum next_states { STOP, START, QUIT, RESTART } _nextState;
+    enum next_states { STOP, RUN, QUIT, RESTART } _nextState;
 
     /**
      * Whether to log messages on syslog (true) or stderr (false).
@@ -198,7 +192,7 @@ private:
     nidas::util::Inet4SocketAddress _configSockAddr;
 
     /**
-     * Condition variable to wait on for external command.
+     * Condition variable to wait on for external command or signal.
      */
     nidas::util::Cond _runCond;
 
@@ -232,20 +226,18 @@ private:
 
     nidas::util::Mutex         _xmlRequestMutex;
 
-    nidas::util::Logger*          _logger;
-
     /**
      * Cached result for isRTLinux. -1 means it has not been determined yet.
      */
-    static int rtlinux;
+    int _rtlinux;
 
     std::list<SampleInputWrapper*> _inputs;
 
-    static std::string _username;
+    std::string _username;
 
-    static uid_t _userid;
+    uid_t _userid;
 
-    static gid_t _groupid;
+    gid_t _groupid;
 
 };
 

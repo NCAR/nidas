@@ -24,7 +24,10 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     modules = ['pcmcom8.ko']
     env.Kmake(modules,['pcmcom8.c','pcmcom8.h','Makefile'])
     env.Install('$PREFIX/linux',modules)
-    env.Clean(arch + '_install',[
+    # env.Clean(arch + '_install',[
+    #     '$PREFIX/linux/' + l for l in modules
+    #     ])
+    env.Clean('install',[
         '$PREFIX/linux/' + l for l in modules
         ])
 

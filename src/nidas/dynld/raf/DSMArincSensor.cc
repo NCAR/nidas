@@ -44,7 +44,7 @@ DSMArincSensor::~DSMArincSensor() {
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
-    if (DSMEngine::isRTLinux())
+    if (DSMEngine::getInstance()->isRTLinux())
         return new RTL_IODevice();
     else
         return new UnixIODevice();

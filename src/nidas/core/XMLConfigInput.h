@@ -27,7 +27,7 @@ class XMLConfigInput: public nidas::util::McSocket<nidas::util::Socket>
 public:
     XMLConfigInput()
     {
-        setRequestNumber(XML_CONFIG);
+        setRequestType(XML_CONFIG);
     }
 
 protected:

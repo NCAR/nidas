@@ -58,11 +58,9 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
     clearBuffer();
     for (int i = 0; i < 10; i++) {
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
         // clear whatever junk may be in the buffer til a timeout
         try {
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 2; i++) {
                 readBuffer(MSECS_PER_SEC + 10);
                 clearBuffer();
             }
@@ -71,6 +69,8 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
             DLOG(("%s: timeout",getName().c_str()));
             break;
         }
+        DLOG(("%s: sending &",getName().c_str()));
+        write("&",1);
     }
 }
 
@@ -78,8 +78,8 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 {
     DLOG(("%s: sending D (nocr)",getName().c_str()));
     write("D",1);
-    clearBuffer();
 
+    clearBuffer();
     for (int i = 0; i < 5; i++) {
         DLOG(("%s: sending &",getName().c_str()));
         write("&",1);

@@ -52,12 +52,12 @@ public:
 
     McSocket* clone() const;
 
-    void setRequestNumber(int val) {
-    	nidas::util::McSocket<nidas::util::Socket>::setRequestNumber(val);
+    void setRequestType(enum McSocketRequest val) {
+    	nidas::util::McSocket<nidas::util::Socket>::setRequestType(val);
     }
 
-    int getRequestNumber() const {
-    	return nidas::util::McSocket<nidas::util::Socket>::getRequestNumber();
+    enum McSocketRequest getRequestType() const {
+    	return (enum McSocketRequest) nidas::util::McSocket<nidas::util::Socket>::getRequestType();
     }
 
     /**

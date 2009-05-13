@@ -178,12 +178,6 @@ void SampleInputHeader::read(IOStream* iostream)
     }
 }
 
-void SampleInputHeader::check(IOStream* iostream)
-	throw(n_u::IOException)
-{
-    read(iostream);
-}
-
 /*
  * Return: true: done parsing magic string, false: not done, need to read more
  */

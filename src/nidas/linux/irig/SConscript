@@ -30,7 +30,10 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
 
     env.Install('$PREFIX/linux',modules)
 
-    env.Clean(arch + '_install',[
+    # env.Clean(arch + '_install',[
+    #     '$PREFIX/linux/' + l for l in modules
+    #     ])
+    env.Clean('install',[
         '$PREFIX/linux/' + l for l in modules
         ])
 
@@ -39,7 +42,8 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
 shared_headers = Split("""
 """)
 
-Alias(arch + '_install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
+# Alias(arch + '_install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
+Alias('install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
 
 apps = Split("""
 """)
@@ -57,6 +61,9 @@ for i in apps + archapps:
     nodes += env.Program( i )
 
 env.Install('$PREFIX/bin',nodes)
-env.Clean(arch + '_install', [
+# env.Clean(arch + '_install', [
+#     ('$PREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
+#     ])
+env.Clean('install', [
     ('$PREFIX/bin/' + os.path.basename(File(l).path) for l in nodes)
     ])

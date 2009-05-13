@@ -10,8 +10,8 @@ firmwares = Split("""
     mesa_fpga_file.bit
 """)
 
-env.Install('$PREFIX/arm/firmware', firmwares)
+inst = env.Install('$PREFIX/arm/firmware', firmwares)
 
-Clean('install', [
+env.Clean(inst, [
     '$PREFIX/arm/firmware/' + l for l in firmwares
     ])

@@ -174,14 +174,14 @@ void McSocket::fromDOMElement(const DOMElement* node)
             const std::string& aval = attr.getValue();
 	    if (aname == "address") saddr = Project::expandEnvVars(aval);
 	    else if (aname == "port") sport = Project::expandEnvVars(aval);
-	    else if (aname == "requestNumber") {
+	    else if (aname == "requestType") {
 		int i;
 	        istringstream ist(aval);
 		ist >> i;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
 			    getName(),aname,aval);
-		setRequestNumber(i);
+		setRequestType((enum McSocketRequest)i);
 	    }
 	    else if (aname == "type") {
 		if (aval == "mcaccept") {

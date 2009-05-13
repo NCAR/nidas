@@ -179,7 +179,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = ['x86tools'], toolpath=['sconstools'],
+    x86_env = env.Clone(tools = ['default','x86tools','packaging'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
@@ -189,7 +189,7 @@ if 'x86' in BUILDS:
     SConscript('nidas/SConscript',
                build_dir='build_x86',
                duplicate=0, exports=exports)
-    Alias('install','x86_install')
+    # Alias('install','x86_install')
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
@@ -197,13 +197,30 @@ if 'x86' in BUILDS:
     SConscript("../tests/tlogger/SConscript",exports=exports)
     SConscript("../tests/tiostream/SConscript",exports=exports)
 
+    # initial attempt at using Package. Fails
+    if 0:
+        rpm = x86_env.Package( NAME           = 'nidas',
+             VERSION        = '1.0',
+             PACKAGEVERSION = 1,
+             PACKAGETYPE    = 'rpm',
+             PACKAGING_INSTALL_LOCATION = x86_env['PREFIX'],
+             LICENSE        = 'gpl',
+             SUMMARY        = 'balalalalal',
+             DESCRIPTION    = 'this should be really really long',
+             X_RPM_GROUP    = 'Application/fu',
+             SOURCE_URL     = 'http://www.eol.ucar.edu/nidas-1.0.tar.gz'
+
+        )
+        Alias('rpm',rpm)
+
+
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian) on the arcom Viper.
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
+    arm_env = env.Clone(tools = ['default','armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'])
@@ -216,7 +233,7 @@ if 'arm' in BUILDS:
     SConscript('nidas/SConscript',
                build_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
-    Alias('install','arm_install')
+    # Alias('install','arm_install')
     Clean('arm','build_arm')      # Clean(target,files_or_dirs)
 
 ##
@@ -225,7 +242,7 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
+    armbe_env = env.Clone(tools = ['default','armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'])
@@ -237,7 +254,7 @@ if 'armbe' in BUILDS:
     SConscript('nidas/SConscript',
                build_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
-    Alias('install','armbe_install')
+    # Alias('install','armbe_install')
     Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
 
 Default(BUILDS)
@@ -252,3 +269,5 @@ dox = Command('#/../doc/doxygen/html/index.html',
               'cd .. && doxygen $SOURCE')
 Alias('dox', dox)
 AlwaysBuild(dox)
+
+

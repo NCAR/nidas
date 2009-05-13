@@ -51,15 +51,6 @@ public:
 
     virtual void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0) = 0;
 
-    virtual size_t getNumDistributedSamples() const { return 0; }
-
-    virtual long long getNumDistributedBytes() const { return 0; }
-
-    /**
-     * Timetag of last distributed time tag from this SampleInput.
-     */
-    virtual dsm_time_t getLastDistributedTimeTag() const { return 0LL; }
-
     /**
      * Set length of SampleSorter, in milliseconds.
      */

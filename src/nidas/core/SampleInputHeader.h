@@ -49,11 +49,6 @@ public:
     void read(IOStream* iostream) throw(nidas::util::IOException);
 
     /**
-     * Same as read(IOStream*). Provided for backward compatibility.
-     */
-    void check(IOStream* iostream) throw(nidas::util::IOException);
-
-    /**
      * Parse the current contents of the IOStream for the
      * SampleInputHeader.
      * @return true: SampleInputHeader has been fully parsed.

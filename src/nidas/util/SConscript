@@ -82,15 +82,17 @@ objects = env.SharedObject(sources)
 ##
 lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
 slib = env.StaticLibrary('nidas_util' , objects)
+env['LIBNIDAS_UTIL'] = lib
 
 ##
 ## Install targets for libraries and headers.
 ##
 nodes = []
 nodes += env.Install('$PREFIX/lib',lib)
-env['LIBNIDAS_UTIL'] = nodes[0]
 nodes += env.Install('$PREFIX/lib',slib)
 nodes += env.Install('$PREFIX/include/nidas/util',headers)
-Alias(arch + '_install', nodes)
+# Alias(arch + '_install', nodes)
+Alias('install', nodes)
 
-env.Clean(arch + '_install', nodes)
+# env.Clean(arch + '_install', nodes)
+env.Clean('install', nodes)

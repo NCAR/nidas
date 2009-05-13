@@ -17,6 +17,7 @@
 #define NIDAS_CORE_STATUSTHREAD_H
 
 #include <nidas/core/Sample.h>
+#include <nidas/core/DSMServer.h>
 #include <nidas/util/Thread.h>
 
 #include <iostream> // cerr
@@ -51,14 +52,16 @@ public:
 class DSMServerStat: public StatusThread
 {
 public:
-    /** The protected constructor, called from getInstance. */
-    DSMServerStat(const std::string& name);
+    
+    DSMServerStat(const std::string& name,DSMServer* svr);
 
     int run() throw(nidas::util::Exception);
 
 private:
 
     void setup();
+
+    DSMServer* _server;
 
     /**
      * Wakeup period.

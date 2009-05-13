@@ -18,7 +18,7 @@
 
 #include <nidas/core/ConnectionRequester.h>
 
-// #include <nidas/linux/types.h>
+#include <nidas/core/Datagrams.h>
 #include <nidas/core/DOMable.h>
 
 #include <nidas/util/IOException.h>
@@ -55,9 +55,9 @@ public:
      * The requestNum number is used when establishing McSocket
      * connections and is ignored otherwise.
      */
-    virtual void setRequestNumber(int val) {}
+    virtual void setRequestType(enum McSocketRequest val) {}
 
-    virtual int getRequestNumber() const { return -1; }
+    virtual enum McSocketRequest getRequestType() const { return (enum McSocketRequest)0; }
 
     /**
      * Some IOChannels, namely FileSet, which opens successive files,

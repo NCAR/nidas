@@ -56,6 +56,7 @@ headers = Split("""
     DSMEngineIntf.h
     DSMSensor.h
     DSMServer.h
+    DSMServerApp.h
     DSMServerIntf.h
     DSMService.h
     DSMTime.h
@@ -149,6 +150,7 @@ sources = Split("""
     DSMEngineIntf.cc
     DSMSensor.cc
     DSMServer.cc
+    DSMServerApp.cc
     DSMServerIntf.cc
     DSMService.cc
     HeaderSource.cc
@@ -234,8 +236,12 @@ env.Install('$PREFIX/include/nidas/core',headers)
 
 # print [ env.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
 
-env.Clean(arch + '_install', [
+# env.Clean(arch + '_install', [
+#     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
+#     ])
+env.Clean('install', [
     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
     ])
 
-env['LIBNIDAS'] = installed_lib
+
+env['LIBNIDAS'] = lib

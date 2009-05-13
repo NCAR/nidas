@@ -104,7 +104,11 @@ if arch == 'arm' and (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']):
         objs = [ env.Object(i) for i in modules ]
         # print(["objs="] + [str(h) for h in objs])
         env.Install('$PREFIX/rtlinux',objs)
-        env.Clean(arch + '_install',[
+        # env.Clean(arch + '_install',[
+        #     ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs),
+        #     '$PREFIX/rtlinux'
+        # ])
+        env.Clean('install',[
             ('$PREFIX/rtlinux/' + os.path.basename(File(l).path) for l in objs),
             '$PREFIX/rtlinux'
         ])

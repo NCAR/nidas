@@ -112,8 +112,8 @@ int DSMEngineStat::run() throw(n_u::Exception)
     return 0;
 }
 
-DSMServerStat::DSMServerStat(const std::string& name):
-	StatusThread(name),_uSecPeriod(USECS_PER_SEC)
+DSMServerStat::DSMServerStat(const std::string& name,DSMServer* server):
+	StatusThread(name),_server(server),_uSecPeriod(USECS_PER_SEC)
 {
 }
 
@@ -202,8 +202,7 @@ int DSMServerStat::run() throw(n_u::Exception)
     //
 
     float deltat = _uSecPeriod / USECS_PER_SEC;
-    DSMServer* svr = DSMServer::getInstance();
-    const list<DSMService*>& svcs = svr->getServices();
+    const list<DSMService*>& svcs = _server->getServices();
 
     try {
         while (!amInterrupted()) {

@@ -157,7 +157,7 @@ int HeaderUtil::run() throw()
 
         SampleInputHeader header;
 
-        header.check(&ios);
+        header.read(&ios);
 
         if (update) {
 

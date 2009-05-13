@@ -140,8 +140,8 @@ Thread::Thread(const std::string& name, bool detached) :
     _exception(0),
     _detached(detached)
 {
-  ::pthread_attr_init(&thread_attr);
-  ::pthread_attr_setdetachstate(&thread_attr,
+  ::pthread_attr_init(&_thread_attr);
+  ::pthread_attr_setdetachstate(&_thread_attr,
       _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
   sigemptyset(&unblockedSignals);
   sigemptyset(&blockedSignals);
@@ -167,8 +167,8 @@ Thread::Thread(const Thread& x):
     _exception(0),
     _detached(x._detached)
 {
-  ::pthread_attr_init(&thread_attr);
-  ::pthread_attr_setdetachstate(&thread_attr,
+  ::pthread_attr_init(&_thread_attr);
+  ::pthread_attr_setdetachstate(&_thread_attr,
       _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
   unblockedSignals = x.unblockedSignals;
   blockedSignals = x.blockedSignals;
@@ -177,7 +177,7 @@ Thread::Thread(const Thread& x):
 Thread::~Thread()
 {
   if (_exception) delete _exception;
-  ::pthread_attr_destroy(&thread_attr);
+  ::pthread_attr_destroy(&_thread_attr);
 
   if (_running) {
     Exception e(string("thread ") + getName() +
@@ -423,14 +423,14 @@ Thread::start() throw(Exception)
      */
 
     int state = 0;
-    ::pthread_attr_getdetachstate( &thread_attr, &state);
+    ::pthread_attr_getdetachstate( &_thread_attr, &state);
 
     for (int i = 0; i < 2; i++) {
         if (state == PTHREAD_CREATE_DETACHED)
-            status = ::pthread_create(&_id, &thread_attr,
+            status = ::pthread_create(&_id, &_thread_attr,
                 thr_run_detached, this);
         else
-            status = ::pthread_create(&_id, &thread_attr,
+            status = ::pthread_create(&_id, &_thread_attr,
                 thr_run, this);
 
         if (!status) break;
@@ -438,7 +438,7 @@ Thread::start() throw(Exception)
         // schedule policy, then warn about the problem and ask for non
         // real-time.
         int policy;
-        ::pthread_attr_getschedpolicy( &thread_attr, &policy);
+        ::pthread_attr_getschedpolicy( &_thread_attr, &policy);
 
         if (status != EPERM || (policy != NU_THREAD_FIFO && policy != NU_THREAD_RR))
             break;
@@ -669,17 +669,17 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
       	string("pthread_setschedparam:") + Exception::errnoToString(status));
   }
   else {
-    status = ::pthread_attr_setschedpolicy(&thread_attr,policy);
+    status = ::pthread_attr_setschedpolicy(&_thread_attr,policy);
     // int maxprior = sched_get_priority_max(policy);
     // cerr << "sched_get_priority_max(policy)=" << sched_get_priority_max(policy) << endl;
     if (status)
       throw Exception(getName(),
       	string("pthread_attr_setschedpolicy:") + Exception::errnoToString(status));
-    status = ::pthread_attr_setschedparam(&thread_attr,&param);
+    status = ::pthread_attr_setschedparam(&_thread_attr,&param);
     if (status)
       throw Exception(getName(),
       	string("pthread_setschedparam:") + Exception::errnoToString(status));
-    status = ::pthread_attr_setinheritsched(&thread_attr,PTHREAD_EXPLICIT_SCHED);
+    status = ::pthread_attr_setinheritsched(&_thread_attr,PTHREAD_EXPLICIT_SCHED);
     if (status)
       throw Exception(getName(),
       	string("pthread_setinheritsched:") + Exception::errnoToString(status));
@@ -687,7 +687,7 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
 }
 
 ThreadJoiner::ThreadJoiner(Thread* thrd):
-	DetachedThread("ThreadJoiner"),thread(thrd)
+	DetachedThread("ThreadJoiner"),_thread(thrd)
 {
 }
 ThreadJoiner::~ThreadJoiner()
@@ -695,15 +695,15 @@ ThreadJoiner::~ThreadJoiner()
 }
 int ThreadJoiner::run() throw() {
     try {
-	thread->join();
+	_thread->join();
     }
     catch (const Exception& e) {
-	cerr << thread->getName() << ": " << e.what() << endl;
+	cerr << _thread->getName() << ": " << e.what() << endl;
     }
 #ifdef DEBUG
-    cerr << "joined " << thread->getName() << " deleting" << endl;
+    cerr << "joined " << _thread->getName() << " deleting" << endl;
 #endif
-    delete thread;
+    delete _thread;
     return RUN_OK;
 }
 

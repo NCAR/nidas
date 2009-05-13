@@ -42,28 +42,15 @@ namespace n_u = nidas::util;
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
-/* static */
-int DSMEngine::rtlinux = -1;	// unknown
-
-/* static */
-string DSMEngine::_username;
-
-/* static */
-uid_t DSMEngine::_userid = 0;
-
-/* static */
-gid_t DSMEngine::_groupid = 0;
-
 DSMEngine::DSMEngine():
-    _externalControl(false),_runState(STOPPED),_nextState(START),
+    _externalControl(false),_runState(RUNNING),_nextState(RUN),
     _syslogit(true),
     _project(0),
     _dsmConfig(0),_selector(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
-    _xmlRequestSocket(0)
+    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0)
 {
-    setupSignals();
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
 	    n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR),
@@ -123,13 +110,6 @@ DSMEngine::~DSMEngine()
     delete _project;
 }
 
-/* static */
-DSMEngine* DSMEngine::getInstance() 
-{
-    if (!_instance) _instance = new DSMEngine();
-    return _instance;
-}
-
 namespace {
     void getPageFaults(long& minor,long& major, long& nswap) 
     {
@@ -152,13 +132,12 @@ namespace {
 /* static */
 int DSMEngine::main(int argc, char** argv) throw()
 {
-    auto_ptr<DSMEngine> engine(getInstance());
+    DSMEngine engine;
 
     int res;
-    if ((res = engine->parseRunstring(argc,argv)) != 0) return res;
+    if ((res = engine.parseRunstring(argc,argv)) != 0) return res;
 
-    engine->initLogger();
-
+    engine.initLogger();
 
 #ifdef CAP_SYS_NICE
     try {
@@ -174,31 +153,31 @@ int DSMEngine::main(int argc, char** argv) throw()
     }
 #endif
 
-    gid_t gid = getGroupID();
+    gid_t gid = engine.getGroupID();
     if (gid != 0 && getegid() != gid) {
         DLOG(("doing setgid(%d)",gid));
         if (setgid(gid) < 0)
-            WLOG(("%s: cannot change group id to %d: %m","DSMServer",gid));
+            WLOG(("%s: cannot change group id to %d: %m","dsm",gid));
     }
 
-    uid_t uid = getUserID();
+    uid_t uid = engine.getUserID();
     if (uid != 0 && geteuid() != uid) {
-        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+        DLOG(("doing setuid(%d=%s)",uid,engine.getUserName().c_str()));
         if (setuid(uid) < 0)
-            WLOG(("%s: cannot change userid to %d (%s): %m", "DSMServer",uid,getUserName().c_str()));
+            WLOG(("%s: cannot change userid to %d (%s): %m", "dsm",
+                uid,engine.getUserName().c_str()));
     }
 
     // Open and check the pid file after the above daemon() call.
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm.pid");
         if (pid > 0) {
-            n_u::Logger::getInstance()->log(LOG_ERR,
-                "dsm process, pid=%d is already running",pid);
+            ELOG(("dsm process, pid=%d is already running",pid));
             return 1;
         }
     }
     catch(const n_u::IOException& e) {
-        n_u::Logger::getInstance()->log(LOG_ERR,"dsm: %s",e.what());
+        ELOG(("dsm: %s",e.what()));
         return 1;
     }
 
@@ -209,10 +188,29 @@ int DSMEngine::main(int argc, char** argv) throw()
     long minflts,majflts,nswap;
     getPageFaults(minflts,majflts,nswap);
 
-    res = engine->run();		// doesn't throw exceptions
+    // Set the singleton instance
+    _instance = &engine;
+
+    setupSignals();
+
+    try {
+        engine.startXmlRpcThread();
+
+        res = engine.run();		// doesn't throw exceptions
+
+        engine.killXmlRpcThread();
+    }
+    catch (const n_u::Exception &e) {
+        ELOG(("%s",e.what()));
+    }
+
+    unsetupSignals();
+
+    // All users of singleton instance should have been shut down.
+    _instance = 0;
 
     logPageFaultDiffs(minflts,majflts,nswap);
-    // auto_ptr will call DSMEngine destructor at this point.
+
     return res;
 }
 
@@ -318,6 +316,7 @@ The default config is \"sock:" <<
 
 void DSMEngine::initLogger()
 {
+    nidas::util::Logger* logger = 0;
     n_u::LogConfig lc;
     if (_syslogit) {
 	// fork to background
@@ -325,32 +324,23 @@ void DSMEngine::initLogger()
 	    n_u::IOException e("DSMEngine","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
-	_logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
         // Configure default logging to log anything NOTICE and above.
         lc.level = n_u::LOGGER_INFO;
     }
     else
     {
-	_logger = n_u::Logger::createInstance(&std::cerr);
+	logger = n_u::Logger::createInstance(&std::cerr);
         lc.level = n_u::LOGGER_DEBUG;
     }
-
-    _logger->setScheme(n_u::LogScheme().addConfig (lc));
+    logger->setScheme(n_u::LogScheme().addConfig (lc));
 }
 
 int DSMEngine::run() throw()
 {
     DOMDocument* projectDoc = 0;
 
-    // start the xmlrpc control thread
-    if (_externalControl) {
-        _xmlrpcThread = new DSMEngineIntf();
-        _xmlrpcThread->start();
-    }
-
     for (; _nextState != QUIT; ) {
-
-        if (_runState == ERROR && _nextState != STOP) sleep(15);
 
         // cleanup before re-starting the loop
         deleteDataThreads();
@@ -370,16 +360,16 @@ int DSMEngine::run() throw()
             _dsmConfig = 0;
         }
 
+        if (_runState == ERROR && _nextState != STOP) sleep(15);
+
         if (_nextState == STOP) {
-            _runState = STOPPED;
             // wait on the _runCond condition variable
             _runCond.lock();
             while (_nextState == STOP) _runCond.wait();
             _runCond.unlock();
         }
-        if (_nextState == RESTART) _nextState = START;
-        if (_nextState != START) continue;
-        _runState = CONFIG;
+        if (_nextState == RESTART) _nextState = RUN;
+        if (_nextState != RUN) continue;
 
         // first fetch the configuration
         try {
@@ -392,7 +382,7 @@ int DSMEngine::run() throw()
             }
         }
         catch (const XMLException& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -400,20 +390,19 @@ int DSMEngine::run() throw()
             // DSMEngine::interrupt() does an _xmlRequestSocket->close(),
             // which will throw an IOException in requestXMLConfig 
             // if we were still waiting for the XML config.
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
-        _runState = INIT;
 
-        if (_nextState != START) continue;
+        if (_nextState != RUN) continue;
 
         // then initialize the DSMEngine
         try {
             initialize(projectDoc);
         }
         catch (const n_u::InvalidParameterException& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -425,7 +414,7 @@ int DSMEngine::run() throw()
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
 	    }
 	    catch(n_u::IOException&e) {
-		_logger->log(LOG_ERR,e.what());
+                ELOG(("%s",e.what()));
 	    }
 	}
         // start your sensors
@@ -435,24 +424,23 @@ int DSMEngine::run() throw()
             connectProcessors();
         }
         catch (const n_u::IOException& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
-        if (_nextState != START) continue;
+        if (_nextState != RUN) continue;
 
         // start the status Thread
         _statusThread = new DSMEngineStat("DSMEngineStat");
         _statusThread->start();
         _runState = RUNNING;
 
-        try {
-            wait();
-        }
-        catch (const n_u::Exception& e) {
-            _logger->log(LOG_ERR,e.what());
-            _runState = ERROR;
-        }
+        _runCond.lock();
+        while (_nextState == RUN) _runCond.wait();
+        _runCond.unlock();
+
+        if (_nextState == QUIT) break;
+        interrupt();
     }   // Run loop
 
     interrupt();
@@ -467,27 +455,13 @@ int DSMEngine::run() throw()
         projectDoc->release();
         projectDoc = 0;
     }
-    if (_xmlrpcThread) {
-        try {
-            if (_xmlrpcThread->isRunning()) {
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "DSMEngine::interrupt, cancelling xmlrpcThread");
-                // if this is running under valgrind, then cancel doesn't
-                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
-                // _xmlrpcThread->cancel();
-                _xmlrpcThread->kill(SIGUSR1);
-            }
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine::interrupt, joining xmlrpcThread");
-           _xmlrpcThread->join();
-        }
-        catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-            "xmlRpcThread: %s",e.what());
-        }
+
+    if (_project) {
+        delete _project;
+        _project = 0;
+        _dsmConfig = 0;
     }
 
-    _logger->log(LOG_NOTICE,"dsm shutting down");
     return _runState == ERROR;
 }
 
@@ -505,22 +479,17 @@ void DSMEngine::interrupt()
     if (_selector) _selector->interrupt();
 }
 
-void DSMEngine::wait() throw(n_u::Exception)
-{
-    _selector->join();
-}
-
 void DSMEngine::deleteDataThreads() throw()
 {
     // stop/join the status thread before closing sensors.
     // The status thread also loops over sensors.
     if (_statusThread) {
         try {
-            if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
+            // if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
         }
         delete _statusThread;
         _statusThread = 0;
@@ -531,7 +500,7 @@ void DSMEngine::deleteDataThreads() throw()
             _selector->join();
         }
         catch (const n_u::Exception& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
         }
         delete _selector;	// this closes any still-open sensors
         _selector = 0;
@@ -545,7 +514,7 @@ void DSMEngine::deleteDataThreads() throw()
             DerivedDataReader::deleteInstance();
         }
         catch (const n_u::Exception& e) {
-            _logger->log(LOG_ERR,e.what());
+            ELOG(("%s",e.what()));
         }
     }
 }
@@ -553,7 +522,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _runCond.lock();
-    _nextState = START;
+    _nextState = RUN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -567,7 +536,6 @@ void DSMEngine::stop()
     _nextState = STOP;
     _runCond.signal();
     _runCond.unlock();
-    interrupt();
 }
 
 void DSMEngine::restart()
@@ -576,7 +544,6 @@ void DSMEngine::restart()
     _nextState = RESTART;
     _runCond.signal();
     _runCond.unlock();
-    interrupt();
 }
 
 void DSMEngine::quit()
@@ -585,7 +552,6 @@ void DSMEngine::quit()
     _nextState = QUIT;
     _runCond.signal();
     _runCond.unlock();
-    interrupt();
 }
 
 /* static */
@@ -596,6 +562,7 @@ void DSMEngine::setupSignals()
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
+    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
 
     struct sigaction act;
@@ -603,6 +570,22 @@ void DSMEngine::setupSignals()
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = DSMEngine::sigAction;
+    sigaction(SIGUSR1,&act,(struct sigaction *)0);
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+}
+
+void DSMEngine::unsetupSignals()
+{
+    sigset_t sigset;
+
+    struct sigaction act;
+    sigemptyset(&sigset);
+    act.sa_mask = sigset;
+    act.sa_flags = SA_SIGINFO;
+    act.sa_handler = SIG_IGN;
+    sigaction(SIGUSR1,&act,(struct sigaction *)0);
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
@@ -622,9 +605,45 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
       break;
     case SIGTERM:
     case SIGINT:
+    case SIGUSR1:
       DSMEngine::getInstance()->quit();
       break;
     }
+}
+
+void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
+{
+    // start the xmlrpc control thread
+    if (_externalControl) {
+        _xmlrpcThread = new DSMEngineIntf();
+        _xmlrpcThread->start();
+    }
+}
+
+
+void DSMEngine::killXmlRpcThread() throw()
+{
+    if (_xmlrpcThread) {
+        try {
+            if (_xmlrpcThread->isRunning()) {
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "DSMEngine::interrupt, cancelling xmlrpcThread");
+                // if this is running under valgrind, then cancel doesn't
+                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
+                // _xmlrpcThread->cancel();
+                _xmlrpcThread->kill(SIGUSR1);
+            }
+            n_u::Logger::getInstance()->log(LOG_INFO,
+                "DSMEngine::interrupt, joining xmlrpcThread");
+           _xmlrpcThread->join();
+        }
+        catch (const n_u::Exception& e) {
+            ELOG(("%s",e.what()));
+        }
+       delete _xmlrpcThread;
+       _xmlrpcThread = 0;
+    }
+
 }
 
 DOMDocument* DSMEngine::requestXMLConfig(
@@ -785,9 +804,8 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
 	if (!output->isRaw()) processedOutput = true;
-	_logger->log(LOG_DEBUG,
-		     "DSMEngine requesting connection from SampleOutput '%s'.",
-		     output->getName().c_str());
+	DLOG(("DSMEngine requesting connection from SampleOutput '%s'.",
+		     output->getName().c_str()));
 	output->requestConnection(this);
     }
     
@@ -880,10 +898,9 @@ void DSMEngine::disconnected(SampleOutput* output) throw()
 }
 
 
-/* static */
 bool DSMEngine::isRTLinux()
 {
-    if (rtlinux >= 0) return rtlinux > 0;
+    if (_rtlinux >= 0) return _rtlinux > 0;
 
     ifstream modfile("/proc/modules");
 
@@ -892,12 +909,12 @@ bool DSMEngine::isRTLinux()
         string module;
         modfile >> module;
         if (module == "rtl") {
-	    rtlinux = 1;
+	    _rtlinux = 1;
 	    return true;
 	}
         modfile.ignore(std::numeric_limits<int>::max(),'\n');
     }
-    rtlinux = 0;
+    _rtlinux = 0;
     return false;
 }
 

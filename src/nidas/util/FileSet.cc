@@ -72,8 +72,23 @@ void FileSet::setFileName(const std::string& val)
 void FileSet::closeFile() throw(IOException)
 {
     if (fd >= 0) {
+        /*
+         * Note that we don't do an fsync or fdatasync here before closing.
+         * FileSet is used for streamed data files, which are not typically
+         * created and closed very often, usually less than once an hour.
+         * If something causes the last bit of data not to be
+         * written, it isn't typically a big issue because the file contents
+         * up to that point should still be readable, and no one is going
+         * to cry much about losing 5 seconds of data just before the
+         * power went out.  Instead, we'll let the OS schedule the sync
+         * as a result of the close.  It seems to me that if an fsync is
+         * needed here then we should be doing it periodically all the time,
+         * which then disables the caching capabilities of the file system.
+         * We'll depend on the journalling file system to maintain integrity.
+         * If necessary, we could add an fsync method if someone really wants it.
+         */
         if (::close(fd) < 0)
-	    IOException(currname,"close",errno);
+	    throw IOException(currname,"close",errno);
 	fd = -1;
     }
 }
@@ -83,7 +98,7 @@ long long FileSet::getFileSize() const throw(IOException)
     if (fd >= 0) {
         struct stat64 statbuf;
         if (::fstat64(fd,&statbuf) < 0)
-	    IOException(currname,"fstat",errno);
+	    throw IOException(currname,"fstat",errno);
 	return statbuf.st_size;
     }
     return 0;

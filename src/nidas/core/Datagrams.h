@@ -18,24 +18,25 @@
 
 #include <nidas/core/SocketAddrs.h>
 
-// TODO: phase these macros out, replaced by those in SocketAddrs.h
-#define DSM_SVC_REQUEST_PORT	  30000
-#define DSM_MULTICAST_STATUS_PORT 30001
-#define RSERIAL_PORT    	  30002 // DSMServerIntf.cc
-#define ADS_XMLRPC_PORT           30003 // DSMServerIntf.cc
-#define DSM_XMLRPC_PORT           30004 // DSMEngineIntf.cc
-#define DIR_XMLRPC_PORT           30005 // ADSDirectorIntf.cc
-#define ADS_XMLRPC_STATUS_PORT    30006 // for status_listener.cc
-
-#define DSM_MULTICAST_ADDR "239.0.0.10"
-
 namespace nidas { namespace core {
 
-typedef enum datagramTypes {
-    XML_CONFIG,
+enum McSocketRequest {
+
+    /**
+     * Request for a TCP feed of the configuration in XML.
+     */
+    XML_CONFIG = 0,
+
+    /**
+     * Request for a TCP feed of raw samples.
+     */
     RAW_SAMPLE,
-    VARIABLE_LIST_XML,
-} datagramType_t;
+
+    /**
+     * Request for a XML listing of processed variables via TCP.
+     */
+    XML_VARIABLE_LIST,
+};
 
 }}	// namespace nidas namespace core
 

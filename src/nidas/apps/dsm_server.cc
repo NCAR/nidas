@@ -12,14 +12,14 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMServerApp.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
 
 int main(int argc, char** argv)
 {
-    int res = DSMServer::main(argc,argv);
+    int res = DSMServerApp::main(argc,argv);
     ILOG(("dsm_server exiting, status=") << res);
     return res;
 }

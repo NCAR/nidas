@@ -1,6 +1,10 @@
 #!/bin/sh
 
 # Test script for a dsm process, sampling 3 serial sensors, via pseudo-terminals
+echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+echo PATH=$PATH
+which dsm
+ldd `which dsm`
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
@@ -27,8 +31,6 @@ fi
 
 kill_dsm
 
-echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-echo PATH=$PATH
 
 # build the local sensor_sim program
 #cd src || exit 1
@@ -51,7 +53,7 @@ pids=(${pids[*]} $!)
 sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
 pids=(${pids[*]} $!)
 # simulate Campbell sonic
-sensor_sim -c -r 60 -n 256 tmp/test2 -t &
+sensor_sim -c -r 60 -n 256 tmp/test2 -t > tmp/csat3.log 2>&1 &
 pids=(${pids[*]} $!)
 sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t tmp/test3 &
 pids=(${pids[*]} $!)
