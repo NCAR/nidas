@@ -652,3 +652,28 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 }
 
+/* static */
+Looper* DSMSensor::_looper = 0;
+
+/* static */
+n_u::Mutex DSMSensor::_looperMutex;
+
+/* static */
+Looper* DSMSensor::getLooper()
+{
+    n_u::Synchronized autosync(_looperMutex);
+    if (!_looper) {
+        _looper = new Looper();
+        try {
+            _looper->setThreadScheduler(n_u::Thread::NU_THREAD_RR,51);
+        }
+        catch(const n_u::Exception& e) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                "DSMSensor Looper thread cannot be realtime %s: %s",
+                n_u::Thread::getPolicyString(n_u::Thread::NU_THREAD_RR).c_str(),
+                e.what());
+        }
+    }
+    return _looper;
+}
+

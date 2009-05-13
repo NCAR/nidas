@@ -179,7 +179,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = ['default','x86tools','packaging'], toolpath=['sconstools'],
+    x86_env = env.Clone(tools = ['x86tools','packaging'], toolpath=['sconstools'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
@@ -220,7 +220,7 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = ['default','armcross'], toolpath=['sconstools'],
+    arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'])
@@ -242,7 +242,7 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = ['default','armbecross'], toolpath=['sconstools'],
+    armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'])

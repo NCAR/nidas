@@ -656,10 +656,20 @@ void RemoteSerial::charout(char c)
 	else printf("    ");
 	break;
     case ASCII:
-	if (isprint(c)) putc(c,stdout);
-	else if (c == '\r') printf("\\r");
-	else if (c == '\n') printf("\\n");
-	else printf("\\%#04x",(unsigned char)c);
-	break;
+        switch(c) {
+        case '\r':
+            printf("\\r");
+            break;
+	case '\n':
+            printf("\\n");
+            break;
+	case '\t':
+            printf("\\t");
+            break;
+        default:
+            if (isprint(c)) putc(c,stdout);
+            else printf("\\%#04x",(unsigned char)c);
+            break;
+        }
     }
 }

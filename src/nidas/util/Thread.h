@@ -226,6 +226,12 @@ public:
    **/
   const std::string getFullName() throw();
 
+   /**
+    * Convenience function to return a string for the given scheduler policy:
+    * "Non-RT", "RT:FIFO", "RT:RR" or "RT:Unknown".
+    */
+  static std::string getPolicyString(int policy);
+
   enum SchedPolicy { NU_THREAD_OTHER=SCHED_OTHER,
         NU_THREAD_FIFO=SCHED_FIFO, NU_THREAD_RR=SCHED_RR};
 

@@ -244,7 +244,7 @@ void DSMSerialSensor::startPrompting() throw(n_u::IOException)
             //for (pi = getPrompters().begin(); pi != getPrompters.end(); ++pi) {
             for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
 		Prompter* prompter = *pi;
-                Looper::getInstance()->addClient(prompter,prompter->getPromptPeriodMsec());
+                getLooper()->addClient(prompter,prompter->getPromptPeriodMsec());
             }
         }
 	_prompting = true;
@@ -260,9 +260,8 @@ void DSMSerialSensor::stopPrompting() throw(n_u::IOException)
             //for (pi = getPrompters().begin(); pi = getPrompters().end(); ++pi) {
             for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
 		Prompter* prompter = *pi;
-                Looper::getInstance()->removeClient(prompter);
+                getLooper()->removeClient(prompter);
             }
-                //Looper::getInstance()->removeClient(&_prompter);
         }
 	_prompting = false;
     }

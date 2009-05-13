@@ -81,6 +81,8 @@ public:
     n_u::SerialPort* port() { return _port; }
 
 protected:
+    Looper* getLooper();
+
     void looperNotify() throw();
     void readPrompts() throw(n_u::IOException);
 
@@ -90,14 +92,24 @@ protected:
     float _rate;
     int _nmessages;
     bool _interrupted;
+
+    static Looper* _looper;
 };
+
+Looper* SensorSimulator::_looper = 0;
+
+Looper* SensorSimulator::getLooper()
+{
+    if (!_looper) _looper = new Looper();
+    return _looper;
+}
 
 void SensorSimulator::looperNotify() throw()
 {
     if (_interrupted) {
-        Looper* looper = Looper::getInstance();
-        looper->removeClient(this);
-        looper->interrupt();
+        getLooper();
+        _looper->removeClient(this);
+        _looper->interrupt();
         return;
     }
     try {
@@ -139,9 +151,9 @@ void SensorSimulator::run() throw(n_u::Exception)
 		(unsigned long)rint(MSECS_PER_SEC / _rate);
 	// cerr << "msecPeriod=" << msecPeriod << endl;
 
-        Looper* looper = Looper::getInstance();
-        looper->addClient(this,msecPeriod);
-        looper->join();
+        getLooper();
+        _looper->addClient(this,msecPeriod);
+        _looper->join();
     }
 }
 

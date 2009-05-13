@@ -559,6 +559,18 @@ Thread::getName() const throw()
   return _name;
 }
 
+/* static */
+string Thread::getPolicyString(int policy)
+{
+    switch (policy) {
+    case NU_THREAD_OTHER: return "Non-RT";
+    case NU_THREAD_FIFO:  return "RT:FIFO";
+    case NU_THREAD_RR:    return "RT:RR";
+    default: break;
+    }
+    return "RT:Unknown";
+}
+
 void Thread::makeFullName() {
 
   std::ostringstream os;
@@ -568,14 +580,8 @@ void Thread::makeFullName() {
   sched_param param;
   int policy = 0;
 
-  if (::pthread_getschedparam(_id,&policy,&param) == 0) {
-    switch (policy) {
-    case NU_THREAD_OTHER: os << ",Non-RT"; break;
-    case NU_THREAD_FIFO:  os << ",RT:FIFO"; break;
-    case NU_THREAD_RR:  os << ",RT:RR"; break;
-    default:  os << ",RT:Unk"; break;
-    }
-  }
+  if (::pthread_getschedparam(_id,&policy,&param) == 0)
+    os << ',' << getPolicyString(policy);
   os << ",prior=" << param.sched_priority;
 
   if (_detached) os << ",detached";

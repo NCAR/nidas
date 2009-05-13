@@ -67,6 +67,7 @@ nlapps = Split("""
 """)
 
 # apps which just need the nidas_util library
+# move sing here (it still needs nidas::core::Looper)
 nuapps = Split("""
     gps_nmea_sysclock.cc
     garmin.cc

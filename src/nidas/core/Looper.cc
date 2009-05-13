@@ -20,31 +20,7 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-/* static */
-Looper* Looper::instance = 0;
-
-/* static */
-n_u::Mutex Looper::instanceMutex;
-
-/* static */
-Looper* Looper::getInstance()
-{
-    if (!instance) {
-	n_u::Synchronized autosync(instanceMutex);
-	if (!instance) instance = new Looper();
-    }
-    return instance;
-}
-
-/* static */
-void Looper::removeInstance()
-{
-    instanceMutex.lock();
-    delete instance;
-    instance = 0;
-    instanceMutex.unlock();
-}
-Looper::Looper(): n_u::Thread("Looper"),sleepMsec(0)
+Looper::Looper(): n_u::Thread("Looper"),_sleepMsec(0)
 {
 }
 
@@ -59,30 +35,30 @@ void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)
     msecPeriod += 5;
     msecPeriod = msecPeriod - msecPeriod % 10;
 
-    n_u::Synchronized autoLock(clientMutex);
+    n_u::Synchronized autoLock(_clientMutex);
 
     map<unsigned int,std::set<LooperClient*> >::iterator
-    	ci = clientsByPeriod.find(msecPeriod);
+    	ci = _clientsByPeriod.find(msecPeriod);
 
-    if (ci != clientsByPeriod.end()) ci->second.insert(clnt);
+    if (ci != _clientsByPeriod.end()) ci->second.insert(clnt);
     else {
 	/* new period value */
         set<LooperClient*> clnts;
 	clnts.insert(clnt);
-	clientsByPeriod[msecPeriod] = clnts;
+	_clientsByPeriod[msecPeriod] = clnts;
     }
     setupClientMaps();
 }
 
 void Looper::removeClient(LooperClient* clnt)
 {
-    clientMutex.lock();
+    _clientMutex.lock();
 
     map<unsigned int,std::set<LooperClient*> >::iterator
-    	ci = clientsByPeriod.begin();
+    	ci = _clientsByPeriod.begin();
 
     bool foundClient = false;
-    for ( ; ci != clientsByPeriod.end(); ++ci) {
+    for ( ; ci != _clientsByPeriod.end(); ++ci) {
         set<LooperClient*>::iterator si = ci->second.find(clnt);
 	if (si != ci->second.end()) {
 	    ci->second.erase(si);
@@ -90,8 +66,8 @@ void Looper::removeClient(LooperClient* clnt)
 	}
     }
     if (foundClient) setupClientMaps();
-    bool haveClients = cntrMods.size() > 0;
-    clientMutex.unlock();
+    bool haveClients = _cntrMods.size() > 0;
+    _clientMutex.unlock();
 
     if (!haveClients && isRunning()) {
 	interrupt();
@@ -117,8 +93,8 @@ void Looper::setupClientMaps()
     unsigned int sleepval = 0;
 
     /* determine greatest common divisor of periods */
-    for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ) {
-        if (ci->second.size() == 0) clientsByPeriod.erase(ci++);
+    for (ci = _clientsByPeriod.begin(); ci != _clientsByPeriod.end(); ) {
+        if (ci->second.size() == 0) _clientsByPeriod.erase(ci++);
 	else {
 	    unsigned int per = ci->first;
 	    if (sleepval == 0) sleepval = per;
@@ -127,22 +103,22 @@ void Looper::setupClientMaps()
 	}
     }
 
-    clientsByCntrMod.clear();
-    cntrMods.clear();
+    _clientsByCntrMod.clear();
+    _cntrMods.clear();
     if (sleepval == 0) return;      // no clients
 
-    for (ci = clientsByPeriod.begin(); ci != clientsByPeriod.end(); ++ci) {
+    for (ci = _clientsByPeriod.begin(); ci != _clientsByPeriod.end(); ++ci) {
 	assert (ci->second.size() > 0);
 	unsigned int per = ci->first;
 	assert((per % sleepval) == 0);
 	int cntrMod = per / sleepval;
 	list<LooperClient*> clnts(ci->second.begin(),ci->second.end());
-	clientsByCntrMod[cntrMod] = clnts;
-	cntrMods.insert(cntrMod);
+	_clientsByCntrMod[cntrMod] = clnts;
+	_cntrMods.insert(cntrMod);
     }
-    sleepMsec = sleepval;
+    _sleepMsec = sleepval;
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"Looper, sleepMsec=%d",sleepMsec);
+	"Looper, sleepMsec=%d",_sleepMsec);
 
     if (!isRunning()) start();
 }
@@ -175,28 +151,28 @@ bool Looper::sleepUntil(unsigned int periodMsec,unsigned int offsetMsec)
 
 int Looper::run() throw(n_u::Exception)
 {
-    if (sleepUntil(sleepMsec)) return RUN_OK;
+    if (sleepUntil(_sleepMsec)) return RUN_OK;
 
     n_u::Logger::getInstance()->log(LOG_INFO,
-    	"Looper starting, sleepMsec=%d", sleepMsec);
+    	"Looper starting, sleepMsec=%d", _sleepMsec);
     while (!amInterrupted()) {
 	dsm_time_t tnow = getSystemTime() / USECS_PER_MSEC;
-	unsigned int cntr = (unsigned int)(tnow % MSECS_PER_DAY) / sleepMsec;
+	unsigned int cntr = (unsigned int)(tnow % MSECS_PER_DAY) / _sleepMsec;
 
-	clientMutex.lock();
+	_clientMutex.lock();
 	// make a copy of the list
-	list<int> mods(cntrMods.begin(),cntrMods.end());
-	clientMutex.unlock();
+	list<int> mods(_cntrMods.begin(),_cntrMods.end());
+	_clientMutex.unlock();
 
 	list<int>::const_iterator mi = mods.begin();
 	for ( ; mi != mods.end(); ++mi) {
 	    int modval = *mi;
 
 	    if (!(cntr % modval)) {
-		clientMutex.lock();
+		_clientMutex.lock();
 		// make a copy of the list
-		list<LooperClient*> clients = clientsByCntrMod[modval];
-		clientMutex.unlock();
+		list<LooperClient*> clients = _clientsByCntrMod[modval];
+		_clientMutex.unlock();
 
 		list<LooperClient*>::const_iterator li = clients.begin();
 		for ( ; li != clients.end(); ++li) {
@@ -205,7 +181,7 @@ int Looper::run() throw(n_u::Exception)
 		}
 	    }
 	}
-	if (sleepUntil(sleepMsec)) return RUN_OK;
+	if (sleepUntil(_sleepMsec)) return RUN_OK;
     }
     return RUN_OK;
 }

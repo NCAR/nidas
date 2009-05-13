@@ -21,6 +21,7 @@
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/core/Looper.h>
 #include <nidas/core/DOMable.h>
 // #include <nidas/linux/types.h>
 
@@ -745,6 +746,13 @@ public:
         return calFile;
     }
 
+    /**
+     * Fetch a pointer to a static instance of a Looper thread.
+     * Use this Looper for periodic callbacks, as for prompting,
+     * in support of a DSMSensor.
+     */
+    static Looper* getLooper();
+
 private:
 
     std::string devname;
@@ -840,6 +848,11 @@ private:
     int _driverTimeTagUsecs;
 
     int _nTimeouts;
+
+    static Looper* _looper;
+
+    static nidas::util::Mutex _looperMutex;
+
 
 private:
     // no copying

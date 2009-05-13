@@ -40,13 +40,13 @@ void MOSMote::open(int flags)
     if (_tsyncPeriodSecs > 0) {
 	// send a time sync on open
 	_mosSyncher.looperNotify();
-    	Looper::getInstance()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
+    	getLooper()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
     }
 
 }
 void MOSMote::close() throw(nidas::util::IOException)
 {
-    if (_tsyncPeriodSecs > 0) Looper::getInstance()->removeClient(&_mosSyncher);
+    if (_tsyncPeriodSecs > 0) getLooper()->removeClient(&_mosSyncher);
     DSMSerialSensor::close();
 }
 

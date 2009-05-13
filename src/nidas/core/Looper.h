@@ -39,17 +39,7 @@ namespace nidas { namespace core {
 class Looper : public nidas::util::Thread {
 public:
 
-    /**
-     * Fetch the pointer to the instance of Looper
-     */
-    static Looper* getInstance();
-
-    /**
-     * Delete the instance of Looper. Probably only done
-     * at main program shutdown, and then only if you're really
-     * worried about cleaning up.
-     */
-    static void removeInstance();
+    Looper();
 
     /**
      * Add a client to the Looper whose
@@ -88,24 +78,16 @@ private:
 
     void setupClientMaps();
 
-    /**
-     * Constructor.
-     */
-    Looper();
+    nidas::util::Mutex _clientMutex;
 
-    static Looper* instance;
+    std::map<unsigned int,std::set<LooperClient*> > _clientsByPeriod;
 
-    static nidas::util::Mutex instanceMutex;
+    std::map<int,std::list<LooperClient*> > _clientsByCntrMod;
 
-    nidas::util::Mutex clientMutex;
+    std::set<int> _cntrMods;
 
-    std::map<unsigned int,std::set<LooperClient*> > clientsByPeriod;
+    unsigned int _sleepMsec;
 
-    std::map<int,std::list<LooperClient*> > clientsByCntrMod;
-
-    std::set<int> cntrMods;
-
-    unsigned int sleepMsec;
 };
 
 }}	// namespace nidas namespace core

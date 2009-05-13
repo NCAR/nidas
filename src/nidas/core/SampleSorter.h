@@ -21,10 +21,6 @@
 #include <nidas/core/SortedSampleSet.h>
 #include <nidas/core/DSMTime.h>
 
-#ifdef USE_LOOPER
-#include <nidas/core/LooperClient.h>
-#endif
-
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
 
@@ -46,10 +42,6 @@ namespace nidas { namespace core {
  */
 class SampleSorter : public nidas::util::Thread,
 	public SampleClient, public SampleSource
-
-#ifdef USE_LOOPER
-	, public LooperClient
-#endif
 {
 public:
 
