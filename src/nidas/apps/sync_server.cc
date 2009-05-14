@@ -249,7 +249,7 @@ int SyncServer::run() throw()
 
 	// Block while waiting for heapSize to become less than heapMax.
 	input.setHeapBlock(true);
-	input.setHeapMax(10000000);
+	input.setHeapMax(500000000);
 	input.init();
 
 	input.readInputHeader();

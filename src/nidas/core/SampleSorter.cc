@@ -157,7 +157,7 @@ int SampleSorter::run() throw(n_u::Exception)
             // thread is not behind.
 	    _heapCond.lock();
 	    if (_heapSize > _heapMax) {
-	        _heapMax = _heapSize;
+	        _heapMax += _heapMax / 8;
 		_heapCond.signal();
 	    	n_u::Logger::getInstance()->log(LOG_NOTICE,
 		    "increased heapMax to %d, # of samples=%d",
