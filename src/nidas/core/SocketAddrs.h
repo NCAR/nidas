@@ -19,7 +19,7 @@
 #define NIDAS_SVC_REQUEST_PORT_UDP      30000   // dsm_server listens for service requests
 #define NIDAS_RAW_DATA_PORT_TCP         30000   // TCP port for raw data connections
 
-#define DSM_STATUS_PORT_UDP             30001   // dsm processes multicast status on this port
+#define NIDAS_STATUS_PORT_UDP           30001   // nidas processes multicast status on this port
 #define NIDAS_SYNCREC_DATA_TCP          30001   // port for sending syncrecord data
                                                 // TODO: use unix socket for this
 

@@ -51,7 +51,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
     n_u::Inet4Address maddr =
     	n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
     n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,DSM_STATUS_PORT_UDP);
+	n_u::Inet4SocketAddress(maddr,NIDAS_STATUS_PORT_UDP);
 
     std::ostringstream statStream;
 
@@ -132,7 +132,7 @@ int DSMServerStat::run() throw(n_u::Exception)
     }
 
     n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,DSM_STATUS_PORT_UDP);
+	n_u::Inet4SocketAddress(maddr,NIDAS_STATUS_PORT_UDP);
 
     n_u::MulticastSocket msock;
 
