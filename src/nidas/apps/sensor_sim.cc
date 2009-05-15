@@ -619,6 +619,9 @@ int SensorSimApp::main()
         if (_nmessages >= 0 || _onceThru) kill(getpid(),SIGSTOP);
 
         sim->run();
+
+        port->drain();
+        port->close();
     }
     catch(n_u::Exception& ex) {
 	cerr << ex.what() << endl;
@@ -632,6 +635,6 @@ int main(int argc, char** argv)
     SensorSimApp sim;
     int res;
     if ((res = sim.parseRunstring(argc,argv)) != 0) return res;
-    sim.main();
+    return sim.main();
 }
 

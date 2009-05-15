@@ -179,31 +179,32 @@ SerialPort::modemFlagsToString(int modem)
   return res;
 }
 
-int
+void
+SerialPort::drain() throw(IOException)
+{
+  if (tcdrain(_fd) < 0)
+    throw IOException(_name,"tcdrain",errno);
+}
+
+void
 SerialPort::flushOutput() throw(IOException)
 {
-  int r;
-  if ((r = tcflush(_fd,TCOFLUSH)) < 0)
+  if (tcflush(_fd,TCOFLUSH) < 0)
     throw IOException(_name,"tcflush TCOFLUSH",errno);
-  return r;
 }
 
-int
+void
 SerialPort::flushInput() throw(IOException)
 {
-  int r;
-  if ((r = tcflush(_fd,TCIFLUSH)) < 0)
+  if (tcflush(_fd,TCIFLUSH) < 0)
     throw IOException(_name,"tcflush TCIFLUSH",errno);
-  return r;
 }
 
-int
+void
 SerialPort::flushBoth() throw(IOException)
 {
-  int r;
-  if ((r = tcflush(_fd,TCIOFLUSH)) < 0)
+  if (tcflush(_fd,TCIOFLUSH) < 0)
     throw IOException(_name,"tcflush TCIOFLUSH",errno);
-  return r;
 }
 
 int

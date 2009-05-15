@@ -122,9 +122,25 @@ public:
   void setBlocking(bool val) throw(IOException);
   bool getBlocking() throw(IOException);
 
-  int flushInput() throw(IOException);
-  int flushOutput() throw(IOException);
-  int flushBoth() throw(IOException);
+  /**
+   * Do a tcdrain() system call on the device. According to the tcdrain man page, it
+   * "waits until all output written to the object referred to by fd has been transmitted".
+   */
+  void drain() throw(IOException);
+
+  /**
+   * Do a tcflush() system call on the device. According to the tcflush man page, it
+   * "discards data received but not read".
+   */
+  void flushInput() throw(IOException);
+
+  /**
+   * Do a tcflush() system call on the device. According to the tcflush man page, it
+   * "discards data written to the object referred to by fd but not transmitted".
+   */
+  void flushOutput() throw(IOException);
+
+  void flushBoth() throw(IOException);
 
   int timeoutOrEOF() const { return _state == TIMEOUT_OR_EOF; }
 
