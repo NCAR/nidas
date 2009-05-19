@@ -101,6 +101,11 @@ bool TwoD32_USB::processImage(const Sample * samp,
         for (; cp < eow; ) {
             switch (*cp) {
             case 0x55:  // overload (0x55aa) or sync (0x55*) string
+                if (cp + wordSize > eod) {
+                    createSamples(samp->getTimeTag(), results);
+                    saveBuffer(cp,eod);
+                    return results.size() > 0;
+                }
                 if ((unsigned long)cp % wordSize) _misAligned++;
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // overload word, reject particle.
@@ -131,6 +136,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
                 sos = 0;    // not a particle slice
                 break;
             default:
+                cp++;
                 break;
             }
         }
