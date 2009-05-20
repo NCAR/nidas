@@ -44,7 +44,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
 	int len = samp->getDataByteLength();
-	printf(" \n process -raw data = ");
+	//printf(" \n process -raw data = ");
 	for (int i= 0; i<len; i++) printf(" %x ", *(cp+i));
 
 	/*  find EOM  */
@@ -66,7 +66,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;
-		printf("\n\n\n SensorTypeId = %x ",sTypeId);
+		//printf("\n\n\n SensorTypeId = %x ",sTypeId);
 
 		/* push nodename+sStypeId to list  */
 		pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
@@ -75,14 +75,14 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		msgLen=0;
 		data.clear();
 		if ( nnMap[sTypeId]==NULL  ) {
-			printf("\n process--getData--cannot find the setFunc.  sTypeId = %x ...   No data... ",sTypeId);
+			//printf("\n process--getData--cannot find the setFunc.  sTypeId = %x ...   No data... ",sTypeId);
 			return false;
 		}
 		(this->*nnMap[sTypeId])(cp,eos);
 
 		/* move cp to right position */
 		cp += msgLen;
-		printf("\n move cp to right pos -- msgLen= %i ",msgLen);
+		//printf("\n move cp to right pos -- msgLen= %i ",msgLen);
 
 		/*  output    */
 		if (data.size() == 0) 	continue;
@@ -91,7 +91,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		osamp->setId((dsm_sample_id_t)nodeIds[lnname]);
 		for (unsigned int i=0; i<data.size(); i++) {
 			osamp->getDataPtr()[i] = data[i];
-			printf("\ndata i %f %i", data[i], i);
+			//printf("\ndata i %f %i", data[i], i);
 		}
 
 		/* push out   */
@@ -128,7 +128,7 @@ void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
 	sprintf (buffer, "%x",sTypeId);
 	lnname += buffer;
 	remove(lnname.begin(), lnname.end(), ' ');
-	printf("\n lnname= %s getId()= %i ", lnname.c_str(), id);
+	//printf("\n lnname= %s getId()= %i ", lnname.c_str(), id);
 
 	unsigned int sampleId = nodeIds[lnname];
 	if (sampleId == 0) {
@@ -142,7 +142,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
 
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
-	printf("\n SensorTypeId = %x \n",sTypeId);
+	//printf("\n SensorTypeId = %x \n",sTypeId);
 
 	/* push nodename+sStypeId to list  */
 	pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
@@ -194,8 +194,8 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		seq = *cp++;  msgLen++;
 		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, seq, msgLen);
-		printf("\n NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
-				nname.c_str(), ver, mtype, seq, msgLen);
+		//printf("\n NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
+				//nname.c_str(), ver, mtype, seq, msgLen);
 		break;
 	case 2:
 		n_u::Logger::getInstance()->log(LOG_ERR,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
@@ -259,7 +259,7 @@ void WisardMote::setPicTm(const unsigned char* cp, const unsigned char* eos){
 	int	pict;
 	pict=  (fromLittle->uint16Value(cp));
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
-	printf("\n pic-time= %x ", pict);
+	//printf("\n pic-time= %x ", pict);
 	n_u::Logger::getInstance()->log(LOG_INFO,"\nPic_time = %x ",  pict);
 }
 void WisardMote::setPicDT(const unsigned char* cp, const unsigned char* eos){
@@ -277,7 +277,7 @@ void WisardMote::setPicDT(const unsigned char* cp, const unsigned char* eos){
 	cp += sizeof(uint8_t); msgLen+=sizeof(uint8_t);
 	ss= *cp;
 	cp += sizeof(uint8_t); msgLen+=sizeof(uint8_t);
-	printf("\n jday= %x hh=%x mm=%x ss=%x",  jday, hh, mm, ss);
+	//printf("\n jday= %x hh=%x mm=%x ss=%x",  jday, hh, mm, ss);
 	n_u::Logger::getInstance()->log(LOG_INFO,"\n jday= %x hh=%x mm=%x ss=%x",  jday, hh, mm, ss);
 }
 
@@ -285,43 +285,79 @@ void WisardMote::setTsoilData(const unsigned char* cp, const unsigned char* eos)
 	/* unpack 16 bit  */
 	for (int i=0; i<4; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
-		data.push_back((fromLittle->int16Value(cp))/10.0);
+		int val = fromLittle->int16Value(cp);
+		if (val!= 0x8000)
+			data.push_back(val/10.0);
+		else
+			data.push_back(floatNAN);
 		cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 	}
 }
 void WisardMote::setGsoilData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(int16_t) > eos) return;
-	data.push_back((fromLittle->int16Value(cp))/1.0);
+	int val = fromLittle->int16Value(cp);
+	if (val!= 0x8000)
+		data.push_back(val/1.0);
+	else
+		data.push_back(floatNAN);
+
+	//data.push_back((fromLittle->int16Value(cp))/1.0);
 	cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 }
 void WisardMote::setQsoilData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(uint16_t) > eos) return;
-	data.push_back((fromLittle->uint16Value(cp))/1.0);
+	int val = fromLittle->uint16Value(cp);
+	if (val!= 0x8000)
+		data.push_back(val/1.0);
+	else
+		data.push_back(floatNAN);
+	//data.push_back((fromLittle->uint16Value(cp))/1.0);
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 }
 void WisardMote::setTP01Data(const unsigned char* cp, const unsigned char* eos){
 	// 3 are singed
 	for (int i=0; i<3; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
-		data.push_back((fromLittle->int16Value(cp))/1.0);
+		int val = fromLittle->int16Value(cp);
+		if (val!= 0x8000)
+			data.push_back(val/1.0);
+		else
+			data.push_back(floatNAN);
+		//data.push_back((fromLittle->int16Value(cp))/1.0);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 	}
 }
 
 void WisardMote::setRnetData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(int16_t) > eos) return;
-	data.push_back((fromLittle->int16Value(cp))/10.0);
+	int val = fromLittle->int16Value(cp);
+	if (val!= 0x8000)
+		data.push_back(val/10.0);
+	else
+		data.push_back(floatNAN);
+	//data.push_back((fromLittle->int16Value(cp))/10.0);
 	cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 }
 void WisardMote::setRswData(const unsigned char* cp, const unsigned char* eos){
 	if (cp + sizeof(uint16_t) > eos) return;
-	data.push_back((fromLittle->uint16Value(cp))/10.0);
+	int val = fromLittle->uint16Value(cp);
+	if (val!= 0x8000)
+		data.push_back(val/10.0);
+	else
+		data.push_back(floatNAN);
+	//data.push_back((fromLittle->uint16Value(cp))/10.0);
 	cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 }
 void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 	for (int i=0; i<5; i++) {
 		if (cp + sizeof(int16_t) > eos) return;
-		data.push_back((fromLittle->int16Value(cp))/10.0);
+		int val = fromLittle->int16Value(cp);
+		if (val!= 0x8000)
+			data.push_back(val/10.0);
+		else
+			data.push_back(floatNAN);
+
+		//data.push_back((fromLittle->int16Value(cp))/10.0);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 	}
 }
@@ -329,7 +365,12 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 	for (int i=0; i<6; i++){
 		if (cp + sizeof(uint16_t) > eos) return;
-		data.push_back((fromLittle->uint16Value(cp))/10.0);
+		int val = fromLittle->uint16Value(cp);
+		if (val!= 0x8000)
+			data.push_back(val/10.0);
+		else
+			data.push_back(floatNAN);
+		//data.push_back((fromLittle->uint16Value(cp))/10.0);
 		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
 	}
 }
