@@ -83,8 +83,10 @@ bool TwoD32_USB::processImage(const Sample * samp,
     unsigned int overld = 0;
     unsigned int tBarElapsedtime = 0;  // Running accumulation of time-bars
 
-    // Loop through all slices in record.
-    for (; cp < eod - (wordSize - 1); )
+    // Loop through all slices in record. We look in every byte for the
+    // start of a sync word, so we can't scan the last 4 bytes, but save
+    // them for the next processImage().
+    for (; cp < eod - wordSize; )
     {
         /* Four cases, syncWord, overloadWord, blank or legitimate slice.
          * sync & overload words come at the end of the particle.  In the
@@ -94,18 +96,13 @@ bool TwoD32_USB::processImage(const Sample * samp,
 
         /* Scan next 4 bytes starting at current pointer, cp, for
          * a possible syncWord or overloadWord */
-        const unsigned char* eow = std::min(cp+wordSize,eod-(wordSize - 1));
+        const unsigned char* eow = cp + wordSize;
 
         const unsigned char* sos = cp;       // possible start of particle slice
 
         for (; cp < eow; ) {
             switch (*cp) {
             case 0x55:  // overload (0x55aa) or sync (0x55*) string
-                if (cp + wordSize > eod) {
-                    createSamples(samp->getTimeTag(), results);
-                    saveBuffer(cp,eod);
-                    return results.size() > 0;
-                }
                 if ((unsigned long)cp % wordSize) _misAligned++;
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // overload word, reject particle.
@@ -141,7 +138,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
             }
         }
         if (sos) {
-             if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
+            if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
                 countParticle(_particle, resolutionUsec);
                 _particle.zero();
             }
