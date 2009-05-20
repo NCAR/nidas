@@ -309,25 +309,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
         if (sos) {
             // scan 8 bytes of particle
             // If a blank string, then next word should be sync, otherwise discard it
-            if (::memcmp(sos,_blankString,sizeof(_blankString)) == 0) {
-#ifdef SLICE_DEBUG
-                cerr << dec << " blank" << endl;
-#endif
-                _blankLine = true;
-            }
-            else if (_blankLine) {
-                _particle.zero();
-#ifdef SLICE_DEBUG
-                if (suspect) cerr << dec << " suspect" << endl;
-                else cerr << dec << " slice after blank" << endl;
-#endif
-            }
-            else {
+            if (::memcmp(sos,_blankString,sizeof(_blankString)) != 0) {
                 processParticleSlice(_particle, sos);
-#ifdef SLICE_DEBUG
-                if (suspect) cerr << dec << " suspect" << endl;
-                else cerr << dec << " slice" << endl;
-#endif
             }
             cp = sos + wordSize;
         }
