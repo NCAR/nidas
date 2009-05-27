@@ -67,6 +67,7 @@ static struct ioctlCmd ioctlcmds[] = {
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
    { N_AVG,          _IOC_SIZE(N_AVG)         },
    { N_SKIP,         _IOC_SIZE(N_SKIP)        },
+   { CALM,           _IOC_SIZE(CALM)          },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -97,6 +98,7 @@ static char * createFifo(char inName[], int chan)
 unsigned int channel = 0;
 unsigned int nAVG  = 8;
 unsigned int nSKIP = 50;
+unsigned int calm = 0;
 
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
@@ -140,6 +142,7 @@ static void *lams_thread (void * chan)
 }
 
 static unsigned long long sum[MAX_BUFFER];
+static unsigned long long calm_spectrum[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
@@ -181,7 +184,14 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    if (channel) {
       if (nAvg++ >= nAVG) {
          for (n=0; n < MAX_BUFFER; n++) {
-            _lamsPort.data[n] = sum[n] / nAvg;
+            if (calm)
+              _lamsPort.data[n] = calm_spectrum[n] = (long long)(sum[n] / nAvg);
+            else
+              if ( (long long)(sum[n] / nAvg) - calm_spectrum[n] > 500000000)
+                _lamsPort.data[n] = 0;
+              else
+                _lamsPort.data[n] = (long long)(sum[n] / nAvg) - calm_spectrum[n];
+
             sum[n] = 0;
          }
          nAvg = 0;
@@ -252,6 +262,11 @@ static int ioctlCallback(int cmd, int board, int chn,
          DSMLOG_DEBUG("nSKIP:         %d\n", nSKIP);
          break;
 
+      case CALM:
+         calm = *(int*) buf;
+         DSMLOG_DEBUG("calm:          %d\n", calm);
+         break;
+
       default:
          ret = -RTL_EIO;
          break;
@@ -310,7 +325,8 @@ int init_module (void)
    request_region(baseAddr, REGION_SIZE, "lams");
    int n;
    _lamsPort.timetag = 0;
-   for (n=0; n<MAX_BUFFER; n++) _lamsPort.data[n] = 0;
+   for (n=0; n<MAX_BUFFER; n++)
+      _lamsPort.data[n] = calm_spectrum[n] = 0;
 
    DSMLOG_DEBUG("// initialize the semaphore to the thread\n");
    // initialize the semaphore to the thread

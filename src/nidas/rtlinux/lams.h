@@ -86,5 +86,6 @@ struct lams_set {
 #define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
 #define N_AVG            _IOW(LAMS_MAGIC,2, unsigned int)
 #define N_SKIP           _IOW(LAMS_MAGIC,3, unsigned int)
+#define CALM             _IOW(LAMS_MAGIC,4, int)
 
 #endif // LAMS_DRIVER_H

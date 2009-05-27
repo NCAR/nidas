@@ -84,16 +84,23 @@ int main(int argc, char** argv)
   err("sizeof(lamsPort): %d\n", sizeof(lamsPort));
 
   string ofName("/mnt/lams/lams.bin");
+  int calm = 0;
   unsigned int air_speed = 0;
   unsigned int nAVG  = 20;
   unsigned int nSKIP = 100;
-  if (argc == 1) {
-    err("using defaults...");
-  } else if (argc == 3) {
-    nAVG  = atoi(argv[1]);
+  switch (argc) {
+  case 4:
+    calm = (strcmp(argv[3], "calm") == 0);
+  case 3:
     nSKIP = atoi(argv[2]);
-  } else {
-    err("Usage: %s nAVG nSKIP", argv[0]);
+    nAVG  = atoi(argv[1]);
+    break;
+  case 1:
+    err("using defaults...");
+    break;
+  default:
+    err("Usage: %s nAVG nSKIP [calm]", argv[0]);
+    err("(defaults are... nAVG: %d   nSKIP: %d)", nAVG, nSKIP);
     return -1;
   }
   err("nAVG: %d   nSKIP: %d", nAVG, nSKIP);
@@ -145,6 +152,7 @@ int main(int argc, char** argv)
   err("nAVG:      %d",   nAVG);
   err("nSKIP:     %d",   nSKIP);
   sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
+  sensor_in_0.ioctl(CALM,      &calm,      sizeof(calm));
   sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
   sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
 
