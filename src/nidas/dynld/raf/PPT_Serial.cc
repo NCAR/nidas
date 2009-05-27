@@ -71,27 +71,33 @@ bool PPT_Serial::process(const Sample * samp,
      * - Sometimes we see the prompt returned to the process method.  IF so 
          just track it rather than letting it pass along.
   */
-    if (strncmp((const char*) samp->getConstVoidDataPtr(), PROMPT_PREFIX, 3) == 0) {
-        _numPromptsBack++;
-        WLOG(("%s: Encountered prompt returned by the sensor - number: %d", getName().c_str(), _numPromptsBack));
-        nsamp->freeReference();
-	return false;
-    }
-    // temp over/under error or EEPROMP parity error
-    if (strncmp((const char*) samp->getConstVoidDataPtr(), PARITY_ERROR, sizeof(PARITY_ERROR)) == 0) {
-       _numParityErr++;
-       WLOG(("%s: Encountered either Temperature over/under or EEPROMP parity error #: %d", getName().c_str(), _numParityErr));
-        nsamp->freeReference();
-        return false;
-    }
-    // RS-232 Buffer space error
-    if (strncmp((const char*) samp->getConstVoidDataPtr(), BUFFER_ERROR, sizeof(BUFFER_ERROR)) == 0) {
-        _numBuffErr++;
-        WLOG(("%s: Encountered RS-232 Buffer Error #: %d", getName().c_str(), _numBuffErr));
-        nsamp->freeReference();
-        return false;
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), PROMPT_PREFIX, strlen(PROMPT_PREFIX)) == 0) {
+        if ((_numPromptsBack++ % 100) == 0 || _numPromptsBack < 10) {
+            WLOG(("%s: Encountered prompt returned by the sensor - number: %d", 
+                  getName().c_str(), _numPromptsBack));
+            nsamp->freeReference();
+	    return false;
+        }
     }
 
+    // Temperature over/under error or EEPROMP parity error
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), PARITY_ERROR, strlen(PARITY_ERROR)) == 0) {
+        if ((_numParityErr++ % 100) == 0 || _numParityErr < 10) {
+            WLOG(("%s: Encountered either Temperature over/under or EEPROMP parity error #: %d", 
+                  getName().c_str(), _numParityErr));
+            nsamp->freeReference();
+            return false;
+        }
+    }
+
+    // RS-232 Buffer space error
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), BUFFER_ERROR, strlen(BUFFER_ERROR)) == 0) {
+        if ((_numBuffErr++ % 100) == 0 || _numBuffErr < 10) {
+            WLOG(("%s: Encountered RS-232 Buffer Error #: %d", getName().c_str(), _numBuffErr));
+            nsamp->freeReference();
+            return false;
+        }
+    }
 
     nsamp->setTimeTag(samp->getTimeTag());
     nsamp->setId(samp->getId());
