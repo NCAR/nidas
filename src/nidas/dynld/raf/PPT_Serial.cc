@@ -32,9 +32,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,PPT_Serial)
 
-PPT_Serial::PPT_Serial()
+PPT_Serial::PPT_Serial():DSMSerialSensor(), _numPromptsBack(0), _numParityErr(0), _numBuffErr(0) 
 {
-    _numPromptsBack = 0;
 }
 
 PPT_Serial::~PPT_Serial()
@@ -68,16 +67,31 @@ bool PPT_Serial::process(const Sample * samp,
 
     SampleT<char>* nsamp = getSample<char>(nc);
 
-/**  Sometimes we see the prompt returned to the process method.  IF so 
-     just track it rather than letting it pass along.
+/**  Check on Bad return values and notify:
+     * - Sometimes we see the prompt returned to the process method.  IF so 
+         just track it rather than letting it pass along.
   */
-  /*
-    if (strncmp((const char*) samp->getConstVoidDataPtr(), "*00", 3) == 0) {
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), PROMPT_PREFIX, 3) == 0) {
         _numPromptsBack++;
+        WLOG(("%s: Encountered prompt returned by the sensor - number: %d", getName().c_str(), _numPromptsBack));
         nsamp->freeReference();
 	return false;
     }
-    */
+    // temp over/under error or EEPROMP parity error
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), PARITY_ERROR, sizeof(PARITY_ERROR)) == 0) {
+       _numParityErr++;
+       WLOG(("%s: Encountered either Temperature over/under or EEPROMP parity error #: %d", getName().c_str(), _numParityErr));
+        nsamp->freeReference();
+        return false;
+    }
+    // RS-232 Buffer space error
+    if (strncmp((const char*) samp->getConstVoidDataPtr(), BUFFER_ERROR, sizeof(BUFFER_ERROR)) == 0) {
+        _numBuffErr++;
+        WLOG(("%s: Encountered RS-232 Buffer Error #: %d", getName().c_str(), _numBuffErr));
+        nsamp->freeReference();
+        return false;
+    }
+
 
     nsamp->setTimeTag(samp->getTimeTag());
     nsamp->setId(samp->getId());

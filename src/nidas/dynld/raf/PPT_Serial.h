@@ -18,6 +18,10 @@
 #ifndef _nidas_dynld_raf_ppt_serial_h_
 #define _nidas_dynld_raf_ppt_serial_h_
 
+#define PROMPT_PREFIX "*00"
+#define PARITY_ERROR "#00CP!0.0000"
+#define BUFFER_ERROR "*9dP1!"
+
 #include <nidas/dynld/DSMSerialSensor.h>
 
 #include <nidas/util/InvalidParameterException.h>
@@ -56,6 +60,8 @@ protected:
 
 private:
     int _numPromptsBack;
+    int _numParityErr;
+    int _numBuffErr;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
