@@ -330,7 +330,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
 
     ostr << "<status><![CDATA[";
     ostr << "\
-<table id=\"RawSampleService\">\
+<table id=status>\
 <caption>dsm_server</caption>\
 <thead>\
 <tr>\
@@ -350,7 +350,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         SampleInput* input =  ii->first;
         const DSMConfig* dsm = ii->second;
         ostr << 
-            "<tr class=\"" << oe[zebra++%2] << "\"><td align=left>" <<
+            "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
             (dsm ? dsm->getName() : "unknown") << "</td>";
         dsm_time_t tt = input->getLastDistributedTimeTag();
         if (tt > 0LL)
@@ -379,7 +379,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     _workerMutex.unlock();
 
     ostr << 
-        "<tr class=\"" << oe[zebra++%2] << "\"><td align=left>" <<
+        "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
         "merge/sort" << "</td>";
 
     dsm_time_t tt = 0;
@@ -428,7 +428,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     ProcessorIterator pi = getProcessorIterator();
     for ( ; pi.hasNext(); ) {
         SampleIOProcessor* proc = pi.next();
-        proc->printStatus(ostr,deltat,oe[zebra++%2]);
+        proc->printStatus(ostr,deltat,zebra);
     }
     ostr << "</tbody></table>]]></status>\n";
 }

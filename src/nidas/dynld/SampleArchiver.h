@@ -51,7 +51,7 @@ public:
 
     void disconnected(SampleOutput* output) throw();
 
-    void printStatus(std::ostream&,float deltat,const char* rowStripe=0) throw();
+    void printStatus(std::ostream&,float deltat,int&) throw();
 
 protected:
 

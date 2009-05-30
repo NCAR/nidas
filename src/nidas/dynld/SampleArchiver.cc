@@ -109,15 +109,15 @@ void SampleArchiver::disconnected(SampleOutput* output) throw()
     }
 }
 
-void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStripe)
+void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
     throw()
 {
-    if (!rowStripe) rowStripe = "odd";
+    const char* oe[2] = {"odd","even"};
 
     n_u::Autolock statusMutex(_statusMutex);
 
     ostr <<
-        "<tr class=\"" << rowStripe << "\"><td align=left>archive</td>";
+        "<tr class=" << oe[zebra++%2] << "><td align=left>archive</td>";
     dsm_time_t tt = 0LL;
     if (_input) tt = _input->getLastDistributedTimeTag();
     if (tt > 0LL)
@@ -148,7 +148,7 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,const char* rowStrip
         const nidas::dynld::FileSet* fset = *fi;
         if (fset) {
             ostr <<
-                "<tr class=\"" << rowStripe << "\"><td align=left colspan=3>" <<
+                "<tr class=" << oe[zebra++%2] << "><td align=left colspan=3>" <<
                 fset->getCurrentName() << "</td>";
 
             long long nbytes = fset->getFileSize();

@@ -64,7 +64,7 @@ public:
         return _syncRecSource.getSampleTags();
     }
 
-    void printStatus(std::ostream&,float deltat,const char* rowStripe=0) throw();
+    void printStatus(std::ostream&,float deltat,int&) throw();
 
 protected:
     void init() throw();

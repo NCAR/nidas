@@ -335,7 +335,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
   string dsm_lctn(getDSMConfig()->getLocation());
 
     ostr <<
-"<table id=\"sensor_status\">\
+"<table id=status>\
 <caption>"+dsm_lctn+" ("+dsm_name+") "+glyph[anim]+"</caption>\
 <tr>\
 <th>name</th>\
@@ -359,7 +359,7 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
     bool warn = fabs(getObservedSamplingRate()) < 0.0001;
     	
     ostr <<
-        "<tr class=\"" << oe << "\"><td align=left>" <<
+        "<tr class=" << oe << "><td align=left>" <<
                 getDeviceName() << ',' <<
 		(getCatalogName().length() > 0 ?
 			getCatalogName() : getClassName()) <<

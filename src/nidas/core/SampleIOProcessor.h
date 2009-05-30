@@ -184,7 +184,7 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
-    virtual void printStatus(std::ostream&,float deltat,const char* rowStripe) throw() {}
+    virtual void printStatus(std::ostream&,float deltat,int&) throw() {}
 
 protected:
     /**

@@ -3,22 +3,22 @@ BODY,H1,H2,H3,H4,H5,H6,P,CENTER,TD,TH,UL,DL,DIV,TABLE,LAYER,FRAME,IFRAME {
         font-size: 11px;
 }
 
-#sensor_status caption {
+#status caption {
         font-family:"Courier New", monospace;
         font-size: 12px;
 }
 
-#sensor_status th,tbody tr td {
+#status th,tbody tr td {
 	font-family: "lucida grande", verdana, sans-serif;
 	font-size: 8pt;
 	padding: 3px 3px;
 }
 
-#sensor_status tbody tr.odd  td {
+#status tbody tr.odd  td {
         background-color: #fff;
 }
 
-#sensor_status tbody tr.even td {
+#status tbody tr.even td {
         background-color: #ddd;
 }
 

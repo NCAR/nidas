@@ -118,15 +118,16 @@ void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
     _syncRecSource.sendHeader(thead);
 }
 
-void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* rowStripe)
+void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,int &zebra)
     throw()
 {
-    if (!rowStripe) rowStripe = "odd";
+    const char* oe[2] = {"odd","even"};
 
     n_u::Autolock statusLock(_statusMutex);
 
     ostr <<
-        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen input</td>";
+        "<tr class=" << oe[zebra++%2] << "><td align=left>sync_gen input</td>";
+
     dsm_time_t tt = 0LL;
     if (_input) tt = _input->getLastDistributedTimeTag();
     if (tt > 0LL)
@@ -154,7 +155,7 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,const char* row
     ostr << "<td></td><td></td></tr>\n";
 
     ostr <<
-        "<tr class=\"" << rowStripe << "\"><td align=left>sync_gen output</td>";
+        "<tr class=" << oe[zebra++%2] << "><td align=left>sync_gen output</td>";
     tt = 0LL;
     if (_output) tt = _output->getLastReceivedTimeTag();
     if (tt > 0LL)
