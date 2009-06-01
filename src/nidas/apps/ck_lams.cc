@@ -251,7 +251,7 @@ int main(int argc, char** argv)
 
   string ifName, ofName;
   if (argc < 2) {
-    ifName = string("/tmp/lams/lams.bin");
+    ifName = string("/home/lams/lams.bin");
     ofName = string(home)+string("/lams/lams.dat");
   } else {
     ifName = string(argv[1]);

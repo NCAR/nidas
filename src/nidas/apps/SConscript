@@ -19,8 +19,8 @@ else:
     archapps=Split("""
     """)
 
-# ck_lams.cc
 apps = Split("""
+    lidar_vel.cc
     ck_lams.cc
     ck_aout.cc
     ck_arinc.cc
