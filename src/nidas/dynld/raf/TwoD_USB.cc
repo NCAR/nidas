@@ -413,7 +413,7 @@ void TwoD_USB::processParticleSlice(Particle& p, const unsigned char * data)
 /*---------------------------------------------------------------------------*/
 bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 {
-    if (!p.edgeTouch && p.height > 0 && p.height < 4 * p.width)
+    if (!p.edgeTouch && p.height > 0 && p.height * 4 >= p.width)
         return true;
 
     return false;
