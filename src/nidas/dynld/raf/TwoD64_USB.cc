@@ -142,8 +142,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
 #ifdef SLICE_DEBUG
     const unsigned char* sod = cp;
-    cerr << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
-        " image=" << (slen - 8) << " + " <<  ((eod-cp) - (slen - 8)) << " bytes"<< endl;
+    cerr << endl << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+        " image=" << (slen - 8) << " + " <<  ((eod-cp) - (slen - 8)) << " bytes -----"<< endl;
 #endif
 
     // Loop through all slices in record.
