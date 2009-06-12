@@ -266,9 +266,17 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                         " syncTdiff=" << (thisTimeWord - firstTimeWord) << 
                         " sampTdiff=" << sampTdiff << endl;
 #endif
-                    // If we have crossed the end of the histogram period,
-                    // send existing data and reset.
-                    createSamples(thisParticleTime,results);
+                    // If we have crossed the end of the histogram period, send existing
+                    // data and reset.  Don't create samples too far in the future, say
+                    // 1/2 second.
+                    if (thisParticleTime <= samp->getTimeTag()+500000)
+                        createSamples(thisParticleTime,results);
+//#ifdef SLICE_DEBUG
+                    else { cerr << "thisParticleTime in the future, not calling createSamples()" << endl;
+                        cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+					n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") << endl;
+                    }
+//#endif
 
                     // If there are any extra bytes between last particle slice
                     // and syncword then ignore last particle.
