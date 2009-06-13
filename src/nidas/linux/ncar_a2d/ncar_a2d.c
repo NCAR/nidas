@@ -360,7 +360,7 @@ waitForChannelInterrupt(struct A2DBoard *brd, int channel, int maxmsecs)
 
         udelay(10);
 
-        outb(A2DIO_RDINTR, brd->cmd_addr);
+        outb(A2DIO_SYSCTL, brd->cmd_addr);
         for (cnt = 0; cnt <= (maxmsecs / mwait); cnt++) {
                 interrupts = inb(brd->base_addr);
                 if ((interrupts & mask) != 0) {
@@ -380,7 +380,7 @@ waitForChannelInterrupt(struct A2DBoard *brd, int channel, int maxmsecs)
 // Read status of AD7725 A/D chip specified by channel 0-7
 static unsigned short AD7725Status(struct A2DBoard *brd, int channel)
 {
-        outb(A2DIO_RDCHANSTAT, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
         return (inw(CHAN_ADDR(brd, channel)));
 }
 
@@ -548,7 +548,7 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
         }
 
         KLOG_INFO("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
-        outb(A2DIO_WRMASTER, brd->cmd_addr);
+        outb(A2DIO_FIFOSTAT, brd->cmd_addr);
         outb((char) channel, brd->base_addr);
         return 0;
 }
@@ -611,8 +611,8 @@ static void A2DSetCal(struct A2DBoard *brd)
                         CalChans += 0x80;
         }
         // Point at the system control input channel
-        outb(A2DIO_WRCALOFF, brd->cmd_addr);
-        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_WRCALOFF, brd->cmd_addr);
+        outb(A2DIO_SYSCTL, brd->cmd_addr);
+        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_SYSCTL, brd->cmd_addr);
 
         // Set the appropriate bits in OffCal
         brd->OffCal = (OffChans << 8) & 0xFF00;
@@ -644,8 +644,8 @@ static void A2DSetOffset(struct A2DBoard *brd)
                         OffChans += 0x80;
         }
         // Point at the system control input channel
-        outb(A2DIO_WRCALOFF, brd->cmd_addr);
-        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_WRCALOFF, brd->cmd_addr);
+        outb(A2DIO_SYSCTL, brd->cmd_addr);
+        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_SYSCTL, brd->cmd_addr);
 
         // Set the appropriate bits in OffCal
         brd->OffCal = (OffChans << 8) & 0xFF00;
@@ -735,7 +735,7 @@ static void A2DClearFIFO(struct A2DBoard *brd)
  */
 static inline unsigned short A2DBoardStatus(struct A2DBoard *brd)
 {
-        outb(A2DIO_RDBOARDSTAT, brd->cmd_addr);
+        outb(A2DIO_FIFOSTAT, brd->cmd_addr);
         return inw(brd->base_addr);
 }
 
@@ -788,7 +788,7 @@ static inline int getA2DFIFOLevel(struct A2DBoard *brd)
 static void A2DStopRead(struct A2DBoard *brd, int channel)
 {
         // Point to the A2D command register
-        outb(A2DIO_WRCMD, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Send specified A/D the abort (soft reset) command
         outw(AD7725_ABORT, CHAN_ADDR(brd, channel));
@@ -848,7 +848,7 @@ static int A2DStart(struct A2DBoard *brd, int channel)
                 return -EINVAL;
         }
         // Point at the A/D command channel
-        outb(A2DIO_WRCMD, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Start the selected A/D
         outw(AD7725_READDATA, CHAN_ADDR(brd, channel));
@@ -884,7 +884,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 return -EINVAL;
 
         // Set up to write a command to a channel
-        outb(A2DIO_WRCMD, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Set configuration write mode for our channel
         outw(AD7725_WRCONFIG, CHAN_ADDR(brd, channel));
@@ -910,7 +910,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
         for (coef = 0; coef < nCoefs; coef++) {
                 // Set up for config write and write out coefficient
-                outb(A2DIO_WRCOEF, brd->cmd_addr);
+                outb(A2DIO_A2DDATA, brd->cmd_addr);
                 outw(brd->ocfilter[coef], CHAN_ADDR(brd, channel));
 
                 if (waitForChannelInterrupt(brd, channel, 10) != 0) {
@@ -920,7 +920,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                              brd->deviceName,coef,channel);
                         return -ETIMEDOUT;
                 }
-                outb(A2DIO_RDINTR, brd->cmd_addr);
+                outb(A2DIO_SYSCTL, brd->cmd_addr);
 
                 // Read status word from target a/d and check for errors
                 stat = AD7725Status(brd, channel);
@@ -950,7 +950,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 return -EIO;
         }
 
-        outb(A2DIO_RDCHANSTAT, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
         brd->cur_status.goodval[channel] = inw(CHAN_ADDR(brd, channel));
         return 0;
 }
@@ -2214,12 +2214,12 @@ static int __init ncar_a2d_init(void)
                  *   o get channel 0 status
                  *   o verify that channel 0 saw the AD7725_WRCONFIG command
                  */
-                outb(A2DIO_WRCMD, brd->cmd_addr);
+                outb(A2DIO_A2DSTAT, brd->cmd_addr);
                 outw(AD7725_READDATA, brd->base_addr);  // start channel 0
                 msleep(20);     // wait a bit...
-                outb(A2DIO_WRCMD, brd->cmd_addr);
+                outb(A2DIO_A2DSTAT, brd->cmd_addr);
                 outw(AD7725_ABORT, brd->base_addr);     // stop channel 0
-                outb(A2DIO_WRCMD, brd->cmd_addr);
+                outb(A2DIO_A2DSTAT, brd->cmd_addr);
                 outw(AD7725_WRCONFIG, brd->base_addr);  // send WRCONFIG to channel 0
                 // Make sure channel 0 status confirms receipt of AD7725_WRCONFIG cmd
                 if (!A2DConfirmInstruction(brd, 0, AD7725_WRCONFIG)) {
