@@ -269,7 +269,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     // If we have crossed the end of the histogram period, send existing
                     // data and reset.  Don't create samples too far in the future, say
                     // 1/2 second.
-                    if (thisParticleTime <= samp->getTimeTag()+500000)
+                    if (thisParticleTime <= samp->getTimeTag()+5000000)
                         createSamples(thisParticleTime,results);
 //#ifdef SLICE_DEBUG
                     else { cerr << "thisParticleTime in the future, not calling createSamples()" << endl;
