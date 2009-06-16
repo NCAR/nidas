@@ -189,7 +189,7 @@ for (( i = 0; i < $nsensors; i++)); do
 /^test:tmp\/$sname/{
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
+        if (\$4 < nsamp/2) exit(1)
     }
 }
 " $statsf || procok=false
