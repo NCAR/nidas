@@ -107,6 +107,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     unsigned int slen = samp->getDataByteLength();
     const int wordSize = 8;
 
+    static long long prevTimeWord = 0;
+
     assert(sizeof(Tap2D) == 4);
     if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
     _totalRecords++;
@@ -183,6 +185,19 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 }
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
+
+                    cerr << "Overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
+
+                    // time words are from a 12MHz clock
+                    long long thisTimeWord =
+                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+
+                    if (firstTimeWord == 0)
+                        firstTimeWord = thisTimeWord;
+
+                    _dead_time_1D += (thisTimeWord - prevTimeWord);
+                    _dead_time_2D += (thisTimeWord - prevTimeWord);
+
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
                         cerr << setw(2) << (int)*xp << ' ';
@@ -202,6 +217,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
+                    prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\x55') {
                     // 0x5555 but not complete overload string
@@ -270,7 +286,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     // data and reset.  Don't create samples too far in the future, say
                     // 1/2 second.
                     if (thisParticleTime <= samp->getTimeTag()+5000000)
-                        createSamples(thisParticleTime,results);
+                        createSamples(thisParticleTime, results);
 //#ifdef SLICE_DEBUG
                     else { cerr << "thisParticleTime in the future, not calling createSamples()" << endl;
                         cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
@@ -288,6 +304,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
+                    prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\xaa') {
                     // 0xaaaa but not complete syncword
