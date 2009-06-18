@@ -119,8 +119,8 @@ int SensorOpener::run() throw(n_u::Exception)
 	    problemSensors.pop_front();
 	}
 
-	sensorCond.unlock();
 	if (amInterrupted()) break;
+	sensorCond.unlock();
 
 	try {
 	    sensor->open(sensor->getDefaultMode());
@@ -157,6 +157,7 @@ int SensorOpener::run() throw(n_u::Exception)
 	    
 	}
     }
+    sensorCond.unlock();
     n_u::Logger::getInstance()->log(LOG_INFO,"%s: run method finished",
 	  getName().c_str());
     return RUN_OK;
