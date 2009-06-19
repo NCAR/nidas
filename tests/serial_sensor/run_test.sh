@@ -151,7 +151,7 @@ for (( i = 0; i < $nsensors; i++)); do
 /^localhost:tmp\/$sname/{
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
+        if (\$4 < nsamp/2) exit(1)
     }
 }
 " $statsf || rawok=false
@@ -203,6 +203,8 @@ echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
 
 # ignore capget error in valgrind.
 fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
+
+echo "rawok=$rawok, procok=$procok, dump_errs=$dump_errs"
 
 if $rawok && $procok && [ $dump_errs -eq 0 ]; then
     echo "serial_sensor test OK"
