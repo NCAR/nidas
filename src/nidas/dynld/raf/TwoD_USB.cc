@@ -204,7 +204,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
      *
      *   _resolution test forces 2DC to that freq.
      */
-    if (_resolutionMicron == 25 || freq >= 1.0e6) {
+    if (_resolutionMicron <= 25 || freq >= 1.0e6) {
         t2d->div10 = 0;
         minfreq = 1.0e6;
     }
