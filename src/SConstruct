@@ -20,15 +20,15 @@ env = Environment(platform = 'posix', ENV = {'PATH' : ':'.join(paths)})
 ##
 ## command line options
 ##
-opts = Options('nidas.conf')
-opts.AddOptions(
-    PathOption('PREFIX',
+opts = Variables('nidas.conf')
+opts.AddVariables(
+    PathVariable('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
-               '/opt/local/nidas', PathOption.PathAccept))
-opts.AddOptions(
-    PathOption('OTHER_PREFIX',
+               '/opt/local/nidas', PathVariable.PathAccept))
+opts.AddVariables(
+    PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
-               '$PREFIX', PathOption.PathAccept))
+               '$PREFIX', PathVariable.PathAccept))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':
