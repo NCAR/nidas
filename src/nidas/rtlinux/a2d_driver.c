@@ -269,7 +269,7 @@ static short A2DTemp(struct A2DBoard *brd)
 static unsigned short A2DStatus(struct A2DBoard *brd, int A2DSel)
 {
         // Point at the A/D status channel
-        outb(A2DSTATRD, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
         return (inw(brd->addr + A2DSel * 2));
 }
 
@@ -652,10 +652,10 @@ static inline int getA2DFIFOLevel(struct A2DBoard *brd)
 static void A2DReset(struct A2DBoard *brd, int A2DSel)
 {
         // Point to the A2D command register
-        outb(A2DCMNDWR, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Send specified A/D the abort (soft reset) command
-        outw(A2DABORT, brd->addr + A2DSel * 2);
+        outw(AD7725_ABORT, brd->addr + A2DSel * 2);
         return;
 }
 
@@ -700,10 +700,10 @@ static void A2DNotAuto(struct A2DBoard *brd)
 static void A2DStart(struct A2DBoard *brd, int A2DSel)
 {
         // Point at the A/D command channel
-        outb(A2DCMNDWR, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Start the selected A/D
-        outw(A2DREADDATA, brd->addr + A2DSel * 2);
+        outw(AD7725_READDATA, brd->addr + A2DSel * 2);
         return;
 }
 
@@ -729,18 +729,18 @@ static int A2DConfig(struct A2DBoard *brd, int A2DSel)
                 return -EINVAL;
 
         // Point to the A/D write configuration channel
-        outb(A2DCMNDWR, brd->cmd_addr);
+        outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
         // Set the interrupt mask
         intmask = 1 << A2DSel;
 
         // Set configuration write mode
-        outw(A2DWRCONFIG, brd->addr + A2DSel * 2);
+        outw(AD7725_WRCONFIG, brd->addr + A2DSel * 2);
 
         for (j = 0; j < nCoefs; j++) {
                 // Set channel pointer to Config write and
                 //   write out configuration word
-                outb(A2DCONFWR, brd->cmd_addr);
+                outb(A2DIO_A2DDATA, brd->cmd_addr);
                 outw(brd->ocfilter[j], brd->addr + A2DSel * 2);
                 rtl_usleep(30);
 
@@ -758,7 +758,7 @@ static int A2DConfig(struct A2DBoard *brd, int A2DSel)
                         }
                 }
                 // Read status word from target a/d to clear interrupt
-                outb(A2DSTATRD, brd->cmd_addr);
+                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
                 stat = inw(brd->addr + A2DSel * 2);
 
                 // Check status bits for errors

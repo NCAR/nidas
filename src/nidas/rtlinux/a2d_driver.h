@@ -29,11 +29,11 @@
  */
 #define A2D_POLL_RATE  100
 
-//A2D Status register bits
+//AD7725 Status register bits
 #define A2DINSTBSY      0x8000  //Instruction being performed
 #define A2DDATARDY      0x4000  //Data ready to be read (Read cycle)
 #define A2DDATAREQ      0x2000  //New data required (Write cycle)
-#define A2DIDERR        0x1000  //Chip ID error
+#define A2DIDERR        0x1000  //ID error
 #define A2DCRCERR       0x0800  //Data corrupted--CRC error
 #define A2DDATAERR      0x0400  //Conversion data invalid
 #define A2DINSTREG15    0x0200  //Instr reg bit 15
@@ -47,7 +47,8 @@
 #define A2DINSTREG00    0x0002  //                              00
 #define A2DCONFIGEND    0x0001  //Configuration End Flag.
 
-/* values in the A2D Status Register should look like so when
+
+/* values in the AD7725 Status Register should look like so when
  * the A2Ds are running.  The instruction is RdCONV=0x8d21.
  *
  * bit name             value (X=varies)
@@ -103,46 +104,42 @@
 //   e.g. *(unsigned short *)(A2DBASE+A2DIOLOAD) = A2DIOFIFO;
 //   will point the enable latch at the FIFO output.
 
-//FIFO Control Word bit definitions
-#define A2DIO_FIFO      0x0     // FIFO data (read), FIFO Control (write)
-#define A2DIO_STAT      0x1     // A/D status (read), command (write)
-#define A2DIO_DATA      0x2     // A/D data(read), config(write)                 // NOT USED
-#define A2DIO_D2A0      0x3
-#define A2DIO_D2A1      0x4
-#define A2DIO_D2A2      0x5
-#define A2DIO_SYSCTL    0x6     // A/D INT lines(read),Cal/offset (write)
-#define A2DIO_FIFOSTAT  0x7     // FIFO stat (read), Set master A/D (write)
+// FIFO Control Word bit definitions [BSD(3)(2)(1)(0)>
+#define A2DIO_FIFO         0x0  // FIFO data (read), FIFO Control (write)
+#define A2DIO_A2DSTAT      0x1  // write a command
+#define A2DIO_A2DDATA      0x2  // write a coefficient to one of the 7725s
+#define A2DIO_D2A0         0x3  // 
+#define A2DIO_D2A1         0x4  // 
+#define A2DIO_D2A2         0x5  // 
+#define A2DIO_SYSCTL       0x6  // read A/D INT lines, write cal/offset
+#define A2DIO_FIFOSTAT     0x7  // read board status,  set master A/D
+#define A2DIO_LBSD3        0x8  // add this to A2DSTAT or A2DDATA above to read instead of write
 
-#define A2DSTATRD       0x9     // Same as A2DIO_STAT; BSD3(=A2DRWN) high (rd)
-#define A2DCMNDWR       0x1     // Same as A2DIO_STAT; BSD3(=A2DRWN) low  (wr)
-#define A2DDATARD       0xA     // Same as A2DIO_DATA; BSD3(=A2DRWN) high (rd)    // NOT USED
-#define A2DCONFWR       0x2     // Same as A2DIO_DATA; BSD3(=A2DRWN) low  (wr)
-
-//A/D Chip command words (See A2DIOSTAT and A2DCMNDWR above)
-#define A2DREADID      0x8802   // Read device ID                         // NOT USED
-#define A2DREADDATA    0x8d21   // Read converted data
-#define A2DWRCONFIG    0x1800   // Write configuration data
-#define A2DWRCONFEM    0x1A00   // Write configuration, mask data         // NOT USED
-#define A2DABORT       0x0000   // Soft reset; still configured
-#define A2DBFIR        0x2000   // Boot from internal ROM                 // NOT USED
+// AD7725 chip command words (See A2DIO_A2DSTAT above)
+#define AD7725_READID      0x8802       // Read device ID (NOT USED)
+#define AD7725_READDATA    0x8d21       // Read converted data
+#define AD7725_WRCONFIG    0x1800       // Write configuration data
+#define AD7725_WRCONFEM    0x1A00       // Write configuration, mask data (NOT USED)
+#define AD7725_ABORT       0x0000       // Soft reset; still configured
+#define AD7725_BFIR        0x2000       // Boot from internal ROM (NOT USED)
 
 // A/D Control bits
-#define FIFOCLR        0x01     // FIFOCTL(0) Cycle this bit 0-1-0 to clear FIFO
-#define A2DAUTO        0x02     // FIFOCTL(1) Set = allow A/D's to run automatically
-#define A2DSYNC        0x04     // FIFOCTL(2) Set then cycle A2DSYNCCK to stop A/D's
-#define A2DSYNCCK      0x08     // FIFOCTL(3) Cycle to latch A2DSYNC bit value
-#define A2D1PPSEBL     0x10     // FIFOCTL(4) Set to allow GPS 1PPS to clear SYNC
-#define FIFODAFAE      0x20     // FIFOCTL(5) Set to clamp value of AFAE in FIFO     // NOT USED
-#define A2DSTATEBL     0x40     // FIFOCTL(6) Enable A2D status
-#define FIFOWREBL      0x80     // FIFOCTL(7) Enable writing to FIFO. (not used)     // NOT USED
+#define FIFOCLR        0x01     // [FIFOCTL(0)>  Cycle this bit 0-1-0 to clear FIFO
+#define A2DAUTO        0x02     // [FIFOCTL(1)>  Set = allow A/D's to run automatically
+#define A2DSYNC        0x04     // [FIFOCTL(2)>  Set then cycle A2DSYNCCK to stop A/D's
+#define A2DSYNCCK      0x08     // [FIFOCTL(3)>  Cycle to latch A2DSYNC bit value
+#define A2D1PPSEBL     0x10     // [FIFOCTL(4)>  Set to allow GPS 1PPS to clear SYNC
+#define FIFODAFAE      0x20     // [FIFOCTL(5)>  Set to clamp value of AFAE in FIFO     // NOT USED
+#define A2DSTATEBL     0x40     // [FIFOCTL(6)>  Enable A2D status
+#define FIFOWREBL      0x80     // [FIFOCTL(7)>  Enable writing to FIFO. (not used)     // NOT USED
 
 // FIFO Status bits
-#define FIFOHF         0x01     // FIFO half full                         // NOT USED
-#define FIFOAFAE       0x02     // FIFO almost full/almost empty          // NOT USED
+#define FIFOHF         0x01     // FIFO half full
+#define FIFOAFAE       0x02     // FIFO almost full/almost empty
 #define FIFONOTEMPTY   0x04     // FIFO not empty
 #define FIFONOTFULL    0x08     // FIFO not full
 #define INV1PPS        0x10     // Inverted 1 PPS pulse
-#define PRESYNC        0x20     // Presync bit    // NOT USED
+#define PRESYNC        0x20     // Presync bit                   // NOT USED
 
 struct a2d_sample
 {

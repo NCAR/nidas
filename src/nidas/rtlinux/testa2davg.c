@@ -142,7 +142,7 @@ void cleanup_module(void)
 	rtl_printf("%s: Reset FIFOCtl = 0x%02X\n", __FILE__, FIFOCtl);
 
 	// Read all the status lines
-	outb((A2DSTATRD), (UC *)chan_addr);
+	outb((A2DIO_A2DSTAT + A2DIO_LBSD3), (UC *)chan_addr);
 	for(i = 0; i < MAXA2DS; i++)
 	{
 		stat = (inw((US *)isa_address + i));
@@ -155,8 +155,8 @@ void cleanup_module(void)
 	rtl_printf("Int lines = 0x%02X\n", ints);
 	
 	// Shut down A/D's
-	outb((A2DCMNDWR), (UC *)chan_addr);
-	outw((A2DABORT), (US *)isa_address);
+	outb((A2DIO_A2DSTAT), (UC *)chan_addr);
+	outw((AD7725_ABORT), (US *)isa_address);
 
 	rtl_pthread_cancel(aAthread);
 	rtl_pthread_join(aAthread, NULL);
@@ -185,10 +185,10 @@ static void *TryA2D_thread(void *t)
 
 // Start the conversions
 	rtl_printf("%s: Starting A/D's ", __FILE__);
-   	outb((A2DCMNDWR), (UC *)chan_addr);
+   	outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 	for(j = 0; j < MAXA2DS; j++)
 	{
-   		outw((A2DREADDATA), (US *)isa_address + j);
+   		outw((AD7725_READDATA), (US *)isa_address + j);
 		rtl_printf("%1d ", j);
 	}
 	rtl_usleep(10000); // Let them run a few milliseconds (10)
@@ -196,10 +196,10 @@ static void *TryA2D_thread(void *t)
 
 // Then do a soft reboot
 	rtl_printf("%s: Soft resetting A/D's ", __FILE__);
-	outb((A2DCMNDWR), (UC *)chan_addr);
+	outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 	for(j = 0; j < MAXA2DS; j++)
 	{
-		outw((A2DABORT), (US *)isa_address + j);
+		outw((AD7725_ABORT), (US *)isa_address + j);
 		rtl_printf("%1d ", j);
 	}
 	rtl_printf("\n");
@@ -242,10 +242,10 @@ static void *TryA2D_thread(void *t)
 	if(boot == 1)
 	{
 	// Configure A/D's from internal ROM
-		outb((A2DCMNDWR), (UC *)chan_addr);
+		outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 		for(j = 0; j < MAXA2DS; j++)
 		{
-			outw((A2DBFIR), (US *)isa_address + j);
+			outw((AD7725_BFIR), (US *)isa_address + j);
 		}
 	}
 
@@ -253,14 +253,14 @@ static void *TryA2D_thread(void *t)
 	{
 
 		// Set A/D's to accept configuration data with errors masked
-		outb((A2DCMNDWR), (UC *)chan_addr);
+		outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 
 		for(k = 0; k < MAXA2DS; k++)
 		{
-			outw((A2DWRCONFEM), (US *)isa_address + k);
+			outw((AD7725_WRCONFEM), (US *)isa_address + k);
 		}
 
-		outb((A2DCONFWR), (UC *)chan_addr);
+		outb((A2DIO_A2DDATA), (UC *)chan_addr);
 
 		for(k = 0; k < MAXA2DS; k++)
 		{
@@ -282,11 +282,11 @@ static void *TryA2D_thread(void *t)
 	else if(boot == 3)
 	{
 		// Set A/D's to accept configuration data
-		outb((A2DCMNDWR), (UC *)chan_addr);
+		outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 
 		for(k = 0; k < MAXA2DS; k++)
 		{
-			outw((A2DWRCONFIG), (US *)isa_address + k);
+			outw((AD7725_WRCONFIG), (US *)isa_address + k);
 		}
 
 
@@ -305,7 +305,7 @@ static void *TryA2D_thread(void *t)
 #endif
 				// Set channel pointer to Config write and
 				//   write out configuration word
-				outb((A2DCONFWR), (UC *)chan_addr);
+				outb((A2DIO_A2DDATA), (UC *)chan_addr);
 				outw((filterptr[j]), (US *)isa_address + k);
 				rtl_usleep(30);
 	
@@ -323,7 +323,7 @@ static void *TryA2D_thread(void *t)
 					}
 				}
 				// Read status word from target a/d to clear interrupt
-				outb((A2DSTATRD), (UC *)chan_addr);
+				outb((A2DIO_A2DSTAT + A2DIO_LBSD3), (UC *)chan_addr);
 				stat = (inw((US *)isa_address + k));
 
 				// Check status bits for errors
@@ -349,10 +349,10 @@ byebye:
 	}
 
 	// Reset A/D's don't change configuration
-	outb((A2DCMNDWR), (UC *)chan_addr);
+	outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 	for(j = 0; j < MAXA2DS; j++)
 	{
-		outw((A2DABORT), (US *)isa_address + j);
+		outw((AD7725_ABORT), (US *)isa_address + j);
 	}
 
 	rtl_usleep(1000);
@@ -361,7 +361,7 @@ byebye:
 	rtl_printf("\n\n");
 
 	// Read status bits all a/d's
-	outb((A2DSTATRD), (UC *)chan_addr); // Status read subchannel
+	outb((A2DIO_A2DSTAT + A2DIO_LBSD3), (UC *)chan_addr); // Status read subchannel
 
 	for(j = 0; j < MAXA2DS; j++)
 	{
@@ -373,16 +373,16 @@ byebye:
 	rtl_usleep(DELAYNUM1);	// Give A/D's a chance to load
 
 // Start the conversions
-   	outb((A2DCMNDWR), (UC *)chan_addr);
+   	outb((A2DIO_A2DSTAT), (UC *)chan_addr);
 	for(j = 0; j < MAXA2DS; j++)
 	{
-   		outw((A2DREADDATA), (US *)isa_address + j);
+   		outw((AD7725_READDATA), (US *)isa_address + j);
 	}
 
 // Do a read on status and data to clear interrupt on Master
 	// Point channel pointer at A/D Stat 
 	// and read the master a/d status
-	outb((A2DSTATRD), (UC *)chan_addr);
+	outb((A2DIO_A2DSTAT + A2DIO_LBSD3), (UC *)chan_addr);
 	rtl_printf("%s: Pre-start stat: \n", __FILE__); 
 	for(j = 0; j < MAXA2DS; j++)
 	{
