@@ -28,7 +28,7 @@ opts.AddVariables(
 opts.AddVariables(
     PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
-               '$PREFIX', PathVariable.PathAccept))
+               '/opt/local/nidas', PathVariable.PathAccept))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':

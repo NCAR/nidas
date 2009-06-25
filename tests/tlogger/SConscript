@@ -5,11 +5,11 @@ env = env.Clone()
 
 libs = env['LIBNIDAS_UTIL']
 
-env.Append(
+env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])
-env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'],
-            CPPPATH = [ "#/nidas/util" ])
+env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'])
+env.Prepend(CPPPATH = [ "#/nidas/util" ])
 tests = env.Program('tlogger', "tlogger.cc")
 # env.Depends(tests, libs)
 #

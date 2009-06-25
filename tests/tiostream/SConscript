@@ -4,11 +4,11 @@ Import('env')
 env = env.Clone()
 
 libs = [ env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL'] ]
-env.Append(
+env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Append(CPPPATH = [ "#" ])
+env.Prepend(CPPPATH = [ "#", '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 
 tests = env.Program('tiostream', "tiostream.cc")
