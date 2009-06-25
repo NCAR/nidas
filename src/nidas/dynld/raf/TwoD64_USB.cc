@@ -138,6 +138,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
         return false;
     }
 
+    // Lifepsan of a single slice.
     float resolutionUsec = getResolutionMicron() / tas;
 
     setupBuffer(&cp,&eod);
@@ -361,9 +362,9 @@ bool TwoD64_USB::process(const Sample * samp,
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
     switch (stype) {
-    case 0:                    // image data
+    case TWOD_IMG_TYPE:
         return processImageRecord(samp, results);
-    case 1:
+    case TWOD_SOR_TYPE:	// Shadow-or counter.
         return processSOR(samp, results);
     }
     return false;
