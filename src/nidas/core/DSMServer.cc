@@ -26,7 +26,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -84,33 +83,33 @@ SampleTagIterator DSMServer::getSampleTagIterator() const
     return SampleTagIterator(this);
 }
 
-void DSMServer::fromDOMElement(const DOMElement* node)
+void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
 
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
 	    if (aname == "name") setName(aval);
 	}
     }
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 	if (elname == "service") {
 	    const string classattr = DSMService::getClassName(
-	    	(DOMElement*)child);
+	    	(xercesc::DOMElement*)child);
 	    if (classattr.length() == 0) 
 		throw n_u::InvalidParameterException(
 		    "DSMServer::fromDOMElement",
@@ -131,7 +130,7 @@ void DSMServer::fromDOMElement(const DOMElement* node)
 		    classattr,"is not of type DSMService");
 	    }
 	    service->setDSMServer(this);
-	    service->fromDOMElement((DOMElement*)child);
+	    service->fromDOMElement((xercesc::DOMElement*)child);
 	    addService(service);
 	}
     }

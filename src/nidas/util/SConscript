@@ -27,6 +27,8 @@ headers = [ Split("""
     Exception.h
     FileSet.h
     Inet4Address.h
+    Inet4NetworkInterface.h
+    Inet4PacketInfo.h
     Inet4SocketAddress.h
     InterruptedException.h
     InvalidParameterException.h

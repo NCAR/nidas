@@ -56,20 +56,20 @@ public:
 
     Socket* clone() const;
 
-    void requestConnection(ConnectionRequester* service)
+    void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
     IOChannel* connect() throw(nidas::util::IOException);
 
-    virtual bool isNewInput() const { return newInput; }
+    virtual bool isNewInput() const { return _newInput; }
 
     /**
      * Do setKeepAliveIdleSecs(int secs) on underlying socket.
      */
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
-	keepAliveIdleSecs = val;
-	if (_socket) _socket->setKeepAliveIdleSecs(val);
+	_keepAliveIdleSecs = val;
+	if (_nusocket) _nusocket->setKeepAliveIdleSecs(val);
     }
 
     /**
@@ -77,14 +77,14 @@ public:
      */
     int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
     {
-	if (_socket) return _socket->getKeepAliveIdleSecs();
-	return keepAliveIdleSecs;
+	if (_nusocket) return _nusocket->getKeepAliveIdleSecs();
+	return _keepAliveIdleSecs;
     }
 
     std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
         throw(nidas::util::IOException)
     {
-        if (_socket) return _socket->getInterfaces();
+        if (_nusocket) return _nusocket->getInterfaces();
         return std::list<nidas::util::Inet4NetworkInterface>();
     }
 
@@ -93,8 +93,8 @@ public:
      */
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
-	nonBlocking = val;
-	if (_socket) _socket->setNonBlocking(val);
+	_nonBlocking = val;
+	if (_nusocket) _nusocket->setNonBlocking(val);
     }
 
     /**
@@ -102,8 +102,8 @@ public:
      */
     bool isNonBlocking() const throw (nidas::util::IOException)
     {
-	if (_socket) return _socket->isNonBlocking();
-	return nonBlocking;
+	if (_nusocket) return _nusocket->isNonBlocking();
+	return _nonBlocking;
     }
 
     size_t getBufferSize() const throw();
@@ -111,7 +111,12 @@ public:
     /**
      * Do the actual hardware read.
      */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException);
+    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    {
+        if (_firstRead) _firstRead = false;
+        else _newInput = false;
+        return _nusocket->recv(buf,len);
+    }
 
     /**
      * Do the actual hardware write.
@@ -120,33 +125,47 @@ public:
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
         dsm_time_t tnow = getSystemTime();
-        if (lastWrite > tnow) lastWrite = tnow; // system clock adjustment
-        if (tnow - lastWrite < minWriteInterval) return 0;
-        lastWrite = tnow;
-	return _socket->send(buf,len, MSG_NOSIGNAL);
+        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
+        if (tnow - _lastWrite < _minWriteInterval) return 0;
+        _lastWrite = tnow;
+	return _nusocket->send(buf,len, MSG_NOSIGNAL);
+
+    }
+
+    /**
+     * Do the actual hardware write.
+     */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    {
+	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+        dsm_time_t tnow = getSystemTime();
+        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
+        if (tnow - _lastWrite < _minWriteInterval) return 0;
+        _lastWrite = tnow;
+	return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
 
     }
 
     void close() throw (nidas::util::IOException)
     {
-        if (_socket) _socket->close();
+        if (_nusocket) _nusocket->close();
     }
 
     int getFd() const
     {
-        if (_socket) return _socket->getFd();
+        if (_nusocket) return _nusocket->getFd();
 	return -1;
     }
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
     nidas::util::Inet4Address getRemoteInet4Address();
 
     /**
      * Set the hostname and port of the remote connection. This
-     * method does not try to do a DNS host lookup. This
+     * method does not try to do a DNS host lookup. The DNS lookup
      * will be done at connect time.
      */
     void setRemoteHostPort(const std::string& host,unsigned short port);
@@ -198,19 +217,31 @@ public:
      *        Default: 10000 microseconds (1/100 sec).
      */
     void setMinWriteInterval(int val) {
-        minWriteInterval = val;
+        _minWriteInterval = val;
     }
 
     int getMinWriteInterval() const {
-        return minWriteInterval;
+        return _minWriteInterval;
     }
+
+    class ConnectionThread: public nidas::util::Thread
+    {
+    public:
+        ConnectionThread(Socket* sock):
+            Thread("SocketConnectionThread"),_socket(sock) {}
+
+        int run() throw(nidas::util::IOException);
+
+    protected:
+        Socket* _socket;
+    };
 
 
 private:
 
-    friend class ClientSocketConnectionThread;
+    // friend class ClientSocketConnectionThread;
 
-    void connectionThreadFinished();
+    // void connectionThreadFinished();
 
     std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
 
@@ -220,33 +251,31 @@ private:
 
     std::string _unixPath;
 
-    nidas::util::Socket* _socket;
+    nidas::util::Socket* _nusocket;
 
-    std::string name;
+    std::string _name;
 
-    ConnectionRequester* connectionRequester;
+    IOChannelRequester* _iochanRequester;
 
-    nidas::util::Thread* connectionThread;
+    ConnectionThread* _connectionThread;
 
-    nidas::util::Mutex connectionMutex;
+    bool _firstRead;
 
-    bool firstRead;
+    bool _newInput;
 
-    bool newInput;
-
-    int keepAliveIdleSecs;
+    int _keepAliveIdleSecs;
 
     /**
      * Minimum write interval in microseconds so we don't flood network.
      */
-    int minWriteInterval;
+    int _minWriteInterval;
 
     /**
      * Time of last physical write.
      */
-    dsm_time_t lastWrite;
+    dsm_time_t _lastWrite;
 
-    bool nonBlocking;
+    bool _nonBlocking;
 
 };
 
@@ -276,18 +305,18 @@ public:
 
     ServerSocket* clone() const;
 
-    void requestConnection(ConnectionRequester* service)
+    void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
     IOChannel* connect() throw(nidas::util::IOException);
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
     int getFd() const
     {
-        if (servSock) return servSock->getFd();
+        if (_servSock) return _servSock->getFd();
 	return -1;
     }
 
@@ -299,7 +328,7 @@ public:
      */
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
-	keepAliveIdleSecs = val;
+	_keepAliveIdleSecs = val;
     }
 
     /**
@@ -307,7 +336,7 @@ public:
      */
     int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
     {
-	return keepAliveIdleSecs;
+	return _keepAliveIdleSecs;
     }
 
     /**
@@ -315,7 +344,7 @@ public:
      */
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
-	nonBlocking = val;
+	_nonBlocking = val;
     }
 
     /**
@@ -323,7 +352,7 @@ public:
      */
     bool isNonBlocking() const throw (nidas::util::IOException)
     {
-	return nonBlocking;
+	return _nonBlocking;
     }
 
     /**
@@ -336,9 +365,18 @@ public:
     }
 
     /**
-    * ServerSocket will never be called to do an actual write.
+    * ServerSocket should never be called to do an actual write.
     */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    {
+	assert(false);
+	return 0;
+    }
+
+    /**
+     * ServerSocket should never be called to do an actual write.
+     */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
 	assert(false);
 	return 0;
@@ -352,11 +390,11 @@ public:
      *        Default: 10000 microseconds (1/100 sec).
      */
     void setMinWriteInterval(int val) {
-        minWriteInterval = val;
+        _minWriteInterval = val;
     }
 
     int getMinWriteInterval() const {
-        return minWriteInterval;
+        return _minWriteInterval;
     }
 
     void close() throw (nidas::util::IOException);
@@ -378,53 +416,41 @@ public:
         toDOMElement(xercesc::DOMElement* node)
                 throw(xercesc::DOMException);
 
+    class ConnectionThread: public nidas::util::Thread
+    {
+    public:
+        ConnectionThread(ServerSocket* sock):
+            Thread("ServerSocketConnectionThread"),_socket(sock) {}
+
+        int run() throw(nidas::util::IOException);
+
+    protected:
+        ServerSocket* _socket;
+    };
+
 private:
 
-    std::auto_ptr<nidas::util::SocketAddress> localSockAddr;
+    std::auto_ptr<nidas::util::SocketAddress> _localSockAddr;
 
-    std::string name;
+    std::string _name;
 
-    nidas::util::ServerSocket* servSock;
+    nidas::util::ServerSocket* _servSock;
 
-    ConnectionRequester* connectionRequester;
+    IOChannelRequester* _iochanRequester;
 
-    nidas::util::Thread* connectionThread;
+    ConnectionThread* _connectionThread;
 
-    friend class ServerSocketConnectionThread;
+    // friend class ServerSocketConnectionThread;
 
-    int keepAliveIdleSecs;
+    int _keepAliveIdleSecs;
 
     /**
      * Minimum write interval in microseconds so we don't flood network.
      */
-    int minWriteInterval;
+    int _minWriteInterval;
 
-    bool nonBlocking;
+    bool _nonBlocking;
 
-};
-
-class ServerSocketConnectionThread: public nidas::util::Thread
-{
-public:
-    ServerSocketConnectionThread(ServerSocket& sock):
-    	Thread("ServerSocketConnectionThread"),_socket(sock) {}
-
-    int run() throw(nidas::util::IOException);
-
-protected:
-    ServerSocket& _socket;
-};
-
-class ClientSocketConnectionThread: public nidas::util::Thread
-{
-public:
-    ClientSocketConnectionThread(Socket& sock):
-    	Thread("ClientSocketConnectionThread"),_socket(sock) {}
-
-    int run() throw(nidas::util::IOException);
-
-protected:
-    Socket _socket;  // copy of original
 };
 
 }}	// namespace nidas namespace core

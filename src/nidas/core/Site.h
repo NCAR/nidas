@@ -173,6 +173,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
 
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
+    		throw(xercesc::DOMException);
+
 protected:
 
     std::list<std::string> allowedParameterNames;

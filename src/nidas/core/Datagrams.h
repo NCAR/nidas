@@ -33,9 +33,10 @@ enum McSocketRequest {
     RAW_SAMPLE,
 
     /**
-     * Request for a XML listing of processed variables via TCP.
+     * Request for feed of processed samples on a UDP socket,
+     * and a listing of variables on a TCP socket.
      */
-    XML_VARIABLE_LIST,
+    UDP_PROCESSED_SAMPLE_FEED,
 };
 
 }}	// namespace nidas namespace core

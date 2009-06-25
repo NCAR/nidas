@@ -127,7 +127,7 @@ public:
     /**
      * Request a connection.
      */
-    void requestConnection(ConnectionRequester* rqstr)
+    void requestConnection(IOChannelRequester* rqstr)
     	throw(nidas::util::IOException);
 
     /**
@@ -141,17 +141,6 @@ public:
      * Initialize tranmitter.
      */
     virtual void init() throw(nidas::util::IOException) = 0;
-
-    /**
-     * Do the actual hardware read.
-     */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException) = 0;
-
-    /**
-    * Do the actual hardware write.
-    */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
-    	= 0;
 
     /**
      * Queue a sample for writing to a GOES transmitter.
@@ -174,12 +163,14 @@ public:
      */
     virtual void printStatus() throw() = 0;
 
-    virtual void flush() throw (nidas::util::IOException) 
+    void flush() throw (nidas::util::IOException) 
     {
         port.flushBoth();
     }
 
-    virtual void close() throw (nidas::util::IOException);
+    void close() throw (nidas::util::IOException) {
+        port.close();
+    }
 
     int getFd() const
     {

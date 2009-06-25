@@ -18,47 +18,45 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-IOChannel::IOChannel(): dsm(0)
+IOChannel::IOChannel(): _dsm(0)
 {
 }
 
 /* static */
-IOChannel* IOChannel::createIOChannel(const DOMElement* node)
+IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
             throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    const string& type = xnode.getNodeName();
+    const string& elname = xnode.getNodeName();
 
-    IOChannel* channel = 0;
     DOMable* domable;
 
-    if (!type.compare("socket"))
+    if (elname == "socket")
     	domable = Socket::createSocket(node);
 
-    else if (!type.compare("fileset"))
+    else if (elname == "fileset")
     	domable = DOMObjectFactory::createObject("FileSet");
 
-    else if (!type.compare("postgresdb"))
+    else if (elname == "postgresdb")
     	domable = DOMObjectFactory::createObject("psql.PSQLChannel");
 
-    else if (!type.compare("ncserver"))
+    else if (elname == "ncserver")
     	domable = DOMObjectFactory::createObject("isff.NcServerRPC");
 
-    else if (!type.compare("goes")) {
+    else if (elname == "goes") {
 	string classAttr = xnode.getAttributeValue("class");
 	if (classAttr.length() == 0) classAttr = "isff.SE_GOESXmtr";
 	domable = DOMObjectFactory::createObject(classAttr);
     }
-
     else throw n_u::InvalidParameterException(
-	    "IOChannel::fromIOChannelDOMElement","unknown element",type);
+	    "IOChannel::createIOChannel","unknown element",elname);
 
+    IOChannel* channel;
     if (!(channel = dynamic_cast<IOChannel*>(domable)))
 	throw n_u::InvalidParameterException(
-	    "IOChannel::fromIOChannelDOMElement",type,"is not an IOChannel");
+	    "IOChannel::createIOChannel",elname,"is not an IOChannel");
     return channel;
 }

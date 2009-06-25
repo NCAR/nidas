@@ -75,27 +75,13 @@ public:
         return 0;
     }
 
-    size_t getNumReceivedSamples() const { return _nsamples; }
-
-    dsm_time_t getLastReceivedTimeTag() const { return _lastTimeTag; }
-
-    void setLastReceivedTimeTag(dsm_time_t val) { _lastTimeTag = val; }
-
 protected:
-
-    void incrementNumOutputSamples() { _nsamples++; }
 
     size_t write(const Sample* samp) throw(nidas::util::IOException);
 
     IOStream* _iostream;
 
 private:
-
-    size_t _nsamplesDiscarded;
-
-    long long _nsamples;
-
-    dsm_time_t _lastTimeTag;
 
 };
 

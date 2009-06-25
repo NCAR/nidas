@@ -22,6 +22,8 @@
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/linux/types.h>
 
+#include <nidas/core/DSMTime.h>
+
 #include <climits>
 #include <iostream>
 
@@ -33,9 +35,6 @@ namespace nidas { namespace core {
  * Value of a float NAN for general use.
  */
 extern const float floatNAN;
-
-/** Microseconds since Jan 1 1970, 00:00 UTC */
-typedef long long dsm_time_t;
 
 typedef unsigned int dsm_sample_id_t;
 

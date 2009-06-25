@@ -1,36 +1,67 @@
 #!/bin/sh
 
-# Test script for a dsm process, sampling 3 serial sensors, via pseudo-terminals
-echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-echo PATH=$PATH
-which dsm
-ldd `which dsm`
+# Test script for a dsm process, sampling serial sensors, via pseudo-terminals
+
+# If the first runstring argument is "installed", then don't fiddle with PATH or
+# LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
+# Otherwise if build_x86/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
+# doesn't contain the string build_x86, prepend ../src/build_x86/build_{util,core,dynld}.
+
+installed=false
+[ $# -gt 0 -a "$1" == "-i" ] && installed=true
+
+if ! $installed; then
+
+    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../src/build_x86/build_apps:$PATH
+
+    llp=../../src/build_x86/build_util:../../src/build_x86/build_core:../../src/build_x86/build_dynld
+    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+        export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+
+    # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    # echo PATH=$PATH
+
+    if ! which dsm | fgrep -q build_x86; then
+        echo "dsm program not found on build_x86 directory. PATH=$PATH"
+        exit 1
+    fi
+    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build_x86") == 0) exit 1}'; then
+        echo "using nidas libraries from somewhere other than a build_x86 directory"
+        exit 1
+    fi
+fi
+
+# echo PATH=$PATH
+# echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+
+echo "dsm executable: `which dsm`"
+echo "nidas libaries:"
+ldd `which dsm` | fgrep libnidas
 
 valgrind_errors() {
     sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
 }
 
 kill_dsm() {
-# send a TERM signal to dsm process
-nkill=0
-dsmpid=`pgrep -f "valgrind dsm -d"`
-if [ -n "$dsmpid" ]; then
-    while ps -p $dsmpid > /dev/null; do
-        if [ $nkill -gt 5 ]; then
-            echo "Doing kill -9 $dsmpid"
-            kill -9 $dsmpid
-        else
-            echo "Doing kill -TERM $dsmpid"
-            kill -TERM $dsmpid
-        fi
-        nkill=$(($nkill + 1))
-        sleep 5
-    done
-fi
+    # send a TERM signal to dsm process
+    nkill=0
+    dsmpid=`pgrep -f "valgrind dsm -d"`
+    if [ -n "$dsmpid" ]; then
+        while ps -p $dsmpid > /dev/null; do
+            if [ $nkill -gt 5 ]; then
+                echo "Doing kill -9 $dsmpid"
+                kill -9 $dsmpid
+            else
+                echo "Doing kill -TERM $dsmpid"
+                kill -TERM $dsmpid
+            fi
+            nkill=$(($nkill + 1))
+            sleep 5
+        done
+    fi
 }
 
 kill_dsm
-
 
 # build the local sensor_sim program
 #cd src || exit 1
@@ -180,6 +211,9 @@ fi
 # see one less processed sample.
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
+
+# On loaded systems we see less than the expected number of samples.
+# Needs investigation.
 
 nsamps=(50 49 254 5 4 5)
 for (( i = 0; i < $nsensors; i++)); do

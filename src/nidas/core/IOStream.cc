@@ -27,12 +27,11 @@ namespace n_u = nidas::util;
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
 	_iochannel(iochan),_buffer(0),
-        _maxUsecs(USECS_PER_SEC/4),
+        _maxUsecs(USECS_PER_SEC/4),_lastWrite(0),
         _newInput(true),_nbytesIn(0),_nbytesOut(0),
         _nEAGAIN(0)
 {
     reallocateBuffer(blen * 2);
-    _lastWrite = 0;
 }
 
 IOStream::~IOStream()
@@ -187,20 +186,23 @@ size_t IOStream::backup() throw()
 
 size_t IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
 {
-    return write(&buf,&len,1);
+    struct iovec iov;
+    iov.iov_base = const_cast<void*>(buf);
+    iov.iov_len = len;
+    return write(&iov,1);
 }
 
 /*
  * Buffered atomic write - all data is written to buffer, or none.
  */
-size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) throw (n_u::IOException)
+size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOException)
 {
     size_t l;
     int ibuf;
 
     /* compute total length of user buffers */
     size_t tlen = 0;
-    for (ibuf = 0; ibuf < nbufs; ibuf++) tlen += lens[ibuf];
+    for (ibuf = 0; ibuf < nbufs; ibuf++) tlen += iov[ibuf].iov_len;
 
     // If we need to expand the buffer for a large sample.
     // This does not screen ridiculous sample sizes.
@@ -233,8 +235,8 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
 	// If there's space now for this write in the buffer, add it.
 	if (tlen <= space) {
 	    for (ibuf = 0; ibuf < nbufs; ibuf++) {
-		l = lens[ibuf];
-		memcpy(_head,bufs[ibuf],l);
+		l = iov[ibuf].iov_len;
+		memcpy(_head,iov[ibuf].iov_base,l);
 		_head += l;
 	    }
 	    // Indicate the user buffers have been added.
@@ -288,7 +290,6 @@ size_t IOStream::write(const void *const *bufs,const size_t* lens, int nbufs) th
     return (nbufs > 0) ? 0 : tlen;
 }
 
-
 void IOStream::flush() throw (n_u::IOException)
 {
     size_t l;
@@ -299,6 +300,7 @@ void IOStream::flush() throw (n_u::IOException)
     for (int ntry = 0; wlen > 0 && ntry < 5; ntry++) {
 	try {
 	    l = _iochannel.write(_tail,wlen);
+            addNumOutputBytes(l);
 	}
 	catch (const n_u::IOException& ioe) {
 	    if (ioe.getError() == EAGAIN) l = 0;

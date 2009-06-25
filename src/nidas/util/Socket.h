@@ -8,6 +8,8 @@
 #define NIDAS_UTIL_SOCKET_H
 
 #include <nidas/util/Inet4SocketAddress.h>
+#include <nidas/util/Inet4NetworkInterface.h>
+#include <nidas/util/Inet4PacketInfo.h>
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/IOException.h>
@@ -16,6 +18,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 #include <net/if.h>   // IFF_* bits for network interface flags
 
@@ -28,61 +31,6 @@
 namespace nidas { namespace util {
 
 class Socket;
-
-class Inet4NetworkInterface
-{
-public:
-    Inet4NetworkInterface():_index(0),_addr(INADDR_ANY),
-        _baddr(INADDR_BROADCAST),_netmask(INADDR_BROADCAST),_mtu(0),_flags(0) {}
-
-    Inet4NetworkInterface(const std::string& name,Inet4Address addr, Inet4Address brdcastAddr, Inet4Address netmask,int mtu,int index,short flags):
-        _name(name),_index(index),_addr(addr),_baddr(brdcastAddr),_netmask(netmask),_mtu(mtu),_flags(flags) {}
-
-    /**
-     * The name of the interface: like "lo", "eth0", etc.
-     */
-    const std::string& getName() const { return _name; }
-
-    /**
-     * The index of the interface.
-     */
-    int getIndex() const { return _index; }
-
-    /**
-     * The IPV4 address of the interface.
-     */
-    Inet4Address getAddress() const { return _addr; }
-
-    /**
-     * The IPV4 broadcast address of the interface.
-     */
-    Inet4Address getBroadcastAddress() const { return _baddr; }
-
-    /**
-     * The IPV4 network mask of the interface.
-     */
-    Inet4Address getNetMask() const { return _netmask; }
-
-    /**
-     * The mtu of the interface.
-     */
-    int getMTU() const { return _mtu; }
-
-    /**
-     * The interface flags. Use macros like IFF_UP, IFF_BROADCAST,
-     * IFF_MULTICAST from net/if.h to check for capabilities.
-     * See man netdevice.
-     */
-    short getFlags() const { return _flags; }
-private:
-    std::string _name;
-    int _index;
-    Inet4Address _addr;
-    Inet4Address _baddr;
-    Inet4Address _netmask;
-    int _mtu;
-    short _flags;
-};
 
 /**
  * Implementation of a socket, providing a C++ interface to
@@ -119,23 +67,23 @@ public:
 
     ~SocketImpl();
 
-    int getFd() const { return fd; }
+    int getFd() const { return _fd; }
 
     /**
      * Get the domain of this socket: PF_UNIX, PF_INET, etc,
      * from sys/socket.h.
      */
-    int getDomain() const { return sockdomain; }
+    int getDomain() const { return _sockdomain; }
 
-    void setBacklog(int val) { backlog = val; }
+    void setBacklog(int val) { _backlog = val; }
 
     /**
      * Get local socket address of this socket.
      */
     const SocketAddress& getLocalSocketAddress() const throw()
     {
-	assert(localaddr);
-    	return *localaddr;
+	assert(_localaddr);
+    	return *_localaddr;
     }
 
     /**
@@ -143,8 +91,8 @@ public:
      */
     int getLocalPort() const throw()
     {
-	assert(localaddr);
-        return localaddr->getPort();
+	assert(_localaddr);
+        return _localaddr->getPort();
     }
 
     /**
@@ -152,8 +100,8 @@ public:
      */
     const SocketAddress& getRemoteSocketAddress() const throw()
     {
-	assert(remoteaddr);
-    	return *remoteaddr;
+	assert(_remoteaddr);
+    	return *_remoteaddr;
     }
 
     /**
@@ -161,11 +109,11 @@ public:
      */
     int getRemotePort() const throw()
     {
-	assert(remoteaddr);
-        return remoteaddr->getPort();
+	assert(_remoteaddr);
+        return _remoteaddr->getPort();
     }
 
-    void setReuseAddress(bool val) { reuseaddr = val; }
+    void setReuseAddress(bool val) { _reuseaddr = val; }
 
     void setNonBlocking(bool val) throw(IOException);
 
@@ -270,8 +218,7 @@ public:
 
     void receive(DatagramPacketBase& packet) throw(IOException);
 
-    void send(const DatagramPacketBase& packet,int flags=0) throw(IOException);
-
+    void receive(DatagramPacketBase& packet,Inet4PacketInfo& info,int flags=0) throw(IOException);;
     /**
      * Receive data on a socket. See "man 2 recv" for values of the
      * flags parameter (none of which have been tested).
@@ -283,6 +230,9 @@ public:
 
     size_t recvfrom(void* buf, size_t len, int flags,
     	SocketAddress& from) throw(IOException);
+
+
+    void send(const DatagramPacketBase& packet,int flags=0) throw(IOException);
 
     /**
      * send data on socket. See send UNIX man page.
@@ -298,6 +248,15 @@ public:
     size_t send(const void* buf, size_t len, int flags = 0)
 	throw(IOException);
 
+    size_t send(const struct iovec* iov, int iovcnt, int flags = 0)
+	throw(IOException);
+
+    size_t sendto(const void* buf, size_t len, int flags,
+    	const SocketAddress& to) throw(IOException);
+
+    size_t sendto(const struct iovec* iov, int iovcnt, int flags,const SocketAddress& to)
+	throw(IOException);
+
     /**
      * send all data in buffer on socket, repeating send()
      * as necessary, until all data is sent (or an exception
@@ -311,9 +270,6 @@ public:
      */
     void sendall(const void* buf, size_t len, int flags = 0)
 	throw(IOException);
-
-    size_t sendto(const void* buf, size_t len, int flags,
-    	const SocketAddress& to) throw(IOException);
 
     /**
      * Join a multicast group on all interfaces.
@@ -356,6 +312,17 @@ public:
     int getTimeToLive() const throw(IOException);
 
     /**
+     * Control whether a IP_PKTINFO ancillary message is received with
+     * each datagram.  Only supported on DatagramSockets.  The
+     * IP_PKTINFO message is converted to an Inet4PacketInfo object
+     * which is available via the getInet4PacketInfo() method.
+     * @param val: if true enable the IP_PKTINFO message, if false, disable.
+     */
+    void setPktInfo(bool val) throw(IOException);
+
+    bool getPktInfo() const { return _pktInfo; }
+
+    /**
      * Whether to set the IP_MULTICAST_LOOP socket option. According
      * to "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
      * packets should be looped back to the local sockets."
@@ -391,16 +358,18 @@ public:
 
 protected:
 
-    int sockdomain;
-    int socktype;
-    SocketAddress* localaddr;
-    SocketAddress* remoteaddr;
-    int fd;
-    int backlog;
-    bool reuseaddr;
-    bool hasTimeout;
-    struct timeval timeout;
-    fd_set fdset;
+    int _sockdomain;
+    int _socktype;
+    SocketAddress* _localaddr;
+    SocketAddress* _remoteaddr;
+    int _fd;
+    int _backlog;
+    bool _reuseaddr;
+    bool _hasTimeout;
+    struct timeval _timeout;
+    fd_set _fdset;
+
+    bool _pktInfo;
 
     /**
      * Do system call to determine local address of this socket.
@@ -480,9 +449,34 @@ public:
     ~Socket() throw() {
     }
 
+#ifdef DO_BIND
+    /* Couldn't bind to a local port and then connect, so these
+     * bind()s can't really be used.
+     */
+    /**
+     * Bind the Socket to the specified local address.
+     * The address should correspond to the address of a local
+     * interface, or INADDR_ANY. Connections from this
+     * Socket will be from the given port. If this Socket
+     * is not bound before a connect() request is made,
+     * the system will choose a port.
+     */
+    void bind(const Inet4Address& addr, int port)
+	throw(IOException)
+    {
+	_impl.bind(addr,port);
+    }
+
+    void bind(const Inet4SocketAddress& saddr)
+	throw(IOException)
+    {
+	_impl.bind(saddr);
+    }
+#endif
+
     void close() throw(IOException)
     {
-        impl.close();
+        _impl.close();
     }
 
     /**
@@ -499,7 +493,7 @@ public:
      * The receive methods will return IOTimeoutException
      * if an operation times out.
      */
-    void setTimeout(int val) { impl.setTimeout(val); }
+    void setTimeout(int val) { _impl.setTimeout(val); }
 
     /**
      * Do fcntl system call to set O_NONBLOCK file descriptor flag on 
@@ -508,22 +502,22 @@ public:
      */
     void setNonBlocking(bool val) throw(IOException)
     {
-	impl.setNonBlocking(val);
+	_impl.setNonBlocking(val);
     }
 
     bool isNonBlocking() const throw(IOException)
     {
-	return impl.isNonBlocking();
+	return _impl.isNonBlocking();
     }
 
     void setTcpNoDelay(bool val) throw(IOException)
     {
-	impl.setTcpNoDelay(val);
+	_impl.setTcpNoDelay(val);
     }
 
     bool getTcpNoDelay() throw(IOException)
     {
-	return impl.getTcpNoDelay();
+	return _impl.getTcpNoDelay();
     }
 
     /**
@@ -531,7 +525,7 @@ public:
      */
     void setKeepAlive(bool val) throw(IOException)
     {
-        impl.setKeepAlive(val);
+        _impl.setKeepAlive(val);
     }
 
     /**
@@ -539,7 +533,7 @@ public:
      */
     bool getKeepAlive() throw(IOException)
     {
-        return impl.getKeepAlive();
+        return _impl.getKeepAlive();
     }
 
     /**
@@ -562,7 +556,7 @@ public:
     */
     void setKeepAliveIdleSecs(int val) throw(IOException)
     {
-        impl.setKeepAliveIdleSecs(val);
+        _impl.setKeepAliveIdleSecs(val);
     }
 
     /**
@@ -572,17 +566,17 @@ public:
      */
     int getKeepAliveIdleSecs() throw(IOException)
     {
-        return impl.getKeepAliveIdleSecs();
+        return _impl.getKeepAliveIdleSecs();
     }
 
     int getInQueueSize() const throw(IOException)
     {
-        return impl.getInQueueSize();
+        return _impl.getInQueueSize();
     }
 
     int getOutQueueSize() const throw(IOException)
     {
-        return impl.getOutQueueSize();
+        return _impl.getOutQueueSize();
     }
 
     /**
@@ -590,7 +584,7 @@ public:
      */
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
     {
-        return impl.getInterfaces();
+        return _impl.getInterfaces();
     }
 
     /**
@@ -599,7 +593,7 @@ public:
     void connect(const std::string& host,int port)
 	throw(UnknownHostException,IOException)
     {
-	impl.connect(host,port);
+	_impl.connect(host,port);
     }
 
     /**
@@ -608,7 +602,7 @@ public:
     void connect(const Inet4Address& addr, int port)
 	throw(IOException)
     {
-	impl.connect(addr,port);
+	_impl.connect(addr,port);
     }
 
     /**
@@ -617,17 +611,17 @@ public:
     void connect(const SocketAddress& addr)
 	throw(IOException)
     {
-	impl.connect(addr);
+	_impl.connect(addr);
     }
 
     /**
      * Fetch the file descriptor associate with this socket.
      */
-    int getFd() const { return impl.getFd(); }
+    int getFd() const { return _impl.getFd(); }
 
     size_t recv(void* buf, size_t len, int flags = 0)
 	throw(IOException) {
-	return impl.recv(buf,len,flags);
+	return _impl.recv(buf,len,flags);
     }
 
     /**
@@ -638,7 +632,12 @@ public:
      */
     size_t send(const void* buf, size_t len, int flags=MSG_NOSIGNAL)
 	throw(IOException) {
-	return impl.send(buf,len,flags);
+	return _impl.send(buf,len,flags);
+    }
+
+    size_t send(const struct iovec* iov, int iovcnt, int flags=MSG_NOSIGNAL)
+	throw(IOException) {
+	return _impl.send(iov,iovcnt,flags);
     }
 
     /**
@@ -654,25 +653,25 @@ public:
      */
     void sendall(const void* buf, size_t len, int flags=MSG_NOSIGNAL)
 	throw(IOException) {
-	return impl.sendall(buf,len,flags);
+	return _impl.sendall(buf,len,flags);
     }
 
     void setReceiveBufferSize(int size) throw(IOException)
     {
-    	impl.setReceiveBufferSize(size);
+    	_impl.setReceiveBufferSize(size);
     }
     int getReceiveBufferSize() throw(IOException)
     {
-    	return impl.getReceiveBufferSize();
+    	return _impl.getReceiveBufferSize();
     }
 
     void setSendBufferSize(int size) throw(IOException)
     {
-    	impl.setSendBufferSize(size);
+    	_impl.setSendBufferSize(size);
     }
     int getSendBufferSize() throw(IOException)
     {
-    	return impl.getSendBufferSize();
+    	return _impl.getSendBufferSize();
     }
 
     /**
@@ -680,13 +679,13 @@ public:
      */
     const SocketAddress& getRemoteSocketAddress() const throw()
     {
-	return impl.getRemoteSocketAddress();
+	return _impl.getRemoteSocketAddress();
     }
     /**
      * Get remote port number of this socket.
      */
     int getRemotePort() const throw() {
-        return impl.getRemotePort();
+        return _impl.getRemotePort();
     }
 
     /**
@@ -694,20 +693,20 @@ public:
      */
     const SocketAddress& getLocalSocketAddress() const throw()
     {
-	return impl.getLocalSocketAddress();
+	return _impl.getLocalSocketAddress();
     }
 
     /**
      * Get local port number of this socket.
      */
     int getLocalPort() const throw() {
-	return impl.getLocalPort();
+	return _impl.getLocalPort();
     }
 
-    int getDomain() const { return impl.getDomain(); }
+    int getDomain() const { return _impl.getDomain(); }
 
 protected:
-    SocketImpl impl;
+    SocketImpl _impl;
 };
 
 /**
@@ -788,14 +787,14 @@ public:
     ~ServerSocket() throw() {
     }
 
-    int getFd() const { return impl.getFd(); }
+    int getFd() const { return _impl.getFd(); }
 
     /**
      * close the socket.
      */
     void close() throw(IOException) 
     {
-        impl.close();
+        _impl.close();
     }
 
     /**
@@ -803,25 +802,25 @@ public:
      */
     Socket* accept() throw(IOException)
     {
-        return impl.accept();
+        return _impl.accept();
     }
 
     void setReceiveBufferSize(int size) throw(IOException)
     {
-    	impl.setReceiveBufferSize(size);
+    	_impl.setReceiveBufferSize(size);
     }
     int getReceiveBufferSize() throw(IOException)
     {
-    	return impl.getReceiveBufferSize();
+    	return _impl.getReceiveBufferSize();
     }
 
     void setSendBufferSize(int size) throw(IOException)
     {
-    	impl.setSendBufferSize(size);
+    	_impl.setSendBufferSize(size);
     }
     int getSendBufferSize() throw(IOException)
     {
-    	return impl.getSendBufferSize();
+    	return _impl.getSendBufferSize();
     }
 
     /**
@@ -829,26 +828,26 @@ public:
      */
     const SocketAddress& getLocalSocketAddress() const throw()
     {
-	return impl.getLocalSocketAddress();
+	return _impl.getLocalSocketAddress();
     }
 
-    int getLocalPort() const throw() { return impl.getLocalPort(); }
+    int getLocalPort() const throw() { return _impl.getLocalPort(); }
 
-    int getDomain() const { return impl.getDomain(); }
+    int getDomain() const { return _impl.getDomain(); }
 
     void setNonBlocking(bool val) throw(IOException)
     {
-    	impl.setNonBlocking(val);
+    	_impl.setNonBlocking(val);
     }
 
     bool isNonBlocking() const throw(IOException)
     {
-    	return impl.isNonBlocking();
+    	return _impl.isNonBlocking();
     }
 
 
 protected:
-    SocketImpl impl;
+    SocketImpl _impl;
 
 };
 
@@ -948,7 +947,7 @@ public:
 
     void close() throw(IOException)
     {
-        impl.close();
+        _impl.close();
     }
 
     /**
@@ -959,7 +958,7 @@ public:
      * if an operation times out.
      */
     void setTimeout(int val) {
-        impl.setTimeout(val);
+        _impl.setTimeout(val);
     }
 
     /**
@@ -970,7 +969,7 @@ public:
     void connect(const std::string& host,int port)
 	throw(UnknownHostException,IOException)
     {
-	impl.connect(host,port);
+	_impl.connect(host,port);
     }
 
     /**
@@ -981,7 +980,7 @@ public:
     void connect(const Inet4Address& addr, int port)
 	throw(IOException)
     {
-	impl.connect(addr,port);
+	_impl.connect(addr,port);
     }
 
     /**
@@ -992,65 +991,96 @@ public:
     void connect(const SocketAddress& addr)
 	throw(IOException)
     {
-	impl.connect(addr);
+	_impl.connect(addr);
     }
 
     /**
      * Bind the DatagramSocket to the specified local address.
      * The address should correspond to the address of a local
-     * interface.  Only packets sent the given port and interface,
+     * interface.  Only packets sent to the given port and interface,
      * by unicast, broadcast or multicast will be received.
      */
     void bind(const Inet4Address& addr, int port)
 	throw(IOException)
     {
-	impl.bind(addr,port);
+	_impl.bind(addr,port);
     }
 
     /**
      * Bind the DatagramSocket to the specified local address.
      * The address should correspond to the address of a local
-     * interface.  Only packets sent the given port and interface,
+     * interface.  Only packets sent to the given port and interface,
      * by unicast, broadcast or multicast will be received.
      */
     void bind(const SocketAddress& addr)
 	throw(IOException)
     {
-	impl.bind(addr);
+	_impl.bind(addr);
     }
 
-    int getFd() const { return impl.getFd(); }
+    int getFd() const { return _impl.getFd(); }
 
+    /**
+     * Read a packet from the DatagramSocket. On return, packet.getLength()
+     * will contain the number bytes received, and packet.getSocketAddress() will
+     * contain the address of the sender.
+     */
     void receive(DatagramPacketBase& packet) throw(IOException)
     {
-	impl.receive(packet);
+	_impl.receive(packet);
+    }
+
+    /**
+     * Read a packet from the DatagramSocket. On return, packet.getLength()
+     * will contain the number bytes received, and packet.getSocketAddress() will
+     * contain the address of the sender. info will contain the information
+     * on the local and destination addresses of the packet, and the
+     * interface it was received on.
+     * If setPktInfo(true) has not be set on this socket, then it is
+     * set prior to receiving the packet, and then unset after
+     * receipt of the packet.
+     */
+    void receive(DatagramPacketBase& packet,Inet4PacketInfo& info,int flags=0) throw(IOException)
+    {
+	_impl.receive(packet,info,flags);
     }
 
     void send(const DatagramPacketBase& packet,int flags=0) throw(IOException)
     {
-	impl.send(packet,flags);
+	_impl.send(packet,flags);
     }
 
     size_t recv(void* buf, size_t len, int flags=0) throw(IOException)
     {
-	return impl.recv(buf,len,flags);
+	return _impl.recv(buf,len,flags);
     }
 
     size_t recvfrom(void* buf, size_t len, int flags,
 	SocketAddress& from) throw(IOException)
     {
-        return impl.recvfrom(buf,len,flags,from);
+        return _impl.recvfrom(buf,len,flags,from);
     }
 
     size_t send(const void* buf, size_t len, int flags = 0)
 	throw(IOException) {
-	return impl.send(buf,len,flags);
+	return _impl.send(buf,len,flags);
+    }
+
+    size_t send(const struct iovec* iov, int iovcnt, int flags=MSG_NOSIGNAL)
+	throw(IOException) {
+	return _impl.send(iov,iovcnt,flags);
     }
 
     size_t sendto(const void* buf, size_t len, int flags,
 	const SocketAddress& to) throw(IOException)
     {
-        return impl.sendto(buf,len,flags,to);
+        return _impl.sendto(buf,len,flags,to);
+    }
+
+    size_t sendto(const struct iovec* iov, int iovcnt, int flags,
+	const SocketAddress& to) throw(IOException)
+    {
+        return _impl.sendto(iov,iovcnt,flags,to);
     }
 
     /**
@@ -1058,52 +1088,79 @@ public:
      */
     const SocketAddress& getLocalSocketAddress() const throw()
     {
-	return impl.getLocalSocketAddress();
+	return _impl.getLocalSocketAddress();
     }
 
     /**
      * Get local port number of this socket.
      */
     int getLocalPort() const throw() {
-	return impl.getLocalPort();
+	return _impl.getLocalPort();
+    }
+
+    /**
+     * Do fcntl system call to set O_NONBLOCK file descriptor flag on 
+     * the socket.
+     * @param val true=set O_NONBLOCK, false=unset O_NONBLOCK.
+     */
+    void setNonBlocking(bool val) throw(IOException)
+    {
+	_impl.setNonBlocking(val);
+    }
+
+    bool isNonBlocking() const throw(IOException)
+    {
+	return _impl.isNonBlocking();
     }
 
     void setReceiveBufferSize(int size) throw(IOException)
     {
-    	impl.setReceiveBufferSize(size);
+    	_impl.setReceiveBufferSize(size);
     }
 
     int getReceiveBufferSize() throw(IOException)
     {
-    	return impl.getReceiveBufferSize();
+    	return _impl.getReceiveBufferSize();
     }
 
     void setSendBufferSize(int size) throw(IOException)
     {
-    	impl.setSendBufferSize(size);
+    	_impl.setSendBufferSize(size);
     }
     int getSendBufferSize() throw(IOException)
     {
-    	return impl.getSendBufferSize();
+    	return _impl.getSendBufferSize();
     }
 
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
     {
-        return impl.getInterfaces();
+        return _impl.getInterfaces();
     }
 
     void setBroadcastEnable(bool val) throw(IOException)
     {
-        impl.setBroadcastEnable(val);
+        _impl.setBroadcastEnable(val);
     }
 
     bool getBroadcastEnable() const throw(IOException)
     {
-        return impl.getBroadcastEnable();
+        return _impl.getBroadcastEnable();
+    }
+
+    /**
+     * Control whether a IP_PKTINFO ancillary message is received with
+     * each datagram.  Only supported on DatagramSockets.  The
+     * IP_PKTINFO message is converted to an Inet4PacketInfo object
+     * which is available via the getInet4PacketInfo() method.
+     * @param val: if true enable the IP_PKTINFO message, if false, disable.
+     */
+    void setPktInfo(bool val) throw(IOException)
+    {
+        _impl.setPktInfo(val);
     }
 
 protected:
-    SocketImpl impl;
+    SocketImpl _impl;
 };
 
 /**
@@ -1119,6 +1176,8 @@ protected:
  * \code
  *    // host A listens for multicasts to address 239.0.0.1, port 9000:
  *    MulticastSocket msock(9000);
+ *    // join the multicast group in whatever interface the system chooses,
+ *    // typically the first ethernet interface.
  *    msock.joinGroup(Inet4Address::getByName("239.0.0.1"));
  *    char buf[512];
  *    Inet4SocketAddress from;
@@ -1126,6 +1185,17 @@ protected:
  *        msock.recvfrom(buf,sizeof(buf),0,from);
  *        ...
  *    }
+ *
+ *    // how to join on all multicast and loopback interfaces
+ *    // note that multicast works over the loopback interface
+ *    list<Inet4NetworkInterface> ifaces = msock.getInterfaces();
+ *    for (list<Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+ *          ii != ifaces.end(); ++ii)
+ *    {
+ *          if ((ii->getFlags() & (IFF_LOOPBACK | IFF_MULTICAST)) && (ii->getFlags() & IFF_UP))
+ *              msock.joinGroup(Inet4Address::getByName("239.0.0.1"),*ii);
+ *    }
+ *
  *
  *    // host B multicasts to address 239.0.0.1, port 9000:
  *    DatagramSocket msock;
@@ -1197,7 +1267,7 @@ public:
      * Join a multicast group on all interfaces.
      */
     void joinGroup(Inet4Address groupAddr) throw(IOException) {
-        impl.joinGroup(groupAddr);
+        _impl.joinGroup(groupAddr);
     }
 
     /**
@@ -1205,19 +1275,19 @@ public:
      */
     /*
     void joinGroup(Inet4Address groupAddr,Inet4Address iaddr) throw(IOException) {
-        impl.joinGroup(groupAddr,iaddr);
+        _impl.joinGroup(groupAddr,iaddr);
     }
     */
 
     void joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface & iface) throw(IOException) {
-        impl.joinGroup(groupAddr,iface);
+        _impl.joinGroup(groupAddr,iface);
     }
 
     /**
      * Leave a multicast group on all interfaces.
      */
     void leaveGroup(Inet4Address groupAddr) throw(IOException) {
-        impl.leaveGroup(groupAddr);
+        _impl.leaveGroup(groupAddr);
     }
 
     /**
@@ -1226,24 +1296,24 @@ public:
     void leaveGroup(Inet4Address groupAddr, const Inet4NetworkInterface& iface)
     	throw(IOException)
     {
-        impl.leaveGroup(groupAddr,iface);
+        _impl.leaveGroup(groupAddr,iface);
     }
 
     void setTimeToLive(int val) throw(IOException)
     {
-        impl.setTimeToLive(val);
+        _impl.setTimeToLive(val);
     }
 
     int getTimeToLive() const throw(IOException)
     {
-        return impl.getTimeToLive();
+        return _impl.getTimeToLive();
     }
 
     /**
      * Whether to set the IP_MULTICAST_LOOP socket option. According
      * to "man 7 ip", IP_MULTICAST_LOOP controls "whether sent multicast
      * packets should be looped back to the local sockets."
-     * This behaviour seems to be the default in Linux in that setting
+     * This is the default in Linux in that setting
      * it does not seem to be necessary for a process on a host
      * to receive multicast packets that are sent out on one of its
      * interfaces, providing the multicast reader has joined that
@@ -1252,12 +1322,12 @@ public:
      */
     void setMulticastLoop(bool val) throw(IOException)
     {
-        impl.setTimeToLive(val);
+        _impl.setTimeToLive(val);
     }
 
     bool getMulticastLoop() const throw(IOException)
     {
-        return impl.getTimeToLive();
+        return _impl.getTimeToLive();
     }
 
     /**
@@ -1267,13 +1337,13 @@ public:
      * out on the first interface that it finds that is capable of MULTICAST.
      * See setInterface(Inet4Address maddr);
      *  
-     * Note that the loopback interface does not support MULTICAST, and
-     * interfaces that are not up will not do MULTICAST.
+     * If there are no multicast interfaces that are UP, then the system may
+     * not choose the loopback interface by default.
      * So doing multicast on a DHCP laptop that isn't connected to the net
-     * will give problems.
+     * may give problems.
      */
     void setInterface(Inet4Address maddr,const Inet4NetworkInterface& iface) throw(IOException) {
-        impl.setInterface(maddr,iface);
+        _impl.setInterface(maddr,iface);
     }
 
     /**
@@ -1286,17 +1356,17 @@ public:
      * route add -host 239.0.0.10 dev eth1
      */
     void setInterface(Inet4Address iaddr) throw(IOException) {
-        impl.setInterface(iaddr);
+        _impl.setInterface(iaddr);
     }
 
     Inet4NetworkInterface getInterface() const throw(IOException) {
-        return impl.getInterface();
+        return _impl.getInterface();
     }
 
     Inet4NetworkInterface findInterface(const Inet4Address& iaddr) const
     	throw(IOException)
     {
-        return impl.findInterface(iaddr);
+        return _impl.findInterface(iaddr);
     }
 
     /**
@@ -1304,7 +1374,7 @@ public:
      */
     std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException)
     {
-        return impl.getInterfaces();
+        return _impl.getInterfaces();
     }
 
 protected:

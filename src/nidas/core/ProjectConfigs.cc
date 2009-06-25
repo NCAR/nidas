@@ -48,16 +48,24 @@ Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
     if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
         throw n_u::IOException(xmlFileName2,"open",errno);
 
-    auto_ptr<xercesc::DOMDocument> doc(
-        DSMEngine::parseXMLConfigFile(xmlFileName2));
+    xercesc::DOMDocument* doc = DSMEngine::parseXMLConfigFile(xmlFileName2);
 
-    auto_ptr<Project> project(Project::getInstance());
+    Project* project = Project::getInstance();
+
     // set the environment variables for this configuration.
     // Note, there is no config state maintained, where
     // the environment of a previous config is unset.
     putenv();
-    project->fromDOMElement(doc->getDocumentElement());
-    return project.release();
+
+    try {
+        project->fromDOMElement(doc->getDocumentElement());
+    }
+    catch(...) {
+        doc->release();
+        throw;
+    }
+    doc->release();
+    return project;
 }
 
 ProjectConfigs::ProjectConfigs()
@@ -184,7 +192,14 @@ void ProjectConfigs::parseXML(const std::string& xmlFileName)
 
     xercesc::DOMElement* node = doc->getDocumentElement();
 
-    fromDOMElement(node);
+    try {
+        fromDOMElement(node);
+    }
+    catch(...) {
+        doc->release();
+        throw;
+    }
+    doc->release();
 }
 void ProjectConfigs::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
@@ -226,8 +241,9 @@ void ProjectConfigs::writeXML(const std::string& xmlFileName)
         toDOMElement(doc->getDocumentElement());
     }
     catch(const xercesc::DOMException& e) {
-        XMLStringConverter excmsg(e.getMessage());
-        cerr << "DOMException: " << excmsg << endl;
+        // XMLStringConverter excmsg(e.getMessage());
+        // cerr << "DOMException: " << excmsg << endl;
+        doc->release();
         throw nidas::core::XMLException(e);
     }
 
@@ -237,17 +253,24 @@ void ProjectConfigs::writeXML(const std::string& xmlFileName)
     int fd = mkstemp(tmpName);
     string newName = tmpName;
     delete [] tmpName;
-    if (fd < 0) throw n_u::IOException(newName,"create",errno);
-    ::close(fd);
+    try {
+        if (fd < 0) throw n_u::IOException(newName,"create",errno);
+        ::close(fd);
 
-    // cerr << "newName=" << newName << endl;
+        // cerr << "newName=" << newName << endl;
 
-    XMLWriter writer;
-    writer.setPrettyPrint(true);
-    writer.write(doc,newName);
+        XMLWriter writer;
+        writer.setPrettyPrint(true);
+        writer.write(doc,newName);
 
-    if (::rename(newName.c_str(),xmlFileName.c_str()) < 0)
-        throw n_u::IOException(newName,"rename",errno);
+        if (::rename(newName.c_str(),xmlFileName.c_str()) < 0)
+            throw n_u::IOException(newName,"rename",errno);
+    }
+    catch(...) {
+        doc->release();
+        throw;
+    }
+    doc->release();
 }
 
 xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) const

@@ -418,7 +418,7 @@ int GOESOutput::run() throw(n_u::Exception)
     goesXmtr->printStatus();	// no exception
 
     for (; !interrupted; ) {
-	if (Looper::sleepUntil(periodMsec,wakeOffMsec)) break;
+	if (nidas::core::sleepUntil(periodMsec,wakeOffMsec)) break;
 
 	n_u::UTime tnow;
 #ifdef DEBUG

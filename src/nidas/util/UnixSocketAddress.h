@@ -83,6 +83,11 @@ public:
     std::string toString() const;
 
     /**
+     * Java style toString: also returns "unix:path"
+     */
+    std::string toAddressString() const;
+
+    /**
      * Comparator operator for addresses. Useful if this
      * address is a key in an STL map.
      */

@@ -38,16 +38,17 @@ SyncRecordGenerator::SyncRecordGenerator():
     setName("SyncRecordGenerator");
 }
 
+SyncRecordGenerator::~SyncRecordGenerator()
+{
+}
+
+#ifdef NEED_COPY_CLONE
 SyncRecordGenerator::SyncRecordGenerator(const SyncRecordGenerator& x):
     SampleIOProcessor((const SampleIOProcessor&)x),_input(0),_output(0),
     _numInputSampsLast(0),_numOutputSampsLast(0),
     _numInputBytesLast(0),_numOutputBytesLast(0)
 {
     setName("SyncRecordGenerator");
-}
-
-SyncRecordGenerator::~SyncRecordGenerator()
-{
 }
 
 SyncRecordGenerator* SyncRecordGenerator::clone() const
@@ -57,9 +58,9 @@ SyncRecordGenerator* SyncRecordGenerator::clone() const
     // return new SyncRecordGenerator();
     return 0;
 }
+#endif
 
-void SyncRecordGenerator::connect(SampleInput* newinput)
-	throw(n_u::IOException)
+void SyncRecordGenerator::connect(SampleInput* newinput) throw()
 {
     _statusMutex.lock();
     _input = newinput;
@@ -88,10 +89,10 @@ void SyncRecordGenerator::disconnect(SampleInput* oldinput) throw()
     _statusMutex.unlock();
 }
  
-void SyncRecordGenerator::connected(SampleOutput* orig,
+void SyncRecordGenerator::connect(SampleOutput* orig,
 	SampleOutput* output) throw()
 {
-    SampleIOProcessor::connected(orig,output);
+    SampleIOProcessor::connect(orig,output);
     _syncRecSource.addSampleClient(output);
     output->setHeaderSource(this);
 
@@ -100,10 +101,10 @@ void SyncRecordGenerator::connected(SampleOutput* orig,
     _statusMutex.unlock();
 }
 
-void SyncRecordGenerator::disconnected(SampleOutput* output) throw()
+void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
 {
     _syncRecSource.removeSampleClient(output);
-    SampleIOProcessor::disconnected(output);
+    SampleIOProcessor::disconnect(output);
     output->setHeaderSource(0);
     _statusMutex.lock();
     _output = 0;

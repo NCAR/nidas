@@ -21,7 +21,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -135,7 +134,7 @@ const list<const Parameter*>& Site::getParameters() const
     return constParameters;
 }
 
-void Site::fromDOMElement(const DOMElement* node)
+void Site::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -147,10 +146,10 @@ void Site::fromDOMElement(const DOMElement* node)
 		    
     if(node->hasAttributes()) {
 	// get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    string aname = attr.getName();
 	    string aval = attr.getValue();
 	    if (aname == "name") setName(aval);
@@ -173,12 +172,12 @@ void Site::fromDOMElement(const DOMElement* node)
     // likewise with dsm names
     set<string> dsm_names;
 
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 	// cerr << "element name=" << elname << endl;
 
@@ -186,7 +185,7 @@ void Site::fromDOMElement(const DOMElement* node)
 	    DSMConfig* dsm = new DSMConfig();
 	    dsm->setSite(this);
 	    try {
-		dsm->fromDOMElement((DOMElement*)child);
+		dsm->fromDOMElement((xercesc::DOMElement*)child);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
 	        delete dsm;
@@ -210,7 +209,7 @@ void Site::fromDOMElement(const DOMElement* node)
 	else if (elname == "server") {
 	    DSMServer* server = new DSMServer();
 	    try {
-		server->fromDOMElement((DOMElement*)child);
+		server->fromDOMElement((xercesc::DOMElement*)child);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
 	        delete server;
@@ -221,7 +220,7 @@ void Site::fromDOMElement(const DOMElement* node)
 	}
 	else if (elname == "parameter")  {
 	    Parameter* parameter =
-	    	Parameter::createParameter((DOMElement*)child);
+	    	Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
 	}
     }
@@ -270,6 +269,32 @@ void Site::fromDOMElement(const DOMElement* node)
 	    }
         }
     }
+}
+
+xercesc::DOMElement* Site::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("site"));
+    parent->appendChild(elem);
+    return toDOMElement(elem,complete);
+}
+
+xercesc::DOMElement* Site::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+    if (complete) return 0; // not supported yet
+
+    XDOMElement xelem(elem);
+    xelem.setAttributeValue("name",getName());
+
+    for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
+        const DSMConfig* dsm = di.next();
+        dsm->toDOMParent(elem,complete);
+    }
+    return elem;
 }
 
 /**

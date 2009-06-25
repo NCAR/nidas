@@ -11,6 +11,7 @@
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/InvalidParameterException.h>
+#include <nidas/util/IOException.h>
 
 using namespace std;
 using namespace nidas::util;
@@ -215,12 +216,21 @@ Mutex::Mutex(const Mutex& x) throw() :_attrs(x._attrs)
 
 Mutex::~Mutex() throw(Exception)
 {
-    if (::pthread_mutex_destroy(&p_mutex)) {
-        switch(errno) {
+    int ret = 0;
+    if ((ret = ::pthread_mutex_destroy(&p_mutex))) {
+        switch(ret) {
         case EBUSY:
+// If you're getting terminate messages with Exception "~Mutex", then #define this
+// and run in valgrind in order to figure out where it is happening.
+#ifdef DO_SEGFAULT_FOR_MUTEX_DEBUGGING
+            {
+            int* p = 0;
+            *p = 0;
+            }
+#endif
             throw Exception("~Mutex","Mutex is locked");
         default:
-            throw Exception("~Mutex",errno);
+            throw IOException("~Mutex","destroy",errno);
         }
     }
 }

@@ -18,18 +18,6 @@
 
 #include <nidas/core/XMLParser.h>
 
-
-#ifdef NEEDED
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/IOException.h>
-
-#include <xercesc/dom/DOMImplementation.hpp>
-#include <xercesc/dom/DOMErrorHandler.hpp>
-#include <xercesc/dom/DOMDocument.hpp>
-#include <xercesc/sax/InputSource.hpp>
-#include <xercesc/dom/DOMBuilder.hpp>
-#endif
-
 #include <string>
 
 namespace nidas { namespace core {
@@ -49,7 +37,7 @@ public:
      * Nuke the XMLWriter. This does a release() (delete) of the
      * associated DOMWriter.
      */
-    ~XMLWriter();
+    virtual ~XMLWriter();
 
     /**
      * Discard default content.
@@ -139,14 +127,21 @@ public:
      */
     void setXMLDeclaration(bool val);
 
-    void write(xercesc::DOMDocument*doc, const std::string& fileName)
+    void setFilter(xercesc::DOMWriterFilter* filter);
+
+    virtual void write(xercesc::DOMDocument*doc, const std::string& fileName)
     	throw(nidas::core::XMLException);
 
-protected:
+    virtual void writeNode(xercesc::XMLFormatTarget* const dest, const xercesc::DOMNode& node)
+        throw(nidas::core::XMLException);
+
+private:
     
-    xercesc::DOMImplementation *impl;
-    xercesc::DOMWriter *writer;
-    XMLErrorHandler errorHandler;
+    xercesc::DOMImplementation *_impl;
+
+    xercesc::DOMWriter *_writer;
+
+    XMLErrorHandler _errorHandler;
 
 };
 

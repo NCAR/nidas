@@ -27,7 +27,7 @@ XMLCh* DOMable::namespaceURI = 0;
  * Create a DOMElement and append it to the parent.
  */
 xercesc::DOMElement*
-    DOMable::toDOMParent(xercesc::DOMElement* parent) const
+    DOMable::toDOMParent(xercesc::DOMElement* parent,bool brief) const
             throw(xercesc::DOMException)
 {
     XMLStringConverter msg("toDOMParent not supported in this DOMable");
@@ -47,7 +47,7 @@ xercesc::DOMElement*
  * Add my content into a DOMElement.
  */
 xercesc::DOMElement*
-    DOMable::toDOMElement(xercesc::DOMElement* node) const
+    DOMable::toDOMElement(xercesc::DOMElement* node,bool brief) const
             throw(xercesc::DOMException)
 {
     XMLStringConverter msg("toDOMParent not supported in this DOMable");

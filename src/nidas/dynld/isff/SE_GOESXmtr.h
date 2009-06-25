@@ -386,6 +386,8 @@ private:
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException);
 
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException);
+
     nidas::util::Logger* logger;
 
     int model;

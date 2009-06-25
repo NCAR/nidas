@@ -25,6 +25,7 @@
 #include <locale>
 #include <ctime>
 #include <limits.h>
+#include <sys/uio.h>
 
 namespace nidas { namespace util {
 
@@ -43,7 +44,7 @@ public:
     FileSet();
 
     /**
-     * Copy constructor.
+     * Copy constructor. Only permissable before it is opened.
      */
     FileSet(const FileSet& x);
 
@@ -151,6 +152,8 @@ public:
      * Write to current file.
      */
     size_t write(const void* buf, size_t count) throw(IOException);
+
+    size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
 
     static const char pathSeparator;
 

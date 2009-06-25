@@ -28,19 +28,12 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-XMLWriter::XMLWriter()
-	throw (nidas::core::XMLException)
+XMLWriter::XMLWriter()  throw(nidas::core::XMLException)
 {
-    impl = XMLImplementation::getImplementation();
-    try {
-        // throws DOMException
-        writer = ((xercesc::DOMImplementationLS*)impl)->createDOMWriter();
-    }
-    catch (const xercesc::DOMException& e) {
-        throw nidas::core::XMLException(e);
-    }
-    // Create our error handler and install it
-    writer->setErrorHandler(&errorHandler);
+    _impl = XMLImplementation::getImplementation();
+    _writer = ((xercesc::DOMImplementationLS*)_impl)->createDOMWriter();
+    // install error handler
+    _writer->setErrorHandler(&_errorHandler);
 }
 
 XMLWriter::~XMLWriter() 
@@ -48,73 +41,70 @@ XMLWriter::~XMLWriter()
     //
     //  Delete the writer.
     //
-    writer->release();
+    _writer->release();
+}
+
+void XMLWriter::setFilter(xercesc::DOMWriterFilter* filter)
+{
+    _writer->setFilter(filter);
 }
 
 void XMLWriter::setDiscardDefaultContent(bool val) 
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTDiscardDefaultContent,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTDiscardDefaultContent,val);
 }
 
 void XMLWriter::setEntities(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTEntities,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTEntities,val);
 }
 
 void XMLWriter::setCanonicalForm(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTCanonicalForm,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTCanonicalForm,val);
 }
 
 void XMLWriter::setPrettyPrint(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint,val);
 }
 
 void XMLWriter::setNormalizeCharacters(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTNormalizeCharacters,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTNormalizeCharacters,val);
 }
 
 void XMLWriter::setSplitCDATASections(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTSplitCdataSections,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTSplitCdataSections,val);
 }
 
 void XMLWriter::setValidation(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTValidation,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTValidation,val);
 }
 
 void XMLWriter::setWhitespaceInElement(bool val)
 {
-    writer->setFeature(xercesc::XMLUni::fgDOMWRTWhitespaceInElementContent,val);
+    _writer->setFeature(xercesc::XMLUni::fgDOMWRTWhitespaceInElementContent,val);
+}
+
+void XMLWriter::writeNode(xercesc::XMLFormatTarget* const dest,
+    const xercesc::DOMNode& node)
+    throw (nidas::core::XMLException)
+{
+    //reset error count first
+    _errorHandler.resetErrors();
+    bool ok = _writer->writeNode(dest,node);
+    const nidas::core::XMLException* xe = _errorHandler.getXMLException();
+    if (xe) throw *xe;
+    if (!ok) throw XMLException(string("writeNode failed"));
 }
 
 void XMLWriter::write(xercesc::DOMDocument*doc, const std::string& fileName)
         throw(nidas::core::XMLException)
 {
-
-    //reset error count first
-    errorHandler.resetErrors();
-
-    // XMLStringConverter fname(fileName);
-    // LocalFileFormatTarget xmlfile((const XMLCh *) fname);
     xercesc::LocalFileFormatTarget xmlfile(
         (const XMLCh*)XMLStringConverter(fileName));
-    try {
-        writer->writeNode(&xmlfile,*doc);
-        const XMLException* xe = errorHandler.getXMLException();
-        if (xe) throw *xe;
-    }
-    catch (const xercesc::XMLException& e) {
-        throw nidas::core::XMLException(e);
-    }
-    catch (const xercesc::SAXException& e) {
-        throw nidas::core::XMLException(e);
-    }
-    catch (const xercesc::DOMException& e)
-    {
-        throw nidas::core::XMLException(e);
-    }
+    writeNode(&xmlfile,*doc);
 }

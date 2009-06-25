@@ -38,7 +38,7 @@ public:
      * @param n name of device - only used when reporting errors.
      * @param f unix file descriptor of device that is already open.
      */
-    XMLFdBinInputStream(const std::string& n,int f) : name(n),fd(f),curpos(0) {}
+    XMLFdBinInputStream(const std::string& n,int f) : name(n),fd(f),curpos(0),_eof(false) {}
     ~XMLFdBinInputStream()
     {
 	// std::cerr << "~XMLFdBinInputStream" << std::endl;
@@ -46,12 +46,21 @@ public:
 
     unsigned int curPos() const { return curpos; }
 
+    /**
+     * return number of bytes read, or 0 on EOF.
+     */
     unsigned int readBytes(XMLByte* const toFill,
     	const unsigned int maxToRead) throw(nidas::util::IOException)
     {
+        if (_eof) return 0;
 	// std::cerr << "XMLFdBinInputStream reading " << maxToRead << std::endl;
 	ssize_t l = ::read(fd,toFill,maxToRead);
 	if (l < 0) throw nidas::util::IOException(name,"read",errno);
+        for (int i = 0; i < l; i++)
+            if (toFill[i] == '\x04') {
+                l = i;
+                _eof = true;
+            }
 	curpos += l;
 	// std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l < 20 ? l : 20) << std::endl;
 	// std::cerr << "XMLFdBinInputStream read " << std::string((char*)toFill,0,l) << std::endl;
@@ -67,6 +76,8 @@ protected:
     
     int fd;
     unsigned int curpos;
+
+    bool _eof;
 
 };
 

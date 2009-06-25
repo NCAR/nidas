@@ -61,6 +61,11 @@ public:
     int getPort() const { return ntohs(sockaddr.sin_port); }
 
     /**
+     * Set the port number.
+     */
+    void setPort(int val) { sockaddr.sin_port = htons((short)val); }
+
+    /**
      * Return the IP address portion.
      */
     Inet4Address getInet4Address() const {
@@ -91,15 +96,20 @@ public:
     std::string toString() const;
 
     /**
+     * Java style toString, but no DNS lookup: returns "inet:w.x.y.z:port"
+     */
+    std::string toAddressString() const;
+
+    /**
      * Comparator operator for addresses. Useful if this
      * address is a key in an STL map.
      */
-    bool operator < (const SocketAddress& x) const;
+    bool operator < (const Inet4SocketAddress& x) const;
 
     /**
      * Equality operator for addresses.
      */
-    bool operator == (const SocketAddress& x) const;
+    bool operator == (const Inet4SocketAddress& x) const;
 
 protected:
     struct sockaddr_in sockaddr;

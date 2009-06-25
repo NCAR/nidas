@@ -40,7 +40,7 @@ struct McSocketData {
     int _requestType;
 
     /**
-     * TCP stream socket port that the remote host is listening on.
+     * Socket port that the remote host is listening on.
      * Stored in "network", big-endian order.
      */
     unsigned short _listenPort;
@@ -114,6 +114,7 @@ protected:
 
 template <class SocketT>
 class McSocket;
+
 inline int getMcSocketType(McSocket<Socket>* ptr)
 {
     return SOCK_STREAM;
@@ -329,7 +330,7 @@ public:
      * The caller owns the pointer to the socket and is responsible for
      * closing and deleting it when done.
      */
-    SocketT* accept() throw(IOException);
+    SocketT* accept(Inet4PacketInfoX&) throw(IOException);
 
     /**
      * Virtual method that is called when a socket connection is established.
@@ -341,7 +342,7 @@ public:
      * McSocket then owns the pointer to the socket and is responsible
      * for closing and deleting it when done.
      */
-    virtual void connected(SocketT* sock) {}
+    virtual void connected(SocketT* sock,const Inet4PacketInfoX& info) {}
 
     /**
      * Start issuing requests for a connection by multicasting McSocketDatagrams.
@@ -359,7 +360,7 @@ public:
      * McSocket then owns the pointer to the socket and is responsible
      * for closing and deleting it when done.
      */
-    SocketT* connect() throw(IOException);
+    SocketT* connect(Inet4PacketInfoX&) throw(IOException);
 
     /**
      * Unregister this McSocket from the multicasting and listening threads.
@@ -376,7 +377,11 @@ private:
      *       will be a non-zero errno that occured.
      * @param err If sock is null, an errno.
      */
-    void offer(SocketT* sock,int err);
+    void offer(SocketT* sock,const Inet4PacketInfoX& pktinfo);
+
+    void offer(int err);
+
+    void joinMulticaster();
 
     Inet4SocketAddress _mcastAddr;
 
@@ -388,6 +393,8 @@ private:
 
     SocketT* _newsocket;
 
+    Inet4PacketInfoX _newpktinfo;
+
     bool _socketOffered;
 
     int _offerErrno;
@@ -398,6 +405,8 @@ private:
     Thread* _multicaster;
 
     Mutex _multicaster_mutex;
+
+    // Inet4PacketInfoX _pktinfo;
 
 };
 
@@ -519,9 +528,9 @@ private:
 
     /**
      * If multicasting for a UDP connection, then _datagramSocket will
-     * point to the UDP that is waiting for incoming responses.
+     * point to the UDP socket that is waiting for incoming responses.
      */
-    SocketTT* _datagramSocket;
+    DatagramSocket* _datagramSocket;
 
     /**
      * The DatagramSocket that requests are sent on.
@@ -587,12 +596,13 @@ void McSocket<SocketT>::listen() throw(IOException)
  * Does a listen and then waits for the connection.
  */
 template<class SocketT>
-SocketT* McSocket<SocketT>::accept() throw(IOException)
+SocketT* McSocket<SocketT>::accept(Inet4PacketInfoX& pktinfo) throw(IOException)
 {
     listen();
     _connectCond.lock();
     while(!_socketOffered) _connectCond.wait();
     SocketT* socket = _newsocket;
+    pktinfo = _newpktinfo;
     _newsocket = 0;
     _connectCond.unlock();
 #ifdef DEBUG
@@ -631,12 +641,13 @@ void McSocket<SocketT>::request() throw(IOException)
  * Does a request() and then waits for the connection.
  */
 template<class SocketT>
-SocketT* McSocket<SocketT>::connect() throw(IOException)
+SocketT* McSocket<SocketT>::connect(Inet4PacketInfoX& pktinfo) throw(IOException)
 {
     request();
     _connectCond.lock();
     while(!_socketOffered) _connectCond.wait();
     SocketT* socket = _newsocket;
+    pktinfo = _newpktinfo;
     _newsocket = 0;
     _connectCond.unlock();
 #ifdef DEBUG
@@ -647,14 +658,8 @@ SocketT* McSocket<SocketT>::connect() throw(IOException)
 }
 #undef DEBUG
 
-/*
- * Method that executes in the thread of the McSocketListener
- * or the McsocketMulticaster, and notifies whoever did
- * the listen() or request() that the socket is connected.
- */
-// #define DEBUG
 template<class SocketT>
-void McSocket<SocketT>::offer(SocketT* socket,int err)
+void McSocket<SocketT>::joinMulticaster()
 {
 #ifdef DEBUG
     Logger::getInstance()->log(LOG_DEBUG,"McSocket::offer, err=%d",err);
@@ -689,33 +694,48 @@ void McSocket<SocketT>::offer(SocketT* socket,int err)
 
     _multicaster_mutex.unlock();
 
-    if (socket) connected(socket);
+}
+/*
+ * Method that executes in the thread of the McSocketListener
+ * or the McsocketMulticaster, and notifies whoever did
+ * the listen() or request() that the socket is connected.
+ */
+template<class SocketT>
+void McSocket<SocketT>::offer(SocketT* socket,const Inet4PacketInfoX& pktinfo)
+{
+    joinMulticaster();
+
+    if (socket) connected(socket,pktinfo);
 
     _connectCond.lock();
     _socketOffered = true;
-    _offerErrno = err;
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"setting offerErrno=%d",_offerErrno);
-#endif
+    _offerErrno = 0;
     _newsocket = socket;
+    _newpktinfo = pktinfo;
     _connectCond.signal();
     _connectCond.unlock();
 
     // note: don't access any class variables or virtual methods
     // after the above unlock.  The calling thread may have
     // deleted this object after it received the connected Socket.
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer connectCond.unlock");
-#endif
-
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer done");
-#endif
 }
 
-#undef DEBUG
+template<class SocketT>
+void McSocket<SocketT>::offer(int err)
+{
+    joinMulticaster();
 
-// #define DEBUG
+    _connectCond.lock();
+    _socketOffered = true;
+    _offerErrno = err;
+    _newsocket = 0;
+    _connectCond.signal();
+    _connectCond.unlock();
+
+    // note: don't access any class variables or virtual methods
+    // after the above unlock.  The calling thread may have
+    // deleted this object after it received the connected Socket.
+}
 
 template<class SocketT>
 void McSocket<SocketT>::close() throw(IOException)
@@ -728,7 +748,7 @@ void McSocket<SocketT>::close() throw(IOException)
     if (_multicaster && _multicaster->isRunning()) _multicaster->interrupt();
     _multicaster_mutex.unlock();
 
-    offer(0,EINTR);
+    offer(EINTR);
 
     try {
 	McSocketListener::close(this);
@@ -760,7 +780,7 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
         _datagramSocket = 0;
         break;
     default:
-        _datagramSocket = new SocketT();
+        _datagramSocket = new DatagramSocket();
         _serverSocket = 0;
         break;
     }
@@ -812,7 +832,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     	_mcsocket->getInet4McastSocketAddress();
     Inet4Address mcaddr = mcsockaddr.getInet4Address();
 
-    std::list<Inet4NetworkInterface> ifaces;
+    std::vector<Inet4NetworkInterface> ifaces;
 
     if (mcaddr.isMultiCastAddress()) {
 	_requestSocket = requestmsock = new MulticastSocket();
@@ -834,19 +854,18 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     dgram.setMagic(dgram.magicVal);
     dgram.setSocketAddress(mcsockaddr);
     dgram.setRequestType(_mcsocket->getRequestType());
+    dgram.setSocketType(getMcSocketType(_mcsocket));
     if (_serverSocket)
         dgram.setRequesterListenPort(_serverSocket->getLocalPort());
     else
         dgram.setRequesterListenPort(_datagramSocket->getLocalPort());
 
     for (int numCasts=0; ; numCasts++) {
-        // If multicast, send on all interfaces
+        // If multicast, loop over interfaces
         if (requestmsock && ifaces.size() > 0) {
-            std::list<Inet4NetworkInterface>::const_iterator ifacei = ifaces.begin();
-            for ( ; ifacei != ifaces.end(); ++ifacei) {
-                requestmsock->setInterface(mcaddr,*ifacei);
-                _requestSocket->send(dgram);
-            }
+            Inet4NetworkInterface iface = ifaces[numCasts % ifaces.size()];
+            requestmsock->setInterface(mcaddr,iface);
+            _requestSocket->send(dgram);
         }
         else _requestSocket->send(dgram);
 
@@ -868,7 +887,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             // close of ServerSocket will cause an EBADF
 	    if (errno == EINTR || errno == EBADF) break;
             _mcsocketMutex.lock();
-	    if (_mcsocket) _mcsocket->offer((SocketT*)0,errno);
+	    if (_mcsocket) _mcsocket->offer(errno);
             _mcsocketMutex.unlock();
             if (_serverSocket) _serverSocket->close(); // OK to close twice
             if (_datagramSocket) _datagramSocket->close();
@@ -877,19 +896,48 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 	}
 	if (res > 0 && FD_ISSET(sockfd,&tmpset)) {
             if (_serverSocket) {
-                SocketT* socket = _serverSocket->accept();
+                Socket* socket = _serverSocket->accept();
+                DLOG(("accepted socket connection from ") <<
+                    socket->getRemoteSocketAddress().toString() << " on " <<
+                    _serverSocket->getLocalSocketAddress().toString());
                 _serverSocket->close();
+                nidas::util::Inet4PacketInfoX pktinfo;
+                if (socket->getRemoteSocketAddress().getFamily() == AF_INET) {
+                    nidas::util::Inet4SocketAddress remoteAddr =
+                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                        socket->getRemoteSocketAddress().getConstSockAddrPtr());
+                    pktinfo.setRemoteSocketAddress(remoteAddr);
+                }
+                if (socket->getLocalSocketAddress().getFamily() == AF_INET) {
+                    nidas::util::Inet4SocketAddress localAddr =
+                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                        socket->getLocalSocketAddress().getConstSockAddrPtr());
+                    pktinfo.setLocalAddress(localAddr.getInet4Address());
+                    pktinfo.setDestinationAddress(localAddr.getInet4Address());
+                }
                 _mcsocketMutex.lock();
-                if (_mcsocket) _mcsocket->offer(socket,0);
+                if (_mcsocket) _mcsocket->offer((SocketT*)socket,pktinfo);
                 _mcsocketMutex.unlock();
             }
             else {
                 // If fishing for UDP responses, send out at least 3 multicasts
                 // to see if we get more than one response.
                 if (numCasts < 3) continue;
+
+                // We know there is data at the socket, do a MSG_PEEK to get
+                // information about the first packet.
+                nidas::util::Inet4PacketInfoX pktinfo;
+                _datagramSocket->receive(dgram,pktinfo,MSG_PEEK);
+                if (dgram.getSocketAddress().getFamily() == AF_INET) {
+                    nidas::util::Inet4SocketAddress remoteAddr =
+                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                        dgram.getSocketAddress().getConstSockAddrPtr());
+                    pktinfo.setRemoteSocketAddress(remoteAddr);
+                }
+
                 _mcsocketMutex.lock();
-                if (_mcsocket) _mcsocket->offer(_datagramSocket,0);
-                _datagramSocket = 0;
+                if (_mcsocket) _mcsocket->offer((SocketT*)_datagramSocket,pktinfo);
+                _datagramSocket = 0;    // we no longer own _datagramSocket
                 _mcsocketMutex.unlock();
             }
             _requestSocket->close();
@@ -901,7 +949,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster break");
 #endif
     _mcsocketMutex.lock();
-    if (_mcsocket) _mcsocket->offer(0,EINTR);
+    if (_mcsocket) _mcsocket->offer(EINTR);
     _mcsocketMutex.unlock();
     if (_serverSocket) _serverSocket->close();
     if (_datagramSocket) _datagramSocket->close();

@@ -20,8 +20,7 @@
 #define NIDAS_CORE_DSMTIME_H
 
 #include <sys/time.h>
-
-#include <nidas/core/Sample.h>
+#include <nidas/util/IOException.h>
 
 #ifndef SECS_PER_DAY
 #define SECS_PER_DAY 86400
@@ -78,8 +77,10 @@
 #define NSECS_PER_TMSEC 100000
 #endif
 
-
 namespace nidas { namespace core {
+
+/** Microseconds since Jan 1 1970, 00:00 UTC */
+typedef long long dsm_time_t;
 
 /**
  * Return the current unix system time, in microseconds 
@@ -110,6 +111,13 @@ inline dsm_time_t timeCeiling(dsm_time_t t,long long delta) {
 inline dsm_time_t timeFloor(dsm_time_t t,long long delta) {
     return (t / delta) * delta;
 }
+
+/**
+ * Utility function, sleeps until the next even period + offset.
+ * Returns true of interrupted.
+ */
+bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
+    throw(nidas::util::IOException);
 
 }}	// namespace nidas namespace core
 

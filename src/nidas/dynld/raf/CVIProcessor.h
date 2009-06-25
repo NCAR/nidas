@@ -36,14 +36,7 @@ public:
 
     CVIProcessor();
 
-    /**
-     * Copy constructor.
-     */
-    CVIProcessor(const CVIProcessor&);
-
     ~CVIProcessor();
-
-    CVIProcessor* clone() const;
 
     /**
      * No need to clone.
@@ -62,7 +55,7 @@ public:
      * initialization necessary before invoking this
      * CVIProcessor::connect().
      */
-    void connect(SampleInput*) throw(nidas::util::IOException);
+    void connect(SampleInput*) throw();
 
     /**
      * Disconnect a SampleInput from this CVIProcessor.
@@ -75,14 +68,14 @@ public:
      * 1. do: output->init().
      * 2. add output to a list of connected outputs.
      */
-    void connected(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* orig,SampleOutput* output) throw();
 
     /**
      * Do common operations necessary when a output has disconnected:
      * 1. do: output->close().
      * 2. remove output from a list of connected outputs.
      */
-    void disconnected(SampleOutput* output) throw();
+    void disconnect(SampleOutput* output) throw();
 
     void setD2ADeviceName(const std::string& val)
     {
@@ -151,6 +144,16 @@ private:
     float _vouts[5];
 
     int _douts[4];
+
+    /**
+     * Copy not supported
+     */
+    CVIProcessor(const CVIProcessor&);
+
+    /**
+     * Assignment not supported
+     */
+    CVIProcessor& operator=(const CVIProcessor&);
 
 };
 

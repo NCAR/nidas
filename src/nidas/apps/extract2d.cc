@@ -21,7 +21,7 @@
  * write it to a new file.
  */
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/DSMEngine.h>
@@ -278,7 +278,7 @@ int Extract2D::run() throw()
         }
 
         dsm_sample_id_t fast2dc_id = 0;
-        FileSet * fset = new nidas::dynld::FileSet();
+        nidas::core::FileSet * fset = new nidas::core::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();
         for (; fi != inputFileNames.end(); ++fi)

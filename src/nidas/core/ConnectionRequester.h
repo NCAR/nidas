@@ -19,24 +19,13 @@
 
 #include <nidas/core/DSMTime.h>
 #include <nidas/util/IOException.h>
+#include <nidas/util/Inet4PacketInfo.h>
 
 namespace nidas { namespace core {
 
 class IOChannel;
 class SampleInput;
 class SampleOutput;
-
-/**
- * Interface for an object that requests connections to Inputs
- * or Outputs.
- */
-class ConnectionRequester
-{
-public:
-    virtual ~ConnectionRequester() {}
-    virtual void connected(IOChannel*) throw() {}
-    virtual void disconnected(IOChannel*) throw() {}
-};
 
 /**
  * Interface for an object that requests connections to SampleInputs
@@ -46,10 +35,10 @@ class SampleConnectionRequester
 {
 public:
     virtual ~SampleConnectionRequester() {}
-    virtual void connected(SampleInput*) throw() {}
-    virtual void connected(SampleOutput* origout, SampleOutput* newout) throw() {}
-    virtual void disconnected(SampleInput*) throw() {}
-    virtual void disconnected(SampleOutput*) throw() {}
+    virtual void connect(SampleInput*) throw() = 0;
+    virtual void connect(SampleOutput* origout, SampleOutput* newout) throw() = 0;
+    virtual void disconnect(SampleInput*) throw() = 0;
+    virtual void disconnect(SampleOutput*) throw() = 0;
 
     /**
      * sendHeader will be called when a client of SampleConnectRequester

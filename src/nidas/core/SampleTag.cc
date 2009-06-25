@@ -259,3 +259,31 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
         }
     }
 }
+
+xercesc::DOMElement* SampleTag::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("sample"));
+    parent->appendChild(elem);
+    return toDOMElement(elem,complete);
+}
+
+xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+    if (complete) return 0; // not supported yet
+
+    dsm_sample_id_t id = getId();
+    ostringstream ost;
+    ost << id;
+    XDOMElement xelem(elem);
+    xelem.setAttributeValue("id",ost.str());
+    for (VariableIterator vi = getVariableIterator(); vi.hasNext(); ) {
+        const Variable* var = vi.next();
+        var->toDOMParent(elem,complete);
+    }
+    return elem;
+}

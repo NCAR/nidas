@@ -38,6 +38,7 @@ CVIProcessor::CVIProcessor():
     setName("CVIProcessor");
 }
 
+#ifdef NEED_COPY_CLONE
 /*
  * Copy constructor
  */
@@ -49,14 +50,14 @@ CVIProcessor::CVIProcessor(const CVIProcessor& x):
         _lvSensor(0)
 {
 }
-
-CVIProcessor::~CVIProcessor()
-{
-}
-
 CVIProcessor* CVIProcessor::clone() const
 {
     return new CVIProcessor(*this);
+}
+#endif
+
+CVIProcessor::~CVIProcessor()
+{
 }
 
 void CVIProcessor::addSampleTag(SampleTag* tag)
@@ -75,7 +76,7 @@ void CVIProcessor::addSampleTag(SampleTag* tag)
     }
 }
 
-void CVIProcessor::connect(SampleInput* input) throw(n_u::IOException)
+void CVIProcessor::connect(SampleInput* input) throw()
 {
     /*
      * Find a match with a variable from the CVI sample:
@@ -214,18 +215,17 @@ void CVIProcessor::disconnect(SampleInput* input) throw()
     }
 }
  
-void CVIProcessor::connected(SampleOutput* orig,
-	SampleOutput* output) throw()
+void CVIProcessor::connect(SampleOutput* orig, SampleOutput* output) throw()
 {
-    SampleIOProcessor::connected(orig,output);
+    SampleIOProcessor::connect(orig,output);
     if (_resampler) _resampler->addSampleClient(output);
 }
  
-void CVIProcessor::disconnected(SampleOutput* output) throw()
+void CVIProcessor::disconnect(SampleOutput* output) throw()
 {
     _resampler->removeSampleClient(output);
     SampleOutput* orig = _outputMap[output];
-    SampleIOProcessor::disconnected(output);
+    SampleIOProcessor::disconnect(output);
     if (orig) orig->requestConnection(this);
 }
 

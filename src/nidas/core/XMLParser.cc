@@ -30,44 +30,43 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
-DOMImplementation* XMLImplementation::impl = 0;
-n_u::Mutex XMLImplementation::lock;
+xercesc::DOMImplementation* XMLImplementation::_impl = 0;
+n_u::Mutex XMLImplementation::_lock;
 
 /* static */
-DOMImplementation*
+xercesc::DOMImplementation*
 XMLImplementation::getImplementation() throw(nidas::core::XMLException)
 {
-    if (!impl) {
-	n_u::Synchronized autosync(lock);
-	if (!impl) {
-	    XMLPlatformUtils::Initialize();
+    if (!_impl) {
+	n_u::Synchronized autosync(_lock);
+	if (!_impl) {
+	    xercesc::XMLPlatformUtils::Initialize();
 
 	    // Instantiate the DOM parser.
 
 	    // "LS" is the Load and Save feature.
 	    // See: http://www.w3.org/TR/DOM-Level-3-LS/load-save.html
 	    // no exceptions thrown, but may return null if no implementation
-	    static const XMLCh gLS[] = { chLatin_L, chLatin_S, chNull };
-	    impl = DOMImplementationRegistry::getDOMImplementation(gLS);
-	    if (!impl) throw nidas::core::XMLException(
+	    static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
+	    _impl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
+	    if (!_impl) throw nidas::core::XMLException(
 	    	string("DOMImplementationRegistry::getDOMImplementation(gLS) failed"));
 	}
     }
-    return impl;
+    return _impl;
 }
     
 /* static */
 void XMLImplementation::terminate()
 {
-    if (!impl) {
-	n_u::Synchronized autosync(lock);
-	if (impl) {
-	    XMLPlatformUtils::Terminate();
-	    impl = 0;
+    if (!_impl) {
+	n_u::Synchronized autosync(_lock);
+	if (_impl) {
+	    xercesc::XMLPlatformUtils::Terminate();
+	    _impl = 0;
 	}
     }
 }
@@ -76,7 +75,7 @@ void XMLImplementation::terminate()
 XMLParser::XMLParser() throw (nidas::core::XMLException)
 {
 
-    impl = XMLImplementation::getImplementation();
+    _impl = XMLImplementation::getImplementation();
     
     // Two kinds of builders: MODE_SYNCHRONOUS and MODE_ASYNCHRONOUS
     // ASYNC: The parseURI method returns null because the doc isn't
@@ -88,44 +87,46 @@ XMLParser::XMLParser() throw (nidas::core::XMLException)
     //
     try {
 	// throws DOMException
-	parser = ((DOMImplementationLS*)impl)->createDOMBuilder(
-		    DOMImplementationLS::MODE_SYNCHRONOUS, 0);
+	_parser = ((xercesc::DOMImplementationLS*)_impl)->createDOMBuilder(
+		    xercesc::DOMImplementationLS::MODE_SYNCHRONOUS, 0);
     }
-    catch (const DOMException& e) {
+    catch (const xercesc::DOMException& e) {
         throw nidas::core::XMLException(e);
     }
+
+    // User owns the DOMDocument, not the parser.
     setXercesUserAdoptsDOMDocument(true);
 
     // Create our error handler and install it
-    parser->setErrorHandler(&errorHandler);
+    _parser->setErrorHandler(&_errorHandler);
 }
 
 void XMLParser::setDOMValidation(bool val) {
-    parser->setFeature(XMLUni::fgDOMValidation, val);
+    _parser->setFeature(xercesc::XMLUni::fgDOMValidation, val);
 }
 
 void XMLParser::setDOMValidateIfSchema(bool val) {
-    parser->setFeature(XMLUni::fgDOMValidateIfSchema, val);
+    _parser->setFeature(xercesc::XMLUni::fgDOMValidateIfSchema, val);
 }
 
 void XMLParser::setDOMNamespaces(bool val) {
-    parser->setFeature(XMLUni::fgDOMNamespaces, val);
+    _parser->setFeature(xercesc::XMLUni::fgDOMNamespaces, val);
 }
 
 void XMLParser::setXercesSchema(bool val) {
-    parser->setFeature(XMLUni::fgXercesSchema, val);
+    _parser->setFeature(xercesc::XMLUni::fgXercesSchema, val);
 }
 
 void XMLParser::setXercesSchemaFullChecking(bool val) {
-    parser->setFeature(XMLUni::fgXercesSchemaFullChecking, val);
+    _parser->setFeature(xercesc::XMLUni::fgXercesSchemaFullChecking, val);
 }
 
 void XMLParser::setDOMDatatypeNormalization(bool val) {
-    parser->setFeature(XMLUni::fgDOMDatatypeNormalization, val);
+    _parser->setFeature(xercesc::XMLUni::fgDOMDatatypeNormalization, val);
 }
 
 void XMLParser::setXercesUserAdoptsDOMDocument(bool val) {
-    parser->setFeature(XMLUni::fgXercesUserAdoptsDOMDocument, val);
+    _parser->setFeature(xercesc::XMLUni::fgXercesUserAdoptsDOMDocument, val);
 }
 
 XMLParser::~XMLParser() 
@@ -137,17 +138,17 @@ XMLParser::~XMLParser()
     //  parser->release() is the same as delete parser.
 
     // cerr << "parser release" << endl;
-    parser->release();
+    _parser->release();
 
 }
 
 
-DOMDocument* XMLParser::parse(const string& xmlFile) 
+xercesc::DOMDocument* XMLParser::parse(const string& xmlFile) 
     throw (nidas::core::XMLException)
 {
 
     //reset error count first
-    errorHandler.resetErrors();
+    _errorHandler.resetErrors();
 
     /* 
 	If the DOMBuilder is a synchronous DOMBuilder the newly
@@ -156,11 +157,11 @@ DOMDocument* XMLParser::parse(const string& xmlFile)
 	the document object is not yet parsed when this method returns. 
      */
     // throws XMLException, DOMException, SAXException
-    DOMDocument* doc = 0;
+    xercesc::DOMDocument* doc = 0;
     try {
-	doc = parser->parseURI(
+	doc = _parser->parseURI(
 	    (const XMLCh*)XMLStringConverter(xmlFile.c_str()));
-	const XMLException* xe = errorHandler.getXMLException();
+	const XMLException* xe = _errorHandler.getXMLException();
 	if (xe) throw *xe;
     }
     catch (const xercesc::XMLException& e) { throw nidas::core::XMLException(e); }
@@ -169,19 +170,19 @@ DOMDocument* XMLParser::parse(const string& xmlFile)
     return doc;
 }
 
-DOMDocument* XMLParser::parse(xercesc::InputSource& source) 
+xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source) 
     throw (nidas::core::XMLException)
 {
 
     //reset error count first
-    errorHandler.resetErrors();
+    _errorHandler.resetErrors();
 
-    DOMDocument* doc = 0;
+    xercesc::DOMDocument* doc = 0;
     try {
 	xercesc::Wrapper4InputSource wrapper(&source,false);
-        doc = parser->parse(wrapper);
+        doc = _parser->parse(wrapper);
 	// throws SAXException, XMLException, DOMException
-	const XMLException* xe = errorHandler.getXMLException();
+	const XMLException* xe = _errorHandler.getXMLException();
 	if (xe) throw *xe;
     }
     catch (const xercesc::XMLException& e) { throw nidas::core::XMLException(e); }
@@ -190,20 +191,20 @@ DOMDocument* XMLParser::parse(xercesc::InputSource& source)
     return doc;
 }
 
-XMLErrorHandler::XMLErrorHandler(): xmlException(0)
+XMLErrorHandler::XMLErrorHandler(): _xmlException(0)
 {
 }
 
 XMLErrorHandler::~XMLErrorHandler()
 {
-    delete xmlException;
+    delete _xmlException;
 }
 
 
 // ---------------------------------------------------------------------------
 //  XMLErrorHandler interface
 // ---------------------------------------------------------------------------
-bool XMLErrorHandler::handleError(const DOMError& domError)
+bool XMLErrorHandler::handleError(const xercesc::DOMError& domError)
 {
 
     string uri = XMLStringConverter(domError.getLocation()->getURI());
@@ -218,48 +219,48 @@ bool XMLErrorHandler::handleError(const DOMError& domError)
 	ost << msg;
 
     // cerr << ost.str() << endl;
-    if (domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING)
-	warningMessages.push_back(ost.str());
-    else if (domError.getSeverity() == DOMError::DOM_SEVERITY_ERROR)
-        xmlException = new XMLException(ost.str());
+    if (domError.getSeverity() == xercesc::DOMError::DOM_SEVERITY_WARNING)
+	_warningMessages.push_back(ost.str());
+    else if (domError.getSeverity() == xercesc::DOMError::DOM_SEVERITY_ERROR)
+        _xmlException = new XMLException(ost.str());
     else 
-        xmlException = new XMLException(ost.str());
+        _xmlException = new XMLException(ost.str());
 
     // true=proceed, false=give up
-    return domError.getSeverity() == DOMError::DOM_SEVERITY_WARNING;
+    return domError.getSeverity() == xercesc::DOMError::DOM_SEVERITY_WARNING;
 }
 
 void XMLErrorHandler::resetErrors()
 {
-    warningMessages.clear();
-    delete xmlException;
-    xmlException = 0;
+    _warningMessages.clear();
+    delete _xmlException;
+    _xmlException = 0;
 }
 
 /* static */
-XMLCachingParser* XMLCachingParser::instance = 0;
+XMLCachingParser* XMLCachingParser::_instance = 0;
 
 /* static */
-n_u::Mutex XMLCachingParser::instanceLock;
+n_u::Mutex XMLCachingParser::_instanceLock;
 
 /* static */
 XMLCachingParser* XMLCachingParser::getInstance()
     throw(nidas::core::XMLException)
 {
-    if (!instance) {
-        n_u::Synchronized autosync(instanceLock);
-        if (!instance) instance = new XMLCachingParser();
+    if (!_instance) {
+        n_u::Synchronized autosync(_instanceLock);
+        if (!_instance) _instance = new XMLCachingParser();
     }
-    return instance;
+    return _instance;
 }
 
 /* static */
 void XMLCachingParser::destroyInstance()
 {
-    if (instance) {
-        n_u::Synchronized autosync(instanceLock);
-        if (instance) delete instance;
-	instance = 0;
+    if (_instance) {
+        n_u::Synchronized autosync(_instanceLock);
+        if (_instance) delete _instance;
+	_instance = 0;
     }
 }
 
@@ -270,34 +271,34 @@ XMLCachingParser::XMLCachingParser() throw(nidas::core::XMLException):
 
 XMLCachingParser::~XMLCachingParser()
 {
-    n_u::Synchronized autosync(cacheLock);
-    map<string,DOMDocument*>::const_iterator di;
-    for (di = docCache.begin(); di != docCache.end(); ++di) {
-	DOMDocument* doc = di->second;
+    n_u::Synchronized autosync(_cacheLock);
+    map<string,xercesc::DOMDocument*>::const_iterator di;
+    for (di = _docCache.begin(); di != _docCache.end(); ++di) {
+	xercesc::DOMDocument* doc = di->second;
 	if (doc) doc->release();
     }
 }
 
-DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
+xercesc::DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
     throw (nidas::core::XMLException,nidas::util::IOException)
 {
     // synchronize access to the cache
-    n_u::Synchronized autosync(cacheLock);
+    n_u::Synchronized autosync(_cacheLock);
 
     // modification time of file when it was last parsed
-    time_t lastModTime = modTimeCache[xmlFile];
+    time_t lastModTime = _modTimeCache[xmlFile];
 
     // latest modification time of file
     time_t modTime = getFileModTime(xmlFile);
 
     // results of last parse (will be 0 if not previously parsed)
-    DOMDocument* doc = docCache[xmlFile];
+    xercesc::DOMDocument* doc = _docCache[xmlFile];
 
     if (modTime > lastModTime || !doc) {
 	if (doc) doc->release();
         doc = XMLParser::parse(xmlFile);
-	modTimeCache[xmlFile] = modTime;
-	docCache[xmlFile] = doc;
+	_modTimeCache[xmlFile] = modTime;
+	_docCache[xmlFile] = doc;
     }
     return doc;
 }

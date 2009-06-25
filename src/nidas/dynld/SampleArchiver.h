@@ -32,24 +32,19 @@ public:
     
     SampleArchiver();
 
-    /**
-     * Copy constructor.
-     */
-    SampleArchiver(const SampleArchiver& x);
-
     virtual ~SampleArchiver();
 
-    SampleArchiver* clone() const;
+    // SampleArchiver* clone() const;
 
-    bool cloneOnConnection() const { return false; }
+    // bool cloneOnConnection() const { return false; }
 
-    void connect(SampleInput*) throw(nidas::util::IOException);
+    void connect(SampleInput*) throw();
 
     void disconnect(SampleInput*) throw();
 
-    void connected(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* orig,SampleOutput* output) throw();
 
-    void disconnected(SampleOutput* output) throw();
+    void disconnect(SampleOutput* output) throw();
 
     void printStatus(std::ostream&,float deltat,int&) throw();
 
@@ -82,6 +77,16 @@ protected:
 
     std::map<const nidas::dynld::FileSet*,long long> _nbytesLastByFileSet;
 
+private:
+    /**
+     * Copy not supported.
+     */
+    SampleArchiver(const SampleArchiver& x);
+
+    /**
+     * Assignment not supported.
+     */
+    SampleArchiver& operator=(const SampleArchiver& x);
 };
 
 }}	// namespace nidas namespace core

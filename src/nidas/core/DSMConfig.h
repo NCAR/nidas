@@ -19,13 +19,10 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleOutput.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/util/Inet4SocketAddress.h>
 
 #include <list>
-
-namespace nidas { namespace dynld {
-    class FileSet;
-} }
 
 namespace nidas { namespace core {
 
@@ -73,7 +70,7 @@ public:
 
     const std::list<SampleOutput*>& getOutputs() const { return outputs; }
 
-    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
+    std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets() const;
 
     unsigned short getRemoteSerialSocketPort() const { return remoteSerialSocketPort; }
 
@@ -87,6 +84,14 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
+
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
+    		throw(xercesc::DOMException);
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields

@@ -40,8 +40,8 @@ public:
     static void terminate();
 
 private:
-    static xercesc::DOMImplementation *impl;
-    static nidas::util::Mutex lock;
+    static xercesc::DOMImplementation *_impl;
+    static nidas::util::Mutex _lock;
 };
     
 class XMLErrorHandler : public xercesc::DOMErrorHandler
@@ -60,12 +60,12 @@ public:
 
     void resetErrors();
 
-    int getWarningCount() const { return warningMessages.size(); }
+    int getWarningCount() const { return _warningMessages.size(); }
 
     const std::list<std::string>& getWarningMessages() const
-    	{ return warningMessages; }
+    	{ return _warningMessages; }
 
-    const XMLException* getXMLException() const { return xmlException; }
+    const XMLException* getXMLException() const { return _xmlException; }
 
 private :
 
@@ -79,12 +79,12 @@ private :
     /**
      * Accumulated warning messages.
      */
-    std::list<std::string> warningMessages;
+    std::list<std::string> _warningMessages;
 
     /**
      * Accumulated error messages.
      */
-    XMLException* xmlException;
+    XMLException* _xmlException;
 
 };
 /**
@@ -107,7 +107,7 @@ public:
 
     /**
      * DOMBuilder::setFilter is not yet implemented in xerces c++ 2.6.0 
-    void setFilter(DOMBuilderFilter* filter)
+    void setFilter(xercesc::DOMBuilderFilter* filter)
      */
 
     /**
@@ -199,9 +199,9 @@ public:
 
 protected:
     
-    xercesc::DOMImplementation *impl;
-    xercesc::DOMBuilder *parser;
-    XMLErrorHandler errorHandler;
+    xercesc::DOMImplementation *_impl;
+    xercesc::DOMBuilder *_parser;
+    XMLErrorHandler _errorHandler;
 
 };
 
@@ -243,14 +243,13 @@ protected:
     ~XMLCachingParser();
 
 protected:
-    static XMLCachingParser* instance;
-    static nidas::util::Mutex instanceLock;
+    static XMLCachingParser* _instance;
+    static nidas::util::Mutex _instanceLock;
 
+    std::map<std::string,time_t> _modTimeCache;
+    std::map<std::string,xercesc::DOMDocument*> _docCache;
 
-    std::map<std::string,time_t> modTimeCache;
-    std::map<std::string,xercesc::DOMDocument*> docCache;
-
-    nidas::util::Mutex cacheLock;
+    nidas::util::Mutex _cacheLock;
 };
 
 }}	// namespace nidas namespace core

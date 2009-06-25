@@ -46,7 +46,11 @@ RawSampleService::~RawSampleService()
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	if (!proc->isOptional()) {
+#ifdef NEED_COPY_CLONE
 	    if (!proc->cloneOnConnection() && _merger) proc->disconnect(_merger);
+#else
+	    if (_merger) proc->disconnect(_merger);
+#endif
 	}
     }
     delete _merger;
@@ -85,7 +89,12 @@ void RawSampleService::schedule() throw(n_u::Exception)
     list<SampleIOProcessor*>::const_iterator oi;
     for (oi = _processors.begin(); oi != _processors.end(); ++oi) {
         SampleIOProcessor* processor = *oi;
-	if (!processor->isOptional() && !processor->cloneOnConnection()) {
+#ifdef NEED_COPY_CLONE
+	if (!processor->isOptional() && !processor->cloneOnConnection())
+#else
+	if (!processor->isOptional())
+#endif
+        {
 	    try {
 		processor->connect(_merger);
 	    }
@@ -107,37 +116,19 @@ void RawSampleService::schedule() throw(n_u::Exception)
  * This method is called when a SampleInput is connected.
  * It may be called multiple times as each DSM makes a connection.
  */
-void RawSampleService::connected(SampleInput* input) throw()
+void RawSampleService::connect(SampleInput* input) throw()
 {
     // Figure out what DSM it came from
     SampleInputStream* stream =
         dynamic_cast<SampleInputStream*>(input);
     assert(stream);
 
-    n_u::Inet4Address remoteAddr = stream->getRemoteInet4Address();
-    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
-
-    // perhaps the request came directly from one of my interfaces.
-    // If so, see if there is a "localhost" dsm.
-    if (!dsm) {
-        n_u::Socket tmpsock;
-        list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
-        tmpsock.close();
-        list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-        for ( ; !dsm && ii != ifaces.end(); ++ii) {
-            n_u::Inet4NetworkInterface iface = *ii;
-            // cerr << "iface=" << iface.getAddress().getHostAddress() << endl;
-            if (iface.getAddress() == remoteAddr) {
-                remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
-                dsm = Project::getInstance()->findDSM(remoteAddr);
-            }
-        }
-    }
+    const DSMConfig* dsm = stream->getDSMConfig();
 
     if (!dsm) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "RawSampleService: connection from %s does not match an address of any dsm. Ignoring connection.",
-		remoteAddr.getHostAddress().c_str());
+	    "RawSampleService: input %s does not match an address of any dsm. Ignoring connection.",
+		input->getName().c_str());
 	stream->close();
         delete stream;
 	return;
@@ -183,7 +174,7 @@ void RawSampleService::connected(SampleInput* input) throw()
  * and so things may clean up by themselves, but we do a thread
  * interrupt here to make sure.
  */
-void RawSampleService::disconnected(SampleInput* input) throw()
+void RawSampleService::disconnect(SampleInput* input) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s has disconnected from %s",
@@ -194,8 +185,7 @@ void RawSampleService::disconnected(SampleInput* input) throw()
     	" input=" << input << endl;
 
     // Figure out what DSM it came from. Not necessary, just for info.
-    n_u::Inet4Address remoteAddr = input->getRemoteInet4Address();
-    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
+    const DSMConfig* dsm = input->getDSMConfig();
 
     cerr << "RawSampleService::disconnected, dsm=" << dsm << endl;
 #endif
@@ -230,6 +220,7 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
     blockSignal(SIGTERM);
 
     // loop over svc's processors
+#ifdef NEED_COPY_CLONE
     const list<SampleIOProcessor*>& procs = _svc->getProcessors();
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = procs.begin(); pi != procs.end(); ++pi) {
@@ -241,6 +232,7 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
             _processors.push_back(nproc);
 	}
     }
+#endif
 }
 
 RawSampleService::Worker::~Worker()
@@ -248,6 +240,7 @@ RawSampleService::Worker::~Worker()
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
         SampleIOProcessor* processor = *pi;
+	    processor->connect(_input);
         delete processor;
     }
     delete _input;
@@ -294,7 +287,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
     }
 
     _input->flush();
-    _svc->disconnected(_input);
+    _svc->disconnect(_input);
     for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
         SampleIOProcessor* processor = *pi;
         processor->disconnect(_input);

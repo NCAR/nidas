@@ -111,6 +111,11 @@ std::string UnixSocketAddress::toString() const
     return ost.str();
 }
 
+std::string UnixSocketAddress::toAddressString() const
+{
+    return toString();
+}
+
 /**
  * Comparator operator for addresses. Useful if this
  * address is a key in an STL map.

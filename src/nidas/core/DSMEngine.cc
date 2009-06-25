@@ -35,7 +35,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -181,10 +180,13 @@ int DSMEngine::main(int argc, char** argv) throw()
         return 1;
     }
 
+#ifdef DO_MLOCKALL
+    ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
     if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
         n_u::IOException e("dsm","mlockall",errno);
         n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
     }
+#endif
     long minflts,majflts,nswap;
     getPageFaults(minflts,majflts,nswap);
 
@@ -338,12 +340,12 @@ void DSMEngine::initLogger()
 
 int DSMEngine::run() throw()
 {
-    DOMDocument* projectDoc = 0;
+    xercesc::DOMDocument* projectDoc = 0;
 
     for (; _nextState != QUIT; ) {
 
         // cleanup before re-starting the loop
-        deleteDataThreads();
+        joinDataThreads();
 
         disconnectProcessors();
 
@@ -359,6 +361,12 @@ int DSMEngine::run() throw()
             _project = 0;
             _dsmConfig = 0;
         }
+
+        // One of the data threads is the SensorHandler. Deleting the SensorHandler
+        // deletes all the sensors. They should be deleted after the
+        // project is deleted since various objects in the project may
+        // hold references to the sensors.
+        deleteDataThreads();
 
         if (_runState == ERROR && _nextState != STOP) sleep(15);
 
@@ -445,7 +453,7 @@ int DSMEngine::run() throw()
 
     interrupt();
 
-    deleteDataThreads();
+    joinDataThreads();
 
     disconnectProcessors();
 
@@ -461,6 +469,7 @@ int DSMEngine::run() throw()
         _project = 0;
         _dsmConfig = 0;
     }
+    deleteDataThreads();
 
     return _runState == ERROR;
 }
@@ -479,20 +488,17 @@ void DSMEngine::interrupt()
     if (_selector) _selector->interrupt();
 }
 
-void DSMEngine::deleteDataThreads() throw()
+void DSMEngine::joinDataThreads() throw()
 {
     // stop/join the status thread before closing sensors.
     // The status thread also loops over sensors.
     if (_statusThread) {
         try {
-            // if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
             ELOG(("%s",e.what()));
         }
-        delete _statusThread;
-        _statusThread = 0;
     }
 
     if (_selector) {
@@ -502,20 +508,36 @@ void DSMEngine::deleteDataThreads() throw()
         catch (const n_u::Exception& e) {
             ELOG(("%s",e.what()));
         }
+    }
+
+    if (DerivedDataReader::getInstance()) {
+        try {
+            if (DerivedDataReader::getInstance()->isRunning()) {
+                DerivedDataReader::getInstance()->interrupt();
+                DerivedDataReader::getInstance()->cancel();
+            }
+            DerivedDataReader::getInstance()->join();
+        }
+        catch (const n_u::Exception& e) {
+            ELOG(("%s",e.what()));
+        }
+    }
+}
+
+void DSMEngine::deleteDataThreads() throw()
+{
+    if (_statusThread) {
+        delete _statusThread;
+        _statusThread = 0;
+    }
+
+    if (_selector) {
         delete _selector;	// this closes any still-open sensors
         _selector = 0;
     }
 
     if (DerivedDataReader::getInstance()) {
-        try {
-            if (DerivedDataReader::getInstance()->isRunning())
-                DerivedDataReader::getInstance()->kill(SIGUSR1);
-            DerivedDataReader::getInstance()->join();
-            DerivedDataReader::deleteInstance();
-        }
-        catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
-        }
+        DerivedDataReader::deleteInstance();
     }
 }
 
@@ -646,7 +668,7 @@ void DSMEngine::killXmlRpcThread() throw()
 
 }
 
-DOMDocument* DSMEngine::requestXMLConfig(
+xercesc::DOMDocument* DSMEngine::requestXMLConfig(
 	const n_u::Inet4SocketAddress &mcastAddr)
 	throw(n_u::Exception)
 {
@@ -672,7 +694,8 @@ DOMDocument* DSMEngine::requestXMLConfig(
 
     auto_ptr<n_u::Socket> configSock;
     try {
-        configSock.reset(_xmlRequestSocket->connect());
+        n_u::Inet4PacketInfoX pktinfo;
+        configSock.reset(_xmlRequestSocket->connect(pktinfo));
     }
     catch(...) {
         _xmlRequestMutex.lock();
@@ -693,7 +716,7 @@ DOMDocument* DSMEngine::requestXMLConfig(
     }
     _xmlRequestMutex.unlock();
 
-    DOMDocument* doc = 0;
+    xercesc::DOMDocument* doc = 0;
     try {
         std::string sockName = configSock->getRemoteSocketAddress().toString();
         XMLFdInputSource sockSource(sockName,configSock->getFd());
@@ -718,7 +741,7 @@ DOMDocument* DSMEngine::requestXMLConfig(
 }
 
 /* static */
-DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
+xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
@@ -736,11 +759,11 @@ DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
     parser->setDOMDatatypeNormalization(false);
     parser->setXercesUserAdoptsDOMDocument(true);
 
-    DOMDocument* doc = parser->parse(xmlFileName);
+    xercesc::DOMDocument* doc = parser->parse(xmlFileName);
     return doc;
 }
 
-void DSMEngine::initialize(DOMDocument* projectDoc)
+void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	throw(n_u::InvalidParameterException)
 {
     _project = Project::getInstance();
@@ -822,7 +845,7 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
 /* A remote system has connnected to one of our outputs.
  * We don't clone the output here.
  */
-void DSMEngine::connected(SampleOutput* orig,SampleOutput* output) throw()
+void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"DSMEngine: connection from %s: %s",
@@ -834,7 +857,7 @@ void DSMEngine::connected(SampleOutput* orig,SampleOutput* output) throw()
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "DSMEngine: error in init of %s: %s",
 	    	output->getName().c_str(),ioe.what());
-	disconnected(output);
+	disconnect(output);
     }
 
     const list<DSMSensor*> sensors = _selector->getAllSensors();
@@ -867,9 +890,9 @@ void DSMEngine::connected(SampleOutput* orig,SampleOutput* output) throw()
  * An output wants to disconnect: probably the remote dsm_server went
  * down, or a client disconnected.
  */
-void DSMEngine::disconnected(SampleOutput* output) throw()
+void DSMEngine::disconnect(SampleOutput* output) throw()
 {
-    // cerr << "DSMEngine::disconnected, output=" << output << endl;
+    // cerr << "DSMEngine::disconnect, output=" << output << endl;
     const list<DSMSensor*> sensors = _selector->getAllSensors();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -929,7 +952,8 @@ void DSMEngine::connectProcessors() throw(n_u::IOException)
         SensorIterator si = _dsmConfig->getSensorIterator();
         for (; si.hasNext(); ) {
             DSMSensor* sensor = si.next();
-            SampleInputWrapper* input = new SampleInputWrapper(sensor);
+            sensor->init();
+            DSMSensorWrapper* input = new DSMSensorWrapper(sensor);
             _inputs.push_back(input);
             proc->connect(input);
         }
@@ -939,14 +963,14 @@ void DSMEngine::connectProcessors() throw(n_u::IOException)
 
 void DSMEngine::disconnectProcessors() throw()
 {
-    list<SampleInputWrapper*>::const_iterator ii;
+    list<DSMSensorWrapper*>::const_iterator ii;
     if (_dsmConfig) {
         ProcessorIterator pi = _dsmConfig->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            list<SampleInputWrapper*>::const_iterator ii = _inputs.begin();
+            list<DSMSensorWrapper*>::const_iterator ii = _inputs.begin();
             for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
-                SampleInputWrapper* input = *ii;
+                DSMSensorWrapper* input = *ii;
                 try {
                     proc->disconnect(input);
                 }

@@ -58,15 +58,20 @@ public:
     virtual std::string toString() const = 0;
 
     /**
+     * Java style toString, but no DNS lookup.
+     */
+    virtual std::string toAddressString() const = 0;
+
+    /**
      * Comparator operator for addresses. Useful if this
      * address is a key in an STL map.
      */
-    virtual bool operator < (const SocketAddress& x) const = 0;
+    // virtual bool operator < (const SocketAddress& x) const = 0;
 
     /**
      * Equality operator for addresses.
      */
-    virtual bool operator == (const SocketAddress& x) const = 0;
+    // virtual bool operator == (const SocketAddress& x) const = 0;
 
 };
 

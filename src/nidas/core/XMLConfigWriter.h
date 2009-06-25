@@ -19,12 +19,11 @@
 #include <nidas/core/DSMConfig.h>
 
 #include <nidas/core/XMLParser.h>
-#include <nidas/core/XMLException.h>
+#include <nidas/core/XMLWriter.h>
 
 #include <nidas/util/IOException.h>
 
 #include <xercesc/framework/XMLFormatter.hpp>
-#include <xercesc/dom/DOMWriter.hpp>
 
 namespace nidas { namespace core {
 
@@ -42,34 +41,28 @@ public:
 
     void setWhatToShow(unsigned long val);
 
-protected:
-    const DSMConfig* dsm;
-    unsigned long whatToShow;
+private:
+
+    const DSMConfig* _dsm;
+
+    unsigned long _whatToShow;
 
     short acceptDSMNode(const xercesc::DOMNode* node) const;
 };
 
 /**
- * Wrapper class around xerces-c DOMWriter to write XML.
+ * An XMLWriter which writes the NIDAS XML configuration.
  */
-class XMLConfigWriter {
+class XMLConfigWriter: public XMLWriter {
 public:
-
-    // XMLConfigWriter() throw(nidas::core::XMLException);
 
     XMLConfigWriter(const DSMConfig* dsm) throw(nidas::core::XMLException);
 
     ~XMLConfigWriter();
 
-    void writeNode(xercesc::XMLFormatTarget * dest,
-    	const xercesc::DOMNode& node)
-		throw(nidas::util::IOException);
-
-protected:
+private:
     
-    xercesc::DOMImplementation *impl;
-    xercesc::DOMWriter *writer;
-    XMLConfigWriterFilter* filter;
+    XMLConfigWriterFilter* _filter;
 };
 
 }}	// namespace nidas namespace core

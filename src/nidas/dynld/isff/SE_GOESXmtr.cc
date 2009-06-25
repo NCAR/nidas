@@ -1163,3 +1163,12 @@ size_t SE_GOESXmtr::write(const void* buf, size_t len) throw(n_u::IOException)
     return len;
 }
 
+size_t SE_GOESXmtr::write(const struct iovec* iov, int iovcnt) throw(n_u::IOException)
+{
+
+    size_t res = 0;
+    for (int i = 0; i < iovcnt; i++)
+        res += write(iov[i].iov_base,iov[i].iov_len);
+    return res;
+}
+

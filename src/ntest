@@ -3,10 +3,12 @@
 script=$0
 dir=${script%/*}
 
-export LD_LIBRARY_PATH=$dir/build_x86/build_core:$dir/build_x86/build_dynld
+export LD_LIBRARY_PATH=$dir/build_x86/build_util:$dir/build_x86/build_core:$dir/build_x86/build_dynld
 
 app=$1
 shift
+
+ldd $dir/build_x86/build_apps/$app
 
 $dir/build_x86/build_apps/$app "$@"
 

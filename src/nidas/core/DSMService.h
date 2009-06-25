@@ -121,7 +121,7 @@ protected:
 
     std::list<SampleIOProcessor*> _processors;
 
-    std::list<IOChannel*> _outputs;
+    std::list<IOChannel*> _ochans;
 
     nidas::util::Thread::SchedPolicy _threadPolicy;
 

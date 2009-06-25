@@ -35,9 +35,13 @@ public:
 
     ~RawSampleService();
 
-    void connected(SampleInput*) throw();
+    void connect(SampleInput*) throw();
 
-    void disconnected(SampleInput*) throw();
+    void disconnect(SampleInput*) throw();
+
+    void connect(SampleOutput*,SampleOutput*) throw() { assert(false); }
+
+    void disconnect(SampleOutput*) throw() { assert(false); }
 
     void schedule() throw(nidas::util::Exception);
 

@@ -19,7 +19,10 @@
 #include <nidas/util/Logger.h>
 
 #include <iostream>
+
+#if __BYTE_ORDER == __BIG_ENDIAN
 #include <byteswap.h>
+#endif
 
 using namespace nidas::dynld;
 using namespace nidas::core;
@@ -31,7 +34,7 @@ NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
 	SampleOutputBase(i),
-        _iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
+        _iostream(0)
 {
 }
 
@@ -40,7 +43,7 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
  */
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 	SampleOutputBase(x),
-        _iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
+        _iostream(0)
 {
 }
 
@@ -50,7 +53,7 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
 
 SampleOutputStream::SampleOutputStream(const SampleOutputStream& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),
-	_iostream(0),_nsamplesDiscarded(0),_nsamples(0),_lastTimeTag(0)
+	_iostream(0)
 {
 }
 
@@ -116,10 +119,10 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	}
 	bool success = write(samp) > 0;
 	if (!success) {
-	    if (!(_nsamplesDiscarded++ % 1000)) 
+	    if (!(incrementDiscardedSamples() % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %d samples discarded due to output jambs\n",
-		    getName().c_str(),_nsamplesDiscarded);
+		    "%s: %lld samples discarded due to output jambs\n",
+		    getName().c_str(),getNumDiscardedSamples());
 	}
 	else if (first_sample) {
 	    // Force the first sample to get written out with the header,
@@ -148,31 +151,30 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 #ifdef DEBUG
     static int nsamps = 0;
 #endif
-    const void* bufs[2];
-    size_t lens[2];
+    struct iovec iov[2];
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     SampleHeader header;
     header.setTimeTag(bswap_64(samp->getTimeTag()));
     header.setDataByteLength(bswap_32(samp->getDataByteLength()));
     header.setRawId(bswap_32(samp->getRawId()));
-    bufs[0] = &header;
-    lens[0] = SampleHeader::getSizeOf();
+    iov[0].iov_base = &header;
+    iov[0].iov_len = SampleHeader::getSizeOf();
 #else
-    bufs[0] = samp->getHeaderPtr();
-    lens[0] = samp->getHeaderLength();
+    iov[0].iov_base = const_cast<void*>(samp->getHeaderPtr());
+    iov[0].iov_len = samp->getHeaderLength();
 #endif
 
     assert(samp->getHeaderLength() == 16);
 
-    bufs[1] = samp->getConstVoidDataPtr();
-    lens[1] = samp->getDataByteLength();
+    iov[1].iov_base = const_cast<void*>(samp->getConstVoidDataPtr());
+    iov[1].iov_len = samp->getDataByteLength();
 
     // cerr << "iostream->write" << endl;
 #ifdef DEBUG
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
 #endif
-    size_t l = _iostream->write(bufs,lens,2);
+    size_t l = _iostream->write(iov,2);
     if (l > 0) {
         setLastReceivedTimeTag(samp->getTimeTag());
         incrementNumOutputSamples();

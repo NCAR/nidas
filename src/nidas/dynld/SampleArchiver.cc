@@ -35,22 +35,26 @@ SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),
     setName("SampleArchiver");
 }
 
+#ifdef NEED_COPY_CLONE
 SampleArchiver::SampleArchiver(const SampleArchiver& x):
     SampleIOProcessor((const SampleIOProcessor&)x),_input(0),
     _nsampsLast(0),_nbytesLast(0)
 {
     setName("SampleArchiver");
 }
+#endif
 
 SampleArchiver::~SampleArchiver()
 {
 }
 
+#ifdef NEED_COPY_CLONE
 SampleArchiver* SampleArchiver::clone() const {
     return new SampleArchiver(*this);
 }
+#endif
 
-void SampleArchiver::connect(SampleInput* newinput) throw(n_u::IOException)
+void SampleArchiver::connect(SampleInput* newinput) throw()
 {
     _statusMutex.lock();
     _input = newinput;
@@ -68,6 +72,9 @@ void SampleArchiver::disconnect(SampleInput* oldinput) throw()
     if (!_input) return;
     assert(_input == oldinput);
 
+    n_u::Logger::getInstance()->log(LOG_INFO,"%s is disconnecting from %s",
+        oldinput->getName().c_str(),getName().c_str());
+
     const set<SampleOutput*>& cnctdOutputs = getConnectedOutputs();
     set<SampleOutput*>::const_iterator oi =
     	cnctdOutputs.begin();
@@ -82,10 +89,10 @@ void SampleArchiver::disconnect(SampleInput* oldinput) throw()
     _statusMutex.unlock();
 }
  
-void SampleArchiver::connected(SampleOutput* orig,SampleOutput* output) throw()
+void SampleArchiver::connect(SampleOutput* orig,SampleOutput* output) throw()
 {
     assert(_input);
-    SampleIOProcessor::connected(orig,output);
+    SampleIOProcessor::connect(orig,output);
     _input->addSampleClient(output);
     nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
     if (fset) {
@@ -95,10 +102,10 @@ void SampleArchiver::connected(SampleOutput* orig,SampleOutput* output) throw()
     }
 }
  
-void SampleArchiver::disconnected(SampleOutput* output) throw()
+void SampleArchiver::disconnect(SampleOutput* output) throw()
 {
     if (_input) _input->removeSampleClient(output);
-    SampleIOProcessor::disconnected(output);
+    SampleIOProcessor::disconnect(output);
     nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
     if (fset) {
         _statusMutex.lock();

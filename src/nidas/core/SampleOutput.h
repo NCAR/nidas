@@ -15,9 +15,7 @@
 #ifndef NIDAS_CORE_SAMPLEOUTPUT_H
 #define NIDAS_CORE_SAMPLEOUTPUT_H
 
-
 #include <nidas/core/Sample.h>
-#include <nidas/core/SampleInputHeader.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/IOStream.h>
@@ -33,7 +31,7 @@ class DSMConfig;
 /**
  * Interface of an output stream of samples.
  */
-class SampleOutput: public SampleClient, public ConnectionRequester, public DOMable
+class SampleOutput: public SampleClient, public IOChannelRequester, public DOMable
 {
 public:
 
@@ -73,12 +71,9 @@ public:
 
     virtual void disconnect() throw(nidas::util::IOException) = 0;
 
-    virtual void connected(IOChannel* ioc) throw() = 0;
-
     virtual int getFd() const = 0;
 
     virtual IOChannel* getIOChannel() const = 0;
-
 
     virtual void init() throw(nidas::util::IOException) = 0;
 
@@ -99,7 +94,7 @@ public:
 
     virtual long long getNumReceivedBytes() const { return 0; }
 
-    virtual size_t getNumReceivedSamples() const { return 0; }
+    virtual long long getNumReceivedSamples() const { return 0; }
 
     virtual dsm_time_t getLastReceivedTimeTag() const { return 0LL; }
 
@@ -146,6 +141,10 @@ public:
     void requestConnection(SampleConnectionRequester*)
                  throw(nidas::util::IOException);
 
+    /**
+     * Implementation of IOChannelRequester::connected().
+     * How an IOChannel indicates that it has received a connection.
+     */
     void connected(IOChannel* output) throw();
 
     /**
@@ -153,6 +152,11 @@ public:
      */
     void connect() throw(nidas::util::IOException);
 
+    /**
+     * Close the IOChannel and notify whoever did the
+     * requestConnection that it is time to disconnect,
+     * perhaps because of an IOException.
+     */
     void disconnect() throw(nidas::util::IOException);
 
     int getFd() const;
@@ -161,7 +165,7 @@ public:
 
     void close() throw(nidas::util::IOException);
 
-    dsm_time_t getNextFileTime() const { return nextFileTime; }
+    dsm_time_t getNextFileTime() const { return _nextFileTime; }
 
     void createNextFile(dsm_time_t) throw(nidas::util::IOException);
 
@@ -175,24 +179,59 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
-    IOChannel* getIOChannel() const { return iochan; }
+    IOChannel* getIOChannel() const { return _iochan; }
 
     void setHeaderSource(HeaderSource* val)
     {
-        headerSource = val;
+        _headerSource = val;
     }
 
     void setDSMConfig(const DSMConfig* val)
     {
-        dsm = val;
+        _dsm = val;
     }
 
     const DSMConfig* getDSMConfig() const
     {
-        return dsm;
+        return _dsm;
     }
 
+    long long getNumReceivedSamples() const { return _nsamples; }
+
+    size_t getNumDiscardedSamples() const { return _nsamplesDiscarded; }
+
+    dsm_time_t getLastReceivedTimeTag() const { return _lastTimeTag; }
+
+    void setLastReceivedTimeTag(dsm_time_t val) { _lastTimeTag = val; }
+
+    /**
+     * Add a parameter to this DSMSensor. DSMSensor
+     * will then own the pointer and will delete it
+     * in its destructor. If a Parameter exists with the
+     * same name, it will be replaced with the new Parameter.
+     */
+    void addParameter(Parameter* val);
+
+    /**
+     * Get list of parameters.
+     */
+    const std::list<const Parameter*>& getParameters() const
+    {
+	return _constParameters;
+    }
+
+    /**
+     * Fetch a parameter by name. Returns a NULL pointer if
+     * no such parameter exists.
+     */
+    const Parameter* getParameter(const std::string& name) const;
+
+
 protected:
+
+    void incrementNumOutputSamples() { _nsamples++; }
+
+    size_t incrementDiscardedSamples() { return _nsamplesDiscarded++; }
 
     /**
      * Set the IOChannel for this output.
@@ -201,28 +240,42 @@ protected:
 
     SampleConnectionRequester* getSampleConnectionRequester()
     {
-        return connectionRequester;
+        return _connectionRequester;
     }
 
     std::string name;
 
 private:
 
-    IOChannel* iochan;
+    IOChannel* _iochan;
 
-    std::list<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> _sampleTags;
 
-    SampleConnectionRequester* connectionRequester;
+    SampleConnectionRequester* _connectionRequester;
 
-    dsm_time_t nextFileTime;
+    dsm_time_t _nextFileTime;
 
-#ifdef OLD_HEADER_WAY
-    SampleInputHeader header;
-#endif
+    HeaderSource* _headerSource;
 
-    HeaderSource* headerSource;
+    const DSMConfig* _dsm;
 
-    const DSMConfig* dsm;
+    long long _nsamples;
+
+    size_t _nsamplesDiscarded;
+
+    dsm_time_t _lastTimeTag;
+
+    /**
+     * Map of parameters by name.
+     */
+    std::map<std::string,Parameter*> _parameters;
+
+    /**
+     * List of const pointers to Parameters for providing via
+     * getParameters().
+     */
+    std::list<const Parameter*> _constParameters;
+
 };
 
 }}	// namespace nidas namespace core

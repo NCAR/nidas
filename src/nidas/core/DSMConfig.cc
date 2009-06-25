@@ -20,14 +20,12 @@
 #include <nidas/util/Logger.h>
 
 #include <nidas/core/DOMObjectFactory.h>
-#include <nidas/dynld/FileSet.h>
 #include <nidas/dynld/SampleOutputStream.h>
 
 #include <iostream>
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -110,9 +108,9 @@ void DSMConfig::openSensors(SensorHandler* selector)
     ownedSensors.clear();
 }
 
-list<nidas::dynld::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
+list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
 {
-    list<nidas::dynld::FileSet*> filesets;
+    list<nidas::core::FileSet*> filesets;
     const list<SampleOutput*>& outputs = getOutputs();
     list<SampleOutput*>::const_iterator oi = outputs.begin();
     for ( ; oi != outputs.end(); ++oi) {
@@ -121,15 +119,15 @@ list<nidas::dynld::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const
 		dynamic_cast<nidas::dynld::SampleOutputStream*>(output);
 	if (outstream) {
 	    IOChannel* iochan = outstream->getIOChannel();
-	    nidas::dynld::FileSet* fset =
-	    	dynamic_cast<nidas::dynld::FileSet*>(iochan);
+	    nidas::core::FileSet* fset =
+	    	dynamic_cast<nidas::core::FileSet*>(iochan);
 	    if (fset) filesets.push_back(fset);
 	}
     }
     return filesets;
 }
 
-void DSMConfig::fromDOMElement(const DOMElement* node)
+void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -163,7 +161,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 		"cannot find a dsmcatalog for dsm with IDREF",
 		idref);
 
-	map<string,DOMElement*>::const_iterator mi;
+	map<string,xercesc::DOMElement*>::const_iterator mi;
 
 	mi = project->getDSMCatalog()->find(idref);
 	if (mi == project->getDSMCatalog()->end())
@@ -176,10 +174,10 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 
     if(node->hasAttributes()) {
     // get all the attributes of the node
-        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
@@ -237,13 +235,13 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 
     list<DSMSensor*> tmpSensorList;
 
-    DOMNode* child;
+    xercesc::DOMNode* child;
     DOMable* domable;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
 	if (elname == "sensor" ||
@@ -254,7 +252,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             elname == "socketSensor") {
 
 	    string classattr =
-	    	DSMSensor::getClassName((DOMElement*)child);
+	    	DSMSensor::getClassName((xercesc::DOMElement*)child);
 	    if (classattr.length() == 0)
 		throw n_u::InvalidParameterException("sensor",
 		    getName(),"no class attribute");
@@ -298,7 +296,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	    // within their fromDOMElement
 	    sensor->setDSMConfig(this);
 	    try {
-		sensor->fromDOMElement((DOMElement*)child);
+		sensor->fromDOMElement((xercesc::DOMElement*)child);
 	    }
 	    catch (const n_u::InvalidParameterException& e) {
 	        delete sensor;
@@ -332,7 +330,7 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
             }
 	    try {
                 output->setDSMConfig(this);
-		output->fromDOMElement((DOMElement*)child);
+		output->fromDOMElement((xercesc::DOMElement*)child);
 	    }
 	    catch (const n_u::InvalidParameterException& e) {
 	        delete output;
@@ -513,6 +511,37 @@ void DSMConfig::fromDOMElement(const DOMElement* node)
 	DSMSensor* sensor = si.next();
         sensor->validate();
     }
+}
+
+xercesc::DOMElement* DSMConfig::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("dsm"));
+    parent->appendChild(elem);
+    return toDOMElement(elem,complete);
+}
+
+xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+
+    if (complete) return 0; // not supported yet
+
+    XDOMElement xelem(elem);
+    xelem.setAttributeValue("name",getName());
+    if (getLocation().length() > 0)
+        xelem.setAttributeValue("location",getLocation());
+    ostringstream ost;
+    ost << getId();
+    xelem.setAttributeValue("id",ost.str());
+    for (SensorIterator ssi = getSensorIterator(); ssi.hasNext(); ) {
+        DSMSensor* sensor = ssi.next();
+        sensor->toDOMParent(elem,complete);
+    }
+    return elem;
 }
 
 string DSMConfig::expandString(const string& input) const

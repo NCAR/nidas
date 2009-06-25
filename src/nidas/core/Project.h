@@ -24,10 +24,6 @@
 #include <nidas/core/ServiceCatalog.h>
 #include <nidas/util/UTime.h>
 
-namespace nidas { namespace dynld {
-    class FileSet;
-} }
-
 #include <nidas/util/ThreadSupport.h>
 
 #include <list>
@@ -99,10 +95,10 @@ public:
      */
     const DSMConfig* findDSM(unsigned int id) const;
 
-    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets(
+    std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets(
 	const std::string& hostName) const;
 
-    std::list<nidas::dynld::FileSet*> findSampleOutputStreamFileSets() const;
+    std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets() const;
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
 
@@ -165,6 +161,14 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
+
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
+    		throw(xercesc::DOMException);
 
     static std::string expandEnvVars(const std::string& input);
     

@@ -5,6 +5,7 @@
 //
 
 #include <nidas/util/Inet4Address.h>
+#include <nidas/util/Logger.h>
 
 #include <netdb.h>
 #include <cctype>	// isdigit
@@ -13,6 +14,7 @@
 // #define DEBUG
 #include <iostream>
 #include <cassert>
+#include <vector>
 
 using namespace nidas::util;
 using namespace std;
@@ -94,59 +96,57 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
     	" is not in cache" << endl;
 #endif
 
-    struct hostent hent;
+    struct hostent hent = {0};
     struct hostent *result;
     int h_error = TRY_AGAIN;
     const int numtries = 5;
-    char auxbuf[1024];	// haven't found any doc about how big this should be
 
-    for (int ntry=0; h_error == TRY_AGAIN && ntry < numtries ; ntry++) {
+    int auxbufsize = 128;
+    vector<char> auxbuf(auxbufsize);
+    int ntry;
+    for (ntry=0; h_error == TRY_AGAIN && ntry < numtries ; ntry++) {
 	if (!gethostbyaddr_r(addr.getInAddrPtr(),sizeof(struct in_addr),
-		AF_INET, &hent,auxbuf,sizeof(auxbuf),
+		AF_INET, &hent,&auxbuf.front(),auxbufsize,
 		&result,&h_error)) {
 	    h_error = NETDB_SUCCESS;
 	    break;	// success
 	}
         switch(h_error) {
-	case NETDB_SUCCESS:
-#ifdef DEBUG
-	    cerr << "gethostbyaddr_r NETDB_SUCCESS" << endl;
-#endif
-	    break;
 	case HOST_NOT_FOUND:
-#ifdef DEBUG
-	    cerr << "gethostbyaddr_r HOST_NOT_FOUND" << endl;
-#endif
+            WLOG(("gethostbyaddr_r HOST_NOT_FOUND: ") << addr.getHostAddress());
 	    break;
 	case NO_ADDRESS:		// same as NO_DATA
-#ifdef DEBUG
-	    cerr << "gethostbyaddr_r NO_ADDRESS" << endl;
-#endif
-	    // throw UnknownHostException(addr.getHostAddress());
+            WLOG(("gethostbyaddr_r NO_ADDRESS: ") << addr.getHostAddress());
 	    break;
 	case NO_RECOVERY:
-#ifdef DEBUG
-	    cerr << "gethostbyaddr_r NO_RECOVERY" << endl;
-#endif
-	    // throw UnknownHostException(addr.getHostAddress() + ": nameserver error");
+            WLOG(("gethostbyaddr_r NO_RECOVERY: ") << addr.getHostAddress());
 	    break;
 	case TRY_AGAIN:
+            ILOG(("gethostbyaddr_r TRY_AGAIN: ") << addr.getHostAddress());
+	    break;
+	case NETDB_INTERNAL:
+            if (errno == ERANGE) {
 #ifdef DEBUG
-	    cerr << "gethostbyaddr_r TRY_AGAIN, ntry=" << ntry << endl;
+                cerr << "gethostbyaddr_r ERANGE, ntry=" << ntry << " auxbufsize=" << auxbufsize << endl;
 #endif
+                auxbufsize *= 2;
+                auxbuf.resize(auxbufsize);
+                h_error = TRY_AGAIN;
+            }
+            else ELOG(("gethostbyaddr_r NETDB_INTERNAL: ") << addr.getHostAddress());
 	    break;
 	default:
-#ifdef DEBUG
-#endif
-	    cerr << "gethostbyaddr_r unknown error=" << h_error  << endl;
-	    assert(0);
+            ELOG(("gethostbyaddr_r unknown error ") << h_error);
 	}
     }
 #ifdef DEBUG
-    cerr << "result=" << hex << (void*)result << " &hent=" <<
-    	(void*)&hent << dec << " addr=" << addr.getHostAddress() << endl;
-    cerr << "hent.h_name=" << hex << (void*) hent.h_name << dec <<
-        " hent.h_name=" << hent.h_name <<
+    cerr << "ntry=" << ntry << " result=" << hex << (void*)result << " &hent=" <<
+    	(void*)&hent << dec << " addr=" << addr.getHostAddress() << 
+        " h_error=" << h_error << ':' << 
+        (h_error == NETDB_SUCCESS ? "NETDB_SUCCESS" : "unk") <<
+        " hent.h_name=" << hex << (void*) hent.h_name << dec << endl;
+    if (h_error == NETDB_SUCCESS && result == &hent)
+        cerr << "hent.h_name=" << hent.h_name <<
 	" strlen(hent.h_name)=" << strlen(hent.h_name) <<
         endl;
 #endif
@@ -205,11 +205,13 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
         struct hostent *result;
         int h_error;
         const int numtries = 5;
-        char auxbuf[1024];	// haven't found any doc about how big this should be
+
+        int auxbufsize = 128;
+        vector<char> auxbuf(auxbufsize);
 
         for (int ntry=0; ; ntry++) {
             if (!gethostbyname_r(hostname.c_str(),&hent,
-                    auxbuf,sizeof(auxbuf),&result,&h_error)) break;	// success
+                    &auxbuf.front(),auxbufsize,&result,&h_error)) break;	// success
             switch(h_error) {
             case HOST_NOT_FOUND:
             case NO_ADDRESS:		// same as NO_DATA
@@ -217,18 +219,27 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
             case NO_RECOVERY:
                 throw UnknownHostException(hostname + ": nameserver error");
             case TRY_AGAIN:
-    #ifdef DEBUG
-                cerr << "gethostbyaddr_r TRY_AGAIN, ntry=" << ntry << endl;
-    #endif
                 if (ntry == numtries)
                     throw UnknownHostException(hostname +
                             ": numerous temporary name server errors");
                 break;
+            case NETDB_INTERNAL:
+                if (errno == ERANGE) {
+#ifdef DEBUG
+                    cerr << "gethostbyname_r ERANGE, ntry=" << ntry << " auxbufsize=" << auxbufsize << endl;
+#endif
+                    auxbufsize *= 2;
+                    auxbuf.resize(auxbufsize);
+                    h_error = TRY_AGAIN;
+                }
+                else {
+                    ELOG(("gethostbyname_r NETDB_INTERNAL: ") << hostname);
+                    throw UnknownHostException(hostname + ": NETDB_INTERNAL error");
+                }
+                break;
             default:
-    #ifdef DEBUG
-    #endif
-                cerr << "gethostbyname_r unknown error=" << h_error  << endl;
-                assert(0);
+                ELOG(("gethostbyname_r unknown error ") << h_error);
+                throw UnknownHostException(hostname + ": unknown error");
             }
         }
         if (!result) throw UnknownHostException(hostname);

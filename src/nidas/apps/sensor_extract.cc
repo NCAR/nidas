@@ -15,7 +15,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 // #include <nidas/core/SortedSampleSet.h>
@@ -252,7 +252,7 @@ int SensorExtract::run() throw()
 {
 
     try {
-	FileSet* outSet = new nidas::dynld::FileSet();
+	nidas::core::FileSet* outSet = new nidas::core::FileSet();
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 
@@ -260,7 +260,7 @@ int SensorExtract::run() throw()
         outStream.setHeaderSource(this);
         outStream.init();
 
-        FileSet* fset = new nidas::dynld::FileSet();
+        nidas::core::FileSet* fset = new nidas::core::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();
         for (; fi != inputFileNames.end(); ++fi)

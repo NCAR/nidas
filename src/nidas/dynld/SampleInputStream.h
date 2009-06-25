@@ -99,7 +99,10 @@ public:
      */
     void connected(IOChannel* iochan) throw();
 
-    nidas::util::Inet4Address getRemoteInet4Address() const;
+    /**
+     * What DSM am I connnected to? May be NULL if it cannot be determined.
+     */
+    const DSMConfig* getDSMConfig() const;
 
     void init() throw();
 
@@ -218,6 +221,11 @@ public:
 
     bool getHeapBlock() const { return _heapBlock; }
 
+    void setExpectHeader(bool val) { _expectHeader = val; }
+
+    bool getExpectHeader() const { return _expectHeader; }
+
+
 protected:
 
     void incrementNumInputSamples() { _nsamples++; }
@@ -240,6 +248,10 @@ protected:
     std::list<const SampleTag*> _sampleTags;
 
 private:
+
+    mutable const DSMConfig* _dsm;
+
+    bool _expectHeader;
 
     bool _inputHeaderParsed;
 

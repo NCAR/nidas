@@ -51,8 +51,8 @@ XMLConfigService::~XMLConfigService()
 
 void XMLConfigService::schedule() throw(n_u::Exception)
 {
-    list<IOChannel*>::iterator oi = _outputs.begin();
-    for ( ; oi != _outputs.end(); ++oi) {
+    list<IOChannel*>::iterator oi = _ochans.begin();
+    for ( ; oi != _ochans.end(); ++oi) {
         IOChannel* output = *oi;
         output->setRequestType(XML_CONFIG);
         output->requestConnection(this);
@@ -61,8 +61,8 @@ void XMLConfigService::schedule() throw(n_u::Exception)
 
 void XMLConfigService::interrupt() throw()
 {
-    list<IOChannel*>::iterator oi = _outputs.begin();
-    for ( ; oi != _outputs.end(); ++oi) {
+    list<IOChannel*>::iterator oi = _ochans.begin();
+    for ( ; oi != _ochans.end(); ++oi) {
         IOChannel* output = *oi;
         output->close();
     }
@@ -71,24 +71,23 @@ void XMLConfigService::interrupt() throw()
 void XMLConfigService::connected(IOChannel* output) throw()
 {
     // Figure out what DSM it came from
-    n_u::Inet4Address remoteAddr = output->getRemoteInet4Address();
+    n_u::Inet4Address remoteAddr = output->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
     // perhaps the request came directly from one of my interfaces.
     // If so, see if there is a "localhost" dsm.
     if (!dsm) {
-        nidas::core::McSocket* sock = dynamic_cast<nidas::core::McSocket*>(output);
-        if (sock) {
-            list<n_u::Inet4NetworkInterface> ifaces = sock->getInterfaces();
-            list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-            for ( ; !dsm && ii != ifaces.end(); ++ii) {
-                n_u::Inet4NetworkInterface iface = *ii;
-                // cerr << "iface=" << iface.getAddress().getHostAddress() << endl;
-                if (iface.getAddress() == remoteAddr) {
-                    remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
-                    dsm = Project::getInstance()->findDSM(remoteAddr);
-                }
+        n_u::Socket tmpsock;
+        list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
+        tmpsock.close();
+        list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+        for ( ; !dsm && ii != ifaces.end(); ++ii) {
+            n_u::Inet4NetworkInterface iface = *ii;
+            // cerr << "iface=" << iface.getAddress().getHostAddress() << endl;
+            if (iface.getAddress() == remoteAddr) {
+                remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
+                dsm = Project::getInstance()->findDSM(remoteAddr);
             }
         }
     }
@@ -107,8 +106,8 @@ void XMLConfigService::connected(IOChannel* output) throw()
     // outputs, since it should be a newly connected Socket.
     // If it isn't then we have pointer ownership issues that must
     // resolved.
-    list<IOChannel*>::iterator oi = std::find(_outputs.begin(),_outputs.end(),output);
-    assert(oi == _outputs.end());
+    list<IOChannel*>::iterator oi = std::find(_ochans.begin(),_ochans.end(),output);
+    assert(oi == _ochans.end());
 
     // worker will own and delete the output.
     Worker* worker = new Worker(this,output,dsm);
@@ -166,7 +165,7 @@ void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
 {
     DSMService::fromDOMElement(node);
 
-    if (_outputs.size() == 0)
+    if (_ochans.size() == 0)
 	throw n_u::InvalidParameterException(
 	    "XMLConfigService::fromDOMElement",
 	    "output", "one or more outputs required");

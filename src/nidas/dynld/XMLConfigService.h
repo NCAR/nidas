@@ -21,7 +21,7 @@
 
 namespace nidas { namespace dynld {
 
-class XMLConfigService: public DSMService, public ConnectionRequester
+class XMLConfigService: public DSMService, public IOChannelRequester
 {
 public:
     XMLConfigService();
@@ -31,6 +31,11 @@ public:
     void interrupt() throw();
 
     void connected(IOChannel*) throw();
+
+    void connect(SampleInput*) throw() { assert(false); }
+    void connect(SampleOutput*,SampleOutput*) throw() { assert(false); }
+    void disconnect(SampleInput*) throw() { assert(false); }
+    void disconnect(SampleOutput*) throw() { assert(false); }
 
     void schedule() throw(nidas::util::Exception);
 

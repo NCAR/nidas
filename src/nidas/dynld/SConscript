@@ -29,7 +29,6 @@ headers = [ Split("""
     DSC_PulseCounter.h
     DSMSerialSensor.h
     FileSet.h
-    FsMount.h
     GPS_NMEA_Serial.h
     ParoSci_202BG_Calibration.h
     ParoSci_202BG_P.h
@@ -40,9 +39,11 @@ headers = [ Split("""
     SampleArchiver.h
     SampleInputStream.h
     SampleOutputStream.h
+    SampleProcessor.h
     StatisticsCruncher.h
     StatisticsProcessor.h
     TSI_CPC3772.h
+    UDPSampleOutput.h
     ViperDIO.h
     XMLConfigService.h
 """) ]
@@ -58,9 +59,8 @@ sources = [ Split("""
     DSC_FreqCounter.cc
     DSC_PulseCounter.cc
     DSMSerialSensor.cc
-    FileSet.cc
-    FsMount.cc
     GPS_NMEA_Serial.cc
+    FileSet.cc
     ParoSci_202BG_Calibration.cc
     ParoSci_202BG_P.cc
     ParoSci_202BG_T.cc
@@ -70,9 +70,11 @@ sources = [ Split("""
     SampleArchiver.cc
     SampleInputStream.cc
     SampleOutputStream.cc
+    SampleProcessor.cc
     StatisticsCruncher.cc
     StatisticsProcessor.cc
     TSI_CPC3772.cc
+    UDPSampleOutput.cc
     ViperDIO.cc
     XMLConfigService.cc
 """) ]

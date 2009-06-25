@@ -21,7 +21,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -64,17 +63,17 @@ std::string Parameter::getStringValue(int i) const
 }
 
 
-Parameter* Parameter::createParameter(const DOMElement* node)
+Parameter* Parameter::createParameter(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     Parameter* parameter = 0;
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
 	    if (aname == "type") {

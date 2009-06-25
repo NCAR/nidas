@@ -162,11 +162,11 @@ public:
 
     /**
      * Create a DatagramPacket for sending.
-     * @param buf allocated space for contents. Pointer is owned
-     *            by caller, not by the DatagramPacket - the
-     *            DatagramPacket destructor does not delete it
-     *            in its destructor.
-     * @param length length of allocated space.
+     * @param buf pointer to allocated space for contents.
+     *          Pointer is owned by caller, not by the DatagramPacket.
+     *          The DatagramPacket destructor does not delete it
+     *          in its destructor.
+     * @param n number of buffers of type DataT in the packet.
      * @add Inet4Address to send packet to.
      * @port port number to send packet to.
      */

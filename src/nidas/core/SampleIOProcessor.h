@@ -37,14 +37,9 @@ public:
 
     SampleIOProcessor();
 
-    /**
-     * Copy constructor.
-     */
-    SampleIOProcessor(const SampleIOProcessor&);
-
     virtual ~SampleIOProcessor();
 
-    virtual SampleIOProcessor* clone() const = 0;
+    // virtual SampleIOProcessor* clone() const = 0;
 
     virtual const std::string& getName() const;
 
@@ -76,7 +71,7 @@ public:
     /**
      * Should this Processor be cloned on each connection?
      */
-    virtual bool cloneOnConnection() const = 0;
+    // virtual bool cloneOnConnection() const = 0;
 
     /**
      * Do common operations necessary when a input has connected:
@@ -88,27 +83,27 @@ public:
      * initialization necessary before invoking this
      * SampleIOProcessor::connect().
      */
-    virtual void connect(SampleInput*) throw(nidas::util::IOException);
+    virtual void connect(SampleInput*) throw();
 
     /**
      * Disconnect a SampleInput from this SampleIOProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    virtual void disconnect(SampleInput*) throw();
+    void disconnect(SampleInput*) throw();
 
     /**
      * Do common operations necessary when a output has connected:
      * 1. do: output->init().
      * 2. add output to a list of connected outputs.
      */
-    void connected(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* orig,SampleOutput* output) throw();
 
     /**
      * Do common operations necessary when a output has disconnected:
      * 1. do: output->close().
      * 2. remove output from a list of connected outputs.
      */
-    void disconnected(SampleOutput* output) throw();
+    void disconnect(SampleOutput* output) throw();
 
     /**
      * Add an SampleOutput to this SampleIOProcessor. SampleIOProcessor
@@ -230,6 +225,17 @@ private:
     std::list<Parameter*> _parameters;
 
     std::list<const Parameter*> _constParameters;
+
+    /**
+     * Copy not supported.
+     */
+    SampleIOProcessor(const SampleIOProcessor&);
+
+    /**
+     * Assignment not supported.
+     */
+    SampleIOProcessor& operator=(const SampleIOProcessor&);
+
 };
 
 }}	// namespace nidas namespace core

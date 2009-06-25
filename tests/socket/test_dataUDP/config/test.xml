@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="test"
+    system="ISFF"
+    config="./config/test.xml"
+    version="$LastChangedRevision: 4586 $">
+
+    <site name="test" class="isff.GroundStation" suffix=".test">
+       <server>
+            <service class="XMLConfigService">
+                <output>
+                    <socket port="30010" type="mcaccept"/>
+                </output>
+            </service>
+            <service class="RawSampleService">
+                <input class="RawSampleInputStream" sorterLength=".250" heapMax="1000000">
+                    <socket port="30010" type="mcaccept"/>
+                </input>
+                <processor class="SampleArchiver">
+                    <output class="SampleOutputStream">
+                        <fileset dir="tmp"
+                            file="server_%Y%m%d_%H%M%S.dat"
+                            length="0"/>
+                    </output>
+                </processor>
+            </service>
+        </server>
+
+	<dsm rserialPort="30002" name="localhost" id="1" derivedData="sock::30011">
+	    <serialSensor class="DSMSerialSensor"
+		baud="57600" parity="none" databits="8" stopbits="1"
+		devicename="tmp/test0" id="10" suffix=".t1">
+		<sample id="1"
+		    scanfFormat="%f %f">
+		    <variable name="test1" units="wacka-a-mole" plotrange="0 10"/>
+		    <variable name="test2" units="wacka-a-mole" plotrange="-10 10"/>
+		</sample>
+		<message separator="\n" position="end" length="3"/>
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="57600" parity="none" databits="8" stopbits="1"
+		devicename="tmp/test1" id="20" suffix=".t2">
+		<sample id="1"
+		    scanfFormat="\e%f %f">
+		    <variable name="test1" units="wacka-a-mole" plotrange="-20 20"/>
+		    <variable name="test2" units="wacka-a-mole" plotrange="-5 5"/>
+		</sample>
+		<message separator="\e" position="beg" length="3"/>
+	    </serialSensor>
+
+            <processor class="SampleProcessor">
+                <output class="UDPSampleOutput">
+                    <socket type="dataUDP"/>
+                </output>
+            </processor>
+
+            <output class="RawSampleOutputStream" sorterLength=".25">
+                <fileset dir="tmp"
+                    file="${DSM}_%Y%m%d_%H%M%S.dat"
+                    length="0">
+                </fileset>
+            </output>
+            <output class="RawSampleOutputStream" sorterLength="0">
+                <socket port="30010" type="mcrequest"/>
+            </output>
+	</dsm>
+    </site>
+
+</project>

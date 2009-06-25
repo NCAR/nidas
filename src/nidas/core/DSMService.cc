@@ -45,11 +45,16 @@ DSMService::~DSMService()
         SampleIOProcessor* processor = *pi;
 	delete processor;
     }
-    list<IOChannel*>::iterator oi = _outputs.begin();
-    for ( ; oi != _outputs.end(); ++oi) {
-        IOChannel* output = *oi;
-        output->close();
-        delete output;
+
+    // The <output> sub-elements of <service> are not created
+    // as objects, they don't have a class="XXX" attribute, so
+    // SampleOutput objects are not associated with them.
+    // So we can just delete the IOChannels.
+    list<IOChannel*>::iterator oi = _ochans.begin();
+    for ( ; oi != _ochans.end(); ++oi) {
+        IOChannel* ochan = *oi;
+        ochan->close();
+        delete ochan;
     }
 }
 
@@ -304,21 +309,27 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
             processor->fromDOMElement((xercesc::DOMElement*)child);
 	    addProcessor(processor);
         }
-        /* Processors often have their own <output>s,
-         * but a <service>, like XMLConfigService may also have its
-         * own <output>, which then typically doesn't have a <processor> */
         else if (elname == "output") {
-            xercesc::DOMNode* gkid;
+            /* If a <service> has an <output> we don't create an object for it.
+             * It just encloses an IOChannel, such as a  <socket>.  Therefore
+             * we don't support a class attribute here.
+             */
+	    const string& classattr = xchild.getAttributeValue("class");
+            if (classattr.length() > 0)
+                throw n_u::InvalidParameterException(
+                    "DSMService::fromDOMElement",
+                    elname, "cannot have a class attribute");
             // parse all child elements of the output.
+            xercesc::DOMNode* gkid;
             for (gkid = child->getFirstChild(); gkid != 0;
                     gkid=gkid->getNextSibling())
             {
                 if (gkid->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
-                IOChannel* output;
-                output = IOChannel::createIOChannel((xercesc::DOMElement*)gkid);
-                output->fromDOMElement((xercesc::DOMElement*)gkid);
-                _outputs.push_back(output);
+                IOChannel* ochan;
+                ochan = IOChannel::createIOChannel((xercesc::DOMElement*)gkid);
+                ochan->fromDOMElement((xercesc::DOMElement*)gkid);
+                _ochans.push_back(ochan);
             }
         }
         else throw n_u::InvalidParameterException(

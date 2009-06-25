@@ -35,6 +35,8 @@ Variable::Variable(): sampleTag(0),
         minValue(-numeric_limits<float>::max()),
         maxValue(numeric_limits<float>::max())
 {
+        _plotRange[0] = floatNAN;
+        _plotRange[1] = floatNAN;
 }
 
 /* copy constructor */
@@ -63,6 +65,8 @@ Variable::Variable(const Variable& x):
 	Parameter* newp = parm->clone();
 	addParameter(newp);
     }
+    _plotRange[0] = x._plotRange[0];
+    _plotRange[1] = x._plotRange[1];
 }
 
 /* assignment */
@@ -83,6 +87,8 @@ Variable& Variable::operator=(const Variable& x)
         missingValue = x.missingValue;
         minValue = x.minValue;
         maxValue = x.maxValue;
+        _plotRange[0] = x._plotRange[0];
+        _plotRange[1] = x._plotRange[1];
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
@@ -205,12 +211,12 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             const string& aname = attr.getName();
-            const string& aval = attr.getValue();
+            string aval = Project::getInstance()->expandString(attr.getValue());
 	    // get attribute name
 	    if (aname == "name")
-	    	setPrefix(Project::getInstance()->expandString(aval));
+	    	setPrefix(aval);
 	    else if (aname == "longname")
-	    	setLongName(Project::getInstance()->expandString(aval));
+	    	setLongName(aval);
 	    else if (aname == "units")
 		setUnits(aval);
 	    else if (aname == "length") {
@@ -219,7 +225,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"variable",aname,aval);
+		    	string("variable ") + getName(),aname,aval);
 		setLength(val);
 	    }
 	    else if (aname == "missingValue" ||
@@ -230,7 +236,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"variable",aname,aval);
+		    	string("variable") + getName(),aname,aval);
                 string sname = aname.substr(0,3);
                 if (sname == "mis") setMissingValue(val);
                 else if (sname == "min") setMinValue(val);
@@ -239,6 +245,24 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "count") {
                 if (aval == "true")
                     setType(Variable::COUNTER);
+            }
+	    else if (aname == "plotrange") {
+                std::istringstream ist(aval);
+                float prange[2];
+                int i;
+                for (i = 0; i < 2 ; i++) {
+                    if (ist.eof()) break;
+                    ist >> prange[i];
+                    if (ist.fail()) break;
+                }
+                // Don't throw exception on poorly formatted plotranges,
+                // just complain and set it to -10 10
+                if (i < 2)  {
+                    n_u::InvalidParameterException e(string("variable") + getName(),aname,aval);
+                    WLOG(("%s",e.what()));
+                    for ( ; i < 2 ; i++) prange[i] = -10 + i * 20;
+                }
+                setPlotRange(prange[0],prange[1]);
             }
 	}
     }
@@ -273,4 +297,46 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	    nconverters++;
 	}
     }
+}
+
+xercesc::DOMElement* Variable::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("variable"));
+    parent->appendChild(elem);
+    return toDOMElement(elem,complete);
+}
+
+xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+    if (complete) return 0; // not supported yet
+
+    XDOMElement xelem(elem);
+
+    string units = getUnits();
+    VariableConverter* cvtr = getConverter();
+    if (cvtr) units = cvtr->getUnits();
+
+    xelem.setAttributeValue("name",getName());
+    if (getLongName().length() > 0)
+        xelem.setAttributeValue("longname",getLongName());
+    if (units.length() > 0)
+        xelem.setAttributeValue("units",units);
+    if (getLength() > 1) {
+        ostringstream ost;
+        ost << getLength();
+        xelem.setAttributeValue("length",ost.str());
+    }
+    float pmin = _plotRange[0];
+    if (isnan(pmin)) pmin = -10.0;
+    float pmax = _plotRange[1];
+    if (isnan(pmax)) pmax = 10.0;
+    ostringstream ost;
+    ost << pmin << ' ' << pmax;
+    xelem.setAttributeValue("plotrange",ost.str());
+    return elem;
 }

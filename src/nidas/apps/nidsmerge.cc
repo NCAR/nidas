@@ -13,7 +13,7 @@
 
 */
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -251,7 +251,7 @@ int NidsMerge::run() throw()
 {
 
     try {
-	FileSet* outSet = new nidas::dynld::FileSet();
+	nidas::core::FileSet* outSet = new nidas::core::FileSet();
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 
@@ -265,7 +265,7 @@ int NidsMerge::run() throw()
 
 	    const list<string>& inputFiles = inputFileNames[ii];
 
-	    FileSet* fset = new nidas::dynld::FileSet();
+	    nidas::core::FileSet* fset = new nidas::core::FileSet();
 	    fset->setStartTime(startTime);
 	    fset->setEndTime(endTime);
 

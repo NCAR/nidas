@@ -17,7 +17,7 @@
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/dynld/SampleArchiver.h>
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
@@ -26,7 +26,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -322,10 +321,10 @@ const DSMConfig* Project::findDSM(const string& name) const
     return 0;
 }
 
-list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
+list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(
 	const string& hostName) const
 {
-    list<nidas::dynld::FileSet*> filesets;
+    list<nidas::core::FileSet*> filesets;
     if (hostName.length() > 0) {
         const DSMConfig* dsm = findDSM(hostName);
         if (dsm) filesets = dsm->findSampleOutputStreamFileSets();
@@ -350,8 +349,8 @@ list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
                 for ( ; oi != outputs.end(); ++oi) {
                     SampleOutput* output = *oi;
                     IOChannel* ioc = output->getIOChannel();
-                    nidas::dynld::FileSet* fset =
-                            dynamic_cast<nidas::dynld::FileSet*>(ioc);
+                    nidas::core::FileSet* fset =
+                            dynamic_cast<nidas::core::FileSet*>(ioc);
                     if (fset) filesets.push_back(fset);
                 }
             }
@@ -360,33 +359,33 @@ list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets(
     return filesets;
 }
 
-list<nidas::dynld::FileSet*> Project::findSampleOutputStreamFileSets() const
+list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
 {
     return findSampleOutputStreamFileSets("");
 }
 
 #ifdef NEED_THESE
-nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
+nidas::core::FileSet* Project::findSampleOutputStreamFileSet(
 	const string& hostName,const n_u::UTime& t1, const n_u::UTime& t2)
 {
-    list<nidas::dynld::FileSet*> filesets =
+    list<nidas::core::FileSet*> filesets =
         findSampleOutputStreamFileSets(hostName);
-    list<nidas::dynld::FileSet*>::const_iterator fi = filesets.begin();
+    list<nidas::core::FileSet*>::const_iterator fi = filesets.begin();
     for ( ; fi != filesets.end(); ++fi) {
-        nidas::dynld::FileSet* fset = *fi;
+        nidas::core::FileSet* fset = *fi;
 	list<string> files = fset->matchFiles(t1,t2);
 	if (files.size() > 0) return fset;
     }
     return 0;
 }
 
-nidas::dynld::FileSet* Project::findSampleOutputStreamFileSet(
+nidas::core::FileSet* Project::findSampleOutputStreamFileSet(
 	const n_u::UTime& t1, const n_u::UTime& t2)
 {
-    list<nidas::dynld::FileSet*> filesets = findSampleOutputStreamFileSets();
-    list<nidas::dynld::FileSet*>::const_iterator fi = filesets.begin();
+    list<nidas::core::FileSet*> filesets = findSampleOutputStreamFileSets();
+    list<nidas::core::FileSet*>::const_iterator fi = filesets.begin();
     for ( ; fi != filesets.end(); ++fi) {
-        nidas::dynld::FileSet* fset = *fi;
+        nidas::core::FileSet* fset = *fi;
 	list<string> files = fset->matchFiles(t1,t2);
 	if (files.size() > 0) return fset;
     }
@@ -499,23 +498,23 @@ const Parameter* Project::getParameter(const string& name) const
 
 
 static void
-LogSchemeFromDOMElement(const DOMElement* node)
+LogSchemeFromDOMElement(const xercesc::DOMElement* node)
 {
     XDOMElement xnode(node);
     const string& name = xnode.getAttributeValue("name");
-    DOMNode* child;
+    xercesc::DOMNode* child;
     n_u::LogScheme scheme;
     scheme.setName (name);
     for (child = node->getFirstChild(); child != 0;
 	 child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 	if (elname == "showfields")
 	{
-	    DOMElement* text = (DOMElement*)child->getFirstChild();
-	    if (text->getNodeType() == DOMNode::TEXT_NODE)
+	    xercesc::DOMElement* text = (xercesc::DOMElement*)child->getFirstChild();
+	    if (text->getNodeType() == xercesc::DOMNode::TEXT_NODE)
 	    {
 		std::string showfields = 
 		    XMLStringConverter(text->getNodeValue());
@@ -527,10 +526,10 @@ LogSchemeFromDOMElement(const DOMElement* node)
 	    n_u::LogConfig lc;
 	    if (child->hasAttributes()) 
 	    {
-		DOMNamedNodeMap *pAttributes = child->getAttributes();
+		xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
 		int nSize = pAttributes->getLength();
 		for(int i=0;i<nSize;++i) {
-		    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+		    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 		    if (attr.getName() == "filematch") 
 			lc.filename_match = attr.getValue();
 		    else if (attr.getName() == "functionmatch")
@@ -575,7 +574,7 @@ LogSchemeFromDOMElement(const DOMElement* node)
 }
 
 
-void Project::fromDOMElement(const DOMElement* node)
+void Project::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -590,10 +589,10 @@ void Project::fromDOMElement(const DOMElement* node)
 		    
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    if (attr.getName() == "name") setName(attr.getValue());
 	    else if (attr.getName() == "system")
 	    	setSystemName(attr.getValue());
@@ -604,12 +603,12 @@ void Project::fromDOMElement(const DOMElement* node)
 	}
     }
 
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 #ifdef XML_DEBUG
 	cerr << "element name=" << elname << endl;
@@ -637,7 +636,7 @@ void Project::fromDOMElement(const DOMElement* node)
 
 	    site->setProject(this);
 	    try {
-		site->fromDOMElement((DOMElement*)child);
+		site->fromDOMElement((xercesc::DOMElement*)child);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
 	        delete site;
@@ -660,27 +659,27 @@ void Project::fromDOMElement(const DOMElement* node)
 		throw n_u::InvalidParameterException("project",
 		    "raf.Aircraft","is not a sub-class of Site");
 	    site->setProject(this);
-	    site->fromDOMElement((DOMElement*)child);
+	    site->fromDOMElement((xercesc::DOMElement*)child);
 	    addSite(site);
 	}
 	else if (elname == "sensorcatalog") {
 	    SensorCatalog* catalog = new SensorCatalog();
-	    catalog->fromDOMElement((DOMElement*)child);
+	    catalog->fromDOMElement((xercesc::DOMElement*)child);
 	    setSensorCatalog(catalog);
 	}
 	else if (elname == "dsmcatalog") {
 	    DSMCatalog* catalog = new DSMCatalog();
-	    catalog->fromDOMElement((DOMElement*)child);
+	    catalog->fromDOMElement((xercesc::DOMElement*)child);
 	    setDSMCatalog(catalog);
 	}
 	else if (elname == "servicecatalog") {
 	    ServiceCatalog* catalog = new ServiceCatalog();
-	    catalog->fromDOMElement((DOMElement*)child);
+	    catalog->fromDOMElement((xercesc::DOMElement*)child);
 	    setServiceCatalog(catalog);
 	}
 	else if (elname == "server") {
 	    DSMServer* server = new DSMServer();
-	    server->fromDOMElement((DOMElement*)child);
+	    server->fromDOMElement((xercesc::DOMElement*)child);
 	    addServer(server);
 	}
 	else if (elname == "parameter")  {
@@ -689,7 +688,7 @@ void Project::fromDOMElement(const DOMElement* node)
 	    addParameter(parameter);
 	}
 	else if (elname == "logscheme")  {
-	  LogSchemeFromDOMElement ((DOMElement*)child);
+	  LogSchemeFromDOMElement ((xercesc::DOMElement*)child);
 	}
 	else if (elname == "logger") {
 	    const string& scheme = xchild.getAttributeValue("scheme");
@@ -716,6 +715,32 @@ void Project::fromDOMElement(const DOMElement* node)
 	    server->addSite(site);
 	}
     }
+}
+
+xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem =
+        parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("project"));
+    parent->appendChild(elem);
+    return toDOMElement(elem,complete);
+}
+
+xercesc::DOMElement* Project::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+    if (complete) return 0; // not supported yet
+
+    XDOMElement xelem(elem);
+    xelem.setAttributeValue("name",getName());
+
+    for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
+        Site* site = si.next();
+        site->toDOMParent(elem,complete);
+    }
+    return elem;
 }
 
 string Project::expandString(const string& input) const

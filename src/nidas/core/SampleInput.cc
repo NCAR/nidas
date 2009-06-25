@@ -21,7 +21,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -30,43 +29,30 @@ std::string SampleInputWrapper::getName() const
     return "SampleInputWrapper";
 }
 
-nidas::util::Inet4Address SampleInputWrapper::getRemoteInet4Address() const
-{
-    return nidas::util::Inet4Address();
-}
-
 const std::list<const SampleTag*>& SampleInputWrapper::getSampleTags() const
 {
     return _src->getSampleTags();
 }
 
-/**
+/*
  * Client wants samples from the process() method of the
  * given DSMSensor.
  */
 void SampleInputWrapper::addProcessedSampleClient(SampleClient* clnt,
     DSMSensor* snsr)
 {
-    // if we're a wrapper around a DSMSensor
-    if (_src == (SampleSource*)snsr || !snsr) _src->addSampleClient(clnt);
-    else {
-        _src->addSampleClient(snsr);
-        snsr->addSampleClient(clnt);
-    }
+    _src->addSampleClient(snsr);
+    snsr->addSampleClient(clnt);
 }
 
 void SampleInputWrapper::removeProcessedSampleClient(SampleClient* clnt,
     DSMSensor* snsr)
 {
-        // if we're a wrapper around a DSMSensor
-    if (_src == (SampleSource*)snsr || !snsr) _src->removeSampleClient(clnt);
-    else {
-        _src->removeSampleClient(snsr);
-        snsr->removeSampleClient(clnt);
-    }
+    _src->removeSampleClient(snsr);
+    snsr->removeSampleClient(clnt);
 }
 
-/**
+/*
  * Client wants samples from the process() method of the
  * given DSMSensor.
  */
@@ -79,6 +65,55 @@ void SampleInputWrapper::removeSampleClient(SampleClient* clnt) throw()
 {
     _src->removeSampleClient(clnt);
 }
+
+string DSMSensorWrapper::getName() const
+{
+    return "SensorWrapper";
+}
+
+const DSMConfig* DSMSensorWrapper::getDSMConfig() const { return _snsr->getDSMConfig(); }
+
+const list<const SampleTag*>& DSMSensorWrapper::getSampleTags() const
+{
+    return _snsr->getSampleTags();
+}
+
+/*
+ * Client wants samples from the process() method of the
+ * given DSMSensor.
+ */
+void DSMSensorWrapper::addProcessedSampleClient(SampleClient* clnt,
+    DSMSensor* snsr)
+{
+    if (_snsr == snsr) {
+        _snsr->addRawSampleClient(_snsr);
+        _snsr->addSampleClient(clnt);
+    }
+}
+
+void DSMSensorWrapper::removeProcessedSampleClient(SampleClient* clnt,
+    DSMSensor* snsr)
+{
+    if (_snsr == snsr) {
+        _snsr->removeRawSampleClient(_snsr);
+        _snsr->removeSampleClient(clnt);
+    }
+}
+
+/*
+ * Client wants samples from the process() method of the
+ * given DSMSensor.
+ */
+void DSMSensorWrapper::addSampleClient(SampleClient* clnt) throw()
+{
+    _snsr->addSampleClient(clnt);
+}
+
+void DSMSensorWrapper::removeSampleClient(SampleClient* clnt) throw()
+{
+    _snsr->removeSampleClient(clnt);
+}
+
 SampleInputMerger::SampleInputMerger() :
 	_name("SampleInputMerger"),
 	_inputSorter(_name + "InputSorter"),

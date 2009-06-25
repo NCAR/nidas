@@ -46,7 +46,7 @@ GOESXmtr::~GOESXmtr()
 {
 }
 
-void GOESXmtr::requestConnection(ConnectionRequester* rqstr)
+void GOESXmtr::requestConnection(IOChannelRequester* rqstr)
     throw(nidas::util::IOException)
 {
     open();
@@ -80,11 +80,6 @@ void GOESXmtr::open() throw(n_u::IOException)
 #endif
 
     port.flushBoth();
-}
-
-void GOESXmtr::close() throw(n_u::IOException)
-{
-    port.close();
 }
 
 void GOESXmtr::fromDOMElement(

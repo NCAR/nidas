@@ -562,16 +562,16 @@ public:
   /**
    * Construct the guard object and lock() the lock.
    **/
-  Autolock (Cond &cond_) : mutexp(0),condp(&cond_)
+  Autolock (Cond &cond) : _mutexp(0),_condp(&cond)
   {
-    cond_.lock();
+    cond.lock();
   }
   /**
    * Construct the guard object and lock() the lock.
    **/
-  Autolock (Mutex &mutex_) : mutexp(&mutex_),condp(0)
+  Autolock (Mutex &mutex) : _mutexp(&mutex),_condp(0)
   {
-    mutex_.lock();
+    mutex.lock();
   }
 
   /**
@@ -579,18 +579,80 @@ public:
    **/
   ~Autolock ()
   {
-    if (condp) condp->unlock();
-    else if (mutexp) mutexp->unlock();
+    if (_condp) _condp->unlock();
+    else if (_mutexp) _mutexp->unlock();
   }
 
 private:
-  Mutex *mutexp;
-  Cond *condp;
+  Mutex *_mutexp;
+  Cond *_condp;
 
 private:
   Autolock (const Autolock &);
   Autolock &operator= (const Autolock &);
     
+};
+
+/**
+ * Autolock for acquiring/releasing a read lock on a RWLock.
+ **/
+class AutoRdLock
+{
+public:
+
+  /**
+   * Construct the guard object and lock() the lock.
+   **/
+  AutoRdLock (RWLock &rwlock) : _rwlock(rwlock)
+  {
+    _rwlock.rdlock();
+  }
+
+  /**
+   * On destruction, unlock the lock.
+   **/
+  ~AutoRdLock ()
+  {
+    _rwlock.unlock();
+  }
+
+private:
+  RWLock& _rwlock;
+
+private:
+  AutoRdLock (const Autolock &);
+  AutoRdLock &operator= (const Autolock &);
+};
+
+/**
+ * Autolock for acquiring/releasing a write lock on a RWLock.
+ **/
+class AutoWrLock
+{
+public:
+
+  /**
+   * Construct the guard object and lock() the lock.
+   **/
+  AutoWrLock (RWLock &rwlock) : _rwlock(rwlock)
+  {
+    _rwlock.wrlock();
+  }
+
+  /**
+   * On destruction, unlock the lock.
+   **/
+  ~AutoWrLock ()
+  {
+    _rwlock.unlock();
+  }
+
+private:
+  RWLock& _rwlock;
+
+private:
+  AutoWrLock (const Autolock &);
+  AutoWrLock &operator= (const Autolock &);
 };
 
 }}	// namespace nidas namespace util

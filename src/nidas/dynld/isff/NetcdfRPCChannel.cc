@@ -125,7 +125,7 @@ int NetcdfRPCChannel::getRPCBatchPeriod() const
     return rpcBatchPeriod;
 }
 
-void NetcdfRPCChannel::requestConnection(ConnectionRequester* rqstr)
+void NetcdfRPCChannel::requestConnection(IOChannelRequester* rqstr)
        throw(n_u::IOException)
 {
     connect();

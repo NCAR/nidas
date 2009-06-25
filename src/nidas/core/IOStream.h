@@ -153,7 +153,7 @@ public:
      *    physical device is bogged down. Typically one must
      *    chuck the data and proceed.
      */
-    size_t write(const void *const * bufs,const size_t* lens, int nbufs)
+    size_t write(const struct iovec* iov, int nbufs)
   	throw(nidas::util::IOException);
 
     size_t write(const void*buf,size_t len) throw (nidas::util::IOException);

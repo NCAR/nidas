@@ -28,6 +28,9 @@
 
 #include <sys/time.h>
 #include <sys/select.h>
+#include <assert.h>
+
+#include <list>
 
 namespace nidas { namespace core {
 
@@ -62,12 +65,6 @@ public:
      * Thread function.
      */
     virtual int run() throw(nidas::util::Exception);
-
-    /**
-     * Utility function, sleeps until the next even period + offset.
-     */
-    static bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
-    	throw(nidas::util::IOException);
 
     /**
      * Utility function for finding greatest common divisor.

@@ -649,7 +649,32 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     }
     cerr << endl;
 #endif
+}
 
+xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    throw(xercesc::DOMException)
+{
+    xercesc::DOMElement* elem = 0;
+    if (complete) {
+        elem = parent->getOwnerDocument()->createElementNS(
+            DOMable::getNamespaceURI(),
+            (const XMLCh*)XMLStringConverter("sensor"));
+        parent->appendChild(elem);
+        return toDOMElement(elem,complete);
+    }
+    else {
+        for (SampleTagIterator sti = getSampleTagIterator(); sti.hasNext(); ) {
+            const SampleTag* tag = sti.next();
+            elem = tag->toDOMParent(parent,complete);
+        }
+    }
+    return elem;
+}
+
+xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+    throw(xercesc::DOMException)
+{
+    return 0; // not supported yet
 }
 
 /* static */

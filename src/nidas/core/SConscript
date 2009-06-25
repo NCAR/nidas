@@ -44,8 +44,10 @@ headers = Split("""
     AsciiSscanf.h
     CalFile.h
     CharacterSensor.h
+    ConnectionInfo.h
     ConnectionRequester.h
     Datagrams.h
+    DatagramSocket.h
     DerivedDataClient.h
     DerivedDataReader.h
     DOMable.h
@@ -61,6 +63,8 @@ headers = Split("""
     DSMService.h
     DSMTime.h
     DynamicLoader.h
+    FileSet.h
+    FsMount.h
     HeaderSource.h
     IOChannel.h
     IODevice.h
@@ -68,6 +72,8 @@ headers = Split("""
     LooperClient.h
     Looper.h
     McSocket.h
+    McSocketUDP.h
+    MultipleUDPSockets.h
     NearestResampler.h
     NearestResamplerAtRate.h
     NidsIterators.h
@@ -117,8 +123,8 @@ headers = Split("""
     TestSampleClient.h
     UnixIOChannel.h
     UnixIODevice.h
-    VariableConverter.h
     Variable.h
+    VariableConverter.h
     Version.h
     XDOM.h
     XMLConfigInput.h
@@ -141,6 +147,7 @@ sources = Split("""
     CalFile.cc
     CharacterSensor.cc
     ConnectionRequester.cc
+    DatagramSocket.cc
     DerivedDataReader.cc
     DOMable.cc
     DOMObjectFactory.cc
@@ -153,11 +160,16 @@ sources = Split("""
     DSMServerApp.cc
     DSMServerIntf.cc
     DSMService.cc
+    DSMTime.cc
+    FileSet.cc
+    FsMount.cc
     HeaderSource.cc
     IOChannel.cc
     IOStream.cc
     Looper.cc
     McSocket.cc
+    McSocketUDP.cc
+    MultipleUDPSockets.cc
     NearestResampler.cc
     NearestResamplerAtRate.cc
     NidsIterators.cc

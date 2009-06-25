@@ -56,14 +56,14 @@ public:
      * Create a DOMElement and append it to the parent.
      */
     virtual xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent) const
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
 		throw(xercesc::DOMException);
 
     /**
      * Add my content into a DOMElement.
      */
     virtual xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node) const
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
 		throw(xercesc::DOMException);
 
     static const XMLCh* getNamespaceURI() {

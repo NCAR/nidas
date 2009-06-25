@@ -30,6 +30,7 @@ const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
+    _ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),
     ggacnt(0),rmccnt(0),prevRMCTm(-1.0),prevGGATm(-1.0)
 {
 
@@ -50,18 +51,18 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
-	ggaNvars = stag->getVariables().size();
-	ggaId = stag->getId();
+	_ggaNvars = stag->getVariables().size();
+	_ggaId = stag->getId();
 	break;
     case RMC_SAMPLE_ID:
-	rmcNvars = stag->getVariables().size();
-	if (rmcNvars != 8 && rmcNvars != 12) {
+	_rmcNvars = stag->getVariables().size();
+	if (_rmcNvars != 8 && _rmcNvars != 12) {
 	    ostringstream ost;
 	    ost << "must be either 12 or 8 ";
 	    throw n_u::InvalidParameterException(getName(),
 		"number of variables in RMC sample",ost.str());
 	}
-	rmcId = stag->getId();
+	_rmcId = stag->getId();
 	break;
     default:
 	{
@@ -171,7 +172,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
     dsm_time_t timeoffix = 0;
 
     // input is null terminated
-    for (int ifield = 0; ; ifield++) {
+    for (int ifield = 0; iout < nvars; ifield++) {
 	const char* cp = ::strchr(input,sep);
 	if (cp == NULL) break;
 	cp++;
@@ -287,7 +288,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     dsm_time_t timeoffix = 0;
 
     // input is null terminated
-    for (int ifield = 0; ; ifield++) {
+    for (int ifield = 0; iout < nvars; ifield++) {
 	const char* cp = ::strchr(input,sep);
 	if (cp == NULL) break;
 	cp++;
@@ -378,22 +379,22 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
 
-    if (!strncmp(input,"$GPGGA,",7)) {
+    if (!strncmp(input,"$GPGGA,",7) && _ggaId != 0) {
 	input += 7;
-	SampleT<float>* outs = getSample<float>(ggaNvars);
+	SampleT<float>* outs = getSample<float>(_ggaNvars);
         outs->setTimeTag(samp->getTimeTag());
-	outs->setId(ggaId);
-	timeoffix = parseGGA(input,outs->getDataPtr(),ggaNvars,samp->getTimeTag());
+	outs->setId(_ggaId);
+	timeoffix = parseGGA(input,outs->getDataPtr(),_ggaNvars,samp->getTimeTag());
 	outs->setTimeTag(timeoffix);
 	results.push_back(outs);
 	return true;
     }
-    else if (!strncmp(input,"$GPRMC,",7)) {
+    else if (!strncmp(input,"$GPRMC,",7) && _rmcId != 0) {
 	input += 7;
-	SampleT<float>* outs = getSample<float>(rmcNvars);
+	SampleT<float>* outs = getSample<float>(_rmcNvars);
         outs->setTimeTag(samp->getTimeTag());
-	outs->setId(rmcId);
-	timeoffix = parseRMC(input,outs->getDataPtr(),rmcNvars,samp->getTimeTag());
+	outs->setId(_rmcId);
+	timeoffix = parseRMC(input,outs->getDataPtr(),_rmcNvars,samp->getTimeTag());
 	outs->setTimeTag(timeoffix);
 	results.push_back(outs);
 	return true;

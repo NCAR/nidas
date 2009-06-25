@@ -183,14 +183,14 @@ int PacketDecode::run() throw()
 	    NetcdfRPCOutput* netcdfOutput = new NetcdfRPCOutput;
 	    netcdfOutput->setIOChannel(netcdfChannel);
 	    netcdfOutput->connect();
-	    arch.connected(netcdfOutput,netcdfOutput);
+	    arch.connect(netcdfOutput,netcdfOutput);
 	}
 
 	AsciiOutput* asciiOutput = 0;
 	if (doAscii) {
 	    asciiOutput = new AsciiOutput;
 	    asciiOutput->connect();
-	    arch.connected(asciiOutput,asciiOutput);
+	    arch.connect(asciiOutput,asciiOutput);
 	}
 
 	try {
@@ -205,10 +205,10 @@ int PacketDecode::run() throw()
 	    arch.disconnect(&input);
 	    input.close();
 
-	    if (asciiOutput) arch.disconnected(asciiOutput);
+	    if (asciiOutput) arch.disconnect(asciiOutput);
 	    delete asciiOutput;
 
-	    if (netcdfOutput) arch.disconnected(netcdfOutput);
+	    if (netcdfOutput) arch.disconnect(netcdfOutput);
 	    delete netcdfOutput;
 
 	    throw e;
@@ -216,10 +216,10 @@ int PacketDecode::run() throw()
 	catch (n_u::IOException& e) {
 	    input.close();
 
-	    if (asciiOutput) arch.disconnected(asciiOutput);
+	    if (asciiOutput) arch.disconnect(asciiOutput);
 	    delete asciiOutput;
 
-	    if (netcdfOutput) arch.disconnected(netcdfOutput);
+	    if (netcdfOutput) arch.disconnect(netcdfOutput);
 	    delete netcdfOutput;
 
 	    throw e;

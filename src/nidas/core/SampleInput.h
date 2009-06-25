@@ -18,7 +18,6 @@
 
 #include <nidas/core/SampleSource.h>
 #include <nidas/core/IOStream.h>
-#include <nidas/core/ConnectionRequester.h>
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/SampleInputHeader.h>
 
@@ -41,7 +40,8 @@ public:
 
     virtual std::string getName() const = 0;
 
-    virtual nidas::util::Inet4Address getRemoteInet4Address() const = 0;
+    // virtual nidas::util::Inet4Address getRemoteInet4Address() const = 0;
+    virtual const DSMConfig* getDSMConfig() const = 0;
 
     /**
      * Client wants samples from the process() method of the
@@ -126,10 +126,7 @@ public:
 
     std::string getName() const { return _name; }
 
-    nidas::util::Inet4Address getRemoteInet4Address() const
-    {
-        return nidas::util::Inet4Address(INADDR_ANY);
-    }
+    const DSMConfig* getDSMConfig() const { return 0; }
 
     /**
      * Add an input to be merged and sorted.
@@ -347,14 +344,14 @@ class SampleInputWrapper: public SampleInput
 {
 public:
 
-
     SampleInputWrapper(SampleSource* src): _src(src)
     {
     }
 
     std::string getName() const;
 
-    nidas::util::Inet4Address getRemoteInet4Address() const;
+    // nidas::util::Inet4Address getRemoteInet4Address() const;
+    const DSMConfig* getDSMConfig() const { return 0; }
 
     const std::list<const SampleTag*>& getSampleTags() const;
 
@@ -400,6 +397,64 @@ private:
 
 };
 
+/*
+ * Wrapper around a SampleSource, which provides the SampleInput interface.
+ */
+class DSMSensorWrapper: public SampleInput
+{
+public:
+
+    DSMSensorWrapper(DSMSensor* snsr): _snsr(snsr)
+    {
+    }
+
+    std::string getName() const;
+
+    const DSMConfig* getDSMConfig() const;
+
+    const std::list<const SampleTag*>& getSampleTags() const;
+
+    void addSampleClient(SampleClient* clnt) throw();
+
+    void removeSampleClient(SampleClient* clnt) throw();
+    /**
+     * Client wants samples from the process() method of the
+     * given DSMSensor.
+     */
+    void addProcessedSampleClient(SampleClient* clnt,DSMSensor* snsr);
+
+    void removeProcessedSampleClient(SampleClient* clnt, DSMSensor* snsr = 0);
+
+    void setSorterLengthMsecs(int val) {}
+
+    int getSorterLengthMsecs() const { return 0; }
+
+    /**
+     * Set the maximum amount of heap memory to use for sorting samples.
+     * @param val Maximum size of heap in bytes.
+     * @see SampleSorter::setHeapMax().
+     */
+    void setHeapMax(size_t val) {}
+
+    size_t getHeapMax() const { return 0; }
+
+    /**
+     * @param val If true, and heapSize exceeds heapMax,
+     *   then wait for heapSize to be less then heapMax,
+     *   which will block any SampleSources that are inserting
+     *   samples into this sorter.  If false, then discard any
+     *   samples that are received while heapSize exceeds heapMax.
+     * @see SampleSorter::setHeapBlock().
+     */
+    void setHeapBlock(bool val) {}
+
+    bool getHeapBlock() const { return 0; }
+
+private:
+
+    DSMSensor* _snsr;
+
+};
 
 /**
  * Extension of the interface to a SampleInput providing the
@@ -407,7 +462,7 @@ private:
  * of samples (socket or files) and actually read samples
  * from the connection.
  */
-class SampleInputReader: public SampleInput, public ConnectionRequester
+class SampleInputReader: public SampleInput, public IOChannelRequester
 {
 public:
 

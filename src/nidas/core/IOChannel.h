@@ -16,13 +16,17 @@
 #ifndef NIDAS_CORE_IOCHANNEL_H
 #define NIDAS_CORE_IOCHANNEL_H
 
-#include <nidas/core/ConnectionRequester.h>
+#include <nidas/core/ConnectionInfo.h>
 
 #include <nidas/core/Datagrams.h>
 #include <nidas/core/DOMable.h>
 
+#include <nidas/core/Sample.h>
+
 #include <nidas/util/IOException.h>
 #include <nidas/util/Inet4Address.h>
+
+#include <sys/uio.h>
 
 #include <set>
 
@@ -30,6 +34,18 @@ namespace nidas { namespace core {
 
 class DSMService;
 class DSMConfig;
+class IOChannel;
+
+/**
+ *  * Interface for an object that requests connections to Inputs
+ *   * or Outputs.
+ *    */
+class IOChannelRequester
+{
+public:
+    virtual ~IOChannelRequester() {}
+    virtual void connected(IOChannel*) throw() = 0;
+};
 
 /**
  * A channel for Input or Output of data.
@@ -52,7 +68,7 @@ public:
     virtual const std::string& getName() const = 0;
 
     /*
-     * The requestNum number is used when establishing McSocket
+     * The requestType is used when establishing McSocket
      * connections and is ignored otherwise.
      */
     virtual void setRequestType(enum McSocketRequest val) {}
@@ -72,17 +88,17 @@ public:
      * requestConnection to get things started. It is like opening
      * a device, but in the case of sockets, it just starts the process
      * of establishing a connection to the remote host.
-     * Only when the ConnectionRequester::connected() method
+     * Only when the IOChannelRequester::connected() method
      * is called back is the channel actually open and ready for IO.
-     * The IOChannel* returned by ConnectionRequester::connected
+     * The IOChannel* returned by IOChannelRequester::connected
      * may be another instance of an IOChannel.
      */
-    virtual void requestConnection(ConnectionRequester*)
+    virtual void requestConnection(IOChannelRequester*)
     	throw(nidas::util::IOException) = 0;
 
     /**
      * Establish a connection. On return, the connection has been
-     * established. It returns a new instance of an IOChannel.
+     * established. It may return a new instance of an IOChannel.
      */
     virtual IOChannel* connect() throw(nidas::util::IOException) = 0;
 
@@ -93,9 +109,14 @@ public:
      * of an Inet4Address.  Socket subclasses should override
      * this.
      */
-    virtual nidas::util::Inet4Address getRemoteInet4Address()
+    virtual const ConnectionInfo& getConnectionInfo() const
     {
-        return nidas::util::Inet4Address();
+        return _conInfo;
+    }
+
+    virtual void setConnectionInfo(const ConnectionInfo& val)
+    {
+        _conInfo = val;
     }
 
     /**
@@ -132,6 +153,14 @@ public:
     	throw(nidas::util::IOException) = 0;
 
     /**
+     * Physical write method which must be implemented in derived
+     * classes. Returns the number of bytes written, which
+     * may be less than the number requested.
+     */
+    virtual size_t write(const struct iovec* iov, int iovcnt)
+    	throw(nidas::util::IOException) = 0;
+
+    /**
      * Default flush implementation does nothing.
      */
     virtual void flush() throw(nidas::util::IOException) {}
@@ -159,19 +188,27 @@ public:
         return LONG_LONG_MAX;
     }
 
+    /**
+     * What DSM is this IOChannel connected to?
+     */
     virtual void setDSMConfig(const DSMConfig* val) 
     {
-        dsm = val;
+        _dsm = val;
     }
 
+    /**
+     * What DSM is this IOChannel connected to? May be NULL.
+     */
     virtual const DSMConfig* getDSMConfig() const 
     {
-        return dsm;
+        return _dsm;
     }
 
 private:
     
-    const DSMConfig* dsm;
+    const DSMConfig* _dsm;
+
+    ConnectionInfo _conInfo;
 
 };
 

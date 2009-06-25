@@ -35,8 +35,8 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
  * Constructor, with a IOChannel (which may be null).
  */
 SampleInputStream::SampleInputStream(IOChannel* iochannel):
-    _service(0),_iochan(iochannel),_iostream(0),
-    _inputHeaderParsed(false),
+    _service(0),_iochan(iochannel),_iostream(0),_dsm(0),
+    _expectHeader(true),_inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
     _badSamples(0),
@@ -66,7 +66,8 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
 	IOChannel* iochannel):
     _service(x._service),
     _iochan(iochannel),_iostream(0),
-    _sampleTags(x._sampleTags),
+    _sampleTags(x._sampleTags),_dsm(x._dsm),
+    _expectHeader(x._expectHeader),
     _inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
@@ -115,7 +116,7 @@ void SampleInputStream::connected(IOChannel* iochannel) throw()
     // cerr << "SampleInputStream connected, iochannel=" <<
     //	iochannel->getRemoteInet4Address().getHostAddress() << endl;
     // this create a clone of myself
-    _service->connected(clone(iochannel));
+    _service->connect(clone(iochannel));
 }
 
 void SampleInputStream::addProcessedSampleClient(SampleClient* client,
@@ -180,10 +181,27 @@ void SampleInputStream::close() throw(n_u::IOException)
     _iochan->close();
 }
 
-n_u::Inet4Address SampleInputStream::getRemoteInet4Address() const
+const DSMConfig* SampleInputStream::getDSMConfig() const
 {
-    if (_iochan) return _iochan->getRemoteInet4Address();
-    else return n_u::Inet4Address();
+    if (!_dsm && _iochan) {
+        n_u::Inet4Address remoteAddr =
+            _iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
+        _dsm = Project::getInstance()->findDSM(remoteAddr);
+        if (!_dsm) {
+            n_u::Socket tmpsock;
+            list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
+            tmpsock.close();
+            list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+            for ( ; !_dsm && ii != ifaces.end(); ++ii) {
+                n_u::Inet4NetworkInterface iface = *ii;
+                if (iface.getAddress() == remoteAddr) {
+                    remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
+                    _dsm = Project::getInstance()->findDSM(remoteAddr);
+                }
+            }
+        }
+    }
+    return _dsm;
 }
 
 void SampleInputStream::readInputHeader() throw(n_u::IOException)
@@ -199,6 +217,10 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
 
 bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 {
+    if (!_expectHeader) {
+        _inputHeaderParsed = true;
+        return true;
+    }
     if (_samp) _samp->freeReference();
     _samp = 0;
     _headerToRead = _sheader.getSizeOf();
@@ -231,7 +253,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
     if (len == 0 && _iostream->available() == 0) return;
 
     // first read from a new file
-    if (_iostream->isNewInput()) _inputHeaderParsed = false;
+    if (_expectHeader && _iostream->isNewInput()) _inputHeaderParsed = false;
     
     if (!_inputHeaderParsed && !parseInputHeader()) return;
 
@@ -316,7 +338,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
                 _headerToRead -= len;
                 _hptr += len;
                 // new file
-                if (_iostream->isNewInput()) {
+                if (_expectHeader && _iostream->isNewInput()) {
                     _iostream->backup(len);
                     readInputHeader();
                 }
@@ -368,7 +390,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
         while (_dataToRead > 0) {
             len = _iostream->read(_dptr, _dataToRead);
             // new file
-            if (_iostream->isNewInput()) {
+            if (_expectHeader && _iostream->isNewInput()) {
                 _iostream->backup(len);
                 readInputHeader();
                 break;
@@ -403,7 +425,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 _headerToRead -= len;
                 _hptr += len;
                 // new file
-                if (_iostream->isNewInput()) {
+                if (_expectHeader && _iostream->isNewInput()) {
                     _iostream->backup(len);
                     readInputHeader();
                 }
@@ -467,7 +489,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
         while (_dataToRead > 0) {
             len = _iostream->skip(_dataToRead);
             // new file
-            if (_iostream->isNewInput()) {
+            if (_expectHeader && _iostream->isNewInput()) {
                 _iostream->backup(len);
                 readInputHeader();
                 break;

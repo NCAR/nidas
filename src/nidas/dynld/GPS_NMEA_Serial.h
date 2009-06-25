@@ -50,22 +50,22 @@ private:
     /**
      * Number of variables requested from GGA record (sample id == 1)
      */
-    int ggaNvars;
+    int _ggaNvars;
 
     /**
      * Full sample id of GGA variables.
      */
-    dsm_sample_id_t ggaId;
+    dsm_sample_id_t _ggaId;
 
     /**
      * Number of variables requested from RMC record (sample id == 2)
      */
-    int rmcNvars;
+    int _rmcNvars;
 
     /**
      * Full sample id of RMC variables.
      */
-    dsm_sample_id_t rmcId;
+    dsm_sample_id_t _rmcId;
 
     /**
      * Id of sample from GGA NMEA record.  Fixed at 1.

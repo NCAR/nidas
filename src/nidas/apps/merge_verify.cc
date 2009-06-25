@@ -13,7 +13,7 @@
 
 */
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/SortedSampleSet.h>
 #include <nidas/util/UTime.h>
@@ -287,7 +287,7 @@ int MergeVerifier::run() throw()
 
 	    const list<string>& inputFiles = inputFileNames[ii];
 
-	    FileSet* fset = new nidas::dynld::FileSet();
+	    nidas::core::FileSet* fset = new nidas::core::FileSet();
 	    fset->setStartTime(startTime);
 	    fset->setEndTime(endTime);
 
@@ -333,7 +333,7 @@ int MergeVerifier::run() throw()
 #endif
 	}
 
-        FileSet* fset = new nidas::dynld::FileSet();
+        nidas::core::FileSet* fset = new nidas::core::FileSet();
         fset->setStartTime(startTime);
         fset->setEndTime(endTime);
 

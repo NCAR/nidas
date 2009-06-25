@@ -68,28 +68,30 @@ std::string Inet4SocketAddress::toString() const
     return ost.str();
 }
 
+std::string Inet4SocketAddress::toAddressString() const
+{
+    std::ostringstream ost;
+    ost << "inet:" << getInet4Address().getHostAddress() <<
+	    ':' << getPort();
+    return ost.str();
+}
+
 /**
  * Comparator operator for addresses. Useful if this
  * address is a key in an STL map.
  */
-bool Inet4SocketAddress::operator < (const SocketAddress& x) const {
-    if (getFamily() != x.getFamily()) return getFamily() < x.getFamily();
-    const Inet4SocketAddress& x4 =
-	    static_cast<const Inet4SocketAddress&>(x);
+bool Inet4SocketAddress::operator < (const Inet4SocketAddress& x) const {
     if(ntohl(sockaddr.sin_addr.s_addr) <
-	    ntohl(x4.sockaddr.sin_addr.s_addr)) return true;
-    if (sockaddr.sin_addr.s_addr == x4.sockaddr.sin_addr.s_addr)
-	return ntohs(sockaddr.sin_port) < ntohs(x4.sockaddr.sin_port);
+	    ntohl(x.sockaddr.sin_addr.s_addr)) return true;
+    if (sockaddr.sin_addr.s_addr == x.sockaddr.sin_addr.s_addr)
+	return ntohs(sockaddr.sin_port) < ntohs(x.sockaddr.sin_port);
     return false;
 }
 
 /**
  * Equality operator for addresses.
  */
-bool Inet4SocketAddress::operator == (const SocketAddress& x) const {
-    if (getFamily() != x.getFamily()) return false;
-    const Inet4SocketAddress& x4 =
-	    static_cast<const Inet4SocketAddress&>(x);
-    return sockaddr.sin_addr.s_addr == x4.sockaddr.sin_addr.s_addr &&
-	sockaddr.sin_port == x4.sockaddr.sin_port;
+bool Inet4SocketAddress::operator == (const Inet4SocketAddress& x) const {
+    return sockaddr.sin_addr.s_addr == x.sockaddr.sin_addr.s_addr &&
+	sockaddr.sin_port == x.sockaddr.sin_port;
 }

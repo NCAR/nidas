@@ -1,5 +1,10 @@
 #!/bin/sh
 
+llp=../../src/build_x86/build_util:../../src/build_x86/build_core:../../src/build_x86/build_dynld
+[ -n "$LD_LIBARARY_PATH" ] || export LD_LIBRARY_PATH=$llp
+
+PATH=../../src/build_x86/build_apps:$PATH
+
 # Do a short test of sync_server, sync_dump.
 
 export PROJ_DIR=$PWD/config

@@ -16,7 +16,7 @@
 #define _XOPEN_SOURCE	/* glibc2 needs this */
 #include <ctime>
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
@@ -236,7 +236,7 @@ int SyncServer::run() throw()
     IOChannel* iochan = 0;
 
     try {
-	FileSet* fset = new nidas::dynld::FileSet();
+	nidas::core::FileSet* fset = new nidas::core::FileSet();
 	iochan = fset;
 
 	list<string>::const_iterator fi;
@@ -289,7 +289,7 @@ int SyncServer::run() throw()
 	SampleOutputStream* output = new SampleOutputStream(servSock);
 
 	output->connect();
-	syncGen.connected(output,output);
+	syncGen.connect(output,output);
 
 	if (simulationMode) simLoop(input,output,syncGen);
 	else normLoop(input,output,syncGen);
@@ -371,13 +371,13 @@ void SyncServer::simLoop(SampleInputStream& input,SampleOutputStream* output,
     catch (n_u::EOFException& e) {
 	input.close();
 	syncGen.disconnect(&input);
-	syncGen.disconnected(output);
+	syncGen.disconnect(output);
 	throw e;
     }
     catch (n_u::IOException& e) {
 	input.close();
 	syncGen.disconnect(&input);
-	syncGen.disconnected(output);
+	syncGen.disconnect(output);
 	throw e;
     }
 }
@@ -398,13 +398,13 @@ void SyncServer::normLoop(SampleInputStream& input,SampleOutputStream* output,
 	syncGen.disconnect(&input);
 
 	input.close();
-	syncGen.disconnected(output);
+	syncGen.disconnect(output);
 	throw e;
     }
     catch (n_u::IOException& e) {
 	input.close();
 	syncGen.disconnect(&input);
-	syncGen.disconnected(output);
+	syncGen.disconnect(output);
 	throw e;
     }
 }

@@ -18,7 +18,7 @@
 // #define _XOPEN_SOURCE	/* glibc2 needs this */
 #include <ctime>
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/UnixIOChannel.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
@@ -123,7 +123,7 @@ int Concater::run() throw()
 
 	outStream.init();
 
-	FileSet* fset = new nidas::dynld::FileSet();
+	nidas::core::FileSet* fset = new nidas::core::FileSet();
 
 	list<string>::const_iterator fi;
 	for (fi = inNames.begin(); fi != inNames.end(); ++fi)

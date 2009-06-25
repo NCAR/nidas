@@ -30,6 +30,7 @@ StatisticsProcessor::StatisticsProcessor():_statsPeriod(0.0)
     setName("StatisticsProcessor");
 }
 
+#ifdef NEED_COPY_CLONE
 /*
  * Copy constructor
  */
@@ -42,6 +43,7 @@ StatisticsProcessor::StatisticsProcessor(const StatisticsProcessor& x):
         crunchers.push_back(new StatisticsCruncher(*c));
     }
 }
+#endif
 
 StatisticsProcessor::~StatisticsProcessor()
 {
@@ -51,10 +53,12 @@ StatisticsProcessor::~StatisticsProcessor()
     }
 }
 
+#ifdef NEED_COPY_CLONE
 StatisticsProcessor* StatisticsProcessor::clone() const
 {
     return new StatisticsProcessor(*this);
 }
+#endif
 
 void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
@@ -152,7 +156,7 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
     configTags.push_back(tag);
 }
 
-void StatisticsProcessor::connect(SampleInput* input) throw(n_u::IOException)
+void StatisticsProcessor::connect(SampleInput* input) throw()
 {
 #ifdef DEBUG
     cerr << "StatisticsProcessor connect, #of tags=" <<
@@ -242,7 +246,7 @@ void StatisticsProcessor::disconnect(SampleInput* input) throw()
     SampleIOProcessor::disconnect(input);
 }
  
-void StatisticsProcessor::connected(SampleOutput* orig,
+void StatisticsProcessor::connect(SampleOutput* orig,
 	SampleOutput* output) throw()
 {
 
@@ -251,10 +255,10 @@ void StatisticsProcessor::connected(SampleOutput* orig,
         StatisticsCruncher* cruncher = *ci;
 	cruncher->addSampleClient(output);
     }
-    SampleIOProcessor::connected(orig,output);
+    SampleIOProcessor::connect(orig,output);
 }
  
-void StatisticsProcessor::disconnected(SampleOutput* output) throw()
+void StatisticsProcessor::disconnect(SampleOutput* output) throw()
 {
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = crunchers.begin(); ci != crunchers.end(); ++ci) {
@@ -262,6 +266,6 @@ void StatisticsProcessor::disconnected(SampleOutput* output) throw()
 	cruncher->flush();
 	cruncher->removeSampleClient(output);
     }
-    SampleIOProcessor::disconnected(output);
+    SampleIOProcessor::disconnect(output);
 }
 

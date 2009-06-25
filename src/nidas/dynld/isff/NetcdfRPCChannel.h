@@ -64,7 +64,7 @@ public:
     /**
      * Request a connection.
      */
-    void requestConnection(ConnectionRequester* rqstr)
+    void requestConnection(IOChannelRequester* rqstr)
     	throw(nidas::util::IOException);
 
     /**
@@ -86,6 +86,14 @@ public:
     * Do the actual hardware write.
     */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    {
+	throw nidas::util::IOException(getName(),"default write","not supported");
+    }
+
+    /**
+    * Do the actual hardware write.
+    */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");
     }

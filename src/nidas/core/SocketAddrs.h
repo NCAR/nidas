@@ -32,6 +32,8 @@
 
 #define NIDAS_XMLRPC_STATUS_PORT_TCP    30006   // status_listener provides merged status on this port
 
+#define NIDAS_VARIABLE_LIST_PORT_TCP    30007   // server port for providing list of variables
+
 #define NIDAS_MULTICAST_ADDR "239.0.0.10"
 
 #endif

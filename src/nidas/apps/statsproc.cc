@@ -19,7 +19,7 @@
 
 #include <nidas/core/Project.h>
 #include <nidas/core/ProjectConfigs.h>
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/StatisticsProcessor.h>
@@ -367,7 +367,7 @@ int StatsProcess::run() throw()
     auto_ptr<Project> project;
     auto_ptr<SortedSampleInputStream> sis;
     IOChannel* iochan = 0;
-    FileSet* fset = 0;
+    nidas::core::FileSet* fset = 0;
     try {
         if (xmlFileName.length() > 0) {
             xmlFileName = Project::expandEnvVars(xmlFileName);
@@ -434,7 +434,7 @@ int StatsProcess::run() throw()
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
-	        list<FileSet*> fsets = project->findSampleOutputStreamFileSets(
+	        list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
@@ -449,7 +449,7 @@ int StatsProcess::run() throw()
                 if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
 	    }
 	    else {
-                fset = new FileSet();
+                fset = new nidas::core::FileSet();
                 list<string>::const_iterator fi;
                 for (fi = dataFileNames.begin();
                     fi != dataFileNames.end(); ++fi)

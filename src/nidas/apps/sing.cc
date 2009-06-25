@@ -19,15 +19,18 @@
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/util.h>
-#include <nidas/core/Looper.h>
+#include <nidas/core/DSMTime.h>
 #include <vector>
+#include <cstring>
 #include <memory>
 #include <iostream>
 #include <iomanip>
+#include <assert.h>
 #include <limits.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <cstdlib>
+#include <math.h>
 
 using namespace std;
 namespace n_u = nidas::util;
@@ -314,7 +317,7 @@ int Sender::run() throw(n_u::Exception)
     for (;_nout < nPacketsOut;) {
         if (isInterrupted() || interrupted) break;
         send();
-        if (periodMsec > 0) nidas::core::Looper::sleepUntil(periodMsec);
+        if (periodMsec > 0) nidas::core::sleepUntil(periodMsec);
     }
     _nout = EOF_NPACK;
     send();
@@ -341,6 +344,9 @@ void Sender::send() throw(n_u::IOException)
 
     int iout = _nout % 100;
 
+    // We use sprintf to write into the buffer which adds a
+    // trailing NULL (which isn't sent), so we need space for
+    // one more byte.
     if (_hptr + _packetLength + 1 > _eob) flush();
     if (_hptr + _packetLength + 1 > _eob) {
         if (!(_discarded++ % 100))

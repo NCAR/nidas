@@ -17,7 +17,7 @@
 
 #include <ctime>
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
@@ -392,7 +392,7 @@ int DataStats::run() throw()
 
 	if (dataFileNames.size() > 0) {
 
-	    FileSet* fset = new nidas::dynld::FileSet();
+	    nidas::core::FileSet* fset = new nidas::core::FileSet();
 	    iochan = fset;
 
 #ifdef USE_FILESET_TIME_CAPABILITY

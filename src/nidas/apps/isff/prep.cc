@@ -15,7 +15,7 @@
 
 #include <ctime>
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
@@ -657,8 +657,8 @@ int DataPrep::run() throw()
             variables = matchVariables(project.get(),activeDsms,activeSensors);
 
 	    // now look for the files.
-	    FileSet* fset = 0;
-            list<FileSet*> fsets =
+	    nidas::core::FileSet* fset = 0;
+            list<nidas::core::FileSet*> fsets =
                 project->findSampleOutputStreamFileSets();
             if (fsets.size() == 0 && activeDsms.size() == 1) {
                 const DSMConfig* dsm = *(activeDsms.begin());
@@ -688,7 +688,7 @@ int DataPrep::run() throw()
 	    //	2. set of dsms
 	    //	3. set of sensors
 
-	    FileSet* fset = new nidas::dynld::FileSet();
+	    nidas::core::FileSet* fset = new nidas::core::FileSet();
             iochan = fset;
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)

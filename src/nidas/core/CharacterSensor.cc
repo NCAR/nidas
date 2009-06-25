@@ -31,7 +31,6 @@
 
 using namespace std;
 using namespace nidas::core;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -186,7 +185,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 }
 
 void CharacterSensor::fromDOMElement(
-	const DOMElement* node)
+	const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
 
@@ -196,10 +195,10 @@ void CharacterSensor::fromDOMElement(
 
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	DOMNamedNodeMap *pAttributes = node->getAttributes();
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    // get attribute name
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
@@ -210,12 +209,12 @@ void CharacterSensor::fromDOMElement(
 
 	}
     }
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
 	if (elname == "message") {
@@ -273,7 +272,6 @@ void CharacterSensor::fromDOMElement(
     //}
 
     //_prompted = !getPrompts().empty();
-    
 }
 
 void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
@@ -298,9 +296,7 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
     }
 
     _prompted = !getPrompts().empty();
-
 }
-
 
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()

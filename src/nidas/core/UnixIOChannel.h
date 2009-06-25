@@ -50,7 +50,7 @@ public:
     /**
      * RequestConnection just returns connected immediately.
      */
-    void requestConnection(ConnectionRequester* rqstr)
+    void requestConnection(IOChannelRequester* rqstr)
     	throw(nidas::util::IOException)
     {
         rqstr->connected(this);
@@ -83,6 +83,17 @@ public:
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
         ssize_t res = ::write(fd,buf,len);
+	if (res < 0) throw nidas::util::IOException(getName(),"write",errno);
+	newInput = false;
+	return res;
+    }
+
+    /**
+    * Do the actual hardware write.
+    */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    {
+        ssize_t res = ::writev(fd,iov,iovcnt);
 	if (res < 0) throw nidas::util::IOException(getName(),"write",errno);
 	newInput = false;
 	return res;

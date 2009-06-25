@@ -163,13 +163,25 @@ private:
 
     void deleteDataThreads() throw();
 
+    void joinDataThreads() throw();
+
     /**
-     * Implementation of ConnectionRequester connected methods.
+     * Implementation of SampleConnectionRequester connect methods.
      * This is how DSMEngine is notified of remote connections.
      */
-    void connected(SampleOutput*,SampleOutput*) throw();
+    void connect(SampleOutput*,SampleOutput*) throw();
 
-    void disconnected(SampleOutput*) throw();
+    void disconnect(SampleOutput*) throw();
+
+    /**
+     * DSMEngine does not receive SampleInputs, so this will die with an assert.
+     */
+    void connect(SampleInput*) throw() { assert(false); }
+
+    /**
+     * DSMEngine does not receive SampleInputs, so these will die with an assert.
+     */
+    void disconnect(SampleInput*) throw() { assert(false); }
 
     bool _externalControl;
 
@@ -231,7 +243,7 @@ private:
      */
     int _rtlinux;
 
-    std::list<SampleInputWrapper*> _inputs;
+    std::list<DSMSensorWrapper*> _inputs;
 
     std::string _username;
 

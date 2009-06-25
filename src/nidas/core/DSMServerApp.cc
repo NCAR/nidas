@@ -28,7 +28,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -508,7 +507,7 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     string expName = Project::expandEnvVars(xmlFileName);
 
     // This document belongs to the caching parser
-    DOMDocument* doc = parser->parse(expName);
+    xercesc::DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 
     Project* project = Project::getInstance();

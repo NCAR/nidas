@@ -32,26 +32,15 @@ public:
     Prompt(): _promptRate(0.0) {}
 
     void setString(const std::string& val) { 
-
-        cerr << "setString(" << val << ")";
-
         _promptString = val; }
 
     const std::string& getString() const { 
-
-        cerr << "getString return value: " << _promptString ;
         return _promptString; }
 
     void setRate(const float val) {
-
-         cerr << "setRate(" << val << ")";
-
          _promptRate = val; }
 
     float getRate() const {
-
-        cerr << "getRate return value: " << _promptRate ;
-
          return _promptRate; }
 
 private:

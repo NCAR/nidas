@@ -26,10 +26,10 @@ SampleIOProcessor::SampleIOProcessor(): _id(0),_optional(false),_service(0)
 {
 }
 
+#ifdef NEED_COPY_CLONE
 /*
  * Copy constructor
  */
-
 SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
 	_name(x._name),_id(x._id),_optional(x._optional),_service(x._service)
 {
@@ -48,6 +48,7 @@ SampleIOProcessor::SampleIOProcessor(const SampleIOProcessor& x):
         addParameter(param->clone());
     }
 }
+#endif
 
 // #define DEBUG
 SampleIOProcessor::~SampleIOProcessor()
@@ -62,6 +63,8 @@ SampleIOProcessor::~SampleIOProcessor()
     list<SampleOutput*>::const_iterator oi = _pendingOutputClosures.begin();
     for (; oi != _pendingOutputClosures.end(); ++oi) {
         SampleOutput* output = *oi;
+	output->finish();
+	output->close();
 	delete output;
     }
     _pendingOutputClosures.clear();
@@ -71,9 +74,9 @@ SampleIOProcessor::~SampleIOProcessor()
     for ( ; mi != _outputMap.end(); ++mi) {
         SampleOutput* output = mi->first;
         SampleOutput* orig = mi->second;
-	output->finish();
-	output->close();
 	if (orig != output) {
+            output->finish();
+            output->close();
 #ifdef DEBUG
 	    cerr << "~SampleIOProcessor, deleting non-orig output=" <<
 	    	output->getName() << endl;
@@ -137,7 +140,7 @@ const std::string& SampleIOProcessor::getName() const { return _name; }
 
 void SampleIOProcessor::setName(const std::string& val) { _name = val; }
 
-void SampleIOProcessor::connect(SampleInput* input) throw(n_u::IOException)
+void SampleIOProcessor::connect(SampleInput* input) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s",
@@ -150,14 +153,13 @@ void SampleIOProcessor::connect(SampleInput* input) throw(n_u::IOException)
 
 	SampleTagIterator sti = getSampleTagIterator();
 	for (; sti.hasNext(); ) output->addSampleTag(sti.next());
-
 	output->requestConnection(this);
     }
 }
  
 void SampleIOProcessor::disconnect(SampleInput* input) throw()
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
+    n_u::Logger::getInstance()->log(LOG_DEBUG,
 	"%s is disconnecting from %s",
 	input->getName().c_str(),getName().c_str());
 
@@ -171,7 +173,7 @@ void SampleIOProcessor::disconnect(SampleInput* input) throw()
     _outputMutex.unlock();
 }
  
-void SampleIOProcessor::connected(SampleOutput* orig,SampleOutput* output) throw()
+void SampleIOProcessor::connect(SampleOutput* orig,SampleOutput* output) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s has connected to %s, #outputs=%d",
@@ -183,7 +185,7 @@ void SampleIOProcessor::connected(SampleOutput* orig,SampleOutput* output) throw
     catch( const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,"%s: error: %s",
 	    output->getName().c_str(),ioe.what());
-	disconnected(output);
+	disconnect(output);
 	return;
     }
     _outputMutex.lock();
@@ -199,10 +201,10 @@ void SampleIOProcessor::connected(SampleOutput* orig,SampleOutput* output) throw
     _outputMutex.unlock();
 }
  
-void SampleIOProcessor::disconnected(SampleOutput* output) throw()
+void SampleIOProcessor::disconnect(SampleOutput* output) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"%s has disconnected from %s",
+	"%s is disconecting from %s",
 	output->getName().c_str(),
 	getName().c_str());
     try {

@@ -629,6 +629,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
+    		throw(xercesc::DOMException);
+
     /**
      * Set the type name of this sensor, e.g.:
      * "ACME Model 99 Mach7 Particle Disambiguator".

@@ -234,6 +234,7 @@ public:
     void setMinValue(float val)
     {
         minValue = val;
+        if (isnan(_plotRange[0])) _plotRange[0] = val; 
     }
 
     const float getMinValue() const
@@ -244,6 +245,7 @@ public:
     void setMaxValue(float val)
     {
         maxValue = val;
+        if (isnan(_plotRange[1])) _plotRange[1] = val; 
     }
 
     const float getMaxValue() const
@@ -251,8 +253,28 @@ public:
         return maxValue;
     }
 
+    void setPlotRange(float minv,float maxv) 
+    {
+        _plotRange[0] = minv;
+        _plotRange[1] = maxv;
+    }
+
+    void getPlotRange(float& minv,float& maxv) const
+    {
+        minv = _plotRange[0];
+        maxv = _plotRange[1];
+    }
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
+
+    xercesc::DOMElement*
+    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
+    		throw(xercesc::DOMException);
+
+    xercesc::DOMElement*
+    	toDOMElement(xercesc::DOMElement* node,bool complete) const
+    		throw(xercesc::DOMException);
 
 private:
 
@@ -296,6 +318,8 @@ private:
     float minValue;
 
     float maxValue;
+
+    float _plotRange[2];
 
 };
 

@@ -93,7 +93,9 @@ void McSocketListener::accept(McSocket<Socket>* mcsocket)
 
 #ifdef DEBUG
     cerr << "McSocketListener::accept, listener_map.size()=" <<
-    	listener_map.size() << endl;
+    	listener_map.size() << " mcAddr=" << mcAddr.toAddressString() <<
+	" request=" << mcsocket->getRequestType() << " socketType=" <<
+	getMcSocketType(mcsocket) << endl;
 #endif
 
     listener_mutex.lock();
@@ -121,7 +123,9 @@ void McSocketListener::accept(McSocket<DatagramSocket>* mcsocket)
 
 #ifdef DEBUG
     cerr << "McSocketListener::accept, listener_map.size()=" <<
-    	listener_map.size() << endl;
+    	listener_map.size() << " mcAddr=" << mcAddr.toAddressString() <<
+	" request=" << mcsocket->getRequestType() << " socketType=" <<
+	getMcSocketType(mcsocket) << endl;
 #endif
 
     listener_mutex.lock();
@@ -231,7 +235,7 @@ int McSocketListener::check() throw()
 McSocketListener::McSocketListener(const Inet4SocketAddress&
 	mcastaddr) :
 	Thread(string("McSocketListener: ")
-		+ mcastaddr.toString()), _mcastAddr(mcastaddr),_readsock(0)
+		+ mcastaddr.toAddressString()), _mcastAddr(mcastaddr),_readsock(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
@@ -251,7 +255,10 @@ void McSocketListener::add(McSocket<Socket>* mcsocket)
     	mcsocket,mcsocket->getRequestType());
 #endif
     _mcsocket_mutex.lock();
-    _tcpMcSockets[mcsocket->getRequestType()] = mcsocket;
+    if (_tcpMcSockets[mcsocket->getRequestType()])
+        Logger::getInstance()->log(LOG_DEBUG,"McSocketListener TCP requestType=%d already added",
+            mcsocket->getRequestType());
+    else _tcpMcSockets[mcsocket->getRequestType()] = mcsocket;
     _mcsocket_mutex.unlock();
 }
 
@@ -262,7 +269,10 @@ void McSocketListener::add(McSocket<DatagramSocket>* mcsocket)
     	mcsocket->getRequestType());
 #endif
     _mcsocket_mutex.lock();
-    _udpMcSockets[mcsocket->getRequestType()] = mcsocket;
+    if (_udpMcSockets[mcsocket->getRequestType()]) 
+        Logger::getInstance()->log(LOG_DEBUG,"McSocketListener UDP requestType=%d already added",
+            mcsocket->getRequestType());
+    else _udpMcSockets[mcsocket->getRequestType()] = mcsocket;
     _mcsocket_mutex.unlock();
 }
 
@@ -326,33 +336,44 @@ int McSocketListener::run() throw(Exception)
 	// can't bind to a specific address, must bind to INADDR_ANY.
 	MulticastSocket* msock = new MulticastSocket(_mcastAddr.getPort());
 	_readsock = msock;
-	msock->joinGroup(_mcastAddr.getInet4Address());
+	list<Inet4NetworkInterface> interfaces = msock->getInterfaces();
+	list<Inet4NetworkInterface>::const_iterator ii = interfaces.begin();
+	for ( ; ii != interfaces.end(); ++ii) {
+	    Inet4NetworkInterface iface = *ii;
+	    int iflags = iface.getFlags();
+	    // join interfaces that support MULTICAST or LOOPBACK
+	    if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
+		// cerr << "joining interface " << iface.getName() << endl;
+		msock->joinGroup(_mcastAddr.getInet4Address(),iface);
+	    }
+	}
     }
     else
 	_readsock = new DatagramSocket(_mcastAddr.getPort());
 
     _readsock->setTimeout(MSECS_PER_SEC/4);
 
-    while (!amInterrupted()) {
+    McSocketDatagram dgram;
+    Inet4PacketInfoX pktinfo;
 
-	McSocketDatagram dgram;
+    while (!amInterrupted()) {
 
 	/* receive is a cancelation point.  */
 	try {
 #ifdef DEBUG
 	    cerr << "McSocketListener::receive" << endl;
 #endif
-	    _readsock->receive(dgram);
+	    _readsock->receive(dgram,pktinfo,0);
 #ifdef DEBUG
 	    cerr << "McSocketListener::received from " <<
-	     	dgram.getSocketAddress().toString() << 
+	     	dgram.getSocketAddress().toAddressString() << 
 	 	" length=" << dgram.getLength() << endl;
 #endif
 	}
 	catch(const IOTimeoutException& e)
 	{
 #ifdef DEBUG
-	    cerr << "McSocketListener::run: " << e.toString() << endl;
+	    cerr << "McSocketListener::run: " << e.toAddressString() << endl;
 #endif
 	    continue;
 	}
@@ -374,10 +395,16 @@ int McSocketListener::run() throw(Exception)
 	if (dgram.getMagic() != dgram.magicVal) continue;
 	if (dgram.getLength() != sizeof(struct McSocketData)) continue;
 
-	unsigned short port = dgram.getRequesterListenPort();
-	Inet4SocketAddress& daddr =
-		dynamic_cast<Inet4SocketAddress&>(dgram.getSocketAddress());
-	Inet4SocketAddress remoteAddr(daddr.getInet4Address(),port);
+	Inet4SocketAddress remoteAddr;
+        if (dgram.getSocketAddress().getFamily() == AF_INET) {
+            remoteAddr = Inet4SocketAddress((const struct sockaddr_in*)
+                dgram.getSocketAddress().getConstSockAddrPtr());
+        }
+
+        // socket address to send replies to
+        remoteAddr.setPort(dgram.getRequesterListenPort());
+
+        pktinfo.setRemoteSocketAddress(remoteAddr);
 
 	// look for an mcsocket matching this request
         switch (dgram.getSocketType()) {
@@ -393,7 +420,7 @@ int McSocketListener::run() throw(Exception)
                 if (!mcsocket) {
                     Logger::getInstance()->log(LOG_WARNING,"No TCP McSocket for request type %d from host %s\n",
                         dgram.getRequestType(),
-                        dgram.getSocketAddress().toString().c_str());
+                        dgram.getSocketAddress().toAddressString().c_str());
                     continue;
                 }
                 // create and connect socket to remoteAddr
@@ -401,17 +428,16 @@ int McSocketListener::run() throw(Exception)
                 try {
                     remote = new Socket();
                     remote->connect(remoteAddr);
-                    // cerr << "McSocketListener offering, mcsocket=" << hex << mcsocket << endl;
-                    mcsocket->offer(remote,0);
+                    mcsocket->offer(remote,pktinfo);
                 }
                 catch (const IOException& ioe) {
                     Logger::getInstance()->log(LOG_ERR,
                         "Error connecting socket to %s: %s",
-                        remoteAddr.toString().c_str(),ioe.what());
+                        remoteAddr.toAddressString().c_str(),ioe.what());
                     Logger::getInstance()->log(LOG_ERR,"getErrno=%d",ioe.getErrno());
                     if (remote) remote->close();
                     delete remote;
-                    mcsocket->offer(0,ioe.getErrno());
+                    mcsocket->offer(ioe.getErrno());
                 }
             }
             break;
@@ -427,24 +453,23 @@ int McSocketListener::run() throw(Exception)
                 if (!mcsocket) {
                     Logger::getInstance()->log(LOG_WARNING,"No UDP McSocket for request type %d from host %s\n",
                         dgram.getRequestType(),
-                        dgram.getSocketAddress().toString().c_str());
+                        dgram.getSocketAddress().toAddressString().c_str());
                     continue;
                 }
                 DatagramSocket* remote = 0;
                 try {
                     remote = new DatagramSocket();
                     remote->connect(remoteAddr);
-                    // cerr << "McSocketListener offering, mcsocket=" << hex << mcsocket << endl;
-                    mcsocket->offer(remote,0);
+                    mcsocket->offer(remote,pktinfo);
                 }
                 catch (const IOException& ioe) {
                     Logger::getInstance()->log(LOG_ERR,
                         "Error connecting socket to %s: %s",
-                        remoteAddr.toString().c_str(),ioe.what());
+                        remoteAddr.toAddressString().c_str(),ioe.what());
                     Logger::getInstance()->log(LOG_ERR,"getErrno=%d",ioe.getErrno());
                     if (remote) remote->close();
                     delete remote;
-                    mcsocket->offer(0,ioe.getErrno());
+                    mcsocket->offer(ioe.getErrno());
                 }
             }
             break;

@@ -14,20 +14,20 @@
 */
 
 #include <nidas/core/McSocket.h>
+#include <nidas/core/Socket.h>
 #include <nidas/core/Datagrams.h>
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
 /*
  * ctor
  */
-McSocket::McSocket(): _socket(0),_connectionRequester(0),_amRequester(true),
+McSocket::McSocket(): _iochanRequester(0),_mcsocket(this),_amRequester(true),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
     _minWriteInterval(USECS_PER_SEC/100),_lastWrite(0),
     _nonBlocking(false)
@@ -39,33 +39,12 @@ McSocket::McSocket(): _socket(0),_connectionRequester(0),_amRequester(true),
  * Copy constructor. Should only be called before socket connection.
  */
 McSocket::McSocket(const McSocket& x):
-    n_u::McSocket<n_u::Socket>(x),_socket(0),_name(x._name),
-    _connectionRequester(0),_amRequester(x._amRequester),
+    _iochanRequester(0),_mcsocket(this),
+    _name(x._name),_amRequester(x._amRequester),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(x._keepAliveIdleSecs),
     _minWriteInterval(x._minWriteInterval),_lastWrite(0),
     _nonBlocking(x._nonBlocking)
 {
-}
-
-/*
- * Copy constructor, but with a new, connected n_u::Socket
- */
-McSocket::McSocket(const McSocket& x,n_u::Socket* sock):
-    n_u::McSocket<n_u::Socket>(x),_socket(sock),_name(x._name),
-    _connectionRequester(0),_amRequester(x._amRequester),
-    _firstRead(true),_newInput(true),
-    _keepAliveIdleSecs(x._keepAliveIdleSecs),
-    _minWriteInterval(x._minWriteInterval),_lastWrite(0),
-    _nonBlocking(x._nonBlocking)
-
-{
-    try {
-        if (_socket->getKeepAliveIdleSecs() != _keepAliveIdleSecs)
-	    _socket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
-        _socket->setNonBlocking(_nonBlocking);
-    }
-    catch (const n_u::IOException& e) {
-    }
 }
 
 McSocket* McSocket::clone() const
@@ -77,85 +56,56 @@ IOChannel* McSocket::connect()
     throw(n_u::IOException)
 {
     n_u::Socket* sock;
-    if (isRequester()) sock = n_u::McSocket<n_u::Socket>::connect();
-    else sock = accept();
+    n_u::Inet4PacketInfoX pktinfo;
+
+    if (isRequester()) sock = _mcsocket.connect(pktinfo);
+    else sock = _mcsocket.accept(pktinfo);
+
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
-    sock->setNonBlocking(_nonBlocking);
-    setName(sock->getRemoteSocketAddress().toString());
-    return new McSocket(*this,sock);
+    sock->setNonBlocking(isNonBlocking());
+    nidas::core::Socket* ncsock = new nidas::core::Socket(sock);
+    ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
+        pktinfo.getDestinationAddress(),pktinfo.getInterface());
+    ncsock->setConnectionInfo(info);
+    return ncsock;
 }
 
-void McSocket::requestConnection(ConnectionRequester* requester)
+void McSocket::requestConnection(IOChannelRequester* requester)
     throw(n_u::IOException)
 {
-    _connectionRequester = requester;
-    if (isRequester()) request();	// starts requester thread
-    else listen();			// starts listener thread
+    _iochanRequester = requester;
+    if (isRequester()) _mcsocket.request();	// starts requester thread
+    else _mcsocket.listen();			// starts listener thread
 }
 
-void McSocket::connected(n_u::Socket* sock)
+void McSocket::connected(n_u::Socket* sock,const n_u::Inet4PacketInfoX& pktinfo)
 {
     // cerr << "McSocket::connected, sock=" << sock->getRemoteSocketAddress().toString() << endl;
-    McSocket* newsock = new McSocket(*this,sock);
-    newsock->setName(sock->getRemoteSocketAddress().toString());
-    assert(_connectionRequester);
-    _connectionRequester->connected(newsock);
+    //
+    sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
+    sock->setNonBlocking(isNonBlocking());
+    nidas::core::Socket* ncSock = new nidas::core::Socket(sock);
+
+    ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
+        pktinfo.getDestinationAddress(),pktinfo.getInterface());
+    ncSock->setConnectionInfo(info);
+
+    assert(_iochanRequester);
+    _iochanRequester->connected(ncSock);
 }
-
-n_u::Inet4Address McSocket::getRemoteInet4Address()
-{
-    if (_socket) {
-	const n_u::SocketAddress& addr = _socket->getRemoteSocketAddress();
-	const n_u::Inet4SocketAddress* i4addr =
-		dynamic_cast<const n_u::Inet4SocketAddress*>(&addr);
-	if (i4addr) return i4addr->getInet4Address();
-    }
-    return n_u::Inet4Address();
-}
-
-size_t McSocket::getBufferSize() const throw()
-{
-    size_t blen = 16384;
-    try {
-	if (_socket) blen = _socket->getReceiveBufferSize();
-    }
-    catch (const n_u::IOException& e) {}
-
-    // linux sockets (x86 laptop, FC5) return a receive buffer
-    // sizeof 87632.  We don't need that much.
-    // 
-    if (blen > 16384) blen = 16384;
-    return blen;
-}
-
-/*
- * Do the actual hardware read.
- */
-size_t McSocket::read(void* buf, size_t len) throw (n_u::IOException)
-{
-    if (_firstRead) _firstRead = false;
-    else _newInput = false;
-    size_t res = _socket->recv(buf,len);
-    return res;
-}
-
 
 void McSocket::close() throw (n_u::IOException)
 {
     // cerr << "McSocket::close" << endl;
-    if (_socket && _socket->getFd() >= 0) _socket->close();
-    delete _socket;
-    _socket = 0;
-    n_u::McSocket<n_u::Socket>::close();
+    _mcsocket.close();
 }
 
 int McSocket::getFd() const
 {
-    if (_socket) return _socket->getFd();
-    else return -1;
+    return -1;
 }
 
-void McSocket::fromDOMElement(const DOMElement* node)
+void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     string saddr;
@@ -165,10 +115,10 @@ void McSocket::fromDOMElement(const DOMElement* node)
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
-        DOMNamedNodeMap *pAttributes = node->getAttributes();
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((DOMAttr*) pAttributes->item(i));
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
@@ -232,14 +182,12 @@ void McSocket::fromDOMElement(const DOMElement* node)
 	}
     }
 
-    // Default address for multicast requesters and accepters
-    // is NIDAS_MULTICAST_ADDR.
-    // Default address for unicast accepters is INADDR_ANY.
-    // Unicast requesters must know who they are requesting
-    // from
+    // Default local listen address for accepters is NIDAS_MULTICAST_ADDR.
+    // The socket is also bound to INADDR_ANY, so it receives unicast too.
+    // Default address for multicast requesters is NIDAS_MULTICAST_ADDR.
+    // Unicast requesters must know who to direct requests to.
     if (saddr.length() == 0) {
-        if (multicast) saddr = NIDAS_MULTICAST_ADDR;
-	else if (!isRequester()) saddr = "0.0.0.0";	// any
+	if (multicast || !isRequester()) saddr = NIDAS_MULTICAST_ADDR;
 	else throw n_u::InvalidParameterException(
 	    	getName(),"address","unknown address for dgrequest socket");
     }

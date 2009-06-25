@@ -17,6 +17,7 @@
 #define NIDAS_CORE_SAMPLEFILEHEADER_H
 
 #include <nidas/core/IOStream.h>
+#include <nidas/core/SampleOutput.h>
 #include <nidas/util/ParseException.h>
 
 namespace nidas { namespace core {

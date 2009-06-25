@@ -19,7 +19,6 @@
 
 using namespace nidas::core;
 using namespace std;
-using namespace xercesc;
 
 namespace n_u = nidas::util;
 
@@ -31,7 +30,7 @@ SensorCatalog::~SensorCatalog()
 {
 }
 
-void SensorCatalog::fromDOMElement(const DOMElement* node)
+void SensorCatalog::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -41,12 +40,12 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 		    "SensorCatalog::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
 		    
-    DOMNode* child;
+    xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((DOMElement*) child);
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 	// cerr << "SensorCatalog: child element name=" << elname << endl;
 
@@ -58,13 +57,13 @@ void SensorCatalog::fromDOMElement(const DOMElement* node)
 	    elname == "sensor") {
 	    const string& id = xchild.getAttributeValue("ID");
 	    if(id.length() > 0) {
-		map<string,DOMElement*>::iterator mi =
+		map<string,xercesc::DOMElement*>::iterator mi =
 			find(id);
-		if (mi != end() && mi->second != (DOMElement*)child)
+		if (mi != end() && mi->second != (xercesc::DOMElement*)child)
 		    throw n_u::InvalidParameterException(
 			"SensorCatalog::fromDOMElement",
 			"duplicate sensor in catalog, ID",id);
-		insert(make_pair<string,DOMElement*>(id,(DOMElement*)child));
+		insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
 
 		/*
 		cerr << "sensorCatalog.size=" << size() << endl;

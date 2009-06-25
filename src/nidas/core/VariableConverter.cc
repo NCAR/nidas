@@ -20,7 +20,6 @@
 
 using namespace nidas::core;
 using namespace std;
-// using namespace xercesc;
 
 namespace n_u = nidas::util;
 

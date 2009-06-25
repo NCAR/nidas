@@ -37,21 +37,21 @@ public:
      */
     SyncRecordGenerator();
 
-    SyncRecordGenerator(const SyncRecordGenerator&);
+    // SyncRecordGenerator(const SyncRecordGenerator&);
 
     virtual ~SyncRecordGenerator();
 
-    SyncRecordGenerator* clone() const;
+    // SyncRecordGenerator* clone() const;
 
     virtual bool cloneOnConnection() const { return false; }
 
-    void connect(SampleInput* input) throw(nidas::util::IOException);
+    void connect(SampleInput* input) throw();
     
     void disconnect(SampleInput* input) throw();
 
-    void connected(SampleOutput*,SampleOutput* output) throw();
+    void connect(SampleOutput*,SampleOutput* output) throw();
 
-    void disconnected(SampleOutput* output) throw();
+    void disconnect(SampleOutput* output) throw();
 
     /**
      * Method called to write a header to an SampleOutput.

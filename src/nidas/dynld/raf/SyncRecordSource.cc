@@ -63,8 +63,6 @@ SyncRecordSource::~SyncRecordSource()
 
 void SyncRecordSource::connect(SampleInput* input) throw()
 {
-
-
     // make a copy of input's SampleTags collection
     list<const SampleTag*> itags(input->getSampleTags().begin(),
 	input->getSampleTags().end());

@@ -204,6 +204,17 @@ size_t FileSet::write(const void* buf, size_t count) throw(IOException)
     return res;
 }
 
+size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
+{
+    newFile = false;
+    ssize_t res = ::writev(fd,iov,iovcnt);
+    if (res < 0) {
+        _lastErrno = errno;
+        throw IOException(currname,"write",errno);
+    }
+    return res;
+}
+
 
 void FileSet::openNextFile() throw(IOException)
 {

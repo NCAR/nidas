@@ -26,10 +26,11 @@
 namespace nidas { namespace core {
 
 /**
- * Implementation of an IOChannel, using McSocket to establish connections
+ * Implementation of an IOChannel, using nidas::util::McSocket<nidas::util::Socket> to
+ * establish a TCP connection.
  */
-class McSocket: public IOChannel, public nidas::util::McSocket<nidas::util::Socket> {
-
+class McSocket: public IOChannel
+{
 public:
 
     /**
@@ -46,18 +47,19 @@ public:
     /**
      * Copy constructor, with a new connnected nidas::util::Socket
      */
-    McSocket(const McSocket&,nidas::util::Socket*);
+    // McSocket(const McSocket&,nidas::util::Socket*);
 
-    ~McSocket() { delete _socket; }
+    ~McSocket() {
+    }
 
     McSocket* clone() const;
 
     void setRequestType(enum McSocketRequest val) {
-    	nidas::util::McSocket<nidas::util::Socket>::setRequestType(val);
+    	_mcsocket.setRequestType(val);
     }
 
     enum McSocketRequest getRequestType() const {
-    	return (enum McSocketRequest) nidas::util::McSocket<nidas::util::Socket>::getRequestType();
+    	return (enum McSocketRequest) _mcsocket.getRequestType();
     }
 
     /**
@@ -72,34 +74,25 @@ public:
 
     const std::string& getName() const { return _name; }
 
-    void requestConnection(ConnectionRequester* service)
+    void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
     IOChannel* connect() throw(nidas::util::IOException);
 
+    virtual void connected(nidas::util::Socket* sock,const nidas::util::Inet4PacketInfoX& pktinfo);
+
     virtual bool isNewInput() const { return _newInput; }
 
-    void connected(nidas::util::Socket* sock);
-
-    nidas::util::Inet4Address getRemoteInet4Address();
+    // nidas::util::Inet4Address getRemoteInet4Address();
 
     void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
     {
-	if (_socket) _socket->setKeepAliveIdleSecs(val);
         _keepAliveIdleSecs = val;
     }
 
     int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
     {
-	if (_socket) return _socket->getKeepAliveIdleSecs();
         return _keepAliveIdleSecs;
-    }
-
-    std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
-        throw(nidas::util::IOException)
-    {
-        if (_socket) return _socket->getInterfaces();
-        return std::list<nidas::util::Inet4NetworkInterface>();
     }
 
     /**
@@ -108,7 +101,6 @@ public:
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
 	_nonBlocking = val;
-	if (_socket) _socket->setNonBlocking(val);
     }
 
     /**
@@ -116,29 +108,31 @@ public:
      */
     bool isNonBlocking() const throw (nidas::util::IOException)
     {
-	if (_socket) return _socket->isNonBlocking();
 	return _nonBlocking;
     }
-
-    size_t getBufferSize() const throw();
 
     /**
      * Do the actual hardware read.
      */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException);
+    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    {
+        assert(false);
+    }
 
     /**
      * Do the actual hardware write.
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
-	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
-        dsm_time_t tnow = getSystemTime();
-        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
-        if (tnow - _lastWrite < _minWriteInterval) return 0;
-        _lastWrite = tnow;
-	return _socket->send(buf,len,MSG_NOSIGNAL);
+        assert(false);
+    }
 
+    /**
+     * Do the actual hardware write.
+     */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    {
+        assert(false);
     }
 
     /**
@@ -162,12 +156,37 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
+    class MyMcSocket:  public nidas::util::McSocket<nidas::util::Socket>
+    {
+    public:
+        MyMcSocket(nidas::core::McSocket* s) :_outer(s) {}
+        void connected(nidas::util::Socket* sock,const nidas::util::Inet4PacketInfoX& pktinfo)
+        {
+            _outer->connected(sock,pktinfo);
+        }
+    private:
+        nidas::core::McSocket* _outer;
+    };
+
+    void setInet4McastSocketAddress(const nidas::util::Inet4SocketAddress& val)
+    {
+        _mcsocket.setInet4McastSocketAddress(val);
+    }
+
+    const nidas::util::Inet4SocketAddress& getInet4McastSocketAddress() const
+    {
+        return _mcsocket.getInet4McastSocketAddress();
+    }
+
+protected:
+
+    IOChannelRequester* _iochanRequester;
+
+    MyMcSocket _mcsocket;
+
 private:
-    nidas::util::Socket* _socket;
 
     std::string _name;
-
-    ConnectionRequester* _connectionRequester;
 
     bool _amRequester;
 
@@ -190,6 +209,7 @@ private:
     bool _nonBlocking;
 
 };
+
 
 }}	// namespace nidas namespace core
 

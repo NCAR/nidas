@@ -79,7 +79,6 @@ SensorHandler::~SensorHandler()
     delete [] _activeSensors;
 }
 
-
 void SensorHandler::setSensorCheckIntervalMsecs(int val)
 {
     _sensorCheckIntervalUsecs = val * USECS_PER_MSEC;

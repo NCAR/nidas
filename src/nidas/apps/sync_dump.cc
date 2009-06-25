@@ -15,7 +15,7 @@
 
 #include <ctime>
 
-#include <nidas/dynld/FileSet.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/raf/SyncRecordReader.h>
@@ -181,7 +181,7 @@ int SyncDumper::run()
     IOChannel* iochan = 0;
 
     if (dataFileName.length() > 0) {
-	FileSet* fset = new nidas::dynld::FileSet();
+	nidas::core::FileSet* fset = new nidas::core::FileSet();
 	iochan = fset;
 
 #ifdef USE_FILESET_TIME_CAPABILITY

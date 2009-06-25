@@ -34,19 +34,7 @@ public:
 
     StatisticsProcessor();
 
-    /**
-     * Copy constructor.
-     */
-    StatisticsProcessor(const StatisticsProcessor&);
-
     ~StatisticsProcessor();
-
-    StatisticsProcessor* clone() const;
-
-    /**
-     * One processor for all inputs.
-     */
-    bool cloneOnConnection() const { return false; }
 
     void addSampleTag(SampleTag* tag)
 	    throw(nidas::util::InvalidParameterException);
@@ -60,7 +48,7 @@ public:
      * initialization necessary before invoking this
      * StatisticsProcessor::connect().
      */
-    void connect(SampleInput*) throw(nidas::util::IOException);
+    void connect(SampleInput*) throw();
 
     /**
      * Disconnect a SampleInput from this StatisticsProcessor.
@@ -73,14 +61,14 @@ public:
      * 1. do: output->init().
      * 2. add output to a list of connected outputs.
      */
-    virtual void connected(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* orig,SampleOutput* output) throw();
 
     /**
      * Do common operations necessary when a output has disconnected:
      * 1. do: output->close().
      * 2. remove output from a list of connected outputs.
      */
-    virtual void disconnected(SampleOutput* output) throw();
+    void disconnect(SampleOutput* output) throw();
 
     void setStartTime(const nidas::util::UTime& val) 
     {
@@ -97,7 +85,7 @@ public:
         return _statsPeriod;
     }
 
-protected:
+private:
 
     std::list<StatisticsCruncher*> crunchers;
 
@@ -116,6 +104,16 @@ protected:
     nidas::util::UTime endTime;
 
     float _statsPeriod;
+
+    /**
+     * Copy not supported
+     */
+    StatisticsProcessor(const StatisticsProcessor&);
+
+    /**
+     * Assignment not supported
+     */
+    StatisticsProcessor& operator=(const StatisticsProcessor&);
 
 };
 

@@ -33,7 +33,6 @@ using namespace nidas::core;
 /**
  * An IOChannel implementation to simulate a GOES transmitter.
  */
-
 class SimGOESXmtr: public GOESXmtr {
 
 public:
@@ -72,6 +71,14 @@ public:
     * Do the actual hardware write.
     */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    {
+        throw nidas::util::IOException(getName(),"write","not supported");
+    }
+
+    /**
+    * Do the actual hardware write.
+    */
+    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),"write","not supported");
     }
