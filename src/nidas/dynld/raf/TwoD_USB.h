@@ -312,7 +312,7 @@ protected:
      * If cp is equal to eod, then nothing is saved, and this
      * function does not need to be called.
      */
-    void saveBuffer(const unsigned char* cp, const unsigned char* eod);
+    void saveBuffer(const unsigned char * cp, const unsigned char * eod);
 
     /**
      * Derived Classes should call this at the beginning of
@@ -324,12 +324,12 @@ protected:
      *      after the TAS word.
      * @param eod: Pointer to pointer to one-past-the-end of the image block.
      */
-    void setupBuffer(const unsigned char** cp,const unsigned char** eod);
+    void setupBuffer(const unsigned char ** cp, const unsigned char ** eod);
 
     /**
      * The saved buffer.
      */
-    unsigned char* _saveBuffer;
+    unsigned char * _saveBuffer;
 
     /**
      * How many bytes were last saved.
@@ -340,6 +340,8 @@ protected:
      * Size of the saved buffer.
      */
     int _savedAlloc;
+
+    static const float DefaultTrueAirspeed;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

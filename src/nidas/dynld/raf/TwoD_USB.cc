@@ -30,6 +30,9 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
+// 33 m/s mimics the spinning disk.
+const float TwoD_USB::DefaultTrueAirspeed = 33.0;
+
 const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
@@ -85,7 +88,7 @@ void TwoD_USB::open(int flags)
     init_parameters();
 
     // Shut the probe down until a valid TAS comes along.
-    sendTrueAirspeed(33.0);
+    sendTrueAirspeed(DefaultTrueAirspeed);
 
     // cerr << "SET_SOR_RATE, rate="<<_tasRate<<endl;
     ioctl(USB2D_SET_SOR_RATE, (void *) &_tasRate, sizeof (int));
@@ -187,8 +190,8 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
      * will probably bite us some day when they try to use a 2D probe on
      * ISF or ISFF....
      */
-    if (tas < 33.0)
-        tas = 33.0;
+    if (tas < DefaultTrueAirspeed)
+        tas = DefaultTrueAirspeed;
 
     double freq = tas / getResolution();
     double minfreq;
