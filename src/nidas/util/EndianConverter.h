@@ -14,6 +14,7 @@
 #define NIDAS_UTIL_ENDIANCONVERTER_H
 
 #include <cstring> // memcpy
+#include <stdint.h>
 
 #include <nidas/util/ThreadSupport.h>
 
