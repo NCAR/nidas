@@ -12,6 +12,7 @@
 #include <nidas/util/UTime.h>
 
 #include <sys/time.h>
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <iomanip>
