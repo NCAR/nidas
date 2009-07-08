@@ -34,7 +34,9 @@ if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
 #
 # -rdynamic: Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.
-env.AppendUnique(LINKFLAGS=['-rdynamic'] +
+env.AppendUnique(LINKFLAGS=['-rdynamic'])
+
+env.Append(LINKFLAGS=
     ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_dynld")] +
     ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_core")] +
     ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_util")])
