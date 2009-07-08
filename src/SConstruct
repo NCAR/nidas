@@ -38,12 +38,14 @@ opts.AddVariables(
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
          'x86 arm armbe')
-opts.Add(BoolOption('DEBUG', 'Define DEBUG symbol.', 'off'))
-opts.Add(BoolOption('XMLDEBUG', 'Enable the XML_DEBUG definition.', 'off'))
-opts.Add(BoolOption('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
-opts.Add(BoolOption('PSQL_ENABLE', 'Build PSQL modules when detected.', 'off'))
-opts.Add(BoolOption('LINUX_MODULES', 
-                    'Build linux and rtlinux modules when possible.', 'on'))
+opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
+opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
+                      'off'))
+opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
+opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
+                      'off'))
+opts.Add(BoolVariable('LINUX_MODULES', 
+                      'Build linux and rtlinux modules when possible.', 'on'))
 
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
@@ -56,7 +58,7 @@ if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
              'Optional path to xerces-c and xmlrpc++ for X86:',
              '$OTHER_PREFIX/x86')
-    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`-`uname -m`:','*')
+    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
     opts.Add('OTHER_ARM',
