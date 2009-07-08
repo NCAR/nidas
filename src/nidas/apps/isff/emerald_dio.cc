@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <stdio.h> // perror()
 #include <errno.h>
 #include <nidas/linux/diamond/emerald.h>
 

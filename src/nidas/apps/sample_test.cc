@@ -131,6 +131,7 @@ int TestSource::run() throw(n_u::Exception)
 	samp->freeReference();
 	if (!(nsamples++ % 10000)) testCancel();
     }
+    return 0;
 }
 
 class TestClient: public SampleClient

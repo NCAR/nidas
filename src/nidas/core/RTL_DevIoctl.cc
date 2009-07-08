@@ -18,6 +18,7 @@
 #include <nidas/rtlinux/ioctl_fifo.h>
 
 #include <unistd.h>
+#include <stdio.h> // sprintf()
 #include <fcntl.h>
 #include <cstring> // memcpy()
 #include <cerrno>
