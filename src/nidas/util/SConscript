@@ -84,7 +84,7 @@ objects = env.SharedObject(sources)
 ##
 lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
 slib = env.StaticLibrary('nidas_util' , objects)
-env['LIBNIDAS_UTIL'] = lib
+env['LIBNIDAS_UTIL'] = lib[0]
 
 ##
 ## Install targets for libraries and headers.

@@ -256,4 +256,4 @@ env.Clean('install', [
     ])
 
 
-env['LIBNIDAS'] = lib
+env['LIBNIDAS'] = lib[0]
