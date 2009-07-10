@@ -129,15 +129,21 @@ void parseAnalog(const DSMConfig * dsm)
            continue;
 
         sensorTitle(sensor);
-
-        cout << "      Samp#  Rate  Variable           gn bi   A/D Cal" << endl;
+        cout << "      Channel  Samp#  Rate  Variable           gn bi   A/D Cal" << endl;
         const Parameter * parm;
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
             const SampleTag * tag = ti.next();
             if (!tag->isProcessed()) continue;
             for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                 const Variable * var = vi.next();
-                cout << "        " << tag->getSampleId() << "    ";
+                cout << "      ";
+                cout.width(7);
+                if (var->getA2dChannel() < 0)
+                    cout << right << "         ";
+                else
+                    cout << right << var->getA2dChannel() << "  ";
+		cout.width(5);
+                cout << right << tag->getSampleId() << "  ";
 		cout.width(4);
 		cout << right << tag->getRate() << "  ";
 		cout.width(16);
@@ -168,8 +174,6 @@ void parseAnalog(const DSMConfig * dsm)
                    cout << right << parm->getNumericValue(0);
                else
                    cout << "";
-
-
 
                 cout << endl;
             }

@@ -156,6 +156,16 @@ public:
 
     const std::string& getLongName() const { return longname; }
 
+    /**
+     * The A2D channel for this variable.
+     */
+    void setA2dChannel( int val ) { A2dChannel = val; }
+
+    int getA2dChannel() const { return A2dChannel; }
+
+    /**
+     * The string discription of the units for this variable.
+     */
     void setUnits(const std::string& val) { units = val; }
 
     const std::string& getUnits() const { return units; }
@@ -293,6 +303,8 @@ private:
     int station;
 
     std::string longname;
+
+    int A2dChannel;
 
     std::string units;
 

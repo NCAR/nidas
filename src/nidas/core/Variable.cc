@@ -28,6 +28,7 @@ namespace n_u = nidas::util;
 
 Variable::Variable(): sampleTag(0),
 	station(-1),
+	A2dChannel(-1),
 	type(CONTINUOUS),
 	length(1),
 	converter(0),
@@ -49,6 +50,7 @@ Variable::Variable(const Variable& x):
 	siteSuffix(x.siteSuffix),
 	station(x.station),
 	longname(x.longname),
+	A2dChannel(x.A2dChannel),
 	units(x.units),
 	type(x.type),
 	length(x.length),
@@ -81,6 +83,7 @@ Variable& Variable::operator=(const Variable& x)
         siteSuffix  = x.siteSuffix;
         station = x.station;
         longname = x.longname;
+        A2dChannel = x.A2dChannel;
         units = x.units;
         type = x.type;
         length = x.length;

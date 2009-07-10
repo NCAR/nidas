@@ -397,6 +397,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
 
     for (int iv = 0; iv < nvars; iv++) {
         const Variable* var = vars[iv];
+        Variable& var_mod = tag->getVariable(iv);
 
         float fgain = 0.0;
         int bipolar = -1;   // unknown
@@ -482,6 +483,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         setA2DParameters(ichan,gain,bipolar);
         setConversionCorrection(ichan,corIntercept,corSlope);
 
+        var_mod.setA2dChannel(ichan);
         sinfo->channels[iv] = ichan;
 
         scfg->channels[iv] = ichan;
