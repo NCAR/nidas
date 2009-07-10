@@ -42,8 +42,8 @@ public:
 
 
 protected:
-    bool processImage(const Sample * samp, std::list < const Sample * >&results)
-        throw();
+    bool processImage(const Sample * samp, std::list < const Sample * >&results,
+					int stype) throw();
 
     static const unsigned char _overldString[];
     static const unsigned char _blankString[];

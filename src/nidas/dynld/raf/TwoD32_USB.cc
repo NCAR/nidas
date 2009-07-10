@@ -47,14 +47,15 @@ TwoD32_USB::~TwoD32_USB()
 }
 
 bool TwoD32_USB::processImage(const Sample * samp,
-                             list < const Sample * >&results) throw()
+                             list < const Sample * >&results, int stype) throw()
 {
     unsigned int slen = samp->getDataByteLength();
     const int wordSize = 4;
+    const int tap2dSize = sizeof(Tap2Dv1);
 
-    assert(sizeof(Tap2D) == 4);
+    assert(tap2dSize == 4);
 
-    if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
+    if (slen < sizeof (int32_t) + tap2dSize) return false;
     _totalRecords++;
 
     dsm_time_t startTime = _prevTime;
@@ -66,8 +67,18 @@ bool TwoD32_USB::processImage(const Sample * samp,
     const unsigned char * eod = cp + slen;
     cp += sizeof(int32_t); // Move past sample type.
 
-    float tas = Tap2DToTAS((Tap2D *)cp);
-    cp += sizeof(Tap2D);
+    float tas = 0.0;
+    if (stype == TWOD_IMGv2_TYPE) {
+        tas = Tap2DToTAS((Tap2D *)cp);
+        cp += sizeof(Tap2D);
+    }
+    else
+    if (stype == TWOD_IMG_TYPE) {
+        tas = Tap2DToTAS((Tap2Dv1 *)cp);
+        cp += sizeof(Tap2Dv1);
+    }
+    else
+        WLOG(("%s: Invalid IMG type, setting true airspeed to 0.\n",getName().c_str()));
 
     if (tas < 0.0 || tas > 300.0) {
         WLOG(("%s: TAS=%.1f is out of range\n",getName().c_str(),tas));
@@ -164,8 +175,8 @@ bool TwoD32_USB::process(const Sample * samp,
     int stype = bigEndian->int32Value(samp->getConstVoidDataPtr());
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is not used in 32 probe.  */
-    if (stype == 0) {
-        return processImage(samp, results);
+    if (stype != TWOD_SOR_TYPE) {
+        return processImage(samp, results, stype);
     }
     return false;
 }

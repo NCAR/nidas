@@ -70,7 +70,7 @@ protected:
      * @returns whether samples were output.
      */
     bool processImageRecord(const Sample * samp,
-	std::list < const Sample * >&results) throw();
+	std::list < const Sample * >&results, int stype) throw();
 
 //@{
     /**

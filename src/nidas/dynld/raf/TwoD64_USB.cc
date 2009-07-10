@@ -102,7 +102,7 @@ bool TwoD64_USB::processSOR(const Sample * samp,
 }
 
 bool TwoD64_USB::processImageRecord(const Sample * samp,
-                             list < const Sample * >&results) throw()
+                             list < const Sample * >&results, int stype) throw()
 {
     unsigned int slen = samp->getDataByteLength();
     const int wordSize = 8;
@@ -130,8 +130,19 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     /// @todo don't do this in real-time?
     //scanForMissalignedSyncWords(samp, (unsigned char *)dp);
 
-    float tas = Tap2DToTAS((Tap2D *)cp);
-    cp += sizeof(Tap2D);
+    float tas = 0.0;
+    if (stype == TWOD_IMGv2_TYPE) {
+        tas = Tap2DToTAS((Tap2D *)cp);
+        cp += sizeof(Tap2D);
+    }
+    else
+    if (stype == TWOD_IMG_TYPE) {
+        tas = Tap2DToTAS((Tap2Dv1 *)cp);
+        cp += sizeof(Tap2Dv1);
+    }
+    else
+        WLOG(("%s: Invalid IMG type, setting true airspeed to 0.\n",getName().c_str()));
+
     if (tas < 0.0 || tas > 300.0) {
         WLOG(("%s: TAS=%.1f is out of range\n",getName().c_str(),tas));
         _tasOutOfRange++;
@@ -362,10 +373,11 @@ bool TwoD64_USB::process(const Sample * samp,
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
     switch (stype) {
-    case TWOD_IMG_TYPE:
-        return processImageRecord(samp, results);
-    case TWOD_SOR_TYPE:	// Shadow-or counter.
-        return processSOR(samp, results);
+        case TWOD_IMG_TYPE:
+        case TWOD_IMGv2_TYPE:
+            return processImageRecord(samp, results, stype);
+        case TWOD_SOR_TYPE:	// Shadow-or counter.
+            return processSOR(samp, results);
     }
     return false;
 }
