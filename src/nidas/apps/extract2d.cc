@@ -27,6 +27,7 @@
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/core/HeaderSource.h>
+#include <nidas/util/EndianConverter.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
@@ -63,6 +64,7 @@ public:
 
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
+// ADS1 / ADS2 legacy format.  This is what we will repackage the records into.
 struct P2d_rec
 {
   short id;                             // 'P1','C1','P2','C2', H1, H2
@@ -93,7 +95,10 @@ typedef struct P2d_rec P2d_rec;
 
 namespace n_u = nidas::util;
 
-class Extract2D: public HeaderSource
+const n_u::EndianConverter * bigEndian = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_BIG_ENDIAN);
+
+
+class Extract2D : public HeaderSource
 {
 public:
 
@@ -403,11 +408,11 @@ int Extract2D::run() throw()
 		    if (includeIds.find(id) != includeIds.end()) {
                         if (samp->getDataByteLength() == 4104) {
                             const int * dp = (const int *) samp->getConstVoidDataPtr();
-                            int stype = *dp++;
+                            int stype = bigEndian->int32Value(*dp++);
 
-                            // stype=0 is a image, stype=1 is SOR
-                            if (stype == 0) {  
+                            if (stype != TWOD_SOR_TYPE) {  
                                 unsigned char * cp = (unsigned char *)dp;
+                                unsigned short * sp = (unsigned short *)dp;
 
                                 dp++;      // skip over tas field
                                 struct tm t;
@@ -429,7 +434,19 @@ int Extract2D::run() throw()
                                 record.day = htons(t.tm_mday);
                                 record.msec = htons(msecs);
 
-                                float tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
+                                // Decode true airpseed.
+                                float tas = 0.0;
+                                if (stype == TWOD_IMG_TYPE) {
+                                    tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
+                                }
+                                if (stype == TWOD_IMGv2_TYPE) {
+                                    tas = (1.0e11 / ((float)sp[0] * 2 * 25000 / 511)) * probe->frequency;
+                                }
+
+cerr << "stype="<<stype<< ", tas="<<tas<<", ntap="<<sp[0]<<endl;
+
+                                // Encode true airspeed to the ADS1 / ADS2 format for
+                                // backwards compatability.
                                 record.tas = htons( ((short)tas * (255 / 125) + 1) );
 
                                 record.overld = htons(0);
