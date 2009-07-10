@@ -201,19 +201,17 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
     /*
      * Minimum frequency we can generate is either:
      *
-     *   1 MHz (with no frequency divider)
+     *   3 MHz (with no frequency divider)
      *      OR
-     *   100 kHz (using frequency divider factor 10)
-     *
-     *   _resolution test forces 2DC to that freq.
+     *   300 kHz (using frequency divider factor 10)
      */
-    if (_resolutionMicron <= 25 || freq >= 1.0e6) {
+    if (freq >= 3.0e6) {
         t2d->div10 = 0;
-        minfreq = 1.0e6;
+        minfreq = 1.0e11;
     }
-    else if (freq >= 1.0e5) {
+    else if (freq >= 3.0e5) {
         t2d->div10 = 1;  // set the divide-by-ten flag
-        minfreq = 1.0e5;
+        minfreq = 1.0e10;
     }
     else {
     /*
@@ -225,14 +223,24 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
         t2d->div10 = 1;
         return -EINVAL;
     }
-	  
-    t2d->ntap = (unsigned char) ((1 - (minfreq / freq)) * 255);
-    t2d->dummy = (unsigned char )tas;
+
+    t2d->ntap = (unsigned short)((minfreq / freq) * 511 / 25000 / 2);
     return 0;               /* Return success */
 }
 
 /*---------------------------------------------------------------------------*/
 float TwoD_USB::Tap2DToTAS(const Tap2D * t2d) const
+{
+    float tas = (1.0e11 / ((float)t2d->ntap * 2 * 25000 / 511)) * getResolution();
+
+    if (t2d->div10 == 1)
+        tas /= 10.0;
+
+    return tas;
+}
+
+/*---------------------------------------------------------------------------*/
+float TwoD_USB::Tap2DToTAS(const Tap2Dv1 * t2d) const
 {
     float tas = (1.0e6 / (1.0 - ((float)t2d->ntap / 255))) * getResolution();
 

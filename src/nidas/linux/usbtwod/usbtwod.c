@@ -505,7 +505,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 osamp->length = sizeof(osamp->stype) +
 				sizeof(osamp->data) +
 				urb->actual_length;
-                osamp->stype = cpu_to_be32(TWOD_IMG_TYPE);
+                osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
                 // stuff the current TAS value in the data.
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
@@ -1002,6 +1002,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         // we're finished with this sample, resubmit urb
                         switch (be32_to_cpu(sample->stype)) {
                         case TWOD_IMG_TYPE:
+                        case TWOD_IMGv2_TYPE:
                                 retval = usb_twod_submit_img_urb(dev,
                                         sample->urb);
                                 break;

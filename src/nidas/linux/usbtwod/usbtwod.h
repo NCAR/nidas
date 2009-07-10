@@ -38,8 +38,10 @@ struct usb_twod_stats
  * It is then passed to the PMS2D USB driver and then on to the probe
  * itself.  This struct is also then recorded with each buffer that
  * comes back from the probe.
+ *
+ * This covers versions of the probe through June 22nd 2009.  CJW.
  */
-typedef struct _Tap2D
+typedef struct _Tap2D_v1
 {
         /** which tap in the variable resistor (0-255) */
         unsigned char ntap;
@@ -48,6 +50,21 @@ typedef struct _Tap2D
         /** counter from 1 to 10 */
         unsigned char cntr;
         unsigned char dummy;
+} Tap2Dv1;
+
+/**
+ * This version is for rev2 of Spowarts USB board.  Gives higher TAS
+ * resolution.
+ */
+typedef struct _Tap2D_v2
+{
+        /** which tap in the variable resistor (0-255) */
+        unsigned short ntap;		// Same value repeated twice.
+        /** boolean toggle for frequency divide by 10 */
+        unsigned char div10;
+
+        /** counter from 1 to 10 */
+        unsigned char cntr;
 } Tap2D;
 
 /* Pick a character as the magic number of your driver.
@@ -70,6 +87,7 @@ typedef struct _Tap2D
  */
 #define TWOD_IMG_TYPE	0
 #define TWOD_SOR_TYPE	1
+#define TWOD_IMGv2_TYPE	2
 
 #ifdef __KERNEL__
 #include <linux/module.h>
@@ -98,9 +116,9 @@ typedef struct _Tap2D
 
 #define MAX_TRANSFER            ( PAGE_SIZE - 512 )
 
-#define TWOD_IMG_BUFF_SIZE          4096
-#define TWOD_SOR_BUFF_SIZE          4
-#define TWOD_TAS_BUFF_SIZE          3
+#define TWOD_IMG_BUFF_SIZE	4096
+#define TWOD_SOR_BUFF_SIZE	4
+#define TWOD_TAS_BUFF_SIZE	4
 
 /* SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf).
  * In order for a circ_buf to tell the difference between empty

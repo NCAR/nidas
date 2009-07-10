@@ -106,7 +106,8 @@ public:
 
     /**
      * Reverse the true airspeed encoding.  Used to extract TAS from
-     * recorded records.
+     * recorded records.  The *v1 method is for the first generation
+     * TAS clock, the second generation gives finer resolution (07/01/2009).
      * @param t2d the Tap2D to extract from.
      * @param the probe frequency.
      * @returns true airspeed in m/s.
@@ -114,6 +115,8 @@ public:
      */
     virtual float
     Tap2DToTAS(const Tap2D * t2d) const;
+    virtual float
+    Tap2DToTAS(const Tap2Dv1 * t2d) const;
 
 
 protected:
