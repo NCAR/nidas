@@ -77,33 +77,71 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
     break;
   }
 }
+
+int calm = 0;
+unsigned int nAVG   = 80;
+unsigned int nPEAK  = 1000;
+unsigned int nSKIP  = 0;
+
+/* -------------------------------------------------------------------- */
+
+int usage(const char* argv0)
+{
+    cerr << "Usage: " << argv0 << " [-c] [-a ... ] [-p ... ] [-s ... ]\n\
+-c: place driver into gather mode during no wind (calm) air.\n\
+    This gathered spectrum is used as a baseline that is\n\
+    substracted from the actual measured wind spectrum.\n\
+\n\
+-a: avererage number of spectra (default is " << nAVG << ")\n\
+-p: peak clearing frequency     (default is " << nPEAK << ")\n\
+-s: skip writing frequency      (default is " << nSKIP << ")\n\
+\n";
+    
+    return 1;
+}
+
+int parseRunstring(int argc, char** argv)
+{
+    extern char *optarg;       /* set by getopt()  */
+    extern int optind;         /*  "  "     "      */
+    int opt_char;              /* option character */
+
+    while ((opt_char = getopt(argc, argv, "ca:p:s:")) != -1) {
+
+	switch (opt_char) {
+	case 'c':
+            calm = 1;
+	    break;
+	case 'a':
+            nAVG = atoi(optarg);
+	    break;
+	case 'p':
+            nPEAK = atoi(optarg);
+	    break;
+	case 's':
+            nSKIP = atoi(optarg);
+	    break;
+	case 'h':
+	case '?':
+	    return usage(argv[0]);
+	}
+    }
+    return 0;
+}
+
 /* -------------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
   err("ARM version - compiled on %s at %s", __DATE__, __TIME__);
   err("sizeof(lamsPort): %d\n", sizeof(lamsPort));
 
+  int res = parseRunstring(argc,argv);
+  if (res != 0) return res;
+
   string ofName("/mnt/lams/lams.bin");
-  int calm = 0;
+  int ofPtr;
   unsigned int air_speed = 0;
-  unsigned int nAVG  = 20;
-  unsigned int nSKIP = 100;
-  switch (argc) {
-  case 4:
-    calm = (strcmp(argv[3], "calm") == 0);
-  case 3:
-    nSKIP = atoi(argv[2]);
-    nAVG  = atoi(argv[1]);
-    break;
-  case 1:
-    err("using defaults...");
-    break;
-  default:
-    err("Usage: %s nAVG nSKIP [calm]", argv[0]);
-    err("(defaults are... nAVG: %d   nSKIP: %d)", nAVG, nSKIP);
-    return -1;
-  }
-  err("nAVG: %d   nSKIP: %d", nAVG, nSKIP);
+  err("calm: %d nAVG: %d   nSKIP: %d   nPEAK: %d", calm, nAVG, nSKIP, nPEAK);
 
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
@@ -126,13 +164,6 @@ int main(int argc, char** argv)
   LamsSensor sensor_in_0;
   sensor_in_0.setDeviceName("/dev/lams0");
 
-  // Open up the disk for writing lams data
-  err("creating: %s", ofName.c_str());
-  int ofPtr = 0;
-  if (ofPtr < 0) {
-    err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
-    goto failed;
-  }
   // open up the lams sensor
   err("opening: /dev/lams0");
   try {
@@ -145,16 +176,13 @@ int main(int argc, char** argv)
   }
   int fd_lams_data;
   fd_lams_data = sensor_in_0.getReadFd();
-  err("sensor_in_0.getReadFd() = 0x%x", fd_lams_data);
 
-  //Send the Air Speed
-  err("air_speed: %d",   air_speed);
-  err("nAVG:      %d",   nAVG);
-  err("nSKIP:     %d",   nSKIP);
+  // Send the Air Speed
   sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
   sensor_in_0.ioctl(CALM,      &calm,      sizeof(calm));
   sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
   sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
+  sensor_in_0.ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
 
   // Set the lams channel (this starts the data xmit from the driver)
   struct lams_set set_lams;
@@ -173,8 +201,8 @@ int main(int argc, char** argv)
 
   int nfds;
   err("entering main loop...");
-//int skip;  skip = 0;
-//int glyph; glyph = 0;
+  int skip; skip = 0;
+  int seq;  seq  = 0;
   while (running) {
     nfds = 0;
 
@@ -199,22 +227,25 @@ int main(int argc, char** argv)
         goto failed;
       }
       len += rlen;
-//    if (skip++ == 9) {
-//      skip=0;
-//      if (glyph++ == 9) glyph=0;
-//      err("%d rlen: %d data->data[0]: %x", glyph, rlen, data->data[0]);
-//    }
+      if (++skip == 8) {
+        skip=0;
+        err("rlen: %d data->avrg[%3d]: %x", rlen, seq, data->avrg[seq]);
+        err("rlen: %d data->peak[%3d]: %x", rlen, seq, data->peak[seq]);
+        if (++seq == MAX_BUFFER) seq = 0;
+      }
       if (len == sizeof(lamsPort)) {
         len = 0;
         errno = 0;
+
+        // Open up the disk for writing lams data
+//      err("creating: %s", ofName.c_str());
         ofPtr = creat(ofName.c_str(), 0666);
-#define DATA_ONLY
-#ifdef DATA_ONLY
-        status = pwrite(ofPtr, &(data->data), sizeof(data->data), 0); 
-//      status = write(ofPtr, &(data->data), sizeof(data->data)); 
-#else
-        status = write(ofPtr, &databuf, sizeof(lamsPort)); 
-#endif
+        if (ofPtr < 0) {
+          err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
+          goto failed;
+        }
+        status = pwrite(ofPtr, &(data->avrg), sizeof(data->avrg), 0); 
+        status = pwrite(ofPtr, &(data->peak), sizeof(data->peak), sizeof(data->avrg));
         close(ofPtr);
         if (status < 0) {
           err("failed to write (%s)", strerror(errno));
@@ -277,7 +308,7 @@ int main(int argc, char** argv)
       nHead = 0;
 //      sprintf(&linebuf[nHead], "%08lx", data->timetag); nHead+=8;
       for (n=0; n<MAX_BUFFER; n++)
-        sprintf(&linebuf[nHead+n*6], " %5d", data->data[n]);
+        sprintf(&linebuf[nHead+n*6], " %5d", data->avrg[n]);
       sprintf(&linebuf[nHead+n*6], "\n");
 
       int status = write(ofPtr, &linebuf, strlen(linebuf)); 

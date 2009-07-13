@@ -53,6 +53,19 @@ MODULE_PARM_DESC(irq, "ISA irq setting (default 4)");
 MODULE_PARM(ioport, "i");
 MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 
+#define RAM_CLEAR_OFFSET         0x00
+#define AVG_LSW_DATA_OFFSET      0x02
+#define PEAK_DATA_OFFSET         0x04
+//#define PEAK_DATA_OFFSET         0x06
+#define AVG_MSW_DATA_OFFSET      0x06
+#define PEAK_CLEAR_OFFSET        0x08
+//#define PEAK_CLEAR_OFFSET        0x04
+#define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
+
+#define REGION_SIZE 0x10  // number of 1-byte registers
+#define BOARD_NUM   0
+#define STEP_OVER   3
+
 volatile unsigned long baseAddr;
 static const char* devprefix = "lams";
 static struct ioctlHandle* ioctlHandle = 0;
@@ -67,6 +80,7 @@ static struct ioctlCmd ioctlcmds[] = {
    { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
    { N_AVG,          _IOC_SIZE(N_AVG)         },
    { N_SKIP,         _IOC_SIZE(N_SKIP)        },
+   { N_PEAKS,        _IOC_SIZE(N_PEAKS)       },
    { CALM,           _IOC_SIZE(CALM)          },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
@@ -92,13 +106,28 @@ static char * createFifo(char inName[], int chan)
    return devName;
 }
 
-#define REGION_SIZE 0x10  // number of 1-byte registers
-#define BOARD_NUM   0
+// -- UTIL ---------------------------------------------------------------------
+static int openRTfifo()
+{
+   char devstr[30];
+   sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
+   DSMLOG_DEBUG("opening %s\n",devstr);
+   fd_lams_data = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
+   if (fd_lams_data < 0) {
+         DSMLOG_ERR("error: open %s: %s\n", devstr,
+                    rtl_strerror(rtl_errno));
+      fd_lams_data = 0;
+      return -convert_rtl_errno(rtl_errno);
+   }
+   DSMLOG_DEBUG("LAMS_SET_CHN fd_lams_data: %x\n", fd_lams_data);
+   return 0;
+}
 
 unsigned int channel = 0;
-unsigned int nAVG  = 8;
-unsigned int nSKIP = 50;
-unsigned int calm = 0;
+unsigned int nAVG   = 80;
+unsigned int nSKIP  = 0;
+unsigned int nPEAKS = 1000;
+unsigned int isCalm = 0;
 
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
@@ -122,18 +151,13 @@ static void *lams_thread (void * chan)
          // timed out!  flush the hardware FIFO
       } else {
 
-         if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>>>>>>>>>>>> first post: %d\n", fp++);
-         // TODO this is constant... set its value in ...::init()
-	 // is it the size of the data portion only, NOT the timetag and size fields!
-         _lamsPort.size = sizeof(_lamsPort.data);
-
+//       if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>> first post: %d\n", fp++);
          if (fd_lams_data) {
            _lamsPort.timetag = GET_MSEC_CLOCK;
-           if (rtl_write(fd_lams_data,&_lamsPort, SIZEOF_DSM_SAMPLE_HEADER + _lamsPort.size) < 0) {
-              DSMLOG_ERR("error: write: %s. Closing\n",
+           if (rtl_write(fd_lams_data,&_lamsPort,
+                         SIZEOF_DSM_SAMPLE_HEADER + _lamsPort.size) < 0) {
+              DSMLOG_ERR("error: write: %s.\n",
                          rtl_strerror(rtl_errno));
-              rtl_close(fd_lams_data);
-              fd_lams_data = 0;
 	   }
 	}
       }
@@ -141,66 +165,79 @@ static void *lams_thread (void * chan)
    }
 }
 
+static unsigned long long peak[MAX_BUFFER];
 static unsigned long long sum[MAX_BUFFER];
-static unsigned long long calm_spectrum[MAX_BUFFER];
+static unsigned long long calm[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-// static int fp=0;
-// if (fp<10) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", fp++);
-
-   unsigned int msw, lsw;
+   unsigned int msw, lsw, apk;
    static int nTattle=0;
    static int nGlyph=0; 
    static int nAvg=0;
    static int nSkip=0;
+   static int nPeaks=0;
+
+   static int xx=0;
+// if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
 
    int n;
    int s=0;
-
+/*
+   if (++nPeaks > nPEAKS) {
+      if (xx<10) DSMLOG_DEBUG("peak clear %d\n", xx++);
+      readw(baseAddr + PEAK_CLEAR_OFFSET);
+      for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
+      nPeaks = 0;
+   }
+*/
    //Clear Dual Port memory address counter
    readw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (n=3; n < MAX_BUFFER; n++) {
-      msw = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      lsw = (short)readw(baseAddr + AVG_DATA_OFFSET);
-      if (channel)
-         sum[s++] += (msw << 16) + lsw;
+   for (n=STEP_OVER; n < MAX_BUFFER; n++) {
+      lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
+//      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
+//      msw = 0;
+      sum[s++] += (msw << 16) + lsw;
+//      if (peak[n] < apk) peak[n] = apk;
    }
-   for (n=0; n < 3; n++) {
-      msw = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      lsw = (short)readw(baseAddr + AVG_DATA_OFFSET);
-      if (channel)
-         sum[s++] += (msw << 16) + lsw;
+   for (n=0; n < STEP_OVER; n++) {
+      lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
+//      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
+//      msw = 0;
+      sum[s++] += (msw << 16) + lsw;
+//      if (peak[n] < apk) peak[n] = apk;
    }
-   if (++nTattle == 1024) {
+   if (++nTattle > 1024) {
       nTattle = 0;
-      if (++nGlyph == 256) nGlyph = 0;
-         DSMLOG_DEBUG("(%03d) _lamsPort.data: 0x%04x\n",
-                      nGlyph,_lamsPort.data[nGlyph]);
+      if (++nGlyph == MAX_BUFFER) nGlyph = 0;
+      DSMLOG_DEBUG("(%03d) avrg: 0x%04x   peak: 0x%04x\n",
+                   nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
-   if (channel) {
-      if (nAvg++ >= nAVG) {
-         for (n=0; n < MAX_BUFFER; n++) {
-            if (calm)
-              _lamsPort.data[n] = calm_spectrum[n] = (long long)(sum[n] / nAvg);
+   if (++nAvg > nAVG) {
+      for (n=0; n < MAX_BUFFER; n++) {
+//       _lamsPort.peak[n] = (peak[n] < 500000000) ? peak[n] : 0;
+//         _lamsPort.peak[n] = peak[n];
+         _lamsPort.peak[n] = 0;
+         if (isCalm)
+            _lamsPort.avrg[n] = calm[n] = (long long)(sum[n] / nAvg);
+         else
+            if ( (long long)(sum[n] / nAvg) - calm[n] > 500000000)
+               _lamsPort.avrg[n] = 0;
             else
-              if ( (long long)(sum[n] / nAvg) - calm_spectrum[n] > 500000000)
-                _lamsPort.data[n] = 0;
-              else
-                _lamsPort.data[n] = (long long)(sum[n] / nAvg) - calm_spectrum[n];
+               _lamsPort.avrg[n] = (long long)(sum[n] / nAvg) - calm[n];
 
-            sum[n] = 0;
-         }
-         nAvg = 0;
+         sum[n] = 0;
       }
-      if (nAvg == 0) {
-         if (nSkip++ >= nSKIP) {
+      nAvg = 0;
+      if (++nSkip > nSKIP) {
+         if (channel)
             rtl_sem_post( &threadSem );
-            nSkip = 0;
-         }
+         nSkip = 0;
       }
    }
    return 0;
@@ -210,10 +247,9 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
 {
-   int ret = len;
+   int err, ret = len;
    unsigned int airspeed = 0;
    struct lams_set* lams_ptr;
-   char devstr[30];
 
    switch (cmd)
    {
@@ -234,16 +270,8 @@ static int ioctlCallback(int cmd, int board, int chn,
             break;
          }
          // open the channel's data FIFO
-         sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
-         DSMLOG_DEBUG("opening %s\n",devstr);
-         fd_lams_data = rtl_open( devstr, RTL_O_NONBLOCK | RTL_O_WRONLY );
-         if (fd_lams_data < 0) {
-               DSMLOG_ERR("error: open %s: %s\n", devstr,
-                          rtl_strerror(rtl_errno));
-            fd_lams_data = 0;
-            return -convert_rtl_errno(rtl_errno);
-         }
-   	 DSMLOG_DEBUG("LAMS_SET_CHN fd_lams_data: %x\n", fd_lams_data);
+         err = openRTfifo();
+         if (err) ret = err;
          break;
       
       case AIR_SPEED:
@@ -262,9 +290,14 @@ static int ioctlCallback(int cmd, int board, int chn,
          DSMLOG_DEBUG("nSKIP:         %d\n", nSKIP);
          break;
 
+      case N_PEAKS:
+         nPEAKS = *(unsigned int*) buf;
+         DSMLOG_DEBUG("nPEAKS:        %d\n", nPEAKS);
+         break;
+  
       case CALM:
-         calm = *(int*) buf;
-         DSMLOG_DEBUG("calm:          %d\n", calm);
+         isCalm = *(int*) buf;
+         DSMLOG_DEBUG("isCalm:        %d\n", isCalm);
          break;
 
       default:
@@ -306,14 +339,12 @@ int init_module (void)
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
    DSMLOG_NOTICE("--------------------------------------------------\n");
    DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
-   DSMLOG_NOTICE("MAX_BUFFER: %d\n", MAX_BUFFER);
+   DSMLOG_NOTICE("MAX_BUFFER:         %d\n", MAX_BUFFER);
    DSMLOG_NOTICE("sizeof(long long):  %d\n", sizeof(long long)); // 8
    DSMLOG_NOTICE("sizeof(long):       %d\n", sizeof(long));      // 4
    DSMLOG_NOTICE("sizeof(int):        %d\n", sizeof(int));       // 4
    DSMLOG_NOTICE("sizeof(short):      %d\n", sizeof(short));     // 2
    DSMLOG_NOTICE("sizeof(char):       %d\n", sizeof(char));      // 1
-   DSMLOG_NOTICE("nAVG:               %d\n", nAVG);
-   DSMLOG_NOTICE("nSKIP:              %d\n", nSKIP);
    DSMLOG_NOTICE("--------------------------------------------------\n");
 
    // open up ioctl FIFO, register ioctl function
@@ -326,7 +357,10 @@ int init_module (void)
    int n;
    _lamsPort.timetag = 0;
    for (n=0; n<MAX_BUFFER; n++)
-      _lamsPort.data[n] = calm_spectrum[n] = 0;
+      _lamsPort.avrg[n] = _lamsPort.peak[n] = peak[n] = calm[n] = 0;
+
+   // this is the size of the data portion only, NOT the timetag and size fields!
+   _lamsPort.size = sizeof(_lamsPort.avrg) + sizeof(_lamsPort.peak);
 
    DSMLOG_DEBUG("// initialize the semaphore to the thread\n");
    // initialize the semaphore to the thread
