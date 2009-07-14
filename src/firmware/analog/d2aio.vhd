@@ -49,7 +49,7 @@ architecture BEHAVIORAL of d2aio is
 --  signal cal3: std_logic:='0';
 --  signal cal4: std_logic:='0';
 --  signal cal5: std_logic:='0';
-  signal snatch: std_logic_vector(4 downto 0):="00000";
+  signal snatch: std_logic_vector(4 downto 0):="00001";
   signal state1: std_logic:='0';
   signal state2: std_logic:='0';
   signal state3: std_logic:='0';
@@ -64,8 +64,8 @@ architecture BEHAVIORAL of d2aio is
 
 begin
 --  D2ACAL(4 downto 0) <= cal(4 downto 0); 
---  D2ACAL(4 downto 0) <= snatch(4 downto 0);
-  D2ACAL(4 downto 0) <= "00001";
+  D2ACAL(4 downto 0) <= snatch(4 downto 0);
+--  D2ACAL(4 downto 0) <= "00001";
   FSIN <= fsin1 and fsin2;
   CLKIN <= sig_CLKIN;
 

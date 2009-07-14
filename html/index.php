@@ -57,7 +57,7 @@ if ($maxLen < 10)
 
 <script>
 <!-- ----------------------------------------------------------------------- -->
-<!-- The Hidden iframe below will contain javascript that will call recvResp.-->
+<!-- The Hidden iframe below will contain javascript that will call recvStat.-->
 <!-- ----------------------------------------------------------------------- -->
 var xmlrpc = importModule("xmlrpc");
 GetClocks = new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetClocks', '');
@@ -73,17 +73,23 @@ GetStatus['nimbus'] =
   new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=nimbus', '');
 
 var selectedDsm = '';
+function recvStat(content) {
+  document.getElementById('status').innerHTML = content;
+}
+function recvList(content) {
+  document.getElementById('list').innerHTML = content;
+}
 function recvResp(content) {
-  document.getElementById('stat').innerHTML = content;
+  document.getElementById('response').innerHTML = content;
 }
 function selectDsm(content) {
   if (is_periodic == false)
     periodic.UpdateClocks();
   selectedDsm = content;
   if (selectedDsm)
-    recvResp( GetStatus[selectedDsm]() );
+    recvStat( GetStatus[selectedDsm]() );
   else
-    recvResp( "" );
+    recvStat( "" );
 }
 function clicker(that) {
   if (that.selectedIndex+1 > 0)
@@ -101,11 +107,20 @@ function clicker(that) {
 <!--                |                          |                          |  -->
 <!--                +--------------------------+--------------------------+  -->
 <!--                |                                                     |  -->
-<!--                | status / response                                   |  -->
+<!--                | status                                              |  -->
+<!--                |                                                     |  -->
+<!--                +-----------------------------------------------------+  -->
+<!--                |                                                     |  -->
+<!--                | list                                                |  -->
+<!--                |                                                     |  -->
+<!--                +-----------------------------------------------------+  -->
+<!--                |                                                     |  -->
+<!--                | response                                            |  -->
 <!--                |                                                     |  -->
 <!--                +-----------------------------------------------------+  -->
 <!-- ----------------------------------------------------------------------- -->
-<table border><tbody align='center' valign='top'>
+<!-- <table border><tbody align='center' valign='top'> -->
+<table border><tbody valign='top'>
 <tr>
 <td>
 <!--
@@ -114,7 +129,7 @@ function clicker(that) {
 -->
 
 <!-- ----------------------------------------------------------------------- -->
-<!-- Procvide help for static pages.                                         -->
+<!-- Provide help for static pages.                                          -->
 <!-- ----------------------------------------------------------------------- -->
 <p id="paraID"> </p>
 <script>
@@ -125,44 +140,45 @@ if (is_periodic == false) {
 }
 </script>
 
-<!-- ----------------------------------------------------------------------- -->
-<!-- This form provides a selection of DSMs to control.  There are two       -->
-<!-- steps in this form: the selection of the dsm and the choice of action.  -->
-<!--                                                                         -->
-<!-- TODO - higlight the option red when in warning...                       -->
-<!--  <option value='YYY'                        >YYY (----/--/-- --:--:--)  -->
-<!--  <option value='XXX' style='color: #ff0000;'>YYY (----/--/-- --:--:--)  -->
-<!-- ----------------------------------------------------------------------- -->
+<!-- ------------------------------------------------------------------------- -->
+<!-- This form provides a selection of DSMs to control.  There are two         -->
+<!-- steps in this form: the selection of the host and the choice of action.   -->
+<!--                                                                           -->
+<!-- TODO - higlight the option red when in warning...                         -->
+<!--  <option value='YYY'                        >YYY (----/--/-- --:--:--.-)  -->
+<!--  <option value='XXX' style='color: #ff0000;'>YYY (----/--/-- --:--:--.-)  -->
+<!-- ------------------------------------------------------------------------- -->
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='dsm[]' size="<?=$nDSMs+3?>" multiple="multiple"
+  <select name='host[]' size="<?=$nDSMs+3?>" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
     <option value='<?=$key?>' id='<?=$key?>' label='<?=$key?> <?=str_pad($val, $maxLen, '_')?>'>
-       <?=$key?> <?=str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--)</option>
+       <?=$key?> <?=str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <?php } ?>
-    <option value='dsm_server' id='dsm_server' label='______ <?=str_pad("dsm_server", $maxLen, '_')?>'>
-       ______ <?=str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--)</option>
+    <option value='localhost'  id='dsm_server' label='______ <?=str_pad("dsm_server", $maxLen, '_')?>'>
+       ______ <?=str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <option value='nimbus'     id='nimbus'     label='______ <?=str_pad("nimbus"    , $maxLen, '_')?>'>
-       ______ <?=str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--)</option>
+       ______ <?=str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <option value='mtp-pc'     id='mtp-pc'     label='______ <?=str_pad("mtp-pc"    , $maxLen, '_')?>'>
-       ______ <?=str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--)</option>
+       ______ <?=str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
   </select><p>
 
   action:&nbsp
-  <select name='act'>
+  <select name=mthd>
     <option value='' selected>
     <option>Start</option>
     <option>Stop</option>
     <option>Restart</option>
     <option>Quit</option>
-<!--     <option>calibrate analog</option> -->
+    <option>List_NCAR_A2Ds</option>
   </select>
 
   &nbsp
+  <input type=hidden name=rcvr value=recvList>
   <input type=submit value='submit &raquo;' class='button'
-         onclick="selectedDsm=''; recvResp('working...')">
+         onclick=recvList("working...")>
 
 </form>
 </td>
@@ -176,7 +192,13 @@ if (is_periodic == false) {
 <!-- to receive javascript commands that refreash this row as well.          -->
 <!-- ----------------------------------------------------------------------- -->
 <iframe name='scriptframe' width=0 height=0 frameborder=0 src=''</iframe>
-<td id='stat' colspan=2></td>
+<td id='status' colspan=2></td>
+</tr>
+<tr>
+<td id='response' colspan=2></td>
+</tr>
+<tr>
+<td id='list' colspan=2></td>
 </tr>
 </tbody></table>
 </html>

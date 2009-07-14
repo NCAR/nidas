@@ -222,7 +222,9 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "du:vw")) != -1) {
+    _externalControl = true;
+
+    while ((opt_char = getopt(argc, argv, "du:v")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
@@ -247,10 +249,6 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;
 	    exit(1);
-	    break;
-	case 'w':
-            _externalControl = true;
-	    _nextState = STOP;
 	    break;
 	case '?':
 	    usage(argv[0]);
@@ -306,10 +304,9 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 void DSMEngine::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-d ] [-v] [-w] [ config ]\n\n\
+Usage: " << argv0 << " [-d ] [-v] [ config ]\n\n\
   -d:     debug - Send error messages to stderr, otherwise to syslog\n\
   -v:     display software version number and exit\n\
-  -w:     wait  - wait for the XmlRpc 'start' cammand\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
 The default config is \"sock:" <<
@@ -842,7 +839,7 @@ void DSMEngine::connectOutputs() throw(n_u::IOException)
     }
 }
 
-/* A remote system has connnected to one of our outputs.
+/* A remote system has connected to one of our outputs.
  * We don't clone the output here.
  */
 void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()

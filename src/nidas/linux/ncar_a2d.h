@@ -54,7 +54,7 @@ struct ncar_a2d_ocfilter_config
 struct ncar_a2d_status
 {
     // fifoLevel indices 0-5 correspond to:
-    // 	0: empty
+    //  0: empty
     //  1: <= 1/4 full
     //  2: < 1/2 full
     //  3: < 3/4 full
@@ -78,14 +78,23 @@ struct ncar_a2d_status
 
 };
 
-/*
- * Calibration structure
+/* This structure is used to copy a brief description of the current board
+ * configuration back to user space via the NCAR_A2D_GET_SETUP ioctl.
+ */
+struct ncar_a2d_setup
+{
+    int   gain[NUM_NCAR_A2D_CHANNELS];  // gain settings
+    int offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
+    int calset[NUM_NCAR_A2D_CHANNELS];  // cal voltage channels
+    int vcal;                           // cal voltage
+};
+
+/* Calibration structure
  */
 struct ncar_a2d_cal_config
 {
-    int  calset[NUM_NCAR_A2D_CHANNELS];  // Calibration flags
-    int  vcalx8;           // Calibration voltage:
-    // 128=0, 48=-10, 208 = +10, .125 V/bit
+    int calset[NUM_NCAR_A2D_CHANNELS];  // channels
+    int vcal;                           // voltage
 };
 
 /* Pick a character as the magic number of your driver.
@@ -99,12 +108,13 @@ struct ncar_a2d_cal_config
 /*
  * IOCTLs that this driver supports.
  */
-#define NCAR_A2D_GET_STATUS _IOR(A2D_MAGIC, 0, struct ncar_a2d_status)
-#define NCAR_A2D_SET_OCFILTER _IOW(A2D_MAGIC, 1, struct ncar_a2d_ocfilter_config)
-#define NCAR_A2D_SET_CAL    _IOW(A2D_MAGIC, 2, struct ncar_a2d_cal_config)
-#define NCAR_A2D_RUN        _IO(A2D_MAGIC, 3)
-#define NCAR_A2D_STOP       _IO(A2D_MAGIC, 4)
-#define NCAR_A2D_GET_TEMP _IOR(A2D_MAGIC, 5, short)
-#define NCAR_A2D_SET_TEMPRATE _IOW(A2D_MAGIC, 6, int)
+#define  NCAR_A2D_GET_STATUS        _IOR(A2D_MAGIC,  0, struct ncar_a2d_status)
+#define  NCAR_A2D_SET_OCFILTER      _IOW(A2D_MAGIC,  1, struct ncar_a2d_ocfilter_config)
+#define  NCAR_A2D_GET_SETUP         _IOR(A2D_MAGIC,  2, struct ncar_a2d_setup)
+#define  NCAR_A2D_SET_CAL           _IOW(A2D_MAGIC,  3, struct ncar_a2d_cal_config)
+#define  NCAR_A2D_RUN                _IO(A2D_MAGIC,  4)
+#define  NCAR_A2D_STOP               _IO(A2D_MAGIC,  5)
+#define  NCAR_A2D_GET_TEMP          _IOR(A2D_MAGIC,  6, short)
+#define  NCAR_A2D_SET_TEMPRATE      _IOW(A2D_MAGIC,  7, int)
 
 #endif

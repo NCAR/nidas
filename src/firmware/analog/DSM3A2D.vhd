@@ -60,7 +60,7 @@ entity DSM3A2D is
           A2DRWN     : out   std_logic; 
           A2DSYNC    : out   std_logic; 
           CAL_OFFSET : out   std_logic_vector (15 downto 0); 
-			    D2ACAL     : out   std_logic_vector (4 downto 0);
+			       D2ACAL     : out   std_logic_vector (4 downto 0);
 --          D2ARWN     : out   std_logic; 
 --          D2A0ABN    : out   std_logic; 
 --          D2A0DS1    : out   std_logic; 
@@ -177,11 +177,11 @@ architecture BEHAVIORAL of DSM3A2D is
              SIOWN    : out   std_logic; 
              SIORN    : out   std_logic; 
              A2DSTAT  : out   std_logic; 
+             A2DDATA  : out   std_logic; 
              D2A0     : out   std_logic; 
              D2A1     : out   std_logic; 
              D2A2     : out   std_logic; 
              SYSCTL   : out   std_logic; 
-             A2DDATA  : out   std_logic; 
              FIFOSTAT : out   std_logic; 
              FIFO     : out   std_logic; 
              IOCS16N  : out   std_logic; 
@@ -227,7 +227,6 @@ architecture BEHAVIORAL of DSM3A2D is
    component a2dtiming
       port ( A2DSTAT  : in    std_logic; 
              FIFOCTL  : in    std_logic_vector (7 downto 0); 
-             A2DDATA  : in    std_logic; 
              SA3      : in    std_logic; 
              SA2      : in    std_logic; 
              SA1      : in    std_logic; 
@@ -236,6 +235,7 @@ architecture BEHAVIORAL of DSM3A2D is
              LBSD3    : in    std_logic; 
              A2DINTRP : in    std_logic; 
              PLLOUT   : in    std_logic; 
+             D2A0     : in    std_logic; 
              A2DCS0N  : out   std_logic; 
              A2DCS1N  : out   std_logic; 
              A2DCS2N  : out   std_logic; 
@@ -353,13 +353,13 @@ begin
                 BSD(15 downto 0)=>BSD(15 downto 0));
    
    XLXI_21 : a2dtiming
-      port map (A2DDATA=>A2DDATA,
-                A2DINTRP=>A2DINTRP_DUMMY,
+      port map (A2DINTRP=>A2DINTRP_DUMMY,
                 A2DSTAT=>A2DSTAT,
                 FIFOCTL(7 downto 0)=>FIFOCTL(7 downto 0),
                 LBSD3=>LBSD3,
                 ONEPPS=>ONEPPS,
                 PLLOUT=>PLLOUT,
+                D2A0=>D2A0,    
                 SA1=>SA1,
                 SA2=>SA2,
                 SA3=>SA3,

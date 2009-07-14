@@ -31,6 +31,15 @@ public:
   std::string help() { return std::string("help GetDsmList"); }
 };
 
+/// list all of the NCAR A2D board's channels as a tree
+class List_NCAR_A2Ds : public XmlRpcServerMethod
+{
+public:
+  List_NCAR_A2Ds(XmlRpcServer* s) : XmlRpcServerMethod("List_NCAR_A2Ds", s) {}
+  void execute(XmlRpcValue& params, XmlRpcValue& result);
+  std::string help() { return std::string("help List_NCAR_A2Ds"); }
+};
+
 /**
  * A thread that provides XML-based Remote Procedure Calls
  * to web interfaces from the DSMServer.

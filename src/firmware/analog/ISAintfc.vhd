@@ -319,7 +319,10 @@ architecture BEHAVIORAL of ISAintfc is
    signal XLXN_225      : std_logic;
    signal XLXN_229      : std_logic;
    signal XLXN_230      : std_logic;
+   signal XLXN_231      : std_logic;
+   signal XLXN_232      : std_logic;
    signal A2DSTAT_DUMMY : std_logic;
+   signal A2DDATA_DUMMY : std_logic;
    signal SIOWN_DUMMY   : std_logic;
    signal SIOR_DUMMY    : std_logic;
    signal SIORN_DUMMY   : std_logic;
@@ -423,11 +426,12 @@ architecture BEHAVIORAL of ISAintfc is
    attribute HU_SET of XLXI_103 : label is "XLXI_103_3";
 begin
    A2DSTAT <= A2DSTAT_DUMMY;
+   A2DDATA <= A2DDATA_DUMMY;
    SIOR <= SIOR_DUMMY;
    SIORN <= SIORN_DUMMY;
    SIOW <= SIOW_DUMMY;
    SIOWN <= SIOWN_DUMMY;
-	D2A2 <= D2A2_DUMMY;
+   D2A2 <= D2A2_DUMMY;
 
    XLXI_30 : INV
       port map (I=>SIOW_DUMMY,
@@ -456,7 +460,7 @@ begin
                 E=>XLXN_206,
                 D0=>FIFO,
                 D1=>A2DSTAT_DUMMY,
-                D2=>A2DDATA,
+                D2=>A2DDATA_DUMMY,
                 D3=>D2A0,
                 D4=>D2A1,
                 D5=>D2A2_DUMMY,
@@ -497,23 +501,35 @@ begin
    XLXI_82 : GND
       port map (G=>XLXN_161);   
    
+   XLXI_89 : INV
+      port map (I=>XLXN_229,
+                O=>XLXN_232);
+                
    XLXI_90 : INV
       port map (I=>FSEL,
                 O=>XLXN_206);
-
+                
+   XLXI_91 : AND2
+      port map (I0=>XLXN_232,
+                I1=>XLXN_221,
+                O=>XLXN_231);
+   
    XLXI_92 : AND5
       port map (I0=>BRDSELI,
                 I1=>SA3,
                 I2=>SA2,
                 I3=>SA1,
-                I4=>SA0,
+                I4=>SA0,   --Uncomment for Viper
+--                I4=>SA4, --Uncomment for Vulcan
                 O=>FSEL);
    
    XLXI_93 : AND2
 --      port map (I0=>FIFOCTL(1),
 --                I1=>A2DSTAT_DUMMY,
-      port map (I0=>FIFOCTL(7),
-                I1=>D2A2_DUMMY,
+--      port map (I0=>FIFOCTL(7),
+--                I1=>D2A2_DUMMY,
+      port map (I0=>A2DDATA_DUMMY,
+                I1=>A2DDATA_DUMMY,
                 O=>XLXN_230);
    
    XLXI_94 : AND2
@@ -548,7 +564,7 @@ begin
                 O=>BSD(0));
    
    XLXI_101 : BUFE
-      port map (E=>XLXN_221,
+      port map (E=>XLXN_231,
                 I=>XLXN_222,
                 O=>I2CSDA);
    

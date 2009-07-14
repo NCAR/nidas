@@ -123,7 +123,7 @@ void GetClocks::execute(XmlRpc::XmlRpcValue& params,
     {
       if (mi->second.compare(_listener->_oldclk[mi->first]) == 0) {
         if (_listener->_nstale[mi->first]++ > 3)
-          mi->second = "----- stopped -----";
+          mi->second = "------ stopped ------";
       }
       else
         _listener->_nstale[mi->first] = 0;

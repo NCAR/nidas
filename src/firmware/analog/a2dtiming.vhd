@@ -599,8 +599,7 @@ use UNISIM.Vcomponents.ALL;
 -- synopsys translate_on
 
 entity a2dtiming is
-   port ( A2DDATA  : in    std_logic; 
-          A2DINTRP : in    std_logic; 
+   port ( A2DINTRP : in    std_logic; 
           A2DSTAT  : in    std_logic; 
           FIFOCTL  : in    std_logic_vector (7 downto 0); 
           LBSD3    : in    std_logic; 
@@ -610,6 +609,7 @@ entity a2dtiming is
           SA2      : in    std_logic; 
           SA3      : in    std_logic; 
           SIORW    : in    std_logic; 
+          D2A0     : in    std_logic;
           A2DCLK   : out   std_logic; 
           A2DCS0N  : out   std_logic; 
           A2DCS1N  : out   std_logic; 
@@ -881,8 +881,8 @@ begin
                 Q=>XLXN_335);
    
    XLXI_91 : OR2
-      port map (I0=>A2DDATA,
-                I1=>A2DSTAT,
+      port map (I0=>A2DSTAT,
+                I1=>D2A0,
                 O=>A2DIOEBL_DUMMY);
    
    XLXI_93 : FDC_MXILINX_a2dtiming

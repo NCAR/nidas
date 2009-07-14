@@ -301,10 +301,7 @@ static short A2DTemp(struct A2DBoard *brd)
         /*
          * Enable access to the i2c chip
          */
-        outb(A2DIO_FIFO, brd->cmd_addr);
-        brd->FIFOCtl |= FIFOWREBL;
-        outb(brd->FIFOCtl, brd->base_addr);
-        outb(A2DIO_D2A2, brd->cmd_addr);
+        outb(A2DIO_A2DDATA, brd->cmd_addr);
         /*
          * Send I2C start sequence
          */
@@ -334,8 +331,6 @@ static short A2DTemp(struct A2DBoard *brd)
          * Disable access to the i2c chip
          */
         outb(A2DIO_FIFO, brd->cmd_addr);
-        brd->FIFOCtl &= ~FIFOWREBL;
-        outb(brd->FIFOCtl, brd->base_addr);
 
         return (short) ((b0 << 8 | b1) >> 3);
 }
@@ -397,7 +392,7 @@ static void AD7725StatusAll(struct A2DBoard *brd)
 }
 
 /*
- * Return true iff the last instruction as shown in the A/D chip's status
+ * Return true if the last instruction as shown in the A/D chip's status
  * matches the given A/D chip instruction.
  */
 inline int
@@ -556,32 +551,50 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
 /*-----------------------Utility------------------------------*/
 // Set a calibration voltage for all channels:
 //
-//  bit  volts
-//  0x01 gnd
-//  0x02 +1
-//  0x04 +5
-//  0x08 -10
-//  0x10 +10
+//  bits volts
+//  0x00 gnd
+//  0x01 open
+//  0x03 +1
+//  0x05 +5
+//  0x09 -10
+//  0x11 +10
 //
+static int CalVoltToEnum(int volt)
+{
+        int i, valid[] = { 0, 1, 5, -10, 10 };
+
+        for (i = 0; i < 5; i++)
+                if (volt == valid[i])
+                        return i;
+
+        return -EINVAL;
+}
+static int CalVoltToBits(int volt)
+{
+        int i, valid[] = { 0,    1,    5,    -10,  10   };
+        int     bits[] = { 0x00, 0x03, 0x05, 0x09, 0x11 };
+
+        for (i = 0; i < 5; i++)
+                if (volt == valid[i])
+                        return bits[i];
+
+        return 0x01;  // default is open
+}
 static int A2DSetVcal(struct A2DBoard *brd)
 {
-        // Check that V is within limits
-        int ret = -EINVAL;
-        int i, valid[] = { 0x01, 0x02, 0x04, 0x08, 0x10 };
-        for (i = 0; i < 5; i++) {
-                if (brd->cal.vcalx8 == valid[i])
-                        ret = 0;
-        }
-        if (ret)
-                return ret;
+        KLOG_DEBUG("%s: brd->cal.vcal: %d\n", brd->deviceName, brd->cal.vcal);
 
         // Point to the calibration DAC channel
         outb(A2DIO_D2A2, brd->cmd_addr);
-        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_D2A2, brd->cmd_addr);
+
+        // Write an open state between each cal voltage change to avoid shorting
+        outw(0x01, brd->base_addr);
+
+        // Point to the calibration DAC channel
+        outb(A2DIO_D2A2, brd->cmd_addr);
 
         // Write cal voltage code
-        outw(brd->cal.vcalx8, brd->base_addr);
-        KLOG_DEBUG("%s: brd->cal.vcalx8=0x%x\n", brd->deviceName,brd->cal.vcalx8);
+        outw(CalVoltToBits(brd->cal.vcal) & 0x1f, brd->base_addr);
         return 0;
 }
 
@@ -601,6 +614,8 @@ static void A2DSetCal(struct A2DBoard *brd)
         unsigned short CalChans = 0;
         int i;
 
+        KLOG_DEBUG("%s: brd->OffCal: 0x%04x\n", brd->deviceName, brd->OffCal);
+
         // Change the calset array of bools into a byte
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                 OffChans >>= 1;
@@ -612,7 +627,6 @@ static void A2DSetCal(struct A2DBoard *brd)
         }
         // Point at the system control input channel
         outb(A2DIO_SYSCTL, brd->cmd_addr);
-        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_SYSCTL, brd->cmd_addr);
 
         // Set the appropriate bits in OffCal
         brd->OffCal = (OffChans << 8) & 0xFF00;
@@ -621,7 +635,6 @@ static void A2DSetCal(struct A2DBoard *brd)
 
         // Send OffCal word to system control word
         outw(brd->OffCal, brd->base_addr);
-        KLOG_DEBUG("%s: brd->OffCal:  0x%04x\n", brd->deviceName,brd->OffCal);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -637,6 +650,8 @@ static void A2DSetOffset(struct A2DBoard *brd)
         unsigned short OffChans = 0;
         int i;
 
+        KLOG_DEBUG("%s: brd->OffCal: 0x%04x\n", brd->deviceName, brd->OffCal);
+
         // Change the offset array of bools into a byte
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                 OffChans >>= 1;
@@ -645,7 +660,6 @@ static void A2DSetOffset(struct A2DBoard *brd)
         }
         // Point at the system control input channel
         outb(A2DIO_SYSCTL, brd->cmd_addr);
-        KLOG_DEBUG("%s: outb( 0x%x, 0x%x);\n", brd->deviceName,A2DIO_SYSCTL, brd->cmd_addr);
 
         // Set the appropriate bits in OffCal
         brd->OffCal = (OffChans << 8) & 0xFF00;
@@ -653,7 +667,6 @@ static void A2DSetOffset(struct A2DBoard *brd)
 
         // Send OffCal word to system control word
         outw(brd->OffCal, brd->base_addr);
-        KLOG_DEBUG("%s: brd->OffCal:  0x%04x\n", brd->deviceName,brd->OffCal);
 }
 
 /*-----------------------Utility------------------------------*/
@@ -910,7 +923,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
         for (coef = 0; coef < nCoefs; coef++) {
                 // Set up for config write and write out coefficient
-                outb(A2DIO_A2DDATA, brd->cmd_addr);
+                outb(A2DIO_D2A0, brd->cmd_addr);
                 outw(brd->ocfilter[coef], CHAN_ADDR(brd, channel));
 
                 if (waitForChannelInterrupt(brd, channel, 10) != 0) {
@@ -1064,13 +1077,8 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
                 }
                 outb(A2DIO_D2A1, brd->cmd_addr);
                 msleep(10);
-                outb(A2DIO_D2A2, brd->cmd_addr);
-                msleep(10);
-                outb(A2DIO_D2A1, brd->cmd_addr);
-                msleep(10);
         }
         // END HACK!
-
 
         brd->cur_status.ser_num = getSerialNumber(brd);
         KLOG_INFO("%s: serial number=%d\n",brd->deviceName,brd->cur_status.ser_num);
@@ -1220,6 +1228,35 @@ static int configBoard(struct A2DBoard *brd, struct nidas_a2d_config* cfg)
         return ret;
 }
 
+/*-----------------------Utility------------------------------*/
+// 000 +01 +05 -10 +10
+// --------------------
+//  X   X   X   X   X   // 1 T    -10...+10
+//  X   X   X   -   X   // 2 F      0...+10
+//  X   X   X   -   -   // 2 T    -05...+05
+//  X   X   X   -   -   // 4 F      0...+05
+//
+#define X -1
+int GainOffsetToEnum[5][2] = {
+//    0  1   <- offset = !bipolar
+    { X, X}, // gain 0
+    { X, 0}, // gain 1      1T
+    { 1, 2}, // gain 2   2F 2T
+    { X, X}, // gain 3
+    { 3, X}, // gain 4   4F
+};
+
+int withinRange(int volt, int gain, int offset)
+{
+        int GO = GainOffsetToEnum[gain][!offset];
+        if (GO < 0)
+                return 0;
+        if ( (volt == -10) && (GO > 0) )
+                return 0;
+        if ( (volt == 10) && (GO > 1) )
+                return 0;
+        return 1;
+}
 /**
  * Invoke filters.
  */
@@ -1252,6 +1289,7 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
         for (i = 0; i < brd->nfilters; i++) {
                 short_sample_t *osamp = (short_sample_t *)
                     GET_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
+
                 if (!osamp) {
                         /*
 			 * no output sample available. Still execute filter so its state is up-to-date.
@@ -1899,10 +1937,8 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         void __user *userptr = (void __user *) arg;
         int len = _IOC_SIZE(cmd);
         int ret = -EINVAL;
-        int rate;
-
-        // KLOG_DEBUG("%s: IOCTL for cmd=%x, len=%d\n",
-          //          brd->deviceName, cmd, len);
+        int rate, i;
+        struct ncar_a2d_setup setup;
 
         switch (cmd) {
         case NIDAS_A2D_GET_NCHAN:
@@ -1913,6 +1949,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         ret = sizeof(int);
                 }
                 break;
+
         case NCAR_A2D_GET_STATUS:   /* user get of status */
                 if (len != sizeof (struct ncar_a2d_status)) {
                         KLOG_ERR
@@ -1924,6 +1961,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         return -EFAULT;
                 ret = len;
                 break;
+
         case NIDAS_A2D_SET_CONFIG:
                 if (len != sizeof (struct nidas_a2d_config)) {
                         KLOG_ERR
@@ -1931,7 +1969,6 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                              len);
                         break;  // invalid length
                 }
-
                 if (brd->busy) {
                         KLOG_WARNING
                             ("%s: A/D card is running. Can't configure.\n",
@@ -1948,6 +1985,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         ret = configBoard(brd,&cfg);
                 }
                 break;
+
         case NIDAS_A2D_CONFIG_SAMPLE:
                 if (brd->busy) {
                         KLOG_WARNING
@@ -1994,6 +2032,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         KLOG_DEBUG("%s: setup succeeded\n",
                                    brd->deviceName);
                 break;
+
         case NCAR_A2D_SET_OCFILTER:
                 if (len != sizeof (struct ncar_a2d_ocfilter_config)) {
                         KLOG_ERR
@@ -2019,21 +2058,57 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         ret = 0;
                 }
                 break;
+
+        case NCAR_A2D_GET_SETUP:
+                if (len != sizeof (struct ncar_a2d_setup))
+                        break;
+
+                if (!brd->busy) {
+                        ret = -EAGAIN;
+                        break;
+                }
+                memcpy(setup.gain,   brd->gain,       NUM_NCAR_A2D_CHANNELS * sizeof(int));
+                memcpy(setup.offset, brd->offset,     NUM_NCAR_A2D_CHANNELS * sizeof(int));
+                memcpy(setup.calset, brd->cal.calset, NUM_NCAR_A2D_CHANNELS * sizeof(int));
+                setup.vcal =         brd->cal.vcal;
+
+                ret = copy_to_user(userptr, &setup, sizeof(setup));
+                if (ret < 0)
+                        break;
+
+                ret = sizeof (setup);
+                break;
+
         case NCAR_A2D_SET_CAL:
+                if (!brd->busy) {
+                        ret = -EAGAIN;
+                        break;
+                }
                 if (len != sizeof (struct ncar_a2d_cal_config))
                         break;  // invalid length
+
                 if (copy_from_user(&brd->cal,userptr, len) != 0) {
                         ret = -EFAULT;
                         break;
                 }
-                ret = 0; break; //DISABLED!  Spowart stole the A2DIO_D2A2 line for A2DTemp!
+                // Check that vcal is set to an enumerated level
+                ret = CalVoltToEnum(brd->cal.vcal);
+                if (ret < 0) return ret;
+
+                // Switch off channels that can't measure at this voltage
+                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+                    brd->cal.calset[i] *=
+                      withinRange(brd->cal.vcal, brd->gain[i], brd->offset[i]);
+
                 A2DSetVcal(brd);
                 A2DSetCal(brd);
                 ret = 0;
                 break;
+
         case NCAR_A2D_RUN:
                 ret = startBoard(brd);
                 break;
+
         case NCAR_A2D_STOP:
                 ret = stopBoard(brd);
                 break;
@@ -2072,10 +2147,14 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 brd->tempRate = rate;
                 ret = 0;
                 break;
+
         default:
                 KLOG_ERR("%s: Bad A2D ioctl 0x%x\n", brd->deviceName,cmd);
                 break;
         }
+        if (ret == -EAGAIN)
+                KLOG_ERR ("%s: A2D board is not running yet.\n", brd->deviceName);
+
         return ret;
 }
 
@@ -2303,7 +2382,7 @@ static int __init ncar_a2d_init(void)
                 goto err;
         }
 
-        KLOG_DEBUG("A2D init_module complete.\n");
+        KLOG_DEBUG("A2D ncar_a2d_init complete.\n");
 
         return 0;
 

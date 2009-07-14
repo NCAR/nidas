@@ -16,12 +16,31 @@
 #define NIDAS_CORE_ENGINEINTF_H
 
 #include <nidas/core/XmlRpcThread.h>
+#include <xmlrpcpp/XmlRpcException.h>
 
 #include <iostream>
 
 namespace nidas { namespace core {
 
 using namespace XmlRpc;
+
+/// Get the current state of the NCAR A2D card channels
+class GetA2dSetup : public XmlRpcServerMethod
+{
+public:
+  GetA2dSetup(XmlRpcServer* s) : XmlRpcServerMethod("GetA2dSetup", s) {}
+  void execute(XmlRpcValue& params, XmlRpcValue& result);
+  std::string help() { return std::string("help GetA2dSetup"); }
+};
+
+/// Set a test voltage on NCAR A2D board channel
+class TestVoltage : public XmlRpcServerMethod
+{
+public:
+  TestVoltage(XmlRpcServer* s) : XmlRpcServerMethod("TestVoltage", s) {}
+  void execute(XmlRpcValue& params, XmlRpcValue& result);
+  std::string help() { return std::string("help TestVoltage"); }
+};
 
 /// starts the DSMEngine
 class Start : public XmlRpcServerMethod

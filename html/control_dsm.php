@@ -1,39 +1,76 @@
 <?php
 include_once('utils/utils.php');
 
-echo "<script>window.parent.selectedDsm=''; window.parent.recvResp('";
+$mthd = $_POST['mthd'];
+$args = '';
 
-If (empty($_POST['dsm']))
-  exit("<h5>You need to select some DSM(s)</h5>')</script>");
+echo "<script>window.parent.";
 
-$action = $_POST['act'];
-if (empty($action))
+If (empty($_POST['rcvr']))
+  exit("recvResp('<h5>web page receiver not set</h5>')</script>");
+
+echo $_POST['rcvr'] . "('";
+
+If (empty($_POST['host']))
+  exit("<h5>You need to select a host</h5>')</script>");
+
+If (empty($_POST['mthd']))
   exit("<h5>You need to select an action</h5>')</script>");
 
-if (sizeof($_POST['dsm']) > 1)
+if (is_array($_POST['host']))
+  $hosts = $_POST['host'];
+else
+  $hosts = array($_POST['host']);
+
+if (sizeof($_POST['host']) > 1)
   echo "<h4>Results from the XMLRPC calls</h4>";
 else
   echo "<h4>Results from the XMLRPC call</h4>";
 
-foreach ($_POST['dsm'] as $dsm) {
-  echo "$action $dsm... ";
+foreach ($hosts as $host)
+  echo "<br>host: " . $host;
+echo "<br>mthd: " . $_POST['mthd'];
+echo "<br>rcvr: " . $_POST['rcvr'];
+echo "<br>device: " . $_POST['device'];
+echo "<br>channel: " . $_POST['channel'];
+echo "<br>voltage: " . $_POST['voltage'];
+echo "<br>";
 
-  $result = xu_rpc_http_concise( array( 'method' => $action,
-                                        'args'   => '',
-                                        'host'   => $dsm,
+if ($mthd == "TestVoltage") {
+  if ( empty($_POST['voltage']) && ($_POST['voltage'] != "0") )
+    exit("<h5>You need to select a voltage</h5>')</script>");
+
+  $args = array(
+     'device'  => $_POST['device'],
+     'channel' => $_POST['channel'],
+     'voltage' => $_POST['voltage']
+  );
+}
+
+foreach ($hosts as $host) {
+
+  $port = '30004';
+  if ($host == "localhost")
+    $port = '30003';
+
+  echo "$port $mthd $host... ";
+
+  $result = xu_rpc_http_concise( array( 'method' => $mthd,
+                                        'args'   => $args,
+                                        'host'   => $host,
                                         'uri'    => '/RPC2',
-                                        'port'   => '30004',
+                                        'port'   => $port,
                                         'debug'  => '0',
                                         'output' => 'xmlrpc' ));
 
   if (empty($result))
     echo "(no response)";
 
-  else if (gettype($result) == "string")
+  else if (is_string($result))
     echo $result;
 
-  else if (gettype($result) == "array")
-    echo $result['faultString'];
+  else if (is_array($result))
+    echo "<h5>" . $result['faultString'] . "</h5>";
 
   else
     echo "unknown reponse type: "+gettype($result);

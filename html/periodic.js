@@ -17,7 +17,7 @@ var periodic = {
     if (++periodic.cnt > 1) {
       periodic.cnt=1;
       if (selectedDsm)
-        recvResp( GetStatus[selectedDsm]() );
+        recvStat( GetStatus[selectedDsm]() );
     }
     if (is_periodic)
       setTimeout('periodic.loop()',1000);
