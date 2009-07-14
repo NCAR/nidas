@@ -194,7 +194,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
         tas = DefaultTrueAirspeed;
 
     double freq = tas / getResolution();
-    double minfreq;
+    double maxfreq;
 
     memset(t2d, 0, sizeof(*t2d));
 
@@ -207,11 +207,11 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
      */
     if (freq >= 3.0e6) {
         t2d->div10 = 0;
-        minfreq = 1.0e11;
+        maxfreq = 1.0e11;
     }
     else if (freq >= 3.0e5) {
         t2d->div10 = 1;  // set the divide-by-ten flag
-        minfreq = 1.0e10;
+        maxfreq = 1.0e10;
     }
     else {
     /*
@@ -224,7 +224,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
         return -EINVAL;
     }
 
-    t2d->ntap = (unsigned short)((minfreq / freq) * 511 / 25000 / 2);
+    t2d->ntap = (unsigned short)((maxfreq / freq) * 511 / 25000 / 2);
     return 0;               /* Return success */
 }
 
