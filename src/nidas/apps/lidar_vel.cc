@@ -14,7 +14,7 @@
 #include <time.h>
 #include <math.h>
 
-#define MAX_SAMPLES 512
+#define MAX_BUFFER 512
 
 static int debug = 0;
 static int verbose = 0;
@@ -147,7 +147,8 @@ static int process_file(char *path)
 {
 
   int ii;
-  double spec[MAX_SAMPLES];
+  double spec[MAX_BUFFER];
+  double peak[MAX_BUFFER];
   FILE *in;
 
   if (debug) {
@@ -158,7 +159,10 @@ static int process_file(char *path)
 
   for (;;) {
     sleep(1);
-    int nsamples = 0;
+    int nData  = 0;
+    int n_spec = 0;
+    int n_peak = 0;
+
     if ((in = fopen(path, "r")) == NULL) {
       fprintf(stderr, "failed to open\n");
       continue;
@@ -168,8 +172,8 @@ static int process_file(char *path)
     fseek(in, 0, SEEK_END);
     int fsize = ftell(in);
     rewind(in);
-    if (fsize != 4096) {
-      fprintf(stderr, "file is wrong size (%d)\n", fsize);
+    if (fsize != 4104) {
+//    fprintf(stderr, "file is wrong size (%d)\n", fsize);
       fclose(in);
       continue;
     }
@@ -178,29 +182,36 @@ static int process_file(char *path)
       if (fread(&ispec, sizeof(ispec), 1, in) != 1) {
         break;
       }
-      spec[nsamples] = ispec;
-      nsamples++;
-      if (nsamples == MAX_SAMPLES) {
-        break;
-      }
+      if (nData < MAX_BUFFER)
+        spec[n_spec++] = ispec;
+     else
+        peak[n_peak++] = ispec;
+
+      nData++;
     }
     fclose(in);
   
     if (verbose) {
       fprintf(stderr, "==================== spectrum ===================\n");
-      for (ii = 0; ii < nsamples; ii++) {
+      for (ii = 0; ii < n_spec; ii++) {
         fprintf(stderr, "%10d %10.2g\n", ii, spec[ii]);
       }
       fprintf(stderr, "=================================================\n");
     }
   
     double mean_freq, spec_width;
-    compute_freq(nsamples, spec, &mean_freq, &spec_width);
-  
+    compute_freq(n_spec, spec, &mean_freq, &spec_width);
 //  if (mean_freq > 1)
     {
-      fprintf(stderr, "mean_freq  (mHz): %10.3f  ", mean_freq);
-      fprintf(stderr, "spec_width (mHz): %10.3f\n", spec_width);
+      fprintf(stderr, "spec: mean_freq  (mHz): %10.3f  ", mean_freq);
+      fprintf(stderr, "spec: spec_width (mHz): %10.3f\n", spec_width);
+    }
+    compute_freq(n_peak, peak, &mean_freq, &spec_width);
+//  if (mean_freq > 1)
+    {
+      fprintf(stderr, "peak: mean_freq  (mHz): %10.3f  ", mean_freq);
+      fprintf(stderr, "peak: spec_width (mHz): %10.3f\n", spec_width);
+      fprintf(stderr, "\n");
     }
   }
   return 0;
@@ -230,7 +241,7 @@ static void compute_freq(int nsamples,
   double meanK;
   double sdevK;
 
-  double powerCentered[MAX_SAMPLES];
+  double powerCentered[MAX_BUFFER];
   const double *mp, *pw;
   
   double mhz_per_sample = nyq_freq_mhz / nsamples;

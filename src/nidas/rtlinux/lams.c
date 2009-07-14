@@ -54,19 +54,25 @@ MODULE_PARM(ioport, "i");
 MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 
 #define RAM_CLEAR_OFFSET         0x00
+#define OLDADDR
+#ifdef OLDADDR
 #define AVG_LSW_DATA_OFFSET      0x02
 #define PEAK_DATA_OFFSET         0x04
-//#define PEAK_DATA_OFFSET         0x06
 #define AVG_MSW_DATA_OFFSET      0x06
 #define PEAK_CLEAR_OFFSET        0x08
-//#define PEAK_CLEAR_OFFSET        0x04
-#define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
+#else
+#define PEAK_CLEAR_OFFSET        0x02
+#define AVG_LSW_DATA_OFFSET      0x04
+#define AVG_MSW_DATA_OFFSET      0x06
+#define PEAK_DATA_OFFSET         0x08
+#endif
 
+#define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
 #define STEP_OVER   3
 
-volatile unsigned long baseAddr;
+volatile unsigned int baseAddr;
 static const char* devprefix = "lams";
 static struct ioctlHandle* ioctlHandle = 0;
 static rtl_sem_t threadSem;
@@ -197,18 +203,18 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    readw(baseAddr + RAM_CLEAR_OFFSET);
 
    for (n=STEP_OVER; n < MAX_BUFFER; n++) {
-      lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
+      lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
+      apk = readw(baseAddr + PEAK_DATA_OFFSET);
+      msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
 //      msw = 0;
       sum[s++] += (msw << 16) + lsw;
 //      if (peak[n] < apk) peak[n] = apk;
       peak[n] = apk;
    }
    for (n=0; n < STEP_OVER; n++) {
-      lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
-      msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
+      lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
+      apk = readw(baseAddr + PEAK_DATA_OFFSET);
+      msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
 //      msw = 0;
       sum[s++] += (msw << 16) + lsw;
 //      if (peak[n] < apk) peak[n] = apk;
@@ -224,7 +230,6 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
       for (n=0; n < MAX_BUFFER; n++) {
 //       _lamsPort.peak[n] = (peak[n] < 500000000) ? peak[n] : 0;
          _lamsPort.peak[n] = peak[n];
-         _lamsPort.peak[n] = 0;
          if (isCalm)
             _lamsPort.avrg[n] = calm[n] = (long long)(sum[n] / nAvg);
          else

@@ -35,7 +35,7 @@
 struct lamsPort {
   dsm_sample_time_t timetag;     // timetag of sample
   dsm_sample_length_t size;      // number of bytes in data
-  unsigned int avrg[MAX_BUFFER]; // the averages
+  unsigned long long avrg[MAX_BUFFER]; // the averages
   unsigned int peak[MAX_BUFFER]; // the peaks
 };
 #ifdef __RTCORE_KERNEL__
@@ -43,7 +43,7 @@ struct lamsPort {
 /*
 struct lamsBoard {
     int type;
-    unsigned long addr;
+    unsigned int addr;
 
     int outfd;
     char * fifoName;
