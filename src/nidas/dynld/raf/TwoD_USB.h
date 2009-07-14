@@ -98,7 +98,8 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
     /**
-     * Build the struct above from the true airspeed (in m/s)
+     * Build the struct above from the true airspeed (in m/s).  Encodes
+     * for Analog Devices AD5255.
      * @param t2d the Tap2D to be filled
      * @param tas the true airspeed in m/s
      */
@@ -108,6 +109,7 @@ public:
      * Reverse the true airspeed encoding.  Used to extract TAS from
      * recorded records.  The *v1 method is for the first generation
      * TAS clock, the second generation gives finer resolution (07/01/2009).
+     * Second generation chip is an Analog Devices AD5255.
      * @param t2d the Tap2D to extract from.
      * @param the probe frequency.
      * @returns true airspeed in m/s.
@@ -115,6 +117,10 @@ public:
      */
     virtual float
     Tap2DToTAS(const Tap2D * t2d) const;
+    /**
+     * The first generation used the Maxim 5418 chip.  This is for legacy
+     * data (PACDEX through VOCALS).
+     */
     virtual float
     Tap2DToTAS(const Tap2Dv1 * t2d) const;
 
