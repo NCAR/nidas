@@ -198,19 +198,21 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 
    for (n=STEP_OVER; n < MAX_BUFFER; n++) {
       lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
-//      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
       msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
 //      msw = 0;
       sum[s++] += (msw << 16) + lsw;
 //      if (peak[n] < apk) peak[n] = apk;
+      peak[n] = apk;
    }
    for (n=0; n < STEP_OVER; n++) {
       lsw = (short)readw(baseAddr + AVG_LSW_DATA_OFFSET);
-//      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
+      apk = (short)readw(baseAddr + PEAK_DATA_OFFSET);
       msw = (short)readw(baseAddr + AVG_MSW_DATA_OFFSET);
 //      msw = 0;
       sum[s++] += (msw << 16) + lsw;
 //      if (peak[n] < apk) peak[n] = apk;
+      peak[n] = apk;
    }
    if (++nTattle > 1024) {
       nTattle = 0;
@@ -221,7 +223,7 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    if (++nAvg > nAVG) {
       for (n=0; n < MAX_BUFFER; n++) {
 //       _lamsPort.peak[n] = (peak[n] < 500000000) ? peak[n] : 0;
-//         _lamsPort.peak[n] = peak[n];
+         _lamsPort.peak[n] = peak[n];
          _lamsPort.peak[n] = 0;
          if (isCalm)
             _lamsPort.avrg[n] = calm[n] = (long long)(sum[n] / nAvg);
