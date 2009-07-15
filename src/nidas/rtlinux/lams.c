@@ -2,13 +2,10 @@
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedDate$
-
     $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+        $LastChangedDate$
+          $LastChangedBy$
+                $HeadURL$
 
     RTLinux LAMS driver for the ADS3 DSM.
 
@@ -54,18 +51,10 @@ MODULE_PARM(ioport, "i");
 MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 
 #define RAM_CLEAR_OFFSET         0x00
-#define OLDADDR
-#ifdef OLDADDR
-#define AVG_LSW_DATA_OFFSET      0x02
-#define PEAK_DATA_OFFSET         0x04
-#define AVG_MSW_DATA_OFFSET      0x06
-#define PEAK_CLEAR_OFFSET        0x08
-#else
 #define PEAK_CLEAR_OFFSET        0x02
 #define AVG_LSW_DATA_OFFSET      0x04
 #define AVG_MSW_DATA_OFFSET      0x06
 #define PEAK_DATA_OFFSET         0x08
-#endif
 
 #define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
 #define REGION_SIZE 0x10  // number of 1-byte registers
@@ -144,7 +133,7 @@ static void *lams_thread (void * chan)
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-   int fp=0;
+// int fp=0;
    for (;;) {
       timeout.tv_nsec += 600 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
@@ -171,22 +160,22 @@ static void *lams_thread (void * chan)
    }
 }
 
-static unsigned long long peak[MAX_BUFFER];
+static unsigned short peak[MAX_BUFFER];
+static unsigned int   calm[MAX_BUFFER];
 static unsigned long long sum[MAX_BUFFER];
-static unsigned long long calm[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   unsigned int msw, lsw, apk;
+   unsigned short msw, lsw, apk;
    static int nTattle=0;
    static int nGlyph=0; 
    static int nAvg=0;
    static int nSkip=0;
    static int nPeaks=0;
 
-   static int xx=0;
+// static int xx=0;
 // if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
 
    int n;
@@ -204,26 +193,24 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 
    for (n=STEP_OVER; n < MAX_BUFFER; n++) {
       lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      apk = readw(baseAddr + PEAK_DATA_OFFSET);
       msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
-//      msw = 0;
+      apk = readw(baseAddr + PEAK_DATA_OFFSET);
       sum[s++] += (msw << 16) + lsw;
-//      if (peak[n] < apk) peak[n] = apk;
+//    if (peak[n] < apk) peak[n] = apk;
       peak[n] = apk;
    }
    for (n=0; n < STEP_OVER; n++) {
       lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      apk = readw(baseAddr + PEAK_DATA_OFFSET);
       msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
-//      msw = 0;
+      apk = readw(baseAddr + PEAK_DATA_OFFSET);
       sum[s++] += (msw << 16) + lsw;
-//      if (peak[n] < apk) peak[n] = apk;
+//    if (peak[n] < apk) peak[n] = apk;
       peak[n] = apk;
    }
    if (++nTattle > 1024) {
       nTattle = 0;
       if (++nGlyph == MAX_BUFFER) nGlyph = 0;
-      DSMLOG_DEBUG("(%03d) avrg: 0x%04x   peak: 0x%04x\n",
+      DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
                    nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
    if (++nAvg > nAVG) {
@@ -231,12 +218,12 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 //       _lamsPort.peak[n] = (peak[n] < 500000000) ? peak[n] : 0;
          _lamsPort.peak[n] = peak[n];
          if (isCalm)
-            _lamsPort.avrg[n] = calm[n] = (long long)(sum[n] / nAvg);
+            _lamsPort.avrg[n] = calm[n] = (int)(sum[n] / nAvg);
          else
-            if ( (long long)(sum[n] / nAvg) - calm[n] > 500000000)
+            if ( (int)(sum[n] / nAvg) - calm[n] > 500000000)
                _lamsPort.avrg[n] = 0;
             else
-               _lamsPort.avrg[n] = (long long)(sum[n] / nAvg) - calm[n];
+               _lamsPort.avrg[n] = (int)(sum[n] / nAvg) - calm[n];
 
          sum[n] = 0;
       }

@@ -244,8 +244,8 @@ int main(int argc, char** argv)
           err("failed to open '%s' (%s)", ofName.c_str(), strerror(errno));
           goto failed;
         }
-        status = pwrite(ofPtr, &(data->avrg), sizeof(data->avrg), 0); 
-        status = pwrite(ofPtr, &(data->peak), sizeof(data->peak), sizeof(data->avrg));
+        status = pwrite(ofPtr, data->avrg, sizeof(data->avrg), 0); 
+        status = pwrite(ofPtr, data->peak, sizeof(data->peak), sizeof(data->avrg));
         close(ofPtr);
         if (status < 0) {
           err("failed to write (%s)", strerror(errno));

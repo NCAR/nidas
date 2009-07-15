@@ -33,10 +33,10 @@
 //enum boardTypes { BOARD_LAMS = 1, BOARD_UNKNOWN };
 
 struct lamsPort {
-  dsm_sample_time_t timetag;     // timetag of sample
-  dsm_sample_length_t size;      // number of bytes in data
-  unsigned long long avrg[MAX_BUFFER]; // the averages
-  unsigned int peak[MAX_BUFFER]; // the peaks
+  dsm_sample_time_t timetag;       // timetag of sample
+  dsm_sample_length_t size;        // number of bytes in data
+  unsigned int avrg[MAX_BUFFER];   // the averages
+  unsigned short peak[MAX_BUFFER]; // the peaks
 };
 #ifdef __RTCORE_KERNEL__
 
