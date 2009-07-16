@@ -443,8 +443,6 @@ int Extract2D::run() throw()
                                     tas = (1.0e11 / ((float)sp[0] * 2 * 25000 / 511)) * probe->frequency;
                                 }
 
-cerr << "stype="<<stype<< ", tas="<<tas<<", ntap="<<sp[0]<<endl;
-
                                 // Encode true airspeed to the ADS1 / ADS2 format for
                                 // backwards compatability.
                                 record.tas = htons( ((short)tas * (255 / 125) + 1) );
