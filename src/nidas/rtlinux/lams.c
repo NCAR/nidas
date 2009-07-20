@@ -180,14 +180,12 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 
    int n;
    int s=0;
-/*
+
    if (++nPeaks > nPEAKS) {
-      if (xx<10) DSMLOG_DEBUG("peak clear %d\n", xx++);
       readw(baseAddr + PEAK_CLEAR_OFFSET);
       for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
       nPeaks = 0;
    }
-*/
    //Clear Dual Port memory address counter
    readw(baseAddr + RAM_CLEAR_OFFSET);
 
@@ -196,16 +194,14 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
       msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = readw(baseAddr + PEAK_DATA_OFFSET);
       sum[s++] += (msw << 16) + lsw;
-//    if (peak[n] < apk) peak[n] = apk;
-      peak[n] = apk;
+      if (peak[n] < apk) peak[n] = apk;
    }
    for (n=0; n < STEP_OVER; n++) {
       lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = readw(baseAddr + PEAK_DATA_OFFSET);
       sum[s++] += (msw << 16) + lsw;
-//    if (peak[n] < apk) peak[n] = apk;
-      peak[n] = apk;
+      if (peak[n] < apk) peak[n] = apk;
    }
    if (++nTattle > 1024) {
       nTattle = 0;
