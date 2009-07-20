@@ -618,7 +618,7 @@ int SensorSimApp::main()
         // After terminal is opened, STOP and wait for instructions...
         if (_nmessages >= 0 || _onceThru) kill(getpid(),SIGSTOP);
 
-        sleep(1);
+        // sleep(1);
 
         sim->run();
 

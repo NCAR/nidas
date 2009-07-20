@@ -450,7 +450,7 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "server") setServer(aval);
+	    if (aname == "server") setServer(Project::getInstance()->expandEnvVars(aval));
 	    else if (aname == "dir") setDirectory(aval);
 	    else if (aname == "file") setFileNameFormat(aval);
 	    else if (aname == "cdl") setCDLFileName(aval);

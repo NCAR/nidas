@@ -61,11 +61,11 @@ public:
      */
     virtual void setDir(const std::string& val);
 
-    virtual const std::string& getDir() { return dir; }
+    virtual const std::string& getDir() { return _dir; }
 
-    const int getFd() const { return fd; }
+    const int getFd() const { return _fd; }
 
-    bool isNewFile() const { return newFile; }
+    bool isNewFile() const { return _newFile; }
 
     /**
      * Set file name portion of file path. This can contain
@@ -76,28 +76,28 @@ public:
      */
     virtual void setFileName(const std::string& val);
 
-    virtual const std::string& getFileName() { return filename; }
+    virtual const std::string& getFileName() { return _filename; }
 
-    virtual void addFileName(const std::string& val) { fileset.push_back(val); }
+    virtual void addFileName(const std::string& val) { _fileset.push_back(val); }
 
     /**
      * Set/get the file length in seconds.
      */
     void setFileLengthSecs(int val)
     {
-	if (val <= 0) fileLength = 400 * USECS_PER_DAY;
-	else fileLength = (long long) val * USECS_PER_SEC;
+	if (val <= 0) _fileLength = 400 * USECS_PER_DAY;
+	else _fileLength = (long long) val * USECS_PER_SEC;
     }
 
     int getFileLengthSecs() const
     {
-	if (fileLength > 365 * USECS_PER_DAY) return 0;
-        return (int)(fileLength / USECS_PER_SEC);
+	if (_fileLength > 365 * USECS_PER_DAY) return 0;
+        return (int)(_fileLength / USECS_PER_SEC);
     }
 
     UTime getNextFileTime() const
     {
-	return nextFileTime;
+	return _nextFileTime;
     }
 
     /**
@@ -109,18 +109,18 @@ public:
      */
     UTime createFile(UTime tfile,bool exact) throw(IOException);
 
-    void setStartTime(const UTime& val) { startTime = val; } 
+    void setStartTime(const UTime& val) { _startTime = val; } 
 
-    UTime getStartTime() const { return startTime; } 
+    UTime getStartTime() const { return _startTime; } 
 
-    void setEndTime(const UTime& val) { endTime = val; } 
+    void setEndTime(const UTime& val) { _endTime = val; } 
 
-    UTime getEndTime() const { return endTime; } 
+    UTime getEndTime() const { return _endTime; } 
 
     /**
      * Get name of current file.
      */
-    const std::string& getCurrentName() const { return currname; }
+    const std::string& getCurrentName() const { return _currname; }
 
     /**
      * Closes any file currently open.  The base implementation
@@ -216,32 +216,32 @@ protected:
     const std::time_put<char> &timeputter;
 
 private:
-    std::string dir;
+    std::string _dir;
 
-    std::string filename;
+    std::string _filename;
 
-    std::string currname;
+    std::string _currname;
 
-    std::string fullpath;
+    std::string _fullpath;
 
-    int fd;
+    int _fd;
 
-    UTime startTime;
-    UTime endTime;
+    UTime _startTime;
+    UTime _endTime;
 
-    std::list<std::string> fileset;
-    std::list<std::string>::iterator fileiter;
+    std::list<std::string> _fileset;
+    std::list<std::string>::iterator _fileiter;
 
-    bool initialized;
+    bool _initialized;
 
     /**
      * File length, in microseconds.
      */
-    long long fileLength;
+    long long _fileLength;
 
-    UTime nextFileTime;
+    UTime _nextFileTime;
 
-    bool newFile;
+    bool _newFile;
 
     int _lastErrno;
 

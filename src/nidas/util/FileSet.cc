@@ -30,8 +30,8 @@ const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-	fd(-1),fileiter(fileset.begin()),
-	initialized(false),fileLength(400*USECS_PER_DAY),newFile(false),
+	_fd(-1),_fileiter(_fileset.begin()),
+	_initialized(false),_fileLength(400*USECS_PER_DAY),_newFile(false),
         _lastErrno(0)
 {
 }
@@ -39,11 +39,11 @@ FileSet::FileSet() :
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-	dir(x.dir),filename(x.filename),fullpath(x.fullpath),
-	fd(-1),startTime(x.startTime),endTime(x.endTime),
-	fileset(x.fileset),fileiter(fileset.begin()),
-	initialized(x.initialized),
-	fileLength(x.fileLength),newFile(false),
+	_dir(x._dir),_filename(x._filename),_fullpath(x._fullpath),
+	_fd(-1),_startTime(x._startTime),_endTime(x._endTime),
+	_fileset(x._fileset),_fileiter(_fileset.begin()),
+	_initialized(x._initialized),
+	_fileLength(x._fileLength),_newFile(false),
         _lastErrno(0)
 {
 }
@@ -58,20 +58,20 @@ FileSet::~FileSet()
 
 void FileSet::setDir(const std::string& val)
 {
-    dir = val;
-    fullpath = makePath(val,getFileName());
+    _dir = val;
+    _fullpath = makePath(val,getFileName());
 }
 
 void FileSet::setFileName(const std::string& val)
 {
-    filename = val;
-    fullpath = makePath(getDir(),val);
+    _filename = val;
+    _fullpath = makePath(getDir(),val);
 }
 
 
 void FileSet::closeFile() throw(IOException)
 {
-    if (fd >= 0) {
+    if (_fd >= 0) {
         /*
          * Note that we don't do an fsync or fdatasync here before closing.
          * FileSet is used for streamed data files, which are not typically
@@ -87,18 +87,18 @@ void FileSet::closeFile() throw(IOException)
          * We'll depend on the journalling file system to maintain integrity.
          * If necessary, we could add an fsync method if someone really wants it.
          */
-        if (::close(fd) < 0)
-	    throw IOException(currname,"close",errno);
-	fd = -1;
+        if (::close(_fd) < 0)
+	    throw IOException(_currname,"close",errno);
+	_fd = -1;
     }
 }
 
 long long FileSet::getFileSize() const throw(IOException)
 {
-    if (fd >= 0) {
+    if (_fd >= 0) {
         struct stat64 statbuf;
-        if (::fstat64(fd,&statbuf) < 0)
-	    throw IOException(currname,"fstat",errno);
+        if (::fstat64(_fd,&statbuf) < 0)
+	    throw IOException(_currname,"fstat",errno);
 	return statbuf.st_size;
     }
     return 0;
@@ -128,7 +128,7 @@ void
 FileSet::
 openFileForWriting(const std::string& filename) throw(IOException)
 {
-    if ((fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
+    if ((_fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
         _lastErrno = errno;
         throw IOException(filename,"open",errno);
     }
@@ -138,23 +138,25 @@ openFileForWriting(const std::string& filename) throw(IOException)
  * Create a file using a time to create the name.
  * Return the time of the next file.
  */
-UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
+UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 {
     DLOG(("nidas::util::FileSet::createFile, ftime=")
 	 << ftime.format(true,"%c"));
     closeFile();
 
-    if (!exact && fileLength <= 366 * USECS_PER_DAY)
-	ftime -= ftime.toUsecs() % fileLength;
+    UTime ntime = ftime;
 
-    // break input time into date/time fields using GMT timezone
-    currname = ftime.format(true,fullpath);
+    if (!exact && _fileLength <= 366 * USECS_PER_DAY)
+	ntime -= ntime.toUsecs() % _fileLength;
 
-    DLOG(("nidas::util::FileSet:: fullpath=") << fullpath);
-    DLOG(("nidas::util::FileSet:: currname=") << currname);
+    // convert input time into date/time format using GMT timezone
+    _currname = ntime.format(true,_fullpath);
+
+    DLOG(("nidas::util::FileSet:: fullpath=") << _fullpath);
+    DLOG(("nidas::util::FileSet:: currname=") << _currname);
 
     // create the directory, and parent directories, if they don't exist
-    string tmpname = getDirPortion(currname);
+    string tmpname = getDirPortion(_currname);
     if (tmpname != ".") try {
         createDirectory(tmpname);
     }
@@ -163,54 +165,77 @@ UTime FileSet::createFile(UTime ftime,bool exact) throw(IOException)
         throw e;
     }
 
-    ILOG(("creating: ") << currname);
+    ILOG(("creating: ") << _currname);
 
-    openFileForWriting(currname);
+    try {
+        openFileForWriting(_currname);
+    }
+    catch(const IOException&e) {
+        /*
+         * When a data system does not have a clock source on bootup, it
+         * may start collecting data with a bogus time. Then if the
+         * clock source comes online, a new file will be created here
+         * since the time likely jumped ahead by more than fileLength.
+         * Typically in this situation, "exact" will be false and the
+         * system will try to create a time with (ntime % fileLength) == 0,
+         * which is typically a time of day like 00:00:00, or 12:00:00.
+         * This may conflict with a file that was created earlier in
+         * a previous run of the data system with a good clock.
+         * So if exact is false, and we get an EEXIST error, then create a file
+         * with the exact time requested.
+         */
+        if (_lastErrno == EEXIST) {
+            WLOG(("%s: %s",_currname.c_str(),e.what()));
+            if (!exact) return createFile(ftime,true);
+            else return createFile(ftime+USECS_PER_SEC,true);
+        }
+        throw e;
+    }
 
-    nextFileTime = ftime + USECS_PER_SEC;	// add one sec
-    nextFileTime += fileLength - (nextFileTime.toUsecs() % fileLength);
+    _nextFileTime = ntime + USECS_PER_SEC;	// add one sec
+    _nextFileTime += _fileLength - (_nextFileTime.toUsecs() % _fileLength);
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
-	 << nextFileTime.format(true,"%c"));
-    newFile = true;
+	 << _nextFileTime.format(true,"%c"));
+    _newFile = true;
 
-    return nextFileTime;
+    return _nextFileTime;
 }
 
 
 size_t FileSet::read(void* buf, size_t count) throw(IOException)
 {
-    newFile = false;
-    if (fd < 0) openNextFile();		// throws EOFException
-    ssize_t res = ::read(fd,buf,count);
+    _newFile = false;
+    if (_fd < 0) openNextFile();		// throws EOFException
+    ssize_t res = ::read(_fd,buf,count);
     if (res <= 0) {
         if (!res) {
             closeFile();	// next read will open next file
             return res;
         }
-	throw IOException(currname,"read",errno);
+	throw IOException(_currname,"read",errno);
     }
     return res;
 }
 
 size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 {
-    newFile = false;
-    ssize_t res = ::write(fd,buf,count);
+    _newFile = false;
+    ssize_t res = ::write(_fd,buf,count);
     if (res < 0) {
         _lastErrno = errno;
-        throw IOException(currname,"write",errno);
+        throw IOException(_currname,"write",errno);
     }
     return res;
 }
 
 size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 {
-    newFile = false;
-    ssize_t res = ::writev(fd,iov,iovcnt);
+    _newFile = false;
+    ssize_t res = ::writev(_fd,iov,iovcnt);
     if (res < 0) {
         _lastErrno = errno;
-        throw IOException(currname,"write",errno);
+        throw IOException(_currname,"write",errno);
     }
     return res;
 }
@@ -218,53 +243,53 @@ size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 
 void FileSet::openNextFile() throw(IOException)
 {
-    if (!initialized) {
+    if (!_initialized) {
 
-	DLOG(("openNextFile, fullpath=") << fullpath);
-	if (fullpath.length() > 0) {
+	DLOG(("openNextFile, fullpath=") << _fullpath);
+	if (_fullpath.length() > 0) {
 
-	    fileset = matchFiles(startTime,endTime);
+	    _fileset = matchFiles(_startTime,_endTime);
 
 	    // If the first matched file is later than the
 	    // start time, then we'll look to find an earlier
 	    // file.
             string firstFile;
-            string t1File = formatName(startTime);
-	    if (fileset.size() > 0) firstFile = fileset.front();
-	    if (fileset.size() == 0 || firstFile.compare(t1File) > 0) {
+            string t1File = formatName(_startTime);
+	    if (_fileset.size() > 0) firstFile = _fileset.front();
+	    if (_fileset.size() == 0 || firstFile.compare(t1File) > 0) {
                 UTime t1;
                 // roll back a day
-                if (fileLength > 366 * USECS_PER_DAY)
-                    t1 = startTime - USECS_PER_DAY;
+                if (_fileLength > 366 * USECS_PER_DAY)
+                    t1 = _startTime - USECS_PER_DAY;
                 else {
-                    t1 = startTime;
-                    t1 -= t1.toUsecs() % fileLength;
+                    t1 = _startTime;
+                    t1 -= t1.toUsecs() % _fileLength;
                 }
-                UTime t2 = startTime;
+                UTime t2 = _startTime;
                 list<string> files = matchFiles(t1,t2);
                 if (files.size() > 0)  {
                     list<string>::const_reverse_iterator ptr = files.rbegin();
                     string fl = *ptr;
                     if (firstFile.length() == 0 || 
-                        fl.compare(firstFile) < 0) fileset.push_front(fl);
+                        fl.compare(firstFile) < 0) _fileset.push_front(fl);
                 }
             }
 
-	    if (fileset.size() == 0) throw IOException(fullpath,"open",ENOENT);
+	    if (_fileset.size() == 0) throw IOException(_fullpath,"open",ENOENT);
 	}
-	fileiter = fileset.begin();
-	initialized = true;
+	_fileiter = _fileset.begin();
+	_initialized = true;
     }
     closeFile();
 
-    if (fileiter == fileset.end()) throw EOFException(currname,"open");
-    currname = *fileiter++;
-    ILOG(("opening: ") << currname);
+    if (_fileiter == _fileset.end()) throw EOFException(_currname,"open");
+    _currname = *_fileiter++;
+    ILOG(("opening: ") << _currname);
 
-    if (currname == "-") fd = 0;	// read from stdin
-    else if ((fd = ::open64(currname.c_str(),O_RDONLY)) < 0)
-    	throw IOException(currname,"open",errno);
-    newFile = true;
+    if (_currname == "-") _fd = 0;	// read from stdin
+    else if ((_fd = ::open64(_currname.c_str(),O_RDONLY)) < 0)
+    	throw IOException(_currname,"open",errno);
+    _newFile = true;
 }
 
 /* static */
@@ -293,51 +318,51 @@ string FileSet::makePath(const string& dir,const string& file)
 
 string FileSet::formatName(const UTime& t1)
 {
-    return t1.format(true,fullpath);
+    return t1.format(true,_fullpath);
 }
 
 #if !defined(NIDAS_EMBEDDED)
 void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException)
 {
-    if (fullpath.find("%b") != string::npos) {
+    if (_fullpath.find("%b") != string::npos) {
 	string m1 = t1.format(true,"%b");
 	string m2 = t2.format(true,"%b");
 	if (::llabs(t1-t2) > 31 * USECS_PER_DAY || m1 != m2) 
 	    throw IOException(
-		string("FileSet: ") + fullpath,"search",
+		string("FileSet: ") + _fullpath,"search",
 		"%b (alpha month) does not sort to time order");
     }
 
     vector<string::size_type> dseq;
     string::size_type di;
-    di = fullpath.find("%Y");
-    if (di == string::npos) di = fullpath.find("%y");
+    di = _fullpath.find("%Y");
+    if (di == string::npos) di = _fullpath.find("%y");
     if (di == string::npos) di = 0;
     dseq.push_back(di);
 
-    di = fullpath.find("%m");
+    di = _fullpath.find("%m");
     if (di == string::npos) di = dseq[0];
     dseq.push_back(di);
 
-    di = fullpath.find("%d");
+    di = _fullpath.find("%d");
     if (di == string::npos) di = dseq[1];
     dseq.push_back(di);
 
-    di = fullpath.find("%H");
+    di = _fullpath.find("%H");
     if (di == string::npos) di = dseq[2];
     dseq.push_back(di);
 
-    di = fullpath.find("%M");
+    di = _fullpath.find("%M");
     if (di == string::npos) di = dseq[3];
     dseq.push_back(di);
 
-    di = fullpath.find("%S");
+    di = _fullpath.find("%S");
     if (di == string::npos) di = dseq[4];
     dseq.push_back(di);
 
     for (unsigned int i = 1; i < dseq.size(); i++)
         if (dseq[i] < dseq[i-1]) throw IOException(
-		string("FileSet: ") + fullpath,"search",
+		string("FileSet: ") + _fullpath,"search",
 		"file names do not sort to time order");
 }
 #endif
@@ -353,10 +378,10 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     checkPathFormat(t1,t2);
 #endif
 
-    DLOG(("fullpath=") << fullpath);
+    DLOG(("fullpath=") << _fullpath);
 
-    string t1path = t1.format(true,fullpath);
-    string t2path = t2.format(true,fullpath);
+    string t1path = t1.format(true,_fullpath);
+    string t2path = t2.format(true,_fullpath);
 
     DLOG(("t1path=") << t1path);
     DLOG(("t2path=") << t2path);
@@ -366,7 +391,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // Check if there are time fields in the directory portion.
     // If so, it complicates things.
 
-    string openedDir = getDirPortion(fullpath);
+    string openedDir = getDirPortion(_fullpath);
 
     // use std::time_put to format path into a file name
     // this converts the strftime %Y,%m type format descriptors
@@ -392,7 +417,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     openedDir.clear();
 
     DLOG(("dirDeltat=") << dirDeltat);
-    DLOG(("fullpath=") << fullpath);
+    DLOG(("fullpath=") << _fullpath);
 
     // must execute this loop at least once with time of t1.
     // If t2 > t1 then increment time by dirDeltat each iteration,
@@ -401,7 +426,7 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     for (UTime ftime = t1; ftime <= t2; ) {
 	// currpath is the full path name of a file with a name
 	// corresponding to time ftime
-	string currpath = ftime.format(true,fullpath);
+	string currpath = ftime.format(true,_fullpath);
 	DLOG(("currpath=") << currpath);
 
 	// currdir is the directory portion of currpath
@@ -416,10 +441,10 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
 	}
 	else rewinddir(dirp);
 
-	DLOG(("fullpath=") << fullpath);
+	DLOG(("fullpath=") << _fullpath);
 	// now take file portion of input path, and create regular expression
 	string fileregex = 
-	    string("^") + getFilePortion(fullpath) + string("$");
+	    string("^") + getFilePortion(_fullpath) + string("$");
 	    
 	DLOG(("fileregex=") << fileregex);
 
