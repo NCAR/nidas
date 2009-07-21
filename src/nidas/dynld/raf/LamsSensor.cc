@@ -37,7 +37,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     const unsigned short * iPeak =
       (const unsigned short*)&input[MAX_BUFFER * sizeof(int)];
 
-    // allocate samples   (TODO - do these need to be of type float?)
+    // allocate samples
     SampleT<float> * outs = getSample<float>(MAX_BUFFER * 2);
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(getId() + 1);  
@@ -59,6 +59,10 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
 void LamsSensor::open(int flags) throw(n_u::IOException,
     n_u::InvalidParameterException)
 {
+    int          calm   = 0;
+    unsigned int nAVG   = 20;
+    unsigned int nPEAK  = 1000;
+    unsigned int nSKIP  = 0;
     DSMSensor::open(flags);
 
     // Request that fifo be opened at driver end.
@@ -67,6 +71,10 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
       lams_info.channel = 1;//TODO GET FROOM MXL CONFIG?
       ioctl(LAMS_SET_CHN, &lams_info, sizeof(lams_info));
 //    ioctl(AIR_SPEED, 0,0);
+      ioctl(CALM,      &calm,      sizeof(calm));
+      ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
+      ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
+      ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
     }
     n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());
 }
