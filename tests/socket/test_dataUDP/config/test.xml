@@ -32,7 +32,7 @@
             </service>
         </server>
 
-	<dsm rserialPort="30002" name="localhost" id="1" derivedData="sock::30011">
+	<dsm rserialPort="30002" name="localhost" id="10" derivedData="sock::30011">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
 		devicename="tmp/test0" id="10" suffix=".t1">

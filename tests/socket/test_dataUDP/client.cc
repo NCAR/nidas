@@ -67,8 +67,11 @@ void connect(int argc, char** argv)
 
     DatagramPacketT<struct answer> recvPkt(reply,replen);
 
+    int udpPort;
+
     fd_set fdset;
-    for ( ;; ) {
+    int nresp = 0;
+    for (int i = 0; i < 3; i++ ) {
         dsock.send(sendPkt);
 
         int fd = dsock.getFd();
@@ -80,21 +83,21 @@ void connect(int argc, char** argv)
             throw IOException(dsock.getLocalSocketAddress().toString(),
                 "select",errno);
         }
-        if (res > 0) break;
-    }
+        if (res > 0) nresp++;
+        dsock.receive(recvPkt);
 
-    dsock.receive(recvPkt);
-
-    cerr << "received packet, len=" << recvPkt.getLength() <<
-        ", magic=" << ntohl(reply->magic) << 
-        ", tcpPort=" << ntohs(reply->tcpPort) << 
-        " udpPort=" << ntohs(reply->udpPort) << endl;
-    int udpPort = ntohs(reply->udpPort);
-    const char* cp = reply->strings;
-    const char* eop = &repBuf.front() + recvPkt.getLength();
-    for ( ; cp < eop; ) {
-        cerr << "string=" << cp << endl;
-        cp += strlen(cp) + 1;
+        cerr << "received packet, len=" << recvPkt.getLength() <<
+            ", magic=" << ntohl(reply->magic) << 
+            ", tcpPort=" << ntohs(reply->tcpPort) << 
+            " udpPort=" << ntohs(reply->udpPort) << endl;
+        udpPort = ntohs(reply->udpPort);
+        const char* cp = reply->strings;
+        const char* eop = &repBuf.front() + recvPkt.getLength();
+        for ( ; cp < eop; ) {
+            cerr << "string=" << cp << endl;
+            cp += strlen(cp) + 1;
+        }
+        sleep(1);
     }
 
     const SocketAddress& saddr = recvPkt.getSocketAddress();

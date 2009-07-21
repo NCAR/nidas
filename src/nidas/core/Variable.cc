@@ -251,19 +251,20 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
             }
 	    else if (aname == "plotrange") {
                 std::istringstream ist(aval);
-                float prange[2];
+                float prange[2] = { -10.0,10.0 };
                 int i;
-                for (i = 0; i < 2 ; i++) {
-                    if (ist.eof()) break;
-                    ist >> prange[i];
-                    if (ist.fail()) break;
-                }
-                // Don't throw exception on poorly formatted plotranges,
-                // just complain and set it to -10 10
-                if (i < 2)  {
-                    n_u::InvalidParameterException e(string("variable") + getName(),aname,aval);
-                    WLOG(("%s",e.what()));
-                    for ( ; i < 2 ; i++) prange[i] = -10 + i * 20;
+                // if plotrange value starts with '$' ignore error.
+                if (aval.length() < 1 || aval[0] != '$') {
+                    for (i = 0; i < 2 ; i++) {
+                        if (ist.eof()) break;
+                        ist >> prange[i];
+                        if (ist.fail()) break;
+                    }
+                    // Don't throw exception on poorly formatted plotranges
+                    if (i < 2)  {
+                        n_u::InvalidParameterException e(string("variable") + getName(),aname,aval);
+                        WLOG(("%s",e.what()));
+                    }
                 }
                 setPlotRange(prange[0],prange[1]);
             }
