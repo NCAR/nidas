@@ -30,7 +30,6 @@
 #include <signal.h>          // sigaction
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/core/RTL_IODevice.h>
-#include <nidas/rtlinux/lams.h>
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -43,9 +42,6 @@ namespace n_u = nidas::util;
 class LamsSensor : public DSMSensor
 {
 public:
-  LamsSensor();
-  ~LamsSensor();
-
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 	
@@ -59,16 +55,12 @@ public:
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
   }
- 
   
   /**
    * Open the device connected to the sensor.
    */
   void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
-
-private:
-  struct lams_set lams_info;
 };
 
 }}}
