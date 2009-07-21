@@ -71,6 +71,8 @@ void connect(int argc, char** argv)
 
     fd_set fdset;
     int nresp = 0;
+    set<pair<Inet4SocketAddress,int> > servers;
+
     for (int i = 0; i < 3; i++ ) {
         dsock.send(sendPkt);
 
@@ -86,29 +88,54 @@ void connect(int argc, char** argv)
         if (res > 0) nresp++;
         dsock.receive(recvPkt);
 
-        cerr << "received packet, len=" << recvPkt.getLength() <<
+        SocketAddress& saddr = recvPkt.getSocketAddress();
+
+        cout << "received packet from " << saddr.toString() <<
+            ", len=" << recvPkt.getLength() <<
             ", magic=" << ntohl(reply->magic) << 
             ", tcpPort=" << ntohs(reply->tcpPort) << 
             " udpPort=" << ntohs(reply->udpPort) << endl;
-        udpPort = ntohs(reply->udpPort);
         const char* cp = reply->strings;
         const char* eop = &repBuf.front() + recvPkt.getLength();
         for ( ; cp < eop; ) {
-            cerr << "string=" << cp << endl;
+            cout << "string=" << cp << endl;
             cp += strlen(cp) + 1;
+        }
+        if (saddr.getFamily() == AF_INET) {
+            Inet4SocketAddress s4addr((const sockaddr_in*)saddr.getConstSockAddrPtr());
+            s4addr.setPort(ntohs(reply->tcpPort));
+            servers.insert(pair<Inet4SocketAddress,int>(s4addr,ntohs(reply->udpPort)));
         }
         sleep(1);
     }
 
-    const SocketAddress& saddr = recvPkt.getSocketAddress();
-    cerr << "recvPkt sock addr=" << saddr.toString() << endl;
-    if (saddr.getFamily() == AF_INET) {
-        Inet4SocketAddress s4addr =
-            Inet4SocketAddress((const struct sockaddr_in*)
-                saddr.getConstSockAddrPtr());
-        s4addr.setPort(ntohs(reply->tcpPort));
-        tcpSock.connect(s4addr);
+    if (servers.size() == 0) {
+        cerr << "No servers found" << endl;
+        return;
     }
+
+    int index = 0;
+
+    set<pair<Inet4SocketAddress,int> >::const_iterator si;
+    if (servers.size() > 1) {
+        cout << "Enter a index for the desired address:" << endl;
+        si = servers.begin();
+        for (int i = 0; i < servers.size(); i++) {
+            cout << i << ' ' << si->first.getInet4Address().getHostName() << endl;
+            ++si;
+        }
+        cin >> index;
+    }
+
+    si = servers.begin();
+    for (int i = 0; i < index; i++) ++si;
+    pair<Inet4SocketAddress,int> server = *si;
+
+    // const SocketAddress& saddr = recvPkt.getSocketAddress();
+    Inet4SocketAddress s4addr = si->first;
+    udpPort = si->second;
+    cout << "selected addr=" << s4addr.toString() << endl;
+    tcpSock.connect(s4addr);
 
     struct tcpreq tcpreq;
     tcpreq.magic = htonl(0x76543210);
