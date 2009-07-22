@@ -42,6 +42,11 @@ namespace n_u = nidas::util;
 class LamsSensor : public DSMSensor
 {
 public:
+  LamsSensor();
+
+  void fromDOMElement(const xercesc::DOMElement* node)
+      throw(nidas::util::InvalidParameterException);
+
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 	
@@ -61,6 +66,12 @@ public:
    */
   void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
+
+private:
+  int          calm;
+  unsigned int nAVG;
+  unsigned int nPEAK;
+  unsigned int nSKIP;
 };
 
 }}}

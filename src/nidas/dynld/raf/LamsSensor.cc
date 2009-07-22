@@ -28,6 +28,31 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
+LamsSensor::LamsSensor() :
+    DSMSensor(), calm(0), nAVG(20), nPEAK(1000), nSKIP(0) {}
+
+void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
+    throw(n_u::InvalidParameterException)
+{
+    DSMSensor::fromDOMElement(node);
+
+    const Parameter *p;
+
+    // Get manditory parameter(s)
+    p = getParameter("calm");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "calm","not found");
+    calm = (int)p->getNumericValue(0);
+
+    // Get optional parameter(s)
+    p = getParameter("nAVG");
+    if (p) nAVG  = (unsigned int)p->getNumericValue(0);
+    p = getParameter("nPEAK");
+    if (p) nPEAK = (unsigned int)p->getNumericValue(0);
+    p = getParameter("nSKIP");
+    if (p) nSKIP = (unsigned int)p->getNumericValue(0);
+}
+
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
 {
     const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
@@ -59,16 +84,12 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
 void LamsSensor::open(int flags) throw(n_u::IOException,
     n_u::InvalidParameterException)
 {
-    int          calm   = 0;
-    unsigned int nAVG   = 20;
-    unsigned int nPEAK  = 1000;
-    unsigned int nSKIP  = 0;
     DSMSensor::open(flags);
 
     // Request that fifo be opened at driver end.
     if (DSMEngine::getInstance()) {
       struct lams_set lams_info;
-      lams_info.channel = 1;//TODO GET FROOM MXL CONFIG?
+      lams_info.channel = 1;//TODO GET FROM MXL CONFIG?
       ioctl(LAMS_SET_CHN, &lams_info, sizeof(lams_info));
 //    ioctl(AIR_SPEED, 0,0);
       ioctl(CALM,      &calm,      sizeof(calm));
