@@ -283,6 +283,13 @@
     </xsd:complexContent>
 </xsd:complexType>
 
+<xsd:complexType name="lamsSensorT">
+    <xsd:complexContent>
+	<xsd:extension base="sensorT">
+	</xsd:extension>
+    </xsd:complexContent>
+</xsd:complexType>
+
 <xsd:complexType name="arincSensorT">
     <xsd:annotation>
         <xsd:documentation>
@@ -318,6 +325,7 @@
 	</xsd:element>
 	<xsd:element name="irigSensor"  type="sensorT"/>
 	<xsd:element name="socketSensor"  type="socketSensorT"/>
+	<xsd:element name="lamsSensor"  type="lamsSensorT"/>
     </xsd:choice>
 </xsd:group>
 
@@ -355,7 +363,7 @@
 	<xsd:attribute name="derivedData" type="xsd:token"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
-	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor"/>
+	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor | lamsSensor"/>
 	<xsd:field    xpath="@id"/>
     </xsd:unique>
 </xsd:element>
