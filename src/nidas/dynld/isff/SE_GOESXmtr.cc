@@ -206,56 +206,80 @@ void SE_GOESXmtr::checkACKResponse(char ptype,const string& resp,char seqnum)
 }
 
 SE_GOESXmtr::SE_GOESXmtr():
-	model(0),clockDiffMsecs(99999),
-	transmitQueueTime((time_t)0),
-	transmitAtTime((time_t)0),
-	transmitSampleTime((time_t)0),
-	lastXmitStatus("unknown"),
-	selfTestStatus(0),
-	maxRFRate(0),
-	gpsNotInstalled(false),
-	xmitNbytes(0),
-	activeId(0)
+	_model(0),_clockDiffMsecs(99999),
+	_transmitQueueTime((time_t)0),
+	_transmitAtTime((time_t)0),
+	_transmitSampleTime((time_t)0),
+	_lastXmitStatus("unknown"),
+	_selfTestStatus(0),
+	_maxRFBaud(0),
+	_gpsNotInstalled(false),
+	_xmitNbytes(0),
+	_activeId(0),
+        _rfBaud(0)
 {
     logger = n_u::Logger::getInstance();
-    port.setBaudRate(9600);
-    port.setParity(port.NONE);
-    port.setDataBits(8);
-    port.setStopBits(1);
-    port.setFlowControl(port.NOFLOWCONTROL);
-    port.setLocal(true);
-    port.setRaw(true);
-    port.setRawLength(0);
-    port.setRawTimeout(10);
+    _port.setBaudRate(9600);
+    _port.setParity(_port.NONE);
+    _port.setDataBits(8);
+    _port.setStopBits(1);
+    _port.setFlowControl(_port.NOFLOWCONTROL);
+    _port.setLocal(true);
+    _port.setRaw(true);
+    _port.setRawLength(0);
+    _port.setRawTimeout(10);
 }
 
 SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
 	GOESXmtr(x),
-	model(0),clockDiffMsecs(99999),
-	transmitQueueTime((time_t)0),
-	transmitAtTime((time_t)0),
-	transmitSampleTime((time_t)0),
-	lastXmitStatus("unknown"),
-	selfTestStatus(0),
-	maxRFRate(0),
-	gpsNotInstalled(false),
-	xmitNbytes(0),
-	activeId(0)
+	_model(0),_clockDiffMsecs(99999),
+	_transmitQueueTime((time_t)0),
+	_transmitAtTime((time_t)0),
+	_transmitSampleTime((time_t)0),
+	_lastXmitStatus("unknown"),
+	_selfTestStatus(0),
+	_maxRFBaud(0),
+	_gpsNotInstalled(false),
+	_xmitNbytes(0),
+	_activeId(0),
+	_rfBaud(x._rfBaud)
 {
     logger = n_u::Logger::getInstance();
-    port.setBaudRate(9600);
-    port.setParity(port.NONE);
-    port.setDataBits(8);
-    port.setStopBits(1);
-    port.setFlowControl(port.NOFLOWCONTROL);
-    port.setLocal(true);
-    port.setRaw(true);
-    port.setRawLength(0);
-    port.setRawTimeout(10);
+    _port.setBaudRate(9600);
+    _port.setParity(_port.NONE);
+    _port.setDataBits(8);
+    _port.setStopBits(1);
+    _port.setFlowControl(_port.NOFLOWCONTROL);
+    _port.setLocal(true);
+    _port.setRaw(true);
+    _port.setRawLength(0);
+    _port.setRawTimeout(10);
 }
 
 SE_GOESXmtr::~SE_GOESXmtr()
 {
+}
+
+void SE_GOESXmtr::setRFBaud(long val) throw(n_u::InvalidParameterException)
+{
+    if (getMaxRFBaud() != 0 && val > getMaxRFBaud()) {
+        ostringstream ost;
+        ost << "bps=" << val << " exceeds maximum=" << getMaxRFBaud();
+        throw n_u::InvalidParameterException(getName(),"rfbaud",ost.str());
+    }
+    switch(val) {
+    case 100:
+    case 300:
+    case 1200:
+        break;
+    default:
+        {
+        ostringstream ost;
+        ost << "bps=" << val << " is not supported";
+        throw n_u::InvalidParameterException(getName(),"rfbaud",ost.str());
+        }
+    }
+    _rfBaud = val;
 }
 
 void SE_GOESXmtr::init() throw(n_u::IOException)
@@ -265,10 +289,10 @@ void SE_GOESXmtr::init() throw(n_u::IOException)
 	detectModel();
 	setXmtrId();
 	checkClock();
-        lastXmitStatus = "OK";
+        _lastXmitStatus = "OK";
     }
     catch(const n_u::IOException& e) {
-        lastXmitStatus = e.what();
+        _lastXmitStatus = e.what();
 	throw;
     }
 }
@@ -281,12 +305,12 @@ string SE_GOESXmtr::getSelfTestStatusString()
     int ncodes =
     	sizeof(selfTestCodes[imodel]) / sizeof(selfTestCodes[imodel][0]);
     for (int i = 0; i < ncodes; i++) {
-	if (selfTestStatus & selfTestCodes[imodel][i].mask) {
+	if (_selfTestStatus & selfTestCodes[imodel][i].mask) {
 	    if (res.length() > 0) res += ", ";
 	    res += selfTestCodes[imodel][i].text;
 	}
     }
-    if (gpsNotInstalled) res += "No GPS Rcvr";
+    if (_gpsNotInstalled) res += "No GPS Rcvr";
     if (res.length() == 0) res = "OK";
     return res;
 }
@@ -352,9 +376,9 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
     // on units that appear to be a 120.
 
     int lmodel = 110;
-    maxRFRate = 100;
+    _maxRFBaud = 100;
 
-    softwareBuildDate = "unknown";
+    _softwareBuildDate = "unknown";
     try {
 	checkResponse(PKT_DISPLAY_VERSION,resp);
     }
@@ -368,7 +392,7 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 	throw;
     }
 
-    softwareBuildDate = resp.substr(34,10) + " " + resp.substr(18,8);
+    _softwareBuildDate = resp.substr(34,10) + " " + resp.substr(18,8);
 
     send(PKT_SELFTEST_DISPL);
     resp = recv();
@@ -381,25 +405,25 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 
     // grab the self test status bytes, least signif bits in first byte
 #if __BYTE_ORDER == __BIG_ENDIAN
-    swab(resp.c_str()+2,&selfTestStatus,2);
+    swab(resp.c_str()+2,&_selfTestStatus,2);
 #else
-    memcpy(&selfTestStatus,resp.c_str()+2,2);
+    memcpy(&_selfTestStatus,resp.c_str()+2,2);
 #endif
 
     if (resp[9] == 0) lmodel = 120;
     if (resp[9] == 5) {
         lmodel = 1200;
-	maxRFRate = 300;
+	_maxRFBaud = 300;
     }
     if (resp[9] == 6) {
         lmodel = 1200;
-	maxRFRate = 1200;
+	_maxRFBaud = 1200;
     }
 
-    gpsNotInstalled = false;
+    _gpsNotInstalled = false;
 
     if (lmodel == 1200 && resp[8] != 1) {
-        gpsNotInstalled = true;
+        _gpsNotInstalled = true;
     	logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
 		getName().c_str());
     }
@@ -421,6 +445,18 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
     logger->log(LOG_INFO,"%s: detectModel, model=%d",
 	    getName().c_str(),lmodel);
 #endif
+
+    if (getRFBaud() > getMaxRFBaud()) {
+        logger->log(LOG_INFO,"%s: detectModel, model=%d, resetting RF baud rate from %d to maximum value of %d",
+                getName().c_str(),lmodel,getRFBaud(),getMaxRFBaud());
+        try {
+            setRFBaud(getMaxRFBaud());
+        }
+        catch(const n_u::InvalidParameterException& e)
+        {
+            throw n_u::IOException(e.toString(),"","");
+        }
+    }
     return lmodel;
 }
 
@@ -441,24 +477,24 @@ void SE_GOESXmtr::printStatus(ostream& ost) throw()
 {
         
     ost << "SE GOES Transmitter\n" <<
-	"dev:\t\t" << port.getName() << '\n' <<
+	"dev:\t\t" << _port.getName() << '\n' <<
     	"model:\t\t" << getModel() << '\n' <<
-	"SE software:\t" << softwareBuildDate << '\n' <<
+	"SE software:\t" << _softwareBuildDate << '\n' <<
 	"self test:\t" << getSelfTestStatusString() << '\n' <<
 	"id:\t\t" << hex << setw(8) << setfill('0') <<
-		activeId << dec << '\n' <<
+		_activeId << dec << '\n' <<
 	"channel:\t" << getChannel() << '\n' <<
-	"RFbaud:\t\t" << getRFBaud() << ", max=" << maxRFRate << '\n' <<
+	"RFbaud:\t\t" << getRFBaud() << ", max=" << getMaxRFBaud() << '\n' <<
 	"xmit interval:\t" << getXmitInterval() << " sec\n" <<
 	"xmit offset:\t" << getXmitOffset() << " sec\n" <<
-	"xmtr clock:\t" << abs(clockDiffMsecs) << " msec " <<
-	    	(clockDiffMsecs > 0 ? "ahead of" : "behind") <<
+	"xmtr clock:\t" << abs(_clockDiffMsecs) << " msec " <<
+	    	(_clockDiffMsecs > 0 ? "ahead of" : "behind") <<
 		" UNIX clock\n" <<
-	"xmit queued at:\t" << transmitQueueTime.format(true,"%c") << '\n' <<
-	"xmit time:\t" << transmitAtTime.format(true,"%c") << '\n' <<
-	"data time:\t" << transmitSampleTime.format(true,"%c") << '\n' <<
-	"last transmit:\t" << xmitNbytes << " bytes\n" <<
-	"last status:\t" << lastXmitStatus << endl;
+	"xmit queued at:\t" << _transmitQueueTime.format(true,"%c") << '\n' <<
+	"xmit time:\t" << _transmitAtTime.format(true,"%c") << '\n' <<
+	"data time:\t" << _transmitSampleTime.format(true,"%c") << '\n' <<
+	"last transmit:\t" << _xmitNbytes << " bytes\n" <<
+	"last status:\t" << _lastXmitStatus << endl;
 }
 
 void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
@@ -487,7 +523,7 @@ void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
     string resp = recv();
     checkResponse(PKT_SET_ID,resp);
     tosleep();
-    activeId = lid;
+    _activeId = lid;
 }
 
 unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
@@ -501,7 +537,7 @@ unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
     tosleep();
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    memcpy(&activeId,resp.c_str()+2,sizeof(activeId));
+    memcpy(&_activeId,resp.c_str()+2,sizeof(_activeId));
 #else
     union {
         unsigned long id;
@@ -512,9 +548,9 @@ unsigned long SE_GOESXmtr::getXmtrId() throw(n_u::IOException)
     idu.bytes[2] = resp[3];
     idu.bytes[1] = resp[4];
     idu.bytes[0] = resp[5];
-    activeId = idu.id;
+    _activeId = idu.id;
 #endif
-    return activeId;
+    return _activeId;
 }
 
 unsigned long SE_GOESXmtr::checkId() throw(n_u::IOException)
@@ -523,7 +559,7 @@ unsigned long SE_GOESXmtr::checkId() throw(n_u::IOException)
     if (lid != getId()) {
 	logger->log(LOG_WARNING,
 		"%s: incorrect id: %x, should be %x. Resetting",
-		getName().c_str(),activeId,getId());
+		getName().c_str(),_activeId,getId());
 	setXmtrId();
     }
     return lid;
@@ -550,8 +586,8 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
 	setXmtrClock();
 	diff = getXmtrClock() - n_u::UTime() + getXmtrClockDelay(14);
     }
-    clockDiffMsecs = diff / USECS_PER_MSEC;
-    return clockDiffMsecs;
+    _clockDiffMsecs = diff / USECS_PER_MSEC;
+    return _clockDiffMsecs;
 }
 
 void SE_GOESXmtr::setXmtrClock() throw(n_u::IOException)
@@ -593,7 +629,7 @@ n_u::UTime SE_GOESXmtr::getXmtrClock() throw(n_u::IOException)
 int SE_GOESXmtr::getXmtrClockDelay(int nchar) const
 {
     // Assume 10 transmitted bits per byte
-    return  nchar * 10 * USECS_PER_SEC / port.getBaudRate();
+    return  nchar * 10 * USECS_PER_SEC / _port.getBaudRate();
 }
 
 void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool fractsecs)
@@ -672,20 +708,20 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 {
     for (int i = 0; i < 2; i++) {
 	try {
-	    transmitQueueTime = n_u::UTime();
-	    transmitAtTime = at;
-	    transmitSampleTime = samp->getTimeTag();
+	    _transmitQueueTime = n_u::UTime();
+	    _transmitAtTime = at;
+	    _transmitSampleTime = samp->getTimeTag();
 	    if (getModel() == 0) detectModel();
 	    checkId();
 	    checkClock();
 
 	    if (getModel() == 110) transmitDataSE110(at,configid,samp);
 	    else if (getModel() != 0) transmitDataSE120(at,configid,samp);
-	    lastXmitStatus = "OK";
+	    _lastXmitStatus = "OK";
 	    break;
 	}
 	catch(const GOESException& e) {
-	    lastXmitStatus = string(e.what());
+	    _lastXmitStatus = string(e.what());
 
 	    // sending a 120 transmit command to a 110
 	    // results in an ERR_BADTYPE
@@ -701,7 +737,7 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	    else throw;
 	}
 	catch(const n_u::IOException& e) {
-	    lastXmitStatus = string(e.what());
+	    _lastXmitStatus = string(e.what());
 	    throw;
 	}
     }
@@ -710,7 +746,7 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
-    xmitNbytes = 0;
+    _xmitNbytes = 0;
 
     char pkt[256];
     char seqnum = 0;
@@ -772,13 +808,13 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	    *pktptr++ = (configid & 0x3f) | 0x40;
 	    *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
 	    first = false;
-	    xmitNbytes += 2;
+	    _xmitNbytes += 2;
 	}
 
 	while (fptr < endInput && pktptr+4 <= endPkt) {
 	    GOES::float_encode_4x6(*fptr++,pktptr);
 	    pktptr += 4;
-	    xmitNbytes += 4;
+	    _xmitNbytes += 4;
 	}
 
 	send(string(pkt,pktptr-pkt));
@@ -797,14 +833,12 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
     tosleep();
 }
 
-/* This method also works for the SE1200 at 100 BPS.
- * If using 300 or 1200 BPS, one must twiddle with bytes 33 and 34,
- * which is not done in this version.
+/* This method works for the SE120 at 100 BPS and the SE1200 at 100,300 and 1200 BPS.
  */
 void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
-    xmitNbytes = 0;
+    _xmitNbytes = 0;
 
     assert(samp->getType() == FLOAT_ST);
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
@@ -812,10 +846,10 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 
     int pktlen = ndata + 64;
 
-    // use auto_ptr so this is automatically deleted on exit
-    auto_ptr<char> autopkt(new char[pktlen]);
+    // use vector so this is automatically deleted on exit
+    vector<char> pktvec(pktlen);
 
-    char* pkt = autopkt.get();
+    char* pkt = &pktvec.front();
 
     memset(pkt,0,pktlen);
 
@@ -838,18 +872,30 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
     swab(&ndata,pkt+31,2);
 #endif
 
+    if (getModel() == 1200) {
+        switch(getRFBaud()) {
+        case 100:
+            pkt[33] = 0;
+        case 300:
+            pkt[33] = 1;
+        case 1200:
+            pkt[33] = 2;
+            break;
+        }
+    }
+
     const float* fptr = fsamp->getConstDataPtr();
     const float* endInput = fptr + fsamp->getDataLength();
     char* pktptr = pkt + 64;
 
     *pktptr++ = (configid & 0x3f) | 0x40;
     *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
-    xmitNbytes += 2;
+    _xmitNbytes += 2;
 
     while (fptr < endInput) {
 	GOES::float_encode_4x6(*fptr++,pktptr);
 	pktptr += 4;
-	xmitNbytes += 4;
+	_xmitNbytes += 4;
     }
 
     wakeup();
@@ -885,10 +931,10 @@ bool SE_GOESXmtr::testTransmitSE120()
     short int ndata = 0;
     int pktlen = ndata + 64;
 
-    // use auto_ptr so this is automatically deleted on exit
-    auto_ptr<char> autopkt(new char[pktlen]);
+    // use vector so this is automatically deleted on exit
+    vector<char> pktvec(pktlen);
 
-    char* pkt = autopkt.get();
+    char* pkt = &pktvec.front();
 
     memset(pkt,0,pktlen);
 
@@ -1033,10 +1079,10 @@ char SE_GOESXmtr::crc(const string& msg)
 
 void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 {
-    port.clearModemBits(TIOCM_CTS);
+    _port.clearModemBits(TIOCM_CTS);
     // SE_120 responds with CTS after one 10 msec sleep
-    if (!(port.getModemStatus() & TIOCM_CTS)) {
-	port.setModemBits(TIOCM_RTS);
+    if (!(_port.getModemStatus() & TIOCM_CTS)) {
+	_port.setModemBits(TIOCM_RTS);
 	// sleep(10);
 
 	const int NTRY_FOR_CTS = 5;
@@ -1044,12 +1090,12 @@ void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 	for (itry = 0; itry < NTRY_FOR_CTS; itry++) {
 	    struct timespec ctsSleep = { 0, NSECS_PER_SEC / 100 };
 	    nanosleep(&ctsSleep,0);
-	    if (port.getModemStatus() & TIOCM_CTS) break;
-	    if (!(port.getModemStatus() & TIOCM_RTS))
+	    if (_port.getModemStatus() & TIOCM_CTS) break;
+	    if (!(_port.getModemStatus() & TIOCM_RTS))
 		    cerr << "RTS not on, itry=" << itry << endl;
 	}
 	if (itry == NTRY_FOR_CTS) {
-	    port.clearModemBits(TIOCM_RTS);
+	    _port.clearModemBits(TIOCM_RTS);
 	    throw n_u::IOTimeoutException(getName(),
 	    	"wakeup (waiting for CTS)");
 	}
@@ -1059,18 +1105,18 @@ void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 
 void SE_GOESXmtr::tosleep() throw(n_u::IOException)
 {
-    port.clearModemBits(TIOCM_RTS);
+    _port.clearModemBits(TIOCM_RTS);
     struct timespec ctsSleep = { 0, NSECS_PER_SEC / 100 };
     nanosleep(&ctsSleep,0);
 
-    if ((port.getModemStatus() & TIOCM_CTS)) {
+    if ((_port.getModemStatus() & TIOCM_CTS)) {
 	const int NTRY_FOR_CTS = 5;
 	int itry;
 	for (itry = 0; itry < NTRY_FOR_CTS; itry++) {
 	    struct timespec ctsSleep = { 0, NSECS_PER_SEC / 100 };
 	    nanosleep(&ctsSleep,0);
-	    if (!port.getModemStatus() & TIOCM_CTS) break;
-	    if ((port.getModemStatus() & TIOCM_RTS))
+	    if (!_port.getModemStatus() & TIOCM_CTS) break;
+	    if ((_port.getModemStatus() & TIOCM_RTS))
 		    cerr << "RTS on, itry=" << itry << endl;
 	}
 	if (itry == NTRY_FOR_CTS)
@@ -1131,7 +1177,7 @@ string SE_GOESXmtr::recv() throw(n_u::IOException)
 size_t SE_GOESXmtr::read(void* buf, size_t len) throw(n_u::IOException)
 {
     // cerr << "readUntil, len=" << len << endl;
-    len = port.readUntil((char*)buf,len,EOT);
+    len = _port.readUntil((char*)buf,len,EOT);
 
 #ifdef DEBUG
     char* cbuf = (char*) buf;
@@ -1156,7 +1202,7 @@ size_t SE_GOESXmtr::write(const void* buf, size_t len) throw(n_u::IOException)
 #endif
 
     for (size_t left = len; left > 0; ) {
-        size_t l = port.write(buf,len);
+        size_t l = _port.write(buf,len);
 	buf = (const char*) buf + l;
 	left -= l;
     }

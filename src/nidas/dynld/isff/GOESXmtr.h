@@ -54,32 +54,32 @@ public:
 
     const std::string& getName() const
     {
-	return port.getName();
+	return _port.getName();
     }
 
     void setName(const std::string& val)
     {
-	port.setName(val);
+	_port.setName(val);
     }
 
     void setId(unsigned long val)
     {
-        id = val;
+        _id = val;
     }
 
     unsigned long getId() const
     {
-        return id;
+        return _id;
     }
     
     void setChannel(int val)
     {
-        channel = val;
+        _channel = val;
     }
 
     int getChannel() const
     {
-        return channel;
+        return _channel;
     }
     
     /**
@@ -88,12 +88,12 @@ public:
      */
     void setXmitInterval(long val)
     {
-        xmitInterval = val;
+        _xmitInterval = val;
     }
 
     int getXmitInterval() const
     {
-        return xmitInterval;
+        return _xmitInterval;
     }
     
     /**
@@ -102,27 +102,21 @@ public:
      */
     void setXmitOffset(long val)
     {
-        xmitOffset = val;
+        _xmitOffset = val;
     }
 
     int getXmitOffset() const
     {
-        return xmitOffset;
+        return _xmitOffset;
     }
     
     /**
      * Set the RF baud rate
      * @param val RF baud, in bits/sec.
      */
-    void setRFBaud(long val)
-    {
-        rfBaud = val;
-    }
+    virtual void setRFBaud(long val) throw(nidas::util::InvalidParameterException) = 0;
 
-    int getRFBaud() const
-    {
-        return rfBaud;
-    }
+    virtual int getRFBaud() const = 0;
     
     /**
      * Request a connection.
@@ -165,25 +159,25 @@ public:
 
     void flush() throw (nidas::util::IOException) 
     {
-        port.flushBoth();
+        _port.flushBoth();
     }
 
     void close() throw (nidas::util::IOException) {
-        port.close();
+        _port.close();
     }
 
     int getFd() const
     {
-        return port.getFd();
+        return _port.getFd();
     }
 
     void setStatusFile(const std::string& val)
     {
-        statusFile = val;
+        _statusFile = val;
     }
 
     const std::string& getStatusFile() const {
-        return statusFile;
+        return _statusFile;
     }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -191,21 +185,19 @@ public:
 
 protected:
 
-    nidas::util::SerialPort port;
+    nidas::util::SerialPort _port;
 
 private:
 
-    unsigned long id;
+    unsigned long _id;
     
-    int channel;
+    int _channel;
 
-    int xmitInterval;
+    int _xmitInterval;
 
-    int xmitOffset;
+    int _xmitOffset;
 
-    int rfBaud;
-
-    std::string statusFile;
+    std::string _statusFile;
 
 };
 

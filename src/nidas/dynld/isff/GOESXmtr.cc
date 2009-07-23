@@ -29,16 +29,15 @@ namespace n_u = nidas::util;
 
 // NIDAS_CREATOR_FUNCTION(GOESXmtr)
 
-GOESXmtr::GOESXmtr():id(0),channel(0),
-	xmitInterval(300),xmitOffset(0), rfBaud(100)
+GOESXmtr::GOESXmtr():_id(0),_channel(0),
+	_xmitInterval(300),_xmitOffset(0)
 {
 }
 
 GOESXmtr::GOESXmtr(const GOESXmtr& x):
-	port(x.port.getName()),
-	id(x.id),channel(x.channel),
-	xmitInterval(x.xmitInterval),xmitOffset(x.xmitOffset),
-	rfBaud(x.rfBaud)
+	_port(x._port.getName()),
+	_id(x._id),_channel(x._channel),
+	_xmitInterval(x._xmitInterval),_xmitOffset(x._xmitOffset)
 {
 }
 
@@ -62,24 +61,24 @@ IOChannel* GOESXmtr::connect() throw(nidas::util::IOException)
 
 void GOESXmtr::open() throw(n_u::IOException)
 {
-    port.open(O_RDWR | O_NOCTTY);
+    _port.open(O_RDWR | O_NOCTTY);
 
 // #define DEBUG
 #ifdef DEBUG
-    cerr << "c_iflag=" << hex << port.iflag() << endl;
-    cerr << "c_oflag=" << port.oflag() << endl;
-    cerr << "c_cflag=" << port.cflag() << endl;
-    cerr << "c_lflag=" << port.lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(port.getTermios()) << endl;
-    cerr << "baud rate=" << port.getBaudRate() << endl;
-    cerr << "data bits=" << port.getDataBits() << endl;
-    cerr << "stop bits=" << port.getStopBits() << endl;
-    cerr << "parity=" << port.getParityString() << endl;
+    cerr << "c_iflag=" << hex << _port.iflag() << endl;
+    cerr << "c_oflag=" << _port.oflag() << endl;
+    cerr << "c_cflag=" << _port.cflag() << endl;
+    cerr << "c_lflag=" << _port.lflag() << endl;
+    cerr << "cfgetispeed=" << dec << cfgetispeed(_port.getTermios()) << endl;
+    cerr << "baud rate=" << _port.getBaudRate() << endl;
+    cerr << "data bits=" << _port.getDataBits() << endl;
+    cerr << "stop bits=" << _port.getStopBits() << endl;
+    cerr << "parity=" << _port.getParityString() << endl;
 
-    cerr << "ICANON=" << (port.lflag() & ICANON) << endl;
+    cerr << "ICANON=" << (_port.lflag() & ICANON) << endl;
 #endif
 
-    port.flushBoth();
+    _port.flushBoth();
 }
 
 void GOESXmtr::fromDOMElement(
@@ -125,15 +124,15 @@ void GOESXmtr::fromDOMElement(
 		istringstream ist(aval);
 		int val;
 		ist >> val;
-		if (ist.fail() || port.setBaudRate(val))
+		if (ist.fail() || _port.setBaudRate(val))
 		    throw n_u::InvalidParameterException(
 		    	string("GOESXmtr:") + getName(),
 			aname,aval);
 	    }
 	    else if (aname == "parity") {
-		if (aval == "odd") port.setParity(port.ODD);
-		else if (aval == "even") port.setParity(port.EVEN);
-		else if (aval == "none") port.setParity(port.NONE);
+		if (aval == "odd") _port.setParity(_port.ODD);
+		else if (aval == "even") _port.setParity(_port.EVEN);
+		else if (aval == "none") _port.setParity(_port.NONE);
 		else throw n_u::InvalidParameterException(
 		    string("GOESXmtr:") + getName(),
 		    aname,aval);
@@ -146,7 +145,7 @@ void GOESXmtr::fromDOMElement(
 		    throw n_u::InvalidParameterException(
 			string("GOESXmtr:") + getName(),
 		    	aname, aval);
-		port.setDataBits(val);
+		_port.setDataBits(val);
 	    }
 	    else if (aname == "stopbits") {
 		istringstream ist(aval);
@@ -156,7 +155,7 @@ void GOESXmtr::fromDOMElement(
 		    throw n_u::InvalidParameterException(
 			string("GOESXmtr:") + getName(),
 		    	aname, aval);
-		port.setStopBits(val);
+		_port.setStopBits(val);
 	    }
 	    else if (aname == "xmitInterval") {
 		istringstream ist(aval);

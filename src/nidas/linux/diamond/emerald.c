@@ -525,7 +525,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	{
 	    int iport = port->portNum;
 	    int val = (int) arg;
-        printk(KERN_INFO "setting digioout, val=%d\n",val);
+        // printk(KERN_INFO "setting digioout, val=%d\n",val);
 	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
 	    emerald_set_digio_port_out(brd,iport,val);
 	    up(&brd->sem);
@@ -550,9 +550,11 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 	{
 	    int iport = port->portNum;
 	    int val = (int) arg;
+
+        // printk(KERN_INFO "digioout=%#x, portout=%d\n",
+            // brd->digioout,brd->digioout & (1 << iport));
+            
 	    // digio line must be an output
-        printk(KERN_INFO "digioout=%#x, portout=%d\n",
-            brd->digioout,brd->digioout & (1 << iport));
 	    if (! (brd->digioout & (1 << iport))) return -EINVAL;
 	    if (down_interruptible(&brd->sem)) return -ERESTARTSYS;
 	    emerald_write_digio_port(brd,iport,val);

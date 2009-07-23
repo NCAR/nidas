@@ -58,11 +58,29 @@ public:
      */
     SE_GOESXmtr* clone() const { return new SE_GOESXmtr(*this); }
 
+    /**
+     * Set the RF baud rate
+     * @param val RF baud, in bits/sec.
+     */
+    void setRFBaud(long val) throw(nidas::util::InvalidParameterException);
+
+    int getRFBaud() const
+    {
+        return _rfBaud;
+    }
+    
     void init() throw (nidas::util::IOException);
 
-    int getModel() const { return model; }
+    int getModel() const { return _model; }
 
-    void setModel(int val) { model = val; }
+    void setModel(int val) { _model = val; }
+
+    /**
+     * Get the maximum RF baud rate supported by the transmitter.
+     * This value is set by the checkStatus() method, which is called
+     * by detectModel(), init(), and transmitData().
+     */
+    int getMaxRFBaud() const { return _maxRFBaud; }
 
     virtual bool isNewFile() const { return false; }
 
@@ -86,7 +104,7 @@ public:
 
     void close() throw (nidas::util::IOException)
     {
-        port.close();
+        _port.close();
     }
 
     /**
@@ -114,7 +132,7 @@ public:
 
     void flush() throw(nidas::util::IOException)
     {
-        port.flushBoth();
+        _port.flushBoth();
     }
 
     /**
@@ -390,35 +408,38 @@ private:
 
     nidas::util::Logger* logger;
 
-    int model;
+    int _model;
 
     /**
      * Most recent value for GOES clock difference:  GOES clock - system clock.
      */
-    int clockDiffMsecs;
+    int _clockDiffMsecs;
 
-    nidas::util::UTime transmitQueueTime;
+    nidas::util::UTime _transmitQueueTime;
 
-    nidas::util::UTime transmitAtTime;
+    nidas::util::UTime _transmitAtTime;
 
-    nidas::util::UTime transmitSampleTime;
+    nidas::util::UTime _transmitSampleTime;
 
-    std::string lastXmitStatus;
+    std::string _lastXmitStatus;
 
-    std::string softwareBuildDate;
+    std::string _softwareBuildDate;
 
-    short selfTestStatus;
+    short _selfTestStatus;
 
-    int maxRFRate;
+    int _maxRFBaud;
 
-    bool gpsNotInstalled;
+    bool _gpsNotInstalled;
 
-    size_t xmitNbytes;
+    size_t _xmitNbytes;
 
     /**
      * Actual id read from transmitter.
      */
-    unsigned long activeId;
+    unsigned long _activeId;
+
+    int _rfBaud;
+
 };
 
 

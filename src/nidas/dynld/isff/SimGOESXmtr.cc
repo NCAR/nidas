@@ -36,11 +36,12 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,SimGOESXmtr)
 
-SimGOESXmtr::SimGOESXmtr()
+SimGOESXmtr::SimGOESXmtr():_rfBaud(0)
 {
 }
 
-SimGOESXmtr::SimGOESXmtr(const SimGOESXmtr& x): GOESXmtr(x)
+SimGOESXmtr::SimGOESXmtr(const SimGOESXmtr& x):
+    GOESXmtr(x),_rfBaud(x._rfBaud)
 {
 }
 
@@ -66,16 +67,16 @@ int SimGOESXmtr::checkClock() throw(n_u::IOException)
 void SimGOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
-    transmitQueueTime = n_u::UTime();
-    transmitAtTime = at;
-    transmitSampleTime = samp->getTimeTag();
+    _transmitQueueTime = n_u::UTime();
+    _transmitAtTime = at;
+    _transmitSampleTime = samp->getTimeTag();
     cerr << "transmitData: " << at.format(true,"%c") << endl;
 }
 
 void SimGOESXmtr::printStatus() throw()
 {
     cout << "Sim GOES Transmitter\n" <<
-	"dev=\t" << port.getName() << '\n' <<
+	"dev=\t" << _port.getName() << '\n' <<
     	"model=\t" << 99 << '\n' <<
 	"id=\t" << hex << setw(8) << setfill('0') << 0 << dec << '\n' <<
 	"channel\t=" << getChannel() << '\n' <<
@@ -83,9 +84,9 @@ void SimGOESXmtr::printStatus() throw()
 	"xmit interval=\t" << getXmitInterval() << '\n' <<
 	"xmit offset=\t" << getXmitOffset() << '\n' <<
 	"xmitr clock diff=" << 0 << " msecs ahead of UNIX clock\n" <<
-    cout << "xmit queued at=\t" << transmitQueueTime.format(true,"%c") << '\n' <<
-    cout << "xmit time=\t" << transmitAtTime.format(true,"%c") << '\n' <<
-    cout << "sample time=\t" << transmitSampleTime.format(true,"%c") << '\n' <<
+    cout << "xmit queued at=\t" << _transmitQueueTime.format(true,"%c") << '\n' <<
+    cout << "xmit time=\t" << _transmitAtTime.format(true,"%c") << '\n' <<
+    cout << "sample time=\t" << _transmitSampleTime.format(true,"%c") << '\n' <<
     cout << "last status=\t" << "OK" << '\n' << endl;
 }
 

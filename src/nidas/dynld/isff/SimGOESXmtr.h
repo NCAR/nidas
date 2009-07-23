@@ -57,6 +57,21 @@ public:
      */
     SimGOESXmtr* clone() const { return new SimGOESXmtr(*this); }
 
+    /**
+     * Set the RF baud rate
+     * @param val RF baud, in bits/sec.
+     */
+    void setRFBaud(long val) throw(nidas::util::InvalidParameterException)
+    {
+        _rfBaud = val;
+    }
+
+    int getRFBaud() const
+    {
+        return _rfBaud;
+    }
+    
+
     void open() throw(nidas::util::IOException);
 
     /**
@@ -101,11 +116,13 @@ public:
 
 private:
 
-    nidas::util::UTime transmitQueueTime;
+    nidas::util::UTime _transmitQueueTime;
 
-    nidas::util::UTime transmitAtTime;
+    nidas::util::UTime _transmitAtTime;
 
-    nidas::util::UTime transmitSampleTime;
+    nidas::util::UTime _transmitSampleTime;
+
+    int _rfBaud;
     
 };
 
