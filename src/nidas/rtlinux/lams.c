@@ -59,7 +59,6 @@ MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 #define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
-#define STEP_OVER   3
 
 volatile unsigned int baseAddr;
 static const char* devprefix = "lams";
@@ -133,7 +132,6 @@ static void *lams_thread (void * chan)
    timeout.tv_sec = 0;
    timeout.tv_nsec = 0;
 
-// int fp=0;
    for (;;) {
       timeout.tv_nsec += 600 * NSECS_PER_MSEC;
       if (timeout.tv_nsec >= NSECS_PER_SEC) {
@@ -146,7 +144,6 @@ static void *lams_thread (void * chan)
          // timed out!  flush the hardware FIFO
       } else {
 
-//       if (fp<10) DSMLOG_DEBUG(">>>>>>>>>>>>>>> first post: %d\n", fp++);
          if (fd_lams_data) {
            _lamsPort.timetag = GET_MSEC_CLOCK;
            if (rtl_write(fd_lams_data,&_lamsPort,
@@ -160,26 +157,23 @@ static void *lams_thread (void * chan)
    }
 }
 
-static unsigned short peak[MAX_BUFFER];
+static unsigned int   peak[MAX_BUFFER];
 static unsigned int   calm[MAX_BUFFER];
-static unsigned long long sum[MAX_BUFFER];
+static unsigned int    sum[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   unsigned short msw, lsw, apk;
-   static int nTattle=0;
-   static int nGlyph=0; 
-   static int nAvg=0;
-   static int nSkip=0;
-   static int nPeaks=0;
+   unsigned int n, msw, lsw, apk;
+   static unsigned int nTattle=0;
+   static unsigned int nGlyph=0; 
+   static unsigned int nAvg=0;
+   static unsigned int nSkip=0;
+   static unsigned int nPeaks=0;
 
 // static int xx=0;
 // if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
-
-   int n;
-   int s=0;
 
    if (++nPeaks > nPEAKS) {
       readw(baseAddr + PEAK_CLEAR_OFFSET);
@@ -189,18 +183,11 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    //Clear Dual Port memory address counter
    readw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (n=STEP_OVER; n < MAX_BUFFER; n++) {
+   for (n=0; n < MAX_BUFFER; n++) {
       lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = readw(baseAddr + PEAK_DATA_OFFSET);
-      sum[s++] += (msw << 16) + lsw;
-      if (peak[n] < apk) peak[n] = apk;
-   }
-   for (n=0; n < STEP_OVER; n++) {
-      lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
-      apk = readw(baseAddr + PEAK_DATA_OFFSET);
-      sum[s++] += (msw << 16) + lsw;
+      sum[n] += (msw << 16) + lsw;
       if (peak[n] < apk) peak[n] = apk;
    }
    if (++nTattle > 1024) {
@@ -211,17 +198,17 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    }
    if (++nAvg > nAVG) {
       for (n=0; n < MAX_BUFFER; n++) {
-//       _lamsPort.peak[n] = (peak[n] < 500000000) ? peak[n] : 0;
-         _lamsPort.peak[n] = peak[n];
+         _lamsPort.peak[n] = (unsigned short)peak[n];
          if (isCalm)
-            _lamsPort.avrg[n] = calm[n] = (int)(sum[n] / nAvg);
+            _lamsPort.avrg[n] = calm[n] = (sum[n] / nAvg);
          else
-            if ( (int)(sum[n] / nAvg) - calm[n] > 500000000)
-               _lamsPort.avrg[n] = 0;
-            else
-               _lamsPort.avrg[n] = (int)(sum[n] / nAvg) - calm[n];
+            _lamsPort.avrg[n] = (sum[n] / nAvg) - calm[n];
 
          sum[n] = 0;
+
+         // RAMP TEST
+//       _lamsPort.avrg[n] = n * 0x800000; // 0...0xFF800000
+//       _lamsPort.peak[n] = n * 0x80;     // 0...0x    FF80
       }
       nAvg = 0;
       if (++nSkip > nSKIP) {
