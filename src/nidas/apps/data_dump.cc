@@ -127,14 +127,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     if (!allDSMs && !allSensors && sampleIds.find(sampid) == sampleIds.end())
         return false;
 
-    struct tm tm;
-    char cstr[64];
-    time_t ut = tt / USECS_PER_SEC;
-    gmtime_r(&ut,&tm);
-    int tmsec = (tt % USECS_PER_SEC) / (USECS_PER_MSEC / 10);
-
-    strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
-    ostr << cstr << '.' << setw(4) << setfill('0') << tmsec << ' ';
+    ostr << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%4f") << ' ';
 
     ostr << setprecision(4) << setfill(' ');
     if (prev_tt != 0) {
