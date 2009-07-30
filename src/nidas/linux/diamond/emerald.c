@@ -629,7 +629,23 @@ static int __init emerald_init_module(void)
                         continue;
                 }
 
-                if (result) printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                if (result) {
+                        /*
+                         * We have seen situations where the EMM-8P EEPROM is not
+                         * accessible, which appeared to be due to a +0.4 V
+                         * over-voltage on the 5V PC104 power supply. (This doesn't effect
+                         * an EMM-8M). When the EEPROM accesses fail here, we try
+                         * to read the register values with emerald_read_config,
+                         * since they should have been initialized from EEPROM at boot.
+                         * However it appears that the boot initialization must have
+                         * failed too, since the register values are all zeroes.
+                         * In this case we initialize the register values with
+                         * some defaults, and proceed.
+                         */
+                        printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        printk(KERN_INFO "emerald: reading config from registers\n");
+                        result = emerald_read_config(ebrd);     // try anyway
+                }
                 if (!result && emerald_check_config(&ebrd->config)) boardOK = 1;
                 else {
                         emerald_config tmpconfig;
@@ -656,9 +672,7 @@ static int __init emerald_init_module(void)
                         emerald_read_digio(ebrd);
                         ebrd++;
                 }
-                else {
-                        release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
-                }
+                else release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
         }
         printk(KERN_INFO "emerald: %d boards found\n",emerald_nr_ok);
         if (emerald_nr_ok == 0 && result != 0) goto fail;
