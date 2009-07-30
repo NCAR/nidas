@@ -34,15 +34,10 @@
 #  define MODULE
 #endif
 
-// #include <linux/config.h>
-
-// #include <linux/init.h>   /* module_init() */
 #include <linux/module.h>
 #include <linux/version.h>
-// #include <linux/moduleparam.h>
 
 #include <linux/kernel.h>   /* printk() */
-// #include <linux/slab.h>   /* kmalloc() */
 #include <linux/fs.h>       /* everything... */
 #include <linux/errno.h>    /* error codes */
 #include <linux/types.h>    /* size_t */
@@ -52,7 +47,6 @@
 #include <linux/sched.h>    /* schedule() */
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
-// #include <asm/system.h>     /* cli(), *_flags */
 
 #include "emerald.h"	/* local definitions */
 
@@ -139,13 +133,14 @@ static int emerald_read_config(emerald_board* brd)
                 brd->config.ports[i].ioport = val << 3;
 
                 // According to the Emerald manual the IRQ registers
-                // cannot be read back. But it seems to work!
-                // If this fails then we may have to read from EEPROM
-                // in order to get a valid value for config.ports[i].irq.
+                // cannot be read back. It does work just after
+                // a emerald_write_config, but not after a bootup.
+#ifdef TRY_READ_IRQ_FROM_REGISTER
                 outb(i+EMERALD_NR_PORTS,brd->ioport+EMERALD_APER);
                 val = inb(brd->ioport+EMERALD_ARR);
                 if (val == 0xff) return -ENODEV;
                 brd->config.ports[i].irq = val;
+#endif
         }
         emerald_enable_ports(brd);
         return 0;
@@ -162,6 +157,8 @@ static int emerald_write_config(emerald_board* brd,emerald_config* config)
                 outb(i+EMERALD_NR_PORTS,brd->ioport+EMERALD_APER);
                 outb(config->ports[i].irq,brd->ioport+EMERALD_AIDR);
         }
+        // copy config because we can't read IRQ values from registers
+        brd->config = *config;
         emerald_enable_ports(brd);
         return 0;
 }
@@ -251,7 +248,7 @@ static int emerald_write_eeconfig(emerald_board* brd,emerald_config* config)
 
 /*
  * Load the the ioport and irq configuration from the Emerald
- * EEPROM into ram.
+ * EEPROM into registers.
  */
 static int emerald_load_config_from_eeprom(emerald_board* brd)
 {
@@ -271,7 +268,10 @@ static int emerald_load_config_from_eeprom(emerald_board* brd)
         } while(busy & 0x80 && --ntry);
         if (!ntry) return -ETIMEDOUT;
 
-        result = emerald_read_config(brd);
+        // read back. Must get IRQs from EEPROM
+        result = emerald_read_eeconfig(brd,&brd->config);
+        // re-read registers to make sure
+        if (!result) result = emerald_read_config(brd);
         return result;
 }
 
@@ -327,19 +327,20 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
         PDEBUGG("read_proc, count=%d\n",count);
                                                                                     
         for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
-                struct emerald_board *d = emerald_boards + i;
-                PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)d);
-                if ((result = mutex_lock_interruptible(&d->brd_mutex)))
+                struct emerald_board *brd = emerald_boards + i;
+                PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
+                if ((result = mutex_lock_interruptible(&brd->brd_mutex)))
                         return result;
-                result = emerald_read_config(d);
+                result = emerald_read_eeconfig(brd,&brd->config);
+                if (!result) result = emerald_read_config(brd);
                 len += sprintf(buf+len,"\nDiamond Emerald-MM-8 %i: ioport %lx\n",
-                               i, d->ioport);
+                               i, brd->ioport);
                 /* loop over serial ports */
                 for (j = 0; len <= limit && j < EMERALD_NR_PORTS; j++) {
                         len += sprintf(buf+len, "  port %d, ioport=%x,irq=%d\n",
-                            j,d->config.ports[j].ioport,d->config.ports[j].irq);
+                            j,brd->config.ports[j].ioport,brd->config.ports[j].irq);
                 }
-                mutex_unlock(&d->brd_mutex);
+                mutex_unlock(&brd->brd_mutex);
         }
         *eof = 1;
         return len;
@@ -409,6 +410,7 @@ static int emerald_open (struct inode *inode, struct file *filp)
         filp->private_data = port;
 
         if ((result = mutex_lock_interruptible(&port->board->brd_mutex))) return result;
+        // check that it is responding
         result = emerald_read_config(port->board);
         mutex_unlock(&port->board->brd_mutex);
 
@@ -447,14 +449,16 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
         if (err) return -EFAULT;
 
         switch(cmd) {
-        case EMERALD_IOCGPORTCONFIG:	/* get port config from RAM */
+        case EMERALD_IOCGPORTCONFIG:	/* get port config from registers */
                 if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
+                // this doesn't read the IRQ values, but they should be
+                // correct in the brd structure.
                 ret = emerald_read_config(brd);
                 mutex_unlock(&brd->brd_mutex);
                 if (copy_to_user((emerald_config *) arg,&brd->config,
                         sizeof(emerald_config)) != 0) ret = -EFAULT;
                 break;
-        case EMERALD_IOCSPORTCONFIG:	/* set port config in RAM */
+        case EMERALD_IOCSPORTCONFIG:	/* set port config in registers */
                 {
                         emerald_config tmpconfig;
                         if (copy_from_user(&tmpconfig,(emerald_config *) arg,
@@ -601,6 +605,8 @@ static int __init emerald_init_module(void)
         ebrd = emerald_boards;
         for (ib=0; ib < emerald_nr_addrs; ib++) {
                 int boardOK = 0;
+                // If a board doesn't respond we reuse this structure space,
+                // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
                 ebrd->ioport = ioports[ib] + ioport_base;
                 // printk(KERN_INFO "emerald: addr=0x%lx\n",ebrd->ioport);
@@ -613,38 +619,35 @@ static int __init emerald_init_module(void)
                 mutex_init(&ebrd->brd_mutex);
 
                 /*
-                 * Read ioport and irq configuration and see if it looks OK.
-                 * emerald_nr_ok will be the number of boards that respond
+                 * Read ioport and irq configuration from EEPROM and see if
+                 * it looks OK.  emerald_nr_ok will be the number of boards
+                 * that are configured correctly or are configurable.
                  */
-// #define READ_EEPROM_ON_INIT
-#ifdef READ_EEPROM_ON_INIT
                 result = emerald_read_eeconfig(ebrd,&ebrd->config);
-#else
-                result = emerald_read_config(ebrd);
-#endif
                 if (result == -ENODEV) {
                         release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
                         continue;
                 }
 
-                if (result != 0) printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
-                if (emerald_check_config(&ebrd->config)) boardOK = 1;
+                if (result) printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                if (!result && emerald_check_config(&ebrd->config)) boardOK = 1;
                 else {
                         emerald_config tmpconfig;
-                        printk(KERN_INFO "emerald: invalid config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
-                        // write a typical configuration to RAM and check to see it it worked.
-                        memset(&tmpconfig,0,sizeof(tmpconfig));
+                        printk(KERN_INFO "emerald: invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
+                            ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
+                        // write a default configuration to registers and check
+                        // to see if it worked.
                         for (ip = 0; ip < EMERALD_NR_PORTS; ip++) {
                                 tmpconfig.ports[ip].ioport = 0x100 + (emerald_nr_ok * EMERALD_NR_PORTS + ip) * 8;
                                 tmpconfig.ports[ip].irq = 3;
                         }
                         emerald_write_config(ebrd,&tmpconfig);
                         result = emerald_read_config(ebrd);
-                        if (result == 0 && emerald_check_config(&ebrd->config)) {
-                                printk(KERN_INFO "emerald: valid config written to RAM on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        if (!result && emerald_check_config(&ebrd->config)) {
+                                printk(KERN_INFO "emerald: valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                                 boardOK = 1;
                         }
-                        else printk(KERN_INFO "emerald: cannot write valid config to RAM on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        else printk(KERN_INFO "emerald: cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                 }
                 
                 if (boardOK) {

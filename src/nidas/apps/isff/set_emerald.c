@@ -28,31 +28,31 @@
 // #include "emerald.h"
 #include <nidas/linux/diamond/emerald.h>
 
-int printConfig(int fd,const char* devname) {
+int printConfig(int fd,const char* devname,int eepromAccess) {
   emerald_config config;
   int i;
   printf("current port config:\n");
 
-  if (ioctl(fd,EMERALD_IOCGPORTCONFIG,&config) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCGPORTCONFIG: %s: %s\n",devname,strerror(errno));
-    return -1;
+  if (eepromAccess) {
+      if (ioctl(fd,EMERALD_IOCGEEPORTCONFIG,&config) < 0) {
+        fprintf(stderr,"ioctl EMERALD_IOCGEEPORTCONFIG: %s: %s\n",devname,strerror(errno));
+        return -1;
+      }
   }
+  else {
+      if (ioctl(fd,EMERALD_IOCGPORTCONFIG,&config) < 0) {
+        fprintf(stderr,"ioctl EMERALD_IOCGPORTCONFIG: %s: %s\n",devname,strerror(errno));
+        return -1;
+      }
+  }
+
   // output in a form like options to setserial
   for (i = 0; i < 8; i++) printf("port %#x irq %d\n",
     	config.ports[i].ioport,config.ports[i].irq);
-
-#ifdef EEPROM_CONFIG_TOO
-  if (ioctl(fd,EMERALD_IOCGEEPORTCONFIG,&config) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCGEEPORTCONFIG: %s: %s\n",devname,strerror(errno));
-    return -1;
-  }
-  for (i = 0; i < 8; i++) printf("port %#x irq %d\n",
-    	config.ports[i].ioport,config.ports[i].irq);
-#endif
   return 0;
-
 }
-int setConfig(int fd,const char* devname,int port0Addr,const int* irqs) {
+
+int setConfig(int fd,const char* devname,int port0Addr,const int* irqs,int eepromAccess) {
   int i;
   emerald_config config;
 
@@ -64,24 +64,21 @@ int setConfig(int fd,const char* devname,int port0Addr,const int* irqs) {
       config.ports[i].ioport,config.ports[i].irq);
   }
 
-/* We shouldn't need to set the RAM config. The last step of
- * setting the EEPROM config now requests that the RAM settings
- * be read from EEPROM.
- */
-#ifdef DO_NORMAL_CONFIG_TOO
-  if (ioctl(fd,EMERALD_IOCSPORTCONFIG,&config) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCSPORTCONFIG: %s: %s\n",devname,strerror(errno));
-    return -1;
+  if (!eepromAccess) {
+    if (ioctl(fd,EMERALD_IOCSPORTCONFIG,&config) < 0) {
+      fprintf(stderr,"ioctl EMERALD_IOCSPORTCONFIG: %s: %s\n",devname,strerror(errno));
+      return -1;
+    }
   }
-#endif
-
-  if (ioctl(fd,EMERALD_IOCSEEPORTCONFIG,&config) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCSEEPORTCONFIG: %s: %s\n",devname,strerror(errno));
-    return -1;
-  }
-  if (ioctl(fd,EMERALD_IOCEECONFIGLOAD) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCEECONFIGLOAD: %s: %s\n",devname,strerror(errno));
-    return -1;
+  else {
+    if (ioctl(fd,EMERALD_IOCSEEPORTCONFIG,&config) < 0) {
+      fprintf(stderr,"ioctl EMERALD_IOCSEEPORTCONFIG: %s: %s\n",devname,strerror(errno));
+      return -1;
+    }
+    if (ioctl(fd,EMERALD_IOCEECONFIGLOAD) < 0) {
+      fprintf(stderr,"ioctl EMERALD_IOCEECONFIGLOAD: %s: %s\n",devname,strerror(errno));
+      return -1;
+    }
   }
   if (ioctl(fd,EMERALD_IOCPORTENABLE) < 0) {
     fprintf(stderr,"ioctl EMERALD_IOCPORTENABLE: %s: %s\n",devname,strerror(errno));
@@ -112,6 +109,7 @@ void usage(const char* argv0) {
   fprintf(stderr,"\
 -n: display the number of boards with acceptable EEPROM configuration\n\
 -b: display the ISA base address on the system, in 0xhhhh form\n\
+-t: set values in temporary RAM, not EEPROM\n\
 device: device name, /dev/emerald0, /dev/emerald1, etc\n\
 port0: ioport address of serial port 0 on the board\n\
     the 8 ports will be configured at port0, port0+0x8,\n\
@@ -139,13 +137,17 @@ int main(int argc, char** argv) {
   const char* devname;
   int getnumber = 0;
   int getbaseaddr = 0;
+  int eepromAccess = 0;
 
   extern char *optarg;       /* set by getopt() */
   extern int optind;       /* "  "     "     */
   int opt_char;     /* option character */
 
-  while ((opt_char = getopt(argc, argv, "nb")) != -1) {
+  while ((opt_char = getopt(argc, argv, "enb")) != -1) {
       switch (opt_char) {
+      case 'e':
+        eepromAccess = 1;
+        break;
       case 'n':
         getnumber = 1;
         break;
@@ -191,9 +193,9 @@ int main(int argc, char** argv) {
   }
 
   if (port0Addr >= 0)
-    if (setConfig(fd,devname,port0Addr,irqs) < 0) return 1;
+    if (setConfig(fd,devname,port0Addr,irqs,eepromAccess) < 0) return 1;
 
-  if (printConfig(fd,devname) < 0) return 1;
+  if (printConfig(fd,devname,eepromAccess) < 0) return 1;
   close(fd);
   return 0;
 }
