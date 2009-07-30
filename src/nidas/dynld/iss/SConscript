@@ -5,7 +5,7 @@
 Import('env')
 arch = env['ARCH']
 
-so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor.so",
+so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor",
                         source = "TiltSensor.cc",
                         CPPDEFINES = 'DEBUG',
                         SHLIBPREFIX = '',LIBS=[])
