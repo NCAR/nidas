@@ -65,28 +65,33 @@
 #  endif /* __KERNEL__ */
 
 typedef struct emerald_serial_port {
-    unsigned int ioport;	/* ISA ioport address, e.g. 0x100 */
-    unsigned int irq;		/* ISA IRQ */
+        unsigned int ioport;	/* ISA ioport address, e.g. 0x100 */
+        unsigned int irq;		/* ISA IRQ */
 } emerald_serial_port;
 
 typedef struct emerald_config {
-    emerald_serial_port ports[EMERALD_NR_PORTS];
+        emerald_serial_port ports[EMERALD_NR_PORTS];
 } emerald_config;
 
 #  ifdef __KERNEL__
 
 typedef struct emerald_board {
-    unsigned long ioport;	/* virtual ioport addr of the emerald card */
-    emerald_config config;	/* ioport and irq of 8 serial ports */
-    struct semaphore sem;	/* mutual exclusion semaphore */
-    struct resource* region;
-    int digioval;		/* current digital I/O value */
-    int digioout;		/* bit=1, dig I/O direction = out */
+        unsigned long ioport;	/* virtual ioport addr of the emerald card */
+        emerald_config config;	/* ioport and irq of 8 serial ports */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        struct mutex brd_mutex;         // exclusion lock for accessing board registers
+#else
+        struct semaphore brd_mutex;     // exclusion lock for accessing board registers
+#endif
+        struct resource* region;
+        int digioval;		/* current digital I/O value */
+        int digioout;		/* bit=1, dig I/O direction = out */
 } emerald_board;
 
 typedef struct emerald_port {
-    emerald_board* board;
-    int portNum;
+        emerald_board* board;
+        int portNum;
 } emerald_port;
 
 
@@ -108,29 +113,44 @@ int     emerald_ioctl (struct inode *inode, struct file *filp,
 
 /* Look in Documentation/ioctl-number.txt */
 #define EMERALD_IOC_MAGIC  0xd0
-#define EMERALD_IOCGIOPORT _IOR(EMERALD_IOC_MAGIC,  1, unsigned long)
-#define EMERALD_IOCSPORTCONFIG _IOW(EMERALD_IOC_MAGIC,  2, emerald_config)
-#define EMERALD_IOCGPORTCONFIG _IOR(EMERALD_IOC_MAGIC,  3, emerald_config)
-#define EMERALD_IOCSEEPORTCONFIG _IOW(EMERALD_IOC_MAGIC,  4, emerald_config)
-#define EMERALD_IOCGEEPORTCONFIG _IOR(EMERALD_IOC_MAGIC,  5, emerald_config)
-#define EMERALD_IOCEECONFIGLOAD _IO(EMERALD_IOC_MAGIC,  6)
-#define EMERALD_IOCPORTENABLE _IO(EMERALD_IOC_MAGIC,  7)
-#define EMERALD_IOCGNBOARD _IOR(EMERALD_IOC_MAGIC,  8, int)
-#define EMERALD_IOCGISABASE _IOR(EMERALD_IOC_MAGIC,9,unsigned long)
+
+/* set port config in RAM */
+#define EMERALD_IOCSPORTCONFIG _IOW(EMERALD_IOC_MAGIC,  0, emerald_config)
+
+/* get port config from RAM */
+#define EMERALD_IOCGPORTCONFIG _IOR(EMERALD_IOC_MAGIC,  1, emerald_config)
+
+/* set config in EEPROM */
+#define EMERALD_IOCSEEPORTCONFIG _IOW(EMERALD_IOC_MAGIC,  2, emerald_config)
+
+/* get config from EEPROM */
+#define EMERALD_IOCGEEPORTCONFIG _IOR(EMERALD_IOC_MAGIC,  3, emerald_config)
+
+/* load config from EEPROM to RAM */
+#define EMERALD_IOCEECONFIGLOAD _IO(EMERALD_IOC_MAGIC,  4)
+
+/* enable the UARTs */
+#define EMERALD_IOCPORTENABLE _IO(EMERALD_IOC_MAGIC,  5)
+
+/* how many boards are responding at the given ioport addresses */
+#define EMERALD_IOCGNBOARD _IOR(EMERALD_IOC_MAGIC,  6, int)
+
+/* what is the base ISA address on this system */
+#define EMERALD_IOCGISABASE _IOR(EMERALD_IOC_MAGIC,7,unsigned long)
 
 /* Get direction of digital I/O line for a port, 1=out, 0=in */
-#define EMERALD_IOCGDIOOUT _IOR(EMERALD_IOC_MAGIC,10,int)
+#define EMERALD_IOCGDIOOUT _IOR(EMERALD_IOC_MAGIC,8,int)
 
 /* Set direction of digital I/O line for a port, 1=out, 0=in */
-#define EMERALD_IOCSDIOOUT _IOW(EMERALD_IOC_MAGIC,11,int)
+#define EMERALD_IOCSDIOOUT _IOW(EMERALD_IOC_MAGIC,9,int)
 
 /* Get value of digital I/O line for a port */
-#define EMERALD_IOCGDIO _IOR(EMERALD_IOC_MAGIC,12,int)
+#define EMERALD_IOCGDIO _IOR(EMERALD_IOC_MAGIC,10,int)
 
 /* Set value of digital I/O line for a port */
-#define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,13,int)
+#define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,11,int)
 
-#define EMERALD_IOC_MAXNR 13
+#define EMERALD_IOC_MAXNR 11
 
 #endif	/* _EMERALD_H */
 
