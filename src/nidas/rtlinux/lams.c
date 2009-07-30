@@ -176,17 +176,17 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 // if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
 
    if (++nPeaks > nPEAKS) {
-      readw(baseAddr + PEAK_CLEAR_OFFSET);
+      inw(baseAddr + PEAK_CLEAR_OFFSET);
       for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
       nPeaks = 0;
    }
    //Clear Dual Port memory address counter
-   readw(baseAddr + RAM_CLEAR_OFFSET);
+   inw(baseAddr + RAM_CLEAR_OFFSET);
 
    for (n=0; n < MAX_BUFFER; n++) {
-      lsw = readw(baseAddr + AVG_LSW_DATA_OFFSET);
-      msw = readw(baseAddr + AVG_MSW_DATA_OFFSET);
-      apk = readw(baseAddr + PEAK_DATA_OFFSET);
+      lsw = inw(baseAddr + AVG_LSW_DATA_OFFSET);
+      msw = inw(baseAddr + AVG_MSW_DATA_OFFSET);
+      apk = inw(baseAddr + PEAK_DATA_OFFSET);
       sum[n] += (msw << 16) + lsw;
       if (peak[n] < apk) peak[n] = apk;
    }
@@ -253,7 +253,7 @@ static int ioctlCallback(int cmd, int board, int chn,
       
       case AIR_SPEED:
          airspeed = *(unsigned int*) buf;
-//       writew(airspeed, baseAddr + AIR_SPEED_OFFSET);
+//       outw(airspeed, baseAddr + AIR_SPEED_OFFSET);
          DSMLOG_DEBUG("airspeed:      %d\n", airspeed);
          break;
 
