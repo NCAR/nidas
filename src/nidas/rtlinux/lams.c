@@ -120,7 +120,7 @@ static int openRTfifo()
 unsigned int channel = 0;
 unsigned int nAVG   = 80;
 unsigned int nSKIP  = 0;
-unsigned int nPEAKS = 1000;
+unsigned int nPEAKS = 2000;
 unsigned int isCalm = 0;
 
 // -- THREAD -------------------------------------------------------------------
@@ -157,53 +157,67 @@ static void *lams_thread (void * chan)
    }
 }
 
-static unsigned int   peak[MAX_BUFFER];
-static unsigned int   calm[MAX_BUFFER];
-static unsigned int    sum[MAX_BUFFER];
+static unsigned long	peak[MAX_BUFFER];
+static unsigned long	calm[MAX_BUFFER];
+static unsigned long long	sum[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   unsigned int n, msw, lsw, apk;
+   unsigned long n, msw, lsw, apk, word;
    static unsigned int nTattle=0;
    static unsigned int nGlyph=0; 
    static unsigned int nAvg=0;
    static unsigned int nSkip=0;
    static unsigned int nPeaks=0;
 
+
 // static int xx=0;
 // if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
 
-   if (++nPeaks > nPEAKS) {
+//   if (++nPeaks > nPEAKS) {
+   if (++nPeaks > 4000) {
       inw(baseAddr + PEAK_CLEAR_OFFSET);
       for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
       nPeaks = 0;
    }
+
    //Clear Dual Port memory address counter
    inw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (n=0; n < MAX_BUFFER; n++) {
+   for (n=0; n < MAX_BUFFER+5; n++) {
       lsw = inw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = inw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = inw(baseAddr + PEAK_DATA_OFFSET);
-      sum[n] += (msw << 16) + lsw;
-      if (peak[n] < apk) peak[n] = apk;
+
+      if(n >= 4) {
+        peak[n-4] = apk;
+       if (peak[n-4] < apk) peak[n-4] = apk;
+      }
+
+      if(n >= 5) {
+        word = (msw << 16) + lsw;
+        sum[n-5] += (unsigned long long)word;
+      }
    }
    if (++nTattle > 1024) {
       nTattle = 0;
       if (++nGlyph == MAX_BUFFER) nGlyph = 0;
-      DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
-                   nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
+//      DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
+//                   nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
    if (++nAvg > nAVG) {
       for (n=0; n < MAX_BUFFER; n++) {
          _lamsPort.peak[n] = (unsigned short)peak[n];
+         word = (unsigned long)(sum[n] / nAvg);
+         _lamsPort.avrg[n] = word;
+/*
          if (isCalm)
             _lamsPort.avrg[n] = calm[n] = (sum[n] / nAvg);
          else
             _lamsPort.avrg[n] = (sum[n] / nAvg) - calm[n];
-
+*/
          sum[n] = 0;
 
          // RAMP TEST
