@@ -16,6 +16,7 @@
 #include <ctime>
 
 #include <nidas/core/FileSet.h>
+#include <nidas/util/Logger.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/raf/SyncRecordReader.h>
@@ -37,8 +38,6 @@ public:
 
     SyncDumper();
 
-public:
-
     int parseRunstring(int argc, char** argv);
 
     static int usage(const char* argv0);
@@ -53,7 +52,7 @@ public:
 
     void printHeader();
 
-public:
+private:
 
     string dataFileName;
 
@@ -174,6 +173,7 @@ void SyncDumper::setupSignals()
 //    sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
+
 int SyncDumper::run()
 {
 
@@ -292,13 +292,20 @@ int SyncDumper::run()
 
 int main(int argc, char** argv)
 {
+    SyncDumper::setupSignals();
+
     SyncDumper dumper;
 
     int res;
+    n_u::LogConfig lc;
+    n_u::Logger* logger;
 
     if ((res = dumper.parseRunstring(argc,argv)) != 0) return res;
 
-    SyncDumper::setupSignals();
+    // Send all logging to cerr.
+    logger = n_u::Logger::createInstance(&std::cerr);
+    lc.level = n_u::LOGGER_DEBUG;
 
+    logger->setScheme(n_u::LogScheme().addConfig (lc));
     return dumper.run();
 }
