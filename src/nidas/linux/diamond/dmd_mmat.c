@@ -35,8 +35,14 @@ Revisions:
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#define mutex_init(x)               init_MUTEX(x)
+#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
+#define mutex_unlock(x)             up(x)
+#endif
+
 /* ioport addresses of installed boards, 0=no board installed */
-static unsigned long ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
+static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 /* number of DMMAT boards in system (number of non-zero ioport values) */
 static int numboards = 0;
 
@@ -59,12 +65,12 @@ static int d2aconfig[MAX_DMMAT_BOARDS] = { DMMAT_D2A_UNI_5, 0, 0, 0 };
 static int numd2aconfig = 0;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
-module_param_array(ioports,ulong,&numboards,0);
+module_param_array(ioports,int,&numboards,0);
 module_param_array(irqs,int,&numirqs,0);
 module_param_array(types,int,&numtypes,0);
 module_param_array(d2aconfig,int,&numd2aconfig,0);
 #else
-module_param_array(ioports,ulong,numboards,0);
+module_param_array(ioports,int,numboards,0);
 module_param_array(irqs,int,numirqs,0);
 module_param_array(types,int,numtypes,0);
 module_param_array(d2aconfig,int,numd2aconfig,0);
@@ -1628,13 +1634,8 @@ static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
 static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
 {
         int result;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
                 return result;
-#else
-        if ((result = down_interruptible(&brd->irqreq_mutex)))
-                return result;
-#endif
         if (brd->irq == 0) {
                 int irq;
                 BUG_ON(brd->irq_users[0] + brd->irq_users[1] != 0);
@@ -1651,11 +1652,7 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                 KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
                 result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
                 if (result) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                         mutex_unlock(&brd->irqreq_mutex);
-#else
-                        up(&brd->irqreq_mutex);
-#endif
                         return result;
                 }
                 brd->irq = irq;
@@ -1674,35 +1671,22 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                 }
         }
         brd->irq_users[user_type]++;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         mutex_unlock(&brd->irqreq_mutex);
-#else
-        up(&brd->irqreq_mutex);
-#endif
         return result;
 }
 
 static int dmd_mmat_remove_irq_user(struct DMMAT* brd,int user_type)
 {
         int result;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
                 return result;
-#else
-        if ((result = down_interruptible(&brd->irqreq_mutex)))
-                return result;
-#endif
         brd->irq_users[user_type]--;
         if (brd->irq_users[0] + brd->irq_users[1] == 0) {
                 KLOG_NOTICE("freeing irq %d\n",brd->irq);
                 free_irq(brd->irq,brd);
                 brd->irq = 0;
         }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         mutex_unlock(&brd->irqreq_mutex);
-#else
-        up(&brd->irqreq_mutex);
-#endif
         return result;
 }
 
@@ -2818,11 +2802,7 @@ static int __init dmd_mmat_init(void)
 
                 brd->num = ib;
                 spin_lock_init(&brd->reglock);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                 mutex_init(&brd->irqreq_mutex);
-#else
-                init_MUTEX(&brd->irqreq_mutex);
-#endif
                 result = -EBUSY;
                 // Get the mapped board address
                 if (!request_region(addr, DMMAT_IOPORT_WIDTH, "dmd_mmat")) {
@@ -2834,7 +2814,7 @@ static int __init dmd_mmat_init(void)
                 result = -EINVAL;
                 // irqs are requested at open time.
                 if (irqs[ib] <= 0) {
-                    KLOG_ERR("missing irq value for board #%d at addr 0x%lx\n",
+                    KLOG_ERR("missing irq value for board #%d at addr 0x%x\n",
                         ib,ioports[ib]);
                     goto err;
                 }

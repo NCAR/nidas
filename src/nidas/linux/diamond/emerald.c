@@ -395,7 +395,6 @@ static void emerald_cleanup_module(void)
 
 static int emerald_open (struct inode *inode, struct file *filp)
 {
-        int result;
         int num = MINOR(inode->i_rdev);
         emerald_port *port; /* device information */
 
@@ -409,12 +408,9 @@ static int emerald_open (struct inode *inode, struct file *filp)
         /* and use filp->private_data to point to the device data */
         filp->private_data = port;
 
-        if ((result = mutex_lock_interruptible(&port->board->brd_mutex))) return result;
-        // check that it is responding
-        result = emerald_read_config(port->board);
-        mutex_unlock(&port->board->brd_mutex);
-
-        return result;
+        // Don't access the ioport/irq configuration registers here.
+        // It may interfere with simultaneous serial port accesses.
+        return 0;
 }
 
 static int emerald_release (struct inode *inode, struct file *filp)
