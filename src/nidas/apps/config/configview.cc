@@ -19,6 +19,8 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/PortSelectorTest.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/DSMConfig.h>
 
 #include "dsmtablewidget.h"
 
@@ -408,7 +410,7 @@ void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             //sampleWidgetItem->setText(temp);
 
             rateStr = QString::number(tag->getRate());
-            QTableWidgetItem *rateWidgetItem = new QTableWidgetItem(rateStr);
+            QTab eWidgetItem *rateWidgetItem = new QTableWidgetItem(rateStr);
             rateWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
             //sensorTable->setItem(row, column++,rateWidgetItem);
             //sprintf(temp, "%f", tag->getRate());
