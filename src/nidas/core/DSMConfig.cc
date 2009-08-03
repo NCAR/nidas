@@ -29,21 +29,25 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMConfig::DSMConfig(): site(0),id(0),remoteSerialSocketPort(0)
+DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
+    _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
+    _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 
 DSMConfig::~DSMConfig()
 {
     // delete the sensors I own
-    for (list<DSMSensor*>::const_iterator si = ownedSensors.begin();
-    	si != ownedSensors.end(); ++si) delete *si;
+    for (list<DSMSensor*>::const_iterator si = _ownedSensors.begin();
+    	si != _ownedSensors.end(); ++si) delete *si;
 
     list<SampleOutput*>::const_iterator oi = getOutputs().begin();
     for ( ; oi != getOutputs().end(); ++oi) delete *oi;
 
-    list<SampleIOProcessor*>::const_iterator pi = processors.begin();
-    for ( ; pi != processors.end(); ++pi) delete *pi;
+    list<SampleIOProcessor*>::const_iterator pi = _processors.begin();
+    for ( ; pi != _processors.end(); ++pi) delete *pi;
+
+    delete _derivedDataSocketAddr;
 }
 
 ProcessorIterator DSMConfig::getProcessorIterator() const
@@ -69,20 +73,20 @@ VariableIterator DSMConfig::getVariableIterator() const
 
 void DSMConfig::addSensor(DSMSensor* sensor)
 {
-    ownedSensors.push_back(sensor);
-    allSensors.push_back(sensor);
+    _ownedSensors.push_back(sensor);
+    _allSensors.push_back(sensor);
 }
 
 void DSMConfig::removeSensor(DSMSensor* sensor)
 {
-    for (list<DSMSensor*>::iterator si = ownedSensors.begin();
-    	si != ownedSensors.end(); ) {
-	if (sensor == *si) si = ownedSensors.erase(si);
+    for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
+    	si != _ownedSensors.end(); ) {
+	if (sensor == *si) si = _ownedSensors.erase(si);
 	else ++si;
     }
-    for (list<DSMSensor*>::iterator si = allSensors.begin();
-    	si != allSensors.end(); ) {
-	if (sensor == *si) si = allSensors.erase(si);
+    for (list<DSMSensor*>::iterator si = _allSensors.begin();
+    	si != _allSensors.end(); ) {
+	if (sensor == *si) si = _allSensors.erase(si);
 	else ++si;
     }
 }
@@ -92,7 +96,7 @@ void DSMConfig::initSensors()
 	throw(n_u::IOException)
 {
     list<DSMSensor*>::iterator si;
-    for (si = ownedSensors.begin(); si != ownedSensors.end(); ++si) {
+    for (si = _ownedSensors.begin(); si != _ownedSensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	sensor->init();
     }
@@ -101,11 +105,11 @@ void DSMConfig::initSensors()
 void DSMConfig::openSensors(SensorHandler* selector)
 {
     list<DSMSensor*>::const_iterator si;
-    for (si = ownedSensors.begin(); si != ownedSensors.end(); ++si) {
+    for (si = _ownedSensors.begin(); si != _ownedSensors.end(); ++si) {
         DSMSensor* sensor = *si;
         selector->addSensor(sensor);
     }
-    ownedSensors.clear();
+    _ownedSensors.clear();
 }
 
 list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
@@ -225,6 +229,38 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 if (!valOK) throw n_u::InvalidParameterException(
                         string("dsm") + ": " + getName(), aname,aval);
 	    }
+            else if (aname == "statusAddr") {
+                // format:  sock:addr:port or  sock::port
+                bool valOK = false;
+                if (aval.length() > 5 && aval.substr(0,5) == "sock:") {
+                    string::size_type colon = aval.find(':',5);
+
+                    if (colon < string::npos) {
+                        string straddr = aval.substr(5,colon-5);
+                        n_u::Inet4Address addr;
+                        // If no address part, it defaults to INADDR_ANY (0.0.0.0)
+                        if (straddr.length() > 0) {
+                            try {
+                                addr = n_u::Inet4Address::getByName(straddr);
+                            }
+                            catch(const n_u::UnknownHostException& e) {
+                                throw n_u::InvalidParameterException("dsm",aname,e.what());
+                            }
+                        }
+                            
+                        unsigned short port;
+                        istringstream ist(aval.substr(colon+1));
+                        ist >> port;
+                        if (!ist.fail()) {
+                            n_u::Inet4SocketAddress saddr(addr,port);
+                            setStatusSocketAddr(saddr);
+                            valOK = true;
+                        }
+                    }
+                }
+                if (!valOK) throw n_u::InvalidParameterException(
+                        string("dsm") + ": " + getName(), aname,aval);
+	    }
             else if (aname == "ID");	// catalog entry
             else if (aname == "IDREF");	// already scanned
 	    else throw n_u::InvalidParameterException(
@@ -262,14 +298,14 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	    bool newsensor = false;
 	    const string& devname = xchild.getAttributeValue("devicename");
 	    if (devname.length() > 0) {
-		for (list<DSMSensor*>::iterator si = ownedSensors.begin();
-			si != ownedSensors.end(); ++si) {
+		for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
+			si != _ownedSensors.end(); ++si) {
 		    DSMSensor* snsr = *si;
 		    if (snsr->getDeviceName() == devname) sensor = snsr;
 		}
 	    }
 	    if (sensor && sensor->getClassName() != classattr) 
-		    throw n_u::InvalidParameterException("sensor", getName(),
+		    throw n_u::InvalidParameterException("sensor", sensor->getName(),
 		    string("conflicting class names: ") + sensor->getClassName() +
 		    	" " + classattr);
 
