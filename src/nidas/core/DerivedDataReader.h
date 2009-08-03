@@ -37,7 +37,7 @@ public:
    * createInstance() method. A pointer to the singleton can be
    * gotten with the static getInstance() method.
    */
-  DerivedDataReader(const nidas::util::Inet4SocketAddress&)
+  DerivedDataReader(const nidas::util::SocketAddress&)
     throw(nidas::util::IOException);
 
   ~DerivedDataReader();
@@ -71,7 +71,7 @@ public:
   /**
    * Create the instance of DerivedDataReader.
    */
-  static DerivedDataReader * createInstance(const nidas::util::Inet4SocketAddress&)
+  static DerivedDataReader * createInstance(const nidas::util::SocketAddress&)
     throw(nidas::util::IOException);
 
   /**

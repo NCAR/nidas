@@ -31,7 +31,7 @@ DerivedDataReader * DerivedDataReader::_instance = 0;
 /* static */
 nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
-DerivedDataReader::DerivedDataReader(const n_u::Inet4SocketAddress& addr)
+DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
     _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _thdg(0), _parseErrors(0)
 {
@@ -130,7 +130,7 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
   return true;
 }
 
-DerivedDataReader * DerivedDataReader::createInstance(const n_u::Inet4SocketAddress & addr)
+DerivedDataReader * DerivedDataReader::createInstance(const n_u::SocketAddress & addr)
     throw(n_u::IOException)
 {
   if (!_instance)
