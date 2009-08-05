@@ -13,9 +13,9 @@ DSMTableWidget::DSMTableWidget(QWidget *parent)
 
     setColumnCount(NUMCOLS); 
     QStringList columnHeaders;
-    columnHeaders << NAMEHDR << DEVICEHDR << SNHDR << IDHDR
+    columnHeaders << NAMEHDR << DEVICEHDR << SNHDR 
                   << CHANHDR << SRHDR << VARHDR << GNHDR 
-                  << BIHDR << ADCALHDR;
+                  << BIHDR << ADCALHDR << IDHDR;
 
     setHorizontalHeaderLabels(columnHeaders);
     //resizeColumnsToContents();
@@ -122,4 +122,11 @@ void DSMTableWidget::setBiPolar(const int bipolar)
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     setItem(curRowCount-1, BICOL, tempWidgetItem);
     resizeColumnToContents(BICOL);
+}
+
+void DSMTableWidget::setA2DCal(const QString & variable)
+{
+    QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
+    setItem(curRowCount-1, ADCALCOL, tempWidgetItem);
+    resizeColumnToContents(ADCALCOL);
 }

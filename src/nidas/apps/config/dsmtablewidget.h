@@ -17,20 +17,20 @@
 #define DEVICEHDR 	"Device"
 #define SNCOL 		2
 #define SNHDR 		"S/N"
-#define IDCOL 		3
-#define IDHDR 		"ID"
-#define CHANCOL         4
-#define CHANHDR         "Channel"
-#define SRCOL 		5
+#define CHANCOL         3
+#define CHANHDR         "Chan"
+#define SRCOL 		4
 #define SRHDR 		"SR"
-#define VARCOL 		6
+#define VARCOL 		5
 #define VARHDR 		"Variables"
-#define GNCOL 		7
+#define GNCOL 		6
 #define GNHDR 		"gn"
-#define BICOL		8
+#define BICOL		7
 #define BIHDR		"bi"
-#define ADCALCOL	9
+#define ADCALCOL	8
 #define ADCALHDR	"A/D Cal"
+#define IDCOL 		9
+#define IDHDR 		"ID"
 #define NUMCOLS 	10
 
 class DSMTableWidget : public QTableWidget
@@ -51,10 +51,8 @@ class DSMTableWidget : public QTableWidget
         void setAnalogChannel(const int channel);
         void setGain(const int gain);
         void setBiPolar(const int bipolar);
-/*
-        void setADCal(QTableWidgetItem *adcal);
+        void setA2DCal(const QString & a2dcal);
         //void AddColumnElement(QTableWidget *element);
-*/
 
     private:
         int curRowCount;

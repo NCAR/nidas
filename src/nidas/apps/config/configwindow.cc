@@ -89,9 +89,9 @@ QString ConfigWindow::getFile()
 
     QString _winTitle("Configview:  ");
     _winTitle.append(filename);
-    setWindowTitle(_winTitle);
+    //setWindowTitle(_winTitle);
 
-    parseFile(filename);
+    if (parseFile(filename)) setWindowTitle(_winTitle);  
     show();
     return filename;
 }
@@ -171,19 +171,28 @@ int ConfigWindow::parseFile(QString filename)
         delete project;
     }
     catch (const nidas::core::XMLException& e) {
+        QMessageBox::information( 0, "XML Parsing Error on file: "+filename, \
+               QString::fromStdString(e.what()), \
+               "OK" );
         cerr << e.what() << endl;
-        return 1;
+        return 0;
     }
     catch (const n_u::InvalidParameterException& e) {
+        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+filename, \
+               QString::fromStdString(e.what()), \
+               "OK" );
         cerr << e.what() << endl;
-        return 1;
+        return 0;
     }
     catch (n_u::IOException& e) {
+        QMessageBox::information( 0, "I/O Error on file: "+filename, \
+               QString::fromStdString(e.what()), \
+               "OK" );
         cerr << e.what() << endl;
-        return 1;
+        return 0;
     }
 
-    return 0;
+    return 1;
 
 }
 
@@ -260,29 +269,40 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                     DSMTable->setBiPolar((int)parm->getNumericValue(0));
                 }
  
-/** Need to deal with calibration coeficients
                 parm = var->getParameter("corIntercept");
+                QString tmpStr;
                 //cout.width(12); cout.precision(6);
                 if (parm) {
+                    // A2D cals are in "old school" form rather than cal file
                     //cout << right << parm->getNumericValue(0);
-                    //tmpStr.append(QString::number(parm->getNumericValue(0)));
+                    tmpStr.append("(");
+                    tmpStr.append(QString::number(parm->getNumericValue(0)));
+                    parm = var->getParameter("corSlope");
+                    //cout.width(10); cout.precision(6);
+                    if (parm) {
+                        //cout << right << parm->getNumericValue(0);
+                        tmpStr.append(", ");
+                        tmpStr.append(QString::number(parm->getNumericValue(0)));
+                        tmpStr.append(")");
+                        DSMTable->setA2DCal(tmpStr);
+                        tmpStr.clear();
+                    }  // TODO: else alert user to fact that we only have half a cal
                 }
-                else
-                    //cout << "";
- 
-                parm = var->getParameter("corSlope");
-                //cout.width(10); cout.precision(6);
-                if (parm) {
-                    //cout << right << parm->getNumericValue(0);
-                    //tmpStr.append(QString::number(parm->getNumericValue(0)));
-                }
-                else
-                    //cout << "";
+                else 
+                {
+                    CalFile *cf = sensor->getCalFile();
+                    if (cf) {
+                        string A2D_SN(cf->getFile());
+                        QString calStr;
+                        calStr.append(QString::fromStdString(A2D_SN));
+                        DSMTable->setA2DCal(calStr);
+                        //A2D_SN = A2D_SN.substr(0,A2D_SN.find(".dat"));
+                        //DSMTable->setSerialNumber(A2D_SN);
+                    }
 
-                //cout << endl;
-                //DSMText->append(tmpStr);
-                //tmpStr.clear();
-**/
+                    //cout << "";
+                }
+
             }
         }
     }
