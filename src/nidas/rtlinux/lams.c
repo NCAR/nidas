@@ -75,7 +75,7 @@ static struct ioctlCmd ioctlcmds[] = {
    { N_AVG,          _IOC_SIZE(N_AVG)         },
    { N_SKIP,         _IOC_SIZE(N_SKIP)        },
    { N_PEAKS,        _IOC_SIZE(N_PEAKS)       },
-   { CALM,           _IOC_SIZE(CALM)          },
+   { CALIBRATE,      _IOC_SIZE(CALIBRATE)     },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -121,7 +121,7 @@ unsigned int channel = 0;
 unsigned int nAVG   = 80;
 unsigned int nSKIP  = 0;
 unsigned int nPEAKS = 2000;
-unsigned int isCalm = 0;
+unsigned int calibrate = 0;
 
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
@@ -146,6 +146,7 @@ static void *lams_thread (void * chan)
 
          if (fd_lams_data) {
            _lamsPort.timetag = GET_MSEC_CLOCK;
+           _lamsPort.calibrate = calibrate;
            if (rtl_write(fd_lams_data,&_lamsPort,
                          SIZEOF_DSM_SAMPLE_HEADER + _lamsPort.size) < 0) {
               DSMLOG_ERR("error: write: %s.\n",
@@ -158,7 +159,6 @@ static void *lams_thread (void * chan)
 }
 
 static unsigned long	peak[MAX_BUFFER];
-static unsigned long	calm[MAX_BUFFER];
 static unsigned long long	sum[MAX_BUFFER];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
@@ -212,12 +212,6 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
          _lamsPort.peak[n] = (unsigned short)peak[n];
          word = (unsigned long)(sum[n] / nAvg);
          _lamsPort.avrg[n] = word;
-/*
-         if (isCalm)
-            _lamsPort.avrg[n] = calm[n] = (sum[n] / nAvg);
-         else
-            _lamsPort.avrg[n] = (sum[n] / nAvg) - calm[n];
-*/
          sum[n] = 0;
 
          // RAMP TEST
@@ -286,9 +280,9 @@ static int ioctlCallback(int cmd, int board, int chn,
          DSMLOG_DEBUG("nPEAKS:        %d\n", nPEAKS);
          break;
   
-      case CALM:
-         isCalm = *(int*) buf;
-         DSMLOG_DEBUG("isCalm:        %d\n", isCalm);
+      case CALIBRATE:
+         calibrate = *(unsigned int*) buf;
+         DSMLOG_DEBUG("calibrate:     %d\n", calibrate);
          break;
 
       default:
@@ -348,7 +342,7 @@ int init_module (void)
    int n;
    _lamsPort.timetag = 0;
    for (n=0; n<MAX_BUFFER; n++)
-      _lamsPort.avrg[n] = _lamsPort.peak[n] = peak[n] = calm[n] = 0;
+      _lamsPort.avrg[n] = _lamsPort.peak[n] = peak[n];
 
    // this is the size of the data portion only, NOT the timetag and size fields!
    _lamsPort.size = sizeof(_lamsPort.avrg) + sizeof(_lamsPort.peak);

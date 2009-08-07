@@ -29,6 +29,7 @@
 #include <bits/posix1_lim.h> // SSIZE_MAX
 #include <signal.h>          // sigaction
 #include <nidas/rtlinux/ioctl_fifo.h>
+#include <nidas/rtlinux/lams.h>
 #include <nidas/core/RTL_IODevice.h>
 
 #include <nidas/core/DSMSensor.h>
@@ -47,6 +48,20 @@ public:
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
 
+  /**
+   * Provide baseline subtraction in the process method.  These baselines
+   * are measured on a per flight basis and need to be established
+   * prior to take off.
+   *
+   * A an XMLRPC web interface is provided to enable measuring and the subsequint
+   * subtraction of the baseline.
+   *
+   * For post processing the calibration state is stored as a housekeeping
+   * variable.
+   */
+  void MeasureBaselineLAMS();
+  void SubtractBaselineLAMS();
+	
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 	
@@ -68,10 +83,12 @@ public:
         nidas::util::InvalidParameterException);
 
 private:
-  int          calm;
   unsigned int nAVG;
   unsigned int nPEAK;
   unsigned int nSKIP;
+
+  unsigned long calmAvrg[MAX_BUFFER];
+  unsigned long calmPeak[MAX_BUFFER];
 };
 
 }}}

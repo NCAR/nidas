@@ -29,6 +29,78 @@ using namespace XmlRpc;
 
 namespace n_u = nidas::util;
 
+void MeasureBaselineLAMS::execute(XmlRpcValue& params, XmlRpcValue& result)
+{
+    ostringstream ostr;
+    int not_found = 1;
+    Project *project = Project::getInstance();
+    ostr << "<body id=calib>";
+
+    // for each site...
+    for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+        const Site *site = si.next();
+
+        // for each DSM...
+        for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
+            const DSMConfig *dsm = di.next();
+
+            // for each LAMS card...
+            for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
+                DSMSensor *sensor = si2.next();
+
+                if (sensor->getClassName().compare("raf.LamsSensor"))
+                    continue;
+
+                sensor->MeasureBaselineLAMS();
+                not_found = 0;
+            }
+        }
+    }
+    if (not_found)
+        ostr << "No LAMS cards found";
+    else
+        ostr << "Measuring baseline for LAMS sensor now.  This should NOT be done in flight!";
+
+    ostr << "</body>";
+    result = ostr.str();
+}
+
+void SubtractBaselineLAMS::execute(XmlRpcValue& params, XmlRpcValue& result)
+{
+    ostringstream ostr;
+    int not_found = 1;
+    Project *project = Project::getInstance();
+    ostr << "<body id=calib>";
+
+    // for each site...
+    for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+        const Site *site = si.next();
+
+        // for each DSM...
+        for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
+            const DSMConfig *dsm = di.next();
+
+            // for each LAMS card...
+            for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
+                DSMSensor *sensor = si2.next();
+
+                if (sensor->getClassName().compare("raf.LamsSensor"))
+                    continue;
+
+                sensor->SubtractBaselineLAMS();
+                not_found = 0;
+            }
+        }
+    }
+    if (not_found)
+        ostr << "No LAMS cards found";
+    else
+        ostr << "Subtracting baseline for LAMS sensor now.  This should be done in flight!";
+
+    ostr << "</body>";
+    result = ostr.str();
+}
+
 void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
     cerr << "List_NCAR_A2Ds - params: " << params.toXml() << endl;
