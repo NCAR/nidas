@@ -33,3 +33,5 @@ HEADERS = [Split("""
 
 configview = env.Program('configview', SOURCES)
 
+Alias('install', env.Install('/opt/local/nidas/x86/bin','configview'))
+
