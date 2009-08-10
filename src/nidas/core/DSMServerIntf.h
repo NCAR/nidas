@@ -22,30 +22,6 @@ namespace nidas { namespace core {
 
 using namespace XmlRpc;
 
-/**
- * Measure a calm wind state for the LAMS sensor as a baseline.  This should be run
- * while the aircraft is NOT in motion.
- */
-class MeasureBaselineLAMS : public XmlRpcServerMethod
-{
-public:
-  MeasureBaselineLAMS(XmlRpcServer* s) : XmlRpcServerMethod("MeasureBaselineLAMS", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help MeasureBaselineLAMS"); }
-};
-
-/**
- * Remove the previously measured baseline for the LAMS sensor.  This should be run
- * while the aircraft is in flight.
- */
-class SubtractBaselineLAMS : public XmlRpcServerMethod
-{
-public:
-  SubtractBaselineLAMS(XmlRpcServer* s) : XmlRpcServerMethod("SubtractBaselineLAMS", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help SubtractBaselineLAMS"); }
-};
-
 /// gets a list of DSMs and their locations from the configuration
 class GetDsmList : public XmlRpcServerMethod
 {

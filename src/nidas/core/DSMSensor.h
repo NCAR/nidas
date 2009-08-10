@@ -761,10 +761,6 @@ public:
      */
     static Looper* getLooper();
 
-    virtual void MeasureBaselineLAMS() {}
-	
-    virtual void SubtractBaselineLAMS() {}
-	
 private:
 
     std::string devname;

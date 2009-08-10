@@ -78,7 +78,7 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
   }
 }
 
-unsigned int calibrate = 0;
+int calm = 0;
 unsigned int nAVG   = 80;
 unsigned int nPEAK  = 1000;
 unsigned int nSKIP  = 0;
@@ -88,7 +88,7 @@ unsigned int nSKIP  = 0;
 int usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << " [-c] [-a ... ] [-p ... ] [-s ... ]\n\
--c: place driver into gather mode during no wind (calibrate) air.\n\
+-c: place driver into gather mode during no wind (calm) air.\n\
     This gathered spectrum is used as a baseline that is\n\
     substracted from the actual measured wind spectrum.\n\
 \n\
@@ -110,7 +110,7 @@ int parseRunstring(int argc, char** argv)
 
 	switch (opt_char) {
 	case 'c':
-            calibrate = 1;
+            calm = 1;
 	    break;
 	case 'a':
             nAVG = atoi(optarg);
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
   string ofName("/mnt/lams/lams.bin");
   int ofPtr;
   unsigned int air_speed = 0;
-  err("calibrate: %d nAVG: %d   nSKIP: %d   nPEAK: %d", calibrate, nAVG, nSKIP, nPEAK);
+  err("calm: %d nAVG: %d   nSKIP: %d   nPEAK: %d", calm, nAVG, nSKIP, nPEAK);
 
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
@@ -179,7 +179,7 @@ int main(int argc, char** argv)
 
   // Send the Air Speed
   sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
-  sensor_in_0.ioctl(CALIBRATE, &calibrate, sizeof(calibrate));
+  sensor_in_0.ioctl(CALM,      &calm,      sizeof(calm));
   sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
   sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
   sensor_in_0.ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));

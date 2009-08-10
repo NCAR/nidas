@@ -35,7 +35,6 @@
 struct lamsPort {
   dsm_sample_time_t timetag;       // timetag of sample
   dsm_sample_length_t size;        // number of bytes in data
-  unsigned int calibrate;          // Calibration state
   unsigned int avrg[MAX_BUFFER];   // the averages
   unsigned short peak[MAX_BUFFER]; // the peaks
 };
@@ -75,7 +74,7 @@ struct lams_set {
 #define N_AVG            _IOW(LAMS_MAGIC,2, unsigned int)
 #define N_SKIP           _IOW(LAMS_MAGIC,3, unsigned int)
 #define N_PEAKS          _IOW(LAMS_MAGIC,4, unsigned int)
-#define CALIBRATE        _IOW(LAMS_MAGIC,5, unsigned int)
+#define CALM             _IOW(LAMS_MAGIC,5, int)
 
 #ifdef __RTCORE_KERNEL__
 #include <nidas/rtlinux/ioctl_fifo.h>
