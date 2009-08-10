@@ -3,7 +3,8 @@
 Import('env')
 env = env.Clone()
 
-libs = [ env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL'] ]
+libs = [ env.GetGlobalTarget(name) for name in
+         ['libnidas_dynld', 'libnidas', 'libnidas_util'] ]
 env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])

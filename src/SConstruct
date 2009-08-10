@@ -3,24 +3,23 @@
 
 import os,sys,re
 
-sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
+# Create the global variables with a custom config file before the first
+# environment is created.
+import eol_scons
+opts = eol_scons.GlobalVariables("nidas.conf")
 
+# Default global tools are not needed for NIDAS, so remove them.
+tools = eol_scons.GlobalTools()
+del tools[:]
 
 ##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
 ##
 paths = os.environ['PATH'].split(':')
-# When ccache is installed on fedora, it breaks nidas builds,
-# so just make sure it gets left out of the path.
-# GM 3/11/2009: ccache seems to work - let's leave it in PATH and see.
-# paths = filter(lambda p: 'ccache' not in p, paths)
+
 env = Environment(platform = 'posix', ENV = {'PATH' : ':'.join(paths)})
 
-##
-## command line options
-##
-opts = Variables('nidas.conf')
 opts.AddVariables(
     PathVariable('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
@@ -155,8 +154,6 @@ if env['SHCXXFLAGS'] != '$CXXFLAGS':
 env['CFLAGS'] = [ '-Wall', '-O2' ]
 env['CXXFLAGS'] = [ '-Wall', '-O2' ]
 
-env['CPPPATH'] = Split("#")
-
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
     env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
 
@@ -181,7 +178,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = ['x86tools','packaging'], toolpath=['sconstools'],
+    x86_env = env.Clone(tools = ['kmake','packaging'],
 	    ARCH = 'x86',
 	    PREFIX = env['PREFIX'] + '/x86',
 	    OTHER_PREFIX = env['OTHER_X86'])
@@ -222,7 +219,7 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = ['armcross'], toolpath=['sconstools'],
+    arm_env = env.Clone(tools = ['armcross'],
 	   ARCH = 'arm',
 	   PREFIX = env['PREFIX'] + '/arm',
 	   OTHER_PREFIX = env['OTHER_ARM'])
@@ -244,7 +241,7 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = ['armbecross'], toolpath=['sconstools'],
+    armbe_env = env.Clone(tools = ['armbecross'],
 	   ARCH = 'armbe',
 	   PREFIX = env['PREFIX'] + '/armbe',
 	   OTHER_PREFIX = env['OTHER_ARMBE'])

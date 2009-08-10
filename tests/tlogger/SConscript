@@ -3,7 +3,7 @@
 Import('env')
 env = env.Clone()
 
-libutil = env['LIBNIDAS_UTIL']
+libutil = env.GetGlobalTarget('libnidas_util')
 
 env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=libutil) ],

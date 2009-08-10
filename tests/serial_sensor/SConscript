@@ -5,7 +5,8 @@ Import('env')
 # Set LD_LIBRARY_PATH to the locally build libraries.
 # bdirs = [ 'dynld', 'core', 'util' ]
 # ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
-libs = [ env['LIBNIDAS'], env['LIBNIDAS_UTIL'], env['LIBNIDAS_DYNLD'] ]
+libs = [ env.GetGlobalTarget(name) for name in
+         ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 # print 'ldlibdir=' + ":".join(ldlibdirs)
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
