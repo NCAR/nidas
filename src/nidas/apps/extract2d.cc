@@ -440,7 +440,7 @@ int Extract2D::run() throw()
                                     tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
                                 }
                                 if (stype == TWOD_IMGv2_TYPE) {
-                                    tas = (1.0e11 / ((float)sp[0] * 2 * 25000 / 511)) * probe->frequency;
+                                    tas = (1.0e11 / ((float)bigEndian->int16Value(sp[0]) * 2 * 25000 / 511)) * probe->frequency;
                                 }
 
                                 // Encode true airspeed to the ADS1 / ADS2 format for

@@ -59,7 +59,7 @@ typedef struct _Tap2D_v1
 typedef struct _Tap2D_v2
 {
         /** which tap in the variable resistor (0-255) */
-        unsigned short ntap;		// Same value repeated twice.
+        unsigned short ntap;
         /** boolean toggle for frequency divide by 10 */
         unsigned char div10;
 
