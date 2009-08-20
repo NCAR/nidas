@@ -93,6 +93,10 @@ private:
 
 	/* claim methods to retrieve sensorType data    */
 	void setPicTm(const unsigned char* cp, const unsigned char* eos);
+	void setTmSec(const unsigned char* cp, const unsigned char* eos);
+	void setTmCnt(const unsigned char* cp, const unsigned char* eos);
+	void setTm100thSec(const unsigned char* cp, const unsigned char* eos);
+	void setTm10thSec(const unsigned char* cp, const unsigned char* eos);
 	void setPicDT(const unsigned char* cp, const unsigned char* eos);
 
 	void setTsoilData(const unsigned char* cp, const unsigned char* eos);
@@ -104,6 +108,7 @@ private:
 	void setRswData(const unsigned char* cp, const unsigned char* eos);
 	void setRlwData(const unsigned char* cp, const unsigned char* eos);
 
+	void setStatusData(const unsigned char* cp, const unsigned char* eos);
 	void setPwrData(const unsigned char* cp, const unsigned char* eos);
 
 	/*  stypeId to func ptr */
