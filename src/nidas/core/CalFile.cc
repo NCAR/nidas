@@ -213,6 +213,7 @@ void CalFile::close()
 {
     if (include) include->close();
     if (fin.is_open()) fin.close();
+    nline = 0;
 }
 
 /*
