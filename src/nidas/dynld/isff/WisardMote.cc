@@ -44,9 +44,9 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
 	int len = samp->getDataByteLength();
-	dsm_sample_id_t sampId= getId();
+	dsm_sample_id_t idkp= getId();
 
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n\n process  ttag= %d getId()= %d samp->getId()= %d  getDsmId()=%d", samp->getTimeTag(),getId(), samp->getId(), getDSMId());
+	n_u::Logger::getInstance()->log(LOG_INFO,"\n\n process  ttag= %d getId()= %d samp->getId()= %d  getDsmId()=%d", samp->getTimeTag(),idkp, samp->getId(), getDSMId());
 	//print out raw-input data for debug
 	n_u::Logger::getInstance()->log(LOG_INFO, "raw data = ");
 	for (int i= 0; i<len; i++) n_u::Logger::getInstance()->log(LOG_INFO, " %x ", *(cp+i)); ////printf(" %x ", *(cp+i));
@@ -73,8 +73,8 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
 		/* push nodename+sStypeId to list  */
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x ttag= %d ",sTypeId, samp->getTimeTag() );
-		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor +sample ids
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getShortId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getShortId(), samp->getTimeTag());
+		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
 		/* getData  */
 		msgLen=0;
@@ -96,11 +96,10 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
 		SampleT<float>* osamp = getSample<float>(data.size());
 		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId(sampId);
+		osamp->setId(getId()+sTypeId);
 		float* dout = osamp->getDataPtr();
 		for (unsigned int i=0; i<data.size(); i++) {
 			*dout++ = (float)data[i];
-			//osamp->getDataPtr()[i] = (float)data[i];
 			n_u::Logger::getInstance()->log(LOG_INFO, "\ndata= %f  idx= %i", data[i], i);
 			//printf( "\ndata= %f  idx= %i", data[i], i);
 		}
