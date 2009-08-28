@@ -135,7 +135,7 @@ static void setTimerClock(struct DMMAT* brd,
  *	MM16AT: bit 6 in base+10 is the page bit
  *	MM32XAT: bits 0-2 in base+8 are page bits
  */
-static unsigned long readLatchedTimer(struct DMMAT* brd,int clock)
+static unsigned int readLatchedTimer(struct DMMAT* brd,int clock)
 {
         unsigned char lobyte;
         unsigned int hibyte;
@@ -161,20 +161,43 @@ static unsigned long readLatchedTimer(struct DMMAT* brd,int clock)
         return value;
 }
 
-static void initializeA2DClock(struct DMMAT_A2D* a2d)
+/**
+ * Return x/y as a whole number, and a base 10 fractional
+ * part, *fp,  with prec number of decimal places.
+ * Useful for simulating %f in kernel printk's
+ */
+static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
 {
-        unsigned long ticks =
-            (USECS_PER_SEC * 10 + a2d->scanRate/2) / a2d->scanRate;
+    int n = x / y;
+    int f = 0;
+    int rem = x % y;
+    int i;
+    for (i = 0; i < prec; i++) {
+        f *= 10;
+        rem *= 10;
+        f += rem / y;
+        rem %= y;
+    }
+    *fp = f;
+    return n;
+}
+
+static int initializeA2DClock(struct DMMAT_A2D* a2d)
+{
+        int result = 0;
+        if (a2d->scanRate <= 0) {
+            KLOG_ERR("invalid maximum sampling rate=%d Hz\n",
+                    a2d->scanRate);
+            return -EINVAL;
+        }
+        unsigned int clkhz = 10 * USECS_PER_SEC;
+        unsigned int ticks =
+            (clkhz + a2d->scanRate/2) / a2d->scanRate;
         unsigned short c1;
         if (ticks % 2) ticks--;
         // maximum sampling rate should divide evenly into 10MHz
         // Also, since the minimum counter value for a 82C54 clock chip
         // in (mode 3) is 2, then 10MHz/scanRate must be even.
-        // the
-        if ((USECS_PER_SEC * 10) % (a2d->scanRate * 2)) {
-            KLOG_WARNING("maximum sampling rate=%d Hz does not divide evenly into 10 MHz. Actual sampling rate will be %ld Hz\n",
-                    a2d->scanRate,(USECS_PER_SEC*10)/ticks);
-        }
 
         KLOG_DEBUG("clock ticks=%ld,scanRate=%d\n",ticks,a2d->scanRate);
         c1 = 1;
@@ -188,6 +211,30 @@ static void initializeA2DClock(struct DMMAT_A2D* a2d)
                 c1 *= 5;
                 ticks /= 5;
             }
+            else ticks++;    // fudge it
+        }
+
+        // clock counters must be > 1
+        if (c1 < 2) {
+            c1 = 2;
+            ticks /= 2;
+        }
+        if (c1 * ticks * a2d->scanRate != USECS_PER_SEC * 10) {
+            int f;
+            int n = div_10(clkhz,c1*ticks,5,&f);
+            KLOG_WARNING("maximum sampling rate=%d Hz does not divide evenly into 10 MHz. Actual sampling rate will be %d.%05d Hz\n",
+                    a2d->scanRate,n,f);
+        }
+        KLOG_DEBUG("clock ticks=%d,%ld\n", c1,ticks);
+        setTimerClock(a2d->brd,1,2,c1);
+        setTimerClock(a2d->brd,2,2,ticks);
+        return result;
+}
+
+/**
+ * Determine number of available channels - depends
+ * on single-ended vs differential jumpering.
+                return -EINVAL;
         }
         // clock counters must be > 1
         if (c1 < 2) {
@@ -764,7 +811,10 @@ static int startMM16AT_A2D(struct DMMAT_A2D* a2d,int lock)
 
         a2d->fifoThreshold = 256;
 
-        initializeA2DClock(a2d);
+        if ((result = initializeA2DClock(a2d)) != 0) {
+            if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
+            return result;
+        }
 
          /*
           * base+9, Control register
@@ -863,7 +913,10 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
          */
         outb(0x0,brd->addr + 10);
 
-        initializeA2DClock(a2d);
+        if ((result = initializeA2DClock(a2d)) != 0) {
+            if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
+            return result;
+        }
 
          /*
           * base+9, Control register
@@ -1202,7 +1255,7 @@ static void dmmat_a2d_bottom_half(void* work)
                 int nval = insamp->length / sizeof(short);
                 // # of deltaT to back up for timetag of first sample
                 int ndt = (nval - 1) / a2d->nchans;
-                long dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
+                int dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
                 short *dp = (short *)insamp->data;
                 short *ep = dp + nval;
 
@@ -1291,7 +1344,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
 
                 // # of deltaTs to backup for first timetag
                 int ndt = (nval - 1) / a2d->nchans;
-                long dt = ndt * a2d->scanDeltaT;
+                int dt = ndt * a2d->scanDeltaT;
 
                 BUG_ON((nval % a2d->nchans) != 0);
 
@@ -2058,7 +2111,7 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         size_t countreq = count;
-        int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(long);
+        int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(int);
         struct dsm_sample* insamp;
 
         KLOG_DEBUG("head=%d,tail=%d\n",
@@ -2071,7 +2124,7 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
         }
 
         for ( ;cntr->samples.head != cntr->samples.tail &&
-            count > SIZEOF_DSM_SAMPLE_HEADER + sizeof(long); ) {
+            count > SIZEOF_DSM_SAMPLE_HEADER + sizeof(int); ) {
 
                 insamp = cntr->samples.buf[cntr->samples.tail];
                 if (copy_to_user(buf,insamp,n)) return -EFAULT;
@@ -2504,9 +2557,9 @@ static void cntr_timer_fn(unsigned long arg)
         struct DMMAT* brd = cntr->brd;
 
         unsigned long jnext = jiffies;
-        unsigned long cval;
-        unsigned long total;
-        unsigned long flags;
+        unsigned int cval;
+        unsigned int total;
+        unsigned int flags;
 
         /*
          * cntr->rolloverSum is incremented by 65535 in the
@@ -2597,14 +2650,14 @@ static int __init init_cntr(struct DMMAT* brd,int type)
          * Allocate counter samples in circular buffer
          */
         result = alloc_dsm_circ_buf(&cntr->samples,
-            sizeof(long),DMMAT_CNTR_QUEUE_SIZE);
+            sizeof(int),DMMAT_CNTR_QUEUE_SIZE);
         if (result) return result;
 
         init_waitqueue_head(&cntr->read_queue);
 
         init_timer(&cntr->timer);
         cntr->timer.function = cntr_timer_fn;
-        cntr->timer.data = (unsigned long)cntr;
+        cntr->timer.data = (unsigned int)cntr;
 
         /* After calling cdev_all the device is "live"
          * and ready for user operation.

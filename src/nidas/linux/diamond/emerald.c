@@ -329,10 +329,6 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
         for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
                 struct emerald_board *brd = emerald_boards + i;
                 PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
-                if ((result = mutex_lock_interruptible(&brd->brd_mutex)))
-                        return result;
-                result = emerald_read_eeconfig(brd,&brd->config);
-                if (!result) result = emerald_read_config(brd);
                 len += sprintf(buf+len,"\nDiamond Emerald-MM-8 %i: ioport %lx\n",
                                i, brd->ioport);
                 /* loop over serial ports */
@@ -340,7 +336,6 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
                         len += sprintf(buf+len, "  port %d, ioport=%x,irq=%d\n",
                             j,brd->config.ports[j].ioport,brd->config.ports[j].irq);
                 }
-                mutex_unlock(&brd->brd_mutex);
         }
         *eof = 1;
         return len;
@@ -445,16 +440,13 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
         if (err) return -EFAULT;
 
         switch(cmd) {
-        case EMERALD_IOCGPORTCONFIG:	/* get port config from registers */
-                if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                // this doesn't read the IRQ values, but they should be
-                // correct in the brd structure.
-                ret = emerald_read_config(brd);
-                mutex_unlock(&brd->brd_mutex);
+        case EMERALD_IOCGPORTCONFIG:	/* get current port config */
                 if (copy_to_user((emerald_config *) arg,&brd->config,
                         sizeof(emerald_config)) != 0) ret = -EFAULT;
                 break;
         case EMERALD_IOCSPORTCONFIG:	/* set port config in registers */
+                /* Warning: interferes with concurrent serial driver operations on the ports.
+                 * Can cause system crash is serial driver is accessing tty ports. */
                 {
                         emerald_config tmpconfig;
                         if (copy_from_user(&tmpconfig,(emerald_config *) arg,
@@ -487,6 +479,8 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
                 }
                 break;
         case EMERALD_IOCEECONFIGLOAD:	/* load EEPROM config */
+                /* Warning: interferes with concurrent serial driver operations on the ports.
+                 * Can cause system crash is serial driver is accessing tty ports. */
                 {
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
                         ret = emerald_load_config_from_eeprom(brd);
@@ -494,6 +488,8 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
                 }
                 break;
         case EMERALD_IOCPORTENABLE:
+                /* Warning: interferes with concurrent serial driver operations on the ports.
+                 * Can cause system crash is serial driver is accessing tty ports. */
                 {
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
                         emerald_enable_ports(brd);
