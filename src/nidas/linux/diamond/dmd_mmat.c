@@ -168,33 +168,36 @@ static unsigned int readLatchedTimer(struct DMMAT* brd,int clock)
  */
 static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
 {
-    int n = x / y;
-    int f = 0;
-    int rem = x % y;
-    int i;
-    for (i = 0; i < prec; i++) {
-        f *= 10;
-        rem *= 10;
-        f += rem / y;
-        rem %= y;
-    }
-    *fp = f;
-    return n;
+        int n = x / y;
+        int f = 0;
+        int rem = x % y;
+        int i;
+        for (i = 0; i < prec; i++) {
+            f *= 10;
+            rem *= 10;
+            f += rem / y;
+            rem %= y;
+        }
+        *fp = f;
+        return n;
 }
 
 static int initializeA2DClock(struct DMMAT_A2D* a2d)
 {
         int result = 0;
+        unsigned int clkhz = 10 * USECS_PER_SEC;
+        unsigned int ticks;
+        unsigned short c1;
+
         if (a2d->scanRate <= 0) {
             KLOG_ERR("invalid maximum sampling rate=%d Hz\n",
                     a2d->scanRate);
             return -EINVAL;
         }
-        unsigned int clkhz = 10 * USECS_PER_SEC;
-        unsigned int ticks =
-            (clkhz + a2d->scanRate/2) / a2d->scanRate;
-        unsigned short c1;
+
+        ticks = (clkhz + a2d->scanRate/2) / a2d->scanRate;
         if (ticks % 2) ticks--;
+
         // maximum sampling rate should divide evenly into 10MHz
         // Also, since the minimum counter value for a 82C54 clock chip
         // in (mode 3) is 2, then 10MHz/scanRate must be even.
@@ -229,21 +232,6 @@ static int initializeA2DClock(struct DMMAT_A2D* a2d)
         setTimerClock(a2d->brd,1,2,c1);
         setTimerClock(a2d->brd,2,2,ticks);
         return result;
-}
-
-/**
- * Determine number of available channels - depends
- * on single-ended vs differential jumpering.
-                return -EINVAL;
-        }
-        // clock counters must be > 1
-        if (c1 < 2) {
-            c1 = 2;
-            ticks /= 2;
-        }
-        KLOG_DEBUG("clock ticks=%d,%ld\n", c1,ticks);
-        setTimerClock(a2d->brd,1,2,c1);
-        setTimerClock(a2d->brd,2,2,ticks);
 }
 
 /**
@@ -873,7 +861,7 @@ static int startMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
                 return -EINVAL;
         }
 
-        KLOG_INFO("%s: fifoThreshold=%d,latency=%ld,nchans=%d\n",
+        KLOG_INFO("%s: fifoThreshold=%d,latency=%d,nchans=%d\n",
             a2d->deviceName, a2d->fifoThreshold,a2d->latencyMsecs,
                 a2d->nchans);
         // register value is 1/2 the threshold
@@ -2556,10 +2544,10 @@ static void cntr_timer_fn(unsigned long arg)
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) arg;
         struct DMMAT* brd = cntr->brd;
 
+        unsigned long flags;
         unsigned long jnext = jiffies;
         unsigned int cval;
         unsigned int total;
-        unsigned int flags;
 
         /*
          * cntr->rolloverSum is incremented by 65535 in the

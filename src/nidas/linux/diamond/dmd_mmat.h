@@ -325,10 +325,10 @@ struct DMMAT_A2D
         int nchans;
         unsigned char gainConvSetting;	// gain and conversion rate setting
         int scanRate;		// A/D scan sample rate
-        long scanDeltaT;
+        int scanDeltaT;
 
-        long latencyMsecs;	        // buffer latency in milli-seconds
-        long latencyJiffies;	// buffer latency in jiffies
+        int latencyMsecs;	        // buffer latency in milli-seconds
+        int latencyJiffies;	// buffer latency in jiffies
         unsigned long lastWakeup;   // when were read & poll methods last woken
 
 };
@@ -340,7 +340,7 @@ struct DMMAT_A2D
 struct cntr_sample {
     dsm_sample_time_t timetag;
     dsm_sample_length_t length;
-    unsigned long data;
+    unsigned int data;
 };
 
 /**
@@ -373,7 +373,7 @@ struct DMMAT_CNTR {
 
         void (*stop)(struct DMMAT_CNTR* cntr);	// cntr stop method
 
-        volatile unsigned long rolloverSum;     // current counter sum
+        volatile unsigned int rolloverSum;     // current counter sum
 
         int jiffiePeriod;                       // how often to wake up
                                                 // and create an output
