@@ -55,6 +55,7 @@ private:
 
     const int numA2DChannels;
 
+    xercesc::DOMDocument* doc;
 
 };
 #endif

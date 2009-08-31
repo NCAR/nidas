@@ -109,6 +109,23 @@ QString ConfigWindow::getFile()
 QString ConfigWindow::putFile()
 {
         cerr << "putFile() called" << endl;
+
+        static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
+        static const XMLCh g30[] = { xercesc::chLatin_3, xercesc::chPeriod, xercesc::chLatin_0, xercesc::chNull };
+
+        xercesc::DOMImplementationLS impl = (xercesc::DOMImplementationLS)(XMLImplementation::getImplementation()->getFeature(gLS,g30));
+        xercesc::DOMLSSerializer serializer = impl.createLSSerializer();
+
+        xercesc::DOMLSOutput lso = impl.createLSOutput();
+        xercesc::XMLFormatTarget *target = new LocalFileFormatTarget("newfile.xml");
+
+        lso.setByteStream(target);
+        //lso.setEncoding();
+
+        serializer.write(doc,lso);
+
+        delete target;
+
         return(NULL);
 }
 
@@ -131,7 +148,7 @@ int ConfigWindow::parseFile(QString filename)
         parser->setXercesUserAdoptsDOMDocument(true);
 
         cerr << "parsing: " << filename.toStdString() << endl;
-        xercesc::DOMDocument* doc = parser->parse(filename.toStdString());
+        doc = parser->parse(filename.toStdString());
         cerr << "parsed" << endl;
         cerr << "deleting parser" << endl;
         delete parser;
