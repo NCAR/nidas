@@ -21,6 +21,11 @@ DSMTableWidget::DSMTableWidget(QWidget *parent)
     //resizeColumnsToContents();
     //setAlternatingRowColors(true);
     setAutoFillBackground(true);
+    setColumnWidth(SNCOL, 40);
+    setColumnWidth(CHANCOL, 50);
+    setColumnWidth(GNCOL, 25);
+    setColumnWidth(BICOL, 25);
+    setColumnWidth(ADCALCOL, 60);
 
 }
 
