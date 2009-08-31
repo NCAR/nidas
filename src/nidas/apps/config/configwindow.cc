@@ -116,9 +116,15 @@ QString ConfigWindow::putFile()
         static const XMLCh g20[] = { xercesc::chDigit_2, xercesc::chPeriod, xercesc::chDigit_0, xercesc::chNull };
 
         xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
-        xercesc::DOMImplementationLS *lsimpl = (domimpl->hasFeature(gLS,g20)) ?
-         (xercesc::DOMImplementationLS*)domimpl : 0;
-        if (!lsimpl) return(0);
+        //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
+
+        xercesc::DOMImplementationLS *lsimpl = (xercesc::DOMImplementationLS*)domimpl;
+        // (domimpl->hasFeature(gLS,g20)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
+
+        if (!lsimpl) {
+            cerr << "dom implementation is null" << endl;
+            return(0);
+            }
 
     /* xerces 3
         xercesc::DOMLSSerializer serializer = impl.createLSSerializer();
@@ -129,12 +135,12 @@ QString ConfigWindow::putFile()
         serializer.write(doc,lso);
     */
 
-        //if (myWriter->canSetFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true))
-        //    myWriter->setFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true);
 
         xercesc::DOMWriter *myWriter = lsimpl->createDOMWriter();
         xercesc::LocalFileFormatTarget *target =
          new xercesc::LocalFileFormatTarget("newfile.xml");
+        if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true))
+            myWriter->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true);
         myWriter->writeNode(target,*doc);
         target->flush();
         myWriter->release();
