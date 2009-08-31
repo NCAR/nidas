@@ -18,6 +18,8 @@
 //#include <QMenu>
 //#include <QAction>
 
+#include <xercesc/framework/LocalFileFormatTarget.hpp>
+
 
 #include "configwindow.h"
 
@@ -111,19 +113,31 @@ QString ConfigWindow::putFile()
         cerr << "putFile() called" << endl;
 
         static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
-        static const XMLCh g30[] = { xercesc::chLatin_3, xercesc::chPeriod, xercesc::chLatin_0, xercesc::chNull };
+        static const XMLCh g20[] = { xercesc::chDigit_2, xercesc::chPeriod, xercesc::chDigit_0, xercesc::chNull };
 
-        xercesc::DOMImplementationLS impl = (xercesc::DOMImplementationLS)(XMLImplementation::getImplementation()->getFeature(gLS,g30));
+        xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
+        xercesc::DOMImplementationLS *lsimpl = (domimpl->hasFeature(gLS,g20)) ?
+         (xercesc::DOMImplementationLS*)domimpl : 0;
+        if (!lsimpl) return(0);
+
+    /* xerces 3
         xercesc::DOMLSSerializer serializer = impl.createLSSerializer();
-
         xercesc::DOMLSOutput lso = impl.createLSOutput();
-        xercesc::XMLFormatTarget *target = new LocalFileFormatTarget("newfile.xml");
-
+        xercesc::XMLFormatTarget *target = new LocalFileFormatTarget("/tmp/newfile.xml");
         lso.setByteStream(target);
         //lso.setEncoding();
-
         serializer.write(doc,lso);
+    */
 
+        //if (myWriter->canSetFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true))
+        //    myWriter->setFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true);
+
+        xercesc::DOMWriter *myWriter = lsimpl->createDOMWriter();
+        xercesc::LocalFileFormatTarget *target =
+         new xercesc::LocalFileFormatTarget("newfile.xml");
+        myWriter->writeNode(target,*doc);
+        target->flush();
+        myWriter->release();
         delete target;
 
         return(NULL);
