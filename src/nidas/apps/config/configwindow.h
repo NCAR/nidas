@@ -45,6 +45,7 @@ public:
 
 public slots:
     QString getFile();
+    QString putFile();
 
 private:
     QTabWidget *SiteTabs;

@@ -33,6 +33,11 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
     openAct->setStatusTip(tr("Open a new configuration file"));
     connect(openAct, SIGNAL(triggered()), this, SLOT(getFile()));
 
+    QAction * saveAct = new QAction(tr("&Save"), this);
+    saveAct->setShortcut(tr("Ctrl+S"));
+    saveAct->setStatusTip(tr("Save a configuration file"));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(putFile()));
+
     QAction * exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
     exitAct->setStatusTip(tr("Exit the application"));
@@ -40,6 +45,7 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
 
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAct);
+    fileMenu->addAction(saveAct);
     fileMenu->addAction(exitAct);
 
     //ConfigWindow::numA2DChannels = 8;
@@ -98,6 +104,12 @@ QString ConfigWindow::getFile()
     if (parseFile(filename)) setWindowTitle(_winTitle);  
     show();
     return filename;
+}
+
+QString ConfigWindow::putFile()
+{
+        cerr << "putFile() called" << endl;
+        return(NULL);
 }
 
 int ConfigWindow::parseFile(QString filename)
