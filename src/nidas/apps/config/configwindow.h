@@ -52,6 +52,8 @@ private:
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
 
+    const int numA2DChannels;
+
 
 };
 #endif

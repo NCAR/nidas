@@ -13,6 +13,7 @@
 */
 
 #include <QtGui>
+#include <ctime>
 //#include <QFileDialog>
 //#include <QMenu>
 //#include <QAction>
@@ -21,8 +22,9 @@
 #include "configwindow.h"
 
 using namespace nidas::core;
+using namespace nidas::util;
 
-ConfigWindow::ConfigWindow()
+ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
     SiteTabs = new QTabWidget();
 
@@ -39,6 +41,8 @@ ConfigWindow::ConfigWindow()
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAct);
     fileMenu->addAction(exitAct);
+
+    //ConfigWindow::numA2DChannels = 8;
 }
 
 QString ConfigWindow::getFile()
@@ -171,22 +175,22 @@ int ConfigWindow::parseFile(QString filename)
         delete project;
     }
     catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0, "XML Parsing Error on file: "+filename, \
-               QString::fromStdString(e.what()), \
+        QMessageBox::information( 0, "XML Parsing Error on file: "+filename, 
+               QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+filename, \
-               QString::fromStdString(e.what()), \
+        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+filename, 
+               QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (n_u::IOException& e) {
-        QMessageBox::information( 0, "I/O Error on file: "+filename, \
-               QString::fromStdString(e.what()), \
+        QMessageBox::information( 0, "I/O Error on file: "+filename, 
+               QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
@@ -230,6 +234,7 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
 
 void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
 {
+    int gain=0, bipolar=0, channel=0;
     for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
         DSMSensor * sensor = si2.next();
 
@@ -257,17 +262,33 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                 DSMTable->setAnalogVariable(varStr);
                 varStr.clear();
 
-                DSMTable->setAnalogChannel(var->getA2dChannel());
+                channel = var->getA2dChannel();
+                DSMTable->setAnalogChannel(channel);
 
                 parm = var->getParameter("gain");
                 if (parm) {
-                    DSMTable->setGain((int)parm->getNumericValue(0));
+                    gain = (int) parm->getNumericValue(0);
+                    DSMTable->setGain(gain);
                 }
 
                 parm = var->getParameter("bipolar");
                 if (parm) {
-                    DSMTable->setBiPolar((int)parm->getNumericValue(0));
+                    bipolar = (int) parm->getNumericValue(0);
+                    DSMTable->setBiPolar(bipolar);
                 }
+
+                parm = var->getParameter("linear");
+                if (parm) {
+                std::string tmpStr = parm->getStringValue(0);
+cerr<<"Found a linear cal: "<< tmpStr <<endl;
+                }
+
+                parm = var->getParameter("poly");
+                if (parm) {
+                std::string tmpStr = parm->getStringValue(0);
+cerr<<"Found a poly cal: "<< tmpStr <<endl;
+                }
+
  
                 parm = var->getParameter("corIntercept");
                 QString tmpStr;
@@ -292,14 +313,63 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                 {
                     CalFile *cf = sensor->getCalFile();
                     if (cf) {
-                        string A2D_SN(cf->getFile());
+
+                        float slope = 1, intercept = 0;
+
+                        // time_t curTime = time(NULL);
+                        dsm_time_t tnow = getSystemTime();
+                        dsm_time_t calTime = 0;
+
+//cerr<<"Working on calfile:"<<cf->getFile()<< "  channel:"<< channel<< "  tnow:"<<tnow<<endl;
+                        while (tnow > calTime && channel >= 0) {
+                            int nd = 2 + numA2DChannels  * 2;
+                            float d[nd];
+                            try {
+                                int n = cf->readData(d,nd);
+                                calTime = cf->readTime().toUsecs();
+//cerr<<" calTime:"<<calTime<<endl;
+                                if (n < 2) { cerr<<"ERR: only found 2 items on the line"<<endl;continue; }
+                                int cgain = (int)d[0];
+                                int cbipolar = (int)d[1];
+//cerr<<"   cgain:"<<cgain<<" gain:"<<gain;
+//cerr<<"   cbipolar:"<<cbipolar<<" bipolar:"<<bipolar<<" firstcal:"<<d[2]<<endl;
+                                if ((cgain < 0 || gain == cgain) &&
+                                    (cbipolar < 0 || bipolar == cbipolar))
+                                {
+                                    intercept = d[2+channel*2];
+                                    slope = d[3+channel*2];
+//cerr<<"  *** setting :(" <<intercept<<", " << slope << ")"<<endl;
+                                }
+                            }
+                            catch(const n_u::EOFException& e)
+                            {
+                                if (slope == 0) 
+                                   QMessageBox::information( 0, "No slope before End of config file: " +
+                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
+                                       QString::fromStdString(e.what()), "OK" );
+                            }
+                            catch(const n_u::IOException& e)
+                            {
+                                QMessageBox::information( 0, "Error parsing config file: " +
+                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
+                                       QString::fromStdString(e.what()), "OK" );
+                            }
+                            catch(const n_u::ParseException& e)
+                            {
+                                QMessageBox::information( 0, "Error parsing config file: " +
+                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
+                                       QString::fromStdString(e.what()), "OK" );
+                            }
+                        }
+ 
                         QString calStr;
-                        calStr.append(QString::fromStdString(A2D_SN));
+                        calStr.append("(" + QString::number(intercept) + ", " +
+                             QString::number(slope) + ")");
                         DSMTable->setA2DCal(calStr);
-                        //A2D_SN = A2D_SN.substr(0,A2D_SN.find(".dat"));
-                        //DSMTable->setSerialNumber(A2D_SN);
                     }
 
+                    cf->close();
+                    cf->open();
                     //cout << "";
                 }
 
@@ -330,7 +400,6 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
         int row=0, column=0;
         QString sampleIdStr;
         QString rateStr;
-        QString variableStr;
         int sampleNumber=0;
 
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
@@ -351,24 +420,32 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             rateWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
 
             QComboBox * variableComboBox = new QComboBox();
-            int iv = 0;
             variableComboBox->addItem(QString("Sample " + QString::number(tag->getSampleId())));
-            for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); iv++) {
+            QString varInfo;
+            for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                 const Variable* var = vi.next();
-                variableComboBox->addItem(QString::fromStdString(var->getName()));
-                if (iv) {
-                    variableStr = variableStr + ',' + QString::fromStdString(var->getName());
+cerr << "About to go after variabel: " << var->getName() << endl;
+                VariableConverter* varConv = var->getConverter();
+                if (varConv) {
+cerr << "Have the converter" << endl;
+                    const std::list<const Parameter*>& calCoes = varConv->getParameters();
+cerr << "Have the list of coefs" << endl;
+                    std::list< const Parameter *>::const_iterator it = calCoes.begin();
+ cerr << "Variable: " << var->getName() << "  Coefs: ";
+                    for (; it!=calCoes.end(); ++it)
+                    {
+ cerr << (*it)->getNumericValue(0) << "  ";
+                    }
+ cerr << endl;
                 }
-                else {
-                    variableStr = variableStr + QString::fromStdString(var->getName());
-                }
+                varInfo.append(QString::fromStdString(var->getName()));
+                variableComboBox->addItem(varInfo);
             }
 
             DSMTable->setOtherVariables(variableComboBox);
 
             sampleIdStr.clear();
             rateStr.clear();
-            variableStr.clear();
             row++; column = 0;
         }
     }
