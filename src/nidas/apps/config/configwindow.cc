@@ -108,54 +108,11 @@ QString ConfigWindow::getFile()
     return filename;
 }
 
+
+
 QString ConfigWindow::putFile()
 {
-xercesc::DOMImplementation *domimpl;
-xercesc::DOMImplementationLS *lsimpl;
-xercesc::DOMWriter *myWriter;
 xercesc::LocalFileFormatTarget *target;
-
-        cerr << "putFile() called" << endl;
-
-        static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
-        static const XMLCh gNull[] = { xercesc::chNull };
-
-    try {
-        domimpl = XMLImplementation::getImplementation();
-        //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
-    } catch (...) {
-        cerr << "getImplementation exception" << endl;
-        return(NULL);
-    }
-        if (!domimpl) {
-            cerr << "xml implementation is null" << endl;
-            return(0);
-            }
-
-    try {
-        lsimpl =
-        // (xercesc::DOMImplementationLS*)domimpl;
-         (domimpl->hasFeature(gLS,gNull)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
-    } catch (...) {
-        cerr << "hasFeature/cast exception" << endl;
-        return(NULL);
-    }
-
-        if (!lsimpl) {
-            cerr << "dom implementation is null" << endl;
-            return(0);
-            }
-
-    try {
-        myWriter = lsimpl->createDOMWriter();
-        if (!myWriter) {
-            cerr << "writer is null" << endl;
-            return(0);
-            }
-    } catch (...) {
-        cerr << "createDOMWriter exception" << endl;
-        return(NULL);
-    }
 
     try {
         target = new xercesc::LocalFileFormatTarget("newfile.xml");
@@ -168,6 +125,58 @@ xercesc::LocalFileFormatTarget *target;
         return(NULL);
     }
 
+writeDOM(target,*doc);
+return(NULL);
+}
+
+bool ConfigWindow::writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode & node )
+{
+xercesc::DOMImplementation *domimpl;
+xercesc::DOMImplementationLS *lsimpl;
+xercesc::DOMWriter *myWriter;
+
+        cerr << "putFile() called" << endl;
+
+        static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
+        static const XMLCh gNull[] = { xercesc::chNull };
+
+    try {
+        domimpl = XMLImplementation::getImplementation();
+        //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
+    } catch (...) {
+        cerr << "getImplementation exception" << endl;
+        return(false);
+    }
+        if (!domimpl) {
+            cerr << "xml implementation is null" << endl;
+            return(false);
+            }
+
+    try {
+        lsimpl =
+        // (xercesc::DOMImplementationLS*)domimpl;
+         (domimpl->hasFeature(gLS,gNull)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
+    } catch (...) {
+        cerr << "hasFeature/cast exception" << endl;
+        return(false);
+    }
+
+        if (!lsimpl) {
+            cerr << "dom implementation is null" << endl;
+            return(false);
+            }
+
+    try {
+        myWriter = lsimpl->createDOMWriter();
+        if (!myWriter) {
+            cerr << "writer is null" << endl;
+            return(false);
+            }
+    } catch (...) {
+        cerr << "createDOMWriter exception" << endl;
+        return(false);
+    }
+
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTValidation, true))
             myWriter->setFeature(xercesc::XMLUni::fgDOMWRTValidation, true);
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true))
@@ -176,19 +185,19 @@ xercesc::LocalFileFormatTarget *target;
         myWriter->setErrorHandler(&errorHandler);
 
     try {
-        if (!myWriter->writeNode(target,*doc)) {
+        if (!myWriter->writeNode(target,node)) {
             cerr << "writeNode returns false" << endl;
             }
     } catch (...) {
         cerr << "writeNode exception" << endl;
-        return(NULL);
+        return(false);
     }
 
         target->flush();
         myWriter->release();
         delete target;
 
-        return(NULL);
+        return(true);
 }
 
 int ConfigWindow::parseFile(QString filename)
