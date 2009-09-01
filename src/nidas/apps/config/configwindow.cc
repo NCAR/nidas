@@ -113,35 +113,33 @@ QString ConfigWindow::putFile()
         cerr << "putFile() called" << endl;
 
         static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
-        static const XMLCh g20[] = { xercesc::chDigit_2, xercesc::chPeriod, xercesc::chDigit_0, xercesc::chNull };
+        static const XMLCh gNull[] = { xercesc::chNull };
 
         xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
         //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
 
-        xercesc::DOMImplementationLS *lsimpl = (xercesc::DOMImplementationLS*)domimpl;
-        // (domimpl->hasFeature(gLS,g20)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
+        xercesc::DOMImplementationLS *lsimpl =
+        // (xercesc::DOMImplementationLS*)domimpl;
+         (domimpl->hasFeature(gLS,gNull)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
 
         if (!lsimpl) {
             cerr << "dom implementation is null" << endl;
             return(0);
             }
 
-    /* xerces 3
-        xercesc::DOMLSSerializer serializer = impl.createLSSerializer();
-        xercesc::DOMLSOutput lso = impl.createLSOutput();
-        xercesc::XMLFormatTarget *target = new LocalFileFormatTarget("/tmp/newfile.xml");
-        lso.setByteStream(target);
-        //lso.setEncoding();
-        serializer.write(doc,lso);
-    */
-
-
         xercesc::DOMWriter *myWriter = lsimpl->createDOMWriter();
         xercesc::LocalFileFormatTarget *target =
          new xercesc::LocalFileFormatTarget("newfile.xml");
+
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true))
             myWriter->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true);
-        myWriter->writeNode(target,*doc);
+
+        myWriter->setErrorHandler(&errorHandler);
+
+        if (!myWriter->writeNode(target,*doc)) {
+            cerr << "writeNode returns false" << endl;
+            }
+
         target->flush();
         myWriter->release();
         delete target;

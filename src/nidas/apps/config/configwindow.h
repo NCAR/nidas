@@ -57,6 +57,16 @@ private:
 
     xercesc::DOMDocument* doc;
 
+
+class ConfigDOMErrorHandler : public xercesc::DOMErrorHandler {
+ public:
+    bool handleError(const xercesc::DOMError & domError) {
+        cerr << domError.getMessage() << endl;
+        return true;
+    }
+} errorHandler;
+
+
 };
 #endif
 
