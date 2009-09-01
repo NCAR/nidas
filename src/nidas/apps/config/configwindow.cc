@@ -110,39 +110,63 @@ QString ConfigWindow::getFile()
 
 QString ConfigWindow::putFile()
 {
+xercesc::DOMImplementation *domimpl;
+xercesc::DOMImplementationLS *lsimpl;
+xercesc::DOMWriter *myWriter;
+xercesc::LocalFileFormatTarget *target;
+
         cerr << "putFile() called" << endl;
 
         static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
         static const XMLCh gNull[] = { xercesc::chNull };
 
-        xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
+    try {
+        domimpl = XMLImplementation::getImplementation();
         //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
+    } catch (...) {
+        cerr << "getImplementation exception" << endl;
+        return(NULL);
+    }
         if (!domimpl) {
             cerr << "xml implementation is null" << endl;
             return(0);
             }
 
-        xercesc::DOMImplementationLS *lsimpl =
+    try {
+        lsimpl =
         // (xercesc::DOMImplementationLS*)domimpl;
          (domimpl->hasFeature(gLS,gNull)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
+    } catch (...) {
+        cerr << "hasFeature/cast exception" << endl;
+        return(NULL);
+    }
 
         if (!lsimpl) {
             cerr << "dom implementation is null" << endl;
             return(0);
             }
 
-        xercesc::DOMWriter *myWriter = lsimpl->createDOMWriter();
+    try {
+        myWriter = lsimpl->createDOMWriter();
         if (!myWriter) {
             cerr << "writer is null" << endl;
             return(0);
             }
+    } catch (...) {
+        cerr << "createDOMWriter exception" << endl;
+        return(NULL);
+    }
 
-        xercesc::LocalFileFormatTarget *target =
-         new xercesc::LocalFileFormatTarget("newfile.xml");
+    try {
+        target = new xercesc::LocalFileFormatTarget("newfile.xml");
         if (!target) {
             cerr << "target is null" << endl;
             return(0);
             }
+    } catch (...) {
+        cerr << "LocalFileFormatTarget new exception" << endl;
+        return(NULL);
+    }
 
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTValidation, true))
             myWriter->setFeature(xercesc::XMLUni::fgDOMWRTValidation, true);
@@ -151,9 +175,14 @@ QString ConfigWindow::putFile()
 
         myWriter->setErrorHandler(&errorHandler);
 
+    try {
         if (!myWriter->writeNode(target,*doc)) {
             cerr << "writeNode returns false" << endl;
             }
+    } catch (...) {
+        cerr << "writeNode exception" << endl;
+        return(NULL);
+    }
 
         target->flush();
         myWriter->release();
