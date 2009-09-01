@@ -174,8 +174,16 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	if (*cp != ':') return false;
 
 	//get sampleId
-	string sid= nname.substr(2, (nname.size()-2));
-	sampleId= (atoi(sid.c_str()))<<8;
+	int i=0; //look for decimal
+	for (; i<nname.size(); i++) {
+		char c = nname.at(i);
+		if (c <= '9' && c>='0')  break;
+	}
+	string sid= nname.substr(i, (nname.size()-i));
+	stringstream ssid(sid); // Could of course also have done ss("1234") directly.
+	unsigned int val;
+	ssid >>ios::dec>> val;
+	sampleId= val<<8;
 	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid, sampleId);
 
 	cp++; msgLen++; //skip ':'
