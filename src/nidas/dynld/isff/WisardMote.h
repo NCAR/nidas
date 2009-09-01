@@ -59,8 +59,8 @@ private:
 
 	/*  nodeName and Id pairs  */
 	map<string,unsigned int> nodeIds;
-	string nname, lnname;   // nname keeps "height,location", lnname= nname+senosrtypeId
-
+	string nname, lnname;   // nname keeps "height,location-> IDXXX", lnname= nname+senosrtypeId
+	int sampleId; //IDXXX: sampleId= XXX<<8;
 
 	/** push a pair of nodename and id to the map
 	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)

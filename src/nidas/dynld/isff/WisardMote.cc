@@ -65,14 +65,13 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	/*  move cp point to process data   */
 	cp +=msgLen;
 
-	//printf("\n\n process  nname= %s" , nname.c_str());
+	n_u::Logger::getInstance()->log(LOG_INFO,"\n\n process  nname= %s" , nname.c_str());
 
 	// crc+eom+0x0(1+3+1) + sensorTypeId+data (1+1 at least) = 7
 	while ((cp+7) <= eos) {
 		/*  get data one set data  */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
-		/* push nodename+sStypeId to list  */
 		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getShortId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getShortId(), samp->getTimeTag());
 		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
@@ -81,32 +80,28 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		data.clear();
 		if ( nnMap[sTypeId]==NULL  ) {
 			n_u::Logger::getInstance()->log(LOG_ERR, "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",lnname.c_str(), sTypeId);
-			//printf( "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",lnname.c_str(), sTypeId);
 			return false;
 		}
-		//printf("\n call nnMap[stypeId] type= %x ", sTypeId );
 		(this->*nnMap[sTypeId])(cp,eos);
 
 		/* move cp to right position */
 		cp += msgLen;
 
-		//printf(" \ndatasiez()= %d", data.size() );
 		/*  output    */
 		if (data.size() == 0) 	continue;
 
 		SampleT<float>* osamp = getSample<float>(data.size());
 		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId(getId()+sTypeId);
+		osamp->setId(getId()+sampleId+sTypeId);
 		float* dout = osamp->getDataPtr();
 		for (unsigned int i=0; i<data.size(); i++) {
 			*dout++ = (float)data[i];
 			n_u::Logger::getInstance()->log(LOG_INFO, "\ndata= %f  idx= %i", data[i], i);
-			//printf( "\ndata= %f  idx= %i", data[i], i);
 		}
 		/* push out   */
 		results.push_back(osamp);
-		//printf("\nsample-d= %d", sampId);
-	    //printf("\n end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId);
+		n_u::Logger::getInstance()->log(LOG_INFO,"sampleId= %x",getId()+sampleId+sTypeId);
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId);
 	}
 	return true;
 }
@@ -132,7 +127,7 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
+/*void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
 	lnname = nname;
 	lnname.push_back(',');
 	char buffer [5];
@@ -148,7 +143,7 @@ void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
 		n_u::Logger::getInstance()->log(LOG_INFO,"\n pushNodeName cannot find nodename,create one: lnname= %s sampleId= %i ", lnname.c_str(), sampleId);
 		nodeIds[lnname] = sampleId;
 	}
-}
+}*/
 
 //void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
@@ -169,6 +164,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
  */
 bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int& msgLen) {
 	n_u::Logger::getInstance()->log(LOG_INFO, "findHead...");
+	sampleId=0;
 	/* look for nodeName */
 	for ( ; cp < eos; cp++, msgLen++) {
 		char c = *cp;
@@ -176,6 +172,11 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		else break;
 	}
 	if (*cp != ':') return false;
+
+	//get sampleId
+	string sid= nname.substr(2, (nname.size()-2));
+	sampleId= (atoi(sid.c_str()))<<8;
+	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid, sampleId);
 
 	cp++; msgLen++; //skip ':'
 	if (cp == eos) return false;
