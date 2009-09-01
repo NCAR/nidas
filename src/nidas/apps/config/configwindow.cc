@@ -117,6 +117,10 @@ QString ConfigWindow::putFile()
 
         xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
         //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
+        if (!dompimpl) {
+            cerr << "xml implementation is null" << endl;
+            return(0);
+            }
 
         xercesc::DOMImplementationLS *lsimpl =
         // (xercesc::DOMImplementationLS*)domimpl;
@@ -128,8 +132,17 @@ QString ConfigWindow::putFile()
             }
 
         xercesc::DOMWriter *myWriter = lsimpl->createDOMWriter();
+        if (!myWriter) {
+            cerr << "writer is null" << endl;
+            return(0);
+            }
+
         xercesc::LocalFileFormatTarget *target =
          new xercesc::LocalFileFormatTarget("newfile.xml");
+        if (!target) {
+            cerr << "target is null" << endl;
+            return(0);
+            }
 
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTValidation, true))
             myWriter->setFeature(xercesc::XMLUni::fgDOMWRTValidation, true);
