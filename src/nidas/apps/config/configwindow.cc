@@ -38,7 +38,12 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
     QAction * saveAct = new QAction(tr("&Save"), this);
     saveAct->setShortcut(tr("Ctrl+S"));
     saveAct->setStatusTip(tr("Save a configuration file"));
-    connect(saveAct, SIGNAL(triggered()), this, SLOT(putFile()));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveFile()));
+
+    QAction * saveAsAct = new QAction(tr("Save &As..."), this);
+    saveAsAct->setShortcut(tr("Ctrl+A"));
+    saveAsAct->setStatusTip(tr("Save configuration as a new file"));
+    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsFile()));
 
     QAction * exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
@@ -48,6 +53,7 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
+    fileMenu->addAction(saveAsAct);
     fileMenu->addAction(exitAct);
 
     //ConfigWindow::numA2DChannels = 8;
@@ -110,7 +116,14 @@ QString ConfigWindow::getFile()
 
 
 
-QString ConfigWindow::putFile()
+QString ConfigWindow::saveFile()
+{
+cerr << "saveFile called" << endl;
+return(NULL);
+}
+
+
+QString ConfigWindow::saveAsFile()
 {
 xercesc::LocalFileFormatTarget *target;
 
@@ -129,13 +142,12 @@ writeDOM(target,*doc);
 return(NULL);
 }
 
+
 bool ConfigWindow::writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode & node )
 {
 xercesc::DOMImplementation *domimpl;
 xercesc::DOMImplementationLS *lsimpl;
 xercesc::DOMWriter *myWriter;
-
-        cerr << "putFile() called" << endl;
 
         static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
         static const XMLCh gNull[] = { xercesc::chNull };
