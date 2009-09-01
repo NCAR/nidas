@@ -117,7 +117,7 @@ QString ConfigWindow::putFile()
 
         xercesc::DOMImplementation *domimpl = XMLImplementation::getImplementation();
         //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
-        if (!dompimpl) {
+        if (!domimpl) {
             cerr << "xml implementation is null" << endl;
             return(0);
             }
