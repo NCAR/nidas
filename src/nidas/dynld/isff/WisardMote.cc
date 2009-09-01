@@ -182,7 +182,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	string sid= nname.substr(i, (nname.size()-i));
 	stringstream ssid(sid); // Could of course also have done ss("1234") directly.
 	unsigned int val;
-	ssid >>ios::dec>> val;
+	ssid >>std::dec>> val;
 	sampleId= val<<8;
 	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid, sampleId);
 
