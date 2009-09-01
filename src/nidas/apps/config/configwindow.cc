@@ -131,6 +131,8 @@ QString ConfigWindow::putFile()
         xercesc::LocalFileFormatTarget *target =
          new xercesc::LocalFileFormatTarget("newfile.xml");
 
+        if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTValidation, true))
+            myWriter->setFeature(xercesc::XMLUni::fgDOMWRTValidation, true);
         if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true))
             myWriter->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true);
 
