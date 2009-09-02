@@ -65,6 +65,8 @@ QString ConfigWindow::getFile()
     std::string _dir("/"), _project;
     char * _tmpStr;
     QString _caption;
+    QString _winTitle("Configview:  ");
+
     _tmpStr = getenv("PROJ_DIR");
     if (_tmpStr)
        _dir.append(_tmpStr);
@@ -105,11 +107,17 @@ QString ConfigWindow::getFile()
                 QString::fromStdString(_dir),
                 "Config Files (*.xml)");
 
-    QString _winTitle("Configview:  ");
-    _winTitle.append(filename);
-    //setWindowTitle(_winTitle);
+    if (filename.isNull() || filename.isEmpty()) {
+        cerr << "filename null/empty ; not opening" << endl;
+        _winTitle.append("(no file selected)");
+        setWindowTitle(_winTitle);
+        }
+    else {
+        _winTitle.append(filename);
+        //setWindowTitle(_winTitle);
+        if (parseFile(filename)) setWindowTitle(_winTitle);  
+        }
 
-    if (parseFile(filename)) setWindowTitle(_winTitle);  
     show();
     return filename;
 }
