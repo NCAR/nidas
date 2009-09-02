@@ -19,6 +19,7 @@
 //#include <QAction>
 
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
+#include <libgen.h>
 
 
 #include "configwindow.h"
@@ -142,11 +143,17 @@ QString qfilename;
 QString _caption;
 std::string _dir(".");
 
+char *buf,*cdir;
+buf = new char [ doc->getFilename().length() + 1];
+strcpy(buf,doc->getFilename().c_str());
+cdir = dirname(buf);
+
     qfilename = QFileDialog::getSaveFileName(
                 0,
                 _caption,
-                QString::fromStdString(_dir),
+                cdir,
                 "Config Files (*.xml)");
+    delete buf;
 
     cerr << "saveAs dialog returns " << qfilename.toStdString() << endl;
 
