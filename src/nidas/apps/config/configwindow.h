@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate:  $
+    $LastChangedDate$
 
-    $LastChangedRevision: $
+    $LastChangedRevision$
 
-    $LastChangedBy:  $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/apps/config/configwindow.h $
+    $HeadURL$
  ********************************************************************
 */
 

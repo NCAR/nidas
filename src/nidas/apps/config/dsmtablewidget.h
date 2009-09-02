@@ -1,4 +1,15 @@
 /*  
+ ********************************************************************
+    Copyright 2009 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+ ********************************************************************
  * DSMTableWidget allows the user to build up a table to display DSM
  * Assumes table will be constructed left to right, top to bottom.
  */
