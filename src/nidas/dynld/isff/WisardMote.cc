@@ -153,7 +153,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
 	//n_u::Logger::getInstance()->log(LOG_INF,"\n readData--SensorTypeId = %x \n",sTypeId);
 
 	/* push nodename+sStypeId to list  */
-	pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
+	//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
 	/* getData  */
 	(this->*nnMap[sTypeId])(cp,eos);
