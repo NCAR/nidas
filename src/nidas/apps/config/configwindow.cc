@@ -115,7 +115,9 @@ QString ConfigWindow::getFile()
     else {
         _winTitle.append(filename);
         //setWindowTitle(_winTitle);
-        if (parseFile(filename)) setWindowTitle(_winTitle);  
+        doc = new Document();
+        doc->setFilename(filename.toStdString());
+        if (parseFile(doc)) setWindowTitle(_winTitle);  
         }
 
     show();
@@ -162,12 +164,12 @@ std::string _dir(".");
         return(NULL);
     }
 
-writeDOM(target,*doc);
+writeDOM(target,doc->getDomDocument());
 return(NULL);
 }
 
 
-bool ConfigWindow::writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode & node )
+bool ConfigWindow::writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node )
 {
 xercesc::DOMImplementation *domimpl;
 xercesc::DOMImplementationLS *lsimpl;
@@ -221,7 +223,7 @@ xercesc::DOMWriter *myWriter;
         myWriter->setErrorHandler(&errorHandler);
 
     try {
-        if (!myWriter->writeNode(target,node)) {
+        if (!myWriter->writeNode(target,*node)) {
             cerr << "writeNode returns false" << endl;
             }
     } catch (...) {
@@ -236,7 +238,7 @@ xercesc::DOMWriter *myWriter;
         return(true);
 }
 
-int ConfigWindow::parseFile(QString filename)
+int ConfigWindow::parseFile(Document *doc)
 {
 
     QString _mainWinTitle;
@@ -254,14 +256,14 @@ int ConfigWindow::parseFile(QString filename)
         parser->setDOMDatatypeNormalization(false);
         parser->setXercesUserAdoptsDOMDocument(true);
 
-        cerr << "parsing: " << filename.toStdString() << endl;
-        doc = parser->parse(filename.toStdString());
+        cerr << "parsing: " << doc->getFilename() << endl;
+        doc->setDomDocument(parser->parse(doc->getFilename()));
         cerr << "parsed" << endl;
         cerr << "deleting parser" << endl;
         delete parser;
         project = Project::getInstance();
         cerr << "doing fromDOMElement" << endl;
-        project->fromDOMElement(doc->getDocumentElement());
+        project->fromDOMElement(doc->getDomDocument()->getDocumentElement());
         cerr << "fromDOMElement done" << endl;
 
         QString tmpStr;
@@ -311,21 +313,21 @@ int ConfigWindow::parseFile(QString filename)
         delete project;
     }
     catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0, "XML Parsing Error on file: "+filename, 
+        QMessageBox::information( 0, "XML Parsing Error on file: "+doc->getFilename(), 
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+filename, 
+        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+doc->getFilename(), 
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (n_u::IOException& e) {
-        QMessageBox::information( 0, "I/O Error on file: "+filename, 
+        QMessageBox::information( 0, "I/O Error on file: "+doc->getFilename(),
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
