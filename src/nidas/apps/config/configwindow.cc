@@ -313,21 +313,24 @@ int ConfigWindow::parseFile(Document *doc)
         delete project;
     }
     catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0, "XML Parsing Error on file: "+doc->getFilename(), 
+        QMessageBox::information( 0,
+               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+doc->getFilename(), 
+        QMessageBox::information( 0,
+               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;
         return 0;
     }
     catch (n_u::IOException& e) {
-        QMessageBox::information( 0, "I/O Error on file: "+doc->getFilename(),
+        QMessageBox::information( 0,
+               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
         cerr << e.what() << endl;

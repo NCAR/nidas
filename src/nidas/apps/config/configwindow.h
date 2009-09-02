@@ -55,7 +55,7 @@ private:
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-    bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode & node );
+    bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
 
     const int numA2DChannels;
 
