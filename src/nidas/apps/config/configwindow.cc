@@ -126,7 +126,7 @@ return(NULL);
 QString ConfigWindow::saveAsFile()
 {
 xercesc::LocalFileFormatTarget *target;
-QString *qfilename;
+QString qfilename;
 QString _caption;
 std::string _dir(".");
 
@@ -136,8 +136,15 @@ std::string _dir(".");
                 QString::fromStdString(_dir),
                 "Config Files (*.xml)");
 
+    cerr << "saveAs dialog returns " << qfilename.toStdString() << endl;
+
+    if (qfilename.isNull() || qfilename.isEmpty()) {
+        cerr << "qfilename null/empty ; not saving" << endl;
+        return(NULL);
+        }
+
     try {
-        target = new xercesc::LocalFileFormatTarget(qfilename->toStdString());
+        target = new xercesc::LocalFileFormatTarget(qfilename.toStdString().c_str());
         if (!target) {
             cerr << "target is null" << endl;
             return(0);
