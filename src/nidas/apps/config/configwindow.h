@@ -24,6 +24,8 @@
 #include <nidas/core/PortSelectorTest.h>
 #include <nidas/core/DSMConfig.h>
 
+#include "Document.h"
+
 using namespace nidas::core;
 namespace n_u = nidas::util;
 
@@ -41,7 +43,7 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    int parseFile(QString filename);
+    int parseFile(Document*);
 
 public slots:
     QString getFile();
@@ -57,7 +59,7 @@ private:
 
     const int numA2DChannels;
 
-    xercesc::DOMDocument* doc;
+    Document* doc;
 
 
 class ConfigDOMErrorHandler : public xercesc::DOMErrorHandler {
