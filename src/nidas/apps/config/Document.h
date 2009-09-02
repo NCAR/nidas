@@ -19,16 +19,16 @@ public:
     Document() {};
     ~Document() { delete filename; };
 
-    const std::string getFilename() const { return filename; };
-    xercesc::DOMNode & getNode() const { return node; };
+    const std::string getFilename() const { return *filename; };
+    xercesc::DOMDocument *getDomDocument() const { return domdoc; };
 
-    void setFilename(std::string f) { if (filename) delete filename; filename = new std::string(f); };
-    void setNode(xercesc::DOMNode & n) { node=n; };
+    void setFilename(const std::string f) { if (filename) delete filename; filename = new std::string(f); };
+    void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
 
 private:
 
     std::string *filename;
-    xercesc::DOMNode node;
+    xercesc::DOMDocument *domdoc;
 
 };
 
