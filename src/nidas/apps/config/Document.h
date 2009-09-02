@@ -11,6 +11,8 @@
 #ifndef _Document_h
 #define _Document_h
 
+#include <libgen.h>
+
 
 class Document {
 
@@ -21,6 +23,12 @@ public:
 
     const std::string getFilename() const { return *filename; };
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
+
+    const char *getDirectory() {
+        static char buf[MAXPATHLEN];
+        strncpy(buf,filename->c_str(),MAXPATHLEN-1);
+        return dirname(buf);
+        }
 
     void setFilename(const std::string &f) { if (filename) delete filename; filename = new std::string(f); };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
