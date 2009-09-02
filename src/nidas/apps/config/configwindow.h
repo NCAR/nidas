@@ -56,6 +56,8 @@ private:
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
+    void writeDocument(const char *filename);
+
 
     const int numA2DChannels;
 

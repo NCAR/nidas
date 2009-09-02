@@ -131,13 +131,13 @@ QString ConfigWindow::getFile()
 QString ConfigWindow::saveFile()
 {
 cerr << "saveFile called" << endl;
+writeDocument(doc->getFilename().c_str());
 return(NULL);
 }
 
 
 QString ConfigWindow::saveAsFile()
 {
-xercesc::LocalFileFormatTarget *target;
 QString qfilename;
 QString _caption;
 
@@ -154,19 +154,28 @@ QString _caption;
         return(NULL);
         }
 
+writeDocument(qfilename.toStdString().c_str());
+return(NULL);
+}
+
+void ConfigWindow::writeDocument(const char *filename)
+{
+xercesc::LocalFileFormatTarget *target;
+
     try {
-        target = new xercesc::LocalFileFormatTarget(qfilename.toStdString().c_str());
+        target = new xercesc::LocalFileFormatTarget(filename);
         if (!target) {
             cerr << "target is null" << endl;
-            return(0);
+            return;
             }
     } catch (...) {
         cerr << "LocalFileFormatTarget new exception" << endl;
-        return(NULL);
+        return;
     }
 
 writeDOM(target,doc->getDomDocument());
-return(NULL);
+delete target;
+return;
 }
 
 
@@ -234,7 +243,6 @@ xercesc::DOMWriter *myWriter;
 
         target->flush();
         myWriter->release();
-        delete target;
 
         return(true);
 }
