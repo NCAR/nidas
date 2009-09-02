@@ -116,7 +116,9 @@ QString ConfigWindow::getFile()
         _winTitle.append(filename);
         //setWindowTitle(_winTitle);
         doc = new Document();
+        cerr << "filename is " << filename.toStdString() << endl;
         doc->setFilename(filename.toStdString());
+        cerr << "doc filename is " << doc->getFilename() << endl;
         if (parseFile(doc)) setWindowTitle(_winTitle);  
         }
 

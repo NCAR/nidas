@@ -16,13 +16,13 @@ class Document {
 
 public:
 
-    Document() {};
+    Document() { filename = 0; };
     ~Document() { delete filename; };
 
     const std::string getFilename() const { return *filename; };
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
 
-    void setFilename(const std::string f) { if (filename) delete filename; filename = new std::string(f); };
+    void setFilename(const std::string &f) { if (filename) delete filename; filename = new std::string(f); };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
 
 private:
