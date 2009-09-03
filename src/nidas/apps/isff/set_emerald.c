@@ -116,6 +116,12 @@ port0: ioport address of serial port 0 on the board\n\
     port0+0x10, ..., up to port0+0x38\n\
 irq: interrupt level to use for each port.\n\
     if less than 8 irqs are listed, the last will be repeated\n\
+    ######################################################################\n\
+    # WARNING: configuring serial ports on a system while the serial\n\
+    # driver is actively accessing those same ports can cause a system crash.\n\
+    # Make sure no process has the serial devices open, or if they are open\n\
+    # make sure no data is being read or written.\n\
+    ######################################################################\n\
 Examples:\n\
     # configure ports on first board at\n\
     # iports 0x100,0x108,0x110,0x118,...,0x138, all irq=3\n\

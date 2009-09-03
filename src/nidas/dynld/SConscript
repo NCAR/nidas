@@ -25,6 +25,7 @@ headers = [ Split("""
     AsciiOutput.h
     DSC_A2DSensor.h
     DSC_AnalogOut.h
+    DSC_Event.h
     DSC_FreqCounter.h
     DSC_PulseCounter.h
     DSMSerialSensor.h
@@ -56,6 +57,7 @@ sources = [ Split("""
     AsciiOutput.cc
     DSC_A2DSensor.cc
     DSC_AnalogOut.cc
+    DSC_Event.cc
     DSC_FreqCounter.cc
     DSC_PulseCounter.cc
     DSMSerialSensor.cc

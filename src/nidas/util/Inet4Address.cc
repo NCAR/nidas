@@ -113,16 +113,10 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 	}
         switch(h_error) {
 	case HOST_NOT_FOUND:
-            WLOG(("gethostbyaddr_r HOST_NOT_FOUND: ") << addr.getHostAddress());
-	    break;
 	case NO_ADDRESS:		// same as NO_DATA
-            WLOG(("gethostbyaddr_r NO_ADDRESS: ") << addr.getHostAddress());
-	    break;
 	case NO_RECOVERY:
-            WLOG(("gethostbyaddr_r NO_RECOVERY: ") << addr.getHostAddress());
-	    break;
 	case TRY_AGAIN:
-            ILOG(("gethostbyaddr_r TRY_AGAIN: ") << addr.getHostAddress());
+            WLOG(("gethostbyaddr_r: %s: ",hstrerror(h_error)) << addr.getHostAddress());
 	    break;
 	case NETDB_INTERNAL:
             if (errno == ERANGE) {
@@ -133,10 +127,13 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
                 auxbuf.resize(auxbufsize);
                 h_error = TRY_AGAIN;
             }
-            else ELOG(("gethostbyaddr_r NETDB_INTERNAL: ") << addr.getHostAddress());
+            else WLOG(("gethostbyaddr_r: %s: ",hstrerror(h_error)) << addr.getHostAddress());
+	    break;
+	case NETDB_SUCCESS:
 	    break;
 	default:
-            ELOG(("gethostbyaddr_r unknown error ") << h_error);
+            WLOG(("gethostbyaddr_r: %s(%d): ",hstrerror(h_error),h_error) << addr.getHostAddress());
+            break;
 	}
     }
 #ifdef DEBUG
@@ -233,12 +230,12 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
                     h_error = TRY_AGAIN;
                 }
                 else {
-                    ELOG(("gethostbyname_r NETDB_INTERNAL: ") << hostname);
+                    WLOG(("gethostbyname_r: %s:",hstrerror(h_error)) << hostname);
                     throw UnknownHostException(hostname + ": NETDB_INTERNAL error");
                 }
                 break;
             default:
-                ELOG(("gethostbyname_r unknown error ") << h_error);
+                ELOG(("gethostbyname_r: %s(%d): ",hstrerror(h_error),h_error) << hostname);
                 throw UnknownHostException(hostname + ": unknown error");
             }
         }
