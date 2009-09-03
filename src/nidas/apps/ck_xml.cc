@@ -73,7 +73,7 @@ int main(int argc, char** argv)
                         cout << ",stn#" << site->getNumber();
                     cout << ", sensor: " << sensor->getName() << 
                         '(' << sensor->getDSMId() << ',' <<
-                        sensor->getShortId() << ')' << endl;
+                        sensor->getSensorId() << ')' << endl;
                     for (SampleTagIterator ti = sensor->getSampleTagIterator();
                         ti.hasNext(); ) {
                         const SampleTag* tag = ti.next();

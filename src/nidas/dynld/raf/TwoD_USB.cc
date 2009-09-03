@@ -140,7 +140,7 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
     init_parameters();
 
     // Find SampleID for 1D & 2D arrays.
-    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *> tags = getSampleTags();
     list<const SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;

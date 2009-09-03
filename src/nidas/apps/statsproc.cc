@@ -72,7 +72,7 @@ private:
 
     static const int DEFAULT_PORT = 30000;
 
-    int sorterLength;
+    float sorterLength;
 
     bool daemonMode;
 
@@ -179,7 +179,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 
 
 StatsProcess::StatsProcess():
-	sorterLength(1000),daemonMode(false),
+	sorterLength(5.0),daemonMode(false),
         startTime((time_t)0),endTime((time_t)0),
         niceValue(0),_period(DEFAULT_PERIOD)
 {
@@ -246,7 +246,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    {
 	        istringstream ist(optarg);
 		ist >> sorterLength;
-		if (ist.fail() || sorterLength < 0 || sorterLength > 10000) {
+		if (ist.fail() || sorterLength < 0.0 || sorterLength > 1800.0) {
                     cerr << "Invalid sorter length: " << optarg << endl;
                     return usage(argv[0]);
 		}
@@ -324,7 +324,7 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-
     -d dsm: (optional)\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
-    -s sorterLength: input data sorter length in milliseconds\n\
+    -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
     -z: run in daemon mode (in the background, log messages to syslog)\n\
@@ -365,7 +365,6 @@ int StatsProcess::run() throw()
     }
 
     auto_ptr<Project> project;
-    auto_ptr<SortedSampleInputStream> sis;
     IOChannel* iochan = 0;
     nidas::core::FileSet* fset = 0;
     try {
@@ -458,15 +457,23 @@ int StatsProcess::run() throw()
 	    iochan = fset;
 	}
 
-        sis.reset(new SortedSampleInputStream(iochan));
-        sis->setHeapBlock(true);
-        sis->setHeapMax(10000000);
-        sis->init();
-	sis->setSorterLengthMsecs(sorterLength);
+        SampleInputStream sis(iochan);
+        // sis.reset(new SortedSampleInputStream(iochan));
+        // sis.setHeapBlock(true);
+        // sis.setHeapMax(10000000);
+        // sis.init();
+	// sis.setSorterLengthMsecs(sorterLength);
+        //
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+	pipeline.setRawSorterLength(1.0);
+	pipeline.setProcSorterLength(sorterLength);
+        pipeline.setRawHeapMax(100 * 1000 * 1000);
+        pipeline.setProcHeapMax(500 * 1000 * 1000);
 
         if (!project.get()) {
-            sis->readInputHeader();
-            const SampleInputHeader& header = sis->getInputHeader();
+            sis.readInputHeader();
+            const SampleInputHeader& header = sis.getInputHeader();
 	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
 		    "software=" << header.getSoftwareVersion() << '\n' <<
 		    "project=" << header.getProjectName() << '\n' <<
@@ -527,16 +534,17 @@ int StatsProcess::run() throw()
 	SampleTagIterator ti = server->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    sis->addSampleTag(stag);
+	    sis.addSampleTag(stag);
 	}
+        pipeline.connect(&sis);
 
-	sproc->connect(sis.get());
-	// cerr << "#sampleTags=" << sis->getSampleTags().size() << endl;
+	sproc->connect(&pipeline);
+	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
         if (startTime.toUsecs() != 0) {
             cerr << "Searching for time " <<
                 startTime.format(true,"%Y %m %d %H:%M:%S");
-            sis->search(startTime);
+            sis.search(startTime);
             cerr << " done." << endl;
             sproc->setStartTime(startTime);
         }
@@ -546,22 +554,22 @@ int StatsProcess::run() throw()
 	try {
 	    for (;;) {
 		if (interrupted) break;
-		sis->readSamples();
+		sis.readSamples();
 	    }
 	}
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
-	    sis->flush();
+	    sis.flush();
 	    cerr << "sproc->disconnect" << endl;
-	    sproc->disconnect(sis.get());
-	    cerr << "sis->close" << endl;
-	    sis->close();
+	    sproc->disconnect(&sis);
+	    cerr << "sis.close" << endl;
+	    sis.close();
 	    // sproc->disconnected(output);
 	    throw e;
 	}
 	catch (n_u::IOException& e) {
-	    sis->close();
-	    sproc->disconnect(sis.get());
+	    sis.close();
+	    sproc->disconnect(&sis);
 	    // sproc->disconnected(output);
 	    throw e;
 	}

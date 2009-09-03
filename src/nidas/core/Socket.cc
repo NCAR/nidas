@@ -86,24 +86,20 @@ Socket::Socket(n_u::Socket* sock):
 
 Socket::~Socket()
 {
+    n_u::Autolock alock(_connectionMutex);
+    // interrupt closes the _nusocket, and the thread joins itself
     if (_connectionThread) _connectionThread->interrupt();
-    close();
-    if (_connectionThread) {
-        try {
-	    if (_connectionThread->isRunning()) _connectionThread->kill(SIGUSR1);
-            _connectionThread->join();
-        }
-        catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
-        }
-        delete _connectionThread;
-    }
-    delete _nusocket;
+    else close();
 }
 
 Socket* Socket::clone() const 
 {
     return new Socket(*this);
+}
+
+void Socket::close() throw (nidas::util::IOException)
+{
+    if (_nusocket) _nusocket->close();
 }
 
 size_t Socket::getBufferSize() const throw()
@@ -191,12 +187,15 @@ void Socket::requestConnection(IOChannelRequester* requester)
 	throw(n_u::IOException)
 {
     _iochanRequester = requester;
-    if (!_connectionThread) _connectionThread = new ConnectionThread(this);
-    try {
-	if (!_connectionThread->isRunning()) _connectionThread->start();
-    }
-    catch(const n_u::Exception& e) {
-        throw n_u::IOException(getName(),"requestConnection",e.what());
+    n_u::Autolock alock(_connectionMutex);
+    if (!_connectionThread) {
+        _connectionThread = new ConnectionThread(this);
+        try {
+            _connectionThread->start();
+        }
+        catch(const n_u::Exception& e) {
+            throw n_u::IOException(getName(),"requestConnection",e.what());
+        }
     }
 }
 
@@ -310,6 +309,19 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
     return RUN_OK;
 }
 
+Socket::ConnectionThread::~ConnectionThread()
+{
+    nidas::util::Autolock alock(_socket->_connectionMutex);
+    _socket->_connectionThread = 0;
+}
+
+void Socket::ConnectionThread::interrupt()
+{
+    Thread::interrupt();
+    n_u::Autolock alock(_socket->_connectionMutex);
+    if (_socket->_nusocket) _socket->_nusocket->close();
+}
+
 int Socket::ConnectionThread::run() throw(n_u::IOException)
 {
     for (; !isInterrupted(); ) {
@@ -319,6 +331,11 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
             const n_u::SocketAddress& saddr = _socket->getRemoteSocketAddress();
             if (!_socket->_nusocket) _socket->_nusocket = new n_u::Socket(saddr.getFamily());
             _socket->_nusocket->connect(saddr);
+
+            _socket->_connectionMutex.lock();
+            _socket->_connectionThread = 0;
+            _socket->_connectionMutex.unlock();
+
             _socket->_nusocket->setKeepAliveIdleSecs(_socket->getKeepAliveIdleSecs());
             _socket->_nusocket->setNonBlocking(_socket->isNonBlocking());
 
@@ -326,8 +343,11 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
             n_u::Logger::getInstance()->log(LOG_DEBUG,
                     "connected to %s",
                     _socket->getRemoteInet4Address().getHostAddress().c_str());
+
             _socket->_iochanRequester->connected(_socket);
-            break;
+            n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
+            joiner->start();
+            return RUN_OK;
         }
         // Wait for dynamic dns to get new address
         catch(const n_u::UnknownHostException& e) {
@@ -347,7 +367,17 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
             if (!isInterrupted()) sleep(10);
         }
     }
-    return RUN_OK;
+
+    {
+        n_u::Autolock alock(_socket->_connectionMutex);
+        _socket->_connectionThread = 0;
+        _socket->_nusocket->close();
+        delete _socket->_nusocket;
+        _socket->_nusocket = 0;
+    }
+    n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
+    joiner->start();
+    return RUN_EXCEPTION;
 }
 
 /* static */

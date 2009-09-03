@@ -23,7 +23,7 @@ namespace nidas { namespace dynld {
 using namespace nidas::core;	// put this within namespace block
 
 /**
- * An implementation of a SampleInputReader.
+ * An implementation of a SampleInput.
  *
  * The readSamples method converts raw bytes from the iochannel
  * into Samples.
@@ -43,11 +43,9 @@ using namespace nidas::core;	// put this within namespace block
  * iochannel -> readSamples method -> SampleClient
  *
  */
-class SampleInputStream: public nidas::core::SampleInputReader, public DOMable
+class SampleInputStream: public nidas::core::SampleInput
 {
-
 public:
-
     /**
      * Constructor.
      * @param iochannel The IOChannel that we use for data input.
@@ -56,12 +54,7 @@ public:
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
      */
-    SampleInputStream(IOChannel* iochannel = 0);
-
-    /**
-     * Copy constructor, with a new, connected IOChannel.
-     */
-    SampleInputStream(const SampleInputStream& x,IOChannel* iochannel);
+    SampleInputStream(IOChannel* iochannel = 0, bool raw=false);
 
     /**
      * Create a clone, with a new, connected IOChannel.
@@ -72,12 +65,10 @@ public:
 
     std::string getName() const;
 
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return _sampleTags;
-    }
-
-    void addSampleTag(const SampleTag* stag);
+    /**
+     * Set the IOChannel for this SampleInputStream.h
+     */
+    virtual void setIOChannel(IOChannel* val);
 
     /**
      * Read archive information at beginning of input stream or file.
@@ -86,16 +77,20 @@ public:
 
     bool parseInputHeader() throw(nidas::util::IOException);
 
-    const SampleInputHeader& getInputHeader() const { return inputHeader; }
-
-    void addProcessedSampleClient(SampleClient*,DSMSensor*);
-
-    void removeProcessedSampleClient(SampleClient*,DSMSensor* = 0);
+    const SampleInputHeader& getInputHeader() const { return _inputHeader; }
 
     void requestConnection(DSMService*) throw(nidas::util::IOException);
 
+    virtual SampleInput* getOriginal() const
+    {
+        return _original;
+    }
+
     /**
-     * Implementation of ConnectionRequester::connected.
+     * Implementation of IOChannelRequester::connected.
+     * One can use this method to notify SampleInputStream that
+     * the IOChannel is connected, which will cause SampleInputStream
+     * to open the IOStream.
      */
     void connected(IOChannel* iochan) throw();
 
@@ -105,6 +100,96 @@ public:
     const DSMConfig* getDSMConfig() const;
 
     void init() throw();
+
+    void setKeepStats(bool val)
+    {
+        _source.setKeepStats(val);
+    }
+
+    /**
+     * Implementation of SampleInput::addSampleTag().
+     */
+    void addSampleTag(const SampleTag* tag) throw()
+    {
+        return _source.addSampleTag(tag);
+    }
+
+    void removeSampleTag(const SampleTag* tag) throw()
+    {
+        _source.removeSampleTag(tag);
+    }
+
+    SampleSource* getRawSampleSource()
+    {
+        return _source.getRawSampleSource();
+    }
+
+    SampleSource* getProcessedSampleSource()
+    {
+        return _source.getProcessedSampleSource();
+    }
+
+    /**
+     * Get the output SampleTags.
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.addSampleClientForTag(client,tag);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClientForTag(client,tag);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _source.flush();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
 
     /**
      * Read a buffer of data, serialize the data into samples,
@@ -134,7 +219,14 @@ public:
      */
     Sample* readSample() throw(nidas::util::IOException);
 
-    void distribute(const Sample* s) throw();
+    /**
+     * Distribute a sample to my clients. One could use this
+     * to insert a sample into the stream.
+     */
+    void distribute(const Sample* s) throw()
+    {
+        return _source.distribute(s);
+    }
 
     size_t getBadSamples() const { return _badSamples; }
 
@@ -171,85 +263,34 @@ public:
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
     }
 
-    long long getNumDistributedBytes() const
-    {
-        if (_iostream) return _iostream->getNumInputBytes();
-        return 0;
-    }
-
-    size_t getNumDistributedSamples() const { return _nsamples; }
-
-
-    dsm_time_t getLastDistributedTimeTag() const { return _lastTimeTag; }
-
-    void setLastDistributedTimeTag(dsm_time_t val) { _lastTimeTag = val; }
-
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
-
-    /**
-     * Set length of SampleSorter, in milliseconds.
-     */
-    void setSorterLengthMsecs(int val)
-    {
-        _sorterLengthMsecs = val;
-    }
-
-    int getSorterLengthMsecs() const
-    {
-        return _sorterLengthMsecs;
-    }
-
-    /**
-     * Set the maximum amount of heap memory to use for sorting samples.
-     * @param val Maximum size of heap in bytes.
-     * @see SampleSorter::setHeapMax().
-     */
-    void setHeapMax(size_t val) { _heapMax = val; }
-
-    size_t getHeapMax() const { return _heapMax; }
-
-    /**
-     * @param val If true, and heapSize exceeds heapMax,
-     *   then wait for heapSize to be less then heapMax,
-     *   which will block any SampleSources that are inserting
-     *   samples into this sorter.  If false, then discard any
-     *   samples that are received while heapSize exceeds heapMax.
-     * @see SampleSorter::setHeapBlock().
-     */
-    void setHeapBlock(bool val) { _heapBlock = val; }
-
-    bool getHeapBlock() const { return _heapBlock; }
 
     void setExpectHeader(bool val) { _expectHeader = val; }
 
     bool getExpectHeader() const { return _expectHeader; }
 
-
 protected:
 
-    void incrementNumInputSamples() { _nsamples++; }
+    /**
+     * Copy constructor, with a new, connected IOChannel.
+     */
+    SampleInputStream(SampleInputStream& x,IOChannel* iochannel);
+
+    IOChannel* _iochan;
+
+    SampleSourceSupport _source;
+
+private:
 
     /**
      * Service that has requested my input.
      */
     DSMService* _service;
 
-    IOChannel* _iochan;
-
     IOStream* _iostream;
 
-    std::map<unsigned int, DSMSensor*> _sensorMap;
-
-    std::map<SampleClient*, std::list<DSMSensor*> > _sensorsByClient;
-
-    nidas::util::Mutex _sensorMapMutex;
-
-    std::list<const SampleTag*> _sampleTags;
-
-private:
-
-    mutable const DSMConfig* _dsm;
+    /* mutable */ const DSMConfig* _dsm;
 
     bool _expectHeader;
 
@@ -280,12 +321,7 @@ private:
 
     size_t _badSamples;
 
-    /**
-     * Copy constructor.
-     */
-    SampleInputStream(const SampleInputStream&);
-
-    SampleInputHeader inputHeader;
+    SampleInputHeader _inputHeader;
 
     bool _filterBadSamples;
 
@@ -297,64 +333,7 @@ private:
 
     dsm_time_t _maxSampleTime;
 
-    long long _nsamples;
-
-    dsm_time_t _lastTimeTag;
-
-    /**
-     * Length of SampleSorter, in milli-seconds.
-     */
-    int _sorterLengthMsecs;
-
-    size_t _heapMax;
-
-    bool _heapBlock;
-};
-
-class SortedSampleInputStream: public SampleInputStream
-{
-public:
-    SortedSampleInputStream(IOChannel* iochannel = 0);
-    /**
-     * Copy constructor, with a new, connected IOChannel.
-     */
-    SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel);
-
-    virtual ~SortedSampleInputStream();
-
-    /**
-     * Create a clone, with a new, connected IOChannel.
-     */
-    SortedSampleInputStream* clone(IOChannel* iochannel);
-
-    void addSampleClient(SampleClient* client) throw();
-
-    void removeSampleClient(SampleClient* client) throw();
-
-    void addProcessedSampleClient(SampleClient* client, DSMSensor* sensor);
-
-    void removeProcessedSampleClient(SampleClient* client, DSMSensor* sensor = 0);
-
-    void close() throw(nidas::util::IOException);
-
-    void flush() throw();
-
-
-private:
-
-    SampleSorter *sorter1;
-
-    SampleSorter *sorter2;
-
-    /**
-     * No copying.
-     */
-    SortedSampleInputStream(const SortedSampleInputStream&);
-
-    /**
-     * No assignment.
-     */
-    SortedSampleInputStream& operator=(const SortedSampleInputStream&);
+    SampleInputStream* _original;
 
 };
 

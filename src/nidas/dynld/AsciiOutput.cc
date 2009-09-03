@@ -32,63 +32,48 @@ namespace n_r = nidas::dynld::raf;
 NIDAS_CREATOR_FUNCTION(AsciiOutput)
 
 AsciiOutput::AsciiOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),format(HEX),
-	headerOut(false)
-{
-}
-
-/*
- * Copy constructor.
- */
-AsciiOutput::AsciiOutput(const AsciiOutput& x):
-	SampleOutputBase(x),
-	ostr(),
-	format(x.format),
-	prevTT(),
-	headerOut(false)
+	SampleOutputBase(ioc),
+        _format(HEX), _headerOut(false)
 {
 }
 
 /*
  * Copy constructor, with a new IOChannel.
  */
-AsciiOutput::AsciiOutput(const AsciiOutput& x,IOChannel* ioc):
+AsciiOutput::AsciiOutput(AsciiOutput& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),
-	ostr(),
-	format(x.format),
-	prevTT(),
-	headerOut(false)
+	_ostr(),_format(x._format),
+	_prevTT(), _headerOut(false)
 {
 }
 
-AsciiOutput* AsciiOutput::clone(IOChannel* ioc) const
+AsciiOutput* AsciiOutput::clone(IOChannel* ioc)
 {
     // invoke copy constructor
-    if (!ioc) return new AsciiOutput(*this);
-    else return new AsciiOutput(*this,ioc);
+    return new AsciiOutput(*this,ioc);
 }
 
 void AsciiOutput::requestConnection(SampleConnectionRequester* requester)
-	throw(n_u::IOException)
+    throw()
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
     SampleOutputBase::requestConnection(requester);
 }
 
-void AsciiOutput::connect()
+void AsciiOutput::connect(SampleSource* source)
 	throw(n_u::IOException)
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
-    SampleOutputBase::connect();
+    source->addSampleClient(this);
 }
 
 void AsciiOutput::printHeader() throw(n_u::IOException)
 {
-    ostr << "|--- date time -------| deltaT   bytes" << endl;
-    getIOChannel()->write(ostr.str().c_str(),ostr.str().length());
-    ostr.str("");
-    ostr.clear();
-    headerOut = true;
+    _ostr << "|--- date time -------| deltaT   bytes" << endl;
+    getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
+    _ostr.str("");
+    _ostr.clear();
+    _headerOut = true;
 }
 
 bool AsciiOutput::receive(const Sample* samp) throw()
@@ -99,10 +84,10 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 
     if (tt >= getNextFileTime()) {
 	createNextFile(tt);
-	headerOut = false;
+	_headerOut = false;
     }
 
-    if (!headerOut) {
+    if (!_headerOut) {
 	try {
 	    printHeader();
 	}
@@ -118,17 +103,17 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 
     int ttdiff = 0;
     map<dsm_sample_id_t,dsm_time_t>::iterator pti =
-    	prevTT.find(sampid);
+    	_prevTT.find(sampid);
 
-    if (pti != prevTT.end()) {
+    if (pti != _prevTT.end()) {
         ttdiff = (tt - pti->second) / USECS_PER_MSEC;
 	pti->second = tt;
     }
-    else prevTT[sampid] = tt;
+    else _prevTT[sampid] = tt;
 
     n_u::UTime ut(tt);
 
-    ostr << setw(3) << GET_DSM_ID(sampid) << ',' <<
+    _ostr << setw(3) << GET_DSM_ID(sampid) << ',' <<
     	setw(5) << GET_SHORT_ID(sampid) << ' ' <<
 	ut.format(true,"%Y %m %d %H:%M:%S.%3f ") <<
 	setfill(' ') << setw(4) << ttdiff << ' ' <<
@@ -139,60 +124,60 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	{
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(7) << setfill(' ');
+	_ostr << setprecision(7) << setfill(' ');
 	for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
-	    ostr << setw(10) << fp[i] << ' ';
-	ostr << endl;
+	    _ostr << setw(10) << fp[i] << ' ';
+	_ostr << endl;
 	}
 	break;
     case CHAR_ST:
     default:
-	switch(format) {
+	switch(_format) {
 	case ASCII:
 	    {
 	    string dstr((const char*)samp->getConstVoidDataPtr(),
 		    samp->getDataByteLength());
-	    ostr << dstr << endl;
+	    _ostr << dstr << endl;
 	    }
 	    break;
 	case HEX:
 	    {
 	    const unsigned char* cp =
 		    (const unsigned char*) samp->getConstVoidDataPtr();
-	    ostr << setfill('0');
+	    _ostr << setfill('0');
 	    for (unsigned int i = 0; i < samp->getDataByteLength(); i++)
-		ostr << hex << setw(2) << (unsigned int)cp[i] << dec << ' ';
-	    ostr << endl;
+		_ostr << hex << setw(2) << (unsigned int)cp[i] << dec << ' ';
+	    _ostr << endl;
 	    }
 	    break;
 	case SIGNED_SHORT:
 	    {
 	    const short* sp =
 		    (const short*) samp->getConstVoidDataPtr();
-	    ostr << setfill(' ');
+	    _ostr << setfill(' ');
 	    for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
-		ostr << setw(6) << sp[i] << ' ';
-	    ostr << endl;
+		_ostr << setw(6) << sp[i] << ' ';
+	    _ostr << endl;
 	    }
 	    break;
 	case UNSIGNED_SHORT:
 	    {
 	    const unsigned short* sp =
 		    (const unsigned short*) samp->getConstVoidDataPtr();
-	    ostr << setfill(' ');
+	    _ostr << setfill(' ');
 	    for (unsigned int i = 0; i < samp->getDataByteLength()/2; i++)
-		ostr << setw(6) << sp[i] << ' ';
-	    ostr << endl;
+		_ostr << setw(6) << sp[i] << ' ';
+	    _ostr << endl;
 	    }
 	    break;
 	case FLOAT:
 	    {
 	    const float* fp =
 		    (const float*) samp->getConstVoidDataPtr();
-	    ostr << setprecision(6) << setfill(' ');
+	    _ostr << setprecision(6) << setfill(' ');
 	    for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
-		ostr << setw(10) << fp[i] << ' ';
-	    ostr << endl;
+		_ostr << setw(10) << fp[i] << ' ';
+	    _ostr << endl;
 	    }
 	    break;
 	case IRIG:
@@ -207,10 +192,10 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	    n_u::UTime itt((dsm_time_t) tv.tv_sec * USECS_PER_SEC
 	    	+ tv.tv_usec);
 
-	    ostr << itt.format(true,"%Y %m %d %H:%M:%S.%6f ") << 
+	    _ostr << itt.format(true,"%Y %m %d %H:%M:%S.%6f ") << 
 		' ' << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << n_r::IRIGSensor::statusString(status) << ')';
-	    ostr << endl;
+	    _ostr << endl;
 	    }
 	    break;
 	case DEFAULT:
@@ -220,7 +205,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
     }
 
     try {
-	getIOChannel()->write(ostr.str().c_str(),ostr.str().length());
+	getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
     }
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
@@ -228,8 +213,8 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	disconnect();
 	return false;
     }
-    ostr.str("");
-    ostr.clear();
+    _ostr.str("");
+    _ostr.clear();
     return true;
 }
 

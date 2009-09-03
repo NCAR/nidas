@@ -58,7 +58,7 @@ void TwoD64_USB::init_parameters()
      * the shadowOR sample.  Check its rate.
      */
     float sorRate = 0.0;
-    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *> tags = getSampleTags();
     list<const SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;

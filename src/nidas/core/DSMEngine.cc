@@ -45,7 +45,7 @@ DSMEngine::DSMEngine():
     _externalControl(false),_runState(RUNNING),_nextState(RUN),
     _syslogit(true),
     _project(0),
-    _dsmConfig(0),_selector(0),
+    _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
     _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0)
@@ -58,46 +58,7 @@ DSMEngine::DSMEngine():
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
         cerr << e.what();
    }
-}
-
-void DSMEngine::closeOutputs() throw()
-{
-
-    _outputMutex.lock();
-    map<SampleOutput*,SampleOutput*>::const_iterator oi = _outputMap.begin();
-    for ( ; oi != _outputMap.end(); ++oi) {
-	SampleOutput* output = oi->first;
-	SampleOutput* orig = oi->second;
-	try {
-	    if (output != orig) {
-		output->finish();
-		output->close();
-		delete output;
-	    }
-	}
-	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_INFO,
-		"%s: %s",output->getName().c_str(),e.what());
-	}
-    }
-    _outputMap.clear();
-    _outputMutex.unlock();
-
-    if (_dsmConfig) {
-	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
-	list<SampleOutput*>::const_iterator oi = outputs.begin();
-	for ( ; oi != outputs.end(); ++oi) {
-	    SampleOutput* output = *oi;
-	    try {
-		output->finish();
-		output->close();	// DSMConfig will delete
-	    }
-	    catch(const n_u::IOException& e) {
-		n_u::Logger::getInstance()->log(LOG_INFO,
-		    "%s: %s",output->getName().c_str(),e.what());
-	    }
-	}
-    }
+   SampleOutputRequestThread::getInstance()->start();
 
 }
 
@@ -106,6 +67,7 @@ DSMEngine::~DSMEngine()
     delete _statusThread;
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
+   SampleOutputRequestThread::destroyInstance();
     delete _project;
 }
 
@@ -222,12 +184,13 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    _externalControl = true;
-
-    while ((opt_char = getopt(argc, argv, "du:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dru:v")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
+	    break;
+	case 'r':
+	    _externalControl = true;
 	    break;
 	case 'u':
             {
@@ -306,6 +269,7 @@ void DSMEngine::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << " [-d ] [-v] [ config ]\n\n\
   -d:     debug - Send error messages to stderr, otherwise to syslog\n\
+  -r:     rpc - Start XML RPC thread to respond to external commands\n\
   -v:     display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
@@ -433,11 +397,18 @@ int DSMEngine::run() throw()
             _runState = ERROR;
             continue;
         }
+        catch (const n_u::InvalidParameterException& e) {
+            ELOG(("%s",e.what()));
+            _runState = ERROR;
+            continue;
+        }
         if (_nextState != RUN) continue;
 
         // start the status Thread
-        _statusThread = new DSMEngineStat("DSMEngineStat");
-        _statusThread->start();
+        if (_dsmConfig->getStatusSocketAddr().getPort() != 0) {
+            _statusThread = new DSMEngineStat("DSMEngineStat",_dsmConfig->getStatusSocketAddr());
+            _statusThread->start();
+	}
         _runState = RUNNING;
 
         _runCond.lock();
@@ -498,6 +469,8 @@ void DSMEngine::joinDataThreads() throw()
         }
     }
 
+    if (_pipeline) _pipeline->flush();
+
     if (_selector) {
         try {
             _selector->join();
@@ -536,6 +509,9 @@ void DSMEngine::deleteDataThreads() throw()
     if (DerivedDataReader::getInstance()) {
         DerivedDataReader::deleteInstance();
     }
+
+    delete _pipeline;
+    _pipeline = 0;
 }
 
 void DSMEngine::start()
@@ -805,11 +781,28 @@ void DSMEngine::openSensors() throw(n_u::IOException)
      * pthread_setschedparam under RTLinux. How ironic.
      * It causes ENOSPC on the RTLinux fifos.
      */
-     if (!isRTLinux()) {
+    if (!isRTLinux()) {
         n_u::Logger::getInstance()->log(LOG_INFO,
             "DSMEngine: !RTLinux, so setting RT priority");
          _selector->setRealTimeFIFOPriority(50);
-     }
+    }
+
+    _pipeline = new SamplePipeline();
+    _pipeline->setRealTime(true);
+    _pipeline->setRawSorterLength(_dsmConfig->getRawSorterLength());
+    _pipeline->setProcSorterLength(_dsmConfig->getProcSorterLength());
+    _pipeline->setRawHeapMax(_dsmConfig->getRawHeapMax());
+    _pipeline->setProcHeapMax(_dsmConfig->getProcHeapMax());
+
+    _pipeline->setKeepStats(false);
+
+    /* Initialize pipeline with all expected SampleTags. */
+    const list<DSMSensor*> sensors = _dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+        _pipeline->connect(sensor);
+    }
     _selector->start();
     _dsmConfig->openSensors(_selector);
 }
@@ -817,70 +810,33 @@ void DSMEngine::openSensors() throw(n_u::IOException)
 void DSMEngine::connectOutputs() throw(n_u::IOException)
 {
     // request connection for outputs
-    bool processedOutput = false;
     const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
     list<SampleOutput*>::const_iterator oi;
 
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
-	if (!output->isRaw()) processedOutput = true;
 	DLOG(("DSMEngine requesting connection from SampleOutput '%s'.",
 		     output->getName().c_str()));
-	output->requestConnection(this);
-    }
-    
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	// If we're outputting processed samples add
-	// sensors as a RawSampleClient of themselves.
-	if (processedOutput) sensor->addRawSampleClient(sensor);
+        SampleSource* src;
+        if (output->isRaw()) src = _pipeline->getRawSampleSource();
+        else src = _pipeline->getProcessedSampleSource();
+        output->addSourceSampleTags(src->getSampleTags());
+        SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
     }
 }
 
-/* A remote system has connected to one of our outputs.
- * We don't clone the output here.
- */
-void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()
+/* implementation of SampleConnectionRequester::connect(SampleOutput*) */
+void DSMEngine::connect(SampleOutput* output) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"DSMEngine: connection from %s: %s",
-	orig->getName().c_str(),output->getName().c_str());
-    try {
-	output->init();
-    }
-    catch (const n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "DSMEngine: error in init of %s: %s",
-	    	output->getName().c_str(),ioe.what());
-	disconnect(output);
-    }
+	"DSMEngine: connection from %s", output->getName().c_str());
 
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-#ifdef DEBUG
-        n_u::Logger::getInstance()->log(LOG_DEBUG,
-            "DSMEngine: adding %s as client of %s",
-            output->getName().c_str(),sensor->getName().c_str());
-#endif
-	if (output->isRaw()) sensor->addRawSampleClient(output);
-	else sensor->addSampleClient(output);
-    }
     _outputMutex.lock();
-    _outputMap[output] = orig;
-
-    list<SampleOutput*>::const_iterator oi = _pendingOutputClosures.begin();
-    for ( ; oi != _pendingOutputClosures.end(); oi++) {
-        SampleOutput* output = *oi;
-	delete output;
-    }
-    _pendingOutputClosures.clear();
-
+    _outputSet.insert(output);
     _outputMutex.unlock();
+
+    if (output->isRaw()) _pipeline->getRawSampleSource()->addSampleClient(output);
+    else  _pipeline->getProcessedSampleSource()->addSampleClient(output);
 }
 
 /*
@@ -890,14 +846,15 @@ void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()
 void DSMEngine::disconnect(SampleOutput* output) throw()
 {
     // cerr << "DSMEngine::disconnect, output=" << output << endl;
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	if (output->isRaw()) sensor->removeRawSampleClient(output);
-	else sensor->removeSampleClient(output);
-    }
+    if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
+    else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
+
+    _outputMutex.lock();
+    _outputSet.erase(output);
+    _outputMutex.unlock();
+
     try {
+	output->finish();
 	output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -906,17 +863,58 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 	    	output->getName().c_str(),ioe.what());
     }
 
-    _outputMutex.lock();
-    SampleOutput* orig = _outputMap[output];
-    _outputMap.erase(output);
-    if (output != orig) _pendingOutputClosures.push_back(output);
-    _outputMutex.unlock();
 
-    if (orig) orig->requestConnection(this);
+    SampleOutput* orig = output->getOriginal();
 
-    return;
+    if (output != orig)
+       SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+    int delay = orig->getResubmitDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
+void DSMEngine::closeOutputs() throw()
+{
+   SampleOutputRequestThread::getInstance()->clear();
+
+    _outputMutex.lock();
+
+    set<SampleOutput*>::const_iterator oi = _outputSet.begin();
+    for ( ; oi != _outputSet.end(); ++oi) {
+	SampleOutput* output = *oi;
+        if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
+        else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
+	try {
+            output->finish();
+            output->close();
+            SampleOutput* orig = output->getOriginal();
+	    if (output != orig) delete output;
+	}
+	catch(const n_u::IOException& e) {
+	    n_u::Logger::getInstance()->log(LOG_INFO,
+		"%s: %s",output->getName().c_str(),e.what());
+	}
+    }
+    _outputSet.clear();
+    _outputMutex.unlock();
+
+    if (_dsmConfig) {
+	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
+	list<SampleOutput*>::const_iterator oi = outputs.begin();
+	for ( ; oi != outputs.end(); ++oi) {
+	    SampleOutput* output = *oi;
+	    try {
+		output->finish();
+		output->close();	// DSMConfig will delete
+	    }
+	    catch(const n_u::IOException& e) {
+		n_u::Logger::getInstance()->log(LOG_INFO,
+		    "%s: %s",output->getName().c_str(),e.what());
+	    }
+	}
+    }
+}
 
 bool DSMEngine::isRTLinux()
 {
@@ -938,47 +936,32 @@ bool DSMEngine::isRTLinux()
     return false;
 }
 
-void DSMEngine::connectProcessors() throw(n_u::IOException)
+void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // request connection for processors
     ProcessorIterator pi = _dsmConfig->getProcessorIterator();
 
-    for ( ; pi.hasNext(); ) {
-        SampleIOProcessor* proc = pi.next();
-    
+    if (pi.hasNext()) {
         SensorIterator si = _dsmConfig->getSensorIterator();
         for (; si.hasNext(); ) {
             DSMSensor* sensor = si.next();
             sensor->init();
-            DSMSensorWrapper* input = new DSMSensorWrapper(sensor);
-            _inputs.push_back(input);
-            proc->connect(input);
         }
     }
-    // cerr << "DSMEngine connectProcessors done" << endl;
+    // establish connections for processors
+    for ( ; pi.hasNext(); ) {
+        SampleIOProcessor* proc = pi.next();
+        proc->connect(_pipeline->getRawSampleSource());
+    }
 }
 
 void DSMEngine::disconnectProcessors() throw()
 {
-    list<DSMSensorWrapper*>::const_iterator ii;
     if (_dsmConfig) {
         ProcessorIterator pi = _dsmConfig->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            list<DSMSensorWrapper*>::const_iterator ii = _inputs.begin();
-            for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
-                DSMSensorWrapper* input = *ii;
-                try {
-                    proc->disconnect(input);
-                }
-                catch(const n_u::IOException& e) {
-                    n_u::Logger::getInstance()->log(LOG_INFO,
-                        "%s: %s",proc->getName().c_str(),e.what());
-                }
-            }
+            proc->disconnect(_pipeline->getRawSampleSource());
         }
     }
-    for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) delete *ii;
-    _inputs.clear();
 }
 

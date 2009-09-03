@@ -16,6 +16,7 @@
 
 #include <nidas/util/Process.h>
 #include <nidas/core/Version.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 
 #include <unistd.h>
 #include <memory> // auto_ptr<>
@@ -35,10 +36,17 @@ namespace n_u = nidas::util;
 DSMServerApp* DSMServerApp::_instance = 0;
 
 DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
-    _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0)
+    _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0),
+    _externalControl(false)
 {
     _rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+    SampleOutputRequestThread::getInstance()->start();
+
+}
+DSMServerApp::~DSMServerApp()
+{
+    SampleOutputRequestThread::destroyInstance();
 }
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
@@ -46,10 +54,13 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
     extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdu:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdru:v")) != -1) {
         switch (opt_char) {
         case 'd':
             _debug = true;
+            break;
+        case 'r':
+            _externalControl = true;
             break;
 	case 'u':
             {
@@ -319,7 +330,8 @@ int DSMServerApp::run() throw()
 	    ELOG(("%s",e.what()));
 	}
 
-        startStatusThread(server);
+        if (server->getStatusSocketAddr().getPort() != 0)
+            startStatusThread(server);
 
         _runCond.lock();
         while (_runState == RUN) _runCond.wait();
@@ -339,12 +351,15 @@ int DSMServerApp::run() throw()
                                                                                 
 void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 {
+    if (!_externalControl) return;
+    if (_xmlrpcThread) return;
     _xmlrpcThread = new DSMServerIntf();
     _xmlrpcThread->start();
 }
 
 void DSMServerApp::killXmlRpcThread() throw()
 {
+    if (!_xmlrpcThread) return;
     _xmlrpcThread->interrupt();
 
 #define XMLRPC_THREAD_CANCEL
@@ -380,8 +395,10 @@ void DSMServerApp::killXmlRpcThread() throw()
 void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
 {
     if (_statusThread) return;
-    _statusThread = new DSMServerStat("DSMServerStat",server);
-    _statusThread->start();
+    if (server->getStatusSocketAddr().getPort() != 0) {
+        _statusThread = new DSMServerStat("DSMServerStat",server);
+        _statusThread->start();
+    }
 }
 
 void DSMServerApp::killStatusThread() throw()

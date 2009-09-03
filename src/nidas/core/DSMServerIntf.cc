@@ -85,7 +85,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                 no_NCAR_A2D = 0;
 
                 ostr << "<dt>" << sensor->getDeviceName();
-                ostr << ", (" << sensor->getDSMId() << "," << sensor->getShortId() << ")";
+                ostr << ", (" << sensor->getDSMId() << "," << sensor->getSensorId() << ")";
 
                 // extract the A2D board serial number
                 string A2D_SN;
@@ -131,7 +131,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                     for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                         const Variable * var = vi.next();
                         int channel = var->getA2dChannel();
-                        int gain, offset;
+                        int gain=1, offset=0;
                         if (channel < 0) continue;
                         parm = var->getParameter("gain");
                         if (parm)

@@ -104,6 +104,13 @@ public:
     }
 
     /**
+     * Inequality operator for addresses.
+     */
+    bool operator != (const Inet4Address& x) const {
+    	return inaddr.s_addr != x.inaddr.s_addr;
+    }
+
+    /**
      * Is this address a multicast address?
      * Multicast addresses are in the range 224.0.0.1 to
      * 239.255.255.255, their first four bits are 1110=0xe

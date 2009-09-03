@@ -199,9 +199,6 @@ public:
     /**
      * Get the sample identifier for the sample.
      */
-    unsigned int getShortId() const { return GET_SHORT_ID(tid); }
-    void setShortId(unsigned int val) { tid = SET_SHORT_ID(tid,val); }
-
     unsigned int getSpSId() const { return GET_SPS_ID(tid); }
     void setSpSId(unsigned int val) { tid = SET_SPS_ID(tid,val); }
 
@@ -240,7 +237,7 @@ protected:
      * The other 26 bits are the sample identifier, which is further
      * broken into 10 bits of a DSM identifier, acccessed with get/setDSMId(),
      * and 16 bits of a sensor/sample identifier, accessed with
-     * get/setShortId().
+     * get/setSpSId().
      */
     dsm_sample_id_t tid;
 };
@@ -284,16 +281,17 @@ public:
     dsm_sample_id_t getRawId() const { return header.getRawId(); }
 
     /**
-     * Set the short id portion of the sample header.
+     * Set the short id portion of the sample header, containing
+     * the sensor + sample ids.
      * This is the portion of the id without the DSM id.
      */
-    void setShortId(unsigned int val) { header.setShortId(val); }
+    void setSpSId(unsigned int val) { header.setSpSId(val); }
 
     /**
      * Get the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    unsigned int getShortId() const { return header.getShortId(); }
+    unsigned int getSpSId() const { return header.getSpSId(); }
 
     /**
      * Set the DSM (data system) id portion of the sample header.

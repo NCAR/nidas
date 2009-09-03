@@ -16,8 +16,8 @@
 #include <nidas/dynld/raf/CVIProcessor.h>
 #include <nidas/dynld/raf/CVI_LV_Input.h>
 
-
 #include <nidas/core/Project.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -29,79 +29,63 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIProcessor)
 
-CVIProcessor::CVIProcessor():
-    _sorter("CVISorter"),
-    _avgWrapper(&_averager),
-    _resampler(0),_rate(1.0),
-    _lvSensor(0)
+CVIProcessor::CVIProcessor(): SampleIOProcessor(false),
+    _outputSampleTag(0)
 {
     setName("CVIProcessor");
 }
-
-#ifdef NEED_COPY_CLONE
-/*
- * Copy constructor
- */
-CVIProcessor::CVIProcessor(const CVIProcessor& x):
-	SampleIOProcessor(x),
-        _sorter("CVISorter"),
-        _avgWrapper(&_averager),
-        _resampler(0),_rate(x._rate),
-        _lvSensor(0)
-{
-}
-CVIProcessor* CVIProcessor::clone() const
-{
-    return new CVIProcessor(*this);
-}
-#endif
 
 CVIProcessor::~CVIProcessor()
 {
 }
 
-void CVIProcessor::addSampleTag(SampleTag* tag)
+void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
+    if (getSampleTags().size() > 1)
+        throw n_u::InvalidParameterException("CVIProcessor","sample","cannot have more than one sample");
+
+    _outputSampleTag = tag;
+
     VariableIterator vi = tag->getVariableIterator();
     for ( ; vi.hasNext(); ) {
         const Variable* var = vi.next();
-        _variables.push_back(var);
         _varMatched.push_back(false);
+        _averager.addVariable(var);
     }
-    _rate = tag->getRate();
-    if (_rate > 0.0) {
-        _averager.setAveragePeriod((int)rint(MSECS_PER_SEC/_rate));
-        _sorter.setLengthMsecs((int)rint(MSECS_PER_SEC/_rate/10.));
+    if (tag->getRate() <= 0.0) {
+        ostringstream ost;
+        ost << "invalid rate: " << _rate;
+        throw n_u::InvalidParameterException("CVIProcessor","sample",ost.str());
     }
+    _averager.setAveragePeriodSecs(1.0/tag->getRate());
+
+    // SampleIOProcessor will delete
+    SampleIOProcessor::addRequestedSampleTag(tag);
 }
 
-void CVIProcessor::connect(SampleInput* input) throw()
+void CVIProcessor::connect(SampleSource* source) throw()
 {
     /*
-     * Find a match with a variable from the CVI sample:
-     * add the variable to the SampleAverager
-     * keep track of which one it is in the averager
-     * 
-     * Connect the CVIOutput to the averager
-     * 
-     * CVIOutput:
-     *      has the sample tag
-     *      loop over averager sample, putting values
-     *      where they belong. Add douts, vouts
-     *      Send sample.
-     * What about if deviations are wanted?  Call them  XXXX_dev, or XXXX_sd
-     * in the CVI sample, and compute a deviation.
+     * In the typical usage on a DSM, this connection will
+     * be from the SamplePipeline.
      */
 
-    // if it is a raw sample from a sensor, then
-    // sensor will be non-NULL.
+    /*
+     * Find a match with a variable from the CVI sample:
+     */
+
+    source = source->getProcessedSampleSource();
+    assert(source);
+
     DSMSensor* sensor = 0;
 
-    SampleTagIterator inti = input->getSampleTagIterator();
+    SampleTagIterator inti = source->getSampleTagIterator();
     for ( ; inti.hasNext(); ) {
         const SampleTag* intag = inti.next();
         dsm_sample_id_t sensorId = intag->getId() - intag->getSampleId();
+        // if it is a raw sample from a sensor, then
+        // sensor will be non-NULL.
         sensor = Project::getInstance()->findSensor(sensorId);
 
 #ifdef DEBUG
@@ -112,67 +96,46 @@ void CVIProcessor::connect(SampleInput* input) throw()
 #endif
 
         if (sensor && dynamic_cast<CVI_LV_Input*>(sensor)) {
-            _lvSensor = sensor;
-            attachLVInput(intag);
-            return;
+            attachLVInput(source,intag);
+            continue;
         }
         // sensor->setApplyVariableConversions(true);
 
         bool varMatch = false;
-
         for (VariableIterator invi = intag->getVariableIterator();
             invi.hasNext(); ) {
             const Variable* invar = invi.next();
 
-            for (unsigned int i = 0; i < _variables.size(); i++) {
-                const Variable* myvar = _variables[i];
+            for (VariableIterator vi = _outputSampleTag->getVariableIterator();
+                vi.hasNext(); ) {
+                const Variable* myvar = vi.next();
 		// variable match
-		if (*invar == *myvar) {
-                    _averager.addVariable(invar);
-                    _varMatched[i] = true;
-                    varMatch = true;
-                    // cerr << "CVIProcessor match var=" << myvar->getName() << endl;
-                }
+		if (*invar == *myvar) varMatch = true;
             }
         }
-
-        if (varMatch && sensor) {
-            sensor->addSampleClient(&_sorter);
-            _sorter.addSampleTag(intag,sensor);
-            _sorter.addSampleClient(&_averager);
-            if (!_sorter.isRunning()) _sorter.start();
-
-            sensor->addRawSampleClient(&_sorter);
-            _sorter.addSampleTag(sensor->getRawSampleTag(),sensor);
-            sensor->addSampleClient(&_averager);
-            if (!_sorter.isRunning()) _sorter.start();
-        }
+        if (varMatch) 
+            source->addSampleClientForTag(&_averager,intag);
     }
 
-    /*
-     * After the last sensor is connected:
-     * 1. SampleIOProcessor::connect(&_avgWrapper);
-     * Problem is, how to detect the "last" sensor. Need an init virtual method.
-     * CVIOutput must do variable mapping so that the variables get put
-     * in right place.
-     */
-
-    if (!_resampler) {
-        // cerr << "creating resampler" << endl;
-        _resampler = new NearestResamplerAtRate(_variables);
-        _rsmplrWrapper.reset(new SampleInputWrapper(_resampler));
-        _resampler->setRate(_rate);
-        /*
-         * This method calls addSampleTag on the configured outputs,
-         * then then issues a connect request on the outputs.
-         */
-        SampleIOProcessor::connect(_rsmplrWrapper.get());
-    }
-    _resampler->connect(&_avgWrapper);
-
+    _connectionMutex.lock();
+    _connectedSources.insert(source);
+    _connectionMutex.unlock();
 }
 
-void CVIProcessor::attachLVInput(const SampleTag* tag)
+void CVIProcessor::disconnect(SampleSource* source) throw()
+{
+    source = source->getProcessedSampleSource();
+
+    source->removeSampleClient(&_averager);
+    source->removeSampleClient(this);
+
+    _connectionMutex.lock();
+    _connectedSources.erase(source);
+    _connectionMutex.unlock();
+
+}
+ 
+void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)
     throw(n_u::IOException)
 {
     // cerr << "CVIProcessor::attachLVInput: sensor=" <<
@@ -199,34 +162,41 @@ void CVIProcessor::attachLVInput(const SampleTag* tag)
 #endif
     }
     _lvSampleId = tag->getId();
-    _lvSensor->addRawSampleClient(_lvSensor);
-    _lvSensor->addSampleClient(this);
+    source->addSampleClientForTag(this,tag);
 }
 
-
-void CVIProcessor::disconnect(SampleInput* input) throw()
+void CVIProcessor::connect(SampleOutput* output) throw()
 {
-    if (_resampler) _resampler->disconnect(&_avgWrapper);
-    input->removeProcessedSampleClient(&_averager);
-    SampleIOProcessor::disconnect(input);
-    if (_lvSensor) {
-        _lvSensor->removeRawSampleClient(_lvSensor);
-        _lvSensor->removeSampleClient(this);
-    }
-}
- 
-void CVIProcessor::connect(SampleOutput* orig, SampleOutput* output) throw()
-{
-    SampleIOProcessor::connect(orig,output);
-    if (_resampler) _resampler->addSampleClient(output);
+    _connectionMutex.lock();
+    _averager.addSampleClient(output);
+    _connectedOutputs.insert(output);
+    _connectionMutex.unlock();
 }
  
 void CVIProcessor::disconnect(SampleOutput* output) throw()
 {
-    _resampler->removeSampleClient(output);
-    SampleOutput* orig = _outputMap[output];
-    SampleIOProcessor::disconnect(output);
-    if (orig) orig->requestConnection(this);
+    _averager.removeSampleClient(output);
+
+    _connectionMutex.lock();
+    _connectedOutputs.erase(output);
+    _connectionMutex.unlock();
+
+    try {
+        output->finish();
+        output->close();
+    }
+    catch (const n_u::IOException& ioe) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "%s: error closing %s: %s",
+            getName().c_str(),output->getName().c_str(),ioe.what());
+    }
+
+    SampleOutput* orig = output->getOriginal();
+    if (orig != output)
+        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+    // reschedule a request for the original output.
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
 }
 
 bool CVIProcessor::receive(const Sample *insamp) throw()

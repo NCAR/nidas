@@ -258,7 +258,6 @@ int SensorExtract::run() throw()
 
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
-        outStream.init();
 
         nidas::core::FileSet* fset = new nidas::core::FileSet();
 

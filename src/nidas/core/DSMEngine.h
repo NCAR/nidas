@@ -20,6 +20,8 @@
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/DSMEngineIntf.h>
 #include <nidas/core/SensorHandler.h>
+#include <nidas/core/SamplePipeline.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 
 namespace nidas { namespace core {
 
@@ -153,7 +155,8 @@ private:
 
     void connectOutputs() throw(nidas::util::IOException);
 
-    void connectProcessors() throw(nidas::util::IOException);
+    void connectProcessors() throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
 
     void disconnectProcessors() throw();
 
@@ -169,7 +172,7 @@ private:
      * Implementation of SampleConnectionRequester connect methods.
      * This is how DSMEngine is notified of remote connections.
      */
-    void connect(SampleOutput*,SampleOutput*) throw();
+    void connect(SampleOutput*) throw();
 
     void disconnect(SampleOutput*) throw();
 
@@ -212,7 +215,9 @@ private:
 
     DSMConfig*       _dsmConfig;
 
-    SensorHandler*    _selector;
+    SensorHandler*  _selector;
+
+    SamplePipeline* _pipeline;
 
     /**
      * A thread that generates streaming XML time and status.
@@ -225,12 +230,9 @@ private:
     SampleClock*    _clock;
 
     /**
-     * Mapping between connected outputs and the original
-     * outputs.
+     * Connected SampleOutputs
      */
-    std::map<SampleOutput*,SampleOutput*> _outputMap;
-
-    std::list<SampleOutput*> _pendingOutputClosures;
+    std::set<SampleOutput*> _outputSet;
 
     nidas::util::Mutex            _outputMutex;
 
@@ -243,7 +245,10 @@ private:
      */
     int _rtlinux;
 
+
+#ifdef NEEDED
     std::list<DSMSensorWrapper*> _inputs;
+#endif
 
     std::string _username;
 

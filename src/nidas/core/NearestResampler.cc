@@ -22,12 +22,14 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResampler::NearestResampler(const vector<const Variable*>& vars)
+NearestResampler::NearestResampler(const vector<const Variable*>& vars):
+    _source(false)
 {
     ctorCommon(vars);
 }
 
-NearestResampler::NearestResampler(const vector<Variable*>& vars)
+NearestResampler::NearestResampler(const vector<Variable*>& vars):
+    _source(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -37,41 +39,37 @@ NearestResampler::NearestResampler(const vector<Variable*>& vars)
 
 NearestResampler::~NearestResampler()
 {
-    delete [] prevTT;
-    delete [] nearTT;
-    delete [] prevData;
-    delete [] nearData;
-    delete [] samplesSinceMaster;
-
-    map<dsm_sample_id_t,vector<int*> >::iterator vmi;
-    for (vmi = sampleMap.begin(); vmi != sampleMap.end(); ++vmi) {
-	vector<int*>& vindices = vmi->second;
-	for (unsigned int iv = 0; iv < vindices.size(); iv++)
-	    delete [] vindices[iv];
-    }
+    delete [] _prevTT;
+    delete [] _nearTT;
+    delete [] _prevData;
+    delete [] _nearData;
+    delete [] _samplesSinceMaster;
 }
 
 void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
 {
-    nvars = vars.size();
-    outlen = nvars + 1;
-    master = 0;
-    nmaster = 0;
-    prevTT = new dsm_time_t[nvars];
-    nearTT = new dsm_time_t[nvars];
-    prevData = new float[nvars];
-    nearData = new float[nvars];
-    samplesSinceMaster = new int[nvars];
-
-    for (int i = 0; i < nvars; i++) {
-	prevTT[i] = 0;
-	nearTT[i] = 0;
-	prevData[i] = floatNAN;
-	nearData[i] = floatNAN;
-	samplesSinceMaster[i] = 0;
-
+    _ndataValues = 0;
+    for (unsigned int i = 0; i < vars.size(); i++) {
 	Variable* v = new Variable(*vars[i]);
-	outSample.addVariable(v);
+	_outSample.addVariable(v);
+        _outVarIndices[v] = _ndataValues;
+        _ndataValues += v->getLength();
+    }
+    _outlen = _ndataValues + 1;
+    _master = 0;
+    _nmaster = 0;
+    _prevTT = new dsm_time_t[_ndataValues];
+    _nearTT = new dsm_time_t[_ndataValues];
+    _prevData = new float[_ndataValues];
+    _nearData = new float[_ndataValues];
+    _samplesSinceMaster = new int[_ndataValues];
+
+    for (int i = 0; i < _ndataValues; i++) {
+	_prevTT[i] = 0;
+	_nearTT[i] = 0;
+	_prevData[i] = floatNAN;
+	_nearData[i] = floatNAN;
+	_samplesSinceMaster[i] = 0;
     }
 
     // Number of non-NAs in the output sample.
@@ -79,206 +77,194 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
     v->setName("nonNANs");
     v->setType(Variable::WEIGHT);
     v->setUnits("");
-    outSample.addVariable(v);
+    _outSample.addVariable(v);
+    _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
+    addSampleTag(&_outSample);
 }
-void NearestResampler::connect(SampleInput* input)
-	throw(n_u::IOException)
+void NearestResampler::connect(SampleSource* source)
+	throw(n_u::InvalidParameterException)
 {
-    if (sampleTags.size() > 0)
-    	throw n_u::IOException(input->getName(),"NearestResampler",
-		"cannot have more than one input");
-
-    long dsmid = -1;
-    bool oneDSM = true;
-
     // make a copy of input's SampleTags collection.
-    list<const SampleTag*> intags(input->getSampleTags().begin(),
-	input->getSampleTags().end());
+    list<const SampleTag*> intags = source->getSampleTags();
 
     // cerr << "NearestResamples, intags.size()=" << intags.size() << endl;
     list<const SampleTag*>::const_iterator inti = intags.begin();
     for ( ; inti != intags.end(); ++inti ) {
 	const SampleTag* intag = *inti;
-	dsm_sample_id_t id = intag->getId();
-	dsm_sample_id_t sensorId = id - intag->getSampleId();
-
-	map<dsm_sample_id_t,vector<int*> >::iterator vmi =
-	    sampleMap.find(id);
-
-	vector<int*> indices;
-	vector<int*>* vptr = &indices;
-	if (vmi != sampleMap.end()) vptr = &vmi->second;
-
-	// if it is a raw sample from a sensor, then
-	// this should be non-NULL.
-	DSMSensor* sensor = Project::getInstance()->findSensor(sensorId);
-        // cerr << "NearestResampler, sensor=" << (sensor ? sensor->getName() : "not found") << endl;
+	dsm_sample_id_t sampid = intag->getId();
 
 	// loop over variables in this input sample, checking
 	// for a match against one of my variable names.
 	VariableIterator vi = intag->getVariableIterator();
+        bool varMatch = false;
 	for (int iv = 0; vi.hasNext(); iv++) {
 	    const Variable* var = vi.next();
+            int vindex = intag->getDataIndex(var);      // index of variable in its sample
 
 	    for (unsigned int iout = 0;
-	    	iout < outSample.getVariables().size(); iout++) {
+	    	iout < _outSample.getVariables().size(); iout++) {
 
-		Variable& myvar = outSample.getVariable(iout);
+		Variable& myvar = _outSample.getVariable(iout);
 
-#ifdef DEBUG
-		// variable match in name and station.
-		cerr << "checking " << var->getName() << "(" << var->getStation() << ") against " <<
-			myvar.getName() << "(" << myvar.getStation() <<
-			"), result=" << (*var == myvar) << endl;
-#endif
 		if (*var == myvar) {
-		    // paranoid check that this variable hasn't been added
-		    unsigned int j;
-		    for (j = 0; j < vptr->size(); j++)
-			if ((unsigned)(*vptr)[j][1] == iout) break;
-		    if (j == vptr->size()) {
-			int* idxs = new int[2];
-			idxs[0] = iv;	// input index
-			idxs[1] = iout;	// output index
-			vptr->push_back(idxs);
-			if (dsmid < 0) dsmid = intag->getDSMId();
-			else if (dsmid != (signed) intag->getDSMId())
-				oneDSM = false;
-		    }
+                    int vlen = var->getLength();
+                    // index of the 0th value of this variable in the
+                    // output array.
+                    map<Variable*,int>::iterator vi = _outVarIndices.find(&myvar);
+                    assert(vi != _outVarIndices.end());
+                    int outIndex = vi->second;
+
+                    map<dsm_sample_id_t,vector<int> >::iterator mi;
+                    if ((mi = _inmap.find(sampid)) == _inmap.end()) {
+                        vector<int> tmp;
+                        tmp.push_back(vindex);
+                        _inmap[sampid] = tmp;
+                        assert((mi = _outmap.find(sampid)) == _outmap.end());
+                        tmp.clear();
+                        tmp.push_back(outIndex);
+                        _outmap[sampid] = tmp;
+                        tmp.clear();
+                        tmp.push_back(vlen);
+                        _lenmap[sampid] = tmp;
+                    }
+                    else {
+                        mi->second.push_back(vindex);
+                        assert((mi = _outmap.find(sampid)) != _outmap.end());
+                        mi->second.push_back(outIndex);
+                        assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+                        mi->second.push_back(vlen);
+                    }
 		    // copy attributes of variable
 		    myvar = *var;
-		    if (sensor)
-			input->addProcessedSampleClient(this,sensor);
-		    else
-			input->addSampleClient(this);
+                    varMatch = true;
 		}
 	    }
 	}
-	if (vmi == sampleMap.end() && indices.size() > 0)
-		sampleMap[id] = indices;
+        if (varMatch) source->addSampleClientForTag(this,intag);
     }
-
-    if (!oneDSM) dsmid = 0;
-
-    outSample.setDSMId(dsmid);
-    outSample.setSensorId(0);
-    dsm_sample_id_t id;
-    id  = Project::getInstance()->getUniqueSampleId(dsmid);
-    outSample.setSampleId(id);
-    sampleTags.push_back(&outSample);
 }
 
-void NearestResampler::disconnect(SampleInput* input)
-	throw(n_u::IOException)
+void NearestResampler::disconnect(SampleSource* source) throw()
 {
-    input->removeProcessedSampleClient(this);
-    input->removeSampleClient(this);
+    source->removeSampleClient(this);
 }
 
-bool NearestResampler::receive(const Sample* s) throw()
+bool NearestResampler::receive(const Sample* samp) throw()
 {
-    dsm_sample_id_t id = s->getId();
+    if (samp->getType() != FLOAT_ST) return false;
 
-    map<dsm_sample_id_t,vector<int*> >::const_iterator vmi =
-    	sampleMap.find(id);
-    if (vmi == sampleMap.end()) return false;	// unrecognized sample
+    dsm_sample_id_t sampid = samp->getId();
 
-    const vector<int*>& vindices = vmi->second;
+    map<dsm_sample_id_t,vector<int> >::iterator mi;
 
-    dsm_time_t tt = s->getTimeTag();
-    const float* inData = (const float*) s->getConstVoidDataPtr();
+    if ((mi = _inmap.find(sampid)) == _inmap.end()) return false;
+    const vector<int>& invec = mi->second;
 
-    for (unsigned int iv = 0; iv < vindices.size(); iv++) {
-	int invar = vindices[iv][0];
-	int outvar = vindices[iv][1];
-	float val = inData[invar];
-	if (outvar == master) {
-	    /*
-	     * received a new master variable. Output values that were
-	     * nearest to previous master.
-	     */
-	    dsm_time_t maxTT;		// time tags must be < maxTT
-	    dsm_time_t minTT;		// time tags must be > minTT
-	    if (nmaster < 2) {
-		if (nmaster++ == 0) {
-		    nearTT[master] = prevTT[master];
-		    prevTT[master] = tt;
-		    prevData[master] = val;
-		    continue;
-		}
-		// maxTT is current time minus 0.1 of deltat
-		maxTT = tt - (tt - prevTT[master]) / 10;
-		// minTT is previous time minus 0.9 of deltat
-		minTT = prevTT[master] - ((tt - prevTT[master]) * 9) / 10;
-	    }
-	    else {
-		// maxTT is current time minus 0.1 of deltat
-		maxTT = tt - (tt - prevTT[master]) / 10;
-		// minTT is two times back plus 0.1 of deltat
-		minTT = nearTT[master] +
-		    (prevTT[master] - nearTT[master]) / 10;
-	    }
+    assert((mi = _outmap.find(sampid)) != _outmap.end());
+    const vector<int>& outvec = mi->second;
 
-	    SampleT<float>* osamp = getSample<float>(outlen);
-	    float* outData = osamp->getDataPtr();
-	    int nonNANs = 0;
-	    for (int k = 0; k < nvars; k++) {
-		if (k == master) {
-		  // master variable
-		  if (!isnan(outData[k] = prevData[k])) nonNANs++;
-		  continue;
-		}
-		switch (samplesSinceMaster[k]) {
-		case 0:
-		    // If there was no sample for this variable since
-		    // the previous master then use prevData
-		    if (prevTT[k] > maxTT || prevTT[k] < minTT)
-			    outData[k] = floatNAN;
-		    else if (!isnan(outData[k] = prevData[k])) nonNANs++;
-		    break;
-		default:        // 1 or more
-		    if (nearTT[k] > maxTT || nearTT[k] < minTT)
-			    outData[k] = floatNAN;
-		    else if (!isnan(outData[k] = nearData[k])) nonNANs++;
-		    break;
-		}
-		samplesSinceMaster[k] = 0;
-	    }
-	    osamp->setTimeTag(prevTT[master]);
-	    osamp->setId(outSample.getId());
-	    outData[nvars] = (float) nonNANs;
-	    distribute(osamp);
+    assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+    const vector<int>& lenvec = mi->second;
 
-	    nearTT[master] = prevTT[master];
-	    prevTT[master] = tt;
-	    prevData[master] = val;
-	}
-	else {
-	    switch (samplesSinceMaster[outvar]) {
-	    case 0:
-	      // this is the first sample of this variable since the last master
-	      // Assumes input samples are sorted in time!!
-	      // Determine which of previous and current sample is the nearest
-	      // to prevMasterTT.
-	      if (prevTT[master] > (tt + prevTT[outvar]) / 2) {
-		  nearData[outvar] = val;
-		  nearTT[outvar] = tt;
-	      }
-	      else {
-		  nearData[outvar] = prevData[outvar];
-		  nearTT[outvar] = prevTT[outvar];
-	      }
-	      samplesSinceMaster[outvar]++;
-	      break;
-	    default:
-		// this is at least the second sample since the last master sample
-		// since samples are in time sequence, this one can't
-		// be the nearest one to the previous master.
-		break;
-	    }
-	    prevData[outvar] = val;
-	    prevTT[outvar] = tt;
-	}
+    assert(invec.size() == outvec.size());
+    assert(invec.size() == lenvec.size());
+
+    dsm_time_t tt = samp->getTimeTag();
+    const float* inData = (const float*) samp->getConstVoidDataPtr();
+
+    for (unsigned int iv = 0; iv < invec.size(); iv++) {
+	int invar = invec[iv];
+	int outvar = outvec[iv];
+        for (int iv2 = 0; iv2 < lenvec[iv]; iv2++,invar++,outvar++) {
+            float val = inData[invar];
+            if (outvar == _master) {
+                /*
+                 * received a new master variable. Output values that were
+                 * nearest to previous master.
+                 */
+                dsm_time_t maxTT;		// time tags must be < maxTT
+                dsm_time_t minTT;		// time tags must be > minTT
+                if (_nmaster < 2) {
+                    if (_nmaster++ == 0) {
+                        _nearTT[_master] = _prevTT[_master];
+                        _prevTT[_master] = tt;
+                        _prevData[_master] = val;
+                        continue;
+                    }
+                    // maxTT is current time minus 0.1 of deltat
+                    maxTT = tt - (tt - _prevTT[_master]) / 10;
+                    // minTT is previous time minus 0.9 of deltat
+                    minTT = _prevTT[_master] - ((tt - _prevTT[_master]) * 9) / 10;
+                }
+                else {
+                    // maxTT is current time minus 0.1 of deltat
+                    maxTT = tt - (tt - _prevTT[_master]) / 10;
+                    // minTT is two times back plus 0.1 of deltat
+                    minTT = _nearTT[_master] +
+                        (_prevTT[_master] - _nearTT[_master]) / 10;
+                }
+
+                SampleT<float>* osamp = getSample<float>(_outlen);
+                float* outData = osamp->getDataPtr();
+                int nonNANs = 0;
+                for (int k = 0; k < _ndataValues; k++) {
+                    if (k == _master) {
+                      // master variable
+                      if (!isnan(outData[k] = _prevData[k])) nonNANs++;
+                      continue;
+                    }
+                    switch (_samplesSinceMaster[k]) {
+                    case 0:
+                        // If there was no sample for this variable since
+                        // the previous master then use prevData
+                        if (_prevTT[k] > maxTT || _prevTT[k] < minTT)
+                                outData[k] = floatNAN;
+                        else if (!isnan(outData[k] = _prevData[k])) nonNANs++;
+                        break;
+                    default:        // 1 or more
+                        if (_nearTT[k] > maxTT || _nearTT[k] < minTT)
+                                outData[k] = floatNAN;
+                        else if (!isnan(outData[k] = _nearData[k])) nonNANs++;
+                        break;
+                    }
+                    _samplesSinceMaster[k] = 0;
+                }
+                osamp->setTimeTag(_prevTT[_master]);
+                osamp->setId(_outSample.getId());
+                outData[_ndataValues] = (float) nonNANs;
+                _source.distribute(osamp);
+
+                _nearTT[_master] = _prevTT[_master];
+                _prevTT[_master] = tt;
+                _prevData[_master] = val;
+            }
+            else {
+                switch (_samplesSinceMaster[outvar]) {
+                case 0:
+                  // this is the first sample of this variable since the last master
+                  // Assumes input samples are sorted in time!!
+                  // Determine which of previous and current sample is the nearest
+                  // to prevMasterTT.
+                  if (_prevTT[_master] > (tt + _prevTT[outvar]) / 2) {
+                      _nearData[outvar] = val;
+                      _nearTT[outvar] = tt;
+                  }
+                  else {
+                      _nearData[outvar] = _prevData[outvar];
+                      _nearTT[outvar] = _prevTT[outvar];
+                  }
+                  _samplesSinceMaster[outvar]++;
+                  break;
+                default:
+                    // this is at least the second sample since the last master sample
+                    // since samples are in time sequence, this one can't
+                    // be the nearest one to the previous master.
+                    break;
+                }
+                _prevData[outvar] = val;
+                _prevTT[outvar] = tt;
+            }
+        }
     }
     return true;
 }
@@ -288,44 +274,45 @@ bool NearestResampler::receive(const Sample* s) throw()
  */
 void NearestResampler::finish() throw()
 {
-    if (nmaster < 2) return;
+    if (_nmaster < 2) return;
     dsm_time_t maxTT;			// times must be < maxTT
     dsm_time_t minTT;			// times must be > minTT
 
-    maxTT = prevTT[master] + (prevTT[master] - nearTT[master]);
-    minTT = nearTT[master];
+    maxTT = _prevTT[_master] + (_prevTT[_master] - _nearTT[_master]);
+    minTT = _nearTT[_master];
 
-    SampleT<float>* osamp = getSample<float>(outlen);
+    SampleT<float>* osamp = getSample<float>(_outlen);
     float* outData = osamp->getDataPtr();
     int nonNANs = 0;
-    for (int k = 0; k < nvars; k++) {
-	if (k == master) {
+    for (int k = 0; k < _ndataValues; k++) {
+	if (k == _master) {
 	    // master variable
-	    if (!isnan(outData[k] = prevData[k])) nonNANs++;
-	    prevData[k] = floatNAN;
+	    if (!isnan(outData[k] = _prevData[k])) nonNANs++;
+	    _prevData[k] = floatNAN;
 	    continue;
 	}
-	switch (samplesSinceMaster[k]) {
+	switch (_samplesSinceMaster[k]) {
 	case 0:
 	    // If there was no sample for this variable since
 	    // the previous master then use prevData
-	    if (prevTT[k] > maxTT || prevTT[k] < minTT)
+	    if (_prevTT[k] > maxTT || _prevTT[k] < minTT)
 		    outData[k] = floatNAN;
-	    else if (!isnan(outData[k] = prevData[k])) nonNANs++;
+	    else if (!isnan(outData[k] = _prevData[k])) nonNANs++;
 	    break;
 	default:        // 1 or more
-	    if (nearTT[k] > maxTT || nearTT[k] < minTT)
+	    if (_nearTT[k] > maxTT || _nearTT[k] < minTT)
 		    outData[k] = floatNAN;
-	    else if (!isnan(outData[k] = nearData[k])) nonNANs++;
+	    else if (!isnan(outData[k] = _nearData[k])) nonNANs++;
 	    break;
 	}
-	samplesSinceMaster[k] = 0;
-	prevData[k] = floatNAN;
+	_samplesSinceMaster[k] = 0;
+	_prevData[k] = floatNAN;
     }
-    osamp->setTimeTag(prevTT[master]);
-    osamp->setId(outSample.getId());
-    outData[nvars] = (float) nonNANs;
-    distribute(osamp);
+    osamp->setTimeTag(_prevTT[_master]);
+    osamp->setId(_outSample.getId());
+    outData[_ndataValues] = (float) nonNANs;
+    _source.distribute(osamp);
 
-    nmaster = 0;	// reset
+    _nmaster = 0;	// reset
+    _source.flush();
 }

@@ -29,34 +29,33 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,GOESOutput)
 
 GOESOutput::GOESOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),goesXmtr(0),xmitThread(0),
-	interrupted(false),configid(-1)
+	SampleOutputBase(ioc),_goesXmtr(0),_xmitThread(0),
+	_interrupted(false),_configid(-1)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
-	goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+	_goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+        if (!_goesXmtr) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    getName().c_str(),"output is not a GOESXmtr");
+            assert(_goesXmtr);
+        }
     }
 }
 
-/* copy constructor */
-GOESOutput::GOESOutput(const GOESOutput& x):
-	SampleOutputBase(x),goesXmtr(0),xmitThread(0),
-	interrupted(false),configid(x.configid)
+/* copy constructor, with a new IOChannel */
+GOESOutput::GOESOutput(GOESOutput& x,IOChannel*ioc):
+        SampleOutputBase(x,ioc),_goesXmtr(0),_xmitThread(0),
+        _interrupted(false),_configid(x._configid)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
-	goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
-    }
-}
-
-/* copy constructor */
-GOESOutput::GOESOutput(const GOESOutput& x,IOChannel*ioc):
-	SampleOutputBase(x,ioc),goesXmtr(0),xmitThread(0),
-	interrupted(false),configid(x.configid)
-{
-    if (getIOChannel()) {
-        setName(string("GOESOutput: ") + getIOChannel()->getName());
-	goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+        _goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+        if (!_goesXmtr) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    getName().c_str(),"output is not a GOESXmtr");
+            assert(_goesXmtr);
+        }
     }
 }
 
@@ -64,14 +63,14 @@ GOESOutput::~GOESOutput()
 {
     cancelThread();
     joinThread();
-    delete xmitThread;
+    delete _xmitThread;
 }
 void GOESOutput::joinThread() throw()
 {
-    if (xmitThread) {
-	if (xmitThread->isRunning()) xmitThread->interrupt();
+    if (_xmitThread) {
+	if (_xmitThread->isRunning()) _xmitThread->interrupt();
 	try {
-	    if (!xmitThread->isJoined()) xmitThread->join();
+	    if (!_xmitThread->isJoined()) _xmitThread->join();
 	}
 	catch(const n_u::Exception& e) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
@@ -82,9 +81,9 @@ void GOESOutput::joinThread() throw()
 
 void GOESOutput::cancelThread() throw()
 {
-    if (xmitThread) {
+    if (_xmitThread) {
 	try {
-	    if (xmitThread->isRunning()) xmitThread->cancel();
+	    if (_xmitThread->isRunning()) _xmitThread->cancel();
 	}
 	catch(const n_u::Exception& e) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
@@ -104,17 +103,22 @@ void GOESOutput::setIOChannel(IOChannel* val)
     SampleOutputBase::setIOChannel(val);
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
-	goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+	_goesXmtr = dynamic_cast<GOESXmtr*>(getIOChannel());
+        if (!_goesXmtr) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    getName().c_str(),"output is not a GOESXmtr");
+            assert(_goesXmtr);
+        }
     }
-    else goesXmtr = 0;
+    else _goesXmtr = 0;
 }
 
 /*
- * The output sample is from the XML configuration, describing
+ * The requested sample is from the XML configuration, describing
  * what we're supposed to send out. It contains a "outvars"
  * parameter listing the names of the variables to send out.
  */
-void GOESOutput::addOutputSampleTag(SampleTag* tag)
+void GOESOutput::addRequestedSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
 
@@ -134,7 +138,7 @@ void GOESOutput::addOutputSampleTag(SampleTag* tag)
 	ostringstream ost;
 	dsm_sample_id_t id = tag->getId();
 	ost << "sample id=" << id << "(dsm=" << GET_DSM_ID(id) <<
-		", sample=" << GET_SHORT_ID(id) << ")";
+		", sample=" << GET_SPS_ID(id) << ")";
         throw n_u::InvalidParameterException(
 	    getName(),ost.str(),"has no \"outvars\" parameter");
     }
@@ -146,8 +150,7 @@ void GOESOutput::addOutputSampleTag(SampleTag* tag)
 	tag->addVariable(var);
     }
 
-    outputSampleTags.push_back(tag);
-    constOutputSampleTags.push_back(tag);
+    SampleOutputBase::addRequestedSampleTag(tag);
 }
 
 /*
@@ -155,7 +158,8 @@ void GOESOutput::addOutputSampleTag(SampleTag* tag)
  * For the input sample id, create a mapping of where
  * the variables go in the output sample.
  */
-void GOESOutput::addSampleTag(const SampleTag* tag)
+void GOESOutput::addSourceSampleTag(const SampleTag* tag)
+    throw(n_u::InvalidParameterException)
 {
 
 #ifdef DEBUG
@@ -164,13 +168,17 @@ void GOESOutput::addSampleTag(const SampleTag* tag)
 	GET_SHORT_ID(tag->getId()) << 
 	" station=" << tag->getStation() << endl;
 #endif
-    stationNumber = tag->getStation();
+    _stationNumber = tag->getStation();
 
-    SampleOutputBase::addSampleTag(tag);
+    SampleOutputBase::addSourceSampleTag(tag);
 
     // for each variable in a Sample, a vector
     // of indices in output samples of where it should go.
     vector<vector<pair<int,int> > > varIndices;
+
+    _tagsMutex.lock();
+    list<const SampleTag*> reqTags = getRequestedSampleTags();
+    _tagsMutex.unlock();
 
     VariableIterator vi = tag->getVariableIterator();
     for ( ; vi.hasNext(); ) {
@@ -181,10 +189,10 @@ void GOESOutput::addSampleTag(const SampleTag* tag)
 
 	vector<pair<int,int> > indices;
 	
-	list<SampleTag*>::const_iterator si = outputSampleTags.begin();
-	for (int osindex = 0; si != outputSampleTags.end(); ++si,osindex++) {
-	    SampleTag* otag = *si;
-	    VariableIterator vi2 = otag->getVariableIterator();
+	list<const SampleTag*>::const_iterator si = reqTags.begin();
+	for (int osindex = 0; si != reqTags.end(); ++si,osindex++) {
+	    const SampleTag* rtag = *si;
+	    VariableIterator vi2 = rtag->getVariableIterator();
 	    for (int ovindex = 0; vi2.hasNext(); ovindex++) {
 		const Variable* var2 = vi2.next();
 		if (*var2 == *var) {
@@ -205,70 +213,73 @@ void GOESOutput::addSampleTag(const SampleTag* tag)
 	}
 	varIndices.push_back(indices);
     }
-    sampleMap[tag->getId()] = varIndices;
+    _sampleMap[tag->getId()] = varIndices;
 }
 
 /*
  * We're ready to go.
  */
-void GOESOutput::init() throw()
+void GOESOutput::connected(IOChannel* ochan) throw()
 {
-
     Project* project = Project::getInstance();
 
-    if (goesXmtr->getId() == 0) {
+    if (_goesXmtr->getId() == 0) {
         const Parameter* ids = project->getParameter("goes_ids");
-	if (ids->getLength() > stationNumber)
-	    goesXmtr->setId((unsigned int)
-	    	ids->getNumericValue(stationNumber));
+	if (ids->getLength() > _stationNumber)
+	    _goesXmtr->setId((unsigned int)
+	    	ids->getNumericValue(_stationNumber));
 	else
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    	"%s: goes_id not available for station number %d",
-			getName().c_str(),stationNumber);
+			getName().c_str(),_stationNumber);
     }
       
-    if (goesXmtr->getChannel() == 0) {
+    if (_goesXmtr->getChannel() == 0) {
         const Parameter* chans = project->getParameter("goes_channels");
-	if (chans->getLength() > stationNumber)
-	    goesXmtr->setChannel((int) chans->getNumericValue(stationNumber));
+	if (chans->getLength() > _stationNumber)
+	    _goesXmtr->setChannel((int) chans->getNumericValue(_stationNumber));
 	else
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    	"%s: goes channel number not available for station number %d",
-			getName().c_str(),stationNumber);
+			getName().c_str(),_stationNumber);
     }
       
     if (getXmitOffset() == 0) {
         const Parameter* offs = project->getParameter("goes_xmitOffsets");
-	if (offs->getLength() > stationNumber)
-	    goesXmtr->setXmitOffset((int) offs->getNumericValue(stationNumber));
+	if (offs->getLength() > _stationNumber)
+	    _goesXmtr->setXmitOffset((int) offs->getNumericValue(_stationNumber));
 	else
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    	"%s: goes transmit offset time not available for station number %d",
-			getName().c_str(),stationNumber);
+			getName().c_str(),_stationNumber);
     }
 
-    if (configid < 0) {
+    if (_configid < 0) {
         const Parameter* cfg = project->getParameter("goes_config");
 	if (cfg->getLength() > 0)
-	    configid = ((int) cfg->getNumericValue(0));
+	    _configid = ((int) cfg->getNumericValue(0));
 	else
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    	"%s: goes_config parameter not found for project");
     }
 
-    n_u::Autolock lock(sampleMutex);
+    n_u::Autolock lock(_sampleMutex);
 
-    // report any output variables that haven't been found in the input samples
-    list<SampleTag*>::const_iterator si = outputSampleTags.begin();
-    for (int osindex = 0; si != outputSampleTags.end(); ++si,osindex++) {
-	SampleTag* otag = *si;
-	VariableIterator vi2 = otag->getVariableIterator();
+    // report any requested variables that haven't been found in the input samples
+    _tagsMutex.lock();
+    list<const SampleTag*> reqTags = getRequestedSampleTags();
+    _tagsMutex.unlock();
+
+    list<const SampleTag*>::const_iterator si = reqTags.begin();
+    for (int osindex = 0; si != reqTags.end(); ++si,osindex++) {
+	const SampleTag* rtag = *si;
+	VariableIterator vi2 = rtag->getVariableIterator();
 	for (int ovindex = 0; vi2.hasNext(); ovindex++) {
 	    const Variable* var = vi2.next();
 	    bool found = false;
 	    std::map<dsm_sample_id_t,vector<vector<pair<int,int> > > >::const_iterator
-		mi = sampleMap.begin();
-	    for (; !found && mi != sampleMap.end(); ++mi) {
+		mi = _sampleMap.begin();
+	    for (; !found && mi != _sampleMap.end(); ++mi) {
 		const vector<vector<pair<int,int> > >& varIndices = mi->second;
 		for (unsigned int i = 0; !found && i < varIndices.size(); i++) {
 		    const vector<pair<int,int> >& indices = varIndices[i];
@@ -286,32 +297,34 @@ void GOESOutput::init() throw()
     }
       
     n_u::UTime tnow;
-    maxPeriodUsec = 0;
-    si = outputSampleTags.begin();
-    for (; si != outputSampleTags.end(); ++si) {
-	SampleTag* otag = *si;
-	SampleT<float>* osamp = getSample<float>(otag->getVariables().size());
+    _maxPeriodUsec = 0;
+    si = reqTags.begin();
+    for (; si != reqTags.end(); ++si) {
+	const SampleTag* rtag = *si;
+	SampleT<float>* osamp = getSample<float>(rtag->getVariables().size());
 
 	unsigned int periodUsec =
-	    (unsigned int)rint(otag->getPeriod()) * USECS_PER_SEC;
+	    (unsigned int)rint(rtag->getPeriod()) * USECS_PER_SEC;
 
 	// time of next sample
 	n_u::UTime tnext = tnow.toUsecs() -
 	    (tnow.toUsecs() % periodUsec) + periodUsec / 2;
 	osamp->setTimeTag(tnext.toUsecs());
-	osamp->setId(otag->getId());
+	osamp->setId(rtag->getId());
 
-	for (unsigned int j = 0; j < otag->getVariables().size(); j++)
+	for (unsigned int j = 0; j < rtag->getVariables().size(); j++)
 	    osamp->getDataPtr()[j] = floatNAN;
 
-	outputSamples.push_back(osamp);
-	maxPeriodUsec = std::max((long long)maxPeriodUsec,
-		(long long)rint(otag->getPeriod()) * USECS_PER_SEC);
+	_outputSamples.push_back(osamp);
+	_maxPeriodUsec = std::max((long long)_maxPeriodUsec,
+		(long long)rint(rtag->getPeriod()) * USECS_PER_SEC);
     }
     joinThread();
-    delete xmitThread;
-    xmitThread = new n_u::ThreadRunnable("GOESOutput",this);
-    xmitThread->start();
+    delete _xmitThread;
+    _xmitThread = new n_u::ThreadRunnable("GOESOutput",this);
+    _xmitThread->start();
+
+    SampleOutputBase::connected(ochan);
 }
 
 bool GOESOutput::receive(const Sample* samp) 
@@ -325,11 +338,11 @@ bool GOESOutput::receive(const Sample* samp)
     n_u::UTime tnow;
     const SampleT<float>* isamp = static_cast<const SampleT<float>*>(samp);
 
-    n_u::Autolock lock(sampleMutex);
+    n_u::Autolock lock(_sampleMutex);
 
     std::map<dsm_sample_id_t,vector<vector<pair<int,int> > > >::const_iterator
-    	mi = sampleMap.find(samp->getId());
-    if (mi == sampleMap.end()) {
+    	mi = _sampleMap.find(samp->getId());
+    if (mi == _sampleMap.end()) {
         cerr << "sample tag " <<
 		GET_DSM_ID(samp->getId()) << ',' <<
 		GET_SHORT_ID(samp->getId()) << " not found" << endl;
@@ -349,7 +362,7 @@ bool GOESOutput::receive(const Sample* samp)
 	    int osampi = indices[j].first;
 	    int ovari = indices[j].second;
 	    // cerr << "osampi=" << osampi << " ovari=" << ovari << endl;
-	    SampleT<float>* osamp = outputSamples[osampi];
+	    SampleT<float>* osamp = _outputSamples[osampi];
 	    if (::llabs(isamp->getTimeTag()-osamp->getTimeTag()) > USECS_PER_MSEC) {
 		// complain about a late sample, but send the data anyway.
 		const char* ttmsg = "Bad";
@@ -372,7 +385,7 @@ bool GOESOutput::receive(const Sample* samp)
 
 void GOESOutput::interrupt()
 {
-    interrupted = true;
+    _interrupted = true;
 }
 
 int GOESOutput::run() throw(n_u::Exception)
@@ -403,21 +416,21 @@ int GOESOutput::run() throw(n_u::Exception)
     // to be reduced.
 
     try {
-	goesXmtr->init();
+	_goesXmtr->init();
     }
     catch(const n_u::IOException& e) {
 	n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		getName().c_str(),e.what());
 	try {
-	    goesXmtr->reset();
+	    _goesXmtr->reset();
 	}
 	catch(const n_u::IOException& e2) {
 	}
     }
 
-    goesXmtr->printStatus();	// no exception
+    _goesXmtr->printStatus();	// no exception
 
-    for (; !interrupted; ) {
+    for (; !_interrupted; ) {
 	if (nidas::core::sleepUntil(periodMsec,wakeOffMsec)) break;
 
 	n_u::UTime tnow;
@@ -425,35 +438,40 @@ int GOESOutput::run() throw(n_u::Exception)
 	cerr << "woke, now=" << tnow.format(true,"%c") << endl;
 #endif
 
-	if (interrupted) break;
+	if (_interrupted) break;
 
 	// lock sampleVector, make a copy of the vector of outputSamples.
 	// Request new Samples from the pool and put them in outputSamples
 	// for new incoming data.
-	sampleMutex.lock();
-	vector<SampleT<float>*> outcopy = outputSamples;
+	_sampleMutex.lock();
+	vector<SampleT<float>*> outcopy = _outputSamples;
 
-	list<SampleTag*>::const_iterator si = outputSampleTags.begin();
-	for (int i = 0; si != outputSampleTags.end(); ++si,i++) {
-	    SampleTag* otag = *si;
+        _tagsMutex.lock();
+        list<const SampleTag*> reqTags = getRequestedSampleTags();
+        _tagsMutex.unlock();
+
+        list<const SampleTag*>::const_iterator si = reqTags.begin();
+        for (int i = 0; si != reqTags.end(); ++si,i++) {
+
+            const SampleTag* rtag = *si;
 	    SampleT<float>* osamp =
-	    	getSample<float>(otag->getVariables().size());
+	    	getSample<float>(rtag->getVariables().size());
 	    // overflows at something over an hour
 	    unsigned int periodUsec =
-	    	(unsigned int)rint(otag->getPeriod()) * USECS_PER_SEC;
+	    	(unsigned int)rint(rtag->getPeriod()) * USECS_PER_SEC;
 
 	    // time of next sample
 	    n_u::UTime tnext = tnow.toUsecs() -
 		(tnow.toUsecs() % periodUsec) + periodUsec / 2;
 	    osamp->setTimeTag(tnext.toUsecs());
-	    osamp->setId(otag->getId());
+	    osamp->setId(rtag->getId());
 
-	    for (unsigned int j = 0; j < otag->getVariables().size(); j++)
+	    for (unsigned int j = 0; j < rtag->getVariables().size(); j++)
 		osamp->getDataPtr()[j] = floatNAN;
 
-	    outputSamples[i] = osamp;
+	    _outputSamples[i] = osamp;
 	}
-	sampleMutex.unlock();
+	_sampleMutex.unlock();
 
 
 	// send out the samples in outcopy
@@ -478,13 +496,13 @@ int GOESOutput::run() throw(n_u::Exception)
 	    }
 	    else {
 		try {
-		    goesXmtr->transmitData(tsend,configid,osamp);
+		    _goesXmtr->transmitData(tsend,_configid,osamp);
 		}
 		catch(const n_u::IOException& e) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 			    getName().c_str(),e.what());
 		    try {
-			goesXmtr->reset();
+			_goesXmtr->reset();
 		    }
 		    catch(const n_u::IOException& e2) {
 			n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
@@ -494,7 +512,7 @@ int GOESOutput::run() throw(n_u::Exception)
 	    }
 	    osamp->freeReference();
 	}
-	goesXmtr->printStatus();	// no exception
+	_goesXmtr->printStatus();	// no exception
     }
 
     return n_u::Thread::RUN_OK;
@@ -526,7 +544,7 @@ void GOESOutput::fromDOMElement(const xercesc::DOMElement* node)
 	else if (!elname.compare("sample")) {
 	    SampleTag* stag = new SampleTag();
 	    stag->fromDOMElement((xercesc::DOMElement*)child);
-	    addOutputSampleTag(stag);
+	    addRequestedSampleTag(stag);
 	}
 	else throw n_u::InvalidParameterException(
                     "GOESOutput::fromDOMElement",

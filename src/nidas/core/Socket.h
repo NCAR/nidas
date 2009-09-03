@@ -146,10 +146,7 @@ public:
 
     }
 
-    void close() throw (nidas::util::IOException)
-    {
-        if (_nusocket) _nusocket->close();
-    }
+    void close() throw (nidas::util::IOException);
 
     int getFd() const
     {
@@ -230,7 +227,11 @@ public:
         ConnectionThread(Socket* sock):
             Thread("SocketConnectionThread"),_socket(sock) {}
 
+        ~ConnectionThread();
+
         int run() throw(nidas::util::IOException);
+
+        void interrupt();
 
     protected:
         Socket* _socket;
@@ -238,10 +239,6 @@ public:
 
 
 private:
-
-    // friend class ClientSocketConnectionThread;
-
-    // void connectionThreadFinished();
 
     std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
 
@@ -276,6 +273,8 @@ private:
     dsm_time_t _lastWrite;
 
     bool _nonBlocking;
+
+    nidas::util::Mutex _connectionMutex;
 
 };
 

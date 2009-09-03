@@ -558,6 +558,7 @@ int DataDump::main(int argc, char** argv)
 
 int DataDump::run() throw()
 {
+    auto_ptr<DumpClient> dumper;
 
     try {
 	IOChannel* iochan = 0;
@@ -566,23 +567,9 @@ int DataDump::run() throw()
 	    nidas::core::FileSet* fset = new nidas::core::FileSet();
 	    iochan = fset;
 
-#ifdef USE_FILESET_TIME_CAPABILITY
-	    struct tm tm;
-	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t start = timegm(&tm);
-
-	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t end = timegm(&tm);
-
-	    fset->setDir("/tmp/RICO/hiaper");
-	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	    fset->setStartTime(start);
-	    fset->setEndTime(end);
-#else
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		  fset->addFileName(*fi);
-#endif
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
@@ -591,7 +578,7 @@ int DataDump::run() throw()
 
 	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
         sis.setMaxSampleLength(32768);
-	sis.init();
+	// sis.init();
 	sis.readInputHeader();
 	const SampleInputHeader& header = sis.getInputHeader();
 
@@ -620,25 +607,38 @@ int DataDump::run() throw()
 	    }
 	}
 
-	DumpClient dumper(sampleIds,format,cout);
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(0);
+        pipeline.setProcSorterLength(0);
 
 	// Always add dumper as raw client, in case user wants to dump
 	// both raw and processed samples.
-	sis.addSampleClient(&dumper);
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->init();
-		sis.addProcessedSampleClient(&dumper,sensor);
+                //  1. inform the SampleInputStream of what SampleTags to expect
+                sis.addSampleTag(sensor->getRawSampleTag());
 		DLOG(("addProcessedSampleClient(") << "dumper"
 		     << ", " << sensor->getName() 
 		     << "[" << sensor->getDSMId() << ","
-		     << sensor->getShortId() << "])");
+		     << sensor->getSensorId() << "])");
 	    }
 	}
 
-	dumper.printHeader();
+        // 2. connect the pipeline to the SampleInputStream.
+        pipeline.connect(&sis);
+
+        // 3. connect the client to the pipeline
+	dumper.reset(new DumpClient(sampleIds,format,cout));
+	if (processData)
+            pipeline.getProcessedSampleSource()->addSampleClient(dumper.get());
+        else
+            pipeline.getRawSampleSource()->addSampleClient(dumper.get());
+
+	dumper->printHeader();
 
 	for (;;) {
 	    sis.readSamples();

@@ -98,7 +98,7 @@ IOChannel* FileSet::connect()
 {
     // synchronous mount
     if (_mount) _mount->mount();
-    return clone();
+    return this;
 }
 
 void FileSet::requestConnection(IOChannelRequester* rqstr)

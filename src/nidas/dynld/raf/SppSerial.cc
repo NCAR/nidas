@@ -153,7 +153,7 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
     for (int i = 0; i < p->getLength(); ++i)
         _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
 
-    const list<const SampleTag*>& tags = getSampleTags();
+    const list<const SampleTag*> tags = getSampleTags();
     if (tags.size() != 1)
           throw n_u::InvalidParameterException(getName(), "sample", 
               "must be one <sample> tag for this sensor");

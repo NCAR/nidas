@@ -247,7 +247,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 			ost << var->getName() << " from sensor=" <<
 			    sensor->getName() << '(' <<
 			    sensor->getDSMId() << ',' <<
-			    sensor->getShortId() << ')';
+			    sensor->getSensorId() << ')';
 			throw n_u::InvalidParameterException("variable",
 			    ost.str(),"is not unique");
 		    }
@@ -261,7 +261,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 			ost << var->getName() << " from sensor=" <<
 			    sensor->getName() << '(' <<
 			    sensor->getDSMId() << ',' <<
-			    sensor->getShortId() << ')';
+			    sensor->getSensorId() << ')';
 			throw n_u::InvalidParameterException("variable",
 			    ost.str(),"is not unique");
 		    }

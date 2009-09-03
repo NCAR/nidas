@@ -15,6 +15,7 @@
 */
 
 #include <nidas/dynld/SampleProcessor.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 
 #include <nidas/util/Logger.h>
@@ -30,7 +31,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleProcessor)
 
 SampleProcessor::SampleProcessor():
-	SampleIOProcessor(),_input(0)
+	SampleIOProcessor(false)
 {
     setName("SampleProcessor");
 }
@@ -39,72 +40,86 @@ SampleProcessor::~SampleProcessor()
 {
 }
 
-void SampleProcessor::connect(SampleInput* input) throw()
+void SampleProcessor::connect(SampleSource* source) throw()
 {
-    ILOG(("%s connect to SampleProcessor",input->getName().c_str()) << " _ input=" << _input);
-    if (!_input) {
+    source = source->getProcessedSampleSource();
+
+    n_u::Autolock alock(_connectionMutex);
+
+    // on first SampleSource connection, request output connections.
+    if (_connectedSources.size() == 0) {
         const list<SampleOutput*>& outputs = getOutputs();
         list<SampleOutput*>::const_iterator oi = outputs.begin();
         for ( ; oi != outputs.end(); ++oi) {
             SampleOutput* output = *oi;
-            ILOG(("SampleProcessor requesting Connection of %s",output->getName().c_str()));
-            output->requestConnection(this);
+            // some SampleOutputs want to know what they are getting
+            output->addSourceSampleTags(source->getSampleTags());
+            SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
-    _connectedInputs.push_back(input);
-    _input = input;
+
+    set<SampleOutput*>::const_iterator oi =
+        _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        source->addSampleClient(output);
+    }
+    _connectedSources.insert(source);
 }
 
-void SampleProcessor::disconnect(SampleInput* input)
+void SampleProcessor::disconnect(SampleSource* source)
         throw()
 {
-    if (!_input) return;
-    // assert(_input == input);
-
-    Project* project = Project::getInstance();
-    const set<SampleOutput*>& outputs = getConnectedOutputs();
-    set<SampleOutput*>::const_iterator oi = outputs.begin();
-    for ( ; oi != outputs.end(); ++oi) {
+    source = source->getProcessedSampleSource();
+    n_u::Autolock alock(_connectionMutex);
+    set<SampleOutput*>::const_iterator oi =
+        _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        SensorIterator si = project->getSensorIterator();
-        for ( ; si.hasNext(); ) {
-            DSMSensor* sensor = si.next();
-            input->removeProcessedSampleClient(output,sensor);
-        }
+        source->removeSampleClient(output);
     }
-    SampleIOProcessor::disconnect(input);
+    _connectedSources.erase(source);
 }
 
-void SampleProcessor::connect(SampleOutput* orig, SampleOutput* output) throw()
+void SampleProcessor::connect(SampleOutput* output) throw()
 {
-    // cerr << "SampleProcessor::connect(SampleOutput*), input.size==" << _connectedInputs.size() << endl;
-    // cerr << "SampleProcessor::connect(SampleOutput*), orig=" << orig->getName() << " output=" << output->getName() << endl;
-    // if (!_input) return;
-    Project* project = Project::getInstance();
-    SensorIterator si = project->getSensorIterator();
-    for ( ; si.hasNext(); ) {
-        DSMSensor* sensor = si.next();
-        // cerr << "sensor=" << sensor->getDeviceName() << endl;
-        list<SampleInput*>::const_iterator ii = _connectedInputs.begin();
-        for ( ; ii != _connectedInputs.end(); ++ii) {
-            SampleInput* input = *ii;
-            input->addProcessedSampleClient(output,sensor);
-        }
+    n_u::Autolock alock(_connectionMutex);
+
+    set<SampleSource*>::const_iterator si = _connectedSources.begin();
+    for ( ; si != _connectedSources.end(); ++si) {
+        SampleSource* source = *si;
+        source->addSampleClient(output);
     }
-    SampleIOProcessor::connect(orig,output);
+    _connectedOutputs.insert(output);
 }
 void SampleProcessor::disconnect(SampleOutput* output) throw()
 {
-    if (!_input) return;
-    Project* project = Project::getInstance();
-    SensorIterator si = project->getSensorIterator();
-    for ( ; si.hasNext(); ) {
-        DSMSensor* sensor = si.next();
-        list<SampleInput*>::const_iterator ii = _connectedInputs.begin();
-        for ( ; ii != _connectedInputs.end(); ++ii) {
-            SampleInput* input = *ii;
-            input->removeProcessedSampleClient(output,sensor);
-        }
+
+    // disconnect the output from my sources.
+    _connectionMutex.lock();
+    set<SampleSource*>::const_iterator si = _connectedSources.begin();
+    for ( ; si != _connectedSources.end(); ++si) {
+        SampleSource* source = *si;
+        source->removeSampleClient(output);
     }
-    SampleIOProcessor::disconnect(output);
+    _connectedOutputs.erase(output);
+    _connectionMutex.unlock();
+
+   try {
+        output->finish();
+        output->close();
+    }
+    catch (const n_u::IOException& ioe) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "DSMEngine: error closing %s: %s",
+                output->getName().c_str(),ioe.what());
+    }
+
+    SampleOutput* orig = output->getOriginal();
+
+    if (orig != output)
+        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+    // submit connection request on original output
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
 }

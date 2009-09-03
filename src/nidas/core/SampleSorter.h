@@ -16,13 +16,9 @@
 #ifndef NIDAS_CORE_SAMPLESORTER_H
 #define NIDAS_CORE_SAMPLESORTER_H
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleClient.h>
+#include <nidas/core/SampleThread.h>
+#include <nidas/core/SampleSourceSupport.h>
 #include <nidas/core/SortedSampleSet.h>
-#include <nidas/core/DSMTime.h>
-
-#include <nidas/util/Thread.h>
-#include <nidas/util/ThreadSupport.h>
 
 namespace nidas { namespace core {
 
@@ -30,43 +26,144 @@ namespace nidas { namespace core {
  * A SampleClient that sorts its received samples,
  * using an STL multiset, and then sends the
  * sorted samples onto its SampleClients.
- * One specifies a sorter length in the constructor.
- * Samples whose time-tags are less than the time-tag
- * of the latest sample received, minus the sorter length,
+ * The time period of the sorting is specified with
+ * setLengthSecs().
+ * Samples whose time-tags are previous to the time-tag
+ * of the latest sample received minus the sorter length,
  * are sent on to the SampleClients.
  * This is implemented as a Thread, which must be started,
  * otherwise the sorter will grow and no samples will be
  * sent to clients.
- * This can be a client of multiple DSMSensors, so that the
- * processed samples are sorted in time.
+ * This can be a client of multiple SampleSources, so that the
+ * distributed samples are sorted in time.
  */
-class SampleSorter : public nidas::util::Thread,
-	public SampleClient, public SampleSource
+class SampleSorter : public SampleThread
 {
 public:
 
     /**
      * Constructor.
-     * @param sorterLength Length of the SampleSorter, in milliseconds.
      */
-    SampleSorter(const std::string& name);
+    SampleSorter(const std::string& name,bool raw);
 
     virtual ~SampleSorter();
 
-    void interrupt();
-
-    bool receive(const Sample *s) throw();
-
-    size_t size() const { return _samples.size(); }
-
-    void setLengthMsecs(int val)
+    void setKeepStats(bool val)
     {
-        _sorterLengthUsec = val * USECS_PER_MSEC;
+        _source.setKeepStats(val);
     }
 
-    int getLengthMsecs() const
+    bool getKeepStats() const
     {
-        return _sorterLengthUsec / USECS_PER_MSEC;
+        return _source.getKeepStats();
+    }
+
+    SampleSource* getRawSampleSource()
+    {
+        return _source.getRawSampleSource();
+    }
+
+    SampleSource* getProcessedSampleSource()
+    {
+        return _source.getProcessedSampleSource();
+    }
+
+    /**
+     * How to tell this SampleSorter what sample tags it will be
+     * sorting. SampleClients can then query it.
+     */
+    void addSampleTag(const SampleTag* tag) throw()
+    {
+        _source.addSampleTag(tag);
+    }
+
+    void removeSampleTag(const SampleTag* tag) throw()
+    {
+        _source.removeSampleTag(tag);
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTags().
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.addSampleClientForTag(client,tag);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClientForTag(client,tag);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _source.flush();
+    }
+
+    void interrupt();
+
+    /**
+     * Implementation of SampleClient::receive().
+     */
+    bool receive(const Sample *s) throw();
+
+    /**
+     * Current number of samples in the sorter.
+     */
+    size_t size() const { return _samples.size(); }
+
+    void setLengthSecs(float val)
+    {
+        _sorterLengthUsec = (unsigned int)((double)val * USECS_PER_SEC);
+    }
+
+    float getLengthSecs() const
+    {
+        return (double)_sorterLengthUsec / USECS_PER_SEC;
     }
 
     /**
@@ -93,63 +190,11 @@ public:
 
     bool getHeapBlock() const { return _heapBlock; }
 
-    // void setDebug(bool val) { debug = val; }
-
     /**
      * flush all samples from buffer, distributing them to SampleClients.
+     * Implementation of SampleClient::finish().
      */
     void finish() throw();
-
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return _sampleTags;
-    }
-
-    void addSampleTag(const SampleTag* tag)
-    	throw(nidas::util::InvalidParameterException)
-    {
-        if (find(_sampleTags.begin(),_sampleTags.end(),tag) == _sampleTags.end())
-            _sampleTags.push_back(tag);
-    }
-
-    /**
-     * Add a Client for a given SampleTag.
-     */
-    void addSampleTag(const SampleTag* tag,SampleClient*)
-    	throw(nidas::util::InvalidParameterException);
-
-    long long getNumReceivedBytes() const
-    {
-        return _nReceivedBytes;
-    }
-
-    /**
-     * Total number of samples received.
-     */
-    long long getNumReceivedSamples() const
-    {
-        return _nReceivedSamples;
-    }
-
-    /**
-     * Timetag of most recent sample inserted in the sorter.
-     */
-    dsm_time_t getLastReceivedTimeTag() const { return _lastReceivedTimeTag; }
-
-    long long getNumDistributedBytes() const
-    {
-        return _nDistributedBytes;
-    }
-
-    /**
-     * Number of samples distributed to my clients.
-     */
-    size_t getNumDistributedSamples() const { return _nDistributedSamples; }
-
-    /**
-     * Timetag of most recent sample distributed to my clients.
-     */
-    dsm_time_t getLastDistributedTimeTag() const { return _lastDistributedTimeTag; }
 
     /**
      * Number of samples discarded because of _heapSize > _heapMax
@@ -184,22 +229,21 @@ public:
         return _realTime;
     }
 
+private:
 
-protected:
+    SampleSourceSupport _source;
 
     /**
      * Thread run function.
      */
-    virtual int run() throw(nidas::util::Exception);
+    int run() throw(nidas::util::Exception);
 
     /**
      * Length of SampleSorter, in micro-seconds.
      */
-    int _sorterLengthUsec;
+    unsigned int _sorterLengthUsec;
 
     SortedSampleSet _samples;
-
-private:
 
     /**
      * Utility function to decrement the heap size after writing
@@ -207,18 +251,6 @@ private:
      * heapMax then signal any threads waiting on heapCond.
      */
     void inline heapDecrement(size_t bytes);
-
-    dsm_time_t _lastDistributedTimeTag;
-
-    dsm_time_t _lastReceivedTimeTag;
-
-    long long _nReceivedBytes;
-
-    size_t _nReceivedSamples;
-
-    long long _nDistributedBytes;
-
-    size_t _nDistributedSamples;
 
     nidas::util::Cond _sampleSetCond;
 
@@ -265,15 +297,9 @@ private:
      */
     int _discardWarningCount;
 
-    bool _doFlush;
+    bool _doFinish;
 
-    bool _flushed;
-
-    std::list<const SampleTag*> _sampleTags;
-
-    std::map<dsm_sample_id_t,SampleClientList> _clientsBySampleId;
-
-    nidas::util::Mutex _clientMapLock;
+    bool _finished;
 
     SampleT<char> _dummy;
 
@@ -283,6 +309,11 @@ private:
      * system clock, which is trusted.
      */
     bool _realTime;
+
+    /**
+     * No copy.
+     */
+    SampleSorter(const SampleSorter&);
 
     /**
      * No assignment.

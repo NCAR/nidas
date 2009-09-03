@@ -18,8 +18,11 @@
 #define NIDAS_DYNLD_XMLCONFIGSERVICE_H
 
 #include <nidas/core/DSMService.h>
+#include <nidas/core/IOChannel.h>
 
 namespace nidas { namespace dynld {
+
+using namespace nidas::core;
 
 class XMLConfigService: public DSMService, public IOChannelRequester
 {
@@ -33,7 +36,7 @@ public:
     void connected(IOChannel*) throw();
 
     void connect(SampleInput*) throw() { assert(false); }
-    void connect(SampleOutput*,SampleOutput*) throw() { assert(false); }
+    void connect(SampleOutput*) throw() { assert(false); }
     void disconnect(SampleInput*) throw() { assert(false); }
     void disconnect(SampleOutput*) throw() { assert(false); }
 
@@ -50,12 +53,12 @@ private:
     class Worker: public nidas::util::Thread
     {
         public:
-            Worker(XMLConfigService* svc,IOChannel* output,const DSMConfig* dsm);
+            Worker(XMLConfigService* svc,IOChannel* iochan,const DSMConfig* dsm);
             ~Worker();
             int run() throw(nidas::util::Exception);
         private:
             XMLConfigService* _svc;
-            IOChannel* _output;
+            IOChannel* _iochan;
             const DSMConfig* _dsm;
     };
 

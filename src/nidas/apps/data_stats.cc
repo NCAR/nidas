@@ -124,7 +124,7 @@ bool CounterClient::receive(const Sample* samp) throw()
     mlen = maxlens[sampid];
     if (slen > mlen) maxlens[sampid] = slen;
 
-    // cerr << samp->getId() << " " << samp->getTimeTag() << endl;
+    // cerr << samp->getDSMId() << ',' << samp->getSpSId() <<  " " << samp->getTimeTag() << endl;
     return true;
 }
 
@@ -395,32 +395,20 @@ int DataStats::run() throw()
 	    nidas::core::FileSet* fset = new nidas::core::FileSet();
 	    iochan = fset;
 
-#ifdef USE_FILESET_TIME_CAPABILITY
-	    struct tm tm;
-	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t start = timegm(&tm);
-
-	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t end = timegm(&tm);
-
-	    fset->setDir("/tmp/RICO/hiaper");
-	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	    fset->setStartTime(start);
-	    fset->setEndTime(end);
-#else
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		fset->addFileName(*fi);
-#endif
 
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
 	    iochan = new nidas::core::Socket(sock);
 	}
-	RawSampleInputStream sis(iochan);
+        IOChannel* ioc2 = iochan->connect();
+        if (ioc2 != iochan) delete iochan;
+	RawSampleInputStream sis(ioc2);
         sis.setMaxSampleLength(32768);
-	sis.init();
+	// sis.init();
 	sis.readInputHeader();
 
 	const SampleInputHeader& header = sis.getInputHeader();
@@ -449,18 +437,28 @@ int DataStats::run() throw()
 	    }
 	}
 
-	counter = new CounterClient(allsensors);
+	SamplePipeline pipeline;                                  
+        pipeline.setRealTime(false);                              
+        pipeline.setRawSorterLength(0);                           
+        pipeline.setProcSorterLength(0);                          
+
+        counter = new CounterClient(allsensors);
 
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->init();
-		sis.addProcessedSampleClient(counter,sensor);
+                //  1. inform the SampleInputStream of what SampleTags to expect
+                sis.addSampleTag(sensor->getRawSampleTag());
 	    }
-	}
-	else sis.addSampleClient(counter);
+            // 2. connect the pipeline to the SampleInputStream.
+            pipeline.connect(&sis);
 
+            // 3. connect the client to the pipeline
+            pipeline.getProcessedSampleSource()->addSampleClient(counter);
+        }
+        else sis.addSampleClient(counter);
 
 	for (;;) {
 	    sis.readSamples();

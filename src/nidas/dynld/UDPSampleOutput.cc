@@ -40,24 +40,18 @@ UDPSampleOutput::UDPSampleOutput(): _mochan(0),_doc(0),_projectChanged(true),
 {
 }
 
-UDPSampleOutput::UDPSampleOutput(const UDPSampleOutput& x):
-    SampleOutputBase(x),_mochan(_mochan->clone()),_doc(0),_projectChanged(true),
-    _xmlPortNumber(x._xmlPortNumber),
-    _dataPortNumber(x._dataPortNumber),
-    _listener(0),_monitor(0),
-    _nbytesOut(0),_buffer(0),_head(0),_tail(0),_buflen(0),_eob(0),
-    _lastWrite(0),_maxUsecs(USECS_PER_SEC/4)
+UDPSampleOutput::UDPSampleOutput(UDPSampleOutput& x,IOChannel* ochan)
 {
+    n_u::Logger::getInstance()->log(LOG_ERR,
+        "Programming error: annot clone a UDPSampleOutput");
+    assert(!"cannot clone");
 }
 
-UDPSampleOutput::UDPSampleOutput(const UDPSampleOutput& x,IOChannel* ochan)
+UDPSampleOutput* ::UDPSampleOutput::clone(IOChannel* ochan)
 {
-    assert("cannot copy with new IOChannel");
-}
-
-UDPSampleOutput* ::UDPSampleOutput::clone(IOChannel* ochan) const
-{
-    assert("cannot clone");
+    n_u::Logger::getInstance()->log(LOG_ERR,
+        "Programming error: annot clone a UDPSampleOutput");
+    assert(!"cannot clone");
     return 0;
 }
 
@@ -212,11 +206,7 @@ bool UDPSampleOutput::receive(const Sample* samp) throw()
         iov[1].iov_len = samp->getDataByteLength();
 
         size_t l = write(iov,2);
-        if (l > 0) {
-            setLastReceivedTimeTag(samp->getTimeTag());
-            incrementNumOutputSamples();
-        }
-        else {
+        if (l == 0) {
             if (!(incrementDiscardedSamples() % 1000))
                 n_u::Logger::getInstance()->log(LOG_WARNING,
                     "%s: %lld samples discarded due to output jambs\n",

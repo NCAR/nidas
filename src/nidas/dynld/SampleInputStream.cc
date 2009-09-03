@@ -34,8 +34,8 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
 /*
  * Constructor, with a IOChannel (which may be null).
  */
-SampleInputStream::SampleInputStream(IOChannel* iochannel):
-    _service(0),_iochan(iochannel),_iostream(0),_dsm(0),
+SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
+    _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
@@ -44,29 +44,18 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel):
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
-    _nsamples(0),_lastTimeTag(0LL),
-    _sorterLengthMsecs(250),
-#ifdef NIDAS_EMBEDDED
-    _heapMax(5000000),
-#else
-    _heapMax(50000000),
-#endif
-    _heapBlock(false)
+    _original(this)
 {
-    if (_iochan)
-        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
-    // _minSampleTime = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
-    // _maxSampleTime = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
+    setIOChannel(iochannel);
 }
 
 /*
  * Copy constructor, with a new IOChannel.
  */
-SampleInputStream::SampleInputStream(const SampleInputStream& x,
+SampleInputStream::SampleInputStream(SampleInputStream& x,
 	IOChannel* iochannel):
-    _service(x._service),
-    _iochan(iochannel),_iostream(0),
-    _sampleTags(x._sampleTags),_dsm(x._dsm),
+    _iochan(0),_source(x._source),_service(x._service),_iostream(0),
+    _dsm(x._dsm),
     _expectHeader(x._expectHeader),
     _inputHeaderParsed(false),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
@@ -75,14 +64,9 @@ SampleInputStream::SampleInputStream(const SampleInputStream& x,
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
-    _nsamples(0),_lastTimeTag(0LL),
-    _sorterLengthMsecs(x._sorterLengthMsecs),
-    _heapMax(x._heapMax),_heapBlock(x._heapBlock)
+    _original(&x)
 {
-    if (_iochan)
-        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
-    // _minSampleTime = n_u::UTime::parse(true,"2004 jan 1 00:00").toUsecs();
-    // _maxSampleTime = n_u::UTime::parse(true,"2010 jan 1 00:00").toUsecs();
+    setIOChannel(iochannel);
 }
 
 /*
@@ -99,6 +83,36 @@ SampleInputStream::~SampleInputStream()
     delete _iochan;
 }
 
+void SampleInputStream::setIOChannel(IOChannel* val)
+{
+    if (val != _iochan) {
+	delete _iochan;
+	_iochan = val;
+    }
+    if (_iochan) {
+        n_u::Inet4Address remoteAddr =
+            _iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
+        if (remoteAddr != n_u::Inet4Address()) {
+            _dsm = Project::getInstance()->findDSM(remoteAddr);
+            if (!_dsm) {
+                n_u::Socket tmpsock;
+                list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
+                tmpsock.close();
+                list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+                for ( ; !_dsm && ii != ifaces.end(); ++ii) {
+                    n_u::Inet4NetworkInterface iface = *ii;
+                    if (iface.getAddress() == remoteAddr) {
+                        remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
+                        _dsm = Project::getInstance()->findDSM(remoteAddr);
+                    }
+                }
+            }
+        }
+        delete _iostream;
+        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
+    }
+}
+
 string SampleInputStream::getName() const {
     if (_iochan) return string("SampleInputStream: ") + _iochan->getName();
     return string("SampleInputStream");
@@ -111,56 +125,16 @@ void SampleInputStream::requestConnection(DSMService* requester)
     _iochan->requestConnection(this);
 }
 
-void SampleInputStream::connected(IOChannel* iochannel) throw()
+void SampleInputStream::connected(IOChannel* ioc) throw()
 {
-    // cerr << "SampleInputStream connected, iochannel=" <<
-    //	iochannel->getRemoteInet4Address().getHostAddress() << endl;
-    // this create a clone of myself
-    _service->connect(clone(iochannel));
-}
-
-void SampleInputStream::addProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    _sensorMapMutex.lock();
-    _sensorMap[sensor->getId()] = sensor;
-
-    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-    	_sensorsByClient.find(client);
-    if (sci != _sensorsByClient.end()) sci->second.push_back(sensor);
-    else {
-        list<DSMSensor*> sensors;
-	sensors.push_back(sensor);
-	_sensorsByClient[client] = sensors;
-    }
-    _sensorMapMutex.unlock();
-
-    sensor->addSampleClient(client);
-}
-
-void SampleInputStream::removeProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    if (!sensor) {		// remove client for all sensors
-	_sensorMapMutex.lock();
-	map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-	    _sensorsByClient.find(client);
-	if (sci != _sensorsByClient.end()) {
-	    list<DSMSensor*>& sensors = sci->second;
-	    for (list<DSMSensor*>::iterator si = sensors.begin();
-	    	si != sensors.end(); ++si) {
-		sensor = *si;
-		sensor->removeSampleClient(client);
-		if (sensor->getClientCount() == 0)
-		    _sensorMap.erase(sensor->getId());
-	    }
-	}
-	_sensorMapMutex.unlock();
+    assert(_service);
+    if (_iochan != ioc) {
+        SampleInputStream* newist = clone(ioc);
+        _service->connect(newist);
     }
     else {
-        sensor->removeSampleClient(client);
-	if (sensor->getClientCount() == 0)
-	    _sensorMap.erase(sensor->getId());
+        setIOChannel(ioc);
+        _service->connect(this);
     }
 }
 
@@ -183,24 +157,6 @@ void SampleInputStream::close() throw(n_u::IOException)
 
 const DSMConfig* SampleInputStream::getDSMConfig() const
 {
-    if (!_dsm && _iochan) {
-        n_u::Inet4Address remoteAddr =
-            _iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
-        _dsm = Project::getInstance()->findDSM(remoteAddr);
-        if (!_dsm) {
-            n_u::Socket tmpsock;
-            list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
-            tmpsock.close();
-            list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-            for ( ; !_dsm && ii != ifaces.end(); ++ii) {
-                n_u::Inet4NetworkInterface iface = *ii;
-                if (iface.getAddress() == remoteAddr) {
-                    remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
-                    _dsm = Project::getInstance()->findDSM(remoteAddr);
-                }
-            }
-        }
-    }
     return _dsm;
 }
 
@@ -211,7 +167,7 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
     _headerToRead = _sheader.getSizeOf();
     _hptr = (char*)&_sheader;
     _dataToRead = 0;
-    inputHeader.read(_iostream);
+    _inputHeader.read(_iostream);
     _inputHeaderParsed = true;
 }
 
@@ -227,7 +183,7 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
     _hptr = (char*)&_sheader;
     _dataToRead = 0;
     try {
-        _inputHeaderParsed = inputHeader.parse(_iostream);
+        _inputHeaderParsed = _inputHeader.parse(_iostream);
     }
     catch(const n_u::ParseException& e) {
         throw n_u::IOException(getName(),"read header",e.what());
@@ -309,14 +265,11 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	}
 
 	len = _iostream->readBuf(_dptr, _dataToRead);
-	// cerr << "read len=" << len << endl;
 	_dptr += len;
 	_dataToRead -= len;
 	if (_dataToRead > 0) break;	// no more data in iostream buffer
 
-        incrementNumInputSamples();
-        setLastDistributedTimeTag(_samp->getTimeTag());
-	distribute(_samp);
+	_source.distribute(_samp);
 	_samp = 0;
         // next read is the header
         _headerToRead = _sheader.getSizeOf();
@@ -403,8 +356,6 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             _samp = 0;
             _headerToRead = _sheader.getSizeOf();
             _hptr = (char*)&_sheader;
-            incrementNumInputSamples();
-            setLastDistributedTimeTag(tmp->getTimeTag());
             return tmp;
         }
     }
@@ -496,27 +447,9 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
             }
             _dataToRead -= len;
         }
-        incrementNumInputSamples();
-        setLastDistributedTimeTag(_sheader.getTimeTag());
-
 	_headerToRead = _sheader.getSizeOf();
 	_hptr = (char*)&_sheader;
     }
-}
-
-void SampleInputStream::distribute(const Sample* samp) throw()
-{
-    // pass samples to the appropriate sensor for processing
-    // and distribution to processed sample clients
-    dsm_sample_id_t sampid = samp->getId();
-    _sensorMapMutex.lock();
-    if (_sensorMap.size() > 0) {
-	map<unsigned int,DSMSensor*>::const_iterator sensori;
-	sensori = _sensorMap.find(sampid);
-	if (sensori != _sensorMap.end()) sensori->second->receive(samp);
-    }
-    _sensorMapMutex.unlock();
-    SampleSource::distribute(samp);
 }
 
 /*
@@ -535,27 +468,33 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
+            // const std::string& aval = attr.getValue();
             // Sample sorter length in seconds
 	    if (aname == "sorterLength") {
+                WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
+#ifdef NEEDED
 	        istringstream ist(aval);
 		float len;
 		ist >> len;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"SortedSampleInputStream",
+		    	"SampleInputStream",
 			attr.getName(),attr.getValue());
 		setSorterLengthMsecs((int)rint(len * MSECS_PER_SEC));
+#endif
 	    }
 	    else if (aname == "heapMax") {
+                WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
+#ifdef NEEDED
 	        istringstream ist(aval);
 		int len;
 		ist >> len;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
-		    	"SortedSampleInputStream",
+		    	"SampleInputStream",
 			attr.getName(),attr.getValue());
 		setHeapMax(len);
+#endif
 	    }
 	}
     }
@@ -569,8 +508,11 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
-	_iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
-
+        /* We set the _iochan member here, without also initializing _iostream,
+         * because we may not actually use this IOChannel if one is
+         * just reading the configuration.
+         */
+        _iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
 	_iochan->fromDOMElement((xercesc::DOMElement*)child);
 
 	if (++niochan > 1)
@@ -584,140 +526,3 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
 		"input", "must have one child element");
 }
                                                            
-void SampleInputStream::addSampleTag(const SampleTag* tag)
-{
-    if (find(_sampleTags.begin(),_sampleTags.end(),tag) == _sampleTags.end())
-        _sampleTags.push_back(tag);
-}
-
-/*
- * Constructor, with a IOChannel (which may be null).
- */
-SortedSampleInputStream::SortedSampleInputStream(IOChannel* iochannel):
-    SampleInputStream(iochannel),
-    sorter1(0),sorter2(0)
-{
-}
-
-/*
- * Copy constructor, with a new IOChannel.
- */
-SortedSampleInputStream::SortedSampleInputStream(const SortedSampleInputStream& x,IOChannel* iochannel):
-	SampleInputStream(x,iochannel),
-	sorter1(0),sorter2(0)
-{
-}
-
-/*
- * Clone myself, with a new IOChannel.
- */
-SortedSampleInputStream* SortedSampleInputStream::clone(IOChannel* iochannel)
-{
-    return new SortedSampleInputStream(*this,iochannel);
-}
-
-SortedSampleInputStream::~SortedSampleInputStream()
-{
-    // cerr << "~SortedSampleInputStream" << endl;
-    delete sorter1;
-    delete sorter2;
-}
-
-void SortedSampleInputStream::addSampleClient(SampleClient* client) throw()
-{
-    if (!sorter1) {
-        sorter1 = new SampleSorter("Sorter1");
-	sorter1->setLengthMsecs(getSorterLengthMsecs());
-	sorter1->setHeapBlock(getHeapBlock());
-	sorter1->setHeapMax(getHeapMax());
-    }
-    SampleInputStream::addSampleClient(sorter1);
-    sorter1->addSampleClient(client);
-    if (!sorter1->isRunning()) sorter1->start();
-}
-
-void SortedSampleInputStream::removeSampleClient(SampleClient* client) throw()
-{
-    if (sorter1) {
-        sorter1->removeSampleClient(client);
-	SampleInputStream::removeSampleClient(sorter1);
-    }
-}
-void SortedSampleInputStream::addProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    _sensorMapMutex.lock();
-    _sensorMap[sensor->getId()] = sensor;
-    map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-    	_sensorsByClient.find(client);
-    if (sci != _sensorsByClient.end()) sci->second.push_back(sensor);
-    else {
-        list<DSMSensor*> sensors;
-	sensors.push_back(sensor);
-	_sensorsByClient[client] = sensors;
-    }
-    _sensorMapMutex.unlock();
-
-    if (!sorter2) {
-        sorter2 = new SampleSorter("Sorter2");
-	sorter2->setLengthMsecs(getSorterLengthMsecs());
-	sorter2->setHeapBlock(getHeapBlock());
-	sorter2->setHeapMax(getHeapMax());
-    }
-
-    sensor->addSampleClient(sorter2);
-    if (!sorter2->isRunning()) sorter2->start();
-
-    SampleTagIterator si = sensor->getSampleTagIterator();
-    for ( ; si.hasNext(); ) {
-	const SampleTag* stag = si.next();
-        addSampleTag(stag);
-	sorter2->addSampleTag(stag,client);
-    }
-}
-
-void SortedSampleInputStream::removeProcessedSampleClient(SampleClient* client,
-	DSMSensor* sensor)
-{
-    if (!sensor) {		// remove client for all sensors
-	_sensorMapMutex.lock();
-	map<SampleClient*,list<DSMSensor*> >::iterator sci = 
-	    _sensorsByClient.find(client);
-	if (sci != _sensorsByClient.end()) {
-	    list<DSMSensor*>& sensors = sci->second;
-	    for (list<DSMSensor*>::iterator si = sensors.begin();
-	    	si != sensors.end(); ++si) {
-		sensor = *si;
-		sensor->removeSampleClient(sorter2);
-		if (sensor->getClientCount() == 0)
-		    _sensorMap.erase(sensor->getId());
-	    }
-	}
-	_sensorMapMutex.unlock();
-    }
-    else {
-        sensor->removeSampleClient(sorter2);
-	if (sensor->getClientCount() == 0)
-	    _sensorMap.erase(sensor->getId());
-    }
-    if (sorter2) sorter2->removeSampleClient(client);
-}
-
-void SortedSampleInputStream::flush() throw()
-{
-    if (sorter1) sorter1->finish();
-    if (sorter2) sorter2->finish();
-}
-
-
-void SortedSampleInputStream::close() throw(n_u::IOException)
-{
-    if (sorter1) {
-        if (sorter1->isRunning()) sorter1->interrupt();
-	sorter1->join();
-    }
-    if (sorter2) {
-        if (sorter2->isRunning()) sorter2->interrupt();
-	sorter2->join();
-    }
-}

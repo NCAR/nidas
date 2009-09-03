@@ -90,20 +90,15 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class TestSource: public SampleSource, public n_u::Thread
+class TestSource: public SampleSourceSupport, public n_u::Thread
 {
 public:
-    TestSource():Thread("TestSource"),nsamples(0)
+    TestSource():SampleSourceSupport(true),Thread("TestSource"),nsamples(0)
     {
-        stag.setDSMId(0);
-        stag.setSensorId(10);
-        stag.setSampleId(0x0010);
-	sampleTags.push_back(&stag);
-    }
-
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return sampleTags;
+        _stag.setDSMId(0);
+        _stag.setSensorId(10);
+        _stag.setSampleId(0x0010);
+        addSampleTag(&_stag);
     }
 
     int run() throw(n_u::Exception);
@@ -111,10 +106,7 @@ public:
     unsigned long nsamples;
 
 private:
-    SampleTag stag;
-
-    std::list<const SampleTag*> sampleTags;
-
+    SampleTag _stag;
 };
 
 int TestSource::run() throw(n_u::Exception)
@@ -126,7 +118,7 @@ int TestSource::run() throw(n_u::Exception)
 	dsm_time_t tnow = getSystemTime();
 	// add 10000 microseconds of noise
 	samp->setTimeTag(tnow + random() / (RAND_MAX / (USECS_PER_MSEC * 10)) );
-	samp->setId(stag.getId());
+	samp->setId(_stag.getId());
 	distribute(samp);
 	samp->freeReference();
 	if (!(nsamples++ % 10000)) testCancel();
@@ -153,10 +145,10 @@ bool TestClient::receive(const Sample *s) throw()
 class SampleTest 
 {
 public:
-    SampleTest():sorter1("sorter1"),sorter2("sorter2")
+    SampleTest():sorter1("sorter1",true),sorter2("sorter2",true)
     {
-        sorter1.setLengthMsecs(100);
-        sorter2.setLengthMsecs(100);
+        sorter1.setLengthSecs(0.1);
+        sorter2.setLengthSecs(0.1);
     }
 
     void test() throw(n_u::Exception);

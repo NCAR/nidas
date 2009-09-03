@@ -72,6 +72,17 @@ public:
 
     void joinServices() throw();
 
+    void setStatusSocketAddr(const nidas::util::SocketAddress& val)
+    {
+        delete _statusSocketAddr;
+        _statusSocketAddr = val.clone();
+    }
+
+    const nidas::util::SocketAddress& getStatusSocketAddr() const
+    {
+        return *_statusSocketAddr;
+    }
+
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
@@ -94,6 +105,8 @@ private:
     std::list<DSMService*> _services;
 
     std::string _xmlFileName;
+
+    nidas::util::SocketAddress* _statusSocketAddr;
 
     /**
      * Copy not supported.

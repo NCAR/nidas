@@ -37,20 +37,26 @@ public:
      */
     SyncRecordGenerator();
 
-    // SyncRecordGenerator(const SyncRecordGenerator&);
-
     virtual ~SyncRecordGenerator();
 
-    // SyncRecordGenerator* clone() const;
-
-    virtual bool cloneOnConnection() const { return false; }
-
-    void connect(SampleInput* input) throw();
+    /**
+     * Implementation of SampleIOProcessor::connect(SampleSource*).
+     */
+    void connect(SampleSource* source) throw();
     
-    void disconnect(SampleInput* input) throw();
+    /**
+     * Implementation of SampleIOProcessor::disconnect(SampleSource*).
+     */
+    void disconnect(SampleSource* source) throw();
 
-    void connect(SampleOutput*,SampleOutput* output) throw();
+    /**
+     * Implementation of SampleConnectionRequester::connect(SampleOutput*).
+     */
+    void connect(SampleOutput* output) throw();
 
+    /**
+     * Implementation of SampleConnectionRequester::disconnect(SampleOutput*).
+     */
     void disconnect(SampleOutput* output) throw();
 
     /**
@@ -59,9 +65,59 @@ public:
     void sendHeader(dsm_time_t thead,SampleOutput* output)
         throw(nidas::util::IOException);
 
-    const std::list<const SampleTag*>& getSampleTags() const
+    std::list<const SampleTag*> getSampleTags() const
     {
         return _syncRecSource.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _syncRecSource.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _syncRecSource.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _syncRecSource.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _syncRecSource.addSampleClientForTag(client,tag);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _syncRecSource.removeSampleClientForTag(client,tag);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _syncRecSource.getClientCount();
+    }
+
+    void flush() throw()
+    {
+        return _syncRecSource.flush();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _syncRecSource.getSampleStats();
     }
 
     void printStatus(std::ostream&,float deltat,int&) throw();
@@ -75,13 +131,13 @@ protected:
 
 protected:
 
-    SampleInput* _input;
+    nidas::util::Mutex _connectionMutex;
 
-    SampleOutput* _output;
+    std::set<SampleSource*> _connectedSources;
+
+    std::set<SampleOutput*> _connectedOutputs;
 
     SyncRecordSource _syncRecSource;
-
-    nidas::util::Mutex _statusMutex;
 
     size_t _numInputSampsLast;
 

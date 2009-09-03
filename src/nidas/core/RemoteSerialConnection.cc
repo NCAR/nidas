@@ -37,15 +37,14 @@ RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock):
 RemoteSerialConnection::~RemoteSerialConnection()
 {
 
-    n_u::Logger::getInstance()->log(LOG_INFO,"~RemoteSerialConnection()");
-    if (charSensor) charSensor->removeRawSampleClient(this);
+    if (charSensor) charSensor->getRawSampleSource()->removeSampleClient(this);
     socket->close();
     delete socket;
 }
 
 void RemoteSerialConnection::close() throw(n_u::IOException)
 {
-    if (charSensor) charSensor->removeRawSampleClient(this);
+    if (charSensor) charSensor->getRawSampleSource()->removeSampleClient(this);
     charSensor = 0;
     socket->close();
 }
@@ -63,11 +62,6 @@ void RemoteSerialConnection::readSensorName() throw(n_u::IOException)
     if (nl) *nl = 0;
 
     devname = string(dev);
-
-    n_u::Logger::getInstance()->log(LOG_INFO,
-    	"RemoteSerial accepted connection for \"%s\"",
-    	devname.c_str());
-
     socket->setNonBlocking(true);
 }
 
@@ -146,7 +140,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     nullTerminated = charSensor->getNullTerminated();
     // cerr << "nullTerminated=" << nullTerminated << endl;
 
-    val->addRawSampleClient(this);
+    val->getRawSampleSource()->addSampleClient(this);
 }
 
 /**

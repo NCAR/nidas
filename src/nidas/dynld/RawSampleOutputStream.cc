@@ -28,18 +28,13 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(RawSampleOutputStream)
 
-RawSampleOutputStream::RawSampleOutputStream()
+RawSampleOutputStream::RawSampleOutputStream(IOChannel* i):SampleOutputStream(i)
 {
 }
 
-RawSampleOutputStream::RawSampleOutputStream(const RawSampleOutputStream& x):
-	SortedSampleOutputStream(x)
-{
-}
-
-RawSampleOutputStream::RawSampleOutputStream(const RawSampleOutputStream& x,
+RawSampleOutputStream::RawSampleOutputStream(RawSampleOutputStream& x,
 	IOChannel* iochannel):
-	SortedSampleOutputStream(x,iochannel)
+	SampleOutputStream(x,iochannel)
 {
 }
 
@@ -47,16 +42,15 @@ RawSampleOutputStream::~RawSampleOutputStream()
 {
 }
 
-RawSampleOutputStream* RawSampleOutputStream::clone(IOChannel* iochannel) const 
+RawSampleOutputStream* RawSampleOutputStream::clone(IOChannel* iochannel)
 {
     return new RawSampleOutputStream(*this,iochannel);
 }
 
-
 void RawSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
         throw(n_u::InvalidParameterException)
 {
-    SortedSampleOutputStream::fromDOMElement(node);
+    SampleOutputStream::fromDOMElement(node);
     if (getIOChannel()->getRequestType() < 0)
     	getIOChannel()->setRequestType(RAW_SAMPLE);
 }

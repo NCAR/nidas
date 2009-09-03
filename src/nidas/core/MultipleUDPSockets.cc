@@ -423,5 +423,5 @@ void MultipleUDPSockets::fromDOMElement(const xercesc::DOMElement* node)
     if (sport.length() > 0) port = atoi(sport.c_str());
 
     setInet4McastSocketAddress(n_u::Inet4SocketAddress(iaddr,port));
-    cerr << "socket address=" << getInet4McastSocketAddress().toString() << endl;
+    // cerr << "socket address=" << getInet4McastSocketAddress().toString() << endl;
 }

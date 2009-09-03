@@ -360,7 +360,13 @@
 	<xsd:attribute name="location" type="xsd:token" use="optional"/>
 	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
 	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger"/>
+	<xsd:attribute name="statusAddr" type="xsd:token"/>
 	<xsd:attribute name="derivedData" type="xsd:token"/>
+	<xsd:attribute name="rawSorterLength" type="xsd:float"/>
+	<xsd:attribute name="procSorterLength" type="xsd:float"/>
+        <!-- max heap size in bytes, followed by K,M or G -->
+	<xsd:attribute name="rawHeapMax" type="xsd:token"/>
+	<xsd:attribute name="procHeapMax" type="xsd:token"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
 	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor | lamsSensor"/>
@@ -535,6 +541,11 @@
 	<xsd:attribute name="ID" type="xsd:ID"/>
 	<xsd:attribute name="IDREF" type="xsd:IDREF"/>
 	<xsd:attribute name="priority" type="xsd:token"/>
+	<xsd:attribute name="rawSorterLength" type="xsd:float"/>
+	<xsd:attribute name="procSorterLength" type="xsd:float"/>
+        <!-- max heap size in bytes, followed by K,M or G -->
+	<xsd:attribute name="rawHeapMax" type="xsd:token"/>
+	<xsd:attribute name="procHeapMax" type="xsd:token"/>
    </xsd:complexType>
 </xsd:element>
 
@@ -544,6 +555,7 @@
 	    <xsd:element ref="service"/>
 	</xsd:choice>
         <xsd:attribute name="name" type="xsd:token" use="optional"/>
+	<xsd:attribute name="statusAddr" type="xsd:token"/>
     </xsd:complexType>
 </xsd:element>
 

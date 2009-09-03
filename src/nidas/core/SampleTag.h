@@ -94,7 +94,7 @@ public:
      */
     void setSampleId(unsigned int val) {
 	sampleId = val;
-        id = SET_SHORT_ID(id,sensorId + sampleId);
+        id = SET_SPS_ID(id,sensorId + sampleId);
     }
 
     /**
@@ -107,7 +107,7 @@ public:
      */
     void setSensorId(unsigned int val) {
         sensorId = val;
-    	id = SET_SHORT_ID(id,sensorId + sampleId);
+    	id = SET_SPS_ID(id,sensorId + sampleId);
     }
 
     /**
@@ -123,7 +123,7 @@ public:
     /**
      * Get the DSM portion of the id.
      */
-    unsigned int  getDSMId() const { return GET_DSM_ID(id); }
+    unsigned int getDSMId() const { return GET_DSM_ID(id); }
 
     /**
      * Get the 26 bit id, containing the DSM id and the sensor+sample id.
@@ -133,7 +133,7 @@ public:
     /**
      * Get the sensor+sample portion of the id.
      */
-    unsigned int  getShortId() const { return GET_SHORT_ID(id); }
+    unsigned int getSpSId() const { return GET_SPS_ID(id); }
 
     /**
      * Suffix, which is appended to variable names.
@@ -313,7 +313,7 @@ protected:
      * can't keep track of the sensor and sample portions of the
      * shortID.
      */
-    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
+    void setSpSId(unsigned int val) { id = SET_SPS_ID(id,val); }
 
 private:
 

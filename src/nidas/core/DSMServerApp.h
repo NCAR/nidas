@@ -28,6 +28,8 @@ public:
 
     DSMServerApp();
 
+    ~DSMServerApp();
+
     /**
     * Run DSMServerApp from the unix command line.
     */
@@ -128,6 +130,8 @@ private:
     DSMServerIntf* _xmlrpcThread;
 
     DSMServerStat* _statusThread;
+
+    bool _externalControl;
 
 };
 

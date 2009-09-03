@@ -30,6 +30,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
+    _rawSorterLength(0.0), _procSorterLength(0.0),
+    _rawHeapMax(5000000), _procHeapMax(5000000),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
     _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
@@ -263,6 +265,32 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	    }
             else if (aname == "ID");	// catalog entry
             else if (aname == "IDREF");	// already scanned
+            else if (aname == "rawSorterLength" || aname == "procSorterLength") {
+		float val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                if (aname[0] == 'r') setRawSorterLength(val);
+                else setProcSorterLength(val);
+	    }
+            else if (aname == "rawHeapMax" || aname == "procHeapMax") {
+		int val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                string smult;
+		ist >> smult;
+                int mult = 1;
+                if (smult.length() > 0) {
+                    if (smult[0] == 'K') mult = 1000;
+                    else if (smult[0] == 'M') mult = 1000000;
+                    else if (smult[0] == 'G') mult = 1000000000;
+                }
+                if (aname[0] == 'r') setRawHeapMax((size_t)val*mult);
+                else setProcHeapMax((size_t)val*mult);
+	    }
 	    else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
 		"unrecognized attribute",aname);
@@ -437,7 +465,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 ostringstream ost;
                 ost << sensor->getId() <<
                     "(dsm id=" << sensor->getDSMId() <<
-                    ",sensor id=" << sensor->getShortId() << ')';
+                    ",sensor id=" << sensor->getSensorId() << ')';
                 DSMSensor* other = it->second;
                 throw n_u::InvalidParameterException(
                     sensor->getName(),string(" has same id=") + ost.str() + " as " +
@@ -453,7 +481,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 ostringstream ost;
                 ost << sensor->getId() <<
                     "(dsm id=" << sensor->getDSMId() <<
-                    ",sensor id=" << sensor->getShortId() << ')';
+                    ",sensor id=" << sensor->getSensorId() << ')';
                 DSMSensor* other;
                 if (!ins.second) other = ins.first->second;
                 else other = it->second;
@@ -494,9 +522,9 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
         }
 
 	// check that sample ids are unique
-	for (list<const SampleTag*>::const_iterator ti =
-		sensor->getSampleTags().begin();
-			ti != sensor->getSampleTags().end(); ++ti) {
+	list<const SampleTag*> tags = sensor->getSampleTags();
+	for (list<const SampleTag*>::const_iterator ti = tags.begin();
+			ti != tags.end(); ++ti) {
 	    const SampleTag* stag = *ti;
 	    if (stag->getId() == 0)
 		throw n_u::InvalidParameterException(sensor->getName(),
@@ -536,12 +564,14 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 }
             }
 	}
+#ifdef NEEDED
 	list<SampleOutput*>::const_iterator oi =  getOutputs().begin();
 	for ( ; oi != getOutputs().end(); ++oi) {
 	    SampleOutput* output = *oi;
 	    SampleTagIterator sti = sensor->getSampleTagIterator();
 	    for ( ; sti.hasNext(); ) output->addSampleTag(sti.next());
 	}
+#endif
     }
     for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
@@ -580,41 +610,48 @@ xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,bool comp
     return elem;
 }
 
-string DSMConfig::expandString(const string& input) const
+string DSMConfig::expandString(string input) const
 {
-    string::size_type lastpos = 0;
     string::size_type dollar;
 
     string result;
+    bool substitute = true;
 
-    while ((dollar = input.find('$',lastpos)) != string::npos) {
+    while (substitute) {
+        result.clear();
+        string::size_type lastpos = 0;
+        substitute = false;
+        while ((dollar = input.find('$',lastpos)) != string::npos) {
 
-        result.append(input.substr(lastpos,dollar-lastpos));
-	lastpos = dollar;
+            result.append(input.substr(lastpos,dollar-lastpos));
+            lastpos = dollar;
 
-	string::size_type openparen = input.find('{',dollar);
-	string token;
+            string::size_type openparen = input.find('{',dollar);
+            string token;
 
-	if (openparen == dollar + 1) {
-	    string::size_type closeparen = input.find('}',openparen);
-	    if (closeparen == string::npos) break;
-	    token = input.substr(openparen+1,closeparen-openparen-1);
-	    lastpos = closeparen + 1;
-	}
-	else {
-	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
-	    if (endtok == string::npos) endtok = input.length();
-	    token = input.substr(dollar+1,endtok-dollar-1);
-	    lastpos = endtok;
-	}
-	if (token.length() > 0) {
-	    string val = getTokenValue(token);
-	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-	    result.append(val);
-	}
+            if (openparen == dollar + 1) {
+                string::size_type closeparen = input.find('}',openparen);
+                if (closeparen == string::npos) break;
+                token = input.substr(openparen+1,closeparen-openparen-1);
+                lastpos = closeparen + 1;
+            }
+            else {
+                string::size_type endtok = input.find_first_of("/.",dollar + 1);
+                if (endtok == string::npos) endtok = input.length();
+                token = input.substr(dollar+1,endtok-dollar-1);
+                lastpos = endtok;
+            }
+            if (token.length() > 0) {
+                string val = getTokenValue(token);
+                if (val != token) substitute = true;
+                // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
+                result.append(val);
+            }
+        }
+
+        result.append(input.substr(lastpos));
+        input = result;
     }
-
-    result.append(input.substr(lastpos));
 #ifdef DEBUG
     cerr << "input: \"" << input << "\" expanded to \"" <<
     	result << "\"" << endl;

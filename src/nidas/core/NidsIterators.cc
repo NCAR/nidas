@@ -165,33 +165,30 @@ bool SensorIterator::hasNext()
 
 
 SampleTagIterator::SampleTagIterator(const Project* obj):
-	itr1(obj->getSensorIterator()),stags(0) {}
+	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const Site* obj):
-	itr1(obj->getSensorIterator()),stags(0) {}
+	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const DSMConfig* obj):
-	itr1(obj->getSensorIterator()),stags(0) {}
+	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const DSMServer* obj):
-	itr1(obj->getSensorIterator()),stags(0) {}
+	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const SampleSource* obj):
-	itr1(),stags(&obj->getSampleTags()),itr2(stags->begin()) {}
+	itr1(),stags(obj->getSampleTags()),itr2(stags.begin()) {}
 
-SampleTagIterator::SampleTagIterator(const SampleIOProcessor* obj):
-	itr1(),stags(&obj->getSampleTags()),itr2(stags->begin()) {}
-
-SampleTagIterator::SampleTagIterator():itr1(), stags(0) {}
+SampleTagIterator::SampleTagIterator():itr1(),itr2(stags.end()) {}
 
 bool SampleTagIterator::hasNext()
 {
-    if (stags && itr2 != stags->end()) return true;
+    if (itr2 != stags.end()) return true;
     for (; itr1.hasNext(); ) {
 	DSMSensor* sensor = itr1.next();
-	stags = &sensor->getSampleTags();
-	itr2 = stags->begin();
-	if (itr2 != stags->end()) return true;
+	stags = sensor->getSampleTags();
+	itr2 = stags.begin();
+	if (itr2 != stags.end()) return true;
     }
     return false;
 }
@@ -206,10 +203,7 @@ VariableIterator::VariableIterator(const Site* obj):
 VariableIterator::VariableIterator(const DSMConfig* obj):
 	itr1(obj->getSampleTagIterator()),variables(0) {}
 
-VariableIterator::VariableIterator(const SampleIOProcessor* obj):
-	itr1(obj->getSampleTagIterator()),variables(0) {}
-
-VariableIterator::VariableIterator(const DSMSensor* obj):
+VariableIterator::VariableIterator(const SampleSource* obj):
 	itr1(obj->getSampleTagIterator()),variables(0) {}
 
 VariableIterator::VariableIterator(const SampleTag* stag):

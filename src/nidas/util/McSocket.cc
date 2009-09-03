@@ -387,7 +387,7 @@ int McSocketListener::run() throw(Exception)
 	}
 
 	Logger::getInstance()->log(LOG_DEBUG,
-	"received dgram, magic=0x%x, requestType=%d, port=%d, socketType=%d, len=%d\n",
+	"received dgram, magic=0x%x, requestType=%d, reply to port=%d, socketType=%d, len=%d\n",
 		dgram.getMagic(),dgram.getRequestType(),
 		dgram.getRequesterListenPort(),dgram.getSocketType(),
 		dgram.getLength());

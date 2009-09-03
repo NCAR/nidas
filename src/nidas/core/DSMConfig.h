@@ -82,6 +82,78 @@ public:
 
     VariableIterator getVariableIterator() const;
 
+    /**
+     * Get the length of the SampleSorter of raw Samples, in seconds.
+     */
+    float getRawSorterLength() const
+    {
+        return _rawSorterLength;
+    }
+
+    /**
+     * Set the length of the SampleSorter of raw Samples, in seconds.
+     */
+    void setRawSorterLength(float val)
+    {
+        _rawSorterLength = val;
+    }
+
+    /**
+     * Get the length of the SampleSorter of processed Samples, in seconds.
+     */
+    float getProcSorterLength() const
+    {
+        return _procSorterLength;
+    }
+
+    /**
+     * Set the length of the SampleSorter of processed Samples, in seconds.
+     */
+    void setProcSorterLength(float val)
+    {
+        _procSorterLength = val;
+    }
+
+    /**
+     * Get the size of in bytes of the raw SampleSorter.
+     * If the size of the sorter exceeds this value
+     * then samples will be discarded.
+     */
+    size_t getRawHeapMax() const
+    {
+        return _rawHeapMax;
+    }
+
+    /**
+     * Set the size of in bytes of the raw SampleSorter.
+     * If the size of the sorter exceeds this value
+     * then samples will be discarded.
+     */
+    void setRawHeapMax(size_t val)
+    {
+        _rawHeapMax = val;
+    }
+
+    /**
+     * Get the size of in bytes of the processed SampleSorter.
+     * If the size of the sorter exceeds this value
+     * then samples will be discarded.
+     */
+    size_t getProcHeapMax() const
+    {
+        return _procHeapMax;
+    }
+
+    /**
+     * Set the size of in bytes of the processed SampleSorter.
+     * If the size of the sorter exceeds this value
+     * then samples will be discarded.
+     */
+    void setProcHeapMax(size_t val)
+    {
+        _procHeapMax = val;
+    }
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
 
@@ -99,7 +171,7 @@ public:
      * used, then the TOKEN should be delimited by a '/', a '.' or
      * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
      */
-    std::string expandString(const std::string& input) const;
+    std::string expandString(std::string input) const;
 
     /**
      * Utility function to get the value of a token.
@@ -184,12 +256,26 @@ private:
      */
     unsigned short _remoteSerialSocketPort;	
 
+    float _rawSorterLength;
+
+    float _procSorterLength;
+
+    size_t _rawHeapMax;
+
+    size_t _procHeapMax;
+
     nidas::util::SocketAddress* _derivedDataSocketAddr;
 
     std::list<SampleIOProcessor*> _processors;
 
     nidas::util::SocketAddress* _statusSocketAddr;
 
+private:
+    // no copying
+    DSMConfig(const DSMConfig& x);
+
+    // no assignment
+    DSMConfig& operator=(const DSMConfig& x);
 };
 
 }}	// namespace nidas namespace core

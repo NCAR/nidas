@@ -38,12 +38,13 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
-    iodev(0),
-    height(floatNAN),
-    scanner(0),dsm(0),id(0),
-    rawSampleTag(0),
-    latency(0.1),	// default sensor latency, 0.1 secs
-    calFile(0),
+    _iodev(0),
+    _height(floatNAN),
+    _scanner(0),_dsm(0),_id(0),
+    _rawSource(true),
+    _source(false),
+    _latency(0.1),	// default sensor latency, 0.1 secs
+    _calFile(0),
     _timeoutMsecs(0),
     _duplicateIdOK(false),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
@@ -54,40 +55,33 @@ DSMSensor::DSMSensor() :
 DSMSensor::~DSMSensor()
 {
 
-    for (list<SampleTag*>::const_iterator si = sampleTags.begin();
-    	si != sampleTags.end(); ++si) {
+    for (list<SampleTag*>::const_iterator si = _sampleTags.begin();
+    	si != _sampleTags.end(); ++si) {
 	delete *si;
     }
-    delete rawSampleTag;
-    delete scanner;
-    delete iodev;
+    delete _scanner;
+    delete _iodev;
 
     map<std::string,Parameter*>::const_iterator pi;
-    for (pi = parameters.begin(); pi != parameters.end(); ++pi)
+    for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
 	delete pi->second;
 
-    delete calFile;
+    delete _calFile;
 }
 
 
 void DSMSensor::addSampleTag(SampleTag* val)
     throw(n_u::InvalidParameterException)
 {
-    if (find(sampleTags.begin(),sampleTags.end(),val) == sampleTags.end()) {
-        sampleTags.push_back(val);
-        constSampleTags.push_back(val);
+    if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end()) {
+        _sampleTags.push_back(val);
+        addSampleTag((const SampleTag*)val);
     }
     else {
         n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: duplicate sample tag pointer: %d,%d (added twice?)",
             getName().c_str(),GET_DSM_ID(val->getId()),GET_SHORT_ID(val->getId()));
     }
-
-}
-
-SampleTagIterator DSMSensor::getSampleTagIterator() const
-{
-    return SampleTagIterator(this);
 }
 
 VariableIterator DSMSensor::getVariableIterator() const
@@ -100,7 +94,7 @@ VariableIterator DSMSensor::getVariableIterator() const
  */
 const Site* DSMSensor::getSite() const
 {
-    if (dsm) return dsm->getSite();
+    if (_dsm) return _dsm->getSite();
     return 0;
 }
 
@@ -109,7 +103,7 @@ const Site* DSMSensor::getSite() const
  */
 const std::string& DSMSensor::getDSMName() const {
     static std::string unk("unknown");
-    if (dsm) return dsm->getName();
+    if (_dsm) return _dsm->getName();
     return unk;
 }
 
@@ -117,30 +111,30 @@ const std::string& DSMSensor::getDSMName() const {
  * If location is an empty string, return DSMConfig::getLocation()
  */
 const std::string& DSMSensor::getLocation() const {
-    if (location.length() == 0 && dsm) return dsm->getLocation();
-    return location;
+    if (_location.length() == 0 && _dsm) return _dsm->getLocation();
+    return _location;
 }
 
 void DSMSensor::setSuffix(const std::string& val)
 {
-    suffix = val;
-    if (heightString.length() > 0)
-        setFullSuffix(suffix + string(".") + heightString);
-    else if (depthString.length() > 0)
-        setFullSuffix(suffix + string(".") + depthString);
+    _suffix = val;
+    if (_heightString.length() > 0)
+        setFullSuffix(_suffix + string(".") + _heightString);
+    else if (_depthString.length() > 0)
+        setFullSuffix(_suffix + string(".") + _depthString);
     else
-        setFullSuffix(suffix);
+        setFullSuffix(_suffix);
 }
 
 void DSMSensor::setHeight(const string& val)
 {
-    heightString = val;
-    depthString = "";
-    if (heightString.length() > 0) {
+    _heightString = val;
+    _depthString = "";
+    if (_heightString.length() > 0) {
 	float h;
 	istringstream ist(val);
 	ist >> h;
-	if (ist.fail()) height = floatNAN;
+	if (ist.fail()) _height = floatNAN;
 	else if (!ist.eof()) {
 	    string units;
 	    ist >> units;
@@ -148,38 +142,38 @@ void DSMSensor::setHeight(const string& val)
 		if (units == "cm") h /= 10.0;
 		else if (units != "m") h = floatNAN;
 	    }
-	    height = h;
+	    _height = h;
 	}
-	setFullSuffix(getSuffix() + string(".") + heightString);
+	setFullSuffix(getSuffix() + string(".") + _heightString);
     }
     else {
-	height = floatNAN;
+	_height = floatNAN;
 	setFullSuffix(getSuffix());
     }
 }
 
 void DSMSensor::setHeight(float val)
 {
-    height = val;
-    if (! isnan(height)) {
+    _height = val;
+    if (! isnan(_height)) {
 	ostringstream ost;
-	ost << height << 'm';
-	heightString = ost.str();
-	setFullSuffix(getSuffix() + string(".") + heightString);
-        depthString = "";
+	ost << _height << 'm';
+	_heightString = ost.str();
+	setFullSuffix(getSuffix() + string(".") + _heightString);
+        _depthString = "";
     }
     else setFullSuffix(getSuffix());
 }
 
 void DSMSensor::setDepth(const string& val)
 {
-    depthString = val;
-    heightString = "";
-    if (depthString.length() > 0) {
+    _depthString = val;
+    _heightString = "";
+    if (_depthString.length() > 0) {
 	float d;
 	istringstream ist(val);
 	ist >> d;
-	if (ist.fail()) height = floatNAN;
+	if (ist.fail()) _height = floatNAN;
 	else if (!ist.eof()) {
 	    string units;
 	    ist >> units;
@@ -187,25 +181,25 @@ void DSMSensor::setDepth(const string& val)
 		if (units == "cm") d /= 10.0;
 		else if (units != "m") d = floatNAN;
 	    }
-	    height = -d;
+	    _height = -d;
 	}
-	setFullSuffix(getSuffix() + string(".") + depthString);
+	setFullSuffix(getSuffix() + string(".") + _depthString);
     }
     else {
-	height = floatNAN;
+	_height = floatNAN;
         setFullSuffix(getSuffix());
     }
 }
 
 void DSMSensor::setDepth(float val)
 {
-    height = -val;
-    if (! isnan(height)) {
+    _height = -val;
+    if (! isnan(_height)) {
 	ostringstream ost;
 	ost << val * 10.0 << "cm";
-	depthString = ost.str();
-	setFullSuffix(getSuffix() + string(".") + depthString);
-        heightString = "";
+	_depthString = ost.str();
+	setFullSuffix(getSuffix() + string(".") + _depthString);
+        _heightString = "";
     }
     else setFullSuffix(getSuffix());
 }
@@ -215,10 +209,10 @@ void DSMSensor::setDepth(float val)
  */
 void DSMSensor::addParameter(Parameter* val)
 {
-    map<string,Parameter*>::iterator pi = parameters.find(val->getName());
-    if (pi == parameters.end()) {
-        parameters[val->getName()] = val;
-	constParameters.push_back(val);
+    map<string,Parameter*>::iterator pi = _parameters.find(val->getName());
+    if (pi == _parameters.end()) {
+        _parameters[val->getName()] = val;
+	_constParameters.push_back(val);
     }
     else {
 	// parameter with name exists. If the pointers aren't equal
@@ -226,22 +220,22 @@ void DSMSensor::addParameter(Parameter* val)
 	Parameter* p = pi->second;
 	if (p != val) {
 	    // remove it from constParameters list
-	    list<const Parameter*>::iterator cpi = constParameters.begin();
-	    for ( ; cpi != constParameters.end(); ) {
-		if (*cpi == p) cpi = constParameters.erase(cpi);
+	    list<const Parameter*>::iterator cpi = _constParameters.begin();
+	    for ( ; cpi != _constParameters.end(); ) {
+		if (*cpi == p) cpi = _constParameters.erase(cpi);
 		else ++cpi;
 	    }
 	    delete p;
 	    pi->second = val;
-	    constParameters.push_back(val);
+	    _constParameters.push_back(val);
 	}
     }
 }
 
 const Parameter* DSMSensor::getParameter(const std::string& name) const
 {
-    map<string,Parameter*>::const_iterator pi = parameters.find(name);
-    if (pi == parameters.end()) return 0;
+    map<string,Parameter*>::const_iterator pi = _parameters.find(name);
+    if (pi == _parameters.end()) return 0;
     return pi->second;
 }
 
@@ -251,16 +245,16 @@ const Parameter* DSMSensor::getParameter(const std::string& name) const
 void DSMSensor::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException) 
 {
-    if (!iodev) iodev = buildIODevice();
+    if (!_iodev) _iodev = buildIODevice();
     // cerr << "iodev->setName " << getDeviceName() << endl;
-    iodev->setName(getDeviceName());
+    _iodev->setName(getDeviceName());
 
     n_u::Logger::getInstance()->log(LOG_NOTICE,
     	"opening: %s",getDeviceName().c_str());
 
-    iodev->open(flags);
-    if (!scanner) scanner = buildSampleScanner();
-    scanner->init();
+    _iodev->open(flags);
+    if (!_scanner) _scanner = buildSampleScanner();
+    _scanner->init();
 }
 
 void DSMSensor::close() throw(n_u::IOException) 
@@ -268,7 +262,7 @@ void DSMSensor::close() throw(n_u::IOException)
     n_u::Logger::getInstance()->log(LOG_INFO,
     	"closing: %s, #timeouts=%d",
         getDeviceName().c_str(),getTimeoutCount());
-    iodev->close();
+    _iodev->close();
 }
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
@@ -295,7 +289,7 @@ dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
         tt = samp->getTimeTag();        // return last time tag read
-        distributeRaw(samp);
+        _rawSource.distribute(samp);
 #ifdef DEBUG
         nsamp++;
 #endif
@@ -310,7 +304,7 @@ bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
     process(samp,results);
-    distribute(results);	// distribute does the freeReference
+    _source.distribute(results);	// distribute does the freeReference
     return true;
 }
 
@@ -436,7 +430,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    throw n_u::InvalidParameterException(
 		string("sensor on dsm ") + getDSMConfig()->getName(),
 		"id",idstr);
-	setShortId(val);
+	setSensorId(val);
     }
     const string& idref = xnode.getAttributeValue("IDREF");
     // scan catalog entry
@@ -523,7 +517,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
     
-    if (getShortId() == 0) 
+    if (getSensorId() == 0) 
 	throw n_u::InvalidParameterException(
 	    getDSMConfig()->getName() + ": " + getName(),
 	    "id is zero","");
@@ -540,7 +534,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    SampleTag* newtag = new SampleTag();
 	    newtag->setDSM(getDSMConfig());
 	    newtag->setDSMId(getDSMConfig()->getId());
-	    newtag->setSensorId(getShortId());
+	    newtag->setSensorId(getSensorId());
             // add sensor name to any InvalidParameterException thrown by sample.
             try {
                 newtag->fromDOMElement((xercesc::DOMElement*)child);
@@ -551,7 +545,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    if (newtag->getSampleId() == 0)
 	        newtag->setSampleId(getSampleTags().size()+1);
 
-	    const list<SampleTag*>& stags = getncSampleTags();
+	    list<SampleTag*> stags = getNonConstSampleTags();
 	    list<SampleTag*>::const_iterator si = stags.begin();
 	    for ( ; si != stags.end(); ++si) {
 		SampleTag* stag = *si;
@@ -560,7 +554,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		if (stag->getSampleId() == newtag->getSampleId()) {
 		    // update the sample with the new DOMElement
 		    stag->setDSMId(getDSMConfig()->getId());
-		    stag->setSensorId(getShortId());
+		    stag->setSensorId(getSensorId());
 
                     try {
                         stag->fromDOMElement((xercesc::DOMElement*)child);
@@ -590,19 +584,17 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
-    if (!rawSampleTag) {
-	rawSampleTag = new SampleTag();
-	rawSampleTag->setSampleId(0);
-	rawSampleTag->setSensorId(getShortId());
-	rawSampleTag->setDSMId(getDSMConfig()->getId());
-	rawSampleTag->setDSM(getDSMConfig());
-    }
+    _rawSampleTag.setSampleId(0);
+    _rawSampleTag.setSensorId(getSensorId());
+    _rawSampleTag.setDSMId(getDSMConfig()->getId());
+    _rawSampleTag.setDSM(getDSMConfig());
 
     if (getFullSuffix().length() > 0)
-    	rawSampleTag->setSuffix(getFullSuffix());
+    	_rawSampleTag.setSuffix(getFullSuffix());
 
     const Site* site = getSite();
-    if (site) rawSampleTag->setSiteAttributes(site);
+    if (site) _rawSampleTag.setSiteAttributes(site);
+
 
     // sensors in the catalog may not have any sample tags
     // so at this point it is OK if sampleTags.size() == 0.
@@ -612,17 +604,17 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // the rates of the processed samples.
     float rawRate = 0.0;
     set<unsigned int> ids;
-    const list<SampleTag*>& stags = getncSampleTags();
+    list<SampleTag*> stags = getNonConstSampleTags();
     list<SampleTag*>::const_iterator si = stags.begin();
     for ( ; si != stags.end(); ++si) {
 	SampleTag* stag = *si;
 
-	stag->setSensorId(getShortId());
+	stag->setSensorId(getSensorId());
 	if (getFullSuffix().length() > 0)
 	    stag->setSuffix(getFullSuffix());
 	if (site) stag->setSiteAttributes(site);
 
-	if (getShortId() == 0) throw n_u::InvalidParameterException(
+	if (getSensorId() == 0) throw n_u::InvalidParameterException(
 	    	getName(),"id","zero or missing");
 
 	pair<set<unsigned int>::const_iterator,bool> ins =
@@ -635,10 +627,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	rawRate = std::max(rawRate,stag->getRate());
     }
-    rawSampleTag->setRate(rawRate);
+    _rawSampleTag.setRate(rawRate);
     if (getDeviceName().length() == 0) 
 	throw n_u::InvalidParameterException(getName(),
             "no device name","");
+
+    _rawSource.addSampleTag(&_rawSampleTag);
 
 #ifdef DEBUG
     cerr << getName() << ", suffix=" << getSuffix() << ": ";

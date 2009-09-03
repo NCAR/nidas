@@ -38,13 +38,6 @@ public:
     NetcdfRPCOutput(IOChannel* ioc = 0);
 
     /**
-     * Copy constructor.
-     */
-    NetcdfRPCOutput(const NetcdfRPCOutput&);
-
-    NetcdfRPCOutput(const NetcdfRPCOutput&,IOChannel*);
-
-    /**
      * Destructor.
      */
     ~NetcdfRPCOutput();
@@ -54,12 +47,17 @@ public:
     /**
      * Clone invokes default copy constructor.
      */
-    NetcdfRPCOutput* clone(IOChannel* iochannel=0) const
+    NetcdfRPCOutput* clone(IOChannel* iochannel=0)
     {
         return new NetcdfRPCOutput(*this);
     }
 
-    void addSampleTag(const SampleTag*);
+    /**
+     * Request a connection, but don't wait for it.  Requester will be
+     * notified via SampleConnectionRequester interface when the connection
+     * has been made.
+     */
+    void requestConnection(SampleConnectionRequester*) throw();
 
     /**
     * Raw write not supported.
@@ -78,9 +76,16 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+protected:
+
+    /**
+     * Copy constructor, with a new IOChannel. Used by clone().
+     */
+    NetcdfRPCOutput(NetcdfRPCOutput&,IOChannel*);
+
 private:
 
-    NetcdfRPCChannel* ncChannel;
+    NetcdfRPCChannel* _ncChannel;
 
 };
 

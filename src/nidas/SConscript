@@ -8,15 +8,16 @@
 Import('env')
 arch = env['ARCH']
 
-# Use the OTHER_ prefix only if it exists and is different than PREFIX
-if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
-    import os
-    other_include = env.subst("$OTHER_PREFIX/include")
-    other_lib = env.subst("$OTHER_PREFIX/lib")
-    if os.path.exists(other_include):
-        env.AppendUnique(CPPPATH = [ other_include ])
-    if os.path.exists(other_lib):
-        env.AppendUnique(LIBPATH = [ other_lib ])
+if 1:
+    # Use the OTHER_ prefix only if it exists and is different than PREFIX
+    if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
+        import os
+        other_include = env.subst("$OTHER_PREFIX/include")
+        other_lib = env.subst("$OTHER_PREFIX/lib")
+        if os.path.exists(other_include):
+            env.AppendUnique(CPPPATH = [ other_include ])
+        if os.path.exists(other_lib):
+            env.AppendUnique(LIBPATH = [ other_lib ])
 
 # libnidas.so is built with -lnidas_util option, and so libnidas.so
 # has an internal dependency on libnidas_util.so.  Because of this,

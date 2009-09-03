@@ -34,11 +34,6 @@ public:
      */
     RawSampleInputStream(IOChannel* iochannel = 0);
 
-    /**
-     * Create a copy, but with a new IOChannel.
-     */
-    RawSampleInputStream(const RawSampleInputStream&x,IOChannel*);
-
     RawSampleInputStream* clone(IOChannel*);
 
     virtual ~RawSampleInputStream();
@@ -47,6 +42,12 @@ public:
 	throw(nidas::util::InvalidParameterException);
 
 protected:
+
+    /**
+     * Create a copy, but with a new IOChannel.
+     */
+    RawSampleInputStream(RawSampleInputStream&x,IOChannel*);
+
 };
 
 }}	// namespace nidas namespace core

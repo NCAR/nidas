@@ -16,57 +16,118 @@
 #ifndef NIDAS_CORE_SAMPLEAVERAGER_H
 #define NIDAS_CORE_SAMPLEAVERAGER_H
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleClient.h>
+#include <nidas/core/Resampler.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/DSMTime.h>
 
 namespace nidas { namespace core {
 
-class SampleAverager : public SampleClient, public SampleSource {
+class SampleAverager : public Resampler {
 public:
 
     SampleAverager();
 
-    SampleAverager(const SampleAverager&);
+    SampleAverager(const std::vector<const Variable*>& vars);
+
+    SampleAverager(const std::vector<Variable*>& vars);
 
     virtual ~SampleAverager();
 
     /**
      * Set average period.
-     * @param val average period, in milliseconds.
+     * @param val average period, in seconds.
      */
-    void setAveragePeriod(int val) {
-        averagePeriod = val * USECS_PER_MSEC;
-	sampleTag.setRate((float)val / MSECS_PER_SEC);
+    void setAveragePeriodSecs(float val) {
+        _averagePeriodUsecs = (int)rint((double)val * USECS_PER_SEC);
+	_outSample.setRate(val);
     }
 
     /**
      * Get average period.
-     * @return average period, in milliseconds.
+     * @return average period, in seconds.
      */
-    int getAveragePeriod() const { return averagePeriod / USECS_PER_MSEC; }
-
-    void init() throw();
-
-    bool receive(const Sample *s) throw();
+    float getAveragePeriodSecs() const { return (double)_averagePeriodUsecs / USECS_PER_SEC; }
 
     void addVariable(const Variable *var);
 
-    void setSampleId(dsm_sample_id_t val) { outSampleId = val; }
+    void addVariables(const std::vector<const Variable*>&);
 
-    dsm_sample_id_t getSampleId() const { return outSampleId; }
+    SampleSource* getRawSampleSource() { return 0; }
 
-    const SampleTag* getSampleTag() const { return &sampleTag; }
+    SampleSource* getProcessedSampleSource() { return &_source; }
 
     /**
-     * Get the output SampleTag.
+     * Get the output SampleTags.
      */
-    const std::list<const SampleTag*>& getSampleTags() const
+    std::list<const SampleTag*> getSampleTags() const
     {
-        return _tags;
+        return _source.getSampleTags();
     }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        // I only have one tag, so just call addSampleClient()
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _source.flush();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
+
+    /**
+     * Connect the resampler to a SampleSource.
+     */
+    void connect(SampleSource* source) throw(nidas::util::InvalidParameterException);
+
+    void disconnect(SampleSource* source) throw();
+
+    bool receive(const Sample *s) throw();
 
     /**
      * flush all samples from buffer, distributing them to SampleClients.
@@ -74,31 +135,64 @@ public:
     void finish() throw ();
 
 protected:
+
+    void init() throw();
+
+private:
    
     /**
-     * Length of average, in milliseconds.
+     * Add a SampleTag to this SampleSource.
      */
-    int averagePeriod;
+    void addSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.addSampleTag(tag);
+    }
 
-    dsm_sample_id_t outSampleId;
+    void removeSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.removeSampleTag(tag);
+    }
 
-    dsm_time_t endTime;
+    SampleSourceSupport _source;
+
+    SampleTag _outSample;
+
+    /**
+     * Length of average, in microseconds.
+     */
+    int _averagePeriodUsecs;
+
+    /**
+     * end time of current statistics window.
+     */
+    dsm_time_t _endTime;
+
+    /**
+     * Index of each requested output variable in the output sample.
+     */
+    std::map<Variable*,int> _outVarIndices;
 
     std::map<dsm_sample_id_t,std::vector<int> > _inmap;
+
     std::map<dsm_sample_id_t,std::vector<int> > _lenmap;
+
     std::map<dsm_sample_id_t,std::vector<int> > _outmap;
 
     int _ndataValues;
 
-    double *sums;
+    double *_sums;
 
-    int *cnts;
+    int *_cnts;
 
-    SampleTag sampleTag;
+    /**
+     * No copy.
+     */
+    SampleAverager(const SampleAverager&);
 
-    std::list<const SampleTag*> _tags;
-
-private:
+    /**
+     * No assignment.
+     */
+    SampleAverager& operator=(const SampleAverager&);
 
 };
 

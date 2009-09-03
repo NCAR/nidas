@@ -33,17 +33,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
-	SampleOutputBase(i),
-        _iostream(0)
-{
-}
-
-/*
- * Copy constructor.
- */
-SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
-	SampleOutputBase(x),
-        _iostream(0)
+	SampleOutputBase(i),_iostream(0)
 {
 }
 
@@ -51,10 +41,11 @@ SampleOutputStream::SampleOutputStream(const SampleOutputStream& x):
  * Copy constructor, with a new IOChannel.
  */
 
-SampleOutputStream::SampleOutputStream(const SampleOutputStream& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc),
-	_iostream(0)
+SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
+	SampleOutputBase(x,ioc),_iostream(0)
 {
+    if (getIOChannel()) 
+        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
 SampleOutputStream::~SampleOutputStream()
@@ -65,22 +56,10 @@ SampleOutputStream::~SampleOutputStream()
     delete _iostream;
 }
 
-SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc) const
+SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc)
 {
     // invoke copy constructor
-    if (!ioc) return new SampleOutputStream(*this);
-    else return new SampleOutputStream(*this,ioc);
-}
-
-void SampleOutputStream::init() throw()
-{
-    SampleOutputBase::init();
-    delete _iostream;
-#ifdef DEBUG
-    cerr << "SampleOutputStream::init, buffer size=" <<
-    	getIOChannel()->getBufferSize() << " fd=" << getIOChannel()->getFd() << endl;
-#endif
-    _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    return new SampleOutputStream(*this,ioc);
 }
 
 void SampleOutputStream::close() throw(n_u::IOException)
@@ -91,6 +70,13 @@ void SampleOutputStream::close() throw(n_u::IOException)
     delete _iostream;
     _iostream = 0;
     SampleOutputBase::close();
+}
+
+void SampleOutputStream::connected(IOChannel* ioc) throw()
+{
+    if (ioc == getIOChannel() && !_iostream)
+        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    SampleOutputBase::connected(ioc);
 }
 
 void SampleOutputStream::finish() throw()
@@ -106,6 +92,10 @@ void SampleOutputStream::finish() throw()
 
 bool SampleOutputStream::receive(const Sample *samp) throw()
 {
+#ifdef DEBUG
+    cerr << "SampleOutputStream::receive sample id=" <<
+        samp->getDSMId() << ',' << samp->getSpSId() << endl;
+#endif
     bool first_sample = false;
     if (!_iostream) return false;
 
@@ -175,130 +165,6 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
 #endif
     size_t l = _iostream->write(iov,2);
-    if (l > 0) {
-        setLastReceivedTimeTag(samp->getTimeTag());
-        incrementNumOutputSamples();
-    }
     return l;
 }
 
-SortedSampleOutputStream::SortedSampleOutputStream():
-	SampleOutputStream(),
-    _sorter(0),_proxy(*this),
-    _sorterLengthMsecs(250),
-#ifdef NIDAS_EMBEDDED
-    _heapMax(5000000)
-#else
-    _heapMax(50000000)
-#endif
-{
-}
-/*
- * Copy constructor.
- */
-SortedSampleOutputStream::SortedSampleOutputStream(
-	const SortedSampleOutputStream& x)
-	: SampleOutputStream(x),
-    _sorter(0),
-    _proxy(*this),
-    _sorterLengthMsecs(x._sorterLengthMsecs),
-    _heapMax(x._heapMax)
-{
-}
-
-/*
- * Copy constructor, with a new IOChannel.
- */
-SortedSampleOutputStream::SortedSampleOutputStream(
-	const SortedSampleOutputStream& x,IOChannel* ioc)
-	: SampleOutputStream(x,ioc),
-	_sorter(0),
-	_proxy(*this),
-	_sorterLengthMsecs(x._sorterLengthMsecs),
-	_heapMax(x._heapMax)
-{
-}
-
-SortedSampleOutputStream::~SortedSampleOutputStream()
-{
-#ifdef DEBUG
-    cerr << "~SortedSampleOutputStream(), this=" << this << endl;
-#endif
-    if (_sorter) {
-	_sorter->interrupt();
-	n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(_sorter);
-	joiner->start();	// joiner deletes _sorter and itself
-    }
-}
-
-SortedSampleOutputStream* SortedSampleOutputStream::clone(IOChannel* ioc) const 
-{
-    if (ioc) return new SortedSampleOutputStream(*this,ioc);
-    else return new SortedSampleOutputStream(*this);
-}
-
-void SortedSampleOutputStream::init() throw()
-{
-    SampleOutputStream::init();
-    if (getSorterLengthMsecs() > 0) {
-	if (!_sorter) _sorter = new SampleSorter("SortedSampleOutputStream");
-	_sorter->setLengthMsecs(getSorterLengthMsecs());
-	_sorter->setHeapMax(getHeapMax());
-	try {
-	    _sorter->start();
-	}
-	catch(const n_u::Exception& e) {
-	}
-	_sorter->addSampleClient(&_proxy);
-    }
-}
-bool SortedSampleOutputStream::receive(const Sample *s) throw()
-{
-    if (_sorter) return _sorter->receive(s);
-    return SampleOutputStream::receive(s);
-}
-
-void SortedSampleOutputStream::finish() throw()
-{
-    if (_sorter) _sorter->finish();
-    SampleOutputStream::finish();
-}
-
-void SortedSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
-{
-    SampleOutputStream::fromDOMElement(node);
-    XDOMElement xnode(node);
-    if(node->hasAttributes()) {
-    // get all the attributes of the node
-        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-        int nSize = pAttributes->getLength();
-        for(int i=0;i<nSize;++i) {
-            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-            // get attribute name
-            const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
-            // Sample sorter length in seconds
-	    if (aname == "sorterLength") {
-	        istringstream ist(aval);
-		float len;  
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SortedSampleOutputStream",
-			attr.getName(),attr.getValue());
-		setSorterLengthMsecs((int)rint(len * MSECS_PER_SEC));
-	    }
-	    else if (aname == "heapMax") {
-	        istringstream ist(aval);
-		size_t len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SortedSampleOutputStream",
-			attr.getName(),attr.getValue());
-		setHeapMax(len);
-	    }
-	}
-    }
-}

@@ -22,13 +22,14 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars): osamp(0),fillGaps(false)
+NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars):
+    _source(false),_osamp(0),_fillGaps(false)
 {
     ctorCommon(vars);
 }
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
-    osamp(0),fillGaps(false)
+    _source(false),_osamp(0),_fillGaps(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -38,40 +39,37 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
 
 NearestResamplerAtRate::~NearestResamplerAtRate()
 {
-    delete [] prevTT;
-    delete [] nearTT;
-    delete [] prevData;
-    delete [] nearData;
-    delete [] samplesSinceOutput;
-
-    map<dsm_sample_id_t,vector<int*> >::iterator vmi;
-    for (vmi = sampleMap.begin(); vmi != sampleMap.end(); ++vmi) {
-	vector<int*>& vindices = vmi->second;
-	for (unsigned int iv = 0; iv < vindices.size(); iv++)
-	    delete [] vindices[iv];
-    }
-    if (osamp) osamp->freeReference();
+    delete [] _prevTT;
+    delete [] _nearTT;
+    delete [] _prevData;
+    delete [] _nearData;
+    delete [] _samplesSinceOutput;
+    if (_osamp) _osamp->freeReference();
 }
 
 void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
 {
-    nvars = vars.size();
-    outlen = nvars + 1;
-    prevTT = new dsm_time_t[nvars];
-    nearTT = new dsm_time_t[nvars];
-    prevData = new float[nvars];
-    nearData = new float[nvars];
-    samplesSinceOutput = new int[nvars];
+    _ndataValues = 0;
+    for (unsigned int i = 0; i < vars.size(); i++) {
+        Variable* v = new Variable(*vars[i]);
+        _outSample.addVariable(v);
+        _outVarIndices[v] = _ndataValues;
+        _ndataValues += v->getLength();
+    }
 
-    for (int i = 0; i < nvars; i++) {
-	prevTT[i] = 0;
-	nearTT[i] = 0;
-	prevData[i] = floatNAN;
-	nearData[i] = floatNAN;
-	samplesSinceOutput[i] = 0;
+    _outlen = _ndataValues + 1;
+    _prevTT = new dsm_time_t[_ndataValues];
+    _nearTT = new dsm_time_t[_ndataValues];
+    _prevData = new float[_ndataValues];
+    _nearData = new float[_ndataValues];
+    _samplesSinceOutput = new int[_ndataValues];
 
-	Variable* v = new Variable(*vars[i]);
-	outSampleTag.addVariable(v);
+    for (int i = 0; i < _ndataValues; i++) {
+	_prevTT[i] = 0;
+	_nearTT[i] = 0;
+	_prevData[i] = floatNAN;
+	_nearData[i] = floatNAN;
+	_samplesSinceOutput[i] = 0;
     }
 
     // Variable containing the number of non-NAs in the output sample.
@@ -79,213 +77,200 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
     v->setName("nonNANs");
     v->setType(Variable::WEIGHT);
     v->setUnits("");
-    outSampleTag.addVariable(v);
+    _outSample.addVariable(v);
+    _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
+    addSampleTag(&_outSample);
+
     setRate(10.);       // pick a default
-    outputTT = nextOutputTT = 0;
+    _outputTT = _nextOutputTT = 0;
 }
 
-void NearestResamplerAtRate::connect(SampleInput* input)
-	throw(n_u::IOException)
+void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidParameterException)
 {
-    if (sampleTags.size() > 1)
-    	throw n_u::IOException(input->getName(),"NearestResamplerAtRate",
-		"cannot have more than one output");
+    list<const SampleTag*> intags = source->getSampleTags();
 
-    int dsmid = -1;
-
-    // make a copy of input's SampleTags collection.
-    list<const SampleTag*> intags(input->getSampleTags().begin(),
-	input->getSampleTags().end());
-
-    // cerr << "NearestResamples, intags.size()=" << intags.size() << endl;
     list<const SampleTag*>::const_iterator inti = intags.begin();
     for ( ; inti != intags.end(); ++inti ) {
 	const SampleTag* intag = *inti;
-	dsm_sample_id_t id = intag->getId();
-	dsm_sample_id_t sensorId = id - intag->getSampleId();
-
-	map<dsm_sample_id_t,vector<int*> >::iterator vmi =
-	    sampleMap.find(id);
-
-	vector<int*> indices;
-	vector<int*>* vptr = &indices;
-	if (vmi != sampleMap.end()) vptr = &vmi->second;
-
-	// if it is a raw sample from a sensor, then
-	// this should be non-NULL.
-	DSMSensor* sensor = Project::getInstance()->findSensor(sensorId);
-        // cerr << "NearestResamplerAtRate, sensor=" << (sensor ? sensor->getName() : "not found") << endl;
+        dsm_sample_id_t sampid = intag->getId();
 
 	// loop over variables in this input sample, checking
 	// for a match against one of my variable names.
 	VariableIterator vi = intag->getVariableIterator();
+        bool varMatch = false;
 	for (int iv = 0; vi.hasNext(); iv++) {
 	    const Variable* var = vi.next();
+            int vindex = intag->getDataIndex(var);      // index of variable in its sample
 
 	    for (unsigned int iout = 0;
-	    	iout < outSampleTag.getVariables().size(); iout++) {
+	    	iout < _outSample.getVariables().size(); iout++) {
 
-		Variable& myvar = outSampleTag.getVariable(iout);
+		Variable& myvar = _outSample.getVariable(iout);
 
-#ifdef DEBUG
-		// variable match in name and station.
-		cerr << "checking " << var->getName() << "(" << var->getStation() << ") against " <<
-			myvar.getName() << "(" << myvar.getStation() <<
-			"), result=" << (*var == myvar) << endl;
-#endif
 		if (*var == myvar) {
-		    // paranoid check that this variable hasn't been added
-		    unsigned int j;
-		    for (j = 0; j < vptr->size(); j++)
-			if ((unsigned)(*vptr)[j][1] == iout) break;
-		    if (j == vptr->size()) {
-			int* idxs = new int[2];
-			idxs[0] = iv;	// input index
-			idxs[1] = iout;	// output index
-			vptr->push_back(idxs);
-			if (dsmid < 0) dsmid = intag->getDSMId();
-			else if (dsmid != (signed) intag->getDSMId())
-				dsmid = 0;
-		    }
+                    int vlen = var->getLength();
+                    // index of the 0th value of this variable in the
+                    // output array.
+                    map<Variable*,int>::iterator vi = _outVarIndices.find(&myvar);
+                    assert(vi != _outVarIndices.end());
+                    int outIndex = vi->second;
+
+                    map<dsm_sample_id_t,vector<int> >::iterator mi;
+                    if ((mi = _inmap.find(sampid)) == _inmap.end()) {
+                        vector<int> tmp;
+                        tmp.push_back(vindex);
+                        _inmap[sampid] = tmp;
+                        assert((mi = _outmap.find(sampid)) == _outmap.end());
+                        tmp.clear();
+                        tmp.push_back(outIndex);
+                        _outmap[sampid] = tmp;
+                        tmp.clear();
+                        tmp.push_back(vlen);
+                        _lenmap[sampid] = tmp;
+                    }
+                    else {
+                        mi->second.push_back(vindex);
+                        assert((mi = _outmap.find(sampid)) != _outmap.end());
+                        mi->second.push_back(outIndex);
+                        assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+                        mi->second.push_back(vlen);
+                    }
+
 		    // copy attributes of variable
 		    myvar = *var;
-		    if (sensor)
-			input->addProcessedSampleClient(this,sensor);
-		    else
-			input->addSampleClient(this);
 		}
 	    }
 	}
-	if (vmi == sampleMap.end() && indices.size() > 0)
-		sampleMap[id] = indices;
-    }
-
-    if (sampleTags.size() == 0) {
-        outSampleTag.setDSMId(dsmid);
-        outSampleTag.setSensorId(0);
-        dsm_sample_id_t id;
-        id  = Project::getInstance()->getUniqueSampleId(dsmid);
-        outSampleTag.setSampleId(id);
-        sampleTags.push_back(&outSampleTag);
+        if (varMatch) source->addSampleClientForTag(this,intag);
     }
 }
 
-void NearestResamplerAtRate::disconnect(SampleInput* input)
-	throw(n_u::IOException)
+void NearestResamplerAtRate::disconnect(SampleSource* source) throw()
 {
-    input->removeProcessedSampleClient(this);
-    input->removeSampleClient(this);
+    source->removeSampleClient(this);
 }
 
-bool NearestResamplerAtRate::receive(const Sample* s) throw()
+bool NearestResamplerAtRate::receive(const Sample* samp) throw()
 {
 
-    dsm_sample_id_t id = s->getId();
+    if (samp->getType() != FLOAT_ST) return false;
 
-    map<dsm_sample_id_t,vector<int*> >::const_iterator vmi =
-    	sampleMap.find(id);
-    if (vmi == sampleMap.end()) return false;	// unrecognized sample
+    dsm_sample_id_t sampid = samp->getId();
 
-    const vector<int*>& vindices = vmi->second;
+    map<dsm_sample_id_t,vector<int> >::iterator mi;
 
-    dsm_time_t tt = s->getTimeTag();
-    const float* inData = (const float*) s->getConstVoidDataPtr();
+    if ((mi = _inmap.find(sampid)) == _inmap.end()) return false;
+    const vector<int>& invec = mi->second;
+
+    assert((mi = _outmap.find(sampid)) != _outmap.end());
+    const vector<int>& outvec = mi->second;
+
+    assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+    const vector<int>& lenvec = mi->second;
+
+    assert(invec.size() == outvec.size());
+    assert(invec.size() == lenvec.size());
+
+    dsm_time_t tt = samp->getTimeTag();
+    const float* inData = (const float*) samp->getConstVoidDataPtr();
 
 #ifdef DEBUG
     static dsm_time_t lastTT;
     static dsm_sample_id_t lastId;
     if (tt < lastTT) {
         cerr << "tt=" << n_u::UTime(tt).format(true,"%c") <<
-            " id=" << GET_DSM_ID(id) << "," << GET_SHORT_ID(id) << endl;
+            " id=" << GET_DSM_ID(sampid) << "," << GET_SHORT_ID(sampid) << endl;
         cerr << "lasttt=" << n_u::UTime(lastTT).format(true,"%c") <<
             " id=" << GET_DSM_ID(lastId) << "," << GET_SHORT_ID(lastId) << endl;
     }
     lastTT = tt;
-    lastId = id;
+    lastId = sampid;
 #endif
 
-    if (tt > nextOutputTT) sendSample(tt);
+    if (tt > _nextOutputTT) sendSample(tt);
 
-    for (unsigned int iv = 0; iv < vindices.size(); iv++) {
-	int invar = vindices[iv][0];
-	float val = inData[invar];
-        if (isnan(val)) continue;        // doesn't exist
-	int outvar = vindices[iv][1];
+    for (unsigned int iv = 0; iv < invec.size(); iv++) {
+	int invar = invec[iv];
+	int outvar = outvec[iv];
 
-        switch (samplesSinceOutput[outvar]) {
-        case 0:
-            // this is the first sample of this variable since outputTT
-	    // Assumes input samples are sorted in time!!
-	    // Determine which of previous and current sample is the nearest
-	    // to outputTT
-            if (tt >= outputTT) {
-                if (outputTT > (tt + prevTT[outvar]) / 2) {
-                    nearData[outvar] = val;
-                    nearTT[outvar] = tt;
+        for (int iv2 = 0; iv2 < lenvec[iv]; iv2++,invar++,outvar++) {
+            float val = inData[invar];
+            if (isnan(val)) continue;        // doesn't exist
+
+            switch (_samplesSinceOutput[outvar]) {
+            case 0:
+                // this is the first sample of this variable since outputTT
+                // Assumes input samples are sorted in time!!
+                // Determine which of previous and current sample is the nearest
+                // to outputTT
+                if (tt >= _outputTT) {
+                    if (_outputTT > (tt + _prevTT[outvar]) / 2) {
+                        _nearData[outvar] = val;
+                        _nearTT[outvar] = tt;
+                    }
+                    else {
+                        _nearData[outvar] = _prevData[outvar];
+                        _nearTT[outvar] = _prevTT[outvar];
+                    }
+                    _samplesSinceOutput[outvar]++;
                 }
-                else {
-                    nearData[outvar] = prevData[outvar];
-                    nearTT[outvar] = prevTT[outvar];
-                }
-                samplesSinceOutput[outvar]++;
+                break;
+            default:
+                // this is at least the second sample since outputTT
+                // since samples are in time sequence, this one can't
+                // be the nearest one to outputTT.
+                break;
             }
-            break;
-        default:
-            // this is at least the second sample since outputTT
-            // since samples are in time sequence, this one can't
-            // be the nearest one to outputTT.
-            break;
+            _prevData[outvar] = val;
+            _prevTT[outvar] = tt;
         }
-        prevData[outvar] = val;
-        prevTT[outvar] = tt;
     }
     return true;
 }
 
-
 void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
 {
-    if (!osamp) {
-        outputTT = tt - (tt % deltatUsec);
-        nextOutputTT = outputTT + deltatUsec;
-        osamp = getSample<float>(outlen);
-        osamp->setId(outSampleTag.getId());
+    if (!_osamp) {
+        _outputTT = tt - (tt % _deltatUsec);
+        _nextOutputTT = _outputTT + _deltatUsec;
+        _osamp = getSample<float>(_outlen);
+        _osamp->setId(_outSample.getId());
     }
-    while (tt > nextOutputTT) {
-        dsm_time_t maxTT = nextOutputTT - deltatUsec10;
-        dsm_time_t minTT = outputTT - deltatUsec + deltatUsec10;
+    while (tt > _nextOutputTT) {
+        dsm_time_t maxTT = _nextOutputTT - _deltatUsec10;
+        dsm_time_t minTT = _outputTT - _deltatUsec + _deltatUsec10;
         int nonNANs = 0;
-        float* outData = osamp->getDataPtr();
-        for (int i = 0; i < nvars; i++) {
-            switch (samplesSinceOutput[i]) {
+        float* outData = _osamp->getDataPtr();
+        for (int i = 0; i < _ndataValues; i++) {
+            switch (_samplesSinceOutput[i]) {
             case 0:
                 // If there was no sample for this variable since outputTT
                 // then match prevData with the outputTT.
-                if (prevTT[i] > maxTT || prevTT[i] < minTT)
+                if (_prevTT[i] > maxTT || _prevTT[i] < minTT)
                     outData[i] = floatNAN;
-                else if (!isnan(outData[i] = prevData[i])) nonNANs++;
+                else if (!isnan(outData[i] = _prevData[i])) nonNANs++;
                 break;
             default:
-                if (nearTT[i] > maxTT || nearTT[i] < minTT)
+                if (_nearTT[i] > maxTT || _nearTT[i] < minTT)
                     outData[i] = floatNAN;
-                else if (!isnan(outData[i] = nearData[i])) nonNANs++;
+                else if (!isnan(outData[i] = _nearData[i])) nonNANs++;
                 break;
             }
-            samplesSinceOutput[i] = 0;
+            _samplesSinceOutput[i] = 0;
         }
-        outData[nvars] = (float) nonNANs;
-        if (nonNANs > 0 || fillGaps)  {
-            osamp->setTimeTag(outputTT);
-            distribute(osamp);
-            osamp = getSample<float>(outlen);
-            osamp->setId(outSampleTag.getId());
-            outputTT += deltatUsec;
-            nextOutputTT += deltatUsec;
+        outData[_ndataValues] = (float) nonNANs;
+        if (nonNANs > 0 || _fillGaps)  {
+            _osamp->setTimeTag(_outputTT);
+            _source.distribute(_osamp);
+            _osamp = getSample<float>(_outlen);
+            _osamp->setId(_outSample.getId());
+            _outputTT += _deltatUsec;
+            _nextOutputTT += _deltatUsec;
         }
         else {
             // jump ahead
-            outputTT = tt - (tt % deltatUsec);
-            nextOutputTT = outputTT + deltatUsec;
+            _outputTT = tt - (tt % _deltatUsec);
+            _nextOutputTT = _outputTT + _deltatUsec;
         }
     }
 }
@@ -295,5 +280,6 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
  */
 void NearestResamplerAtRate::finish() throw()
 {
-    sendSample(nextOutputTT + 1);
+    sendSample(_nextOutputTT + 1);
+    _source.flush();
 }

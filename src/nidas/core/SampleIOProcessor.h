@@ -16,7 +16,7 @@
 #define NIDAS_CORE_SAMPLEIOPROCESSOR_H
 
 
-#include <nidas/core/SampleInput.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/core/SampleOutput.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/ConnectionRequester.h>
@@ -28,18 +28,21 @@ class DSMService;
 
 /**
  * Interface of a processor of samples. A SampleIOProcessor reads
- * input Samples from a single SampleInput, and sends its processed
+ * input Samples from a SamplePipeline, and sends its processed
  * output Samples to one or more SampleOutputs.  
  */
-class SampleIOProcessor: public SampleConnectionRequester, public DOMable
+class SampleIOProcessor: public SampleSource, public SampleConnectionRequester,  public DOMable
 {
 public:
 
-    SampleIOProcessor();
+    /**
+     * Does this processor generate raw or processed samples.
+     * Typically they are processed samples (duh), but not
+     * always.
+     */
+    SampleIOProcessor(bool raw);
 
     virtual ~SampleIOProcessor();
-
-    // virtual SampleIOProcessor* clone() const = 0;
 
     virtual const std::string& getName() const;
 
@@ -68,96 +71,132 @@ public:
         _service = val;
     }
 
-    /**
-     * Should this Processor be cloned on each connection?
-     */
-    // virtual bool cloneOnConnection() const = 0;
+    dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
+
+    void setDSMId(int val) { _id = SET_DSM_ID(_id,val); }
+
+    unsigned int getDSMId()      const { return GET_DSM_ID(_id); }
+
+    void setSampleId(int val) { _id = SET_SPS_ID(_id,val); }
+
+    unsigned int getSampleId()      const { return GET_SPS_ID(_id); }
 
     /**
-     * Do common operations necessary when a input has connected:
-     * 1. Copy the DSMConfig information from the input to the
-     *    disconnected outputs.
-     * 2. Request connections for all disconnected outputs.
-     *
-     * connect() methods in subclasses should do whatever
-     * initialization necessary before invoking this
-     * SampleIOProcessor::connect().
+     * Connect a SampleSource to this SampleIOProcessor. SampleIOProcessor
+     * does not own the SampleSource.
      */
-    virtual void connect(SampleInput*) throw();
+    virtual void connect(SampleSource*) throw(nidas::util::InvalidParameterException)
+        = 0;
 
     /**
-     * Disconnect a SampleInput from this SampleIOProcessor.
-     * Right now just does a flush() of all connected outputs.
+     * Disconnect a SampleSource from this SampleIOProcessor.
      */
-    void disconnect(SampleInput*) throw();
+    virtual void disconnect(SampleSource*) throw() = 0;
+
+
+    SampleSource* getRawSampleSource()
+    {
+        return 0;
+    }
+
+    SampleSource* getProcessedSampleSource()
+    {
+        return &_source;
+    }
 
     /**
-     * Do common operations necessary when a output has connected:
-     * 1. do: output->init().
-     * 2. add output to a list of connected outputs.
+     * Add a request for a SampleTag from this SampleIOProcessor.
+     * This SampleIOProcessor will own the SampleTag.
      */
-    void connect(SampleOutput* orig,SampleOutput* output) throw();
+    virtual void addRequestedSampleTag(SampleTag* tag)
+	throw(nidas::util::InvalidParameterException);
+
+    virtual std::list<const SampleTag*> getRequestedSampleTags() const;
 
     /**
-     * Do common operations necessary when a output has disconnected:
-     * 1. do: output->close().
-     * 2. remove output from a list of connected outputs.
+     * Implementation of SampleSource::addSampleTag().
      */
-    void disconnect(SampleOutput* output) throw();
+    void addSampleTag(const SampleTag* tag) throw();
+
+    void removeSampleTag(const SampleTag* tag) throw();
 
     /**
-     * Add an SampleOutput to this SampleIOProcessor. SampleIOProcessor
-     * will own the SampleOutput. Once an input has connected,
-     * then SampleIOProcessor will do SampleOutput::requestConnection on
-     * all these as-yet disconnected outputs.
+     * Implementation of SampleSource::getSampleTags().
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.addSampleClientForTag(client,tag);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClientForTag(client,tag);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    void flush() throw()
+    {
+        return _source.flush();
+    }
+
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
+
+    /**
+     * Add an SampleOutput to this SampleIOProcessor. This is used
+     * to add a desired SampleOutput to this SampleIOProcessor.
+     * SampleIOProcessor will own the SampleOutput. Once a SampleSource
+     * has connected, then SampleIOProcessor is responsible for
+     * do SampleOutput::requestConnection, or
+     * SampleOutputRequestThread::addConnectRequest()
+     * on all these as-yet disconnected outputs.
      */
     virtual void addOutput(SampleOutput* val)
     {
 	_origOutputs.push_back(val);
     }
 
-    const std::list<SampleOutput*>& getOutputs() const 
+    virtual const std::list<SampleOutput*>& getOutputs() const 
     {
         return _origOutputs;
     }
-
-    const std::set<SampleOutput*>& getConnectedOutputs() const 
-    {
-        return _outputSet;
-    }
-
-    /**
-     * Add a SampleTag to this processor.
-     * Throw an exception if you don't like the variables in the sample.
-     * SampleIOProcessor will own the tag.
-     */
-    virtual void addSampleTag(SampleTag* var)
-    	throw(nidas::util::InvalidParameterException);
-
-    virtual const std::list<const SampleTag*>& getSampleTags() const
-    	{ return _constSampleTags; }
-
-    /**
-     * Set the various levels of the processor identification.
-     * A sensor ID is a 32-bit value comprised of four parts:
-     * 6-bit not used, 10-bit DSM id, and a 16-bit processor id.
-     */
-    void setId(dsm_sample_id_t val) { _id = SET_FULL_ID(_id,val); }
-    void setShortId(unsigned int val) { _id = SET_SHORT_ID(_id,val); }
-    void setDSMId(unsigned int val) { _id = SET_DSM_ID(_id,val); }
-
-    /**
-     * Get the various levels of the processor's identification.
-     * A sample tag ID is a 32-bit value comprised of four parts:
-     * 6-bit type_id  10-bit DSM_id, and a 16-bit processor id.
-     */
-    dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
-    unsigned int getDSMId()   const { return GET_DSM_ID(_id); }
-    unsigned int getShortId() const { return GET_SHORT_ID(_id); }
-
-    SampleTagIterator getSampleTagIterator() const;
-
-    VariableIterator getVariableIterator() const;
 
     /**
      * Add a parameter to this SampleIOProcessor, which
@@ -182,38 +221,20 @@ public:
     virtual void printStatus(std::ostream&,float deltat,int&) throw() {}
 
 protected:
-    /**
-     * Mapping between connected outputs and the original
-     * outputs.
-     */
-    std::map<SampleOutput*,SampleOutput*> _outputMap;
+
+    SampleSourceSupport _source;
+
+    mutable nidas::util::Mutex _tagsMutex;
+
+    std::list<SampleTag*> _requestedTags;
 
 private:
 
     std::string _name;
 
+    dsm_sample_id_t  _id;
+
     std::list<SampleOutput*> _origOutputs;
-
-    /**
-     * The connected outputs, kept in a set to
-     * avoid duplicates.
-     */
-    std::set<SampleOutput*> _outputSet;
-
-    std::list<SampleOutput*> _pendingOutputClosures;
-
-    nidas::util::Mutex _outputMutex;
-
-    /**
-     * Id of this processor.  Samples from this processor will
-     * have this id. It is analogous to a sensor id.
-     */
-    dsm_sample_id_t _id;
-
-
-    std::list<SampleTag*> _sampleTags;
-
-    std::list<const SampleTag*> _constSampleTags;
 
     bool _optional;
 
@@ -225,6 +246,8 @@ private:
     std::list<Parameter*> _parameters;
 
     std::list<const Parameter*> _constParameters;
+
+    std::list<const SampleTag*> _constRequestedTags;
 
     /**
      * Copy not supported.

@@ -223,8 +223,6 @@ public:
 
     SampleTagIterator(const SampleSource*);
 
-    SampleTagIterator(const SampleIOProcessor*);
-
     SampleTagIterator();
 
     bool hasNext();
@@ -235,7 +233,7 @@ private:
 
     SensorIterator itr1;
 
-    const std::list<const SampleTag*>* stags;
+    std::list<const SampleTag*> stags;
 
     std::list<const SampleTag*>::const_iterator itr2;
 };
@@ -259,9 +257,7 @@ public:
 
     VariableIterator(const DSMConfig*);
 
-    VariableIterator(const DSMSensor*);
-
-    VariableIterator(const SampleIOProcessor*);
+    VariableIterator(const SampleSource*);
 
     VariableIterator(const SampleTag*);
 

@@ -16,7 +16,7 @@
 #include <ctime>
 
 #include <nidas/core/FileSet.h>
-#include <nidas/dynld/SampleInputStream.h>
+#include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/NearestResamplerAtRate.h>
@@ -140,7 +140,7 @@ private:
 
     static const int DEFAULT_PORT = 30000;
 
-    int sorterLength;
+    float sorterLength;
 
     DumpClient::format_t format;
 
@@ -250,7 +250,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 }
 
 DataPrep::DataPrep(): 
-        sorterLength(250),
+        sorterLength(1.00),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
         rate(0.0),dosOut(false),doHeader(true)
@@ -441,7 +441,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
     -r rate: optional resample rate, in Hz (optional)\n\
-    -s sorterLength: input data sorter length in milliseconds (optional)\n\
+    -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
@@ -582,7 +582,7 @@ int DataPrep::run() throw()
 
     auto_ptr<Resampler> resampler;
 
-    auto_ptr<SortedSampleInputStream> sis;
+    auto_ptr<RawSampleInputStream> sis;
 
     auto_ptr<DumpClient> dumper;
 
@@ -696,10 +696,7 @@ int DataPrep::run() throw()
 
 	    // read the first header to get the project configuration
 	    // name
-	    sis.reset(new SortedSampleInputStream(fset));
-            sis->setSorterLengthMsecs(sorterLength);
-            sis->setHeapBlock(true);
-	    sis->init();
+	    sis.reset(new RawSampleInputStream(fset));
 	    sis->readInputHeader();
 	    const SampleInputHeader& header = sis->getInputHeader();
 
@@ -726,9 +723,7 @@ int DataPrep::run() throw()
 
         iochan = iochan->connect();
         if (!sis.get()) {
-            sis.reset(new SortedSampleInputStream(iochan));
-            sis->setHeapBlock(true);
-            sis->init();
+            sis.reset(new RawSampleInputStream(iochan));
             sis->readInputHeader();
         }
 
@@ -752,10 +747,15 @@ int DataPrep::run() throw()
                 const SampleTag* tag = ti.next();
                 sis->addSampleTag(tag);
             }
-	    // sis->addProcessedSampleClient(resampler.get(),sensor);
 	}
 
-        resampler->connect(sis.get());
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(1.0);
+        pipeline.setProcSorterLength(sorterLength);
+        pipeline.connect(sis.get());
+
+        resampler->connect(pipeline.getProcessedSampleSource());
 
 	dumper.reset(new DumpClient(format,cout));
         dumper->setDOS(dosOut);

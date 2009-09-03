@@ -316,7 +316,7 @@ void CSAT3_Sonic::validate()
 {
     SonicAnemometer::validate();
 
-    const std::list<const SampleTag*> tags= getSampleTags();
+    std::list<const SampleTag*> tags= getSampleTags();
 
     if (tags.size() > 2 || tags.size() < 1)
         throw n_u::InvalidParameterException(getName() +

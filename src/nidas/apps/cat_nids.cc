@@ -121,8 +121,6 @@ int Concater::run() throw()
 	SampleOutputStream outStream;
 	outStream.connected(outchan);
 
-	outStream.init();
-
 	nidas::core::FileSet* fset = new nidas::core::FileSet();
 
 	list<string>::const_iterator fi;

@@ -72,7 +72,7 @@ string PacketInputStream::getName() const
     return string("PacketInputStream");
 }
 
-const list<const SampleTag*>& PacketInputStream::getSampleTags() const
+list<const SampleTag*> PacketInputStream::getSampleTags() const
 {
     const GOESProject* gp = getGOESProject(0);
     return gp->getSampleTags();
@@ -174,7 +174,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 	fptr[2] = pinfo->getFreqOffset();
 	fptr[3] = pinfo->getChannel();
 	fptr[4] = pinfo->getStatusInt();
-	distribute(samp);
+	_source.distribute(samp);
 
 	if (packetParser->getSampleId() >= 0) {
 
@@ -195,7 +195,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 
 	    packetParser->parseData(samp->getDataPtr(),nvars);
 
-	    distribute(samp);
+	    _source.distribute(samp);
 	}
     }
     catch(const n_u::InvalidParameterException& e) {

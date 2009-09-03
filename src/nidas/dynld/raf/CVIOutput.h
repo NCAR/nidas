@@ -31,30 +31,24 @@ public:
 
     CVIOutput(IOChannel* iochannel=0);
 
-    /**
-     * Copy constructor.
-     */
-    CVIOutput(const CVIOutput&);
-
-    /**
-     * Copy constructor, with a new IOChannel.
-     */
-    CVIOutput(const CVIOutput&,IOChannel*);
-
     ~CVIOutput();
 
-    CVIOutput* clone(IOChannel* iochannel=0) const;
+    CVIOutput* clone(IOChannel* iochannel=0);
 
-    void addSampleTag(const SampleTag*);
+    void addRequestedSampleTag(SampleTag*)
+        throw(nidas::util::InvalidParameterException);
 
-    void requestConnection(SampleConnectionRequester* requester)
-	throw(nidas::util::IOException);
-
-    void connect() throw(nidas::util::IOException);
+    void requestConnection(SampleConnectionRequester* requester) throw();
 
     bool receive(const Sample* samp) throw();
 
     void derivedDataNotify(const DerivedDataReader * s) throw();
+
+protected:
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    CVIOutput(CVIOutput&,IOChannel*);
 
 private:
 

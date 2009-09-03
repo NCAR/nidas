@@ -806,7 +806,7 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	*pktptr++ = ++seqnum;		// sequence number
 	if (first) {
 	    *pktptr++ = (configid & 0x3f) | 0x40;
-	    *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
+	    *pktptr++ = (samp->getSpSId() & 0x3f) | 0x40;
 	    first = false;
 	    _xmitNbytes += 2;
 	}
@@ -889,7 +889,7 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
     char* pktptr = pkt + 64;
 
     *pktptr++ = (configid & 0x3f) | 0x40;
-    *pktptr++ = (samp->getShortId() & 0x3f) | 0x40;
+    *pktptr++ = (samp->getSpSId() & 0x3f) | 0x40;
     _xmitNbytes += 2;
 
     while (fptr < endInput) {

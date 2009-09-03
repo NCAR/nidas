@@ -170,7 +170,7 @@ public:
     	toDOMElement(xercesc::DOMElement* node,bool complete) const
     		throw(xercesc::DOMException);
 
-    static std::string expandEnvVars(const std::string& input);
+    static std::string expandEnvVars(std::string input);
     
     static std::string getEnvVar(const std::string& token);
 

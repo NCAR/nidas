@@ -15,7 +15,7 @@
 #include <nidas/dynld/SampleArchiver.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMServer.h>
-#include <nidas/core/SampleInput.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 
 #include <nidas/util/Logger.h>
 
@@ -29,91 +29,180 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(SampleArchiver)
 
-SampleArchiver::SampleArchiver(): SampleIOProcessor(),_input(0),
-    _nsampsLast(0),_nbytesLast(0)
+SampleArchiver::SampleArchiver(): SampleIOProcessor(true),
+    _nsampsLast(0),_nbytesLast(0),_rawArchive(true)
 {
     setName("SampleArchiver");
 }
-
-#ifdef NEED_COPY_CLONE
-SampleArchiver::SampleArchiver(const SampleArchiver& x):
-    SampleIOProcessor((const SampleIOProcessor&)x),_input(0),
-    _nsampsLast(0),_nbytesLast(0)
-{
-    setName("SampleArchiver");
-}
-#endif
 
 SampleArchiver::~SampleArchiver()
 {
-}
-
-#ifdef NEED_COPY_CLONE
-SampleArchiver* SampleArchiver::clone() const {
-    return new SampleArchiver(*this);
-}
-#endif
-
-void SampleArchiver::connect(SampleInput* newinput) throw()
-{
-    _statusMutex.lock();
-    _input = newinput;
-    _statusMutex.unlock();
-    SampleTagIterator ti = _input->getSampleTagIterator();
-    for ( ; ti.hasNext(); ) {
-	const SampleTag* stag = ti.next();
-	addSampleTag(new SampleTag(*stag));
-    }
-    SampleIOProcessor::connect(_input);
-}
- 
-void SampleArchiver::disconnect(SampleInput* oldinput) throw()
-{
-    if (!_input) return;
-    assert(_input == oldinput);
-
-    n_u::Logger::getInstance()->log(LOG_INFO,"%s is disconnecting from %s",
-        oldinput->getName().c_str(),getName().c_str());
-
-    const set<SampleOutput*>& cnctdOutputs = getConnectedOutputs();
-    set<SampleOutput*>::const_iterator oi =
-    	cnctdOutputs.begin();
-    for ( ; oi != cnctdOutputs.end(); ++oi) {
+    _connectionMutex.lock();
+    set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        _input->removeSampleClient(output);
+        set<SampleSource*>::const_iterator si = _connectedSources.begin();
+        for ( ; si != _connectedSources.end(); ++si) {
+            SampleSource* source = *si;
+            if (output->isRaw()) {
+                SampleSource* src = source->getRawSampleSource();
+                if (src) source = src;
+            }
+            else {
+                SampleSource* src = source->getProcessedSampleSource();
+                if (src) source = src;
+            }
+            source->removeSampleClient(output);
+        }
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "DSMEngine: error closing %s: %s",
+                    output->getName().c_str(),ioe.what());
+        }
+
+        SampleOutput* orig = output->getOriginal();
+
+        if (output != orig) delete output;
+    }
+    _connectionMutex.unlock();
+}
+
+void SampleArchiver::connect(SampleSource* source) throw()
+{
+    n_u::Autolock alock(_connectionMutex);
+
+    if (getRaw()) {
+        SampleSource* src = source->getRawSampleSource();
+        if (src) source = src;
+    }
+    else {
+        SampleSource* src = source->getProcessedSampleSource();
+        if (src) source = src;
     }
 
-    SampleIOProcessor::disconnect(_input);
-    _statusMutex.lock();
-    _input = 0;
-    _statusMutex.unlock();
+    // on first SampleSource connection, request output connections.
+    if (_connectedSources.size() == 0) {
+        const list<SampleOutput*>& outputs = getOutputs();
+        list<SampleOutput*>::const_iterator oi = outputs.begin();
+        for ( ; oi != outputs.end(); ++oi) {
+            SampleOutput* output = *oi;
+            // some SampleOutputs want to know what they are getting
+            output->addSourceSampleTags(source->getSampleTags());
+            SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
+        }
+    }
+    _connectedSources.insert(source);
+
+    set<SampleOutput*>::const_iterator oi =
+    	_connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+#ifdef DEBUG
+        cerr << "SampleArchiver: connecting " << output->getName() << endl;
+#endif
+        source->addSampleClient(output);
+    }
 }
  
-void SampleArchiver::connect(SampleOutput* orig,SampleOutput* output) throw()
+void SampleArchiver::disconnect(SampleSource* source) throw()
 {
-    assert(_input);
-    SampleIOProcessor::connect(orig,output);
-    _input->addSampleClient(output);
+    n_u::Autolock alock(_connectionMutex);
+    set<SampleOutput*>::const_iterator oi =
+    	_connectedOutputs.begin();
+
+    if (getRaw()) {
+        SampleSource* src = source->getRawSampleSource();
+        if (src) source = src;
+    }
+    else {
+        SampleSource* src = source->getProcessedSampleSource();
+        if (src) source = src;
+    }
+
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        source->removeSampleClient(output);
+    }
+    _connectedSources.erase(source);
+}
+ 
+void SampleArchiver::connect(SampleOutput* output) throw()
+{
+    n_u::Logger::getInstance()->log(LOG_INFO,
+        "SampleArchiver: connection from %s", output->getName().c_str());
+
+    cerr << "SampleArchiver::connnect(SampleOutput*), #sources=" <<
+        _connectedSources.size() << endl;
+
+    _connectionMutex.lock();
+    _connectedOutputs.insert(output);
+
+    set<SampleSource*>::const_iterator si = _connectedSources.begin();
+    for ( ; si != _connectedSources.end(); ++si) {
+        SampleSource* source = *si;
+        if (getRaw()) {
+            if (!output->isRaw())
+                WLOG(("SampleOutput from a raw SampleArchiver is not a raw output. Use RawSampleOutputStream, rather than SampleOutputStream"));
+        }
+        else {
+            if (output->isRaw())
+                WLOG(("SampleOutput from a processed SampleArchiver is not processed output. Use SampleOutputStream, rather than RawSampleOutputStream"));
+        }
+        source->addSampleClient(output);
+    }
+    _connectionMutex.unlock();
+
     nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
     if (fset) {
-        _statusMutex.lock();
+        _filesetMutex.lock();
         _filesets.push_back(fset);
-        _statusMutex.unlock();
+        _filesetMutex.unlock();
     }
 }
  
 void SampleArchiver::disconnect(SampleOutput* output) throw()
 {
-    if (_input) _input->removeSampleClient(output);
-    SampleIOProcessor::disconnect(output);
+    // disconnect the output from my sources.
+
+    _connectionMutex.lock();
+    set<SampleSource*>::const_iterator si = _connectedSources.begin();
+    for ( ; si != _connectedSources.end(); ++si) {
+        SampleSource* source = *si;
+        source->removeSampleClient(output);
+    }
+    _connectedOutputs.erase(output);
+    _connectionMutex.unlock();
+
     nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
     if (fset) {
-        _statusMutex.lock();
+        _filesetMutex.lock();
         list<const FileSet*>::iterator fi =
             std::find(_filesets.begin(),_filesets.end(),fset);
         if (fi != _filesets.end()) _filesets.erase(fi);
-        _statusMutex.unlock();
+        _filesetMutex.unlock();
     }
+
+    try {
+        output->finish();
+        output->close();
+    }
+    catch (const n_u::IOException& ioe) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "DSMEngine: error closing %s: %s",
+                output->getName().c_str(),ioe.what());
+    }
+
+    SampleOutput* orig = output->getOriginal();
+
+    if (orig != output)
+        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+    // submit connection request on original output
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
 }
 
 void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
@@ -121,20 +210,25 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
 {
     const char* oe[2] = {"odd","even"};
 
-    n_u::Autolock statusMutex(_statusMutex);
+    SampleSource* source = 0;
+    _connectionMutex.lock();
+    if (_connectedSources.size() > 0) source = *_connectedSources.begin();
+    _connectionMutex.unlock();
+
+    const SampleStats* stats = (source ? &source->getSampleStats() : 0);
 
     ostr <<
         "<tr class=" << oe[zebra++%2] << "><td align=left>archive</td>";
     dsm_time_t tt = 0LL;
-    if (_input) tt = _input->getLastDistributedTimeTag();
+    if (stats) tt = stats->getLastTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
     else
         ostr << "<td><font color=red>Not active</font></td>";
-    size_t nsamps = (_input ? _input->getNumDistributedSamples() : 0);
+    size_t nsamps = (stats ? stats->getNumSamples() : 0);
     float samplesps = (float)(nsamps - _nsampsLast) / deltat;
 
-    long long nbytes = (_input ? _input->getNumDistributedBytes() : 0);
+    long long nbytes = (stats ? stats->getNumBytes() : 0);
     float bytesps = (float)(nbytes - _nbytesLast) / deltat;
 
     _nsampsLast = nsamps;
@@ -150,6 +244,7 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
 
+    n_u::Autolock alock(_filesetMutex);
     list<const nidas::dynld::FileSet*>::const_iterator fi = _filesets.begin();
     for ( ; fi != _filesets.end(); ++fi) {
         const nidas::dynld::FileSet* fset = *fi;

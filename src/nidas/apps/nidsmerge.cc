@@ -257,7 +257,6 @@ int NidsMerge::run() throw()
 
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
-        outStream.init();
 
 	vector<SampleInputStream*> inputs;
 

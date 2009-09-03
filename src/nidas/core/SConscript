@@ -99,12 +99,17 @@ headers = Split("""
     SampleIOProcessor.h
     SampleLengthException.h
     SampleOutput.h
+    SampleOutputRequestThread.h
     SampleParseException.h
+    SamplePipeline.h
     SamplePool.h
+    SampleBuffer.h
     SampleScanner.h
     SampleSorter.h
     SampleSource.h
+    SampleSourceSupport.h
     SampleTag.h
+    SampleThread.h
     SensorCatalog.h
     SensorHandler.h
     SensorOpener.h
@@ -146,7 +151,6 @@ sources = Split("""
     AsciiSscanf.cc
     CalFile.cc
     CharacterSensor.cc
-    ConnectionRequester.cc
     DatagramSocket.cc
     DerivedDataReader.cc
     DOMable.cc
@@ -186,14 +190,16 @@ sources = Split("""
     Sample.cc
     SampleClientList.cc
     SampleClock.cc
-    SampleInput.cc
     SampleInputHeader.cc
     SampleIOProcessor.cc
     SampleOutput.cc
+    SampleOutputRequestThread.cc
+    SamplePipeline.cc
     SamplePool.cc
+    SampleBuffer.cc
     SampleScanner.cc
     SampleSorter.cc
-    SampleSource.cc
+    SampleSourceSupport.cc
     SampleTag.cc
     SensorCatalog.cc
     SensorHandler.cc

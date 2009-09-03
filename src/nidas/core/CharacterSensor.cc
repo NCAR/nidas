@@ -258,8 +258,8 @@ void CharacterSensor::fromDOMElement(
 
     /* determine if any of the samples have associated prompts */
     //list<SampleTag*>::const_iterator si;
-    //for (si = getncSampleTags().begin();
-             //si != getncSampleTags().end(); ++si) {
+    //for (si = getNonConstSampleTags().begin();
+             //si != getNonConstSampleTags().end(); ++si) {
         //SampleTag* samp = *si;
         //if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
 		//samp->setRate(getPromptRate());
@@ -282,8 +282,8 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
 
     /* determine if any of the samples have associated prompts */
     list<SampleTag*>::const_iterator si;
-    for (si = getncSampleTags().begin();
-            si != getncSampleTags().end(); ++si) {
+    for (si = getNonConstSampleTags().begin();
+            si != getNonConstSampleTags().end(); ++si) {
 	SampleTag* samp = *si;
 	if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
 	    samp->setRate(getPromptRate());

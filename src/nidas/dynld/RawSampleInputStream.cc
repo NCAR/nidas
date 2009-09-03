@@ -28,11 +28,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(RawSampleInputStream)
 
 RawSampleInputStream::RawSampleInputStream(IOChannel* iochan):
-	SampleInputStream(iochan)
+	SampleInputStream(iochan,true)
 {
 }
 
-RawSampleInputStream::RawSampleInputStream(const RawSampleInputStream& x,
+RawSampleInputStream::RawSampleInputStream(RawSampleInputStream& x,
 	IOChannel* iochannel):
 	SampleInputStream(x,iochannel)
 {

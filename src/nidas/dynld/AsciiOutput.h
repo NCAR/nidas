@@ -33,51 +33,50 @@ public:
 
     AsciiOutput(IOChannel* iochannel=0);
 
-    /**
-     * Copy constructor.
-     */
-    AsciiOutput(const AsciiOutput&);
-
-    /**
-     * Copy constructor, with a new IOChannel.
-     */
-    AsciiOutput(const AsciiOutput&,IOChannel*);
-
     virtual ~AsciiOutput() {}
 
-    AsciiOutput* clone(IOChannel* iochannel=0) const;
+    AsciiOutput* clone(IOChannel* iochannel);
 
-    void requestConnection(SampleConnectionRequester* requester)
-	throw(nidas::util::IOException);
+    void requestConnection(SampleConnectionRequester* requester) throw();
 
-    void connect() throw(nidas::util::IOException);
+    void connect(SampleSource* ) throw(nidas::util::IOException);
     /**
      * Set the format for character samples. Raw sensor samples
      * are character samples.
      */
     void setFormat(format_t val)
     {
-        format = val;
+        _format = val;
     }
 
     bool receive(const Sample* samp) throw();
 
 protected:
 
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    AsciiOutput(AsciiOutput&,IOChannel*);
+
     void printHeader() throw(nidas::util::IOException);
 
 private:
 
-    std::ostringstream ostr;
+    std::ostringstream _ostr;
 
-    format_t format;
+    format_t _format;
 
     /**
      * Previous time tags by sample id. Used for displaying time diffs.
      */
-    std::map<dsm_sample_id_t,dsm_time_t> prevTT;
+    std::map<dsm_sample_id_t,dsm_time_t> _prevTT;
 
-    bool headerOut;
+    bool _headerOut;
+
+    /**
+     * Copy constructor.
+     */
+    AsciiOutput(const AsciiOutput&);
 
 };
 

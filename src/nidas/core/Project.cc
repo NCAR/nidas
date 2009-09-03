@@ -416,41 +416,47 @@ DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 }
 
 /* static */
-string Project::expandEnvVars(const string& input)
+string Project::expandEnvVars(string input)
 {
     string::size_type lastpos = 0;
     string::size_type dollar;
 
     string result;
+    bool substitute = true;
 
-    while ((dollar = input.find('$',lastpos)) != string::npos) {
+    while(substitute) {
+        substitute = false;
+        while ((dollar = input.find('$',lastpos)) != string::npos) {
 
-        result.append(input.substr(lastpos,dollar-lastpos));
-	lastpos = dollar;
+            result.append(input.substr(lastpos,dollar-lastpos));
+            lastpos = dollar;
 
-	string::size_type openparen = input.find('{',dollar);
-	string token;
+            string::size_type openparen = input.find('{',dollar);
+            string token;
 
-	if (openparen == dollar + 1) {
-	    string::size_type closeparen = input.find('}',openparen);
-	    if (closeparen == string::npos) break;
-	    token = input.substr(openparen+1,closeparen-openparen-1);
-	    lastpos = closeparen + 1;
-	}
-	else {
-	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
-	    if (endtok == string::npos) endtok = input.length();
-	    token = input.substr(dollar+1,endtok-dollar-1);
-	    lastpos = endtok;
-	}
-	if (token.length() > 0) {
-	    string val = getEnvVar(token);
-	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-	    result.append(val);
-	}
+            if (openparen == dollar + 1) {
+                string::size_type closeparen = input.find('}',openparen);
+                if (closeparen == string::npos) break;
+                token = input.substr(openparen+1,closeparen-openparen-1);
+                lastpos = closeparen + 1;
+            }
+            else {
+                string::size_type endtok = input.find_first_of("/.",dollar + 1);
+                if (endtok == string::npos) endtok = input.length();
+                token = input.substr(dollar+1,endtok-dollar-1);
+                lastpos = endtok;
+            }
+            if (token.length() > 0) {
+                string val = getEnvVar(token);
+                if (val != token) substitute = true;
+                // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
+                result.append(val);
+            }
+        }
+
+        result.append(input.substr(lastpos));
+        input = result;
     }
-
-    result.append(input.substr(lastpos));
     // cerr << "input: \"" << input << "\" expanded to \"" <<
     // 	result << "\"" << endl;
     return result;

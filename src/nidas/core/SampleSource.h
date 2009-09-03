@@ -17,12 +17,15 @@
 #ifndef NIDAS_CORE_SAMPLESOURCE_H
 #define NIDAS_CORE_SAMPLESOURCE_H
 
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/SampleClientList.h>
-
-#include <set>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/SampleStats.h>
+#include <nidas/util/InvalidParameterException.h>
 
 namespace nidas { namespace core {
+
+class SampleClient;
+class SampleTag;
+class Sample;
 
 /**
  * A source of samples. A SampleSource maintains a list
@@ -34,42 +37,75 @@ namespace nidas { namespace core {
 class SampleSource {
 public:
 
-    SampleSource(): _numDistributedSamples(0),_numDistributedBytes(0),
-        _lastDistributedTimeTag(0L)
-    {
-    }
+    /**
+     * Several objects in NIDAS can be both a SampleSource of raw Samples
+     * and processed Samples. SampleClients use this method to
+     * get a pointer to whatever sample source they are interested
+     * in. Derived classes can return NULL if they are not
+     * a SampleSource of raw samples.
+     */
+    virtual SampleSource* getRawSampleSource() = 0;
 
-    virtual ~SampleSource() {}
+    /**
+     * Several objects in NIDAS can be both a SampleSource of raw Samples
+     * and processed Samples. SampleClients use this method to
+     * get a pointer to whatever sample source they are interested
+     * in. Derived classes can return NULL if they are not
+     * a SampleSource of processed samples.
+     */
+    virtual SampleSource* getProcessedSampleSource() = 0;
+
+    /**
+     * Add a SampleTag to this SampleSource. This SampleSource
+     * does not own the SampleTag.
+     */
+    virtual void addSampleTag(const SampleTag*)
+        throw (nidas::util::InvalidParameterException) = 0;
+
+    virtual void removeSampleTag(const SampleTag*) throw () = 0;
+
+    /**
+     * What SampleTags am I a SampleSource for?
+     */
+    virtual std::list<const SampleTag*> getSampleTags() const = 0;
+
+    virtual SampleTagIterator getSampleTagIterator() const = 0;
+
+    /**
+     * Add a SampleClient of all Samples to this SampleSource.
+     * The pointer to the SampleClient must remain valid, until after
+     * it is removed.
+     */
+    virtual void addSampleClient(SampleClient* c) throw() = 0;
+
+    /**
+     * Remove a SampleClient from this SampleSource.
+     */
+    virtual void removeSampleClient(SampleClient* c) throw() = 0;
 
     /**
      * Add a SampleClient to this SampleSource.  The pointer
      * to the SampleClient must remain valid, until after
      * it is removed.
      */
-    virtual void addSampleClient(SampleClient* c) throw() {
-        _clients.add(c);
-    }
-
+    virtual void addSampleClientForTag(SampleClient* c,const SampleTag*) throw() = 0;
     /**
-     * Remove a SampleClient from this SampleSource
+     * Remove a SampleClient for a given SampleTag from this SampleSource.
+     * The pointer to the SampleClient must remain valid, until after
+     * it is removed.
      */
-    virtual void removeSampleClient(SampleClient* c) throw() {
-        _clients.remove(c);
-    }
+    virtual void removeSampleClientForTag(SampleClient* c,const SampleTag*) throw() = 0;
 
     /**
      * How many SampleClients are currently in my list.
      */
-    virtual int getClientCount() const throw() {
-        return _clients.size();
-    }
+    virtual int getClientCount() const throw() = 0;
 
+#ifdef NEEDED
     /**
      * Big cleanup.
      */
-    virtual void removeAllSampleClients() throw() {
-        _clients.removeAll();
-    }
+    virtual void removeAllSampleClients() throw() = 0;
 
     /**
      * Distribute a sample to my clients, calling the receive() method
@@ -82,63 +118,24 @@ public:
      * to Sample after the distribute() - the clients may get
      * a half-changed Sample.
      */
-    virtual void distribute(const Sample* s) throw();
+    virtual void distribute(const Sample* s) throw() = 0;
 
     /**
      * Distribute a list of samples to my clients. Calls receive() method
      * of each client, passing the pointer to the Sample.
      * Does a s->freeReference() on each sample in the list.
      */
-    virtual void distribute(const std::list<const Sample*>& samps) throw();
+    virtual void distribute(const std::list<const Sample*>& samps) throw() = 0;
+#endif
 
     /**
      * Request that this SampleSource flush it's buffers.
-     * Default implementation passes a finish() request
-     * onto all the clients.
+     * Default implementation issues a finish() request
+     * to all the clients.
      */
-    virtual void flush() throw();
+    virtual void flush() throw() = 0;
 
-    virtual const std::list<const SampleTag*>& getSampleTags() const = 0;
-
-    virtual SampleTagIterator getSampleTagIterator() const;
-
-    /**
-     * How many samples have been distributed by this SampleSource.
-     */
-    size_t getNumDistributedSamples() const {
-        return _numDistributedSamples;
-    }
-
-    /**
-     * How many bytes have been distributed by this SampleSource.
-     */
-    long long getNumDistributedBytes() const {
-        return _numDistributedBytes;
-    }
-
-    /**
-     * Timetag of most recent sample distributed by the merger.
-     */
-    dsm_time_t getLastDistributedTimeTag() const
-    {
-        return _lastDistributedTimeTag;
-    }
-
-private:
-
-    /**
-     * My current clients.
-     */
-    SampleClientList _clients;
-
-    /**
-     * Number of samples distributed.
-     */
-    size_t _numDistributedSamples;
-
-    long long _numDistributedBytes;
-
-    dsm_time_t _lastDistributedTimeTag;
+    virtual const SampleStats& getSampleStats() const = 0;
 
 };
 

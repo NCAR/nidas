@@ -51,11 +51,12 @@ XMLConfigService::~XMLConfigService()
 
 void XMLConfigService::schedule() throw(n_u::Exception)
 {
+    list<const SampleTag*> dummy;
     list<IOChannel*>::iterator oi = _ochans.begin();
     for ( ; oi != _ochans.end(); ++oi) {
-        IOChannel* output = *oi;
-        output->setRequestType(XML_CONFIG);
-        output->requestConnection(this);
+        IOChannel* iochan = *oi;
+        iochan->setRequestType(XML_CONFIG);
+        iochan->requestConnection(this);
     }
 }
 
@@ -63,15 +64,15 @@ void XMLConfigService::interrupt() throw()
 {
     list<IOChannel*>::iterator oi = _ochans.begin();
     for ( ; oi != _ochans.end(); ++oi) {
-        IOChannel* output = *oi;
-        output->close();
+        IOChannel* iochan = *oi;
+        iochan->close();
     }
     DSMService::interrupt();
 }
-void XMLConfigService::connected(IOChannel* output) throw()
+void XMLConfigService::connected(IOChannel* iochan) throw()
 {
     // Figure out what DSM it came from
-    n_u::Inet4Address remoteAddr = output->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
+    n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
@@ -95,29 +96,29 @@ void XMLConfigService::connected(IOChannel* output) throw()
         n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "can't find DSM for address %s" ,
 	    remoteAddr.getHostAddress().c_str());
-        output->close();
-        delete output;
+        iochan->close();
+        delete iochan;
 	return;
     }
 
     DLOG(("findDSM, dsm=") << dsm->getName());
 
-    // The output should be a new output, created from the configured
-    // outputs, since it should be a newly connected Socket.
+    // The iochan should be a new iochan, created from the configured
+    // iochans, since it should be a newly connected Socket.
     // If it isn't then we have pointer ownership issues that must
     // resolved.
-    list<IOChannel*>::iterator oi = std::find(_ochans.begin(),_ochans.end(),output);
+    list<IOChannel*>::iterator oi = std::find(_ochans.begin(),_ochans.end(),iochan);
     assert(oi == _ochans.end());
 
-    // worker will own and delete the output.
-    Worker* worker = new Worker(this,output,dsm);
+    // worker will own and delete the iochan.
+    Worker* worker = new Worker(this,iochan,dsm);
     worker->start();
     addSubThread(worker);
 }
 
-XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*output,
+XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*iochan,
     const DSMConfig*dsm):
-        Thread(svc->getName()), _svc(svc),_output(output),_dsm(dsm)
+        Thread(svc->getName()), _svc(svc),_iochan(iochan),_dsm(dsm)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
@@ -125,8 +126,8 @@ XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*output,
 }
 XMLConfigService::Worker::~Worker()
 {
-    _output->close();
-    delete _output;
+    _iochan->close();
+    delete _iochan;
 }
 int XMLConfigService::Worker::run() throw(n_u::Exception)
 {
@@ -151,12 +152,12 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     }
     // delete projnodes;
 
-    XMLFdFormatTarget formatter(_output->getName(),_output->getFd());
+    XMLFdFormatTarget formatter(_iochan->getName(),_iochan->getFd());
 
     XMLConfigWriter writer(_dsm);
     writer.writeNode(&formatter,*doc);
 
-    _output->close();
+    _iochan->close();
     return RUN_OK;
 }
 
