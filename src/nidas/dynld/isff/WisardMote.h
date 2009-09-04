@@ -58,15 +58,17 @@ private:
 	vector<float> data;	int msgLen;
 
 	/*  nodeName and Id pairs  */
-	map<string,unsigned int> nodeIds;
-	string nname, lnname;   // nname keeps "height,location-> IDXXX", lnname= nname+senosrtypeId
-	int sampleId; //IDXXX: sampleId= XXX<<8;
+	//map<string,unsigned int> nodeIds;
+	string nname;//, lnname;   // nname keeps "height,location-> IDXXX", lnname= nname+senosrtypeId
 
-	/** push a pair of nodename and id to the map
-	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
-	 *  @param sensorTypeId	-- sensorTypeId
-	 */
-	void pushNodeName(unsigned int id, int sensorTypeId );
+	int sampleId; //IDXXX: sampleId= XXX<<8;
+	void addSampleTag(const SampleTag* stag);
+	void addVToSmp(SampleTag* stag);
+	/* key=sensorTypeId(0x) string =parameters(name, units, suffix, etc)    */
+	map<string,string> dataInf;
+	void initDataInfMap();
+	void assignDataInf(string& substr, int& idx);
+
 
 	/**
 	 * cases of variable name and data

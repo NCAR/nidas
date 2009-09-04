@@ -13,6 +13,8 @@
 
 #include "WisardMote.h"
 #include <nidas/util/Logger.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/DSMConfig.h>
 #include <cmath>
 #include <iostream>
 #include <memory> // auto_ptr<>
@@ -34,8 +36,8 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 WisardMote::WisardMote() {
 	//static bool mapped = false;
 	fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
-
 	initFuncMap();
+	initDataInfMap();
 }
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -79,7 +81,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		msgLen=0;
 		data.clear();
 		if ( nnMap[sTypeId]==NULL  ) {
-			n_u::Logger::getInstance()->log(LOG_ERR, "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",lnname.c_str(), sTypeId);
+			n_u::Logger::getInstance()->log(LOG_ERR, "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",nname.c_str(), sTypeId);
 			return false;
 		}
 		(this->*nnMap[sTypeId])(cp,eos);
@@ -126,6 +128,52 @@ throw(n_u::InvalidParameterException)
 		}
 	}
 }
+
+void WisardMote::addSampleTag(const SampleTag* stag){
+
+	SampleTag* newtag = new SampleTag();
+	newtag->setDSMId(stag->getDSMId());
+	newtag->setSensorId(stag->getSensorId());
+
+	addVToSmp(newtag);
+	//DSMSensor::addSampleTag(newtag);
+	DSMSerialSensor::addSampleTag(newtag);
+}
+
+
+void WisardMote::addVToSmp(SampleTag* newtag){
+
+	map<string, string>::iterator iter;
+	for (iter=dataInf.begin(); iter != dataInf.end(); ++iter) {
+		//get id
+		string idstr= iter->first;
+		istringstream ist(idstr);
+		unsigned int id;
+		ist.unsetf(ios::dec);
+		ist>>id;
+
+		//get name, units, etc
+		string name="", units="", suffix="";
+		string pmeter= iter->second;
+		istringstream pm(pmeter);
+		pm>>name>>units>>suffix;
+		n_u::Logger::getInstance()->log(LOG_INFO,"datatyepid= %i name=%s units=%s suffix=%s", id, name, units, suffix);
+
+		//add smaple ID
+		newtag->setSampleId(newtag->getSampleId()+id);
+		//dsm_sample_id_t iidd = newtag->getDSMId()+ newtag->getSensorId()+newtag->getSampleId();
+		//newtag->setId(iidd);
+
+		Variable* var = new Variable();
+		var->setName(name);
+		var->setUnits(units);
+		var->setSuffix(suffix);
+		newtag->addVariable(var);
+	}
+
+}
+
+
 
 /*void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
 	lnname = nname;
@@ -489,6 +537,54 @@ void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 			data.push_back(floatNAN);
 		n_u::Logger::getInstance()->log(LOG_INFO," %d ", val);
 	}
+}
+
+void WisardMote::initDataInfMap() {
+	dataInf["0x20"]="Tsoil degC";
+	dataInf["0x21"]="Tsoil degC";
+	dataInf["0x22"]="Tsoil degC";
+	dataInf["0x23"]="Tsoil degC";
+
+	dataInf["0x24"]="Gsoil W/m^2";
+	dataInf["0x25"]="Gsoil W/m^2";
+	dataInf["0x26"]="Gsoil W/m^2";
+	dataInf["0x27"]="Gsoil W/m^2";
+
+	dataInf["0x28"]="Qsoil vol%";
+	dataInf["0x29"]="Qsoil vol%";
+	dataInf["0x2A"]="Qsoil vol%";
+	dataInf["0x2B"]="Qsoil vol%";
+
+	dataInf["0x2C"]="TP01 V";
+	dataInf["0x2D"]="TP01 V";
+	dataInf["0x2E"]="TP01 V";
+	dataInf["0x2F"]="TP01 V";
+
+	dataInf["0x50"]="Rnet W/m^2";
+	dataInf["0x51"]="Rnet W/m^2";
+	dataInf["0x52"]="Rnet W/m^2";
+	dataInf["0x53"]="Rnet W/m^2";
+
+	dataInf["0x54"]="Rsw-In W/m^2";
+	dataInf["0x55"]="Rsw-In W/m^2";
+	dataInf["0x56"]="Rsw-In W/m^2";
+	dataInf["0x57"]="Rsw-In W/m^2";
+
+	dataInf["0x58"]="Rsw-Out W/m^2";
+	dataInf["0x59"]="Rsw-Out W/m^2";
+	dataInf["0x5A"]="Rsw-Out W/m^2";
+	dataInf["0x5B"]="Rsw-Out W/m^2";
+
+	dataInf["0x5C"]="Rlw-In degC";
+	dataInf["0x5D"]="Rlw-In degC";
+	dataInf["0x5E"]="Rlw-In degC";
+	dataInf["0x5F"]="Rlw-In degC";
+
+	dataInf["0x60"]="Rlw-Out degC";
+	dataInf["0x61"]="Rlw-Out degC";
+	dataInf["0x62"]="Rlw-Out degC";
+	dataInf["0x63"]="Rlw-Out degC";
+
 }
 
 void WisardMote::initFuncMap() {
