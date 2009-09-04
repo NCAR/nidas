@@ -721,6 +721,75 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
 }
 
 /*
+ * IRQ handler for event interrupts on the board.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+static irqreturn_t gpio_mm_event_irq_handler(int irq, void* dev_id)
+#else
+static irqreturn_t gpio_mm_event_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
+#endif
+{
+        struct GPIO_MM* brd = (struct GPIO_MM*) dev_id;
+        struct GPIO_MM_event* event = brd->event;
+        unsigned char status;
+        struct event_sample* samp;
+
+        spin_lock(&brd->reglock);
+
+        /* check interrupt B */
+        status = inb(brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS) & 0x10;
+        if (!status) {     
+                /* not my interrupt. Hopefully somebody cares! */
+                spin_unlock(&brd->reglock);
+                return IRQ_NONE;
+        }
+
+#ifdef DEBUG2
+        print_time_of_day("irq_handler");
+#endif
+
+        /* acknowledge interrupt B */
+        outb(0x10,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
+
+        spin_unlock(&brd->reglock);
+
+        event->status.nevents++;
+
+#ifdef DEBUG2
+        KLOG_DEBUG("board %d: irq %d, rcvd=%d\n",
+               brd->num,irq,event->irqsReceived);
+#endif
+
+        /* put sample in circular buffer */
+
+        samp = (struct event_sample*)
+            GET_HEAD(event->samples,GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE);
+        if (!samp) {                // no output sample available
+                if (!(event->status.lostSamples++ % 1000))
+		    KLOG_WARNING("%s: lostSamples=%d\n",
+                       event->deviceName,event->status.lostSamples);
+        }
+        else {
+                samp->timetag = getSystemTimeTMsecs();
+                samp->length = sizeof(unsigned int);
+                samp->nevents = cpu_to_le32(event->status.nevents); // little endian data
+
+                // Wake up the read queue if latencyJiffies have elapsed
+                // or if the queue is half or more full.
+                INCREMENT_HEAD(event->samples,GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE);
+		if (((long)jiffies - (long)event->lastWakeup) > event->latencyJiffies ||
+			CIRC_SPACE(event->samples.head,event->samples.tail,
+			GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE) <
+			    GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE/2) {
+			wake_up_interruptible(&event->rwaitq);
+			event->lastWakeup = jiffies;
+		}
+        }
+
+        return IRQ_HANDLED;
+}
+
+/*
  * Request that a handler be registered for the given interrupt.
  * Set irq_ab=0  for interrupt A, and irq_ab=1 for interrupt B.
  * If an interrupt handler has already been set up for this
@@ -728,20 +797,22 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
  * Called from user context or module initialization.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
-static int gpio_mm_add_irq_user(struct GPIO_MM* brd,int irq_ab,
+static int gpio_mm_set_irq_user(struct GPIO_MM* brd,int irq_ab,
     irq_handler_t handler)
 #else
-static int gpio_mm_add_irq_user(struct GPIO_MM* brd,int irq_ab,
+static int gpio_mm_set_irq_user(struct GPIO_MM* brd,int irq_ab,
     irqreturn_t(*handler)(int,void*, struct pt_regs*))
 #endif
 {
         int result;
         if ((result = mutex_lock_interruptible(&brd->brd_mutex)))
                 return result;
-        if (brd->irq_users[irq_ab] == 0) {
+        if (brd->reqirqs[irq_ab] == 0) {
                 int irq = brd->irqs[irq_ab];
-                if (irq == 0) return -EINVAL;
-                BUG_ON(brd->reqirqs[irq_ab] != 0);
+                if (irq == 0) {
+                        mutex_unlock(&brd->brd_mutex);
+                        return -EINVAL;
+                }
 
                 /* We don't use SA_INTERRUPT flag here.  We don't
                  * need to block other interrupts while we're running.
@@ -759,8 +830,6 @@ static int gpio_mm_add_irq_user(struct GPIO_MM* brd,int irq_ab,
                 }
                 brd->reqirqs[irq_ab] = irq;
         }
-        else BUG_ON(brd->irq_users[irq_ab] <= 0);
-        brd->irq_users[irq_ab]++;
         mutex_unlock(&brd->brd_mutex);
         return result;
 }
@@ -773,19 +842,18 @@ static int gpio_mm_remove_irq_user(struct GPIO_MM* brd,int irq_ab)
         int result;
         if ((result = mutex_lock_interruptible(&brd->brd_mutex)))
                 return result;
-        brd->irq_users[irq_ab]--;
-        if (brd->irq_users[irq_ab] == 0) {
+        if (brd->reqirqs[irq_ab] != 0) {
                 KLOG_NOTICE("freeing irq %d\n",brd->irqs[irq_ab]);
                 free_irq(brd->reqirqs[irq_ab],brd);
-                brd->irqs[irq_ab] = 0;
+                brd->reqirqs[irq_ab] = 0;
         }
         mutex_unlock(&brd->brd_mutex);
         return result;
 }
 
-static int gpio_mm_add_timer_irq_user(struct GPIO_MM* brd)
+static int gpio_mm_set_timer_irq_user(struct GPIO_MM* brd)
 {
-        return gpio_mm_add_irq_user(brd,0,gpio_mm_timer_irq_handler);
+        return gpio_mm_set_irq_user(brd,0,gpio_mm_timer_irq_handler);
 }
 
 static int gpio_mm_remove_timer_irq_user(struct GPIO_MM* brd)
@@ -1199,10 +1267,6 @@ static int start_fcntr(struct GPIO_MM_fcntr* fcntr,
         result = gpio_mm_setup_fcntr(fcntr);
         if (result) return result;
 
-        fcntr->samples.head = fcntr->samples.tail = 0;
-        memset(&fcntr->read_state, 0, sizeof (struct sample_read_state));
-
-
 #ifdef ENABLE_TIMER_ON_EACH_BOARD
         fcntr->timer_callback = register_gpio_timer_callback_priv(
                brd->timer,fcntr_timer_callback_func,fcntr->outputPeriodUsec,
@@ -1403,6 +1467,243 @@ static struct file_operations fcntr_fops = {
         .llseek  = no_llseek,
 };
 
+
+/*
+ * Do the hardware steps necessary to setup the event detector.
+ * Called from user context.
+ */
+static int gpio_mm_setup_event(struct GPIO_MM_event* event)
+{
+        struct GPIO_MM* brd = event->brd;
+        unsigned long flags;
+        int result;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        /* disable interrupt B */
+        outb(0x20,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
+
+        /* IRQB source is interrupt input pin */
+        outb(0xA0,brd->ct_addr + GPIO_MM_IRQ_SRC);
+
+        /* enable interrupt B */
+        outb(0x40,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        result = gpio_mm_set_irq_user(brd,1,gpio_mm_event_irq_handler);
+
+        return result;
+}
+
+/*
+ * Do the hardware steps necessary to stop the event interrupts.
+ * Called from user context.
+ */
+static int gpio_mm_stop_event(struct GPIO_MM_event* event)
+{
+        struct GPIO_MM* brd = event->brd;
+        unsigned long flags;
+        int result;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        /* disable interrupt B */
+        outb(0x20,brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        result = gpio_mm_remove_irq_user(brd,1);
+
+        return result;
+}
+
+/*
+ * Called from user context.
+ */
+static int start_event(struct GPIO_MM_event* event,
+    struct GPIO_MM_event_config* cfg)
+{
+        int result;
+
+        event->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
+        /* If latencyUsecs is a bad value, fallback to 1/4 second */
+        if (event->latencyJiffies == 0) event->latencyJiffies = HZ / 4;
+        event->lastWakeup = jiffies;
+        KLOG_DEBUG("%s: latencyJiffies=%ld, HZ=%d\n",
+               event->deviceName,event->latencyJiffies,HZ);
+
+        /* setup the event interrupt */
+        result = gpio_mm_setup_event(event);
+        if (result) return result;
+
+        return result;
+}
+
+/*
+ * Called from user context.
+ */
+static int stop_event(struct GPIO_MM_event* event)
+{
+        int result;
+        result = gpio_mm_stop_event(event);
+        if (result) return result;
+
+        return result;
+}
+
+/************ Event File Operations ****************/
+static int gpio_mm_open_event(struct inode *inode, struct file *filp)
+{
+        int i = iminor(inode);
+        int ibrd = i / GPIO_MM_MINORS_PER_BOARD;
+
+        struct GPIO_MM* brd;
+        struct GPIO_MM_event* event;
+        int result = 0;
+
+        KLOG_DEBUG("open_event, minor=%d,ibrd=%d,numboards=%d\n",
+            i,ibrd,numboards);
+
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
+        if (ibrd >= numboards) return -ENXIO;
+
+        brd = board + ibrd;
+        event = brd->event;
+
+        if (atomic_inc_return(&event->num_opened) == 1) {
+                event->samples.head = event->samples.tail = 0;
+                memset(&event->read_state, 0, sizeof (struct sample_read_state));
+                memset(&event->status, 0, sizeof (struct GPIO_MM_event_status));
+        }
+        filp->private_data = event;
+
+        return result;
+}
+
+static int gpio_mm_release_event(struct inode *inode, struct file *filp)
+{
+        struct GPIO_MM_event* event = (struct GPIO_MM_event*)
+            filp->private_data;
+        int result = 0;
+
+        int i = iminor(inode);
+        int ibrd = i / GPIO_MM_MINORS_PER_BOARD;
+
+        struct GPIO_MM* brd;
+
+        if (ibrd >= numboards) return -ENXIO;
+
+        brd = board + ibrd;
+        BUG_ON(event != brd->event);
+
+        if (atomic_dec_and_test(&event->num_opened))
+            result = stop_event(event);
+	KLOG_DEBUG("%s: num_opened=%d\n",
+	    event->deviceName,atomic_read(&event->num_opened));
+        return result;
+}
+
+static ssize_t gpio_mm_read_event(struct file *filp, char __user *buf,
+    size_t count,loff_t *f_pos)
+{
+        struct GPIO_MM_event* event = (struct GPIO_MM_event*)
+                filp->private_data;
+
+        return nidas_circbuf_read(filp,buf,count,
+            &event->samples,&event->read_state,
+            &event->rwaitq);
+}
+
+static int gpio_mm_ioctl_event(struct inode *inode, struct file *filp,
+              unsigned int cmd, unsigned long arg)
+{
+        struct GPIO_MM_event* event = (struct GPIO_MM_event*)
+            filp->private_data;
+
+        int result = -EINVAL,err = 0;
+        void __user *userptr = (void __user *) arg;
+
+         /* don't even decode wrong cmds: better returning
+          * ENOTTY than EFAULT */
+        if (_IOC_TYPE(cmd) != GPIO_MM_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_NR(cmd) > GPIO_MM_IOC_MAXNR) return -ENOTTY;
+
+        /*
+         * the type is a bitmask, and VERIFY_WRITE catches R/W
+         * transfers. Note that the type is user-oriented, while
+         * verify_area is kernel-oriented, so the concept of "read" and
+         * "write" is reversed
+         */
+        if (_IOC_DIR(cmd) & _IOC_READ)
+                err = !access_ok(VERIFY_WRITE, userptr,
+                    _IOC_SIZE(cmd));
+        else if (_IOC_DIR(cmd) & _IOC_WRITE)
+                err =  !access_ok(VERIFY_READ, userptr,
+                    _IOC_SIZE(cmd));
+        if (err) return -EFAULT;
+
+        switch (cmd)
+        {
+        case GPIO_MM_EVENT_START:
+                {
+                struct GPIO_MM_event_config cfg;
+                if (copy_from_user(&cfg,userptr,
+                        sizeof(struct GPIO_MM_event_config))) return -EFAULT;
+                result = start_event(event,&cfg);
+                }
+                break;
+        case GPIO_MM_EVENT_GET_STATUS:	/* user get of status struct */
+                if (copy_to_user(userptr,&event->status,
+                    sizeof(struct GPIO_MM_event_status))) return -EFAULT;
+                result = 0;
+                break;
+        default:
+                result = -ENOTTY;
+                break;
+        }
+        return result;
+}
+
+/*
+ * Implementation of poll fops.
+ */
+unsigned int gpio_mm_poll_event(struct file *filp, poll_table *wait)
+{
+        struct GPIO_MM_event* event = (struct GPIO_MM_event*)
+            filp->private_data;
+        unsigned int mask = 0;
+
+        poll_wait(filp, &event->rwaitq, wait);
+#define BUFFER_POLL
+#ifdef BUFFER_POLL
+	if (((long)jiffies - (long)event->lastWakeup) > event->latencyJiffies ||
+		CIRC_SPACE(event->samples.head,event->samples.tail,
+		GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE) <
+		    GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE/2) {
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+		event->lastWakeup = jiffies;
+	}
+#else
+        if (sample_remains(&event->read_state) ||
+            event->samples.head != event->samples.tail)
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+#endif
+        return mask;
+}
+
+static struct file_operations event_fops = {
+        .owner   = THIS_MODULE,
+        .read    = gpio_mm_read_event,
+        .poll    = gpio_mm_poll_event,
+        .open    = gpio_mm_open_event,
+        .ioctl   = gpio_mm_ioctl_event,
+        .release = gpio_mm_release_event,
+        .llseek  = no_llseek,
+};
+
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
 static int cleanup_fcntrs(struct GPIO_MM* brd)
@@ -1420,6 +1721,7 @@ static int cleanup_fcntrs(struct GPIO_MM* brd)
         kfree(fcntrs);
         return result;
 }
+
 static int init_fcntrs(struct GPIO_MM* brd)
 {
         int result;
@@ -1471,6 +1773,65 @@ static int init_fcntrs(struct GPIO_MM* brd)
                 result = cdev_add(&fcntr->cdev, devno, 1);
                 if (result) return result;
         }
+        return result;
+}
+
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static int cleanup_event(struct GPIO_MM* brd)
+{
+        int result = 0;
+        struct GPIO_MM_event* event = brd->event;
+        if (!event) return 0;
+        result = stop_event(event);
+        cdev_del(&event->cdev);
+        free_dsm_circ_buf(&event->samples);
+        kfree(event);
+        return result;
+}
+
+static int init_event(struct GPIO_MM* brd)
+{
+        int result;
+        struct GPIO_MM_event* event;
+        dev_t devno;
+
+        result = -ENOMEM;
+        brd->event = event =
+            kmalloc(sizeof(struct GPIO_MM_event),GFP_KERNEL);
+        if (!event) return result;
+        memset(event,0, sizeof(struct GPIO_MM_event));
+
+        event->brd = brd;
+
+        // for informational messages only at this point
+        sprintf(event->deviceName,"/dev/gpiomm_event%d",brd->num);
+
+        /* setup event device */
+        cdev_init(&event->cdev,&event_fops);
+        event->cdev.owner = THIS_MODULE;
+
+        /* minor number of event is the last one on each board */
+        devno = MKDEV(MAJOR(gpio_mm_device),
+            brd->num*GPIO_MM_MINORS_PER_BOARD + GPIO_MM_MINORS_PER_BOARD - 1);
+        KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
+            event->deviceName,MAJOR(devno),MINOR(devno));
+
+        atomic_set(&event->num_opened,0);
+
+        /*
+         * Output samples.
+         */
+        result = alloc_dsm_circ_buf(&event->samples,
+            0,GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE);
+        if (result) return result;
+
+        init_waitqueue_head(&event->rwaitq);
+
+        /* After calling cdev_all the device is "live"
+         * and ready for user operation.
+         */
+        result = cdev_add(&event->cdev, devno, 1);
         return result;
 }
 
@@ -1600,7 +1961,7 @@ static struct GPIO_MM_timer* init_gpio_timer(struct GPIO_MM* brd)
         init_waitqueue_head(&timer->callbackWaitQ);
 
         timer->usecs = 0;
-        gpio_mm_add_timer_irq_user(brd);
+        gpio_mm_set_timer_irq_user(brd);
         return timer;
 err0:
         list_for_each_entry_safe(cbentry,cbentry2,&timer->callbackPool,list) {
@@ -1665,6 +2026,10 @@ static void gpio_mm_cleanup(void)
                     if (brd->fcntrs) {
                         cleanup_fcntrs(brd);
                         brd->fcntrs = 0;
+                    }
+                    if (brd->event) {
+                        cleanup_event(brd);
+                        brd->event = 0;
                     }
                     if (brd->timer) {
                         cleanup_gpio_timer(brd->timer);
@@ -1860,6 +2225,10 @@ static int __init gpio_mm_init(void)
                 //
                 // setup counter/timers
                 result = init_fcntrs(brd);
+                if (result) goto err;
+
+                // setup event device, which uses external input to interrupt B
+                result = init_event(brd);
                 if (result) goto err;
 
 #ifndef ENABLE_TIMER_ON_EACH_BOARD

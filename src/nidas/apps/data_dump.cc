@@ -558,23 +558,30 @@ int DataDump::main(int argc, char** argv)
 
 int DataDump::run() throw()
 {
-    auto_ptr<DumpClient> dumper;
-
     try {
+        auto_ptr<Project> project(Project::getInstance());
+
+        auto_ptr<DumpClient> dumper;
+
 	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
 	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-	    iochan = fset;
-
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		  fset->addFileName(*fi);
+            iochan = fset->connect();
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
-	    iochan = new nidas::core::Socket(sock);
+            IOChannel* iosock = new nidas::core::Socket(sock);
+            iochan = iosock->connect();
+            if (iochan != iosock) {
+                iosock->close();
+                delete iosock;
+            }
 	}
+
 
 	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
         sis.setMaxSampleLength(32768);
@@ -582,7 +589,6 @@ int DataDump::run() throw()
 	sis.readInputHeader();
 	const SampleInputHeader& header = sis.getInputHeader();
 
-	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;
 
 	if (xmlFileName.length() == 0)
@@ -594,7 +600,6 @@ int DataDump::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
 
 	    DSMConfigIterator di = project->getDSMConfigIterator();
@@ -640,25 +645,22 @@ int DataDump::run() throw()
 
 	dumper->printHeader();
 
-	for (;;) {
-	    sis.readSamples();
-	    if (interrupted) break;
-	}
-    }
-    catch (nidas::core::XMLException& e) {
-	cerr << e.what() << endl;
-	return 1;
-    }
-    catch (n_u::InvalidParameterException& e) {
-	cerr << e.what() << endl;
-	return 1;
-    }
-    catch (n_u::EOFException& e) {
-	cerr << e.what() << endl;
-    }
-    catch (n_u::IOException& e) {
-	cerr << e.what() << endl;
-	return 1;
+        try {
+            for (;;) {
+                sis.readSamples();
+                if (interrupted) break;
+            }
+        }
+        catch (n_u::EOFException& e) {
+            sis.flush();
+            sis.close();
+            cerr << e.what() << endl;
+        }
+        catch (n_u::IOException& e) {
+            sis.flush();
+            sis.close();
+            throw(e);
+        }
     }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;

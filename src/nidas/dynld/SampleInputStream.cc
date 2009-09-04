@@ -118,6 +118,14 @@ string SampleInputStream::getName() const {
     return string("SampleInputStream");
 }
 
+void SampleInputStream::flush() throw()
+{
+#ifdef DEBUG
+    cerr << getName() << " flush, #clients=" << _source.getClientCount() << endl;
+#endif
+    _source.flush();
+}
+
 void SampleInputStream::requestConnection(DSMService* requester)
             throw(n_u::IOException)
 {

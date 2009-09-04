@@ -415,47 +415,62 @@ DSMSensor* Project::findSensor(dsm_sample_id_t id) const
     return 0;
 }
 
+DSMSensor* Project::findSensor(const SampleTag* tag) const
+{
+    dsm_sample_id_t id = tag->getId() - tag->getSampleId();
+    return findSensor(id);
+}
+
 /* static */
 string Project::expandEnvVars(string input)
 {
-    string::size_type lastpos = 0;
     string::size_type dollar;
 
     string result;
     bool substitute = true;
 
-    while(substitute) {
+    for (;;) {
+        string::size_type lastpos = 0;
         substitute = false;
+
         while ((dollar = input.find('$',lastpos)) != string::npos) {
 
             result.append(input.substr(lastpos,dollar-lastpos));
             lastpos = dollar;
 
             string::size_type openparen = input.find('{',dollar);
-            string token;
+            string::size_type tokenStart;
+            int tokenLen= 0;
+            int totalLen;
 
             if (openparen == dollar + 1) {
                 string::size_type closeparen = input.find('}',openparen);
                 if (closeparen == string::npos) break;
-                token = input.substr(openparen+1,closeparen-openparen-1);
+                tokenStart = openparen + 1;
+                tokenLen= closeparen - openparen - 1;
+                totalLen = closeparen - dollar + 1;
                 lastpos = closeparen + 1;
             }
             else {
-                string::size_type endtok = input.find_first_of("/.",dollar + 1);
+                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
                 if (endtok == string::npos) endtok = input.length();
-                token = input.substr(dollar+1,endtok-dollar-1);
+                tokenStart = dollar + 1;
+                tokenLen= endtok - dollar - 1;
+                totalLen = endtok - dollar;
                 lastpos = endtok;
             }
-            if (token.length() > 0) {
-                string val = getEnvVar(token);
-                if (val != token) substitute = true;
-                // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-                result.append(val);
+            string value;
+            if (tokenLen > 0 && getEnvVar(input.substr(tokenStart,tokenLen),value)) {
+                substitute = true;
+                result.append(value);
             }
+            else result.append(input.substr(dollar,totalLen));
         }
 
         result.append(input.substr(lastpos));
+        if (!substitute) break;
         input = result;
+        result.clear();
     }
     // cerr << "input: \"" << input << "\" expanded to \"" <<
     // 	result << "\"" << endl;
@@ -463,11 +478,11 @@ string Project::expandEnvVars(string input)
 }
 
 /* static */
-string Project::getEnvVar(const string& token)
+bool Project::getEnvVar(const string& token, string& value)
 {
     const char* val = ::getenv(token.c_str());
-    if (val) return string(val);
-    else return string("${") + token + "}";      // unknown value, return original token
+    if (val) value = val;
+    return val != 0;
 }
 
 dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
@@ -777,9 +792,9 @@ string Project::expandString(const string& input) const
 	    lastpos = endtok;
 	}
 	if (token.length() > 0) {
-	    string val = getTokenValue(token);
-	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-	    result.append(val);
+	    string value;
+	    if (getTokenValue(token,value)) result.append(value);
+            else result.append(token);
 	}
     }
 
@@ -789,13 +804,19 @@ string Project::expandString(const string& input) const
     return result;
 }
 
-string Project::getTokenValue(const string& token) const
+bool Project::getTokenValue(const string& token,string& value) const
 {
-    if (token == "PROJECT") return getName();
+    if (token == "PROJECT") {
+        value = getName();
+        return true;
+    }
 
-    if (token == "SYSTEM") return getSystemName();
+    if (token == "SYSTEM") {
+        value = getSystemName();
+        return true;
+    }
 
     // if none of the above, try to get token value from UNIX environment
-    return getEnvVar(token);
+    return getEnvVar(token,value);
 }
 

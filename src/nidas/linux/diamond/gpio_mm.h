@@ -33,7 +33,7 @@
  * 1 frequency counters, 6 pulse counters, 1 dio
  * 0 frequency counters, 9 pulse counters, 1 dio
  *
- * Support for the pulse counters and dio has not been added yet....
+ * Support for the pulse counters, dio and events has not been added yet....
  *      
  * Board #0: Device table:
  * device        devname                minor number
@@ -50,22 +50,24 @@
  * pulse cntr 6: /dev/gpiomm_cntr6     10
  * pulse cntr 7: /dev/gpiomm_cntr7     11
  * pulse cntr 8: /dev/gpiomm_cntr8     12
+ * event 0:      /dev/gpiomm_event0    13
  *
  * Board #1: Device table:
- * device        devname                minor number (board0 + 13)
- * freq cntr 0:  /dev/gpiomm_fcntr3    13
- * freq cntr 1:  /dev/gpiomm_fcntr4    14
- * freq cntr 2:  /dev/gpiomm_fcntr5    15
- * digital i/O:  /dev/gpiomm_dio1      16
- * pulse cntr 0: /dev/gpiomm_cntr9     17
- * pulse cntr 1: /dev/gpiomm_cntr10    18
- * pulse cntr 2: /dev/gpiomm_cntr11    19
- * pulse cntr 3: /dev/gpiomm_cntr12    20
- * pulse cntr 4: /dev/gpiomm_cntr13    21
- * pulse cntr 5: /dev/gpiomm_cntr14    22
- * pulse cntr 6: /dev/gpiomm_cntr15    23
- * pulse cntr 7: /dev/gpiomm_cntr16    24
- * pulse cntr 8: /dev/gpiomm_cntr17    25
+ * device        devname               minor number (board0 + 14)
+ * freq cntr 0:  /dev/gpiomm_fcntr3    14
+ * freq cntr 1:  /dev/gpiomm_fcntr4    15
+ * freq cntr 2:  /dev/gpiomm_fcntr5    16
+ * digital i/O:  /dev/gpiomm_dio1      17
+ * pulse cntr 0: /dev/gpiomm_cntr9     18
+ * pulse cntr 1: /dev/gpiomm_cntr10    19
+ * pulse cntr 2: /dev/gpiomm_cntr11    10
+ * pulse cntr 3: /dev/gpiomm_cntr12    21
+ * pulse cntr 4: /dev/gpiomm_cntr13    22
+ * pulse cntr 5: /dev/gpiomm_cntr14    23
+ * pulse cntr 6: /dev/gpiomm_cntr15    24
+ * pulse cntr 7: /dev/gpiomm_cntr16    25
+ * pulse cntr 8: /dev/gpiomm_cntr17    26
+ * event 0:      /dev/gpiomm_event1    27
  */
 
 #ifndef NIDAS_DIAMOND_GPIO_MM_H
@@ -99,6 +101,17 @@ struct GPIO_MM_fcntr_status
         unsigned int badStatusWarning;
 };
 
+struct GPIO_MM_event_config
+{
+        int latencyUsecs;
+};
+
+struct GPIO_MM_event_status
+{
+        unsigned int nevents;
+        unsigned int lostSamples;
+};
+
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With
@@ -117,9 +130,14 @@ struct GPIO_MM_fcntr_status
     _IOW(GPIO_MM_IOC_MAGIC,0,struct GPIO_MM_fcntr_config)
 #define GPIO_MM_FCNTR_GET_STATUS \
     _IOR(GPIO_MM_IOC_MAGIC,1,struct GPIO_MM_fcntr_status)
+/** Event Ioctls */
+#define GPIO_MM_EVENT_START \
+    _IOW(GPIO_MM_IOC_MAGIC,2,struct GPIO_MM_event_config)
+#define GPIO_MM_EVENT_GET_STATUS \
+    _IOR(GPIO_MM_IOC_MAGIC,3,struct GPIO_MM_event_status)
 
 /* Maximum IOCTL number in above values */
-#define GPIO_MM_IOC_MAXNR 1
+#define GPIO_MM_IOC_MAXNR 3
 
 #define GPIO_MM_CT_CLOCK_HZ 20000000
 
@@ -200,7 +218,7 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 #define MAX_GPIO_MM_BOARDS	5	// number of boards supported by driver
 
 /* See device table in above comments */
-#define GPIO_MM_MINORS_PER_BOARD 13
+#define GPIO_MM_MINORS_PER_BOARD 14
 
 /* Use 3 counter timers to implement one frequency counter */
 #define GPIO_MM_CNTR_PER_FCNTR 3
@@ -209,6 +227,8 @@ extern long unregister_gpio_timer_callback(struct gpio_timer_callback *cb,
 #define GPIO_MM_FCNTR_PER_BOARD (GPIO_MM_CNTR_PER_BOARD/GPIO_MM_CNTR_PER_FCNTR)
 
 #define GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE 16
+
+#define GPIO_MM_EVENT_SAMPLE_QUEUE_SIZE 16
 
 /* Which counter 0-9 to use for a general purpose timer */
 #define GPIO_MM_TIMER_COUNTER 9
@@ -225,6 +245,16 @@ struct freq_sample
         dsm_sample_length_t length;       // number of bytes in data (8)
         int pulses;
         int ticks;
+};
+
+/**
+ * Event sample.
+ */
+struct event_sample
+{
+        dsm_sample_time_t timetag;    // timetag of sample
+        dsm_sample_length_t length;       // number of bytes in data (0)
+        unsigned int nevents;
 };
 
 struct GPIO_MM;
@@ -259,6 +289,42 @@ struct GPIO_MM_fcntr
         struct gpio_timer_callback* timer_callback;
 
         struct dsm_sample_circ_buf samples;         // samples out of b.h.
+
+        /**
+         * User read & poll methods wait on this queue.
+         */
+        wait_queue_head_t rwaitq;
+
+        struct sample_read_state read_state;
+
+        /**
+         * read latency in jiffies.
+         */
+        long latencyJiffies;
+
+        /**
+         * When were read & poll methods last woken.
+         */
+        unsigned long lastWakeup;
+
+};
+
+/**
+ * Information maintained for an event device.
+ */
+struct GPIO_MM_event
+{
+        struct GPIO_MM* brd;
+
+        struct GPIO_MM_event_status status;
+
+        char deviceName[32];
+
+        struct cdev cdev;
+
+        atomic_t num_opened;                     // number of times opened
+
+        struct dsm_sample_circ_buf samples;      // event samples
 
         /**
          * User read & poll methods wait on this queue.
@@ -364,7 +430,6 @@ struct GPIO_MM
         unsigned long ct_addr;        // Base address of 9513 cntr/timer regs
         int irqs[2];		        // values of ISA irq A and B
         int reqirqs[2];		        // requested system irqs A and B
-        int irq_users[2];               // number of irq users, 0=A,1=B
         int cntr_used[GPIO_MM_CNTR_PER_BOARD];             // 0=unused, 1=used
 
 	int boardID;
@@ -381,6 +446,11 @@ struct GPIO_MM
          * Pointer to frequency counter device structures.
          */
         struct GPIO_MM_fcntr* fcntrs;
+
+        /**
+         * Pointer to event structure.
+         */
+        struct GPIO_MM_event* event;
 
         /**
          * lock when accessing board registers

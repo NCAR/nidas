@@ -322,7 +322,7 @@ static void emerald_write_digio_port(emerald_board* brd,int port,int val)
 static int emerald_read_procmem(char *buf, char **start, off_t offset,
                    int count, int *eof, void *data)
 {
-        int i, j, len = 0,result;
+        int i, j, len = 0;
         int limit = count - 80; /* Don't print more than this */
         PDEBUGG("read_proc, count=%d\n",count);
                                                                                     

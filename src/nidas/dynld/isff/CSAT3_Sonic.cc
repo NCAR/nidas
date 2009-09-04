@@ -373,7 +373,7 @@ void CSAT3_Sonic::validate()
 	}
     }
 #if __BYTE_ORDER == __BIG_ENDIAN
-    swapBuf.reset(new short[totalInLen/2]);
+    swapBuf.resize(totalInLen/2);
 #endif
 }
 
@@ -408,8 +408,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     /* Swap bytes of input. Campbell output is little endian */
-    swab(dinptr,(char *)swapBuf.get(),inlen-2);     // dont' swap 0x55 0xaa
-    const short* win = swapBuf.get();
+    swab(dinptr,(char *)&swapBuf.front(),inlen-2);     // dont' swap 0x55 0xaa
+    const short* win = &swapBuf.front();
 #else
     const short* win = (const short*) dinptr;
 #endif

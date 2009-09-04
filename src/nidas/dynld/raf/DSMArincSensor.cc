@@ -123,7 +123,7 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.
 	_processed[label] = (*si)->isProcessed();
-        DLOG(("labl: %04o  processed: %d", label, _processed[label]));
+        // DLOG(("labl: %04o  processed: %d", label, _processed[label]));
     }
 }
 

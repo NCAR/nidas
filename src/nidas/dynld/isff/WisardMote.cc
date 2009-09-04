@@ -72,7 +72,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data  */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getShortId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getShortId(), samp->getTimeTag());
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getSpSId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getSpSId(), samp->getTimeTag());
 		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
 		/* getData  */
@@ -174,10 +174,9 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	if (*cp != ':') return false;
 
 	//get sampleId
-	int i=0; //look for decimal
+	unsigned int i=0; //look for decimal
 	for (; i<nname.size(); i++) {
-		char c = nname.at(i);
-		if (c <= '9' && c>='0')  break;
+		if (::isdigit(nname[i])) break;
 	}
 	string sid= nname.substr(i, (nname.size()-i));
 	stringstream ssid(sid); // Could of course also have done ss("1234") directly.

@@ -102,6 +102,8 @@ public:
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
 
+    DSMSensor* findSensor(const SampleTag* tag) const;
+
     /**
      * Find a Site with the given station number.
      */
@@ -170,24 +172,34 @@ public:
     	toDOMElement(xercesc::DOMElement* node,bool complete) const
     		throw(xercesc::DOMException);
 
-    static std::string expandEnvVars(std::string input);
-    
-    static std::string getEnvVar(const std::string& token);
-
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
      * in a string.  If curly brackets are not
      * used, then the TOKEN should be delimited by a '/', a '.' or
      * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     * Token $PROJECT is replaced by getName() and $SYSTEM 
+     * is replaced by getSystemName(). Other tokens are
+     * looked up in the environment.
      */
     std::string expandString(const std::string& input) const;
 
     /**
      * Utility function to get the value of a token.
+     * Token $PROJECT is replaced by getName() and $SYSTEM 
+     * is replaced by getSystemName(). Other tokens are
+     * looked up in the environment.
+     * @return: token found
      */
-    std::string getTokenValue(const std::string& token) const;
+    bool getTokenValue(const std::string& token,std::string& value) const;
 
-    static std::string getEnvValue(const std::string& token);
+    static std::string expandEnvVars(std::string input);
+    
+    /**
+     * Get an environment variable.
+     * @return: variable found
+     */
+    static bool getEnvVar(const std::string& token,std::string& value);
+
 
 protected:
     /**

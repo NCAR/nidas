@@ -225,33 +225,24 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
 int SyncServer::run() throw(n_u::Exception)
 {
 
-    IOChannel* iochan = 0;
-
-    SamplePipeline pipeline;
-    SyncRecordGenerator syncGen;
-
-    nidas::core::FileSet* fset = new nidas::core::FileSet();
-    iochan = fset;
-
-    list<string>::const_iterator fi;
-    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-        fset->addFileName(*fi);
-
-    // RawSampleStream owns the iochan ptr.
-    RawSampleInputStream sis(iochan);
-
-    SampleOutputStream* output = 0;
-
     try {
+
+        auto_ptr<Project> project(Project::getInstance());
+
+        IOChannel* iochan = 0;
+
+        nidas::core::FileSet* fset = new nidas::core::FileSet();
+
+        list<string>::const_iterator fi;
+        for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
+            fset->addFileName(*fi);
+        iochan = fset->connect();
+
+        // RawSampleStream owns the iochan ptr.
+        RawSampleInputStream sis(iochan);
+
 	sis.readInputHeader();
 	SampleInputHeader header = sis.getInputHeader();
-
-        pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
-        pipeline.setProcSorterLength(_sorterLengthSecs);
-	pipeline.setRawHeapMax(100* 1000 * 1000);
-	pipeline.setProcHeapMax(1000* 1000 * 1000);
-        pipeline.connect(&sis);
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
@@ -260,7 +251,6 @@ int SyncServer::run() throw(n_u::Exception)
 	auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	auto_ptr<Project> project(Project::getInstance());
 
 	project->fromDOMElement(doc->getDocumentElement());
 
@@ -268,51 +258,62 @@ int SyncServer::run() throw(n_u::Exception)
 	SensorIterator ti = project->getSensorIterator();
 	for ( ; ti.hasNext(); ) {
 	    DSMSensor* sensor = ti.next();
-	    sis.addSampleTag(sensor->getRawSampleTag());
-
-	    set<DSMSensor*>::const_iterator si = sensors.find(sensor);
-	    if (si == sensors.end()) {
+            if (sensors.insert(sensor).second) {
+                sis.addSampleTag(sensor->getRawSampleTag());
 	        sensors.insert(sensor);
 		sensor->init();
 	    }
 	}
 
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(1.0);
+        pipeline.setProcSorterLength(_sorterLengthSecs);
+	pipeline.setRawHeapMax(100* 1000 * 1000);
+	pipeline.setProcHeapMax(1000* 1000 * 1000);
+        pipeline.connect(&sis);
+
+        SyncRecordGenerator syncGen;
 	syncGen.connect(pipeline.getProcessedSampleSource());
 
 	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*addr.get());
         // For post processing, write as fast as you can
         servSock->setMinWriteInterval(0);
         servSock->setNonBlocking(false);
-	output = new SampleOutputStream(servSock);
-	syncGen.connect(output);
+        IOChannel* ioc = servSock->connect();
+        if (ioc != servSock) {
+            servSock->close();
+            delete servSock;
+        }
+        SampleOutputStream output(ioc);
+	syncGen.connect(&output);
 
-        for (;;) {
-            if (interrupted) break;
-            sis.readSamples();
+        try {
+            for (;;) {
+                if (interrupted) break;
+                sis.readSamples();
+            }
+        }
+        catch (n_u::EOFException& eof) {
+            sis.flush();
+            sis.close();
+            syncGen.disconnect(pipeline.getProcessedSampleSource());
+            syncGen.disconnect(&output);
+            output.close();
+            cerr << eof.what() << endl;
+        }
+        catch (n_u::IOException& ioe) {
+            sis.flush();
+            sis.close();
+            syncGen.disconnect(pipeline.getProcessedSampleSource());
+            syncGen.disconnect(&output);
+            output.close();
+            throw(ioe);
         }
     }
-    catch (n_u::EOFException& eof) {
-        sis.flush();
-        sis.close();
-	syncGen.disconnect(pipeline.getProcessedSampleSource());
-	if (output) {
-            syncGen.disconnect(output);
-            output->close();
-        }
-        cerr << eof.what() << endl;
-	return 0;
-    }
-    catch (n_u::IOException& ioe) {
-        sis.flush();
-        sis.close();
-	syncGen.disconnect(pipeline.getProcessedSampleSource());
-	syncGen.disconnect(output);
-        sis.close();
-	if (output) {
-            syncGen.disconnect(output);
-            output->close();
-        }
-        throw(ioe);
+    catch (n_u::Exception& e) {
+        cerr << e.what() << endl;
+	return 1;
     }
     return 0;
 }

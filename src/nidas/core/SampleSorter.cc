@@ -101,13 +101,22 @@ int SampleSorter::run() throw(n_u::Exception)
         // if _doFinish and only one sample, it must be the dummy
         // sample with a into-the-future timetag.
 	if (_doFinish && nsamp == 1) {
-	    flush();
+#ifdef DEBUG
+            cerr << "SampleSorter calling flush, _source type=" << 
+                (_source.getRawSampleSource() ? "raw" : "proc") << 
+                " client count=" << _source.getClientCount() << endl;
+#endif
+            _sampleSetCond.unlock();
+            // calls finish() on all sample clients.
+            flush();
+            _sampleSetCond.lock();
 	    _finished = true;
 	    _doFinish = false;
             const Sample *s = *_samples.begin();
             s->freeReference();
             _samples.clear();
             nsamp = 0;
+            continue;
 	}
 
 	if (nsamp == 0) {	// no samples, wait
@@ -218,6 +227,7 @@ void SampleSorter::interrupt()
     // After setting this lock, we know that the
     // consumer thread is either:
     //	* waiting on sampleSetCond,
+    // 	* flushing clients
     // 	* distributing samples or,
     //	* hasn't started looping,
     // since those are the only times sampleSetCond is unlocked.
@@ -255,36 +265,42 @@ void inline SampleSorter::heapDecrement(size_t bytes)
  */
 void SampleSorter::finish() throw()
 {
+#ifdef DEBUG
+    cerr << "SampleSorter::finish, _source type=" << 
+        (_source.getRawSampleSource() ? "raw" : "proc") << endl;
+#endif
+
     // finish already requested.
-    if (_finished || _doFinish) return;
+    _sampleSetCond.lock();
+    if (_finished || _doFinish) {
+        _sampleSetCond.unlock();
+        return;
+    }
 
     SampleT<char>* eofSample = getSample<char>(0);
     numeric_limits<long long> ll;
     eofSample->setTimeTag(ll.max());
     eofSample->setId(0);
 
-    _sampleSetCond.lock();
     _finished = false;
     _doFinish = true;
     _samples.insert(_samples.end(),eofSample);
     _sampleSetCond.unlock();
     _sampleSetCond.signal();
 
-    for (int i = 1; ; i++) {
+    for (int i = 0; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
 	nanosleep(&ns,0);
 	_sampleSetCond.lock();
 	if (!(i % 20))
 	    n_u::Logger::getInstance()->log(LOG_NOTICE,
-		"waiting for buffer to empty, size=%d, _finished=%d",
-			_samples.size(),_finished);
+		"waiting for buffer to empty, size=%d, nwait=%d",
+			_samples.size(),i);
 	if (_finished) break;
 	_sampleSetCond.unlock();
     }
     _sampleSetCond.unlock();
 
-    // calls finish() on all sample clients.
-    flush();
 }
 
 bool SampleSorter::receive(const Sample *s) throw()

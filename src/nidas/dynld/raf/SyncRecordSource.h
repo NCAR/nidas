@@ -145,6 +145,8 @@ private:
 
     void createHeader(std::ostream&) throw();
 
+    std::set<DSMSensor*> _sensorSet;
+
     /**
      * A vector, with each element being a list of variables from a
      * sample. The order of elements in the vector is the order

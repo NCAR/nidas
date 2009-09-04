@@ -170,13 +170,20 @@ public:
      * in a string.  If curly brackets are not
      * used, then the TOKEN should be delimited by a '/', a '.' or
      * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     * Token $PROJECT is replaced by Project::getName(), $SYSTEM 
+     * is replaced by Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
+     * $DSM and $LOCATION are also expanded.
      */
     std::string expandString(std::string input) const;
 
     /**
      * Utility function to get the value of a token.
+     * The value of token $PROJECT is Project::getName(), $SYSTEM 
+     * is Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
+     * $DSM and $LOCATION are replaced by the corresponding
+     * attributes of a DSMConfig.
      */
-    std::string getTokenValue(const std::string& token) const;
+    bool getTokenValue(const std::string& token,std::string& value) const;
 
     void setDerivedDataSocketAddr(const nidas::util::SocketAddress& val)
     {

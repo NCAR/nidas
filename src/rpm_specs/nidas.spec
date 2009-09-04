@@ -12,7 +12,7 @@ Vendor: UCAR
 BuildArch: noarch
 Source: %{name}-%{version}.tar.gz
 
-Requires: xmlrpc++ xerces-c
+Requires: xmlrpc++ xerces-c libpcap
 
 # Source: %{name}-%{version}.tar.gz
 

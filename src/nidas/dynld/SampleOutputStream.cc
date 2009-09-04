@@ -81,6 +81,9 @@ void SampleOutputStream::connected(IOChannel* ioc) throw()
 
 void SampleOutputStream::finish() throw()
 {
+#ifdef DEBUG
+    cerr << "SampleOutputStream::finish, name=" << getName() << endl;
+#endif
     try {
 	if (_iostream) _iostream->flush();
     }
@@ -97,7 +100,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
         samp->getDSMId() << ',' << samp->getSpSId() << endl;
 #endif
     bool first_sample = false;
-    if (!_iostream) return false;
+    if (!_iostream)
+        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 
     dsm_time_t tsamp = samp->getTimeTag();
 

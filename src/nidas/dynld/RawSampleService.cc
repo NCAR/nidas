@@ -38,6 +38,7 @@ NIDAS_CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
     DSMService("RawSampleService"),
+    _pipeline(0),
     _rawSorterLength(0.25), _procSorterLength(1.0),
     _rawHeapMax(5000000), _procHeapMax(5000000)
 {
@@ -45,6 +46,7 @@ RawSampleService::RawSampleService():
 
 RawSampleService::~RawSampleService()
 {
+    delete _pipeline;
 }
 
 /*
@@ -53,15 +55,17 @@ RawSampleService::~RawSampleService()
 void RawSampleService::schedule() throw(n_u::Exception)
 {
     DSMServer* server = getDSMServer();
-    _pipeline.setRealTime(true);
+    if (!_pipeline) _pipeline = new SamplePipeline();
 
-    _pipeline.setRawSorterLength(getRawSorterLength());
-    _pipeline.setProcSorterLength(getProcSorterLength());
-    _pipeline.setRawHeapMax(getRawHeapMax());
-    _pipeline.setProcHeapMax(getProcHeapMax());
+    _pipeline->setRealTime(true);
 
-    _pipeline.setHeapBlock(false);
-    _pipeline.setKeepStats(true);
+    _pipeline->setRawSorterLength(getRawSorterLength());
+    _pipeline->setProcSorterLength(getProcSorterLength());
+    _pipeline->setRawHeapMax(getRawHeapMax());
+    _pipeline->setProcHeapMax(getProcHeapMax());
+
+    _pipeline->setHeapBlock(false);
+    _pipeline->setKeepStats(true);
 
     // initialize pipeline with all expected SampleTags
     SensorIterator si = server->getSensorIterator();
@@ -72,7 +76,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
         list<const SampleTag*>::const_iterator ti =  tags.begin();
         for ( ; ti != tags.end(); ++ti) {
             const SampleTag* tag = *ti;
-            _pipeline.getRawSampleSource()->addSampleTag(tag);
+            _pipeline->getRawSampleSource()->addSampleTag(tag);
         }
 
         src = sensor->getProcessedSampleSource();
@@ -80,7 +84,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
         ti =  tags.begin();
         for ( ; ti != tags.end(); ++ti) {
             const SampleTag* tag = *ti;
-            _pipeline.getProcessedSampleSource()->addSampleTag(tag);
+            _pipeline->getProcessedSampleSource()->addSampleTag(tag);
         }
     }
 
@@ -90,13 +94,13 @@ void RawSampleService::schedule() throw(n_u::Exception)
         SampleIOProcessor* proc = *oi;
 	if (!proc->isOptional()) {
 	    try {
-		proc->connect(&_pipeline);
+		proc->connect(_pipeline);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "%s: %s connect to %s: %s",
 		    getName().c_str(),proc->getName().c_str(),
-		    _pipeline.getName().c_str(),e.what());
+		    _pipeline->getName().c_str(),e.what());
                 throw e;
 	    }
 	}
@@ -111,13 +115,13 @@ void RawSampleService::schedule() throw(n_u::Exception)
 
 void RawSampleService::interrupt() throw()
 {
-    _pipeline.flush();
+    _pipeline->flush();
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	if (!proc->isOptional()) {
             cerr << "RawSampleService::interrupt disconnecting proc=" << proc->getName() << endl;
-	    proc->disconnect(&_pipeline);
+	    proc->disconnect(_pipeline);
 	}
     }
     DSMService::interrupt();
@@ -157,7 +161,7 @@ void RawSampleService::connect(SampleInput* input) throw()
     }
 
     // pipeline does not own input. It just adds sample clients to it.
-    _pipeline.connect(input);
+    _pipeline->connect(input);
 
     // Create a Worker to handle the input.
     // Worker owns the SampleInputStream.
@@ -208,7 +212,7 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     cerr << "RawSampleService::disconnected, dsm=" << dsm << endl;
 #endif
 
-    _pipeline.disconnect(input);
+    _pipeline->disconnect(input);
 
     // figure out the Worker for the input.
     n_u::Autolock tlock(_workerMutex);
@@ -280,7 +284,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 
 void RawSampleService::printClock(ostream& ostr) throw()
 {
-    SampleSource* raw = _pipeline.getRawSampleSource();
+    SampleSource* raw = _pipeline->getRawSampleSource();
     const SampleStats& stats = raw->getSampleStats();
 
     dsm_time_t tt = stats.getLastTimeTag();
@@ -296,7 +300,6 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     int zebra = 0;
 
     printClock(ostr);
-
 
     ostr << "<status><![CDATA[";
     ostr << "\
@@ -349,8 +352,9 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     }
     _workerMutex.unlock();
 
+    if (!_pipeline) return;
     // raw sorter
-    SampleSource* src = _pipeline.getRawSampleSource();
+    SampleSource* src = _pipeline->getRawSampleSource();
     const SampleStats* stats = &src->getSampleStats();
 
     ostr << 
@@ -379,18 +383,18 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         (warn ? "<td><font color=red><b>" : "<td>") <<
         setprecision(0) << bytesps <<
         (warn ? "</b></font></td>" : "</td>") <<
-        "<td>" << setprecision(2) << _pipeline.getSorterNumRawBytes() / 1000000. << "</td>";
+        "<td>" << setprecision(2) << _pipeline->getSorterNumRawBytes() / 1000000. << "</td>";
 
     ostr <<
-        "<td align=left>sorter: #samps=" << _pipeline.getSorterNumRawSamples() <<
-        ", maxsize=" << setprecision(0) << _pipeline.getSorterNumRawBytesMax() / 1000000. << " MB";
-    size_t ndiscard = _pipeline.getNumDiscardedRawSamples();
+        "<td align=left>sorter: #samps=" << _pipeline->getSorterNumRawSamples() <<
+        ", maxsize=" << setprecision(0) << _pipeline->getSorterNumRawBytesMax() / 1000000. << " MB";
+    size_t ndiscard = _pipeline->getNumDiscardedRawSamples();
     warn = ndiscard / deltat > 1.0;
     ostr << ",#discards=" <<
         (warn ? "<font color=red><b>" : "") <<
         ndiscard <<
         (warn ? "</b></font>" : "");
-    size_t nfuture = _pipeline.getNumFutureRawSamples();
+    size_t nfuture = _pipeline->getNumFutureRawSamples();
     warn = nfuture / deltat > 1.0;
     ostr <<  ",#future=" <<
         (warn ? "<font color=red><b>" : "") <<
@@ -399,7 +403,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     ostr << "</td></tr>\n";
 
     // processed sorter
-    src = _pipeline.getProcessedSampleSource();
+    src = _pipeline->getProcessedSampleSource();
     stats = &src->getSampleStats();
 
     ostr << 
@@ -428,18 +432,18 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         (warn ? "<td><font color=red><b>" : "<td>") <<
         setprecision(0) << bytesps <<
         (warn ? "</b></font></td>" : "</td>") <<
-        "<td>" << setprecision(2) << _pipeline.getSorterNumProcBytes() / 1000000. << "</td>";
+        "<td>" << setprecision(2) << _pipeline->getSorterNumProcBytes() / 1000000. << "</td>";
 
     ostr <<
-        "<td align=left>sorter: #samps=" << _pipeline.getSorterNumProcSamples() <<
-        ", maxsize=" << setprecision(0) << _pipeline.getSorterNumProcBytesMax() / 1000000. << " MB";
-    ndiscard = _pipeline.getNumDiscardedProcSamples();
+        "<td align=left>sorter: #samps=" << _pipeline->getSorterNumProcSamples() <<
+        ", maxsize=" << setprecision(0) << _pipeline->getSorterNumProcBytesMax() / 1000000. << " MB";
+    ndiscard = _pipeline->getNumDiscardedProcSamples();
     warn = ndiscard / deltat > 1.0;
     ostr << ",#discards=" <<
         (warn ? "<font color=red><b>" : "") <<
         ndiscard <<
         (warn ? "</b></font>" : "");
-    nfuture = _pipeline.getNumFutureProcSamples();
+    nfuture = _pipeline->getNumFutureProcSamples();
     warn = nfuture / deltat > 1.0;
     ostr <<  ",#future=" <<
         (warn ? "<font color=red><b>" : "") <<

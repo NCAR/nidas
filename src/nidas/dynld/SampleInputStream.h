@@ -181,10 +181,7 @@ public:
      * Calls finish() all all SampleClients.
      * Implementation of SampleSource::flush().
      */
-    void flush() throw()
-    {
-        _source.flush();
-    }
+    void flush() throw();
 
     const SampleStats& getSampleStats() const
     {

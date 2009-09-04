@@ -78,7 +78,7 @@ void SyncRecordSource::connect(SampleSource* source) throw()
 	    _aircraft = acft;
 	}
         DSMSensor* sensor =
-            Project::getInstance()->findSensor(stag->getId());
+            Project::getInstance()->findSensor(stag);
         if (!sensor) continue;
         addSensor(sensor);
     }
@@ -93,6 +93,9 @@ void SyncRecordSource::disconnect(SampleSource* source) throw()
 
 void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 {
+
+    if (!_sensorSet.insert(sensor).second) return;
+
     list<const SampleTag*> tags = sensor->getSampleTags();
 
     list<const SampleTag*>::const_iterator ti;
@@ -319,17 +322,18 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 
 void SyncRecordSource::finish() throw()
 {
+    cerr << "SyncRecordSource::finish" << endl;
+    if (_syncRecord) {
+	_source.distribute(_syncRecord);
+	_syncRecord = 0;
+	_syncTime += USECS_PER_SEC;
+    }
     flush();
 }
 
 void SyncRecordSource::flush() throw()
 {
-    if (_syncRecord) {
-	_source.distribute(_syncRecord);
-	_syncRecord = 0;
-	_syncTime += USECS_PER_SEC;
-        _source.flush();
-    }
+    _source.flush();
 }
 
 bool SyncRecordSource::receive(const Sample* samp) throw()
@@ -368,7 +372,11 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		tt << " syncTime=" << _syncTime << endl;
 #endif
 
-	flush();
+        if (_syncRecord) {
+            _source.distribute(_syncRecord);
+            _syncRecord = 0;
+            _syncTime += USECS_PER_SEC;
+        }
 	if (tt >= _syncTime + USECS_PER_SEC) {	// leap forward
 	    _badTimes++;
 	    _syncTime = tt - (tt % USECS_PER_SEC);

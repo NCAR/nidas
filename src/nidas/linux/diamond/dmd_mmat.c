@@ -161,7 +161,7 @@ static unsigned int readLatchedTimer(struct DMMAT* brd,int clock)
         return value;
 }
 
-/**
+/*
  * Return x/y as a whole number, and a base 10 fractional
  * part, *fp,  with prec number of decimal places.
  * Useful for simulating %f in kernel printk's
@@ -172,6 +172,9 @@ static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
         int f = 0;
         int rem = x % y;
         int i;
+        // x%y may be large, and the simple expression
+        // (x%y * 10^prec)/y may overflow, so we compute
+        // the decimal fraction part one digit at a time.
         for (i = 0; i < prec; i++) {
             f *= 10;
             rem *= 10;
@@ -196,12 +199,8 @@ static int initializeA2DClock(struct DMMAT_A2D* a2d)
         }
 
         ticks = (clkhz + a2d->scanRate/2) / a2d->scanRate;
-        if (ticks % 2) ticks--;
 
         // maximum sampling rate should divide evenly into 10MHz
-        // Also, since the minimum counter value for a 82C54 clock chip
-        // in (mode 3) is 2, then 10MHz/scanRate must be even.
-
         KLOG_DEBUG("clock ticks=%ld,scanRate=%d\n",ticks,a2d->scanRate);
         c1 = 1;
 
@@ -210,6 +209,10 @@ static int initializeA2DClock(struct DMMAT_A2D* a2d)
                 c1 *= 2;
                 ticks /= 2;
             }
+            else if (!(ticks % 3)) {
+                c1 *= 3;
+                ticks /= 3;
+            }
             else if (!(ticks % 5)) {
                 c1 *= 5;
                 ticks /= 5;
@@ -217,7 +220,8 @@ static int initializeA2DClock(struct DMMAT_A2D* a2d)
             else ticks++;    // fudge it
         }
 
-        // clock counters must be > 1
+        // The minimum counter value for a 82C54 clock chip
+        // in (mode 3) is 2.
         if (c1 < 2) {
             c1 = 2;
             ticks /= 2;

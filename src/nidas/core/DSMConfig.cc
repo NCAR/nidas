@@ -617,40 +617,48 @@ string DSMConfig::expandString(string input) const
     string result;
     bool substitute = true;
 
-    while (substitute) {
-        result.clear();
+    for (;;) {
         string::size_type lastpos = 0;
         substitute = false;
+
         while ((dollar = input.find('$',lastpos)) != string::npos) {
 
             result.append(input.substr(lastpos,dollar-lastpos));
             lastpos = dollar;
 
             string::size_type openparen = input.find('{',dollar);
-            string token;
+            string::size_type tokenStart;
+            int tokenLen = 0;
+            int totalLen;
 
             if (openparen == dollar + 1) {
                 string::size_type closeparen = input.find('}',openparen);
                 if (closeparen == string::npos) break;
-                token = input.substr(openparen+1,closeparen-openparen-1);
+                tokenStart = openparen + 1;
+                tokenLen = closeparen - openparen - 1;
+                totalLen = closeparen - dollar + 1;
                 lastpos = closeparen + 1;
             }
             else {
-                string::size_type endtok = input.find_first_of("/.",dollar + 1);
+                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
                 if (endtok == string::npos) endtok = input.length();
-                token = input.substr(dollar+1,endtok-dollar-1);
+                tokenStart = dollar + 1;
+                tokenLen = endtok - dollar - 1;
+                totalLen = endtok - dollar;
                 lastpos = endtok;
             }
-            if (token.length() > 0) {
-                string val = getTokenValue(token);
-                if (val != token) substitute = true;
-                // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-                result.append(val);
+            string value;
+            if (tokenLen > 0 && getTokenValue(input.substr(tokenStart,tokenLen),value)) {
+                substitute = true;
+                result.append(value);
             }
+            else result.append(input.substr(dollar,totalLen));
         }
 
         result.append(input.substr(lastpos));
+        if (!substitute) break;
         input = result;
+        result.clear();
     }
 #ifdef DEBUG
     cerr << "input: \"" << input << "\" expanded to \"" <<
@@ -659,21 +667,36 @@ string DSMConfig::expandString(string input) const
     return result;
 }
 
-string DSMConfig::getTokenValue(const string& token) const
+bool DSMConfig::getTokenValue(const string& token,string& value) const
 {
-    if (token == "PROJECT") return Project::getInstance()->getName();
+    if (token == "PROJECT") {
+        value = Project::getInstance()->getName();
+        return true;
+    }
 
-    if (token == "SYSTEM") return Project::getInstance()->getSystemName();
+    if (token == "SYSTEM") {
+        value = Project::getInstance()->getSystemName();
+        return true;
+    }
 
-    if (token == "AIRCRAFT" || token == "SITE") return getSite()->getName();
+    if (token == "AIRCRAFT" || token == "SITE") {
+        value = getSite()->getName();
+        return true;
+    }
         
-    if (token == "DSM") return getName();
+    if (token == "DSM") {
+        value = getName();
+        return true;
+    }
         
-    if (token == "LOCATION") return getLocation();
+    if (token == "LOCATION") {
+        value = getLocation();
+        return true;
+    }
 
     // if none of the above, try to get token value from UNIX environment
     const char* val = ::getenv(token.c_str());
-    if (val) return string(val);
-    else return string("${") + token + "}";      // unknown value, return original token
+    if (val) value = val;
+    return val != 0;
 }
 

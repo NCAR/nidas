@@ -385,35 +385,41 @@ int DataStats::run() throw()
 {
 
     int result = 0;
-    CounterClient* counter = 0;
 
     try {
-	IOChannel* iochan;
+        auto_ptr<Project> project(Project::getInstance());
+
+        auto_ptr<CounterClient> counter;
+
+	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
 
 	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-	    iochan = fset;
 
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		fset->addFileName(*fi);
+            iochan = fset->connect();
 
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
-	    iochan = new nidas::core::Socket(sock);
+	    IOChannel* iosock = new nidas::core::Socket(sock);
+            iochan = iosock->connect();
+            if (iochan != iosock) {
+                iosock->close();
+                delete iosock;
+            }
 	}
-        IOChannel* ioc2 = iochan->connect();
-        if (ioc2 != iochan) delete iochan;
-	RawSampleInputStream sis(ioc2);
+
+	RawSampleInputStream sis(iochan);
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
 
 	const SampleInputHeader& header = sis.getInputHeader();
 
-	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;
 
 	if (xmlFileName.length() == 0)
@@ -426,7 +432,6 @@ int DataStats::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		    DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
 
 	    for ( DSMConfigIterator di = project->getDSMConfigIterator();
@@ -442,7 +447,7 @@ int DataStats::run() throw()
         pipeline.setRawSorterLength(0);                           
         pipeline.setProcSorterLength(0);                          
 
-        counter = new CounterClient(allsensors);
+        counter.reset(new CounterClient(allsensors));
 
 	if (processData) {
 	    list<DSMSensor*>::const_iterator si;
@@ -456,29 +461,33 @@ int DataStats::run() throw()
             pipeline.connect(&sis);
 
             // 3. connect the client to the pipeline
-            pipeline.getProcessedSampleSource()->addSampleClient(counter);
+            pipeline.getProcessedSampleSource()->addSampleClient(counter.get());
         }
-        else sis.addSampleClient(counter);
+        else sis.addSampleClient(counter.get());
 
-	for (;;) {
-	    sis.readSamples();
-	    if (interrupted) break;
-	}
+        try {
+            for (;;) {
+                sis.readSamples();
+                if (interrupted) break;
+            }
+        }
+        catch (n_u::EOFException& e) {
+            sis.flush();
+            sis.close();
+            counter->printResults();
+            cerr << e.what() << endl;
+        }
+        catch (n_u::IOException& e) {
+            sis.flush();
+            sis.close();
+            counter->printResults();
+            throw(e);
+        }
     }
-    catch (n_u::EOFException& eof) {
-        cerr << eof.what() << endl;
-    }
-    catch (n_u::IOException& ioe) {
-        cerr << ioe.what() << endl;
+    catch (n_u::Exception& e) {
+        cerr << e.what() << endl;
 	result = 1;
     }
-    catch (n_u::Exception& ioe) {
-        cerr << ioe.what() << endl;
-	result = 1;
-    }
-
-    if (counter) counter->printResults();
-    delete counter;
 
     return result;
 }

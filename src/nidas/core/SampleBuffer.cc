@@ -93,11 +93,18 @@ int SampleBuffer::run() throw(n_u::Exception)
 
         size_t nsamp = _samples.size();
 
-	if (_doFinish) {
-	    flush();
+	if (_doFinish && nsamp == 0) {
+            // calls finish() on all sample clients.
+#ifdef DEBUG
+            cerr << "SampleSorter calling flush, _source type=" << 
+                (_source.getRawSampleSource() ? "raw" : "proc") << endl;
+#endif
+            _sampleSetCond.unlock();
+            flush();
+            _sampleSetCond.lock();
 	    _finished = true;
 	    _doFinish = false;
-            nsamp = _samples.size();
+            continue;
 	}
 
 	if (nsamp == 0) {	// no samples, wait
@@ -173,10 +180,12 @@ void inline SampleBuffer::heapDecrement(size_t bytes)
  */
 void SampleBuffer::finish() throw()
 {
-    // finish already requested.
-    if (_finished || _doFinish) return;
-
     _sampleSetCond.lock();
+    // finish already requested.
+    if (_finished || _doFinish) {
+        _sampleSetCond.unlock();
+        return;
+    }
 
     // After setting this lock, we know that the
     // consumer thread is either:
@@ -206,8 +215,6 @@ void SampleBuffer::finish() throw()
 	_sampleSetCond.unlock();
     }
     _sampleSetCond.unlock();
-    // calls finish() on all sample clients.
-    flush();
 }
 
 bool SampleBuffer::receive(const Sample *s) throw()

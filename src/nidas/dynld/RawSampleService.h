@@ -140,7 +140,7 @@ public:
 
 private:
 
-    SamplePipeline _pipeline;
+    SamplePipeline* _pipeline;
 
     /**
      * Worker thread that is run when a SampleInputConnection is established.
