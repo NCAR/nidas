@@ -48,16 +48,11 @@ public:
      * Get the IOStream of this SampleOutputStream.
      * SampleOutputStream owns the pointer and
      * will delete the IOStream in its destructor.
-     * The IOStream is available after the
-     * call to init() and before close() (or the destructor).
+     * The IOStream is available after a SammpleOutputStream is 
+     * constructed with an connected IOChannel, or after the connected()
+     * method has been called and before close().
      */
     IOStream* getIOStream() { return _iostream; }
-
-    /**
-     * Call init() after the IOChannel is configured for a
-     * SampleOutputStream. init() creates the buffered IOStream.
-     */
-    // void init() throw();
 
     void close() throw(nidas::util::IOException);
 

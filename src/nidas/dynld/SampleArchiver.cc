@@ -44,14 +44,6 @@ SampleArchiver::~SampleArchiver()
         set<SampleSource*>::const_iterator si = _connectedSources.begin();
         for ( ; si != _connectedSources.end(); ++si) {
             SampleSource* source = *si;
-            if (output->isRaw()) {
-                SampleSource* src = source->getRawSampleSource();
-                if (src) source = src;
-            }
-            else {
-                SampleSource* src = source->getProcessedSampleSource();
-                if (src) source = src;
-            }
             source->removeSampleClient(output);
         }
         try {
@@ -95,17 +87,17 @@ void SampleArchiver::connect(SampleSource* source) throw()
             SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
-    _connectedSources.insert(source);
-
     set<SampleOutput*>::const_iterator oi =
     	_connectedOutputs.begin();
     for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-#ifdef DEBUG
         cerr << "SampleArchiver: connecting " << output->getName() << endl;
+#ifdef DEBUG
 #endif
         source->addSampleClient(output);
     }
+    _connectedSources.insert(source);
+
 }
  
 void SampleArchiver::disconnect(SampleSource* source) throw()
@@ -135,8 +127,10 @@ void SampleArchiver::connect(SampleOutput* output) throw()
     n_u::Logger::getInstance()->log(LOG_INFO,
         "SampleArchiver: connection from %s", output->getName().c_str());
 
+#ifdef DEBUG
     cerr << "SampleArchiver::connnect(SampleOutput*), #sources=" <<
         _connectedSources.size() << endl;
+#endif
 
     _connectionMutex.lock();
     _connectedOutputs.insert(output);

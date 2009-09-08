@@ -110,11 +110,6 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 #endif
     bool first_sample = false;
 
-#ifdef NEEDED
-    if (!_iostream)
-        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
-#endif
-
     dsm_time_t tsamp = samp->getTimeTag();
 
     try {

@@ -265,17 +265,20 @@ void inline SampleSorter::heapDecrement(size_t bytes)
  */
 void SampleSorter::finish() throw()
 {
-#ifdef DEBUG
-    cerr << "SampleSorter::finish, _source type=" << 
-        (_source.getRawSampleSource() ? "raw" : "proc") << endl;
-#endif
-
-    // finish already requested.
     _sampleSetCond.lock();
+
+
+    // check if finish already requested.
     if (_finished || _doFinish) {
         _sampleSetCond.unlock();
         return;
     }
+
+#ifdef DEBUG
+    cerr << "SampleSorter::finish, _source type=" << 
+        (_source.getRawSampleSource() ? "raw" : "proc") <<
+        " #samples=" << _samples.size() << endl;
+#endif
 
     SampleT<char>* eofSample = getSample<char>(0);
     numeric_limits<long long> ll;
@@ -305,9 +308,7 @@ void SampleSorter::finish() throw()
 
 bool SampleSorter::receive(const Sample *s) throw()
 {
-
     size_t slen = s->getDataByteLength() + s->getHeaderLength();
-
 
     if (_realTime) {
         dsm_time_t samptt = s->getTimeTag();

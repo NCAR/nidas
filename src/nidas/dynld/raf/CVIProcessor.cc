@@ -37,6 +37,25 @@ CVIProcessor::CVIProcessor(): SampleIOProcessor(false),
 
 CVIProcessor::~CVIProcessor()
 {
+    std::set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = * oi;
+        _averager.removeSampleClient(output);
+
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "%s: error closing %s: %s",
+                getName().c_str(),output->getName().c_str(),ioe.what());
+        }
+
+        SampleOutput* orig = output->getOriginal();
+        if (orig != output)
+            delete output;
+    }
 }
 
 void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
@@ -62,6 +81,7 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
 
     // SampleIOProcessor will delete
     SampleIOProcessor::addRequestedSampleTag(tag);
+    addSampleTag(_outputSampleTag);
 }
 
 void CVIProcessor::connect(SampleSource* source) throw()
@@ -70,13 +90,24 @@ void CVIProcessor::connect(SampleSource* source) throw()
      * In the typical usage on a DSM, this connection will
      * be from the SamplePipeline.
      */
-
-    /*
-     * Find a match with a variable from the CVI sample:
-     */
-
     source = source->getProcessedSampleSource();
     assert(source);
+
+    _connectionMutex.lock();
+
+    // on first SampleSource connection, request output connections.
+    if (_connectedSources.size() == 0) {
+        const list<SampleOutput*>& outputs = getOutputs();
+        list<SampleOutput*>::const_iterator oi = outputs.begin();
+        for ( ; oi != outputs.end(); ++oi) {
+            SampleOutput* output = *oi;
+            // some SampleOutputs want to know what they are getting
+            output->addSourceSampleTags(getSampleTags());
+            SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
+        }
+    }
+    _connectedSources.insert(source);
+    _connectionMutex.unlock();
 
     DSMSensor* sensor = 0;
 
@@ -95,44 +126,24 @@ void CVIProcessor::connect(SampleSource* source) throw()
         else cerr << "CVIProcessor no sensor" << endl;
 #endif
 
-        if (sensor && dynamic_cast<CVI_LV_Input*>(sensor)) {
-            attachLVInput(source,intag);
-            continue;
-        }
+        if (sensor && dynamic_cast<CVI_LV_Input*>(sensor)) attachLVInput(source,intag);
         // sensor->setApplyVariableConversions(true);
-
-        bool varMatch = false;
-        for (VariableIterator invi = intag->getVariableIterator();
-            invi.hasNext(); ) {
-            const Variable* invar = invi.next();
-
-            for (VariableIterator vi = _outputSampleTag->getVariableIterator();
-                vi.hasNext(); ) {
-                const Variable* myvar = vi.next();
-		// variable match
-		if (*invar == *myvar) varMatch = true;
-            }
-        }
-        if (varMatch) 
-            source->addSampleClientForTag(&_averager,intag);
     }
 
-    _connectionMutex.lock();
-    _connectedSources.insert(source);
-    _connectionMutex.unlock();
+    _averager.connect(source);
 }
 
 void CVIProcessor::disconnect(SampleSource* source) throw()
 {
     source = source->getProcessedSampleSource();
 
-    source->removeSampleClient(&_averager);
-    source->removeSampleClient(this);
-
     _connectionMutex.lock();
     _connectedSources.erase(source);
     _connectionMutex.unlock();
 
+    _averager.disconnect(source);
+    _averager.finish();
+    source->removeSampleClient(this);
 }
  
 void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)

@@ -146,9 +146,9 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         }
         _requestCond.unlock();
 
+#ifdef DEBUG
         cerr << "SampleOutputRequestThread, #curreqs=" <<
             curreqs.size() << " tdiffmin=" << tdiffmin << endl;
-#ifdef DEBUG
 #endif
 
         // handle requests whose time has come
@@ -164,8 +164,8 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         // Between sleeps, check for arrival of new requests (or clear) 
         for ( ; nreq > 0 && _disconnectRequests.size() == 0 &&
             _connectRequests.size() == nreq && tdiffmin > 0; tdiffmin--) {
-            cerr << "SampleOutputRequestThread, tdiffmin=" << tdiffmin << endl;
 #ifdef DEBUG
+            cerr << "SampleOutputRequestThread, tdiffmin=" << tdiffmin << endl;
 #endif
             if (amInterrupted()) break;
             _requestCond.unlock();

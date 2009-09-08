@@ -34,6 +34,32 @@ StatisticsProcessor::StatisticsProcessor():
 
 StatisticsProcessor::~StatisticsProcessor()
 {
+    std::set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+
+        _connectionMutex.lock();
+        list<StatisticsCruncher*>::const_iterator ci;
+        for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
+            StatisticsCruncher* cruncher = *ci;
+            cruncher->flush();
+            cruncher->removeSampleClient(output);
+        }
+        _connectionMutex.unlock();
+
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "%s: error closing %s: %s",
+                getName().c_str(),output->getName().c_str(),ioe.what());
+        }
+
+        SampleOutput* orig = output->getOriginal();
+        if (orig != output) delete output;
+    }
 }
 
 void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
@@ -144,7 +170,6 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     cerr << "StatisticsProcessor connect, #of tags=" <<
     	source->getSampleTags().size() << endl;
 #endif
-    list<const SampleTag*> newtags;
 
     source = source->getProcessedSampleSource();
     assert(source);
@@ -202,8 +227,11 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     _connectionMutex.unlock();
 
 		    cruncher->connect(source);
+
 		    list<const SampleTag*> tags = cruncher->getSampleTags();
-		    newtags.insert(newtags.begin(),tags.begin(),tags.end());
+                    list<const SampleTag*>::const_iterator ti = tags.begin();
+                    for ( ; ti != tags.end(); ++ti) addSampleTag(*ti);
+
 		    nmatches++;
 		}
 	    }
@@ -215,24 +243,23 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     }
 
     _connectionMutex.lock();
+
     // on first SampleSource connection, request output connections
     //
-    // Currently this code does not support connections from more than one
-    // SampleSource. This is not an issue since the source will always
-    // be one SamplePipeline which is a merged SampleSource.
-    // If we did have more than one SampleSource, then the
-    // number of StatisticsCrunchers may grow with each SampleSource
-    // connection, and then the list of SampleTags that will be output will
-    // also grow. However we need to support the NetcdfRPCOutput which
-    // requires that it knows all its output SampleTags before
-    // it connects.
+    // Currently this code will not work correctly if we get a connection
+    // from more than one SampleSource.  The NetcdfRPCOutput needs
+    // to know all the expected SampleTags that it will be sending
+    // before a connection request is made.
+    // This is not an issue currently since there will be only
+    // one connection from a SamplePipeline.
 
     if (_connectedSources.size() == 0) {
+
         const list<SampleOutput*>& outputs = getOutputs();
         list<SampleOutput*>::const_iterator oi = outputs.begin();
         for ( ; oi != outputs.end(); ++oi) {
             SampleOutput* output = *oi;
-            output->addSourceSampleTags(newtags);
+            output->addSourceSampleTags(getSampleTags());
             SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
@@ -249,7 +276,7 @@ void StatisticsProcessor::disconnect(SampleSource* source) throw()
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
 	cruncher->disconnect(source);
-	cruncher->flush();
+	cruncher->finish();
     }
     _connectedSources.erase(source);
     _connectionMutex.unlock();

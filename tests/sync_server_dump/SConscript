@@ -11,31 +11,20 @@ ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 # print 'ldlibdir=' + ":".join(ldlibdirs)
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-dsm = env['NIDAS_APPS']['dsm']
-dsm_server = env['NIDAS_APPS']['dsm_server']
-data_stats = env['NIDAS_APPS']['data_stats']
-sensor_sim = env['NIDAS_APPS']['sensor_sim']
+sync_server = env['NIDAS_APPS']['sync_server']
+sync_dump = env['NIDAS_APPS']['sync_dump']
 
-path = env.subst("${TARGET.dir}", target=dsm)
+path = env.subst("${TARGET.dir}", target=sync_server)
 env.PrependENVPath('PATH', path)
 # print 'path=' + path
 # env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
-depends1 = ["run_test.sh",  dsm, data_stats, sensor_sim]
+depends1 = ["run_test.sh",  sync_server, sync_dump]
 runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])
 
-depends2 = ["run_test_2.sh", dsm_server, dsm, data_stats, sensor_sim]
-runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test_2.sh"])
-
-# Can't run both of these tests simultaneously (which is likely to
-# happen with a multithreaded scons) because they use the same
-# pseudoterminals.
-#
-# testlist = [runtest1]
-testlist = [runtest2]
-# testlist = [runtest1,runtest2]
+testlist = [runtest1]
 
 env.Precious(testlist)
 env.AlwaysBuild(testlist)
 env.Alias('test', testlist)
-env.Alias('sstest', testlist)
+env.Alias('synctest', testlist)

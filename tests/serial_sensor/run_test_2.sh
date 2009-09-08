@@ -189,78 +189,82 @@ done
 kill_dsm
 kill_dsm_server
 
-# check output data file for the expected number of samples
-ofiles=(tmp/localhost_*)
-if [ ${#ofiles[*]} -ne 1 ]; then
-    echo "Expected one output file, got ${#ofiles[*]}"
-    exit 1
-fi
+# read archives from dsm and dsm_server process
+for fp in localhost server; do
 
-# run data_stats on raw data file
-statsf=tmp/data_stats.out
-data_stats $ofiles > $statsf
+    # check output data file for the expected number of samples
+    ofiles=(tmp/${fp}_*)
+    if [ ${#ofiles[*]} -ne 1 ]; then
+        echo "Expected one output file, got ${#ofiles[*]}"
+        exit 1
+    fi
 
-ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    exit 1
-fi
+    # run data_stats on raw data file
+    statsf=tmp/data_stats_${fp}.out
+    data_stats $ofiles > $statsf
 
-# should see these numbers of raw samples
-nsamps=(51 50 257 6 5 5)
-rawok=true
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
-    if (\$4 != nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
+    ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        exit 1
+    fi
+
+    # should see these numbers of raw samples
+    nsamps=(51 50 257 6 5 5)
+    rawok=true
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test$i
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+    /^test:tmp\/$sname/{
+        if (\$4 != nsamp) {
+            print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+            exit(1)
+        }
     }
-}
-" $statsf || rawok=false
-done
+    " $statsf || rawok=false
+    done
 
-cat tmp/data_stats.out
-if [ ! $rawok ]; then
-    echo "raw sample test failed"
-else
-    echo "raw sample test OK"
-fi
+    cat $statsf
+    if [ ! $rawok ]; then
+        echo "raw sample test failed"
+    else
+        echo "raw sample test OK"
+    fi
 
-# run data through process methods
-procok=true
-statsf=tmp/data_stats.out
-data_stats -p $ofiles > $statsf
+    # run data through process methods
+    procok=true
+    data_stats -p $ofiles > $statsf
 
-ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    exit 1
-fi
+    ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        exit 1
+    fi
 
-# should see these numbers of processed samples
-# The data file for the first 2 sensors has one bad record, so we
-# see one less processed sample.
-# The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
-# The process method discards first two samples so we see 254.
+    # should see these numbers of processed samples
+    # The data file for the first 2 sensors has one bad record, so we
+    # see one less processed sample.
+    # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
+    # The process method discards first two samples so we see 254.
 
-nsamps=(50 49 254 5 4 5)
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
-    if (\$4 != nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
+    nsamps=(50 49 254 5 4 5)
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test$i
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+    /^test:tmp\/$sname/{
+        if (\$4 != nsamp) {
+            print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+            exit(1)
+        }
     }
-}
-" $statsf || procok=false
-done
+    " $statsf || procok=false
+    done
 
-cat tmp/data_stats.out
+    cat $statsf
+
+done
 
 # check for valgrind errors in dsm process
 dsm_errs=`valgrind_errors tmp/dsm.log`

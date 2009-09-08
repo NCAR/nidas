@@ -38,6 +38,30 @@ SampleProcessor::SampleProcessor():
 
 SampleProcessor::~SampleProcessor()
 {
+    _connectionMutex.lock();
+    set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        set<SampleSource*>::const_iterator si = _connectedSources.begin();
+        for ( ; si != _connectedSources.end(); ++si) {
+            SampleSource* source = *si;
+            source->removeSampleClient(output);
+        }
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "DSMEngine: error closing %s: %s",
+                    output->getName().c_str(),ioe.what());
+        }
+
+        SampleOutput* orig = output->getOriginal();
+
+        if (output != orig) delete output;
+    }
+    _connectionMutex.unlock();
 }
 
 void SampleProcessor::connect(SampleSource* source) throw()

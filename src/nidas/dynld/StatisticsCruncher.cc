@@ -1373,4 +1373,6 @@ void StatisticsCruncher::computeStats()
  */
 void StatisticsCruncher::finish() throw()
 {
+    // we won't finish the last set of statistics
+    flush();
 }

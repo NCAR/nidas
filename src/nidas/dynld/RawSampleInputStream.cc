@@ -27,7 +27,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(RawSampleInputStream)
 
-RawSampleInputStream::RawSampleInputStream()
+RawSampleInputStream::RawSampleInputStream(): SampleInputStream(true)
 {
 }
 

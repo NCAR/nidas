@@ -94,6 +94,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
         SampleIOProcessor* proc = *oi;
 	if (!proc->isOptional()) {
 	    try {
+                // cerr << "Connecting " << proc->getName() << " to pipeline" << endl;
 		proc->connect(_pipeline);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
@@ -120,7 +121,7 @@ void RawSampleService::interrupt() throw()
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
 	if (!proc->isOptional()) {
-            cerr << "RawSampleService::interrupt disconnecting proc=" << proc->getName() << endl;
+            // cerr << "RawSampleService::interrupt disconnecting proc=" << proc->getName() << endl;
 	    proc->disconnect(_pipeline);
 	}
     }
@@ -133,6 +134,11 @@ void RawSampleService::interrupt() throw()
  */
 void RawSampleService::connect(SampleInput* input) throw()
 {
+
+    // This should have been detected in the fromDOMElement
+    // where we check if the input is a RawSampleInputStream.
+    assert(input->getRawSampleSource() != 0);
+
     // What DSM it came from
     const DSMConfig* dsm = input->getDSMConfig();
 
@@ -160,7 +166,8 @@ void RawSampleService::connect(SampleInput* input) throw()
         input->addSampleTag(sensor->getRawSampleTag());
     }
 
-    // pipeline does not own input. It just adds sample clients to it.
+    // pipeline does not own input. It just adds its sample clients to
+    // the input.
     _pipeline->connect(input);
 
     // Create a Worker to handle the input.
@@ -186,7 +193,6 @@ void RawSampleService::connect(SampleInput* input) throw()
     }
 
     addSubThread(worker);
-
 }
 
 /*
