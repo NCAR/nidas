@@ -93,7 +93,7 @@ void UDPSampleOutput::allocateBuffer(size_t len)
     _eob = _buffer + _buflen;
 }
 
-void UDPSampleOutput::connected(IOChannel* ochan) throw()
+SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
 {
     // ochan is a new nidas::core::DatagramSocket
     assert(_mochan);
@@ -165,7 +165,7 @@ void UDPSampleOutput::connected(IOChannel* ochan) throw()
     ochan->close();
     delete ochan;
 
-    SampleOutputBase::connected(_mochan);
+    return SampleOutputBase::connected(_mochan);
 }
 
 void UDPSampleOutput::close() throw(n_u::IOException)

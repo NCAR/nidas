@@ -267,7 +267,7 @@ int SensorExtract::run() throw()
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);
-        input.init();
+        // input.init();
         input.setMaxSampleLength(32768);
 
         input.readInputHeader();

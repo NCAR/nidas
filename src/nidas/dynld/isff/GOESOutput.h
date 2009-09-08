@@ -58,7 +58,7 @@ public:
      * Once we have the connection to the transmitter,
      * initialize things before sending packets.
      */
-    void connected(IOChannel* ochan) throw();
+    SampleOutput* connected(IOChannel* ochan) throw();
 
     /**
      * The GOES transmit interval, in seconds.

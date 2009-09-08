@@ -32,25 +32,17 @@ class NetcdfRPCOutput: public SampleOutputBase {
 
 public:
 
+    NetcdfRPCOutput();
+
     /**
      * Constructor.
      */
-    NetcdfRPCOutput(IOChannel* ioc = 0);
+    NetcdfRPCOutput(IOChannel* ioc);
 
     /**
      * Destructor.
      */
     ~NetcdfRPCOutput();
-
-    void setIOChannel(IOChannel* val);
-
-    /**
-     * Clone invokes default copy constructor.
-     */
-    NetcdfRPCOutput* clone(IOChannel* iochannel=0)
-    {
-        return new NetcdfRPCOutput(*this);
-    }
 
     /**
      * Request a connection, but don't wait for it.  Requester will be
@@ -58,6 +50,8 @@ public:
      * has been made.
      */
     void requestConnection(SampleConnectionRequester*) throw();
+
+    SampleOutput* connected(IOChannel* ioc) throw();
 
     /**
     * Raw write not supported.
@@ -79,13 +73,33 @@ public:
 protected:
 
     /**
+     * Clone invokes default copy constructor.
+     */
+    NetcdfRPCOutput* clone(IOChannel* iochannel)
+    {
+        return new NetcdfRPCOutput(*this,iochannel);
+    }
+
+    /**
      * Copy constructor, with a new IOChannel. Used by clone().
      */
     NetcdfRPCOutput(NetcdfRPCOutput&,IOChannel*);
 
+    void setIOChannel(IOChannel* val);
+
 private:
 
     NetcdfRPCChannel* _ncChannel;
+
+    /**
+     * No copy.
+     */
+    NetcdfRPCOutput(const NetcdfRPCOutput&);
+
+    /**
+     * No assignment.
+     */
+    NetcdfRPCOutput& operator=(const NetcdfRPCOutput&);
 
 };
 

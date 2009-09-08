@@ -28,6 +28,10 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(RawSampleOutputStream)
 
+RawSampleOutputStream::RawSampleOutputStream(): SampleOutputStream() 
+{
+}
+
 RawSampleOutputStream::RawSampleOutputStream(IOChannel* i):SampleOutputStream(i)
 {
 }

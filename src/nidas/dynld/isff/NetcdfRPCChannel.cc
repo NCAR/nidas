@@ -20,6 +20,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/Process.h>
 
 using namespace nidas::dynld::isff;
 using namespace std;
@@ -451,7 +452,7 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "server") setServer(Project::getInstance()->expandEnvVars(aval));
+	    if (aname == "server") setServer(n_u::Process::expandEnvVars(aval));
 	    else if (aname == "dir") setDirectory(aval);
 	    else if (aname == "file") setFileNameFormat(aval);
 	    else if (aname == "cdl") setCDLFileName(aval);

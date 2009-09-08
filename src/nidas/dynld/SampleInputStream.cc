@@ -32,7 +32,24 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleInputStream)
 
 /*
- * Constructor, with a IOChannel (which may be null).
+ * Constructor
+ */
+SampleInputStream::SampleInputStream(bool raw):
+    _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
+    _expectHeader(true),_inputHeaderParsed(false),
+    _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
+    _samp(0),_dataToRead(0),_dptr(0),
+    _badSamples(0),
+    _filterBadSamples(false),_maxDsmId(1024),
+    _maxSampleLength(UINT_MAX),
+    _minSampleTime(LONG_LONG_MIN),
+    _maxSampleTime(LONG_LONG_MAX),
+    _original(this)
+{
+}
+
+/*
+ * Constructor, with a connected IOChannel.
  */
 SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
@@ -47,10 +64,11 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _original(this)
 {
     setIOChannel(iochannel);
+    _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 }
 
 /*
- * Copy constructor, with a new IOChannel.
+ * Copy constructor, with a new, connected IOChannel.
  */
 SampleInputStream::SampleInputStream(SampleInputStream& x,
 	IOChannel* iochannel):
@@ -67,6 +85,7 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _original(&x)
 {
     setIOChannel(iochannel);
+    _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 }
 
 /*
@@ -86,6 +105,7 @@ SampleInputStream::~SampleInputStream()
 void SampleInputStream::setIOChannel(IOChannel* val)
 {
     if (val != _iochan) {
+        if (_iochan) _iochan->close();
 	delete _iochan;
 	_iochan = val;
     }
@@ -108,8 +128,6 @@ void SampleInputStream::setIOChannel(IOChannel* val)
                 }
             }
         }
-        delete _iostream;
-        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
     }
 }
 
@@ -133,18 +151,30 @@ void SampleInputStream::requestConnection(DSMService* requester)
     _iochan->requestConnection(this);
 }
 
-void SampleInputStream::connected(IOChannel* ioc) throw()
+SampleInput* SampleInputStream::connected(IOChannel* ioc) throw()
 {
-    assert(_service);
-    if (_iochan != ioc) {
-        SampleInputStream* newist = clone(ioc);
-        _service->connect(newist);
+    if (_iochan && _iochan != ioc) {
+        if (_service) {
+            SampleInputStream* newist = clone(ioc);
+            _service->connect(newist);
+            return newist;
+        }
+        else {
+            setIOChannel(ioc);
+            delete _iostream;
+            _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
+        }
     }
     else {
         setIOChannel(ioc);
-        _service->connect(this);
+        delete _iostream;
+        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
+        if (_service) _service->connect(this);
     }
+    return this;
 }
+
+#ifdef NEEDED
 
 void SampleInputStream::init() throw()
 {
@@ -155,6 +185,7 @@ void SampleInputStream::init() throw()
     if (!_iostream)
 	_iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 }
+#endif
 
 void SampleInputStream::close() throw(n_u::IOException)
 {
@@ -516,12 +547,9 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
-        /* We set the _iochan member here, without also initializing _iostream,
-         * because we may not actually use this IOChannel if one is
-         * just reading the configuration.
-         */
-        _iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
-	_iochan->fromDOMElement((xercesc::DOMElement*)child);
+        IOChannel* iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
+	iochan->fromDOMElement((xercesc::DOMElement*)child);
+        setIOChannel(iochan);
 
 	if (++niochan > 1)
 	    throw n_u::InvalidParameterException(

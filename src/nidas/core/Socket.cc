@@ -17,6 +17,7 @@
 #include <nidas/core/McSocket.h>
 #include <nidas/core/McSocketUDP.h>
 #include <nidas/core/MultipleUDPSockets.h>
+#include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -171,16 +172,16 @@ n_u::Inet4Address Socket::getRemoteInet4Address()
     return n_u::Inet4Address();
 }
 
-IOChannel* Socket::connect() throw(n_u::IOException)
+IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
 {
-    // getRemoteSocketAddress may throw UnknownHostException
     const n_u::SocketAddress& saddr = getRemoteSocketAddress();
 
-    n_u::Socket* waitsock = new n_u::Socket(saddr.getFamily());
-    waitsock->connect(saddr);
-    waitsock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
-    waitsock->setNonBlocking(_nonBlocking);
-    return new nidas::core::Socket(waitsock);
+    if (!_nusocket)
+        _nusocket = new n_u::Socket(saddr.getFamily());
+    _nusocket->connect(saddr);
+    _nusocket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
+    _nusocket->setNonBlocking(_nonBlocking);
+    return this;
 }
 
 void Socket::requestConnection(IOChannelRequester* requester)
@@ -327,17 +328,11 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
     for (; !isInterrupted(); ) {
 
         try {
-            // getRemoteSocketAddress may throw UnknownHostException
-            const n_u::SocketAddress& saddr = _socket->getRemoteSocketAddress();
-            if (!_socket->_nusocket) _socket->_nusocket = new n_u::Socket(saddr.getFamily());
-            _socket->_nusocket->connect(saddr);
+            _socket->connect();
 
             _socket->_connectionMutex.lock();
             _socket->_connectionThread = 0;
             _socket->_connectionMutex.unlock();
-
-            _socket->_nusocket->setKeepAliveIdleSecs(_socket->getKeepAliveIdleSecs());
-            _socket->_nusocket->setNonBlocking(_socket->isNonBlocking());
 
             // cerr << "Socket::connected " << getName();
             n_u::Logger::getInstance()->log(LOG_DEBUG,
@@ -423,9 +418,10 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 	    if (aname == "address") remoteHost = aval;
-	    else if (aname == "path") unixPath = aval; // Unix socket address
+            // Unix socket address
+	    else if (aname == "path") unixPath = n_u::Process::expandEnvVars(aval);
 	    else if (aname == "port") {
-		istringstream ist(aval);
+		istringstream ist(n_u::Process::expandEnvVars(aval));
 		ist >> port;
 		if (ist.fail())
 			throw n_u::InvalidParameterException(
@@ -509,7 +505,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 	    if (aname == "port") {
-		istringstream ist(aval);
+		istringstream ist(n_u::Process::expandEnvVars(aval));
 		ist >> port;
 		if (ist.fail())
 			throw n_u::InvalidParameterException(
@@ -517,7 +513,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
 	    }
             // Unix socket address
 	    else if (aname == "path") {
-                path = aval;
+                path = n_u::Process::expandEnvVars(aval);
 	    }
 	    else if (aname == "type") {
 		if (aval != "server")

@@ -47,11 +47,6 @@ public:
     NetcdfRPCChannel();
 
     /**
-     * Copy constructor.
-     */
-    NetcdfRPCChannel(const NetcdfRPCChannel&);
-
-    /**
      * Destructor.
      */
     ~NetcdfRPCChannel();
@@ -203,6 +198,12 @@ private:
     struct timeval& getRPCBatchTimeoutVal();
 
 protected:
+
+    /**
+     * Copy constructor.
+     */
+    NetcdfRPCChannel(const NetcdfRPCChannel&);
+
 
     void writeHistory(const std::string&) throw (nidas::util::IOException);
 

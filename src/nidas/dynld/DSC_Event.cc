@@ -64,7 +64,7 @@ void DSC_Event::open(int flags) throw(n_u::IOException,
     init();
 
     struct GPIO_MM_event_config cfg;
-    cfg.latencyUsecs = rint(getLatency() * USECS_PER_SEC);
+    cfg.latencyUsecs = (int) rint(getLatency() * USECS_PER_SEC);
     ioctl(GPIO_MM_EVENT_START,&cfg,sizeof(cfg));
 }
 

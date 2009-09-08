@@ -54,7 +54,17 @@ public:
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
      */
-    SampleInputStream(IOChannel* iochannel = 0, bool raw=false);
+    SampleInputStream(bool raw=false);
+
+    /**
+     * Constructor.
+     * @param iochannel The IOChannel that we use for data input.
+     *   SampleInputStream will own the pointer to the IOChannel,
+     *   and will delete it in ~SampleInputStream(). If 
+     *   it is a null pointer, then it must be set within
+     *   the fromDOMElement method.
+     */
+    SampleInputStream(IOChannel* iochannel,bool raw=false);
 
     /**
      * Create a clone, with a new, connected IOChannel.
@@ -92,14 +102,14 @@ public:
      * the IOChannel is connected, which will cause SampleInputStream
      * to open the IOStream.
      */
-    void connected(IOChannel* iochan) throw();
+    SampleInput* connected(IOChannel* iochan) throw();
 
     /**
      * What DSM am I connnected to? May be NULL if it cannot be determined.
      */
     const DSMConfig* getDSMConfig() const;
 
-    void init() throw();
+    // void init() throw();
 
     void setKeepStats(bool val)
     {
@@ -331,6 +341,16 @@ private:
     dsm_time_t _maxSampleTime;
 
     SampleInputStream* _original;
+
+    /**
+     * No regular copy.
+     */
+    SampleInputStream(const SampleInputStream& x);
+
+    /**
+     * No assignment.
+     */
+    SampleInputStream& operator =(const SampleInputStream& x);
 
 };
 

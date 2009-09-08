@@ -91,8 +91,8 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                     const char* pe = getenv("PROJECT");
                     const char* ae = getenv("AIRCRAFT");
                     const char* ie = getenv("ISFF");
-                    if (re && pe && ae) _configsXMLName = Project::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = Project::expandEnvVars(_isffXML);
+                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                 }
                 if (_configsXMLName.length() == 0) {
                     cerr <<
@@ -521,7 +521,7 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesUserAdoptsDOMDocument(true);
 
     // expand environment variables in name
-    string expName = Project::expandEnvVars(xmlFileName);
+    string expName = n_u::Process::expandEnvVars(xmlFileName);
 
     // This document belongs to the caching parser
     xercesc::DOMDocument* doc = parser->parse(expName);

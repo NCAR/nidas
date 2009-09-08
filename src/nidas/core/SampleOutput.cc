@@ -28,7 +28,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SampleOutputBase::SampleOutputBase(IOChannel* ioc):
+SampleOutputBase::SampleOutputBase():
 	_name("SampleOutputBase"),
 	_iochan(0),
 	_connectionRequester(0),
@@ -37,21 +37,31 @@ SampleOutputBase::SampleOutputBase(IOChannel* ioc):
         _nsamplesDiscarded(0),
         _original(this)
 {
-        setIOChannel(ioc);
+}
+
+SampleOutputBase::SampleOutputBase(IOChannel* ioc):
+	_name("SampleOutputBase"),
+	_iochan(ioc),
+	_connectionRequester(0),
+	_nextFileTime(LONG_LONG_MIN),
+        _headerSource(0),_dsm(0),
+        _nsamplesDiscarded(0),
+        _original(this)
+{
 }
 
 /*
- * Copy constructor, with a new IOChannel.
+ * Copy constructor, with a new, connected IOChannel.
  */
 SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
 	_name(x._name),
-	_iochan(0),
+	_iochan(ioc),
 	_connectionRequester(x._connectionRequester),
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(x._headerSource),_dsm(x._dsm),
         _nsamplesDiscarded(0),_original(&x)
 {
-    setIOChannel(ioc);
+    _iochan->setDSMConfig(getDSMConfig());
 }
 
 SampleOutputBase::~SampleOutputBase()
@@ -133,10 +143,7 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
 	delete _iochan;
 	_iochan = val;
     }
-    if (_iochan) {
-        _iochan->setDSMConfig(getDSMConfig());
-	setName(string("SampleOutputBase: ") + _iochan->getName());
-    }
+    _iochan->setDSMConfig(getDSMConfig());
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
@@ -150,25 +157,28 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
  * implementation of IOChannelRequester::connected().
  * How an IOChannel notifies a SampleOutput that is it connected.
  */
-void SampleOutputBase::connected(IOChannel* ioc) throw()
+SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {
-    if (_iochan != ioc) {
-	assert(_connectionRequester);
+    if (_iochan && _iochan != ioc) {
 	// This is a new IOChannel, probably a connected socket.
 	// Clone myself and report back to connectionRequester.
-	SampleOutput* newout = clone(ioc);
-	_connectionRequester->connect(newout);
+	if (_connectionRequester) {
+            SampleOutput* newout = clone(ioc);
+            _connectionRequester->connect(newout);
+            return newout;
+        }
+        else {
+            // If no requester, set the iochan.
+            _iochan->close();
+            delete _iochan;
+            _iochan = ioc;
+        }
     }
     else {
-	assert(_connectionRequester);
-	setName(string("SampleOutputBase: ") + _iochan->getName());
-        _connectionRequester->connect(this);
+        if (!_iochan) _iochan = ioc;
+	if (_connectionRequester) _connectionRequester->connect(this);
     }
-#ifdef DEBUG
-    cerr << "SampleOutputBase::connected, ioc" <<
-    	ioc->getName() << " fd="  <<
-    	ioc->getFd() << endl;
-#endif
+    return this;
 }
 
 /* implementation of SampleOutput::disconnect() */

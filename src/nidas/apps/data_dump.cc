@@ -24,6 +24,7 @@
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/Process.h>
 #include <nidas/util/EndianConverter.h>
 
 #include <set>
@@ -593,7 +594,7 @@ int DataDump::run() throw()
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {

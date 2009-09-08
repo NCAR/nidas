@@ -40,11 +40,6 @@ public:
     Socket();
 
     /**
-     * Copy constructor.
-     */
-    Socket(const Socket& x);
-
-    /**
      * Constructor from a connected nidas::util::Socket.
      * @param sock Pointer to the connected nidas::util::Socket.
      * Socket will own the pointer and will delete it
@@ -59,7 +54,8 @@ public:
     void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    IOChannel* connect()
+        throw(nidas::util::IOException,nidas::util::UnknownHostException);
 
     virtual bool isNewInput() const { return _newInput; }
 
@@ -195,6 +191,12 @@ public:
 
     void setRemoteSocketAddress(const nidas::util::SocketAddress& val);
 
+    /**
+     * This method does a DNS lookup of the value of getRemoteHost(),
+     * and so it can throw an UnknownHostException. This is different
+     * behaviour from the the nidas::util::Socket::getRemoteSocketAddress()
+     * method, which does not throw an exception.
+     */
     const nidas::util::SocketAddress& getRemoteSocketAddress()
         throw(nidas::util::UnknownHostException);
 
@@ -237,6 +239,11 @@ public:
         Socket* _socket;
     };
 
+protected:
+    /**
+     * Copy constructor.
+     */
+    Socket(const Socket& x);
 
 private:
 
@@ -295,11 +302,6 @@ public:
      */
     ServerSocket(const nidas::util::SocketAddress& addr);
 
-    /**
-     * Copy constructor.
-     */
-    ServerSocket(const ServerSocket& x);
-
     ~ServerSocket();
 
     ServerSocket* clone() const;
@@ -307,7 +309,8 @@ public:
     void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    IOChannel* connect()
+        throw(nidas::util::IOException);
 
     const std::string& getName() const { return _name; }
 
@@ -426,6 +429,12 @@ public:
     protected:
         ServerSocket* _socket;
     };
+
+protected:
+    /**
+     * Copy constructor.
+     */
+    ServerSocket(const ServerSocket& x);
 
 private:
 

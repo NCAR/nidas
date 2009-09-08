@@ -38,8 +38,6 @@ public:
 
     virtual ~SampleOutput() {}
 
-    virtual SampleOutput* clone(IOChannel* iochannel) = 0;
-
     /**
      * Get pointer to SampleOutput that was cloned. Will be NULL
      * if this SampleOutput is an un-cloned original.
@@ -119,6 +117,8 @@ public:
 
 protected:
 
+    virtual SampleOutput* clone(IOChannel* iochannel) = 0;
+
 };
 
 /**
@@ -128,9 +128,24 @@ class SampleOutputBase: public SampleOutput
 {
 public:
 
-    SampleOutputBase(IOChannel* iochan=0);
+    SampleOutputBase();
+
+    /**
+     * Create a SampleOutput with a connected IOChannel.
+     */
+    SampleOutputBase(IOChannel* iochan);
 
     ~SampleOutputBase();
+
+    /**
+     * Set the IOChannel for this SampleOutput.
+     * This IOChannel is not yet connected.
+     * The IOChannel must be connected before the SampleOutput
+     * is used for I/O, using the requestConnection() method,
+     * or by IOChannel::connect() followed by
+     * SampleOutput::connected(IOChannel*).
+     */
+    virtual void setIOChannel(IOChannel* val);
 
     SampleOutput* getOriginal() const
     {
@@ -166,9 +181,12 @@ public:
 
     /**
      * Implementation of IOChannelRequester::connected().
-     * How an IOChannel indicates that it has received a connection.
+     * How an IOChannel calls back to a SampleConnectionRequester
+     * that it is connected. The ConnectionRequester can then
+     * return a clone of itself if the IOChannel is a new
+     * instance.
      */
-    void connected(IOChannel* ochan) throw();
+    SampleOutput* connected(IOChannel* ochan) throw();
 
     int getResubmitDelaySecs() { return 10; }
 
@@ -238,16 +256,11 @@ protected:
     std::list<SampleTag*> _requestedTags;
 
     /**
-     * Protected copy constructor, with a new IOChannel.
+     * Protected copy constructor, with a new, connected IOChannel.
      */
     SampleOutputBase(SampleOutputBase&,IOChannel*);
 
     size_t incrementDiscardedSamples() { return _nsamplesDiscarded++; }
-
-    /**
-     * Set the IOChannel for this output.
-     */
-    virtual void setIOChannel(IOChannel* val);
 
     SampleConnectionRequester* getSampleConnectionRequester()
     {
@@ -304,6 +317,17 @@ private:
      * Pointer to the SampleOutput that I was cloned from.
      */
     SampleOutput* _original;
+
+    /**
+     * No copy.
+     */
+    SampleOutputBase(const SampleOutputBase&);
+
+    /**
+     * No assignment.
+     */
+    SampleOutputBase& operator=(const SampleOutputBase&);
+
 };
 
 }}	// namespace nidas namespace core

@@ -11,6 +11,18 @@ export PROJ_DIR=$PWD/config
 
 export FLIGHT=test123
 
+find_tcp_port() {
+    local -a inuse=(`netstat -tan | awk '/^tcp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
+    for (( port = $port1; ; port++)); do
+        echo ${inuse[*]} | fgrep -q $port || break
+    done
+    echo $port
+}
+        
+export SYNC_REC_PORT_TCP=`find_tcp_port`
+echo "Using port=$SYNC_REC_PORT_TCP"
+
 # To look at the latitude data
 # data_dump -i 4,4072 -p data/dsm_20060908_200303.ads
  

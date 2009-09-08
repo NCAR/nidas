@@ -24,17 +24,19 @@ class RawSampleOutputStream: public SampleOutputStream
 {
 public:
 
-    RawSampleOutputStream(IOChannel* iochan=0);
+    RawSampleOutputStream();
+
+    RawSampleOutputStream(IOChannel* iochan);
 
     virtual ~RawSampleOutputStream();
-
-    RawSampleOutputStream* clone(IOChannel* iochannel);
 
     bool isRaw() const { return true; }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 protected:
+
+    RawSampleOutputStream* clone(IOChannel* iochannel);
 
     RawSampleOutputStream(RawSampleOutputStream&,IOChannel*);
 

@@ -192,15 +192,6 @@ public:
      */
     bool getTokenValue(const std::string& token,std::string& value) const;
 
-    static std::string expandEnvVars(std::string input);
-    
-    /**
-     * Get an environment variable.
-     * @return: variable found
-     */
-    static bool getEnvVar(const std::string& token,std::string& value);
-
-
 protected:
     /**
      * Add a parameter to this Project. Project

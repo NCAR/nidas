@@ -27,13 +27,21 @@ class RawSampleInputStream: public SampleInputStream
 public:
 
     /**
-     * Constructor.
+     * Default constructor.
+     */
+    RawSampleInputStream();
+
+    /**
+     * Constructor with a connected IOChannel.
      * @param iochannel The IOChannel that we use for data input.
      *   RawSampleInputStream will own the pointer to the IOChannel,
      *   and will delete it in ~RawSampleInputStream().
      */
-    RawSampleInputStream(IOChannel* iochannel = 0);
+    RawSampleInputStream(IOChannel* iochannel);
 
+    /**
+     * Create a copy with a different, connected IOChannel.
+     */
     RawSampleInputStream* clone(IOChannel*);
 
     virtual ~RawSampleInputStream();

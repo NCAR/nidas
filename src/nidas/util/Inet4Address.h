@@ -78,7 +78,7 @@ public:
     /**
      * Return const pointer to struct in_addr.
      */
-    const struct in_addr* getInAddrPtr() const { return &inaddr; }
+    const struct in_addr* getInAddrPtr() const { return &_inaddr; }
 
     /**
      * Get the structure containing the 4 byte internet version 4 address.
@@ -87,27 +87,27 @@ public:
      *   uint32_t addr = getInAddr().s_addr;
      * \endcode
      */
-    const struct in_addr getInAddr() const { return inaddr; }
+    const struct in_addr getInAddr() const { return _inaddr; }
 
     /**
      * Comparator operator for addresses.
      */
     bool operator < (const Inet4Address& x) const {
-    	return ntohl(inaddr.s_addr) < ntohl(x.inaddr.s_addr);
+    	return ntohl(_inaddr.s_addr) < ntohl(x._inaddr.s_addr);
     }
 
     /**
      * Equality operator for addresses.
      */
     bool operator == (const Inet4Address& x) const {
-    	return inaddr.s_addr == x.inaddr.s_addr;
+    	return _inaddr.s_addr == x._inaddr.s_addr;
     }
 
     /**
      * Inequality operator for addresses.
      */
     bool operator != (const Inet4Address& x) const {
-    	return inaddr.s_addr != x.inaddr.s_addr;
+    	return _inaddr.s_addr != x._inaddr.s_addr;
     }
 
     /**
@@ -116,7 +116,7 @@ public:
      * 239.255.255.255, their first four bits are 1110=0xe
      */
     bool isMultiCastAddress() const {
-        return (ntohl(inaddr.s_addr) & 0xf0000000L) == 0xe0000000L;
+        return (ntohl(_inaddr.s_addr) & 0xf0000000L) == 0xe0000000L;
     }
 
     /**
@@ -129,31 +129,7 @@ protected:
     /**
      * The IP address, in network byte order.
      */
-    struct in_addr inaddr;
-
-#ifdef CACHE_DNS_LOOKUPS
-    /**
-     * Static cache of reverse name lookups.
-     */
-    static std::map<Inet4Address,std::string> addrToName;
-
-    /**
-     * Mutual exclusion lock to prevent simultaneous access
-     * of addrToName map.
-     */
-    static Mutex addrToNameLock;
-
-    /**
-     * Static cache of name lookups.
-     */
-    static std::map<std::string,std::list<Inet4Address> > nameToAddrs;
-
-    /**
-     * Mutual exclusion lock to prevent simultaneous access of
-     * nameToAddrs map.
-     */
-    static Mutex nameToAddrsLock;
-#endif
+    struct in_addr _inaddr;
 
 };
 

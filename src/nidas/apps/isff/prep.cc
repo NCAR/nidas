@@ -26,6 +26,7 @@
 #include <nidas/core/Version.h>
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Process.h>
 
 #include <set>
 #include <map>
@@ -616,7 +617,7 @@ int DataPrep::run() throw()
 
 	    if (xmlFileName.length() == 0) {
                 if (!project.get()) {
-                    string configsXML = Project::expandEnvVars(
+                    string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
                     ProjectConfigs configs;
                     configs.parseXML(configsXML);
@@ -636,7 +637,7 @@ int DataPrep::run() throw()
                 }
             }
             else {
-                xmlFileName = Project::expandEnvVars(xmlFileName);
+                xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
                 auto_ptr<xercesc::DOMDocument> doc(
                     DSMEngine::parseXMLConfigFile(xmlFileName));
                 project.reset(Project::getInstance());
@@ -701,7 +702,7 @@ int DataPrep::run() throw()
 	    const SampleInputHeader& header = sis->getInputHeader();
 
 	    if (xmlFileName.length() == 0)
-                xmlFileName = Project::expandEnvVars(header.getConfigName());
+                xmlFileName = n_u::Process::expandEnvVars(header.getConfigName());
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 

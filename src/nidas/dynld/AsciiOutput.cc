@@ -31,6 +31,12 @@ namespace n_r = nidas::dynld::raf;
 
 NIDAS_CREATOR_FUNCTION(AsciiOutput)
 
+AsciiOutput::AsciiOutput():
+	SampleOutputBase(),
+        _format(HEX), _headerOut(false)
+{
+}
+
 AsciiOutput::AsciiOutput(IOChannel* ioc):
 	SampleOutputBase(ioc),
         _format(HEX), _headerOut(false)

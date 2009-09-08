@@ -29,17 +29,20 @@ class SampleOutputStream: public SampleOutputBase
 {
 public:
 
-    SampleOutputStream(IOChannel* iochan=0);
+    SampleOutputStream();
+
+    /**
+     * Create a SampleOutputStream with a connected IOChannel.
+     */
+    SampleOutputStream(IOChannel* iochan);
 
     virtual ~SampleOutputStream();
-
-    SampleOutputStream* clone(IOChannel* iochannel);
 
     /**
      * Implementation of IOChannelRequester::connected().
      * How an IOChannel indicates that it has received a connection.
      */
-    void connected(IOChannel* ochan) throw();
+    SampleOutput* connected(IOChannel* ochan) throw();
 
     /**
      * Get the IOStream of this SampleOutputStream.
@@ -67,6 +70,8 @@ public:
 
 protected:
 
+    SampleOutputStream* clone(IOChannel* iochannel);
+
     /**
      * Copy constructor, with a new IOChannel.
      */
@@ -79,9 +84,14 @@ protected:
 private:
 
     /**
-     * Copy constructor.
+     * No copy.
      */
     SampleOutputStream(const SampleOutputStream&);
+
+    /**
+     * No assignment.
+     */
+    SampleOutputStream& operator=(const SampleOutputStream&);
 
 };
 

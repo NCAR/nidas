@@ -26,6 +26,7 @@
 #include <nidas/core/XMLFdFormatTarget.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/Process.h>
 
 // #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
@@ -69,7 +70,7 @@ void XMLConfigService::interrupt() throw()
     }
     DSMService::interrupt();
 }
-void XMLConfigService::connected(IOChannel* iochan) throw()
+IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
 {
     // Figure out what DSM it came from
     n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
@@ -98,7 +99,7 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
 	    remoteAddr.getHostAddress().c_str());
         iochan->close();
         delete iochan;
-	return;
+	return this;
     }
 
     DLOG(("findDSM, dsm=") << dsm->getName());
@@ -114,6 +115,7 @@ void XMLConfigService::connected(IOChannel* iochan) throw()
     Worker* worker = new Worker(this,iochan,dsm);
     worker->start();
     addSubThread(worker);
+    return this;
 }
 
 XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*iochan,
@@ -134,7 +136,7 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 
     xercesc::DOMDocument* doc = parser->parse(
-        Project::expandEnvVars(_svc->getDSMServer()->getXMLConfigFileName()));
+        n_u::Process::expandEnvVars(_svc->getDSMServer()->getXMLConfigFileName()));
 
     xercesc::DOMNodeList* projnodes =
         doc->getElementsByTagName((const XMLCh*)XMLStringConverter("project"));

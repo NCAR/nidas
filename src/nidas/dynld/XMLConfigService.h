@@ -33,7 +33,7 @@ public:
 
     void interrupt() throw();
 
-    void connected(IOChannel*) throw();
+    IOChannelRequester* connected(IOChannel*) throw();
 
     void connect(SampleInput*) throw() { assert(false); }
     void connect(SampleOutput*) throw() { assert(false); }

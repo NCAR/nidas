@@ -22,6 +22,7 @@
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/dynld/raf/SyncRecordGenerator.h>
+#include <nidas/util/Process.h>
 
 #include <set>
 #include <map>
@@ -246,7 +247,7 @@ int SyncServer::run() throw(n_u::Exception)
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));

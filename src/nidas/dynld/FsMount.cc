@@ -18,7 +18,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/util.h>
-#include <nidas/core/Project.h>
+#include <nidas/util/Process.h>
 
 #include <fstream>
 
@@ -36,7 +36,7 @@ FsMount::FsMount() : type("auto"),fileset(0),worker(0),
 void FsMount::setDevice(const std::string& val)
 {
     device = val;
-    deviceExpanded = Project::expandEnvVars(val);
+    deviceExpanded = n_u::Process::expandEnvVars(val);
     deviceMsg = (device == deviceExpanded) ? device :
         device + "(" + deviceExpanded + ")";
 
@@ -45,7 +45,7 @@ void FsMount::setDevice(const std::string& val)
 void FsMount::setDir(const std::string& val)
 {
     dir = val;
-    dirExpanded = Project::expandEnvVars(val);
+    dirExpanded = n_u::Process::expandEnvVars(val);
     dirMsg = (dir == dirExpanded) ? dir :
         dir + "(" + dirExpanded + ")";
 }

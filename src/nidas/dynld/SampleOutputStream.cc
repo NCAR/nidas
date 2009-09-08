@@ -32,9 +32,15 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
-SampleOutputStream::SampleOutputStream(IOChannel* i):
-	SampleOutputBase(i),_iostream(0)
+SampleOutputStream::SampleOutputStream():
+	SampleOutputBase(),_iostream(0)
 {
+}
+
+SampleOutputStream::SampleOutputStream(IOChannel* i):
+	SampleOutputBase(i)
+{
+    _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
 /*
@@ -42,10 +48,9 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
  */
 
 SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc),_iostream(0)
+	SampleOutputBase(x,ioc)
 {
-    if (getIOChannel()) 
-        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
 SampleOutputStream::~SampleOutputStream()
@@ -72,11 +77,15 @@ void SampleOutputStream::close() throw(n_u::IOException)
     SampleOutputBase::close();
 }
 
-void SampleOutputStream::connected(IOChannel* ioc) throw()
+SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()
 {
-    if (ioc == getIOChannel() && !_iostream)
+    SampleOutput* so = SampleOutputBase::connected(ioc);
+    // If a clone is not returned, create the iostream
+    if (so == this) {
+        delete _iostream;
         _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
-    SampleOutputBase::connected(ioc);
+    }
+    return so;
 }
 
 void SampleOutputStream::finish() throw()
@@ -100,8 +109,11 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
         samp->getDSMId() << ',' << samp->getSpSId() << endl;
 #endif
     bool first_sample = false;
+
+#ifdef NEEDED
     if (!_iostream)
         _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+#endif
 
     dsm_time_t tsamp = samp->getTimeTag();
 

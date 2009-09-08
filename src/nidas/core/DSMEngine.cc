@@ -346,7 +346,7 @@ int DSMEngine::run() throw()
                 projectDoc = requestXMLConfig(_configSockAddr);
             else {
                 // expand environment variables in name
-                string expName = Project::expandEnvVars(_configFile);
+                string expName = n_u::Process::expandEnvVars(_configFile);
                 projectDoc = parseXMLConfigFile(expName);
             }
         }

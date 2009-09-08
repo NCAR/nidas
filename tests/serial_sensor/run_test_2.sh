@@ -80,6 +80,15 @@ kill_dsm_server() {
     fi
 }
 
+find_udp_port() {
+    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
+    for (( port = $port1; ; port++)); do
+        echo ${inuse[*]} | fgrep -q $port || break
+    done
+    echo $port
+}
+        
 # kill any existing dsm processes
 kill_dsm
 kill_dsm_server
@@ -112,14 +121,17 @@ pids=(${pids[*]} $!)
 # number of simulated sensors
 nsensors=${#pids[*]}
 
+export NIDAS_SVC_PORT_UDP=`find_udp_port`
+echo "Using port=$NIDAS_SVC_PORT_UDP"
+
 # ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
 valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
-# start dsm data collection. Use port 30010 to contact dsm_server for XML
+# start dsm data collection. Use udp port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind dsm -d mcsock::30010 > tmp/dsm.log 2>&1 &
+valgrind dsm -d mcsock::$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do

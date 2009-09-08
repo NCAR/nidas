@@ -219,7 +219,7 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
 /*
  * We're ready to go.
  */
-void GOESOutput::connected(IOChannel* ochan) throw()
+SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
 {
     Project* project = Project::getInstance();
 
@@ -324,7 +324,7 @@ void GOESOutput::connected(IOChannel* ochan) throw()
     _xmitThread = new n_u::ThreadRunnable("GOESOutput",this);
     _xmitThread->start();
 
-    SampleOutputBase::connected(ochan);
+    return SampleOutputBase::connected(ochan);
 }
 
 bool GOESOutput::receive(const Sample* samp) 

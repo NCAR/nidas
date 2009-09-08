@@ -26,23 +26,24 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,NetcdfRPCOutput)
 
-NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_ncChannel(0)
+NetcdfRPCOutput::NetcdfRPCOutput():
+	SampleOutputBase(),_ncChannel(0)
 {
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	_ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
+}
+
+NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
+	SampleOutputBase(ioc)
+{
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 /* copy constructor */
 NetcdfRPCOutput::NetcdfRPCOutput(NetcdfRPCOutput& x,IOChannel*ioc):
-	SampleOutputBase(x,ioc),_ncChannel(0)
+	SampleOutputBase(x,ioc)
 {
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	_ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 NetcdfRPCOutput::~NetcdfRPCOutput()
@@ -59,14 +60,19 @@ void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
     SampleOutputBase::requestConnection(requester);
 }
 
+SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc) throw()
+{
+    SampleOutput* so = SampleOutputBase::connected(ioc);
+    if (so == this) setIOChannel(ioc);
+    return so;
+}
+
+
 void NetcdfRPCOutput::setIOChannel(IOChannel* val)
 {
     SampleOutputBase::setIOChannel(val);
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	_ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
-    else _ncChannel = 0;
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 bool NetcdfRPCOutput::receive(const Sample* samp) 

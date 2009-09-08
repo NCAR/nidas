@@ -35,7 +35,7 @@ public:
     /**
      * Constructor.
      */
-    UnixIOChannel(const std::string& name, int fdarg): fd(fdarg) {}
+    UnixIOChannel(const std::string& name, int fd): _fd(fd),_newInput(true) {}
 
     /**
      * Destructor. Does not close the device.
@@ -64,16 +64,16 @@ public:
 	return this;
     }
 
-    virtual bool isNewInput() const { return newInput; }
+    virtual bool isNewInput() const { return _newInput; }
 
     /**
      * Do the actual hardware read.
      */
     size_t read(void* buf, size_t len) throw (nidas::util::IOException)
     {
-        ssize_t res = ::read(fd,buf,len);
+        ssize_t res = ::read(_fd,buf,len);
 	if (res < 0) throw nidas::util::IOException(getName(),"read",errno);
-	newInput = false;
+	_newInput = false;
 	return res;
     }
 
@@ -82,9 +82,9 @@ public:
     */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
-        ssize_t res = ::write(fd,buf,len);
+        ssize_t res = ::write(_fd,buf,len);
 	if (res < 0) throw nidas::util::IOException(getName(),"write",errno);
-	newInput = false;
+	_newInput = false;
 	return res;
     }
 
@@ -93,26 +93,26 @@ public:
     */
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
-        ssize_t res = ::writev(fd,iov,iovcnt);
+        ssize_t res = ::writev(_fd,iov,iovcnt);
 	if (res < 0) throw nidas::util::IOException(getName(),"write",errno);
-	newInput = false;
+	_newInput = false;
 	return res;
     }
 
     void close() throw (nidas::util::IOException)
     {
-        int res = ::close(fd);
+        int res = ::close(_fd);
 	if (res < 0) throw nidas::util::IOException(getName(),"close",errno);
     }
 
     int getFd() const
     {
-        return fd;
+        return _fd;
     }
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException)
@@ -123,13 +123,19 @@ public:
 
 protected:
 
-    std::string name;
+    /**
+     * Constructor.
+     */
+    UnixIOChannel(const UnixIOChannel& x):
+        _name(x._name),_fd(x._fd),_newInput(x._newInput)
+    {
+    }
 
-    int fd;
+    std::string _name;
 
-    bool firstRead;
+    int _fd;
 
-    bool newInput;
+    bool _newInput;
 };
 
 }}	// namespace nidas namespace core

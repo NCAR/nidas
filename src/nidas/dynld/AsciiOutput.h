@@ -31,11 +31,11 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
     	FLOAT, IRIG } format_t;
 
-    AsciiOutput(IOChannel* iochannel=0);
+    AsciiOutput();
+
+    AsciiOutput(IOChannel* iochannel);
 
     virtual ~AsciiOutput() {}
-
-    AsciiOutput* clone(IOChannel* iochannel);
 
     void requestConnection(SampleConnectionRequester* requester) throw();
 
@@ -52,6 +52,8 @@ public:
     bool receive(const Sample* samp) throw();
 
 protected:
+
+    AsciiOutput* clone(IOChannel* iochannel);
 
     /**
      * Copy constructor, with a new IOChannel.

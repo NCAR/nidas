@@ -8,7 +8,7 @@
  * Date       : $Date$
  *
  * Description: class providing support for Unix process management:
- *      pid lock files, exec (eventually), etc.
+ *      pid lock files, exec, environment variables.
  */
 
 #ifndef NIDAS_UTIL_PROCESS_H
@@ -267,6 +267,15 @@ public:
      * Check if this process has an effective capability. See man 7 capabilities.
      */
     static bool getEffectiveCapability(int cap) throw(Exception);
+
+    static std::string expandEnvVars(std::string input);
+    
+    /**
+     * Get an environment variable given a variable name like "HOST",
+     * without the '$', or any brackets, '{' or '}'.
+     * @return: variable found
+     */
+    static bool getEnvVar(const std::string& token,std::string& value);
 
 private:
 

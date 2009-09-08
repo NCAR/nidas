@@ -22,6 +22,7 @@
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Process.h>
 
 #include <set>
 #include <map>
@@ -424,7 +425,7 @@ int DataStats::run() throw()
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {

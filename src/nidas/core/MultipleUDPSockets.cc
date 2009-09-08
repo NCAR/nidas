@@ -15,7 +15,7 @@
 
 #include <nidas/core/MultipleUDPSockets.h>
 #include <nidas/core/DatagramSocket.h>
-#include <nidas/core/Project.h>
+#include <nidas/util/Process.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -367,8 +367,8 @@ void MultipleUDPSockets::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
-	    if (aname == "address") saddr = Project::expandEnvVars(aval);
-	    else if (aname == "port") sport = Project::expandEnvVars(aval);
+	    if (aname == "address") saddr = n_u::Process::expandEnvVars(aval);
+	    else if (aname == "port") sport = n_u::Process::expandEnvVars(aval);
 	    else if (aname == "requestType") {
 		int i;
 	        istringstream ist(aval);

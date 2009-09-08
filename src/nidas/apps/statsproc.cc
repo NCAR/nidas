@@ -21,12 +21,13 @@
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
-#include <nidas/dynld/SampleInputStream.h>
+#include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/StatisticsProcessor.h>
 #include <nidas/dynld/AsciiOutput.h>
 #include <nidas/core/XMLParser.h>
-#include <nidas/util/Logger.h>
 #include <nidas/core/Version.h>
+#include <nidas/util/Logger.h>
+#include <nidas/util/Process.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -364,14 +365,18 @@ int StatsProcess::run() throw()
         dsmName = hostname;
     }
 
-    auto_ptr<Project> project;
-    IOChannel* iochan = 0;
-    nidas::core::FileSet* fset = 0;
     try {
+
+        auto_ptr<Project> project;
+
+        IOChannel* iochan = 0;
+
+        nidas::core::FileSet* fset = 0;
+
         if (xmlFileName.length() > 0) {
-            xmlFileName = Project::expandEnvVars(xmlFileName);
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
-            cerr << "parsing: " << xmlFileName << endl;
+            // cerr << "parsing: " << xmlFileName << endl;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
             project.reset(Project::getInstance());
             project->fromDOMElement(doc->getDocumentElement());
@@ -383,8 +388,8 @@ int StatsProcess::run() throw()
 		const char* pe = getenv("PROJECT");
 		const char* ae = getenv("AIRCRAFT");
 		const char* ie = getenv("ISFF");
-		if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
-		else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
+		if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(rafXML);
+		else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(isffXML);
 		if (configsXMLName.length() == 0)
 		    throw n_u::InvalidParameterException("environment variables",
 		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
@@ -394,7 +399,7 @@ int StatsProcess::run() throw()
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		project.reset(cfg->getProject());
-		cerr << "cfg=" <<  cfg->getName() << endl;
+		// cerr << "cfg=" <<  cfg->getName() << endl;
 		xmlFileName = cfg->getXMLName();
             }
 	    n_u::Socket* sock = 0;
@@ -409,7 +414,12 @@ int StatsProcess::run() throw()
                     sleep(10);
                 }
 	    }
-	    iochan = new nidas::core::Socket(sock);
+	    IOChannel* iosock = new nidas::core::Socket(sock);
+	    iochan = iosock->connect();
+            if (iochan != iosock) {
+                iosock->close();
+                delete iosock;
+            }
         }
 	else {
 	    if (dataFileNames.size() == 0) {
@@ -418,7 +428,7 @@ int StatsProcess::run() throw()
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (!project.get()) {
-                    string configsXML = Project::expandEnvVars(
+                    string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
                     ProjectConfigs configs;
@@ -457,13 +467,7 @@ int StatsProcess::run() throw()
 	    iochan = fset;
 	}
 
-        SampleInputStream sis(iochan);
-        // sis.reset(new SortedSampleInputStream(iochan));
-        // sis.setHeapBlock(true);
-        // sis.setHeapMax(10000000);
-        // sis.init();
-	// sis.setSorterLengthMsecs(sorterLength);
-        //
+        RawSampleInputStream sis(iochan);
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
 	pipeline.setRawSorterLength(1.0);
@@ -483,7 +487,7 @@ int StatsProcess::run() throw()
 
             // parse the config file.
             xmlFileName = header.getConfigName();
-            xmlFileName = Project::expandEnvVars(xmlFileName);
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
             project.reset(Project::getInstance());
@@ -529,12 +533,7 @@ int StatsProcess::run() throw()
 	for (; si.hasNext(); ) {
 	    DSMSensor* sensor = si.next();
 	    sensor->init();
-	}
-
-	SampleTagIterator ti = server->getSampleTagIterator();
-	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
-	    sis.addSampleTag(stag);
+	    sis.addSampleTag(sensor->getRawSampleTag());
 	}
         pipeline.connect(&sis);
 
@@ -560,35 +559,14 @@ int StatsProcess::run() throw()
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
 	    sis.flush();
-	    cerr << "sproc->disconnect" << endl;
 	    sproc->disconnect(&sis);
-	    cerr << "sis.close" << endl;
 	    sis.close();
-	    // sproc->disconnected(output);
-	    throw e;
 	}
 	catch (n_u::IOException& e) {
 	    sis.close();
 	    sproc->disconnect(&sis);
-	    // sproc->disconnected(output);
 	    throw e;
 	}
-    }
-    catch (n_u::EOFException& eof) {
-        cerr << eof.what() << endl;
-	return 0;
-    }
-    catch (n_u::IOException& ioe) {
-        cerr << ioe.what() << endl;
-	return 1;
-    }
-    catch (n_u::InvalidParameterException& ioe) {
-        cerr << ioe.what() << endl;
-	return 1;
-    }
-    catch (XMLException& e) {
-        cerr << e.what() << endl;
-	return 1;
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;

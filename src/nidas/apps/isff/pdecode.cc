@@ -24,6 +24,8 @@
 #include <nidas/dynld/isff/GOESOutput.h>
 #include <nidas/dynld/isff/PacketInputStream.h>
 
+#include <nidas/util/Process.h>
+
 #include <memory>
 
 using namespace nidas::core;
@@ -142,7 +144,7 @@ int PacketDecode::run() throw()
 {
 
     try {
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	auto_ptr<Project> project;
 	XMLParser parser;

@@ -19,6 +19,8 @@
 #include <nidas/core/XDOM.h>
 #include <nidas/core/DSMEngine.h>
 
+#include <nidas/util/Process.h>
+
 #include <iostream>
 #include <memory> // auto_ptr<>
 
@@ -42,7 +44,7 @@ ProjectConfig::ProjectConfig()
 Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
 		n_u::InvalidParameterException)
 {
-    string xmlFileName2 = Project::expandEnvVars(getXMLName());
+    string xmlFileName2 = n_u::Process::expandEnvVars(getXMLName());
 
     struct stat statbuf;
     if (::stat(xmlFileName2.c_str(),&statbuf) < 0)

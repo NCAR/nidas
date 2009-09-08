@@ -18,8 +18,8 @@ if ! $installed; then
     echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
-    # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    # echo PATH=$PATH
+    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    echo PATH=$PATH
 
     if ! which dsm | fgrep -q build_x86; then
         echo "dsm program not found on build_x86 directory. PATH=$PATH"
@@ -61,6 +61,15 @@ kill_dsm() {
     fi
 }
 
+find_udp_port() {
+    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
+    for (( port = $port1; ; port++)); do
+        echo ${inuse[*]} | fgrep -q $port || break
+    done
+    echo $port
+}
+        
 kill_dsm
 
 # build the local sensor_sim program
@@ -97,6 +106,9 @@ pids=(${pids[*]} $!)
 nsensors=${#pids[*]}
 
 rm -f tmp/dsm.log
+
+export NIDAS_SVC_PORT_UDP=`find_udp_port`
+echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
 ( valgrind dsm -d config/test.xml 2>&1 | tee tmp/dsm.log ) &
