@@ -1,6 +1,7 @@
 # -*- python -*-
 
 Import('env')
+env = env.Clone()
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 # bdirs = [ 'dynld', 'core', 'util' ]
