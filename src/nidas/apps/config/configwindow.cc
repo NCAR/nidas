@@ -569,27 +569,21 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             QTableWidgetItem *rateWidgetItem = new QTableWidgetItem(rateStr);
             rateWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
 
-            QComboBox * variableComboBox = new QComboBox();
+            QComboBox * variableComboBox = new QComboBox(this);
+            // It would be nice to have the combo box always return to "Sample N" heading after a user has viewed variables in the box
+            // The following commented out line returns an error at runtime that setCurrentIndex(0) is not a valid SLOT.
+            //connect(variableComboBox, SIGNAL(currentIndexChanged(int)), variableComboBox, SLOT(setCurrentIndex(0)));
             variableComboBox->addItem(QString("Sample " + QString::number(tag->getSampleId())));
             QString varInfo;
             for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                 const Variable* var = vi.next();
-cerr << "About to go after variabel: " << var->getName() << endl;
+                varInfo.append(QString::fromStdString(var->getName()));
                 VariableConverter* varConv = var->getConverter();
                 if (varConv) {
-cerr << "Have the converter" << endl;
-                    const std::list<const Parameter*>& calCoes = varConv->getParameters();
-cerr << "Have the list of coefs" << endl;
-                    std::list< const Parameter *>::const_iterator it = calCoes.begin();
- cerr << "Variable: " << var->getName() << "  Coefs: ";
-                    for (; it!=calCoes.end(); ++it)
-                    {
- cerr << (*it)->getNumericValue(0) << "  ";
-                    }
- cerr << endl;
+                    varInfo.append(QString::fromStdString(" - " + varConv->toString()));
                 }
-                varInfo.append(QString::fromStdString(var->getName()));
                 variableComboBox->addItem(varInfo);
+                varInfo.clear();
             }
 
             DSMTable->setOtherVariables(variableComboBox);
