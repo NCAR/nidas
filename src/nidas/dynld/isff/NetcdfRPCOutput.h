@@ -49,7 +49,7 @@ public:
      * notified via SampleConnectionRequester interface when the connection
      * has been made.
      */
-    void requestConnection(SampleConnectionRequester*) throw();
+    void requestConnection(SampleConnectionRequester*) throw(nidas::util::IOException);
 
     SampleOutput* connected(IOChannel* ioc) throw();
 

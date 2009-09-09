@@ -12,6 +12,7 @@
  ********************************************************************
 */
 
+#include <nidas/util/Logger.h>
 #include <nidas/core/SampleOutputRequestThread.h>
 
 using namespace nidas::core;
@@ -154,7 +155,14 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         // handle requests whose time has come
         for (ri = curreqs.begin() ; ri != curreqs.end(); ++ri) {
             ConnectRequest request = *ri;
-            request._output->requestConnection(request._requester);
+            try {
+                request._output->requestConnection(request._requester);
+            }
+            catch (const n_u::IOException& e) {
+                ELOG(("%s: requestConnection: %s",request._output->getName().c_str(),
+                    e.what()));
+                addConnectRequest(request._output,request._requester,10);
+            }
         }
         curreqs.clear();
 

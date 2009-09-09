@@ -27,7 +27,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
 StatisticsProcessor::StatisticsProcessor():
-    SampleIOProcessor(false),_statsPeriod(0.0)
+    SampleIOProcessor(false),
+    _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0)
 {
     setName("StatisticsProcessor");
 }
@@ -156,9 +157,10 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
     }
 
     if (tag->getSampleId() == 0)
-	tag->setSampleId(getSampleId() + getSampleTags().size() + 1);
+	tag->setSampleId(getRequestedSampleTags().size() + 1);
 
     // save stuff that doesn't fit in the sample tag.
+    // cerr << "tag id=" << tag->getDSMId() << ',' << tag->getSpSId() << " statstype=" << outputInfo.type << endl;
     _infoBySampleId[tag->getId()] = outputInfo;
 
     SampleIOProcessor::addRequestedSampleTag(tag);
@@ -175,7 +177,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     assert(source);
 
     // loop over requested sample tags
-    list<const SampleTag*> reqtags = getSampleTags();
+    list<const SampleTag*> reqtags = getRequestedSampleTags();
     list<const SampleTag*>::const_iterator myti = reqtags.begin();
     for ( ; myti != reqtags.end(); ++myti ) {
 	const SampleTag* mytag = *myti;
@@ -216,11 +218,16 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 		
 		// first variable match. Create a StatisticsCruncher.
 		if (*invar == *myvar) {
+                    // cerr << "variable match, invar->getName() =" << invar->getName() << endl;
 		    const Site* site = invar->getSite();
 		    struct OutputInfo info = _infoBySampleId[mytag->getId()];
+                    // cerr << "mytag id=" << mytag->getDSMId() << ',' << mytag->getSpSId() << " statstype=" << info.type << endl;
 		    StatisticsCruncher* cruncher =
 			new StatisticsCruncher(mytag,info.type,
 				info.countsName,info.higherMoments,site);
+
+                    cruncher->setStartTime(getStartTime());
+                    cruncher->setEndTime(getEndTime());
 
                     _connectionMutex.lock();
 		    _crunchers.push_back(cruncher);
@@ -230,7 +237,14 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 
 		    list<const SampleTag*> tags = cruncher->getSampleTags();
                     list<const SampleTag*>::const_iterator ti = tags.begin();
-                    for ( ; ti != tags.end(); ++ti) addSampleTag(*ti);
+                    for ( ; ti != tags.end(); ++ti) {
+                        const SampleTag* tag = *ti;
+#ifdef DEBUG
+                        cerr << "adding sample tag: nvars=" << tag->getVariables().size() << " var[0]=" <<
+                            tag->getVariables()[0]->getName() << endl;
+#endif
+                        addSampleTag(tag);
+                    }
 
 		    nmatches++;
 		}
@@ -253,8 +267,12 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     // This is not an issue currently since there will be only
     // one connection from a SamplePipeline.
 
-    if (_connectedSources.size() == 0) {
+    // When this is doing post-processing from statsproc it may be
+    // best to make a synchronous connection request here. When doing
+    // 5 minute statistics though the connection should be finished
+    // before the first output sample is ready.
 
+    if (_connectedSources.size() == 0) {
         const list<SampleOutput*>& outputs = getOutputs();
         list<SampleOutput*>::const_iterator oi = outputs.begin();
         for ( ; oi != outputs.end(); ++oi) {
@@ -270,6 +288,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 void StatisticsProcessor::disconnect(SampleSource* source) throw()
 {
     source = source->getProcessedSampleSource();
+    if (!source) return;
 
     _connectionMutex.lock();
     list<StatisticsCruncher*>::const_iterator ci;
@@ -286,6 +305,9 @@ void StatisticsProcessor::connect(SampleOutput* output) throw()
 {
 
     _connectionMutex.lock();
+#ifdef DEBUG
+    cerr << "StatisticsProcessor::connect, output=" << output->getName() << endl;
+#endif
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;

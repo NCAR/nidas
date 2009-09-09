@@ -883,18 +883,27 @@ void StatisticsCruncher::attach(SampleSource* source)
 			
 		// variable match
 		if (*invar == *reqvar) {
+#ifdef DEBUG
+                    cerr << "match, invar=" << invar->getName() <<
+                            " rvar=" << reqvar->getName() << endl;
+#endif
+
 		    const Site* vsite = invar->getSite();
-		    if (_site && vsite && vsite != _site) continue;
+		    if (_site && vsite && vsite != _site) {
+                        // cerr << "site mismatch" << endl;
+                        continue;
+                    }
 
 		    unsigned int j;
+		    // paranoid check that this variable hasn't been added
 		    for (j = 0; j < varIndices.size(); j++)
 			if ((unsigned)varIndices[j][1] == rv) break;
 
-		    // paranoid check that this variable hasn't been added
 		    if (j == varIndices.size()) {
 			int* idxs = new int[2];
 			idxs[0] = iv;	// input index
 			idxs[1] = rv;	// output index
+                        // cerr << "adding varIndices, iv=" << iv << " rv=" << rv << endl;
 			// if crossTerms, then all variables must
 			// be in one input sample.
 			if (_crossTerms) assert(varIndices.size() == rv);
@@ -916,13 +925,15 @@ void StatisticsCruncher::attach(SampleSource* source)
 		}
 	    }
 	}
-        _sampleMap[id] = sinfo;
 	if (varIndices.size() > 0) {
+            // cerr << "id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id) << " varIndices.size()=" << varIndices.size() << endl;
+            _sampleMap[id] = sinfo;
 	    // Should have one input sample if cross terms
 	    if (_crossTerms) {
-	        assert(_sampleMap.size() == 0);
+	        assert(_sampleMap.size() == 1);
 	        assert(varIndices.size() == _reqVariables.size());
 	    }
+            // cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << endl;
             source->addSampleClientForTag(this,intag);
 	}
     }
@@ -932,6 +943,7 @@ void StatisticsCruncher::attach(SampleSource* source)
 
 bool StatisticsCruncher::receive(const Sample* s) throw()
 {
+    // cerr << "receive, id=" << s->getDSMId() << ',' << s->getSpSId() << endl;
     assert(s->getType() == FLOAT_ST);
 
     const SampleT<float>* fs = static_cast<const SampleT<float>* >(s);
@@ -940,7 +952,11 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 
     map<dsm_sample_id_t,sampleInfo >::iterator vmi =
     	_sampleMap.find(id);
-    if (vmi == _sampleMap.end()) return false;	// unrecognized sample
+    if (vmi == _sampleMap.end()) {
+        cerr << "unrecognized sample, id=" << s->getDSMId() << ',' << s->getSpSId() <<
+            " sampleMap.size()=" << _sampleMap.size() << endl;
+        return false;	// unrecognized sample
+    }
 
     dsm_time_t tt = fs->getTimeTag();
     if (tt > _tout) {
@@ -979,8 +995,8 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 
 #ifdef DEBUG
     n_u::UTime ut(tt);
-    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f ");
-    for (i = 0; i < nvsamp; i++)
+    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << " id=" << s->getDSMId() << ',' << s->getSpSId() << ' ';
+    for (i = 0; (signed) i < nvsamp; i++)
 	cerr << inData[i] << ' ';
     cerr << endl;
 #endif
@@ -1360,7 +1376,7 @@ void StatisticsCruncher::computeStats()
 
 #ifdef DEBUG
     cerr << "Covariance Sample: " <<
-    	n_u::UTime(_tout-_periodUsecs*.5).format(true,"%H:%M:%S");
+    	n_u::UTime(_tout-_periodUsecs/2).format(true,"%Y %m %d %H:%M:%S") << ' ';
     for (i = 0; i < _ntot; i++) cerr << outData[i] << ' ';
     cerr << '\n';
 #endif

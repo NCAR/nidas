@@ -170,7 +170,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 	    stag->fromDOMElement((xercesc::DOMElement*)child);
 	    stag->setSensorId(getId());
 	    if (stag->getSampleId() == 0)
-	        stag->setSampleId(getSampleTags().size());
+	        stag->setSampleId(getRequestedSampleTags().size()+1);
 	    addRequestedSampleTag(stag);
 	}
 	else if (elname == "parameter")  {

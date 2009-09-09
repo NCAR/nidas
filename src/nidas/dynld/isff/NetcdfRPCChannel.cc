@@ -186,7 +186,7 @@ IOChannel* NetcdfRPCChannel::connect()
 	  string("perhaps ") + _directory + " does not exist on server");
     }
 
-    cerr << "opened: " << getName() << endl;
+    // cerr << "opened: " << getName() << endl;
 
     _lastFlush = time((time_t *)0);
 

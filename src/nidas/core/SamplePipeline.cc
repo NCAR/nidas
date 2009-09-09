@@ -271,7 +271,7 @@ void SamplePipeline::addSampleClientForTag(SampleClient* client,
     DSMSensor* sensor = Project::getInstance()->findSensor(rawid);
 
     if (stag->getSampleId() != 0 && sensor) {
-        _procSorter->addSampleClient(client);
+        _procSorter->addSampleClientForTag(client,stag);
 
         sensor->addSampleClient(_procSorter);
 

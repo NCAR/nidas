@@ -24,6 +24,7 @@
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/StatisticsProcessor.h>
 #include <nidas/dynld/AsciiOutput.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Version.h>
 #include <nidas/util/Logger.h>
@@ -535,10 +536,7 @@ int StatsProcess::run() throw()
 	    sensor->init();
 	    sis.addSampleTag(sensor->getRawSampleTag());
 	}
-        pipeline.connect(&sis);
-
-	sproc->connect(&pipeline);
-	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
+        SampleOutputRequestThread::getInstance()->start();
 
         if (startTime.toUsecs() != 0) {
             cerr << "Searching for time " <<
@@ -547,8 +545,13 @@ int StatsProcess::run() throw()
             cerr << " done." << endl;
             sproc->setStartTime(startTime);
         }
+
         if (endTime.toUsecs() != 0)
             sproc->setEndTime(endTime);
+
+        pipeline.connect(&sis);
+	sproc->connect(&pipeline);
+	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
 	try {
 	    for (;;) {
@@ -559,19 +562,23 @@ int StatsProcess::run() throw()
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
 	    sis.flush();
-	    sproc->disconnect(&sis);
+	    sproc->disconnect(&pipeline);
+            pipeline.disconnect(&sis);
 	    sis.close();
 	}
 	catch (n_u::IOException& e) {
+	    sproc->disconnect(&pipeline);
+            pipeline.disconnect(&sis);
 	    sis.close();
-	    sproc->disconnect(&sis);
 	    throw e;
 	}
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        SampleOutputRequestThread::destroyInstance();
 	return 1;
     }
+    SampleOutputRequestThread::destroyInstance();
     return 0;
 }
 

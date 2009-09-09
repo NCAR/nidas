@@ -85,7 +85,8 @@ public:
      * new instance of a SampleOutput with a new IOChannel connection.
      * Or the two pointers may point to the same SampleOutput.
      */
-    virtual void requestConnection(SampleConnectionRequester*) throw() = 0;
+    virtual void requestConnection(SampleConnectionRequester*)
+        throw(nidas::util::IOException) = 0;
 
     /**
      * Derived classes implement this to indicate whether a
@@ -177,7 +178,8 @@ public:
      * has been made.  It is not necessary to call this method
      * if a SampleOutput is constructed with a connected IOChannel.
      */
-    void requestConnection(SampleConnectionRequester*) throw();
+    void requestConnection(SampleConnectionRequester*)
+        throw(nidas::util::IOException);
 
     /**
      * Implementation of IOChannelRequester::connected().

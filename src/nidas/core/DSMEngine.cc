@@ -23,6 +23,7 @@
 
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/util/Process.h>
 
 #include <iostream>
@@ -59,7 +60,6 @@ DSMEngine::DSMEngine():
         cerr << e.what();
    }
    SampleOutputRequestThread::getInstance()->start();
-
 }
 
 DSMEngine::~DSMEngine()
@@ -862,7 +862,6 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 	    "DSMEngine: error closing %s: %s",
 	    	output->getName().c_str(),ioe.what());
     }
-
 
     SampleOutput* orig = output->getOriginal();
 

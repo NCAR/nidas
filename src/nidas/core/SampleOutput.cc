@@ -147,7 +147,7 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
-	throw()
+	throw(n_u::IOException)
 {
     _connectionRequester = requester;
     _iochan->requestConnection(this);

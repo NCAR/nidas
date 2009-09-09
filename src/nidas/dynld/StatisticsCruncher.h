@@ -156,9 +156,19 @@ public:
         _startTime = val;
     }
 
+    nidas::util::UTime getStartTime() const
+    {
+        return _startTime;
+    }
+
     void setEndTime(const nidas::util::UTime& val) 
     {
         _endTime = val;
+    }
+
+    nidas::util::UTime getEndTime() const
+    {
+        return _endTime;
     }
 
     long long getPeriodUsecs() const 

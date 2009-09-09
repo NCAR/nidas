@@ -262,7 +262,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                     }
                     // Don't throw exception on poorly formatted plotranges
                     if (i < 2)  {
-                        n_u::InvalidParameterException e(string("variable") + getName(),aname,aval);
+                        n_u::InvalidParameterException e(string("variable ") + getName(),aname,aval);
                         WLOG(("%s",e.what()));
                     }
                 }

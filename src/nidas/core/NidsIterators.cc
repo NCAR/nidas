@@ -211,6 +211,11 @@ VariableIterator::VariableIterator(const SampleTag* stag):
 
 bool VariableIterator::hasNext()
 {
+    // after the assignment operator apparently:
+    //  variables is non-null, itr2 is valid and works
+    //      itr1 is not OK.  Always returns hasNext(), and
+    //      points to a sample tag with a variables vector of size 0
+    //
     if (variables && itr2 != variables->end()) return true;
     for (; itr1.hasNext(); ) {
 	const SampleTag* stag = itr1.next();

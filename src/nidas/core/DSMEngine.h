@@ -21,7 +21,6 @@
 #include <nidas/core/DSMEngineIntf.h>
 #include <nidas/core/SensorHandler.h>
 #include <nidas/core/SamplePipeline.h>
-#include <nidas/core/SampleOutputRequestThread.h>
 
 namespace nidas { namespace core {
 

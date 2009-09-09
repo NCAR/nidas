@@ -51,7 +51,7 @@ NetcdfRPCOutput::~NetcdfRPCOutput()
 }
 
 void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
-	throw()
+	throw(n_u::IOException)
 {
     // NetcdfRPCChannel needs to know the SampleTags before it connects.
     list<const SampleTag*> tags = getSourceSampleTags();
@@ -63,7 +63,7 @@ void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
 SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc) throw()
 {
     SampleOutput* so = SampleOutputBase::connected(ioc);
-    if (so == this) setIOChannel(ioc);
+    if (so == this && !_ncChannel) setIOChannel(ioc);
     return so;
 }
 
@@ -78,6 +78,7 @@ void NetcdfRPCOutput::setIOChannel(IOChannel* val)
 bool NetcdfRPCOutput::receive(const Sample* samp) 
     throw()
 {
+    // cerr << "NetcdfRPCOutput::receive, samp=" << samp->getDSMId() << ',' << samp->getSpSId() << endl;
     try {
 	_ncChannel->write(samp);
     }

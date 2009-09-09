@@ -211,6 +211,37 @@ class SampleTag;
 class SampleTagIterator
 {
 public:
+
+    /**
+     * Copy constructor.
+     */
+    SampleTagIterator(const SampleTagIterator&x):
+        itr1(x.itr1),stags(x.stags),itr2(stags.begin())
+    {
+        /* Must define a copy constructor since stags
+         * is a list and not a pointer. The default copy
+         * constructor is OK for all the other iterators, since they
+         * contain a pointer to a container which is part of
+         * Project::getInstance(), and so remains valid
+         * (hopefully) over the life of the iterator.
+         * In this class stags is a new list, so we must reset
+         * itr2 to point to the beginning of the new list.
+         */
+    }
+
+    SampleTagIterator& operator=(const SampleTagIterator&x)
+    {
+        /* Must define an assignment operator for the same reason
+         * mentioned above in the copy constructor.
+         */
+        if (this != &x) {
+            itr1 = x.itr1;
+            stags = x.stags;
+            itr2 = stags.begin();
+        }
+        return *this;
+    }
+        
     SampleTagIterator(const Project*);
 
     SampleTagIterator(const DSMServer*);
@@ -247,6 +278,7 @@ class Variable;
 class VariableIterator
 {
 public:
+
     VariableIterator(const Project*);
 
     VariableIterator(const DSMServer*);
@@ -260,8 +292,6 @@ public:
     VariableIterator(const SampleSource*);
 
     VariableIterator(const SampleTag*);
-
-    // VariableIterator();
 
     bool hasNext();
 

@@ -181,7 +181,7 @@ public:
      * is replaced by getSystemName(). Other tokens are
      * looked up in the environment.
      */
-    std::string expandString(const std::string& input) const;
+    std::string expandString(std::string input) const;
 
     /**
      * Utility function to get the value of a token.
