@@ -84,6 +84,7 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
 void NearestResampler::connect(SampleSource* source)
 	throw(n_u::InvalidParameterException)
 {
+
     // make a copy of input's SampleTags collection.
     list<const SampleTag*> intags = source->getSampleTags();
 
@@ -105,6 +106,7 @@ void NearestResampler::connect(SampleSource* source)
 	    	iout < _outSample.getVariables().size(); iout++) {
 
 		Variable& myvar = _outSample.getVariable(iout);
+
 
 		if (*var == myvar) {
                     int vlen = var->getLength();

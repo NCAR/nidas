@@ -15,16 +15,18 @@
 
 #include <ctime>
 
-#include <nidas/core/FileSet.h>
 #include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/NearestResamplerAtRate.h>
-#include <nidas/util/Logger.h>
+#include <nidas/core/XMLParser.h>
 
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/Version.h>
+#include <nidas/core/Socket.h>
 
+#include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
 
@@ -159,7 +161,17 @@ private:
 
     bool doHeader;
 
+    static const char* rafXML;
+
+    static const char* isffXML;
+
 };
+
+/* static */
+const char* DataPrep::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+
+/* static */
+const char* DataPrep::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
 DumpClient::DumpClient(format_t fmt,ostream &outstr):
 	format(fmt),ostr(outstr),startTime((time_t)0),endTime((time_t)0),
@@ -386,7 +398,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     for ( ; optind < argc; optind++) {
 	string url(argv[optind]);
-	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
+	if (url.length() > 5 && url.substr(0,5) == "sock:") {
 	    url = url.substr(5);
 	    string hostName = "127.0.0.1";
             int port = DEFAULT_PORT;
@@ -411,7 +423,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 return usage(argv[0]);
             }
 	}
-	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
+	else if (url.length() > 5 && url.substr(0,5) == "unix:") {
 	    url = url.substr(5);
             sockAddr.reset(new n_u::UnixSocketAddress(url));
 	}
@@ -578,55 +590,76 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
 
 int DataPrep::run() throw()
 {
-
-    auto_ptr<Project> project;
-
-    auto_ptr<Resampler> resampler;
-
-    auto_ptr<RawSampleInputStream> sis;
-
-    auto_ptr<DumpClient> dumper;
-
     try {
 
-	vector<const Variable*> variables;
+        auto_ptr<Project> project;
 
-	set<DSMSensor*> activeSensors;
-        set<const DSMConfig*> activeDsms;
+        IOChannel* iochan = 0;
 
-	if (dataFileNames.size() == 0) {
+        if (xmlFileName.length() > 0) {
 
-	    // user has specified a list of variables
-            // $PROJECT env var and a start and end time.
-            // Get the project config corresponding to
-            // the times.
-	    //
-	    // input
-	    //	1. list of variable names
-	    //	2. start and end time
-	    //	3. $ISFF and $PROJECT
-	    // products:
-	    //  0. project, from $ISFF,$PROJECT, start, end, ProjectConfigs
-	    //	1. vector of matched Variable*s
-	    //	2. set of dsms, from project and variable list
-	    // 		we may want the dsms in order to figure
-	    //		out the archive fileset, in case
-	    //		the data has not been merged.
-	    //	3. set of sensors, from project and variable list
-	    //  4. iochan, SortedSampleInputStream
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+            XMLParser parser;
+            auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+            project.reset(Project::getInstance());
+            project->fromDOMElement(doc->getDocumentElement());
+        }
 
-	    if (xmlFileName.length() == 0) {
+        if (sockAddr.get()) {
+            if (!project.get()) {
+                const char* re = getenv("PROJ_DIR");
+                const char* pe = getenv("PROJECT");
+                const char* ae = getenv("AIRCRAFT");
+                const char* ie = getenv("ISFF");
+                string configsXMLName;
+                if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(rafXML);
+                else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(isffXML);
+                if (configsXMLName.length() == 0)
+                    throw n_u::InvalidParameterException("environment variables",
+                        "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
+                ProjectConfigs configs;
+                configs.parseXML(configsXMLName);
+                cerr << "parsed:" <<  configsXMLName << endl;
+                // throws InvalidParameterException if no config for time
+                const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+                project.reset(cfg->getProject());
+                // cerr << "cfg=" <<  cfg->getName() << endl;
+                xmlFileName = cfg->getXMLName();
+            }
+            n_u::Socket* sock = 0;
+            for (int i = 0; !sock && !interrupted; i++) {
+                try {
+                    sock = new n_u::Socket(*sockAddr.get());
+                }
+                catch(const n_u::IOException& e) {
+                    if (i > 2)
+                        n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: retrying",e.what());
+                    sleep(10);
+                }
+            }
+            IOChannel* iosock = new nidas::core::Socket(sock);
+            iochan = iosock->connect();
+            if (iochan != iosock) {
+                iosock->close();
+                delete iosock;
+            }
+        }
+        else {
+            nidas::core::FileSet* fset;
+            if (dataFileNames.size() == 0) {
+                // User has not specified the xml file. Get
+                // the ProjectConfig from the configName or startTime
+                // using the configs XML file, then parse the
+                // XML of the ProjectConfig.
                 if (!project.get()) {
                     string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
+
                     ProjectConfigs configs;
                     configs.parseXML(configsXML);
                     const ProjectConfig* cfg = 0;
 
-                    // User has not specified the xml file. Get
-                    // the ProjectConfig from the configName or startTime
-                    // using the configs XML file, then parse the
-                    // XML of the ProjectConfig.
                     if (configName.length() > 0)
                         cfg = configs.getConfig(configName);
                     else
@@ -635,98 +668,68 @@ int DataPrep::run() throw()
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
+                list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets();
+                if (fsets.size() == 0) {
+                    n_u::Logger::getInstance()->log(LOG_ERR,"Cannot find a FileSet");
+                    return 1;
+                }
+                // must clone, since fsets.front() belongs to project
+                fset = fsets.front()->clone();
+
+                if (startTime.toUsecs() != 0) fset->setStartTime(startTime);
+                if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
             }
             else {
-                xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
-                auto_ptr<xercesc::DOMDocument> doc(
-                    DSMEngine::parseXMLConfigFile(xmlFileName));
-                project.reset(Project::getInstance());
-                project->fromDOMElement(doc->getDocumentElement());
+                fset = new nidas::core::FileSet();
+                list<string>::const_iterator fi;
+                for (fi = dataFileNames.begin();
+                    fi != dataFileNames.end(); ++fi)
+                        fset->addFileName(*fi);
             }
-
-	    // match the requested variables.
-	    // on a match:
-	    //	1. save the var to pass to the resampler
-	    //  2. save the sensor in a set
-	    //  3. save the dsm in a set
-	    //  later:
-	    //  1. get the fileset, create the SortedSampleInputStream
-	    //	2. add the resampler as a processedSampleClient of the
-	    //		stream and sensor
-	    //	3. init the sensor
-
-            variables = matchVariables(project.get(),activeDsms,activeSensors);
-
-	    // now look for the files.
-	    nidas::core::FileSet* fset = 0;
-            list<nidas::core::FileSet*> fsets =
-                project->findSampleOutputStreamFileSets();
-            if (fsets.size() == 0 && activeDsms.size() == 1) {
-                const DSMConfig* dsm = *(activeDsms.begin());
-	    	fsets =
-                    project->findSampleOutputStreamFileSets(dsm->getName());
-                if (fsets.size() == 0)
-                    throw n_u::InvalidParameterException(
-                        progname,"cannot find fileset for dsm",dsm->getName());
-            }
-            if (fsets.size() == 0) 
-                throw n_u::InvalidParameterException(progname,
-                    "cannot find fileset","");
-            fset = fsets.front();
-            fset->setStartTime(startTime);
-            fset->setEndTime(endTime);
             iochan = fset;
-	}
-	else {
-	    // user has specified one or more files
+        }
 
-	    // input
-	    //	1. list of variable names
-	    //	2. list of file names
-	    // products:
-	    //  0. project, from header of first file
-	    //	1. vector of variables
-	    //	2. set of dsms
-	    //	3. set of sensors
+	RawSampleInputStream sis(iochan);
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(1.0);
+        pipeline.setProcSorterLength(sorterLength);
+        pipeline.setRawHeapMax(100 * 1000 * 1000);
+        pipeline.setProcHeapMax(500 * 1000 * 1000);
 
-	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-            iochan = fset;
-	    list<string>::const_iterator fi;
-	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-		  fset->addFileName(*fi);
+        if (!project.get()) {
 
-	    // read the first header to get the project configuration
-	    // name
-	    sis.reset(new RawSampleInputStream(fset));
-	    sis->readInputHeader();
-	    const SampleInputHeader& header = sis->getInputHeader();
-
-	    if (xmlFileName.length() == 0)
-                xmlFileName = n_u::Process::expandEnvVars(header.getConfigName());
-	    auto_ptr<xercesc::DOMDocument> doc(
-		DSMEngine::parseXMLConfigFile(xmlFileName));
+            sis.readInputHeader();
+            const SampleInputHeader& header = sis.getInputHeader();
+	    xmlFileName = header.getConfigName();
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+            XMLParser parser;
+	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
 
 	    project.reset(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
 
 	    list<Variable*>::const_iterator rvi = reqVars.begin();
-
-	    // match the variables.
-	    // on a match:
-	    //	1. save the var to pass to the resampler
-	    //  2. save the sensor in a set
-	    //  3. save the dsm in a set
-	    // later:
-	    //	1. init the sensors
-	    //	2. add the resampler as a processedSampleClient of the sensor
-            variables = matchVariables(project.get(),activeDsms,activeSensors);
-	}
-
-        iochan = iochan->connect();
-        if (!sis.get()) {
-            sis.reset(new RawSampleInputStream(iochan));
-            sis->readInputHeader();
         }
+
+        // match the variables.
+        // on a match:
+        //	1. save the var to pass to the resampler
+        //  2. save the sensor in a set
+        //  3. save the dsm in a set
+        // later:
+        //	1. init the sensors
+        //	2. add the resampler as a processedSampleClient of the sensor
+
+	vector<const Variable*> variables;
+	set<DSMSensor*> activeSensors;
+        set<const DSMConfig*> activeDsms;
+        variables = matchVariables(project.get(),activeDsms,activeSensors);
+
+        for (unsigned int i = 0; i < variables.size(); i++)
+            cerr << "var=" << variables[i]->getName() << endl;
+
+        auto_ptr<Resampler> resampler;
 
         if (rate > 0.0) {
             NearestResamplerAtRate* smplr =
@@ -743,44 +746,49 @@ int DataPrep::run() throw()
 	for ( ; si != activeSensors.end(); ++si) {
 	    DSMSensor* sensor = *si;
 	    sensor->init();
-            SampleTagIterator ti = sensor->getSampleTagIterator();
-            for ( ; ti.hasNext(); ) {
-                const SampleTag* tag = ti.next();
-                sis->addSampleTag(tag);
-            }
+            sis.addSampleTag(sensor->getRawSampleTag());
 	}
 
-        SamplePipeline pipeline;
-        pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
-        pipeline.setProcSorterLength(sorterLength);
-        pipeline.connect(sis.get());
-
+        pipeline.connect(&sis);
         resampler->connect(pipeline.getProcessedSampleSource());
 
-	dumper.reset(new DumpClient(format,cout));
-        dumper->setDOS(dosOut);
+        DumpClient dumper(format,cout);
+        dumper.setDOS(dosOut);
 
-	resampler->addSampleClient(dumper.get());
+	resampler->addSampleClient(&dumper);
 
         if (startTime.toUsecs() != 0) {
             cerr << "searching for time " <<
                 startTime.format(true,"%Y %m %d %H:%M:%S") << endl;
-            sis->search(startTime);
+            sis.search(startTime);
             cerr << "search done." << endl;
-            dumper->setStartTime(startTime);
+            dumper.setStartTime(startTime);
         }
-        if (endTime.toUsecs() != 0) dumper->setEndTime(endTime);
+        if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
 
-	if (doHeader) dumper->printHeader(variables);
+	if (doHeader) dumper.printHeader(variables);
 
-	for (;;) {
-	    sis->readSamples();
-	    if (finished || interrupted) break;
-	}
-	resampler->removeSampleClient(dumper.get());
-        resampler->disconnect(sis.get());
-        if (interrupted) return 1;       // interrupted
+        try {
+            for (;;) {
+                sis.readSamples();
+                if (finished || interrupted) break;
+            }
+        }
+        catch (n_u::EOFException& e) {
+            cerr << "EOF received: flushing buffers" << endl;
+            sis.flush();
+        }
+        catch (n_u::IOException& e) {
+            resampler->removeSampleClient(&dumper);
+            resampler->disconnect(pipeline.getProcessedSampleSource());
+            pipeline.disconnect(&sis);
+            sis.close();
+            throw e;
+        }
+        resampler->removeSampleClient(&dumper);
+        resampler->disconnect(pipeline.getProcessedSampleSource());
+        pipeline.disconnect(&sis);
+        sis.close();
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;
@@ -790,23 +798,11 @@ int DataPrep::run() throw()
 	cerr << e.what() << endl;
 	return 1;
     }
-    catch (n_u::EOFException& e) {
-        cerr << "EOF received: flushing buffers" << endl;
-        sis->flush();
-        sis->close();
-	resampler->removeSampleClient(dumper.get());
-        resampler->disconnect(sis.get());
-	cerr << e.what() << endl;
-	return 0;
-    }
-    catch (n_u::IOException& e) {
-	cerr << e.what() << endl;
-	return 1;
-    }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;
 	return 1;
     }
+    if (interrupted) return 1;       // interrupted
     return 0;
 }
 

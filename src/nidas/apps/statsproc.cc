@@ -372,8 +372,6 @@ int StatsProcess::run() throw()
 
         IOChannel* iochan = 0;
 
-        nidas::core::FileSet* fset = 0;
-
         if (xmlFileName.length() > 0) {
             xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
@@ -423,6 +421,8 @@ int StatsProcess::run() throw()
             }
         }
 	else {
+            nidas::core::FileSet* fset;
+
 	    if (dataFileNames.size() == 0) {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
@@ -562,9 +562,6 @@ int StatsProcess::run() throw()
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
 	    sis.flush();
-	    sproc->disconnect(&pipeline);
-            pipeline.disconnect(&sis);
-	    sis.close();
 	}
 	catch (n_u::IOException& e) {
 	    sproc->disconnect(&pipeline);
@@ -572,6 +569,9 @@ int StatsProcess::run() throw()
 	    sis.close();
 	    throw e;
 	}
+        sproc->disconnect(&pipeline);
+        pipeline.disconnect(&sis);
+        sis.close();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;

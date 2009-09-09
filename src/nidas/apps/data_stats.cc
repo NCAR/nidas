@@ -390,8 +390,6 @@ int DataStats::run() throw()
     try {
         auto_ptr<Project> project(Project::getInstance());
 
-        auto_ptr<CounterClient> counter;
-
 	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
@@ -444,13 +442,13 @@ int DataStats::run() throw()
 	}
 
 	SamplePipeline pipeline;                                  
-        pipeline.setRealTime(false);                              
-        pipeline.setRawSorterLength(0);                           
-        pipeline.setProcSorterLength(0);                          
-
-        counter.reset(new CounterClient(allsensors));
+        CounterClient counter(allsensors);
 
 	if (processData) {
+            pipeline.setRealTime(false);                              
+            pipeline.setRawSorterLength(0);                           
+            pipeline.setProcSorterLength(0);                          
+
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
@@ -462,9 +460,9 @@ int DataStats::run() throw()
             pipeline.connect(&sis);
 
             // 3. connect the client to the pipeline
-            pipeline.getProcessedSampleSource()->addSampleClient(counter.get());
+            pipeline.getProcessedSampleSource()->addSampleClient(&counter);
         }
-        else sis.addSampleClient(counter.get());
+        else sis.addSampleClient(&counter);
 
         try {
             for (;;) {
@@ -473,17 +471,26 @@ int DataStats::run() throw()
             }
         }
         catch (n_u::EOFException& e) {
-            sis.flush();
-            sis.close();
-            counter->printResults();
             cerr << e.what() << endl;
+            sis.flush();
         }
         catch (n_u::IOException& e) {
-            sis.flush();
+            if (processData) {
+                pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+                pipeline.disconnect(&sis);
+            }
+            else sis.removeSampleClient(&counter);
             sis.close();
-            counter->printResults();
+            counter.printResults();
             throw(e);
         }
+	if (processData) {
+            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+            pipeline.disconnect(&sis);
+        }
+        else sis.removeSampleClient(&counter);
+        sis.close();
+        counter.printResults();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;

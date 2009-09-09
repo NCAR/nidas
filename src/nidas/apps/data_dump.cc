@@ -562,8 +562,6 @@ int DataDump::run() throw()
     try {
         auto_ptr<Project> project(Project::getInstance());
 
-        auto_ptr<DumpClient> dumper;
-
 	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
@@ -638,13 +636,13 @@ int DataDump::run() throw()
         pipeline.connect(&sis);
 
         // 3. connect the client to the pipeline
-	dumper.reset(new DumpClient(sampleIds,format,cout));
+        DumpClient dumper(sampleIds,format,cout);
 	if (processData)
-            pipeline.getProcessedSampleSource()->addSampleClient(dumper.get());
+            pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
         else
-            pipeline.getRawSampleSource()->addSampleClient(dumper.get());
+            pipeline.getRawSampleSource()->addSampleClient(&dumper);
 
-	dumper->printHeader();
+	dumper.printHeader();
 
         try {
             for (;;) {
@@ -653,15 +651,26 @@ int DataDump::run() throw()
             }
         }
         catch (n_u::EOFException& e) {
-            sis.flush();
-            sis.close();
             cerr << e.what() << endl;
+            sis.flush();
         }
         catch (n_u::IOException& e) {
-            sis.flush();
+            if (processData)
+                pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
+            else
+                pipeline.getRawSampleSource()->removeSampleClient(&dumper);
+
+            pipeline.disconnect(&sis);
             sis.close();
             throw(e);
         }
+	if (processData)
+            pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
+        else
+            pipeline.getRawSampleSource()->removeSampleClient(&dumper);
+
+        pipeline.disconnect(&sis);
+        sis.close();
     }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;

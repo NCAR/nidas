@@ -56,6 +56,7 @@ SamplePipeline::~SamplePipeline()
             }
             catch(const n_u::Exception&) {}
         }
+        delete _rawSorter;
     }
     _rawMutex.unlock();
 
@@ -69,6 +70,7 @@ SamplePipeline::~SamplePipeline()
             }
             catch(const n_u::Exception&) {}
         }
+        delete _procSorter;
     }
     _procMutex.unlock();
 }
@@ -244,6 +246,10 @@ void SamplePipeline::removeSampleClient(SampleClient* client) throw()
 
     //	If there are no clients of procSorter then clean up.
     if (_procSorter->getClientCount() == 0) {
+        {
+            n_u::Autolock autolock(_procMutex);
+            if (!_rawSorter) return;
+        }
         list<const SampleTag*> rtags = _rawSorter->getSampleTags();
         list<const SampleTag*>::const_iterator si = rtags.begin();
         for ( ; si != rtags.end(); ++si) {
