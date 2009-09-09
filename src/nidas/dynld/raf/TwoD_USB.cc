@@ -201,11 +201,11 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
     /*
      * Minimum frequency we can generate is either:
      *
-     *   3 MHz (with no frequency divider)
+     *   2 MHz (with no frequency divider)
      *      OR
      *   300 kHz (using frequency divider factor 10)
      */
-    if (freq >= 3.0e6) {
+    if (freq >= 2.0e6) {
         t2d->div10 = 0;
         maxfreq = 1.0e11;
     }
@@ -504,6 +504,7 @@ void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)
         *eod = _saveBuffer + _savedBytes + lrec;
     }
 }
+
 void TwoD_USB::saveBuffer(const unsigned char* cp, const unsigned char* eod)
 {
     assert(eod >= cp);
