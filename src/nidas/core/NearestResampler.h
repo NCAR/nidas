@@ -164,29 +164,29 @@ private:
     /**
      * Index of each requested output variable in the output sample.
      */
-    std::map<Variable*,int> _outVarIndices;
+    std::map<Variable*,unsigned int> _outVarIndices;
 
     /**
      * For each input sample, first index of variable data values to be
      * read.
      */
-    std::map<dsm_sample_id_t,std::vector<int> > _inmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _inmap;
 
     /**
      * For each input sample, length of variables to read.
      */
-    std::map<dsm_sample_id_t,std::vector<int> > _lenmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _lenmap;
 
     /**
      * For each input sample, index into output sample of each variable.
      */
-    std::map<dsm_sample_id_t,std::vector<int> > _outmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _outmap;
 
-    int _ndataValues;
+    unsigned int _ndataValues;
 
-    int _outlen;
+    unsigned int _outlen;
 
-    int _master;
+    unsigned int _master;
 
     int _nmaster;
 

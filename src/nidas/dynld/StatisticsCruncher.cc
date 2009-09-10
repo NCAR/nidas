@@ -89,7 +89,7 @@ StatisticsCruncher::~StatisticsCruncher()
     map<dsm_sample_id_t,sampleInfo >::iterator vmi;
     for (vmi = _sampleMap.begin(); vmi != _sampleMap.end(); ++vmi) {
 	struct sampleInfo& sinfo = vmi->second;
-	vector<int*>& vindices = sinfo.varIndices;
+	vector<unsigned int*>& vindices = sinfo.varIndices;
 	for (unsigned int iv = 0; iv < vindices.size(); iv++)
 	    delete [] vindices[iv];
     }
@@ -104,7 +104,7 @@ StatisticsCruncher::~StatisticsCruncher()
     delete [] _nSamples;
 
     if (_triComb) {
-	for (int i=0; i < _ntri; i++) delete [] _triComb[i];
+	for (unsigned int i=0; i < _ntri; i++) delete [] _triComb[i];
 	delete [] _triComb;
     }
 
@@ -288,9 +288,9 @@ string StatisticsCruncher::makeUnits(const vector<string>& units)
     return res;
 }
 
-void StatisticsCruncher::setupMoments(int nv,int nmoment)
+void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
 {
-    for (int i = 0; i < nv; i++) {
+    for (unsigned int i = 0; i < nv; i++) {
 	string name;
 	string units;
 	switch (nmoment) {
@@ -329,8 +329,8 @@ void StatisticsCruncher::setupCovariances()
 {
     _ncov = (_nvars * (_nvars + 1)) / 2;
 
-    for (int i = 0; i < _nvars; i++) {
-	for (int j = i; j < _nvars; j++) {
+    for (unsigned int i = 0; i < _nvars; i++) {
+	for (unsigned int j = i; j < _nvars; j++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -347,9 +347,9 @@ void StatisticsCruncher::setupCovariances()
 void StatisticsCruncher::setupTrivariances()
 {
     _ntri = 0;
-    for (int i = 0; i < _nvars; i++) {
-	for (int j = i; j < _nvars; j++) {
-	    for (int k = j; k < _nvars; k++,_ntri++) {
+    for (unsigned int i = 0; i < _nvars; i++) {
+	for (unsigned int j = i; j < _nvars; j++) {
+	    for (unsigned int k = j; k < _nvars; k++,_ntri++) {
 		string name = makeName(i,j,k);
 		string units = makeUnits(i,j,k);
 
@@ -385,6 +385,8 @@ void StatisticsCruncher::setupTrivariances()
 void StatisticsCruncher::setupPrunedTrivariances()
 {
 
+    unsigned int i,j;
+
     _ntri = 4 * _nvars - 4;
 
     /*
@@ -397,20 +399,20 @@ void StatisticsCruncher::setupPrunedTrivariances()
      *	triComb[n][0] <= triComb[n][1] <= triComb[n][2]
      * This is checked for in the assert()s, below.
      */
-    _triComb = new int*[_ntri];
-    for (int i=0; i < _ntri; i++) _triComb[i] = new int[3];
+    _triComb = new unsigned int*[_ntri];
+    for (i=0; i < _ntri; i++) _triComb[i] = new unsigned int[3];
 
-    int nt = 0;
+    unsigned int nt = 0;
 
     /* x^3 3rd moments */
-    for (int i = 0; i < _nvars; i++,nt++)
+    for (i = 0; i < _nvars; i++,nt++)
 	_triComb[nt][0] = _triComb[nt][1] = _triComb[nt][2] = i;
     setupMoments(_nvars,3);
     _n3mom = 0;	// accounted for in ntri
 
     // ws^2 trivariances
-    int i = 2;
-    for (int j = 3; j < _nvars; j++,nt++) {
+    i = 2;
+    for (j = 3; j < _nvars; j++,nt++) {
 	_triComb[nt][0] = i;
 	_triComb[nt][1] = j;
 	_triComb[nt][2] = j;
@@ -426,8 +428,8 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
     // [uv][uvw]w trivariances
-    for (int i = 0; i < 2; i++) {
-	for (int j = i; j < 3; j++,nt++) {
+    for (i = 0; i < 2; i++) {
+	for (j = i; j < 3; j++,nt++) {
 
 	    _triComb[nt][0] = i;
 	    _triComb[nt][1] = j;
@@ -445,8 +447,8 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	}
     }
     // uws, vws trivariances
-    for (int i = 0; i < 2; i++) {
-	for (int k = 3; k < _nvars; k++,nt++) {
+    for (i = 0; i < 2; i++) {
+	for (unsigned int k = 3; k < _nvars; k++,nt++) {
 
 	    _triComb[nt][0] = i;
 	    _triComb[nt][1] = 2;
@@ -480,9 +482,9 @@ void StatisticsCruncher::setupPrunedTrivariances()
 void StatisticsCruncher::setupFluxes()
 {
     _ncov = 4 * _nvars - 6;
-    int nc = 0;
-    for (int i = 0; i < _nvars; i++) {
-	for (int j = i; j < (i > 2 ? i + 1 : _nvars); j++,nc++) {
+    unsigned int nc = 0;
+    for (unsigned int i = 0; i < _nvars; i++) {
+	for (unsigned int j = i; j < (i > 2 ? i + 1 : _nvars); j++,nc++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -506,9 +508,9 @@ void StatisticsCruncher::setupFluxes()
 void StatisticsCruncher::setupReducedFluxes()
 {
     _ncov = 3 * _nvars - 3;	// no scalar:scalar terms
-    int nc = 0;
-    for (int i = 0; i < _nvars && i < 3; i++) {
-	for (int j = i; j < _nvars; j++,nc++) {
+    unsigned int nc = 0;
+    for (unsigned int i = 0; i < _nvars && i < 3; i++) {
+	for (unsigned int j = i; j < _nvars; j++,nc++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -534,8 +536,7 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 {
     _ncov = _nvars;		// covariance of first scalar 
     				// against all others
-
-    for (int j = 0; j < _nvars; j++) {
+    for (unsigned int j = 0; j < _nvars; j++) {
 	string name = makeName(j,0);	// flip names
 	string units = makeUnits(j,0);
 
@@ -551,7 +552,7 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 {
     _n1mom = _nvars;
 
-    for (int i = 0; i < _nvars; i++) {
+    for (unsigned int i = 0; i < _nvars; i++) {
 	Variable* v = _reqVariables[i];
 	// add the suffix to the first word
 	string name = _splitVarNames[i][0] + suffix;
@@ -571,7 +572,7 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 void StatisticsCruncher::createCombinations()
 {
     if (_triComb) {
-	for (int i=0; i < _ntri; i++) delete [] _triComb[i];
+	for (unsigned int i=0; i < _ntri; i++) delete [] _triComb[i];
 	delete [] _triComb;
 	_triComb = 0;
     }
@@ -651,8 +652,8 @@ void StatisticsCruncher::createCombinations()
         " ncov=" << _ncov << " ntri=" << _ntri <<
         " n3mom=" << _n3mom << " n4mom=" << _n4mom << endl;
 #endif
-    assert(_ntot == (signed)_outSample.getVariables().size());
-    assert((signed)_nOutVar == _ntot);
+    assert(_ntot == _outSample.getVariables().size());
+    assert(_nOutVar == _ntot);
 
 #ifdef DEBUG
     cerr << "createCombinations: ";
@@ -667,7 +668,7 @@ void StatisticsCruncher::createCombinations()
 
 void StatisticsCruncher::initStats()
 {
-    if (_numpoints && _ntot == (signed)_outSample.getVariables().size()) {
+    if (_numpoints && _ntot == _outSample.getVariables().size()) {
 	Variable* v = new Variable();
 	if (_countsName.length() == 0) {
 	    _countsName = "counts";
@@ -692,7 +693,7 @@ void StatisticsCruncher::initStats()
 
     _outlen = _outSample.getVariables().size();
 
-    int i,n;
+    unsigned int i,n;
 
     if (_statsType == STATS_MINIMUM) {
 	delete [] _xMin;
@@ -707,7 +708,7 @@ void StatisticsCruncher::initStats()
 	_xSum = new double[_nvars];
     }
 
-    _nSamples = new int[_nvars];
+    _nSamples = new unsigned int[_nvars];
 
     /*
      * Create array of pointers so that xySum[i][j], for j >= i,
@@ -749,7 +750,7 @@ void StatisticsCruncher::initStats()
 
 void StatisticsCruncher::zeroStats()
 {
-    int i;
+    unsigned int i;
     if (_xSum) for (i = 0; i < _nvars; i++) _xSum[i] = 0.;
     for (i = 0; i < _ncov; i++) _xySum[0][i] = 0.;
     for (i = 0; i < _n2mom; i++) _xySum[0][i] = 0.;
@@ -828,7 +829,7 @@ void StatisticsCruncher::disconnect(SampleSource* source) throw()
 void StatisticsCruncher::attach(SampleSource* source)
 	throw(n_u::InvalidParameterException)
 {
-    int nvarMatch = 0;
+    unsigned int nvarMatch = 0;
     int dsmid = -1;
     bool oneDSM = true;
 
@@ -859,21 +860,28 @@ void StatisticsCruncher::attach(SampleSource* source)
         // contains cross terms we must have a complete input sample
         // with no NaNs. Having a weights variable reduces
         // the overhead, so we don't have to pre-scan the data.
-        //
-	sptr->weightsIndex = -1;
 
-	vector<int*>& varIndices = sptr->varIndices;
+        // currently this code will not work on variables with
+        // length > 1
+
+	sptr->weightsIndex = UINT_MAX;
+
+	vector<unsigned int*>& varIndices = sptr->varIndices;
 	for (unsigned int rv = 0; rv < _reqVariables.size(); rv++) {
             Variable* reqvar = _reqVariables[rv];
 
 	    // loop over variables in this source, checking
 	    // for a match against one of my variable names.
 	    VariableIterator vi = intag->getVariableIterator();
-	    for (int iv = 0; vi.hasNext(); iv++) {
+	    for ( ; vi.hasNext(); ) {
 		const Variable* invar = vi.next();
+
+                // index of 0th value of variable in its sample data array.
+                unsigned int vindex = intag->getDataIndex(invar);
+
 		if (invar->getType() == Variable::WEIGHT) {
-		    // cerr << "weightsIndex=" << iv << endl;
-		    sptr->weightsIndex = iv;
+		    // cerr << "weightsIndex=" << vindex << endl;
+		    sptr->weightsIndex = vindex;
 		    continue;
 		}
 #ifdef DEBUG
@@ -900,10 +908,10 @@ void StatisticsCruncher::attach(SampleSource* source)
 			if ((unsigned)varIndices[j][1] == rv) break;
 
 		    if (j == varIndices.size()) {
-			int* idxs = new int[2];
-			idxs[0] = iv;	// input index
+			unsigned int* idxs = new unsigned int[2];
+			idxs[0] = vindex;	// input index
 			idxs[1] = rv;	// output index
-                        // cerr << "adding varIndices, iv=" << iv << " rv=" << rv << endl;
+                        // cerr << "adding varIndices, vindex=" << vindex << " rv=" << rv << endl;
 			// if crossTerms, then all variables must
 			// be in one input sample.
 			if (_crossTerms) assert(varIndices.size() == rv);
@@ -918,8 +926,8 @@ void StatisticsCruncher::attach(SampleSource* source)
 
 #ifdef DEBUG
 		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
-		    	iv << "]=" << _reqVariables[iv]->getName() << 
-			" station=" << _reqVariables[iv]->getStation() <<
+		    	rv << "]=" << reqvar->getName() << 
+			" station=" << reqvar->getStation() <<
 			endl;
 #endif
 		}
@@ -970,22 +978,22 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     if (tt < _tout - _periodUsecs) return false;
 
     struct sampleInfo& sinfo = vmi->second;
-    const vector<int*>& vindices = sinfo.varIndices;
+    const vector<unsigned int*>& vindices = sinfo.varIndices;
 
     const float* inData = fs->getConstDataPtr();
 
     unsigned int nvarsin = vindices.size();
-    int nvsamp = fs->getDataLength();
+    unsigned int nvsamp = fs->getDataLength();
 
     unsigned int i,j,k;
-    int vi,vj,vk,vo;
+    unsigned int vi,vj,vk,vo;
     double *xySump,*xyzSump;
     float x;
     double xy;
 
-    int nonNANs = 0;
-    if (sinfo.weightsIndex >= 0)
-    	nonNANs = (int) inData[sinfo.weightsIndex];
+    unsigned int nonNANs = 0;
+    if (sinfo.weightsIndex < UINT_MAX)
+    	nonNANs = (unsigned int)inData[sinfo.weightsIndex];
     else if (_crossTerms) {
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
@@ -1204,7 +1212,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    }
 	    if (_higherMoments) _x4Sum[i] += x * x * x * x;
 	}
-	for (int n = 0; n < _ntri; n++) {
+	for (unsigned int n = 0; n < _ntri; n++) {
 	    i = _triComb[n][0];
 	    j = _triComb[n][1];
 	    k = _triComb[n][2];
@@ -1228,7 +1236,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 void StatisticsCruncher::computeStats()
 {
     double *xyzSump;
-    int i,j,k,l,n,nx,nr;
+    unsigned int i,j,k,l,n,nx,nr;
     double x,xm,xr;
 
     SampleT<float>* osamp = getSample<float>(_outlen);

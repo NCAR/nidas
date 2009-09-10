@@ -201,7 +201,7 @@ protected:
 
     void createCombinations();
 
-    void setupMoments(int nvars, int moment);
+    void setupMoments(unsigned int nvars, unsigned int moment);
 
     void setupMinMax(const std::string&);
 
@@ -246,7 +246,7 @@ private:
     /**
      * Number of input variables.
      */
-    int _nvars;
+    unsigned int _nvars;
 
     /**
      * Name of counts variable.
@@ -280,13 +280,13 @@ private:
 
     unsigned int _nOutVar;
 
-    int _outlen;
+    unsigned int _outlen;
 
     dsm_time_t _tout;
 
     struct sampleInfo {
-        int weightsIndex;
-	std::vector<int*> varIndices;
+        unsigned int weightsIndex;
+	std::vector<unsigned int*> varIndices;
     };
 
     std::map<dsm_sample_id_t,sampleInfo > _sampleMap;
@@ -302,29 +302,29 @@ private:
     double* _xyzSum;
     double* _x4Sum;
 
-    int *_nSamples;
+    unsigned int *_nSamples;
 
-    int **_triComb;
+    unsigned int **_triComb;
 
     /**
      * Number of covariances to compute.
      */
-    int _ncov;
+    unsigned int _ncov;
 
     /**
      * Number of trivariances to compute.
      */
-    int _ntri;
+    unsigned int _ntri;
 
     /**
      * Number of 1st,2nd,3rd,4th moments to compute.
      */
-    int _n1mom,_n2mom,_n3mom,_n4mom;
+    unsigned int _n1mom,_n2mom,_n3mom,_n4mom;
 
     /**
      * Total number of products to compute.
      */
-    int _ntot;
+    unsigned int _ntot;
 
     bool _higherMoments;
 

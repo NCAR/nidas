@@ -64,7 +64,7 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
     _nearData = new float[_ndataValues];
     _samplesSinceMaster = new int[_ndataValues];
 
-    for (int i = 0; i < _ndataValues; i++) {
+    for (unsigned int i = 0; i < _ndataValues; i++) {
 	_prevTT[i] = 0;
 	_nearTT[i] = 0;
 	_prevData[i] = floatNAN;
@@ -98,27 +98,28 @@ void NearestResampler::connect(SampleSource* source)
 	// for a match against one of my variable names.
 	VariableIterator vi = intag->getVariableIterator();
         bool varMatch = false;
-	for (int iv = 0; vi.hasNext(); iv++) {
+	for ( ; vi.hasNext(); ) {
 	    const Variable* var = vi.next();
-            int vindex = intag->getDataIndex(var);      // index of variable in its sample
+
+            // index of 0th value of variable in its sample data array.
+            unsigned int vindex = intag->getDataIndex(var);
 
 	    for (unsigned int iout = 0;
 	    	iout < _outSample.getVariables().size(); iout++) {
 
 		Variable& myvar = _outSample.getVariable(iout);
-
-
 		if (*var == myvar) {
-                    int vlen = var->getLength();
+                    unsigned int vlen = var->getLength();
+
                     // index of the 0th value of this variable in the
                     // output array.
-                    map<Variable*,int>::iterator vi = _outVarIndices.find(&myvar);
+                    map<Variable*,unsigned int>::iterator vi = _outVarIndices.find(&myvar);
                     assert(vi != _outVarIndices.end());
-                    int outIndex = vi->second;
+                    unsigned int outIndex = vi->second;
 
-                    map<dsm_sample_id_t,vector<int> >::iterator mi;
+                    map<dsm_sample_id_t,vector<unsigned int> >::iterator mi;
                     if ((mi = _inmap.find(sampid)) == _inmap.end()) {
-                        vector<int> tmp;
+                        vector<unsigned int> tmp;
                         tmp.push_back(vindex);
                         _inmap[sampid] = tmp;
                         assert((mi = _outmap.find(sampid)) == _outmap.end());
@@ -157,29 +158,31 @@ bool NearestResampler::receive(const Sample* samp) throw()
 
     dsm_sample_id_t sampid = samp->getId();
 
-    map<dsm_sample_id_t,vector<int> >::iterator mi;
+    map<dsm_sample_id_t,vector<unsigned int> >::iterator mi;
 
     if ((mi = _inmap.find(sampid)) == _inmap.end()) return false;
-    const vector<int>& invec = mi->second;
+    const vector<unsigned int>& invec = mi->second;
 
     assert((mi = _outmap.find(sampid)) != _outmap.end());
-    const vector<int>& outvec = mi->second;
+    const vector<unsigned int>& outvec = mi->second;
 
     assert((mi = _lenmap.find(sampid)) != _lenmap.end());
-    const vector<int>& lenvec = mi->second;
+    const vector<unsigned int>& lenvec = mi->second;
 
     assert(invec.size() == outvec.size());
     assert(invec.size() == lenvec.size());
 
+    const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
+    const float *inData = fsamp->getConstDataPtr();
     dsm_time_t tt = samp->getTimeTag();
-    const float* inData = (const float*) samp->getConstVoidDataPtr();
 
     for (unsigned int iv = 0; iv < invec.size(); iv++) {
-	int invar = invec[iv];
-	int outvar = outvec[iv];
-        for (int iv2 = 0; iv2 < lenvec[iv]; iv2++,invar++,outvar++) {
-            float val = inData[invar];
-            if (outvar == _master) {
+	unsigned int ii = invec[iv];
+	unsigned int oi = outvec[iv];
+        for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < fsamp->getDataLength();
+            iv2++,ii++,oi++) {
+            float val = inData[ii];
+            if (oi == _master) {
                 /*
                  * received a new master variable. Output values that were
                  * nearest to previous master.
@@ -209,7 +212,7 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 SampleT<float>* osamp = getSample<float>(_outlen);
                 float* outData = osamp->getDataPtr();
                 int nonNANs = 0;
-                for (int k = 0; k < _ndataValues; k++) {
+                for (unsigned int k = 0; k < _ndataValues; k++) {
                     if (k == _master) {
                       // master variable
                       if (!isnan(outData[k] = _prevData[k])) nonNANs++;
@@ -241,21 +244,21 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 _prevData[_master] = val;
             }
             else {
-                switch (_samplesSinceMaster[outvar]) {
+                switch (_samplesSinceMaster[oi]) {
                 case 0:
                   // this is the first sample of this variable since the last master
                   // Assumes input samples are sorted in time!!
                   // Determine which of previous and current sample is the nearest
                   // to prevMasterTT.
-                  if (_prevTT[_master] > (tt + _prevTT[outvar]) / 2) {
-                      _nearData[outvar] = val;
-                      _nearTT[outvar] = tt;
+                  if (_prevTT[_master] > (tt + _prevTT[oi]) / 2) {
+                      _nearData[oi] = val;
+                      _nearTT[oi] = tt;
                   }
                   else {
-                      _nearData[outvar] = _prevData[outvar];
-                      _nearTT[outvar] = _prevTT[outvar];
+                      _nearData[oi] = _prevData[oi];
+                      _nearTT[oi] = _prevTT[oi];
                   }
-                  _samplesSinceMaster[outvar]++;
+                  _samplesSinceMaster[oi]++;
                   break;
                 default:
                     // this is at least the second sample since the last master sample
@@ -263,8 +266,8 @@ bool NearestResampler::receive(const Sample* samp) throw()
                     // be the nearest one to the previous master.
                     break;
                 }
-                _prevData[outvar] = val;
-                _prevTT[outvar] = tt;
+                _prevData[oi] = val;
+                _prevTT[oi] = tt;
             }
         }
     }
@@ -286,7 +289,7 @@ void NearestResampler::finish() throw()
     SampleT<float>* osamp = getSample<float>(_outlen);
     float* outData = osamp->getDataPtr();
     int nonNANs = 0;
-    for (int k = 0; k < _ndataValues; k++) {
+    for (unsigned int k = 0; k < _ndataValues; k++) {
 	if (k == _master) {
 	    // master variable
 	    if (!isnan(outData[k] = _prevData[k])) nonNANs++;

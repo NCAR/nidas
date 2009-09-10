@@ -95,25 +95,28 @@ void SampleAverager::connect(SampleSource* source)
         // for a match against one of my variable names.
         VariableIterator vi = intag->getVariableIterator();
         bool varMatch = false;
-        for (int iv = 0; vi.hasNext(); iv++) {
+        for ( ; vi.hasNext(); ) {
             const Variable* var = vi.next();
-            int vindex = intag->getDataIndex(var);	// index of variable in its sample
+
+            // index of 0th value of variable in its sample data array.
+            unsigned int vindex = intag->getDataIndex(var);
 
             for (unsigned int iout = 0;
                 iout < _outSample.getVariables().size(); iout++) {
+
                 Variable& myvar = _outSample.getVariable(iout);
                 if (*var == myvar) {
-                    int vlen = var->getLength();
+                    unsigned int vlen = var->getLength();
 
                     // index of the 0th value of this variable in the
                     // output array.
-                    map<Variable*,int>::iterator vi = _outVarIndices.find(&myvar);
+                    map<Variable*,unsigned int>::iterator vi = _outVarIndices.find(&myvar);
                     assert(vi != _outVarIndices.end());
-                    int outIndex = vi->second;
+                    unsigned int outIndex = vi->second;
 
-                    map<dsm_sample_id_t,vector<int> >::iterator mi;
+                    map<dsm_sample_id_t,vector<unsigned int> >::iterator mi;
                     if ((mi = _inmap.find(sampid)) == _inmap.end()) {
-                        vector<int> tmp;
+                        vector<unsigned int> tmp;
                         tmp.push_back(vindex);
                         _inmap[sampid] = tmp;
                         assert((mi = _outmap.find(sampid)) == _outmap.end());
@@ -167,7 +170,7 @@ void SampleAverager::finish() throw ()
         osamp->setTimeTag(_endTime - _averagePeriodUsecs / 2);
         osamp->setId(_outSample.getId());
         float* fp = osamp->getDataPtr();
-        for (int i = 0; i < _ndataValues; i++) {
+        for (unsigned int i = 0; i < _ndataValues; i++) {
             if (_cnts[i] > 0) {
                 nok++;
                 fp[i] = _sums[i] / _cnts[i];
@@ -179,7 +182,7 @@ void SampleAverager::finish() throw ()
         else osamp->freeReference();
         _endTime += _averagePeriodUsecs;
     }
-    for (int i = 0; i < _ndataValues; i++) {
+    for (unsigned int i = 0; i < _ndataValues; i++) {
         _cnts[i] = 0;
         _sums[i] = 0.0;
     }
@@ -192,16 +195,16 @@ bool SampleAverager::receive(const Sample* samp) throw()
 
     dsm_sample_id_t id = samp->getId();
 
-    map<dsm_sample_id_t,vector<int> >::iterator mi;
+    map<dsm_sample_id_t,vector<unsigned int> >::iterator mi;
 
     if ((mi = _inmap.find(id)) == _inmap.end()) return false;
-    const vector<int>& invec = mi->second;
+    const vector<unsigned int>& invec = mi->second;
 
     assert((mi = _outmap.find(id)) != _outmap.end());
-    const vector<int>& outvec = mi->second;
+    const vector<unsigned int>& outvec = mi->second;
 
     assert((mi = _lenmap.find(id)) != _lenmap.end());
-    const vector<int>& lenvec = mi->second;
+    const vector<unsigned int>& lenvec = mi->second;
 
     assert(invec.size() == outvec.size());
     assert(invec.size() == lenvec.size());
@@ -219,7 +222,7 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	    	" nvars=" << _ndataValues;
 #endif
 	    float* fp = osamp->getDataPtr();
-	    for (int i = 0; i < _ndataValues; i++) {
+	    for (unsigned int i = 0; i < _ndataValues; i++) {
 		if (_cnts[i] > 0)
 		    fp[i] = _sums[i] / _cnts[i];
 		else 
@@ -239,7 +242,7 @@ bool SampleAverager::receive(const Sample* samp) throw()
             _endTime = timeCeiling(tt,_averagePeriodUsecs);
             if (!_cnts) init();
         }
-	for (int i = 0; i < _ndataValues; i++) {
+	for (unsigned int i = 0; i < _ndataValues; i++) {
 	    _cnts[i] = 0;
 	    _sums[i] = 0.0;
 	}
@@ -248,11 +251,10 @@ bool SampleAverager::receive(const Sample* samp) throw()
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
     const float *fp = fsamp->getConstDataPtr();
 
-    for (unsigned int i = 0; i < invec.size(); i++) {
-	unsigned int ii = invec[i];
-        int oi = outvec[i];
-        for (int j = 0; j < lenvec[i]; j++) {
-            if (ii >= fsamp->getDataLength()) continue;
+    for (unsigned int iv = 0; iv < invec.size(); iv++) {
+	unsigned int ii = invec[iv];
+        unsigned int oi = outvec[iv];
+        for (unsigned int j = 0;  j < lenvec[iv] && ii < fsamp->getDataLength(); j++) {
             float v = fp[ii];
             assert(oi < _ndataValues);
             if (!isnan(v)) {

@@ -170,15 +170,15 @@ private:
     /**
      * Index of each requested output variable in the output sample.
      */
-    std::map<Variable*,int> _outVarIndices;
+    std::map<Variable*,unsigned int> _outVarIndices;
 
-    std::map<dsm_sample_id_t,std::vector<int> > _inmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _inmap;
 
-    std::map<dsm_sample_id_t,std::vector<int> > _lenmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _lenmap;
 
-    std::map<dsm_sample_id_t,std::vector<int> > _outmap;
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _outmap;
 
-    int _ndataValues;
+    unsigned int _ndataValues;
 
     double *_sums;
 

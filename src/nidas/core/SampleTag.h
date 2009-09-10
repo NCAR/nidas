@@ -272,17 +272,17 @@ public:
 
     /**
      * What is the index of a Variable into the data of a sample from this SampleTag.
-     * @return -1: 'tain't here
+     * @return UINT_MAX: 'tain't here
      */
-    int getDataIndex(const Variable* var) const
+    unsigned int getDataIndex(const Variable* var) const
     {
-        int i = 0;
+        unsigned int i = 0;
 	std::vector<const Variable*>::const_iterator vi = constVariables.begin();
         for ( ; vi != constVariables.end(); ++vi) {
             if (*vi == var) return i;
             i += (*vi)->getLength();
         }
-        return -1;
+        return UINT_MAX;
     }
 
     VariableIterator getVariableIterator() const;
