@@ -37,6 +37,15 @@ using namespace nidas::dynld;
 using namespace std;
 namespace n_u=nidas::util;
 
+
+struct VarInfo
+{
+    unsigned int id;
+    const char* name;
+    const char* units;
+    const char* longname;
+};
+
 class WisardMote: public DSMSerialSensor {
 public:
 	WisardMote();
@@ -50,6 +59,8 @@ public:
 
 	typedef void(WisardMote::*setFunc)(const unsigned char* cp, const unsigned char* eos);
 
+	static VarInfo vars[];
+	//void initVars();
 
 private:
 	const n_u::EndianConverter* fromLittle;
@@ -63,11 +74,7 @@ private:
 
 	int sampleId; //IDXXX: sampleId= XXX<<8;
 	void addSampleTag(const SampleTag* stag);
-	void addVToSmp(SampleTag* stag);
-	/* key=sensorTypeId(0x) string =parameters(name, units, suffix, etc)    */
-	map<string,string> dataInf;
-	void initDataInfMap();
-	void assignDataInf(string& substr, int& idx);
+	//void assignDataMap(string& substr, int& idx);
 
 
 	/**

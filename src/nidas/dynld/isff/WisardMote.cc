@@ -27,6 +27,7 @@ namespace n_u = nidas::util;
 
 
 std::map<unsigned char, WisardMote::setFunc> WisardMote::nnMap;
+//VarInfo WisardMote::vars[];
 static bool mapped = false;
 
 
@@ -34,10 +35,9 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 
 WisardMote::WisardMote() {
-	//static bool mapped = false;
 	fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
 	initFuncMap();
-	initDataInfMap();
+	//initVars();
 }
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -94,7 +94,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
 		SampleT<float>* osamp = getSample<float>(data.size());
 		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId(getId()+sampleId+sTypeId);
+		osamp->setId(getId()+sampleId+sTypeId); //getid = dsmid+sensorid
 		float* dout = osamp->getDataPtr();
 		for (unsigned int i=0; i<data.size(); i++) {
 			*dout++ = (float)data[i];
@@ -131,67 +131,28 @@ throw(n_u::InvalidParameterException)
 
 void WisardMote::addSampleTag(const SampleTag* stag){
 
-	SampleTag* newtag = new SampleTag();
-	newtag->setDSMId(stag->getDSMId());
-	newtag->setSensorId(stag->getSensorId());
+	for (int i = 0; ; i++)
+	{
+		if (!vars[i].name) break;
+		unsigned int id= vars[i].id;
 
-	addVToSmp(newtag);
-	//DSMSensor::addSampleTag(newtag);
-	DSMSerialSensor::addSampleTag(newtag);
-}
-
-
-void WisardMote::addVToSmp(SampleTag* newtag){
-
-	map<string, string>::iterator iter;
-	for (iter=dataInf.begin(); iter != dataInf.end(); ++iter) {
-		//get id
-		string idstr= iter->first;
-		istringstream ist(idstr);
-		unsigned int id;
-		ist.unsetf(ios::dec);
-		ist>>id;
-
-		//get name, units, etc
-		string name="", units="", suffix="";
-		string pmeter= iter->second;
-		istringstream pm(pmeter);
-		pm>>name>>units>>suffix;
-		n_u::Logger::getInstance()->log(LOG_INFO,"datatyepid= %i name=%s units=%s suffix=%s", id, name, units, suffix);
-
-		//add smaple ID
+		SampleTag* newtag = new SampleTag(*stag);
+		//newtag->setDSMId(stag->getDSMId());
+		//newtag->setSensorId(stag->getSensorId());
 		newtag->setSampleId(newtag->getSampleId()+id);
-		//dsm_sample_id_t iidd = newtag->getDSMId()+ newtag->getSensorId()+newtag->getSampleId();
-		//newtag->setId(iidd);
 
+		//add vars to new sampleTag
 		Variable* var = new Variable();
-		var->setName(name);
-		var->setUnits(units);
-		var->setSuffix(suffix);
+		var->setName(vars[i].name);
+		var->setUnits(vars[i].units);
+		var->setLongName(vars[i].longname);
 		newtag->addVariable(var);
+		DSMSerialSensor::addSampleTag(newtag);
 	}
 
 }
 
 
-
-/*void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
-	lnname = nname;
-	lnname.push_back(',');
-	char buffer [5];
-	sprintf (buffer, "%x",sTypeId);
-	lnname += buffer;
-	remove(lnname.begin(), lnname.end(), ' ');
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n lnname= %s getId()= %i ", lnname.c_str(), id);
-
-	unsigned int sampleId = nodeIds[lnname];
-	n_u::Logger::getInstance()->log(LOG_INFO, "retrieved sample id= %d llname=%s", sampleId, lnname.c_str());
-	if (sampleId == 0) {
-		sampleId = id + sTypeId;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n pushNodeName cannot find nodename,create one: lnname= %s sampleId= %i ", lnname.c_str(), sampleId);
-		nodeIds[lnname] = sampleId;
-	}
-}*/
 
 //void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
@@ -539,53 +500,6 @@ void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 	}
 }
 
-void WisardMote::initDataInfMap() {
-	dataInf["0x20"]="Tsoil degC";
-	dataInf["0x21"]="Tsoil degC";
-	dataInf["0x22"]="Tsoil degC";
-	dataInf["0x23"]="Tsoil degC";
-
-	dataInf["0x24"]="Gsoil W/m^2";
-	dataInf["0x25"]="Gsoil W/m^2";
-	dataInf["0x26"]="Gsoil W/m^2";
-	dataInf["0x27"]="Gsoil W/m^2";
-
-	dataInf["0x28"]="Qsoil vol%";
-	dataInf["0x29"]="Qsoil vol%";
-	dataInf["0x2A"]="Qsoil vol%";
-	dataInf["0x2B"]="Qsoil vol%";
-
-	dataInf["0x2C"]="TP01 V";
-	dataInf["0x2D"]="TP01 V";
-	dataInf["0x2E"]="TP01 V";
-	dataInf["0x2F"]="TP01 V";
-
-	dataInf["0x50"]="Rnet W/m^2";
-	dataInf["0x51"]="Rnet W/m^2";
-	dataInf["0x52"]="Rnet W/m^2";
-	dataInf["0x53"]="Rnet W/m^2";
-
-	dataInf["0x54"]="Rsw-In W/m^2";
-	dataInf["0x55"]="Rsw-In W/m^2";
-	dataInf["0x56"]="Rsw-In W/m^2";
-	dataInf["0x57"]="Rsw-In W/m^2";
-
-	dataInf["0x58"]="Rsw-Out W/m^2";
-	dataInf["0x59"]="Rsw-Out W/m^2";
-	dataInf["0x5A"]="Rsw-Out W/m^2";
-	dataInf["0x5B"]="Rsw-Out W/m^2";
-
-	dataInf["0x5C"]="Rlw-In degC";
-	dataInf["0x5D"]="Rlw-In degC";
-	dataInf["0x5E"]="Rlw-In degC";
-	dataInf["0x5F"]="Rlw-In degC";
-
-	dataInf["0x60"]="Rlw-Out degC";
-	dataInf["0x61"]="Rlw-Out degC";
-	dataInf["0x62"]="Rlw-Out degC";
-	dataInf["0x63"]="Rlw-Out degC";
-
-}
 
 void WisardMote::initFuncMap() {
 	if (! mapped) {
@@ -646,3 +560,54 @@ void WisardMote::initFuncMap() {
 		mapped = true;
 	}
 }
+
+// void WisardMote::initVars() {
+
+VarInfo	 WisardMote::vars[] = {
+		{0x20,"Tsoil","degC","Soil Temperature"},
+		{0x21,"Tsoil","degC","Soil Temperature"},
+		{0x22,"Tsoil","degC","Soil Temperature"},
+		{0x23,"Tsoil","degC","Soil Temperature"},
+
+		{0x24,"Gsoil", "W/m^2", "Soil Heat Flux"},
+		{0x25,"Gsoil", "W/m^2", "Soil Heat Flux"},
+		{0x26,"Gsoil", "W/m^2", "Soil Heat Flux"},
+		{0x27,"Gsoil", "W/m^2", "Soil Heat Flux"},
+
+		{0x28,"QSoil", "vol%", "Soil Moisture"},
+		{0x29,"QSoil", "vol%", "Soil Moisture"},
+		{0x2A,"QSoil", "vol%", "Soil Moisture"},
+		{0x2B,"QSoil", "vol%", "Soil Moisture"},
+
+		{0x2C, "TO01", "V", "Soil Thermal Property"},
+		{0x2D, "TO01", "V", "Soil Thermal Property"},
+		{0x2E, "TO01", "V",	"Soil Thermal Property"},
+		{0x2F, "TO01", "V",	"Soil Thermal Property"},
+
+		{0x50,"Rnet","W/m^2","Net Radiation"},
+		{0x51,"Rnet","W/m^2","Net Radiation"},
+		{0x52,"Rnet","W/m^2","Net Radiation"},
+		{0x53,"Rnet","W/m^2","Net Radiation"},
+
+		{0x54,"Rsw-In","W/m^2","Incoming Short Wave"},
+		{0x55,"Rsw-In","W/m^2","Incoming Short Wave"},
+		{0x56,"Rsw-In","W/m^2","Incoming Short Wave"},
+		{0x57,"Rsw-In","W/m^2","Incoming Short Wave"},
+
+		{0x58,"Rsw-Out","W/m^2","Outgoing Short Wave"},
+		{0x59,"Rsw-Out","W/m^2","Outgoing Short Wave"},
+		{0x5A,"Rsw-Out","W/m^2","Outgoing Short Wave"},
+		{0x5B,"Rsw-Out","W/m^2","Outgoing Short Wave"},
+
+		{0x5C,"Rlw-In","degC","Incoming Long Wave"},
+		{0x5D,"Rlw-In","degC","Incoming Long Wave"},
+		{0x5E,"Rlw-In","degC","Incoming Long Wave"},
+		{0x5F,"Rlw-In","degC","Incoming Long Wave"},
+
+		{0x60,"Rlw-Out","degC","Outgoing Long Wave"},
+		{0x61,"Rlw-Out","degC","Outgoing Long Wave"},
+		{0x62,"Rlw-Out","degC","Outgoing Long Wave"},
+		{0x63,"Rlw-Out","degC","Outgoing Long Wave"}
+
+};
+//}
