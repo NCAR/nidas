@@ -201,20 +201,25 @@ void SampleBuffer::finish() throw()
     _doFinish = true;
     _sampleSetCond.unlock();
 
+    ILOG(("waiting for ") << _samples.size() << ' ' <<
+        (_source.getRawSampleSource() ? "raw" : "processed") <<
+        " samples to drain from SampleBuffer");
+
     _sampleSetCond.signal();
 
     for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
 	nanosleep(&ns,0);
 	_sampleSetCond.lock();
-	if (!(i % 20))
-	    n_u::Logger::getInstance()->log(LOG_NOTICE,
-		"waiting for buffer to empty, size=%d, _finished=%d",
-			_samples.size(),_finished);
+	if (!(i % 200))
+	    ILOG(("waiting for SampleBuffer to empty, size=%d, nwait=%d",
+			_samples.size(),i));
 	if (_finished) break;
 	_sampleSetCond.unlock();
     }
     _sampleSetCond.unlock();
+    ILOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+        " samples drained from SampleBuffer");
 }
 
 bool SampleBuffer::receive(const Sample *s) throw()

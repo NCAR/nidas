@@ -191,12 +191,12 @@ int DSMServerApp::main(int argc, char** argv) throw()
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
         if (pid > 0) {
-            ELOG(("dsm_server process, pid=%d is already running",pid));
+            CLOG(("dsm_server process, pid=%d is already running",pid));
             return 1;
         }
     }
     catch(const n_u::IOException& e) {
-        ELOG(("dsm_server: %s",e.what()));
+        CLOG(("dsm_server: %s",e.what()));
         return 1;
     }
 
@@ -213,7 +213,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
         app.killXmlRpcThread();
     }
     catch (const n_u::Exception &e) {
-        ELOG(("%s",e.what()));
+        PLOG(("%s",e.what()));
     }
 
     unsetupSignals();
@@ -282,17 +282,17 @@ int DSMServerApp::run() throw()
 	    else project.reset(parseXMLConfigFile(_xmlFileName));
 	}
 	catch (const nidas::core::XMLException& e) {
-	    ELOG(("%s",e.what()));
+	    CLOG(("%s",e.what()));
 	    res = 1;
 	    break;
 	}
 	catch(const n_u::InvalidParameterException& e) {
-	    ELOG(("%s",e.what()));
+	    CLOG(("%s",e.what()));
 	    res = 1;
 	    break;
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
+	    CLOG(("%s",e.what()));
 	    res = 1;
 	    break;
 	}
@@ -316,7 +316,7 @@ int DSMServerApp::run() throw()
 	    server = servers.front();
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
+	    CLOG(("%s",e.what()));
 	    res = 1;
 	    break;
 	}
@@ -327,7 +327,7 @@ int DSMServerApp::run() throw()
 	    server->scheduleServices();
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
+	    PLOG(("%s",e.what()));
 	}
 
         if (server->getStatusSocketAddr().getPort() != 0)

@@ -233,7 +233,7 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
         radar_info.rate = (int)tag->getRate();
         break;
       default:
-        ELOG(("DSMMesaSensor::fromDOMElement() Unknown sampleID ") << tag->getSampleId() );
+        PLOG(("DSMMesaSensor::fromDOMElement() Unknown sampleID ") << tag->getSampleId() );
     }
 
 /*

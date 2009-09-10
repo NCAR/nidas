@@ -348,7 +348,7 @@ int DataStats::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << "[-l log_level] [-p] [-x xml_file] [inputURL] ...\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=5\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\

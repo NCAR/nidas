@@ -299,7 +299,7 @@ void CSAT3_Sonic::open(int flags)
         n_u::trimString(query);
         fst << query << endl;
         fst << "##################" << endl;
-        if (fst.fail()) ELOG(("%s: write failed",_sonicLogFile.c_str()));
+        if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
         fst.close();
         _serialNumber = serialNumber;
     }

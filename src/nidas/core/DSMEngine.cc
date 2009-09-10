@@ -133,12 +133,12 @@ int DSMEngine::main(int argc, char** argv) throw()
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm.pid");
         if (pid > 0) {
-            ELOG(("dsm process, pid=%d is already running",pid));
+            CLOG(("dsm process, pid=%d is already running",pid));
             return 1;
         }
     }
     catch(const n_u::IOException& e) {
-        ELOG(("dsm: %s",e.what()));
+        CLOG(("dsm: %s",e.what()));
         return 1;
     }
 
@@ -165,7 +165,7 @@ int DSMEngine::main(int argc, char** argv) throw()
         engine.killXmlRpcThread();
     }
     catch (const n_u::Exception &e) {
-        ELOG(("%s",e.what()));
+        PLOG(("%s",e.what()));
     }
 
     unsetupSignals();
@@ -351,7 +351,7 @@ int DSMEngine::run() throw()
             }
         }
         catch (const XMLException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -359,7 +359,7 @@ int DSMEngine::run() throw()
             // DSMEngine::interrupt() does an _xmlRequestSocket->close(),
             // which will throw an IOException in requestXMLConfig 
             // if we were still waiting for the XML config.
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -371,7 +371,7 @@ int DSMEngine::run() throw()
             initialize(projectDoc);
         }
         catch (const n_u::InvalidParameterException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -383,7 +383,7 @@ int DSMEngine::run() throw()
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
 	    }
 	    catch(n_u::IOException&e) {
-                ELOG(("%s",e.what()));
+                PLOG(("%s",e.what()));
 	    }
 	}
         // start your sensors
@@ -393,12 +393,12 @@ int DSMEngine::run() throw()
             connectProcessors();
         }
         catch (const n_u::IOException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
         catch (const n_u::InvalidParameterException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -465,7 +465,7 @@ void DSMEngine::joinDataThreads() throw()
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
 
@@ -476,7 +476,7 @@ void DSMEngine::joinDataThreads() throw()
             _selector->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
 
@@ -489,7 +489,7 @@ void DSMEngine::joinDataThreads() throw()
             DerivedDataReader::getInstance()->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
 }
@@ -633,7 +633,7 @@ void DSMEngine::killXmlRpcThread() throw()
            _xmlrpcThread->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
        delete _xmlrpcThread;
        _xmlrpcThread = 0;
@@ -697,12 +697,12 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
         configSock->close();
     }
     catch(const n_u::IOException& e) {
-        ELOG(("DSMEngine::requestXMLConfig:") << e.what());
+        PLOG(("DSMEngine::requestXMLConfig:") << e.what());
         configSock->close();
         throw e;
     }
     catch(const nidas::core::XMLException& xe) {
-        ELOG(("DSMEngine::requestXMLConfig:") << xe.what());
+        PLOG(("DSMEngine::requestXMLConfig:") << xe.what());
         configSock->close();
         throw xe;
     }

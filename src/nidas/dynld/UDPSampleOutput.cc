@@ -610,7 +610,7 @@ void UDPSampleOutput::XMLSocketListener::checkWorkers() throw()
                 worker->join();
             }
             catch(const n_u::Exception& e) {
-                ELOG(("%s: %s",getName().c_str(),e.what()));
+                PLOG(("%s: %s",getName().c_str(),e.what()));
             }
             wi = _workers.erase(wi);
             delete worker;
@@ -629,7 +629,7 @@ void UDPSampleOutput::XMLSocketListener::fireWorkers() throw()
             worker->join();
         }
         catch(const n_u::Exception& e) {
-            ELOG(("%s: %s",getName().c_str(),e.what()));
+            PLOG(("%s: %s",getName().c_str(),e.what()));
         }
         wi = _workers.erase(wi);
         delete worker;

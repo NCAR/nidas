@@ -267,18 +267,15 @@ void SampleSorter::finish() throw()
 {
     _sampleSetCond.lock();
 
-
     // check if finish already requested.
     if (_finished || _doFinish) {
         _sampleSetCond.unlock();
         return;
     }
 
-#ifdef DEBUG
-    cerr << "SampleSorter::finish, _source type=" << 
-        (_source.getRawSampleSource() ? "raw" : "proc") <<
-        " #samples=" << _samples.size() << endl;
-#endif
+    ILOG(("waiting for ") << _samples.size() << ' ' <<
+        (_source.getRawSampleSource() ? "raw" : "processed") <<
+        " samples to drain from SampleSorter");
 
     SampleT<char>* eofSample = getSample<char>(0);
     numeric_limits<long long> ll;
@@ -291,18 +288,19 @@ void SampleSorter::finish() throw()
     _sampleSetCond.unlock();
     _sampleSetCond.signal();
 
-    for (int i = 0; ; i++) {
+    for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
 	nanosleep(&ns,0);
 	_sampleSetCond.lock();
-	if (!(i % 20))
-	    n_u::Logger::getInstance()->log(LOG_NOTICE,
-		"waiting for buffer to empty, size=%d, nwait=%d",
-			_samples.size(),i);
+	if (!(i % 200))
+	    ILOG(("waiting for SampleSorter to empty, size=%d, nwait=%d",
+			_samples.size(),i));
 	if (_finished) break;
 	_sampleSetCond.unlock();
     }
     _sampleSetCond.unlock();
+    ILOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+        " samples drained from SampleSorter");
 
 }
 
