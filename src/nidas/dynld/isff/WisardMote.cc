@@ -129,28 +129,36 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::addSampleTag(const SampleTag* stag){
+void WisardMote::addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException) {
 
+	//samples
 	for (int i = 0; ; i++)
 	{
-		if (!vars[i].name) break;
-		unsigned int id= vars[i].id;
-
+		if (!samps[i].id) break;
+		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, samps[i].id);
+		unsigned int id= samps[i].id;
 		SampleTag* newtag = new SampleTag(*stag);
-		//newtag->setDSMId(stag->getDSMId());
-		//newtag->setSensorId(stag->getSensorId());
 		newtag->setSampleId(newtag->getSampleId()+id);
-
-		//add vars to new sampleTag
-		Variable* var = new Variable();
-		var->setName(vars[i].name);
-		var->setUnits(vars[i].units);
-		var->setLongName(vars[i].longname);
-		newtag->addVariable(var);
+		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
+		//vars
+		for (int j = 0; j < nv; j++) {
+			VarInfo vinf = samps[i].variables[j];
+			if (!vinf.name) break;
+			Variable* var = new Variable();
+			var->setName(vinf.name);
+			var->setUnits(vinf.units);
+			var->setLongName(vinf.longname);
+			newtag->addVariable(var);
+			n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
+		}
+		//add samtag
 		DSMSerialSensor::addSampleTag(newtag);
 	}
-
+	//delete old tag
+	delete stag;
 }
+
+
 
 
 
@@ -160,9 +168,6 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
 	//n_u::Logger::getInstance()->log(LOG_INF,"\n readData--SensorTypeId = %x \n",sTypeId);
-
-	/* push nodename+sStypeId to list  */
-	//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
 	/* getData  */
 	(this->*nnMap[sTypeId])(cp,eos);
@@ -183,7 +188,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	if (*cp != ':') return false;
 
 	//get sampleId
-	int i=0; //look for decimal
+	unsigned int i=0; //look for decimal
 	for (; i<nname.size(); i++) {
 		char c = nname.at(i);
 		if (c <= '9' && c>='0')  break;
@@ -193,7 +198,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	unsigned int val;
 	ssid >>std::dec>> val;
 	sampleId= val<<8;
-	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid, sampleId);
+	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid.c_str(), sampleId);
 
 	cp++; msgLen++; //skip ':'
 	if (cp == eos) return false;
@@ -561,53 +566,135 @@ void WisardMote::initFuncMap() {
 	}
 }
 
-// void WisardMote::initVars() {
+SampInfo	 WisardMote::samps[] = {
+		{0x20,{
+				{"Tsoil.a.1","degC","Soil Temperature"},
+				{"Tsoil.a.2","degC","Soil Temperature"},
+				{"Tsoil.a.3","degC","Soil Temperature"},
+				{"Tsoil.a.4","degC","Soil Temperature"}, }
+		},
+		{0x21,{
+				{"Tsoil.b.1","degC","Soil Temperature"},
+				{"Tsoil.b.2","degC","Soil Temperature"},
+				{"Tsoil.b.3","degC","Soil Temperature"},
+				{"Tsoil.b.4","degC","Soil Temperature"}, }
+		},
+		{0x22,{
+				{"Tsoil.c.1","degC","Soil Temperature"},
+				{"Tsoil.c.2","degC","Soil Temperature"},
+				{"Tsoil.c.3","degC","Soil Temperature"},
+				{"Tsoil.c.4","degC","Soil Temperature"}, }
+		},
+		{0x23,{
+				{"Tsoil.d.1","degC","Soil Temperature"},
+				{"Tsoil.d.2","degC","Soil Temperature"},
+				{"Tsoil.d.3","degC","Soil Temperature"},
+				{"Tsoil.d.4","degC","Soil Temperature"}, }
+		},
 
-VarInfo	 WisardMote::vars[] = {
-		{0x20,"Tsoil","degC","Soil Temperature"},
-		{0x21,"Tsoil","degC","Soil Temperature"},
-		{0x22,"Tsoil","degC","Soil Temperature"},
-		{0x23,"Tsoil","degC","Soil Temperature"},
+		{0x24, {"Gsoil.a", "W/m^2", "Soil Heat Flux"}},
+		{0x25, {"Gsoil.b", "W/m^2", "Soil Heat Flux"}},
+		{0x26, {"Gsoil.c", "W/m^2", "Soil Heat Flux"}},
+		{0x27, {"Gsoil.d", "W/m^2", "Soil Heat Flux"}},
 
-		{0x24,"Gsoil", "W/m^2", "Soil Heat Flux"},
-		{0x25,"Gsoil", "W/m^2", "Soil Heat Flux"},
-		{0x26,"Gsoil", "W/m^2", "Soil Heat Flux"},
-		{0x27,"Gsoil", "W/m^2", "Soil Heat Flux"},
+		{0x28,{"QSoil.a", "vol%", "Soil Moisture"}},
+		{0x29,{"QSoil.b", "vol%", "Soil Moisture"}},
+		{0x2A,{"QSoil.c", "vol%", "Soil Moisture"}},
+		{0x2B,{"QSoil.d", "vol%", "Soil Moisture"}},
 
-		{0x28,"QSoil", "vol%", "Soil Moisture"},
-		{0x29,"QSoil", "vol%", "Soil Moisture"},
-		{0x2A,"QSoil", "vol%", "Soil Moisture"},
-		{0x2B,"QSoil", "vol%", "Soil Moisture"},
+		{0x2C,{
+				{"Vpile.a","V","Soil Thermal, transducer volt"},
+				{"Vheat.a","V","Soil Thermal, heat volt"},
+				{"Tau63.a","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2D,{
+				{"Vpile.b","V","Soil Thermal, transducer volt"},
+				{"Vheat.b","V","Soil Thermal, heat volt"},
+				{"Tau63.b","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2E,{
+				{"Vpile.c","V","Soil Thermal, transducer volt"},
+				{"Vheat.c","V","Soil Thermal, heat volt"},
+				{"Tau63.c","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2F,{
+				{"Vpile.d","V","Soil Thermal, transducer volt"},
+				{"Vheat.d","V","Soil Thermal, heat volt"},
+				{"Tau63.d","secs","Soil Thermal, time diff"}, }
+		},
 
-		{0x2C, "TO01", "V", "Soil Thermal Property"},
-		{0x2D, "TO01", "V", "Soil Thermal Property"},
-		{0x2E, "TO01", "V",	"Soil Thermal Property"},
-		{0x2F, "TO01", "V",	"Soil Thermal Property"},
+		{0x50, {"Rnet.a","W/m^2","Net Radiation"}},
+		{0x51, {"Rnet.b","W/m^2","Net Radiation"}},
+		{0x52, {"Rnet.c","W/m^2","Net Radiation"}},
+		{0x53, {"Rnet.d","W/m^2","Net Radiation"}},
 
-		{0x50,"Rnet","W/m^2","Net Radiation"},
-		{0x51,"Rnet","W/m^2","Net Radiation"},
-		{0x52,"Rnet","W/m^2","Net Radiation"},
-		{0x53,"Rnet","W/m^2","Net Radiation"},
+		{0x54, {"Rsw.in.a","W/m^2","Incoming Short Wave"}},
+		{0x55, {"Rsw.in.b","W/m^2","Incoming Short Wave"}},
+		{0x56, {"Rsw.in.c","W/m^2","Incoming Short Wave"}},
+		{0x57, {"Rsw.in.d","W/m^2","Incoming Short Wave"}},
 
-		{0x54,"Rsw-In","W/m^2","Incoming Short Wave"},
-		{0x55,"Rsw-In","W/m^2","Incoming Short Wave"},
-		{0x56,"Rsw-In","W/m^2","Incoming Short Wave"},
-		{0x57,"Rsw-In","W/m^2","Incoming Short Wave"},
+		{0x58, {"Rsw.out.a","W/m^2","Outgoing Short Wave"}},
+		{0x59, {"Rsw.out.b","W/m^2","Outgoing Short Wave"}},
+		{0x5A, {"Rsw.out.c","W/m^2","Outgoing Short Wave"}},
+		{0x5B, {"Rsw.out.d","W/m^2","Outgoing Short Wave"}},
 
-		{0x58,"Rsw-Out","W/m^2","Outgoing Short Wave"},
-		{0x59,"Rsw-Out","W/m^2","Outgoing Short Wave"},
-		{0x5A,"Rsw-Out","W/m^2","Outgoing Short Wave"},
-		{0x5B,"Rsw-Out","W/m^2","Outgoing Short Wave"},
+		{0x5C,{
+				{"Rlw.in.tpile.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.a","degC","Incoming Long Wave"},}
+		},
+		{0x5D,{
+				{"Rlw.in.tpile.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.b","degC","Incoming Long Wave"},}
+		},
+		{0x5E,{
+				{"Rlw.in.tpile.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.c","degC","Incoming Long Wave"},}
+		},
+		{0x5F,{
+				{"Rlw.in.tpile.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.d","degC","Incoming Long Wave"},}
+		},
 
-		{0x5C,"Rlw-In","degC","Incoming Long Wave"},
-		{0x5D,"Rlw-In","degC","Incoming Long Wave"},
-		{0x5E,"Rlw-In","degC","Incoming Long Wave"},
-		{0x5F,"Rlw-In","degC","Incoming Long Wave"},
-
-		{0x60,"Rlw-Out","degC","Outgoing Long Wave"},
-		{0x61,"Rlw-Out","degC","Outgoing Long Wave"},
-		{0x62,"Rlw-Out","degC","Outgoing Long Wave"},
-		{0x63,"Rlw-Out","degC","Outgoing Long Wave"}
+		{0x60,{
+				{"Rlw.out.tpile.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.a","degC","Outgoing Long Wave"},}
+		},
+		{0x61,{
+				{"Rlw.out.tpile.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.b","degC","Outgoing Long Wave"},}
+		},
+		{0x62,{
+				{"Rlw.out.tpile.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.c","degC","Outgoing Long Wave"},}
+		},
+		{0x63,{
+				{"Rlw.out.tpile.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.d","degC","Outgoing Long Wave"},}
+		},
 
 };
-//}
+
