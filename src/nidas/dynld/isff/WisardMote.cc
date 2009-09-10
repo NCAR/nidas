@@ -566,7 +566,7 @@ void WisardMote::initFuncMap() {
 	}
 }
 
-SampInfo	 WisardMote::samps[] = {
+SampInfo WisardMote::samps[] = {
 		{0x20,{
 				{"Tsoil.a.1","degC","Soil Temperature"},
 				{"Tsoil.a.2","degC","Soil Temperature"},
@@ -592,15 +592,15 @@ SampInfo	 WisardMote::samps[] = {
 				{"Tsoil.d.4","degC","Soil Temperature"}, }
 		},
 
-		{0x24, {"Gsoil.a", "W/m^2", "Soil Heat Flux"}},
-		{0x25, {"Gsoil.b", "W/m^2", "Soil Heat Flux"}},
-		{0x26, {"Gsoil.c", "W/m^2", "Soil Heat Flux"}},
-		{0x27, {"Gsoil.d", "W/m^2", "Soil Heat Flux"}},
+		{0x24, {{"Gsoil.a", "W/m^2", "Soil Heat Flux"},}},
+		{0x25, {{"Gsoil.b", "W/m^2", "Soil Heat Flux"},}},
+		{0x26, {{"Gsoil.c", "W/m^2", "Soil Heat Flux"},}},
+		{0x27, {{"Gsoil.d", "W/m^2", "Soil Heat Flux"},}},
 
-		{0x28,{"QSoil.a", "vol%", "Soil Moisture"}},
-		{0x29,{"QSoil.b", "vol%", "Soil Moisture"}},
-		{0x2A,{"QSoil.c", "vol%", "Soil Moisture"}},
-		{0x2B,{"QSoil.d", "vol%", "Soil Moisture"}},
+		{0x28,{{"QSoil.a", "vol%", "Soil Moisture"},}},
+		{0x29,{{"QSoil.b", "vol%", "Soil Moisture"},}},
+		{0x2A,{{"QSoil.c", "vol%", "Soil Moisture"},}},
+		{0x2B,{{"QSoil.d", "vol%", "Soil Moisture"},}},
 
 		{0x2C,{
 				{"Vpile.a","V","Soil Thermal, transducer volt"},
@@ -623,20 +623,20 @@ SampInfo	 WisardMote::samps[] = {
 				{"Tau63.d","secs","Soil Thermal, time diff"}, }
 		},
 
-		{0x50, {"Rnet.a","W/m^2","Net Radiation"}},
-		{0x51, {"Rnet.b","W/m^2","Net Radiation"}},
-		{0x52, {"Rnet.c","W/m^2","Net Radiation"}},
-		{0x53, {"Rnet.d","W/m^2","Net Radiation"}},
+		{0x50, {{"Rnet.a","W/m^2","Net Radiation"},}},
+		{0x51, {{"Rnet.b","W/m^2","Net Radiation"},}},
+		{0x52, {{"Rnet.c","W/m^2","Net Radiation"},}},
+		{0x53, {{"Rnet.d","W/m^2","Net Radiation"},}},
 
-		{0x54, {"Rsw.in.a","W/m^2","Incoming Short Wave"}},
-		{0x55, {"Rsw.in.b","W/m^2","Incoming Short Wave"}},
-		{0x56, {"Rsw.in.c","W/m^2","Incoming Short Wave"}},
-		{0x57, {"Rsw.in.d","W/m^2","Incoming Short Wave"}},
+		{0x54, {{"Rsw.in.a","W/m^2","Incoming Short Wave"},}},
+		{0x55, {{"Rsw.in.b","W/m^2","Incoming Short Wave"},}},
+		{0x56, {{"Rsw.in.c","W/m^2","Incoming Short Wave"},}},
+		{0x57, {{"Rsw.in.d","W/m^2","Incoming Short Wave"},}},
 
-		{0x58, {"Rsw.out.a","W/m^2","Outgoing Short Wave"}},
-		{0x59, {"Rsw.out.b","W/m^2","Outgoing Short Wave"}},
-		{0x5A, {"Rsw.out.c","W/m^2","Outgoing Short Wave"}},
-		{0x5B, {"Rsw.out.d","W/m^2","Outgoing Short Wave"}},
+		{0x58, {{"Rsw.out.a","W/m^2","Outgoing Short Wave"},}},
+		{0x59, {{"Rsw.out.b","W/m^2","Outgoing Short Wave"},}},
+		{0x5A, {{"Rsw.out.c","W/m^2","Outgoing Short Wave"},}},
+		{0x5B, {{"Rsw.out.d","W/m^2","Outgoing Short Wave"},}},
 
 		{0x5C,{
 				{"Rlw.in.tpile.a","degC","Incoming Long Wave"},

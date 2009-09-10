@@ -58,7 +58,7 @@ public:
 	virtual ~WisardMote() {};
 
 
-	bool process(const Sample* insamp,std::list<const Sample*>& results) throw() ;
+	bool process(const Sample* insamp,  list<const Sample*>& results) throw() ;
 
 	void fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException);
