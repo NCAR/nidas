@@ -24,6 +24,7 @@ SOURCES = [Split("""
     main.cc
     configwindow.cc
     dsmtablewidget.cc
+    Document.cc
 """) ]
 
 HEADERS = [Split("""
