@@ -32,12 +32,16 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+namespace {
+    int defaultLogLevel = n_u::LOGGER_NOTICE;
+};
+
 /* static */
 DSMServerApp* DSMServerApp::_instance = 0;
 
 DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
     _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0),
-    _externalControl(false)
+    _externalControl(false),_logLevel(defaultLogLevel)
 {
     _rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
@@ -54,11 +58,15 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
     extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdru:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdl:ru:v")) != -1) {
         switch (opt_char) {
         case 'd':
             _debug = true;
+            _logLevel = n_u::LOGGER_DEBUG;
             break;
+	case 'l':
+            _logLevel = atoi(optarg);
+	    break;
         case 'r':
             _externalControl = true;
             break;
@@ -124,12 +132,16 @@ int DSMServerApp::usage(const char* argv0)
 {
     const char* cfg;
     cerr << "\
-Usage: " << argv0 << " [-c] [-d] [-u username] [-v] [config]\n\
+Usage: " << argv0 << " [-c] [-d] [-l level] [-r] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
     _rafXML << "\nor\n\t" << _isffXML << "\n\
-  -d: debug. Run in foreground and send messages to stderr with loglevel DEBUG.\n\
+  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
       Otherwise run in the background, cd to /, and log messages to syslog\n\
-  -u username: after startup, switch userid to username from root\n\
+      Specify a -l option after -d to change the log level from debug\n\
+  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
+     The default level if no -d option is " << defaultLogLevel << "\n\
+  -r: rpc, start XML RPC thread to respond to external commands\n\
+  -u username: after startup, switch userid to username\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
     This parameter is not used if you specify the -c option\n\
@@ -206,6 +218,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     try {
 
+        // starts XMLRPC thread if -r runstring option
         app.startXmlRpcThread();
 
         res = app.run();
@@ -237,11 +250,8 @@ void DSMServerApp::initLogger()
 {
     n_u::LogConfig lc;
     n_u::Logger* logger = 0;
-
-    if (_debug) {
-        logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = n_u::LOGGER_DEBUG;
-    }
+    lc.level = _logLevel;
+    if (_debug) logger = n_u::Logger::createInstance(&std::cerr);
     else {
 	// fork to background, chdir to /,
         // send stdout/stderr to /dev/null
@@ -251,9 +261,8 @@ void DSMServerApp::initLogger()
 	}
         logger = n_u::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
-        lc.level = n_u::LOGGER_INFO;
     }
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
+    logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
 }
 
 int DSMServerApp::run() throw()
@@ -330,6 +339,8 @@ int DSMServerApp::run() throw()
 	    PLOG(("%s",e.what()));
 	}
 
+        // start status thread if port is defined, via
+        // <server statusAddr="sock::port"/>  in the configuration
         if (server->getStatusSocketAddr().getPort() != 0)
             startStatusThread(server);
 

@@ -255,6 +255,8 @@ private:
 
     gid_t _groupid;
 
+    int _logLevel;
+
 };
 
 }}	// namespace nidas namespace core

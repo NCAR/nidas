@@ -110,16 +110,15 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
                     if (colon < string::npos) {
                         string straddr = aval.substr(5,colon-5);
                         n_u::Inet4Address addr;
-                        // If no address part, it defaults to INADDR_ANY (0.0.0.0)
-                        if (straddr.length() > 0) {
-                            try {
-                                addr = n_u::Inet4Address::getByName(straddr);
-                            }
-                            catch(const n_u::UnknownHostException& e) {
-                                throw n_u::InvalidParameterException("dsm",aname,e.what());
-                            }
+                        // If no address part, it defaults to NIDAS_MULTICAST_ADDR
+                        if (straddr.length() == 0) straddr = NIDAS_MULTICAST_ADDR;
+                        try {
+                            addr = n_u::Inet4Address::getByName(straddr);
                         }
-                            
+                        catch(const n_u::UnknownHostException& e) {
+                            throw n_u::InvalidParameterException(
+                                string("server: ") + getName() + ": " + aname,straddr,e.what());
+                        }
                         unsigned short port;
                         istringstream ist(aval.substr(colon+1));
                         ist >> port;
@@ -131,10 +130,10 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
                     }
                 }
                 if (!valOK) throw n_u::InvalidParameterException(
-                        string("dsm") + ": " + getName(), aname,aval);
+                        string("server: ") + getName(), aname,aval);
 	    }
 	    else throw n_u::InvalidParameterException(
-		string("dsm") + ": " + getName(),
+		string("server") + ": " + getName(),
 		"unrecognized attribute",aname);
 	}
     }

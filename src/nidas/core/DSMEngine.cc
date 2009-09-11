@@ -39,6 +39,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+namespace {
+    int defaultLogLevel = n_u::LOGGER_NOTICE;
+};
+
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
@@ -49,7 +53,8 @@ DSMEngine::DSMEngine():
     _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
-    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0)
+    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0),
+    _logLevel(defaultLogLevel)
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -184,10 +189,14 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dru:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dl:ru:v")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
+            _logLevel = n_u::LOGGER_DEBUG;
+	    break;
+	case 'l':
+            _logLevel = atoi(optarg);
 	    break;
 	case 'r':
 	    _externalControl = true;
@@ -267,10 +276,14 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 void DSMEngine::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-d ] [-v] [ config ]\n\n\
-  -d:     debug - Send error messages to stderr, otherwise to syslog\n\
-  -r:     rpc - Start XML RPC thread to respond to external commands\n\
-  -v:     display software version number and exit\n\
+Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
+  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
+      Otherwise run in the background, cd to /, and log messages to syslog\n\
+      Specify a -l option after -d to change the log level from debug\n\
+  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
+     The default level if no -d option is " << defaultLogLevel << "\n\
+  -r: rpc, start XML RPC thread to respond to external commands\n\
+  -v: display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
 The default config is \"sock:" <<
@@ -281,6 +294,7 @@ void DSMEngine::initLogger()
 {
     nidas::util::Logger* logger = 0;
     n_u::LogConfig lc;
+    lc.level = _logLevel;
     if (_syslogit) {
 	// fork to background
 	if (daemon(0,0) < 0) {
@@ -288,15 +302,12 @@ void DSMEngine::initLogger()
 	    cerr << "Warning: " << e.toString() << endl;
 	}
 	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
-        // Configure default logging to log anything NOTICE and above.
-        lc.level = n_u::LOGGER_INFO;
     }
     else
     {
 	logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = n_u::LOGGER_DEBUG;
     }
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
+    logger->setScheme(n_u::LogScheme("dsm").addConfig (lc));
 }
 
 int DSMEngine::run() throw()
@@ -614,7 +625,6 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
         _xmlrpcThread->start();
     }
 }
-
 
 void DSMEngine::killXmlRpcThread() throw()
 {

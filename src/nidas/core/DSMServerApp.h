@@ -133,6 +133,8 @@ private:
 
     bool _externalControl;
 
+    int _logLevel;
+
 };
 
 }}	// namespace nidas namespace core
