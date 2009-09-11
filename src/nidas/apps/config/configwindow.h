@@ -55,23 +55,10 @@ private:
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-    bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
-    void writeDocument(const char *filename);
-
 
     const int numA2DChannels;
 
     Document* doc;
-
-
-class ConfigDOMErrorHandler : public xercesc::DOMErrorHandler {
- public:
-    bool handleError(const xercesc::DOMError & domError) {
-        cerr << domError.getMessage() << endl;
-        return true;
-    }
-} errorHandler;
-
 
 };
 #endif
