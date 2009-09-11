@@ -18,8 +18,6 @@
 //#include <QMenu>
 //#include <QAction>
 
-#include <xercesc/framework/LocalFileFormatTarget.hpp>
-
 
 #include "configwindow.h"
 
@@ -131,7 +129,7 @@ QString ConfigWindow::getFile()
 QString ConfigWindow::saveFile()
 {
 cerr << "saveFile called" << endl;
-writeDocument(doc->getFilename().c_str());
+doc->writeDocument();
 return(NULL);
 }
 
@@ -154,98 +152,11 @@ QString _caption;
         return(NULL);
         }
 
-writeDocument(qfilename.toStdString().c_str());
+doc->setFilename(qfilename.toStdString().c_str());
+doc->writeDocument();
 return(NULL);
 }
 
-void ConfigWindow::writeDocument(const char *filename)
-{
-xercesc::LocalFileFormatTarget *target;
-
-    try {
-        target = new xercesc::LocalFileFormatTarget(filename);
-        if (!target) {
-            cerr << "target is null" << endl;
-            return;
-            }
-    } catch (...) {
-        cerr << "LocalFileFormatTarget new exception" << endl;
-        return;
-    }
-
-writeDOM(target,doc->getDomDocument());
-delete target;
-return;
-}
-
-
-bool ConfigWindow::writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node )
-{
-xercesc::DOMImplementation *domimpl;
-xercesc::DOMImplementationLS *lsimpl;
-xercesc::DOMWriter *myWriter;
-
-        static const XMLCh gLS[] = { xercesc::chLatin_L, xercesc::chLatin_S, xercesc::chNull };
-        static const XMLCh gNull[] = { xercesc::chNull };
-
-    try {
-        domimpl = XMLImplementation::getImplementation();
-        //xercesc::DOMImplementation *domimpl = xercesc::DOMImplementationRegistry::getDOMImplementation(gLS);
-    } catch (...) {
-        cerr << "getImplementation exception" << endl;
-        return(false);
-    }
-        if (!domimpl) {
-            cerr << "xml implementation is null" << endl;
-            return(false);
-            }
-
-    try {
-        lsimpl =
-        // (xercesc::DOMImplementationLS*)domimpl;
-         (domimpl->hasFeature(gLS,gNull)) ? (xercesc::DOMImplementationLS*)domimpl : 0;
-    } catch (...) {
-        cerr << "hasFeature/cast exception" << endl;
-        return(false);
-    }
-
-        if (!lsimpl) {
-            cerr << "dom implementation is null" << endl;
-            return(false);
-            }
-
-    try {
-        myWriter = lsimpl->createDOMWriter();
-        if (!myWriter) {
-            cerr << "writer is null" << endl;
-            return(false);
-            }
-    } catch (...) {
-        cerr << "createDOMWriter exception" << endl;
-        return(false);
-    }
-
-        if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTValidation, true))
-            myWriter->setFeature(xercesc::XMLUni::fgDOMWRTValidation, true);
-        if (myWriter->canSetFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true))
-            myWriter->setFeature(xercesc::XMLUni::fgDOMWRTFormatPrettyPrint, true);
-
-        myWriter->setErrorHandler(&errorHandler);
-
-    try {
-        if (!myWriter->writeNode(target,*node)) {
-            cerr << "writeNode returns false" << endl;
-            }
-    } catch (...) {
-        cerr << "writeNode exception" << endl;
-        return(false);
-    }
-
-        target->flush();
-        myWriter->release();
-
-        return(true);
-}
 
 int ConfigWindow::parseFile(Document *doc)
 {
