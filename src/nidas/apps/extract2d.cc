@@ -17,8 +17,8 @@
 
 /*
  * Modified version of Gordon's sensor_extract program.  Purpose of this
- * program is to extract PMS2D data, reformat it into ADS2 format and
- * write it to a new file.
+ * program is to extract PMS2D data, repackage it into ADS2 format and
+ * write it to a new file with a new XML header.
  */
 
 #include <nidas/core/FileSet.h>
@@ -37,16 +37,27 @@
 #include <fstream>
 #include <memory> // auto_ptr<>
 
+
+static const int P2D_DATA = 4096;	// TwoD image buffer size.
+
+static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
+
+// Old 32bit 2D overload word, MikeS puts the overload in the first slice.
+static const unsigned char overLoadSync[] = { 0x55, 0xAA };
+
+static const size_t DefaultMinimumNumberParticlesRequired = 8;
+
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
-static const char overLoadSync[2] = { 0x55, 0xaa };
 
 class Probe
 {
 public:
-  Probe() : resolution(0), hasOverloadCount(0), recordCount(0) { }
+  Probe() : resolution(0), hasOverloadCount(0), nDiodes(64), recordCount(0), rejectRecordCount(0)
+    { memset((void *)spectra, 0, sizeof(spectra)); }
 
   // Input info.
   DSMSensor * sensor;
@@ -58,11 +69,22 @@ public:
 
   // File info.
   size_t hasOverloadCount;
+
+  // Number of diodes, 64 for Fast2D, 32 for old probes.
+  size_t nDiodes;
+
+  // Total number of records found in file.
   size_t recordCount;
+
+  // Total number of records rejected due to too few sync words.
+  size_t rejectRecordCount;
+
+  /* Count of each diode value of 1 for the entire flight, sync words excluded.
+   * This diagnostic output helps find which diode is bad when the probe runs away.
+   */
+  unsigned long spectra[64];
 };
 
-
-static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
 // ADS1 / ADS2 legacy format.  This is what we will repackage the records into.
 struct P2d_rec
@@ -122,11 +144,23 @@ public:
 
 private:
 
-    void scanForMissalignedData(Probe * probe, P2d_rec & record) throw();
+    /**
+     * Scan for miss-aligned data.  For the Fast2D only.
+     */
+    size_t scanForMissalignedData(Probe * probe, P2d_rec & record);
+
+    /**
+     * Sum occluded diodes along the flight path.  This increments
+     * for the whole flight.  Help find stuck bits.
+     */
+    void computeSpectra(Probe * probe, P2d_rec & record);
+
 
     static bool interrupted;
 
     bool outputHeader;
+
+    bool outputSpectra;
 
     string xmlFileName;
 
@@ -144,7 +178,9 @@ private:
 
     map<dsm_sample_id_t,dsm_sample_id_t> newids;
 
+    size_t minNumberParticlesRequired;
 };
+
 
 int main(int argc, char** argv)
 {
@@ -196,11 +232,11 @@ void Extract2D::setupSignals()
 int Extract2D::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-x dsmid,sensorid] [-l output_file_length] output input ... \n\n\
+Usage: " << argv0 << " [-x dsmid,sensorid] [-s] output input ... \n\n\
     -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
             more than one -x option can be specified\n\
 	    either -s or -x options can be specified, but not both\n\
-    -l output_file_length: length of output files, in seconds\n\
+    -s: generate spectra along flight path.\n\
     output: output file name or file name format\n\
     input ...: one or more input file name or file name formats\n\
 " << endl;
@@ -223,22 +259,25 @@ int Extract2D::main(int argc, char** argv) throw()
 
 
 Extract2D::Extract2D():
-	outputHeader(true), outputFileLength(0)
+	outputHeader(true), outputSpectra(false), outputFileLength(0), minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
 {
 }
 
 int Extract2D::parseRunstring(int argc, char** argv) throw()
 {
     extern int optind;       /* "  "     "     */
-    //    extern char *optarg;       /* set by getopt() */
-    //    int opt_char;     /* option character */
-/*
-    while ((opt_char = getopt(argc, argv, "l:s:x:")) != -1) {
+    extern char *optarg;       /* set by getopt() */
+    int opt_char;     /* option character */
+
+    while ((opt_char = getopt(argc, argv, "n:s")) != -1) {
 	switch (opt_char) {
-	case 'l':
-	    outputFileLength = atoi(optarg);
-	    break;
+	case 'n':
+	    minNumberParticlesRequired = atoi(optarg);
             break;
+	case 's':
+	    outputSpectra = true;
+            break;
+/*
         case 'x':
             {
                 unsigned long dsmid;
@@ -252,13 +291,12 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
                 excludeIds.insert(id);
             }
             break;
+*/
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
-    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
-*/
+
     if (optind < argc) outputFileName = argv[optind++];
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
@@ -337,7 +375,8 @@ int Extract2D::run() throw()
                     if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
                         continue;
 
-                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName() << std::endl;
+                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName()
+                         << (*dsm_it)->getSuffix() << endl;
 
                     if ((*dsm_it)->getCatalogName().size() == 0)
                     {
@@ -366,6 +405,8 @@ int Extract2D::run() throw()
                         else
                             p->id = htons(0x4334);	// C4, Fast 25um 64 diode probe.
                     }
+                    else
+                        p->nDiodes = 32;	// Old probe, should only be 2DP on ADS3.
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
                         p->id = htons(0x4331 + Ccnt++);
@@ -450,8 +491,9 @@ int Extract2D::run() throw()
                                 record.overld = htons(0);
                                 ::memcpy(record.data, dp, P2D_DATA);
 
+				size_t partCnt = minNumberParticlesRequired * 2; // Bigger than the min.
                                 if (id == fast2dc_id)
-                                    scanForMissalignedData(probe, record);
+                                    partCnt = scanForMissalignedData(probe, record);
 
                                 // For old 2D probes, not Fast 2DC.
                                 if (::memcmp(record.data, overLoadSync, 2) == 0)
@@ -462,7 +504,13 @@ int Extract2D::run() throw()
                                 }
 
                                 ++probe->recordCount;
-                                outFile.write((char *)&record, sizeof(record));
+				if (partCnt > minNumberParticlesRequired)
+                                    outFile.write((char *)&record, sizeof(record));
+                                else
+                                    ++probe->rejectRecordCount;
+
+                                if (outputSpectra)
+                                    computeSpectra(probe, record);
                             }
                         }
 		    }
@@ -471,7 +519,7 @@ int Extract2D::run() throw()
             }
         }
         catch (n_u::EOFException& ioe) {
-            cerr << ioe.what() << endl;
+; //            cerr << ioe.what() << endl;
         }
 
         outFile.close();
@@ -481,15 +529,41 @@ int Extract2D::run() throw()
         for (mit = probeList.begin(); mit != probeList.end(); ++mit)
         {
             Probe * probe = (*mit).second;
+            cout << endl << probe->sensor->getCatalogName()
+                 << probe->sensor->getSuffix()
+                 << " statistics." << endl;
+
+            cout.width(10);
             cout << probe->recordCount << " "
-                 << probe->sensor->getCatalogName()
-                 << " records.  ";
-            if (probe->sensor->getCatalogName().compare("Fast2DC"))
-                 cout << probe->hasOverloadCount
+                 << " total records." << endl;
+
+            if (probe->rejectRecordCount > 0) {
+                cout.width(10);
+                cout << probe->rejectRecordCount << " "
+                 << " records were rejected due to fewer than "
+                 << minNumberParticlesRequired
+                 << " particles per record." << endl;
+            }
+
+            if (probe->sensor->getCatalogName().compare("Fast2DC")) {
+                cout.width(10);
+                cout << probe->hasOverloadCount
                  << " records had an overload word @ spot zero, or "
                  << probe->hasOverloadCount * 100 / probe->recordCount
-                 << "%.";
-            cout << endl;
+                 << "%." << endl;
+            }
+
+            if (outputSpectra) {
+                for (size_t i = 0; i < probe->nDiodes; ++i) {
+                    cout << "    Bin ";
+                    cout.width(2);
+                    cout << i << " count = ";
+                    cout.width(10);
+                    cout << probe->spectra[i] << endl;
+                }
+            }
+
+            delete probe;
         }
     }
     catch (n_u::IOException& ioe)
@@ -500,15 +574,35 @@ int Extract2D::run() throw()
     return 0;
 }
 
-void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
+void Extract2D::computeSpectra(Probe * probe, P2d_rec & record)
 {
-    static const unsigned char syncStr[] = { 0xAA, 0xAA, 0xAA };
+    size_t nSlices = P2D_DATA / (probe->nDiodes / 8);
+    size_t nBytes = P2D_DATA / nSlices;
 
+    /* Compute flight long histogram of each bit.  Useful for stuck bit detection.
+     */
+    for (size_t s = 0; s < nSlices; ++s)
+    {
+      unsigned char * slice = &record.data[s*nBytes];
+      if (memcmp(slice, Fast2DsyncStr, 3) == 0 || (probe->nDiodes == 32 && slice[0] == 0x55))
+        continue;
+
+      for (size_t i = 0; i < nBytes; ++i)
+      {
+        for (size_t j = 0; j < 8; ++j) // 8 bits.
+          if (((slice[i] << j) & 0x80) == 0x00)
+            probe->spectra[i*nBytes + j]++;
+      }
+    }
+}
+
+size_t Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record)
+{
     int totalCnt = 0, missCnt = 0;
 
     unsigned char * p = record.data;
     for (size_t i = 0; i < 4093; ++i, ++p) {
-        if (::memcmp(p, syncStr, 3) == 0) {
+        if (::memcmp(p, Fast2DsyncStr, 3) == 0) {
             ++totalCnt;
             if ((i % 8) != 0)
                 ++missCnt;
@@ -524,4 +618,6 @@ void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
         cout << msg << endl;
     }
+
+    return totalCnt;
 }
