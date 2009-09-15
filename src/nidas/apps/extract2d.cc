@@ -580,9 +580,9 @@ int Extract2D::run() throw()
                 for (size_t i = 0; i < 1024; ++i) {
                   if (probe->particleCount[i] > 0) {
                     cout.width(10);
-                    cout << probe->particleCount[i]
+                    cout << probe->particleCount[i];
                     cout << i << " records have ";
-                    cout << "    nParticles = "
+                    cout << "    nParticles = ";
                     cout.width(4);
                 }
               }
